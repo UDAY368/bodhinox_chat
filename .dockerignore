@@ -1,0 +1,13 @@
+.git
+.github
+.next
+node_modules
+.reference
+.superpowers
+.firecrawl
+.certs
+coverage
+.env*
+docs
+mcp-server
+*.tsbuildinfo

@@ -1,0 +1,40 @@
+name: Bodhinox validation
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+permissions:
+  contents: read
+concurrency:
+  group: validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-local-postgres
+          POSTGRES_DB: bodhinox_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bodhinox_test"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_ENV_FILE: .env.test
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/ci-environment.cjs
+      - run: npm run db:migrate
+      - run: npm run db:roles
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --maxWorkers=1
+      - run: npm run build

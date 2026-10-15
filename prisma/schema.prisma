@@ -1,0 +1,706 @@
+// Scalar ORM mapping; reviewed SQL owns composite FKs, RLS, triggers and generated columns.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+model profiles {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  full_name String
+  email String
+  avatar_url String?
+  role String?  @default("user")
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  updated_at DateTime? @db.Timestamptz(6) @default(now())
+  beta_features String[]  @default(dbgenerated("ARRAY[]::TEXT[]"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  account_role String
+  @@unique([user_id])
+  @@unique([account_id, id])
+}
+
+model contacts {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  phone String
+  name String?
+  email String?
+  company String?
+  avatar_url String?
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  updated_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  phone_normalized String  @default(dbgenerated())
+  wa_user_id String?
+  wa_parent_user_id String?
+  wa_username String?
+  inbound_created_meta_id String?
+  @@unique([account_id, id])
+}
+
+model tags {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  name String
+  color String  @default("#3b82f6")
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model contact_tags {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  contact_id String @db.Uuid
+  tag_id String @db.Uuid
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([contact_id, tag_id])
+  @@unique([account_id, id])
+}
+
+model custom_fields {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  field_name String
+  field_type String  @default("text")
+  field_options Json? @db.JsonB
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model contact_custom_values {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  contact_id String @db.Uuid
+  custom_field_id String @db.Uuid
+  value String?
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([contact_id, custom_field_id])
+  @@unique([account_id, id])
+}
+
+model contact_notes {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  contact_id String @db.Uuid
+  user_id String @db.Uuid
+  note_text String
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model conversations {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  contact_id String @db.Uuid
+  status String  @default("open")
+  assigned_agent_id String? @db.Uuid
+  last_message_text String?
+  last_message_at DateTime? @db.Timestamptz(6)
+  unread_count Int?  @default(0)
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  updated_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  ai_autoreply_disabled Boolean  @default(false)
+  ai_reply_count Int  @default(0)
+  ai_handoff_summary String?
+  bot_paused Boolean  @default(false)
+  inbound_created_meta_id String?
+  @@unique([account_id, id])
+}
+
+model messages {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  conversation_id String @db.Uuid
+  sender_type String
+  sender_id String? @db.Uuid
+  content_type String  @default("text")
+  content_text String?
+  media_url String?
+  template_name String?
+  message_id String?
+  status String  @default("sent")
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  reply_to_message_id String? @db.Uuid
+  interactive_reply_id String?
+  ai_generated Boolean  @default(false)
+  interactive_payload Json? @db.JsonB
+  media_type String?
+  error_code Int?
+  error_title String?
+  error_details String?
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model whatsapp_config {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  phone_number_id String
+  waba_id String?
+  access_token String
+  verify_token String?
+  status String  @default("disconnected")
+  connected_at DateTime? @db.Timestamptz(6)
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  updated_at DateTime? @db.Timestamptz(6) @default(now())
+  registered_at DateTime? @db.Timestamptz(6)
+  subscribed_apps_at DateTime? @db.Timestamptz(6)
+  last_registration_error String?
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  mirror_inbound_media Boolean  @default(true)
+  verify_token_hash String?
+  @@unique([account_id])
+  @@unique([account_id, id])
+}
+
+model message_templates {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  name String
+  category String  @default("Marketing")
+  language String?  @default("en_US")
+  header_type String?
+  header_content String?
+  body_text String
+  footer_text String?
+  buttons Json? @db.JsonB
+  status String?  @default("DRAFT")
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  updated_at DateTime? @db.Timestamptz(6) @default(now())
+  sample_values Json? @db.JsonB
+  meta_template_id String?
+  rejection_reason String?
+  quality_score String?
+  header_handle String?
+  header_media_url String?
+  submission_error String?
+  last_submitted_at DateTime? @db.Timestamptz(6)
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model pipelines {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  name String
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model pipeline_stages {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  pipeline_id String @db.Uuid
+  name String
+  position Int  @default(0)
+  color String  @default("#3b82f6")
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model deals {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  pipeline_id String @db.Uuid
+  stage_id String @db.Uuid
+  contact_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  title String
+  value Decimal @db.Decimal(12, 2) @default(0)
+  currency String?  @default("USD")
+  notes String?
+  expected_close_date DateTime? @db.Date
+  status String?  @default("open")
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  updated_at DateTime? @db.Timestamptz(6) @default(now())
+  assigned_to String? @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model broadcasts {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  name String
+  template_name String
+  template_language String  @default("en_US")
+  template_variables Json? @db.JsonB
+  audience_filter Json? @db.JsonB
+  scheduled_at DateTime? @db.Timestamptz(6)
+  status String  @default("draft")
+  total_recipients Int?  @default(0)
+  sent_count Int?  @default(0)
+  delivered_count Int?  @default(0)
+  read_count Int?  @default(0)
+  replied_count Int?  @default(0)
+  failed_count Int?  @default(0)
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  updated_at DateTime? @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  delivery_locked_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model broadcast_recipients {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  broadcast_id String @db.Uuid
+  contact_id String? @db.Uuid
+  status String  @default("pending")
+  sent_at DateTime? @db.Timestamptz(6)
+  delivered_at DateTime? @db.Timestamptz(6)
+  read_at DateTime? @db.Timestamptz(6)
+  replied_at DateTime? @db.Timestamptz(6)
+  error_message String?
+  created_at DateTime? @db.Timestamptz(6) @default(now())
+  whatsapp_message_id String?
+  template_params Json? @db.JsonB
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model automations {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  name String
+  description String?
+  trigger_type String
+  trigger_config Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
+  is_active Boolean  @default(false)
+  execution_count Int  @default(0)
+  last_executed_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model automation_steps {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  automation_id String @db.Uuid
+  parent_step_id String? @db.Uuid
+  branch String?
+  step_type String
+  step_config Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
+  position Int
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model automation_logs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  automation_id String @db.Uuid
+  user_id String @db.Uuid
+  contact_id String? @db.Uuid
+  trigger_event String
+  steps_executed Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
+  status String
+  error_message String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model automation_pending_executions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  automation_id String @db.Uuid
+  user_id String @db.Uuid
+  contact_id String? @db.Uuid
+  log_id String? @db.Uuid
+  parent_step_id String? @db.Uuid
+  branch String?
+  next_step_position Int
+  context Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
+  status String  @default("pending")
+  run_at DateTime @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model message_reactions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  message_id String @db.Uuid
+  conversation_id String @db.Uuid
+  actor_type String
+  actor_id String? @db.Uuid
+  emoji String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([message_id, actor_type, actor_id])
+  @@unique([account_id, id])
+}
+
+model flows {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  name String
+  description String?
+  status String  @default("draft")
+  trigger_type String
+  trigger_config Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
+  entry_node_id String?
+  fallback_policy Json @db.JsonB @default(dbgenerated("'{\"on_unknown_reply\":\"reprompt\",\"max_reprompts\":2,\"on_timeout_hours\":24,\"on_exhaust\":\"handoff\"}'::jsonb"))
+  execution_count Int  @default(0)
+  last_executed_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model flow_nodes {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  flow_id String @db.Uuid
+  node_key String
+  node_type String
+  config Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
+  position_x Int  @default(0)
+  position_y Int  @default(0)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([flow_id, node_key])
+  @@unique([account_id, id])
+}
+
+model flow_runs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  flow_id String @db.Uuid
+  user_id String @db.Uuid
+  contact_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  status String  @default("active")
+  current_node_key String?
+  last_prompt_message_id String? @db.Uuid
+  vars Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
+  reprompt_count Int  @default(0)
+  started_at DateTime @db.Timestamptz(6) @default(now())
+  last_advanced_at DateTime @db.Timestamptz(6) @default(now())
+  ended_at DateTime? @db.Timestamptz(6)
+  end_reason String?
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model flow_run_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  flow_run_id String @db.Uuid
+  event_type String
+  node_key String?
+  payload Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  @@unique([account_id, id])
+}
+
+model accounts {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  name String
+  owner_user_id String @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  default_currency String  @default("USD")
+}
+
+model account_invitations {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  token_hash String  @unique
+  role String
+  created_by_user_id String? @db.Uuid
+  label String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  expires_at DateTime @db.Timestamptz(6)
+  accepted_at DateTime? @db.Timestamptz(6)
+  accepted_by_user_id String? @db.Uuid
+  @@unique([account_id, id])
+}
+
+model member_presence {
+  user_id String @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  status String  @default("online")
+  last_seen_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, user_id])
+}
+
+model api_keys {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  created_by String? @db.Uuid
+  name String
+  key_prefix String
+  key_hash String  @unique
+  scopes String[]  @default([])
+  last_used_at DateTime? @db.Timestamptz(6)
+  expires_at DateTime? @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model notifications {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  type String  @default("conversation_assigned")
+  conversation_id String? @db.Uuid
+  contact_id String? @db.Uuid
+  actor_user_id String? @db.Uuid
+  title String
+  body String?
+  read_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model webhook_endpoints {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  created_by String? @db.Uuid
+  url String
+  secret String
+  events String[]  @default([])
+  is_active Boolean  @default(true)
+  last_delivery_at DateTime? @db.Timestamptz(6)
+  failure_count Int  @default(0)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model ai_configs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  created_by String? @db.Uuid
+  provider String
+  model String
+  api_key String
+  system_prompt String?
+  is_active Boolean  @default(false)
+  auto_reply_enabled Boolean  @default(false)
+  auto_reply_max_per_conversation Int  @default(3)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  embeddings_api_key String?
+  handoff_agent_id String? @db.Uuid
+  base_url String?
+  @@unique([account_id, id])
+}
+
+model ai_knowledge_documents {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  created_by String? @db.Uuid
+  title String
+  content String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model ai_knowledge_chunks {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  document_id String @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  chunk_index Int  @default(0)
+  content String
+  fts Unsupported("tsvector")  @default(dbgenerated())
+  embedding Unsupported("vector(1536)")?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model ai_usage_log {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String? @db.Uuid
+  mode String
+  provider String
+  model String
+  prompt_tokens Int  @default(0)
+  completion_tokens Int  @default(0)
+  total_tokens Int  @default(0)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model quick_replies {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  title String
+  kind String  @default("text")
+  content_text String?
+  interactive_payload Json? @db.JsonB
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model auth_users {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  email String  @unique
+  full_name String
+  password_hash String
+  email_verified_at DateTime? @db.Timestamptz(6)
+  disabled_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model auth_sessions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  account_id String @db.Uuid
+  csrf_hash String
+  expires_at DateTime @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  mfa_verified_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model auth_refresh_tokens {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  session_id String @db.Uuid
+  token_hash String  @unique
+  expires_at DateTime @db.Timestamptz(6)
+  consumed_at DateTime? @db.Timestamptz(6)
+  replacement_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model auth_verifications {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  purpose String
+  token_hash String  @unique
+  expires_at DateTime @db.Timestamptz(6)
+  consumed_at DateTime? @db.Timestamptz(6)
+  metadata Json @db.JsonB @default("{}")
+}
+
+model account_memberships {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  user_id String @db.Uuid
+  role String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, user_id])
+  @@unique([account_id, id])
+}
+
+model auth_rate_limits {
+  key String  @id
+  attempts Int  @default(0)
+  reset_at DateTime @db.Timestamptz(6)
+}
+
+model auth_mfa_factors {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid @unique
+  secret_encrypted String
+  verified_at DateTime? @db.Timestamptz(6)
+  last_used_step BigInt?
+  recovery_hashes String[]  @default([])
+  created_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model jobs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  type String
+  tenant_id String? @db.Uuid
+  payload Json @db.JsonB @default("{}")
+  dedupe_key String?  @unique
+  status String  @default("pending")
+  run_at DateTime @db.Timestamptz(6) @default(now())
+  lease_until DateTime? @db.Timestamptz(6)
+  attempts Int  @default(0)
+  max_attempts Int  @default(5)
+  last_error String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  lease_token String? @db.Uuid
+}
+
+model webhook_receipts {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  provider String
+  dedupe_key String  @unique
+  payload Json @db.JsonB
+  status String  @default("pending")
+  created_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model outbox_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  recipient_user_id String? @db.Uuid
+  event_type String
+  payload Json @db.JsonB @default("{}")
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model outbound_intents {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  conversation_id String? @db.Uuid
+  provider_message_id String?
+  idempotency_key String  @unique
+  status String  @default("pending")
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  last_error String?
+  result Json? @db.JsonB
+  @@unique([account_id, id])
+}
+
+model audit_logs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String? @db.Uuid
+  user_id String? @db.Uuid
+  action String
+  resource_id String?
+  metadata Json @db.JsonB @default("{}")
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model media_objects {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  uploaded_by String? @db.Uuid
+  object_key String
+  bucket String
+  content_type String
+  byte_size BigInt
+  original_name String?
+  conversation_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  deleted_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, bucket, object_key])
+  @@unique([account_id, id])
+}
+
+model inbound_action_steps {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  message_id String @db.Uuid
+  stage String
+  status String  @default("dispatching")
+  context Json @db.JsonB @default("{}")
+  last_error String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, message_id, stage])
+}

@@ -1,0 +1,202 @@
+import { randomUUID } from 'node:crypto';
+import { config } from 'dotenv';
+import pg from 'pg';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { disconnectDatabases } from '@/lib/db/prisma';
+import { handleJob } from './handlers';
+import type { Job } from './queue';
+
+const configured = config({ path: '.env.test', quiet: true }).parsed;
+const ownerUrl = process.env.TEST_DATABASE_URL;
+const workerUrl =
+  process.env.TEST_WORKER_DATABASE_URL || configured?.WORKER_DATABASE_URL;
+if (workerUrl) process.env.WORKER_DATABASE_URL = workerUrl;
+const account = randomUUID(),
+  foreignAccount = randomUUID(),
+  user = randomUUID();
+const contacts = [randomUUID(), randomUUID()],
+  foreignContact = randomUUID();
+const automation = randomUUID(),
+  tag = randomUUID(),
+  foreignTag = randomUUID(),
+  resultTag = randomUUID(),
+  field = randomUUID();
+const at = '2026-10-15T09:00:00.000Z';
+let owner: pg.Client;
+function job(type: string, payload: Record<string, unknown>): Job {
+  return {
+    id: randomUUID(),
+    type,
+    payload,
+    tenant_id: account,
+    attempts: 1,
+    max_attempts: 5,
+    lease_token: randomUUID(),
+  };
+}
+async function scheduledJobs(slot = at) {
+  return (
+    await owner.query(
+      "SELECT * FROM jobs WHERE tenant_id=$1 AND type=$2 AND payload->>'slot'=$3 ORDER BY payload->>'contactId'",
+      [account, 'automation.trigger', slot]
+    )
+  ).rows as Job[];
+}
+async function setAudience(audience: unknown) {
+  await owner.query('UPDATE automations SET trigger_config=$2 WHERE id=$1', [
+    automation,
+    JSON.stringify({
+      schedule: '* * * * *',
+      timezone: 'UTC',
+      ...(audience ? { audience } : {}),
+    }),
+  ]);
+}
+describe.skipIf(!ownerUrl || !workerUrl)(
+  'real PostgreSQL scheduled contact audiences',
+  { timeout: 60000 },
+  () => {
+    beforeAll(async () => {
+      owner = new pg.Client({ connectionString: ownerUrl });
+      await owner.connect();
+      const database = (await owner.query('SELECT current_database() AS name'))
+        .rows[0].name;
+      if (!/test/i.test(database))
+        throw new Error('Scheduling tests require an isolated test database');
+      await owner.query('BEGIN');
+      await owner.query(
+        "INSERT INTO auth_users(id,email,full_name,password_hash,email_verified_at) VALUES($1,$2,'Scheduled test owner','test-only',NOW())",
+        [user, `${user}@example.invalid`]
+      );
+      for (const id of [account, foreignAccount]) {
+        await owner.query(
+          "INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Scheduled fixture',$2)",
+          [id, user]
+        );
+        await owner.query(
+          "INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'owner')",
+          [id, user]
+        );
+      }
+      await owner.query(
+        "INSERT INTO contacts(id,account_id,user_id,phone,name) VALUES($1,$2,$3,'+14155550101','Same customer'),($4,$2,$3,'+14155550102','Second customer'),($5,$6,$3,'+14155550101','Same customer')",
+        [
+          contacts[0],
+          account,
+          user,
+          contacts[1],
+          foreignContact,
+          foreignAccount,
+        ]
+      );
+      await owner.query(
+        "INSERT INTO tags(id,account_id,user_id,name) VALUES($1,$2,$3,'Audience'),($4,$2,$3,'Result'),($5,$6,$3,'Audience')",
+        [tag, account, user, resultTag, foreignTag, foreignAccount]
+      );
+      await owner.query(
+        'INSERT INTO contact_tags(account_id,contact_id,tag_id) VALUES($1,$2,$3),($4,$5,$6)',
+        [account, contacts[0], tag, foreignAccount, foreignContact, foreignTag]
+      );
+      await owner.query(
+        "INSERT INTO custom_fields(id,account_id,user_id,field_name,field_type) VALUES($1,$2,$3,'Eligible','text')",
+        [field, account, user]
+      );
+      await owner.query(
+        "INSERT INTO contact_custom_values(account_id,contact_id,custom_field_id,value) VALUES($1,$2,$3,'yes')",
+        [account, contacts[1], field]
+      );
+      await owner.query(
+        "INSERT INTO automations(id,account_id,user_id,name,trigger_type,trigger_config,is_active) VALUES($1,$2,$3,'Scheduled fixture','time_based',$4,true)",
+        [
+          automation,
+          account,
+          user,
+          JSON.stringify({ schedule: '* * * * *', audience: { type: 'all' } }),
+        ]
+      );
+      await owner.query(
+        "INSERT INTO automation_steps(account_id,automation_id,step_type,step_config,position) VALUES($1,$2,'add_tag',$3,0)",
+        [account, automation, JSON.stringify({ tag_id: resultTag })]
+      );
+      await owner.query('COMMIT');
+    });
+    afterAll(async () => {
+      if (owner) {
+        await owner.query('DELETE FROM accounts WHERE id=ANY($1::uuid[])', [
+          [account, foreignAccount],
+        ]);
+        await owner.query('DELETE FROM auth_users WHERE id=$1', [user]);
+        await owner.end();
+      }
+      await disconnectDatabases();
+    });
+    it('fans out one durable job per selected tenant contact and deduplicates the UTC slot', async () => {
+      const schedule = job('automation.schedule', { minute: at });
+      await handleJob(schedule);
+      await handleJob(schedule);
+      const jobs = await scheduledJobs();
+      expect(jobs.map((row) => row.payload.contactId).sort()).toEqual(
+        [...contacts].sort()
+      );
+      for (const row of jobs) expect(row.tenant_id).toBe(account);
+      for (const row of jobs) {
+        await handleJob(row);
+        await handleJob(row);
+      }
+      const tagged = await owner.query(
+        'SELECT contact_id FROM contact_tags WHERE account_id=$1 AND tag_id=$2 ORDER BY contact_id',
+        [account, resultTag]
+      );
+      expect(tagged.rows.map((row) => row.contact_id)).toEqual(
+        [...contacts].sort()
+      );
+      expect(
+        (
+          await owner.query(
+            'SELECT id FROM automation_logs WHERE automation_id=$1',
+            [automation]
+          )
+        ).rowCount
+      ).toBe(2);
+    });
+    it('resolves tag and custom-field selections and rejects foreign filter references', async () => {
+      await setAudience({ type: 'tags', tagIds: [tag] });
+      const tagSlot = '2026-10-15T09:01:00.000Z';
+      await handleJob(job('automation.schedule', { minute: tagSlot }));
+      expect(
+        (await scheduledJobs(tagSlot)).map((row) => row.payload.contactId)
+      ).toEqual([contacts[0]]);
+      await setAudience({
+        type: 'custom_field',
+        customField: { fieldId: field, operator: 'is', value: 'yes' },
+      });
+      const fieldSlot = '2026-10-15T09:02:00.000Z';
+      await handleJob(job('automation.schedule', { minute: fieldSlot }));
+      expect(
+        (await scheduledJobs(fieldSlot)).map((row) => row.payload.contactId)
+      ).toEqual([contacts[1]]);
+      await setAudience({ type: 'tags', tagIds: [foreignTag] });
+      await expect(
+        handleJob(
+          job('automation.schedule', { minute: '2026-10-15T09:03:00.000Z' })
+        )
+      ).rejects.toThrow(/workspace/);
+    });
+    it('rejects legacy contact schedules without recipients, but preserves account-wide webhook-only jobs', async () => {
+      await setAudience(undefined);
+      await expect(
+        handleJob(
+          job('automation.schedule', { minute: '2026-10-15T09:04:00.000Z' })
+        )
+      ).rejects.toThrow(/recipients|contacts/);
+      await owner.query(
+        'UPDATE automation_steps SET step_type=\'send_webhook\',step_config=\'{"url":"https://example.com/hook"}\' WHERE automation_id=$1',
+        [automation]
+      );
+      const slot = '2026-10-15T09:05:00.000Z';
+      await handleJob(job('automation.schedule', { minute: slot }));
+      expect(await scheduledJobs(slot)).toHaveLength(1);
+      expect((await scheduledJobs(slot))[0].payload.contactId).toBeUndefined();
+    });
+  }
+);

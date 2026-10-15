@@ -1,0 +1,10 @@
+const { spawnSync } = require('node:child_process');
+const path = require('node:path');
+const value = process.env.MIGRATION_DATABASE_URL;
+if (!value) throw new Error('MIGRATION_DATABASE_URL must be configured in the production GitHub environment');
+const url = new URL(value);
+url.searchParams.set('sslrootcert', path.resolve('deploy/railway-postgres-ca.crt'));
+url.searchParams.set('sslmode', 'verify-ca'); url.searchParams.set('uselibpqcompat', 'true');
+const command = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const result = spawnSync(command, ['exec', 'prisma', 'migrate', 'deploy'], { stdio: 'inherit', env: { ...process.env, MIGRATION_DATABASE_URL: url.toString() }, shell: process.platform === 'win32' });
+process.exit(result.status ?? 1);

@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/ArnasDon/wacrm",
+  "commit": "27c6bdf43633d1746410168431a8b0e22b4f2ba6",
+  "trackedFiles": 527,
+  "textFilesScanned": 523,
+  "sourceFiles": 412,
+  "sourceLines": 84282.0,
+  "routeHandlers": 56,
+  "pageFiles": 23,
+  "testFiles": 96,
+  "sqlMigrations": 46,
+  "applicationTables": 36,
+  "sqlFunctions": 28,
+  "supabaseSourceFiles": 182,
+  "reviewMethod": "All tracked files inventoried and hashed; text scanned structurally; selected critical modules reviewed manually. No runtime or exhaustive line-by-line security audit."
+}

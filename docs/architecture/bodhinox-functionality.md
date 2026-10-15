@@ -1,0 +1,27 @@
+# Bodhinox Chat functionality and acceptance
+
+This application is adapted from WACRM 0.8.0. The complete upstream file/route/table inventory is in [the repository review](2026-10-14-wacrm-repository-review.md). This document describes the migrated foundation, not a claim that every external provider has passed production acceptance.
+
+| Area | Available implementation | Acceptance boundary |
+| --- | --- | --- |
+| Dashboard | Conversation/contact/deal/message analytics, activity and charts | Local browser renders against isolated Railway PostgreSQL |
+| Identity | Password login, short-lived RS256 JWT, rotated refresh cookies, CSRF, revocation, TOTP and recovery codes | Unit and real database tests; production owner/admin requires MFA |
+| Email onboarding | Verification, reset, invitations and verified email change | Provider deliberately deferred; mail-dependent operations fail closed until SMTP configured |
+| Accounts | Owner/admin/agent/viewer, invitations, membership switching, transfer | Scoped repository and identity tests; additional SaaS billing/provisioning is future work |
+| Contacts | Create/edit, phone deduplication, CSV, tags, notes, custom values | Real database tests and local browser create/edit smoke |
+| Inbox | Assignment, status, unread reset, text/media/template/interactive composition, reactions and quotes | Scoped read/write tests; actual WhatsApp transport requires Meta credentials |
+| Human handoff | Persistent bot pause before manual sending; explicit resume | Role/database checks and flow/automation guards; viewer cannot mutate |
+| Pipelines | Stages, deal boards, values and contact relationships | Migrated tenant-scoped CRM operations; business-specific sales workflows remain configurable |
+| Campaigns | Approved templates, all/tag/custom-field/CSV audiences, exclusions, personalized frozen parameters, background delivery and retry | Atomic campaign/recipient/job and rollback tests; bounded to 1,000 recipients per campaign |
+| Automation | Event/keyword/tag/status triggers, conditions, delays, replies, CRM actions and scheduled audiences | Engine tests, durable jobs and scoped scheduler checks; actual provider sends still require acceptance |
+| Visual flows | Node editor, input validation, branching, buttons/lists, CRM actions, media, fallbacks, timeout and handoff logs | Existing engine suites retained; customer-specific journeys require configuration |
+| AI | Drafts, automatic replies, provider settings, knowledge documents, embeddings, playground and usage | Source/engine tests; configure and accept the chosen AI provider separately |
+| Private media | Tenant object authorization, S3 storage, authenticated reads, bounded uploads and expiring provider URLs | Local policy/route checks; Railway bucket provisioned; live storage acceptance tracked in deployment runbook |
+| Live updates | Authenticated SSE, scoped outbox, cursor replay, deduplication and reconnect | Database replay tests, including equal-timestamp batches |
+| Integrations | Official Meta Cloud API, API keys, outbound signed webhooks and MCP client | Meta, AI and outbound destinations require their own acceptance; Wasender is not integrated |
+
+Supabase Auth, Storage, Realtime, client and database dependencies have been replaced. Prisma owns migrations; constrained PostgreSQL roles and FORCE RLS protect tenant data. A dedicated worker owns durable background execution. Browser writes use fixed resources and dedicated validated actions; SQL, roles and provider credentials are never accepted from the browser.
+
+The worker uses leases and persisted outbound intents. Interrupted actions with unknown external outcomes require reconciliation before retrying. This deliberately does not promise exactly-once external delivery. Keep one web and one worker replica until shared rate limiting and provider throughput coordination are implemented.
+
+See [database evidence](database-validation.md), [authentication evidence](authentication-validation.md), [data-access evidence](data-access-validation.md), and [deployment and remaining configuration](../deployment/railway.md). The isolated preview account contains synthetic data and does not represent production onboarding.

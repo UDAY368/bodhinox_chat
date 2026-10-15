@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1
+FROM node:24-bookworm-slim AS dependencies
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json prisma.config.ts ./
+COPY prisma ./prisma
+RUN npm ci && npm exec prisma generate && npm prune --omit=dev --ignore-scripts
+
+FROM node:24-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && rm -rf /var/lib/apt/lists/*
+COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json tsconfig.json ./
+COPY --chown=node:node src ./src
+COPY --chown=node:node messages ./messages
+COPY --chown=node:node prisma/schema-inventory.json ./prisma/schema-inventory.json
+COPY --chown=node:node deploy ./deploy
+USER node
+CMD ["npm", "run", "worker"]

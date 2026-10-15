@@ -1,0 +1,23 @@
+name: Apply production Prisma migrations
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-database-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Apply reviewed migrations
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: node scripts/migrate-production.cjs
