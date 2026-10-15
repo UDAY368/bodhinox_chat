@@ -35,3 +35,13 @@ Inspect failed jobs by ID, type, attempts and sanitized last_error through a tru
 Rotate RSA signing keys with a new AUTH_JWT_KID. Retired public keys remain configured only for the bounded 15-minute access-token overlap described in authentication-validation.md; keep refresh revocation and current-membership checks enabled.
 
 For account defaults run `npm run db:seed -- ACCOUNT_UUID EXISTING_OWNER_USER_UUID` after verified owner onboarding. It is idempotent and does not create demo contacts or send any message. Email-provider setup is explicitly deferred; no live-email success is implied by database authentication tests.
+
+## Recorded release state — 15 October 2026
+
+Application commit `e55c2252e75c2d105a57c53211a162a5bdda95c3` is pushed to `main`. [GitHub validation](https://github.com/UDAY368/bodhinox_chat/actions/runs/38675497680) completed successfully after a clean Linux install, isolated migrations/role bootstrap, typecheck, lint, all tests and production build. Local verification passed1,267tests across136files; runtime dependency audit reports0vulnerabilities. Lint exits0 with33 retained warnings.
+
+Production database migrations1–7 and constrained role bootstrap passed. Repeat migration deploy reports no pending migrations. Local worker smoke reached `[worker] ready` and was stopped afterward.
+
+Web/worker GitHub source connections to `UDAY368/bodhinox_chat@main` and application watch patterns are staged in production patch `d1d5f84a-eb00-4822-b73f-26af1a797b82`. The attempted `accept-deploy` returned “the user did not approve this action”; no application deployment started. The allocated domain is therefore not a verified live application. Apply the reviewed eight staged source/watch-pattern changes through Railway approval when deployment is wanted, then complete the runtime health/worker checks above.
+
+The requested local web server remains at http://localhost:3001 using the isolated synthetic preview account in `bodhinox_test`. It does not operate on production customer data. Email setup is explicitly deferred, and Meta/AI live acceptance remains outstanding.
