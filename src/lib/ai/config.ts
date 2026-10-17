@@ -1,12 +1,13 @@
 import type { DataClient } from '@/lib/data/types'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import type { AiConfig } from './types'
+import { geminiApiKey } from './gemini-key'
 
 interface AiConfigRow {
-  provider: 'openai' | 'anthropic' | 'openai_compatible'
+  provider: 'openai' | 'anthropic' | 'openai_compatible' | 'gemini'
   model: string
   base_url: string | null
-  api_key: string
+  api_key: string | null
   system_prompt: string | null
   is_active: boolean
   auto_reply_enabled: boolean
@@ -48,10 +49,12 @@ export async function loadAiConfig(
   // The Playground passes requireActive:false so an admin can test the
   // agent before flipping the master switch on.
   if (requireActive && !row.is_active) return null
-  // Defensive: the column is NOT NULL, but a partial write / manual DB
-  // edit could leave it empty. Treat a missing key as "not configured"
-  // rather than letting decrypt() throw on null.
-  if (!row.api_key) return null
+  // Gemini uses the server environment; other providers retain their
+  // encrypted per-account key. A missing key means "not configured".
+  const apiKey = row.provider === 'gemini'
+    ? geminiApiKey()
+    : row.api_key ? decrypt(row.api_key) : ''
+  if (!apiKey) return null
 
   // The embeddings key is optional and independent of the chat key —
   // a corrupt/undecryptable one should downgrade to lexical KB, not
@@ -74,7 +77,7 @@ export async function loadAiConfig(
     provider: row.provider,
     model: row.model,
     baseUrl: row.base_url,
-    apiKey: decrypt(row.api_key),
+    apiKey,
     systemPrompt: row.system_prompt,
     isActive: row.is_active,
     autoReplyEnabled: row.auto_reply_enabled,

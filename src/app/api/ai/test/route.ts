@@ -5,6 +5,7 @@ import { decrypt } from '@/lib/whatsapp/encryption'
 import { validateAiCredentials } from '@/lib/ai/validate'
 import { AiError, type AiProvider } from '@/lib/ai/types'
 import { normalizeOpenAiCompatibleBaseUrl } from '@/lib/ai/providers/openai-compatible'
+import { geminiApiKey } from '@/lib/ai/gemini-key'
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     const provider = body.provider as AiProvider
-    if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'openai_compatible') {
+    if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'openai_compatible' && provider !== 'gemini') {
       return NextResponse.json(
         { error: t('ai.providerInvalid') },
         { status: 400 },
@@ -43,20 +44,26 @@ export async function POST(request: Request) {
     }
     const baseUrlProvided = 'base_url' in body
     const requestedBaseUrl = typeof body.base_url === 'string' ? body.base_url.trim() : ''
-    let existing: { api_key: string; provider: AiProvider; base_url: string | null } | null = null
+    let existing: { api_key: string | null; provider: AiProvider; base_url: string | null } | null = null
 
     const rawKey = typeof body.api_key === 'string' ? body.api_key.trim() : ''
-    let apiKeyPlain = rawKey
-    if (!apiKeyPlain || provider === 'openai_compatible') {
+    if (provider === 'gemini' && rawKey) {
+      return NextResponse.json({ error: 'Gemini uses the server-side GEMINI_API_KEY.' }, { status: 400 })
+    }
+    let apiKeyPlain = provider === 'gemini' ? geminiApiKey() : rawKey
+    if (provider !== 'gemini' && (!apiKeyPlain || provider === 'openai_compatible')) {
       const { data } = await db
         .from('ai_configs')
         .select('api_key, provider, base_url')
         .eq('account_id', accountId)
         .maybeSingle()
-      existing = data as unknown as { api_key: string; provider: AiProvider; base_url: string | null } | null
+      existing = data as unknown as { api_key: string | null; provider: AiProvider; base_url: string | null } | null
     }
     if (!apiKeyPlain) {
-      if (!existing?.api_key) {
+      if (provider === 'gemini') {
+        return NextResponse.json({ error: 'GEMINI_API_KEY is not configured on the server.' }, { status: 400 })
+      }
+      if (!existing?.api_key || existing.provider !== provider) {
         return NextResponse.json(
           { error: t('ai.enterApiKey') },
           { status: 400 },

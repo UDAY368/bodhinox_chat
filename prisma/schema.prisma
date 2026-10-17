@@ -484,7 +484,7 @@ model ai_configs {
   created_by String? @db.Uuid
   provider String
   model String
-  api_key String
+  api_key String?
   system_prompt String?
   is_active Boolean  @default(false)
   auto_reply_enabled Boolean  @default(false)

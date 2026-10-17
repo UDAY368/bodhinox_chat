@@ -6,12 +6,12 @@
 // whether the account is on OpenAI or Anthropic.
 // ============================================================
 
-export type AiProvider = 'openai' | 'anthropic' | 'openai_compatible'
+export type AiProvider = 'openai' | 'anthropic' | 'openai_compatible' | 'gemini'
 
 /**
  * Account AI setup, decrypted and ready to use. Produced by
- * `loadAiConfig` — `apiKey` is the plaintext BYO provider key
- * (stored AES-256-GCM-encrypted at rest).
+ * `loadAiConfig` — `apiKey` comes from the server environment for Gemini
+ * or from the encrypted per-account key for other providers.
  */
 export interface AiConfig {
   provider: AiProvider

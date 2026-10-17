@@ -9,6 +9,7 @@ import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
 import { validateAiCredentials } from '@/lib/ai/validate'
 import { embedTexts } from '@/lib/ai/embeddings'
 import { AiError, type AiProvider } from '@/lib/ai/types'
+import { geminiApiKey } from '@/lib/ai/gemini-key'
 import { normalizeOpenAiCompatibleBaseUrl } from '@/lib/ai/providers/openai-compatible'
 import { getT } from '@/lib/i18n/translate'
 
@@ -53,7 +54,7 @@ export async function GET() {
     const { api_key, embeddings_api_key, ...safe } = data
     return NextResponse.json({
       configured: true,
-      has_key: !!api_key,
+      has_key: safe.provider === 'gemini' ? !!geminiApiKey() : !!api_key,
       has_embeddings_key: !!embeddings_api_key,
       ...safe,
     })
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
     if (!body || typeof body !== 'object') return bad(t('common.invalidRequestBody'))
 
     const provider = body.provider as AiProvider
-    if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'openai_compatible') {
+    if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'openai_compatible' && provider !== 'gemini') {
       return bad(t('ai.providerInvalid'))
     }
     const model = typeof body.model === 'string' ? body.model.trim() : ''
@@ -122,6 +123,7 @@ export async function POST(request: Request) {
     }
 
     const rawKey = typeof body.api_key === 'string' ? body.api_key.trim() : ''
+    if (provider === 'gemini' && rawKey) return bad('Gemini uses the server-side GEMINI_API_KEY.')
 
     // Embeddings key (optional, for semantic KB search): a non-empty
     // string sets/replaces it; an explicit null clears it; absent leaves
@@ -155,9 +157,12 @@ export async function POST(request: Request) {
       }
       baseUrl = candidate
     }
-    if (rawKey) {
+    if (provider === 'gemini') {
+      apiKeyPlain = geminiApiKey()
+      if (!apiKeyPlain) return bad('Set GEMINI_API_KEY on the server before selecting Gemini.')
+    } else if (rawKey) {
       apiKeyPlain = rawKey
-    } else if (existing?.api_key) {
+    } else if (existing?.provider === provider && existing.api_key) {
       try {
         apiKeyPlain = decrypt(existing.api_key)
       } catch {
@@ -176,7 +181,8 @@ export async function POST(request: Request) {
       rawKey !== '' ||
       provider !== existing.provider ||
       model !== existing.model ||
-      baseUrl !== (existing.base_url ?? null)
+      baseUrl !== (existing.base_url ?? null) ||
+      provider === 'gemini'
 
     if (credentialsChanged) {
       try {
@@ -243,7 +249,9 @@ export async function POST(request: Request) {
     if (existing) {
       const { error: upErr } = await db
         .from('ai_configs')
-        .update(encryptedKey ? { ...shared, api_key: encryptedKey } : shared)
+        .update(provider === 'gemini'
+          ? { ...shared, api_key: null }
+          : encryptedKey ? { ...shared, api_key: encryptedKey } : shared)
         .eq('account_id', accountId)
       if (upErr) {
         console.error('[ai/config POST] update error:', upErr)
@@ -256,7 +264,7 @@ export async function POST(request: Request) {
       const { error: insErr } = await db.from('ai_configs').insert({
         account_id: accountId,
         created_by: userId,
-        api_key: encryptedKey, // guaranteed non-null: rawKey required when no existing row
+        api_key: encryptedKey, // Gemini uses the server environment; other providers require a key.
         ...shared,
       })
       if (insErr) {

@@ -42,12 +42,14 @@ const HANDOFF_QUEUE = '__queue__';
 const PROVIDER_LABEL: Record<Exclude<AiProvider, 'openai_compatible'>, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic (Claude)',
+  gemini: 'Google Gemini',
 };
 
 const KEY_PLACEHOLDER: Record<AiProvider, string> = {
   openai: 'sk-...',
   anthropic: 'sk-ant-...',
   openai_compatible: 'your-api-key',
+  gemini: '',
 };
 
 export function AiConfig() {
@@ -62,6 +64,7 @@ export function AiConfig() {
 
   const [configured, setConfigured] = useState(false);
   const [provider, setProvider] = useState<AiProvider>('openai');
+  const [savedProvider, setSavedProvider] = useState<AiProvider | null>(null);
   const [model, setModel] = useState(AI_PROVIDER_DEFAULT_MODEL.openai);
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -97,6 +100,7 @@ export function AiConfig() {
       if (data.configured) {
         setConfigured(true);
         setProvider(data.provider);
+        setSavedProvider(data.provider);
         setModel(data.model);
         setBaseUrl(data.base_url ?? '');
         setSystemPrompt(data.system_prompt ?? '');
@@ -132,15 +136,14 @@ export function AiConfig() {
   // typed a custom model.
   const handleProviderChange = (next: AiProvider) => {
     setProvider(next);
-    const isDefaultModel =
-      model === AI_PROVIDER_DEFAULT_MODEL.openai ||
-      model === AI_PROVIDER_DEFAULT_MODEL.anthropic ||
-      model === AI_PROVIDER_DEFAULT_MODEL.openai_compatible ||
-      model.trim() === '';
+    const isDefaultModel = Object.values(AI_PROVIDER_DEFAULT_MODEL).includes(model) || model.trim() === '';
     if (isDefaultModel) setModel(next === 'openai_compatible' ? '' : AI_PROVIDER_DEFAULT_MODEL[next]);
+    const keyAvailable = next === savedProvider && hasStoredKey;
+    setApiKey(keyAvailable && next !== 'gemini' ? MASKED_KEY : '');
+    setKeyEdited(false);
   };
 
-  const keyPayload = () => (keyEdited ? apiKey.trim() : undefined);
+  const keyPayload = () => (provider !== 'gemini' && keyEdited ? apiKey.trim() : undefined);
 
   // undefined = leave unchanged; '' typed = null (clear); text = set.
   const embeddingsKeyPayload = () =>
@@ -191,7 +194,7 @@ export function AiConfig() {
       toast.error(t('missingBaseUrl'));
       return;
     }
-    if (!configured && !keyEdited) {
+    if (provider !== 'gemini' && !keyEdited && (provider !== savedProvider || !hasStoredKey)) {
       toast.error(t('missingApiKey'));
       return;
     }
@@ -223,6 +226,7 @@ export function AiConfig() {
       if (res.ok) {
         toast.success(t('removeSuccess'));
         setConfigured(false);
+        setSavedProvider(null);
         setBaseUrl('');
         setHasStoredKey(false);
         setApiKey('');
@@ -273,7 +277,7 @@ export function AiConfig() {
               <Sparkles className="h-4 w-4 text-primary" /> {t('providerAndKey')}
             </CardTitle>
             <CardDescription>
-              {t('encryptionNotice')}
+              {provider === 'gemini' ? t('geminiSecurityNotice') : t('encryptionNotice')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -293,6 +297,7 @@ export function AiConfig() {
                     <SelectItem value="anthropic">
                       {PROVIDER_LABEL.anthropic}
                     </SelectItem>
+                    <SelectItem value="gemini">{PROVIDER_LABEL.gemini}</SelectItem>
                     <SelectItem value="openai_compatible">
                       {t('providerOpenAiCompatible')}
                     </SelectItem>
@@ -327,7 +332,15 @@ export function AiConfig() {
               )}
             </div>
 
-            <div className="space-y-2">
+            {provider === 'gemini' ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
+                <p className="flex-1 text-sm text-muted-foreground">{t('geminiEnvHint')}</p>
+                <Button variant="outline" onClick={handleTest} disabled={disabled || testing}>
+                  {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t('testConnection')}
+                </Button>
+              </div>
+            ) : <div className="space-y-2">
               <Label htmlFor="ai-key">{t('apiKey')}</Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -375,7 +388,7 @@ export function AiConfig() {
                   {t('testKey')}
                 </Button>
               </div>
-            </div>
+            </div>}
 
             <div className="space-y-2">
               <Label htmlFor="ai-embeddings-key">

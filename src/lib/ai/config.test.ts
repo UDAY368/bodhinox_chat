@@ -50,4 +50,17 @@ describe('loadAiConfig requireActive', () => {
       await loadAiConfig(dbReturning(null), 'acct', { requireActive: false }),
     ).toBeNull()
   })
+
+  it('loads Gemini from the server environment without decrypting a stored key', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'server-gemini-key')
+    try {
+      const config = await loadAiConfig(dbReturning({ ...ROW, provider: 'gemini', api_key: null }), 'acct', {
+        requireActive: false,
+      })
+      expect(config?.apiKey).toBe('server-gemini-key')
+      expect(config?.provider).toBe('gemini')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
 })
