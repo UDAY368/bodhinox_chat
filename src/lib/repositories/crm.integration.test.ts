@@ -22,6 +22,8 @@ import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
 import { bindInteractiveActions, assertInteractiveTargets } from '@/lib/whatsapp/interactive-actions';
 import { processInboundActions } from '@/lib/whatsapp/inbound-actions';
 import type { InteractiveButtonsPayload } from '@/lib/whatsapp/interactive';
+import { ingestDocument, retrieveKnowledge } from '@/lib/ai/knowledge';
+import { buildSystemPrompt } from '@/lib/ai/defaults';
 import {
   insertSteps,
   loadStepsTree,
@@ -104,6 +106,24 @@ describe.skipIf(!database || !authDatabase)(
       }
       await disconnectDatabases();
     }, 30000);
+    it('saves, indexes and retrieves knowledge for agent prompts with tenant isolation', async () => {
+      const db = createScopedClient(a);
+      const content = 'Question: What is the Zephyr service code? Answer: The Zephyr service code is ZPH-7391.';
+      const created = await db.from('ai_knowledge_documents').insert({ account_id: accountA, created_by: userA, title: 'Zephyr FAQ', content }).select('id').single();
+      expect(created.error).toBeNull();
+      const id = String(created.data!.id);
+      await ingestDocument(db, accountA, { embeddingsApiKey: null }, id, content);
+      const knowledge = await retrieveKnowledge(db, accountA, { embeddingsApiKey: null }, 'What is the Zephyr service code?');
+      expect(knowledge).toEqual([content]);
+      expect(buildSystemPrompt({ userPrompt: null, mode: 'auto_reply', knowledge })).toContain('ZPH-7391');
+      expect(await retrieveKnowledge(createScopedClient(b), accountB, { embeddingsApiKey: null }, 'Zephyr')).toEqual([]);
+      const updated = content.replaceAll('ZPH-7391', 'ZPH-8426');
+      expect((await db.from('ai_knowledge_documents').update({ content: updated }).eq('id', id)).error).toBeNull();
+      await ingestDocument(db, accountA, { embeddingsApiKey: null }, id, updated);
+      expect(await retrieveKnowledge(db, accountA, { embeddingsApiKey: null }, 'Zephyr')).toEqual([updated]);
+      expect((await db.from('ai_knowledge_documents').delete().eq('id', id)).error).toBeNull();
+      expect(await retrieveKnowledge(db, accountA, { embeddingsApiKey: null }, 'Zephyr')).toEqual([]);
+    }, 60000);
     it('creates and revokes tenant-scoped invitations through the application data client', async () => {
       const tokenHash = randomUUID().replaceAll('-', '').repeat(2);
       const created = await client(a)('account_invitations').insert({

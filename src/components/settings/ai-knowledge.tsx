@@ -101,7 +101,7 @@ export function AiKnowledgeCard({
     setSaving(true);
     try {
       const isNew = editing === 'new';
-      const res = await fetch(
+      const res = await authFetch(
         isNew ? '/api/ai/knowledge' : `/api/ai/knowledge/${editing}`,
         {
           method: isNew ? 'POST' : 'PATCH',
