@@ -9,6 +9,20 @@ const tenant = {
   role: 'agent' as const,
 };
 describe('fixed CRM resource authorization', () => {
+  it('permits invitation roles only when trusted admins create new invitations', () => {
+    const owner = { ...tenant, role: 'owner' as const };
+    for (const role of ['admin', 'agent', 'viewer']) {
+      expect(() => validateWrite('account_invitations', { role }, owner)).not.toThrow();
+      expect(() => validateWrite('account_invitations', { role }, owner, false, 'update')).toThrow();
+      expect(() => validateWrite('account_invitations', { role }, owner, false, 'upsert')).toThrow();
+      expect(() => validateWrite('account_invitations', { role }, owner, true)).toThrow();
+      expect(() => validateWrite('account_invitations', { role }, tenant)).toThrow();
+    }
+    for (const role of ['owner', 'invalid', null]) {
+      expect(() => validateWrite('account_invitations', { role }, owner)).toThrow();
+    }
+    expect(() => validateWrite('account_memberships', { role: 'admin' }, owner)).toThrow();
+  });
   it('exposes the latest customer timestamp as a tenant-scoped read-only conversation field', () => {
     const spec = validateQuery('conversations', { projection: 'id,last_customer_message_at' }, tenant, true);
     const sql = compileSelect(spec, tenant, true);

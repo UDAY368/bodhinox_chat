@@ -482,8 +482,14 @@ export function validateWrite(
     throw new ContractError('Expected record payload');
   for (const [field, value] of Object.entries(row)) {
     const column = columnFor(resource, field);
+    // Roles stay immutable except on creation of server-managed invitations.
+    // Membership changes must continue through the dedicated membership policy.
+    const invitationRole = !browser && name === 'account_invitations' &&
+      operation === 'insert' && field === 'role' &&
+      typeof value === 'string' && ['admin', 'agent', 'viewer'].includes(value);
     if (
       !resource.writable.includes(field) &&
+      !invitationRole &&
       !(field === 'id' && ['insert', 'upsert'].includes(operation)) &&
       !(!browser && worker && internalFields.has(field)) &&
       !(!browser && ['created_at', 'updated_at'].includes(field))

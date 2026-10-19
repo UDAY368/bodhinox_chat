@@ -233,7 +233,7 @@ export function MembersTab() {
     if (!removingMember) return;
     setPendingMemberAction(removingMember.user_id);
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `/api/account/members/${removingMember.user_id}`,
         { method: 'DELETE' },
       );

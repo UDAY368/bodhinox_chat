@@ -18,6 +18,7 @@ import { encodeEventCursor } from '@/lib/realtime/cursor';
 import { GET as streamEvents } from '@/app/api/events/route';
 import type { TenantContext } from '@/lib/data/types';
 import { createScopedClient } from '@/lib/data/server';
+import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
 import {
   insertSteps,
   loadStepsTree,
@@ -99,6 +100,45 @@ describe.skipIf(!database || !authDatabase)(
         );
       }
       await disconnectDatabases();
+    }, 30000);
+    it('creates and revokes tenant-scoped invitations through the application data client', async () => {
+      const tokenHash = randomUUID().replaceAll('-', '').repeat(2);
+      const created = await client(a)('account_invitations').insert({
+        role: 'agent', token_hash: tokenHash, created_by_user_id: userA,
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+        label: 'Isolated invitation test',
+      }).select('id,role,label').single();
+      expect(created.error).toBeNull();
+      expect(created.data).toMatchObject({ role: 'agent', label: 'Isolated invitation test' });
+      const id = created.data!.id;
+      expect((await client(b)('account_invitations').select('id').eq('id', id)).data).toEqual([]);
+      expect((await client(a)('account_invitations').delete().eq('id', id)).error).toBeNull();
+      expect((await client(a)('account_invitations').select('id').eq('id', id)).data).toEqual([]);
+    }, 30000);
+    it('persists, edits, and deletes text, button, and list quick replies', async () => {
+      const payloads = [
+        { kind: 'text', content_text: 'How can we help?', interactive_payload: null },
+        { kind: 'interactive', content_text: null, interactive_payload: {
+          kind: 'buttons', body: 'Choose an option', buttons: [{ id: 'support', title: 'Support' }],
+        } },
+        { kind: 'interactive', content_text: null, interactive_payload: {
+          kind: 'list', body: 'Choose an option', button_label: 'Options',
+          sections: [{ rows: [{ id: 'support', title: 'Support' }] }],
+        } },
+      ];
+      for (const payload of payloads) {
+        if (payload.interactive_payload) expect(validateInteractivePayload(payload.interactive_payload)).toEqual({ ok: true });
+        const created = await client(a)('quick_replies').insert({ title: 'Verification', ...payload }).select('*').single();
+        expect(created.error).toBeNull();
+        expect(created.data).toMatchObject(payload);
+        const id = created.data!.id;
+        expect((await client(b)('quick_replies').select('id').eq('id', id)).data).toEqual([]);
+        const updated = await client(a)('quick_replies').update({ title: 'Updated' }).eq('id', id).select('*').single();
+        expect(updated.error).toBeNull();
+        expect(updated.data).toMatchObject({ ...payload, title: 'Updated' });
+        expect((await client(a)('quick_replies').delete().eq('id', id)).error).toBeNull();
+        expect((await client(a)('quick_replies').select('id').eq('id', id)).data).toEqual([]);
+      }
     }, 30000);
     it('executes the browser presence heartbeat and persists its status without deserializing void', async () => {
       const result = await executeRpc(

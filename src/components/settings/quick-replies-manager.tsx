@@ -90,7 +90,7 @@ export function QuickRepliesManager() {
 
     setSaving(true);
     try {
-      const res = await fetch(
+      const res = await authFetch(
         draft.id ? `/api/quick-replies/${draft.id}` : "/api/quick-replies",
         {
           method: draft.id ? "PATCH" : "POST",
