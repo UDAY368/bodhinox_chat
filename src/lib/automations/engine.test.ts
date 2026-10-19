@@ -167,12 +167,30 @@ import {
   expireAwaitingReplies,
   resumeAwaitingReply,
   runAutomationsForTrigger,
+  runAutomationById,
   triggerMatches,
 } from "./engine";
 import { engineSendInteractive, engineSendText } from "./meta-send";
 import type { Automation, KeywordMatchTriggerConfig } from "@/types";
 
 const ACCOUNT = "acct-1";
+
+describe('runAutomationById', () => {
+  it('runs the selected active definition without matching its keyword trigger', async () => {
+    h.state.owned = { id: 'c1' };
+    h.state.ownedConversation = { id: 'conv1' };
+    h.state.automations = [{ ...automationWithUpdateStep(), id: 'selected', trigger_type: 'keyword_match', trigger_config: { keywords: ['unrelated'] }, is_active: true }];
+    const result = await runAutomationById({ accountId: ACCOUNT, automationId: 'selected', contactId: 'c1', context: { conversation_id: 'conv1', message_text: 'Different button label' } });
+    expect(result.outcome).toBe('started');
+    expect(h.state.logInserts).toHaveLength(1);
+  });
+  it('does not execute an inactive target', async () => {
+    h.state.owned = { id: 'c1' }; h.state.ownedConversation = { id: 'conv1' };
+    h.state.automations = [{ ...automationWithUpdateStep(), id: 'selected', is_active: false }];
+    expect(await runAutomationById({ accountId: ACCOUNT, automationId: 'selected', contactId: 'c1', context: { conversation_id: 'conv1' } })).toEqual({ outcome: 'unavailable' });
+    expect(h.state.logInserts).toHaveLength(0);
+  });
+});
 
 beforeEach(() => {
   h.state.owned = null;

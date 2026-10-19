@@ -32,6 +32,26 @@ const validList: InteractiveListPayload = {
 }
 
 describe('validateInteractivePayload — buttons', () => {
+  it('rejects unsupported CTA mixtures, invalid workflow IDs and unsafe media', () => {
+    for (const payload of [
+      { ...validButtons, buttons: [{ id: 'link', title: 'Visit', action: { type: 'url', url: 'javascript:alert(1)' } }] },
+      { ...validButtons, buttons: [{ id: 'a', title: 'A', action: { type: 'flow', targetId: 'invalid' } }] },
+      { ...validButtons, buttons: [{ id: 'link', title: 'Visit', action: { type: 'url', url: 'https://example.com' } }, { id: 'reply', title: 'Reply' }] },
+      { ...validButtons, media: { type: 'image', url: 'file:///private.png' } },
+      { ...validButtons, media: { type: 'location', latitude: 91, longitude: 10 } },
+      { ...validButtons, media: { type: 'location', latitude: 10, longitude: -181 } },
+      { ...validButtons, media: { type: 'image', url: '/untrusted/path' } },
+    ]) expect(validateInteractivePayload(payload).ok).toBe(false);
+  });
+  it('accepts supported media and independent workflow buttons', () => {
+    for (const media of [
+      { type: 'image', url: 'https://example.com/test.jpg' },
+      { type: 'video', url: '/api/media/object?bucket=flow-media&key=video.mp4' },
+      { type: 'document', url: 'https://example.com/guide.pdf', filename: 'Guide.pdf' },
+      { type: 'location', latitude: 12.97, longitude: 77.59, name: 'Office' },
+    ]) expect(validateInteractivePayload({ ...validButtons, media }).ok).toBe(true);
+    expect(validateInteractivePayload({ ...validButtons, buttons: [{ id: 'a', title: 'Start', action: { type: 'automation', targetId: '11111111-1111-4111-8111-111111111111' } }] }).ok).toBe(true);
+  });
   it('accepts a well-formed buttons payload', () => {
     expect(validateInteractivePayload(validButtons)).toEqual({ ok: true })
   })

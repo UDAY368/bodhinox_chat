@@ -23,11 +23,20 @@
 
 import { INTERACTIVE_LIMITS } from './interactive-limits'
 
+export type InteractiveButtonAction =
+  | { type: 'url'; url: string }
+  | { type: 'automation' | 'flow'; targetId: string }
+
+export type InteractiveMedia =
+  | { type: 'image' | 'video' | 'document'; url: string; filename?: string }
+  | { type: 'location'; latitude: number; longitude: number; name?: string; address?: string }
+
 export interface InteractiveButton {
   /** Stable id echoed back in the webhook when tapped. */
   id: string
   /** Visible label (≤ 20 chars per Meta). */
   title: string
+  action?: InteractiveButtonAction
 }
 
 export interface InteractiveButtonsPayload {
@@ -36,6 +45,7 @@ export interface InteractiveButtonsPayload {
   body: string
   /** Optional plain-text header (≤ 60 chars). */
   header?: string
+  media?: InteractiveMedia
   /** Optional grey footer line (≤ 60 chars). */
   footer?: string
   /** 1–3 buttons. */
@@ -61,6 +71,7 @@ export interface InteractiveListPayload {
   kind: 'list'
   body: string
   header?: string
+  media?: InteractiveMedia
   footer?: string
   /** Label of the tap-to-expand button on the message bubble (≤ 20 chars). */
   button_label: string
@@ -87,6 +98,7 @@ function validateHeaderFooter(
   header: string | undefined,
   footer: string | undefined,
 ): InteractiveValidation {
+  if ((header !== undefined && typeof header !== 'string') || (footer !== undefined && typeof footer !== 'string')) return fail('Header and footer must be text.')
   if (header && header.length > INTERACTIVE_LIMITS.headerTextMaxLength) {
     return fail(
       `Header exceeds the ${INTERACTIVE_LIMITS.headerTextMaxLength}-character limit.`,
@@ -97,6 +109,30 @@ function validateHeaderFooter(
       `Footer exceeds the ${INTERACTIVE_LIMITS.footerMaxLength}-character limit.`,
     )
   }
+  return ok()
+}
+
+export function isInteractiveUrl(value: unknown, media = false): value is string {
+  if (typeof value !== 'string' || !value.trim() || value.length > 4096) return false
+  if (media && value.startsWith('/api/media/object?')) return !/[\x00-\x20\\]/.test(value)
+  try {
+    const url = new URL(value)
+    return ['https:', 'http:'].includes(url.protocol) && !!url.hostname && !url.username && !url.password
+  } catch { return false }
+}
+
+function validateMedia(media: unknown): InteractiveValidation {
+  if (media === undefined) return ok()
+  if (!media || typeof media !== 'object') return fail('Choose valid quick-reply media.')
+  const value = media as Record<string, unknown>
+  if (value.type === 'location') {
+    if (typeof value.latitude !== 'number' || !Number.isFinite(value.latitude) || Math.abs(value.latitude) > 90 ||
+      typeof value.longitude !== 'number' || !Number.isFinite(value.longitude) || Math.abs(value.longitude) > 180) return fail('Enter valid latitude (-90 to 90) and longitude (-180 to 180).')
+    if (['name', 'address'].some(key => value[key] !== undefined && (typeof value[key] !== 'string' || (value[key] as string).length > 1000))) return fail('Location name and address must be text of at most 1,000 characters.')
+    return ok()
+  }
+  if (!['image', 'video', 'document'].includes(String(value.type)) || !isInteractiveUrl(value.url, true)) return fail('Choose an uploaded file or a valid HTTP(S) media URL.')
+  if (value.filename !== undefined && (typeof value.filename !== 'string' || value.filename.length > 255)) return fail('File name must be at most 255 characters.')
   return ok()
 }
 
@@ -127,6 +163,9 @@ export function validateInteractivePayload(
   }
   const hf = validateHeaderFooter(p.header, p.footer)
   if (!hf.ok) return hf
+  const media = validateMedia(p.media)
+  if (!media.ok) return media
+  if (p.kind === 'buttons' && p.media && p.media.type !== 'location' && p.header?.trim()) return fail('Media replaces the text header. Clear the text header or choose Text media.')
 
   if (p.kind === 'buttons') {
     const buttons = (p as InteractiveButtonsPayload).buttons
@@ -139,6 +178,7 @@ export function validateInteractivePayload(
       )
     }
     const seen = new Set<string>()
+    let links = 0
     for (const b of buttons) {
       if (!b || typeof b.id !== 'string' || b.id.trim() === '') {
         return fail('Every button needs an id.')
@@ -147,6 +187,17 @@ export function validateInteractivePayload(
         return fail(`Duplicate button id "${b.id}".`)
       }
       seen.add(b.id)
+      if (b.id.length > 256) return fail('Reply IDs must be at most 256 characters.')
+      if (b.action !== undefined) {
+        const action = b.action
+        if (!action || typeof action !== 'object') return fail('Choose a valid button action.')
+        if (action.type === 'url') {
+          links++
+          if (!isInteractiveUrl(action.url) || action.url.length > 2048) return fail('Enter a valid HTTP(S) link of at most 2,048 characters.')
+        } else if (action.type === 'automation' || action.type === 'flow') {
+          if (typeof action.targetId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(action.targetId)) return fail('Choose an existing automation or flow.')
+        } else return fail('Choose a supported button action.')
+      }
       if (typeof b.title !== 'string' || b.title.trim() === '') {
         return fail('Every button needs a label.')
       }
@@ -156,6 +207,7 @@ export function validateInteractivePayload(
         )
       }
     }
+    if (links && buttons.length !== 1) return fail('WhatsApp link CTAs support one Link button. Use separate quick replies for links and reply/workflow buttons.')
     return ok()
   }
 

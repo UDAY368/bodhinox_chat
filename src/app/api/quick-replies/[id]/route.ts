@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
+import { assertInteractiveTargets } from '@/lib/whatsapp/interactive-actions';
 import { getT } from '@/lib/i18n/translate';
 
 const t = getT('Api');
@@ -52,6 +53,8 @@ export async function PATCH(
       const result = validateInteractivePayload(body.interactive_payload);
       if (!result.ok)
         return NextResponse.json({ error: result.error }, { status: 400 });
+      try { await assertInteractiveTargets(ctx.db, ctx.accountId, body.interactive_payload); }
+      catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Quick reply configuration is unavailable.' }, { status: 400 }); }
       update.interactive_payload = body.interactive_payload;
       update.content_text = null;
     } else {
@@ -75,6 +78,8 @@ export async function PATCH(
         if (!result.ok) {
           return NextResponse.json({ error: result.error }, { status: 400 });
         }
+        try { await assertInteractiveTargets(ctx.db, ctx.accountId, body.interactive_payload); }
+        catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Quick reply configuration is unavailable.' }, { status: 400 }); }
       }
       update.interactive_payload = body.interactive_payload ?? null;
     }

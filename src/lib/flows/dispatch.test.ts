@@ -31,6 +31,8 @@ vi.mock("./admin-client", () => {
     if (table === "flow_runs") return h.state.activeRuns;
     if (table === "flows") return h.state.flows;
     if (table === "flow_nodes") return h.state.nodes;
+    if (table === 'conversations') return [{ id: 'cv-1', account_id: 'acct-1', contact_id: 'ct-1' }];
+    if (table === 'contacts') return [{ id: 'ct-1', account_id: 'acct-1' }];
     return [];
   }
 
@@ -99,7 +101,7 @@ vi.mock("./meta-send", () => ({
   })),
 }));
 
-import { dispatchInboundToFlows, entryTriggerTexts } from "./engine";
+import { dispatchInboundToFlows, entryTriggerTexts, startFlowById } from "./engine";
 import type { ParsedInbound } from "./types";
 
 const KEYWORD_FLOW = {
@@ -152,6 +154,27 @@ function dispatch(message: ParsedInbound) {
 function startedRuns() {
   return h.state.inserted.filter((i) => i.table === "flow_runs");
 }
+
+describe('startFlowById', () => {
+  const input = { accountId: 'acct-1', userId: 'u-1', contactId: 'ct-1', conversationId: 'cv-1', flowId: 'flow-1', message: { kind: 'text' as const, text: 'unmatched', meta_message_id: 'explicit-1' } };
+  it('starts the exact active flow even when its trigger does not match', async () => {
+    h.state.flows = [KEYWORD_FLOW];
+    expect((await startFlowById(input)).outcome).toBe('started');
+    expect(startedRuns()).toHaveLength(1);
+  });
+  it('does not replace or advance an existing active run', async () => {
+    h.state.flows = [KEYWORD_FLOW]; h.state.activeRuns = [{ id: 'other', flow_id: 'another' }];
+    expect(await startFlowById(input)).toEqual({ outcome: 'conflict' });
+    expect(startedRuns()).toHaveLength(0); expect(engineSendText).not.toHaveBeenCalled();
+  });
+  it('refuses inactive and foreign flows', async () => {
+    h.state.flows = [{ ...KEYWORD_FLOW, status: 'draft' }];
+    expect(await startFlowById(input)).toEqual({ outcome: 'unavailable' });
+    h.state.flows = [{ ...KEYWORD_FLOW, account_id: 'foreign' }];
+    expect(await startFlowById(input)).toEqual({ outcome: 'unavailable' });
+    expect(startedRuns()).toHaveLength(0);
+  });
+});
 
 beforeEach(() => {
   // No run in progress — the whole point is the entry-trigger path.

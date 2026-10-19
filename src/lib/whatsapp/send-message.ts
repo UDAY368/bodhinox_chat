@@ -1,4 +1,6 @@
 import { providerMediaUrl } from '@/lib/storage/server';
+import { assertInteractiveTargets, bindInteractiveActions } from './interactive-actions';
+import { createInteractiveDelivery } from './interactive-delivery';
 import { resolveTemplateMediaParams } from './template-media';
 // ============================================================
 // Outbound message send — the core that both the dashboard's
@@ -27,8 +29,6 @@ import {
   sendTextMessage,
   sendTemplateMessage,
   sendMediaMessage,
-  sendInteractiveButtons,
-  sendInteractiveList,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import {
@@ -200,7 +200,7 @@ export async function sendMessageToConversation(
     templateLanguage,
     templateParams,
     templateMessageParams,
-    interactivePayload,
+    interactivePayload: sourceInteractivePayload,
     replyToMessageId,
   } = params;
 
@@ -212,6 +212,7 @@ export async function sendMessageToConversation(
     );
   }
 
+  let interactivePayload = sourceInteractivePayload;
   validateSendMessageParams({
     messageType,
     contentText,
@@ -272,6 +273,15 @@ export async function sendMessageToConversation(
   }
 
   const accessToken = decrypt(config.access_token);
+
+  if (messageType === 'interactive') {
+    try {
+      await assertInteractiveTargets(db, accountId, interactivePayload!);
+      interactivePayload = bindInteractiveActions(interactivePayload!);
+    } catch (error) {
+      throw new SendMessageError('bad_request', error instanceof Error ? error.message : 'Invalid interactive action', 400);
+    }
+  }
 
   // Self-heal legacy CBC ciphertexts. Fire-and-forget; idempotent.
   if (isLegacyFormat(config.access_token)) {
@@ -344,6 +354,11 @@ export async function sendMessageToConversation(
   const pause = await db.from('conversations').update({ bot_paused: true, updated_at: new Date().toISOString() }).eq('id', conversationId).eq('account_id', accountId);
   if (pause.error) throw new SendMessageError('internal', 'Could not pause bot replies before sending', 503);
 
+  const interactiveDelivery = messageType === 'interactive' ? createInteractiveDelivery({
+    db, accountId, conversationId, senderType: 'agent', phoneNumberId: config.phone_number_id,
+    accessToken, payload: interactivePayload!, contextMessageId, replyToMessageId: replyToMessageId || undefined,
+  }) : null;
+
   const attempt = async (phone: string): Promise<string> => {
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
@@ -373,32 +388,7 @@ export async function sendMessageToConversation(
       return result.messageId;
     }
     if (messageType === 'interactive') {
-      const p = interactivePayload!;
-      if (p.kind === 'buttons') {
-        const result = await sendInteractiveButtons({
-          phoneNumberId: config.phone_number_id,
-          accessToken,
-          to: phone,
-          bodyText: p.body,
-          headerText: p.header || undefined,
-          footerText: p.footer || undefined,
-          buttons: p.buttons,
-          contextMessageId,
-        });
-        return result.messageId;
-      }
-      const result = await sendInteractiveList({
-        phoneNumberId: config.phone_number_id,
-        accessToken,
-        to: phone,
-        bodyText: p.body,
-        buttonLabel: p.button_label,
-        headerText: p.header || undefined,
-        footerText: p.footer || undefined,
-        sections: p.sections,
-        contextMessageId,
-      });
-      return result.messageId;
+      return interactiveDelivery!.send(phone);
     }
     const result = await sendTextMessage({
       phoneNumberId: config.phone_number_id,

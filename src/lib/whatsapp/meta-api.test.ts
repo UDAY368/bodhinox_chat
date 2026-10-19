@@ -3,6 +3,7 @@ import {
   INTERACTIVE_LIMITS,
   sendInteractiveButtons,
   sendInteractiveList,
+  sendLocationMessage,
 } from "./meta-api";
 
 // All assertions in this file run BEFORE the network call. We stub fetch
@@ -20,6 +21,38 @@ const BASE_ARGS = {
   to: "1234567890",
   bodyText: "Body text",
 } as const;
+
+describe('enriched interactive wire payloads', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it.each(['image', 'video', 'document'] as const)('sends a native %s header and strips internal workflow actions', async (type) => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({ messages: [{ id: 'wamid.media' }] })));
+    vi.stubGlobal('fetch', fetch);
+    await sendInteractiveButtons({ ...BASE_ARGS, media: { type, url: 'https://cdn.test/asset', ...(type === 'document' ? { filename: 'guide.pdf' } : {}) }, buttons: [{ id: 'qr_123', title: 'Continue', action: { type: 'flow', targetId: 'flow-1' } }] });
+    const wire = JSON.parse(fetch.mock.calls[0]![1]!.body as string);
+    expect(wire.interactive.header).toEqual({ type, [type]: { link: 'https://cdn.test/asset', ...(type === 'document' ? { filename: 'guide.pdf' } : {}) } });
+    expect(wire.interactive.action.buttons).toEqual([{ type: 'reply', reply: { id: 'qr_123', title: 'Continue' } }]);
+  });
+  it('sends a native CTA URL action with media, body, footer and reply context', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({ messages: [{ id: 'wamid.url' }] })));
+    vi.stubGlobal('fetch', fetch);
+    await sendInteractiveButtons({ ...BASE_ARGS, media: { type: 'image', url: 'https://cdn.test/image.jpg' }, footerText: 'Footer', contextMessageId: 'parent', buttons: [{ id: 'url-1', title: 'Open site', action: { type: 'url', url: 'https://example.com' } }] });
+    const wire = JSON.parse(fetch.mock.calls[0]![1]!.body as string);
+    expect(wire.interactive).toEqual({ type: 'cta_url', header: { type: 'image', image: { link: 'https://cdn.test/image.jpg' } }, body: { text: BASE_ARGS.bodyText }, footer: { text: 'Footer' }, action: { name: 'cta_url', parameters: { display_text: 'Open site', url: 'https://example.com' } } });
+    expect(wire.context).toEqual({ message_id: 'parent' });
+  });
+  it('rejects mixed URL and reply buttons before fetch', async () => {
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    await expect(sendInteractiveButtons({ ...BASE_ARGS, buttons: [{ id: 'a', title: 'Site', action: { type: 'url', url: 'https://example.com' } }, { id: 'b', title: 'Continue' }] })).rejects.toThrow(/URL/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it('sends standalone location coordinates and metadata without the internal media discriminator', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({ messages: [{ id: 'location' }] })));
+    vi.stubGlobal('fetch', fetch);
+    await sendLocationMessage({ phoneNumberId: 'phone', accessToken: 'token', to: '1234', location: { type: 'location', latitude: 19.1, longitude: 72.2, name: 'Office', address: 'Mumbai' } });
+    expect(JSON.parse(fetch.mock.calls[0][1]!.body as string)).toMatchObject({ type: 'location', location: { latitude: 19.1, longitude: 72.2, name: 'Office', address: 'Mumbai' } });
+    expect(JSON.parse(fetch.mock.calls[0][1]!.body as string).location).not.toHaveProperty('type');
+  });
+});
 
 describe("sendInteractiveButtons — validation", () => {
   beforeEach(() => {

@@ -5,6 +5,7 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account';
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
+import { assertInteractiveTargets } from '@/lib/whatsapp/interactive-actions';
 import { getT } from '@/lib/i18n/translate';
 
 const t = getT('Api');
@@ -62,6 +63,8 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
+    try { await assertInteractiveTargets(ctx.db, ctx.accountId, body.interactive_payload); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Quick reply configuration is unavailable.' }, { status: 400 }); }
     interactive_payload = body.interactive_payload;
   } else {
     const text = typeof body.content_text === 'string' ? body.content_text : '';

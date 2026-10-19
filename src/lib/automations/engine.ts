@@ -62,6 +62,27 @@ export interface DispatchInput {
   context?: AutomationContext
 }
 
+/** Explicit persisted CTA: run this active definition, independent of its entry trigger. */
+export async function runAutomationById(input: {
+  accountId: string; automationId: string; contactId: string;
+  context: AutomationContext & { conversation_id: string };
+}): Promise<{ outcome: 'started' | 'unavailable' }> {
+  const db = databaseAdmin();
+  const contact = await db.from('contacts').select('id').eq('account_id', input.accountId).eq('id', input.contactId).maybeSingle();
+  if (contact.error) throw new Error('Explicit automation contact lookup failed');
+  const conversation = await db.from('conversations').select('id').eq('account_id', input.accountId)
+    .eq('id', input.context.conversation_id).eq('contact_id', input.contactId).maybeSingle();
+  if (conversation.error) throw new Error('Explicit automation conversation lookup failed');
+  if (!contact.data || !conversation.data) return { outcome: 'unavailable' };
+  const target = await db.from('automations').select('*').eq('account_id', input.accountId)
+    .eq('id', input.automationId).eq('is_active', true).maybeSingle();
+  if (target.error) throw new Error('Explicit automation target lookup failed');
+  const automation = target.data as Automation | null;
+  if (!automation || automation.account_id !== input.accountId || !automation.is_active) return { outcome: 'unavailable' };
+  const started = await executeAutomation(automation, { ...input, triggerType: automation.trigger_type });
+  return { outcome: started ? 'started' : 'unavailable' };
+}
+
 /**
  * Fire all active automations matching the given trigger for an
  * account.
@@ -376,10 +397,10 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
 
   if (logErr || !log) {
     console.error('[automations] cannot create log:', logErr)
-    return
+    return false
   }
 
-  await executeStepsFrom({
+  const outcome = await executeStepsFrom({
     automation,
     contactId: input.contactId ?? null,
     context: input.context ?? {},
@@ -400,6 +421,7 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
   if (rpcErr) {
     console.error('[automations] increment counter failed:', rpcErr)
   }
+  return outcome !== 'failed'
 }
 
 interface ExecuteArgs {

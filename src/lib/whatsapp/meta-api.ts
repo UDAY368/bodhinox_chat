@@ -1,5 +1,6 @@
 import { leaseFetch as fetch } from '@/lib/jobs/lease'
 import { INTERACTIVE_LIMITS } from './interactive-limits'
+import type { InteractiveButtonAction, InteractiveMedia } from './interactive'
 export { INTERACTIVE_LIMITS } from './interactive-limits'
 /**
  * Meta WhatsApp Cloud API helpers.
@@ -396,6 +397,35 @@ export async function sendTextMessage(
 }
 
 export type MediaKind = 'image' | 'video' | 'document' | 'audio'
+
+/** Location is a separate message; Meta does not support location interactive headers. */
+export async function sendLocationMessage(args: {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  location: Extract<InteractiveMedia, { type: 'location' }>
+  contextMessageId?: string
+}): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, location, contextMessageId } = args
+  if (!Number.isFinite(location.latitude) || location.latitude < -90 || location.latitude > 90 ||
+      !Number.isFinite(location.longitude) || location.longitude < -180 || location.longitude > 180) {
+    throw new Error('Invalid location coordinates')
+  }
+  const response = await fetch(`${META_API_BASE}/${phoneNumberId}/messages`, {
+    signal: AbortSignal.timeout(15_000),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp', ...recipientFields(to), type: 'location',
+      location: { latitude: location.latitude, longitude: location.longitude,
+        ...(location.name ? { name: location.name } : {}), ...(location.address ? { address: location.address } : {}) },
+      ...(contextMessageId ? { context: { message_id: contextMessageId } } : {}),
+    }),
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
 
 export interface SendMediaMessageArgs {
   phoneNumberId: string
@@ -914,6 +944,7 @@ export interface InteractiveButton {
   id: string
   /** Visible label (≤ 20 chars per Meta). */
   title: string
+  action?: InteractiveButtonAction
 }
 
 export interface SendInteractiveButtonsArgs {
@@ -924,6 +955,7 @@ export interface SendInteractiveButtonsArgs {
   bodyText: string
   /** Optional plain-text header (≤ 60 chars). */
   headerText?: string
+  media?: Exclude<InteractiveMedia, { type: 'location' }>
   /** Optional grey footer line under the buttons (≤ 60 chars). */
   footerText?: string
   /** 1–3 buttons. Validated against Meta's limits before sending. */
@@ -945,10 +977,21 @@ export async function sendInteractiveButtons(
 ): Promise<MetaSendResult> {
   const {
     phoneNumberId, accessToken, to,
-    bodyText, headerText, footerText, buttons, contextMessageId,
+    bodyText, headerText, footerText, buttons, contextMessageId, media,
   } = args
   validateInteractiveBody(bodyText)
   validateInteractiveHeaderFooter(headerText, footerText)
+  if (media && headerText?.trim()) throw new Error('Media headers cannot include text headers')
+  const urlButtons = buttons.filter(b => b.action?.type === 'url')
+  if (urlButtons.length && (buttons.length !== 1 || urlButtons.length !== 1)) {
+    throw new Error('A URL button must be sent alone')
+  }
+  const urlAction = urlButtons[0]?.action
+  if (urlAction?.type === 'url') {
+    let parsed: URL
+    try { parsed = new URL(urlAction.url) } catch { throw new Error('Invalid button URL') }
+    if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('Invalid button URL')
+  }
   if (buttons.length < 1 || buttons.length > INTERACTIVE_LIMITS.maxButtons) {
     throw new Error(
       ti('buttonCount', { max: INTERACTIVE_LIMITS.maxButtons, got: buttons.length })
@@ -982,7 +1025,15 @@ export async function sendInteractiveButtons(
       })),
     },
   }
+  if (urlAction?.type === 'url') {
+    interactive.type = 'cta_url'
+    interactive.action = { name: 'cta_url', parameters: { display_text: buttons[0].title, url: urlAction.url } }
+  }
   if (headerText) interactive.header = { type: 'text', text: headerText }
+  if (media) interactive.header = {
+    type: media.type,
+    [media.type]: { link: media.url, ...(media.type === 'document' && media.filename ? { filename: media.filename } : {}) },
+  }
   if (footerText) interactive.footer = { text: footerText }
 
   const body: Record<string, unknown> = {

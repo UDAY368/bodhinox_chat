@@ -19,6 +19,9 @@ import { GET as streamEvents } from '@/app/api/events/route';
 import type { TenantContext } from '@/lib/data/types';
 import { createScopedClient } from '@/lib/data/server';
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
+import { bindInteractiveActions, assertInteractiveTargets } from '@/lib/whatsapp/interactive-actions';
+import { processInboundActions } from '@/lib/whatsapp/inbound-actions';
+import type { InteractiveButtonsPayload } from '@/lib/whatsapp/interactive';
 import {
   insertSteps,
   loadStepsTree,
@@ -140,6 +143,38 @@ describe.skipIf(!database || !authDatabase)(
         expect((await client(a)('quick_replies').select('id').eq('id', id)).data).toEqual([]);
       }
     }, 30000);
+    it('routes a saved quick reply tap through the durable worker to its selected automation once', async () => {
+      if (process.env.TEST_WORKER_DATABASE_URL) process.env.WORKER_DATABASE_URL = process.env.TEST_WORKER_DATABASE_URL;
+      const identity = await getWorkerPrisma().$queryRawUnsafe<{ name: string; role: string }[]>('SELECT current_database() AS name,current_user AS role');
+      if (!/test/i.test(identity[0].name) || identity[0].role !== 'bodhinox_worker') throw new Error('Requires isolated worker database');
+      const contact = await client(a)('contacts').insert({ phone: '240027' }).select('id').single();
+      expect(contact.error).toBeNull();
+      const conversation = await client(a)('conversations').insert({ contact_id: contact.data!.id, bot_paused: true }).select('id').single();
+      expect(conversation.error).toBeNull();
+      const tag = await client(a)('tags').insert({ name: `CTA ${randomUUID()}` }).select('id').single();
+      expect(tag.error).toBeNull();
+      const automation = await client(a)('automations').insert({ name: 'Selected CTA', trigger_type: 'keyword_match', trigger_config: { keywords: ['not-the-button-title'] }, is_active: true }).select('id').single();
+      expect(automation.error).toBeNull();
+      expect((await client(a)('automation_steps').insert({ automation_id: automation.data!.id, step_type: 'add_tag', step_config: { tag_id: tag.data!.id }, position: 0 })).error).toBeNull();
+      const payload: InteractiveButtonsPayload = { kind: 'buttons', body: 'Choose', media: { type: 'image', url: 'https://example.invalid/image.png' }, buttons: [{ id: 'start', title: 'Start', action: { type: 'automation', targetId: automation.data!.id } }] };
+      await expect(assertInteractiveTargets(createScopedClient(a), accountA, payload)).resolves.toBeUndefined();
+      const saved = await client(a)('quick_replies').insert({ title: 'Workflow and media', kind: 'interactive', interactive_payload: payload }).select('*').single();
+      expect(saved.error).toBeNull();
+      expect(saved.data!.interactive_payload).toEqual(payload);
+      const bound = bindInteractiveActions(saved.data!.interactive_payload) as InteractiveButtonsPayload;
+      const outbound = await client(a)('messages').insert({ conversation_id: conversation.data!.id, sender_type: 'agent', content_type: 'interactive', content_text: bound.body, interactive_payload: bound, message_id: `wamid.${randomUUID()}` }).select('id').single();
+      expect(outbound.error).toBeNull();
+      const metaMessageId = `wamid.${randomUUID()}`;
+      const inbound = await client(a)('messages').insert({ conversation_id: conversation.data!.id, sender_type: 'customer', content_type: 'interactive', content_text: 'Start', interactive_reply_id: bound.buttons[0].id, reply_to_message_id: outbound.data!.id, message_id: metaMessageId }).select('id').single();
+      expect(inbound.error).toBeNull();
+      const input = { kind: 'message' as const, accountId: accountA, userId: userA, contactId: contact.data!.id, conversationId: conversation.data!.id, messageId: inbound.data!.id, metaMessageId, contentType: 'interactive', contentText: 'Start', interactiveReplyId: bound.buttons[0].id, wasContactCreated: false, wasConversationCreated: false, isFirstInboundMessage: false };
+      await processInboundActions(input);
+      await processInboundActions(input);
+      const assigned = await client(a)('contact_tags').select('tag_id').eq('contact_id', contact.data!.id).eq('tag_id', tag.data!.id);
+      expect(assigned.data).toEqual([{ tag_id: tag.data!.id }]);
+      const result = await client(a)('automations').select('execution_count').eq('id', automation.data!.id).single();
+      expect(result.data!.execution_count).toBe(1);
+    }, 60000);
     it('executes the browser presence heartbeat and persists its status without deserializing void', async () => {
       const result = await executeRpc(
         'touch_presence',

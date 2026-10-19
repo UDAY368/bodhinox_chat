@@ -164,6 +164,19 @@ describe('SendMessageError', () => {
 
 const sendTemplateMessage = vi.fn(async () => ({ messageId: 'wamid.1' }));
 
+vi.mock('@/lib/storage/server', () => ({ providerMediaUrl: vi.fn(async (_account: string, url: string) => `signed:${url}`) }));
+
+describe('sendMessageToConversation — enriched interactive persistence', () => {
+  it('preserves URL action and original media in history while sending a signed native header', async () => {
+    const captured: CapturedWrites = {};
+    const payload = { kind: 'buttons' as const, body: 'Visit', media: { type: 'image' as const, url: 'https://cdn.test/image.jpg' }, buttons: [{ id: 'link', title: 'Website', action: { type: 'url' as const, url: 'https://example.com' } }] };
+    await sendMessageToConversation(sendPathDb([], captured), 'acct-1', { conversationId: 'cv-1', messageType: 'interactive', interactivePayload: payload });
+    const { sendInteractiveButtons } = await import('./meta-api');
+    expect(sendInteractiveButtons).toHaveBeenLastCalledWith(expect.objectContaining({ media: { type: 'image', url: 'signed:https://cdn.test/image.jpg' }, buttons: payload.buttons }));
+    expect(captured.message?.interactive_payload).toEqual(payload);
+  });
+});
+
 // Stub only the senders — the module also exports INTERACTIVE_LIMITS,
 // which `interactive.ts` needs for the payload validation covered above.
 vi.mock('@/lib/whatsapp/meta-api', async (importOriginal) => ({

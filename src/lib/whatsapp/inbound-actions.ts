@@ -4,6 +4,7 @@ import { resumeAwaitingReply, runAutomationsForTrigger } from "@/lib/automations
 import { dispatchInboundToFlows } from "@/lib/flows/engine";
 import { dispatchInboundToAiReply } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
+import { dispatchQuickReplyAction } from "./quick-reply-actions";
 import { runInboundStage, type InboundActionsPayload } from "./ingest";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -45,7 +46,8 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       if(reply.error) throw new Error("Broadcast reply update failed");
     }
     const text=input.contentText??"";
-    const flow=await stage("flow",()=>dispatchInboundToFlows({
+    const explicit=await stage("quick_reply_action",()=>dispatchQuickReplyAction(db,input));
+    const flow=explicit.handled ? {consumed:true} : await stage("flow",()=>dispatchInboundToFlows({
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
       message:input.interactiveReplyId ? {kind:"interactive_reply",reply_id:input.interactiveReplyId,reply_title:text,meta_message_id:input.metaMessageId}
         : {kind:"text",text,meta_message_id:input.metaMessageId},
@@ -60,8 +62,8 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       triggers.push("new_message_received","keyword_match");
       if(input.interactiveReplyId) triggers.push("interactive_reply");
     }
-    if(input.wasContactCreated) triggers.unshift("new_contact_created");
-    if(input.isFirstInboundMessage) triggers.unshift("first_inbound_message");
+    if(!explicit.handled&&input.wasContactCreated) triggers.unshift("new_contact_created");
+    if(!explicit.handled&&input.isFirstInboundMessage) triggers.unshift("first_inbound_message");
     for(const triggerType of triggers) await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
       accountId:input.accountId,triggerType,contactId:input.contactId,
       context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},

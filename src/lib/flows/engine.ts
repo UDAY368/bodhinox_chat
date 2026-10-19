@@ -923,6 +923,33 @@ async function advanceCurrentNodeKey(
 // Public entry point — the webhook calls this on every inbound.
 // ============================================================
 
+/** Start only the selected active flow; never hijack an existing contact run. */
+export async function startFlowById(input: DispatchInboundInput & { flowId: string }): Promise<{ outcome: 'started' | 'unavailable' | 'conflict' }> {
+  const db = databaseAdmin();
+  const contact = await db.from('contacts').select('id').eq('account_id', input.accountId).eq('id', input.contactId).maybeSingle();
+  const conversation = await db.from('conversations').select('id').eq('account_id', input.accountId)
+    .eq('id', input.conversationId).eq('contact_id', input.contactId).maybeSingle();
+  if (contact.error || conversation.error) throw new Error('Explicit flow ownership lookup failed');
+  if (!contact.data || !conversation.data || await botRepliesPaused(input.accountId, input.conversationId)) return { outcome: 'unavailable' };
+  const target = await db.from('flows').select('*').eq('account_id', input.accountId).eq('id', input.flowId).eq('status', 'active').maybeSingle();
+  if (target.error) throw new Error('Explicit flow target lookup failed');
+  const flow = target.data as FlowRow | null;
+  if (!flow || flow.id !== input.flowId || flow.account_id !== input.accountId || flow.status !== 'active' || !flow.entry_node_id) return { outcome: 'unavailable' };
+  const existing = await db.from('flow_runs').select('id').eq('account_id', input.accountId).eq('contact_id', input.contactId).eq('status', 'active').limit(1);
+  if (existing.error) throw new Error('Explicit flow active run lookup failed');
+  if (existing.data?.length) return { outcome: 'conflict' };
+  const nodes = await loadAllNodes(db, flow.id);
+  if (!nodes.has(flow.entry_node_id)) return { outcome: 'unavailable' };
+  const result = await startNewRun(db, flow, input, nodes);
+  if (result.outcome === 'duplicate_inbound_ignored') return { outcome: 'conflict' };
+  if (result.flow_run_id) {
+    const run = await db.from('flow_runs').select('status').eq('account_id', input.accountId).eq('id', result.flow_run_id).maybeSingle();
+    if (run.error) throw new Error('Explicit flow run outcome lookup failed');
+    if (!run.data || run.data.status === 'failed') return { outcome: 'unavailable' };
+  }
+  return { outcome: result.consumed && result.outcome !== 'no_match' ? 'started' : 'unavailable' };
+}
+
 export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {

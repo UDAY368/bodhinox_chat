@@ -55,10 +55,18 @@ function LocalizedInteractivePreview({
   return (
     <InteractivePreview
       payload={payload}
+      showPrelude={false}
       labels={{
         body: t("previewBody"),
         button: t("previewButton"),
         menu: t("previewMenu"),
+        link: t("openLink"),
+        automation: t("existingAutomation"),
+        flow: t("existingFlow"),
+        location: t("mediaLocation"),
+        file: t("mediaFile"),
+        image: t("mediaImage"),
+        video: t("mediaVideo"),
       }}
     />
   );

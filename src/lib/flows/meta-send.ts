@@ -1,15 +1,15 @@
 import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause'
 import { providerMediaUrl } from '@/lib/storage/server'
 import {
-  sendInteractiveButtons,
-  sendInteractiveList,
   sendMediaMessage,
   sendTextMessage,
   type InteractiveButton,
   type InteractiveListSection,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api'
-import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
+import { validateInteractivePayload, type InteractiveMedia, type InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
+import { assertInteractiveTargets, bindInteractiveActions } from '@/lib/whatsapp/interactive-actions'
+import { createInteractiveDelivery } from '@/lib/whatsapp/interactive-delivery'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import {
   phoneVariants,
@@ -317,6 +317,7 @@ interface SendInteractiveButtonsEngineArgs {
   buttons: InteractiveButton[]
   headerText?: string
   footerText?: string
+  media?: InteractiveMedia
 }
 
 interface SendInteractiveListEngineArgs {
@@ -329,6 +330,7 @@ interface SendInteractiveListEngineArgs {
   sections: InteractiveListSection[]
   headerText?: string
   footerText?: string
+  media?: InteractiveMedia
 }
 
 /**
@@ -367,6 +369,11 @@ async function sendInteractiveViaMeta(
 ): Promise<{ whatsapp_message_id: string }> {
   await assertBotRepliesEnabled(input.accountId, input.conversationId)
   const db = databaseAdmin()
+  const sourcePayload: InteractiveMessagePayload = input.kind === 'buttons'
+    ? { kind: 'buttons', body: input.bodyText, header: input.headerText, footer: input.footerText, buttons: input.buttons, ...(input.media ? { media: input.media } : {}) }
+    : { kind: 'list', body: input.bodyText, header: input.headerText, footer: input.footerText, button_label: input.buttonLabel, sections: input.sections, ...(input.media ? { media: input.media } : {}) }
+  const validation = validateInteractivePayload(sourcePayload)
+  if (!validation.ok) throw new Error(validation.error)
 
   // Scope the contact + whatsapp_config lookups by account_id —
   // same defense-in-depth rationale as automations/meta-send.ts.
@@ -395,37 +402,18 @@ async function sendInteractiveViaMeta(
   }
   const sanitized = sendTarget.target
 
+  await assertInteractiveTargets(db, input.accountId, sourcePayload)
+  const interactivePayload = bindInteractiveActions(sourcePayload)
+
   const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
     db,
     input.accountId,
   )
 
-  const attempt = async (phone: string): Promise<string> => {
-    await assertBotRepliesEnabled(input.accountId, input.conversationId)
-    if (input.kind === 'buttons') {
-      const r = await sendInteractiveButtons({
-        phoneNumberId,
-        accessToken,
-        to: phone,
-        bodyText: input.bodyText,
-        buttons: input.buttons,
-        headerText: input.headerText,
-        footerText: input.footerText,
-      })
-      return r.messageId
-    }
-    const r = await sendInteractiveList({
-      phoneNumberId,
-      accessToken,
-      to: phone,
-      bodyText: input.bodyText,
-      buttonLabel: input.buttonLabel,
-      sections: input.sections,
-      headerText: input.headerText,
-      footerText: input.footerText,
-    })
-    return r.messageId
-  }
+  const delivery = createInteractiveDelivery({ db, accountId: input.accountId,
+    conversationId: input.conversationId, senderType: 'bot', phoneNumberId, accessToken,
+    payload: interactivePayload, beforeSend: () => assertBotRepliesEnabled(input.accountId, input.conversationId) })
+  const attempt = (phone: string) => delivery.send(phone)
 
   // Same phone-variant retry as automations/meta-send.ts. Numbers
   // registered with/without a trunk 0 + Meta's sandbox quirks all
@@ -463,24 +451,6 @@ async function sendInteractiveViaMeta(
   // when their reply arrives. We DO persist the structured payload so
   // the inbox thread re-renders the buttons/rows the bot sent (round-
   // trip), matching the composer + automation send paths.
-  const interactivePayload: InteractiveMessagePayload =
-    input.kind === 'buttons'
-      ? {
-          kind: 'buttons',
-          body: input.bodyText,
-          header: input.headerText,
-          footer: input.footerText,
-          buttons: input.buttons,
-        }
-      : {
-          kind: 'list',
-          body: input.bodyText,
-          header: input.headerText,
-          footer: input.footerText,
-          button_label: input.buttonLabel,
-          sections: input.sections,
-        }
-
   const { error: msgErr } = await db.from('messages').insert({
     conversation_id: input.conversationId,
     sender_type: 'bot',

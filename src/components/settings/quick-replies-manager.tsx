@@ -23,6 +23,7 @@ import {
 } from "@/components/interactive/interactive-builder";
 import {
   interactivePayloadPreviewText,
+  validateInteractivePayload,
   type InteractiveMessagePayload,
 } from "@/lib/whatsapp/interactive";
 import type { QuickReply, QuickReplyKind } from "@/types";
@@ -82,6 +83,10 @@ export function QuickRepliesManager() {
     if (!draft.title.trim()) {
       toast.error(t("nameRequired"));
       return;
+    }
+    if (draft.kind === 'interactive') {
+      const valid = validateInteractivePayload(draft.interactive_payload);
+      if (!valid.ok) { toast.error(valid.error); return; }
     }
     const payload =
       draft.kind === "interactive"
@@ -232,7 +237,7 @@ export function QuickRepliesManager() {
             <Button variant="outline" onClick={() => setDraft(null)} disabled={saving}>
               {t("cancel")}
             </Button>
-            <Button onClick={save} disabled={saving}>
+            <Button onClick={save} disabled={saving || !draft?.title.trim() || (draft.kind === 'interactive' ? !validateInteractivePayload(draft.interactive_payload).ok : !draft.content_text.trim())}>
               {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               {t("save")}
             </Button>

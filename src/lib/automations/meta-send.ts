@@ -97,6 +97,7 @@ export async function engineSendInteractive(
       headerText: payload.header,
       footerText: payload.footer,
       buttons: payload.buttons,
+      ...(payload.media ? { media: payload.media } : {}),
     })
   }
   return engineSendInteractiveList({
@@ -106,6 +107,7 @@ export async function engineSendInteractive(
     headerText: payload.header,
     footerText: payload.footer,
     sections: payload.sections,
+    ...(payload.media ? { media: payload.media } : {}),
   })
 }
 
