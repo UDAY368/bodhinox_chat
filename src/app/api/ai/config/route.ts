@@ -156,6 +156,10 @@ export async function POST(request: Request) {
         return bad(err instanceof AiError ? err.message : t('ai.baseUrlInvalid'))
       }
       baseUrl = candidate
+      if (!rawKey && existing?.provider === 'openai_compatible' &&
+        normalizeOpenAiCompatibleBaseUrl(candidate) !== normalizeOpenAiCompatibleBaseUrl(existing.base_url ?? '')) {
+        return NextResponse.json({ error: 'Re-enter the API key when changing the provider endpoint.', code: 'reenter_key' }, { status: 400 })
+      }
     }
     if (provider === 'gemini') {
       apiKeyPlain = geminiApiKey()

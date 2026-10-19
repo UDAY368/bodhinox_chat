@@ -29,6 +29,7 @@ import { SettingsPanelHead } from './settings-panel-head';
 import { AiKnowledgeCard } from './ai-knowledge';
 import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
+import { isOpenRouterBaseUrl, OPENROUTER_BASE_URL, OPENROUTER_FREE_MODEL, type OpenRouterModel } from '@/lib/ai/openrouter';
 import type { AccountMember } from '@/types';
 import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
 import { useTranslations } from 'next-intl';
@@ -67,6 +68,11 @@ export function AiConfig() {
   const [savedProvider, setSavedProvider] = useState<AiProvider | null>(null);
   const [model, setModel] = useState(AI_PROVIDER_DEFAULT_MODEL.openai);
   const [baseUrl, setBaseUrl] = useState('');
+  const [savedBaseUrl, setSavedBaseUrl] = useState('');
+  const [freeModels, setFreeModels] = useState<OpenRouterModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [catalogAvailable, setCatalogAvailable] = useState(true);
+  const openRouter = provider === 'openai_compatible' && isOpenRouterBaseUrl(baseUrl);
   const [apiKey, setApiKey] = useState('');
   const [keyEdited, setKeyEdited] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -103,6 +109,7 @@ export function AiConfig() {
         setSavedProvider(data.provider);
         setModel(data.model);
         setBaseUrl(data.base_url ?? '');
+        setSavedBaseUrl(data.base_url ?? '');
         setSystemPrompt(data.system_prompt ?? '');
         setIsActive(data.is_active);
         setAutoReplyEnabled(data.auto_reply_enabled);
@@ -141,6 +148,35 @@ export function AiConfig() {
     const keyAvailable = next === savedProvider && hasStoredKey;
     setApiKey(keyAvailable && next !== 'gemini' ? MASKED_KEY : '');
     setKeyEdited(false);
+  };
+
+  useEffect(() => {
+    if (!openRouter || !canEdit) return;
+    let cancelled = false;
+    setModelsLoading(true);
+    setFreeModels([]);
+    void authFetch('/api/ai/openrouter-models').then(async (response) => {
+      const data = await response.json();
+      if (cancelled) return;
+      setFreeModels(response.ok && Array.isArray(data.models) ? data.models : []);
+      setCatalogAvailable(response.ok && data.available === true);
+    }).catch(() => {
+      if (!cancelled) setCatalogAvailable(false);
+    }).finally(() => { if (!cancelled) setModelsLoading(false); });
+    return () => { cancelled = true; };
+  }, [openRouter, canEdit, accountId]);
+
+  const selectProvider = (next: string) => {
+    if (next === 'openrouter') {
+      handleProviderChange('openai_compatible');
+      setBaseUrl(OPENROUTER_BASE_URL);
+      setModel(OPENROUTER_FREE_MODEL);
+      setApiKey(savedProvider === 'openai_compatible' && isOpenRouterBaseUrl(savedBaseUrl) && hasStoredKey ? MASKED_KEY : '');
+    } else {
+      handleProviderChange(next as AiProvider);
+      if (next === 'openai_compatible') setBaseUrl('');
+    }
+    setShowKey(false);
   };
 
   const keyPayload = () => (provider !== 'gemini' && keyEdited ? apiKey.trim() : undefined);
@@ -194,7 +230,8 @@ export function AiConfig() {
       toast.error(t('missingBaseUrl'));
       return;
     }
-    if (provider !== 'gemini' && !keyEdited && (provider !== savedProvider || !hasStoredKey)) {
+    if (provider !== 'gemini' && !keyEdited && (provider !== savedProvider || !hasStoredKey ||
+      (provider === 'openai_compatible' && baseUrl.trim().replace(/\/+$/, '') !== savedBaseUrl.trim().replace(/\/+$/, '')))) {
       toast.error(t('missingApiKey'));
       return;
     }
@@ -283,14 +320,14 @@ export function AiConfig() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t('provider')}</Label>
+                <Label htmlFor="ai-provider">{t('provider')}</Label>
                 <Select
-                  value={provider}
-                  onValueChange={(v) => handleProviderChange(v as AiProvider)}
+                  value={openRouter ? 'openrouter' : provider}
+                  onValueChange={(v) => { if (v) selectProvider(v); }}
                   disabled={disabled}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger id="ai-provider">
+                    <SelectValue>{openRouter ? 'OpenRouter — free models' : provider === 'openai_compatible' ? t('providerOpenAiCompatible') : PROVIDER_LABEL[provider]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="openai">{PROVIDER_LABEL.openai}</SelectItem>
@@ -298,6 +335,7 @@ export function AiConfig() {
                       {PROVIDER_LABEL.anthropic}
                     </SelectItem>
                     <SelectItem value="gemini">{PROVIDER_LABEL.gemini}</SelectItem>
+                    <SelectItem value="openrouter">OpenRouter — free models</SelectItem>
                     <SelectItem value="openai_compatible">
                       {t('providerOpenAiCompatible')}
                     </SelectItem>
@@ -314,6 +352,18 @@ export function AiConfig() {
                   placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
                   disabled={disabled}
                 />
+                {openRouter && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-free-model">{t('freeModels')}</Label>
+                    <select id="ai-free-model" value={model} onChange={(e) => setModel(e.target.value)} disabled={disabled || modelsLoading}
+                      className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm">
+                      <option value={OPENROUTER_FREE_MODEL}>{t('automaticFreeModel')}</option>
+                      {model !== OPENROUTER_FREE_MODEL && !freeModels.some(item => item.id === model) && <option value={model}>{model}</option>}
+                      {freeModels.filter(item => item.id !== OPENROUTER_FREE_MODEL).map(item => <option key={item.id} value={item.id}>{item.name} ({item.id})</option>)}
+                    </select>
+                    <p className="text-xs text-muted-foreground">{modelsLoading ? t('loadingFreeModels') : !catalogAvailable ? t('freeModelsUnavailable') : t('openRouterHint')}</p>
+                  </div>
+                )}
               </div>
 
               {provider === 'openai_compatible' && (

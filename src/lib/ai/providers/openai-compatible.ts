@@ -9,6 +9,7 @@ import {
 } from './shared'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { getT } from '@/lib/i18n/translate'
+import { isOpenRouterBaseUrl } from '../openrouter'
 
 const t = getT('LibErrors')
 
@@ -131,7 +132,24 @@ export async function generateOpenAiCompatible(
     throw toNetworkError(err)
   }
 
-  if (!res.ok) throw await providerHttpError('OpenAI-compatible provider', res)
+  if (!res.ok) {
+    if (isOpenRouterBaseUrl(baseUrl)) {
+      // Do not echo upstream response bodies: they may contain submitted credentials.
+      const errors: Record<number, [string, string, number]> = {
+        400: ['invalid_request', 'OpenRouter rejected this request. Check the model and account data-policy settings.', 400],
+        401: ['invalid_key', 'OpenRouter rejected the API key. Enter a valid OpenRouter key.', 401],
+        402: ['quota_exceeded', 'OpenRouter credit or key quota is exhausted. Check the key limits and account balance, even when using a free model.', 402],
+        403: ['access_denied', 'OpenRouter access was denied. Check key permissions, budgets, and account policies.', 403],
+        404: ['unsupported_model', 'OpenRouter has no available endpoint for this model. Choose another free model or check its data-policy requirements.', 400],
+        429: ['rate_limited', 'OpenRouter free-model rate or daily limit reached. Wait before retrying or choose another available free model.', 429],
+        502: ['provider_unavailable', 'OpenRouter model is temporarily unavailable. Try again later or choose another free model.', 502],
+        503: ['provider_unavailable', 'OpenRouter model is temporarily unavailable. Try again later or choose another free model.', 503],
+      }
+      const [code, message, status] = errors[res.status] ?? ['provider_error', `OpenRouter request failed (HTTP ${res.status}).`, 502]
+      throw new AiError(message, { code, status })
+    }
+    throw await providerHttpError('OpenAI-compatible provider', res)
+  }
 
   const data = (await res.json().catch(() => null)) as OpenAiCompatibleResponse | null
   const text = data?.choices?.[0]?.message?.content

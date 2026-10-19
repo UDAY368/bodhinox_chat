@@ -22,6 +22,7 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/ai/validate', () => ({ validateAiCredentials: mocks.validateAiCredentials }))
 
 import { GET, POST } from './route'
+import { encrypt } from '@/lib/whatsapp/encryption'
 
 beforeEach(() => {
   const db = {
@@ -81,4 +82,21 @@ describe('Gemini settings', () => {
     expect(body.api_key).toBeUndefined()
     expect(JSON.stringify(body)).not.toContain('server-only-test-key')
   })
+})
+
+it('requires a fresh key when changing a compatible provider endpoint', async () => {
+  mocks.existing = { id: 'config-1', provider: 'openai_compatible', model: 'old-model', base_url: 'https://example.com/v1', api_key: encrypt('stored-other-provider-key') }
+  const response = await POST(new Request('https://crm.test/api/ai/config', { method: 'POST', body: JSON.stringify({ provider: 'openai_compatible', model: 'openrouter/free', base_url: 'https://openrouter.ai/api/v1' }) }))
+  expect(response.status).toBe(400)
+  expect((await response.json()).code).toBe('reenter_key')
+  expect(mocks.validateAiCredentials).not.toHaveBeenCalled()
+})
+
+it('encrypts an OpenRouter key without exposing it in settings responses', async () => {
+  const response = await POST(new Request('https://crm.test/api/ai/config', { method: 'POST', body: JSON.stringify({ provider: 'openai_compatible', model: 'openrouter/free', base_url: 'https://openrouter.ai/api/v1', api_key: 'test-openrouter-key' }) }))
+  expect(response.status).toBe(200)
+  expect(mocks.stored?.api_key).toBeTruthy()
+  expect(JSON.stringify(mocks.stored)).not.toContain('test-openrouter-key')
+  mocks.existing = mocks.stored
+  expect(JSON.stringify(await (await GET()).json())).not.toContain('test-openrouter-key')
 })

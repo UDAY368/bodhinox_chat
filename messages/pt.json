@@ -1991,6 +1991,11 @@
       "removeSuccess": "Configuração de IA removida.",
       "removeFailed": "Falha ao remover.",
       "providerOpenAiCompatible": "API compatível com OpenAI",
+      "freeModels": "Modelos gratuitos",
+      "automaticFreeModel": "Modelo gratuito automático (OpenRouter)",
+      "loadingFreeModels": "Carregando modelos gratuitos…",
+      "freeModelsUnavailable": "A lista está indisponível. Use openrouter/free ou insira um modelo :free atual acima.",
+      "openRouterHint": "Estas opções usam modelos gratuitos. IDs manuais podem ter um preço. Modelos gratuitos têm limites e podem ficar indisponíveis. A chave é criptografada nas configurações, nunca no código-fonte.",
       "baseUrl": "URL base",
       "baseUrlHint": "URL base da API compatível com OpenAI, por exemplo https://api.groq.com/openai/v1. O caminho /chat/completions é adicionado automaticamente, a menos que você informe esse caminho.",
       "missingBaseUrl": "Informe a URL base da API compatível com OpenAI."
