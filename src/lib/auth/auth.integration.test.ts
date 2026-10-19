@@ -48,7 +48,7 @@ const connectionString = process.env.TEST_AUTH_DATABASE_URL;
 const userId = randomUUID(),
   accountId = randomUUID(),
   email = `${userId}@example.invalid`;
-const password = 'a-long-test-password-42';
+const password = 'A-long-test-password-42';
 const additionalUsers: string[] = [];
 const additionalAccounts: string[] = [];
 function request(accessToken?: string, csrfToken?: string): Request {
@@ -157,6 +157,22 @@ describe.skipIf(!connectionString)(
       const context = await requireSession(request(issued.accessToken));
       expect(context.role).toBe('owner');
     }, 30000);
+    it('retries a failed invitation signup email without changing credentials or losing the invitation', async () => {
+      const newEmail = `${randomUUID()}@example.invalid`;
+      const next = `/join/${randomToken()}`;
+      const validPassword = 'Abcdef1!';
+      mail.send.mockRejectedValueOnce(new Error('Test delivery failure'));
+      await expect(signup({ email: newEmail, password: validPassword, fullName: 'Invited test member', next })).rejects.toThrow();
+      const identities = await getAuthPrisma().$queryRaw<{ id: string }[]>`SELECT id FROM auth_users WHERE email=${newEmail}`;
+      additionalUsers.push(identities[0].id);
+      await signup({ email: newEmail, password: 'Different1!', fullName: 'Retry', next });
+      const delivered = mail.send.mock.calls.at(-1)?.[0] as { text: string };
+      const link = new URL(delivered.text.split(': ')[1].split('\n')[0]);
+      expect(link.searchParams.get('next')).toBe(next);
+      await verifyEmailToken(link.searchParams.get('token')!);
+      await expect(login({ email: newEmail, password: validPassword })).resolves.toHaveProperty('accessToken');
+      await expect(login({ email: newEmail, password: 'Different1!' })).rejects.toMatchObject({ code: 'unauthorized' });
+    }, 30000);
     it('resolves membership roles live and immediately rejects logout-issued JWTs', async () => {
       const issued = await login({ email, password });
       const context = await requireSession(request(issued.accessToken));
@@ -233,7 +249,7 @@ describe.skipIf(!connectionString)(
         second = await login({ email, password });
       await updatePassword(
         await requireSession(request(first.accessToken)),
-        'changed-test-password-42',
+        'Changed-test-password-42',
         password
       );
       expect(await resolveSession(request(first.accessToken))).toBeNull();
@@ -243,7 +259,7 @@ describe.skipIf(!connectionString)(
         .$executeRaw`INSERT INTO auth_verifications(id,user_id,purpose,token_hash,expires_at) VALUES(${randomUUID()}::uuid,${userId}::uuid,'reset',${hashToken(token)},${new Date(Date.now() + 60000)})`;
       await resetPassword(token, password);
       await expect(
-        resetPassword(token, 'another-test-password-42')
+        resetPassword(token, 'Another-test-password-42')
       ).rejects.toThrow();
       const rows = await getAuthPrisma().$queryRaw<
         { password_hash: string }[]
@@ -369,7 +385,7 @@ describe.skipIf(!connectionString)(
       const context = await requireSession(request(issued.accessToken));
       await requestEmailChange(context, newEmail, password);
       const token = emailedChangeToken(newEmail);
-      await updatePassword(context, 'changed-test-password-42', password);
+      await updatePassword(context, 'Changed-test-password-42', password);
       await expect(confirmEmailChange(token)).rejects.toThrow();
       const users = await getAuthPrisma().$queryRaw<
         { email: string }[]

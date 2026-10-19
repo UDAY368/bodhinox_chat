@@ -1,14 +1,13 @@
 import { hash, verify, argon2id } from 'argon2';
 import { AuthError } from './errors';
+import { meetsPasswordRequirements, PASSWORD_REQUIREMENTS } from './password-policy';
 
 export function validatePassword(password: string): void {
   if (
-    typeof password !== 'string' ||
-    password.length < 12 ||
-    Buffer.byteLength(password, 'utf8') > 1024
+    !meetsPasswordRequirements(password)
   )
     throw new AuthError(
-      'Use a password of at least 12 characters',
+      PASSWORD_REQUIREMENTS,
       400,
       'weak_password'
     );

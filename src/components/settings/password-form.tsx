@@ -8,6 +8,9 @@ import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
+import { PasswordRequirements } from '@/components/auth/password-requirements';
+import { MIN_PASSWORD_LENGTH, meetsPasswordRequirements } from '@/lib/auth/password-policy';
 import { Label } from '@/components/ui/label';
 import {
   Card,
@@ -19,7 +22,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 
-const MIN_PASSWORD = 12;
+const MIN_PASSWORD = MIN_PASSWORD_LENGTH;
 
 export function PasswordForm() {
   const t = useTranslations('Settings.profile');
@@ -40,7 +43,7 @@ export function PasswordForm() {
       toast.error(t('cannotChangeNoEmail'));
       return;
     }
-    if (next.length < MIN_PASSWORD) {
+    if (!meetsPasswordRequirements(next)) {
       setConfirmError(t('passwordTooShort', { min: MIN_PASSWORD }));
       return;
     }
@@ -93,9 +96,9 @@ export function PasswordForm() {
             <Label htmlFor="current-password" className="text-foreground">
               {t('currentPassword')}
             </Label>
-            <Input
+            <PasswordInput
               id="current-password"
-              type="password"
+
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
               autoComplete="current-password"
@@ -113,9 +116,10 @@ export function PasswordForm() {
               <Label htmlFor="new-password" className="text-foreground">
                 {t('newPassword')}
               </Label>
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
+                aria-describedby="password-requirements"
+
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
                 autoComplete="new-password"
@@ -128,9 +132,9 @@ export function PasswordForm() {
               <Label htmlFor="confirm-password" className="text-foreground">
                 {t('confirmPassword')}
               </Label>
-              <Input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
+
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
@@ -140,6 +144,8 @@ export function PasswordForm() {
               />
             </div>
           </div>
+
+          <PasswordRequirements id="password-requirements" />
 
           {confirmError && (
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import { AuthError, UnauthorizedError } from './errors';
+import { checkAuthEmailTransport } from './email';
 import {
   appOrigin,
   assertCsrf,
@@ -133,6 +134,12 @@ export async function handleAuthGet(
   action: string
 ): Promise<NextResponse> {
   try {
+    if (action === 'email-status') {
+      const context = await requireSession(request);
+      if (context.role !== 'owner') throw new AuthError('Owner access required', 403, 'forbidden');
+      await enforceAuthRateLimit('email-status', context.userId, 5, 900);
+      return json(await checkAuthEmailTransport());
+    }
     if (action === 'csrf') {
       const response = json({ ok: true });
       // Keep the session CSRF cookie stable: replacing it here would desynchronize its database hash.

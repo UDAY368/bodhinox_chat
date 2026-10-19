@@ -22,6 +22,9 @@ import { createClient } from '@/lib/data/client';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
+import { PasswordRequirements } from '@/components/auth/password-requirements';
+import { MIN_PASSWORD_LENGTH, meetsPasswordRequirements } from '@/lib/auth/password-policy';
 import { Label } from '@/components/ui/label';
 import {
   Card,
@@ -71,7 +74,7 @@ export default function ResetPasswordPage() {
       return;
     }
     // Same floor as /signup.
-    if (password.length < 12) {
+    if (!meetsPasswordRequirements(password)) {
       setError(t('passwordTooShort'));
       return;
     }
@@ -197,9 +200,11 @@ export default function ResetPasswordPage() {
               <Label htmlFor="password" className="text-muted-foreground">
                 {t('passwordLabel')}
               </Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
+                minLength={MIN_PASSWORD_LENGTH}
+                aria-describedby="password-requirements"
+
                 autoComplete="new-password"
                 placeholder={t('passwordPlaceholder')}
                 value={password}
@@ -216,9 +221,9 @@ export default function ResetPasswordPage() {
               >
                 {t('confirmPasswordLabel')}
               </Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
+
                 autoComplete="new-password"
                 placeholder={t('confirmPasswordPlaceholder')}
                 value={confirmPassword}
@@ -239,6 +244,8 @@ export default function ResetPasswordPage() {
                 onChange={(e) => setMfaCode(e.target.value)}
               />
             </div>
+            <PasswordRequirements id="password-requirements" />
+
             <Button
               type="submit"
               disabled={saving}

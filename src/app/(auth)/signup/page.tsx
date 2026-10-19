@@ -7,6 +7,9 @@ import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/data/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
+import { PasswordRequirements } from '@/components/auth/password-requirements';
+import { MIN_PASSWORD_LENGTH, meetsPasswordRequirements } from '@/lib/auth/password-policy';
 import { Label } from '@/components/ui/label';
 import {
   Card,
@@ -55,7 +58,7 @@ function SignupPageInner() {
       return;
     }
 
-    if (password.length < 12) {
+    if (!meetsPasswordRequirements(password)) {
       setError(t('passwordTooShort'));
       return;
     }
@@ -199,9 +202,12 @@ function SignupPageInner() {
               <Label htmlFor="password" className="text-muted-foreground">
                 {t('passwordLabel')}
               </Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
+                autoComplete="new-password"
+                minLength={MIN_PASSWORD_LENGTH}
+                aria-describedby="password-requirements"
+
                 placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -217,9 +223,10 @@ function SignupPageInner() {
               >
                 {t('confirmPasswordLabel')}
               </Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
+                autoComplete="new-password"
+
                 placeholder={t('confirmPasswordPlaceholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -227,6 +234,8 @@ function SignupPageInner() {
                 className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
+
+            <PasswordRequirements id="password-requirements" />
 
             <Button
               type="submit"

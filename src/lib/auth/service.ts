@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import nodemailer from 'nodemailer';
+import { authEmailTransport as emailTransport } from './email';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import {
   appOrigin,
@@ -58,15 +58,6 @@ export async function enforceAuthRateLimit(
       'rate_limited'
     );
 }
-function emailTransport() {
-  if (!process.env.SMTP_URL || !process.env.AUTH_EMAIL_FROM)
-    throw new AuthError(
-      'Authentication email delivery is not configured',
-      503,
-      'email_unavailable'
-    );
-  return nodemailer.createTransport(process.env.SMTP_URL);
-}
 async function sendVerification(
   email: string,
   token: string,
@@ -121,7 +112,12 @@ export async function signup(input: {
     const inserted = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO auth_users(id,email,full_name,password_hash) VALUES(${userId}::uuid,${email},${fullName},${passwordHash})
       ON CONFLICT(email) DO NOTHING RETURNING id`;
-    if (!inserted[0]) return null;
+    // A failed delivery must not strand a pending signup. Reissue proof without
+    // changing the original password or exposing whether a verified account exists.
+    if (!inserted[0]) {
+      const pending = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM auth_users WHERE email=${email} AND email_verified_at IS NULL AND disabled_at IS NULL`;
+      return pending[0] ?? null;
+    }
     await tx.$executeRaw`SELECT set_config('app.user_id',${userId},true),set_config('app.account_id',${accountId},true),set_config('app.account_role','owner',true)`;
     await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${accountId}::uuid,${`${fullName}'s workspace`},${userId}::uuid)`;
     await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${userId}::uuid,'owner')`;
@@ -149,7 +145,7 @@ export async function login(input: {
     Identity[]
   >`SELECT * FROM auth_users WHERE email=${email}`;
   const user = users[0];
-  dummyPasswordHash ??= hashPassword(randomToken());
+  dummyPasswordHash ??= hashPassword(`Aa1!${randomToken()}`);
   const valid = await verifyPassword(
     user?.password_hash ?? (await dummyPasswordHash),
     input.password

@@ -1,4 +1,9 @@
 {
+  "PasswordInput": {
+    "show": "Mostrar contraseña",
+    "hide": "Ocultar contraseña",
+    "requirements": "Al menos 8 caracteres, con una letra mayúscula, un número y un carácter especial."
+  },
   "LoginPage": {
     "titleAccept": "Inicia sesión para aceptar",
     "titleWelcome": "Bienvenido de nuevo",
@@ -1830,7 +1835,7 @@
       "updating": "Actualizando…",
       "updatePassword": "Actualizar contraseña",
       "cannotChangeNoEmail": "No se puede cambiar la contraseña sin un correo actual",
-      "passwordTooShort": "La contraseña debe tener al menos {min} caracteres",
+      "passwordTooShort": "Al menos {min} caracteres, con una letra mayúscula, un número y un carácter especial.",
       "passwordMismatch": "La nueva contraseña y la confirmación no coinciden",
       "currentPasswordIncorrect": "La contraseña actual es incorrecta",
       "passwordUpdateFailed": "Error al actualizar la contraseña: {message}",
@@ -2037,7 +2042,7 @@
   },
   "SignupPage": {
     "passwordsMismatch": "Las contraseñas no coinciden",
-    "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
+    "passwordTooShort": "Al menos 8 caracteres, con una letra mayúscula, un número y un carácter especial.",
     "checkEmailTitle": "Revisa tu correo",
     "checkEmailDesc": "Enviamos un enlace de confirmación a <strong>{email}</strong>. Revisa tu bandeja de entrada y haz clic en el enlace para verificar tu cuenta.",
     "backToSignIn": "Volver a iniciar sesión",
@@ -2050,7 +2055,7 @@
     "emailLabel": "Correo electrónico",
     "emailPlaceholder": "you@example.com",
     "passwordLabel": "Contraseña",
-    "passwordPlaceholder": "Al menos 6 caracteres",
+    "passwordPlaceholder": "Al menos 8 caracteres, con una letra mayúscula, un número y un carácter especial.",
     "confirmPasswordLabel": "Confirmar contraseña",
     "confirmPasswordPlaceholder": "Repite tu contraseña",
     "creating": "Creando cuenta...",
@@ -2073,13 +2078,13 @@
     "title": "Elige una nueva contraseña",
     "desc": "Ingresa una nueva contraseña para tu cuenta.",
     "passwordLabel": "Nueva contraseña",
-    "passwordPlaceholder": "Al menos 6 caracteres",
+    "passwordPlaceholder": "Al menos 8 caracteres, con una letra mayúscula, un número y un carácter especial.",
     "confirmPasswordLabel": "Confirmar nueva contraseña",
     "confirmPasswordPlaceholder": "Repite la nueva contraseña",
     "submit": "Actualizar contraseña",
     "saving": "Actualizando...",
     "passwordsMismatch": "Las contraseñas no coinciden",
-    "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
+    "passwordTooShort": "Al menos 8 caracteres, con una letra mayúscula, un número y un carácter especial.",
     "checking": "Comprobando tu enlace...",
     "expiredTitle": "Este enlace ya no es válido",
     "expiredDesc": "Los enlaces para restablecer la contraseña funcionan una sola vez y expiran pronto. Pide uno nuevo y ábrelo en el mismo navegador desde el que lo solicitaste.",

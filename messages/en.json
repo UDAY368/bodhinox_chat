@@ -1,4 +1,9 @@
 {
+  "PasswordInput": {
+    "show": "Show password",
+    "hide": "Hide password",
+    "requirements": "At least 8 characters, including one uppercase letter, one number, and one special character."
+  },
   "LoginPage": {
     "titleAccept": "Sign in to accept",
     "titleWelcome": "Welcome back",
@@ -1830,7 +1835,7 @@
       "updating": "Updating…",
       "updatePassword": "Update password",
       "cannotChangeNoEmail": "Cannot change password without a current email",
-      "passwordTooShort": "Password must be at least {min} characters",
+      "passwordTooShort": "At least {min} characters, including one uppercase letter, one number, and one special character.",
       "passwordMismatch": "New password and confirmation do not match",
       "currentPasswordIncorrect": "Current password is incorrect",
       "passwordUpdateFailed": "Password update failed: {message}",
@@ -2037,7 +2042,7 @@
   },
   "SignupPage": {
     "passwordsMismatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordTooShort": "At least 8 characters, including one uppercase letter, one number, and one special character.",
     "checkEmailTitle": "Check your email",
     "checkEmailDesc": "We've sent a confirmation link to <strong>{email}</strong>. Please check your inbox and click the link to verify your account.",
     "backToSignIn": "Back to sign in",
@@ -2050,7 +2055,7 @@
     "emailLabel": "Email",
     "emailPlaceholder": "you@example.com",
     "passwordLabel": "Password",
-    "passwordPlaceholder": "At least 6 characters",
+    "passwordPlaceholder": "At least 8 characters, including one uppercase letter, one number, and one special character.",
     "confirmPasswordLabel": "Confirm password",
     "confirmPasswordPlaceholder": "Repeat your password",
     "creating": "Creating account...",
@@ -2073,13 +2078,13 @@
     "title": "Choose a new password",
     "desc": "Enter a new password for your account.",
     "passwordLabel": "New password",
-    "passwordPlaceholder": "At least 6 characters",
+    "passwordPlaceholder": "At least 8 characters, including one uppercase letter, one number, and one special character.",
     "confirmPasswordLabel": "Confirm new password",
     "confirmPasswordPlaceholder": "Repeat your new password",
     "submit": "Update password",
     "saving": "Updating...",
     "passwordsMismatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordTooShort": "At least 8 characters, including one uppercase letter, one number, and one special character.",
     "checking": "Checking your link...",
     "expiredTitle": "This link is no longer valid",
     "expiredDesc": "Password reset links work once and expire after a short while. Request a new one and open it in the same browser you requested it from.",

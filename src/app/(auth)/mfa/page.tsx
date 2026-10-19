@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -99,9 +100,9 @@ export default function MfaPage() {
           {!secret && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="currentPassword">Current password</Label>
-              <Input
+              <PasswordInput
                 id="currentPassword"
-                type="password"
+
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

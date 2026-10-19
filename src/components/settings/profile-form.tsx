@@ -8,6 +8,7 @@ import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -316,9 +317,9 @@ export function ProfileForm() {
                   <Label htmlFor="email-current-password">
                     Current password
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="email-current-password"
-                    type="password"
+
                     autoComplete="current-password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}

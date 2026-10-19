@@ -1,4 +1,9 @@
 {
+  "PasswordInput": {
+    "show": "비밀번호 표시",
+    "hide": "비밀번호 숨기기",
+    "requirements": "8자 이상이며 대문자, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다."
+  },
   "LoginPage": {
     "titleAccept": "로그인하여 수락하기",
     "titleWelcome": "다시 오신 것을 환영합니다",
@@ -1830,7 +1835,7 @@
       "updating": "업데이트 중…",
       "updatePassword": "비밀번호 업데이트",
       "cannotChangeNoEmail": "현재 이메일 없이는 비밀번호를 변경할 수 없습니다",
-      "passwordTooShort": "비밀번호는 최소 {min}자 이상이어야 합니다",
+      "passwordTooShort": "{min}자 이상이며 대문자, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다.",
       "passwordMismatch": "새 비밀번호와 확인이 일치하지 않습니다",
       "currentPasswordIncorrect": "현재 비밀번호가 올바르지 않습니다",
       "passwordUpdateFailed": "비밀번호 업데이트 실패: {message}",
@@ -2037,7 +2042,7 @@
   },
   "SignupPage": {
     "passwordsMismatch": "비밀번호가 일치하지 않습니다",
-    "passwordTooShort": "비밀번호는 6자 이상이어야 합니다",
+    "passwordTooShort": "8자 이상이며 대문자, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다.",
     "checkEmailTitle": "이메일을 확인하세요",
     "checkEmailDesc": "<strong>{email}</strong>로 확인 링크를 보냈습니다. 받은 편지함에서 링크를 클릭해 계정을 인증하세요.",
     "backToSignIn": "로그인으로 돌아가기",
@@ -2050,7 +2055,7 @@
     "emailLabel": "이메일",
     "emailPlaceholder": "you@example.com",
     "passwordLabel": "비밀번호",
-    "passwordPlaceholder": "6자 이상",
+    "passwordPlaceholder": "8자 이상이며 대문자, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다.",
     "confirmPasswordLabel": "비밀번호 확인",
     "confirmPasswordPlaceholder": "비밀번호를 다시 입력하세요",
     "creating": "계정 만드는 중...",
@@ -2073,13 +2078,13 @@
     "title": "새 비밀번호 설정",
     "desc": "계정의 새 비밀번호를 입력하세요.",
     "passwordLabel": "새 비밀번호",
-    "passwordPlaceholder": "6자 이상",
+    "passwordPlaceholder": "8자 이상이며 대문자, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다.",
     "confirmPasswordLabel": "새 비밀번호 확인",
     "confirmPasswordPlaceholder": "새 비밀번호를 다시 입력하세요",
     "submit": "비밀번호 변경",
     "saving": "변경 중...",
     "passwordsMismatch": "비밀번호가 일치하지 않습니다",
-    "passwordTooShort": "비밀번호는 6자 이상이어야 합니다",
+    "passwordTooShort": "8자 이상이며 대문자, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다.",
     "checking": "링크를 확인하는 중...",
     "expiredTitle": "이 링크는 더 이상 유효하지 않습니다",
     "expiredDesc": "비밀번호 재설정 링크는 한 번만 사용할 수 있으며 잠시 후 만료됩니다. 새 링크를 요청한 뒤 요청한 브라우저에서 열어 주세요.",
