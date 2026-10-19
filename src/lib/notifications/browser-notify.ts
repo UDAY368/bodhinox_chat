@@ -203,6 +203,24 @@ export function getNotificationPermission(): BrowserNotifyPermission {
   return window.Notification.permission;
 }
 
+/** Embedded browsers can leave the native permission promise pending indefinitely. */
+export async function requestBrowserNotificationPermission(
+  timeoutMs = 15_000,
+): Promise<BrowserNotifyPermission | "timeout"> {
+  if (getNotificationPermission() === "unsupported" ||
+      typeof window.Notification.requestPermission !== "function") return "unsupported";
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+  });
+  try {
+    // Invoke immediately in the user's click handler to retain browser activation.
+    return await Promise.race([window.Notification.requestPermission(), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Device-scoped opt-in. Defaults to off; a bad/absent value reads as off. */
 export function readBrowserNotifyPref(): boolean {
   if (typeof window === "undefined") return false;

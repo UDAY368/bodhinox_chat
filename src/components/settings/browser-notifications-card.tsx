@@ -18,6 +18,7 @@ import { useBrowserNotifyPref } from '@/hooks/use-browser-notifications';
 import {
   BROWSER_NOTIFY_CHANGE_EVENT,
   getNotificationPermission,
+  requestBrowserNotificationPermission,
   writeBrowserNotifyPref,
   type BrowserNotifyPermission,
 } from '@/lib/notifications/browser-notify';
@@ -54,11 +55,13 @@ export function BrowserNotificationsCard({ className }: { className?: string }) 
     serverPermission,
   );
   const [requesting, setRequesting] = useState(false);
+  const [requestIncomplete, setRequestIncomplete] = useState(false);
 
   const supported = permission !== 'unsupported';
   const checked = enabled && permission === 'granted';
 
   const onToggle = async (next: boolean) => {
+    setRequestIncomplete(false);
     if (!next) {
       writeBrowserNotifyPref(false);
       return;
@@ -73,12 +76,18 @@ export function BrowserNotificationsCard({ className }: { className?: string }) 
     }
     setRequesting(true);
     try {
-      const result = await Notification.requestPermission();
+      const result = await requestBrowserNotificationPermission();
       // Also dispatches the change event, which refreshes `permission`.
       writeBrowserNotifyPref(result === 'granted');
       if (result === 'denied') {
         toast.error(t('permissionDeniedToast'), { description: t('deniedHint') });
+      } else if (result !== 'granted') {
+        setRequestIncomplete(true);
+        toast.error(t('requestIncomplete'), { description: t('browserHint') });
       }
+    } catch {
+      setRequestIncomplete(true);
+      toast.error(t('requestIncomplete'), { description: t('browserHint') });
     } finally {
       setRequesting(false);
     }
@@ -92,6 +101,7 @@ export function BrowserNotificationsCard({ className }: { className?: string }) 
         tag: 'wacrm-test-notification',
       });
     } catch {
+      setRequestIncomplete(true);
       toast.error(t('unsupported'));
     }
   };
@@ -141,6 +151,12 @@ export function BrowserNotificationsCard({ className }: { className?: string }) 
             </div>
 
             <p className="text-xs text-muted-foreground">{t(statusKey)}</p>
+
+            {requestIncomplete && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {t('requestIncomplete')} {t('browserHint')}
+              </p>
+            )}
 
             {permission === 'denied' && (
               <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">

@@ -10,10 +10,14 @@ vi.mock('./meta-api', () => ({
 vi.mock('@/lib/webhooks/ssrf', () => ({
   isDeliverableUrl: vi.fn(async () => true),
 }));
+vi.mock('@/lib/storage/server', () => ({
+  providerMediaUrl: vi.fn(async () => 'https://storage.test/signed-header.png'),
+}));
 
 import { ensureMediaHeaderHandle } from './template-header-handle';
 import { uploadResumableMedia } from './meta-api';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
+import { providerMediaUrl } from '@/lib/storage/server';
 import type { TemplatePayload } from './template-validators';
 
 const MB = 1024 * 1024;
@@ -46,6 +50,17 @@ function uploadedAs(): { fileName: string; mimeType: string } {
 }
 
 describe('ensureMediaHeaderHandle', () => {
+  it('resolves an account-owned uploaded sample before fetching it for Meta', async () => {
+    vi.stubEnv('META_APP_ID', 'app-1');
+    const network = vi.fn<typeof fetch>().mockResolvedValue(mediaResponse('image/png'));
+    vi.stubGlobal('fetch', network);
+    const p = payload({ header_media_url: '/api/media/object?bucket=chat-media&key=account-1/header.png' });
+    await ensureMediaHeaderHandle(p, 'tok', 'account-1');
+    expect(providerMediaUrl).toHaveBeenCalledWith('account-1', p.header_media_url);
+    expect(network.mock.calls[0][0]).toBe('https://storage.test/signed-header.png');
+    expect(p.header_media_url).toContain('/api/media/object?');
+    expect(p.header_handle).toBe('HANDLE123');
+  });
   beforeEach(() => {
     vi.mocked(uploadResumableMedia).mockClear();
     vi.mocked(isDeliverableUrl).mockClear();

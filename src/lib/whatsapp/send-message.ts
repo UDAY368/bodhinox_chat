@@ -1,4 +1,5 @@
 import { providerMediaUrl } from '@/lib/storage/server';
+import { resolveTemplateMediaParams } from './template-media';
 // ============================================================
 // Outbound message send — the core that both the dashboard's
 // `/api/whatsapp/send` route and the public `/api/v1/messages`
@@ -352,7 +353,7 @@ export async function sendMessageToConversation(
         templateName: templateName!,
         language: sendLanguage,
         template: templateRow ?? undefined,
-        messageParams: templateMessageParams ?? undefined,
+        messageParams: await resolveTemplateMediaParams(accountId, templateRow, templateMessageParams ?? undefined),
         params: templateParams || [],
         contextMessageId,
       });

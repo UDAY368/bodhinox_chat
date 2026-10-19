@@ -1872,6 +1872,8 @@
       "testTitle": "테스트 알림",
       "testBody": "알림이 정상 작동합니다. 새 고객 메시지가 이렇게 표시됩니다.",
       "permissionDeniedToast": "브라우저가 알림을 차단했습니다",
+      "requestIncomplete": "브라우저에서 알림 권한을 허용하지 않았습니다.",
+      "browserHint": "권한 요청이 표시되지 않으면 Chrome, Edge 또는 Firefox에서 이 사이트를 열고 알림을 허용하세요. 내장 브라우저는 권한 요청을 지원하지 않을 수 있습니다.",
       "labels": {
         "fallbackTitle": "새 메시지",
         "image": "📷 사진",

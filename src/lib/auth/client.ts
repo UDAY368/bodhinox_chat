@@ -118,17 +118,20 @@ export async function authFetch(
   );
   if (target.origin !== window.location.origin)
     throw new Error('Authentication requests require the same origin');
-  const request =
-    input instanceof Request ? input.clone() : new Request(target, init);
-  const method = (init.method ?? request.method).toUpperCase();
+  // Serialize the body once so multipart boundaries remain paired with
+  // their Content-Type, including when authentication requires a retry.
+  const request = new Request(
+    input instanceof Request ? input.clone() : target,
+    init
+  );
+  const method = request.method.toUpperCase();
   const mutating = !['GET', 'HEAD', 'OPTIONS'].includes(method);
   const makeRequest = async () =>
     new Request(request.clone(), {
-      ...init,
       credentials: 'same-origin',
       headers: mutating
-        ? await csrfHeaders(init.headers ?? request.headers)
-        : (init.headers ?? request.headers),
+        ? await csrfHeaders(request.headers)
+        : request.headers,
     });
   const first = await fetch(await makeRequest());
   const preauth = [

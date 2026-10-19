@@ -2,6 +2,7 @@ import { uploadResumableMedia } from '@/lib/whatsapp/meta-api'
 import { MEDIA_HEADER_SPECS, isMediaHeaderKind } from '@/lib/whatsapp/media-header-types'
 import type { TemplatePayload } from '@/lib/whatsapp/template-validators'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
+import { providerMediaUrl } from '@/lib/storage/server'
 import { getT } from '@/lib/i18n/translate'
 
 /**
@@ -28,6 +29,7 @@ const unreachableMessage = () => t('headerUrlUnreachable')
 export async function ensureMediaHeaderHandle(
   payload: TemplatePayload,
   accessToken: string,
+  accountId?: string,
 ): Promise<void> {
   const kind = payload.header_type
   if (!isMediaHeaderKind(kind)) return
@@ -47,7 +49,10 @@ export async function ensureMediaHeaderHandle(
   // link-local / reserved address. Same guard as the two other
   // outbound-fetch call sites (see lib/webhooks/ssrf.ts) — matching the
   // unreachable-host message keeps the failure from being an oracle.
-  if (!(await isDeliverableUrl(payload.header_media_url))) {
+  const mediaUrl = accountId
+    ? await providerMediaUrl(accountId, payload.header_media_url)
+    : payload.header_media_url
+  if (!(await isDeliverableUrl(mediaUrl))) {
     throw new Error(unreachableMessage())
   }
 
@@ -55,7 +60,7 @@ export async function ensureMediaHeaderHandle(
   // a manually-pasted public link).
   let res: Response
   try {
-    res = await fetch(payload.header_media_url, {
+    res = await fetch(mediaUrl, {
       // Do NOT follow redirects — a public URL could 3xx-bounce to an
       // internal address, defeating the guard above. Bound the request so
       // a hung host can't tie up the template-submit handler.

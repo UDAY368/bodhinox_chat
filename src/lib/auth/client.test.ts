@@ -10,6 +10,19 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('browser cookie auth', () => {
+  it('keeps multipart file bytes and their boundary together', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+      const form = await request.formData();
+      const file = form.get('file') as File;
+      expect(await file.text()).toBe('upload-test');
+      expect(form.get('bucket')).toBe('avatars');
+      return Response.json({ ok: true });
+    }));
+    const form = new FormData();
+    form.set('bucket', 'avatars');
+    form.set('file', new File(['upload-test'], 'test.png', { type: 'image/png' }));
+    await expect(authFetch('/api/media/object', { method: 'POST', body: form })).resolves.toHaveProperty('status', 200);
+  });
   it('never attaches credentials or CSRF material to another origin', async () => {
     const network = vi.fn();
     vi.stubGlobal('fetch', network);
@@ -17,6 +30,19 @@ describe('browser cookie auth', () => {
       authFetch('https://evil.test/api', { method: 'POST' })
     ).rejects.toThrow('same origin');
     expect(network).not.toHaveBeenCalled();
+  });
+  it('replays multipart bytes intact after session refresh', async () => {
+    let attempts = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: Request | string) => {
+      if (!(input instanceof Request)) return Response.json({ session: { accountId: 'tenant' } });
+      const file = (await input.formData()).get('file') as File;
+      expect(await file.text()).toBe('retry-upload');
+      return Response.json({}, { status: ++attempts === 1 ? 401 : 200 });
+    }));
+    const form = new FormData();
+    form.set('file', new File(['retry-upload'], 'test.pdf', { type: 'application/pdf' }));
+    expect((await authFetch('/api/media/object', { method: 'POST', body: form })).status).toBe(200);
+    expect(attempts).toBe(2);
   });
   it('injects CSRF on mutations and sends cookie credentials', async () => {
     const network = vi.fn().mockResolvedValue(new Response('{}'));

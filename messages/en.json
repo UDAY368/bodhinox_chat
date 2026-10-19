@@ -1872,6 +1872,8 @@
       "testTitle": "Test notification",
       "testBody": "Notifications are working. New customer messages will show up like this.",
       "permissionDeniedToast": "Your browser blocked notifications",
+      "requestIncomplete": "Your browser did not grant notification permission.",
+      "browserHint": "If no permission prompt appears, open this site in Chrome, Edge, or Firefox and allow notifications. Embedded browsers may not support the prompt.",
       "labels": {
         "fallbackTitle": "New message",
         "image": "📷 Photo",

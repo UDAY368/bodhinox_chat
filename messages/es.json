@@ -1872,6 +1872,8 @@
       "testTitle": "Notificación de prueba",
       "testBody": "Las notificaciones funcionan. Los nuevos mensajes de clientes aparecerán así.",
       "permissionDeniedToast": "Tu navegador bloqueó las notificaciones",
+      "requestIncomplete": "Tu navegador no concedió permiso para las notificaciones.",
+      "browserHint": "Si no aparece la solicitud de permiso, abre este sitio en Chrome, Edge o Firefox y permite las notificaciones. Es posible que los navegadores integrados no admitan esta solicitud.",
       "labels": {
         "fallbackTitle": "Nuevo mensaje",
         "image": "📷 Foto",

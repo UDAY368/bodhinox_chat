@@ -19,6 +19,11 @@ const baseValid: TemplatePayload = {
   body_text: 'Your order is confirmed.',
 };
 
+it('accepts uploaded private media references but rejects arbitrary relative URLs', () => {
+  expect(() => validateHeader({ header_type: 'image', header_media_url: '/api/media/object?bucket=chat-media&key=account-1/header.png' })).not.toThrow();
+  expect(() => validateHeader({ header_type: 'image', header_media_url: '/internal/header.png' })).toThrow();
+});
+
 describe('extractVariableIndices', () => {
   it('returns sorted unique 1-based indices', () => {
     expect(extractVariableIndices('Hi {{2}} and {{1}} {{2}}')).toEqual([1, 2]);

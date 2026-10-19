@@ -160,7 +160,11 @@ export function validateHeader(
   }
   if (header_media_url) {
     try {
-      const u = new URL(header_media_url);
+      // Uploaded samples remain private app references. The server
+      // authorizes their account and signs them immediately before use.
+      const u = header_media_url.startsWith('/api/media/object?')
+        ? new URL(header_media_url, 'https://media.invalid')
+        : new URL(header_media_url);
       if (u.protocol !== 'https:' && u.protocol !== 'http:') {
         throw new Error(t('headerMediaUrlScheme'));
       }

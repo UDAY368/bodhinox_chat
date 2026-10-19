@@ -8,6 +8,7 @@ import {
   buildNotificationContent,
   conversationHref,
   getNotificationPermission,
+  requestBrowserNotificationPermission,
   pickContactDisplayName,
   readBrowserNotifyPref,
   shouldNotifyForMessage,
@@ -274,7 +275,29 @@ describe("conversationHref", () => {
 
 describe("browser-only helpers without a window", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("bounds permission prompts that never resolve in an embedded browser", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { Notification: {
+      permission: "default",
+      requestPermission: () => new Promise(() => {}),
+    } });
+    const result = requestBrowserNotificationPermission(100);
+    await vi.advanceTimersByTimeAsync(100);
+    await expect(result).resolves.toBe("timeout");
+  });
+
+  it("returns the browser permission result and clears its timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { Notification: {
+      permission: "default",
+      requestPermission: vi.fn().mockResolvedValue("granted"),
+    } });
+    await expect(requestBrowserNotificationPermission()).resolves.toBe("granted");
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("report unsupported / off during SSR", () => {
