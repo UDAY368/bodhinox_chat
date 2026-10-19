@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   matchesContactFilters,
   normalizeConversation,
+  loadInboxConversations,
 } from "./conversations";
 import type { Conversation } from "@/types";
+import { buildQuery } from '@/lib/data/builder';
+import type { DataClient } from '@/lib/data/types';
 
 function makeConversation(
   contact: Partial<Conversation["contact"]> | null,
@@ -36,6 +39,17 @@ const tag = (id: string, name = id) => ({
   name,
   color: "#fff",
   created_at: "",
+});
+
+it('loads every conversation beyond the default 1000-row page for Inbox filtering', async () => {
+  const rows = Array.from({ length: 1001 }, (_, i) => ({ ...makeConversation(null), id: `c${i}` }));
+  const db = { from: (name: string) => buildQuery(name, async spec => ({
+    data: rows.slice(spec.offset ?? 0, (spec.offset ?? 0) + (spec.limit ?? 1000)), error: null,
+  })) } as unknown as DataClient;
+  const result = await loadInboxConversations(db);
+  expect(result.error).toBeNull();
+  expect(result.data).toHaveLength(1001);
+  expect(result.data?.at(-1)?.id).toBe('c1000');
 });
 
 describe("matchesContactFilters", () => {

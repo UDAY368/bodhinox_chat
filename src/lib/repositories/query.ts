@@ -179,6 +179,8 @@ class Compiler {
     columnFor(resource, name);
     if (this.browser && !resource.read.includes(name))
       throw new ContractError('Unavailable projection field');
+    if (resource.table === 'conversations' && name === 'last_customer_message_at')
+      return `(SELECT MAX(session_message.created_at) FROM messages session_message WHERE session_message.account_id = ${alias}.account_id AND session_message.conversation_id = ${alias}.id AND session_message.sender_type = 'customer')`;
     if (resource.table === 'profiles' && name === 'account_role')
       return `(SELECT role FROM account_memberships membership WHERE membership.user_id = ${alias}.user_id AND membership.account_id = ${this.parameter(this.context.accountId, { name: 'account_id', type: 'UUID' })})`;
     if (resource.table === 'profiles' && name === 'account_id')

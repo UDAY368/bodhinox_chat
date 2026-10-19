@@ -8,6 +8,7 @@ import {
   CONVERSATION_SELECT,
   normalizeConversation,
 } from '@/lib/inbox/conversations';
+import { latestCustomerMessageAt } from '@/lib/inbox/session';
 import type {
   Conversation,
   Message,
@@ -166,7 +167,8 @@ function InboxPageInner() {
           // realtime payloads never carry.
           return prev.map((c) =>
             c.id === fetched.id
-              ? { ...c, contact: c.contact ?? fetched.contact }
+              ? { ...c, contact: c.contact ?? fetched.contact,
+                  last_customer_message_at: c.last_customer_message_at ?? fetched.last_customer_message_at }
               : c
           );
         }
@@ -252,6 +254,7 @@ function InboxPageInner() {
                     ...c,
                     last_message_text: newMsg.content_text ?? '',
                     last_message_at: newMsg.created_at,
+                    last_customer_message_at: latestCustomerMessageAt(c.last_customer_message_at, newMsg),
                     unread_count:
                       activeConversation?.id === newMsg.conversation_id
                         ? 0

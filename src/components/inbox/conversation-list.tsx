@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/data/client";
 import {
-  CONVERSATION_SELECT,
+  loadInboxConversations,
   matchesContactFilters,
   normalizeConversations,
 } from "@/lib/inbox/conversations";
+import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
+import { useSessionClock } from '@/hooks/use-session-clock';
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
 import { Search, ChevronDown, X } from "lucide-react";
@@ -18,6 +20,8 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,6 +69,14 @@ export function ConversationList({
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("all");
+  const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
+  const now = useSessionClock();
+  const sessionOptions: { value: SessionFilter; label: string }[] = [
+    { value: 'all', label: t('allSessions') },
+    { value: 'active', label: t('sessionActive') },
+    { value: 'expired', label: t('sessionExpired') },
+  ];
+  const sessionLabel = sessionOptions.find(option => option.value === sessionFilter)!.label;
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
@@ -95,10 +107,7 @@ export function ConversationList({
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await db
-        .from("conversations")
-        .select(CONVERSATION_SELECT)
-        .order("last_message_at", { ascending: false });
+      const { data, error } = await loadInboxConversations(db);
 
       if (cancelled) return;
 
@@ -158,7 +167,7 @@ export function ConversationList({
     return m;
   }, [tags]);
 
-  const filtered = useMemo(() => {
+  const baseFiltered = useMemo(() => {
     let result = conversations;
 
     if (filter === "unread") {
@@ -190,6 +199,14 @@ export function ConversationList({
     return result;
   }, [conversations, filter, search, selectedTagIds, selectedCompany]);
 
+  const sessionCounts = useMemo(() => {
+    const active = baseFiltered.filter(c => matchesSessionFilter(c.last_customer_message_at, 'active', now)).length;
+    return { all: baseFiltered.length, active, expired: baseFiltered.length - active };
+  }, [baseFiltered, now]);
+  const filtered = useMemo(() => baseFiltered.filter(c =>
+    matchesSessionFilter(c.last_customer_message_at, sessionFilter, now)
+  ), [baseFiltered, sessionFilter, now]);
+
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
       prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
@@ -199,9 +216,10 @@ export function ConversationList({
   const clearContactFilters = useCallback(() => {
     setSelectedTagIds([]);
     setSelectedCompany(null);
+    setSessionFilter('all');
   }, []);
 
-  const hasContactFilters = selectedTagIds.length > 0 || selectedCompany !== null;
+  const hasContactFilters = selectedTagIds.length > 0 || selectedCompany !== null || sessionFilter !== 'all';
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,6 +368,28 @@ export function ConversationList({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={`${t('session')}: ${sessionLabel}`}
+              className={cn(
+                'inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs hover:bg-muted',
+                sessionFilter === 'all' ? 'text-muted-foreground hover:text-foreground' : 'text-primary'
+              )}
+            >
+              {sessionFilter === 'all' ? t('session') : sessionLabel}
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="border-border bg-popover">
+              <DropdownMenuRadioGroup value={sessionFilter} onValueChange={value => setSessionFilter(value as SessionFilter)}>
+                {sessionOptions.map(option => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-4 text-sm">
+                    {option.label}
+                    <span className="ml-auto text-xs tabular-nums text-muted-foreground">{sessionCounts[option.value]}</span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {hasContactFilters && (
@@ -378,6 +418,11 @@ export function ConversationList({
               >
                 <span className="max-w-24 truncate">{selectedCompany}</span>
                 <X className="h-3 w-3" />
+              </button>
+            )}
+            {sessionFilter !== 'all' && (
+              <button onClick={() => setSessionFilter('all')} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70">
+                {sessionLabel}<X className="h-3 w-3" />
               </button>
             )}
             <button

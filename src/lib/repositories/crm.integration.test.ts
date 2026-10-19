@@ -122,6 +122,25 @@ describe.skipIf(!database || !authDatabase)(
       );
       expect(denied.error?.code).toBe('42501');
     }, 30000);
+    it('computes session timestamps from customer history without exposing another tenant', async () => {
+      const contact = await client(a)('contacts').insert({ phone: '240019' }).select('id').single();
+      expect(contact.error).toBeNull();
+      const conversation = await client(a)('conversations').insert({ contact_id: contact.data!.id }).select('id,last_customer_message_at').single();
+      expect(conversation.error).toBeNull();
+      expect(conversation.data!.last_customer_message_at).toBeNull();
+      const id = conversation.data!.id;
+      const inserted = await client(a)('messages').insert([
+        { conversation_id: id, sender_type: 'customer', content_type: 'text', content_text: 'Older', created_at: '2026-10-17T10:00:00Z' },
+        { conversation_id: id, sender_type: 'customer', content_type: 'text', content_text: 'Latest customer', created_at: '2026-10-18T10:00:00Z' },
+        { conversation_id: id, sender_type: 'bot', content_type: 'text', content_text: 'Business reply', created_at: '2026-10-19T12:00:00Z' },
+      ]);
+      expect(inserted.error).toBeNull();
+      const visible = await client(a, true)('conversations').select('last_customer_message_at').eq('id', id).single();
+      expect(visible.error).toBeNull();
+      expect(Date.parse(visible.data!.last_customer_message_at)).toBe(Date.parse('2026-10-18T10:00:00Z'));
+      const foreign = await client(b, true)('conversations').select('id,last_customer_message_at').eq('id', id).maybeSingle();
+      expect(foreign).toMatchObject({ data: null, error: null });
+    }, 30000);
     it('stamps contact edits on the server and marks only an authorized conversation read', async () => {
       const contact = await client(a)('contacts')
         .insert({ phone: '552211' })

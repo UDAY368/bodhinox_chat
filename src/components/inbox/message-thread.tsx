@@ -30,7 +30,9 @@ import {
   PanelRightOpen,
   PanelRightClose,
 } from 'lucide-react';
-import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
+import { getSessionWindow, latestCustomerMessageAt } from '@/lib/inbox/session';
+import { useSessionClock } from '@/hooks/use-session-clock';
 import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -175,6 +177,7 @@ export function MessageThread({
 }: MessageThreadProps) {
   const t = useTranslations('Inbox.messageThread');
   const tTimer = useTranslations('Inbox.sessionTimer');
+  const sessionNow = useSessionClock();
   const tQuote = useTranslations('Inbox.replyQuote');
 
   const { user, canSendMessages } = useAuth();
@@ -241,34 +244,22 @@ export function MessageThread({
 
   // 24-hour session timer
   const sessionInfo = useMemo(() => {
-    if (!messages.length) return { expired: false, remaining: '' };
-
-    // Find last customer message
-    const lastCustomerMsg = [...messages]
-      .reverse()
-      .find((m) => m.sender_type === 'customer');
-
-    if (!lastCustomerMsg)
-      return { expired: true, remaining: tTimer('noCustomerMessages') };
-
-    const hoursSince = differenceInHours(
-      new Date(),
-      new Date(lastCustomerMsg.created_at)
+    const lastCustomerAt = messages.reduce(
+      (latest, message) => latestCustomerMessageAt(latest, message),
+      conversation?.last_customer_message_at ?? null,
     );
-    const expired = hoursSince >= 24;
-
-    if (expired) {
+    if (!lastCustomerAt)
+      return { expired: true, remaining: tTimer('noCustomerMessages') };
+    const window = getSessionWindow(lastCustomerAt, sessionNow);
+    if (!window.active) {
       return { expired: true, remaining: tTimer('expired') };
     }
-
-    const hoursLeft = 24 - hoursSince;
     const remaining =
-      hoursLeft >= 1
-        ? tTimer('xhRemaining', { hours: Math.floor(hoursLeft) })
-        : tTimer('xmRemaining', { minutes: Math.floor(hoursLeft * 60) });
-
-    return { expired, remaining };
-  }, [messages, tTimer]);
+      window.remainingMs >= 3_600_000
+        ? tTimer('xhRemaining', { hours: Math.ceil(window.remainingMs / 3_600_000) })
+        : tTimer('xmRemaining', { minutes: Math.ceil(window.remainingMs / 60_000) });
+    return { expired: false, remaining };
+  }, [messages, conversation?.last_customer_message_at, sessionNow, tTimer]);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause

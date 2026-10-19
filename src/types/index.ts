@@ -177,6 +177,8 @@ export interface Conversation {
   assigned_agent_id?: string;
   last_message_text?: string;
   last_message_at?: string;
+  /** Computed from customer messages; business replies do not reopen the 24h window. */
+  last_customer_message_at?: string | null;
   unread_count: number;
   created_at: string;
   updated_at: string;

@@ -1,4 +1,6 @@
 import type { Conversation, Contact, Tag } from "@/types";
+import type { DataClient, QueryResult } from '@/lib/data/types';
+import { fetchAllPages } from '@/lib/data/paged-query';
 
 /**
  * Conversation select that embeds the contact plus its tags, so the Inbox
@@ -8,6 +10,20 @@ import type { Conversation, Contact, Tag } from "@/types";
  */
 export const CONVERSATION_SELECT =
   "*, contact:contacts(*, contact_tags(tags(*)))";
+
+export async function loadInboxConversations(db: DataClient): Promise<QueryResult<Conversation[]>> {
+  try {
+    const data = await fetchAllPages<Conversation>((from, to) => db
+      .from('conversations')
+      .select<Conversation>(CONVERSATION_SELECT)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(from, to));
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: { message: error instanceof Error ? error.message : 'Unable to load conversations' } };
+  }
+}
 
 /** Raw shape returned by {@link CONVERSATION_SELECT} before flattening. */
 type RawContact = Contact & { contact_tags?: { tags: Tag | null }[] };

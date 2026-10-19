@@ -9,6 +9,13 @@ const tenant = {
   role: 'agent' as const,
 };
 describe('fixed CRM resource authorization', () => {
+  it('exposes the latest customer timestamp as a tenant-scoped read-only conversation field', () => {
+    const spec = validateQuery('conversations', { projection: 'id,last_customer_message_at' }, tenant, true);
+    const sql = compileSelect(spec, tenant, true);
+    expect(sql.text).toContain("sender_type = 'customer'");
+    expect(sql.text).toContain('session_message.account_id = t.account_id');
+    expect(() => validateWrite('conversations', { last_customer_message_at: '2026-10-19T12:00:00Z' }, tenant, true, 'update')).toThrow(/cannot be changed/);
+  });
   it('requires validated routes for every browser automation and step mutation', () => {
     for (const resource of ['automations', 'automation_steps']) {
       const values =
