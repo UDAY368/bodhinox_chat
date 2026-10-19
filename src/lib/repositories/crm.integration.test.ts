@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { config } from 'dotenv';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { encrypt } from '@/lib/whatsapp/encryption';
 import {
   getAuthPrisma,
   getPrisma,
@@ -195,6 +196,64 @@ describe.skipIf(!database || !authDatabase)(
       const result = await client(a)('automations').select('execution_count').eq('id', automation.data!.id).single();
       expect(result.data!.execution_count).toBe(1);
     }, 60000);
+    it('answers an opted-in menu question once and hands unsupported text to a human without advancing the flow', async () => {
+      if (process.env.TEST_WORKER_DATABASE_URL) process.env.WORKER_DATABASE_URL = process.env.TEST_WORKER_DATABASE_URL;
+      const identity = await getWorkerPrisma().$queryRawUnsafe<{ name: string; role: string }[]>('SELECT current_database() AS name,current_user AS role');
+      if (!/test/i.test(identity[0].name) || identity[0].role !== 'bodhinox_worker') throw new Error('Requires isolated worker database');
+      const db = createScopedClient(a);
+      const contact = await db.from('contacts').insert({ phone: '919000024030' }).select('id').single();
+      expect(contact.error).toBeNull();
+      const conversation = await db.from('conversations').insert({ contact_id: contact.data!.id }).select('id').single();
+      expect(conversation.error).toBeNull();
+      const conversationId = String(conversation.data!.id), contactId = String(contact.data!.id);
+      const settings = await db.from('ai_configs').insert({ provider: 'openai_compatible', model: 'test-model', base_url: 'https://8.8.8.8/v1', api_key: encrypt('test-only-ai-key'), is_active: true, auto_reply_enabled: true, created_by: userA }).select('id').single();
+      expect(settings.error).toBeNull();
+      const wa = await db.from('whatsapp_config').insert({ phone_number_id: '991100024030', access_token: encrypt('test-only-meta-key'), verify_token: 'test-only-verify' }).select('id').single();
+      expect(wa.error).toBeNull();
+      const document = await db.from('ai_knowledge_documents').insert({ title: 'Opening hours', content: 'Opening hours: our team is available from 10 AM to 7 PM.', created_by: userA }).select('id').single();
+      expect(document.error).toBeNull();
+      await ingestDocument(db, accountA, { embeddingsApiKey: null }, String(document.data!.id), 'Opening hours: our team is available from 10 AM to 7 PM.');
+      let answer = 'Our test opening hours are 10 AM to 7 PM.';
+      const providerBodies: Array<{ messages: Array<{ content: string }> }> = [];
+      const network = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+        if (String(url).startsWith('https://8.8.8.8/')) { providerBodies.push(JSON.parse(String(init?.body))); return Response.json({ choices: [{ message: { content: answer } }] }); }
+        if (String(url).startsWith('https://graph.facebook.com/')) return Response.json({ messages: [{ id: `wamid.${randomUUID()}` }] });
+        throw new Error(`Unexpected external request in isolated test: ${new URL(String(url)).origin}`);
+      });
+      try {
+        const flow = await db.from('flows').insert({ name: 'AI menu fallback', trigger_type: 'manual', status: 'active', entry_node_id: 'menu', fallback_policy: { on_unknown_reply: 'ai', max_reprompts: 2, on_timeout_hours: 24, on_exhaust: 'handoff' } }).select('id').single();
+        expect(flow.error).toBeNull();
+        expect((await db.from('flow_nodes').insert({ flow_id: flow.data!.id, node_key: 'menu', node_type: 'send_buttons', config: { body_text: 'Choose a service', buttons: [{ reply_id: 'yes', title: 'Yes', next_node_key: 'done' }] } })).error).toBeNull();
+        const run = await db.from('flow_runs').insert({ flow_id: flow.data!.id, contact_id: contactId, conversation_id: conversationId, current_node_key: 'menu', status: 'active', vars: {}, reprompt_count: 0 }).select('id').single();
+        expect(run.error).toBeNull();
+        expect((await db.from('messages').insert({ conversation_id: conversationId, sender_type: 'bot', content_type: 'interactive', content_text: 'Choose a service', interactive_payload: { kind: 'buttons', body: 'Choose a service', buttons: [{ id: 'yes', title: 'Yes' }] } })).error).toBeNull();
+        const customer = async (contentText: string) => {
+          const metaMessageId = `wamid.${randomUUID()}`;
+          const row = await db.from('messages').insert({ conversation_id: conversationId, sender_type: 'customer', content_type: 'text', content_text: contentText, message_id: metaMessageId }).select('id').single();
+          expect(row.error).toBeNull();
+          return { kind: 'message' as const, accountId: accountA, userId: userA, contactId, conversationId, messageId: String(row.data!.id), metaMessageId, contentType: 'text', contentText, interactiveReplyId: null, wasContactCreated: false, wasConversationCreated: false, isFirstInboundMessage: false };
+        };
+        const inbound = await customer('What are your opening hours?');
+        await processInboundActions(inbound); await processInboundActions(inbound);
+        const sent = await db.from('messages').select('id,content_text').eq('conversation_id', conversationId).eq('ai_generated', true);
+        expect(sent.error).toBeNull(); expect(sent.data).toHaveLength(1); expect(sent.data![0].content_text).toBe(answer);
+        expect(providerBodies).toHaveLength(1);
+        expect(providerBodies[0].messages[0].content).toContain('available from 10 AM to 7 PM');
+        expect(providerBodies[0].messages.some(message => message.content.includes('Choose a service'))).toBe(true);
+        const preserved = await db.from('flow_runs').select('current_node_key,reprompt_count,status').eq('id', run.data!.id).single();
+        expect(preserved.data).toMatchObject({ current_node_key: 'menu', reprompt_count: 0, status: 'active' });
+        answer = '[[HANDOFF]]';
+        await processInboundActions(await customer('Write an unrelated poem about aliens.'));
+        const paused = await db.from('conversations').select('bot_paused,ai_autoreply_disabled,ai_handoff_summary').eq('id', conversationId).single();
+        expect(paused.data).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true });
+        expect(paused.data!.ai_handoff_summary).toBeTruthy();
+        expect((await db.from('messages').select('id').eq('conversation_id', conversationId).eq('ai_generated', true)).data).toHaveLength(1);
+      } finally {
+        network.mockRestore();
+        if (settings.data) expect((await db.from('ai_configs').delete().eq('id', settings.data.id)).error).toBeNull();
+        if (wa.data) expect((await db.from('whatsapp_config').delete().eq('id', wa.data.id)).error).toBeNull();
+      }
+    }, 90000);
     it('executes the browser presence heartbeat and persists its status without deserializing void', async () => {
       const result = await executeRpc(
         'touch_presence',

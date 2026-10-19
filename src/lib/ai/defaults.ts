@@ -70,8 +70,11 @@ export function buildSystemPrompt(args: {
 
   if (mode === 'auto_reply') {
     parts.push(
+      `Stay within this business's customer-support scope. Greetings, thanks, and clarifying business questions are allowed. For unrelated trivia, creative writing, coding, or other requests outside this business, reply with exactly ${HANDOFF_SENTINEL}; do not answer from general knowledge. Answer business facts only when supported by the business context, retrieved knowledge, or this conversation. A short follow-up refers to the current conversation, not a new topic. Never invent a menu choice or claim to have advanced a flow.`,
       `You are replying automatically with no human in the loop. If you cannot confidently and safely help — the customer explicitly asks for a human, is upset or complaining, or the request needs information you do not have — reply with exactly ${HANDOFF_SENTINEL} and nothing else. A human agent will then take over. Prefer handing off over guessing.`,
     )
+  } else {
+    parts.push('Stay within this business and the current conversation. For an unrelated request or a business fact unsupported by the supplied context, draft a brief offer to connect the customer with a human instead of answering from general knowledge. Do not claim to have advanced a flow or completed an action.')
   }
 
   if (userPrompt && userPrompt.trim()) {

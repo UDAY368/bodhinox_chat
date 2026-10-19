@@ -82,12 +82,39 @@ describe.skipIf(!connectionString)("real PostgreSQL tenant and concurrency guara
     await expect(tenant(accountA,db=>db.query("INSERT INTO flow_runs(flow_id,user_id,contact_id) VALUES($1,$2,$3)",[flow,userA,contact]))).rejects.toMatchObject({code:"23505"});
   });
 
+  it("orders same-second customer messages by durable arrival under both runtime roles", async () => {
+    const contact = await tenant(accountA,async db=>(await db.query("INSERT INTO contacts(user_id,phone) VALUES($1,'arrival-order-fixture') RETURNING id",[userA])).rows[0].id);
+    const conversation = await tenant(accountA,async db=>(await db.query("INSERT INTO conversations(user_id,contact_id) VALUES($1,$2) RETURNING id",[userA,contact])).rows[0].id);
+    for (const [index,role] of ['bodhinox_app','bodhinox_worker'].entries()) {
+      await tenant(accountA,db=>db.query("INSERT INTO messages(conversation_id,sender_type,content_text,created_at) VALUES($1,'customer',$2,'2026-10-19T10:00:00Z')",[conversation,`question-${index}`]),role);
+    }
+    const rows = await tenant(accountA,async db=>(await db.query("SELECT content_text FROM messages WHERE conversation_id=$1 ORDER BY created_at DESC,arrival_sequence DESC",[conversation])).rows);
+    expect(rows.map(row=>row.content_text)).toEqual(['question-1','question-0']);
+  });
+
   it("keeps lexical retrieval scoped and callable under the constrained role", async () => {
     await tenant(accountA,async db=>{
       const doc=(await db.query("INSERT INTO ai_knowledge_documents(title,content) VALUES('FAQ','Cancellation policy') RETURNING id")).rows[0].id;
       await db.query("INSERT INTO ai_knowledge_chunks(document_id,content) VALUES($1,'Cancellation policy refund')",[doc]);
       expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,'refund',10)",[accountA])).rows).toHaveLength(1);
       expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,'refund',10)",[accountB])).rows).toEqual([]);
+    });
+  });
+
+  it("retrieves natural questions by meaningful keywords and ranks keyword coverage", async () => {
+    await tenant(accountA,async db=>{
+      const doc=(await db.query("INSERT INTO ai_knowledge_documents(title,content) VALUES('Delivery FAQ','Delivery details') RETURNING id")).rows[0].id;
+      const chunks=(await db.query("INSERT INTO ai_knowledge_chunks(document_id,content) VALUES($1,'Overnight shipping costs 25 dollars.'),($1,'Shipping is available worldwide.'),($1,'You can ask us about the weather.') RETURNING id",[doc])).rows;
+      const found=(await db.query("SELECT * FROM match_ai_knowledge_fts($1,$2,10)",[accountA,"Could you please explain your overnight shipping charges?"])).rows;
+      expect(found.map(row=>row.id)).toEqual([chunks[0].id,chunks[1].id]);
+      expect(found[0].rank).toBeGreaterThan(found[1].rank);
+      expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,$2,10)",[accountA,"Could you please explain your telescope warranty?"])).rows).toEqual([]);
+      expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,$2,10)",[accountA,"Could you please explain what this is about?"])).rows).toEqual([]);
+      expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,$2,10)",[accountB,"overnight shipping"])).rows).toEqual([]);
+      expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,$2,1)",[accountA,"overnight shipping"])).rows.map(row=>row.id)).toEqual([chunks[0].id]);
+      expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,$2,0)",[accountA,"overnight shipping"])).rows).toEqual([]);
+      // Query punctuation must never become tsquery syntax or broaden to function words.
+      expect((await db.query("SELECT * FROM match_ai_knowledge_fts($1,$2,10)",[accountA,"'overnight' | !telescope & (shipping):*"])).rows.map(row=>row.id)).toEqual([chunks[0].id,chunks[1].id]);
     });
   });
 

@@ -180,6 +180,8 @@ for table, name, sql_type, default in [('jobs','lease_token','uuid',None),('outb
     definition = name+' '+sql_type.upper()+(' NOT NULL DEFAULT '+default if default else '')
     tables[table].append(definition)
     inventory[table].append({'name':name,'type':sql_type,'nullable':not bool(default),'default':default,'reference':None,'definition':definition})
+tables['messages'].append('arrival_sequence BIGINT GENERATED ALWAYS AS IDENTITY')
+inventory['messages'].append({'name':'arrival_sequence','type':'bigint','nullable':False,'default':None,'reference':None,'definition':'arrival_sequence BIGINT GENERATED ALWAYS AS IDENTITY'})
 for field in inventory['auth_verifications']:
     if field['name']=='purpose': field['definition']=field['definition'].replace("('verify','reset')","('verify','reset','change_email')")
 inbound_fields = [
@@ -216,6 +218,7 @@ for name, fields in inventory.items():
             elif default.startswith("'") and default.endswith("'"):
                 attrs += ' @default([])' if typ.endswith('[]') else f' @default({json.dumps(default[1:-1])})'
             else: attrs += f' @default(dbgenerated({json.dumps(default)}))'
+        if field['name'] == 'arrival_sequence': attrs += ' @default(autoincrement())'
         if field['name'] in ('fts','phone_normalized'): attrs += ' @default(dbgenerated())'
         model.append(f'  {field["name"]} {typ} {attrs}'.rstrip())
     if name == 'member_presence': model.append('  @@id([account_id, user_id])')

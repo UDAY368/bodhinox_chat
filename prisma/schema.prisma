@@ -118,6 +118,7 @@ model conversations {
 }
 
 model messages {
+  arrival_sequence BigInt @default(autoincrement())
   id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
   conversation_id String @db.Uuid
   sender_type String

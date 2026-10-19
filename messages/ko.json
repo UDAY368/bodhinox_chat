@@ -358,6 +358,7 @@
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
       "activeText": "AI 어시스턴트가 자동으로 응답 중입니다",
+      "humanOwned": "담당자가 이 대화를 관리하고 있습니다. AI 재개는 담당 배정을 해제하고 다음 적격 고객 메시지를 AI가 처리하도록 합니다.",
       "takeOver": "직접 처리",
       "resume": "AI 재개",
       "tookOver": "이 대화를 직접 처리하기 시작했습니다.",
@@ -1179,6 +1180,7 @@
     }
   },
   "Flows": {
+    "menuFallback": {"label":"When a customer types instead of choosing a menu option", "reprompt":"Repeat the menu", "handoff":"Hand over to a human", "ignore":"Allow other automations", "ai":"Let AI answer business questions", "help":"AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."},
     "list": {
       "title": "플로우",
       "beta": "베타",
@@ -2016,6 +2018,7 @@
       "semanticSearchOn": " 의미 기반 검색이 켜져 있습니다 (임베딩 키 설정됨).",
       "keywordSearchOn": " 키워드 검색을 사용 중입니다 — 의미 기반 검색을 사용하려면 위에서 임베딩 키를 추가하세요.",
       "noDocs": "아직 문서가 없습니다.",
+      "connectionHint": "저장된 지식은 Playground, 받은 편지함 초안 및 AI 자동 응답에서 선택한 모델과 함께 사용됩니다. Playground에는 검색된 발췌 수가 표시됩니다. 모델을 재학습하지 않고 참고 정보를 제공합니다.",
       "editDocTitle": "제목",
       "editDocTitlePlaceholder": "예: 반품 & 환불 정책",
       "editDocContent": "내용",
@@ -2163,6 +2166,9 @@
       "goToSetup": "아직 설정하지 않았나요? 설정으로 이동",
       "handoff": "여기서 사람에게 인계합니다",
       "thinking": "생각 중…",
+      "thinkingElapsed": "답변 준비 중… {seconds}초",
+      "waitingHint": "제공자가 응답 중입니다. 무료 모델이 혼잡할 수 있습니다. 시간이 초과되면 메시지를 다시 시도할 수 있습니다.",
+      "responseDetails": "모델: {model} · 지식 발췌: {count} · 총 {seconds}초 (검색 {retrieval}초, 모델 {generation}초)",
       "placeholder": "고객 메시지를 입력하세요…",
       "notConfigured": "아직 에이전트가 설정되지 않았습니다 — 먼저 설정을 완료하세요.",
       "noReply": "답변을 받을 수 없습니다.",

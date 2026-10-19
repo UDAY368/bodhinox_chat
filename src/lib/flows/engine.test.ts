@@ -593,6 +593,31 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
     });
   });
 
+  it.each(['choose', 'pick'])('reserves an opted-in %s menu question for AI without changing the run', async node => {
+    h.state.flows = [{ ...FLOW, fallback_policy: { ...FLOW.fallback_policy, on_unknown_reply: 'ai' } }];
+    h.state.activeRuns = [{ ...RUN, current_node_key: node, vars: { name: 'Alice' }, reprompt_count: 1 }];
+    expect(await dispatch(text('What are your opening hours?'))).toMatchObject({ consumed: true, outcome: 'ai_fallback', flow_run_id: RUN.id });
+    expect(h.state.updates).toEqual([]);
+    expect(h.sendButtons).not.toHaveBeenCalled();
+    expect(h.sendList).not.toHaveBeenCalled();
+    expect(h.state.events.some(event => event.event_type === 'fallback_fired')).toBe(false);
+    expect(await dispatch({ kind: 'interactive_reply', reply_id: node === 'choose' ? 'yes' : 'basic', meta_message_id: 'tap-next', reply_title: 'Yes' })).toMatchObject({ consumed: true, outcome: 'completed' });
+  });
+
+  it('keeps collect_input capture semantics under AI menu fallback', async () => {
+    h.state.flows = [{ ...FLOW, fallback_policy: { ...FLOW.fallback_policy, on_unknown_reply: 'ai' } }];
+    expect(await dispatch(text('Alice'))).toMatchObject({ consumed: true, outcome: 'advanced' });
+    expect(h.sendButtons).toHaveBeenCalledOnce();
+    expect(h.state.updates).toContainEqual(expect.objectContaining({ table: 'flow_runs', row: expect.objectContaining({ vars: { name: 'Alice' } }) }));
+  });
+
+  it('pauses bot replies when the configured fallback hands off', async () => {
+    h.state.flows = [{ ...FLOW, fallback_policy: { ...FLOW.fallback_policy, on_unknown_reply: 'handoff' } }];
+    h.state.activeRuns = [{ ...RUN, current_node_key: 'choose' }];
+    expect(await dispatch(text('Help me'))).toMatchObject({ consumed: true, outcome: 'handed_off' });
+    expect(h.state.updates).toContainEqual(expect.objectContaining({ table: 'conversations', row: expect.objectContaining({ status: 'pending', bot_paused: true }) }));
+  });
+
   it("a send failure (e.g. an interpolated title over Meta's limit) is logged and fails the run", async () => {
     // "Yes, Bartholomew Montgomery" is 27 chars; meta-api's validator
     // rejects titles over INTERACTIVE_LIMITS.buttonTitleMaxLength (20)

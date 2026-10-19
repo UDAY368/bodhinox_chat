@@ -35,3 +35,26 @@ it('replays the completed action stage without dispatching the workflow again', 
   await processInboundActions(input); await processInboundActions(input);
   expect(h.explicit).toHaveBeenCalledOnce(); expect(h.automations).not.toHaveBeenCalled();
 });
+
+it('routes an opted-in menu question only to AI and replays its durable decision', async () => {
+  h.explicit.mockResolvedValue({ handled: false }); h.flow.mockResolvedValue({ consumed: true, outcome: 'ai_fallback' });
+  const message = { ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false };
+  await processInboundActions(message); await processInboundActions(message);
+  expect(h.resume).not.toHaveBeenCalled(); expect(h.automations).not.toHaveBeenCalled();
+  expect(h.ai).toHaveBeenCalledOnce();
+  expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ routingChecked: true, requireHandoffOnUnavailable: true }));
+});
+
+it.each([true, false])('suppresses AI only when an automation matches: %s', async matched => {
+  h.explicit.mockResolvedValue({ handled: false }); h.automations.mockResolvedValue(matched);
+  await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false });
+  expect(h.ai).toHaveBeenCalledTimes(matched ? 0 : 1);
+  if (!matched) expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ routingChecked: true }));
+});
+
+it('reserves a legacy menu text question for AI without content triggers', async () => {
+  h.explicit.mockResolvedValue({ handled: false }); h.resume.mockResolvedValue('ai_fallback');
+  await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false });
+  expect(h.automations).not.toHaveBeenCalled();
+  expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ routingChecked: true, requireHandoffOnUnavailable: true }));
+});

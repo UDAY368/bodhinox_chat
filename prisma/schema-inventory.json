@@ -930,6 +930,14 @@
           "onDelete": "CASCADE"
         },
         "definition": "account_id UUID NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "name": "arrival_sequence",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "arrival_sequence BIGINT GENERATED ALWAYS AS IDENTITY"
       }
     ],
     "whatsapp_config": [

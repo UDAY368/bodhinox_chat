@@ -13,7 +13,12 @@ const h = vi.hoisted(() => ({
   state: {
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
+    latestMessageId: 'wamid.inbound-1',
+    messageOrders: [] as string[],
     claim: true as boolean,
+    afterClaim: null as (() => void) | null,
+    beforeUpdate: null as (() => void) | null,
+    reads: [] as Record<string, unknown>[],
     updatePayload: null as Record<string, unknown> | null,
     rpcCalls: [] as { name: string; args: unknown }[],
   },
@@ -33,6 +38,11 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
 vi.mock('./admin-client', () => ({
   databaseAdmin: () => ({
     from: (table: string) => {
+      if (table === 'messages') {
+        const chain = { select: () => chain, eq: () => chain, order: (column: string) => { h.state.messageOrders.push(column); return chain }, limit: () => chain,
+          maybeSingle: async () => ({ data: { message_id: h.state.latestMessageId }, error: null }) }
+        return chain
+      }
       if (table === 'automations') {
         // .select().eq().eq().in().limit() → active auto-responders
         const chain = {
@@ -44,22 +54,33 @@ vi.mock('./admin-client', () => ({
         }
         return chain
       }
-      // conversations
-      return {
-        select: () => ({
-          eq: () => ({
-            maybeSingle: () =>
-              Promise.resolve({ data: h.state.conv, error: null }),
-          }),
-        }),
-        update: (payload: Record<string, unknown>) => {
-          h.state.updatePayload = payload
-          return { eq: () => Promise.resolve({ error: null }) }
+      const filters: [string, unknown][] = []
+      let payload: Record<string, unknown> | undefined
+      const chain = {
+        select: () => chain,
+        eq: (key: string, value: unknown) => { filters.push([key, value]); return chain },
+        is: (key: string, value: unknown) => { filters.push([key, value]); return chain },
+        gt: (key: string, value: unknown) => { filters.push([key, { gt: value }]); return chain },
+        maybeSingle: () => {
+          h.state.reads.push(Object.fromEntries(filters))
+          const matches = h.state.conv && filters.every(([key, value]) => h.state.conv![key] === value)
+          return Promise.resolve({ data: matches ? { ...h.state.conv } : null, error: null })
+        },
+        update: (value: Record<string, unknown>) => { payload = value; h.state.beforeUpdate?.(); return chain },
+        then: (resolve: (value: unknown) => unknown) => {
+          const matches = h.state.conv && filters.every(([key, value]) => {
+            if (value && typeof value === 'object' && 'gt' in value) return Date.parse(String(h.state.conv![key])) > Date.parse(String(value.gt))
+            return h.state.conv![key] === value
+          })
+          if (matches) h.state.updatePayload = payload ?? null
+          return Promise.resolve({ error: null }).then(resolve)
         },
       }
+      return chain
     },
     rpc: (name: string, args: unknown) => {
       h.state.rpcCalls.push({ name, args })
+      h.state.afterClaim?.()
       return Promise.resolve({ data: h.state.claim, error: null })
     },
   }),
@@ -93,12 +114,22 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
 
 beforeEach(() => {
   h.state.conv = {
+    id: 'conv-1',
+    account_id: 'acct-1',
+    contact_id: 'contact-1',
+    last_customer_message_at: new Date().toISOString(),
+    bot_paused: false,
     assigned_agent_id: null,
     ai_autoreply_disabled: false,
     ai_reply_count: 0,
   }
   h.state.autoResponders = []
+  h.state.latestMessageId = 'wamid.inbound-1'
+  h.state.messageOrders = []
   h.state.claim = true
+  h.state.afterClaim = null
+  h.state.beforeUpdate = null
+  h.state.reads = []
   h.state.updatePayload = null
   h.state.rpcCalls = []
   h.loadAiConfig.mockResolvedValue(aiConfig())
@@ -166,6 +197,7 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
 
   it('skips when a human agent is assigned', async () => {
     h.state.conv = {
+      ...h.state.conv,
       assigned_agent_id: 'agent-9',
       ai_autoreply_disabled: false,
       ai_reply_count: 0,
@@ -177,6 +209,7 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
 
   it('skips when auto-reply was disabled on this conversation', async () => {
     h.state.conv = {
+      ...h.state.conv,
       assigned_agent_id: null,
       ai_autoreply_disabled: true,
       ai_reply_count: 0,
@@ -187,6 +220,7 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
 
   it('skips when the per-conversation cap is reached', async () => {
     h.state.conv = {
+      ...h.state.conv,
       assigned_agent_id: null,
       ai_autoreply_disabled: false,
       ai_reply_count: 3,
@@ -291,4 +325,122 @@ describe('dispatchInboundToAiReply — handoff', () => {
       assigned_agent_id: 'agent-7',
     })
   })
+})
+
+
+describe('dispatchInboundToAiReply � current conversation safeguards', () => {
+  it.each([null, 'invalid', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()])('does not generate or send outside a customer session: %s', async (timestamp) => {
+    h.state.conv!.last_customer_message_at = timestamp
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.sendTypingIndicator).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it.each(['account_id', 'contact_id'])('rejects a conversation with a different %s', async (field) => {
+    h.state.conv![field] = 'other'
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.reads[0]).toMatchObject({ account_id: 'acct-1', contact_id: 'contact-1' })
+  })
+
+  it.each(['bot_paused', 'ai_autoreply_disabled', 'assigned_agent_id', 'last_customer_message_at'])('does not claim or send when %s changes during generation', async (field) => {
+    h.generateReply.mockImplementationOnce(async () => {
+      h.state.conv![field] = field === 'assigned_agent_id' ? 'human-1' : field === 'last_customer_message_at' ? '2020-01-01T00:00:00Z' : true
+      return { text: 'Late reply', handoff: false }
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.rpcCalls).toHaveLength(0)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('does not overwrite an agent who takes ownership during a handoff decision', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }))
+    h.generateReply.mockImplementationOnce(async () => {
+      h.state.conv!.assigned_agent_id = 'human-1'
+      return { text: '', handoff: true }
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.updatePayload).toBeNull()
+    expect(h.state.conv!.assigned_agent_id).toBe('human-1')
+  })
+
+  it('rechecks ownership after a successful slot claim before sending', async () => {
+    h.state.afterClaim = () => { h.state.conv!.bot_paused = true }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+})
+
+
+it('skips an old inbound job superseded by another customer message', async () => {
+  h.state.latestMessageId = 'wamid.newer'
+  await dispatchInboundToAiReply(ARGS)
+  expect(h.generateReply).not.toHaveBeenCalled()
+  expect(h.engineSendText).not.toHaveBeenCalled()
+})
+
+it('skips a draft when a newer customer message arrives during generation', async () => {
+  h.generateReply.mockImplementationOnce(async () => {
+    h.state.latestMessageId = 'wamid.newer'
+    return { text: 'stale', handoff: false }
+  })
+  await dispatchInboundToAiReply(ARGS)
+  expect(h.state.rpcCalls).toHaveLength(0)
+  expect(h.engineSendText).not.toHaveBeenCalled()
+})
+
+it('uses the worker routing decision instead of unrelated account automations', async () => {
+  h.state.autoResponders = [{ id: 'unrelated-automation' }]
+  await dispatchInboundToAiReply({ ...ARGS, routingChecked: true })
+  expect(h.engineSendText).toHaveBeenCalledTimes(1)
+})
+
+it('hands an opted-in flow to a human when AI is unavailable', async () => {
+  h.loadAiConfig.mockResolvedValue(null)
+  await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
+  expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true, bot_paused: true })
+  expect(h.engineSendText).not.toHaveBeenCalled()
+})
+
+it('keeps human ownership when opted-in fallback is unavailable', async () => {
+  h.state.conv!.assigned_agent_id = 'human-1'
+  h.loadAiConfig.mockResolvedValue(null)
+  await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
+  expect(h.state.updatePayload).toBeNull()
+})
+
+
+it('atomically preserves ownership acquired between the handoff check and update', async () => {
+  h.generateReply.mockResolvedValue({ text: '', handoff: true })
+  h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }))
+  h.state.beforeUpdate = () => { h.state.conv!.assigned_agent_id = 'human-1' }
+  await dispatchInboundToAiReply(ARGS)
+  expect(h.state.updatePayload).toBeNull()
+  expect(h.state.conv!.assigned_agent_id).toBe('human-1')
+})
+
+
+it('does not hand off a draft after its customer session expires during generation', async () => {
+  h.generateReply.mockImplementationOnce(async () => {
+    h.state.conv!.last_customer_message_at = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    return { text: '', handoff: true }
+  })
+  await dispatchInboundToAiReply(ARGS)
+  expect(h.state.updatePayload).toBeNull()
+  expect(h.engineSendText).not.toHaveBeenCalled()
+})
+
+it('preserves a newer inbound that arrives between handoff eligibility and the write', async () => {
+  h.generateReply.mockResolvedValue({ text: '', handoff: true })
+  h.state.beforeUpdate = () => { h.state.conv!.last_customer_message_at = new Date(Date.now() + 1000).toISOString() }
+  await dispatchInboundToAiReply(ARGS)
+  expect(h.state.updatePayload).toBeNull()
+})
+
+it('breaks provider timestamp ties using persisted arrival order', async () => {
+  await dispatchInboundToAiReply(ARGS)
+  expect(h.state.messageOrders.slice(0, 2)).toEqual(['created_at', 'arrival_sequence'])
 })

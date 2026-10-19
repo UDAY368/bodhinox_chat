@@ -168,6 +168,7 @@ export function AiKnowledgeCard({
           {t('description', {
             searchType: hasEmbeddingsKey ? t('semanticSearchOn') : t('keywordSearchOn')
           })}
+          <span className="mt-2 block">{t('connectionHint')}</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

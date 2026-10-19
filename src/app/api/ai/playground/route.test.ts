@@ -50,7 +50,11 @@ describe('Gemini agent playground workflow', () => {
     }))
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ reply: 'We are open from 9am to 5pm.', handoff: false })
+    const data = await response.json()
+    expect(data).toMatchObject({ reply: 'We are open from 9am to 5pm.', handoff: false,
+      diagnostics: { model: 'gemini-3.8-flash', knowledgeMatches: 1, retrievalMs: expect.any(Number), generationMs: expect.any(Number), totalMs: expect.any(Number) } })
+    expect(data.diagnostics.totalMs).toBeGreaterThanOrEqual(data.diagnostics.generationMs)
+    expect(JSON.stringify(data)).not.toContain('test-key')
     expect(mocks.loadAiConfig).toHaveBeenCalledWith({}, 'account-1', { requireActive: false })
     const payload = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(payload.systemInstruction.parts[0].text).toContain('Our opening hours are 9am to 5pm.')

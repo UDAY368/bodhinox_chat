@@ -358,6 +358,7 @@
     "aiBanner": {
       "pausedTitle": "O assistente de IA está pausado aqui",
       "activeText": "O assistente de IA está respondendo automaticamente",
+      "humanOwned": "Um agente humano controla esta conversa. Retomar IA libera a atribuição para a próxima mensagem elegível do cliente.",
       "takeOver": "Assumir",
       "resume": "Retomar IA",
       "tookOver": "Você assumiu esta conversa.",
@@ -1179,6 +1180,7 @@
     }
   },
   "Flows": {
+    "menuFallback": {"label":"When a customer types instead of choosing a menu option", "reprompt":"Repeat the menu", "handoff":"Hand over to a human", "ignore":"Allow other automations", "ai":"Let AI answer business questions", "help":"AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."},
     "list": {
       "title": "Fluxos",
       "beta": "Beta",
@@ -2016,6 +2018,7 @@
       "semanticSearchOn": " A busca semântica está ativa (chave de embeddings definida).",
       "keywordSearchOn": " Usando busca por palavras-chave — adicione uma chave de embeddings acima para busca semântica.",
       "noDocs": "Nenhum documento ainda.",
+      "connectionHint": "O conhecimento salvo é usado automaticamente com o modelo selecionado no Playground, rascunhos e respostas automáticas. O Playground mostra quantos trechos foram recuperados. São referências; não há novo treinamento do modelo.",
       "editDocTitle": "Título",
       "editDocTitlePlaceholder": "ex.: Política de trocas e devoluções",
       "editDocContent": "Conteúdo",
@@ -2163,6 +2166,9 @@
       "goToSetup": "Ainda não configurou? Vá para Configuração",
       "handoff": "Aqui a conversa seria transferida para um humano",
       "thinking": "Pensando…",
+      "thinkingElapsed": "Preparando resposta… {seconds}s",
+      "waitingHint": "O provedor ainda está respondendo. Modelos gratuitos podem estar ocupados; se o tempo esgotar, a mensagem fica pronta para tentar novamente.",
+      "responseDetails": "Modelo: {model} · Trechos: {count} · {seconds}s total (conhecimento {retrieval}s, modelo {generation}s)",
       "placeholder": "Digite uma mensagem de cliente…",
       "notConfigured": "Nenhum agente configurado ainda — conclua a Configuração primeiro.",
       "noReply": "Não foi possível obter uma resposta.",

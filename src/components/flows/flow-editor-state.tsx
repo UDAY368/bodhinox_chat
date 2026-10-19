@@ -54,6 +54,7 @@ import { useTranslations } from "next-intl";
 import { getT } from "@/lib/i18n/translate";
 import { unlinkNodeReferences } from "@/lib/flows/edges";
 import type { FlowNodeRow, FlowRow } from "@/lib/flows/types";
+import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 
 // ============================================================
@@ -67,6 +68,7 @@ export interface BuilderState {
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   status: FlowRow["status"];
+  fallback_policy: FlowRow["fallback_policy"];
   nodes: BuilderNode[];
 }
 
@@ -250,6 +252,7 @@ export function FlowEditorProvider({
     trigger_type: initialFlow.trigger_type,
     trigger_config: initialFlow.trigger_config as Record<string, unknown>,
     entry_node_id: initialFlow.entry_node_id,
+    fallback_policy: initialFlow.fallback_policy ?? resolveFallbackPolicy(null),
     status: initialFlow.status,
     nodes: initialNodes.map((n) => ({
       node_key: n.node_key,
@@ -342,6 +345,7 @@ export function FlowEditorProvider({
         body: JSON.stringify({
           name: state.name,
           description: state.description || null,
+          fallback_policy: state.fallback_policy,
           trigger_type: state.trigger_type,
           trigger_config: state.trigger_config,
           entry_node_id: state.entry_node_id,

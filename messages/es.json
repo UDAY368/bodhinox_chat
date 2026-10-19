@@ -358,6 +358,7 @@
     "aiBanner": {
       "pausedTitle": "El asistente de IA está en pausa aquí",
       "activeText": "El asistente de IA está respondiendo automáticamente",
+      "humanOwned": "Un agente humano tiene este chat. Reanudar IA libera la asignación para el próximo mensaje elegible del cliente.",
       "takeOver": "Tomar el control",
       "resume": "Reanudar IA",
       "tookOver": "Tomaste el control de este chat.",
@@ -1179,6 +1180,7 @@
     }
   },
   "Flows": {
+    "menuFallback": {"label":"When a customer types instead of choosing a menu option", "reprompt":"Repeat the menu", "handoff":"Hand over to a human", "ignore":"Allow other automations", "ai":"Let AI answer business questions", "help":"AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."},
     "list": {
       "title": "Flujos",
       "beta": "Beta",
@@ -2016,6 +2018,7 @@
       "semanticSearchOn": " La búsqueda semántica está activada (clave de embeddings configurada).",
       "keywordSearchOn": " Usando búsqueda por palabras clave; agrega una clave de embeddings arriba para la búsqueda semántica.",
       "noDocs": "Aún no hay documentos.",
+      "connectionHint": "El conocimiento guardado se usa automáticamente con el modelo seleccionado en Playground, borradores y respuestas automáticas. Playground muestra cuántos fragmentos se recuperaron. Son referencias; no reentrena el modelo.",
       "editDocTitle": "Título",
       "editDocTitlePlaceholder": "p. ej. Política de devoluciones y reembolsos",
       "editDocContent": "Contenido",
@@ -2163,6 +2166,9 @@
       "goToSetup": "¿Aún no está configurado? Ve a Configuración",
       "handoff": "Aquí derivaría la conversación a una persona",
       "thinking": "Pensando…",
+      "thinkingElapsed": "Preparando respuesta… {seconds}s",
+      "waitingHint": "El proveedor sigue respondiendo. Los modelos gratuitos pueden estar ocupados; si se agota el tiempo, el mensaje queda listo para reintentar.",
+      "responseDetails": "Modelo: {model} · Fragmentos: {count} · {seconds}s total (conocimiento {retrieval}s, modelo {generation}s)",
       "placeholder": "Escribe un mensaje de cliente…",
       "notConfigured": "Aún no hay un agente configurado; completa primero la Configuración.",
       "noReply": "No se pudo obtener una respuesta.",

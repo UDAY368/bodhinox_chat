@@ -77,6 +77,8 @@ interface SendTextEngineArgs {
    *  badges it as an AI reply. Only the auto-reply bot sets this;
    *  deterministic Flow/automation sends leave it false. */
   aiGenerated?: boolean
+  /** AI can lose ownership or its service window while credentials load. */
+  beforeSend?: () => Promise<void>
 }
 
 /**
@@ -128,6 +130,7 @@ export async function engineSendText(
 
   const attempt = async (phone: string): Promise<string> => {
     await assertBotRepliesEnabled(args.accountId, args.conversationId)
+    await args.beforeSend?.()
     const r = await sendTextMessage({
       phoneNumberId,
       accessToken,

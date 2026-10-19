@@ -7,6 +7,7 @@ import { buildSystemPrompt } from './defaults'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
+import { getSessionWindow } from '@/lib/inbox/session'
 import {
   engineSendText,
   loadAccountMetaCredentials,
@@ -26,6 +27,10 @@ interface DispatchArgs {
    *  a typing indicator (which also marks it read) is shown while the
    *  reply is generated. Optional so older callers keep working. */
   inboundMessageId?: string
+  /** The webhook worker already checked which deterministic responders matched. */
+  routingChecked?: boolean
+  /** An opted-in flow needs a human when AI cannot answer. */
+  requireHandoffOnUnavailable?: boolean
 }
 
 /**
@@ -43,9 +48,8 @@ interface DispatchArgs {
  *   - the per-conversation reply cap is reached
  *   - there's nothing to reply to
  *
- * The 24h WhatsApp session window is inherently open here — we're
- * reacting to a customer message that just landed — so no separate
- * window check is needed.
+ * Delayed jobs and model calls must still belong to the active customer
+ * session and stand down if a human takes ownership while they run.
  */
 export async function dispatchInboundToAiReply(
   args: DispatchArgs,
@@ -56,13 +60,59 @@ export async function dispatchInboundToAiReply(
     contactId,
     configOwnerUserId,
     inboundMessageId,
+    routingChecked,
+    requireHandoffOnUnavailable,
   } = args
 
+  let db: ReturnType<typeof databaseAdmin>
   try {
-    const db = databaseAdmin()
+    db = databaseAdmin({ accountId, userId: configOwnerUserId, role: 'owner' })
+  } catch (error) {
+    console.error('[ai auto-reply] client initialization failed:', error)
+    return
+  }
+  const readConversation = async () => {
+    const { data, error } = await db.from('conversations')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused, last_customer_message_at')
+      .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
+    if (error || !data || data.assigned_agent_id || data.bot_paused || data.ai_autoreply_disabled || !getSessionWindow(data.last_customer_message_at, Date.now()).active) return null
+    return data
+  }
+  // Ownership checks are repeated after generation and immediately before send.
+  // The timestamp also rejects a draft built before a newer customer message.
+  let observedCustomerTimestamp: string | undefined
+  const eligible = async () => {
+    const conversation = await readConversation()
+    if (!conversation || (observedCustomerTimestamp && conversation.last_customer_message_at !== observedCustomerTimestamp)) return null
+    if (inboundMessageId) {
+      const { data: latest, error } = await db.from('messages').select('message_id')
+        .eq('conversation_id', conversationId).eq('sender_type', 'customer')
+        .order('created_at', { ascending: false }).order('arrival_sequence', { ascending: false }).limit(1).maybeSingle()
+      if (error || latest?.message_id !== inboundMessageId) return null
+    }
+    return conversation
+  }
+  const pauseForHuman = async (summary: string, handoffAgentId?: string | null) => {
+    const current = await eligible()
+    if (!current) return
+    const update: Record<string, unknown> = {
+      ai_autoreply_disabled: true, bot_paused: true, ai_handoff_summary: summary,
+    }
+    if (handoffAgentId) update.assigned_agent_id = handoffAgentId
+    // Compare ownership at the UPDATE itself so a new human assignee wins.
+    await db.from('conversations').update(update)
+      .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId)
+      .is('assigned_agent_id', null).eq('bot_paused', false).eq('ai_autoreply_disabled', false)
+      .eq('last_customer_message_at', current.last_customer_message_at)
+      .gt('last_customer_message_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+  }
+  const unavailable = async () => {
+    if (requireHandoffOnUnavailable) await pauseForHuman('AI agent handed off: AI assistance is unavailable. A human should review the latest customer message.')
+  }
 
+  try {
     const config = await loadAiConfig(db, accountId)
-    if (!config || !config.autoReplyEnabled) return
+    if (!config || !config.autoReplyEnabled) { await unavailable(); return }
 
     // Deterministic, user-configured responders win over the LLM — the
     // caller already excludes messages a Flow consumed. Message-level
@@ -72,7 +122,7 @@ export async function dispatchInboundToAiReply(
     // avoid double-texting the customer. (Relationship triggers like
     // `first_inbound_message` don't count — they're not per-message
     // auto-responders.)
-    const { data: autoResponders } = await db
+    const { data: autoResponders } = routingChecked ? { data: [] } : await db
       .from('automations')
       .select('id')
       .eq('account_id', accountId)
@@ -81,20 +131,13 @@ export async function dispatchInboundToAiReply(
       .limit(1)
     if (autoResponders && autoResponders.length > 0) return
 
-    const { data: conv, error: convErr } = await db
-      .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused')
-      .eq('id', conversationId)
-      .maybeSingle()
-    if (convErr || !conv) return
-    if (conv.assigned_agent_id) return // a human owns this thread
-    if (conv.bot_paused || conv.ai_autoreply_disabled) return // handed off / turned off here
-    // Cheap early-out; the authoritative cap check is the atomic claim
-    // below (this read can race a concurrent inbound).
-    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
+    const conv = await eligible()
+    if (!conv) return
+    observedCustomerTimestamp = conv.last_customer_message_at
+    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) { await unavailable(); return }
 
     const messages = await buildConversationContext(db, conversationId)
-    if (messages.length === 0) return
+    if (messages.length === 0) { await unavailable(); return }
 
     // Account-wide throttle on the shared BYO key. The per-conversation
     // cap bounds one thread; this bounds a burst across many threads (a
@@ -109,6 +152,7 @@ export async function dispatchInboundToAiReply(
       console.warn(
         `[ai auto-reply] account ${accountId} hit the per-account rate limit — skipping this inbound.`,
       )
+      await unavailable()
       return
     }
 
@@ -156,6 +200,8 @@ export async function dispatchInboundToAiReply(
       usage,
     })
 
+    if (!await eligible()) return
+
     if (handoff || !text) {
       // The model can't (or shouldn't) answer — stop auto-replying on
       // this thread and hand it to a human. We (a) pause the bot here
@@ -168,17 +214,7 @@ export async function dispatchInboundToAiReply(
         messages,
         replyCount: conv.ai_reply_count ?? 0,
       })
-      const update: Record<string, unknown> = {
-        ai_autoreply_disabled: true,
-        bot_paused: true,
-        ai_handoff_summary: summary,
-      }
-      // Only set the assignee when a target is configured AND the thread
-      // isn't already owned — never stomp an existing human assignment.
-      if (config.handoffAgentId && !conv.assigned_agent_id) {
-        update.assigned_agent_id = config.handoffAgentId
-      }
-      await db.from('conversations').update(update).eq('id', conversationId)
+      await pauseForHuman(summary, config.handoffAgentId)
       return
     }
 
@@ -200,9 +236,16 @@ export async function dispatchInboundToAiReply(
       // service role, or the migration not applied. Log it loudly: a
       // silent return makes "auto-reply never fires" undiagnosable.
       console.error('[ai auto-reply] claim_ai_reply_slot failed:', claimErr)
+      await unavailable()
       return
     }
-    if (claimed !== true) return // lost the per-conversation cap race
+    if (claimed !== true) { await unavailable(); return }
+
+    if (!await eligible()) return
+    // The sender repeats this after credentials/recipient lookup and on retries.
+    const beforeSend = async () => {
+      if (!await eligible()) throw new Error('AI conversation eligibility changed before sending')
+    }
 
     await engineSendText({
       accountId,
@@ -211,9 +254,13 @@ export async function dispatchInboundToAiReply(
       contactId,
       text,
       aiGenerated: true,
+      beforeSend,
     })
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
+    try { await unavailable() } catch (handoffError) {
+      console.error('[ai auto-reply] unavailable handoff failed:', handoffError)
+    }
   }
 }
 

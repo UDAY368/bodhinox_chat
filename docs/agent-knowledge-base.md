@@ -28,3 +28,33 @@ the existing agent can hand off to a person instead of inventing an answer.
 If a save reports an indexing warning, the document exists but its index may
 need attention. An embeddings failure retains keyword-search chunks; a storage
 failure may require retrying the document edit or reindexing.
+
+## Understand replies and response time
+
+Each Playground reply shows the selected model, number of retrieved knowledge
+excerpts, and time spent retrieving knowledge versus waiting for the model.
+Zero excerpts means no matching document was found for that question; the agent
+can still use its business instructions and conversation context, or hand off.
+OpenRouter calls request low reasoning effort for concise support replies.
+Free-provider congestion can still cause delays. Errors stay visible and retain
+the question so it can be retried; the app never switches to a paid model.
+
+## Use AI in the Inbox
+
+AI uses the current conversation, including button/list prompt text and customer
+replies. Automatic replies require the assistant and auto-reply switches to be
+enabled, an active 24-hour customer window, and an unassigned, unpaused chat.
+Human-owned chats show why AI is waiting. **Resume AI** explicitly releases the
+human assignment and pause for the next eligible customer message; it does not
+send an old message again.
+
+Unrelated requests, unsupported business questions, and explicit requests for a
+person hand off instead of receiving a general-knowledge answer. Matched flows
+and automations retain priority over AI.
+
+To let AI answer unexpected typed questions while a flow is waiting for a menu
+button/list tap, select **AI** as that flow's unknown-reply fallback. Supported
+questions can be answered without changing the menu position or captured data;
+the customer can still tap the original option afterward. Existing fallback
+policies remain unchanged until this option is selected. Text collection nodes
+keep their existing input-validation behavior.

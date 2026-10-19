@@ -91,7 +91,8 @@ export async function runAutomationById(input: {
  * All errors are caught and logged; per-automation failures are
  * recorded into automation_logs with status='failed'.
  */
-export async function runAutomationsForTrigger(input: DispatchInput): Promise<void> {
+export async function runAutomationsForTrigger(input: DispatchInput): Promise<boolean> {
+  let matched = false
   try {
     const db = databaseAdmin()
 
@@ -111,11 +112,11 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<vo
         .maybeSingle()
       if (ownErr) {
         console.error('[automations] contact ownership check failed:', ownErr)
-        return
+        return true
       }
       if (!owned) {
         console.warn('[automations] contact not in account, refusing dispatch', input.contactId)
-        return
+        return true
       }
     }
 
@@ -134,14 +135,14 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<vo
         .maybeSingle()
       if (convErr) {
         console.error('[automations] conversation ownership check failed:', convErr)
-        return
+        return true
       }
       if (!conv) {
         console.warn(
           '[automations] conversation not in account, refusing dispatch',
           input.context.conversation_id,
         )
-        return
+        return true
       }
     }
 
@@ -154,13 +155,14 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<vo
 
     if (error) {
       console.error('[automations] fetch failed:', error)
-      return
+      return true
     }
-    if (!automations || automations.length === 0) return
+    if (!automations || automations.length === 0) return false
     if (input.automationId) automations.splice(0, automations.length, ...automations.filter((row: { id: string }) => row.id === input.automationId))
 
     for (const automation of automations as Automation[]) {
       if (!triggerMatches(automation, input.context)) continue
+      matched = true
       try {
         await executeAutomation(automation, input)
       } catch (err) {
@@ -169,7 +171,9 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<vo
     }
   } catch (err) {
     console.error('[automations] dispatch failed:', err)
+    return true
   }
+  return matched
 }
 
 /**
@@ -229,6 +233,8 @@ export const REPLY_WAIT_MS = 24 * 60 * 60 * 1000
 export interface AwaitingReplyInput {
   accountId: string
   contactId: string
+  /** Worker routing only: reserve questions at a verified menu for AI. */
+  reserveMenuTextForAi?: boolean
   /** The inbound that may be the reply. Overwrites the parked run's
    *  message fields so the steps after the wait see the reply. */
   context: Pick<AutomationContext, 'message_text' | 'conversation_id' | 'interactive_reply_id'>
@@ -245,7 +251,7 @@ export interface AwaitingReplyInput {
  *
  * Must never throw — it runs inside the webhook's `after()` block.
  */
-export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<boolean> {
+export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<boolean | 'ai_fallback'> {
   let claimedId: string | null = null
   try {
     const db = databaseAdmin()
@@ -268,6 +274,25 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
     }
     const pending = rows?.[0] as PendingRow | undefined
     if (!pending) return false
+
+    if (input.reserveMenuTextForAi && !input.context.interactive_reply_id && input.context.message_text?.trim()) {
+      // parkForReply stores exactly position+1 within the current scope.
+      // Only a unique, still-active interactive predecessor proves that
+      // this continuation belongs to a menu; generic waits keep their rules.
+      const predecessorQuery = db.from('automation_steps').select('*')
+        .eq('automation_id', pending.automation_id).eq('position', pending.next_step_position - 1)
+      const scoped = pending.parent_step_id === null
+        ? predecessorQuery.is('parent_step_id', null)
+        : predecessorQuery.eq('parent_step_id', pending.parent_step_id).eq('branch', pending.branch ?? 'yes')
+      const { data: predecessors, error: predecessorError } = await scoped
+      if (predecessorError) return true // uncertainty must not introduce another responder
+      if (predecessors?.length === 1 && waitsForReply(predecessors[0] as AutomationStep)) {
+        const { data: active, error: activeError } = await db.from('automations').select('id,is_active')
+          .eq('id', pending.automation_id).eq('account_id', input.accountId).maybeSingle()
+        if (activeError) return true
+        if (active?.is_active) return 'ai_fallback'
+      }
+    }
 
     // Claim it. Gated on the CURRENT status so two deliveries racing on
     // the same parked run can't both resume it.

@@ -25,6 +25,7 @@ const MAX_TURNS = 20
  * going live. Stateless: the client sends the running transcript each turn.
  */
 export async function POST(request: Request) {
+  const startedAt = performance.now()
   try {
     const { db, accountId, userId } = await requireRole('agent')
 
@@ -75,20 +76,29 @@ export async function POST(request: Request) {
       )
     }
 
+    const retrievalStartedAt = performance.now()
     const knowledge = await retrieveKnowledge(
       db,
       accountId,
       config,
       latestUserMessage(messages),
     )
+    const retrievalMs = Math.round(performance.now() - retrievalStartedAt)
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
     })
 
+    const generationStartedAt = performance.now()
     const { text, handoff } = await generateReply({ config, systemPrompt, messages })
-    return NextResponse.json({ reply: text, handoff })
+    return NextResponse.json({ reply: text, handoff, diagnostics: {
+      model: config.model,
+      knowledgeMatches: knowledge.length,
+      retrievalMs,
+      generationMs: Math.round(performance.now() - generationStartedAt),
+      totalMs: Math.round(performance.now() - startedAt),
+    } })
   } catch (err) {
     if (err instanceof AiError) {
       return NextResponse.json(

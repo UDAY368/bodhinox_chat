@@ -118,6 +118,7 @@ const browserReadOnly = new Set([
   'broadcast_recipients',
 ]);
 const immutable = new Set([
+  'arrival_sequence',
   'id',
   'created_at',
   'updated_at',

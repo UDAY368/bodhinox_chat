@@ -208,6 +208,12 @@ beforeEach(() => {
 });
 
 describe("runAutomationsForTrigger — tenant isolation", () => {
+  it('reports actual keyword matches, including runs without send steps', async () => {
+    h.state.owned = { id: 'c1' };
+    h.state.automations = [{ ...automationWithUpdateStep(), trigger_type: 'keyword_match', trigger_config: { keywords: ['hours'] } }];
+    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: 'keyword_match', contactId: 'c1', context: { message_text: 'hello' } })).toBe(false);
+    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: 'keyword_match', contactId: 'c1', context: { message_text: 'hours' } })).toBe(true);
+  });
   it("refuses to dispatch when the contact is not in the account (GHSA-63cv-2c49-m5v3)", async () => {
     // Ownership lookup returns nothing — the contact belongs to another tenant.
     h.state.owned = null;
@@ -797,6 +803,16 @@ describe("wait_for_reply", () => {
     expect(sentTexts()).toEqual(["crm.stelltech.ai", "Thanks for contacting"]);
     expect(h.state.pending[0].status).toBe("done");
     expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "success" });
+  });
+
+  it('reserves a typed question after a verified interactive wait and still accepts its next tap', async () => {
+    h.state.steps = userMenu(); await trigger('Hii');
+    expect(await resumeAwaitingReply({ accountId: ACCOUNT, contactId: 'c1', reserveMenuTextForAi: true,
+      context: { message_text: 'What are your hours?', conversation_id: 'conv1' } })).toBe('ai_fallback');
+    expect(h.state.pending[0].status).toBe('awaiting_reply');
+    expect(engineSendText).not.toHaveBeenCalled();
+    expect(await reply('Website', 'web')).toBe(true);
+    expect(sentTexts()).toEqual(['crm.stelltech.ai', 'Thanks for contacting']);
   });
 
   it("routes a non-matching reply down the NO branch", async () => {

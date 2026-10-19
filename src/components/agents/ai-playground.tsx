@@ -13,6 +13,7 @@ interface Turn {
   content: string;
   /** assistant-only: the agent signalled a human handoff on this turn. */
   handoff?: boolean;
+  diagnostics?: { model: string; knowledgeMatches: number; retrievalMs: number; generationMs: number; totalMs: number };
 }
 
 export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
@@ -20,11 +21,20 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [requestError, setRequestError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [turns, sending]);
+
+  useEffect(() => {
+    if (!sending) return;
+    const started = Date.now();
+    const timer = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [sending]);
 
   const send = async () => {
     const text = input.trim();
@@ -34,6 +44,8 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
     setTurns(next);
     setInput('');
     setSending(true);
+    setElapsedSeconds(0);
+    setRequestError('');
     try {
       const res = await authFetch('/api/ai/playground', {
         method: 'POST',
@@ -45,6 +57,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        setRequestError(data.code === 'ai_not_configured' ? t('notConfigured') : data.error ?? t('noReply'));
         if (data.code === 'ai_not_configured') {
           toast.error(t('notConfigured'));
         } else {
@@ -64,10 +77,12 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
               ? data.reply
               : '',
           handoff: Boolean(data.handoff),
+          diagnostics: data.diagnostics,
         },
       ]);
     } catch {
       toast.error(t('unreachable'));
+      setRequestError(t('unreachable'));
       setTurns(turns);
       setInput(text);
     } finally {
@@ -96,7 +111,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setTurns([])}
+          onClick={() => { setTurns([]); setRequestError(''); }}
           disabled={turns.length === 0 || sending}
           className="text-muted-foreground"
         >
@@ -157,6 +172,14 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
                   {t('handoff')}
                 </p>
               )}
+              {turn.role === 'assistant' && turn.diagnostics && (
+                <p className="mt-2 border-t border-border/50 pt-1.5 text-xs text-muted-foreground">
+                  {t('responseDetails', { model: turn.diagnostics.model, count: turn.diagnostics.knowledgeMatches,
+                    seconds: (turn.diagnostics.totalMs / 1000).toFixed(1),
+                    retrieval: (turn.diagnostics.retrievalMs / 1000).toFixed(1),
+                    generation: (turn.diagnostics.generationMs / 1000).toFixed(1) })}
+                </p>
+              )}
             </div>
             {turn.role === 'user' && (
               <UserCircle2 className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
@@ -167,10 +190,15 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         {sending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Bot className="h-5 w-5 text-primary" />
-            <Loader2 className="h-4 w-4 animate-spin" /> {t('thinking')}
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <div><p>{t('thinkingElapsed', { seconds: elapsedSeconds })}</p>
+              {elapsedSeconds >= 5 && <p className="mt-1 text-xs">{t('waitingHint')}</p>}
+            </div>
           </div>
         )}
       </div>
+
+      {requestError && <p role="alert" className="mx-3 mb-2 rounded-md border border-destructive/30 p-2 text-sm text-destructive">{requestError}</p>}
 
       {/* Composer */}
       <div className="flex items-end gap-2 border-t border-border p-3">

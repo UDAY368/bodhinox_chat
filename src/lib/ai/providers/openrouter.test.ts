@@ -11,6 +11,7 @@ describe('OpenRouter through the existing agent adapter', () => {
     expect(await generateOpenAiCompatible(args)).toMatchObject({ text: 'Hello from the agent', usage: { totalTokens: 15 } })
     expect(fetchMock.mock.calls[0][0]).toBe('https://openrouter.ai/api/v1/chat/completions')
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ model: 'openrouter/free', max_tokens: 1024, messages: [{ role: 'system', content: 'Business context' }, { role: 'user', content: 'Hello' }] })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).reasoning).toEqual({ effort: 'low', exclude: true })
   })
   it.each([[401, 'invalid_key'], [402, 'quota_exceeded'], [403, 'access_denied'], [404, 'unsupported_model'], [429, 'rate_limited'], [503, 'provider_unavailable']])('maps HTTP %s into an actionable error without exposing the key', async (status, code) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error: { message: `Rejected test-openrouter-key` } }, { status: Number(status) })))

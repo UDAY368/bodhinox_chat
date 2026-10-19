@@ -159,8 +159,16 @@ export function AiThreadBanner({
     );
   }
 
-  // Active, but a human already owns it → the bot won't fire; no banner.
-  if (assignedAgentId) return null;
+  // Assignment is intentional human ownership. Make the reason visible and
+  // offer the existing explicit release action; never unassign automatically.
+  if (assignedAgentId) return (
+    <Banner tone="muted">
+      <p className="min-w-0 flex-1 text-muted-foreground">{t("humanOwned")}</p>
+      <BannerButton onClick={() => toggle(false)} busy={busy} icon={Undo2}>
+        {t("resume")}
+      </BannerButton>
+    </Banner>
+  );
 
   // Active on this thread.
   return (

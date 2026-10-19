@@ -1113,6 +1113,12 @@ async function handleReplyForActiveRun(
   const policy = resolveFallbackPolicy(
     (await loadFlow(db, run.flow_id))?.fallback_policy,
   );
+  // An opted-in menu may answer a text question while keeping the exact
+  // same menu active. Reserve the inbound so automations cannot take it.
+  if (policy.on_unknown_reply === "ai" && message.kind === "text" && message.text.trim() &&
+      (currentNode.node_type === "send_buttons" || currentNode.node_type === "send_list")) {
+    return { consumed: true, flow_run_id: run.id, outcome: "ai_fallback" };
+  }
   const newReprompts = run.reprompt_count + 1;
   await db
     .from("flow_runs")
@@ -1163,7 +1169,7 @@ async function handleReplyForActiveRun(
     if (run.conversation_id) {
       await db
         .from("conversations")
-        .update({ status: "pending", updated_at: new Date().toISOString() })
+        .update({ status: "pending", bot_paused: true, updated_at: new Date().toISOString() })
         .eq("id", run.conversation_id);
     }
     await logEvent(db, run.id, "handoff", run.current_node_key, {

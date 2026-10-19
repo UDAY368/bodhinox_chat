@@ -6,6 +6,10 @@ import {
 import { DEFAULT_FALLBACK_POLICY, type FlowFallbackPolicy } from "./types";
 
 describe("resolveFallbackPolicy", () => {
+  it('preserves explicit AI opt-in without changing legacy defaults', () => {
+    expect(resolveFallbackPolicy({ on_unknown_reply: 'ai' }).on_unknown_reply).toBe('ai');
+    expect(resolveFallbackPolicy(null).on_unknown_reply).toBe('reprompt');
+  });
   it("returns defaults for null / undefined / non-object", () => {
     expect(resolveFallbackPolicy(null)).toEqual(DEFAULT_FALLBACK_POLICY);
     expect(resolveFallbackPolicy(undefined)).toEqual(DEFAULT_FALLBACK_POLICY);
@@ -66,6 +70,11 @@ const POLICY_REPROMPT_2_HANDOFF: FlowFallbackPolicy = {
 };
 
 describe("decideFallback", () => {
+  it('keeps normal reprompt/exhaust rules for non-text or non-menu replies under AI mode', () => {
+    const policy = { ...POLICY_REPROMPT_2_HANDOFF, on_unknown_reply: 'ai' as const };
+    expect(decideFallback({ policy, reprompt_count: 1 })).toEqual({ type: 'reprompt' });
+    expect(decideFallback({ policy, reprompt_count: 3 })).toEqual({ type: 'handoff' });
+  });
   it("returns ignore when on_unknown_reply is 'ignore'", () => {
     expect(
       decideFallback({

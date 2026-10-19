@@ -47,14 +47,14 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     }
     const text=input.contentText??"";
     const explicit=await stage("quick_reply_action",()=>dispatchQuickReplyAction(db,input));
-    const flow=explicit.handled ? {consumed:true} : await stage("flow",()=>dispatchInboundToFlows({
+    const flow=explicit.handled ? {consumed:true,outcome:undefined} : await stage("flow",()=>dispatchInboundToFlows({
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
       message:input.interactiveReplyId ? {kind:"interactive_reply",reply_id:input.interactiveReplyId,reply_title:text,meta_message_id:input.metaMessageId}
         : {kind:"text",text,meta_message_id:input.metaMessageId},
       isFirstInboundMessage:input.isFirstInboundMessage,
     }));
     const replied=flow.consumed ? false : await stage("reply_resume",()=>resumeAwaitingReply({
-      accountId:input.accountId,contactId:input.contactId,context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
+      accountId:input.accountId,contactId:input.contactId,reserveMenuTextForAi:input.contentType==="text",context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
     }));
     const consumed=flow.consumed||replied;
     const triggers: Array<"new_contact_created"|"first_inbound_message"|"new_message_received"|"keyword_match"|"interactive_reply">=[];
@@ -62,15 +62,23 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       triggers.push("new_message_received","keyword_match");
       if(input.interactiveReplyId) triggers.push("interactive_reply");
     }
-    if(!explicit.handled&&input.wasContactCreated) triggers.unshift("new_contact_created");
-    if(!explicit.handled&&input.isFirstInboundMessage) triggers.unshift("first_inbound_message");
-    for(const triggerType of triggers) await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
+    const aiFallback=flow.outcome==="ai_fallback"||replied==="ai_fallback";
+    if(!explicit.handled&&!aiFallback&&input.wasContactCreated) triggers.unshift("new_contact_created");
+    if(!explicit.handled&&!aiFallback&&input.isFirstInboundMessage) triggers.unshift("first_inbound_message");
+    let automationMatched=false;
+    for(const triggerType of triggers) {
+      const matched=await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
       accountId:input.accountId,triggerType,contactId:input.contactId,
       context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
-    }));
-    if(!consumed&&!input.interactiveReplyId&&text.trim()) await stage("ai_reply",()=>dispatchInboundToAiReply({
+      }));
+      // Older completed stages persisted null; their dispatch decision is
+      // unknown, so do not introduce a second responder during replay.
+      automationMatched=automationMatched||matched!==false;
+    }
+    if((aiFallback||(!consumed&&!automationMatched))&&!input.interactiveReplyId&&input.contentType==="text"&&text.trim()) await stage("ai_reply",()=>dispatchInboundToAiReply({
       accountId:input.accountId,conversationId:input.conversationId,contactId:input.contactId,
       configOwnerUserId:input.userId,inboundMessageId:input.metaMessageId,
+      routingChecked:true,requireHandoffOnUnavailable:aiFallback,
     }));
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{
       conversation_id:input.conversationId,contact_id:input.contactId,whatsapp_message_id:input.metaMessageId,

@@ -287,7 +287,7 @@ export interface FlowRunRow {
 
 export interface FlowFallbackPolicy {
   /** What to do when the customer reply doesn't match any option. */
-  on_unknown_reply: "reprompt" | "handoff" | "ignore";
+  on_unknown_reply: "reprompt" | "handoff" | "ignore" | "ai";
   /** Max reprompts before applying `on_exhaust`. */
   max_reprompts: number;
   /** Stale-run sweep cutoff. */
@@ -357,6 +357,7 @@ export interface DispatchInboundResult {
     | "completed"
     | "handed_off"
     | "fallback_fired"
+    | "ai_fallback"
     | "duplicate_inbound_ignored"
     | "no_match";
 }
