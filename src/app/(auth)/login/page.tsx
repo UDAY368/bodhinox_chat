@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/data/client';
-import { safeNextPath } from '@/lib/auth/callback';
+import { postLoginPath } from '@/lib/auth/callback';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -84,11 +84,7 @@ function LoginPageInner() {
     // back to /login — which looks like the page "just refreshing"
     // instead of signing in (issue #365). Mirrors the deliberate full
     // reload the invite-accept flow already uses in join/[token].
-    const destination = data.session?.mfaRequired
-      ? '/mfa'
-      : inviteToken
-        ? `/join/${encodeURIComponent(inviteToken)}`
-        : safeNextPath(searchParams.get('next'));
+    const destination = postLoginPath(inviteToken, searchParams.get('next'), data.session?.mfaRequired);
     window.location.href = destination;
   };
 

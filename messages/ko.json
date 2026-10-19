@@ -1,5 +1,10 @@
 {
   "PasswordInput": {
+    "deliveryTest": "인증 이메일 전송 테스트",
+    "deliveryTesting": "전송 중…",
+    "deliveryAccepted": "테스트 이메일이 접수되었습니다. 받은편지함을 확인하세요.",
+    "deliveryFailed": "테스트가 실패했습니다. 이메일 설정을 확인하세요.",
+    "deliveryHint": "가입 인증 메일 전송을 확인하기 위해 본인 계정 주소로 테스트 메일을 보냅니다. 비밀번호나 팀 접근 권한은 변경되지 않습니다.",
     "show": "비밀번호 표시",
     "hide": "비밀번호 숨기기",
     "requirements": "8자 이상이며 대문자, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다."

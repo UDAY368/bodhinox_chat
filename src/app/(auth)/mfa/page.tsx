@@ -1,5 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { safeNextPath } from '@/lib/auth/callback';
 import Link from 'next/link';
 import { authFetch } from '@/lib/auth/client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function MfaPage() {
+  return <Suspense fallback={null}><MfaPageInner /></Suspense>;
+}
+function MfaPageInner() {
+  const searchParams = useSearchParams();
+  const next = safeNextPath(searchParams.get('next'), '/settings');
   const [enabled, setEnabled] = useState<boolean | null>(null),
     [password, setPassword] = useState(''),
     [code, setCode] = useState('');
@@ -21,7 +28,7 @@ export default function MfaPage() {
       .then(async (response) => {
         if (response.status === 401) {
           // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- establish a fresh authenticated request after enrollment login
-          window.location.href = '/login?next=%2Fmfa';
+          window.location.href = `/login?next=${encodeURIComponent(next)}`;
           return;
         }
         const result = await response.json();
@@ -29,7 +36,7 @@ export default function MfaPage() {
         setEnabled(result.enabled);
       })
       .catch(() => setMessage('Unable to load your security settings'));
-  }, []);
+  }, [next]);
   async function action(endpoint: string, payload: unknown) {
     setBusy(true);
     setMessage('');
@@ -160,8 +167,8 @@ export default function MfaPage() {
           >
             Sign out all devices
           </Button>
-          <Link href="/settings" className="text-primary">
-            Back to settings
+          <Link href={enabled && recovery.length === 0 ? next : '/settings'} className="text-primary">
+            {enabled && recovery.length === 0 && next !== '/settings' ? 'Continue' : 'Back to settings'}
           </Link>
         </CardContent>
       </Card>

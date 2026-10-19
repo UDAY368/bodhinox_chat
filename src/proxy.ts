@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth/session';
 import { cookieNames } from '@/lib/auth/cookies';
 import { AuthError } from '@/lib/auth/errors';
+import { postLoginPath } from '@/lib/auth/callback';
 const protectedPaths = [
   '/dashboard',
   '/inbox',
@@ -45,6 +46,7 @@ export async function proxy(request: NextRequest) {
       const target = request.nextUrl.clone();
       target.pathname = '/mfa';
       target.search = '';
+      target.searchParams.set('next', postLoginPath(request.nextUrl.searchParams.get('invite'), request.nextUrl.searchParams.get('next') ?? (protectedPage ? pathname : null)));
       return NextResponse.redirect(target);
     }
     if (
@@ -62,10 +64,10 @@ export async function proxy(request: NextRequest) {
     if (context && authPage) {
       const target = request.nextUrl.clone(),
         invite = request.nextUrl.searchParams.get('invite');
-      target.pathname = invite
-        ? `/join/${encodeURIComponent(invite)}`
-        : '/dashboard';
+      const destination = new URL(postLoginPath(invite, request.nextUrl.searchParams.get('next')), target.origin);
+      target.pathname = destination.pathname;
       target.search = '';
+      target.search = destination.search;
       return NextResponse.redirect(target);
     }
     // A refresh cookie allows only the public shell to boot and refresh via POST; every API still authorizes independently.

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { safeNextPath } from './callback';
+import { safeNextPath, postLoginPath } from './callback';
 describe('email callback destinations', () => {
+  it('preserves an invitation through mandatory MFA enrollment', () => {
+    expect(postLoginPath('invite-test', null, true)).toBe('/mfa?next=%2Fjoin%2Finvite-test');
+    expect(postLoginPath(null, '/join/invite-test', true)).toBe('/mfa?next=%2Fjoin%2Finvite-test');
+    expect(postLoginPath(null, '/join/invite-test')).toBe('/join/invite-test');
+    expect(postLoginPath(null, 'https://evil.test')).toBe('/dashboard');
+  });
   it('permits local destinations', () =>
     expect(safeNextPath('/join/invite?tab=members')).toBe(
       '/join/invite?tab=members'

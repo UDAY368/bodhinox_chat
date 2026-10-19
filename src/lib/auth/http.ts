@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import { AuthError, UnauthorizedError } from './errors';
-import { checkAuthEmailTransport } from './email';
+import { checkAuthEmailTransport, sendAuthEmail } from './email';
 import {
   appOrigin,
   assertCsrf,
@@ -318,6 +318,18 @@ export async function handleAuthPost(
       return response;
     }
     const input = await body(request);
+    if (action === 'email-test') {
+      if (context.role !== 'owner') throw new AuthError('Owner access required', 403, 'forbidden');
+      z.object({}).strict().parse(input);
+      await enforceAuthRateLimit('email-test', context.userId, 3, 900);
+      await sendAuthEmail({
+        from: process.env.AUTH_EMAIL_FROM,
+        to: context.user.email,
+        subject: 'Bodhinox Chat email verification delivery test',
+        text: 'Delivery test for account verification emails. No action is required. Your password and team memberships have not changed.',
+      });
+      return json({ ok: true });
+    }
     if (action === 'switch') {
       const parsed = z
         .object({

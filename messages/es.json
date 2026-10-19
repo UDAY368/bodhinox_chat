@@ -1,5 +1,10 @@
 {
   "PasswordInput": {
+    "deliveryTest": "Enviar prueba de verificación",
+    "deliveryTesting": "Enviando prueba…",
+    "deliveryAccepted": "Correo de prueba aceptado. Revisa tu bandeja de entrada.",
+    "deliveryFailed": "La prueba falló. Revisa la configuración del correo.",
+    "deliveryHint": "Envía un correo de prueba a tu propia dirección para comprobar la verificación. No cambia tu contraseña ni el acceso del equipo.",
     "show": "Mostrar contraseña",
     "hide": "Ocultar contraseña",
     "requirements": "Al menos 8 caracteres, con una letra mayúscula, un número y un carácter especial."

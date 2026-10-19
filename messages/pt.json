@@ -1,5 +1,10 @@
 {
   "PasswordInput": {
+    "deliveryTest": "Enviar teste de verificação",
+    "deliveryTesting": "Enviando teste…",
+    "deliveryAccepted": "Email de teste aceito. Verifique sua caixa de entrada.",
+    "deliveryFailed": "O teste falhou. Verifique a configuração de email.",
+    "deliveryHint": "Envie um email de teste para seu próprio endereço para verificar a entrega. Não altera sua senha nem o acesso da equipe.",
     "show": "Mostrar senha",
     "hide": "Ocultar senha",
     "requirements": "Pelo menos 8 caracteres, incluindo uma letra maiúscula, um número e um caractere especial."

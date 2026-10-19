@@ -1,5 +1,10 @@
 {
   "PasswordInput": {
+    "deliveryTest": "Send verification delivery test",
+    "deliveryTesting": "Sending test…",
+    "deliveryAccepted": "Test email accepted for delivery. Check your inbox.",
+    "deliveryFailed": "Email test failed. Try again or check the mail configuration.",
+    "deliveryHint": "Send one test email to your own account address to check signup verification delivery. This does not change your password or team access.",
     "show": "Show password",
     "hide": "Hide password",
     "requirements": "At least 8 characters, including one uppercase letter, one number, and one special character."

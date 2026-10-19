@@ -14,7 +14,7 @@ const mail = vi.hoisted(() => ({
   send: vi.fn().mockResolvedValue({ accepted: ['integration'] }),
 }));
 vi.mock('nodemailer', () => ({
-  default: { createTransport: () => ({ sendMail: mail.send }) },
+  default: { createTransport: () => ({ sendMail: mail.send, close: vi.fn() }) },
 }));
 import { exportPKCS8, exportSPKI, generateKeyPair } from 'jose';
 import { generate } from 'otplib';

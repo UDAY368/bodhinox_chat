@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { authEmailTransport as emailTransport } from './email';
+import { authEmailTransport as emailTransport, sendAuthEmail } from './email';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import {
   appOrigin,
@@ -68,7 +68,7 @@ async function sendVerification(
   link.searchParams.set('token', token);
   link.searchParams.set('purpose', purpose);
   link.searchParams.set('next', safeNextPath(next));
-  await emailTransport().sendMail({
+  await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: email,
     subject:
@@ -361,7 +361,7 @@ export async function requestEmailChange(
   const link = new URL('/auth/callback', appOrigin());
   link.searchParams.set('token', token);
   link.searchParams.set('purpose', 'change_email');
-  await emailTransport().sendMail({
+  await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: newEmail,
     subject: 'Confirm your new Bodhinox email',
