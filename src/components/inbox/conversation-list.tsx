@@ -241,9 +241,13 @@ export function ConversationList({
     // w-full on mobile so the list occupies the whole viewport when it's
     // the single pane showing; fixed 320px on desktop where it shares the
     // row with the thread + contact sidebar.
-    <div className="flex h-full w-full flex-col border-r border-border bg-card lg:w-80">
+    <div className="studio-conversation-list flex h-full w-full flex-col border-r border-border bg-card lg:w-80 xl:w-88">
+      <div className="px-5 pb-4 pt-6">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-primary">{t('studioEyebrow')}</p>
+        <h1 className="mt-2 max-w-60 text-xl font-medium leading-tight tracking-tight text-foreground">{t('studioTitle')}</h1>
+      </div>
       {/* Search + Filter */}
-      <div className="space-y-2 border-b border-border p-3">
+      <div className="space-y-3 border-b border-border px-4 pb-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -451,7 +455,7 @@ export function ConversationList({
             <p className="text-sm text-muted-foreground">{t("noConversations")}</p>
           </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-1 p-2">
             {filtered.map((conv) => (
               <ConversationItem
                 key={conv.id}
@@ -499,17 +503,17 @@ function ConversationItem({
     <button
       onClick={handleClick}
       className={cn(
-        "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
-        isActive && "border-l-2 border-primary bg-muted/70"
+        "studio-conversation flex w-full items-start gap-3 rounded-xl border border-transparent px-3 py-4 text-left transition-colors hover:bg-muted/50",
+        isActive && "border-primary/20 bg-primary/8"
       )}
     >
       {/* Avatar */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-muted text-sm font-medium text-foreground">
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
             alt={displayName}
-            className="h-10 w-10 rounded-full object-cover"
+            className="h-10 w-10 rounded-2xl object-cover"
           />
         ) : (
           initials

@@ -98,10 +98,10 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
   };
 
   return (
-    <div className="flex h-[60vh] min-h-[420px] flex-col rounded-xl border border-border bg-card">
+    <div className="studio-ai-playground flex h-[60vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-border bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
+        <div className="flex flex-wrap items-center gap-2">
           <Bot className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium text-foreground">{t('title')}</span>
           <span className="text-xs text-muted-foreground">
@@ -120,12 +120,12 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       </div>
 
       {/* Transcript */}
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto bg-background p-4 sm:p-6">
         {turns.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
-            <Bot className="mb-2 h-8 w-8 text-muted-foreground/60" />
-            <p>{t('emptyTitle')}</p>
-            <p className="mt-1 text-xs">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card"><Bot className="h-7 w-7 text-primary" strokeWidth={1.3} /></div>
+            <p className="text-base font-medium tracking-tight text-foreground">{t('emptyTitle')}</p>
+            <p className="mt-2 max-w-sm text-xs leading-relaxed">
               {t('emptyDesc')}
             </p>
             {onGoToSetup && (
@@ -154,17 +154,17 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             )}
             <div
               className={cn(
-                'max-w-[80%] rounded-2xl px-3.5 py-2 text-sm',
+                'max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
                 turn.role === 'user'
                   ? 'rounded-br-sm bg-primary text-primary-foreground'
-                  : 'rounded-bl-sm bg-muted text-foreground',
+                  : 'rounded-bl-sm border border-border bg-card text-foreground',
               )}
             >
-              {turn.content && <p className="whitespace-pre-wrap">{turn.content}</p>}
+              {turn.content && <p className="whitespace-pre-wrap break-words">{turn.content}</p>}
               {turn.role === 'assistant' && turn.handoff && (
                 <p
                   className={cn(
-                    'flex items-center gap-1 text-xs text-amber-500',
+                    'flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400',
                     turn.content && 'mt-1.5 border-t border-border/50 pt-1.5',
                   )}
                 >
@@ -201,14 +201,14 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       {requestError && <p role="alert" className="mx-3 mb-2 rounded-md border border-destructive/30 p-2 text-sm text-destructive">{requestError}</p>}
 
       {/* Composer */}
-      <div className="flex items-end gap-2 border-t border-border p-3">
+      <div className="flex items-end gap-2 border-t border-border p-4">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t('placeholder')}
           rows={1}
-          className="flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
+          className="min-w-0 flex-1 resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
         />
         <Button
           size="sm"

@@ -1,0 +1,121 @@
+.dashboard {
+  max-width: 1560px;
+  margin-inline: auto;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-block: 4px 6px;
+}
+
+.inboxLink {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 16px;
+  border-radius: 100px;
+  background: var(--foreground);
+  color: var(--background);
+  padding: 12px 20px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: opacity 180ms;
+}
+
+.inboxLink:hover { opacity: .8; }
+
+.introGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr);
+  gap: 18px;
+}
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  min-height: 250px;
+  padding: 34px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--primary) 7%, var(--card));
+}
+
+.heroContent { position: relative; z-index: 1; max-width: 460px; }
+.hero h2 { font-size: clamp(30px, 3.25vw, 49px); line-height: 1.08; letter-spacing: -1.8px; font-weight: 500; }
+.hero h2 span { color: var(--primary); }
+.hero p { max-width: 310px; margin-top: 22px; color: var(--muted-foreground); font-size: 12px; line-height: 1.8; }
+
+.orbit {
+  position: absolute;
+  z-index: 0;
+  width: 250px;
+  height: 250px;
+  border: 1px solid color-mix(in srgb, var(--primary) 23%, transparent);
+  border-radius: 50%;
+  right: -72px;
+  top: -35px;
+  box-shadow: 0 0 0 28px color-mix(in srgb, var(--primary) 4%, transparent), 0 0 0 56px color-mix(in srgb, var(--primary) 4%, transparent);
+  transform: rotate(-28deg);
+}
+
+.orbit::before, .orbit::after {
+  content: '';
+  position: absolute;
+  inset: 32px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  border-radius: 50%;
+}
+.orbit::after { inset: 72px; background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.orbit span { position: absolute; top: 44px; left: 20px; width: 15px; height: 15px; border-radius: 50%; background: var(--primary); opacity: .65; }
+.orbit i { position: absolute; bottom: 25px; right: 33px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); opacity: .6; }
+
+.aiTile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 26px 28px;
+  border-radius: 24px;
+  background: #20211e;
+  color: #f6f1e9;
+  transition: background 180ms;
+}
+.aiTile:hover { background: #2a2b27; }
+.aiTileTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #dba77f; }
+.aiTileTop span { font-size: 9px; letter-spacing: 1.5px; font-weight: 600; }
+.aiTile h2 { font-size: 29px; line-height: 1.1; letter-spacing: -1px; }
+.aiTile p { max-width: 260px; margin-top: 10px; color: #c1beb7; font-size: 12px; line-height: 1.7; }
+.aiTileLink { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 600; color: #edc3a3; }
+
+.dashboard > section,
+.dashboard :global(.studio-panel) {
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgb(60 37 14 / 2%);
+}
+.dashboard :global(.studio-panel) > header { padding: 22px 24px 18px; }
+.dashboard :global(.studio-panel) > header h2 { font-size: 14px; letter-spacing: -.2px; }
+.dashboard :global(.studio-panel) > header p { margin-top: 5px; }
+.dashboard :global(.studio-panel) > header button[aria-pressed='true'] { background: var(--foreground); color: var(--background); }
+.responseChart { --color-amber-500: var(--primary); }
+
+@media (max-width: 1100px) {
+  .introGrid { grid-template-columns: minmax(0, 1.5fr) minmax(230px, 1fr); }
+  .hero { padding: 28px; }
+  .orbit { right: -140px; opacity: .5; }
+}
+@media (max-width: 720px) {
+  .pageHeader { align-items: start; flex-direction: column; gap: 18px; }
+  .introGrid { grid-template-columns: 1fr; }
+  .hero { min-height: 240px; padding: 28px 24px; }
+  .hero h2 { font-size: 38px; }
+  .hero p { max-width: 250px; }
+  .aiTile { gap: 20px; padding: 24px; }
+  .dashboard :global(.studio-panel) > header { flex-wrap: wrap; gap: 14px; padding: 20px; }
+}

@@ -27,7 +27,7 @@
     "linkInvalid": "That link couldn’t be used to sign you in. If you were confirming your email, it may already be verified — just sign in below. For a password reset, request a new link and open it in the same browser you requested it from."
   },
   "Sidebar": {
-    "title": "Bodhinox Chat",
+    "title": "BODHINOX",
     "primaryNav": "Primary",
     "dashboard": "Dashboard",
     "inbox": "Inbox",
@@ -51,7 +51,10 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Profile",
     "menuSettings": "Settings",
-    "menuSignOut": "Sign out"
+    "menuSignOut": "Sign out",
+    "studio": "CRM STUDIO",
+    "workspace": "Workspace",
+    "preferences": "Preferences"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -68,7 +71,10 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Profile",
     "menuSettings": "Settings",
-    "menuSignOut": "Sign out"
+    "menuSignOut": "Sign out",
+    "workspace": "Workspace",
+    "flows": "Flows",
+    "aiAgents": "AI Agents"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -91,7 +97,16 @@
       "newTodayVsYesterday": "new today vs yesterday",
       "vsYesterday": "vs yesterday",
       "openDeals": "{count} open {count, plural, =1 {deal} other {deals}}",
-      "noChange": "No change {suffix}"
+      "noChange": "No change {suffix}",
+      "workspaceLabel": "01 / Workspace overview",
+      "heroTitle": "Less busywork.",
+      "heroAccent": "Better conversations.",
+      "heroDescription": "Your conversations, relationships and opportunities, in one place.",
+      "openInbox": "Open inbox",
+      "aiLabel": "BODHINOX / INTELLIGENCE",
+      "aiTitle": "Meet KHAGA.",
+      "aiDescription": "A little more clarity for every conversation. Explore your AI workspace.",
+      "openAi": "Explore KHAGA"
     },
     "quickActions": {
       "newContact": "New Contact",
@@ -187,7 +202,9 @@
       "clearAll": "Clear all",
       "noConversations": "No conversations found",
       "noMessagesYet": "No messages yet",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "studioEyebrow": "01 / Conversation studio",
+      "studioTitle": "Every conversation, considered."
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -1180,7 +1197,14 @@
     }
   },
   "Flows": {
-    "menuFallback": {"label":"When a customer types instead of choosing a menu option", "reprompt":"Repeat the menu", "handoff":"Hand over to a human", "ignore":"Allow other automations", "ai":"Let AI answer business questions", "help":"AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."},
+    "menuFallback": {
+      "label": "When a customer types instead of choosing a menu option",
+      "reprompt": "Repeat the menu",
+      "handoff": "Hand over to a human",
+      "ignore": "Allow other automations",
+      "ai": "Let AI answer business questions",
+      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."
+    },
     "list": {
       "title": "Flows",
       "beta": "Beta",
@@ -2190,7 +2214,10 @@
       "byModel": "By model",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# call} other {# calls}}",
       "partialWindow": "Showing a partial window — usage is high enough that only the most recent records are summarized here."
-    }
+    },
+    "studioEyebrow": "07 / Your intelligent workspace",
+    "studioTitle": "Meet KHAGA.",
+    "studioDescription": "Thoughtful replies. Your knowledge. A human touch."
   },
   "Interactive": {
     "replyButtons": "Reply buttons",
@@ -2779,5 +2806,13 @@
       "metaApiStatus": "Meta API error: {status}",
       "syncFailed": "Failed to sync templates"
     }
+  },
+  "PageSearch": {
+    "title": "Find your way",
+    "description": "Jump to a page in your workspace.",
+    "placeholder": "Search pages…",
+    "trigger": "Search pages",
+    "empty": "No pages found.",
+    "results": "Pages"
   }
 }

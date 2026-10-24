@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/data/client'
 import { useAuth } from '@/hooks/use-auth'
 import { formatCurrency } from '@/lib/currency'
@@ -9,6 +10,8 @@ import {
   UserPlus,
   DollarSign,
   Send,
+  ArrowUpRight,
+  Sparkles,
 } from 'lucide-react'
 
 import {
@@ -33,6 +36,7 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import styles from '@/components/dashboard/dashboard.module.css'
 
 import { useTranslations } from 'next-intl'
 
@@ -122,13 +126,42 @@ export default function DashboardPage() {
   )
 
   return (
-    <div className="space-y-5">
+    <div className={`${styles.dashboard} studio-dashboard space-y-6`}>
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('description')}
-        </p>
+      <div className={styles.pageHeader}>
+        <div>
+          <p className="eyebrow">{t('workspaceLabel')}</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            {t('description')}
+          </p>
+        </div>
+        <Link href="/inbox" className={styles.inboxLink}>
+          {t('openInbox')} <ArrowUpRight className="h-4 w-4" aria-hidden />
+        </Link>
+      </div>
+
+      <div className={styles.introGrid}>
+        <section className={`${styles.hero} studio-hero`}>
+          <div className={styles.orbit} aria-hidden><span /><i /></div>
+          <div className={styles.heroContent}>
+            <h2 className="studio-editorial">
+              {t('heroTitle')}<br /><span>{t('heroAccent')}</span>
+            </h2>
+            <p>{t('heroDescription')}</p>
+          </div>
+        </section>
+        <Link href="/agents" className={styles.aiTile}>
+          <div className={styles.aiTileTop}>
+            <span>{t('aiLabel')}</span>
+            <Sparkles className="h-5 w-5" aria-hidden />
+          </div>
+          <div>
+            <h2 className="studio-editorial">{t('aiTitle')}</h2>
+            <p>{t('aiDescription')}</p>
+          </div>
+          <div className={styles.aiTileLink}>{t('openAi')} <ArrowUpRight className="h-4 w-4" aria-hidden /></div>
+        </Link>
       </div>
 
       {/* Metric cards */}

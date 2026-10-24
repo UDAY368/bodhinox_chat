@@ -40,14 +40,16 @@ export default function AgentsPage() {
   }, []);
 
   return (
-    <div>
-      <div className="flex items-center gap-2">
-        <Bot className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {t('title')}
-        </h1>
+    <div className="studio-khaga mx-auto max-w-6xl">
+      <div className="relative flex items-center justify-between gap-5 overflow-hidden rounded-[1.5rem] bg-[#111110] px-6 py-8 text-[#f8f7f5] sm:px-9 sm:py-10">
+        <div className="relative z-10 max-w-xl">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#e4a36e]">{t('studioEyebrow')}</p>
+          <h1 className="mt-4 text-4xl font-medium tracking-[-0.055em] sm:text-5xl">{t('studioTitle')}</h1>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-[#c2bfb8]">{t('studioDescription')}</p>
+        </div>
+        <Bot aria-hidden="true" className="relative h-20 w-20 shrink-0 text-[#d58a50]/70 max-sm:hidden" strokeWidth={0.8} />
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground">
         {t('description')}
       </p>
 
@@ -57,15 +59,15 @@ export default function AgentsPage() {
           onValueChange={(v) => setTab(v as Tab)}
           className="mt-6"
         >
-          <TabsList>
-            <TabsTrigger value="playground">
+          <TabsList className="max-w-full flex-wrap justify-start gap-1 rounded-xl border border-border bg-card p-1 group-data-horizontal/tabs:h-auto">
+            <TabsTrigger value="playground" className="h-auto px-3 py-2 text-xs">
               <Sparkles className="mr-1.5 h-4 w-4" /> {t('tabPlayground')}
             </TabsTrigger>
-            <TabsTrigger value="setup">
+            <TabsTrigger value="setup" className="h-auto px-3 py-2 text-xs">
               <Settings2 className="mr-1.5 h-4 w-4" /> {t('tabSetup')}
             </TabsTrigger>
             {canViewUsage && (
-              <TabsTrigger value="usage">
+              <TabsTrigger value="usage" className="h-auto px-3 py-2 text-xs">
                 <BarChart3 className="mr-1.5 h-4 w-4" /> {t('tabUsage')}
               </TabsTrigger>
             )}

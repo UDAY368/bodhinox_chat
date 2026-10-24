@@ -27,7 +27,7 @@
     "linkInvalid": "No se pudo iniciar sesión con ese enlace. Si estabas confirmando tu correo, es posible que ya esté verificado; inicia sesión abajo. Para restablecer la contraseña, pide un enlace nuevo y ábrelo en el mismo navegador desde el que lo solicitaste."
   },
   "Sidebar": {
-    "title": "Plantilla de CRM para WhatsApp",
+    "title": "BODHINOX",
     "primaryNav": "Principal",
     "dashboard": "Panel",
     "inbox": "Bandeja de entrada",
@@ -51,7 +51,10 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Perfil",
     "menuSettings": "Configuración",
-    "menuSignOut": "Cerrar sesión"
+    "menuSignOut": "Cerrar sesión",
+    "studio": "CRM STUDIO",
+    "workspace": "Espacio de trabajo",
+    "preferences": "Preferencias"
   },
   "Header": {
     "dashboard": "Panel",
@@ -68,7 +71,10 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Perfil",
     "menuSettings": "Configuración",
-    "menuSignOut": "Cerrar sesión"
+    "menuSignOut": "Cerrar sesión",
+    "workspace": "Espacio de trabajo",
+    "flows": "Flujos",
+    "aiAgents": "Agentes de IA"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -91,7 +97,16 @@
       "newTodayVsYesterday": "nuevos hoy vs. ayer",
       "vsYesterday": "vs. ayer",
       "openDeals": "{count} {count, plural, =1 {negocio abierto} other {negocios abiertos}}",
-      "noChange": "Sin cambios {suffix}"
+      "noChange": "Sin cambios {suffix}",
+      "workspaceLabel": "01 / Workspace overview",
+      "heroTitle": "Menos tareas repetitivas.",
+      "heroAccent": "Mejores conversaciones.",
+      "heroDescription": "Your conversations, relationships and opportunities, in one place.",
+      "openInbox": "Abrir bandeja",
+      "aiLabel": "BODHINOX / INTELLIGENCE",
+      "aiTitle": "Conoce KHAGA.",
+      "aiDescription": "A little more clarity for every conversation. Explore your AI workspace.",
+      "openAi": "Explorar KHAGA"
     },
     "quickActions": {
       "newContact": "Nuevo contacto",
@@ -187,7 +202,9 @@
       "clearAll": "Limpiar todo",
       "noConversations": "No se encontraron conversaciones",
       "noMessagesYet": "Aún no hay mensajes",
-      "unknown": "Desconocido"
+      "unknown": "Desconocido",
+      "studioEyebrow": "01 / Conversation studio",
+      "studioTitle": "Every conversation, considered."
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -1180,7 +1197,14 @@
     }
   },
   "Flows": {
-    "menuFallback": {"label":"When a customer types instead of choosing a menu option", "reprompt":"Repeat the menu", "handoff":"Hand over to a human", "ignore":"Allow other automations", "ai":"Let AI answer business questions", "help":"AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."},
+    "menuFallback": {
+      "label": "When a customer types instead of choosing a menu option",
+      "reprompt": "Repeat the menu",
+      "handoff": "Hand over to a human",
+      "ignore": "Allow other automations",
+      "ai": "Let AI answer business questions",
+      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."
+    },
     "list": {
       "title": "Flujos",
       "beta": "Beta",
@@ -2190,7 +2214,10 @@
       "byModel": "Por modelo",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# llamada} other {# llamadas}}",
       "partialWindow": "Se muestra una ventana parcial: el uso es tan alto que aquí solo se resumen los registros más recientes."
-    }
+    },
+    "studioEyebrow": "07 / Your intelligent workspace",
+    "studioTitle": "Conoce KHAGA.",
+    "studioDescription": "Respuestas cuidadas. Tu conocimiento. Un toque humano."
   },
   "Interactive": {
     "replyButtons": "Botones de respuesta",
@@ -2779,5 +2806,13 @@
       "metaApiStatus": "Error de la API de Meta: {status}",
       "syncFailed": "Error al sincronizar las plantillas"
     }
+  },
+  "PageSearch": {
+    "title": "Encuentra tu camino",
+    "description": "Abre una página de tu espacio de trabajo.",
+    "placeholder": "Buscar páginas…",
+    "trigger": "Buscar páginas",
+    "empty": "No se encontraron páginas.",
+    "results": "Páginas"
   }
 }

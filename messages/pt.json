@@ -27,7 +27,7 @@
     "linkInvalid": "Não foi possível entrar com esse link. Se estava confirmando seu e-mail, ele já pode estar verificado — basta entrar abaixo. Para redefinir a senha, peça um novo link e abra-o no mesmo navegador em que o solicitou."
   },
   "Sidebar": {
-    "title": "Modelo de CRM para WhatsApp",
+    "title": "BODHINOX",
     "primaryNav": "Principal",
     "dashboard": "Painel",
     "inbox": "Caixa de entrada",
@@ -51,7 +51,10 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Perfil",
     "menuSettings": "Configurações",
-    "menuSignOut": "Sair"
+    "menuSignOut": "Sair",
+    "studio": "CRM STUDIO",
+    "workspace": "Espaço de trabalho",
+    "preferences": "Preferências"
   },
   "Header": {
     "dashboard": "Painel",
@@ -68,7 +71,10 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Perfil",
     "menuSettings": "Configurações",
-    "menuSignOut": "Sair"
+    "menuSignOut": "Sair",
+    "workspace": "Espaço de trabalho",
+    "flows": "Fluxos",
+    "aiAgents": "Agentes de IA"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
@@ -91,7 +97,16 @@
       "newTodayVsYesterday": "novos hoje vs. ontem",
       "vsYesterday": "vs. ontem",
       "openDeals": "{count} {count, plural, =1 {negócio aberto} other {negócios abertos}}",
-      "noChange": "Sem alteração {suffix}"
+      "noChange": "Sem alteração {suffix}",
+      "workspaceLabel": "01 / Workspace overview",
+      "heroTitle": "Menos tarefas repetitivas.",
+      "heroAccent": "Melhores conversas.",
+      "heroDescription": "Your conversations, relationships and opportunities, in one place.",
+      "openInbox": "Abrir caixa de entrada",
+      "aiLabel": "BODHINOX / INTELLIGENCE",
+      "aiTitle": "Conheça KHAGA.",
+      "aiDescription": "A little more clarity for every conversation. Explore your AI workspace.",
+      "openAi": "Explorar KHAGA"
     },
     "quickActions": {
       "newContact": "Novo contato",
@@ -187,7 +202,9 @@
       "clearAll": "Limpar tudo",
       "noConversations": "Nenhuma conversa encontrada",
       "noMessagesYet": "Nenhuma mensagem ainda",
-      "unknown": "Desconhecido"
+      "unknown": "Desconhecido",
+      "studioEyebrow": "01 / Conversation studio",
+      "studioTitle": "Every conversation, considered."
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -1180,7 +1197,14 @@
     }
   },
   "Flows": {
-    "menuFallback": {"label":"When a customer types instead of choosing a menu option", "reprompt":"Repeat the menu", "handoff":"Hand over to a human", "ignore":"Allow other automations", "ai":"Let AI answer business questions", "help":"AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."},
+    "menuFallback": {
+      "label": "When a customer types instead of choosing a menu option",
+      "reprompt": "Repeat the menu",
+      "handoff": "Hand over to a human",
+      "ignore": "Allow other automations",
+      "ai": "Let AI answer business questions",
+      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."
+    },
     "list": {
       "title": "Fluxos",
       "beta": "Beta",
@@ -2190,7 +2214,10 @@
       "byModel": "Por modelo",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# chamada} other {# chamadas}}",
       "partialWindow": "Exibindo uma janela parcial — o uso é alto o suficiente para que apenas os registros mais recentes sejam resumidos aqui."
-    }
+    },
+    "studioEyebrow": "07 / Your intelligent workspace",
+    "studioTitle": "Conheça KHAGA.",
+    "studioDescription": "Respostas cuidadosas. Seu conhecimento. Um toque humano."
   },
   "Interactive": {
     "replyButtons": "Botões de resposta",
@@ -2779,5 +2806,13 @@
       "metaApiStatus": "Erro da API da Meta: {status}",
       "syncFailed": "Falha ao sincronizar os modelos"
     }
+  },
+  "PageSearch": {
+    "title": "Encontre seu caminho",
+    "description": "Abra uma página do seu espaço de trabalho.",
+    "placeholder": "Buscar páginas…",
+    "trigger": "Buscar páginas",
+    "empty": "Nenhuma página encontrada.",
+    "results": "Páginas"
   }
 }
