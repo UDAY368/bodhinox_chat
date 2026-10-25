@@ -271,6 +271,7 @@ const LEAD_CAPTURE: FlowTemplate = {
       config: {
         prompt_text: t("lead_capture.askEmail", { name: "{{vars.name}}" }),
         var_key: "email",
+        validation: "email",
         next_node_key: "ask_company",
       } as CollectInputNodeConfig,
     },

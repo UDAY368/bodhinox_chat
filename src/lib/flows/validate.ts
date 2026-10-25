@@ -118,6 +118,55 @@ export function validateFlowForActivation(
     issues.push(...validateNode(n, keys));
   }
 
+  // Warn rather than block: explicit starts may supply variables externally.
+  if (flow.entry_node_id && keys.has(flow.entry_node_id)) {
+    const byKey = new Map(nodes.map(node => [node.node_key, node]));
+    const predecessors = new Map<string, string[]>();
+    for (const earlier of nodes) for (const next of outgoingEdges(earlier)) {
+      predecessors.set(next, [...(predecessors.get(next) ?? []), earlier.node_key]);
+    }
+    for (const node of nodes) {
+      const ancestors = new Set<string>();
+      const backwards = [...(predecessors.get(node.node_key) ?? [])];
+      while (backwards.length) {
+        const key = backwards.pop()!;
+        if (ancestors.has(key) || key === node.node_key) continue;
+        ancestors.add(key);
+        backwards.push(...(predecessors.get(key) ?? []));
+      }
+      const available = new Set<string>();
+      const visited = new Set<string>();
+      const pending = [flow.entry_node_id];
+      while (pending.length) {
+        const key = pending.pop()!;
+        if (key === node.node_key || visited.has(key)) continue;
+        visited.add(key);
+        const earlier = byKey.get(key);
+        if (!earlier) continue;
+        if (ancestors.has(key) && earlier.node_type === 'collect_input' && typeof earlier.config.var_key === 'string') available.add(earlier.config.var_key);
+        pending.push(...outgoingEdges(earlier));
+      }
+      const references: Array<{ field: string; key: string }> = [];
+      if (node.node_type === 'condition' && node.config.subject === 'var' && typeof node.config.subject_key === 'string') {
+        references.push({ field: 'subject_key', key: node.config.subject_key });
+      }
+      const scan = (value: unknown, field: string) => {
+        if (typeof value === 'string') {
+          for (const match of value.matchAll(/\{\{vars\.([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g)) references.push({ field, key: match[1] });
+        } else if (Array.isArray(value)) value.forEach((item, i) => scan(item, `${field}.${i}`));
+        else if (value && typeof value === 'object') {
+          for (const [key, item] of Object.entries(value)) {
+            if (!['regex', 'media_url', 'reply_id', 'next_node_key', 'true_next', 'false_next'].includes(key)) scan(item, field ? `${field}.${key}` : key);
+          }
+        }
+      };
+      scan(node.config, '');
+      for (const { field, key } of references) {
+        if (!available.has(key)) issues.push({ severity: 'warning', scope: 'node', node_key: node.node_key, field, message: t('variableNotCollected', { key }) });
+      }
+    }
+  }
+
   // Reachability — every non-orphan node must be reachable from the
   // entry. Done after per-node validation so we don't double-report
   // when a node has bad config AND is unreachable.
@@ -609,7 +658,17 @@ function validateNode(
         prompt_text?: string;
         var_key?: string;
         next_node_key?: string;
+        validation?: string;
+        regex?: string;
       };
+      if (cfg.validation !== undefined && !['any', 'email', 'phone', 'regex'].includes(cfg.validation)) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'validation', message: t('invalidInputValidation') });
+      }
+      if (cfg.validation === 'regex') {
+        let valid = typeof cfg.regex === 'string' && cfg.regex.length > 0 && cfg.regex.length <= 256;
+        if (valid) { try { new RegExp(`^(?:${cfg.regex})$`, 'u'); } catch { valid = false; } }
+        if (!valid) issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'regex', message: t('invalidInputRegex') });
+      }
       if (!cfg.prompt_text?.trim()) {
         issues.push({
           severity: "error",

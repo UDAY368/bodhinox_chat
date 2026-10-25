@@ -141,6 +141,22 @@ export function NodeConfigForm({
             onChange={(v) => onUpdateConfig({ prompt_text: v })}
             rows={2}
           />
+          <div className="space-y-2">
+            <label htmlFor={`validation-${node.node_key}`} className="block text-xs text-muted-foreground">{t('inputValidation')}</label>
+            <Select value={String(cfg.validation ?? 'any')} onValueChange={(value) => onUpdateConfig({ validation: value })}>
+              <SelectTrigger id={`validation-${node.node_key}`} className="bg-muted"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">{t('validationAny')}</SelectItem>
+                <SelectItem value="email">{t('validationEmail')}</SelectItem>
+                <SelectItem value="phone">{t('validationPhone')}</SelectItem>
+                <SelectItem value="regex">{t('validationRegex')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">{t(cfg.validation === 'phone' ? 'validationPhoneHelp' : 'validationHelp')}</p>
+            {cfg.validation === 'regex' && (
+              <TextRow label={t('validationPattern')} value={typeof cfg.regex === 'string' ? cfg.regex : ''} onChange={(regex) => onUpdateConfig({ regex })} rows={2} />
+            )}
+          </div>
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">
               {t("varKeyLabel")}
