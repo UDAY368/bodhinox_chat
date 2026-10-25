@@ -303,6 +303,23 @@ describe('dispatchInboundToAiReply — typing indicator (#527)', () => {
 })
 
 describe('dispatchInboundToAiReply — handoff', () => {
+  it('withholds provider commentary before any WhatsApp send and pauses for a human', async () => {
+    const actual = await vi.importActual<typeof import('./generate')>('./generate')
+    h.generateReply.mockImplementationOnce(actual.generateReply)
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      choices: [{ message: { content: '*Response:*\nHello!\n\nNote: The user appears to be switching languages. I should respond casually.' } }],
+      usage: { prompt_tokens: 20, completion_tokens: 30 },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      await dispatchInboundToAiReply(ARGS)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(h.engineSendText).not.toHaveBeenCalled()
+      expect(h.state.rpcCalls).toHaveLength(0)
+      expect(h.state.updatePayload).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true })
+      expect(JSON.stringify(h.state.updatePayload)).not.toContain('switching languages')
+    } finally { vi.unstubAllGlobals() }
+  })
   it('disables auto-reply, writes a summary, and does not send on handoff', async () => {
     h.generateReply.mockResolvedValue({ text: '', handoff: true })
     await dispatchInboundToAiReply(ARGS)
@@ -328,7 +345,7 @@ describe('dispatchInboundToAiReply — handoff', () => {
 })
 
 
-describe('dispatchInboundToAiReply � current conversation safeguards', () => {
+describe('dispatchInboundToAiReply — current conversation safeguards', () => {
   it.each([null, 'invalid', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()])('does not generate or send outside a customer session: %s', async (timestamp) => {
     h.state.conv!.last_customer_message_at = timestamp
     await dispatchInboundToAiReply(ARGS)

@@ -71,7 +71,18 @@ export function parseGeneration(
   raw: string,
   usage: AiUsage | null = null,
 ): GenerateResult {
+  // Providers can put commentary in ordinary content even when separate
+  // reasoning is excluded. Withhold the whole turn rather than guessing
+  // which part is a safe customer answer.
   const handoff = raw.includes(HANDOFF_SENTINEL)
   const text = raw.split(HANDOFF_SENTINEL).join('').trim()
+    .replace(/^(?:#{1,6}\s*)?[*_]{0,2}(?:response|reply|final (?:answer|response))[*_]{0,2}\s*:[*_]{0,2}\s*/i, '')
+  const plain = text.replace(/[*_`]/g, '')
+  const reasoningMarkup = /<\s*\/?\s*(?:think(?:ing)?|analysis|reasoning|scratchpad)\b|\[(?:analysis|reasoning)\]|<\|(?:analysis|channel|im_start|start_header_id)\|>/i
+  const reasoningHeading = /(?:^|\n)[\t ]*(?:#{1,6}[\t ]*)?(?:reasoning|analysis|internal notes?|thought process|chain of thought|scratchpad)[\t ]*(?::|\r?$)/im
+  const customerAnalysis = /(?:^|[\n.!?])\s*(?:#{1,6}\s*)?(?:(?:note|explanation)\s*:\s*)?the (?:user|customer) (?:appears|seems|is (?:asking|requesting|speaking|switching|writing))\b/i
+  if (reasoningMarkup.test(raw) || reasoningHeading.test(plain) || customerAnalysis.test(plain)) {
+    return { text: '', handoff: true, usage }
+  }
   return { text, handoff, usage }
 }
