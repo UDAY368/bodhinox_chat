@@ -32,7 +32,7 @@ export function ValidationPanel() {
     // sticky-positioned over scrolled-behind node cards (a translucent
     // bg-emerald-500/10 would bleed through ugly).
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-emerald-600/50 bg-background p-3 text-sm font-medium text-emerald-300">
+      <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
         <CircleCheck className="h-4 w-4 shrink-0" />
         {t("noIssues")}
       </div>
@@ -41,26 +41,26 @@ export function ValidationPanel() {
   const errors = issues.filter((i) => i.severity === "error");
   const warnings = issues.filter((i) => i.severity === "warning");
   return (
-    <div
+    <details
       className={cn(
-        "rounded-lg border bg-background p-3",
+        "rounded-lg border bg-background",
         errors.length > 0 ? "border-red-500/40" : "border-amber-500/40",
       )}
     >
-      <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground">
         {errors.length > 0 ? (
-          <CircleAlert className="h-4 w-4 text-red-400" />
+          <CircleAlert className="mr-2 inline h-3.5 w-3.5 text-red-600" />
         ) : (
-          <CircleAlert className="h-4 w-4 text-amber-400" />
+          <CircleAlert className="mr-2 inline h-3.5 w-3.5 text-amber-600" />
         )}
         {t("summary", { errorCount: errors.length, warningCount: warnings.length })}
-      </div>
-      <div className="flex flex-col gap-1">
+      </summary>
+      <div className="flex max-h-40 flex-col gap-1 overflow-y-auto border-t border-border p-2">
         {issues.map((i, ix) => (
           <IssueLine key={ix} issue={i} onJump={requestFlash} t={t} />
         ))}
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -80,7 +80,7 @@ export function IssueLine({
   t?: ReturnType<typeof useTranslations>;
 }) {
   const tone =
-    issue.severity === "error" ? "text-red-300" : "text-amber-300";
+    issue.severity === "error" ? "text-red-700 dark:text-red-300" : "text-amber-800 dark:text-amber-300";
   const iconTone =
     issue.severity === "error" ? "text-red-400" : "text-amber-400";
   const body = (

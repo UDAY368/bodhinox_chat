@@ -1,5 +1,5 @@
 "use client";
-import { authFetch } from "@/lib/auth/client";
+import { loadFlowTags } from '../load-tags';
 
 /**
  * Per-node configuration form, dispatched by node_type.
@@ -856,8 +856,7 @@ function SetTagForm({
 
 /**
  * Shared loader for both `condition` (subject=tag) and `set_tag`.
- * Falls back to raw UUID input if the endpoint is absent on older
- * deployments — the form remains authorable in that case.
+ * Uses the tenant-scoped CRM client; manual UUID entry remains a fallback.
  */
 function useUserTags(): UserTag[] {
   const [tags, setTags] = useState<UserTag[]>([]);
@@ -865,12 +864,10 @@ function useUserTags(): UserTag[] {
     let cancelled = false;
     (async () => {
       try {
-        const res = await authFetch("/api/tags").catch(() => null);
-        if (!res || !res.ok) return;
-        const json = (await res.json()) as { tags?: UserTag[] };
-        if (!cancelled) setTags(json.tags ?? []);
+        const loaded = await loadFlowTags();
+        if (!cancelled) setTags(loaded);
       } catch {
-        // Tags endpoint absent — caller falls back to raw input.
+        // The caller keeps manual tag entry available.
       }
     })();
     return () => {

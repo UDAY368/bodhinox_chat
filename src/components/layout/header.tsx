@@ -23,6 +23,8 @@ import { PageSearch } from '@/components/layout/page-search';
 import { getPageTitleKey } from '@/components/layout/page-search-navigation';
 
 interface HeaderProps {
+  showMenuToggle?: boolean;
+  menuExpanded?: boolean;
   /** Wired to the shell's drawer state. Used only on mobile — the
    *  hamburger button is hidden on lg+. */
   onOpenSidebar?: () => void;
@@ -30,7 +32,7 @@ interface HeaderProps {
 
 import { useTranslations } from 'next-intl';
 
-export function Header({ onOpenSidebar }: HeaderProps) {
+export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: HeaderProps) {
   const t = useTranslations('Header');
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
@@ -49,7 +51,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           type="button"
           onClick={onOpenSidebar}
           aria-label={t('openMenu')}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-md transition-colors lg:hidden"
+          aria-expanded={showMenuToggle ? menuExpanded : undefined}
+          className={`text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-md transition-colors${showMenuToggle ? '' : ' lg:hidden'}`}
         >
           <Menu className="h-5 w-5" />
         </button>

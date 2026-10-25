@@ -99,6 +99,7 @@ const bottomNavItems = [
 ];
 
 interface SidebarProps {
+  compact?: boolean;
   /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
   open?: boolean;
   onClose?: () => void;
@@ -106,7 +107,7 @@ interface SidebarProps {
 
 import { useTranslations } from 'next-intl';
 
-export function Sidebar({ open = false, onClose }: SidebarProps) {
+export function Sidebar({ open = false, onClose, compact = false }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
@@ -170,6 +171,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         className={cn(
           // Mobile: fixed drawer that slides in from the left.
           'studio-sidebar fixed inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 flex-col border-r border-white/10 bg-[#111110] text-[#f6f4ef]',
+          compact && 'studio-sidebar-compact',
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'visible translate-x-0' : 'invisible -translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
@@ -180,7 +182,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div className="flex h-[96px] shrink-0 items-center justify-between gap-2 px-6">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard" aria-label={t('title')} className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center text-[#d58a50]">
               <Sun className="h-9 w-9" strokeWidth={1.5} />
             </div>
@@ -239,6 +241,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     <span className="flex-1">{t(item.labelKey as string)}</span>
                     {item.beta && (
                       <span
+                        data-nav-beta=""
                         aria-label={t('beta')}
                         className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
                       >

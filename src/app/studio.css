@@ -46,6 +46,41 @@ button:not(:disabled), a { touch-action: manipulation; }
 .studio-main .react-flow__controls { border: 1px solid var(--border); border-radius: .7rem; overflow: hidden; box-shadow: var(--studio-shadow); }
 .studio-main .react-flow__controls-button { background: var(--card); border-color: var(--border); fill: var(--foreground); }
 .studio-main .react-flow__edge-path { stroke: var(--muted-foreground); }
+.flow-studio-workspace { container-type: inline-size; }
+.studio-main:has(> .flow-studio) { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
+.studio-main > .flow-studio { flex: 1; height: auto; min-height: 0; width: 100%; max-width: none; }
+.studio-main:has(> .flow-studio) > :not(.flow-studio) { flex-shrink: 0; }
+.flow-studio-grid { display: grid; grid-template-columns: 228px minmax(0, 1fr); }
+.flow-studio-grid[data-inspector="open"] { grid-template-columns: 228px minmax(0, 1fr) 304px; }
+.flow-studio-grid[data-library="closed"] { grid-template-columns: minmax(0, 1fr); }
+.flow-studio-grid[data-library="closed"][data-inspector="open"] { grid-template-columns: minmax(0, 1fr) 304px; }
+.studio-flow-shell .studio-header { height: 44px; min-height: 44px; }
+.flow-studio > div:first-child { padding: 12px 16px 0; }
+.flow-studio-inspector .grid { grid-template-columns: minmax(0, 1fr); }
+.flow-studio-card { box-shadow: 0 8px 28px -16px color-mix(in srgb, var(--primary) 35%, transparent); }
+.flow-studio .react-flow__edge-path { stroke: color-mix(in srgb, var(--primary) 68%, var(--border)); stroke-width: 1.8; }
+.flow-studio .react-flow__node:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+@container (max-width: 850px) {
+  .flow-studio-grid { grid-template-columns: 192px minmax(0, 1fr); }
+  .flow-studio-grid[data-inspector="open"] { grid-template-columns: 192px minmax(0, 1fr) 280px; }
+  .flow-studio-grid[data-library="closed"] { grid-template-columns: minmax(0, 1fr); }
+  .flow-studio-grid[data-library="closed"][data-inspector="open"] { grid-template-columns: minmax(0, 1fr) 280px; }
+}
+@media (min-width: 1024px) {
+  .studio-sidebar-compact { width: 76px; }
+  .studio-sidebar-compact > div:first-of-type { height: 64px; justify-content: center; padding: 12px; }
+  .studio-sidebar-compact > div:first-of-type a > span { display: none; }
+  .studio-sidebar-compact nav { padding-inline: 6px; }
+  .studio-sidebar-compact nav > p { display: none; }
+  .studio-sidebar-compact .studio-sidebar-link { position: relative; flex-direction: column; justify-content: center; gap: 5px; min-height: 54px; padding: 7px 2px; font-size: 9px; }
+  .studio-sidebar-compact .studio-sidebar-link > span.flex-1 { flex: none; }
+  .studio-sidebar-compact .studio-sidebar-link > [data-nav-beta] { display: none; }
+  .studio-sidebar-compact .studio-sidebar-link > span:not(.flex-1):not([data-nav-beta]) { position: absolute; top: 3px; right: 3px; }
+  .studio-sidebar-compact > div:last-child { padding: 6px; }
+  .studio-sidebar-compact > div:last-child > div { display: none; }
+  .studio-sidebar-compact > div:last-child button { justify-content: center; padding-inline: 4px; }
+  .studio-sidebar-compact > div:last-child button > div { display: none; }
+}
 @supports (backdrop-filter: blur(12px)) {
   .studio-header { backdrop-filter: blur(12px); }
   [data-slot="popover-content"], [data-slot="dropdown-menu-content"] { background: var(--studio-glass); backdrop-filter: blur(12px); }

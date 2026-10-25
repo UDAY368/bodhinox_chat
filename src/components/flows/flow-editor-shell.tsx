@@ -32,7 +32,7 @@ import { FlowCanvas } from "./flow-canvas";
 import { FlowEditorProvider, useFlowEditor } from "./flow-editor-state";
 import { EditorHeader } from "./header";
 import { ValidationPanel } from "./validation-panel";
-import { NODE_META, nodeColors, type NodeType } from "./shared";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from "@/lib/utils";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
@@ -53,7 +53,6 @@ const STORAGE_KEY = "wacrm.flowEditor.view";
 // Legend covers every node type, derived from NODE_META so a new type
 // can't silently go undocumented. NODE_META's key order already reads
 // the way a flow flows: start → talk → capture → branch → mutate → end.
-const LEGEND_TYPES = Object.keys(NODE_META) as NodeType[];
 
 interface Props {
   initialFlow: FlowRow;
@@ -96,16 +95,15 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
 
   return (
     <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes}>
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flow-studio flex h-full min-h-0 flex-col">
         <EditorHeader />
-        <MenuFallbackSettings />
 
         {/* ---- mode row: view toggle + node-type legend ----
             Omitted entirely on mobile (canvas is unavailable there and
             the legend is lg-only), so there's no empty band above the
             stage on small screens. */}
-        {!isMobile && (
-          <div className="flex items-center gap-4 px-6 py-3.5">
+          <div className="flex shrink-0 items-center gap-4 px-4 py-2">
+            {!isMobile && (
             <div
               role="group"
               aria-label={t("editorView")}
@@ -124,25 +122,15 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
                 label={t("listView")}
               />
             </div>
-            <div className="ml-auto hidden flex-wrap items-center gap-x-3.5 gap-y-1.5 lg:flex">
-              {LEGEND_TYPES.map((t_type) => (
-                <span
-                  key={t_type}
-                  className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground"
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: nodeColors(t_type).solid }}
-                  />
-                  {t(`nodes.${t_type}.label`)}
-                </span>
-              ))}
-            </div>
+            )}
+            <Popover>
+              <PopoverTrigger className="ml-auto rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium">{t('studioSettings')}</PopoverTrigger>
+              <PopoverContent align="end" className="w-80"><MenuFallbackSettings /></PopoverContent>
+            </Popover>
           </div>
-        )}
 
         {/* ---- stage: the active view, owning its own overflow ---- */}
-        <div className="relative mx-6 min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card-2">
+        <div className="relative mx-2 min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card-2 sm:mx-4">
           {effectiveView === "canvas" ? (
             <FlowCanvas />
           ) : (
@@ -153,7 +141,7 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
         </div>
 
         {/* ---- validation / activate-readiness bar ---- */}
-        <div className="px-6 pb-5 pt-3">
+        <div className="flow-studio-validation shrink-0 px-4 py-2">
           <ValidationPanel />
         </div>
       </div>
