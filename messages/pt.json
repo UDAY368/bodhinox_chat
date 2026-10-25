@@ -179,6 +179,91 @@
     },
     "emptyState": {
       "title": "Ainda não há dados suficientes"
+    },
+    "operations": {
+      "title": "Operações",
+      "description": "Contagens e filas são atuais; métricas de respostas e campanhas seguem o período selecionado.",
+      "range": "Período",
+      "days": "Últimos {count} dias",
+      "error": "Não foi possível atualizar as operações. Os dados anteriores podem estar desatualizados.",
+      "retry": "Tentar novamente",
+      "loading": "Carregando operações…",
+      "waiting": "Aguardando resposta",
+      "overTarget": "Acima da meta",
+      "unassigned": "Sem responsável",
+      "expiring": "Sessão encerrando",
+      "failed": "Mensagens com falha",
+      "target": "Meta de resposta: {count} minutos.",
+      "editTarget": "Editar meta",
+      "queue": "Fila de respostas",
+      "queueEmpty": "Nenhum cliente aguardando resposta.",
+      "waitingSince": "Aguardando desde {time}",
+      "closesAt": "Sessão encerra {time}",
+      "handedOff": "Transferido",
+      "failures": "Detalhes das falhas",
+      "failuresHint": "Falhas recentes no período selecionado. Abra a conversa para revisar a entrega.",
+      "failuresEmpty": "Nenhuma mensagem com falha neste período.",
+      "mediaMessage": "Mensagem de mídia ou modelo",
+      "team": "Respostas da equipe",
+      "member": "Membro",
+      "open": "Abertas",
+      "replies": "Respostas",
+      "median": "Mediana de resposta",
+      "minutes": "{count} min",
+      "automated": "Respostas automatizadas",
+      "teamEmpty": "Sem dados de respostas da equipe neste período.",
+      "pipelines": "Resultados por funil",
+      "pipeline": "Funil",
+      "won": "Ganhos",
+      "lost": "Perdidos",
+      "idle": "Inativos",
+      "avgDaysToWin": "Média de dias para ganhar: {value}",
+      "openPipelines": "Abrir funis",
+      "pipelinesEmpty": "Nenhum funil ainda.",
+      "campaigns": "Saúde das campanhas",
+      "automationRuns": "Execuções de automação",
+      "automationFailed": "Automações com falha",
+      "flowFailed": "Fluxos com falha",
+      "templatesApproved": "Modelos aprovados",
+      "templatesRejected": "Modelos rejeitados",
+      "topFailingFlow": "Fluxo com mais falhas: {name}",
+      "automations": "Automações",
+      "flows": "Fluxos",
+      "latestBroadcast": "Última transmissão",
+      "delivered": "Entregues",
+      "read": "Lidas",
+      "replied": "Respondidas",
+      "broadcastEmpty": "Nenhuma transmissão ainda.",
+      "setup": "Configuração do espaço",
+      "setupHint": "WhatsApp indica configuração salva. Confira a conexão nas configurações do WhatsApp.",
+      "done": "Concluído",
+      "pending": "Pendente",
+      "setupItems": {
+        "whatsapp": "Configurar WhatsApp",
+        "contacts": "Adicionar contatos",
+        "template": "Aprovar um modelo",
+        "teammate": "Convidar um colega",
+        "conversation": "Iniciar uma conversa"
+      },
+      "health": {
+        "connected": "Conectado",
+        "disconnected": "Desconectado",
+        "unavailable": "Status indisponível",
+        "loading": "Verificando conexão…",
+        "quality": "Qualidade: {value}",
+        "limit": "Limite de mensagens: {value}",
+        "perDay": "{count} / dia",
+        "unlimited": "Ilimitado",
+        "unknown": "Desconhecido",
+        "settings": "Configurações de conexão",
+        "retry": "Tentar novamente",
+        "ratings": {
+          "GREEN": "Boa",
+          "YELLOW": "Média",
+          "RED": "Baixa",
+          "UNKNOWN": "Desconhecida"
+        }
+      }
     }
   },
   "Inbox": {
@@ -204,7 +289,10 @@
       "noMessagesYet": "Nenhuma mensagem ainda",
       "unknown": "Desconhecido",
       "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered."
+      "studioTitle": "Every conversation, considered.",
+      "filterWaiting": "Waiting for reply",
+      "filterUnassigned": "Unassigned",
+      "filterExpiringSoon": "Expiring soon"
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -238,7 +326,10 @@
       "assignmentUpdateFailed": "Falha ao atualizar a atribuição",
       "networkError": "erro de rede",
       "documentFallback": "Documento",
-      "you": "Você"
+      "you": "Você",
+      "loadOlder": "Load older messages",
+      "loadingOlder": "Loading older messages…",
+      "historyLoadFailed": "Unable to load older messages"
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -1178,7 +1269,9 @@
         "matchExact": "Exata",
         "waitForReply": "Aguardar resposta antes de continuar",
         "waitForReplyHint": "Pausa aqui até o cliente tocar em um botão ou responder (até 24h). As etapas seguintes, incluindo Se/Senão no conteúdo da mensagem, usam essa resposta.",
-        "closeConversationHint": "Define o status da conversa como \"fechada\". Nenhuma configuração necessária."
+        "closeConversationHint": "Define o status da conversa como \"fechada\". Nenhuma configuração necessária.",
+        "conditionTimezoneLabel": "Timezone",
+        "conditionTimezoneHint": "Business timezone used to evaluate this time window."
       },
       "preview": {
         "noText": "sem texto ainda",
@@ -1261,7 +1354,8 @@
       "statusHandedOff": "Transferida",
       "statusTimedOut": "Tempo esgotado",
       "statusPaused": "Pausada pelo agente",
-      "statusFailed": "Falhou"
+      "statusFailed": "Falhou",
+      "statusCancelled": "Cancelado"
     },
     "builder": {
       "triggerTitle": "Gatilho",
@@ -1823,7 +1917,8 @@
       "fields": "Campos e tags",
       "deals": "Negócios e moeda",
       "members": "Membros da equipe",
-      "api": "Chaves de API"
+      "api": "Chaves de API",
+      "inbox": "Caixa de entrada"
     },
     "groups": {
       "account": "Conta",
@@ -2075,6 +2170,11 @@
       "textPlaceholder": "O texto da mensagem a inserir",
       "cancel": "Cancelar",
       "save": "Salvar"
+    },
+    "rail": {
+      "sections": {
+        "inbox": "Inbox"
+      }
     }
   },
   "SignupPage": {
@@ -2461,7 +2561,10 @@
       "conversationNotInAccount": "a conversa não pertence a esta conta",
       "noContactForConversation": "não foi possível identificar a conversa: sem contato",
       "noConversation": "não é possível enviar: o contato não tem uma conversa existente",
-      "tagAddedNoConversation": "a automação tag_added não pode enviar: o contato não tem uma conversa existente"
+      "tagAddedNoConversation": "a automação tag_added não pode enviar: o contato não tem uma conversa existente",
+      "pausedWhileWaiting": "Automation paused while waiting",
+      "parkedStepRemoved": "The step where this run was waiting was removed",
+      "scheduleWaitFailed": "Could not schedule the wait: {message}"
     }
   },
   "Validation": {
@@ -2519,7 +2622,8 @@
       "setTagNeedsTag": "O nó Marcar contato precisa de uma tag para aplicar.",
       "setTagNeedsNext": "O nó Marcar contato precisa apontar para um próximo nó.",
       "setTagMissingNext": "O nó Marcar contato aponta para um nó inexistente: \"{key}\".",
-      "unknownNodeType": "Tipo de nó desconhecido: \"{type}\"."
+      "unknownNodeType": "Tipo de nó desconhecido: \"{type}\".",
+      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -2545,7 +2649,10 @@
       "matchTypeInvalid": "o tipo de correspondência deve ser \"exact\", \"contains\" ou \"word\"",
       "scheduleRequired": "o agendamento é obrigatório",
       "replyIdRequired": "é necessário pelo menos um ID de resposta",
-      "replyIdsEmpty": "os IDs de resposta não podem ser vazios"
+      "replyIdsEmpty": "os IDs de resposta não podem ser vazios",
+      "conditionValueRequired": "Enter a non-empty comparison value.",
+      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
+      "conditionTimezoneInvalid": "Choose a valid timezone."
     },
     "templates": {
       "nameRequired": "O nome do modelo é obrigatório.",
@@ -2728,7 +2835,8 @@
       "nameEmpty": "O nome não pode ficar vazio",
       "unknownTemplate": "Modelo de fluxo desconhecido \"{slug}\"",
       "insertFailed": "falha ao criar o fluxo",
-      "nameRequired": "O nome é obrigatório"
+      "nameRequired": "O nome é obrigatório",
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
     },
     "quickReplies": {
       "kindInvalid": "O tipo deve ser \"text\" ou \"interactive\"",
@@ -2814,5 +2922,19 @@
     "trigger": "Buscar páginas",
     "empty": "Nenhuma página encontrada.",
     "results": "Páginas"
+  },
+  "inboxSettings": {
+    "title": "Caixa de entrada",
+    "description": "Defina a meta de resposta para as filas e relatórios do espaço.",
+    "loading": "Carregando configurações…",
+    "error": "Não foi possível carregar ou salvar as configurações. Tente novamente.",
+    "retry": "Tentar novamente",
+    "label": "Meta de resposta (minutos)",
+    "help": "Digite um número inteiro de 1 a 1440 minutos.",
+    "invalid": "Digite um número inteiro de 1 a 1440.",
+    "readOnly": "Somente administradores podem alterar esta configuração.",
+    "saving": "Salvando…",
+    "save": "Salvar meta",
+    "saved": "Meta salva."
   }
 }

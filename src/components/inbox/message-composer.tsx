@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCan } from "@/hooks/use-can";
+import { shouldSendOnEnter } from '@/lib/inbox/composer-keyboard';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -240,7 +241,7 @@ export function MessageComposer({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (shouldSendOnEnter(e.nativeEvent, window.matchMedia('(pointer: coarse)').matches)) {
         e.preventDefault();
         handleSend();
       }
@@ -885,7 +886,7 @@ function MediaDraftPreview({
             maxLength={MEDIA_CAPTION_MAX}
             onChange={(e) => onCaptionChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (shouldSendOnEnter(e.nativeEvent, window.matchMedia('(pointer: coarse)').matches)) {
                 e.preventDefault();
                 onSend();
               }

@@ -1,5 +1,11 @@
 'use client';
 import { authFetch } from '@/lib/auth/client';
+import {
+  browserTimeZone,
+  editConditionConfig,
+  LEGACY_CONDITION_TIMEZONE,
+  listTimeZones,
+} from '@/lib/automations/time-of-day';
 
 import {
   createContext,
@@ -80,7 +86,8 @@ import type { ScheduledAudience } from '@/lib/automations/scheduled-contract';
 // ------------------------------------------------------------
 
 export interface BuilderStep {
-  /** Client id; the API assigns real UUIDs server-side. */
+  id?: string;
+  /** Client identity also seeds the persisted UUID for newly added steps. */
   cid: string;
   step_type: AutomationStepType;
   step_config: Record<string, unknown>;
@@ -1736,7 +1743,15 @@ function StepEditor({
           <FieldBlock label={t('config.subjectLabel')}>
             <select
               value={(cfg.subject as string) ?? 'tag_presence'}
-              onChange={(e) => set({ subject: e.target.value })}
+              onChange={(e) =>
+                set(
+                  editConditionConfig(
+                    cfg,
+                    { subject: e.target.value },
+                    browserTimeZone()
+                  )
+                )
+              }
               className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
             >
               <option value="tag_presence">
@@ -1753,22 +1768,44 @@ function StepEditor({
               </option>
             </select>
           </FieldBlock>
-          <FieldBlock label={t('config.operandLabel')}>
-            <Input
-              placeholder={
-                cfg.subject === 'time_of_day'
-                  ? t('config.placeholderTime')
-                  : cfg.subject === 'contact_field'
-                    ? t('config.placeholderContact')
-                    : cfg.subject === 'tag_presence'
-                      ? t('config.placeholderTag')
-                      : ''
-              }
-              value={(cfg.operand as string) ?? ''}
-              onChange={(e) => set({ operand: e.target.value })}
-              className="bg-muted text-foreground"
-            />
-          </FieldBlock>
+          {cfg.subject === 'time_of_day' && (
+            <FieldBlock label={t('config.conditionTimezoneLabel')}>
+              <select
+                value={(cfg.timezone as string) ?? LEGACY_CONDITION_TIMEZONE}
+                onChange={(e) => set({ timezone: e.target.value })}
+                className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
+              >
+                {listTimeZones(cfg.timezone as string | undefined).map(
+                  (zone) => (
+                    <option key={zone} value={zone}>
+                      {zone}
+                    </option>
+                  )
+                )}
+              </select>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {t('config.conditionTimezoneHint')}
+              </p>
+            </FieldBlock>
+          )}
+          {cfg.subject !== 'message_content' && (
+            <FieldBlock label={t('config.operandLabel')}>
+              <Input
+                placeholder={
+                  cfg.subject === 'time_of_day'
+                    ? t('config.placeholderTime')
+                    : cfg.subject === 'contact_field'
+                      ? t('config.placeholderContact')
+                      : cfg.subject === 'tag_presence'
+                        ? t('config.placeholderTag')
+                        : ''
+                }
+                value={(cfg.operand as string) ?? ''}
+                onChange={(e) => set({ operand: e.target.value })}
+                className="bg-muted text-foreground"
+              />
+            </FieldBlock>
+          )}
           {(cfg.subject === 'contact_field' ||
             cfg.subject === 'message_content') && (
             <FieldBlock label={t('config.valueLabel')}>
@@ -1878,6 +1915,7 @@ function previewFor(
 // ------------------------------------------------------------
 
 interface ApiStep {
+  id?: string;
   step_type: string;
   step_config: Record<string, unknown>;
   branches?: { yes?: ApiStep[]; no?: ApiStep[] };
@@ -1885,6 +1923,7 @@ interface ApiStep {
 
 export function toApiSteps(steps: BuilderStep[]): ApiStep[] {
   return steps.map((s) => ({
+    id: s.id ?? s.cid.replace(/^c_/, ''),
     step_type: s.step_type,
     step_config: s.step_config,
     branches: s.branches
@@ -1906,6 +1945,7 @@ export interface ServerStepNode {
 
 export function fromServerSteps(nodes: ServerStepNode[]): BuilderStep[] {
   return nodes.map((n) => ({
+    id: n.id,
     cid: cid(),
     step_type: n.step_type as AutomationStepType,
     step_config: n.step_config ?? {},

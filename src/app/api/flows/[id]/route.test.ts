@@ -110,3 +110,14 @@ it('rejects a foreign account before any flow or node mutation', async () => {
   expect(h.writes).toEqual([]);
   expect(h.flows[0].name).toBe('Original');
 });
+
+it('rejects invalid active graph and header saves before any mutation', async () => {
+  Object.assign(h.flows[0], { status: 'active', trigger_type: 'manual', trigger_config: {}, entry_node_id: 'old' });
+  Object.assign(h.nodes[0], { node_type: 'end', config: {} });
+  for (const body of [{ nodes: [] }, { entry_node_id: 'removed' }, { trigger_type: 'keyword', trigger_config: {} }]) {
+    const response = await PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify(body) }), context);
+    expect(response.status).toBe(422);
+    expect((await response.json()).issues.some((issue: { severity: string }) => issue.severity === 'error')).toBe(true);
+    expect(h.writes).toEqual([]);
+  }
+});

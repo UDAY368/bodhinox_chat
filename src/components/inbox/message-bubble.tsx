@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import { cn } from "@/lib/utils";
-import type { Message, MessageReaction } from "@/types";
+import { templateMessageView } from '@/lib/whatsapp/template-message-view';
+import { cn } from '@/lib/utils';
+import type { Message, MessageReaction, MessageTemplate } from '@/types';
 import {
   Clock,
   Check,
@@ -11,22 +12,23 @@ import {
   LayoutTemplate,
   CornerDownLeft,
   Sparkles,
-} from "lucide-react";
-import { format } from "date-fns";
-import { ReplyQuote } from "./reply-quote";
-import { MessageReactions } from "./message-reactions";
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { ReplyQuote } from './reply-quote';
+import { MessageReactions } from './message-reactions';
 import {
   MediaAudioBubble,
   MediaDocumentBubble,
   MediaImageBubble,
   MediaUnavailable,
   MediaVideoBubble,
-} from "./message-media";
-import { InteractivePreview } from "@/components/interactive/interactive-preview";
-import { useTranslations } from "next-intl";
+} from './message-media';
+import { InteractivePreview } from '@/components/interactive/interactive-preview';
+import { useTranslations } from 'next-intl';
 
 interface MessageBubbleProps {
   message: Message;
+  template?: MessageTemplate | null;
   /** Pre-computed quote info for messages that reply to another. */
   reply?: { authorLabel: string; preview: string } | null;
   reactions?: MessageReaction[];
@@ -49,31 +51,31 @@ interface MessageBubbleProps {
 function LocalizedInteractivePreview({
   payload,
 }: {
-  payload: NonNullable<Message["interactive_payload"]>;
+  payload: NonNullable<Message['interactive_payload']>;
 }) {
-  const t = useTranslations("Interactive");
+  const t = useTranslations('Interactive');
   return (
     <InteractivePreview
       payload={payload}
       showPrelude={false}
       labels={{
-        body: t("previewBody"),
-        button: t("previewButton"),
-        menu: t("previewMenu"),
-        link: t("openLink"),
-        automation: t("existingAutomation"),
-        flow: t("existingFlow"),
-        location: t("mediaLocation"),
-        file: t("mediaFile"),
-        image: t("mediaImage"),
-        video: t("mediaVideo"),
+        body: t('previewBody'),
+        button: t('previewButton'),
+        menu: t('previewMenu'),
+        link: t('openLink'),
+        automation: t('existingAutomation'),
+        flow: t('existingFlow'),
+        location: t('mediaLocation'),
+        file: t('mediaFile'),
+        image: t('mediaImage'),
+        video: t('mediaVideo'),
       }}
     />
   );
 }
 
 function failureReason(message: Message): string | null {
-  if (message.status !== "failed" || !message.error_title) return null;
+  if (message.status !== 'failed' || !message.error_title) return null;
   return message.error_details
     ? `${message.error_title} — ${message.error_details}`
     : message.error_title;
@@ -83,20 +85,20 @@ function StatusIcon({
   status,
   title,
 }: {
-  status: Message["status"];
+  status: Message['status'];
   /** Tooltip for the failed state — Meta's reason, when we have one. */
   title?: string | null;
 }) {
   switch (status) {
-    case "sending":
-      return <Clock className="h-3 w-3 text-muted-foreground" />;
-    case "sent":
-      return <Check className="h-3 w-3 text-muted-foreground" />;
-    case "delivered":
-      return <CheckCheck className="h-3 w-3 text-muted-foreground" />;
-    case "read":
+    case 'sending':
+      return <Clock className="text-muted-foreground h-3 w-3" />;
+    case 'sent':
+      return <Check className="text-muted-foreground h-3 w-3" />;
+    case 'delivered':
+      return <CheckCheck className="text-muted-foreground h-3 w-3" />;
+    case 'read':
       return <CheckCheck className="h-3 w-3 text-blue-400" />;
-    case "failed":
+    case 'failed':
       return (
         <span className="inline-flex" title={title ?? undefined}>
           <XCircle className="h-3 w-3 text-red-400" />
@@ -109,11 +111,13 @@ function StatusIcon({
 
 function MessageContent({
   message,
+  template,
   t,
   isAgent,
   onOpenMedia,
 }: {
   message: Message;
+  template?: MessageTemplate | null;
   t: ReturnType<typeof useTranslations>;
   /** Outbound bubbles sit on the primary fill — badges must invert. */
   isAgent: boolean;
@@ -124,63 +128,69 @@ function MessageContent({
   const openMedia = onOpenMedia ? () => onOpenMedia(message.id) : undefined;
 
   switch (message.content_type) {
-    case "text":
+    case 'text':
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
+        <p className="text-sm break-words whitespace-pre-wrap">
           {message.content_text}
         </p>
       );
 
-    case "image":
+    case 'image':
       return (
         <div>
           {message.media_url ? (
             <MediaImageBubble message={message} onOpen={openMedia} t={t} />
           ) : (
-            <MediaUnavailable label={t("photo")} t={t} />
+            <MediaUnavailable label={t('photo')} t={t} />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
         </div>
       );
 
-    case "video":
+    case 'video':
       return (
         <div>
           {message.media_url ? (
             <MediaVideoBubble message={message} onOpen={openMedia} t={t} />
           ) : (
-            <MediaUnavailable label={t("video")} t={t} />
+            <MediaUnavailable label={t('video')} t={t} />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
         </div>
       );
 
-    case "audio":
+    case 'audio':
       return (
         <div>
           {message.media_url ? (
             <MediaAudioBubble message={message} t={t} />
           ) : (
-            <MediaUnavailable label={t("audio")} t={t} />
+            <MediaUnavailable label={t('audio')} t={t} />
           )}
         </div>
       );
 
-    case "document":
+    case 'document':
       if (!message.media_url) {
-        return <MediaUnavailable label={message.content_text || t("document")} t={t} />;
+        return (
+          <MediaUnavailable
+            label={message.content_text || t('document')}
+            t={t}
+          />
+        );
       }
       return <MediaDocumentBubble message={message} t={t} />;
 
-    case "template":
+    case 'template': {
+      const view = templateMessageView(message, template ?? null);
       // Templates are almost always outbound, where the bubble fill IS
       // `primary` — so the old `bg-primary/20 text-primary` chip was
       // primary-on-primary and invisible. Paired with a null
@@ -192,38 +202,88 @@ function MessageContent({
         <div>
           <span
             className={cn(
-              "mb-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
+              'mb-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium',
               isAgent
-                ? "bg-primary-foreground/20 text-primary-foreground"
-                : "bg-primary/20 text-primary",
+                ? 'bg-primary-foreground/20 text-primary-foreground'
+                : 'bg-primary/20 text-primary'
             )}
           >
             <LayoutTemplate className="h-3 w-3" />
-            {t("template")}
+            {t('template')}
           </span>
+          {view.header?.type === 'text' && (
+            <p className="mt-1 text-sm font-semibold break-words whitespace-pre-wrap">
+              {view.header.text}
+            </p>
+          )}
+          {view.header &&
+            view.header.type !== 'text' &&
+            (view.header.url ? (
+              view.header.type === 'image' ? (
+                <MediaImageBubble
+                  message={{ ...message, media_url: view.header.url }}
+                  t={t}
+                />
+              ) : view.header.type === 'video' ? (
+                <MediaVideoBubble
+                  message={{ ...message, media_url: view.header.url }}
+                  t={t}
+                />
+              ) : (
+                <MediaDocumentBubble
+                  message={{ ...message, media_url: view.header.url }}
+                  t={t}
+                />
+              )
+            ) : (
+              <MediaUnavailable
+                label={t(
+                  view.header.type === 'image' ? 'photo' : view.header.type
+                )}
+                t={t}
+              />
+            ))}
           {message.content_text ? (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           ) : (
             message.template_name && (
-              <p className="mt-1 break-words text-sm italic opacity-80">
+              <p className="mt-1 text-sm break-words italic opacity-80">
                 {message.template_name}
               </p>
             )
           )}
+          {view.footer && (
+            <p className="mt-2 text-xs break-words whitespace-pre-wrap opacity-70">
+              {view.footer}
+            </p>
+          )}
+          {view.buttons.length > 0 && (
+            <div className="mt-2 space-y-1 border-t border-current/20 pt-2">
+              {view.buttons.map((button, index) => (
+                <div
+                  key={index}
+                  className="rounded border border-current/20 px-3 py-1 text-center text-xs"
+                >
+                  {button.text}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       );
+    }
 
-    case "location":
+    case 'location':
       return (
         <div className="flex items-center gap-2 text-sm">
-          <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span>{message.content_text || t("locationShared")}</span>
+          <MapPin className="text-muted-foreground h-4 w-4 shrink-0" />
+          <span>{message.content_text || t('locationShared')}</span>
         </div>
       );
 
-    case "interactive": {
+    case 'interactive': {
       // Three cases share content_type='interactive':
       //  - OUTBOUND with payload (composer / automation / Flow send after
       //    migration 035): render the buttons/list as they appear on the phone.
@@ -234,32 +294,34 @@ function MessageContent({
       //    migration 035 backfilled the column): show the body text plainly —
       //    it is our own message, NOT a customer tap.
       if (message.interactive_payload) {
-        return <LocalizedInteractivePreview payload={message.interactive_payload} />;
+        return (
+          <LocalizedInteractivePreview payload={message.interactive_payload} />
+        );
       }
-      if (message.sender_type === "customer") {
+      if (message.sender_type === 'customer') {
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
               <CornerDownLeft className="h-3 w-3" />
-              {t("buttonReply")}
+              {t('buttonReply')}
             </span>
-            <p className="whitespace-pre-wrap break-words text-sm">
-              {message.content_text || t("interactiveReply")}
+            <p className="text-sm break-words whitespace-pre-wrap">
+              {message.content_text || t('interactiveReply')}
             </p>
           </div>
         );
       }
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text || t("interactiveReply")}
+        <p className="text-sm break-words whitespace-pre-wrap">
+          {message.content_text || t('interactiveReply')}
         </p>
       );
     }
 
     default:
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text || t("unsupported")}
+        <p className="text-sm break-words whitespace-pre-wrap">
+          {message.content_text || t('unsupported')}
         </p>
       );
   }
@@ -267,33 +329,30 @@ function MessageContent({
 
 export function MessageBubble({
   message,
+  template,
   reply,
   reactions,
   currentUserId,
   onToggleReaction,
   onOpenMedia,
 }: MessageBubbleProps) {
-  const t = useTranslations("Inbox.bubble");
+  const t = useTranslations('Inbox.bubble');
 
-  const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
-  const time = format(new Date(message.created_at), "HH:mm");
+  const isAgent =
+    message.sender_type === 'agent' || message.sender_type === 'bot';
+  const time = format(new Date(message.created_at), 'HH:mm');
   const failure = isAgent ? failureReason(message) : null;
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
   return (
-    <div
-      className={cn(
-        "flex flex-col",
-        isAgent ? "items-end" : "items-start",
-      )}
-    >
+    <div className={cn('flex flex-col', isAgent ? 'items-end' : 'items-start')}>
       <div
         className={cn(
-          "studio-message relative rounded-2xl px-4 py-3 leading-relaxed",
+          'studio-message relative rounded-2xl px-4 py-3 leading-relaxed',
           isAgent
-            ? "rounded-br-md bg-primary text-primary-foreground"
-            : "rounded-bl-md border border-border bg-card text-foreground",
+            ? 'bg-primary text-primary-foreground rounded-br-md'
+            : 'border-border bg-card text-foreground rounded-bl-md border'
         )}
       >
         {reply && (
@@ -305,14 +364,15 @@ export function MessageBubble({
         )}
         <MessageContent
           message={message}
+          template={template}
           t={t}
           isAgent={isAgent}
           onOpenMedia={onOpenMedia}
         />
         <div
           className={cn(
-            "mt-1 flex items-center gap-1",
-            isAgent ? "justify-end" : "justify-start",
+            'mt-1 flex items-center gap-1',
+            isAgent ? 'justify-end' : 'justify-start'
           )}
         >
           {/* AI badge — only on replies the auto-reply bot generated
@@ -321,21 +381,21 @@ export function MessageBubble({
               glance. */}
           {message.ai_generated && (
             <span
-              className="inline-flex items-center gap-0.5 rounded-full bg-primary-foreground/20 px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-primary-foreground"
-              title={t("aiBadgeTitle")}
+              className="bg-primary-foreground/20 text-primary-foreground inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[9px] leading-none font-semibold tracking-wide uppercase"
+              title={t('aiBadgeTitle')}
             >
               <Sparkles className="h-2.5 w-2.5" />
-              {t("aiBadge")}
+              {t('aiBadge')}
             </span>
           )}
           <span
             className={cn(
-              "text-[10px]",
+              'text-[10px]',
               // Outbound bubbles sit on the primary fill, so the
               // timestamp must read against that (not the neutral
               // foreground) — otherwise it goes low-contrast in light
               // mode. Inbound bubbles use the muted surface.
-              isAgent ? "text-primary-foreground/70" : "text-muted-foreground",
+              isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
             )}
           >
             {time}
@@ -345,10 +405,10 @@ export function MessageBubble({
       </div>
       {failure && (
         <p
-          className="mt-0.5 px-1 text-[10px] leading-tight text-muted-foreground"
+          className="text-muted-foreground mt-0.5 px-1 text-[10px] leading-tight"
           title={failure}
         >
-          {t("notDelivered")}: {failure}
+          {t('notDelivered')}: {failure}
         </p>
       )}
       {reactions && reactions.length > 0 && onToggleReaction && (

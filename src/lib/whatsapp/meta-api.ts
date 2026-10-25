@@ -32,6 +32,17 @@ export interface MetaPhoneInfo {
   quality_rating?: string
 }
 
+/** Keep quality available even when Meta no longer exposes a legacy messaging tier. */
+export async function getPhoneNumberHealth(args: VerifyPhoneNumberArgs): Promise<MetaPhoneInfo & { whatsapp_business_manager_messaging_limit?: string }> {
+  const info = await verifyPhoneNumber(args);
+  const response = await fetch(`${META_API_BASE}/${args.phoneNumberId}?fields=whatsapp_business_manager_messaging_limit`, {
+    headers: { Authorization: `Bearer ${args.accessToken}` }, signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  const tier = response?.ok ? await response.json().catch(() => null) : null;
+  return { ...info, ...(typeof tier?.whatsapp_business_manager_messaging_limit === 'string'
+    ? { whatsapp_business_manager_messaging_limit: tier.whatsapp_business_manager_messaging_limit } : {}) };
+}
+
 interface MetaErrorResponse {
   error?: {
     message?: string

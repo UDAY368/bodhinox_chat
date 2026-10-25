@@ -415,7 +415,8 @@ const RUN = {
   vars: {} as Record<string, unknown>,
   reprompt_count: 0,
   started_at: "2026-01-01T00:00:00Z",
-  last_advanced_at: "2026-01-01T00:00:00Z",
+  last_advanced_at: new Date().toISOString(),
+  transition_seq: 0,
   ended_at: null,
   end_reason: null,
 };

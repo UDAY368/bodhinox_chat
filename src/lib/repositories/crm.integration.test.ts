@@ -15,6 +15,7 @@ import { buildQuery } from '@/lib/data/builder';
 import { exportPKCS8, exportSPKI, generateKeyPair } from 'jose';
 import { signAccessToken } from '@/lib/auth/jwt';
 import { withTenant } from '@/lib/db/tenant';
+import { loadDashboardOperations } from '@/lib/dashboard/operations';
 import { encodeEventCursor } from '@/lib/realtime/cursor';
 import { GET as streamEvents } from '@/app/api/events/route';
 import type { TenantContext } from '@/lib/data/types';
@@ -107,6 +108,51 @@ describe.skipIf(!database || !authDatabase)(
       }
       await disconnectDatabases();
     }, 30000);
+    it('loads operational aggregates with constrained tenant roles', async () => {
+      const overview = await loadDashboardOperations(a, 7);
+      expect(overview.days).toBe(7);
+      expect(overview.replyTargetMinutes).toBe(5);
+      expect(overview.attention.waiting).toBe(0);
+      expect(overview.queue).toEqual([]);
+      expect(overview.team.map(member => member.id)).toEqual([userA]);
+      expect(overview.team.some(member => member.id === userB)).toBe(false);
+    }, 30000);
+    it('counts real replies and handoffs consistently between inbox and dashboard', async () => {
+      const db = createScopedClient(a);
+      const contact = await db.from('contacts').insert({ phone: '240025', name: 'Operational queue fixture' }).select('id').single();
+      expect(contact.error).toBeNull();
+      const conversation = await db.from('conversations').insert({ contact_id: contact.data!.id, status: 'pending', bot_paused: true }).select('id').single();
+      expect(conversation.error).toBeNull();
+      const id = String(conversation.data!.id);
+      try {
+        const at = new Date(Date.now() - 23 * 3600000).toISOString();
+        const inserted = await db.from('messages').insert([
+          { conversation_id: id, sender_type: 'customer', content_type: 'text', content_text: 'Question', created_at: at },
+          { conversation_id: id, sender_type: 'bot', content_type: 'template', template_name: 'promotion', status: 'sent' },
+          { conversation_id: id, sender_type: 'agent', content_type: 'text', content_text: 'Failed answer', status: 'failed' },
+        ]);
+        expect(inserted.error).toBeNull();
+        const waiting = await loadDashboardOperations(a, 7);
+        expect(waiting.attention).toMatchObject({ waiting: 1, expiring: 1, overTarget: 1, failed: 1 });
+        expect(waiting.queue).toEqual([expect.objectContaining({ id, handedOff: true })]);
+        expect((await db.from('conversations').select('last_reply_at').eq('id', id).single()).data!.last_reply_at).toBeNull();
+        expect((await db.from('messages').insert({ conversation_id: id, sender_type: 'bot', content_type: 'text', content_text: 'Actual answer', status: 'sent' })).error).toBeNull();
+        const answered = await loadDashboardOperations(a, 7);
+        expect(answered.attention.waiting).toBe(0);
+        expect(answered.automated.replies).toBe(1);
+        expect(answered.automated.medianMinutes).toBeGreaterThan(1300);
+        expect((await db.from('conversations').select('last_reply_at').eq('id', id).single()).data!.last_reply_at).toBeTruthy();
+        expect((await loadDashboardOperations(b, 7)).queue).toEqual([]);
+        // A later follow-up is not a first-response sample, even if the first
+        // reply predates the selected reporting window.
+        expect((await db.from('messages').update({ created_at: new Date(Date.now() - 20 * 86400000).toISOString() }).eq('conversation_id', id).eq('sender_type', 'customer')).error).toBeNull();
+        expect((await db.from('messages').insert({ conversation_id: id, sender_type: 'agent', content_type: 'text', content_text: 'Earlier real answer', status: 'sent', created_at: new Date(Date.now() - 15 * 86400000).toISOString() })).error).toBeNull();
+        expect((await loadDashboardOperations(a, 7)).automated.medianMinutes).toBeNull();
+      } finally {
+        expect((await db.from('conversations').delete().eq('id', id)).error).toBeNull();
+        expect((await db.from('contacts').delete().eq('id', contact.data!.id)).error).toBeNull();
+      }
+    }, 60000);
     it('saves, indexes and retrieves knowledge for agent prompts with tenant isolation', async () => {
       const db = createScopedClient(a);
       const content = 'Question: What is the Zephyr service code? Answer: The Zephyr service code is ZPH-7391.';
@@ -208,7 +254,7 @@ describe.skipIf(!database || !authDatabase)(
       const conversationId = String(conversation.data!.id), contactId = String(contact.data!.id);
       const settings = await db.from('ai_configs').insert({ provider: 'openai_compatible', model: 'test-model', base_url: 'https://8.8.8.8/v1', api_key: encrypt('test-only-ai-key'), is_active: true, auto_reply_enabled: true, created_by: userA }).select('id').single();
       expect(settings.error).toBeNull();
-      const wa = await db.from('whatsapp_config').insert({ phone_number_id: '991100024030', access_token: encrypt('test-only-meta-key'), verify_token: 'test-only-verify' }).select('id').single();
+      const wa = await db.from('whatsapp_config').insert({ phone_number_id: String(BigInt('0x' + accountA.replaceAll('-', '').slice(0, 12))), access_token: encrypt('test-only-meta-key'), verify_token: 'test-only-verify' }).select('id').single();
       expect(wa.error).toBeNull();
       const document = await db.from('ai_knowledge_documents').insert({ title: 'Opening hours', content: 'Opening hours: our team is available from 10 AM to 7 PM.', created_by: userA }).select('id').single();
       expect(document.error).toBeNull();

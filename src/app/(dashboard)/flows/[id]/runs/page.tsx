@@ -41,6 +41,7 @@ interface RunRow {
     | "handed_off"
     | "timed_out"
     | "paused_by_agent"
+    | "cancelled"
     | "failed";
   current_node_key: string | null;
   started_at: string;
@@ -87,6 +88,10 @@ const STATUS_META: Record<
   failed: {
     classes: "border-red-600/40 bg-red-500/10 text-red-300",
     icon: CircleAlert,
+  },
+  cancelled: {
+    classes: "border-border bg-muted text-muted-foreground",
+    icon: PauseCircle,
   },
 };
 
@@ -219,7 +224,7 @@ function RunCard({
   onToggle: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const meta = STATUS_META[run.status];
+  const meta = STATUS_META[run.status] ?? STATUS_META.failed;
   const StatusIcon = meta.icon;
   const contactLabel =
     run.contact?.name?.trim() || run.contact?.phone || t("unknownContact");
@@ -258,6 +263,8 @@ function RunCard({
                   ? "statusTimedOut"
                   : run.status === "paused_by_agent"
                   ? "statusPaused"
+                  : run.status === "cancelled"
+                  ? "statusCancelled"
                   : "statusFailed"
               )}
             </Badge>

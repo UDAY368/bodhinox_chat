@@ -179,6 +179,91 @@
     },
     "emptyState": {
       "title": "아직 데이터가 충분하지 않습니다"
+    },
+    "operations": {
+      "title": "운영 현황",
+      "description": "주의 항목과 대기열은 현재 상태이며 응답 및 캠페인 지표는 선택 기간 기준입니다.",
+      "range": "기간",
+      "days": "최근 {count}일",
+      "error": "운영 현황을 새로 고칠 수 없습니다. 이전 데이터는 최신 상태가 아닐 수 있습니다.",
+      "retry": "다시 시도",
+      "loading": "운영 현황 로딩 중…",
+      "waiting": "응답 대기",
+      "overTarget": "응답 목표 초과",
+      "unassigned": "미배정",
+      "expiring": "세션 종료 임박",
+      "failed": "전송 실패 메시지",
+      "target": "응답 목표: {count}분.",
+      "editTarget": "목표 수정",
+      "queue": "응답 대기열",
+      "queueEmpty": "응답을 기다리는 고객이 없습니다.",
+      "waitingSince": "{time}부터 대기",
+      "closesAt": "{time} 세션 종료",
+      "handedOff": "담당자에게 인계됨",
+      "failures": "메시지 전송 실패 상세",
+      "failuresHint": "선택 기간의 최근 실패입니다. 대화에서 전송 상태를 확인하세요.",
+      "failuresEmpty": "이 기간에 실패한 메시지가 없습니다.",
+      "mediaMessage": "미디어 또는 템플릿 메시지",
+      "team": "팀 응답",
+      "member": "팀원",
+      "open": "열림",
+      "replies": "응답",
+      "median": "응답 시간 중앙값",
+      "minutes": "{count}분",
+      "automated": "자동 응답",
+      "teamEmpty": "이 기간의 팀 응답 데이터가 없습니다.",
+      "pipelines": "파이프라인 결과",
+      "pipeline": "파이프라인",
+      "won": "성공",
+      "lost": "실패",
+      "idle": "비활성",
+      "avgDaysToWin": "성공까지 평균 일수: {value}",
+      "openPipelines": "파이프라인 열기",
+      "pipelinesEmpty": "파이프라인이 없습니다.",
+      "campaigns": "캠페인 상태",
+      "automationRuns": "자동화 실행",
+      "automationFailed": "자동화 실패",
+      "flowFailed": "플로우 실패",
+      "templatesApproved": "승인된 템플릿",
+      "templatesRejected": "거절된 템플릿",
+      "topFailingFlow": "실패가 가장 많은 플로우: {name}",
+      "automations": "자동화",
+      "flows": "플로우",
+      "latestBroadcast": "최근 브로드캐스트",
+      "delivered": "전달됨",
+      "read": "읽음",
+      "replied": "응답함",
+      "broadcastEmpty": "브로드캐스트가 없습니다.",
+      "setup": "작업 공간 설정",
+      "setupHint": "WhatsApp은 저장된 설정 여부를 표시합니다. 연결 상태는 WhatsApp 설정에서 확인하세요.",
+      "done": "완료",
+      "pending": "할 일",
+      "setupItems": {
+        "whatsapp": "WhatsApp 설정",
+        "contacts": "연락처 추가",
+        "template": "템플릿 승인",
+        "teammate": "팀원 초대",
+        "conversation": "대화 시작"
+      },
+      "health": {
+        "connected": "연결됨",
+        "disconnected": "연결 끊김",
+        "unavailable": "상태 확인 불가",
+        "loading": "연결 확인 중…",
+        "quality": "품질: {value}",
+        "limit": "메시지 한도: {value}",
+        "perDay": "하루 {count}개",
+        "unlimited": "무제한",
+        "unknown": "알 수 없음",
+        "settings": "연결 설정",
+        "retry": "다시 시도",
+        "ratings": {
+          "GREEN": "좋음",
+          "YELLOW": "보통",
+          "RED": "낮음",
+          "UNKNOWN": "알 수 없음"
+        }
+      }
     }
   },
   "Inbox": {
@@ -204,7 +289,10 @@
       "noMessagesYet": "아직 메시지가 없습니다",
       "unknown": "알 수 없음",
       "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered."
+      "studioTitle": "Every conversation, considered.",
+      "filterWaiting": "Waiting for reply",
+      "filterUnassigned": "Unassigned",
+      "filterExpiringSoon": "Expiring soon"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -238,7 +326,10 @@
       "assignmentUpdateFailed": "담당자 변경에 실패했습니다",
       "networkError": "네트워크 오류",
       "documentFallback": "문서",
-      "you": "나"
+      "you": "나",
+      "loadOlder": "Load older messages",
+      "loadingOlder": "Loading older messages…",
+      "historyLoadFailed": "Unable to load older messages"
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -1178,7 +1269,9 @@
         "matchExact": "정확히 일치",
         "waitForReply": "계속하기 전에 답장 기다리기",
         "waitForReplyHint": "고객이 버튼을 누르거나 답장할 때까지 여기서 멈춥니다(최대 24시간). 이후 단계(메시지 내용 조건 포함)는 그 답장을 사용합니다.",
-        "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다."
+        "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다.",
+        "conditionTimezoneLabel": "Timezone",
+        "conditionTimezoneHint": "Business timezone used to evaluate this time window."
       },
       "preview": {
         "noText": "아직 텍스트 없음",
@@ -1261,7 +1354,8 @@
       "statusHandedOff": "인계됨",
       "statusTimedOut": "시간 초과",
       "statusPaused": "상담원이 일시 중지함",
-      "statusFailed": "실패"
+      "statusFailed": "실패",
+      "statusCancelled": "취소됨"
     },
     "builder": {
       "triggerTitle": "트리거",
@@ -1823,7 +1917,8 @@
       "fields": "필드 & 태그",
       "deals": "딜 & 통화",
       "members": "팀원",
-      "api": "API 키"
+      "api": "API 키",
+      "inbox": "받은 편지함"
     },
     "groups": {
       "account": "계정",
@@ -2075,6 +2170,11 @@
       "textPlaceholder": "삽입할 메시지 텍스트",
       "cancel": "취소",
       "save": "저장"
+    },
+    "rail": {
+      "sections": {
+        "inbox": "Inbox"
+      }
     }
   },
   "SignupPage": {
@@ -2461,7 +2561,10 @@
       "conversationNotInAccount": "대화가 이 계정에 속하지 않습니다",
       "noContactForConversation": "대화를 확인할 수 없습니다: 연락처 없음",
       "noConversation": "전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
-      "tagAddedNoConversation": "tag_added 자동화가 전송할 수 없습니다: 연락처에 기존 대화가 없습니다"
+      "tagAddedNoConversation": "tag_added 자동화가 전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
+      "pausedWhileWaiting": "Automation paused while waiting",
+      "parkedStepRemoved": "The step where this run was waiting was removed",
+      "scheduleWaitFailed": "Could not schedule the wait: {message}"
     }
   },
   "Validation": {
@@ -2519,7 +2622,8 @@
       "setTagNeedsTag": "연락처 태그 지정에는 적용할 태그가 필요합니다.",
       "setTagNeedsNext": "연락처 태그 지정 노드는 다음 노드를 가리켜야 합니다.",
       "setTagMissingNext": "연락처 태그 지정 노드가 존재하지 않는 노드 \"{key}\"을(를) 가리킵니다.",
-      "unknownNodeType": "알 수 없는 노드 유형 \"{type}\"."
+      "unknownNodeType": "알 수 없는 노드 유형 \"{type}\".",
+      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -2545,7 +2649,10 @@
       "matchTypeInvalid": "일치 유형은 \"exact\", \"contains\" 또는 \"word\"여야 합니다",
       "scheduleRequired": "일정은 필수입니다",
       "replyIdRequired": "응답 ID가 하나 이상 필요합니다",
-      "replyIdsEmpty": "응답 ID는 빈 문자열일 수 없습니다"
+      "replyIdsEmpty": "응답 ID는 빈 문자열일 수 없습니다",
+      "conditionValueRequired": "Enter a non-empty comparison value.",
+      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
+      "conditionTimezoneInvalid": "Choose a valid timezone."
     },
     "templates": {
       "nameRequired": "템플릿 이름은 필수입니다.",
@@ -2728,7 +2835,8 @@
       "nameEmpty": "이름은 비워둘 수 없습니다",
       "unknownTemplate": "알 수 없는 플로우 템플릿 \"{slug}\"",
       "insertFailed": "플로우를 생성하지 못했습니다",
-      "nameRequired": "이름은 필수입니다"
+      "nameRequired": "이름은 필수입니다",
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
     },
     "quickReplies": {
       "kindInvalid": "종류는 \"text\" 또는 \"interactive\"여야 합니다",
@@ -2814,5 +2922,19 @@
     "trigger": "페이지 검색",
     "empty": "페이지를 찾을 수 없습니다.",
     "results": "페이지"
+  },
+  "inboxSettings": {
+    "title": "받은 편지함",
+    "description": "대기열과 운영 보고서에 사용할 작업 공간 응답 목표를 설정합니다.",
+    "loading": "설정 로딩 중…",
+    "error": "설정을 불러오거나 저장하지 못했습니다. 다시 시도하세요.",
+    "retry": "다시 시도",
+    "label": "응답 목표(분)",
+    "help": "1~1440분 사이의 정수를 입력하세요.",
+    "invalid": "1~1440 사이의 정수를 입력하세요.",
+    "readOnly": "작업 공간 관리자만 이 설정을 변경할 수 있습니다.",
+    "saving": "저장 중…",
+    "save": "목표 저장",
+    "saved": "응답 목표가 저장되었습니다."
   }
 }

@@ -179,6 +179,91 @@
     },
     "emptyState": {
       "title": "Not enough data yet"
+    },
+    "operations": {
+      "title": "Operations",
+      "description": "Attention counts and queues are live; reply and campaign metrics follow the selected period.",
+      "range": "Period",
+      "days": "Last {count} days",
+      "error": "Could not refresh operations. Previously loaded data may be out of date.",
+      "retry": "Retry",
+      "loading": "Loading operations…",
+      "waiting": "Waiting for reply",
+      "overTarget": "Over reply target",
+      "unassigned": "Unassigned",
+      "expiring": "Session closing soon",
+      "failed": "Failed messages",
+      "target": "Reply target: {count} minutes.",
+      "editTarget": "Edit target",
+      "queue": "Reply queue",
+      "queueEmpty": "No customers are waiting for a reply.",
+      "waitingSince": "Waiting since {time}",
+      "closesAt": "Session closes {time}",
+      "handedOff": "Handed off",
+      "failures": "Failed message details",
+      "failuresHint": "Recent failures in the selected period. Open a conversation to review delivery.",
+      "failuresEmpty": "No failed messages in this period.",
+      "mediaMessage": "Media or template message",
+      "team": "Team replies",
+      "member": "Member",
+      "open": "Open",
+      "replies": "Replies",
+      "median": "Median response",
+      "minutes": "{count} min",
+      "automated": "Automated replies",
+      "teamEmpty": "No team reply data in this period.",
+      "pipelines": "Pipeline results",
+      "pipeline": "Pipeline",
+      "won": "Won",
+      "lost": "Lost",
+      "idle": "Idle",
+      "avgDaysToWin": "Average days to win: {value}",
+      "openPipelines": "Open pipelines",
+      "pipelinesEmpty": "No pipelines yet.",
+      "campaigns": "Campaign health",
+      "automationRuns": "Automation runs",
+      "automationFailed": "Failed automations",
+      "flowFailed": "Failed flows",
+      "templatesApproved": "Approved templates",
+      "templatesRejected": "Rejected templates",
+      "topFailingFlow": "Most failing flow: {name}",
+      "automations": "Automations",
+      "flows": "Flows",
+      "latestBroadcast": "Latest broadcast",
+      "delivered": "Delivered",
+      "read": "Read",
+      "replied": "Replied",
+      "broadcastEmpty": "No broadcasts yet.",
+      "setup": "Workspace setup",
+      "setupHint": "WhatsApp indicates saved configuration. Check WhatsApp settings for connection health.",
+      "done": "Complete",
+      "pending": "To do",
+      "setupItems": {
+        "whatsapp": "Configure WhatsApp",
+        "contacts": "Add contacts",
+        "template": "Approve a template",
+        "teammate": "Invite a teammate",
+        "conversation": "Start a conversation"
+      },
+      "health": {
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "unavailable": "Status unavailable",
+        "loading": "Checking connection…",
+        "quality": "Quality: {value}",
+        "limit": "Messaging limit: {value}",
+        "perDay": "{count} / day",
+        "unlimited": "Unlimited",
+        "unknown": "Unknown",
+        "settings": "Connection settings",
+        "retry": "Retry",
+        "ratings": {
+          "GREEN": "Good",
+          "YELLOW": "Medium",
+          "RED": "Low",
+          "UNKNOWN": "Unknown"
+        }
+      }
     }
   },
   "Inbox": {
@@ -204,7 +289,10 @@
       "noMessagesYet": "No messages yet",
       "unknown": "Unknown",
       "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered."
+      "studioTitle": "Every conversation, considered.",
+      "filterWaiting": "Waiting for reply",
+      "filterUnassigned": "Unassigned",
+      "filterExpiringSoon": "Expiring soon"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -238,7 +326,10 @@
       "assignmentUpdateFailed": "Failed to update assignment",
       "networkError": "network error",
       "documentFallback": "Document",
-      "you": "You"
+      "you": "You",
+      "loadOlder": "Load older messages",
+      "loadingOlder": "Loading older messages…",
+      "historyLoadFailed": "Unable to load older messages"
     },
     "sessionTimer": {
       "expired": "Expired",
@@ -1178,7 +1269,9 @@
         "matchExact": "Exact",
         "waitForReply": "Wait for reply before continuing",
         "waitForReplyHint": "Pauses here until the customer taps a button or replies (up to 24h). The steps after this one, including If/Else on message content, then use their reply.",
-        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed."
+        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed.",
+        "conditionTimezoneLabel": "Timezone",
+        "conditionTimezoneHint": "Business timezone used to evaluate this time window."
       },
       "preview": {
         "noText": "no text yet",
@@ -1261,7 +1354,8 @@
       "statusHandedOff": "Handed off",
       "statusTimedOut": "Timed out",
       "statusPaused": "Paused by agent",
-      "statusFailed": "Failed"
+      "statusFailed": "Failed",
+      "statusCancelled": "Cancelled"
     },
     "builder": {
       "triggerTitle": "Trigger",
@@ -1823,7 +1917,8 @@
       "fields": "Fields & tags",
       "deals": "Deals & currency",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "inbox": "Inbox"
     },
     "groups": {
       "account": "Account",
@@ -2075,6 +2170,11 @@
       "textPlaceholder": "The message text to insert",
       "cancel": "Cancel",
       "save": "Save"
+    },
+    "rail": {
+      "sections": {
+        "inbox": "Inbox"
+      }
     }
   },
   "SignupPage": {
@@ -2461,7 +2561,10 @@
       "conversationNotInAccount": "conversation does not belong to this account",
       "noContactForConversation": "cannot resolve conversation: no contact",
       "noConversation": "cannot send: contact has no existing conversation",
-      "tagAddedNoConversation": "tag_added automation cannot send: contact has no existing conversation"
+      "tagAddedNoConversation": "tag_added automation cannot send: contact has no existing conversation",
+      "pausedWhileWaiting": "Automation paused while waiting",
+      "parkedStepRemoved": "The step where this run was waiting was removed",
+      "scheduleWaitFailed": "Could not schedule the wait: {message}"
     }
   },
   "Validation": {
@@ -2519,7 +2622,8 @@
       "setTagNeedsTag": "Set-tag needs a tag to apply.",
       "setTagNeedsNext": "Set-tag must point to a next node.",
       "setTagMissingNext": "Set-tag points to non-existent node \"{key}\".",
-      "unknownNodeType": "Unknown node type \"{type}\"."
+      "unknownNodeType": "Unknown node type \"{type}\".",
+      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -2545,7 +2649,10 @@
       "matchTypeInvalid": "match type must be \"exact\", \"contains\" or \"word\"",
       "scheduleRequired": "schedule is required",
       "replyIdRequired": "at least one reply id is required",
-      "replyIdsEmpty": "reply ids cannot be empty strings"
+      "replyIdsEmpty": "reply ids cannot be empty strings",
+      "conditionValueRequired": "Enter a non-empty comparison value.",
+      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
+      "conditionTimezoneInvalid": "Choose a valid timezone."
     },
     "templates": {
       "nameRequired": "Template name is required.",
@@ -2728,7 +2835,8 @@
       "nameEmpty": "name cannot be empty",
       "unknownTemplate": "Unknown template_slug \"{slug}\"",
       "insertFailed": "flow insert failed",
-      "nameRequired": "name is required"
+      "nameRequired": "name is required",
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
     },
     "quickReplies": {
       "kindInvalid": "kind must be \"text\" or \"interactive\"",
@@ -2814,5 +2922,19 @@
     "trigger": "Search pages",
     "empty": "No pages found.",
     "results": "Pages"
+  },
+  "inboxSettings": {
+    "title": "Inbox",
+    "description": "Set the workspace reply target used by waiting queues and operational reports.",
+    "loading": "Loading inbox settings…",
+    "error": "Could not load or save inbox settings. Please try again.",
+    "retry": "Retry",
+    "label": "Reply target (minutes)",
+    "help": "Enter a whole number from 1 to 1440 minutes.",
+    "invalid": "Enter a whole number from 1 to 1440.",
+    "readOnly": "Only workspace administrators can change this setting.",
+    "saving": "Saving…",
+    "save": "Save target",
+    "saved": "Reply target saved."
   }
 }

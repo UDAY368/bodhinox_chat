@@ -82,13 +82,13 @@ describe("dedupeByPhone", () => {
 });
 
 describe("findExistingContact", () => {
-  // Minimal DataClient stub: resolves the .from().select().eq().like()
+  // Minimal DataClient stub: resolves the .from().select().eq().in()
   // chain to a fixed candidate set.
   function stubDb(rows: Array<{ id: string; phone: string }>): DataClient {
     const builder = {
       select: () => builder,
       eq: () => builder,
-      like: () => Promise.resolve({ data: rows, error: null }),
+      in: () => Promise.resolve({ data: rows, error: null }),
     };
     return { from: () => builder } as unknown as DataClient;
   }

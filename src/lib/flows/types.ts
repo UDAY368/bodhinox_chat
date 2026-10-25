@@ -269,9 +269,11 @@ export interface FlowRunRow {
     | "completed"
     | "handed_off"
     | "timed_out"
+    | "cancelled"
     | "paused_by_agent"
     | "failed";
   current_node_key: string | null;
+  transition_seq: number;
   last_prompt_message_id: string | null;
   vars: Record<string, unknown>;
   reprompt_count: number;

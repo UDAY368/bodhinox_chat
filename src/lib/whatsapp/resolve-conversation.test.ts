@@ -58,7 +58,7 @@ function makeDb(script: Script): DataClient {
       }
       return Promise.resolve({ data: [], error: null });
     },
-    like: () => {
+    in: () => {
       const data = script.contactCandidatesByCall
         ? (script.contactCandidatesByCall[likeCalls] ?? [])
         : (script.contactCandidates ?? []);

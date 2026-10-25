@@ -379,3 +379,38 @@ describe('validateTriggerForActivation', () => {
     expect(validateTriggerForActivation('some_future_trigger', {})).toEqual([]);
   });
 });
+
+describe('condition validation', () => {
+  const check = (step_config: Record<string, unknown>) =>
+    validateStepsForActivation([{ step_type: 'condition', step_config }]);
+  it('accepts message conditions without an irrelevant operand', () => {
+    expect(check({ subject: 'message_content', value: 'hello' })).toEqual([]);
+  });
+  it('rejects blank message and contact comparison values', () => {
+    expect(
+      check({ subject: 'message_content', value: '  ' }).map((i) => i.path)
+    ).toEqual(['steps[0].value']);
+    expect(
+      check({ subject: 'contact_field', operand: 'name', value: '' }).map(
+        (i) => i.path
+      )
+    ).toEqual(['steps[0].value']);
+  });
+  it('requires valid clocks and named timezones while accepting legacy UTC', () => {
+    expect(check({ subject: 'time_of_day', operand: '09:00-17:00' })).toEqual(
+      []
+    );
+    expect(
+      check({ subject: 'time_of_day', operand: '25:00-17:00' }).map(
+        (i) => i.path
+      )
+    ).toEqual(['steps[0].operand']);
+    expect(
+      check({
+        subject: 'time_of_day',
+        operand: '09:00-17:00',
+        timezone: 'Mars/Base',
+      }).map((i) => i.path)
+    ).toEqual(['steps[0].timezone']);
+  });
+});

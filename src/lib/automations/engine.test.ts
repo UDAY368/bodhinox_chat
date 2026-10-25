@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-vi.mock('@/lib/whatsapp/bot-pause', () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {} }));
+vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {},
+}));
 
-vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: (_account: string, _key: string, send: () => Promise<unknown>) => send() }));
+vi.mock("@/lib/jobs/dispatch", () => ({ dispatchOnce: (_account: string, _key: string, send: () => Promise<unknown>) => send(),
+}));
 
 // Shared mock state for the service-role client. Lives in a hoisted block
 // so the vi.mock factory below can close over it.
@@ -15,12 +17,14 @@ const h = vi.hoisted(() => ({
     automations: [] as Record<string, unknown>[],
     steps: [] as Record<string, unknown>[],
     fromCalls: [] as string[],
-    updateCalls: [] as { table: string; filters: [string, string, unknown][] }[],
+    updateCalls: [] as { table: string; filters: [string, string, unknown][];
+    }[],
     upsertCalls: [] as { table: string; payload: unknown }[],
     logInserts: [] as Record<string, unknown>[],
     logUpdates: [] as Record<string, unknown>[],
     // automation_pending_executions rows, mutated in place by updates.
     pending: [] as Record<string, unknown>[],
+    pendingInsertError: null as string | null,
   },
 }));
 
@@ -51,9 +55,11 @@ vi.mock("./admin-client", () => {
     single: boolean;
   }) {
     const { table, type } = ops;
-    const one = <T,>(rows: T[]) => (ops.single ? rows[0] ?? null : rows);
+    const one = <T>(rows: T[]) => (ops.single ? (rows[0] ?? null) : rows);
     if (table === "automation_pending_executions") {
       if (type === "insert") {
+        if (state.pendingInsertError)
+          return { data: null, error: { message: state.pendingInsertError } };
         const row = {
           id: `p${state.pending.length + 1}`,
           created_at: new Date(Date.now() + state.pending.length).toISOString(),
@@ -95,7 +101,8 @@ vi.mock("./admin-client", () => {
       // as it always has; a by-id lookup (resume) gets the matching row.
       const byId = ops.filters.some(([, k]) => k === "id");
       if (!byId) return { data: state.automations, error: null };
-      return { data: one(state.automations.filter((r) => matches(r, ops.filters))), error: null };
+      return { data: one(state.automations.filter((r) => matches(r, ops.filters))), error: null,
+      };
     }
     if (table === "automation_logs") {
       if (type === "insert") {
@@ -164,6 +171,7 @@ vi.mock("./meta-send", () => ({
 }));
 
 import {
+  resumePendingExecution,
   expireAwaitingReplies,
   resumeAwaitingReply,
   runAutomationsForTrigger,
@@ -175,19 +183,25 @@ import type { Automation, KeywordMatchTriggerConfig } from "@/types";
 
 const ACCOUNT = "acct-1";
 
-describe('runAutomationById', () => {
-  it('runs the selected active definition without matching its keyword trigger', async () => {
-    h.state.owned = { id: 'c1' };
-    h.state.ownedConversation = { id: 'conv1' };
-    h.state.automations = [{ ...automationWithUpdateStep(), id: 'selected', trigger_type: 'keyword_match', trigger_config: { keywords: ['unrelated'] }, is_active: true }];
-    const result = await runAutomationById({ accountId: ACCOUNT, automationId: 'selected', contactId: 'c1', context: { conversation_id: 'conv1', message_text: 'Different button label' } });
-    expect(result.outcome).toBe('started');
+describe("runAutomationById", () => {
+  it("runs the selected active definition without matching its keyword trigger", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.ownedConversation = { id: "conv1" };
+    h.state.automations = [{ ...automationWithUpdateStep(), id: "selected", trigger_type: "keyword_match", trigger_config: { keywords: ["unrelated"] }, is_active: true,
+      },
+    ];
+    const result = await runAutomationById({ accountId: ACCOUNT, automationId: "selected", contactId: "c1", context: { conversation_id: "conv1", message_text: "Different button label",
+      },
+    });
+    expect(result.outcome).toBe("started");
     expect(h.state.logInserts).toHaveLength(1);
   });
-  it('does not execute an inactive target', async () => {
-    h.state.owned = { id: 'c1' }; h.state.ownedConversation = { id: 'conv1' };
-    h.state.automations = [{ ...automationWithUpdateStep(), id: 'selected', is_active: false }];
-    expect(await runAutomationById({ accountId: ACCOUNT, automationId: 'selected', contactId: 'c1', context: { conversation_id: 'conv1' } })).toEqual({ outcome: 'unavailable' });
+  it("does not execute an inactive target", async () => {
+    h.state.owned = { id: "c1" }; h.state.ownedConversation = { id: "conv1" };
+    h.state.automations = [{ ...automationWithUpdateStep(), id: "selected", is_active: false },
+    ];
+    expect(await runAutomationById({ accountId: ACCOUNT, automationId: "selected", contactId: "c1", context: { conversation_id: "conv1" },
+      })).toEqual({ outcome: "unavailable" });
     expect(h.state.logInserts).toHaveLength(0);
   });
 });
@@ -204,15 +218,20 @@ beforeEach(() => {
   h.state.logInserts = [];
   h.state.logUpdates = [];
   h.state.pending = [];
+  h.state.pendingInsertError = null;
   vi.clearAllMocks();
 });
 
 describe("runAutomationsForTrigger — tenant isolation", () => {
-  it('reports actual keyword matches, including runs without send steps', async () => {
-    h.state.owned = { id: 'c1' };
-    h.state.automations = [{ ...automationWithUpdateStep(), trigger_type: 'keyword_match', trigger_config: { keywords: ['hours'] } }];
-    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: 'keyword_match', contactId: 'c1', context: { message_text: 'hello' } })).toBe(false);
-    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: 'keyword_match', contactId: 'c1', context: { message_text: 'hours' } })).toBe(true);
+  it("reports actual keyword matches, including runs without send steps", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [{ ...automationWithUpdateStep(), trigger_type: "keyword_match", trigger_config: { keywords: ["hours"] },
+      },
+    ];
+    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "keyword_match", contactId: "c1", context: { message_text: "hello" },
+      })).toBe(false);
+    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "keyword_match", contactId: "c1", context: { message_text: "hours" },
+      })).toBe(true);
   });
   it("refuses to dispatch when the contact is not in the account (GHSA-63cv-2c49-m5v3)", async () => {
     // Ownership lookup returns nothing — the contact belongs to another tenant.
@@ -384,8 +403,7 @@ describe("update_contact_field — custom fields", () => {
 
     expect(h.state.upsertCalls).toHaveLength(1);
     expect(
-      (h.state.upsertCalls[0].payload as { value: string }).value,
-    ).toBe("WhatsApp Ad");
+      (h.state.upsertCalls[0].payload as { value: string }).value).toBe("WhatsApp Ad");
   });
 
   it("refuses to write a custom field from another account", async () => {
@@ -440,7 +458,8 @@ function webhookStep(url: string) {
     step_type: "send_webhook",
     position: 0,
     parent_step_id: null,
-    step_config: { url, headers: { "Metadata-Flavor": "Google" }, body_template: "{}" },
+    step_config: { url, headers: { "Metadata-Flavor": "Google" }, body_template: "{}",
+    },
   };
 }
 
@@ -495,19 +514,20 @@ describe("triggerMatches — interactive_reply", () => {
 
   it("matches when the tapped id is in reply_ids (exact)", () => {
     expect(
-      triggerMatches(automation(["yes", "no"]), { interactive_reply_id: "yes" }),
+      triggerMatches(automation(["yes", "no"]), { interactive_reply_id: "yes" })
     ).toBe(true);
   });
 
   it("does not match a different id", () => {
     expect(
-      triggerMatches(automation(["yes"]), { interactive_reply_id: "maybe" }),
+      triggerMatches(automation(["yes"]), { interactive_reply_id: "maybe" })
     ).toBe(false);
   });
 
   it("does not match on a substring (exact only)", () => {
     expect(
-      triggerMatches(automation(["yes"]), { interactive_reply_id: "yes_please" }),
+      triggerMatches(automation(["yes"]), { interactive_reply_id: "yes_please",
+      })
     ).toBe(false);
   });
 
@@ -556,7 +576,8 @@ describe("tag_added — conversation policy", () => {
       trigger_type: "tag_added",
       trigger_config: { tag_id: "tag-a" },
       is_active: true,
-    }];
+    },
+    ];
     h.state.steps = [{
       id: "s1",
       automation_id: "a1",
@@ -564,7 +585,8 @@ describe("tag_added — conversation policy", () => {
       position: 0,
       parent_step_id: null,
       step_config: { text: "Hello" },
-    }];
+    },
+    ];
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
@@ -582,7 +604,7 @@ describe("tag_added — conversation policy", () => {
 
 describe("triggerMatches — keyword_match", () => {
   function automation(
-    cfg: Partial<KeywordMatchTriggerConfig> & { keywords: string[] },
+    cfg: Partial<KeywordMatchTriggerConfig> & { keywords: string[] }
   ): Automation {
     return {
       id: "a1",
@@ -645,15 +667,17 @@ describe("triggerMatches — keyword_match", () => {
     expect(on(automation({ keywords: ["Hi"], match_type: "word" }), "hi")).toBe(true);
     expect(
       on(
-        automation({ keywords: ["Hi"], match_type: "word", case_sensitive: true }),
-        "hi",
-      ),
+        automation({ keywords: ["Hi"], match_type: "word", case_sensitive: true,
+        }),
+        "hi"
+      )
     ).toBe(false);
     expect(
       on(
-        automation({ keywords: ["Hi"], match_type: "word", case_sensitive: true }),
-        "Hi",
-      ),
+        automation({ keywords: ["Hi"], match_type: "word", case_sensitive: true,
+        }),
+        "Hi"
+      )
     ).toBe(true);
   });
 
@@ -702,7 +726,7 @@ describe("wait_for_reply", () => {
     step_type: string,
     position: number,
     step_config: Record<string, unknown>,
-    parent?: { id: string; branch: "yes" | "no" },
+    parent?: { id: string; branch: "yes" | "no" }
   ) {
     return {
       id,
@@ -737,8 +761,10 @@ describe("wait_for_reply", () => {
     return [
       step("btn", "send_buttons", 0, buttons(wait)),
       step("cond", "condition", 1, contains("Website")),
-      step("yes1", "send_message", 0, say("crm.stelltech.ai"), { id: "cond", branch: "yes" }),
-      step("no1", "send_message", 0, say("Other options"), { id: "cond", branch: "no" }),
+      step("yes1", "send_message", 0, say("crm.stelltech.ai"), { id: "cond", branch: "yes",
+      }),
+      step("no1", "send_message", 0, say("Other options"), { id: "cond", branch: "no",
+      }),
       step("after", "send_message", 2, say("Thanks for contacting")),
     ];
   }
@@ -759,7 +785,8 @@ describe("wait_for_reply", () => {
     return resumeAwaitingReply({
       accountId: ACCOUNT,
       contactId: "c1",
-      context: { message_text: text, conversation_id: "conv1", interactive_reply_id },
+      context: { message_text: text, conversation_id: "conv1", interactive_reply_id,
+      },
     });
   }
 
@@ -793,6 +820,50 @@ describe("wait_for_reply", () => {
     expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "partial" });
   });
 
+  it("preserves AI question fallback after the parked menu was reordered", async () => {
+    h.state.steps = userMenu();
+    await trigger("Hii");
+    h.state.steps = userMenu().map((row) => ({
+      ...row,
+      position: row.parent_step_id ? row.position : row.position + 2,
+    }));
+    expect(
+      await resumeAwaitingReply({
+        accountId: ACCOUNT,
+        contactId: "c1",
+        reserveMenuTextForAi: true,
+        context: {
+          message_text: "Tell me your pricing?",
+          conversation_id: "conv1",
+        },
+      })
+    ).toBe("ai_fallback");
+    expect(h.state.pending[0].status).toBe("awaiting_reply");
+  });
+
+  it("resumes a reordered menu after its identity rather than the old position", async () => {
+    h.state.steps = userMenu();
+    await trigger("Hii");
+    h.state.steps = [
+      step("inserted", "send_message", 0, say("must not replay")),
+      ...userMenu().map((row) => ({
+        ...row,
+        position: row.parent_step_id ? row.position : row.position + 1,
+      })),
+    ];
+    await reply("Website", "web");
+    expect(sentTexts()).toEqual(["crm.stelltech.ai", "Thanks for contacting"]);
+  });
+
+  it("releases a reply when the parked menu was removed", async () => {
+    h.state.steps = userMenu();
+    await trigger("Hii");
+    h.state.steps = userMenu().filter((row) => row.id !== "btn");
+    expect(await reply("Website", "web")).toBe(false);
+    expect(sentTexts()).toEqual([]);
+    expect(h.state.pending[0].status).toBe("expired");
+  });
+
   it("resumes with the tapped button, so the condition takes the YES branch", async () => {
     h.state.steps = userMenu();
     await trigger("Hii");
@@ -805,14 +876,16 @@ describe("wait_for_reply", () => {
     expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "success" });
   });
 
-  it('reserves a typed question after a verified interactive wait and still accepts its next tap', async () => {
-    h.state.steps = userMenu(); await trigger('Hii');
-    expect(await resumeAwaitingReply({ accountId: ACCOUNT, contactId: 'c1', reserveMenuTextForAi: true,
-      context: { message_text: 'What are your hours?', conversation_id: 'conv1' } })).toBe('ai_fallback');
-    expect(h.state.pending[0].status).toBe('awaiting_reply');
+  it("reserves a typed question after a verified interactive wait and still accepts its next tap", async () => {
+    h.state.steps = userMenu(); await trigger("Hii");
+    expect(await resumeAwaitingReply({ accountId: ACCOUNT, contactId: "c1", reserveMenuTextForAi: true,
+      context: { message_text: "What are your hours?", conversation_id: "conv1",
+        },
+      })).toBe("ai_fallback");
+    expect(h.state.pending[0].status).toBe("awaiting_reply");
     expect(engineSendText).not.toHaveBeenCalled();
-    expect(await reply('Website', 'web')).toBe(true);
-    expect(sentTexts()).toEqual(['crm.stelltech.ai', 'Thanks for contacting']);
+    expect(await reply("Website", "web")).toBe(true);
+    expect(sentTexts()).toEqual(["crm.stelltech.ai", "Thanks for contacting"]);
   });
 
   it("routes a non-matching reply down the NO branch", async () => {
@@ -841,8 +914,10 @@ describe("wait_for_reply", () => {
     // branch and another after the condition at the root.
     h.state.steps = [
       step("hii", "condition", 0, contains("Hii")),
-      step("btn", "send_buttons", 0, buttons(true), { id: "hii", branch: "yes" }),
-      step("inBranch", "send_message", 1, say("in branch"), { id: "hii", branch: "yes" }),
+      step("btn", "send_buttons", 0, buttons(true), { id: "hii", branch: "yes",
+      }),
+      step("inBranch", "send_message", 1, say("in branch"), { id: "hii", branch: "yes",
+      }),
       step("atRoot", "send_message", 1, say("at root")),
     ];
 
@@ -878,7 +953,8 @@ describe("wait_for_reply", () => {
     await trigger("Hii");
     await trigger("Hii");
 
-    expect(h.state.pending.map((r) => r.status)).toEqual(["superseded", "awaiting_reply"]);
+    expect(h.state.pending.map((r) => r.status)).toEqual(["superseded", "awaiting_reply",
+    ]);
   });
 
   it("releases the message when the automation was paused while waiting", async () => {
@@ -903,7 +979,8 @@ describe("wait_for_reply", () => {
 
     expect(engineSendText).not.toHaveBeenCalled();
     expect(h.state.logUpdates).toContainEqual(
-      expect.objectContaining({ error_message: "conversation does not belong to this account" }),
+      expect.objectContaining({ error_message: "conversation does not belong to this account",
+      })
     );
   });
 
@@ -931,6 +1008,115 @@ describe("wait_for_reply", () => {
 
     expect(expired).toBe(1);
     expect(h.state.pending[0].status).toBe("expired");
-    expect(h.state.logUpdates.at(-1)).toEqual({ error_message: "no reply within 24h" });
+    expect(h.state.logUpdates.at(-1)).toEqual({ error_message: "no reply within 24h",
+    });
   });
+});
+
+describe("edited delayed automation runs", () => {
+  const parked = () =>
+    ({
+      id: "p1",
+      automation_id: "a1",
+      user_id: "u1",
+      account_id: ACCOUNT,
+      contact_id: "c1",
+      log_id: "log1",
+      parent_step_id: null,
+      branch: null,
+      next_step_position: 1,
+      parked_step_id: "wait1",
+      context: {},
+      status: "running",
+    }) as const;
+  beforeEach(() => {
+    h.state.owned = { id: "c1" };
+    h.state.ownedConversation = { id: "conv1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.pending = [{ ...parked() }];
+  });
+  it("does not resume a paused delayed run", async () => {
+    h.state.automations[0].is_active = false;
+    h.state.steps = [updateStep()];
+    await resumePendingExecution(parked());
+    expect(h.state.updateCalls).toHaveLength(0);
+    expect(h.state.pending[0].status).toBe("expired");
+  });
+  it("resumes after the parked identity at its new position", async () => {
+    h.state.steps = [
+      { ...updateStep(), id: "inserted", position: 1 },
+      { ...updateStep(), id: "wait1", step_type: "wait", position: 2 },
+      { ...updateStep(), id: "after", position: 3 },
+    ];
+    await resumePendingExecution(parked());
+    expect(h.state.updateCalls).toHaveLength(1);
+    expect(h.state.pending).toHaveLength(1);
+    expect(h.state.pending[0].status).toBe("done");
+  });
+  it("expires instead of continuing when the parked step was deleted", async () => {
+    h.state.steps = [{ ...updateStep(), position: 1 }];
+    await resumePendingExecution(parked());
+    expect(h.state.updateCalls).toHaveLength(0);
+    expect(h.state.pending[0].status).toBe("expired");
+  });
+  it("records a failed wait insert as failure rather than suspension", async () => {
+    h.state.pending = [];
+    h.state.pendingInsertError = "disk full";
+    h.state.steps = [
+      {
+        ...updateStep(),
+        step_type: "wait",
+        step_config: { amount: 1, unit: "hours" },
+      },
+    ];
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+    });
+    expect(h.state.logUpdates).toContainEqual(
+      expect.objectContaining({
+        status: "failed",
+        error_message: expect.stringContaining("disk full"),
+      })
+    );
+  });
+  it("does not match blank message content conditions", async () => {
+    h.state.steps = [
+      {
+        ...updateStep(),
+        id: "condition",
+        step_type: "condition",
+        step_config: { subject: "message_content", value: "  " },
+      },
+      { ...updateStep(), parent_step_id: "condition", branch: "yes" },
+    ];
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: { message_text: "hi  there" },
+    });
+    expect(h.state.updateCalls).toHaveLength(0);
+  });
+});
+
+it("does not match a blank contact-field comparison even for a blank stored field", async () => {
+  h.state.owned = { id: "c1", name: "" } as { id: string };
+  h.state.automations = [automationWithUpdateStep()];
+  h.state.steps = [
+    {
+      ...updateStep(),
+      id: "condition",
+      step_type: "condition",
+      step_config: { subject: "contact_field", operand: "name", value: "" },
+    },
+    { ...updateStep(), parent_step_id: "condition", branch: "yes" },
+  ];
+  await runAutomationsForTrigger({
+    accountId: ACCOUNT,
+    triggerType: "new_message_received",
+    contactId: "c1",
+  });
+  expect(h.state.updateCalls).toHaveLength(0);
 });

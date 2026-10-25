@@ -1,3 +1,4 @@
+import { isWithinTimeWindow } from './time-of-day'
 import { dispatchOnce } from '@/lib/jobs/dispatch'
 import type {
   Automation,
@@ -22,7 +23,8 @@ import type {
 import { databaseAdmin } from './admin-client'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
 import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
-import { engineSendText, engineSendTemplate, engineSendInteractive } from './meta-send'
+import { engineSendText, engineSendTemplate, engineSendInteractive,
+} from './meta-send'
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { getT } from '@/lib/i18n/translate'
@@ -64,23 +66,26 @@ export interface DispatchInput {
 
 /** Explicit persisted CTA: run this active definition, independent of its entry trigger. */
 export async function runAutomationById(input: {
-  accountId: string; automationId: string; contactId: string;
-  context: AutomationContext & { conversation_id: string };
+  accountId: string
+  automationId: string
+  contactId: string
+  context: AutomationContext & { conversation_id: string }
 }): Promise<{ outcome: 'started' | 'unavailable' }> {
-  const db = databaseAdmin();
-  const contact = await db.from('contacts').select('id').eq('account_id', input.accountId).eq('id', input.contactId).maybeSingle();
-  if (contact.error) throw new Error('Explicit automation contact lookup failed');
+  const db = databaseAdmin()
+  const contact = await db.from('contacts').select('id').eq('account_id', input.accountId).eq('id', input.contactId).maybeSingle()
+  if (contact.error) throw new Error('Explicit automation contact lookup failed')
   const conversation = await db.from('conversations').select('id').eq('account_id', input.accountId)
-    .eq('id', input.context.conversation_id).eq('contact_id', input.contactId).maybeSingle();
-  if (conversation.error) throw new Error('Explicit automation conversation lookup failed');
-  if (!contact.data || !conversation.data) return { outcome: 'unavailable' };
+    .eq('id', input.context.conversation_id).eq('contact_id', input.contactId).maybeSingle()
+  if (conversation.error) throw new Error('Explicit automation conversation lookup failed')
+  if (!contact.data || !conversation.data) return { outcome: 'unavailable' }
   const target = await db.from('automations').select('*').eq('account_id', input.accountId)
-    .eq('id', input.automationId).eq('is_active', true).maybeSingle();
-  if (target.error) throw new Error('Explicit automation target lookup failed');
-  const automation = target.data as Automation | null;
-  if (!automation || automation.account_id !== input.accountId || !automation.is_active) return { outcome: 'unavailable' };
-  const started = await executeAutomation(automation, { ...input, triggerType: automation.trigger_type });
-  return { outcome: started ? 'started' : 'unavailable' };
+    .eq('id', input.automationId).eq('is_active', true).maybeSingle()
+  if (target.error) throw new Error('Explicit automation target lookup failed')
+  const automation = target.data as Automation | null
+  if (!automation || automation.account_id !== input.accountId || !automation.is_active) return { outcome: 'unavailable' }
+  const started = await executeAutomation(automation, { ...input, triggerType: automation.trigger_type,
+  })
+  return { outcome: started ? 'started' : 'unavailable' }
 }
 
 /**
@@ -140,7 +145,7 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
       if (!conv) {
         console.warn(
           '[automations] conversation not in account, refusing dispatch',
-          input.context.conversation_id,
+          input.context.conversation_id
         )
         return true
       }
@@ -194,6 +199,7 @@ export async function resumePendingExecution(pending: {
   parent_step_id: string | null
   branch: 'yes' | 'no' | null
   next_step_position: number
+  parked_step_id?: string | null
   context: AutomationContext
 }): Promise<void> {
   const db = databaseAdmin()
@@ -201,6 +207,7 @@ export async function resumePendingExecution(pending: {
     .from('automations')
     .select('*')
     .eq('id', pending.automation_id)
+    .eq('account_id', pending.account_id)
     .single()
 
   if (error || !automation) {
@@ -209,14 +216,24 @@ export async function resumePendingExecution(pending: {
     return
   }
 
+  if (!automation.is_active) {
+    await markPending(pending.id, 'expired')
+    await setLogError(pending.log_id, tErr('pausedWhileWaiting'))
+    return
+  }
+
   try {
+    const resumePoint = await resolveResumePoint(pending, pending.automation_id)
+    if (!resumePoint) {
+      await markPending(pending.id, 'expired')
+      await setLogError(pending.log_id, tErr('parkedStepRemoved'))
+      return
+    }
     await runResumed({
       automation: automation as Automation,
       contactId: pending.contact_id,
       context: pending.context ?? {},
-      parentStepId: pending.parent_step_id,
-      branch: pending.branch,
-      startPosition: pending.next_step_position,
+      ...resumePoint,
       logId: pending.log_id,
       triggerEvent: 'resumed_wait',
     })
@@ -280,10 +297,22 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
       // Only a unique, still-active interactive predecessor proves that
       // this continuation belongs to a menu; generic waits keep their rules.
       const predecessorQuery = db.from('automation_steps').select('*')
-        .eq('automation_id', pending.automation_id).eq('position', pending.next_step_position - 1)
-      const scoped = pending.parent_step_id === null
-        ? predecessorQuery.is('parent_step_id', null)
-        : predecessorQuery.eq('parent_step_id', pending.parent_step_id).eq('branch', pending.branch ?? 'yes')
+        .eq('automation_id', pending.automation_id)
+      const legacyPosition =
+        pending.parent_step_id === null
+          ? predecessorQuery
+              .eq('position', pending.next_step_position - 1)
+              .is('parent_step_id', null)
+        : predecessorQuery
+              .eq('position', pending.next_step_position - 1)
+              .eq('parent_step_id', pending.parent_step_id).eq('branch', pending.branch ?? 'yes')
+      const scoped = pending.parked_step_id
+        ? db
+            .from('automation_steps')
+            .select('*')
+            .eq('automation_id', pending.automation_id)
+            .eq('id', pending.parked_step_id)
+        : legacyPosition
       const { data: predecessors, error: predecessorError } = await scoped
       if (predecessorError) return true // uncertainty must not introduce another responder
       if (predecessors?.length === 1 && waitsForReply(predecessors[0] as AutomationStep)) {
@@ -320,6 +349,12 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
       return false
     }
 
+    const resumePoint = await resolveResumePoint(pending, pending.automation_id)
+    if (!resumePoint) {
+      await markPending(pending.id, 'expired')
+      await setLogError(pending.log_id, tErr('parkedStepRemoved'))
+      return false
+    }
     await runResumed({
       automation: automation as Automation,
       contactId: pending.contact_id,
@@ -331,9 +366,7 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
         conversation_id: input.context.conversation_id,
         interactive_reply_id: input.context.interactive_reply_id,
       },
-      parentStepId: pending.parent_step_id,
-      branch: pending.branch,
-      startPosition: pending.next_step_position,
+      ...resumePoint,
       logId: pending.log_id,
       triggerEvent: 'resumed_reply',
     })
@@ -384,7 +417,47 @@ interface PendingRow {
   parent_step_id: string | null
   branch: 'yes' | 'no' | null
   next_step_position: number
+  parked_step_id?: string | null
   context: AutomationContext | null
+}
+
+type ResumePoint = Pick<
+  ExecuteArgs,
+  'parentStepId' | 'branch' | 'startPosition'
+>
+
+async function resolveResumePoint(
+  pending: Pick<
+    PendingRow,
+    'parent_step_id' | 'branch' | 'next_step_position' | 'parked_step_id'
+  >,
+  automationId: string
+): Promise<ResumePoint | null> {
+  if (pending.parked_step_id) {
+    const { data: parkedStep, error } = await databaseAdmin()
+      .from('automation_steps')
+      .select('id, parent_step_id, branch, position')
+      .eq('id', pending.parked_step_id)
+      .eq('automation_id', automationId)
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!parkedStep) return null
+    const step = parkedStep as Pick<
+      AutomationStep,
+      'parent_step_id' | 'branch' | 'position'
+    >
+    return {
+      parentStepId: step.parent_step_id ?? null,
+      branch: step.parent_step_id ? (step.branch ?? 'yes') : null,
+      startPosition: step.position + 1,
+    }
+  }
+  if (pending.branch !== null && pending.parent_step_id === null) return null
+  return {
+    parentStepId: pending.parent_step_id,
+    branch: pending.branch,
+    startPosition: pending.next_step_position,
+  }
 }
 
 // ------------------------------------------------------------
@@ -505,7 +578,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
     if (step.step_type === 'wait') {
       const cfg = step.step_config as WaitStepConfig
       const ms = waitMs(cfg)
-      await db.from('automation_pending_executions').insert({
+      const { error: waitErr } = await db.from('automation_pending_executions').insert({
         automation_id: args.automation.id,
         // Tenancy: account_id required NOT NULL post-017.
         account_id: args.automation.account_id,
@@ -515,10 +588,22 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
         parent_step_id: args.parentStepId,
         branch: args.branch,
         next_step_position: step.position + 1,
-        context: args.context,
+          parked_step_id: step.id,
+          context: args.context,
         run_at: new Date(Date.now() + ms).toISOString(),
         status: 'pending',
       })
+      if (waitErr) {
+        errorMessage = tErr('scheduleWaitFailed', { message: waitErr.message })
+        results.push({
+          step_id: step.id,
+          step_type: step.step_type,
+          status: 'failed',
+          detail: errorMessage,
+        })
+        status = 'failed'
+        break
+      }
       results.push({
         step_id: step.id,
         step_type: step.step_type,
@@ -552,6 +637,10 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
         // (see runResumed).
         if (branchOutcome === 'suspended') {
           return suspend(args, results, errorMessage)
+        }
+        if (branchOutcome === 'failed') {
+          status = 'failed'
+          break
         }
         continue
       }
@@ -600,14 +689,14 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
 async function suspend(
   args: ExecuteArgs,
   results: AutomationLogStepResult[],
-  errorMessage: string | null,
+  errorMessage: string | null
 ): Promise<ScopeOutcome> {
   // Only the outermost scope owns the log status (same rule as below).
   await appendResults(
     args.logId,
     results,
     args.parentStepId === null ? 'partial' : null,
-    errorMessage,
+    errorMessage
   )
   return 'suspended'
 }
@@ -680,6 +769,7 @@ async function parkForReply(step: AutomationStep, args: ExecuteArgs): Promise<vo
     parent_step_id: args.parentStepId,
     branch: args.branch,
     next_step_position: step.position + 1,
+    parked_step_id: step.id,
     context: args.context,
     // For awaiting_reply rows run_at is the reply deadline (migration 045).
     run_at: new Date(Date.now() + REPLY_WAIT_MS).toISOString(),
@@ -868,9 +958,10 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         await db
           .from('contact_custom_values')
           .upsert(
-            { contact_id: args.contactId, custom_field_id: customFieldId, value },
-            { onConflict: 'contact_id,custom_field_id' },
-          )
+            { contact_id: args.contactId, custom_field_id: customFieldId, value,
+          },
+            { onConflict: 'contact_id,custom_field_id' }
+        )
         return `custom field updated`
       }
 
@@ -981,7 +1072,8 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
       .eq('id', fromCtx)
       .eq('account_id', args.automation.account_id)
       .maybeSingle()
-    if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message }))
+    if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message,
+        }))
     if (!data?.id) throw new Error(tErr('conversationNotInAccount'))
     return data.id as string
   }
@@ -992,10 +1084,11 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
     .eq('account_id', args.automation.account_id)
     .eq('contact_id', args.contactId)
     .maybeSingle()
-  if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message }))
+  if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message,
+      }))
   if (!data?.id) {
     throw new Error(
-      tErr(args.triggerEvent === 'tag_added' ? 'tagAddedNoConversation' : 'noConversation'),
+      tErr(args.triggerEvent === 'tag_added' ? 'tagAddedNoConversation' : 'noConversation')
     )
   }
   return data.id as string
@@ -1027,7 +1120,7 @@ const WORD_CHAR = '[\\p{L}\\p{N}_]'
 export function matchesWholeWord(
   text: string,
   keyword: string,
-  caseSensitive = false,
+  caseSensitive = false
 ): boolean {
   if (!keyword) return false
   // The keyword is account-supplied free text, so metacharacters have to
@@ -1035,7 +1128,7 @@ export function matchesWholeWord(
   const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const pattern = new RegExp(
     `(?<!${WORD_CHAR})${escaped}(?!${WORD_CHAR})`,
-    caseSensitive ? 'u' : 'iu',
+    caseSensitive ? 'u' : 'iu'
   )
   return pattern.test(text)
 }
@@ -1048,7 +1141,7 @@ export function triggerMatches(automation: Automation, ctx: AutomationContext | 
     if (!text) return false
     if (cfg.match_type === 'word') {
       return cfg.keywords.some((raw) =>
-        matchesWholeWord(text, raw, cfg.case_sensitive),
+        matchesWholeWord(text, raw, cfg.case_sensitive)
       )
     }
     const haystack = cfg.case_sensitive ? text : text.toLowerCase()
@@ -1095,7 +1188,10 @@ async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): P
       return (count ?? 0) > 0
     }
     case 'contact_field': {
-      if (!args.contactId || !cfg.operand) return false
+      if (!args.contactId || !cfg.operand ||
+        typeof cfg.value !== 'string' ||
+        !cfg.value.trim()
+      ) return false
       // Scope to the account so the condition can't be turned into a
       // cross-tenant read oracle via the service-role client.
       const { data } = await db
@@ -1109,23 +1205,11 @@ async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): P
     }
     case 'message_content': {
       const text = (args.context.message_text ?? '').toString()
-      return text.toLowerCase().includes((cfg.value ?? '').toLowerCase())
+      if (typeof cfg.value !== 'string' || !cfg.value.trim()) return false
+      return text.toLowerCase().includes(cfg.value.toLowerCase())
     }
-    case 'time_of_day': {
-      // operand form "HH:mm-HH:mm" — true if now is within that window
-      // (supports over-midnight ranges like "18:00-09:00").
-      const [from, to] = (cfg.operand ?? '').split('-')
-      if (!from || !to) return false
-      const now = new Date()
-      const mins = now.getHours() * 60 + now.getMinutes()
-      const parse = (s: string) => {
-        const [h, m] = s.split(':').map(Number)
-        return (h || 0) * 60 + (m || 0)
-      }
-      const f = parse(from)
-      const t = parse(to)
-      return f <= t ? mins >= f && mins < t : mins >= f || mins < t
-    }
+    case 'time_of_day':
+      return isWithinTimeWindow(cfg.operand, new Date(), cfg.timezone)
     default:
       return false
   }
@@ -1149,7 +1233,7 @@ async function appendResults(
   logId: string | null,
   newItems: AutomationLogStepResult[],
   status: 'success' | 'partial' | 'failed' | null,
-  errorMessage: string | null,
+  errorMessage: string | null
 ) {
   if (!logId) return
   const db = databaseAdmin()
@@ -1174,7 +1258,7 @@ async function appendResults(
 async function finalizeLog(
   logId: string | null,
   status: 'success' | 'partial' | 'failed',
-  errorMessage: string | null,
+  errorMessage: string | null
 ) {
   if (!logId) return
   await databaseAdmin()
@@ -1186,7 +1270,7 @@ async function finalizeLog(
 /** Status-only update, for when error_message must be left as it is. */
 async function setLogStatus(
   logId: string | null,
-  status: 'success' | 'partial' | 'failed',
+  status: 'success' | 'partial' | 'failed'
 ) {
   if (!logId) return
   await databaseAdmin().from('automation_logs').update({ status }).eq('id', logId)

@@ -8,6 +8,12 @@ import {
   CONVERSATION_SELECT,
   normalizeConversation,
 } from '@/lib/inbox/conversations';
+import {
+  applyRealtimeInsert,
+  applyMessageUpdate,
+  mergeFetchedPage,
+  prependOlderMessages,
+} from '@/lib/inbox/optimistic-messages';
 import { latestCustomerMessageAt } from '@/lib/inbox/session';
 import type {
   Conversation,
@@ -19,7 +25,6 @@ import { useRealtime } from '@/hooks/use-realtime';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
-import { toast } from 'sonner';
 import { WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -167,8 +172,14 @@ function InboxPageInner() {
           // realtime payloads never carry.
           return prev.map((c) =>
             c.id === fetched.id
-              ? { ...c, contact: c.contact ?? fetched.contact,
-                  last_customer_message_at: c.last_customer_message_at ?? fetched.last_customer_message_at }
+              ? {
+                  ...c,
+                  contact: c.contact ?? fetched.contact,
+                  last_reply_at: fetched.last_reply_at,
+                  last_customer_message_at:
+                    c.last_customer_message_at ??
+                    fetched.last_customer_message_at,
+                }
               : c
           );
         }
@@ -223,6 +234,10 @@ function InboxPageInner() {
   const handleMessageEvent = useCallback(
     (event: { eventType: string; new: Message; old: Partial<Message> }) => {
       const newMsg = event.new;
+      // Reply timestamps are computed by the tenant-scoped read model, not in realtime row payloads.
+      if (newMsg.sender_type === 'agent' || newMsg.sender_type === 'bot') {
+        void hydrateConversation(newMsg.conversation_id);
+      }
 
       if (event.eventType === 'INSERT') {
         // Add to messages if it belongs to active conversation
@@ -230,15 +245,7 @@ function InboxPageInner() {
           activeConversation &&
           newMsg.conversation_id === activeConversation.id
         ) {
-          setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            // Replace optimistic message if it exists
-            const withoutOptimistic = prev.filter(
-              (m) => !m.id.startsWith('temp-')
-            );
-            return [...withoutOptimistic, newMsg];
-          });
+          setMessages((prev) => applyRealtimeInsert(prev, newMsg));
         }
 
         // Update conversation list preview. We need to know *synchronously*
@@ -254,7 +261,10 @@ function InboxPageInner() {
                     ...c,
                     last_message_text: newMsg.content_text ?? '',
                     last_message_at: newMsg.created_at,
-                    last_customer_message_at: latestCustomerMessageAt(c.last_customer_message_at, newMsg),
+                    last_customer_message_at: latestCustomerMessageAt(
+                      c.last_customer_message_at,
+                      newMsg
+                    ),
                     unread_count:
                       activeConversation?.id === newMsg.conversation_id
                         ? 0
@@ -488,9 +498,11 @@ function InboxPageInner() {
       // Reflect the selection in the URL so a refresh lands the user
       // back in the same thread, and so copy-paste links work. Use
       // replace() to avoid polluting browser history with every click.
-      router.replace(`/inbox?c=${conv.id}`, { scroll: false });
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('c', conv.id);
+      router.replace(`/inbox?${params}`, { scroll: false });
     },
-    [activeConversation?.id, router]
+    [activeConversation?.id, router, searchParams]
   );
 
   // Mobile "back" — deselect the conversation so the list pane comes
@@ -503,12 +515,23 @@ function InboxPageInner() {
     // Clearing the ref lets the deep-link auto-selector fire again if
     // the user later visits /inbox?c=<same-id> — desirable UX.
     autoSelectedForDeepLinkRef.current = null;
-    router.replace('/inbox', { scroll: false });
-  }, [router]);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('c');
+    router.replace(`/inbox${params.size ? `?${params}` : ''}`, {
+      scroll: false,
+    });
+  }, [router, searchParams]);
 
-  const handleMessagesLoaded = useCallback((loaded: Message[]) => {
-    setMessages(loaded);
-  }, []);
+  const handleMessagesLoaded = useCallback(
+    (loaded: Message[], conversationId: string, older = false) => {
+      setMessages((prev) =>
+        older
+          ? prependOlderMessages(prev, loaded)
+          : mergeFetchedPage(prev, loaded, conversationId)
+      );
+    },
+    []
+  );
 
   const handleNewMessage = useCallback((msg: Message) => {
     setMessages((prev) => {
@@ -519,9 +542,7 @@ function InboxPageInner() {
 
   const handleUpdateMessage = useCallback(
     (id: string, updates: Partial<Message>) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
-      );
+      setMessages((prev) => applyMessageUpdate(prev, id, updates));
     },
     []
   );
@@ -566,13 +587,15 @@ function InboxPageInner() {
   const hasActiveConv = !!activeConversation;
 
   return (
-    <div className="studio-inbox -m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden bg-background sm:-m-6">
+    <div className="studio-inbox bg-background -m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
           <WifiOff className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-          <p className="text-xs text-amber-700 dark:text-amber-400">{t('whatsappNotConnected')}</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {t('whatsappNotConnected')}
+          </p>
         </div>
       )}
 

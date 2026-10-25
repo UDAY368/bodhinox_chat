@@ -181,6 +181,8 @@ class Compiler {
       throw new ContractError('Unavailable projection field');
     if (resource.table === 'conversations' && name === 'last_customer_message_at')
       return `(SELECT MAX(session_message.created_at) FROM messages session_message WHERE session_message.account_id = ${alias}.account_id AND session_message.conversation_id = ${alias}.id AND session_message.sender_type = 'customer')`;
+    if (resource.table === 'conversations' && name === 'last_reply_at')
+      return `(SELECT MAX(reply_message.created_at) FROM messages reply_message WHERE reply_message.account_id = ${alias}.account_id AND reply_message.conversation_id = ${alias}.id AND reply_message.sender_type IN ('agent','bot') AND reply_message.status IN ('sent','delivered','read') AND reply_message.content_type NOT IN ('template','system'))`;
     if (resource.table === 'profiles' && name === 'account_role')
       return `(SELECT role FROM account_memberships membership WHERE membership.user_id = ${alias}.user_id AND membership.account_id = ${this.parameter(this.context.accountId, { name: 'account_id', type: 'UUID' })})`;
     if (resource.table === 'profiles' && name === 'account_id')

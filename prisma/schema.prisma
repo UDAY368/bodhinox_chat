@@ -320,6 +320,7 @@ model automation_pending_executions {
   log_id String? @db.Uuid
   parent_step_id String? @db.Uuid
   branch String?
+  parked_step_id String? @db.Uuid
   next_step_position Int
   context Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
   status String  @default("pending")
@@ -382,6 +383,7 @@ model flow_runs {
   conversation_id String? @db.Uuid
   status String  @default("active")
   current_node_key String?
+  transition_seq Int @default(0)
   last_prompt_message_id String? @db.Uuid
   vars Json @db.JsonB @default(dbgenerated("'{}'::jsonb"))
   reprompt_count Int  @default(0)
@@ -405,6 +407,7 @@ model flow_run_events {
 }
 
 model accounts {
+  reply_target_minutes Int @default(5)
   id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
   name String
   owner_user_id String @db.Uuid

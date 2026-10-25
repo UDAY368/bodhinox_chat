@@ -61,7 +61,7 @@ export async function engineSendText(args: SendTextArgs): Promise<{ whatsapp_mes
 }
 
 export async function engineSendTemplate(
-  args: SendTemplateArgs,
+  args: SendTemplateArgs
 ): Promise<{ whatsapp_message_id: string }> {
   return sendViaMeta({ ...args, kind: 'template' })
 }
@@ -86,7 +86,7 @@ interface SendInteractiveArgs {
  * implementation rather than a second hand-rolled copy that could drift.
  */
 export async function engineSendInteractive(
-  args: SendInteractiveArgs,
+  args: SendInteractiveArgs
 ): Promise<{ whatsapp_message_id: string }> {
   const { payload, accountId, userId, conversationId, contactId } = args
   const common = { accountId, userId, conversationId, contactId }
@@ -112,7 +112,7 @@ export async function engineSendInteractive(
 }
 
 type SendInput =
-  | (SendTextArgs & { kind: 'text' })
+  (SendTextArgs & { kind: 'text' })
   | (SendTemplateArgs & { kind: 'template' })
 
 async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: string }> {
@@ -173,7 +173,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
             db,
             input.accountId,
             input.templateName,
-            input.language,
+            input.language
           )
         ).row
       : null
@@ -188,6 +188,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
         templateName: input.templateName,
         language: input.language,
         params: input.params,
+        template: templateRow ?? undefined,
       })
       return r.messageId
     }
@@ -244,6 +245,10 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     content_type,
     content_text,
     template_name,
+    media_url:
+      input.kind === 'template'
+        ? (templateRow?.header_media_url ?? null)
+        : null,
     message_id: waMessageId,
     status: 'sent',
   })

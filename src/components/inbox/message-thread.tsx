@@ -1,5 +1,17 @@
 'use client';
 import { BotPauseControl } from './bot-pause-control';
+import {
+  loadMessagePage,
+  MESSAGE_PAGE_SIZE,
+} from '@/lib/inbox/message-history';
+import {
+  newTempMessageId,
+  confirmedSendUpdate,
+} from '@/lib/inbox/optimistic-messages';
+import {
+  matchMessageTemplate,
+  templateNamesInMessages,
+} from '@/lib/whatsapp/template-message-view';
 import { authFetch } from '@/lib/auth/client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -69,7 +81,11 @@ interface MessageThreadProps {
   conversation: Conversation | null;
   contact: Contact | null;
   messages: Message[];
-  onMessagesLoaded: (messages: Message[]) => void;
+  onMessagesLoaded: (
+    messages: Message[],
+    conversationId: string,
+    older?: boolean
+  ) => void;
   onNewMessage: (message: Message) => void;
   onUpdateMessage: (id: string, updates: Partial<Message>) => void;
   onStatusChange: (conversationId: string, status: ConversationStatus) => void;
@@ -174,6 +190,16 @@ export function MessageThread({
   const { user, canSendMessages } = useAuth();
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<{
+    conversationId: string;
+    before: Message | undefined;
+    hasOlder: boolean;
+  } | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const historyRequestRef = useRef(0);
+  const olderRequestRef = useRef(false);
+  const prependScrollRef = useRef<{ height: number; top: number } | null>(null);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -237,7 +263,7 @@ export function MessageThread({
   const sessionInfo = useMemo(() => {
     const lastCustomerAt = messages.reduce(
       (latest, message) => latestCustomerMessageAt(latest, message),
-      conversation?.last_customer_message_at ?? null,
+      conversation?.last_customer_message_at ?? null
     );
     if (!lastCustomerAt)
       return { expired: true, remaining: tTimer('noCustomerMessages') };
@@ -247,8 +273,12 @@ export function MessageThread({
     }
     const remaining =
       window.remainingMs >= 3_600_000
-        ? tTimer('xhRemaining', { hours: Math.ceil(window.remainingMs / 3_600_000) })
-        : tTimer('xmRemaining', { minutes: Math.ceil(window.remainingMs / 60_000) });
+        ? tTimer('xhRemaining', {
+            hours: Math.ceil(window.remainingMs / 3_600_000),
+          })
+        : tTimer('xmRemaining', {
+            minutes: Math.ceil(window.remainingMs / 60_000),
+          });
     return { expired: false, remaining };
   }, [messages, conversation?.last_customer_message_at, sessionNow, tTimer]);
 
@@ -289,35 +319,108 @@ export function MessageThread({
 
     const db = createClient();
     let cancelled = false;
+    const generation = ++historyRequestRef.current;
+    olderRequestRef.current = false;
+    setLoadingOlder(false);
 
     (async () => {
       setLoading(true);
 
-      const { data, error } = await db
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+      try {
+        const { data, error } = await loadMessagePage(db, conversationId);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error) {
-        console.error('Failed to fetch messages:', error);
-      } else {
-        onMessagesLoadedRef.current(data ?? []);
+        if (error) {
+          console.error('Failed to fetch messages:', error);
+        } else {
+          onMessagesLoadedRef.current(data ?? [], conversationId);
+          setHistory({
+            conversationId,
+            before: data?.[0],
+            hasOlder: (data?.length ?? 0) === MESSAGE_PAGE_SIZE,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) console.error('Failed to fetch messages:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      if (!cancelled) setLoading(false);
     })();
 
     return () => {
       cancelled = true;
+      historyRequestRef.current = generation + 1;
     };
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus —
     // realtime is best-effort and any message events sent while the WS
     // was disconnected or throttled are otherwise lost.
   }, [conversationId, resyncToken]);
+
+  const loadOlder = async () => {
+    if (
+      !conversationId ||
+      history?.conversationId !== conversationId ||
+      !history.before ||
+      !history.hasOlder ||
+      olderRequestRef.current
+    )
+      return;
+    olderRequestRef.current = true;
+    setLoadingOlder(true);
+    const generation = historyRequestRef.current;
+    try {
+      const { data, error } = await loadMessagePage(
+        createClient(),
+        conversationId,
+        history.before
+      );
+      if (generation !== historyRequestRef.current) return;
+      if (error) {
+        toast.error(t('historyLoadFailed'));
+        return;
+      }
+      if (scrollRef.current)
+        prependScrollRef.current = {
+          height: scrollRef.current.scrollHeight,
+          top: scrollRef.current.scrollTop,
+        };
+      onMessagesLoadedRef.current(data ?? [], conversationId, true);
+      setHistory({
+        conversationId,
+        before: data?.[0],
+        hasOlder: (data?.length ?? 0) === MESSAGE_PAGE_SIZE,
+      });
+    } catch {
+      if (generation === historyRequestRef.current)
+        toast.error(t('historyLoadFailed'));
+    } finally {
+      if (generation === historyRequestRef.current) {
+        olderRequestRef.current = false;
+        setLoadingOlder(false);
+      }
+    }
+  };
+
+  const templateNames = useMemo(
+    () => templateNamesInMessages(messages).join(','),
+    [messages]
+  );
+  useEffect(() => {
+    let cancelled = false;
+    if (!templateNames) return;
+    createClient()
+      .from('message_templates')
+      .select<MessageTemplate>('*')
+      .in('name', templateNames.split(','))
+      .then(({ data }) => {
+        if (!cancelled) setTemplates(data ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [templateNames, conversationId]);
 
   // Reactions fetch — pulls the current state from the DB. Kept separate
   // from the channel subscription below so a `resyncToken` bump just
@@ -451,7 +554,11 @@ export function MessageThread({
   useEffect(() => {
     if (scrollRef.current) {
       const el = scrollRef.current;
-      el.scrollTop = el.scrollHeight;
+      const anchor = prependScrollRef.current;
+      el.scrollTop = anchor
+        ? anchor.top + el.scrollHeight - anchor.height
+        : el.scrollHeight;
+      prependScrollRef.current = null;
     }
   }, [messages]);
 
@@ -459,7 +566,7 @@ export function MessageThread({
     async (text: string, replyToId?: string) => {
       if (!conversation) return;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = newTempMessageId();
 
       // Optimistic update — shows the message immediately with "sending" status
       const optimisticMsg: Message = {
@@ -501,7 +608,7 @@ export function MessageThread({
         // Success — the realtime INSERT event will replace the temp bubble
         // with the real DB row. If realtime hasn't arrived yet, at least
         // flip status to 'sent' so the UI stops showing "sending".
-        onUpdateMessage(tempId, { status: 'sent' });
+        onUpdateMessage(tempId, confirmedSendUpdate(payload));
       } catch (err) {
         console.error('Failed to send message:', err);
         const reason = err instanceof Error ? err.message : t('networkError');
@@ -524,7 +631,7 @@ export function MessageThread({
           ? payload.caption || payload.filename || t('documentFallback')
           : payload.caption;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = newTempMessageId();
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
@@ -568,7 +675,7 @@ export function MessageThread({
           return;
         }
 
-        onUpdateMessage(tempId, { status: 'sent' });
+        onUpdateMessage(tempId, confirmedSendUpdate(data));
       } catch (err) {
         console.error('Failed to send media:', err);
         const reason = err instanceof Error ? err.message : t('networkError');
@@ -586,7 +693,7 @@ export function MessageThread({
     async (payload: InteractiveMessagePayload, replyToId?: string) => {
       if (!conversation) return;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = newTempMessageId();
       // Optimistic bubble — renders the buttons/list immediately via the
       // interactive_payload, same as the persisted row will.
       const optimisticMsg: Message = {
@@ -624,7 +731,7 @@ export function MessageThread({
           return;
         }
 
-        onUpdateMessage(tempId, { status: 'sent' });
+        onUpdateMessage(tempId, confirmedSendUpdate(data));
       } catch (err) {
         console.error('Failed to send interactive message:', err);
         const reason = err instanceof Error ? err.message : t('networkError');
@@ -666,7 +773,7 @@ export function MessageThread({
       if (!conversation) return;
 
       const renderedBody = renderTemplateBody(template.body_text, values.body);
-      const tempId = `temp-${Date.now()}`;
+      const tempId = newTempMessageId();
 
       const optimisticMsg: Message = {
         id: tempId,
@@ -713,7 +820,7 @@ export function MessageThread({
           return;
         }
 
-        onUpdateMessage(tempId, { status: 'sent' });
+        onUpdateMessage(tempId, confirmedSendUpdate(payload));
       } catch (err) {
         console.error('Failed to send template:', err);
         const reason = err instanceof Error ? err.message : t('networkError');
@@ -805,7 +912,7 @@ export function MessageThread({
         return [
           ...prev,
           {
-            id: `temp-${Date.now()}`,
+            id: newTempMessageId(),
             message_id: messageId,
             conversation_id: convId,
             actor_type: 'agent',
@@ -1086,7 +1193,10 @@ export function MessageThread({
       </div>
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="studio-messages flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+      <div
+        ref={scrollRef}
+        className="studio-messages flex-1 overflow-y-auto px-4 py-6 sm:px-6"
+      >
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
@@ -1102,6 +1212,17 @@ export function MessageThread({
           </div>
         ) : (
           <div className="space-y-4">
+            {history?.conversationId === conversationId &&
+              history?.hasOlder && (
+                <button
+                  type="button"
+                  onClick={() => void loadOlder()}
+                  disabled={loadingOlder}
+                  className="text-primary hover:bg-muted mx-auto block rounded-md px-3 py-2 text-xs disabled:opacity-50"
+                >
+                  {t(loadingOlder ? 'loadingOlder' : 'loadOlder')}
+                </button>
+              )}
             {messageGroups.map((group) => (
               <div key={group.date}>
                 {/* Date separator */}
@@ -1148,6 +1269,7 @@ export function MessageThread({
                       >
                         <MessageBubble
                           message={msg}
+                          template={matchMessageTemplate(msg, templates)}
                           reply={reply}
                           reactions={msgReactions}
                           currentUserId={user?.id}

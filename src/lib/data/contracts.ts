@@ -128,6 +128,7 @@ const immutable = new Set([
   'role',
   'beta_features',
   'last_customer_message_at',
+  'last_reply_at',
 ]);
 const metadata = inventory.tables as unknown as Record<
   string,
@@ -138,7 +139,7 @@ export const resources: Record<string, Resource> = Object.fromEntries(
     const entry = metadata[table];
     const physicalColumns = Array.isArray(entry) ? entry : (entry?.columns ?? []);
     const columns: Column[] = table === 'conversations'
-      ? [...physicalColumns, { name: 'last_customer_message_at', type: 'TIMESTAMPTZ', nullable: true }]
+      ? [...physicalColumns, { name: 'last_customer_message_at', type: 'TIMESTAMPTZ', nullable: true }, { name: 'last_reply_at', type: 'TIMESTAMPTZ', nullable: true }]
       : physicalColumns;
     return [
       table,

@@ -179,6 +179,91 @@
     },
     "emptyState": {
       "title": "Aún no hay datos suficientes"
+    },
+    "operations": {
+      "title": "Operaciones",
+      "description": "Los recuentos y las colas son actuales; las respuestas y campañas corresponden al período seleccionado.",
+      "range": "Período",
+      "days": "Últimos {count} días",
+      "error": "No se pudieron actualizar las operaciones. Los datos anteriores pueden estar desactualizados.",
+      "retry": "Reintentar",
+      "loading": "Cargando operaciones…",
+      "waiting": "Esperando respuesta",
+      "overTarget": "Fuera del plazo",
+      "unassigned": "Sin asignar",
+      "expiring": "Sesión por cerrar",
+      "failed": "Mensajes fallidos",
+      "target": "Objetivo de respuesta: {count} minutos.",
+      "editTarget": "Editar objetivo",
+      "queue": "Cola de respuestas",
+      "queueEmpty": "Ningún cliente espera respuesta.",
+      "waitingSince": "Espera desde {time}",
+      "closesAt": "La sesión cierra {time}",
+      "handedOff": "Transferido",
+      "failures": "Detalle de mensajes fallidos",
+      "failuresHint": "Fallos recientes del período seleccionado. Abre la conversación para revisar la entrega.",
+      "failuresEmpty": "No hay mensajes fallidos en este período.",
+      "mediaMessage": "Mensaje multimedia o plantilla",
+      "team": "Respuestas del equipo",
+      "member": "Miembro",
+      "open": "Abiertas",
+      "replies": "Respuestas",
+      "median": "Mediana de respuesta",
+      "minutes": "{count} min",
+      "automated": "Respuestas automatizadas",
+      "teamEmpty": "No hay datos de respuestas del equipo en este período.",
+      "pipelines": "Resultados por embudo",
+      "pipeline": "Embudo",
+      "won": "Ganados",
+      "lost": "Perdidos",
+      "idle": "Inactivos",
+      "avgDaysToWin": "Días medios hasta ganar: {value}",
+      "openPipelines": "Abrir embudos",
+      "pipelinesEmpty": "Aún no hay embudos.",
+      "campaigns": "Estado de campañas",
+      "automationRuns": "Ejecuciones de automatización",
+      "automationFailed": "Automatizaciones fallidas",
+      "flowFailed": "Flujos fallidos",
+      "templatesApproved": "Plantillas aprobadas",
+      "templatesRejected": "Plantillas rechazadas",
+      "topFailingFlow": "Flujo con más fallos: {name}",
+      "automations": "Automatizaciones",
+      "flows": "Flujos",
+      "latestBroadcast": "Última difusión",
+      "delivered": "Entregados",
+      "read": "Leídos",
+      "replied": "Respondidos",
+      "broadcastEmpty": "Aún no hay difusiones.",
+      "setup": "Configuración del espacio",
+      "setupHint": "WhatsApp indica configuración guardada. Revisa su conexión en los ajustes.",
+      "done": "Completo",
+      "pending": "Pendiente",
+      "setupItems": {
+        "whatsapp": "Configurar WhatsApp",
+        "contacts": "Añadir contactos",
+        "template": "Aprobar una plantilla",
+        "teammate": "Invitar a un compañero",
+        "conversation": "Iniciar una conversación"
+      },
+      "health": {
+        "connected": "Conectado",
+        "disconnected": "Desconectado",
+        "unavailable": "Estado no disponible",
+        "loading": "Comprobando conexión…",
+        "quality": "Calidad: {value}",
+        "limit": "Límite de mensajes: {value}",
+        "perDay": "{count} / día",
+        "unlimited": "Sin límite",
+        "unknown": "Desconocido",
+        "settings": "Ajustes de conexión",
+        "retry": "Reintentar",
+        "ratings": {
+          "GREEN": "Buena",
+          "YELLOW": "Media",
+          "RED": "Baja",
+          "UNKNOWN": "Desconocida"
+        }
+      }
     }
   },
   "Inbox": {
@@ -204,7 +289,10 @@
       "noMessagesYet": "Aún no hay mensajes",
       "unknown": "Desconocido",
       "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered."
+      "studioTitle": "Every conversation, considered.",
+      "filterWaiting": "Waiting for reply",
+      "filterUnassigned": "Unassigned",
+      "filterExpiringSoon": "Expiring soon"
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -238,7 +326,10 @@
       "assignmentUpdateFailed": "Error al actualizar la asignación",
       "networkError": "error de red",
       "documentFallback": "Documento",
-      "you": "Tú"
+      "you": "Tú",
+      "loadOlder": "Load older messages",
+      "loadingOlder": "Loading older messages…",
+      "historyLoadFailed": "Unable to load older messages"
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -1178,7 +1269,9 @@
         "matchExact": "Exacta",
         "waitForReply": "Esperar respuesta antes de continuar",
         "waitForReplyHint": "Se detiene aquí hasta que el cliente toque un botón o responda (hasta 24 h). Los pasos siguientes, incluido Si/Si no sobre el contenido del mensaje, usan esa respuesta.",
-        "closeConversationHint": "Cambia el estado de la conversación a \"cerrada\". No requiere configuración."
+        "closeConversationHint": "Cambia el estado de la conversación a \"cerrada\". No requiere configuración.",
+        "conditionTimezoneLabel": "Timezone",
+        "conditionTimezoneHint": "Business timezone used to evaluate this time window."
       },
       "preview": {
         "noText": "sin texto aún",
@@ -1261,7 +1354,8 @@
       "statusHandedOff": "Transferida",
       "statusTimedOut": "Tiempo agotado",
       "statusPaused": "Pausada por el agente",
-      "statusFailed": "Fallida"
+      "statusFailed": "Fallida",
+      "statusCancelled": "Cancelado"
     },
     "builder": {
       "triggerTitle": "Disparador",
@@ -1823,7 +1917,8 @@
       "fields": "Campos y etiquetas",
       "deals": "Negocios y moneda",
       "members": "Miembros del equipo",
-      "api": "Claves de API"
+      "api": "Claves de API",
+      "inbox": "Bandeja de entrada"
     },
     "groups": {
       "account": "Cuenta",
@@ -2075,6 +2170,11 @@
       "textPlaceholder": "El texto del mensaje que se insertará",
       "cancel": "Cancelar",
       "save": "Guardar"
+    },
+    "rail": {
+      "sections": {
+        "inbox": "Inbox"
+      }
     }
   },
   "SignupPage": {
@@ -2461,7 +2561,10 @@
       "conversationNotInAccount": "la conversación no pertenece a esta cuenta",
       "noContactForConversation": "no se pudo resolver la conversación: sin contacto",
       "noConversation": "no se puede enviar: el contacto no tiene una conversación existente",
-      "tagAddedNoConversation": "la automatización tag_added no puede enviar: el contacto no tiene una conversación existente"
+      "tagAddedNoConversation": "la automatización tag_added no puede enviar: el contacto no tiene una conversación existente",
+      "pausedWhileWaiting": "Automation paused while waiting",
+      "parkedStepRemoved": "The step where this run was waiting was removed",
+      "scheduleWaitFailed": "Could not schedule the wait: {message}"
     }
   },
   "Validation": {
@@ -2519,7 +2622,8 @@
       "setTagNeedsTag": "El nodo Etiquetar contacto necesita una etiqueta para aplicar.",
       "setTagNeedsNext": "El nodo Etiquetar contacto debe apuntar a un nodo siguiente.",
       "setTagMissingNext": "El nodo Etiquetar contacto apunta a un nodo inexistente: \"{key}\".",
-      "unknownNodeType": "Tipo de nodo desconocido: \"{type}\"."
+      "unknownNodeType": "Tipo de nodo desconocido: \"{type}\".",
+      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -2545,7 +2649,10 @@
       "matchTypeInvalid": "el tipo de coincidencia debe ser \"exact\", \"contains\" o \"word\"",
       "scheduleRequired": "la programación es obligatoria",
       "replyIdRequired": "se requiere al menos un ID de respuesta",
-      "replyIdsEmpty": "los IDs de respuesta no pueden estar vacíos"
+      "replyIdsEmpty": "los IDs de respuesta no pueden estar vacíos",
+      "conditionValueRequired": "Enter a non-empty comparison value.",
+      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
+      "conditionTimezoneInvalid": "Choose a valid timezone."
     },
     "templates": {
       "nameRequired": "El nombre de la plantilla es obligatorio.",
@@ -2728,7 +2835,8 @@
       "nameEmpty": "El nombre no puede estar vacío",
       "unknownTemplate": "Plantilla de flujo desconocida \"{slug}\"",
       "insertFailed": "error al crear el flujo",
-      "nameRequired": "El nombre es obligatorio"
+      "nameRequired": "El nombre es obligatorio",
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
     },
     "quickReplies": {
       "kindInvalid": "El tipo debe ser \"text\" o \"interactive\"",
@@ -2814,5 +2922,19 @@
     "trigger": "Buscar páginas",
     "empty": "No se encontraron páginas.",
     "results": "Páginas"
+  },
+  "inboxSettings": {
+    "title": "Bandeja de entrada",
+    "description": "Configura el objetivo de respuesta para las colas y los informes del espacio.",
+    "loading": "Cargando ajustes…",
+    "error": "No se pudieron cargar o guardar los ajustes. Inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "label": "Objetivo de respuesta (minutos)",
+    "help": "Introduce un número entero de 1 a 1440 minutos.",
+    "invalid": "Introduce un número entero de 1 a 1440.",
+    "readOnly": "Solo los administradores pueden cambiar este ajuste.",
+    "saving": "Guardando…",
+    "save": "Guardar objetivo",
+    "saved": "Objetivo guardado."
   }
 }

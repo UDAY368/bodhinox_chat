@@ -179,6 +179,8 @@ export interface Conversation {
   last_message_at?: string;
   /** Computed from customer messages; business replies do not reopen the 24h window. */
   last_customer_message_at?: string | null;
+  /** Latest successful non-template business reply, maintained by PostgreSQL. */
+  last_reply_at?: string | null;
   unread_count: number;
   created_at: string;
   updated_at: string;
@@ -614,6 +616,7 @@ export type ConditionSubject =
   'contact_field' | 'tag_presence' | 'message_content' | 'time_of_day';
 
 export interface ConditionStepConfig {
+  timezone?: string;
   subject: ConditionSubject;
   /** e.g. field name, tag id, substring, or "HH:mm-HH:mm" depending on subject */
   operand?: string;

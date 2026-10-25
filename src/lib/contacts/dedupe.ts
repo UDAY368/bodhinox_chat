@@ -3,6 +3,7 @@ import {
   normalizePhone,
   parseInternationalPhone,
   phonesMatch,
+  phoneVariants,
 } from "@/lib/whatsapp/phone-utils";
 
 /**
@@ -32,9 +33,8 @@ export interface ExistingContact {
 
 /**
  * Find an existing contact in `accountId` whose phone matches `phone`,
- * or null. Pre-filters in SQL by the last-8-digit suffix (so we don't
- * pull every contact), then applies the strict `phonesMatch` in JS on
- * the small candidate set — the exact approach the webhook has used.
+ * or null. Query only normalized identity/trunk variants, then prefer
+ * the exact identity before tolerating a variant from that small set.
  */
 export async function findExistingContact(
   db: DataClient,
@@ -44,19 +44,25 @@ export async function findExistingContact(
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
-  const suffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
-
   const { data, error } = await db
     .from("contacts")
     .select("*")
     .eq("account_id", accountId)
-    .like("phone", `%${suffix}`);
+    .in("phone_normalized", phoneVariants(normalized));
 
   if (error || !data) return null;
 
-  return (
-    (data as ExistingContact[]).find((c) => phonesMatch(c.phone, phone)) ?? null
-  );
+  return pickBestPhoneMatch(data as ExistingContact[], phone);
+}
+
+/** Exact normalized identity wins; only explicit trunk variants are tolerated. */
+export function pickBestPhoneMatch<T extends { phone: string }>(candidates: T[], phone: string): T | null {
+  const key = normalizeKey(phone);
+  if (!key) return null;
+  const variants = new Set(phoneVariants(key));
+  return candidates.find(c => normalizeKey(c.phone) === key)
+    ?? candidates.find(c => variants.has(normalizeKey(c.phone)) && phonesMatch(c.phone, phone))
+    ?? null;
 }
 
 /**

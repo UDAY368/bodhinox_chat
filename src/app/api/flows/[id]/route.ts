@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { validateFlowForActivation } from '@/lib/flows/validate';
+import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 
 const t = getT('Api');
@@ -119,6 +121,24 @@ export async function PUT(
   }
 
   const admin = guard.db;
+  const { data: current, error: readError } = await admin.from('flows').select('*').eq('id', id).maybeSingle();
+  if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
+  if ((current as FlowRow | null)?.status === 'active') {
+    const existing = body.nodes === undefined
+      ? await admin.from('flow_nodes').select('*').eq('flow_id', id)
+      : { data: body.nodes, error: null };
+    if (existing.error) return NextResponse.json({ error: existing.error.message }, { status: 500 });
+    const flow = current as FlowRow;
+    const issues = validateFlowForActivation({
+      name: body.name !== undefined ? body.name.trim() : flow.name,
+      trigger_type: body.trigger_type ?? flow.trigger_type,
+      trigger_config: body.trigger_config ?? { ...flow.trigger_config },
+      entry_node_id: body.entry_node_id !== undefined ? body.entry_node_id : flow.entry_node_id,
+    }, (existing.data ?? []) as FlowNodeRow[]);
+    if (issues.some((issue) => issue.severity === 'error')) {
+      return NextResponse.json({ error: t('flows.cannotSaveActive'), issues }, { status: 422 });
+    }
+  }
 
   // Update the flow row first — the body may not include `nodes` (a
   // header-only save for editing the trigger config without touching
