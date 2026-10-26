@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { RefreshCw, Copy, Check } from 'lucide-react';
+import { RefreshCw, Copy, Check, PanelRightClose } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/data/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
@@ -23,14 +23,17 @@ interface ContactSidebarProps {
   contact: Contact | null;
   refreshToken?: string | number;
   onUpdated?: (contact: Contact) => void;
+  onCollapse?: () => void;
 }
 
 export function ContactSidebar({
   contact,
   refreshToken,
   onUpdated,
+  onCollapse,
 }: ContactSidebarProps) {
   const t = useTranslations('Inbox.sidebar');
+  const tThread = useTranslations('Inbox.messageThread');
   const { accountId, user, canSendMessages, canEditSettings } = useAuth();
   const [data, setData] = useState<ContactDetails | null>(null);
   const [error, setError] = useState('');
@@ -99,20 +102,35 @@ export function ContactSidebar({
       aria-label={t('contactDetails')}
       className="studio-contact-panel border-border bg-card flex h-full w-80 flex-col border-l"
     >
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-4 p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">{t('contactDetails')}</h2>
+      <div className="border-border flex shrink-0 items-center justify-between border-b px-5 py-3">
+        <h2 className="text-sm font-semibold">{t('contactDetails')}</h2>
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={t('refresh')}
+            disabled={loading || busy}
+            onClick={() => void reload()}
+          >
+            <RefreshCw className="size-4" />
+          </Button>
+          {onCollapse && (
             <Button
+              type="button"
               size="icon"
               variant="ghost"
-              aria-label={t('refresh')}
-              disabled={loading || busy}
-              onClick={() => void reload()}
+              aria-label={tThread('hideContactPanel')}
+              title={tThread('hideContactPanel')}
+              disabled={busy}
+              onClick={onCollapse}
             >
-              <RefreshCw className="size-4" />
+              <PanelRightClose className="size-4" />
             </Button>
-          </div>
+          )}
+        </div>
+      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-4 p-5">
           <div className="text-center">
             <div className="bg-muted mx-auto flex size-14 items-center justify-center rounded-full text-lg font-semibold">
               {current.avatar_url ? (

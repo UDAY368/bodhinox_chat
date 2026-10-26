@@ -660,6 +660,7 @@ function InboxPageInner() {
             <ContactSidebar
               key={activeContact?.id}
               contact={activeContact}
+              onCollapse={handleToggleContactPanel}
               refreshToken={`${resyncToken}:${messages.length}`}
               onUpdated={(updated) => {
                 setActiveContact((previous) =>
