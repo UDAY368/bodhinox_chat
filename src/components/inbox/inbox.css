@@ -1,0 +1,148 @@
+/* Inbox-only palette: the surrounding app keeps its cream/copper theme. */
+.studio-inbox {
+  --background: #efeae2;
+  --foreground: #17252b;
+  --card: #ffffff;
+  --card-foreground: #17252b;
+  --card-2: #f0f2f5;
+  --muted: #f0f2f5;
+  --muted-foreground: #596970;
+  --secondary: #e9edef;
+  --secondary-foreground: #17252b;
+  --accent: #e9edef;
+  --accent-foreground: #17252b;
+  --border: #dfe4e6;
+  --input: #d5dddf;
+  --primary: #087f68;
+  --primary-foreground: #ffffff;
+  --primary-hover: #066b58;
+  --primary-soft: #e0f4e9;
+  --primary-soft-2: #c9ecdc;
+  --ring: #087f68;
+  --inbox-header: #f0f2f5;
+  --inbox-selected: #e4eeea;
+  --inbox-outgoing: #d9fdd3;
+  --inbox-icon: #dce8e3;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+html[data-mode='dark'] .studio-inbox {
+  --background: #0b141a;
+  --foreground: #e9edef;
+  --card: #111b21;
+  --card-foreground: #e9edef;
+  --card-2: #202c33;
+  --muted: #202c33;
+  --muted-foreground: #a6b5bc;
+  --secondary: #2a3942;
+  --secondary-foreground: #e9edef;
+  --accent: #2a3942;
+  --accent-foreground: #e9edef;
+  --border: #2a3942;
+  --input: #3b4b54;
+  --primary: #53d3b3;
+  --primary-foreground: #0b2921;
+  --primary-hover: #72dfc3;
+  --primary-soft: #163d35;
+  --primary-soft-2: #205345;
+  --ring: #53d3b3;
+  --inbox-header: #202c33;
+  --inbox-selected: #2a3942;
+  --inbox-outgoing: #005c4b;
+  --inbox-icon: #1d3438;
+}
+
+.studio-inbox .studio-chats-header,
+.studio-inbox .studio-thread-header,
+.studio-inbox .studio-composer {
+  background: var(--inbox-header);
+}
+
+.studio-inbox .studio-conversation-list {
+  min-height: 0;
+  background: var(--card);
+}
+
+.studio-inbox .studio-chat-filters input {
+  height: 36px;
+  border-color: transparent;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.studio-inbox .studio-chat-filters input:focus-visible {
+  border-color: var(--primary);
+}
+
+.studio-inbox .studio-conversation {
+  min-height: 78px;
+}
+
+.studio-inbox .studio-conversation[aria-current='true'] {
+  background: var(--inbox-selected);
+  box-shadow: inset 3px 0 var(--primary);
+}
+
+.studio-inbox .studio-conversation[data-unread='true'] .text-foreground {
+  font-weight: 650;
+}
+
+.studio-inbox .studio-conversation:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.studio-inbox .studio-thread,
+.studio-inbox .studio-messages {
+  background: var(--background);
+}
+
+.studio-inbox .studio-thread {
+  container-type: inline-size;
+}
+
+/* A contact panel can leave less room than the overall window suggests. */
+@container (max-width: 480px) {
+  .studio-inbox .studio-thread-header {
+    flex-wrap: wrap;
+  }
+
+  .studio-inbox .studio-thread-header > div:first-child {
+    flex: 1 1 100%;
+  }
+
+  .studio-inbox .studio-thread-header > div:last-child {
+    margin-left: auto;
+  }
+}
+
+.studio-inbox .studio-thread-empty {
+  border-bottom: 5px solid var(--primary);
+}
+
+.studio-inbox .studio-empty-icon {
+  background: var(--inbox-icon);
+  color: var(--primary);
+}
+
+.studio-inbox .studio-message {
+  border: 0;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 1px #0b141a1a;
+}
+
+.studio-inbox .studio-message-outgoing {
+  background: var(--inbox-outgoing);
+}
+
+.studio-inbox .studio-message-badge {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.studio-inbox .studio-composer textarea {
+  border-radius: 8px;
+  background: var(--card);
+}

@@ -1,3 +1,5 @@
+import { authFetch } from '@/lib/auth/client';
+
 interface ContactTagMutationResult {
   added?: boolean;
   dispatched?: boolean;
@@ -9,7 +11,7 @@ async function mutateContactTag(
   tagId: string,
   method: 'POST' | 'DELETE'
 ): Promise<ContactTagMutationResult> {
-  const response = await fetch(`/api/contacts/${contactId}/tags`, {
+  const response = await authFetch(`/api/contacts/${contactId}/tags`, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tag_id: tagId }),

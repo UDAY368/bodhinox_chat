@@ -22,6 +22,12 @@ button:not(:disabled), a { touch-action: manipulation; }
 .studio-main h1 { letter-spacing: -.035em; }
 .studio-header { min-height: 72px; background: var(--studio-glass); border-color: var(--border); }
 .studio-sidebar { background: var(--studio-charcoal); color: #ede9e2; }
+.studio-sidebar nav { color-scheme: dark; scrollbar-width: thin; scrollbar-color: #6b5040 transparent; }
+.studio-sidebar nav::-webkit-scrollbar { width: 6px; }
+.studio-sidebar nav::-webkit-scrollbar-track { background: transparent; }
+.studio-sidebar nav::-webkit-scrollbar-thumb { background: #6b5040; border-radius: 999px; }
+.studio-sidebar nav::-webkit-scrollbar-thumb:hover { background: var(--studio-copper); }
+.studio-sidebar nav::-webkit-scrollbar-button { display: none; }
 .studio-sidebar-link { transition: background var(--studio-duration), color var(--studio-duration); }
 .studio-sidebar-link[aria-current="page"] { box-shadow: inset 2px 0 #c9793e; background: #30251d; color: #f9e3cc; }
 .studio-sidebar-link[aria-current="page"] svg { color: #e3a46c; }

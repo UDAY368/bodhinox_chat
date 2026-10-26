@@ -968,17 +968,21 @@ export function MessageThread({
     return (
       <div
         className={cn(
-          'flex flex-1 flex-col items-center justify-center',
+          'studio-thread-empty flex flex-1 flex-col items-center justify-center px-6 text-center',
           THREAD_BG_CLASSES
         )}
       >
-        <div className="bg-card border-border flex h-20 w-20 items-center justify-center rounded-3xl border">
-          <MessageSquare className="text-primary h-8 w-8" />
+        <div className="studio-empty-icon flex h-28 w-28 items-center justify-center rounded-full">
+          <MessageSquare
+            className="h-14 w-14"
+            strokeWidth={1.25}
+            aria-hidden="true"
+          />
         </div>
-        <h3 className="text-muted-foreground mt-4 text-sm font-medium">
+        <h3 className="text-foreground mt-6 text-xl font-medium">
           {t('selectConversation')}
         </h3>
-        <p className="text-muted-foreground mt-1 text-xs">
+        <p className="text-muted-foreground mt-2 max-w-72 text-sm leading-relaxed">
           {t('selectConversationHint')}
         </p>
       </div>
@@ -1006,7 +1010,7 @@ export function MessageThread({
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
     <div className={cn('flex min-w-0 flex-1 flex-col', THREAD_BG_CLASSES)}>
-      <div className="studio-thread-header border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-4 sm:px-5">
+      <div className="studio-thread-header border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {/* Back-to-list button — mobile only. Hidden on lg+ where the
               conversation list is always visible next to the thread. */}

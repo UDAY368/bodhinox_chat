@@ -292,7 +292,8 @@
       "studioTitle": "Every conversation, considered.",
       "filterWaiting": "Waiting for reply",
       "filterUnassigned": "Unassigned",
-      "filterExpiringSoon": "Expiring soon"
+      "filterExpiringSoon": "Expiring soon",
+      "chats": "Chats"
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -461,7 +462,31 @@
       "deals": "Negocios",
       "noTags": "Sin etiquetas",
       "noDeals": "Sin negocios",
-      "addNotePlaceholder": "Agregar una nota..."
+      "addNotePlaceholder": "Agregar una nota...",
+      "contactDetails": "Detalles del contacto",
+      "refresh": "Actualizar contacto",
+      "retry": "Reintentar",
+      "loading": "Cargando detalles…",
+      "loadError": "No se pudieron cargar los detalles.",
+      "saveError": "No se pudieron guardar los cambios.",
+      "details": "Detalles",
+      "edit": "Editar",
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "company": "Empresa",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "notSet": "Sin definir",
+      "addAddress": "Añadir campo de dirección",
+      "manageTags": "Gestionar etiquetas",
+      "noAvailableTags": "Primero crea etiquetas en Ajustes → Campos y etiquetas.",
+      "flowAnswers": "Respuestas de flujos",
+      "flowAnswersHint": "Respuestas recientes de los flujos. No reemplazan los datos del contacto.",
+      "flow": "Flujo",
+      "noFlowAnswers": "No hay respuestas guardadas para este contacto.",
+      "addNote": "Añadir nota",
+      "copyPhone": "Copiar número",
+      "copyError": "No se pudo copiar el número."
     },
     "aiBanner": {
       "pausedTitle": "El asistente de IA está en pausa aquí",

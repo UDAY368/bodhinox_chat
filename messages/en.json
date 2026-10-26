@@ -292,7 +292,8 @@
       "studioTitle": "Every conversation, considered.",
       "filterWaiting": "Waiting for reply",
       "filterUnassigned": "Unassigned",
-      "filterExpiringSoon": "Expiring soon"
+      "filterExpiringSoon": "Expiring soon",
+      "chats": "Chats"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -461,7 +462,31 @@
       "deals": "Deals",
       "noTags": "No tags",
       "noDeals": "No deals",
-      "addNotePlaceholder": "Add a note..."
+      "addNotePlaceholder": "Add a note...",
+      "contactDetails": "Contact details",
+      "refresh": "Refresh contact",
+      "retry": "Retry",
+      "loading": "Loading contact details…",
+      "loadError": "Could not load contact details.",
+      "saveError": "Could not save changes.",
+      "details": "Details",
+      "edit": "Edit",
+      "name": "Name",
+      "email": "Email",
+      "company": "Company",
+      "save": "Save",
+      "cancel": "Cancel",
+      "notSet": "Not set",
+      "addAddress": "Add address field",
+      "manageTags": "Manage tags",
+      "noAvailableTags": "Create tags in Settings → Fields & tags first.",
+      "flowAnswers": "Flow answers",
+      "flowAnswersHint": "Recent answers collected by flows. These do not overwrite contact details.",
+      "flow": "Flow",
+      "noFlowAnswers": "No saved flow answers for this contact.",
+      "addNote": "Add note",
+      "copyPhone": "Copy contact number",
+      "copyError": "Could not copy contact number."
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",

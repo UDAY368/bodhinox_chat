@@ -1,5 +1,7 @@
 'use client';
 
+import './inbox.css';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   matchesInboxFilter,
@@ -271,22 +273,20 @@ export function ConversationList({
     // the single pane showing; fixed 320px on desktop where it shares the
     // row with the thread + contact sidebar.
     <div className="studio-conversation-list border-border bg-card flex h-full w-full flex-col border-r lg:w-80 xl:w-88">
-      <div className="px-5 pt-6 pb-4">
-        <p className="text-primary text-[9px] font-semibold tracking-[0.2em] uppercase">
-          {t('studioEyebrow')}
-        </p>
-        <h1 className="text-foreground mt-2 max-w-60 text-xl leading-tight font-medium tracking-tight">
-          {t('studioTitle')}
+      <div className="studio-chats-header px-5 py-4">
+        <h1 className="text-foreground text-xl leading-tight font-semibold tracking-tight">
+          {t('chats')}
         </h1>
       </div>
       {/* Search + Filter */}
-      <div className="border-border space-y-3 border-b px-4 pb-4">
+      <div className="studio-chat-filters border-border space-y-2 border-b px-3 py-3">
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             value={search}
             onChange={handleSearchChange}
             placeholder={t('searchPlaceholder')}
+            aria-label={t('searchPlaceholder')}
             className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pl-9 text-sm"
           />
         </div>
@@ -516,7 +516,7 @@ export function ConversationList({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-1 p-2">
+          <div className="flex flex-col">
             {filtered.map((conv) => (
               <ConversationItem
                 key={conv.id}
@@ -562,19 +562,22 @@ function ConversationItem({
 
   return (
     <button
+      type="button"
       onClick={handleClick}
+      aria-current={isActive ? 'true' : undefined}
+      data-unread={conversation.unread_count > 0 || undefined}
       className={cn(
-        'studio-conversation hover:bg-muted/50 flex w-full items-start gap-3 rounded-xl border border-transparent px-3 py-4 text-left transition-colors',
-        isActive && 'border-primary/20 bg-primary/8'
+        'studio-conversation hover:bg-muted/50 border-border flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-colors',
+        isActive && 'bg-muted'
       )}
     >
       {/* Avatar */}
-      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-medium">
+      <div className="bg-muted text-foreground flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-medium">
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
             alt={displayName}
-            className="h-10 w-10 rounded-2xl object-cover"
+            className="h-11 w-11 rounded-full object-cover"
           />
         ) : (
           initials
@@ -597,7 +600,7 @@ function ConversationItem({
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {conversation.unread_count > 0 && (
-              <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
+              <span className="studio-unread-count bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold">
                 {conversation.unread_count}
               </span>
             )}

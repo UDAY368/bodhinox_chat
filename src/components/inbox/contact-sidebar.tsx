@@ -1,309 +1,499 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/data/client";
-import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag } from "@/types";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { RefreshCw, Copy, Check } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { createClient } from '@/lib/data/client';
+import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import {
-  Phone,
-  Mail,
-  Copy,
-  Check,
-  User,
-  Tag as TagIcon,
-  DollarSign,
-  StickyNote,
-  Plus,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
-import { useTranslations } from "next-intl";
-import { contactHandle } from "@/lib/whatsapp/wa-identity";
+  loadContactDetails,
+  saveContactBasics,
+  saveContactField,
+  createAddressField,
+  flowAnswers,
+  type ContactDetails,
+} from '@/lib/inbox/contact-details';
+import { contactHandle } from '@/lib/whatsapp/wa-identity';
+import type { Contact } from '@/types';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  refreshToken?: string | number;
+  onUpdated?: (contact: Contact) => void;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
-  const tSidebar = useTranslations("Inbox.sidebar");
-  const tThread = useTranslations("Inbox.messageThread");
-
-  const { accountId } = useAuth();
+export function ContactSidebar({
+  contact,
+  refreshToken,
+  onUpdated,
+}: ContactSidebarProps) {
+  const t = useTranslations('Inbox.sidebar');
+  const { accountId, user, canSendMessages, canEditSettings } = useAuth();
+  const [data, setData] = useState<ContactDetails | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [basics, setBasics] = useState({ name: '', email: '', company: '' });
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [newNote, setNewNote] = useState('');
   const [copied, setCopied] = useState(false);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [notes, setNotes] = useState<ContactNote[]>([]);
-  const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
-  const [newNote, setNewNote] = useState("");
-  const [addingNote, setAddingNote] = useState(false);
-
-  const fetchContactData = useCallback(async () => {
-    if (!contact) return;
-
-    const db = createClient();
-
-    // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
-      db
-        .from("deals")
-        .select("*, stage:pipeline_stages(*)")
-        .eq("contact_id", contact.id)
-        .order("created_at", { ascending: false }),
-      db
-        .from("contact_notes")
-        .select("*")
-        .eq("contact_id", contact.id)
-        .order("created_at", { ascending: false }),
-      db
-        .from("contact_tags")
-        .select("id, tag_id, tags(*)")
-        .eq("contact_id", contact.id),
-    ]);
-
-    if (dealsRes.data) setDeals(dealsRes.data);
-    if (notesRes.data) setNotes(notesRes.data);
-    if (tagsRes.data) {
-      const mapped = tagsRes.data
-        .filter((ct: Record<string, unknown>) => ct.tags)
-        .map((ct: Record<string, unknown>) => ({
-          ...(ct.tags as Tag),
-          contact_tag_id: ct.id as string,
-        }));
-      setTags(mapped);
+  const request = useRef(0);
+  const contactId = contact?.id;
+  const loadError = t('loadError');
+  const reload = useCallback(async () => {
+    if (!contactId) return null;
+    const current = ++request.current;
+    setLoading(true);
+    try {
+      const next = await loadContactDetails(contactId);
+      if (current !== request.current) return null;
+      setData(next);
+      setError('');
+      return next;
+    } catch (err) {
+      if (current === request.current)
+        setError(err instanceof Error ? err.message : loadError);
+      return null;
+    } finally {
+      if (current === request.current) setLoading(false);
     }
-  }, [contact]);
-
-  // Load on contact change. setContactData/setTags run inside async
-  // Supabase callbacks, not synchronously in the effect body.
+  }, [contactId, loadError]);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchContactData();
-  }, [fetchContactData]);
-
-  const handleCopyPhone = useCallback(async () => {
-    // Copies whatever the row displays — a BSUID-only contact has no
-    // phone number to copy, but its @username still identifies them.
-    const handle = contact ? contactHandle(contact) : '';
-    if (!handle) return;
-    await navigator.clipboard.writeText(handle);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    // Dep is the whole `contact` object (not `contact?.phone`) so the
-    // React Compiler's inference agrees with the manual dep list —
-    // fixes the `preserve-manual-memoization` lint error.
-  }, [contact]);
-
-  const handleAddNote = useCallback(async () => {
-    if (!contact || !newNote.trim()) return;
-    if (!accountId) return;
-    setAddingNote(true);
-
-    const db = createClient();
-    const {
-      data: { session },
-    } = await db.auth.getSession();
-    const user = session?.user;
-
-    const { data, error } = await db
-      .from("contact_notes")
-      .insert({
-        contact_id: contact.id,
-        account_id: accountId,
-        user_id: user?.id,
-        note_text: newNote.trim(),
-      })
-      .select()
-      .single();
-
-    if (!error && data) {
-      setNotes((prev) => [data, ...prev]);
-      setNewNote("");
+    void reload();
+    return () => {
+      // This counter tracks async requests, rather than a DOM element.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      request.current++;
+    };
+  }, [reload, refreshToken]);
+  async function mutate(action: () => Promise<unknown>) {
+    if (busy || !canSendMessages) return;
+    setBusy(true);
+    setError('');
+    try {
+      await action();
+      const next = await reload();
+      if (next) onUpdated?.({ ...next.contact, tags: next.tags });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saveError'));
+    } finally {
+      setBusy(false);
     }
-    setAddingNote(false);
-  }, [contact, newNote, accountId]);
-
-  if (!contact) {
-    return (
-      <div className="flex h-full w-70 items-center justify-center border-l border-border bg-card">
-        <p className="text-sm text-muted-foreground">{tThread("selectConversation")}</p>
-      </div>
-    );
   }
-
-  const displayName = contact.name || contactHandle(contact);
-  const initials = displayName.charAt(0).toUpperCase();
-
+  if (!contact) return null;
+  const current = data?.contact ?? contact;
+  const handle = contactHandle(current);
+  const disabled = busy || !canSendMessages || !data;
+  const inputClass =
+    'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60';
+  const sectionClass = 'border-t border-border pt-4';
+  const addressExists = data?.customFields.some(
+    (field) => field.field_name.trim().toLowerCase() === 'address'
+  );
   return (
-    <div className="studio-contact-panel flex h-full w-70 flex-col border-l border-border bg-card">
-      <ScrollArea className="flex-1">
-        <div className="p-5">
-          {/* Contact Info */}
-          <div className="flex flex-col items-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background text-lg font-semibold text-foreground">
-              {contact.avatar_url ? (
+    <aside
+      aria-label={t('contactDetails')}
+      className="studio-contact-panel border-border bg-card flex h-full w-80 flex-col border-l"
+    >
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-4 p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">{t('contactDetails')}</h2>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label={t('refresh')}
+              disabled={loading || busy}
+              onClick={() => void reload()}
+            >
+              <RefreshCw className="size-4" />
+            </Button>
+          </div>
+          <div className="text-center">
+            <div className="bg-muted mx-auto flex size-14 items-center justify-center rounded-full text-lg font-semibold">
+              {current.avatar_url ? (
+                // Existing contact avatars may come from connected WhatsApp accounts.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={contact.avatar_url}
-                  alt={displayName}
-                  className="h-16 w-16 rounded-2xl object-cover"
+                  src={current.avatar_url}
+                  alt=""
+                  className="size-14 rounded-full object-cover"
                 />
               ) : (
-                initials
+                (current.name || handle).charAt(0).toUpperCase()
               )}
             </div>
-            <h3 className="mt-3 text-sm font-semibold text-foreground">
-              {displayName}
+            <h3 className="mt-2 font-semibold break-words">
+              {current.name || handle}
             </h3>
-            {contact.company && (
-              <p className="text-xs text-muted-foreground">{contact.company}</p>
-            )}
-          </div>
-
-          {/* Phone */}
-          <div className="mt-4 space-y-2">
             <button
-              onClick={handleCopyPhone}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+              className="text-muted-foreground mt-1 inline-flex max-w-full items-center gap-2 text-xs"
+              aria-label={t('copyPhone')}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(handle);
+                  setCopied(true);
+                } catch {
+                  setError(t('copyError'));
+                }
+              }}
             >
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 text-left">
-                {contactHandle(contact)}
-              </span>
+              <span className="break-all">{handle}</span>
               {copied ? (
-                <Check className="h-3 w-3 text-primary" />
+                <Check className="size-3 shrink-0" />
               ) : (
-                <Copy className="h-3 w-3 text-muted-foreground" />
+                <Copy className="size-3 shrink-0" />
               )}
             </button>
-
-            {contact.email && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{contact.email}</span>
-              </div>
-            )}
           </div>
-
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
-          {/* Tags */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <TagIcon className="h-3 w-3" />
-              {tSidebar("tags")}
+          {error && (
+            <div
+              role="alert"
+              className="border-destructive/40 text-destructive rounded-lg border p-3 text-xs"
+            >
+              {error}
+              <button className="ml-2 underline" onClick={() => void reload()}>
+                {t('retry')}
+              </button>
             </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {tags.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">{tSidebar("noTags")}</p>
-              ) : (
-                tags.map((tag) => (
-                  <span
-                    key={tag.contact_tag_id}
-                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
+          )}
+          {loading && !data && (
+            <p role="status" className="text-muted-foreground text-xs">
+              {t('loading')}
+            </p>
+          )}
+          {data && (
+            <>
+              <section className={sectionClass}>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase">
+                    {t('details')}
+                  </h3>
+                  {!editing && canSendMessages && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setBasics({
+                          name: current.name ?? '',
+                          email: current.email ?? '',
+                          company: current.company ?? '',
+                        });
+                        setValues(data.customValues);
+                        setEditing(true);
+                      }}
+                    >
+                      {t('edit')}
+                    </Button>
+                  )}
+                </div>
+                {editing ? (
+                  <form
+                    className="space-y-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void mutate(async () => {
+                        await saveContactBasics(contact.id, basics);
+                        for (const field of data.customFields)
+                          if (
+                            (values[field.id] ?? '') !==
+                            (data.customValues[field.id] ?? '')
+                          )
+                            await saveContactField(
+                              contact.id,
+                              field.id,
+                              values[field.id] ?? ''
+                            );
+                        setEditing(false);
+                      });
                     }}
                   >
-                    {tag.name}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
-          {/* Active Deals */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <DollarSign className="h-3 w-3" />
-              {tSidebar("deals")}
-            </div>
-            <div className="mt-2 space-y-2">
-              {deals.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">{tSidebar("noDeals")}</p>
-              ) : (
-                deals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    className="rounded-lg bg-muted px-3 py-2"
+                    {(['name', 'email', 'company'] as const).map((key) => (
+                      <label key={key} className="block space-y-1 text-xs">
+                        {t(key)}
+                        <input
+                          type={key === 'email' ? 'email' : 'text'}
+                          maxLength={key === 'email' ? 254 : 255}
+                          className={inputClass}
+                          value={basics[key]}
+                          disabled={busy}
+                          onChange={(e) =>
+                            setBasics((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    ))}
+                    {data.customFields.map((field) => (
+                      <label key={field.id} className="block space-y-1 text-xs">
+                        {field.field_name}
+                        <input
+                          className={inputClass}
+                          maxLength={10000}
+                          value={values[field.id] ?? ''}
+                          disabled={busy}
+                          onChange={(e) =>
+                            setValues((prev) => ({
+                              ...prev,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    ))}
+                    <div className="flex gap-2">
+                      <Button size="sm" type="submit" disabled={disabled}>
+                        {t('save')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => setEditing(false)}
+                      >
+                        {t('cancel')}
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <dl className="space-y-3 text-xs">
+                    {(['name', 'email', 'company'] as const).map((key) => (
+                      <div key={key}>
+                        <dt className="text-muted-foreground">{t(key)}</dt>
+                        <dd className="break-words whitespace-pre-wrap">
+                          {current[key] || t('notSet')}
+                        </dd>
+                      </div>
+                    ))}
+                    {data.customFields.map((field) => (
+                      <div key={field.id}>
+                        <dt className="text-muted-foreground">
+                          {field.field_name}
+                        </dt>
+                        <dd className="break-words whitespace-pre-wrap">
+                          {data.customValues[field.id] || t('notSet')}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {!editing && !addressExists && canEditSettings && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    disabled={disabled}
+                    onClick={() =>
+                      void mutate(async () => {
+                        if (!accountId || !user)
+                          throw new Error(t('saveError'));
+                        await createAddressField({
+                          accountId,
+                          userId: user.id,
+                        });
+                      })
+                    }
                   >
-                    <p className="text-sm font-medium text-foreground">
-                      {deal.title}
-                    </p>
-                    <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {deal.currency ?? "$"}
-                        {deal.value.toLocaleString()}
+                    {t('addAddress')}
+                  </Button>
+                )}
+              </section>
+              <section className={sectionClass}>
+                <h3 className="text-xs font-semibold uppercase">{t('tags')}</h3>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {data.tags.length ? (
+                    data.tags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="rounded-full border px-2 py-1 text-xs"
+                        style={{ borderColor: tag.color }}
+                      >
+                        {tag.name}
                       </span>
-                      {deal.stage && (
-                        <span
-                          className="rounded-full px-1.5 py-0.5 text-[10px]"
-                          style={{
-                            backgroundColor: `${deal.stage.color}20`,
-                            color: deal.stage.color,
-                          }}
-                        >
-                          {deal.stage.name}
-                        </span>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-xs">
+                      {t('noTags')}
+                    </p>
+                  )}
+                </div>
+                {canSendMessages && (
+                  <details className="mt-3 text-xs">
+                    <summary className="cursor-pointer font-medium">
+                      {t('manageTags')}
+                    </summary>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {data.availableTags.map((tag) => {
+                        const selected = data.tags.some(
+                          (item) => item.id === tag.id
+                        );
+                        return (
+                          <button
+                            type="button"
+                            key={tag.id}
+                            aria-pressed={selected}
+                            disabled={disabled}
+                            className="border-border aria-pressed:bg-primary aria-pressed:text-primary-foreground rounded-lg border px-2 py-1 disabled:opacity-50"
+                            onClick={() =>
+                              void mutate(() =>
+                                selected
+                                  ? deleteContactTag(contact.id, tag.id)
+                                  : addContactTag(contact.id, tag.id)
+                              )
+                            }
+                          >
+                            {selected && '✓ '}
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                      {!data.availableTags.length && (
+                        <p>{t('noAvailableTags')}</p>
                       )}
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
-          {/* Notes */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <StickyNote className="h-3 w-3" />
-              {tSidebar("notes")}
-            </div>
-            <div className="mt-2">
-              <div className="flex gap-2">
-                <textarea
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder={tSidebar("addNotePlaceholder")}
-                  rows={2}
-                  className="flex-1 resize-none rounded-lg border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
-                />
-                <Button
-                  size="sm"
-                  className="h-auto bg-primary px-2 hover:bg-primary/90"
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim() || addingNote}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-
-              <div className="mt-2 space-y-2">
-                {notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-lg bg-muted px-3 py-2"
+                  </details>
+                )}
+              </section>
+              <section className={sectionClass}>
+                <h3 className="text-xs font-semibold uppercase">
+                  {t('flowAnswers')}
+                </h3>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {t('flowAnswersHint')}
+                </p>
+                {data.flowRuns
+                  .filter((run) => flowAnswers(run.vars).length)
+                  .map((run, index) => (
+                    <details
+                      key={run.id}
+                      open={index === 0}
+                      className="border-border mt-3 rounded-lg border p-2 text-xs"
+                    >
+                      <summary className="cursor-pointer">
+                        {data.flowNames[run.flow_id] || t('flow')}
+                        <span className="text-muted-foreground block text-[10px]">
+                          {new Date(run.last_advanced_at).toLocaleString()}
+                        </span>
+                      </summary>
+                      <dl className="mt-2 space-y-2">
+                        {flowAnswers(run.vars).map((answer) => (
+                          <div key={answer.key}>
+                            <dt className="font-medium break-words">
+                              {answer.key}
+                            </dt>
+                            <dd className="text-muted-foreground break-words whitespace-pre-wrap">
+                              {answer.value}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </details>
+                  ))}
+                {!data.flowRuns.some((run) => flowAnswers(run.vars).length) && (
+                  <p className="text-muted-foreground mt-2 text-xs">
+                    {t('noFlowAnswers')}
+                  </p>
+                )}
+              </section>
+              <details className={sectionClass}>
+                <summary className="cursor-pointer text-xs font-semibold uppercase">
+                  {t('deals')} ({data.deals.length})
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {data.deals.map((deal) => (
+                    <div
+                      key={deal.id}
+                      className="bg-muted rounded-lg p-3 text-xs"
+                    >
+                      <p className="font-medium">{deal.title}</p>
+                      <div className="text-muted-foreground mt-1 flex justify-between gap-2">
+                        <span>
+                          {deal.currency ?? '$'}{' '}
+                          {Number(deal.value).toLocaleString()}
+                        </span>
+                        <span>{deal.stage?.name}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {!data.deals.length && (
+                    <p className="text-muted-foreground text-xs">
+                      {t('noDeals')}
+                    </p>
+                  )}
+                </div>
+              </details>
+              <section className={sectionClass}>
+                <h3 className="text-xs font-semibold uppercase">
+                  {t('notes')}
+                </h3>
+                {canSendMessages && (
+                  <form
+                    className="mt-2 space-y-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void mutate(async () => {
+                        if (!accountId || !user)
+                          throw new Error(t('saveError'));
+                        const result = await createClient()
+                          .from('contact_notes')
+                          .insert({
+                            contact_id: contact.id,
+                            account_id: accountId,
+                            user_id: user.id,
+                            note_text: newNote.trim(),
+                          });
+                        if (result.error) throw new Error(result.error.message);
+                        setNewNote('');
+                      });
+                    }}
                   >
-                    <p className="whitespace-pre-wrap text-xs text-muted-foreground">
-                      {note.note_text}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                    <textarea
+                      className={`${inputClass} text-xs`}
+                      aria-label={t('addNotePlaceholder')}
+                      placeholder={t('addNotePlaceholder')}
+                      maxLength={10000}
+                      rows={2}
+                      value={newNote}
+                      disabled={busy}
+                      onChange={(e) => setNewNote(e.target.value)}
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={disabled || !newNote.trim()}
+                    >
+                      {t('addNote')}
+                    </Button>
+                  </form>
+                )}
+                <div className="mt-3 space-y-2">
+                  {data.notes.map((note) => (
+                    <div
+                      key={note.id}
+                      className="bg-muted rounded-lg p-3 text-xs"
+                    >
+                      <p className="break-words whitespace-pre-wrap">
+                        {note.note_text}
+                      </p>
+                      <p className="text-muted-foreground mt-1 text-[10px]">
+                        {new Date(note.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </ScrollArea>
-    </div>
+    </aside>
   );
 }

@@ -292,7 +292,8 @@
       "studioTitle": "Every conversation, considered.",
       "filterWaiting": "Waiting for reply",
       "filterUnassigned": "Unassigned",
-      "filterExpiringSoon": "Expiring soon"
+      "filterExpiringSoon": "Expiring soon",
+      "chats": "채팅"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -461,7 +462,31 @@
       "deals": "딜",
       "noTags": "태그 없음",
       "noDeals": "딜 없음",
-      "addNotePlaceholder": "메모 추가..."
+      "addNotePlaceholder": "메모 추가...",
+      "contactDetails": "연락처 정보",
+      "refresh": "연락처 새로고침",
+      "retry": "다시 시도",
+      "loading": "연락처 정보 로딩 중…",
+      "loadError": "연락처 정보를 불러올 수 없습니다.",
+      "saveError": "변경 사항을 저장할 수 없습니다.",
+      "details": "상세 정보",
+      "edit": "편집",
+      "name": "이름",
+      "email": "이메일",
+      "company": "회사",
+      "save": "저장",
+      "cancel": "취소",
+      "notSet": "미설정",
+      "addAddress": "주소 필드 추가",
+      "manageTags": "태그 관리",
+      "noAvailableTags": "설정 → 필드 및 태그에서 먼저 태그를 만드세요.",
+      "flowAnswers": "플로우 응답",
+      "flowAnswersHint": "최근 플로우 응답입니다. 연락처 정보를 덮어쓰지 않습니다.",
+      "flow": "플로우",
+      "noFlowAnswers": "저장된 플로우 응답이 없습니다.",
+      "addNote": "메모 추가",
+      "copyPhone": "연락처 번호 복사",
+      "copyError": "연락처 번호를 복사할 수 없습니다."
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
