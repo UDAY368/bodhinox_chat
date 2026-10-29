@@ -408,7 +408,7 @@ describe.skipIf(!database || !authDatabase)(
         ).data?.unread_count
       ).toBe(0);
       const config = await client(a)('whatsapp_config').insert({
-        phone_number_id: '991122334455',
+        phone_number_id: String(BigInt('0x' + accountA.replaceAll('-', '').slice(0, 12))),
         access_token: 'fixture-unused-encrypted-value',
         verify_token: 'fixture-unused-encrypted-value',
       });

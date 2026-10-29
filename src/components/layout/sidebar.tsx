@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { KhagaIcon } from '@/components/agents/khaga-icon';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -237,7 +238,7 @@ export function Sidebar({ open = false, onClose, compact = false }: SidebarProps
                         : 'text-[#a6a29b] hover:bg-[#272624] hover:text-white'
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
+                    {item.href === '/agents' ? <KhagaIcon className="-mx-1 h-6 w-6" /> : <item.icon className="h-4 w-4" />}
                     <span className="flex-1">{t(item.labelKey as string)}</span>
                     {item.beta && (
                       <span

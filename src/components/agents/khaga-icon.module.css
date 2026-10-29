@@ -1,0 +1,22 @@
+.icon { overflow: visible; }
+.eyes { transform-origin: 24px 24px; }
+.petals { transform-origin: 24px 24px; }
+.searching .eyes { animation: look 1.8s ease-in-out infinite; }
+.thinking .petals { animation: ponder 2.4s ease-in-out infinite; }
+.typing .eyes { animation: blink 1.6s ease-in-out infinite; }
+
+@keyframes look {
+  0%, 100% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+}
+@keyframes ponder {
+  0%, 100% { transform: rotate(-7deg); opacity: .75; }
+  50% { transform: rotate(7deg); opacity: 1; }
+}
+@keyframes blink {
+  0%, 40%, 60%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon .eyes, .icon .petals { animation: none; }
+}

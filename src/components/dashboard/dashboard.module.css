@@ -90,6 +90,8 @@
 .aiTile:hover { background: #2a2b27; }
 .aiTileTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #dba77f; }
 .aiTileTop span { font-size: 9px; letter-spacing: 1.5px; font-weight: 600; }
+.aiTileBody { display: grid; grid-template-columns: minmax(0, 1fr) 44%; align-items: center; gap: 4px; }
+.aiAvatar { width: 100%; height: auto; pointer-events: none; }
 .aiTile h2 { font-size: 29px; line-height: 1.1; letter-spacing: -1px; }
 .aiTile p { max-width: 260px; margin-top: 10px; color: #c1beb7; font-size: 12px; line-height: 1.7; }
 .aiTileLink { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 600; color: #edc3a3; }

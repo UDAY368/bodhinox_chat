@@ -4,7 +4,8 @@ import { authFetch } from "@/lib/auth/client";
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { Bot, RotateCcw, Send, Loader2, UserCircle2, ArrowRight } from 'lucide-react';
+import { RotateCcw, Send, Loader2, UserCircle2, ArrowRight } from 'lucide-react';
+import { KhagaIcon } from '@/components/agents/khaga-icon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -102,7 +103,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Bot className="h-4 w-4 text-primary" />
+          <KhagaIcon />
           <span className="text-sm font-medium text-foreground">{t('title')}</span>
           <span className="text-xs text-muted-foreground">
             {t('subtitle')}
@@ -123,7 +124,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto bg-background p-4 sm:p-6">
         {turns.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card"><Bot className="h-7 w-7 text-primary" strokeWidth={1.3} /></div>
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card"><KhagaIcon className="h-12 w-12" /></div>
             <p className="text-base font-medium tracking-tight text-foreground">{t('emptyTitle')}</p>
             <p className="mt-2 max-w-sm text-xs leading-relaxed">
               {t('emptyDesc')}
@@ -150,7 +151,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             )}
           >
             {turn.role === 'assistant' && (
-              <Bot className="mt-1 h-5 w-5 shrink-0 text-primary" />
+              <KhagaIcon className="mt-1" />
             )}
             <div
               className={cn(
@@ -189,7 +190,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
 
         {sending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Bot className="h-5 w-5 text-primary" />
+            <KhagaIcon activity="thinking" />
             <Loader2 className="h-4 w-4 animate-spin" />
             <div><p>{t('thinkingElapsed', { seconds: elapsedSeconds })}</p>
               {elapsedSeconds >= 5 && <p className="mt-1 text-xs">{t('waitingHint')}</p>}

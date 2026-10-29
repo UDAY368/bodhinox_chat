@@ -3,7 +3,8 @@ import { authFetch } from "@/lib/auth/client";
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Bot, Sparkles, Settings2, BarChart3 } from 'lucide-react';
+import { Sparkles, Settings2, BarChart3 } from 'lucide-react';
+import Image from 'next/image';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AiPlayground } from '@/components/agents/ai-playground';
 import { AiUsageCard } from '@/components/agents/ai-usage';
@@ -47,7 +48,9 @@ export default function AgentsPage() {
           <h1 className="mt-4 text-4xl font-medium tracking-[-0.055em] sm:text-5xl">{t('studioTitle')}</h1>
           <p className="mt-3 max-w-md text-sm leading-relaxed text-[#c2bfb8]">{t('studioDescription')}</p>
         </div>
-        <Bot aria-hidden="true" className="relative h-20 w-20 shrink-0 text-[#d58a50]/70 max-sm:hidden" strokeWidth={0.8} />
+        <Image src="/brand/khaga-sun-orange.webp" alt="" aria-hidden="true"
+          width={640} height={640} sizes="(max-width: 640px) 96px, 224px"
+          className="pointer-events-none -my-4 h-auto w-56 shrink-0 object-contain max-sm:w-24" />
       </div>
       <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground">
         {t('description')}

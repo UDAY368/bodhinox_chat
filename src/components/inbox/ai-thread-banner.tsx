@@ -2,7 +2,8 @@
 import { authFetch } from "@/lib/auth/client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Hand, Undo2, Loader2 } from "lucide-react";
+import { Hand, Undo2, Loader2 } from "lucide-react";
+import { KhagaIcon } from "@/components/agents/khaga-icon";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -174,7 +175,7 @@ export function AiThreadBanner({
   return (
     <Banner tone="primary">
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
+        <KhagaIcon className="h-5 w-5" />
         <span className="truncate font-medium text-foreground">
           {t("activeText")}
         </span>
