@@ -32,6 +32,9 @@ updates:
       - dependency-name: react-dom
       - dependency-name: tailwindcss
       - dependency-name: eslint-config-next
+      # Keep aligned with the supported Next.js lint-toolchain range.
+      - dependency-name: typescript
+        versions: [">=7.0.0"]
       - dependency-name: vitest
         versions: [">=5.0.0"]
 
