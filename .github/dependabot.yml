@@ -7,7 +7,9 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    # Keep a single main branch; routine version updates are reviewed manually.
+    # A zero limit does not disable Dependabot security alerts/updates.
+    open-pull-requests-limit: 0
     reviewers:
       - UDAY368
     labels:
@@ -45,7 +47,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     reviewers:
       - UDAY368
     labels:
