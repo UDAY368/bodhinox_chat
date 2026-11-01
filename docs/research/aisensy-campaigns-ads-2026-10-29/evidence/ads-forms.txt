@@ -1,0 +1,24 @@
+- button [active]:
+- heading "AiSensy" [level=3]
+- heading "Forms" [level=3]
+- button "AI Assistant":
+- generic: fact_check
+- generic: Total forms
+- paragraph: "0"
+- generic: check_circle
+- generic: Active forms
+- paragraph: "0"
+- generic: 0 archived
+- generic: description
+- generic: Total responses
+- paragraph: "0"
+- textbox "Search by form name"
+- 'button "Sort: Newest first"'
+- textbox: createdAt:desc
+- 'button "Automation: All"'
+- textbox: all
+- generic "Fetch the latest forms from Meta (does not sync leads)":
+  - button "Sync forms":
+    - text: Sync forms
+- heading "No lead forms yet !" [level=5]
+- paragraph: Forms you create on Meta (or from ad creation) will appear here.

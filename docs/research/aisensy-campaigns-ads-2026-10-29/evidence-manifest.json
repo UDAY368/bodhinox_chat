@@ -1,0 +1,384 @@
+{
+  "captured": "2026-10-29",
+  "packaged": "2026-10-30",
+  "features": 283,
+  "uiOccurrences": 3299,
+  "endpointCandidates": 58,
+  "files": [
+    {
+      "path": "build-research.cjs",
+      "bytes": 16040,
+      "sha256": "4ace8e3830774fb4849f327cfb2eeed76ea4684474e0bac9688fdaa8867bc897"
+    },
+    {
+      "path": "catalog.html",
+      "bytes": 92796,
+      "sha256": "b5b4fdf86d8a258f7ddf8a7237d5f8f07370fc593888865f7b0dcae1d520c01c"
+    },
+    {
+      "path": "endpoint-candidates.json",
+      "bytes": 16240,
+      "sha256": "ff10b08e77dec59e7c2230cf5749861b36e3bfff66278dac5e8bebe66f94d1f3"
+    },
+    {
+      "path": "evidence/ad-budget.txt",
+      "bytes": 646,
+      "sha256": "256bbfb722dcd3d13f1cbad20d788f0365a7e9a8d8721f6b77b752ae80c98f9a"
+    },
+    {
+      "path": "evidence/ad-carousel.txt",
+      "bytes": 222,
+      "sha256": "495e657d9685aa63153720fd0733af9e66fb964e8f7265a3a9b0f70fce205778"
+    },
+    {
+      "path": "evidence/ad-create.png",
+      "bytes": 50011,
+      "sha256": "8789005e0a3c2c46ed266922a5b22cebdd8202319460b70918ca2cec58b634e6"
+    },
+    {
+      "path": "evidence/ad-create.txt",
+      "bytes": 2512,
+      "sha256": "95b40da99df79fe390b3a7103a906bcef427f0441e29a9daa7800ca9a4ec3917"
+    },
+    {
+      "path": "evidence/ad-creative-image.txt",
+      "bytes": 299,
+      "sha256": "ea1ac35813cee2492f998736b3ba996a8e0ec4246b9ca21684a037f1e87168e2"
+    },
+    {
+      "path": "evidence/ad-icebreakers.png",
+      "bytes": 22528,
+      "sha256": "bd2226746695edb2c3d56500ed098082899552a45c2bc1591ec449be198a13dc"
+    },
+    {
+      "path": "evidence/ad-icebreakers.txt",
+      "bytes": 2841,
+      "sha256": "0f6a51fa120860a9a6ee4046c8ae03d4fb526b1d5d37635bb607ac2ac383e8ad"
+    },
+    {
+      "path": "evidence/ad-leadform-creative.txt",
+      "bytes": 3557,
+      "sha256": "74d0d599697d492f82eeddd65066a160c5fc1be60ca7a0ca3ce6bdf75373bc41"
+    },
+    {
+      "path": "evidence/ad-leadform-objective.txt",
+      "bytes": 2529,
+      "sha256": "7743784b62027e9c18b6e1158381fe01357e10c919eb615b17053b4303040b4e"
+    },
+    {
+      "path": "evidence/ad-lifetime-budget.txt",
+      "bytes": 2362,
+      "sha256": "c50fdc23b6471fc6b27322584f616fd9c294f610b6573cc44a2d6b6bd9f542a9"
+    },
+    {
+      "path": "evidence/ad-objectives.txt",
+      "bytes": 257,
+      "sha256": "def9b7e8b6e34d184250609499409d513027507cd34bb441612c2f9af480ecef"
+    },
+    {
+      "path": "evidence/ad-performance-goals.txt",
+      "bytes": 237,
+      "sha256": "aea2d06d499d36a6e571bf5f24a7d5319da7f5bd7fc1c1264b6787ff2ce6e02f"
+    },
+    {
+      "path": "evidence/ad-schedule-gate.txt",
+      "bytes": 237,
+      "sha256": "23cd7d615ac796d010180b0d449e0bb0d8e064758103e4c96bcfdef4d0d50ec1"
+    },
+    {
+      "path": "evidence/ad-targeting.txt",
+      "bytes": 463,
+      "sha256": "034b2435432614157b2b8c8cd3a6658ba07c2170b06085d9f2b3624dfffbffb0"
+    },
+    {
+      "path": "evidence/ad-website-creative.txt",
+      "bytes": 3327,
+      "sha256": "9cc03ba4bf160aca6634648f89c68778b045d5a30c653282f2bd69a71444b366"
+    },
+    {
+      "path": "evidence/ad-website-objective.txt",
+      "bytes": 2640,
+      "sha256": "3289d0fd39f7f94e7a4c33b957b7735bfd5add70006d73f31d5b75264e3e2e63"
+    },
+    {
+      "path": "evidence/ads-agent.txt",
+      "bytes": 1479,
+      "sha256": "c8eb80d23c8ee004a513e783916a6ffef845951b44cc366a54bb2403ed5f31f8"
+    },
+    {
+      "path": "evidence/ads-audiences.txt",
+      "bytes": 2907,
+      "sha256": "c097d9f1f55f59e302cdb9512c7fe2337c1e3edef514cced55e4fa2e109d9ec9"
+    },
+    {
+      "path": "evidence/ads-columns.txt",
+      "bytes": 221,
+      "sha256": "e8a6040bc74dd193b5434ec2f6946b2b7c39569be7eb8375297b5ae13caf2ec9"
+    },
+    {
+      "path": "evidence/ads-create-event.txt",
+      "bytes": 761,
+      "sha256": "f41a688a4f24f268b16cc05551aab07f0a4234b7093c004c8bfbf5d69ebd26b2"
+    },
+    {
+      "path": "evidence/ads-credit-dialog.txt",
+      "bytes": 4142,
+      "sha256": "cc2dbd3529004a0fb38279b31e80b4dfce02a77ea75274e58e6350184b5680c7"
+    },
+    {
+      "path": "evidence/ads-date-presets.txt",
+      "bytes": 7965,
+      "sha256": "bcb479d0f97e7750306a0e4f77a37eeba451ee3577de3bb21b00c09b10dbddd6"
+    },
+    {
+      "path": "evidence/ads-events.txt",
+      "bytes": 262,
+      "sha256": "c6027f8f6f84a35416be2b79fc546ad61fa4caa87e046fc3831a6038131786d1"
+    },
+    {
+      "path": "evidence/ads-fetched.txt",
+      "bytes": 3379,
+      "sha256": "98f60ed979033f9172753f8663940e7a0b64df1e1e40d4a6db68ac371ca2873c"
+    },
+    {
+      "path": "evidence/ads-form-automation-filter.txt",
+      "bytes": 700,
+      "sha256": "aedde9f487d020e73f8aff380d1a77bc3aa08203b7180e74bf9f500504fb2e82"
+    },
+    {
+      "path": "evidence/ads-form-sort.txt",
+      "bytes": 788,
+      "sha256": "e4ce1470856ecb8df716cca6eff07062b1770a454ec272ad02dbfe12afc16cc4"
+    },
+    {
+      "path": "evidence/ads-forms.txt",
+      "bytes": 687,
+      "sha256": "c462eefe28316c6e67d68fc4c92de8be9cb10557f9fbe4bac59b0f9a399c4457"
+    },
+    {
+      "path": "evidence/ads-leads.txt",
+      "bytes": 1075,
+      "sha256": "d6dc359ba5cfbd5c29e02824e2ade8dd08f3e8d796b6710cf1d3b2157e597da6"
+    },
+    {
+      "path": "evidence/ads-metrics.txt",
+      "bytes": 221,
+      "sha256": "beb2185ce97b7517e899d45fe5d8db84de2e996f2063c041db644a8bb25126b6"
+    },
+    {
+      "path": "evidence/ads-navigation.txt",
+      "bytes": 3723,
+      "sha256": "d8f9c4cd4c5ba60f3211bdae4e93a3594baedd553c2b0da47bcae07f1f2ac2c6"
+    },
+    {
+      "path": "evidence/ads-overview.png",
+      "bytes": 40133,
+      "sha256": "e69ef5d5ae77665826efb91dd5f30b44e8bec0b3fad1ca3008142aa6901441fc"
+    },
+    {
+      "path": "evidence/ads-overview.txt",
+      "bytes": 216,
+      "sha256": "48d53abd55add1d67af3dde0bcca98039553790a8879a8fcb91ea9aa193e7363"
+    },
+    {
+      "path": "evidence/ads-setup.txt",
+      "bytes": 3857,
+      "sha256": "1c2d754093669d3592ed2a35bb44924cea32b643c68179eb77cc409591af1545"
+    },
+    {
+      "path": "evidence/ads-status.txt",
+      "bytes": 239,
+      "sha256": "9c335736425e9b59c5fd724d8471745e0b4fc3acde8d83b3f26364921934120a"
+    },
+    {
+      "path": "evidence/ai-ad-types.txt",
+      "bytes": 3332,
+      "sha256": "b29ac726b1818fffd8591561b51f8d92ff5d54d45fbe2a52d31ec3c5649917de"
+    },
+    {
+      "path": "evidence/ai-aspect-ratios.txt",
+      "bytes": 3706,
+      "sha256": "a6053ea08d2561ff6001a6729c423119f0fd862acb0fcdee31e35c771752e907"
+    },
+    {
+      "path": "evidence/ai-video-options.txt",
+      "bytes": 3463,
+      "sha256": "0b9f6cbf56fad4091331bbb820eef644e85ee42946c19d7a03b0fc496ea5a39c"
+    },
+    {
+      "path": "evidence/audience-create-custom.txt",
+      "bytes": 2789,
+      "sha256": "82d6b3cac5a143e1eb4293a331dfbc64f0fe813cef5e2c65675f7527b1886cb3"
+    },
+    {
+      "path": "evidence/audience-lookalike.txt",
+      "bytes": 3183,
+      "sha256": "2e9940d9845dbcabc33b5d5564408742709dd5201e9150c84eef4c7f814c723e"
+    },
+    {
+      "path": "evidence/audience-pixel-rules.txt",
+      "bytes": 3079,
+      "sha256": "aab04cb689ec728165df0af90554cd6c2e917b81f314eb37e3e52c875da6f6be"
+    },
+    {
+      "path": "evidence/broadcast-details.txt",
+      "bytes": 1100,
+      "sha256": "d8012a9c0efc4429d5f0971ace3b4c530ac6188364ef7171791931e390e2bde7"
+    },
+    {
+      "path": "evidence/broadcast-filter-builder.txt",
+      "bytes": 1794,
+      "sha256": "355c7ff7df70af2779a70a72bcc14e07621b75cd56765e35c3e2edfb32539b66"
+    },
+    {
+      "path": "evidence/broadcast-filter-types.txt",
+      "bytes": 2378,
+      "sha256": "fa6b614adfb3f4dad0132a58cc6b4b7106edc8121d4844c70d3b88782116e2b5"
+    },
+    {
+      "path": "evidence/broadcast-tags-operators.txt",
+      "bytes": 1285,
+      "sha256": "21ce5a656580d07f77433c6f7cc923b0e14a1eb06af4106050caf1f9cb5718fa"
+    },
+    {
+      "path": "evidence/campaign-agent-goal.png",
+      "bytes": 38927,
+      "sha256": "8da924715dfd3394ceead5f8a0f69920f1c4bf04b59139b80a33b2e43677603f"
+    },
+    {
+      "path": "evidence/campaign-agent-goal.txt",
+      "bytes": 1186,
+      "sha256": "dd98566a1f99dd7e77796fa4aed7ba7be3a4d3d3cbfe2cab3655c9c39912efa0"
+    },
+    {
+      "path": "evidence/campaign-api.txt",
+      "bytes": 639,
+      "sha256": "324df5c706b5050e169f2e2b397a9fa453e986255f5e47c629561c6be29be725"
+    },
+    {
+      "path": "evidence/campaign-csv-upload.txt",
+      "bytes": 659,
+      "sha256": "9dca3d6b08c6f42be02361c6f307b3c345ff26f5747bb61c370188578ce788f4"
+    },
+    {
+      "path": "evidence/campaign-download-report.txt",
+      "bytes": 2265,
+      "sha256": "a46d2a76bd298d8d4024804b0828fc35ebea0b6a0eac7b2ed6ceb197aae02adb"
+    },
+    {
+      "path": "evidence/campaign-overview-report.txt",
+      "bytes": 2395,
+      "sha256": "7aaf525e1b6d6e032d6b70951d1283ea25fca5f5da1a7a6bf9b8f81198fc6a25"
+    },
+    {
+      "path": "evidence/campaign-schedule-plan-gate.txt",
+      "bytes": 9612,
+      "sha256": "7f66c4f3854a8d9a8ed1ba885a1c7fd360877a4e8467278433aa7c254426ad6e"
+    },
+    {
+      "path": "evidence/campaign-template-empty.txt",
+      "bytes": 682,
+      "sha256": "7ee1e74da83e6cb6d78a14ec6310a695bb740e7d9966fd9c0c09e6e104bdd714"
+    },
+    {
+      "path": "evidence/campaign-types.txt",
+      "bytes": 4044,
+      "sha256": "034708dee0250d8d87e14403d7a15923d0c47c4370b523fbf3a56f3a68051904"
+    },
+    {
+      "path": "evidence/campaign-user-report.txt",
+      "bytes": 2330,
+      "sha256": "a9bbf88d589601a4dab9a6150d654bce0acf5ef03be98f20a24ef1e17fc989d9"
+    },
+    {
+      "path": "evidence/campaigns-overview.png",
+      "bytes": 39638,
+      "sha256": "3f2cee7444ebf4f96750b39c5680c8fd250611a4895dea28a588e2890f9f13c5"
+    },
+    {
+      "path": "evidence/campaigns-overview.txt",
+      "bytes": 3142,
+      "sha256": "da249d3c0dd8c8937de1ded8c80b1215c3bc9c249980af2df72ae05137c8c9c3"
+    },
+    {
+      "path": "feature-catalog.csv",
+      "bytes": 29849,
+      "sha256": "5dda2ad6813c9e8ea7b10a2f40ab8774e574d6a60f9209b4b04cb40cf8b042a2"
+    },
+    {
+      "path": "feature-catalog.json",
+      "bytes": 51610,
+      "sha256": "771cdd5b4cbe65be9d869fc77f3c9af0486c1ef130218aa36c9e84d624956ccc"
+    },
+    {
+      "path": "main-readable.js",
+      "bytes": 6041679,
+      "sha256": "3ca1e6499263e2462825986c1de349781a5e3ba9bf321d5333cbf79955c809e1"
+    },
+    {
+      "path": "rea-static-modules.json",
+      "bytes": 6510729,
+      "sha256": "640c5189e51e41b50460516769c3fe397b923e3555214701c063b52fca1f037d"
+    },
+    {
+      "path": "rea-summary.json",
+      "bytes": 95706,
+      "sha256": "73294a9651e46c04c38cfc914ccc1239286e6d73431ce98436ffc95a2a9b5265"
+    },
+    {
+      "path": "README.md",
+      "bytes": 23643,
+      "sha256": "cbbf045c7a96d0475fc6bbfbb94ec4b00517e4f872a5e49a15f140ca70c0f246"
+    },
+    {
+      "path": "static-modules/14876.js",
+      "bytes": 4260,
+      "sha256": "c36e97e5365228e0d665ff350952569427f102038b48587baae5f191ad386025"
+    },
+    {
+      "path": "static-modules/22494.js",
+      "bytes": 31915,
+      "sha256": "5e3e51e8793bdccf0ebbcefad403f79b83e88631549c93de836dae204f570255"
+    },
+    {
+      "path": "static-modules/22877.js",
+      "bytes": 59866,
+      "sha256": "4ff7e6f2d626ffcfaf87fd27de1e4888395c45c9c73d4c1f9acf71875ddf04cf"
+    },
+    {
+      "path": "static-modules/2579.js",
+      "bytes": 1073,
+      "sha256": "fa213cbca7ee4ac75225f114d491b564c9fa3ee532066b980e343269cc2b82a9"
+    },
+    {
+      "path": "static-modules/55940.js",
+      "bytes": 3658,
+      "sha256": "1d6d60ecb92781d610c1d6ba3a8c5004e54a12891475839dc9edd969180c5192"
+    },
+    {
+      "path": "static-modules/81766.js",
+      "bytes": 23392,
+      "sha256": "66f7264bc289a4fe1cfbbf859b68b6f550ab8c5f1caf104231b3da99a93a83b9"
+    },
+    {
+      "path": "static-modules/86983.js",
+      "bytes": 7535,
+      "sha256": "c50dbe0983f622dea6784bc91e7abf260003fce6bc05134f0ae45353fe99013d"
+    },
+    {
+      "path": "static-modules/91506.js",
+      "bytes": 37741,
+      "sha256": "06780cfba437079cc60aba2a579431307b74080142ba0ac419760236da28b578"
+    },
+    {
+      "path": "static-modules/manifest.json",
+      "bytes": 633,
+      "sha256": "aa031a68ea7e2b0fc983872806072a0bb01804d87aaac78bf32df8ed38399906"
+    },
+    {
+      "path": "ui-elements.json",
+      "bytes": 395328,
+      "sha256": "47d771866fa51d5783217be0d37565ffb77f324eca7ce48fada89f9907a59c22"
+    }
+  ]
+}

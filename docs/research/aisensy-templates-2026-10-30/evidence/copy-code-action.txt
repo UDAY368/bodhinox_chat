@@ -1,0 +1,135 @@
+- button:
+- heading "AiSensy" [level=3]
+- button "Go back":
+- heading "New Template Message" [level=3]
+- 'heading "WCC Credits: ₹550" [level=4]'
+- button "AI Assistant":
+- heading "Template Category" [level=4]
+- paragraph: Your template should fall under one of these categories.
+- combobox:
+  - textbox "Select message categories": MARKETING
+  - button "Open":
+- heading "Template Language" [level=4]
+- paragraph: You will need to specify the language in which message template is submitted.
+- combobox:
+  - textbox "Select message language": English
+  - button "Open":
+- heading "Generate with AI" [level=3]
+- paragraph: Create customized variations with AI
+- heading "Write your prompt*" [level=4]
+- button "Previous prompts" [disabled]:
+  - text: Previous prompts
+- textbox "eg. Please generate a promotional message to give a discount of 20% off on our product line."
+- paragraph: 0/1024
+- heading "Choose your message style:" [level=4]
+- button "😀 Normal" [pressed]:
+  - generic: 😀 Normal
+- button "✍🏼 Poetic":
+  - generic: ✍🏼 Poetic
+- button "🤩 Exciting":
+  - generic: 🤩 Exciting
+- button "😜 Funny":
+  - generic: 😜 Funny
+- heading "Optimize your message for:" [level=4]
+- button "Click Rate" [pressed]:
+  - generic: Click Rate
+- button "Reply Rate":
+  - generic: Reply Rate
+- generic "This generation is free":
+  - button "Generate (3 free generations left)":
+    - text: Generate (3 free generations left)
+- heading "Time-To-Live (TTL) PREMIUM ✨" [level=4]:
+  - text: Time-To-Live (TTL)
+  - generic: PREMIUM ✨
+- checkbox
+- paragraph: Set the time window for WhatsApp to deliver this message. If the user stays offline beyond this limit, Meta will stop trying so they don’t receive outdated messages.
+- heading "Template Name" [level=4]
+- paragraph:
+  - text: Name can only be in lowercase alphanumeric characters and underscores. Special characters and white-space are not allowed
+  - text: e.g. - app_verification_code
+- textbox "Enter name"
+- heading "Template Type" [level=4]
+- paragraph: Your template type should fall under one of these categories.
+- combobox:
+  - textbox "Select message type": TEXT
+  - button "Open":
+- heading "Template Header Text (Optional)" [level=4]
+- paragraph: Header text is optional and only upto 60 characters are allowed.
+- textbox "Enter header text here"
+- heading "Template Format" [level=4]
+- paragraph:
+  - text: Use text formatting - *bold* , _italic_ & ~strikethrough~
+  - text: Your message content. Upto 1024 characters are allowed.
+  - text: "e.g. - Hello {{1}}, your code will expire in {{2}} mins."
+- textbox "Enter your message in here...": "Hello {{1}}, your *offer* expires in {{2}} days."
+- paragraph: 48/1024
+- heading "Sample Values" [level=4]
+- paragraph:
+  - text: Specify sample values for your parameters. These values can be changed at the time of sending.
+  - text: "e.g. - {{1}}: Mohit, {{2}}: 5."
+- 'heading "{{1}}" [level=5]'
+- textbox "Sample value"
+- 'heading "{{2}}" [level=5]'
+- textbox "Sample value"
+- heading "Template Footer(Optional)" [level=4]
+- paragraph: Your message content. Upto 60 characters are allowed.
+- textbox "Enter footer text here"
+- heading "Template Preview" [level=4]
+- paragraph: Your template message preview. It will update as you fill in the values in the form.
+- img "WhatsApp"
+- 'heading "Hello {{1}}, your offer expires in {{2}} days." [level=5]'
+- generic: Copy Code
+- paragraph: "Disclaimer: This is just a graphical representation of the message that will be delivered. Actual message will consist of media selected and may appear different."
+- heading "Interactive Actions" [level=4]
+- paragraph:
+  - text: In addition to your message, you can send actions with your message.
+  - text: Maximum 25 characters are allowed in CTA button title & Quick Replies.
+- radiogroup:
+  - radio "None"
+  - generic: None
+  - radio "Call to Actions"
+  - generic: Call to Actions
+  - radio "Quick Replies"
+  - generic: Quick Replies
+  - radio "All" [checked]
+  - generic: All
+- heading "Copy Code :" [level=5]
+- textbox "Coupon Code"
+- paragraph: 0/15
+- button "Remove copy code":
+- heading "Call to Action 2 :" [level=5]
+- button "Remove call to action":
+- textbox "Types": URL
+- textbox "Button title"
+- paragraph: 0/25
+- textbox "Button value"
+- heading "Call to Action 3 :" [level=5]
+- button "Remove call to action":
+- textbox "Types": Phone Number
+- textbox "Button title"
+- paragraph: 0/25
+- combobox:
+  - textbox "Code"
+  - button "Open":
+- textbox "Button value"
+- heading "Quick Reply 4 :" [level=5]
+- textbox "Button title"
+- paragraph: 0/25
+- button "Remove quick reply":
+- paragraph: Enable Click Tracking
+- checkbox "checkbox with default color" [disabled]
+- generic: PRO ✨
+- button "Quick Replies 6":
+  - text: Quick Replies
+  - generic: "6"
+- button "URL 1":
+  - text: URL
+  - generic: "1"
+- button "Phone Number 0" [disabled]:
+  - text: Phone Number
+  - generic: "0"
+- button "Copy Code 0" [disabled]:
+  - text: Copy Code
+  - generic: "0"
+- button "Submit":
+  - generic: Submit

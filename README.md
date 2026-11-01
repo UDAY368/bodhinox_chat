@@ -8,6 +8,8 @@ The application keeps Next.js 16, React 19, TypeScript, Tailwind 4, Base UI/shad
 
 See the [functionality and acceptance matrix](docs/architecture/bodhinox-functionality.md) for module coverage and remaining provider setup.
 
+For account creation, WhatsApp connection and step-by-step examples of CRM workflows, see the [Bodhinox Chat user guide](docs/user-guide.md).
+
 - Team inbox: conversations, text, templates, interactive replies, media, voice notes, reactions, unread state, assignments and browser notifications.
 - Contacts: search, CSV import, tags, custom fields and WhatsApp identity matching.
 - Sales pipelines: configurable stages, deals and contact associations.
@@ -47,7 +49,7 @@ Production services use `Dockerfile` (web) and `Dockerfile.worker` (worker), one
 
 Read [the deployment runbook](docs/deployment/railway.md) before applying migrations or changing the source branch. GitHub validation uses an isolated PostgreSQL 18/pgvector service, ephemeral RSA keys and no customer credentials. Production migrations use the manually dispatched workflow with a dedicated GitHub secret and environment. Apply reviewed migrations before deploying application code that depends on them.
 
-Email provider setup is deferred by the project owner. Set `SMTP_URL` and `AUTH_EMAIL_FROM` later; verification, password-reset and email-change delivery fail closed until configured. Configure `META_APP_SECRET` and connect the WhatsApp phone/WABA in Settings before accepting Meta webhooks or sending real messages. Live email, Meta and AI-provider delivery require their credentials and an end-to-end acceptance check.
+Resend SMTP is configured in the ignored local environment and the Railway `Bodhinox-Web` service environment, with `bodhinox.com` as the app sender; `bodhinox.in` is also verified for sending. Complete a signup and email-delivery acceptance check before onboarding users. Configure `META_APP_SECRET` and connect the WhatsApp phone/WABA in Settings before accepting Meta webhooks or sending real messages. Meta and AI-provider delivery still require their credentials and an end-to-end acceptance check.
 
 ## Validation and architecture
 

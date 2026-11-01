@@ -1,0 +1,222 @@
+[
+  {
+    "id": "NODE-01",
+    "name": "Text Buttons",
+    "type": "message",
+    "group": "Messaging",
+    "availability": "Visible; existing configured nodes",
+    "configuration": "Message body; up to 3 reply buttons; AI keyword chips; delay; timeout; preview",
+    "behavior": "Button-specific output and default component continuation",
+    "line": 2760
+  },
+  {
+    "id": "NODE-02",
+    "name": "Media Buttons",
+    "type": "imageWithCaption",
+    "group": "Messaging",
+    "availability": "Visible; editor inspected",
+    "configuration": "IMAGE / VIDEO / AUDIO / FILE; URL or media picker; filename for FILE; caption; reply buttons; delay; timeout",
+    "behavior": "AUDIO selection clears buttons in frontend; delivery behavior untested",
+    "line": 2995
+  },
+  {
+    "id": "NODE-03",
+    "name": "List",
+    "type": "listMessage",
+    "group": "Messaging",
+    "availability": "Visible; existing configured node",
+    "configuration": "Header; body; footer; section titles; row title/description; add/remove rows and sections; CTA; fallback; timeout",
+    "behavior": "Per-row output ports; phone list sheet preview",
+    "line": 4770
+  },
+  {
+    "id": "NODE-04",
+    "name": "Catalogue Message",
+    "type": "catalogueMessage",
+    "group": "Commerce",
+    "availability": "Visible; editor inspected",
+    "configuration": "AI keywords; body; footer",
+    "behavior": "Builds INTERACTIVE catalog_message; requires commerce integration",
+    "line": 17902
+  },
+  {
+    "id": "NODE-05",
+    "name": "Single Product",
+    "type": "singleProductMessage",
+    "group": "Commerce",
+    "availability": "Visible; editor inspected",
+    "configuration": "Product picker; body; footer; thumbnail/title/price display",
+    "behavior": "Catalogue ID and retailer ID in compiled product payload",
+    "line": 3890
+  },
+  {
+    "id": "NODE-06",
+    "name": "Multi Product",
+    "type": "multiProductMessage",
+    "group": "Commerce",
+    "availability": "Visible; editor inspected",
+    "configuration": "Header/body/footer; sections; product picker; item count; CTA",
+    "behavior": "Sectioned product_list payload and product sheet preview",
+    "line": 4190
+  },
+  {
+    "id": "NODE-07",
+    "name": "Template",
+    "type": "templateMessage",
+    "group": "Messaging",
+    "availability": "Visible; editor inspected",
+    "configuration": "Template selection; media and variable parameters; template-rendered preview",
+    "behavior": "Template send configuration; quick-reply entry routing also supported",
+    "line": 8050
+  },
+  {
+    "id": "NODE-08",
+    "name": "WhatsApp Forms",
+    "type": "whatsappForms",
+    "group": "Gated messaging",
+    "availability": "Code present; hidden for this account",
+    "configuration": "Flow ID/token; first screen; Draft/Published; header/body/footer; CTA; navigate/data_exchange; custom-data attribute; validation error; timeout",
+    "behavior": "External Meta Flow message; form designer itself is not established",
+    "line": 12500
+  },
+  {
+    "id": "NODE-09",
+    "name": "WhatsApp Pay",
+    "type": "whatsappPay",
+    "group": "Gated commerce",
+    "availability": "Code present; hidden without paymentConfig",
+    "configuration": "Configured payment mode; payment/EPL template; parameters; currency; custom product; quantity; per-unit amount; timeout",
+    "behavior": "Modes derive from account config: WhatsApp UPI, Payment Link, All method, optionally EPL",
+    "line": 10140
+  },
+  {
+    "id": "NODE-10",
+    "name": "Request Intervention",
+    "type": "humanIntervention",
+    "group": "Actions",
+    "availability": "Visible; configured node",
+    "configuration": "Handoff action with “Intervene users and talk” card; content chaining",
+    "behavior": "Compiled HUMANINTERVENTION action; assignment/resume semantics unobserved",
+    "line": 2350
+  },
+  {
+    "id": "NODE-11",
+    "name": "Meta Conversions API",
+    "type": "ConversionApi",
+    "group": "Actions",
+    "availability": "Visible; editor inspected",
+    "configuration": "Lead or Purchase; currency selector; value",
+    "behavior": "Lead currency/value optional; frontend requires currency and nonzero numeric Purchase value",
+    "line": 13070
+  },
+  {
+    "id": "NODE-12",
+    "name": "Condition",
+    "type": "condition",
+    "group": "Logic",
+    "availability": "Visible; editor inspected",
+    "configuration": "Equal; Exists; Time In; Date In; attributes/literal value; date/time ranges; Now or attribute",
+    "behavior": "Separate True and False outputs; UTC comparison hints",
+    "line": 12060
+  },
+  {
+    "id": "NODE-13",
+    "name": "Connect Flow",
+    "type": "connectFlows",
+    "group": "Logic",
+    "availability": "Visible; editor inspected",
+    "configuration": "Select existing flow",
+    "behavior": "Compiled flow destination; call/return versus permanent transfer is unknown",
+    "line": 12940
+  },
+  {
+    "id": "NODE-14",
+    "name": "Ask Address",
+    "type": "questionAddressMessage",
+    "group": "Capture",
+    "availability": "Visible; editor inspected",
+    "configuration": "Question; raw response attribute; formatted response attribute; timeout",
+    "behavior": "Compiled QUESTIONADDRESS; precise incoming address schema not observed",
+    "line": 9080
+  },
+  {
+    "id": "NODE-15",
+    "name": "Ask Location",
+    "type": "questionLocationMessage",
+    "group": "Capture",
+    "availability": "Visible; editor inspected",
+    "configuration": "Question; longitude attribute; latitude attribute; timeout",
+    "behavior": "Compiled QUESTIONLOCATION; location payload validation untested",
+    "line": 9260
+  },
+  {
+    "id": "NODE-16",
+    "name": "Ask Question",
+    "type": "questionMessage",
+    "group": "Capture",
+    "availability": "Visible; configured nodes",
+    "configuration": "Prompt; captured attribute; Any/Text/Number/Date/True-False/Email/Regex; numeric min/max; regex; attempts; error message; skip; delay; timeout",
+    "behavior": "Success and validation-exhaustion ports; Date help describes DD-MM-YYYY or YYYY-MM-DD",
+    "line": 9780
+  },
+  {
+    "id": "NODE-17",
+    "name": "Ask Media",
+    "type": "questionMediaMessage",
+    "group": "Capture",
+    "availability": "Visible; editor inspected",
+    "configuration": "Prompt; captured attribute; Image/Video/Document/Audio; attempts; error message; skip; delay; timeout",
+    "behavior": "Default/serialized Any also exists, although Any is absent from explicit choices array",
+    "line": 9440
+  },
+  {
+    "id": "NODE-18",
+    "name": "Set Attribute",
+    "type": "setAVariable",
+    "group": "State",
+    "availability": "Visible; editor inspected",
+    "configuration": "Attribute selector; value or variable expression",
+    "behavior": "Compiled SETAVARIABLE action; lifetime/scoping is a backend unknown",
+    "line": 10805
+  },
+  {
+    "id": "NODE-19",
+    "name": "Add Tag",
+    "type": "addTag",
+    "group": "State",
+    "availability": "Visible; editor inspected",
+    "configuration": "Tag selector; multiple tags; Create Tag; tag name; category; customer-journey tracking toggle",
+    "behavior": "Create Tag is an external write and was not submitted",
+    "line": 8420
+  },
+  {
+    "id": "NODE-20",
+    "name": "API Request",
+    "type": "setupWebhook",
+    "group": "Integrations",
+    "availability": "Visible; editor inspected; deeper panel code inspected",
+    "configuration": "URL; GET/POST/PUT/PATCH/DELETE; Params/Headers/Body; key-value rows; JSON editor; attributes/global attributes; Test; Save; response capture; custom status branches",
+    "behavior": "5 base slots plus configured extra count; up to 5 custom status routes; status fallback",
+    "line": 10900
+  },
+  {
+    "id": "NODE-21",
+    "name": "Easyinsights",
+    "type": "easyinsights",
+    "group": "Integrations",
+    "availability": "Visible but unavailable; code inspected",
+    "configuration": "New Lead / Status Change / Transaction; conversion name; revenue; currency; discount; offer code",
+    "behavior": "Requires live Easyinsights integration; disabled for partner context in palette",
+    "line": 8800
+  },
+  {
+    "id": "NODE-22",
+    "name": "Ice Breakers",
+    "type": "iceBreaker",
+    "group": "Conditional trigger component",
+    "availability": "Code present; not in current palette",
+    "configuration": "Existing icebreaker text, max 80; per-icebreaker output",
+    "behavior": "Start block displays account-provided icebreakers; not proof of a separate authorable palette tile",
+    "line": 13200
+  }
+]

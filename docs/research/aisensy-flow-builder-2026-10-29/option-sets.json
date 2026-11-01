@@ -1,0 +1,107 @@
+[
+  {
+    "line": 3009,
+    "values": [
+      "IMAGE",
+      "VIDEO",
+      "AUDIO",
+      "FILE"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 8814,
+    "values": [
+      "New Lead",
+      "Status Change",
+      "Transaction"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 9527,
+    "values": [
+      "Image",
+      "Video",
+      "Document",
+      "Audio"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 9872,
+    "values": [
+      "Any",
+      "Text",
+      "Number",
+      "Date",
+      "True/False",
+      "Email",
+      "Regex"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 10488,
+    "values": [
+      "INR",
+      "USD"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 11538,
+    "values": [
+      ""
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 11588,
+    "values": [
+      ""
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 12068,
+    "values": [
+      "Equal",
+      "Exists",
+      "Time In",
+      "Date In"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 12311,
+    "values": [
+      "Now"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 12591,
+    "values": [
+      "Draft",
+      "Published"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 12725,
+    "values": [
+      "navigate",
+      "data_exchange"
+    ],
+    "source": "builder-readable.js"
+  },
+  {
+    "line": 13082,
+    "values": [
+      "Lead",
+      "Purchase"
+    ],
+    "source": "builder-readable.js"
+  }
+]

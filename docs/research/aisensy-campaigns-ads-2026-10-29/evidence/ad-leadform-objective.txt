@@ -1,0 +1,61 @@
+- button:
+- heading "AiSensy" [level=3]
+- button:
+- heading "Create New Ad" [level=3]
+- 'heading "Remaining Ad Credit: ₹ 1000.00" [level=4]'
+- button "AI Assistant":
+- text: "1"
+- paragraph: Where should people go after clicking your ad?
+- heading "This choice determines the campaign setup and the results you can optimise for." [level=6]
+- generic "Verify your WhatsApp number in Setup (Link Whatsapp Number) to run WhatsApp Ads":
+  - heading "Click to WhatsApp Ad" [level=6]
+  - paragraph: Start a WhatsApp conversation from your ad
+- heading "WhatsApp Status Ad" [level=6]
+- paragraph: Reach customers inside WhatsApp Status
+- generic "Verify your WhatsApp number in Setup (Link Whatsapp Number) to run WhatsApp Ads":
+  - heading "Website to WhatsApp Ad" [level=6]
+  - paragraph: Website visits with a WhatsApp button
+- heading "Website Ad" [level=6]
+- paragraph: Send people to a product or landing page
+- heading "Lead Form Ads" [level=6]
+- paragraph: Capture lead details without leaving Meta
+- heading "Ad Objective" [level=5]
+- combobox:
+  - textbox "Select Ad Objective" [disabled]: Leads
+  - button "Open" [disabled]:
+- heading "Performance Goal" [level=5]
+- combobox:
+  - textbox "Select data source": Maximise number of leads
+  - button "Open":
+- button "Next":
+  - text: Next
+- generic: "2"
+- paragraph: Ad Targeting & Audience
+- heading "Select geo location in which you would like to ad. Select gender and age group of your audience" [level=6]
+- text: "3"
+- paragraph: Ad Budget
+- heading "Select daily budget you would like to spend on an ad. Select the time period for which an ad will run" [level=6]
+- generic: "4"
+- paragraph: Ad Creative
+- heading "Provide details to create ad creative and preview. Ad will have similar as shown in preview" [level=6]
+- button "Publish":
+  - generic: Publish
+- heading "Bodhinox Chat" [level=5]
+- paragraph: sponsored
+- heading "Enter Caption" [level=6]
+- heading "LEAD FORM" [level=5]
+- heading "Contact Bodhinox Chat" [level=5]
+- button "Apply now":
+  - generic: Apply now
+- heading "Like" [level=5]
+- heading "Share" [level=5]
+- paragraph: Estimated reach
+- generic: 330 Cr Monthly Active Users
+- paragraph: Estimated daily results
+- paragraph: Reach
+- paragraph: "0"
+- paragraph: Impressions
+- paragraph: "0"
+- paragraph: Leads
+- paragraph: "0"
+- heading "The accuracy of these estimates relies on factors like past campaign data, budget, market data, targeting, and ad placements. They provide an idea of potential performance but do not guarantee results." [level=6]

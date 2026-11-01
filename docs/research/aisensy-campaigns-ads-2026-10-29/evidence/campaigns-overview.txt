@@ -1,0 +1,95 @@
+- link "AI Timey":
+  - /url: /projects
+  - img "AI Timey"
+- paragraph: Dashboard
+- paragraph: Live Chat
+- paragraph: History
+- paragraph: AI Agent
+- paragraph: Contacts
+- paragraph: Campaigns
+- paragraph: Ads Manager
+- paragraph: Flows
+- paragraph: WA Payments
+- paragraph: Manage
+- paragraph: Integrations
+- button:
+- paragraph: Developer
+- paragraph: All Projects
+- generic: U
+- heading "Campaigns" [level=3]
+- paragraph: Quality Rating
+- heading "High" [level=3]:
+  - generic: High
+- paragraph: Template Messaging Tier
+- heading "Tier 0 (250/24 Hours)" [level=4]:
+  - text: Tier 0
+  - generic: (250/24 Hours)
+- paragraph: Remaining Quota
+- heading "250" [level=4]
+- button "AI Assistant":
+- button "Launch":
+  - text: Launch
+- img "Campaign agent"
+- heading "Meet Campaign Agent, your AI campaign manager" [level=6]
+- generic: New
+- generic: Sends fo
+- button "Try Campaign Agent":
+  - generic: Try Campaign Agent
+- paragraph: Campaigns quick guide
+- heading "Launch your broadcast campaign" [level=5]
+- paragraph: Learn how to choose an audience, select a template and schedule your campaign.
+- link "Read campaign guide":
+  - /url: https://m.aisensy.com/how-to-use-filters-to-refine-whatsapp-broadcast
+  - generic: Read campaign guide
+- heading "What would you like to launch?" [level=5]
+- button "Create AI Agent AI Qualify leads, answer questions and close sales automatically.":
+  - paragraph: Create AI Agent
+  - generic: AI
+  - paragraph: Qualify leads, answer questions and close sales automatically.
+- button "Generate AI Template AI Generate powerful WhatsApp templates in seconds with AI.":
+  - paragraph: Generate AI Template
+  - generic: AI
+  - paragraph: Generate powerful WhatsApp templates in seconds with AI.
+- button "Launch WhatsApp Status Ad NEW Publish scroll-stopping offers directly to WhatsApp Status.":
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button "Launch Lead Form Ads Capture high-intent leads and follow up instantly on WhatsApp.":
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- textbox "Search by campaign name"
+- button "Refresh":
+  - text: Refresh
+- tablist "scrollable auto tabs example":
+  - tab "All" [selected]:
+    - generic: All
+  - tab "AI ✨ Campaign Agent":
+    - generic: AI ✨
+    - generic: Campaign Agent
+  - tab "Broadcast":
+    - generic: Broadcast
+  - tab "API":
+    - generic: API
+  - tab "Scheduled PRO ✨":
+    - text: Scheduled
+    - generic: PRO ✨
+- button "Download Report":
+  - text: Download Report
+- button "User Report":
+  - text: User Report
+- button "Overview Report":
+  - text: Overview Report
+- button "Analytics" [disabled]:
+- heading "Campaign" [level=5]
+- heading "Type" [level=5]
+- heading "Created At" [level=5]
+- heading "Status" [level=5]
+- heading "Audience" [level=5]
+- heading "No campaigns yet !" [level=5]
+- paragraph: "Rows per page:"
+- 'button "Rows per page: 10"': "10"
+- textbox: "10"
+- paragraph:
+  - generic: 0–0 of 0
+- button "Previous page" [disabled]:
+- button "Next page" [disabled]:

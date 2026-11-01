@@ -1,0 +1,97 @@
+- button:
+- heading "AiSensy" [level=3]
+- button:
+- heading "Create New Ad" [level=3]
+- 'heading "Remaining Ad Credit: ₹ 1000.00" [level=4]'
+- button "AI Assistant":
+- text: "1"
+- paragraph: Where should people go after clicking your ad?
+- heading "This choice determines the campaign setup and the results you can optimise for." [level=6]
+- generic: "2"
+- paragraph: Ad Targeting & Audience
+- heading "Select geo location in which you would like to ad. Select gender and age group of your audience" [level=6]
+- text: "3"
+- paragraph: Ad Budget
+- heading "Select daily budget you would like to spend on an ad. Select the time period for which an ad will run" [level=6]
+- generic: "4"
+- paragraph: Ad Creative
+- heading "Provide details to create ad creative and preview. Ad will have similar as shown in preview" [level=6]
+- heading "Ad Name" [level=5]
+- paragraph: 0/255
+- textbox "Enter Ad Name":
+  - /placeholder: "Enter Ad Name "
+- heading "Primary Text" [level=5]
+- paragraph: 0/2200
+- textbox "Enter Ad Caption":
+  - /placeholder: "Enter Ad Caption "
+- heading "Headline" [level=5]
+- paragraph: 0/40
+- textbox "Enter Display Headline":
+  - /placeholder: "Enter Display Headline "
+- heading "Description" [level=5]
+- paragraph: 0/30
+- textbox "Enter Description":
+  - /placeholder: "Enter Description "
+- heading "CTA Button" [level=5]
+- paragraph: Select the CTA button for your ad
+- button "Apply now"
+- textbox:
+  - /placeholder: Select CTA Button
+  - text: APPLY_NOW
+- heading "Destination" [level=5]
+- paragraph: Enter the Destination URL
+- textbox "https://example.com"
+- heading "Media" [level=5]
+- paragraph: Upload your media from the media library or generate with AI
+- button "Image":
+  - paragraph: Image
+- button "Video":
+  - paragraph: Video
+- button "Carousel":
+  - paragraph: Carousel
+- textbox "Media URL"
+- paragraph: OR
+- button "Upload from Media Library":
+  - generic: Upload from Media Library
+- heading "OR" [level=6]
+- paragraph: Generate Your Creatives with AI
+- button "View History":
+  - text: View History
+- textbox "Describe what you want to create..."
+- button "Product":
+  - text: Product
+- button "Logo":
+  - text: Logo
+- button "Select Image Aspect Ratio":
+- paragraph: 3:4
+- button "Select Target Audience":
+- button "General"
+- textbox: general
+- button "Select Call To Action":
+- button "None"
+- textbox: None
+- generic "Please enter a prompt for image generation":
+  - button "Generate Image (3 free generations left)" [disabled]:
+    - text: Generate Image (3 free generations left)
+- button "Publish":
+  - generic: Publish
+- heading "Bodhinox Chat" [level=5]
+- paragraph: sponsored
+- heading "Enter Caption" [level=6]
+- heading "WEBSITE" [level=5]
+- heading "Contact Bodhinox Chat" [level=5]
+- generic "No URL added":
+  - button "Apply now" [disabled]:
+    - generic: Apply now
+- heading "Like" [level=5]
+- heading "Share" [level=5]
+- paragraph: Estimated reach
+- generic: 330 Cr Monthly Active Users
+- paragraph: Estimated daily results
+- paragraph: Reach
+- paragraph: "0"
+- paragraph: Impressions
+- paragraph: "0"
+- paragraph: Conversions
+- paragraph: "0"
+- heading "The accuracy of these estimates relies on factors like past campaign data, budget, market data, targeting, and ad placements. They provide an idea of potential performance but do not guarantee results." [level=6]

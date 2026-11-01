@@ -1,0 +1,104 @@
+- button:
+- heading [level=3]: AiSensy
+- heading [level=3]: Audiences
+- button:
+- button:
+  - text: Create Audience
+- paragraph: Meta Ads quick guide
+- heading [level=5]: Launch your Ads on Whatsapp, Facebook & Instagram
+- paragraph: Learn how to add ad credit, choose an objective and launch your first ad.
+- link:
+  - /url: https://wiki.aisensy.com/en/?q=meta%20ads
+  - generic: How to run Ads
+- link:
+  - /url: https://youtube.com/embed/Q3H_Qmd0cys
+  - generic: Click to WhatsApp Ads setup tutorial
+- heading [level=5]: Fund your ads or launch a campaign
+- button:
+  - paragraph: ₹5,000 Ads Starter Pack
+  - generic: FREE SETUP
+  - paragraph: Get ₹5,000 ad balance plus free expert campaign setup.
+- button:
+  - paragraph: ₹10,000 Ads Growth Pack
+  - generic: RECOMMENDED
+  - paragraph: Get ₹10,000 ad balance, expert setup and 30-day optimisation support.
+- button:
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button:
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button:
+  - paragraph: Generate Ads with AI
+  - generic: AI
+  - paragraph: Describe your business and Ads Agent writes, designs and targets the ads for you.
+- button:
+  - paragraph: Book a Demo Call
+  - paragraph: Talk to an ads expert to set up, launch and troubleshoot your campaigns.
+- tablist:
+  - tab [selected]:
+    - generic: AiSensy Audiences
+  - tab:
+    - generic: Fetched Audiences
+- tab [selected]:
+  - paragraph: All
+- tab:
+  - paragraph: Website
+- tab:
+  - paragraph: Custom
+- tab:
+  - paragraph: Lookalike
+- button:
+  - text: Sync
+- textbox:
+  - /placeholder: Search audiences
+- heading [level=5]: You haven't created any audiences yet
+- heading [level=6]: Build custom or lookalike audiences to use them in your future ad campaigns.
+- button:
+  - generic: Create Audience
+- paragraph: "Rows per page:"
+- button: "10"
+- textbox: "10"
+- paragraph: 0-0 of 0
+- button [disabled]:
+- button [disabled]:
+- dialog:
+  - heading "Create Lookalike Audience" [level=2]:
+    - heading "Create Lookalike Audience" [level=6]
+    - button:
+  - paragraph: Audience Details
+  - textbox "Enter audience name"
+  - generic: 0/50
+  - textbox "Description"
+  - generic: 0/100
+  - paragraph: Select Custom Audience
+  - button "Choose a custom audience..."
+  - textbox
+  - paragraph: Lookalike Configuration
+  - paragraph: Audience Size
+  - paragraph: 1%
+  - paragraph: Very similar users, smaller audience
+  - generic: 1%
+  - generic: 2%
+  - generic: 3%
+  - generic: 4%
+  - generic: 5%
+  - generic: 6%
+  - generic: 7%
+  - generic: 8%
+  - generic: 9%
+  - generic: 10%
+  - slider
+  - paragraph: "How it works:"
+  - button "1% - Very Similar":
+    - generic: 1% - Very Similar
+  - button "2% - Balanced (Recommended)":
+    - generic: 2% - Balanced (Recommended)
+  - button "5% - Broader Reach":
+    - generic: 5% - Broader Reach
+  - button "10% - Maximum Reach":
+    - generic: 10% - Maximum Reach
+  - generic "Enter audience name • Select a custom audience":
+    - button "Create Lookalike Audience" [disabled]:
+      - generic: Create Lookalike Audience

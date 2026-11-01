@@ -1,0 +1,162 @@
+- button:
+- heading "AiSensy" [level=3]
+- heading "Template Messages" [level=3]
+- button "AI Assistant":
+- button "Create Template":
+  - text: Create Template
+- img "Campaign agent"
+- heading "Meet Campaign Agent, your AI campaign manager" [level=6]
+- generic: New
+- generic: Switches to the mess
+- button "Try Campaign Agent":
+  - generic: Try Campaign Agent
+- paragraph: Template Message quick guide
+- heading "Quick Guide" [level=5]
+- paragraph: You can Initiate a Conversation with users on WhatsApp using these template messages.
+- link "How to Create WhatsApp Template Message?":
+  - /url: https://faq.aisensy.com/how-to-create-whatsapp-template-messages-in-aisensy/
+  - generic: How to Create WhatsApp Template Message?
+- link "Use chatbot parameters for leads":
+  - /url: https://m.aisensy.com/how-to-use-parameters-in-whatsapp-template-message
+  - generic: Use chatbot parameters for leads
+- link "Add Quick Reply to WhatsApp Template Message":
+  - /url: https://m.aisensy.com/how-to-add-quick-reply-to-whatsapp-template-message
+  - generic: Add Quick Reply to WhatsApp Template Message
+- link "Message formatting guideline (Bold, Italic & more)":
+  - /url: https://faq.aisensy.com/whatsapp-template-message-guidelines/
+  - generic: Message formatting guideline (Bold, Italic & more)
+- heading "What would you like to launch?" [level=5]
+- button "Create AI Templates AI Generate powerful WhatsApp templates in seconds with AI.":
+  - paragraph: Create AI Templates
+  - generic: AI
+  - paragraph: Generate powerful WhatsApp templates in seconds with AI.
+- button "Launch WhatsApp Status Ad NEW Publish scroll-stopping offers directly to WhatsApp Status.":
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button "Launch Lead Form Ads Capture high-intent leads and follow up instantly on WhatsApp.":
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button "Create AI Agent AI Qualify leads, answer questions and close sales automatically.":
+  - paragraph: Create AI Agent
+  - generic: AI
+  - paragraph: Qualify leads, answer questions and close sales automatically.
+- textbox "Search templates (status, name etc.)"
+- button "Search templates":
+- button "Sync":
+  - text: Sync
+- tablist "scrollable auto tabs example":
+  - tab "Explore" [selected]:
+    - text: Explore
+  - tab "All":
+    - text: All
+  - tab "Draft":
+    - text: Draft
+  - tab "Pending":
+    - text: Pending
+  - tab "Approved":
+    - text: Approved
+  - tab "Action Required":
+    - text: Action Required
+- button "Refine by:":
+  - paragraph: "Refine by:"
+- paragraph: Dussehra Wishlist
+- paragraph: IMAGE
+- generic: HIGH ROI
+- paragraph: Hi [Shivam] 👋 *This Dussehra, your wishlist wins too!* 🏹🎉 That little something you’ve been saving for later? Now’s a good time to make it yours. Get *[20]% OFF* using code *[FAV20]* and bring home something special this Vijayadashami. ✨
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Dussehra Surprise
+- paragraph: IMAGE
+- generic: FESTIVE SURPRISE
+- paragraph: Hi [Shivam] 👋 *Happy Dussehra! We’ve got a little something for your celebrations.* 🏹✨ Enjoy *[20]% OFF* on your favourites with code *[FESTIVE20]*. Pick something for yourself or surprise someone you love. The festive treat is on us! 🎁
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Final Call
+- paragraph: IMAGE
+- generic: LAST CHANCE
+- paragraph: Hi [Shivam] 👋 *One last reminder before our Dussehra offer ends!* 🏹 Still have your eye on something? Get *[20]% OFF* using code *[FESTIVE20]* before the offer closes on *[20 October]*. Make it part of your Dussehra celebrations while the savings last. ✨
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Festive Picks
+- paragraph: IMAGE
+- generic: FESTIVE FAVOURITES
+- paragraph: Hi [Shivam] 👋 *Dussehra plans sorted? Here’s something for your shopping list.* 🎁 Whether you’re picking a gift for someone special or treating yourself, explore our festive picks and enjoy *[20]% OFF* using code *[FESTIVE20]*. A little something to make your celebrations even better. ✨
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Shubh Aarambh Sale
+- paragraph: IMAGE
+- generic: SHUBH AARAMBH
+- paragraph: Hi [Shivam] 🙏 *A new beginning deserves something special.* This Vijayadashami, make a *shubh aarambh* with *[20]% OFF* on something you’ve been meaning to bring home. Use code *[RAM20]* at checkout and start the festive season with a little extra joy. ✨
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Dussehra Offer
+- paragraph: IMAGE
+- generic: DUSSEHRA SPECIAL
+- paragraph: Hi [Shivam] 👋 *Celebrate the victory of good with something good for you too!* 🏹✨ Our Dussehra offer is here. Enjoy *[20]% OFF* on your favourites using code *[DUSSEHRA20]*. Here’s to happiness, prosperity and a little festive shopping. *Happy Dussehra!* 🙏
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: SPECIAL SALE OFFER
+- paragraph: IMAGE
+- generic: SALE LIVE
+- paragraph: Hey [Shivam] 👋 Our *Ganesh Chaturthi Sale* is now live! 🎉 Bring home your favourites and enjoy *[20]% OFF* using code *[BAPPA20]*. The offer is available for a limited time, so don’t wait too long.
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Final Festive Offer
+- paragraph: IMAGE
+- generic: FINAL HOURS
+- paragraph: Ganpati Bappa Morya! 🙏 Before the celebrations come to a close, here’s your final chance to enjoy *[20]% OFF* using code *[BAPPA20]*. Our Ganesh Chaturthi offer ends soon.
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Bappa Is Here
+- paragraph: IMAGE
+- generic: BAPPA SPECIAL
+- paragraph: "[Shivam], Bappa is here, and so is something special for you. 🙏✨ Celebrate Ganesh Chaturthi with *[20]% OFF* on your festive favourites using code *[BAPPA20]*. Bring home a little more joy this festive season. *CTA: *"
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Modak-Sweet Deal
+- paragraph: IMAGE
+- generic: SWEET FESTIVE DEAL
+- paragraph: "[Shivam], Modaks aren’t the only sweet thing this Ganesh Chaturthi. 😋 Enjoy a sweet *[20]% OFF* on your favourites using code *[MODAK20]*. The offer is available for a limited time. Grab it before it disappears faster than a plate of modaks. ✨"
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Shubh Aarambh Offer
+- paragraph: IMAGE
+- generic: SHUBH AARAMBH
+- paragraph: Hi [Shivam] 👋 Every new beginning feels better with Bappa’s blessings. 🙏 Make a *shubh aarambh* to your festive shopping with *[20]% OFF* using code *[BAPPA20]*. *Ganpati Bappa Morya!* ✨
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Wishes & Offer
+- paragraph: IMAGE
+- generic: WISHES + OFFER
+- paragraph: Hi [Shivam] 👋 May this Janmashtami bring joy to your home and something special to your cart. 🦚✨ Celebrate with [20]% OFF on your favourites using code [SPECIAL20]. Go on, add a little more joy to the festivities. 🎁
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph:
+  - generic: 1–12 of 31
+- button "Previous page" [disabled]:
+- button "Next page":

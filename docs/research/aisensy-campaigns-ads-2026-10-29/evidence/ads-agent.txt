@@ -1,0 +1,55 @@
+- button [active]:
+- heading "AiSensy" [level=3]
+- heading "Ads Agent" [level=3]
+- 'heading "Ad Credit: ₹ 1000.00" [level=4]'
+- button "AI Assistant":
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: ✦
+- text: AI-POWERED
+- heading "Ready-to-run ads in minutes" [level=2]
+- paragraph: Describe your product or add a link to generate ads with AI.
+- textbox "Ad prompt":
+  - textbox "business name"
+  - textbox "website URL"
+  - textbox "target audience"
+- generic "Select Your Shopify products":
+  - button "Use Shopify products":
+- generic "Add media":
+  - button "Add media":
+- 'button "Ad type: Let AI decide"':
+  - generic: Let AI decide
+- group "Creative type":
+  - button "Image" [pressed]
+  - button "Video"
+- 'button "Image size: 3:4"':
+  - generic: 3:4
+- button "Decrease ad count":
+- generic: "3"
+- button "Increase ad count" [disabled]:
+- text: 5 free generations left
+- button "Generate ad":
+  - generic: Generate Ad
+- tablist:
+  - tab "All" [selected]:
+    - text: All
+  - tab "Click to WhatsApp Ad":
+    - text: Click to WhatsApp Ad
+  - tab "WhatsApp Status Ad":
+    - text: WhatsApp Status Ad
+  - tab "Website to WhatsApp Ad":
+    - text: Website to WhatsApp Ad
+  - tab "Website Ad":
+    - text: Website Ad
+- paragraph: No ads yet
+- paragraph: Describe your product above, or paste a link, and we'll generate ready-to-run ads for you.

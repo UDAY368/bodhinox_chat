@@ -1,0 +1,1983 @@
+[
+  {
+    "id": "CAP-001",
+    "area": "Campaign overview",
+    "title": "Quality rating",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-002",
+    "area": "Campaign overview",
+    "title": "Messaging tier and quota",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-003",
+    "area": "Campaign overview",
+    "title": "Campaign name search",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-004",
+    "area": "Campaign overview",
+    "title": "Refresh campaign list",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-005",
+    "area": "Campaign overview",
+    "title": "All/Broadcast/API/Agent tabs",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-006",
+    "area": "Campaign overview",
+    "title": "Scheduled Pro tab",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-007",
+    "area": "Campaign overview",
+    "title": "Campaign/type/date/status/audience table",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-008",
+    "area": "Campaign overview",
+    "title": "Pagination and empty state",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-009",
+    "area": "Campaign overview",
+    "title": "AI Agent shortcut",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-010",
+    "area": "Campaign overview",
+    "title": "AI template shortcut",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-011",
+    "area": "Campaign overview",
+    "title": "Status and lead-form ad shortcuts",
+    "evidence": "evidence/campaigns-overview.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-012",
+    "area": "Campaign launch",
+    "title": "Campaign Agent mode",
+    "evidence": "evidence/campaign-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-013",
+    "area": "Campaign launch",
+    "title": "Broadcast existing audience",
+    "evidence": "evidence/campaign-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-014",
+    "area": "Campaign launch",
+    "title": "API template campaign",
+    "evidence": "evidence/campaign-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-015",
+    "area": "Campaign launch",
+    "title": "CSV broadcast",
+    "evidence": "evidence/campaign-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-016",
+    "area": "Campaign launch",
+    "title": "Meta Ads entry",
+    "evidence": "evidence/campaign-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-017",
+    "area": "Broadcast",
+    "title": "Campaign name",
+    "evidence": "evidence/broadcast-details.txt",
+    "status": "observed UI; later steps blocked"
+  },
+  {
+    "id": "CAP-018",
+    "area": "Broadcast",
+    "title": "Audience selection",
+    "evidence": "evidence/broadcast-details.txt",
+    "status": "observed UI; later steps blocked"
+  },
+  {
+    "id": "CAP-019",
+    "area": "Broadcast",
+    "title": "Audience contact preview",
+    "evidence": "evidence/broadcast-details.txt",
+    "status": "observed UI; later steps blocked"
+  },
+  {
+    "id": "CAP-020",
+    "area": "Broadcast",
+    "title": "Details/message/test-preview stepper",
+    "evidence": "evidence/broadcast-details.txt",
+    "status": "observed UI; later steps blocked"
+  },
+  {
+    "id": "CAP-021",
+    "area": "Broadcast",
+    "title": "Next prerequisite gate",
+    "evidence": "evidence/broadcast-details.txt",
+    "status": "observed UI; later steps blocked"
+  },
+  {
+    "id": "CAP-022",
+    "area": "Audience filters",
+    "title": "Search filter fields",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-023",
+    "area": "Audience filters",
+    "title": "Tags",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-024",
+    "area": "Audience filters",
+    "title": "Created Date",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-025",
+    "area": "Audience filters",
+    "title": "Last Seen",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-026",
+    "area": "Audience filters",
+    "title": "Opted In",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-027",
+    "area": "Audience filters",
+    "title": "Blocked",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-028",
+    "area": "Audience filters",
+    "title": "Segments",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-029",
+    "area": "Audience filters",
+    "title": "Lists",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-030",
+    "area": "Audience filters",
+    "title": "Name and mobile",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-031",
+    "area": "Audience filters",
+    "title": "Source and first message",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-032",
+    "area": "Audience filters",
+    "title": "Campaign membership",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-033",
+    "area": "Audience filters",
+    "title": "Intervened/closed/requested",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-034",
+    "area": "Audience filters",
+    "title": "Intervening agent",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-035",
+    "area": "Audience filters",
+    "title": "Lead stage",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-036",
+    "area": "Audience filters",
+    "title": "MAU status",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-037",
+    "area": "Audience filters",
+    "title": "WhatsApp conversation status",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-038",
+    "area": "Audience filters",
+    "title": "Dynamic custom attributes",
+    "evidence": "evidence/broadcast-filter-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-039",
+    "area": "Audience filters",
+    "title": "Default opt-in inclusion",
+    "evidence": "evidence/broadcast-filter-builder.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-040",
+    "area": "Audience filters",
+    "title": "Default blocked exclusion",
+    "evidence": "evidence/broadcast-filter-builder.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-041",
+    "area": "Audience filters",
+    "title": "AND conditions",
+    "evidence": "evidence/broadcast-filter-builder.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-042",
+    "area": "Audience filters",
+    "title": "Filter groups",
+    "evidence": "evidence/broadcast-filter-builder.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-043",
+    "area": "Audience filters",
+    "title": "Save as Segment action",
+    "evidence": "evidence/broadcast-filter-builder.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-044",
+    "area": "Audience filters",
+    "title": "Incomplete-condition validation",
+    "evidence": "evidence/broadcast-filter-builder.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-045",
+    "area": "Audience filters",
+    "title": "Apply and discard filters",
+    "evidence": "evidence/broadcast-filter-builder.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-046",
+    "area": "Audience filters",
+    "title": "Tag has/not-has operators",
+    "evidence": "evidence/broadcast-tags-operators.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-047",
+    "area": "API campaign",
+    "title": "Name and approved-template search",
+    "evidence": "evidence/campaign-api.txt",
+    "status": "observed UI; no approved templates available"
+  },
+  {
+    "id": "CAP-048",
+    "area": "API campaign",
+    "title": "Set Live prerequisite gate",
+    "evidence": "evidence/campaign-api.txt",
+    "status": "observed UI; no approved templates available"
+  },
+  {
+    "id": "CAP-049",
+    "area": "CSV campaign",
+    "title": "Name/upload/message/preview steps",
+    "evidence": "evidence/campaign-csv-upload.txt",
+    "status": "observed UI; no file uploaded"
+  },
+  {
+    "id": "CAP-050",
+    "area": "CSV campaign",
+    "title": "Drop or select CSV",
+    "evidence": "evidence/campaign-csv-upload.txt",
+    "status": "observed UI; no file uploaded"
+  },
+  {
+    "id": "CAP-051",
+    "area": "CSV campaign",
+    "title": "Previous/Next navigation",
+    "evidence": "evidence/campaign-csv-upload.txt",
+    "status": "observed UI; no file uploaded"
+  },
+  {
+    "id": "CAP-052",
+    "area": "CSV campaign",
+    "title": "Upload prerequisite gate",
+    "evidence": "evidence/campaign-csv-upload.txt",
+    "status": "observed UI; no file uploaded"
+  },
+  {
+    "id": "CAP-053",
+    "area": "Campaign Agent",
+    "title": "Agent name",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-054",
+    "area": "Campaign Agent",
+    "title": "Natural language goal",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-055",
+    "area": "Campaign Agent",
+    "title": "Available WCC display",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-056",
+    "area": "Campaign Agent",
+    "title": "Four-stage navigation",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-057",
+    "area": "Campaign Agent",
+    "title": "Save and exit action",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-058",
+    "area": "Campaign Agent",
+    "title": "Ctrl+Enter hint",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-059",
+    "area": "Campaign Agent",
+    "title": "Example goal prompts",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-060",
+    "area": "Campaign Agent",
+    "title": "Name prerequisite",
+    "evidence": "evidence/campaign-agent-goal.txt",
+    "status": "observed UI; generation not run"
+  },
+  {
+    "id": "CAP-061",
+    "area": "Campaign reporting",
+    "title": "Premium combined analytics CSV",
+    "evidence": "evidence/campaign-download-report.txt",
+    "status": "observed UI; not generated"
+  },
+  {
+    "id": "CAP-062",
+    "area": "Campaign reporting",
+    "title": "From/To date fields",
+    "evidence": "evidence/campaign-download-report.txt",
+    "status": "observed UI; not generated"
+  },
+  {
+    "id": "CAP-063",
+    "area": "Campaign reporting",
+    "title": "Premium per-user email report",
+    "evidence": "evidence/campaign-user-report.txt",
+    "status": "observed UI; not generated"
+  },
+  {
+    "id": "CAP-064",
+    "area": "Campaign reporting",
+    "title": "Consolidated CSV ZIP emailed report",
+    "evidence": "evidence/campaign-overview-report.txt",
+    "status": "observed UI; not generated"
+  },
+  {
+    "id": "CAP-065",
+    "area": "Campaign plans",
+    "title": "Scheduled campaign upgrade gate",
+    "evidence": "evidence/campaign-schedule-plan-gate.txt",
+    "status": "advertised/gated; not executed"
+  },
+  {
+    "id": "CAP-066",
+    "area": "Campaign plans",
+    "title": "Campaign click tracking",
+    "evidence": "evidence/campaign-schedule-plan-gate.txt",
+    "status": "advertised/gated; not executed"
+  },
+  {
+    "id": "CAP-067",
+    "area": "Campaign plans",
+    "title": "Campaign budget and analytics",
+    "evidence": "evidence/campaign-schedule-plan-gate.txt",
+    "status": "advertised/gated; not executed"
+  },
+  {
+    "id": "CAP-068",
+    "area": "Campaign plans",
+    "title": "CSV campaign scheduler",
+    "evidence": "evidence/campaign-schedule-plan-gate.txt",
+    "status": "advertised/gated; not executed"
+  },
+  {
+    "id": "CAP-069",
+    "area": "Campaign plans",
+    "title": "Automatic failed-message retry",
+    "evidence": "evidence/campaign-schedule-plan-gate.txt",
+    "status": "advertised/gated; not executed"
+  },
+  {
+    "id": "CAP-070",
+    "area": "Campaign plans",
+    "title": "Template TTL",
+    "evidence": "evidence/campaign-schedule-plan-gate.txt",
+    "status": "advertised/gated; not executed"
+  },
+  {
+    "id": "CAP-071",
+    "area": "Campaign plans",
+    "title": "Duplicate CSV contacts messaging",
+    "evidence": "evidence/campaign-schedule-plan-gate.txt",
+    "status": "advertised/gated; not executed"
+  },
+  {
+    "id": "CAP-072",
+    "area": "Ads dashboard",
+    "title": "Credit balance",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-073",
+    "area": "Ads dashboard",
+    "title": "Create Ad",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-074",
+    "area": "Ads dashboard",
+    "title": "AI Assistant",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-075",
+    "area": "Ads dashboard",
+    "title": "AiSensy and Fetched tabs",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-076",
+    "area": "Ads dashboard",
+    "title": "Ad name search",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-077",
+    "area": "Ads dashboard",
+    "title": "Sync insights action",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-078",
+    "area": "Ads dashboard",
+    "title": "Report download action",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-079",
+    "area": "Ads dashboard",
+    "title": "Metric summary cards",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-080",
+    "area": "Ads dashboard",
+    "title": "Actions/name/start/status/type/budget columns",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-081",
+    "area": "Ads dashboard",
+    "title": "Metric table columns",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-082",
+    "area": "Ads dashboard",
+    "title": "25-row default pagination",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-083",
+    "area": "Ads dashboard",
+    "title": "Loading and empty states",
+    "evidence": "evidence/ads-overview.txt",
+    "status": "observed UI; empty rows"
+  },
+  {
+    "id": "CAP-084",
+    "area": "Ads filters",
+    "title": "Searchable status multi-selection",
+    "evidence": "evidence/ads-status.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-085",
+    "area": "Ads filters",
+    "title": "All/Active/Paused/Draft statuses",
+    "evidence": "evidence/ads-status.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-086",
+    "area": "Ads filters",
+    "title": "Today/Yesterday presets",
+    "evidence": "evidence/ads-date-presets.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-087",
+    "area": "Ads filters",
+    "title": "7/30/90 day presets",
+    "evidence": "evidence/ads-date-presets.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-088",
+    "area": "Ads filters",
+    "title": "Maximum history",
+    "evidence": "evidence/ads-date-presets.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-089",
+    "area": "Ads filters",
+    "title": "Day wise selection",
+    "evidence": "evidence/ads-date-presets.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-090",
+    "area": "Ads filters",
+    "title": "Custom range calendar",
+    "evidence": "evidence/ads-date-presets.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-091",
+    "area": "Ads filters",
+    "title": "Month navigation",
+    "evidence": "evidence/ads-date-presets.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-092",
+    "area": "Ads filters",
+    "title": "Unavailable future dates",
+    "evidence": "evidence/ads-date-presets.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-093",
+    "area": "Ads metrics",
+    "title": "Six-metric chooser",
+    "evidence": "evidence/ads-metrics.txt",
+    "status": "observed UI; six-count discrepancy documented"
+  },
+  {
+    "id": "CAP-094",
+    "area": "Ads metrics",
+    "title": "Metric checkbox limits",
+    "evidence": "evidence/ads-metrics.txt",
+    "status": "observed UI; six-count discrepancy documented"
+  },
+  {
+    "id": "CAP-095",
+    "area": "Ads metrics",
+    "title": "Metric Cancel/Apply",
+    "evidence": "evidence/ads-metrics.txt",
+    "status": "observed UI; six-count discrepancy documented"
+  },
+  {
+    "id": "CAP-096",
+    "area": "Ads columns",
+    "title": "Column search",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-097",
+    "area": "Ads columns",
+    "title": "Expandable metric groups",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-098",
+    "area": "Ads columns",
+    "title": "Key metrics",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-099",
+    "area": "Ads columns",
+    "title": "Results breakdown",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-100",
+    "area": "Ads columns",
+    "title": "Actions breakdown",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-101",
+    "area": "Ads columns",
+    "title": "Video breakdown",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-102",
+    "area": "Ads columns",
+    "title": "Selected-column count",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-103",
+    "area": "Ads columns",
+    "title": "Drag-reorder selected columns",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-104",
+    "area": "Ads columns",
+    "title": "Remove selected column",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-105",
+    "area": "Ads columns",
+    "title": "Save as preset action",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-106",
+    "area": "Ads columns",
+    "title": "Cancel/Apply columns",
+    "evidence": "evidence/ads-columns.txt",
+    "status": "observed UI; no preferences saved"
+  },
+  {
+    "id": "CAP-107",
+    "area": "Fetched ads",
+    "title": "Ad account selector",
+    "evidence": "evidence/ads-fetched.txt",
+    "status": "observed UI; no import run"
+  },
+  {
+    "id": "CAP-108",
+    "area": "Fetched ads",
+    "title": "Account and insight sync",
+    "evidence": "evidence/ads-fetched.txt",
+    "status": "observed UI; no import run"
+  },
+  {
+    "id": "CAP-109",
+    "area": "Fetched ads",
+    "title": "Fetch CTWA ads from Meta",
+    "evidence": "evidence/ads-fetched.txt",
+    "status": "observed UI; no import run"
+  },
+  {
+    "id": "CAP-110",
+    "area": "Fetched ads",
+    "title": "Account-dependent disabled fetch",
+    "evidence": "evidence/ads-fetched.txt",
+    "status": "observed UI; no import run"
+  },
+  {
+    "id": "CAP-111",
+    "area": "AI ads",
+    "title": "Business/URL/audience prompt slots",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-112",
+    "area": "AI ads",
+    "title": "Shopify product selection action",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-113",
+    "area": "AI ads",
+    "title": "Add media action",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-114",
+    "area": "AI ads",
+    "title": "Image/video creative switch",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-115",
+    "area": "AI ads",
+    "title": "Image quantity controls",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-116",
+    "area": "AI ads",
+    "title": "Free-generation counter",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-117",
+    "area": "AI ads",
+    "title": "Generate Ad action",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-118",
+    "area": "AI ads",
+    "title": "Ad-type history tabs",
+    "evidence": "evidence/ads-agent.txt",
+    "status": "observed UI; no generation run"
+  },
+  {
+    "id": "CAP-119",
+    "area": "AI ads",
+    "title": "Automatic ad type",
+    "evidence": "evidence/ai-ad-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-120",
+    "area": "AI ads",
+    "title": "Click-to-WhatsApp generation",
+    "evidence": "evidence/ai-ad-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-121",
+    "area": "AI ads",
+    "title": "Website-to-WhatsApp generation",
+    "evidence": "evidence/ai-ad-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-122",
+    "area": "AI ads",
+    "title": "Website generation",
+    "evidence": "evidence/ai-ad-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-123",
+    "area": "AI ads",
+    "title": "Status generation",
+    "evidence": "evidence/ai-ad-types.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-124",
+    "area": "AI ads",
+    "title": "Portrait aspect ratios",
+    "evidence": "evidence/ai-aspect-ratios.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-125",
+    "area": "AI ads",
+    "title": "Landscape/square ratios",
+    "evidence": "evidence/ai-aspect-ratios.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-126",
+    "area": "AI ads",
+    "title": "Pixel dimension display",
+    "evidence": "evidence/ai-aspect-ratios.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-127",
+    "area": "AI ads",
+    "title": "30/45/60-second video durations",
+    "evidence": "evidence/ai-video-options.txt",
+    "status": "observed UI; no credits spent"
+  },
+  {
+    "id": "CAP-128",
+    "area": "AI ads",
+    "title": "Ad-credit cost display",
+    "evidence": "evidence/ai-video-options.txt",
+    "status": "observed UI; no credits spent"
+  },
+  {
+    "id": "CAP-129",
+    "area": "Ad destination",
+    "title": "Five destination cards",
+    "evidence": "evidence/ad-create.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-130",
+    "area": "Ad destination",
+    "title": "WhatsApp verification gate",
+    "evidence": "evidence/ad-create.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-131",
+    "area": "Ad destination",
+    "title": "Five-step CTWA setup",
+    "evidence": "evidence/ad-create.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-132",
+    "area": "Ad destination",
+    "title": "Publish action",
+    "evidence": "evidence/ad-create.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-133",
+    "area": "Ad destination",
+    "title": "Sponsored ad preview",
+    "evidence": "evidence/ad-create.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-134",
+    "area": "Ad objectives",
+    "title": "Traffic objective",
+    "evidence": "evidence/ad-objectives.txt",
+    "status": "observed UI; destination-dependent"
+  },
+  {
+    "id": "CAP-135",
+    "area": "Ad objectives",
+    "title": "Engagement objective",
+    "evidence": "evidence/ad-objectives.txt",
+    "status": "observed UI; destination-dependent"
+  },
+  {
+    "id": "CAP-136",
+    "area": "Ad objectives",
+    "title": "Sales objective",
+    "evidence": "evidence/ad-objectives.txt",
+    "status": "observed UI; destination-dependent"
+  },
+  {
+    "id": "CAP-137",
+    "area": "Ad goals",
+    "title": "Link-click goal",
+    "evidence": "evidence/ad-performance-goals.txt",
+    "status": "observed UI; Traffic state"
+  },
+  {
+    "id": "CAP-138",
+    "area": "Ad goals",
+    "title": "Daily unique reach goal",
+    "evidence": "evidence/ad-performance-goals.txt",
+    "status": "observed UI; Traffic state"
+  },
+  {
+    "id": "CAP-139",
+    "area": "Ad goals",
+    "title": "Conversation goal",
+    "evidence": "evidence/ad-performance-goals.txt",
+    "status": "observed UI; Traffic state"
+  },
+  {
+    "id": "CAP-140",
+    "area": "Ad goals",
+    "title": "Impression goal",
+    "evidence": "evidence/ad-performance-goals.txt",
+    "status": "observed UI; Traffic state"
+  },
+  {
+    "id": "CAP-141",
+    "area": "Website ad",
+    "title": "Sales/conversions default",
+    "evidence": "evidence/ad-website-objective.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-142",
+    "area": "Website ad",
+    "title": "Pixel selector",
+    "evidence": "evidence/ad-website-objective.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-143",
+    "area": "Website ad",
+    "title": "Create Pixel shortcut",
+    "evidence": "evidence/ad-website-objective.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-144",
+    "area": "Lead-form ad",
+    "title": "Fixed Leads objective",
+    "evidence": "evidence/ad-leadform-objective.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-145",
+    "area": "Lead-form ad",
+    "title": "Maximize leads goal",
+    "evidence": "evidence/ad-leadform-objective.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-146",
+    "area": "Ad targeting",
+    "title": "Saved audiences",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-147",
+    "area": "Ad targeting",
+    "title": "Multiple custom/lookalike audiences",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-148",
+    "area": "Ad targeting",
+    "title": "Create audience shortcut",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-149",
+    "area": "Ad targeting",
+    "title": "Exclude audiences",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-150",
+    "area": "Ad targeting",
+    "title": "Include/exclude locations",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-151",
+    "area": "Ad targeting",
+    "title": "Gender selector",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-152",
+    "area": "Ad targeting",
+    "title": "Minimum/maximum ages",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-153",
+    "area": "Ad targeting",
+    "title": "Instagram placements",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-154",
+    "area": "Ad targeting",
+    "title": "Facebook placements",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-155",
+    "area": "Ad targeting",
+    "title": "Platform enable/clear-all",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-156",
+    "area": "Ad targeting",
+    "title": "Interests/demographics/behaviors",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-157",
+    "area": "Ad targeting",
+    "title": "Meta audience expansion",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-158",
+    "area": "Ad targeting",
+    "title": "Save Audience action",
+    "evidence": "evidence/ad-targeting.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-159",
+    "area": "Ad budget",
+    "title": "Daily/lifetime modes",
+    "evidence": "evidence/ad-budget.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-160",
+    "area": "Ad budget",
+    "title": "Budget amount input",
+    "evidence": "evidence/ad-budget.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-161",
+    "area": "Ad budget",
+    "title": "Start date",
+    "evidence": "evidence/ad-budget.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-162",
+    "area": "Ad budget",
+    "title": "Optional end date",
+    "evidence": "evidence/ad-budget.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-163",
+    "area": "Ad budget",
+    "title": "Budget summary",
+    "evidence": "evidence/ad-budget.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-164",
+    "area": "Ad budget",
+    "title": "Weekly time-block schedule",
+    "evidence": "evidence/ad-schedule-gate.txt",
+    "status": "observed gate; grid behavior unverified"
+  },
+  {
+    "id": "CAP-165",
+    "area": "Ad budget",
+    "title": "Lifetime-only schedule restriction",
+    "evidence": "evidence/ad-schedule-gate.txt",
+    "status": "observed gate; grid behavior unverified"
+  },
+  {
+    "id": "CAP-166",
+    "area": "Ad creative",
+    "title": "Ad name 255 counter",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-167",
+    "area": "Ad creative",
+    "title": "Primary text 2200 counter",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-168",
+    "area": "Ad creative",
+    "title": "Headline 40 counter",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-169",
+    "area": "Ad creative",
+    "title": "Description 30 counter",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-170",
+    "area": "Ad creative",
+    "title": "Image/video/carousel switch",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-171",
+    "area": "Ad creative",
+    "title": "Media URL",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-172",
+    "area": "Ad creative",
+    "title": "Media Library action",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-173",
+    "area": "Ad creative",
+    "title": "AI creative prompt",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-174",
+    "area": "Ad creative",
+    "title": "Product image selector",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-175",
+    "area": "Ad creative",
+    "title": "Brand logo selector",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-176",
+    "area": "Ad creative",
+    "title": "Aspect ratio selector",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-177",
+    "area": "Ad creative",
+    "title": "Audience selector",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-178",
+    "area": "Ad creative",
+    "title": "CTA selector",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-179",
+    "area": "Ad creative",
+    "title": "Generation history action",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-180",
+    "area": "Ad creative",
+    "title": "Missing-input Generate gate",
+    "evidence": "evidence/ad-creative-image.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-181",
+    "area": "Carousel",
+    "title": "Two initial cards and ten-card counter",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-182",
+    "area": "Carousel",
+    "title": "Drag reorder",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-183",
+    "area": "Carousel",
+    "title": "Add images/videos",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-184",
+    "area": "Carousel",
+    "title": "Generate images action",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-185",
+    "area": "Carousel",
+    "title": "Expand/collapse card",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-186",
+    "area": "Carousel",
+    "title": "Remove card",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-187",
+    "area": "Carousel",
+    "title": "Card media URL",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-188",
+    "area": "Carousel",
+    "title": "Per-card headline/description",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-189",
+    "area": "Carousel",
+    "title": "Apply headline to all cards",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-190",
+    "area": "Carousel",
+    "title": "Multiple-card preview",
+    "evidence": "evidence/ad-carousel.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-191",
+    "area": "Website creative",
+    "title": "Destination URL",
+    "evidence": "evidence/ad-website-creative.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-192",
+    "area": "Website creative",
+    "title": "CTA selection",
+    "evidence": "evidence/ad-website-creative.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-193",
+    "area": "Website creative",
+    "title": "Website preview label",
+    "evidence": "evidence/ad-website-creative.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-194",
+    "area": "Lead-form creative",
+    "title": "Select/create lead form",
+    "evidence": "evidence/ad-leadform-creative.txt",
+    "status": "observed UI; form creation disabled"
+  },
+  {
+    "id": "CAP-195",
+    "area": "Lead-form creative",
+    "title": "Lead form CTA",
+    "evidence": "evidence/ad-leadform-creative.txt",
+    "status": "observed UI; form creation disabled"
+  },
+  {
+    "id": "CAP-196",
+    "area": "Lead-form creative",
+    "title": "Estimated daily reach/impressions/leads",
+    "evidence": "evidence/ad-leadform-creative.txt",
+    "status": "observed UI; form creation disabled"
+  },
+  {
+    "id": "CAP-197",
+    "area": "Icebreakers",
+    "title": "Saved icebreaker search",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-198",
+    "area": "Icebreakers",
+    "title": "Create new icebreaker",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-199",
+    "area": "Icebreakers",
+    "title": "Icebreaker name",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-200",
+    "area": "Icebreakers",
+    "title": "Greeting message",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-201",
+    "area": "Icebreakers",
+    "title": "80-character message counter",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-202",
+    "area": "Icebreakers",
+    "title": "Flow selector",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-203",
+    "area": "Icebreakers",
+    "title": "Choose flow block",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-204",
+    "area": "Icebreakers",
+    "title": "Add another icebreaker",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-205",
+    "area": "Icebreakers",
+    "title": "Save icebreakers action",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-206",
+    "area": "Icebreakers",
+    "title": "WhatsApp chat preview",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-207",
+    "area": "Icebreakers",
+    "title": "Prefilled customer-message explanation",
+    "evidence": "evidence/ad-icebreakers.txt",
+    "status": "observed UI; none saved"
+  },
+  {
+    "id": "CAP-208",
+    "area": "Leads",
+    "title": "Total/form/CTWA counters",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-209",
+    "area": "Leads",
+    "title": "Name/email/phone search",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-210",
+    "area": "Leads",
+    "title": "Form filter",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-211",
+    "area": "Leads",
+    "title": "Ad filter",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-212",
+    "area": "Leads",
+    "title": "Date filter",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-213",
+    "area": "Leads",
+    "title": "All/Form/CTWA tabs",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-214",
+    "area": "Leads",
+    "title": "Selected-lead Broadcast",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-215",
+    "area": "Leads",
+    "title": "CSV export",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-216",
+    "area": "Leads",
+    "title": "Sync missed leads",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-217",
+    "area": "Leads",
+    "title": "Selection/empty-state gates",
+    "evidence": "evidence/ads-leads.txt",
+    "status": "observed UI; no leads"
+  },
+  {
+    "id": "CAP-218",
+    "area": "Forms",
+    "title": "Form status/response counters",
+    "evidence": "evidence/ads-forms.txt",
+    "status": "observed UI; no forms"
+  },
+  {
+    "id": "CAP-219",
+    "area": "Forms",
+    "title": "Search forms",
+    "evidence": "evidence/ads-forms.txt",
+    "status": "observed UI; no forms"
+  },
+  {
+    "id": "CAP-220",
+    "area": "Forms",
+    "title": "Sync forms",
+    "evidence": "evidence/ads-forms.txt",
+    "status": "observed UI; no forms"
+  },
+  {
+    "id": "CAP-221",
+    "area": "Forms",
+    "title": "Empty form state",
+    "evidence": "evidence/ads-forms.txt",
+    "status": "observed UI; no forms"
+  },
+  {
+    "id": "CAP-222",
+    "area": "Forms",
+    "title": "Newest/oldest sorting",
+    "evidence": "evidence/ads-form-sort.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-223",
+    "area": "Forms",
+    "title": "Most/fewest leads sorting",
+    "evidence": "evidence/ads-form-sort.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-224",
+    "area": "Forms",
+    "title": "Automation All/On/Off filter",
+    "evidence": "evidence/ads-form-automation-filter.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-225",
+    "area": "Audiences",
+    "title": "AiSensy/Fetched tabs",
+    "evidence": "evidence/ads-audiences.txt",
+    "status": "observed UI; no saved audiences"
+  },
+  {
+    "id": "CAP-226",
+    "area": "Audiences",
+    "title": "All/Website/Custom/Lookalike filters",
+    "evidence": "evidence/ads-audiences.txt",
+    "status": "observed UI; no saved audiences"
+  },
+  {
+    "id": "CAP-227",
+    "area": "Audiences",
+    "title": "Audience name search",
+    "evidence": "evidence/ads-audiences.txt",
+    "status": "observed UI; no saved audiences"
+  },
+  {
+    "id": "CAP-228",
+    "area": "Audiences",
+    "title": "Audience sync",
+    "evidence": "evidence/ads-audiences.txt",
+    "status": "observed UI; no saved audiences"
+  },
+  {
+    "id": "CAP-229",
+    "area": "Audiences",
+    "title": "Audience pagination",
+    "evidence": "evidence/ads-audiences.txt",
+    "status": "observed UI; no saved audiences"
+  },
+  {
+    "id": "CAP-230",
+    "area": "Custom audience",
+    "title": "Name 50 counter",
+    "evidence": "evidence/audience-create-custom.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-231",
+    "area": "Custom audience",
+    "title": "Description 100 counter",
+    "evidence": "evidence/audience-create-custom.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-232",
+    "area": "Custom audience",
+    "title": "Customer CSV source",
+    "evidence": "evidence/audience-create-custom.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-233",
+    "area": "Custom audience",
+    "title": "Website/pixel source",
+    "evidence": "evidence/audience-create-custom.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-234",
+    "area": "Custom audience",
+    "title": "Database-contact source",
+    "evidence": "evidence/audience-create-custom.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-235",
+    "area": "Custom audience",
+    "title": "Required-name gate",
+    "evidence": "evidence/audience-create-custom.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-236",
+    "area": "Website audience",
+    "title": "Criteria combiner",
+    "evidence": "evidence/audience-pixel-rules.txt",
+    "status": "observed UI; pixel unavailable"
+  },
+  {
+    "id": "CAP-237",
+    "area": "Website audience",
+    "title": "Pixel data source",
+    "evidence": "evidence/audience-pixel-rules.txt",
+    "status": "observed UI; pixel unavailable"
+  },
+  {
+    "id": "CAP-238",
+    "area": "Website audience",
+    "title": "Event selector",
+    "evidence": "evidence/audience-pixel-rules.txt",
+    "status": "observed UI; pixel unavailable"
+  },
+  {
+    "id": "CAP-239",
+    "area": "Website audience",
+    "title": "Retention days",
+    "evidence": "evidence/audience-pixel-rules.txt",
+    "status": "observed UI; pixel unavailable"
+  },
+  {
+    "id": "CAP-240",
+    "area": "Website audience",
+    "title": "Narrow Further",
+    "evidence": "evidence/audience-pixel-rules.txt",
+    "status": "observed UI; pixel unavailable"
+  },
+  {
+    "id": "CAP-241",
+    "area": "Website audience",
+    "title": "Exclude people",
+    "evidence": "evidence/audience-pixel-rules.txt",
+    "status": "observed UI; pixel unavailable"
+  },
+  {
+    "id": "CAP-242",
+    "area": "Website audience",
+    "title": "Missing-pixel validation",
+    "evidence": "evidence/audience-pixel-rules.txt",
+    "status": "observed UI; pixel unavailable"
+  },
+  {
+    "id": "CAP-243",
+    "area": "Lookalike audience",
+    "title": "Source audience selector",
+    "evidence": "evidence/audience-lookalike.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-244",
+    "area": "Lookalike audience",
+    "title": "Size slider",
+    "evidence": "evidence/audience-lookalike.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-245",
+    "area": "Lookalike audience",
+    "title": "1/2/5/10-percent presets",
+    "evidence": "evidence/audience-lookalike.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-246",
+    "area": "Lookalike audience",
+    "title": "Similarity/reach explanations",
+    "evidence": "evidence/audience-lookalike.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-247",
+    "area": "Lookalike audience",
+    "title": "Creation prerequisite gate",
+    "evidence": "evidence/audience-lookalike.txt",
+    "status": "observed UI"
+  },
+  {
+    "id": "CAP-248",
+    "area": "Events",
+    "title": "Event-name search",
+    "evidence": "evidence/ads-events.txt",
+    "status": "observed UI; no events"
+  },
+  {
+    "id": "CAP-249",
+    "area": "Events",
+    "title": "Sync pixels",
+    "evidence": "evidence/ads-events.txt",
+    "status": "observed UI; no events"
+  },
+  {
+    "id": "CAP-250",
+    "area": "Events",
+    "title": "Create Event entry",
+    "evidence": "evidence/ads-events.txt",
+    "status": "observed UI; no events"
+  },
+  {
+    "id": "CAP-251",
+    "area": "Events",
+    "title": "Empty event state",
+    "evidence": "evidence/ads-events.txt",
+    "status": "observed UI; no events"
+  },
+  {
+    "id": "CAP-252",
+    "area": "Events",
+    "title": "Name 100 counter",
+    "evidence": "evidence/ads-create-event.txt",
+    "status": "observed UI; no event created"
+  },
+  {
+    "id": "CAP-253",
+    "area": "Events",
+    "title": "Description 1024 counter",
+    "evidence": "evidence/ads-create-event.txt",
+    "status": "observed UI; no event created"
+  },
+  {
+    "id": "CAP-254",
+    "area": "Events",
+    "title": "Cancel/create and required-input gate",
+    "evidence": "evidence/ads-create-event.txt",
+    "status": "observed UI; no event created"
+  },
+  {
+    "id": "CAP-255",
+    "area": "Setup",
+    "title": "Facebook connection state",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-256",
+    "area": "Setup",
+    "title": "Disconnect action",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-257",
+    "area": "Setup",
+    "title": "Facebook page selection",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-258",
+    "area": "Setup",
+    "title": "Create Page action",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-259",
+    "area": "Setup",
+    "title": "Page sync",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-260",
+    "area": "Setup",
+    "title": "Lead-form terms link and acceptance gate",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-261",
+    "area": "Setup",
+    "title": "WhatsApp number linking",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-262",
+    "area": "Setup",
+    "title": "Verification action",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-263",
+    "area": "Setup",
+    "title": "Create-ad prerequisite gate",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-264",
+    "area": "Setup",
+    "title": "Setup tutorial/demo links",
+    "evidence": "evidence/ads-setup.txt",
+    "status": "observed UI; no account changes"
+  },
+  {
+    "id": "CAP-265",
+    "area": "Credits",
+    "title": "Credit amount input",
+    "evidence": "evidence/ads-credit-dialog.txt",
+    "status": "observed UI; no purchase"
+  },
+  {
+    "id": "CAP-266",
+    "area": "Credits",
+    "title": "Minimum 1500 displayed",
+    "evidence": "evidence/ads-credit-dialog.txt",
+    "status": "observed UI; no purchase"
+  },
+  {
+    "id": "CAP-267",
+    "area": "Credits",
+    "title": "Quick-add amounts",
+    "evidence": "evidence/ads-credit-dialog.txt",
+    "status": "observed UI; no purchase"
+  },
+  {
+    "id": "CAP-268",
+    "area": "Credits",
+    "title": "Purchase Now action",
+    "evidence": "evidence/ads-credit-dialog.txt",
+    "status": "observed UI; no purchase"
+  },
+  {
+    "id": "CAP-269",
+    "area": "Credits",
+    "title": "Credit usage explanation",
+    "evidence": "evidence/ads-credit-dialog.txt",
+    "status": "observed UI; no purchase"
+  },
+  {
+    "id": "CAP-270",
+    "area": "Campaign state",
+    "title": "Paginated campaign list contract and name/tab filters",
+    "evidence": "static-modules/86983.js:59",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-271",
+    "area": "Campaign state",
+    "title": "Fetch campaigns and daily quota",
+    "evidence": "static-modules/55940.js:30",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-272",
+    "area": "Ad generation",
+    "title": "Image/video generation payload fields",
+    "evidence": "static-modules/14876.js:34",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-273",
+    "area": "Lead data",
+    "title": "Contact filters, answers, timezone and pagination",
+    "evidence": "static-modules/22877.js:351",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-274",
+    "area": "Lead data",
+    "title": "Per-contact submission history",
+    "evidence": "static-modules/22877.js:389",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-275",
+    "area": "Form data",
+    "title": "Form status, automation, sorting and detail queries",
+    "evidence": "static-modules/22877.js:399",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-276",
+    "area": "Lead exports",
+    "title": "Selected/all-minus-exclusions CSV export",
+    "evidence": "static-modules/22877.js:474",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-277",
+    "area": "Lead exports",
+    "title": "Form-response export with answer filters",
+    "evidence": "static-modules/22877.js:500",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-278",
+    "area": "Ad lifecycle",
+    "title": "Ad status update request",
+    "evidence": "static-modules/22877.js:531",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-279",
+    "area": "Audience backend",
+    "title": "Async custom audience validation and payload",
+    "evidence": "static-modules/91506.js:157",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-280",
+    "area": "Audience backend",
+    "title": "Lookalike source/spec payload",
+    "evidence": "static-modules/91506.js:224",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-281",
+    "area": "Audience backend",
+    "title": "Combined custom and lookalike creation",
+    "evidence": "static-modules/91506.js:257",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-282",
+    "area": "Pixel data",
+    "title": "Pixel list, detail, stats, sync and create call sites",
+    "evidence": "static-modules/91506.js:528",
+    "status": "static code only; backend unverified"
+  },
+  {
+    "id": "CAP-283",
+    "area": "Flow routing",
+    "title": "Icebreaker flow/block/handle state fields",
+    "evidence": "static-modules/81766.js:30",
+    "status": "static code only; backend unverified"
+  }
+]

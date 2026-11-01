@@ -1,0 +1,116 @@
+- button:
+- heading "AiSensy" [level=3]
+- heading "Template Messages" [level=3]
+- button "AI Assistant":
+- button "Create Template":
+  - text: Create Template
+- img "Campaign agent"
+- heading "Meet Campaign Agent, your AI campaign manager" [level=6]
+- generic: New
+- generic: Retries messages
+- button "Try Campaign Agent":
+  - generic: Try Campaign Agent
+- paragraph: Template Message quick guide
+- heading "Quick Guide" [level=5]
+- paragraph: You can Initiate a Conversation with users on WhatsApp using these template messages.
+- link "How to Create WhatsApp Template Message?":
+  - /url: https://faq.aisensy.com/how-to-create-whatsapp-template-messages-in-aisensy/
+  - generic: How to Create WhatsApp Template Message?
+- link "Use chatbot parameters for leads":
+  - /url: https://m.aisensy.com/how-to-use-parameters-in-whatsapp-template-message
+  - generic: Use chatbot parameters for leads
+- link "Add Quick Reply to WhatsApp Template Message":
+  - /url: https://m.aisensy.com/how-to-add-quick-reply-to-whatsapp-template-message
+  - generic: Add Quick Reply to WhatsApp Template Message
+- link "Message formatting guideline (Bold, Italic & more)":
+  - /url: https://faq.aisensy.com/whatsapp-template-message-guidelines/
+  - generic: Message formatting guideline (Bold, Italic & more)
+- heading "What would you like to launch?" [level=5]
+- button "Create AI Templates AI Generate powerful WhatsApp templates in seconds with AI.":
+  - paragraph: Create AI Templates
+  - generic: AI
+  - paragraph: Generate powerful WhatsApp templates in seconds with AI.
+- button "Launch WhatsApp Status Ad NEW Publish scroll-stopping offers directly to WhatsApp Status.":
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button "Launch Lead Form Ads Capture high-intent leads and follow up instantly on WhatsApp.":
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button "Create AI Agent AI Qualify leads, answer questions and close sales automatically.":
+  - paragraph: Create AI Agent
+  - generic: AI
+  - paragraph: Qualify leads, answer questions and close sales automatically.
+- textbox "Search templates (status, name etc.)"
+- button "Search templates":
+- button "Sync":
+  - text: Sync
+- tablist "scrollable auto tabs example":
+  - tab "Explore" [selected]:
+    - text: Explore
+  - tab "All":
+    - text: All
+  - tab "Draft":
+    - text: Draft
+  - tab "Pending":
+    - text: Pending
+  - tab "Approved":
+    - text: Approved
+  - tab "Action Required":
+    - text: Action Required
+- button "Refine by:":
+  - paragraph: "Refine by:"
+- paragraph: C.O.D to Prepaid
+- paragraph: IMAGE
+- paragraph: Hey [Preeti], your order for *[Basshead 446]* is confirmed🎉 Pay Now & Get Flat *[10%]* off on your purchase. 🤑 Click the below link & apply Coupon Code [PREPAID10] 👇
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Birthday Promotion
+- paragraph: TEXT
+- paragraph: Happy birthday, [Ayush]! 🎂🎉 To help you celebrate, here’s an exciting offer. 😍 Enjoy [40%]% off storewide this month. Use discount code [BDAY40] to avail the offer.
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Loyalty Program
+- paragraph: TEXT
+- paragraph: Hey [Shivam], We just wanted to say thanks for being a valued customer for over [3 years]! 😉✨ As a token of appreciation, get *[50%] off* on your next purchase with us. 😍 With Love, [Headway India]
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Webinar Upsell
+- paragraph: TEXT
+- generic: Quick Replies
+- paragraph: Hello there, Greetings from [Marketing School]. 🔥🔥🔥 Hope you enjoyed the Linkedin Workshop by [Shivam Aggarwal] !!. A lot of you have sent us DMs, asking for details about the [Content Marketing 101] Program mentioned in yesterday's workshop. Want to know more about it? Please click YES and our team will call you to help you understand if this program is the right fit for you. Request a Call Back👇👇
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Limited Time Sale
+- paragraph: VIDEO
+- paragraph: "[Shivam], here's a special E-Gift Voucher for you😍 Applicable on minimum purchase of *[Rs 500]*. Apply Coupon Code *[DISC40]* and get Flat *[40%]* off. 🔥 Valid for Today only. Hurry Up!! ⏳ T&C Apply*"
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Bank Loan Approved
+- paragraph: FILE
+- paragraph: Hi [Mohit], your loan with [RBC Bank] has been approved. We have attached your loan docs below. For any query, call us. Kind regards, [RBC Bank]
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Cross Sell Message
+- paragraph: TEXT
+- paragraph: Hey [Mitul] 👋😇 [Headway Bassheads 225] will be delivered soon. 🚚 Just had a thought that you might like *[Headway Bassbeats ]* with *[the earphones]* 😉. Here's a special offer so that you can enjoy your purchase. 🤩 Use Code *[DISC40]* at the time of checkout for instant *[40%] off*.
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph:
+  - generic: 25–31 of 31
+- button "Previous page":
+- button "Next page" [disabled]:

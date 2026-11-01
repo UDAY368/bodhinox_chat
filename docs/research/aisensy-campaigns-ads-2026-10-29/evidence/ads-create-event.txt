@@ -1,0 +1,25 @@
+- button:
+- heading [level=3]: AiSensy
+- heading [level=6]: Events
+- button:
+- button:
+- textbox:
+  - /placeholder: Search by event name
+- paragraph: No events yet
+- button:
+  - text: Create Event
+- dialog:
+  - heading "Create Event Set up a new Meta Event to track conversions and optimize your ad performance" [level=2]:
+    - heading "Create Event" [level=5]
+    - button:
+    - paragraph: Set up a new Meta Event to track conversions and optimize your ad performance
+  - paragraph: Event Name
+  - textbox "Enter event name"
+  - paragraph: 0/100
+  - paragraph: Description
+  - textbox "Describe this event for future reference"
+  - paragraph: 0/1024
+  - button "Cancel":
+    - generic: Cancel
+  - button "Create Event" [disabled]:
+    - generic: Create Event

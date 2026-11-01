@@ -1,0 +1,8 @@
+const fs=require('fs'),path=require('path'),parser=require('@babel/parser'),crypto=require('crypto');
+const original=path.resolve(__dirname,'../../..','.reference/aisensy-full-2026-10-29/source/main.01f91df0.js');
+const formatted=path.resolve(__dirname,'../aisensy-campaigns-ads-2026-10-29/main-readable.js');
+const source=fs.readFileSync(formatted,'utf8'),ast=parser.parse(source),wanted=new Set([72283,50789,46946]),manifest=[];
+const dir=path.join(__dirname,'static-modules');fs.mkdirSync(dir,{recursive:true});
+function walk(n){if(!n||typeof n!=='object')return;if(n.type==='ObjectProperty'&&n.key.type==='NumericLiteral'&&n.value.type==='ArrowFunctionExpression'){if(wanted.has(n.key.value)){const filename=n.key.value+'.js';fs.writeFileSync(path.join(dir,filename),'// Inert analyst-extracted webpack module; dependencies unresolved; not executed.\n('+source.slice(n.value.start,n.value.end)+');\n');manifest.push({moduleId:n.key.value,file:'static-modules/'+filename,formattedSource:'../aisensy-campaigns-ads-2026-10-29/main-readable.js',startLine:n.loc.start.line,endLine:n.loc.end.line});}return;}for(const[k,v]of Object.entries(n)){if(['loc','extra'].includes(k))continue;if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==='object')walk(v);}}
+walk(ast);
+fs.writeFileSync(path.join(__dirname,'static-source-manifest.json'),JSON.stringify({original,sha256:crypto.createHash('sha256').update(fs.readFileSync(original)).digest('hex'),note:'Analysis input is transformed module extracts, not original source or complete application. All cited readable line numbers refer to the formatted copy.',modules:manifest},null,2));

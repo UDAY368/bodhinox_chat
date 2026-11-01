@@ -1,0 +1,66 @@
+- button [active]:
+- heading "AiSensy" [level=3]
+- heading "Audiences" [level=3]
+- button "AI Assistant":
+- button "Create Audience":
+  - text: Create Audience
+- paragraph: Meta Ads quick guide
+- heading "Launch your Ads on Whatsapp, Facebook & Instagram" [level=5]
+- paragraph: Learn how to add ad credit, choose an objective and launch your first ad.
+- link "How to run Ads":
+  - /url: https://wiki.aisensy.com/en/?q=meta%20ads
+  - generic: How to run Ads
+- link "Click to WhatsApp Ads setup tutorial":
+  - /url: https://youtube.com/embed/Q3H_Qmd0cys
+  - generic: Click to WhatsApp Ads setup tutorial
+- heading "Fund your ads or launch a campaign" [level=5]
+- button "₹5,000 Ads Starter Pack FREE SETUP Get ₹5,000 ad balance plus free expert campaign setup.":
+  - paragraph: ₹5,000 Ads Starter Pack
+  - generic: FREE SETUP
+  - paragraph: Get ₹5,000 ad balance plus free expert campaign setup.
+- button "₹10,000 Ads Growth Pack RECOMMENDED Get ₹10,000 ad balance, expert setup and 30-day optimisation support.":
+  - paragraph: ₹10,000 Ads Growth Pack
+  - generic: RECOMMENDED
+  - paragraph: Get ₹10,000 ad balance, expert setup and 30-day optimisation support.
+- button "Launch WhatsApp Status Ad NEW Publish scroll-stopping offers directly to WhatsApp Status.":
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button "Launch Lead Form Ads Capture high-intent leads and follow up instantly on WhatsApp.":
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button "Generate Ads with AI AI Describe your business and Ads Agent writes, designs and targets the ads for you.":
+  - paragraph: Generate Ads with AI
+  - generic: AI
+  - paragraph: Describe your business and Ads Agent writes, designs and targets the ads for you.
+- button "Book a Demo Call Talk to an ads expert to set up, launch and troubleshoot your campaigns.":
+  - paragraph: Book a Demo Call
+  - paragraph: Talk to an ads expert to set up, launch and troubleshoot your campaigns.
+- tablist:
+  - tab "AiSensy Audiences" [selected]:
+    - generic: AiSensy Audiences
+  - tab "Fetched Audiences":
+    - generic: Fetched Audiences
+- tab "All" [selected]:
+  - paragraph: All
+- tab "Website":
+  - paragraph: Website
+- tab "Custom":
+  - paragraph: Custom
+- tab "Lookalike":
+  - paragraph: Lookalike
+- tabpanel "All"
+- button "Sync":
+  - text: Sync
+- textbox "Search audiences"
+- img "No data"
+- heading "You haven't created any audiences yet" [level=5]
+- heading "Build custom or lookalike audiences to use them in your future ad campaigns." [level=6]
+- button "Create Audience":
+  - generic: Create Audience
+- paragraph: "Rows per page:"
+- 'button "Rows per page: 10"': "10"
+- textbox: "10"
+- paragraph: 0-0 of 0
+- button "Previous page" [disabled]:
+- button "Next page" [disabled]:

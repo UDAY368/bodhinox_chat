@@ -1,0 +1,10 @@
+- button [active]:
+- heading "AiSensy" [level=3]
+- heading "Events" [level=6]
+- button "Sync Pixels from Meta":
+- button "Create Event":
+- textbox "Search by event name"
+- img "No events"
+- paragraph: No events yet
+- button "Create Event":
+  - text: Create Event

@@ -1,0 +1,57 @@
+- button:
+- heading "AiSensy" [level=3]
+- button:
+- heading "Create New Ad" [level=3]
+- 'heading "Remaining Ad Credit: ₹ 1000.00" [level=4]'
+- button "AI Assistant":
+- text: "1"
+- paragraph: Where should people go after clicking your ad?
+- heading "This choice determines the campaign setup and the results you can optimise for." [level=6]
+- generic: "2"
+- paragraph: Ad Targeting & Audience
+- heading "Select geo location in which you would like to ad. Select gender and age group of your audience" [level=6]
+- generic: "3"
+- paragraph: Ad Budget
+- heading "Select daily budget you would like to spend on an ad. Select the time period for which an ad will run" [level=6]
+- heading "Select per day budget" [level=5]
+- combobox:
+  - textbox "Type": Lifetime Budget
+  - button "Open":
+- spinbutton: "2500"
+- heading "Select Advertisement Duration" [level=5]
+- heading "Select Start Date" [level=5]
+- textbox: 29/10/2026
+- button "change date":
+- textbox: 31/10/2026
+- button "change date":
+- checkbox
+- paragraph: Run Ads on a Custom Schedule
+- paragraph: Select when your ads should run during the week. Click and drag to select time blocks.
+- 'heading "Total Estimated Budget : ₹ 2,500" [level=5]'
+- paragraph: Estimated Budget From 29/10/2026 to 31/10/2026
+- text: You don't have sufficient credit to run this ad. Add more credit to run this ad
+- button "Buy Credits":
+  - generic: Buy Credits
+- button "Next":
+  - text: Next
+- generic: "4"
+- paragraph: Ad Creative
+- heading "Provide details to create ad creative and preview. Ad will have similar as shown in preview" [level=6]
+- text: "5"
+- paragraph: Icebreakers (Optional)
+- heading "Set actions like ad level icebreakers for your ads and connect flows with your icebreaker messages" [level=6]
+- checkbox
+- button "Publish":
+  - generic: Publish
+- heading "Bodhinox Chat" [level=5]
+- paragraph: sponsored
+- heading "Enter Caption" [level=6]
+- heading "WHATSAPP" [level=5]
+- heading "Contact Bodhinox Chat" [level=5]
+- button "Whatsapp":
+  - text: Whatsapp
+- heading "Like" [level=5]
+- heading "Share" [level=5]
+- paragraph: Estimated reach
+- generic: 330 Cr Monthly Active Users
+- heading "The accuracy of these estimates relies on factors like past campaign data, budget, market data, targeting, and ad placements. They provide an idea of potential performance but do not guarantee results." [level=6]

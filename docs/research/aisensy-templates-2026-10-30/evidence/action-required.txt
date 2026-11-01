@@ -1,0 +1,176 @@
+- button:
+- heading "AiSensy" [level=3]
+- heading "Template Messages" [level=3]
+- button "AI Assistant":
+- button "Create Template":
+  - text: Create Template
+- img "Campaign agent"
+- heading "Meet Campaign Agent, your AI campaign manager" [level=6]
+- generic: New
+- generic: See which message works best
+- button "Try Campaign Agent":
+  - generic: Try Campaign Agent
+- paragraph: Template Message quick guide
+- heading "Quick Guide" [level=5]
+- paragraph: You can Initiate a Conversation with users on WhatsApp using these template messages.
+- link "How to Create WhatsApp Template Message?":
+  - /url: https://faq.aisensy.com/how-to-create-whatsapp-template-messages-in-aisensy/
+  - generic: How to Create WhatsApp Template Message?
+- link "Use chatbot parameters for leads":
+  - /url: https://m.aisensy.com/how-to-use-parameters-in-whatsapp-template-message
+  - generic: Use chatbot parameters for leads
+- link "Add Quick Reply to WhatsApp Template Message":
+  - /url: https://m.aisensy.com/how-to-add-quick-reply-to-whatsapp-template-message
+  - generic: Add Quick Reply to WhatsApp Template Message
+- link "Message formatting guideline (Bold, Italic & more)":
+  - /url: https://faq.aisensy.com/whatsapp-template-message-guidelines/
+  - generic: Message formatting guideline (Bold, Italic & more)
+- heading "What would you like to launch?" [level=5]
+- button "Create AI Templates AI Generate powerful WhatsApp templates in seconds with AI.":
+  - paragraph: Create AI Templates
+  - generic: AI
+  - paragraph: Generate powerful WhatsApp templates in seconds with AI.
+- button "Launch WhatsApp Status Ad NEW Publish scroll-stopping offers directly to WhatsApp Status.":
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button "Launch Lead Form Ads Capture high-intent leads and follow up instantly on WhatsApp.":
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button "Create AI Agent AI Qualify leads, answer questions and close sales automatically.":
+  - paragraph: Create AI Agent
+  - generic: AI
+  - paragraph: Qualify leads, answer questions and close sales automatically.
+- textbox "Search templates (status, name etc.)"
+- button "Search templates":
+- button "Sync":
+  - text: Sync
+- tablist "scrollable auto tabs example":
+  - tab "Explore":
+    - text: Explore
+  - tab "All":
+    - text: All
+  - tab "Draft":
+    - text: Draft
+  - tab "Pending":
+    - text: Pending
+  - tab "Approved":
+    - text: Approved
+  - tab "Action Required" [active] [selected]:
+    - text: Action Required
+- table:
+  - rowgroup:
+    - row "Name Category Status Type Health Created At Action":
+      - columnheader "Name":
+        - heading "Name" [level=5]
+      - columnheader "Category":
+        - heading "Category" [level=5]
+      - columnheader "Status":
+        - heading "Status" [level=5]
+      - columnheader "Type":
+        - heading "Type" [level=5]
+      - columnheader "Health":
+        - heading "Health" [level=5]
+      - columnheader "Created At":
+        - heading "Created At" [level=5]
+      - columnheader "Action":
+        - heading "Action" [level=5]
+    - row "cart_drop_without_incentive MARKETING REJECTED TEXT High October 21, 2026 Duplicate template Delete template":
+      - columnheader "cart_drop_without_incentive":
+        - paragraph: cart_drop_without_incentive
+      - columnheader "MARKETING":
+        - paragraph: MARKETING
+      - columnheader "REJECTED":
+        - generic "Unknown Error":
+          - paragraph: REJECTED
+      - columnheader "TEXT":
+        - paragraph: TEXT
+      - columnheader "High":
+        - generic: High
+      - columnheader "October 21, 2026":
+        - paragraph: October 21, 2026
+      - columnheader "Duplicate template Delete template":
+        - generic "Duplicate this template":
+          - button "Duplicate template":
+        - generic "Delete template":
+          - button "Delete template":
+    - row "cart_drop_with_incentive_sku MARKETING REJECTED TEXT High October 21, 2026 Duplicate template Delete template":
+      - columnheader "cart_drop_with_incentive_sku":
+        - paragraph: cart_drop_with_incentive_sku
+      - columnheader "MARKETING":
+        - paragraph: MARKETING
+      - columnheader "REJECTED":
+        - generic "Unknown Error":
+          - paragraph: REJECTED
+      - columnheader "TEXT":
+        - paragraph: TEXT
+      - columnheader "High":
+        - generic: High
+      - columnheader "October 21, 2026":
+        - paragraph: October 21, 2026
+      - columnheader "Duplicate template Delete template":
+        - generic "Duplicate this template":
+          - button "Duplicate template":
+        - generic "Delete template":
+          - button "Delete template":
+    - row "cart_drop_with_incentive MARKETING REJECTED TEXT High October 21, 2026 Duplicate template Delete template":
+      - columnheader "cart_drop_with_incentive":
+        - paragraph: cart_drop_with_incentive
+      - columnheader "MARKETING":
+        - paragraph: MARKETING
+      - columnheader "REJECTED":
+        - generic "Unknown Error":
+          - paragraph: REJECTED
+      - columnheader "TEXT":
+        - paragraph: TEXT
+      - columnheader "High":
+        - generic: High
+      - columnheader "October 21, 2026":
+        - paragraph: October 21, 2026
+      - columnheader "Duplicate template Delete template":
+        - generic "Duplicate this template":
+          - button "Duplicate template":
+        - generic "Delete template":
+          - button "Delete template":
+    - row "order_information MARKETING REJECTED TEXT High October 21, 2026 Duplicate template Delete template":
+      - columnheader "order_information":
+        - paragraph: order_information
+      - columnheader "MARKETING":
+        - paragraph: MARKETING
+      - columnheader "REJECTED":
+        - generic "Unknown Error":
+          - paragraph: REJECTED
+      - columnheader "TEXT":
+        - paragraph: TEXT
+      - columnheader "High":
+        - generic: High
+      - columnheader "October 21, 2026":
+        - paragraph: October 21, 2026
+      - columnheader "Duplicate template Delete template":
+        - generic "Duplicate this template":
+          - button "Duplicate template":
+        - generic "Delete template":
+          - button "Delete template":
+    - row "sample_template_message UTILITY REJECTED TEXT High October 21, 2026 Duplicate template Delete template":
+      - columnheader "sample_template_message":
+        - paragraph: sample_template_message
+      - columnheader "UTILITY":
+        - paragraph: UTILITY
+      - columnheader "REJECTED":
+        - generic "Unknown Error":
+          - paragraph: REJECTED
+      - columnheader "TEXT":
+        - paragraph: TEXT
+      - columnheader "High":
+        - generic: High
+      - columnheader "October 21, 2026":
+        - paragraph: October 21, 2026
+      - columnheader "Duplicate template Delete template":
+        - generic "Duplicate this template":
+          - button "Duplicate template":
+        - generic "Delete template":
+          - button "Delete template":
+- paragraph:
+  - generic: 1–5 of 5
+- button "Previous page" [disabled]:
+- button "Next page" [disabled]:

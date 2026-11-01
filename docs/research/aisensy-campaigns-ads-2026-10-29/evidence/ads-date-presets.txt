@@ -1,0 +1,214 @@
+- button:
+- heading [level=3]: AiSensy
+- heading [level=3]: Ads Manager
+- heading [level=4]: "Ad Credit: ₹ 1000.00"
+- button:
+- button:
+  - generic: Buy Credits
+- button:
+  - text: Create Ad
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: ✦
+- text: AI-POWERED
+- heading [level=2]: Ready-to-run ads in minutes
+- paragraph: Describe your product or add a link to generate ads with AI.
+- textbox:
+  - textbox: business name
+  - textbox: website URL
+  - textbox: target audience
+- button:
+- button:
+- button:
+  - generic: Let AI decide
+- button [pressed]: Image
+- button: Video
+- button:
+  - generic: 3:4
+- button:
+- generic: "3"
+- button [disabled]:
+- text: 5 free generations left
+- button:
+  - generic: Generate Ad
+- tablist:
+  - tab:
+    - generic: AiSensy Ads
+  - tab [selected]:
+    - generic: Fetched Ads
+- textbox:
+  - /placeholder: "Search by Ad name "
+- combobox:
+  - textbox:
+    - /placeholder: Choose ad account
+  - button:
+- button:
+  - text: Sync
+- button [disabled]:
+  - text: Fetch Ads
+- button: Select Status
+- textbox
+- heading [level=3]: "Last 30 days: 30 Sep 2026 - 29 Oct 2026"
+- button:
+  - text: Customize Metrics
+- button:
+  - text: Columns
+- paragraph: Number of Leads
+- heading [level=3]: "0"
+- paragraph: Click-Through Rate
+- heading [level=3]: 0%
+- paragraph: Cost Per Lead
+- heading [level=3]: ₹ 0
+- paragraph: Total Spend
+- heading [level=3]: ₹ 0
+- paragraph: Total CAPI Signals
+- heading [level=3]: "0"
+- table:
+  - rowgroup:
+    - row:
+      - columnheader:
+        - heading [level=5]: Actions
+      - columnheader:
+        - heading [level=5]: Ad Name
+      - columnheader:
+        - heading [level=5]: Start Date
+      - columnheader:
+        - heading [level=5]: Status
+      - columnheader:
+        - heading [level=5]: Ad Type
+      - columnheader:
+        - heading [level=5]: Daily Budget
+      - columnheader:
+        - heading [level=5]: Impressions
+      - columnheader:
+        - heading [level=5]: Reach
+      - columnheader:
+        - heading [level=5]: Clicks
+      - columnheader:
+        - heading [level=5]: Spend
+      - columnheader:
+        - heading [level=5]: CTR (%)
+      - columnheader:
+        - heading [level=5]: CPC
+      - columnheader:
+        - heading [level=5]: CPM
+  - rowgroup:
+    - row:
+      - cell:
+        - heading [level=5]: No data available
+- paragraph: "Rows per page:"
+- button: "25"
+- textbox: "25"
+- paragraph: 0-0 of 0
+- button [disabled]:
+- button [disabled]:
+- paragraph: Recently used
+- radiogroup:
+  - radio "Today"
+  - generic: Today
+  - radio "Yesterday"
+  - generic: Yesterday
+  - radio "7 days"
+  - generic: 7 days
+  - radio "30 days" [checked]
+  - generic: 30 days
+  - radio "90 days"
+  - generic: 90 days
+  - radio "Maximum"
+  - generic: Maximum
+  - radio "Day wise"
+  - generic: Day wise
+  - radio "Custom range"
+  - generic: Custom range
+- list:
+  - listitem: Su
+  - listitem: Mo
+  - listitem: Tu
+  - listitem: We
+  - listitem: Th
+  - listitem: Fr
+  - listitem: Sa
+- list:
+  - listitem: Su
+  - listitem: Mo
+  - listitem: Tu
+  - listitem: We
+  - listitem: Th
+  - listitem: Fr
+  - listitem: Sa
+- application "Calendar":
+  - button "Move backward to switch to the previous month.":
+  - button "Move forward to switch to the next month.":
+  - strong: September 2026
+  - button "Choose Tuesday, September 1, 2026 as your check-in date. It’s available.": "1"
+  - button "Choose Wednesday, September 2, 2026 as your check-in date. It’s available.": "2"
+  - button "Choose Thursday, September 3, 2026 as your check-in date. It’s available.": "3"
+  - button "Choose Friday, September 4, 2026 as your check-in date. It’s available.": "4"
+  - button "Choose Saturday, September 5, 2026 as your check-in date. It’s available.": "5"
+  - button "Choose Sunday, September 6, 2026 as your check-in date. It’s available.": "6"
+  - button "Choose Monday, September 7, 2026 as your check-in date. It’s available.": "7"
+  - button "Choose Tuesday, September 8, 2026 as your check-in date. It’s available.": "8"
+  - button "Choose Wednesday, September 9, 2026 as your check-in date. It’s available.": "9"
+  - button "Choose Thursday, September 10, 2026 as your check-in date. It’s available.": "10"
+  - button "Choose Friday, September 11, 2026 as your check-in date. It’s available.": "11"
+  - button "Choose Saturday, September 12, 2026 as your check-in date. It’s available.": "12"
+  - button "Choose Sunday, September 13, 2026 as your check-in date. It’s available.": "13"
+  - button "Choose Monday, September 14, 2026 as your check-in date. It’s available.": "14"
+  - button "Choose Tuesday, September 15, 2026 as your check-in date. It’s available.": "15"
+  - button "Choose Wednesday, September 16, 2026 as your check-in date. It’s available.": "16"
+  - button "Choose Thursday, September 17, 2026 as your check-in date. It’s available.": "17"
+  - button "Choose Friday, September 18, 2026 as your check-in date. It’s available.": "18"
+  - button "Choose Saturday, September 19, 2026 as your check-in date. It’s available.": "19"
+  - button "Choose Sunday, September 20, 2026 as your check-in date. It’s available.": "20"
+  - button "Choose Monday, September 21, 2026 as your check-in date. It’s available.": "21"
+  - button "Choose Tuesday, September 22, 2026 as your check-in date. It’s available.": "22"
+  - button "Choose Wednesday, September 23, 2026 as your check-in date. It’s available.": "23"
+  - button "Choose Thursday, September 24, 2026 as your check-in date. It’s available.": "24"
+  - button "Choose Friday, September 25, 2026 as your check-in date. It’s available.": "25"
+  - button "Choose Saturday, September 26, 2026 as your check-in date. It’s available.": "26"
+  - button "Choose Sunday, September 27, 2026 as your check-in date. It’s available.": "27"
+  - button "Choose Monday, September 28, 2026 as your check-in date. It’s available.": "28"
+  - button "Choose Tuesday, September 29, 2026 as your check-in date. It’s available.": "29"
+  - button "Selected as start date. Wednesday, September 30, 2026": "30"
+  - strong: October 2026
+  - button "Selected. Thursday, October 1, 2026": "1"
+  - button "Selected. Friday, October 2, 2026": "2"
+  - button "Selected. Saturday, October 3, 2026": "3"
+  - button "Selected. Sunday, October 4, 2026": "4"
+  - button "Selected. Monday, October 5, 2026": "5"
+  - button "Selected. Tuesday, October 6, 2026": "6"
+  - button "Selected. Wednesday, October 7, 2026": "7"
+  - button "Selected. Thursday, October 8, 2026": "8"
+  - button "Selected. Friday, October 9, 2026": "9"
+  - button "Selected. Saturday, October 10, 2026": "10"
+  - button "Selected. Sunday, October 11, 2026": "11"
+  - button "Selected. Monday, October 12, 2026": "12"
+  - button "Selected. Tuesday, October 13, 2026": "13"
+  - button "Selected. Wednesday, October 14, 2026": "14"
+  - button "Selected. Thursday, October 15, 2026": "15"
+  - button "Selected. Friday, October 16, 2026": "16"
+  - button "Selected. Saturday, October 17, 2026": "17"
+  - button "Selected. Sunday, October 18, 2026": "18"
+  - button "Selected. Monday, October 19, 2026": "19"
+  - button "Selected. Tuesday, October 20, 2026": "20"
+  - button "Selected. Wednesday, October 21, 2026": "21"
+  - button "Selected. Thursday, October 22, 2026": "22"
+  - button "Selected. Friday, October 23, 2026": "23"
+  - button "Selected. Saturday, October 24, 2026": "24"
+  - button "Selected. Sunday, October 25, 2026": "25"
+  - button "Selected. Monday, October 26, 2026": "26"
+  - button "Selected. Tuesday, October 27, 2026": "27"
+  - button "Selected. Wednesday, October 28, 2026": "28"
+  - button "Selected as end date. Thursday, October 29, 2026": "29"
+  - button "Not available. Friday, October 30, 2026" [disabled]: "30"
+  - button "Not available. Saturday, October 31, 2026" [disabled]: "31"

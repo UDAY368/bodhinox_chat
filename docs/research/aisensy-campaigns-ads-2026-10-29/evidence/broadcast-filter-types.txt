@@ -1,0 +1,90 @@
+- button:
+- heading [level=3]: AiSensy
+- button:
+- heading [level=3]: Create Campaign
+- paragraph: Quality Rating
+- heading [level=3]:
+  - generic: High
+- paragraph: Template Messaging Tier
+- heading [level=4]:
+  - text: Tier 0
+  - generic: (250/24 Hours)
+- paragraph: Remaining Quota
+- heading [level=4]: "250"
+- generic: Campaign Details
+- generic: Create Message
+- generic: Test & Preview
+- button [disabled]:
+  - generic: Next
+- heading [level=5]: Campaign Name
+- paragraph: Pick something that describes your audience & goals.
+- textbox:
+  - /placeholder: Enter campaign name
+- heading [level=5]: Select Audience
+- paragraph: Pick your target group audience to follow up with.
+- generic: Opted In is Yes
+- generic: and
+- generic: Blocked is No
+- text: Add filter
+- button:
+  - generic: Apply Filters
+- generic: Discard
+- button [disabled]:
+  - generic: Next
+- heading [level=5]: Audience Contacts
+- paragraph: Review the contacts included in this broadcast audience.
+- heading [level=5]: No Audience Found
+- paragraph: Apply filters above to preview your audience.
+- textbox "Search filters..." [active]
+- paragraph: Quick Filters
+- menu:
+  - menuitem "Tags":
+    - generic: Tags
+  - menuitem "Created Date":
+    - generic: Created Date
+  - menuitem "Last Seen":
+    - generic: Last Seen
+  - menuitem "Opted In":
+    - generic: Opted In
+  - menuitem "Blocked":
+    - generic: Blocked
+  - menuitem "Segment":
+    - generic: Segment
+  - menuitem "List":
+    - generic: List
+- separator
+- paragraph: Attributes
+- menu:
+  - menuitem "Name":
+    - generic: Name
+  - menuitem "Mobile Number":
+    - generic: Mobile Number
+  - menuitem "Source":
+    - generic: Source
+  - menuitem "First Message":
+    - generic: First Message
+  - menuitem "Campaigns":
+    - generic: Campaigns
+  - menuitem "Intervened":
+    - generic: Intervened
+  - menuitem "Closed":
+    - generic: Closed
+  - menuitem "Requested":
+    - generic: Requested
+  - menuitem "Intervened By Agent":
+    - generic: Intervened By Agent
+  - menuitem "Lead Stage":
+    - generic: Lead Stage
+  - menuitem "MAU Status":
+    - generic: MAU Status
+  - menuitem "WhatsApp Conversation Status":
+    - generic: WhatsApp Conversation Status
+- separator
+- paragraph: Custom Attributes
+- menu:
+  - menuitem "Location":
+    - generic: Location
+  - menuitem "phoneno":
+    - generic: phoneno
+  - menuitem "name":
+    - generic: name

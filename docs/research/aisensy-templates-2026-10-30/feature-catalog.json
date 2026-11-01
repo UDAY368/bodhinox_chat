@@ -1,0 +1,1066 @@
+[
+  {
+    "id": "TPL-001",
+    "area": "Inventory",
+    "name": "Project scope",
+    "detail": "Template management belongs to the selected project.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-002",
+    "area": "Inventory",
+    "name": "Create entry",
+    "detail": "Create Template opens New Template Message.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-003",
+    "area": "Inventory",
+    "name": "Search",
+    "detail": "Search templates (status, name etc.) textbox and search button; matching semantics not exhaustively tested.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-004",
+    "area": "Inventory",
+    "name": "Sync",
+    "detail": "Sync control is exposed; not executed.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-005",
+    "area": "Inventory",
+    "name": "Explore",
+    "detail": "Library tab for premade templates.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-006",
+    "area": "Inventory",
+    "name": "All",
+    "detail": "Combined owned-template inventory.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-007",
+    "area": "Inventory",
+    "name": "Draft",
+    "detail": "Separate draft inventory.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-008",
+    "area": "Inventory",
+    "name": "Pending",
+    "detail": "Separate pending inventory.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-009",
+    "area": "Inventory",
+    "name": "Approved",
+    "detail": "Separate approved inventory.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-010",
+    "area": "Inventory",
+    "name": "Action Required",
+    "detail": "Separate actionable-status inventory; rejected records observed.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-011",
+    "area": "Inventory",
+    "name": "Origin segmentation",
+    "detail": "User Generated and Campaign Agent Generated counts/toggles.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-012",
+    "area": "Inventory",
+    "name": "Table columns",
+    "detail": "Name, Category, Status, Type, Health, Created At, Action.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-013",
+    "area": "Inventory",
+    "name": "Health badge",
+    "detail": "High and Unknown values observed; scoring algorithm unknown.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-014",
+    "area": "Inventory",
+    "name": "Duplicate",
+    "detail": "Per-template Duplicate template control; not executed.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-015",
+    "area": "Inventory",
+    "name": "Delete",
+    "detail": "Per-template Delete template control; not executed.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-016",
+    "area": "Inventory",
+    "name": "Pagination",
+    "detail": "Range, total count, previous/next controls and disabled endpoints.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-017",
+    "area": "Inventory",
+    "name": "Details",
+    "detail": "Click template name opens modal with journey and message preview.",
+    "status": "observed UI",
+    "evidence": "evidence/owned-templates.txt"
+  },
+  {
+    "id": "TPL-018",
+    "area": "Library",
+    "name": "31 visible library entries",
+    "detail": "All three pages captured; 12/12/7 items.",
+    "status": "observed UI",
+    "evidence": "evidence/explore-page1.txt"
+  },
+  {
+    "id": "TPL-019",
+    "area": "Library",
+    "name": "Library card anatomy",
+    "detail": "Title, type, optional marketing badge, example body, Preview and Submit.",
+    "status": "observed UI",
+    "evidence": "evidence/explore-page1.txt"
+  },
+  {
+    "id": "TPL-020",
+    "area": "Library",
+    "name": "Example personalization",
+    "detail": "Square-bracket sample values in card copy; preview can show positional {{n}}.",
+    "status": "observed UI",
+    "evidence": "evidence/explore-page1.txt"
+  },
+  {
+    "id": "TPL-021",
+    "area": "Library",
+    "name": "Preview entry",
+    "detail": "Preview opens graphical message and review action.",
+    "status": "observed UI",
+    "evidence": "evidence/explore-page1.txt"
+  },
+  {
+    "id": "TPL-022",
+    "area": "Library",
+    "name": "Library submit entry",
+    "detail": "Submit shown on each card; not invoked.",
+    "status": "observed UI",
+    "evidence": "evidence/explore-page1.txt"
+  },
+  {
+    "id": "TPL-023",
+    "area": "Library",
+    "name": "Promotional shortcuts",
+    "detail": "Campaign Agent, AI Templates, Status Ad, Lead Form Ads, AI Agent.",
+    "status": "observed UI",
+    "evidence": "evidence/explore-page1.txt"
+  },
+  {
+    "id": "TPL-024",
+    "area": "Library",
+    "name": "Documentation links",
+    "detail": "Four guides: creation, parameters, quick replies, formatting.",
+    "status": "observed UI",
+    "evidence": "evidence/explore-page1.txt"
+  },
+  {
+    "id": "TPL-025",
+    "area": "Library filters",
+    "name": "Refine control",
+    "detail": "Opens filter UI.",
+    "status": "observed UI",
+    "evidence": "evidence/library-filters.txt"
+  },
+  {
+    "id": "TPL-026",
+    "area": "Library filters",
+    "name": "General discovery",
+    "detail": "Trending, General, Top Rated.",
+    "status": "observed UI",
+    "evidence": "evidence/library-filters.txt"
+  },
+  {
+    "id": "TPL-027",
+    "area": "Library filters",
+    "name": "Industry discovery",
+    "detail": "Ecommerce, Education, Banking, Webinar; MORE expands additional industries.",
+    "status": "observed UI",
+    "evidence": "evidence/library-filters.txt"
+  },
+  {
+    "id": "TPL-028",
+    "area": "Library filters",
+    "name": "Additional industries",
+    "detail": "Healthcare, Automobile, Real Estate, Services, Nonprofit.",
+    "status": "observed UI",
+    "evidence": "evidence/library-filters.txt"
+  },
+  {
+    "id": "TPL-029",
+    "area": "Library preview",
+    "name": "Review action",
+    "detail": "Review and Submit control in library preview; not executed.",
+    "status": "observed UI",
+    "evidence": "evidence/library-quickreply-preview.txt"
+  },
+  {
+    "id": "TPL-030",
+    "area": "Library preview",
+    "name": "Quick reply rendering",
+    "detail": "Webinar Upsell preview displays Yes/No replies.",
+    "status": "observed UI",
+    "evidence": "evidence/library-quickreply-preview.txt"
+  },
+  {
+    "id": "TPL-031",
+    "area": "Library preview",
+    "name": "WhatsApp presentation",
+    "detail": "WhatsApp icon and formatted message bubble.",
+    "status": "observed UI",
+    "evidence": "evidence/library-quickreply-preview.txt"
+  },
+  {
+    "id": "TPL-032",
+    "area": "Creation basics",
+    "name": "Back navigation",
+    "detail": "Back exits through unsaved-changes handling when edited.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-033",
+    "area": "Creation basics",
+    "name": "Credit balance",
+    "detail": "WCC Credits displayed in creation header; account snapshot, not a price guarantee.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-034",
+    "area": "Creation basics",
+    "name": "Category prerequisite",
+    "detail": "Category must be selected before initial dependent type options become available.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-035",
+    "area": "Creation basics",
+    "name": "Name syntax",
+    "detail": "Lowercase alphanumeric and underscore only; no whitespace/special characters according to helper.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-036",
+    "area": "Creation basics",
+    "name": "Language selection",
+    "detail": "Searchable dropdown; submitted language explicitly selected.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-037",
+    "area": "Creation basics",
+    "name": "Body editor",
+    "detail": "Message textarea with 1024-character helper and live counter.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-038",
+    "area": "Creation basics",
+    "name": "Formatting",
+    "detail": "Helper documents *bold*, _italic_, ~strikethrough~.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-039",
+    "area": "Creation basics",
+    "name": "Footer",
+    "detail": "Optional footer, 60-character helper.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-040",
+    "area": "Creation basics",
+    "name": "Submit entry",
+    "detail": "Submit button exists; request and server validation not exercised.",
+    "status": "observed UI",
+    "evidence": "evidence/create-initial.txt"
+  },
+  {
+    "id": "TPL-041",
+    "area": "Category and language",
+    "name": "Categories",
+    "detail": "UTILITY, MARKETING, AUTHENTICATION.",
+    "status": "observed UI",
+    "evidence": "evidence/categories.txt"
+  },
+  {
+    "id": "TPL-042",
+    "area": "Category and language",
+    "name": "Language inventory",
+    "detail": "Complete dropdown snapshot retained; extracted options in languages.json.",
+    "status": "observed UI",
+    "evidence": "evidence/languages.txt"
+  },
+  {
+    "id": "TPL-043",
+    "area": "Marketing AI",
+    "name": "Prompt editor",
+    "detail": "1024-character AI prompt with counter.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-editor.txt"
+  },
+  {
+    "id": "TPL-044",
+    "area": "Marketing AI",
+    "name": "Prompt history",
+    "detail": "Previous prompts entry; disabled in observed initial state.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-editor.txt"
+  },
+  {
+    "id": "TPL-045",
+    "area": "Marketing AI",
+    "name": "Tone",
+    "detail": "Normal, Poetic, Exciting, Funny.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-editor.txt"
+  },
+  {
+    "id": "TPL-046",
+    "area": "Marketing AI",
+    "name": "Optimization",
+    "detail": "Click Rate or Reply Rate.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-editor.txt"
+  },
+  {
+    "id": "TPL-047",
+    "area": "Marketing AI",
+    "name": "Generation quota",
+    "detail": "Generate displays 3 free generations left in this account.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-editor.txt"
+  },
+  {
+    "id": "TPL-048",
+    "area": "Marketing AI",
+    "name": "Generate action",
+    "detail": "Control exposed; no quota consumed and output behavior untested.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-editor.txt"
+  },
+  {
+    "id": "TPL-049",
+    "area": "Message types",
+    "name": "TEXT",
+    "detail": "Text body with optional text header.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-types.txt"
+  },
+  {
+    "id": "TPL-050",
+    "area": "Message types",
+    "name": "IMAGE",
+    "detail": "Image message type selector.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-types.txt"
+  },
+  {
+    "id": "TPL-051",
+    "area": "Message types",
+    "name": "VIDEO",
+    "detail": "Video message type selector.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-types.txt"
+  },
+  {
+    "id": "TPL-052",
+    "area": "Message types",
+    "name": "DOCUMENT",
+    "detail": "Document message type selector; library calls corresponding type FILE.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-types.txt"
+  },
+  {
+    "id": "TPL-053",
+    "area": "Message types",
+    "name": "LOCATION",
+    "detail": "Location message type selector.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-types.txt"
+  },
+  {
+    "id": "TPL-054",
+    "area": "Message types",
+    "name": "CAROUSEL",
+    "detail": "Multi-card template editor.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-types.txt"
+  },
+  {
+    "id": "TPL-055",
+    "area": "Message types",
+    "name": "LIMITED TIME OFFER",
+    "detail": "Offer-specific header, short text and expiration option.",
+    "status": "observed UI",
+    "evidence": "evidence/marketing-types.txt"
+  },
+  {
+    "id": "TPL-056",
+    "area": "Variables and preview",
+    "name": "Positional variables",
+    "detail": "Typing {{1}} and {{2}} creates corresponding sample fields.",
+    "status": "observed UI",
+    "evidence": "evidence/body-variables.txt"
+  },
+  {
+    "id": "TPL-057",
+    "area": "Variables and preview",
+    "name": "Sample values",
+    "detail": "One sample textbox per detected parameter; helper says values can change when sending.",
+    "status": "observed UI",
+    "evidence": "evidence/body-variables.txt"
+  },
+  {
+    "id": "TPL-058",
+    "area": "Variables and preview",
+    "name": "Live preview",
+    "detail": "Body preview updates during form editing; bold markup is rendered.",
+    "status": "observed UI",
+    "evidence": "evidence/body-variables.txt"
+  },
+  {
+    "id": "TPL-059",
+    "area": "Variables and preview",
+    "name": "Text header",
+    "detail": "Optional header with 60-character helper in TEXT mode.",
+    "status": "observed UI",
+    "evidence": "evidence/body-variables.txt"
+  },
+  {
+    "id": "TPL-060",
+    "area": "Variables and preview",
+    "name": "Preview disclaimer",
+    "detail": "Graphical representation; delivered message/media can differ.",
+    "status": "observed UI",
+    "evidence": "evidence/body-variables.txt"
+  },
+  {
+    "id": "TPL-061",
+    "area": "Interactive actions",
+    "name": "Action modes",
+    "detail": "None, Call to Actions, Quick Replies, All (observed default).",
+    "status": "observed UI",
+    "evidence": "evidence/quick-reply-editor.txt"
+  },
+  {
+    "id": "TPL-062",
+    "area": "Interactive actions",
+    "name": "Quick reply add",
+    "detail": "Adds title input and remove control.",
+    "status": "observed UI",
+    "evidence": "evidence/quick-reply-editor.txt"
+  },
+  {
+    "id": "TPL-063",
+    "area": "Interactive actions",
+    "name": "Reply title limit",
+    "detail": "25 characters, with counter.",
+    "status": "observed UI",
+    "evidence": "evidence/quick-reply-editor.txt"
+  },
+  {
+    "id": "TPL-064",
+    "area": "Interactive actions",
+    "name": "Reply capacity",
+    "detail": "Initial displayed remaining budget 10; other button additions reduce it too.",
+    "status": "observed UI",
+    "evidence": "evidence/quick-reply-editor.txt"
+  },
+  {
+    "id": "TPL-065",
+    "area": "Interactive actions",
+    "name": "Remove action",
+    "detail": "Remove quick reply control exposed.",
+    "status": "observed UI",
+    "evidence": "evidence/quick-reply-editor.txt"
+  },
+  {
+    "id": "TPL-066",
+    "area": "Interactive actions",
+    "name": "URL CTA",
+    "detail": "Type, button title, button value, remove control.",
+    "status": "observed UI",
+    "evidence": "evidence/url-action.txt"
+  },
+  {
+    "id": "TPL-067",
+    "area": "Interactive actions",
+    "name": "URL budget",
+    "detail": "Initial 2; adding one changes it to 1.",
+    "status": "observed UI",
+    "evidence": "evidence/url-action.txt"
+  },
+  {
+    "id": "TPL-068",
+    "area": "Interactive actions",
+    "name": "CTA title limit",
+    "detail": "25 characters.",
+    "status": "observed UI",
+    "evidence": "evidence/url-action.txt"
+  },
+  {
+    "id": "TPL-069",
+    "area": "Interactive actions",
+    "name": "Click tracking",
+    "detail": "Enable Click Tracking is disabled with PRO badge in observed account.",
+    "status": "observed UI",
+    "evidence": "evidence/url-action.txt"
+  },
+  {
+    "id": "TPL-070",
+    "area": "Interactive actions",
+    "name": "Ordering",
+    "detail": "URL action appears ahead of existing quick reply after addition.",
+    "status": "observed UI",
+    "evidence": "evidence/url-action.txt"
+  },
+  {
+    "id": "TPL-071",
+    "area": "Interactive actions",
+    "name": "Phone CTA",
+    "detail": "Type, title, country selector and value field.",
+    "status": "observed UI",
+    "evidence": "evidence/phone-action.txt"
+  },
+  {
+    "id": "TPL-072",
+    "area": "Interactive actions",
+    "name": "Phone budget",
+    "detail": "Initial 1; becomes disabled at 0 after addition.",
+    "status": "observed UI",
+    "evidence": "evidence/phone-action.txt"
+  },
+  {
+    "id": "TPL-073",
+    "area": "Interactive actions",
+    "name": "Copy code",
+    "detail": "Coupon code textbox, 15-character counter, remove control, preview action.",
+    "status": "observed UI",
+    "evidence": "evidence/copy-code-action.txt"
+  },
+  {
+    "id": "TPL-074",
+    "area": "Interactive actions",
+    "name": "Code budget",
+    "detail": "Initial 1; disabled at 0.",
+    "status": "observed UI",
+    "evidence": "evidence/copy-code-action.txt"
+  },
+  {
+    "id": "TPL-075",
+    "area": "Interactive actions",
+    "name": "Code ordering",
+    "detail": "Copy-code section moves ahead of URL/phone/reply sections.",
+    "status": "observed UI",
+    "evidence": "evidence/copy-code-action.txt"
+  },
+  {
+    "id": "TPL-076",
+    "area": "Interactive actions",
+    "name": "Shared action capacity",
+    "detail": "Reply counter fell from 10 to 6 after one reply, URL, phone and code; do not interpret counters as independent additive maxima.",
+    "status": "observed UI",
+    "evidence": "evidence/copy-code-action.txt"
+  },
+  {
+    "id": "TPL-077",
+    "area": "Media forms",
+    "name": "Image form",
+    "detail": "Type change inspected; no upload control appeared in captured initial form. Upload step remains unverified.",
+    "status": "observed UI",
+    "evidence": "evidence/image-editor.txt"
+  },
+  {
+    "id": "TPL-078",
+    "area": "Media forms",
+    "name": "Type-switch reset",
+    "detail": "Changing TEXT to IMAGE cleared the unsaved button configuration while retaining body.",
+    "status": "observed UI",
+    "evidence": "evidence/image-editor.txt"
+  },
+  {
+    "id": "TPL-079",
+    "area": "Media forms",
+    "name": "Video form",
+    "detail": "Selected and captured; upload/size constraints not established.",
+    "status": "observed UI",
+    "evidence": "evidence/video-editor.txt"
+  },
+  {
+    "id": "TPL-080",
+    "area": "Media forms",
+    "name": "Document form",
+    "detail": "Selected and captured; file/MIME constraints not established.",
+    "status": "observed UI",
+    "evidence": "evidence/document-editor.txt"
+  },
+  {
+    "id": "TPL-081",
+    "area": "Media forms",
+    "name": "Location form",
+    "detail": "Selected and captured; coordinate-entry/send-time workflow not established.",
+    "status": "observed UI",
+    "evidence": "evidence/location-editor.txt"
+  },
+  {
+    "id": "TPL-082",
+    "area": "Carousel",
+    "name": "Category rule",
+    "detail": "UI says carousel templates can only have category MARKETING.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-editor.txt"
+  },
+  {
+    "id": "TPL-083",
+    "area": "Carousel",
+    "name": "Shared bubble",
+    "detail": "Main message bubble supports 1024 characters and sample values.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-editor.txt"
+  },
+  {
+    "id": "TPL-084",
+    "area": "Carousel",
+    "name": "Card body",
+    "detail": "Optional per-card body, 160-character helper.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-editor.txt"
+  },
+  {
+    "id": "TPL-085",
+    "area": "Carousel",
+    "name": "Card consistency",
+    "detail": "Either all card bodies empty or none empty.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-editor.txt"
+  },
+  {
+    "id": "TPL-086",
+    "area": "Carousel",
+    "name": "Carousel action modes",
+    "detail": "All selected; other mode radios disabled.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-editor.txt"
+  },
+  {
+    "id": "TPL-087",
+    "area": "Carousel",
+    "name": "Carousel button budgets",
+    "detail": "Displayed 2 quick replies, 2 URL, 2 phone; copy code disabled. Combined maximum not tested.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-editor.txt"
+  },
+  {
+    "id": "TPL-088",
+    "area": "Carousel",
+    "name": "Carousel media",
+    "detail": "IMAGE and VIDEO options.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-media-options.txt"
+  },
+  {
+    "id": "TPL-089",
+    "area": "Carousel",
+    "name": "Add card",
+    "detail": "Add Card creates second card and changes active card editor.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-two-cards.txt"
+  },
+  {
+    "id": "TPL-090",
+    "area": "Carousel",
+    "name": "Card navigation",
+    "detail": "Preview exposes navigation/control buttons as cards are added; full maximum not tested.",
+    "status": "observed UI",
+    "evidence": "evidence/carousel-two-cards.txt"
+  },
+  {
+    "id": "TPL-091",
+    "area": "Limited-time offers",
+    "name": "Offer copy",
+    "detail": "Dedicated Limited Time Offer Text, 16 characters with counter.",
+    "status": "observed UI",
+    "evidence": "evidence/lto-editor.txt"
+  },
+  {
+    "id": "TPL-092",
+    "area": "Limited-time offers",
+    "name": "Offer expiry",
+    "detail": "Offer Expires checkbox.",
+    "status": "observed UI",
+    "evidence": "evidence/lto-editor.txt"
+  },
+  {
+    "id": "TPL-093",
+    "area": "Limited-time offers",
+    "name": "Offer preview",
+    "detail": "Dedicated code/offer area; incomplete state exposed Code: undefined before sample populated.",
+    "status": "observed UI",
+    "evidence": "evidence/lto-editor.txt"
+  },
+  {
+    "id": "TPL-094",
+    "area": "Limited-time offers",
+    "name": "Offer header",
+    "detail": "IMAGE or VIDEO.",
+    "status": "observed UI",
+    "evidence": "evidence/lto-headers.txt"
+  },
+  {
+    "id": "TPL-095",
+    "area": "Limited-time offers",
+    "name": "Sample coupon",
+    "detail": "After selecting header and expiration, SAMPLE coupon and copy action displayed; exact triggering event not isolated.",
+    "status": "observed UI",
+    "evidence": "evidence/lto-expiration.txt"
+  },
+  {
+    "id": "TPL-096",
+    "area": "Utility",
+    "name": "Utility type menu",
+    "detail": "Seven choices still displayed after selecting Utility; menu visibility is not proof every combination is accepted.",
+    "status": "observed UI",
+    "evidence": "evidence/utility-types.txt"
+  },
+  {
+    "id": "TPL-097",
+    "area": "Authentication",
+    "name": "OTP format",
+    "detail": "Fixed {{1}} is your verification code. body instead of free-form body.",
+    "status": "observed UI",
+    "evidence": "evidence/authentication-editor.txt"
+  },
+  {
+    "id": "TPL-098",
+    "area": "Authentication",
+    "name": "OTP sample",
+    "detail": "One sample-value input.",
+    "status": "observed UI",
+    "evidence": "evidence/authentication-editor.txt"
+  },
+  {
+    "id": "TPL-099",
+    "area": "Authentication",
+    "name": "Expiration warning",
+    "detail": "Optional numeric value; helper range 1–90 minutes.",
+    "status": "observed UI",
+    "evidence": "evidence/authentication-editor.txt"
+  },
+  {
+    "id": "TPL-100",
+    "area": "Authentication",
+    "name": "Security toggle",
+    "detail": "Add Security Disclaimer checkbox.",
+    "status": "observed UI",
+    "evidence": "evidence/authentication-editor.txt"
+  },
+  {
+    "id": "TPL-101",
+    "area": "Authentication",
+    "name": "Copy action",
+    "detail": "Copy code preview and code input; other add-action controls disabled.",
+    "status": "observed UI",
+    "evidence": "evidence/authentication-editor.txt"
+  },
+  {
+    "id": "TPL-102",
+    "area": "Authentication",
+    "name": "Security preview",
+    "detail": "Enabling disclaimer updates preview with security text.",
+    "status": "observed UI",
+    "evidence": "evidence/auth-security.txt"
+  },
+  {
+    "id": "TPL-103",
+    "area": "Entitlements",
+    "name": "TTL",
+    "detail": "Defines how long Meta retries delivery while recipient offline; Premium gate.",
+    "status": "observed UI",
+    "evidence": "evidence/ttl-premium-gate.txt"
+  },
+  {
+    "id": "TPL-104",
+    "area": "Entitlements",
+    "name": "Upgrade dialog",
+    "detail": "TTL activation opens Change Plan rather than TTL configuration on this account.",
+    "status": "observed UI",
+    "evidence": "evidence/ttl-premium-gate.txt"
+  },
+  {
+    "id": "TPL-105",
+    "area": "Entitlements",
+    "name": "Billing selector",
+    "detail": "Monthly, Quarterly (5% Off), Yearly (10% Off).",
+    "status": "observed UI",
+    "evidence": "evidence/ttl-premium-gate.txt"
+  },
+  {
+    "id": "TPL-106",
+    "area": "Entitlements",
+    "name": "Plan choices",
+    "detail": "Basic, Pro, Premium, Unlimited, Enterprise with features/current/chosen state.",
+    "status": "observed UI",
+    "evidence": "evidence/ttl-premium-gate.txt"
+  },
+  {
+    "id": "TPL-107",
+    "area": "Entitlements",
+    "name": "Checkout entry",
+    "detail": "Proceed to Checkout visible; not executed.",
+    "status": "observed UI",
+    "evidence": "evidence/ttl-premium-gate.txt"
+  },
+  {
+    "id": "TPL-108",
+    "area": "Drafts",
+    "name": "Unsaved exit dialog",
+    "detail": "Discard Template dialog explains loss of edits and draft alternative.",
+    "status": "observed UI",
+    "evidence": "evidence/unsaved-draft-exit.txt"
+  },
+  {
+    "id": "TPL-109",
+    "area": "Drafts",
+    "name": "Save to Draft",
+    "detail": "Separate save-draft action exists; not executed.",
+    "status": "observed UI",
+    "evidence": "evidence/unsaved-draft-exit.txt"
+  },
+  {
+    "id": "TPL-110",
+    "area": "Drafts",
+    "name": "Discard template",
+    "detail": "Discards local unsaved test form and returns to list; exercised.",
+    "status": "observed UI",
+    "evidence": "evidence/unsaved-draft-exit.txt"
+  },
+  {
+    "id": "TPL-111",
+    "area": "Drafts",
+    "name": "Cancel exit",
+    "detail": "Close button lets user return to editor.",
+    "status": "observed UI",
+    "evidence": "evidence/unsaved-draft-exit.txt"
+  },
+  {
+    "id": "TPL-112",
+    "area": "Drafts",
+    "name": "Empty state",
+    "detail": "No templates yet ! and 0–0 of 0 with disabled pagination.",
+    "status": "observed UI",
+    "evidence": "evidence/drafts.txt"
+  },
+  {
+    "id": "TPL-113",
+    "area": "Approval lifecycle",
+    "name": "Pending journey",
+    "detail": "Earlier welcome detail shows Created and Pending timestamps.",
+    "status": "observed UI",
+    "evidence": "evidence/pending-detail.txt"
+  },
+  {
+    "id": "TPL-114",
+    "area": "Approval lifecycle",
+    "name": "Rejected journey",
+    "detail": "Rejected record shows Created and Rejected timestamps; no reason/appeal observed.",
+    "status": "observed UI",
+    "evidence": "evidence/rejected-detail.txt"
+  },
+  {
+    "id": "TPL-115",
+    "area": "Approval lifecycle",
+    "name": "Approved inventory",
+    "detail": "Refreshed list shows 2 approved records: welcome and cart_drop_without_incentive_b003p.",
+    "status": "observed UI",
+    "evidence": "evidence/approved.txt"
+  },
+  {
+    "id": "TPL-116",
+    "area": "Approval lifecycle",
+    "name": "Approved journey",
+    "detail": "welcome Created Oct29 12:27PM; Approved Oct30 11:27AM (displayed UI times).",
+    "status": "observed UI",
+    "evidence": "evidence/approved-journey.txt"
+  },
+  {
+    "id": "TPL-117",
+    "area": "Approval lifecycle",
+    "name": "History presentation",
+    "detail": "Current status and timestamped journey alongside message preview, footer and action.",
+    "status": "observed UI",
+    "evidence": "evidence/approved-journey.txt"
+  },
+  {
+    "id": "TPL-118",
+    "area": "Static template store",
+    "name": "Fetch contract candidate",
+    "detail": "POST /api/templates with assistantId; not captured as live request.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-119",
+    "area": "Static template store",
+    "name": "Approved selection",
+    "detail": "Only status APPROVED enters templates map; all records enter allTemplates.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-120",
+    "area": "Static template store",
+    "name": "Name indexing",
+    "detail": "Maps keyed by name.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-121",
+    "area": "Static template store",
+    "name": "Retry/loading/error",
+    "detail": "Initial request plus up to 3 retries at 1500ms; loading/error/reset branches.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-122",
+    "area": "Static template store",
+    "name": "Streaming parser",
+    "detail": "Parses comma-delimited response after removing trailing delimiter.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-123",
+    "area": "Static template store",
+    "name": "Metrics caveat",
+    "detail": "project_approved_templates_count uses total response-array length.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-124",
+    "area": "Static shared preview",
+    "name": "Media renderers",
+    "detail": "IMAGE, VIDEO, FILE/DOCUMENT, LOCATION; media URL and filename.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-125",
+    "area": "Static shared preview",
+    "name": "Location model",
+    "detail": "name/address/latitude/longitude.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-126",
+    "area": "Static shared preview",
+    "name": "URL personalization",
+    "detail": "CTA URL parameter substitution and sample fallback.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-127",
+    "area": "Static shared preview",
+    "name": "Phone link",
+    "detail": "tel: link and tooltip.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-128",
+    "area": "Static shared preview",
+    "name": "Clipboard",
+    "detail": "Copy-code clipboard behavior.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-129",
+    "area": "Static shared preview",
+    "name": "Carousel model",
+    "detail": "Per-card HEADER/BODY/BUTTONS, media selection, sliced variable arrays.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-130",
+    "area": "Static shared preview",
+    "name": "Carousel callbacks",
+    "detail": "Previous/next, optional add/delete callbacks; parent determines availability.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-131",
+    "area": "Static shared preview",
+    "name": "Offer timing",
+    "detail": "Ended, same-day time, under-15-days remaining, otherwise date.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-132",
+    "area": "Static shared preview",
+    "name": "Authentication localization",
+    "detail": "Language-keyed verification, security, expiration and copy strings.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  },
+  {
+    "id": "TPL-133",
+    "area": "Static shared preview",
+    "name": "Additional preview types",
+    "detail": "ORDER_STATUS, ORDER_DETAILS, CATALOGUE_MESSAGE, MULTI_PRODUCT_MESSAGE, FLOW, REQUEST_CONTACT_INFO; not proven creation options.",
+    "status": "static source",
+    "evidence": "static-findings.md"
+  }
+]

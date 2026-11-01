@@ -1,0 +1,29 @@
+- button:
+- heading [level=3]: AiSensy
+- heading [level=3]: Forms
+- button:
+- generic: fact_check
+- generic: Total forms
+- paragraph: "0"
+- generic: check_circle
+- generic: Active forms
+- paragraph: "0"
+- generic: 0 archived
+- generic: description
+- generic: Total responses
+- paragraph: "0"
+- textbox:
+  - /placeholder: Search by form name
+- button [expanded]: "Sort: Newest first"
+- textbox: createdAt:desc
+- button: "Automation: All"
+- textbox: all
+- button:
+  - text: Sync forms
+- heading [level=5]: No lead forms yet !
+- paragraph: Forms you create on Meta (or from ad creation) will appear here.
+- listbox:
+  - option "Newest first" [active] [selected]: Newest first
+  - option "Oldest first": Oldest first
+  - option "Most leads": Most leads
+  - option "Fewest leads": Fewest leads

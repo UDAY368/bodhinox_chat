@@ -1,0 +1,32 @@
+- button:
+- heading "AiSensy" [level=3]
+- button "Back":
+- heading "Create Campaign" [level=3]
+- paragraph: Quality Rating
+- heading "High" [level=3]:
+  - generic: High
+- paragraph: Template Messaging Tier
+- heading "Tier 0 (250/24 Hours)" [level=4]:
+  - text: Tier 0
+  - generic: (250/24 Hours)
+- paragraph: Remaining Quota
+- heading "250" [level=4]
+- generic: Campaign Details
+- generic: Create Message
+- generic: Test & Preview
+- generic "To continue, please enter valid details":
+  - button "Next" [disabled]:
+    - generic: Next
+- heading "Campaign Name" [level=5]
+- paragraph: Pick something that describes your audience & goals.
+- textbox "Enter campaign name"
+- heading "Select Audience" [level=5]
+- paragraph: Pick your target group audience to follow up with.
+- text: Add filter
+- generic "To continue, please enter valid details":
+  - button "Next" [disabled]:
+    - generic: Next
+- heading "Audience Contacts" [level=5]
+- paragraph: Review the contacts included in this broadcast audience.
+- heading "No Audience Found" [level=5]
+- paragraph: Apply filters above to preview your audience.

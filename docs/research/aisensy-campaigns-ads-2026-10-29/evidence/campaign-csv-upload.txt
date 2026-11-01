@@ -1,0 +1,26 @@
+- button:
+- heading "AiSensy" [level=3]
+- button "Back":
+- heading "Create Campaign" [level=3]
+- paragraph: Quality Rating
+- heading "High" [level=3]:
+  - generic: High
+- paragraph: Template Messaging Tier
+- heading "Tier 0 (250/24 Hours)" [level=4]:
+  - text: Tier 0
+  - generic: (250/24 Hours)
+- paragraph: Remaining Quota
+- heading "250" [level=4]
+- generic: Campaign Name
+- generic: Upload CSV
+- generic: Create Message
+- generic: Test & Preview
+- button "Prev":
+  - generic: Prev
+- button "Next" [disabled]:
+  - generic: Next
+- paragraph: Drag and drop a file here or click
+- button "Prev":
+  - generic: Prev
+- button "Next" [disabled]:
+  - generic: Next

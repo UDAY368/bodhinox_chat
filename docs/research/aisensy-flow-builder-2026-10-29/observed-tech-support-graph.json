@@ -1,0 +1,992 @@
+{
+  "url": "https://www.app.aisensy.com/projects/6ad89a5dbc797ae5b62b2c37/flows/flow-page/6ae2e9815abdd78a8415850b",
+  "edges": [
+    {
+      "id": null,
+      "label": "Edge from keyword to 1766142732638",
+      "path": "M-139.10904471044114,281.1751291730578 C-33.98448918049881,281.1751291730578 -33.98448918049881,575.8478098016028 71.14006634944352,575.8478098016028"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766142732638 to 1766143356347",
+      "path": "M282.7400439629431,548.9602611956318 C488.5304900225309,548.9602611956318 488.5304900225309,1028.7703328940643 694.3209360821187,1028.7703328940643"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766142732638 to 1766143570467",
+      "path": "M282.7400439629431,615.7853369242516 C1882.3040740296465,615.7853369242516 1882.3040740296467,1495.1312520565577 3481.86810409635,1495.1312520565577"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143356347 to 1766143599254",
+      "path": "M905.9209373975975,741.4702691261077 C1049.4074613739488,741.4702691261077 1049.4074613739488,-435.69107306720423 1192.8939853503,-435.69107306720423"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143356347 to 1766143762542",
+      "path": "M905.9209373975975,1062.6701052409912 C1047.3948395269972,1062.6701052409912 1047.3948395269972,911.801919899497 1188.8687416563969,911.801919899497"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143356347 to 1766143768364",
+      "path": "M905.9209373975975,1223.2699758944743 C1051.3395737312594,1223.2699758944743 1051.3395737312594,1555.5824472271925 1196.7582100649215,1555.5824472271925"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143356347 to 1766143778237",
+      "path": "M905.9209373975975,1375.8701441446992 C1054.4954084986277,1375.8701441446992 1054.4954084986277,2226.5024614564622 1203.069879599658,2226.5024614564622"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143356347 to 1766143888781",
+      "path": "M905.9209373975975,1520.4698515283312 C1055.6215053146796,1520.4698515283312 1055.6215053146796,2804.0503013626903 1205.3220732317616,2804.0503013626903"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143599254 to 1766143948150",
+      "path": "M1404.4940814736956,-438.0786431027984 C1901.446214273445,-438.0786431027984 1901.446214273445,377.6896454320064 2398.3983470731946,377.6896454320064"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143948150 to 1766143998860",
+      "path": "M2614.7979043684613,190.3897046079225 C2756.203439453861,190.3897046079225 2756.203439453861,622.7852981630131 2897.6089745392605,622.7852981630131"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143998860 to 1766144014334",
+      "path": "M3114.0089110661947,427.4852625310124 C3239.133162949399,427.4852625310124 3239.133162949399,628.0296100473677 3364.2574148326025,628.0296100473677"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766144014334 to 1766144025372",
+      "path": "M3580.6573513595363,424.2296692232838 C3731.284398674046,424.2296692232838 3731.284398674046,842.9673178636663 3881.9114459885554,842.9673178636663"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143888781 to 1766143998860",
+      "path": "M1421.7221993745293,2608.7504553465233 C2159.665586956895,2608.7504553465233 2159.665586956895,622.7852981630131 2897.6089745392605,622.7852981630131"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143646310 to 1766143356347",
+      "path": "M1387.6815792477637,300.43970588970933 C1552.2549675086184,300.43970588970933 529.7475478212641,1028.7703328940643 694.3209360821187,1028.7703328940643"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143356347 to 1766143646310",
+      "path": "M905.9209373975975,902.0702345875078 C1041.0012576649412,902.0702345875078 1041.0012576649412,236.00227130262118 1176.081577932285,236.00227130262118"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143599254 to 1766143356347",
+      "path": "M1404.4940814736956,-371.2536621820953 C1571.050794012874,-371.2536621820953 527.7642235429404,1028.7703328940643 694.3209360821187,1028.7703328940643"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143762542 to 1766143356347",
+      "path": "M1400.4688377797925,968.2393334286091 C1566.5528599193872,968.2393334286091 528.236913942524,1028.7703328940643 694.3209360821187,1028.7703328940643"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143768364 to 1766143356347",
+      "path": "M1408.3581165724836,1612.0197659483879 C1575.367329979723,1612.0197659483879 527.3117226748791,1028.7703328940643 694.3209360821187,1028.7703328940643"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143778237 to 1766143356347",
+      "path": "M1414.6698809151367,2282.9401594093247 C1582.4156130740794,2282.9401594093247 526.5752039231759,1028.7703328940643 694.3209360821187,1028.7703328940643"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143646310 to 1766143948150",
+      "path": "M1387.6815792477637,233.6147249690062 C1893.0399631604791,233.6147249690062 1893.0399631604791,377.6896454320064 2398.3983470731946,377.6896454320064"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143762542 to 1766143948150",
+      "path": "M1400.4688377797925,901.414352507906 C1899.4335924264935,901.414352507906 1899.4335924264935,377.6896454320064 2398.3983470731946,377.6896454320064"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143768364 to 1766143948150",
+      "path": "M1408.3581165724836,1545.1949746435184 C1903.378231822839,1545.1949746435184 1903.378231822839,377.6896454320064 2398.3983470731946,377.6896454320064"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766143778237 to 1766143948150",
+      "path": "M1414.6698809151367,2216.1149888727878 C1906.5341139941656,2216.1149888727878 1906.5341139941656,377.6896454320064 2398.3983470731946,377.6896454320064"
+    },
+    {
+      "id": null,
+      "label": "Edge from 1766144025372 to 1766143570467",
+      "path": "M4093.5114473040344,915.9047126071584 C4248.082848585287,915.9047126071584 3327.296702815097,1495.1312520565577 3481.86810409635,1495.1312520565577"
+    }
+  ],
+  "nodes": [
+    {
+      "fields": [
+        {
+          "placeholder": "Enter keywords",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        },
+        {
+          "placeholder": "Enter Regex",
+          "value": ""
+        }
+      ],
+      "id": "keyword",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "keyword-right-keyword",
+          "node": "keyword",
+          "position": "right"
+        }
+      ],
+      "text": "Flow Start\n\nType, press enter to add keyword\n\nEnter regex to match substring trigger. Enable toggle for case sensitive regex.\n\nAdd upto 1 template to begin flow\n\nChoose Template\n\nAdd upto 20 Meta Ads to begin flow\n\nChoose Facebook Ad"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "👋 Welcome to [Your Brand Name] IT Services! How can we assist you today?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Choose Service"
+        },
+        {
+          "placeholder": "",
+          "value": "Talk to Team"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766142732638",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766142732638",
+          "node": "1766142732638",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766142732638-1766142741064",
+          "node": "1766142732638",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766142732638-1766142745285",
+          "node": "1766142732638",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n73/1024\n\n14/20\n\n12/20\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Header",
+          "value": "Our IT Services"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Body",
+          "value": "Select a service to view more details or book a call with our IT team."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Footer",
+          "value": "Powered by [Your Brand Name]"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Section Title",
+          "value": "IT Service Options"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "IT Support"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "Technical help & troubleshooting"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Website/App Development"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "Designing & building digital platforms"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Software Development"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "Custom software for your business"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Cloud Services"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "Migration, management & scalable storage"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Cybersecurity"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "Protect your business digitally"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Book a Call"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "Get expert advice via a call"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "list"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143356347",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143356347",
+          "node": "1766143356347",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "list_message-right-1766143356347-0-1766143389562-|69453180dc804c12e446d95a",
+          "node": "1766143356347",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "list_message-right-1766143356347-0-1766143401836-|69453180dc804c12e446d95a",
+          "node": "1766143356347",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "list_message-right-1766143356347-0-1766143410982-|69453180dc804c12e446d95a",
+          "node": "1766143356347",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "list_message-right-1766143356347-0-1766143430754-|69453180dc804c12e446d95a",
+          "node": "1766143356347",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "list_message-right-1766143356347-0-1766143438458-|69453180dc804c12e446d95a",
+          "node": "1766143356347",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "list_message-right-1766143356347-0-1766143450370-|69453180dc804c12e446d95a",
+          "node": "1766143356347",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n15/20\n\n70/1024\n\n28/60\n\n18/24\n\n10/24\n\n32/72\n\n23/24\n\n38/72\n\n20/24\n\n33/72\n\n14/24\n\n40/72\n\n13/24\n\n31/72\n\n11/24\n\n28/72\n\n+ Add Item\n+ Add Section\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [],
+      "id": "1766143570467",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143570467",
+          "node": "1766143570467",
+          "position": "left"
+        }
+      ],
+      "text": "Message\nRequest Intervention\nIntervene users and talk\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "🙏 Thank you for connecting with [Your Brand Name] IT Services. Our team will reach out to you soon. Have a great day!"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143586939",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143586939",
+          "node": "1766143586939",
+          "position": "left"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n118/1024\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "💻 IT Support\n\nGet expert help with troubleshooting, network issues, software support, and IT maintenance for your business."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Continue"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to services"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143599254",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143599254",
+          "node": "1766143599254",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143599254-1766143617676",
+          "node": "1766143599254",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143599254-1766143619855",
+          "node": "1766143599254",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n124/1024\n\n8/20\n\n16/20\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "🌐 Website & App Development\n\nBuild modern, responsive websites and mobile apps tailored to your business growth."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Continue"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to services"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143646310",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143646310",
+          "node": "1766143646310",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143646310-1766143665853",
+          "node": "1766143646310",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143646310-1766143730863",
+          "node": "1766143646310",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n113/1024\n\n8/20\n\n16/20\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "🖥️ Software Development\n\nCustom software solutions built to automate, scale, and streamline your processes."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Continue"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to services"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143762542",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143762542",
+          "node": "1766143762542",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143762542-1766143803573",
+          "node": "1766143762542",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143762542-1766143808489",
+          "node": "1766143762542",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n108/1024\n\n8/20\n\n16/20\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "☁️ Cloud Services\n\nMigrate, manage, and scale on the cloud with reliable support for storage, SaaS platforms, and more."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Continue"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to services"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143768364",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143768364",
+          "node": "1766143768364",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143768364-1766143833324",
+          "node": "1766143768364",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143768364-1766143834226",
+          "node": "1766143768364",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n119/1024\n\n8/20\n\n16/20\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "🔒 Cybersecurity\n\nSafeguard your business from cyber-attacks with robust solutions, security audits, and compliance."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Continue"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to services"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143778237",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143778237",
+          "node": "1766143778237",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143778237-1766143844297",
+          "node": "1766143778237",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766143778237-1766143845483",
+          "node": "1766143778237",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n116/1024\n\n8/20\n\n16/20\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "Please share your name for call booking."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": ""
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143888781",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143888781",
+          "node": "1766143888781",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "question-right-1766143888781",
+          "node": "1766143888781",
+          "position": "right"
+        }
+      ],
+      "text": "Question\n\nQuestion\n\n40/1024\n\nCapture answer attribute\n\n$\n\nAttribute Format\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "May I know your name?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": ""
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143948150",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143948150",
+          "node": "1766143948150",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "question-right-1766143948150",
+          "node": "1766143948150",
+          "position": "right"
+        }
+      ],
+      "text": "Question\n\nQuestion\n\n21/1024\n\nCapture answer attribute\n\n$\n\nAttribute Format\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "Please share your email address."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": ""
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766143998860",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766143998860",
+          "node": "1766143998860",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "question-right-1766143998860",
+          "node": "1766143998860",
+          "position": "right"
+        }
+      ],
+      "text": "Question\n\nQuestion\n\n32/1024\n\nCapture answer attribute\n\n$\n\nAttribute Format\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "Kindly describe your IT requirement in a few words."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": ""
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766144014334",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766144014334",
+          "node": "1766144014334",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "question-right-1766144014334",
+          "node": "1766144014334",
+          "position": "right"
+        }
+      ],
+      "text": "Question\n\nQuestion\n\n51/1024\n\nCapture answer attribute\n\n$\n\nAttribute Format\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "✅ Thank you for sharing your requirements! Your request has been submitted. Reference #$ref_number\n\nWhat would you like to do next?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Book a Call"
+        },
+        {
+          "placeholder": "",
+          "value": "Talk to Team"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "id": "1766144025372",
+      "ports": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "master-component-left-1766144025372",
+          "node": "1766144025372",
+          "position": "left"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766144025372-1766144029432",
+          "node": "1766144025372",
+          "position": "right"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss546 source connectable",
+          "id": "message_with_button-right-1766144025372-1766144034818",
+          "node": "1766144025372",
+          "position": "right"
+        }
+      ],
+      "text": "Message\n\nType, press enter to add AI keyword\n\n131/1024\n\n11/20\n\n12/20\n\n+ Add Button\n\nSet Delay\n\nPRO ✨\n\nSet Timeout\n\nPRO ✨\n+ Add Content"
+    }
+  ]
+}

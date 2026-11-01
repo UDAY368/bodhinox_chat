@@ -1,0 +1,81 @@
+- button [active]:
+- heading "AiSensy" [level=3]
+- heading "Setup" [level=3]
+- img "WhatsApp"
+- 'heading "Ad Credit: ₹ 1000.00" [level=4]'
+- button "AI Assistant":
+- button "Buy Credits":
+  - generic: Buy Credits
+- button "Create Ad":
+  - text: Create Ad
+- paragraph: Meta Ads quick guide
+- heading "Launch your Ads on Whatsapp, Facebook & Instagram" [level=5]
+- paragraph: Learn how to add ad credit, choose an objective and launch your first ad.
+- link "How to run Ads":
+  - /url: https://wiki.aisensy.com/en/?q=meta%20ads
+  - generic: How to run Ads
+- link "Click to WhatsApp Ads setup tutorial":
+  - /url: https://youtube.com/embed/Q3H_Qmd0cys
+  - generic: Click to WhatsApp Ads setup tutorial
+- heading "Fund your ads or launch a campaign" [level=5]
+- button "₹5,000 Ads Starter Pack FREE SETUP Get ₹5,000 ad balance plus free expert campaign setup.":
+  - paragraph: ₹5,000 Ads Starter Pack
+  - generic: FREE SETUP
+  - paragraph: Get ₹5,000 ad balance plus free expert campaign setup.
+- button "₹10,000 Ads Growth Pack RECOMMENDED Get ₹10,000 ad balance, expert setup and 30-day optimisation support.":
+  - paragraph: ₹10,000 Ads Growth Pack
+  - generic: RECOMMENDED
+  - paragraph: Get ₹10,000 ad balance, expert setup and 30-day optimisation support.
+- button "Launch WhatsApp Status Ad NEW Publish scroll-stopping offers directly to WhatsApp Status.":
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button "Launch Lead Form Ads Capture high-intent leads and follow up instantly on WhatsApp.":
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button "Generate Ads with AI AI Describe your business and Ads Agent writes, designs and targets the ads for you.":
+  - paragraph: Generate Ads with AI
+  - generic: AI
+  - paragraph: Describe your business and Ads Agent writes, designs and targets the ads for you.
+- button "Book a Demo Call Talk to an ads expert to set up, launch and troubleshoot your campaigns.":
+  - paragraph: Book a Demo Call
+  - paragraph: Talk to an ads expert to set up, launch and troubleshoot your campaigns.
+- heading "Connect your Facebook account" [level=4]
+- paragraph: Allow AiSensy to receive advertisement analytics and events from Facebook
+- paragraph: "*Please select OPT into all option for Business and Pages*"
+- generic "This will disconnect your Facebook Account":
+  - button "Disconnect":
+    - generic: Disconnect
+- separator
+- heading "Choose your Facebook page" [level=4]
+- paragraph: Select Facebook page which will be used to ad
+- combobox:
+  - generic: Choose your page
+  - textbox "Choose your page" [disabled]: Bodhinox Chat - 1352175521312813
+  - button "Open" [disabled]:
+- generic "Sync pages from Meta":
+  - button "Sync":
+    - paragraph: Sync
+- separator
+- heading "Accept Lead Form Terms of Service" [level=4]
+- paragraph: You must accept the Terms of Service for Lead Form Ads before creating lead form campaigns
+- checkbox "I accept the Terms of Service for Lead Form Ads"
+- text: I accept the
+- link "Terms of Service for Lead Form Ads":
+  - /url: https://www.facebook.com/legal/leadgen/tos
+  - text: Terms of Service for Lead Form Ads
+- button "Accept Terms" [disabled]:
+  - generic: Accept Terms
+- separator
+- heading "Link Whatsapp Number" [level=4]
+- paragraph: Link your WhatsApp business number with selected Facebook page to receive messages directly over WhatsApp
+- generic "WhatsApp API Number is linked with selected Facebook Page":
+  - textbox
+- generic "Click to link your WhatsApp Number":
+  - button "Verify":
+    - paragraph: Verify
+- separator
+- heading "Create Advertisement" [level=4]
+- paragraph: Click Create Ad to start receiving leads directly on your WhatsApp.
+- button "Create Ad":
+  - text: Create Ad

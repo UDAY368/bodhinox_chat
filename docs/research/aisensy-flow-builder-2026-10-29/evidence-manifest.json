@@ -1,0 +1,133 @@
+{
+  "inspectedAt": "2026-10-29",
+  "target": "https://www.app.aisensy.com/projects/6ad89a5dbc797ae5b62b2c37/flows/flow-page/6ae2e9815abdd78a8415850b",
+  "reaVersion": "6.7.0",
+  "evidenceId": "ev_7adb909a73ff652388d0fcade106e4c9fd82ed25d4713152ba61b2d3553f51e3",
+  "reaCoverage": {
+    "relevant_files": 17,
+    "nested_asar_containers": 0,
+    "text_bytes_read": 475317,
+    "invalid_utf8_files": 0,
+    "parsed_javascript_files": 1,
+    "skipped_javascript_files": 0,
+    "visited_ast_nodes": 112548,
+    "findings": 228,
+    "modules": 9,
+    "parse_failures": 0,
+    "graph": {
+      "status": "partial",
+      "truncated": false,
+      "omitted_count": null,
+      "limits": []
+    },
+    "semantic": {
+      "status": "partial",
+      "truncated": true
+    }
+  },
+  "limitations": [
+    "Caller-selected source analysis leaves 16 inventoried files outside analysis scope. Inventory identity covers the complete artifact; relationships through unselected sources remain unknown.",
+    "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+    "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+    "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+    "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+    "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+    "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+  ],
+  "sourceManifest": [
+    {
+      "name": "1533.1933022d.chunk.js",
+      "bytes": 12288,
+      "sha256": "460e94672fb9e29993e1f6ed3202e62f5b1f191091a4671ec51484128cbcb0dc"
+    },
+    {
+      "name": "2202.763d25ed.chunk.js",
+      "bytes": 72736,
+      "sha256": "147fec1287dd40021e79fcc4774a5667db45b2bdca38614bae0310cb81a50cf5"
+    },
+    {
+      "name": "2324.f29bba09.chunk.js",
+      "bytes": 51597,
+      "sha256": "d34145d5f49c95ae9cf808a72f0e5ed33a6e3964d9ce17146da8941e7272f939"
+    },
+    {
+      "name": "2491.eab30c37.chunk.js",
+      "bytes": 10666,
+      "sha256": "62a35783fc37b2291a8302d308e3a594ae6933707227d1765f4687019787575b"
+    },
+    {
+      "name": "2842.5f05f148.chunk.js",
+      "bytes": 30255,
+      "sha256": "c61cf71bb7756813412b1d95768df416772cef220e7897e588173048ba0dc3f6"
+    },
+    {
+      "name": "3982.b368cb43.chunk.js",
+      "bytes": 9969,
+      "sha256": "8fd0a1f10cece46165eb067aa4c72d7d6e2cd2442a494b817ac8e12e7e0dee57"
+    },
+    {
+      "name": "5577.7ef13917.chunk.js",
+      "bytes": 128178,
+      "sha256": "4042d18ff9b6f376bfb2b8d0f43f4c19501643c8a051d5bd997e7dac24f4c86a"
+    },
+    {
+      "name": "6199.908fd2fc.chunk.js",
+      "bytes": 334712,
+      "sha256": "abe41941545731c17e0588978d0cefc10c00ef726ae190f028367c2a6d4a219e"
+    },
+    {
+      "name": "7562.fc374ce6.chunk.js",
+      "bytes": 21415,
+      "sha256": "074961c4988d553586f0e1035c35c50affb0ae4d27941ceee318f91e6fd98ef8"
+    },
+    {
+      "name": "8065.9c793e38.chunk.js",
+      "bytes": 67650,
+      "sha256": "528fd5e541699d262f8bb626e8cea73fef4d7a7548dba1ae11b2dedc1dc29641"
+    },
+    {
+      "name": "8845.564eeb57.chunk.js",
+      "bytes": 8094,
+      "sha256": "04e83abe61d5b613925c1970630aeac7221dd6645df6c0b7a37490ed96c7e552"
+    },
+    {
+      "name": "9223.8b687d5b.chunk.js",
+      "bytes": 36427,
+      "sha256": "973602a39f5a03610cddcaba7b5b6f5002f495364c7732934020f4353997ba25"
+    },
+    {
+      "name": "927.8a167594.chunk.js",
+      "bytes": 78842,
+      "sha256": "8c8dc8e760f161eb090337567589b2a14d378ff53fffdbfafc625037563685ad"
+    },
+    {
+      "name": "9687.19c02a66.chunk.js",
+      "bytes": 18957,
+      "sha256": "7df5565e1f7ef7bbe34dc025e4c06bb7ef3caa737b477706ec9a73aa459d3988"
+    },
+    {
+      "name": "9817.73e2be4d.chunk.js",
+      "bytes": 475317,
+      "sha256": "cd7a2169357112ac35b376508ae34ad0a44baccab94a0f10a45d0e6115829aab"
+    },
+    {
+      "name": "9867.aa56d006.chunk.js",
+      "bytes": 56319,
+      "sha256": "7b39f394d9fee26ca619282b986169f7ed802d220ee40d584988eb2a7b4f8a79"
+    },
+    {
+      "name": "main.01f91df0.js",
+      "bytes": 3437689,
+      "sha256": "7217030be41febe46b0bc6ce4bda335ba358a92233db8c87fae2b0c0291b611b"
+    }
+  ],
+  "counts": {
+    "library": 22,
+    "paletteDefinitions": 21,
+    "visiblePalette": 19,
+    "features": 309,
+    "uiLiterals": 375,
+    "optionSets": 12
+  },
+  "assetDownload": "Browser gate denied asset bundle; inventory references retained only"
+}

@@ -1,0 +1,156 @@
+- button:
+- heading "AiSensy" [level=3]
+- heading "Template Messages" [level=3]
+- button "AI Assistant":
+- button "Create Template":
+  - text: Create Template
+- img "Campaign agent"
+- heading "Meet Campaign Agent, your AI campaign manager" [level=6]
+- generic: New
+- generic: Describe your g
+- button "Try Campaign Agent":
+  - generic: Try Campaign Agent
+- paragraph: Template Message quick guide
+- heading "Quick Guide" [level=5]
+- paragraph: You can Initiate a Conversation with users on WhatsApp using these template messages.
+- link "How to Create WhatsApp Template Message?":
+  - /url: https://faq.aisensy.com/how-to-create-whatsapp-template-messages-in-aisensy/
+  - generic: How to Create WhatsApp Template Message?
+- link "Use chatbot parameters for leads":
+  - /url: https://m.aisensy.com/how-to-use-parameters-in-whatsapp-template-message
+  - generic: Use chatbot parameters for leads
+- link "Add Quick Reply to WhatsApp Template Message":
+  - /url: https://m.aisensy.com/how-to-add-quick-reply-to-whatsapp-template-message
+  - generic: Add Quick Reply to WhatsApp Template Message
+- link "Message formatting guideline (Bold, Italic & more)":
+  - /url: https://faq.aisensy.com/whatsapp-template-message-guidelines/
+  - generic: Message formatting guideline (Bold, Italic & more)
+- heading "What would you like to launch?" [level=5]
+- button "Create AI Templates AI Generate powerful WhatsApp templates in seconds with AI.":
+  - paragraph: Create AI Templates
+  - generic: AI
+  - paragraph: Generate powerful WhatsApp templates in seconds with AI.
+- button "Launch WhatsApp Status Ad NEW Publish scroll-stopping offers directly to WhatsApp Status.":
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button "Launch Lead Form Ads Capture high-intent leads and follow up instantly on WhatsApp.":
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button "Create AI Agent AI Qualify leads, answer questions and close sales automatically.":
+  - paragraph: Create AI Agent
+  - generic: AI
+  - paragraph: Qualify leads, answer questions and close sales automatically.
+- textbox "Search templates (status, name etc.)"
+- button "Search templates":
+- button "Sync":
+  - text: Sync
+- tablist "scrollable auto tabs example":
+  - tab "Explore" [selected]:
+    - text: Explore
+  - tab "All":
+    - text: All
+  - tab "Draft":
+    - text: Draft
+  - tab "Pending":
+    - text: Pending
+  - tab "Approved":
+    - text: Approved
+  - tab "Action Required":
+    - text: Action Required
+- button "Refine by:":
+  - paragraph: "Refine by:"
+- paragraph: Last-Chance Offer
+- paragraph: IMAGE
+- generic: BUILDS URGENCY
+- paragraph: Hey [Shivam]👋 A little reminder before the celebrations begin. 🪈✨ Our *Janmashtami Sale* ends soon. Get *[20]% OFF* on your favourites using code *[JANMASHTMI20]* before the offer is gone.
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Janmashtami Offer
+- paragraph: IMAGE
+- generic: FESTIVE
+- paragraph: Hi [Shivam] 👋 Our Janmashtami Special Offer is now live! 🎉 Celebrate the festive season with [10]% OFF on your favourites. Use code [JANM10] at checkout. Available for a limited time, so don’t wait too long.
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Rakhi Reminder
+- paragraph: IMAGE
+- generic: BOOST SALES
+- paragraph: Hi [Shivam], still looking for the perfect Rakhi gift? 👀 There’s still time to surprise your sibling with something special. Place your order today and get it in time for Raksha Bandhan. 🎁
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Rakhi Collection
+- paragraph: IMAGE
+- generic: HIGH ROI
+- paragraph: Hi [Shivam] 👋 Rakhi is almost here, and we’ve picked out something special for the person who knows you best. 🎁 Explore our Rakhi Collection and get [20]% OFF using code [RAKHI20]. Find a gift your sibling will genuinely love. ❤️
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Rakhi Promotion
+- paragraph: TEXT
+- generic: SPECIAL RAKHI OFFER
+- paragraph: Hey [Shivam], Raksha Bandhan Special is here 🎁 Celebrate the sweetest bond with Flat 25% OFF on our entire [Watch catalogue]! Whether you’re near or far, send love wrapped in the perfect gift. 💌 Order now and get it delivered in time for the big day. 📅 Offer ends [tonight] – grab it while you can!
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Rakhi Special Offer
+- paragraph: TEXT
+- generic: RAKHI SALE
+- paragraph: Hey [Shivam], A bond like no other deserves a gift like no other 💝 This Raksha Bandhan, surprise your brother/sister with something they’ll cherish forever. We’ve handpicked our best [perfume collections] just for the occasion – and they’re all on special festive prices! ✨ Offer valid till [midnight today] - don’t miss out on making this Rakhi extra special.
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Holi Wishes & Offer
+- paragraph: IMAGE
+- paragraph: "🎨✨ *Holi Special: Exclusive Discounts Just for You [Shivam]* Enjoy *[25%] % OFF* on [Bassheads 225] & celebrate this festival with BIG savings! But don’t wait too long—offer ends in [24 hours]! 🚀 💰 Get your Holi deal now! 👇"
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Holi Wishes + Offer
+- paragraph: IMAGE
+- paragraph: 🎉 Hey [Shivam], Holi is here & so are the best festive deals!🎉 Enjoy *[20%] % OFF* on [Bassheads 225]—because celebrations are better with savings! 💰 Grab your Holi offer now! 🎊👇
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: First Message
+- paragraph: IMAGE
+- paragraph: "The firsts are always special, like your first salary, your first car & your first date😌 Do you know what’s special for us? *YOUR FIRST ORDER 😍* We want to make it special for you too - Get a FLAT DISCOUNT of [50%] on your first order worth *[Rs 100]* or more, along with *FREE DELIVERY* Just use code: *[OFF100]🤑*"
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Offer Message
+- paragraph: IMAGE
+- paragraph: "*Final Hours to Go ! Offer Ends Soon* 👋 [20%]% Discount on Any purchase | It's Time to Action 💥 Use Discount Code 👉 [20OFF] & Get *[20%] Discount* Expires Tonight ❗ 👉[FREE Delivery] 👉[Zero EMI] 👉[1 Year Warranty] Happy Shopping 🥳🥳"
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Event Invite
+- paragraph: IMAGE
+- paragraph: "Dear [Ayush], [AiSensy] is back with another [WhatsApp Marketing] event for you. Event Details: Date - [3rd December] Time - [3 PM - 6 PM] Location - [Meta Headquarters, Gurugram] Hurry, click the below button. Looking forward to seeing you! Best Regards, Team [AiSensy]"
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph: Property Promotion
+- paragraph: IMAGE
+- paragraph: Hey [Ankit], Did you like [73/37, Golf Course Road]? Get more information about similar homes in [Golf Course Road] by clicking the button below 👇
+- button "Preview":
+  - generic: Preview
+- button "Submit":
+  - generic: Submit
+- paragraph:
+  - generic: 13–24 of 31
+- button "Previous page":
+- button "Next page" [active]:

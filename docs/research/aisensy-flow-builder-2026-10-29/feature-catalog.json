@@ -1,0 +1,2474 @@
+[
+  {
+    "id": "CAP-001",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "AiSensy header and main navigation button",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-002",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Back navigation",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-003",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Flow title and rename affordance",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-004",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "AI prompt entry affordance",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-005",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Generate flow with AI button",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-006",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Previous prompts affordance (responsive presentation differs)",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-007",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Fallback & Intents dialog",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-008",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Save Changes control",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-009",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Builder tab",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-010",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Separate AI Agent tab",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-011",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Active / Inactive switch",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-012",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Three palette groups: Message types, Actions, Integrations",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-013",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Palette tiles support tap or drag",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-014",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "API quota badge",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-015",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Unavailable Easyinsights tooltip",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-016",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Flow Start card",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-017",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Editable configuration directly on nodes",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-018",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Minimap",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-019",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Zoom in",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-020",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Zoom out",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-021",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Fit view",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-022",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Interactivity lock",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-023",
+    "group": "Workspace",
+    "status": "UI observed",
+    "capability": "Edge removal buttons",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-024",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "No self-edge on connection creation",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-025",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "At most one outgoing connection per source handle",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-026",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Multiple distinct branch handles per node",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-027",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Animated green arrow edges",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-028",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Dashed connection draft with endpoint marker",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-029",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Drop palette node at projected canvas coordinates",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-030",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Tap inserts node at viewport center",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-031",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Drop a connection onto blank canvas to open node selection",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-032",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Click canvas dismisses temporary select node",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-033",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Minimap can pan and zoom",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-034",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Canvas minZoom 0.1 and maxZoom 1",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-035",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Read-only mode disables dragging/selecting/connecting during generation",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-036",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Node position persistence and restore",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-037",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Restore filters dangling source/target edges",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-038",
+    "group": "Canvas authoring",
+    "status": "Static implementation observed",
+    "capability": "Position repair for nonfinite or extreme outlier coordinates",
+    "evidence": "builder-readable.js:15254",
+    "line": 15254
+  },
+  {
+    "id": "CAP-039",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Duplicate node",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-040",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Delete node",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-041",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Add Content within composite node",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-042",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Content Block chooser",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-043",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Reorder content upward",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-044",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Reorder content downward",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-045",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Delete content block",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-046",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Hover toolbar with preview/edit actions",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-047",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Default Connect Component continuation",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-048",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Type-specific node title derived from content",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-049",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Content-level preview selection",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-050",
+    "group": "Content authoring",
+    "status": "Static implementation observed",
+    "capability": "Keyword/AI-keyword chip creation and removal",
+    "evidence": "builder-readable.js:13275",
+    "line": 13275
+  },
+  {
+    "id": "CAP-051",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Keyword chip entry on Enter",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-052",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Keyword chip deletion",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-053",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Regex substring trigger",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-054",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Case-sensitive regex toggle",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-055",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Template-trigger selection",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-056",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Base account up to 1 trigger template",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-057",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Pro code path up to 5 trigger templates",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-058",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Quick-reply trigger routing to nodes",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-059",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Meta Ad trigger picker",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-060",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Up to 20 Meta Ads",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-061",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Ad search and multiselect",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-062",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Facebook-style ad preview",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-063",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Per-ad trigger output",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-064",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "QR campaign trigger picker when feature is enabled",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-065",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Up to 1 QR campaign",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-066",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "QR campaign message preview and active trigger selection",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-067",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Existing icebreaker trigger outputs",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-068",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "Order/cart trigger when account enables it",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-069",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "$cartData formatted-cart variable",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-070",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "$rawData raw-cart variable",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-071",
+    "group": "Flow entry",
+    "status": "UI and code observed",
+    "capability": "$totalCartValue cart-total variable",
+    "evidence": "builder-readable.js:7130",
+    "line": 7130
+  },
+  {
+    "id": "CAP-072",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Text message body editor",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-073",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Text body 1024 counter/limit",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-074",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Add/remove up to 3 reply buttons",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-075",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Reply label 20 counter/limit",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-076",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Distinct reply-button source ports",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-077",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Message AI keyword field",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-078",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "IMAGE media selection",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-079",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "VIDEO media selection",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-080",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "AUDIO media selection",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-081",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "FILE media selection",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-082",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Media URL input",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-083",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Add Media picker affordance",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-084",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "FILE display filename up to 100",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-085",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Media caption up to 1024",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-086",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Media reply buttons",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-087",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Audio choice clears reply-button config",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-088",
+    "group": "Text and media",
+    "status": "UI and code observed",
+    "capability": "Media/text preview on content interaction",
+    "evidence": "builder-readable.js:2760",
+    "line": 2760
+  },
+  {
+    "id": "CAP-089",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List header up to 20",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-090",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List body up to 1024",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-091",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List footer up to 60",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-092",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List section title up to 24",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-093",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List item title up to 24",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-094",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List description up to 72",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-095",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Add/remove list sections",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-096",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Add/remove list rows",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-097",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List add-row guard counts 10 total rows",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-098",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List add-section guard checks 10 sections",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-099",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List CTA editor",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-100",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List fallback message editor",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-101",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List timeout branch",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-102",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "List row output ports",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-103",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Catalogue body/footer",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-104",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Single product picker",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-105",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Single product image/title/price representation",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-106",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Single product catalogue and retailer identity",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-107",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Multi-product header/body/footer",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-108",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Multi-product sections and titles",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-109",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Add/remove products within sections",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-110",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Product count display",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-111",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Multi-product section guard checks 30 sections (not verified as a valid Meta limit)",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-112",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Multi-product CTA",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-113",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Catalogue/product payload compilation",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-114",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Template picker and preview",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-115",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Template parameter substitution controls",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-116",
+    "group": "Lists and commerce",
+    "status": "UI and code observed",
+    "capability": "Template media configuration",
+    "evidence": "builder-readable.js:4770",
+    "line": 4770
+  },
+  {
+    "id": "CAP-117",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Question prompt up to 1024",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-118",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Capture response into selected attribute",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-119",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Any format",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-120",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Text format",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-121",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Number format",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-122",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Numeric minimum",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-123",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Numeric maximum",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-124",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Date format",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-125",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "True/False format",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-126",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Email format",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-127",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Regex format",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-128",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Custom regex value",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-129",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Validation attempt count",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-130",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Validation error message up to 1024",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-131",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Success continuation",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-132",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Validation-exhaustion/error continuation",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-133",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Skippable question toggle when applicable",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-134",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Skip-button text up to 20",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-135",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Capture media response to attribute",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-136",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Image answer type",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-137",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Video answer type",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-138",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Document answer type",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-139",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Audio answer type",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-140",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Serialized/default Any media state",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-141",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Address prompt",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-142",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Raw address capture attribute",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-143",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Formatted address capture attribute",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-144",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Location prompt",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-145",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Longitude capture attribute",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-146",
+    "group": "Capture and validation",
+    "status": "UI and code observed",
+    "capability": "Latitude capture attribute",
+    "evidence": "builder-readable.js:9780",
+    "line": 9780
+  },
+  {
+    "id": "CAP-147",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Per-content delay input in seconds",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-148",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Delay feature gate and PRO affordance",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-149",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Timeout enable toggle",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-150",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Timeout numeric input in minutes",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-151",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "After Timeout output port",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-152",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Timeout upgrade dialog when gated",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-153",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Timeout numeric input default min 1/max 1000",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-154",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Timeout helper says 1 to 72, inconsistent with default max 1000",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-155",
+    "group": "Timing",
+    "status": "UI and code observed",
+    "capability": "Timeout included in compiled message configuration",
+    "evidence": "builder-readable.js:2390",
+    "line": 2390
+  },
+  {
+    "id": "CAP-156",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Equal condition",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-157",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Exists condition",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-158",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Time In condition",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-159",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Date In condition",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-160",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Compare attribute with literal",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-161",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Compare attribute with another attribute",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-162",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Time range start/end picker",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-163",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Date range start/end picker",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-164",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Compare range against Now",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-165",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Compare range against stored attribute",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-166",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "True branch",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-167",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "False branch",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-168",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "UTC time/date helper hints",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-169",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Connect existing flow selector",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-170",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Attribute assignment action",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-171",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Value or variable attribute input",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-172",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Multiple tag assignment",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-173",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Tag creation dialog",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-174",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Tag category selector/free entry",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-175",
+    "group": "Logic and state",
+    "status": "UI and code observed",
+    "capability": "Customer Journey tracking toggle",
+    "evidence": "builder-readable.js:12060",
+    "line": 12060
+  },
+  {
+    "id": "CAP-176",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "HTTP GET",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-177",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "HTTP POST",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-178",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "HTTP PUT",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-179",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "HTTP PATCH",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-180",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "HTTP DELETE",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-181",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Request URL editor",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-182",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Params tab",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-183",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Headers tab",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-184",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "JSON Body tab",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-185",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Add/remove key-value rows",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-186",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Attribute/global-attribute value picker",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-187",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Editable JSON code pane",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-188",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Test request action",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-189",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Test response/status display",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-190",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Response body rendering",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-191",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Response-to-attribute mapping",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-192",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Nested dot-path response key enumeration",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-193",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Multiple response attribute mappings",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-194",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Status Fallback port",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-195",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Custom HTTP-status branch",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-196",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Up to 5 custom status-code branches",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-197",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Save request action gated by isTestPass",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-198",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Editing request resets test state",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-199",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Frontend sets isTestPass even on caught test failure: test-attempt gate, not proof of success",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-200",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "Quota formula configured extra apiRequestCount + 5 - current API contents",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-201",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "API insertion blocked when remaining slots zero",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-202",
+    "group": "API requests",
+    "status": "UI and code observed",
+    "capability": "POST /testing/webhook-test is the frontend test transport",
+    "evidence": "builder-readable.js:10900",
+    "line": 10900
+  },
+  {
+    "id": "CAP-203",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Meta Lead event",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-204",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Meta Purchase event",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-205",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Conversion currency selector",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-206",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Conversion amount input",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-207",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Lead currency/amount optional",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-208",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Purchase frontend requires currency and nonzero numeric amount",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-209",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Conversion continuation port",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-210",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Easyinsights New Lead event",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-211",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Easyinsights Status Change event",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-212",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Easyinsights Transaction event",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-213",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Easyinsights conversion name",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-214",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Easyinsights revenue/currency/discount/offer-code fields",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-215",
+    "group": "Conversion integrations",
+    "status": "UI and code observed",
+    "capability": "Easyinsights install/live-availability routing",
+    "evidence": "builder-readable.js:13070",
+    "line": 13070
+  },
+  {
+    "id": "CAP-216",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Meta Flow ID",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-217",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Flow token",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-218",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "First screen name",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-219",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Draft or Published mode",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-220",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Header/body/footer",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-221",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Flow CTA text",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-222",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "navigate action",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-223",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "data_exchange action",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-224",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Attribute passed as custom form data",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-225",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Validation error message",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-226",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Completion continuation",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-227",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Flow message version 3",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-228",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Flow timeout branch",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-229",
+    "group": "WhatsApp Forms",
+    "status": "Gated static code only",
+    "capability": "Forms tile gated by feature configuration",
+    "evidence": "builder-readable.js:12500",
+    "line": 12500
+  },
+  {
+    "id": "CAP-230",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Payment tile requires paymentConfig",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-231",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Configured native WhatsApp UPI mode",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-232",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Configured Payment Link mode",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-233",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Configured All method gateway mode",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-234",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Feature-gated EPL mode",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-235",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Payment template selection",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-236",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Approved EPL template filtering",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-237",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Template parameters",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-238",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Currency choices INR and USD",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-239",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Custom Product toggle",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-240",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Product name",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-241",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Product quantity",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-242",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Per-quantity amount",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-243",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Payment continuation",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-244",
+    "group": "Payments",
+    "status": "Gated static code only",
+    "capability": "Payment timeout",
+    "evidence": "builder-readable.js:10140",
+    "line": 10140
+  },
+  {
+    "id": "CAP-245",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Right-side preview panel width 355",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-246",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Mobile WhatsApp-style header",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-247",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Business avatar or fallback avatar",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-248",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "WhatsApp number in preview header",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-249",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Preview close/back actions",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-250",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Chat wallpaper reference",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-251",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Message bubble and tail",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-252",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Header/body/footer representation",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-253",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Asterisk-to-bold text formatting",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-254",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Reply button representation",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-255",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Media image representation",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-256",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Single-product thumbnail/title/price",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-257",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Multi-product cover thumbnail and item count",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-258",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Open list sheet",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-259",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "List sheet section titles",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-260",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "List sheet row titles/descriptions",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-261",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Close list sheet",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-262",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Open product sheet",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-263",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Product sheet sections",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-264",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Product image/name/description/price",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-265",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Product add affordance",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-266",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Template-renderer preview",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-267",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Facebook ad sponsored preview",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-268",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Preview with edit in template/QR surfaces",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-269",
+    "group": "Previews",
+    "status": "Static implementation observed",
+    "capability": "Preview is graphical representation; live rendering may differ",
+    "evidence": "builder-readable.js:13740",
+    "line": 13740
+  },
+  {
+    "id": "CAP-270",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Default fallback enable toggle",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-271",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Default fallback text/image/video type",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-272",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Fallback text or media URL/file selection",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-273",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Order fallback enable toggle",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-274",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Order fallback text/image/video type",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-275",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Done dialog action",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-276",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Default reply described as handling flow-mismatched replies",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-277",
+    "group": "Fallback",
+    "status": "UI and code observed",
+    "capability": "Order message described as order/checkout response",
+    "evidence": "builder-readable.js:15680",
+    "line": 15680
+  },
+  {
+    "id": "CAP-278",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Prompt textarea up to 1000 characters",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-279",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Example prompts",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-280",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Generation loading state",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-281",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Streamed node insertion",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-282",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Streamed edge insertion",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-283",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Duplicate generated node/handle suppression",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-284",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Read-only editing during generation",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-285",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Previous prompt history",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-286",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Prompt text copy",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-287",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Restore previous generated flow",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-288",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Today history filter",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-289",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "This Week history filter",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-290",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "This Month history filter",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-291",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Custom Range history filter",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-292",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "History search and empty state",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-293",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Save & Replace or Discard & Replace dialog",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-294",
+    "group": "AI authoring and history",
+    "status": "Static implementation observed",
+    "capability": "Unsaved-flow Save or Discard navigation dialog",
+    "evidence": "builder-readable.js:16220",
+    "line": 16220
+  },
+  {
+    "id": "CAP-295",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Versioned graph and configuration schema",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-296",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Draft versus immutable published execution version",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-297",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Inbound reply-to-port binding",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-298",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Durable timers and paused conversation state",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-299",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Response normalization for address/location/media",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-300",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Per-contact attribute persistence and scoping",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-301",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Idempotent message and integration effects",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-302",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Explicit handoff ownership and resume policy",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-303",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Bounded graph cycles and cross-flow transitions",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-304",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Safe server-side HTTP executor and secret references",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-305",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Catalogue/order/Meta Flow/payment integration adapters",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-306",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Local simulator using same validation and transitions",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-307",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Runtime logs with branch/error/timeout reasons",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-308",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Permissions for authoring, publishing, testing, and secrets",
+    "evidence": "live DOM",
+    "line": null
+  },
+  {
+    "id": "CAP-309",
+    "group": "Engineering replication",
+    "status": "Recommended, not extracted backend behavior",
+    "capability": "Contract checks for UI limits versus transport limits",
+    "evidence": "live DOM",
+    "line": null
+  }
+]

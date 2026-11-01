@@ -1,0 +1,74 @@
+- button:
+- heading "AiSensy" [level=3]
+- button:
+- heading "Create New Ad" [level=3]
+- 'heading "Remaining Ad Credit: ₹ 1000.00" [level=4]'
+- button "AI Assistant":
+- text: "1"
+- paragraph: Where should people go after clicking your ad?
+- heading "This choice determines the campaign setup and the results you can optimise for." [level=6]
+- generic: "2"
+- paragraph: Ad Targeting & Audience
+- heading "Select geo location in which you would like to ad. Select gender and age group of your audience" [level=6]
+- generic: "3"
+- paragraph: Ad Budget
+- heading "Select daily budget you would like to spend on an ad. Select the time period for which an ad will run" [level=6]
+- generic: "4"
+- paragraph: Ad Creative
+- heading "Provide details to create ad creative and preview. Ad will have similar as shown in preview" [level=6]
+- text: "5"
+- paragraph: Icebreakers (Optional)
+- heading "Set actions like ad level icebreakers for your ads and connect flows with your icebreaker messages" [level=6]
+- checkbox
+- paragraph: Icebreaker Message
+- paragraph: For You
+- paragraph: 1. This message will be pre-filled when customers click your ad and open WhatsApp
+- paragraph: 2. Connect each icebreaker message to a specific WhatsApp flow to automate customer conversation
+- heading "Search Saved Icebreakers" [level=3]
+- combobox:
+  - textbox "Search saved Icebreakers" [disabled]
+  - button "Open" [disabled]:
+- button "Create New":
+  - generic: Create New
+- heading "Icebreaker Name" [level=3]
+- textbox "Icebreaker Name"
+- heading "Greeting message*" [level=3]
+- textbox "Greeting Message" [disabled]
+- heading "Icebreakers" [level=3]
+- textbox "Ice Breaker Text" [disabled]
+- paragraph: 0/80
+- button "No Flow Selected" [disabled]:
+  - generic: No Flow Selected
+- textbox
+- button "Choose Block" [disabled]:
+  - generic: Choose Block
+- button "Add New Icebreaker":
+  - text: Add New Icebreaker
+- button "Save Icebreakers":
+  - generic: Save Icebreakers
+- paragraph: 17:19
+- paragraph: Bodhinox Chat
+- paragraph
+- paragraph
+- paragraph: Type a message
+- paragraph: This message will be pre-filled for the customer.
+- button "Publish":
+  - generic: Publish
+- heading "Bodhinox Chat" [level=5]
+- paragraph: sponsored
+- heading "Enter Caption" [level=6]
+- heading "WHATSAPP" [level=5]
+- heading "Enter Headline" [level=5]
+- button "Whatsapp":
+  - text: Whatsapp
+- heading "WHATSAPP" [level=5]
+- heading "Enter Headline" [level=5]
+- button "Whatsapp":
+  - text: Whatsapp
+- button [disabled]:
+- button:
+- heading "Like" [level=5]
+- heading "Share" [level=5]
+- paragraph: Estimated reach
+- generic: 330 Cr Monthly Active Users
+- heading "The accuracy of these estimates relies on factors like past campaign data, budget, market data, targeting, and ad placements. They provide an idea of potential performance but do not guarantee results." [level=6]

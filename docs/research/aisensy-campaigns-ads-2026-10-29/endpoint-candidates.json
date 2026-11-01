@@ -1,0 +1,408 @@
+[
+  {
+    "pathFragment": "/ad-templates",
+    "source": "static-modules/14876.js",
+    "line": 24,
+    "context": "return r.Z.get(\"\".concat(o.URL, \"/ad-templates\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/ad-templates",
+    "source": "static-modules/14876.js",
+    "line": 47,
+    "context": "return r.Z.post(\"\".concat(o.URL, \"/ad-templates\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/ad-templates/shopify-products",
+    "source": "static-modules/14876.js",
+    "line": 81,
+    "context": "s = e => r.Z.get(\"\".concat(o.URL, \"/ad-templates/shopify-products\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/ad-templates/",
+    "source": "static-modules/14876.js",
+    "line": 90,
+    "context": "l = e => r.Z.get(\"\".concat(o.URL, \"/ad-templates/\").concat(encodeURIComponent(e))).then(e => {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta-ads/product/",
+    "source": "static-modules/14876.js",
+    "line": 94,
+    "context": "c = (e, t) => r.Z.get(\"\".concat(o.URL, \"/meta-ads/product/\").concat(encodeURIComponent(t)), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/ad-templates/",
+    "source": "static-modules/14876.js",
+    "line": 102,
+    "context": "d = (e, t, n) => r.Z.patch(\"\".concat(o.URL, \"/ad-templates/\").concat(e), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/ad-templates/",
+    "source": "static-modules/14876.js",
+    "line": 109,
+    "context": "u = (e, t) => r.Z.post(\"\".concat(o.URL, \"/ad-templates/\").concat(e, \"/retry\"), t && t.length ? {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/ads/create",
+    "source": "static-modules/14876.js",
+    "line": 115,
+    "context": "p = e => r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/ads/create\"), e).then(e => e.data),",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/accounts/fetch-ad-setup",
+    "source": "static-modules/14876.js",
+    "line": 116,
+    "context": "h = e => r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/accounts/fetch-ad-setup\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/lead-forms/permissions/check",
+    "source": "static-modules/14876.js",
+    "line": 119,
+    "context": "f = (e, t) => r.Z.get(\"\".concat(o.ADS_REST_API_URL, \"/meta/lead-forms/permissions/check\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/analytics/ad-insights",
+    "source": "static-modules/22877.js",
+    "line": 275,
+    "context": "const l = await r.Z.post(\"\".concat(i.ADS_REST_API_URL, \"/meta/analytics/ad-insights\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/ads/sync",
+    "source": "static-modules/22877.js",
+    "line": 305,
+    "context": "const s = await r.Z.post(\"\".concat(i.ADS_REST_API_URL, \"/meta/ads/sync\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/sync",
+    "source": "static-modules/22877.js",
+    "line": 327,
+    "context": "return (await r.Z.post(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/sync\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/sync-status",
+    "source": "static-modules/22877.js",
+    "line": 346,
+    "context": "return (await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/sync-status\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/api/get-daily-template-quota",
+    "source": "static-modules/22877.js",
+    "line": 350,
+    "context": "Ae = async e => (await r.Z.post(\"\".concat(i.URL, \"/api/get-daily-template-quota\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/contacts",
+    "source": "static-modules/22877.js",
+    "line": 375,
+    "context": "return (await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/contacts\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/stats",
+    "source": "static-modules/22877.js",
+    "line": 385,
+    "context": "return (await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/stats\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/contacts/",
+    "source": "static-modules/22877.js",
+    "line": 394,
+    "context": "return (await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/contacts/\").concat(e, \"/submissions\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/lead-forms",
+    "source": "static-modules/22877.js",
+    "line": 417,
+    "context": "return (await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/lead-forms\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/lead-forms/",
+    "source": "static-modules/22877.js",
+    "line": 421,
+    "context": "we = async (e, t) => (await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/lead-forms/\").concat(e), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/lead-forms/",
+    "source": "static-modules/22877.js",
+    "line": 437,
+    "context": "return (await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/lead-forms/\").concat(e, \"/overview\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta-ads/lead-analytics",
+    "source": "static-modules/22877.js",
+    "line": 453,
+    "context": "return (await r.Z.get(\"\".concat(i.URL, \"/meta-ads/lead-analytics\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/contacts/export",
+    "source": "static-modules/22877.js",
+    "line": 494,
+    "context": "const y = await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/contacts/export\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/form-responses/export",
+    "source": "static-modules/22877.js",
+    "line": 523,
+    "context": "const g = await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/form-responses/export\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/ads/update-status",
+    "source": "static-modules/22877.js",
+    "line": 534,
+    "context": "const l = await r.Z.post(\"\".concat(i.ADS_REST_API_URL, \"/meta/ads/update-status\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/analytics/account-insights",
+    "source": "static-modules/22877.js",
+    "line": 682,
+    "context": "const f = \"\".concat(i.ADS_REST_API_URL, \"/meta/analytics/account-insights\"),",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/analytics/account-insights",
+    "source": "static-modules/22877.js",
+    "line": 797,
+    "context": "const l = await r.Z.post(\"\".concat(i.ADS_REST_API_URL, \"/meta/analytics/account-insights\"), E, {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/analytics/account-insights/export",
+    "source": "static-modules/22877.js",
+    "line": 868,
+    "context": "const p = await r.Z.post(\"\".concat(i.ADS_REST_API_URL, \"/meta/analytics/account-insights/export\"), u, {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/contacts",
+    "source": "static-modules/22877.js",
+    "line": 954,
+    "context": "const f = await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/contacts\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/lead-forms",
+    "source": "static-modules/22877.js",
+    "line": 995,
+    "context": "const s = await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/lead-forms\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/ads-list",
+    "source": "static-modules/22877.js",
+    "line": 1020,
+    "context": "const n = await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/ads-list\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta-ads/fetch-historical-leads",
+    "source": "static-modules/22877.js",
+    "line": 1055,
+    "context": "const p = await r.Z.post(\"\".concat(i.URL, \"/meta-ads/fetch-historical-leads\"), u);",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/leads/contacts/export",
+    "source": "static-modules/22877.js",
+    "line": 1097,
+    "context": "const f = await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/leads/contacts/export\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/api/get-contact-segregated-opted",
+    "source": "static-modules/22877.js",
+    "line": 1137,
+    "context": "const a = (await r.Z.post(\"\".concat(i.URL, \"/api/get-contact-segregated-opted\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/lead-forms/",
+    "source": "static-modules/22877.js",
+    "line": 1165,
+    "context": "const a = await r.Z.get(\"\".concat(i.ADS_REST_API_URL, \"/meta/lead-forms/\").concat(t), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/api/fetch-campaigns",
+    "source": "static-modules/55940.js",
+    "line": 33,
+    "context": "}), r.Z.post(o.URL + \"/api/fetch-campaigns\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/api/get-daily-template-quota",
+    "source": "static-modules/55940.js",
+    "line": 54,
+    "context": "r.Z.post(o.URL + \"/api/get-daily-template-quota\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/payment/sync-billing-address",
+    "source": "static-modules/81766.js",
+    "line": 122,
+    "context": "}), r.Z.post(o.URL + \"/payment/sync-billing-address\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/payment/sync-payment-method",
+    "source": "static-modules/81766.js",
+    "line": 139,
+    "context": "}), r.Z.post(o.URL + \"/payment/sync-payment-method\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/api/get-wba-details",
+    "source": "static-modules/81766.js",
+    "line": 160,
+    "context": "}), r.Z.post(o.URL + \"/api/get-wba-details\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/api/get-payment-details",
+    "source": "static-modules/81766.js",
+    "line": 535,
+    "context": "r.Z.post(o.URL + \"/api/get-payment-details\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/campaign/list",
+    "source": "static-modules/86983.js",
+    "line": 59,
+    "context": "s(g()), r.Z.post(o.CampaignURL + \"/campaign/list\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/campaign/list",
+    "source": "static-modules/86983.js",
+    "line": 121,
+    "context": "}), r.Z.post(o.CampaignURL + \"/campaign/list\", {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta-ads/audiences/convoCount",
+    "source": "static-modules/91506.js",
+    "line": 94,
+    "context": "const a = await r.Z.post(\"\".concat(o.URL, \"/meta-ads/audiences/convoCount\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/audiences/custom",
+    "source": "static-modules/91506.js",
+    "line": 141,
+    "context": "f = await r.Z.get(\"\".concat(o.ADS_REST_API_URL, \"/meta/audiences/custom\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/audiences/custom/create-async",
+    "source": "static-modules/91506.js",
+    "line": 203,
+    "context": "g = await r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/audiences/custom/create-async\"), f);",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/audiences/lookalike",
+    "source": "static-modules/91506.js",
+    "line": 244,
+    "context": "d = await r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/audiences/lookalike\"), c);",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/audiences/custom/create-with-lookalike",
+    "source": "static-modules/91506.js",
+    "line": 307,
+    "context": "y = await r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/audiences/custom/create-with-lookalike\"), g);",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta-ads/audiences/custom/",
+    "source": "static-modules/91506.js",
+    "line": 341,
+    "context": "i = await r.Z.put(\"\".concat(o.URL, \"/meta-ads/audiences/custom/\").concat(n), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/api/get-upload-url",
+    "source": "static-modules/91506.js",
+    "line": 371,
+    "context": "const i = await r.Z.post(\"\".concat(o.URL, \"/api/get-upload-url\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/campaign/meta-audience-upload",
+    "source": "static-modules/91506.js",
+    "line": 416,
+    "context": "return (await r.Z.post(\"\".concat(o.CampaignURL, \"/campaign/meta-audience-upload\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/audiences/custom/upload",
+    "source": "static-modules/91506.js",
+    "line": 439,
+    "context": "return (await r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/audiences/custom/upload\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/audiences/custom/sync",
+    "source": "static-modules/91506.js",
+    "line": 492,
+    "context": "const a = await r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/audiences/custom/sync\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/pixels/get",
+    "source": "static-modules/91506.js",
+    "line": 528,
+    "context": "const l = await r.Z.get(\"\".concat(o.ADS_REST_API_URL, \"/meta/pixels/get\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/pixels/details",
+    "source": "static-modules/91506.js",
+    "line": 557,
+    "context": "const l = await r.Z.get(\"\".concat(o.ADS_REST_API_URL, \"/meta/pixels/details\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/pixels/stats",
+    "source": "static-modules/91506.js",
+    "line": 638,
+    "context": "l = await r.Z.get(\"\".concat(o.ADS_REST_API_URL, \"/meta/pixels/stats\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/pixels/sync",
+    "source": "static-modules/91506.js",
+    "line": 664,
+    "context": "const n = await r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/pixels/sync\"), {",
+    "status": "static path candidate; not a network observation"
+  },
+  {
+    "pathFragment": "/meta/pixels/create",
+    "source": "static-modules/91506.js",
+    "line": 692,
+    "context": "const i = await r.Z.post(\"\".concat(o.ADS_REST_API_URL, \"/meta/pixels/create\"), {",
+    "status": "static path candidate; not a network observation"
+  }
+]

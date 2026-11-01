@@ -1,0 +1,4 @@
+Browser tab: 1, Title: "AiSensy", URL: "https://www.app.aisensy.com/projects/6ad89a5dbc797ae5b62b2c37/advertisement/create".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
++				223 text 330 Cr Monthly Active Users
+The focused UI element is 0 AXWebArea AiSensy, URL: app.aisensy.com/projects/6ad89a5dbc797ae5b62b2c37/advertisement/create

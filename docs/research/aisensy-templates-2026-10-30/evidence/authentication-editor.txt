@@ -1,0 +1,78 @@
+- button:
+- heading "AiSensy" [level=3]
+- button "Go back":
+- heading "New Template Message" [level=3]
+- 'heading "WCC Credits: ₹550" [level=4]'
+- button "AI Assistant":
+- heading "Template Category" [level=4]
+- paragraph: Your template should fall under one of these categories.
+- combobox:
+  - textbox "Select message categories" [active]: AUTHENTICATION
+  - button "Open":
+- heading "Template Language" [level=4]
+- paragraph: You will need to specify the language in which message template is submitted.
+- combobox:
+  - textbox "Select message language": English
+  - button "Open":
+- heading "Time-To-Live (TTL) PREMIUM ✨" [level=4]:
+  - text: Time-To-Live (TTL)
+  - generic: PREMIUM ✨
+- checkbox
+- paragraph: Set the time window for WhatsApp to deliver this message. If the user stays offline beyond this limit, Meta will stop trying so they don’t receive outdated messages.
+- heading "Template Name" [level=4]
+- paragraph:
+  - text: Name can only be in lowercase alphanumeric characters and underscores. Special characters and white-space are not allowed
+  - text: e.g. - app_verification_code
+- textbox "Enter name"
+- heading "Template Type" [level=4]
+- paragraph: Your template type should fall under one of these categories.
+- combobox:
+  - textbox "Select message type": TEXT
+  - button "Open":
+- heading "Sample Values" [level=4]
+- paragraph:
+  - text: Specify sample values for your parameters. These values can be changed at the time of sending.
+  - text: "e.g. - {{1}}: Mohit, {{2}}: 5."
+- 'heading "{{1}}" [level=5]'
+- textbox "Sample value"
+- heading "Expiration Warning (Optional)" [level=4]
+- paragraph: The time should be between 1 to 90 minutes.
+- spinbutton
+- paragraph: Add Security Disclaimer
+- checkbox "checkbox with default color"
+- heading "Template Preview" [level=4]
+- paragraph: Your template message preview. It will update as you fill in the values in the form.
+- img "WhatsApp"
+- 'heading "{{1}} is your verification code." [level=5]'
+- generic: Copy code
+- paragraph: "Disclaimer: This is just a graphical representation of the message that will be delivered. Actual message will consist of media selected and may appear different."
+- heading "Interactive Actions" [level=4]
+- paragraph:
+  - text: In addition to your message, you can send actions with your message.
+  - text: Maximum 25 characters are allowed in CTA button title & Quick Replies.
+- radiogroup:
+  - radio "None" [disabled]
+  - generic: None
+  - radio "Call to Actions" [disabled]
+  - generic: Call to Actions
+  - radio "Quick Replies" [disabled]
+  - generic: Quick Replies
+  - radio "All" [checked]
+  - generic: All
+- heading "Copy Code :" [level=5]
+- textbox "Code"
+- paragraph: 0/15
+- button "Quick Replies 9" [disabled]:
+  - text: Quick Replies
+  - generic: "9"
+- button "URL 2" [disabled]:
+  - text: URL
+  - generic: "2"
+- button "Phone Number 1" [disabled]:
+  - text: Phone Number
+  - generic: "1"
+- button "Copy Code 0" [disabled]:
+  - text: Copy Code
+  - generic: "0"
+- button "Submit":
+  - generic: Submit

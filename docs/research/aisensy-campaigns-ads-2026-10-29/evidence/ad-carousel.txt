@@ -1,0 +1,3 @@
+Browser tab: 1, Title: "AiSensy", URL: "https://www.app.aisensy.com/projects/6ad89a5dbc797ae5b62b2c37/advertisement/create".
+There has been no change in the accessibility tree.
+The focused UI element is 122 button Carousel

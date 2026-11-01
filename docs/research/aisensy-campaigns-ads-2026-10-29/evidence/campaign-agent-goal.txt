@@ -1,0 +1,35 @@
+- button:
+- heading "AiSensy" [level=3]
+- generic "Back":
+- textbox "Agent name":
+  - /placeholder: Untitled Agent
+- button "1 Goal":
+  - generic: "1"
+  - generic: Goal
+- button "2" [disabled]:
+  - generic: "2"
+- button "3" [disabled]:
+  - generic: "3"
+- button "4" [disabled]:
+  - generic: "4"
+- generic: Available WCC
+- generic: ₹550.00
+- button "Save & exit"
+- img "Campaign agent"
+- text: Campaign agent · online
+- heading "Namaste, Uday. What should we get done today?" [level=2]
+- generic: Say it like you’d tell a teammate, in English or Hinglish. Next you’ll pick who gets it; I’ll help write the messages.
+- textbox "Describe your goal":
+  - /placeholder: e.g. Remind customers with pen|
+- generic: Ctrl + Enter
+- generic "Give your agent a name to continue":
+  - button "Next · who gets it" [disabled]:
+    - text: Next · who gets it
+- generic: Try one
+- button "Re-engage dormant customers":
+  - text: Re-engage dormant customers
+- button "Product launch announcement":
+  - text: Product launch announcement
+- button "Subscription renewal reminder":
+  - text: Subscription renewal reminder
+- generic: Keep it rough. One line is enough; you can edit anything later.

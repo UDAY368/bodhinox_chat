@@ -1,0 +1,19 @@
+- button:
+- heading "AiSensy" [level=3]
+- button "Back":
+- heading "Create Campaign" [level=3]
+- paragraph: API Campaign
+- paragraph: Connect your existing systems with our endpoints & send notifications to your users on WhatsApp.
+- img "fbbmid-banner"
+- heading "Campaign Name" [level=5]
+- paragraph: Pick something that describes your audience & goals.
+- textbox "Enter campaign name"
+- heading "Template" [level=5]
+- paragraph: Select one from your WhatsApp approved template messages
+- combobox [expanded]:
+  - textbox "Search template" [active]
+  - button "Close":
+- button "Set Live" [disabled]:
+  - generic: Set Live
+- paragraph: Set your campaign live.
+- generic: No options

@@ -1,0 +1,28 @@
+{
+  "original": "C:\\Users\\uday\\Desktop\\BODHINOX_CHAT\\.reference\\aisensy-full-2026-10-29\\source\\main.01f91df0.js",
+  "sha256": "7217030be41febe46b0bc6ce4bda335ba358a92233db8c87fae2b0c0291b611b",
+  "note": "Analysis input is transformed module extracts, not original source or complete application. All cited readable line numbers refer to the formatted copy.",
+  "modules": [
+    {
+      "moduleId": 50789,
+      "file": "static-modules/50789.js",
+      "formattedSource": "../aisensy-campaigns-ads-2026-10-29/main-readable.js",
+      "startLine": 13192,
+      "endLine": 13610
+    },
+    {
+      "moduleId": 46946,
+      "file": "static-modules/46946.js",
+      "formattedSource": "../aisensy-campaigns-ads-2026-10-29/main-readable.js",
+      "startLine": 15399,
+      "endLine": 21165
+    },
+    {
+      "moduleId": 72283,
+      "file": "static-modules/72283.js",
+      "formattedSource": "../aisensy-campaigns-ads-2026-10-29/main-readable.js",
+      "startLine": 62043,
+      "endLine": 62181
+    }
+  ]
+}

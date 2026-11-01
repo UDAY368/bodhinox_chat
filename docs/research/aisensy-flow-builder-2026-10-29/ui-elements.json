@@ -1,0 +1,2627 @@
+[
+  {
+    "property": "label",
+    "value": "Smoothstep",
+    "line": 1794,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Step",
+    "line": 1797,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Bezier (default)",
+    "line": 1800,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Straight",
+    "line": 1803,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Edge Type",
+    "line": 1818,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "custom node",
+    "line": 1854,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Move Up Content",
+    "line": 1996,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Add Content",
+    "line": 2031,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Edit content",
+    "line": 2056,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Change template",
+    "line": 2072,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Edit content",
+    "line": 2092,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Edit content",
+    "line": 2111,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Preview with edit",
+    "line": 2128,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Move Down Content",
+    "line": 2188,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Request Intervention",
+    "line": 2368,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Intervene users and talk",
+    "line": 2371,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Custom Product",
+    "line": 2417,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "checkbox with default color",
+    "line": 2428,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Set Timeout",
+    "line": 2456,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Set Timeout",
+    "line": 2465,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Enter in minutes",
+    "line": 2481,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "step",
+    "value": 1,
+    "line": 2497,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 2526,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Set Delay",
+    "line": 2583,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type delay in seconds...",
+    "line": 2607,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 2617,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Type, press enter to add AI keyword",
+    "line": 2659,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type message...",
+    "line": 2760,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 2773,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 2807,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Button",
+    "line": 2881,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select media type",
+    "line": 3005,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select media type",
+    "line": 3018,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter or paste url",
+    "line": 3041,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type url...",
+    "line": 3051,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter file name",
+    "line": 3068,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type file name...",
+    "line": 3078,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 100,
+    "line": 3086,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": " + Add Media",
+    "line": 3173,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 3182,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Caption...",
+    "line": 3185,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 3240,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Button",
+    "line": 3312,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Text + Button",
+    "line": 3365,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Media",
+    "line": 3379,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "List Message",
+    "line": 3393,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Single Product Message",
+    "line": 3407,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Multi Product Message",
+    "line": 3421,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Template",
+    "line": 3435,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Request Intervention",
+    "line": 3449,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Ask Question",
+    "line": 3529,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Set Attribute",
+    "line": 3545,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Content Block",
+    "line": 3601,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Header",
+    "line": 3693,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 3699,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Body",
+    "line": 3718,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 3725,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Footer",
+    "line": 3741,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 60,
+    "line": 3747,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Section Title",
+    "line": 3801,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 24,
+    "line": 3819,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Item",
+    "line": 3865,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": " + Add Product",
+    "line": 4019,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Body",
+    "line": 4034,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Footer",
+    "line": 4054,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Header",
+    "line": 4195,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 4211,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Body",
+    "line": 4230,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 4243,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Footer",
+    "line": 4259,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 60,
+    "line": 4274,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Section Title",
+    "line": 4325,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 24,
+    "line": 4346,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Products",
+    "line": 4442,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Section",
+    "line": 4475,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Title",
+    "line": 4503,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Body",
+    "line": 4593,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Footer",
+    "line": 4613,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "×",
+    "line": 4697,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Header",
+    "line": 4768,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 4786,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Body",
+    "line": 4802,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 4815,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Footer",
+    "line": 4831,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 60,
+    "line": 4837,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Section Title",
+    "line": 4896,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 24,
+    "line": 4914,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 24,
+    "line": 4989,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Title",
+    "line": 4991,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 72,
+    "line": 5030,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Description",
+    "line": 5032,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Item",
+    "line": 5081,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Section",
+    "line": 5114,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Title",
+    "line": 5141,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Fallback Message",
+    "line": 5158,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type fallback message...",
+    "line": 5171,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 5181,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "sponsored",
+    "line": 5325,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Whatsapp",
+    "line": 5504,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Like",
+    "line": 5543,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Share",
+    "line": 5569,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Facebook Ads",
+    "line": 5708,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "Close",
+    "line": 5711,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Search ads",
+    "line": 5727,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select multiple ads",
+    "line": 5754,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "scrollable auto tabs example",
+    "line": 5771,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "No Advertisement yet !",
+    "line": 5835,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "Previous page",
+    "line": 5888,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "Next page",
+    "line": 5901,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "A",
+    "line": 5961,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Template Messages",
+    "line": 6355,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Click-tracking-enabled templates will not be shown in this list",
+    "line": 6362,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "Close",
+    "line": 6366,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Search templates...",
+    "line": 6384,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "View Template",
+    "line": 6511,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "View template",
+    "line": 6515,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Only campaigns with a status of \"live\" will be displayed.",
+    "line": 6733,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "Close",
+    "line": 6737,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Name",
+    "line": 6761,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Created At",
+    "line": 6773,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Preview",
+    "line": 6785,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "View Campaign",
+    "line": 6828,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "View Campaign",
+    "line": 6832,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Active trigger message:",
+    "line": 6866,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Type, press enter to add keyword",
+    "line": 7131,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter regex to match substring trigger. Enable toggle for case sensitive regex.",
+    "line": 7165,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "checkbox with default color",
+    "line": 7182,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Enter Regex",
+    "line": 7215,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Icebreakers",
+    "line": 7233,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Choose Template",
+    "line": 7340,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Add upto 1 Campaign to begin flow",
+    "line": 7350,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Active trigger message:",
+    "line": 7382,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Choose QR Campaign",
+    "line": 7429,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Add upto 20 Meta Ads to begin flow",
+    "line": 7435,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Choose Facebook Ad",
+    "line": 7668,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$cartData",
+    "line": 7724,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$rawData",
+    "line": 7726,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$totalCartValue",
+    "line": 7728,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Template Messages",
+    "line": 8033,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Done",
+    "line": 8043,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Template",
+    "line": 8279,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Tag",
+    "line": 8427,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select tag",
+    "line": 8456,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "@",
+    "line": 8471,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Add Tag",
+    "line": 8498,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Create Tag",
+    "line": 8515,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "Close",
+    "line": 8533,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Tag Name",
+    "line": 8549,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Pick something that describes your contact.",
+    "line": 8554,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Enter tag name",
+    "line": 8557,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Category",
+    "line": 8571,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "You can select from existing category or can go with new.",
+    "line": 8576,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select one or create new",
+    "line": 8591,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Customer Journey",
+    "line": 8607,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enable to track this tag in your customers' journey",
+    "line": 8612,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Submit",
+    "line": 8665,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Event",
+    "line": 8810,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select Event",
+    "line": 8823,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter Conversion Name",
+    "line": 8840,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type Conversion name",
+    "line": 8850,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter Revenue",
+    "line": 8863,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type Revenue",
+    "line": 8873,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter Currency",
+    "line": 8884,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type Currency",
+    "line": 8894,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter discount",
+    "line": 8905,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type Discount",
+    "line": 8915,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter Offer Code",
+    "line": 8926,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type Offer Code",
+    "line": 8936,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Attributes",
+    "line": 8992,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Question Message",
+    "line": 9085,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type value...",
+    "line": 9095,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Attribute",
+    "line": 9107,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 9120,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 9135,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Attribute For Formatted Response",
+    "line": 9142,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 9155,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 9170,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Question Message",
+    "line": 9265,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type value...",
+    "line": 9275,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Longitude Attribute",
+    "line": 9291,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 9304,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 9319,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Latitude Attribute",
+    "line": 9328,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 9341,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 9356,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Media Question",
+    "line": 9448,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type question...",
+    "line": 9458,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 9468,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Capture answer attribute",
+    "line": 9484,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 9497,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 9510,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Media Type",
+    "line": 9523,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select Media Type",
+    "line": 9536,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Number of attempt",
+    "line": 9558,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type no. of attempt",
+    "line": 9572,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter Validation error message",
+    "line": 9591,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type message",
+    "line": 9605,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 9615,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Skipable",
+    "line": 9648,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 9672,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Question",
+    "line": 9793,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type question...",
+    "line": 9803,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 9813,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Capture answer attribute",
+    "line": 9829,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 9842,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 9855,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Attribute Format",
+    "line": 9868,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select Format",
+    "line": 9889,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter or paste regex",
+    "line": 9912,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type regex...",
+    "line": 9917,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter min max value",
+    "line": 9930,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "min",
+    "line": 9940,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "max",
+    "line": 9954,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Number of attempt",
+    "line": 9974,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type no. of attempt",
+    "line": 9988,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter Validation error message",
+    "line": 10007,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type message",
+    "line": 10021,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 10031,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Skipable",
+    "line": 10064,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 10088,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Whatsapp Pay",
+    "line": 10312,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Payment Mode",
+    "line": 10326,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Select Mode of payment by which user want to pay. User has two options pay via Razorpay or Whatsapp Pay",
+    "line": 10331,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select mode",
+    "line": 10346,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select template",
+    "line": 10396,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Template Parameters",
+    "line": 10425,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Personalize with $FirstName, $Name, $MobileNumber, $LastName, or a custom attribute like $my_custom_attribute_name. The engine resolves these when the message is sent.",
+    "line": 10430,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Payment Currency",
+    "line": 10472,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Select currency of payment",
+    "line": 10477,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 10492,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Custom Product",
+    "line": 10517,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Custom Product",
+    "line": 10519,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "checkbox with default color",
+    "line": 10527,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Product Name",
+    "line": 10542,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Enter name of product",
+    "line": 10547,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type product name...",
+    "line": 10559,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Product Quantity",
+    "line": 10578,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Enter quantity",
+    "line": 10583,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type quantity...",
+    "line": 10595,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Payment Amount (per quantity)",
+    "line": 10614,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Enter per quantity amount of payment",
+    "line": 10619,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type amount...",
+    "line": 10631,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 10677,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Attribute",
+    "line": 10816,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 10829,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 10844,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter or paste value",
+    "line": 10853,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type value...",
+    "line": 10863,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select message type",
+    "line": 10936,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Enter URL or paste",
+    "line": 10941,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Key",
+    "line": 11001,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute or type value",
+    "line": 11039,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "scrollable auto tabs example",
+    "line": 11179,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Params",
+    "line": 11183,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Headers",
+    "line": 11186,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Body",
+    "line": 11189,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Test",
+    "line": 11239,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Save",
+    "line": 11252,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Request",
+    "line": 11344,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Response",
+    "line": 11492,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Capture response in Attribute",
+    "line": 11499,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute or type value",
+    "line": 11527,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute or type value",
+    "line": 11543,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute or type value",
+    "line": 11577,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute or type value",
+    "line": 11593,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": " API Request Url",
+    "line": 11683,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Webhook URL",
+    "line": 11689,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "JSON data to send",
+    "line": 11713,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Response capture attribute",
+    "line": 11735,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Attribute...",
+    "line": 11740,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 11776,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 11821,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "+ Custom Status Code",
+    "line": 11875,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Condition",
+    "line": 12064,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select condition",
+    "line": 12079,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Attribute",
+    "line": 12102,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 12110,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 12125,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Value",
+    "line": 12137,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 12146,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Start time",
+    "line": 12171,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "change time",
+    "line": 12188,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "End Time",
+    "line": 12199,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "change time",
+    "line": 12216,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Start date",
+    "line": 12229,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "change date",
+    "line": 12248,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "End date",
+    "line": 12258,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "aria-label",
+    "value": "change date",
+    "line": 12277,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Compare with",
+    "line": 12293,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 12315,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 12330,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 12349,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 12385,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Whatsapp Flow ID",
+    "line": 12508,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type id...",
+    "line": 12518,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Whatsapp Flow Token",
+    "line": 12534,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type token...",
+    "line": 12544,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "First Screen Name",
+    "line": 12560,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Screen Name...",
+    "line": 12570,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Flow Status",
+    "line": 12587,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select status",
+    "line": 12600,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Header",
+    "line": 12619,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 20,
+    "line": 12637,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Body",
+    "line": 12653,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 12666,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Footer",
+    "line": 12682,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 60,
+    "line": 12688,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Action",
+    "line": 12721,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select action",
+    "line": 12734,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Attribute to pass custom data inside form",
+    "line": 12758,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select attribute",
+    "line": 12771,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "$",
+    "line": 12786,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Button Title",
+    "line": 12817,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Enter Validation error message",
+    "line": 12829,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type message",
+    "line": 12843,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 1024,
+    "line": 12853,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select flow",
+    "line": 12953,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select flow",
+    "line": 12989,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select Conversion Type",
+    "line": 13078,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select Type",
+    "line": 13086,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Select currency",
+    "line": 13119,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type amount...",
+    "line": 13150,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Icebreaker text",
+    "line": 13224,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "maxLength",
+    "value": 80,
+    "line": 13230,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Delete Component",
+    "line": 13367,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Discard flow",
+    "line": 15641,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Save flow",
+    "line": 15648,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Discard Flow",
+    "line": 15657,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "If you discard this flow then all changes made by you will be lost. You can also save this flow.",
+    "line": 15671,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Default",
+    "line": 15689,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Order",
+    "line": 15697,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "title",
+    "value": "Fallback and Intents",
+    "line": 15828,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Done",
+    "line": 15837,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Message type",
+    "line": 15889,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Select File",
+    "line": 15924,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type caption...",
+    "line": 15948,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Type message...",
+    "line": 15960,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "What should AI create? Write here!",
+    "line": 16233,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Example prompts:",
+    "line": 16278,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Copy",
+    "line": 16553,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "GENERATING...",
+    "line": 16569,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Restore",
+    "line": 16583,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Today",
+    "line": 16896,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "This Week",
+    "line": 16899,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "This Month",
+    "line": 16902,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Custom Range",
+    "line": 16905,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Replace current flow?",
+    "line": 17031,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Do you want to save the flow you're editing or discard it before loading the selected prompt?",
+    "line": 17060,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Save & Replace",
+    "line": 17081,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Discard & Replace",
+    "line": 17093,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Inactive",
+    "line": 17189,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Active",
+    "line": 17209,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Today",
+    "line": 17259,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "This Week",
+    "line": 17262,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "This Month",
+    "line": 17265,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Custom Range",
+    "line": 17268,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Untitled",
+    "line": 18612,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "TRY AI",
+    "line": 18697,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": " Previous prompts",
+    "line": 18757,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Previous Prompts",
+    "line": 18787,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "placeholder",
+    "value": "Search Prompts",
+    "line": 18822,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "No Prompt Found",
+    "line": 18889,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "We couldn't find any prompts matching your search.",
+    "line": 18899,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Active",
+    "line": 18950,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Inactive",
+    "line": 18965,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Fallback & Intents",
+    "line": 18998,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Save Changes",
+    "line": 19025,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Use Template",
+    "line": 19058,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "TRY AI",
+    "line": 19103,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Generate flow with AI",
+    "line": 19151,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": " Previous prompts",
+    "line": 19166,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Fallback & Intents",
+    "line": 19204,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "Save Changes",
+    "line": 19230,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "label",
+    "value": "Builder",
+    "line": 19244,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  },
+  {
+    "property": "children",
+    "value": "|",
+    "line": 19394,
+    "source": "builder-readable.js",
+    "evidence": "static UI declaration"
+  }
+]

@@ -1,0 +1,352 @@
+- button:
+- heading [level=3]: AiSensy
+- button:
+- heading [level=3]: New Template Message
+- heading [level=4]: "WCC Credits: ₹550"
+- button:
+- heading [level=4]: Template Category
+- paragraph: Your template should fall under one of these categories.
+- combobox:
+  - textbox:
+    - /placeholder: Select message categories
+    - text: AUTHENTICATION
+  - button:
+- heading [level=4]: Template Language
+- paragraph: You will need to specify the language in which message template is submitted.
+- combobox:
+  - textbox:
+    - /placeholder: Select message language
+    - text: English
+  - button:
+- heading [level=4]:
+  - text: Time-To-Live (TTL)
+  - generic: PREMIUM ✨
+- checkbox
+- paragraph: Set the time window for WhatsApp to deliver this message. If the user stays offline beyond this limit, Meta will stop trying so they don’t receive outdated messages.
+- heading [level=4]: Template Name
+- paragraph: Name can only be in lowercase alphanumeric characters and underscores. Special characters and white-space are not allowed e.g. - app_verification_code
+- textbox:
+  - /placeholder: Enter name
+- heading [level=4]: Template Type
+- paragraph: Your template type should fall under one of these categories.
+- combobox:
+  - textbox:
+    - /placeholder: Select message type
+    - text: TEXT
+  - button:
+- heading [level=4]: Sample Values
+- paragraph: "Specify sample values for your parameters. These values can be changed at the time of sending. e.g. - {{1}}: Mohit, {{2}}: 5."
+- heading [level=5]: "{{1}}"
+- textbox:
+  - /placeholder: Sample value
+- heading [level=4]: Expiration Warning (Optional)
+- paragraph: The time should be between 1 to 90 minutes.
+- spinbutton
+- paragraph: Add Security Disclaimer
+- checkbox [checked]
+- heading [level=4]: Template Preview
+- paragraph: Your template message preview. It will update as you fill in the values in the form.
+- heading [level=5]: "{{1}} is your verification code. For your security, do not share this code."
+- generic: Copy code
+- paragraph: "Disclaimer: This is just a graphical representation of the message that will be delivered. Actual message will consist of media selected and may appear different."
+- heading [level=4]: Interactive Actions
+- paragraph: In addition to your message, you can send actions with your message. Maximum 25 characters are allowed in CTA button title & Quick Replies.
+- radiogroup:
+  - radio [disabled]
+  - generic: None
+  - radio [disabled]
+  - generic: Call to Actions
+  - radio [disabled]
+  - generic: Quick Replies
+  - radio [checked]
+  - generic: All
+- heading [level=5]: "Copy Code :"
+- textbox:
+  - /placeholder: Code
+- button [disabled]:
+  - text: Quick Replies
+  - generic: "9"
+- button [disabled]:
+  - text: URL
+  - generic: "2"
+- button [disabled]:
+  - text: Phone Number
+  - generic: "1"
+- button [disabled]:
+  - text: Copy Code
+  - generic: "0"
+- button:
+  - generic: Submit
+- dialog:
+  - heading "Change Plan" [level=3]
+  - button "Monthly":
+    - generic: Monthly
+  - button "Quarterly (5% Off)":
+    - generic: Quarterly (5% Off)
+  - button "Yearly (10% Off)":
+    - generic: Yearly (10% Off)
+  - button:
+  - heading "Upgrade your plan to unlock this feature" [level=1]
+  - paragraph: Get advanced features to elevate your marketing game
+  - generic: ✓ Current Plan
+  - paragraph: BASIC
+  - paragraph: Get started fast
+  - paragraph: ₹1,425/month
+  - paragraph:
+    - generic: Upto 10 Tags
+  - paragraph:
+    - generic: Upto 5 Custom Attributes
+  - paragraph:
+    - generic: Upto 2 Segments
+  - paragraph:
+    - generic: Upto 10 Lists
+  - paragraph:
+    - generic: Unlimited Contacts
+  - paragraph:
+    - generic: Messaging Speed - 40 messages/second
+  - paragraph:
+    - generic: Multi-Agent Live Chat
+  - paragraph:
+    - generic: Broadcasting & Retargeting
+  - paragraph:
+    - generic: Smart Campaign Manager
+  - paragraph:
+    - generic: Smart Audience Segregation
+  - paragraph:
+    - generic: Upto 1GB cloud storage
+  - paragraph:
+    - generic: 1 Owner + 5 Team members included
+  - paragraph:
+    - generic: Agent Transfer & Manager Monitoring
+  - paragraph:
+    - generic: AiSensy Marketplace Integrations
+  - paragraph:
+    - generic: Click-to-WhatsApp Ads Manager
+  - paragraph:
+    - generic: Shopify & WooCommerce Integrations
+  - paragraph:
+    - generic: Upload & Manage Contacts
+  - generic: Addons
+  - paragraph:
+    - generic: AI Chat Agent
+    - generic: ₹ 3500 /month (charged separately)
+  - paragraph:
+    - generic: Chatbot Flows
+    - generic: ₹ 2500 /month (charged separately)
+  - paragraph:
+    - generic: Team Members
+    - generic: ₹ 750 /Seat (charged separately)
+  - button "View more":
+    - text: View more
+  - generic: Active
+  - paragraph: PRO
+  - paragraph: Growth Marketer
+  - paragraph: ₹3,040/month
+  - generic: "All Basic features and:"
+  - paragraph:
+    - generic: Upto 100 Tags
+  - paragraph:
+    - generic: Upto 20 Custom Attributes
+  - paragraph:
+    - generic: Upto 10 Segments
+  - paragraph:
+    - generic: Upto 25 Lists
+  - paragraph:
+    - generic: Campaign Scheduler
+  - paragraph:
+    - generic: Messaging Speed - 40 messages/second
+  - paragraph:
+    - generic: Campaign Click Tracking
+  - paragraph:
+    - generic: Campaign Budget & Analytics
+  - paragraph:
+    - generic: Project APIs
+  - paragraph:
+    - generic: Upto 5GB cloud storage
+  - paragraph:
+    - generic: Add Time Delay in Chatflow
+  - paragraph:
+    - generic: Add Timeout in Chatflow
+  - paragraph:
+    - generic: Custom Agent Rules
+  - paragraph:
+    - generic: Read Receipts & Typing Indicators
+  - paragraph:
+    - generic: Carousel Template Click Tracking
+  - paragraph:
+    - generic: CSV Campaign Scheduler
+  - paragraph:
+    - generic: Automatic Failed Message Retry
+  - generic: Addons
+  - paragraph:
+    - generic: AI Chat Agent
+    - generic: ₹ 3500 /month (charged separately)
+  - paragraph:
+    - generic: Chatbot Flows
+    - generic: ₹ 2500 /month (charged separately)
+  - paragraph:
+    - generic: Team Members
+    - generic: ₹ 750 /Seat (charged separately)
+  - button "View more":
+    - text: View more
+  - button "Upgrade to Pro":
+    - generic: Upgrade to Pro
+  - generic: ✦ New
+  - paragraph: PREMIUM
+  - paragraph: Expert Marketer
+  - paragraph: ₹8,645/month
+  - generic: Features worth ₹43,750 included
+  - generic: "All Pro features and:"
+  - paragraph:
+    - generic: Priority Support
+  - paragraph:
+    - generic: Higher Messaging Speed – 250 messages/second
+    - generic: ₹5,000/month
+    - text: included
+  - paragraph:
+    - generic: 1 Owner + 9 Team members included
+    - generic: ₹6,750/month
+    - text: included
+  - paragraph:
+    - generic: Number Masking
+    - generic: ₹5,000/month
+    - text: included
+  - paragraph:
+    - generic: 250 Tags
+    - generic: ₹3,000/month
+    - text: included
+  - paragraph:
+    - generic: 50 Attributes
+    - generic: ₹3,000/month
+    - text: included
+  - paragraph:
+    - generic: 50 Segments
+    - generic: ₹5,000/month
+    - text: included
+  - paragraph:
+    - generic: 100 Lists
+    - generic: ₹5,000/month
+    - text: included
+  - paragraph:
+    - generic: Download Reports
+    - generic: ₹5,000/month
+    - text: included
+  - paragraph:
+    - generic: Template TTL
+    - generic: ₹2,000/month
+    - text: included
+  - paragraph:
+    - generic: Turbo Onboarding
+    - generic: ₹5,000/month
+    - text: included
+  - paragraph:
+    - generic: 1 Webhook
+    - generic: ₹2,000/month
+    - text: included
+  - paragraph:
+    - generic: Multiple Meta-Ad Chatflow Trigger
+    - generic: ₹5,000/month
+    - text: included
+  - paragraph:
+    - generic: Message Duplicate Contacts in CSV Broadcast
+    - generic: ₹2,000/month
+    - text: included
+  - generic: Addons
+  - paragraph:
+    - generic: AI Chat Agent
+    - generic: ₹ 3500 /month (charged separately)
+  - paragraph:
+    - generic: Chatbot Flows
+    - generic: ₹ 2500 /month (charged separately)
+  - paragraph:
+    - generic: Team Members
+    - generic: ₹ 750 /Seat (charged separately)
+  - button "View more":
+    - text: View more
+  - generic: ✓ Chosen Plan
+  - generic: ✦ New
+  - paragraph: UNLIMITED
+  - paragraph: Everything, no limits
+  - paragraph: ₹42,750/month
+  - generic: Features worth ₹2,00,000 included
+  - generic: "All Premium features and:"
+  - paragraph:
+    - generic: Unlimited Team Member *
+    - generic: ₹1,50,000/month
+    - text: included
+  - paragraph:
+    - generic: Highest Messaging Speed – 1000 messages/second
+    - generic: ₹10,000/month
+    - text: included
+  - paragraph:
+    - generic: Unlimited Tags **
+    - generic: ₹7,000/month
+    - text: included
+  - paragraph:
+    - generic: Unlimited Attributes ***
+    - generic: ₹7,000/month
+    - text: included
+  - paragraph:
+    - generic: 250 Lists
+    - generic: ₹12,500/month
+    - text: included
+  - paragraph:
+    - generic: Dedicated Account Manager
+    - generic: ₹15,000/month
+    - text: included
+  - paragraph:
+    - generic: 3 Webhooks
+    - generic: ₹6,000/month
+    - text: included
+  - generic: Addons
+  - paragraph:
+    - generic: AI Chat Agent
+    - generic: ₹ 3500 /month (charged separately)
+  - paragraph:
+    - generic: Chatbot Flows
+    - generic: ₹ 2500 /month (charged separately)
+  - paragraph:
+    - generic: Team Members
+    - generic: ₹ 750 /Seat (charged separately)
+  - button "View more":
+    - text: View more
+  - button "Upgrade to Unlimited":
+    - generic: Upgrade to Unlimited
+  - paragraph: ENTERPRISE
+  - paragraph: Built for enterprise scale
+  - paragraph: Custom Pricing
+  - generic: "All Unlimited features and:"
+  - paragraph:
+    - generic: Custom Segment Limits
+  - paragraph:
+    - generic: Custom List Limits
+  - paragraph:
+    - generic: Dedicated 1:1 Onboarding & Setup
+  - paragraph:
+    - generic: Solution Architect & Dedicated Success Team
+  - paragraph:
+    - generic: Custom Integrations
+  - paragraph:
+    - generic: SLA-Backed Priority Support
+  - paragraph:
+    - generic: SSO & Audit logs
+  - paragraph:
+    - generic: Custom Messaging Throughput
+  - paragraph:
+    - generic: Custom Contracts & Invoicing
+  - button "Contact Us":
+    - generic: Contact Us
+  - generic: Fair Use Policy
+  - generic: "*Upto 200 Team Members"
+  - generic: "**Upto 500 Tags"
+  - generic: "***Upto 100 Attributes"
+  - paragraph: Selected Plan
+  - paragraph: Premium Plan
+  - paragraph: Billing Cycle
+  - paragraph: Quarterly (5% Off)
+  - paragraph: Total
+  - paragraph:
+    - text: ₹25,935.00
+    - generic: /quarter
+  - button "Proceed to Checkout →":
+    - generic: Proceed to Checkout →

@@ -1,0 +1,128 @@
+- button:
+- heading "AiSensy" [level=3]
+- heading "Ads Manager" [level=3]
+- img "WhatsApp"
+- 'heading "Ad Credit: ₹ 1000.00" [level=4]'
+- button "AI Assistant":
+- button "Buy Credits":
+  - generic: Buy Credits
+- button "Create Ad":
+  - text: Create Ad
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: ✦
+- text: AI-POWERED
+- heading "Ready-to-run ads in minutes" [level=2]
+- paragraph: Describe your product or add a link to generate ads with AI.
+- textbox "Ad prompt":
+  - textbox "business name"
+  - textbox "website URL"
+  - textbox "target audience"
+- generic "Select Your Shopify products":
+  - button "Use Shopify products":
+- generic "Add media":
+  - button "Add media":
+- 'button "Ad type: Let AI decide"':
+  - generic: Let AI decide
+- group "Creative type":
+  - button "Image" [pressed]
+  - button "Video"
+- 'button "Image size: 3:4"':
+  - generic: 3:4
+- button "Decrease ad count":
+- generic: "3"
+- button "Increase ad count" [disabled]:
+- text: 5 free generations left
+- button "Generate ad":
+  - generic: Generate Ad
+- tablist "scrollable auto tabs example":
+  - tab "AiSensy Ads" [selected]:
+    - generic: AiSensy Ads
+  - tab "Fetched Ads":
+    - generic: Fetched Ads
+- textbox "Search by Ad name":
+  - /placeholder: "Search by Ad name "
+- button "Sync":
+  - text: Sync
+- button "Download Report":
+  - text: Download Report
+- button "Select Status"
+- textbox
+- 'heading "Last 30 days: 30 Sep 2026 - 29 Oct 2026" [level=3]'
+- button "Customize Metrics":
+  - text: Customize Metrics
+- button "Columns":
+  - text: Columns
+- paragraph: Number of Leads
+- heading "0" [level=3]
+- paragraph: Click-Through Rate
+- heading "0%" [level=3]
+- paragraph: Cost Per Lead
+- heading "₹ 0" [level=3]
+- paragraph: Total Spend
+- heading "₹ 0" [level=3]
+- paragraph: Total CAPI Signals
+- heading "0" [level=3]
+- table "meta ads manager table":
+  - rowgroup:
+    - row "Actions Ad Name Start Date Status Ad Type Daily Budget Impressions Reach Clicks Spend CTR (%) CPC CPM":
+      - columnheader "Actions":
+        - heading "Actions" [level=5]
+      - columnheader "Ad Name":
+        - heading "Ad Name" [level=5]
+      - columnheader "Start Date":
+        - heading "Start Date" [level=5]
+      - columnheader "Status":
+        - heading "Status" [level=5]
+      - columnheader "Ad Type":
+        - heading "Ad Type" [level=5]
+      - columnheader "Daily Budget":
+        - heading "Daily Budget" [level=5]
+      - columnheader "Impressions":
+        - heading "Impressions" [level=5]
+      - columnheader "Reach":
+        - heading "Reach" [level=5]
+      - columnheader "Clicks":
+        - heading "Clicks" [level=5]
+      - columnheader "Spend":
+        - heading "Spend" [level=5]
+      - columnheader "CTR (%)":
+        - heading "CTR (%)" [level=5]
+      - columnheader "CPC":
+        - heading "CPC" [level=5]
+      - columnheader "CPM":
+        - heading "CPM" [level=5]
+  - rowgroup:
+    - row "No data available Create your first ad to see analytics here":
+      - cell "No data available Create your first ad to see analytics here":
+        - heading "No data available" [level=5]
+        - paragraph: Create your first ad to see analytics here
+- paragraph: "Rows per page:"
+- 'button "Rows per page: 25"': "25"
+- textbox: "25"
+- paragraph: 0-0 of 0
+- button "Previous page" [disabled]:
+- button "Next page" [disabled]:
+- paragraph: Aspect ratio
+- paragraph: 3:4
+- paragraph: Width 900 px
+- paragraph: Height 1200 px
+- text: Portrait
+- generic: 9:16
+- generic: 2:3
+- generic: 3:4
+- text: Landscape
+- generic: 16:9
+- generic: 3:2
+- generic: 4:3
+- generic: 1:1 (Square)

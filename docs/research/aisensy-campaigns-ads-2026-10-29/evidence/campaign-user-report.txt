@@ -1,0 +1,83 @@
+- button:
+- heading [level=3]: AiSensy
+- heading [level=3]: Campaigns
+- button:
+- button:
+  - text: Launch
+- heading [level=6]: Meet Campaign Agent, your AI campaign manager
+- generic: New
+- generic: See which message works best
+- button:
+  - generic: Try Campaign Agent
+- paragraph: Campaigns quick guide
+- heading [level=5]: Launch your broadcast campaign
+- paragraph: Learn how to choose an audience, select a template and schedule your campaign.
+- link:
+  - /url: https://m.aisensy.com/how-to-use-filters-to-refine-whatsapp-broadcast
+  - generic: Read campaign guide
+- heading [level=5]: What would you like to launch?
+- button:
+  - paragraph: Create AI Agent
+  - generic: AI
+  - paragraph: Qualify leads, answer questions and close sales automatically.
+- button:
+  - paragraph: Generate AI Template
+  - generic: AI
+  - paragraph: Generate powerful WhatsApp templates in seconds with AI.
+- button:
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button:
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- textbox:
+  - /placeholder: Search by campaign name
+- button:
+  - text: Refresh
+- tablist:
+  - tab [selected]:
+    - generic: All
+  - tab:
+    - generic: AI ✨
+    - generic: Campaign Agent
+  - tab:
+    - generic: Broadcast
+  - tab:
+    - generic: API
+  - tab:
+    - text: Scheduled
+    - generic: PRO ✨
+- button:
+  - text: Download Report
+- button:
+  - text: User Report
+- button:
+  - text: Overview Report
+- button [disabled]:
+- heading [level=5]: Campaign
+- heading [level=5]: Type
+- heading [level=5]: Created At
+- heading [level=5]: Status
+- heading [level=5]: Audience
+- heading [level=5]: No campaigns yet !
+- paragraph: "Rows per page:"
+- button: "10"
+- textbox: "10"
+- paragraph:
+  - generic: 0–0 of 0
+- button [disabled]:
+- button [disabled]:
+- dialog:
+  - heading "Generate User Report PREMIUM ✨" [level=3]:
+    - text: Generate User Report
+    - button "PREMIUM ✨":
+      - generic: PREMIUM ✨
+  - button "Close":
+  - paragraph: Select a date range to generate per-user campaign analytics. The report will be emailed to you when it's ready.
+  - textbox "From"
+  - paragraph
+  - textbox "To"
+  - paragraph
+  - button "Generate":
+    - text: Generate

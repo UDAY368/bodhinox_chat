@@ -1,0 +1,17 @@
+{
+  "testedAt": "2026-10-25T14:13:12.211Z",
+  "scope": "Real queue functions against an isolated copy of the PostgreSQL jobs table and indexes; one sequential consumer; no flow handlers, AI calls, HTTP ingress, or WhatsApp sends",
+  "submissions": 110,
+  "uniqueJobs": 100,
+  "duplicateSubmissionsDeduplicated": 10,
+  "failedSubmissions": 0,
+  "completed": 100,
+  "duplicateClaims": 0,
+  "lostJobs": 0,
+  "enqueueBurstMs": 3752,
+  "sequentialDrainMs": 44538,
+  "totalMs": 48509,
+  "claimAndCompleteMedianMs": 441,
+  "claimAndCompleteP95Ms": 460,
+  "drainJobsPerSecond": 2.25
+}

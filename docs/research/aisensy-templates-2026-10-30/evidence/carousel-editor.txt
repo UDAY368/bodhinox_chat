@@ -1,0 +1,117 @@
+- button:
+- heading "AiSensy" [level=3]
+- button "Go back":
+- heading "New Template Message" [level=3]
+- 'heading "WCC Credits: ₹550" [level=4]'
+- button "AI Assistant":
+- heading "Template Category" [level=4]
+- paragraph: Your template should fall under one of these categories.
+- combobox:
+  - textbox "Select message categories": MARKETING
+  - button "Open":
+- heading "Template Language" [level=4]
+- paragraph: You will need to specify the language in which message template is submitted.
+- combobox:
+  - textbox "Select message language": English
+  - button "Open":
+- heading "Generate with AI" [level=3]
+- paragraph: Create customized variations with AI
+- heading "Write your prompt*" [level=4]
+- button "Previous prompts" [disabled]:
+  - text: Previous prompts
+- textbox "eg. Please generate a promotional message to give a discount of 20% off on our product line."
+- paragraph: 0/1024
+- heading "Choose your message style:" [level=4]
+- button "😀 Normal" [pressed]:
+  - generic: 😀 Normal
+- button "✍🏼 Poetic":
+  - generic: ✍🏼 Poetic
+- button "🤩 Exciting":
+  - generic: 🤩 Exciting
+- button "😜 Funny":
+  - generic: 😜 Funny
+- heading "Optimize your message for:" [level=4]
+- button "Click Rate" [pressed]:
+  - generic: Click Rate
+- button "Reply Rate":
+  - generic: Reply Rate
+- generic "This generation is free":
+  - button "Generate (3 free generations left)":
+    - text: Generate (3 free generations left)
+- heading "Time-To-Live (TTL) PREMIUM ✨" [level=4]:
+  - text: Time-To-Live (TTL)
+  - generic: PREMIUM ✨
+- checkbox
+- paragraph: Set the time window for WhatsApp to deliver this message. If the user stays offline beyond this limit, Meta will stop trying so they don’t receive outdated messages.
+- heading "Template Name" [level=4]
+- paragraph:
+  - text: Name can only be in lowercase alphanumeric characters and underscores. Special characters and white-space are not allowed
+  - text: e.g. - app_verification_code
+- textbox "Enter name"
+- heading "Template Type" [level=4]
+- paragraph:
+  - text: Your template type should fall under one of these categories.
+  - text: Carousel Templates can only have category as MARKETING
+- combobox:
+  - textbox "Select message type" [active]: CAROUSEL
+  - button "Open":
+- heading "Template Format / Message Bubble" [level=4]
+- paragraph:
+  - text: Use text formatting - *bold* , _italic_ & ~strikethrough~
+  - text: Your message content. Upto 1024 characters are allowed.
+  - text: "e.g. - Hello {{1}}, your code will expire in {{2}} mins."
+- textbox "Enter your message in here...": "Hello {{1}}, your *offer* expires in {{2}} days."
+- paragraph: 48/1024
+- heading "Sample Values" [level=4]
+- paragraph:
+  - text: Specify sample values for your parameters. These values can be changed at the time of sending.
+  - text: "e.g. - {{1}}: Mohit, {{2}}: 5."
+- 'heading "{{1}}" [level=5]'
+- textbox "Sample value"
+- 'heading "{{2}}" [level=5]'
+- textbox "Sample value"
+- heading "Carousel Media Type" [level=4]
+- paragraph: Your carousel template type should fall under one of these categories.
+- combobox:
+  - textbox "Select carousel message type": IMAGE
+  - button "Open":
+- heading "Card 1 Body(Optional)" [level=4]
+- paragraph:
+  - text: Your message content. Upto 160 characters are allowed.
+  - text: Either all Cards should be Empty or None should be Empty
+- textbox "Enter card 1 body text here"
+- heading "Template Preview" [level=4]
+- paragraph: Your template message preview. It will update as you fill in the values in the form.
+- img "WhatsApp"
+- 'heading "Hello {{1}}, your offer expires in {{2}} days." [level=5]'
+- heading [level=5]
+- button
+- button "Add Card":
+  - text: Add Card
+- heading "Interactive Actions" [level=4]
+- paragraph:
+  - text: In addition to your message, you can send actions with your message.
+  - text: Maximum 25 characters are allowed in CTA button title & Quick Replies.
+- radiogroup:
+  - radio "None" [disabled]
+  - generic: None
+  - radio "Call to Actions" [disabled]
+  - generic: Call to Actions
+  - radio "Quick Replies" [disabled]
+  - generic: Quick Replies
+  - radio "All" [checked]
+  - generic: All
+- button "Quick Replies 2":
+  - text: Quick Replies
+  - generic: "2"
+- button "URL 2":
+  - text: URL
+  - generic: "2"
+- button "Phone Number 2":
+  - text: Phone Number
+  - generic: "2"
+- button "Copy Code 1" [disabled]:
+  - text: Copy Code
+  - generic: "1"
+- button "Submit":
+  - generic: Submit

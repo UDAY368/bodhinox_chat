@@ -1,0 +1,1139 @@
+{
+  "schema": "bodhinox.research.observed-flow.v1",
+  "observedAt": "2026-10-24",
+  "source": "authenticated browser DOM",
+  "name": "Recruitment/Job Bot",
+  "executable": false,
+  "limitations": [
+    "Rendered node identifiers and content only; not an AiSensy API export.",
+    "Edge source/target pairs are observed; edge-to-button/list-row slot mapping is unknown.",
+    "Duplicate edges are retained. No WhatsApp execution was tested."
+  ],
+  "nodeCount": 20,
+  "edgeOccurrenceCount": 29,
+  "nodes": [
+    {
+      "fields": [
+        {
+          "placeholder": "Enter keywords",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        },
+        {
+          "placeholder": "Enter Regex",
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "keyword-keyword-right-keyword-source"
+        }
+      ],
+      "id": "keyword",
+      "kind": "react-flow__node react-flow__node-keywordBox nopan selectable",
+      "text": "Flow StartType, press enter to add keywordjob✕Enter regex to match substring trigger. Enable toggle for case sensitive regex.Add upto 1 template to begin flowChoose TemplateAdd upto 20 Meta Ads to begin flowChoose Facebook Ad"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Select tag",
+          "value": "flow_started"
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796028152796-master-component-left-1765796028152796-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796028152796-add-tag-right-1765796028152796-source"
+        }
+      ],
+      "id": "1765796028152796",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "Add TagSelect Tag@+ Add TagCreate Tag"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "👋 Welcome to [Your Brand Name]'s Recruitment Chatbot!\n\nI'm here to help you find the perfect job opportunity or connect with HR. How would you like to get started?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Browse Job Openings"
+        },
+        {
+          "placeholder": "",
+          "value": "Check Application Status"
+        },
+        {
+          "placeholder": "",
+          "value": "Talk to HR"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796028152844-master-component-left-1765796028152844-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796028152844-message_with_button-right-1765796028152844-1-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796028152844-message_with_button-right-1765796028152844-2-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796028152844-message_with_button-right-1765796028152844-3-source"
+        }
+      ],
+      "id": "1765796028152844",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keyword👋 Welcome to [Your Brand Name]'s Recruitment Chatbot!\n\nI'm here to help you find the perfect job opportunity or connect with HR. How would you like to get started?164/102419/2024/2010/20Set DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Header",
+          "value": "Open Job Opportunities"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Body",
+          "value": "Explore current job openings below. Tap to view details:"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Footer",
+          "value": "If you need help, you can talk to HR anytime."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Section Title",
+          "value": "Available Roles"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Role 1: Sales Executive (Sales, Mumbai, 2-5 yrs)"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "Sales | Mumbai | 2-5 yrs exp. | Drive revenue and build client relationships."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Role 2: Software Engineer (IT, Bangalore, 1-4 yrs)"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Description",
+          "value": "IT | Bangalore | 1-4 yrs exp. | Develop scalable software products."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Title",
+          "value": "Select Role"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796035887360-master-component-left-1765796035887360-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796035887360-list_message-right-1765796035887360-0-1765796035887339-|None-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796035887360-list_message-right-1765796035887360-0-1765796035887244-|None-source"
+        }
+      ],
+      "id": "1765796035887360",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordOpen Job Opportunities22/20Explore current job openings below. Tap to view details:56/1024If you need help, you can talk to HR anytime.45/60Available Roles15/24Role 1: Sales Executive (Sales, Mumbai, 2-5 yrs)48/24Sales | Mumbai | 2-5 yrs exp. | Drive revenue and build client relationships.77/72Role 2: Software Engineer (IT, Bangalore, 1-4 yrs)50/24IT | Bangalore | 1-4 yrs exp. | Develop scalable software products.67/72+ Add Item+ Add SectionSet TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "Here are the job details:\n\nRole: [Role Placeholder]\nDepartment: [Department Placeholder]\nLocation: [Location Placeholder]\nExperience: [Experience Placeholder]\nDescription: [Job Description Placeholder]\n\nWhat would you like to do next?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Apply for this Role"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to Job List"
+        },
+        {
+          "placeholder": "",
+          "value": "Talk to HR"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796039330644-master-component-left-1765796039330644-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796039330644-message_with_button-right-1765796039330644-1-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796039330644-message_with_button-right-1765796039330644-2-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796039330644-message_with_button-right-1765796039330644-3-source"
+        }
+      ],
+      "id": "1765796039330644",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordHere are the job details:\n\nRole: [Role Placeholder]\nDepartment: [Department Placeholder]\nLocation: [Location Placeholder]\nExperience: [Experience Placeholder]\nDescription: [Job Description Placeholder]\n\nWhat would you like to do next?234/102419/2016/2010/20Set DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "Want to check where you stand? Choose your application status below:"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Application Received"
+        },
+        {
+          "placeholder": "",
+          "value": "Under Review"
+        },
+        {
+          "placeholder": "",
+          "value": "Interview Scheduled"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796047319609-master-component-left-1765796047319609-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796047319609-message_with_button-right-1765796047319609-1-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796047319609-message_with_button-right-1765796047319609-2-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796047319609-message_with_button-right-1765796047319609-3-source"
+        }
+      ],
+      "id": "1765796047319609",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordWant to check where you stand? Choose your application status below:68/102420/2012/2019/20Set DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "Great choice! What's your full name?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": "candidate_name"
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": "0"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796047321484-master-component-left-1765796047321484-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796047321484-question-right-1765796047321484-source"
+        }
+      ],
+      "id": "1765796047321484",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "QuestionQuestionGreat choice! What's your full name?36/1024Capture answer attribute$Attribute FormatSet DelayPRO ✨0Set TimeoutPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "A recruiter will join shortly to assist you personally. Please wait while we connect you with HR."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Connect to HR"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796047320377-master-component-left-1765796047320377-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796047320377-message_with_button-right-1765796047320377-1-source"
+        }
+      ],
+      "id": "1765796047320377",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordA recruiter will join shortly to assist you personally. Please wait while we connect you with HR.97/102413/20+ Add ButtonSet DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "What's your phone number?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": "candidate_phone"
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": "0"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796049323372-master-component-left-1765796049323372-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796049323372-question-right-1765796049323372-source"
+        }
+      ],
+      "id": "1765796049323372",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "QuestionQuestionWhat's your phone number?25/1024Capture answer attribute$Attribute FormatSet DelayPRO ✨0Set TimeoutPRO ✨"
+    },
+    {
+      "fields": [],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796049323505-master-component-left-1765796049323505-target"
+        }
+      ],
+      "id": "1765796049323505",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageRequest InterventionIntervene users and talk+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "What's your email address?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": "candidate_email"
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": "0"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796052076317-master-component-left-1765796052076317-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796052076317-question-right-1765796052076317-source"
+        }
+      ],
+      "id": "1765796052076317",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "QuestionQuestionWhat's your email address?26/1024Capture answer attribute$Attribute FormatSet DelayPRO ✨0Set TimeoutPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "We've received your application! Thank you for applying. Our team will review your profile and reach out with next steps soon. Good luck!"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796052077477-master-component-left-1765796052077477-target"
+        }
+      ],
+      "id": "1765796052077477",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordWe've received your application! Thank you for applying. Our team will review your profile and reach out with next steps soon. Good luck!137/1024+ Add ButtonSet DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "How many years of total experience do you have?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": "total_experience"
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": "0"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796053359126-master-component-left-1765796053359126-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796053359126-question-right-1765796053359126-source"
+        }
+      ],
+      "id": "1765796053359126",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "QuestionQuestionHow many years of total experience do you have?47/1024Capture answer attribute$Attribute FormatSet DelayPRO ✨0Set TimeoutPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "Please list your key skills (comma separated):"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": "key_skills"
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": "0"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796054764703-master-component-left-1765796054764703-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796054764703-question-right-1765796054764703-source"
+        }
+      ],
+      "id": "1765796054764703",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "QuestionQuestionPlease list your key skills (comma separated):46/1024Capture answer attribute$Attribute FormatSet DelayPRO ✨0Set TimeoutPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "Which job location do you prefer?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": "preferred_location"
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": "0"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796055844748-master-component-left-1765796055844748-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796055844748-question-right-1765796055844748-source"
+        }
+      ],
+      "id": "1765796055844748",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "QuestionQuestionWhich job location do you prefer?33/1024Capture answer attribute$Attribute FormatSet DelayPRO ✨0Set TimeoutPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Type question...",
+          "value": "Please share a link to your resume (Paste file link):"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "Select attribute",
+          "value": "resume_link"
+        },
+        {
+          "placeholder": "Select Format",
+          "value": "Any"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": "0"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796057127607-master-component-left-1765796057127607-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796057127607-question-right-1765796057127607-source"
+        }
+      ],
+      "id": "1765796057127607",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "QuestionQuestionPlease share a link to your resume (Paste file link):53/1024Capture answer attribute$Attribute FormatSet DelayPRO ✨0Set TimeoutPRO ✨"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "Please confirm your application details:\n\nName: $candidate_name\nPhone: $candidate_phone\nEmail: $candidate_email\nExperience: $total_experience years\nKey Skills: $key_skills\nPreferred Location: $preferred_location\nResume: $resume_link\n\nYour application has been received. You'll hear from us shortly!\n\nWhat would you like to do next?"
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Finish"
+        },
+        {
+          "placeholder": "",
+          "value": "Request Callback"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796059766720-master-component-left-1765796059766720-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796059766720-message_with_button-right-1765796059766720-1-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796059766720-message_with_button-right-1765796059766720-2-source"
+        }
+      ],
+      "id": "1765796059766720",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordPlease confirm your application details:\n\nName: $candidate_name\nPhone: $candidate_phone\nEmail: $candidate_email\nExperience: $total_experience years\nKey Skills: $key_skills\nPreferred Location: $preferred_location\nResume: $resume_link\n\nYour application has been received. You'll hear from us shortly!\n\nWhat would you like to do next?331/10246/2016/20+ Add ButtonSet DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "Your application is currently under review. We'll keep you updated on further progress."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to Status Menu"
+        },
+        {
+          "placeholder": "",
+          "value": "Talk to HR"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796063432305-master-component-left-1765796063432305-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796063432305-message_with_button-right-1765796063432305-1-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796063432305-message_with_button-right-1765796063432305-2-source"
+        }
+      ],
+      "id": "1765796063432305",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordYour application is currently under review. We'll keep you updated on further progress.87/102419/2010/20+ Add ButtonSet DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "Your application has been received and is being processed. We'll notify you once there's an update."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to Status Menu"
+        },
+        {
+          "placeholder": "",
+          "value": "Talk to HR"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796063434382-master-component-left-1765796063434382-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796063434382-message_with_button-right-1765796063434382-1-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796063434382-message_with_button-right-1765796063434382-2-source"
+        }
+      ],
+      "id": "1765796063434382",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordYour application has been received and is being processed. We'll notify you once there's an update.99/102419/2010/20+ Add ButtonSet DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    },
+    {
+      "fields": [
+        {
+          "placeholder": "Enter AI keywords",
+          "value": ""
+        },
+        {
+          "placeholder": "Type message...",
+          "value": "Congratulations! Your interview has been scheduled. Check your email/SMS for details and next steps."
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": "",
+          "value": "Back to Status Menu"
+        },
+        {
+          "placeholder": "",
+          "value": "Talk to HR"
+        },
+        {
+          "placeholder": "Type delay in seconds...",
+          "value": ""
+        },
+        {
+          "placeholder": null,
+          "value": "x"
+        },
+        {
+          "placeholder": null,
+          "value": ""
+        }
+      ],
+      "handles": [
+        {
+          "class": "react-flow__handle react-flow__handle-left nodrag nopan target connectable",
+          "id": "1765796063434943-master-component-left-1765796063434943-target"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796063434943-message_with_button-right-1765796063434943-1-source"
+        },
+        {
+          "class": "react-flow__handle react-flow__handle-right nodrag nopan jss556 source connectable",
+          "id": "1765796063434943-message_with_button-right-1765796063434943-2-source"
+        }
+      ],
+      "id": "1765796063434943",
+      "kind": "react-flow__node react-flow__node-masterComponent nopan selectable",
+      "text": "MessageType, press enter to add AI keywordCongratulations! Your interview has been scheduled. Check your email/SMS for details and next steps.100/102419/2010/20+ Add ButtonSet DelayPRO ✨Set TimeoutPRO ✨+ Add Content"
+    }
+  ],
+  "edges": [
+    {
+      "source": "keyword",
+      "target": "1765796028152844",
+      "slot": null,
+      "observedLabel": "Edge from keyword to 1765796028152844"
+    },
+    {
+      "source": "1765796028152844",
+      "target": "1765796028152796",
+      "slot": null,
+      "observedLabel": "Edge from 1765796028152844 to 1765796028152796"
+    },
+    {
+      "source": "1765796028152796",
+      "target": "1765796035887360",
+      "slot": null,
+      "observedLabel": "Edge from 1765796028152796 to 1765796035887360"
+    },
+    {
+      "source": "1765796035887360",
+      "target": "1765796039330644",
+      "slot": null,
+      "observedLabel": "Edge from 1765796035887360 to 1765796039330644"
+    },
+    {
+      "source": "1765796035887360",
+      "target": "1765796039330644",
+      "slot": null,
+      "observedLabel": "Edge from 1765796035887360 to 1765796039330644"
+    },
+    {
+      "source": "1765796028152844",
+      "target": "1765796047319609",
+      "slot": null,
+      "observedLabel": "Edge from 1765796028152844 to 1765796047319609"
+    },
+    {
+      "source": "1765796028152844",
+      "target": "1765796047320377",
+      "slot": null,
+      "observedLabel": "Edge from 1765796028152844 to 1765796047320377"
+    },
+    {
+      "source": "1765796039330644",
+      "target": "1765796035887360",
+      "slot": null,
+      "observedLabel": "Edge from 1765796039330644 to 1765796035887360"
+    },
+    {
+      "source": "1765796039330644",
+      "target": "1765796047320377",
+      "slot": null,
+      "observedLabel": "Edge from 1765796039330644 to 1765796047320377"
+    },
+    {
+      "source": "1765796039330644",
+      "target": "1765796047321484",
+      "slot": null,
+      "observedLabel": "Edge from 1765796039330644 to 1765796047321484"
+    },
+    {
+      "source": "1765796047321484",
+      "target": "1765796049323372",
+      "slot": null,
+      "observedLabel": "Edge from 1765796047321484 to 1765796049323372"
+    },
+    {
+      "source": "1765796049323372",
+      "target": "1765796052076317",
+      "slot": null,
+      "observedLabel": "Edge from 1765796049323372 to 1765796052076317"
+    },
+    {
+      "source": "1765796052076317",
+      "target": "1765796053359126",
+      "slot": null,
+      "observedLabel": "Edge from 1765796052076317 to 1765796053359126"
+    },
+    {
+      "source": "1765796053359126",
+      "target": "1765796054764703",
+      "slot": null,
+      "observedLabel": "Edge from 1765796053359126 to 1765796054764703"
+    },
+    {
+      "source": "1765796054764703",
+      "target": "1765796055844748",
+      "slot": null,
+      "observedLabel": "Edge from 1765796054764703 to 1765796055844748"
+    },
+    {
+      "source": "1765796055844748",
+      "target": "1765796057127607",
+      "slot": null,
+      "observedLabel": "Edge from 1765796055844748 to 1765796057127607"
+    },
+    {
+      "source": "1765796057127607",
+      "target": "1765796059766720",
+      "slot": null,
+      "observedLabel": "Edge from 1765796057127607 to 1765796059766720"
+    },
+    {
+      "source": "1765796059766720",
+      "target": "1765796052077477",
+      "slot": null,
+      "observedLabel": "Edge from 1765796059766720 to 1765796052077477"
+    },
+    {
+      "source": "1765796059766720",
+      "target": "1765796047320377",
+      "slot": null,
+      "observedLabel": "Edge from 1765796059766720 to 1765796047320377"
+    },
+    {
+      "source": "1765796047320377",
+      "target": "1765796049323505",
+      "slot": null,
+      "observedLabel": "Edge from 1765796047320377 to 1765796049323505"
+    },
+    {
+      "source": "1765796047319609",
+      "target": "1765796063432305",
+      "slot": null,
+      "observedLabel": "Edge from 1765796047319609 to 1765796063432305"
+    },
+    {
+      "source": "1765796047319609",
+      "target": "1765796063434943",
+      "slot": null,
+      "observedLabel": "Edge from 1765796047319609 to 1765796063434943"
+    },
+    {
+      "source": "1765796047319609",
+      "target": "1765796063434382",
+      "slot": null,
+      "observedLabel": "Edge from 1765796047319609 to 1765796063434382"
+    },
+    {
+      "source": "1765796063434382",
+      "target": "1765796047320377",
+      "slot": null,
+      "observedLabel": "Edge from 1765796063434382 to 1765796047320377"
+    },
+    {
+      "source": "1765796063434382",
+      "target": "1765796047319609",
+      "slot": null,
+      "observedLabel": "Edge from 1765796063434382 to 1765796047319609"
+    },
+    {
+      "source": "1765796063434943",
+      "target": "1765796047320377",
+      "slot": null,
+      "observedLabel": "Edge from 1765796063434943 to 1765796047320377"
+    },
+    {
+      "source": "1765796063432305",
+      "target": "1765796047320377",
+      "slot": null,
+      "observedLabel": "Edge from 1765796063432305 to 1765796047320377"
+    },
+    {
+      "source": "1765796063432305",
+      "target": "1765796047319609",
+      "slot": null,
+      "observedLabel": "Edge from 1765796063432305 to 1765796047319609"
+    },
+    {
+      "source": "1765796063434943",
+      "target": "1765796047319609",
+      "slot": null,
+      "observedLabel": "Edge from 1765796063434943 to 1765796047319609"
+    }
+  ]
+}

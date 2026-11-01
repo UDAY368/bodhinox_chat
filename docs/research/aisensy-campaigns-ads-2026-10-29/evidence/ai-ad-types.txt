@@ -1,0 +1,127 @@
+- button:
+- heading [level=3]: AiSensy
+- heading [level=3]: Ads Manager
+- heading [level=4]: "Ad Credit: ₹ 1000.00"
+- button:
+- button:
+  - generic: Buy Credits
+- button:
+  - text: Create Ad
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: +
+- generic: ✦
+- generic: +
+- generic: +
+- generic: ✦
+- generic: ✦
+- text: AI-POWERED
+- heading [level=2]: Ready-to-run ads in minutes
+- paragraph: Describe your product or add a link to generate ads with AI.
+- textbox:
+  - textbox: business name
+  - textbox: website URL
+  - textbox: target audience
+- button:
+- button:
+- button:
+  - generic: Let AI decide
+- button [pressed]: Image
+- button: Video
+- button:
+  - generic: 3:4
+- button:
+- generic: "3"
+- button [disabled]:
+- text: 5 free generations left
+- button:
+  - generic: Generate Ad
+- tablist:
+  - tab [selected]:
+    - generic: AiSensy Ads
+  - tab:
+    - generic: Fetched Ads
+- textbox:
+  - /placeholder: "Search by Ad name "
+- button:
+  - text: Sync
+- button:
+  - text: Download Report
+- button: Select Status
+- textbox
+- heading [level=3]: "Last 30 days: 30 Sep 2026 - 29 Oct 2026"
+- button:
+  - text: Customize Metrics
+- button:
+  - text: Columns
+- paragraph: Number of Leads
+- heading [level=3]: "0"
+- paragraph: Click-Through Rate
+- heading [level=3]: 0%
+- paragraph: Cost Per Lead
+- heading [level=3]: ₹ 0
+- paragraph: Total Spend
+- heading [level=3]: ₹ 0
+- paragraph: Total CAPI Signals
+- heading [level=3]: "0"
+- table:
+  - rowgroup:
+    - row:
+      - columnheader:
+        - heading [level=5]: Actions
+      - columnheader:
+        - heading [level=5]: Ad Name
+      - columnheader:
+        - heading [level=5]: Start Date
+      - columnheader:
+        - heading [level=5]: Status
+      - columnheader:
+        - heading [level=5]: Ad Type
+      - columnheader:
+        - heading [level=5]: Daily Budget
+      - columnheader:
+        - heading [level=5]: Impressions
+      - columnheader:
+        - heading [level=5]: Reach
+      - columnheader:
+        - heading [level=5]: Clicks
+      - columnheader:
+        - heading [level=5]: Spend
+      - columnheader:
+        - heading [level=5]: CTR (%)
+      - columnheader:
+        - heading [level=5]: CPC
+      - columnheader:
+        - heading [level=5]: CPM
+  - rowgroup:
+    - row:
+      - cell:
+        - heading [level=5]: No data available
+        - paragraph: Create your first ad to see analytics here
+- paragraph: "Rows per page:"
+- button: "25"
+- textbox: "25"
+- paragraph: 0-0 of 0
+- button [disabled]:
+- button [disabled]:
+- menu:
+  - menuitem "Let AI decide Pick the best ad type for each ad" [active]:
+    - generic: Let AI decide
+    - generic: Pick the best ad type for each ad
+  - menuitem "Click to WhatsApp Start a WhatsApp conversation from your ad":
+    - generic: Click to WhatsApp
+    - generic: Start a WhatsApp conversation from your ad
+  - menuitem "Website to WhatsApp Website visits with a WhatsApp button":
+    - generic: Website to WhatsApp
+    - generic: Website visits with a WhatsApp button
+  - menuitem "Website Send people to a product or landing page":
+    - generic: Website
+    - generic: Send people to a product or landing page
+  - menuitem "Status Reach customers inside WhatsApp Status":
+    - generic: Status
+    - generic: Reach customers inside WhatsApp Status

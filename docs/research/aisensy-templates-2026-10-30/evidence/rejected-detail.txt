@@ -1,0 +1,211 @@
+- button:
+- heading [level=3]: AiSensy
+- heading [level=3]: Template Messages
+- button:
+- button:
+  - text: Create Template
+- heading [level=6]: Meet Campaign Agent, your AI campaign manager
+- generic: New
+- generic: Describe your goal once, AI w
+- button:
+  - generic: Try Campaign Agent
+- paragraph: Template Message quick guide
+- heading [level=5]: Quick Guide
+- paragraph: You can Initiate a Conversation with users on WhatsApp using these template messages.
+- link:
+  - /url: https://faq.aisensy.com/how-to-create-whatsapp-template-messages-in-aisensy/
+  - generic: How to Create WhatsApp Template Message?
+- link:
+  - /url: https://m.aisensy.com/how-to-use-parameters-in-whatsapp-template-message
+  - generic: Use chatbot parameters for leads
+- link:
+  - /url: https://m.aisensy.com/how-to-add-quick-reply-to-whatsapp-template-message
+  - generic: Add Quick Reply to WhatsApp Template Message
+- link:
+  - /url: https://faq.aisensy.com/whatsapp-template-message-guidelines/
+  - generic: Message formatting guideline (Bold, Italic & more)
+- heading [level=5]: What would you like to launch?
+- button:
+  - paragraph: Create AI Templates
+  - generic: AI
+  - paragraph: Generate powerful WhatsApp templates in seconds with AI.
+- button:
+  - paragraph: Launch WhatsApp Status Ad
+  - generic: NEW
+  - paragraph: Publish scroll-stopping offers directly to WhatsApp Status.
+- button:
+  - paragraph: Launch Lead Form Ads
+  - paragraph: Capture high-intent leads and follow up instantly on WhatsApp.
+- button:
+  - paragraph: Create AI Agent
+  - generic: AI
+  - paragraph: Qualify leads, answer questions and close sales automatically.
+- textbox:
+  - /placeholder: Search templates (status, name etc.)
+- button:
+- button:
+  - text: Sync
+- tablist:
+  - tab:
+    - text: Explore
+  - tab [selected]:
+    - text: All
+  - tab:
+    - text: Draft
+  - tab:
+    - text: Pending
+  - tab:
+    - text: Approved
+  - tab:
+    - text: Action Required
+- button:
+  - text: User Generated
+  - generic: "7"
+- button:
+  - text: Campaign Agent Generated
+  - generic: "0"
+- table:
+  - rowgroup:
+    - row:
+      - columnheader:
+        - heading [level=5]: Name
+      - columnheader:
+        - heading [level=5]: Category
+      - columnheader:
+        - heading [level=5]: Status
+      - columnheader:
+        - heading [level=5]: Type
+      - columnheader:
+        - heading [level=5]: Health
+      - columnheader:
+        - heading [level=5]: Created At
+      - columnheader:
+        - heading [level=5]: Action
+    - row:
+      - columnheader:
+        - paragraph: cart_drop_without_incentive_b003p
+      - columnheader:
+        - paragraph: MARKETING
+      - columnheader:
+        - paragraph: PENDING
+      - columnheader:
+        - paragraph: TEXT
+      - columnheader:
+        - generic: Unknown
+      - columnheader:
+        - paragraph: October 29, 2026
+      - columnheader:
+        - button:
+        - button:
+    - row:
+      - columnheader:
+        - paragraph: welcome
+      - columnheader:
+        - paragraph: MARKETING
+      - columnheader:
+        - paragraph: PENDING
+      - columnheader:
+        - paragraph: IMAGE
+      - columnheader:
+        - generic: Unknown
+      - columnheader:
+        - paragraph: October 29, 2026
+      - columnheader:
+        - button:
+        - button:
+    - row:
+      - columnheader:
+        - paragraph: cart_drop_without_incentive
+      - columnheader:
+        - paragraph: MARKETING
+      - columnheader:
+        - paragraph: REJECTED
+      - columnheader:
+        - paragraph: TEXT
+      - columnheader:
+        - generic: High
+      - columnheader:
+        - paragraph: October 21, 2026
+      - columnheader:
+        - button:
+        - button:
+    - row:
+      - columnheader:
+        - paragraph: cart_drop_with_incentive_sku
+      - columnheader:
+        - paragraph: MARKETING
+      - columnheader:
+        - paragraph: REJECTED
+      - columnheader:
+        - paragraph: TEXT
+      - columnheader:
+        - generic: High
+      - columnheader:
+        - paragraph: October 21, 2026
+      - columnheader:
+        - button:
+        - button:
+    - row:
+      - columnheader:
+        - paragraph: cart_drop_with_incentive
+      - columnheader:
+        - paragraph: MARKETING
+      - columnheader:
+        - paragraph: REJECTED
+      - columnheader:
+        - paragraph: TEXT
+      - columnheader:
+        - generic: High
+      - columnheader:
+        - paragraph: October 21, 2026
+      - columnheader:
+        - button:
+        - button:
+    - row:
+      - columnheader:
+        - paragraph: order_information
+      - columnheader:
+        - paragraph: MARKETING
+      - columnheader:
+        - paragraph: REJECTED
+      - columnheader:
+        - paragraph: TEXT
+      - columnheader:
+        - generic: High
+      - columnheader:
+        - paragraph: October 21, 2026
+      - columnheader:
+        - button:
+        - button:
+    - row:
+      - columnheader:
+        - paragraph: sample_template_message
+      - columnheader:
+        - paragraph: UTILITY
+      - columnheader:
+        - paragraph: REJECTED
+      - columnheader:
+        - paragraph: TEXT
+      - columnheader:
+        - generic: High
+      - columnheader:
+        - paragraph: October 21, 2026
+      - columnheader:
+        - button:
+        - button:
+- paragraph:
+  - generic: 1–7 of 7
+- button [disabled]:
+- button [disabled]:
+- dialog:
+  - generic: cart_drop_without_incentive
+  - generic: REJECTED
+  - button "Close":
+  - separator
+  - heading "Template Journey" [level=3]
+  - generic: Created
+  - paragraph: Wed, Oct 21, 2026, 04:26 PM
+  - generic: Rejected
+  - paragraph: Wed, Oct 21, 2026, 04:26 PM
+  - img "WhatsApp"
+  - 'heading "Hey {{1}}, just a reminder. You left {{2}} in your shopping cart. Get this now for Rs. {{3}} only. Click here {{4}} to complete your purchase." [level=5]'

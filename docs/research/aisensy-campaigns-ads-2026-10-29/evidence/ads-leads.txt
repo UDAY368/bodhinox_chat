@@ -1,0 +1,38 @@
+- button [active]:
+- heading "AiSensy" [level=3]
+- heading "Lead Gen" [level=3]
+- generic: NEW
+- button "AI Assistant":
+- generic: groups
+- generic: Total leads
+- paragraph: "0"
+- generic: description
+- generic: Form submissions
+- paragraph: "0"
+- generic: ads_click
+- generic: CTWA leads
+- paragraph: "0"
+- textbox "Search by name, email, phone..."
+- 'button "Form: All Forms"'
+- textbox
+- 'button "Ad: All Ads"'
+- textbox
+- heading "Select date range" [level=3]
+- tablist:
+  - tab "All Leads" [selected]:
+    - generic: All Leads
+  - tab "Lead Form Submissions":
+    - generic: Lead Form Submissions
+  - tab "CTWA Leads":
+    - generic: CTWA Leads
+- generic "Select at least one lead to broadcast":
+  - button "Broadcast" [disabled]:
+    - text: Broadcast
+- generic "No leads to export":
+  - button "Export CSV" [disabled]:
+    - text: Export CSV
+- generic "Fetch any leads missed by the webhook from Meta":
+  - button "Sync from Meta":
+    - text: Sync from Meta
+- paragraph: No leads found
+- paragraph: Try clearing the filters, or sync from Meta to recover missed leads.
