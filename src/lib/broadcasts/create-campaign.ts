@@ -8,6 +8,8 @@ import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
 import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { normalizePhone, isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { AudienceFilterError, compileAudienceFilter } from '@/lib/audience/filter';
+import { loadSegmentFilter } from '@/lib/audience/segments';
 
 export const CAMPAIGN_LIMITS={bodyBytes:1024*1024,recipients:1000,tags:100,variables:50,frozenBytes:2*1024*1024} as const;
 const mapping=z.discriminatedUnion('type',[
@@ -16,13 +18,14 @@ const mapping=z.discriminatedUnion('type',[
   z.object({type:z.literal('custom_field'),value:z.string().uuid()}).strict(),
 ]);
 const audienceSchema=z.object({
-  type:z.enum(['all','tags','custom_field','csv']),
+  type:z.enum(['all','tags','custom_field','csv','segment']),
+  segmentId:z.string().uuid().optional(),
   tagIds:z.array(z.string().uuid()).max(CAMPAIGN_LIMITS.tags).optional(),
   excludeTagIds:z.array(z.string().uuid()).max(CAMPAIGN_LIMITS.tags).optional(),
   customField:z.object({fieldId:z.string().uuid(),operator:z.enum(['is','is_not','contains']),value:z.string().max(1024)}).strict().optional(),
   csvContacts:z.array(z.object({phone:z.string().min(1).max(64),name:z.string().max(256).optional()}).strict()).max(CAMPAIGN_LIMITS.recipients).optional(),
 }).strict().superRefine((a,ctx)=>{
-  if((a.type==='tags'&&!a.tagIds?.length)||(a.type==='custom_field'&&!a.customField)||(a.type==='csv'&&!a.csvContacts?.length))
+  if((a.type==='tags'&&!a.tagIds?.length)||(a.type==='custom_field'&&!a.customField)||(a.type==='csv'&&!a.csvContacts?.length)||(a.type==='segment'&&!a.segmentId))
     ctx.addIssue({code:'custom',message:'Audience configuration is incomplete'});
 });
 const inputSchema=z.object({
@@ -72,6 +75,9 @@ async function resolveContacts(tx:TenantTransaction,scope:TenantContext,input:Ca
       FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(phone text,name text) ORDER BY x.phone
       ON CONFLICT(account_id,phone_normalized) WHERE phone_normalized<>'' DO NOTHING`;
     conditions.push(Prisma.sql`c.phone_normalized IN (SELECT value FROM jsonb_array_elements_text(${JSON.stringify([...byPhone.keys()])}::jsonb))`);
+  }else if(audience.type==='segment'){
+    try{conditions.push(compileAudienceFilter(accountId,await loadSegmentFilter(tx,accountId,audience.segmentId!)));}
+    catch(error){if(error instanceof AudienceFilterError)invalid(error.message);throw error;}
   }else if(audience.type==='tags'){
     conditions.push(Prisma.sql`EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.tagIds!)}))`);
   }else if(audience.type==='custom_field'){

@@ -546,7 +546,20 @@
       "toastBulkDeleted": "{count} contatos excluídos",
       "filterByTag": "Filtrar por {name}",
       "removeTagFilter": "Remover o filtro {name}",
-      "selectContact": "Selecionar {name}"
+      "selectContact": "Selecionar {name}",
+      "segments": {
+        "selectLabel": "Segmento",
+        "allContacts": "Todos os contatos",
+        "newSegment": "Novo segmento",
+        "editSegment": "Editar segmento",
+        "deleteSegment": "Excluir segmento",
+        "deleted": "Segmento excluído",
+        "deleteFailed": "Não foi possível excluir o segmento",
+        "loadFailed": "Não foi possível carregar os segmentos",
+        "exportAll": "Exportar CSV",
+        "exportSegment": "Exportar segmento",
+        "exportFailed": "Não foi possível exportar os contatos"
+      }
     },
     "form": {
       "addTitle": "Adicionar contato",
@@ -724,6 +737,54 @@
       "toastRenameFailed": "Não foi possível renomear o campo.",
       "toastDeleteFailed": "Não foi possível excluir o campo.",
       "toastDeleted": "\"{name}\" excluído."
+    },
+    "segments": {
+      "newTitle": "Novo segmento",
+      "editTitle": "Editar segmento",
+      "builderDesc": "Um filtro salvo que se atualiza conforme os contatos mudam.",
+      "nameLabel": "Nome",
+      "namePlaceholder": "ex.: Clientes ouro em São Paulo",
+      "conditionsLabel": "Condições",
+      "fieldLabel": "Campo",
+      "operatorLabel": "Condição",
+      "valueLabel": "Valor",
+      "customFieldLabel": "Campo personalizado",
+      "chooseField": "Escolha um campo",
+      "noTags": "Ainda não há etiquetas",
+      "addCondition": "Adicionar condição",
+      "removeCondition": "Remover condição",
+      "allMustMatch": "Os contatos devem atender a todas as condições.",
+      "matchCount": "{total} contatos correspondem · {sendable} podem receber marketing",
+      "counting": "Contando…",
+      "incomplete": "Preencha todas as condições para ver a contagem.",
+      "yes": "Sim",
+      "no": "Não",
+      "cancel": "Cancelar",
+      "save": "Salvar segmento",
+      "saved": "Segmento salvo",
+      "saveFailed": "Não foi possível salvar o segmento",
+      "fields": {
+        "tags": "Etiquetas",
+        "custom_field": "Campo personalizado",
+        "name": "Nome",
+        "phone": "Telefone",
+        "email": "E-mail",
+        "company": "Empresa",
+        "created_at": "Criado",
+        "opted_out": "Descadastrado do marketing",
+        "blocked": "Bloqueado"
+      },
+      "ops": {
+        "has_any": "tem alguma de",
+        "has_none": "não tem nenhuma de",
+        "is": "é",
+        "is_not": "não é",
+        "contains": "contém",
+        "is_empty": "está vazio",
+        "is_not_empty": "não está vazio",
+        "before": "antes de",
+        "after": "depois de"
+      }
     }
   },
   "Pipelines": {
@@ -964,7 +1025,8 @@
           "all": "Todos os contatos",
           "tags": "Filtrar por tags",
           "customField": "Campo personalizado",
-          "csv": "Enviar CSV"
+          "csv": "Enviar CSV",
+          "segment": "Segmento salvo"
         },
         "allDesc": "Enviar para todos os {count} contatos do seu banco de dados.",
         "allDescLoading": "Enviar para todos os contatos do seu banco de dados.",
@@ -995,7 +1057,12 @@
         "audienceSummary": "Resumo do público",
         "calculating": "Calculando…",
         "estimatedRecipients": "destinatários estimados",
-        "selectTypeForEstimate": "Selecione um tipo de público para ver a estimativa."
+        "selectTypeForEstimate": "Selecione um tipo de público para ver a estimativa.",
+        "segmentDesc": "Enviar para um segmento de Contatos",
+        "selectSegment": "Escolha um segmento",
+        "selectSegmentPlaceholder": "Selecione um segmento",
+        "noSegments": "Ainda não há segmentos. Crie um em Contatos.",
+        "segmentConsentNote": "Contatos descadastrados ou bloqueados nunca recebem. A contagem mostra quem vai receber."
       },
       "personalize": {
         "title": "Personalizar variáveis",
@@ -1056,7 +1123,8 @@
         "estimatedReach": "Alcance estimado",
         "language": "Idioma",
         "confirmTitle": "Confirmar disparo",
-        "confirmDesc": "Você está prestes a enviar este disparo para <b>{count, number}</b> {count, plural, =1 {contato} other {contatos}} usando o modelo <b>{template}</b>. Esta ação não pode ser desfeita."
+        "confirmDesc": "Você está prestes a enviar este disparo para <b>{count, number}</b> {count, plural, =1 {contato} other {contatos}} usando o modelo <b>{template}</b>. Esta ação não pode ser desfeita.",
+        "audienceSegment": "Segmento salvo"
       }
     },
     "sending": {

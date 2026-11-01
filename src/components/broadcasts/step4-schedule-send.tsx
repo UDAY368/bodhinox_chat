@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { countAudience, type AudienceConfig } from '@/lib/broadcast-audience';
-import { createClient } from '@/lib/data/client';
+import type { AudienceConfig } from '@/lib/broadcast-audience';
+import { audienceReach } from '@/lib/audience/client';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +50,7 @@ export function Step4ScheduleSend({
     async function calculateReach() {
       setLoadingReach(true);
       try {
-        setEstimatedReach((await countAudience(createClient(), audience)) ?? 0);
+        setEstimatedReach((await audienceReach(audience)) ?? 0);
       } catch {
         setEstimatedReach(0);
       } finally {
@@ -68,7 +68,9 @@ export function Step4ScheduleSend({
         ? t('scheduleSend.audienceTags')
         : audience.type === 'csv'
           ? t('scheduleSend.audienceCsv')
-          : t('scheduleSend.audienceField');
+          : audience.type === 'segment'
+            ? t('scheduleSend.audienceSegment')
+            : t('scheduleSend.audienceField');
 
   return (
     <div className="space-y-6">

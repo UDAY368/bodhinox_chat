@@ -546,7 +546,20 @@
       "toastBulkDeleted": "연락처 {count}개가 삭제되었습니다",
       "filterByTag": "{name}(으)로 필터링",
       "removeTagFilter": "{name} 필터 제거",
-      "selectContact": "{name} 선택"
+      "selectContact": "{name} 선택",
+      "segments": {
+        "selectLabel": "세그먼트",
+        "allContacts": "모든 연락처",
+        "newSegment": "새 세그먼트",
+        "editSegment": "세그먼트 편집",
+        "deleteSegment": "세그먼트 삭제",
+        "deleted": "세그먼트가 삭제되었습니다",
+        "deleteFailed": "세그먼트를 삭제하지 못했습니다",
+        "loadFailed": "세그먼트를 불러오지 못했습니다",
+        "exportAll": "CSV 내보내기",
+        "exportSegment": "세그먼트 내보내기",
+        "exportFailed": "연락처를 내보내지 못했습니다"
+      }
     },
     "form": {
       "addTitle": "연락처 추가",
@@ -724,6 +737,54 @@
       "toastRenameFailed": "필드 이름을 변경할 수 없습니다.",
       "toastDeleteFailed": "필드를 삭제할 수 없습니다.",
       "toastDeleted": "\"{name}\"을(를) 삭제했습니다."
+    },
+    "segments": {
+      "newTitle": "새 세그먼트",
+      "editTitle": "세그먼트 편집",
+      "builderDesc": "연락처가 바뀌면 자동으로 갱신되는 저장된 필터입니다.",
+      "nameLabel": "이름",
+      "namePlaceholder": "예: 서울 골드 고객",
+      "conditionsLabel": "조건",
+      "fieldLabel": "필드",
+      "operatorLabel": "조건",
+      "valueLabel": "값",
+      "customFieldLabel": "사용자 정의 필드",
+      "chooseField": "필드 선택",
+      "noTags": "아직 태그가 없습니다",
+      "addCondition": "조건 추가",
+      "removeCondition": "조건 삭제",
+      "allMustMatch": "연락처는 모든 조건을 충족해야 합니다.",
+      "matchCount": "{total}명 일치 · {sendable}명 마케팅 수신 가능",
+      "counting": "계산 중…",
+      "incomplete": "수를 보려면 모든 조건을 완성하세요.",
+      "yes": "예",
+      "no": "아니요",
+      "cancel": "취소",
+      "save": "세그먼트 저장",
+      "saved": "세그먼트가 저장되었습니다",
+      "saveFailed": "세그먼트를 저장하지 못했습니다",
+      "fields": {
+        "tags": "태그",
+        "custom_field": "사용자 정의 필드",
+        "name": "이름",
+        "phone": "전화번호",
+        "email": "이메일",
+        "company": "회사",
+        "created_at": "생성일",
+        "opted_out": "마케팅 수신 거부",
+        "blocked": "차단됨"
+      },
+      "ops": {
+        "has_any": "다음 중 하나라도 있음",
+        "has_none": "다음이 하나도 없음",
+        "is": "같음",
+        "is_not": "같지 않음",
+        "contains": "포함",
+        "is_empty": "비어 있음",
+        "is_not_empty": "비어 있지 않음",
+        "before": "이전",
+        "after": "이후"
+      }
     }
   },
   "Pipelines": {
@@ -964,7 +1025,8 @@
           "all": "전체 연락처",
           "tags": "태그로 필터링",
           "customField": "커스텀 필드",
-          "csv": "CSV 업로드"
+          "csv": "CSV 업로드",
+          "segment": "저장된 세그먼트"
         },
         "allDesc": "데이터베이스의 전체 연락처 {count}명에게 보냅니다.",
         "allDescLoading": "데이터베이스의 전체 연락처에게 보냅니다.",
@@ -995,7 +1057,12 @@
         "audienceSummary": "대상 요약",
         "calculating": "계산 중…",
         "estimatedRecipients": "예상 수신자",
-        "selectTypeForEstimate": "예상치를 보려면 대상 유형을 선택하세요."
+        "selectTypeForEstimate": "예상치를 보려면 대상 유형을 선택하세요.",
+        "segmentDesc": "연락처의 세그먼트로 보내기",
+        "selectSegment": "세그먼트 선택",
+        "selectSegmentPlaceholder": "세그먼트를 선택하세요",
+        "noSegments": "아직 세그먼트가 없습니다. 연락처 페이지에서 만드세요.",
+        "segmentConsentNote": "수신 거부되었거나 차단된 연락처에는 보내지 않습니다. 수는 실제 수신자를 나타냅니다."
       },
       "personalize": {
         "title": "변수 개인화",
@@ -1056,7 +1123,8 @@
         "estimatedReach": "예상 도달 수",
         "language": "언어",
         "confirmTitle": "브로드캐스트 확인",
-        "confirmDesc": "<b>{template}</b> 템플릿으로 연락처 <b>{count, number}</b>명에게 이 브로드캐스트를 보내려고 합니다. 이 작업은 되돌릴 수 없습니다."
+        "confirmDesc": "<b>{template}</b> 템플릿으로 연락처 <b>{count, number}</b>명에게 이 브로드캐스트를 보내려고 합니다. 이 작업은 되돌릴 수 없습니다.",
+        "audienceSegment": "저장된 세그먼트"
       }
     },
     "sending": {

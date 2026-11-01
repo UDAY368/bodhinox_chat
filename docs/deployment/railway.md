@@ -32,6 +32,8 @@ Migration `20261101000000_round_robin_cursor` adds the worker-only `assignment_c
 
 Migration `20261101010000_contact_consent` adds nullable `opted_out_at`, `opt_out_source` and `blocked_at` columns to `contacts`. It is additive, needs no backfill (existing contacts start as not opted out and not blocked) and must run before the code that reads the columns.
 
+Migration `20261101020000_segments` adds the tenant-scoped `segments` table (RLS: members read, agents and above write). It is additive and is applied automatically by the CI `migrate` job before Railway deploys the code.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

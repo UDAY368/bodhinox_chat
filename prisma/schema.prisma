@@ -712,6 +712,18 @@ model inbound_action_steps {
   @@unique([account_id, message_id, stage])
 }
 
+model segments {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  user_id String @db.Uuid
+  name String
+  filter Json @db.JsonB
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, name])
+  @@unique([account_id, id])
+}
+
 model assignment_cursors {
   account_id String @db.Uuid @id
   last_user_id String? @db.Uuid

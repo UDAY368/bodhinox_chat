@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/data/client';
-import { countAudience } from '@/lib/broadcast-audience';
+import { audienceReach, fetchSegments, type SegmentSummary } from '@/lib/audience/client';
 import { parseBroadcastCsv } from '@/lib/broadcast-csv';
 import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -16,11 +16,12 @@ import {
   Loader2,
   ArrowRight,
   ArrowLeft,
+  ListFilter,
   X,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
+type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'segment';
 type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
 interface CustomFieldFilter {
@@ -35,6 +36,7 @@ interface AudienceConfig {
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
   excludeTagIds?: string[];
+  segmentId?: string;
 }
 
 interface Step2Props {
@@ -88,7 +90,20 @@ export function Step2SelectAudience({
       description: t('selectAudience.csvDesc'),
       icon: Upload,
     },
+    {
+      type: 'segment',
+      label: t('selectAudience.method.segment'),
+      description: t('selectAudience.segmentDesc'),
+      icon: ListFilter,
+    },
   ], [t]);
+  const [segments, setSegments] = useState<SegmentSummary[] | null>(null);
+
+  // Lazy-load saved segments only when that audience type is active.
+  useEffect(() => {
+    if (audience.type !== 'segment' || segments) return;
+    fetchSegments().then(setSegments).catch(() => setSegments([]));
+  }, [audience.type, segments]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
@@ -145,12 +160,13 @@ export function Step2SelectAudience({
     setLoadingCount(true);
     try {
       setEstimatedCount(
-        await countAudience(createClient(), {
+        await audienceReach({
           type: audience.type,
           tagIds: audience.tagIds,
           customField: audience.customField,
           csvContacts: audience.csvContacts,
           excludeTagIds: audience.excludeTagIds,
+          segmentId: audience.segmentId,
         }),
       );
     } catch {
@@ -164,6 +180,7 @@ export function Step2SelectAudience({
     audience.customField,
     audience.csvContacts,
     audience.excludeTagIds,
+    audience.segmentId,
   ]);
 
   useEffect(() => {
@@ -236,7 +253,8 @@ export function Step2SelectAudience({
       audience.customField.value.length > 0) ||
     (audience.type === 'csv' &&
       audience.csvContacts &&
-      audience.csvContacts.length > 0);
+      audience.csvContacts.length > 0) ||
+    (audience.type === 'segment' && !!audience.segmentId);
 
   return (
     <div className="space-y-6">
@@ -267,6 +285,8 @@ export function Step2SelectAudience({
                       : undefined,
                   csvContacts:
                     option.type === 'csv' ? audience.csvContacts : undefined,
+                  segmentId:
+                    option.type === 'segment' ? audience.segmentId : undefined,
                 })
               }
               className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
@@ -294,6 +314,32 @@ export function Step2SelectAudience({
           );
         })}
       </div>
+
+      {audience.type === 'segment' && (
+        <div className="rounded-xl border border-border bg-card/50 p-4">
+          <label htmlFor="audience-segment" className="mb-2 block text-sm font-medium text-foreground">
+            {t('selectAudience.selectSegment')}
+          </label>
+          {segments === null ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : segments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('selectAudience.noSegments')}</p>
+          ) : (
+            <select
+              id="audience-segment"
+              value={audience.segmentId ?? ''}
+              onChange={(e) => onUpdate({ ...audience, segmentId: e.target.value || undefined })}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground"
+            >
+              <option value="">{t('selectAudience.selectSegmentPlaceholder')}</option>
+              {segments.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">{t('selectAudience.segmentConsentNote')}</p>
+        </div>
+      )}
 
       {audience.type === 'tags' && (
         <div className="rounded-xl border border-border bg-card/50 p-4">

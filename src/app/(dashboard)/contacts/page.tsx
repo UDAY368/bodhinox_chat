@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/data/client';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag } from '@/types';
+import type { Contact, Tag, ContactTag, CustomField } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -48,8 +48,13 @@ import {
   ChevronRight,
   SlidersHorizontal,
   Filter,
+  ListFilter,
+  Download,
   X,
 } from 'lucide-react';
+import { authFetch } from '@/lib/auth/client';
+import { fetchSegments, type SegmentSummary } from '@/lib/audience/client';
+import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
@@ -78,6 +83,13 @@ export default function ContactsPage() {
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  // Saved segment view; replaces the tag filter while active.
+  const [segments, setSegments] = useState<SegmentSummary[]>([]);
+  const [segmentId, setSegmentId] = useState('');
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [editingSegment, setEditingSegment] = useState<SegmentSummary | null>(null);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [exporting, setExporting] = useState(false);
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
@@ -134,7 +146,20 @@ export default function ContactsPage() {
     let contactRows: Contact[];
     let count: number;
 
-    if (selectedTagIds.length > 0) {
+    if (segmentId) {
+      const query = new URLSearchParams({ offset: String(from), limit: String(PAGE_SIZE), search: term });
+      const res = await authFetch(`/api/segments/${segmentId}/contacts?${query}`, { cache: 'no-store' }).catch(() => null);
+      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+      if (!res?.ok) {
+        toast.error(t('toastFailedLoad'));
+        setLoading(false);
+        return;
+      }
+      const payload = (await res.json()) as { contacts: Contact[]; total: number };
+      if (seq !== fetchSeq.current) return;
+      contactRows = payload.contacts;
+      count = payload.total;
+    } else if (selectedTagIds.length > 0) {
       // Tag filter active — resolve it server-side (join + distinct +
       // windowed total count + pagination) so a tag covering many
       // contacts can't silently truncate the result or overflow an IN
@@ -208,19 +233,77 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [db, page, search, selectedTagIds, tagsMap, t]);
+  }, [db, page, search, selectedTagIds, segmentId, tagsMap, t]);
+
+  const loadSegments = useCallback(async () => {
+    try {
+      setSegments(await fetchSegments());
+    } catch {
+      toast.error(t('segments.loadFailed'));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    loadSegments();
+  }, [loadSegments]);
+
+  function selectSegment(id: string) {
+    setSegmentId(id);
+    setSelectedTagIds([]);
+    setPage(0);
+  }
+
+  async function openSegmentBuilder(segment: SegmentSummary | null) {
+    if (customFields.length === 0) {
+      const { data } = await db.from('custom_fields').select('*').order('field_name');
+      setCustomFields(data ?? []);
+    }
+    setEditingSegment(segment);
+    setBuilderOpen(true);
+  }
+
+  async function deleteSelectedSegment() {
+    const res = await authFetch(`/api/segments/${segmentId}`, { method: 'DELETE' }).catch(() => null);
+    if (!res?.ok) {
+      toast.error(t('segments.deleteFailed'));
+      return;
+    }
+    toast.success(t('segments.deleted'));
+    selectSegment('');
+    loadSegments();
+  }
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const res = await authFetch(`/api/contacts/export${segmentId ? `?segmentId=${segmentId}` : ''}`);
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        toast.error(payload.error || t('segments.exportFailed'));
+        return;
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'contacts.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(t('segments.exportFailed'));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
   // synchronously in the effect body, so the cascade the lint rule
   // warns about doesn't apply here.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTags();
   }, [fetchTags]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContacts();
   }, [fetchContacts]);
 
@@ -324,7 +407,8 @@ export default function ContactsPage() {
   const allTags = Object.values(tagsMap).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0;
+  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || segmentId !== '';
+  const selectedSegment = segments.find((s) => s.id === segmentId) ?? null;
 
   function toggleTagFilter(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -351,6 +435,17 @@ export default function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {canEditSettings && (
+            <Button
+              variant="outline"
+              onClick={exportCsv}
+              disabled={exporting}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              {segmentId ? t('segments.exportSegment') : t('segments.exportAll')}
+            </Button>
+          )}
           {canEditSettings && (
             <Button
               variant="outline"
@@ -401,8 +496,51 @@ export default function ContactsPage() {
             />
           </div>
 
+          <select
+            aria-label={t('segments.selectLabel')}
+            value={segmentId}
+            onChange={(e) => selectSegment(e.target.value)}
+            className="h-9 shrink-0 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+          >
+            <option value="">{t('segments.allContacts')}</option>
+            {segments.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          {canEdit && (
+            <Button
+              variant="outline"
+              onClick={() => openSegmentBuilder(null)}
+              className="border-border text-muted-foreground hover:bg-muted shrink-0"
+            >
+              <ListFilter className="size-4" />
+              {t('segments.newSegment')}
+            </Button>
+          )}
+          {canEdit && selectedSegment && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => openSegmentBuilder(selectedSegment)}
+                aria-label={t('segments.editSegment')}
+                className="border-border text-muted-foreground hover:bg-muted shrink-0"
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={deleteSelectedSegment}
+                aria-label={t('segments.deleteSegment')}
+                className="border-border text-muted-foreground hover:bg-muted shrink-0"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </>
+          )}
+
           <Popover>
             <PopoverTrigger
+              disabled={segmentId !== ''}
               render={
                 <Button
                   variant="outline"
@@ -759,6 +897,19 @@ export default function ContactsPage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onImported={fetchContacts}
+      />
+
+      <SegmentBuilderDialog
+        open={builderOpen}
+        onOpenChange={setBuilderOpen}
+        segment={editingSegment}
+        tags={allTags}
+        customFields={customFields}
+        onSaved={(saved) => {
+          loadSegments();
+          if (saved.id === segmentId) fetchContacts();
+          else selectSegment(saved.id);
+        }}
       />
 
       {/* Custom Fields Manager (admin+) */}

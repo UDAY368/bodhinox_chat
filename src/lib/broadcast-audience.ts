@@ -13,7 +13,8 @@ export interface CustomFieldFilter {
   value: string;
 }
 
-export type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
+/** 'segment' is resolved server-side only (lib/audience); this module skips it. */
+export type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'segment';
 
 export interface CsvAudienceRow {
   phone: string;
@@ -26,6 +27,7 @@ export interface AudienceConfig {
   customField?: CustomFieldFilter;
   csvContacts?: CsvAudienceRow[];
   excludeTagIds?: string[];
+  segmentId?: string;
 }
 
 /** Optional conservative scan bound for scheduled work; never silently truncate. */
