@@ -14,7 +14,7 @@ Validate with npm run typecheck, npm run lint, npm test -- --maxWorkers=1, and n
 
 ## ponytail
 
-Use the ponytail skill in full mode for every coding task in this project: the smallest complete change, finishing every caller, test and fixture it touches. Do not let it shorten anything under the security, tenancy and durability rules above.
+Use the ponytail skill in lite mode for every coding task in this project: build what was asked, name a smaller option in one line and let the user pick, finishing every caller, test and fixture it touches. Do not let it shorten anything under the security, tenancy and durability rules above.
 
 ## graphify
 
