@@ -34,6 +34,7 @@ export default async function globalSetup() {
   const users = Object.fromEntries(roles.map((role) => [role, newUser(role)])) as Record<Role, SeededUser>;
   const outsider = newUser('outsider');
   const accountA = randomUUID(), accountB = randomUUID();
+  const contact = { id: randomUUID(), name: `E2E Consent ${runId}` };
   const members: [string, SeededUser, Role][] = [
     ...roles.map((role) => [accountA, users[role], role] as [string, SeededUser, Role]),
     [accountB, outsider, 'owner'],
@@ -57,6 +58,8 @@ export default async function globalSetup() {
         [user.id, `E2E ${role}`, user.email, account, role]);
     }
     await db.query('COMMIT');
+    await db.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,$4,$5)",
+      [contact.id, accountA, users.owner.id, contact.name, `1415${String(Date.now()).slice(-7)}`]);
   } catch (error) {
     await db.query('ROLLBACK');
     throw error;
@@ -64,7 +67,7 @@ export default async function globalSetup() {
     await db.end();
   }
 
-  const data: Fixtures = { runId, accountA, accountB, users, outsider };
+  const data: Fixtures = { runId, accountA, accountB, users, outsider, contact };
   fs.mkdirSync(path.dirname(FIXTURES_FILE), { recursive: true });
   fs.writeFileSync(FIXTURES_FILE, JSON.stringify(data, null, 2));
 }

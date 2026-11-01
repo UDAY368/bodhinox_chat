@@ -312,6 +312,30 @@
         "default": null,
         "reference": null,
         "definition": "inbound_created_meta_id TEXT"
+      },
+      {
+        "name": "opted_out_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "opted_out_at TIMESTAMPTZ"
+      },
+      {
+        "name": "opt_out_source",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "opt_out_source TEXT CHECK (opt_out_source IN ('keyword','agent','api','import'))"
+      },
+      {
+        "name": "blocked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "blocked_at TIMESTAMPTZ"
       }
     ],
     "tags": [

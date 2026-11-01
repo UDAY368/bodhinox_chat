@@ -23,6 +23,7 @@ import type { DataClient } from '@/lib/data/types';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
+import { marketingSuppression } from '@/lib/contacts/consent';
 
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
@@ -178,12 +179,33 @@ export async function createBroadcast(
   // params aren't silently overwritten by a later duplicate — and so
   // the row↔params pairing below (keyed by contact_id) is unambiguous.
   const seenContact = new Set<string>();
-  const deduped = resolved.filter((r) => {
+  const unique = resolved.filter((r) => {
     if (seenContact.has(r.contactId)) return false;
     seenContact.add(r.contactId);
     return true;
   });
 
+  // Opted-out and blocked contacts never receive broadcasts; they count
+  // as rejected (lib/contacts/consent).
+  const { data: consentRows, error: consentError } = unique.length
+    ? await db
+        .from('contacts')
+        .select('id,opted_out_at,blocked_at')
+        .eq('account_id', accountId)
+        .in('id', unique.map((r) => r.contactId))
+    : { data: [], error: null };
+  if (consentError) throw new BroadcastError('internal', 'Failed to check contact consent', 500);
+  const suppressed = new Set(
+    ((consentRows ?? []) as { id: string; opted_out_at: string | null; blocked_at: string | null }[])
+      .filter((row) => marketingSuppression(row))
+      .map((row) => row.id)
+  );
+  rejected += suppressed.size;
+  const deduped = unique.filter((r) => !suppressed.has(r.contactId));
+
+  if (deduped.length === 0 && suppressed.size > 0) {
+    throw new BroadcastError('bad_request', 'Every valid recipient has opted out or is blocked', 400);
+  }
   if (deduped.length === 0) {
     throw new BroadcastError(
       'bad_request',

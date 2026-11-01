@@ -67,6 +67,23 @@ describe.skipIf(!ownerUrl||!workerUrl)('atomic authenticated campaign creation',
     }finally{await owner.query('UPDATE message_templates SET header_type=NULL,header_media_url=NULL WHERE id=$1',[templateId]);}
   });
 
+  it('never includes opted-out or blocked contacts, and refuses an audience that is entirely suppressed',async()=>{
+    const optedOut=randomUUID(),blocked=randomUUID();
+    await owner.query("INSERT INTO contacts(id,account_id,user_id,name,phone,opted_out_at,opt_out_source) VALUES($1,$2,$3,'Opted out','14155550191',NOW(),'keyword')",[optedOut,accountId,userId]);
+    await owner.query("INSERT INTO contacts(id,account_id,user_id,name,phone,blocked_at) VALUES($1,$2,$3,'Blocked','14155550192',NOW())",[blocked,accountId,userId]);
+    await owner.query("INSERT INTO contact_tags(account_id,contact_id,tag_id) VALUES($1,$2,$4),($1,$3,$4)",[accountId,optedOut,blocked,tagId]);
+    try{
+      const result=await createCampaign(scope,{...payload(),audience:{type:'tags',tagIds:[tagId]}});
+      const recipients=(await owner.query('SELECT contact_id FROM broadcast_recipients WHERE broadcast_id=$1',[result.id])).rows;
+      expect(recipients).toEqual([{contact_id:contactId}]);
+      await owner.query('UPDATE contacts SET opted_out_at=NOW() WHERE id=$1',[contactId]);
+      await expect(createCampaign(scope,{...payload(),audience:{type:'tags',tagIds:[tagId]}})).rejects.toMatchObject({status:400});
+    }finally{
+      await owner.query('UPDATE contacts SET opted_out_at=NULL WHERE id=$1',[contactId]);
+      await owner.query('DELETE FROM contacts WHERE id=ANY($1::uuid[])',[[optedOut,blocked]]);
+    }
+  });
+
   it('rejects viewers and all foreign template, tag and custom-field references before persistence',async()=>{
     const input=payload();
     await expect(createCampaign({...scope,userId:viewerId,role:'viewer'},input)).rejects.toMatchObject({status:403});

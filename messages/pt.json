@@ -646,7 +646,13 @@
       "toastCustomFieldsFailed": "Falha ao salvar os campos personalizados",
       "toastTemplateSent": "Modelo \"{name}\" enviado",
       "toastTemplateFailed": "Falha ao enviar o modelo: {reason}",
-      "networkError": "erro de rede"
+      "networkError": "erro de rede",
+      "consent": {
+        "optedOut": "Descadastrado do marketing",
+        "optedOutHint": "Sem transmissões nem modelos. Ativado quando responde STOP.",
+        "blocked": "Bloqueado",
+        "blockedHint": "Sem mensagens automáticas, fluxos ou respostas de IA."
+      }
     },
     "importModal": {
       "title": "Importar contatos",

@@ -103,6 +103,15 @@ function makeDb(createRows: unknown[] | Error) {
         };
         return chain;
       }
+      if (table === 'contacts') {
+        // Consent lookup: nobody is opted out or blocked in these tests.
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: () => chain,
+          in: () => Promise.resolve({ data: [], error: null }),
+        };
+        return chain;
+      }
       if (table === 'broadcasts' || table === 'broadcast_recipients') {
         calls.usedDirectInsert++;
         return {

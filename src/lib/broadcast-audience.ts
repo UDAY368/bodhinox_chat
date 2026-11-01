@@ -3,6 +3,7 @@ import type { DataClient } from '@/lib/data/types';
 import { fetchAllInChunks, fetchAllPages } from '@/lib/data/paged-query';
 import type { PageResult } from '@/lib/data/paged-query';
 import type { Contact } from '@/types';
+import { marketingSuppression } from '@/lib/contacts/consent';
 
 export type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
@@ -174,7 +175,9 @@ export async function resolveAudienceContacts(
   options: { maxRows?: number } = {}
 ): Promise<Contact[]> {
   const excluded = await fetchExcludedIds(db, audience, options.maxRows);
-  const keep = (contact: Contact) => !excluded.has(contact.id);
+  // Opted-out and blocked contacts are never an audience (lib/contacts/consent).
+  const keep = (contact: Contact) =>
+    !excluded.has(contact.id) && !marketingSuppression(contact);
 
   if (audience.type === 'all') {
     return (await fetchAllContacts(db, options.maxRows)).filter(keep);
@@ -188,7 +191,7 @@ export async function resolveAudienceContacts(
   if (!ids) return [];
   const wanted = [...ids].filter((id) => !excluded.has(id));
   if (wanted.length === 0) return [];
-  return fetchContactsByIds(db, wanted, options.maxRows);
+  return (await fetchContactsByIds(db, wanted, options.maxRows)).filter(keep);
 }
 
 export async function countAudience(
@@ -204,7 +207,9 @@ export async function countAudience(
   if (audience.type === 'all') {
     const { count, error } = await db
       .from('contacts')
-      .select('id', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true })
+      .is('opted_out_at', null)
+      .is('blocked_at', null);
     if (error) throw new Error(`Failed to count contacts: ${error.message}`);
     const total = count ?? 0;
     const excluded = await fetchExcludedIds(db, audience);

@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
@@ -60,7 +61,8 @@ export function ContactDetailView({
 }: ContactDetailViewProps) {
   const t = useTranslations('Contacts.detailView');
   const db = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId, defaultCurrency, canSendMessages } = useAuth();
+  const [savingConsent, setSavingConsent] = useState(false);
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -236,6 +238,27 @@ export function ContactDetailView({
       onUpdated();
     }
     setSavingDetails(false);
+  }
+
+  async function setConsent(field: 'opted_out_at' | 'blocked_at', on: boolean) {
+    if (!contactId) return;
+    setSavingConsent(true);
+    const now = new Date().toISOString();
+    const { error } = await db
+      .from('contacts')
+      .update(
+        field === 'opted_out_at'
+          ? { opted_out_at: on ? now : null, opt_out_source: on ? 'agent' : null, updated_at: now }
+          : { blocked_at: on ? now : null, updated_at: now }
+      )
+      .eq('id', contactId);
+    if (error) {
+      toast.error(t('toastUpdateFailed'));
+    } else {
+      setContact((prev) => (prev ? { ...prev, [field]: on ? now : null } : prev));
+      onUpdated();
+    }
+    setSavingConsent(false);
   }
 
   async function toggleTag(tagId: string) {
@@ -459,6 +482,26 @@ export function ContactDetailView({
                   )}
                   {t('sendTemplateBtn')}
                 </Button>
+              </div>
+              <div className="mt-3 space-y-2 rounded-md border border-border p-3">
+                {(['opted_out_at', 'blocked_at'] as const).map((field) => (
+                  <label key={field} className="flex items-center justify-between gap-3 text-xs">
+                    <span>
+                      <span className="block text-foreground">
+                        {t(field === 'opted_out_at' ? 'consent.optedOut' : 'consent.blocked')}
+                      </span>
+                      <span className="block text-muted-foreground">
+                        {t(field === 'opted_out_at' ? 'consent.optedOutHint' : 'consent.blockedHint')}
+                      </span>
+                    </span>
+                    <Switch
+                      checked={Boolean(contact[field])}
+                      disabled={!canSendMessages || savingConsent}
+                      onCheckedChange={(on) => setConsent(field, on)}
+                      aria-label={t(field === 'opted_out_at' ? 'consent.optedOut' : 'consent.blocked')}
+                    />
+                  </label>
+                ))}
               </div>
             </SheetHeader>
 

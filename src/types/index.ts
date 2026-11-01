@@ -115,6 +115,11 @@ export interface Contact {
   /** WhatsApp username without the leading @. Display only: usernames
    *  are user-changeable, so they must never key a contact. */
   wa_username?: string | null;
+  /** Set when the contact opted out of marketing (STOP keyword, agent, API). */
+  opted_out_at?: string | null;
+  opt_out_source?: 'keyword' | 'agent' | 'api' | 'import' | null;
+  /** Set when the workspace blocked the contact: no automated messages. */
+  blocked_at?: string | null;
   name?: string;
   email?: string;
   company?: string;

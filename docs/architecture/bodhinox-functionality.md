@@ -9,6 +9,7 @@ This application is adapted from WACRM 0.8.0. The complete upstream file/route/t
 | Email onboarding | Verification, reset, invitations and verified email change | Provider deliberately deferred; mail-dependent operations fail closed until SMTP configured |
 | Accounts | Owner/admin/agent/viewer, invitations, membership switching, transfer | Scoped repository and identity tests; additional SaaS billing/provisioning is future work |
 | Contacts | Create/edit, phone deduplication, CSV, tags, notes, custom values | Real database tests and local browser create/edit smoke |
+| Consent | Opt-out (STOP/UNSUBSCRIBE; START/SUBSCRIBE opts back in) and block, toggled from the contact panel. Opted-out contacts get no broadcasts, scheduled automations or template steps; blocked contacts get no automated messages, flows or AI replies. Enforced when audiences are built and again at send time | Unit, real database and browser tests; keywords are fixed English words, and no confirmation reply is sent |
 | Inbox | Assignment, status, unread reset, text/media/template/interactive composition, reactions and quotes | Scoped read/write tests; actual WhatsApp transport requires Meta credentials |
 | Human handoff | Persistent bot pause before manual sending; explicit resume | Role/database checks and flow/automation guards; viewer cannot mutate |
 | Pipelines | Stages, deal boards, values and contact relationships | Migrated tenant-scoped CRM operations; business-specific sales workflows remain configurable |

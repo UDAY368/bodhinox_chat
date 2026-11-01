@@ -52,4 +52,19 @@ describe.skipIf(!ownerUrl || !workerUrl)("public API broadcast creation on Postg
     const jobs = (await owner.query("SELECT type,tenant_id,payload FROM jobs WHERE dedupe_key=$1", [`broadcast:${plan.broadcastId}:initial`])).rows;
     expect(jobs).toEqual([{ type: "broadcast.dispatch", tenant_id: accountId, payload: { broadcastId: plan.broadcastId } }]);
   });
+
+  it("drops opted-out and blocked recipients as rejected", async () => {
+    await owner.query("INSERT INTO contacts(account_id,user_id,name,phone,opted_out_at) VALUES($1,$2,'Opted out','14155550181',NOW())", [accountId, userId]);
+    await owner.query("INSERT INTO contacts(account_id,user_id,name,phone,blocked_at) VALUES($1,$2,'Blocked','14155550182',NOW())", [accountId, userId]);
+    const plan = await createBroadcast(createAdminClient({ accountId, role: "owner" }), accountId, userId, {
+      templateName: "promo",
+      recipients: [{ to: "+14155550181" }, { to: "+14155550182" }, { to: "+14155550183" }],
+    });
+    expect(plan.rejected).toBe(2);
+    expect(plan.planned).toHaveLength(1);
+    await expect(createBroadcast(createAdminClient({ accountId, role: "owner" }), accountId, userId, {
+      templateName: "promo",
+      recipients: [{ to: "+14155550181" }],
+    })).rejects.toMatchObject({ status: 400 });
+  });
 });

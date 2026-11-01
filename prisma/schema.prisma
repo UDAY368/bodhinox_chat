@@ -42,6 +42,9 @@ model contacts {
   wa_parent_user_id String?
   wa_username String?
   inbound_created_meta_id String?
+  opted_out_at DateTime? @db.Timestamptz(6)
+  opt_out_source String?
+  blocked_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 

@@ -6,6 +6,7 @@ import { dispatchInboundToAiReply } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { dispatchQuickReplyAction } from "./quick-reply-actions";
 import { runInboundStage, type InboundActionsPayload } from "./ingest";
+import { applyConsentKeyword, consentKeyword } from "@/lib/contacts/consent";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function validatePayload(input: InboundActionsPayload): void {
@@ -46,6 +47,26 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       if(reply.error) throw new Error("Broadcast reply update failed");
     }
     const text=input.contentText??"";
+    // A STOP/START message only records consent, and a blocked contact gets
+    // no automated response; both still reach the message.received webhook.
+    const keyword=input.contentType==="text"&&!input.interactiveReplyId ? consentKeyword(text) : null;
+    if(keyword) await applyConsentKeyword(db,input.accountId,input.contactId,keyword);
+    const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")
+      .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
+    if(contactError) throw new Error("Contact consent lookup failed");
+    if(!keyword&&!contact?.blocked_at) await respondAutomatically(db,input,text,stage);
+    await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{
+      conversation_id:input.conversationId,contact_id:input.contactId,whatsapp_message_id:input.metaMessageId,
+      content_type:input.contentType,content_text:input.contentText,
+    }));
+  });
+}
+
+type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
+type MessageInput=Extract<InboundActionsPayload,{kind:"message"}>;
+
+/** Quick-reply actions, flows, automations and the AI fallback, in that order. */
+async function respondAutomatically(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string,stage:Stage): Promise<void> {
     const explicit=await stage("quick_reply_action",()=>dispatchQuickReplyAction(db,input));
     const flow=explicit.handled ? {consumed:true,outcome:undefined} : await stage("flow",()=>dispatchInboundToFlows({
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
@@ -80,9 +101,4 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       configOwnerUserId:input.userId,inboundMessageId:input.metaMessageId,
       routingChecked:true,requireHandoffOnUnavailable:aiFallback,
     }));
-    await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{
-      conversation_id:input.conversationId,contact_id:input.contactId,whatsapp_message_id:input.metaMessageId,
-      content_type:input.contentType,content_text:input.contentText,
-    }));
-  });
 }

@@ -22,6 +22,7 @@ import type {
 } from '@/types'
 import { databaseAdmin } from './admin-client'
 import { nextRoundRobinAgent } from './round-robin'
+import { marketingSuppression } from '@/lib/contacts/consent'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
 import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
 import { engineSendText, engineSendTemplate, engineSendInteractive,
@@ -112,7 +113,7 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
     if (input.contactId) {
       const { data: owned, error: ownErr } = await db
         .from('contacts')
-        .select('id')
+        .select('id,blocked_at')
         .eq('id', input.contactId)
         .eq('account_id', input.accountId)
         .maybeSingle()
@@ -124,6 +125,8 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
         console.warn('[automations] contact not in account, refusing dispatch', input.contactId)
         return true
       }
+      // A blocked contact gets no automated messages (lib/contacts/consent).
+      if (owned.blocked_at) return true
     }
 
     // Same argument for `context.conversation_id` (GHSA-m4fx-g6pr-hrw8).
@@ -823,6 +826,16 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       const cfg = step.step_config as SendTemplateStepConfig
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'send_template' }))
       if (!cfg.template_name) throw new Error(tErr('needsTemplateName'))
+      // Templates are business-initiated, so an opted-out contact is skipped.
+      const { data: consent, error: consentError } = await db
+        .from('contacts')
+        .select('opted_out_at,blocked_at')
+        .eq('id', args.contactId)
+        .eq('account_id', args.automation.account_id)
+        .maybeSingle()
+      if (consentError) throw new Error('Contact consent lookup failed')
+      const suppressed = marketingSuppression(consent)
+      if (suppressed) return `template skipped: ${suppressed.toLowerCase()}`
       const conversationId = await resolveConversationId(args)
       // Meta templates use positional {{1}}, {{2}}, … placeholders, so
       // we MUST emit params in strict numeric order. Lexicographic sort

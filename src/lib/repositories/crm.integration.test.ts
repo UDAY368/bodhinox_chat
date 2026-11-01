@@ -281,6 +281,40 @@ describe.skipIf(!database || !authDatabase)(
         expect((await client(a)('quick_replies').select('id').eq('id', id)).data).toEqual([]);
       }
     }, 30000);
+    it('records STOP and START keywords without running automations, and gives blocked contacts no automated response', async () => {
+      if (process.env.TEST_WORKER_DATABASE_URL) process.env.WORKER_DATABASE_URL = process.env.TEST_WORKER_DATABASE_URL;
+      const identity = await getWorkerPrisma().$queryRawUnsafe<{ name: string; role: string }[]>('SELECT current_database() AS name,current_user AS role');
+      if (!/test/i.test(identity[0].name) || identity[0].role !== 'bodhinox_worker') throw new Error('Requires isolated worker database');
+      const contact = await client(a)('contacts').insert({ phone: `24${String(Date.now()).slice(-6)}` }).select('id').single();
+      expect(contact.error).toBeNull();
+      const contactId = contact.data!.id as string;
+      const conversation = await client(a)('conversations').insert({ contact_id: contactId }).select('id').single();
+      expect(conversation.error).toBeNull();
+      const tag = await client(a)('tags').insert({ name: `Consent ${randomUUID()}` }).select('id').single();
+      const automation = await client(a)('automations').insert({ name: 'Keyword tagger', trigger_type: 'keyword_match', trigger_config: { keywords: ['stop', 'start', 'hello'] }, is_active: true }).select('id').single();
+      expect((await client(a)('automation_steps').insert({ automation_id: automation.data!.id, step_type: 'add_tag', step_config: { tag_id: tag.data!.id }, position: 0 })).error).toBeNull();
+      const say = async (contentText: string) => {
+        const metaMessageId = `wamid.${randomUUID()}`;
+        const row = await client(a)('messages').insert({ conversation_id: conversation.data!.id, sender_type: 'customer', content_type: 'text', content_text: contentText, message_id: metaMessageId }).select('id').single();
+        expect(row.error).toBeNull();
+        await processInboundActions({ kind: 'message', accountId: accountA, userId: userA, contactId, conversationId: conversation.data!.id, messageId: String(row.data!.id), metaMessageId, contentType: 'text', contentText, interactiveReplyId: null, wasContactCreated: false, wasConversationCreated: false, isFirstInboundMessage: false });
+      };
+      const state = async () => (await client(a)('contacts').select('opted_out_at,opt_out_source').eq('id', contactId).single()).data!;
+      const tagged = async () => ((await client(a)('contact_tags').select('tag_id').eq('contact_id', contactId).eq('tag_id', tag.data!.id)).data ?? []).length;
+
+      await say('Stop');
+      expect(await state()).toMatchObject({ opted_out_at: expect.any(String), opt_out_source: 'keyword' });
+      await say('START');
+      expect(await state()).toEqual({ opted_out_at: null, opt_out_source: null });
+      expect(await tagged()).toBe(0);
+
+      expect((await client(a)('contacts').update({ blocked_at: new Date().toISOString() }).eq('id', contactId)).error).toBeNull();
+      await say('hello');
+      expect(await tagged()).toBe(0);
+      expect((await client(a)('contacts').update({ blocked_at: null }).eq('id', contactId)).error).toBeNull();
+      await say('hello');
+      expect(await tagged()).toBe(1);
+    }, 180000);
     it('routes a saved quick reply tap through the durable worker to its selected automation once', async () => {
       if (process.env.TEST_WORKER_DATABASE_URL) process.env.WORKER_DATABASE_URL = process.env.TEST_WORKER_DATABASE_URL;
       const identity = await getWorkerPrisma().$queryRawUnsafe<{ name: string; role: string }[]>('SELECT current_database() AS name,current_user AS role');
@@ -370,7 +404,8 @@ describe.skipIf(!database || !authDatabase)(
         if (settings.data) expect((await db.from('ai_configs').delete().eq('id', settings.data.id)).error).toBeNull();
         if (wa.data) expect((await db.from('whatsapp_config').delete().eq('id', wa.data.id)).error).toBeNull();
       }
-    }, 90000);
+      // Many sequential round trips; a remote test database needs the headroom.
+    }, 180000);
     it('executes the browser presence heartbeat and persists its status without deserializing void', async () => {
       const result = await executeRpc(
         'touch_presence',

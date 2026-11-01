@@ -646,7 +646,13 @@
       "toastCustomFieldsFailed": "Failed to save custom fields",
       "toastTemplateSent": "Template \"{name}\" sent",
       "toastTemplateFailed": "Failed to send template: {reason}",
-      "networkError": "network error"
+      "networkError": "network error",
+      "consent": {
+        "optedOut": "Opted out of marketing",
+        "optedOutHint": "No broadcasts or template messages. Set when they reply STOP.",
+        "blocked": "Blocked",
+        "blockedHint": "No automated messages, flows or AI replies."
+      }
     },
     "importModal": {
       "title": "Import Contacts",

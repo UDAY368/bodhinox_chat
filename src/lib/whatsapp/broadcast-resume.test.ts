@@ -317,6 +317,30 @@ describe('planBroadcastResume', () => {
     expect(plan.planned).toHaveLength(1);
   });
 
+  it('fails recipients who opted out or were blocked after creation, with the reason', async () => {
+    const writes: PlanWrites = {};
+    const { plan, unsendable } = await planBroadcastResume(
+      planDb(
+        {
+          broadcast: BROADCAST,
+          config: CONFIG,
+          recipients: [
+            recipient('r1', '+15551234567'),
+            { ...recipient('r2', '+15559876543'), contact: { phone: '+15559876543', opted_out_at: '2026-11-01T00:00:00Z' } },
+          ],
+        },
+        writes,
+      ),
+      'acct-1',
+      'bc-1',
+      'pending',
+    );
+    expect(unsendable).toBe(1);
+    expect(writes.failedIds).toEqual(['r2']);
+    expect(writes.failedUpdate).toEqual({ status: 'failed', error_message: 'Contact opted out' });
+    expect(plan.planned.map((p) => p.recipientRowId)).toEqual(['r1']);
+  });
+
   it('caps one pass and reports the leftover', async () => {
     const many = Array.from({ length: RESUME_MAX_PER_REQUEST + 25 }, (_, i) =>
       recipient(`r${i}`, '+1555000' + String(i).padStart(4, '0')),

@@ -46,6 +46,10 @@ function cappedPostgrest(tables: Record<string, Row[]>) {
           filters.push((row) => row[col] !== value);
           return builder;
         },
+        is(col: string, value: null) {
+          filters.push((row) => (row[col] ?? null) === value);
+          return builder;
+        },
         ilike(col: string, pattern: string) {
           const needle = pattern.replace(/%/g, '').toLowerCase();
           filters.push((row) =>
@@ -245,6 +249,17 @@ describe('resolveAudienceContacts', () => {
     const optedOutIds = new Set(optedOut.map((c) => c.id));
     expect(result).toHaveLength(900);
     expect(result.some((c) => optedOutIds.has(c.id))).toBe(false);
+  });
+
+  it('never returns opted-out or blocked contacts, for "all" or a tag audience', async () => {
+    const all = contacts(4);
+    all[1].opted_out_at = '2026-11-01T00:00:00Z';
+    all[2].blocked_at = '2026-11-01T00:00:00Z';
+    const { db } = cappedPostgrest({ contacts: all, contact_tags: tagRows(all, 'tag-1', 't') });
+    const kept = [all[0].id, all[3].id];
+    expect((await resolveAudienceContacts(db, { type: 'all' }, noCsv)).map((c) => c.id)).toEqual(kept);
+    expect((await resolveAudienceContacts(db, { type: 'tags', tagIds: ['tag-1'] }, noCsv)).map((c) => c.id)).toEqual(kept);
+    expect(await countAudience(db, { type: 'all' })).toBe(2);
   });
 
   it('subtracts a large exclude list from a large tag audience', async () => {

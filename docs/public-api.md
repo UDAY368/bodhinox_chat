@@ -252,8 +252,9 @@ curl -X POST https://your-crm.example.com/api/v1/broadcasts \
 
 Recipients are capped at **1000 per request** — split larger sends.
 Invalid phone numbers — including any without a leading `+` and country
-code — are dropped and counted as `rejected`; if none are valid the
-request fails with `400 bad_request`. Response (202):
+code — and contacts who opted out (for example by replying STOP) or are
+blocked are dropped and counted as `rejected`; if none remain the request
+fails with `400 bad_request`. Response (202):
 
 ```json
 {

@@ -646,7 +646,13 @@
       "toastCustomFieldsFailed": "커스텀 필드를 저장하지 못했습니다",
       "toastTemplateSent": "\"{name}\" 템플릿을 보냈습니다",
       "toastTemplateFailed": "템플릿을 보내지 못했습니다: {reason}",
-      "networkError": "네트워크 오류"
+      "networkError": "네트워크 오류",
+      "consent": {
+        "optedOut": "마케팅 수신 거부",
+        "optedOutHint": "브로드캐스트와 템플릿 메시지를 보내지 않습니다. STOP으로 답하면 설정됩니다.",
+        "blocked": "차단됨",
+        "blockedHint": "자동 메시지, 플로우, AI 답변을 보내지 않습니다."
+      }
     },
     "importModal": {
       "title": "연락처 가져오기",

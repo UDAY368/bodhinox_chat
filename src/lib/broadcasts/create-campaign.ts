@@ -79,6 +79,8 @@ async function resolveContacts(tx:TenantTransaction,scope:TenantContext,input:Ca
     const match=f.operator==='is'?Prisma.sql`v.value=${f.value}`:f.operator==='is_not'?Prisma.sql`v.value<>${f.value}`:Prisma.sql`strpos(lower(v.value),lower(${f.value}))>0`;
     conditions.push(Prisma.sql`EXISTS(SELECT 1 FROM contact_custom_values v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.custom_field_id=${f.fieldId}::uuid AND ${match})`);
   }
+  // Opted-out and blocked contacts never receive campaigns (lib/contacts/consent).
+  conditions.push(Prisma.sql`c.opted_out_at IS NULL AND c.blocked_at IS NULL`);
   if(audience.excludeTagIds?.length)conditions.push(Prisma.sql`NOT EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.excludeTagIds)}))`);
   const contacts=await tx.$queryRaw<ContactRow[]>(Prisma.sql`SELECT c.id,c.phone,c.name,c.email,c.company FROM contacts c
     WHERE ${Prisma.join(conditions,' AND ')} ORDER BY c.id LIMIT ${CAMPAIGN_LIMITS.recipients+1} FOR SHARE OF c`);

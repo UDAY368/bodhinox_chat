@@ -13,6 +13,8 @@ export interface Fixtures {
   users: Record<Role, SeededUser>;
   /** Owner of workspace B, used for tenancy checks. */
   outsider: SeededUser;
+  /** A contact in workspace A with no consent flags set. */
+  contact: { id: string; name: string };
 }
 
 // Outside the project (the dev server reloads on project file writes); it

@@ -23,6 +23,7 @@ import { chunk } from '@/lib/data/paged-query';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { marketingSuppression, type ConsentState } from '@/lib/contacts/consent';
 
 /** Which recipients a resume pass picks up. */
 export type ResumeScope = 'pending' | 'failed' | 'all';
@@ -119,13 +120,16 @@ export interface ResumePlan {
 interface RecipientRow {
   id: string;
   template_params: unknown;
-  contact: { phone?: string | null } | { phone?: string | null }[] | null;
+  contact: RecipientContact | RecipientContact[] | null;
 }
+type RecipientContact = { phone?: string | null } & ConsentState;
 
 /** Supabase renders an embedded to-one join as an object or a 1-array. */
+function recipientContact(row: RecipientRow): RecipientContact | null {
+  return (Array.isArray(row.contact) ? row.contact[0] : row.contact) ?? null;
+}
 function contactPhone(row: RecipientRow): string | null {
-  const c = Array.isArray(row.contact) ? row.contact[0] : row.contact;
-  return c?.phone ?? null;
+  return recipientContact(row)?.phone ?? null;
 }
 
 /**
@@ -163,7 +167,7 @@ export async function planBroadcastResume(
     error: recError,
   } = await db
     .from('broadcast_recipients')
-    .select('id, template_params, contact:contacts(phone)', { count: 'exact' })
+    .select('id, template_params, contact:contacts(phone,opted_out_at,blocked_at)', { count: 'exact' })
     .eq('broadcast_id', broadcastId)
     .in('status', statuses)
     // Oldest first, so repeated capped passes chew through the backlog
@@ -182,21 +186,24 @@ export async function planBroadcastResume(
   // A recipient whose contact has no usable phone can never send. Stamp
   // it failed now: leaving it 'pending' would keep the broadcast in
   // 'sending' forever, which is the very symptom being fixed.
+  // A contact who opted out or was blocked after the campaign was created
+  // is stamped failed with the reason instead of being sent.
   const sendable: RecipientRow[] = [];
-  const unsendable: string[] = [];
+  const unsendable = new Map<string, string[]>();
   for (const row of rows) {
     const sanitized = sanitizePhoneForMeta(contactPhone(row) ?? '');
-    if (isValidE164(sanitized)) sendable.push(row);
-    else unsendable.push(row.id);
+    const reason = marketingSuppression(recipientContact(row)) ??
+      (isValidE164(sanitized) ? null : 'No valid phone number on contact');
+    if (!reason) sendable.push(row);
+    else unsendable.set(reason, [...(unsendable.get(reason) ?? []), row.id]);
   }
-  for (const ids of chunk(unsendable)) {
-    await db
-      .from('broadcast_recipients')
-      .update({
-        status: 'failed',
-        error_message: 'No valid phone number on contact',
-      })
-      .in('id', ids);
+  for (const [reason, rowIds] of unsendable) {
+    for (const ids of chunk(rowIds)) {
+      await db
+        .from('broadcast_recipients')
+        .update({ status: 'failed', error_message: reason })
+        .in('id', ids);
+    }
   }
 
   const slice = sendable.slice(0, RESUME_MAX_PER_REQUEST);
@@ -257,7 +264,7 @@ export async function planBroadcastResume(
     rejected: 0,
   };
 
-  return { plan, remaining, unsendable: unsendable.length };
+  return { plan, remaining, unsendable: rows.length - sendable.length };
 }
 
 /**

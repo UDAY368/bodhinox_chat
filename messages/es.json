@@ -646,7 +646,13 @@
       "toastCustomFieldsFailed": "Error al guardar los campos personalizados",
       "toastTemplateSent": "Plantilla \"{name}\" enviada",
       "toastTemplateFailed": "Error al enviar la plantilla: {reason}",
-      "networkError": "error de red"
+      "networkError": "error de red",
+      "consent": {
+        "optedOut": "Excluido del marketing",
+        "optedOutHint": "Sin difusiones ni plantillas. Se activa cuando responde STOP.",
+        "blocked": "Bloqueado",
+        "blockedHint": "Sin mensajes automáticos, flujos ni respuestas de IA."
+      }
     },
     "importModal": {
       "title": "Importar contactos",

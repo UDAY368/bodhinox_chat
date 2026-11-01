@@ -30,6 +30,8 @@ Keep one web and one worker replica until shared API rate limiting and provider-
 
 Migration `20261101000000_round_robin_cursor` adds the worker-only `assignment_cursors` table used by round-robin assignment. It is additive and needs no backfill; run it with the normal migration step before deploying the code that uses it.
 
+Migration `20261101010000_contact_consent` adds nullable `opted_out_at`, `opt_out_source` and `blocked_at` columns to `contacts`. It is additive, needs no backfill (existing contacts start as not opted out and not blocked) and must run before the code that reads the columns.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.
