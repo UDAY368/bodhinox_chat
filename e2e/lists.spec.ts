@@ -58,3 +58,11 @@ test.describe('static lists, tag categories and workspace attributes', () => {
     await expect(page.getByText('Workspace attributes')).toHaveCount(0);
   });
 });
+
+test('an admin sees the workspace plan and usage', async ({ page }) => {
+  await login(page, fixtures().users.admin);
+  await page.goto('/settings?tab=plan');
+  await expect(page.getByTestId('plan-name')).toHaveText('Current plan: Enterprise');
+  await expect(page.getByText('Saved segments')).toBeVisible();
+  await expect(page.getByText('Scheduled campaigns')).toBeVisible();
+});

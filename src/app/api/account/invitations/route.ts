@@ -33,6 +33,10 @@ import {
   RATE_LIMITS,
 } from "@/lib/rate-limit";
 import { getT } from "@/lib/i18n/translate";
+import { tenantOf } from "@/lib/audience/http";
+import { withTenant } from "@/lib/db/tenant";
+import { requireWithinLimit } from "@/lib/billing/entitlements";
+import { currentUsage } from "@/lib/billing/usage";
 
 const t = getT("Api");
 
@@ -216,6 +220,13 @@ export async function POST(request: Request) {
       }
       label = trimmed === "" ? null : trimmed;
     }
+
+    // Members plus open invitations count as seats on the plan.
+    // shortcut: checked before the insert in another transaction, so two simultaneous invites can pass one over the cap; lock with requireRoomFor if seats become billed per unit.
+    await withTenant(tenantOf(ctx), async (tx) => {
+      const seats = await currentUsage(tx, ctx.accountId);
+      await requireWithinLimit(tx, ctx.accountId, "seats", seats.seats + 1);
+    });
 
     const { token, hash } = generateInviteToken();
 

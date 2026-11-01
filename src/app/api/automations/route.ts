@@ -11,6 +11,7 @@ import {
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
 import { getT } from '@/lib/i18n/translate';
+import { requireActiveAutomationRoom } from '@/lib/billing/activation';
 
 const t = getT('Api');
 
@@ -130,6 +131,11 @@ export async function POST(request: Request) {
         { error: t('automations.invalidActivateConfig'), issues },
         { status: 400 }
       );
+    }
+    try {
+      await requireActiveAutomationRoom(accountId);
+    } catch (err) {
+      return toErrorResponse(err);
     }
   }
 

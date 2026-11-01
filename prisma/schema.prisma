@@ -772,6 +772,23 @@ model broadcast_clicks {
   @@index([account_id, broadcast_id])
 }
 
+model plans {
+  id String @id
+  name String
+  features Json @db.JsonB @default("{}")
+  limits Json @db.JsonB @default("{}")
+  sort Int @default(0)
+}
+
+model account_subscriptions {
+  account_id String @db.Uuid @id
+  plan_id String
+  status String @default("active")
+  trial_ends_at DateTime? @db.Timestamptz(6)
+  current_period_end DateTime? @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
 model assignment_cursors {
   account_id String @db.Uuid @id
   last_user_id String? @db.Uuid

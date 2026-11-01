@@ -169,9 +169,11 @@ describe('createBroadcast atomicity (#370)', () => {
       recipients: [{ to: '+14155550123' }],
     });
 
-    expect(tx.statements).toHaveLength(2);
-    expect(tx.statements[0]).toContain('create_broadcast_with_recipients');
-    expect(tx.statements[1]).toContain("'broadcast.dispatch'");
+    // The plan read comes first; then the atomic create and its dispatch job.
+    expect(tx.statements).toHaveLength(3);
+    expect(tx.statements[0]).toContain('account_subscriptions');
+    expect(tx.statements[1]).toContain('create_broadcast_with_recipients');
+    expect(tx.statements[2]).toContain("'broadcast.dispatch'");
     expect(calls.usedDirectInsert).toBe(0);
     expect(plan.broadcastId).toBe('b-1');
     expect(plan.planned).toEqual([

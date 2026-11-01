@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { CAMPAIGN_OUTCOMES, OUTCOME_STATUSES } from './outcomes';
+import { requireFeature } from '@/lib/billing/entitlements';
 
 const uuid = z.string().uuid();
 const text = z.string().trim().max(1024);
@@ -105,6 +106,7 @@ export async function assertFilterReferences(tx: TenantTransaction, accountId: s
   const fieldIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'custom_field' ? [c.fieldId] : [])))];
   const broadcastIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'campaign' ? [c.broadcastId] : [])))];
   if (broadcastIds.length) {
+    await requireFeature(tx, accountId, 'retargeting');
     const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM broadcasts WHERE account_id=${accountId}::uuid AND id IN (${ids(broadcastIds)})`);
     if (found.length !== broadcastIds.length) throw new AudienceFilterError('Some campaigns in this filter are unavailable in this workspace');
   }

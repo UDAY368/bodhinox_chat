@@ -20,6 +20,7 @@ import { InboxSettings } from '@/components/settings/inbox-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { WebhooksSettings } from '@/components/settings/webhooks-settings';
+import { PlanPanel } from '@/components/settings/plan-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -89,6 +90,7 @@ function SettingsPageInner() {
         <WebhooksSettings />
       </div>
     ),
+    plan: <PlanPanel />,
   };
 
   return (

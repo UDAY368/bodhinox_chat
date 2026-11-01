@@ -18,6 +18,7 @@ import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { BroadcastError, resolveApiRecipients, type BroadcastRecipientInput } from '@/lib/whatsapp/broadcast-core';
 import { trackedButtonIndex } from './tracking';
+import { PlanLimitError, requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
 
 export const MAX_API_BATCH = 1000;
 const createSchema = z.object({ name: z.string().trim().min(1).max(200), templateId: z.string().uuid() }).strict();
@@ -32,6 +33,7 @@ export async function createApiCampaign(scope: TenantContext, raw: unknown): Pro
     if (!rows[0]) throw new AuthError('Template unavailable', 404, 'not_found');
     const template = assertMessageTemplate(rows[0], 'API campaign');
     if (template.status !== 'APPROVED') throw new AuthError('Choose an approved template', 400, 'campaign_input');
+    await requireFeature(tx, scope.accountId, 'api_campaigns');
     if (trackedButtonIndex(template) >= 0) throw new AuthError('Click-tracked templates cannot be used for API campaigns', 400, 'campaign_input');
     // The API supplies body values only: a header or link button that needs its own value could never send.
     const bodyCount = extractVariableIndices(template.body_text).length;
@@ -84,13 +86,17 @@ export async function addApiCampaignRecipients(
   try {
     inserted = await withTenant({ accountId, role: 'owner' }, async (tx) => {
       // Batches of one campaign run one at a time, so the existence check below cannot race.
-      await tx.$queryRaw`SELECT id FROM broadcasts WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid FOR UPDATE`;
+      const [locked] = await tx.$queryRaw<{ total: number | null }[]>`SELECT total_recipients AS total FROM broadcasts WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid FOR UPDATE`;
+      // A downgraded workspace keeps its campaign but cannot add to it beyond the plan.
+      await requireFeature(tx, accountId, 'api_campaigns');
       const count = await tx.$executeRaw`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,template_params)
         SELECT ${accountId}::uuid,${broadcastId}::uuid,x.contact_id,'pending',x.params
         FROM jsonb_to_recordset(${JSON.stringify(complete.map((r) => ({ contact_id: r.contactId, params: r.params })))}::jsonb) AS x(contact_id uuid,params jsonb)
         WHERE NOT EXISTS(SELECT 1 FROM broadcast_recipients r
           WHERE r.account_id=${accountId}::uuid AND r.broadcast_id=${broadcastId}::uuid AND r.contact_id=x.contact_id)`;
       if (!count) return 0;
+      // Only contacts new to the campaign count; going over rolls this batch back.
+      await requireWithinLimit(tx, accountId, 'campaign_recipients', (locked?.total ?? 0) + count);
       await tx.$executeRaw`UPDATE broadcasts SET total_recipients=COALESCE(total_recipients,0)+${count}
         WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid`;
       // Each batch has its own job; the per-campaign delivery lock keeps passes one at a time.
@@ -98,7 +104,8 @@ export async function addApiCampaignRecipients(
         VALUES('broadcast.dispatch',${accountId}::uuid,${JSON.stringify({ broadcastId, scope: 'pending' })}::jsonb,${`broadcast:${broadcastId}:api:${randomUUID()}`})`;
       return count;
     }, getWorkerPrisma());
-  } catch {
+  } catch (error) {
+    if (error instanceof PlanLimitError) throw new BroadcastError('plan_limit', error.message, 402);
     console.error('[api-campaign] batch persistence failed');
     throw new BroadcastError('internal', 'Failed to add recipients', 500);
   }

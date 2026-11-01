@@ -12,6 +12,7 @@ import {
   UsersRound,
   Zap,
   type LucideIcon,
+  Gauge,
 } from 'lucide-react';
 
 /**
@@ -35,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'deals',
   'members',
   'api',
+  'plan',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -112,6 +114,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     group: 'workspace',
   },
   api: { id: 'api', label: 'API & webhooks', icon: KeyRound, group: 'workspace' },
+  plan: { id: 'plan', label: 'Plan & usage', icon: Gauge, group: 'workspace' },
 };
 
 export const RAIL_GROUPS: {

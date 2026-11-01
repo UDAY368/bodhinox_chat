@@ -18,6 +18,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
 import type { WorkspaceAttribute } from '@/lib/workspace/attributes';
+import { planAllows, usePlan } from '@/lib/billing/client';
+import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 
 export function WorkspaceAttributesSettings() {
   const t = useTranslations('Settings.workspaceAttributes');
@@ -27,6 +29,7 @@ export function WorkspaceAttributesSettings() {
   const [key, setKey] = useState('');
   const [value, setValue] = useState('');
   const [secret, setSecret] = useState(false);
+  const allowed = planAllows(usePlan(), 'workspace_attributes');
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +92,7 @@ export function WorkspaceAttributesSettings() {
         <CardTitle className="flex items-center gap-2 text-foreground">
           <Braces className="size-4 text-primary" />
           {t('title')}
+          {!allowed && <UpgradeBadge />}
         </CardTitle>
         <CardDescription className="text-muted-foreground">
           {t('description', { example: '{{workspace.support_email}}' })}
@@ -126,7 +130,7 @@ export function WorkspaceAttributesSettings() {
             <Checkbox checked={secret} onCheckedChange={(checked) => setSecret(checked === true)} />
             {t('secretLabel')}
           </label>
-          <Button variant="outline" size="sm" onClick={save} disabled={busy || !key.trim() || !value}>
+          <Button variant="outline" size="sm" onClick={save} disabled={busy || !key.trim() || !value || !allowed}>
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
             {t('save')}
           </Button>

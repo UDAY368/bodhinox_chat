@@ -109,6 +109,8 @@ const browserReadOnly = new Set([
   // Dedicated automation routes enforce activation and scheduling validators.
   'automations',
   'automation_steps',
+  // Flow routes enforce activation validation and the plan's active-flow cap.
+  'flows',
   'whatsapp_config',
   'ai_configs',
   'automation_logs',

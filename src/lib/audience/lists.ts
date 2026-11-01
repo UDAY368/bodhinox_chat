@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { AudienceFilterError, type AudienceFilter } from './filter';
 import { pageContacts, type ContactPage } from './segments';
+import { requireRoomFor } from '@/lib/billing/entitlements';
 
 export interface ContactList {
   id: string;
@@ -43,6 +44,8 @@ export function listLists(ctx: TenantContext): Promise<ContactList[]> {
 export async function createList(ctx: TenantContext, input: unknown): Promise<ContactList> {
   const name = parse(nameSchema, (input as { name?: unknown } | null)?.name);
   return withTenant(ctx, async (tx) => {
+    await requireRoomFor(tx, ctx.accountId, 'lists', async () =>
+      (await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM contact_lists WHERE account_id=${ctx.accountId}::uuid`)[0].n);
     const rows = await tx.$queryRaw<ContactList[]>`
       INSERT INTO contact_lists(account_id,user_id,name) VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,${name})
       ON CONFLICT (account_id,name) DO NOTHING RETURNING id::text, name, created_at, 0 AS member_count`;

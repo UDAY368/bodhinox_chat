@@ -21,6 +21,9 @@ import { toast } from 'sonner';
 import { authFetch } from '@/lib/auth/client';
 import type { VariableMapping } from '@/lib/broadcast-create';
 
+import { planAllows, usePlan } from '@/lib/billing/client';
+import { UpgradeBadge } from '@/components/ui/upgrade-badge';
+
 const TEST_NUMBERS_KEY = 'bodhinox.campaignTestNumbers';
 
 interface Step4Props {
@@ -54,6 +57,7 @@ export function Step4ScheduleSend({
 }: Step4Props) {
   const t = useTranslations('Broadcasts.wizard');
   const [showConfirm, setShowConfirm] = useState(false);
+  const canSchedule = planAllows(usePlan(), 'campaign_scheduling');
   const [later, setLater] = useState(false);
   // datetime-local value in the browser's own time zone.
   const [scheduleAt, setScheduleAt] = useState('');
@@ -205,8 +209,9 @@ export function Step4ScheduleSend({
             {t('scheduleSend.whenNow')}
           </label>
           <label className="flex items-center gap-2">
-            <input type="radio" name="send-when" checked={later} onChange={() => setLater(true)} />
+            <input type="radio" name="send-when" checked={later} disabled={!canSchedule} onChange={() => setLater(true)} />
             {t('scheduleSend.whenLater')}
+            {!canSchedule && <UpgradeBadge />}
           </label>
         </div>
         {later && (

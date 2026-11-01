@@ -12,6 +12,7 @@ import { AudienceFilterError, assertFilterReferences, compileAudienceFilter } fr
 import { listFilter } from '@/lib/audience/lists';
 import { loadSegmentFilter } from '@/lib/audience/segments';
 import { trackedButtonIndex, validTrackedUrl } from './tracking';
+import { requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
 
 // Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
 // parameterCells bounds recipients × variables, so one request cannot freeze an unbounded amount of data.
@@ -186,6 +187,8 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     const headerMediaUrl=input.headerMediaUrl??(template.header_media_url?.trim()||undefined);
     await assertMedia(tx,scope.accountId,headerMediaUrl);
     const tracked=trackedButtonIndex(template);
+    if(scheduledAt)await requireFeature(tx,scope.accountId,'campaign_scheduling');
+    if(tracked>=0)await requireFeature(tx,scope.accountId,'click_tracking');
     if(tracked>=0&&!(input.trackedUrl&&validTrackedUrl(input.trackedUrl)))invalid('This template tracks link clicks: enter the HTTPS page the button should open');
     // Header media, body count and the tracking button are the same for every recipient, so one sample validates the campaign.
     try{buildSendComponents(template,{body:keys.map(()=>'x'),...(headerMediaUrl?{headerMediaUrl}:{}),...(tracked>=0?{buttonParams:{[tracked]:'x'}}:{})});}
@@ -194,6 +197,7 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     const [{matched}]=await tx.$queryRaw<{matched:number}[]>(Prisma.sql`SELECT count(*)::int AS matched FROM (SELECT 1 FROM ${from} WHERE ${where} LIMIT ${CAMPAIGN_LIMITS.recipients+1}) m`);
     if(!matched)invalid('No contacts match this audience');
     if(matched>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients.toLocaleString('en')} recipients`);
+    await requireWithinLimit(tx,scope.accountId,'campaign_recipients',matched);
     if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
     const trackedUrl=tracked>=0?input.trackedUrl!:null;

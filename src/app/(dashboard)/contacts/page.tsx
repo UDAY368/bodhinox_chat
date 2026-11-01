@@ -57,6 +57,8 @@ import { authFetch } from '@/lib/auth/client';
 import { changeListMembers, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
 import { Label } from '@/components/ui/label';
+import { planAllows, usePlan } from '@/lib/billing/client';
+import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -78,6 +80,7 @@ export default function ContactsPage() {
   const db = createClient();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+  const canExport = planAllows(usePlan(), 'contact_export');
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -521,11 +524,12 @@ export default function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {canEditSettings && !canExport && <UpgradeBadge />}
           {canEditSettings && (
             <Button
               variant="outline"
               onClick={exportCsv}
-              disabled={exporting}
+              disabled={exporting || !canExport}
               className="border-border text-muted-foreground hover:bg-muted"
             >
               {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}

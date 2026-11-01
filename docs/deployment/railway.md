@@ -40,6 +40,8 @@ Migration `20261102000000_broadcast_cancelled_status` widens the `broadcasts.sta
 
 Migration `20261102010000_campaign_tracking_api` adds `broadcasts.kind`, `tracked_url` and `click_count`, `broadcast_recipients.click_token` and `clicked_at`, the `broadcast_clicks` table and the SECURITY DEFINER `resolve_click_token(text)` (worker only). Additive with no backfill. Click tracking needs templates whose URL button is exactly `<APP_URL>/r/{{1}}`, so `APP_URL` must stay the public app origin; changing it breaks tracking for templates created with the old origin.
 
+Migration `20261102030000_entitlements` adds the `plans` catalogue (seeded with free, basic, pro and enterprise) and `account_subscriptions`. Existing workspaces have no subscription row and stay unrestricted. Until billing exists, an operator assigns a plan with the migration owner, for example `INSERT INTO account_subscriptions(account_id, plan_id) VALUES ('<account uuid>', 'pro') ON CONFLICT (account_id) DO UPDATE SET plan_id = EXCLUDED.plan_id, status = 'active'`. Lowering a plan never deletes data: existing segments, lists and active flows stay, but new ones beyond the limit are refused.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

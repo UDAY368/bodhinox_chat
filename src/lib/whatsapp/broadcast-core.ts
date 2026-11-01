@@ -36,6 +36,7 @@ import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
+import { PlanLimitError, requireWithinLimit } from '@/lib/billing/entitlements';
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -167,6 +168,7 @@ export async function createBroadcast(
   let createdRows: { broadcast_id: string; recipient_id: string; contact_id: string }[];
   try {
     createdRows = await withTenant({ accountId, role: 'owner' }, async (tx) => {
+      await requireWithinLimit(tx, accountId, 'campaign_recipients', deduped.length);
       const rows = await tx.$queryRaw<{ broadcast_id: string; recipient_id: string; contact_id: string }[]>`
         SELECT broadcast_id::text, recipient_id::text, contact_id::text FROM create_broadcast_with_recipients(
           ${accountId}::uuid, ${auditUserId}::uuid, ${name || `API broadcast (${templateName})`},
@@ -180,6 +182,7 @@ export async function createBroadcast(
       return rows;
     }, getWorkerPrisma());
   } catch (error) {
+    if (error instanceof PlanLimitError) throw new BroadcastError('plan_limit', error.message, 402);
     console.error('[broadcast-core] create broadcast failed', error instanceof Error ? error.name : 'unknown');
     throw new BroadcastError('internal', 'Failed to create broadcast', 500);
   }

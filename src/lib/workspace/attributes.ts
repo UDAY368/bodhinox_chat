@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
+import { requireFeature } from '@/lib/billing/entitlements';
 
 export interface WorkspaceAttribute {
   key: string;
@@ -42,6 +43,7 @@ export async function saveAttribute(ctx: TenantContext, input: unknown): Promise
   if (!parsed.success) throw new AttributeError(parsed.error.issues[0]?.message ?? 'Invalid attribute');
   const { key, value, is_secret: secret = false } = parsed.data;
   return withTenant(ctx, async (tx) => {
+    await requireFeature(tx, ctx.accountId, 'workspace_attributes');
     const rows = await tx.$queryRaw<WorkspaceAttribute[]>`
       INSERT INTO workspace_attributes(account_id,key,value,value_encrypted,is_secret)
       VALUES(${ctx.accountId}::uuid,${key},${secret ? null : value},${secret ? encrypt(value) : null},${secret})

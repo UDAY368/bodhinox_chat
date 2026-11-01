@@ -2165,7 +2165,8 @@
       "deals": "Deals & currency",
       "members": "Team members",
       "api": "API & webhooks",
-      "inbox": "Inbox"
+      "inbox": "Inbox",
+      "plan": "Plan & usage"
     },
     "groups": {
       "account": "Account",
@@ -2474,6 +2475,32 @@
       "loadFailed": "Could not load attributes",
       "saveFailed": "Could not save the attribute",
       "deleteFailed": "Could not delete the attribute"
+    },
+    "plan": {
+      "title": "Plan & usage",
+      "description": "What your workspace plan includes and how much of each limit you use.",
+      "current": "Current plan: {plan}",
+      "limitsTitle": "Limits and usage",
+      "unlimited": "Unlimited",
+      "upgradeHint": "To change your plan, contact Bodhinox support. Self-serve billing is coming soon.",
+      "features": {
+        "campaign_scheduling": "Scheduled campaigns",
+        "contact_export": "Contact export",
+        "api_campaigns": "API campaigns",
+        "click_tracking": "Click tracking",
+        "retargeting": "Retargeting by campaign",
+        "workspace_attributes": "Workspace attributes"
+      },
+      "limits": {
+        "seats": "Team members and open invitations",
+        "segments": "Saved segments",
+        "lists": "Lists",
+        "campaign_recipients": "Recipients per campaign",
+        "active_flows": "Active flows",
+        "active_automations": "Active automations"
+      },
+      "loadFailed": "Could not load your plan",
+      "retry": "Retry"
     }
   },
   "SignupPage": {
@@ -3238,5 +3265,9 @@
     "saving": "Saving…",
     "save": "Save target",
     "saved": "Reply target saved."
+  },
+  "Plan": {
+    "upgrade": "Upgrade",
+    "upgradeHint": "Not included in your plan. See Settings → Plan & usage."
   }
 }

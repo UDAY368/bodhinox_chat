@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { AudienceFilterError, assertFilterReferences, compileAudienceFilter, type AudienceFilter } from './filter';
 import { listFilter } from './lists';
+import { requireFeature } from '@/lib/billing/entitlements';
 import { loadSegmentFilter } from './segments';
 
 // shortcut: built in memory; switch to a streamed or emailed export if workspaces outgrow this cap.
@@ -30,6 +31,7 @@ export type ExportSource = { segmentId: string } | { listId: string } | null;
 
 export async function exportContactsCsv(ctx: TenantContext, source: ExportSource): Promise<{ csv: string; rows: number }> {
   return withTenant(ctx, async (tx) => {
+    await requireFeature(tx, ctx.accountId, 'contact_export');
     let filter: AudienceFilter | null = null;
     if (source && 'segmentId' in source) filter = await loadSegmentFilter(tx, ctx.accountId, source.segmentId);
     else if (source) await assertFilterReferences(tx, ctx.accountId, (filter = listFilter(source.listId)));

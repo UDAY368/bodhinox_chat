@@ -17,6 +17,8 @@ import {
 import { CalendarClock, ChevronLeft, ChevronRight, Code, Loader2, Plus, Radio, Search } from 'lucide-react';
 import { NumberHealthBar } from '@/components/broadcasts/number-health-bar';
 import { ApiCampaignDialog } from '@/components/broadcasts/api-campaign-dialog';
+import { planAllows, usePlan } from '@/lib/billing/client';
+import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
@@ -77,6 +79,7 @@ export default function BroadcastsPage() {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [apiOpen, setApiOpen] = useState(false);
+  const canApi = planAllows(usePlan(), 'api_campaigns');
   // Each fetch claims a number; only the newest may commit (fast tab/search switching).
   const fetchSeq = useRef(0);
 
@@ -215,8 +218,9 @@ export default function BroadcastsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {canCreate && !canApi && <UpgradeBadge />}
           {canCreate && (
-            <Button variant="outline" onClick={() => setApiOpen(true)}>
+            <Button variant="outline" onClick={() => setApiOpen(true)} disabled={!canApi}>
               <Code className="h-4 w-4" />
               {t('newApiCampaign')}
             </Button>

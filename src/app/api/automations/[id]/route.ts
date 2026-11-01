@@ -15,6 +15,7 @@ import {
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
 import { getT } from '@/lib/i18n/translate';
+import { requireActiveAutomationRoom } from '@/lib/billing/activation';
 
 const t = getT('Api');
 
@@ -136,6 +137,14 @@ export async function PATCH(
         },
         { status: 400 }
       );
+    }
+    // Only turning an automation on counts against the plan's active cap.
+    if (update.is_active === true && !existing.is_active) {
+      try {
+        await requireActiveAutomationRoom(accountId, id);
+      } catch (err) {
+        return toErrorResponse(err);
+      }
     }
   }
 

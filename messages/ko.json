@@ -2165,7 +2165,8 @@
       "deals": "딜 & 통화",
       "members": "팀원",
       "api": "API 및 웹훅",
-      "inbox": "받은 편지함"
+      "inbox": "받은 편지함",
+      "plan": "요금제 및 사용량"
     },
     "groups": {
       "account": "계정",
@@ -2474,6 +2475,32 @@
       "loadFailed": "속성을 불러올 수 없습니다",
       "saveFailed": "속성을 저장할 수 없습니다",
       "deleteFailed": "속성을 삭제할 수 없습니다"
+    },
+    "plan": {
+      "title": "요금제 및 사용량",
+      "description": "워크스페이스 요금제에 포함된 기능과 각 한도의 사용량입니다.",
+      "current": "현재 요금제: {plan}",
+      "limitsTitle": "한도 및 사용량",
+      "unlimited": "무제한",
+      "upgradeHint": "요금제를 변경하려면 Bodhinox 지원팀에 문의하세요. 셀프 결제는 곧 제공됩니다.",
+      "features": {
+        "campaign_scheduling": "예약 캠페인",
+        "contact_export": "연락처 내보내기",
+        "api_campaigns": "API 캠페인",
+        "click_tracking": "클릭 추적",
+        "retargeting": "캠페인 기반 리타기팅",
+        "workspace_attributes": "워크스페이스 속성"
+      },
+      "limits": {
+        "seats": "팀원 및 대기 중인 초대",
+        "segments": "저장된 세그먼트",
+        "lists": "목록",
+        "campaign_recipients": "캠페인당 수신자",
+        "active_flows": "활성 플로우",
+        "active_automations": "활성 자동화"
+      },
+      "loadFailed": "요금제를 불러오지 못했습니다",
+      "retry": "다시 시도"
     }
   },
   "SignupPage": {
@@ -3238,5 +3265,9 @@
     "saving": "저장 중…",
     "save": "목표 저장",
     "saved": "응답 목표가 저장되었습니다."
+  },
+  "Plan": {
+    "upgrade": "업그레이드",
+    "upgradeHint": "현재 요금제에 포함되어 있지 않습니다. 설정 → 요금제 및 사용량을 확인하세요."
   }
 }

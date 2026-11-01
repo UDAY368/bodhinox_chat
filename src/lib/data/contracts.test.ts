@@ -31,7 +31,7 @@ describe('fixed CRM resource authorization', () => {
     expect(() => validateWrite('conversations', { last_customer_message_at: '2026-10-19T12:00:00Z' }, tenant, true, 'update')).toThrow(/cannot be changed/);
   });
   it('requires validated routes for every browser automation and step mutation', () => {
-    for (const resource of ['automations', 'automation_steps']) {
+    for (const resource of ['automations', 'automation_steps', 'flows']) {
       const values =
         resource === 'automations'
           ? {
@@ -40,6 +40,8 @@ describe('fixed CRM resource authorization', () => {
               trigger_config: {},
               is_active: true,
             }
+          : resource === 'flows'
+          ? { name: 'Bypass attempt', status: 'active' }
           : {
               automation_id: tenant.accountId,
               step_type: 'send_message',

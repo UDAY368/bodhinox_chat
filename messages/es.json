@@ -2165,7 +2165,8 @@
       "deals": "Negocios y moneda",
       "members": "Miembros del equipo",
       "api": "API y webhooks",
-      "inbox": "Bandeja de entrada"
+      "inbox": "Bandeja de entrada",
+      "plan": "Plan y uso"
     },
     "groups": {
       "account": "Cuenta",
@@ -2474,6 +2475,32 @@
       "loadFailed": "No se pudieron cargar los atributos",
       "saveFailed": "No se pudo guardar el atributo",
       "deleteFailed": "No se pudo eliminar el atributo"
+    },
+    "plan": {
+      "title": "Plan y uso",
+      "description": "Lo que incluye el plan de tu espacio de trabajo y cuánto usas de cada límite.",
+      "current": "Plan actual: {plan}",
+      "limitsTitle": "Límites y uso",
+      "unlimited": "Ilimitado",
+      "upgradeHint": "Para cambiar de plan, contacta con el soporte de Bodhinox. La facturación autoservicio llegará pronto.",
+      "features": {
+        "campaign_scheduling": "Campañas programadas",
+        "contact_export": "Exportación de contactos",
+        "api_campaigns": "Campañas por API",
+        "click_tracking": "Seguimiento de clics",
+        "retargeting": "Retargeting por campaña",
+        "workspace_attributes": "Atributos del espacio de trabajo"
+      },
+      "limits": {
+        "seats": "Miembros e invitaciones abiertas",
+        "segments": "Segmentos guardados",
+        "lists": "Listas",
+        "campaign_recipients": "Destinatarios por campaña",
+        "active_flows": "Flujos activos",
+        "active_automations": "Automatizaciones activas"
+      },
+      "loadFailed": "No se pudo cargar tu plan",
+      "retry": "Reintentar"
     }
   },
   "SignupPage": {
@@ -3238,5 +3265,9 @@
     "saving": "Guardando…",
     "save": "Guardar objetivo",
     "saved": "Objetivo guardado."
+  },
+  "Plan": {
+    "upgrade": "Mejorar",
+    "upgradeHint": "No incluido en tu plan. Consulta Ajustes → Plan y uso."
   }
 }

@@ -3,6 +3,9 @@ import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { validateFlowForActivation } from '@/lib/flows/validate';
 import { getT } from '@/lib/i18n/translate';
+import { tenantOf } from '@/lib/audience/http';
+import { withTenant } from '@/lib/db/tenant';
+import { requireWithinLimit } from '@/lib/billing/entitlements';
 
 const t = getT('Api');
 
@@ -108,6 +111,18 @@ export async function POST(
         },
         { status: 422 }
       );
+    }
+    // Plan cap on active flows; re-activating an already active flow does not count twice.
+    // shortcut: checked before the update in another transaction, so two simultaneous activations can pass one over the cap; move the update under requireRoomFor if that matters.
+    try {
+      const ctx = await requireRole('agent');
+      await withTenant(tenantOf(ctx), async (tx) => {
+        const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM flows
+          WHERE account_id=${ctx.accountId}::uuid AND status='active' AND id<>${id}::uuid`;
+        await requireWithinLimit(tx, ctx.accountId, 'active_flows', n + 1);
+      });
+    } catch (err) {
+      return toErrorResponse(err);
     }
   }
 
