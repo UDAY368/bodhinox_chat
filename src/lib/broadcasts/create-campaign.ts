@@ -11,6 +11,7 @@ import { normalizePhone, isValidE164 } from '@/lib/whatsapp/phone-utils';
 import { AudienceFilterError, assertFilterReferences, compileAudienceFilter } from '@/lib/audience/filter';
 import { listFilter } from '@/lib/audience/lists';
 import { loadSegmentFilter } from '@/lib/audience/segments';
+import { trackedButtonIndex, validTrackedUrl } from './tracking';
 
 // Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
 // parameterCells bounds recipients × variables, so one request cannot freeze an unbounded amount of data.
@@ -46,6 +47,8 @@ const inputSchema=z.object({
   variables:z.record(z.string().regex(/^[1-9]\d?$/),mapping),headerMediaUrl:z.string().trim().min(1).max(2048).optional(),
   /** Send later instead of now (ISO timestamp, 1 minute to 90 days ahead). */
   scheduledAt:z.string().datetime({offset:true}).optional(),
+  /** Where a trackable template's link button finally leads (lib/broadcasts/tracking). */
+  trackedUrl:z.string().trim().max(2048).optional(),
 }).strict();
 export type CampaignInput=z.infer<typeof inputSchema>;
 const FIELD_COLUMNS={name:Prisma.sql`c.name`,phone:Prisma.sql`c.phone`,email:Prisma.sql`c.email`,company:Prisma.sql`c.company`};
@@ -182,19 +185,25 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     await assertOwnedIds(tx,scope.accountId,'custom_fields',fieldIds);
     const headerMediaUrl=input.headerMediaUrl??(template.header_media_url?.trim()||undefined);
     await assertMedia(tx,scope.accountId,headerMediaUrl);
-    // Header media and body count are the same for every recipient, so one sample validates the campaign.
-    try{buildSendComponents(template,{body:keys.map(()=>'x'),...(headerMediaUrl?{headerMediaUrl}:{})});}catch{invalid('Template send parameters are incomplete; check header media and body variables');}
+    const tracked=trackedButtonIndex(template);
+    if(tracked>=0&&!(input.trackedUrl&&validTrackedUrl(input.trackedUrl)))invalid('This template tracks link clicks: enter the HTTPS page the button should open');
+    // Header media, body count and the tracking button are the same for every recipient, so one sample validates the campaign.
+    try{buildSendComponents(template,{body:keys.map(()=>'x'),...(headerMediaUrl?{headerMediaUrl}:{}),...(tracked>=0?{buttonParams:{[tracked]:'x'}}:{})});}
+    catch{invalid('Template send parameters are incomplete; check header media, body variables and link buttons');}
     const {from,where,order}=await audienceSource(tx,scope,input);
     const [{matched}]=await tx.$queryRaw<{matched:number}[]>(Prisma.sql`SELECT count(*)::int AS matched FROM (SELECT 1 FROM ${from} WHERE ${where} LIMIT ${CAMPAIGN_LIMITS.recipients+1}) m`);
     if(!matched)invalid('No contacts match this audience');
     if(matched>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients.toLocaleString('en')} recipients`);
     if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
-    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients)
-      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0) RETURNING id`;
+    const trackedUrl=tracked>=0?input.trackedUrl!:null;
+    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url)
+      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl}) RETURNING id`;
     const id=broadcasts[0].id;
-    const total=await tx.$executeRaw(Prisma.sql`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,template_params)
-      SELECT ${scope.accountId}::uuid,${id}::uuid,c.id,'pending',${paramsSql(scope.accountId,input,keys)}
+    // 122 random bits per recipient when tracking; the token is the button's {{1}}.
+    const token=trackedUrl?Prisma.sql`replace(gen_random_uuid()::text,'-','')`:Prisma.sql`NULL`;
+    const total=await tx.$executeRaw(Prisma.sql`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,template_params,click_token)
+      SELECT ${scope.accountId}::uuid,${id}::uuid,c.id,'pending',${paramsSql(scope.accountId,input,keys)},${token}
       FROM ${from} WHERE ${where} ORDER BY ${order} LIMIT ${CAMPAIGN_LIMITS.recipients+1}`);
     // The pre-count ran in this transaction, but rows can change between the two statements.
     if(!total)invalid('No contacts match this audience');

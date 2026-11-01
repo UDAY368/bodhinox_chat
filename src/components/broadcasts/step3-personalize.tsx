@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, ArrowRight, Eye, ImageIcon, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { trackedButtonIndex, validTrackedUrl } from '@/lib/broadcasts/tracking';
 
 type VariableType = 'static' | 'field' | 'custom_field' | 'csv_column';
 
@@ -33,6 +34,9 @@ interface Step3Props {
   csvColumns?: string[];
   /** First CSV row's values, for the preview. */
   csvSample?: Record<string, string>;
+  /** Destination for a click-tracked link button (only asked for trackable templates). */
+  trackedUrl?: string;
+  onTrackedUrlChange?: (url: string) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -79,9 +83,16 @@ export function Step3Personalize({
   onHeaderMediaUrlChange,
   csvColumns = [],
   csvSample,
+  trackedUrl = '',
+  onTrackedUrlChange,
   onNext,
   onBack,
 }: Step3Props) {
+  // The tracking button must point at this app; the origin is read after mount.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
+  const tracked = origin ? trackedButtonIndex(template, origin) >= 0 : false;
+  const trackedInvalid = tracked && !validTrackedUrl(trackedUrl.trim());
   const t = useTranslations('Broadcasts.wizard');
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingFields, setLoadingFields] = useState(true);
@@ -452,6 +463,23 @@ export function Step3Personalize({
         </div>
       </div>
 
+      {tracked && (
+        <div className="space-y-1.5 rounded-xl border border-border bg-card/50 p-4">
+          <label htmlFor="tracked-url" className="block text-sm font-medium text-foreground">{t('personalize.trackedUrl')}</label>
+          <Input
+            id="tracked-url"
+            type="url"
+            value={trackedUrl}
+            onChange={(e) => onTrackedUrlChange?.(e.target.value)}
+            placeholder="https://example.com/offer"
+            className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+          />
+          <p className="text-xs text-muted-foreground">
+            {trackedUrl.trim() && trackedInvalid ? t('personalize.trackedUrlInvalid') : t('personalize.trackedUrlHint')}
+          </p>
+        </div>
+      )}
+
       {unmappedKeys.length > 0 && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
           {t.rich('personalize.unmappedWarning', {
@@ -472,7 +500,7 @@ export function Step3Personalize({
         </Button>
         <Button
           onClick={onNext}
-          disabled={unmappedKeys.length > 0 || headerMediaError !== null}
+          disabled={unmappedKeys.length > 0 || headerMediaError !== null || trackedInvalid}
           className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {t('next')}

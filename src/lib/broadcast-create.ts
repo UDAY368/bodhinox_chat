@@ -9,6 +9,7 @@ export interface BroadcastCreationInput {
   variables: Record<string, VariableMapping>;
   headerMediaUrl?: string;
   scheduledAt?: string;
+  trackedUrl?: string;
 }
 
 export async function requestBroadcastCreation(input: BroadcastCreationInput, send: typeof authFetch = authFetch): Promise<string> {

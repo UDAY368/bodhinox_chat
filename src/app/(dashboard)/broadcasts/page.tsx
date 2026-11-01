@@ -14,7 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CalendarClock, ChevronLeft, ChevronRight, Loader2, Plus, Radio, Search } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Code, Loader2, Plus, Radio, Search } from 'lucide-react';
+import { NumberHealthBar } from '@/components/broadcasts/number-health-bar';
+import { ApiCampaignDialog } from '@/components/broadcasts/api-campaign-dialog';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
@@ -74,6 +76,7 @@ export default function BroadcastsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  const [apiOpen, setApiOpen] = useState(false);
   // Each fetch claims a number; only the newest may commit (fast tab/search switching).
   const fetchSeq = useRef(0);
 
@@ -211,16 +214,28 @@ export default function BroadcastsPage() {
             {t('subtitle')}
           </p>
         </div>
-        <GatedButton
-          canAct={canCreate}
-          gateReason={tGate('reasons.createBroadcasts')}
-          onClick={() => router.push('/broadcasts/new')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          {t('newBroadcast')}
-        </GatedButton>
+        <div className="flex items-center gap-2">
+          {canCreate && (
+            <Button variant="outline" onClick={() => setApiOpen(true)}>
+              <Code className="h-4 w-4" />
+              {t('newApiCampaign')}
+            </Button>
+          )}
+          <GatedButton
+            canAct={canCreate}
+            gateReason={tGate('reasons.createBroadcasts')}
+            onClick={() => router.push('/broadcasts/new')}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            {t('newBroadcast')}
+          </GatedButton>
+        </div>
       </div>
+
+      <NumberHealthBar />
+
+      <ApiCampaignDialog open={apiOpen} onOpenChange={setApiOpen} onCreated={(id) => router.push(`/broadcasts/${id}`)} />
 
       {/* Status tabs + name search */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

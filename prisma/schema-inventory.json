@@ -1730,6 +1730,30 @@
         "default": null,
         "reference": null,
         "definition": "delivery_locked_at TIMESTAMPTZ"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": "'standard'",
+        "reference": null,
+        "definition": "kind TEXT NOT NULL DEFAULT 'standard'"
+      },
+      {
+        "name": "tracked_url",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tracked_url TEXT"
+      },
+      {
+        "name": "click_count",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "click_count INTEGER NOT NULL DEFAULT 0"
       }
     ],
     "broadcast_recipients": [
@@ -1848,6 +1872,22 @@
           "onDelete": "CASCADE"
         },
         "definition": "account_id UUID NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "name": "click_token",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "click_token TEXT"
+      },
+      {
+        "name": "clicked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "clicked_at TIMESTAMPTZ"
       }
     ],
     "automations": [

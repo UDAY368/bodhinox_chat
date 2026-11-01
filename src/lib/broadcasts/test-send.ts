@@ -19,6 +19,7 @@ import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { marketingSuppression } from '@/lib/contacts/consent';
 import { assertMedia, variableMapping } from './create-campaign';
+import { TEST_CLICK_TOKEN, trackedButtonIndex } from './tracking';
 
 export const MAX_TEST_NUMBERS = 3;
 const inputSchema = z.object({
@@ -100,6 +101,8 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
     }
   }
 
+  // A trackable template's button needs a value: the test link explains itself instead of tracking.
+  const tracked = trackedButtonIndex(prepared.template);
   const results: TestSendResult[] = [];
   for (const target of prepared.targets) {
     if (!('to' in target) || !credentials) { results.push({ phone: target.phone, ok: false, error: 'error' in target ? target.error : setupError }); continue; }
@@ -113,7 +116,10 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
         language: prepared.template.language || 'en_US',
         template: prepared.template,
         params: target.params,
-        ...(media ? { messageParams: { headerMediaUrl: media } } : {}),
+        ...(media || tracked >= 0 ? { messageParams: {
+          ...(media ? { headerMediaUrl: media } : {}),
+          ...(tracked >= 0 ? { buttonParams: { [tracked]: TEST_CLICK_TOKEN } } : {}),
+        } } : {}),
       });
       results.push({ phone: target.phone, ok: true });
     } catch (error) {

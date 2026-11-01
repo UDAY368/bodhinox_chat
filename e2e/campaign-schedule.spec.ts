@@ -37,3 +37,17 @@ test('the campaign list filters by status tab and name search', async ({ page })
   await page.getByRole('tab', { name: 'Sent' }).click();
   await expect(page.getByText('No campaigns match.')).toBeVisible();
 });
+
+test('an agent creates an API campaign and sees how to add recipients', async ({ page }) => {
+  const name = `API ${fixtures().runId}`;
+  await login(page, fixtures().users.agent);
+  await page.goto('/broadcasts');
+  await page.getByRole('button', { name: 'New API campaign' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Name', { exact: true }).fill(name);
+  await dialog.getByLabel('Template').selectOption({ label: 'e2e_template (en_US)' });
+  await dialog.getByRole('button', { name: 'Create' }).click();
+  await expect(page).toHaveURL(/\/broadcasts\/[0-9a-f-]{36}$/);
+  await expect(page.getByText('Add recipients through the API')).toBeVisible();
+  await expect(page.getByText(/\/api\/v1\/broadcasts\/[0-9a-f-]{36}\/recipients/)).toBeVisible();
+});

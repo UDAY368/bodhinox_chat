@@ -35,6 +35,7 @@ import {
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
+import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -66,6 +67,8 @@ interface PlannedRecipient {
   recipientRowId: string;
   phone: string;
   params: string[];
+  /** Fills a trackable template's link button (lib/broadcasts/tracking). */
+  clickToken?: string | null;
 }
 
 export interface BroadcastPlan {
@@ -147,6 +150,75 @@ export async function createBroadcast(
   }
   const templateRow = resolvedTemplate.row;
 
+  const { deduped, rejected } = await resolveApiRecipients(db, accountId, auditUserId, recipients);
+
+  // Persist the broadcast + its recipients. The count columns
+  // (sent/delivered/read/replied/failed) are owned by the DB aggregate
+  // trigger (migrations 003/005) and derived purely from
+  // broadcast_recipients rows — we deliberately do NOT seed them here
+  // (a manual value would be clobbered by the trigger on the first
+  // recipient change). `rejected` phones have no recipient row, so they
+  // are reported to the caller in the POST response, not in these
+  // persisted counts.
+  // The parent, its recipients (frozen params, so a resume can rebuild
+  // {{1}}) and the dispatch job commit in ONE transaction: a failure leaves
+  // no orphaned 'sending' campaign (issue #370), and success always has a
+  // queued job behind it.
+  let createdRows: { broadcast_id: string; recipient_id: string; contact_id: string }[];
+  try {
+    createdRows = await withTenant({ accountId, role: 'owner' }, async (tx) => {
+      const rows = await tx.$queryRaw<{ broadcast_id: string; recipient_id: string; contact_id: string }[]>`
+        SELECT broadcast_id::text, recipient_id::text, contact_id::text FROM create_broadcast_with_recipients(
+          ${accountId}::uuid, ${auditUserId}::uuid, ${name || `API broadcast (${templateName})`},
+          ${templateName}, ${resolvedTemplate.language}, ${deduped.length}::integer,
+          ARRAY(SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(deduped.map((r) => r.contactId))}::jsonb)),
+          ARRAY(SELECT value FROM jsonb_array_elements(${JSON.stringify(deduped.map((r) => r.params))}::jsonb)))`;
+      const id = rows[0]?.broadcast_id;
+      if (!id) throw new Error('Broadcast creation returned no rows');
+      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
+        VALUES('broadcast.dispatch',${accountId}::uuid,${JSON.stringify({ broadcastId: id })}::jsonb,${`broadcast:${id}:initial`})`;
+      return rows;
+    }, getWorkerPrisma());
+  } catch (error) {
+    console.error('[broadcast-core] create broadcast failed', error instanceof Error ? error.name : 'unknown');
+    throw new BroadcastError('internal', 'Failed to create broadcast', 500);
+  }
+
+  const broadcastId = createdRows[0].broadcast_id;
+
+  // Pair each inserted recipient row back to its phone/params by
+  // contact_id — unambiguous now that duplicates are collapsed.
+  const byContact = new Map(deduped.map((r) => [r.contactId, r]));
+  const planned: PlannedRecipient[] = createdRows.map(
+    (row: { recipient_id: string; contact_id: string }) => {
+      const r = byContact.get(row.contact_id)!;
+      return { recipientRowId: row.recipient_id, phone: r.phone, params: r.params };
+    }
+  );
+
+  return {
+    broadcastId,
+    templateName,
+    templateLanguage: resolvedTemplate.language,
+    phoneNumberId: config.phone_number_id,
+    accessToken,
+    templateRow,
+    planned,
+    rejected,
+  };
+}
+
+/**
+ * Resolve public-API recipients to contacts: invalid numbers, repeats and
+ * opted-out/blocked contacts are dropped and counted as rejected. Throws
+ * BroadcastError when nobody is left to send to.
+ */
+export async function resolveApiRecipients(
+  db: DataClient,
+  accountId: string,
+  auditUserId: string,
+  recipients: BroadcastRecipientInput[]
+): Promise<{ deduped: { contactId: string; phone: string; params: string[] }[]; rejected: number }> {
   // Resolve each recipient to a contact. Invalid phones are dropped
   // (counted as rejected) rather than aborting the whole broadcast.
   // `to` is raw integrator input, so the leading `+` is required — a
@@ -213,61 +285,7 @@ export async function createBroadcast(
       400
     );
   }
-
-  // Persist the broadcast + its recipients. The count columns
-  // (sent/delivered/read/replied/failed) are owned by the DB aggregate
-  // trigger (migrations 003/005) and derived purely from
-  // broadcast_recipients rows — we deliberately do NOT seed them here
-  // (a manual value would be clobbered by the trigger on the first
-  // recipient change). `rejected` phones have no recipient row, so they
-  // are reported to the caller in the POST response, not in these
-  // persisted counts.
-  // The parent, its recipients (frozen params, so a resume can rebuild
-  // {{1}}) and the dispatch job commit in ONE transaction: a failure leaves
-  // no orphaned 'sending' campaign (issue #370), and success always has a
-  // queued job behind it.
-  let createdRows: { broadcast_id: string; recipient_id: string; contact_id: string }[];
-  try {
-    createdRows = await withTenant({ accountId, role: 'owner' }, async (tx) => {
-      const rows = await tx.$queryRaw<{ broadcast_id: string; recipient_id: string; contact_id: string }[]>`
-        SELECT broadcast_id::text, recipient_id::text, contact_id::text FROM create_broadcast_with_recipients(
-          ${accountId}::uuid, ${auditUserId}::uuid, ${name || `API broadcast (${templateName})`},
-          ${templateName}, ${resolvedTemplate.language}, ${deduped.length}::integer,
-          ARRAY(SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(deduped.map((r) => r.contactId))}::jsonb)),
-          ARRAY(SELECT value FROM jsonb_array_elements(${JSON.stringify(deduped.map((r) => r.params))}::jsonb)))`;
-      const id = rows[0]?.broadcast_id;
-      if (!id) throw new Error('Broadcast creation returned no rows');
-      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
-        VALUES('broadcast.dispatch',${accountId}::uuid,${JSON.stringify({ broadcastId: id })}::jsonb,${`broadcast:${id}:initial`})`;
-      return rows;
-    }, getWorkerPrisma());
-  } catch (error) {
-    console.error('[broadcast-core] create broadcast failed', error instanceof Error ? error.name : 'unknown');
-    throw new BroadcastError('internal', 'Failed to create broadcast', 500);
-  }
-
-  const broadcastId = createdRows[0].broadcast_id;
-
-  // Pair each inserted recipient row back to its phone/params by
-  // contact_id — unambiguous now that duplicates are collapsed.
-  const byContact = new Map(deduped.map((r) => [r.contactId, r]));
-  const planned: PlannedRecipient[] = createdRows.map(
-    (row: { recipient_id: string; contact_id: string }) => {
-      const r = byContact.get(row.contact_id)!;
-      return { recipientRowId: row.recipient_id, phone: r.phone, params: r.params };
-    }
-  );
-
-  return {
-    broadcastId,
-    templateName,
-    templateLanguage: resolvedTemplate.language,
-    phoneNumberId: config.phone_number_id,
-    accessToken,
-    templateRow,
-    planned,
-    rejected,
-  };
+  return { deduped, rejected };
 }
 
 /**
@@ -291,6 +309,7 @@ export async function deliverBroadcast(
   }
 ): Promise<{ throttled: boolean; sent: number }> {
   let sent = 0;
+  const tracked = trackedButtonIndex(plan.templateRow);
   for (const recipient of plan.planned) {
     // shortcut: fixed ~6 sends/s; pace by the number's messaging tier once the health job (Phase 2c) reports it.
     if (options) await new Promise(resolve => setTimeout(resolve, 150));
@@ -312,7 +331,12 @@ export async function deliverBroadcast(
           language: plan.templateLanguage,
           template: plan.templateRow ?? undefined,
           params: recipient.params,
-          ...(options && headerMediaUrl ? { messageParams: { headerMediaUrl: await providerMediaUrl(options.accountId, headerMediaUrl) } } : {}),
+          ...(options && (headerMediaUrl || (tracked >= 0 && recipient.clickToken))
+            ? { messageParams: {
+                ...(headerMediaUrl ? { headerMediaUrl: await providerMediaUrl(options.accountId, headerMediaUrl) } : {}),
+                ...(tracked >= 0 && recipient.clickToken ? { buttonParams: { [tracked]: recipient.clickToken } } : {}),
+              } }
+            : {}),
         });
         const result = options ? await dispatchOnce(options.accountId, `broadcast:${plan.broadcastId}:${recipient.recipientRowId}:${variant}`, send, { retryRejected: options.retryRejected }) : await send();
         sentMessageId = result.messageId;
@@ -425,10 +449,11 @@ export async function finalizeBroadcastStatus(
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', broadcastId)
     .neq('status', status)
-    .select('id,account_id,name,status,total_recipients,sent_count,delivered_count,read_count,replied_count,failed_count');
+    .select('id,account_id,name,status,kind,total_recipients,sent_count,delivered_count,read_count,replied_count,failed_count');
   if (final.error) throw new Error('Broadcast completion persistence failed');
   const row = (final.data as Record<string, unknown>[] | null)?.[0];
-  if (row)
+  // An API campaign settles after every batch and never "completes", so it fires no completion event.
+  if (row && row.kind !== 'api')
     await dispatchWebhookEvent(db, row.account_id as string, 'broadcast.completed', {
       broadcast_id: row.id,
       name: row.name,

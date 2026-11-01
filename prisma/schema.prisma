@@ -253,6 +253,9 @@ model broadcasts {
   updated_at DateTime? @db.Timestamptz(6) @default(now())
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   delivery_locked_at DateTime? @db.Timestamptz(6)
+  kind String @default("standard")
+  tracked_url String?
+  click_count Int @default(0)
   @@unique([account_id, id])
 }
 
@@ -269,6 +272,8 @@ model broadcast_recipients {
   created_at DateTime? @db.Timestamptz(6) @default(now())
   whatsapp_message_id String?
   template_params Json? @db.JsonB
+  click_token String?
+  clicked_at DateTime? @db.Timestamptz(6)
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   @@unique([account_id, id])
 }
@@ -755,6 +760,16 @@ model workspace_attributes {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, key])
+}
+
+model broadcast_clicks {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  broadcast_id String @db.Uuid
+  recipient_id String @db.Uuid
+  clicked_at DateTime @db.Timestamptz(6) @default(now())
+  ip_hash String?
+  @@index([account_id, broadcast_id])
 }
 
 model assignment_cursors {

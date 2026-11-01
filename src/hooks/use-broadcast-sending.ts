@@ -15,6 +15,8 @@ interface BroadcastPayload {
   headerMediaUrl?: string;
   /** ISO time to send later; omitted sends now. */
   scheduledAt?: string;
+  /** Destination of a click-tracked link button. */
+  trackedUrl?: string;
 }
 
 export function useBroadcastSending() {
@@ -31,6 +33,7 @@ export function useBroadcastSending() {
         variables: payload.variables,
         headerMediaUrl: payload.headerMediaUrl,
         scheduledAt: payload.scheduledAt,
+        trackedUrl: payload.trackedUrl,
       });
       setProgress(100);
       return id;

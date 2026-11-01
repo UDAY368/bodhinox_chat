@@ -976,7 +976,8 @@
       "scheduledFor": "예약 시간",
       "showing": "{total}개 중 {start}–{end}",
       "previousPage": "이전 페이지",
-      "nextPage": "다음 페이지"
+      "nextPage": "다음 페이지",
+      "newApiCampaign": "새 API 캠페인"
     },
     "status": {
       "draft": "초안",
@@ -1046,7 +1047,11 @@
       "cancelSchedule": "캠페인 취소",
       "rescheduled": "캠페인 일정이 변경되었습니다",
       "cancelledToast": "캠페인이 취소되었습니다. 아무것도 보내지 않았습니다",
-      "scheduleFailed": "일정을 변경할 수 없습니다"
+      "scheduleFailed": "일정을 변경할 수 없습니다",
+      "clicks": "{sent, number}명 중 {count, number}명이 링크를 클릭했습니다",
+      "trackedTo": "링크 이동 위치: {url}",
+      "apiTitle": "API로 수신자 추가",
+      "apiHint": "broadcasts:send 권한이 있는 API 키를 사용하세요. 요청당 최대 1,000명이며 params가 템플릿 변수를 순서대로 채웁니다."
     },
     "new": {
       "title": "새 브로드캐스트",
@@ -1166,7 +1171,10 @@
         "sampleName": "홍길동",
         "sampleCompany": "예시 주식회사",
         "typeCsv": "CSV 열",
-        "selectCsvColumn": "열 선택..."
+        "selectCsvColumn": "열 선택...",
+        "trackedUrl": "링크 대상 (클릭 추적)",
+        "trackedUrlHint": "이 템플릿의 버튼은 추적 링크를 엽니다. 수신자가 도착할 https:// 페이지를 입력하세요. 클릭은 수신자별로 집계됩니다.",
+        "trackedUrlInvalid": "전체 https:// 주소를 입력하세요."
       },
       "scheduleSend": {
         "title": "검토 및 전송",
@@ -1225,6 +1233,32 @@
       "apiRequestFailed": "브로드캐스트 API 요청 실패",
       "noPhoneOnContact": "연락처에 전화번호가 없습니다",
       "unknownError": "알 수 없는 오류"
+    },
+    "health": {
+      "quality": "품질",
+      "tier": "일일 한도",
+      "remaining": "오늘 남은 양",
+      "remainingHint": "추정치: 일일 한도에서 최근 24시간 동안 캠페인이 도달한 고유 연락처 수를 뺀 값입니다. 다른 발송은 포함되지 않습니다.",
+      "perDay": "하루 {count, number}명",
+      "unlimited": "무제한",
+      "unknown": "알 수 없음",
+      "unavailable": "지금은 WhatsApp에 연결할 수 없습니다",
+      "ratings": {
+        "GREEN": "높음",
+        "YELLOW": "보통",
+        "RED": "낮음",
+        "UNKNOWN": "알 수 없음"
+      }
+    },
+    "apiCampaign": {
+      "title": "새 API 캠페인",
+      "description": "시스템이 API로 수신자를 추가하는 이름 있는 캠페인입니다. 모든 배치가 여기에 집계됩니다.",
+      "name": "이름",
+      "template": "템플릿",
+      "chooseTemplate": "승인된 템플릿 선택",
+      "cancel": "취소",
+      "create": "만들기",
+      "createFailed": "캠페인을 만들 수 없습니다"
     }
   },
   "Automations": {

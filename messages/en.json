@@ -976,7 +976,8 @@
       "scheduledFor": "Scheduled time",
       "showing": "Showing {start}–{end} of {total}",
       "previousPage": "Previous page",
-      "nextPage": "Next page"
+      "nextPage": "Next page",
+      "newApiCampaign": "New API campaign"
     },
     "status": {
       "draft": "Draft",
@@ -1046,7 +1047,11 @@
       "cancelSchedule": "Cancel campaign",
       "rescheduled": "Campaign rescheduled",
       "cancelledToast": "Campaign cancelled; nothing was sent",
-      "scheduleFailed": "Could not change the schedule"
+      "scheduleFailed": "Could not change the schedule",
+      "clicks": "{count, number} of {sent, number} recipients clicked the link",
+      "trackedTo": "Link opens {url}",
+      "apiTitle": "Add recipients through the API",
+      "apiHint": "Use an API key with the broadcasts:send scope. Up to 1,000 recipients per request; params fill the template variables in order."
     },
     "new": {
       "title": "New Broadcast",
@@ -1166,7 +1171,10 @@
         "sampleName": "John Doe",
         "sampleCompany": "Acme Corp",
         "typeCsv": "CSV column",
-        "selectCsvColumn": "Select a column..."
+        "selectCsvColumn": "Select a column...",
+        "trackedUrl": "Link destination (click tracking)",
+        "trackedUrlHint": "This template's button opens a tracking link. Enter the https:// page recipients should land on; clicks are counted per recipient.",
+        "trackedUrlInvalid": "Enter a full https:// address."
       },
       "scheduleSend": {
         "title": "Review & Send",
@@ -1225,6 +1233,32 @@
       "apiRequestFailed": "Broadcast API request failed",
       "noPhoneOnContact": "No phone number on contact",
       "unknownError": "Unknown error"
+    },
+    "health": {
+      "quality": "Quality",
+      "tier": "Daily limit",
+      "remaining": "Left today",
+      "remainingHint": "Estimate: your daily limit minus unique contacts your campaigns reached in the last 24 hours. Other sends are not counted.",
+      "perDay": "{count, number} people/day",
+      "unlimited": "Unlimited",
+      "unknown": "Unknown",
+      "unavailable": "Could not reach WhatsApp right now",
+      "ratings": {
+        "GREEN": "High",
+        "YELLOW": "Medium",
+        "RED": "Low",
+        "UNKNOWN": "Unknown"
+      }
+    },
+    "apiCampaign": {
+      "title": "New API campaign",
+      "description": "A named campaign your systems add recipients to through the API. Every batch reports here.",
+      "name": "Name",
+      "template": "Template",
+      "chooseTemplate": "Choose an approved template",
+      "cancel": "Cancel",
+      "create": "Create",
+      "createFailed": "Could not create the campaign"
     }
   },
   "Automations": {

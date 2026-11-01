@@ -976,7 +976,8 @@
       "scheduledFor": "Horário agendado",
       "showing": "Mostrando {start}–{end} de {total}",
       "previousPage": "Página anterior",
-      "nextPage": "Próxima página"
+      "nextPage": "Próxima página",
+      "newApiCampaign": "Nova campanha via API"
     },
     "status": {
       "draft": "Rascunho",
@@ -1046,7 +1047,11 @@
       "cancelSchedule": "Cancelar campanha",
       "rescheduled": "Campanha reagendada",
       "cancelledToast": "Campanha cancelada; nada foi enviado",
-      "scheduleFailed": "Não foi possível alterar o agendamento"
+      "scheduleFailed": "Não foi possível alterar o agendamento",
+      "clicks": "{count, number} de {sent, number} destinatários clicaram no link",
+      "trackedTo": "O link abre {url}",
+      "apiTitle": "Adicione destinatários pela API",
+      "apiHint": "Use uma chave de API com o escopo broadcasts:send. Até 1.000 destinatários por requisição; params preenche as variáveis do modelo em ordem."
     },
     "new": {
       "title": "Novo disparo",
@@ -1166,7 +1171,10 @@
         "sampleName": "João Silva",
         "sampleCompany": "Empresa Exemplo Ltda.",
         "typeCsv": "Coluna do CSV",
-        "selectCsvColumn": "Selecione uma coluna..."
+        "selectCsvColumn": "Selecione uma coluna...",
+        "trackedUrl": "Destino do link (rastreamento de cliques)",
+        "trackedUrlHint": "O botão deste modelo abre um link de rastreamento. Informe a página https:// de destino; os cliques são contados por destinatário.",
+        "trackedUrlInvalid": "Informe um endereço https:// completo."
       },
       "scheduleSend": {
         "title": "Revisar e enviar",
@@ -1225,6 +1233,32 @@
       "apiRequestFailed": "Falha na requisição à API de disparo",
       "noPhoneOnContact": "O contato não tem número de telefone",
       "unknownError": "Erro desconhecido"
+    },
+    "health": {
+      "quality": "Qualidade",
+      "tier": "Limite diário",
+      "remaining": "Restante hoje",
+      "remainingHint": "Estimativa: seu limite diário menos os contatos únicos que suas campanhas alcançaram nas últimas 24 horas. Outros envios não são contados.",
+      "perDay": "{count, number} pessoas/dia",
+      "unlimited": "Ilimitado",
+      "unknown": "Desconhecido",
+      "unavailable": "Não foi possível contatar o WhatsApp agora",
+      "ratings": {
+        "GREEN": "Alta",
+        "YELLOW": "Média",
+        "RED": "Baixa",
+        "UNKNOWN": "Desconhecida"
+      }
+    },
+    "apiCampaign": {
+      "title": "Nova campanha via API",
+      "description": "Uma campanha nomeada à qual seus sistemas adicionam destinatários pela API. Cada lote é reportado aqui.",
+      "name": "Nome",
+      "template": "Modelo",
+      "chooseTemplate": "Escolha um modelo aprovado",
+      "cancel": "Cancelar",
+      "create": "Criar",
+      "createFailed": "Não foi possível criar a campanha"
     }
   },
   "Automations": {

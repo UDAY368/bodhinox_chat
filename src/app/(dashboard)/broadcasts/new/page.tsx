@@ -35,6 +35,7 @@ export default function NewBroadcastPage() {
   const [audience, setAudience] = useState<AudienceConfig>({ type: 'all' });
   const [variables, setVariables] = useState<Record<string, VariableMapping>>({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
+  const [trackedUrl, setTrackedUrl] = useState('');
   const [name, setName] = useState('');
 
   async function handleSend(scheduledAt?: string) {
@@ -67,6 +68,7 @@ export default function NewBroadcastPage() {
         variables,
         headerMediaUrl,
         scheduledAt,
+        trackedUrl: trackedUrl.trim() || undefined,
       });
       router.push(`/broadcasts/${broadcastId}`);
     } catch (err) {
@@ -214,6 +216,8 @@ export default function NewBroadcastPage() {
               onHeaderMediaUrlChange={setHeaderMediaUrl}
               csvColumns={audience.type === 'csv' ? csvValueColumns(audience.csvContacts ?? []) : []}
               csvSample={audience.type === 'csv' ? audience.csvContacts?.[0]?.values : undefined}
+              trackedUrl={trackedUrl}
+              onTrackedUrlChange={setTrackedUrl}
               onNext={() => setCurrentStep(3)}
               onBack={() => setCurrentStep(1)}
             />

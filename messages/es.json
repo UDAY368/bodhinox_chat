@@ -976,7 +976,8 @@
       "scheduledFor": "Hora programada",
       "showing": "Mostrando {start}–{end} de {total}",
       "previousPage": "Página anterior",
-      "nextPage": "Página siguiente"
+      "nextPage": "Página siguiente",
+      "newApiCampaign": "Nueva campaña por API"
     },
     "status": {
       "draft": "Borrador",
@@ -1046,7 +1047,11 @@
       "cancelSchedule": "Cancelar campaña",
       "rescheduled": "Campaña reprogramada",
       "cancelledToast": "Campaña cancelada; no se envió nada",
-      "scheduleFailed": "No se pudo cambiar la programación"
+      "scheduleFailed": "No se pudo cambiar la programación",
+      "clicks": "{count, number} de {sent, number} destinatarios hicieron clic en el enlace",
+      "trackedTo": "El enlace abre {url}",
+      "apiTitle": "Añade destinatarios por la API",
+      "apiHint": "Usa una clave de API con el permiso broadcasts:send. Hasta 1.000 destinatarios por solicitud; params rellena las variables de la plantilla en orden."
     },
     "new": {
       "title": "Nueva difusión",
@@ -1166,7 +1171,10 @@
         "sampleName": "Juan Pérez",
         "sampleCompany": "Empresa Ejemplo S.A.",
         "typeCsv": "Columna del CSV",
-        "selectCsvColumn": "Selecciona una columna..."
+        "selectCsvColumn": "Selecciona una columna...",
+        "trackedUrl": "Destino del enlace (seguimiento de clics)",
+        "trackedUrlHint": "El botón de esta plantilla abre un enlace de seguimiento. Introduce la página https:// a la que deben llegar; los clics se cuentan por destinatario.",
+        "trackedUrlInvalid": "Introduce una dirección https:// completa."
       },
       "scheduleSend": {
         "title": "Revisar y enviar",
@@ -1225,6 +1233,32 @@
       "apiRequestFailed": "Falló la solicitud a la API de difusión",
       "noPhoneOnContact": "El contacto no tiene número de teléfono",
       "unknownError": "Error desconocido"
+    },
+    "health": {
+      "quality": "Calidad",
+      "tier": "Límite diario",
+      "remaining": "Disponible hoy",
+      "remainingHint": "Estimación: tu límite diario menos los contactos únicos que alcanzaron tus campañas en las últimas 24 horas. No se cuentan otros envíos.",
+      "perDay": "{count, number} personas/día",
+      "unlimited": "Ilimitado",
+      "unknown": "Desconocido",
+      "unavailable": "No se pudo contactar con WhatsApp ahora",
+      "ratings": {
+        "GREEN": "Alta",
+        "YELLOW": "Media",
+        "RED": "Baja",
+        "UNKNOWN": "Desconocida"
+      }
+    },
+    "apiCampaign": {
+      "title": "Nueva campaña por API",
+      "description": "Una campaña con nombre a la que tus sistemas añaden destinatarios por la API. Cada lote se reporta aquí.",
+      "name": "Nombre",
+      "template": "Plantilla",
+      "chooseTemplate": "Elige una plantilla aprobada",
+      "cancel": "Cancelar",
+      "create": "Crear",
+      "createFailed": "No se pudo crear la campaña"
     }
   },
   "Automations": {

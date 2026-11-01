@@ -437,6 +437,12 @@ export interface Broadcast {
   template_variables?: Record<string, unknown>;
   audience_filter?: Record<string, unknown>;
   scheduled_at?: string;
+  /** 'api' campaigns receive recipients through the public API. */
+  kind?: 'standard' | 'api';
+  /** Destination of a click-tracked link button. */
+  tracked_url?: string | null;
+  /** Recipients who clicked the tracked link at least once. */
+  click_count?: number;
   status: BroadcastStatus;
   total_recipients: number;
   sent_count: number;

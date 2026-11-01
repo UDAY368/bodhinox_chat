@@ -35,6 +35,7 @@ import {
   Trash2,
   PlayCircle,
   RotateCcw,
+  MousePointerClick,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -153,6 +154,9 @@ export default function BroadcastDetailPage() {
   const t = useTranslations('Broadcasts.detail');
   const tStatus = useTranslations('Broadcasts.status');
   const canSend = useCan('send-messages');
+  // Set after mount so the server render and the first client render match.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
   const broadcastId = params.id as string;
 
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null);
@@ -571,6 +575,31 @@ export default function BroadcastDetailPage() {
           color="bg-red-500/10 text-red-400"
         />
       </div>
+
+      {broadcast.tracked_url && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-sm">
+          <div className="flex items-center gap-2">
+            <MousePointerClick className="h-4 w-4 text-primary" />
+            <span className="font-medium text-foreground">
+              {t('clicks', { count: broadcast.click_count ?? 0, sent: broadcast.sent_count })}
+            </span>
+          </div>
+          <span className="truncate text-xs text-muted-foreground" title={broadcast.tracked_url}>
+            {t('trackedTo', { url: broadcast.tracked_url })}
+          </span>
+        </div>
+      )}
+
+      {broadcast.kind === 'api' && (
+        <div className="space-y-2 rounded-xl border border-border bg-card p-4">
+          <p className="text-sm font-medium text-foreground">{t('apiTitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('apiHint')}</p>
+          <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs text-foreground">{`curl -X POST ${origin}/api/v1/broadcasts/${broadcast.id}/recipients \\
+  -H "Authorization: Bearer <API key with broadcasts:send>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"recipients":[{"to":"+14155550123","params":["Jane"]}]}'`}</pre>
+        </div>
+      )}
 
       <FunnelChart steps={funnelSteps} />
 

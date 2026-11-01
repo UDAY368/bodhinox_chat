@@ -7,6 +7,8 @@ vi.mock('@/lib/storage/server', () => ({ providerMediaUrl: async (_a: string, ur
 vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: async (_account: string, _key: string, send: () => unknown) => send(), UncertainDispatchError: class extends Error {} }));
 import { MetaApiError } from './meta-api';
 import { deliverBroadcast, isThrottled, throttleDelayMs } from './broadcast-core';
+import { appOrigin } from '@/lib/broadcasts/tracking';
+import type { MessageTemplate } from '@/types';
 
 /** Records every recipient update; counts read as zero so finalize is a no-op transition. */
 function recordingDb() {
@@ -27,7 +29,7 @@ function recordingDb() {
 
 const plan = (ids: string[]) => ({
   broadcastId: 'b', templateName: 't', templateLanguage: 'en', phoneNumberId: 'pn', accessToken: 'x', templateRow: null, rejected: 0,
-  planned: ids.map((id, i) => ({ recipientRowId: id, phone: `+1202555${String(i).padStart(4, '0')}`, params: [] })),
+  planned: ids.map((id, i) => ({ recipientRowId: id, phone: `+1202555${String(i).padStart(4, '0')}`, params: [] as string[], clickToken: null as string | null })),
 });
 const options = { accountId: 'acct', assertLease: () => {}, attemptId: 'job' };
 const throttle = () => new MetaApiError('Rate limit hit', { code: 130429, httpStatus: 400 });
@@ -57,6 +59,18 @@ describe('broadcast throttling', () => {
     const assertLease = () => { if (++calls > 1) throw new Error('Job lease lost'); };
     await expect(deliverBroadcast(db, plan(['r1', 'r2', 'r3']), { ...options, assertLease })).rejects.toThrow('Job lease lost');
     expect(updates.map((u) => [u.id, u.row.status])).toEqual([['r1', 'sent']]);
+  });
+
+  it("fills a tracked template's link button with each recipient's own click token", async () => {
+    mocks.send.mockReset().mockResolvedValue({ messageId: 'm' });
+    const { db } = recordingDb();
+    const templateRow = { buttons: [{ type: 'QUICK_REPLY', text: 'Stop' }, { type: 'URL', text: 'Shop', url: `${appOrigin()}/r/{{1}}` }] } as MessageTemplate;
+    const tracked = { ...plan(['r1', 'r2']), templateRow };
+    tracked.planned[0].clickToken = 'a'.repeat(32);
+    await deliverBroadcast(db, tracked, options);
+    expect(mocks.send.mock.calls[0][0].messageParams).toEqual({ buttonParams: { 1: 'a'.repeat(32) } });
+    // No token (e.g. created before tracking existed): nothing is filled in.
+    expect(mocks.send.mock.calls[1][0].messageParams).toBeUndefined();
   });
 
   it('classifies only documented rate-limit codes and backs off up to 30 minutes', () => {

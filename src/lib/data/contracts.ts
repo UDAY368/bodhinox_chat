@@ -83,6 +83,8 @@ const sensitive = new Set([
   'embeddings_api_key',
   'embedding',
   'fts',
+  // A click token alone records a click for its recipient; it stays server-side.
+  'click_token',
 ]);
 const settings = new Set([
   'tags',
@@ -520,8 +522,15 @@ export function validateWrite(
         'replied_count',
         'failed_count',
         'delivery_locked_at',
+        // Tracked destination and click stats are set only by server routes.
+        'tracked_url',
+        'click_count',
+        'clicked_at',
       ].includes(field)
     )
+      throw new ContractError(`Field ${field} is server-managed`);
+    // A campaign's kind is fixed at creation (other tables, e.g. quick_replies, have their own `kind`).
+    if (browser && name === 'broadcasts' && field === 'kind')
       throw new ContractError(`Field ${field} is server-managed`);
     if (field === 'account_id' && value !== context.accountId)
       throw new ContractError(
