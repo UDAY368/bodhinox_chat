@@ -107,7 +107,8 @@ export async function previewAudience(
   const filter = 'filter' in source ? parseAudienceFilter(source.filter) : null;
   return withTenant(ctx, async (tx) => {
     const resolved = filter ?? (await loadSegmentFilter(tx, ctx.accountId, (source as { segmentId: string }).segmentId));
-    if (filter) await assertFilterReferences(tx, ctx.accountId, filter);
+    // A saved segment's tags, lists or campaigns may have been deleted since it was saved.
+    await assertFilterReferences(tx, ctx.accountId, resolved);
     const [row] = await tx.$queryRaw<{ total: number; sendable: number }[]>(Prisma.sql`
       SELECT count(*)::int AS total,
         count(*) FILTER (WHERE c.opted_out_at IS NULL AND c.blocked_at IS NULL)::int AS sendable

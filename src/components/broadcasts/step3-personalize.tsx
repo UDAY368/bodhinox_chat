@@ -15,7 +15,7 @@ import {
 import { ArrowLeft, ArrowRight, Eye, ImageIcon, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-type VariableType = 'static' | 'field' | 'custom_field';
+type VariableType = 'static' | 'field' | 'custom_field' | 'csv_column';
 
 interface VariableMapping {
   type: VariableType;
@@ -29,6 +29,10 @@ interface Step3Props {
   /** Media URL for an IMAGE/VIDEO/DOCUMENT header, when the template has one. */
   headerMediaUrl: string;
   onHeaderMediaUrlChange: (url: string) => void;
+  /** Columns of an uploaded CSV audience; each row fills its own value. Empty otherwise. */
+  csvColumns?: string[];
+  /** First CSV row's values, for the preview. */
+  csvSample?: Record<string, string>;
   onNext: () => void;
   onBack: () => void;
 }
@@ -73,6 +77,8 @@ export function Step3Personalize({
   onUpdate,
   headerMediaUrl,
   onHeaderMediaUrlChange,
+  csvColumns = [],
+  csvSample,
   onNext,
   onBack,
 }: Step3Props) {
@@ -172,12 +178,13 @@ export function Step3Personalize({
     for (const placeholder of placeholders) {
       const key = placeholder.replace(/^\{\{|\}\}$/g, '');
       const mapping = variables[key];
-      if (!mapping || !mapping.value?.trim()) {
+      // A CSV-column mapping is stale once the audience is no longer that CSV.
+      if (!mapping || !mapping.value?.trim() || (mapping.type === 'csv_column' && !csvColumns.includes(mapping.value))) {
         missing.push(placeholder);
       }
     }
     return missing;
-  }, [placeholders, variables]);
+  }, [placeholders, variables, csvColumns]);
 
   function updateVariable(key: string, patch: Partial<VariableMapping>) {
     const current = variables[key] ?? { type: 'static' as VariableType, value: '' };
@@ -220,6 +227,8 @@ export function Step3Personalize({
           replacement = fieldMap[mapping.value] ?? placeholder;
         } else if (mapping.type === 'custom_field' && mapping.value) {
           replacement = customValues.get(mapping.value) || placeholder;
+        } else if (mapping.type === 'csv_column' && mapping.value) {
+          replacement = csvSample?.[mapping.value] || placeholder;
         }
       }
       text = text.replaceAll(placeholder, replacement);
@@ -231,6 +240,7 @@ export function Step3Personalize({
     placeholders,
     firstContact,
     firstContactCustomValues,
+    csvSample,
     t,
   ]);
 
@@ -335,6 +345,9 @@ export function Step3Personalize({
                         <SelectItem value="custom_field">
                           {t('personalize.typeCustom')}
                         </SelectItem>
+                        {csvColumns.length > 0 && (
+                          <SelectItem value="csv_column">{t('personalize.typeCsv')}</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -367,6 +380,20 @@ export function Step3Personalize({
                             <SelectItem key={field.value} value={field.value}>
                               {t(`personalize.fieldMap.${field.labelKey}`)}
                             </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : mapping.type === 'csv_column' ? (
+                      <Select
+                        value={mapping.value || undefined}
+                        onValueChange={(val) => updateVariable(key, { value: val || '' })}
+                      >
+                        <SelectTrigger className="w-full border-border bg-muted text-foreground">
+                          <SelectValue placeholder={t('personalize.selectCsvColumn')} />
+                        </SelectTrigger>
+                        <SelectContent className="border-border bg-popover">
+                          {csvColumns.map((column) => (
+                            <SelectItem key={column} value={column}>{column}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

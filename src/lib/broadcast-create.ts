@@ -1,7 +1,7 @@
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceConfig } from '@/lib/broadcast-audience';
 
-export type VariableMapping = { type: 'static' | 'field' | 'custom_field'; value: string };
+export type VariableMapping = { type: 'static' | 'field' | 'custom_field' | 'csv_column'; value: string };
 export interface BroadcastCreationInput {
   name: string;
   templateId: string;

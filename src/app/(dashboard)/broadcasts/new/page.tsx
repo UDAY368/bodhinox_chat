@@ -11,6 +11,9 @@ import { Step2SelectAudience } from '@/components/broadcasts/step2-select-audien
 import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
+import type { AudienceConfig, CsvAudienceRow } from '@/lib/broadcast-audience';
+import type { VariableMapping } from '@/lib/broadcast-create';
+import { csvValueColumns } from '@/lib/broadcast-csv';
 import { Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -29,27 +32,23 @@ export default function NewBroadcastPage() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [template, setTemplate] = useState<MessageTemplate | null>(null);
-  const [audience, setAudience] = useState<{
-    type: 'all' | 'tags' | 'custom_field' | 'csv' | 'segment' | 'list';
-    segmentId?: string;
-    listId?: string;
-    tagIds?: string[];
-    customField?: {
-      fieldId: string;
-      operator: 'is' | 'is_not' | 'contains';
-      value: string;
-    };
-    csvContacts?: { phone: string; name?: string }[];
-    excludeTagIds?: string[];
-  }>({ type: 'all' });
-  const [variables, setVariables] = useState<
-    Record<string, { type: 'static' | 'field' | 'custom_field'; value: string }>
-  >({});
+  const [audience, setAudience] = useState<AudienceConfig>({ type: 'all' });
+  const [variables, setVariables] = useState<Record<string, VariableMapping>>({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [name, setName] = useState('');
 
   async function handleSend(scheduledAt?: string) {
     if (!template) return;
+    // Only the CSV columns a variable uses travel to the server, so unused columns cannot block the campaign.
+    const used = new Set(Object.values(variables).flatMap((v) => (v.type === 'csv_column' ? [v.value] : [])));
+    const csvContacts = audience.csvContacts?.map(({ values, ...row }): CsvAudienceRow => {
+      const kept = Object.fromEntries(Object.entries(values ?? {}).filter(([column]) => used.has(column)));
+      return Object.keys(kept).length ? { ...row, values: kept } : row;
+    });
+    if (csvContacts?.some((row) => Object.values(row.values ?? {}).some((value) => value.length > 1024))) {
+      toast.error(t('csvValueTooLong'));
+      return;
+    }
 
     try {
       const broadcastId = await createAndSendBroadcast({
@@ -59,10 +58,11 @@ export default function NewBroadcastPage() {
           type: audience.type,
           tagIds: audience.tagIds,
           customField: audience.customField,
-          csvContacts: audience.csvContacts,
+          csvContacts,
           excludeTagIds: audience.excludeTagIds,
           segmentId: audience.segmentId,
           listId: audience.listId,
+          ...(audience.type === 'csv' && audience.allowDuplicates ? { allowDuplicates: true } : {}),
         },
         variables,
         headerMediaUrl,
@@ -212,6 +212,8 @@ export default function NewBroadcastPage() {
               onUpdate={setVariables}
               headerMediaUrl={headerMediaUrl}
               onHeaderMediaUrlChange={setHeaderMediaUrl}
+              csvColumns={audience.type === 'csv' ? csvValueColumns(audience.csvContacts ?? []) : []}
+              csvSample={audience.type === 'csv' ? audience.csvContacts?.[0]?.values : undefined}
               onNext={() => setCurrentStep(3)}
               onBack={() => setCurrentStep(1)}
             />
@@ -223,6 +225,8 @@ export default function NewBroadcastPage() {
               template={template}
               audience={audience}
               onSend={handleSend}
+              variables={variables}
+              headerMediaUrl={headerMediaUrl}
               onSaveDraft={handleSaveDraft}
               onBack={() => setCurrentStep(2)}
               isProcessing={isProcessing}

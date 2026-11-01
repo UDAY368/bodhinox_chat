@@ -796,7 +796,8 @@
         "created_at": "Creado",
         "opted_out": "Excluido del marketing",
         "blocked": "Bloqueado",
-        "list": "Lista"
+        "list": "Lista",
+        "campaign": "Campaña"
       },
       "ops": {
         "has_any": "tiene alguna de",
@@ -811,7 +812,19 @@
         "in_any": "está en alguna de",
         "in_none": "no está en ninguna de"
       },
-      "noLists": "Aún no hay listas"
+      "noLists": "Aún no hay listas",
+      "campaignLabel": "Campaña",
+      "chooseCampaign": "Elige una campaña",
+      "campaignOps": {
+        "received": "la recibió",
+        "delivered": "se le entregó",
+        "read": "la leyó",
+        "replied": "respondió",
+        "failed": "no la pudo recibir (falló)",
+        "not_read": "la recibió pero no la leyó",
+        "not_received": "no la recibió"
+      },
+      "olderCampaign": "(una campaña anterior)"
     }
   },
   "Pipelines": {
@@ -954,7 +967,16 @@
       },
       "errorLoad": "Error al cargar las difusiones",
       "broadcastInProgress": "Difusión en curso",
-      "retry": "Reintentar"
+      "retry": "Reintentar",
+      "tabsLabel": "Filtrar por estado",
+      "tabAll": "Todas",
+      "searchLabel": "Buscar campañas",
+      "searchPlaceholder": "Buscar por nombre…",
+      "noMatches": "Ninguna campaña coincide.",
+      "scheduledFor": "Hora programada",
+      "showing": "Mostrando {start}–{end} de {total}",
+      "previousPage": "Página anterior",
+      "nextPage": "Página siguiente"
     },
     "status": {
       "draft": "Borrador",
@@ -1040,7 +1062,8 @@
       "toastNotLinked": "Tu perfil no está vinculado a una cuenta.",
       "toastFailedDraft": "Error al guardar el borrador: {error}",
       "toastDraftSaved": "Borrador guardado",
-      "broadcastFailed": "Falló la difusión"
+      "broadcastFailed": "Falló la difusión",
+      "csvValueTooLong": "Un valor del CSV usado en una variable supera los 1.024 caracteres. Acórtalo y vuelve a subirlo."
     },
     "wizard": {
       "next": "Siguiente",
@@ -1102,7 +1125,10 @@
         "listDesc": "Envía a una lista elegida en Contactos",
         "selectList": "Elige una lista",
         "selectListPlaceholder": "Selecciona una lista",
-        "noLists": "Aún no hay listas. Crea una en la página Contactos."
+        "noLists": "Aún no hay listas. Crea una en la página Contactos.",
+        "allowDuplicates": "Permitir números duplicados",
+        "allowDuplicatesHint": "Envía una vez por fila, cada una con sus propios valores, aunque un número se repita.",
+        "csvColumnsFound": "Columnas que puedes usar como variables: {columns}"
       },
       "personalize": {
         "title": "Personalizar variables",
@@ -1138,7 +1164,9 @@
           "email": "Correo"
         },
         "sampleName": "Juan Pérez",
-        "sampleCompany": "Empresa Ejemplo S.A."
+        "sampleCompany": "Empresa Ejemplo S.A.",
+        "typeCsv": "Columna del CSV",
+        "selectCsvColumn": "Selecciona una columna..."
       },
       "scheduleSend": {
         "title": "Revisar y enviar",
@@ -1173,7 +1201,15 @@
         "scheduleHint": "Tu zona horaria: {zone}. Hasta 90 días de antelación.",
         "scheduleTooSoon": "Elige una hora al menos un minuto en el futuro.",
         "scheduleBroadcast": "Programar difusión",
-        "confirmScheduled": "Comenzará el {when}. Puedes reprogramarla o cancelarla hasta entonces."
+        "confirmScheduled": "Comenzará el {when}. Puedes reprogramarla o cancelarla hasta entonces.",
+        "testTitle": "Enviar una prueba",
+        "testHint": "Envía ahora esta plantilla con tus variables a hasta 3 números. Un valor sin contacto coincidente aparece como [name].",
+        "testNumbers": "Números de prueba",
+        "sendTest": "Enviar prueba",
+        "testNumbersInvalid": "Introduce de 1 a 3 números separados por comas.",
+        "testFailed": "No se pudo enviar la prueba",
+        "testSent": "Prueba enviada a {phone}",
+        "testNotSent": "No se envió a {phone}: {error}"
       }
     },
     "sending": {

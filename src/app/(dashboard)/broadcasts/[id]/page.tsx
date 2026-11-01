@@ -42,6 +42,7 @@ import {
   getRecipientStatus,
 } from '@/lib/broadcast-status';
 import { useTranslations } from 'next-intl';
+import { useCan } from '@/hooks/use-can';
 
 interface StatCardProps {
   label: string;
@@ -151,6 +152,7 @@ export default function BroadcastDetailPage() {
   const router = useRouter();
   const t = useTranslations('Broadcasts.detail');
   const tStatus = useTranslations('Broadcasts.status');
+  const canSend = useCan('send-messages');
   const broadcastId = params.id as string;
 
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null);
@@ -456,7 +458,7 @@ export default function BroadcastDetailPage() {
           <p className="text-sm font-medium text-foreground">
             {t('scheduledFor', { when: new Date(broadcast.scheduled_at).toLocaleString() })}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          {canSend && <div className="flex flex-wrap items-center gap-2">
             <input
               type="datetime-local"
               aria-label={t('newTime')}
@@ -471,7 +473,7 @@ export default function BroadcastDetailPage() {
               className="border-red-500/30 text-red-400 hover:bg-red-500/10">
               {t('cancelSchedule')}
             </Button>
-          </div>
+          </div>}
         </div>
       )}
 

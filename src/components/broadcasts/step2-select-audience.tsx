@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/data/client';
 import { audienceReach, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
-import { parseBroadcastCsv } from '@/lib/broadcast-csv';
+import { csvValueColumns, parseBroadcastCsv } from '@/lib/broadcast-csv';
 import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -35,10 +35,13 @@ interface AudienceConfig {
   type: AudienceType;
   tagIds?: string[];
   customField?: CustomFieldFilter;
-  csvContacts?: { phone: string; name?: string }[];
+  csvContacts?: { phone: string; name?: string; values?: Record<string, string> }[];
   excludeTagIds?: string[];
   segmentId?: string;
   listId?: string;
+  allowDuplicates?: boolean;
+  /** Wizard only, never sent: the picked file, so toggling duplicates can re-read it after Back. */
+  csvText?: string;
 }
 
 interface Step2Props {
@@ -202,7 +205,8 @@ export function Step2SelectAudience({
     const selected = e.target.files?.[0];
     if (!selected) return;
 
-    const result = parseBroadcastCsv(await selected.text());
+    const text = await selected.text();
+    const result = parseBroadcastCsv(text, { withValues: true, keepDuplicates: audience.allowDuplicates });
 
     if (!result.ok) {
       toast.error(
@@ -228,7 +232,12 @@ export function Step2SelectAudience({
     }
 
     setPickedCsvName(selected.name);
-    onUpdate({ ...audience, csvContacts: result.contacts });
+    onUpdate({ ...audience, csvContacts: result.contacts, csvText: text });
+  }
+
+  function toggleDuplicates(allow: boolean) {
+    const result = audience.csvText ? parseBroadcastCsv(audience.csvText, { withValues: true, keepDuplicates: allow }) : null;
+    onUpdate({ ...audience, allowDuplicates: allow, ...(result?.ok ? { csvContacts: result.contacts } : {}) });
   }
 
   function toggleTag(tagId: string) {
@@ -300,6 +309,8 @@ export function Step2SelectAudience({
                   segmentId:
                     option.type === 'segment' ? audience.segmentId : undefined,
                   listId: option.type === 'list' ? audience.listId : undefined,
+                  allowDuplicates: option.type === 'csv' ? audience.allowDuplicates : undefined,
+                  csvText: option.type === 'csv' ? audience.csvText : undefined,
                 })
               }
               className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
@@ -506,6 +517,24 @@ export function Step2SelectAudience({
             onChange={handleCsvChange}
             className="hidden"
           />
+
+          <label className="flex items-start gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={audience.allowDuplicates === true}
+              onChange={(e) => toggleDuplicates(e.target.checked)}
+            />
+            <span>
+              {t('selectAudience.allowDuplicates')}
+              <span className="block text-xs text-muted-foreground">{t('selectAudience.allowDuplicatesHint')}</span>
+            </span>
+          </label>
+          {csvCount > 0 && csvValueColumns(audience.csvContacts ?? []).length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t('selectAudience.csvColumnsFound', { columns: csvValueColumns(audience.csvContacts ?? []).join(', ') })}
+            </p>
+          )}
         </div>
       )}
 

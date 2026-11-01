@@ -14,12 +14,19 @@ import { loadSegmentFilter } from '@/lib/audience/segments';
 
 // Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
 // parameterCells bounds recipients × variables, so one request cannot freeze an unbounded amount of data.
-export const CAMPAIGN_LIMITS={bodyBytes:1024*1024,recipients:50_000,csvRows:10_000,tags:100,variables:50,parameterCells:500_000,maxScheduleDays:90} as const;
-const mapping=z.discriminatedUnion('type',[
+export const CAMPAIGN_LIMITS={bodyBytes:5*1024*1024,recipients:50_000,csvRows:10_000,csvColumns:20,tags:100,variables:50,parameterCells:500_000,maxScheduleDays:90} as const;
+export const variableMapping=z.discriminatedUnion('type',[
   z.object({type:z.literal('static'),value:z.string().max(1024)}).strict(),
   z.object({type:z.literal('field'),value:z.enum(['name','phone','email','company'])}).strict(),
   z.object({type:z.literal('custom_field'),value:z.string().uuid()}).strict(),
+  /** A column of the uploaded CSV (CSV audiences only); each row supplies its own value. */
+  z.object({type:z.literal('csv_column'),value:z.string().trim().min(1).max(64)}).strict(),
 ]);
+const mapping=variableMapping;
+const csvRow=z.object({
+  phone:z.string().min(1).max(64),name:z.string().max(256).optional(),
+  values:z.record(z.string().max(64),z.string().max(1024)).refine(v=>Object.keys(v).length<=CAMPAIGN_LIMITS.csvColumns,'Too many CSV columns').optional(),
+}).strict();
 const audienceSchema=z.object({
   type:z.enum(['all','tags','custom_field','csv','segment','list']),
   segmentId:z.string().uuid().optional(),
@@ -27,7 +34,9 @@ const audienceSchema=z.object({
   tagIds:z.array(z.string().uuid()).max(CAMPAIGN_LIMITS.tags).optional(),
   excludeTagIds:z.array(z.string().uuid()).max(CAMPAIGN_LIMITS.tags).optional(),
   customField:z.object({fieldId:z.string().uuid(),operator:z.enum(['is','is_not','contains']),value:z.string().max(1024)}).strict().optional(),
-  csvContacts:z.array(z.object({phone:z.string().min(1).max(64),name:z.string().max(256).optional()}).strict()).max(CAMPAIGN_LIMITS.csvRows).optional(),
+  csvContacts:z.array(csvRow).max(CAMPAIGN_LIMITS.csvRows).optional(),
+  /** CSV only: send once per row even when a number repeats (each row keeps its own values). */
+  allowDuplicates:z.boolean().optional(),
 }).strict().superRefine((a,ctx)=>{
   if((a.type==='tags'&&!a.tagIds?.length)||(a.type==='custom_field'&&!a.customField)||(a.type==='csv'&&!a.csvContacts?.length)||(a.type==='segment'&&!a.segmentId)||(a.type==='list'&&!a.listId))
     ctx.addIssue({code:'custom',message:'Audience configuration is incomplete'});
@@ -61,7 +70,7 @@ async function assertOwnedIds(tx:TenantTransaction,accountId:string,kind:'tags'|
   if(found.length!==unique.length)invalid(`Some ${kind==='tags'?'audience tags':'custom fields'} are unavailable in this workspace`);
 }
 
-async function assertMedia(tx:TenantTransaction,accountId:string,value:string|undefined){
+export async function assertMedia(tx:TenantTransaction,accountId:string,value:string|undefined){
   if(!value)return;
   const origin=process.env.APP_URL||process.env.NEXT_PUBLIC_SITE_URL||'http://localhost:3000';
   let url:URL;try{url=new URL(value,origin);}catch{invalid('Invalid header media URL');}
@@ -74,16 +83,23 @@ async function assertMedia(tx:TenantTransaction,accountId:string,value:string|un
   }else if(url.protocol!=='https:'||value.startsWith('/'))invalid('Header media requires an HTTPS URL or workspace media object');
 }
 
-/** The audience as a WHERE over `contacts c`; a CSV audience first upserts its contacts. */
-async function audienceConditions(tx:TenantTransaction,scope:TenantContext,input:CampaignInput):Promise<Prisma.Sql>{
+/**
+ * The audience as `FROM … WHERE … ORDER BY` over `contacts c`. A CSV audience first upserts its
+ * contacts, then joins its rows as `x` (one recipient per row, so a row can carry its own values).
+ */
+async function audienceSource(tx:TenantTransaction,scope:TenantContext,input:CampaignInput):Promise<{from:Prisma.Sql;where:Prisma.Sql;order:Prisma.Sql}>{
   const {audience}=input;const accountId=scope.accountId;
   const conditions:Prisma.Sql[]=[Prisma.sql`c.account_id=${accountId}::uuid`];
+  let from=Prisma.sql`contacts c`,order=Prisma.sql`c.id`;
   if(audience.type==='csv'){
     const byPhone=new Map<string,{phone:string;name:string|null}>();
+    const sendRows:{ord:number;phone:string;vals:Record<string,string>}[]=[];
     for(const row of audience.csvContacts!){
       if(!/^\+?[\d\s().-]+$/.test(row.phone))invalid('CSV phones must contain international numbers');
       const phone=normalizePhone(row.phone);if(!isValidE164(phone))invalid('CSV phones must contain 8–15 international digits');
-      if(!byPhone.has(phone))byPhone.set(phone,{phone,name:row.name?.trim()||null});
+      const repeat=byPhone.has(phone);
+      if(!repeat)byPhone.set(phone,{phone,name:row.name?.trim()||null});
+      if(!repeat||audience.allowDuplicates)sendRows.push({ord:sendRows.length,phone,vals:row.values??{}});
     }
     // Canonical sorting gives concurrent overlapping imports the same unique-index lock order.
     const rows=[...byPhone.values()].sort((a,b)=>a.phone.localeCompare(b.phone));
@@ -91,10 +107,16 @@ async function audienceConditions(tx:TenantTransaction,scope:TenantContext,input
       SELECT ${accountId}::uuid,${scope.userId}::uuid,x.phone,x.name
       FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(phone text,name text) ORDER BY x.phone
       ON CONFLICT(account_id,phone_normalized) WHERE phone_normalized<>'' DO NOTHING`;
-    conditions.push(Prisma.sql`c.phone_normalized IN (SELECT value FROM jsonb_array_elements_text(${JSON.stringify([...byPhone.keys()])}::jsonb))`);
+    from=Prisma.sql`jsonb_to_recordset(${JSON.stringify(sendRows)}::jsonb) AS x(ord int,phone text,vals jsonb)
+      JOIN contacts c ON c.account_id=${accountId}::uuid AND c.phone_normalized=x.phone`;
+    order=Prisma.sql`x.ord`;
   }else if(audience.type==='segment'){
-    try{conditions.push(compileAudienceFilter(accountId,await loadSegmentFilter(tx,accountId,audience.segmentId!)));}
-    catch(error){if(error instanceof AudienceFilterError)invalid(error.message);throw error;}
+    try{
+      const filter=await loadSegmentFilter(tx,accountId,audience.segmentId!);
+      // Tags, lists or campaigns the segment names may have been deleted since it was saved.
+      await assertFilterReferences(tx,accountId,filter);
+      conditions.push(compileAudienceFilter(accountId,filter));
+    }catch(error){if(error instanceof AudienceFilterError)invalid(error.message);throw error;}
   }else if(audience.type==='list'){
     const filter=listFilter(audience.listId!);
     try{await assertFilterReferences(tx,accountId,filter);}
@@ -110,7 +132,7 @@ async function audienceConditions(tx:TenantTransaction,scope:TenantContext,input
   // Opted-out and blocked contacts never receive campaigns (lib/contacts/consent).
   conditions.push(Prisma.sql`c.opted_out_at IS NULL AND c.blocked_at IS NULL`);
   if(audience.excludeTagIds?.length)conditions.push(Prisma.sql`NOT EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.excludeTagIds)}))`);
-  return Prisma.join(conditions,' AND ');
+  return {from,where:Prisma.join(conditions,' AND '),order};
 }
 
 /** Each recipient's frozen template parameters as a SQL jsonb array, resolved per contact row. */
@@ -121,6 +143,7 @@ function paramsSql(accountId:string,input:CampaignInput,keys:string[]):Prisma.Sq
     const v=input.variables[key];
     if(v.type==='static')return Prisma.sql`${v.value}::text`;
     if(v.type==='field')return Prisma.sql`left(COALESCE(${FIELD_COLUMNS[v.value]},''),1025)`;
+    if(v.type==='csv_column')return Prisma.sql`left(COALESCE(x.vals->>${v.value},''),1025)`;
     return Prisma.sql`left(COALESCE((SELECT v.value FROM contact_custom_values v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.custom_field_id=${v.value}::uuid),''),1025)`;
   }))})`;
 }
@@ -135,6 +158,13 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
   const parsed=inputSchema.safeParse(raw);if(!parsed.success)invalid('Invalid campaign configuration');
   const input=parsed.data;
   if(Object.keys(input.variables).length>CAMPAIGN_LIMITS.variables)invalid('Too many template variables');
+  if(input.audience.type!=='csv'&&Object.values(input.variables).some(v=>v.type==='csv_column'))invalid('CSV columns can only be used with a CSV audience');
+  if(input.audience.type!=='csv'&&input.audience.allowDuplicates)invalid('Duplicates can only be allowed for a CSV audience');
+  if(input.audience.type==='csv'){
+    const columns=new Set(input.audience.csvContacts!.flatMap(row=>Object.keys(row.values??{})));
+    const missing=Object.values(input.variables).find(v=>v.type==='csv_column'&&!columns.has(v.value));
+    if(missing)invalid(`The CSV has no "${missing.value}" column; map that variable again`);
+  }
   const scheduledAt=parseSchedule(input.scheduledAt,now);
   return withTenant(scope,async tx=>{
     const membership=await tx.$queryRaw<{role:string}[]>`SELECT role FROM account_memberships
@@ -154,8 +184,8 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     await assertMedia(tx,scope.accountId,headerMediaUrl);
     // Header media and body count are the same for every recipient, so one sample validates the campaign.
     try{buildSendComponents(template,{body:keys.map(()=>'x'),...(headerMediaUrl?{headerMediaUrl}:{})});}catch{invalid('Template send parameters are incomplete; check header media and body variables');}
-    const where=await audienceConditions(tx,scope,input);
-    const [{matched}]=await tx.$queryRaw<{matched:number}[]>(Prisma.sql`SELECT count(*)::int AS matched FROM (SELECT 1 FROM contacts c WHERE ${where} LIMIT ${CAMPAIGN_LIMITS.recipients+1}) m`);
+    const {from,where,order}=await audienceSource(tx,scope,input);
+    const [{matched}]=await tx.$queryRaw<{matched:number}[]>(Prisma.sql`SELECT count(*)::int AS matched FROM (SELECT 1 FROM ${from} WHERE ${where} LIMIT ${CAMPAIGN_LIMITS.recipients+1}) m`);
     if(!matched)invalid('No contacts match this audience');
     if(matched>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients.toLocaleString('en')} recipients`);
     if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
@@ -165,7 +195,7 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     const id=broadcasts[0].id;
     const total=await tx.$executeRaw(Prisma.sql`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,template_params)
       SELECT ${scope.accountId}::uuid,${id}::uuid,c.id,'pending',${paramsSql(scope.accountId,input,keys)}
-      FROM contacts c WHERE ${where} ORDER BY c.id LIMIT ${CAMPAIGN_LIMITS.recipients+1}`);
+      FROM ${from} WHERE ${where} ORDER BY ${order} LIMIT ${CAMPAIGN_LIMITS.recipients+1}`);
     // The pre-count ran in this transaction, but rows can change between the two statements.
     if(!total)invalid('No contacts match this audience');
     if(total>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients.toLocaleString('en')} recipients`);

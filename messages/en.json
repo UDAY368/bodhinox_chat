@@ -796,7 +796,8 @@
         "created_at": "Created",
         "opted_out": "Opted out of marketing",
         "blocked": "Blocked",
-        "list": "List"
+        "list": "List",
+        "campaign": "Campaign"
       },
       "ops": {
         "has_any": "has any of",
@@ -811,7 +812,19 @@
         "in_any": "is in any of",
         "in_none": "is in none of"
       },
-      "noLists": "No lists yet"
+      "noLists": "No lists yet",
+      "campaignLabel": "Campaign",
+      "chooseCampaign": "Choose a campaign",
+      "campaignOps": {
+        "received": "received it",
+        "delivered": "had it delivered",
+        "read": "read it",
+        "replied": "replied to it",
+        "failed": "failed to get it",
+        "not_read": "received it but did not read it",
+        "not_received": "did not receive it"
+      },
+      "olderCampaign": "(an older campaign)"
     }
   },
   "Pipelines": {
@@ -954,7 +967,16 @@
       },
       "errorLoad": "Failed to load broadcasts",
       "broadcastInProgress": "Broadcast in progress",
-      "retry": "Retry"
+      "retry": "Retry",
+      "tabsLabel": "Filter by status",
+      "tabAll": "All",
+      "searchLabel": "Search campaigns",
+      "searchPlaceholder": "Search by name…",
+      "noMatches": "No campaigns match.",
+      "scheduledFor": "Scheduled time",
+      "showing": "Showing {start}–{end} of {total}",
+      "previousPage": "Previous page",
+      "nextPage": "Next page"
     },
     "status": {
       "draft": "Draft",
@@ -1040,7 +1062,8 @@
       "toastNotLinked": "Your profile is not linked to an account.",
       "toastFailedDraft": "Failed to save draft: {error}",
       "toastDraftSaved": "Draft saved",
-      "broadcastFailed": "Broadcast failed"
+      "broadcastFailed": "Broadcast failed",
+      "csvValueTooLong": "A CSV value used in a variable is longer than 1,024 characters. Shorten it and upload again."
     },
     "wizard": {
       "next": "Next",
@@ -1102,7 +1125,10 @@
         "listDesc": "Send to a hand-picked list from Contacts",
         "selectList": "Choose a list",
         "selectListPlaceholder": "Select a list",
-        "noLists": "No lists yet. Create one on the Contacts page."
+        "noLists": "No lists yet. Create one on the Contacts page.",
+        "allowDuplicates": "Allow duplicate numbers",
+        "allowDuplicatesHint": "Send once per row, each with its own values, even when a number appears more than once.",
+        "csvColumnsFound": "Columns you can use as variables: {columns}"
       },
       "personalize": {
         "title": "Personalize Variables",
@@ -1138,7 +1164,9 @@
           "email": "Email"
         },
         "sampleName": "John Doe",
-        "sampleCompany": "Acme Corp"
+        "sampleCompany": "Acme Corp",
+        "typeCsv": "CSV column",
+        "selectCsvColumn": "Select a column..."
       },
       "scheduleSend": {
         "title": "Review & Send",
@@ -1173,7 +1201,15 @@
         "scheduleHint": "Your time zone: {zone}. Up to 90 days ahead.",
         "scheduleTooSoon": "Pick a time at least one minute from now.",
         "scheduleBroadcast": "Schedule Broadcast",
-        "confirmScheduled": "It will start at {when}. You can reschedule or cancel it until then."
+        "confirmScheduled": "It will start at {when}. You can reschedule or cancel it until then.",
+        "testTitle": "Send a test",
+        "testHint": "Sends this template with your variables to up to 3 numbers now. A value with no matching contact shows as [name].",
+        "testNumbers": "Test numbers",
+        "sendTest": "Send test",
+        "testNumbersInvalid": "Enter 1 to 3 numbers, separated by commas.",
+        "testFailed": "Could not send the test",
+        "testSent": "Test sent to {phone}",
+        "testNotSent": "Not sent to {phone}: {error}"
       }
     },
     "sending": {

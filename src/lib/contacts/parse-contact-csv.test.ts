@@ -41,6 +41,7 @@ describe('parseContactCsv', () => {
           email: undefined,
           company: undefined,
           tagNames: ['VIP', 'Lead'],
+          cells: { phone: '+15551234567', name: 'Alice', tags: 'VIP, Lead' },
         },
         {
           phone: '+15559876543',
@@ -48,6 +49,7 @@ describe('parseContactCsv', () => {
           email: undefined,
           company: undefined,
           tagNames: ['Customer'],
+          cells: { phone: '+15559876543', name: 'Bob', tags: 'Customer' },
         },
       ],
     });
@@ -66,6 +68,7 @@ describe('parseContactCsv', () => {
       email: undefined,
       company: undefined,
       tagNames: [],
+      cells: { phone: '', name: 'Bob' },
     });
   });
 
@@ -84,6 +87,7 @@ describe('parseContactCsv', () => {
           email: undefined,
           company: undefined,
           tagNames: [],
+          cells: { phone: '+15551234567', name: 'Alice' },
         },
       ],
     });

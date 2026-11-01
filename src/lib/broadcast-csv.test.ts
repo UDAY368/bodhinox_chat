@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBroadcastCsv } from './broadcast-csv';
+import { csvValueColumns, parseBroadcastCsv } from './broadcast-csv';
 
 describe('parseBroadcastCsv', () => {
   it('parses phone + name into the audience shape', () => {
@@ -118,6 +118,18 @@ describe('parseBroadcastCsv', () => {
       ok: false,
       error: 'no_valid_rows',
     });
+  });
+
+  it('keeps other columns as values and, when asked, repeated numbers as their own rows', () => {
+    const csv = `phone,name,order_id,amount\n+15551230000,Ada,A1,10\n+1 555 123 0000,Ada,A2,20\n4155551212,Bad,A3,30`;
+    const deduped = parseBroadcastCsv(csv, { withValues: true });
+    expect(deduped).toMatchObject({ ok: true, duplicates: 1, invalid: 1 });
+    expect(deduped.ok && deduped.contacts).toEqual([
+      { phone: '+15551230000', name: 'Ada', values: { name: 'Ada', order_id: 'A1', amount: '10' } },
+    ]);
+    const all = parseBroadcastCsv(csv, { withValues: true, keepDuplicates: true });
+    expect(all.ok && all.contacts.map((c) => c.values?.order_id)).toEqual(['A1', 'A2']);
+    expect(all.ok && csvValueColumns(all.contacts)).toEqual(['name', 'order_id', 'amount']);
   });
 
   it('handles CRLF line endings and a trailing newline', () => {

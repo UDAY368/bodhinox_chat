@@ -10,6 +10,8 @@ export interface ParsedContactRow {
   company?: string;
   /** Tag names from the optional `tags` column (comma/semicolon separated). */
   tagNames: string[];
+  /** Every cell by lower-cased header, for campaign variable mapping. */
+  cells: Record<string, string>;
 }
 
 /** Split a CSV cell into unique tag names (case-insensitive de-dupe). */
@@ -107,6 +109,10 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
           : undefined,
       tagNames:
         tagsIdx >= 0 ? parseTagCell(values[tagsIdx]?.replace(/["']/g, '')) : [],
+      cells: Object.fromEntries(
+        // parseCsvLine already removed CSV quoting; keep apostrophes such as "O'Brien".
+        headers.flatMap((header, idx) => (header ? [[header, values[idx]?.trim() ?? '']] : [])),
+      ),
     });
   }
 

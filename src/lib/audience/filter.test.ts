@@ -21,6 +21,16 @@ describe('parseAudienceFilter', () => {
     expect(filter.conditions).toHaveLength(7);
   });
 
+  it('compiles campaign outcomes to recipient statuses, negating only not_received', () => {
+    const one = (op: string) => compileAudienceFilter(account, parseAudienceFilter({ conditions: [{ field: 'campaign', broadcastId: tag, op }] }));
+    expect(one('read').values).toEqual(expect.arrayContaining([tag, 'read', 'replied']));
+    expect(one('read').sql).not.toContain('NOT EXISTS');
+    expect(one('not_read').values).toEqual(expect.arrayContaining(['sent', 'delivered']));
+    expect(one('not_received').sql).toContain('NOT EXISTS(SELECT 1 FROM broadcast_recipients r');
+    expect(() => parseAudienceFilter({ conditions: [{ field: 'campaign', broadcastId: tag, op: 'opened' }] })).toThrow(AudienceFilterError);
+    expect(() => parseAudienceFilter({ conditions: [{ field: 'campaign', broadcastId: 'x', op: 'read' }] })).toThrow(AudienceFilterError);
+  });
+
   it('compiles a list condition to a scoped membership check with bound ids', () => {
     const sql = compileAudienceFilter(account, parseAudienceFilter({ conditions: [{ field: 'list', op: 'in_none', listIds: [tag] }] }));
     expect(sql.sql).toContain('NOT EXISTS(SELECT 1 FROM contact_list_members m WHERE m.account_id=');

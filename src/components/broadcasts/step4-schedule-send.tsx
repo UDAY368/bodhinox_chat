@@ -15,8 +15,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { ArrowLeft, CalendarClock, Send, Loader2, Users, Save } from 'lucide-react';
+import { ArrowLeft, CalendarClock, FlaskConical, Send, Loader2, Users, Save } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+import { authFetch } from '@/lib/auth/client';
+import type { VariableMapping } from '@/lib/broadcast-create';
+
+const TEST_NUMBERS_KEY = 'bodhinox.campaignTestNumbers';
 
 interface Step4Props {
   name: string;
@@ -25,6 +30,9 @@ interface Step4Props {
   audience: AudienceConfig;
   /** `scheduledAt` (ISO) sends later instead of now. */
   onSend: (scheduledAt?: string) => void;
+  /** Variable mappings and header media, so a test send matches the real campaign. */
+  variables: Record<string, VariableMapping>;
+  headerMediaUrl?: string;
   onSaveDraft?: () => void;
   onBack: () => void;
   isProcessing: boolean;
@@ -37,6 +45,8 @@ export function Step4ScheduleSend({
   template,
   audience,
   onSend,
+  variables,
+  headerMediaUrl,
   onSaveDraft,
   onBack,
   isProcessing,
@@ -49,6 +59,41 @@ export function Step4ScheduleSend({
   const [scheduleAt, setScheduleAt] = useState('');
   const scheduledDate = later && scheduleAt ? new Date(scheduleAt) : null;
   const scheduleValid = !later || (scheduledDate !== null && scheduledDate.getTime() > Date.now() + 60_000);
+  // Test numbers are remembered per browser; storage can be unavailable (private mode).
+  const [testNumbers, setTestNumbers] = useState(() => {
+    try { return localStorage.getItem(TEST_NUMBERS_KEY) ?? ''; } catch { return ''; }
+  });
+  const [testing, setTesting] = useState(false);
+
+  async function sendTest() {
+    const phones = testNumbers.split(/[,\n]/).map((p) => p.trim()).filter(Boolean);
+    if (!phones.length || phones.length > 3) {
+      toast.error(t('scheduleSend.testNumbersInvalid'));
+      return;
+    }
+    try { localStorage.setItem(TEST_NUMBERS_KEY, phones.join(', ')); } catch { /* not remembered */ }
+    setTesting(true);
+    try {
+      const res = await authFetch('/api/broadcasts/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId: template.id, phones, variables, headerMediaUrl: headerMediaUrl?.trim() || undefined }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(payload.error || t('scheduleSend.testFailed'));
+        return;
+      }
+      for (const r of (payload as { results: { phone: string; ok: boolean; error?: string }[] }).results) {
+        if (r.ok) toast.success(t('scheduleSend.testSent', { phone: r.phone }));
+        else toast.error(t('scheduleSend.testNotSent', { phone: r.phone, error: r.error ?? '' }));
+      }
+    } catch {
+      toast.error(t('scheduleSend.testFailed'));
+    } finally {
+      setTesting(false);
+    }
+  }
   const [estimatedReach, setEstimatedReach] = useState<number>(0);
   const [loadingReach, setLoadingReach] = useState(true);
 
@@ -129,6 +174,25 @@ export function Step4ScheduleSend({
             <p className="text-xs text-muted-foreground">{t('scheduleSend.language')}</p>
             <p className="text-foreground">{template.language ?? 'en_US'}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Test send */}
+      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-2">
+        <p className="text-sm font-medium text-foreground">{t('scheduleSend.testTitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('scheduleSend.testHint')}</p>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            aria-label={t('scheduleSend.testNumbers')}
+            value={testNumbers}
+            onChange={(e) => setTestNumbers(e.target.value)}
+            placeholder="+919876543210, +14155550123"
+            className="min-w-[240px] flex-1 border-border bg-muted text-foreground placeholder:text-muted-foreground"
+          />
+          <Button variant="outline" onClick={sendTest} disabled={testing || !testNumbers.trim() || isProcessing}>
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+            {t('scheduleSend.sendTest')}
+          </Button>
         </div>
       </div>
 

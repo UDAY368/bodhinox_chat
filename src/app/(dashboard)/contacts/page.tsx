@@ -98,6 +98,7 @@ export default function ContactsPage() {
   const [newListName, setNewListName] = useState('');
   const [listBusy, setListBusy] = useState(false);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [exporting, setExporting] = useState(false);
 
   // Modals
@@ -338,6 +339,10 @@ export default function ContactsPage() {
       const { data } = await db.from('custom_fields').select('*').order('field_name');
       setCustomFields(data ?? []);
     }
+    // Recent campaigns that actually went out, for retargeting conditions.
+    const { data: sent } = await db.from('broadcasts').select('id,name')
+      .in('status', ['sending', 'sent', 'failed']).order('created_at', { ascending: false }).limit(200);
+    setCampaigns(sent ?? []);
     setEditingSegment(segment);
     setBuilderOpen(true);
   }
@@ -1049,6 +1054,7 @@ export default function ContactsPage() {
         segment={editingSegment}
         tags={allTags}
         lists={lists}
+        campaigns={campaigns}
         customFields={customFields}
         onSaved={(saved) => {
           loadSegments();

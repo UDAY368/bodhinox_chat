@@ -25,16 +25,18 @@ import { Label } from '@/components/ui/label';
 import { authFetch } from '@/lib/auth/client';
 import { previewSegment, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import type { AudienceCondition } from '@/lib/audience/filter';
+import { CAMPAIGN_OUTCOMES } from '@/lib/audience/outcomes';
 import type { CustomField, Tag } from '@/types';
 
 type Field = AudienceCondition['field'];
-const FIELDS: Field[] = ['tags', 'list', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked'];
+const FIELDS: Field[] = ['tags', 'list', 'campaign', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked'];
 const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
 
 function blank(field: Field): AudienceCondition {
   switch (field) {
     case 'tags': return { field, op: 'has_any', tagIds: [] };
     case 'list': return { field, op: 'in_any', listIds: [] };
+    case 'campaign': return { field, broadcastId: '', op: 'received' };
     case 'custom_field': return { field, fieldId: '', op: 'is', value: '' };
     case 'created_at': return { field, op: 'after', value: new Date().toISOString().slice(0, 10) };
     case 'opted_out':
@@ -46,6 +48,7 @@ function blank(field: Field): AudienceCondition {
 function complete(c: AudienceCondition): boolean {
   if (c.field === 'tags') return c.tagIds.length > 0;
   if (c.field === 'list') return c.listIds.length > 0;
+  if (c.field === 'campaign') return c.broadcastId !== '';
   if (c.field === 'custom_field' && !c.fieldId) return false;
   if ('value' in c && typeof c.value === 'string' && ['is', 'is_not', 'contains'].includes(c.op)) return c.value.trim().length > 0;
   return true;
@@ -57,6 +60,7 @@ export function SegmentBuilderDialog({
   segment,
   tags,
   lists,
+  campaigns,
   customFields,
   onSaved,
 }: {
@@ -66,6 +70,8 @@ export function SegmentBuilderDialog({
   segment: SegmentSummary | null;
   tags: Tag[];
   lists: ListSummary[];
+  /** Earlier campaigns for retargeting conditions. */
+  campaigns: { id: string; name: string }[];
   customFields: CustomField[];
   onSaved: (segment: SegmentSummary) => void;
 }) {
@@ -192,6 +198,24 @@ export function SegmentBuilderDialog({
                       })}
                       {lists.length === 0 && <span className="text-xs text-muted-foreground">{t('noLists')}</span>}
                     </div>
+                  </>
+                )}
+
+                {c.field === 'campaign' && (
+                  <>
+                    <select aria-label={t('campaignLabel')} className={selectClass} value={c.broadcastId}
+                      onChange={(e) => update(index, { ...c, broadcastId: e.target.value })}>
+                      <option value="">{t('chooseCampaign')}</option>
+                      {campaigns.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      {/* A saved condition may name a campaign older than the recent list. */}
+                      {c.broadcastId && !campaigns.some((b) => b.id === c.broadcastId) && (
+                        <option value={c.broadcastId}>{t('olderCampaign')}</option>
+                      )}
+                    </select>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                      {CAMPAIGN_OUTCOMES.map((op) => <option key={op} value={op}>{t(`campaignOps.${op}`)}</option>)}
+                    </select>
                   </>
                 )}
 

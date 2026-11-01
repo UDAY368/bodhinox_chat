@@ -796,7 +796,8 @@
         "created_at": "생성일",
         "opted_out": "마케팅 수신 거부",
         "blocked": "차단됨",
-        "list": "목록"
+        "list": "목록",
+        "campaign": "캠페인"
       },
       "ops": {
         "has_any": "다음 중 하나라도 있음",
@@ -811,7 +812,19 @@
         "in_any": "다음 중 하나에 포함",
         "in_none": "다음 중 어디에도 없음"
       },
-      "noLists": "아직 목록이 없습니다"
+      "noLists": "아직 목록이 없습니다",
+      "campaignLabel": "캠페인",
+      "chooseCampaign": "캠페인 선택",
+      "campaignOps": {
+        "received": "받음",
+        "delivered": "전달됨",
+        "read": "읽음",
+        "replied": "답장함",
+        "failed": "수신 실패",
+        "not_read": "받았지만 읽지 않음",
+        "not_received": "받지 않음"
+      },
+      "olderCampaign": "(이전 캠페인)"
     }
   },
   "Pipelines": {
@@ -954,7 +967,16 @@
       },
       "errorLoad": "브로드캐스트를 불러오지 못했습니다",
       "broadcastInProgress": "브로드캐스트 진행 중",
-      "retry": "다시 시도"
+      "retry": "다시 시도",
+      "tabsLabel": "상태로 필터",
+      "tabAll": "전체",
+      "searchLabel": "캠페인 검색",
+      "searchPlaceholder": "이름으로 검색…",
+      "noMatches": "일치하는 캠페인이 없습니다.",
+      "scheduledFor": "예약 시간",
+      "showing": "{total}개 중 {start}–{end}",
+      "previousPage": "이전 페이지",
+      "nextPage": "다음 페이지"
     },
     "status": {
       "draft": "초안",
@@ -1040,7 +1062,8 @@
       "toastNotLinked": "프로필이 계정에 연결되어 있지 않습니다.",
       "toastFailedDraft": "초안 저장 실패: {error}",
       "toastDraftSaved": "초안이 저장되었습니다",
-      "broadcastFailed": "브로드캐스트 실패"
+      "broadcastFailed": "브로드캐스트 실패",
+      "csvValueTooLong": "변수에 쓰이는 CSV 값이 1,024자를 넘습니다. 줄인 뒤 다시 업로드하세요."
     },
     "wizard": {
       "next": "다음",
@@ -1102,7 +1125,10 @@
         "listDesc": "연락처에서 직접 고른 목록으로 보내기",
         "selectList": "목록 선택",
         "selectListPlaceholder": "목록을 선택하세요",
-        "noLists": "아직 목록이 없습니다. 연락처 페이지에서 만드세요."
+        "noLists": "아직 목록이 없습니다. 연락처 페이지에서 만드세요.",
+        "allowDuplicates": "중복 번호 허용",
+        "allowDuplicatesHint": "번호가 여러 번 나와도 행마다 각자의 값으로 한 번씩 보냅니다.",
+        "csvColumnsFound": "변수로 쓸 수 있는 열: {columns}"
       },
       "personalize": {
         "title": "변수 개인화",
@@ -1138,7 +1164,9 @@
           "email": "이메일"
         },
         "sampleName": "홍길동",
-        "sampleCompany": "예시 주식회사"
+        "sampleCompany": "예시 주식회사",
+        "typeCsv": "CSV 열",
+        "selectCsvColumn": "열 선택..."
       },
       "scheduleSend": {
         "title": "검토 및 전송",
@@ -1173,7 +1201,15 @@
         "scheduleHint": "시간대: {zone}. 최대 90일 후까지.",
         "scheduleTooSoon": "지금부터 최소 1분 이후 시간을 선택하세요.",
         "scheduleBroadcast": "브로드캐스트 예약",
-        "confirmScheduled": "{when}에 시작됩니다. 그 전까지 일정 변경이나 취소가 가능합니다."
+        "confirmScheduled": "{when}에 시작됩니다. 그 전까지 일정 변경이나 취소가 가능합니다.",
+        "testTitle": "테스트 보내기",
+        "testHint": "이 템플릿을 변수와 함께 지금 최대 3개 번호로 보냅니다. 일치하는 연락처가 없는 값은 [name]으로 표시됩니다.",
+        "testNumbers": "테스트 번호",
+        "sendTest": "테스트 보내기",
+        "testNumbersInvalid": "쉼표로 구분해 번호를 1~3개 입력하세요.",
+        "testFailed": "테스트를 보낼 수 없습니다",
+        "testSent": "{phone}에 테스트를 보냈습니다",
+        "testNotSent": "{phone}에 보내지 못함: {error}"
       }
     },
     "sending": {

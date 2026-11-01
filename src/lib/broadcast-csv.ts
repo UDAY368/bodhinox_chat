@@ -21,12 +21,18 @@
 
 import { dedupeByPhone } from '@/lib/contacts/dedupe';
 import { parseContactCsv } from '@/lib/contacts/parse-contact-csv';
+import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 
 /** The shape the wizard hands to `createAndSendBroadcast`. */
 export interface BroadcastCsvContact {
   phone: string;
   name?: string;
+  /** Other columns by lower-cased header (only with `withValues`), for CSV-column variables. */
+  values?: Record<string, string>;
 }
+
+/** Most columns a campaign CSV may carry into template variables (matches the server cap). */
+export const MAX_CSV_VALUE_COLUMNS = 20;
 
 export type BroadcastCsvError =
   /** No `phone` header — the one column we can't work without. */
@@ -49,22 +55,44 @@ export type ParseBroadcastCsvResult =
     }
   | { ok: false; error: BroadcastCsvError };
 
-export function parseBroadcastCsv(text: string): ParseBroadcastCsvResult {
+/**
+ * `withValues` keeps every other column (as `values`) for CSV-column
+ * template variables; `keepDuplicates` keeps repeated numbers as their
+ * own rows (the server then sends once per row). Both default off.
+ */
+export function parseBroadcastCsv(
+  text: string,
+  options: { withValues?: boolean; keepDuplicates?: boolean } = {},
+): ParseBroadcastCsvResult {
   const { rows, hasPhoneColumn } = parseContactCsv(text);
 
   if (!hasPhoneColumn) return { ok: false, error: 'missing_phone_column' };
 
   const { unique, duplicates, invalid } = dedupeByPhone(rows);
   if (unique.length === 0) return { ok: false, error: 'no_valid_rows' };
+  // Same validity rule as dedupe, without collapsing repeats.
+  const kept = options.keepDuplicates ? rows.filter((row) => parseInternationalPhone(row.phone)) : unique;
 
   return {
     ok: true,
-    // Drop email/company/tags: the broadcast audience only addresses
-    // people, and `name` is the sole field template variables can map.
-    contacts: unique.map(({ phone, name }) =>
-      name ? { phone, name } : { phone }
-    ),
-    duplicates,
+    // Without `withValues`, drop email/company/tags: `name` is then the
+    // only CSV value template variables can use.
+    contacts: kept.map(({ phone, name, cells }) => {
+      const contact: BroadcastCsvContact = name ? { phone, name } : { phone };
+      if (options.withValues) {
+        // Headers longer than the server's 64-character key limit cannot be variables.
+        contact.values = Object.fromEntries(
+          Object.entries(cells).filter(([header]) => header !== 'phone' && header.length <= 64).slice(0, MAX_CSV_VALUE_COLUMNS),
+        );
+      }
+      return contact;
+    }),
+    duplicates: options.keepDuplicates ? 0 : duplicates,
     invalid,
   };
+}
+
+/** Column names usable as CSV-column variables, from the first parsed row. */
+export function csvValueColumns(contacts: BroadcastCsvContact[]): string[] {
+  return Object.keys(contacts[0]?.values ?? {});
 }

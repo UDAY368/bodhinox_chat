@@ -19,6 +19,8 @@ export type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'segment' |
 export interface CsvAudienceRow {
   phone: string;
   name?: string;
+  /** Other CSV columns, for CSV-column template variables. */
+  values?: Record<string, string>;
 }
 
 export interface AudienceConfig {
@@ -29,6 +31,10 @@ export interface AudienceConfig {
   excludeTagIds?: string[];
   segmentId?: string;
   listId?: string;
+  /** CSV only: one send per row even when a number repeats. */
+  allowDuplicates?: boolean;
+  /** Wizard only, never sent to the server: the picked CSV file's text. */
+  csvText?: string;
 }
 
 /** Optional conservative scan bound for scheduled work; never silently truncate. */

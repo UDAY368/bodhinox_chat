@@ -27,3 +27,13 @@ test('an agent schedules a campaign, sees when it will start and cancels it', as
   await expect(page.getByText('Cancelled', { exact: true })).toBeVisible();
   await expect(page.getByText(/^Scheduled for /)).toHaveCount(0);
 });
+
+test('the campaign list filters by status tab and name search', async ({ page }) => {
+  await login(page, fixtures().users.agent);
+  await page.goto('/broadcasts');
+  await page.getByRole('tab', { name: 'Cancelled' }).click();
+  await page.getByLabel('Search campaigns').fill(`Scheduled ${fixtures().runId}`);
+  await expect(page.getByRole('cell', { name: `Scheduled ${fixtures().runId}` })).toBeVisible();
+  await page.getByRole('tab', { name: 'Sent' }).click();
+  await expect(page.getByText('No campaigns match.')).toBeVisible();
+});
