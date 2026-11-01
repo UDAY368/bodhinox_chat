@@ -12,6 +12,10 @@ Queue background tasks before acknowledging them. Outbound intents and inbound s
 
 Validate with npm run typecheck, npm run lint, npm test -- --maxWorkers=1, and npm run build. Add meaningful security, durability and tenancy tests for behavior changes. Update the feature inventory and deployment runbook as behavior changes.
 
+## ponytail
+
+Use the ponytail skill in full mode for every coding task in this project: the smallest complete change, finishing every caller, test and fixture it touches. Do not let it shorten anything under the security, tenancy and durability rules above.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
