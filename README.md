@@ -58,7 +58,10 @@ npm run typecheck
 npm run lint
 npm test -- --maxWorkers=1
 npm run build
+npm run test:e2e
 ```
+
+`npm run test:e2e` runs the Playwright browser suite in `e2e/`. It starts its own dev server on port 3100 from `.env.test` only (production keys from `.env.local` are blanked), seeds throwaway users and two workspaces, and removes them afterwards. Stop any local `next dev` first, since both use `.next`. Run artifacts go to the OS temp folder (`bodhinox-e2e`), because files written inside the project make the dev server reload the page.
 
 Integration suites require an isolated `.env.test` database and constrained role URLs. They must never target the production database. `scripts/ci-environment.cjs` creates ephemeral configuration only for the CI service; do not run it over your working local credentials.
 

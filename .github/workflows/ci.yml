@@ -38,3 +38,11 @@ jobs:
       - run: npm run lint
       - run: npm test -- --maxWorkers=1
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: /tmp/bodhinox-e2e
+          retention-days: 7
