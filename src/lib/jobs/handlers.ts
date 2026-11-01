@@ -19,12 +19,19 @@ import {
   deliverBroadcast,
   finalizeBroadcastStatus,
   BroadcastError,
+  MAX_THROTTLE_RETRIES,
+  throttleDelayMs,
 } from '@/lib/whatsapp/broadcast-core';
 import {
   planBroadcastResume,
-  markBroadcastSending,
   type ResumeScope,
 } from '@/lib/whatsapp/broadcast-resume';
+import {
+  broadcastDispatchable,
+  claimBroadcastStart,
+  lockBroadcastDelivery,
+  unlockBroadcastDelivery,
+} from '@/lib/broadcasts/schedule';
 import { withJobScope } from './scope';
 import { enqueueJob, type Job } from './queue';
 import { deliverQueuedWebhook } from '@/lib/webhooks/deliver';
@@ -79,6 +86,19 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         job.payload.scope === 'failed' || job.payload.scope === 'all'
           ? job.payload.scope
           : 'pending';
+      // Consecutive throttled passes so far; drives backoff and the retry cap.
+      const throttles = Number.isInteger(job.payload.throttles) ? (job.payload.throttles as number) : 0;
+      // A cancelled campaign, or one scheduled for later, sends nothing.
+      if (!(await broadcastDispatchable(accountId, broadcastId))) return;
+      if (!(await lockBroadcastDelivery(accountId, broadcastId))) {
+        // Another pass is running; try again shortly instead of sending in parallel.
+        await enqueueJob('broadcast.dispatch', job.payload, {
+          tenantId: accountId,
+          runAt: new Date(Date.now() + 60_000),
+          dedupeKey: `broadcast:${broadcastId}:wait:${job.id}`,
+        });
+        return;
+      }
       try {
         const { plan, remaining } = await planBroadcastResume(
           db,
@@ -86,8 +106,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           broadcastId,
           scope
         );
-        await markBroadcastSending(db, broadcastId);
-        await deliverBroadcast(db, plan, {
+        // Claimed only once the plan succeeded, so a planning error leaves the status as it was.
+        if (!(await claimBroadcastStart(accountId, broadcastId))) return;
+        const result = await deliverBroadcast(db, plan, {
           accountId,
           assertLease,
           headerMediaUrl:
@@ -95,12 +116,35 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
               ? job.payload.headerMediaUrl
               : undefined,
           attemptId: job.id,
-          retryRejected: scope !== 'pending',
+          // Only intents Meta definitively refused (4xx, e.g. throttled) are re-sent;
+          // an uncertain outcome still waits for reconciliation.
+          retryRejected: true,
         });
+        if (result.throttled) {
+          const next = result.sent > 0 ? 1 : throttles + 1;
+          // Still throttled after about an hour with no progress: stop and leave the rest
+          // pending, so the campaign shows as stalled and an agent can resume it.
+          if (next > MAX_THROTTLE_RETRIES) {
+            console.error('[worker] broadcast paused after repeated throttling', { broadcastId });
+            // Stays 'sending' while recipients are pending (shown as stalled); otherwise settles.
+            await finalizeBroadcastStatus(db, broadcastId);
+            return;
+          }
+          await enqueueJob(
+            'broadcast.dispatch',
+            { ...job.payload, scope, throttles: next },
+            {
+              tenantId: accountId,
+              runAt: new Date(Date.now() + throttleDelayMs(next)),
+              dedupeKey: `broadcast:${broadcastId}:throttled:${job.id}`,
+            }
+          );
+          return;
+        }
         if (remaining > 0)
           await enqueueJob(
             'broadcast.dispatch',
-            { ...job.payload, scope: 'pending' },
+            { ...job.payload, scope: 'pending', throttles: 0 },
             {
               tenantId: accountId,
               requeueCompleted: true,
@@ -116,6 +160,8 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           return;
         }
         throw error;
+      } finally {
+        await unlockBroadcastDelivery(accountId, broadcastId);
       }
     } else if (job.type === 'automation.trigger') {
       await executeScheduledOccurrence(

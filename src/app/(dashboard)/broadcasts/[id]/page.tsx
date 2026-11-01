@@ -165,6 +165,11 @@ export default function BroadcastDetailPage() {
   const [resumingScope, setResumingScope] = useState<
     'pending' | 'failed' | null
   >(null);
+  // Exact counts: the table below loads at most the newest 1,000 recipients.
+  const [pendingCount, setPendingCount] = useState(0);
+  const [retryableCount, setRetryableCount] = useState(0);
+  const [newTime, setNewTime] = useState('');
+  const [scheduleBusy, setScheduleBusy] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -187,6 +192,18 @@ export default function BroadcastDetailPage() {
 
       if (recsError) throw recsError;
       setRecipients(recs ?? []);
+
+      const countStatus = async (status: RecipientStatus) => {
+        const { count, error: countError } = await db
+          .from('broadcast_recipients')
+          .select('id', { count: 'exact', head: true })
+          .eq('broadcast_id', broadcastId)
+          .eq('status', status);
+        if (countError) throw countError;
+        return count ?? 0;
+      };
+      setPendingCount(await countStatus('pending'));
+      setRetryableCount(await countStatus('failed'));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('notFound'));
     } finally {
@@ -280,6 +297,29 @@ export default function BroadcastDetailPage() {
     }
   }
 
+  async function changeSchedule(method: 'PATCH' | 'DELETE') {
+    setScheduleBusy(true);
+    try {
+      const res = await authFetch(`/api/broadcasts/${broadcastId}/schedule`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        ...(method === 'PATCH' ? { body: JSON.stringify({ scheduledAt: new Date(newTime).toISOString() }) } : {}),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(payload.error || t('scheduleFailed'));
+        return;
+      }
+      toast.success(method === 'PATCH' ? t('rescheduled') : t('cancelledToast'));
+      setNewTime('');
+      await fetchData();
+    } catch {
+      toast.error(t('scheduleFailed'));
+    } finally {
+      setScheduleBusy(false);
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true);
     const db = createClient();
@@ -321,8 +361,7 @@ export default function BroadcastDetailPage() {
 
   const status = getBroadcastStatus(broadcast.status);
 
-  const pendingCount = recipients.filter((r) => r.status === 'pending').length;
-  const retryableCount = recipients.filter((r) => r.status === 'failed').length;
+  const notStarted = broadcast.status === 'scheduled' || broadcast.status === 'cancelled';
   // A campaign whose tab went away sits in 'sending' with recipients
   // still pending and nothing left to move them. Name that state rather
   // than leaving a permanently pulsing "sending" badge.
@@ -411,9 +450,34 @@ export default function BroadcastDetailPage() {
         )}
       </div>
 
+      {/* Scheduled: when it will start, with reschedule and cancel. */}
+      {broadcast.status === 'scheduled' && broadcast.scheduled_at && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="text-sm font-medium text-foreground">
+            {t('scheduledFor', { when: new Date(broadcast.scheduled_at).toLocaleString() })}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="datetime-local"
+              aria-label={t('newTime')}
+              value={newTime}
+              onChange={(e) => setNewTime(e.target.value)}
+              className="h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground"
+            />
+            <Button variant="outline" size="sm" disabled={!newTime || scheduleBusy} onClick={() => changeSchedule('PATCH')}>
+              {t('reschedule')}
+            </Button>
+            <Button variant="outline" size="sm" disabled={scheduleBusy} onClick={() => changeSchedule('DELETE')}
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10">
+              {t('cancelSchedule')}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Resume / retry (issue #472). Only rendered when there is
           actually something outstanding. */}
-      {(pendingCount > 0 || retryableCount > 0) && (
+      {!notStarted && (pendingCount > 0 || retryableCount > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
           <div className="text-sm">
             <p className="font-medium text-foreground">

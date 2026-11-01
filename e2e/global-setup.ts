@@ -60,6 +60,9 @@ export default async function globalSetup() {
     await db.query('COMMIT');
     await db.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,$4,$5)",
       [contact.id, accountA, users.owner.id, contact.name, `1415${String(Date.now()).slice(-7)}`]);
+    // A variable-free approved template, so campaigns can be scheduled without WhatsApp.
+    await db.query("INSERT INTO message_templates(account_id,user_id,name,body_text,status) VALUES($1,$2,'e2e_template','Hello from E2E','APPROVED')",
+      [accountA, users.owner.id]);
   } catch (error) {
     await db.query('ROLLBACK');
     throw error;

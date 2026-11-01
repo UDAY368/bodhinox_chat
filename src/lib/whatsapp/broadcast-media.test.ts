@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest';
 import type { DataClient } from '@/lib/data/types';
 import type { MessageTemplate } from '@/types';
 const mocks = vi.hoisted(() => ({ send: vi.fn(async () => ({ messageId: 'accepted' })), sign: vi.fn(async () => 'https://signed.example/media') }));
-vi.mock('./meta-api', () => ({ sendTemplateMessage: mocks.send }));
+vi.mock('./meta-api', () => ({ sendTemplateMessage: mocks.send, MetaApiError: class extends Error {} }));
 vi.mock('@/lib/storage/server', () => ({ providerMediaUrl: mocks.sign }));
 vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: async (_account: string, _key: string, send: () => unknown) => send(), UncertainDispatchError: class extends Error {} }));
 import { deliverBroadcast } from './broadcast-core';

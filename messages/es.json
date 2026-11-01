@@ -966,7 +966,8 @@
       "delivered": "Entregado",
       "read": "Leído",
       "replied": "Respondido",
-      "unknown": "Desconocido"
+      "unknown": "Desconocido",
+      "cancelled": "Cancelada"
     },
     "detail": {
       "backToBroadcasts": "Volver a difusiones",
@@ -1016,7 +1017,14 @@
       "toastResumeStartedCapped": "Enviando a {count} destinatarios en segundo plano. Otros {remaining} necesitarán otra ejecución.",
       "toastResumeFailed": "No se pudo reanudar: {error}",
       "unknownError": "Error desconocido",
-      "unknownContact": "Desconocido"
+      "unknownContact": "Desconocido",
+      "scheduledFor": "Programada para el {when}",
+      "newTime": "Nueva hora",
+      "reschedule": "Reprogramar",
+      "cancelSchedule": "Cancelar campaña",
+      "rescheduled": "Campaña reprogramada",
+      "cancelledToast": "Campaña cancelada; no se envió nada",
+      "scheduleFailed": "No se pudo cambiar la programación"
     },
     "new": {
       "title": "Nueva difusión",
@@ -1157,7 +1165,15 @@
         "confirmTitle": "Confirmar difusión",
         "confirmDesc": "Estás a punto de enviar esta difusión a <b>{count, number}</b> {count, plural, =1 {contacto} other {contactos}} con la plantilla <b>{template}</b>. Esta acción no se puede deshacer.",
         "audienceSegment": "Segmento guardado",
-        "audienceList": "Lista estática"
+        "audienceList": "Lista estática",
+        "whenLabel": "Cuándo enviar",
+        "whenNow": "Enviar ahora",
+        "whenLater": "Programar para más tarde",
+        "scheduleAt": "Enviar el",
+        "scheduleHint": "Tu zona horaria: {zone}. Hasta 90 días de antelación.",
+        "scheduleTooSoon": "Elige una hora al menos un minuto en el futuro.",
+        "scheduleBroadcast": "Programar difusión",
+        "confirmScheduled": "Comenzará el {when}. Puedes reprogramarla o cancelarla hasta entonces."
       }
     },
     "sending": {

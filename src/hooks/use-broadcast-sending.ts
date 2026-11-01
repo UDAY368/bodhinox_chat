@@ -13,6 +13,8 @@ interface BroadcastPayload {
   audience: AudienceConfig;
   variables: Record<string, VariableMapping>;
   headerMediaUrl?: string;
+  /** ISO time to send later; omitted sends now. */
+  scheduledAt?: string;
 }
 
 export function useBroadcastSending() {
@@ -28,6 +30,7 @@ export function useBroadcastSending() {
         audience: payload.audience,
         variables: payload.variables,
         headerMediaUrl: payload.headerMediaUrl,
+        scheduledAt: payload.scheduledAt,
       });
       setProgress(100);
       return id;

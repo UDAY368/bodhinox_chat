@@ -36,6 +36,8 @@ Migration `20261101020000_segments` adds the tenant-scoped `segments` table (RLS
 
 Migration `20261101030000_lists_attributes_tag_categories` adds nullable `tags.category`, the `contact_lists` and `contact_list_members` tables (members read, agents and above write) and `workspace_attributes` (members and the worker read, admins write). It is additive with no backfill. Secret workspace attributes are encrypted with the existing `ENCRYPTION_KEY`; rotating that key makes stored secrets unreadable, so re-enter them after a rotation.
 
+Migration `20261102000000_broadcast_cancelled_status` widens the `broadcasts.status` check to allow `cancelled`. Scheduled campaigns need no extra process: their dispatch job waits in `jobs` with `run_at` set to the scheduled time, so the existing single worker starts them. A campaign that stays throttled by Meta for about an hour pauses with its remaining recipients pending; resume it from the campaign page.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

@@ -25,7 +25,7 @@ import { withTenant } from '@/lib/db/tenant';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
 import { marketingSuppression } from '@/lib/contacts/consent';
 
-import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
+import { MetaApiError, sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   parseInternationalPhone,
@@ -286,17 +286,23 @@ export async function createBroadcast(
 export async function deliverBroadcast(
   db: DataClient,
   plan: BroadcastPlan,
-  options?: { accountId: string; assertLease: () => void; headerMediaUrl?: string; attemptId: string; retryRejected?: boolean }
-): Promise<void> {
+  options?: {
+    accountId: string; assertLease: () => void; headerMediaUrl?: string; attemptId: string; retryRejected?: boolean;
+  }
+): Promise<{ throttled: boolean; sent: number }> {
+  let sent = 0;
   for (const recipient of plan.planned) {
+    // shortcut: fixed ~6 sends/s; pace by the number's messaging tier once the health job (Phase 2c) reports it.
     if (options) await new Promise(resolve => setTimeout(resolve, 150));
     const variants = phoneVariants(recipient.phone);
     let sentMessageId: string | null = null;
     let lastError: string | null = null;
+    let throttled = false;
 
     for (const variant of variants) {
+      // Outside the try: a lost lease aborts the pass and leaves recipients pending, not failed.
+      options?.assertLease();
       try {
-        options?.assertLease();
         const headerMediaUrl = options?.headerMediaUrl || plan.templateRow?.header_media_url;
         const send = async () => sendTemplateMessage({
           phoneNumberId: plan.phoneNumberId,
@@ -315,12 +321,21 @@ export async function deliverBroadcast(
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         lastError = error instanceof UncertainDispatchError ? 'Send outcome uncertain; reconcile with Meta before retrying' : message;
+        // Meta refused for rate reasons: nothing was sent, so pause and retry the same recipient later.
+        if (options && isThrottled(error)) {
+          throttled = true;
+          break;
+        }
         // Only a "recipient not allowed" error is worth another variant.
         if (!isRecipientNotAllowedError(message)) break;
       }
     }
 
+    // The recipient stays pending; the dispatcher schedules the next pass with backoff.
+    if (throttled) return { throttled: true, sent };
+
     if (sentMessageId) {
+      sent++;
       const persisted = await db
         .from('broadcast_recipients')
         .update({
@@ -344,6 +359,24 @@ export async function deliverBroadcast(
   }
 
   await finalizeBroadcastStatus(db, plan.broadcastId);
+  return { throttled: false, sent };
+}
+
+/**
+ * Meta's documented throughput limits (application, account, cloud API
+ * and per-recipient pair rate). Only these are retried automatically;
+ * any other rejection is final and an uncertain outcome is never resent.
+ */
+export const THROTTLE_CODES: ReadonlySet<number> = new Set([4, 80007, 130429, 131056]);
+export const MAX_THROTTLE_RETRIES = 6;
+
+export function isThrottled(error: unknown): boolean {
+  return error instanceof MetaApiError && error.code !== null && THROTTLE_CODES.has(error.code);
+}
+
+/** Backoff before throttled pass `n` (1-based): 1, 2, 4, 8, 16, then 30 minutes. */
+export function throttleDelayMs(n: number): number {
+  return Math.min(30 * 60_000, 60_000 * 2 ** Math.max(0, n - 1));
 }
 
 /**

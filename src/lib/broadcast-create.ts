@@ -8,6 +8,7 @@ export interface BroadcastCreationInput {
   audience: AudienceConfig;
   variables: Record<string, VariableMapping>;
   headerMediaUrl?: string;
+  scheduledAt?: string;
 }
 
 export async function requestBroadcastCreation(input: BroadcastCreationInput, send: typeof authFetch = authFetch): Promise<string> {

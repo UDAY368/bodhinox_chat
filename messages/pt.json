@@ -966,7 +966,8 @@
       "delivered": "Entregue",
       "read": "Lida",
       "replied": "Respondida",
-      "unknown": "Desconhecido"
+      "unknown": "Desconhecido",
+      "cancelled": "Cancelada"
     },
     "detail": {
       "backToBroadcasts": "Voltar aos disparos",
@@ -1016,7 +1017,14 @@
       "toastResumeStartedCapped": "Enviando para {count} destinatários em segundo plano. Outros {remaining} precisarão de mais uma execução.",
       "toastResumeFailed": "Não foi possível retomar: {error}",
       "unknownError": "Erro desconhecido",
-      "unknownContact": "Desconhecido"
+      "unknownContact": "Desconhecido",
+      "scheduledFor": "Agendada para {when}",
+      "newTime": "Novo horário",
+      "reschedule": "Reagendar",
+      "cancelSchedule": "Cancelar campanha",
+      "rescheduled": "Campanha reagendada",
+      "cancelledToast": "Campanha cancelada; nada foi enviado",
+      "scheduleFailed": "Não foi possível alterar o agendamento"
     },
     "new": {
       "title": "Novo disparo",
@@ -1157,7 +1165,15 @@
         "confirmTitle": "Confirmar disparo",
         "confirmDesc": "Você está prestes a enviar este disparo para <b>{count, number}</b> {count, plural, =1 {contato} other {contatos}} usando o modelo <b>{template}</b>. Esta ação não pode ser desfeita.",
         "audienceSegment": "Segmento salvo",
-        "audienceList": "Lista estática"
+        "audienceList": "Lista estática",
+        "whenLabel": "Quando enviar",
+        "whenNow": "Enviar agora",
+        "whenLater": "Agendar para depois",
+        "scheduleAt": "Enviar em",
+        "scheduleHint": "Seu fuso horário: {zone}. Até 90 dias à frente.",
+        "scheduleTooSoon": "Escolha um horário pelo menos um minuto à frente.",
+        "scheduleBroadcast": "Agendar transmissão",
+        "confirmScheduled": "Começará em {when}. Você pode reagendar ou cancelar até lá."
       }
     },
     "sending": {

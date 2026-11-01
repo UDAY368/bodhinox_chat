@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Send, Loader2, Users, Save } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Send, Loader2, Users, Save } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface Step4Props {
@@ -23,7 +23,8 @@ interface Step4Props {
   onNameChange: (name: string) => void;
   template: MessageTemplate;
   audience: AudienceConfig;
-  onSend: () => void;
+  /** `scheduledAt` (ISO) sends later instead of now. */
+  onSend: (scheduledAt?: string) => void;
   onSaveDraft?: () => void;
   onBack: () => void;
   isProcessing: boolean;
@@ -43,6 +44,11 @@ export function Step4ScheduleSend({
 }: Step4Props) {
   const t = useTranslations('Broadcasts.wizard');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [later, setLater] = useState(false);
+  // datetime-local value in the browser's own time zone.
+  const [scheduleAt, setScheduleAt] = useState('');
+  const scheduledDate = later && scheduleAt ? new Date(scheduleAt) : null;
+  const scheduleValid = !later || (scheduledDate !== null && scheduledDate.getTime() > Date.now() + 60_000);
   const [estimatedReach, setEstimatedReach] = useState<number>(0);
   const [loadingReach, setLoadingReach] = useState(true);
 
@@ -126,6 +132,37 @@ export function Step4ScheduleSend({
         </div>
       </div>
 
+      {/* When to send */}
+      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
+        <p className="text-sm font-medium text-foreground">{t('scheduleSend.whenLabel')}</p>
+        <div className="flex flex-wrap gap-4 text-sm text-foreground">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="send-when" checked={!later} onChange={() => setLater(false)} />
+            {t('scheduleSend.whenNow')}
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="send-when" checked={later} onChange={() => setLater(true)} />
+            {t('scheduleSend.whenLater')}
+          </label>
+        </div>
+        {later && (
+          <div className="space-y-1">
+            <Input
+              type="datetime-local"
+              aria-label={t('scheduleSend.scheduleAt')}
+              value={scheduleAt}
+              onChange={(e) => setScheduleAt(e.target.value)}
+              className="w-60 border-border bg-muted text-foreground"
+            />
+            <p className="text-xs text-muted-foreground">
+              {scheduleAt && !scheduleValid
+                ? t('scheduleSend.scheduleTooSoon')
+                : t('scheduleSend.scheduleHint', { zone: Intl.DateTimeFormat().resolvedOptions().timeZone })}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Processing overlay */}
       {isProcessing && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
@@ -173,13 +210,13 @@ export function Step4ScheduleSend({
           <DialogTrigger
             render={
               <Button
-                disabled={!name.trim() || isProcessing}
+                disabled={!name.trim() || isProcessing || !scheduleValid}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               />
             }
           >
-            <Send className="h-4 w-4" />
-            {t('scheduleSend.sendNow')}
+            {later ? <CalendarClock className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+            {later ? t('scheduleSend.scheduleBroadcast') : t('scheduleSend.sendNow')}
           </DialogTrigger>
           <DialogContent className="border-border bg-popover sm:max-w-md">
             <DialogHeader>
@@ -192,6 +229,11 @@ export function Step4ScheduleSend({
                     <span className="font-medium text-popover-foreground">{chunks}</span>
                   ),
                 })}
+                {scheduledDate && (
+                  <span className="mt-2 block">
+                    {t('scheduleSend.confirmScheduled', { when: scheduledDate.toLocaleString() })}
+                  </span>
+                )}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -205,12 +247,12 @@ export function Step4ScheduleSend({
               <Button
                 onClick={() => {
                   setShowConfirm(false);
-                  onSend();
+                  onSend(scheduledDate?.toISOString());
                 }}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                <Send className="h-4 w-4" />
-                {t('scheduleSend.sendNow')}
+                {later ? <CalendarClock className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                {later ? t('scheduleSend.scheduleBroadcast') : t('scheduleSend.sendNow')}
               </Button>
             </DialogFooter>
           </DialogContent>

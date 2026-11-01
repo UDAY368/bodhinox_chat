@@ -966,7 +966,8 @@
       "delivered": "Delivered",
       "read": "Read",
       "replied": "Replied",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "cancelled": "Cancelled"
     },
     "detail": {
       "backToBroadcasts": "Back to Broadcasts",
@@ -1016,7 +1017,14 @@
       "toastResumeStartedCapped": "Sending {count} recipients in the background. {remaining} more will need another run.",
       "toastResumeFailed": "Could not resume: {error}",
       "unknownError": "Unknown error",
-      "unknownContact": "Unknown"
+      "unknownContact": "Unknown",
+      "scheduledFor": "Scheduled for {when}",
+      "newTime": "New time",
+      "reschedule": "Reschedule",
+      "cancelSchedule": "Cancel campaign",
+      "rescheduled": "Campaign rescheduled",
+      "cancelledToast": "Campaign cancelled; nothing was sent",
+      "scheduleFailed": "Could not change the schedule"
     },
     "new": {
       "title": "New Broadcast",
@@ -1157,7 +1165,15 @@
         "confirmTitle": "Confirm Broadcast",
         "confirmDesc": "You are about to send this broadcast to <b>{count, number}</b> {count, plural, =1 {contact} other {contacts}} using the <b>{template}</b> template. This action cannot be undone.",
         "audienceSegment": "Saved segment",
-        "audienceList": "Static list"
+        "audienceList": "Static list",
+        "whenLabel": "When to send",
+        "whenNow": "Send now",
+        "whenLater": "Schedule for later",
+        "scheduleAt": "Send at",
+        "scheduleHint": "Your time zone: {zone}. Up to 90 days ahead.",
+        "scheduleTooSoon": "Pick a time at least one minute from now.",
+        "scheduleBroadcast": "Schedule Broadcast",
+        "confirmScheduled": "It will start at {when}. You can reschedule or cancel it until then."
       }
     },
     "sending": {

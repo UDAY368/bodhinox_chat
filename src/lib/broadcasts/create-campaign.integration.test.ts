@@ -3,7 +3,7 @@ import { config } from 'dotenv';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { disconnectDatabases, getWorkerPrisma } from '@/lib/db/prisma';
-import { createCampaign } from './create-campaign';
+import { CAMPAIGN_LIMITS, createCampaign } from './create-campaign';
 
 const configured=config({path:'.env.test',quiet:true}).parsed;
 const ownerUrl=process.env.TEST_DATABASE_URL;
@@ -102,7 +102,7 @@ describe.skipIf(!ownerUrl||!workerUrl)('atomic authenticated campaign creation',
   it('rejects unapproved templates, missing variable mappings and oversized CSV before creating a campaign',async()=>{
     const input=payload();
     await expect(createCampaign(scope,{...input,variables:{}})).rejects.toMatchObject({status:400});
-    await expect(createCampaign(scope,{...input,audience:{type:'csv',csvContacts:Array.from({length:1001},()=>({phone:'+14155550123'}))}})).rejects.toMatchObject({status:400});
+    await expect(createCampaign(scope,{...input,audience:{type:'csv',csvContacts:Array.from({length:CAMPAIGN_LIMITS.csvRows+1},()=>({phone:'+14155550123'}))}})).rejects.toMatchObject({status:400});
     await owner.query("UPDATE message_templates SET status='DRAFT' WHERE id=$1",[templateId]);
     try{await expect(createCampaign(scope,input)).rejects.toMatchObject({status:400});}
     finally{await owner.query("UPDATE message_templates SET status='APPROVED' WHERE id=$1",[templateId]);}

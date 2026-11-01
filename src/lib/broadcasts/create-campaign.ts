@@ -12,7 +12,9 @@ import { AudienceFilterError, assertFilterReferences, compileAudienceFilter } fr
 import { listFilter } from '@/lib/audience/lists';
 import { loadSegmentFilter } from '@/lib/audience/segments';
 
-export const CAMPAIGN_LIMITS={bodyBytes:1024*1024,recipients:1000,tags:100,variables:50,frozenBytes:2*1024*1024} as const;
+// Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
+// parameterCells bounds recipients × variables, so one request cannot freeze an unbounded amount of data.
+export const CAMPAIGN_LIMITS={bodyBytes:1024*1024,recipients:50_000,csvRows:10_000,tags:100,variables:50,parameterCells:500_000,maxScheduleDays:90} as const;
 const mapping=z.discriminatedUnion('type',[
   z.object({type:z.literal('static'),value:z.string().max(1024)}).strict(),
   z.object({type:z.literal('field'),value:z.enum(['name','phone','email','company'])}).strict(),
@@ -25,7 +27,7 @@ const audienceSchema=z.object({
   tagIds:z.array(z.string().uuid()).max(CAMPAIGN_LIMITS.tags).optional(),
   excludeTagIds:z.array(z.string().uuid()).max(CAMPAIGN_LIMITS.tags).optional(),
   customField:z.object({fieldId:z.string().uuid(),operator:z.enum(['is','is_not','contains']),value:z.string().max(1024)}).strict().optional(),
-  csvContacts:z.array(z.object({phone:z.string().min(1).max(64),name:z.string().max(256).optional()}).strict()).max(CAMPAIGN_LIMITS.recipients).optional(),
+  csvContacts:z.array(z.object({phone:z.string().min(1).max(64),name:z.string().max(256).optional()}).strict()).max(CAMPAIGN_LIMITS.csvRows).optional(),
 }).strict().superRefine((a,ctx)=>{
   if((a.type==='tags'&&!a.tagIds?.length)||(a.type==='custom_field'&&!a.customField)||(a.type==='csv'&&!a.csvContacts?.length)||(a.type==='segment'&&!a.segmentId)||(a.type==='list'&&!a.listId))
     ctx.addIssue({code:'custom',message:'Audience configuration is incomplete'});
@@ -33,9 +35,21 @@ const audienceSchema=z.object({
 const inputSchema=z.object({
   name:z.string().trim().min(1).max(200),templateId:z.string().uuid(),audience:audienceSchema,
   variables:z.record(z.string().regex(/^[1-9]\d?$/),mapping),headerMediaUrl:z.string().trim().min(1).max(2048).optional(),
+  /** Send later instead of now (ISO timestamp, 1 minute to 90 days ahead). */
+  scheduledAt:z.string().datetime({offset:true}).optional(),
 }).strict();
 export type CampaignInput=z.infer<typeof inputSchema>;
-type ContactRow={id:string;phone:string;name:string|null;email:string|null;company:string|null};
+const FIELD_COLUMNS={name:Prisma.sql`c.name`,phone:Prisma.sql`c.phone`,email:Prisma.sql`c.email`,company:Prisma.sql`c.company`};
+
+/** When the campaign should start, or null to start now. Requires an ISO time with an explicit offset. */
+export function parseSchedule(value:string|undefined,now=new Date()):Date|null{
+  if(!value)return null;
+  if(!z.string().datetime({offset:true}).safeParse(value).success)invalid('Choose a valid date and time');
+  const at=new Date(value);
+  if(at.getTime()<now.getTime()+60_000)invalid('Schedule the campaign at least one minute ahead');
+  if(at.getTime()>now.getTime()+CAMPAIGN_LIMITS.maxScheduleDays*86_400_000)invalid(`Campaigns can be scheduled at most ${CAMPAIGN_LIMITS.maxScheduleDays} days ahead`);
+  return at;
+}
 function invalid(message:string):never{throw new AuthError(message,400,'campaign_input');}
 const jsonIds=(ids:string[])=>Prisma.sql`SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)`;
 
@@ -60,7 +74,8 @@ async function assertMedia(tx:TenantTransaction,accountId:string,value:string|un
   }else if(url.protocol!=='https:'||value.startsWith('/'))invalid('Header media requires an HTTPS URL or workspace media object');
 }
 
-async function resolveContacts(tx:TenantTransaction,scope:TenantContext,input:CampaignInput):Promise<ContactRow[]>{
+/** The audience as a WHERE over `contacts c`; a CSV audience first upserts its contacts. */
+async function audienceConditions(tx:TenantTransaction,scope:TenantContext,input:CampaignInput):Promise<Prisma.Sql>{
   const {audience}=input;const accountId=scope.accountId;
   const conditions:Prisma.Sql[]=[Prisma.sql`c.account_id=${accountId}::uuid`];
   if(audience.type==='csv'){
@@ -95,19 +110,32 @@ async function resolveContacts(tx:TenantTransaction,scope:TenantContext,input:Ca
   // Opted-out and blocked contacts never receive campaigns (lib/contacts/consent).
   conditions.push(Prisma.sql`c.opted_out_at IS NULL AND c.blocked_at IS NULL`);
   if(audience.excludeTagIds?.length)conditions.push(Prisma.sql`NOT EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.excludeTagIds)}))`);
-  const contacts=await tx.$queryRaw<ContactRow[]>(Prisma.sql`SELECT c.id,c.phone,c.name,c.email,c.company FROM contacts c
-    WHERE ${Prisma.join(conditions,' AND ')} ORDER BY c.id LIMIT ${CAMPAIGN_LIMITS.recipients+1} FOR SHARE OF c`);
-  if(!contacts.length)invalid('No contacts match this audience');
-  if(contacts.length>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients} recipients`);
-  return contacts;
+  return Prisma.join(conditions,' AND ');
 }
 
-/** The authenticated server owns audience resolution, frozen parameters and the initial durable job. */
-export async function createCampaign(scope:TenantContext,raw:unknown):Promise<{id:string}>{
+/** Each recipient's frozen template parameters as a SQL jsonb array, resolved per contact row. */
+function paramsSql(accountId:string,input:CampaignInput,keys:string[]):Prisma.Sql{
+  if(!keys.length)return Prisma.sql`'[]'::jsonb`;
+  // left(…,1025) bounds each stored value; anything over 1,024 characters is rejected after the insert.
+  return Prisma.sql`jsonb_build_array(${Prisma.join(keys.map(key=>{
+    const v=input.variables[key];
+    if(v.type==='static')return Prisma.sql`${v.value}::text`;
+    if(v.type==='field')return Prisma.sql`left(COALESCE(${FIELD_COLUMNS[v.value]},''),1025)`;
+    return Prisma.sql`left(COALESCE((SELECT v.value FROM contact_custom_values v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.custom_field_id=${v.value}::uuid),''),1025)`;
+  }))})`;
+}
+
+/**
+ * The authenticated server owns audience resolution, frozen parameters and the initial durable job.
+ * A scheduled campaign freezes its recipients now and its job waits until `scheduledAt`;
+ * consent is checked again when each recipient is sent.
+ */
+export async function createCampaign(scope:TenantContext,raw:unknown,now=new Date()):Promise<{id:string}>{
   if(!scope.userId||!scope.role||!hasMinRole(scope.role,'agent'))throw new ForbiddenError('Campaign creation requires an agent role');
   const parsed=inputSchema.safeParse(raw);if(!parsed.success)invalid('Invalid campaign configuration');
   const input=parsed.data;
   if(Object.keys(input.variables).length>CAMPAIGN_LIMITS.variables)invalid('Too many template variables');
+  const scheduledAt=parseSchedule(input.scheduledAt,now);
   return withTenant(scope,async tx=>{
     const membership=await tx.$queryRaw<{role:string}[]>`SELECT role FROM account_memberships
       WHERE account_id=${scope.accountId}::uuid AND user_id=${scope.userId}::uuid`;
@@ -124,26 +152,30 @@ export async function createCampaign(scope:TenantContext,raw:unknown):Promise<{i
     await assertOwnedIds(tx,scope.accountId,'custom_fields',fieldIds);
     const headerMediaUrl=input.headerMediaUrl??(template.header_media_url?.trim()||undefined);
     await assertMedia(tx,scope.accountId,headerMediaUrl);
-    const contacts=await resolveContacts(tx,scope,input);
-    const values=fieldIds.length?await tx.$queryRaw<{contact_id:string;custom_field_id:string;value:string|null}[]>(Prisma.sql`SELECT contact_id,custom_field_id,value FROM contact_custom_values WHERE account_id=${scope.accountId}::uuid AND contact_id IN (${jsonIds(contacts.map(c=>c.id))}) AND custom_field_id IN (${jsonIds([...new Set(fieldIds)])}) FOR SHARE`):[];
-    const custom=new Map<string,Map<string,string>>();
-    for(const row of values){const bucket=custom.get(row.contact_id)??new Map<string,string>();bucket.set(row.custom_field_id,row.value??'');custom.set(row.contact_id,bucket);}
-    const recipients=contacts.map(contact=>({contact_id:contact.id,template_params:keys.map(key=>{
-      const v=input.variables[key];const value=v.type==='static'?v.value:v.type==='field'?(contact[v.value]??''):(custom.get(contact.id)?.get(v.value)??'');
-      if(value.length>1024)invalid('A resolved template value exceeds 1024 characters');return value;
-    })}));
-    if(Buffer.byteLength(JSON.stringify(recipients))>CAMPAIGN_LIMITS.frozenBytes)invalid('Resolved campaign parameters are too large');
-    for(const recipient of recipients){try{buildSendComponents(template,{body:recipient.template_params,...(headerMediaUrl?{headerMediaUrl}:{})});}catch{invalid('Template send parameters are incomplete; check header media and body variables');}}
+    // Header media and body count are the same for every recipient, so one sample validates the campaign.
+    try{buildSendComponents(template,{body:keys.map(()=>'x'),...(headerMediaUrl?{headerMediaUrl}:{})});}catch{invalid('Template send parameters are incomplete; check header media and body variables');}
+    const where=await audienceConditions(tx,scope,input);
+    const [{matched}]=await tx.$queryRaw<{matched:number}[]>(Prisma.sql`SELECT count(*)::int AS matched FROM (SELECT 1 FROM contacts c WHERE ${where} LIMIT ${CAMPAIGN_LIMITS.recipients+1}) m`);
+    if(!matched)invalid('No contacts match this audience');
+    if(matched>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients.toLocaleString('en')} recipients`);
+    if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
-    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,total_recipients)
-      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,'sending',${recipients.length}) RETURNING id`;
+    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients)
+      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0) RETURNING id`;
     const id=broadcasts[0].id;
-    await tx.$executeRaw`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,template_params)
-      SELECT ${scope.accountId}::uuid,${id}::uuid,x.contact_id,'pending',x.template_params
-      FROM jsonb_to_recordset(${JSON.stringify(recipients)}::jsonb) AS x(contact_id uuid,template_params jsonb)`;
+    const total=await tx.$executeRaw(Prisma.sql`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,template_params)
+      SELECT ${scope.accountId}::uuid,${id}::uuid,c.id,'pending',${paramsSql(scope.accountId,input,keys)}
+      FROM contacts c WHERE ${where} ORDER BY c.id LIMIT ${CAMPAIGN_LIMITS.recipients+1}`);
+    // The pre-count ran in this transaction, but rows can change between the two statements.
+    if(!total)invalid('No contacts match this audience');
+    if(total>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients.toLocaleString('en')} recipients`);
+    const [tooLong]=await tx.$queryRaw<{found:boolean}[]>`SELECT EXISTS(SELECT 1 FROM broadcast_recipients r, jsonb_array_elements_text(r.template_params) p
+      WHERE r.account_id=${scope.accountId}::uuid AND r.broadcast_id=${id}::uuid AND length(p)>1024) AS found`;
+    if(tooLong.found)invalid('A resolved template value exceeds 1024 characters');
+    await tx.$executeRaw`UPDATE broadcasts SET total_recipients=${total} WHERE id=${id}::uuid`;
     const payload={broadcastId:id,scope:'pending',...(headerMediaUrl?{headerMediaUrl}:{})};
-    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
-      VALUES('broadcast.dispatch',${scope.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`broadcast:${id}:initial`})`;
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,run_at)
+      VALUES('broadcast.dispatch',${scope.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`broadcast:${id}:initial`},${scheduledAt??now})`;
     return {id};
   },getWorkerPrisma());
 }
