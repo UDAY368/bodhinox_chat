@@ -1962,7 +1962,7 @@
       "fields": "필드 & 태그",
       "deals": "딜 & 통화",
       "members": "팀원",
-      "api": "API 키",
+      "api": "API 및 웹훅",
       "inbox": "받은 편지함"
     },
     "groups": {
@@ -2220,6 +2220,40 @@
       "sections": {
         "inbox": "Inbox"
       }
+    },
+    "webhooks": {
+      "title": "웹훅",
+      "description": "Bodhinox는 다른 시스템이 실시간으로 반응할 수 있도록 서명된 이벤트 알림을 이 HTTPS URL로 보냅니다.",
+      "add": "웹훅 추가",
+      "empty": "아직 웹훅이 없습니다.",
+      "emptyAdminHint": "내 URL에서 이벤트를 받으려면 웹훅을 추가하세요.",
+      "askAdminHint": "관리자에게 추가를 요청하세요.",
+      "paused": "일시 중지됨",
+      "created": "{date}에 추가됨",
+      "lastDelivery": "마지막 전송 {date}",
+      "noDelivery": "아직 전송 없음",
+      "failures": "연속 {count}회 실패",
+      "pause": "웹훅 일시 중지",
+      "resume": "웹훅 재개",
+      "delete": "웹훅 삭제",
+      "deleted": "웹훅이 삭제되었습니다",
+      "loadFailed": "웹훅을 불러오지 못했습니다",
+      "updateFailed": "웹훅을 업데이트하지 못했습니다",
+      "deleteFailed": "웹훅을 삭제하지 못했습니다",
+      "createFailed": "웹훅을 추가하지 못했습니다",
+      "networkError": "네트워크 오류입니다. 다시 시도하세요.",
+      "newTitle": "웹훅 추가",
+      "newDesc": "HTTPS URL과 보낼 이벤트를 선택하세요.",
+      "urlLabel": "엔드포인트 URL",
+      "eventsLabel": "이벤트",
+      "cancel": "취소",
+      "create": "웹훅 추가",
+      "secretTitle": "서명 비밀 키를 복사하세요",
+      "secretDesc": "X-Wacrm-Signature 헤더를 확인하는 데 사용합니다. 한 번만 표시됩니다.",
+      "copy": "복사",
+      "copySuccess": "비밀 키를 복사했습니다",
+      "copyFailed": "복사하지 못했습니다",
+      "done": "완료"
     }
   },
   "SignupPage": {

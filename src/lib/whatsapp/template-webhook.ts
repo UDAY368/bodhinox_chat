@@ -42,6 +42,7 @@
 
 import type { DataClient } from '@/lib/data/types'
 import { normalizeStatus } from './template-status-normalize'
+import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([
   'message_template_status_update',
@@ -162,7 +163,7 @@ async function handleStatusUpdate(
     .from('message_templates')
     .update(update)
     .eq('meta_template_id', metaTemplateId)
-    .select('id')
+    .select('id,account_id,name,language,status,rejection_reason')
 
   if (error) {
     console.error(
@@ -194,6 +195,15 @@ async function handleStatusUpdate(
     console.warn(
       `[template-webhook] status update matched ${data.length} rows for meta_template_id ${metaTemplateId} — investigate.`,
     )
+  }
+  for (const row of data as Record<string, unknown>[]) {
+    await dispatchWebhookEvent(db, row.account_id as string, 'template.status_updated', {
+      template_id: row.id,
+      name: row.name,
+      language: row.language,
+      status: row.status,
+      rejection_reason: row.rejection_reason ?? null,
+    })
   }
 }
 

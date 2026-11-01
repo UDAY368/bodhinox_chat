@@ -230,9 +230,10 @@ first (`404` otherwise).
 ### `POST /api/v1/broadcasts`
 
 Launch a template broadcast to a list of recipients. Scope:
-`broadcasts:send`. The broadcast + its recipient rows are persisted
-immediately and the sends fan out in the background, so the call
-returns fast — poll `GET /api/v1/broadcasts/{id}` for progress.
+`broadcasts:send`. The broadcast, its recipient rows and its send job
+are committed together before the `202`, and the sends fan out in the
+background worker — poll `GET /api/v1/broadcasts/{id}` for progress. A
+failed request leaves no broadcast behind.
 
 ```bash
 curl -X POST https://your-crm.example.com/api/v1/broadcasts \
@@ -293,20 +294,23 @@ last page.
 ## Webhooks
 
 Rather than polling, register an endpoint and wacrm will POST to it when
-things happen in your account. **Migration required:** apply
-`supabase/migrations/028_webhook_endpoints.sql`.
+things happen in your account.
 
 ### Events
 
-| Event                    | Fires when                                        |
-| ------------------------ | ------------------------------------------------- |
-| `message.received`       | An inbound message arrives from a contact         |
-| `message.status_updated` | A message you sent changed delivery status        |
-| `conversation.created`   | A new conversation is opened for a contact        |
+| Event                     | Fires when                                                   |
+| ------------------------- | ------------------------------------------------------------ |
+| `message.received`        | An inbound message arrives from a contact                    |
+| `message.status_updated`  | A message you sent changed delivery status                   |
+| `conversation.created`    | A new conversation is opened for a contact                   |
+| `broadcast.completed`     | A broadcast has no recipient left pending (`sent`/`failed`)  |
+| `template.status_updated` | Meta approved, rejected or paused a message template        |
+| `flow.completed`          | A chatbot flow run finished, with the answers it collected   |
 
 ### Managing endpoints
 
-All under scope `webhooks:manage`.
+Admins can add, pause and delete endpoints in **Settings → API &
+webhooks**. Through the API, all under scope `webhooks:manage`:
 
 - `POST /api/v1/webhooks` — register `{ "url": "https://…", "events": ["message.received"] }`. `url` must be `https://`. **The response includes `secret` exactly once** — store it to verify signatures; wacrm keeps only an encrypted copy.
 - `GET /api/v1/webhooks` — list your endpoints (never returns the secret).
@@ -346,6 +350,14 @@ delivery uuid you can dedupe on, and `data` varies by `event`:
 { "conversation_id": "…", "contact_id": "…" }
 // message.status_updated
 { "whatsapp_message_id": "wamid.…", "conversation_id": "…", "status": "delivered" }
+// broadcast.completed (fires again if a resume or retry pass finishes it again)
+{ "broadcast_id": "…", "name": "July promo", "status": "sent", "total_recipients": 2,
+  "sent": 2, "delivered": 2, "read": 1, "replied": 0, "failed": 0 }
+// template.status_updated
+{ "template_id": "…", "name": "promo_july", "language": "en_US", "status": "REJECTED", "rejection_reason": "…" }
+// flow.completed — vars holds the answers the flow collected
+{ "flow_run_id": "…", "flow_id": "…", "contact_id": "…", "conversation_id": "…",
+  "vars": { "name": "Alice" }, "end_reason": "end_node" }
 ```
 
 Headers: `X-Wacrm-Event`, `X-Wacrm-Webhook-Id`, and `X-Wacrm-Signature`.
@@ -366,8 +378,9 @@ const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
 
 ### Delivery semantics
 
-Delivery is **best-effort**: a single attempt per event with a short
-timeout, and **redirects are not followed**. `message.status_updated`
+Each delivery is queued as a background job with a short timeout, and
+**redirects are not followed**. A `flow.completed` event is
+best-effort: if it cannot be queued, the flow itself is not affected. `message.status_updated`
 covers messages wacrm stores (inbox + API sends), not broadcast-only
 sends, and — because providers re-send and re-order status callbacks —
 the same status may arrive more than once or out of order; **dedupe on

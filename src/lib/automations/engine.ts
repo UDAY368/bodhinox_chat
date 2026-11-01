@@ -21,6 +21,7 @@ import type {
   AssignConversationStepConfig,
 } from '@/types'
 import { databaseAdmin } from './admin-client'
+import { nextRoundRobinAgent } from './round-robin'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
 import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
 import { engineSendText, engineSendTemplate, engineSendInteractive,
@@ -908,15 +909,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'assign_conversation' }))
       let agentId = cfg.agent_id
       if (cfg.mode === 'round_robin') {
-        // Pick any member of the account. The existing implementation
-        // only ever returned the automation's author; preserving that
-        // shape until a real round-robin algorithm replaces it.
-        const { data: profiles } = await db
-          .from('profiles')
-          .select('user_id')
-          .eq('account_id', args.automation.account_id)
-          .limit(1)
-        agentId = profiles?.[0]?.user_id
+        agentId = (await nextRoundRobinAgent(args.automation.account_id)) ?? undefined
       }
       if (!agentId) return 'no agent resolved'
       await db

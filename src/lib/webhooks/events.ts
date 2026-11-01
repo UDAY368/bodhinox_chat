@@ -11,6 +11,9 @@ export const WEBHOOK_EVENTS = [
   'message.received', // an inbound WhatsApp message landed
   'message.status_updated', // a sent message advanced (sent/delivered/read)
   'conversation.created', // a new conversation was opened for a contact
+  'broadcast.completed', // a broadcast finished (no recipient left pending)
+  'template.status_updated', // Meta approved/rejected/paused a template
+  'flow.completed', // a chatbot flow run reached its end, with collected vars
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
@@ -21,6 +24,9 @@ export const WEBHOOK_EVENT_DESCRIPTIONS: Record<WebhookEvent, string> = {
   'message.status_updated':
     'A message you sent changed delivery status (sent/delivered/read/failed)',
   'conversation.created': 'A new conversation was opened',
+  'broadcast.completed': 'A broadcast finished sending, with its delivery counts',
+  'template.status_updated': 'Meta changed a template status (approved, rejected, paused)',
+  'flow.completed': 'A chatbot flow run finished, with the answers it collected',
 };
 
 /** Type-narrow an unknown value into a valid `WebhookEvent`. */

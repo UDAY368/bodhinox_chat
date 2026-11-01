@@ -15,6 +15,28 @@ vi.mock('@/lib/api/v1/contacts', () => ({
   findOrCreateContact: vi.fn(async () => ({ id: 'c1' })),
 }));
 
+// The create transaction: `tx.createRows` is what the atomic
+// create_broadcast_with_recipients call returns (or throws), and every
+// statement is recorded so tests can see the job commit alongside it.
+const tx = {
+  createRows: [] as unknown[] | Error,
+  statements: [] as string[],
+  $queryRaw(strings: TemplateStringsArray) {
+    tx.statements.push(strings.join('?'));
+    return tx.createRows instanceof Error ? Promise.reject(tx.createRows) : Promise.resolve(tx.createRows);
+  },
+  $executeRaw(strings: TemplateStringsArray) {
+    tx.statements.push(strings.join('?'));
+    return Promise.resolve(1);
+  },
+};
+vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
+const webhook = vi.hoisted(() => ({ dispatch: vi.fn(async () => {}) }));
+vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: webhook.dispatch }));
+vi.mock('@/lib/db/tenant', () => ({
+  withTenant: (_context: unknown, operation: (t: typeof tx) => Promise<unknown>) => operation(tx),
+}));
+
 // These assertions all fire in the pure validation prologue, before
 // any Supabase call — a bare stub is enough.
 const db = {} as DataClient;
@@ -49,11 +71,11 @@ describe('createBroadcast validation', () => {
 });
 
 // Build a Supabase-shaped mock that gets createBroadcast past its config +
-// template lookups and into persistence. `rpcResult` is what the atomic
-// create_broadcast_with_recipients RPC returns.
-function makeDb(rpcResult: { data: unknown; error: unknown }) {
+// template lookups and into the create transaction.
+function makeDb(createRows: unknown[] | Error) {
+  tx.createRows = createRows;
+  tx.statements = [];
   const calls = {
-    rpc: [] as { name: string; args: unknown }[],
     // Incremented if the OLD non-atomic path (a direct broadcasts /
     // broadcast_recipients insert) is ever reached — it must not be.
     usedDirectInsert: 0,
@@ -94,20 +116,13 @@ function makeDb(rpcResult: { data: unknown; error: unknown }) {
       }
       throw new Error(`unexpected table: ${table}`);
     },
-    rpc(name: string, args: unknown) {
-      calls.rpc.push({ name, args });
-      return Promise.resolve(rpcResult);
-    },
   } as unknown as DataClient;
   return { db: database, calls };
 }
 
 describe('createBroadcast recipient validation (#586)', () => {
   it('counts a recipient without a leading + as rejected instead of sending it abroad', async () => {
-    const { db } = makeDb({
-      data: [{ broadcast_id: 'b-1', recipient_id: 'r-1', contact_id: 'c1' }],
-      error: null,
-    });
+    const { db } = makeDb([{ broadcast_id: 'b-1', recipient_id: 'r-1', contact_id: 'c1' }]);
 
     const plan = await createBroadcast(db, 'acc', 'user', {
       templateName: 'promo',
@@ -125,31 +140,29 @@ describe('createBroadcast recipient validation (#586)', () => {
   });
 
   it('fails the whole request when no recipient carries a country code', async () => {
-    const { db, calls } = makeDb({ data: [], error: null });
+    const { db } = makeDb([]);
     await expect(
       createBroadcast(db, 'acc', 'user', {
         templateName: 'promo',
         recipients: [{ to: '4155551212' }],
       })
     ).rejects.toMatchObject({ code: 'bad_request', status: 400 });
-    expect(calls.rpc).toHaveLength(0);
+    expect(tx.statements).toHaveLength(0);
   });
 });
 
 describe('createBroadcast atomicity (#370)', () => {
-  it('creates parent + recipients through the atomic RPC, never a bare parent insert', async () => {
-    const { db, calls } = makeDb({
-      data: [{ broadcast_id: 'b-1', recipient_id: 'r-1', contact_id: 'c1' }],
-      error: null,
-    });
+  it('creates parent, recipients and the dispatch job in one transaction, never a bare parent insert', async () => {
+    const { db, calls } = makeDb([{ broadcast_id: 'b-1', recipient_id: 'r-1', contact_id: 'c1' }]);
 
     const plan = await createBroadcast(db, 'acc', 'user', {
       templateName: 'promo',
       recipients: [{ to: '+14155550123' }],
     });
 
-    expect(calls.rpc).toHaveLength(1);
-    expect(calls.rpc[0].name).toBe('create_broadcast_with_recipients');
+    expect(tx.statements).toHaveLength(2);
+    expect(tx.statements[0]).toContain('create_broadcast_with_recipients');
+    expect(tx.statements[1]).toContain("'broadcast.dispatch'");
     expect(calls.usedDirectInsert).toBe(0);
     expect(plan.broadcastId).toBe('b-1');
     expect(plan.planned).toEqual([
@@ -157,11 +170,8 @@ describe('createBroadcast atomicity (#370)', () => {
     ]);
   });
 
-  it('throws and leaves no orphaned parent when the atomic create fails', async () => {
-    const { db, calls } = makeDb({
-      data: null,
-      error: { message: 'recipient insert failed' },
-    });
+  it('throws and leaves no orphaned parent or job when the atomic create fails', async () => {
+    const { db, calls } = makeDb(new Error('recipient insert failed'));
 
     await expect(
       createBroadcast(db, 'acc', 'user', {
@@ -170,10 +180,9 @@ describe('createBroadcast atomicity (#370)', () => {
       })
     ).rejects.toBeInstanceOf(BroadcastError);
 
-    // The RPC was the only persistence attempt; because it runs both
-    // inserts in a single transaction, its failure rolls the parent back —
-    // there is no separate parent insert that could survive as an orphan.
-    expect(calls.rpc).toHaveLength(1);
+    // The create was the only statement; its failure rolls the whole
+    // transaction back, so no parent or job can survive as an orphan.
+    expect(tx.statements).toHaveLength(1);
     expect(calls.usedDirectInsert).toBe(0);
   });
 });
@@ -189,23 +198,28 @@ function statusDb(
   counts: Record<string, number>,
   total: number,
   writes: { update?: Record<string, unknown> },
+  transitioned: Record<string, unknown>[] = [],
 ) {
   return {
     from(table: string) {
       let status: string | null = null;
+      let updating = false;
       const b: Record<string, unknown> = {
         select: () => b,
+        neq: () => b,
         eq: (col: string, val: unknown) => {
           if (col === 'status') status = val as string;
           return b;
         },
         update: (row: Record<string, unknown>) => {
           if (table === 'broadcasts') writes.update = row;
+          updating = true;
           return b;
         },
-        then: (resolve: (r: { count: number; error: null }) => unknown) =>
+        then: (resolve: (r: { count: number; data: unknown; error: null }) => unknown) =>
           resolve({
             count: status === null ? total : (counts[status] ?? 0),
+            data: updating ? transitioned : null,
             error: null,
           }),
       };
@@ -239,6 +253,16 @@ describe('finalizeBroadcastStatus', () => {
     );
     // 7 people got the message; failed_count carries the other 3.
     expect(writes.update?.status).toBe('sent');
+  });
+
+  it('emits broadcast.completed only when the status actually transitions', async () => {
+    webhook.dispatch.mockClear();
+    await finalizeBroadcastStatus(statusDb({ pending: 0 }, 10, {}), 'b-1');
+    expect(webhook.dispatch).not.toHaveBeenCalled();
+
+    const row = { id: 'b-1', account_id: 'acc', name: 'July', status: 'sent', total_recipients: 10, sent_count: 10, delivered_count: 9, read_count: 4, replied_count: 1, failed_count: 0 };
+    await finalizeBroadcastStatus(statusDb({ pending: 0 }, 10, {}, [row]), 'b-1');
+    expect(webhook.dispatch).toHaveBeenCalledWith(expect.anything(), 'acc', 'broadcast.completed', expect.objectContaining({ broadcast_id: 'b-1', status: 'sent', delivered: 9 }));
   });
 
   it('does not condemn a campaign whose resume pass sent nothing new', async () => {

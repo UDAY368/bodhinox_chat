@@ -4,11 +4,12 @@ import { providerMediaUrl } from '@/lib/storage/server';
 // Public-API broadcast core.
 //
 // Splits a broadcast into two phases so the HTTP route can persist +
-// acknowledge fast and fan out afterwards (in `after()`):
+// acknowledge fast while the worker fans out:
 //
 //   createBroadcast()  — validate, resolve contacts, insert the
 //                        `broadcasts` row + `broadcast_recipients`
-//                        rows (status 'pending'), return a plan.
+//                        rows (status 'pending') + the dispatch job,
+//                        return a plan.
 //   deliverBroadcast() — send each recipient's template via Meta
 //                        (phone-variant retry), stamp each recipient
 //                        row + the aggregate counts, finalize status.
@@ -19,6 +20,9 @@ import { providerMediaUrl } from '@/lib/storage/server';
 // ============================================================
 
 import type { DataClient } from '@/lib/data/types';
+import { getWorkerPrisma } from '@/lib/db/prisma';
+import { withTenant } from '@/lib/db/tenant';
+import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
 
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
@@ -196,34 +200,31 @@ export async function createBroadcast(
   // recipient change). `rejected` phones have no recipient row, so they
   // are reported to the caller in the POST response, not in these
   // persisted counts.
-  // Insert the parent broadcast and its recipient rows in ONE transaction
-  // (migration 037's create_broadcast_with_recipients). Previously these
-  // were two separate inserts: if the recipient insert failed, the parent
-  // was already persisted with status 'sending' and no recipients, leaving
-  // an orphaned campaign that looked like it was sending but had no
-  // delivery plan (issue #370). The function body is atomic, so a recipient
-  // failure now rolls the parent back and nothing orphaned survives.
-  const { data: createdRows, error: createErr } = await db.rpc(
-    'create_broadcast_with_recipients',
-    {
-      p_account_id: accountId,
-      p_user_id: auditUserId,
-      p_name: name || `API broadcast (${templateName})`,
-      p_template_name: templateName,
-      p_template_language: resolvedTemplate.language,
-      p_total_recipients: deduped.length,
-      p_contact_ids: deduped.map((r) => r.contactId),
-      // Frozen per-recipient params (migration 038) — without them a
-      // resume of this broadcast has no way to reconstruct {{1}}.
-      p_template_params: deduped.map((r) => r.params),
-    }
-  );
-  if (createErr || !createdRows || createdRows.length === 0) {
-    console.error('[broadcast-core] create broadcast error:', createErr);
+  // The parent, its recipients (frozen params, so a resume can rebuild
+  // {{1}}) and the dispatch job commit in ONE transaction: a failure leaves
+  // no orphaned 'sending' campaign (issue #370), and success always has a
+  // queued job behind it.
+  let createdRows: { broadcast_id: string; recipient_id: string; contact_id: string }[];
+  try {
+    createdRows = await withTenant({ accountId, role: 'owner' }, async (tx) => {
+      const rows = await tx.$queryRaw<{ broadcast_id: string; recipient_id: string; contact_id: string }[]>`
+        SELECT broadcast_id::text, recipient_id::text, contact_id::text FROM create_broadcast_with_recipients(
+          ${accountId}::uuid, ${auditUserId}::uuid, ${name || `API broadcast (${templateName})`},
+          ${templateName}, ${resolvedTemplate.language}, ${deduped.length}::integer,
+          ARRAY(SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(deduped.map((r) => r.contactId))}::jsonb)),
+          ARRAY(SELECT value FROM jsonb_array_elements(${JSON.stringify(deduped.map((r) => r.params))}::jsonb)))`;
+      const id = rows[0]?.broadcast_id;
+      if (!id) throw new Error('Broadcast creation returned no rows');
+      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
+        VALUES('broadcast.dispatch',${accountId}::uuid,${JSON.stringify({ broadcastId: id })}::jsonb,${`broadcast:${id}:initial`})`;
+      return rows;
+    }, getWorkerPrisma());
+  } catch (error) {
+    console.error('[broadcast-core] create broadcast failed', error instanceof Error ? error.name : 'unknown');
     throw new BroadcastError('internal', 'Failed to create broadcast', 500);
   }
 
-  const broadcastId = createdRows[0].broadcast_id as string;
+  const broadcastId = createdRows[0].broadcast_id;
 
   // Pair each inserted recipient row back to its phone/params by
   // contact_id — unambiguous now that duplicates are collapsed.
@@ -361,12 +362,27 @@ export async function finalizeBroadcastStatus(
     .eq('broadcast_id', broadcastId);
 
   if (totalError) throw new Error('Broadcast total read failed');
+  const status = failed > 0 && failed === (total ?? 0) ? 'failed' : 'sent';
+  // Only a real transition returns a row, so the completion event fires
+  // once per finished pass; a failed enqueue fails the job, which retries.
   const final = await db
     .from('broadcasts')
-    .update({
-      status: failed > 0 && failed === (total ?? 0) ? 'failed' : 'sent',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', broadcastId);
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', broadcastId)
+    .neq('status', status)
+    .select('id,account_id,name,status,total_recipients,sent_count,delivered_count,read_count,replied_count,failed_count');
   if (final.error) throw new Error('Broadcast completion persistence failed');
+  const row = (final.data as Record<string, unknown>[] | null)?.[0];
+  if (row)
+    await dispatchWebhookEvent(db, row.account_id as string, 'broadcast.completed', {
+      broadcast_id: row.id,
+      name: row.name,
+      status: row.status,
+      total_recipients: row.total_recipients,
+      sent: row.sent_count,
+      delivered: row.delivered_count,
+      read: row.read_count,
+      replied: row.replied_count,
+      failed: row.failed_count,
+    });
 }

@@ -20,6 +20,13 @@ import { encodeEventCursor } from '@/lib/realtime/cursor';
 import { GET as streamEvents } from '@/app/api/events/route';
 import type { TenantContext } from '@/lib/data/types';
 import { createScopedClient } from '@/lib/data/server';
+import {
+  createWebhook,
+  deleteWebhook,
+  listWebhooks,
+  updateWebhook,
+  WebhookInputError,
+} from '@/lib/webhooks/manage';
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
 import { bindInteractiveActions, assertInteractiveTargets } from '@/lib/whatsapp/interactive-actions';
 import { processInboundActions } from '@/lib/whatsapp/inbound-actions';
@@ -107,6 +114,70 @@ describe.skipIf(!database || !authDatabase)(
         );
       }
       await disconnectDatabases();
+    }, 30000);
+    it('manages webhook endpoints per tenant, admin-only, without exposing the secret', async () => {
+      const own = createScopedClient(a);
+      const other = createScopedClient(b);
+      const created = await createWebhook(own, accountA, userA, {
+        url: 'https://example.com/hook',
+        events: ['flow.completed', 'broadcast.completed'],
+      });
+      expect(created.secret).toMatch(/^whsec_/);
+      const listed = await listWebhooks(own, accountA);
+      expect(listed.map((w) => w.id)).toEqual([created.id]);
+      expect(JSON.stringify(listed)).not.toContain(created.secret);
+      expect(await listWebhooks(other, accountB)).toEqual([]);
+      expect(await updateWebhook(other, accountB, created.id, { is_active: false })).toBeNull();
+      expect(await deleteWebhook(other, accountB, created.id)).toBe(false);
+      await expect(
+        createWebhook(createScopedClient({ ...a, role: 'agent' }), accountA, userA, {
+          url: 'https://example.com/agent',
+          events: ['flow.completed'],
+        })
+      ).rejects.toThrow();
+      await expect(
+        createWebhook(own, accountA, userA, { url: 'http://example.com/plain', events: ['flow.completed'] })
+      ).rejects.toBeInstanceOf(WebhookInputError);
+      expect((await updateWebhook(own, accountA, created.id, { is_active: false }))?.is_active).toBe(false);
+      expect(await deleteWebhook(own, accountA, created.id)).toBe(true);
+    }, 30000);
+    it('keeps one template per account, name and language across teammates', async () => {
+      const teammate = randomUUID();
+      await getAuthPrisma().$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(
+          "INSERT INTO auth_users(id,email,full_name,password_hash) VALUES($1::uuid,$2,'Template teammate','test-only-hash')",
+          teammate,
+          `${teammate}@example.invalid`
+        );
+        await tx.$executeRawUnsafe(
+          "INSERT INTO account_memberships(account_id,user_id,role) VALUES($1::uuid,$2::uuid,'admin')",
+          accountA,
+          teammate
+        );
+      });
+      try {
+        const upsert = (context: TenantContext, body: string) =>
+          client(context)('message_templates')
+            .upsert(
+              { account_id: accountA, user_id: context.userId, name: 'shared_welcome', language: 'en_US', body_text: body },
+              { onConflict: 'account_id,name,language' }
+            )
+            .select()
+            .single();
+        const first = await upsert(a, 'First body');
+        const second = await upsert({ accountId: accountA, userId: teammate, role: 'admin' }, 'Second body');
+        expect(first.error).toBeNull();
+        expect(second.error).toBeNull();
+        const { data } = await client(a)('message_templates').select('id,body_text').eq('name', 'shared_welcome');
+        expect(data).toEqual([{ id: (first.data as { id: string }).id, body_text: 'Second body' }]);
+        const legacy = await client(a)('message_templates')
+          .upsert({ account_id: accountA, name: 'shared_welcome', language: 'en_US', body_text: 'x' }, { onConflict: 'user_id,name,language' });
+        expect(legacy.error).not.toBeNull();
+      } finally {
+        // The template is removed with the account in afterAll.
+        await getAuthPrisma().$executeRawUnsafe('DELETE FROM account_memberships WHERE user_id=$1::uuid', teammate);
+        await getAuthPrisma().$executeRawUnsafe('DELETE FROM auth_users WHERE id=$1::uuid', teammate);
+      }
     }, 30000);
     it('loads operational aggregates with constrained tenant roles', async () => {
       const overview = await loadDashboardOperations(a, 7);

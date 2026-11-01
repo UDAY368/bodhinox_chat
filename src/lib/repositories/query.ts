@@ -121,7 +121,7 @@ const conflicts: Record<string, string[]> = {
   contact_custom_values: ['contact_id,custom_field_id'],
   messages: ['conversation_id,message_id'],
   message_reactions: ['message_id,actor_type,actor_id'],
-  message_templates: ['user_id,name,language', 'account_id,name,language'],
+  message_templates: ['account_id,name,language'],
   member_presence: ['user_id'],
 };
 class Compiler {
@@ -394,12 +394,7 @@ export function compileMutation(
     keys.forEach((key) => columnFor(resource, key));
     statement = `INSERT INTO ${identifier(resource.table)} (${keys.map(identifier).join(',')}) VALUES ${rows.map((row) => `(${keys.map((key) => (Object.hasOwn(row, key) ? c.parameter(row[key], columnFor(resource, key)) : 'DEFAULT')).join(',')})`).join(',')}`;
     if (spec.operation === 'upsert') {
-      const conflict = (
-        resource.table === 'message_templates' &&
-        spec.onConflict === 'user_id,name,language'
-          ? 'account_id,name,language'
-          : (spec.onConflict ?? 'id')
-      )
+      const conflict = (spec.onConflict ?? 'id')
         .split(',')
         .map((k) => k.trim());
       conflict.forEach((key) => columnFor(resource, key));

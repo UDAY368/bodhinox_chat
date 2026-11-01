@@ -1962,7 +1962,7 @@
       "fields": "Campos e tags",
       "deals": "Negócios e moeda",
       "members": "Membros da equipe",
-      "api": "Chaves de API",
+      "api": "API e webhooks",
       "inbox": "Caixa de entrada"
     },
     "groups": {
@@ -2220,6 +2220,40 @@
       "sections": {
         "inbox": "Inbox"
       }
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "description": "O Bodhinox envia notificações de eventos assinadas para estas URLs HTTPS para que outros sistemas reajam em tempo real.",
+      "add": "Adicionar webhook",
+      "empty": "Ainda não há webhooks.",
+      "emptyAdminHint": "Adicione um para receber eventos na sua própria URL.",
+      "askAdminHint": "Peça a um administrador para adicionar um.",
+      "paused": "Pausado",
+      "created": "Adicionado em {date}",
+      "lastDelivery": "Última entrega {date}",
+      "noDelivery": "Nenhuma entrega ainda",
+      "failures": "{count} falhas seguidas",
+      "pause": "Pausar webhook",
+      "resume": "Retomar webhook",
+      "delete": "Excluir webhook",
+      "deleted": "Webhook excluído",
+      "loadFailed": "Não foi possível carregar os webhooks",
+      "updateFailed": "Não foi possível atualizar o webhook",
+      "deleteFailed": "Não foi possível excluir o webhook",
+      "createFailed": "Não foi possível adicionar o webhook",
+      "networkError": "Erro de rede. Tente novamente.",
+      "newTitle": "Adicionar webhook",
+      "newDesc": "Escolha uma URL HTTPS e os eventos a enviar para ela.",
+      "urlLabel": "URL do endpoint",
+      "eventsLabel": "Eventos",
+      "cancel": "Cancelar",
+      "create": "Adicionar webhook",
+      "secretTitle": "Copie seu segredo de assinatura",
+      "secretDesc": "Use-o para verificar o cabeçalho X-Wacrm-Signature. Ele é mostrado apenas uma vez.",
+      "copy": "Copiar",
+      "copySuccess": "Segredo copiado",
+      "copyFailed": "Não foi possível copiar",
+      "done": "Concluído"
     }
   },
   "SignupPage": {

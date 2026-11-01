@@ -28,6 +28,8 @@ Use `${{Bodhinox-Media.ENDPOINT}}`, `.BUCKET`, `.REGION`, `.ACCESS_KEY_ID`, and 
 
 Keep one web and one worker replica until shared API rate limiting and provider-wide throughput coordination have been implemented and measured. PostgreSQL job claims and lease fencing support crash recovery; browser request rate-limit buckets are currently process-local. Avoid overlapping worker releases; uncertain dispatches require operator reconciliation.
 
+Migration `20261101000000_round_robin_cursor` adds the worker-only `assignment_cursors` table used by round-robin assignment. It is additive and needs no backfill; run it with the normal migration step before deploying the code that uses it.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

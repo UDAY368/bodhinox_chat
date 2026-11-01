@@ -13,12 +13,12 @@ This application is adapted from WACRM 0.8.0. The complete upstream file/route/t
 | Human handoff | Persistent bot pause before manual sending; explicit resume | Role/database checks and flow/automation guards; viewer cannot mutate |
 | Pipelines | Stages, deal boards, values and contact relationships | Migrated tenant-scoped CRM operations; business-specific sales workflows remain configurable |
 | Campaigns | Approved templates, all/tag/custom-field/CSV audiences, exclusions, personalized frozen parameters, background delivery and retry | Atomic campaign/recipient/job and rollback tests; bounded to 1,000 recipients per campaign |
-| Automation | Event/keyword/tag/status triggers, conditions, delays, replies, CRM actions and scheduled audiences | Engine tests, durable jobs and scoped scheduler checks; actual provider sends still require acceptance |
+| Automation | Event/keyword/tag/status triggers, conditions, delays, replies, CRM actions, scheduled audiences and round-robin assignment over owner/admin/agent members | Engine tests, durable jobs, scoped scheduler checks and a concurrent round-robin database test; actual provider sends still require acceptance |
 | Visual flows | Node editor, input validation, branching, buttons/lists, CRM actions, media, fallbacks, timeout and handoff logs | Existing engine suites retained; customer-specific journeys require configuration |
 | AI | Drafts, automatic replies, provider settings, knowledge documents, embeddings, playground and usage | Source/engine tests; configure and accept the chosen AI provider separately |
 | Private media | Tenant object authorization, S3 storage, authenticated reads, bounded uploads and expiring provider URLs | Local policy/route checks; Railway bucket provisioned; live storage acceptance tracked in deployment runbook |
 | Live updates | Authenticated SSE, scoped outbox, cursor replay, deduplication and reconnect | Database replay tests, including equal-timestamp batches |
-| Integrations | Official Meta Cloud API, API keys, outbound signed webhooks and MCP client | Meta, AI and outbound destinations require their own acceptance; Wasender is not integrated |
+| Integrations | Official Meta Cloud API, API keys, outbound signed webhooks (message, conversation, broadcast, template and flow events; managed in Settings → API & webhooks or the API) and MCP client | Webhook tenancy/role tests; Meta, AI and outbound destinations require their own acceptance; Wasender is not integrated |
 
 Supabase Auth, Storage, Realtime, client and database dependencies have been replaced. Prisma owns migrations; constrained PostgreSQL roles and FORCE RLS protect tenant data. A dedicated worker owns durable background execution. Browser writes use fixed resources and dedicated validated actions; SQL, roles and provider credentials are never accepted from the browser.
 

@@ -708,3 +708,9 @@ model inbound_action_steps {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, message_id, stage])
 }
+
+model assignment_cursors {
+  account_id String @db.Uuid @id
+  last_user_id String? @db.Uuid
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}

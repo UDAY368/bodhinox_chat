@@ -34,7 +34,10 @@ const h = vi.hoisted(() => ({
       args: Parameters<typeof engineSendInteractiveList>[0],
     ) => Promise<{ whatsapp_message_id: string }>
   >(async () => ({ whatsapp_message_id: "wamid.4" })),
+  webhook: vi.fn(async () => {}),
 }));
+
+vi.mock("@/lib/webhooks/deliver", () => ({ dispatchWebhookEvent: h.webhook }));
 
 vi.mock("./admin-client", () => {
   function rows(table: string): unknown[] {
@@ -50,6 +53,7 @@ vi.mock("./admin-client", () => {
       eq: () => b,
       is: () => b,
       in: () => b,
+      contains: () => b,
       filter: () => b,
       order: () => b,
       limit: () => b,
@@ -603,6 +607,13 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
     expect(h.sendList).not.toHaveBeenCalled();
     expect(h.state.events.some(event => event.event_type === 'fallback_fired')).toBe(false);
     expect(await dispatch({ kind: 'interactive_reply', reply_id: node === 'choose' ? 'yes' : 'basic', meta_message_id: 'tap-next', reply_title: 'Yes' })).toMatchObject({ consumed: true, outcome: 'completed' });
+  });
+
+  it('emits flow.completed with the collected vars when a run reaches its end node', async () => {
+    h.state.activeRuns = [{ ...RUN, account_id: 'acc-1', current_node_key: 'choose', vars: { name: 'Alice' } }];
+    h.webhook.mockClear();
+    expect(await dispatch({ kind: 'interactive_reply', reply_id: 'yes', meta_message_id: 'tap-end', reply_title: 'Yes' })).toMatchObject({ consumed: true, outcome: 'completed' });
+    expect(h.webhook).toHaveBeenCalledWith(expect.anything(), 'acc-1', 'flow.completed', expect.objectContaining({ flow_run_id: RUN.id, vars: { name: 'Alice' }, end_reason: 'end_node' }));
   });
 
   it('keeps collect_input capture semantics under AI menu fallback', async () => {

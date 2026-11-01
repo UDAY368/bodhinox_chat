@@ -111,7 +111,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: UsersRound,
     group: 'workspace',
   },
-  api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
+  api: { id: 'api', label: 'API & webhooks', icon: KeyRound, group: 'workspace' },
 };
 
 export const RAIL_GROUPS: {

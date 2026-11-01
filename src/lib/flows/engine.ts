@@ -37,6 +37,7 @@ import { dispatchOnce } from '@/lib/jobs/dispatch';
  */
 
 import { databaseAdmin } from "./admin-client";
+import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -625,14 +626,27 @@ async function endRun(
   status: "completed" | "handed_off" | "timed_out" | "failed" | "cancelled",
   reason: string,
 ): Promise<void> {
-  await db
+  const { data } = await db
     .from("flow_runs")
     .update({
       status,
       ended_at: new Date().toISOString(),
       end_reason: reason,
     })
-    .eq("id", runId);
+    .eq("id", runId)
+    .select("id,account_id,flow_id,contact_id,conversation_id,vars");
+  const row = (data as Record<string, unknown>[] | null)?.[0];
+  if (status !== "completed" || !row) return;
+  // Best-effort: the run already ended and its messages went out, so a
+  // failed enqueue must not mark the inbound stage uncertain.
+  await dispatchWebhookEvent(db, row.account_id as string, "flow.completed", {
+    flow_run_id: row.id,
+    flow_id: row.flow_id,
+    contact_id: row.contact_id,
+    conversation_id: row.conversation_id,
+    vars: row.vars,
+    end_reason: reason,
+  }).catch(() => console.error("[flows] flow.completed webhook enqueue failed", { runId }));
 }
 
 // ============================================================

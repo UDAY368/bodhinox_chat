@@ -5,6 +5,9 @@ import {
   isTemplateWebhookField,
 } from './template-webhook';
 
+const webhook = vi.hoisted(() => ({ dispatch: vi.fn(async () => {}) }));
+vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: webhook.dispatch }));
+
 // Tiny mock that records the .update payload and the .eq filter for
 // inspection. Mirrors the surface this module actually uses on the
 // Supabase client — anything beyond throws, so unintended calls fail
@@ -143,6 +146,26 @@ describe('handleTemplateWebhookChange — status update', () => {
       status: 'APPROVED',
       rejection_reason: null,
       submission_error: null,
+    });
+  });
+
+  it('emits template.status_updated for each matched template', async () => {
+    webhook.dispatch.mockClear();
+    const row = { id: 'row-1', account_id: 'acc-1', name: 'order_confirmation', language: 'en_US', status: 'REJECTED', rejection_reason: 'Spam' };
+    const { stub } = makeSupabaseStub({ data: [row], error: null });
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_status_update',
+        value: { event: 'REJECTED', reason: 'Spam', message_template_id: 12345 },
+      },
+      stub,
+    );
+    expect(webhook.dispatch).toHaveBeenCalledWith(stub, 'acc-1', 'template.status_updated', {
+      template_id: 'row-1',
+      name: 'order_confirmation',
+      language: 'en_US',
+      status: 'REJECTED',
+      rejection_reason: 'Spam',
     });
   });
 

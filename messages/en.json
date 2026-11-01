@@ -1962,7 +1962,7 @@
       "fields": "Fields & tags",
       "deals": "Deals & currency",
       "members": "Team members",
-      "api": "API keys",
+      "api": "API & webhooks",
       "inbox": "Inbox"
     },
     "groups": {
@@ -2220,6 +2220,40 @@
       "sections": {
         "inbox": "Inbox"
       }
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "description": "Bodhinox sends signed event notifications to these HTTPS URLs so other systems can react in real time.",
+      "add": "Add webhook",
+      "empty": "No webhooks yet.",
+      "emptyAdminHint": "Add one to receive events at your own URL.",
+      "askAdminHint": "Ask an admin to add one.",
+      "paused": "Paused",
+      "created": "Added {date}",
+      "lastDelivery": "Last delivery {date}",
+      "noDelivery": "No deliveries yet",
+      "failures": "{count} failed in a row",
+      "pause": "Pause webhook",
+      "resume": "Resume webhook",
+      "delete": "Delete webhook",
+      "deleted": "Webhook deleted",
+      "loadFailed": "Could not load webhooks",
+      "updateFailed": "Could not update the webhook",
+      "deleteFailed": "Could not delete the webhook",
+      "createFailed": "Could not add the webhook",
+      "networkError": "Network error. Try again.",
+      "newTitle": "Add webhook",
+      "newDesc": "Choose an HTTPS URL and the events to send to it.",
+      "urlLabel": "Endpoint URL",
+      "eventsLabel": "Events",
+      "cancel": "Cancel",
+      "create": "Add webhook",
+      "secretTitle": "Copy your signing secret",
+      "secretDesc": "Use it to verify the X-Wacrm-Signature header. It is shown only once.",
+      "copy": "Copy",
+      "copySuccess": "Secret copied",
+      "copyFailed": "Could not copy",
+      "done": "Done"
     }
   },
   "SignupPage": {

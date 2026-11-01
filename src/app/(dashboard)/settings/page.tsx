@@ -19,6 +19,7 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { InboxSettings } from '@/components/settings/inbox-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
+import { WebhooksSettings } from '@/components/settings/webhooks-settings';
 import {
   resolveSection,
   type SettingsSection,
@@ -82,7 +83,12 @@ function SettingsPageInner() {
     deals: <DealsSettings />,
     inbox: <InboxSettings key={accountId} />,
     members: <MembersTab />,
-    api: <ApiKeysSettings />,
+    api: (
+      <div className="space-y-10">
+        <ApiKeysSettings />
+        <WebhooksSettings />
+      </div>
+    ),
   };
 
   return (
