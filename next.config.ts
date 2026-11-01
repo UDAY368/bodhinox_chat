@@ -78,6 +78,11 @@ const nextConfig: NextConfig = {
   // Harmless outside Docker: `next start` keeps working as before.
   output: "standalone",
 
+  // Dev-only: don't forward browser console output into .next/dev/logs.
+  // That log write is seen by the watcher, which rebuilds, reloads the
+  // page and logs again - an endless compile loop on Windows.
+  logging: { browserToTerminal: false },
+
   /**
    * Cross-origin dev access (Next.js 16).
    *
