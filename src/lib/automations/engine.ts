@@ -29,6 +29,7 @@ import { engineSendText, engineSendTemplate, engineSendInteractive,
 } from './meta-send'
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
+import { fillWorkspace, workspaceValuesFor } from '@/lib/workspace/attributes'
 import { getT } from '@/lib/i18n/translate'
 
 /** Step errors land in automation_logs and are shown on the logs page. */
@@ -789,7 +790,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     case 'send_message': {
       const cfg = step.step_config as SendMessageStepConfig
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'send_message' }))
-      const text = interpolate(cfg.text, args)
+      const text = interpolate(cfg.text, args, await workspaceValuesFor(args.automation.account_id, cfg.text))
       if (!text.trim()) throw new Error(tErr('emptyText'))
       const conversationId = await resolveConversationId(args)
       const { whatsapp_message_id } = await dispatchOnce(args.automation.account_id, `automation:${args.logId}:${step.id}`, () => engineSendText({
@@ -938,7 +939,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'update_contact_field' }))
       // Resolve workflow variables ({{ vars.* }}, {{ message.text }}) so custom
       // values can be populated dynamically from the triggering context.
-      const value = interpolate(cfg.value, args)
+      const value = interpolate(cfg.value, args, await workspaceValuesFor(args.automation.account_id, cfg.value))
 
       // Custom fields are encoded as `custom:<custom_field_id>`; anything else
       // is a built-in contact column.
@@ -1006,7 +1007,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         pipeline_id: cfg.pipeline_id,
         stage_id: cfg.stage_id,
         contact_id: args.contactId,
-        title: interpolate(cfg.title, args),
+        title: interpolate(cfg.title, args, await workspaceValuesFor(args.automation.account_id, cfg.title)),
         value: cfg.value ?? 0,
         currency: acct?.default_currency ?? 'USD',
         status: 'open',
@@ -1024,10 +1025,13 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!(await isDeliverableUrl(cfg.url))) {
         throw new Error(tErr('destinationNotAllowed'))
       }
-      const body = cfg.body_template ? interpolate(cfg.body_template, args) : JSON.stringify(args.context)
+      // Secret workspace attributes (API keys) resolve only here, never in customer messages.
+      const ws = await workspaceValuesFor(args.automation.account_id, JSON.stringify([cfg.body_template, cfg.headers]), { secrets: true })
+      const body = cfg.body_template ? interpolate(cfg.body_template, args, ws) : JSON.stringify(args.context)
+      const headers = Object.fromEntries(Object.entries(cfg.headers ?? {}).map(([name, value]) => [name, fillWorkspace(String(value), ws)]))
       const res = await fetch(cfg.url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', ...(cfg.headers ?? {}) },
+        headers: { 'content-type': 'application/json', ...headers },
         body,
         // Do NOT follow redirects — a public URL could 3xx-bounce to an
         // internal address, defeating the guard above. Bound the request
@@ -1226,11 +1230,12 @@ function waitMs(cfg: WaitStepConfig): number {
   return Math.max(1_000, cfg.amount * unitMs)
 }
 
-function interpolate(s: string, args: ExecuteArgs): string {
+function interpolate(s: string, args: ExecuteArgs, workspace: Record<string, string> = {}): string {
   return s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
     const [ns, prop] = String(key).split('.')
     if (ns === 'message' && prop === 'text') return String(args.context.message_text ?? '')
     if (ns === 'vars' && prop) return String(args.context.vars?.[prop] ?? '')
+    if (ns === 'workspace' && prop && Object.hasOwn(workspace, prop)) return workspace[prop]
     return ''
   })
 }

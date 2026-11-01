@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Plus, Tag as TagIcon, X } from 'lucide-react';
+import { Loader2, Pencil, Plus, Tag as TagIcon, X } from 'lucide-react';
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
+import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -54,7 +56,11 @@ export function TagManager() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newTagName, setNewTagName] = useState('');
+  const [newTagCategory, setNewTagCategory] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[3].value);
+  const [editTag, setEditTag] = useState<Tag | null>(null);
+  const [editCategory, setEditCategory] = useState('');
+  const categories = [...new Set(tags.map((tag) => tag.category).filter((c): c is string => !!c))].sort();
 
   useEffect(() => {
     if (authLoading) return;
@@ -105,17 +111,37 @@ export function TagManager() {
         account_id: accountId,
         name: newTagName.trim(),
         color: selectedColor,
+        category: newTagCategory.trim() || null,
       });
 
       if (error) throw error;
 
       toast.success(t('tagCreated'));
       setNewTagName('');
+      setNewTagCategory('');
       setSelectedColor(PRESET_COLORS[3].value);
       await fetchTags(user.id);
     } catch (err) {
       console.error('Create error:', err);
       toast.error(t('failedToCreateTag'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveCategory() {
+    if (!editTag) return;
+    try {
+      setSaving(true);
+      const category = editCategory.trim() || null;
+      const { error } = await db.from('tags').update({ category }).eq('id', editTag.id);
+      if (error) throw error;
+      toast.success(t('tagUpdated'));
+      setTags((prev) => prev.map((tag) => (tag.id === editTag.id ? { ...tag, category } : tag)));
+      setEditTag(null);
+    } catch (err) {
+      console.error('Update error:', err);
+      toast.error(t('failedToUpdateTag'));
     } finally {
       setSaving(false);
     }
@@ -169,31 +195,53 @@ export function TagManager() {
         ) : (
           <>
             {tags.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <span
-                    key={tag.id}
-                    className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
-                      border: `1px solid ${tag.color}40`,
-                    }}
-                  >
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    {tag.name}
-                    <button
-                      type="button"
-                      onClick={() => confirmDelete(tag)}
-                      aria-label={t('deleteAria', { name: tag.name })}
-                      className="ml-0.5 rounded-full p-0.5 opacity-60 transition-opacity hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
+              <div className="space-y-3">
+                {groupTagsByCategory(tags).map((group, _, groups) => (
+                  <div key={group.category ?? ''} className="space-y-1.5">
+                    {groups.length > 1 && (
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {group.category ?? t('uncategorized')}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {group.tags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                          style={{
+                            backgroundColor: `${tag.color}20`,
+                            color: tag.color,
+                            border: `1px solid ${tag.color}40`,
+                          }}
+                        >
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditTag(tag);
+                              setEditCategory(tag.category ?? '');
+                            }}
+                            aria-label={t('editAria', { name: tag.name })}
+                            className="ml-0.5 rounded-full p-0.5 opacity-60 transition-opacity hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+                          >
+                            <Pencil className="size-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => confirmDelete(tag)}
+                            aria-label={t('deleteAria', { name: tag.name })}
+                            className="rounded-full p-0.5 opacity-60 transition-opacity hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -215,6 +263,19 @@ export function TagManager() {
                 maxLength={40}
                 className="min-w-[180px] flex-1"
               />
+              <Input
+                placeholder={t('categoryPlaceholder')}
+                aria-label={t('categoryLabel')}
+                value={newTagCategory}
+                onChange={(e) => setNewTagCategory(e.target.value)}
+                disabled={saving}
+                maxLength={40}
+                list="tag-categories"
+                className="w-40"
+              />
+              <datalist id="tag-categories">
+                {categories.map((c) => <option key={c} value={c} />)}
+              </datalist>
               <div className="flex gap-1.5">
                 {PRESET_COLORS.map((color) => (
                   <button
@@ -250,6 +311,36 @@ export function TagManager() {
           </>
         )}
       </CardContent>
+
+      {/* Edit category */}
+      <Dialog open={editTag !== null} onOpenChange={(open) => !open && setEditTag(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('editTag')}</DialogTitle>
+            <DialogDescription>{t('editTagDesc', { name: editTag?.name ?? '' })}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="tag-category">{t('categoryLabel')}</Label>
+            <Input
+              id="tag-category"
+              value={editCategory}
+              maxLength={40}
+              list="tag-categories"
+              placeholder={t('categoryPlaceholder')}
+              onChange={(e) => setEditCategory(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditTag(null)} disabled={saving}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={saveCategory} disabled={saving}>
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {t('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

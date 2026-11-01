@@ -559,6 +559,29 @@
         "exportAll": "CSV 내보내기",
         "exportSegment": "세그먼트 내보내기",
         "exportFailed": "연락처를 내보내지 못했습니다"
+      },
+      "otherTags": "기타",
+      "lists": {
+        "selectLabel": "목록",
+        "none": "목록 없음",
+        "newList": "새 목록",
+        "deleteList": "목록 삭제",
+        "deleted": "목록이 삭제되었습니다",
+        "deleteFailed": "목록을 삭제할 수 없습니다",
+        "loadFailed": "목록을 불러올 수 없습니다",
+        "created": "목록이 생성되었습니다",
+        "createFailed": "목록을 만들 수 없습니다",
+        "newTitle": "새 목록",
+        "newDesc": "직접 고른 연락처의 고정 목록입니다. 체크박스로 연락처를 선택한 뒤 목록에 추가를 사용하세요.",
+        "nameLabel": "이름",
+        "namePlaceholder": "예: 행사 참석자",
+        "create": "목록 만들기",
+        "addToList": "목록에 추가",
+        "added": "{count}명을 {name}에 추가했습니다",
+        "removeFromList": "목록에서 제거",
+        "removed": "목록에서 {count}명을 제거했습니다",
+        "changeFailed": "목록을 업데이트할 수 없습니다",
+        "exportList": "목록 내보내기"
       }
     },
     "form": {
@@ -772,7 +795,8 @@
         "company": "회사",
         "created_at": "생성일",
         "opted_out": "마케팅 수신 거부",
-        "blocked": "차단됨"
+        "blocked": "차단됨",
+        "list": "목록"
       },
       "ops": {
         "has_any": "다음 중 하나라도 있음",
@@ -783,8 +807,11 @@
         "is_empty": "비어 있음",
         "is_not_empty": "비어 있지 않음",
         "before": "이전",
-        "after": "이후"
-      }
+        "after": "이후",
+        "in_any": "다음 중 하나에 포함",
+        "in_none": "다음 중 어디에도 없음"
+      },
+      "noLists": "아직 목록이 없습니다"
     }
   },
   "Pipelines": {
@@ -1026,7 +1053,8 @@
           "tags": "태그로 필터링",
           "customField": "커스텀 필드",
           "csv": "CSV 업로드",
-          "segment": "저장된 세그먼트"
+          "segment": "저장된 세그먼트",
+          "list": "고정 목록"
         },
         "allDesc": "데이터베이스의 전체 연락처 {count}명에게 보냅니다.",
         "allDescLoading": "데이터베이스의 전체 연락처에게 보냅니다.",
@@ -1062,7 +1090,11 @@
         "selectSegment": "세그먼트 선택",
         "selectSegmentPlaceholder": "세그먼트를 선택하세요",
         "noSegments": "아직 세그먼트가 없습니다. 연락처 페이지에서 만드세요.",
-        "segmentConsentNote": "수신 거부되었거나 차단된 연락처에는 보내지 않습니다. 수는 실제 수신자를 나타냅니다."
+        "segmentConsentNote": "수신 거부되었거나 차단된 연락처에는 보내지 않습니다. 수는 실제 수신자를 나타냅니다.",
+        "listDesc": "연락처에서 직접 고른 목록으로 보내기",
+        "selectList": "목록 선택",
+        "selectListPlaceholder": "목록을 선택하세요",
+        "noLists": "아직 목록이 없습니다. 연락처 페이지에서 만드세요."
       },
       "personalize": {
         "title": "변수 개인화",
@@ -1124,7 +1156,8 @@
         "language": "언어",
         "confirmTitle": "브로드캐스트 확인",
         "confirmDesc": "<b>{template}</b> 템플릿으로 연락처 <b>{count, number}</b>명에게 이 브로드캐스트를 보내려고 합니다. 이 작업은 되돌릴 수 없습니다.",
-        "audienceSegment": "저장된 세그먼트"
+        "audienceSegment": "저장된 세그먼트",
+        "audienceList": "고정 목록"
       }
     },
     "sending": {
@@ -1793,7 +1826,16 @@
         "blue": "파랑",
         "violet": "보라",
         "pink": "분홍"
-      }
+      },
+      "categoryLabel": "카테고리",
+      "categoryPlaceholder": "카테고리(선택)",
+      "uncategorized": "기타",
+      "editTag": "태그 편집",
+      "editTagDesc": "\"{name}\"을(를) 관련 태그와 함께 카테고리로 묶으세요.",
+      "editAria": "{name} 편집",
+      "save": "저장",
+      "tagUpdated": "태그가 업데이트되었습니다",
+      "failedToUpdateTag": "태그를 업데이트할 수 없습니다"
     },
     "templates": {
       "title": "메시지 템플릿",
@@ -2328,6 +2370,24 @@
       "copySuccess": "비밀 키를 복사했습니다",
       "copyFailed": "복사하지 못했습니다",
       "done": "완료"
+    },
+    "workspaceAttributes": {
+      "title": "워크스페이스 속성",
+      "description": "워크스페이스 전체에서 쓰는 값입니다. 플로우와 자동화 메시지에 {example}을(를) 쓰세요.",
+      "keyLabel": "키",
+      "keyPlaceholder": "support_email",
+      "valueLabel": "값",
+      "secretLabel": "비밀",
+      "secretHint": "비밀 값은 암호화되어 저장되고 다시 표시되지 않으며 자동화 웹훅 단계에서만 사용됩니다. 고객 메시지에는 쓰이지 않습니다. 기존 키를 저장하면 덮어씁니다.",
+      "save": "저장",
+      "empty": "아직 속성이 없습니다.",
+      "hidden": "숨김",
+      "deleteAria": "{key} 삭제",
+      "saved": "속성이 저장되었습니다",
+      "deleted": "속성이 삭제되었습니다",
+      "loadFailed": "속성을 불러올 수 없습니다",
+      "saveFailed": "속성을 저장할 수 없습니다",
+      "deleteFailed": "속성을 삭제할 수 없습니다"
     }
   },
   "SignupPage": {

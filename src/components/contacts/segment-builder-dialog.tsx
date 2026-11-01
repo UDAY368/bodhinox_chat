@@ -23,17 +23,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authFetch } from '@/lib/auth/client';
-import { previewSegment, type SegmentSummary } from '@/lib/audience/client';
+import { previewSegment, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import type { AudienceCondition } from '@/lib/audience/filter';
 import type { CustomField, Tag } from '@/types';
 
 type Field = AudienceCondition['field'];
-const FIELDS: Field[] = ['tags', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked'];
+const FIELDS: Field[] = ['tags', 'list', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked'];
 const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
 
 function blank(field: Field): AudienceCondition {
   switch (field) {
     case 'tags': return { field, op: 'has_any', tagIds: [] };
+    case 'list': return { field, op: 'in_any', listIds: [] };
     case 'custom_field': return { field, fieldId: '', op: 'is', value: '' };
     case 'created_at': return { field, op: 'after', value: new Date().toISOString().slice(0, 10) };
     case 'opted_out':
@@ -44,6 +45,7 @@ function blank(field: Field): AudienceCondition {
 
 function complete(c: AudienceCondition): boolean {
   if (c.field === 'tags') return c.tagIds.length > 0;
+  if (c.field === 'list') return c.listIds.length > 0;
   if (c.field === 'custom_field' && !c.fieldId) return false;
   if ('value' in c && typeof c.value === 'string' && ['is', 'is_not', 'contains'].includes(c.op)) return c.value.trim().length > 0;
   return true;
@@ -54,6 +56,7 @@ export function SegmentBuilderDialog({
   onOpenChange,
   segment,
   tags,
+  lists,
   customFields,
   onSaved,
 }: {
@@ -62,6 +65,7 @@ export function SegmentBuilderDialog({
   /** Edit this segment, or create a new one when null. */
   segment: SegmentSummary | null;
   tags: Tag[];
+  lists: ListSummary[];
   customFields: CustomField[];
   onSaved: (segment: SegmentSummary) => void;
 }) {
@@ -164,6 +168,29 @@ export function SegmentBuilderDialog({
                         );
                       })}
                       {tags.length === 0 && <span className="text-xs text-muted-foreground">{t('noTags')}</span>}
+                    </div>
+                  </>
+                )}
+
+                {c.field === 'list' && (
+                  <>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as 'in_any' | 'in_none' })}>
+                      <option value="in_any">{t('ops.in_any')}</option>
+                      <option value="in_none">{t('ops.in_none')}</option>
+                    </select>
+                    <div className="flex flex-wrap gap-1">
+                      {lists.map((list) => {
+                        const on = c.listIds.includes(list.id);
+                        return (
+                          <button key={list.id} type="button" aria-pressed={on}
+                            onClick={() => update(index, { ...c, listIds: on ? c.listIds.filter((id) => id !== list.id) : [...c.listIds, list.id] })}
+                            className={`rounded-full border px-2 py-0.5 text-xs ${on ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                            {list.name}
+                          </button>
+                        );
+                      })}
+                      {lists.length === 0 && <span className="text-xs text-muted-foreground">{t('noLists')}</span>}
                     </div>
                   </>
                 )}

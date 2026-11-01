@@ -15,9 +15,16 @@ describe('parseAudienceFilter', () => {
         { field: 'name', op: 'is_not_empty' },
         { field: 'created_at', op: 'after', value: '2026-01-31' },
         { field: 'opted_out', op: 'is', value: false },
+        { field: 'list', op: 'in_none', listIds: [tag] },
       ],
     });
-    expect(filter.conditions).toHaveLength(6);
+    expect(filter.conditions).toHaveLength(7);
+  });
+
+  it('compiles a list condition to a scoped membership check with bound ids', () => {
+    const sql = compileAudienceFilter(account, parseAudienceFilter({ conditions: [{ field: 'list', op: 'in_none', listIds: [tag] }] }));
+    expect(sql.sql).toContain('NOT EXISTS(SELECT 1 FROM contact_list_members m WHERE m.account_id=');
+    expect(sql.values).toContain(JSON.stringify([tag]));
   });
 
   it.each<[unknown, string]>([
@@ -29,6 +36,8 @@ describe('parseAudienceFilter', () => {
     [{ conditions: [{ field: 'password_hash', op: 'contains', value: 'x' }] }, 'unknown field'],
     [{ conditions: [{ field: 'created_at', op: 'after', value: 'yesterday' }] }, 'bad date'],
     [{ conditions: [{ field: 'tags', op: 'has_any', tagIds: ["1' OR '1'='1"] }] }, 'non-uuid tag'],
+    [{ conditions: [{ field: 'list', op: 'in_any', listIds: [] }] }, 'no lists'],
+    [{ conditions: [{ field: 'list', op: 'has_any', listIds: [tag] }] }, 'tag operator on a list'],
     [{ conditions: Array.from({ length: 21 }, () => ({ field: 'name', op: 'is_empty' })) }, 'too many'],
   ])('rejects %j (%s)', (input) => {
     expect(() => parseAudienceFilter(input)).toThrow(AudienceFilterError);

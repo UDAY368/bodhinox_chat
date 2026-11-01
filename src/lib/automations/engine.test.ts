@@ -6,6 +6,16 @@ vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false
 vi.mock("@/lib/jobs/dispatch", () => ({ dispatchOnce: (_account: string, _key: string, send: () => Promise<unknown>) => send(),
 }));
 
+// Workspace attributes come from the database; record each lookup instead.
+const ws = vi.hoisted(() => ({ calls: [] as { text: string; secrets: boolean }[] }));
+vi.mock("@/lib/workspace/attributes", async (original) => ({
+  ...(await original<typeof import("@/lib/workspace/attributes")>()),
+  workspaceValuesFor: async (_account: string, text: string, options?: { secrets?: boolean }) => {
+    ws.calls.push({ text, secrets: options?.secrets ?? false });
+    return { tier: "Gold" };
+  },
+}));
+
 // Shared mock state for the service-role client. Lives in a hoisted block
 // so the vi.mock factory below can close over it.
 const h = vi.hoisted(() => ({
@@ -404,6 +414,24 @@ describe("update_contact_field — custom fields", () => {
     expect(h.state.upsertCalls).toHaveLength(1);
     expect(
       (h.state.upsertCalls[0].payload as { value: string }).value).toBe("WhatsApp Ad");
+  });
+
+  it("interpolates {{ workspace.* }} without ever asking for secret values", async () => {
+    ws.calls.length = 0;
+    h.state.owned = { id: "c1" };
+    h.state.ownedCustomField = { id: "cf1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [customStep("custom:cf1", "{{ workspace.tier }} / {{workspace.missing}}")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect((h.state.upsertCalls[0].payload as { value: string }).value).toBe("Gold / ");
+    expect(ws.calls).toEqual([{ text: "{{ workspace.tier }} / {{workspace.missing}}", secrets: false }]);
   });
 
   it("refuses to write a custom field from another account", async () => {

@@ -3,6 +3,11 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 vi.mock('@/lib/whatsapp/bot-pause', () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {} }));
 
 vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: (_account: string, _key: string, send: () => Promise<unknown>) => send() }));
+// Workspace attributes come from the database; serve one fixed value instead.
+vi.mock('@/lib/workspace/attributes', async (original) => ({
+  ...(await original<typeof import('@/lib/workspace/attributes')>()),
+  workspaceValuesFor: async () => ({ brand: 'Acme' }),
+}));
 
 // ============================================================
 // Fakes for the interpolation tests at the bottom of this file
@@ -553,6 +558,16 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
         row: expect.objectContaining({ current_node_key: "choose" }),
       }),
     );
+  });
+
+  it("fills {{workspace.*}} from the workspace but never expands it inside customer input", async () => {
+    h.state.nodes = nodesEndingIn("choose").map((n) =>
+      n.node_key === "choose" ? { ...n, config: { ...n.config, text: "{{workspace.brand}} says hi {{vars.name}}" } } : n,
+    );
+
+    await dispatch(text("{{workspace.brand}}"));
+
+    expect(h.sendButtons.mock.calls[0][0].bodyText).toBe("Acme says hi {{workspace.brand}}");
   });
 
   it("send_list after collect_input renders body, button label, footer, section and row text", async () => {

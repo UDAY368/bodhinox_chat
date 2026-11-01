@@ -47,6 +47,7 @@ import {
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
+import { fillWorkspace, workspaceValuesFor } from "@/lib/workspace/attributes";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
@@ -433,17 +434,18 @@ async function sendButtonsAndSuspend(
   // Meta byte-for-byte as authored. Interpolation can push a title past
   // Meta's 20-char cap; meta-api's validator throws a descriptive error
   // and the caller logs it — we never truncate silently.
+  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cfg));
   const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendInteractiveButtons({
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
-    bodyText: interpolateVars(cfg.text, run.vars),
-    headerText: interpolateOptionalVars(cfg.header_text, run.vars),
-    footerText: interpolateOptionalVars(cfg.footer_text, run.vars),
+    bodyText: interpolateVars(cfg.text, run.vars, ws),
+    headerText: interpolateOptionalVars(cfg.header_text, run.vars, ws),
+    footerText: interpolateOptionalVars(cfg.footer_text, run.vars, ws),
     buttons: cfg.buttons.map((b) => ({
       id: b.reply_id,
-      title: interpolateVars(b.title, run.vars),
+      title: interpolateVars(b.title, run.vars, ws),
     })),
   }));
   await logEvent(db, run.id, "message_sent", node.node_key, {
@@ -474,21 +476,22 @@ async function sendListAndSuspend(
   const cfg = node.config as unknown as SendListNodeConfig;
   // See sendButtonsAndSuspend — interpolate every visible string,
   // never the row `reply_id`.
+  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cfg));
   const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendInteractiveList({
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
-    bodyText: interpolateVars(cfg.text, run.vars),
-    buttonLabel: interpolateVars(cfg.button_label, run.vars),
-    headerText: interpolateOptionalVars(cfg.header_text, run.vars),
-    footerText: interpolateOptionalVars(cfg.footer_text, run.vars),
+    bodyText: interpolateVars(cfg.text, run.vars, ws),
+    buttonLabel: interpolateVars(cfg.button_label, run.vars, ws),
+    headerText: interpolateOptionalVars(cfg.header_text, run.vars, ws),
+    footerText: interpolateOptionalVars(cfg.footer_text, run.vars, ws),
     sections: cfg.sections.map((s) => ({
-      title: interpolateOptionalVars(s.title, run.vars),
+      title: interpolateOptionalVars(s.title, run.vars, ws),
       rows: s.rows.map((r) => ({
         id: r.reply_id,
-        title: interpolateVars(r.title, run.vars),
-        description: interpolateOptionalVars(r.description, run.vars),
+        title: interpolateVars(r.title, run.vars, ws),
+        description: interpolateOptionalVars(r.description, run.vars, ws),
       })),
     })),
   }));
@@ -590,14 +593,15 @@ async function evaluateConditionNode(
 }
 
 /**
- * Tiny `{{vars.foo}}` interpolation. Used by send_message + collect_input
+ * Tiny `{{vars.foo}}` (and `{{workspace.key}}`) interpolation. Used by send_message + collect_input
  * prompt text so a captured `name` can show up in the next prompt
  * ("Thanks {{vars.name}}, what's your email?"). Missing vars render as
  * empty string — the same behavior as the automations engine.
  */
-function interpolateVars(template: string, vars: Record<string, unknown>): string {
+function interpolateVars(template: string, vars: Record<string, unknown>, workspace: Record<string, string> = {}): string {
   if (!template) return "";
-  return template.replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
+  // Workspace first: captured vars are customer input and must not expand placeholders.
+  return fillWorkspace(template, workspace).replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
     const v = vars[key];
     return v === undefined || v === null ? "" : String(v);
   });
@@ -614,10 +618,11 @@ function interpolateVars(template: string, vars: Record<string, unknown>): strin
 function interpolateOptionalVars(
   template: string | undefined,
   vars: Record<string, unknown>,
+  workspace: Record<string, string> = {},
 ): string | undefined {
   return template === undefined || template === null
     ? undefined
-    : interpolateVars(template, vars);
+    : interpolateVars(template, vars, workspace);
 }
 
 async function endRun(
@@ -692,12 +697,13 @@ async function advanceFromNodeKey(
     if (node.node_type === "send_message") {
       const cfg = node.config as unknown as SendMessageNodeConfig;
       try {
+        const ws = await workspaceValuesFor(run.account_id, cfg.text);
         const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendText({
           accountId: run.account_id,
     userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.text, run.vars),
+          text: interpolateVars(cfg.text, run.vars, ws),
         }));
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "send_message",
@@ -717,6 +723,7 @@ async function advanceFromNodeKey(
     if (node.node_type === "send_media") {
       const cfg = node.config as unknown as SendMediaNodeConfig;
       try {
+        const ws = await workspaceValuesFor(run.account_id, cfg.caption ?? '');
         const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendMedia({
           accountId: run.account_id,
     userId: run.user_id,
@@ -725,7 +732,7 @@ async function advanceFromNodeKey(
           kind: cfg.media_type,
           link: cfg.media_url,
           caption: cfg.caption
-            ? interpolateVars(cfg.caption, run.vars)
+            ? interpolateVars(cfg.caption, run.vars, ws)
             : undefined,
           filename: cfg.filename,
         }));
@@ -750,12 +757,13 @@ async function advanceFromNodeKey(
       // wake us up via handleReplyForActiveRun's collect_input branch.
       const cfg = node.config as unknown as CollectInputNodeConfig;
       try {
+        const ws = await workspaceValuesFor(run.account_id, cfg.prompt_text);
         const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendText({
           accountId: run.account_id,
     userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars),
+          text: interpolateVars(cfg.prompt_text, run.vars, ws),
         }));
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "collect_input",
@@ -1231,12 +1239,13 @@ async function handleReplyForActiveRun(
         // Customer typed something we couldn't accept (empty after trim,
         // or var_key missing — rare). Re-send the prompt so they try again.
         const cfg = currentNode.config as unknown as CollectInputNodeConfig;
+        const ws = await workspaceValuesFor(run.account_id, cfg.prompt_text);
         await dispatchOnce(run.account_id, `flow:${run.id}:${currentNode.node_key}:${run.transition_seq ?? 0}:${newReprompts}`, () => engineSendText({
           accountId: run.account_id,
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars),
+          text: interpolateVars(cfg.prompt_text, run.vars, ws),
         }));
       }
     } catch (err) {

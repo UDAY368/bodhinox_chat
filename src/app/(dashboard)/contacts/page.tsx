@@ -50,10 +50,13 @@ import {
   Filter,
   ListFilter,
   Download,
+  List,
   X,
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
-import { fetchSegments, type SegmentSummary } from '@/lib/audience/client';
+import { changeListMembers, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
+import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
+import { Label } from '@/components/ui/label';
 import { SegmentBuilderDialog } from '@/components/contacts/segment-builder-dialog';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -88,6 +91,12 @@ export default function ContactsPage() {
   const [segmentId, setSegmentId] = useState('');
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingSegment, setEditingSegment] = useState<SegmentSummary | null>(null);
+  // Static list view; like a segment, it replaces the tag filter.
+  const [lists, setLists] = useState<ListSummary[]>([]);
+  const [listId, setListId] = useState('');
+  const [newListOpen, setNewListOpen] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [listBusy, setListBusy] = useState(false);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [exporting, setExporting] = useState(false);
 
@@ -146,9 +155,10 @@ export default function ContactsPage() {
     let contactRows: Contact[];
     let count: number;
 
-    if (segmentId) {
+    if (segmentId || listId) {
       const query = new URLSearchParams({ offset: String(from), limit: String(PAGE_SIZE), search: term });
-      const res = await authFetch(`/api/segments/${segmentId}/contacts?${query}`, { cache: 'no-store' }).catch(() => null);
+      const path = segmentId ? `/api/segments/${segmentId}/contacts` : `/api/lists/${listId}/contacts`;
+      const res = await authFetch(`${path}?${query}`, { cache: 'no-store' }).catch(() => null);
       if (seq !== fetchSeq.current) return; // superseded by a newer fetch
       if (!res?.ok) {
         toast.error(t('toastFailedLoad'));
@@ -233,7 +243,7 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [db, page, search, selectedTagIds, segmentId, tagsMap, t]);
+  }, [db, page, search, selectedTagIds, segmentId, listId, tagsMap, t]);
 
   const loadSegments = useCallback(async () => {
     try {
@@ -243,14 +253,84 @@ export default function ContactsPage() {
     }
   }, [t]);
 
+  const loadLists = useCallback(async () => {
+    try {
+      setLists(await fetchLists());
+    } catch {
+      toast.error(t('lists.loadFailed'));
+    }
+  }, [t]);
+
   useEffect(() => {
     loadSegments();
-  }, [loadSegments]);
+    loadLists();
+  }, [loadSegments, loadLists]);
 
   function selectSegment(id: string) {
     setSegmentId(id);
+    setListId('');
     setSelectedTagIds([]);
     setPage(0);
+  }
+
+  function selectList(id: string) {
+    setListId(id);
+    setSegmentId('');
+    setSelectedTagIds([]);
+    setPage(0);
+  }
+
+  async function createList() {
+    setListBusy(true);
+    try {
+      const res = await authFetch('/api/lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newListName.trim() }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(payload.error || t('lists.createFailed'));
+        return;
+      }
+      toast.success(t('lists.created'));
+      setNewListOpen(false);
+      setNewListName('');
+      await loadLists();
+      selectList((payload as { list: ListSummary }).list.id);
+    } catch {
+      toast.error(t('lists.createFailed'));
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  async function deleteSelectedList() {
+    const res = await authFetch(`/api/lists/${listId}`, { method: 'DELETE' }).catch(() => null);
+    if (!res?.ok) {
+      toast.error(t('lists.deleteFailed'));
+      return;
+    }
+    toast.success(t('lists.deleted'));
+    selectList('');
+    loadLists();
+  }
+
+  async function changeSelectedMembers(targetListId: string, mode: 'add' | 'remove') {
+    const ids = [...selected];
+    setListBusy(true);
+    try {
+      await changeListMembers(targetListId, { [mode]: ids });
+      const name = lists.find((l) => l.id === targetListId)?.name ?? '';
+      toast.success(mode === 'add' ? t('lists.added', { count: ids.length, name }) : t('lists.removed', { count: ids.length }));
+      setSelected(new Set());
+      loadLists();
+      if (targetListId === listId) fetchContacts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('lists.changeFailed'));
+    } finally {
+      setListBusy(false);
+    }
   }
 
   async function openSegmentBuilder(segment: SegmentSummary | null) {
@@ -276,7 +356,7 @@ export default function ContactsPage() {
   async function exportCsv() {
     setExporting(true);
     try {
-      const res = await authFetch(`/api/contacts/export${segmentId ? `?segmentId=${segmentId}` : ''}`);
+      const res = await authFetch(`/api/contacts/export${segmentId ? `?segmentId=${segmentId}` : listId ? `?listId=${listId}` : ''}`);
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         toast.error(payload.error || t('segments.exportFailed'));
@@ -407,7 +487,8 @@ export default function ContactsPage() {
   const allTags = Object.values(tagsMap).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || segmentId !== '';
+  const tagGroups = groupTagsByCategory(allTags);
+  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || segmentId !== '' || listId !== '';
   const selectedSegment = segments.find((s) => s.id === segmentId) ?? null;
 
   function toggleTagFilter(tagId: string) {
@@ -443,7 +524,7 @@ export default function ContactsPage() {
               className="border-border text-muted-foreground hover:bg-muted"
             >
               {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-              {segmentId ? t('segments.exportSegment') : t('segments.exportAll')}
+              {segmentId ? t('segments.exportSegment') : listId ? t('lists.exportList') : t('segments.exportAll')}
             </Button>
           )}
           {canEditSettings && (
@@ -538,9 +619,41 @@ export default function ContactsPage() {
             </>
           )}
 
+          <select
+            aria-label={t('lists.selectLabel')}
+            value={listId}
+            onChange={(e) => selectList(e.target.value)}
+            className="h-9 shrink-0 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+          >
+            <option value="">{t('lists.none')}</option>
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>{l.name} ({l.member_count})</option>
+            ))}
+          </select>
+          {canEdit && (
+            <Button
+              variant="outline"
+              onClick={() => setNewListOpen(true)}
+              className="border-border text-muted-foreground hover:bg-muted shrink-0"
+            >
+              <List className="size-4" />
+              {t('lists.newList')}
+            </Button>
+          )}
+          {canEdit && listId && (
+            <Button
+              variant="outline"
+              onClick={deleteSelectedList}
+              aria-label={t('lists.deleteList')}
+              className="border-border text-muted-foreground hover:bg-muted shrink-0"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          )}
+
           <Popover>
             <PopoverTrigger
-              disabled={segmentId !== ''}
+              disabled={segmentId !== '' || listId !== ''}
               render={
                 <Button
                   variant="outline"
@@ -576,24 +689,34 @@ export default function ContactsPage() {
                 </p>
               ) : (
                 <div className="max-h-64 overflow-y-auto py-1">
-                  {allTags.map((tag) => (
-                    <label
-                      key={tag.id}
-                      className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50"
-                    >
-                      <Checkbox
-                        checked={selectedTagIds.includes(tag.id)}
-                        onCheckedChange={() => toggleTagFilter(tag.id)}
-                        aria-label={t('filterByTag', { name: tag.name })}
-                      />
-                      <span
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      <span className="text-sm text-popover-foreground truncate">
-                        {tag.name}
-                      </span>
-                    </label>
+                  {tagGroups.map((group) => (
+                    <div key={group.category ?? ''}>
+                      {/* Headings only once categories are in use. */}
+                      {tagGroups.length > 1 && (
+                        <p className="px-3 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {group.category ?? t('otherTags')}
+                        </p>
+                      )}
+                      {group.tags.map((tag) => (
+                        <label
+                          key={tag.id}
+                          className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50"
+                        >
+                          <Checkbox
+                            checked={selectedTagIds.includes(tag.id)}
+                            onCheckedChange={() => toggleTagFilter(tag.id)}
+                            aria-label={t('filterByTag', { name: tag.name })}
+                          />
+                          <span
+                            className="size-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="text-sm text-popover-foreground truncate">
+                            {tag.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}
@@ -652,6 +775,27 @@ export default function ContactsPage() {
             >
               {t('clearSelection')}
             </Button>
+            {canEdit && listId && (
+              <Button variant="outline" size="sm" disabled={listBusy} onClick={() => changeSelectedMembers(listId, 'remove')}>
+                <X className="size-4" />
+                {t('lists.removeFromList')}
+              </Button>
+            )}
+            {canEdit && lists.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={listBusy} />}>
+                  <List className="size-4" />
+                  {t('lists.addToList')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover border-border">
+                  {lists.map((l) => (
+                    <DropdownMenuItem key={l.id} onClick={() => changeSelectedMembers(l.id, 'add')}>
+                      {l.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <GatedButton
               variant="destructive"
               size="sm"
@@ -904,6 +1048,7 @@ export default function ContactsPage() {
         onOpenChange={setBuilderOpen}
         segment={editingSegment}
         tags={allTags}
+        lists={lists}
         customFields={customFields}
         onSaved={(saved) => {
           loadSegments();
@@ -919,6 +1064,38 @@ export default function ContactsPage() {
           onOpenChange={setCustomFieldsOpen}
         />
       )}
+
+      {/* New static list */}
+      <Dialog open={newListOpen} onOpenChange={setNewListOpen}>
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">{t('lists.newTitle')}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">{t('lists.newDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="list-name" className="text-muted-foreground">{t('lists.nameLabel')}</Label>
+            <Input
+              id="list-name"
+              value={newListName}
+              maxLength={100}
+              placeholder={t('lists.namePlaceholder')}
+              onChange={(e) => setNewListName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newListName.trim()) createList();
+              }}
+            />
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button variant="outline" onClick={() => setNewListOpen(false)} className="border-border text-muted-foreground hover:bg-muted">
+              {t('cancel')}
+            </Button>
+            <Button onClick={createList} disabled={listBusy || !newListName.trim()}>
+              {listBusy && <Loader2 className="size-4 animate-spin" />}
+              {t('lists.create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

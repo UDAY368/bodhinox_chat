@@ -53,6 +53,7 @@ model tags {
   user_id String @db.Uuid
   name String
   color String  @default("#3b82f6")
+  category String?
   created_at DateTime? @db.Timestamptz(6) @default(now())
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   @@unique([account_id, id])
@@ -722,6 +723,38 @@ model segments {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, name])
   @@unique([account_id, id])
+}
+
+model contact_lists {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  user_id String @db.Uuid
+  name String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, name])
+  @@unique([account_id, id])
+}
+
+model contact_list_members {
+  account_id String @db.Uuid
+  list_id String @db.Uuid
+  contact_id String @db.Uuid
+  added_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([list_id, contact_id])
+  @@index([account_id, contact_id])
+}
+
+model workspace_attributes {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid
+  key String
+  value String?
+  value_encrypted String?
+  is_secret Boolean @default(false)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, key])
 }
 
 model assignment_cursors {

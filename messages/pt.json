@@ -559,6 +559,29 @@
         "exportAll": "Exportar CSV",
         "exportSegment": "Exportar segmento",
         "exportFailed": "Não foi possível exportar os contatos"
+      },
+      "otherTags": "Outras",
+      "lists": {
+        "selectLabel": "Lista",
+        "none": "Sem lista",
+        "newList": "Nova lista",
+        "deleteList": "Excluir lista",
+        "deleted": "Lista excluída",
+        "deleteFailed": "Não foi possível excluir a lista",
+        "loadFailed": "Não foi possível carregar as listas",
+        "created": "Lista criada",
+        "createFailed": "Não foi possível criar a lista",
+        "newTitle": "Nova lista",
+        "newDesc": "Uma lista fixa de contatos que você escolhe. Selecione contatos nas caixas e use Adicionar à lista.",
+        "nameLabel": "Nome",
+        "namePlaceholder": "ex.: Participantes do evento",
+        "create": "Criar lista",
+        "addToList": "Adicionar à lista",
+        "added": "{count} adicionados a {name}",
+        "removeFromList": "Remover da lista",
+        "removed": "{count} removidos da lista",
+        "changeFailed": "Não foi possível atualizar a lista",
+        "exportList": "Exportar lista"
       }
     },
     "form": {
@@ -772,7 +795,8 @@
         "company": "Empresa",
         "created_at": "Criado",
         "opted_out": "Descadastrado do marketing",
-        "blocked": "Bloqueado"
+        "blocked": "Bloqueado",
+        "list": "Lista"
       },
       "ops": {
         "has_any": "tem alguma de",
@@ -783,8 +807,11 @@
         "is_empty": "está vazio",
         "is_not_empty": "não está vazio",
         "before": "antes de",
-        "after": "depois de"
-      }
+        "after": "depois de",
+        "in_any": "está em alguma de",
+        "in_none": "não está em nenhuma de"
+      },
+      "noLists": "Ainda não há listas"
     }
   },
   "Pipelines": {
@@ -1026,7 +1053,8 @@
           "tags": "Filtrar por tags",
           "customField": "Campo personalizado",
           "csv": "Enviar CSV",
-          "segment": "Segmento salvo"
+          "segment": "Segmento salvo",
+          "list": "Lista estática"
         },
         "allDesc": "Enviar para todos os {count} contatos do seu banco de dados.",
         "allDescLoading": "Enviar para todos os contatos do seu banco de dados.",
@@ -1062,7 +1090,11 @@
         "selectSegment": "Escolha um segmento",
         "selectSegmentPlaceholder": "Selecione um segmento",
         "noSegments": "Ainda não há segmentos. Crie um em Contatos.",
-        "segmentConsentNote": "Contatos descadastrados ou bloqueados nunca recebem. A contagem mostra quem vai receber."
+        "segmentConsentNote": "Contatos descadastrados ou bloqueados nunca recebem. A contagem mostra quem vai receber.",
+        "listDesc": "Envie para uma lista escolhida em Contatos",
+        "selectList": "Escolha uma lista",
+        "selectListPlaceholder": "Selecione uma lista",
+        "noLists": "Ainda não há listas. Crie uma na página Contatos."
       },
       "personalize": {
         "title": "Personalizar variáveis",
@@ -1124,7 +1156,8 @@
         "language": "Idioma",
         "confirmTitle": "Confirmar disparo",
         "confirmDesc": "Você está prestes a enviar este disparo para <b>{count, number}</b> {count, plural, =1 {contato} other {contatos}} usando o modelo <b>{template}</b>. Esta ação não pode ser desfeita.",
-        "audienceSegment": "Segmento salvo"
+        "audienceSegment": "Segmento salvo",
+        "audienceList": "Lista estática"
       }
     },
     "sending": {
@@ -1793,7 +1826,16 @@
         "blue": "Azul",
         "violet": "Violeta",
         "pink": "Rosa"
-      }
+      },
+      "categoryLabel": "Categoria",
+      "categoryPlaceholder": "Categoria (opcional)",
+      "uncategorized": "Outras",
+      "editTag": "Editar tag",
+      "editTagDesc": "Agrupe \"{name}\" com tags relacionadas em uma categoria.",
+      "editAria": "Editar {name}",
+      "save": "Salvar",
+      "tagUpdated": "Tag atualizada",
+      "failedToUpdateTag": "Não foi possível atualizar a tag"
     },
     "templates": {
       "title": "Modelos de mensagem",
@@ -2328,6 +2370,24 @@
       "copySuccess": "Segredo copiado",
       "copyFailed": "Não foi possível copiar",
       "done": "Concluído"
+    },
+    "workspaceAttributes": {
+      "title": "Atributos do espaço de trabalho",
+      "description": "Valores compartilhados no espaço de trabalho. Escreva {example} em mensagens de fluxos e automações.",
+      "keyLabel": "Chave",
+      "keyPlaceholder": "support_email",
+      "valueLabel": "Valor",
+      "secretLabel": "Secreto",
+      "secretHint": "Valores secretos são armazenados criptografados, nunca mais exibidos e usados apenas em etapas de webhook de automações, nunca em mensagens a clientes. Salvar uma chave existente a substitui.",
+      "save": "Salvar",
+      "empty": "Ainda não há atributos.",
+      "hidden": "Oculto",
+      "deleteAria": "Excluir {key}",
+      "saved": "Atributo salvo",
+      "deleted": "Atributo excluído",
+      "loadFailed": "Não foi possível carregar os atributos",
+      "saveFailed": "Não foi possível salvar o atributo",
+      "deleteFailed": "Não foi possível excluir o atributo"
     }
   },
   "SignupPage": {

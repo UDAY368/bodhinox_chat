@@ -30,8 +30,9 @@ export default function NewBroadcastPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [template, setTemplate] = useState<MessageTemplate | null>(null);
   const [audience, setAudience] = useState<{
-    type: 'all' | 'tags' | 'custom_field' | 'csv' | 'segment';
+    type: 'all' | 'tags' | 'custom_field' | 'csv' | 'segment' | 'list';
     segmentId?: string;
+    listId?: string;
     tagIds?: string[];
     customField?: {
       fieldId: string;
@@ -61,6 +62,7 @@ export default function NewBroadcastPage() {
           csvContacts: audience.csvContacts,
           excludeTagIds: audience.excludeTagIds,
           segmentId: audience.segmentId,
+          listId: audience.listId,
         },
         variables,
         headerMediaUrl,
@@ -114,6 +116,7 @@ export default function NewBroadcastPage() {
         type: audience.type,
         tagIds: audience.tagIds,
         segmentId: audience.segmentId,
+        listId: audience.listId,
       },
       status: 'draft',
     });

@@ -104,7 +104,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('segments, export and segmen
 
   it('exports a segment as formula-safe CSV and audit-logs the export', async () => {
     const segment = await createSegment(a, { name: 'Export', filter: { conditions: [{ field: 'tags', op: 'has_any', tagIds: [vip] }] } });
-    const { csv, rows } = await exportContactsCsv({ ...a, role: 'admin' }, segment.id);
+    const { csv, rows } = await exportContactsCsv({ ...a, role: 'admin' }, { segmentId: segment.id });
     expect(rows).toBe(3);
     expect(csv.startsWith('﻿"Name","Phone","Email","Company","Tags"')).toBe(true);
     expect(csv).toContain('"Tier"');

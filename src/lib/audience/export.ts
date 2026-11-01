@@ -1,12 +1,13 @@
 // ============================================================
-// Contact CSV export — all contacts or one segment, with tags,
+// Contact CSV export — all contacts, one segment or one list, with tags,
 // custom fields and consent. Every export is audit-logged (row count
 // only, never contents).
 // ============================================================
 
 import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
-import { AudienceFilterError, compileAudienceFilter } from './filter';
+import { AudienceFilterError, assertFilterReferences, compileAudienceFilter, type AudienceFilter } from './filter';
+import { listFilter } from './lists';
 import { loadSegmentFilter } from './segments';
 
 // shortcut: built in memory; switch to a streamed or emailed export if workspaces outgrow this cap.
@@ -25,11 +26,15 @@ type Row = {
   tags: string; custom: Record<string, string | null>;
 };
 
-export async function exportContactsCsv(ctx: TenantContext, segmentId: string | null): Promise<{ csv: string; rows: number }> {
+export type ExportSource = { segmentId: string } | { listId: string } | null;
+
+export async function exportContactsCsv(ctx: TenantContext, source: ExportSource): Promise<{ csv: string; rows: number }> {
   return withTenant(ctx, async (tx) => {
-    const where = segmentId
-      ? compileAudienceFilter(ctx.accountId, await loadSegmentFilter(tx, ctx.accountId, segmentId))
-      : Prisma.sql`c.account_id=${ctx.accountId}::uuid`;
+    let filter: AudienceFilter | null = null;
+    if (source && 'segmentId' in source) filter = await loadSegmentFilter(tx, ctx.accountId, source.segmentId);
+    else if (source) await assertFilterReferences(tx, ctx.accountId, (filter = listFilter(source.listId)));
+    const where = filter ? compileAudienceFilter(ctx.accountId, filter) : Prisma.sql`c.account_id=${ctx.accountId}::uuid`;
+    const resourceId = source ? ('segmentId' in source ? source.segmentId : source.listId) : null;
     const [{ count }] = await tx.$queryRaw<{ count: number }[]>(Prisma.sql`SELECT count(*)::int AS count FROM contacts c WHERE ${where}`);
     if (count > MAX_EXPORT_ROWS)
       throw new AudienceFilterError(`Exports are limited to ${MAX_EXPORT_ROWS.toLocaleString('en')} contacts; export a narrower segment`);
@@ -45,7 +50,7 @@ export async function exportContactsCsv(ctx: TenantContext, segmentId: string | 
       FROM contacts c WHERE ${where} ORDER BY c.created_at, c.id`);
 
     await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
-      VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,'contacts.export',${segmentId},${JSON.stringify({ rows: rows.length })}::jsonb)`;
+      VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,'contacts.export',${resourceId},${JSON.stringify({ rows: rows.length })}::jsonb)`;
 
     const header = ['Name', 'Phone', 'Email', 'Company', 'Tags', 'Opted out at', 'Blocked at', 'Created at', ...fields.map((f) => f.field_name)];
     const lines = rows.map((r) =>

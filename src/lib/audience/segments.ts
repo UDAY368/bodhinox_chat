@@ -119,22 +119,27 @@ export async function previewAudience(
 const CONTACT_COLUMNS = Prisma.sql`c.id::text, c.user_id::text, c.account_id::text, c.phone, c.name, c.email, c.company,
   c.avatar_url, c.created_at, c.updated_at, c.wa_user_id, c.wa_username, c.opted_out_at, c.opt_out_source, c.blocked_at`;
 
-/** One page of a segment's contacts (newest first) with the total match count. */
-export async function segmentContacts(
-  ctx: TenantContext,
-  id: string,
-  page: { offset: number; limit: number; search?: string },
+export interface ContactPage { offset: number; limit: number; search?: string }
+
+/** One page (newest first) of the contacts matching a filter, with the total match count. */
+export async function pageContacts(
+  tx: TenantTransaction,
+  accountId: string,
+  filter: AudienceFilter,
+  page: ContactPage,
 ): Promise<{ contacts: Record<string, unknown>[]; total: number }> {
-  return withTenant(ctx, async (tx) => {
-    const filter = await loadSegmentFilter(tx, ctx.accountId, id);
-    const term = page.search?.trim();
-    const search = term
-      ? Prisma.sql`AND (c.name ILIKE ${`%${term}%`} OR c.phone ILIKE ${`%${term}%`} OR c.email ILIKE ${`%${term}%`})`
-      : Prisma.empty;
-    const rows = await tx.$queryRaw<(Record<string, unknown> & { total_count: number })[]>(Prisma.sql`
-      SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count
-      FROM contacts c WHERE ${compileAudienceFilter(ctx.accountId, filter)} ${search}
-      ORDER BY c.created_at DESC, c.id LIMIT ${page.limit} OFFSET ${page.offset}`);
-    return { contacts: rows, total: rows[0]?.total_count ?? 0 };
-  });
+  const term = page.search?.trim();
+  const search = term
+    ? Prisma.sql`AND (c.name ILIKE ${`%${term}%`} OR c.phone ILIKE ${`%${term}%`} OR c.email ILIKE ${`%${term}%`})`
+    : Prisma.empty;
+  const rows = await tx.$queryRaw<(Record<string, unknown> & { total_count: number })[]>(Prisma.sql`
+    SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count
+    FROM contacts c WHERE ${compileAudienceFilter(accountId, filter)} ${search}
+    ORDER BY c.created_at DESC, c.id LIMIT ${page.limit} OFFSET ${page.offset}`);
+  return { contacts: rows, total: rows[0]?.total_count ?? 0 };
+}
+
+/** One page of a segment's contacts. */
+export async function segmentContacts(ctx: TenantContext, id: string, page: ContactPage) {
+  return withTenant(ctx, async (tx) => pageContacts(tx, ctx.accountId, await loadSegmentFilter(tx, ctx.accountId, id), page));
 }

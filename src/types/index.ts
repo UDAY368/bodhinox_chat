@@ -136,6 +136,8 @@ export interface Tag {
   user_id: string;
   name: string;
   color: string;
+  /** Optional grouping label (Settings → Fields & tags). */
+  category?: string | null;
   created_at: string;
 }
 

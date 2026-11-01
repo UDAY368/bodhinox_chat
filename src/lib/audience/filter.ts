@@ -14,6 +14,7 @@ const text = z.string().trim().max(1024);
 
 const condition = z.discriminatedUnion('field', [
   z.object({ field: z.literal('tags'), op: z.enum(['has_any', 'has_none']), tagIds: z.array(uuid).min(1).max(50) }).strict(),
+  z.object({ field: z.literal('list'), op: z.enum(['in_any', 'in_none']), listIds: z.array(uuid).min(1).max(50) }).strict(),
   z.object({
     field: z.literal('custom_field'),
     fieldId: uuid,
@@ -49,6 +50,10 @@ function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
       const tagged = Prisma.sql`EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${ids(c.tagIds)}))`;
       return c.op === 'has_any' ? tagged : Prisma.sql`NOT ${tagged}`;
     }
+    case 'list': {
+      const member = Prisma.sql`EXISTS(SELECT 1 FROM contact_list_members m WHERE m.account_id=${accountId}::uuid AND m.contact_id=c.id AND m.list_id IN (${ids(c.listIds)}))`;
+      return c.op === 'in_any' ? member : Prisma.sql`NOT ${member}`;
+    }
     case 'custom_field': {
       const value = Prisma.sql`(SELECT v.value FROM contact_custom_values v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.custom_field_id=${c.fieldId}::uuid)`;
       if (c.op === 'is') return Prisma.sql`${value} = ${c.value}`;
@@ -83,10 +88,15 @@ export function compileAudienceFilter(accountId: string, filter: AudienceFilter)
   );
 }
 
-/** Tags and custom fields named by the filter must belong to the account. */
+/** Tags, lists and custom fields named by the filter must belong to the account. */
 export async function assertFilterReferences(tx: TenantTransaction, accountId: string, filter: AudienceFilter): Promise<void> {
   const tagIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'tags' ? c.tagIds : [])))];
+  const listIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'list' ? c.listIds : [])))];
   const fieldIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'custom_field' ? [c.fieldId] : [])))];
+  if (listIds.length) {
+    const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM contact_lists WHERE account_id=${accountId}::uuid AND id IN (${ids(listIds)})`);
+    if (found.length !== listIds.length) throw new AudienceFilterError('Some lists in this filter are unavailable in this workspace');
+  }
   if (tagIds.length) {
     const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM tags WHERE account_id=${accountId}::uuid AND id IN (${ids(tagIds)})`);
     if (found.length !== tagIds.length) throw new AudienceFilterError('Some tags in this filter are unavailable in this workspace');

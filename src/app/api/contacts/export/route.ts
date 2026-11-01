@@ -1,4 +1,4 @@
-// GET /api/contacts/export[?segmentId=] — download contacts as CSV.
+// GET /api/contacts/export[?segmentId=|?listId=] — download contacts as CSV.
 // Admin+ only (bulk personal data), rate limited and audit-logged.
 
 import { NextResponse } from 'next/server';
@@ -15,9 +15,12 @@ export async function GET(request: Request) {
     const ctx = await requireRole('admin');
     const limit = checkRateLimit(`admin:contactsExport:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
-    const segmentId = new URL(request.url).searchParams.get('segmentId');
-    if (segmentId && !UUID.test(segmentId)) return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
-    const { csv } = await exportContactsCsv(tenantOf(ctx), segmentId || null);
+    const query = new URL(request.url).searchParams;
+    const segmentId = query.get('segmentId');
+    const listId = query.get('listId');
+    if ((segmentId && !UUID.test(segmentId)) || (listId && !UUID.test(listId)))
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const { csv } = await exportContactsCsv(tenantOf(ctx), segmentId ? { segmentId } : listId ? { listId } : null);
     return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',

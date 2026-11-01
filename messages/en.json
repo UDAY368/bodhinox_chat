@@ -559,6 +559,29 @@
         "exportAll": "Export CSV",
         "exportSegment": "Export segment",
         "exportFailed": "Could not export contacts"
+      },
+      "otherTags": "Other",
+      "lists": {
+        "selectLabel": "List",
+        "none": "No list",
+        "newList": "New list",
+        "deleteList": "Delete list",
+        "deleted": "List deleted",
+        "deleteFailed": "Could not delete the list",
+        "loadFailed": "Could not load lists",
+        "created": "List created",
+        "createFailed": "Could not create the list",
+        "newTitle": "New list",
+        "newDesc": "A fixed list of contacts you pick. Select contacts with the checkboxes, then use Add to list.",
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g. Event attendees",
+        "create": "Create list",
+        "addToList": "Add to list",
+        "added": "{count} added to {name}",
+        "removeFromList": "Remove from list",
+        "removed": "{count} removed from the list",
+        "changeFailed": "Could not update the list",
+        "exportList": "Export list"
       }
     },
     "form": {
@@ -772,7 +795,8 @@
         "company": "Company",
         "created_at": "Created",
         "opted_out": "Opted out of marketing",
-        "blocked": "Blocked"
+        "blocked": "Blocked",
+        "list": "List"
       },
       "ops": {
         "has_any": "has any of",
@@ -783,8 +807,11 @@
         "is_empty": "is empty",
         "is_not_empty": "is not empty",
         "before": "before",
-        "after": "after"
-      }
+        "after": "after",
+        "in_any": "is in any of",
+        "in_none": "is in none of"
+      },
+      "noLists": "No lists yet"
     }
   },
   "Pipelines": {
@@ -1026,7 +1053,8 @@
           "tags": "Filter by Tags",
           "customField": "Custom Field",
           "csv": "Upload CSV",
-          "segment": "Saved segment"
+          "segment": "Saved segment",
+          "list": "Static list"
         },
         "allDesc": "Send to all {count} contacts in your database.",
         "allDescLoading": "Send to all contacts in your database.",
@@ -1062,7 +1090,11 @@
         "selectSegment": "Choose a segment",
         "selectSegmentPlaceholder": "Select a segment",
         "noSegments": "No segments yet. Create one on the Contacts page.",
-        "segmentConsentNote": "Opted-out and blocked contacts are never sent to. The count shows who will receive it."
+        "segmentConsentNote": "Opted-out and blocked contacts are never sent to. The count shows who will receive it.",
+        "listDesc": "Send to a hand-picked list from Contacts",
+        "selectList": "Choose a list",
+        "selectListPlaceholder": "Select a list",
+        "noLists": "No lists yet. Create one on the Contacts page."
       },
       "personalize": {
         "title": "Personalize Variables",
@@ -1124,7 +1156,8 @@
         "language": "Language",
         "confirmTitle": "Confirm Broadcast",
         "confirmDesc": "You are about to send this broadcast to <b>{count, number}</b> {count, plural, =1 {contact} other {contacts}} using the <b>{template}</b> template. This action cannot be undone.",
-        "audienceSegment": "Saved segment"
+        "audienceSegment": "Saved segment",
+        "audienceList": "Static list"
       }
     },
     "sending": {
@@ -1793,7 +1826,16 @@
         "blue": "Blue",
         "violet": "Violet",
         "pink": "Pink"
-      }
+      },
+      "categoryLabel": "Category",
+      "categoryPlaceholder": "Category (optional)",
+      "uncategorized": "Other",
+      "editTag": "Edit tag",
+      "editTagDesc": "Group \"{name}\" with related tags under a category.",
+      "editAria": "Edit {name}",
+      "save": "Save",
+      "tagUpdated": "Tag updated",
+      "failedToUpdateTag": "Could not update the tag"
     },
     "templates": {
       "title": "Message templates",
@@ -2328,6 +2370,24 @@
       "copySuccess": "Secret copied",
       "copyFailed": "Could not copy",
       "done": "Done"
+    },
+    "workspaceAttributes": {
+      "title": "Workspace attributes",
+      "description": "Values shared across the workspace. Write {example} in flow and automation messages.",
+      "keyLabel": "Key",
+      "keyPlaceholder": "support_email",
+      "valueLabel": "Value",
+      "secretLabel": "Secret",
+      "secretHint": "Secret values are stored encrypted, never shown again, and only used in automation webhook steps — never in customer messages. Saving an existing key replaces it.",
+      "save": "Save",
+      "empty": "No attributes yet.",
+      "hidden": "Hidden",
+      "deleteAria": "Delete {key}",
+      "saved": "Attribute saved",
+      "deleted": "Attribute deleted",
+      "loadFailed": "Could not load attributes",
+      "saveFailed": "Could not save the attribute",
+      "deleteFailed": "Could not delete the attribute"
     }
   },
   "SignupPage": {

@@ -559,6 +559,29 @@
         "exportAll": "Exportar CSV",
         "exportSegment": "Exportar segmento",
         "exportFailed": "No se pudieron exportar los contactos"
+      },
+      "otherTags": "Otras",
+      "lists": {
+        "selectLabel": "Lista",
+        "none": "Sin lista",
+        "newList": "Nueva lista",
+        "deleteList": "Eliminar lista",
+        "deleted": "Lista eliminada",
+        "deleteFailed": "No se pudo eliminar la lista",
+        "loadFailed": "No se pudieron cargar las listas",
+        "created": "Lista creada",
+        "createFailed": "No se pudo crear la lista",
+        "newTitle": "Nueva lista",
+        "newDesc": "Una lista fija de contactos que eliges. Selecciona contactos con las casillas y usa Añadir a lista.",
+        "nameLabel": "Nombre",
+        "namePlaceholder": "p. ej. Asistentes al evento",
+        "create": "Crear lista",
+        "addToList": "Añadir a lista",
+        "added": "{count} añadidos a {name}",
+        "removeFromList": "Quitar de la lista",
+        "removed": "{count} quitados de la lista",
+        "changeFailed": "No se pudo actualizar la lista",
+        "exportList": "Exportar lista"
       }
     },
     "form": {
@@ -772,7 +795,8 @@
         "company": "Empresa",
         "created_at": "Creado",
         "opted_out": "Excluido del marketing",
-        "blocked": "Bloqueado"
+        "blocked": "Bloqueado",
+        "list": "Lista"
       },
       "ops": {
         "has_any": "tiene alguna de",
@@ -783,8 +807,11 @@
         "is_empty": "está vacío",
         "is_not_empty": "no está vacío",
         "before": "antes de",
-        "after": "después de"
-      }
+        "after": "después de",
+        "in_any": "está en alguna de",
+        "in_none": "no está en ninguna de"
+      },
+      "noLists": "Aún no hay listas"
     }
   },
   "Pipelines": {
@@ -1026,7 +1053,8 @@
           "tags": "Filtrar por etiquetas",
           "customField": "Campo personalizado",
           "csv": "Subir CSV",
-          "segment": "Segmento guardado"
+          "segment": "Segmento guardado",
+          "list": "Lista estática"
         },
         "allDesc": "Enviar a los {count} contactos de tu base de datos.",
         "allDescLoading": "Enviar a todos los contactos de tu base de datos.",
@@ -1062,7 +1090,11 @@
         "selectSegment": "Elige un segmento",
         "selectSegmentPlaceholder": "Selecciona un segmento",
         "noSegments": "Aún no hay segmentos. Crea uno en Contactos.",
-        "segmentConsentNote": "Nunca se envía a contactos excluidos o bloqueados. El recuento muestra quién lo recibirá."
+        "segmentConsentNote": "Nunca se envía a contactos excluidos o bloqueados. El recuento muestra quién lo recibirá.",
+        "listDesc": "Envía a una lista elegida en Contactos",
+        "selectList": "Elige una lista",
+        "selectListPlaceholder": "Selecciona una lista",
+        "noLists": "Aún no hay listas. Crea una en la página Contactos."
       },
       "personalize": {
         "title": "Personalizar variables",
@@ -1124,7 +1156,8 @@
         "language": "Idioma",
         "confirmTitle": "Confirmar difusión",
         "confirmDesc": "Estás a punto de enviar esta difusión a <b>{count, number}</b> {count, plural, =1 {contacto} other {contactos}} con la plantilla <b>{template}</b>. Esta acción no se puede deshacer.",
-        "audienceSegment": "Segmento guardado"
+        "audienceSegment": "Segmento guardado",
+        "audienceList": "Lista estática"
       }
     },
     "sending": {
@@ -1793,7 +1826,16 @@
         "blue": "Azul",
         "violet": "Violeta",
         "pink": "Rosa"
-      }
+      },
+      "categoryLabel": "Categoría",
+      "categoryPlaceholder": "Categoría (opcional)",
+      "uncategorized": "Otras",
+      "editTag": "Editar etiqueta",
+      "editTagDesc": "Agrupa \"{name}\" con etiquetas relacionadas bajo una categoría.",
+      "editAria": "Editar {name}",
+      "save": "Guardar",
+      "tagUpdated": "Etiqueta actualizada",
+      "failedToUpdateTag": "No se pudo actualizar la etiqueta"
     },
     "templates": {
       "title": "Plantillas de mensaje",
@@ -2328,6 +2370,24 @@
       "copySuccess": "Secreto copiado",
       "copyFailed": "No se pudo copiar",
       "done": "Listo"
+    },
+    "workspaceAttributes": {
+      "title": "Atributos del espacio de trabajo",
+      "description": "Valores compartidos en el espacio de trabajo. Escribe {example} en mensajes de flujos y automatizaciones.",
+      "keyLabel": "Clave",
+      "keyPlaceholder": "support_email",
+      "valueLabel": "Valor",
+      "secretLabel": "Secreto",
+      "secretHint": "Los valores secretos se guardan cifrados, no se vuelven a mostrar y solo se usan en pasos de webhook de automatizaciones, nunca en mensajes a clientes. Guardar una clave existente la reemplaza.",
+      "save": "Guardar",
+      "empty": "Aún no hay atributos.",
+      "hidden": "Oculto",
+      "deleteAria": "Eliminar {key}",
+      "saved": "Atributo guardado",
+      "deleted": "Atributo eliminado",
+      "loadFailed": "No se pudieron cargar los atributos",
+      "saveFailed": "No se pudo guardar el atributo",
+      "deleteFailed": "No se pudo eliminar el atributo"
     }
   },
   "SignupPage": {

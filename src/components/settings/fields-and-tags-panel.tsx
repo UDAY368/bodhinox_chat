@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { CustomFieldsSettings } from './custom-fields-settings';
 import { SettingsPanelHead } from './settings-panel-head';
 import { TagManager } from './tag-manager';
+import { WorkspaceAttributesSettings } from './workspace-attributes-settings';
 
 /**
  * "Fields & tags" section — merges the former Tags and Custom Fields
@@ -27,6 +28,7 @@ export function FieldsAndTagsPanel() {
       />
       <TagManager />
       {canEditSettings ? <CustomFieldsSettings /> : null}
+      {canEditSettings ? <WorkspaceAttributesSettings /> : null}
     </section>
   );
 }
