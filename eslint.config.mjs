@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Vendored minified opus-recorder encoder worker (served statically).
     "public/opus/**",
+    // Third-party research captures and one-off extraction scripts, not app code.
+    "docs/research/**",
   ]),
 ]);
 
