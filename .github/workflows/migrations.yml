@@ -1,15 +1,19 @@
 name: Apply production Prisma migrations
+# Runs automatically from "Bodhinox validation" after every green push to
+# main (so Railway, which waits for CI, never deploys ahead of its schema),
+# and can still be dispatched by hand.
 on:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
-concurrency:
-  group: production-database-migration
-  cancel-in-progress: false
 jobs:
   migrate:
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      group: production-database-migration
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
