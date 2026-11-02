@@ -24,7 +24,25 @@
     "noAccount": "Don't have an account?",
     "createAccount": "Create account",
     "linkExpired": "That link has expired. For a password reset, use “Forgot password?” to request a new one; if you were confirming your email, sign up again.",
-    "linkInvalid": "That link couldn’t be used to sign you in. If you were confirming your email, it may already be verified — just sign in below. For a password reset, request a new link and open it in the same browser you requested it from."
+    "linkInvalid": "That link couldn’t be used to sign you in. If you were confirming your email, it may already be verified — just sign in below. For a password reset, request a new link and open it in the same browser you requested it from.",
+    "google": {
+      "continue": "Continue with Google",
+      "or": "or",
+      "mfaPrompt": "Google confirmed your identity. Enter the code from your authenticator app or a recovery code to finish signing in.",
+      "mfaLabel": "Authenticator or recovery code",
+      "mfaSubmit": "Verify and sign in",
+      "verifying": "Verifying...",
+      "mfaExpired": "This sign-in step expired. Continue with Google again.",
+      "failed": "Sign-in failed. Try again.",
+      "errors": {
+        "google_unavailable": "Google sign-in is unavailable right now. Try again later or sign in with your password.",
+        "google_cancelled": "Google sign-in was cancelled.",
+        "google_failed": "We couldn’t sign you in with Google. Try again.",
+        "google_link_required": "An account with this email already exists. Sign in with your password, then link Google in Settings → Login & security.",
+        "google_no_workspace": "Your account isn’t a member of any workspace.",
+        "google_rate_limited": "Too many attempts. Try again later."
+      }
+    }
   },
   "Sidebar": {
     "title": "BODHINOX",
@@ -303,7 +321,8 @@
       "chats": "Chats",
       "lifecycle": "Lifecycle",
       "slaDueIn": "Reply in {value}{unit, select, m {m} h {h} other {d}}",
-      "slaOverdue": "Overdue {value}{unit, select, m {m} h {h} other {d}}"
+      "slaOverdue": "Overdue {value}{unit, select, m {m} h {h} other {d}}",
+      "filterMyTeam": "My team"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -2818,7 +2837,42 @@
     },
     "security": {
       "title": "Login & security",
-      "description": "Change your password and sign out of your devices. These keep your account safe."
+      "description": "Change your password and sign out of your devices. These keep your account safe.",
+      "google": {
+        "title": "Google sign-in",
+        "description": "Link a Google account to sign in without typing your password. Two-step verification still applies.",
+        "linkedAs": "Linked to {email}.",
+        "passwordLabel": "Current password",
+        "unlinkHint": "After unlinking, sign in with your email and password.",
+        "link": "Link Google account",
+        "unlink": "Unlink Google",
+        "unlinked": "Google is no longer linked.",
+        "failed": "That didn’t work. Try again.",
+        "outcomes": {
+          "linked": "Google account linked. You can now sign in with Google.",
+          "google_in_use": "That Google account is already linked to another user.",
+          "google_already_linked": "A different Google account is already linked. Unlink it first.",
+          "google_failed": "Google linking failed. Try again.",
+          "google_cancelled": "Google linking was cancelled.",
+          "google_unavailable": "Google is unavailable right now. Try again later."
+        },
+        "noPassword": "Your account was created with Google and has no password yet. Set a password before you can unlink Google or turn off two-step verification.",
+        "setPassword": "Email me a link to set a password",
+        "setPasswordSent": "Check your inbox for a link to set your password."
+      },
+      "devices": {
+        "title": "Where you’re signed in",
+        "description": "Devices and browsers with an active session. Sign out of any you don’t recognise.",
+        "loading": "Loading sessions...",
+        "loadFailed": "Couldn’t load your sessions.",
+        "revokeFailed": "Couldn’t sign out that session. Try again.",
+        "unknownBrowser": "Unknown browser",
+        "unknownOs": "Unknown device",
+        "thisDevice": "This device",
+        "activity": "Active {lastUsed} · Signed in {signedIn}",
+        "signOut": "Sign out",
+        "signOutOthers": "{count, plural, one {Sign out of # other session} other {Sign out of # other sessions}}"
+      }
     },
     "browserNotifications": {
       "title": "Browser notifications",
@@ -3076,10 +3130,20 @@
         "lists": "Lists",
         "campaign_recipients": "Recipients per campaign",
         "active_flows": "Active flows",
-        "active_automations": "Active automations"
+        "active_automations": "Active automations",
+        "ai_messages": "AI replies this month",
+        "monthly_active_contacts": "Active contacts this month",
+        "storage_bytes": "Media storage (bytes)",
+        "whatsapp_numbers": "WhatsApp numbers"
       },
       "loadFailed": "Could not load your plan",
-      "retry": "Retry"
+      "retry": "Retry",
+      "meters": {
+        "storage": "Media storage",
+        "monthly": "(this month)",
+        "reached": "Limit reached. Upgrade or buy an add-on for more."
+      },
+      "upgradeHintBilling": "Choose or change your plan under Billing below."
     },
     "iceBreakers": {
       "title": "Ice breakers",
@@ -3372,7 +3436,133 @@
       "reassignHint": "If nobody has replied by then, the conversation goes to the next member on the list. Leave empty to keep it where it is.",
       "off": "Off",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "modeTeam": "A team (round robin)",
+      "team": "Team",
+      "teamSummary": "Team: {team}",
+      "unknownTeam": "deleted team"
+    },
+    "teams": {
+      "title": "Teams",
+      "description": "Group members into teams. Routing rules can send conversations to a team, and members can filter the inbox to their team’s chats.",
+      "loadFailed": "Could not load the teams. Reload the page to try again.",
+      "empty": "No teams yet.",
+      "noMembers": "No members",
+      "unknownMember": "Former member",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}",
+      "add": "Add team",
+      "deleteConfirm": "Delete the team “{name}”? Routing rules that send conversations to it will stop matching until you edit them.",
+      "deleteFailed": "Could not delete the team.",
+      "deleted": "Team deleted",
+      "addTitle": "New team",
+      "editTitle": "Edit team",
+      "dialogDescription": "Give the team a name and choose its members.",
+      "name": "Name",
+      "members": "Members",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saved": "Team saved",
+      "saveFailed": "Could not save the team."
+    },
+    "permissions": {
+      "title": "Feature permissions",
+      "description": "Turn features off for a role. You can only take away what a role already has; a role never gets more than its default.",
+      "loadFailed": "Could not load the permissions. Reload the page to try again.",
+      "feature": "Feature",
+      "saved": "Permissions updated",
+      "saveFailed": "Could not update the permission.",
+      "toggle": "{feature} for {role}",
+      "notAvailable": "—",
+      "aboveRole": "Not available to this role",
+      "footnote": "Owners always have every feature. Only an owner can change the Admin column.",
+      "features": {
+        "campaigns_send": "Send and schedule campaigns",
+        "contacts_export": "Export contacts",
+        "flows_publish": "Publish flows",
+        "templates_submit": "Submit templates to WhatsApp",
+        "settings_billing": "Manage plan and billing"
+      }
+    },
+    "auditLog": {
+      "title": "Audit log",
+      "description": "Who did what in this workspace, newest first. Entries show identifiers and counts, never message content.",
+      "linkDescription": "Review member, team, permission and export activity.",
+      "back": "Back to settings",
+      "adminsOnly": "Only admins and owners can view the audit log.",
+      "member": "Member",
+      "anyMember": "Any member",
+      "action": "Action",
+      "anyAction": "Any action",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "reset": "Reset",
+      "loadFailed": "Could not load the audit log.",
+      "empty": "No entries match these filters.",
+      "when": "When",
+      "details": "Details",
+      "formerMember": "Former member",
+      "system": "System",
+      "loadMore": "Load more"
+    },
+    "addOns": {
+      "title": "Add-ons",
+      "description": "Add more AI messages, team seats or WhatsApp numbers on top of your plan. Charged on your next invoice, plus GST.",
+      "notConfigured": "Add-ons are not available yet.",
+      "loadFailed": "Could not load add-ons",
+      "retry": "Retry",
+      "kinds": {
+        "ai_messages": "{count, plural, one {# AI message} other {# AI messages}}",
+        "extra_seats": "{count, plural, one {# team seat} other {# team seats}}",
+        "extra_numbers": "{count, plural, one {# WhatsApp number} other {# WhatsApp numbers}}"
+      },
+      "perPack": "{price} per pack + GST",
+      "packs": "Packs",
+      "buy": "Buy for {price}",
+      "coverage": "AI messages last until the end of this month (India time); seats and numbers until the end of your billing period. Add-ons do not renew on their own.",
+      "empty": "No add-ons yet.",
+      "status": {
+        "pending": "Confirming",
+        "active": "Active",
+        "cancelled": "Stopped",
+        "failed": "Declined"
+      },
+      "until": "Until {date}",
+      "cancel": "Stop",
+      "cancelConfirm": "Stop this add-on now? The charge already added to your next invoice is not refunded.",
+      "cancelled": "Add-on stopped",
+      "cancelFailed": "Could not stop the add-on",
+      "purchased": "Add-on active",
+      "purchasePending": "Purchase sent. It becomes active once the payment provider confirms it.",
+      "purchaseFailed": "Could not buy the add-on",
+      "pendingHint": "The payment provider has not confirmed this purchase yet. It is not active until it is confirmed; contact support if this lasts more than a day."
+    },
+    "planDowngrade": {
+      "title": "Choose what stays active",
+      "description": "Review what fits within your plan.",
+      "effective": "The {plan} plan starts on {date}. Choose before then, or the most recently used items stay active.",
+      "inEffect": "Your workspace is on the {plan} plan.",
+      "loadFailed": "Could not load your plan limits",
+      "retry": "Retry",
+      "nothingDeleted": "Nothing is deleted. Items you do not keep are archived: archived flows and automations do not run, and archived segments and lists cannot start new campaigns. They are restored when your plan allows them again.",
+      "withinLimits": "Everything fits within the {plan} plan.",
+      "kinds": {
+        "segments": "Saved segments",
+        "lists": "Lists",
+        "flows": "Active flows",
+        "automations": "Active automations"
+      },
+      "pick": "keep up to {limit, number}, {count, number} chosen",
+      "lastUsed": "Last used {date}",
+      "neverUsed": "Not used yet",
+      "archivedTitle": "Archived because of your plan",
+      "archivedHint": "These come back automatically when your plan allows them again.",
+      "cancel": "Cancel",
+      "save": "Save choice",
+      "saved": "Saved. Items that do not fit were archived.",
+      "savedPending": "Saved. It applies when the new plan starts.",
+      "saveFailed": "Could not save your choice"
     }
   },
   "SignupPage": {
@@ -3482,7 +3672,8 @@
       "campaign_finished": "Campaign",
       "template_rejected": "Template rejected",
       "whatsapp_number_health": "WhatsApp number",
-      "payment_received": "Payment received"
+      "payment_received": "Payment received",
+      "billing": "Billing"
     }
   },
   "Agents": {
@@ -4600,7 +4791,8 @@
       "unknown_member": "Conversations can only go to owners, admins and agents of this workspace.",
       "unknown_number": "That WhatsApp number is not part of this workspace.",
       "limit": "A workspace can have at most 50 routing rules.",
-      "not_found": "That rule no longer exists."
+      "not_found": "That rule no longer exists.",
+      "unknown_team": "That team no longer exists."
     },
     "notes": {
       "invalidRequest": "Send the note as a JSON object.",
@@ -4608,6 +4800,57 @@
       "forbidden": "You can only change your own notes.",
       "invalid_body": "Write a note of 1 to 4000 characters.",
       "invalid_mentions": "Mention up to 20 teammates."
+    },
+    "billing": {
+      "invalidPrice": "Enter a plan, a month or year interval, an amount in paise above zero and a Razorpay plan id (plan_…).",
+      "noEnvPrices": "BILLING_PLAN_PRICES is not set, so there are no prices to load.",
+      "unknownPlan": "That plan does not exist.",
+      "suspended": "This workspace is suspended because a payment is overdue. An admin can pay in Settings → Plan & usage to resume sending.",
+      "invalid_request": "That request is not valid.",
+      "not_configured": "Online billing is not set up yet.",
+      "plan_unavailable": "That plan is not available for purchase.",
+      "profile_required": "Add your billing details first.",
+      "already_subscribed": "This workspace already has a subscription. Change its plan instead.",
+      "no_subscription": "There is no active subscription to change.",
+      "payment_issue": "Pay the overdue amount before changing the plan.",
+      "change_pending": "A previous change is still being confirmed with the payment provider. Try again in a few minutes.",
+      "same_plan": "You are already on this plan.",
+      "cancel_pending": "The subscription is set to end. It cannot be changed now.",
+      "provider_rejected": "The payment provider declined this request. Nothing was changed.",
+      "provider_unavailable": "The payment provider could not be reached. Try again shortly.",
+      "nothing_to_resume": "There is no payment due.",
+      "resume_unsupported": "A cancelled subscription cannot be resumed. Subscribe again when the current period ends.",
+      "invalid_profile": "Fill in the legal name, address, city, postal code and a valid email.",
+      "invalid_gstin": "That GSTIN is not valid.",
+      "gstin_state_mismatch": "The state code must match the first two digits of the GSTIN.",
+      "state_required": "Enter a valid two-digit GST state code (for example 29 for Karnataka).",
+      "gstin_outside_india": "A GSTIN can only be used with an address in India.",
+      "addOns": {
+        "unknown_pack": "That add-on is not available.",
+        "invalid_packs": "Choose between 1 and 100 packs.",
+        "needs_subscription": "Add-ons need an active paid subscription. Choose a plan first.",
+        "not_cancellable": "Only an active add-on can be stopped.",
+        "notConfigured": "Billing is not set up yet, so add-ons cannot be bought.",
+        "rejected": "The payment provider declined this purchase. Nothing was charged.",
+        "limit_unlimited": "This pack raises a limit your plan does not cap, so there is nothing to buy."
+      },
+      "downgrade": {
+        "invalid_selection": "Choose only items that are in use now.",
+        "stale_plan": "Your plan change is different now. Review the list again.",
+        "too_many": "You chose more items than the plan allows."
+      }
+    },
+    "teams": {
+      "invalid_name": "Give the team a name of up to 80 characters.",
+      "invalid_members": "Check the team’s member list.",
+      "unknown_member": "Teams can only include members of this workspace.",
+      "duplicate_name": "A team with that name already exists.",
+      "limit": "A workspace can have at most 50 teams.",
+      "not_found": "That team no longer exists."
+    },
+    "permissions": {
+      "invalid": "Choose a role and a feature to change.",
+      "ownerOnly": "Only an owner can change what admins can do."
     }
   },
   "Api": {
@@ -6236,5 +6479,164 @@
     "unknownContact": "Unknown contact",
     "loadMore": "Load more",
     "jumpNotFound": "That message is too far back in the history to show here."
+  },
+  "Billing": {
+    "title": "Billing",
+    "notConfigured": "Online billing is not available yet. To change your plan, contact Bodhinox support.",
+    "loadFailed": "Could not load billing",
+    "retry": "Retry",
+    "confirming": "Confirming your payment with the provider…",
+    "confirmCancel": "Cancel the subscription? It stays active until the end of the paid period, then the workspace moves to the Free plan. No data is deleted.",
+    "toasts": {
+      "activated": "Your plan is active.",
+      "confirmingLater": "Payment received. Your plan will update as soon as the provider confirms it.",
+      "profileFirst": "Add your billing details first.",
+      "failed": "Something went wrong. Nothing was changed.",
+      "scheduled": "Done. The change takes effect at the end of the current period.",
+      "pending": "The payment provider has not confirmed yet. We will check again shortly.",
+      "changed": "Your plan has changed.",
+      "cancelled": "The subscription is cancelled."
+    },
+    "checkout": {
+      "name": "Bodhinox",
+      "description": "Workspace subscription"
+    },
+    "subscription": {
+      "current": "Subscription: {plan}",
+      "none": "No subscription",
+      "noneHint": "Choose a plan below to subscribe.",
+      "status": {
+        "trialing": "Trial",
+        "active": "Active",
+        "past_due": "Payment due",
+        "grace": "Grace period",
+        "suspended": "Suspended",
+        "cancelled": "Cancelled",
+        "incomplete": "Incomplete"
+      },
+      "interval": {
+        "month": "monthly",
+        "year": "yearly"
+      },
+      "renewsOn": "Renews {interval} on {date}.",
+      "endsOn": "Ends on {date}.",
+      "trialBanner": "Your trial ends on {date}. The first payment is taken then.",
+      "pastDueBanner": "A payment failed. The provider is retrying; you can also pay now.",
+      "graceBanner": "Payment is overdue. Pay by {date} or automatic sending will be suspended.",
+      "suspendedBanner": "This workspace is suspended: campaigns, flows, automations and AI replies are paused. Pay now to resume.",
+      "cancelBanner": "The subscription ends on {date}. The workspace then moves to the Free plan; no data is deleted.",
+      "scheduledBanner": "Your plan changes to {plan} on {date}.",
+      "pending": {
+        "checkout": "A subscription is being confirmed with the payment provider.",
+        "change_plan": "A plan change is being confirmed with the payment provider.",
+        "cancel": "A cancellation is being confirmed with the payment provider. You can request it again if needed."
+      },
+      "pay": "Pay now",
+      "cancel": "Cancel subscription"
+    },
+    "plans": {
+      "title": "Choose a plan",
+      "changeTitle": "Change plan",
+      "intervalLabel": "Billing period",
+      "interval": {
+        "month": "Monthly",
+        "year": "Yearly"
+      },
+      "per": {
+        "month": "month",
+        "year": "year"
+      },
+      "gstNote": "Includes GST where applicable",
+      "current": "Current plan",
+      "switch": "Switch",
+      "subscribe": "Subscribe",
+      "adminsOnly": "Only workspace owners and admins can change the plan.",
+      "changeHint": "Upgrades apply now, with the difference charged pro rata. Downgrades apply at the end of the current period.",
+      "names": {
+        "free": "Free",
+        "basic": "Basic",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      }
+    },
+    "profile": {
+      "title": "Billing details",
+      "description": "Shown on your GST invoices. Add a GSTIN to claim input tax credit.",
+      "fields": {
+        "legal_name": "Legal name",
+        "gstin": "GSTIN (optional)",
+        "address_line1": "Address",
+        "address_line2": "Address line 2 (optional)",
+        "city": "City",
+        "state_code": "GST state code",
+        "postal_code": "Postal code",
+        "country": "Country code",
+        "email": "Billing email"
+      },
+      "stateHint": "For India, enter the two-digit GST state code (for example 29 for Karnataka); with a GSTIN it is taken from the GSTIN. Use a two-letter country code such as IN.",
+      "save": "Save billing details",
+      "saved": "Billing details saved",
+      "saveFailed": "Could not save the billing details"
+    },
+    "invoices": {
+      "title": "Invoices",
+      "empty": "No invoices yet.",
+      "number": "Number",
+      "date": "Date",
+      "period": "Period",
+      "total": "Total",
+      "view": "View",
+      "signedOut": "Your session has ended. Sign in again to view this invoice."
+    },
+    "notices": {
+      "activated": {
+        "title": "Subscription active: {plan}",
+        "body": "Your {plan} plan is now active."
+      },
+      "payment_failed": {
+        "title": "Payment failed",
+        "body": "The payment for your {plan} plan failed. The provider will retry; you can also pay now in Settings → Plan & usage."
+      },
+      "grace_started": {
+        "title": "Payment overdue",
+        "body": "Payment for your {plan} plan is overdue. Pay by {date} to keep automatic sending."
+      },
+      "grace_ending": {
+        "title": "Grace period ends soon",
+        "body": "Pay by {date}, or campaigns, flows, automations and AI replies will be suspended."
+      },
+      "suspended": {
+        "title": "Workspace suspended",
+        "body": "Payment is overdue, so automatic sending is paused. Your data is safe; pay in Settings → Plan & usage to resume."
+      },
+      "recovered": {
+        "title": "Payment received",
+        "body": "Thank you. Your {plan} plan is active again."
+      },
+      "cancelled": {
+        "title": "Subscription ended",
+        "body": "Your subscription has ended and the workspace is on the Free plan. No data was deleted."
+      },
+      "invoice_issued": {
+        "title": "Invoice {number}",
+        "body": "A new tax invoice is available in Settings → Plan & usage."
+      },
+      "checkout_superseded": {
+        "title": "Extra subscription cancelled",
+        "body": "A payment authorisation for the {plan} plan arrived for a checkout that had been replaced or for a second subscription. It was not applied and was cancelled with the payment provider. Your current plan is unchanged; check Billing to confirm."
+      }
+    },
+    "downgrade": {
+      "notice": "Your workspace uses more saved segments, lists, active flows or automations than the {plan} plan allows. Choose what stays active; nothing is deleted.",
+      "chosen": "Your choice of what stays active on the {plan} plan is saved. Everything else is archived, not deleted, when the plan starts.",
+      "choose": "Choose what stays",
+      "change": "Change choice"
+    },
+    "payLink": {
+      "hint": "Continue to the payment page to complete your payment.",
+      "open": "Open payment page",
+      "blocked": "Your browser blocked the payment tab. Use the link on this page to continue.",
+      "checkoutFallback": "Checkout could not load here. Use the payment page link to continue."
+    }
   }
 }

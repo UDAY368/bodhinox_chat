@@ -8,6 +8,7 @@ import { buildSystemPrompt } from '@/lib/ai/defaults'
 import { latestUserMessage } from '@/lib/ai/query'
 import { AiError, type ChatMessage } from '@/lib/ai/types'
 import { getT } from '@/lib/i18n/translate'
+import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
 
 const t = getT('Api')
 
@@ -91,7 +92,9 @@ export async function POST(request: Request) {
     })
 
     const generationStartedAt = performance.now()
+    await requireAiMessageRoom(accountId)
     const { text, handoff } = await generateReply({ config, systemPrompt, messages })
+    await recordAiMessage(accountId)
     return NextResponse.json({ reply: text, handoff, diagnostics: {
       model: config.model,
       knowledgeMatches: knowledge.length,

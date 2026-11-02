@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   verifyPhoneNumber: vi.fn(async () => ({ id: "123", verified_name: "Acme", display_phone_number: "+1 555 0100" })),
   subscribeWabaToApp: vi.fn(async () => {}),
   claimed: null as string | null,
+  numberRoom: vi.fn(async () => {}),
 }));
 
 // Minimal data client: records each statement with its filters.
@@ -58,6 +59,10 @@ vi.mock("@/lib/whatsapp/number-admin", async () => {
   const actual = await vi.importActual<typeof import("@/lib/whatsapp/number-admin")>("@/lib/whatsapp/number-admin");
   return { DISPLAY_NAME_MAX: 200, disconnectAndReport: h.disconnectAndReport, disconnectResponse: actual.disconnectResponse };
 });
+vi.mock("@/lib/billing/entitlements", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/billing/entitlements")>("@/lib/billing/entitlements");
+  return { PlanLimitError: actual.PlanLimitError, requireWhatsAppNumberRoom: h.numberRoom };
+});
 vi.mock("@/lib/repositories/routing", () => ({ resolveWhatsAppAccount: async () => h.claimed }));
 vi.mock("@/lib/whatsapp/encryption", () => ({ encrypt: (v: string) => `enc:${v}`, decrypt: (v: string) => v.replace(/^enc:/, "") }));
 vi.mock("@/lib/whatsapp/meta-api", () => ({
@@ -74,6 +79,7 @@ vi.mock("@/lib/whatsapp/waba-pairing", async () => {
 
 import { DELETE, GET, POST } from "./route";
 import { NoNumberError } from "@/lib/whatsapp/numbers";
+import { PlanLimitError } from "@/lib/billing/entitlements";
 
 const ACCOUNT = "11111111-1111-4111-8111-111111111111";
 const ID = "33333333-3333-4333-8333-333333333333";
@@ -126,6 +132,18 @@ it("updates only that number when the phone_number_id is already connected, keep
   expect(write.values).not.toHaveProperty("display_name");
   expect(write.values).toMatchObject({ verify_token: "enc:v" });
   expect(h.ops.some((o) => o.op === "insert")).toBe(false);
+  // Saving a number the workspace already has is never limited by the plan.
+  expect(h.numberRoom).not.toHaveBeenCalled();
+});
+
+it("refuses an additional number over the plan before Meta registration or any write", async () => {
+  h.numberRoom.mockRejectedValueOnce(new PlanLimitError("The Free plan allows up to 1 WhatsApp numbers. Upgrade for more."));
+  const res = await post({ ...save, pin: "123456" });
+  expect(res.status).toBe(402);
+  expect(await res.json()).toMatchObject({ error: expect.stringContaining("WhatsApp numbers") });
+  expect(h.numberRoom).toHaveBeenCalledWith({ tx: true }, ACCOUNT);
+  expect(h.subscribeWabaToApp).not.toHaveBeenCalled();
+  expect(h.ops.some((o) => o.op === "insert" || o.op === "update")).toBe(false);
 });
 
 it("refuses a number another workspace has, and maps a racing insert to 409", async () => {

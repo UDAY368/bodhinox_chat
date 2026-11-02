@@ -15,6 +15,7 @@ import { logAiUsage } from '@/lib/ai/usage';
 import { databaseAdmin } from '@/lib/ai/admin-client';
 import { AiError } from '@/lib/ai/types';
 import { getT } from '@/lib/i18n/translate';
+import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits';
 
 const t = getT('Api');
 
@@ -119,11 +120,14 @@ export async function POST(request: Request) {
       knowledge,
     });
 
+    // The plan's monthly AI messages (402 with an upgrade hint when used up).
+    await requireAiMessageRoom(accountId);
     const { text, usage } = await generateReply({
       config,
       systemPrompt,
       messages,
     });
+    await recordAiMessage(accountId);
 
     // Record spend on the account's BYO key. Best-effort + via the
     // service role (the log has no `authenticated` INSERT policy). This

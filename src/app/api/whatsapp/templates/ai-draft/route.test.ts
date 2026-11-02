@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   generateReply: vi.fn(),
   logAiUsage: vi.fn(),
   databaseAdmin: vi.fn(),
+  requireAiMessageRoom: vi.fn(),
+  recordAiMessage: vi.fn(),
 }))
 
 class FakeAuthError extends Error {
@@ -37,6 +39,7 @@ vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/generate', () => ({ generateReply: mocks.generateReply }))
 vi.mock('@/lib/ai/usage', () => ({ logAiUsage: mocks.logAiUsage }))
 vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: mocks.databaseAdmin }))
+vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: mocks.requireAiMessageRoom, recordAiMessage: mocks.recordAiMessage }))
 
 import { POST } from './route'
 
@@ -98,6 +101,16 @@ describe('POST /api/whatsapp/templates/ai-draft', () => {
     const res = await post({ ...BRIEF, tone: 'angry' })
     expect(res.status).toBe(400)
     expect((await res.json()).code).toBe('toneInvalid')
+  })
+
+  it('refuses with the plan error when the monthly AI messages are used up', async () => {
+    mocks.requireAiMessageRoom.mockRejectedValueOnce(new FakeAuthError('The Free plan allows up to 100 AI replies this month. Upgrade for more.', 402))
+    const res = await post(BRIEF)
+    expect(res.status).toBe(402)
+    expect((await res.json()).error).toMatch(/Upgrade/)
+    expect(mocks.requireAiMessageRoom).toHaveBeenCalledWith('account-1')
+    expect(mocks.generateReply).not.toHaveBeenCalled()
+    expect(mocks.recordAiMessage).not.toHaveBeenCalled()
   })
 
   it('returns 409 when AI is not configured', async () => {

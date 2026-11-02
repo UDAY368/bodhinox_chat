@@ -125,7 +125,11 @@ vi.mock('@/lib/whatsapp/template-events', () => ({
   recordTemplateEvents: history.record,
 }))
 
+const perms = vi.hoisted(() => ({ require: vi.fn<(...args: unknown[]) => Promise<void>>(async () => undefined) }))
+vi.mock('@/lib/auth/permissions', () => ({ requirePermission: perms.require }))
+
 import { PATCH, DELETE } from './route'
+import { ForbiddenError } from '@/lib/auth/errors'
 
 const params = Promise.resolve({ id: TEMPLATE.id })
 
@@ -155,6 +159,8 @@ beforeEach(() => {
   meta.editMessageTemplate.mockClear()
   meta.deleteMessageTemplate.mockClear()
   history.record.mockClear()
+  perms.require.mockReset()
+  perms.require.mockResolvedValue(undefined)
 })
 
 describe('template lifecycle role gate (GHSA-m4fx-g6pr-hrw8)', () => {
@@ -185,6 +191,23 @@ describe('template lifecycle role gate (GHSA-m4fx-g6pr-hrw8)', () => {
     const deleted = await DELETE(new Request('http://localhost/t'), { params })
     expect(deleted.status).toBe(200)
     expect(meta.deleteMessageTemplate).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("template edit needs the 'templates.submit' permission", () => {
+  it('refuses an admin whose role has templates.submit turned off, before Meta or any write', async () => {
+    perms.require.mockRejectedValue(new ForbiddenError('This feature is turned off for your role'))
+    const res = await patchTemplate()
+    expect(res.status).toBe(403)
+    expect(perms.require).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'acct-1' }), 'templates.submit')
+    expect(meta.editMessageTemplate).not.toHaveBeenCalled()
+    expect(templateUpdates).toHaveLength(0)
+    expect(history.record).not.toHaveBeenCalled()
+  })
+
+  it('checks the permission on an allowed edit', async () => {
+    expect((await patchTemplate()).status).toBe(200)
+    expect(perms.require).toHaveBeenCalledWith(expect.anything(), 'templates.submit')
   })
 })
 

@@ -18,6 +18,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/knowledge', () => ({ retrieveKnowledge: mocks.retrieveKnowledge }))
+vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: async () => {}, recordAiMessage: async () => {} }))
 
 import { POST } from './route'
 

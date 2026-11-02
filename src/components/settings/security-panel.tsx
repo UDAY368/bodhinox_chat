@@ -2,6 +2,8 @@
 
 import { PasswordForm } from './password-form';
 import { SessionsCard } from './sessions-card';
+import { DeviceSessionsCard } from './device-sessions-card';
+import { GoogleLinkCard } from './google-link-card';
 import { SettingsPanelHead } from './settings-panel-head';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -28,6 +30,8 @@ export function SecurityPanel() {
       />
       <div className="space-y-4">
         <PasswordForm />
+        <GoogleLinkCard />
+        <DeviceSessionsCard />
         <SessionsCard />
         {accountRole === 'owner' && <div className="space-y-2 rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">{emailText('deliveryHint')}</p>

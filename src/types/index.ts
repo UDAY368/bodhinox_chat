@@ -233,6 +233,7 @@ export const NOTIFICATION_TYPES = [
   'sla_breach',
   'campaign_finished',
   'template_rejected',
+  'billing',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

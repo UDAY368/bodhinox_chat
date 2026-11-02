@@ -24,7 +24,25 @@
     "noAccount": "Não tem uma conta?",
     "createAccount": "Criar conta",
     "linkExpired": "Esse link expirou. Para redefinir a senha, use “Esqueceu a senha?” para pedir um novo; se estava confirmando seu e-mail, cadastre-se novamente.",
-    "linkInvalid": "Não foi possível entrar com esse link. Se estava confirmando seu e-mail, ele já pode estar verificado — basta entrar abaixo. Para redefinir a senha, peça um novo link e abra-o no mesmo navegador em que o solicitou."
+    "linkInvalid": "Não foi possível entrar com esse link. Se estava confirmando seu e-mail, ele já pode estar verificado — basta entrar abaixo. Para redefinir a senha, peça um novo link e abra-o no mesmo navegador em que o solicitou.",
+    "google": {
+      "continue": "Continuar com o Google",
+      "or": "ou",
+      "mfaPrompt": "O Google confirmou sua identidade. Digite o código do seu app autenticador ou um código de recuperação para concluir o login.",
+      "mfaLabel": "Código do autenticador ou de recuperação",
+      "mfaSubmit": "Verificar e entrar",
+      "verifying": "Verificando...",
+      "mfaExpired": "Esta etapa de login expirou. Continue com o Google novamente.",
+      "failed": "Não foi possível entrar. Tente novamente.",
+      "errors": {
+        "google_unavailable": "O login com o Google não está disponível agora. Tente mais tarde ou entre com sua senha.",
+        "google_cancelled": "O login com o Google foi cancelado.",
+        "google_failed": "Não conseguimos fazer seu login com o Google. Tente novamente.",
+        "google_link_required": "Já existe uma conta com este e-mail. Entre com sua senha e depois vincule o Google em Configurações → Login e segurança.",
+        "google_no_workspace": "Sua conta não faz parte de nenhum espaço de trabalho.",
+        "google_rate_limited": "Muitas tentativas. Tente mais tarde."
+      }
+    }
   },
   "Sidebar": {
     "title": "BODHINOX",
@@ -303,7 +321,8 @@
       "chats": "Conversas",
       "lifecycle": "Ciclo de vida",
       "slaDueIn": "Responder em {value}{unit, select, m {min} h {h} other {d}}",
-      "slaOverdue": "Atrasada há {value}{unit, select, m {min} h {h} other {d}}"
+      "slaOverdue": "Atrasada há {value}{unit, select, m {min} h {h} other {d}}",
+      "filterMyTeam": "Minha equipe"
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -2818,7 +2837,42 @@
     },
     "security": {
       "title": "Login e segurança",
-      "description": "Altere sua senha e saia dos seus dispositivos. Isso mantém sua conta segura."
+      "description": "Altere sua senha e saia dos seus dispositivos. Isso mantém sua conta segura.",
+      "google": {
+        "title": "Login com o Google",
+        "description": "Vincule uma conta do Google para entrar sem digitar sua senha. A verificação em duas etapas continua valendo.",
+        "linkedAs": "Vinculado a {email}.",
+        "passwordLabel": "Senha atual",
+        "unlinkHint": "Depois de desvincular, entre com seu e-mail e senha.",
+        "link": "Vincular conta do Google",
+        "unlink": "Desvincular o Google",
+        "unlinked": "O Google não está mais vinculado.",
+        "failed": "Não funcionou. Tente novamente.",
+        "outcomes": {
+          "linked": "Conta do Google vinculada. Agora você pode entrar com o Google.",
+          "google_in_use": "Essa conta do Google já está vinculada a outro usuário.",
+          "google_already_linked": "Outra conta do Google já está vinculada. Desvincule-a primeiro.",
+          "google_failed": "Não foi possível vincular o Google. Tente novamente.",
+          "google_cancelled": "A vinculação com o Google foi cancelada.",
+          "google_unavailable": "O Google não está disponível agora. Tente mais tarde."
+        },
+        "noPassword": "Sua conta foi criada com o Google e ainda não tem senha. Defina uma senha antes de desvincular o Google ou desativar a verificação em duas etapas.",
+        "setPassword": "Enviar um link para definir uma senha",
+        "setPasswordSent": "Confira sua caixa de entrada: enviamos um link para definir sua senha."
+      },
+      "devices": {
+        "title": "Onde você está conectado",
+        "description": "Dispositivos e navegadores com uma sessão ativa. Saia dos que você não reconhecer.",
+        "loading": "Carregando sessões...",
+        "loadFailed": "Não foi possível carregar suas sessões.",
+        "revokeFailed": "Não foi possível encerrar essa sessão. Tente novamente.",
+        "unknownBrowser": "Navegador desconhecido",
+        "unknownOs": "Dispositivo desconhecido",
+        "thisDevice": "Este dispositivo",
+        "activity": "Ativa {lastUsed} · Entrou em {signedIn}",
+        "signOut": "Sair",
+        "signOutOthers": "{count, plural, one {Sair de # outra sessão} other {Sair de # outras sessões}}"
+      }
     },
     "browserNotifications": {
       "title": "Notificações do navegador",
@@ -3076,10 +3130,20 @@
         "lists": "Listas",
         "campaign_recipients": "Destinatários por campanha",
         "active_flows": "Fluxos ativos",
-        "active_automations": "Automações ativas"
+        "active_automations": "Automações ativas",
+        "ai_messages": "Respostas de IA neste mês",
+        "monthly_active_contacts": "Contatos ativos neste mês",
+        "storage_bytes": "Armazenamento de mídia (bytes)",
+        "whatsapp_numbers": "Números de WhatsApp"
       },
       "loadFailed": "Não foi possível carregar seu plano",
-      "retry": "Tentar novamente"
+      "retry": "Tentar novamente",
+      "meters": {
+        "storage": "Armazenamento de mídia",
+        "monthly": "(este mês)",
+        "reached": "Limite atingido. Faça upgrade ou compre um complemento para ter mais."
+      },
+      "upgradeHintBilling": "Escolha ou altere seu plano em Faturamento, abaixo."
     },
     "iceBreakers": {
       "title": "Iniciadores de conversa",
@@ -3372,7 +3436,133 @@
       "reassignHint": "Se ninguém tiver respondido até lá, a conversa vai para o próximo membro da lista. Deixe vazio para mantê-la onde está.",
       "off": "Desativado",
       "cancel": "Cancelar",
-      "save": "Salvar"
+      "save": "Salvar",
+      "modeTeam": "Uma equipe (rodízio)",
+      "team": "Equipe",
+      "teamSummary": "Equipe: {team}",
+      "unknownTeam": "equipe excluída"
+    },
+    "teams": {
+      "title": "Equipes",
+      "description": "Agrupe membros em equipes. As regras de roteamento podem enviar conversas para uma equipe, e os membros podem filtrar a caixa de entrada pelas conversas da sua equipe.",
+      "loadFailed": "Não foi possível carregar as equipes. Recarregue a página para tentar novamente.",
+      "empty": "Ainda não há equipes.",
+      "noMembers": "Sem membros",
+      "unknownMember": "Ex-membro",
+      "edit": "Editar {name}",
+      "delete": "Excluir {name}",
+      "add": "Adicionar equipe",
+      "deleteConfirm": "Excluir a equipe “{name}”? As regras de roteamento que enviam conversas para ela deixarão de funcionar até você editá-las.",
+      "deleteFailed": "Não foi possível excluir a equipe.",
+      "deleted": "Equipe excluída",
+      "addTitle": "Nova equipe",
+      "editTitle": "Editar equipe",
+      "dialogDescription": "Dê um nome à equipe e escolha os membros.",
+      "name": "Nome",
+      "members": "Membros",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "saved": "Equipe salva",
+      "saveFailed": "Não foi possível salvar a equipe."
+    },
+    "permissions": {
+      "title": "Permissões por recurso",
+      "description": "Desative recursos para uma função. Você só pode remover o que a função já tem; uma função nunca recebe mais do que o padrão.",
+      "loadFailed": "Não foi possível carregar as permissões. Recarregue a página para tentar novamente.",
+      "feature": "Recurso",
+      "saved": "Permissões atualizadas",
+      "saveFailed": "Não foi possível atualizar a permissão.",
+      "toggle": "{feature} para {role}",
+      "notAvailable": "—",
+      "aboveRole": "Não disponível para esta função",
+      "footnote": "Os proprietários sempre têm todos os recursos. Somente um proprietário pode alterar a coluna Administrador.",
+      "features": {
+        "campaigns_send": "Enviar e agendar campanhas",
+        "contacts_export": "Exportar contatos",
+        "flows_publish": "Publicar fluxos",
+        "templates_submit": "Enviar modelos ao WhatsApp",
+        "settings_billing": "Gerenciar plano e cobrança"
+      }
+    },
+    "auditLog": {
+      "title": "Registro de auditoria",
+      "description": "Quem fez o quê neste espaço de trabalho, do mais recente ao mais antigo. As entradas mostram identificadores e contagens, nunca o conteúdo das mensagens.",
+      "linkDescription": "Revise a atividade de membros, equipes, permissões e exportações.",
+      "back": "Voltar às configurações",
+      "adminsOnly": "Somente administradores e proprietários podem ver o registro de auditoria.",
+      "member": "Membro",
+      "anyMember": "Qualquer membro",
+      "action": "Ação",
+      "anyAction": "Qualquer ação",
+      "from": "De",
+      "to": "Até",
+      "apply": "Aplicar",
+      "reset": "Redefinir",
+      "loadFailed": "Não foi possível carregar o registro de auditoria.",
+      "empty": "Nenhuma entrada corresponde a estes filtros.",
+      "when": "Quando",
+      "details": "Detalhes",
+      "formerMember": "Ex-membro",
+      "system": "Sistema",
+      "loadMore": "Carregar mais"
+    },
+    "addOns": {
+      "title": "Complementos",
+      "description": "Adicione mais mensagens de IA, assentos de equipe ou números de WhatsApp ao seu plano. Cobrado na próxima fatura, mais GST.",
+      "notConfigured": "Os complementos ainda não estão disponíveis.",
+      "loadFailed": "Não foi possível carregar os complementos",
+      "retry": "Tentar novamente",
+      "kinds": {
+        "ai_messages": "{count, plural, one {# mensagem de IA} other {# mensagens de IA}}",
+        "extra_seats": "{count, plural, one {# assento de equipe} other {# assentos de equipe}}",
+        "extra_numbers": "{count, plural, one {# número de WhatsApp} other {# números de WhatsApp}}"
+      },
+      "perPack": "{price} por pacote + GST",
+      "packs": "Pacotes",
+      "buy": "Comprar por {price}",
+      "coverage": "As mensagens de IA valem até o fim deste mês (horário da Índia); assentos e números, até o fim do seu período de cobrança. Os complementos não são renovados automaticamente.",
+      "empty": "Ainda não há complementos.",
+      "status": {
+        "pending": "Confirmando",
+        "active": "Ativo",
+        "cancelled": "Interrompido",
+        "failed": "Recusado"
+      },
+      "until": "Até {date}",
+      "cancel": "Interromper",
+      "cancelConfirm": "Interromper este complemento agora? A cobrança já adicionada à próxima fatura não é reembolsada.",
+      "cancelled": "Complemento interrompido",
+      "cancelFailed": "Não foi possível interromper o complemento",
+      "purchased": "Complemento ativo",
+      "purchasePending": "Compra enviada. Ela será ativada quando o provedor de pagamento confirmar.",
+      "purchaseFailed": "Não foi possível comprar o complemento",
+      "pendingHint": "O provedor de pagamento ainda não confirmou esta compra. Ela só fica ativa após a confirmação; fale com o suporte se demorar mais de um dia."
+    },
+    "planDowngrade": {
+      "title": "Escolha o que continua ativo",
+      "description": "Revise o que cabe no seu plano.",
+      "effective": "O plano {plan} começa em {date}. Escolha antes disso, ou os itens usados mais recentemente continuarão ativos.",
+      "inEffect": "Seu espaço de trabalho está no plano {plan}.",
+      "loadFailed": "Não foi possível carregar os limites do seu plano",
+      "retry": "Tentar novamente",
+      "nothingDeleted": "Nada é excluído. Os itens que você não mantiver são arquivados: fluxos e automações arquivados não são executados, e segmentos e listas arquivados não podem iniciar novas campanhas. Eles são restaurados quando seu plano voltar a permiti-los.",
+      "withinLimits": "Tudo cabe no plano {plan}.",
+      "kinds": {
+        "segments": "Segmentos salvos",
+        "lists": "Listas",
+        "flows": "Fluxos ativos",
+        "automations": "Automações ativas"
+      },
+      "pick": "mantenha até {limit, number}, {count, number} escolhidos",
+      "lastUsed": "Último uso: {date}",
+      "neverUsed": "Ainda não usado",
+      "archivedTitle": "Arquivado por causa do seu plano",
+      "archivedHint": "Eles voltam automaticamente quando seu plano permitir novamente.",
+      "cancel": "Cancelar",
+      "save": "Salvar escolha",
+      "saved": "Salvo. Os itens que não cabem foram arquivados.",
+      "savedPending": "Salvo. Será aplicado quando o novo plano começar.",
+      "saveFailed": "Não foi possível salvar sua escolha"
     }
   },
   "SignupPage": {
@@ -3482,7 +3672,8 @@
       "campaign_finished": "Campanha",
       "template_rejected": "Modelo rejeitado",
       "whatsapp_number_health": "Número do WhatsApp",
-      "payment_received": "Pagamento recebido"
+      "payment_received": "Pagamento recebido",
+      "billing": "Cobrança"
     }
   },
   "Agents": {
@@ -4600,7 +4791,8 @@
       "unknown_member": "As conversas só podem ir para proprietários, administradores e agentes deste espaço de trabalho.",
       "unknown_number": "Esse número do WhatsApp não faz parte deste espaço de trabalho.",
       "limit": "Um espaço de trabalho pode ter no máximo 50 regras de distribuição.",
-      "not_found": "Essa regra não existe mais."
+      "not_found": "Essa regra não existe mais.",
+      "unknown_team": "Essa equipe não existe mais."
     },
     "notes": {
       "invalidRequest": "Envie a nota como um objeto JSON.",
@@ -4608,6 +4800,57 @@
       "forbidden": "Você só pode alterar as suas próprias notas.",
       "invalid_body": "Escreva uma nota de 1 a 4000 caracteres.",
       "invalid_mentions": "Mencione no máximo 20 colegas."
+    },
+    "billing": {
+      "invalidPrice": "Informe um plano, um intervalo mensal ou anual, um valor em paisas maior que zero e um ID de plano do Razorpay (plan_…).",
+      "noEnvPrices": "BILLING_PLAN_PRICES não está definido, então não há preços para carregar.",
+      "unknownPlan": "Esse plano não existe.",
+      "suspended": "Este espaço de trabalho está suspenso porque há um pagamento em atraso. Um administrador pode pagar em Configurações → Plano e uso para voltar a enviar.",
+      "invalid_request": "A solicitação não é válida.",
+      "not_configured": "O faturamento online ainda não está configurado.",
+      "plan_unavailable": "Esse plano não está disponível para compra.",
+      "profile_required": "Adicione primeiro seus dados de faturamento.",
+      "already_subscribed": "Este espaço de trabalho já tem uma assinatura. Altere o plano dela.",
+      "no_subscription": "Não há assinatura ativa para alterar.",
+      "payment_issue": "Pague o valor em atraso antes de alterar o plano.",
+      "change_pending": "Uma alteração anterior ainda está sendo confirmada com o provedor de pagamentos. Tente novamente em alguns minutos.",
+      "same_plan": "Você já está neste plano.",
+      "cancel_pending": "A assinatura está programada para terminar. Ela não pode ser alterada agora.",
+      "provider_rejected": "O provedor de pagamentos recusou a solicitação. Nada foi alterado.",
+      "provider_unavailable": "Não foi possível contatar o provedor de pagamentos. Tente novamente em instantes.",
+      "nothing_to_resume": "Não há pagamento pendente.",
+      "resume_unsupported": "Uma assinatura cancelada não pode ser retomada. Assine novamente quando o período atual terminar.",
+      "invalid_profile": "Preencha a razão social, o endereço, a cidade, o CEP e um e-mail válido.",
+      "invalid_gstin": "Esse GSTIN não é válido.",
+      "gstin_state_mismatch": "O código do estado deve corresponder aos dois primeiros dígitos do GSTIN.",
+      "state_required": "Informe um código de estado GST válido de dois dígitos (por exemplo, 29 para Karnataka).",
+      "gstin_outside_india": "Um GSTIN só pode ser usado com um endereço na Índia.",
+      "addOns": {
+        "unknown_pack": "Esse complemento não está disponível.",
+        "invalid_packs": "Escolha entre 1 e 100 pacotes.",
+        "needs_subscription": "Os complementos exigem uma assinatura paga ativa. Escolha um plano primeiro.",
+        "not_cancellable": "Só é possível interromper um complemento ativo.",
+        "notConfigured": "O faturamento ainda não está configurado, então não é possível comprar complementos.",
+        "rejected": "O provedor de pagamento recusou esta compra. Nada foi cobrado.",
+        "limit_unlimited": "Este pacote aumenta um limite que seu plano não tem, então não há nada para comprar."
+      },
+      "downgrade": {
+        "invalid_selection": "Escolha apenas itens que estão em uso agora.",
+        "stale_plan": "A mudança de plano não é mais a mesma. Revise a lista novamente.",
+        "too_many": "Você escolheu mais itens do que o plano permite."
+      }
+    },
+    "teams": {
+      "invalid_name": "Dê à equipe um nome com até 80 caracteres.",
+      "invalid_members": "Verifique a lista de membros da equipe.",
+      "unknown_member": "As equipes só podem incluir membros deste espaço de trabalho.",
+      "duplicate_name": "Já existe uma equipe com esse nome.",
+      "limit": "Um espaço de trabalho pode ter no máximo 50 equipes.",
+      "not_found": "Essa equipe não existe mais."
+    },
+    "permissions": {
+      "invalid": "Escolha uma função e um recurso para alterar.",
+      "ownerOnly": "Somente um proprietário pode alterar o que os administradores podem fazer."
     }
   },
   "Api": {
@@ -6236,5 +6479,164 @@
     "unknownContact": "Contato desconhecido",
     "loadMore": "Carregar mais",
     "jumpNotFound": "Essa mensagem está muito atrás no histórico para ser exibida aqui."
+  },
+  "Billing": {
+    "title": "Faturamento",
+    "notConfigured": "O faturamento online ainda não está disponível. Para alterar seu plano, fale com o suporte da Bodhinox.",
+    "loadFailed": "Não foi possível carregar o faturamento",
+    "retry": "Tentar novamente",
+    "confirming": "Confirmando seu pagamento com o provedor…",
+    "confirmCancel": "Cancelar a assinatura? Ela continua ativa até o fim do período pago e depois o espaço de trabalho passa para o plano Free. Nenhum dado é excluído.",
+    "toasts": {
+      "activated": "Seu plano está ativo.",
+      "confirmingLater": "Pagamento recebido. Seu plano será atualizado assim que o provedor confirmar.",
+      "profileFirst": "Adicione primeiro seus dados de faturamento.",
+      "failed": "Algo deu errado. Nada foi alterado.",
+      "scheduled": "Pronto. A alteração entra em vigor no fim do período atual.",
+      "pending": "O provedor de pagamentos ainda não confirmou. Verificaremos novamente em instantes.",
+      "changed": "Seu plano foi alterado.",
+      "cancelled": "A assinatura foi cancelada."
+    },
+    "checkout": {
+      "name": "Bodhinox",
+      "description": "Assinatura do espaço de trabalho"
+    },
+    "subscription": {
+      "current": "Assinatura: {plan}",
+      "none": "Sem assinatura",
+      "noneHint": "Escolha um plano abaixo para assinar.",
+      "status": {
+        "trialing": "Avaliação",
+        "active": "Ativa",
+        "past_due": "Pagamento pendente",
+        "grace": "Período de carência",
+        "suspended": "Suspensa",
+        "cancelled": "Cancelada",
+        "incomplete": "Incompleta"
+      },
+      "interval": {
+        "month": "mensalmente",
+        "year": "anualmente"
+      },
+      "renewsOn": "Renova {interval} em {date}.",
+      "endsOn": "Termina em {date}.",
+      "trialBanner": "Sua avaliação termina em {date}. O primeiro pagamento é cobrado nessa data.",
+      "pastDueBanner": "Um pagamento falhou. O provedor está tentando novamente; você também pode pagar agora.",
+      "graceBanner": "O pagamento está em atraso. Pague até {date} ou os envios automáticos serão suspensos.",
+      "suspendedBanner": "Este espaço de trabalho está suspenso: campanhas, fluxos, automações e respostas de IA estão pausados. Pague agora para retomar.",
+      "cancelBanner": "A assinatura termina em {date}. Depois o espaço de trabalho passa para o plano Free; nenhum dado é excluído.",
+      "scheduledBanner": "Seu plano muda para {plan} em {date}.",
+      "pending": {
+        "checkout": "Uma assinatura está sendo confirmada com o provedor de pagamentos.",
+        "change_plan": "Uma mudança de plano está sendo confirmada com o provedor de pagamentos.",
+        "cancel": "Um cancelamento está sendo confirmado com o provedor de pagamentos. Você pode solicitá-lo novamente, se necessário."
+      },
+      "pay": "Pagar agora",
+      "cancel": "Cancelar assinatura"
+    },
+    "plans": {
+      "title": "Escolha um plano",
+      "changeTitle": "Alterar plano",
+      "intervalLabel": "Período de cobrança",
+      "interval": {
+        "month": "Mensal",
+        "year": "Anual"
+      },
+      "per": {
+        "month": "mês",
+        "year": "ano"
+      },
+      "gstNote": "Inclui GST quando aplicável",
+      "current": "Plano atual",
+      "switch": "Mudar",
+      "subscribe": "Assinar",
+      "adminsOnly": "Somente proprietários e administradores do espaço de trabalho podem alterar o plano.",
+      "changeHint": "Upgrades valem agora, com a diferença cobrada proporcionalmente. Downgrades valem no fim do período atual.",
+      "names": {
+        "free": "Free",
+        "basic": "Basic",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      }
+    },
+    "profile": {
+      "title": "Dados de faturamento",
+      "description": "Aparecem nas suas faturas com GST. Adicione um GSTIN para aproveitar o crédito fiscal.",
+      "fields": {
+        "legal_name": "Razão social",
+        "gstin": "GSTIN (opcional)",
+        "address_line1": "Endereço",
+        "address_line2": "Endereço, linha 2 (opcional)",
+        "city": "Cidade",
+        "state_code": "Código do estado GST",
+        "postal_code": "CEP",
+        "country": "Código do país",
+        "email": "E-mail de faturamento"
+      },
+      "stateHint": "Para a Índia, informe o código do estado GST de dois dígitos (por exemplo, 29 para Karnataka); com um GSTIN, ele é obtido do GSTIN. Use um código de país de duas letras, como IN.",
+      "save": "Salvar dados de faturamento",
+      "saved": "Dados de faturamento salvos",
+      "saveFailed": "Não foi possível salvar os dados de faturamento"
+    },
+    "invoices": {
+      "title": "Faturas",
+      "empty": "Ainda não há faturas.",
+      "number": "Número",
+      "date": "Data",
+      "period": "Período",
+      "total": "Total",
+      "view": "Ver",
+      "signedOut": "Sua sessão terminou. Entre novamente para ver esta fatura."
+    },
+    "notices": {
+      "activated": {
+        "title": "Assinatura ativa: {plan}",
+        "body": "Seu plano {plan} já está ativo."
+      },
+      "payment_failed": {
+        "title": "Pagamento falhou",
+        "body": "O pagamento do seu plano {plan} falhou. O provedor tentará novamente; você também pode pagar agora em Configurações → Plano e uso."
+      },
+      "grace_started": {
+        "title": "Pagamento em atraso",
+        "body": "O pagamento do seu plano {plan} está em atraso. Pague até {date} para manter os envios automáticos."
+      },
+      "grace_ending": {
+        "title": "O período de carência termina em breve",
+        "body": "Pague até {date} ou campanhas, fluxos, automações e respostas de IA serão suspensos."
+      },
+      "suspended": {
+        "title": "Espaço de trabalho suspenso",
+        "body": "O pagamento está em atraso, então os envios automáticos estão pausados. Seus dados estão seguros; pague em Configurações → Plano e uso para retomar."
+      },
+      "recovered": {
+        "title": "Pagamento recebido",
+        "body": "Obrigado. Seu plano {plan} está ativo novamente."
+      },
+      "cancelled": {
+        "title": "Assinatura encerrada",
+        "body": "Sua assinatura terminou e o espaço de trabalho está no plano Free. Nenhum dado foi excluído."
+      },
+      "invoice_issued": {
+        "title": "Fatura {number}",
+        "body": "Uma nova fatura com impostos está disponível em Configurações → Plano e uso."
+      },
+      "checkout_superseded": {
+        "title": "Assinatura extra cancelada",
+        "body": "Chegou uma autorização de pagamento do plano {plan} para um pagamento que já havia sido substituído ou para uma segunda assinatura. Ela não foi aplicada e foi cancelada no provedor de pagamentos. Seu plano atual não mudou; confira em Faturamento."
+      }
+    },
+    "downgrade": {
+      "notice": "Seu espaço de trabalho usa mais segmentos salvos, listas, fluxos ativos ou automações do que o plano {plan} permite. Escolha o que continua ativo; nada é excluído.",
+      "chosen": "Sua escolha do que continua ativo no plano {plan} foi salva. Todo o resto é arquivado, não excluído, quando o plano começar.",
+      "choose": "Escolher o que fica",
+      "change": "Alterar escolha"
+    },
+    "payLink": {
+      "hint": "Continue para a página de pagamento para concluir seu pagamento.",
+      "open": "Abrir página de pagamento",
+      "blocked": "Seu navegador bloqueou a aba de pagamento. Use o link nesta página para continuar.",
+      "checkoutFallback": "Não foi possível carregar o checkout aqui. Use o link da página de pagamento para continuar."
+    }
   }
 }

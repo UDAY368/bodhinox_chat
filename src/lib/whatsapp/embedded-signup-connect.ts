@@ -22,6 +22,7 @@
  */
 import { randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { PlanLimitError, requireWhatsAppNumberRoom } from '@/lib/billing/entitlements';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
@@ -186,6 +187,8 @@ export async function connectEmbeddedSignup(
       throw err;
     });
   } catch (err) {
+    // Over the plan's WhatsApp numbers: the route answers 402 (plan_limit); nothing was written.
+    if (err instanceof PlanLimitError) throw err;
     // Still conflicting: another workspace holds the number connected (also
     // when reconnecting this workspace's disconnected row).
     if (isUniqueViolation(err)) return fail(409, 'numberLinkedElsewhere', null);
@@ -352,6 +355,8 @@ async function upsertRow(
         created: false,
       };
     }
+    // An additional number must fit the plan; checked before any Meta state changes.
+    await requireWhatsAppNumberRoom(tx, tenant.accountId);
     const created = await tx.whatsapp_config.create({
       data: {
         account_id: tenant.accountId,

@@ -35,6 +35,8 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendTemplateMessage: async (args: Record<string, unknown>) => { h.sent.push(args); return { messageId: 'wamid.b' }; },
 }));
 
+// Feature permissions are covered in src/lib/auth/permissions.test.ts; allowed here.
+vi.mock('@/lib/auth/permissions', () => ({ requirePermission: async () => undefined }));
 import { POST } from './route';
 
 const TEMPLATE = { id: 't', user_id: 'u', name: 'promo', category: 'Marketing', language: 'en_US', body_text: 'Hi', created_at: '2026-01-01T00:00:00Z' };

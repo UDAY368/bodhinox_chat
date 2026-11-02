@@ -14,6 +14,7 @@ import { AuthError, UnauthorizedError } from './errors';
 import { type AuthContext } from './session';
 import { checkMfa } from './mfa';
 import { safeNextPath } from './callback';
+import { storableUserAgent } from './user-agent';
 
 export const SESSION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 type AuthDatabase = ReturnType<typeof getAuthPrisma>;
@@ -32,6 +33,8 @@ export interface IssuedSession {
   csrfToken: string;
   expiresAt: Date;
 }
+/** A newly created session: sign-in returns its id (refresh rotation keeps the same session). */
+export type NewSession = IssuedSession & { sessionId: string };
 function normalizeEmail(email: string): string {
   const normalized =
     typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -140,7 +143,7 @@ export async function login(input: {
   password: string;
   mfaCode?: string;
   accountId?: string;
-}): Promise<IssuedSession> {
+}, options: { userAgent?: string | null } = {}): Promise<NewSession> {
   const email = normalizeEmail(input.email);
   await enforceAuthRateLimit('login', email);
   const users = await getAuthPrisma().$queryRaw<
@@ -160,6 +163,34 @@ export async function login(input: {
       403,
       'email_unverified'
     );
+  return issueSession(user.id, {
+    method: 'password',
+    accountId: input.accountId,
+    mfaCode: input.mfaCode,
+    userAgent: options.userAgent,
+    expectedPasswordHash: user.password_hash,
+  });
+}
+export type SignInMethod = 'password' | 'google';
+export interface IssueSessionOptions {
+  method: SignInMethod;
+  mfaCode?: string;
+  userAgent?: string | null;
+  /** Pick this membership instead of the oldest one. */
+  accountId?: string;
+  /** Password sign-in: refuse when the password changed after it was verified. */
+  expectedPasswordHash?: string;
+  /** Written to audit_logs with the new session id. */
+  auditAction?: string;
+  /** Errors for a user that cannot sign in and for a user without the membership. */
+  refuseUser?: () => Error;
+  refuseWorkspace?: () => Error;
+}
+/** Locks the user, picks the membership, enforces MFA and creates the session (password and Google sign-in). */
+export async function issueSession(
+  userId: string,
+  options: IssueSessionOptions
+): Promise<NewSession> {
   const sessionId = randomUUID(),
     refreshToken = randomToken(),
     csrfToken = randomToken();
@@ -167,35 +198,38 @@ export async function login(input: {
   const accountId = await getAuthPrisma().$transaction(async (tx) => {
     const locked = await tx.$queryRaw<
       Identity[]
-    >`SELECT * FROM auth_users WHERE id=${user.id}::uuid FOR UPDATE`;
+    >`SELECT * FROM auth_users WHERE id=${userId}::uuid FOR UPDATE`;
     if (
       !locked[0] ||
       locked[0].disabled_at ||
-      locked[0].password_hash !== user.password_hash
+      !locked[0].email_verified_at ||
+      (options.expectedPasswordHash !== undefined &&
+        locked[0].password_hash !== options.expectedPasswordHash)
     )
-      throw new UnauthorizedError('Sign in again');
+      throw options.refuseUser?.() ?? new UnauthorizedError('Sign in again');
     const memberships = await tx.$queryRaw<
       { account_id: string }[]
-    >`SELECT account_id FROM account_memberships WHERE user_id=${user.id}::uuid ORDER BY created_at`;
-    const membership = input.accountId
-      ? memberships.find((m) => m.account_id === input.accountId)
+    >`SELECT account_id FROM account_memberships WHERE user_id=${userId}::uuid ORDER BY created_at`;
+    const membership = options.accountId
+      ? memberships.find((m) => m.account_id === options.accountId)
       : memberships[0];
-    if (!membership) throw new AuthError('No workspace membership', 403);
-    const mfaVerified = await checkMfa(tx, user.id, input.mfaCode);
-    await tx.$executeRaw`INSERT INTO auth_sessions(id,user_id,account_id,csrf_hash,expires_at,mfa_verified_at)
-      VALUES(${sessionId}::uuid,${user.id}::uuid,${membership.account_id}::uuid,${hashToken(csrfToken)},${expiresAt},${mfaVerified ? new Date() : null})`;
+    if (!membership)
+      throw options.refuseWorkspace?.() ?? new AuthError('No workspace membership', 403);
+    const mfaVerified = await checkMfa(tx, userId, options.mfaCode);
+    await tx.$executeRaw`INSERT INTO auth_sessions(id,user_id,account_id,csrf_hash,expires_at,mfa_verified_at,user_agent,sign_in_method)
+      VALUES(${sessionId}::uuid,${userId}::uuid,${membership.account_id}::uuid,${hashToken(csrfToken)},${expiresAt},${mfaVerified ? new Date() : null},${storableUserAgent(options.userAgent)},${options.method})`;
     await tx.$executeRaw`INSERT INTO auth_refresh_tokens(id,session_id,token_hash,expires_at) VALUES(${randomUUID()}::uuid,${sessionId}::uuid,${hashToken(refreshToken)},${expiresAt})`;
+    if (options.auditAction)
+      await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
+        VALUES(${membership.account_id}::uuid,${userId}::uuid,${options.auditAction},${sessionId},'{}'::jsonb)`;
     return membership.account_id;
   });
   return {
-    accessToken: await signAccessToken({
-      userId: user.id,
-      accountId,
-      sessionId,
-    }),
+    accessToken: await signAccessToken({ userId, accountId, sessionId }),
     refreshToken,
     csrfToken,
     expiresAt,
+    sessionId,
   };
 }
 export async function rotateRefreshToken(
@@ -433,7 +467,7 @@ export async function resetPassword(
       WHERE v.token_hash=${hashToken(token)} AND v.purpose='reset' AND v.consumed_at IS NULL AND v.expires_at>NOW() AND u.disabled_at IS NULL FOR UPDATE OF u,v`;
     if (!rows[0]) return false;
     await checkMfa(tx, rows[0].user_id, mfaCode);
-    await tx.$executeRaw`UPDATE auth_users SET password_hash=${passwordHash} WHERE id=${rows[0].user_id}::uuid`;
+    await tx.$executeRaw`UPDATE auth_users SET password_hash=${passwordHash},password_set=true WHERE id=${rows[0].user_id}::uuid`;
     await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${rows[0].user_id}::uuid AND purpose IN ('reset','change_email') AND consumed_at IS NULL`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${rows[0].user_id}::uuid`;
     return true;
@@ -462,7 +496,7 @@ export async function updatePassword(
         'current_password_invalid'
       );
     await checkMfa(tx, context.userId, mfaCode);
-    await tx.$executeRaw`UPDATE auth_users SET password_hash=${passwordHash} WHERE id=${context.userId}::uuid`;
+    await tx.$executeRaw`UPDATE auth_users SET password_hash=${passwordHash},password_set=true WHERE id=${context.userId}::uuid`;
     await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${context.userId}::uuid`;
     await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${context.userId}::uuid AND purpose IN ('reset','change_email') AND consumed_at IS NULL`;
   });

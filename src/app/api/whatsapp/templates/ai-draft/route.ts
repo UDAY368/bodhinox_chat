@@ -9,6 +9,7 @@ import { databaseAdmin } from '@/lib/ai/admin-client'
 import { AiError } from '@/lib/ai/types'
 import { draftTemplate, parseTemplateDraftRequest } from '@/lib/whatsapp/template-ai'
 import { getT } from '@/lib/i18n/translate'
+import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
 
 const t = getT('Api')
 
@@ -62,10 +63,13 @@ export async function POST(request: Request) {
       )
     }
 
+    await requireAiMessageRoom(accountId)
     const result = await draftTemplate(parsed.value, async (systemPrompt, messages) => {
       const { text, usage } = await generateReply({ config, systemPrompt, messages })
       return { text, usage }
     })
+
+    await recordAiMessage(accountId)
 
     // One row per provider call, fire-and-forget like inbox drafts:
     // accounting must not fail or delay the response.

@@ -22,6 +22,7 @@ import {
 import { recordTemplateEvents } from '@/lib/whatsapp/template-events'
 import { templateRowFields } from '@/lib/whatsapp/template-row'
 import { tenantOf } from '@/lib/audience/http'
+import { requirePermission } from '@/lib/auth/permissions'
 import { getT } from '@/lib/i18n/translate'
 import { loadTemplateNumberConfig } from '@/lib/whatsapp/template-number'
 
@@ -80,6 +81,9 @@ export async function PATCH(
     // Editing a template pushes a component replacement to Meta before
     // anything is written locally, so the role has to be checked here.
     const ctx = await requireRole('admin')
+    // An edit re-submits the template to Meta for review, so it needs the
+    // same 'templates.submit' permission as the first submission.
+    await requirePermission(tenantOf(ctx), 'templates.submit')
     const { db, accountId } = ctx
 
     let payload: TemplatePayload

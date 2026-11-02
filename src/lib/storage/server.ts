@@ -14,6 +14,7 @@ import {
   type MediaContext,
 } from './policy';
 import { mediaObjectUrl } from './client';
+import { releaseStorage, reserveStorage } from '@/lib/billing/limits';
 
 let client: S3Client | undefined;
 function s3() {
@@ -47,24 +48,44 @@ export async function putMedia(
 ) {
   authorizeObject(bucket, path, context, 'write');
   validateUpload(bucket, contentType, body.byteLength);
-  const existing = await withTenant(
+  // The bytes are checked and recorded in one locked transaction before the
+  // put, so concurrent uploads cannot each pass on the same total. A member's
+  // upload must fit the plan's storage; media the system stores for customers
+  // (inbound messages, worker) is never refused.
+  const db = worker ? getWorkerPrisma() : undefined;
+  const reservation = await withTenant(
     context,
     (tx) =>
-      tx.$queryRaw<
-        { id: string }[]
-      >`SELECT id FROM media_objects WHERE account_id=${context.accountId}::uuid AND bucket=${bucket} AND object_key=${path}`,
-    worker ? getWorkerPrisma() : undefined
+      reserveStorage(tx, {
+        accountId: context.accountId,
+        uploadedBy: context.userId ?? null,
+        bucket,
+        objectKey: path,
+        contentType,
+        bytes: body.byteLength,
+        upsert,
+        enforce: !worker,
+      }),
+    db
   );
-  if (existing.length && !upsert) throw new Error('Object already exists');
-  await s3().send(
-    new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET,
-      Key: storageKey(bucket, path, context),
-      Body: body,
-      ContentType: contentType,
-      ...(upsert ? {} : { IfNoneMatch: '*' }),
-    })
-  );
+  try {
+    await s3().send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: storageKey(bucket, path, context),
+        Body: body,
+        ContentType: contentType,
+        ...(upsert ? {} : { IfNoneMatch: '*' }),
+      })
+    );
+  } catch (error) {
+    await withTenant(
+      context,
+      (tx) => releaseStorage(tx, context.accountId, reservation),
+      db
+    ).catch(() => undefined);
+    throw error;
+  }
   await withTenant(
     context,
     (tx) =>

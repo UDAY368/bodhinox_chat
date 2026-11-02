@@ -14,6 +14,7 @@ import { Prisma } from '@prisma/client';
 
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import type { TenantTransaction } from '@/lib/db/tenant';
+import { getEntitlements } from '@/lib/billing/entitlements';
 import { mediaObjectUrl } from '@/lib/storage/client';
 
 export const MEDIA_LIBRARY_BUCKET = 'chat-media';
@@ -196,7 +197,9 @@ export async function getStorageUsage(tx: TenantTransaction, accountId: string):
       COUNT(*) FILTER (WHERE in_library) AS count
     FROM media_objects WHERE account_id=${accountId}::uuid AND deleted_at IS NULL`;
   const row = rows[0];
-  return { used_bytes: Number(row?.used ?? 0), library_bytes: Number(row?.library ?? 0), library_count: Number(row?.count ?? 0), limit_bytes: null };
+  // The plan's media storage (null = unlimited).
+  const limit = (await getEntitlements(tx, accountId)).limits.storage_bytes;
+  return { used_bytes: Number(row?.used ?? 0), library_bytes: Number(row?.library ?? 0), library_count: Number(row?.count ?? 0), limit_bytes: limit };
 }
 
 /**

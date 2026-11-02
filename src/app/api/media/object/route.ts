@@ -1,11 +1,12 @@
 import { readBoundedBody } from '@/lib/api/bounded-body';
 import { ForbiddenError } from '@/lib/auth/errors';
+import { PlanLimitError } from '@/lib/billing/entitlements';
 import { requireSession, assertMutation } from '@/lib/auth/session';
 import { getMedia, putMedia, removeMedia } from '@/lib/storage/server';
 export const runtime = 'nodejs';
 function failure(error: unknown) {
   const status = error && typeof error === 'object' && 'status' in error ? Number(error.status) : 400;
-  const message = error instanceof Error && /Missing required configuration/.test(error.message) ? 'Media storage is not configured' : error instanceof Error && /not found/.test(error.message) ? 'Media not found' : 'Media request was rejected';
+  const message = error instanceof PlanLimitError ? error.message : error instanceof Error && /Missing required configuration/.test(error.message) ? 'Media storage is not configured' : error instanceof Error && /not found/.test(error.message) ? 'Media not found' : 'Media request was rejected';
   return Response.json({ error: { message } }, { status: message.includes('not configured') ? 503 : status, headers: { 'Cache-Control': 'no-store' } });
 }
 export async function GET(request: Request) {
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
     const bytes = await readBoundedBody(request, 17 * 1024 * 1024);
     const form = await new Response(bytes, { headers: { 'Content-Type': request.headers.get('Content-Type') || '' } }).formData(); const file = form.get('file');
     if (!(file instanceof File) || file.size > 16 * 1024 * 1024) throw new Error('Invalid upload');
+    // inbound/ holds mirrored customer media, which the storage limit does not count; members may not write there.
+    if (String(form.get('key')).startsWith(`account-${context.accountId}/inbound/`)) throw new ForbiddenError('Uploads cannot use the inbound media folder');
     await putMedia(context, String(form.get('bucket')), String(form.get('key')), new Uint8Array(await file.arrayBuffer()), file.type, form.get('upsert') === 'true');
     return Response.json({ data: { path: String(form.get('key')) } }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return failure(error); }

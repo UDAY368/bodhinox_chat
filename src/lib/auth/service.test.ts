@@ -10,7 +10,7 @@ vi.mock('@/lib/db/prisma', () => ({
 }));
 vi.mock('./jwt', () => ({ signAccessToken: mocks.sign }));
 vi.mock('./mfa', () => ({ checkMfa: vi.fn() }));
-import { rotateRefreshToken } from './service';
+import { issueSession, rotateRefreshToken } from './service';
 import { hashToken } from './csrf';
 const token = 'a'.repeat(43),
   csrf = 'b'.repeat(43);
@@ -96,6 +96,57 @@ describe('refresh session families', () => {
       if (variant === 'membership') mocks.query.mockResolvedValueOnce([]);
       await expect(rotateRefreshToken(token, request())).rejects.toThrow();
     }
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+});
+describe('shared session issuing', () => {
+  const user = {
+    id: row.user_id,
+    password_hash: 'hash',
+    disabled_at: null,
+    email_verified_at: new Date(),
+  };
+  const sql = (call: unknown[]) => (call[0] as string[]).join('?');
+  it('stores the device and sign-in method, audits only when asked, and returns the session id', async () => {
+    mocks.query
+      .mockResolvedValueOnce([user])
+      .mockResolvedValueOnce([{ account_id: row.account_id }]);
+    const issued = await issueSession(user.id, {
+      method: 'password',
+      userAgent: 'Agent\u0000/1',
+      expectedPasswordHash: 'hash',
+    });
+    expect(issued.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+    const insert = mocks.execute.mock.calls.find((c) => sql(c).includes('INSERT INTO auth_sessions'))!;
+    expect(insert).toContain('Agent/1');
+    expect(insert).toContain('password');
+    expect(insert).toContain(issued.sessionId);
+    expect(mocks.execute.mock.calls.some((c) => sql(c).includes('audit_logs'))).toBe(false);
+    mocks.query
+      .mockResolvedValueOnce([user])
+      .mockResolvedValueOnce([{ account_id: row.account_id }]);
+    const google = await issueSession(user.id, { method: 'google', auditAction: 'auth.google_sign_in' });
+    const audit = mocks.execute.mock.calls.find((c) => sql(c).includes('audit_logs'))!;
+    expect(audit).toContain('auth.google_sign_in');
+    expect(audit).toContain(google.sessionId);
+  });
+  it('refuses a changed password, a disabled user and a missing membership with the errors the caller picks', async () => {
+    mocks.query.mockResolvedValueOnce([{ ...user, password_hash: 'changed' }]);
+    await expect(
+      issueSession(user.id, { method: 'password', expectedPasswordHash: 'hash' })
+    ).rejects.toMatchObject({ code: 'unauthorized' });
+    mocks.query.mockResolvedValueOnce([{ ...user, disabled_at: new Date() }]);
+    await expect(
+      issueSession(user.id, { method: 'google', refuseUser: () => new Error('custom user') })
+    ).rejects.toThrow('custom user');
+    mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([]);
+    await expect(
+      issueSession(user.id, { method: 'google', refuseWorkspace: () => new Error('custom workspace') })
+    ).rejects.toThrow('custom workspace');
+    mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([{ account_id: row.account_id }]);
+    await expect(
+      issueSession(user.id, { method: 'password', accountId: row.session_id })
+    ).rejects.toMatchObject({ status: 403 });
     expect(mocks.execute).not.toHaveBeenCalled();
   });
 });

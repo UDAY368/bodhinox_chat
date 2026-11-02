@@ -7,6 +7,7 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account'
 import { tenantOf } from '@/lib/audience/http'
+import { requirePermission } from '@/lib/auth/permissions'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { submitMessageTemplate } from '@/lib/whatsapp/meta-api'
 import {
@@ -127,6 +128,7 @@ export async function POST(request: Request) {
     // approval — an external side effect RLS can't roll back — before the
     // local upsert was refused.
     const ctx = await requireRole('admin')
+    await requirePermission(tenantOf(ctx), 'templates.submit')
     const { db, accountId, userId } = ctx
 
     let body: (TemplatePayload & { id?: unknown; whatsapp_config_id?: unknown }) | null

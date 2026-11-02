@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentAccount, requireRole, toErrorResponse } from '@/lib/auth/account'
 import { tenantOf } from '@/lib/audience/http'
 import { withTenant } from '@/lib/db/tenant'
+import { PlanLimitError, requireWhatsAppNumberRoom } from '@/lib/billing/entitlements'
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing'
 import { createHash } from 'node:crypto'
 import {
@@ -343,6 +344,18 @@ export async function POST(request: Request) {
     if (existingError) {
       console.error('Error fetching whatsapp_config:', existingError.code ?? 'unknown')
       return NextResponse.json({ error: t('whatsappConfig.saveFailed') }, { status: 500 })
+    }
+
+    // Adding ANOTHER number must fit the plan (402), checked before /register
+    // and the WABA subscription change Meta state. Saving or reconnecting a
+    // number this workspace already has is never limited.
+    if (!existing) {
+      try {
+        await withTenant(tenantOf(ctx), (tx) => requireWhatsAppNumberRoom(tx, accountId))
+      } catch (err) {
+        if (err instanceof PlanLimitError) return toErrorResponse(err)
+        throw err
+      }
     }
 
     // Encrypt sensitive tokens before storing

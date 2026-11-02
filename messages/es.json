@@ -24,7 +24,25 @@
     "noAccount": "¿No tienes una cuenta?",
     "createAccount": "Crear cuenta",
     "linkExpired": "Ese enlace expiró. Para restablecer la contraseña, usa “¿Olvidaste tu contraseña?” y pide uno nuevo; si estabas confirmando tu correo, regístrate de nuevo.",
-    "linkInvalid": "No se pudo iniciar sesión con ese enlace. Si estabas confirmando tu correo, es posible que ya esté verificado; inicia sesión abajo. Para restablecer la contraseña, pide un enlace nuevo y ábrelo en el mismo navegador desde el que lo solicitaste."
+    "linkInvalid": "No se pudo iniciar sesión con ese enlace. Si estabas confirmando tu correo, es posible que ya esté verificado; inicia sesión abajo. Para restablecer la contraseña, pide un enlace nuevo y ábrelo en el mismo navegador desde el que lo solicitaste.",
+    "google": {
+      "continue": "Continuar con Google",
+      "or": "o",
+      "mfaPrompt": "Google confirmó tu identidad. Introduce el código de tu app de autenticación o un código de recuperación para terminar de iniciar sesión.",
+      "mfaLabel": "Código de autenticación o de recuperación",
+      "mfaSubmit": "Verificar e iniciar sesión",
+      "verifying": "Verificando...",
+      "mfaExpired": "Este paso de inicio de sesión caducó. Vuelve a continuar con Google.",
+      "failed": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+      "errors": {
+        "google_unavailable": "El inicio de sesión con Google no está disponible ahora. Inténtalo más tarde o inicia sesión con tu contraseña.",
+        "google_cancelled": "Se canceló el inicio de sesión con Google.",
+        "google_failed": "No pudimos iniciar tu sesión con Google. Inténtalo de nuevo.",
+        "google_link_required": "Ya existe una cuenta con este correo. Inicia sesión con tu contraseña y luego vincula Google en Configuración → Inicio de sesión y seguridad.",
+        "google_no_workspace": "Tu cuenta no pertenece a ningún espacio de trabajo.",
+        "google_rate_limited": "Demasiados intentos. Inténtalo más tarde."
+      }
+    }
   },
   "Sidebar": {
     "title": "BODHINOX",
@@ -303,7 +321,8 @@
       "chats": "Chats",
       "lifecycle": "Ciclo de vida",
       "slaDueIn": "Responder en {value}{unit, select, m {min} h {h} other {d}}",
-      "slaOverdue": "Vencido hace {value}{unit, select, m {min} h {h} other {d}}"
+      "slaOverdue": "Vencido hace {value}{unit, select, m {min} h {h} other {d}}",
+      "filterMyTeam": "Mi equipo"
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -2818,7 +2837,42 @@
     },
     "security": {
       "title": "Acceso y seguridad",
-      "description": "Cambia tu contraseña y cierra sesión en tus dispositivos. Esto mantiene tu cuenta segura."
+      "description": "Cambia tu contraseña y cierra sesión en tus dispositivos. Esto mantiene tu cuenta segura.",
+      "google": {
+        "title": "Inicio de sesión con Google",
+        "description": "Vincula una cuenta de Google para iniciar sesión sin escribir tu contraseña. La verificación en dos pasos se sigue aplicando.",
+        "linkedAs": "Vinculado a {email}.",
+        "passwordLabel": "Contraseña actual",
+        "unlinkHint": "Después de desvincular, inicia sesión con tu correo y contraseña.",
+        "link": "Vincular cuenta de Google",
+        "unlink": "Desvincular Google",
+        "unlinked": "Google ya no está vinculado.",
+        "failed": "No funcionó. Inténtalo de nuevo.",
+        "outcomes": {
+          "linked": "Cuenta de Google vinculada. Ya puedes iniciar sesión con Google.",
+          "google_in_use": "Esa cuenta de Google ya está vinculada a otro usuario.",
+          "google_already_linked": "Ya hay otra cuenta de Google vinculada. Desvincúlala primero.",
+          "google_failed": "No se pudo vincular Google. Inténtalo de nuevo.",
+          "google_cancelled": "Se canceló la vinculación con Google.",
+          "google_unavailable": "Google no está disponible ahora. Inténtalo más tarde."
+        },
+        "noPassword": "Tu cuenta se creó con Google y aún no tiene contraseña. Establece una contraseña antes de desvincular Google o desactivar la verificación en dos pasos.",
+        "setPassword": "Enviarme un enlace para establecer una contraseña",
+        "setPasswordSent": "Revisa tu bandeja de entrada: te enviamos un enlace para establecer tu contraseña."
+      },
+      "devices": {
+        "title": "Dónde has iniciado sesión",
+        "description": "Dispositivos y navegadores con una sesión activa. Cierra la sesión en los que no reconozcas.",
+        "loading": "Cargando sesiones...",
+        "loadFailed": "No se pudieron cargar tus sesiones.",
+        "revokeFailed": "No se pudo cerrar esa sesión. Inténtalo de nuevo.",
+        "unknownBrowser": "Navegador desconocido",
+        "unknownOs": "Dispositivo desconocido",
+        "thisDevice": "Este dispositivo",
+        "activity": "Activa {lastUsed} · Inició sesión el {signedIn}",
+        "signOut": "Cerrar sesión",
+        "signOutOthers": "{count, plural, one {Cerrar # otra sesión} other {Cerrar # otras sesiones}}"
+      }
     },
     "browserNotifications": {
       "title": "Notificaciones del navegador",
@@ -3076,10 +3130,20 @@
         "lists": "Listas",
         "campaign_recipients": "Destinatarios por campaña",
         "active_flows": "Flujos activos",
-        "active_automations": "Automatizaciones activas"
+        "active_automations": "Automatizaciones activas",
+        "ai_messages": "Respuestas de IA este mes",
+        "monthly_active_contacts": "Contactos activos este mes",
+        "storage_bytes": "Almacenamiento de archivos (bytes)",
+        "whatsapp_numbers": "Números de WhatsApp"
       },
       "loadFailed": "No se pudo cargar tu plan",
-      "retry": "Reintentar"
+      "retry": "Reintentar",
+      "meters": {
+        "storage": "Almacenamiento de archivos",
+        "monthly": "(este mes)",
+        "reached": "Límite alcanzado. Mejora el plan o compra un complemento para tener más."
+      },
+      "upgradeHintBilling": "Elige o cambia tu plan en Facturación, más abajo."
     },
     "iceBreakers": {
       "title": "Iniciadores de conversación",
@@ -3372,7 +3436,133 @@
       "reassignHint": "Si nadie ha respondido para entonces, la conversación pasa al siguiente miembro de la lista. Déjalo vacío para mantenerla donde está.",
       "off": "Desactivado",
       "cancel": "Cancelar",
-      "save": "Guardar"
+      "save": "Guardar",
+      "modeTeam": "Un equipo (por turnos)",
+      "team": "Equipo",
+      "teamSummary": "Equipo: {team}",
+      "unknownTeam": "equipo eliminado"
+    },
+    "teams": {
+      "title": "Equipos",
+      "description": "Agrupa a los miembros en equipos. Las reglas de asignación pueden enviar conversaciones a un equipo y los miembros pueden filtrar la bandeja de entrada por los chats de su equipo.",
+      "loadFailed": "No se pudieron cargar los equipos. Recarga la página para intentarlo de nuevo.",
+      "empty": "Todavía no hay equipos.",
+      "noMembers": "Sin miembros",
+      "unknownMember": "Antiguo miembro",
+      "edit": "Editar {name}",
+      "delete": "Eliminar {name}",
+      "add": "Añadir equipo",
+      "deleteConfirm": "¿Eliminar el equipo «{name}»? Las reglas de asignación que le envían conversaciones dejarán de aplicarse hasta que las edites.",
+      "deleteFailed": "No se pudo eliminar el equipo.",
+      "deleted": "Equipo eliminado",
+      "addTitle": "Nuevo equipo",
+      "editTitle": "Editar equipo",
+      "dialogDescription": "Ponle un nombre al equipo y elige sus miembros.",
+      "name": "Nombre",
+      "members": "Miembros",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saved": "Equipo guardado",
+      "saveFailed": "No se pudo guardar el equipo."
+    },
+    "permissions": {
+      "title": "Permisos por función",
+      "description": "Desactiva funciones para un rol. Solo puedes quitar lo que el rol ya tiene; un rol nunca obtiene más de lo que tiene por defecto.",
+      "loadFailed": "No se pudieron cargar los permisos. Recarga la página para intentarlo de nuevo.",
+      "feature": "Función",
+      "saved": "Permisos actualizados",
+      "saveFailed": "No se pudo actualizar el permiso.",
+      "toggle": "{feature} para {role}",
+      "notAvailable": "—",
+      "aboveRole": "No disponible para este rol",
+      "footnote": "Los propietarios siempre tienen todas las funciones. Solo un propietario puede cambiar la columna Administrador.",
+      "features": {
+        "campaigns_send": "Enviar y programar campañas",
+        "contacts_export": "Exportar contactos",
+        "flows_publish": "Publicar flujos",
+        "templates_submit": "Enviar plantillas a WhatsApp",
+        "settings_billing": "Gestionar plan y facturación"
+      }
+    },
+    "auditLog": {
+      "title": "Registro de auditoría",
+      "description": "Quién hizo qué en este espacio de trabajo, de lo más reciente a lo más antiguo. Las entradas muestran identificadores y recuentos, nunca el contenido de los mensajes.",
+      "linkDescription": "Revisa la actividad de miembros, equipos, permisos y exportaciones.",
+      "back": "Volver a la configuración",
+      "adminsOnly": "Solo los administradores y propietarios pueden ver el registro de auditoría.",
+      "member": "Miembro",
+      "anyMember": "Cualquier miembro",
+      "action": "Acción",
+      "anyAction": "Cualquier acción",
+      "from": "Desde",
+      "to": "Hasta",
+      "apply": "Aplicar",
+      "reset": "Restablecer",
+      "loadFailed": "No se pudo cargar el registro de auditoría.",
+      "empty": "Ninguna entrada coincide con estos filtros.",
+      "when": "Cuándo",
+      "details": "Detalles",
+      "formerMember": "Antiguo miembro",
+      "system": "Sistema",
+      "loadMore": "Cargar más"
+    },
+    "addOns": {
+      "title": "Complementos",
+      "description": "Añade más mensajes de IA, puestos de equipo o números de WhatsApp a tu plan. Se cobra en tu próxima factura, más GST.",
+      "notConfigured": "Los complementos aún no están disponibles.",
+      "loadFailed": "No se pudieron cargar los complementos",
+      "retry": "Reintentar",
+      "kinds": {
+        "ai_messages": "{count, plural, one {# mensaje de IA} other {# mensajes de IA}}",
+        "extra_seats": "{count, plural, one {# puesto de equipo} other {# puestos de equipo}}",
+        "extra_numbers": "{count, plural, one {# número de WhatsApp} other {# números de WhatsApp}}"
+      },
+      "perPack": "{price} por paquete + GST",
+      "packs": "Paquetes",
+      "buy": "Comprar por {price}",
+      "coverage": "Los mensajes de IA duran hasta el final de este mes (hora de India); los puestos y números, hasta el final de tu periodo de facturación. Los complementos no se renuevan solos.",
+      "empty": "Aún no hay complementos.",
+      "status": {
+        "pending": "Confirmando",
+        "active": "Activo",
+        "cancelled": "Detenido",
+        "failed": "Rechazado"
+      },
+      "until": "Hasta el {date}",
+      "cancel": "Detener",
+      "cancelConfirm": "¿Detener este complemento ahora? El cargo ya añadido a tu próxima factura no se reembolsa.",
+      "cancelled": "Complemento detenido",
+      "cancelFailed": "No se pudo detener el complemento",
+      "purchased": "Complemento activo",
+      "purchasePending": "Compra enviada. Se activará cuando el proveedor de pagos la confirme.",
+      "purchaseFailed": "No se pudo comprar el complemento",
+      "pendingHint": "El proveedor de pagos aún no ha confirmado esta compra. No estará activa hasta que se confirme; contacta con soporte si tarda más de un día."
+    },
+    "planDowngrade": {
+      "title": "Elige qué sigue activo",
+      "description": "Revisa qué cabe en tu plan.",
+      "effective": "El plan {plan} empieza el {date}. Elige antes de esa fecha o seguirán activos los elementos usados más recientemente.",
+      "inEffect": "Tu espacio de trabajo está en el plan {plan}.",
+      "loadFailed": "No se pudieron cargar los límites de tu plan",
+      "retry": "Reintentar",
+      "nothingDeleted": "No se elimina nada. Los elementos que no conserves se archivan: los flujos y automatizaciones archivados no se ejecutan, y los segmentos y listas archivados no pueden iniciar campañas nuevas. Se restauran cuando tu plan vuelva a permitirlos.",
+      "withinLimits": "Todo cabe en el plan {plan}.",
+      "kinds": {
+        "segments": "Segmentos guardados",
+        "lists": "Listas",
+        "flows": "Flujos activos",
+        "automations": "Automatizaciones activas"
+      },
+      "pick": "conserva hasta {limit, number}, {count, number} elegidos",
+      "lastUsed": "Último uso: {date}",
+      "neverUsed": "Sin usar todavía",
+      "archivedTitle": "Archivado por tu plan",
+      "archivedHint": "Vuelven automáticamente cuando tu plan los permita de nuevo.",
+      "cancel": "Cancelar",
+      "save": "Guardar selección",
+      "saved": "Guardado. Los elementos que no caben se archivaron.",
+      "savedPending": "Guardado. Se aplicará cuando empiece el nuevo plan.",
+      "saveFailed": "No se pudo guardar tu selección"
     }
   },
   "SignupPage": {
@@ -3482,7 +3672,8 @@
       "campaign_finished": "Campaña",
       "template_rejected": "Plantilla rechazada",
       "whatsapp_number_health": "Número de WhatsApp",
-      "payment_received": "Pago recibido"
+      "payment_received": "Pago recibido",
+      "billing": "Facturación"
     }
   },
   "Agents": {
@@ -4600,7 +4791,8 @@
       "unknown_member": "Las conversaciones solo pueden ir a propietarios, administradores y agentes de este espacio de trabajo.",
       "unknown_number": "Ese número de WhatsApp no pertenece a este espacio de trabajo.",
       "limit": "Un espacio de trabajo puede tener como máximo 50 reglas de asignación.",
-      "not_found": "Esa regla ya no existe."
+      "not_found": "Esa regla ya no existe.",
+      "unknown_team": "Ese equipo ya no existe."
     },
     "notes": {
       "invalidRequest": "Envía la nota como un objeto JSON.",
@@ -4608,6 +4800,57 @@
       "forbidden": "Solo puedes modificar tus propias notas.",
       "invalid_body": "Escribe una nota de 1 a 4000 caracteres.",
       "invalid_mentions": "Menciona como máximo a 20 compañeros."
+    },
+    "billing": {
+      "invalidPrice": "Indica un plan, un intervalo mensual o anual, un importe en paisas mayor que cero y un ID de plan de Razorpay (plan_…).",
+      "noEnvPrices": "BILLING_PLAN_PRICES no está configurado, así que no hay precios que cargar.",
+      "unknownPlan": "Ese plan no existe.",
+      "suspended": "Este espacio de trabajo está suspendido porque hay un pago vencido. Un administrador puede pagar en Configuración → Plan y uso para volver a enviar.",
+      "invalid_request": "La solicitud no es válida.",
+      "not_configured": "La facturación en línea aún no está configurada.",
+      "plan_unavailable": "Ese plan no está disponible para comprar.",
+      "profile_required": "Primero añade tus datos de facturación.",
+      "already_subscribed": "Este espacio de trabajo ya tiene una suscripción. Cambia su plan en su lugar.",
+      "no_subscription": "No hay ninguna suscripción activa que cambiar.",
+      "payment_issue": "Paga el importe vencido antes de cambiar de plan.",
+      "change_pending": "Un cambio anterior aún se está confirmando con el proveedor de pagos. Inténtalo de nuevo en unos minutos.",
+      "same_plan": "Ya tienes este plan.",
+      "cancel_pending": "La suscripción está programada para terminar. No se puede cambiar ahora.",
+      "provider_rejected": "El proveedor de pagos rechazó la solicitud. No se cambió nada.",
+      "provider_unavailable": "No se pudo contactar con el proveedor de pagos. Inténtalo de nuevo en breve.",
+      "nothing_to_resume": "No hay ningún pago pendiente.",
+      "resume_unsupported": "Una suscripción cancelada no se puede reanudar. Vuelve a suscribirte cuando termine el periodo actual.",
+      "invalid_profile": "Completa la razón social, la dirección, la ciudad, el código postal y un correo válido.",
+      "invalid_gstin": "Ese GSTIN no es válido.",
+      "gstin_state_mismatch": "El código de estado debe coincidir con los dos primeros dígitos del GSTIN.",
+      "state_required": "Introduce un código de estado GST válido de dos dígitos (por ejemplo, 29 para Karnataka).",
+      "gstin_outside_india": "Un GSTIN solo se puede usar con una dirección en India.",
+      "addOns": {
+        "unknown_pack": "Ese complemento no está disponible.",
+        "invalid_packs": "Elige entre 1 y 100 paquetes.",
+        "needs_subscription": "Los complementos requieren una suscripción de pago activa. Elige primero un plan.",
+        "not_cancellable": "Solo se puede detener un complemento activo.",
+        "notConfigured": "La facturación aún no está configurada, así que no se pueden comprar complementos.",
+        "rejected": "El proveedor de pagos rechazó esta compra. No se cobró nada.",
+        "limit_unlimited": "Este paquete amplía un límite que tu plan no tiene, así que no hay nada que comprar."
+      },
+      "downgrade": {
+        "invalid_selection": "Elige solo elementos que estén en uso ahora.",
+        "stale_plan": "El cambio de plan ya no es el mismo. Revisa la lista de nuevo.",
+        "too_many": "Elegiste más elementos de los que permite el plan."
+      }
+    },
+    "teams": {
+      "invalid_name": "Ponle al equipo un nombre de hasta 80 caracteres.",
+      "invalid_members": "Revisa la lista de miembros del equipo.",
+      "unknown_member": "Los equipos solo pueden incluir miembros de este espacio de trabajo.",
+      "duplicate_name": "Ya existe un equipo con ese nombre.",
+      "limit": "Un espacio de trabajo puede tener como máximo 50 equipos.",
+      "not_found": "Ese equipo ya no existe."
+    },
+    "permissions": {
+      "invalid": "Elige un rol y una función para cambiar.",
+      "ownerOnly": "Solo un propietario puede cambiar lo que pueden hacer los administradores."
     }
   },
   "Api": {
@@ -6236,5 +6479,164 @@
     "unknownContact": "Contacto desconocido",
     "loadMore": "Cargar más",
     "jumpNotFound": "Ese mensaje está demasiado atrás en el historial para mostrarlo aquí."
+  },
+  "Billing": {
+    "title": "Facturación",
+    "notConfigured": "La facturación en línea aún no está disponible. Para cambiar de plan, contacta con el soporte de Bodhinox.",
+    "loadFailed": "No se pudo cargar la facturación",
+    "retry": "Reintentar",
+    "confirming": "Confirmando tu pago con el proveedor…",
+    "confirmCancel": "¿Cancelar la suscripción? Sigue activa hasta el final del periodo pagado y después el espacio de trabajo pasa al plan Free. No se elimina ningún dato.",
+    "toasts": {
+      "activated": "Tu plan está activo.",
+      "confirmingLater": "Pago recibido. Tu plan se actualizará en cuanto el proveedor lo confirme.",
+      "profileFirst": "Primero añade tus datos de facturación.",
+      "failed": "Algo salió mal. No se cambió nada.",
+      "scheduled": "Hecho. El cambio se aplicará al final del periodo actual.",
+      "pending": "El proveedor de pagos aún no lo ha confirmado. Lo comprobaremos de nuevo en breve.",
+      "changed": "Tu plan ha cambiado.",
+      "cancelled": "La suscripción está cancelada."
+    },
+    "checkout": {
+      "name": "Bodhinox",
+      "description": "Suscripción del espacio de trabajo"
+    },
+    "subscription": {
+      "current": "Suscripción: {plan}",
+      "none": "Sin suscripción",
+      "noneHint": "Elige un plan a continuación para suscribirte.",
+      "status": {
+        "trialing": "Prueba",
+        "active": "Activa",
+        "past_due": "Pago pendiente",
+        "grace": "Periodo de gracia",
+        "suspended": "Suspendida",
+        "cancelled": "Cancelada",
+        "incomplete": "Incompleta"
+      },
+      "interval": {
+        "month": "mensualmente",
+        "year": "anualmente"
+      },
+      "renewsOn": "Se renueva {interval} el {date}.",
+      "endsOn": "Termina el {date}.",
+      "trialBanner": "Tu prueba termina el {date}. El primer pago se cobra entonces.",
+      "pastDueBanner": "Un pago ha fallado. El proveedor lo está reintentando; también puedes pagar ahora.",
+      "graceBanner": "El pago está vencido. Paga antes del {date} o se suspenderán los envíos automáticos.",
+      "suspendedBanner": "Este espacio de trabajo está suspendido: las campañas, los flujos, las automatizaciones y las respuestas de IA están en pausa. Paga ahora para reanudar.",
+      "cancelBanner": "La suscripción termina el {date}. Después el espacio de trabajo pasa al plan Free; no se elimina ningún dato.",
+      "scheduledBanner": "Tu plan cambia a {plan} el {date}.",
+      "pending": {
+        "checkout": "Se está confirmando una suscripción con el proveedor de pagos.",
+        "change_plan": "Se está confirmando un cambio de plan con el proveedor de pagos.",
+        "cancel": "Se está confirmando una cancelación con el proveedor de pagos. Puedes volver a solicitarla si es necesario."
+      },
+      "pay": "Pagar ahora",
+      "cancel": "Cancelar suscripción"
+    },
+    "plans": {
+      "title": "Elige un plan",
+      "changeTitle": "Cambiar de plan",
+      "intervalLabel": "Periodo de facturación",
+      "interval": {
+        "month": "Mensual",
+        "year": "Anual"
+      },
+      "per": {
+        "month": "mes",
+        "year": "año"
+      },
+      "gstNote": "Incluye GST cuando corresponde",
+      "current": "Plan actual",
+      "switch": "Cambiar",
+      "subscribe": "Suscribirse",
+      "adminsOnly": "Solo los propietarios y administradores del espacio de trabajo pueden cambiar el plan.",
+      "changeHint": "Las mejoras se aplican ahora y se cobra la diferencia proporcional. Las reducciones se aplican al final del periodo actual.",
+      "names": {
+        "free": "Free",
+        "basic": "Basic",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      }
+    },
+    "profile": {
+      "title": "Datos de facturación",
+      "description": "Aparecen en tus facturas con GST. Añade un GSTIN para solicitar el crédito fiscal.",
+      "fields": {
+        "legal_name": "Razón social",
+        "gstin": "GSTIN (opcional)",
+        "address_line1": "Dirección",
+        "address_line2": "Dirección, línea 2 (opcional)",
+        "city": "Ciudad",
+        "state_code": "Código de estado GST",
+        "postal_code": "Código postal",
+        "country": "Código de país",
+        "email": "Correo de facturación"
+      },
+      "stateHint": "Para India, introduce el código de estado GST de dos dígitos (por ejemplo, 29 para Karnataka); con un GSTIN se toma del GSTIN. Usa un código de país de dos letras, como IN.",
+      "save": "Guardar datos de facturación",
+      "saved": "Datos de facturación guardados",
+      "saveFailed": "No se pudieron guardar los datos de facturación"
+    },
+    "invoices": {
+      "title": "Facturas",
+      "empty": "Aún no hay facturas.",
+      "number": "Número",
+      "date": "Fecha",
+      "period": "Periodo",
+      "total": "Total",
+      "view": "Ver",
+      "signedOut": "Tu sesión ha terminado. Vuelve a iniciar sesión para ver esta factura."
+    },
+    "notices": {
+      "activated": {
+        "title": "Suscripción activa: {plan}",
+        "body": "Tu plan {plan} ya está activo."
+      },
+      "payment_failed": {
+        "title": "Pago fallido",
+        "body": "El pago de tu plan {plan} ha fallado. El proveedor lo reintentará; también puedes pagar ahora en Configuración → Plan y uso."
+      },
+      "grace_started": {
+        "title": "Pago vencido",
+        "body": "El pago de tu plan {plan} está vencido. Paga antes del {date} para mantener los envíos automáticos."
+      },
+      "grace_ending": {
+        "title": "El periodo de gracia termina pronto",
+        "body": "Paga antes del {date} o se suspenderán las campañas, los flujos, las automatizaciones y las respuestas de IA."
+      },
+      "suspended": {
+        "title": "Espacio de trabajo suspendido",
+        "body": "El pago está vencido, así que los envíos automáticos están en pausa. Tus datos están a salvo; paga en Configuración → Plan y uso para reanudar."
+      },
+      "recovered": {
+        "title": "Pago recibido",
+        "body": "Gracias. Tu plan {plan} vuelve a estar activo."
+      },
+      "cancelled": {
+        "title": "Suscripción finalizada",
+        "body": "Tu suscripción ha terminado y el espacio de trabajo está en el plan Free. No se eliminó ningún dato."
+      },
+      "invoice_issued": {
+        "title": "Factura {number}",
+        "body": "Hay una nueva factura con impuestos disponible en Configuración → Plan y uso."
+      },
+      "checkout_superseded": {
+        "title": "Suscripción adicional cancelada",
+        "body": "Llegó una autorización de pago del plan {plan} para un pago que ya se había reemplazado o para una segunda suscripción. No se aplicó y se canceló con el proveedor de pagos. Tu plan actual no cambia; revisa Facturación para confirmarlo."
+      }
+    },
+    "downgrade": {
+      "notice": "Tu espacio de trabajo usa más segmentos guardados, listas, flujos activos o automatizaciones de los que permite el plan {plan}. Elige qué sigue activo; no se elimina nada.",
+      "chosen": "Se guardó tu elección de qué sigue activo en el plan {plan}. Todo lo demás se archiva, no se elimina, cuando empiece el plan.",
+      "choose": "Elegir qué se queda",
+      "change": "Cambiar elección"
+    },
+    "payLink": {
+      "hint": "Continúa a la página de pago para completar tu pago.",
+      "open": "Abrir página de pago",
+      "blocked": "Tu navegador bloqueó la pestaña de pago. Usa el enlace de esta página para continuar.",
+      "checkoutFallback": "No se pudo cargar el pago aquí. Usa el enlace de la página de pago para continuar."
+    }
   }
 }

@@ -15,6 +15,9 @@ import {
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { PlanLimitError } from '@/lib/billing/entitlements'
+import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
+import { getWorkerPrisma } from '@/lib/db/prisma'
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -164,6 +167,16 @@ export async function dispatchInboundToAiReply(
       return
     }
 
+    // The plan's monthly AI messages: when used up, the inbound waits for a human.
+    try {
+      await requireAiMessageRoom(accountId, getWorkerPrisma())
+    } catch (error) {
+      if (!(error instanceof PlanLimitError)) throw error
+      console.info('[ai auto-reply] skipped', { reason: 'plan_ai_messages_used' })
+      await unavailable()
+      return
+    }
+
     // Every gate has passed — we're committed to attempting a reply, so
     // show the customer "typing…" (and mark their message read) while the
     // retrieval + LLM round trips run. Meta clears the indicator after
@@ -193,6 +206,7 @@ export async function dispatchInboundToAiReply(
       systemPrompt,
       messages,
     })
+    await recordAiMessage(accountId, getWorkerPrisma())
 
     // Record token spend on the account's BYO key. Fire-and-forget so it
     // never adds latency to the customer-facing send: `logAiUsage`

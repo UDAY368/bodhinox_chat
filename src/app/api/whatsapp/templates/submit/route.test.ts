@@ -82,6 +82,8 @@ vi.mock('@/lib/whatsapp/template-header-handle', () => ({
 const history = vi.hoisted(() => ({ record: vi.fn<(...args: unknown[]) => Promise<number>>(async () => 1) }))
 vi.mock('@/lib/whatsapp/template-events', () => ({ recordTemplateEvents: history.record }))
 
+// Feature permissions are covered in src/lib/auth/permissions.test.ts; allowed here.
+vi.mock('@/lib/auth/permissions', () => ({ requirePermission: async () => undefined }));
 import { POST } from './route'
 
 const submit = (body: Record<string, unknown>) =>

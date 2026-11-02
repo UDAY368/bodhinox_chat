@@ -24,7 +24,25 @@
     "noAccount": "계정이 없으신가요?",
     "createAccount": "계정 만들기",
     "linkExpired": "링크가 만료되었습니다. 비밀번호를 재설정하려면 “비밀번호를 잊으셨나요?”에서 새 링크를 요청하세요. 이메일 인증 중이었다면 다시 가입해 주세요.",
-    "linkInvalid": "이 링크로는 로그인할 수 없습니다. 이메일 인증 중이었다면 이미 인증이 완료되었을 수 있으니 아래에서 로그인하세요. 비밀번호 재설정은 새 링크를 요청한 뒤 요청한 브라우저에서 열어 주세요."
+    "linkInvalid": "이 링크로는 로그인할 수 없습니다. 이메일 인증 중이었다면 이미 인증이 완료되었을 수 있으니 아래에서 로그인하세요. 비밀번호 재설정은 새 링크를 요청한 뒤 요청한 브라우저에서 열어 주세요.",
+    "google": {
+      "continue": "Google로 계속하기",
+      "or": "또는",
+      "mfaPrompt": "Google에서 본인 확인이 완료되었습니다. 로그인을 마치려면 인증 앱의 코드나 복구 코드를 입력하세요.",
+      "mfaLabel": "인증 앱 코드 또는 복구 코드",
+      "mfaSubmit": "확인 후 로그인",
+      "verifying": "확인 중...",
+      "mfaExpired": "로그인 단계가 만료되었습니다. Google로 다시 계속하세요.",
+      "failed": "로그인하지 못했습니다. 다시 시도하세요.",
+      "errors": {
+        "google_unavailable": "지금은 Google 로그인을 사용할 수 없습니다. 나중에 다시 시도하거나 비밀번호로 로그인하세요.",
+        "google_cancelled": "Google 로그인이 취소되었습니다.",
+        "google_failed": "Google로 로그인하지 못했습니다. 다시 시도하세요.",
+        "google_link_required": "이 이메일을 사용하는 계정이 이미 있습니다. 비밀번호로 로그인한 다음 설정 → 로그인 및 보안에서 Google을 연결하세요.",
+        "google_no_workspace": "계정이 속한 워크스페이스가 없습니다.",
+        "google_rate_limited": "시도 횟수가 너무 많습니다. 나중에 다시 시도하세요."
+      }
+    }
   },
   "Sidebar": {
     "title": "BODHINOX",
@@ -303,7 +321,8 @@
       "chats": "채팅",
       "lifecycle": "진행 상태",
       "slaDueIn": "{value}{unit, select, m {분} h {시간} other {일}} 내 응답",
-      "slaOverdue": "{value}{unit, select, m {분} h {시간} other {일}} 지연"
+      "slaOverdue": "{value}{unit, select, m {분} h {시간} other {일}} 지연",
+      "filterMyTeam": "내 팀"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -2818,7 +2837,42 @@
     },
     "security": {
       "title": "로그인 & 보안",
-      "description": "비밀번호를 변경하고 기기에서 로그아웃하세요. 계정을 안전하게 유지하는 데 도움이 됩니다."
+      "description": "비밀번호를 변경하고 기기에서 로그아웃하세요. 계정을 안전하게 유지하는 데 도움이 됩니다.",
+      "google": {
+        "title": "Google 로그인",
+        "description": "Google 계정을 연결하면 비밀번호를 입력하지 않고 로그인할 수 있습니다. 2단계 인증은 계속 적용됩니다.",
+        "linkedAs": "{email}에 연결되어 있습니다.",
+        "passwordLabel": "현재 비밀번호",
+        "unlinkHint": "연결을 해제한 후에는 이메일과 비밀번호로 로그인하세요.",
+        "link": "Google 계정 연결",
+        "unlink": "Google 연결 해제",
+        "unlinked": "Google 연결이 해제되었습니다.",
+        "failed": "처리하지 못했습니다. 다시 시도하세요.",
+        "outcomes": {
+          "linked": "Google 계정이 연결되었습니다. 이제 Google로 로그인할 수 있습니다.",
+          "google_in_use": "이 Google 계정은 이미 다른 사용자에게 연결되어 있습니다.",
+          "google_already_linked": "다른 Google 계정이 이미 연결되어 있습니다. 먼저 연결을 해제하세요.",
+          "google_failed": "Google 연결에 실패했습니다. 다시 시도하세요.",
+          "google_cancelled": "Google 연결이 취소되었습니다.",
+          "google_unavailable": "지금은 Google을 사용할 수 없습니다. 나중에 다시 시도하세요."
+        },
+        "noPassword": "이 계정은 Google로 만들어져 아직 비밀번호가 없습니다. Google 연결을 해제하거나 2단계 인증을 끄려면 먼저 비밀번호를 설정하세요.",
+        "setPassword": "비밀번호 설정 링크를 이메일로 받기",
+        "setPasswordSent": "받은편지함에서 비밀번호 설정 링크를 확인하세요."
+      },
+      "devices": {
+        "title": "로그인된 기기",
+        "description": "활성 세션이 있는 기기와 브라우저입니다. 알 수 없는 기기는 로그아웃하세요.",
+        "loading": "세션을 불러오는 중...",
+        "loadFailed": "세션을 불러오지 못했습니다.",
+        "revokeFailed": "해당 세션에서 로그아웃하지 못했습니다. 다시 시도하세요.",
+        "unknownBrowser": "알 수 없는 브라우저",
+        "unknownOs": "알 수 없는 기기",
+        "thisDevice": "현재 기기",
+        "activity": "{lastUsed} 활동 · {signedIn} 로그인",
+        "signOut": "로그아웃",
+        "signOutOthers": "{count, plural, other {다른 세션 #개에서 로그아웃}}"
+      }
     },
     "browserNotifications": {
       "title": "브라우저 알림",
@@ -3076,10 +3130,20 @@
         "lists": "목록",
         "campaign_recipients": "캠페인당 수신자",
         "active_flows": "활성 플로우",
-        "active_automations": "활성 자동화"
+        "active_automations": "활성 자동화",
+        "ai_messages": "이번 달 AI 답변",
+        "monthly_active_contacts": "이번 달 활성 연락처",
+        "storage_bytes": "미디어 저장 공간(바이트)",
+        "whatsapp_numbers": "WhatsApp 번호"
       },
       "loadFailed": "요금제를 불러오지 못했습니다",
-      "retry": "다시 시도"
+      "retry": "다시 시도",
+      "meters": {
+        "storage": "미디어 저장 공간",
+        "monthly": "(이번 달)",
+        "reached": "한도에 도달했습니다. 더 사용하려면 업그레이드하거나 추가 기능을 구매하세요."
+      },
+      "upgradeHintBilling": "아래 결제에서 플랜을 선택하거나 변경하세요."
     },
     "iceBreakers": {
       "title": "대화 시작 문구",
@@ -3372,7 +3436,133 @@
       "reassignHint": "그때까지 아무도 답하지 않으면 목록의 다음 멤버에게 대화를 넘깁니다. 비워 두면 그대로 둡니다.",
       "off": "사용 안 함",
       "cancel": "취소",
-      "save": "저장"
+      "save": "저장",
+      "modeTeam": "팀 (순환 배정)",
+      "team": "팀",
+      "teamSummary": "팀: {team}",
+      "unknownTeam": "삭제된 팀"
+    },
+    "teams": {
+      "title": "팀",
+      "description": "멤버를 팀으로 묶으세요. 라우팅 규칙으로 대화를 팀에 보낼 수 있고, 멤버는 받은편지함을 자기 팀의 대화로 필터링할 수 있습니다.",
+      "loadFailed": "팀을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.",
+      "empty": "아직 팀이 없습니다.",
+      "noMembers": "멤버 없음",
+      "unknownMember": "이전 멤버",
+      "edit": "{name} 편집",
+      "delete": "{name} 삭제",
+      "add": "팀 추가",
+      "deleteConfirm": "“{name}” 팀을 삭제할까요? 이 팀으로 대화를 보내는 라우팅 규칙은 수정할 때까지 적용되지 않습니다.",
+      "deleteFailed": "팀을 삭제하지 못했습니다.",
+      "deleted": "팀이 삭제되었습니다",
+      "addTitle": "새 팀",
+      "editTitle": "팀 편집",
+      "dialogDescription": "팀 이름을 정하고 멤버를 선택하세요.",
+      "name": "이름",
+      "members": "멤버",
+      "cancel": "취소",
+      "save": "저장",
+      "saved": "팀이 저장되었습니다",
+      "saveFailed": "팀을 저장하지 못했습니다."
+    },
+    "permissions": {
+      "title": "기능 권한",
+      "description": "역할별로 기능을 끌 수 있습니다. 역할에 이미 있는 권한만 뺄 수 있으며, 기본값보다 더 많은 권한을 줄 수는 없습니다.",
+      "loadFailed": "권한을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.",
+      "feature": "기능",
+      "saved": "권한이 업데이트되었습니다",
+      "saveFailed": "권한을 업데이트하지 못했습니다.",
+      "toggle": "{role}의 {feature}",
+      "notAvailable": "—",
+      "aboveRole": "이 역할에서는 사용할 수 없습니다",
+      "footnote": "소유자는 항상 모든 기능을 사용할 수 있습니다. 관리자 열은 소유자만 변경할 수 있습니다.",
+      "features": {
+        "campaigns_send": "캠페인 발송 및 예약",
+        "contacts_export": "연락처 내보내기",
+        "flows_publish": "플로우 게시",
+        "templates_submit": "WhatsApp에 템플릿 제출",
+        "settings_billing": "요금제 및 결제 관리"
+      }
+    },
+    "auditLog": {
+      "title": "감사 로그",
+      "description": "이 워크스페이스에서 누가 무엇을 했는지 최신순으로 보여줍니다. 항목에는 식별자와 개수만 표시되며 메시지 내용은 표시되지 않습니다.",
+      "linkDescription": "멤버, 팀, 권한, 내보내기 활동을 확인하세요.",
+      "back": "설정으로 돌아가기",
+      "adminsOnly": "관리자와 소유자만 감사 로그를 볼 수 있습니다.",
+      "member": "멤버",
+      "anyMember": "모든 멤버",
+      "action": "작업",
+      "anyAction": "모든 작업",
+      "from": "시작",
+      "to": "종료",
+      "apply": "적용",
+      "reset": "초기화",
+      "loadFailed": "감사 로그를 불러오지 못했습니다.",
+      "empty": "이 필터와 일치하는 항목이 없습니다.",
+      "when": "시간",
+      "details": "세부 정보",
+      "formerMember": "이전 멤버",
+      "system": "시스템",
+      "loadMore": "더 보기"
+    },
+    "addOns": {
+      "title": "추가 기능",
+      "description": "요금제에 AI 메시지, 팀 좌석 또는 WhatsApp 번호를 추가하세요. 다음 청구서에 GST와 함께 청구됩니다.",
+      "notConfigured": "추가 기능은 아직 사용할 수 없습니다.",
+      "loadFailed": "추가 기능을 불러오지 못했습니다",
+      "retry": "다시 시도",
+      "kinds": {
+        "ai_messages": "AI 메시지 {count, number}개",
+        "extra_seats": "팀 좌석 {count, number}개",
+        "extra_numbers": "WhatsApp 번호 {count, number}개"
+      },
+      "perPack": "팩당 {price} + GST",
+      "packs": "팩",
+      "buy": "{price}에 구매",
+      "coverage": "AI 메시지는 이번 달 말(인도 시간)까지, 좌석과 번호는 결제 기간이 끝날 때까지 유효합니다. 추가 기능은 자동으로 갱신되지 않습니다.",
+      "empty": "아직 추가 기능이 없습니다.",
+      "status": {
+        "pending": "확인 중",
+        "active": "활성",
+        "cancelled": "중지됨",
+        "failed": "거절됨"
+      },
+      "until": "{date}까지",
+      "cancel": "중지",
+      "cancelConfirm": "지금 이 추가 기능을 중지할까요? 다음 청구서에 이미 추가된 요금은 환불되지 않습니다.",
+      "cancelled": "추가 기능이 중지되었습니다",
+      "cancelFailed": "추가 기능을 중지하지 못했습니다",
+      "purchased": "추가 기능이 활성화되었습니다",
+      "purchasePending": "구매 요청을 보냈습니다. 결제 제공업체가 확인하면 활성화됩니다.",
+      "purchaseFailed": "추가 기능을 구매하지 못했습니다",
+      "pendingHint": "결제 제공업체가 아직 이 구매를 확인하지 않았습니다. 확인되기 전에는 활성화되지 않으며, 하루 이상 지속되면 지원팀에 문의하세요."
+    },
+    "planDowngrade": {
+      "title": "계속 활성화할 항목 선택",
+      "description": "요금제에 맞는 항목을 확인하세요.",
+      "effective": "{plan} 요금제는 {date}에 시작됩니다. 그 전에 선택하지 않으면 가장 최근에 사용한 항목이 활성 상태로 유지됩니다.",
+      "inEffect": "워크스페이스가 {plan} 요금제를 사용 중입니다.",
+      "loadFailed": "요금제 한도를 불러오지 못했습니다",
+      "retry": "다시 시도",
+      "nothingDeleted": "삭제되는 항목은 없습니다. 유지하지 않은 항목은 보관됩니다. 보관된 플로우와 자동화는 실행되지 않으며, 보관된 세그먼트와 목록으로는 새 캠페인을 시작할 수 없습니다. 요금제에서 다시 허용되면 복원됩니다.",
+      "withinLimits": "모든 항목이 {plan} 요금제 한도 안에 있습니다.",
+      "kinds": {
+        "segments": "저장된 세그먼트",
+        "lists": "목록",
+        "flows": "활성 플로우",
+        "automations": "활성 자동화"
+      },
+      "pick": "최대 {limit, number}개 유지, {count, number}개 선택됨",
+      "lastUsed": "마지막 사용 {date}",
+      "neverUsed": "아직 사용 안 함",
+      "archivedTitle": "요금제 때문에 보관됨",
+      "archivedHint": "요금제에서 다시 허용되면 자동으로 돌아옵니다.",
+      "cancel": "취소",
+      "save": "선택 저장",
+      "saved": "저장했습니다. 한도를 넘는 항목은 보관되었습니다.",
+      "savedPending": "저장했습니다. 새 요금제가 시작될 때 적용됩니다.",
+      "saveFailed": "선택을 저장하지 못했습니다"
     }
   },
   "SignupPage": {
@@ -3482,7 +3672,8 @@
       "campaign_finished": "캠페인",
       "template_rejected": "템플릿 거부됨",
       "whatsapp_number_health": "WhatsApp 번호",
-      "payment_received": "결제 완료"
+      "payment_received": "결제 완료",
+      "billing": "결제"
     }
   },
   "Agents": {
@@ -4600,7 +4791,8 @@
       "unknown_member": "대화는 이 워크스페이스의 소유자, 관리자, 상담원에게만 배정할 수 있습니다.",
       "unknown_number": "해당 WhatsApp 번호는 이 워크스페이스에 속하지 않습니다.",
       "limit": "워크스페이스당 배정 규칙은 최대 50개입니다.",
-      "not_found": "해당 규칙이 더 이상 존재하지 않습니다."
+      "not_found": "해당 규칙이 더 이상 존재하지 않습니다.",
+      "unknown_team": "해당 팀이 더 이상 존재하지 않습니다."
     },
     "notes": {
       "invalidRequest": "메모를 JSON 객체로 보내 주세요.",
@@ -4608,6 +4800,57 @@
       "forbidden": "본인이 작성한 메모만 변경할 수 있습니다.",
       "invalid_body": "1~4000자의 메모를 작성해 주세요.",
       "invalid_mentions": "최대 20명의 팀원만 언급할 수 있습니다."
+    },
+    "billing": {
+      "invalidPrice": "요금제, 월간 또는 연간 주기, 0보다 큰 파이사 단위 금액, Razorpay 요금제 ID(plan_…)를 입력하세요.",
+      "noEnvPrices": "BILLING_PLAN_PRICES가 설정되지 않아 불러올 가격이 없습니다.",
+      "unknownPlan": "해당 요금제가 없습니다.",
+      "suspended": "결제가 연체되어 이 워크스페이스가 정지되었습니다. 관리자가 설정 → 플랜 및 사용량에서 결제하면 다시 발송할 수 있습니다.",
+      "invalid_request": "올바르지 않은 요청입니다.",
+      "not_configured": "온라인 결제가 아직 설정되지 않았습니다.",
+      "plan_unavailable": "구매할 수 없는 플랜입니다.",
+      "profile_required": "먼저 결제 정보를 입력하세요.",
+      "already_subscribed": "이 워크스페이스에는 이미 구독이 있습니다. 대신 플랜을 변경하세요.",
+      "no_subscription": "변경할 활성 구독이 없습니다.",
+      "payment_issue": "플랜을 변경하기 전에 연체된 금액을 결제하세요.",
+      "change_pending": "이전 변경 사항을 결제 대행사와 아직 확인하는 중입니다. 몇 분 후 다시 시도하세요.",
+      "same_plan": "이미 이 플랜을 사용 중입니다.",
+      "cancel_pending": "구독이 종료될 예정이라 지금은 변경할 수 없습니다.",
+      "provider_rejected": "결제 대행사가 요청을 거절했습니다. 변경된 내용은 없습니다.",
+      "provider_unavailable": "결제 대행사에 연결할 수 없습니다. 잠시 후 다시 시도하세요.",
+      "nothing_to_resume": "결제할 금액이 없습니다.",
+      "resume_unsupported": "취소된 구독은 재개할 수 없습니다. 현재 기간이 끝나면 다시 구독하세요.",
+      "invalid_profile": "법인명, 주소, 도시, 우편번호와 올바른 이메일을 입력하세요.",
+      "invalid_gstin": "올바르지 않은 GSTIN입니다.",
+      "gstin_state_mismatch": "주 코드는 GSTIN의 앞 두 자리와 같아야 합니다.",
+      "state_required": "올바른 두 자리 GST 주 코드를 입력하세요(예: 카르나타카는 29).",
+      "gstin_outside_india": "GSTIN은 인도 주소에서만 사용할 수 있습니다.",
+      "addOns": {
+        "unknown_pack": "해당 추가 기능을 사용할 수 없습니다.",
+        "invalid_packs": "1~100개 팩 중에서 선택하세요.",
+        "needs_subscription": "추가 기능을 사용하려면 활성 유료 구독이 필요합니다. 먼저 요금제를 선택하세요.",
+        "not_cancellable": "활성 상태인 추가 기능만 중지할 수 있습니다.",
+        "notConfigured": "결제가 아직 설정되지 않아 추가 기능을 구매할 수 없습니다.",
+        "rejected": "결제 제공업체가 이 구매를 거절했습니다. 청구된 금액은 없습니다.",
+        "limit_unlimited": "이 팩은 현재 요금제에 제한이 없는 항목을 늘리는 것이므로 구매할 필요가 없습니다."
+      },
+      "downgrade": {
+        "invalid_selection": "현재 사용 중인 항목만 선택하세요.",
+        "stale_plan": "요금제 변경 내용이 바뀌었습니다. 목록을 다시 확인하세요.",
+        "too_many": "요금제에서 허용하는 것보다 많은 항목을 선택했습니다."
+      }
+    },
+    "teams": {
+      "invalid_name": "팀 이름은 80자 이내로 입력하세요.",
+      "invalid_members": "팀 멤버 목록을 확인하세요.",
+      "unknown_member": "팀에는 이 워크스페이스의 멤버만 포함할 수 있습니다.",
+      "duplicate_name": "같은 이름의 팀이 이미 있습니다.",
+      "limit": "워크스페이스에는 팀을 최대 50개까지 만들 수 있습니다.",
+      "not_found": "해당 팀이 더 이상 존재하지 않습니다."
+    },
+    "permissions": {
+      "invalid": "변경할 역할과 기능을 선택하세요.",
+      "ownerOnly": "관리자 권한은 소유자만 변경할 수 있습니다."
     }
   },
   "Api": {
@@ -6236,5 +6479,164 @@
     "unknownContact": "알 수 없는 연락처",
     "loadMore": "더 보기",
     "jumpNotFound": "이 메시지는 기록에서 너무 오래되어 여기에 표시할 수 없습니다."
+  },
+  "Billing": {
+    "title": "결제",
+    "notConfigured": "온라인 결제는 아직 사용할 수 없습니다. 플랜을 변경하려면 Bodhinox 지원팀에 문의하세요.",
+    "loadFailed": "결제 정보를 불러오지 못했습니다",
+    "retry": "다시 시도",
+    "confirming": "결제 대행사와 결제를 확인하는 중…",
+    "confirmCancel": "구독을 취소할까요? 결제한 기간이 끝날 때까지 유지된 후 워크스페이스가 Free 플랜으로 전환됩니다. 데이터는 삭제되지 않습니다.",
+    "toasts": {
+      "activated": "플랜이 활성화되었습니다.",
+      "confirmingLater": "결제가 접수되었습니다. 결제 대행사가 확인하는 즉시 플랜이 업데이트됩니다.",
+      "profileFirst": "먼저 결제 정보를 입력하세요.",
+      "failed": "문제가 발생했습니다. 변경된 내용은 없습니다.",
+      "scheduled": "완료되었습니다. 변경 사항은 현재 기간이 끝날 때 적용됩니다.",
+      "pending": "결제 대행사가 아직 확인하지 않았습니다. 잠시 후 다시 확인합니다.",
+      "changed": "플랜이 변경되었습니다.",
+      "cancelled": "구독이 취소되었습니다."
+    },
+    "checkout": {
+      "name": "Bodhinox",
+      "description": "워크스페이스 구독"
+    },
+    "subscription": {
+      "current": "구독: {plan}",
+      "none": "구독 없음",
+      "noneHint": "아래에서 플랜을 선택해 구독하세요.",
+      "status": {
+        "trialing": "체험",
+        "active": "활성",
+        "past_due": "결제 필요",
+        "grace": "유예 기간",
+        "suspended": "정지됨",
+        "cancelled": "취소됨",
+        "incomplete": "미완료"
+      },
+      "interval": {
+        "month": "매월",
+        "year": "매년"
+      },
+      "renewsOn": "{date}에 {interval} 갱신됩니다.",
+      "endsOn": "{date}에 종료됩니다.",
+      "trialBanner": "체험 기간은 {date}에 끝나며 그때 첫 결제가 진행됩니다.",
+      "pastDueBanner": "결제에 실패했습니다. 결제 대행사가 재시도 중이며 지금 직접 결제할 수도 있습니다.",
+      "graceBanner": "결제가 연체되었습니다. {date}까지 결제하지 않으면 자동 발송이 정지됩니다.",
+      "suspendedBanner": "이 워크스페이스는 정지되었습니다. 캠페인, 플로우, 자동화, AI 응답이 일시 중지되었습니다. 지금 결제하면 재개됩니다.",
+      "cancelBanner": "구독은 {date}에 종료되며 이후 워크스페이스는 Free 플랜으로 전환됩니다. 데이터는 삭제되지 않습니다.",
+      "scheduledBanner": "{date}에 플랜이 {plan}(으)로 변경됩니다.",
+      "pending": {
+        "checkout": "결제 대행사와 구독을 확인하는 중입니다.",
+        "change_plan": "결제 대행사와 플랜 변경을 확인하는 중입니다.",
+        "cancel": "결제 대행사와 취소를 확인하는 중입니다. 필요하면 다시 요청할 수 있습니다."
+      },
+      "pay": "지금 결제",
+      "cancel": "구독 취소"
+    },
+    "plans": {
+      "title": "플랜 선택",
+      "changeTitle": "플랜 변경",
+      "intervalLabel": "결제 주기",
+      "interval": {
+        "month": "월간",
+        "year": "연간"
+      },
+      "per": {
+        "month": "월",
+        "year": "년"
+      },
+      "gstNote": "해당하는 경우 GST 포함",
+      "current": "현재 플랜",
+      "switch": "변경",
+      "subscribe": "구독",
+      "adminsOnly": "워크스페이스 소유자와 관리자만 플랜을 변경할 수 있습니다.",
+      "changeHint": "업그레이드는 즉시 적용되며 차액이 일할 계산되어 청구됩니다. 다운그레이드는 현재 기간이 끝날 때 적용됩니다.",
+      "names": {
+        "free": "Free",
+        "basic": "Basic",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      }
+    },
+    "profile": {
+      "title": "결제 정보",
+      "description": "GST 인보이스에 표시됩니다. 매입세액 공제를 받으려면 GSTIN을 추가하세요.",
+      "fields": {
+        "legal_name": "법인명",
+        "gstin": "GSTIN(선택)",
+        "address_line1": "주소",
+        "address_line2": "상세 주소(선택)",
+        "city": "도시",
+        "state_code": "GST 주 코드",
+        "postal_code": "우편번호",
+        "country": "국가 코드",
+        "email": "청구 이메일"
+      },
+      "stateHint": "인도의 경우 두 자리 GST 주 코드(예: 카르나타카는 29)를 입력하세요. GSTIN이 있으면 GSTIN에서 가져옵니다. 국가 코드는 IN처럼 두 글자로 입력하세요.",
+      "save": "결제 정보 저장",
+      "saved": "결제 정보를 저장했습니다",
+      "saveFailed": "결제 정보를 저장하지 못했습니다"
+    },
+    "invoices": {
+      "title": "인보이스",
+      "empty": "아직 인보이스가 없습니다.",
+      "number": "번호",
+      "date": "날짜",
+      "period": "기간",
+      "total": "합계",
+      "view": "보기",
+      "signedOut": "세션이 만료되었습니다. 이 인보이스를 보려면 다시 로그인하세요."
+    },
+    "notices": {
+      "activated": {
+        "title": "구독 활성화: {plan}",
+        "body": "{plan} 플랜이 활성화되었습니다."
+      },
+      "payment_failed": {
+        "title": "결제 실패",
+        "body": "{plan} 플랜 결제에 실패했습니다. 결제 대행사가 재시도하며, 설정 → 플랜 및 사용량에서 지금 결제할 수도 있습니다."
+      },
+      "grace_started": {
+        "title": "결제 연체",
+        "body": "{plan} 플랜 결제가 연체되었습니다. 자동 발송을 유지하려면 {date}까지 결제하세요."
+      },
+      "grace_ending": {
+        "title": "유예 기간이 곧 끝납니다",
+        "body": "{date}까지 결제하지 않으면 캠페인, 플로우, 자동화, AI 응답이 정지됩니다."
+      },
+      "suspended": {
+        "title": "워크스페이스 정지",
+        "body": "결제가 연체되어 자동 발송이 일시 중지되었습니다. 데이터는 안전하며, 설정 → 플랜 및 사용량에서 결제하면 재개됩니다."
+      },
+      "recovered": {
+        "title": "결제 완료",
+        "body": "감사합니다. {plan} 플랜이 다시 활성화되었습니다."
+      },
+      "cancelled": {
+        "title": "구독 종료",
+        "body": "구독이 종료되어 워크스페이스가 Free 플랜으로 전환되었습니다. 삭제된 데이터는 없습니다."
+      },
+      "invoice_issued": {
+        "title": "인보이스 {number}",
+        "body": "새 세금 인보이스를 설정 → 플랜 및 사용량에서 확인할 수 있습니다."
+      },
+      "checkout_superseded": {
+        "title": "추가 구독이 취소됨",
+        "body": "이미 대체된 결제 또는 두 번째 구독에 대해 {plan} 플랜의 결제 승인이 도착했습니다. 적용되지 않았으며 결제 대행사에서 취소되었습니다. 현재 플랜은 변경되지 않았습니다. 결제에서 확인하세요."
+      }
+    },
+    "downgrade": {
+      "notice": "워크스페이스가 {plan} 플랜에서 허용하는 것보다 많은 저장된 세그먼트, 목록, 활성 플로우 또는 자동화를 사용하고 있습니다. 활성 상태로 유지할 항목을 선택하세요. 삭제되는 것은 없습니다.",
+      "chosen": "{plan} 플랜에서 활성 상태로 유지할 항목 선택이 저장되었습니다. 플랜이 시작되면 나머지는 삭제되지 않고 보관됩니다.",
+      "choose": "유지할 항목 선택",
+      "change": "선택 변경"
+    },
+    "payLink": {
+      "hint": "결제 페이지로 이동해 결제를 완료하세요.",
+      "open": "결제 페이지 열기",
+      "blocked": "브라우저가 결제 탭을 차단했습니다. 이 페이지의 링크를 사용해 계속하세요.",
+      "checkoutFallback": "여기에서 결제창을 불러오지 못했습니다. 결제 페이지 링크를 사용해 계속하세요."
+    }
   }
 }

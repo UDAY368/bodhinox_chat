@@ -24,7 +24,9 @@ export interface RoutingConditions {
 
 export type AssignTo =
   | { mode: 'member'; user_id: string }
-  | { mode: 'round_robin'; user_ids: string[] };
+  | { mode: 'round_robin'; user_ids: string[] }
+  /** Round robin over the team's members at routing time (src/lib/teams/teams.ts). */
+  | { mode: 'team'; team_id: string };
 
 /** The fixed projection the routes return (never the round-robin cursor). */
 export interface RoutingRule {

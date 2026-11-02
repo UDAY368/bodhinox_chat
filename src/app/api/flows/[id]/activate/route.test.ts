@@ -33,6 +33,8 @@ vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_t: unknown, fn: (tx: unk
 vi.mock('@/lib/audience/http', () => ({ tenantOf: () => ({}) }));
 vi.mock('@/lib/billing/entitlements', () => ({ requireWithinLimit: h.limit }));
 
+// Feature permissions are covered in src/lib/auth/permissions.test.ts; allowed here.
+vi.mock('@/lib/auth/permissions', () => ({ requirePermission: async () => undefined }));
 import { POST } from './route';
 
 const context = { params: Promise.resolve({ id: 'flow-a' }) };

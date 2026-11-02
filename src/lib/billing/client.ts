@@ -13,8 +13,18 @@ export type PlanView = Entitlements & { usage: Record<string, number> };
 
 // One request per workspace per page load; a failed request is retried on the next mount.
 const cache = new Map<string, Promise<PlanView | null>>();
+const listeners = new Set<() => void>();
 
-function loadPlan(accountId: string): Promise<PlanView | null> {
+/**
+ * Forgets the cached plan and makes every mounted usePlanState read it again,
+ * e.g. after an add-on purchase or a cancellation that took effect at once.
+ */
+export function invalidatePlan(): void {
+  cache.clear();
+  for (const listener of listeners) listener();
+}
+
+export function loadPlan(accountId: string): Promise<PlanView | null> {
   let pending = cache.get(accountId);
   if (!pending) {
     pending = authFetch('/api/account/plan', { cache: 'no-store' })
@@ -34,6 +44,11 @@ export function usePlanState(): { plan: PlanView | null | undefined; reload: () 
   const { accountId } = useAuth();
   const [state, setState] = useState<{ accountId: string | null; plan: PlanView | null | undefined }>({ accountId: null, plan: undefined });
   const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const listener = () => setAttempt((n) => n + 1);
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+  }, []);
   useEffect(() => {
     if (!accountId) return;
     let live = true;

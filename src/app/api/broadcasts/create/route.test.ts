@@ -5,6 +5,8 @@ import { AuthError } from '@/lib/auth/errors';
 const h=vi.hoisted(()=>({session:vi.fn(),mutation:vi.fn(),create:vi.fn()}));
 vi.mock('@/lib/auth/session',()=>({requireSession:h.session,assertMutation:h.mutation}));
 vi.mock('@/lib/broadcasts/create-campaign',()=>({createCampaign:h.create,CAMPAIGN_LIMITS:{bodyBytes:1024*1024}}));
+// Feature permissions are covered in src/lib/auth/permissions.test.ts; allowed here.
+vi.mock('@/lib/auth/permissions', () => ({ requirePermission: async () => undefined }));
 import { POST } from './route';
 const accountId=randomUUID(),userId=randomUUID(),id=randomUUID();
 const input={name:'Campaign',templateId:randomUUID(),audience:{type:'all'},variables:{}};

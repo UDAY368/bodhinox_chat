@@ -68,6 +68,9 @@ export async function scheduleWork() {
   await scheduleInboxSweeps().catch(() => console.error('[worker] inbox sweep scheduling failed'));
   // Notification email digests every 30 minutes per workspace; nothing while SMTP is not configured.
   await scheduleNotificationDigests().catch(() => console.error('[worker] notification digest scheduling failed'));
+  // Billing grace expiry, trial ends, scheduled changes and unconfirmed provider calls; nothing while billing is off.
+  await import('@/lib/billing/subscriptions').then((m) => m.scheduleBillingSweeps())
+    .catch(() => console.error('[worker] billing sweep scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -82,6 +85,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       .$executeRaw`UPDATE webhook_receipts SET status='processed' WHERE id=${id}::uuid`;
     return;
   }
+  if (job.type === 'billing.event')
+    // One verified billing webhook event; the workspace is resolved from its subscription.
+    return (await import('@/lib/billing/subscriptions')).handleBillingEventJob(job.payload);
   const accountId = uuid(job.tenant_id);
   return withJobScope({ accountId, role: 'owner' }, async () => {
     const db = createAdminClient({ accountId, role: 'owner' });
@@ -281,6 +287,10 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'payments.razorpay_event')
       // One verified Razorpay delivery: link status, order paid, agent alert, waiting flow run.
       await (await import('@/lib/payments/links')).handlePaymentEventJob(accountId, job.payload);
+    else if (job.type === 'billing.lifecycle_sweep')
+      await (await import('@/lib/billing/subscriptions')).runLifecycleSweep(accountId);
+    else if (job.type === 'billing.email')
+      await (await import('@/lib/billing/billing-notify')).sendBillingEmail(accountId, job.payload);
     else throw new Error('Unsupported job type');
   });
 }

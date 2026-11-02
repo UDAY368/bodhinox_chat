@@ -56,6 +56,7 @@ model tags {
   category String?
   created_at DateTime? @db.Timestamptz(6) @default(now())
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  archived_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
@@ -331,6 +332,7 @@ model automations {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  archived_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
@@ -409,6 +411,7 @@ model flows {
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   test_numbers String[]  @default([])
   whatsapp_config_id String? @db.Uuid
+  archived_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
@@ -614,6 +617,7 @@ model auth_users {
   email_verified_at DateTime? @db.Timestamptz(6)
   disabled_at DateTime? @db.Timestamptz(6)
   created_at DateTime @db.Timestamptz(6) @default(now())
+  password_set Boolean @default(true)
 }
 
 model auth_sessions {
@@ -625,6 +629,8 @@ model auth_sessions {
   revoked_at DateTime? @db.Timestamptz(6)
   mfa_verified_at DateTime? @db.Timestamptz(6)
   created_at DateTime @db.Timestamptz(6) @default(now())
+  user_agent String?
+  sign_in_method String?
   @@unique([account_id, id])
 }
 
@@ -734,6 +740,8 @@ model audit_logs {
   metadata Json @db.JsonB @default("{}")
   created_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, id])
+  // 20261102132100_audit_logs_created_index (built CONCURRENTLY by the SQL).
+  @@index([account_id, created_at(sort: Desc), id(sort: Desc)], map: "audit_logs_account_created_idx")
 }
 
 model media_objects {
@@ -775,6 +783,7 @@ model segments {
   filter Json @db.JsonB
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  archived_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, name])
   @@unique([account_id, id])
 }
@@ -786,6 +795,7 @@ model contact_lists {
   name String
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  archived_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, name])
   @@unique([account_id, id])
 }
@@ -836,6 +846,15 @@ model account_subscriptions {
   trial_ends_at DateTime? @db.Timestamptz(6)
   current_period_end DateTime? @db.Timestamptz(6)
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  provider String?
+  provider_customer_id String?
+  provider_subscription_id String?
+  interval String?
+  current_period_start DateTime? @db.Timestamptz(6)
+  cancel_at_period_end Boolean @default(false)
+  scheduled_plan String?
+  grace_ends_at DateTime? @db.Timestamptz(6)
+  suspended_at DateTime? @db.Timestamptz(6)
 }
 
 model assignment_cursors {
@@ -1167,4 +1186,185 @@ model quick_reply_favourites {
   quick_reply_id String @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   @@id([account_id, user_id, quick_reply_id])
+}
+
+model plan_prices {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  plan String
+  interval String
+  currency String @default("INR")
+  amount_minor BigInt
+  provider String @default("razorpay")
+  provider_plan_id String
+  active Boolean @default(true)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  // 20261102140000_billing_price_history: a price change adds a row; the partial index plan_prices_one_active (one active row per plan, interval, currency, provider) is owned by the SQL.
+  @@unique([provider, provider_plan_id], map: "plan_prices_provider_plan_key")
+}
+
+model billing_profiles {
+  account_id String @db.Uuid @id @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  legal_name String
+  gstin String?
+  address_line1 String
+  address_line2 String?
+  city String
+  state_code String?
+  postal_code String
+  country String @default("IN")
+  email String
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model invoice_sequences {
+  financial_year String @id
+  last_value BigInt
+}
+
+model invoices {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  number String @unique
+  provider String?
+  provider_invoice_id String?
+  provider_payment_id String?
+  period_start DateTime? @db.Timestamptz(6)
+  period_end DateTime? @db.Timestamptz(6)
+  currency String @default("INR")
+  subtotal_minor BigInt
+  cgst_minor BigInt @default(0)
+  sgst_minor BigInt @default(0)
+  igst_minor BigInt @default(0)
+  total_minor BigInt
+  place_of_supply_state_code String?
+  gstin_snapshot String?
+  billing_address_snapshot Json @db.JsonB @default("{}")
+  line_items Json @db.JsonB @default("[]")
+  status String @default("issued")
+  issued_at DateTime @db.Timestamptz(6) @default(now())
+  paid_at DateTime? @db.Timestamptz(6)
+  pdf_object_key String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model billing_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String? @db.Uuid
+  provider String
+  event_id String @unique
+  type String
+  payload Json @db.JsonB @default("{}")
+  received_at DateTime @db.Timestamptz(6) @default(now())
+  processed_at DateTime? @db.Timestamptz(6)
+  error String?
+}
+
+model add_ons {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  quantity Int
+  status String @default("active")
+  provider_addon_id String?
+  starts_at DateTime @db.Timestamptz(6) @default(now())
+  ends_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  amount_minor BigInt?
+  currency String?
+  requested_by String? @db.Uuid
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model usage_counters {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  metric String
+  period String
+  value BigInt @default(0)
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, metric, period])
+}
+
+// 20261102131000_auth_identities: auth role only.
+model auth_identities {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  user_id String @db.Uuid
+  provider String
+  subject String
+  email String
+  linked_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([provider, subject])
+  @@unique([user_id, provider])
+}
+
+// 20261102132000_teams_permissions. teams_account_name_key (account_id, lower(btrim(name))) is an expression index owned by the SQL.
+model teams {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model team_members {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  team_id String @db.Uuid
+  user_id String @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, team_id, user_id])
+  @@index([account_id, user_id], map: "team_members_user_idx")
+}
+
+model role_permission_restrictions {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  role String
+  permission String
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, role, permission])
+}
+
+// 20261102133000_billing_lifecycle. Partial indexes (billing_intents_one_open, billing_intents_subscription_idx) are owned by the SQL.
+model billing_intents {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  plan String?
+  interval String?
+  at String?
+  status String @default("pending")
+  provider String @default("razorpay")
+  provider_customer_id String?
+  provider_subscription_id String?
+  short_url String?
+  created_by String? @db.Uuid
+  provider_plan_id String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "billing_intents_account_idx")
+}
+
+// 20261102134500_billing_usage_downgrade.
+model plan_archives {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  item_id String @db.Uuid
+  prior_state String
+  plan_id String?
+  archived_at DateTime @db.Timestamptz(6) @default(now())
+  restored_at DateTime? @db.Timestamptz(6)
+  @@id([account_id, kind, item_id])
+}
+
+model downgrade_selections {
+  account_id String @db.Uuid @id @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  plan_id String
+  keep Json @db.JsonB @default("{}")
+  chosen_by String? @db.Uuid
+  chosen_at DateTime @db.Timestamptz(6) @default(now())
+  applied_at DateTime? @db.Timestamptz(6)
 }

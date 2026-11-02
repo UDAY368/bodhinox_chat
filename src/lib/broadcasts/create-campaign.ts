@@ -16,6 +16,7 @@ import { listFilter } from '@/lib/audience/lists';
 import { loadSegmentFilter } from '@/lib/audience/segments';
 import { trackedButtonIndex, validTrackedUrl } from './tracking';
 import { requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
+import { requireSendingAllowed } from '@/lib/billing/suspension';
 import { campaignNumberId } from './api-campaign';
 
 // Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
@@ -134,6 +135,9 @@ async function audienceSource(tx:TenantTransaction,scope:TenantContext,input:Cam
     const filter=listFilter(audience.listId!);
     try{await assertFilterReferences(tx,accountId,filter);}
     catch(error){if(error instanceof AudienceFilterError)invalid(error.message);throw error;}
+    // A list archived by a plan downgrade cannot start a new campaign.
+    const [archived]=await tx.$queryRaw<{n:number}[]>`SELECT count(*)::int AS n FROM contact_lists WHERE account_id=${accountId}::uuid AND id=${audience.listId!}::uuid AND archived_at IS NOT NULL`;
+    if(archived.n)invalid('This list is archived because of your plan. Upgrade or restore it to use it in a campaign');
     conditions.push(compileAudienceFilter(accountId,filter));
   }else if(audience.type==='tags'){
     conditions.push(Prisma.sql`EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.tagIds!)}))`);
@@ -183,6 +187,7 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     const membership=await tx.$queryRaw<{role:string}[]>`SELECT role FROM account_memberships
       WHERE account_id=${scope.accountId}::uuid AND user_id=${scope.userId}::uuid`;
     if(!membership[0]||!['agent','admin','owner'].includes(membership[0].role))throw new ForbiddenError('Campaign creation requires an active agent membership');
+    await requireSendingAllowed(tx,scope.accountId);
     const templates=await tx.$queryRaw<unknown[]>`SELECT * FROM message_templates WHERE account_id=${scope.accountId}::uuid AND id=${input.templateId}::uuid FOR SHARE`;
     if(!templates[0])throw new AuthError('Template unavailable',404,'not_found');
     const template=assertMessageTemplate(templates[0],'campaign creation');

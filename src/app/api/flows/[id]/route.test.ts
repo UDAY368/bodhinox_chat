@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuery } from '@/lib/data/builder';
 import type { QuerySpec, Row } from '@/lib/data/types';
 
@@ -9,7 +9,9 @@ const h = vi.hoisted(() => ({
   writes: [] as QuerySpec[],
   secrets: new Set<string>(),
   limit: vi.fn(async () => {}),
+  permission: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
 }));
+vi.mock('@/lib/auth/permissions', () => ({ requirePermission: h.permission }));
 vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_t: unknown, fn: (tx: unknown) => unknown) => fn({ $queryRaw: async () => [{ n: 1 }] }) }));
 vi.mock('@/lib/audience/http', () => ({ tenantOf: () => ({}) }));
 vi.mock('@/lib/billing/entitlements', () => ({ requireWithinLimit: h.limit }));
@@ -79,6 +81,8 @@ beforeEach(() => {
   h.writes = [];
   h.secrets = new Set();
   h.limit.mockReset();
+  h.permission.mockReset();
+  h.permission.mockResolvedValue(undefined);
 });
 it('retains the request client when updating the graph and deleting the flow', async () => {
   const result = await PUT(
@@ -180,4 +184,44 @@ it('counts a draft that starts testing against the active-flow limit', async () 
   h.limit.mockClear();
   expect((await save()).status).toBe(200);
   expect(h.limit).not.toHaveBeenCalled();
+});
+
+describe("saves that publish flow behaviour need 'flows.publish'", () => {
+  const graph = () => [
+    { flow_id: 'flow-a', account_id: 'account-a', node_key: 'start', node_type: 'start', config: { next_node_key: 'done' } },
+    { flow_id: 'flow-a', account_id: 'account-a', node_key: 'done', node_type: 'end', config: {} },
+  ];
+  const put = (body: unknown) => PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify(body) }), context);
+  beforeEach(() => {
+    h.nodes = graph();
+    h.permission.mockRejectedValue(new Error('This feature is turned off for your role'));
+  });
+
+  it('refuses any edit of an active flow before validation or a write', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Live', status: 'active', trigger_type: 'manual', trigger_config: {}, entry_node_id: 'start' }];
+    const res = await put({ trigger_type: 'keyword', trigger_config: { keywords: ['hi'] } });
+    expect(res.status).toBe(403);
+    expect(h.permission).toHaveBeenCalledWith(expect.anything(), 'flows.publish');
+    expect(h.writes).toEqual([]);
+    expect(h.flows[0].trigger_type).toBe('manual');
+  });
+
+  it('refuses setting or changing test numbers on a draft', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Draft', status: 'draft', trigger_type: 'manual', trigger_config: {}, entry_node_id: 'start', test_numbers: [] }];
+    expect((await put({ test_numbers: ['919876543210'] })).status).toBe(403);
+    h.flows[0].test_numbers = ['919876543210'];
+    expect((await put({ test_numbers: ['919876543211'] })).status).toBe(403);
+    expect(h.writes).toEqual([]);
+    expect(h.limit).not.toHaveBeenCalled();
+  });
+
+  it('still allows ordinary draft edits, unchanged test numbers and clearing them', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Draft', status: 'draft', trigger_type: 'manual', trigger_config: {}, entry_node_id: 'start', test_numbers: [] }];
+    expect((await put({ name: 'Renamed' })).status).toBe(200);
+    h.flows[0].test_numbers = ['919876543210'];
+    expect((await put({ name: 'Again', test_numbers: ['+91 98765 43210'] })).status).toBe(200);
+    expect((await put({ test_numbers: [] })).status).toBe(200);
+    expect(h.flows[0].test_numbers).toEqual([]);
+    expect(h.permission).not.toHaveBeenCalled();
+  });
 });

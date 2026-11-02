@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
+import { requirePermission } from '@/lib/auth/permissions'
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { NoNumberError } from '@/lib/whatsapp/numbers'
@@ -87,7 +88,8 @@ export async function POST(request: Request) {
     // to arbitrary phone numbers from the account's WhatsApp number.
     // Nothing about that is recoverable after the fact, so the check has
     // to happen here.
-    const { db, accountId, userId } = await requireRole('agent')
+    const { db, accountId, userId, role } = await requireRole('agent')
+    await requirePermission({ accountId, userId, role }, 'campaigns.send')
 
     // Per-user broadcast budget. Note: this limits how often a user
     // can *start* a campaign, not how many messages go out inside

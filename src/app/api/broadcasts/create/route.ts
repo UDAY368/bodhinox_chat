@@ -3,6 +3,7 @@ import { requireSession, assertMutation } from '@/lib/auth/session';
 import { AuthError, ForbiddenError } from '@/lib/auth/errors';
 import { hasMinRole } from '@/lib/auth/roles';
 import { toErrorResponse } from '@/lib/auth/account';
+import { requirePermission } from '@/lib/auth/permissions';
 import { createCampaign, CAMPAIGN_LIMITS } from '@/lib/broadcasts/create-campaign';
 
 export const runtime='nodejs';
@@ -21,6 +22,7 @@ export async function POST(request:Request){
     const session=await requireSession(request);
     if(!hasMinRole(session.role,'agent'))throw new ForbiddenError('Campaign creation requires an agent role');
     await assertMutation(request,session);
+    await requirePermission({accountId:session.accountId,userId:session.userId,role:session.role},'campaigns.send');
     const result=await createCampaign({accountId:session.accountId,userId:session.userId,role:session.role},await readBody(request));
     return NextResponse.json(result,{status:202,headers:{'Cache-Control':'no-store'}});
   }catch(error){return toErrorResponse(error);}

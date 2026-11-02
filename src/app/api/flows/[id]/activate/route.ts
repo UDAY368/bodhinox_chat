@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { requirePermission } from '@/lib/auth/permissions';
 import { validateFlowForActivation } from '@/lib/flows/validate';
 import { getT } from '@/lib/i18n/translate';
 import { tenantOf } from '@/lib/audience/http';
@@ -32,8 +33,9 @@ export async function POST(
   const { id } = await context.params;
 
   // Use the authenticated tenant client; role and RLS both apply.
+  let caller;
   try {
-    await requireRole('agent');
+    caller = await requireRole('agent');
   } catch (err) {
     return toErrorResponse(err);
   }
@@ -58,6 +60,14 @@ export async function POST(
       { error: t('flows.statusInvalid') },
       { status: 400 }
     );
+  }
+  // Publishing is a per-feature permission a workspace may turn off for a role.
+  if (status === 'active') {
+    try {
+      await requirePermission(tenantOf(caller), 'flows.publish');
+    } catch (err) {
+      return toErrorResponse(err);
+    }
   }
 
   // Ownership via RLS — caller's client.

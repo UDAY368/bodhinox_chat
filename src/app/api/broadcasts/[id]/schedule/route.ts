@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { tenantOf } from '@/lib/audience/http';
+import { requirePermission } from '@/lib/auth/permissions';
 import { cancelScheduledBroadcast, rescheduleBroadcast } from '@/lib/broadcasts/schedule';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -13,6 +14,7 @@ const notFound = () => NextResponse.json({ error: 'Broadcast unavailable' }, { s
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await requireRole('agent');
+    await requirePermission(tenantOf(ctx), 'campaigns.send');
     const { id } = await params;
     if (!UUID.test(id)) return notFound();
     const body = (await request.json().catch(() => null)) as { scheduledAt?: unknown } | null;

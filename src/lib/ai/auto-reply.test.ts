@@ -11,6 +11,8 @@ const h = vi.hoisted(() => ({
   loadAccountMetaCredentials: vi.fn(),
   conversationNumberDisconnected: vi.fn(),
   sendTypingIndicator: vi.fn(),
+  requireAiMessageRoom: vi.fn(),
+  recordAiMessage: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
@@ -29,6 +31,8 @@ vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
 vi.mock('./context', () => ({ buildConversationContext: h.buildConversationContext }))
 vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
+vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: h.requireAiMessageRoom, recordAiMessage: h.recordAiMessage }))
+vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,
   loadAccountMetaCredentials: h.loadAccountMetaCredentials,
@@ -159,6 +163,23 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({ conversationId: 'conv-1', text: 'Hello!' }),
     )
+  })
+
+  it('counts one AI message per generation against the workspace plan', async () => {
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.requireAiMessageRoom).toHaveBeenCalledWith('acct-1', { worker: true })
+    expect(h.recordAiMessage).toHaveBeenCalledTimes(1)
+    expect(h.recordAiMessage).toHaveBeenCalledWith('acct-1', { worker: true })
+  })
+
+  it('stands down without calling the model when the plan has no AI messages left', async () => {
+    const { PlanLimitError } = await import('@/lib/billing/entitlements')
+    h.requireAiMessageRoom.mockRejectedValueOnce(new PlanLimitError('used up'))
+    await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.recordAiMessage).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toMatchObject({ bot_paused: true })
   })
 
   it('grounds the reply in retrieved knowledge', async () => {

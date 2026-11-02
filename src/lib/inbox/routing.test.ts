@@ -125,3 +125,22 @@ describe('parseReassignPayload', () => {
     expect(() => parseReassignPayload({ conversationId: A, ruleId: B, assignee: C, cycle: 0, attempt: 0, assignedAt: 1 })).toThrow();
   });
 });
+
+describe('team targets', () => {
+  const TEAM = '44444444-4444-4444-8444-444444444444';
+  it('parses a team target and names no members until resolved', async () => {
+    const { parseAssignTo, ruleMembers, pickAssignee, resolveAssignTo } = await import('./routing');
+    const team = parseAssignTo({ mode: 'team', team_id: TEAM.toUpperCase() });
+    expect(team).toEqual({ mode: 'team', team_id: TEAM });
+    expect(parseAssignTo({ mode: 'team', team_id: 'sales' })).toBeNull();
+    expect(ruleMembers(team!)).toEqual([]);
+    expect(pickAssignee(team!, new Set(['x']), null)).toBeNull();
+    const ids = ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'];
+    const tx = { $queryRaw: async () => ids.map((user_id) => ({ user_id })) };
+    const resolved = await resolveAssignTo(tx as never, TEAM, team!);
+    expect(resolved).toEqual({ mode: 'round_robin', user_ids: ids });
+    expect(pickAssignee(resolved, new Set(ids), ids[0])).toBe(ids[1]);
+    const member = { mode: 'member' as const, user_id: ids[0] };
+    expect(await resolveAssignTo(tx as never, TEAM, member)).toBe(member);
+  });
+});

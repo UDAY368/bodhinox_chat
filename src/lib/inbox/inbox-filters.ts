@@ -7,6 +7,7 @@ export type InboxFilter =
   | 'unread'
   | 'waiting'
   | 'unassigned'
+  | 'my-team'
   | 'expiring-soon'
   | `lifecycle-${'bot' | 'requesting' | 'assigned' | 'resolved'}`;
 const FILTERS: InboxFilter[] = [
@@ -17,6 +18,7 @@ const FILTERS: InboxFilter[] = [
   'closed',
   'waiting',
   'unassigned',
+  'my-team',
   'expiring-soon',
   'lifecycle-bot',
   'lifecycle-requesting',
@@ -35,7 +37,9 @@ type QueueConversation = Pick<
 export function matchesInboxFilter(
   c: QueueConversation,
   filter: InboxFilter,
-  now: number
+  now: number,
+  /** Members of the caller's teams (caller included), for 'my-team'. */
+  teamMemberIds?: ReadonlySet<string>
 ): boolean {
   const inbound = Date.parse(c.last_customer_message_at ?? '');
   const reply = Date.parse(c.last_reply_at ?? '');
@@ -44,6 +48,8 @@ export function matchesInboxFilter(
     Number.isFinite(inbound) &&
     (!Number.isFinite(reply) || inbound > reply);
   if (filter === 'waiting') return waiting;
+  if (filter === 'my-team')
+    return !!c.assigned_agent_id && !!teamMemberIds?.has(c.assigned_agent_id);
   if (filter === 'unassigned')
     return c.status !== 'closed' && !c.assigned_agent_id;
   if (filter === 'expiring-soon') {

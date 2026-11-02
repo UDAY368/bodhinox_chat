@@ -64,7 +64,7 @@ export async function createSegment(ctx: TenantContext, input: unknown): Promise
     await assertFilterAllowed(tx, ctx, filter);
     await assertFilterReferences(tx, ctx.accountId, filter);
     await requireRoomFor(tx, ctx.accountId, 'segments', async () =>
-      (await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM segments WHERE account_id=${ctx.accountId}::uuid`)[0].n);
+      (await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM segments WHERE account_id=${ctx.accountId}::uuid AND archived_at IS NULL`)[0].n);
     const rows = await tx.$queryRaw<Segment[]>`
       INSERT INTO segments(account_id,user_id,name,filter)
       VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,${name},${JSON.stringify(filter)}::jsonb)
@@ -117,9 +117,11 @@ export async function loadSegmentFilter(
   id: string,
   options: { lock?: boolean } = {},
 ): Promise<AudienceFilter> {
-  const rows = await tx.$queryRaw<{ filter: unknown }[]>(Prisma.sql`
-    SELECT filter FROM segments WHERE account_id=${accountId}::uuid AND id=${id}::uuid${options.lock ? Prisma.sql` FOR SHARE` : Prisma.empty}`);
+  const rows = await tx.$queryRaw<{ filter: unknown; archived: boolean }[]>(Prisma.sql`
+    SELECT filter, archived_at IS NOT NULL AS archived FROM segments WHERE account_id=${accountId}::uuid AND id=${id}::uuid${options.lock ? Prisma.sql` FOR SHARE` : Prisma.empty}`);
   if (!rows[0]) throw new AudienceFilterError('Segment is unavailable in this workspace');
+  // A campaign build (lock) cannot use a segment archived by a plan downgrade.
+  if (options.lock && rows[0].archived) throw new AudienceFilterError('This segment is archived because of your plan. Upgrade or restore it to use it in a campaign');
   return parseAudienceFilter(rows[0].filter);
 }
 

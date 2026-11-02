@@ -1,5 +1,6 @@
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
+import { teamExists, teamMemberIds } from '@/lib/teams/teams';
 
 /**
  * Routing rules (routing_rules): when a customer message leaves a conversation
@@ -24,7 +25,7 @@ export * from './routing-contract';
 
 export type RoutingErrorCode =
   | 'invalid_name' | 'invalid_conditions' | 'invalid_assignee' | 'invalid_reassign' | 'invalid_order'
-  | 'unknown_tag' | 'unknown_member' | 'unknown_number' | 'limit' | 'not_found';
+  | 'unknown_tag' | 'unknown_member' | 'unknown_number' | 'unknown_team' | 'limit' | 'not_found';
 
 export class RoutingRuleError extends Error {
   constructor(readonly code: RoutingErrorCode, readonly status: 400 | 404 | 409 = 400) {
@@ -88,6 +89,7 @@ export function parseAssignTo(value: unknown): AssignTo | null {
     const ids = uuidList(value.user_ids, MAX_ROUND_ROBIN_MEMBERS);
     return ids && ids.length ? { mode: 'round_robin', user_ids: ids } : null;
   }
+  if (value.mode === 'team') return isUuid(value.team_id) ? { mode: 'team', team_id: value.team_id.toLowerCase() } : null;
   return null;
 }
 
@@ -133,8 +135,16 @@ export function ruleMatches(conditions: RoutingConditions, context: RoutingConte
   return true;
 }
 
+/** Members named directly by the rule; a team rule names none until resolved (resolveAssignTo). */
 export function ruleMembers(assignTo: AssignTo): string[] {
+  if (assignTo.mode === 'team') return [];
   return assignTo.mode === 'member' ? [assignTo.user_id] : assignTo.user_ids;
+}
+
+/** A team target becomes a round robin over the team's current members; other targets are unchanged. */
+export async function resolveAssignTo(tx: TenantTransaction, accountId: string, assignTo: AssignTo): Promise<AssignTo> {
+  if (assignTo.mode !== 'team') return assignTo;
+  return { mode: 'round_robin', user_ids: await teamMemberIds(tx, accountId, assignTo.team_id) };
 }
 
 /**
@@ -144,7 +154,7 @@ export function ruleMembers(assignTo: AssignTo): string[] {
 export function pickAssignee(assignTo: AssignTo, eligible: ReadonlySet<string>, last: string | null): string | null {
   const list = ruleMembers(assignTo).filter((id) => eligible.has(id));
   if (!list.length) return null;
-  if (assignTo.mode === 'member') return list[0];
+  if (assignTo.mode !== 'round_robin') return list[0];
   const all = assignTo.user_ids;
   const start = last ? all.indexOf(last.toLowerCase()) : -1;
   for (let step = 1; step <= all.length; step++) {
@@ -211,6 +221,10 @@ async function assertReferences(tx: TenantTransaction, accountId: string, input:
     const found = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM whatsapp_config
       WHERE account_id=${accountId}::uuid AND id=${input.conditions.whatsapp_config_id}::uuid`;
     if (!found.length) throw new RoutingRuleError('unknown_number');
+  }
+  if (input.assign_to.mode === 'team') {
+    if (!(await teamExists(tx, accountId, input.assign_to.team_id))) throw new RoutingRuleError('unknown_team');
+    return;
   }
   const members = ruleMembers(input.assign_to);
   if ((await eligibleMembers(tx, accountId, members)).size !== members.length) throw new RoutingRuleError('unknown_member');
@@ -305,11 +319,12 @@ export async function pickRoutingRule(
     const locked = await tx.$queryRaw<{ last: string | null }[]>`SELECT round_robin_last_user_id::text AS last FROM routing_rules
       WHERE account_id=${accountId}::uuid AND id=${rule.id}::uuid AND enabled FOR UPDATE`;
     if (!locked.length) continue;
-    const eligible = await eligibleMembers(tx, accountId, ruleMembers(parsed.assignTo));
-    const assignee = pickAssignee(parsed.assignTo, eligible, locked[0].last);
-    // A matching rule whose members all left falls through to the next rule.
+    const assignTo = await resolveAssignTo(tx, accountId, parsed.assignTo);
+    const eligible = await eligibleMembers(tx, accountId, ruleMembers(assignTo));
+    const assignee = pickAssignee(assignTo, eligible, locked[0].last);
+    // A matching rule whose members all left (or whose team is empty or gone) falls through to the next rule.
     if (!assignee) continue;
-    if (parsed.assignTo.mode === 'round_robin')
+    if (assignTo.mode === 'round_robin')
       await tx.$executeRaw`UPDATE routing_rules SET round_robin_last_user_id=${assignee}::uuid
         WHERE account_id=${accountId}::uuid AND id=${rule.id}::uuid`;
     return { ruleId: rule.id, assignee, reassignAfterMinutes: rule.reassign_after_minutes };
@@ -390,8 +405,9 @@ export async function runReassign(accountId: string, raw: Record<string, unknown
     const rule = rules[0];
     const parsed = rule ? readRule(rule) : null;
     if (!rule || !parsed || !rule.enabled || !rule.reassign_after_minutes) return 'rule_off';
-    const eligible = await eligibleMembers(tx, accountId, ruleMembers(parsed.assignTo));
-    const next = nextReassignee(parsed.assignTo, eligible, job.assignee);
+    const assignTo = await resolveAssignTo(tx, accountId, parsed.assignTo);
+    const eligible = await eligibleMembers(tx, accountId, ruleMembers(assignTo));
+    const next = nextReassignee(assignTo, eligible, job.assignee);
     if (!next) return 'no_member';
     const assigned = await tx.$queryRaw<{ at: Date }[]>`UPDATE conversations SET assigned_agent_id=${next}::uuid
       WHERE account_id=${accountId}::uuid AND id=${job.conversationId}::uuid RETURNING now() AS at`;

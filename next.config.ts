@@ -43,7 +43,8 @@ const SECURITY_HEADERS = [
       // and 'unsafe-eval' in dev + some production optimisations.
       // Nonce-based CSP is a later project.
       // connect.facebook.net: the Facebook JS SDK for WhatsApp Embedded Signup.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net",
+      // checkout.razorpay.com: Razorpay Checkout for platform subscriptions (Settings → Plan).
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://checkout.razorpay.com",
       // Tailwind + inline style attributes on lots of components.
       "style-src 'self' 'unsafe-inline'",
       // Supabase public-bucket avatars, contact avatars (arbitrary
@@ -58,7 +59,8 @@ const SECURITY_HEADERS = [
       // server-side; the Embedded Signup SDK only talks to facebook.com
       // (login status) and runs its popup/iframe from there.
       "connect-src 'self' https://www.facebook.com https://web.facebook.com",
-      "frame-src 'self' https://www.facebook.com https://web.facebook.com",
+      // api.razorpay.com / checkout.razorpay.com: the Razorpay Checkout frame for platform subscriptions.
+      "frame-src 'self' https://www.facebook.com https://web.facebook.com https://api.razorpay.com https://checkout.razorpay.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

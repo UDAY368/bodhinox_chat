@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   subscribe: vi.fn(),
   register: vi.fn(),
   failUpdateWith: null as null | ((data: Record<string, unknown>) => boolean),
+  numberRoom: vi.fn(async () => {}),
 }));
 
 const ACCOUNT = '11111111-1111-4111-8111-111111111111';
@@ -53,6 +54,10 @@ const tx = {
 };
 
 vi.mock('@/lib/db/tenant', () => ({ withTenant: (_t: unknown, op: (t: typeof tx) => unknown) => op(tx) }));
+vi.mock('@/lib/billing/entitlements', async (orig) => {
+  const actual = await orig<typeof import('@/lib/billing/entitlements')>();
+  return { PlanLimitError: actual.PlanLimitError, requireWhatsAppNumberRoom: h.numberRoom };
+});
 vi.mock('@/lib/repositories/routing', () => ({ resolveWhatsAppAccount: async () => h.owner }));
 vi.mock('@/lib/whatsapp/encryption', () => ({
   encrypt: (v: string) => `enc(${v})`,
@@ -77,6 +82,7 @@ import {
 } from './embedded-signup';
 import { codeExchangeSecret, connectEmbeddedSignup, generateTwoStepPin, isTwoStepPin, retryEmbeddedSignupRegistration } from './embedded-signup-connect';
 import { MetaApiError } from './meta-api';
+import { PlanLimitError } from '@/lib/billing/entitlements';
 
 const tenant = { accountId: ACCOUNT, userId: USER, role: 'admin' as const };
 const input = { code: 'the-code', waba_id: '555', phone_number_id: '777' };
@@ -185,6 +191,25 @@ describe('connectEmbeddedSignup', () => {
     expect(third).toMatchObject({ ok: true, created: false, pin: null });
     expect(h.subscribe).toHaveBeenCalledTimes(1);
     expect(h.register).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses an additional number over the plan before any Meta change, but always lets an existing row reconnect', async () => {
+    await connectEmbeddedSignup(tenant, input);
+    expect(h.numberRoom).toHaveBeenCalledTimes(1);
+    h.numberRoom.mockRejectedValue(new PlanLimitError('The Free plan allows up to 1 WhatsApp numbers. Upgrade for more.'));
+    h.verify.mockResolvedValue({ id: '888', verified_name: 'Two' });
+    h.list.mockResolvedValue([{ id: '777' }, { id: '888' }]);
+    h.subscribe.mockClear();
+    h.register.mockClear();
+    await expect(connectEmbeddedSignup(tenant, { ...input, phone_number_id: '888' })).rejects.toBeInstanceOf(PlanLimitError);
+    expect(h.rows).toHaveLength(1);
+    expect(h.subscribe).not.toHaveBeenCalled();
+    expect(h.register).not.toHaveBeenCalled();
+    // The number it already has reconnects without consulting the limit.
+    expect(await connectEmbeddedSignup(tenant, input)).toMatchObject({ ok: true, created: false });
+    expect(h.numberRoom).toHaveBeenCalledTimes(2);
+    h.numberRoom.mockReset();
+    h.numberRoom.mockResolvedValue(undefined);
   });
 
   it('re-subscribes when the number moved to another WABA', async () => {

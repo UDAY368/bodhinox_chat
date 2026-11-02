@@ -12,10 +12,12 @@ import { parseSchedule } from './create-campaign';
 
 const initialJob = (id: string) => `broadcast:${id}:initial`;
 
-/** Read-only gate: false for a cancelled campaign or one scheduled for later. */
+/** Read-only gate: false for a cancelled campaign, one scheduled for later, or a suspended workspace. */
 export async function broadcastDispatchable(accountId: string, broadcastId: string): Promise<boolean> {
   const rows = await withTenant({ accountId, role: 'owner' }, (tx) => tx.$queryRaw<{ ok: boolean }[]>`
-    SELECT (status<>'cancelled' AND (status<>'scheduled' OR scheduled_at<=now())) AS ok
+    SELECT (status<>'cancelled' AND (status<>'scheduled' OR scheduled_at<=now())
+      -- A suspended workspace (unpaid after grace) holds its campaigns; Resume after paying.
+      AND NOT EXISTS (SELECT 1 FROM account_subscriptions s WHERE s.account_id=broadcasts.account_id AND s.status='suspended')) AS ok
     FROM broadcasts WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid`, getWorkerPrisma());
   return rows[0]?.ok === true;
 }

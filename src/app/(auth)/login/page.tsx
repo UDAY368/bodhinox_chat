@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/data/client';
 import { postLoginPath } from '@/lib/auth/callback';
+import { GoogleSignIn } from '@/components/auth/google-sign-in';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -107,6 +108,7 @@ function LoginPageInner() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <GoogleSignIn />
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             {linkErrorMessage && !error && (
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">

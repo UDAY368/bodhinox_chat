@@ -10,6 +10,7 @@ import { secretAttributeKeys } from '@/lib/workspace/attributes';
 import { tenantOf } from '@/lib/audience/http';
 import { withTenant } from '@/lib/db/tenant';
 import { requireWithinLimit } from '@/lib/billing/entitlements';
+import { requirePermission } from '@/lib/auth/permissions';
 
 const t = getT('Api');
 
@@ -162,6 +163,18 @@ export async function PUT(
   }
   const { data: current, error: readError } = await admin.from('flows').select('*').eq('id', id).maybeSingle();
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
+  // Editing an active flow goes live at once, and new test numbers start a draft running on real
+  // phones: both publish flow behaviour, so they need 'flows.publish' like /activate.
+  const storedNumbers = (current as FlowRow | null)?.test_numbers ?? [];
+  const startsOrChangesTesting = !!testNumbers?.length &&
+    (testNumbers.length !== storedNumbers.length || testNumbers.some((n) => !storedNumbers.includes(n)));
+  if ((current as FlowRow | null)?.status === 'active' || startsOrChangesTesting) {
+    try {
+      await requirePermission(tenantOf(ctx), 'flows.publish');
+    } catch (err) {
+      return toErrorResponse(err);
+    }
+  }
   // A draft with test numbers runs for real customers' phones too, so it must be as valid as a live flow.
   const testing = (current as FlowRow | null)?.status === 'draft' &&
     (testNumbers ?? (current as FlowRow | null)?.test_numbers ?? []).length > 0;

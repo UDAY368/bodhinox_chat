@@ -1,0 +1,12 @@
+-- Keyset pagination for the admin audit log viewer (newest first), built
+-- CONCURRENTLY: audit_logs is append-only and written by many requests
+-- (invitations, restrictions, exports, template submits). A plain CREATE INDEX
+-- would hold a SHARE lock and block those inserts for the whole build.
+--
+-- This file holds a single statement on purpose: CREATE INDEX CONCURRENTLY
+-- cannot run inside a transaction block. If a deploy is interrupted mid-build,
+-- PostgreSQL leaves an INVALID index; drop it (DROP INDEX CONCURRENTLY
+-- audit_logs_account_created_idx) and mark the migration rolled back
+-- (prisma migrate resolve --rolled-back 20261102132100_audit_logs_created_index)
+-- before re-running.
+CREATE INDEX CONCURRENTLY audit_logs_account_created_idx ON audit_logs (account_id, created_at DESC, id DESC);

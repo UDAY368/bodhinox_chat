@@ -87,7 +87,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('plan entitlements on Postgr
   });
 
   it('drops a cancelled subscription to the free plan', async () => {
-    await owner.query("UPDATE account_subscriptions SET status='canceled' WHERE account_id=$1", [account]);
+    await owner.query("UPDATE account_subscriptions SET status='cancelled' WHERE account_id=$1", [account]);
     const e = await withTenant(a, (tx) => getEntitlements(tx, account));
     expect(e).toMatchObject({ planId: 'free', limits: { seats: 1, segments: 3 } });
     expect(e.features.campaign_scheduling).toBe(false);

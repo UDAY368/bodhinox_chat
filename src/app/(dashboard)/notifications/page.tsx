@@ -35,6 +35,7 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   sla_breach: AlarmClock,
   campaign_finished: Megaphone,
   template_rejected: FileX,
+  billing: CreditCard,
 };
 
 export default function NotificationsPage() {

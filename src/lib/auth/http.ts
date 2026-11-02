@@ -26,6 +26,7 @@ import {
   disableMfa,
   enrollMfa,
   getMfaStatus,
+  hasOwnPassword,
   verifyMfaEnrollment,
 } from './mfa';
 import {
@@ -177,7 +178,10 @@ export async function handleAuthGet(
     if (action === 'mfa') {
       const context = await resolveEnrollmentSession(request);
       if (!context) throw new UnauthorizedError();
-      return json({ enabled: await getMfaStatus(context) });
+      return json({
+        enabled: await getMfaStatus(context),
+        passwordSet: await hasOwnPassword(context),
+      });
     }
     return json({ error: { message: 'Not found' } }, 404);
   } catch (error) {
@@ -204,7 +208,9 @@ export async function handleAuthPost(
           })
           .strict()
           .parse(input);
-        return tokenResponse(await login(parsed));
+        return tokenResponse(
+          await login(parsed, { userAgent: request.headers.get('user-agent') })
+        );
       }
       const parsed = z
         .object({
@@ -261,7 +267,11 @@ export async function handleAuthPost(
           .strict()
           .parse(input);
         const response = json({ ok: true });
-        setSessionCookies(response, await login(parsed));
+        // Record the device at sign-in, as Google sign-in does.
+        setSessionCookies(
+          response,
+          await login(parsed, { userAgent: request.headers.get('user-agent') })
+        );
         return response;
       }
       if (action === 'signup') {
@@ -396,9 +406,10 @@ export async function handleAuthPost(
       await enforceAuthRateLimit('mfa', context.userId);
       if (action === 'mfa-enroll') {
         const parsed = z
-          .object({ currentPassword: password })
+          .object({ currentPassword: password.optional() })
           .strict()
           .parse(input);
+        // Without a password of its own, a recent Google sign-in on this session confirms it.
         return json(await enrollMfa(context, parsed.currentPassword));
       }
       if (action === 'mfa-verify') {

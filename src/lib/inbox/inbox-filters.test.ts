@@ -46,3 +46,15 @@ describe('operational inbox queues', () => {
     expect(parseInboxFilter('bogus')).toBe('all');
   });
 });
+
+describe('my-team filter', () => {
+  const base = { status: 'open' as const, unread_count: 0, last_customer_message_at: undefined };
+  it('matches conversations assigned to a teammate only', () => {
+    const team = new Set(['a', 'b']);
+    expect(parseInboxFilter('my-team')).toBe('my-team');
+    expect(matchesInboxFilter({ ...base, assigned_agent_id: 'a' }, 'my-team', 0, team)).toBe(true);
+    expect(matchesInboxFilter({ ...base, assigned_agent_id: 'c' }, 'my-team', 0, team)).toBe(false);
+    expect(matchesInboxFilter({ ...base, assigned_agent_id: undefined }, 'my-team', 0, team)).toBe(false);
+    expect(matchesInboxFilter({ ...base, assigned_agent_id: 'a' }, 'my-team', 0)).toBe(false);
+  });
+});

@@ -22,11 +22,15 @@ import { RoutingRulesCard } from '@/components/settings/inbox/routing-rules-card
 import { MediaLibraryCard } from '@/components/settings/media-library-card';
 import { NotificationPreferences } from '@/components/settings/notification-preferences';
 import { MembersTab } from '@/components/settings/members-tab';
+import { TeamsCard } from '@/components/settings/teams/teams-card';
+import { PermissionsMatrix } from '@/components/settings/teams/permissions-matrix';
+import { AuditLogLink } from '@/components/settings/audit-log/audit-log-link';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { WebhooksSettings } from '@/components/settings/webhooks-settings';
 import { ShopifyCard } from '@/components/settings/shopify-card';
 import { WooCommerceCard } from '@/components/settings/woocommerce-card';
 import { PlanPanel } from '@/components/settings/plan-panel';
+import { BillingSection } from '@/components/settings/billing/billing-section';
 import { PaymentsCard } from '@/components/settings/payments-card';
 import {
   resolveSection,
@@ -52,7 +56,7 @@ export default function SettingsPage() {
 function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accountId, defaultCurrency, canEditSettings } = useAuth();
+  const { accountId, defaultCurrency, canEditSettings, canManageMembers } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
 
@@ -98,7 +102,14 @@ function SettingsPageInner() {
       </div>
     ),
     media: <MediaLibraryCard key={accountId} />,
-    members: <MembersTab />,
+    members: (
+      <div key={accountId} className="space-y-10">
+        <MembersTab />
+        <TeamsCard canEdit={canManageMembers} />
+        <PermissionsMatrix canEdit={canManageMembers} />
+        {canManageMembers && <AuditLogLink />}
+      </div>
+    ),
     api: (
       <div className="space-y-10">
         <ApiKeysSettings />
@@ -108,7 +119,12 @@ function SettingsPageInner() {
       </div>
     ),
     payments: <PaymentsCard />,
-    plan: <PlanPanel />,
+    plan: (
+      <div className="space-y-10">
+        <PlanPanel />
+        <BillingSection key={accountId} />
+      </div>
+    ),
   };
 
   return (

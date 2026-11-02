@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireRole } from '@/lib/auth/account';
+import { requirePermission } from '@/lib/auth/permissions';
 import { exportContactsCsv } from '@/lib/audience/export';
 import { audienceError, tenantOf } from '@/lib/audience/http';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
@@ -14,6 +15,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('admin');
+    await requirePermission(tenantOf(ctx), 'contacts.export');
     // Admins are never masked; kept so a lower export role can't leak numbers.
     if (await resolvePhoneMask(tenantOf(ctx))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const limit = checkRateLimit(`admin:contactsExport:${ctx.userId}`, RATE_LIMITS.adminAction);

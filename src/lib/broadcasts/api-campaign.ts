@@ -28,6 +28,7 @@ import {
 } from '@/lib/whatsapp/sender-config';
 import { trackedButtonIndex } from './tracking';
 import { PlanLimitError, requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
+import { requireSendingAllowed } from '@/lib/billing/suspension';
 
 export const MAX_API_BATCH = 1000;
 const createSchema = z.object({
@@ -89,6 +90,7 @@ export async function createApiCampaign(scope: TenantContext, raw: unknown): Pro
     const refusal = templateSendRefusal(template, 'campaign');
     if (refusal) throw new AuthError(refusal, 400, 'template_kind_not_allowed');
     await requireFeature(tx, scope.accountId, 'api_campaigns');
+    await requireSendingAllowed(tx, scope.accountId);
     if (trackedButtonIndex(template) >= 0) throw new AuthError('Click-tracked templates cannot be used for API campaigns', 400, 'campaign_input');
     const numberId = await campaignNumberId(tx, scope.accountId, parsed.data.whatsappConfigId, template as { waba_id?: string | null });
     // The API supplies body values only: a header or link button that needs its own value could never send.

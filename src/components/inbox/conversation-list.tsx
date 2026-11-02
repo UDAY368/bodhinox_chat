@@ -8,6 +8,7 @@ import {
   parseInboxFilter,
   type InboxFilter,
 } from '@/lib/inbox/inbox-filters';
+import { useMyTeamMembers } from '@/components/inbox/use-my-team';
 import {
   useState,
   useEffect,
@@ -123,18 +124,21 @@ export function ConversationList({
         ? tn('picker.noNumber')
         : numberOptionLabel(filterNumbers.find((n) => n.id === activeNumberFilter)!, tn);
 
+  // Members of the caller's teams; null when the caller is in no team.
+  const myTeam = useMyTeamMembers();
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () => [
       { label: t('filterAll'), value: 'all' },
       { label: t('filterUnread'), value: 'unread' },
       { label: t('filterWaiting'), value: 'waiting' },
       { label: t('filterUnassigned'), value: 'unassigned' },
+      ...(myTeam ? [{ label: t('filterMyTeam'), value: 'my-team' as const }] : []),
       { label: t('filterExpiringSoon'), value: 'expiring-soon' },
       { label: t('filterOpen'), value: 'open' },
       { label: t('filterPending'), value: 'pending' },
       { label: t('filterClosed'), value: 'closed' },
     ],
-    [t]
+    [t, myTeam]
   );
   const LIFECYCLE_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () =>
@@ -261,7 +265,7 @@ export function ConversationList({
   const baseFiltered = useMemo(() => {
     let result = conversations;
 
-    result = result.filter((c) => matchesInboxFilter(c, filter, now));
+    result = result.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined));
 
     if (activeNumberFilter !== null) {
       result = result.filter((c) => matchesNumberFilter(c, activeNumberFilter));
@@ -288,7 +292,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter]);
+  }, [conversations, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, myTeam]);
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>

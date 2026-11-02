@@ -29,6 +29,7 @@ import { useWhatsAppNumbers } from "../numbers/use-whatsapp-numbers";
 
 interface Member { user_id: string; full_name: string; email: string | null; role: string }
 interface Tag { id: string; name: string }
+interface Team { id: string; name: string }
 type HoursChoice = "any" | "within" | "outside";
 
 const ENDPOINT = "/api/inbox/routing-rules";
@@ -52,6 +53,7 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
   const [rules, setRules] = useState<RoutingRule[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(canEdit);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,15 +61,18 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
 
   const load = useCallback(async () => {
     try {
-      const [ruleRes, memberRes, tagRes] = await Promise.all([
+      const [ruleRes, memberRes, tagRes, teamRes] = await Promise.all([
         authFetch(ENDPOINT, { cache: "no-store" }),
         authFetch("/api/account/members", { cache: "no-store" }),
         createClient().from("tags").select("id,name").order("name"),
+        authFetch("/api/teams", { cache: "no-store" }),
       ]);
       if (!ruleRes.ok || !memberRes.ok) throw new Error();
       setRules(((await ruleRes.json()) as { rules: RoutingRule[] }).rules);
       setMembers(((await memberRes.json()) as { members: Member[] }).members.filter((m) => m.role !== "viewer"));
       setTags((tagRes.data ?? []) as Tag[]);
+      // Teams are optional here: without them the team option is simply not offered.
+      setTeams(teamRes.ok ? ((await teamRes.json()) as { teams: Team[] }).teams : []);
       setLoadFailed(false);
     } catch {
       setLoadFailed(true);
@@ -118,7 +123,9 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
   };
   const assigneeSummary = (assignTo: AssignTo) => assignTo.mode === "member"
     ? memberName(assignTo.user_id)
-    : t("roundRobinSummary", { names: assignTo.user_ids.map(memberName).join(", ") });
+    : assignTo.mode === "team"
+      ? t("teamSummary", { team: teams.find((team) => team.id === assignTo.team_id)?.name ?? t("unknownTeam") })
+      : t("roundRobinSummary", { names: assignTo.user_ids.map(memberName).join(", ") });
 
   return (
     <Card>
@@ -172,6 +179,7 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
               <RuleDialog
                 rule={editing === "new" ? null : editing}
                 members={members}
+                teams={teams}
                 tags={tags}
                 numbers={numbers}
                 onClose={() => setEditing(null)}
@@ -188,9 +196,10 @@ export function RoutingRulesCard({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-function RuleDialog({ rule, members, tags, numbers, onClose, onSaved }: {
+function RuleDialog({ rule, members, teams, tags, numbers, onClose, onSaved }: {
   rule: RoutingRule | null;
   members: Member[];
+  teams: Team[];
   tags: Tag[];
   numbers: ReturnType<typeof useWhatsAppNumbers>["numbers"];
   onClose: () => void;
@@ -205,7 +214,8 @@ function RuleDialog({ rule, members, tags, numbers, onClose, onSaved }: {
     rule?.conditions.within_working_hours === undefined ? "any" : rule.conditions.within_working_hours ? "within" : "outside");
   const [mode, setMode] = useState<AssignTo["mode"]>(rule?.assign_to.mode ?? "member");
   const [assignees, setAssignees] = useState<string[]>(
-    rule ? (rule.assign_to.mode === "member" ? [rule.assign_to.user_id] : rule.assign_to.user_ids) : []);
+    rule ? (rule.assign_to.mode === "member" ? [rule.assign_to.user_id] : rule.assign_to.mode === "team" ? [] : rule.assign_to.user_ids) : []);
+  const [teamId, setTeamId] = useState(rule?.assign_to.mode === "team" ? rule.assign_to.team_id : teams[0]?.id ?? "");
   const [reassign, setReassign] = useState(rule?.reassign_after_minutes ? String(rule.reassign_after_minutes) : "");
   const [saving, setSaving] = useState(false);
 
@@ -224,7 +234,8 @@ function RuleDialog({ rule, members, tags, numbers, onClose, onSaved }: {
           ...(numberId ? { whatsapp_config_id: numberId } : {}),
           ...(hours === "any" ? {} : { within_working_hours: hours === "within" }),
         },
-        assign_to: mode === "member" ? { mode, user_id: assignees[0] ?? "" } : { mode, user_ids: assignees },
+        assign_to: mode === "member" ? { mode, user_id: assignees[0] ?? "" }
+          : mode === "team" ? { mode, team_id: teamId } : { mode, user_ids: assignees },
         reassign_after_minutes: reassign.trim() ? Number(reassign) : null,
       };
       const { rule: saved } = await call<{ rule: RoutingRule }>(rule ? `${ENDPOINT}/${rule.id}` : ENDPOINT,
@@ -296,7 +307,14 @@ function RuleDialog({ rule, members, tags, numbers, onClose, onSaved }: {
               className="border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm">
               <option value="member">{t("modeMember")}</option>
               <option value="round_robin">{t("modeRoundRobin")}</option>
+              {(teams.length > 0 || mode === "team") && <option value="team">{t("modeTeam")}</option>}
             </select>
+            {mode === "team" ? (
+              <select aria-label={t("team")} value={teamId} onChange={(e) => setTeamId(e.target.value)}
+                className="border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm">
+                {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+              </select>
+            ) : (
             <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
               {members.map((member) => (
                 <label key={member.user_id} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
@@ -310,6 +328,7 @@ function RuleDialog({ rule, members, tags, numbers, onClose, onSaved }: {
                 </label>
               ))}
             </div>
+            )}
           </fieldset>
 
           <div className="space-y-1.5">
@@ -321,7 +340,7 @@ function RuleDialog({ rule, members, tags, numbers, onClose, onSaved }: {
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={saving}>{t("cancel")}</Button>
-          <Button type="button" onClick={save} disabled={saving || !name.trim() || assignees.length === 0}>
+          <Button type="button" onClick={save} disabled={saving || !name.trim() || (mode === "team" ? !teamId : assignees.length === 0)}>
             {saving && <Loader2 className="size-3.5 animate-spin" />} {t("save")}
           </Button>
         </DialogFooter>

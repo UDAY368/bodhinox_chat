@@ -17,6 +17,9 @@ function MfaPageInner() {
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get('next'), '/settings');
   const [enabled, setEnabled] = useState<boolean | null>(null),
+    // false for an account created through Google: a recent Google sign-in confirms setup instead.
+    [passwordSet, setPasswordSet] = useState(true),
+    [reauth, setReauth] = useState(false),
     [password, setPassword] = useState(''),
     [code, setCode] = useState('');
   const [secret, setSecret] = useState<string | null>(null),
@@ -34,12 +37,14 @@ function MfaPageInner() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error?.message);
         setEnabled(result.enabled);
+        setPasswordSet(result.passwordSet !== false);
       })
       .catch(() => setMessage('Unable to load your security settings'));
   }, [next]);
   async function action(endpoint: string, payload: unknown) {
     setBusy(true);
     setMessage('');
+    setReauth(false);
     try {
       const response = await authFetch(`/api/auth/${endpoint}`, {
         method: 'POST',
@@ -47,8 +52,10 @@ function MfaPageInner() {
         body: JSON.stringify(payload),
       });
       const result = await response.json();
-      if (!response.ok)
+      if (!response.ok) {
+        if (result.error?.code === 'google_reauth_required') setReauth(true);
         throw new Error(result.error?.message ?? 'Request failed');
+      }
       if (endpoint === 'mfa-enroll') {
         setSecret(result.secret);
         setMessage(
@@ -84,6 +91,14 @@ function MfaPageInner() {
             {enabled === null ? 'Loading' : enabled ? 'Enabled' : 'Disabled'}
           </p>
           {message && <p role="status">{message}</p>}
+          {reauth && (
+            <a
+              className="text-primary"
+              href={`/api/auth/google/start?next=${encodeURIComponent(`/mfa?next=${encodeURIComponent(next)}`)}`}
+            >
+              Sign in with Google again
+            </a>
+          )}
           {recovery.length > 0 && (
             <div>
               <p>
@@ -104,7 +119,13 @@ function MfaPageInner() {
               <code className="break-all">{secret}</code>
             </div>
           )}
-          {!secret && (
+          {!secret && !passwordSet && enabled === false && (
+            <p className="text-muted-foreground text-sm">
+              Your account signs in with Google, so your Google sign-in in the
+              last 10 minutes confirms this setup.
+            </p>
+          )}
+          {!secret && (passwordSet || enabled) && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="currentPassword">Current password</Label>
               <PasswordInput
@@ -133,9 +154,12 @@ function MfaPageInner() {
           )}
           {enabled === false && !secret && (
             <Button
-              disabled={busy || !password}
+              disabled={busy || (passwordSet && !password)}
               onClick={() =>
-                action('mfa-enroll', { currentPassword: password })
+                action(
+                  'mfa-enroll',
+                  passwordSet ? { currentPassword: password } : {}
+                )
               }
             >
               Set up authenticator
