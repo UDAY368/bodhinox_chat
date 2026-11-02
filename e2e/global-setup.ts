@@ -8,6 +8,7 @@ import { FIXTURES_FILE, type Fixtures, type Role, type SeededUser } from './fixt
 
 /** Owner connection to the isolated test database; refuses anything else. */
 export async function testDatabase(): Promise<pg.Client> {
+  if (process.env.DATABASE_ENV_FILE) config({ path: process.env.DATABASE_ENV_FILE, quiet: true, override: true });
   config({ path: '.env.test', quiet: true });
   const url = process.env.TEST_DATABASE_URL;
   if (!url) throw new Error('TEST_DATABASE_URL is required for end-to-end tests');

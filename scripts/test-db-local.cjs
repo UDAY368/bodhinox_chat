@@ -89,4 +89,8 @@ if (command === 'stop') {
   if (command === 'run') {
     process.exit(node(['node_modules/vitest/vitest.mjs', 'run', '--maxWorkers=1', 'integration.test', 'load.test', ...process.argv.slice(3)], env, false));
   }
+  if (command === 'e2e') {
+    // Browser tests against the same local database; extra arguments pick specs.
+    process.exit(node(['node_modules/@playwright/test/cli.js', 'test', ...process.argv.slice(3)], env, false));
+  }
 }

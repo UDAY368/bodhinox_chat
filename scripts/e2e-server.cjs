@@ -10,7 +10,8 @@ const read = (name) => {
   const file = path.join(root, name);
   return fs.existsSync(file) ? parse(fs.readFileSync(file)) : {};
 };
-const test = read('.env.test');
+// test-db-local.cjs sets DATABASE_ENV_FILE to point the run at the local Docker database.
+const test = { ...read('.env.test'), ...(process.env.DATABASE_ENV_FILE ? read(process.env.DATABASE_ENV_FILE) : {}) };
 for (const key of Object.keys(read('.env.local'))) if (!(key in test)) process.env[key] = '';
 Object.assign(process.env, test);
 

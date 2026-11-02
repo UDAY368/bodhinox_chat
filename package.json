@@ -42,6 +42,7 @@
     "test:db:local": "node scripts/test-db-local.cjs run",
     "test:all:local": "npm run test:unit && npm run test:db:local",
     "test:e2e": "playwright test",
+    "test:e2e:local": "node scripts/test-db-local.cjs e2e",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "worker": "tsx src/lib/jobs/worker.ts",
