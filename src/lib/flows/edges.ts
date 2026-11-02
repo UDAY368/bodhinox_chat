@@ -26,7 +26,7 @@
 
 import type { BuilderNode } from "@/components/flows/shared";
 
-const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address"]);
+const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form"]);
 
 /**
  * Optional ports a node shows once its setting is on: Skip (a skip
@@ -97,6 +97,7 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "ask_media":
       case "ask_location":
       case "ask_address":
+      case "send_form":
       case "set_tag":
       case "assign_agent":
     case "set_attribute": {
@@ -251,6 +252,7 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "ask_media":
     case "ask_location":
     case "ask_address":
+    case "send_form":
     case "set_tag":
     case "assign_agent":
     case "set_attribute":
@@ -339,6 +341,7 @@ export function applyEdgeConnection(
     case "ask_media":
     case "ask_location":
     case "ask_address":
+    case "send_form":
     case "set_tag":
     case "assign_agent":
     case "set_attribute":
@@ -450,6 +453,7 @@ function patchedConfigWithoutKey(
     case "ask_media":
     case "ask_location":
     case "ask_address":
+    case "send_form":
     case "set_tag":
     case "assign_agent":
     case "set_attribute": {

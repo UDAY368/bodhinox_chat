@@ -22,6 +22,7 @@ import { resolveWhatsAppAccount, resolveWabaAccount } from '@/lib/repositories/r
 import { createServerStorageFacade } from '@/lib/storage/server';
 import { applyProviderStatus, ingestInboundMessage } from '@/lib/whatsapp/ingest';
 import { inboundAddress, inboundLocation, type InboundStructuredPayload } from '@/lib/whatsapp/inbound-structured';
+import { parseFormReply, type FormAnswers } from '@/lib/whatsapp/forms/responses';
 export { processInboundActions } from '@/lib/whatsapp/inbound-actions';
 export type { InboundActionsPayload } from '@/lib/whatsapp/ingest';
 function databaseAdmin() { return createAdminClient(currentJobScope()); }
@@ -59,7 +60,10 @@ interface WhatsAppMessage {
     type: 'button_reply' | 'list_reply'
     button_reply?: { id: string; title: string }
     list_reply?: { id: string; title: string; description?: string }
-    /** Reply to an address_message form; `response_json` holds `{ values: {...} }`. */
+    /**
+     * Reply to an address_message form (`response_json` holds `{ values: {...} }`)
+     * or a submitted WhatsApp form (`name: 'flow'`, answers plus our flow_token).
+     */
     nfm_reply?: { name?: string; response_json?: string }
   }
   /**
@@ -295,7 +299,7 @@ async function processMessage(
   }
 
   // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId, interactivePayload } =
+  const { contentText, mediaUrl, mediaType, interactiveReplyId, interactivePayload, formReply } =
     await parseMessageContent(
       message,
       accessToken,
@@ -344,6 +348,7 @@ async function processMessage(
   await ingestInboundMessage({
     accountId,userId:configOwnerUserId,contactId:contactRecord.id,conversationId:conversation.id,
     metaMessageId:message.id,contentType,contentText,mediaUrl,mediaType,interactiveReplyId,interactivePayload,
+    ...(formReply ? { formReply } : {}),
     replyToMessageId:replyToInternalId,contextMetaId:message.context?.id ?? null,createdAt:new Date(parseInt(message.timestamp,10)*1000),
     wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,
   });
@@ -370,6 +375,8 @@ async function parseMessageContent(
   interactiveReplyId: string | null
   /** Structured location or address-form reply, kept for flows. */
   interactivePayload: InboundStructuredPayload | null
+  /** A submitted WhatsApp form; ingest stores it and writes the inbox summary. */
+  formReply?: { flowToken: string | null; answers: FormAnswers }
 }> {
   // getMediaUrl signature is (mediaId, accessToken) — earlier code had
   // the args swapped, so every verification hit an invalid Meta URL and
@@ -530,6 +537,8 @@ async function parseMessageContent(
       if (address) {
         return { ...empty, contentText: Object.values(address.address).join(', ') || '[Address]', interactivePayload: address }
       }
+      const formReply = parseFormReply(message.interactive?.nfm_reply)
+      if (formReply) return { ...empty, contentText: '[Form]', formReply }
       return { ...empty, contentText: '[Interactive reply]' }
     }
 

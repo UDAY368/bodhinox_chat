@@ -17,6 +17,7 @@
  */
 
 import {
+  ClipboardList,
   FileText,
   Flag,
   GitFork,
@@ -58,6 +59,7 @@ export type NodeType =
   | 'ask_media'
   | 'ask_location'
   | 'ask_address'
+  | 'send_form'
   | 'condition'
   | 'set_tag'
   | 'set_attribute'
@@ -106,6 +108,7 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'ask_media',
   'ask_location',
   'ask_address',
+  'send_form',
   'condition',
   'set_tag',
   'set_attribute',
@@ -188,6 +191,12 @@ export const NODE_META: Record<
     icon: House,
     color: 'text-teal-400',
     category: 'logic',
+  },
+  send_form: {
+    slugSeed: 'Send form',
+    icon: ClipboardList,
+    color: 'text-teal-400',
+    category: 'messaging',
   },
   condition: {
     slugSeed: 'If / else',
@@ -282,6 +291,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   ask_media: { l: 0.65, c: 0.1, h: 185 }, // the question family shares teal
   ask_location: { l: 0.65, c: 0.1, h: 185 },
   ask_address: { l: 0.65, c: 0.1, h: 185 },
+  send_form: { l: 0.64, c: 0.12, h: 200 }, // teal-blue — a question asked as a form
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
   set_attribute: { l: 0.65, c: 0.15, h: 330 }, // magenta — writes data, like set_tag
@@ -465,6 +475,12 @@ export function summarizeNode(
           : truncate(prompt);
       }
       return varKey ? `→ vars.${varKey}` : null;
+    }
+    case 'send_form': {
+      const cta = typeof cfg.cta === 'string' ? cfg.cta : '';
+      const varKey = typeof cfg.var_key === 'string' ? cfg.var_key : '';
+      if (!cfg.form_id) return t ? t('formNone') : 'No form picked';
+      return varKey ? `${truncate(cta || '…', 40)} → vars.${varKey}` : truncate(cta || '…', 60);
     }
     case 'send_template': {
       const name = typeof cfg.template_name === 'string' ? cfg.template_name : '';

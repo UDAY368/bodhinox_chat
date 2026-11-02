@@ -120,6 +120,7 @@ export interface ResumePlan {
 
 interface RecipientRow {
   id: string;
+  contact_id?: string | null;
   template_params: unknown;
   click_token?: string | null;
   contact: RecipientContact | RecipientContact[] | null;
@@ -169,7 +170,7 @@ export async function planBroadcastResume(
     error: recError,
   } = await db
     .from('broadcast_recipients')
-    .select('id, template_params, click_token, contact:contacts(phone,opted_out_at,blocked_at)', { count: 'exact' })
+    .select('id, contact_id, template_params, click_token, contact:contacts(phone,opted_out_at,blocked_at)', { count: 'exact' })
     .eq('broadcast_id', broadcastId)
     .in('status', statuses)
     // Oldest first, so repeated capped passes chew through the backlog
@@ -267,6 +268,7 @@ export async function planBroadcastResume(
         ? row.template_params.filter((p): p is string => typeof p === 'string')
         : [],
       clickToken: row.click_token ?? null,
+      contactId: row.contact_id ?? undefined,
     })),
     rejected: 0,
   };

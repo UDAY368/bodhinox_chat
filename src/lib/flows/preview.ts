@@ -44,8 +44,8 @@ export interface PreviewMessage {
   nodeKey?: string;
   /** Bot / customer text, shown literally. */
   text?: string;
-  /** Customer: a simulated non-text reply (shared media or location). */
-  shared?: "media" | "location";
+  /** Customer: a simulated non-text reply (shared media or location, or a submitted form). */
+  shared?: "media" | "location" | "form";
   header?: string;
   footer?: string;
   /** send_media: the media kind and optional document filename. */
@@ -72,8 +72,9 @@ export interface PreviewWaiting {
   options: PreviewOption[];
   /**
    * Author-only shortcuts for what the customer cannot type here:
-   * "share" (send the media / location asked for), "exhausted" (attempts
-   * used up) and "timeout" (no reply). Offered only where the engine acts on them.
+   * "share" (send the media / location asked for), "submit" (fill in and
+   * submit a sent form), "exhausted" (attempts used up) and "timeout" (no
+   * reply). Offered only where the engine acts on them.
    */
   simulate: PreviewOption[];
 }
@@ -226,6 +227,11 @@ export function choose(state: PreviewState, optionId: string, text?: string): Pr
       push({ from: "system", nodeKey, note: "timeout", detail: String(cfg.timeout_minutes ?? "") });
       return go(str(cfg.after_timeout));
     }
+    // "submit": the customer fills in the form; the engine stores the answers under var_key and moves on.
+    if (optionId === "submit") {
+      push({ from: "customer", shared: "form" });
+      return str(cfg.var_key) ? go(str(cfg.next_node_key)) : fallback();
+    }
     // "share": the media or location the question asks for; stored only with a var_key, as in the engine.
     push({ from: "customer", shared: node.node_type === "ask_location" ? "location" : "media" });
     return str(cfg.var_key) ? go(str(cfg.next_node_key)) : reject();
@@ -337,6 +343,11 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
           { kind: "text", options: skip ? [{ id: "skip", label: skip }] : [] },
           node.node_type === "ask_media" || node.node_type === "ask_location" ? [{ id: "share", label: "share" }, ...ports] : ports,
         );
+
+      case "send_form":
+        // The form opens from its button; typed replies are off-script, as in the engine.
+        push({ from: "bot", nodeKey, text: str(cfg.body), header: str(cfg.header) || undefined, footer: str(cfg.footer) || undefined, buttons: [str(cfg.cta) || "…"] });
+        return wait(nodeKey, { kind: "text", options: [] }, [{ id: "submit", label: "submit" }, ...ports]);
 
       case "condition":
         push({ from: "system", nodeKey, note: "condition", detail: str(cfg.subject_key) || undefined });

@@ -1,10 +1,25 @@
 // Structured parts of an inbound message that its text cannot carry: a shared
-// location, or the fields of Meta's address form. Stored in
-// messages.interactive_payload and read back by the flow engine.
+// location, the fields of Meta's address form, or a submitted WhatsApp form.
+// Stored in messages.interactive_payload and read back by the flow engine.
 
 export type InboundStructuredPayload =
   | { location: { latitude: number; longitude: number; name?: string; address?: string } }
   | { address: Record<string, string> }
+  | { form: InboundFormPayload }
+
+/**
+ * A submitted form as the inbox and the flow engine read it. The flow token
+ * is never stored here; `trusted` marks a first submission on a live
+ * session for this contact, the only kind that may resume a flow run.
+ */
+export interface InboundFormPayload {
+  form_id: string | null
+  form_name: string | null
+  answers: Record<string, string | number | boolean | string[]>
+  trusted: boolean
+  flow_run_id: string | null
+  node_key: string | null
+}
 
 // The fields Meta's address_message form returns (India).
 const ADDRESS_FIELDS = ['name', 'phone_number', 'in_pin_code', 'house_number', 'floor_number', 'tower_number',

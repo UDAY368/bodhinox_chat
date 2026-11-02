@@ -202,6 +202,25 @@ export interface AskAddressNodeConfig extends AskRetry {
 }
 
 /**
+ * Send Form: sends a published WhatsApp form (Meta Flow) and waits for the
+ * submission. The answers are stored as an object in `vars[var_key]` and
+ * each one as `<var_key>_<field_id>` so prompts can use `{{vars.x}}`.
+ * Like the ask nodes it may carry a reply timeout (`after_timeout` port).
+ */
+export interface SendFormNodeConfig {
+  /** whatsapp_forms.id; the form must be published when the flow is activated. */
+  form_id: string;
+  /** Button that opens the form (≤ 30 chars). */
+  cta: string;
+  /** Message body (≤ 1024 chars); can interpolate {{vars.X}}. */
+  body: string;
+  header?: string;
+  footer?: string;
+  var_key: string;
+  next_node_key: string;
+}
+
+/**
  * Sends an approved WhatsApp template. A template with quick-reply
  * buttons waits for a tap and routes per button (same `buttons` shape
  * as send_buttons, plus the template button `index`); one without
@@ -341,6 +360,7 @@ export type FlowNodeConfig =
   | { node_type: "ask_media"; config: AskMediaNodeConfig }
   | { node_type: "ask_location"; config: AskLocationNodeConfig }
   | { node_type: "ask_address"; config: AskAddressNodeConfig }
+  | { node_type: "send_form"; config: SendFormNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }
   | { node_type: "api_request"; config: ApiRequestNodeConfig }
   | { node_type: "connect_flow"; config: ConnectFlowNodeConfig }
@@ -534,6 +554,21 @@ export type ParsedInbound =
       kind: "address";
       /** Address-form fields (city, state, in_pin_code, …). */
       values: Record<string, string>;
+      meta_message_id: string;
+    }
+  | {
+      kind: "form";
+      /** The submitted form, when its flow token was known. */
+      form_id: string | null;
+      /** Answers keyed by form field id. */
+      answers: Record<string, string | number | boolean | string[]>;
+      /** The readable summary shown in the inbox. */
+      summary: string;
+      /** First submission on a live session for this contact. */
+      trusted: boolean;
+      /** The run and send_form node the session was issued for, when trusted. */
+      flow_run_id: string | null;
+      node_key: string | null;
       meta_message_id: string;
     };
 

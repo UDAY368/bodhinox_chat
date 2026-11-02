@@ -7,6 +7,7 @@ export const navigationPages = [
   { href: '/broadcasts', labelKey: 'broadcasts' },
   { href: '/automations', labelKey: 'automations' },
   { href: '/flows', labelKey: 'flows' },
+  { href: '/forms', labelKey: 'forms' },
   { href: '/agents', labelKey: 'aiAgents' },
   { href: '/settings', labelKey: 'settings' },
 ];

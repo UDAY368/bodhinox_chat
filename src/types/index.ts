@@ -350,7 +350,12 @@ export type TemplateButton =
   | { type: 'QUICK_REPLY'; text: string }
   | { type: 'URL'; text: string; url: string; example?: string }
   | { type: 'PHONE_NUMBER'; text: string; phone_number: string }
-  | { type: 'COPY_CODE'; text: string; example: string };
+  | { type: 'COPY_CODE'; text: string; example: string }
+  /**
+   * Opens a WhatsApp form (Meta Flow). `flow_id` is the form's Meta flow
+   * id; each send carries a fresh flow token so the submission maps back.
+   */
+  | { type: 'FLOW'; text: string; flow_id: string; navigate_screen?: string; flow_action?: 'navigate' | 'data_exchange' };
 
 export interface TemplateSampleValues {
   body?: string[];

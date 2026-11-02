@@ -1124,6 +1124,14 @@
         "nullable": true,
         "default": null,
         "definition": "ice_breakers_synced_at TIMESTAMPTZ"
+      },
+      {
+        "reference": null,
+        "name": "forms_key_uploaded_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "definition": "forms_key_uploaded_at TIMESTAMPTZ"
       }
     ],
     "message_templates": [

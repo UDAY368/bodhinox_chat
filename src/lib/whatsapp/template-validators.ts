@@ -38,6 +38,8 @@ export const TEMPLATE_LIMITS = {
   maxUrlButtons: 2,
   maxPhoneButtons: 1,
   maxCopyCodeButtons: 1,
+  /** One button may open a WhatsApp form. */
+  maxFlowButtons: 1,
   /** Meta: lowercase a-z, digits, underscore. Up to 512 chars. */
   nameRegex: /^[a-z0-9_]{1,512}$/,
   carouselMinCards: 2,
@@ -231,6 +233,7 @@ function countButtonsByType(
     URL: 0,
     PHONE_NUMBER: 0,
     COPY_CODE: 0,
+    FLOW: 0,
   };
   for (const b of buttons) counts[b.type]++;
   return counts;
@@ -290,6 +293,10 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
         got: counts.COPY_CODE,
       }),
     );
+  }
+
+  if (counts.FLOW > TEMPLATE_LIMITS.maxFlowButtons) {
+    throw new Error(t('tooManyFlowButtons', { max: TEMPLATE_LIMITS.maxFlowButtons, got: counts.FLOW }));
   }
 
   // Meta rule: QUICK_REPLY buttons must be contiguous — they can't be
@@ -370,6 +377,18 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
           throw new Error(
             t('copyCodeButtonMissingExample', { n: i + 1 }),
           );
+        }
+        break;
+      case 'FLOW':
+        // The Meta flow id of a published form: digits only.
+        if (!/^[0-9]{1,32}$/.test(b.flow_id ?? '')) {
+          throw new Error(t('flowButtonMissingForm', { n: i + 1 }));
+        }
+        if (b.navigate_screen !== undefined && !/^[A-Z][A-Z0-9_]{0,29}$/.test(b.navigate_screen)) {
+          throw new Error(t('flowButtonBadScreen', { n: i + 1 }));
+        }
+        if (b.flow_action !== undefined && b.flow_action !== 'navigate' && b.flow_action !== 'data_exchange') {
+          throw new Error(t('flowButtonBadAction', { n: i + 1 }));
         }
         break;
     }

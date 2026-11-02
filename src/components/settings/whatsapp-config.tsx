@@ -29,6 +29,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { IceBreakersCard } from './ice-breakers-card';
+import { FormsEncryptionCard } from './forms-encryption-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { SettingsPanelHead } from './settings-panel-head';
@@ -928,6 +929,8 @@ export function WhatsAppConfig() {
           </Card>
 
           {config && <IceBreakersCard canEdit={canEditSettings} />}
+
+          {config && <FormsEncryptionCard canEdit={canEditSettings} />}
 
           {/* Attachment retention. Only meaningful once a number is
             connected, since it governs what the webhook does with

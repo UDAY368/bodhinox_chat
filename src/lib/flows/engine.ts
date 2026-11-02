@@ -9,6 +9,7 @@ import { byPrecedence, isTestContact, keywordTriggerMatches, phoneDigits, templa
 import { runApiRequest } from './api-request';
 import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
+import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 /**
  * Flow runner.
  *
@@ -61,6 +62,7 @@ import {
   type AssignAgentNodeConfig,
   type ConnectFlowNodeConfig,
   type SendTemplateNodeConfig,
+  type SendFormNodeConfig,
   type AskMediaNodeConfig,
   type AskRetry,
   type CollectInputNodeConfig,
@@ -136,6 +138,8 @@ export function matchReplyId(
  * silently breaks the author who keyed on it.
  */
 export function entryTriggerTexts(message: ParsedInbound): string[] {
+  // A form submission answers a form; it never starts a flow by keyword.
+  if (message.kind === "form") return [];
   if (message.kind !== "interactive_reply") {
     const text = messageText(message);
     return text.trim() ? [text] : [];
@@ -157,6 +161,7 @@ export function messageText(message: ParsedInbound): string {
     case "media": return message.caption;
     case "location": return [message.name, message.address, `${message.latitude},${message.longitude}`].filter(Boolean).join(" - ");
     case "address": return Object.values(message.values).join(", ");
+    case "form": return message.summary;
   }
 }
 
@@ -244,6 +249,7 @@ export function isSuspending(node_type: string): boolean {
   return (
     node_type === "send_buttons" ||
     node_type === "send_list" ||
+    node_type === "send_form" ||
     isAskNode(node_type)
   );
 }
@@ -377,7 +383,9 @@ async function logEvent(
     | "attribute_set"
     | "api_request"
     | "flow_connected"
-    | "agent_assigned",
+    | "agent_assigned"
+    | "form_sent"
+    | "form_submitted",
   node_key: string | null,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
@@ -591,7 +599,7 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
   const ws = await workspaceValuesFor(run.account_id, JSON.stringify([raw, cfg.card_params ?? [], cfg.coupon_code ?? ""]));
   const params = raw.map((p) => interpolateVars(p, run.vars, ws).trim() || "-");
   const buttonParams = Object.fromEntries((cfg.buttons ?? []).map((b) => [b.index, b.reply_id]));
-  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendTemplate({
+  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, async () => engineSendTemplate({
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
@@ -603,6 +611,7 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
       body: params,
       buttonParams,
       ...flowTemplateSendExtras(cfg, (s) => interpolateVars(s, run.vars, ws)),
+      flowTokens: await templateFormTokens(db, run, cfg),
     },
   }));
   await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "send_template", whatsapp_message_id });
@@ -612,6 +621,15 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
     .from("flow_runs")
     .update({ last_prompt_message_id: (msg as { id: string } | null)?.id ?? null })
     .eq("id", run.id);
+}
+
+/** Form sessions for the template's FLOW buttons, if it has any (see templateFlowTokens). */
+async function templateFormTokens(db: AdminClient, run: FlowRunRow, cfg: SendTemplateNodeConfig): Promise<Record<number, string> | undefined> {
+  let query = db.from("message_templates").select("buttons").eq("account_id", run.account_id).eq("name", cfg.template_name);
+  if (cfg.language) query = query.eq("language", cfg.language);
+  const { data } = await query.limit(1);
+  const buttons = (data as Array<{ buttons: Array<{ type: string; flow_id?: string }> | null }> | null)?.[0]?.buttons;
+  return templateFlowTokens({ accountId: run.account_id, buttons, contactId: run.contact_id, conversationId: run.conversation_id, flowRunId: run.id });
 }
 
 /**
@@ -889,6 +907,44 @@ async function sendAskPrompt(
         }),
   );
   return whatsapp_message_id;
+}
+
+/**
+ * Sends a send_form node's form. `attempt` keeps a re-send (reprompt) a
+ * distinct outbound intent; each send issues a new one-time session tied to
+ * this run and node, so only a submission of a form this node sent resumes it.
+ */
+async function sendFormForNode(run: FlowRunRow, node: FlowNodeRow, attempt: number): Promise<string> {
+  const cfg = node.config as unknown as SendFormNodeConfig;
+  const ws = await workspaceValuesFor(run.account_id, `${cfg.body} ${cfg.header ?? ""} ${cfg.footer ?? ""} ${cfg.cta}`);
+  const { whatsappMessageId } = await sendForm({
+    accountId: run.account_id,
+    userId: run.user_id,
+    sender: "bot",
+    role: "owner",
+    conversationId: run.conversation_id!,
+    formId: cfg.form_id,
+    cta: interpolateVars(cfg.cta, run.vars, ws),
+    body: interpolateVars(cfg.body, run.vars, ws),
+    header: interpolateOptionalVars(cfg.header, run.vars, ws),
+    footer: interpolateOptionalVars(cfg.footer, run.vars, ws),
+    intentKey: `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`,
+    flowRunId: run.id,
+    nodeKey: node.node_key,
+  });
+  return whatsappMessageId;
+}
+
+/**
+ * A submission as run variables: the answers object under `var_key`, and
+ * each answer as `<var_key>_<field_id>` text so `{{vars.x}}` and
+ * conditions can read it (choices keep their option ids).
+ */
+export function formAnswerVars(key: string, answers: Record<string, string | number | boolean | string[]>): Record<string, unknown> {
+  return {
+    [key]: answers,
+    ...Object.fromEntries(Object.entries(answers).map(([field, value]) => [`${key}_${field}`, Array.isArray(value) ? value.join(", ") : String(value)])),
+  };
 }
 
 /**
@@ -1265,6 +1321,30 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
+      }
+      return { outcome: "advanced" };
+    }
+    if (node.node_type === "send_form") {
+      // Send the form and suspend; the submission wakes the run up.
+      try {
+        const whatsapp_message_id = await sendFormForNode(run, node, run.reprompt_count);
+        await logEvent(db, run.id, "form_sent", node.node_key, {
+          form_id: (node.config as unknown as SendFormNodeConfig).form_id,
+          whatsapp_message_id,
+        });
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_form_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_form_failed");
+        return { outcome: "completed" };
+      }
+      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
         await scheduleReplyTimeout(db, run, node);
       }
@@ -1711,6 +1791,28 @@ async function handleReplyForActiveRun(
   //   2. An answer on a question node — captured into vars.
   //
   // Everything else falls through to the fallback policy below.
+  if (message.kind === "form") {
+    // Only the submission of the form this run's current node sent (its
+    // own trusted session) resumes the run. Any other submission is
+    // stored with its message and changes nothing here.
+    const cfg = currentNode.config as unknown as SendFormNodeConfig;
+    const ours = currentNode.node_type === "send_form" && message.trusted &&
+      message.flow_run_id === run.id && message.node_key === currentNode.node_key;
+    if (!ours || !cfg.var_key || !cfg.next_node_key) return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+    const newVars = { ...run.vars, ...formAnswerVars(cfg.var_key, message.answers) };
+    if (!(await claimReplyTransition(db, run, cfg.next_node_key, { vars: newVars }))) {
+      return lostReplyRace(db, run, currentNode.node_key);
+    }
+    run.vars = newVars;
+    // Field ids only: the answers are customer content.
+    await logEvent(db, run.id, "form_submitted", currentNode.node_key, {
+      form_id: message.form_id,
+      fields: Object.keys(message.answers).slice(0, 100),
+    });
+    const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
+    return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+  }
+
   let matched: string | null = null;
   if (
     message.kind === "interactive_reply" &&
@@ -1804,6 +1906,9 @@ async function handleReplyForActiveRun(
         // The customer sent something we couldn't accept. Re-send the
         // prompt so they try again.
         await sendAskPrompt(run, currentNode, newReprompts);
+      } else if (currentNode.node_type === "send_form") {
+        // Each re-send issues its own session for this run and node; either submission resumes it.
+        await sendFormForNode(run, currentNode, newReprompts);
       }
     } catch (err) {
       await logEvent(db, run.id, "error", currentNode.node_key, {

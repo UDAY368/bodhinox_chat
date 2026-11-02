@@ -61,9 +61,22 @@ interface NodeInput {
   config: Record<string, unknown>;
 }
 
+/** The account's WhatsApp forms a send_form step may use, by id. */
+export type FlowFormLookup = ReadonlyMap<string, { status: string; fields: string[] }>;
+
+export interface FlowValidationContext {
+  /**
+   * When given (the server, at activation), every send_form step must use
+   * a form that exists and is published, and its field ids count as
+   * collected variables. The builder omits it and checks shape only.
+   */
+  forms?: FlowFormLookup;
+}
+
 export function validateFlowForActivation(
   flow: FlowInput,
   nodes: NodeInput[],
+  context: FlowValidationContext = {},
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -133,6 +146,7 @@ export function validateFlowForActivation(
   const runTimeoutHours = flow.fallback_policy === undefined ? undefined : resolveFallbackPolicy(flow.fallback_policy).on_timeout_hours;
   for (const n of nodes) {
     issues.push(...validateNode(n, keys), ...timingIssues(n, keys, runTimeoutHours));
+    if (n.node_type === "send_form") issues.push(...sendFormIssues(n, keys, context.forms));
   }
 
   // Warn rather than block: explicit starts may supply variables externally.
@@ -160,7 +174,7 @@ export function validateFlowForActivation(
         visited.add(key);
         const earlier = byKey.get(key);
         if (!earlier) continue;
-        if (ancestors.has(key)) for (const name of producedVars(earlier)) available.add(name);
+        if (ancestors.has(key)) for (const name of producedVars(earlier, context.forms)) available.add(name);
         pending.push(...outgoingEdges(earlier));
       }
       const references: Array<{ field: string; key: string }> = [];
@@ -1033,6 +1047,10 @@ function validateNode(
       break;
     }
 
+    case "send_form":
+      // Checked by sendFormIssues, which also knows the account's forms.
+      break;
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
@@ -1088,7 +1106,38 @@ const MAX_CONDITION_RULES = 10;
 const SET_ATTRIBUTE_MAX = 1000;
 const MAX_API_ROUTES = 5;
 /** Nodes that wait for the customer, so a reply timeout means something. */
-const WAITING_TYPES = ["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address"];
+const WAITING_TYPES = ["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form"];
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Meta's limits on the flow message around a form. */
+export const SEND_FORM_LIMITS = { cta: 30, body: 1024, header: 60, footer: 60 } as const;
+
+/** A send_form step: the form, the message around it, the variable and the next step. */
+export function sendFormIssues(node: NodeInput, knownKeys: ReadonlySet<string>, forms?: FlowFormLookup): ValidationIssue[] {
+  const cfg = node.config as { form_id?: unknown; cta?: unknown; body?: unknown; header?: unknown; footer?: unknown; var_key?: unknown; next_node_key?: unknown };
+  const issues: ValidationIssue[] = [];
+  const at = (field: string, message: string) => issues.push({ severity: "error", scope: "node", node_key: node.node_key, field, message });
+  const formId = typeof cfg.form_id === "string" ? cfg.form_id : "";
+  if (!UUID_SHAPE.test(formId)) at("form_id", t("formNeedsForm"));
+  else if (forms && !forms.has(formId)) at("form_id", t("formMissing"));
+  else if (forms && forms.get(formId)!.status !== "published") at("form_id", t("formNotPublished"));
+  const text = (field: "cta" | "body" | "header" | "footer", required: boolean) => {
+    const value = cfg[field];
+    if (value === undefined || value === null || value === "") {
+      if (required) at(field, t(field === "cta" ? "formNeedsCta" : "formNeedsBody"));
+    } else if (typeof value !== "string" || (required && !value.trim()) || value.length > SEND_FORM_LIMITS[field]) {
+      at(field, t("formTextTooLong", { max: SEND_FORM_LIMITS[field] }));
+    }
+  };
+  text("cta", true);
+  text("body", true);
+  text("header", false);
+  text("footer", false);
+  if (typeof cfg.var_key !== "string" || !cfg.var_key.trim()) at("var_key", t("questionNeedsVarKey"));
+  else if (!VAR_KEY.test(cfg.var_key)) at("var_key", t("invalidVarKey", { key: cfg.var_key }));
+  if (!cfg.next_node_key) at("next_node_key", t("nodeNeedsNext"));
+  else if (typeof cfg.next_node_key !== "string" || !knownKeys.has(cfg.next_node_key)) at("next_node_key", t("nodeMissingNext", { key: String(cfg.next_node_key) }));
+  return issues;
+}
 
 /** Whether the node stops for the customer: a template only when it has quick-reply buttons. */
 function waitsForReply(node: NodeInput): boolean {
@@ -1099,7 +1148,7 @@ function waitsForReply(node: NodeInput): boolean {
 const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target"];
 
 /** Variables a node stores for the nodes after it. */
-function producedVars(node: NodeInput): string[] {
+function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
   const cfg = node.config;
   if (node.node_type === "set_attribute") return cfg.target === "var" && typeof cfg.key === "string" ? [cfg.key] : [];
   if (node.node_type === "api_request") {
@@ -1113,6 +1162,10 @@ function producedVars(node: NodeInput): string[] {
     case "ask_location": return [key, `${key}_latitude`, `${key}_longitude`, `${key}_name`, `${key}_address`];
     case "ask_address": return [key, ...["name", "phone_number", "in_pin_code", "house_number", "floor_number", "tower_number",
       "building_name", "address", "landmark_area", "city", "state"].map((field) => `${key}_${field}`)];
+    case "send_form": {
+      const fields = typeof cfg.form_id === "string" ? forms?.get(cfg.form_id)?.fields ?? [] : [];
+      return [key, ...fields.map((field) => `${key}_${field}`)];
+    }
     default: return [];
   }
 }
@@ -1204,6 +1257,9 @@ function outgoingEdges(node: NodeInput): string[] {
     case "api_request":
       for (const r of (Array.isArray(cfg.routes) ? cfg.routes : []) as Array<{ next_node_key?: unknown }>) add(r?.next_node_key);
       add(cfg.fallback_next);
+      break;
+    case "send_form":
+      add(cfg.next_node_key);
       break;
     case "collect_input":
     case "ask_media":

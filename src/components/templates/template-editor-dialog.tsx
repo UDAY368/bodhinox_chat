@@ -42,6 +42,7 @@ import {
 import type { MessageTemplate, TemplateButton, TemplateKind } from '@/types';
 import { TemplateLanguageSelect } from './template-language-select';
 import { TemplatePreview } from './template-preview';
+import { usePublishedForms } from '@/components/flows/forms/use-pickers';
 import {
   BUTTON_TYPES_BY_KIND,
   CARD_BUTTON_TYPES,
@@ -730,6 +731,7 @@ function ButtonFields({
     URL: t('btnUrl'),
     PHONE_NUMBER: t('btnPhone'),
     COPY_CODE: t('btnCopyCode'),
+    FLOW: t('btnFlow'),
   };
   const small = `${inputCls} h-8 text-xs`;
   return (
@@ -814,6 +816,52 @@ function ButtonFields({
           className={small}
         />
       )}
+      {button.type === 'FLOW' && <FlowButtonForm flowId={button.flow_id} onPatch={onPatch} />}
+    </div>
+  );
+}
+
+/**
+ * FLOW button: pick a published form. The button stores the form's Meta
+ * flow id and first screen, read from the form when it is picked.
+ */
+function FlowButtonForm({ flowId, onPatch }: { flowId: string; onPatch: (patch: ButtonPatch) => void }) {
+  const t = useTranslations('Settings.templates');
+  const forms = usePublishedForms();
+  const [picked, setPicked] = useState('');
+  const [loading, setLoading] = useState(false);
+  const pick = async (id: string) => {
+    setPicked(id);
+    setLoading(true);
+    try {
+      const res = await authFetch(`/api/whatsapp/forms/${id}`, { cache: 'no-store' });
+      const form = res.ok ? ((await res.json()) as { form?: { meta_flow_id?: string | null; definition?: { screens?: Array<{ id?: string }> } } }).form : undefined;
+      if (!form?.meta_flow_id) {
+        toast.error(t('flowFormUnavailable'));
+        return;
+      }
+      onPatch({ flow_id: form.meta_flow_id, navigate_screen: form.definition?.screens?.[0]?.id ?? '' });
+    } catch {
+      toast.error(t('flowFormUnavailable'));
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="space-y-1 pl-1">
+      <Select value={picked} onValueChange={(v) => { if (v) void pick(v); }}>
+        <SelectTrigger aria-label={t('flowFormLabel')} className="h-8 border-border bg-muted text-xs text-foreground">
+          <SelectValue placeholder={flowId ? t('flowFormPicked') : t('flowFormPick')} />
+        </SelectTrigger>
+        <SelectContent className="bg-popover border-border">
+          {forms.map((f) => (
+            <SelectItem key={f.id} value={f.id} className={itemCls}>{f.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-[11px] text-muted-foreground">
+        {loading ? t('flowFormLoading') : forms.length ? t('flowFormHelp') : t('flowFormNone')}
+      </p>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { getT } from '@/lib/i18n/translate';
 import { tenantOf } from '@/lib/audience/http';
 import { withTenant } from '@/lib/db/tenant';
 import { requireWithinLimit } from '@/lib/billing/entitlements';
+import { loadFlowFormLookup } from '@/lib/whatsapp/forms/flow-lookup';
 
 const t = getT('Api');
 
@@ -91,6 +92,12 @@ export async function POST(
         { status: 404 }
       );
     }
+    // A send_form step must use a form that is published right now.
+    let forms: Awaited<ReturnType<typeof loadFlowFormLookup>> | undefined;
+    if ((nodes ?? []).some((n: { node_type?: string }) => n.node_type === 'send_form')) {
+      const ctx = await requireRole('agent');
+      forms = await withTenant(tenantOf(ctx), (tx) => loadFlowFormLookup(tx, ctx.accountId));
+    }
     const issues = validateFlowForActivation(
       flow as {
         name: string;
@@ -104,7 +111,8 @@ export async function POST(
         node_key: string;
         node_type: string;
         config: Record<string, unknown>;
-      }>
+      }>,
+      { forms }
     );
     const blockers = issues.filter((i) => i.severity === 'error');
     if (blockers.length > 0) {

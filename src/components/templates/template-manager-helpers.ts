@@ -139,7 +139,7 @@ export const CATEGORIES_BY_KIND: Record<TemplateKind, readonly MessageTemplate['
 };
 
 export const BUTTON_TYPES_BY_KIND: Record<TemplateKind, readonly TemplateButton['type'][]> = {
-  standard: ['QUICK_REPLY', 'URL', 'PHONE_NUMBER', 'COPY_CODE'],
+  standard: ['QUICK_REPLY', 'URL', 'PHONE_NUMBER', 'COPY_CODE', 'FLOW'],
   limited_time_offer: ['URL', 'COPY_CODE'],
   carousel: [],
   authentication: [],
@@ -220,6 +220,8 @@ export function emptyButton(type: TemplateButton['type']): TemplateButton {
       return { type: 'PHONE_NUMBER', text: '', phone_number: '' };
     case 'COPY_CODE':
       return { type: 'COPY_CODE', text: '', example: '' };
+    case 'FLOW':
+      return { type: 'FLOW', text: '', flow_id: '', flow_action: 'navigate' };
   }
 }
 
@@ -492,6 +494,9 @@ export type ButtonPatch = {
   url?: string;
   phone_number?: string;
   example?: string;
+  /** FLOW: the picked form's Meta flow id and first screen. */
+  flow_id?: string;
+  navigate_screen?: string;
 };
 
 /**
@@ -521,6 +526,13 @@ export function patchButton(button: TemplateButton, patch: ButtonPatch): Templat
         ...button,
         ...text,
         ...(patch.example !== undefined && { example: patch.example }),
+      };
+    case 'FLOW':
+      return {
+        ...button,
+        ...text,
+        ...(patch.flow_id !== undefined && { flow_id: patch.flow_id }),
+        ...(patch.navigate_screen !== undefined && { navigate_screen: patch.navigate_screen || undefined }),
       };
   }
 }

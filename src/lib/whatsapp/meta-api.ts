@@ -1334,3 +1334,236 @@ export async function downloadMedia(
   const buffer = Buffer.from(await response.arrayBuffer())
   return { buffer, contentType }
 }
+
+// ============================================================
+// WhatsApp Flows (forms)
+// ============================================================
+//
+// A form is a Meta Flow owned by the WABA: create it, upload its Flow JSON,
+// publish it, then send it as an interactive `flow` message. Neither tokens
+// nor request bodies are logged here; errors carry only Meta's envelope.
+
+const tf = getT('Validation.forms')
+
+/** Meta caps the flow CTA button at 30 characters. */
+export const FLOW_CTA_MAX_LENGTH = 30
+
+/** Meta's Flow categories (the same values a form row stores). */
+export type MetaFlowCategory =
+  | 'SIGN_UP' | 'SIGN_IN' | 'APPOINTMENT_BOOKING' | 'LEAD_GENERATION'
+  | 'CONTACT_US' | 'CUSTOMER_SUPPORT' | 'SURVEY' | 'OTHER'
+
+export interface MetaFlowValidationError {
+  error?: string
+  error_type?: string
+  message?: string
+  line_start?: number
+  line_end?: number
+  column_start?: number
+  column_end?: number
+  pointers?: unknown[]
+}
+
+async function flowRequest(
+  url: string,
+  accessToken: string,
+  init: { method: string; body?: BodyInit; json?: unknown },
+): Promise<Record<string, unknown>> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` }
+  let body = init.body
+  if (init.json !== undefined) {
+    headers['Content-Type'] = 'application/json'
+    body = JSON.stringify(init.json)
+  }
+  const response = await fetch(url, { method: init.method, headers, body, signal: AbortSignal.timeout(20_000) })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = await response.json().catch(() => ({}))
+  return data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+}
+
+function flowValidationErrors(value: unknown): MetaFlowValidationError[] {
+  return Array.isArray(value)
+    ? (value.filter((e) => e && typeof e === 'object') as MetaFlowValidationError[])
+    : []
+}
+
+export interface CreateFlowArgs {
+  wabaId: string
+  accessToken: string
+  name: string
+  categories: MetaFlowCategory[]
+  /** Only for endpoint-backed forms; must be HTTPS. */
+  endpointUri?: string
+}
+
+/** Creates an empty draft Flow on the WABA and returns Meta's flow id. */
+export async function createFlow(args: CreateFlowArgs): Promise<{ id: string }> {
+  const { wabaId, accessToken, name, categories, endpointUri } = args
+  const data = await flowRequest(`${META_API_BASE}/${wabaId}/flows`, accessToken, {
+    method: 'POST',
+    json: { name, categories, ...(endpointUri ? { endpoint_uri: endpointUri } : {}) },
+  })
+  if (!data.id) throw new Error('Meta created the flow but returned no id.')
+  return { id: String(data.id) }
+}
+
+export interface UpdateFlowMetadataArgs {
+  flowId: string
+  accessToken: string
+  name?: string
+  categories?: MetaFlowCategory[]
+  endpointUri?: string
+}
+
+/** Renames a flow or changes its categories or endpoint. Only the given fields are sent. */
+export async function updateFlowMetadata(args: UpdateFlowMetadataArgs): Promise<void> {
+  const { flowId, accessToken, name, categories, endpointUri } = args
+  const json: Record<string, unknown> = {}
+  if (name !== undefined) json.name = name
+  if (categories !== undefined) json.categories = categories
+  if (endpointUri !== undefined) json.endpoint_uri = endpointUri
+  await flowRequest(`${META_API_BASE}/${flowId}`, accessToken, { method: 'POST', json })
+}
+
+export interface UploadFlowJsonArgs {
+  flowId: string
+  accessToken: string
+  flowJson: unknown
+}
+
+/**
+ * Replaces the flow's Flow JSON. Meta answers 200 even when the JSON is
+ * invalid; the problems come back as `validation_errors` and block publish.
+ */
+export async function uploadFlowJson(
+  args: UploadFlowJsonArgs,
+): Promise<{ validation_errors: MetaFlowValidationError[] }> {
+  const { flowId, accessToken, flowJson } = args
+  const form = new FormData()
+  form.append('file', new Blob([JSON.stringify(flowJson)], { type: 'application/json' }), 'flow.json')
+  form.append('name', 'flow.json')
+  form.append('asset_type', 'FLOW_JSON')
+  const data = await flowRequest(`${META_API_BASE}/${flowId}/assets`, accessToken, { method: 'POST', body: form })
+  return { validation_errors: flowValidationErrors(data.validation_errors) }
+}
+
+export interface FlowIdArgs {
+  flowId: string
+  accessToken: string
+}
+
+/** Publishes a draft flow. Irreversible: a published flow can only be deprecated. */
+export async function publishFlow(args: FlowIdArgs): Promise<void> {
+  await flowRequest(`${META_API_BASE}/${args.flowId}/publish`, args.accessToken, { method: 'POST' })
+}
+
+/** Deprecates a published flow so it can no longer be sent. */
+export async function deprecateFlow(args: FlowIdArgs): Promise<void> {
+  await flowRequest(`${META_API_BASE}/${args.flowId}/deprecate`, args.accessToken, { method: 'POST' })
+}
+
+/** Deletes a draft flow. A flow Meta no longer has (404) counts as deleted. */
+export async function deleteFlow(args: FlowIdArgs): Promise<void> {
+  const response = await fetch(`${META_API_BASE}/${args.flowId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${args.accessToken}` },
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (response.status === 404) return
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+}
+
+export interface GetFlowArgs extends FlowIdArgs {
+  /** Defaults to status, validation_errors and preview. */
+  fields?: Array<'status' | 'validation_errors' | 'preview'>
+}
+
+export interface MetaFlowInfo {
+  /** DRAFT, PUBLISHED, DEPRECATED, BLOCKED or THROTTLED. */
+  status: string
+  validation_errors: MetaFlowValidationError[]
+  preview_url?: string
+}
+
+/** Reads a flow's status, validation errors and its web preview link. */
+export async function getFlow(args: GetFlowArgs): Promise<MetaFlowInfo> {
+  const fields = (args.fields ?? ['status', 'validation_errors', 'preview'])
+    .map((field) => (field === 'preview' ? 'preview.invalidate(false)' : field))
+  const params = new URLSearchParams({ fields: fields.join(',') })
+  const data = await flowRequest(`${META_API_BASE}/${args.flowId}?${params.toString()}`, args.accessToken, { method: 'GET' })
+  const preview = data.preview && typeof data.preview === 'object' ? (data.preview as { preview_url?: unknown }) : null
+  return {
+    status: typeof data.status === 'string' ? data.status : 'DRAFT',
+    validation_errors: flowValidationErrors(data.validation_errors),
+    ...(typeof preview?.preview_url === 'string' ? { preview_url: preview.preview_url } : {}),
+  }
+}
+
+export interface SendFlowMessageArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  flowId: string
+  /** Our one-time token; Meta echoes it back with the submission. */
+  flowToken: string
+  /** CTA button text, at most 30 characters. */
+  cta: string
+  body: string
+  header?: string
+  footer?: string
+  /** First screen to open. */
+  screen: string
+  /** Initial data for the first screen; that screen must declare these keys. */
+  data?: Record<string, unknown>
+  /** `draft` sends an unpublished flow (testing only). */
+  mode?: 'published' | 'draft'
+}
+
+/** Sends a flow as an interactive message. Only inside the 24-hour window. */
+export async function sendFlowMessage(args: SendFlowMessageArgs): Promise<{ whatsapp_message_id: string }> {
+  const { phoneNumberId, accessToken, to, flowId, flowToken, cta, body, header, footer, screen, data, mode } = args
+  validateInteractiveBody(body)
+  validateInteractiveHeaderFooter(header, footer)
+  if (!cta.trim()) throw new Error(tf('ctaRequired'))
+  if (cta.length > FLOW_CTA_MAX_LENGTH) throw new Error(tf('ctaTooLong', { max: FLOW_CTA_MAX_LENGTH }))
+  const parameters: Record<string, unknown> = {
+    flow_message_version: '3',
+    flow_token: flowToken,
+    flow_id: flowId,
+    flow_cta: cta,
+    flow_action: 'navigate',
+    flow_action_payload: { screen, ...(data && Object.keys(data).length > 0 ? { data } : {}) },
+  }
+  if (mode === 'draft') parameters.mode = 'draft'
+  const interactive: Record<string, unknown> = {
+    type: 'flow',
+    ...(header ? { header: { type: 'text', text: header } } : {}),
+    body: { text: body },
+    ...(footer ? { footer: { text: footer } } : {}),
+    action: { name: 'flow', parameters },
+  }
+  const result = await flowRequest(`${META_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+    method: 'POST',
+    json: { messaging_product: 'whatsapp', ...recipientFields(to), type: 'interactive', interactive },
+  })
+  const messages = result.messages as Array<{ id?: unknown }> | undefined
+  const id = messages?.[0]?.id
+  if (typeof id !== 'string') throw new Error('Meta accepted the flow message but returned no id.')
+  return { whatsapp_message_id: id }
+}
+
+/**
+ * Registers the number's business public key (PEM) so Meta can encrypt flow
+ * data exchanged with our endpoint. Only the public key ever leaves the server.
+ */
+export async function setBusinessEncryptionKey(args: {
+  phoneNumberId: string
+  accessToken: string
+  publicKeyPem: string
+}): Promise<void> {
+  const body = new URLSearchParams({ business_public_key: args.publicKeyPem })
+  await flowRequest(`${META_API_BASE}/${args.phoneNumberId}/whatsapp_business_encryption`, args.accessToken, {
+    method: 'POST',
+    body,
+  })
+}

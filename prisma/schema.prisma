@@ -165,6 +165,11 @@ model whatsapp_config {
   verify_token_hash String?
   ice_breakers String[]  @default([])
   ice_breakers_synced_at DateTime? @db.Timestamptz(6)
+  forms_public_key String?
+  forms_private_key_enc String?
+  forms_key_uploaded_at DateTime? @db.Timestamptz(6)
+  forms_pending_private_key_enc String?
+  forms_key_rotation_started_at DateTime? @db.Timestamptz(6)
   @@unique([account_id])
   @@unique([account_id, id])
 }
@@ -813,4 +818,56 @@ model assignment_cursors {
   account_id String @db.Uuid @id
   last_user_id String? @db.Uuid
   updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model whatsapp_forms {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  name String
+  category String
+  definition Json @db.JsonB
+  flow_json Json? @db.JsonB
+  meta_flow_id String?
+  status String @default("draft")
+  validation_errors Json? @db.JsonB
+  preview_url String?
+  uses_endpoint Boolean @default(false)
+  published_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, name])
+  @@unique([account_id, id])
+}
+
+model whatsapp_form_sessions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  flow_token String @unique
+  form_id String @db.Uuid
+  contact_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  flow_run_id String? @db.Uuid
+  node_key String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  expires_at DateTime @db.Timestamptz(6)
+  completed_at DateTime? @db.Timestamptz(6)
+  answers Json  @default("{}") @db.JsonB
+  @@unique([account_id, id])
+  @@index([account_id, form_id, created_at], map: "whatsapp_form_sessions_form_idx")
+}
+
+model whatsapp_form_responses {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  form_id String? @db.Uuid
+  session_id String? @db.Uuid
+  contact_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  message_id String
+  response Json @db.JsonB
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, message_id])
+  @@unique([account_id, id])
+  @@index([account_id, form_id, created_at], map: "whatsapp_form_responses_form_idx")
 }

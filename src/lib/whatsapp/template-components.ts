@@ -40,8 +40,11 @@ export interface MetaComponent {
 }
 
 interface MetaButtonPayload {
-  type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER' | 'COPY_CODE' | 'OTP';
+  type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER' | 'COPY_CODE' | 'OTP' | 'FLOW';
   text?: string;
+  flow_id?: string;
+  navigate_screen?: string;
+  flow_action?: 'navigate' | 'data_exchange';
   url?: string;
   phone_number?: string;
   example?: string[];
@@ -132,6 +135,14 @@ function buildButtonPayload(b: TemplateButton): MetaButtonPayload {
       return { type: 'PHONE_NUMBER', text: b.text, phone_number: b.phone_number };
     case 'COPY_CODE':
       return { type: 'COPY_CODE', text: b.text, example: [b.example] };
+    case 'FLOW':
+      return {
+        type: 'FLOW',
+        text: b.text,
+        flow_id: b.flow_id,
+        ...(b.navigate_screen ? { navigate_screen: b.navigate_screen } : {}),
+        flow_action: b.flow_action ?? 'navigate',
+      };
   }
 }
 

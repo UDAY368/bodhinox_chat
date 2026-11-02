@@ -6,10 +6,11 @@ import {
 } from './page-search-navigation';
 
 describe('workspace navigation', () => {
-  it('includes all ten live destinations', () => {
-    expect(filterPages('', (key) => key)).toHaveLength(10);
+  it('includes all eleven live destinations', () => {
+    expect(filterPages('', (key) => key)).toHaveLength(11);
     expect(navigationPages.map((page) => page.href)).toContain('/agents');
     expect(navigationPages.map((page) => page.href)).toContain('/flows');
+    expect(navigationPages.map((page) => page.href)).toContain('/forms');
   });
 
   it('searches translated page labels and routes without case or whitespace sensitivity', () => {
@@ -26,6 +27,7 @@ describe('workspace navigation', () => {
   it('resolves nested routes without confusing unrelated prefixes', () => {
     expect(getPageTitleKey('/agents/123')).toBe('aiAgents');
     expect(getPageTitleKey('/flows/new')).toBe('flows');
+    expect(getPageTitleKey('/forms/123')).toBe('forms');
     expect(getPageTitleKey('/inbox-archive')).toBe('dashboard');
   });
 });

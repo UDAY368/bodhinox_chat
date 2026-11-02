@@ -45,6 +45,7 @@ import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
 import { PlanLimitError, requireWithinLimit } from '@/lib/billing/entitlements';
+import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -78,6 +79,8 @@ interface PlannedRecipient {
   params: string[];
   /** Fills a trackable template's link button (lib/broadcasts/tracking). */
   clickToken?: string | null;
+  /** The recipient's contact; ties a FLOW button's form session to them. */
+  contactId?: string | null;
 }
 
 export interface BroadcastPlan {
@@ -219,7 +222,7 @@ export async function createBroadcast(
   const planned: PlannedRecipient[] = createdRows.map(
     (row: { recipient_id: string; contact_id: string }) => {
       const r = byContact.get(row.contact_id)!;
-      return { recipientRowId: row.recipient_id, phone: r.phone, params: r.params };
+      return { recipientRowId: row.recipient_id, phone: r.phone, params: r.params, contactId: row.contact_id };
     }
   );
 
@@ -340,6 +343,7 @@ export async function deliverBroadcast(
   // Location, offer end and coupon are the same for every recipient.
   const extras = plan.sendExtras ?? {};
   const carousel = !!plan.templateRow && templateKindOf(plan.templateRow) === 'carousel';
+  const flowButtons = (plan.templateRow?.buttons ?? []).some((b) => b.type === 'FLOW');
   for (const recipient of plan.planned) {
     // shortcut: fixed ~6 sends/s; pace by the number's messaging tier once the health job (Phase 2c) reports it.
     if (options) await new Promise(resolve => setTimeout(resolve, 150));
@@ -347,6 +351,11 @@ export async function deliverBroadcast(
     let sentMessageId: string | null = null;
     let lastError: string | null = null;
     let throttled = false;
+    // A FLOW button gets this recipient's own form session. Its key is the
+    // recipient's (not the variant's), so every variant, retry and resumed
+    // pass reuses the same sessions; they are made before the send intent.
+    let flowTokens: Record<number, string> | undefined;
+    let flowTokensReady = !(options && flowButtons);
 
     for (const variant of variants) {
       // Outside the try: a lost lease aborts the pass and leaves recipients pending, not failed.
@@ -359,6 +368,12 @@ export async function deliverBroadcast(
         const cards = frozen && options
           ? (await resolveTemplateMediaParams(options.accountId, plan.templateRow, { cards: frozen.cards }))?.cards
           : frozen?.cards;
+        if (!flowTokensReady && options) {
+          flowTokens = await templateFlowTokens({ accountId: options.accountId, buttons: plan.templateRow?.buttons,
+            contactId: recipient.contactId ?? null, conversationId: null,
+            intentKey: `broadcast:${plan.broadcastId}:${recipient.recipientRowId}:form-sessions` });
+          flowTokensReady = true;
+        }
         const send = async () => sendTemplateMessage({
           phoneNumberId: plan.phoneNumberId,
           accessToken: plan.accessToken,
@@ -367,10 +382,11 @@ export async function deliverBroadcast(
           language: plan.templateLanguage,
           template: plan.templateRow ?? undefined,
           params: frozen?.body ?? recipient.params,
-          ...((options && (headerMediaUrl || (tracked >= 0 && recipient.clickToken))) || cards || Object.keys(extras).length
+          ...((options && (headerMediaUrl || (tracked >= 0 && recipient.clickToken))) || cards || flowTokens || Object.keys(extras).length
             ? { messageParams: {
                 ...extras,
                 ...(cards ? { cards } : {}),
+                ...(flowTokens ? { flowTokens } : {}),
                 ...(options && headerMediaUrl && !carousel ? { headerMediaUrl: await providerMediaUrl(options.accountId, headerMediaUrl) } : {}),
                 ...(options && tracked >= 0 && recipient.clickToken ? { buttonParams: { [tracked]: recipient.clickToken } } : {}),
               } }

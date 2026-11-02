@@ -155,3 +155,26 @@ export function useFlowList(): FlowSummary[] {
 export function useAssignableMembers(): FlowMember[] {
   return useLoaded(loadMembers);
 }
+
+export interface PublishedForm {
+  id: string;
+  name: string;
+  status: string;
+}
+
+/** Forms come from the forms API: the table has no browser resource. */
+async function loadPublishedForms(): Promise<PublishedForm[]> {
+  try {
+    const res = await authFetch("/api/whatsapp/forms", { cache: "no-store" });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { forms?: PublishedForm[] };
+    return (json.forms ?? []).filter((f) => f.status === "published");
+  } catch {
+    return [];
+  }
+}
+
+/** Published WhatsApp forms: Meta sends nothing else. */
+export function usePublishedForms(): PublishedForm[] {
+  return useLoaded(loadPublishedForms);
+}

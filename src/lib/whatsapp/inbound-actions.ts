@@ -8,6 +8,10 @@ import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { dispatchQuickReplyAction } from "./quick-reply-actions";
 import { runInboundStage, type InboundActionsPayload } from "./ingest";
 import { applyConsentKeyword, consentKeyword } from "@/lib/contacts/consent";
+import { withTenant } from "@/lib/db/tenant";
+import { getWorkerPrisma } from "@/lib/db/prisma";
+import { applyFormSaveTo, loadFormDefinition } from "./forms/responses";
+import type { InboundFormPayload } from "./inbound-structured";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function validatePayload(input: InboundActionsPayload): void {
@@ -49,6 +53,13 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       if(reply.error) throw new Error("Broadcast reply update failed");
     }
     const text=input.contentText??"";
+    const form=await submittedForm(db,input);
+    // A trusted submission fills the contact fields its form maps answers to.
+    // Idempotent writes, applied whatever the contact's consent: the customer sent them.
+    if(form?.trusted&&form.form_id) {
+      const definition=await withTenant({accountId:input.accountId,role:"owner"},tx=>loadFormDefinition(tx,input.accountId,form.form_id!),getWorkerPrisma());
+      if(definition) await applyFormSaveTo(db,input.accountId,input.contactId,definition,form.answers);
+    }
     // A STOP/START message only records consent, and a blocked contact gets
     // no automated response; both still reach the message.received webhook.
     const keyword=input.contentType==="text"&&!input.interactiveReplyId ? consentKeyword(text) : null;
@@ -56,7 +67,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")
       .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
     if(contactError) throw new Error("Contact consent lookup failed");
-    if(!keyword&&!contact?.blocked_at) await respondAutomatically(db,input,text,stage);
+    if(!keyword&&!contact?.blocked_at) await respondAutomatically(db,input,text,stage,Boolean(form));
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{
       conversation_id:input.conversationId,contact_id:input.contactId,whatsapp_message_id:input.metaMessageId,
       content_type:input.contentType,content_text:input.contentText,
@@ -68,6 +79,16 @@ type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
 type MessageInput=Extract<InboundActionsPayload,{kind:"message"}>;
 
 const MEDIA_TYPES=new Set(["image","video","document","audio"]);
+
+/** The submitted form an inbound interactive message carries, if any. */
+async function submittedForm(db:ReturnType<typeof createAdminClient>,input:MessageInput): Promise<InboundFormPayload|null> {
+  if(input.contentType!=="interactive"||input.interactiveReplyId) return null;
+  const {data,error}=await db.from("messages").select("interactive_payload")
+    .eq("account_id",input.accountId).eq("id",input.messageId).maybeSingle();
+  if(error) throw new Error("Inbound message lookup failed");
+  const form=((data as {interactive_payload:unknown}|null)?.interactive_payload as {form?:InboundFormPayload}|null)?.form;
+  return form&&typeof form==="object"&&form.answers&&typeof form.answers==="object" ? form : null;
+}
 
 /**
  * The inbound as the flow engine sees it. Photos, locations and address
@@ -85,12 +106,17 @@ async function flowMessage(db:ReturnType<typeof createAdminClient>,input:Message
     .eq("account_id",input.accountId).eq("id",input.messageId).maybeSingle();
   if(error) throw new Error("Inbound message lookup failed");
   const row=data as {media_url:string|null;media_type:string|null;interactive_payload:unknown}|null;
-  const structured=row?.interactive_payload as Partial<{location:{latitude:number;longitude:number;name?:string;address?:string};address:Record<string,string>}>|null|undefined;
+  const structured=row?.interactive_payload as Partial<{location:{latitude:number;longitude:number;name?:string;address?:string};address:Record<string,string>;form:InboundFormPayload}>|null|undefined;
   if(MEDIA_TYPES.has(input.contentType)&&row?.media_url) {
     return {kind:"media",media_type:input.contentType as "image"|"video"|"document"|"audio",url:row.media_url,caption:text,meta_message_id};
   }
   if(input.contentType==="location"&&structured?.location) return {kind:"location",...structured.location,meta_message_id};
   if(input.contentType==="interactive"&&structured?.address) return {kind:"address",values:structured.address,meta_message_id};
+  if(input.contentType==="interactive"&&structured?.form) {
+    const f=structured.form;
+    return {kind:"form",form_id:f.form_id,answers:f.answers??{},summary:text,trusted:f.trusted===true,
+      flow_run_id:f.flow_run_id??null,node_key:f.node_key??null,meta_message_id};
+  }
   return {kind:"text",text,meta_message_id};
 }
 
@@ -118,7 +144,7 @@ async function repliedTemplate(db:ReturnType<typeof createAdminClient>,input:Mes
 }
 
 /** Quick-reply actions, flows, automations and the AI fallback, in that order. */
-async function respondAutomatically(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string,stage:Stage): Promise<void> {
+async function respondAutomatically(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string,stage:Stage,isForm=false): Promise<void> {
     const explicit=await stage("quick_reply_action",()=>dispatchQuickReplyAction(db,input));
     const flow=explicit.handled ? {consumed:true,outcome:undefined} : await stage("flow",async()=>dispatchInboundToFlows({
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
@@ -131,7 +157,8 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
     const consumed=flow.consumed||replied;
     const triggers: Array<"new_contact_created"|"first_inbound_message"|"new_message_received"|"keyword_match"|"interactive_reply">=[];
     if(!consumed) {
-      triggers.push("new_message_received","keyword_match");
+      // A form summary is not typed text, so it never matches keywords.
+      triggers.push("new_message_received",...(isForm ? [] : ["keyword_match" as const]));
       if(input.interactiveReplyId) triggers.push("interactive_reply");
     }
     const aiFallback=flow.outcome==="ai_fallback"||replied==="ai_fallback";

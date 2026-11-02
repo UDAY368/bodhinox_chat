@@ -31,7 +31,7 @@ type Patch = (patch: Record<string, unknown>) => void;
 
 const label = "mb-1 block text-xs text-muted-foreground";
 const help = "mt-1 text-[10px] text-muted-foreground";
-const WAITING = new Set(["send_buttons", "send_list", "collect_input", "ask_media", "ask_location", "ask_address"]);
+const WAITING = new Set(["send_buttons", "send_list", "collect_input", "ask_media", "ask_location", "ask_address", "send_form"]);
 
 /** A whole-number input that stores `undefined` when cleared. */
 function NumberField({ id, value, onChange, min, max }: { id: string; value: unknown; onChange: (v: number | undefined) => void; min?: number; max?: number }) {

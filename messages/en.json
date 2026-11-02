@@ -54,7 +54,8 @@
     "menuSignOut": "Sign out",
     "studio": "CRM STUDIO",
     "workspace": "Workspace",
-    "preferences": "Preferences"
+    "preferences": "Preferences",
+    "forms": "Forms"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -74,7 +75,8 @@
     "menuSignOut": "Sign out",
     "workspace": "Workspace",
     "flows": "Flows",
-    "aiAgents": "AI Agents"
+    "aiAgents": "AI Agents",
+    "forms": "Forms"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -381,7 +383,8 @@
         "document": "document",
         "audio": "audio"
       },
-      "uploadFailed": "Upload failed."
+      "uploadFailed": "Upload failed.",
+      "sendForm": "Send form"
     },
     "bubble": {
       "photo": "Photo",
@@ -514,6 +517,21 @@
       "resumed": "AI resumed.",
       "updateError": "Couldn’t update the AI assistant.",
       "networkError": "Couldn’t reach the server."
+    },
+    "sendForm": {
+      "title": "Send a form",
+      "form": "Form",
+      "pickForm": "Pick a published form",
+      "noForms": "No published forms yet. Create and publish one under Forms.",
+      "header": "Header (optional, up to {max} characters)",
+      "body": "Message (up to {max} characters)",
+      "footer": "Footer (optional, up to {max} characters)",
+      "cta": "Button label (up to {max} characters)",
+      "ctaPlaceholder": "e.g. Fill in the form",
+      "windowHelp": "Forms can only be sent within 24 hours of the customer's last message.",
+      "send": "Send form",
+      "sent": "Form sent.",
+      "failed": "The form couldn't be sent."
     }
   },
   "Contacts": {
@@ -1857,7 +1875,18 @@
         "templateOfferHelp": "The offer ends this many minutes after this step sends the template.",
         "templateCoupon": "Coupon code",
         "templateCouponHelp": "Can use run variables. Leave empty to use the code saved with the template.",
-        "templateCardParam": "Card {card} value {n}"
+        "templateCardParam": "Card {card} value {n}",
+        "formLabel": "Form",
+        "pickForm": "Pick a published form",
+        "formUnavailable": "Form not available",
+        "formHelp": "Only published forms are listed. Forms are sent within 24 hours of the customer's last message.",
+        "formNoneHelp": "No published forms yet. Create and publish one under Forms.",
+        "formHeader": "Header (optional, up to {max} characters)",
+        "formBody": "Message (up to {max} characters)",
+        "formFooter": "Footer (optional, up to {max} characters)",
+        "formCta": "Button label (up to {max} characters)",
+        "formVarHelp": "The answers are saved in {name}, and each answer as {name}_ followed by the field ID.",
+        "formAfterSubmit": "After the form is submitted, go to"
       },
       "categories": {
         "messaging": "Messaging",
@@ -1936,6 +1965,10 @@
         "connect_flow": {
           "label": "Connect flow",
           "blurb": "Ends this flow and starts another"
+        },
+        "send_form": {
+          "label": "Send form",
+          "blurb": "Sends a WhatsApp form and saves the answers"
         }
       },
       "ports": {
@@ -2008,11 +2041,13 @@
           "shareMedia": "Simulate: customer sends media",
           "shareLocation": "Simulate: customer shares a location",
           "exhausted": "Simulate: attempts used up",
-          "timeout": "Simulate: no reply (timeout)"
+          "timeout": "Simulate: no reply (timeout)",
+          "submitForm": "Simulate: customer submits the form"
         },
         "shared": {
           "media": "Sent a file",
-          "location": "Shared a location"
+          "location": "Shared a location",
+          "form": "Submitted the form"
         }
       },
       "studioLockedHint": "Canvas is locked. Unlock it to edit this step."
@@ -2058,7 +2093,8 @@
       "customField": "custom field",
       "rulesAll": "{count, plural, one {# rule} other {# rules}}, all must match",
       "rulesAny": "{count, plural, one {# rule} other {# rules}}, any can match",
-      "roundRobin": "Round robin"
+      "roundRobin": "Round robin",
+      "formNone": "No form picked"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -2427,7 +2463,15 @@
       "historyTitle": "Status history",
       "historyDesc": "Every status change of {name}, newest first.",
       "placeholderUrlWarning": "This is still the sample link (example.com). Replace it with your own URL before submitting.",
-      "placeholderPhoneWarning": "This is still the sample number (+10000000000). Replace it with your business phone number before submitting."
+      "placeholderPhoneWarning": "This is still the sample number (+10000000000). Replace it with your business phone number before submitting.",
+      "btnFlow": "Form",
+      "flowFormLabel": "Form opened by this button",
+      "flowFormPick": "Pick a published form",
+      "flowFormPicked": "Form selected. Pick again to change it.",
+      "flowFormLoading": "Loading the form…",
+      "flowFormHelp": "The button opens this form. Each send gets its own link to the answers.",
+      "flowFormNone": "No published forms yet. Create and publish one under Forms.",
+      "flowFormUnavailable": "This form isn't published on WhatsApp yet."
     },
     "roles": {
       "admin": "Admin",
@@ -2905,6 +2949,19 @@
       "syncedAt": "Last saved to WhatsApp {date}.",
       "notSynced": "Not saved to WhatsApp yet.",
       "loadFailed": "Couldn't load the ice breakers. Reload the page to edit them."
+    },
+    "formsEncryption": {
+      "title": "Forms encryption key",
+      "description": "Forms that check answers on the server while the customer fills them in need an encryption key. WhatsApp encrypts those answers with it, and only this server can read them.",
+      "notConfigured": "No key yet. Forms that check answers on the server cannot be used until you generate one.",
+      "configuredAt": "Key active since {date}.",
+      "generate": "Generate key",
+      "rotate": "Rotate key",
+      "rotateConfirm": "Rotate the forms encryption key? Customers who have a form open will see a short retry while WhatsApp picks up the new key.",
+      "rotateHint": "Rotate only if you think the key was exposed or WhatsApp reports a key problem.",
+      "generated": "Encryption key saved to WhatsApp.",
+      "generateFailed": "Could not generate the encryption key.",
+      "loadFailed": "Could not load the key status. Reload the page to try again."
     }
   },
   "SignupPage": {
@@ -3124,7 +3181,8 @@
       "createFlows": "create flows",
       "createPipelines": "create pipelines",
       "createDeals": "create deals",
-      "sendMessages": "send messages"
+      "sendMessages": "send messages",
+      "manageForms": "manage WhatsApp forms"
     }
   },
   "Metadata": {
@@ -3784,7 +3842,13 @@
       "triggerBadPattern": "Enter a valid regular expression of 1–256 characters.",
       "triggerNeedsTemplate": "Choose the template whose button replies start this flow.",
       "triggerBadButtons": "Choose buttons from the template.",
-      "fallbackMessageInvalid": "The fallback message needs text (up to {max} characters) or an image or video."
+      "fallbackMessageInvalid": "The fallback message needs text (up to {max} characters) or an image or video.",
+      "formNeedsForm": "Pick a form to send.",
+      "formMissing": "The selected form no longer exists.",
+      "formNotPublished": "The selected form isn't published. Publish it before turning this flow on.",
+      "formNeedsCta": "Add a button label.",
+      "formNeedsBody": "Add the message sent with the form.",
+      "formTextTooLong": "This text can be at most {max} characters."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -3911,7 +3975,11 @@
       "ltoUrlButtonRequired": "Limited-time offer templates need one URL button.",
       "ltoCopyCodeFirst": "Put the copy-code button first and the URL button second.",
       "buttonPlaceholderUrl": "Button #{n} still uses the sample link {url}. Replace it with your own link before submitting.",
-      "buttonPlaceholderPhone": "Button #{n} still uses the sample number {phone}. Replace it with your business phone number before submitting."
+      "buttonPlaceholderPhone": "Button #{n} still uses the sample number {phone}. Replace it with your business phone number before submitting.",
+      "tooManyFlowButtons": "Templates can have at most {max} form button (found {got}).",
+      "flowButtonMissingForm": "Button {n}: pick a published form.",
+      "flowButtonBadScreen": "Button {n}: the form's first screen isn't valid. Pick the form again.",
+      "flowButtonBadAction": "Button {n}: this form button type isn't supported."
     },
     "interactive": {
       "buttonCount": "Interactive button message requires 1-{max} buttons (got {got}).",
@@ -3949,6 +4017,60 @@
       "authCodeTooLong": "The one-time code can be at most {max} characters.",
       "flowOfferMinutes": "Enter how many minutes the offer lasts, from 1 to {max}.",
       "cardValueEmpty": "Card {card}: value {n} is empty."
+    },
+    "forms": {
+      "notObject": "The form definition is invalid.",
+      "version": "This form version isn't supported.",
+      "screensCount": "A form needs between {min} and {max} screens.",
+      "screenId": "Screen IDs start with a capital letter and use only A-Z, 0-9 and underscores (up to 30 characters).",
+      "screenIdDuplicate": "Screen ID \"{id}\" is used more than once.",
+      "screenTitleRequired": "Give this screen a title.",
+      "screenTitleTooLong": "Screen titles can be at most {max} characters.",
+      "buttonLabelRequired": "Add a button label.",
+      "buttonLabelTooLong": "Button labels can be at most {max} characters.",
+      "fieldsCount": "Each screen needs between {min} and {max} fields.",
+      "fieldType": "Pick a supported field type.",
+      "fieldId": "Field IDs start with a lowercase letter and use only a-z, 0-9 and underscores (up to 40 characters).",
+      "fieldIdReserved": "\"{id}\" is reserved. Choose another field ID.",
+      "fieldIdDuplicate": "Field ID \"{id}\" is used more than once in this form.",
+      "labelRequired": "Add a label or text.",
+      "labelTooLong": "This text can be at most {max} characters.",
+      "requiredNotAllowed": "Headings and paragraphs can't be required.",
+      "helperNotAllowed": "Helper text is only available on text, number and date fields.",
+      "helperTooLong": "Helper text can be at most {max} characters.",
+      "optionsNotAllowed": "Only dropdowns, single choice and multiple choice fields have options.",
+      "optionsCount": "Add between {min} and {max} options.",
+      "optionId": "Option IDs use only letters, numbers and underscores (up to 40 characters).",
+      "optionIdDuplicate": "Option ID \"{id}\" is used more than once in this field.",
+      "optionTitleRequired": "Give every option a title.",
+      "optionTitleTooLong": "Option titles can be at most {max} characters.",
+      "boundsNotAllowed": "This field type doesn't support this limit.",
+      "boundsInvalid": "Limits must be whole numbers of 0 or more.",
+      "boundsOrder": "The minimum can't be greater than the maximum.",
+      "boundsTooHigh": "This limit can be at most {max}.",
+      "saveToNotAllowed": "This field's answer can't be saved to a contact.",
+      "saveToInvalid": "Choose a valid contact field to save the answer to.",
+      "noInputs": "Add at least one question to the form.",
+      "successTooLong": "The confirmation message can be at most {max} characters.",
+      "ctaRequired": "Add text for the button that opens the form.",
+      "ctaTooLong": "The button that opens the form can be at most {max} characters.",
+      "defaults": {
+        "screenTitle": "Your details",
+        "fieldLabel": "Name",
+        "buttonLabel": "Submit"
+      }
+    },
+    "formSend": {
+      "form_not_found": "This form no longer exists.",
+      "form_not_published": "Publish this form before sending it.",
+      "conversation_not_found": "Conversation not found.",
+      "contact_blocked": "This contact is blocked, so no form can be sent.",
+      "no_address": "This contact has no WhatsApp number or user ID.",
+      "window_closed": "Forms can only be sent within 24 hours of the customer's last message. Send a template with a form button instead.",
+      "not_configured": "Connect WhatsApp before sending forms.",
+      "invalid_message": "Add a message (up to 1024 characters) and a button label (up to 30 characters). The header and footer can be up to 60 characters.",
+      "idsRequired": "Choose a conversation and a form.",
+      "uncertain": "We couldn't confirm whether the form was sent. Check the conversation before trying again."
     }
   },
   "Api": {
@@ -4177,6 +4299,50 @@
         "unreadable": "The AI reply could not be read as a template. Try again or rephrase the goal."
       },
       "submitRaced": "Another submit already sent this template to Meta. Reload to see its current status."
+    },
+    "formsEndpoint": {
+      "required": "{label} is required.",
+      "invalid": "Check your answer for {label}.",
+      "invalidOption": "Choose one of the listed options for {label}.",
+      "tooFewSelected": "Select at least {min} for {label}.",
+      "tooManySelected": "Select at most {max} for {label}.",
+      "tooLong": "{label} can be at most {max} characters.",
+      "tooShort": "{label} needs at least {min} characters.",
+      "invalidDate": "Enter a valid date for {label}.",
+      "invalidEmail": "Enter a valid email address for {label}.",
+      "invalidPhone": "Enter a valid phone number for {label}.",
+      "invalidNumber": "Enter a number for {label}.",
+      "optInRequired": "Please accept: {label}"
+    },
+    "formsKey": {
+      "notConnected": "Connect a WhatsApp number before generating a forms encryption key.",
+      "uploadFailed": "WhatsApp did not accept the new encryption key. Nothing was changed; try again.",
+      "saveFailed": "The key was sent to WhatsApp but could not be saved. Generate a new key to repair it.",
+      "rotationInProgress": "Another encryption key change is already in progress for this number. Wait a couple of minutes, then try again.",
+      "savePending": "WhatsApp accepted the new key, but it could not be saved as the active key. Forms keep working with it for now; generate a new key to finish the change."
+    },
+    "forms": {
+      "notFound": "Form not found.",
+      "adminOnly": "Only admins can change forms.",
+      "invalidBody": "The request body is invalid.",
+      "nameInvalid": "Give the form a name of 1 to {max} characters.",
+      "categoryInvalid": "Pick a supported form category.",
+      "definitionInvalid": "The form has problems. Fix the highlighted fields and try again.",
+      "nameTaken": "A form with this name already exists.",
+      "publishedLocked": "This form is already on WhatsApp, so its questions can't change. Duplicate it and edit the copy instead.",
+      "whatsappNotConnected": "Connect your WhatsApp Business number in Settings before publishing forms.",
+      "encryptionKeyMissing": "Forms that use a data endpoint need an encryption key. Set one up in WhatsApp settings first.",
+      "notPublishable": "Only draft forms can be published.",
+      "metaPublishFailed": "WhatsApp couldn't publish the form. Try again in a moment.",
+      "metaDeleteFailed": "WhatsApp couldn't remove the form, so nothing was deleted. Try again in a moment.",
+      "metaValidationFailed": "WhatsApp rejected the form. Review the errors and try again.",
+      "invalidCursor": "This page link is no longer valid. Reload the responses.",
+      "exportTooLarge": "Exports are limited to {max, number} responses.",
+      "csvSubmittedAt": "Submitted at",
+      "csvContactName": "Contact name",
+      "csvPhone": "Phone",
+      "changedDuringPublish": "This form was edited while it was being published. Publish it again.",
+      "publishedVersionDiffers": "WhatsApp already published an earlier version of this form. Undo the changes made since then and publish again, or duplicate the form and publish the copy."
     }
   },
   "PageSearch": {
@@ -4601,6 +4767,191 @@
         "cancel": "Cancel",
         "useDraft": "Use this draft"
       }
+    }
+  },
+  "FormMessages": {
+    "submitted": "Form submitted: {name}",
+    "submittedUnknown": "Form submitted",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "Forms": {
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "deprecated": "Retired",
+      "blocked": "Blocked",
+      "throttled": "Throttled",
+      "error": "Error"
+    },
+    "categories": {
+      "SIGN_UP": "Sign up",
+      "SIGN_IN": "Sign in",
+      "APPOINTMENT_BOOKING": "Appointment booking",
+      "LEAD_GENERATION": "Lead generation",
+      "CONTACT_US": "Contact us",
+      "CUSTOMER_SUPPORT": "Customer support",
+      "SURVEY": "Survey",
+      "OTHER": "Other"
+    },
+    "fieldTypes": {
+      "heading": "Heading",
+      "paragraph": "Paragraph",
+      "short_text": "Short answer",
+      "long_text": "Long answer",
+      "email": "Email",
+      "phone": "Phone",
+      "number": "Number",
+      "date": "Date",
+      "dropdown": "Dropdown",
+      "radio": "Single choice",
+      "checkboxes": "Multiple choice",
+      "opt_in": "Consent checkbox"
+    },
+    "list": {
+      "title": "WhatsApp Forms",
+      "description": "Collect sign-ups, bookings and survey answers inside WhatsApp. Contacts fill the form without leaving the chat.",
+      "loading": "Loading forms",
+      "loadError": "Couldn't load your forms.",
+      "newForm": "New form",
+      "emptyTitle": "No forms yet",
+      "emptyDesc": "Build a form once, then send it from a flow or a conversation.",
+      "createFirst": "Create your first form",
+      "colName": "Name",
+      "colCategory": "Category",
+      "colStatus": "Status",
+      "colResponses": "Responses",
+      "colUpdated": "Updated",
+      "colActions": "Actions",
+      "openNamed": "Open {name}",
+      "duplicateNamed": "Duplicate {name}",
+      "deleteNamed": "Delete {name}",
+      "createTitle": "New WhatsApp form",
+      "createDesc": "Name the form and pick the category WhatsApp shows it under. You can change both later.",
+      "nameLabel": "Form name",
+      "namePlaceholder": "e.g. Demo booking",
+      "categoryLabel": "Category",
+      "categoryHint": "WhatsApp uses the category to review and label the form.",
+      "cancel": "Cancel",
+      "create": "Create form",
+      "createError": "Couldn't create the form.",
+      "duplicateSuccess": "Created \"{name}\".",
+      "duplicateError": "Couldn't duplicate the form.",
+      "deleteTitle": "Delete this form?",
+      "deleteDesc": "\"{name}\" will be deleted. Responses already collected are kept.",
+      "deleteConfirm": "Delete form",
+      "deleteSuccess": "Form deleted.",
+      "deleteError": "Couldn't delete the form."
+    },
+    "edit": {
+      "loading": "Loading form",
+      "loadError": "Couldn't load this form.",
+      "notFound": "This form doesn't exist or was deleted.",
+      "backToList": "Back to forms"
+    },
+    "builder": {
+      "backToList": "Back to forms",
+      "nameLabel": "Form name",
+      "nameRequired": "Give the form a name.",
+      "category": "Category",
+      "unsaved": "Unsaved changes",
+      "save": "Save",
+      "saved": "Form saved.",
+      "saveError": "Couldn't save the form.",
+      "fixErrors": "Fix the highlighted fields first.",
+      "publish": "Publish",
+      "published": "Form published to WhatsApp.",
+      "publishFailed": "WhatsApp didn't accept the form. See the errors below.",
+      "publishError": "Couldn't publish the form.",
+      "duplicateToEdit": "Duplicate to edit",
+      "duplicateError": "Couldn't duplicate the form.",
+      "metaPreview": "Open WhatsApp preview",
+      "lockedNotice": "This form is live on WhatsApp and can't be changed. Duplicate it to make an editable copy.",
+      "readOnlyNotice": "You can view this form, but only admins can change it.",
+      "errorsTitle": "The form has problems to fix",
+      "metaErrorsTitle": "WhatsApp reported problems with this form",
+      "tabBuild": "Builder",
+      "tabResponses": "Responses",
+      "screens": "Screens",
+      "screensCount": "Screens ({count} of {max})",
+      "addScreen": "Add screen",
+      "untitledScreen": "Untitled screen",
+      "hasErrors": "Has errors",
+      "screenSettings": "Screen settings",
+      "screenN": "Screen {n}",
+      "moveScreenUp": "Move screen earlier",
+      "moveScreenDown": "Move screen later",
+      "removeScreen": "Remove screen",
+      "screenTitle": "Screen title",
+      "submitLabel": "Submit button text",
+      "nextLabel": "Next button text",
+      "newScreenTitle": "More details",
+      "newScreenButton": "Continue",
+      "fields": "Fields",
+      "noFields": "This screen is empty. Add a field below.",
+      "palette": "Field types",
+      "addField": "Add a field",
+      "untitledField": "Untitled field",
+      "moveFieldUp": "Move field up",
+      "moveFieldDown": "Move field down",
+      "removeField": "Remove field",
+      "textLabel": "Text",
+      "questionLabel": "Question",
+      "charCount": "{count} / {max}",
+      "fieldId": "Answer key",
+      "fieldIdHint": "Used as the column name in responses and exports.",
+      "required": "Required",
+      "helper": "Helper text",
+      "options": "Options",
+      "optionN": "Option {n}",
+      "removeOptionN": "Remove option {n}",
+      "addOption": "Add option",
+      "minChars": "Minimum characters",
+      "maxChars": "Maximum characters",
+      "minSelected": "Minimum selections",
+      "maxSelected": "Maximum selections",
+      "saveTo": "Save answer to",
+      "saveToNone": "Don't save to the contact",
+      "saveToContact": "Contact details",
+      "contactName": "Name",
+      "contactEmail": "Email",
+      "contactCompany": "Company",
+      "saveToCustom": "Custom fields",
+      "settings": "Form settings",
+      "successMessage": "Confirmation message",
+      "successPlaceholder": "Thanks! We've received your answers.",
+      "successHint": "Sent to the contact in the chat after they submit.",
+      "usesEndpoint": "Check answers on the server",
+      "usesEndpointHint": "Each screen is checked by your workspace before the contact moves on. Answers are encrypted in transit.",
+      "usesEndpointNoKey": "Set up the forms encryption key in WhatsApp settings to turn this on.",
+      "previewTitle": "Preview"
+    },
+    "preview": {
+      "label": "WhatsApp form preview",
+      "back": "Previous screen",
+      "successDefault": "Thanks, your answers were sent.",
+      "restart": "Start again",
+      "emptyScreen": "No fields on this screen yet.",
+      "optional": "optional",
+      "choose": "Select",
+      "managedBy": "Managed by the business",
+      "screenOf": "Screen {current} of {total}"
+    },
+    "responses": {
+      "loading": "Loading responses",
+      "loadError": "Couldn't load responses.",
+      "summary": "{count, plural, =0 {No responses yet} one {# response} other {# responses}}{more, select, yes { shown, more available} other {}}",
+      "export": "Export CSV",
+      "exportError": "Couldn't export responses.",
+      "emptyTitle": "No responses yet",
+      "emptyDesc": "Answers appear here as soon as contacts submit the form.",
+      "colDate": "Submitted",
+      "colContact": "Contact",
+      "unnamed": "Unnamed contact",
+      "noContact": "Unknown contact",
+      "yes": "Yes",
+      "no": "No",
+      "loadMore": "Load more"
     }
   }
 }

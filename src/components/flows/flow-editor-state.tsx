@@ -187,6 +187,8 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { prompt_text: "", var_key: "location", next_node_key: "" };
     case "ask_address":
       return { prompt_text: "", var_key: "address", next_node_key: "" };
+    case "send_form":
+      return { form_id: "", cta: "", body: "", var_key: "form", next_node_key: "" };
     case "set_attribute":
       return { target: "var", key: "", value: "", next_node_key: "" };
     case "send_template":

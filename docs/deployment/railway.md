@@ -50,6 +50,8 @@ Migration `20261102060000_flow_triggers_testing` adds the `template_reply` flow 
 
 Migration `20261102070000_template_studio` adds `message_templates.template_kind` (default `standard`), `cards`, `auth_options`, `lto`, the `location` header type and the append-only `template_status_events` table (FORCE RLS; members read, admins and the worker insert). Existing templates keep working unchanged as standard templates. The data layer now binds a JavaScript null as SQL NULL for JSON columns (before, it stored the JSON value null). The template AI writer uses the workspace's configured AI provider and answers 409 when none is set.
 
+Migrations `20261102080000_whatsapp_forms`, `20261102080500_whatsapp_form_session_answers` and `20261102081000_whatsapp_forms_pending_key` add `whatsapp_forms`, `whatsapp_form_sessions` and `whatsapp_form_responses` (FORCE RLS), the `send_form` flow step and form events, and the forms key columns on `whatsapp_config` (the private keys are encrypted and never in a browser resource). Forms that check answers on the server call `APP_URL/api/whatsapp/forms/endpoint/<accountId>`: it must be reachable over HTTPS and `META_APP_SECRET` must be set (requests without a valid signature are refused). An admin generates the encryption key in Settings → WhatsApp before publishing such a form; a rotation holds a 120-second lease.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

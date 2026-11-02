@@ -76,6 +76,12 @@ export interface SendTimeParams {
   couponCode?: string;
   /** Carousel: per-card values, by card position. */
   cards?: CarouselCardSendParams[];
+  /**
+   * FLOW buttons: the one-time flow token for this send, keyed by the
+   * button's index. A FLOW button without one is sent without a token
+   * (Meta's default), so its submission cannot be tied to a session.
+   */
+  flowTokens?: Record<number, string>;
 }
 
 export interface LocationSendParams {
@@ -105,7 +111,7 @@ export const AUTH_CODE_MAX_LENGTH = 15;
 
 type MetaSendButtonComponent = {
   type: 'button';
-  sub_type: 'url' | 'quick_reply' | 'copy_code';
+  sub_type: 'url' | 'quick_reply' | 'copy_code' | 'flow';
   index: string;
   parameters: MetaSendParameter[];
 };
@@ -136,7 +142,8 @@ type MetaSendParameter =
       location: { latitude: number; longitude: number; name?: string; address?: string };
     }
   | { type: 'coupon_code'; coupon_code: string }
-  | { type: 'payload'; payload: string };
+  | { type: 'payload'; payload: string }
+  | { type: 'action'; action: { flow_token: string } };
 
 function mediaParameter(
   kind: 'image' | 'video' | 'document',
@@ -254,6 +261,7 @@ function buttonNeedsSendParam(
       return true;
     case 'QUICK_REPLY':
     case 'PHONE_NUMBER':
+    case 'FLOW':
       return override !== undefined;
   }
 }
@@ -304,17 +312,27 @@ function buildButtonComponent(
       // PHONE_NUMBER buttons never accept send-time params per Meta —
       // return null even if an override snuck through.
       return null;
+    case 'FLOW':
+      // The override is this send's flow token (see SendTimeParams.flowTokens).
+      return {
+        type: 'button',
+        sub_type: 'flow',
+        index: String(index),
+        parameters: [{ type: 'action', action: { flow_token: override! } }],
+      };
   }
 }
 
 function buildButtonComponents(
   buttons: TemplateButton[] | undefined,
-  params: Pick<SendTimeParams, 'buttonParams' | 'couponCode'>,
+  params: Pick<SendTimeParams, 'buttonParams' | 'couponCode' | 'flowTokens'>,
 ): MetaSendComponent[] {
   const out: MetaSendComponent[] = [];
   (buttons ?? []).forEach((btn, i) => {
-    const override =
-      params.buttonParams?.[i] ?? (btn.type === 'COPY_CODE' ? params.couponCode : undefined);
+    // A flow token is only ever generated server-side, never taken from buttonParams.
+    const override = btn.type === 'FLOW'
+      ? params.flowTokens?.[i]
+      : params.buttonParams?.[i] ?? (btn.type === 'COPY_CODE' ? params.couponCode : undefined);
     const component = buildButtonComponent(btn, i, override);
     if (component) out.push(component);
   });

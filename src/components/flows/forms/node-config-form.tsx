@@ -52,6 +52,7 @@ import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
 import { ConditionForm, QuestionForm, SetAttributeForm, TimingFields } from "./question-forms";
 import { useUserTags } from "./use-pickers";
 import { ApiRequestForm, AssignAgentForm, ConnectFlowForm, SendTemplateForm } from "./integration-forms";
+import { SendFormStepForm } from "./send-form-step";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -149,6 +150,9 @@ function NodeFields({
     case "ask_location":
     case "ask_address":
       return <QuestionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "send_form":
+      return <SendFormStepForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "set_attribute":
       return <SetAttributeForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;

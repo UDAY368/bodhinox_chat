@@ -54,7 +54,8 @@
     "menuSignOut": "Cerrar sesión",
     "studio": "CRM STUDIO",
     "workspace": "Espacio de trabajo",
-    "preferences": "Preferencias"
+    "preferences": "Preferencias",
+    "forms": "Formularios"
   },
   "Header": {
     "dashboard": "Panel",
@@ -74,7 +75,8 @@
     "menuSignOut": "Cerrar sesión",
     "workspace": "Espacio de trabajo",
     "flows": "Flujos",
-    "aiAgents": "Agentes de IA"
+    "aiAgents": "Agentes de IA",
+    "forms": "Formularios"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -381,7 +383,8 @@
         "document": "documento",
         "audio": "audio"
       },
-      "uploadFailed": "Falló la carga."
+      "uploadFailed": "Falló la carga.",
+      "sendForm": "Enviar formulario"
     },
     "bubble": {
       "photo": "Foto",
@@ -514,6 +517,21 @@
       "resumed": "IA reanudada.",
       "updateError": "No se pudo actualizar el asistente de IA.",
       "networkError": "No se pudo conectar con el servidor."
+    },
+    "sendForm": {
+      "title": "Enviar un formulario",
+      "form": "Formulario",
+      "pickForm": "Elige un formulario publicado",
+      "noForms": "Aún no hay formularios publicados. Crea y publica uno en Formularios.",
+      "header": "Encabezado (opcional, hasta {max} caracteres)",
+      "body": "Mensaje (hasta {max} caracteres)",
+      "footer": "Pie (opcional, hasta {max} caracteres)",
+      "cta": "Texto del botón (hasta {max} caracteres)",
+      "ctaPlaceholder": "p. ej., Rellenar el formulario",
+      "windowHelp": "Los formularios solo se pueden enviar dentro de las 24 horas siguientes al último mensaje del cliente.",
+      "send": "Enviar formulario",
+      "sent": "Formulario enviado.",
+      "failed": "No se pudo enviar el formulario."
     }
   },
   "Contacts": {
@@ -1857,7 +1875,18 @@
         "templateOfferHelp": "La oferta termina estos minutos después de que este paso envíe la plantilla.",
         "templateCoupon": "Código de cupón",
         "templateCouponHelp": "Puede usar variables de la ejecución. Déjalo vacío para usar el código guardado en la plantilla.",
-        "templateCardParam": "Tarjeta {card}, valor {n}"
+        "templateCardParam": "Tarjeta {card}, valor {n}",
+        "formLabel": "Formulario",
+        "pickForm": "Elige un formulario publicado",
+        "formUnavailable": "Formulario no disponible",
+        "formHelp": "Solo aparecen los formularios publicados. Se envían dentro de las 24 horas siguientes al último mensaje del cliente.",
+        "formNoneHelp": "Aún no hay formularios publicados. Crea y publica uno en Formularios.",
+        "formHeader": "Encabezado (opcional, hasta {max} caracteres)",
+        "formBody": "Mensaje (hasta {max} caracteres)",
+        "formFooter": "Pie (opcional, hasta {max} caracteres)",
+        "formCta": "Texto del botón (hasta {max} caracteres)",
+        "formVarHelp": "Las respuestas se guardan en {name}, y cada una como {name}_ seguido del ID del campo.",
+        "formAfterSubmit": "Cuando se envíe el formulario, ir a"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -1936,6 +1965,10 @@
         "connect_flow": {
           "label": "Conectar flujo",
           "blurb": "Termina este flujo e inicia otro"
+        },
+        "send_form": {
+          "label": "Enviar formulario",
+          "blurb": "Envía un formulario de WhatsApp y guarda las respuestas"
         }
       },
       "ports": {
@@ -2008,11 +2041,13 @@
           "shareMedia": "Simular: el cliente envía un archivo",
           "shareLocation": "Simular: el cliente comparte una ubicación",
           "exhausted": "Simular: intentos agotados",
-          "timeout": "Simular: sin respuesta (tiempo agotado)"
+          "timeout": "Simular: sin respuesta (tiempo agotado)",
+          "submitForm": "Simular: el cliente envía el formulario"
         },
         "shared": {
           "media": "Envió un archivo",
-          "location": "Compartió una ubicación"
+          "location": "Compartió una ubicación",
+          "form": "Envió el formulario"
         }
       },
       "studioLockedHint": "El lienzo está bloqueado. Desbloquéalo para editar este paso."
@@ -2058,7 +2093,8 @@
       "customField": "campo personalizado",
       "rulesAll": "{count, plural, one {# regla} other {# reglas}}, deben cumplirse todas",
       "rulesAny": "{count, plural, one {# regla} other {# reglas}}, basta con una",
-      "roundRobin": "Rotación"
+      "roundRobin": "Rotación",
+      "formNone": "Ningún formulario elegido"
     },
     "header": {
       "backToFlows": "Volver a flujos",
@@ -2427,7 +2463,15 @@
       "historyTitle": "Historial de estado",
       "historyDesc": "Cada cambio de estado de {name}, del más reciente al más antiguo.",
       "placeholderUrlWarning": "Este sigue siendo el enlace de ejemplo (example.com). Reemplázalo por tu propia URL antes de enviar.",
-      "placeholderPhoneWarning": "Este sigue siendo el número de ejemplo (+10000000000). Reemplázalo por el teléfono de tu empresa antes de enviar."
+      "placeholderPhoneWarning": "Este sigue siendo el número de ejemplo (+10000000000). Reemplázalo por el teléfono de tu empresa antes de enviar.",
+      "btnFlow": "Formulario",
+      "flowFormLabel": "Formulario que abre este botón",
+      "flowFormPick": "Elige un formulario publicado",
+      "flowFormPicked": "Formulario elegido. Vuelve a elegir para cambiarlo.",
+      "flowFormLoading": "Cargando el formulario…",
+      "flowFormHelp": "El botón abre este formulario. Cada envío tiene su propio vínculo con las respuestas.",
+      "flowFormNone": "Aún no hay formularios publicados. Crea y publica uno en Formularios.",
+      "flowFormUnavailable": "Este formulario aún no está publicado en WhatsApp."
     },
     "roles": {
       "admin": "Administrador",
@@ -2905,6 +2949,19 @@
       "syncedAt": "Guardado en WhatsApp por última vez: {date}.",
       "notSynced": "Aún no se ha guardado en WhatsApp.",
       "loadFailed": "No se pudieron cargar los iniciadores de conversación. Recarga la página para editarlos."
+    },
+    "formsEncryption": {
+      "title": "Clave de cifrado de formularios",
+      "description": "Los formularios que validan las respuestas en el servidor mientras el cliente los completa necesitan una clave de cifrado. WhatsApp cifra esas respuestas con ella y solo este servidor puede leerlas.",
+      "notConfigured": "Todavía no hay clave. Los formularios que validan respuestas en el servidor no se pueden usar hasta que generes una.",
+      "configuredAt": "Clave activa desde {date}.",
+      "generate": "Generar clave",
+      "rotate": "Rotar clave",
+      "rotateConfirm": "¿Rotar la clave de cifrado de formularios? Los clientes que tengan un formulario abierto verán un breve reintento mientras WhatsApp obtiene la nueva clave.",
+      "rotateHint": "Rótala solo si crees que la clave quedó expuesta o si WhatsApp informa un problema con ella.",
+      "generated": "Clave de cifrado guardada en WhatsApp.",
+      "generateFailed": "No se pudo generar la clave de cifrado.",
+      "loadFailed": "No se pudo cargar el estado de la clave. Recarga la página para intentarlo de nuevo."
     }
   },
   "SignupPage": {
@@ -3124,7 +3181,8 @@
       "createFlows": "crear flujos",
       "createPipelines": "crear pipelines",
       "createDeals": "crear negocios",
-      "sendMessages": "enviar mensajes"
+      "sendMessages": "enviar mensajes",
+      "manageForms": "gestionar formularios de WhatsApp"
     }
   },
   "Metadata": {
@@ -3784,7 +3842,13 @@
       "triggerBadPattern": "Escribe una expresión regular válida de 1 a 256 caracteres.",
       "triggerNeedsTemplate": "Elige la plantilla cuyas respuestas de botón inician este flujo.",
       "triggerBadButtons": "Elige botones de la plantilla.",
-      "fallbackMessageInvalid": "El mensaje alternativo necesita texto (hasta {max} caracteres) o una imagen o video."
+      "fallbackMessageInvalid": "El mensaje alternativo necesita texto (hasta {max} caracteres) o una imagen o video.",
+      "formNeedsForm": "Elige el formulario que se enviará.",
+      "formMissing": "El formulario elegido ya no existe.",
+      "formNotPublished": "El formulario elegido no está publicado. Publícalo antes de activar este flujo.",
+      "formNeedsCta": "Añade el texto del botón.",
+      "formNeedsBody": "Añade el mensaje que acompaña al formulario.",
+      "formTextTooLong": "Este texto puede tener como máximo {max} caracteres."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -3911,7 +3975,11 @@
       "ltoUrlButtonRequired": "Las plantillas de oferta por tiempo limitado necesitan un botón de URL.",
       "ltoCopyCodeFirst": "Coloca primero el botón para copiar el código y después el botón de URL.",
       "buttonPlaceholderUrl": "El botón #{n} todavía usa el enlace de ejemplo {url}. Sustitúyelo por tu propio enlace antes de enviar la plantilla.",
-      "buttonPlaceholderPhone": "El botón #{n} todavía usa el número de ejemplo {phone}. Sustitúyelo por el teléfono de tu empresa antes de enviar la plantilla."
+      "buttonPlaceholderPhone": "El botón #{n} todavía usa el número de ejemplo {phone}. Sustitúyelo por el teléfono de tu empresa antes de enviar la plantilla.",
+      "tooManyFlowButtons": "Las plantillas pueden tener como máximo {max} botón de formulario (hay {got}).",
+      "flowButtonMissingForm": "Botón {n}: elige un formulario publicado.",
+      "flowButtonBadScreen": "Botón {n}: la primera pantalla del formulario no es válida. Vuelve a elegir el formulario.",
+      "flowButtonBadAction": "Botón {n}: este tipo de botón de formulario no es compatible."
     },
     "interactive": {
       "buttonCount": "El mensaje interactivo con botones requiere de 1 a {max} botones (tiene {got}).",
@@ -3949,6 +4017,60 @@
       "authCodeTooLong": "El código de un solo uso puede tener como máximo {max} caracteres.",
       "flowOfferMinutes": "Indica cuántos minutos dura la oferta, de 1 a {max}.",
       "cardValueEmpty": "Tarjeta {card}: el valor {n} está vacío."
+    },
+    "forms": {
+      "notObject": "La definición del formulario no es válida.",
+      "version": "Esta versión del formulario no es compatible.",
+      "screensCount": "Un formulario necesita entre {min} y {max} pantallas.",
+      "screenId": "Los ID de pantalla empiezan con una letra mayúscula y solo usan A-Z, 0-9 y guiones bajos (hasta 30 caracteres).",
+      "screenIdDuplicate": "El ID de pantalla \"{id}\" se usa más de una vez.",
+      "screenTitleRequired": "Ponle un título a esta pantalla.",
+      "screenTitleTooLong": "Los títulos de pantalla pueden tener como máximo {max} caracteres.",
+      "buttonLabelRequired": "Agrega el texto del botón.",
+      "buttonLabelTooLong": "El texto del botón puede tener como máximo {max} caracteres.",
+      "fieldsCount": "Cada pantalla necesita entre {min} y {max} campos.",
+      "fieldType": "Elige un tipo de campo compatible.",
+      "fieldId": "Los ID de campo empiezan con una letra minúscula y solo usan a-z, 0-9 y guiones bajos (hasta 40 caracteres).",
+      "fieldIdReserved": "\"{id}\" está reservado. Elige otro ID de campo.",
+      "fieldIdDuplicate": "El ID de campo \"{id}\" se usa más de una vez en este formulario.",
+      "labelRequired": "Agrega una etiqueta o un texto.",
+      "labelTooLong": "Este texto puede tener como máximo {max} caracteres.",
+      "requiredNotAllowed": "Los títulos y párrafos no pueden ser obligatorios.",
+      "helperNotAllowed": "El texto de ayuda solo está disponible en campos de texto, número y fecha.",
+      "helperTooLong": "El texto de ayuda puede tener como máximo {max} caracteres.",
+      "optionsNotAllowed": "Solo los desplegables y los campos de opción única o múltiple tienen opciones.",
+      "optionsCount": "Agrega entre {min} y {max} opciones.",
+      "optionId": "Los ID de opción solo usan letras, números y guiones bajos (hasta 40 caracteres).",
+      "optionIdDuplicate": "El ID de opción \"{id}\" se usa más de una vez en este campo.",
+      "optionTitleRequired": "Ponle un título a cada opción.",
+      "optionTitleTooLong": "Los títulos de opción pueden tener como máximo {max} caracteres.",
+      "boundsNotAllowed": "Este tipo de campo no admite este límite.",
+      "boundsInvalid": "Los límites deben ser números enteros iguales o mayores que 0.",
+      "boundsOrder": "El mínimo no puede ser mayor que el máximo.",
+      "boundsTooHigh": "Este límite puede ser como máximo {max}.",
+      "saveToNotAllowed": "La respuesta de este campo no se puede guardar en un contacto.",
+      "saveToInvalid": "Elige un campo de contacto válido para guardar la respuesta.",
+      "noInputs": "Agrega al menos una pregunta al formulario.",
+      "successTooLong": "El mensaje de confirmación puede tener como máximo {max} caracteres.",
+      "ctaRequired": "Agrega el texto del botón que abre el formulario.",
+      "ctaTooLong": "El botón que abre el formulario puede tener como máximo {max} caracteres.",
+      "defaults": {
+        "screenTitle": "Tus datos",
+        "fieldLabel": "Nombre",
+        "buttonLabel": "Enviar"
+      }
+    },
+    "formSend": {
+      "form_not_found": "Este formulario ya no existe.",
+      "form_not_published": "Publica este formulario antes de enviarlo.",
+      "conversation_not_found": "No se encontró la conversación.",
+      "contact_blocked": "Este contacto está bloqueado, así que no se le puede enviar un formulario.",
+      "no_address": "Este contacto no tiene número de WhatsApp ni ID de usuario.",
+      "window_closed": "Los formularios solo se pueden enviar dentro de las 24 horas siguientes al último mensaje del cliente. Envía una plantilla con un botón de formulario.",
+      "not_configured": "Conecta WhatsApp antes de enviar formularios.",
+      "invalid_message": "Añade un mensaje (hasta 1024 caracteres) y el texto del botón (hasta 30 caracteres). El encabezado y el pie pueden tener hasta 60 caracteres.",
+      "idsRequired": "Elige una conversación y un formulario.",
+      "uncertain": "No pudimos confirmar si el formulario se envió. Revisa la conversación antes de volver a intentarlo."
     }
   },
   "Api": {
@@ -4177,6 +4299,50 @@
         "unreadable": "No se pudo interpretar la respuesta de la IA como plantilla. Inténtalo de nuevo o reformula el objetivo."
       },
       "submitRaced": "Otro envío ya mandó esta plantilla a Meta. Recarga para ver su estado actual."
+    },
+    "formsEndpoint": {
+      "required": "{label} es obligatorio.",
+      "invalid": "Revisa tu respuesta en {label}.",
+      "invalidOption": "Elige una de las opciones de {label}.",
+      "tooFewSelected": "Selecciona al menos {min} en {label}.",
+      "tooManySelected": "Selecciona como máximo {max} en {label}.",
+      "tooLong": "{label} admite como máximo {max} caracteres.",
+      "tooShort": "{label} necesita al menos {min} caracteres.",
+      "invalidDate": "Introduce una fecha válida en {label}.",
+      "invalidEmail": "Introduce un correo electrónico válido en {label}.",
+      "invalidPhone": "Introduce un número de teléfono válido en {label}.",
+      "invalidNumber": "Introduce un número en {label}.",
+      "optInRequired": "Acepta para continuar: {label}"
+    },
+    "formsKey": {
+      "notConnected": "Conecta un número de WhatsApp antes de generar una clave de cifrado para formularios.",
+      "uploadFailed": "WhatsApp no aceptó la nueva clave de cifrado. No se cambió nada; inténtalo de nuevo.",
+      "saveFailed": "La clave se envió a WhatsApp, pero no se pudo guardar. Genera una clave nueva para corregirlo.",
+      "rotationInProgress": "Ya hay otro cambio de clave de cifrado en curso para este número. Espera un par de minutos y vuelve a intentarlo.",
+      "savePending": "WhatsApp aceptó la nueva clave, pero no se pudo guardar como clave activa. Los formularios siguen funcionando con ella por ahora; genera una clave nueva para completar el cambio."
+    },
+    "forms": {
+      "notFound": "No se encontró el formulario.",
+      "adminOnly": "Solo los administradores pueden modificar formularios.",
+      "invalidBody": "El cuerpo de la solicitud no es válido.",
+      "nameInvalid": "Ponle al formulario un nombre de 1 a {max} caracteres.",
+      "categoryInvalid": "Elige una categoría de formulario compatible.",
+      "definitionInvalid": "El formulario tiene problemas. Corrige los campos marcados e inténtalo de nuevo.",
+      "nameTaken": "Ya existe un formulario con este nombre.",
+      "publishedLocked": "Este formulario ya está en WhatsApp, así que sus preguntas no se pueden cambiar. Duplícalo y edita la copia.",
+      "whatsappNotConnected": "Conecta tu número de WhatsApp Business en Configuración antes de publicar formularios.",
+      "encryptionKeyMissing": "Los formularios que usan un endpoint de datos necesitan una clave de cifrado. Configúrala primero en los ajustes de WhatsApp.",
+      "notPublishable": "Solo se pueden publicar formularios en borrador.",
+      "metaPublishFailed": "WhatsApp no pudo publicar el formulario. Inténtalo de nuevo en un momento.",
+      "metaDeleteFailed": "WhatsApp no pudo eliminar el formulario, así que no se borró nada. Inténtalo de nuevo en un momento.",
+      "metaValidationFailed": "WhatsApp rechazó el formulario. Revisa los errores e inténtalo de nuevo.",
+      "invalidCursor": "Este enlace de página ya no es válido. Vuelve a cargar las respuestas.",
+      "exportTooLarge": "Las exportaciones están limitadas a {max, number} respuestas.",
+      "csvSubmittedAt": "Enviado el",
+      "csvContactName": "Nombre del contacto",
+      "csvPhone": "Teléfono",
+      "changedDuringPublish": "Este formulario se editó mientras se publicaba. Vuelve a publicarlo.",
+      "publishedVersionDiffers": "WhatsApp ya publicó una versión anterior de este formulario. Deshaz los cambios hechos desde entonces y vuelve a publicarlo, o duplica el formulario y publica la copia."
     }
   },
   "PageSearch": {
@@ -4601,6 +4767,191 @@
         "cancel": "Cancelar",
         "useDraft": "Usar este borrador"
       }
+    }
+  },
+  "FormMessages": {
+    "submitted": "Formulario enviado: {name}",
+    "submittedUnknown": "Formulario enviado",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "Forms": {
+    "status": {
+      "draft": "Borrador",
+      "published": "Publicado",
+      "deprecated": "Retirado",
+      "blocked": "Bloqueado",
+      "throttled": "Limitado",
+      "error": "Error"
+    },
+    "categories": {
+      "SIGN_UP": "Registro",
+      "SIGN_IN": "Inicio de sesión",
+      "APPOINTMENT_BOOKING": "Reserva de citas",
+      "LEAD_GENERATION": "Captación de clientes",
+      "CONTACT_US": "Contáctanos",
+      "CUSTOMER_SUPPORT": "Atención al cliente",
+      "SURVEY": "Encuesta",
+      "OTHER": "Otro"
+    },
+    "fieldTypes": {
+      "heading": "Título",
+      "paragraph": "Párrafo",
+      "short_text": "Respuesta corta",
+      "long_text": "Respuesta larga",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "number": "Número",
+      "date": "Fecha",
+      "dropdown": "Desplegable",
+      "radio": "Opción única",
+      "checkboxes": "Opción múltiple",
+      "opt_in": "Casilla de consentimiento"
+    },
+    "list": {
+      "title": "Formularios de WhatsApp",
+      "description": "Recoge registros, reservas y respuestas de encuestas dentro de WhatsApp. Los contactos completan el formulario sin salir del chat.",
+      "loading": "Cargando formularios",
+      "loadError": "No se pudieron cargar tus formularios.",
+      "newForm": "Nuevo formulario",
+      "emptyTitle": "Aún no hay formularios",
+      "emptyDesc": "Crea un formulario una vez y envíalo desde un flujo o una conversación.",
+      "createFirst": "Crea tu primer formulario",
+      "colName": "Nombre",
+      "colCategory": "Categoría",
+      "colStatus": "Estado",
+      "colResponses": "Respuestas",
+      "colUpdated": "Actualizado",
+      "colActions": "Acciones",
+      "openNamed": "Abrir {name}",
+      "duplicateNamed": "Duplicar {name}",
+      "deleteNamed": "Eliminar {name}",
+      "createTitle": "Nuevo formulario de WhatsApp",
+      "createDesc": "Ponle nombre al formulario y elige la categoría con la que WhatsApp lo muestra. Puedes cambiar ambos después.",
+      "nameLabel": "Nombre del formulario",
+      "namePlaceholder": "p. ej., Reserva de demo",
+      "categoryLabel": "Categoría",
+      "categoryHint": "WhatsApp usa la categoría para revisar y etiquetar el formulario.",
+      "cancel": "Cancelar",
+      "create": "Crear formulario",
+      "createError": "No se pudo crear el formulario.",
+      "duplicateSuccess": "Se creó \"{name}\".",
+      "duplicateError": "No se pudo duplicar el formulario.",
+      "deleteTitle": "¿Eliminar este formulario?",
+      "deleteDesc": "Se eliminará \"{name}\". Las respuestas ya recibidas se conservan.",
+      "deleteConfirm": "Eliminar formulario",
+      "deleteSuccess": "Formulario eliminado.",
+      "deleteError": "No se pudo eliminar el formulario."
+    },
+    "edit": {
+      "loading": "Cargando formulario",
+      "loadError": "No se pudo cargar este formulario.",
+      "notFound": "Este formulario no existe o fue eliminado.",
+      "backToList": "Volver a formularios"
+    },
+    "builder": {
+      "backToList": "Volver a formularios",
+      "nameLabel": "Nombre del formulario",
+      "nameRequired": "Ponle un nombre al formulario.",
+      "category": "Categoría",
+      "unsaved": "Cambios sin guardar",
+      "save": "Guardar",
+      "saved": "Formulario guardado.",
+      "saveError": "No se pudo guardar el formulario.",
+      "fixErrors": "Primero corrige los campos marcados.",
+      "publish": "Publicar",
+      "published": "Formulario publicado en WhatsApp.",
+      "publishFailed": "WhatsApp no aceptó el formulario. Revisa los errores abajo.",
+      "publishError": "No se pudo publicar el formulario.",
+      "duplicateToEdit": "Duplicar para editar",
+      "duplicateError": "No se pudo duplicar el formulario.",
+      "metaPreview": "Abrir vista previa de WhatsApp",
+      "lockedNotice": "Este formulario está activo en WhatsApp y no se puede modificar. Duplícalo para obtener una copia editable.",
+      "readOnlyNotice": "Puedes ver este formulario, pero solo los administradores pueden modificarlo.",
+      "errorsTitle": "El formulario tiene problemas por corregir",
+      "metaErrorsTitle": "WhatsApp informó problemas con este formulario",
+      "tabBuild": "Editor",
+      "tabResponses": "Respuestas",
+      "screens": "Pantallas",
+      "screensCount": "Pantallas ({count} de {max})",
+      "addScreen": "Agregar pantalla",
+      "untitledScreen": "Pantalla sin título",
+      "hasErrors": "Tiene errores",
+      "screenSettings": "Ajustes de la pantalla",
+      "screenN": "Pantalla {n}",
+      "moveScreenUp": "Mover pantalla antes",
+      "moveScreenDown": "Mover pantalla después",
+      "removeScreen": "Quitar pantalla",
+      "screenTitle": "Título de la pantalla",
+      "submitLabel": "Texto del botón de envío",
+      "nextLabel": "Texto del botón siguiente",
+      "newScreenTitle": "Más detalles",
+      "newScreenButton": "Continuar",
+      "fields": "Campos",
+      "noFields": "Esta pantalla está vacía. Agrega un campo abajo.",
+      "palette": "Tipos de campo",
+      "addField": "Agregar un campo",
+      "untitledField": "Campo sin título",
+      "moveFieldUp": "Subir campo",
+      "moveFieldDown": "Bajar campo",
+      "removeField": "Quitar campo",
+      "textLabel": "Texto",
+      "questionLabel": "Pregunta",
+      "charCount": "{count} / {max}",
+      "fieldId": "Clave de respuesta",
+      "fieldIdHint": "Se usa como nombre de columna en las respuestas y exportaciones.",
+      "required": "Obligatorio",
+      "helper": "Texto de ayuda",
+      "options": "Opciones",
+      "optionN": "Opción {n}",
+      "removeOptionN": "Quitar opción {n}",
+      "addOption": "Agregar opción",
+      "minChars": "Mínimo de caracteres",
+      "maxChars": "Máximo de caracteres",
+      "minSelected": "Mínimo de selecciones",
+      "maxSelected": "Máximo de selecciones",
+      "saveTo": "Guardar respuesta en",
+      "saveToNone": "No guardar en el contacto",
+      "saveToContact": "Datos del contacto",
+      "contactName": "Nombre",
+      "contactEmail": "Correo",
+      "contactCompany": "Empresa",
+      "saveToCustom": "Campos personalizados",
+      "settings": "Ajustes del formulario",
+      "successMessage": "Mensaje de confirmación",
+      "successPlaceholder": "¡Gracias! Recibimos tus respuestas.",
+      "successHint": "Se envía al contacto en el chat después de que envía el formulario.",
+      "usesEndpoint": "Verificar respuestas en el servidor",
+      "usesEndpointHint": "Tu espacio de trabajo revisa cada pantalla antes de que el contacto avance. Las respuestas viajan cifradas.",
+      "usesEndpointNoKey": "Configura la clave de cifrado de formularios en los ajustes de WhatsApp para activarlo.",
+      "previewTitle": "Vista previa"
+    },
+    "preview": {
+      "label": "Vista previa del formulario de WhatsApp",
+      "back": "Pantalla anterior",
+      "successDefault": "Gracias, tus respuestas se enviaron.",
+      "restart": "Empezar de nuevo",
+      "emptyScreen": "Esta pantalla aún no tiene campos.",
+      "optional": "opcional",
+      "choose": "Seleccionar",
+      "managedBy": "Gestionado por la empresa",
+      "screenOf": "Pantalla {current} de {total}"
+    },
+    "responses": {
+      "loading": "Cargando respuestas",
+      "loadError": "No se pudieron cargar las respuestas.",
+      "summary": "{count, plural, =0 {Aún no hay respuestas} one {# respuesta} other {# respuestas}}{more, select, yes { mostradas, hay más} other {}}",
+      "export": "Exportar CSV",
+      "exportError": "No se pudieron exportar las respuestas.",
+      "emptyTitle": "Aún no hay respuestas",
+      "emptyDesc": "Las respuestas aparecen aquí en cuanto los contactos envían el formulario.",
+      "colDate": "Enviado",
+      "colContact": "Contacto",
+      "unnamed": "Contacto sin nombre",
+      "noContact": "Contacto desconocido",
+      "yes": "Sí",
+      "no": "No",
+      "loadMore": "Cargar más"
     }
   }
 }

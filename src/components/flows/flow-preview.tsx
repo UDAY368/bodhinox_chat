@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { FileText, Image as ImageIcon, List, MapPin, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
+import { ClipboardList, FileText, Image as ImageIcon, List, MapPin, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -108,7 +108,7 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
             <Button key={o.id} variant="outline" size="sm" className="border-dashed" onClick={() => pick(o.id)}>
               {o.id === 'share'
                 ? t(run.nodes.find((n) => n.node_key === run.at)?.node_type === 'ask_location' ? 'simulate.shareLocation' : 'simulate.shareMedia')
-                : t(o.id === 'timeout' ? 'simulate.timeout' : 'simulate.exhausted')}
+                : t(o.id === 'submit' ? 'simulate.submitForm' : o.id === 'timeout' ? 'simulate.timeout' : 'simulate.exhausted')}
             </Button>
           ))}
         </div>
@@ -160,8 +160,8 @@ function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPi
       <div className="bg-primary-soft-2 text-foreground ml-auto max-w-[80%] whitespace-pre-wrap break-words rounded-lg rounded-tr-none px-3 py-2 text-sm shadow-sm">
         {m.shared ? (
           <span className="flex items-center gap-1.5 italic">
-            {m.shared === 'location' ? <MapPin className="h-4 w-4 shrink-0" /> : <ImageIcon className="h-4 w-4 shrink-0" />}
-            {t(m.shared === 'location' ? 'shared.location' : 'shared.media')}
+            {m.shared === 'location' ? <MapPin className="h-4 w-4 shrink-0" /> : m.shared === 'form' ? <ClipboardList className="h-4 w-4 shrink-0" /> : <ImageIcon className="h-4 w-4 shrink-0" />}
+            {t(m.shared === 'location' ? 'shared.location' : m.shared === 'form' ? 'shared.form' : 'shared.media')}
           </span>
         ) : m.text}
       </div>

@@ -54,7 +54,8 @@
     "menuSignOut": "로그아웃",
     "studio": "CRM STUDIO",
     "workspace": "워크스페이스",
-    "preferences": "환경설정"
+    "preferences": "환경설정",
+    "forms": "양식"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -74,7 +75,8 @@
     "menuSignOut": "로그아웃",
     "workspace": "워크스페이스",
     "flows": "플로우",
-    "aiAgents": "AI 에이전트"
+    "aiAgents": "AI 에이전트",
+    "forms": "양식"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
@@ -381,7 +383,8 @@
         "document": "문서",
         "audio": "오디오"
       },
-      "uploadFailed": "업로드에 실패했습니다."
+      "uploadFailed": "업로드에 실패했습니다.",
+      "sendForm": "양식 보내기"
     },
     "bubble": {
       "photo": "사진",
@@ -514,6 +517,21 @@
       "resumed": "AI가 재개되었습니다.",
       "updateError": "AI 어시스턴트를 업데이트하지 못했습니다.",
       "networkError": "서버에 연결할 수 없습니다."
+    },
+    "sendForm": {
+      "title": "양식 보내기",
+      "form": "양식",
+      "pickForm": "게시된 양식 선택",
+      "noForms": "아직 게시된 양식이 없습니다. 양식 메뉴에서 만들고 게시하세요.",
+      "header": "머리글(선택, 최대 {max}자)",
+      "body": "메시지(최대 {max}자)",
+      "footer": "바닥글(선택, 최대 {max}자)",
+      "cta": "버튼 문구(최대 {max}자)",
+      "ctaPlaceholder": "예: 양식 작성하기",
+      "windowHelp": "양식은 고객의 마지막 메시지 후 24시간 이내에만 보낼 수 있습니다.",
+      "send": "양식 보내기",
+      "sent": "양식을 보냈습니다.",
+      "failed": "양식을 보내지 못했습니다."
     }
   },
   "Contacts": {
@@ -1857,7 +1875,18 @@
         "templateOfferHelp": "이 단계에서 템플릿을 보낸 후 입력한 시간(분)이 지나면 혜택이 종료됩니다.",
         "templateCoupon": "쿠폰 코드",
         "templateCouponHelp": "실행 변수를 사용할 수 있습니다. 비워 두면 템플릿에 저장된 코드를 사용합니다.",
-        "templateCardParam": "카드 {card} 값 {n}"
+        "templateCardParam": "카드 {card} 값 {n}",
+        "formLabel": "양식",
+        "pickForm": "게시된 양식 선택",
+        "formUnavailable": "사용할 수 없는 양식",
+        "formHelp": "게시된 양식만 표시됩니다. 양식은 고객의 마지막 메시지 후 24시간 이내에 전송됩니다.",
+        "formNoneHelp": "아직 게시된 양식이 없습니다. 양식 메뉴에서 만들고 게시하세요.",
+        "formHeader": "머리글(선택, 최대 {max}자)",
+        "formBody": "메시지(최대 {max}자)",
+        "formFooter": "바닥글(선택, 최대 {max}자)",
+        "formCta": "버튼 문구(최대 {max}자)",
+        "formVarHelp": "답변은 {name}에 저장되고, 각 답변은 {name}_ 뒤에 필드 ID를 붙인 이름으로 저장됩니다.",
+        "formAfterSubmit": "양식이 제출되면 이동할 단계"
       },
       "categories": {
         "messaging": "메시징",
@@ -1936,6 +1965,10 @@
         "connect_flow": {
           "label": "플로우 연결",
           "blurb": "이 플로우를 끝내고 다른 플로우를 시작합니다"
+        },
+        "send_form": {
+          "label": "양식 보내기",
+          "blurb": "WhatsApp 양식을 보내고 답변을 저장합니다"
         }
       },
       "ports": {
@@ -2008,11 +2041,13 @@
           "shareMedia": "시뮬레이션: 고객이 파일 전송",
           "shareLocation": "시뮬레이션: 고객이 위치 공유",
           "exhausted": "시뮬레이션: 시도 횟수 소진",
-          "timeout": "시뮬레이션: 응답 없음(시간 초과)"
+          "timeout": "시뮬레이션: 응답 없음(시간 초과)",
+          "submitForm": "시뮬레이션: 고객이 양식을 제출함"
         },
         "shared": {
           "media": "파일을 보냄",
-          "location": "위치를 공유함"
+          "location": "위치를 공유함",
+          "form": "양식을 제출함"
         }
       },
       "studioLockedHint": "캔버스가 잠겨 있습니다. 이 단계를 편집하려면 잠금을 해제하세요."
@@ -2058,7 +2093,8 @@
       "customField": "사용자 지정 필드",
       "rulesAll": "규칙 {count}개, 모두 일치해야 함",
       "rulesAny": "규칙 {count}개, 하나 이상 일치",
-      "roundRobin": "순환 배정"
+      "roundRobin": "순환 배정",
+      "formNone": "선택한 양식 없음"
     },
     "header": {
       "backToFlows": "플로우로 돌아가기",
@@ -2427,7 +2463,15 @@
       "historyTitle": "상태 기록",
       "historyDesc": "{name}의 모든 상태 변경, 최신순.",
       "placeholderUrlWarning": "아직 샘플 링크(example.com)입니다. 제출하기 전에 실제 URL로 바꾸세요.",
-      "placeholderPhoneWarning": "아직 샘플 번호(+10000000000)입니다. 제출하기 전에 비즈니스 전화번호로 바꾸세요."
+      "placeholderPhoneWarning": "아직 샘플 번호(+10000000000)입니다. 제출하기 전에 비즈니스 전화번호로 바꾸세요.",
+      "btnFlow": "양식",
+      "flowFormLabel": "이 버튼이 여는 양식",
+      "flowFormPick": "게시된 양식 선택",
+      "flowFormPicked": "양식이 선택되었습니다. 바꾸려면 다시 선택하세요.",
+      "flowFormLoading": "양식을 불러오는 중…",
+      "flowFormHelp": "버튼을 누르면 이 양식이 열립니다. 보낼 때마다 답변과 연결되는 고유 링크가 만들어집니다.",
+      "flowFormNone": "아직 게시된 양식이 없습니다. 양식 메뉴에서 만들고 게시하세요.",
+      "flowFormUnavailable": "이 양식은 아직 WhatsApp에 게시되지 않았습니다."
     },
     "roles": {
       "admin": "관리자",
@@ -2905,6 +2949,19 @@
       "syncedAt": "마지막으로 WhatsApp에 저장: {date}.",
       "notSynced": "아직 WhatsApp에 저장되지 않았습니다.",
       "loadFailed": "아이스브레이커를 불러오지 못했습니다. 편집하려면 페이지를 새로고침하세요."
+    },
+    "formsEncryption": {
+      "title": "양식 암호화 키",
+      "description": "고객이 작성하는 동안 서버에서 답변을 확인하는 양식에는 암호화 키가 필요합니다. WhatsApp은 이 키로 답변을 암호화하며, 이 서버만 읽을 수 있습니다.",
+      "notConfigured": "아직 키가 없습니다. 키를 생성하기 전까지는 서버에서 답변을 확인하는 양식을 사용할 수 없습니다.",
+      "configuredAt": "{date}부터 키가 활성화되어 있습니다.",
+      "generate": "키 생성",
+      "rotate": "키 교체",
+      "rotateConfirm": "양식 암호화 키를 교체할까요? 양식을 열어 둔 고객은 WhatsApp이 새 키를 가져오는 동안 잠시 재시도 화면을 보게 됩니다.",
+      "rotateHint": "키가 노출되었다고 생각되거나 WhatsApp에서 키 문제를 알린 경우에만 교체하세요.",
+      "generated": "암호화 키를 WhatsApp에 저장했습니다.",
+      "generateFailed": "암호화 키를 생성하지 못했습니다.",
+      "loadFailed": "키 상태를 불러오지 못했습니다. 페이지를 새로고침해 다시 시도해 주세요."
     }
   },
   "SignupPage": {
@@ -3124,7 +3181,8 @@
       "createFlows": "플로우를 만들",
       "createPipelines": "파이프라인을 만들",
       "createDeals": "거래를 만들",
-      "sendMessages": "메시지를 보낼"
+      "sendMessages": "메시지를 보낼",
+      "manageForms": "WhatsApp 양식 관리"
     }
   },
   "Metadata": {
@@ -3784,7 +3842,13 @@
       "triggerBadPattern": "1~256자의 올바른 정규식을 입력하세요.",
       "triggerNeedsTemplate": "버튼 응답으로 이 플로우를 시작할 템플릿을 선택하세요.",
       "triggerBadButtons": "템플릿의 버튼을 선택하세요.",
-      "fallbackMessageInvalid": "대체 메시지에는 텍스트(최대 {max}자) 또는 이미지나 동영상이 필요합니다."
+      "fallbackMessageInvalid": "대체 메시지에는 텍스트(최대 {max}자) 또는 이미지나 동영상이 필요합니다.",
+      "formNeedsForm": "보낼 양식을 선택하세요.",
+      "formMissing": "선택한 양식이 더 이상 존재하지 않습니다.",
+      "formNotPublished": "선택한 양식이 게시되지 않았습니다. 이 플로우를 켜기 전에 게시하세요.",
+      "formNeedsCta": "버튼 문구를 입력하세요.",
+      "formNeedsBody": "양식과 함께 보낼 메시지를 입력하세요.",
+      "formTextTooLong": "이 텍스트는 최대 {max}자까지 입력할 수 있습니다."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -3911,7 +3975,11 @@
       "ltoUrlButtonRequired": "기간 한정 혜택 템플릿에는 URL 버튼이 하나 필요합니다.",
       "ltoCopyCodeFirst": "코드 복사 버튼을 첫 번째에, URL 버튼을 두 번째에 배치하세요.",
       "buttonPlaceholderUrl": "버튼 #{n}에 아직 예시 링크 {url}이(가) 사용되고 있습니다. 제출하기 전에 실제 링크로 바꿔 주세요.",
-      "buttonPlaceholderPhone": "버튼 #{n}에 아직 예시 번호 {phone}이(가) 사용되고 있습니다. 제출하기 전에 실제 비즈니스 전화번호로 바꿔 주세요."
+      "buttonPlaceholderPhone": "버튼 #{n}에 아직 예시 번호 {phone}이(가) 사용되고 있습니다. 제출하기 전에 실제 비즈니스 전화번호로 바꿔 주세요.",
+      "tooManyFlowButtons": "템플릿에는 양식 버튼을 최대 {max}개까지 넣을 수 있습니다(현재 {got}개).",
+      "flowButtonMissingForm": "버튼 {n}: 게시된 양식을 선택하세요.",
+      "flowButtonBadScreen": "버튼 {n}: 양식의 첫 화면이 올바르지 않습니다. 양식을 다시 선택하세요.",
+      "flowButtonBadAction": "버튼 {n}: 지원하지 않는 양식 버튼 유형입니다."
     },
     "interactive": {
       "buttonCount": "인터랙티브 버튼 메시지에는 버튼이 1-{max}개 필요합니다(현재 {got}개).",
@@ -3949,6 +4017,60 @@
       "authCodeTooLong": "일회용 코드는 최대 {max}자까지 입력할 수 있습니다.",
       "flowOfferMinutes": "혜택 유지 시간을 1분에서 {max}분 사이로 입력하세요.",
       "cardValueEmpty": "카드 {card}: 값 {n}이(가) 비어 있습니다."
+    },
+    "forms": {
+      "notObject": "양식 정의가 올바르지 않습니다.",
+      "version": "지원하지 않는 양식 버전입니다.",
+      "screensCount": "양식에는 화면이 {min}~{max}개 있어야 합니다.",
+      "screenId": "화면 ID는 대문자로 시작하고 A-Z, 0-9, 밑줄만 사용할 수 있습니다(최대 30자).",
+      "screenIdDuplicate": "화면 ID \"{id}\"가 두 번 이상 사용되었습니다.",
+      "screenTitleRequired": "이 화면의 제목을 입력하세요.",
+      "screenTitleTooLong": "화면 제목은 최대 {max}자까지 입력할 수 있습니다.",
+      "buttonLabelRequired": "버튼 문구를 입력하세요.",
+      "buttonLabelTooLong": "버튼 문구는 최대 {max}자까지 입력할 수 있습니다.",
+      "fieldsCount": "각 화면에는 필드가 {min}~{max}개 있어야 합니다.",
+      "fieldType": "지원되는 필드 유형을 선택하세요.",
+      "fieldId": "필드 ID는 소문자로 시작하고 a-z, 0-9, 밑줄만 사용할 수 있습니다(최대 40자).",
+      "fieldIdReserved": "\"{id}\"는 예약된 이름입니다. 다른 필드 ID를 선택하세요.",
+      "fieldIdDuplicate": "필드 ID \"{id}\"가 이 양식에서 두 번 이상 사용되었습니다.",
+      "labelRequired": "라벨 또는 텍스트를 입력하세요.",
+      "labelTooLong": "이 텍스트는 최대 {max}자까지 입력할 수 있습니다.",
+      "requiredNotAllowed": "제목과 문단은 필수 항목으로 설정할 수 없습니다.",
+      "helperNotAllowed": "도움말 텍스트는 텍스트, 숫자, 날짜 필드에서만 사용할 수 있습니다.",
+      "helperTooLong": "도움말 텍스트는 최대 {max}자까지 입력할 수 있습니다.",
+      "optionsNotAllowed": "드롭다운, 단일 선택, 다중 선택 필드에만 옵션이 있습니다.",
+      "optionsCount": "옵션을 {min}~{max}개 추가하세요.",
+      "optionId": "옵션 ID에는 문자, 숫자, 밑줄만 사용할 수 있습니다(최대 40자).",
+      "optionIdDuplicate": "옵션 ID \"{id}\"가 이 필드에서 두 번 이상 사용되었습니다.",
+      "optionTitleRequired": "모든 옵션에 제목을 입력하세요.",
+      "optionTitleTooLong": "옵션 제목은 최대 {max}자까지 입력할 수 있습니다.",
+      "boundsNotAllowed": "이 필드 유형에서는 이 제한을 사용할 수 없습니다.",
+      "boundsInvalid": "제한 값은 0 이상의 정수여야 합니다.",
+      "boundsOrder": "최솟값은 최댓값보다 클 수 없습니다.",
+      "boundsTooHigh": "이 제한 값은 최대 {max}입니다.",
+      "saveToNotAllowed": "이 필드의 답변은 연락처에 저장할 수 없습니다.",
+      "saveToInvalid": "답변을 저장할 올바른 연락처 필드를 선택하세요.",
+      "noInputs": "양식에 질문을 하나 이상 추가하세요.",
+      "successTooLong": "확인 메시지는 최대 {max}자까지 입력할 수 있습니다.",
+      "ctaRequired": "양식을 여는 버튼의 문구를 입력하세요.",
+      "ctaTooLong": "양식을 여는 버튼 문구는 최대 {max}자까지 입력할 수 있습니다.",
+      "defaults": {
+        "screenTitle": "내 정보",
+        "fieldLabel": "이름",
+        "buttonLabel": "제출"
+      }
+    },
+    "formSend": {
+      "form_not_found": "이 양식은 더 이상 존재하지 않습니다.",
+      "form_not_published": "보내기 전에 이 양식을 게시하세요.",
+      "conversation_not_found": "대화를 찾을 수 없습니다.",
+      "contact_blocked": "차단된 연락처라 양식을 보낼 수 없습니다.",
+      "no_address": "이 연락처에는 WhatsApp 번호나 사용자 ID가 없습니다.",
+      "window_closed": "양식은 고객의 마지막 메시지 후 24시간 이내에만 보낼 수 있습니다. 대신 양식 버튼이 있는 템플릿을 보내세요.",
+      "not_configured": "양식을 보내기 전에 WhatsApp을 연결하세요.",
+      "invalid_message": "메시지(최대 1024자)와 버튼 문구(최대 30자)를 입력하세요. 머리글과 바닥글은 최대 60자입니다.",
+      "idsRequired": "대화와 양식을 선택하세요.",
+      "uncertain": "양식이 전송되었는지 확인하지 못했습니다. 다시 시도하기 전에 대화를 확인하세요."
     }
   },
   "Api": {
@@ -4177,6 +4299,50 @@
         "unreadable": "AI 응답을 템플릿으로 읽을 수 없습니다. 다시 시도하거나 목적을 바꿔 표현해 보세요."
       },
       "submitRaced": "다른 제출 요청이 이미 이 템플릿을 Meta에 보냈습니다. 새로고침하여 현재 상태를 확인하세요."
+    },
+    "formsEndpoint": {
+      "required": "{label} 항목은 필수입니다.",
+      "invalid": "{label} 항목의 답변을 확인해 주세요.",
+      "invalidOption": "{label} 항목에서 제시된 옵션 중 하나를 선택해 주세요.",
+      "tooFewSelected": "{label} 항목에서 {min}개 이상 선택해 주세요.",
+      "tooManySelected": "{label} 항목에서 최대 {max}개까지 선택할 수 있습니다.",
+      "tooLong": "{label} 항목은 최대 {max}자까지 입력할 수 있습니다.",
+      "tooShort": "{label} 항목은 {min}자 이상 입력해야 합니다.",
+      "invalidDate": "{label} 항목에 올바른 날짜를 입력해 주세요.",
+      "invalidEmail": "{label} 항목에 올바른 이메일 주소를 입력해 주세요.",
+      "invalidPhone": "{label} 항목에 올바른 전화번호를 입력해 주세요.",
+      "invalidNumber": "{label} 항목에 숫자를 입력해 주세요.",
+      "optInRequired": "계속하려면 동의해 주세요: {label}"
+    },
+    "formsKey": {
+      "notConnected": "양식 암호화 키를 생성하기 전에 WhatsApp 번호를 연결해 주세요.",
+      "uploadFailed": "WhatsApp에서 새 암호화 키를 받아들이지 않았습니다. 변경된 내용은 없습니다. 다시 시도해 주세요.",
+      "saveFailed": "키를 WhatsApp에 보냈지만 저장하지 못했습니다. 새 키를 생성해 복구해 주세요.",
+      "rotationInProgress": "이 번호의 다른 암호화 키 변경이 이미 진행 중입니다. 몇 분 후 다시 시도해 주세요.",
+      "savePending": "WhatsApp에서 새 키를 받아들였지만 활성 키로 저장하지 못했습니다. 당분간 양식은 이 키로 계속 작동합니다. 변경을 마치려면 새 키를 생성해 주세요."
+    },
+    "forms": {
+      "notFound": "양식을 찾을 수 없습니다.",
+      "adminOnly": "관리자만 양식을 변경할 수 있습니다.",
+      "invalidBody": "요청 본문이 올바르지 않습니다.",
+      "nameInvalid": "양식 이름을 1~{max}자로 입력하세요.",
+      "categoryInvalid": "지원되는 양식 카테고리를 선택하세요.",
+      "definitionInvalid": "양식에 문제가 있습니다. 표시된 항목을 수정한 뒤 다시 시도하세요.",
+      "nameTaken": "같은 이름의 양식이 이미 있습니다.",
+      "publishedLocked": "이 양식은 이미 WhatsApp에 게시되어 질문을 바꿀 수 없습니다. 양식을 복제한 뒤 사본을 편집하세요.",
+      "whatsappNotConnected": "양식을 게시하기 전에 설정에서 WhatsApp Business 번호를 연결하세요.",
+      "encryptionKeyMissing": "데이터 엔드포인트를 사용하는 양식에는 암호화 키가 필요합니다. 먼저 WhatsApp 설정에서 키를 설정하세요.",
+      "notPublishable": "초안 상태의 양식만 게시할 수 있습니다.",
+      "metaPublishFailed": "WhatsApp에서 양식을 게시하지 못했습니다. 잠시 후 다시 시도하세요.",
+      "metaDeleteFailed": "WhatsApp에서 양식을 삭제하지 못해 아무것도 삭제되지 않았습니다. 잠시 후 다시 시도하세요.",
+      "metaValidationFailed": "WhatsApp에서 양식을 거부했습니다. 오류를 확인한 뒤 다시 시도하세요.",
+      "invalidCursor": "이 페이지 링크는 더 이상 유효하지 않습니다. 응답을 다시 불러오세요.",
+      "exportTooLarge": "내보내기는 응답 {max, number}개까지만 가능합니다.",
+      "csvSubmittedAt": "제출 시각",
+      "csvContactName": "연락처 이름",
+      "csvPhone": "전화번호",
+      "changedDuringPublish": "게시하는 동안 이 양식이 수정되었습니다. 다시 게시해 주세요.",
+      "publishedVersionDiffers": "WhatsApp에 이 양식의 이전 버전이 이미 게시되었습니다. 그 이후의 변경 사항을 되돌린 후 다시 게시하거나, 양식을 복제하여 사본을 게시하세요."
     }
   },
   "PageSearch": {
@@ -4601,6 +4767,191 @@
         "cancel": "취소",
         "useDraft": "이 초안 사용"
       }
+    }
+  },
+  "FormMessages": {
+    "submitted": "양식 제출됨: {name}",
+    "submittedUnknown": "양식 제출됨",
+    "yes": "예",
+    "no": "아니요"
+  },
+  "Forms": {
+    "status": {
+      "draft": "초안",
+      "published": "게시됨",
+      "deprecated": "사용 중지",
+      "blocked": "차단됨",
+      "throttled": "제한됨",
+      "error": "오류"
+    },
+    "categories": {
+      "SIGN_UP": "회원가입",
+      "SIGN_IN": "로그인",
+      "APPOINTMENT_BOOKING": "예약",
+      "LEAD_GENERATION": "잠재 고객 확보",
+      "CONTACT_US": "문의하기",
+      "CUSTOMER_SUPPORT": "고객 지원",
+      "SURVEY": "설문조사",
+      "OTHER": "기타"
+    },
+    "fieldTypes": {
+      "heading": "제목",
+      "paragraph": "단락",
+      "short_text": "단답형",
+      "long_text": "장문형",
+      "email": "이메일",
+      "phone": "전화번호",
+      "number": "숫자",
+      "date": "날짜",
+      "dropdown": "드롭다운",
+      "radio": "단일 선택",
+      "checkboxes": "다중 선택",
+      "opt_in": "동의 체크박스"
+    },
+    "list": {
+      "title": "WhatsApp 양식",
+      "description": "가입, 예약, 설문 응답을 WhatsApp 안에서 받으세요. 연락처는 채팅을 벗어나지 않고 양식을 작성합니다.",
+      "loading": "양식을 불러오는 중",
+      "loadError": "양식을 불러오지 못했습니다.",
+      "newForm": "새 양식",
+      "emptyTitle": "아직 양식이 없습니다",
+      "emptyDesc": "양식을 한 번 만들어 두고 플로우나 대화에서 보내세요.",
+      "createFirst": "첫 양식 만들기",
+      "colName": "이름",
+      "colCategory": "카테고리",
+      "colStatus": "상태",
+      "colResponses": "응답",
+      "colUpdated": "수정일",
+      "colActions": "작업",
+      "openNamed": "{name} 열기",
+      "duplicateNamed": "{name} 복제",
+      "deleteNamed": "{name} 삭제",
+      "createTitle": "새 WhatsApp 양식",
+      "createDesc": "양식 이름을 정하고 WhatsApp에 표시될 카테고리를 선택하세요. 둘 다 나중에 바꿀 수 있습니다.",
+      "nameLabel": "양식 이름",
+      "namePlaceholder": "예: 데모 예약",
+      "categoryLabel": "카테고리",
+      "categoryHint": "WhatsApp은 카테고리로 양식을 검토하고 분류합니다.",
+      "cancel": "취소",
+      "create": "양식 만들기",
+      "createError": "양식을 만들지 못했습니다.",
+      "duplicateSuccess": "\"{name}\"을(를) 만들었습니다.",
+      "duplicateError": "양식을 복제하지 못했습니다.",
+      "deleteTitle": "이 양식을 삭제할까요?",
+      "deleteDesc": "\"{name}\"이(가) 삭제됩니다. 이미 받은 응답은 보관됩니다.",
+      "deleteConfirm": "양식 삭제",
+      "deleteSuccess": "양식을 삭제했습니다.",
+      "deleteError": "양식을 삭제하지 못했습니다."
+    },
+    "edit": {
+      "loading": "양식을 불러오는 중",
+      "loadError": "이 양식을 불러오지 못했습니다.",
+      "notFound": "존재하지 않거나 삭제된 양식입니다.",
+      "backToList": "양식 목록으로"
+    },
+    "builder": {
+      "backToList": "양식 목록으로",
+      "nameLabel": "양식 이름",
+      "nameRequired": "양식 이름을 입력하세요.",
+      "category": "카테고리",
+      "unsaved": "저장되지 않은 변경 사항",
+      "save": "저장",
+      "saved": "양식을 저장했습니다.",
+      "saveError": "양식을 저장하지 못했습니다.",
+      "fixErrors": "표시된 항목을 먼저 수정하세요.",
+      "publish": "게시",
+      "published": "양식을 WhatsApp에 게시했습니다.",
+      "publishFailed": "WhatsApp이 양식을 받아들이지 않았습니다. 아래 오류를 확인하세요.",
+      "publishError": "양식을 게시하지 못했습니다.",
+      "duplicateToEdit": "복제해서 편집",
+      "duplicateError": "양식을 복제하지 못했습니다.",
+      "metaPreview": "WhatsApp 미리보기 열기",
+      "lockedNotice": "이 양식은 WhatsApp에서 사용 중이라 변경할 수 없습니다. 복제하면 편집 가능한 사본이 만들어집니다.",
+      "readOnlyNotice": "이 양식을 볼 수는 있지만 변경은 관리자만 할 수 있습니다.",
+      "errorsTitle": "양식에 수정할 문제가 있습니다",
+      "metaErrorsTitle": "WhatsApp이 이 양식의 문제를 알려 왔습니다",
+      "tabBuild": "편집기",
+      "tabResponses": "응답",
+      "screens": "화면",
+      "screensCount": "화면 ({count}/{max})",
+      "addScreen": "화면 추가",
+      "untitledScreen": "제목 없는 화면",
+      "hasErrors": "오류 있음",
+      "screenSettings": "화면 설정",
+      "screenN": "화면 {n}",
+      "moveScreenUp": "화면을 앞으로 이동",
+      "moveScreenDown": "화면을 뒤로 이동",
+      "removeScreen": "화면 삭제",
+      "screenTitle": "화면 제목",
+      "submitLabel": "제출 버튼 텍스트",
+      "nextLabel": "다음 버튼 텍스트",
+      "newScreenTitle": "추가 정보",
+      "newScreenButton": "계속",
+      "fields": "항목",
+      "noFields": "이 화면은 비어 있습니다. 아래에서 항목을 추가하세요.",
+      "palette": "항목 유형",
+      "addField": "항목 추가",
+      "untitledField": "제목 없는 항목",
+      "moveFieldUp": "항목 위로 이동",
+      "moveFieldDown": "항목 아래로 이동",
+      "removeField": "항목 삭제",
+      "textLabel": "텍스트",
+      "questionLabel": "질문",
+      "charCount": "{count} / {max}",
+      "fieldId": "응답 키",
+      "fieldIdHint": "응답 목록과 내보내기에서 열 이름으로 쓰입니다.",
+      "required": "필수",
+      "helper": "도움말 텍스트",
+      "options": "선택지",
+      "optionN": "선택지 {n}",
+      "removeOptionN": "선택지 {n} 삭제",
+      "addOption": "선택지 추가",
+      "minChars": "최소 글자 수",
+      "maxChars": "최대 글자 수",
+      "minSelected": "최소 선택 수",
+      "maxSelected": "최대 선택 수",
+      "saveTo": "응답 저장 위치",
+      "saveToNone": "연락처에 저장하지 않음",
+      "saveToContact": "연락처 정보",
+      "contactName": "이름",
+      "contactEmail": "이메일",
+      "contactCompany": "회사",
+      "saveToCustom": "사용자 정의 필드",
+      "settings": "양식 설정",
+      "successMessage": "확인 메시지",
+      "successPlaceholder": "감사합니다! 응답을 받았습니다.",
+      "successHint": "연락처가 제출하면 채팅으로 보내집니다.",
+      "usesEndpoint": "서버에서 응답 확인",
+      "usesEndpointHint": "연락처가 다음으로 넘어가기 전에 워크스페이스가 각 화면을 확인합니다. 응답은 암호화되어 전송됩니다.",
+      "usesEndpointNoKey": "이 기능을 켜려면 WhatsApp 설정에서 양식 암호화 키를 설정하세요.",
+      "previewTitle": "미리보기"
+    },
+    "preview": {
+      "label": "WhatsApp 양식 미리보기",
+      "back": "이전 화면",
+      "successDefault": "감사합니다. 응답이 전송되었습니다.",
+      "restart": "처음부터",
+      "emptyScreen": "이 화면에는 아직 항목이 없습니다.",
+      "optional": "선택",
+      "choose": "선택하세요",
+      "managedBy": "비즈니스에서 관리",
+      "screenOf": "화면 {current}/{total}"
+    },
+    "responses": {
+      "loading": "응답을 불러오는 중",
+      "loadError": "응답을 불러오지 못했습니다.",
+      "summary": "{count, plural, =0 {아직 응답이 없습니다} other {응답 #개}}{more, select, yes { 표시됨, 더 있음} other {}}",
+      "export": "CSV 내보내기",
+      "exportError": "응답을 내보내지 못했습니다.",
+      "emptyTitle": "아직 응답이 없습니다",
+      "emptyDesc": "연락처가 양식을 제출하면 바로 여기에 응답이 표시됩니다.",
+      "colDate": "제출일",
+      "colContact": "연락처",
+      "unnamed": "이름 없는 연락처",
+      "noContact": "알 수 없는 연락처",
+      "yes": "예",
+      "no": "아니요",
+      "loadMore": "더 보기"
     }
   }
 }

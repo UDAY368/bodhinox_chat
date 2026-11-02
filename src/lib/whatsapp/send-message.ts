@@ -46,6 +46,7 @@ import {
 } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import type { MessageTemplate } from '@/types';
+import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import {
   resolveTemplateRow,
   templateBodyParams,
@@ -390,6 +391,12 @@ export async function sendMessageToConversation(
     accessToken, payload: interactivePayload!, contextMessageId, replyToMessageId: replyToMessageId || undefined,
   }) : null;
 
+  // A template's FLOW buttons each get a fresh form session for this send
+  // (created once, not per phone-number variant).
+  const flowTokens = messageType === 'template' && templateRow
+    ? await templateFlowTokens({ accountId, buttons: templateRow.buttons, contactId: contact.id, conversationId })
+    : undefined;
+
   const attempt = async (phone: string): Promise<string> => {
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
@@ -399,7 +406,7 @@ export async function sendMessageToConversation(
         templateName: templateName!,
         language: sendLanguage,
         template: templateRow ?? undefined,
-        messageParams: await resolveTemplateMediaParams(accountId, templateRow, messageParams),
+        messageParams: await resolveTemplateMediaParams(accountId, templateRow, flowTokens ? { ...messageParams, flowTokens } : messageParams),
         params: templateParams || [],
         contextMessageId,
       });

@@ -1,6 +1,8 @@
 import { getWorkerPrisma } from "@/lib/db/prisma";
 import { withTenant } from "@/lib/db/tenant";
 import { UncertainDispatchError } from "@/lib/jobs/dispatch";
+import { formSummaryText, recordFormResponse, type FormAnswers } from "@/lib/whatsapp/forms/responses";
+import type { InboundFormPayload } from "@/lib/whatsapp/inbound-structured";
 
 export interface IngestInboundInput {
   accountId: string; userId: string; contactId: string; conversationId: string;
@@ -11,6 +13,8 @@ export interface IngestInboundInput {
   replyToMessageId: string | null; createdAt: Date;
   /** Meta id of the message this one replies to (a broadcast template, say). */
   contextMetaId?: string | null;
+  /** A submitted WhatsApp form; stored with the message and summarised as its text. */
+  formReply?: { flowToken: string | null; answers: FormAnswers };
   wasContactCreated: boolean; wasConversationCreated: boolean;
 }
 export interface MessageActionsPayload {
@@ -35,6 +39,15 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
     if (!conversation.length) throw new Error("Inbound conversation is unavailable");
     const first = await tx.$queryRaw<{ is_first: boolean }[]>`SELECT NOT EXISTS(SELECT 1 FROM messages
       WHERE account_id=${input.accountId}::uuid AND conversation_id=${input.conversationId}::uuid AND sender_type='customer') AS is_first`;
+    if (input.formReply) {
+      // The response row commits with the message, so a redelivery stores neither twice.
+      const recorded = await recordFormResponse(tx, { accountId: input.accountId, contactId: input.contactId,
+        conversationId: input.conversationId, messageId: input.metaMessageId, ...input.formReply });
+      const form: InboundFormPayload = { form_id: recorded.formId, form_name: recorded.formName, answers: input.formReply.answers,
+        trusted: recorded.trusted, flow_run_id: recorded.flowRunId, node_key: recorded.nodeKey };
+      input = { ...input, contentText: formSummaryText(recorded.formName, recorded.definition, input.formReply.answers),
+        interactivePayload: { form } };
+    }
     const inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,
       content_text,media_url,media_type,message_id,status,created_at,reply_to_message_id,interactive_reply_id,interactive_payload)
       VALUES(${input.accountId}::uuid,${input.conversationId}::uuid,'customer',${input.contentType},${input.contentText},
