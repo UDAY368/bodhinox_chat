@@ -27,6 +27,15 @@ export function fixtures(): Fixtures {
 
 /** Sign in through the real login form and wait to leave /login. */
 export async function login(page: Page, user: SeededUser) {
+  // The suite signs the same seeded users in more often than the real 10-per-15-minutes
+  // limit allows; clear it in the isolated test database (testDatabase refuses any other).
+  const { testDatabase } = await import('./global-setup');
+  const db = await testDatabase();
+  try {
+    await db.query('DELETE FROM auth_rate_limits');
+  } finally {
+    await db.end();
+  }
   await page.goto('/login');
   await page.locator('#email').fill(user.email);
   await page.locator('#password').fill(user.password);

@@ -39,6 +39,8 @@ function normalizeEmail(email: string): string {
     throw new AuthError('Enter a valid email', 400);
   return normalized;
 }
+// 10 attempts per identity per 15 minutes. The Playwright suite clears auth_rate_limits in its
+// isolated test database before each sign-in (e2e/fixtures.ts), so it never needs a higher limit.
 export async function enforceAuthRateLimit(
   action: string,
   identity: string,
