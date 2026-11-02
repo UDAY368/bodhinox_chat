@@ -5,6 +5,10 @@ const USER = '22222222-2222-4222-8222-222222222222';
 const ORDER = '33333333-3333-4333-8333-333333333333';
 const h = vi.hoisted(() => ({ role: 'agent', getOrder: vi.fn(), updateOrder: vi.fn(), limited: false }));
 
+vi.mock('@/lib/inbox/masking-apply', async (original) => ({
+  ...(await original<typeof import('@/lib/inbox/masking-apply')>()),
+  resolvePhoneMask: async () => false,
+}));
 vi.mock('@/lib/auth/session', () => ({ requireSession: async () => ({ userId: USER, accountId: ACCOUNT, role: h.role, sessionId: 's' }) }));
 vi.mock('@/lib/data/server', () => ({
   createClient: async () => ({

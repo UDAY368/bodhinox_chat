@@ -75,6 +75,8 @@ export interface AccountMember {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  /** Present for admins only: customers' numbers are masked for this member. */
+  mask_phone_numbers?: boolean;
 }
 
 /**
@@ -204,13 +206,35 @@ export interface Conversation {
   ai_autoreply_disabled?: boolean;
   ai_reply_count?: number;
   ai_handoff_summary?: string | null;
+  /**
+   * Inbox lifecycle (Phase 5). Maintained by the `conversation_lifecycle`
+   * trigger from status/assignee writes; read-only for the browser.
+   */
+  lifecycle_state?: ConversationLifecycleState;
+  /** When the first agent reply is due (SLA); null while the bot owns it. */
+  first_response_due_at?: string | null;
+  first_responded_at?: string | null;
+  resolved_at?: string | null;
+  reopened_count?: number;
 }
+
+export type ConversationLifecycleState = 'bot' | 'requesting' | 'assigned' | 'resolved';
 
 // ============================================================
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned' | 'whatsapp_number_health';
+export const NOTIFICATION_TYPES = [
+  'conversation_assigned',
+  'whatsapp_number_health',
+  'payment_received',
+  'assigned_message',
+  'mention',
+  'sla_breach',
+  'campaign_finished',
+  'template_rejected',
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export interface Notification {
   id: string;
@@ -228,6 +252,8 @@ export interface Notification {
   dedupe_key?: string | null;
   title: string;
   body?: string;
+  /** In-app path the server chose (e.g. "/inbox?c=<id>"); followed only when it is a relative path. */
+  link?: string | null;
   read_at?: string;
   created_at: string;
 }

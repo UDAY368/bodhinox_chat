@@ -14,6 +14,8 @@ import { applyFormSaveTo, loadFormDefinition } from "./forms/responses";
 import type { InboundFormPayload } from "./inbound-structured";
 import { asOrderMessagePayload, orderFlowVars, type OrderMessagePayload } from "@/lib/commerce/order-format";
 import { sendOrderConfirmation } from "@/lib/commerce/order-confirmation";
+import { applyInboundLifecycle } from "@/lib/inbox/lifecycle";
+import { sendAwayMessage } from "@/lib/inbox/away-message";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function validatePayload(input: InboundActionsPayload): void {
@@ -75,6 +77,13 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       // After the flow and automations, so an unresolved confirmation never holds them back.
       if(order) await stage("order_confirmation",()=>sendOrderConfirmation({accountId:input.accountId,userId:input.userId,
         conversationId:input.conversationId,contactId:input.contactId,order}));
+      // Lifecycle and routing once the bots had their turn. Local and
+      // transactional, so a retried job repeats it safely without a checkpoint.
+      const lifecycle=await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
+        contactId:input.contactId,messageId:input.messageId,text});
+      // Out of hours and nobody automatic answered: the away message, once per window.
+      if(!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
+        userId:input.userId,conversationId:input.conversationId,contactId:input.contactId,messageId:input.messageId}));
     }
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{
       conversation_id:input.conversationId,contact_id:input.contactId,whatsapp_message_id:input.metaMessageId,

@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { AudienceFilterError, type AudienceFilter } from './filter';
 import { pageContacts, type ContactPage } from './segments';
+import { loadPhoneMask } from '@/lib/inbox/masking-apply';
 import { requireRoomFor } from '@/lib/billing/entitlements';
 
 export interface ContactList {
@@ -99,6 +100,6 @@ export async function changeListMembers(
 export async function listContacts(ctx: TenantContext, id: string, page: ContactPage) {
   return withTenant(ctx, async (tx) => {
     const list = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM contact_lists WHERE account_id=${ctx.accountId}::uuid AND id=${id}::uuid`;
-    return list[0] ? pageContacts(tx, ctx.accountId, listFilter(id), page) : null;
+    return list[0] ? pageContacts(tx, ctx.accountId, listFilter(id), { ...page, maskPhones: await loadPhoneMask(tx, ctx) }) : null;
   });
 }

@@ -13,6 +13,7 @@ import {
   type ExistingContact,
 } from '@/lib/contacts/dedupe';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
+import { MASK_CHAR } from '@/lib/inbox/masking';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,9 @@ export function ContactForm({
   const db = createClient();
   const { accountId } = useAuth();
   const isEdit = !!contact;
+  // The server sends a masked member only the masked number; it is shown
+  // read-only, since the server refuses number writes from that member.
+  const phoneMasked = !!contact?.phone?.includes(MASK_CHAR);
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -167,7 +171,9 @@ export function ContactForm({
           .from('contacts')
           .update({
             name: name.trim() || null,
-            phone: phone.trim(),
+            // Send the number only when it was changed: re-saving an
+            // unchanged value could write back a masked display form.
+            ...(phoneChanged && !phoneMasked ? { phone: phone.trim() } : {}),
             email: email.trim() || null,
             company: company.trim() || null,
             updated_at: new Date().toISOString(),
@@ -226,6 +232,10 @@ export function ContactForm({
         }
         return;
       }
+      if ((err as { code?: string } | null)?.code === 'PHONE_MASKED') {
+        toast.error(t('phoneMasked'));
+        return;
+      }
       const message = err instanceof Error ? err.message : t('toastError');
       toast.error(message);
     } finally {
@@ -268,6 +278,8 @@ export function ContactForm({
             <Input
               id="cf-phone"
               value={phone}
+              readOnly={phoneMasked}
+              aria-readonly={phoneMasked}
               onChange={(e) => {
                 setPhone(e.target.value);
                 if (dupMatch) setDupMatch(null);
@@ -304,7 +316,7 @@ export function ContactForm({
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                {t('phoneHint')}
+                {phoneMasked ? t('phoneMaskedHint') : t('phoneHint')}
               </p>
             )}
           </div>

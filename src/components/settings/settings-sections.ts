@@ -1,4 +1,6 @@
 import {
+  Bell,
+  Images,
   Coins,
   CreditCard,
   FileText,
@@ -29,8 +31,10 @@ export const SETTINGS_SECTIONS = [
   'profile',
   'security',
   'appearance',
+  'notifications',
   'whatsapp',
   'inbox',
+  'media',
   'templates',
   'quick-replies',
   'fields',
@@ -78,6 +82,12 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: Palette,
     group: 'account',
   },
+  notifications: {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+    group: 'account',
+  },
   whatsapp: {
     id: 'whatsapp',
     label: 'WhatsApp',
@@ -85,6 +95,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     group: 'workspace',
   },
   inbox: { id: 'inbox', label: 'Inbox', icon: Inbox, group: 'workspace' },
+  media: { id: 'media', label: 'Media library', icon: Images, group: 'workspace' },
   templates: {
     id: 'templates',
     label: 'Templates',

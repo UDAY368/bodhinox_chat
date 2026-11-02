@@ -55,6 +55,7 @@ import { findOrCreateContact } from '@/lib/api/v1/contacts';
 import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
 import { PlanLimitError, requireWithinLimit } from '@/lib/billing/entitlements';
 import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
+import { notifyCampaignFinished, type FinishedCampaign } from '@/lib/notifications/emit';
 
 /** Map a sending-number failure to a BroadcastError (the old message when none is connected). */
 export function broadcastNumberError(error: unknown): unknown {
@@ -548,6 +549,8 @@ export async function finalizeBroadcastStatus(
   if (final.error) throw new Error('Broadcast completion persistence failed');
   const row = (final.data as Record<string, unknown>[] | null)?.[0];
   // An API campaign settles after every batch and never "completes", so it fires no completion event.
+  // The creator's in-app/email alert never throws, so it cannot fail the job after the commit above.
+  if (row && row.kind !== 'api') await notifyCampaignFinished(row as unknown as FinishedCampaign);
   if (row && row.kind !== 'api')
     await dispatchWebhookEvent(db, row.account_id as string, 'broadcast.completed', {
       broadcast_id: row.id,

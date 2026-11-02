@@ -45,6 +45,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
+import { MASK_CHAR } from '@/lib/inbox/masking';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -79,6 +80,9 @@ export function ContactDetailView({
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editCompany, setEditCompany] = useState('');
+  // The server sends a masked member only the masked number; it is shown
+  // read-only, since the server refuses number writes from that member.
+  const phoneMasked = !!contact?.phone?.includes(MASK_CHAR);
   const [savingDetails, setSavingDetails] = useState(false);
 
   // Tags tab
@@ -223,7 +227,9 @@ export function ContactDetailView({
       .from('contacts')
       .update({
         name: editName.trim() || null,
-        phone: editPhone.trim(),
+        // Send the number only when it was changed: re-saving an unchanged
+        // value could write back a masked display form.
+        ...(phoneChanged && !phoneMasked ? { phone: editPhone.trim() } : {}),
         email: editEmail.trim() || null,
         company: editCompany.trim() || null,
         updated_at: new Date().toISOString(),
@@ -231,7 +237,7 @@ export function ContactDetailView({
       .eq('id', contactId);
 
     if (error) {
-      toast.error(t('toastUpdateFailed'));
+      toast.error(error.code === 'PHONE_MASKED' ? t('phoneMasked') : t('toastUpdateFailed'));
     } else {
       toast.success(t('toastUpdated'));
       fetchContact();
@@ -553,6 +559,9 @@ export function ContactDetailView({
                     </Label>
                     <Input
                       value={editPhone}
+                      readOnly={phoneMasked}
+                      aria-readonly={phoneMasked}
+                      title={phoneMasked ? t('phoneMaskedHint') : undefined}
                       onChange={(e) => setEditPhone(e.target.value)}
                       className="bg-muted border-border text-foreground h-8 text-sm"
                     />

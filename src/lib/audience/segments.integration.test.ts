@@ -102,6 +102,24 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('segments, export and segmen
     await deleteSegment(a, segment.id);
   });
 
+  it('lets a viewer preview and page a saved segment (read path takes no row lock)', async () => {
+    const asViewer: TenantContext = { accountId: accountA, userId: viewer, role: 'viewer' };
+    const segment = await createSegment(a, { name: 'Viewer readable', filter: { conditions: [{ field: 'tags', op: 'has_any', tagIds: [vip] }] } });
+    try {
+      expect(await previewAudience(asViewer, { segmentId: segment.id })).toEqual({ total: 3, sendable: 1 });
+      const first = await segmentContacts(asViewer, segment.id, { offset: 0, limit: 2 });
+      expect(first.total).toBe(3);
+      expect(first.contacts).toHaveLength(2);
+      const second = await segmentContacts(asViewer, segment.id, { offset: 2, limit: 2 });
+      expect(second.contacts).toHaveLength(1);
+      expect(new Set([...first.contacts, ...second.contacts].map((c) => c.id))).toEqual(new Set([asha, bilal, chen]));
+      // Still refused writes.
+      expect(await updateSegment(asViewer, segment.id, { name: 'Viewer rename' }).catch(() => null)).toBeNull();
+    } finally {
+      await deleteSegment(a, segment.id);
+    }
+  });
+
   it('exports a segment as formula-safe CSV and audit-logs the export', async () => {
     const segment = await createSegment(a, { name: 'Export', filter: { conditions: [{ field: 'tags', op: 'has_any', tagIds: [vip] }] } });
     const { csv, rows } = await exportContactsCsv({ ...a, role: 'admin' }, { segmentId: segment.id });

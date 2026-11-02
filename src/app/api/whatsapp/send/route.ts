@@ -19,6 +19,7 @@ import { UncertainDispatchError } from '@/lib/jobs/dispatch'
 import { isUniqueViolation } from '@/lib/contacts/dedupe'
 import { NoNumberError } from '@/lib/whatsapp/numbers'
 import { loadPickableNumbers, loadSenderConfig, numberErrorText, pickDefaultNumber } from '@/lib/whatsapp/sender-config'
+import { claimOnAgentReply } from '@/lib/inbox/lifecycle'
 
 const t = getT('Api')
 const tForm = getT('Validation.formSend')
@@ -205,6 +206,11 @@ export async function POST(request: Request) {
         interactivePayload: interactive_payload,
         replyToMessageId: reply_to_message_id,
       })
+      // The replying member takes an unassigned conversation. Best effort:
+      // the message is already sent, so a failure here must not fail the send.
+      await claimOnAgentReply({ accountId, userId, role }, conversationId).catch(() =>
+        console.error('[send] conversation claim failed')
+      )
 
       return NextResponse.json({
         success: true,

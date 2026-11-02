@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 const ACCOUNT = '11111111-1111-4111-8111-111111111111';
 const USER = '22222222-2222-4222-8222-222222222222';
 const FORM = '33333333-3333-4333-8333-333333333333';
-const h = vi.hoisted(() => ({ role: 'viewer', listResponses: vi.fn() }));
+const h = vi.hoisted(() => ({ role: 'viewer', listResponses: vi.fn(), mask: false }));
 
 vi.mock('@/lib/auth/session', () => ({ requireSession: async () => ({ userId: USER, accountId: ACCOUNT, role: h.role, sessionId: 's' }) }));
 vi.mock('@/lib/data/server', () => ({
@@ -22,6 +22,11 @@ vi.mock('@/lib/whatsapp/forms/service', async (original) => ({
   listResponses: h.listResponses,
 }));
 
+vi.mock('@/lib/inbox/masking-apply', async (original) => ({
+  ...(await original<typeof import('@/lib/inbox/masking-apply')>()),
+  resolvePhoneMask: async () => h.mask,
+}));
+
 import { FormServiceError } from '@/lib/whatsapp/forms/service';
 import { GET } from './route';
 
@@ -30,6 +35,7 @@ const get = (query = '') => GET(new Request(`http://localhost/r${query}`), { par
 beforeEach(() => {
   vi.clearAllMocks();
   h.role = 'viewer';
+  h.mask = false;
   h.listResponses.mockResolvedValue({ responses: [], next_cursor: null });
 });
 
@@ -45,4 +51,15 @@ it('maps a bad cursor to 400 and another account to 404', async () => {
   expect((await get('?cursor=zz')).status).toBe(400);
   h.listResponses.mockRejectedValueOnce(new FormServiceError(404, 'nope'));
   expect((await get()).status).toBe(404);
+});
+
+it('masks the contact number for a member whose numbers are masked', async () => {
+  h.mask = true;
+  h.listResponses.mockResolvedValue({
+    responses: [{ id: 'r1', created_at: '2026-11-01T00:00:00Z', contact: { id: 'c1', name: 'Asha', phone: '+919876543210' }, answers: {}, labels: {} }],
+    next_cursor: null,
+  });
+  const body = await (await get()).json();
+  expect(JSON.stringify(body)).not.toContain('9876543210');
+  expect(body.responses[0].contact).toEqual({ id: 'c1', name: 'Asha', phone: '+91 98•••••210' });
 });

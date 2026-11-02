@@ -7,12 +7,15 @@ import { requireRole } from '@/lib/auth/account';
 import { exportContactsCsv } from '@/lib/audience/export';
 import { audienceError, tenantOf } from '@/lib/audience/http';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import { resolvePhoneMask } from '@/lib/inbox/masking-apply';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('admin');
+    // Admins are never masked; kept so a lower export role can't leak numbers.
+    if (await resolvePhoneMask(tenantOf(ctx))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const limit = checkRateLimit(`admin:contactsExport:${ctx.userId}`, RATE_LIMITS.adminAction);
     if (!limit.success) return rateLimitResponse(limit);
     const query = new URL(request.url).searchParams;

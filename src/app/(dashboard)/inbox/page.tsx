@@ -25,7 +25,19 @@ import { useRealtime } from '@/hooks/use-realtime';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
-import { WifiOff } from 'lucide-react';
+import { InboxSearch } from '@/components/inbox/search/inbox-search';
+import {
+  jumpRequestFor,
+  type JumpRequest,
+} from '@/components/inbox/search/search-request';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { TextSearch, WifiOff } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 // Remembers the agent's show/hide choice for the desktop contact panel
@@ -45,6 +57,7 @@ export default function InboxPage() {
 
 function InboxPageInner() {
   const t = useTranslations('Inbox.page');
+  const tSearch = useTranslations('InboxSearch');
   const router = useRouter();
   const searchParams = useSearchParams();
   /**
@@ -106,6 +119,9 @@ function InboxPageInner() {
   // back to the deep-linked conversation if they've already clicked
   // elsewhere.
   const autoSelectedForDeepLinkRef = useRef<string | null>(null);
+  // Search-hit jump for the open thread (see handleOpenSearchResult).
+  const [jumpRequest, setJumpRequest] = useState<JumpRequest | null>(null);
+  const jumpNonceRef = useRef(0);
 
   // Tracks conversations whose hydrate fetch is currently in flight. The
   // conv-INSERT and the first-message-INSERT events both call into
@@ -473,6 +489,8 @@ function InboxPageInner() {
       // when conversationId changes — so messages would stay empty until
       // the user navigated away and back. Bail out early instead.
       if (activeConversation?.id === conv.id) return;
+      // A pending search jump belongs to the conversation it was made for.
+      setJumpRequest(null);
       setActiveConversation(conv);
       setActiveContact(conv.contact ?? null);
       setMessages([]);
@@ -512,6 +530,7 @@ function InboxPageInner() {
   // back. Also clears the ?c= param so a refresh lands on the list
   // instead of re-opening the thread the user just backed out of.
   const handleCloseConversation = useCallback(() => {
+    setJumpRequest(null);
     setActiveConversation(null);
     setActiveContact(null);
     setMessages([]);
@@ -582,6 +601,38 @@ function InboxPageInner() {
     [activeConversation]
   );
 
+  // Message search: picking a hit opens its conversation (loading it when the
+  // list doesn't hold it) and asks the thread to scroll to the message.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const handleOpenSearchResult = useCallback(
+    async (conversationId: string, messageId: string) => {
+      setSearchOpen(false);
+      let conv = conversations.find((c) => c.id === conversationId) ?? null;
+      if (!conv) {
+        const { data, error } = await createClient()
+          .from('conversations')
+          .select(CONVERSATION_SELECT)
+          .eq('id', conversationId)
+          .maybeSingle();
+        if (error || !data) {
+          toast.error(t('openConversationFailed'));
+          return;
+        }
+        const fetched = normalizeConversation(data);
+        conv = fetched;
+        setConversations((prev) =>
+          prev.some((c) => c.id === fetched.id) ? prev : [fetched, ...prev]
+        );
+      }
+      handleSelectConversation(conv);
+      // Set after selecting (which clears any earlier request). The nonce
+      // only ever grows, so picking the same hit again still re-jumps.
+      jumpNonceRef.current += 1;
+      setJumpRequest({ conversationId, messageId, nonce: jumpNonceRef.current });
+    },
+    [conversations, handleSelectConversation, t]
+  );
+
   // On mobile (<lg) we show a SINGLE pane — either the list or the
   // thread — rather than cramming both side-by-side. Selecting a
   // conversation slides the thread in; the thread's back button pops
@@ -618,6 +669,17 @@ function InboxPageInner() {
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken}
+            headerAction={
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                aria-label={tSearch('placeholder')}
+                title={tSearch('placeholder')}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+              >
+                <TextSearch className="h-4 w-4" />
+              </button>
+            }
           />
         </div>
 
@@ -651,6 +713,7 @@ function InboxPageInner() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
+            jumpRequest={jumpRequestFor(jumpRequest, activeConversation?.id)}
           />
         </div>
 
@@ -681,6 +744,21 @@ function InboxPageInner() {
           </div>
         )}
       </div>
+
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{tSearch('placeholder')}</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1">
+            <InboxSearch
+              onOpen={(conversationId, messageId) =>
+                void handleOpenSearchResult(conversationId, messageId)
+              }
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

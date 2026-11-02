@@ -50,6 +50,9 @@ class FakeTx {
   admins = [ADMIN, OWNER];
   $queryRaw = async (strings: TemplateStringsArray) => {
     const sql = strings.join('?');
+    // createNotification's recipient lookup: members with their (default) preferences.
+    if (sql.includes('LEFT JOIN notification_preferences'))
+      return [...this.admins].sort().map((user_id) => ({ user_id, in_app: true, email: false }));
     if (sql.includes('FROM account_memberships')) return this.admins.map((user_id) => ({ user_id }));
     if (sql.includes('FROM whatsapp_config')) return this.row ? [{ ...this.row }] : [];
     throw new Error(`unexpected query ${sql}`);
@@ -66,7 +69,9 @@ class FakeTx {
       return 1;
     }
     if (sql.includes('INSERT INTO notifications')) {
-      const [, user_id, , title, body, dedupe_key] = values as string[];
+      const [, , user_id, type, , , , , title, body, link, dedupe_key] = values as string[];
+      expect(type).toBe('whatsapp_number_health');
+      expect(link).toBe('/settings?tab=whatsapp');
       const key = `${user_id}|${dedupe_key}`;
       if (this.notifications.has(key)) return 0; // ON CONFLICT DO NOTHING
       this.notifications.set(key, { user_id, title, body, dedupe_key });

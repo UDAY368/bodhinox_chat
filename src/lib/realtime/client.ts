@@ -20,6 +20,8 @@ const allowed = new Set([
   'deals',
   'broadcasts',
   'broadcast_recipients',
+  // Note events carry ids only (src/lib/realtime/projection.ts).
+  'conversation_notes',
 ]);
 /** Tenant/user authorization is enforced by the server; reconnects restore snapshots. */
 export class RealtimeChannel {

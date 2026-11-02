@@ -30,9 +30,11 @@ it('adds a server timestamp after validating a browser mutation without mutating
     },
     true
   );
-  expect(queries[0].sql).toContain('"updated_at" =');
+  // The first query reads the caller's phone-masking flag.
+  const update = queries.find((query) => query.sql.includes('UPDATE'))!;
+  expect(update.sql).toContain('"updated_at" =');
   expect(
-    queries[0].values.some(
+    update.values.some(
       (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)
     )
   ).toBe(true);

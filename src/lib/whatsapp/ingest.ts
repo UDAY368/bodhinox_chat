@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { orderContentText, type InboundOrder, type OrderMessagePayload } from "@/lib/commerce/order-format";
 import { recordWhatsAppOrder, withProductNames } from "@/lib/commerce/orders";
 import { emitOrderCreated } from "@/lib/webhooks/commerce-events";
+import { notifyAssignedMessage } from "@/lib/notifications/emit";
 
 export interface IngestInboundInput {
   accountId: string; userId: string; contactId: string; conversationId: string;
@@ -98,6 +99,9 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
     await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
       VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`})
       ON CONFLICT(dedupe_key) DO NOTHING`;
+    // The assignee's "new message" alert commits with the message (debounced per conversation).
+    await notifyAssignedMessage(tx, { accountId: input.accountId, conversationId: input.conversationId,
+      contactId: input.contactId, messageId: inserted[0].id });
     return { messageId: inserted[0].id, inserted: true, isFirstInboundMessage: payload.isFirstInboundMessage };
   }, getWorkerPrisma());
   // order.created goes out only after the order has committed, and only from

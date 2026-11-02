@@ -22,6 +22,8 @@ vi.mock('./ingest', () => ({ runInboundStage: async (_a: string, _m: string, sta
 } }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => 'worker' }));
 vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_c: unknown, op: (tx: unknown) => unknown) => op({}) }));
+vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: async () => ({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }) }));
+vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: async () => 'off' }));
 vi.mock('@/lib/commerce/order-confirmation', () => ({ sendOrderConfirmation: h.confirm }));
 
 import { processInboundActions } from './inbound-actions';

@@ -26,6 +26,7 @@ import { enqueueJob } from '@/lib/jobs/queue';
 import { decrypt } from './encryption';
 import { getPhoneNumberHealth, MetaApiError } from './meta-api';
 import { parseMessagingLimit } from './phone-health';
+import { createNotification } from '@/lib/inbox/notify';
 
 export const HEALTH_SYNC_JOB = 'whatsapp.health_sync';
 export const HEALTH_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -200,11 +201,12 @@ export async function applyHealthSnapshot(
     for (const change of changes) {
       const { title, body } = describeChange(change, label);
       const dedupeKey = notificationDedupeKey(configId, change, previous.health_checked_at);
-      for (const { user_id } of admins)
-        notified += await tx.$executeRaw`
-          INSERT INTO notifications(account_id,user_id,type,whatsapp_config_id,title,body,dedupe_key)
-          VALUES(${accountId}::uuid,${user_id}::uuid,'whatsapp_number_health',${configId}::uuid,${title},${body},${dedupeKey})
-          ON CONFLICT DO NOTHING`;
+      // Each admin's number_quality preference decides in-app and email digest.
+      const result = await createNotification(tx, {
+        accountId, userIds: admins.map(({ user_id }) => user_id), event: 'number_quality',
+        title, body, link: '/settings?tab=whatsapp', dedupeKey, whatsappConfigId: configId,
+      });
+      notified += result.inApp.length;
     }
   }
   return { status: 'synced', snapshot, changes, notified };

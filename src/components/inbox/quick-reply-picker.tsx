@@ -13,6 +13,12 @@ import {
 } from "@/components/ui/dialog";
 import type { QuickReply } from "@/types";
 import { interactivePayloadPreviewText } from "@/lib/whatsapp/interactive";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  FavouriteToggle,
+  useFavouritesFirst,
+  useQuickReplyFavourites,
+} from "./quick-replies/favourite-toggle";
 
 interface QuickReplyPickerProps {
   open: boolean;
@@ -33,6 +39,10 @@ export function QuickReplyPicker({
   const t = useTranslations("Inbox.composer");
   const [items, setItems] = useState<QuickReply[]>([]);
   const [loading, setLoading] = useState(false);
+  // Favourites are per member; starring needs agent+ (the route refuses viewers).
+  const { canSendMessages } = useAuth();
+  const { favourites, setFavourite } = useQuickReplyFavourites(open);
+  const sorted = useFavouritesFirst(items, favourites);
 
   useEffect(() => {
     if (!open) return;
@@ -71,12 +81,12 @@ export function QuickReplyPicker({
             </p>
           ) : (
             <ul className="flex flex-col gap-1">
-              {items.map((qr) => (
-                <li key={qr.id}>
+              {sorted.map((qr) => (
+                <li key={qr.id} className="flex items-start gap-1">
                   <button
                     type="button"
                     onClick={() => onPick(qr)}
-                    className="flex w-full items-start gap-2 rounded-md border border-border bg-muted/40 p-2.5 text-left hover:border-primary/50 hover:bg-muted"
+                    className="flex min-w-0 flex-1 items-start gap-2 rounded-md border border-border bg-muted/40 p-2.5 text-left hover:border-primary/50 hover:bg-muted"
                   >
                     {qr.kind === "interactive" ? (
                       <Zap className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -94,6 +104,14 @@ export function QuickReplyPicker({
                       </span>
                     </span>
                   </button>
+                  {canSendMessages && (
+                    <FavouriteToggle
+                      favourite={favourites.has(qr.id)}
+                      title={qr.title}
+                      onToggle={(next) => void setFavourite(qr.id, next)}
+                      className="mt-1.5"
+                    />
+                  )}
                 </li>
               ))}
             </ul>

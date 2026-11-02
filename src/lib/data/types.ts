@@ -119,4 +119,9 @@ export interface TenantContext {
   accountId: string;
   userId?: string;
   role?: 'owner' | 'admin' | 'agent' | 'viewer';
+  /**
+   * Contact numbers are masked for this member (account_memberships.mask_phone_numbers).
+   * Browser queries resolve it from the live membership; server code may set it.
+   */
+  maskPhones?: boolean;
 }

@@ -19,6 +19,8 @@ vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: vi.fn() }));
 vi.mock('./ingest', () => ({ runInboundStage: async (_a: string, _m: string, _s: string, action: () => Promise<unknown>) => action() }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => 'worker' }));
 vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_c: unknown, op: (tx: unknown) => unknown) => op({}) }));
+vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: async () => ({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }) }));
+vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: async () => 'off' }));
 vi.mock('./forms/responses', () => ({ loadFormDefinition: async () => h.definition, applyFormSaveTo: h.saveTo }));
 
 import { processInboundActions } from './inbound-actions';

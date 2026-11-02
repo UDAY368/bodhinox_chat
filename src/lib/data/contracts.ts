@@ -530,8 +530,20 @@ export function validateWrite(
         'tracked_url',
         'click_count',
         'clicked_at',
+        // Conversation lifecycle and SLA stamps belong to the conversation_lifecycle
+        // and messages_first_response triggers and the inbox worker jobs. The
+        // inbox resolves/reopens by writing `status`; the trigger does the rest.
+        'lifecycle_state',
+        'first_response_due_at',
+        'first_responded_at',
+        'resolved_at',
+        'reopened_count',
       ].includes(field)
     )
+      throw new ContractError(`Field ${field} is server-managed`);
+    // A notification's destination and idempotency key are chosen by the server
+    // that raised it; a browser may only mark its own notifications read.
+    if (browser && name === 'notifications' && ['link', 'dedupe_key'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
     // A campaign's kind is fixed at creation (other tables, e.g. quick_replies, have their own `kind`).
     if (browser && name === 'broadcasts' && field === 'kind')

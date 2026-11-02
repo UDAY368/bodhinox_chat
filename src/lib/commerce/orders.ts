@@ -13,6 +13,7 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { isVariableMap } from './event-rules';
 import { minorFromDb } from './money';
+import { classifyMaskedPhoneSearch, loadPhoneMask } from '@/lib/inbox/masking-apply';
 import {
   canTransition,
   isOrderSource,
@@ -214,8 +215,13 @@ export async function listOrders(ctx: TenantContext, filters: OrderFilters = {})
     if (filters.from) and.push({ created_at: { gte: filters.from } });
     if (filters.to) and.push({ created_at: { lte: filters.to } });
     if (filters.q) {
+      // A member whose numbers are masked may search a number only by its last digits.
+      const phoneSearch = /\d/.test(filters.q) && (await loadPhoneMask(tx, ctx)) ? classifyMaskedPhoneSearch(filters.q) : null;
+      const phone: Prisma.contactsWhereInput[] = !phoneSearch || phoneSearch.kind === 'text'
+        ? [{ phone: { contains: filters.q } }]
+        : phoneSearch.kind === 'suffix' ? [{ phone: { endsWith: phoneSearch.digits } }] : [];
       const contacts = await tx.contacts.findMany({
-        where: { account_id: ctx.accountId, OR: [{ name: { contains: filters.q, mode: 'insensitive' } }, { phone: { contains: filters.q } }] },
+        where: { account_id: ctx.accountId, OR: [{ name: { contains: filters.q, mode: 'insensitive' } }, ...phone] },
         select: { id: true }, take: 200,
       });
       and.push({ OR: [{ external_id: { contains: filters.q, mode: 'insensitive' } }, { contact_id: { in: contacts.map((c) => c.id) } }] });

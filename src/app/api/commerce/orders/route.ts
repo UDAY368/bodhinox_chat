@@ -7,12 +7,15 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
 import { tenantOf } from '@/lib/audience/http';
 import { listOrders, orderErrorResponse, parseOrderFilters } from '@/lib/commerce/orders';
+import { maskEmbeddedContact, resolvePhoneMask } from '@/lib/inbox/masking-apply';
 
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('agent');
     const filters = parseOrderFilters(new URL(request.url).searchParams);
-    return NextResponse.json(await listOrders(tenantOf(ctx), filters));
+    const page = await listOrders(tenantOf(ctx), filters);
+    const mask = await resolvePhoneMask(tenantOf(ctx));
+    return NextResponse.json(mask ? { ...page, orders: page.orders.map((o) => maskEmbeddedContact(o, true)) } : page);
   } catch (error) {
     return orderErrorResponse(error);
   }

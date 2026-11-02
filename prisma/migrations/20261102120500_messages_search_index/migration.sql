@@ -1,0 +1,22 @@
+-- Message full-text search (Phase 5). An expression GIN index, built
+-- CONCURRENTLY, so production keeps reading and writing messages while it builds.
+--
+-- Why not a generated tsvector column: ADD COLUMN ... GENERATED ALWAYS AS ...
+-- STORED rewrites the whole messages table under an ACCESS EXCLUSIVE lock, and
+-- the column would also ride along in every messages outbox/realtime payload
+-- (emit_domain_outbox_event serialises the full row). The expression index has
+-- neither cost.
+--
+-- 'simple' config: no stemming or stop words, so every language (and phone
+-- numbers, order ids) matches token for token. messages has no caption column;
+-- media captions are stored in content_text, so they are covered.
+--
+-- Queries must use exactly this expression to hit the index; use
+-- messageSearchVector() from src/lib/inbox/message-search.ts.
+--
+-- This file holds a single statement on purpose: CREATE INDEX CONCURRENTLY
+-- cannot run inside a transaction block. If a deploy is interrupted mid-build,
+-- PostgreSQL leaves an INVALID index; drop it (DROP INDEX CONCURRENTLY
+-- messages_search_idx) and mark the migration rolled back before re-running.
+CREATE INDEX CONCURRENTLY messages_search_idx ON messages
+  USING gin (to_tsvector('simple'::regconfig, COALESCE(content_text, '')));

@@ -1,6 +1,7 @@
 import { requireSession, resolveSession } from '@/lib/auth/session';
 import { withTenant } from '@/lib/db/tenant';
 import { projectRealtimePayload } from '@/lib/realtime/projection';
+import { loadPhoneMask, maskRealtimePayload } from '@/lib/inbox/masking-apply';
 import {
   decodeEventCursor,
   encodeEventCursor,
@@ -18,6 +19,8 @@ const tables = new Set([
   'deals',
   'broadcasts',
   'broadcast_recipients',
+  // Note events carry ids only (src/lib/realtime/projection.ts).
+  'conversation_notes',
 ]);
 export async function GET(request: Request) {
   let context;
@@ -87,9 +90,13 @@ export async function GET(request: Request) {
             controller.close();
             return;
           }
+          // Re-read every tick so an admin's masking change applies to open streams.
+          let mask = false;
           const rows = await withTenant(
             current,
-            (tx) => tx.$queryRaw<
+            async (tx) => {
+              mask = await loadPhoneMask(tx, current);
+              return tx.$queryRaw<
               { id: string; at: string; payload: unknown }[]
             >`
             SELECT id,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at,payload FROM outbox_events
@@ -97,13 +104,14 @@ export async function GET(request: Request) {
               AND (created_at>${cursor.at}::timestamptz OR (created_at=${cursor.at}::timestamptz AND id>${cursor.id}::uuid))
               AND (recipient_user_id IS NULL OR recipient_user_id=${current.userId}::uuid)
               AND split_part(event_type,'.',1)=ANY(${requested}::text[])
-            ORDER BY created_at,id LIMIT 200`
+            ORDER BY created_at,id LIMIT 200`;
+            }
           );
           for (const row of rows) {
             cursor = { at: row.at, id: row.id };
             emit(
               'change',
-              projectRealtimePayload(row.payload),
+              maskRealtimePayload(projectRealtimePayload(row.payload), mask),
               encodeEventCursor(cursor)
             );
           }

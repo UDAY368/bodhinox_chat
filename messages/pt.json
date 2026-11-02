@@ -274,7 +274,8 @@
   },
   "Inbox": {
     "page": {
-      "whatsappNotConnected": "O WhatsApp® não está conectado. Vá em Configurações para conectar sua conta."
+      "whatsappNotConnected": "O WhatsApp® não está conectado. Vá em Configurações para conectar sua conta.",
+      "openConversationFailed": "Não foi possível abrir essa conversa. Tente novamente."
     },
     "conversationList": {
       "searchPlaceholder": "Buscar conversas...",
@@ -299,7 +300,10 @@
       "filterWaiting": "Waiting for reply",
       "filterUnassigned": "Unassigned",
       "filterExpiringSoon": "Expiring soon",
-      "chats": "Conversas"
+      "chats": "Conversas",
+      "lifecycle": "Ciclo de vida",
+      "slaDueIn": "Responder em {value}{unit, select, m {min} h {h} other {d}}",
+      "slaOverdue": "Atrasada há {value}{unit, select, m {min} h {h} other {d}}"
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",
@@ -336,7 +340,13 @@
       "you": "Você",
       "loadOlder": "Load older messages",
       "loadingOlder": "Loading older messages…",
-      "historyLoadFailed": "Unable to load older messages"
+      "historyLoadFailed": "Unable to load older messages",
+      "notes": "Notas",
+      "showNotes": "Mostrar notas internas",
+      "hideNotes": "Ocultar notas internas",
+      "resolve": "Resolver",
+      "reopen": "Reabrir",
+      "resolveFailed": "Não foi possível atualizar a conversa. Tente novamente."
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -390,7 +400,8 @@
       "uploadFailed": "Falha no upload.",
       "sendForm": "Enviar formulário",
       "sendProducts": "Enviar produtos",
-      "sendPaymentLink": "Enviar link de pagamento"
+      "sendPaymentLink": "Enviar link de pagamento",
+      "mediaLibrary": "Biblioteca de mídia"
     },
     "bubble": {
       "photo": "Foto",
@@ -560,6 +571,53 @@
       "notReady": "O Razorpay ainda não confirmou o link. Confira o status na página de Pagamentos.",
       "linkCreated": "O link de pagamento foi criado.",
       "uncertainHelp": "Não conseguimos confirmar que a mensagem foi entregue. Confira a conversa antes de enviar de novo."
+    },
+    "notes": {
+      "title": "Notas",
+      "internalOnly": "Apenas a sua equipe pode vê-las",
+      "loading": "Carregando notas",
+      "loadFailed": "Não foi possível carregar as notas.",
+      "retry": "Tentar novamente",
+      "empty": "Ainda não há notas.",
+      "formerMember": "Ex-membro",
+      "you": "Você",
+      "edited": "(editada)",
+      "edit": "Editar nota",
+      "delete": "Excluir nota",
+      "deleteConfirm": "Excluir esta nota? Isso não pode ser desfeito.",
+      "deleteFailed": "Não foi possível excluir a nota.",
+      "saveFailed": "Não foi possível salvar a nota.",
+      "save": "Salvar",
+      "placeholder": "Adicione uma nota interna. Digite @ para mencionar um colega.",
+      "composerLabel": "Nota interna",
+      "mentionList": "Colegas para mencionar",
+      "tooLong": "As notas podem ter até {max} caracteres.",
+      "hint": "Ctrl+Enter para salvar",
+      "cancel": "Cancelar",
+      "add": "Adicionar nota"
+    },
+    "savedFilters": {
+      "views": "Visualizações",
+      "empty": "Nenhuma visualização salva ainda",
+      "saveCurrent": "Salvar visualização atual…",
+      "manage": "Gerenciar visualizações…",
+      "dialogTitle": "Visualizações salvas",
+      "dialogDescription": "Salve os filtros atuais com um nome para reabri-los com um clique. Só você vê suas visualizações.",
+      "namePlaceholder": "ex.: VIP sem atribuição",
+      "nameLabel": "Nome da visualização",
+      "save": "Salvar",
+      "saved": "Visualização “{name}” salva",
+      "saveFailed": "Não foi possível salvar a visualização",
+      "delete": "Excluir a visualização {name}",
+      "deleteFailed": "Não foi possível excluir a visualização",
+      "close": "Fechar"
+    },
+    "quickReplyFavourites": {
+      "add": "Adicionar {title} aos favoritos",
+      "remove": "Remover {title} dos favoritos",
+      "addShort": "Adicionar aos favoritos",
+      "removeShort": "Remover dos favoritos",
+      "failed": "Não foi possível atualizar os favoritos"
     }
   },
   "Contacts": {
@@ -680,7 +738,9 @@
       "phoneRequired": "O número de telefone é obrigatório",
       "phoneNeedsCountryCode": "Inclua o código do país — o número deve começar com + (ex.: +5511999990000)",
       "notAuthenticated": "Não autenticado",
-      "notLinkedToAccount": "Seu perfil não está vinculado a uma conta."
+      "notLinkedToAccount": "Seu perfil não está vinculado a uma conta.",
+      "phoneMasked": "Os números de telefone estão ocultos para a sua conta, então você não pode adicionar nem alterar um número. Peça a um administrador.",
+      "phoneMaskedHint": "O número está oculto para a sua conta e não pode ser editado aqui."
     },
     "detailView": {
       "tabs": {
@@ -750,7 +810,9 @@
         "optedOutHint": "Sem transmissões nem modelos. Ativado quando responde STOP.",
         "blocked": "Bloqueado",
         "blockedHint": "Sem mensagens automáticas, fluxos ou respostas de IA."
-      }
+      },
+      "phoneMasked": "Os números de telefone estão ocultos para a sua conta, então você não pode adicionar nem alterar um número. Peça a um administrador.",
+      "phoneMaskedHint": "O número está oculto para a sua conta e não pode ser editado aqui."
     },
     "importModal": {
       "title": "Importar contatos",
@@ -2257,7 +2319,13 @@
       "removeDialogDesc": "Remover <bold>{name}</bold> da conta? A pessoa será desconectada desta conta e receberá uma nova conta pessoal no próximo login. O login dela não é excluído.",
       "cancel": "Cancelar",
       "removing": "Removendo...",
-      "removeBtn": "Remover membro"
+      "removeBtn": "Remover membro",
+      "maskToggle": "Ocultar números de telefone para {name}",
+      "maskOnHint": "Os números de telefone estão ocultos para este membro. Clique para mostrar os números completos.",
+      "maskOffHint": "Ocultar os números de telefone dos clientes para este membro",
+      "maskedToast": "Os números de telefone agora estão ocultos para {name}",
+      "unmaskedToast": "{name} agora pode ver os números de telefone completos",
+      "maskFailed": "Não foi possível atualizar a ocultação de números"
     },
     "invite": {
       "inviteCreated": "Convite criado",
@@ -2675,7 +2743,9 @@
       "api": "API e webhooks",
       "inbox": "Caixa de entrada",
       "plan": "Plano e uso",
-      "payments": "Pagamentos"
+      "payments": "Pagamentos",
+      "notifications": "Notificações",
+      "media": "Biblioteca de mídia"
     },
     "groups": {
       "account": "Conta",
@@ -3230,6 +3300,79 @@
         "template_not_on_number": "Este modelo não pertence ao número de WhatsApp escolhido.",
         "number_not_found": "Esse número de WhatsApp não foi encontrado."
       }
+    },
+    "workingHours": {
+      "title": "Horário de atendimento e mensagem de ausência",
+      "description": "Quando sua equipe está disponível, o que os clientes recebem quando não está e em quanto tempo a primeira resposta é esperada.",
+      "loadFailed": "Não foi possível carregar as configurações da caixa de entrada. Recarregue a página para tentar novamente.",
+      "timezone": "Fuso horário",
+      "hours": "Horário de atendimento",
+      "hoursHint": "Deixe todos os dias fechados para considerar a caixa de entrada sempre aberta.",
+      "openOn": "Aberto: {day}",
+      "closed": "Fechado",
+      "opensAt": "Abre: {day}",
+      "closesAt": "Fecha: {day}",
+      "to": "até",
+      "removeRange": "Remover este horário",
+      "addRange": "Adicionar horário",
+      "awayTitle": "Mensagem de ausência",
+      "awayDescription": "Enviada uma vez por período fechado ao cliente que escreve fora do horário, a menos que um bot ou fluxo já tenha respondido.",
+      "awayText": "Texto da mensagem de ausência",
+      "awayPlaceholder": "Obrigado pela mensagem! Estamos fechados agora e responderemos quando abrirmos.",
+      "slaLabel": "Meta de primeira resposta (minutos)",
+      "slaHint": "Proprietários, administradores e o responsável são avisados quando uma conversa espera mais.",
+      "autoResolveLabel": "Resolver automaticamente após (horas)",
+      "autoResolveHint": "Conversas inativas em que sua equipe falou por último são resolvidas. Um cliente aguardando resposta nunca é resolvido.",
+      "off": "Desativado",
+      "save": "Salvar",
+      "saved": "Configurações da caixa de entrada salvas",
+      "saveFailed": "Não foi possível salvar as configurações da caixa de entrada",
+      "adminsOnly": "Somente administradores e proprietários podem alterar estas configurações."
+    },
+    "routingRules": {
+      "title": "Regras de distribuição",
+      "description": "Atribua novas conversas automaticamente. Decide a primeira regra ativa, de cima para baixo, cujas condições sejam todas atendidas.",
+      "adminsOnly": "Somente administradores e proprietários podem gerenciar as regras de distribuição.",
+      "loadFailed": "Não foi possível carregar as regras. Recarregue a página para tentar novamente.",
+      "empty": "Ainda não há regras. As conversas ficam sem responsável até alguém assumi-las.",
+      "enabledLabel": "Ativar ou desativar {name}",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "edit": "Editar regra",
+      "delete": "Excluir regra",
+      "add": "Adicionar regra",
+      "deleteConfirm": "Excluir a regra “{name}”?",
+      "deleteFailed": "Não foi possível excluir a regra",
+      "deleted": "Regra excluída",
+      "saveFailed": "Não foi possível salvar a regra",
+      "saved": "Regra salva",
+      "unknownMember": "Ex-membro",
+      "roundRobinSummary": "Rodízio: {names}",
+      "reassignSummary": "passa adiante após {minutes, plural, one {# minuto} other {# minutos}} sem resposta",
+      "editTitle": "Editar regra de distribuição",
+      "addTitle": "Nova regra de distribuição",
+      "dialogDescription": "Todas as condições preenchidas devem ser atendidas. Deixe todas vazias para valer para qualquer conversa.",
+      "name": "Nome",
+      "conditions": "Condições",
+      "conditionsHint": "Verificadas quando um cliente escreve em uma conversa sem responsável e sem bot atendendo.",
+      "keywords": "A mensagem contém alguma destas",
+      "keywordsPlaceholder": "reembolso, fatura, preço",
+      "tags": "O contato tem alguma destas etiquetas",
+      "number": "Número do WhatsApp",
+      "anyNumber": "Qualquer número",
+      "hours": "Horário",
+      "hoursAny": "A qualquer hora",
+      "hoursWithin": "Dentro do horário de atendimento",
+      "hoursOutside": "Fora do horário de atendimento",
+      "assignTo": "Atribuir a",
+      "assignMode": "Como atribuir",
+      "modeMember": "Um membro",
+      "modeRoundRobin": "Rodízio entre membros",
+      "reassign": "Passar ao próximo membro após (minutos)",
+      "reassignHint": "Se ninguém tiver respondido até lá, a conversa vai para o próximo membro da lista. Deixe vazio para mantê-la onde está.",
+      "off": "Desativado",
+      "cancel": "Cancelar",
+      "save": "Salvar"
     }
   },
   "SignupPage": {
@@ -3328,7 +3471,19 @@
     "retry": "Tentar novamente",
     "emptyTitle": "Nenhuma notificação ainda",
     "emptyDesc": "Você verá um alerta aqui quando alguém atribuir uma conversa a você.",
-    "unread": "Não lidas"
+    "unread": "Não lidas",
+    "descriptionAll": "Atribuições, menções, respostas atrasadas, resultados de campanhas e alertas do WhatsApp aparecem aqui.",
+    "emptyDescAll": "Você verá um alerta aqui quando uma conversa for atribuída a você, um colega mencionar você ou algo no seu espaço de trabalho precisar de atenção.",
+    "types": {
+      "conversation_assigned": "Atribuída a você",
+      "assigned_message": "Nova mensagem",
+      "mention": "Menção",
+      "sla_breach": "Primeira resposta atrasada",
+      "campaign_finished": "Campanha",
+      "template_rejected": "Modelo rejeitado",
+      "whatsapp_number_health": "Número do WhatsApp",
+      "payment_received": "Pagamento recebido"
+    }
   },
   "Agents": {
     "title": "Agentes de IA",
@@ -4427,6 +4582,32 @@
       "resolution": "Indique se o cliente recebeu a mensagem.",
       "not_found": "Evento da loja não encontrado.",
       "not_open": "Este evento não precisa mais de atenção."
+    },
+    "inboxSettings": {
+      "invalid_timezone": "Escolha um fuso horário válido.",
+      "invalid_working_hours": "Confira o horário: cada faixa deve começar antes de terminar e as faixas de um dia não podem se sobrepor.",
+      "invalid_away_message": "Escreva uma mensagem de ausência de até 1024 caracteres ou desative-a.",
+      "invalid_auto_resolve": "A resolução automática deve ser um número inteiro de horas entre 1 e 720.",
+      "invalid_sla": "A meta de primeira resposta deve ser um número inteiro de minutos entre 1 e 10080."
+    },
+    "routingRules": {
+      "invalid_name": "Dê à regra um nome de até 120 caracteres.",
+      "invalid_conditions": "Confira as condições da regra.",
+      "invalid_assignee": "Escolha quem deve receber as conversas.",
+      "invalid_reassign": "O tempo para redistribuir deve ser um número inteiro de minutos entre 1 e 10080.",
+      "invalid_order": "A ordem das regras está desatualizada. Recarregue a página e tente novamente.",
+      "unknown_tag": "Uma das etiquetas não existe mais.",
+      "unknown_member": "As conversas só podem ir para proprietários, administradores e agentes deste espaço de trabalho.",
+      "unknown_number": "Esse número do WhatsApp não faz parte deste espaço de trabalho.",
+      "limit": "Um espaço de trabalho pode ter no máximo 50 regras de distribuição.",
+      "not_found": "Essa regra não existe mais."
+    },
+    "notes": {
+      "invalidRequest": "Envie a nota como um objeto JSON.",
+      "not_found": "Essa conversa ou nota não existe mais.",
+      "forbidden": "Você só pode alterar as suas próprias notas.",
+      "invalid_body": "Escreva uma nota de 1 a 4000 caracteres.",
+      "invalid_mentions": "Mencione no máximo 20 colegas."
     }
   },
   "Api": {
@@ -4470,7 +4651,11 @@
         "loadFailed": "Falha ao carregar os membros",
         "updateFailed": "Falha ao atualizar o membro",
         "roleInvalid": "A função deve ser owner, admin, agent ou viewer",
-        "useTransferOwnership": "Use POST /api/account/transfer-ownership para promover um membro a proprietário"
+        "useTransferOwnership": "Use POST /api/account/transfer-ownership para promover um membro a proprietário",
+        "maskInvalid": "'mask_phone_numbers' deve ser true ou false",
+        "maskPrivileged": "Proprietários e administradores sempre veem os números completos",
+        "oneChange": "Altere a função ou a ocultação de números, não ambos ao mesmo tempo",
+        "notFound": "Membro não encontrado"
       },
       "nameMustBeString": "O nome deve ser um texto",
       "nameEmpty": "O nome da conta não pode ficar vazio",
@@ -4755,6 +4940,28 @@
         "token": "A Meta recusou o token de acesso deste número. Reconecte o número e verifique novamente.",
         "unavailable": "A Meta não retornou a saúde deste número. Tentaremos de novo na próxima verificação."
       }
+    },
+    "inboxSearch": {
+      "queryRequired": "Digite algo para pesquisar.",
+      "queryTooLong": "A pesquisa é longa demais.",
+      "invalidNumber": "Número de WhatsApp desconhecido.",
+      "invalidStatus": "O status deve ser open, pending ou closed.",
+      "invalidAssignee": "O responsável deve ser me, unassigned ou o id de um membro.",
+      "invalidDate": "As datas devem ser datas e horas ISO 8601.",
+      "invalidDateRange": "A data inicial deve ser anterior à data final.",
+      "invalidCursor": "O cursor de página não é válido.",
+      "invalidLimit": "O limite deve ser um número inteiro de 1 a 50.",
+      "timeout": "A pesquisa demorou demais. Refine com mais texto ou filtros."
+    },
+    "savedFilters": {
+      "nameInvalid": "Dê à visualização um nome de 1 a 80 caracteres.",
+      "filtersInvalid": "Os filtros da visualização são inválidos.",
+      "positionInvalid": "A posição deve ser um número inteiro de 0 a 10000.",
+      "nothingToUpdate": "Nada para atualizar.",
+      "limitReached": "Você pode salvar até {max} visualizações. Exclua uma para salvar outra.",
+      "notFound": "Visualização salva não encontrada.",
+      "favouriteInvalid": "Envie o id de uma resposta rápida e se ela é favorita.",
+      "quickReplyNotFound": "Resposta rápida não encontrada."
     }
   },
   "PageSearch": {
@@ -5906,5 +6113,128 @@
         "variables_invalid": "Associe cada variável a um campo do pedido."
       }
     }
+  },
+  "InboxLifecycle": {
+    "bot": "Bot",
+    "requesting": "Solicitando",
+    "assigned": "Atribuída",
+    "resolved": "Resolvida",
+    "reopened": "{count, plural, one {Reaberta uma vez} other {Reaberta # vezes}}",
+    "slaDue": "Primeira resposta até {time}",
+    "slaBreached": "Primeira resposta atrasada"
+  },
+  "NotificationEvents": {
+    "assigned_message": {
+      "label": "Novas mensagens nas minhas conversas",
+      "description": "Um cliente escreve em uma conversa atribuída a você."
+    },
+    "mention": {
+      "label": "Menções",
+      "description": "Um colega menciona você em uma nota interna."
+    },
+    "sla_breach": {
+      "label": "Metas de primeira resposta perdidas",
+      "description": "Uma conversa espera mais do que a meta de primeira resposta do workspace."
+    },
+    "campaign_finished": {
+      "label": "Campanhas concluídas",
+      "description": "Uma transmissão que você pode ver terminou de ser enviada."
+    },
+    "template_rejected": {
+      "label": "Modelos rejeitados",
+      "description": "A Meta rejeita um modelo de mensagem."
+    },
+    "number_quality": {
+      "label": "Mudanças na qualidade do número",
+      "description": "A classificação de qualidade ou o limite de mensagens de um número do WhatsApp muda."
+    },
+    "inApp": "No app",
+    "email": "Resumo por e-mail"
+  },
+  "Weekdays": {
+    "mon": "Segunda-feira",
+    "tue": "Terça-feira",
+    "wed": "Quarta-feira",
+    "thu": "Quinta-feira",
+    "fri": "Sexta-feira",
+    "sat": "Sábado",
+    "sun": "Domingo"
+  },
+  "MediaLibrary": {
+    "pickerTitle": "Biblioteca de mídia",
+    "pickerDescription": "Escolha um arquivo salvo ou envie um novo.",
+    "search": "Buscar arquivos",
+    "filter": "Filtrar por tipo",
+    "kinds": {
+      "all": "Todos",
+      "image": "Imagens",
+      "video": "Vídeos",
+      "audio": "Áudio",
+      "document": "Documentos"
+    },
+    "upload": "Enviar",
+    "uploaded": "Arquivo adicionado à biblioteca",
+    "uploadRejected": "Este tipo ou tamanho de arquivo não é compatível. Imagens podem ter até 5 MB e outros arquivos até 16 MB.",
+    "uploadFailed": "Não foi possível enviar o arquivo. Tente novamente.",
+    "loading": "Carregando…",
+    "loadMore": "Carregar mais",
+    "loadFailed": "Não foi possível carregar a biblioteca de mídia.",
+    "empty": "Ainda não há arquivos. Envie um para reutilizá-lo nas conversas.",
+    "noMatches": "Nenhum arquivo corresponde a este filtro.",
+    "pick": "Usar {name}",
+    "delete": "Excluir {name}",
+    "deleteConfirm": "Excluir \"{name}\" da biblioteca?",
+    "deleted": "Arquivo excluído",
+    "hidden": "Removido da biblioteca. O arquivo foi mantido porque uma mensagem recente, um modelo ou um fluxo ainda o usa.",
+    "deleteForbidden": "Somente um administrador ou quem enviou este arquivo pode excluí-lo.",
+    "deleteFailed": "Não foi possível excluir o arquivo. Tente novamente.",
+    "settingsTitle": "Biblioteca de mídia",
+    "settingsDescription": "Arquivos que sua equipe salvou para reutilizar nas conversas e quanto armazenamento este espaço de trabalho usa.",
+    "usageFailed": "Não foi possível carregar o uso de armazenamento.",
+    "used": "{used} usados",
+    "usedOfLimit": "{used} de {limit} usados",
+    "meterLabel": "Armazenamento usado",
+    "libraryCount": "{count, plural, =0 {Nenhum arquivo na biblioteca} one {# arquivo na biblioteca ({size})} other {# arquivos na biblioteca ({size})}}",
+    "manage": "Gerenciar arquivos",
+    "manageTitle": "Gerenciar biblioteca de mídia",
+    "manageDescription": "Agentes podem excluir os próprios envios; administradores podem excluir qualquer arquivo. Arquivos usados por uma mensagem dos últimos {days} dias, um modelo ou um fluxo são apenas removidos da biblioteca."
+  },
+  "NotificationPreferences": {
+    "title": "Preferências de notificação",
+    "description": "Escolha sobre o que você quer ser avisado no app e no resumo por e-mail. Estas configurações são só suas.",
+    "loading": "Carregando suas preferências…",
+    "loadFailed": "Não foi possível carregar suas preferências de notificação.",
+    "retry": "Tentar novamente",
+    "saveFailed": "Não foi possível salvar a alteração. Tente novamente.",
+    "event": "Evento",
+    "inAppFor": "Notificações no app para {event}",
+    "emailFor": "Resumo por e-mail para {event}",
+    "emailUnavailable": "Os resumos por e-mail não estão disponíveis porque este espaço de trabalho não tem envio de e-mail configurado.",
+    "digestHint": "O resumo por e-mail chega no máximo a cada 30 minutos e traz apenas títulos e links das notificações, nunca o conteúdo das mensagens."
+  },
+  "InboxSearch": {
+    "placeholder": "Pesquisar mensagens",
+    "filters": "Filtros de pesquisa",
+    "allNumbers": "Todos os números",
+    "status": "Status",
+    "anyStatus": "Qualquer status",
+    "statusOpen": "Aberta",
+    "statusPending": "Pendente",
+    "statusClosed": "Fechada",
+    "assignee": "Responsável",
+    "anyAssignee": "Qualquer pessoa",
+    "assignedToMe": "Atribuídas a mim",
+    "unassigned": "Sem responsável",
+    "from": "De",
+    "to": "Até",
+    "clearFilters": "Limpar filtros",
+    "hint": "Pesquise o texto das mensagens ou um número de telefone.",
+    "searching": "Pesquisando…",
+    "failed": "A pesquisa falhou. Tente novamente.",
+    "rateLimited": "Muitas pesquisas. Aguarde um momento e tente novamente.",
+    "noResults": "Nenhuma mensagem corresponde à sua pesquisa.",
+    "unknownContact": "Contato desconhecido",
+    "loadMore": "Carregar mais",
+    "jumpNotFound": "Essa mensagem está muito atrás no histórico para ser exibida aqui."
   }
 }

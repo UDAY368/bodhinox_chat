@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateQuery, validateWrite } from './contracts';
+import { getResource, resourceBySlug, validateQuery, validateWrite } from './contracts';
 import { compileSelect } from '@/lib/repositories/query';
 import type { Filter } from './types';
 
@@ -150,6 +150,64 @@ describe('fixed CRM resource authorization', () => {
         true
       )
     ).not.toThrow();
+  });
+  it('keeps conversation lifecycle and SLA stamps out of browser writes while status stays writable', () => {
+    for (const [field, value] of [
+      ['lifecycle_state', 'resolved'],
+      ['first_response_due_at', '2026-11-02T10:00:00.000Z'],
+      ['first_responded_at', '2026-11-02T10:00:00.000Z'],
+      ['resolved_at', '2026-11-02T10:00:00.000Z'],
+      ['reopened_count', 0],
+    ] as const) {
+      expect(() => validateWrite('conversations', { [field]: value }, tenant, true)).toThrow(/server-managed/);
+      expect(() =>
+        validateQuery('conversations', {
+          operation: 'update',
+          values: { status: 'closed', [field]: value },
+          filters: [{ field: 'id', op: 'eq', value: '33333333-3333-4333-8333-333333333333' }],
+        }, tenant, true)
+      ).toThrow(/server-managed/);
+    }
+    // Resolve / reopen in the inbox writes status only; the lifecycle trigger moves the rest.
+    for (const status of ['closed', 'open'])
+      expect(() =>
+        validateQuery('conversations', {
+          operation: 'update',
+          values: { status },
+          filters: [{ field: 'id', op: 'eq', value: '33333333-3333-4333-8333-333333333333' }],
+        }, tenant, true)
+      ).not.toThrow();
+    // The lifecycle columns stay readable.
+    expect(getResource('conversations', true).read).toEqual(
+      expect.arrayContaining(['lifecycle_state', 'first_response_due_at', 'first_responded_at', 'resolved_at', 'reopened_count'])
+    );
+  });
+  it('lets a browser mark its notifications read but never choose their link or dedupe key', () => {
+    expect(() => validateWrite('notifications', { read_at: '2026-11-02T10:00:00.000Z' }, tenant, true, 'update')).not.toThrow();
+    for (const [field, value] of [['link', 'https://evil.example/'], ['link', '/inbox'], ['dedupe_key', 'sla_breach:x:0']] as const) {
+      expect(() => validateWrite('notifications', { [field]: value }, tenant, true, 'update')).toThrow(/server-managed/);
+      expect(() => validateWrite('notifications', { user_id: tenant.userId, type: 'mention', title: 'x', [field]: value }, tenant, true)).toThrow(/server-managed/);
+    }
+  });
+  it('exposes no Phase 5 inbox table through the generic browser resource API', () => {
+    for (const table of [
+      'conversation_notes',
+      'routing_rules',
+      'media_objects',
+      'saved_filters',
+      'notification_preferences',
+      'notification_email_queue',
+      'workspace_inbox_settings',
+      'away_message_sends',
+      'quick_reply_favourites',
+    ]) {
+      expect(() => getResource(table, true)).toThrow();
+      expect(() => getResource(table)).toThrow();
+      expect(() => resourceBySlug(table.replaceAll('_', '-'))).toThrow();
+      expect(() =>
+        validateQuery(table, { operation: 'insert', values: { id: '33333333-3333-4333-8333-333333333333' } }, tenant, true)
+      ).toThrow();
+    }
   });
   it('rejects arbitrary resources and injected filter identifiers', () => {
     expect(() =>

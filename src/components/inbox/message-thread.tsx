@@ -43,7 +43,17 @@ import {
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
+  StickyNote,
+  CheckCircle2,
+  RotateCcw,
 } from 'lucide-react';
+import { NotesPanel } from './notes/notes-panel';
+import {
+  MESSAGE_ID_ATTRIBUTE,
+  useJumpToMessage,
+} from './search/use-jump-to-message';
+import { LifecycleChip, SlaBadge } from './conversation-list';
+import { firstResponseSla, lifecycleOf } from '@/lib/inbox/lifecycle-view';
 import { format, isToday, isYesterday } from 'date-fns';
 import { getSessionWindow, latestCustomerMessageAt } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
@@ -127,6 +137,11 @@ interface MessageThreadProps {
    */
   contactPanelOpen?: boolean;
   onToggleContactPanel?: () => void;
+  /**
+   * Scroll to and flash a message (from inbox search). A new `nonce` repeats
+   * the jump for the same message. Older history pages load as needed.
+   */
+  jumpRequest?: { messageId: string; nonce: number } | null;
 }
 
 function formatDateSeparator(
@@ -183,8 +198,14 @@ export function MessageThread({
   onRefresh,
   contactPanelOpen,
   onToggleContactPanel,
+  jumpRequest = null,
 }: MessageThreadProps) {
   const t = useTranslations('Inbox.messageThread');
+  const tList = useTranslations('Inbox.conversationList');
+  const tLifecycle = useTranslations('InboxLifecycle');
+  const tSearch = useTranslations('InboxSearch');
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const tTimer = useTranslations('Inbox.sessionTimer');
   // Which number this conversation is on (shown with 2+ numbers only).
   const { numbers: whatsappNumbers } = useWhatsAppNumbers();
@@ -208,6 +229,8 @@ export function MessageThread({
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
+  // Bumped by conversation_notes events (ids only); the notes panel re-reads on change.
+  const [notesRevision, setNotesRevision] = useState(0);
   // Purely visual spin state for the manual-refresh button. The actual
   // refetch is fire-and-forget through `onRefresh` (which bumps the
   // parent's resyncToken); the 700ms spin is just feedback so the click
@@ -407,6 +430,24 @@ export function MessageThread({
     }
   };
 
+  const { jumpTo } = useJumpToMessage({
+    scrollRef,
+    messages,
+    hasOlder:
+      history?.conversationId === conversationId
+        ? (history?.hasOlder ?? false)
+        : false,
+    loadOlder,
+    loadingOlder,
+    ready: !loading && history?.conversationId === conversationId,
+    onNotFound: () => toast.error(tSearch('jumpNotFound')),
+  });
+  useEffect(() => {
+    if (jumpRequest) jumpTo(jumpRequest.messageId);
+    // Re-run per request (nonce), not when the hook identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpRequest?.nonce]);
+
   const templateNames = useMemo(
     () => templateNamesInMessages(messages).join(','),
     [messages]
@@ -456,9 +497,12 @@ export function MessageThread({
     };
   }, [conversationId, resyncToken]);
 
-  // Reactions realtime subscription per conversation. Subscribing here
-  // (not at the page level) keeps the channel scoped to the visible
-  // conversation and avoids cross-conversation chatter on a busy inbox.
+  // Reactions and notes realtime subscription per conversation. Subscribing
+  // here (not at the page level) keeps the channel scoped to the visible
+  // conversation and avoids cross-conversation chatter on a busy inbox. Notes
+  // share this channel (one event stream) rather than opening their own: every
+  // channel is an EventSource, and a browser allows only a few connections per
+  // host, so another stream could stall the page's own requests.
   useEffect(() => {
     if (!conversationId) return;
     const db = createClient();
@@ -521,6 +565,16 @@ export function MessageThread({
           if (!old?.id) return;
           setReactions((prev) => prev.filter((r) => r.id !== old.id));
         }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversation_notes',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => setNotesRevision((n) => n + 1)
       )
       .subscribe();
 
@@ -673,9 +727,10 @@ export function MessageThread({
           onUpdateMessage(tempId, { status: 'failed' });
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
-          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
-            () => {}
-          );
+          if (payload.path)
+            void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
+              () => {}
+            );
           return;
         }
 
@@ -685,9 +740,10 @@ export function MessageThread({
         const reason = err instanceof Error ? err.message : t('networkError');
         toast.error(t('sendFailed', { reason }));
         onUpdateMessage(tempId, { status: 'failed' });
-        void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
-          () => {}
-        );
+        if (payload.path)
+          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
+            () => {}
+          );
       }
     },
     [conversation, onNewMessage, onUpdateMessage, t]
@@ -760,6 +816,29 @@ export function MessageThread({
     },
     [conversation, onStatusChange]
   );
+
+  // Resolve / reopen. Writing `status` is enough: the conversation_lifecycle
+  // trigger moves lifecycle_state (closed → resolved, reopen → requesting or
+  // assigned) and stamps resolved_at / reopened_count.
+  const handleResolveToggle = useCallback(async () => {
+    if (!conversation || resolving) return;
+    const next: ConversationStatus =
+      conversation.status === 'closed' ? 'open' : 'closed';
+    setResolving(true);
+    try {
+      const { error } = await createClient()
+        .from('conversations')
+        .update({ status: next })
+        .eq('id', conversation.id);
+      if (error) {
+        toast.error(t('resolveFailed'));
+        return;
+      }
+      onStatusChange(conversation.id, next);
+    } finally {
+      setResolving(false);
+    }
+  }, [conversation, resolving, onStatusChange, t]);
 
   const handleOpenTemplates = useCallback(() => {
     setTemplateModalOpen(true);
@@ -997,6 +1076,13 @@ export function MessageThread({
   const assignLabel = assignedAgentId
     ? (currentAssignee?.full_name ?? t('assigned'))
     : t('assign');
+  const lifecycle = lifecycleOf(conversation);
+  const sla = firstResponseSla(conversation, sessionNow);
+  const isResolved = conversation.status === 'closed';
+  const noteMembers = profiles.map((p) => ({
+    id: p.user_id,
+    name: p.full_name || '',
+  }));
 
   return (
     // `min-w-0` is load-bearing: the page already puts min-w-0 on the
@@ -1046,6 +1132,10 @@ export function MessageThread({
             <Clock className="h-3 w-3" />
             {sessionInfo.remaining}
           </Badge>
+          <div className="hidden items-center gap-1.5 md:flex">
+            <LifecycleChip state={lifecycle} label={tLifecycle(lifecycle)} />
+            {sla && <SlaBadge sla={sla} t={tList} tl={tLifecycle} />}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -1095,6 +1185,43 @@ export function MessageThread({
               <RefreshCw
                 className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
               />
+            </button>
+          )}
+
+          {/* Internal notes — never sent to the customer. */}
+          <button
+            type="button"
+            onClick={() => setNotesOpen((open) => !open)}
+            aria-pressed={notesOpen}
+            aria-label={notesOpen ? t('hideNotes') : t('showNotes')}
+            title={notesOpen ? t('hideNotes') : t('showNotes')}
+            className={cn(
+              'hover:bg-muted hover:text-foreground inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs transition-colors',
+              notesOpen ? 'text-primary' : 'text-muted-foreground'
+            )}
+          >
+            <StickyNote className="h-3.5 w-3.5" />
+            <span className="hidden xl:inline">{t('notes')}</span>
+          </button>
+
+          {canSendMessages && (
+            <button
+              type="button"
+              onClick={() => void handleResolveToggle()}
+              disabled={resolving}
+              className={cn(
+                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs transition-colors disabled:opacity-60',
+                isResolved ? 'text-muted-foreground' : 'text-primary'
+              )}
+            >
+              {isResolved ? (
+                <RotateCcw className="h-3.5 w-3.5" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {isResolved ? t('reopen') : t('resolve')}
+              </span>
             </button>
           )}
 
@@ -1195,6 +1322,13 @@ export function MessageThread({
         </div>
       </div>
 
+      <div className="flex min-h-0 flex-1">
+      <div
+        className={cn(
+          'min-w-0 flex-1 flex-col',
+          notesOpen ? 'hidden sm:flex' : 'flex'
+        )}
+      >
       {/* Messages Area */}
       <div
         ref={scrollRef}
@@ -1262,8 +1396,11 @@ export function MessageThread({
                       void postReaction(msg.id, next);
                     };
                     return (
-                      <MessageActions
+                      <div
                         key={msg.id}
+                        {...{ [MESSAGE_ID_ATTRIBUTE]: msg.id }}
+                      >
+                      <MessageActions
                         message={msg}
                         onReply={() => handleStartReply(msg)}
                         onReact={(emoji) => {
@@ -1280,6 +1417,7 @@ export function MessageThread({
                           onOpenMedia={handleMediaChange}
                         />
                       </MessageActions>
+                      </div>
                     );
                   })}
                 </div>
@@ -1321,6 +1459,22 @@ export function MessageThread({
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
       />
+      </div>
+      {notesOpen && (
+        <aside
+          aria-label={t('notes')}
+          className="border-border bg-card w-full min-w-0 overflow-y-auto border-l p-4 sm:w-80 sm:shrink-0"
+        >
+          <NotesPanel
+            key={conversation.id}
+            conversationId={conversation.id}
+            canWrite={canSendMessages}
+            members={noteMembers}
+            revision={notesRevision}
+          />
+        </aside>
+      )}
+      </div>
 
       <TemplatePicker
         open={templateModalOpen}

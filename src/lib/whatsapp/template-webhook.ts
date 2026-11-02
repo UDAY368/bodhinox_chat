@@ -51,6 +51,7 @@ import type { DataClient } from '@/lib/data/types'
 import { normalizeStatus } from './template-status-normalize'
 import { normalizeRejectionReason, recordTemplateEvents } from './template-events'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
+import { notifyTemplateRejected } from '@/lib/notifications/emit'
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([
   'message_template_status_update',
@@ -260,6 +261,8 @@ async function handleStatusUpdate(
   }
   await recordWebhookEvents(data as TemplateEventRow[])
   for (const row of data as Record<string, unknown>[]) {
+    // Owners and admins hear about a rejection once per rejection (never throws).
+    await notifyTemplateRejected(row)
     await dispatchWebhookEvent(db, row.account_id as string, 'template.status_updated', {
       template_id: row.id,
       name: row.name,

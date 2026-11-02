@@ -119,6 +119,11 @@ model conversations {
   bot_paused Boolean  @default(false)
   inbound_created_meta_id String?
   whatsapp_config_id String? @db.Uuid
+  lifecycle_state String  @default("requesting")
+  first_response_due_at DateTime? @db.Timestamptz(6)
+  first_responded_at DateTime? @db.Timestamptz(6)
+  resolved_at DateTime? @db.Timestamptz(6)
+  reopened_count Int  @default(0)
   @@unique([account_id, id])
 }
 
@@ -514,6 +519,7 @@ model notifications {
   created_at DateTime @db.Timestamptz(6) @default(now())
   whatsapp_config_id String? @db.Uuid
   dedupe_key String?
+  link String?
   @@unique([account_id, id])
 }
 
@@ -648,6 +654,7 @@ model account_memberships {
   user_id String @db.Uuid
   role String
   created_at DateTime @db.Timestamptz(6) @default(now())
+  mask_phone_numbers Boolean  @default(false)
   @@unique([account_id, user_id])
   @@unique([account_id, id])
 }
@@ -741,6 +748,8 @@ model media_objects {
   conversation_id String? @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   deleted_at DateTime? @db.Timestamptz(6)
+  in_library Boolean  @default(false)
+  retain_until DateTime? @db.Timestamptz(6)
   @@unique([account_id, bucket, object_key])
   @@unique([account_id, id])
 }
@@ -1068,4 +1077,94 @@ model woocommerce_stores {
   created_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, store_url])
   @@unique([account_id, id])
+}
+
+model conversation_notes {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  author_id String @db.Uuid
+  body String
+  mentions String[] @db.Uuid @default([])
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  edited_at DateTime? @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model workspace_inbox_settings {
+  account_id String @db.Uuid @id @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  timezone String  @default("UTC")
+  working_hours Json @db.JsonB @default("{}")
+  away_message_enabled Boolean  @default(false)
+  away_message String?
+  auto_resolve_after_hours Int?
+  sla_first_response_minutes Int?
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model routing_rules {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  position Int  @default(0)
+  enabled Boolean  @default(true)
+  conditions Json @db.JsonB @default("{}")
+  assign_to Json @db.JsonB
+  reassign_after_minutes Int?
+  round_robin_last_user_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model away_message_sends {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  window_key String
+  sent_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, conversation_id, window_key])
+}
+
+model notification_preferences {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  event String
+  in_app Boolean  @default(true)
+  email Boolean  @default(false)
+  @@id([account_id, user_id, event])
+}
+
+model notification_email_queue {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  event String
+  notification_id String? @db.Uuid
+  title String
+  body String?
+  link String?
+  dedupe_key String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  sent_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model saved_filters {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  name String
+  filters Json @db.JsonB @default("{}")
+  position Int  @default(0)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model quick_reply_favourites {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  quick_reply_id String @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, user_id, quick_reply_id])
 }

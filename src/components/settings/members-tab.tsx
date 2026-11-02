@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
+  EyeOff,
   Loader2,
   Mail,
   MailX,
@@ -84,6 +85,8 @@ interface Member {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  /** Admins only: customers' numbers are masked for this member. */
+  mask_phone_numbers?: boolean;
 }
 
 interface Invitation {
@@ -223,6 +226,37 @@ export function MembersTab() {
         ),
       );
       console.error('[MembersTab] role change error:', err);
+      toast.error(t('networkError'));
+    } finally {
+      setPendingMemberAction(null);
+    }
+  }
+
+  async function handleMaskChange(member: Member, mask: boolean) {
+    setPendingMemberAction(member.user_id);
+    try {
+      const res = await authFetch(`/api/account/members/${member.user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mask_phone_numbers: mask }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        toast.error(payload.error || t('maskFailed'));
+        return;
+      }
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.user_id === member.user_id ? { ...m, mask_phone_numbers: mask } : m,
+        ),
+      );
+      toast.success(
+        t(mask ? 'maskedToast' : 'unmaskedToast', {
+          name: member.full_name || t('unnamed'),
+        }),
+      );
+    } catch (err) {
+      console.error('[MembersTab] mask change error:', err);
       toast.error(t('networkError'));
     } finally {
       setPendingMemberAction(null);
@@ -447,6 +481,46 @@ export function MembersTab() {
                         {tRoles(member.role)}
                       </span>
                     )}
+
+                    {/* Phone masking. Admin+ only, and only for agents
+                        and viewers: owners and admins always see full
+                        numbers. The server enforces the mask. */}
+                    {canManageMembers &&
+                      (member.role === 'agent' || member.role === 'viewer') && (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                aria-pressed={member.mask_phone_numbers === true}
+                                aria-label={t('maskToggle', {
+                                  name: member.full_name || t('unnamed'),
+                                })}
+                                onClick={() =>
+                                  handleMaskChange(
+                                    member,
+                                    member.mask_phone_numbers !== true,
+                                  )
+                                }
+                                disabled={isBusy}
+                                className={
+                                  member.mask_phone_numbers
+                                    ? 'border-primary/50 bg-primary/10 text-primary'
+                                    : ''
+                                }
+                              >
+                                <EyeOff className="size-4" />
+                              </Button>
+                            }
+                          />
+                          <TooltipContent>
+                            {member.mask_phone_numbers
+                              ? t('maskOnHint')
+                              : t('maskOffHint')}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
 
                     {/* Remove. Admin+ only; never on the owner row;
                         never on yourself. Pre-polish styling was

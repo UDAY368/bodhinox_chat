@@ -5,17 +5,36 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/data/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Notification } from "@/types";
-import { Bell, CheckCheck, Loader2, Smartphone, UserPlus } from "lucide-react";
+import {
+  AlarmClock,
+  AtSign,
+  Bell,
+  CheckCheck,
+  CreditCard,
+  FileX,
+  Loader2,
+  Megaphone,
+  MessageSquare,
+  Smartphone,
+  UserPlus,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { safeNotificationLink } from "@/lib/notifications/link";
 
 // Icon per notification type.
 const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   conversation_assigned: UserPlus,
   whatsapp_number_health: Smartphone,
+  payment_received: CreditCard,
+  assigned_message: MessageSquare,
+  mention: AtSign,
+  sla_breach: AlarmClock,
+  campaign_finished: Megaphone,
+  template_rejected: FileX,
 };
 
 export default function NotificationsPage() {
@@ -116,7 +135,11 @@ export default function NotificationsPage() {
   const handleClick = useCallback(
     (n: Notification) => {
       if (!n.read_at) markRead(n.id);
-      if (n.conversation_id) {
+      // The server-chosen link wins, but only as a same-origin relative path.
+      const link = safeNotificationLink(n.link);
+      if (link) {
+        router.push(link);
+      } else if (n.conversation_id) {
         router.push(`/inbox?c=${n.conversation_id}`);
       } else if (n.type === "whatsapp_number_health") {
         // Number health alerts open the WhatsApp numbers settings.
@@ -172,7 +195,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("description")}
+            {t("descriptionAll")}
           </p>
         </div>
         <Button
@@ -199,13 +222,14 @@ export default function NotificationsPage() {
             {t("emptyTitle")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {t("emptyDesc")}
+            {t("emptyDescAll")}
           </p>
         </div>
       ) : (
         <ul className="space-y-2">
           {notifications.map((n) => {
             const Icon = TYPE_ICON[n.type] ?? Bell;
+            const typeLabel = n.type in TYPE_ICON ? t(`types.${n.type}`) : null;
             const isUnread = !n.read_at;
             return (
               <li key={n.id}>
@@ -256,6 +280,11 @@ export default function NotificationsPage() {
                       </p>
                     )}
                     <p className="mt-1 text-[11px] text-muted-foreground/70">
+                      {typeLabel && (
+                        <span className="font-medium" data-notification-type={n.type}>
+                          {typeLabel} ·{" "}
+                        </span>
+                      )}
                       {formatDistanceToNow(new Date(n.created_at), {
                         addSuffix: true,
                       })}

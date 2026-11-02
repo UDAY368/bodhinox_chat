@@ -9,7 +9,8 @@
 //   Sensitive fields (email) are returned only when the caller is
 //   admin+. Agents and viewers see name + avatar + role + joined
 //   date only. This mirrors the design decision from the planning
-//   phase: "agent/viewer sees names only".
+//   phase: "agent/viewer sees names only". Admins also get each
+//   member's mask_phone_numbers flag.
 // ============================================================
 
 import { NextResponse } from "next/server";
@@ -18,6 +19,7 @@ import { getCurrentAccount, toErrorResponse } from "@/lib/auth/account";
 import { canManageMembers, isAccountRole } from "@/lib/auth/roles";
 import type { AccountMember } from "@/types";
 import { getT } from "@/lib/i18n/translate";
+import { withTenant } from "@/lib/db/tenant";
 
 const t = getT("Api");
 
@@ -51,6 +53,16 @@ export async function GET() {
     }
 
     const canSeeEmails = canManageMembers(ctx.role);
+    // Admins manage per-member phone masking; others never see the flags.
+    const masked = canSeeEmails
+      ? new Set(
+          (
+            await withTenant(ctx, (tx) => tx.$queryRaw<{ user_id: string }[]>`
+              SELECT user_id::text AS user_id FROM account_memberships
+              WHERE account_id=${ctx.accountId}::uuid AND mask_phone_numbers`)
+          ).map((row) => row.user_id),
+        )
+      : null;
 
     const members: AccountMember[] = (data as ProfileRow[]).flatMap((row) => {
       // Defensive: the DB enum should never let an unknown role
@@ -65,6 +77,7 @@ export async function GET() {
           avatar_url: row.avatar_url,
           role: row.account_role,
           joined_at: row.created_at,
+          ...(masked ? { mask_phone_numbers: masked.has(row.user_id) } : {}),
         },
       ];
     });

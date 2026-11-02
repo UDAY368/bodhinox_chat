@@ -8,7 +8,14 @@ import {
   parseInboxFilter,
   type InboxFilter,
 } from '@/lib/inbox/inbox-filters';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react';
 import { createClient } from '@/lib/data/client';
 import {
   loadInboxConversations,
@@ -19,7 +26,7 @@ import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus, Tag } from '@/types';
-import { Search, ChevronDown, X } from 'lucide-react';
+import { Search, ChevronDown, X, Bot, Clock, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
@@ -27,11 +34,26 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  LIFECYCLE_STATES,
+  compactDuration,
+  firstResponseSla,
+  lifecycleOf,
+  type FirstResponseSla,
+} from '@/lib/inbox/lifecycle-view';
+import type { ConversationLifecycleState } from '@/types';
+import {
+  SavedFiltersMenu,
+  type InboxFilters,
+} from '@/components/inbox/saved-filters/saved-filters-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   ConversationNumberBadge,
@@ -57,6 +79,8 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
+  /** Extra control beside the "Chats" heading (the page puts message search here). */
+  headerAction?: ReactNode;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -71,8 +95,10 @@ export function ConversationList({
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
+  headerAction,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
+  const tl = useTranslations('InboxLifecycle');
   const tn = useTranslations('whatsappNumbers');
   // With two or more numbers each row names its number and a filter appears.
   const { numbers } = useWhatsAppNumbers();
@@ -110,12 +136,21 @@ export function ConversationList({
     ],
     [t]
   );
+  const LIFECYCLE_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
+    () =>
+      LIFECYCLE_STATES.map((state) => ({
+        label: tl(state),
+        value: `lifecycle-${state}` as InboxFilter,
+      })),
+    [tl]
+  );
 
   const [search, setSearch] = useState('');
   const searchParams = useSearchParams();
   const router = useRouter();
   const filter = parseInboxFilter(searchParams.get('filter'));
   const selectFilter = (value: InboxFilter) => {
+    if (value === filter) return;
     const params = new URLSearchParams(searchParams.toString());
     if (value === 'all') params.delete('filter');
     else params.set('filter', value);
@@ -306,17 +341,41 @@ export function ConversationList({
     [onSelect]
   );
 
-  const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
+  const activeFilter =
+    FILTER_OPTIONS.find((o) => o.value === filter) ??
+    LIFECYCLE_OPTIONS.find((o) => o.value === filter);
+
+  // The member's private saved views capture exactly these controls.
+  const currentFilters: InboxFilters = useMemo(
+    () => ({
+      filter,
+      session: sessionFilter,
+      tagIds: selectedTagIds,
+      company: selectedCompany,
+      numberId: numberFilter,
+      search,
+    }),
+    [filter, sessionFilter, selectedTagIds, selectedCompany, numberFilter, search]
+  );
+  const applySavedFilters = (next: InboxFilters) => {
+    setSessionFilter(next.session);
+    setSelectedTagIds(next.tagIds);
+    setSelectedCompany(next.company);
+    setNumberFilter(next.numberId);
+    setSearch(next.search);
+    selectFilter(next.filter);
+  };
 
   return (
     // w-full on mobile so the list occupies the whole viewport when it's
     // the single pane showing; fixed 320px on desktop where it shares the
     // row with the thread + contact sidebar.
     <div className="studio-conversation-list border-border bg-card flex h-full w-full flex-col border-r lg:w-80 xl:w-88">
-      <div className="studio-chats-header px-5 py-4">
+      <div className="studio-chats-header flex items-center justify-between gap-2 px-5 py-4">
         <h1 className="text-foreground text-xl leading-tight font-semibold tracking-tight">
           {t('chats')}
         </h1>
+        {headerAction}
       </div>
       {/* Search + Filter */}
       <div className="studio-chat-filters border-border space-y-2 border-b px-3 py-3">
@@ -355,8 +414,31 @@ export function ConversationList({
                   {opt.label}
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{t('lifecycle')}</DropdownMenuLabel>
+                {LIFECYCLE_OPTIONS.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.value}
+                    onClick={() => selectFilter(opt.value)}
+                    className={cn(
+                      'text-sm',
+                      filter === opt.value
+                        ? 'text-primary'
+                        : 'text-popover-foreground'
+                    )}
+                  >
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <SavedFiltersMenu
+            current={currentFilters}
+            onApply={applySavedFilters}
+          />
 
           {tags.length > 0 && (
             <DropdownMenu>
@@ -610,6 +692,8 @@ export function ConversationList({
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
                 t={t}
+                tl={tl}
+                now={now}
                 numbers={multiNumber ? numbers : NO_NUMBERS}
               />
             ))}
@@ -625,6 +709,9 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
   t: ReturnType<typeof useTranslations>;
+  tl: ReturnType<typeof useTranslations>;
+  /** Session clock, shared with the list so SLA labels tick together. */
+  now: number;
   /** The workspace's numbers when it has two or more, else empty. */
   numbers: WhatsAppNumberDto[];
 }
@@ -636,9 +723,13 @@ function ConversationItem({
   isActive,
   onSelect,
   t,
+  tl,
+  now,
   numbers,
 }: ConversationItemProps) {
   const contact = conversation.contact;
+  const lifecycle = lifecycleOf(conversation);
+  const sla = firstResponseSla(conversation, now);
   const displayName = contact?.name || contact?.phone || t('unknown');
   const initials = displayName.charAt(0).toUpperCase();
 
@@ -705,8 +796,85 @@ function ConversationItem({
             />
           </div>
         </div>
-        <ConversationNumberBadge conversation={conversation} numbers={numbers} className="mt-0.5" />
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+          <LifecycleChip state={lifecycle} label={tl(lifecycle)} />
+          {sla && <SlaBadge sla={sla} t={t} tl={tl} />}
+          <ConversationNumberBadge conversation={conversation} numbers={numbers} className="min-w-0" />
+        </div>
       </div>
     </button>
+  );
+}
+
+const LIFECYCLE_CHIP_CLASSES: Record<ConversationLifecycleState, string> = {
+  bot: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  requesting: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  assigned: 'bg-primary/10 text-primary',
+  resolved: 'bg-muted text-muted-foreground',
+};
+
+/** Small lifecycle state pill (Bot / Requesting / Assigned / Resolved). */
+export function LifecycleChip({
+  state,
+  label,
+  className,
+}: {
+  state: ConversationLifecycleState;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <span
+      data-lifecycle={state}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium',
+        LIFECYCLE_CHIP_CLASSES[state],
+        className
+      )}
+    >
+      {state === 'bot' && <Bot className="h-2.5 w-2.5" aria-hidden />}
+      {label}
+    </span>
+  );
+}
+
+/**
+ * First-response SLA countdown ("Reply in 12m") or breach ("Overdue 2h").
+ * `t` is the Inbox.conversationList translator, `tl` InboxLifecycle.
+ */
+export function SlaBadge({
+  sla,
+  t,
+  tl,
+  className,
+}: {
+  sla: FirstResponseSla;
+  t: ReturnType<typeof useTranslations>;
+  tl: ReturnType<typeof useTranslations>;
+  className?: string;
+}) {
+  const breached = sla.kind === 'breached';
+  const duration = compactDuration(breached ? sla.msOver : sla.msLeft);
+  const due = new Date(sla.dueAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return (
+    <span
+      data-sla={sla.kind}
+      title={breached ? tl('slaBreached') : tl('slaDue', { time: due })}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 text-[10px] tabular-nums',
+        breached ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground',
+        className
+      )}
+    >
+      {breached ? (
+        <AlertTriangle className="h-3 w-3" aria-hidden />
+      ) : (
+        <Clock className="h-3 w-3" aria-hidden />
+      )}
+      {breached ? t('slaOverdue', duration) : t('slaDueIn', duration)}
+    </span>
   );
 }

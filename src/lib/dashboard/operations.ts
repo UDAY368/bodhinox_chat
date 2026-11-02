@@ -1,11 +1,14 @@
 import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import type { DashboardOperations } from './operations-types';
+import { loadPhoneMask } from '@/lib/inbox/masking-apply';
 
 /** SQL aggregates keep large tenants off browser row caps and scope every join. */
 export async function loadDashboardOperations(context: TenantContext, days = 7): Promise<DashboardOperations> {
   if (![7, 30, 90].includes(days)) throw new RangeError('Unsupported overview range');
   return withTenant(context, async tx => {
+    // A member whose numbers are masked sees 'Contact' rather than an unnamed contact's number.
+    const phoneName = (await loadPhoneMask(tx, context)) ? Prisma.sql`NULL` : Prisma.sql`ct.phone`;
     const rows = await tx.$queryRaw<{ overview: DashboardOperations }[]>(Prisma.sql`
       WITH settings AS (
         SELECT reply_target_minutes FROM accounts WHERE id=${context.accountId}::uuid
@@ -16,7 +19,7 @@ export async function loadDashboardOperations(context: TenantContext, days = 7):
             AND content_type NOT IN ('template','system')) AS reply_at
         FROM messages WHERE account_id=${context.accountId}::uuid GROUP BY conversation_id
       ), queue_state AS (
-        SELECT c.id, coalesce(nullif(ct.name,''),ct.phone,'Contact') AS name,
+        SELECT c.id, coalesce(nullif(ct.name,''),${phoneName},'Contact') AS name,
           c.assigned_agent_id, c.bot_paused AS handed_off, s.inbound_at,
           s.inbound_at + interval '24 hours' AS closes_at,
           (c.status <> 'closed' AND s.inbound_at IS NOT NULL AND (s.reply_at IS NULL OR s.reply_at < s.inbound_at)) AS waiting
@@ -45,7 +48,7 @@ export async function loadDashboardOperations(context: TenantContext, days = 7):
       ), period_replies AS (
         SELECT * FROM real_replies WHERE created_at >= now()-(${days} * interval '1 day')
       ), failures AS (
-        SELECT m.id,m.conversation_id,coalesce(nullif(ct.name,''),ct.phone,'Contact') AS name,
+        SELECT m.id,m.conversation_id,coalesce(nullif(ct.name,''),${phoneName},'Contact') AS name,
           left(coalesce(m.content_text,m.template_name,'Message'),160) AS preview,m.created_at
         FROM messages m JOIN conversations c ON c.id=m.conversation_id AND c.account_id=m.account_id
         LEFT JOIN contacts ct ON ct.id=c.contact_id AND ct.account_id=c.account_id

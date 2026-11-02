@@ -125,7 +125,7 @@ async function audienceSource(tx:TenantTransaction,scope:TenantContext,input:Cam
     order=Prisma.sql`x.ord`;
   }else if(audience.type==='segment'){
     try{
-      const filter=await loadSegmentFilter(tx,accountId,audience.segmentId!);
+      const filter=await loadSegmentFilter(tx,accountId,audience.segmentId!,{lock:true});
       // Tags, lists or campaigns the segment names may have been deleted since it was saved.
       await assertFilterReferences(tx,accountId,filter);
       conditions.push(compileAudienceFilter(accountId,filter));

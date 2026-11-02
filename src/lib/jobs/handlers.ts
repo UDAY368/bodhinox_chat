@@ -39,6 +39,8 @@ import { enqueueJob, type Job } from './queue';
 import { deliverQueuedWebhook } from '@/lib/webhooks/deliver';
 import { HEALTH_SYNC_JOB, scheduleHealthSync, syncNumberHealth } from '@/lib/whatsapp/health-sync';
 import { COMMERCE_EVENT_JOB, handleCommerceEventJob } from '@/lib/commerce/event-rules';
+import { handleInboxJob, isInboxJob, scheduleInboxSweeps } from '@/lib/inbox/jobs';
+import { NOTIFICATION_DIGEST_JOB, scheduleNotificationDigests, sendNotificationDigest } from '@/lib/notifications/digest';
 
 const uuid = (value: unknown): string => {
   if (typeof value !== 'string' || !/^[0-9a-f-]{36}$/i.test(value))
@@ -62,6 +64,10 @@ export async function scheduleWork() {
     );
   // Number health every six hours; its failure must not stop automation scheduling.
   await scheduleHealthSync().catch(() => console.error('[worker] health sync scheduling failed'));
+  // Inbox SLA and auto-resolve sweeps; likewise independent.
+  await scheduleInboxSweeps().catch(() => console.error('[worker] inbox sweep scheduling failed'));
+  // Notification email digests every 30 minutes per workspace; nothing while SMTP is not configured.
+  await scheduleNotificationDigests().catch(() => console.error('[worker] notification digest scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -265,7 +271,13 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === COMMERCE_EVENT_JOB)
       // One template send per store event; an ambiguous outcome waits for reconciliation.
       await handleCommerceEventJob(accountId, job.payload);
+    else if (isInboxJob(job.type))
+      // SLA breach alerts, auto-resolve and unanswered-conversation reassignment.
+      await handleInboxJob(accountId, job.type, job.payload);
     else if (job.type === 'commerce.catalog_sync') await (await import('@/lib/commerce/catalog-sync')).handleCatalogSyncJob(accountId, job.payload);
+    else if (job.type === NOTIFICATION_DIGEST_JOB)
+      // Entries are claimed before sending; only a provably undelivered email is retried.
+      await sendNotificationDigest(accountId);
     else if (job.type === 'payments.razorpay_event')
       // One verified Razorpay delivery: link status, order paid, agent alert, waiting flow run.
       await (await import('@/lib/payments/links')).handlePaymentEventJob(accountId, job.payload);

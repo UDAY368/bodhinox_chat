@@ -17,6 +17,10 @@ import { QuickRepliesManager } from '@/components/settings/quick-replies-manager
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { InboxSettings } from '@/components/settings/inbox-settings';
+import { WorkingHoursCard } from '@/components/settings/inbox/working-hours-card';
+import { RoutingRulesCard } from '@/components/settings/inbox/routing-rules-card';
+import { MediaLibraryCard } from '@/components/settings/media-library-card';
+import { NotificationPreferences } from '@/components/settings/notification-preferences';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { WebhooksSettings } from '@/components/settings/webhooks-settings';
@@ -48,7 +52,7 @@ export default function SettingsPage() {
 function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId, defaultCurrency, canEditSettings } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
 
@@ -80,12 +84,20 @@ function SettingsPageInner() {
     profile: <ProfileForm />,
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
+    notifications: <NotificationPreferences key={accountId} />,
     whatsapp: <WhatsAppConfig />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,
-    inbox: <InboxSettings key={accountId} />,
+    inbox: (
+      <div key={accountId} className="space-y-10">
+        <InboxSettings />
+        <WorkingHoursCard canEdit={canEditSettings} />
+        <RoutingRulesCard canEdit={canEditSettings} />
+      </div>
+    ),
+    media: <MediaLibraryCard key={accountId} />,
     members: <MembersTab />,
     api: (
       <div className="space-y-10">

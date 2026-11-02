@@ -9,6 +9,13 @@ import {
   type Resource,
 } from '@/lib/data/contracts';
 import type { Filter, QuerySpec, TenantContext } from '@/lib/data/types';
+import {
+  classifyMaskedPhoneSearch,
+  isMaskedContactField,
+  PHONE_MASK_MARKER,
+  PHONE_MASKED_MESSAGE,
+  phoneSuffixPattern,
+} from '@/lib/inbox/masking-apply';
 
 export interface CompiledQuery {
   text: string;
@@ -131,6 +138,14 @@ class Compiler {
     readonly context: TenantContext,
     readonly browser: boolean
   ) {}
+  /** Whether this field is a contact number hidden from the caller (context.maskPhones). */
+  masked(resource: Resource, name: string): boolean {
+    return (
+      this.context.maskPhones === true &&
+      resource.table === 'contacts' &&
+      isMaskedContactField(name)
+    );
+  }
   parameter(value: unknown, column?: Column): string {
     // null is SQL NULL for every column; stringifying it would store a jsonb 'null' that fails IS NULL checks.
     const index = this.values.push(
@@ -213,8 +228,12 @@ class Compiler {
             : [node.field];
         for (const field of fields) {
           identifier(field);
+          const value = `to_jsonb(${this.field(resource, alias, field)})`;
+          // Masked numbers leave SQL wrapped; crm.ts formats them with maskMarkers.
           entries.push(
-            `'${field}', to_jsonb(${this.field(resource, alias, field)})`
+            this.masked(resource, field)
+              ? `'${field}', jsonb_build_object('${PHONE_MASK_MARKER}', ${value})`
+              : `'${field}', ${value}`
           );
         }
       } else {
@@ -251,6 +270,21 @@ class Compiler {
     const field = json
       ? `(${this.field(resource, alias, json.column.name)} ->> ${this.parameter(json.key)})`
       : this.field(resource, alias, filter.field);
+    if (
+      !json &&
+      this.masked(resource, filter.field) &&
+      filter.op !== 'is' &&
+      !(filter.value === null && ['eq', 'neq'].includes(filter.op))
+    ) {
+      // A masked member may search a number only by its last digits. Any
+      // other comparison matches nothing, so it cannot confirm a number.
+      if (!['ilike', 'like'].includes(filter.op) || typeof filter.value !== 'string')
+        return 'FALSE';
+      const search = classifyMaskedPhoneSearch(filter.value);
+      if (search.kind === 'deny') return 'FALSE';
+      if (search.kind === 'suffix')
+        return `regexp_replace(COALESCE(${field},''),'[^0-9]','','g') LIKE ${this.parameter(phoneSuffixPattern(search.digits))}`;
+    }
     if (filter.op === 'is')
       return `${field} IS ${filter.value === null ? 'NULL' : filter.value ? 'TRUE' : 'FALSE'}`;
     if (filter.value === null && ['eq', 'neq'].includes(filter.op))
@@ -352,6 +386,8 @@ export function compileSelect(
     : `${c.projection(resource, 't', projections(spec.projection ?? '*'))} AS result`;
   let text = `SELECT ${object} FROM ${identifier(resource.table)} t WHERE ${c.conditions(resource, 't', spec)}`;
   if (!count) {
+    if (spec.orders?.some((o) => c.masked(resource, o.field)))
+      throw new ContractError(PHONE_MASKED_MESSAGE, 'PHONE_MASKED', 403);
     if (spec.orders?.length)
       text += ` ORDER BY ${spec.orders.map((o) => `${c.field(resource, 't', o.field)} ${o.ascending ? 'ASC' : 'DESC'}${o.nullsFirst === undefined ? '' : o.nullsFirst ? ' NULLS FIRST' : ' NULLS LAST'}`).join(',')}`;
     text += ` LIMIT ${c.parameter(spec.limit ?? 1000)} OFFSET ${c.parameter(spec.offset ?? 0)}`;
@@ -365,6 +401,17 @@ export function compileMutation(
 ): CompiledQuery {
   const c = new Compiler(context, browser);
   const resource = getResource(spec.resource, browser);
+  // A masked member sees only the masked form of a number: saving it back would
+  // overwrite the real one, and writing candidate numbers would let the unique
+  // index on (account_id, phone_normalized) confirm a hidden number.
+  if (
+    spec.operation !== 'delete' &&
+    spec.values &&
+    (Array.isArray(spec.values) ? spec.values : [spec.values]).some((row) =>
+      Object.keys(row).some((key) => c.masked(resource, key))
+    )
+  )
+    throw new ContractError(PHONE_MASKED_MESSAGE, 'PHONE_MASKED', 403);
   let statement: string;
   if (spec.operation === 'delete')
     statement = `DELETE FROM ${identifier(resource.table)} t WHERE ${c.conditions(resource, 't', spec)} RETURNING *`;
@@ -401,6 +448,9 @@ export function compileMutation(
         .split(',')
         .map((k) => k.trim());
       conflict.forEach((key) => columnFor(resource, key));
+      // Upserting on a number would return the existing contact it belongs to.
+      if (conflict.some((key) => c.masked(resource, key)))
+        throw new ContractError(PHONE_MASKED_MESSAGE, 'PHONE_MASKED', 403);
       if (
         conflict.join(',') !== 'id' &&
         !conflict.includes('account_id') &&

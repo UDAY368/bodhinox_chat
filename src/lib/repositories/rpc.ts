@@ -1,4 +1,5 @@
-import { withTenant } from '@/lib/db/tenant';
+import { Prisma } from '@prisma/client';
+import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { ContractError } from '@/lib/data/contracts';
 import type {
@@ -10,6 +11,45 @@ import type {
 import { validateRpc } from './rpc-contracts';
 import { executeMembershipRpc } from './memberships';
 import { dataError } from '@/lib/data/errors';
+import {
+  loadPhoneMask,
+  maskContactRow,
+  maskedPhoneSearchSql,
+} from '@/lib/inbox/masking-apply';
+
+/**
+ * filter_contacts_by_tags for a member whose numbers are masked: the same
+ * page and order, but a phone search matches only a number's last digits and
+ * every returned number is masked.
+ */
+async function maskedContactsByTags(
+  tx: TenantTransaction,
+  accountId: string,
+  args: Row
+): Promise<Row[]> {
+  const search: string | null = args.p_search ?? null;
+  const term = search
+    ? Prisma.sql`AND (c.name ILIKE ${`%${search}%`} OR ${maskedPhoneSearchSql(Prisma.sql`c.phone`, search)} OR c.email ILIKE ${`%${search}%`})`
+    : Prisma.empty;
+  const rows = await tx.$queryRaw<{ result: Row }[]>(Prisma.sql`
+    WITH matched AS (
+      SELECT DISTINCT c.id, c.created_at FROM contacts c
+      JOIN contact_tags ct ON ct.contact_id = c.id AND ct.account_id = c.account_id
+      WHERE c.account_id = ${accountId}::uuid
+        AND ct.tag_id IN (SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(args.p_tag_ids ?? [])}::jsonb))
+        ${term}
+    ), page AS (
+      SELECT id, count(*) OVER() AS total_count FROM matched
+      ORDER BY created_at DESC, id LIMIT ${args.p_limit}::int OFFSET ${args.p_offset}::int
+    )
+    SELECT jsonb_build_object('contact', to_jsonb(c), 'total_count', page.total_count) AS result
+    FROM page JOIN contacts c ON c.id = page.id AND c.account_id = ${accountId}::uuid
+    ORDER BY c.created_at DESC, c.id`);
+  return rows.map(({ result }) => ({
+    ...result,
+    contact: maskContactRow(result.contact, true),
+  }));
+}
 
 export async function executeRpc<T = LegacyData>(
   name: string,
@@ -69,6 +109,15 @@ export async function executeRpc<T = LegacyData>(
             );
           return { data: null, error: null };
         }
+        if (
+          browser &&
+          name === 'filter_contacts_by_tags' &&
+          (await loadPhoneMask(tx, context))
+        )
+          return {
+            data: (await maskedContactsByTags(tx, context.accountId, args)) as T,
+            error: null,
+          };
         const values: unknown[] = [];
         const parameters = Object.entries(contract.args).map(
           ([key, column]) => {

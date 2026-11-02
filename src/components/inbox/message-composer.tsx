@@ -26,6 +26,7 @@ import {
   ClipboardList,
   CreditCard,
   ShoppingBag,
+  Images,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -63,6 +64,7 @@ import { QuickReplyPicker } from "./quick-reply-picker";
 import { SendFormDialog } from "./send-form-dialog";
 import { SendPaymentLinkDialog } from "./send-payment-link-dialog";
 import { SendProductDialog } from "@/components/commerce/catalog/send-product-dialog";
+import { MediaPicker, type PickedMedia } from "./media-library/media-picker";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -81,7 +83,11 @@ export interface SendMediaPayload {
   kind: ComposerMediaKind;
   /** Public chat-media URL Meta fetches at send time. */
   mediaUrl: string;
-  /** Storage object path — lets the caller GC the object if the send fails. */
+  /**
+   * Storage object path — lets the caller GC the object if the send fails.
+   * Empty for a media-library file, which the library owns and must never
+   * be deleted by a failed send.
+   */
   path: string;
   /** Optional caption (image/video/document only). */
   caption?: string;
@@ -166,6 +172,7 @@ export function MessageComposer({
   const [sendFormOpen, setSendFormOpen] = useState(false);
   const [paymentLinkOpen, setPaymentLinkOpen] = useState(false);
   const [sendProductOpen, setSendProductOpen] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
@@ -517,6 +524,22 @@ export function MessageComposer({
     }
   }, [recording, recordSeconds, stopRecording]);
 
+  // A media-library file becomes a draft with no staged path: the library
+  // owns the object, so discarding or a failed send must not delete it.
+  const handlePickLibraryMedia = useCallback(
+    (media: PickedMedia) => {
+      removeStaged(draftRef.current?.path);
+      setDraft({
+        kind: media.kind,
+        mediaUrl: media.url,
+        path: "",
+        filename: media.filename,
+        caption: "",
+      });
+    },
+    [removeStaged],
+  );
+
   // ---- Draft send / discard -----------------------------------------
 
   const sendDraft = useCallback(() => {
@@ -680,6 +703,10 @@ export function MessageComposer({
                 <Mic className="mr-2 h-4 w-4" />
                 {t("voiceNote")}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setMediaLibraryOpen(true)}>
+                <Images className="mr-2 h-4 w-4" />
+                {t("mediaLibrary")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -834,6 +861,12 @@ export function MessageComposer({
       <SendFormDialog open={sendFormOpen} onOpenChange={setSendFormOpen} conversationId={conversationId} />
       <SendPaymentLinkDialog open={paymentLinkOpen} onOpenChange={setPaymentLinkOpen} conversationId={conversationId} />
       <SendProductDialog open={sendProductOpen} onOpenChange={setSendProductOpen} conversationId={conversationId} />
+
+      <MediaPicker
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onPick={handlePickLibraryMedia}
+      />
 
       {/* Quick-reply picker. */}
       <QuickReplyPicker

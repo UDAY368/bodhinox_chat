@@ -105,3 +105,20 @@ it('reports honest degraded state without EventSource and closes revoked streams
   expect(statuses.at(-1)).toBe('CLOSED');
   await channel.unsubscribe();
 });
+it('subscribes to note events for one conversation and delivers inserts', async () => {
+  vi.stubGlobal('EventSource', Source);
+  const changes: unknown[] = [];
+  const channel = createRealtimeChannel('notes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'conversation_notes', filter: 'conversation_id=eq.c1' },
+      (event) => changes.push(event)
+    )
+    .subscribe();
+  const source = Source.all[0];
+  expect(source.url).toContain('tables=conversation_notes');
+  source.emit('change', { table: 'conversation_notes', eventType: 'INSERT', new: { id: 'n1', conversation_id: 'c1' }, old: {} }, 'n-1');
+  source.emit('change', { table: 'conversation_notes', eventType: 'INSERT', new: { id: 'n2', conversation_id: 'c2' }, old: {} }, 'n-2');
+  expect(changes).toHaveLength(1);
+  await channel.unsubscribe();
+});

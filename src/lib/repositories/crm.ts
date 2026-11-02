@@ -14,6 +14,7 @@ import type {
 } from '@/lib/data/types';
 import { compileMutation, compileSelect, resourceReferences } from './query';
 import { dataError } from '@/lib/data/errors';
+import { loadPhoneMask, maskMarkers, maskNotificationRow, maskTemplateParams } from '@/lib/inbox/masking-apply';
 
 export interface SqlTransaction {
   $queryRawUnsafe<T = unknown>(sql: string, ...values: unknown[]): Promise<T>;
@@ -234,6 +235,9 @@ export async function executeInTransaction(
   worker = false
 ): Promise<QueryResult<LegacyData>> {
   const spec = validateQuery(input.resource, input, context, browser, worker);
+  // A browser caller's numbers are masked from its live membership, never from input.
+  if (browser)
+    context = { ...context, maskPhones: await loadPhoneMask(tx, context) };
   // Validate caller fields first; only then add the authoritative mutation time.
   if (
     spec.values &&
@@ -274,8 +278,16 @@ export async function executeInTransaction(
     ...query.values
   );
   if (spec.count && spec.operation !== 'select') count = raw.length;
+  // Notification titles/bodies and broadcast recipients' template variables
+  // may quote a number; a masked member reads them masked.
+  const maskRow = (row: Row) =>
+    spec.resource === 'notifications'
+      ? maskNotificationRow(maskMarkers(row), true)
+      : maskTemplateParams(maskMarkers(row));
   return shapeResult(
-    raw.map((row) => row.result),
+    context.maskPhones
+      ? raw.map((row) => maskRow(row.result))
+      : raw.map((row) => row.result),
     spec,
     count
   );

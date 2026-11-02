@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-const h = vi.hoisted(() => ({ explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
+const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
   contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const b = { select: () => b, eq: () => b, in: () => b, is: () => b, order: () => b, limit: async () => ({ data: table === 'broadcast_recipients' ? h.recipients : [], error: null }),
@@ -12,6 +12,8 @@ vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: h.resume, runA
 vi.mock('@/lib/flows/engine', () => ({ dispatchInboundToFlows: h.flow }));
 vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: h.webhook }));
+vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: h.lifecycle }));
+vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: h.away }));
 vi.mock('./ingest', () => ({ runInboundStage: async (_account: string, _message: string, stage: string, action: () => Promise<unknown>) => {
   if (h.stages.has(stage)) return h.stages.get(stage);
   const result = await action(); h.stages.set(stage, result); return result;
@@ -20,7 +22,7 @@ import { processInboundActions } from './inbound-actions';
 import type { MessageActionsPayload } from './ingest';
 const id = '00000000-0000-4000-8000-000000000001';
 const input: MessageActionsPayload = { kind: 'message', accountId: id, conversationId: id, contactId: id, userId: id, messageId: id, metaMessageId: 'wamid.tap', interactiveReplyId: 'qr_token', contentType: 'interactive', contentText: 'Start', wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true };
-beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.message = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
+beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.message = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }); h.away.mockResolvedValue('sent'); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
 
 const text = (contentText: string) => ({ ...input, interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, isFirstInboundMessage: false });
 it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword without any automated response', async (word, kind) => {
@@ -107,4 +109,26 @@ it('tells flows which template a button tap answers: a saved template message, o
 
 it('rejects a malformed context id in a queued job', async () => {
   await expect(processInboundActions({ ...input, contextMetaId: 42 as never })).rejects.toThrow('Invalid message actions contract');
+});
+
+it('applies the lifecycle after the bots and sends the away message once through its stage', async () => {
+  h.explicit.mockResolvedValue({ handled: false }); h.automations.mockResolvedValue(false);
+  const message = text('Are you open?');
+  await processInboundActions(message); await processInboundActions(message);
+  expect(h.lifecycle).toHaveBeenCalledWith({ accountId: id, conversationId: id, contactId: id, messageId: id, text: 'Are you open?' });
+  expect(h.lifecycle.mock.invocationCallOrder[0]).toBeGreaterThan(h.ai.mock.invocationCallOrder[0]);
+  expect(h.away).toHaveBeenCalledOnce();
+  expect(h.away).toHaveBeenCalledWith({ accountId: id, userId: id, conversationId: id, contactId: id, messageId: id });
+});
+it.each([[{ botOwned: true, botReplied: false }], [{ botOwned: false, botReplied: true }]])('sends no away message when a bot answered: %o', async flags => {
+  h.explicit.mockResolvedValue({ handled: false });
+  h.lifecycle.mockResolvedValue({ state: 'bot', routedTo: null, ruleId: null, ...flags });
+  await processInboundActions(text('Hello'));
+  expect(h.away).not.toHaveBeenCalled();
+});
+it('neither routes nor sends an away message to a blocked contact or a STOP keyword', async () => {
+  await processInboundActions(text('STOP'));
+  h.contact = { blocked_at: '2026-11-01T00:00:00Z' };
+  await processInboundActions(text('Hello'));
+  expect(h.lifecycle).not.toHaveBeenCalled(); expect(h.away).not.toHaveBeenCalled();
 });

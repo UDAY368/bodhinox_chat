@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
 import { tenantOf } from '@/lib/audience/http';
 import { getOrder, orderErrorResponse, parseOrderPatch, updateOrder } from '@/lib/commerce/orders';
+import { maskEmbeddedContact, resolvePhoneMask } from '@/lib/inbox/masking-apply';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
 
 type Context = { params: Promise<{ id: string }> };
@@ -16,7 +17,8 @@ export async function GET(_request: Request, context: Context) {
   try {
     const { id } = await context.params;
     const ctx = await requireRole('agent');
-    return NextResponse.json({ order: await getOrder(tenantOf(ctx), id) });
+    const order = await getOrder(tenantOf(ctx), id);
+    return NextResponse.json({ order: maskEmbeddedContact(order, await resolvePhoneMask(tenantOf(ctx))) });
   } catch (error) {
     return orderErrorResponse(error);
   }
@@ -29,7 +31,8 @@ export async function PATCH(request: Request, context: Context) {
     const limit = checkRateLimit(`orders:write:${ctx.userId}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
     const patch = parseOrderPatch(await request.json().catch(() => null));
-    return NextResponse.json({ order: await updateOrder(tenantOf(ctx), id, patch) });
+    const order = await updateOrder(tenantOf(ctx), id, patch);
+    return NextResponse.json({ order: maskEmbeddedContact(order, await resolvePhoneMask(tenantOf(ctx))) });
   } catch (error) {
     return orderErrorResponse(error);
   }

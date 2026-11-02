@@ -1,5 +1,7 @@
 vi.mock('@/lib/auth/session', () => ({ requireSession: async () => ({ userId: 'user-1', accountId: 'acct-1', role: callerRole, sessionId: 'session-1' }) }));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+const claimOnAgentReply = vi.hoisted(() => vi.fn(async () => true))
+vi.mock('@/lib/inbox/lifecycle', () => ({ claimOnAgentReply }))
 
 // ---------------------------------------------------------------------------
 // Tests for the `contact_id` send path (issue #296): sending an approved
@@ -340,6 +342,20 @@ describe('POST /api/whatsapp/send — role enforcement', () => {
 
     expect(res.status).toBe(200)
     expect(sendTemplateMessage).toHaveBeenCalledTimes(1)
+    // The replying agent claims the conversation as themselves.
+    expect(claimOnAgentReply).toHaveBeenCalledWith({ accountId: 'acct-1', userId: 'user-1', role: 'agent' }, 'conv-existing')
+  })
+
+  it('still reports the send when claiming the conversation fails', async () => {
+    callerRole = 'agent'
+    claimOnAgentReply.mockRejectedValueOnce(new Error('db down'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const res = await postContactTemplate()
+
+    expect(res.status).toBe(200)
+    expect(error).toHaveBeenCalledWith('[send] conversation claim failed')
+    error.mockRestore()
   })
 })
 

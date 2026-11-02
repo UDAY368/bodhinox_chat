@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
 import { tenantOf } from '@/lib/audience/http';
 import { formErrorResponse, listResponses } from '@/lib/whatsapp/forms/service';
+import { maskEmbeddedContact, resolvePhoneMask } from '@/lib/inbox/masking-apply';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -16,10 +17,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const ctx = await requireRole('viewer');
     const query = new URL(request.url).searchParams;
     const limit = query.get('limit');
-    return NextResponse.json(await listResponses(tenantOf(ctx), id, {
+    const page = await listResponses(tenantOf(ctx), id, {
       cursor: query.get('cursor'),
       limit: limit ? Number(limit) : null,
-    }));
+    });
+    const mask = await resolvePhoneMask(tenantOf(ctx));
+    return NextResponse.json(mask ? { ...page, responses: page.responses.map((r) => maskEmbeddedContact(r, true)) } : page);
   } catch (error) {
     return formErrorResponse(error);
   }

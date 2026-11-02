@@ -15,6 +15,18 @@ import {
   type AudienceFilter,
 } from './filter';
 import { requireRoomFor } from '@/lib/billing/entitlements';
+import {
+  audienceFilterProbesPhone,
+  loadPhoneMask,
+  maskContactRow,
+  maskedPhoneSearchSql,
+  PHONE_MASKED_MESSAGE,
+} from '@/lib/inbox/masking-apply';
+
+/** A member whose numbers are masked may not filter by a number's digits. */
+async function assertFilterAllowed(tx: TenantTransaction, ctx: TenantContext, filter: AudienceFilter): Promise<void> {
+  if (audienceFilterProbesPhone(filter) && (await loadPhoneMask(tx, ctx))) throw new AudienceFilterError(PHONE_MASKED_MESSAGE);
+}
 
 export interface Segment {
   id: string;
@@ -49,6 +61,7 @@ export async function createSegment(ctx: TenantContext, input: unknown): Promise
   const name = parseName(data.name);
   const filter = parseAudienceFilter(data.filter);
   return withTenant(ctx, async (tx) => {
+    await assertFilterAllowed(tx, ctx, filter);
     await assertFilterReferences(tx, ctx.accountId, filter);
     await requireRoomFor(tx, ctx.accountId, 'segments', async () =>
       (await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM segments WHERE account_id=${ctx.accountId}::uuid`)[0].n);
@@ -68,6 +81,7 @@ export async function updateSegment(ctx: TenantContext, id: string, input: unkno
   const filter = 'filter' in data ? parseAudienceFilter(data.filter) : null;
   if (!name && !filter) throw new AudienceFilterError('No updatable fields provided');
   return withTenant(ctx, async (tx) => {
+    if (filter) await assertFilterAllowed(tx, ctx, filter);
     if (filter) await assertFilterReferences(tx, ctx.accountId, filter);
     try {
       const rows = await tx.$queryRaw<Segment[]>`
@@ -91,10 +105,20 @@ export async function deleteSegment(ctx: TenantContext, id: string): Promise<boo
   });
 }
 
-/** The stored filter of one segment, locked for the caller's transaction. */
-export async function loadSegmentFilter(tx: TenantTransaction, accountId: string, id: string): Promise<AudienceFilter> {
-  const rows = await tx.$queryRaw<{ filter: unknown }[]>`
-    SELECT filter FROM segments WHERE account_id=${accountId}::uuid AND id=${id}::uuid FOR SHARE`;
+/**
+ * The stored filter of one segment. Reads (preview, paging, export) take no
+ * row lock: a viewer may read segments but RLS refuses viewers the row lock
+ * FOR SHARE needs. A write that must pin the filter for its transaction (a
+ * campaign built from the segment) passes { lock: true }.
+ */
+export async function loadSegmentFilter(
+  tx: TenantTransaction,
+  accountId: string,
+  id: string,
+  options: { lock?: boolean } = {},
+): Promise<AudienceFilter> {
+  const rows = await tx.$queryRaw<{ filter: unknown }[]>(Prisma.sql`
+    SELECT filter FROM segments WHERE account_id=${accountId}::uuid AND id=${id}::uuid${options.lock ? Prisma.sql` FOR SHARE` : Prisma.empty}`);
   if (!rows[0]) throw new AudienceFilterError('Segment is unavailable in this workspace');
   return parseAudienceFilter(rows[0].filter);
 }
@@ -109,6 +133,7 @@ export async function previewAudience(
 ): Promise<{ total: number; sendable: number }> {
   const filter = 'filter' in source ? parseAudienceFilter(source.filter) : null;
   return withTenant(ctx, async (tx) => {
+    if (filter) await assertFilterAllowed(tx, ctx, filter);
     const resolved = filter ?? (await loadSegmentFilter(tx, ctx.accountId, (source as { segmentId: string }).segmentId));
     // A saved segment's tags, lists or campaigns may have been deleted since it was saved.
     await assertFilterReferences(tx, ctx.accountId, resolved);
@@ -123,7 +148,13 @@ export async function previewAudience(
 const CONTACT_COLUMNS = Prisma.sql`c.id::text, c.user_id::text, c.account_id::text, c.phone, c.name, c.email, c.company,
   c.avatar_url, c.created_at, c.updated_at, c.wa_user_id, c.wa_username, c.opted_out_at, c.opt_out_source, c.blocked_at`;
 
-export interface ContactPage { offset: number; limit: number; search?: string }
+export interface ContactPage {
+  offset: number;
+  limit: number;
+  search?: string;
+  /** The caller's numbers are masked: phone search by last digits only, numbers masked in the page. */
+  maskPhones?: boolean;
+}
 
 /** One page (newest first) of the contacts matching a filter, with the total match count. */
 export async function pageContacts(
@@ -134,16 +165,17 @@ export async function pageContacts(
 ): Promise<{ contacts: Record<string, unknown>[]; total: number }> {
   const term = page.search?.trim();
   const search = term
-    ? Prisma.sql`AND (c.name ILIKE ${`%${term}%`} OR c.phone ILIKE ${`%${term}%`} OR c.email ILIKE ${`%${term}%`})`
+    ? Prisma.sql`AND (c.name ILIKE ${`%${term}%`} OR ${page.maskPhones ? maskedPhoneSearchSql(Prisma.sql`c.phone`, term) : Prisma.sql`c.phone ILIKE ${`%${term}%`}`} OR c.email ILIKE ${`%${term}%`})`
     : Prisma.empty;
   const rows = await tx.$queryRaw<(Record<string, unknown> & { total_count: number })[]>(Prisma.sql`
     SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count
     FROM contacts c WHERE ${compileAudienceFilter(accountId, filter)} ${search}
     ORDER BY c.created_at DESC, c.id LIMIT ${page.limit} OFFSET ${page.offset}`);
-  return { contacts: rows, total: rows[0]?.total_count ?? 0 };
+  return { contacts: rows.map((row) => maskContactRow(row, page.maskPhones === true)), total: rows[0]?.total_count ?? 0 };
 }
 
 /** One page of a segment's contacts. */
 export async function segmentContacts(ctx: TenantContext, id: string, page: ContactPage) {
-  return withTenant(ctx, async (tx) => pageContacts(tx, ctx.accountId, await loadSegmentFilter(tx, ctx.accountId, id), page));
+  return withTenant(ctx, async (tx) =>
+    pageContacts(tx, ctx.accountId, await loadSegmentFilter(tx, ctx.accountId, id), { ...page, maskPhones: await loadPhoneMask(tx, ctx) }));
 }

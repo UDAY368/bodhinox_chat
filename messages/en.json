@@ -274,7 +274,8 @@
   },
   "Inbox": {
     "page": {
-      "whatsappNotConnected": "WhatsApp® is not connected. Go to Settings to connect your account."
+      "whatsappNotConnected": "WhatsApp® is not connected. Go to Settings to connect your account.",
+      "openConversationFailed": "Couldn't open that conversation. Try again."
     },
     "conversationList": {
       "searchPlaceholder": "Search conversations...",
@@ -299,7 +300,10 @@
       "filterWaiting": "Waiting for reply",
       "filterUnassigned": "Unassigned",
       "filterExpiringSoon": "Expiring soon",
-      "chats": "Chats"
+      "chats": "Chats",
+      "lifecycle": "Lifecycle",
+      "slaDueIn": "Reply in {value}{unit, select, m {m} h {h} other {d}}",
+      "slaOverdue": "Overdue {value}{unit, select, m {m} h {h} other {d}}"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -336,7 +340,13 @@
       "you": "You",
       "loadOlder": "Load older messages",
       "loadingOlder": "Loading older messages…",
-      "historyLoadFailed": "Unable to load older messages"
+      "historyLoadFailed": "Unable to load older messages",
+      "notes": "Notes",
+      "showNotes": "Show internal notes",
+      "hideNotes": "Hide internal notes",
+      "resolve": "Resolve",
+      "reopen": "Reopen",
+      "resolveFailed": "Couldn't update the conversation. Try again."
     },
     "sessionTimer": {
       "expired": "Expired",
@@ -390,7 +400,8 @@
       "uploadFailed": "Upload failed.",
       "sendForm": "Send form",
       "sendProducts": "Send products",
-      "sendPaymentLink": "Send payment link"
+      "sendPaymentLink": "Send payment link",
+      "mediaLibrary": "Media library"
     },
     "bubble": {
       "photo": "Photo",
@@ -560,6 +571,53 @@
       "notReady": "Razorpay has not confirmed the link yet. Check its status on the Payments page.",
       "linkCreated": "The payment link is created.",
       "uncertainHelp": "We could not confirm the message was delivered. Check the conversation before sending it again."
+    },
+    "notes": {
+      "title": "Notes",
+      "internalOnly": "Only your team can see these",
+      "loading": "Loading notes",
+      "loadFailed": "Notes could not be loaded.",
+      "retry": "Retry",
+      "empty": "No notes yet.",
+      "formerMember": "Former member",
+      "you": "You",
+      "edited": "(edited)",
+      "edit": "Edit note",
+      "delete": "Delete note",
+      "deleteConfirm": "Delete this note? This cannot be undone.",
+      "deleteFailed": "The note could not be deleted.",
+      "saveFailed": "The note could not be saved.",
+      "save": "Save",
+      "placeholder": "Add an internal note. Type @ to mention a teammate.",
+      "composerLabel": "Internal note",
+      "mentionList": "Teammates to mention",
+      "tooLong": "Notes can be up to {max} characters.",
+      "hint": "Ctrl+Enter to save",
+      "cancel": "Cancel",
+      "add": "Add note"
+    },
+    "savedFilters": {
+      "views": "Views",
+      "empty": "No saved views yet",
+      "saveCurrent": "Save current view…",
+      "manage": "Manage views…",
+      "dialogTitle": "Saved views",
+      "dialogDescription": "Save the current filters under a name to reopen them in one click. Only you can see your views.",
+      "namePlaceholder": "e.g. Unassigned VIP",
+      "nameLabel": "View name",
+      "save": "Save",
+      "saved": "Saved view “{name}”",
+      "saveFailed": "Could not save the view",
+      "delete": "Delete view {name}",
+      "deleteFailed": "Could not delete the view",
+      "close": "Close"
+    },
+    "quickReplyFavourites": {
+      "add": "Add {title} to favourites",
+      "remove": "Remove {title} from favourites",
+      "addShort": "Add to favourites",
+      "removeShort": "Remove from favourites",
+      "failed": "Could not update favourites"
     }
   },
   "Contacts": {
@@ -680,7 +738,9 @@
       "phoneRequired": "Phone number is required",
       "phoneNeedsCountryCode": "Include the country code — the number must start with + (e.g. +14155550123)",
       "notAuthenticated": "Not authenticated",
-      "notLinkedToAccount": "Your profile is not linked to an account."
+      "notLinkedToAccount": "Your profile is not linked to an account.",
+      "phoneMasked": "Phone numbers are hidden for your account, so you can't add or change a number. Ask an admin.",
+      "phoneMaskedHint": "The number is hidden for your account and can't be edited here."
     },
     "detailView": {
       "tabs": {
@@ -750,7 +810,9 @@
         "optedOutHint": "No broadcasts or template messages. Set when they reply STOP.",
         "blocked": "Blocked",
         "blockedHint": "No automated messages, flows or AI replies."
-      }
+      },
+      "phoneMasked": "Phone numbers are hidden for your account, so you can't add or change a number. Ask an admin.",
+      "phoneMaskedHint": "The number is hidden for your account and can't be edited here."
     },
     "importModal": {
       "title": "Import Contacts",
@@ -2257,7 +2319,13 @@
       "removeDialogDesc": "Remove <bold>{name}</bold> from the account? They'll be signed out of this account and given a fresh personal account on their next sign-in. Their login isn't deleted.",
       "cancel": "Cancel",
       "removing": "Removing...",
-      "removeBtn": "Remove member"
+      "removeBtn": "Remove member",
+      "maskToggle": "Mask phone numbers for {name}",
+      "maskOnHint": "Phone numbers are masked for this member. Click to show full numbers.",
+      "maskOffHint": "Mask customers' phone numbers for this member",
+      "maskedToast": "Phone numbers are now masked for {name}",
+      "unmaskedToast": "{name} can now see full phone numbers",
+      "maskFailed": "Failed to update phone masking"
     },
     "invite": {
       "inviteCreated": "Invite created",
@@ -2675,7 +2743,9 @@
       "api": "API & webhooks",
       "inbox": "Inbox",
       "plan": "Plan & usage",
-      "payments": "Payments"
+      "payments": "Payments",
+      "notifications": "Notifications",
+      "media": "Media library"
     },
     "groups": {
       "account": "Account",
@@ -3230,6 +3300,79 @@
         "template_not_on_number": "This template does not belong to the chosen WhatsApp number.",
         "number_not_found": "That WhatsApp number was not found."
       }
+    },
+    "workingHours": {
+      "title": "Working hours and away message",
+      "description": "When your team is available, what customers hear when you are not, and how quickly a first reply is due.",
+      "loadFailed": "Could not load the inbox settings. Reload the page to try again.",
+      "timezone": "Time zone",
+      "hours": "Working hours",
+      "hoursHint": "Leave every day closed to treat the inbox as always open.",
+      "openOn": "Open on {day}",
+      "closed": "Closed",
+      "opensAt": "Opens on {day}",
+      "closesAt": "Closes on {day}",
+      "to": "to",
+      "removeRange": "Remove these hours",
+      "addRange": "Add hours",
+      "awayTitle": "Away message",
+      "awayDescription": "Sent once per closed period to a customer who writes outside working hours, unless a bot or flow already answered.",
+      "awayText": "Away message text",
+      "awayPlaceholder": "Thanks for your message! We are closed right now and will reply when we open.",
+      "slaLabel": "First reply target (minutes)",
+      "slaHint": "Owners, admins and the assignee are alerted when a conversation waits longer.",
+      "autoResolveLabel": "Auto-resolve after (hours)",
+      "autoResolveHint": "Idle conversations where your team spoke last are resolved. A customer waiting for a reply is never resolved.",
+      "off": "Off",
+      "save": "Save",
+      "saved": "Inbox settings saved",
+      "saveFailed": "Could not save the inbox settings",
+      "adminsOnly": "Only admins and owners can change these settings."
+    },
+    "routingRules": {
+      "title": "Routing rules",
+      "description": "Assign new conversations automatically. The first enabled rule, from the top, whose conditions all match decides who gets the conversation.",
+      "adminsOnly": "Only admins and owners can manage routing rules.",
+      "loadFailed": "Could not load the routing rules. Reload the page to try again.",
+      "empty": "No rules yet. Conversations stay unassigned until someone picks them up.",
+      "enabledLabel": "Turn {name} on or off",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "edit": "Edit rule",
+      "delete": "Delete rule",
+      "add": "Add rule",
+      "deleteConfirm": "Delete the rule “{name}”?",
+      "deleteFailed": "Could not delete the rule",
+      "deleted": "Rule deleted",
+      "saveFailed": "Could not save the rule",
+      "saved": "Rule saved",
+      "unknownMember": "Former member",
+      "roundRobinSummary": "Round robin: {names}",
+      "reassignSummary": "moves on after {minutes, plural, one {# minute} other {# minutes}} without a reply",
+      "editTitle": "Edit routing rule",
+      "addTitle": "New routing rule",
+      "dialogDescription": "Every condition you fill in must match. Leave them all empty to match every conversation.",
+      "name": "Name",
+      "conditions": "Conditions",
+      "conditionsHint": "Checked when a customer writes in a conversation that has no assignee and no bot handling it.",
+      "keywords": "Message contains any of",
+      "keywordsPlaceholder": "refund, invoice, price",
+      "tags": "Contact has any of these tags",
+      "number": "WhatsApp number",
+      "anyNumber": "Any number",
+      "hours": "Time",
+      "hoursAny": "Any time",
+      "hoursWithin": "During working hours",
+      "hoursOutside": "Outside working hours",
+      "assignTo": "Assign to",
+      "assignMode": "How to assign",
+      "modeMember": "One member",
+      "modeRoundRobin": "Round robin across members",
+      "reassign": "Move to the next member after (minutes)",
+      "reassignHint": "If nobody has replied by then, the conversation goes to the next member on the list. Leave empty to keep it where it is.",
+      "off": "Off",
+      "cancel": "Cancel",
+      "save": "Save"
     }
   },
   "SignupPage": {
@@ -3328,7 +3471,19 @@
     "retry": "Retry",
     "emptyTitle": "No notifications yet",
     "emptyDesc": "You'll see an alert here when someone assigns you a conversation.",
-    "unread": "Unread"
+    "unread": "Unread",
+    "descriptionAll": "Assignments, mentions, overdue replies, campaign results and WhatsApp alerts show up here.",
+    "emptyDescAll": "You'll see an alert here when a conversation is assigned to you, a teammate mentions you, or something in your workspace needs attention.",
+    "types": {
+      "conversation_assigned": "Assigned to you",
+      "assigned_message": "New message",
+      "mention": "Mention",
+      "sla_breach": "First reply overdue",
+      "campaign_finished": "Campaign",
+      "template_rejected": "Template rejected",
+      "whatsapp_number_health": "WhatsApp number",
+      "payment_received": "Payment received"
+    }
   },
   "Agents": {
     "title": "AI Agents",
@@ -4427,6 +4582,32 @@
       "resolution": "Choose whether the customer got the message.",
       "not_found": "Store event not found.",
       "not_open": "This event no longer needs attention."
+    },
+    "inboxSettings": {
+      "invalid_timezone": "Choose a valid time zone.",
+      "invalid_working_hours": "Check the working hours: each range must start before it ends and ranges on a day must not overlap.",
+      "invalid_away_message": "Write an away message of up to 1024 characters, or turn it off.",
+      "invalid_auto_resolve": "Auto-resolve must be a whole number of hours between 1 and 720.",
+      "invalid_sla": "The first reply target must be a whole number of minutes between 1 and 10080."
+    },
+    "routingRules": {
+      "invalid_name": "Give the rule a name of up to 120 characters.",
+      "invalid_conditions": "Check the rule’s conditions.",
+      "invalid_assignee": "Choose who should receive the conversations.",
+      "invalid_reassign": "The reassignment delay must be a whole number of minutes between 1 and 10080.",
+      "invalid_order": "The rule order is out of date. Reload the page and try again.",
+      "unknown_tag": "One of the tags no longer exists.",
+      "unknown_member": "Conversations can only go to owners, admins and agents of this workspace.",
+      "unknown_number": "That WhatsApp number is not part of this workspace.",
+      "limit": "A workspace can have at most 50 routing rules.",
+      "not_found": "That rule no longer exists."
+    },
+    "notes": {
+      "invalidRequest": "Send the note as a JSON object.",
+      "not_found": "That conversation or note no longer exists.",
+      "forbidden": "You can only change your own notes.",
+      "invalid_body": "Write a note of 1 to 4000 characters.",
+      "invalid_mentions": "Mention up to 20 teammates."
     }
   },
   "Api": {
@@ -4470,7 +4651,11 @@
         "loadFailed": "Failed to load members",
         "updateFailed": "Failed to update member",
         "roleInvalid": "'role' must be one of owner, admin, agent, viewer",
-        "useTransferOwnership": "Use POST /api/account/transfer-ownership to promote a member to owner"
+        "useTransferOwnership": "Use POST /api/account/transfer-ownership to promote a member to owner",
+        "maskInvalid": "'mask_phone_numbers' must be true or false",
+        "maskPrivileged": "Owners and admins always see full phone numbers",
+        "oneChange": "Change the role or phone masking, not both at once",
+        "notFound": "Member not found"
       },
       "nameMustBeString": "'name' must be a string",
       "nameEmpty": "Account name cannot be empty",
@@ -4755,6 +4940,28 @@
         "token": "Meta rejected this number's access token. Reconnect the number, then check again.",
         "unavailable": "Meta did not return this number's health. We will try again at the next check."
       }
+    },
+    "inboxSearch": {
+      "queryRequired": "Enter something to search for.",
+      "queryTooLong": "The search is too long.",
+      "invalidNumber": "Unknown WhatsApp number.",
+      "invalidStatus": "Status must be open, pending or closed.",
+      "invalidAssignee": "Assignee must be me, unassigned or a member id.",
+      "invalidDate": "Dates must be ISO 8601 date-times.",
+      "invalidDateRange": "The start date must be before the end date.",
+      "invalidCursor": "The page cursor is not valid.",
+      "invalidLimit": "Limit must be a whole number from 1 to 50.",
+      "timeout": "The search took too long. Narrow it with a longer query or filters."
+    },
+    "savedFilters": {
+      "nameInvalid": "Give the view a name of 1 to 80 characters.",
+      "filtersInvalid": "The view's filters are invalid.",
+      "positionInvalid": "Position must be a whole number from 0 to 10000.",
+      "nothingToUpdate": "Nothing to update.",
+      "limitReached": "You can save up to {max} views. Delete one to save another.",
+      "notFound": "Saved view not found.",
+      "favouriteInvalid": "Send a quick reply id and whether it is a favourite.",
+      "quickReplyNotFound": "Quick reply not found."
     }
   },
   "PageSearch": {
@@ -5906,5 +6113,128 @@
         "variables_invalid": "Map each variable to an order field."
       }
     }
+  },
+  "InboxLifecycle": {
+    "bot": "Bot",
+    "requesting": "Requesting",
+    "assigned": "Assigned",
+    "resolved": "Resolved",
+    "reopened": "{count, plural, one {Reopened once} other {Reopened # times}}",
+    "slaDue": "First reply due {time}",
+    "slaBreached": "First reply overdue"
+  },
+  "NotificationEvents": {
+    "assigned_message": {
+      "label": "New messages in my conversations",
+      "description": "A customer writes in a conversation assigned to you."
+    },
+    "mention": {
+      "label": "Mentions",
+      "description": "A teammate mentions you in an internal note."
+    },
+    "sla_breach": {
+      "label": "Missed first-reply targets",
+      "description": "A conversation waits longer than the workspace's first-reply target."
+    },
+    "campaign_finished": {
+      "label": "Campaigns finished",
+      "description": "A broadcast you can see has finished sending."
+    },
+    "template_rejected": {
+      "label": "Templates rejected",
+      "description": "Meta rejects a message template."
+    },
+    "number_quality": {
+      "label": "Number quality changes",
+      "description": "A WhatsApp number's quality rating or messaging limit changes."
+    },
+    "inApp": "In app",
+    "email": "Email digest"
+  },
+  "Weekdays": {
+    "mon": "Monday",
+    "tue": "Tuesday",
+    "wed": "Wednesday",
+    "thu": "Thursday",
+    "fri": "Friday",
+    "sat": "Saturday",
+    "sun": "Sunday"
+  },
+  "MediaLibrary": {
+    "pickerTitle": "Media library",
+    "pickerDescription": "Choose a saved file or upload a new one.",
+    "search": "Search files",
+    "filter": "Filter by type",
+    "kinds": {
+      "all": "All",
+      "image": "Images",
+      "video": "Videos",
+      "audio": "Audio",
+      "document": "Documents"
+    },
+    "upload": "Upload",
+    "uploaded": "File added to the library",
+    "uploadRejected": "This file type or size isn't supported. Images can be up to 5 MB, other files up to 16 MB.",
+    "uploadFailed": "Couldn't upload the file. Try again.",
+    "loading": "Loading…",
+    "loadMore": "Load more",
+    "loadFailed": "Couldn't load the media library.",
+    "empty": "No files yet. Upload one to reuse it in conversations.",
+    "noMatches": "No files match this filter.",
+    "pick": "Use {name}",
+    "delete": "Delete {name}",
+    "deleteConfirm": "Delete \"{name}\" from the library?",
+    "deleted": "File deleted",
+    "hidden": "Removed from the library. The file is kept because a recent message, template or flow still uses it.",
+    "deleteForbidden": "Only an admin or the person who uploaded this file can delete it.",
+    "deleteFailed": "Couldn't delete the file. Try again.",
+    "settingsTitle": "Media library",
+    "settingsDescription": "Files your team saved to reuse in conversations, and how much storage this workspace uses.",
+    "usageFailed": "Couldn't load storage usage.",
+    "used": "{used} used",
+    "usedOfLimit": "{used} of {limit} used",
+    "meterLabel": "Storage used",
+    "libraryCount": "{count, plural, =0 {No files in the library} one {# file in the library ({size})} other {# files in the library ({size})}}",
+    "manage": "Manage files",
+    "manageTitle": "Manage media library",
+    "manageDescription": "Agents can delete their own uploads; admins can delete any file. Files used by a message in the last {days} days, a template or a flow are only removed from the library."
+  },
+  "NotificationPreferences": {
+    "title": "Notification preferences",
+    "description": "Choose what you hear about in the app and in the email digest. These settings are yours only.",
+    "loading": "Loading your preferences…",
+    "loadFailed": "Couldn't load your notification preferences.",
+    "retry": "Retry",
+    "saveFailed": "Couldn't save that change. Please try again.",
+    "event": "Event",
+    "inAppFor": "In-app notifications for {event}",
+    "emailFor": "Email digest for {event}",
+    "emailUnavailable": "Email digests are not available because this workspace has no email delivery set up.",
+    "digestHint": "The email digest arrives at most every 30 minutes and lists only notification titles and links, never message content."
+  },
+  "InboxSearch": {
+    "placeholder": "Search messages",
+    "filters": "Search filters",
+    "allNumbers": "All numbers",
+    "status": "Status",
+    "anyStatus": "Any status",
+    "statusOpen": "Open",
+    "statusPending": "Pending",
+    "statusClosed": "Closed",
+    "assignee": "Assignee",
+    "anyAssignee": "Anyone",
+    "assignedToMe": "Assigned to me",
+    "unassigned": "Unassigned",
+    "from": "From",
+    "to": "To",
+    "clearFilters": "Clear filters",
+    "hint": "Search message text, or a phone number.",
+    "searching": "Searching…",
+    "failed": "Search failed. Try again.",
+    "rateLimited": "Too many searches. Wait a moment and try again.",
+    "noResults": "No messages match your search.",
+    "unknownContact": "Unknown contact",
+    "loadMore": "Load more",
+    "jumpNotFound": "That message is too far back in the history to show here."
   }
 }

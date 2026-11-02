@@ -15,6 +15,7 @@ import {
   type ContactDetails,
 } from '@/lib/inbox/contact-details';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
+import { MASK_CHAR } from '@/lib/inbox/masking';
 import type { Contact } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -90,6 +91,9 @@ export function ContactSidebar({
   if (!contact) return null;
   const current = data?.contact ?? contact;
   const handle = contactHandle(current);
+  // Masked members get "+91 98•••••210" from the server; copying that is
+  // useless, so it is shown as plain text.
+  const handleMasked = handle.includes(MASK_CHAR);
   const disabled = busy || !canSendMessages || !data;
   const inputClass =
     'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60';
@@ -148,6 +152,11 @@ export function ContactSidebar({
             <h3 className="mt-2 font-semibold break-words">
               {current.name || handle}
             </h3>
+            {handleMasked ? (
+              <span className="text-muted-foreground mt-1 inline-flex max-w-full text-xs break-all">
+                {handle}
+              </span>
+            ) : (
             <button
               className="text-muted-foreground mt-1 inline-flex max-w-full items-center gap-2 text-xs"
               aria-label={t('copyPhone')}
@@ -167,6 +176,7 @@ export function ContactSidebar({
                 <Copy className="size-3 shrink-0" />
               )}
             </button>
+            )}
           </div>
           {error && (
             <div

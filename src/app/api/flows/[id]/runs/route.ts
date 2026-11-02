@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { getT } from '@/lib/i18n/translate';
+import { requireSession } from '@/lib/auth/session';
+import { maskEmbeddedContact, resolvePhoneMask } from '@/lib/inbox/masking-apply';
 
 const t = getT('Api');
 
@@ -84,9 +86,10 @@ export async function GET(
     }
   }
 
+  const mask = await resolvePhoneMask(await requireSession());
   return NextResponse.json({
     flow,
-    runs: runs ?? [],
+    runs: (runs ?? []).map((run) => maskEmbeddedContact(run, mask)),
     events,
   });
 }
