@@ -62,7 +62,7 @@ describe('validateBody', () => {
     expect(() => validateBody('Hi {{1}} {{3}}')).toThrow(/contiguous/);
   });
   it('accepts contiguous variables', () => {
-    expect(validateBody('Hi {{1}} {{2}}')).toEqual([1, 2]);
+    expect(validateBody('Hi {{1}} {{2}}.')).toEqual([1, 2]);
   });
 });
 
@@ -229,7 +229,7 @@ describe('validateSampleValues', () => {
   it('rejects mismatched body sample count', () => {
     expect(() =>
       validateSampleValues(
-        { ...baseValid, body_text: 'Hi {{1}}', sample_values: { body: [] } },
+        { ...baseValid, body_text: 'Hi {{1}}.', sample_values: { body: [] } },
         1,
         0,
       ),
@@ -275,7 +275,7 @@ describe('validateTemplatePayload — integration', () => {
     expect(() =>
       validateTemplatePayload({
         ...baseValid,
-        body_text: 'Hi {{1}}',
+        body_text: 'Hi {{1}}.',
       }),
     ).toThrow(/exactly 1 sample/);
   });

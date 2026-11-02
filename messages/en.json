@@ -453,7 +453,23 @@
       "send": "Send template",
       "headerVarLabel": "Header {var}",
       "bodyVarLabel": "Body {var}",
-      "urlButtonVarLabel": "URL button \"{text}\" — value for {var}"
+      "urlButtonVarLabel": "URL button \"{text}\" — value for {var}",
+      "authPreview": "WhatsApp writes this verification message and adds the code you enter below.",
+      "authCodeLabel": "One-time code",
+      "authCodePlaceholder": "e.g. 482913",
+      "authCodeHint": "Up to {max} characters. It is sent to this contact only and is not saved in the conversation.",
+      "locationTitle": "Location shown above the message",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "locationInvalid": "Latitude must be between -90 and 90, longitude between -180 and 180.",
+      "locationName": "Place name (optional)",
+      "locationAddress": "Address (optional)",
+      "offerEndsLabel": "Offer ends",
+      "offerEndsPast": "Pick a time in the future.",
+      "couponLabel": "Code for \"{text}\"",
+      "couponHint": "Leave empty to use the code saved with the template.",
+      "cardTitle": "Card {n}",
+      "cardBodyVarLabel": "Card {n}, body {var}"
     },
     "sidebar": {
       "contactInfo": "Contact info",
@@ -1079,7 +1095,8 @@
         "subtitle": "Select an approved message template for your broadcast.",
         "noTemplates": "No templates available.",
         "createFirst": "Create a template in Settings first.",
-        "errorLoad": "Failed to load templates"
+        "errorLoad": "Failed to load templates",
+        "authNotForCampaigns": "Authentication templates can't be used in campaigns. Send them from the inbox or the API."
       },
       "selectAudience": {
         "title": "Select Audience",
@@ -1174,7 +1191,22 @@
         "selectCsvColumn": "Select a column...",
         "trackedUrl": "Link destination (click tracking)",
         "trackedUrlHint": "This template's button opens a tracking link. Enter the https:// page recipients should land on; clicks are counted per recipient.",
-        "trackedUrlInvalid": "Enter a full https:// address."
+        "trackedUrlInvalid": "Enter a full https:// address.",
+        "cardVariable": "Card {n} {var}",
+        "locationTitle": "Header location",
+        "locationDesc": "Every recipient sees this place above the message.",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "locationName": "Place name (optional)",
+        "locationAddress": "Address (optional)",
+        "locationRequired": "Enter a valid latitude (-90 to 90) and longitude (-180 to 180).",
+        "offerTitle": "Offer details",
+        "offerEnds": "Offer ends",
+        "offerEndsDesc": "Recipients see a countdown to this time. It must be after the campaign starts sending.",
+        "offerEndsPast": "Pick a time in the future.",
+        "offerEndsRequired": "Choose when the offer ends.",
+        "couponCode": "Code for \"{text}\"",
+        "couponCodeDesc": "Every recipient gets this code. Leave empty to use the code saved with the template."
       },
       "scheduleSend": {
         "title": "Review & Send",
@@ -1815,7 +1847,17 @@
         "connectHelp": "This flow ends and the chosen flow starts for the same contact, with the same variables. The chosen flow must be active.",
         "testSamples": "Sample values for the test",
         "flowStatusDraft": "draft",
-        "flowStatusArchived": "archived"
+        "flowStatusArchived": "archived",
+        "templateLocation": "Header location",
+        "templateLatitude": "Latitude",
+        "templateLongitude": "Longitude",
+        "templateLocationName": "Place name (optional)",
+        "templateLocationAddress": "Address (optional)",
+        "templateOfferMinutes": "Offer lasts (minutes)",
+        "templateOfferHelp": "The offer ends this many minutes after this step sends the template.",
+        "templateCoupon": "Coupon code",
+        "templateCouponHelp": "Can use run variables. Leave empty to use the code saved with the template.",
+        "templateCardParam": "Card {card} value {n}"
       },
       "categories": {
         "messaging": "Messaging",
@@ -2302,7 +2344,90 @@
         "Marketing": "Marketing",
         "Utility": "Utility",
         "Authentication": "Authentication"
-      }
+      },
+      "headerLocation": "Location",
+      "locationHint": "The customer sees a map pin. You choose the place each time you send.",
+      "templateKind": "Template type",
+      "kindFixed": "The type of a submitted template cannot be changed.",
+      "kinds": {
+        "standard": "Standard",
+        "carousel": "Carousel",
+        "authentication": "Authentication",
+        "limited_time_offer": "Limited-time offer"
+      },
+      "kindHints": {
+        "standard": "Text with an optional header, footer and buttons.",
+        "carousel": "A short message followed by 2 to 10 swipeable cards, each with media and buttons.",
+        "authentication": "A one-time code with a copy button. WhatsApp writes the message text.",
+        "limited_time_offer": "A promotion with an offer banner and an optional countdown to when it ends."
+      },
+      "dialogDraftTitle": "Edit draft",
+      "preview": "Preview",
+      "saveDraft": "Save draft",
+      "savingDraft": "Saving…",
+      "toastDraftSaved": "Draft saved",
+      "draftSaveFailedHttp": "Could not save the draft (HTTP {status})",
+      "removeButton": "Remove button",
+      "auth": {
+        "bodyNote": "WhatsApp writes and translates the message for you. Choose how the code is shown.",
+        "security": "Add a warning not to share the code",
+        "expiry": "Code expires after (minutes)",
+        "expiryHint": "Optional, {min} to {max} minutes. Shown as a footer.",
+        "buttonText": "Copy button text",
+        "buttonTextPlaceholder": "Copy code"
+      },
+      "lto": {
+        "text": "Offer headline",
+        "textPlaceholder": "e.g. Weekend deal",
+        "hasExpiration": "Show a countdown to when the offer ends",
+        "hint": "With a countdown, add a copy-code button. You set the end time when you send."
+      },
+      "cards": {
+        "title": "Cards ({count} of {max})",
+        "mediaType": "Card media type",
+        "add": "Add card",
+        "hint": "Every card uses the same media type and the same buttons, in the same order.",
+        "buttonSlots": "Buttons on every card",
+        "slotType": "Type of button {n}",
+        "slotN": "Button {n}",
+        "cardN": "Card {n}",
+        "remove": "Remove card {n}",
+        "mediaUrl": "Media link for card {n}",
+        "body": "Text for card {n}"
+      },
+      "tabsLabel": "Filter templates by status",
+      "tabs": {
+        "all": "All",
+        "approved": "Approved",
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "drafts": "Drafts",
+        "paused": "Paused or disabled"
+      },
+      "health": {
+        "label": "Quality: {level}",
+        "green": "High",
+        "yellow": "Medium",
+        "red": "Low",
+        "unknown": "Not rated yet"
+      },
+      "searchPlaceholder": "Search by name",
+      "noMatches": "No templates match this filter.",
+      "issueLabel": "Problem",
+      "fromLibrary": "Start from library",
+      "writeWithAi": "Write with AI",
+      "editDraft": "Edit",
+      "editDraftTitle": "Edit this draft or submit it for approval",
+      "duplicate": "Duplicate",
+      "duplicateAria": "Duplicate {name}",
+      "duplicateFailedHttp": "Could not duplicate the template (HTTP {status})",
+      "toastDuplicated": "Draft {name} created",
+      "history": "History",
+      "historyAria": "Status history of {name}",
+      "historyTitle": "Status history",
+      "historyDesc": "Every status change of {name}, newest first.",
+      "placeholderUrlWarning": "This is still the sample link (example.com). Replace it with your own URL before submitting.",
+      "placeholderPhoneWarning": "This is still the sample number (+10000000000). Replace it with your business phone number before submitting."
     },
     "roles": {
       "admin": "Admin",
@@ -3688,7 +3813,12 @@
       "replyIdsEmpty": "reply ids cannot be empty strings",
       "conditionValueRequired": "Enter a non-empty comparison value.",
       "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone."
+      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "templateCarousel": "Automations can't send carousel templates: the step only fills body values, not card values. Use a flow or a campaign instead.",
+      "templateLimitedTimeOffer": "Automations can't send limited-time offer templates: the step only fills body values, not the offer details. Use a flow or a campaign instead.",
+      "templateLocationHeader": "Automations can't send templates with a location header: the step only fills body values, not a location. Use a flow or a campaign instead.",
+      "templateHeaderVariable": "Automations can't send templates with a variable in the header: the step only fills body values.",
+      "templateUrlVariable": "Automations can't send templates with a variable in a URL button: the step only fills body values."
     },
     "templates": {
       "nameRequired": "Template name is required.",
@@ -3733,7 +3863,55 @@
       "headerTextValueRequired": "Header text variable {var} requires a value — pass headerText.",
       "mediaHeaderSendSource": "{type} header requires a media link or id at send time — set header_media_url on the template or pass headerMediaUrl/headerMediaId.",
       "bodyValuesMissing": "Body has {count} variable(s) but only {got} value(s) were supplied.",
-      "urlButtonParamRequired": "URL button #{n} uses {var} — requires a buttonParams[{index}] value."
+      "urlButtonParamRequired": "URL button #{n} uses {var} — requires a buttonParams[{index}] value.",
+      "kindInvalid": "Unknown template type: {kind}.",
+      "kindFieldNotAllowed": "{field} does not apply to this template type.",
+      "locationHeaderCategory": "A location header is only available on standard Marketing or Utility templates.",
+      "locationHeaderNoContent": "A location header cannot have header text, media or a sample.",
+      "carouselCategory": "Carousel templates must use the Marketing category.",
+      "carouselNoHeader": "Carousel templates cannot have a top-level header. Each card has its own.",
+      "carouselNoFooter": "Carousel templates cannot have a footer.",
+      "carouselNoButtons": "Carousel templates cannot have top-level buttons. Add buttons to each card.",
+      "carouselCardCount": "Carousel templates need {min} to {max} cards (got {got}).",
+      "cardError": "Card {n}: {message}",
+      "cardHeaderType": "Every card needs an image or video header.",
+      "cardHeaderMismatch": "Every card must use the same header format as card 1 ({format}).",
+      "cardBodyRequired": "Card body text is required.",
+      "cardBodyTooLong": "Card body text exceeds {max} chars (got {got}).",
+      "cardButtonCount": "Each card needs {min} or {max} buttons (got {got}).",
+      "cardButtonType": "Card buttons can only be quick reply, URL or phone number (button #{n} is {type}).",
+      "cardButtonsMismatch": "Every card must have the same number and types of buttons, in the same order, as card 1.",
+      "cardMediaSendSource": "Card {n} needs a {type} link or media id at send time.",
+      "authCategory": "Authentication templates must use the Authentication category.",
+      "authNoHeader": "Authentication templates cannot have a header.",
+      "authNoFooter": "Authentication templates cannot have a custom footer. Set a code expiry instead.",
+      "authNoButtons": "Authentication templates use a single copy-code button. Remove the other buttons.",
+      "authOptionsRequired": "Authentication templates need their one-time code settings.",
+      "authOtpType": "Authentication templates only support the copy-code button.",
+      "authExpiryRange": "Code expiry must be a whole number of minutes from {min} to {max}.",
+      "authSecurityFlag": "The security recommendation setting must be on or off.",
+      "authButtonTextEmpty": "The copy-code button text cannot be blank.",
+      "authButtonTextTooLong": "The copy-code button text exceeds {max} chars (got {got}).",
+      "authCodeRequired": "Authentication templates need the one-time code to send.",
+      "authCodeTooLong": "The one-time code can be at most {max} characters.",
+      "ltoCategory": "Limited-time offer templates must use the Marketing category.",
+      "ltoTextRequired": "Limited-time offer templates need offer text.",
+      "ltoTextTooLong": "Offer text exceeds {max} chars (got {got}).",
+      "ltoExpirationFlag": "Choose whether the offer has an expiry.",
+      "ltoHeaderType": "A limited-time offer header can only be an image or a video.",
+      "ltoNoFooter": "Limited-time offer templates cannot have a footer.",
+      "ltoBodyTooLong": "Offer body text exceeds {max} chars (got {got}).",
+      "ltoTooManyButtons": "Limited-time offer templates allow at most {max} buttons (got {got}).",
+      "ltoButtonTypes": "Limited-time offer buttons can only be one copy-code button and one URL button.",
+      "ltoCopyCodeRequired": "An offer with an expiry needs a copy-code button.",
+      "ltoExpirationRequired": "This offer has an expiry. Pass the expiry time in milliseconds.",
+      "locationValueRequired": "This template has a location header. Pass a latitude and longitude.",
+      "locationValueInvalid": "The location needs a latitude from -90 to 90 and a longitude from -180 to 180.",
+      "bodyVariableAtEdge": "Body text cannot start or end with a variable. Add some words before the first variable and after the last one.",
+      "ltoUrlButtonRequired": "Limited-time offer templates need one URL button.",
+      "ltoCopyCodeFirst": "Put the copy-code button first and the URL button second.",
+      "buttonPlaceholderUrl": "Button #{n} still uses the sample link {url}. Replace it with your own link before submitting.",
+      "buttonPlaceholderPhone": "Button #{n} still uses the sample number {phone}. Replace it with your business phone number before submitting."
     },
     "interactive": {
       "buttonCount": "Interactive button message requires 1-{max} buttons (got {got}).",
@@ -3754,6 +3932,23 @@
       "bodyTooLong": "Interactive bodyText exceeds {max} chars.",
       "headerTooLong": "Interactive headerText exceeds {max} chars.",
       "footerTooLong": "Interactive footerText exceeds {max} chars."
+    },
+    "templateSend": {
+      "authOnlyInbox": "Authentication templates can only be sent from the inbox or the API, where a one-time code is entered for one person. Campaigns, automations and flows cannot send them.",
+      "valueNotText": "{field} must be text.",
+      "valueTooLong": "{field} can be at most {max} characters.",
+      "valueNotList": "{field} must be a list of values.",
+      "tooManyValues": "{field} can have at most {max} entries.",
+      "valueNotObject": "{field} has an invalid format.",
+      "buttonIndexInvalid": "{field} must be keyed by button position.",
+      "locationInvalid": "Enter a latitude between -90 and 90 and a longitude between -180 and 180.",
+      "couponTooLong": "The coupon code can be at most {max} characters.",
+      "offerExpirationInvalid": "Choose a valid date and time for when the offer ends.",
+      "offerExpirationPast": "The offer must end after the message is sent.",
+      "authCodeInvalid": "Enter the one-time code.",
+      "authCodeTooLong": "The one-time code can be at most {max} characters.",
+      "flowOfferMinutes": "Enter how many minutes the offer lasts, from 1 to {max}.",
+      "cardValueEmpty": "Card {card}: value {n} is empty."
     }
   },
   "Api": {
@@ -3954,7 +4149,34 @@
       "submittedSaveFailed": "Submitted to Meta but failed to save locally: {message}. Run \"Sync from Meta\" to recover.",
       "submitFailed": "Failed to submit template.",
       "metaApiStatus": "Meta API error: {status}",
-      "syncFailed": "Failed to sync templates"
+      "syncFailed": "Failed to sync templates",
+      "authKindRequired": "Authentication templates must use the authentication template type.",
+      "draft": {
+        "alreadySubmitted": "This template has already been submitted to Meta. Edit it instead of saving it as a draft.",
+        "nameTaken": "Another template already uses this name and language.",
+        "kindLocked": "A submitted template's type can't be changed. Duplicate it to create a different type.",
+        "saveFailed": "Could not save the draft.",
+        "duplicateFailed": "Could not duplicate the template.",
+        "bodyInvalid": "The draft must be a JSON object.",
+        "tooLarge": "This draft is too large to save.",
+        "fieldInvalid": "The field \"{field}\" is not valid.",
+        "languageInvalid": "Choose a valid template language.",
+        "categoryInvalid": "Choose a valid template category.",
+        "kindInvalid": "Choose a valid template type.",
+        "kindCategoryMismatch": "The Authentication category is used only by authentication templates, and they use no other category."
+      },
+      "aiDraft": {
+        "goalRequired": "Describe what the message should do.",
+        "goalTooLong": "Keep the goal to 500 characters or fewer.",
+        "toneInvalid": "Choose a tone: friendly, professional, urgent or playful.",
+        "categoryInvalid": "AI drafts support the Marketing and Utility categories.",
+        "languageInvalid": "Choose a valid template language.",
+        "businessTooLong": "Keep the business description to 200 characters or fewer.",
+        "notConfigured": "The AI assistant is not set up. Add a provider in Settings → AI Assistant to write templates with AI.",
+        "invalidDraft": "The AI could not produce a valid template: {reason}",
+        "unreadable": "The AI reply could not be read as a template. Try again or rephrase the goal."
+      },
+      "submitRaced": "Another submit already sent this template to Meta. Reload to see its current status."
     }
   },
   "PageSearch": {
@@ -3982,5 +4204,403 @@
   "Plan": {
     "upgrade": "Upgrade",
     "upgradeHint": "Not included in your plan. See Settings → Plan & usage."
+  },
+  "TemplateLibrary": {
+    "industries": {
+      "retail": "Retail and e-commerce",
+      "food": "Food and restaurants",
+      "health": "Healthcare",
+      "beauty": "Beauty and wellness",
+      "education": "Education",
+      "real_estate": "Real estate",
+      "travel": "Travel and hospitality",
+      "finance": "Finance and banking",
+      "events": "Events",
+      "services": "Home and professional services",
+      "general": "General"
+    },
+    "order_confirmation": {
+      "title": "Order confirmation",
+      "description": "Confirm a new order with its number and total.",
+      "header": "Order received",
+      "body": "Hi {v1}, thank you for your order {v2}. We have received it and will message you again as soon as it ships. Order total: {v3}.",
+      "footer": "Thank you for shopping with us",
+      "buttons": {
+        "b1": "View order"
+      },
+      "samples": "Priya|#10245|$48.90"
+    },
+    "shipping_update": {
+      "title": "Shipping update",
+      "description": "Tell customers their order has shipped, with the carrier and tracking number.",
+      "header": "Your order is on the way",
+      "body": "Good news, {v1}! Your order {v2} has shipped with {v3}. Your tracking number is {v4}.",
+      "buttons": {
+        "b1": "Track package"
+      },
+      "samples": "Daniel|#10245|FastShip Couriers|FS123456789"
+    },
+    "delivery_delayed": {
+      "title": "Delivery delayed",
+      "description": "Apologise for a late order and share the new delivery date.",
+      "body": "Hi {v1}, we are sorry: your order {v2} is running behind schedule. The new expected delivery date is {v3}. Thank you for your patience.",
+      "buttons": {
+        "b1": "Talk to support"
+      },
+      "samples": "Aisha|#10245|12 March"
+    },
+    "back_in_stock": {
+      "title": "Back in stock",
+      "description": "Let interested customers know a product is available again.",
+      "body": "Hi {v1}, {v2} is back in stock! Quantities are limited, so order yours before it sells out again.",
+      "buttons": {
+        "b1": "Shop now"
+      },
+      "samples": "Rahul|Classic Denim Jacket"
+    },
+    "festive_offer": {
+      "title": "Festive offer",
+      "description": "Announce a seasonal discount with an end date and coupon code.",
+      "header": "Festive sale is live",
+      "body": "Hi {v1}, the festive season is here! Enjoy {v2} off on our entire range until {v3}. Use code {v4} at checkout.",
+      "footer": "Offer valid while stocks last",
+      "buttons": {
+        "b1": "Stop promotions",
+        "b2": "Shop the sale"
+      },
+      "samples": "Meera|20%|31 October|FESTIVE20"
+    },
+    "abandoned_cart": {
+      "title": "Abandoned cart",
+      "description": "Remind shoppers about items still waiting in their cart.",
+      "body": "Hi {v1}, you left {v2} in your cart. Your items are still saved, so you can finish your purchase whenever you are ready.",
+      "buttons": {
+        "b1": "Complete purchase"
+      },
+      "samples": "Sam|2 items"
+    },
+    "price_drop": {
+      "title": "Price drop",
+      "description": "Alert customers when a product they viewed gets cheaper.",
+      "body": "Hi {v1}, the price of {v2} has dropped to {v3}. This price is available while stock lasts.",
+      "buttons": {
+        "b1": "View product"
+      },
+      "samples": "Kiran|Wireless Earbuds|$39.00"
+    },
+    "loyalty_points": {
+      "title": "Loyalty points",
+      "description": "Share a points balance and when the points expire.",
+      "body": "Hi {v1}, you have {v2} loyalty points in your account. Use them on your next purchase before they expire on {v3}.",
+      "buttons": {
+        "b1": "See rewards"
+      },
+      "samples": "Neha|1,250|30 June"
+    },
+    "table_reservation": {
+      "title": "Table reservation",
+      "description": "Confirm a restaurant booking with party size, date and time.",
+      "header": "Table reserved",
+      "body": "Hi {v1}, your table for {v2} is booked for {v3} at {v4}. Reply to this message if your plans change.",
+      "buttons": {
+        "b1": "Confirm",
+        "b2": "Reschedule"
+      },
+      "samples": "Arjun|4 guests|Friday, 14 June|8:00 PM"
+    },
+    "order_ready_pickup": {
+      "title": "Order ready for pickup",
+      "description": "Tell customers their order is ready to collect.",
+      "body": "Hi {v1}, your order {v2} is ready for pickup at {v3}. Please show this message at the counter.",
+      "buttons": {
+        "b1": "Call the store"
+      },
+      "samples": "Lena|#A-58|our Main Street outlet"
+    },
+    "appointment_reminder": {
+      "title": "Appointment reminder",
+      "description": "Remind patients of an upcoming appointment and let them confirm.",
+      "header": "Appointment reminder",
+      "body": "Hi {v1}, this is a reminder of your appointment with {v2} on {v3} at {v4}. Please arrive 10 minutes early.",
+      "buttons": {
+        "b1": "Confirm",
+        "b2": "Reschedule"
+      },
+      "samples": "Ravi|Dr. Mehta|Monday, 10 June|11:30 AM"
+    },
+    "appointment_confirmed": {
+      "title": "Appointment confirmed",
+      "description": "Confirm a salon or spa appointment with the service and time.",
+      "body": "Hi {v1}, your {v2} appointment is confirmed for {v3} at {v4}. We look forward to seeing you.",
+      "buttons": {
+        "b1": "Call us"
+      },
+      "samples": "Sofia|haircut and styling|Saturday, 15 June|3:00 PM"
+    },
+    "payment_reminder": {
+      "title": "Payment reminder",
+      "description": "Remind a customer that an invoice is due soon.",
+      "body": "Hi {v1}, this is a friendly reminder that your payment of {v2} for invoice {v3} is due on {v4}.",
+      "buttons": {
+        "b1": "Pay now"
+      },
+      "samples": "Vikram|$120.00|INV-2041|5 July"
+    },
+    "payment_received": {
+      "title": "Payment received",
+      "description": "Acknowledge a payment with the amount, date and reference.",
+      "header": "Payment received",
+      "body": "Hi {v1}, we have received your payment of {v2} on {v3}. Reference number: {v4}. Thank you!",
+      "footer": "Keep this message for your records",
+      "samples": "Anita|$120.00|3 July|TXN784512"
+    },
+    "emi_due": {
+      "title": "EMI due",
+      "description": "Remind borrowers of an upcoming loan instalment.",
+      "body": "Hi {v1}, your EMI of {v2} for loan account {v3} is due on {v4}. Please keep enough balance in your account to avoid late charges.",
+      "buttons": {
+        "b1": "Pay EMI"
+      },
+      "samples": "Suresh|$215.00|LN-55021|10 August"
+    },
+    "document_request": {
+      "title": "Document request",
+      "description": "Ask a customer for a missing document to continue an application.",
+      "body": "Hi {v1}, to continue processing your {v2}, we need the following document: {v3}. Please reply to this message with a clear photo or PDF.",
+      "buttons": {
+        "b1": "I need help"
+      },
+      "samples": "Farah|loan application|proof of address"
+    },
+    "account_update": {
+      "title": "Account update",
+      "description": "Notify a customer that account details were changed.",
+      "body": "Hi {v1}, the {v2} on your account was updated on {v3}. If you did not make this change, please contact us right away.",
+      "buttons": {
+        "b1": "Call support"
+      },
+      "samples": "Tom|registered email address|2 May"
+    },
+    "class_reminder": {
+      "title": "Class reminder",
+      "description": "Remind students when their next class starts.",
+      "body": "Hi {v1}, your {v2} class starts on {v3} at {v4}. Please keep your notebook and materials ready.",
+      "buttons": {
+        "b1": "Join class"
+      },
+      "samples": "Isha|Grade 10 Mathematics|Tuesday|5:00 PM"
+    },
+    "admission_open": {
+      "title": "Admissions open",
+      "description": "Announce that admissions are open, with the closing date.",
+      "header": "Admissions are open",
+      "body": "Hi {v1}, admissions for {v2} are now open for the {v3} session. Applications close on {v4}.",
+      "footer": "Limited seats available",
+      "buttons": {
+        "b1": "Apply now"
+      },
+      "samples": "Mr. Rao|our MBA program|2027|30 April"
+    },
+    "site_visit_confirmed": {
+      "title": "Site visit confirmed",
+      "description": "Confirm a property visit with the project, date and time.",
+      "body": "Hi {v1}, your site visit to {v2} is confirmed for {v3} at {v4}. Our representative will meet you at the entrance.",
+      "buttons": {
+        "b1": "Call your agent"
+      },
+      "samples": "Karan|Green Valley Residences|Sunday, 16 June|10:00 AM"
+    },
+    "booking_confirmed": {
+      "title": "Booking confirmed",
+      "description": "Confirm a trip or stay with the booking number and dates.",
+      "header": "Booking confirmed",
+      "body": "Hi {v1}, your booking {v2} is confirmed. Travel dates: {v3} to {v4}. We wish you a pleasant trip!",
+      "buttons": {
+        "b1": "View booking"
+      },
+      "samples": "Elena|BK-90321|12 September|18 September"
+    },
+    "check_in_details": {
+      "title": "Check-in details",
+      "description": "Share check-in time and what guests should bring.",
+      "body": "Hi {v1}, we look forward to welcoming you at {v2}. Check-in opens at {v3} on {v4}. Please carry a valid photo ID.",
+      "buttons": {
+        "b1": "Call the front desk"
+      },
+      "samples": "Omar|Seaside Resort|2:00 PM|12 September"
+    },
+    "event_reminder": {
+      "title": "Event reminder",
+      "description": "Remind attendees of an event date and venue.",
+      "body": "Hi {v1}, a reminder that {v2} takes place on {v3} at {v4}. We look forward to seeing you there!",
+      "buttons": {
+        "b1": "Event details"
+      },
+      "samples": "Julia|the Annual Design Meetup|20 June|City Convention Center"
+    },
+    "webinar_link": {
+      "title": "Webinar link",
+      "description": "Send registrants the session time and a join button.",
+      "body": "Hi {v1}, thanks for registering for {v2}. The session starts on {v3} at {v4}. Use the button below to join.",
+      "buttons": {
+        "b1": "Join webinar"
+      },
+      "samples": "Alex|Growing Your Business on WhatsApp|25 June|4:00 PM"
+    },
+    "renewal_reminder": {
+      "title": "Renewal reminder",
+      "description": "Remind customers that a plan or subscription expires soon.",
+      "body": "Hi {v1}, your {v2} expires on {v3}. Renew before that date to keep enjoying uninterrupted service.",
+      "buttons": {
+        "b1": "Renew now"
+      },
+      "samples": "Deepa|annual maintenance plan|31 July"
+    },
+    "service_follow_up": {
+      "title": "Service follow-up",
+      "description": "Check in after a completed service visit.",
+      "body": "Hi {v1}, we completed your {v2} on {v3}. Is everything working as expected? Let us know if you need anything else.",
+      "buttons": {
+        "b1": "All good",
+        "b2": "I need help"
+      },
+      "samples": "George|air conditioner service|8 June"
+    },
+    "welcome_message": {
+      "title": "Welcome message",
+      "description": "Greet new subscribers and invite them to start a chat.",
+      "header": "Welcome!",
+      "body": "Hi {v1}, welcome to {v2}! We are glad to have you with us. Reply anytime to chat with our team.",
+      "buttons": {
+        "b1": "See products",
+        "b2": "Talk to us"
+      },
+      "samples": "Nisha|Bloom Boutique"
+    },
+    "feedback_request": {
+      "title": "Feedback request",
+      "description": "Ask customers to rate their recent experience.",
+      "body": "Hi {v1}, thank you for choosing {v2}. How was your experience? Your feedback helps us improve.",
+      "buttons": {
+        "b1": "Excellent",
+        "b2": "Good",
+        "b3": "Needs work"
+      },
+      "samples": "Leo|Bright Dental Care"
+    },
+    "store_opening_hours": {
+      "title": "Store opening hours",
+      "description": "Share opening days and hours for a store or branch.",
+      "body": "Hi {v1}, {v2} is open {v3} from {v4}. We look forward to your visit!",
+      "buttons": {
+        "b1": "Call us"
+      },
+      "samples": "Maya|our new store|Monday to Saturday|9:00 AM to 8:00 PM"
+    },
+    "holiday_notice": {
+      "title": "Holiday notice",
+      "description": "Let customers know you will be closed for a holiday.",
+      "header": "Holiday notice",
+      "body": "Hi {v1}, please note that {v2} will be closed on {v3} for {v4}. We will resume regular service on the next working day.",
+      "samples": "Chris|our office|1 January|New Year celebrations"
+    }
+  },
+  "Templates": {
+    "studio": {
+      "preview": {
+        "label": "Message preview",
+        "media": {
+          "image": "Image",
+          "video": "Video",
+          "document": "Document",
+          "location": "Location"
+        },
+        "authBody": "{code} is your verification code.",
+        "authSecurity": "For your security, do not share this code.",
+        "authExpiry": "This code expires in {minutes, plural, one {# minute} other {# minutes}}.",
+        "copyCode": "Copy code",
+        "authNote": "WhatsApp writes the text of authentication messages and translates it into the template language. This preview is an approximation.",
+        "ltoPlaceholder": "Offer headline",
+        "ltoExpires": "Offer ends soon",
+        "emptyBody": "Your message text appears here.",
+        "cards": "Carousel cards",
+        "cardN": "Card {n}"
+      },
+      "language": {
+        "label": "Template languages",
+        "placeholder": "Choose a language",
+        "search": "Search languages",
+        "noMatch": "No language matches your search."
+      },
+      "timeline": {
+        "label": "Status history",
+        "loading": "Loading history...",
+        "loadFailed": "Could not load the status history.",
+        "retry": "Retry",
+        "empty": "No status changes recorded yet.",
+        "quality": "Quality: {score}",
+        "source": {
+          "draft": "Saved as draft",
+          "submit": "Submitted",
+          "webhook": "Update from Meta",
+          "sync": "Synced from Meta",
+          "edit": "Edited"
+        }
+      },
+      "library": {
+        "title": "Template library",
+        "description": "Start from a ready-written template, then adjust it before submitting.",
+        "search": "Search templates",
+        "industry": "Industry",
+        "allIndustries": "All industries",
+        "category": "Category",
+        "allCategories": "All categories",
+        "categories": {
+          "Marketing": "Marketing",
+          "Utility": "Utility"
+        },
+        "loading": "Loading templates...",
+        "loadFailed": "Could not load the template library.",
+        "retry": "Retry",
+        "noMatch": "No templates match these filters.",
+        "use": "Use this",
+        "useNamed": "Use the {title} template"
+      },
+      "ai": {
+        "title": "Write a template with AI",
+        "description": "Describe what the message should do. You review the draft before anything is saved or submitted.",
+        "goal": "What should this message do?",
+        "goalPlaceholder": "For example: remind customers that their appointment is tomorrow and let them confirm",
+        "tone": "Tone",
+        "tones": {
+          "friendly": "Friendly",
+          "professional": "Professional",
+          "urgent": "Urgent",
+          "playful": "Playful"
+        },
+        "category": "Category",
+        "categories": {
+          "Marketing": "Marketing",
+          "Utility": "Utility"
+        },
+        "language": "Language",
+        "business": "Business name or context (optional)",
+        "businessPlaceholder": "For example: Lotus Dental Clinic",
+        "includeButtons": "Suggest buttons",
+        "generate": "Write draft",
+        "regenerate": "Write another draft",
+        "generating": "Writing...",
+        "emptyPreview": "Your draft will appear here.",
+        "draftName": "Template name: {name}",
+        "reviewHint": "Check the wording and sample values before you submit.",
+        "notConfiguredTitle": "AI is not set up yet",
+        "notConfiguredHint": "An admin needs to choose a provider in Agents → Agent setup before AI can write templates.",
+        "openAgentSetup": "Open Agent setup",
+        "invalidDraft": "The AI could not produce a valid template. Try rewording your goal.",
+        "failed": "Could not write a draft. Please try again.",
+        "cancel": "Cancel",
+        "useDraft": "Use this draft"
+      }
+    }
   }
 }

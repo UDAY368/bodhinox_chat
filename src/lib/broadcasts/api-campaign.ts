@@ -16,6 +16,7 @@ import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
+import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
 import { BroadcastError, resolveApiRecipients, type BroadcastRecipientInput } from '@/lib/whatsapp/broadcast-core';
 import { trackedButtonIndex } from './tracking';
 import { PlanLimitError, requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
@@ -33,6 +34,8 @@ export async function createApiCampaign(scope: TenantContext, raw: unknown): Pro
     if (!rows[0]) throw new AuthError('Template unavailable', 404, 'not_found');
     const template = assertMessageTemplate(rows[0], 'API campaign');
     if (template.status !== 'APPROVED') throw new AuthError('Choose an approved template', 400, 'campaign_input');
+    const refusal = templateSendRefusal(template, 'campaign');
+    if (refusal) throw new AuthError(refusal, 400, 'template_kind_not_allowed');
     await requireFeature(tx, scope.accountId, 'api_campaigns');
     if (trackedButtonIndex(template) >= 0) throw new AuthError('Click-tracked templates cannot be used for API campaigns', 400, 'campaign_input');
     // The API supplies body values only: a header or link button that needs its own value could never send.

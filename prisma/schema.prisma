@@ -192,7 +192,23 @@ model message_templates {
   submission_error String?
   last_submitted_at DateTime? @db.Timestamptz(6)
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  template_kind String  @default("standard")
+  cards Json? @db.JsonB
+  auth_options Json? @db.JsonB
+  lto Json? @db.JsonB
   @@unique([account_id, id])
+}
+
+model template_status_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  template_id String @db.Uuid
+  status String
+  reason String?
+  quality_score String?
+  source String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@index([account_id, template_id, created_at], map: "template_status_events_history_idx")
 }
 
 model pipelines {

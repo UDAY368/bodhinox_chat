@@ -2,6 +2,8 @@ import { providerMediaUrl } from '@/lib/storage/server';
 import { assertInteractiveTargets, bindInteractiveActions } from './interactive-actions';
 import { createInteractiveDelivery } from './interactive-delivery';
 import { resolveTemplateMediaParams } from './template-media';
+import { parseSendTimeParams } from './template-send-params';
+import { buildSendComponents, type SendTimeParams } from './template-send-builder';
 // ============================================================
 // Outbound message send — the core that both the dashboard's
 // `/api/whatsapp/send` route and the public `/api/v1/messages`
@@ -119,6 +121,8 @@ export function validateSendMessageParams(params: {
   mediaUrl?: string | null;
   templateName?: string | null;
   interactivePayload?: InteractiveMessagePayload | null;
+  /** Structured template values; checked here so a bad shape 400s early. */
+  templateMessageParams?: unknown;
 }): void {
   const { messageType, contentText, mediaUrl, templateName, interactivePayload } =
     params;
@@ -151,6 +155,11 @@ export function validateSendMessageParams(params: {
       'template_name is required for template messages',
       400
     );
+  }
+
+  if (messageType === 'template') {
+    const parsed = parseSendTimeParams(params.templateMessageParams);
+    if (!parsed.ok) throw new SendMessageError('bad_request', parsed.error, 400);
   }
 
   // Interactive: validate the full structured payload against Meta's
@@ -219,7 +228,11 @@ export async function sendMessageToConversation(
     mediaUrl,
     templateName,
     interactivePayload,
+    templateMessageParams,
   });
+  // Validated just above; the typed copy is what reaches the builder.
+  const parsedParams = parseSendTimeParams(templateMessageParams);
+  const messageParams: SendTimeParams | undefined = parsedParams.ok ? parsedParams.value : undefined;
 
   const isMediaKind = (MEDIA_KINDS as readonly string[]).includes(messageType);
 
@@ -349,6 +362,24 @@ export async function sendMessageToConversation(
     }
     templateRow = resolved.row;
     sendLanguage = resolved.language;
+    // Both callers (inbox and the public API) may send every kind,
+    // authentication included. Building the components once here turns a
+    // missing value (location, offer expiry, one-time code, card
+    // variable…) into a 400 before the bot is paused or Meta is called.
+    if (templateRow) {
+      try {
+        buildSendComponents(templateRow, {
+          ...messageParams,
+          body: messageParams?.body ?? templateParams,
+        });
+      } catch (err) {
+        throw new SendMessageError(
+          'bad_request',
+          err instanceof Error ? err.message : 'Invalid template values',
+          400
+        );
+      }
+    }
   }
 
   const pause = await db.from('conversations').update({ bot_paused: true, updated_at: new Date().toISOString() }).eq('id', conversationId).eq('account_id', accountId);
@@ -368,7 +399,7 @@ export async function sendMessageToConversation(
         templateName: templateName!,
         language: sendLanguage,
         template: templateRow ?? undefined,
-        messageParams: await resolveTemplateMediaParams(accountId, templateRow, templateMessageParams ?? undefined),
+        messageParams: await resolveTemplateMediaParams(accountId, templateRow, messageParams),
         params: templateParams || [],
         contextMessageId,
       });

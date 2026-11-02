@@ -55,6 +55,7 @@ import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { fillWorkspace, workspaceValuesFor } from "@/lib/workspace/attributes";
+import { flowTemplateSendExtras } from "@/lib/whatsapp/template-send-params";
 import {
   type ApiRequestNodeConfig,
   type AssignAgentNodeConfig,
@@ -587,7 +588,7 @@ async function sendListAndSuspend(
 async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<void> {
   const cfg = node.config as unknown as SendTemplateNodeConfig;
   const raw = cfg.body_params ?? [];
-  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(raw));
+  const ws = await workspaceValuesFor(run.account_id, JSON.stringify([raw, cfg.card_params ?? [], cfg.coupon_code ?? ""]));
   const params = raw.map((p) => interpolateVars(p, run.vars, ws).trim() || "-");
   const buttonParams = Object.fromEntries((cfg.buttons ?? []).map((b) => [b.index, b.reply_id]));
   const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendTemplate({
@@ -598,7 +599,11 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
     templateName: cfg.template_name,
     language: cfg.language,
     params,
-    messageParams: { body: params, buttonParams },
+    messageParams: {
+      body: params,
+      buttonParams,
+      ...flowTemplateSendExtras(cfg, (s) => interpolateVars(s, run.vars, ws)),
+    },
   }));
   await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "send_template", whatsapp_message_id });
   if (!templateWaits(node.config)) return;

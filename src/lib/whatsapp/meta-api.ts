@@ -614,13 +614,12 @@ export async function sendTemplateMessage(
 
   if (template) {
     const components = buildSendComponents(template, {
+      // Every structured value (location, OTP code, offer expiry,
+      // carousel cards, …) passes through unchanged.
+      ...messageParams,
       // Legacy callers pass body values in `params`; fold them into
       // `messageParams.body` so the new path covers them too.
       body: messageParams?.body ?? params,
-      headerText: messageParams?.headerText,
-      headerMediaUrl: messageParams?.headerMediaUrl,
-      headerMediaId: messageParams?.headerMediaId,
-      buttonParams: messageParams?.buttonParams,
     })
     if (components.length > 0) {
       templatePayload.components = components

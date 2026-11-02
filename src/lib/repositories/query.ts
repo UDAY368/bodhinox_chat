@@ -132,8 +132,11 @@ class Compiler {
     readonly browser: boolean
   ) {}
   parameter(value: unknown, column?: Column): string {
+    // null is SQL NULL for every column; stringifying it would store a jsonb 'null' that fails IS NULL checks.
     const index = this.values.push(
-      column?.type.toLowerCase().includes('json')
+      value === null
+        ? null
+        : column?.type.toLowerCase().includes('json')
         ? JSON.stringify(value)
         : Array.isArray(value)
           ? JSON.stringify(value)

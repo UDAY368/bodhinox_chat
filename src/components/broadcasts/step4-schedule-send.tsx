@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { ArrowLeft, CalendarClock, FlaskConical, Send, Loader2, Users, Save } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import type { CampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 import { toast } from 'sonner';
 import { authFetch } from '@/lib/auth/client';
 import type { VariableMapping } from '@/lib/broadcast-create';
@@ -36,6 +37,8 @@ interface Step4Props {
   /** Variable mappings and header media, so a test send matches the real campaign. */
   variables: Record<string, VariableMapping>;
   headerMediaUrl?: string;
+  /** Location, offer end and coupon code chosen in step 3. */
+  sendExtras?: CampaignSendExtras;
   onSaveDraft?: () => void;
   onBack: () => void;
   isProcessing: boolean;
@@ -50,6 +53,7 @@ export function Step4ScheduleSend({
   onSend,
   variables,
   headerMediaUrl,
+  sendExtras,
   onSaveDraft,
   onBack,
   isProcessing,
@@ -81,7 +85,10 @@ export function Step4ScheduleSend({
       const res = await authFetch('/api/broadcasts/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateId: template.id, phones, variables, headerMediaUrl: headerMediaUrl?.trim() || undefined }),
+        body: JSON.stringify({
+          templateId: template.id, phones, variables, headerMediaUrl: headerMediaUrl?.trim() || undefined,
+          ...(sendExtras && Object.keys(sendExtras).length ? { sendExtras } : {}),
+        }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {

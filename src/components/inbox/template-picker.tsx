@@ -21,14 +21,19 @@ import {
   LayoutTemplate,
   Loader2,
 } from "lucide-react";
-import { extractVariableIndices } from "@/lib/whatsapp/template-validators";
+import {
+  COUPON_CODE_MAX_LENGTH,
+  templateSendNeeds,
+  type TemplateSendNeeds,
+} from "@/lib/whatsapp/template-send-params";
+import {
+  AUTH_CODE_MAX_LENGTH,
+  type SendTimeParams,
+} from "@/lib/whatsapp/template-send-builder";
 import { useTranslations } from "next-intl";
 
-export interface TemplateSendValues {
-  body: string[];
-  headerText?: string;
-  buttonParams?: Record<number, string>;
-}
+/** Everything the picker collected; sent as `template_message_params`. */
+export type TemplateSendValues = SendTimeParams & { body: string[] };
 
 interface TemplatePickerProps {
   open: boolean;
@@ -44,35 +49,53 @@ function renderBodyPreview(body: string, params: string[]): string {
   });
 }
 
-interface UrlButtonSlot {
-  index: number;
-  text: string;
-  url: string;
+/**
+ * Whether the agent must type anything before this template goes out:
+ * variables, a location, an offer end, a one-time code or carousel card
+ * values. A copy-code button alone falls back to its stored example, as
+ * before, so it never blocks a one-click send.
+ */
+function needsInput(n: TemplateSendNeeds): boolean {
+  return (
+    n.bodyVars.length > 0 ||
+    n.headerVarCount > 0 ||
+    n.urlButtons.length > 0 ||
+    n.location ||
+    n.offerExpiration ||
+    n.authCode ||
+    n.cards.some((c) => c.bodyVars.length > 0 || c.urlButtons.length > 0)
+  );
 }
 
-/**
- * Templates may need values for: body variables, a text-header
- * variable, and per-URL-button suffixes. Collect them all so the
- * send-message path doesn't 400 on missing parameters.
- */
-function collectVariableSlots(template: MessageTemplate): {
-  bodyVars: number[];
-  headerVarCount: number;
-  urlButtonSlots: UrlButtonSlot[];
-} {
-  const bodyVars = extractVariableIndices(template.body_text);
-  const headerVarCount =
-    template.header_type === "text" && template.header_content
-      ? extractVariableIndices(template.header_content).length
-      : 0;
-  const urlButtonSlots: UrlButtonSlot[] = [];
-  (template.buttons ?? []).forEach((b, i) => {
-    if (b.type === "URL" && extractVariableIndices(b.url).length > 0) {
-      urlButtonSlots.push({ index: i, text: b.text, url: b.url });
-    }
-  });
-  return { bodyVars, headerVarCount, urlButtonSlots };
+interface LocationDraft {
+  latitude: string;
+  longitude: string;
+  name: string;
+  address: string;
 }
+const EMPTY_LOCATION: LocationDraft = { latitude: "", longitude: "", name: "", address: "" };
+
+interface CardDraft {
+  body: string[];
+  buttonParams: Record<number, string>;
+}
+
+/** A coordinate typed into the form, or null when it is not a valid number in range. */
+function coordinate(raw: string, limit: number): number | null {
+  if (!raw.trim()) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && Math.abs(n) <= limit ? n : null;
+}
+
+/** `datetime-local` value -> epoch ms in the agent's time zone, or null. */
+function localDateTimeMs(raw: string): number | null {
+  if (!raw) return null;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+const inputClass =
+  "border-border bg-muted text-foreground placeholder:text-muted-foreground";
 
 export function TemplatePicker({
   open,
@@ -87,6 +110,11 @@ export function TemplatePicker({
   const [params, setParams] = useState<string[]>([]);
   const [headerText, setHeaderText] = useState<string>("");
   const [buttonParams, setButtonParams] = useState<Record<number, string>>({});
+  const [location, setLocation] = useState<LocationDraft>(EMPTY_LOCATION);
+  const [offerEnds, setOfferEnds] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const [cards, setCards] = useState<CardDraft[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -137,6 +165,11 @@ export function TemplatePicker({
     setParams([]);
     setHeaderText("");
     setButtonParams({});
+    setLocation(EMPTY_LOCATION);
+    setOfferEnds("");
+    setCouponCode("");
+    setAuthCode("");
+    setCards([]);
   }
 
   function handleOpenChange(next: boolean) {
@@ -145,47 +178,78 @@ export function TemplatePicker({
   }
 
   function pickTemplate(template: MessageTemplate) {
-    const slots = collectVariableSlots(template);
-    const noInputsNeeded =
-      slots.bodyVars.length === 0 &&
-      slots.headerVarCount === 0 &&
-      slots.urlButtonSlots.length === 0;
-    if (noInputsNeeded) {
+    const picked = templateSendNeeds(template);
+    if (!needsInput(picked)) {
       onSelect(template, { body: [] });
       handleOpenChange(false);
       return;
     }
+    resetSelection();
     setSelected(template);
-    setParams(new Array(slots.bodyVars.length).fill(""));
-    setHeaderText("");
-    setButtonParams({});
+    setParams(new Array(picked.bodyVars.length).fill(""));
+    setCards(picked.cards.map((c) => ({ body: new Array(c.bodyVars.length).fill(""), buttonParams: {} })));
   }
 
+  const needs = useMemo(
+    () => (selected ? templateSendNeeds(selected) : null),
+    [selected],
+  );
+  const lat = coordinate(location.latitude, 90);
+  const lng = coordinate(location.longitude, 180);
+  const locationValue =
+    lat !== null && lng !== null
+      ? {
+          latitude: lat,
+          longitude: lng,
+          ...(location.name.trim() ? { name: location.name.trim() } : {}),
+          ...(location.address.trim() ? { address: location.address.trim() } : {}),
+        }
+      : null;
+  const offerMs = localDateTimeMs(offerEnds);
+  // The server re-checks the end time, so a clock read during render is enough here.
+  // eslint-disable-next-line react-hooks/purity
+  const offerInPast = offerMs !== null && offerMs <= Date.now();
+  const filled = (v: string | undefined) => (v ?? "").trim().length > 0;
+  const canConfirm =
+    !!selected &&
+    !!needs &&
+    needs.bodyVars.every((_, i) => filled(params[i])) &&
+    (needs.headerVarCount === 0 || filled(headerText)) &&
+    needs.urlButtons.every((s) => filled(buttonParams[s.index])) &&
+    (!needs.location || !!locationValue) &&
+    (!needs.offerExpiration || (offerMs !== null && !offerInPast)) &&
+    (!needs.authCode || filled(authCode)) &&
+    needs.cards.every(
+      (c, ci) =>
+        c.bodyVars.every((_, i) => filled(cards[ci]?.body[i])) &&
+        c.urlButtons.every((s) => filled(cards[ci]?.buttonParams[s.index])),
+    );
+
+  const trimmedButtons = (values: Record<number, string>) =>
+    Object.fromEntries(Object.entries(values).map(([k, v]) => [Number(k), v.trim()]));
+
   function confirm() {
-    if (!selected) return;
+    if (!selected || !needs) return;
     const values: TemplateSendValues = { body: params };
     if (headerText.trim()) values.headerText = headerText.trim();
-    if (Object.keys(buttonParams).length > 0) {
-      values.buttonParams = Object.fromEntries(
-        Object.entries(buttonParams).map(([k, v]) => [Number(k), v.trim()]),
-      );
+    if (Object.keys(buttonParams).length > 0) values.buttonParams = trimmedButtons(buttonParams);
+    if (needs.location && locationValue) values.location = locationValue;
+    if (needs.offerExpiration && offerMs) values.offerExpirationTimeMs = offerMs;
+    if (couponCode.trim()) values.couponCode = couponCode.trim();
+    if (needs.authCode) values.authCode = authCode.trim();
+    if (needs.kind === "carousel") {
+      values.cards = cards.map((c) => ({
+        body: c.body,
+        ...(Object.keys(c.buttonParams).length ? { buttonParams: trimmedButtons(c.buttonParams) } : {}),
+      }));
     }
     onSelect(selected, values);
     handleOpenChange(false);
   }
 
-  const slots = useMemo(
-    () => (selected ? collectVariableSlots(selected) : null),
-    [selected],
-  );
-  const canConfirm =
-    !!selected &&
-    !!slots &&
-    slots.bodyVars.every((_, i) => (params[i] ?? "").trim().length > 0) &&
-    (slots.headerVarCount === 0 || headerText.trim().length > 0) &&
-    slots.urlButtonSlots.every(
-      (s) => (buttonParams[s.index] ?? "").trim().length > 0,
-    );
+  function updateCard(ci: number, patch: (card: CardDraft) => CardDraft) {
+    setCards((prev) => prev.map((c, i) => (i === ci ? patch(c) : c)));
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -253,7 +317,9 @@ export function TemplatePicker({
             <div className="rounded-md border border-border bg-background/50 p-3">
               <p className="mb-1 text-xs text-muted-foreground">{t("preview")}</p>
               <p className="whitespace-pre-wrap text-sm text-popover-foreground">
-                {renderBodyPreview(selected.body_text, params)}
+                {needs?.authCode
+                  ? t("authPreview")
+                  : renderBodyPreview(selected.body_text, params)}
               </p>
               {selected.footer_text && (
                 <p className="mt-2 text-xs italic text-muted-foreground">
@@ -261,7 +327,108 @@ export function TemplatePicker({
                 </p>
               )}
             </div>
-            {slots && slots.headerVarCount > 0 && (
+            {needs?.authCode && (
+              <div className="space-y-1">
+                <Label htmlFor="tpl-auth-code" className="text-xs text-popover-foreground">
+                  {t("authCodeLabel")}
+                </Label>
+                <Input
+                  id="tpl-auth-code"
+                  value={authCode}
+                  maxLength={AUTH_CODE_MAX_LENGTH}
+                  autoComplete="off"
+                  onChange={(e) => setAuthCode(e.target.value)}
+                  placeholder={t("authCodePlaceholder")}
+                  className={inputClass}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  {t("authCodeHint", { max: AUTH_CODE_MAX_LENGTH })}
+                </p>
+              </div>
+            )}
+            {needs?.location && (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <p className="text-xs font-medium text-popover-foreground">{t("locationTitle")}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="tpl-loc-lat" className="text-xs text-popover-foreground">{t("latitude")}</Label>
+                    <Input
+                      id="tpl-loc-lat"
+                      inputMode="decimal"
+                      value={location.latitude}
+                      onChange={(e) => setLocation((l) => ({ ...l, latitude: e.target.value }))}
+                      placeholder="37.4847"
+                      aria-invalid={!!location.latitude && lat === null}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="tpl-loc-lng" className="text-xs text-popover-foreground">{t("longitude")}</Label>
+                    <Input
+                      id="tpl-loc-lng"
+                      inputMode="decimal"
+                      value={location.longitude}
+                      onChange={(e) => setLocation((l) => ({ ...l, longitude: e.target.value }))}
+                      placeholder="-122.1484"
+                      aria-invalid={!!location.longitude && lng === null}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                {((location.latitude && lat === null) || (location.longitude && lng === null)) && (
+                  <p className="text-[10px] text-destructive">{t("locationInvalid")}</p>
+                )}
+                <Input
+                  aria-label={t("locationName")}
+                  value={location.name}
+                  onChange={(e) => setLocation((l) => ({ ...l, name: e.target.value }))}
+                  placeholder={t("locationName")}
+                  className={inputClass}
+                />
+                <Input
+                  aria-label={t("locationAddress")}
+                  value={location.address}
+                  onChange={(e) => setLocation((l) => ({ ...l, address: e.target.value }))}
+                  placeholder={t("locationAddress")}
+                  className={inputClass}
+                />
+              </div>
+            )}
+            {needs?.offerExpiration && (
+              <div className="space-y-1">
+                <Label htmlFor="tpl-offer-ends" className="text-xs text-popover-foreground">
+                  {t("offerEndsLabel")}
+                </Label>
+                <Input
+                  id="tpl-offer-ends"
+                  type="datetime-local"
+                  value={offerEnds}
+                  onChange={(e) => setOfferEnds(e.target.value)}
+                  aria-invalid={offerInPast}
+                  className={inputClass}
+                />
+                {offerInPast && (
+                  <p className="text-[10px] text-destructive">{t("offerEndsPast")}</p>
+                )}
+              </div>
+            )}
+            {needs?.couponButtons.map((b) => (
+              <div key={`coupon-${b.index}`} className="space-y-1">
+                <Label htmlFor="tpl-coupon" className="text-xs text-popover-foreground">
+                  {t("couponLabel", { text: b.text })}
+                </Label>
+                <Input
+                  id="tpl-coupon"
+                  value={couponCode}
+                  maxLength={COUPON_CODE_MAX_LENGTH}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  placeholder={b.example}
+                  className={inputClass}
+                />
+                <p className="text-[10px] text-muted-foreground">{t("couponHint")}</p>
+              </div>
+            ))}
+            {needs && needs.headerVarCount > 0 && (
               <div className="space-y-1">
                 <Label className="text-xs text-popover-foreground">
                   {t("headerVarLabel", { var: "{{1}}" })}
@@ -274,7 +441,7 @@ export function TemplatePicker({
                 />
               </div>
             )}
-            {slots?.bodyVars.map((v, i) => (
+            {needs?.bodyVars.map((v, i) => (
               <div key={v} className="space-y-1">
                 <Label className="text-xs text-popover-foreground">{t("bodyVarLabel", { var: `{{${v}}}` })}</Label>
                 <Input
@@ -289,7 +456,7 @@ export function TemplatePicker({
                 />
               </div>
             ))}
-            {slots?.urlButtonSlots.map((slot) => (
+            {needs?.urlButtons.map((slot) => (
               <div key={slot.index} className="space-y-1">
                 <Label className="text-xs text-popover-foreground">
                   {t("urlButtonVarLabel", { text: slot.text, var: "{{1}}" })}
@@ -310,6 +477,50 @@ export function TemplatePicker({
                 </p>
               </div>
             ))}
+            {needs?.cards
+              .filter((c) => c.bodyVars.length > 0 || c.urlButtons.length > 0)
+              .map((c) => (
+                <div key={`card-${c.index}`} className="space-y-2 rounded-md border border-border p-3">
+                  <p className="text-xs font-medium text-popover-foreground">
+                    {t("cardTitle", { n: c.index + 1 })}
+                  </p>
+                  {selected.cards?.[c.index]?.body_text && (
+                    <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                      {renderBodyPreview(selected.cards[c.index].body_text, cards[c.index]?.body ?? [])}
+                    </p>
+                  )}
+                  {c.bodyVars.map((v, i) => (
+                    <Input
+                      key={v}
+                      aria-label={t("cardBodyVarLabel", { n: c.index + 1, var: `{{${v}}}` })}
+                      value={cards[c.index]?.body[i] ?? ""}
+                      onChange={(e) =>
+                        updateCard(c.index, (card) => ({
+                          ...card,
+                          body: card.body.map((x, j) => (j === i ? e.target.value : x)),
+                        }))
+                      }
+                      placeholder={t("bodyValuePlaceholder", { val: `{{${v}}}` })}
+                      className={inputClass}
+                    />
+                  ))}
+                  {c.urlButtons.map((slot) => (
+                    <Input
+                      key={`url-${slot.index}`}
+                      aria-label={t("urlButtonVarLabel", { text: slot.text, var: "{{1}}" })}
+                      value={cards[c.index]?.buttonParams[slot.index] ?? ""}
+                      onChange={(e) =>
+                        updateCard(c.index, (card) => ({
+                          ...card,
+                          buttonParams: { ...card.buttonParams, [slot.index]: e.target.value },
+                        }))
+                      }
+                      placeholder={t("urlSuffixValuePlaceholder")}
+                      className={inputClass}
+                    />
+                  ))}
+                </div>
+              ))}
           </div>
         )}
 

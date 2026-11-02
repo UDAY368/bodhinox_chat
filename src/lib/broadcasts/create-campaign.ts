@@ -6,7 +6,10 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
 import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
-import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
+import { templateKindOf } from '@/lib/whatsapp/template-validators';
+import {
+  CAMPAIGN_SEND_EXTRAS_KEY, CAMPAIGN_VARIABLE_KEY, campaignVariableKeys, parseCampaignSendExtras, splitFrozenParams, templateSendRefusal,
+} from '@/lib/whatsapp/template-send-params';
 import { normalizePhone, isValidE164 } from '@/lib/whatsapp/phone-utils';
 import { AudienceFilterError, assertFilterReferences, compileAudienceFilter } from '@/lib/audience/filter';
 import { listFilter } from '@/lib/audience/lists';
@@ -45,11 +48,14 @@ const audienceSchema=z.object({
 });
 const inputSchema=z.object({
   name:z.string().trim().min(1).max(200),templateId:z.string().uuid(),audience:audienceSchema,
-  variables:z.record(z.string().regex(/^[1-9]\d?$/),mapping),headerMediaUrl:z.string().trim().min(1).max(2048).optional(),
+  /** Body {{n}} as "n"; a carousel card's body {{n}} as "c<card>_n" (lib/whatsapp/template-send-params). */
+  variables:z.record(z.string().regex(CAMPAIGN_VARIABLE_KEY),mapping),headerMediaUrl:z.string().trim().min(1).max(2048).optional(),
   /** Send later instead of now (ISO timestamp, 1 minute to 90 days ahead). */
   scheduledAt:z.string().datetime({offset:true}).optional(),
   /** Where a trackable template's link button finally leads (lib/broadcasts/tracking). */
   trackedUrl:z.string().trim().max(2048).optional(),
+  /** Location, offer end and coupon code: the same for every recipient. */
+  sendExtras:z.unknown().optional(),
 }).strict();
 export type CampaignInput=z.infer<typeof inputSchema>;
 const FIELD_COLUMNS={name:Prisma.sql`c.name`,phone:Prisma.sql`c.phone`,email:Prisma.sql`c.email`,company:Prisma.sql`c.company`};
@@ -178,9 +184,13 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     if(!templates[0])throw new AuthError('Template unavailable',404,'not_found');
     const template=assertMessageTemplate(templates[0],'campaign creation');
     if(template.status!=='APPROVED')invalid('Choose an approved template');
-    const expected=extractVariableIndices(template.body_text).map(String);
-    const keys=Object.keys(input.variables).sort((a,b)=>Number(a)-Number(b));
-    if(keys.length!==expected.length||keys.some((key,i)=>key!==expected[i]))invalid('Variable mappings must match every template body placeholder');
+    // A campaign never carries a per-person one-time code.
+    const refusal=templateSendRefusal(template,'campaign');if(refusal)invalid(refusal);
+    // Values are frozen in this order: body placeholders, then each carousel card's.
+    const keys=campaignVariableKeys(template);
+    if(Object.keys(input.variables).length!==keys.length||keys.some(key=>!Object.hasOwn(input.variables,key)))invalid('Variable mappings must match every template body placeholder');
+    const extras=parseCampaignSendExtras(input.sendExtras,(scheduledAt??now).getTime());
+    if(!extras.ok)invalid(extras.error);
     const fieldIds=[...keys.flatMap(key=>input.variables[key].type==='custom_field'?[input.variables[key].value]:[]),...(input.audience.customField?[input.audience.customField.fieldId]:[])];
     await assertOwnedIds(tx,scope.accountId,'tags',[...(input.audience.tagIds??[]),...(input.audience.excludeTagIds??[])]);
     await assertOwnedIds(tx,scope.accountId,'custom_fields',fieldIds);
@@ -191,8 +201,11 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     if(tracked>=0)await requireFeature(tx,scope.accountId,'click_tracking');
     if(tracked>=0&&!(input.trackedUrl&&validTrackedUrl(input.trackedUrl)))invalid('This template tracks link clicks: enter the HTTPS page the button should open');
     // Header media, body count and the tracking button are the same for every recipient, so one sample validates the campaign.
-    try{buildSendComponents(template,{body:keys.map(()=>'x'),...(headerMediaUrl?{headerMediaUrl}:{}),...(tracked>=0?{buttonParams:{[tracked]:'x'}}:{})});}
-    catch{invalid('Template send parameters are incomplete; check header media, body variables and link buttons');}
+    try{buildSendComponents(template,{...extras.value,...splitFrozenParams(template,keys.map(()=>'x')),...(headerMediaUrl?{headerMediaUrl}:{}),...(tracked>=0?{buttonParams:{[tracked]:'x'}}:{})});}
+    catch(error){
+      // Standard templates keep the general hint; the new kinds name the missing value (location, offer end, card).
+      invalid(templateKindOf(template)==='standard'||!(error instanceof Error)?'Template send parameters are incomplete; check header media, body variables and link buttons':error.message);
+    }
     const {from,where,order}=await audienceSource(tx,scope,input);
     const [{matched}]=await tx.$queryRaw<{matched:number}[]>(Prisma.sql`SELECT count(*)::int AS matched FROM (SELECT 1 FROM ${from} WHERE ${where} LIMIT ${CAMPAIGN_LIMITS.recipients+1}) m`);
     if(!matched)invalid('No contacts match this audience');
@@ -202,7 +215,7 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
     const trackedUrl=tracked>=0?input.trackedUrl!:null;
     const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url)
-      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl}) RETURNING id`;
+      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(Object.keys(extras.value).length?{...input.variables,[CAMPAIGN_SEND_EXTRAS_KEY]:extras.value}:input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl}) RETURNING id`;
     const id=broadcasts[0].id;
     // 122 random bits per recipient when tracking; the token is the button's {{1}}.
     const token=trackedUrl?Prisma.sql`replace(gen_random_uuid()::text,'-','')`:Prisma.sql`NULL`;

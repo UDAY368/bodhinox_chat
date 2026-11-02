@@ -22,6 +22,7 @@ import { BroadcastError, type BroadcastPlan } from '@/lib/whatsapp/broadcast-cor
 import { chunk } from '@/lib/data/paged-query';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
+import { CAMPAIGN_SEND_EXTRAS_KEY, storedCampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
 import { marketingSuppression, type ConsentState } from '@/lib/contacts/consent';
 
@@ -152,7 +153,7 @@ export async function planBroadcastResume(
 ): Promise<ResumePlan> {
   const { data: broadcast, error: bcError } = await db
     .from('broadcasts')
-    .select('id, template_name, template_language')
+    .select('id, template_name, template_language, template_variables')
     .eq('id', broadcastId)
     .eq('account_id', accountId)
     .maybeSingle();
@@ -255,6 +256,10 @@ export async function planBroadcastResume(
     phoneNumberId: config.phone_number_id,
     accessToken: decrypt(config.access_token),
     templateRow: resolvedTemplate.row,
+    // Location, offer end and coupon chosen when the campaign was created.
+    sendExtras: storedCampaignSendExtras(
+      (broadcast.template_variables as Record<string, unknown> | null)?.[CAMPAIGN_SEND_EXTRAS_KEY]
+    ),
     planned: slice.map((row) => ({
       recipientRowId: row.id,
       phone: sanitizePhoneForMeta(contactPhone(row) ?? ''),

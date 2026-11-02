@@ -43,7 +43,8 @@ export function templateMessageView(
     header = template?.header_content
       ? { type: 'text', text: template.header_content }
       : null;
-  } else if (headerType) {
+  } else if (headerType && headerType !== 'location') {
+    // shortcut: a location header is not drawn in the inbox bubble (the coordinates live only in the send), show it once messages store them.
     header = {
       type: headerType,
       url: message.media_url || template?.header_media_url || null,

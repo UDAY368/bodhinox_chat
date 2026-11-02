@@ -453,7 +453,23 @@
       "send": "Enviar plantilla",
       "headerVarLabel": "Encabezado {var}",
       "bodyVarLabel": "Cuerpo {var}",
-      "urlButtonVarLabel": "Botón de URL \"{text}\": valor para {var}"
+      "urlButtonVarLabel": "Botón de URL \"{text}\": valor para {var}",
+      "authPreview": "WhatsApp redacta este mensaje de verificación y añade el código que escribas abajo.",
+      "authCodeLabel": "Código de un solo uso",
+      "authCodePlaceholder": "p. ej., 482913",
+      "authCodeHint": "Hasta {max} caracteres. Solo se envía a este contacto y no se guarda en la conversación.",
+      "locationTitle": "Ubicación que aparece sobre el mensaje",
+      "latitude": "Latitud",
+      "longitude": "Longitud",
+      "locationInvalid": "La latitud debe estar entre -90 y 90 y la longitud entre -180 y 180.",
+      "locationName": "Nombre del lugar (opcional)",
+      "locationAddress": "Dirección (opcional)",
+      "offerEndsLabel": "La oferta termina",
+      "offerEndsPast": "Elige una hora futura.",
+      "couponLabel": "Código para \"{text}\"",
+      "couponHint": "Déjalo vacío para usar el código guardado en la plantilla.",
+      "cardTitle": "Tarjeta {n}",
+      "cardBodyVarLabel": "Tarjeta {n}, cuerpo {var}"
     },
     "sidebar": {
       "contactInfo": "Información del contacto",
@@ -1079,7 +1095,8 @@
         "subtitle": "Selecciona una plantilla de mensaje aprobada para tu difusión.",
         "noTemplates": "No hay plantillas disponibles.",
         "createFirst": "Primero crea una plantilla en Configuración.",
-        "errorLoad": "Error al cargar las plantillas"
+        "errorLoad": "Error al cargar las plantillas",
+        "authNotForCampaigns": "Las plantillas de autenticación no se pueden usar en campañas. Envíalas desde la bandeja de entrada o la API."
       },
       "selectAudience": {
         "title": "Seleccionar audiencia",
@@ -1174,7 +1191,22 @@
         "selectCsvColumn": "Selecciona una columna...",
         "trackedUrl": "Destino del enlace (seguimiento de clics)",
         "trackedUrlHint": "El botón de esta plantilla abre un enlace de seguimiento. Introduce la página https:// a la que deben llegar; los clics se cuentan por destinatario.",
-        "trackedUrlInvalid": "Introduce una dirección https:// completa."
+        "trackedUrlInvalid": "Introduce una dirección https:// completa.",
+        "cardVariable": "Tarjeta {n} {var}",
+        "locationTitle": "Ubicación del encabezado",
+        "locationDesc": "Todos los destinatarios ven este lugar sobre el mensaje.",
+        "latitude": "Latitud",
+        "longitude": "Longitud",
+        "locationName": "Nombre del lugar (opcional)",
+        "locationAddress": "Dirección (opcional)",
+        "locationRequired": "Introduce una latitud (-90 a 90) y una longitud (-180 a 180) válidas.",
+        "offerTitle": "Detalles de la oferta",
+        "offerEnds": "La oferta termina",
+        "offerEndsDesc": "Los destinatarios ven una cuenta atrás hasta esta hora. Debe ser posterior al inicio del envío de la campaña.",
+        "offerEndsPast": "Elige una hora futura.",
+        "offerEndsRequired": "Elige cuándo termina la oferta.",
+        "couponCode": "Código para \"{text}\"",
+        "couponCodeDesc": "Todos los destinatarios reciben este código. Déjalo vacío para usar el código guardado en la plantilla."
       },
       "scheduleSend": {
         "title": "Revisar y enviar",
@@ -1815,7 +1847,17 @@
         "connectHelp": "Este flujo termina y el flujo elegido empieza para el mismo contacto, con las mismas variables. El flujo elegido debe estar activo.",
         "testSamples": "Valores de ejemplo para la prueba",
         "flowStatusDraft": "borrador",
-        "flowStatusArchived": "archivado"
+        "flowStatusArchived": "archivado",
+        "templateLocation": "Ubicación del encabezado",
+        "templateLatitude": "Latitud",
+        "templateLongitude": "Longitud",
+        "templateLocationName": "Nombre del lugar (opcional)",
+        "templateLocationAddress": "Dirección (opcional)",
+        "templateOfferMinutes": "Duración de la oferta (minutos)",
+        "templateOfferHelp": "La oferta termina estos minutos después de que este paso envíe la plantilla.",
+        "templateCoupon": "Código de cupón",
+        "templateCouponHelp": "Puede usar variables de la ejecución. Déjalo vacío para usar el código guardado en la plantilla.",
+        "templateCardParam": "Tarjeta {card}, valor {n}"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -2302,7 +2344,90 @@
         "Marketing": "Marketing",
         "Utility": "Utilidad",
         "Authentication": "Autenticación"
-      }
+      },
+      "headerLocation": "Ubicación",
+      "locationHint": "El cliente ve un marcador en el mapa. Eliges el lugar cada vez que envías.",
+      "templateKind": "Tipo de plantilla",
+      "kindFixed": "El tipo de una plantilla enviada no se puede cambiar.",
+      "kinds": {
+        "standard": "Estándar",
+        "carousel": "Carrusel",
+        "authentication": "Autenticación",
+        "limited_time_offer": "Oferta por tiempo limitado"
+      },
+      "kindHints": {
+        "standard": "Texto con encabezado, pie y botones opcionales.",
+        "carousel": "Un mensaje breve seguido de 2 a 10 tarjetas deslizables, cada una con multimedia y botones.",
+        "authentication": "Un código de un solo uso con botón para copiar. WhatsApp redacta el texto del mensaje.",
+        "limited_time_offer": "Una promoción con un banner de oferta y una cuenta regresiva opcional hasta que termine."
+      },
+      "dialogDraftTitle": "Editar borrador",
+      "preview": "Vista previa",
+      "saveDraft": "Guardar borrador",
+      "savingDraft": "Guardando…",
+      "toastDraftSaved": "Borrador guardado",
+      "draftSaveFailedHttp": "No se pudo guardar el borrador (HTTP {status})",
+      "removeButton": "Quitar botón",
+      "auth": {
+        "bodyNote": "WhatsApp redacta y traduce el mensaje por ti. Elige cómo se muestra el código.",
+        "security": "Añadir el aviso de no compartir el código",
+        "expiry": "El código caduca después de (minutos)",
+        "expiryHint": "Opcional, de {min} a {max} minutos. Se muestra como pie.",
+        "buttonText": "Texto del botón de copiar",
+        "buttonTextPlaceholder": "Copiar código"
+      },
+      "lto": {
+        "text": "Título de la oferta",
+        "textPlaceholder": "p. ej., Oferta de fin de semana",
+        "hasExpiration": "Mostrar cuenta regresiva hasta el fin de la oferta",
+        "hint": "Con cuenta regresiva, añade un botón para copiar código. La hora de fin se elige al enviar."
+      },
+      "cards": {
+        "title": "Tarjetas ({count} de {max})",
+        "mediaType": "Tipo de multimedia de las tarjetas",
+        "add": "Añadir tarjeta",
+        "hint": "Todas las tarjetas usan el mismo tipo de multimedia y los mismos botones, en el mismo orden.",
+        "buttonSlots": "Botones de todas las tarjetas",
+        "slotType": "Tipo del botón {n}",
+        "slotN": "Botón {n}",
+        "cardN": "Tarjeta {n}",
+        "remove": "Quitar tarjeta {n}",
+        "mediaUrl": "Enlace multimedia de la tarjeta {n}",
+        "body": "Texto de la tarjeta {n}"
+      },
+      "tabsLabel": "Filtrar plantillas por estado",
+      "tabs": {
+        "all": "Todas",
+        "approved": "Aprobadas",
+        "pending": "Pendientes",
+        "rejected": "Rechazadas",
+        "drafts": "Borradores",
+        "paused": "Pausadas o desactivadas"
+      },
+      "health": {
+        "label": "Calidad: {level}",
+        "green": "Alta",
+        "yellow": "Media",
+        "red": "Baja",
+        "unknown": "Sin calificar"
+      },
+      "searchPlaceholder": "Buscar por nombre",
+      "noMatches": "Ninguna plantilla coincide con este filtro.",
+      "issueLabel": "Problema",
+      "fromLibrary": "Usar la biblioteca",
+      "writeWithAi": "Escribir con IA",
+      "editDraft": "Editar",
+      "editDraftTitle": "Edita este borrador o envíalo para aprobación",
+      "duplicate": "Duplicar",
+      "duplicateAria": "Duplicar {name}",
+      "duplicateFailedHttp": "No se pudo duplicar la plantilla (HTTP {status})",
+      "toastDuplicated": "Borrador {name} creado",
+      "history": "Historial",
+      "historyAria": "Historial de estado de {name}",
+      "historyTitle": "Historial de estado",
+      "historyDesc": "Cada cambio de estado de {name}, del más reciente al más antiguo.",
+      "placeholderUrlWarning": "Este sigue siendo el enlace de ejemplo (example.com). Reemplázalo por tu propia URL antes de enviar.",
+      "placeholderPhoneWarning": "Este sigue siendo el número de ejemplo (+10000000000). Reemplázalo por el teléfono de tu empresa antes de enviar."
     },
     "roles": {
       "admin": "Administrador",
@@ -3688,7 +3813,12 @@
       "replyIdsEmpty": "los IDs de respuesta no pueden estar vacíos",
       "conditionValueRequired": "Enter a non-empty comparison value.",
       "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone."
+      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "templateCarousel": "Las automatizaciones no pueden enviar plantillas de carrusel: el paso solo rellena valores del cuerpo, no de las tarjetas. Usa un flujo o una campaña.",
+      "templateLimitedTimeOffer": "Las automatizaciones no pueden enviar plantillas de oferta por tiempo limitado: el paso solo rellena valores del cuerpo, no los datos de la oferta. Usa un flujo o una campaña.",
+      "templateLocationHeader": "Las automatizaciones no pueden enviar plantillas con encabezado de ubicación: el paso solo rellena valores del cuerpo, no una ubicación. Usa un flujo o una campaña.",
+      "templateHeaderVariable": "Las automatizaciones no pueden enviar plantillas con una variable en el encabezado: el paso solo rellena valores del cuerpo.",
+      "templateUrlVariable": "Las automatizaciones no pueden enviar plantillas con una variable en un botón de URL: el paso solo rellena valores del cuerpo."
     },
     "templates": {
       "nameRequired": "El nombre de la plantilla es obligatorio.",
@@ -3733,7 +3863,55 @@
       "headerTextValueRequired": "La variable {var} del encabezado de texto requiere un valor; envía headerText.",
       "mediaHeaderSendSource": "El encabezado {type} requiere un enlace o id de medio al enviar; define header_media_url en la plantilla o envía headerMediaUrl/headerMediaId.",
       "bodyValuesMissing": "El cuerpo tiene {count} variable(s), pero solo se proporcionaron {got} valor(es).",
-      "urlButtonParamRequired": "El botón URL #{n} usa {var}; requiere un valor en buttonParams[{index}]."
+      "urlButtonParamRequired": "El botón URL #{n} usa {var}; requiere un valor en buttonParams[{index}].",
+      "kindInvalid": "Tipo de plantilla desconocido: {kind}.",
+      "kindFieldNotAllowed": "{field} no se aplica a este tipo de plantilla.",
+      "locationHeaderCategory": "El encabezado de ubicación solo está disponible en plantillas estándar de Marketing o Utilidad.",
+      "locationHeaderNoContent": "Un encabezado de ubicación no puede tener texto, contenido multimedia ni ejemplo.",
+      "carouselCategory": "Las plantillas de carrusel deben usar la categoría Marketing.",
+      "carouselNoHeader": "Las plantillas de carrusel no pueden tener un encabezado general. Cada tarjeta tiene el suyo.",
+      "carouselNoFooter": "Las plantillas de carrusel no pueden tener pie de página.",
+      "carouselNoButtons": "Las plantillas de carrusel no pueden tener botones generales. Agrega los botones a cada tarjeta.",
+      "carouselCardCount": "Las plantillas de carrusel necesitan entre {min} y {max} tarjetas (hay {got}).",
+      "cardError": "Tarjeta {n}: {message}",
+      "cardHeaderType": "Cada tarjeta necesita un encabezado de imagen o video.",
+      "cardHeaderMismatch": "Todas las tarjetas deben usar el mismo formato de encabezado que la tarjeta 1 ({format}).",
+      "cardBodyRequired": "El texto de la tarjeta es obligatorio.",
+      "cardBodyTooLong": "El texto de la tarjeta supera los {max} caracteres (tiene {got}).",
+      "cardButtonCount": "Cada tarjeta necesita {min} o {max} botones (tiene {got}).",
+      "cardButtonType": "Los botones de la tarjeta solo pueden ser de respuesta rápida, URL o teléfono (el botón n.º {n} es {type}).",
+      "cardButtonsMismatch": "Todas las tarjetas deben tener la misma cantidad y tipos de botones, en el mismo orden, que la tarjeta 1.",
+      "cardMediaSendSource": "La tarjeta {n} necesita un enlace o id de {type} al enviar.",
+      "authCategory": "Las plantillas de autenticación deben usar la categoría Autenticación.",
+      "authNoHeader": "Las plantillas de autenticación no pueden tener encabezado.",
+      "authNoFooter": "Las plantillas de autenticación no pueden tener un pie personalizado. Define una caducidad del código.",
+      "authNoButtons": "Las plantillas de autenticación usan un único botón para copiar el código. Quita los demás botones.",
+      "authOptionsRequired": "Las plantillas de autenticación necesitan la configuración del código de un solo uso.",
+      "authOtpType": "Las plantillas de autenticación solo admiten el botón para copiar el código.",
+      "authExpiryRange": "La caducidad del código debe ser un número entero de minutos entre {min} y {max}.",
+      "authSecurityFlag": "La recomendación de seguridad debe estar activada o desactivada.",
+      "authButtonTextEmpty": "El texto del botón para copiar el código no puede estar vacío.",
+      "authButtonTextTooLong": "El texto del botón para copiar el código supera los {max} caracteres (tiene {got}).",
+      "authCodeRequired": "Las plantillas de autenticación necesitan el código de un solo uso para enviarse.",
+      "authCodeTooLong": "El código de un solo uso puede tener como máximo {max} caracteres.",
+      "ltoCategory": "Las plantillas de oferta por tiempo limitado deben usar la categoría Marketing.",
+      "ltoTextRequired": "Las plantillas de oferta por tiempo limitado necesitan el texto de la oferta.",
+      "ltoTextTooLong": "El texto de la oferta supera los {max} caracteres (tiene {got}).",
+      "ltoExpirationFlag": "Indica si la oferta tiene caducidad.",
+      "ltoHeaderType": "El encabezado de una oferta por tiempo limitado solo puede ser una imagen o un video.",
+      "ltoNoFooter": "Las plantillas de oferta por tiempo limitado no pueden tener pie de página.",
+      "ltoBodyTooLong": "El texto de la oferta supera los {max} caracteres (tiene {got}).",
+      "ltoTooManyButtons": "Las plantillas de oferta por tiempo limitado admiten como máximo {max} botones (hay {got}).",
+      "ltoButtonTypes": "Los botones de una oferta por tiempo limitado solo pueden ser un botón para copiar el código y un botón de URL.",
+      "ltoCopyCodeRequired": "Una oferta con caducidad necesita un botón para copiar el código.",
+      "ltoExpirationRequired": "Esta oferta tiene caducidad. Indica la hora de caducidad en milisegundos.",
+      "locationValueRequired": "Esta plantilla tiene un encabezado de ubicación. Indica una latitud y una longitud.",
+      "locationValueInvalid": "La ubicación necesita una latitud entre -90 y 90 y una longitud entre -180 y 180.",
+      "bodyVariableAtEdge": "El texto del cuerpo no puede empezar ni terminar con una variable. Añade algunas palabras antes de la primera variable y después de la última.",
+      "ltoUrlButtonRequired": "Las plantillas de oferta por tiempo limitado necesitan un botón de URL.",
+      "ltoCopyCodeFirst": "Coloca primero el botón para copiar el código y después el botón de URL.",
+      "buttonPlaceholderUrl": "El botón #{n} todavía usa el enlace de ejemplo {url}. Sustitúyelo por tu propio enlace antes de enviar la plantilla.",
+      "buttonPlaceholderPhone": "El botón #{n} todavía usa el número de ejemplo {phone}. Sustitúyelo por el teléfono de tu empresa antes de enviar la plantilla."
     },
     "interactive": {
       "buttonCount": "El mensaje interactivo con botones requiere de 1 a {max} botones (tiene {got}).",
@@ -3754,6 +3932,23 @@
       "bodyTooLong": "El bodyText interactivo supera los {max} caracteres.",
       "headerTooLong": "El headerText interactivo supera los {max} caracteres.",
       "footerTooLong": "El footerText interactivo supera los {max} caracteres."
+    },
+    "templateSend": {
+      "authOnlyInbox": "Las plantillas de autenticación solo se pueden enviar desde la bandeja de entrada o la API, donde se introduce un código de un solo uso para una persona. Las campañas, automatizaciones y flujos no pueden enviarlas.",
+      "valueNotText": "{field} debe ser texto.",
+      "valueTooLong": "{field} puede tener como máximo {max} caracteres.",
+      "valueNotList": "{field} debe ser una lista de valores.",
+      "tooManyValues": "{field} puede tener como máximo {max} elementos.",
+      "valueNotObject": "{field} tiene un formato no válido.",
+      "buttonIndexInvalid": "{field} debe usar la posición del botón como clave.",
+      "locationInvalid": "Introduce una latitud entre -90 y 90 y una longitud entre -180 y 180.",
+      "couponTooLong": "El código de cupón puede tener como máximo {max} caracteres.",
+      "offerExpirationInvalid": "Elige una fecha y hora válidas para el final de la oferta.",
+      "offerExpirationPast": "La oferta debe terminar después de que se envíe el mensaje.",
+      "authCodeInvalid": "Introduce el código de un solo uso.",
+      "authCodeTooLong": "El código de un solo uso puede tener como máximo {max} caracteres.",
+      "flowOfferMinutes": "Indica cuántos minutos dura la oferta, de 1 a {max}.",
+      "cardValueEmpty": "Tarjeta {card}: el valor {n} está vacío."
     }
   },
   "Api": {
@@ -3954,7 +4149,34 @@
       "submittedSaveFailed": "Enviada a Meta, pero falló el guardado local: {message}. Usa \"Sincronizar desde Meta\" para recuperarla.",
       "submitFailed": "Error al enviar la plantilla.",
       "metaApiStatus": "Error de la API de Meta: {status}",
-      "syncFailed": "Error al sincronizar las plantillas"
+      "syncFailed": "Error al sincronizar las plantillas",
+      "authKindRequired": "Las plantillas de autenticación deben usar el tipo de plantilla de autenticación.",
+      "draft": {
+        "alreadySubmitted": "Esta plantilla ya se envió a Meta. Edítala en lugar de guardarla como borrador.",
+        "nameTaken": "Ya existe otra plantilla con este nombre e idioma.",
+        "kindLocked": "No se puede cambiar el tipo de una plantilla enviada. Duplícala para crear otro tipo.",
+        "saveFailed": "No se pudo guardar el borrador.",
+        "duplicateFailed": "No se pudo duplicar la plantilla.",
+        "bodyInvalid": "El borrador debe ser un objeto JSON.",
+        "tooLarge": "Este borrador es demasiado grande para guardarlo.",
+        "fieldInvalid": "El campo \"{field}\" no es válido.",
+        "languageInvalid": "Elige un idioma de plantilla válido.",
+        "categoryInvalid": "Elige una categoría de plantilla válida.",
+        "kindInvalid": "Elige un tipo de plantilla válido.",
+        "kindCategoryMismatch": "La categoría Autenticación solo la usan las plantillas de autenticación, y estas no usan ninguna otra categoría."
+      },
+      "aiDraft": {
+        "goalRequired": "Describe qué debe lograr el mensaje.",
+        "goalTooLong": "El objetivo debe tener 500 caracteres o menos.",
+        "toneInvalid": "Elige un tono: cercano, profesional, urgente o divertido.",
+        "categoryInvalid": "Los borradores con IA admiten las categorías Marketing y Utilidad.",
+        "languageInvalid": "Elige un idioma de plantilla válido.",
+        "businessTooLong": "La descripción del negocio debe tener 200 caracteres o menos.",
+        "notConfigured": "El asistente de IA no está configurado. Añade un proveedor en Ajustes → Asistente de IA para escribir plantillas con IA.",
+        "invalidDraft": "La IA no pudo generar una plantilla válida: {reason}",
+        "unreadable": "No se pudo interpretar la respuesta de la IA como plantilla. Inténtalo de nuevo o reformula el objetivo."
+      },
+      "submitRaced": "Otro envío ya mandó esta plantilla a Meta. Recarga para ver su estado actual."
     }
   },
   "PageSearch": {
@@ -3982,5 +4204,403 @@
   "Plan": {
     "upgrade": "Mejorar",
     "upgradeHint": "No incluido en tu plan. Consulta Ajustes → Plan y uso."
+  },
+  "TemplateLibrary": {
+    "industries": {
+      "retail": "Comercio y e-commerce",
+      "food": "Comida y restaurantes",
+      "health": "Salud",
+      "beauty": "Belleza y bienestar",
+      "education": "Educación",
+      "real_estate": "Bienes raíces",
+      "travel": "Viajes y hotelería",
+      "finance": "Finanzas y banca",
+      "events": "Eventos",
+      "services": "Servicios para el hogar y profesionales",
+      "general": "General"
+    },
+    "order_confirmation": {
+      "title": "Confirmación de pedido",
+      "description": "Confirma un pedido nuevo con su número y total.",
+      "header": "Pedido recibido",
+      "body": "Hola {v1}, gracias por tu pedido {v2}. Ya lo recibimos y te escribiremos de nuevo en cuanto se envíe. Total del pedido: {v3}.",
+      "footer": "Gracias por comprar con nosotros",
+      "buttons": {
+        "b1": "Ver pedido"
+      },
+      "samples": "Lucía|#10245|$48.90"
+    },
+    "shipping_update": {
+      "title": "Actualización de envío",
+      "description": "Avisa que el pedido fue enviado, con la transportadora y el número de seguimiento.",
+      "header": "Tu pedido va en camino",
+      "body": "¡Buenas noticias, {v1}! Tu pedido {v2} fue enviado con {v3}. Tu número de seguimiento es {v4}.",
+      "buttons": {
+        "b1": "Rastrear paquete"
+      },
+      "samples": "Daniel|#10245|Envíos Rápidos|FS123456789"
+    },
+    "delivery_delayed": {
+      "title": "Entrega retrasada",
+      "description": "Discúlpate por un pedido atrasado y comparte la nueva fecha de entrega.",
+      "body": "Hola {v1}, lo sentimos: tu pedido {v2} viene con retraso. La nueva fecha estimada de entrega es {v3}. Gracias por tu paciencia.",
+      "buttons": {
+        "b1": "Hablar con soporte"
+      },
+      "samples": "Ana|#10245|12 de marzo"
+    },
+    "back_in_stock": {
+      "title": "De nuevo en stock",
+      "description": "Avisa a los clientes interesados que un producto volvió a estar disponible.",
+      "body": "Hola {v1}, ¡{v2} está de nuevo en stock! Las unidades son limitadas, así que pide el tuyo antes de que se agote otra vez.",
+      "buttons": {
+        "b1": "Comprar ahora"
+      },
+      "samples": "Carlos|Chaqueta de mezclilla clásica"
+    },
+    "festive_offer": {
+      "title": "Oferta de temporada",
+      "description": "Anuncia un descuento de temporada con fecha de fin y código de cupón.",
+      "header": "Llegaron las ofertas de temporada",
+      "body": "Hola {v1}, ¡llegó la temporada festiva! Disfruta de {v2} de descuento en todo nuestro catálogo hasta el {v3}. Usa el código {v4} al pagar.",
+      "footer": "Oferta válida hasta agotar existencias",
+      "buttons": {
+        "b1": "No más promociones",
+        "b2": "Ver la oferta"
+      },
+      "samples": "Marta|20%|31 de octubre|FIESTA20"
+    },
+    "abandoned_cart": {
+      "title": "Carrito abandonado",
+      "description": "Recuerda a los compradores los productos que siguen en su carrito.",
+      "body": "Hola {v1}, dejaste {v2} en tu carrito. Tus productos siguen guardados, así que puedes terminar tu compra cuando quieras.",
+      "buttons": {
+        "b1": "Completar compra"
+      },
+      "samples": "Sergio|2 productos"
+    },
+    "price_drop": {
+      "title": "Bajada de precio",
+      "description": "Avisa cuando un producto que vieron baja de precio.",
+      "body": "Hola {v1}, el precio de {v2} bajó a {v3}. Este precio está disponible hasta agotar existencias.",
+      "buttons": {
+        "b1": "Ver producto"
+      },
+      "samples": "Javier|Audífonos inalámbricos|$39.00"
+    },
+    "loyalty_points": {
+      "title": "Puntos de fidelidad",
+      "description": "Comparte el saldo de puntos y cuándo vencen.",
+      "body": "Hola {v1}, tienes {v2} puntos de fidelidad en tu cuenta. Úsalos en tu próxima compra antes de que venzan el {v3}.",
+      "buttons": {
+        "b1": "Ver recompensas"
+      },
+      "samples": "Elena|1.250|30 de junio"
+    },
+    "table_reservation": {
+      "title": "Reserva de mesa",
+      "description": "Confirma una reserva de restaurante con número de personas, fecha y hora.",
+      "header": "Mesa reservada",
+      "body": "Hola {v1}, tu mesa para {v2} está reservada para el {v3} a las {v4}. Responde a este mensaje si cambian tus planes.",
+      "buttons": {
+        "b1": "Confirmar",
+        "b2": "Reprogramar"
+      },
+      "samples": "Andrés|4 personas|viernes 14 de junio|20:00"
+    },
+    "order_ready_pickup": {
+      "title": "Pedido listo para recoger",
+      "description": "Avisa a los clientes que su pedido está listo para retirar.",
+      "body": "Hola {v1}, tu pedido {v2} está listo para recoger en {v3}. Muestra este mensaje en el mostrador.",
+      "buttons": {
+        "b1": "Llamar a la tienda"
+      },
+      "samples": "Laura|#A-58|nuestra sucursal del centro"
+    },
+    "appointment_reminder": {
+      "title": "Recordatorio de cita",
+      "description": "Recuerda a los pacientes su próxima cita y permite que la confirmen.",
+      "header": "Recordatorio de cita",
+      "body": "Hola {v1}, te recordamos tu cita con {v2} el {v3} a las {v4}. Por favor llega 10 minutos antes.",
+      "buttons": {
+        "b1": "Confirmar",
+        "b2": "Reprogramar"
+      },
+      "samples": "Raúl|la Dra. Méndez|lunes 10 de junio|11:30"
+    },
+    "appointment_confirmed": {
+      "title": "Cita confirmada",
+      "description": "Confirma una cita de salón o spa con el servicio y la hora.",
+      "body": "Hola {v1}, tu cita de {v2} está confirmada para el {v3} a las {v4}. Te esperamos.",
+      "buttons": {
+        "b1": "Llámanos"
+      },
+      "samples": "Sofía|corte y peinado|sábado 15 de junio|15:00"
+    },
+    "payment_reminder": {
+      "title": "Recordatorio de pago",
+      "description": "Recuerda a un cliente que una factura vence pronto.",
+      "body": "Hola {v1}, te recordamos que tu pago de {v2} de la factura {v3} vence el {v4}.",
+      "buttons": {
+        "b1": "Pagar ahora"
+      },
+      "samples": "Víctor|$120.00|INV-2041|5 de julio"
+    },
+    "payment_received": {
+      "title": "Pago recibido",
+      "description": "Confirma un pago con el monto, la fecha y la referencia.",
+      "header": "Pago recibido",
+      "body": "Hola {v1}, recibimos tu pago de {v2} el {v3}. Número de referencia: {v4}. ¡Gracias!",
+      "footer": "Guarda este mensaje como comprobante",
+      "samples": "Inés|$120.00|3 de julio|TXN784512"
+    },
+    "emi_due": {
+      "title": "Cuota por vencer",
+      "description": "Recuerda a los clientes la próxima cuota de su préstamo.",
+      "body": "Hola {v1}, tu cuota de {v2} del préstamo {v3} vence el {v4}. Mantén saldo suficiente en tu cuenta para evitar cargos por mora.",
+      "buttons": {
+        "b1": "Pagar cuota"
+      },
+      "samples": "Esteban|$215.00|LN-55021|10 de agosto"
+    },
+    "document_request": {
+      "title": "Solicitud de documento",
+      "description": "Pide a un cliente un documento faltante para continuar un trámite.",
+      "body": "Hola {v1}, para seguir procesando tu {v2} necesitamos el siguiente documento: {v3}. Responde a este mensaje con una foto clara o un PDF.",
+      "buttons": {
+        "b1": "Necesito ayuda"
+      },
+      "samples": "Paula|solicitud de préstamo|comprobante de domicilio"
+    },
+    "account_update": {
+      "title": "Actualización de cuenta",
+      "description": "Notifica a un cliente que se cambiaron datos de su cuenta.",
+      "body": "Hola {v1}, el dato {v2} de tu cuenta se actualizó el {v3}. Si no hiciste este cambio, contáctanos de inmediato.",
+      "buttons": {
+        "b1": "Llamar a soporte"
+      },
+      "samples": "Tomás|correo electrónico registrado|2 de mayo"
+    },
+    "class_reminder": {
+      "title": "Recordatorio de clase",
+      "description": "Recuerda a los estudiantes cuándo empieza su próxima clase.",
+      "body": "Hola {v1}, tu clase de {v2} empieza el {v3} a las {v4}. Ten listos tu cuaderno y tus materiales.",
+      "buttons": {
+        "b1": "Unirse a la clase"
+      },
+      "samples": "Isabel|Matemáticas de 10.º grado|martes|17:00"
+    },
+    "admission_open": {
+      "title": "Inscripciones abiertas",
+      "description": "Anuncia que las inscripciones están abiertas, con la fecha de cierre.",
+      "header": "Inscripciones abiertas",
+      "body": "Hola {v1}, ya están abiertas las inscripciones para {v2} del ciclo {v3}. Las solicitudes cierran el {v4}.",
+      "footer": "Cupos limitados",
+      "buttons": {
+        "b1": "Inscribirme"
+      },
+      "samples": "Sr. Ramírez|nuestro MBA|2027|30 de abril"
+    },
+    "site_visit_confirmed": {
+      "title": "Visita confirmada",
+      "description": "Confirma la visita a una propiedad con el proyecto, fecha y hora.",
+      "body": "Hola {v1}, tu visita a {v2} está confirmada para el {v3} a las {v4}. Nuestro asesor te esperará en la entrada.",
+      "buttons": {
+        "b1": "Llamar al asesor"
+      },
+      "samples": "Diego|Residencial Valle Verde|domingo 16 de junio|10:00"
+    },
+    "booking_confirmed": {
+      "title": "Reserva confirmada",
+      "description": "Confirma un viaje o una estadía con el número de reserva y las fechas.",
+      "header": "Reserva confirmada",
+      "body": "Hola {v1}, tu reserva {v2} está confirmada. Fechas del viaje: del {v3} al {v4}. ¡Te deseamos un excelente viaje!",
+      "buttons": {
+        "b1": "Ver reserva"
+      },
+      "samples": "Elena|BK-90321|12 de septiembre|18 de septiembre"
+    },
+    "check_in_details": {
+      "title": "Datos de check-in",
+      "description": "Comparte la hora de check-in y lo que deben traer los huéspedes.",
+      "body": "Hola {v1}, te esperamos en {v2}. El check-in abre a las {v3} del {v4}. Trae una identificación oficial con foto.",
+      "buttons": {
+        "b1": "Llamar a recepción"
+      },
+      "samples": "Omar|Hotel Costa Azul|15:00|12 de septiembre"
+    },
+    "event_reminder": {
+      "title": "Recordatorio de evento",
+      "description": "Recuerda a los asistentes la fecha y el lugar del evento.",
+      "body": "Hola {v1}, te recordamos que {v2} se realiza el {v3} en {v4}. ¡Te esperamos!",
+      "buttons": {
+        "b1": "Detalles del evento"
+      },
+      "samples": "Julia|el Encuentro Anual de Diseño|20 de junio|el Centro de Convenciones"
+    },
+    "webinar_link": {
+      "title": "Enlace del webinar",
+      "description": "Envía a los inscritos la hora de la sesión y un botón para unirse.",
+      "body": "Hola {v1}, gracias por inscribirte en {v2}. La sesión empieza el {v3} a las {v4}. Usa el botón de abajo para unirte.",
+      "buttons": {
+        "b1": "Unirse al webinar"
+      },
+      "samples": "Álex|Haz crecer tu negocio con WhatsApp|25 de junio|16:00"
+    },
+    "renewal_reminder": {
+      "title": "Recordatorio de renovación",
+      "description": "Recuerda a los clientes que un plan o suscripción vence pronto.",
+      "body": "Hola {v1}, tu {v2} vence el {v3}. Renuévalo antes de esa fecha para seguir disfrutando del servicio sin interrupciones.",
+      "buttons": {
+        "b1": "Renovar ahora"
+      },
+      "samples": "Daniela|plan de mantenimiento anual|31 de julio"
+    },
+    "service_follow_up": {
+      "title": "Seguimiento del servicio",
+      "description": "Consulta al cliente después de una visita de servicio.",
+      "body": "Hola {v1}, completamos tu {v2} el {v3}. ¿Todo funciona como esperabas? Avísanos si necesitas algo más.",
+      "buttons": {
+        "b1": "Todo bien",
+        "b2": "Necesito ayuda"
+      },
+      "samples": "Jorge|mantenimiento del aire acondicionado|8 de junio"
+    },
+    "welcome_message": {
+      "title": "Mensaje de bienvenida",
+      "description": "Saluda a los nuevos suscriptores y los invita a conversar.",
+      "header": "¡Bienvenido!",
+      "body": "Hola {v1}, ¡bienvenido a {v2}! Nos alegra tenerte con nosotros. Responde cuando quieras para hablar con nuestro equipo.",
+      "buttons": {
+        "b1": "Ver productos",
+        "b2": "Hablar con nosotros"
+      },
+      "samples": "Natalia|Boutique Flor"
+    },
+    "feedback_request": {
+      "title": "Solicitud de opinión",
+      "description": "Pide a los clientes que califiquen su experiencia reciente.",
+      "body": "Hola {v1}, gracias por elegir {v2}. ¿Cómo fue tu experiencia? Tu opinión nos ayuda a mejorar.",
+      "buttons": {
+        "b1": "Excelente",
+        "b2": "Buena",
+        "b3": "Puede mejorar"
+      },
+      "samples": "León|Clínica Dental Sonrisa"
+    },
+    "store_opening_hours": {
+      "title": "Horario de atención",
+      "description": "Comparte los días y horarios de una tienda o sucursal.",
+      "body": "Hola {v1}, {v2} abre {v3} de {v4}. ¡Esperamos tu visita!",
+      "buttons": {
+        "b1": "Llámanos"
+      },
+      "samples": "Mayra|nuestra nueva tienda|de lunes a sábado|9:00 a 20:00"
+    },
+    "holiday_notice": {
+      "title": "Aviso de feriado",
+      "description": "Avisa a los clientes que cerrarás por un feriado.",
+      "header": "Aviso de feriado",
+      "body": "Hola {v1}, te informamos que {v2} estará cerrado el {v3} por {v4}. Retomaremos la atención normal el siguiente día hábil.",
+      "samples": "Cristina|nuestra oficina|1 de enero|Año Nuevo"
+    }
+  },
+  "Templates": {
+    "studio": {
+      "preview": {
+        "label": "Vista previa del mensaje",
+        "media": {
+          "image": "Imagen",
+          "video": "Video",
+          "document": "Documento",
+          "location": "Ubicación"
+        },
+        "authBody": "{code} es tu código de verificación.",
+        "authSecurity": "Por tu seguridad, no compartas este código.",
+        "authExpiry": "Este código vence en {minutes, plural, one {# minuto} other {# minutos}}.",
+        "copyCode": "Copiar código",
+        "authNote": "WhatsApp redacta el texto de los mensajes de autenticación y lo traduce al idioma de la plantilla. Esta vista previa es aproximada.",
+        "ltoPlaceholder": "Titular de la oferta",
+        "ltoExpires": "La oferta termina pronto",
+        "emptyBody": "El texto de tu mensaje aparecerá aquí.",
+        "cards": "Tarjetas del carrusel",
+        "cardN": "Tarjeta {n}"
+      },
+      "language": {
+        "label": "Idiomas de plantilla",
+        "placeholder": "Elige un idioma",
+        "search": "Buscar idiomas",
+        "noMatch": "Ningún idioma coincide con tu búsqueda."
+      },
+      "timeline": {
+        "label": "Historial de estados",
+        "loading": "Cargando historial...",
+        "loadFailed": "No se pudo cargar el historial de estados.",
+        "retry": "Reintentar",
+        "empty": "Aún no hay cambios de estado registrados.",
+        "quality": "Calidad: {score}",
+        "source": {
+          "draft": "Guardada como borrador",
+          "submit": "Enviada",
+          "webhook": "Actualización de Meta",
+          "sync": "Sincronizada desde Meta",
+          "edit": "Editada"
+        }
+      },
+      "library": {
+        "title": "Biblioteca de plantillas",
+        "description": "Parte de una plantilla ya redactada y ajústala antes de enviarla.",
+        "search": "Buscar plantillas",
+        "industry": "Sector",
+        "allIndustries": "Todos los sectores",
+        "category": "Categoría",
+        "allCategories": "Todas las categorías",
+        "categories": {
+          "Marketing": "Marketing",
+          "Utility": "Utilidad"
+        },
+        "loading": "Cargando plantillas...",
+        "loadFailed": "No se pudo cargar la biblioteca de plantillas.",
+        "retry": "Reintentar",
+        "noMatch": "Ninguna plantilla coincide con estos filtros.",
+        "use": "Usar esta",
+        "useNamed": "Usar la plantilla {title}"
+      },
+      "ai": {
+        "title": "Redactar una plantilla con IA",
+        "description": "Describe qué debe lograr el mensaje. Revisarás el borrador antes de guardar o enviar nada.",
+        "goal": "¿Qué debe lograr este mensaje?",
+        "goalPlaceholder": "Por ejemplo: recordar a los clientes que su cita es mañana y permitirles confirmarla",
+        "tone": "Tono",
+        "tones": {
+          "friendly": "Cercano",
+          "professional": "Profesional",
+          "urgent": "Urgente",
+          "playful": "Divertido"
+        },
+        "category": "Categoría",
+        "categories": {
+          "Marketing": "Marketing",
+          "Utility": "Utilidad"
+        },
+        "language": "Idioma",
+        "business": "Nombre o contexto del negocio (opcional)",
+        "businessPlaceholder": "Por ejemplo: Clínica Dental Loto",
+        "includeButtons": "Sugerir botones",
+        "generate": "Redactar borrador",
+        "regenerate": "Redactar otro borrador",
+        "generating": "Redactando...",
+        "emptyPreview": "Tu borrador aparecerá aquí.",
+        "draftName": "Nombre de la plantilla: {name}",
+        "reviewHint": "Revisa la redacción y los valores de ejemplo antes de enviarla.",
+        "notConfiguredTitle": "La IA aún no está configurada",
+        "notConfiguredHint": "Un administrador debe elegir un proveedor en Agentes → Configuración del agente para que la IA pueda redactar plantillas.",
+        "openAgentSetup": "Abrir configuración del agente",
+        "invalidDraft": "La IA no pudo generar una plantilla válida. Prueba a redactar tu objetivo de otra forma.",
+        "failed": "No se pudo redactar un borrador. Inténtalo de nuevo.",
+        "cancel": "Cancelar",
+        "useDraft": "Usar este borrador"
+      }
+    }
   }
 }

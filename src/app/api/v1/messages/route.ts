@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       mediaUrl: typeof body.media_url === 'string' ? body.media_url : null,
       templateName: typeof template?.name === 'string' ? template.name : null,
       interactivePayload,
+      templateMessageParams,
     });
 
     // Find-or-create the conversation for this phone, then send. Both

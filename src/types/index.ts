@@ -357,13 +357,44 @@ export interface TemplateSampleValues {
   header?: string[];
 }
 
+export type TemplateKind =
+  | 'standard'
+  | 'carousel'
+  | 'authentication'
+  | 'limited_time_offer';
+
+/** One card of a carousel template: a media header, a short body and 1-2 buttons. */
+export interface CarouselCard {
+  header_type: 'image' | 'video';
+  header_media_url?: string;
+  header_handle?: string;
+  body_text: string;
+  sample_values?: { body?: string[] };
+  buttons: TemplateButton[];
+}
+
+/** Authentication templates: Meta writes the body; we choose these options. */
+export interface AuthTemplateOptions {
+  /** 1-90 minutes; shown as a footer by Meta when set. */
+  code_expiration_minutes?: number;
+  add_security_recommendation?: boolean;
+  otp_type: 'COPY_CODE';
+  button_text?: string;
+}
+
+export interface LimitedTimeOffer {
+  /** Offer headline, at most 16 characters. */
+  text: string;
+  has_expiration: boolean;
+}
+
 export interface MessageTemplate {
   id: string;
   user_id: string;
   name: string;
   category: 'Marketing' | 'Utility' | 'Authentication';
   language?: string;
-  header_type?: 'text' | 'image' | 'video' | 'document';
+  header_type?: 'text' | 'image' | 'video' | 'document' | 'location';
   header_content?: string;
   header_handle?: string;
   header_media_url?: string;
@@ -371,6 +402,10 @@ export interface MessageTemplate {
   footer_text?: string;
   buttons?: TemplateButton[];
   sample_values?: TemplateSampleValues;
+  template_kind?: TemplateKind;
+  cards?: CarouselCard[];
+  auth_options?: AuthTemplateOptions;
+  lto?: LimitedTimeOffer;
   status?: MessageTemplateStatus;
   meta_template_id?: string;
   rejection_reason?: string;

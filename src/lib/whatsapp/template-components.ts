@@ -10,12 +10,18 @@
  *   https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates/components
  */
 
-import type { TemplatePayload } from './template-validators';
-import type { TemplateButton } from '@/types';
+import { templateKindOf, type TemplatePayload } from './template-validators';
+import type { CarouselCard, TemplateButton } from '@/types';
 
 export interface MetaComponent {
-  type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS';
-  format?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+  type:
+    | 'HEADER'
+    | 'BODY'
+    | 'FOOTER'
+    | 'BUTTONS'
+    | 'CAROUSEL'
+    | 'LIMITED_TIME_OFFER';
+  format?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'LOCATION';
   text?: string;
   buttons?: MetaButtonPayload[];
   example?: {
@@ -24,33 +30,30 @@ export interface MetaComponent {
     header_handle?: string[];
     body_text?: string[][];
   };
+  /** CAROUSEL only: each card is its own HEADER/BODY/BUTTONS set. */
+  cards?: { components: MetaComponent[] }[];
+  /** Authentication BODY only. */
+  add_security_recommendation?: boolean;
+  /** Authentication FOOTER only. */
+  code_expiration_minutes?: number;
+  limited_time_offer?: { text: string; has_expiration: boolean };
 }
 
 interface MetaButtonPayload {
-  type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER' | 'COPY_CODE';
-  text: string;
+  type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER' | 'COPY_CODE' | 'OTP';
+  text?: string;
   url?: string;
   phone_number?: string;
   example?: string[];
+  otp_type?: 'COPY_CODE';
 }
 
-function buildHeaderComponent(payload: TemplatePayload): MetaComponent | null {
-  const { header_type, header_content, header_media_url, header_handle } = payload;
-  if (!header_type) return null;
-
-  if (header_type === 'text') {
-    const headerSample = payload.sample_values?.header;
-    const component: MetaComponent = {
-      type: 'HEADER',
-      format: 'TEXT',
-      text: header_content,
-    };
-    if (headerSample && headerSample.length > 0) {
-      component.example = { header_text: headerSample };
-    }
-    return component;
-  }
-
+/** IMAGE/VIDEO/DOCUMENT header with its creation-time sample. */
+function mediaHeader(
+  header_type: 'image' | 'video' | 'document',
+  header_handle: string | undefined,
+  header_media_url: string | undefined,
+): MetaComponent {
   const format =
     header_type === 'image'
       ? 'IMAGE'
@@ -66,7 +69,33 @@ function buildHeaderComponent(payload: TemplatePayload): MetaComponent | null {
   return component;
 }
 
-function buildBodyComponent(payload: TemplatePayload): MetaComponent {
+function buildHeaderComponent(payload: TemplatePayload): MetaComponent | null {
+  const { header_type, header_content, header_media_url, header_handle } = payload;
+  if (!header_type) return null;
+
+  if (header_type === 'location') {
+    return { type: 'HEADER', format: 'LOCATION' };
+  }
+
+  if (header_type === 'text') {
+    const headerSample = payload.sample_values?.header;
+    const component: MetaComponent = {
+      type: 'HEADER',
+      format: 'TEXT',
+      text: header_content,
+    };
+    if (headerSample && headerSample.length > 0) {
+      component.example = { header_text: headerSample };
+    }
+    return component;
+  }
+
+  return mediaHeader(header_type, header_handle, header_media_url);
+}
+
+function buildBodyComponent(
+  payload: Pick<TemplatePayload, 'body_text'> & { sample_values?: { body?: string[] } },
+): MetaComponent {
   const component: MetaComponent = {
     type: 'BODY',
     text: payload.body_text,
@@ -106,12 +135,86 @@ function buildButtonPayload(b: TemplateButton): MetaButtonPayload {
   }
 }
 
-function buildButtonsComponent(payload: TemplatePayload): MetaComponent | null {
+function buildButtonsComponent(
+  payload: Pick<TemplatePayload, 'buttons'>,
+): MetaComponent | null {
   if (!payload.buttons || payload.buttons.length === 0) return null;
   return {
     type: 'BUTTONS',
     buttons: payload.buttons.map(buildButtonPayload),
   };
+}
+
+function buildCardComponents(card: CarouselCard): { components: MetaComponent[] } {
+  const components = [
+    mediaHeader(card.header_type, card.header_handle, card.header_media_url),
+    buildBodyComponent(card),
+  ];
+  const buttons = buildButtonsComponent(card);
+  if (buttons) components.push(buttons);
+  return { components };
+}
+
+/** Top-level BODY followed by the CAROUSEL; no header, footer or buttons. */
+function buildCarouselComponents(payload: TemplatePayload): MetaComponent[] {
+  return [
+    buildBodyComponent(payload),
+    { type: 'CAROUSEL', cards: (payload.cards ?? []).map(buildCardComponents) },
+  ];
+}
+
+/**
+ * Meta supplies the authentication body text itself, so only the
+ * options are sent: the security line, the expiry footer and the one
+ * copy-code OTP button (Meta's default label when no text is set).
+ */
+function buildAuthenticationComponents(payload: TemplatePayload): MetaComponent[] {
+  const options = payload.auth_options;
+  const body: MetaComponent = { type: 'BODY' };
+  if (options?.add_security_recommendation != null) {
+    body.add_security_recommendation = options.add_security_recommendation;
+  }
+  const components: MetaComponent[] = [body];
+  if (options?.code_expiration_minutes != null) {
+    components.push({
+      type: 'FOOTER',
+      code_expiration_minutes: options.code_expiration_minutes,
+    });
+  }
+  const otp: MetaButtonPayload = { type: 'OTP', otp_type: 'COPY_CODE' };
+  if (options?.button_text?.trim()) otp.text = options.button_text;
+  components.push({ type: 'BUTTONS', buttons: [otp] });
+  return components;
+}
+
+/** HEADER (optional) → LIMITED_TIME_OFFER → BODY → BUTTONS. */
+function buildLimitedTimeOfferComponents(payload: TemplatePayload): MetaComponent[] {
+  const components: MetaComponent[] = [];
+  const header = buildHeaderComponent(payload);
+  if (header) components.push(header);
+  components.push({
+    type: 'LIMITED_TIME_OFFER',
+    limited_time_offer: {
+      text: payload.lto?.text ?? '',
+      has_expiration: payload.lto?.has_expiration === true,
+    },
+  });
+  components.push(buildBodyComponent(payload));
+  const buttons = buildButtonsComponent(payload);
+  if (buttons) components.push(buttons);
+  return components;
+}
+
+function buildStandardComponents(payload: TemplatePayload): MetaComponent[] {
+  const components: MetaComponent[] = [];
+  const header = buildHeaderComponent(payload);
+  if (header) components.push(header);
+  components.push(buildBodyComponent(payload));
+  const footer = buildFooterComponent(payload);
+  if (footer) components.push(footer);
+  const buttons = buildButtonsComponent(payload);
+  if (buttons) components.push(buttons);
+  return components;
 }
 
 export interface MetaTemplateSubmitPayload {
@@ -132,19 +235,22 @@ const CATEGORY_TO_META: Record<
 
 /**
  * Assemble the full submit payload (name + category + language +
- * components in canonical order: HEADER → BODY → FOOTER → BUTTONS).
+ * components). Standard templates use the canonical order HEADER →
+ * BODY → FOOTER → BUTTONS; the other kinds use the shapes above.
+ * Callers validate first (validateTemplatePayload).
  */
 export function buildMetaTemplatePayload(
   payload: TemplatePayload,
 ): MetaTemplateSubmitPayload {
-  const components: MetaComponent[] = [];
-  const header = buildHeaderComponent(payload);
-  if (header) components.push(header);
-  components.push(buildBodyComponent(payload));
-  const footer = buildFooterComponent(payload);
-  if (footer) components.push(footer);
-  const buttons = buildButtonsComponent(payload);
-  if (buttons) components.push(buttons);
+  const kind = templateKindOf(payload);
+  const components =
+    kind === 'carousel'
+      ? buildCarouselComponents(payload)
+      : kind === 'authentication'
+        ? buildAuthenticationComponents(payload)
+        : kind === 'limited_time_offer'
+          ? buildLimitedTimeOfferComponents(payload)
+          : buildStandardComponents(payload);
 
   return {
     name: payload.name,

@@ -38,10 +38,18 @@
  * stored as '' (the same placeholder the sync route uses for a
  * body-less template) and "Sync from Meta" backfills them, matching
  * the stub on (account_id, name, language).
+ *
+ * ─── Status history ───────────────────────────────────────────────
+ * Every status or quality write (including a stub insert and the
+ * retry after a unique violation) appends a 'webhook' row to
+ * template_status_events for each template it touched, via
+ * template-events (worker connection, the row's own account). An event
+ * that changes nothing relative to the latest one is not recorded.
  */
 
 import type { DataClient } from '@/lib/data/types'
 import { normalizeStatus } from './template-status-normalize'
+import { normalizeRejectionReason, recordTemplateEvents } from './template-events'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([
@@ -92,6 +100,43 @@ const STUB_BODY_TEXT = ''
 const DEFAULT_TEMPLATE_LANGUAGE = 'en_US'
 /** Postgres unique_violation — the row appeared between our UPDATE and INSERT. */
 const PG_UNIQUE_VIOLATION = '23505'
+/** Columns the status history needs back from every template write. */
+const EVENT_COLUMNS = 'id,account_id,status,rejection_reason,quality_score'
+
+type TemplateEventRow = {
+  id?: unknown
+  account_id?: unknown
+  status?: unknown
+  rejection_reason?: unknown
+  quality_score?: unknown
+}
+
+const textOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : null)
+
+/**
+ * Append a 'webhook' status event for each template row the event
+ * touched, in that row's own account, on the worker connection.
+ * Rows whose state matches their latest event are skipped there.
+ */
+async function recordWebhookEvents(rows: TemplateEventRow[]): Promise<void> {
+  for (const row of rows) {
+    if (typeof row.id !== 'string' || typeof row.account_id !== 'string') continue
+    if (typeof row.status !== 'string' || !row.status) continue
+    await recordTemplateEvents(
+      { accountId: row.account_id, role: 'owner' },
+      [
+        {
+          templateId: row.id,
+          status: row.status,
+          reason: textOrNull(row.rejection_reason),
+          qualityScore: textOrNull(row.quality_score),
+          source: 'webhook',
+        },
+      ],
+      { worker: true },
+    )
+  }
+}
 
 /**
  * Dispatch a single change record to the matching handler. Returns
@@ -151,11 +196,11 @@ async function handleStatusUpdate(
   // Persist the rejection reason on REJECTED — that's the only event
   // where Meta sends a human-readable explanation. Clear it on any
   // other status flip so the UI doesn't show a stale REJECTED banner
-  // after Meta re-approves a resubmitted template.
+  // after Meta re-approves a resubmitted template. Same normalisation
+  // as the sync route, so a sync after this webhook sees no change.
   const update: Record<string, unknown> = {
     status,
-    rejection_reason:
-      status === 'REJECTED' ? value.reason ?? 'Rejected by Meta' : null,
+    rejection_reason: normalizeRejectionReason(status, value.reason),
     submission_error: null,
   }
 
@@ -163,7 +208,7 @@ async function handleStatusUpdate(
     .from('message_templates')
     .update(update)
     .eq('meta_template_id', metaTemplateId)
-    .select('id,account_id,name,language,status,rejection_reason')
+    .select(`${EVENT_COLUMNS},name,language`)
 
   if (error) {
     console.error(
@@ -186,7 +231,7 @@ async function handleStatusUpdate(
           .from('message_templates')
           .update(update)
           .eq('meta_template_id', metaTemplateId)
-          .select('id'),
+          .select(EVENT_COLUMNS),
       db,
     })
     return
@@ -196,6 +241,7 @@ async function handleStatusUpdate(
       `[template-webhook] status update matched ${data.length} rows for meta_template_id ${metaTemplateId} — investigate.`,
     )
   }
+  await recordWebhookEvents(data as TemplateEventRow[])
   for (const row of data as Record<string, unknown>[]) {
     await dispatchWebhookEvent(db, row.account_id as string, 'template.status_updated', {
       template_id: row.id,
@@ -236,7 +282,7 @@ async function handleQualityUpdate(
       .from('message_templates')
       .update(update)
       .eq('meta_template_id', metaTemplateId)
-      .select('id')
+      .select(EVENT_COLUMNS)
 
   const { data, error } = await runUpdate()
 
@@ -262,7 +308,9 @@ async function handleQualityUpdate(
       retryUpdate: runUpdate,
       db,
     })
+    return
   }
+  await recordWebhookEvents(data as TemplateEventRow[])
 }
 
 interface StubParams {
@@ -276,7 +324,7 @@ interface StubParams {
   fields: Record<string, unknown>
   /** Re-runs the original UPDATE if the INSERT loses a race. */
   retryUpdate: () => PromiseLike<{
-    data: { id: string }[] | null
+    data: TemplateEventRow[] | null
     error: { message: string } | null
   }>
   db: DataClient
@@ -337,7 +385,10 @@ async function createStubForUnknownTemplate(p: StubParams): Promise<void> {
   // config owner, same convention the webhook uses for inbound writes.
   // `category` and `status` fall back to their column defaults unless
   // the event supplied them (status events do, quality events don't).
+  // The id is chosen here so the stub's first status event can be
+  // recorded without reading the row back.
   const stub = {
+    id: crypto.randomUUID(),
     account_id: config.account_id,
     user_id: config.user_id,
     meta_template_id: metaTemplateId,
@@ -355,6 +406,16 @@ async function createStubForUnknownTemplate(p: StubParams): Promise<void> {
     console.info(
       `[template-webhook] ${kind} for unknown template ${where} — created stub row for account ${config.account_id}; run "Sync from Meta" to backfill components.`,
     )
+    await recordWebhookEvents([
+      {
+        id: stub.id,
+        account_id: config.account_id,
+        // Quality events leave status to the column default.
+        status: p.fields.status ?? 'DRAFT',
+        rejection_reason: p.fields.rejection_reason,
+        quality_score: p.fields.quality_score,
+      },
+    ])
     return
   }
 
@@ -383,7 +444,9 @@ async function createStubForUnknownTemplate(p: StubParams): Promise<void> {
     console.warn(
       `[template-webhook] ${kind} for unknown template ${where} — a local row with the same name/language exists but is not linked to this meta_template_id; run "Sync from Meta" to link it.`,
     )
+    return
   }
+  await recordWebhookEvents(data)
 }
 
 /**

@@ -68,6 +68,7 @@ import {
   blankListPayload,
 } from '@/components/interactive/interactive-builder';
 import { interactivePayloadPreviewText } from '@/lib/whatsapp/interactive';
+import { automationTemplateRefusal } from '@/lib/automations/template-check';
 import { createClient } from '@/lib/data/client';
 import {
   childPath,
@@ -331,7 +332,15 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
         ]);
       if (cancelled) return;
       setTags((tagsRes.data as TagRecord[] | null) ?? []);
-      setTemplates((templatesRes.data as MessageTemplate[] | null) ?? []);
+      // The step only fills body values, so templates that need more
+      // (authentication, carousel, limited-time offer, location header,
+      // header or URL variables) are never listed; saving and the engine
+      // refuse them too.
+      setTemplates(
+        ((templatesRes.data as MessageTemplate[] | null) ?? []).filter(
+          (tpl) => automationTemplateRefusal(tpl) === null,
+        ),
+      );
       setCustomFields((customFieldsRes.data as CustomField[] | null) ?? []);
       setPipelines((pipelinesRes.data as PipelineOption[] | null) ?? []);
       setStages((stagesRes.data as PipelineStageOption[] | null) ?? []);

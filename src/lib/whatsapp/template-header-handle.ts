@@ -1,5 +1,9 @@
 import { uploadResumableMedia } from '@/lib/whatsapp/meta-api'
-import { MEDIA_HEADER_SPECS, isMediaHeaderKind } from '@/lib/whatsapp/media-header-types'
+import {
+  MEDIA_HEADER_SPECS,
+  isMediaHeaderKind,
+  type MediaHeaderKind,
+} from '@/lib/whatsapp/media-header-types'
 import type { TemplatePayload } from '@/lib/whatsapp/template-validators'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { providerMediaUrl } from '@/lib/storage/server'
@@ -36,6 +40,48 @@ export async function ensureMediaHeaderHandle(
   if (payload.header_handle) return // already have one
   if (!payload.header_media_url) return // validator already requires url-or-handle
 
+  payload.header_handle = await uploadHeaderSample(
+    kind,
+    payload.header_media_url,
+    accessToken,
+    accountId,
+  )
+}
+
+/**
+ * Carousel cards need the same creation-time handle for each card's
+ * IMAGE/VIDEO header. Cards that already carry a handle are left alone;
+ * cards are uploaded one at a time so a failure names the first bad card.
+ */
+export async function ensureCarouselCardHandles(
+  payload: TemplatePayload,
+  accessToken: string,
+  accountId?: string,
+): Promise<void> {
+  if (payload.template_kind !== 'carousel' || !payload.cards) return
+  for (const [i, card] of payload.cards.entries()) {
+    if (card.header_handle || !card.header_media_url) continue
+    if (!isMediaHeaderKind(card.header_type)) continue
+    try {
+      card.header_handle = await uploadHeaderSample(
+        card.header_type,
+        card.header_media_url,
+        accessToken,
+        accountId,
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      throw new Error(t('cardError', { n: i + 1, message }))
+    }
+  }
+}
+
+async function uploadHeaderSample(
+  kind: MediaHeaderKind,
+  headerMediaUrl: string,
+  accessToken: string,
+  accountId: string | undefined,
+): Promise<string> {
   const spec = MEDIA_HEADER_SPECS[kind]
 
   const appId = process.env.META_APP_ID
@@ -50,8 +96,8 @@ export async function ensureMediaHeaderHandle(
   // outbound-fetch call sites (see lib/webhooks/ssrf.ts) — matching the
   // unreachable-host message keeps the failure from being an oracle.
   const mediaUrl = accountId
-    ? await providerMediaUrl(accountId, payload.header_media_url)
-    : payload.header_media_url
+    ? await providerMediaUrl(accountId, headerMediaUrl)
+    : headerMediaUrl
   if (!(await isDeliverableUrl(mediaUrl))) {
     throw new Error(unreachableMessage())
   }
@@ -105,5 +151,5 @@ export async function ensureMediaHeaderHandle(
     mimeType,
     bytes,
   })
-  payload.header_handle = handle
+  return handle
 }

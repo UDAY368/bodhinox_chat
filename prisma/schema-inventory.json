@@ -1177,7 +1177,7 @@
         "nullable": true,
         "default": null,
         "reference": null,
-        "definition": "header_type TEXT CHECK (header_type IN ('text', 'image', 'video', 'document'))"
+        "definition": "header_type TEXT CHECK (header_type IN ('text', 'image', 'video', 'document', 'location'))"
       },
       {
         "name": "header_content",
@@ -1310,6 +1310,38 @@
           "onDelete": "CASCADE"
         },
         "definition": "account_id UUID NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "reference": null,
+        "name": "template_kind",
+        "type": "text",
+        "nullable": false,
+        "default": "'standard'",
+        "definition": "template_kind TEXT NOT NULL DEFAULT 'standard' CHECK (template_kind IN ('standard', 'carousel', 'authentication', 'limited_time_offer'))"
+      },
+      {
+        "reference": null,
+        "name": "cards",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "definition": "cards JSONB"
+      },
+      {
+        "reference": null,
+        "name": "auth_options",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "definition": "auth_options JSONB"
+      },
+      {
+        "reference": null,
+        "name": "lto",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "definition": "lto JSONB"
       }
     ],
     "pipelines": [

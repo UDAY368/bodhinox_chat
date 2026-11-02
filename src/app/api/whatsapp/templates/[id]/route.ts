@@ -15,7 +15,13 @@ import {
   type TemplatePayload,
 } from '@/lib/whatsapp/template-validators'
 import { buildMetaTemplatePayload } from '@/lib/whatsapp/template-components'
-import { ensureMediaHeaderHandle } from '@/lib/whatsapp/template-header-handle'
+import {
+  ensureCarouselCardHandles,
+  ensureMediaHeaderHandle,
+} from '@/lib/whatsapp/template-header-handle'
+import { recordTemplateEvents } from '@/lib/whatsapp/template-events'
+import { templateRowFields } from '@/lib/whatsapp/template-row'
+import { tenantOf } from '@/lib/audience/http'
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
@@ -72,7 +78,8 @@ export async function PATCH(
     }
     // Editing a template pushes a component replacement to Meta before
     // anything is written locally, so the role has to be checked here.
-    const { db, accountId } = await requireRole('admin')
+    const ctx = await requireRole('admin')
+    const { db, accountId } = ctx
 
     let payload: TemplatePayload
     try {
@@ -85,7 +92,7 @@ export async function PATCH(
     // meta_template_id and status — fetch explicitly.
     const { data: existing, error: lookupErr } = await db
       .from('message_templates')
-      .select('id, name, status, meta_template_id, language')
+      .select('id, name, status, meta_template_id, language, template_kind')
       .eq('id', id)
       .eq('account_id', accountId)
       .maybeSingle()
@@ -112,12 +119,27 @@ export async function PATCH(
       )
     }
 
-    if (payload.category === 'Authentication') {
+    // Authentication-category templates are editable only as the
+    // authentication kind (synced legacy ones stay in WhatsApp Manager).
+    if (
+      payload.category === 'Authentication' &&
+      payload.template_kind !== 'authentication'
+    ) {
       return NextResponse.json(
         {
           error:
             t('templates.authNotEditable'),
         },
+        { status: 400 },
+      )
+    }
+
+    // Meta replaces components but not the template's structure: a
+    // carousel stays a carousel. Name and language are fixed on Meta's
+    // side too, so the stored ones are kept regardless of the payload.
+    if ((payload.template_kind ?? 'standard') !== (existing.template_kind ?? 'standard')) {
+      return NextResponse.json(
+        { error: t('templates.draft.kindLocked') },
         { status: 400 },
       )
     }
@@ -150,6 +172,7 @@ export async function PATCH(
       // from header_media_url.
       try {
         await ensureMediaHeaderHandle(payload, accessToken, accountId)
+        await ensureCarouselCardHandles(payload, accessToken, accountId)
       } catch (e) {
         return NextResponse.json(
           { error: e instanceof Error ? e.message : t('templates.headerUploadFailed') },
@@ -182,15 +205,7 @@ export async function PATCH(
     const { data: row, error: updErr } = await db
       .from('message_templates')
       .update({
-        category: payload.category,
-        header_type: payload.header_type ?? null,
-        header_content: payload.header_content ?? null,
-        header_media_url: payload.header_media_url ?? null,
-        header_handle: payload.header_handle ?? null,
-        body_text: payload.body_text,
-        footer_text: payload.footer_text ?? null,
-        buttons: payload.buttons ?? null,
-        sample_values: payload.sample_values ?? null,
+        ...templateRowFields(payload),
         status: 'PENDING',
         submission_error: null,
         rejection_reason: null,
@@ -209,6 +224,10 @@ export async function PATCH(
         { status: 500 },
       )
     }
+
+    await recordTemplateEvents(tenantOf(ctx), [
+      { templateId: id, status: 'PENDING', source: 'edit' },
+    ])
 
     return NextResponse.json({
       success: true,

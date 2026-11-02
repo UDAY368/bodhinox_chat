@@ -1,5 +1,6 @@
 import { authFetch } from '@/lib/auth/client';
 import type { AudienceConfig } from '@/lib/broadcast-audience';
+import type { CampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 
 export type VariableMapping = { type: 'static' | 'field' | 'custom_field' | 'csv_column'; value: string };
 export interface BroadcastCreationInput {
@@ -10,6 +11,8 @@ export interface BroadcastCreationInput {
   headerMediaUrl?: string;
   scheduledAt?: string;
   trackedUrl?: string;
+  /** Location, offer end and coupon code, the same for every recipient. */
+  sendExtras?: CampaignSendExtras;
 }
 
 export async function requestBroadcastCreation(input: BroadcastCreationInput, send: typeof authFetch = authFetch): Promise<string> {

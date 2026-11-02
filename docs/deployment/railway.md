@@ -48,6 +48,8 @@ Migration `20261102050000_flow_integration_nodes` widens the same CHECK lists fo
 
 Migration `20261102060000_flow_triggers_testing` adds the `template_reply` flow trigger, `flows.test_numbers` (at most 3, digits only) and `whatsapp_config.ice_breakers` / `ice_breakers_synced_at`; it changes no existing rows. Inbound-action jobs may now carry `contextMetaId`; jobs queued before the deploy are still accepted without it. Ice breakers are saved only after Meta's conversational_automation endpoint accepts them.
 
+Migration `20261102070000_template_studio` adds `message_templates.template_kind` (default `standard`), `cards`, `auth_options`, `lto`, the `location` header type and the append-only `template_status_events` table (FORCE RLS; members read, admins and the worker insert). Existing templates keep working unchanged as standard templates. The data layer now binds a JavaScript null as SQL NULL for JSON columns (before, it stored the JSON value null). The template AI writer uses the workspace's configured AI provider and answers 409 when none is set.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

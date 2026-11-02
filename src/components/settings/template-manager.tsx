@@ -1,7 +1,7 @@
 'use client';
 import { authFetch } from "@/lib/auth/client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -9,26 +9,19 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  X,
   Pencil,
   RotateCcw,
-  Upload,
+  Copy,
+  History,
+  Search,
+  BookOpen,
+  Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/data/client';
-import {
-  uploadAccountMedia,
-  MEDIA_MAX_BYTES_BY_KIND,
-} from '@/lib/storage/upload-media';
-import {
-  MEDIA_HEADER_SPECS,
-  isMediaHeaderKind,
-  type MediaHeaderKind,
-} from '@/lib/whatsapp/media-header-types';
 import { useAuth } from '@/hooks/use-auth';
+import { useCan } from '@/hooks/use-can';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,27 +34,28 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import type {
-  MessageTemplate,
-  TemplateButton,
-  TemplateSampleValues,
-} from '@/types';
+import type { MessageTemplate, TemplateKind } from '@/types';
 import { templateStatusConfig } from '@/lib/template-status';
+import { templateLanguageForAppLocale } from '@/lib/whatsapp/template-languages';
+import { cn } from '@/lib/utils';
+import { TemplateEditorDialog } from '@/components/templates/template-editor-dialog';
+import { TemplateTimeline } from '@/components/templates/template-timeline';
+import { TemplateLibraryDialog } from '@/components/templates/template-library-dialog';
+import { TemplateAiDialog } from '@/components/templates/template-ai-dialog';
+import type { TemplateDraftInput } from '@/components/templates/types';
 import {
-  extractVariableIndices,
-  TEMPLATE_LIMITS,
-} from '@/lib/whatsapp/template-validators';
-
-const CATEGORIES = ['Marketing', 'Utility', 'Authentication'] as const;
-type HeaderFormat = 'none' | 'text' | 'image' | 'video' | 'document';
-const HEADER_FORMATS: HeaderFormat[] = ['none', 'text', 'image', 'video', 'document'];
+  TEMPLATE_TABS,
+  countTemplateTabs,
+  emptyTemplateForm,
+  filterTemplates,
+  formFromTemplate,
+  isLocalDraft,
+  templateHealth,
+  templateTabOf,
+  type TemplateFormData,
+  type TemplateHealth,
+  type TemplateTab,
+} from '@/components/templates/template-manager-helpers';
 
 const categoryColors: Record<string, string> = {
   Marketing: 'bg-purple-600/20 text-purple-400 border-purple-600/30',
@@ -69,65 +63,26 @@ const categoryColors: Record<string, string> = {
   Authentication: 'bg-amber-600/20 text-amber-400 border-amber-600/30',
 };
 
-interface TemplateFormData {
-  name: string;
-  category: MessageTemplate['category'];
-  language: string;
-  header_format: HeaderFormat;
-  header_content: string;
-  header_media_url: string;
-  header_sample: string;
-  body_text: string;
-  body_samples: string[];
-  footer_text: string;
-  buttons: TemplateButton[];
-}
-
-const emptyForm: TemplateFormData = {
-  name: '',
-  category: 'Marketing',
-  language: 'en_US',
-  header_format: 'none',
-  header_content: '',
-  header_media_url: '',
-  header_sample: '',
-  body_text: '',
-  body_samples: [],
-  footer_text: '',
-  buttons: [],
+const healthClasses: Record<TemplateHealth, string> = {
+  green: 'bg-emerald-600/15 text-emerald-500 border-emerald-600/30',
+  yellow: 'bg-yellow-600/15 text-yellow-500 border-yellow-600/30',
+  red: 'bg-red-600/15 text-red-500 border-red-600/30',
+  unknown: 'bg-muted text-muted-foreground border-border',
 };
 
-const COMMON_LANGUAGE_CODES = [
-  'en_US',
-  'en_GB',
-  'en',
-  'es',
-  'es_ES',
-  'es_MX',
-  'fr',
-  'fr_FR',
-  'de',
-  'it',
-  'pt_BR',
-  'pt_PT',
-  'nl',
-  'pl',
-  'ru',
-  'tr',
-  'lt',
-];
+const healthDot: Record<TemplateHealth, string> = {
+  green: 'bg-emerald-500',
+  yellow: 'bg-yellow-500',
+  red: 'bg-red-500',
+  unknown: 'bg-muted-foreground/50',
+};
 
-function emptyButton(type: TemplateButton['type']): TemplateButton {
-  switch (type) {
-    case 'QUICK_REPLY':
-      return { type: 'QUICK_REPLY', text: '' };
-    case 'URL':
-      return { type: 'URL', text: '', url: '' };
-    case 'PHONE_NUMBER':
-      return { type: 'PHONE_NUMBER', text: '', phone_number: '' };
-    case 'COPY_CODE':
-      return { type: 'COPY_CODE', text: '', example: '' };
-  }
+/** What the editor dialog opens with; `key` remounts it per open. */
+interface EditorState {
+  key: number;
+  initial: TemplateFormData;
+  editingId: string | null;
+  draftId: string | null;
 }
 
 export function TemplateManager() {
@@ -137,55 +92,35 @@ export function TemplateManager() {
     t.has(`categoryLabels.${category}`) ? t(`categoryLabels.${category}`) : category;
   const db = createClient();
   const { user, loading: authLoading } = useAuth();
+  // Template writes (create, draft, duplicate, delete, sync) are admin-only
+  // on the server; hide them for roles that would only get a 403.
+  const canEdit = useCan('edit-settings');
 
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [form, setForm] = useState<TemplateFormData>(emptyForm);
-  // Non-null when the dialog is editing an existing row — switches the
-  // submit handler from POST /submit to PATCH /[id] and changes the
-  // dialog title + CTA. Set to the template id to pre-fill from a row.
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<TemplateTab>('all');
+  const [query, setQuery] = useState('');
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   // Template selected for the confirm-delete dialog. The destructive
   // action goes through this two-step so a slip on the trash icon
   // doesn't take the template off Meta as well as locally.
   const [templateToDelete, setTemplateToDelete] =
     useState<MessageTemplate | null>(null);
-  // Header-media upload (image #230; video/document #562). Uploads to the
-  // account-scoped chat-media bucket and stores the public URL in
-  // header_media_url; the submit route turns that into a Meta
-  // Resumable-Upload handle.
-  const [uploadingHeader, setUploadingHeader] = useState(false);
-  const headerFileRef = useRef<HTMLInputElement>(null);
+  const [historyFor, setHistoryFor] = useState<MessageTemplate | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiKey, setAiKey] = useState(0);
 
-  // Body variable indices — `[1, 2, 3]` for "{{1}} {{2}} {{3}}". We
-  // re-run the extractor on every render to keep the sample-value rows
-  // in sync with what the user typed.
-  const bodyVarCount = useMemo(
-    () => extractVariableIndices(form.body_text).length,
-    [form.body_text],
+  const defaultLanguage = templateLanguageForAppLocale();
+  const counts = useMemo(() => countTemplateTabs(templates), [templates]);
+  const visible = useMemo(
+    () => filterTemplates(templates, tab, query),
+    [templates, tab, query],
   );
-  const headerVarCount = useMemo(
-    () =>
-      form.header_format === 'text'
-        ? extractVariableIndices(form.header_content).length
-        : 0,
-    [form.header_format, form.header_content],
-  );
-
-  // Resize body_samples so it always has exactly bodyVarCount entries.
-  // (We mutate via setForm in an effect so React owns the state.)
-  useEffect(() => {
-    setForm((prev) => {
-      if (prev.body_samples.length === bodyVarCount) return prev;
-      const next = prev.body_samples.slice(0, bodyVarCount);
-      while (next.length < bodyVarCount) next.push('');
-      return { ...prev, body_samples: next };
-    });
-  }, [bodyVarCount]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -193,121 +128,76 @@ export function TemplateManager() {
       setLoading(false);
       return;
     }
-    fetchTemplates(user.id);
+    void fetchTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id]);
 
-  async function fetchTemplates(userId: string) {
+  /**
+   * Load every template of the active account. The tenant-scoped client
+   * limits rows to the account; user_id is only who created a row, so it
+   * is not a filter here (templates another admin made belong too).
+   */
+  async function fetchTemplates(): Promise<MessageTemplate[]> {
     try {
-      setLoading(true);
       const { data, error } = await db
         .from('message_templates')
         .select('*')
-        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setTemplates(data || []);
+      const rows: MessageTemplate[] = data || [];
+      setTemplates(rows);
+      return rows;
     } catch (err) {
-      console.error('Failed to fetch templates:', err);
+      console.error('Failed to fetch templates:', err instanceof Error ? err.name : 'unknown');
       toast.error(t('toastLoadFailed'));
+      return [];
     } finally {
       setLoading(false);
     }
   }
 
-  function buildSubmitPayload() {
-    const sample_values: TemplateSampleValues = {};
-    if (form.body_samples.some((v) => v.trim())) {
-      sample_values.body = form.body_samples.map((v) => v.trim());
-    }
-    if (form.header_format === 'text' && form.header_sample.trim()) {
-      sample_values.header = [form.header_sample.trim()];
-    }
-
-    return {
-      name: form.name.trim(),
-      category: form.category,
-      language: form.language.trim() || 'en_US',
-      header_type: form.header_format === 'none' ? undefined : form.header_format,
-      header_content:
-        form.header_format === 'text' ? form.header_content.trim() : undefined,
-      header_media_url:
-        form.header_format !== 'none' && form.header_format !== 'text'
-          ? form.header_media_url.trim() || undefined
-          : undefined,
-      body_text: form.body_text.trim(),
-      footer_text: form.footer_text.trim() || undefined,
-      buttons: form.buttons.length > 0 ? form.buttons : undefined,
-      sample_values:
-        Object.keys(sample_values).length > 0 ? sample_values : undefined,
-    };
-  }
-
-  function openEdit(template: MessageTemplate) {
-    setEditingId(template.id);
-    setForm({
-      name: template.name,
-      category: template.category,
-      language: template.language || 'en_US',
-      header_format: (template.header_type ?? 'none') as HeaderFormat,
-      header_content: template.header_content ?? '',
-      header_media_url: template.header_media_url ?? '',
-      header_sample: template.sample_values?.header?.[0] ?? '',
-      body_text: template.body_text,
-      body_samples: template.sample_values?.body ?? [],
-      footer_text: template.footer_text ?? '',
-      buttons: template.buttons ?? [],
-    });
-    setDialogOpen(true);
+  function openEditor(next: Omit<EditorState, 'key'>) {
+    setEditor((prev) => ({ ...next, key: (prev?.key ?? 0) + 1 }));
+    setEditorOpen(true);
   }
 
   function openCreate() {
-    setEditingId(null);
-    setForm(emptyForm);
-    setDialogOpen(true);
+    openEditor({ initial: emptyTemplateForm(defaultLanguage), editingId: null, draftId: null });
   }
 
-  async function handleSubmit() {
-    // AUTHENTICATION is blocked by the persistent banner + disabled
-    // submit button; this is a defensive second line of defense.
-    if (form.category === 'Authentication') return;
+  /** Library / AI drafts prefill a new template; nothing is submitted. */
+  function openPrefilled(draft: TemplateDraftInput) {
+    openEditor({ initial: formFromTemplate(draft), editingId: null, draftId: null });
+  }
+
+  /** A local draft is saved/submitted by id; a submitted template is PATCHed. */
+  function openRow(template: MessageTemplate) {
+    const local = isLocalDraft(template);
+    openEditor({
+      initial: formFromTemplate(template),
+      editingId: local ? null : template.id,
+      draftId: local ? template.id : null,
+    });
+  }
+
+  async function handleDuplicate(template: MessageTemplate) {
+    if (duplicatingId) return;
+    setDuplicatingId(template.id);
     try {
-      setSubmitting(true);
-      const isEdit = editingId !== null;
-      const url = isEdit
-        ? `/api/whatsapp/templates/${editingId}`
-        : '/api/whatsapp/templates/submit';
-      const res = await authFetch(url, {
-        method: isEdit ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildSubmitPayload()),
+      const res = await authFetch(`/api/whatsapp/templates/${template.id}/duplicate`, {
+        method: 'POST',
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          data?.error || t(isEdit ? 'editFailedHttp' : 'submitFailedHttp', { status: res.status }),
-        );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.template) {
+        throw new Error(data?.error || t('duplicateFailedHttp', { status: res.status }));
       }
-      // Refresh first, then close — re-opening the dialog
-      // immediately should not show a stale list.
-      if (user) await fetchTemplates(user.id);
-      toast.success(
-        data.dry_run
-          ? isEdit
-            ? t('toastSaveEditDry')
-            : t('toastSaveNewDry')
-          : isEdit
-            ? t('toastSubmitEditSuccess')
-            : t('toastSubmitNewSuccess'),
-      );
-      setDialogOpen(false);
-      setForm(emptyForm);
-      setEditingId(null);
+      toast.success(t('toastDuplicated', { name: data.template.name }));
+      await fetchTemplates();
+      openRow(data.template as MessageTemplate);
     } catch (err) {
-      console.error('Submit error:', err);
-      toast.error(err instanceof Error ? err.message : t('toastSubmitFailed'));
+      toast.error(err instanceof Error ? err.message : t('duplicateFailedHttp', { status: 0 }));
     } finally {
-      setSubmitting(false);
+      setDuplicatingId(null);
     }
   }
 
@@ -344,9 +234,9 @@ export function TemplateManager() {
           { duration: 10000 },
         );
       }
-      await fetchTemplates(user.id);
+      await fetchTemplates();
     } catch (err) {
-      console.error('Template sync error:', err);
+      console.error('Template sync error:', err instanceof Error ? err.name : 'unknown');
       toast.error(err instanceof Error ? err.message : t('toastSyncError'));
     } finally {
       setSyncing(false);
@@ -369,92 +259,14 @@ export function TemplateManager() {
         throw new Error(data?.error || t('deleteFailedHttp', { status: res.status }));
       }
       toast.success(t('toastDeleteSuccess'));
-      setTemplates((prev) => prev.filter((t) => t.id !== target.id));
+      setTemplates((prev) => prev.filter((row) => row.id !== target.id));
       setTemplateToDelete(null);
     } catch (err) {
-      console.error('Delete error:', err);
+      console.error('Delete error:', err instanceof Error ? err.name : 'unknown');
       toast.error(err instanceof Error ? err.message : t('toastDeleteError'));
     } finally {
       setDeletingId(null);
     }
-  }
-
-  // The patch type unions every field across button variants. The
-  // conditional rendering below ensures only fields valid for the
-  // current button's `type` reach this function, so the runtime
-  // assertion + per-type spread preserves discriminated-union
-  // invariants without forcing every call site to thread the type
-  // through generics (which TS can't infer from a partial literal).
-  type ButtonPatch = {
-    text?: string;
-    url?: string;
-    phone_number?: string;
-    example?: string;
-  };
-  function updateButton(index: number, patch: ButtonPatch) {
-    setForm((prev) => {
-      const current = prev.buttons[index];
-      if (!current) return prev;
-      const next = [...prev.buttons];
-      // Per-variant spread keeps the discriminant pinned. Switch
-      // exhaustiveness is enforced by TypeScript.
-      switch (current.type) {
-        case 'QUICK_REPLY':
-          next[index] = {
-            ...current,
-            ...(patch.text !== undefined && { text: patch.text }),
-          };
-          break;
-        case 'URL':
-          next[index] = {
-            ...current,
-            ...(patch.text !== undefined && { text: patch.text }),
-            ...(patch.url !== undefined && { url: patch.url }),
-            ...(patch.example !== undefined && { example: patch.example }),
-          };
-          break;
-        case 'PHONE_NUMBER':
-          next[index] = {
-            ...current,
-            ...(patch.text !== undefined && { text: patch.text }),
-            ...(patch.phone_number !== undefined && {
-              phone_number: patch.phone_number,
-            }),
-          };
-          break;
-        case 'COPY_CODE':
-          next[index] = {
-            ...current,
-            ...(patch.text !== undefined && { text: patch.text }),
-            ...(patch.example !== undefined && { example: patch.example }),
-          };
-          break;
-      }
-      return { ...prev, buttons: next };
-    });
-  }
-
-  function changeButtonType(index: number, type: TemplateButton['type']) {
-    setForm((prev) => {
-      const next = [...prev.buttons];
-      next[index] = emptyButton(type);
-      return { ...prev, buttons: next };
-    });
-  }
-
-  function removeButton(index: number) {
-    setForm((prev) => ({
-      ...prev,
-      buttons: prev.buttons.filter((_, i) => i !== index),
-    }));
-  }
-
-  function addButton() {
-    if (form.buttons.length >= TEMPLATE_LIMITS.maxButtonsTotal) return;
-    setForm((prev) => ({
-      ...prev,
-      buttons: [...prev.buttons, emptyButton('QUICK_REPLY')],
-    }));
   }
 
   if (loading) {
@@ -465,61 +277,28 @@ export function TemplateManager() {
     );
   }
 
-  const headerNeedsMedia =
-    form.header_format !== 'none' && form.header_format !== 'text';
-  const headerMediaKind: MediaHeaderKind | null = isMediaHeaderKind(
-    form.header_format,
-  )
-    ? form.header_format
-    : null;
-
-  // Per-kind copy for the file picker. Kept as explicit key maps (not
-  // `t(\`upload${kind}\`)`) so the catalogue scanner can see every key.
-  const uploadLabelKey = {
-    image: 'uploadImage',
-    video: 'uploadVideo',
-    document: 'uploadDocument',
-  } as const;
-  const uploadHintKey = {
-    image: 'uploadHint',
-    video: 'uploadHintVideo',
-    document: 'uploadHintDocument',
-  } as const;
-  const invalidTypeKey = {
-    image: 'toastInvalidImage',
-    video: 'toastInvalidVideo',
-    document: 'toastInvalidDocument',
-  } as const;
-
-  async function handleHeaderMediaFile(file: File, kind: MediaHeaderKind) {
-    if (!MEDIA_HEADER_SPECS[kind].mimeTypes.includes(file.type)) {
-      toast.error(t(invalidTypeKey[kind]));
-      return;
-    }
-    // The upload lands in the chat-media bucket, whose 16 MB ceiling is
-    // below Meta's 100 MB document cap — so this is the bucket-side
-    // limit, not Meta's. A larger document can still be pasted as a link.
-    const maxBytes = MEDIA_MAX_BYTES_BY_KIND[kind];
-    if (file.size > maxBytes) {
-      toast.error(
-        t('toastMediaTooLarge', {
-          size: (file.size / 1024 / 1024).toFixed(1),
-          max: Math.round(maxBytes / 1024 / 1024),
-        }),
-      );
-      return;
-    }
-    setUploadingHeader(true);
-    try {
-      const { publicUrl } = await uploadAccountMedia('chat-media', file);
-      setForm((f) => ({ ...f, header_media_url: publicUrl }));
-      toast.success(t('toastUploadSuccess'));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('toastUploadFailed'));
-    } finally {
-      setUploadingHeader(false);
-    }
-  }
+  const tabLabel: Record<TemplateTab, string> = {
+    all: t('tabs.all'),
+    approved: t('tabs.approved'),
+    pending: t('tabs.pending'),
+    rejected: t('tabs.rejected'),
+    drafts: t('tabs.drafts'),
+    paused: t('tabs.paused'),
+  };
+  const healthLabel: Record<TemplateHealth, string> = {
+    green: t('health.green'),
+    yellow: t('health.yellow'),
+    red: t('health.red'),
+    unknown: t('health.unknown'),
+  };
+  const kindLabel: Record<TemplateKind, string> = {
+    standard: t('kinds.standard'),
+    carousel: t('kinds.carousel'),
+    authentication: t('kinds.authentication'),
+    limited_time_offer: t('kinds.limited_time_offer'),
+  };
+  const rowAction =
+    'text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2';
 
   return (
     <section className="animate-in fade-in-50 space-y-4 duration-200">
@@ -527,21 +306,37 @@ export function TemplateManager() {
         title={t('title')}
         description={t('description')}
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleSyncFromMeta}
-              disabled={syncing}
-              title={t('syncTitle')}
-            >
-              <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? t('syncing') : t('syncFromMeta')}
-            </Button>
-            <Button onClick={openCreate}>
-              <Plus className="size-4" />
-              {t('newTemplate')}
-            </Button>
-          </div>
+          canEdit ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleSyncFromMeta}
+                disabled={syncing}
+                title={t('syncTitle')}
+              >
+                <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? t('syncing') : t('syncFromMeta')}
+              </Button>
+              <Button variant="outline" onClick={() => setLibraryOpen(true)}>
+                <BookOpen className="size-4" />
+                {t('fromLibrary')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAiKey((k) => k + 1);
+                  setAiOpen(true);
+                }}
+              >
+                <Sparkles className="size-4" />
+                {t('writeWithAi')}
+              </Button>
+              <Button onClick={openCreate}>
+                <Plus className="size-4" />
+                {t('newTemplate')}
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 
@@ -555,569 +350,263 @@ export function TemplateManager() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {templates.map((template) => {
-            const statusKey = template.status || 'DRAFT';
-            const status = templateStatusConfig[statusKey];
-            return (
-              <Card key={template.id}>
-                <CardContent className="flex items-start justify-between pt-4">
-                  <div className="space-y-2 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-foreground">{template.name}</h3>
-                      <Badge
-                        className={`text-xs border ${categoryColors[template.category] || ''}`}
-                      >
-                        {categoryLabel(template.category)}
-                      </Badge>
-                      <Badge className={`text-xs border ${status.classes}`}>
-                        {status.label}
-                      </Badge>
-                      {template.language && (
-                        <span className="text-xs text-muted-foreground uppercase">
-                          {template.language}
-                        </span>
-                      )}
-                      {template.quality_score && (
-                        <span
-                          className={`text-[10px] uppercase font-medium ${
-                            template.quality_score === 'GREEN'
-                              ? 'text-emerald-400'
-                              : template.quality_score === 'YELLOW'
-                                ? 'text-yellow-400'
-                                : 'text-red-400'
-                          }`}
-                          title={t('qualityScoreTitle')}
-                        >
-                          {template.quality_score}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {template.body_text}
-                    </p>
-                    {template.footer_text && (
-                      <p className="text-xs text-muted-foreground italic">
-                        {template.footer_text}
-                      </p>
-                    )}
-                    {(template.rejection_reason || template.submission_error) && (
-                      <div className="flex items-start gap-1.5 text-xs text-red-400 bg-red-950/20 border border-red-900/40 rounded px-2 py-1.5">
-                        <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
-                        <span>
-                          {template.rejection_reason || template.submission_error}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
-                    {statusKey === 'APPROVED' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(template)}
-                        title={t('editTitle')}
-                        aria-label={t('editLabel')}
-                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2"
-                      >
-                        <Pencil className="size-3.5" />
-                        {t('edit')}
-                      </Button>
-                    )}
-                    {(statusKey === 'REJECTED' || statusKey === 'PAUSED') && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(template)}
-                        title={t('resubmitTitle')}
-                        aria-label={t('resubmitLabel')}
-                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2"
-                      >
-                        <RotateCcw className="size-3.5" />
-                        {t('resubmit')}
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setTemplateToDelete(template)}
-                      disabled={deletingId === template.id}
-                      aria-label={
-                        template.meta_template_id
-                          ? t('deleteMetaLocallyAria')
-                          : t('deleteLocallyAria')
-                      }
-                      title={
-                        template.meta_template_id
-                          ? t('deleteMetaLocallyTitle')
-                          : t('deleteLocallyTitle')
-                      }
-                      className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 h-8 w-8"
-                    >
-                      {deletingId === template.id ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="size-4" />
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) {
-            setEditingId(null);
-            setForm(emptyForm);
-          }
-        }}
-      >
-        <DialogContent className="bg-popover border-border sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-popover-foreground">
-              {editingId ? t('dialogEditTitle') : t('dialogNewTitle')}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              {editingId
-                ? t('dialogEditDesc')
-                : t('dialogNewDesc')}
-            </DialogDescription>
-          </DialogHeader>
-
-          {form.category === 'Authentication' && (
-            <div className="flex items-start gap-2 rounded border border-amber-700/40 bg-amber-950/30 px-3 py-2 text-xs text-amber-300">
-              <AlertCircle className="size-4 mt-0.5 shrink-0" />
-              <p>{t.rich('authWarning', { bold: (chunks) => <strong>{chunks}</strong> })}</p>
-            </div>
-          )}
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">{t('templateName')}</Label>
-              <Input
-                placeholder={t('namePlaceholder')}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                disabled={editingId !== null}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                {editingId
-                  ? t('nameFixed')
-                  : t('nameHint')}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">{t('category')}</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(val) =>
-                    setForm({
-                      ...form,
-                      category: val as MessageTemplate['category'],
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-full bg-muted border-border text-foreground">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {CATEGORIES.map((cat) => (
-                      <SelectItem
-                        key={cat}
-                        value={cat}
-                        className="text-popover-foreground focus:bg-muted focus:text-popover-foreground"
-                      >
-                        {categoryLabel(cat)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">{t('language')}</Label>
-                <Input
-                  list="template-language-codes"
-                  placeholder="en_US"
-                  value={form.language}
-                  onChange={(e) =>
-                    setForm({ ...form, language: e.target.value })
-                  }
-                  disabled={editingId !== null}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-                <datalist id="template-language-codes">
-                  {COMMON_LANGUAGE_CODES.map((code) => (
-                    <option key={code} value={code} />
-                  ))}
-                </datalist>
-                <p className="text-[11px] text-muted-foreground">
-                  {editingId ? (
-                    t('langFixed')
-                  ) : (
-                    <span>{t.rich('langHint', { code: (chunks) => <code>{chunks}</code> })}</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">{t('header')}</Label>
-              <Select
-                value={form.header_format}
-                onValueChange={(val) =>
-                  // Preserve header_content, header_media_url, and
-                  // header_sample across format switches. The submit
-                  // payload builder only reads the field that matches
-                  // the active format, so an orphan value on a hidden
-                  // field is harmless — and keeping it lets the user
-                  // switch formats to compare without losing typing.
-                  setForm({
-                    ...form,
-                    header_format: (val || 'none') as HeaderFormat,
-                  })
-                }
-              >
-                <SelectTrigger className="w-full bg-muted border-border text-foreground">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
-                  {HEADER_FORMATS.map((type) => (
-                    <SelectItem
-                      key={type}
-                      value={type}
-                      className="text-popover-foreground focus:bg-muted focus:text-popover-foreground"
-                    >
-                      {type === 'none'
-                        ? t('headerNone')
-                        : type === 'text'
-                          ? t('headerText')
-                          : type === 'image'
-                            ? t('headerImage')
-                            : type === 'video'
-                              ? t('headerVideo')
-                              : t('headerDocument')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {form.header_format === 'text' && (
-                <div className="space-y-2 mt-2">
-                  <Input
-                    id="template-header-text"
-                    aria-label={t('headerTextLabel')}
-                    placeholder={t.raw('headerTextPlaceholder')}
-                    value={form.header_content}
-                    onChange={(e) =>
-                      setForm({ ...form, header_content: e.target.value })
-                    }
-                    maxLength={TEMPLATE_LIMITS.headerTextMaxLength}
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                  />
-                  {headerVarCount > 0 && (
-                    <Input
-                      id="template-header-sample"
-                      aria-label={t('headerSampleAria')}
-                      placeholder={t.raw('headerSamplePlaceholder')}
-                      value={form.header_sample}
-                      onChange={(e) =>
-                        setForm({ ...form, header_sample: e.target.value })
-                      }
-                      className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                    />
-                  )}
-                </div>
-              )}
-
-              {headerNeedsMedia && (
-                <div className="space-y-2 mt-2">
-                  {headerMediaKind && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={headerFileRef}
-                        type="file"
-                        accept={MEDIA_HEADER_SPECS[headerMediaKind].mimeTypes.join(',')}
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) void handleHeaderMediaFile(f, headerMediaKind);
-                          e.target.value = '';
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={uploadingHeader}
-                        onClick={() => headerFileRef.current?.click()}
-                      >
-                        {uploadingHeader ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Upload className="h-3.5 w-3.5" />
-                        )}
-                        {t(uploadLabelKey[headerMediaKind])}
-                      </Button>
-                      <span className="text-[11px] text-muted-foreground">
-                        {t(uploadHintKey[headerMediaKind])}
-                      </span>
-                    </div>
-                  )}
-                  <Input
-                    placeholder={t('mediaUrlPlaceholder', { format: form.header_format })}
-                    value={form.header_media_url}
-                    onChange={(e) =>
-                      setForm({ ...form, header_media_url: e.target.value })
-                    }
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                  />
-                  {form.header_format === 'image' && form.header_media_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={form.header_media_url}
-                      alt={t('headerSampleAlt')}
-                      className="max-h-28 rounded-md border border-border object-contain"
-                    />
-                  )}
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    {form.header_format === 'image'
-                      ? t('imageHint')
-                      : t('mediaHint')}
-                    {form.header_format === 'video' &&
-                      t('videoHint')}
-                    {form.header_format === 'document' &&
-                      t('documentHint')}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">{t('bodyText')}</Label>
-              <Textarea
-                placeholder={t.raw('bodyPlaceholder')}
-                value={form.body_text}
-                onChange={(e) =>
-                  setForm({ ...form, body_text: e.target.value })
-                }
-                rows={4}
-                maxLength={TEMPLATE_LIMITS.bodyMaxLength}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground resize-none"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                {t.raw('bodyHint')}
-              </p>
-
-              {bodyVarCount > 0 && (
-                <div className="space-y-1.5 pt-1">
-                  <Label className="text-[11px] text-muted-foreground">
-                    {t('sampleValues')}
-                  </Label>
-                  {form.body_samples.map((val, i) => {
-                    const inputId = `template-body-sample-${i}`;
-                    return (
-                      <Input
-                        key={i}
-                        id={inputId}
-                        aria-label={t('sampleAria', { var: `{{${i + 1}}}` })}
-                        placeholder={t('samplePlaceholder', { var: `{{${i + 1}}}` })}
-                        value={val}
-                        onChange={(e) => {
-                          const next = [...form.body_samples];
-                          next[i] = e.target.value;
-                          setForm({ ...form, body_samples: next });
-                        }}
-                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">{t('footer')}</Label>
-              <Input
-                placeholder={t('footerPlaceholder')}
-                value={form.footer_text}
-                onChange={(e) =>
-                  setForm({ ...form, footer_text: e.target.value })
-                }
-                maxLength={TEMPLATE_LIMITS.footerMaxLength}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-muted-foreground">{t('buttons')}</Label>
+        <>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('tabsLabel')}>
+              {TEMPLATE_TABS.map((key) => (
                 <Button
+                  key={key}
                   type="button"
-                  variant="outline"
+                  role="tab"
+                  aria-selected={tab === key}
                   size="sm"
-                  onClick={addButton}
-                  disabled={form.buttons.length >= TEMPLATE_LIMITS.maxButtonsTotal}
-                  className="border-border bg-transparent text-muted-foreground hover:bg-muted h-7 text-xs"
+                  variant={tab === key ? 'default' : 'outline'}
+                  onClick={() => setTab(key)}
+                  className="h-8 text-xs"
                 >
-                  <Plus className="size-3" />
-                  {t('addButton')}
+                  {tabLabel[key]}
+                  <span
+                    className={cn(
+                      'ml-1 rounded-full px-1.5 text-[10px] tabular-nums',
+                      tab === key ? 'bg-primary-foreground/20' : 'bg-muted',
+                    )}
+                  >
+                    {counts[key]}
+                  </span>
                 </Button>
-              </div>
-              {form.buttons.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {t('buttonsLimit', { max: TEMPLATE_LIMITS.maxButtonsTotal })}
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {form.buttons.map((btn, i) => (
-                    <div
-                      key={i}
-                      className="space-y-2 rounded border border-border bg-muted/50 p-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={btn.type}
-                          onValueChange={(val) => {
-                            // Same null guard as the Header Select
-                            // (per PR 148): @base-ui Select fires
-                            // onValueChange(null) on deselect.
-                            if (!val) return;
-                            changeButtonType(i, val as TemplateButton['type']);
-                          }}
-                        >
-                          <SelectTrigger className="w-40 bg-muted border-border text-foreground h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border">
-                            <SelectItem
-                              value="QUICK_REPLY"
-                              className="text-popover-foreground focus:bg-muted focus:text-popover-foreground"
-                            >
-                              {t('btnQuickReply')}
-                            </SelectItem>
-                            <SelectItem
-                              value="URL"
-                              className="text-popover-foreground focus:bg-muted focus:text-popover-foreground"
-                            >
-                              {t('btnUrl')}
-                            </SelectItem>
-                            <SelectItem
-                              value="PHONE_NUMBER"
-                              className="text-popover-foreground focus:bg-muted focus:text-popover-foreground"
-                            >
-                              {t('btnPhone')}
-                            </SelectItem>
-                            <SelectItem
-                              value="COPY_CODE"
-                              className="text-popover-foreground focus:bg-muted focus:text-popover-foreground"
-                            >
-                              {t('btnCopyCode')}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          placeholder={t('btnLabelPlaceholder')}
-                          value={btn.text}
-                          maxLength={TEMPLATE_LIMITS.buttonTextMaxLength}
-                          onChange={(e) =>
-                            updateButton(i, { text: e.target.value })
-                          }
-                          className="flex-1 bg-muted border-border text-foreground placeholder:text-muted-foreground h-8 text-xs"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeButton(i)}
-                          className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 size-7"
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      </div>
-                      {btn.type === 'URL' && (
-                        <div className="space-y-1 pl-1">
-                          <Input
-                            placeholder={t.raw('urlPlaceholder')}
-                            value={btn.url}
-                            onChange={(e) =>
-                              updateButton(i, { url: e.target.value })
-                            }
-                            className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-8 text-xs"
-                          />
-                          {extractVariableIndices(btn.url).length > 0 && (
-                            <Input
-                              placeholder={t.raw('urlSamplePlaceholder')}
-                              value={btn.example ?? ''}
-                              onChange={(e) =>
-                                updateButton(i, { example: e.target.value })
-                              }
-                              className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-8 text-xs"
-                            />
-                          )}
-                        </div>
-                      )}
-                      {btn.type === 'PHONE_NUMBER' && (
-                        <Input
-                          placeholder={t('phonePlaceholder')}
-                          value={btn.phone_number}
-                          onChange={(e) =>
-                            updateButton(i, { phone_number: e.target.value })
-                          }
-                          className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-8 text-xs"
-                        />
-                      )}
-                      {btn.type === 'COPY_CODE' && (
-                        <Input
-                          placeholder={t('codePlaceholder')}
-                          value={btn.example}
-                          onChange={(e) =>
-                            updateButton(i, { example: e.target.value })
-                          }
-                          className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-8 text-xs"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              ))}
+            </div>
+            <div className="relative sm:w-64">
+              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                aria-label={t('searchPlaceholder')}
+                placeholder={t('searchPlaceholder')}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="pl-8 bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
             </div>
           </div>
 
-          <DialogFooter className="bg-popover border-border">
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              {t('cancel')}
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || form.category === 'Authentication'}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {editingId ? t('saving') : t('submitting')}
-                </>
-              ) : editingId ? (
-                t('saveResubmit')
-              ) : (
-                t('submitApproval')
-              )}
-            </Button>
-          </DialogFooter>
+          {visible.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                {t('noMatches')}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-3 xl:grid-cols-2">
+              {visible.map((template) => {
+                const statusKey = template.status || 'DRAFT';
+                const status = templateStatusConfig[statusKey] ?? {
+                  label: statusKey,
+                  classes: '',
+                };
+                const health = templateHealth(template.quality_score);
+                const issue = template.rejection_reason || template.submission_error;
+                const local = isLocalDraft(template);
+                const rowTab = templateTabOf(template.status);
+                return (
+                  <Card key={template.id}>
+                    <CardContent className="flex items-start justify-between pt-4">
+                      <div className="space-y-2 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium text-foreground break-all">{template.name}</h3>
+                          <Badge
+                            className={`text-xs border ${categoryColors[template.category] || ''}`}
+                          >
+                            {categoryLabel(template.category)}
+                          </Badge>
+                          <Badge className={`text-xs border ${status.classes}`}>
+                            {status.label}
+                          </Badge>
+                          {template.template_kind && template.template_kind !== 'standard' && (
+                            <Badge variant="outline" className="text-xs">
+                              {kindLabel[template.template_kind]}
+                            </Badge>
+                          )}
+                          {template.language && (
+                            <span className="text-xs text-muted-foreground uppercase">
+                              {template.language}
+                            </span>
+                          )}
+                          {!local && (
+                            <Badge
+                              className={`text-[10px] border gap-1 ${healthClasses[health]}`}
+                              title={t('qualityScoreTitle')}
+                            >
+                              <span
+                                aria-hidden
+                                className={`size-1.5 rounded-full ${healthDot[health]}`}
+                              />
+                              {t('health.label', { level: healthLabel[health] })}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {template.body_text}
+                        </p>
+                        {template.footer_text && (
+                          <p className="text-xs text-muted-foreground italic">
+                            {template.footer_text}
+                          </p>
+                        )}
+                        {issue && (
+                          // Clamped to two lines; the full text is on hover.
+                          <div
+                            className="flex items-start gap-1.5 text-xs text-red-400 bg-red-950/20 border border-red-900/40 rounded px-2 py-1.5"
+                            title={issue}
+                          >
+                            <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                            <span className="line-clamp-2">
+                              <span className="sr-only">{t('issueLabel')}: </span>
+                              {issue}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 ml-2 max-w-[50%]">
+                        {canEdit && local && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openRow(template)}
+                            title={t('editDraftTitle')}
+                            className={rowAction}
+                          >
+                            <Pencil className="size-3.5" />
+                            {t('editDraft')}
+                          </Button>
+                        )}
+                        {canEdit && !local && statusKey === 'APPROVED' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openRow(template)}
+                            title={t('editTitle')}
+                            aria-label={t('editLabel')}
+                            className={rowAction}
+                          >
+                            <Pencil className="size-3.5" />
+                            {t('edit')}
+                          </Button>
+                        )}
+                        {canEdit && !local && (rowTab === 'rejected' || statusKey === 'PAUSED') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openRow(template)}
+                            title={t('resubmitTitle')}
+                            aria-label={t('resubmitLabel')}
+                            className={rowAction}
+                          >
+                            <RotateCcw className="size-3.5" />
+                            {t('resubmit')}
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setHistoryFor(template)}
+                          title={t('history')}
+                          aria-label={t('historyAria', { name: template.name })}
+                          className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 w-8"
+                        >
+                          <History className="size-4" />
+                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => void handleDuplicate(template)}
+                            disabled={duplicatingId !== null}
+                            title={t('duplicate')}
+                            aria-label={t('duplicateAria', { name: template.name })}
+                            className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 w-8"
+                          >
+                            {duplicatingId === template.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Copy className="size-4" />
+                            )}
+                          </Button>
+                        )}
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setTemplateToDelete(template)}
+                            disabled={deletingId === template.id}
+                            aria-label={
+                              template.meta_template_id
+                                ? t('deleteMetaLocallyAria')
+                                : t('deleteLocallyAria')
+                            }
+                            title={
+                              template.meta_template_id
+                                ? t('deleteMetaLocallyTitle')
+                                : t('deleteLocallyTitle')
+                            }
+                            className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 h-8 w-8"
+                          >
+                            {deletingId === template.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {editor && (
+        <TemplateEditorDialog
+          key={editor.key}
+          open={editorOpen}
+          onOpenChange={setEditorOpen}
+          initial={editor.initial}
+          editingId={editor.editingId}
+          draftId={editor.draftId}
+          onRefresh={fetchTemplates}
+        />
+      )}
+
+      <TemplateLibraryDialog
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        onUse={openPrefilled}
+      />
+
+      <TemplateAiDialog
+        key={aiKey}
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        defaultLanguage={defaultLanguage}
+        onUse={openPrefilled}
+      />
+
+      <Dialog
+        open={historyFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setHistoryFor(null);
+        }}
+      >
+        <DialogContent className="bg-popover border-border sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">{t('historyTitle')}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {t('historyDesc', { name: historyFor?.name ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+          {historyFor && <TemplateTimeline templateId={historyFor.id} />}
         </DialogContent>
       </Dialog>
 

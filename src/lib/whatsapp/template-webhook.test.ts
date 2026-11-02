@@ -7,6 +7,11 @@ import {
 
 const webhook = vi.hoisted(() => ({ dispatch: vi.fn(async () => {}) }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: webhook.dispatch }));
+const history = vi.hoisted(() => ({ record: vi.fn<(...args: unknown[]) => Promise<number>>(async () => 1) }));
+vi.mock('./template-events', async (importOriginal) => ({
+  normalizeRejectionReason: (await importOriginal<typeof import('./template-events')>()).normalizeRejectionReason,
+  recordTemplateEvents: history.record,
+}));
 
 // Tiny mock that records the .update payload and the .eq filter for
 // inspection. Mirrors the surface this module actually uses on the
@@ -188,16 +193,20 @@ describe('handleTemplateWebhookChange — status update', () => {
     );
   });
 
-  it('falls back to a generic reason when REJECTED has no `reason`', async () => {
+  // The sync route stores null for a reason-less rejection; a stored
+  // placeholder here made every later sync rewrite the reason and add a
+  // second REJECTED history event.
+  it.each([undefined, 'NONE', ''])('stores no reason when REJECTED carries %j, matching the sync', async (reason) => {
     const { stub, calls } = makeSupabaseStub();
     await handleTemplateWebhookChange(
       {
         field: 'message_template_status_update',
-        value: { event: 'REJECTED', message_template_id: '7' },
+        value: { event: 'REJECTED', message_template_id: '7', reason },
       },
       stub,
     );
-    expect(calls[0].update?.rejection_reason).toBe('Rejected by Meta');
+    expect(calls[0].update?.status).toBe('REJECTED');
+    expect(calls[0].update?.rejection_reason).toBeNull();
   });
 
   it('normalises PENDING_REVIEW → PENDING (via shared normalizeStatus)', async () => {
@@ -283,6 +292,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
     expect(calls[1].select).toBe('account_id, user_id');
     expect(calls[1].filter).toEqual({ column: 'waba_id', value: 'WABA-1' });
     expect(calls[2].insert).toEqual({
+      id: expect.any(String),
       account_id: 'acc-1',
       user_id: 'admin-1',
       meta_template_id: '555',
@@ -393,6 +403,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
     );
     expect(calls[0].update).toEqual({ quality_score: 'RED' });
     expect(calls[2].insert).toEqual({
+      id: expect.any(String),
       account_id: 'acc-1',
       user_id: 'admin-1',
       meta_template_id: '559',
@@ -548,5 +559,145 @@ describe('handleTemplateWebhookChange — unknown field', () => {
       stub,
     );
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe('handleTemplateWebhookChange — status history', () => {
+  const CONFIG = { account_id: 'acc-1', user_id: 'admin-1' };
+  const ROW = {
+    id: 'row-1',
+    account_id: 'acc-1',
+    status: 'REJECTED',
+    rejection_reason: 'Spam',
+    quality_score: 'GREEN',
+  };
+
+  beforeEach(() => {
+    history.record.mockClear();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('records a webhook event per updated row, in the row account, on the worker', async () => {
+    const { stub } = makeSupabaseStub({
+      data: [ROW, { ...ROW, id: 'row-2', account_id: 'acc-2' }],
+      error: null,
+    } as never);
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_status_update',
+        value: { event: 'REJECTED', reason: 'Spam', message_template_id: 1 },
+      },
+      stub,
+    );
+    expect(history.record).toHaveBeenCalledTimes(2);
+    expect(history.record).toHaveBeenNthCalledWith(
+      1,
+      { accountId: 'acc-1', role: 'owner' },
+      [{ templateId: 'row-1', status: 'REJECTED', reason: 'Spam', qualityScore: 'GREEN', source: 'webhook' }],
+      { worker: true },
+    );
+    expect(history.record.mock.calls[1][0]).toEqual({ accountId: 'acc-2', role: 'owner' });
+  });
+
+  it('records quality updates with the current row status', async () => {
+    const { stub } = makeSupabaseStub({
+      data: [{ ...ROW, status: 'APPROVED', rejection_reason: null, quality_score: 'RED' }],
+      error: null,
+    } as never);
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_quality_update',
+        value: { message_template_id: '9', new_quality_score: 'RED' },
+      },
+      stub,
+    );
+    expect(history.record).toHaveBeenCalledWith(
+      { accountId: 'acc-1', role: 'owner' },
+      [{ templateId: 'row-1', status: 'APPROVED', reason: null, qualityScore: 'RED', source: 'webhook' }],
+      { worker: true },
+    );
+  });
+
+  it('records the first event of a stub row under the id it was inserted with', async () => {
+    const { stub, calls } = makeSupabaseStub(
+      { data: [], error: null },
+      { configRows: [CONFIG] },
+    );
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_status_update',
+        value: { event: 'APPROVED', message_template_id: '555', message_template_name: 'from_meta' },
+        wabaId: 'WABA-1',
+      },
+      stub,
+    );
+    const stubId = calls[2].insert?.id;
+    expect(typeof stubId).toBe('string');
+    expect(history.record).toHaveBeenCalledWith(
+      { accountId: 'acc-1', role: 'owner' },
+      [{ templateId: stubId, status: 'APPROVED', reason: null, qualityScore: null, source: 'webhook' }],
+      { worker: true },
+    );
+  });
+
+  it('records a quality-only stub as DRAFT, the column default', async () => {
+    const { stub } = makeSupabaseStub(
+      { data: [], error: null },
+      { configRows: [CONFIG] },
+    );
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_quality_update',
+        value: { message_template_id: '556', message_template_name: 'from_meta', new_quality_score: 'GREEN' },
+        wabaId: 'WABA-1',
+      },
+      stub,
+    );
+    expect(history.record.mock.calls[0][1]).toEqual([
+      expect.objectContaining({ status: 'DRAFT', qualityScore: 'GREEN' }),
+    ]);
+  });
+
+  it('records the rows matched by the retry after a unique violation', async () => {
+    const { stub } = makeSupabaseStub(
+      { data: [], error: null },
+      {
+        configRows: [CONFIG],
+        insertError: { message: 'duplicate key', code: '23505' },
+        retrySelectResult: { data: [{ ...ROW, status: 'PAUSED' }], error: null } as never,
+      },
+    );
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_status_update',
+        value: { event: 'PAUSED', message_template_id: '561', message_template_name: 'raced' },
+        wabaId: 'WABA-1',
+      },
+      stub,
+    );
+    expect(history.record).toHaveBeenCalledTimes(1);
+    expect(history.record.mock.calls[0][1]).toEqual([
+      expect.objectContaining({ templateId: 'row-1', status: 'PAUSED' }),
+    ]);
+  });
+
+  it('records nothing when the update fails or the stub cannot be created', async () => {
+    const failed = makeSupabaseStub({ data: null, error: { message: 'boom' } });
+    await handleTemplateWebhookChange(
+      { field: 'message_template_status_update', value: { event: 'APPROVED', message_template_id: '1' } },
+      failed.stub,
+    );
+    const orphan = makeSupabaseStub({ data: [], error: null }, { configRows: [] });
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_status_update',
+        value: { event: 'APPROVED', message_template_id: '2', message_template_name: 'x' },
+        wabaId: 'WABA-NOBODY',
+      },
+      orphan.stub,
+    );
+    expect(history.record).not.toHaveBeenCalled();
   });
 });

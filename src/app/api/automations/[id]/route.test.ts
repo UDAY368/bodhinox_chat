@@ -146,6 +146,25 @@ function scopedDb() {
   };
 }
 
+// A carousel needs card values an automation step never carries.
+vi.mock('@/lib/whatsapp/template-body', () => ({
+  resolveTemplateRow: async (_db: unknown, _acc: string, name: string) => ({
+    row:
+      name === 'carousel_tpl'
+        ? {
+            id: 'tpl-1',
+            user_id: 'u',
+            name,
+            body_text: 'Hi',
+            template_kind: 'carousel',
+            cards: [{ body_text: 'Card {{1}}', buttons: [] }],
+          }
+        : null,
+    malformed: false,
+    language: 'en_US',
+  }),
+}));
+
 vi.mock('@/lib/automations/admin-client', () => ({
   databaseAdmin: () => {
     throw new Error('Request routes must use the authenticated tenant client');
@@ -219,6 +238,30 @@ describe('automations/[id] tenancy (GHSA-xvrq-88hg-44q6)', () => {
       params,
     })) as unknown as { status: number };
     expect(dup.status).toBe(201);
+  });
+
+  it('refuses to save a template step that needs more than body values', async () => {
+    h.state.callerAccountId = 'acc-old';
+    const patch = (await PATCH(
+      new Request('http://t/', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          steps: [
+            {
+              step_type: 'send_template',
+              step_config: { template_name: 'carousel_tpl' },
+            },
+          ],
+        }),
+      }),
+      { params }
+    )) as unknown as {
+      status: number;
+      body: { issues: { path: string }[] };
+    };
+    expect(patch.status).toBe(400);
+    expect(patch.body.issues[0].path).toBe('steps[0].template_name');
+    expect(h.state.writes).toEqual([]);
   });
 
   it('clones into the caller account, never the row stored account', async () => {

@@ -83,6 +83,7 @@ export async function POST(request: Request) {
         mediaUrl: media_url,
         templateName: template_name,
         interactivePayload: interactive_payload,
+        templateMessageParams: template_message_params,
       })
     } catch (err) {
       if (err instanceof SendMessageError) {

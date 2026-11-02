@@ -16,6 +16,7 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit'
 import { getT } from '@/lib/i18n/translate'
+import { parseSendTimeParams, templateSendRefusal } from '@/lib/whatsapp/template-send-params'
 
 const t = getT('Api')
 
@@ -123,6 +124,16 @@ export async function POST(request: Request) {
       )
     }
 
+    // Structured values come straight from the caller: check their shape
+    // before anything reaches Meta.
+    for (const recipient of recipients) {
+      const parsed = parseSendTimeParams(recipient?.messageParams)
+      if (!parsed.ok) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 })
+      }
+      if (recipient) recipient.messageParams = parsed.value
+    }
+
     const { data: config, error: configError } = await db
       .from('whatsapp_config')
       .select('*')
@@ -162,6 +173,11 @@ export async function POST(request: Request) {
       )
     }
     const templateRow = resolvedTemplate.row
+    // A broadcast never carries a per-person one-time code.
+    const refusal = templateSendRefusal(templateRow, 'campaign')
+    if (refusal) {
+      return NextResponse.json({ error: refusal, code: 'template_kind_not_allowed' }, { status: 422 })
+    }
 
     const results: BroadcastResult[] = []
     let sentCount = 0

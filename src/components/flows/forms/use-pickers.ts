@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/data/client";
 import { authFetch } from "@/lib/auth/client";
 import { loadFlowTags, type FlowTag } from "../load-tags";
+import type { TemplateKind } from "@/types";
+import { templateSendRefusal } from "@/lib/whatsapp/template-send-params";
 
 export interface FlowCustomField {
   id: string;
@@ -51,17 +53,25 @@ export interface FlowTemplate {
   header_type: string | null;
   header_content: string | null;
   header_media_url: string | null;
-  buttons: Array<{ type: string; text: string; url?: string }> | null;
+  buttons: Array<{ type: string; text: string; url?: string; example?: string }> | null;
+  template_kind?: TemplateKind | null;
+  cards?: Array<{ header_media_url?: string; body_text: string; buttons?: Array<{ type: string; url?: string }> }> | null;
+  lto?: { text: string; has_expiration: boolean } | null;
 }
 
 /**
- * Whether a flow can send this template: the step fills only body values
- * and quick-reply payloads, so a header value, a media header without a
+ * Whether a flow can send this template: the step fills body values,
+ * quick-reply payloads, a location, an offer window, a coupon and card
+ * body values, so a header value, a media header (or card) without a
  * stored file, or a URL button with a value would fail on every send.
+ * Authentication templates need a code typed per person and are never
+ * offered (the engine refuses them too).
  */
 export function templateFlowSendable(t: FlowTemplate): boolean {
+  if (templateSendRefusal(t, "flow")) return false;
   if (t.header_type === "text" && /\{\{\s*\d+\s*\}\}/.test(t.header_content ?? "")) return false;
   if ((t.header_type === "image" || t.header_type === "video" || t.header_type === "document") && !t.header_media_url) return false;
+  if (t.template_kind === "carousel" && (t.cards ?? []).some((c) => !c.header_media_url || (c.buttons ?? []).some((b) => b.type === "URL" && /\{\{/.test(b.url ?? "")))) return false;
   return !(t.buttons ?? []).some((b) => b.type === "URL" && /\{\{/.test(b.url ?? ""));
 }
 
@@ -80,7 +90,7 @@ export interface FlowMember {
 async function loadApprovedTemplates(): Promise<FlowTemplate[]> {
   try {
     const { data, error } = await createClient().from<FlowTemplate>("message_templates")
-      .select("id,name,language,body_text,header_type,header_content,header_media_url,buttons").eq("status", "APPROVED").order("name");
+      .select("id,name,language,body_text,header_type,header_content,header_media_url,buttons,template_kind,cards,lto").eq("status", "APPROVED").order("name");
     return error ? [] : data ?? [];
   } catch {
     return [];

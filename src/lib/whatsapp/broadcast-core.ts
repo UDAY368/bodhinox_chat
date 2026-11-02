@@ -33,6 +33,14 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
+import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
+import { templateKindOf } from '@/lib/whatsapp/template-validators';
+import {
+  splitFrozenParams,
+  templateSendRefusal,
+  type CampaignSendExtras,
+} from '@/lib/whatsapp/template-send-params';
+import { resolveTemplateMediaParams } from '@/lib/whatsapp/template-media';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
@@ -80,6 +88,8 @@ export interface BroadcastPlan {
   accessToken: string;
   templateRow: MessageTemplate | null;
   planned: PlannedRecipient[];
+  /** Values fixed for every recipient (location, offer end, coupon); dashboard campaigns only. */
+  sendExtras?: CampaignSendExtras;
   /** Phones rejected up front (invalid E.164) — counted as failed. */
   rejected: number;
 }
@@ -150,6 +160,20 @@ export async function createBroadcast(
     );
   }
   const templateRow = resolvedTemplate.row;
+  // API recipients carry body values only. An authentication template
+  // needs a per-person code, and a location header, an offer end or
+  // card values cannot be given here either, so refuse those templates
+  // up front instead of failing every recipient. Standard templates keep
+  // their old behaviour (no pre-check).
+  const refusal = templateSendRefusal(templateRow, 'campaign');
+  if (refusal) throw new BroadcastError('template_kind_not_allowed', refusal, 422);
+  if (templateRow && (templateKindOf(templateRow) !== 'standard' || templateRow.header_type === 'location')) {
+    try {
+      buildSendComponents(templateRow, { body: Array.from({ length: 99 }, () => 'x') });
+    } catch (error) {
+      throw new BroadcastError('bad_request', error instanceof Error ? error.message : 'Template needs values this endpoint cannot supply', 400);
+    }
+  }
 
   const { deduped, rejected } = await resolveApiRecipients(db, accountId, auditUserId, recipients);
 
@@ -313,6 +337,9 @@ export async function deliverBroadcast(
 ): Promise<{ throttled: boolean; sent: number }> {
   let sent = 0;
   const tracked = trackedButtonIndex(plan.templateRow);
+  // Location, offer end and coupon are the same for every recipient.
+  const extras = plan.sendExtras ?? {};
+  const carousel = !!plan.templateRow && templateKindOf(plan.templateRow) === 'carousel';
   for (const recipient of plan.planned) {
     // shortcut: fixed ~6 sends/s; pace by the number's messaging tier once the health job (Phase 2c) reports it.
     if (options) await new Promise(resolve => setTimeout(resolve, 150));
@@ -326,6 +353,12 @@ export async function deliverBroadcast(
       options?.assertLease();
       try {
         const headerMediaUrl = options?.headerMediaUrl || plan.templateRow?.header_media_url;
+        // Carousels freeze each card's values after the top body values;
+        // cut them apart and sign every card's media like the header's.
+        const frozen = carousel ? splitFrozenParams(plan.templateRow!, recipient.params) : null;
+        const cards = frozen && options
+          ? (await resolveTemplateMediaParams(options.accountId, plan.templateRow, { cards: frozen.cards }))?.cards
+          : frozen?.cards;
         const send = async () => sendTemplateMessage({
           phoneNumberId: plan.phoneNumberId,
           accessToken: plan.accessToken,
@@ -333,11 +366,13 @@ export async function deliverBroadcast(
           templateName: plan.templateName,
           language: plan.templateLanguage,
           template: plan.templateRow ?? undefined,
-          params: recipient.params,
-          ...(options && (headerMediaUrl || (tracked >= 0 && recipient.clickToken))
+          params: frozen?.body ?? recipient.params,
+          ...((options && (headerMediaUrl || (tracked >= 0 && recipient.clickToken))) || cards || Object.keys(extras).length
             ? { messageParams: {
-                ...(headerMediaUrl ? { headerMediaUrl: await providerMediaUrl(options.accountId, headerMediaUrl) } : {}),
-                ...(tracked >= 0 && recipient.clickToken ? { buttonParams: { [tracked]: recipient.clickToken } } : {}),
+                ...extras,
+                ...(cards ? { cards } : {}),
+                ...(options && headerMediaUrl && !carousel ? { headerMediaUrl: await providerMediaUrl(options.accountId, headerMediaUrl) } : {}),
+                ...(options && tracked >= 0 && recipient.clickToken ? { buttonParams: { [tracked]: recipient.clickToken } } : {}),
               } }
             : {}),
         });

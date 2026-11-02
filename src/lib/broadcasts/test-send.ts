@@ -16,7 +16,11 @@ import { providerMediaUrl } from '@/lib/storage/server';
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
-import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
+import { templateKindOf } from '@/lib/whatsapp/template-validators';
+import {
+  CAMPAIGN_VARIABLE_KEY, campaignVariableKeys, parseCampaignSendExtras, splitFrozenParams, templateSendRefusal,
+} from '@/lib/whatsapp/template-send-params';
+import { resolveTemplateMediaParams } from '@/lib/whatsapp/template-media';
 import { marketingSuppression } from '@/lib/contacts/consent';
 import { assertMedia, variableMapping } from './create-campaign';
 import { TEST_CLICK_TOKEN, trackedButtonIndex } from './tracking';
@@ -25,8 +29,10 @@ export const MAX_TEST_NUMBERS = 3;
 const inputSchema = z.object({
   templateId: z.string().uuid(),
   phones: z.array(z.string().trim().min(1).max(64)).min(1).max(MAX_TEST_NUMBERS),
-  variables: z.record(z.string().regex(/^[1-9]\d?$/), variableMapping),
+  variables: z.record(z.string().regex(CAMPAIGN_VARIABLE_KEY), variableMapping),
   headerMediaUrl: z.string().trim().min(1).max(2048).optional(),
+  /** The campaign's location, offer end and coupon code (template-send-params). */
+  sendExtras: z.unknown().optional(),
 }).strict();
 
 export interface TestSendResult { phone: string; ok: boolean; error?: string }
@@ -63,9 +69,10 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
     if (!rows[0]) throw new AuthError('Template unavailable', 404, 'not_found');
     const template = assertMessageTemplate(rows[0], 'campaign test');
     if (template.status !== 'APPROVED') invalid('Choose an approved template');
-    const keys = Object.keys(input.variables).sort((a, b) => Number(a) - Number(b));
-    const expected = extractVariableIndices(template.body_text).map(String);
-    if (keys.length !== expected.length || keys.some((key, i) => key !== expected[i])) invalid('Map every template variable before sending a test');
+    const refusal = templateSendRefusal(template, 'campaign');
+    if (refusal) invalid(refusal);
+    const keys = campaignVariableKeys(template);
+    if (Object.keys(input.variables).length !== keys.length || keys.some((key) => !Object.hasOwn(input.variables, key))) invalid('Map every template variable before sending a test');
     const headerMediaUrl = input.headerMediaUrl ?? (template.header_media_url?.trim() || undefined);
     await assertMedia(tx, accountId, headerMediaUrl);
     const fieldIds = keys.flatMap((key) => (input.variables[key].type === 'custom_field' ? [input.variables[key].value] : []));
@@ -86,6 +93,9 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
     }
     return { template, headerMediaUrl, targets };
   });
+  const extras = parseCampaignSendExtras(input.sendExtras);
+  if (!extras.ok) invalid(extras.error);
+  const carousel = templateKindOf(prepared.template) === 'carousel';
 
   const sendable = prepared.targets.some((t) => 'to' in t);
   // A setup problem is reported on each number rather than as a server error.
@@ -95,7 +105,7 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
   if (sendable) {
     try { credentials = await loadAccountMetaCredentials(databaseAdmin({ accountId, role: 'owner' }), accountId); }
     catch { setupError = 'WhatsApp is not connected for this workspace'; }
-    if (credentials && prepared.headerMediaUrl) {
+    if (credentials && prepared.headerMediaUrl && !carousel) {
       try { media = await providerMediaUrl(accountId, prepared.headerMediaUrl); }
       catch { credentials = null; setupError = 'The header media is unavailable'; }
     }
@@ -107,6 +117,11 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
   for (const target of prepared.targets) {
     if (!('to' in target) || !credentials) { results.push({ phone: target.phone, ok: false, error: 'error' in target ? target.error : setupError }); continue; }
     try {
+      const frozen = splitFrozenParams(prepared.template, target.params);
+      const cards = carousel
+        ? (await resolveTemplateMediaParams(accountId, prepared.template, { cards: frozen.cards }))?.cards
+        : undefined;
+      const hasExtras = Object.keys(extras.value).length > 0;
       // A deliberate one-off by the agent, like an inbox send: not queued, not retried.
       await sendTemplateMessage({
         phoneNumberId: credentials.phoneNumberId,
@@ -115,8 +130,10 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
         templateName: prepared.template.name,
         language: prepared.template.language || 'en_US',
         template: prepared.template,
-        params: target.params,
-        ...(media || tracked >= 0 ? { messageParams: {
+        params: frozen.body ?? target.params,
+        ...(media || tracked >= 0 || cards || hasExtras ? { messageParams: {
+          ...extras.value,
+          ...(cards ? { cards } : {}),
           ...(media ? { headerMediaUrl: media } : {}),
           ...(tracked >= 0 ? { buttonParams: { [tracked]: TEST_CLICK_TOKEN } } : {}),
         } } : {}),

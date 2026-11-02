@@ -14,6 +14,7 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
+import { automationTemplateIssues } from '@/lib/automations/template-check';
 import { getT } from '@/lib/i18n/translate';
 import { requireActiveAutomationRoom } from '@/lib/billing/activation';
 
@@ -110,17 +111,31 @@ export async function PATCH(
     typeof update.is_active === 'boolean'
       ? update.is_active
       : existing.is_active;
+  // A template step that needs more than body values would fail on
+  // every run: refuse it on any save of new steps, and on activation of
+  // the stored ones.
+  const stepsToCheck = Array.isArray(body.steps)
+    ? (body.steps as BuilderStepInput[])
+    : willBeActive
+      ? await loadStepsTree(id, admin)
+      : [];
+  const templateIssues = await automationTemplateIssues(
+    admin,
+    accountId,
+    stepsToCheck
+  );
+  if (templateIssues.length > 0) {
+    return NextResponse.json(
+      { error: templateIssues[0].message, issues: templateIssues },
+      { status: 400 }
+    );
+  }
   if (willBeActive) {
     const mergedTriggerType = (update.trigger_type ??
       existing.trigger_type) as string;
     const mergedTriggerConfig =
       update.trigger_config ?? existing.trigger_config;
-    const mergedSteps = Array.isArray(body.steps)
-      ? (body.steps as {
-          step_type: string;
-          step_config: Record<string, unknown>;
-        }[])
-      : await loadStepsTree(id, admin);
+    const mergedSteps = stepsToCheck;
     const issues = [
       ...validateTriggerForActivation(
         mergedTriggerType,

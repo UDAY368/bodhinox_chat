@@ -64,7 +64,7 @@ import {
   type SendMediaPayload,
 } from './message-composer';
 import { deleteAccountMedia } from '@/lib/storage/upload-media';
-import { TemplatePicker } from './template-picker';
+import { TemplatePicker, type TemplateSendValues } from './template-picker';
 import { AiThreadBanner } from './ai-thread-banner';
 import { buildReplyPreview } from './reply-quote';
 import { renderTemplateBody } from '@/lib/whatsapp/template-body';
@@ -764,11 +764,7 @@ export function MessageThread({
   const handleSendTemplate = useCallback(
     async (
       template: MessageTemplate,
-      values: {
-        body: string[];
-        headerText?: string;
-        buttonParams?: Record<number, string>;
-      }
+      values: TemplateSendValues
     ) => {
       if (!conversation) return;
 
@@ -800,11 +796,9 @@ export function MessageThread({
             // (header media + URL button substitution). Body values
             // are mirrored under both shapes so the route can fall
             // back if the template row isn't found locally.
-            template_message_params: {
-              body: values.body,
-              headerText: values.headerText,
-              buttonParams: values.buttonParams,
-            },
+            // Location, offer end, one-time code and carousel card
+            // values ride along with the picker's other values.
+            template_message_params: values,
             template_params: values.body,
             content_text: renderedBody,
           }),

@@ -12,9 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, ArrowRight, Eye, ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, ImageIcon, Loader2, MapPin, TicketPercent } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { trackedButtonIndex, validTrackedUrl } from '@/lib/broadcasts/tracking';
+import {
+  COUPON_CODE_MAX_LENGTH,
+  cardVariableKey,
+  parseLocation,
+  templateSendNeeds,
+  type CampaignSendExtras,
+} from '@/lib/whatsapp/template-send-params';
 
 type VariableType = 'static' | 'field' | 'custom_field' | 'csv_column';
 
@@ -37,6 +44,9 @@ interface Step3Props {
   /** Destination for a click-tracked link button (only asked for trackable templates). */
   trackedUrl?: string;
   onTrackedUrlChange?: (url: string) => void;
+  /** Location, offer end and coupon code: one value for every recipient. */
+  sendExtras?: CampaignSendExtras;
+  onSendExtrasChange?: (extras: CampaignSendExtras) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -85,6 +95,8 @@ export function Step3Personalize({
   csvSample,
   trackedUrl = '',
   onTrackedUrlChange,
+  sendExtras = {},
+  onSendExtrasChange,
   onNext,
   onBack,
 }: Step3Props) {
@@ -145,11 +157,64 @@ export function Step3Personalize({
     };
   }, []);
 
-  const placeholders = useMemo(() => {
-    const matches = template.body_text.match(/\{\{(\d+)\}\}/g);
-    if (!matches) return [];
-    return [...new Set(matches)].sort();
-  }, [template.body_text]);
+  const needs = useMemo(() => templateSendNeeds(template), [template]);
+  const placeholders = useMemo(() => needs.bodyVars.map((n) => `{{${n}}}`), [needs]);
+  // Every mapped slot: body placeholders, then each carousel card's
+  // (keys "c<card>_<n>", frozen per recipient after the body values).
+  const slots = useMemo(
+    () => [
+      ...needs.bodyVars.map((n) => ({ key: String(n), label: `{{${n}}}` })),
+      ...needs.cards.flatMap((card) =>
+        card.bodyVars.map((n) => ({
+          key: cardVariableKey(card.index, n),
+          label: t('personalize.cardVariable', { n: card.index + 1, var: `{{${n}}}` }),
+        })),
+      ),
+    ],
+    [needs, t],
+  );
+
+  // Typed text is kept here; the parent only ever holds valid values.
+  const [locationDraft, setLocationDraft] = useState(() => ({
+    latitude: sendExtras.location ? String(sendExtras.location.latitude) : '',
+    longitude: sendExtras.location ? String(sendExtras.location.longitude) : '',
+    name: sendExtras.location?.name ?? '',
+    address: sendExtras.location?.address ?? '',
+  }));
+  const [offerEnds, setOfferEnds] = useState(() => {
+    const ms = sendExtras.offerExpirationTimeMs;
+    if (!ms) return '';
+    const d = new Date(ms);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+
+  function updateExtras(patch: Partial<CampaignSendExtras>) {
+    const next: CampaignSendExtras = { ...sendExtras, ...patch };
+    for (const k of Object.keys(next) as (keyof CampaignSendExtras)[]) {
+      if (next[k] === undefined) delete next[k];
+    }
+    onSendExtrasChange?.(next);
+  }
+
+  function changeLocation(patch: Partial<typeof locationDraft>) {
+    const draft = { ...locationDraft, ...patch };
+    setLocationDraft(draft);
+    const parsed =
+      draft.latitude.trim() && draft.longitude.trim() ? parseLocation(draft) : null;
+    updateExtras({ location: parsed?.ok ? parsed.value : undefined });
+  }
+
+  function changeOfferEnds(value: string) {
+    setOfferEnds(value);
+    const ms = value ? new Date(value).getTime() : NaN;
+    updateExtras({ offerExpirationTimeMs: Number.isFinite(ms) ? ms : undefined });
+  }
+
+  const locationError = needs.location && !sendExtras.location;
+  // The server checks the end against the send (or schedule) time again.
+  const offerPast = !!sendExtras.offerExpirationTimeMs && sendExtras.offerExpirationTimeMs <= Date.now();
+  const offerError = needs.offerExpiration && (!sendExtras.offerExpirationTimeMs || offerPast);
 
   // Templates with an IMAGE/VIDEO/DOCUMENT header need a media URL at
   // send time — Meta requires the media component on every delivery and
@@ -186,16 +251,15 @@ export function Step3Personalize({
    */
   const unmappedKeys = useMemo(() => {
     const missing: string[] = [];
-    for (const placeholder of placeholders) {
-      const key = placeholder.replace(/^\{\{|\}\}$/g, '');
+    for (const { key, label } of slots) {
       const mapping = variables[key];
       // A CSV-column mapping is stale once the audience is no longer that CSV.
       if (!mapping || !mapping.value?.trim() || (mapping.type === 'csv_column' && !csvColumns.includes(mapping.value))) {
-        missing.push(placeholder);
+        missing.push(label);
       }
     }
     return missing;
-  }, [placeholders, variables, csvColumns]);
+  }, [slots, variables, csvColumns]);
 
   function updateVariable(key: string, patch: Partial<VariableMapping>) {
     const current = variables[key] ?? { type: 'static' as VariableType, value: '' };
@@ -310,26 +374,91 @@ export function Step3Personalize({
         </div>
       )}
 
-      {placeholders.length === 0 && !mediaHeaderType ? (
+      {needs.location && (
+        <div className="space-y-3 rounded-xl border border-border bg-card/50 p-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            <p className="text-sm font-medium text-foreground">{t('personalize.locationTitle')}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">{t('personalize.locationDesc')}</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="campaign-lat" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('personalize.latitude')}</label>
+              <Input id="campaign-lat" inputMode="decimal" value={locationDraft.latitude} onChange={(e) => changeLocation({ latitude: e.target.value })} placeholder="37.4847" className="border-border bg-muted text-foreground placeholder:text-muted-foreground" />
+            </div>
+            <div>
+              <label htmlFor="campaign-lng" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('personalize.longitude')}</label>
+              <Input id="campaign-lng" inputMode="decimal" value={locationDraft.longitude} onChange={(e) => changeLocation({ longitude: e.target.value })} placeholder="-122.1484" className="border-border bg-muted text-foreground placeholder:text-muted-foreground" />
+            </div>
+            <div>
+              <label htmlFor="campaign-loc-name" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('personalize.locationName')}</label>
+              <Input id="campaign-loc-name" value={locationDraft.name} onChange={(e) => changeLocation({ name: e.target.value })} className="border-border bg-muted text-foreground placeholder:text-muted-foreground" />
+            </div>
+            <div>
+              <label htmlFor="campaign-loc-address" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('personalize.locationAddress')}</label>
+              <Input id="campaign-loc-address" value={locationDraft.address} onChange={(e) => changeLocation({ address: e.target.value })} className="border-border bg-muted text-foreground placeholder:text-muted-foreground" />
+            </div>
+          </div>
+          {locationError && (
+            <p className="text-xs text-amber-300">{t('personalize.locationRequired')}</p>
+          )}
+        </div>
+      )}
+
+      {(needs.offerExpiration || needs.couponButtons.length > 0) && (
+        <div className="space-y-3 rounded-xl border border-border bg-card/50 p-4">
+          <div className="flex items-center gap-2">
+            <TicketPercent className="h-4 w-4 text-primary" />
+            <p className="text-sm font-medium text-foreground">{t('personalize.offerTitle')}</p>
+          </div>
+          {needs.offerExpiration && (
+            <div>
+              <label htmlFor="campaign-offer-ends" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('personalize.offerEnds')}</label>
+              <Input id="campaign-offer-ends" type="datetime-local" value={offerEnds} onChange={(e) => changeOfferEnds(e.target.value)} className="border-border bg-muted text-foreground" />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t('personalize.offerEndsDesc')}</p>
+              {offerError && (
+                <p className="mt-1.5 text-xs text-amber-300">
+                  {offerPast ? t('personalize.offerEndsPast') : t('personalize.offerEndsRequired')}
+                </p>
+              )}
+            </div>
+          )}
+          {needs.couponButtons.map((b) => (
+            <div key={b.index}>
+              <label htmlFor="campaign-coupon" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('personalize.couponCode', { text: b.text })}</label>
+              <Input
+                id="campaign-coupon"
+                value={sendExtras.couponCode ?? ''}
+                maxLength={COUPON_CODE_MAX_LENGTH}
+                onChange={(e) => updateExtras({ couponCode: e.target.value.trim() || undefined })}
+                placeholder={b.example}
+                className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t('personalize.couponCodeDesc')}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {slots.length === 0 && !mediaHeaderType ? (
         <div className="rounded-xl border border-border bg-card/50 p-6 text-center">
           <p className="text-sm text-muted-foreground">
             {t('personalize.noPreview')}
           </p>
         </div>
-      ) : placeholders.length === 0 ? null : (
+      ) : slots.length === 0 ? null : (
         <div className="space-y-4">
-          {placeholders.map((placeholder) => {
-            const key = placeholder.replace(/^\{\{|\}\}$/g, '');
+          {slots.map(({ key, label }) => {
             const mapping = variables[key] ?? { type: 'static', value: '' };
 
             return (
               <div
-                key={placeholder}
+                key={key}
                 className="rounded-xl border border-border bg-card/50 p-4"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-mono font-medium text-primary">
-                    {placeholder}
+                    {label}
                   </span>
                 </div>
 
@@ -500,7 +629,7 @@ export function Step3Personalize({
         </Button>
         <Button
           onClick={onNext}
-          disabled={unmappedKeys.length > 0 || headerMediaError !== null || trackedInvalid}
+          disabled={unmappedKeys.length > 0 || headerMediaError !== null || trackedInvalid || locationError || offerError}
           className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {t('next')}

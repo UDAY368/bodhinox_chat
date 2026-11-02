@@ -453,7 +453,23 @@
       "send": "Enviar modelo",
       "headerVarLabel": "Cabeçalho {var}",
       "bodyVarLabel": "Corpo {var}",
-      "urlButtonVarLabel": "Botão de URL \"{text}\" — valor para {var}"
+      "urlButtonVarLabel": "Botão de URL \"{text}\" — valor para {var}",
+      "authPreview": "O WhatsApp escreve esta mensagem de verificação e inclui o código que você digitar abaixo.",
+      "authCodeLabel": "Código de uso único",
+      "authCodePlaceholder": "ex.: 482913",
+      "authCodeHint": "Até {max} caracteres. É enviado só para este contato e não fica salvo na conversa.",
+      "locationTitle": "Local exibido acima da mensagem",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "locationInvalid": "A latitude precisa estar entre -90 e 90 e a longitude entre -180 e 180.",
+      "locationName": "Nome do local (opcional)",
+      "locationAddress": "Endereço (opcional)",
+      "offerEndsLabel": "Fim da oferta",
+      "offerEndsPast": "Escolha um horário no futuro.",
+      "couponLabel": "Código para \"{text}\"",
+      "couponHint": "Deixe em branco para usar o código salvo no modelo.",
+      "cardTitle": "Cartão {n}",
+      "cardBodyVarLabel": "Cartão {n}, corpo {var}"
     },
     "sidebar": {
       "contactInfo": "Informações do contato",
@@ -1079,7 +1095,8 @@
         "subtitle": "Selecione um modelo de mensagem aprovado para o seu disparo.",
         "noTemplates": "Nenhum modelo disponível.",
         "createFirst": "Crie um modelo em Configurações primeiro.",
-        "errorLoad": "Falha ao carregar os modelos"
+        "errorLoad": "Falha ao carregar os modelos",
+        "authNotForCampaigns": "Modelos de autenticação não podem ser usados em campanhas. Envie-os pela caixa de entrada ou pela API."
       },
       "selectAudience": {
         "title": "Selecionar público",
@@ -1174,7 +1191,22 @@
         "selectCsvColumn": "Selecione uma coluna...",
         "trackedUrl": "Destino do link (rastreamento de cliques)",
         "trackedUrlHint": "O botão deste modelo abre um link de rastreamento. Informe a página https:// de destino; os cliques são contados por destinatário.",
-        "trackedUrlInvalid": "Informe um endereço https:// completo."
+        "trackedUrlInvalid": "Informe um endereço https:// completo.",
+        "cardVariable": "Cartão {n} {var}",
+        "locationTitle": "Local do cabeçalho",
+        "locationDesc": "Todos os destinatários veem este local acima da mensagem.",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "locationName": "Nome do local (opcional)",
+        "locationAddress": "Endereço (opcional)",
+        "locationRequired": "Informe uma latitude (-90 a 90) e uma longitude (-180 a 180) válidas.",
+        "offerTitle": "Detalhes da oferta",
+        "offerEnds": "Fim da oferta",
+        "offerEndsDesc": "Os destinatários veem uma contagem regressiva até este horário. Ele precisa ser depois do início do envio da campanha.",
+        "offerEndsPast": "Escolha um horário no futuro.",
+        "offerEndsRequired": "Escolha quando a oferta termina.",
+        "couponCode": "Código para \"{text}\"",
+        "couponCodeDesc": "Todos os destinatários recebem este código. Deixe em branco para usar o código salvo no modelo."
       },
       "scheduleSend": {
         "title": "Revisar e enviar",
@@ -1815,7 +1847,17 @@
         "connectHelp": "Este fluxo termina e o fluxo escolhido começa para o mesmo contato, com as mesmas variáveis. O fluxo escolhido deve estar ativo.",
         "testSamples": "Valores de exemplo para o teste",
         "flowStatusDraft": "rascunho",
-        "flowStatusArchived": "arquivado"
+        "flowStatusArchived": "arquivado",
+        "templateLocation": "Local do cabeçalho",
+        "templateLatitude": "Latitude",
+        "templateLongitude": "Longitude",
+        "templateLocationName": "Nome do local (opcional)",
+        "templateLocationAddress": "Endereço (opcional)",
+        "templateOfferMinutes": "Duração da oferta (minutos)",
+        "templateOfferHelp": "A oferta termina essa quantidade de minutos depois que esta etapa envia o modelo.",
+        "templateCoupon": "Código do cupom",
+        "templateCouponHelp": "Pode usar variáveis da execução. Deixe em branco para usar o código salvo no modelo.",
+        "templateCardParam": "Cartão {card}, valor {n}"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -2302,7 +2344,90 @@
         "Marketing": "Marketing",
         "Utility": "Utilidade",
         "Authentication": "Autenticação"
-      }
+      },
+      "headerLocation": "Localização",
+      "locationHint": "O cliente vê um marcador no mapa. Você escolhe o local a cada envio.",
+      "templateKind": "Tipo de modelo",
+      "kindFixed": "O tipo de um modelo enviado não pode ser alterado.",
+      "kinds": {
+        "standard": "Padrão",
+        "carousel": "Carrossel",
+        "authentication": "Autenticação",
+        "limited_time_offer": "Oferta por tempo limitado"
+      },
+      "kindHints": {
+        "standard": "Texto com cabeçalho, rodapé e botões opcionais.",
+        "carousel": "Uma mensagem curta seguida de 2 a 10 cartões deslizáveis, cada um com mídia e botões.",
+        "authentication": "Um código de uso único com botão de copiar. O WhatsApp escreve o texto da mensagem.",
+        "limited_time_offer": "Uma promoção com um banner de oferta e uma contagem regressiva opcional até o fim."
+      },
+      "dialogDraftTitle": "Editar rascunho",
+      "preview": "Pré-visualização",
+      "saveDraft": "Salvar rascunho",
+      "savingDraft": "Salvando…",
+      "toastDraftSaved": "Rascunho salvo",
+      "draftSaveFailedHttp": "Não foi possível salvar o rascunho (HTTP {status})",
+      "removeButton": "Remover botão",
+      "auth": {
+        "bodyNote": "O WhatsApp escreve e traduz a mensagem para você. Escolha como o código é exibido.",
+        "security": "Adicionar o aviso para não compartilhar o código",
+        "expiry": "O código expira após (minutos)",
+        "expiryHint": "Opcional, de {min} a {max} minutos. Exibido como rodapé.",
+        "buttonText": "Texto do botão de copiar",
+        "buttonTextPlaceholder": "Copiar código"
+      },
+      "lto": {
+        "text": "Título da oferta",
+        "textPlaceholder": "ex.: Oferta do fim de semana",
+        "hasExpiration": "Mostrar contagem regressiva até o fim da oferta",
+        "hint": "Com contagem regressiva, adicione um botão de copiar código. O horário de término é definido no envio."
+      },
+      "cards": {
+        "title": "Cartões ({count} de {max})",
+        "mediaType": "Tipo de mídia dos cartões",
+        "add": "Adicionar cartão",
+        "hint": "Todos os cartões usam o mesmo tipo de mídia e os mesmos botões, na mesma ordem.",
+        "buttonSlots": "Botões em todos os cartões",
+        "slotType": "Tipo do botão {n}",
+        "slotN": "Botão {n}",
+        "cardN": "Cartão {n}",
+        "remove": "Remover cartão {n}",
+        "mediaUrl": "Link de mídia do cartão {n}",
+        "body": "Texto do cartão {n}"
+      },
+      "tabsLabel": "Filtrar modelos por status",
+      "tabs": {
+        "all": "Todos",
+        "approved": "Aprovados",
+        "pending": "Pendentes",
+        "rejected": "Rejeitados",
+        "drafts": "Rascunhos",
+        "paused": "Pausados ou desativados"
+      },
+      "health": {
+        "label": "Qualidade: {level}",
+        "green": "Alta",
+        "yellow": "Média",
+        "red": "Baixa",
+        "unknown": "Ainda sem avaliação"
+      },
+      "searchPlaceholder": "Pesquisar por nome",
+      "noMatches": "Nenhum modelo corresponde a este filtro.",
+      "issueLabel": "Problema",
+      "fromLibrary": "Começar pela biblioteca",
+      "writeWithAi": "Escrever com IA",
+      "editDraft": "Editar",
+      "editDraftTitle": "Edite este rascunho ou envie-o para aprovação",
+      "duplicate": "Duplicar",
+      "duplicateAria": "Duplicar {name}",
+      "duplicateFailedHttp": "Não foi possível duplicar o modelo (HTTP {status})",
+      "toastDuplicated": "Rascunho {name} criado",
+      "history": "Histórico",
+      "historyAria": "Histórico de status de {name}",
+      "historyTitle": "Histórico de status",
+      "historyDesc": "Cada mudança de status de {name}, da mais recente para a mais antiga.",
+      "placeholderUrlWarning": "Este ainda é o link de exemplo (example.com). Substitua pela sua própria URL antes de enviar.",
+      "placeholderPhoneWarning": "Este ainda é o número de exemplo (+10000000000). Substitua pelo telefone da sua empresa antes de enviar."
     },
     "roles": {
       "admin": "Administrador",
@@ -3688,7 +3813,12 @@
       "replyIdsEmpty": "os IDs de resposta não podem ser vazios",
       "conditionValueRequired": "Enter a non-empty comparison value.",
       "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone."
+      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "templateCarousel": "As automações não podem enviar modelos de carrossel: a etapa só preenche valores do corpo, não dos cartões. Use um fluxo ou uma campanha.",
+      "templateLimitedTimeOffer": "As automações não podem enviar modelos de oferta por tempo limitado: a etapa só preenche valores do corpo, não os dados da oferta. Use um fluxo ou uma campanha.",
+      "templateLocationHeader": "As automações não podem enviar modelos com cabeçalho de localização: a etapa só preenche valores do corpo, não uma localização. Use um fluxo ou uma campanha.",
+      "templateHeaderVariable": "As automações não podem enviar modelos com uma variável no cabeçalho: a etapa só preenche valores do corpo.",
+      "templateUrlVariable": "As automações não podem enviar modelos com uma variável em um botão de URL: a etapa só preenche valores do corpo."
     },
     "templates": {
       "nameRequired": "O nome do modelo é obrigatório.",
@@ -3733,7 +3863,55 @@
       "headerTextValueRequired": "A variável {var} do cabeçalho de texto exige um valor — informe headerText.",
       "mediaHeaderSendSource": "O cabeçalho {type} exige um link ou id de mídia no envio — defina header_media_url no modelo ou informe headerMediaUrl/headerMediaId.",
       "bodyValuesMissing": "O corpo tem {count} variável(is), mas apenas {got} valor(es) foram informados.",
-      "urlButtonParamRequired": "O botão URL #{n} usa {var} — exige um valor em buttonParams[{index}]."
+      "urlButtonParamRequired": "O botão URL #{n} usa {var} — exige um valor em buttonParams[{index}].",
+      "kindInvalid": "Tipo de modelo desconhecido: {kind}.",
+      "kindFieldNotAllowed": "{field} não se aplica a este tipo de modelo.",
+      "locationHeaderCategory": "O cabeçalho de localização só está disponível em modelos padrão de Marketing ou Utilidade.",
+      "locationHeaderNoContent": "Um cabeçalho de localização não pode ter texto, mídia nem exemplo.",
+      "carouselCategory": "Modelos de carrossel devem usar a categoria Marketing.",
+      "carouselNoHeader": "Modelos de carrossel não podem ter cabeçalho geral. Cada cartão tem o seu.",
+      "carouselNoFooter": "Modelos de carrossel não podem ter rodapé.",
+      "carouselNoButtons": "Modelos de carrossel não podem ter botões gerais. Adicione os botões em cada cartão.",
+      "carouselCardCount": "Modelos de carrossel precisam de {min} a {max} cartões (há {got}).",
+      "cardError": "Cartão {n}: {message}",
+      "cardHeaderType": "Cada cartão precisa de um cabeçalho de imagem ou vídeo.",
+      "cardHeaderMismatch": "Todos os cartões devem usar o mesmo formato de cabeçalho do cartão 1 ({format}).",
+      "cardBodyRequired": "O texto do cartão é obrigatório.",
+      "cardBodyTooLong": "O texto do cartão passa de {max} caracteres (tem {got}).",
+      "cardButtonCount": "Cada cartão precisa de {min} ou {max} botões (tem {got}).",
+      "cardButtonType": "Os botões do cartão só podem ser de resposta rápida, URL ou telefone (o botão nº {n} é {type}).",
+      "cardButtonsMismatch": "Todos os cartões devem ter a mesma quantidade e os mesmos tipos de botões, na mesma ordem, do cartão 1.",
+      "cardMediaSendSource": "O cartão {n} precisa de um link ou id de {type} no envio.",
+      "authCategory": "Modelos de autenticação devem usar a categoria Autenticação.",
+      "authNoHeader": "Modelos de autenticação não podem ter cabeçalho.",
+      "authNoFooter": "Modelos de autenticação não podem ter rodapé personalizado. Defina uma validade para o código.",
+      "authNoButtons": "Modelos de autenticação usam um único botão de copiar código. Remova os outros botões.",
+      "authOptionsRequired": "Modelos de autenticação precisam das configurações do código de uso único.",
+      "authOtpType": "Modelos de autenticação só aceitam o botão de copiar código.",
+      "authExpiryRange": "A validade do código deve ser um número inteiro de minutos entre {min} e {max}.",
+      "authSecurityFlag": "A recomendação de segurança deve estar ativada ou desativada.",
+      "authButtonTextEmpty": "O texto do botão de copiar código não pode ficar em branco.",
+      "authButtonTextTooLong": "O texto do botão de copiar código passa de {max} caracteres (tem {got}).",
+      "authCodeRequired": "Modelos de autenticação precisam do código de uso único para o envio.",
+      "authCodeTooLong": "O código de uso único pode ter no máximo {max} caracteres.",
+      "ltoCategory": "Modelos de oferta por tempo limitado devem usar a categoria Marketing.",
+      "ltoTextRequired": "Modelos de oferta por tempo limitado precisam do texto da oferta.",
+      "ltoTextTooLong": "O texto da oferta passa de {max} caracteres (tem {got}).",
+      "ltoExpirationFlag": "Escolha se a oferta tem validade.",
+      "ltoHeaderType": "O cabeçalho de uma oferta por tempo limitado só pode ser uma imagem ou um vídeo.",
+      "ltoNoFooter": "Modelos de oferta por tempo limitado não podem ter rodapé.",
+      "ltoBodyTooLong": "O texto da oferta passa de {max} caracteres (tem {got}).",
+      "ltoTooManyButtons": "Modelos de oferta por tempo limitado permitem no máximo {max} botões (há {got}).",
+      "ltoButtonTypes": "Os botões de uma oferta por tempo limitado só podem ser um botão de copiar código e um botão de URL.",
+      "ltoCopyCodeRequired": "Uma oferta com validade precisa de um botão de copiar código.",
+      "ltoExpirationRequired": "Esta oferta tem validade. Informe o horário de término em milissegundos.",
+      "locationValueRequired": "Este modelo tem um cabeçalho de localização. Informe a latitude e a longitude.",
+      "locationValueInvalid": "A localização precisa de uma latitude entre -90 e 90 e uma longitude entre -180 e 180.",
+      "bodyVariableAtEdge": "O texto do corpo não pode começar nem terminar com uma variável. Adicione algumas palavras antes da primeira variável e depois da última.",
+      "ltoUrlButtonRequired": "Os modelos de oferta por tempo limitado precisam de um botão de URL.",
+      "ltoCopyCodeFirst": "Coloque primeiro o botão de copiar código e depois o botão de URL.",
+      "buttonPlaceholderUrl": "O botão #{n} ainda usa o link de exemplo {url}. Substitua-o pelo seu próprio link antes de enviar o modelo.",
+      "buttonPlaceholderPhone": "O botão #{n} ainda usa o número de exemplo {phone}. Substitua-o pelo telefone da sua empresa antes de enviar o modelo."
     },
     "interactive": {
       "buttonCount": "A mensagem interativa com botões exige de 1 a {max} botões (tem {got}).",
@@ -3754,6 +3932,23 @@
       "bodyTooLong": "O bodyText interativo excede {max} caracteres.",
       "headerTooLong": "O headerText interativo excede {max} caracteres.",
       "footerTooLong": "O footerText interativo excede {max} caracteres."
+    },
+    "templateSend": {
+      "authOnlyInbox": "Modelos de autenticação só podem ser enviados pela caixa de entrada ou pela API, onde um código de uso único é digitado para uma pessoa. Campanhas, automações e fluxos não podem enviá-los.",
+      "valueNotText": "{field} precisa ser texto.",
+      "valueTooLong": "{field} pode ter no máximo {max} caracteres.",
+      "valueNotList": "{field} precisa ser uma lista de valores.",
+      "tooManyValues": "{field} pode ter no máximo {max} itens.",
+      "valueNotObject": "{field} está em um formato inválido.",
+      "buttonIndexInvalid": "{field} precisa usar a posição do botão como chave.",
+      "locationInvalid": "Informe uma latitude entre -90 e 90 e uma longitude entre -180 e 180.",
+      "couponTooLong": "O código do cupom pode ter no máximo {max} caracteres.",
+      "offerExpirationInvalid": "Escolha uma data e hora válidas para o fim da oferta.",
+      "offerExpirationPast": "A oferta precisa terminar depois do envio da mensagem.",
+      "authCodeInvalid": "Digite o código de uso único.",
+      "authCodeTooLong": "O código de uso único pode ter no máximo {max} caracteres.",
+      "flowOfferMinutes": "Informe quantos minutos a oferta dura, de 1 a {max}.",
+      "cardValueEmpty": "Cartão {card}: o valor {n} está vazio."
     }
   },
   "Api": {
@@ -3954,7 +4149,34 @@
       "submittedSaveFailed": "Enviado à Meta, mas falhou ao salvar localmente: {message}. Use \"Sincronizar da Meta\" para recuperar.",
       "submitFailed": "Falha ao enviar o modelo.",
       "metaApiStatus": "Erro da API da Meta: {status}",
-      "syncFailed": "Falha ao sincronizar os modelos"
+      "syncFailed": "Falha ao sincronizar os modelos",
+      "authKindRequired": "Modelos de autenticação precisam usar o tipo de modelo de autenticação.",
+      "draft": {
+        "alreadySubmitted": "Este modelo já foi enviado à Meta. Edite-o em vez de salvá-lo como rascunho.",
+        "nameTaken": "Já existe outro modelo com este nome e idioma.",
+        "kindLocked": "Não é possível mudar o tipo de um modelo enviado. Duplique-o para criar outro tipo.",
+        "saveFailed": "Não foi possível salvar o rascunho.",
+        "duplicateFailed": "Não foi possível duplicar o modelo.",
+        "bodyInvalid": "O rascunho precisa ser um objeto JSON.",
+        "tooLarge": "Este rascunho é grande demais para ser salvo.",
+        "fieldInvalid": "O campo \"{field}\" não é válido.",
+        "languageInvalid": "Escolha um idioma de modelo válido.",
+        "categoryInvalid": "Escolha uma categoria de modelo válida.",
+        "kindInvalid": "Escolha um tipo de modelo válido.",
+        "kindCategoryMismatch": "A categoria Autenticação é usada só por modelos de autenticação, e eles não usam nenhuma outra categoria."
+      },
+      "aiDraft": {
+        "goalRequired": "Descreva o que a mensagem deve fazer.",
+        "goalTooLong": "O objetivo deve ter no máximo 500 caracteres.",
+        "toneInvalid": "Escolha um tom: amigável, profissional, urgente ou divertido.",
+        "categoryInvalid": "Os rascunhos com IA aceitam as categorias Marketing e Utilidade.",
+        "languageInvalid": "Escolha um idioma de modelo válido.",
+        "businessTooLong": "A descrição do negócio deve ter no máximo 200 caracteres.",
+        "notConfigured": "O assistente de IA não está configurado. Adicione um provedor em Configurações → Assistente de IA para escrever modelos com IA.",
+        "invalidDraft": "A IA não conseguiu gerar um modelo válido: {reason}",
+        "unreadable": "Não foi possível interpretar a resposta da IA como modelo. Tente novamente ou reformule o objetivo."
+      },
+      "submitRaced": "Outro envio já mandou este modelo para a Meta. Recarregue para ver o status atual."
     }
   },
   "PageSearch": {
@@ -3982,5 +4204,403 @@
   "Plan": {
     "upgrade": "Upgrade",
     "upgradeHint": "Não incluído no seu plano. Veja Configurações → Plano e uso."
+  },
+  "TemplateLibrary": {
+    "industries": {
+      "retail": "Varejo e e-commerce",
+      "food": "Alimentação e restaurantes",
+      "health": "Saúde",
+      "beauty": "Beleza e bem-estar",
+      "education": "Educação",
+      "real_estate": "Imóveis",
+      "travel": "Viagens e hotelaria",
+      "finance": "Finanças e bancos",
+      "events": "Eventos",
+      "services": "Serviços residenciais e profissionais",
+      "general": "Geral"
+    },
+    "order_confirmation": {
+      "title": "Confirmação de pedido",
+      "description": "Confirme um novo pedido com o número e o valor total.",
+      "header": "Pedido recebido",
+      "body": "Olá {v1}, obrigado pelo seu pedido {v2}. Já o recebemos e avisaremos assim que for enviado. Valor total: {v3}.",
+      "footer": "Obrigado por comprar com a gente",
+      "buttons": {
+        "b1": "Ver pedido"
+      },
+      "samples": "Juliana|#10245|R$ 48,90"
+    },
+    "shipping_update": {
+      "title": "Atualização de envio",
+      "description": "Avise que o pedido foi enviado, com a transportadora e o código de rastreio.",
+      "header": "Seu pedido está a caminho",
+      "body": "Boa notícia, {v1}! Seu pedido {v2} foi enviado pela {v3}. Seu código de rastreio é {v4}.",
+      "buttons": {
+        "b1": "Rastrear pacote"
+      },
+      "samples": "Daniel|#10245|Entrega Rápida|FS123456789"
+    },
+    "delivery_delayed": {
+      "title": "Entrega atrasada",
+      "description": "Peça desculpas por um pedido atrasado e informe a nova data de entrega.",
+      "body": "Olá {v1}, sentimos muito: seu pedido {v2} está atrasado. A nova previsão de entrega é {v3}. Agradecemos a sua paciência.",
+      "buttons": {
+        "b1": "Falar com o suporte"
+      },
+      "samples": "Ana|#10245|12 de março"
+    },
+    "back_in_stock": {
+      "title": "De volta ao estoque",
+      "description": "Avise os clientes interessados que um produto voltou.",
+      "body": "Olá {v1}, {v2} voltou ao estoque! As unidades são limitadas, então garanta o seu antes que acabe de novo.",
+      "buttons": {
+        "b1": "Comprar agora"
+      },
+      "samples": "Rafael|Jaqueta Jeans Clássica"
+    },
+    "festive_offer": {
+      "title": "Oferta de temporada",
+      "description": "Anuncie um desconto sazonal com data final e cupom.",
+      "header": "A promoção de fim de ano chegou",
+      "body": "Olá {v1}, a temporada de festas chegou! Aproveite {v2} de desconto em toda a loja até {v3}. Use o cupom {v4} no pagamento.",
+      "footer": "Oferta válida enquanto durarem os estoques",
+      "buttons": {
+        "b1": "Parar promoções",
+        "b2": "Aproveitar a oferta"
+      },
+      "samples": "Mariana|20%|31 de outubro|FESTA20"
+    },
+    "abandoned_cart": {
+      "title": "Carrinho abandonado",
+      "description": "Lembre os clientes dos itens que ainda estão no carrinho.",
+      "body": "Olá {v1}, você deixou {v2} no seu carrinho. Seus itens continuam salvos, então você pode finalizar a compra quando quiser.",
+      "buttons": {
+        "b1": "Finalizar compra"
+      },
+      "samples": "Sérgio|2 itens"
+    },
+    "price_drop": {
+      "title": "Queda de preço",
+      "description": "Avise quando um produto visualizado ficar mais barato.",
+      "body": "Olá {v1}, o preço de {v2} caiu para {v3}. Esse preço vale enquanto durar o estoque.",
+      "buttons": {
+        "b1": "Ver produto"
+      },
+      "samples": "Bruno|Fones sem fio|R$ 199,00"
+    },
+    "loyalty_points": {
+      "title": "Pontos de fidelidade",
+      "description": "Informe o saldo de pontos e quando eles expiram.",
+      "body": "Olá {v1}, você tem {v2} pontos de fidelidade na sua conta. Use-os na sua próxima compra antes que expirem em {v3}.",
+      "buttons": {
+        "b1": "Ver recompensas"
+      },
+      "samples": "Camila|1.250|30 de junho"
+    },
+    "table_reservation": {
+      "title": "Reserva de mesa",
+      "description": "Confirme uma reserva no restaurante com número de pessoas, data e horário.",
+      "header": "Mesa reservada",
+      "body": "Olá {v1}, sua mesa para {v2} está reservada para {v3} às {v4}. Responda a esta mensagem se seus planos mudarem.",
+      "buttons": {
+        "b1": "Confirmar",
+        "b2": "Remarcar"
+      },
+      "samples": "André|4 pessoas|sexta-feira, 14 de junho|20h"
+    },
+    "order_ready_pickup": {
+      "title": "Pedido pronto para retirada",
+      "description": "Avise os clientes que o pedido está pronto para retirar.",
+      "body": "Olá {v1}, seu pedido {v2} está pronto para retirada em {v3}. Mostre esta mensagem no balcão.",
+      "buttons": {
+        "b1": "Ligar para a loja"
+      },
+      "samples": "Larissa|#A-58|nossa loja do centro"
+    },
+    "appointment_reminder": {
+      "title": "Lembrete de consulta",
+      "description": "Lembre os pacientes da próxima consulta e permita que confirmem.",
+      "header": "Lembrete de consulta",
+      "body": "Olá {v1}, lembramos da sua consulta com {v2} em {v3} às {v4}. Chegue com 10 minutos de antecedência.",
+      "buttons": {
+        "b1": "Confirmar",
+        "b2": "Remarcar"
+      },
+      "samples": "Rodrigo|a Dra. Mendes|segunda-feira, 10 de junho|11h30"
+    },
+    "appointment_confirmed": {
+      "title": "Horário confirmado",
+      "description": "Confirme um horário no salão ou spa com o serviço e o horário.",
+      "body": "Olá {v1}, seu horário de {v2} está confirmado para {v3} às {v4}. Esperamos por você.",
+      "buttons": {
+        "b1": "Ligue para nós"
+      },
+      "samples": "Sofia|corte e escova|sábado, 15 de junho|15h"
+    },
+    "payment_reminder": {
+      "title": "Lembrete de pagamento",
+      "description": "Lembre um cliente de que uma fatura vence em breve.",
+      "body": "Olá {v1}, este é um lembrete de que o pagamento de {v2} referente à fatura {v3} vence em {v4}.",
+      "buttons": {
+        "b1": "Pagar agora"
+      },
+      "samples": "Vítor|R$ 120,00|INV-2041|5 de julho"
+    },
+    "payment_received": {
+      "title": "Pagamento recebido",
+      "description": "Confirme um pagamento com valor, data e referência.",
+      "header": "Pagamento recebido",
+      "body": "Olá {v1}, recebemos seu pagamento de {v2} em {v3}. Número de referência: {v4}. Obrigado!",
+      "footer": "Guarde esta mensagem como comprovante",
+      "samples": "Patrícia|R$ 120,00|3 de julho|TXN784512"
+    },
+    "emi_due": {
+      "title": "Parcela a vencer",
+      "description": "Lembre os clientes da próxima parcela do empréstimo.",
+      "body": "Olá {v1}, a parcela de {v2} do contrato {v3} vence em {v4}. Mantenha saldo suficiente na conta para evitar encargos por atraso.",
+      "buttons": {
+        "b1": "Pagar parcela"
+      },
+      "samples": "Sérgio|R$ 215,00|LN-55021|10 de agosto"
+    },
+    "document_request": {
+      "title": "Solicitação de documento",
+      "description": "Peça ao cliente um documento pendente para continuar um processo.",
+      "body": "Olá {v1}, para continuar analisando sua {v2}, precisamos do seguinte documento: {v3}. Responda a esta mensagem com uma foto nítida ou um PDF.",
+      "buttons": {
+        "b1": "Preciso de ajuda"
+      },
+      "samples": "Fernanda|proposta de empréstimo|comprovante de residência"
+    },
+    "account_update": {
+      "title": "Atualização de conta",
+      "description": "Avise um cliente de que dados da conta foram alterados.",
+      "body": "Olá {v1}, o dado {v2} da sua conta foi atualizado em {v3}. Se você não fez essa alteração, fale com a gente imediatamente.",
+      "buttons": {
+        "b1": "Ligar para o suporte"
+      },
+      "samples": "Thiago|e-mail cadastrado|2 de maio"
+    },
+    "class_reminder": {
+      "title": "Lembrete de aula",
+      "description": "Lembre os alunos de quando começa a próxima aula.",
+      "body": "Olá {v1}, sua aula de {v2} começa em {v3} às {v4}. Deixe seu caderno e materiais prontos.",
+      "buttons": {
+        "b1": "Entrar na aula"
+      },
+      "samples": "Isabela|Matemática do 1º ano|terça-feira|17h"
+    },
+    "admission_open": {
+      "title": "Matrículas abertas",
+      "description": "Anuncie que as matrículas estão abertas, com a data de encerramento.",
+      "header": "Matrículas abertas",
+      "body": "Olá {v1}, as matrículas para {v2} estão abertas para o período {v3}. As inscrições terminam em {v4}.",
+      "footer": "Vagas limitadas",
+      "buttons": {
+        "b1": "Inscreva-se"
+      },
+      "samples": "Sr. Rocha|nosso MBA|2027|30 de abril"
+    },
+    "site_visit_confirmed": {
+      "title": "Visita confirmada",
+      "description": "Confirme a visita a um imóvel com o empreendimento, data e horário.",
+      "body": "Olá {v1}, sua visita ao {v2} está confirmada para {v3} às {v4}. Nosso corretor vai recebê-lo na entrada.",
+      "buttons": {
+        "b1": "Ligar para o corretor"
+      },
+      "samples": "Gustavo|Residencial Vale Verde|domingo, 16 de junho|10h"
+    },
+    "booking_confirmed": {
+      "title": "Reserva confirmada",
+      "description": "Confirme uma viagem ou hospedagem com o número da reserva e as datas.",
+      "header": "Reserva confirmada",
+      "body": "Olá {v1}, sua reserva {v2} está confirmada. Datas da viagem: de {v3} a {v4}. Desejamos uma ótima viagem!",
+      "buttons": {
+        "b1": "Ver reserva"
+      },
+      "samples": "Helena|BK-90321|12 de setembro|18 de setembro"
+    },
+    "check_in_details": {
+      "title": "Informações de check-in",
+      "description": "Informe o horário de check-in e o que os hóspedes devem levar.",
+      "body": "Olá {v1}, esperamos por você no {v2}. O check-in começa às {v3} do dia {v4}. Traga um documento oficial com foto.",
+      "buttons": {
+        "b1": "Ligar para a recepção"
+      },
+      "samples": "Otávio|Hotel Beira-Mar|14h|12 de setembro"
+    },
+    "event_reminder": {
+      "title": "Lembrete de evento",
+      "description": "Lembre os participantes da data e do local do evento.",
+      "body": "Olá {v1}, lembramos que {v2} acontece em {v3} no {v4}. Esperamos você lá!",
+      "buttons": {
+        "b1": "Detalhes do evento"
+      },
+      "samples": "Júlia|o Encontro Anual de Design|20 de junho|Centro de Convenções"
+    },
+    "webinar_link": {
+      "title": "Link do webinar",
+      "description": "Envie aos inscritos o horário da sessão e um botão para entrar.",
+      "body": "Olá {v1}, obrigado por se inscrever em {v2}. A sessão começa em {v3} às {v4}. Use o botão abaixo para entrar.",
+      "buttons": {
+        "b1": "Entrar no webinar"
+      },
+      "samples": "Alex|Como crescer seu negócio no WhatsApp|25 de junho|16h"
+    },
+    "renewal_reminder": {
+      "title": "Lembrete de renovação",
+      "description": "Lembre os clientes de que um plano ou assinatura vence em breve.",
+      "body": "Olá {v1}, seu {v2} vence em {v3}. Renove antes dessa data para continuar usando o serviço sem interrupções.",
+      "buttons": {
+        "b1": "Renovar agora"
+      },
+      "samples": "Débora|plano de manutenção anual|31 de julho"
+    },
+    "service_follow_up": {
+      "title": "Acompanhamento do serviço",
+      "description": "Fale com o cliente depois de um serviço concluído.",
+      "body": "Olá {v1}, concluímos seu serviço de {v2} em {v3}. Está tudo funcionando como esperado? Avise se precisar de mais alguma coisa.",
+      "buttons": {
+        "b1": "Tudo certo",
+        "b2": "Preciso de ajuda"
+      },
+      "samples": "Jorge|manutenção do ar-condicionado|8 de junho"
+    },
+    "welcome_message": {
+      "title": "Mensagem de boas-vindas",
+      "description": "Cumprimente novos inscritos e convide-os para conversar.",
+      "header": "Boas-vindas!",
+      "body": "Olá {v1}, boas-vindas à {v2}! É um prazer ter você com a gente. Responda quando quiser para falar com nossa equipe.",
+      "buttons": {
+        "b1": "Ver produtos",
+        "b2": "Falar conosco"
+      },
+      "samples": "Natália|Boutique Flor"
+    },
+    "feedback_request": {
+      "title": "Pedido de avaliação",
+      "description": "Peça aos clientes que avaliem a experiência recente.",
+      "body": "Olá {v1}, obrigado por escolher a {v2}. Como foi sua experiência? Sua opinião nos ajuda a melhorar.",
+      "buttons": {
+        "b1": "Excelente",
+        "b2": "Boa",
+        "b3": "Pode melhorar"
+      },
+      "samples": "Léo|Clínica Sorriso"
+    },
+    "store_opening_hours": {
+      "title": "Horário de funcionamento",
+      "description": "Informe os dias e horários de uma loja ou unidade.",
+      "body": "Olá {v1}, {v2} funciona {v3}, das {v4}. Esperamos sua visita!",
+      "buttons": {
+        "b1": "Ligue para nós"
+      },
+      "samples": "Maíra|nossa nova loja|de segunda a sábado|9h às 20h"
+    },
+    "holiday_notice": {
+      "title": "Aviso de feriado",
+      "description": "Avise os clientes que você estará fechado em um feriado.",
+      "header": "Aviso de feriado",
+      "body": "Olá {v1}, informamos que {v2} estará fechado em {v3} por causa do {v4}. Voltaremos ao atendimento normal no próximo dia útil.",
+      "samples": "Cristina|nosso escritório|1º de janeiro|Ano-Novo"
+    }
+  },
+  "Templates": {
+    "studio": {
+      "preview": {
+        "label": "Prévia da mensagem",
+        "media": {
+          "image": "Imagem",
+          "video": "Vídeo",
+          "document": "Documento",
+          "location": "Localização"
+        },
+        "authBody": "{code} é o seu código de verificação.",
+        "authSecurity": "Para sua segurança, não compartilhe este código.",
+        "authExpiry": "Este código expira em {minutes, plural, one {# minuto} other {# minutos}}.",
+        "copyCode": "Copiar código",
+        "authNote": "O WhatsApp escreve o texto das mensagens de autenticação e o traduz para o idioma do modelo. Esta prévia é aproximada.",
+        "ltoPlaceholder": "Título da oferta",
+        "ltoExpires": "A oferta termina em breve",
+        "emptyBody": "O texto da sua mensagem aparece aqui.",
+        "cards": "Cartões do carrossel",
+        "cardN": "Cartão {n}"
+      },
+      "language": {
+        "label": "Idiomas do modelo",
+        "placeholder": "Escolha um idioma",
+        "search": "Pesquisar idiomas",
+        "noMatch": "Nenhum idioma corresponde à sua pesquisa."
+      },
+      "timeline": {
+        "label": "Histórico de status",
+        "loading": "Carregando histórico...",
+        "loadFailed": "Não foi possível carregar o histórico de status.",
+        "retry": "Tentar novamente",
+        "empty": "Nenhuma mudança de status registrada ainda.",
+        "quality": "Qualidade: {score}",
+        "source": {
+          "draft": "Salvo como rascunho",
+          "submit": "Enviado",
+          "webhook": "Atualização da Meta",
+          "sync": "Sincronizado da Meta",
+          "edit": "Editado"
+        }
+      },
+      "library": {
+        "title": "Biblioteca de modelos",
+        "description": "Comece com um modelo já escrito e ajuste-o antes de enviar.",
+        "search": "Pesquisar modelos",
+        "industry": "Segmento",
+        "allIndustries": "Todos os segmentos",
+        "category": "Categoria",
+        "allCategories": "Todas as categorias",
+        "categories": {
+          "Marketing": "Marketing",
+          "Utility": "Utilidade"
+        },
+        "loading": "Carregando modelos...",
+        "loadFailed": "Não foi possível carregar a biblioteca de modelos.",
+        "retry": "Tentar novamente",
+        "noMatch": "Nenhum modelo corresponde a estes filtros.",
+        "use": "Usar este",
+        "useNamed": "Usar o modelo {title}"
+      },
+      "ai": {
+        "title": "Escrever um modelo com IA",
+        "description": "Descreva o que a mensagem deve fazer. Você revisa o rascunho antes de qualquer coisa ser salva ou enviada.",
+        "goal": "O que esta mensagem deve fazer?",
+        "goalPlaceholder": "Por exemplo: lembrar os clientes de que a consulta é amanhã e permitir que confirmem",
+        "tone": "Tom",
+        "tones": {
+          "friendly": "Amigável",
+          "professional": "Profissional",
+          "urgent": "Urgente",
+          "playful": "Descontraído"
+        },
+        "category": "Categoria",
+        "categories": {
+          "Marketing": "Marketing",
+          "Utility": "Utilidade"
+        },
+        "language": "Idioma",
+        "business": "Nome ou contexto da empresa (opcional)",
+        "businessPlaceholder": "Por exemplo: Clínica Odontológica Lótus",
+        "includeButtons": "Sugerir botões",
+        "generate": "Escrever rascunho",
+        "regenerate": "Escrever outro rascunho",
+        "generating": "Escrevendo...",
+        "emptyPreview": "Seu rascunho aparecerá aqui.",
+        "draftName": "Nome do modelo: {name}",
+        "reviewHint": "Confira o texto e os valores de exemplo antes de enviar.",
+        "notConfiguredTitle": "A IA ainda não está configurada",
+        "notConfiguredHint": "Um administrador precisa escolher um provedor em Agentes → Configuração do agente para que a IA possa escrever modelos.",
+        "openAgentSetup": "Abrir configuração do agente",
+        "invalidDraft": "A IA não conseguiu gerar um modelo válido. Tente reformular seu objetivo.",
+        "failed": "Não foi possível escrever um rascunho. Tente novamente.",
+        "cancel": "Cancelar",
+        "useDraft": "Usar este rascunho"
+      }
+    }
   }
 }

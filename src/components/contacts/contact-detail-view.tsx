@@ -377,11 +377,7 @@ export function ContactDetailView({
           message_type: 'template',
           template_name: template.name,
           template_language: template.language,
-          template_message_params: {
-            body: values.body,
-            headerText: values.headerText,
-            buttonParams: values.buttonParams,
-          },
+          template_message_params: values,
           template_params: values.body,
         }),
       });

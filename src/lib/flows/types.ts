@@ -215,6 +215,14 @@ export interface SendTemplateNodeConfig {
   body_params?: string[];
   buttons?: Array<{ index: number; reply_id: string; title: string; next_node_key: string }>;
   next_node_key?: string;
+  /** Location-header templates: the place shown above the body (numeric text from the form is accepted). */
+  location?: { latitude: number | string; longitude: number | string; name?: string; address?: string };
+  /** Limited-time offers with an end: the offer ends this many minutes after the send. */
+  offer_expires_in_minutes?: number;
+  /** Copy-code button value; may use {{vars.x}}. The button's stored example otherwise. */
+  coupon_code?: string;
+  /** Carousel templates: one list of body values per card, like body_params. */
+  card_params?: string[][];
 }
 
 /** Calls an external HTTP API, maps the JSON reply into run variables and routes on the status. */

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { requestBroadcastCreation, type VariableMapping } from '@/lib/broadcast-create';
 import type { AudienceConfig } from '@/lib/broadcast-audience';
 import type { MessageTemplate } from '@/types';
+import type { CampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 export type { AudienceConfig, CustomFieldFilter, CustomFieldOperator } from '@/lib/broadcast-audience';
 export type { VariableMapping } from '@/lib/broadcast-create';
 
@@ -17,6 +18,8 @@ interface BroadcastPayload {
   scheduledAt?: string;
   /** Destination of a click-tracked link button. */
   trackedUrl?: string;
+  /** Location, offer end and coupon code for templates that need them. */
+  sendExtras?: CampaignSendExtras;
 }
 
 export function useBroadcastSending() {
@@ -34,6 +37,7 @@ export function useBroadcastSending() {
         headerMediaUrl: payload.headerMediaUrl,
         scheduledAt: payload.scheduledAt,
         trackedUrl: payload.trackedUrl,
+        ...(payload.sendExtras && Object.keys(payload.sendExtras).length ? { sendExtras: payload.sendExtras } : {}),
       });
       setProgress(100);
       return id;

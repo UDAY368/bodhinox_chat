@@ -13,6 +13,7 @@ import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
 import type { AudienceConfig, CsvAudienceRow } from '@/lib/broadcast-audience';
 import type { VariableMapping } from '@/lib/broadcast-create';
+import type { CampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 import { csvValueColumns } from '@/lib/broadcast-csv';
 import { Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -36,6 +37,7 @@ export default function NewBroadcastPage() {
   const [variables, setVariables] = useState<Record<string, VariableMapping>>({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [trackedUrl, setTrackedUrl] = useState('');
+  const [sendExtras, setSendExtras] = useState<CampaignSendExtras>({});
   const [name, setName] = useState('');
 
   async function handleSend(scheduledAt?: string) {
@@ -69,6 +71,7 @@ export default function NewBroadcastPage() {
         headerMediaUrl,
         scheduledAt,
         trackedUrl: trackedUrl.trim() || undefined,
+        sendExtras,
       });
       router.push(`/broadcasts/${broadcastId}`);
     } catch (err) {
@@ -194,7 +197,11 @@ export default function NewBroadcastPage() {
           {currentStep === 0 && (
             <Step1ChooseTemplate
               selectedTemplate={template}
-              onSelect={setTemplate}
+              onSelect={(picked) => {
+                setTemplate(picked);
+                // Location, offer end and coupon belong to one template.
+                if (picked.id !== template?.id) setSendExtras({});
+              }}
               onNext={() => setCurrentStep(1)}
               onBack={() => router.push('/broadcasts')}
             />
@@ -218,6 +225,8 @@ export default function NewBroadcastPage() {
               csvSample={audience.type === 'csv' ? audience.csvContacts?.[0]?.values : undefined}
               trackedUrl={trackedUrl}
               onTrackedUrlChange={setTrackedUrl}
+              sendExtras={sendExtras}
+              onSendExtrasChange={setSendExtras}
               onNext={() => setCurrentStep(3)}
               onBack={() => setCurrentStep(1)}
             />
@@ -231,6 +240,7 @@ export default function NewBroadcastPage() {
               onSend={handleSend}
               variables={variables}
               headerMediaUrl={headerMediaUrl}
+              sendExtras={sendExtras}
               onSaveDraft={handleSaveDraft}
               onBack={() => setCurrentStep(2)}
               isProcessing={isProcessing}

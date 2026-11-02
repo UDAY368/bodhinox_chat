@@ -2,6 +2,9 @@ import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause'
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
+import { assertTemplateSendable, TemplateSendRefusedError } from '@/lib/whatsapp/template-send-params'
+import { resolveTemplateMediaParams } from '@/lib/whatsapp/template-media'
+import { automationTemplateRefusal } from './template-check'
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -57,6 +60,8 @@ interface SendTemplateArgs {
   params?: string[]
   /** Send-time values beyond the body, e.g. quick-reply payloads (flows route on them). */
   messageParams?: SendTimeParams
+  /** Automations send body values only; refuse templates that need more. */
+  bodyValuesOnly?: boolean
 }
 
 export async function engineSendText(args: SendTextArgs): Promise<{ whatsapp_message_id: string }> {
@@ -180,6 +185,18 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
           )
         ).row
       : null
+  // Automations and flows run unattended: an authentication template
+  // needs a one-time code typed for one person, so it is refused here
+  // for both before anything reaches Meta.
+  if (input.kind === 'template') assertTemplateSendable(templateRow, 'automation')
+  if (input.kind === 'template' && input.bodyValuesOnly) {
+    const refusal = automationTemplateRefusal(templateRow)
+    if (refusal) throw new TemplateSendRefusedError(refusal)
+  }
+  const messageParams =
+    input.kind === 'template'
+      ? await resolveTemplateMediaParams(input.accountId, templateRow, input.messageParams)
+      : undefined
 
   const attempt = async (phone: string): Promise<string> => {
     await assertBotRepliesEnabled(input.accountId, input.conversationId)
@@ -192,7 +209,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
         language: input.language,
         params: input.params,
         template: templateRow ?? undefined,
-        messageParams: input.messageParams,
+        messageParams,
       })
       return r.messageId
     }

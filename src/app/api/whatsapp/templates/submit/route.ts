@@ -6,6 +6,7 @@ import {
   requireRole,
   toErrorResponse,
 } from '@/lib/auth/account'
+import { tenantOf } from '@/lib/audience/http'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { submitMessageTemplate } from '@/lib/whatsapp/meta-api'
 import {
@@ -13,11 +14,19 @@ import {
   type TemplatePayload,
 } from '@/lib/whatsapp/template-validators'
 import { buildMetaTemplatePayload } from '@/lib/whatsapp/template-components'
-import { ensureMediaHeaderHandle } from '@/lib/whatsapp/template-header-handle'
+import {
+  ensureCarouselCardHandles,
+  ensureMediaHeaderHandle,
+} from '@/lib/whatsapp/template-header-handle'
 import { normalizeStatus } from '@/lib/whatsapp/template-status-normalize'
+import { recordTemplateEvents } from '@/lib/whatsapp/template-events'
+import { templateRowFields } from '@/lib/whatsapp/template-row'
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Shared upsert payload builder — both the Meta-failure path and the
@@ -42,22 +51,14 @@ function buildUpsertRow(
     // Original author — kept as audit only.
     user_id: userId,
     name: payload.name,
-    category: payload.category,
     language: payload.language,
-    header_type: payload.header_type ?? null,
-    header_content: payload.header_content ?? null,
-    header_media_url: payload.header_media_url ?? null,
-    header_handle: payload.header_handle ?? null,
-    body_text: payload.body_text,
-    footer_text: payload.footer_text ?? null,
-    buttons: payload.buttons ?? null,
-    sample_values: payload.sample_values ?? null,
+    ...templateRowFields(payload),
     status: extras.status,
     meta_template_id: extras.metaTemplateId,
     submission_error: extras.submissionError,
     // Clear stale rejection_reason whenever we re-submit; the
     // webhook will set it again if Meta still rejects.
-    rejection_reason: extras.submissionError ? null : null,
+    rejection_reason: null,
     last_submitted_at: new Date().toISOString(),
   }
 }
@@ -65,21 +66,35 @@ function buildUpsertRow(
 async function upsertTemplateRow(
   db: DataClient,
   row: ReturnType<typeof buildUpsertRow>,
+  draftId: string | null,
 ) {
-  // One template per (account, name, language): teammates share it.
-  return db
-    .from('message_templates')
-    .upsert(row, { onConflict: 'account_id,name,language' })
-    .select()
-    .single()
+  // An existing row (a saved draft, or an unsubmitted row found by name)
+  // is updated in place by id, and only while it has never reached Meta:
+  // a concurrent submit that already linked it wins, and this write then
+  // matches no row instead of wiping that link. Otherwise the row is new;
+  // a plain insert (not an upsert by name) means a concurrent request
+  // that created the same (account, name, language) first is never
+  // overwritten — this insert fails on the unique key instead.
+  if (draftId) {
+    return db
+      .from('message_templates')
+      .update(row)
+      .eq('id', draftId)
+      .eq('account_id', row.account_id)
+      .is('meta_template_id', null)
+      .select()
+      .maybeSingle()
+  }
+  return db.from('message_templates').insert(row).select().single()
 }
 
 /**
  * Submit a template to Meta for approval AND persist it locally.
  *
  * Auth → fetch whatsapp_config → validate → (DRY_RUN short-circuit) →
- * POST to Meta → upsert local row by (account_id, name, language) with
- * status, meta_template_id, sample_values, last_submitted_at.
+ * POST to Meta → write the local row (update the unsubmitted row by id,
+ * or insert a new one) with status, meta_template_id, sample_values,
+ * last_submitted_at. A name already used by a submitted template is 409.
  *
  * When WHATSAPP_TEMPLATES_DRY_RUN=true, we skip the network call and
  * insert a row with a synthetic `dry-run-<uuid>` meta_template_id so
@@ -87,6 +102,16 @@ async function upsertTemplateRow(
  *
  * On the Meta side this is a one-way trip — a row can only be
  * submitted; editing or deleting requires hsm_id and lives in PR 4.
+ *
+ * Submitting a saved draft: send the draft's `id` with the full
+ * payload. The draft must belong to the account and must never have
+ * reached Meta (no meta_template_id) — submitted templates change
+ * through PATCH /api/whatsapp/templates/[id]. The draft row is then
+ * updated in place by id instead of upserted by name.
+ *
+ * Every outcome that persists a row records a status event (source
+ * 'submit'): the new status on success, DRAFT with the Meta error as
+ * the reason on failure.
  */
 export async function POST(request: Request) {
   try {
@@ -96,20 +121,39 @@ export async function POST(request: Request) {
     // membership, so a viewer or agent could push a template to Meta for
     // approval — an external side effect RLS can't roll back — before the
     // local upsert was refused.
-    const { db, accountId, userId } = await requireRole('admin')
+    const ctx = await requireRole('admin')
+    const { db, accountId, userId } = ctx
 
-    let payload: TemplatePayload
+    let body: (TemplatePayload & { id?: unknown }) | null
     try {
-      payload = (await request.json()) as TemplatePayload
+      body = (await request.json()) as (TemplatePayload & { id?: unknown }) | null
     } catch {
       return NextResponse.json({ error: t('templates.invalidJsonBody') }, { status: 400 })
     }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: t('templates.invalidJsonBody') }, { status: 400 })
+    }
 
-    if (payload.category === 'Authentication') {
+    const { id: rawDraftId, ...rest } = body
+    const payload: TemplatePayload = rest
+    let draftId: string | null = null
+    if (rawDraftId !== undefined && rawDraftId !== null) {
+      if (typeof rawDraftId !== 'string' || !UUID_RE.test(rawDraftId)) {
+        return NextResponse.json({ error: t('templates.invalidId') }, { status: 400 })
+      }
+      draftId = rawDraftId
+    }
+
+    // Authentication-category templates are only supported as the
+    // authentication kind, whose OTP body Meta writes itself.
+    if (
+      payload.category === 'Authentication' &&
+      payload.template_kind !== 'authentication'
+    ) {
       return NextResponse.json(
         {
           error:
-            t('templates.authNotSupported'),
+            t('templates.authKindRequired'),
         },
         { status: 400 },
       )
@@ -122,6 +166,48 @@ export async function POST(request: Request) {
         { error: e instanceof Error ? e.message : t('templates.validationFailed') },
         { status: 400 },
       )
+    }
+
+    if (draftId) {
+      const { data: draft, error: draftErr } = await db
+        .from('message_templates')
+        .select('id, meta_template_id')
+        .eq('id', draftId)
+        .eq('account_id', accountId)
+        .maybeSingle()
+      if (draftErr || !draft) {
+        return NextResponse.json({ error: t('templates.notFound') }, { status: 404 })
+      }
+      if (draft.meta_template_id) {
+        return NextResponse.json(
+          { error: t('templates.draft.alreadySubmitted') },
+          { status: 409 },
+        )
+      }
+    }
+
+    // A (name, language) already taken by another template would only
+    // fail after Meta had answered — refuse up front. Without a draft id,
+    // an unsubmitted row with this name is adopted as the draft (updated
+    // in place by id); a submitted one is never turned back into a DRAFT.
+    const { data: clash, error: clashErr } = await db
+      .from('message_templates')
+      .select('id, meta_template_id')
+      .eq('account_id', accountId)
+      .eq('name', payload.name)
+      .eq('language', payload.language)
+      .maybeSingle()
+    if (clashErr) {
+      return NextResponse.json({ error: t('templates.submitFailed') }, { status: 500 })
+    }
+    if (clash && clash.id !== draftId) {
+      if (draftId || clash.meta_template_id) {
+        return NextResponse.json(
+          { error: t('templates.draft.nameTaken') },
+          { status: 409 },
+        )
+      }
+      draftId = clash.id as string
     }
 
     const dryRun =
@@ -163,11 +249,12 @@ export async function POST(request: Request) {
 
       // Media headers (image/video/document) need a Resumable-Upload
       // handle (Meta rejects a plain URL at creation). Derive it from
-      // header_media_url before building the payload. Surfaces a 400 with
-      // an actionable message (missing META_APP_ID, unreachable URL,
-      // wrong type/size).
+      // header_media_url before building the payload; carousel cards
+      // each need one too. Surfaces a 400 with an actionable message
+      // (missing META_APP_ID, unreachable URL, wrong type/size).
       try {
         await ensureMediaHeaderHandle(payload, accessToken, accountId)
+        await ensureCarouselCardHandles(payload, accessToken, accountId)
       } catch (e) {
         return NextResponse.json(
           { error: e instanceof Error ? e.message : t('templates.headerUploadFailed') },
@@ -188,14 +275,28 @@ export async function POST(request: Request) {
         const message = e instanceof Error ? e.message : t('templates.metaSubmitFailed')
         // Persist the failure so the user can retry; row stays DRAFT
         // until they fix and re-submit.
-        await upsertTemplateRow(
+        const { data: failedRow } = await upsertTemplateRow(
           db,
           buildUpsertRow(accountId, userId, payload, {
             status: 'DRAFT',
             metaTemplateId: null,
             submissionError: message,
           }),
+          draftId,
         )
+        if (failedRow?.id) {
+          await recordTemplateEvents(tenantOf(ctx), [
+            { templateId: failedRow.id, status: 'DRAFT', reason: message, source: 'submit' },
+          ])
+        } else if (draftId) {
+          // A concurrent submit linked this draft to Meta while this one
+          // was failing; that link is kept, and the Meta error is likely
+          // the duplicate it caused.
+          return NextResponse.json(
+            { error: t('templates.submitRaced'), meta_error: message },
+            { status: 409 },
+          )
+        }
         const isRateLimit = /\b429\b/.test(message)
         return NextResponse.json(
           {
@@ -208,13 +309,15 @@ export async function POST(request: Request) {
       }
     }
 
+    const status = normalizeStatus(metaStatus)
     const { data: row, error: upsertErr } = await upsertTemplateRow(
       db,
       buildUpsertRow(accountId, userId, payload, {
-        status: normalizeStatus(metaStatus),
+        status,
         metaTemplateId,
         submissionError: null,
       }),
+      draftId,
     )
 
     if (upsertErr) {
@@ -228,6 +331,22 @@ export async function POST(request: Request) {
         },
         { status: 500 },
       )
+    }
+
+    if (!row) {
+      // Meta accepted this submit, but a concurrent one had already linked
+      // the draft. Keep that link; surface this meta_template_id so the
+      // extra Meta template can be reconciled via "Sync from Meta".
+      return NextResponse.json(
+        { error: t('templates.submitRaced'), meta_template_id: metaTemplateId },
+        { status: 409 },
+      )
+    }
+
+    if (row.id) {
+      await recordTemplateEvents(tenantOf(ctx), [
+        { templateId: row.id, status, source: 'submit' },
+      ])
     }
 
     return NextResponse.json({

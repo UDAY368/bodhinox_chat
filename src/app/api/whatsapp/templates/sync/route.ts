@@ -7,7 +7,20 @@ import {
 } from '@/lib/auth/account'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { normalizeStatus } from '@/lib/whatsapp/template-status-normalize'
-import type { TemplateButton, TemplateSampleValues } from '@/types'
+import {
+  normalizeRejectionReason,
+  recordTemplateEvents,
+  type TemplateStatusEventInput,
+} from '@/lib/whatsapp/template-events'
+import { tenantOf } from '@/lib/audience/http'
+import type {
+  AuthTemplateOptions,
+  CarouselCard,
+  LimitedTimeOffer,
+  TemplateButton,
+  TemplateKind,
+  TemplateSampleValues,
+} from '@/types'
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
@@ -34,6 +47,7 @@ interface MetaButton {
   url?: string
   phone_number?: string
   example?: string[] | string
+  otp_type?: string
 }
 
 interface MetaTemplateComponent {
@@ -46,6 +60,13 @@ interface MetaTemplateComponent {
     header_handle?: string[]
     body_text?: string[][]
   }
+  /** CAROUSEL: each card carries its own HEADER / BODY / BUTTONS. */
+  cards?: { components?: MetaTemplateComponent[] }[]
+  /** LIMITED_TIME_OFFER */
+  limited_time_offer?: { text?: string; has_expiration?: boolean }
+  /** AUTHENTICATION BODY / FOOTER */
+  add_security_recommendation?: boolean
+  code_expiration_minutes?: number
 }
 
 interface MetaTemplate {
@@ -56,6 +77,7 @@ interface MetaTemplate {
   category: string
   components?: MetaTemplateComponent[]
   quality_score?: { score?: string } | string
+  rejected_reason?: string
 }
 
 function normalizeCategory(
@@ -130,13 +152,101 @@ function extractSampleValues(
   return sv
 }
 
+function findComponent(
+  components: MetaTemplateComponent[] | undefined,
+  type: string,
+): MetaTemplateComponent | undefined {
+  return (components ?? []).find((c) => c.type?.toUpperCase() === type)
+}
+
+function parseCard(card: { components?: MetaTemplateComponent[] }): CarouselCard | null {
+  const header = findComponent(card.components, 'HEADER')
+  const body = findComponent(card.components, 'BODY')
+  const format = header?.format?.toUpperCase()
+  if (format !== 'IMAGE' && format !== 'VIDEO') return null
+  const bodySample = body?.example?.body_text?.[0]
+  return {
+    header_type: format === 'IMAGE' ? 'image' : 'video',
+    header_handle: header?.example?.header_handle?.[0],
+    body_text: body?.text ?? '',
+    ...(bodySample?.length ? { sample_values: { body: bodySample } } : {}),
+    buttons: parseButtons(findComponent(card.components, 'BUTTONS')?.buttons),
+  }
+}
+
+/**
+ * The template kind and its kind-specific fields, read from Meta's
+ * components. Authentication templates map to the authentication kind
+ * only for the copy-code OTP this app builds; other OTP types stay
+ * standard rows with the Authentication category, as before.
+ */
+function parseKind(t: MetaTemplate): {
+  template_kind: TemplateKind
+  cards: CarouselCard[] | null
+  auth_options: AuthTemplateOptions | null
+  lto: LimitedTimeOffer | null
+} {
+  const none = { cards: null, auth_options: null, lto: null }
+  const carousel = findComponent(t.components, 'CAROUSEL')
+  if (carousel?.cards?.length) {
+    const cards = carousel.cards.map(parseCard)
+    if (cards.every((c): c is CarouselCard => c !== null)) {
+      return { ...none, template_kind: 'carousel', cards }
+    }
+  }
+  const offer = findComponent(t.components, 'LIMITED_TIME_OFFER')?.limited_time_offer
+  if (offer?.text) {
+    return {
+      ...none,
+      template_kind: 'limited_time_offer',
+      lto: { text: offer.text, has_expiration: offer.has_expiration === true },
+    }
+  }
+  const otp = findComponent(t.components, 'BUTTONS')?.buttons?.find(
+    (b) => b.type?.toUpperCase() === 'OTP',
+  )
+  if (t.category.toUpperCase() === 'AUTHENTICATION' && otp?.otp_type?.toUpperCase() === 'COPY_CODE') {
+    const body = findComponent(t.components, 'BODY')
+    const footer = findComponent(t.components, 'FOOTER')
+    const options: AuthTemplateOptions = { otp_type: 'COPY_CODE' }
+    if (body?.add_security_recommendation) options.add_security_recommendation = true
+    if (footer?.code_expiration_minutes) options.code_expiration_minutes = footer.code_expiration_minutes
+    if (otp.text) options.button_text = otp.text
+    return { ...none, template_kind: 'authentication', auth_options: options }
+  }
+  return { ...none, template_kind: 'standard' }
+}
+
+/**
+ * Meta's components carry only each card's header handle, never the
+ * workspace media URL every carousel send needs. When the synced row is
+ * still the same carousel (same card count, same header type per card),
+ * keep the media each stored card already has instead of dropping it.
+ */
+function keepCardMedia(
+  parsed: CarouselCard[] | null,
+  stored: unknown,
+): CarouselCard[] | null {
+  if (!parsed || !Array.isArray(stored) || stored.length !== parsed.length) return parsed
+  return parsed.map((card, i) => {
+    const prev = stored[i] as Partial<CarouselCard> | null
+    return prev &&
+      prev.header_type === card.header_type &&
+      typeof prev.header_media_url === 'string' &&
+      prev.header_media_url
+      ? { ...card, header_media_url: prev.header_media_url }
+      : card
+  })
+}
+
 export async function POST() {
   try {
     // Syncing rewrites the account-wide template catalog, which is
     // settings-class data: `canEditSettings` and the message_templates
     // insert/update RLS policies (migration 017) both require 'admin'.
     // Resolving account_id off the profile only proved membership.
-    const { db, accountId, userId } = await requireRole('admin')
+    const ctx = await requireRole('admin')
+    const { db, accountId, userId } = ctx
 
     const { data: config, error: configError } = await db
       .from('whatsapp_config')
@@ -169,7 +279,7 @@ export async function POST() {
     const metaTemplates: MetaTemplate[] = []
     let nextUrl:
       | string
-      | null = `${META_API_BASE}/${config.waba_id}/message_templates?limit=100&fields=id,name,language,status,category,components,quality_score`
+      | null = `${META_API_BASE}/${config.waba_id}/message_templates?limit=100&fields=id,name,language,status,category,components,quality_score,rejected_reason`
     const PAGE_CAP = 20
     let pageCount = 0
 
@@ -201,6 +311,7 @@ export async function POST() {
     let inserted = 0
     let updated = 0
     const errors: { name: string; language: string; message: string }[] = []
+    const events: TemplateStatusEventInput[] = []
 
     for (const t of metaTemplates) {
       const body = (t.components ?? []).find((c) => c.type === 'BODY')
@@ -216,9 +327,16 @@ export async function POST() {
         headerFormat === 'TEXT' ||
         headerFormat === 'IMAGE' ||
         headerFormat === 'VIDEO' ||
-        headerFormat === 'DOCUMENT'
+        headerFormat === 'DOCUMENT' ||
+        headerFormat === 'LOCATION'
           ? headerFormat.toLowerCase()
           : null
+
+      const status = normalizeStatus(t.status)
+      const qualityScore = normalizeQualityScore(t.quality_score)
+      // Meta reports 'NONE' (or nothing) unless the template is rejected;
+      // shared with the webhook so both store the same value.
+      const rejectionReason = normalizeRejectionReason(status, t.rejected_reason)
 
       const row = {
         // Account tenancy + user audit, same split as the submit
@@ -236,15 +354,17 @@ export async function POST() {
         footer_text: footer?.text ?? null,
         buttons: parsedButtons.length ? parsedButtons : null,
         sample_values: sampleValues,
-        status: normalizeStatus(t.status),
+        ...parseKind(t),
+        status,
         meta_template_id: t.id,
-        quality_score: normalizeQualityScore(t.quality_score),
+        quality_score: qualityScore,
+        rejection_reason: rejectionReason,
         updated_at: new Date().toISOString(),
       }
 
       const { data: existing, error: lookupErr } = await db
         .from('message_templates')
-        .select('id')
+        .select('id,template_kind,cards')
         .eq('account_id', accountId)
         .eq('name', t.name)
         .eq('language', t.language)
@@ -260,9 +380,13 @@ export async function POST() {
       }
 
       if (existing?.id) {
+        const update =
+          row.template_kind === 'carousel' && existing.template_kind === 'carousel'
+            ? { ...row, cards: keepCardMedia(row.cards, existing.cards) }
+            : row
         const { error: updErr } = await db
           .from('message_templates')
-          .update(row)
+          .update(update)
           .eq('id', existing.id)
         if (updErr) {
           errors.push({
@@ -272,11 +396,20 @@ export async function POST() {
           })
         } else {
           updated++
+          events.push({
+            templateId: existing.id,
+            status,
+            reason: rejectionReason,
+            qualityScore,
+            source: 'sync',
+          })
         }
       } else {
-        const { error: insErr } = await db
+        const { data: created, error: insErr } = await db
           .from('message_templates')
           .insert(row)
+          .select('id')
+          .single()
         if (insErr) {
           errors.push({
             name: t.name,
@@ -285,9 +418,22 @@ export async function POST() {
           })
         } else {
           inserted++
+          if (created?.id) {
+            events.push({
+              templateId: created.id,
+              status,
+              reason: rejectionReason,
+              qualityScore,
+              source: 'sync',
+            })
+          }
         }
       }
     }
+
+    // Recorded in bounded chunks; unchanged templates are skipped
+    // against their latest recorded event.
+    await recordTemplateEvents(tenantOf(ctx), events)
 
     return NextResponse.json({
       success: errors.length === 0,

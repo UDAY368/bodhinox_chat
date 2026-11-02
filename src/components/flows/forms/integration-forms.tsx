@@ -23,6 +23,7 @@ import { authFetch } from "@/lib/auth/client";
 import type { ApiRequestNodeConfig, SendTemplateNodeConfig } from "@/lib/flows/types";
 import type { BuilderNode } from "../shared";
 import { NextNodeRow } from "./fields";
+import { FLOW_OFFER_MAX_MINUTES } from "@/lib/whatsapp/template-send-params";
 import { useApprovedTemplates, useAssignableMembers, useFlowList, type FlowTemplate } from "./use-pickers";
 
 type T = ReturnType<typeof useTranslations>;
@@ -58,10 +59,18 @@ export function SendTemplateForm({ node, allNodes, onUpdateConfig, t }: FormProp
     const quickReplies = (template.buttons ?? [])
       .map((b, index) => ({ ...b, index }))
       .filter((b) => b.type === "QUICK_REPLY");
+    const cards = template.template_kind === "carousel" ? template.cards ?? [] : [];
     onUpdateConfig({
       template_name: template.name,
       language: template.language ?? undefined,
       body_params: Array.from({ length: count }, (_, i) => params[i] ?? ""),
+      // Extras only for the kinds that use them; switching templates clears the rest.
+      location: template.header_type === "location" ? cfg.location ?? { latitude: "", longitude: "" } : undefined,
+      offer_expires_in_minutes: template.lto?.has_expiration ? cfg.offer_expires_in_minutes ?? 60 : undefined,
+      coupon_code: (template.buttons ?? []).some((b) => b.type === "COPY_CODE") ? cfg.coupon_code ?? "" : undefined,
+      card_params: cards.length
+        ? cards.map((c, ci) => Array.from({ length: bodyVariableCount(c.body_text) }, (_, i) => cfg.card_params?.[ci]?.[i] ?? ""))
+        : undefined,
       buttons: quickReplies.map((b) => ({
         index: b.index,
         reply_id: `tpl_${b.index + 1}`,
@@ -101,6 +110,79 @@ export function SendTemplateForm({ node, allNodes, onUpdateConfig, t }: FormProp
           />
         </div>
       ))}
+      {cfg.location && (
+        <div className="space-y-2 rounded-md border border-border p-2">
+          <p className="text-xs font-medium">{t("templateLocation")}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {(["latitude", "longitude"] as const).map((k) => (
+              <div key={k}>
+                <label htmlFor={`tpl-${node.node_key}-${k}`} className={label}>{t(k === "latitude" ? "templateLatitude" : "templateLongitude")}</label>
+                <Input
+                  id={`tpl-${node.node_key}-${k}`}
+                  inputMode="decimal"
+                  value={String(cfg.location?.[k] ?? "")}
+                  onChange={(e) => onUpdateConfig({ location: { ...cfg.location, [k]: e.target.value } })}
+                  className="bg-muted"
+                />
+              </div>
+            ))}
+          </div>
+          {(["name", "address"] as const).map((k) => (
+            <Input
+              key={k}
+              aria-label={t(k === "name" ? "templateLocationName" : "templateLocationAddress")}
+              placeholder={t(k === "name" ? "templateLocationName" : "templateLocationAddress")}
+              value={cfg.location?.[k] ?? ""}
+              onChange={(e) => onUpdateConfig({ location: { ...cfg.location, [k]: e.target.value || undefined } })}
+              className="bg-muted"
+            />
+          ))}
+        </div>
+      )}
+      {cfg.offer_expires_in_minutes !== undefined && (
+        <div>
+          <label htmlFor={`tpl-${node.node_key}-offer`} className={label}>{t("templateOfferMinutes")}</label>
+          <Input
+            id={`tpl-${node.node_key}-offer`}
+            type="number"
+            min={1}
+            max={FLOW_OFFER_MAX_MINUTES}
+            value={cfg.offer_expires_in_minutes}
+            onChange={(e) => onUpdateConfig({ offer_expires_in_minutes: e.target.value === "" ? 0 : Number(e.target.value) })}
+            className="bg-muted"
+          />
+          <p className={help}>{t("templateOfferHelp")}</p>
+        </div>
+      )}
+      {cfg.coupon_code !== undefined && (
+        <div>
+          <label htmlFor={`tpl-${node.node_key}-coupon`} className={label}>{t("templateCoupon")}</label>
+          <Input
+            id={`tpl-${node.node_key}-coupon`}
+            value={cfg.coupon_code}
+            onChange={(e) => onUpdateConfig({ coupon_code: e.target.value })}
+            className="bg-muted"
+          />
+          <p className={help}>{t("templateCouponHelp")}</p>
+        </div>
+      )}
+      {(cfg.card_params ?? []).map((values, ci) =>
+        values.map((value, i) => (
+          <div key={`c${ci}-${i}`}>
+            <label htmlFor={`tpl-${node.node_key}-c${ci}-${i}`} className={label}>{t("templateCardParam", { card: ci + 1, n: i + 1 })}</label>
+            <Input
+              id={`tpl-${node.node_key}-c${ci}-${i}`}
+              value={value}
+              onChange={(e) =>
+                onUpdateConfig({
+                  card_params: (cfg.card_params ?? []).map((list, x) => (x === ci ? list.map((v, y) => (y === i ? e.target.value : v)) : list)),
+                })
+              }
+              className="bg-muted"
+            />
+          </div>
+        )),
+      )}
       {buttons.length > 0 ? (
         buttons.map((b, i) => (
           <NextNodeRow

@@ -30,8 +30,12 @@
  * not a 400 from Meta that doesn't say which field broke.
  */
 
-import type { MessageTemplate, TemplateButton } from '@/types';
-import { extractVariableIndices } from './template-validators';
+import type {
+  CarouselCard,
+  MessageTemplate,
+  TemplateButton,
+} from '@/types';
+import { extractVariableIndices, templateKindOf } from './template-validators';
 import { getT } from '@/lib/i18n/translate';
 
 const t = getT('Validation.templates');
@@ -52,16 +56,74 @@ export interface SendTimeParams {
    * override at send time.
    */
   buttonParams?: Record<number, string>;
+  /** Required for a LOCATION header: the place shown above the body. */
+  location?: LocationSendParams;
+  /**
+   * Authentication templates: the one-time code. It fills the body's
+   * {{1}} and the copy-code button, which Meta requires to match.
+   */
+  authCode?: string;
+  /**
+   * Limited-time offer: when the offer ends, in Unix epoch milliseconds.
+   * Required when the template's offer has an expiration.
+   */
+  offerExpirationTimeMs?: number;
+  /**
+   * Code for a COPY_CODE button (limited-time offers and standard
+   * templates). `buttonParams[i]` still wins for that button; the
+   * button's stored example is the fallback.
+   */
+  couponCode?: string;
+  /** Carousel: per-card values, by card position. */
+  cards?: CarouselCardSendParams[];
 }
+
+export interface LocationSendParams {
+  latitude: number;
+  longitude: number;
+  name?: string;
+  address?: string;
+}
+
+export interface CarouselCardSendParams {
+  /** Override the card's stored header_media_url for this send. */
+  headerMediaUrl?: string;
+  /** Alternative: a Meta media id from a prior /media upload. */
+  headerMediaId?: string;
+  /** Values for the card body's {{1}}, {{2}}, … */
+  body?: string[];
+  /**
+   * Per-button values keyed by the button's index in the card: a URL
+   * button's {{1}} suffix or a quick reply's payload (defaults to the
+   * button text).
+   */
+  buttonParams?: Record<number, string>;
+}
+
+/** Longest one-time code Meta accepts for authentication templates. */
+export const AUTH_CODE_MAX_LENGTH = 15;
+
+type MetaSendButtonComponent = {
+  type: 'button';
+  sub_type: 'url' | 'quick_reply' | 'copy_code';
+  index: string;
+  parameters: MetaSendParameter[];
+};
 
 export type MetaSendComponent =
   | { type: 'header'; parameters: MetaSendParameter[] }
   | { type: 'body'; parameters: MetaSendParameter[] }
+  | MetaSendButtonComponent
   | {
-      type: 'button';
-      sub_type: 'url' | 'quick_reply' | 'copy_code';
-      index: string;
-      parameters: MetaSendParameter[];
+      type: 'limited_time_offer';
+      parameters: {
+        type: 'limited_time_offer';
+        limited_time_offer: { expiration_time_ms: number };
+      }[];
+    }
+  | {
+      type: 'carousel';
+      cards: { card_index: number; components: MetaSendComponent[] }[];
     };
 
 type MetaSendParameter =
@@ -69,8 +131,43 @@ type MetaSendParameter =
   | { type: 'image'; image: { link?: string; id?: string } }
   | { type: 'video'; video: { link?: string; id?: string } }
   | { type: 'document'; document: { link?: string; id?: string } }
+  | {
+      type: 'location';
+      location: { latitude: number; longitude: number; name?: string; address?: string };
+    }
   | { type: 'coupon_code'; coupon_code: string }
   | { type: 'payload'; payload: string };
+
+function mediaParameter(
+  kind: 'image' | 'video' | 'document',
+  media: { link?: string; id?: string },
+): MetaSendParameter {
+  return kind === 'image'
+    ? { type: 'image', image: media }
+    : kind === 'video'
+      ? { type: 'video', video: media }
+      : { type: 'document', document: media };
+}
+
+function buildLocationHeader(location: LocationSendParams | undefined): MetaSendComponent {
+  if (!location) throw new Error(t('locationValueRequired'));
+  const { latitude, longitude, name, address } = location;
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    Math.abs(latitude) > 90 ||
+    Math.abs(longitude) > 180
+  ) {
+    throw new Error(t('locationValueInvalid'));
+  }
+  const value: { latitude: number; longitude: number; name?: string; address?: string } = {
+    latitude,
+    longitude,
+  };
+  if (name?.trim()) value.name = name;
+  if (address?.trim()) value.address = address;
+  return { type: 'header', parameters: [{ type: 'location', location: value }] };
+}
 
 function buildHeaderComponent(
   template: MessageTemplate,
@@ -78,6 +175,8 @@ function buildHeaderComponent(
 ): MetaSendComponent | null {
   const headerType = template.header_type;
   if (!headerType) return null;
+
+  if (headerType === 'location') return buildLocationHeader(params.location);
 
   if (headerType === 'text') {
     // TEXT header with {{1}} → need a value. Static text headers
@@ -116,19 +215,13 @@ function buildHeaderComponent(
   const mediaPayload: { link?: string; id?: string } = id ? { id } : { link };
   return {
     type: 'header',
-    parameters: [
-      headerType === 'image'
-        ? { type: 'image', image: mediaPayload }
-        : headerType === 'video'
-          ? { type: 'video', video: mediaPayload }
-          : { type: 'document', document: mediaPayload },
-    ],
+    parameters: [mediaParameter(headerType, mediaPayload)],
   };
 }
 
 function buildBodyComponent(
-  template: MessageTemplate,
-  params: SendTimeParams,
+  template: Pick<MessageTemplate, 'body_text'>,
+  params: Pick<SendTimeParams, 'body'>,
 ): MetaSendComponent | null {
   const varCount = extractVariableIndices(template.body_text).length;
   const body = params.body ?? [];
@@ -169,7 +262,7 @@ function buildButtonComponent(
   button: TemplateButton,
   index: number,
   override: string | undefined,
-): MetaSendComponent | null {
+): MetaSendButtonComponent | null {
   if (!buttonNeedsSendParam(button, override)) return null;
 
   switch (button.type) {
@@ -214,6 +307,102 @@ function buildButtonComponent(
   }
 }
 
+function buildButtonComponents(
+  buttons: TemplateButton[] | undefined,
+  params: Pick<SendTimeParams, 'buttonParams' | 'couponCode'>,
+): MetaSendComponent[] {
+  const out: MetaSendComponent[] = [];
+  (buttons ?? []).forEach((btn, i) => {
+    const override =
+      params.buttonParams?.[i] ?? (btn.type === 'COPY_CODE' ? params.couponCode : undefined);
+    const component = buildButtonComponent(btn, i, override);
+    if (component) out.push(component);
+  });
+  return out;
+}
+
+/**
+ * Authentication: the code fills the Meta-written body's {{1}} and the
+ * OTP copy-code button (sent as a url sub_type, per Meta's send spec).
+ * The stored body_text is a placeholder and is never sent.
+ */
+function buildAuthenticationComponents(params: SendTimeParams): MetaSendComponent[] {
+  const code = params.authCode?.trim();
+  if (!code) throw new Error(t('authCodeRequired'));
+  if (code.length > AUTH_CODE_MAX_LENGTH) {
+    throw new Error(t('authCodeTooLong', { max: AUTH_CODE_MAX_LENGTH }));
+  }
+  return [
+    { type: 'body', parameters: [{ type: 'text', text: code }] },
+    {
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [{ type: 'text', text: code }],
+    },
+  ];
+}
+
+function buildOfferComponent(
+  template: MessageTemplate,
+  params: SendTimeParams,
+): MetaSendComponent | null {
+  if (!template.lto?.has_expiration) return null;
+  const ms = params.offerExpirationTimeMs;
+  if (ms == null || !Number.isInteger(ms) || ms <= 0) {
+    throw new Error(t('ltoExpirationRequired'));
+  }
+  return {
+    type: 'limited_time_offer',
+    parameters: [{ type: 'limited_time_offer', limited_time_offer: { expiration_time_ms: ms } }],
+  };
+}
+
+function buildCard(
+  card: CarouselCard,
+  cardIndex: number,
+  params: CarouselCardSendParams,
+): { card_index: number; components: MetaSendComponent[] } {
+  const n = cardIndex + 1;
+  const link = params.headerMediaUrl ?? card.header_media_url;
+  const id = params.headerMediaId;
+  if (!link && !id) {
+    throw new Error(t('cardMediaSendSource', { n, type: card.header_type }));
+  }
+  const components: MetaSendComponent[] = [
+    { type: 'header', parameters: [mediaParameter(card.header_type, id ? { id } : { link })] },
+  ];
+  try {
+    const body = buildBodyComponent(card, params);
+    if (body) components.push(body);
+    (card.buttons ?? []).forEach((btn, i) => {
+      // Card quick replies always carry a payload; default to the label.
+      const override =
+        params.buttonParams?.[i] ?? (btn.type === 'QUICK_REPLY' ? btn.text : undefined);
+      const component = buildButtonComponent(btn, i, override);
+      if (component) components.push(component);
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(t('cardError', { n, message }));
+  }
+  return { card_index: cardIndex, components };
+}
+
+function buildCarouselComponents(
+  template: MessageTemplate,
+  params: SendTimeParams,
+): MetaSendComponent[] {
+  const out: MetaSendComponent[] = [];
+  const body = buildBodyComponent(template, params);
+  if (body) out.push(body);
+  out.push({
+    type: 'carousel',
+    cards: (template.cards ?? []).map((card, i) => buildCard(card, i, params.cards?.[i] ?? {})),
+  });
+  return out;
+}
+
 /**
  * Build the full `components` array for the send-message payload.
  * Returns an empty array when the template is fully static (no
@@ -223,17 +412,19 @@ export function buildSendComponents(
   template: MessageTemplate,
   params: SendTimeParams = {},
 ): MetaSendComponent[] {
+  const kind = templateKindOf(template);
+  if (kind === 'authentication') return buildAuthenticationComponents(params);
+  if (kind === 'carousel') return buildCarouselComponents(template, params);
+
   const out: MetaSendComponent[] = [];
   const header = buildHeaderComponent(template, params);
   if (header) out.push(header);
+  if (kind === 'limited_time_offer') {
+    const offer = buildOfferComponent(template, params);
+    if (offer) out.push(offer);
+  }
   const body = buildBodyComponent(template, params);
   if (body) out.push(body);
-  if (template.buttons?.length) {
-    template.buttons.forEach((btn, i) => {
-      const override = params.buttonParams?.[i];
-      const component = buildButtonComponent(btn, i, override);
-      if (component) out.push(component);
-    });
-  }
+  out.push(...buildButtonComponents(template.buttons, params));
   return out;
 }

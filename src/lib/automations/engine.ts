@@ -865,6 +865,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         templateName: cfg.template_name,
         language: cfg.language,
         params,
+        bodyValuesOnly: true,
       }))
       return `template sent via Meta (${whatsapp_message_id})`
     }

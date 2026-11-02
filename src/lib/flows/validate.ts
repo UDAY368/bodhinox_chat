@@ -25,6 +25,7 @@
 
 import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/interactive-limits";
 import { getT } from "@/lib/i18n/translate";
+import { flowTemplateExtrasIssues, type FlowTemplateExtras } from "@/lib/whatsapp/template-send-params";
 import { isValidTimeZone } from "@/lib/automations/time-of-day";
 import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
 import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
@@ -907,6 +908,10 @@ function validateNode(
         }
       });
       if (!buttons.length) issues.push(...portIssues(node, knownKeys, "next_node_key", "nodeNeedsNext", "nodeMissingNext"));
+      // Location, offer window, coupon and carousel card values (lib/whatsapp/template-send-params).
+      for (const issue of flowTemplateExtrasIssues(cfg as FlowTemplateExtras)) {
+        issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: issue.field, message: issue.message });
+      }
       break;
     }
 

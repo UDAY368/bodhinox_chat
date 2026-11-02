@@ -10,6 +10,7 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
+import { automationTemplateIssues } from '@/lib/automations/template-check';
 import { getT } from '@/lib/i18n/translate';
 import { requireActiveAutomationRoom } from '@/lib/billing/activation';
 
@@ -104,6 +105,20 @@ export async function POST(request: Request) {
   if (!effectiveName || !effectiveTriggerType) {
     return NextResponse.json(
       { error: t('automations.nameTriggerRequired') },
+      { status: 400 }
+    );
+  }
+
+  // A template step that needs more than body values would fail on
+  // every run, so it is refused on any save, draft or active.
+  const templateIssues = await automationTemplateIssues(
+    db,
+    accountId,
+    effectiveSteps
+  );
+  if (templateIssues.length > 0) {
+    return NextResponse.json(
+      { error: templateIssues[0].message, issues: templateIssues },
       { status: 400 }
     );
   }

@@ -6,6 +6,7 @@ import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Loader2, FileText, ArrowRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
 
 const categoryColors: Record<string, string> = {
   Marketing: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
@@ -87,12 +88,16 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
           {templates.map((template) => {
             const isSelected = selectedTemplate?.id === template.id;
             const catColor = categoryColors[template.category] ?? categoryColors.Utility;
+            // Authentication templates carry a code typed for one person; the server refuses them too.
+            const refused = templateSendRefusal(template, 'campaign') !== null;
 
             return (
               <button
                 key={template.id}
                 onClick={() => onSelect(template)}
-                className={`flex flex-col gap-3 rounded-xl border p-4 text-left transition-all ${
+                disabled={refused}
+                aria-describedby={refused ? `tpl-refused-${template.id}` : undefined}
+                className={`flex flex-col gap-3 rounded-xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                   isSelected
                     ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
                     : 'border-border bg-card/50 hover:border-border hover:bg-card'
@@ -107,6 +112,11 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
                   </span>
                 </div>
                 <p className="line-clamp-3 text-xs text-muted-foreground">{template.body_text}</p>
+                {refused && (
+                  <p id={`tpl-refused-${template.id}`} className="text-[11px] text-amber-300">
+                    {t('chooseTemplate.authNotForCampaigns')}
+                  </p>
+                )}
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                   <span>{template.language ?? 'en_US'}</span>
                   {/* Status is omitted on purpose — every template

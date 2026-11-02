@@ -453,7 +453,23 @@
       "send": "템플릿 보내기",
       "headerVarLabel": "헤더 {var}",
       "bodyVarLabel": "본문 {var}",
-      "urlButtonVarLabel": "URL 버튼 \"{text}\" — {var} 값"
+      "urlButtonVarLabel": "URL 버튼 \"{text}\" — {var} 값",
+      "authPreview": "WhatsApp이 이 인증 메시지를 작성하고 아래에 입력한 코드를 넣습니다.",
+      "authCodeLabel": "일회용 코드",
+      "authCodePlaceholder": "예: 482913",
+      "authCodeHint": "최대 {max}자. 이 연락처에게만 보내지며 대화에 저장되지 않습니다.",
+      "locationTitle": "메시지 위에 표시할 위치",
+      "latitude": "위도",
+      "longitude": "경도",
+      "locationInvalid": "위도는 -90에서 90 사이, 경도는 -180에서 180 사이여야 합니다.",
+      "locationName": "장소 이름(선택)",
+      "locationAddress": "주소(선택)",
+      "offerEndsLabel": "혜택 종료",
+      "offerEndsPast": "미래 시간을 선택하세요.",
+      "couponLabel": "\"{text}\" 코드",
+      "couponHint": "비워 두면 템플릿에 저장된 코드를 사용합니다.",
+      "cardTitle": "카드 {n}",
+      "cardBodyVarLabel": "카드 {n}, 본문 {var}"
     },
     "sidebar": {
       "contactInfo": "연락처 정보",
@@ -1079,7 +1095,8 @@
         "subtitle": "브로드캐스트에 사용할 승인된 메시지 템플릿을 선택하세요.",
         "noTemplates": "사용 가능한 템플릿이 없습니다.",
         "createFirst": "먼저 설정에서 템플릿을 만드세요.",
-        "errorLoad": "템플릿을 불러오지 못했습니다"
+        "errorLoad": "템플릿을 불러오지 못했습니다",
+        "authNotForCampaigns": "인증 템플릿은 캠페인에서 사용할 수 없습니다. 받은편지함이나 API에서 보내세요."
       },
       "selectAudience": {
         "title": "대상 선택",
@@ -1174,7 +1191,22 @@
         "selectCsvColumn": "열 선택...",
         "trackedUrl": "링크 대상 (클릭 추적)",
         "trackedUrlHint": "이 템플릿의 버튼은 추적 링크를 엽니다. 수신자가 도착할 https:// 페이지를 입력하세요. 클릭은 수신자별로 집계됩니다.",
-        "trackedUrlInvalid": "전체 https:// 주소를 입력하세요."
+        "trackedUrlInvalid": "전체 https:// 주소를 입력하세요.",
+        "cardVariable": "카드 {n} {var}",
+        "locationTitle": "헤더 위치",
+        "locationDesc": "모든 수신자가 메시지 위에서 이 장소를 보게 됩니다.",
+        "latitude": "위도",
+        "longitude": "경도",
+        "locationName": "장소 이름(선택)",
+        "locationAddress": "주소(선택)",
+        "locationRequired": "올바른 위도(-90~90)와 경도(-180~180)를 입력하세요.",
+        "offerTitle": "혜택 정보",
+        "offerEnds": "혜택 종료",
+        "offerEndsDesc": "수신자에게 이 시간까지 카운트다운이 표시됩니다. 캠페인 발송 시작 이후여야 합니다.",
+        "offerEndsPast": "미래 시간을 선택하세요.",
+        "offerEndsRequired": "혜택 종료 시간을 선택하세요.",
+        "couponCode": "\"{text}\" 코드",
+        "couponCodeDesc": "모든 수신자가 이 코드를 받습니다. 비워 두면 템플릿에 저장된 코드를 사용합니다."
       },
       "scheduleSend": {
         "title": "검토 및 전송",
@@ -1815,7 +1847,17 @@
         "connectHelp": "이 플로우가 끝나고 선택한 플로우가 같은 연락처에 같은 변수로 시작됩니다. 선택한 플로우는 활성 상태여야 합니다.",
         "testSamples": "테스트용 예시 값",
         "flowStatusDraft": "초안",
-        "flowStatusArchived": "보관됨"
+        "flowStatusArchived": "보관됨",
+        "templateLocation": "헤더 위치",
+        "templateLatitude": "위도",
+        "templateLongitude": "경도",
+        "templateLocationName": "장소 이름(선택)",
+        "templateLocationAddress": "주소(선택)",
+        "templateOfferMinutes": "혜택 유지 시간(분)",
+        "templateOfferHelp": "이 단계에서 템플릿을 보낸 후 입력한 시간(분)이 지나면 혜택이 종료됩니다.",
+        "templateCoupon": "쿠폰 코드",
+        "templateCouponHelp": "실행 변수를 사용할 수 있습니다. 비워 두면 템플릿에 저장된 코드를 사용합니다.",
+        "templateCardParam": "카드 {card} 값 {n}"
       },
       "categories": {
         "messaging": "메시징",
@@ -2302,7 +2344,90 @@
         "Marketing": "마케팅",
         "Utility": "유틸리티",
         "Authentication": "인증"
-      }
+      },
+      "headerLocation": "위치",
+      "locationHint": "고객에게 지도 핀이 표시됩니다. 보낼 때마다 장소를 선택합니다.",
+      "templateKind": "템플릿 유형",
+      "kindFixed": "제출된 템플릿의 유형은 변경할 수 없습니다.",
+      "kinds": {
+        "standard": "기본",
+        "carousel": "캐러셀",
+        "authentication": "인증",
+        "limited_time_offer": "기간 한정 혜택"
+      },
+      "kindHints": {
+        "standard": "선택 사항인 머리글, 바닥글, 버튼이 있는 텍스트입니다.",
+        "carousel": "짧은 메시지 뒤에 미디어와 버튼이 있는 카드 2~10장이 옆으로 넘겨 보이도록 이어집니다.",
+        "authentication": "복사 버튼이 있는 일회용 코드입니다. 메시지 문구는 WhatsApp이 작성합니다.",
+        "limited_time_offer": "혜택 배너와 종료 시점까지의 선택적 카운트다운이 있는 프로모션입니다."
+      },
+      "dialogDraftTitle": "초안 편집",
+      "preview": "미리보기",
+      "saveDraft": "초안 저장",
+      "savingDraft": "저장 중…",
+      "toastDraftSaved": "초안이 저장되었습니다",
+      "draftSaveFailedHttp": "초안을 저장하지 못했습니다(HTTP {status})",
+      "removeButton": "버튼 삭제",
+      "auth": {
+        "bodyNote": "WhatsApp이 메시지를 작성하고 번역합니다. 코드 표시 방식을 선택하세요.",
+        "security": "코드를 공유하지 말라는 경고 추가",
+        "expiry": "코드 만료 시간(분)",
+        "expiryHint": "선택 사항, {min}~{max}분. 바닥글로 표시됩니다.",
+        "buttonText": "복사 버튼 문구",
+        "buttonTextPlaceholder": "코드 복사"
+      },
+      "lto": {
+        "text": "혜택 제목",
+        "textPlaceholder": "예: 주말 특가",
+        "hasExpiration": "혜택 종료까지 카운트다운 표시",
+        "hint": "카운트다운을 쓰려면 코드 복사 버튼을 추가하세요. 종료 시간은 보낼 때 정합니다."
+      },
+      "cards": {
+        "title": "카드({count}/{max})",
+        "mediaType": "카드 미디어 유형",
+        "add": "카드 추가",
+        "hint": "모든 카드는 같은 미디어 유형과 같은 버튼을 같은 순서로 사용합니다.",
+        "buttonSlots": "모든 카드의 버튼",
+        "slotType": "버튼 {n} 유형",
+        "slotN": "버튼 {n}",
+        "cardN": "카드 {n}",
+        "remove": "카드 {n} 삭제",
+        "mediaUrl": "카드 {n}의 미디어 링크",
+        "body": "카드 {n}의 텍스트"
+      },
+      "tabsLabel": "상태별 템플릿 필터",
+      "tabs": {
+        "all": "전체",
+        "approved": "승인됨",
+        "pending": "대기 중",
+        "rejected": "거부됨",
+        "drafts": "초안",
+        "paused": "일시 중지 또는 비활성화"
+      },
+      "health": {
+        "label": "품질: {level}",
+        "green": "높음",
+        "yellow": "보통",
+        "red": "낮음",
+        "unknown": "아직 평가 없음"
+      },
+      "searchPlaceholder": "이름으로 검색",
+      "noMatches": "이 필터와 일치하는 템플릿이 없습니다.",
+      "issueLabel": "문제",
+      "fromLibrary": "라이브러리에서 시작",
+      "writeWithAi": "AI로 작성",
+      "editDraft": "편집",
+      "editDraftTitle": "이 초안을 편집하거나 승인 요청을 보냅니다",
+      "duplicate": "복제",
+      "duplicateAria": "{name} 복제",
+      "duplicateFailedHttp": "템플릿을 복제하지 못했습니다(HTTP {status})",
+      "toastDuplicated": "초안 {name}이(가) 생성되었습니다",
+      "history": "기록",
+      "historyAria": "{name}의 상태 기록",
+      "historyTitle": "상태 기록",
+      "historyDesc": "{name}의 모든 상태 변경, 최신순.",
+      "placeholderUrlWarning": "아직 샘플 링크(example.com)입니다. 제출하기 전에 실제 URL로 바꾸세요.",
+      "placeholderPhoneWarning": "아직 샘플 번호(+10000000000)입니다. 제출하기 전에 비즈니스 전화번호로 바꾸세요."
     },
     "roles": {
       "admin": "관리자",
@@ -3688,7 +3813,12 @@
       "replyIdsEmpty": "응답 ID는 빈 문자열일 수 없습니다",
       "conditionValueRequired": "Enter a non-empty comparison value.",
       "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone."
+      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "templateCarousel": "자동화는 캐러셀 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 카드 값은 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
+      "templateLimitedTimeOffer": "자동화는 기간 한정 혜택 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 혜택 정보는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
+      "templateLocationHeader": "자동화는 위치 헤더가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 위치는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
+      "templateHeaderVariable": "자동화는 헤더에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다.",
+      "templateUrlVariable": "자동화는 URL 버튼에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다."
     },
     "templates": {
       "nameRequired": "템플릿 이름은 필수입니다.",
@@ -3733,7 +3863,55 @@
       "headerTextValueRequired": "헤더 텍스트 변수 {var}에 값이 필요합니다 — headerText를 전달하세요.",
       "mediaHeaderSendSource": "{type} 헤더는 전송 시 미디어 링크나 id가 필요합니다 — 템플릿에 header_media_url을 설정하거나 headerMediaUrl/headerMediaId를 전달하세요.",
       "bodyValuesMissing": "본문에 변수가 {count}개 있지만 값은 {got}개만 제공되었습니다.",
-      "urlButtonParamRequired": "URL 버튼 #{n}이(가) {var}을(를) 사용합니다 — buttonParams[{index}] 값이 필요합니다."
+      "urlButtonParamRequired": "URL 버튼 #{n}이(가) {var}을(를) 사용합니다 — buttonParams[{index}] 값이 필요합니다.",
+      "kindInvalid": "알 수 없는 템플릿 유형입니다: {kind}.",
+      "kindFieldNotAllowed": "{field} 항목은 이 템플릿 유형에 적용되지 않습니다.",
+      "locationHeaderCategory": "위치 헤더는 마케팅 또는 유틸리티 카테고리의 일반 템플릿에서만 사용할 수 있습니다.",
+      "locationHeaderNoContent": "위치 헤더에는 텍스트, 미디어 또는 샘플을 넣을 수 없습니다.",
+      "carouselCategory": "캐러셀 템플릿은 마케팅 카테고리를 사용해야 합니다.",
+      "carouselNoHeader": "캐러셀 템플릿에는 상단 헤더를 넣을 수 없습니다. 각 카드에 헤더가 있습니다.",
+      "carouselNoFooter": "캐러셀 템플릿에는 바닥글을 넣을 수 없습니다.",
+      "carouselNoButtons": "캐러셀 템플릿에는 상단 버튼을 넣을 수 없습니다. 각 카드에 버튼을 추가하세요.",
+      "carouselCardCount": "캐러셀 템플릿에는 카드가 {min}~{max}개 필요합니다(현재 {got}개).",
+      "cardError": "카드 {n}: {message}",
+      "cardHeaderType": "모든 카드에 이미지 또는 동영상 헤더가 필요합니다.",
+      "cardHeaderMismatch": "모든 카드는 카드 1과 같은 헤더 형식({format})을 사용해야 합니다.",
+      "cardBodyRequired": "카드 본문 텍스트는 필수입니다.",
+      "cardBodyTooLong": "카드 본문 텍스트가 {max}자를 넘습니다(현재 {got}자).",
+      "cardButtonCount": "각 카드에는 버튼이 {min}개 또는 {max}개 필요합니다(현재 {got}개).",
+      "cardButtonType": "카드 버튼은 빠른 답장, URL, 전화번호만 사용할 수 있습니다({n}번 버튼은 {type}).",
+      "cardButtonsMismatch": "모든 카드는 카드 1과 같은 개수와 유형의 버튼을 같은 순서로 가져야 합니다.",
+      "cardMediaSendSource": "카드 {n}은(는) 발송 시 {type} 링크나 미디어 ID가 필요합니다.",
+      "authCategory": "인증 템플릿은 인증 카테고리를 사용해야 합니다.",
+      "authNoHeader": "인증 템플릿에는 헤더를 넣을 수 없습니다.",
+      "authNoFooter": "인증 템플릿에는 사용자 지정 바닥글을 넣을 수 없습니다. 대신 코드 만료 시간을 설정하세요.",
+      "authNoButtons": "인증 템플릿은 코드 복사 버튼 하나만 사용합니다. 다른 버튼을 삭제하세요.",
+      "authOptionsRequired": "인증 템플릿에는 일회용 코드 설정이 필요합니다.",
+      "authOtpType": "인증 템플릿은 코드 복사 버튼만 지원합니다.",
+      "authExpiryRange": "코드 만료 시간은 {min}~{max}분 사이의 정수여야 합니다.",
+      "authSecurityFlag": "보안 권장 문구 설정은 켜기 또는 끄기여야 합니다.",
+      "authButtonTextEmpty": "코드 복사 버튼 텍스트는 비워 둘 수 없습니다.",
+      "authButtonTextTooLong": "코드 복사 버튼 텍스트가 {max}자를 넘습니다(현재 {got}자).",
+      "authCodeRequired": "인증 템플릿을 발송하려면 일회용 코드가 필요합니다.",
+      "authCodeTooLong": "일회용 코드는 최대 {max}자까지 가능합니다.",
+      "ltoCategory": "기간 한정 혜택 템플릿은 마케팅 카테고리를 사용해야 합니다.",
+      "ltoTextRequired": "기간 한정 혜택 템플릿에는 혜택 문구가 필요합니다.",
+      "ltoTextTooLong": "혜택 문구가 {max}자를 넘습니다(현재 {got}자).",
+      "ltoExpirationFlag": "혜택에 만료 시간이 있는지 선택하세요.",
+      "ltoHeaderType": "기간 한정 혜택의 헤더는 이미지 또는 동영상만 가능합니다.",
+      "ltoNoFooter": "기간 한정 혜택 템플릿에는 바닥글을 넣을 수 없습니다.",
+      "ltoBodyTooLong": "혜택 본문 텍스트가 {max}자를 넘습니다(현재 {got}자).",
+      "ltoTooManyButtons": "기간 한정 혜택 템플릿의 버튼은 최대 {max}개입니다(현재 {got}개).",
+      "ltoButtonTypes": "기간 한정 혜택 버튼은 코드 복사 버튼 하나와 URL 버튼 하나만 가능합니다.",
+      "ltoCopyCodeRequired": "만료 시간이 있는 혜택에는 코드 복사 버튼이 필요합니다.",
+      "ltoExpirationRequired": "이 혜택에는 만료 시간이 있습니다. 만료 시각을 밀리초로 전달하세요.",
+      "locationValueRequired": "이 템플릿에는 위치 헤더가 있습니다. 위도와 경도를 전달하세요.",
+      "locationValueInvalid": "위치의 위도는 -90~90, 경도는 -180~180 사이여야 합니다.",
+      "bodyVariableAtEdge": "본문은 변수로 시작하거나 끝날 수 없습니다. 첫 번째 변수 앞과 마지막 변수 뒤에 문구를 추가하세요.",
+      "ltoUrlButtonRequired": "기간 한정 혜택 템플릿에는 URL 버튼이 하나 필요합니다.",
+      "ltoCopyCodeFirst": "코드 복사 버튼을 첫 번째에, URL 버튼을 두 번째에 배치하세요.",
+      "buttonPlaceholderUrl": "버튼 #{n}에 아직 예시 링크 {url}이(가) 사용되고 있습니다. 제출하기 전에 실제 링크로 바꿔 주세요.",
+      "buttonPlaceholderPhone": "버튼 #{n}에 아직 예시 번호 {phone}이(가) 사용되고 있습니다. 제출하기 전에 실제 비즈니스 전화번호로 바꿔 주세요."
     },
     "interactive": {
       "buttonCount": "인터랙티브 버튼 메시지에는 버튼이 1-{max}개 필요합니다(현재 {got}개).",
@@ -3754,6 +3932,23 @@
       "bodyTooLong": "인터랙티브 bodyText가 {max}자를 초과합니다.",
       "headerTooLong": "인터랙티브 headerText가 {max}자를 초과합니다.",
       "footerTooLong": "인터랙티브 footerText가 {max}자를 초과합니다."
+    },
+    "templateSend": {
+      "authOnlyInbox": "인증 템플릿은 한 사람에게 일회용 코드를 입력하는 받은편지함이나 API에서만 보낼 수 있습니다. 캠페인, 자동화, 플로우에서는 보낼 수 없습니다.",
+      "valueNotText": "{field}은(는) 텍스트여야 합니다.",
+      "valueTooLong": "{field}은(는) 최대 {max}자까지 입력할 수 있습니다.",
+      "valueNotList": "{field}은(는) 값 목록이어야 합니다.",
+      "tooManyValues": "{field}은(는) 최대 {max}개까지 가능합니다.",
+      "valueNotObject": "{field}의 형식이 올바르지 않습니다.",
+      "buttonIndexInvalid": "{field}은(는) 버튼 위치를 키로 사용해야 합니다.",
+      "locationInvalid": "위도는 -90에서 90 사이, 경도는 -180에서 180 사이로 입력하세요.",
+      "couponTooLong": "쿠폰 코드는 최대 {max}자까지 입력할 수 있습니다.",
+      "offerExpirationInvalid": "혜택 종료 날짜와 시간을 올바르게 선택하세요.",
+      "offerExpirationPast": "혜택은 메시지를 보낸 후에 종료되어야 합니다.",
+      "authCodeInvalid": "일회용 코드를 입력하세요.",
+      "authCodeTooLong": "일회용 코드는 최대 {max}자까지 입력할 수 있습니다.",
+      "flowOfferMinutes": "혜택 유지 시간을 1분에서 {max}분 사이로 입력하세요.",
+      "cardValueEmpty": "카드 {card}: 값 {n}이(가) 비어 있습니다."
     }
   },
   "Api": {
@@ -3954,7 +4149,34 @@
       "submittedSaveFailed": "Meta에 제출되었지만 로컬에 저장하지 못했습니다: {message}. 복구하려면 \"Meta에서 동기화\"를 실행하세요.",
       "submitFailed": "템플릿을 제출하지 못했습니다.",
       "metaApiStatus": "Meta API 오류: {status}",
-      "syncFailed": "템플릿을 동기화하지 못했습니다"
+      "syncFailed": "템플릿을 동기화하지 못했습니다",
+      "authKindRequired": "인증 템플릿은 인증 템플릿 유형을 사용해야 합니다.",
+      "draft": {
+        "alreadySubmitted": "이 템플릿은 이미 Meta에 제출되었습니다. 초안으로 저장하지 말고 편집하세요.",
+        "nameTaken": "같은 이름과 언어를 사용하는 템플릿이 이미 있습니다.",
+        "kindLocked": "제출된 템플릿의 유형은 변경할 수 없습니다. 다른 유형을 만들려면 복제하세요.",
+        "saveFailed": "초안을 저장하지 못했습니다.",
+        "duplicateFailed": "템플릿을 복제하지 못했습니다.",
+        "bodyInvalid": "초안은 JSON 객체여야 합니다.",
+        "tooLarge": "초안이 너무 커서 저장할 수 없습니다.",
+        "fieldInvalid": "\"{field}\" 필드가 올바르지 않습니다.",
+        "languageInvalid": "올바른 템플릿 언어를 선택하세요.",
+        "categoryInvalid": "올바른 템플릿 카테고리를 선택하세요.",
+        "kindInvalid": "올바른 템플릿 유형을 선택하세요.",
+        "kindCategoryMismatch": "인증 카테고리는 인증 템플릿만 사용하며, 인증 템플릿은 다른 카테고리를 사용할 수 없습니다."
+      },
+      "aiDraft": {
+        "goalRequired": "메시지의 목적을 설명해 주세요.",
+        "goalTooLong": "목적은 500자 이하로 입력해 주세요.",
+        "toneInvalid": "어조를 선택하세요: 친근함, 전문적, 긴급, 유쾌함.",
+        "categoryInvalid": "AI 초안은 마케팅 및 유틸리티 카테고리만 지원합니다.",
+        "languageInvalid": "올바른 템플릿 언어를 선택하세요.",
+        "businessTooLong": "비즈니스 설명은 200자 이하로 입력해 주세요.",
+        "notConfigured": "AI 어시스턴트가 설정되지 않았습니다. 설정 → AI 어시스턴트에서 제공자를 추가하면 AI로 템플릿을 작성할 수 있습니다.",
+        "invalidDraft": "AI가 유효한 템플릿을 만들지 못했습니다: {reason}",
+        "unreadable": "AI 응답을 템플릿으로 읽을 수 없습니다. 다시 시도하거나 목적을 바꿔 표현해 보세요."
+      },
+      "submitRaced": "다른 제출 요청이 이미 이 템플릿을 Meta에 보냈습니다. 새로고침하여 현재 상태를 확인하세요."
     }
   },
   "PageSearch": {
@@ -3982,5 +4204,403 @@
   "Plan": {
     "upgrade": "업그레이드",
     "upgradeHint": "현재 요금제에 포함되어 있지 않습니다. 설정 → 요금제 및 사용량을 확인하세요."
+  },
+  "TemplateLibrary": {
+    "industries": {
+      "retail": "소매 및 이커머스",
+      "food": "식음료 및 레스토랑",
+      "health": "의료",
+      "beauty": "뷰티 및 웰니스",
+      "education": "교육",
+      "real_estate": "부동산",
+      "travel": "여행 및 숙박",
+      "finance": "금융 및 은행",
+      "events": "이벤트",
+      "services": "생활 및 전문 서비스",
+      "general": "일반"
+    },
+    "order_confirmation": {
+      "title": "주문 확인",
+      "description": "새 주문을 주문 번호와 결제 금액과 함께 확인합니다.",
+      "header": "주문이 접수되었습니다",
+      "body": "안녕하세요, {v1}님. 주문 {v2}에 감사드립니다. 주문이 정상적으로 접수되었으며 발송되는 즉시 다시 알려 드리겠습니다. 결제 금액: {v3}.",
+      "footer": "저희 매장을 이용해 주셔서 감사합니다",
+      "buttons": {
+        "b1": "주문 보기"
+      },
+      "samples": "김지은|#10245|48,900원"
+    },
+    "shipping_update": {
+      "title": "배송 안내",
+      "description": "택배사와 운송장 번호를 포함해 주문 발송을 알립니다.",
+      "header": "주문하신 상품이 출발했습니다",
+      "body": "안녕하세요, {v1}님. 좋은 소식입니다! 주문 {v2}이(가) {v3}을(를) 통해 발송되었습니다. 운송장 번호는 {v4}입니다.",
+      "buttons": {
+        "b1": "배송 조회"
+      },
+      "samples": "이민수|#10245|빠른택배|FS123456789"
+    },
+    "delivery_delayed": {
+      "title": "배송 지연",
+      "description": "배송 지연을 사과하고 새로운 도착 예정일을 안내합니다.",
+      "body": "안녕하세요, {v1}님. 죄송합니다. 주문 {v2}의 배송이 지연되고 있습니다. 새로운 도착 예정일은 {v3}입니다. 양해해 주셔서 감사합니다.",
+      "buttons": {
+        "b1": "상담원 연결"
+      },
+      "samples": "박서연|#10245|3월 12일"
+    },
+    "back_in_stock": {
+      "title": "재입고 알림",
+      "description": "관심 고객에게 상품이 다시 입고되었음을 알립니다.",
+      "body": "안녕하세요, {v1}님. {v2}이(가) 재입고되었습니다! 수량이 한정되어 있으니 품절되기 전에 주문하세요.",
+      "buttons": {
+        "b1": "지금 쇼핑하기"
+      },
+      "samples": "최현우|클래식 데님 재킷"
+    },
+    "festive_offer": {
+      "title": "시즌 할인",
+      "description": "종료일과 쿠폰 코드를 포함해 시즌 할인을 알립니다.",
+      "header": "시즌 세일이 시작되었습니다",
+      "body": "안녕하세요, {v1}님. 축제 시즌이 돌아왔습니다! {v3}까지 전 상품 {v2} 할인을 누리세요. 결제 시 코드 {v4}을(를) 입력하세요.",
+      "footer": "재고 소진 시 조기 종료될 수 있습니다",
+      "buttons": {
+        "b1": "홍보 메시지 중단",
+        "b2": "세일 보러 가기"
+      },
+      "samples": "정수아|20%|10월 31일|FESTIVE20"
+    },
+    "abandoned_cart": {
+      "title": "장바구니 알림",
+      "description": "장바구니에 남아 있는 상품을 고객에게 상기시킵니다.",
+      "body": "안녕하세요, {v1}님. 장바구니에 {v2}이(가) 남아 있습니다. 상품은 그대로 저장되어 있으니 원하실 때 구매를 완료하세요.",
+      "buttons": {
+        "b1": "구매 완료하기"
+      },
+      "samples": "강도윤|상품 2개"
+    },
+    "price_drop": {
+      "title": "가격 인하",
+      "description": "고객이 본 상품의 가격이 내려가면 알립니다.",
+      "body": "안녕하세요, {v1}님. {v2}의 가격이 {v3}(으)로 내려갔습니다. 이 가격은 재고 소진 시까지 적용됩니다.",
+      "buttons": {
+        "b1": "상품 보기"
+      },
+      "samples": "윤하준|무선 이어폰|39,000원"
+    },
+    "loyalty_points": {
+      "title": "적립 포인트",
+      "description": "포인트 잔액과 소멸 예정일을 안내합니다.",
+      "body": "안녕하세요, {v1}님. 현재 적립 포인트는 {v2}점입니다. {v3}에 소멸되기 전에 다음 구매에서 사용하세요.",
+      "buttons": {
+        "b1": "혜택 보기"
+      },
+      "samples": "임서윤|1,250|6월 30일"
+    },
+    "table_reservation": {
+      "title": "테이블 예약",
+      "description": "인원, 날짜, 시간을 포함해 레스토랑 예약을 확인합니다.",
+      "header": "테이블이 예약되었습니다",
+      "body": "안녕하세요, {v1}님. {v2} 테이블이 예약되었습니다. 날짜: {v3}, 시간: {v4}. 일정이 바뀌면 이 메시지에 답장해 주세요.",
+      "buttons": {
+        "b1": "확인",
+        "b2": "일정 변경"
+      },
+      "samples": "한지호|4명|6월 14일 금요일|오후 8시"
+    },
+    "order_ready_pickup": {
+      "title": "픽업 준비 완료",
+      "description": "주문하신 상품을 찾아가실 수 있음을 알립니다.",
+      "body": "안녕하세요, {v1}님. 주문 {v2}이(가) {v3}에서 픽업 준비되었습니다. 카운터에서 이 메시지를 보여 주세요.",
+      "buttons": {
+        "b1": "매장에 전화하기"
+      },
+      "samples": "오예린|#A-58|본점"
+    },
+    "appointment_reminder": {
+      "title": "예약 알림",
+      "description": "다가오는 진료 예약을 알리고 확인을 받습니다.",
+      "header": "예약 알림",
+      "body": "안녕하세요, {v1}님. {v2}와(과)의 예약 일정을 알려 드립니다. 날짜: {v3}, 시간: {v4}. 10분 일찍 도착해 주세요.",
+      "buttons": {
+        "b1": "확인",
+        "b2": "일정 변경"
+      },
+      "samples": "서준영|김 원장님|6월 10일 월요일|오전 11시 30분"
+    },
+    "appointment_confirmed": {
+      "title": "예약 확정",
+      "description": "살롱이나 스파 예약을 서비스와 시간과 함께 확정합니다.",
+      "body": "안녕하세요, {v1}님. {v2} 예약이 확정되었습니다. 날짜: {v3}, 시간: {v4}. 방문을 기다리겠습니다.",
+      "buttons": {
+        "b1": "전화하기"
+      },
+      "samples": "송하은|커트 및 스타일링|6월 15일 토요일|오후 3시"
+    },
+    "payment_reminder": {
+      "title": "결제 알림",
+      "description": "곧 납부 기한이 되는 청구서를 안내합니다.",
+      "body": "안녕하세요, {v1}님. 청구서 {v3}의 결제 금액 {v2}의 납부 기한이 {v4}임을 알려 드립니다.",
+      "buttons": {
+        "b1": "지금 결제하기"
+      },
+      "samples": "조민재|120,000원|INV-2041|7월 5일"
+    },
+    "payment_received": {
+      "title": "결제 완료",
+      "description": "금액, 날짜, 참조 번호와 함께 결제 확인을 보냅니다.",
+      "header": "결제가 완료되었습니다",
+      "body": "안녕하세요, {v1}님. {v3}에 {v2} 결제가 정상적으로 처리되었습니다. 참조 번호: {v4}. 감사합니다!",
+      "footer": "기록용으로 이 메시지를 보관해 주세요",
+      "samples": "배수빈|120,000원|7월 3일|TXN784512"
+    },
+    "emi_due": {
+      "title": "할부금 납부 예정",
+      "description": "대출 고객에게 다가오는 할부 납부일을 안내합니다.",
+      "body": "안녕하세요, {v1}님. 대출 계좌 {v3}의 할부금 {v2}의 납부일은 {v4}입니다. 연체료가 발생하지 않도록 계좌 잔액을 확인해 주세요.",
+      "buttons": {
+        "b1": "할부금 납부"
+      },
+      "samples": "황성민|215,000원|LN-55021|8월 10일"
+    },
+    "document_request": {
+      "title": "서류 요청",
+      "description": "진행 중인 신청을 위해 필요한 서류를 요청합니다.",
+      "body": "안녕하세요, {v1}님. {v2} 처리를 계속하려면 다음 서류가 필요합니다: {v3}. 선명한 사진이나 PDF로 이 메시지에 답장해 주세요.",
+      "buttons": {
+        "b1": "도움이 필요해요"
+      },
+      "samples": "문지아|대출 신청|주소 증빙 서류"
+    },
+    "account_update": {
+      "title": "계정 정보 변경",
+      "description": "계정 정보가 변경되었음을 고객에게 알립니다.",
+      "body": "안녕하세요, {v1}님. 계정의 {v2}이(가) {v3}에 변경되었습니다. 직접 변경하지 않으셨다면 즉시 저희에게 연락해 주세요.",
+      "buttons": {
+        "b1": "고객센터 전화"
+      },
+      "samples": "신태윤|등록된 이메일 주소|5월 2일"
+    },
+    "class_reminder": {
+      "title": "수업 알림",
+      "description": "학생에게 다음 수업 시작 시간을 알립니다.",
+      "body": "안녕하세요, {v1}님. {v2} 수업 일정을 알려 드립니다. 수업일: {v3}, 시작 시간: {v4}. 노트와 준비물을 챙겨 주세요.",
+      "buttons": {
+        "b1": "수업 참여하기"
+      },
+      "samples": "유나연|고1 수학|화요일|오후 5시"
+    },
+    "admission_open": {
+      "title": "입학 모집",
+      "description": "입학 모집 시작과 마감일을 안내합니다.",
+      "header": "입학 모집이 시작되었습니다",
+      "body": "안녕하세요, {v1}님. {v3} 학기 {v2} 입학 모집이 시작되었습니다. 지원 마감일은 {v4}입니다.",
+      "footer": "모집 인원이 한정되어 있습니다",
+      "buttons": {
+        "b1": "지금 지원하기"
+      },
+      "samples": "노승현|MBA 과정|2027|4월 30일"
+    },
+    "site_visit_confirmed": {
+      "title": "현장 방문 확정",
+      "description": "단지명, 날짜, 시간과 함께 매물 방문 일정을 확정합니다.",
+      "body": "안녕하세요, {v1}님. {v2} 현장 방문이 확정되었습니다. 날짜: {v3}, 시간: {v4}. 담당자가 입구에서 맞이해 드립니다.",
+      "buttons": {
+        "b1": "담당자에게 전화"
+      },
+      "samples": "권태민|그린밸리 레지던스|6월 16일 일요일|오전 10시"
+    },
+    "booking_confirmed": {
+      "title": "예약 확정",
+      "description": "예약 번호와 일정을 포함해 여행이나 숙박 예약을 확정합니다.",
+      "header": "예약이 확정되었습니다",
+      "body": "안녕하세요, {v1}님. 예약 {v2}이(가) 확정되었습니다. 여행 일정: {v3}부터 {v4}까지. 즐거운 여행 되세요!",
+      "buttons": {
+        "b1": "예약 보기"
+      },
+      "samples": "백지민|BK-90321|9월 12일|9월 18일"
+    },
+    "check_in_details": {
+      "title": "체크인 안내",
+      "description": "체크인 시간과 준비물을 안내합니다.",
+      "body": "안녕하세요, {v1}님. {v2}에서 뵙기를 기다리고 있습니다. 체크인 날짜: {v4}, 체크인 시작 시간: {v3}. 사진이 있는 신분증을 지참해 주세요.",
+      "buttons": {
+        "b1": "프런트에 전화하기"
+      },
+      "samples": "남궁윤|씨사이드 리조트|오후 2시|9월 12일"
+    },
+    "event_reminder": {
+      "title": "이벤트 알림",
+      "description": "참석자에게 이벤트 날짜와 장소를 알립니다.",
+      "body": "안녕하세요, {v1}님. {v2} 일정을 다시 안내해 드립니다. 날짜: {v3}, 장소: {v4}. 현장에서 뵙겠습니다!",
+      "buttons": {
+        "b1": "이벤트 상세 정보"
+      },
+      "samples": "장예은|연례 디자인 밋업|6월 20일|시티 컨벤션 센터"
+    },
+    "webinar_link": {
+      "title": "웨비나 링크",
+      "description": "등록자에게 세션 시간과 참여 버튼을 보냅니다.",
+      "body": "안녕하세요, {v1}님. {v2}에 등록해 주셔서 감사합니다. 세션 날짜: {v3}, 시작 시간: {v4}. 아래 버튼을 눌러 참여하세요.",
+      "buttons": {
+        "b1": "웨비나 참여하기"
+      },
+      "samples": "구민호|WhatsApp으로 비즈니스 성장시키기|6월 25일|오후 4시"
+    },
+    "renewal_reminder": {
+      "title": "갱신 알림",
+      "description": "요금제나 구독의 만료가 다가옴을 알립니다.",
+      "body": "안녕하세요, {v1}님. {v2}이(가) {v3}에 만료됩니다. 서비스를 계속 이용하시려면 만료 전에 갱신해 주세요.",
+      "buttons": {
+        "b1": "지금 갱신하기"
+      },
+      "samples": "엄다인|연간 유지보수 플랜|7월 31일"
+    },
+    "service_follow_up": {
+      "title": "서비스 후속 안내",
+      "description": "서비스 방문 완료 후 고객의 만족 여부를 확인합니다.",
+      "body": "안녕하세요, {v1}님. {v3}에 {v2}을(를) 완료했습니다. 모두 잘 작동하나요? 더 필요한 것이 있으면 알려 주세요.",
+      "buttons": {
+        "b1": "문제없어요",
+        "b2": "도움이 필요해요"
+      },
+      "samples": "양재훈|에어컨 점검|6월 8일"
+    },
+    "welcome_message": {
+      "title": "환영 메시지",
+      "description": "신규 구독자를 환영하고 대화를 시작하도록 안내합니다.",
+      "header": "환영합니다!",
+      "body": "안녕하세요, {v1}님. {v2}에 오신 것을 환영합니다! 함께하게 되어 기쁩니다. 언제든 답장하시면 저희 팀과 대화할 수 있습니다.",
+      "buttons": {
+        "b1": "상품 보기",
+        "b2": "상담하기"
+      },
+      "samples": "고나은|블룸 부티크"
+    },
+    "feedback_request": {
+      "title": "피드백 요청",
+      "description": "최근 경험에 대한 평가를 요청합니다.",
+      "body": "안녕하세요, {v1}님. {v2}을(를) 이용해 주셔서 감사합니다. 이용 경험은 어떠셨나요? 여러분의 의견이 더 나은 서비스를 만듭니다.",
+      "buttons": {
+        "b1": "매우 좋아요",
+        "b2": "좋아요",
+        "b3": "개선이 필요해요"
+      },
+      "samples": "류하람|밝은미소 치과"
+    },
+    "store_opening_hours": {
+      "title": "영업시간 안내",
+      "description": "매장이나 지점의 영업일과 영업시간을 안내합니다.",
+      "body": "안녕하세요, {v1}님. {v2} 영업 안내입니다. 영업일: {v3}, 영업시간: {v4}. 방문을 기다리겠습니다!",
+      "buttons": {
+        "b1": "전화하기"
+      },
+      "samples": "차미나|새 매장|월요일부터 토요일까지|오전 9시부터 오후 8시까지"
+    },
+    "holiday_notice": {
+      "title": "휴무 안내",
+      "description": "공휴일 휴무를 고객에게 알립니다.",
+      "header": "휴무 안내",
+      "body": "안녕하세요, {v1}님. {v2}은(는) {v4}을(를) 맞아 {v3}에 휴무합니다. 다음 영업일부터 정상 운영합니다.",
+      "samples": "고객|저희 사무실|1월 1일|신정"
+    }
+  },
+  "Templates": {
+    "studio": {
+      "preview": {
+        "label": "메시지 미리보기",
+        "media": {
+          "image": "이미지",
+          "video": "동영상",
+          "document": "문서",
+          "location": "위치"
+        },
+        "authBody": "인증 코드는 {code}입니다.",
+        "authSecurity": "보안을 위해 이 코드를 다른 사람과 공유하지 마세요.",
+        "authExpiry": "이 코드는 {minutes}분 후에 만료됩니다.",
+        "copyCode": "코드 복사",
+        "authNote": "인증 메시지의 문구는 WhatsApp이 작성하고 템플릿 언어로 번역합니다. 이 미리보기는 대략적인 모습입니다.",
+        "ltoPlaceholder": "혜택 제목",
+        "ltoExpires": "곧 종료되는 혜택",
+        "emptyBody": "메시지 내용이 여기에 표시됩니다.",
+        "cards": "캐러셀 카드",
+        "cardN": "카드 {n}"
+      },
+      "language": {
+        "label": "템플릿 언어",
+        "placeholder": "언어 선택",
+        "search": "언어 검색",
+        "noMatch": "검색과 일치하는 언어가 없습니다."
+      },
+      "timeline": {
+        "label": "상태 기록",
+        "loading": "기록을 불러오는 중...",
+        "loadFailed": "상태 기록을 불러오지 못했습니다.",
+        "retry": "다시 시도",
+        "empty": "아직 기록된 상태 변경이 없습니다.",
+        "quality": "품질: {score}",
+        "source": {
+          "draft": "초안으로 저장됨",
+          "submit": "제출됨",
+          "webhook": "Meta 업데이트",
+          "sync": "Meta에서 동기화됨",
+          "edit": "수정됨"
+        }
+      },
+      "library": {
+        "title": "템플릿 라이브러리",
+        "description": "미리 작성된 템플릿으로 시작한 뒤 제출 전에 수정하세요.",
+        "search": "템플릿 검색",
+        "industry": "업종",
+        "allIndustries": "모든 업종",
+        "category": "카테고리",
+        "allCategories": "모든 카테고리",
+        "categories": {
+          "Marketing": "마케팅",
+          "Utility": "유틸리티"
+        },
+        "loading": "템플릿을 불러오는 중...",
+        "loadFailed": "템플릿 라이브러리를 불러오지 못했습니다.",
+        "retry": "다시 시도",
+        "noMatch": "이 필터와 일치하는 템플릿이 없습니다.",
+        "use": "사용하기",
+        "useNamed": "{title} 템플릿 사용"
+      },
+      "ai": {
+        "title": "AI로 템플릿 작성",
+        "description": "메시지의 목적을 설명해 주세요. 저장하거나 제출하기 전에 초안을 검토할 수 있습니다.",
+        "goal": "이 메시지의 목적은 무엇인가요?",
+        "goalPlaceholder": "예: 고객에게 내일 예약을 알리고 확인할 수 있게 하기",
+        "tone": "어조",
+        "tones": {
+          "friendly": "친근하게",
+          "professional": "전문적으로",
+          "urgent": "긴급하게",
+          "playful": "재치 있게"
+        },
+        "category": "카테고리",
+        "categories": {
+          "Marketing": "마케팅",
+          "Utility": "유틸리티"
+        },
+        "language": "언어",
+        "business": "업체 이름 또는 설명 (선택)",
+        "businessPlaceholder": "예: 연꽃 치과",
+        "includeButtons": "버튼 추천",
+        "generate": "초안 작성",
+        "regenerate": "다른 초안 작성",
+        "generating": "작성 중...",
+        "emptyPreview": "초안이 여기에 표시됩니다.",
+        "draftName": "템플릿 이름: {name}",
+        "reviewHint": "제출하기 전에 문구와 예시 값을 확인하세요.",
+        "notConfiguredTitle": "AI가 아직 설정되지 않았습니다",
+        "notConfiguredHint": "AI가 템플릿을 작성하려면 관리자가 에이전트 → 에이전트 설정에서 제공업체를 선택해야 합니다.",
+        "openAgentSetup": "에이전트 설정 열기",
+        "invalidDraft": "AI가 올바른 템플릿을 만들지 못했습니다. 목적을 다르게 표현해 보세요.",
+        "failed": "초안을 작성하지 못했습니다. 다시 시도해 주세요.",
+        "cancel": "취소",
+        "useDraft": "이 초안 사용"
+      }
+    }
   }
 }
