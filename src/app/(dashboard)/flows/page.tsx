@@ -1,7 +1,7 @@
 "use client";
 import { authFetch } from "@/lib/auth/client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -14,9 +14,8 @@ import {
   PlayCircle,
   PauseCircle,
   Archive,
-  HelpCircle,
-  UserPlus,
-  FileText,
+  Copy,
+  Search,
 } from "lucide-react";
 
 import { useTranslations } from "next-intl";
@@ -33,7 +32,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { TemplateGallery, type TemplateSummary } from "@/components/flows/template-gallery";
+import type { AccountMember } from "@/types";
 import { cn } from "@/lib/utils";
+import { creatorLabel, type CreatorLabel } from "@/lib/flows/creator-label";
 
 /**
  * Flows list page.
@@ -45,6 +47,8 @@ import { cn } from "@/lib/utils";
 
 interface FlowRow {
   id: string;
+  /** Who created the flow (audit identity; may have left the account). */
+  user_id: string;
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
@@ -69,20 +73,36 @@ const STATUS_COLORS: Record<FlowRow["status"], string> = {
   archived: "border-border bg-muted/50 text-muted-foreground",
 };
 
-interface TemplateSummary {
-  slug: string;
-  name: string;
-  description: string;
-  icon: "MessageSquare" | "HelpCircle" | "UserPlus";
-  trigger_type: string;
-  node_count: number;
+/** "testing" is a draft with test numbers — the same split the status badge shows. */
+type StatusFilter = "all" | "active" | "draft" | "testing" | "archived";
+const STATUS_FILTERS: StatusFilter[] = ["all", "active", "draft", "testing", "archived"];
+
+function displayStatus(flow: FlowRow): Exclude<StatusFilter, "all"> {
+  return flow.status === "draft" && (flow.test_numbers ?? []).length > 0 ? "testing" : flow.status;
 }
 
-const TEMPLATE_ICONS = {
-  MessageSquare,
-  HelpCircle,
-  UserPlus,
-} as const;
+/** Name, description and trigger keywords/template, lower-cased for the search box. */
+function searchText(flow: FlowRow): string {
+  const cfg = flow.trigger_config as Record<string, unknown>;
+  const keywords = Array.isArray(cfg.keywords) ? (cfg.keywords as unknown[]).map(String) : [];
+  return [flow.name, flow.description ?? "", ...keywords, String(cfg.template_name ?? "")].join(" ").toLowerCase();
+}
+
+// Best-effort, like the flow builder's member picker. Returns null when the
+// roster could not be loaded (older deployment, failed request), so cards
+// drop the created-by line instead of claiming the creator left. Members
+// with no visible name stay in the map so they are not mistaken for former
+// members.
+async function loadMemberNames(): Promise<Map<string, string> | null> {
+  try {
+    const res = await authFetch("/api/account/members", { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { members?: AccountMember[] };
+    return new Map((json.members ?? []).map((m) => [m.user_id, m.full_name || m.email || ""]));
+  } catch {
+    return null;
+  }
+}
 
 export default function FlowsPage() {
   const router = useRouter();
@@ -95,15 +115,28 @@ export default function FlowsPage() {
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [memberNames, setMemberNames] = useState<Map<string, string> | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  const visibleFlows = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return flows.filter((flow) =>
+      (statusFilter === "all" || displayStatus(flow) === statusFilter) &&
+      (!needle || searchText(flow).includes(needle)));
+  }, [flows, query, statusFilter]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [flowsRes, tmplRes] = await Promise.all([
+        const [flowsRes, tmplRes, names] = await Promise.all([
           authFetch("/api/flows"),
           authFetch("/api/flows/templates"),
+          loadMemberNames(),
         ]);
+        if (!cancelled) setMemberNames(names);
         if (!flowsRes.ok) {
           throw new Error(`Failed to load flows: ${flowsRes.status}`);
         }
@@ -180,6 +213,21 @@ export default function FlowsPage() {
     }
   }
 
+  async function handleDuplicate(flow: FlowRow) {
+    setDuplicatingId(flow.id);
+    try {
+      const res = await authFetch(`/api/flows/${flow.id}/duplicate`, { method: "POST" });
+      const json = (await res.json().catch(() => ({}))) as { flow?: FlowRow; error?: string };
+      if (!res.ok || !json.flow) throw new Error(json.error ?? t("duplicateError"));
+      toast.success(t("duplicateSuccess", { name: json.flow.name }));
+      router.push(`/flows/${json.flow.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("duplicateError"));
+    } finally {
+      setDuplicatingId(null);
+    }
+  }
+
   async function handleDelete(flow: FlowRow) {
     const yes = window.confirm(t("deleteConfirm", { name: flow.name }));
     if (!yes) return;
@@ -233,17 +281,54 @@ export default function FlowsPage() {
           t={t}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {flows.map((flow) => (
-            <FlowCard
-              key={flow.id}
-              flow={flow}
-              onEdit={() => router.push(`/flows/${flow.id}`)}
-              onDelete={() => handleDelete(flow)}
-              t={t}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("searchPlaceholder")}
+                aria-label={t("searchPlaceholder")}
+                className="bg-muted pl-8"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1" role="group" aria-label={t("statusFilterLabel")}>
+              {STATUS_FILTERS.map((status) => (
+                <Button
+                  key={status}
+                  size="sm"
+                  variant={statusFilter === status ? "secondary" : "ghost"}
+                  aria-pressed={statusFilter === status}
+                  onClick={() => setStatusFilter(status)}
+                >
+                  {status === "all" ? t("filterAll") : status === "testing" ? t("statusTesting") : STATUS_LABELS(t)[status]}
+                </Button>
+              ))}
+            </div>
+          </div>
+          {visibleFlows.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
+              {t("noMatches")}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleFlows.map((flow) => (
+                <FlowCard
+                  key={flow.id}
+                  flow={flow}
+                  creator={creatorLabel(memberNames, flow.user_id)}
+                  canCreate={canCreate}
+                  duplicating={duplicatingId === flow.id}
+                  onEdit={() => router.push(`/flows/${flow.id}`)}
+                  onDuplicate={() => handleDuplicate(flow)}
+                  onDelete={() => handleDelete(flow)}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -264,31 +349,7 @@ export default function FlowsPage() {
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 {t("startTemplate")}
               </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {templates.map((template) => {
-                  const Icon = TEMPLATE_ICONS[template.icon] ?? FileText;
-                  return (
-                    <button
-                      key={template.slug}
-                      type="button"
-                      onClick={() => handleUseTemplate(template.slug)}
-                      disabled={creating}
-                      className="flex flex-col gap-2.5 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted disabled:opacity-50"
-                    >
-                      <Icon className="h-5 w-5 text-primary" />
-                      <span className="text-sm font-semibold text-popover-foreground">
-                        {template.name}
-                      </span>
-                      <span className="text-xs leading-relaxed text-muted-foreground">
-                        {template.description}
-                      </span>
-                      <span className="mt-auto border-t border-border pt-2 text-[11px] text-muted-foreground">
-                        {t("nodeCount", { count: template.node_count })}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <TemplateGallery templates={templates} creating={creating} onUse={handleUseTemplate} />
             </div>
           )}
 
@@ -362,15 +423,24 @@ function EmptyState({
 
 function FlowCard({
   flow,
+  creator,
+  canCreate,
+  duplicating,
   onEdit,
+  onDuplicate,
   onDelete,
   t,
 }: {
   flow: FlowRow;
+  creator: CreatorLabel | null;
+  canCreate: boolean;
+  duplicating: boolean;
   onEdit: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const tGate = useTranslations("GatedButton");
   const triggerSummary = describeTrigger(flow, t);
   const StatusIcon =
     flow.status === "active"
@@ -395,7 +465,7 @@ function FlowCard({
           )}
         >
           <StatusIcon className="h-3 w-3" />
-          {flow.status === "draft" && (flow.test_numbers ?? []).length > 0 ? t("statusTesting") : STATUS_LABELS(t)[flow.status]}
+          {displayStatus(flow) === "testing" ? t("statusTesting") : STATUS_LABELS(t)[flow.status]}
         </Badge>
       </div>
 
@@ -408,6 +478,18 @@ function FlowCard({
           <MessageSquare className="h-3 w-3" />
           {t("runCount", { count: flow.execution_count })}
         </span>
+        {creator && (
+          <span className="min-w-0 truncate">
+            {t("createdBy", {
+              name:
+                creator.kind === "name"
+                  ? creator.name
+                  : creator.kind === "teammate"
+                    ? t("creatorTeammate")
+                    : t("creatorUnknown"),
+            })}
+          </span>
+        )}
       </div>
 
       <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-3">
@@ -415,6 +497,17 @@ function FlowCard({
           <Pencil className="h-3.5 w-3.5" />
           {t("edit")}
         </Button>
+        <GatedButton
+          variant="ghost"
+          size="sm"
+          canAct={canCreate}
+          gateReason={tGate("reasons.createFlows")}
+          disabled={duplicating}
+          onClick={onDuplicate}
+        >
+          {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+          {t("duplicate")}
+        </GatedButton>
         <Button
           variant="ghost"
           size="sm"

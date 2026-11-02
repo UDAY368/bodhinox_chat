@@ -21,7 +21,12 @@
  *     so the user picks which branch they're wiring.
  *   - Backspace / Delete on a selected node → removes it AND clears
  *     every inbound `next_node_key` reference (no dangling arrows).
- *   - Delete on a selected edge → clears just that slot.
+ *   - Delete on a selected edge, or its × button (shown on hover /
+ *     select) → clears just that slot.
+ *   - Dropping a handle drag on empty canvas → a small step picker at
+ *     the drop point; the picked step is created there and wired.
+ *   - Lock toggle → no dragging, connecting, deleting or editing (the
+ *     inspector turns read-only); pan + zoom still work.
  *   - "+ Add node" floating button drops a new node at the visible
  *     viewport center.
  *   - Runs dagre auto-layout once on mount for flows whose
@@ -36,12 +41,15 @@
  * list view reads.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   applyNodeChanges,
   Background,
   BackgroundVariant,
+  BaseEdge,
   Controls,
+  EdgeLabelRenderer,
+  getBezierPath,
   Handle,
   MiniMap,
   MarkerType,
@@ -51,6 +59,8 @@ import {
   ReactFlowProvider,
   useReactFlow,
   type Connection,
+  type EdgeProps,
+  type OnConnectEnd,
   type Node as RfNode,
   type Edge as RfEdge,
   type NodeChange,
@@ -58,7 +68,7 @@ import {
   type OnNodeDrag,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { LayoutGrid, PanelLeftClose, PanelLeftOpen, Search, Trash2, X } from 'lucide-react';
+import { LayoutGrid, Lock, LockOpen, PanelLeftClose, PanelLeftOpen, Search, Trash2, X } from 'lucide-react';
 
 import { useTranslations } from 'next-intl';
 
@@ -123,7 +133,7 @@ function slotColor(nodeType: NodeType, slotId: string, fallback: string) {
 /** Optional ports (edges.ts extraPorts) carry English labels; show them translated. */
 const PORT_LABELS: Record<string, string> = { skip: 'ports.skip', exhausted: 'ports.exhausted', timeout: 'ports.timeout', fallback: 'ports.fallback' };
 
-function FlowNodeCard({ data, selected }: NodeProps) {
+function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
   const t = useTranslations('Flows.builder');
   const { node, isEntry, isFlashed } = data as NodeData;
   const c = nodeColors(node.node_type);
@@ -170,6 +180,9 @@ function FlowNodeCard({ data, selected }: NodeProps) {
         <Handle
           type="target"
           position={Position.Left}
+          // Handles default to connectable; pass the canvas lock through
+          // or a locked canvas still accepts drag / click connections.
+          isConnectable={isConnectable}
           className="!bg-card !h-2.5 !w-2.5 !border-2 !border-[var(--nc-ring)]"
         />
       )}
@@ -218,6 +231,7 @@ function FlowNodeCard({ data, selected }: NodeProps) {
                 type="source"
                 id={slot.id}
                 position={Position.Right}
+                isConnectable={isConnectable}
                 style={{
                   borderColor: slotColor(node.node_type, slot.id, c.solid),
                 }}
@@ -237,6 +251,7 @@ function FlowNodeCard({ data, selected }: NodeProps) {
           type="source"
           id={slots[0].id}
           position={Position.Right}
+          isConnectable={isConnectable}
           style={{ borderColor: c.solid }}
           className="!bg-card !h-2.5 !w-2.5 !border-2"
         />
@@ -246,6 +261,87 @@ function FlowNodeCard({ data, selected }: NodeProps) {
 }
 
 const NODE_TYPES = { flow: FlowNodeCard };
+
+// ============================================================
+// Custom edge — the default bezier plus a small × at the midpoint
+// while the edge is hovered or selected. The canvas hands it the
+// delete action and lock / hover state through context so the edge
+// objects themselves stay plain data.
+// ============================================================
+
+interface EdgeActions {
+  locked: boolean;
+  hoveredId: string | null;
+  hover: (id: string | null) => void;
+  clearSlot: (source: string, sourceHandle: string) => void;
+}
+
+const EdgeActionsContext = createContext<EdgeActions | null>(null);
+
+function DeletableEdge({
+  id,
+  source,
+  sourceHandleId,
+  sourceX,
+  sourceY,
+  sourcePosition,
+  targetX,
+  targetY,
+  targetPosition,
+  selected,
+  label,
+  labelStyle,
+  labelShowBg,
+  labelBgStyle,
+  labelBgPadding,
+  labelBgBorderRadius,
+  style,
+  markerEnd,
+  interactionWidth,
+}: EdgeProps) {
+  const t = useTranslations('Flows.builder');
+  const actions = useContext(EdgeActionsContext);
+  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const show = !!actions && !actions.locked && !!sourceHandleId && (selected || actions.hoveredId === id);
+  return (
+    <>
+      <BaseEdge
+        id={id}
+        path={path}
+        label={label}
+        labelX={labelX}
+        labelY={labelY}
+        labelStyle={labelStyle}
+        labelShowBg={labelShowBg}
+        labelBgStyle={labelBgStyle}
+        labelBgPadding={labelBgPadding}
+        labelBgBorderRadius={labelBgBorderRadius}
+        style={style}
+        markerEnd={markerEnd}
+        interactionWidth={interactionWidth}
+      />
+      {show && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            aria-label={t('deleteConnection')}
+            title={t('deleteConnection')}
+            onMouseEnter={() => actions.hover(id)}
+            onMouseLeave={() => actions.hover(null)}
+            onClick={() => actions.clearSlot(source, sourceHandleId)}
+            // Sits just below the slot label (when there is one) so both stay readable.
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY + (label ? 20 : 0)}px)` }}
+            className="nodrag nopan border-border bg-card text-muted-foreground hover:border-red-400 hover:text-red-400 pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-full border shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+
+const EDGE_TYPES = { deletable: DeletableEdge };
 
 // ============================================================
 // Root canvas
@@ -270,6 +366,7 @@ function FlowCanvasInner() {
   const {
     state,
     setState,
+    addNode,
     updateNodeConfig,
     updateNodePosition,
     updateNodePositions,
@@ -285,6 +382,9 @@ function FlowCanvasInner() {
   // flow-builder.tsx.
   const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(true);
+  // Lock: view-only canvas (pan + zoom still work). Canvas-local, not saved.
+  const [locked, setLocked] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const selectNode = useCallback((key: string) => {
     setSelectedNodeKey(key);
     if (window.innerWidth < 1100) setLibraryOpen(false);
@@ -359,6 +459,7 @@ function FlowCanvasInner() {
     // can hang the arrow off the right place on each card.
     const rfEdges: RfEdge[] = canvasEdges.map((e) => ({
       id: e.id,
+      type: 'deletable',
       source: e.source,
       target: e.target,
       sourceHandle: e.sourceHandle,
@@ -426,6 +527,7 @@ function FlowCanvasInner() {
   // the next render — no need to maintain a separate edge list.
   const handleConnect = useCallback(
     (connection: Connection) => {
+      if (locked) return;
       if (
         !connection.source ||
         !connection.target ||
@@ -448,7 +550,7 @@ function FlowCanvasInner() {
       );
       if (patch) updateNodeConfig(connection.source, patch);
     },
-    [builderNodes, updateNodeConfig]
+    [locked, builderNodes, updateNodeConfig]
   );
 
   // Keyboard delete (Backspace / Delete) + drag-to-trash. React-Flow
@@ -470,17 +572,111 @@ function FlowCanvasInner() {
   // Edge delete: clear the source node's slot rather than removing
   // anything. Edges are derived from configs, so the only way to
   // "delete" one is to null out its underlying next_node_key.
+  const clearSlot = useCallback(
+    (source: string, sourceHandle: string) => {
+      const sourceNode = builderNodes.find((n) => n.node_key === source);
+      if (!sourceNode) return;
+      const patch = applyEdgeConnection(sourceNode, sourceHandle, '');
+      if (patch) updateNodeConfig(source, patch);
+    },
+    [builderNodes, updateNodeConfig]
+  );
+
   const handleEdgesDelete = useCallback(
     (deleted: RfEdge[]) => {
       for (const e of deleted) {
-        if (!e.sourceHandle) continue;
-        const sourceNode = builderNodes.find((n) => n.node_key === e.source);
-        if (!sourceNode) continue;
-        const patch = applyEdgeConnection(sourceNode, e.sourceHandle, '');
-        if (patch) updateNodeConfig(e.source, patch);
+        if (e.sourceHandle) clearSlot(e.source, e.sourceHandle);
       }
     },
-    [builderNodes, updateNodeConfig]
+    [clearSlot]
+  );
+
+  // Edge hover drives the × button. Clearing waits a beat so moving
+  // the pointer from the edge onto the button doesn't hide it first.
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverEdge = useCallback((id: string | null) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+    if (id) setHoveredEdgeId(id);
+    else hoverTimer.current = setTimeout(() => setHoveredEdgeId(null), 150);
+  }, []);
+  useEffect(() => () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+  }, []);
+  // A removed edge unmounts its × before onMouseLeave fires, so drop a
+  // hover id whose edge is gone. Edge ids are deterministic; a stale id
+  // would otherwise show the × on a later re-created edge unhovered.
+  const [hoverEdgesSeen, setHoverEdgesSeen] = useState(rfEdges);
+  if (hoverEdgesSeen !== rfEdges) {
+    setHoverEdgesSeen(rfEdges);
+    if (hoveredEdgeId && !rfEdges.some((e) => e.id === hoveredEdgeId)) setHoveredEdgeId(null);
+  }
+  const edgeActions = useMemo<EdgeActions>(
+    () => ({ locked, hoveredId: hoveredEdgeId, hover: hoverEdge, clearSlot }),
+    [locked, hoveredEdgeId, hoverEdge, clearSlot]
+  );
+
+  // Drop-to-create: a handle drag released on empty canvas opens a
+  // step picker at the drop point. Picking creates the step there and
+  // wires the dragged slot to it.
+  const [dropPicker, setDropPicker] = useState<{
+    x: number;
+    y: number;
+    flow: { x: number; y: number };
+    source: string;
+    handle: string;
+  } | null>(null);
+
+  const handleConnectEnd = useCallback<OnConnectEnd>(
+    (event, connection) => {
+      if (locked || connection.isValid || connection.toNode) return;
+      const { fromNode, fromHandle } = connection;
+      if (!fromNode || fromHandle?.type !== 'source' || !fromHandle.id) return;
+      const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!point || !rect) return;
+      // Released on a card body (away from its handle): link to that
+      // card instead of offering a new step. event.target can be where
+      // the drag started, so look the card up from the pointer.
+      const card = document.elementFromPoint(point.clientX, point.clientY)?.closest('.react-flow__node');
+      if (card) {
+        const target = card.getAttribute('data-id');
+        const targetNode = builderNodes.find((n) => n.node_key === target);
+        // Start nodes take no inbound edges; handleConnect drops self-loops.
+        if (target && targetNode && targetNode.node_type !== 'start') {
+          handleConnect({ source: fromNode.id, sourceHandle: fromHandle.id, target, targetHandle: null });
+        }
+        return;
+      }
+      // Keep the picker inside the canvas when the drop is near an edge.
+      setDropPicker({
+        x: Math.max(8, Math.min(point.clientX - rect.left, rect.width - PICKER_WIDTH - 8)),
+        y: Math.max(8, Math.min(point.clientY - rect.top, rect.height - PICKER_HEIGHT - 8)),
+        flow: reactFlow.screenToFlowPosition({ x: point.clientX, y: point.clientY }),
+        source: fromNode.id,
+        handle: fromHandle.id,
+      });
+    },
+    [locked, reactFlow, builderNodes, handleConnect]
+  );
+
+  const handleDropPick = useCallback(
+    (type: NodeType) => {
+      if (!dropPicker) return;
+      const sourceNode = builderNodes.find((n) => n.node_key === dropPicker.source);
+      const key = addNode(type);
+      // The target handle sits on the card's left edge, so placing the
+      // card's top-left at the drop point lands the arrow there.
+      updateNodePosition(key, dropPicker.flow.x, dropPicker.flow.y - 24);
+      if (sourceNode) {
+        const patch = applyEdgeConnection(sourceNode, dropPicker.handle, key);
+        if (patch) updateNodeConfig(sourceNode.node_key, patch);
+      }
+      setDropPicker(null);
+      selectNode(key);
+    },
+    [dropPicker, builderNodes, addNode, updateNodePosition, updateNodeConfig, selectNode]
   );
 
   // Wrapped mutators that target the currently-selected node — pass to
@@ -508,11 +704,13 @@ function FlowCanvasInner() {
     <div className="flow-studio-workspace h-full min-h-0">
       <div className="flow-studio-grid h-full min-h-0" data-library={libraryOpen ? 'open' : 'closed'} data-inspector={selectedNode ? 'open' : 'closed'}>
       {libraryOpen && <CanvasBlockLibrary t={t} onAdded={selectNode} />}
-      <div className="relative h-full min-w-0 overflow-hidden">
+      <div ref={containerRef} className="relative h-full min-w-0 overflow-hidden">
+        <EdgeActionsContext.Provider value={edgeActions}>
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
           nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
           fitView
           fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
           proOptions={{ hideAttribution: true }}
@@ -520,14 +718,19 @@ function FlowCanvasInner() {
           onNodeDragStop={handleNodeDragStop}
           onNodeClick={handleNodeClick}
           onConnect={handleConnect}
+          onConnectEnd={handleConnectEnd}
           onNodesDelete={handleNodesDelete}
           onEdgesDelete={handleEdgesDelete}
+          onEdgeMouseEnter={(_event, edge) => hoverEdge(edge.id)}
+          onEdgeMouseLeave={() => hoverEdge(null)}
           // Default is "Backspace" only — accept both so Mac users
           // hitting Delete (Fn+Backspace) get the same behavior.
-          deleteKeyCode={['Backspace', 'Delete']}
-          nodesConnectable={true}
-          edgesFocusable={true}
-          elementsSelectable={true}
+          // Locked: nothing is deletable, draggable or connectable.
+          deleteKeyCode={locked ? null : ['Backspace', 'Delete']}
+          nodesDraggable={!locked}
+          nodesConnectable={!locked}
+          edgesFocusable={!locked}
+          elementsSelectable={!locked}
           // Lower default min/max zoom than the lib's defaults; the
           // tiles already truncate their summary at a reasonable
           // size, so we don't need to zoom past 1.5x.
@@ -564,7 +767,10 @@ function FlowCanvasInner() {
             <Button variant="outline" size="icon-sm" className="bg-card shadow-sm" onClick={() => setLibraryOpen(value => !value)} aria-label={t('studioToggleLibrary')} aria-expanded={libraryOpen}>
               {libraryOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
             </Button>
-            <Button variant="outline" size="sm" className="bg-card shadow-sm" onClick={() => {
+            <Button variant="outline" size="icon-sm" className="bg-card shadow-sm" onClick={() => setLocked(value => !value)} aria-pressed={locked} aria-label={locked ? t('unlockCanvas') : t('lockCanvas')} title={locked ? t('unlockCanvas') : t('lockCanvas')}>
+              {locked ? <Lock className="h-4 w-4 text-primary" /> : <LockOpen className="h-4 w-4" />}
+            </Button>
+            <Button variant="outline" size="sm" className="bg-card shadow-sm" disabled={locked} onClick={() => {
               const measured = new Map(reactFlow.getNodes().map(n => [n.id, n.measured]));
               const positions = autoLayout(builderNodes.map(n => ({ id: n.node_key, ...canvasNodeDimensions(n, measured.get(n.node_key)) })), deriveCanvasEdges(builderNodes), { direction: 'LR', rankSep: 100, nodeSep: 70 });
               updateNodePositions(Object.fromEntries(positions));
@@ -575,6 +781,16 @@ function FlowCanvasInner() {
             </div>
           </Panel>
         </ReactFlow>
+        </EdgeActionsContext.Provider>
+        {dropPicker && !locked && (
+          <DropStepPicker
+            x={dropPicker.x}
+            y={dropPicker.y}
+            onPick={handleDropPick}
+            onClose={() => setDropPicker(null)}
+            t={t}
+          />
+        )}
         {rfNodes.length === 0 && <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8 text-center text-sm text-muted-foreground">{t('studioEmpty')}</div>}
       </div>
 
@@ -584,8 +800,9 @@ function FlowCanvasInner() {
         allNodes={builderNodes}
         onClose={() => setSelectedNodeKey(null)}
         onUpdateConfig={onSelectedUpdateConfig}
-        onDelete={handleDeleteSelected}
+        onDelete={locked ? undefined : handleDeleteSelected}
         onSetEntry={handleSetEntry}
+        readOnly={locked}
         t={t}
       />}
       </div>
@@ -607,6 +824,7 @@ function NodeInspector({
   onUpdateConfig,
   onDelete,
   onSetEntry,
+  readOnly,
   t,
 }: {
   node: BuilderNode | null;
@@ -614,8 +832,11 @@ function NodeInspector({
   allNodes: BuilderNode[];
   onClose: () => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
-  onDelete: () => void;
+  /** Omitted while the canvas is locked. */
+  onDelete?: () => void;
   onSetEntry: () => void;
+  /** Canvas locked: show the settings but block every edit. */
+  readOnly: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   if (!node) return null;
@@ -642,33 +863,40 @@ function NodeInspector({
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
           <code className="text-[10px] text-muted-foreground">{node.node_key}</code>
-          <NodeConfigForm
-            // Remount per node so per-form state (the delay unit) never carries across nodes.
-            key={node.node_key}
-            node={node}
-            allNodes={allNodes}
-            showAdvanced={false}
-            onUpdateConfig={onUpdateConfig}
-          />
+          {readOnly && <p className="text-muted-foreground flex items-center gap-1.5 text-xs"><Lock className="h-3.5 w-3.5" />{t('studioLockedHint')}</p>}
+          {/* disabled stops native controls; inert also stops custom
+              clickable rows, so a locked canvas can't be rewired here. */}
+          <fieldset disabled={readOnly} inert={readOnly} className="m-0 min-w-0 border-0 p-0">
+            <NodeConfigForm
+              // Remount per node so per-form state (the delay unit) never carries across nodes.
+              key={node.node_key}
+              node={node}
+              allNodes={allNodes}
+              showAdvanced={false}
+              onUpdateConfig={onUpdateConfig}
+            />
+          </fieldset>
         </div>
 
         <div className="border-border flex items-center justify-between gap-1 border-t px-3 py-3">
-          {!isEntry ? (
+          {!isEntry && !readOnly ? (
             <Button variant="ghost" size="sm" onClick={onSetEntry}>
               {t('setAsEntry')}
             </Button>
           ) : (
             <span />
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {t('deleteNode')}
-          </Button>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t('deleteNode')}
+            </Button>
+          )}
         </div>
     </aside>
   );
@@ -735,5 +963,56 @@ function CanvasBlockLibrary({ t, onAdded }: { t: ReturnType<typeof useTranslatio
         {matching.length === 0 && <p className="px-2 py-6 text-center text-xs text-muted-foreground">{t('studioNoResults')}</p>}
       </div>
     </aside>
+  );
+}
+
+// ============================================================
+// Drop-to-create picker — opens where a handle drag was released on
+// empty canvas. Same search + categories as the block library.
+// Escape or a click outside closes it.
+// ============================================================
+
+const PICKER_WIDTH = 260;
+const PICKER_HEIGHT = 340;
+
+function DropStepPicker({ x, y, onPick, onClose, t }: {
+  x: number;
+  y: number;
+  onPick: (type: NodeType) => void;
+  onClose: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [query, setQuery] = useState('');
+  const matching = filterPaletteTypes(ADD_NODE_TYPES.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
+  return (
+    <>
+      <div className="absolute inset-0 z-10" onMouseDown={onClose} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-label={t('addStepHere')}
+        onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } }}
+        style={{ left: x, top: y, width: PICKER_WIDTH, maxHeight: PICKER_HEIGHT }}
+        className="border-border bg-card absolute z-20 flex flex-col overflow-hidden rounded-xl border shadow-[0_14px_36px_-12px_rgba(0,0,0,0.45)]"
+      >
+        <div className="border-border border-b p-2">
+          <p className="text-muted-foreground mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider">{t('addStepHere')}</p>
+          <div className="relative"><Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" /><Input autoFocus aria-label={t('studioSearch')} placeholder={t('studioSearch')} value={query} onChange={event => setQuery(event.target.value)} className="h-9 pl-8 text-xs" /></div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+          {groupNodeTypesByCategory(matching.map(item => item.type)).map(group => (
+            <section key={group.id} className="mb-1.5">
+              <h3 className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t(`categories.${group.id}`)}</h3>
+              {group.types.map(type => (
+                <button key={type} type="button" title={t(`nodes.${type}.blurb`)} onClick={() => onPick(type)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary">
+                  <NodeIconChip type={type} size={22} iconSize={12} />
+                  {t(`nodes.${type}.label`)}
+                </button>
+              ))}
+            </section>
+          ))}
+          {matching.length === 0 && <p className="px-2 py-4 text-center text-xs text-muted-foreground">{t('studioNoResults')}</p>}
+        </div>
+      </div>
+    </>
   );
 }

@@ -25,7 +25,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { GitFork, List } from "lucide-react";
+import { GitFork, List, Smartphone } from "lucide-react";
 
 import { FlowBuilder } from "./flow-builder";
 import { FlowCanvas } from "./flow-canvas";
@@ -33,6 +33,7 @@ import { FlowEditorProvider } from "./flow-editor-state";
 import { EditorHeader } from "./header";
 import { ValidationPanel } from "./validation-panel";
 import { FlowSettings } from "./flow-settings";
+import { FlowPreview } from "./flow-preview";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from "@/lib/utils";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
@@ -82,6 +83,8 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
   // intact so the user's preference comes back when they widen
   // again (e.g. rotating a tablet, resizing a window).
   const isMobile = useMatchMedia(MOBILE_BREAKPOINT);
+  // WhatsApp-style preview beside either view; local only, never sends.
+  const [previewOpen, setPreviewOpen] = useState(false);
   const effectiveView: View = isMobile ? "list" : view;
 
   const choose = (next: View) => {
@@ -123,21 +126,38 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
               />
             </div>
             )}
+            <button
+              type="button"
+              onClick={() => setPreviewOpen((open) => !open)}
+              aria-pressed={previewOpen}
+              className={cn(
+                "ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium transition-colors",
+                previewOpen ? "bg-primary-soft text-primary" : "bg-card hover:bg-muted",
+              )}
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+              {t("preview.toggle")}
+            </button>
             <Popover>
-              <PopoverTrigger className="ml-auto rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium">{t('studioSettings')}</PopoverTrigger>
+              <PopoverTrigger className=" rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium">{t('studioSettings')}</PopoverTrigger>
               <PopoverContent align="end" className="w-96"><FlowSettings /></PopoverContent>
             </Popover>
           </div>
 
         {/* ---- stage: the active view, owning its own overflow ---- */}
         <div className="relative mx-2 min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card-2 sm:mx-4">
-          {effectiveView === "canvas" ? (
-            <FlowCanvas />
-          ) : (
-            <div className="absolute inset-0 overflow-y-auto">
-              <FlowBuilder />
+          <div className="flex h-full min-h-0">
+            <div className="relative h-full min-w-0 flex-1">
+              {effectiveView === "canvas" ? (
+                <FlowCanvas />
+              ) : (
+                <div className="absolute inset-0 overflow-y-auto">
+                  <FlowBuilder />
+                </div>
+              )}
             </div>
-          )}
+            {previewOpen && <FlowPreview onClose={() => setPreviewOpen(false)} />}
+          </div>
         </div>
 
         {/* ---- validation / activate-readiness bar ---- */}

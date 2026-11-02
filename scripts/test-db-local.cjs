@@ -90,7 +90,8 @@ if (command === 'stop') {
     process.exit(node(['node_modules/vitest/vitest.mjs', 'run', '--maxWorkers=1', 'integration.test', 'load.test', ...process.argv.slice(3)], env, false));
   }
   if (command === 'e2e') {
-    // Browser tests against the same local database; extra arguments pick specs.
-    process.exit(node(['node_modules/@playwright/test/cli.js', 'test', ...process.argv.slice(3)], env, false));
+    // Browser tests against the same local database; extra arguments pick specs. One retry, as in CI:
+    // the dev server can full-reload a page while it recompiles just-edited files.
+    process.exit(node(['node_modules/@playwright/test/cli.js', 'test', '--retries=1', ...process.argv.slice(3)], env, false));
   }
 }

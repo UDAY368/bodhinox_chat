@@ -38,6 +38,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -214,6 +215,30 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
   }
 }
 
+/**
+ * Appends a new node under an already-chosen key. The key is picked
+ * outside the state updater (see addNode) so the caller always gets
+ * back the key the node actually receives.
+ */
+export function appendNode(
+  s: BuilderState,
+  type: NodeType,
+  node_key: string,
+): BuilderState {
+  const next: BuilderNode = {
+    node_key,
+    node_type: type,
+    config: defaultConfigFor(type),
+  };
+  return {
+    ...s,
+    nodes: [...s.nodes, next],
+    // If this is the first node and it's a start, pick it as
+    // the entry automatically. Saves a click.
+    entry_node_id: s.entry_node_id ?? (type === "start" ? node_key : null),
+  };
+}
+
 export function applyNodePositions(
   nodes: BuilderNode[],
   positions: Record<string, { x: number; y: number }>,
@@ -281,6 +306,14 @@ export function FlowEditorProvider({
       position_y: n.position_y,
     })),
   }));
+
+  // Latest nodes for addNode's key choice. Kept in sync after each
+  // commit, and addNode appends to it eagerly so several adds in one
+  // batch still get distinct keys.
+  const nodesRef = useRef(state.nodes);
+  useLayoutEffect(() => {
+    nodesRef.current = state.nodes;
+  }, [state.nodes]);
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -504,26 +537,16 @@ export function FlowEditorProvider({
     (type: NodeType): string => {
       const meta = NODE_META[type];
       const base = slugify(meta.slugSeed, type);
-      let createdKey = base;
-      setState((s) => {
-        const node_key = uniqueNodeKey(base, s.nodes);
-        createdKey = node_key;
-        const next: BuilderNode = {
-          node_key,
-          node_type: type,
-          config: defaultConfigFor(type),
-        };
-        return {
-          ...s,
-          nodes: [...s.nodes, next],
-          // If this is the first node and it's a start, pick it as
-          // the entry automatically. Saves a click.
-          entry_node_id:
-            s.entry_node_id ??
-            (type === "start" ? node_key : s.entry_node_id ?? null),
-        };
-      });
-      return createdKey;
+      // Choose the key here, not inside the updater: React may defer
+      // the updater (it does once setDirty has queued work), and the
+      // caller needs the real key now to position / wire / select it.
+      const node_key = uniqueNodeKey(base, nodesRef.current);
+      nodesRef.current = [
+        ...nodesRef.current,
+        { node_key, node_type: type, config: {} },
+      ];
+      setState((s) => appendNode(s, type, node_key));
+      return node_key;
     },
     [setState],
   );

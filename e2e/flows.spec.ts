@@ -20,3 +20,29 @@ test('an agent adds a location question with a reply timeout to a new flow', asy
   await page.getByText(/\d+ errors?, \d+ warnings?/).click();
   await expect(page.getByText('Choose a node for the timeout path.')).toBeVisible();
 });
+
+test('an agent starts from a gallery template, previews it, duplicates it and finds the copy', async ({ page }) => {
+  await login(page, fixtures().users.agent);
+  await page.goto('/flows');
+  await page.getByRole('button', { name: 'New flow' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Search templates').fill('welcome menu');
+  const card = dialog.locator('div, li, article').filter({ hasText: 'Welcome menu' }).filter({ has: page.getByRole('button', { name: 'Use this' }) }).last();
+  await card.getByRole('button', { name: 'Use this' }).click();
+  await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
+
+  // The preview walks the template like a customer would, without sending anything.
+  await page.getByRole('button', { name: 'Preview' }).click();
+  await expect(page.getByText('Welcome to support', { exact: false }).last()).toBeVisible();
+  await page.getByRole('button', { name: 'New customer' }).last().click();
+  await expect(page.getByRole('button', { name: 'Restart preview' })).toBeVisible();
+
+  await page.goto('/flows');
+  await page.getByPlaceholder('Search flows').fill('Welcome menu');
+  await page.getByRole('button', { name: 'Duplicate' }).first().click();
+  await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
+  await page.goto('/flows');
+  await page.getByPlaceholder('Search flows').fill('Copy of Welcome menu');
+  await expect(page.getByText(/Copy of Welcome menu/).first()).toBeVisible();
+  await expect(page.getByText(/Created by/).first()).toBeVisible();
+});

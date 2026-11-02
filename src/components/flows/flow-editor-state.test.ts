@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
+  appendNode,
   applyNodePositions,
   defaultConfigFor,
   uniqueNodeKey,
 } from "./flow-editor-state";
+import type { BuilderState } from "./flow-editor-state";
+import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import type { BuilderNode, NodeType } from "./shared";
 
 describe("uniqueNodeKey", () => {
@@ -130,5 +133,37 @@ describe("defaultConfigFor", () => {
 
   it("end's default is an empty object (terminal — no config)", () => {
     expect(defaultConfigFor("end")).toEqual({});
+  });
+});
+
+describe("appendNode", () => {
+  const base: BuilderState = {
+    name: "f",
+    description: "",
+    trigger_type: "manual",
+    trigger_config: {},
+    entry_node_id: null,
+    status: "draft",
+    fallback_policy: resolveFallbackPolicy(null),
+    test_numbers: [],
+    nodes: [{ node_key: "send_message", node_type: "send_message", config: {} }],
+  };
+
+  it("adds the node under exactly the key it was given", () => {
+    // addNode picks the unique key before queueing the update and
+    // returns it; the canvas then positions / wires / selects by that
+    // key, so the node must land under that key, not the colliding base.
+    const key = uniqueNodeKey("send_message", base.nodes);
+    expect(key).toBe("send_message_2");
+    const next = appendNode(base, "send_message", key);
+    expect(next.nodes.map((n) => n.node_key)).toEqual(["send_message", "send_message_2"]);
+    expect(next.nodes[1].config).toEqual(defaultConfigFor("send_message"));
+    expect(base.nodes).toHaveLength(1);
+  });
+
+  it("makes a new start node the entry only when none is set", () => {
+    expect(appendNode(base, "start", "start").entry_node_id).toBe("start");
+    expect(appendNode(base, "send_message", "m").entry_node_id).toBeNull();
+    expect(appendNode({ ...base, entry_node_id: "x" }, "start", "start").entry_node_id).toBe("x");
   });
 });
