@@ -4,7 +4,7 @@ import { retryDecision } from './retry';
 
 export interface Job { id: string; type: string; tenant_id: string | null; payload: Record<string, unknown>; attempts: number; max_attempts: number; lease_token: string }
 export interface JobOptions { tenantId?: string; runAt?: Date; dedupeKey?: string; maxAttempts?: number; requeueCompleted?: boolean }
-const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigger', 'broadcast.dispatch', 'webhook.delivery', 'automation.resume', 'automation.schedule', 'flow.sweep']);
+const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigger', 'broadcast.dispatch', 'webhook.delivery', 'automation.resume', 'automation.schedule', 'flow.sweep', 'flow.timer']);
 export async function enqueueJob(type: string, payload: Record<string, unknown>, options: JobOptions = {}): Promise<string> {
   if (!types.has(type) || JSON.stringify(payload).length > 2 * 1024 * 1024) throw new Error('Invalid job contract');
   const rows = await getWorkerPrisma().$queryRaw<{ id: string }[]>`

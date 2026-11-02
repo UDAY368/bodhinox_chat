@@ -407,6 +407,32 @@ export async function sendTextMessage(
   return { messageId: data.messages[0].id }
 }
 
+/** Asks the customer to share a location, or to fill in Meta's address form (India only). */
+export async function sendInteractiveRequest(args: {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  bodyText: string
+  request: 'location' | 'address'
+}): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, bodyText, request } = args
+  validateInteractiveBody(bodyText)
+  const interactive = request === 'location'
+    ? { type: 'location_request_message', body: { text: bodyText }, action: { name: 'send_location' } }
+    : { type: 'address_message', body: { text: bodyText }, action: { name: 'address_message', parameters: { country: 'IN' } } }
+  const response = await fetch(`${META_API_BASE}/${phoneNumberId}/messages`, {
+    signal: AbortSignal.timeout(15_000),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ messaging_product: 'whatsapp', ...recipientFields(to), type: 'interactive', interactive }),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
 export type MediaKind = 'image' | 'video' | 'document' | 'audio'
 
 /** Location is a separate message; Meta does not support location interactive headers. */

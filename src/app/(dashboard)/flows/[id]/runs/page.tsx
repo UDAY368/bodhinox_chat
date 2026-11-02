@@ -317,6 +317,9 @@ const EVENT_COLOR: Record<string, string> = {
   timeout: "text-muted-foreground",
   error: "text-red-300",
   completed: "text-emerald-300",
+  delay_scheduled: "text-sky-300",
+  input_invalid: "text-amber-300",
+  attribute_set: "text-muted-foreground",
 };
 
 function EventLine({ ev }: { ev: EventRow }) {

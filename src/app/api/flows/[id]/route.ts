@@ -134,6 +134,7 @@ export async function PUT(
       trigger_type: body.trigger_type ?? flow.trigger_type,
       trigger_config: body.trigger_config ?? { ...flow.trigger_config },
       entry_node_id: body.entry_node_id !== undefined ? body.entry_node_id : flow.entry_node_id,
+      fallback_policy: body.fallback_policy ?? flow.fallback_policy,
     }, (existing.data ?? []) as FlowNodeRow[]);
     if (issues.some((issue) => issue.severity === 'error')) {
       return NextResponse.json({ error: t('flows.cannotSaveActive'), issues }, { status: 422 });

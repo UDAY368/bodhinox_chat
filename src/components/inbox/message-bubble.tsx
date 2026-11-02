@@ -287,7 +287,8 @@ function MessageContent({
       //  - OUTBOUND with NO payload (legacy bot/Flow sends from before
       //    migration 035 backfilled the column): show the body text plainly —
       //    it is our own message, NOT a customer tap.
-      if (message.interactive_payload) {
+      // A customer's address-form reply stores its fields here too; show its text instead.
+      if (message.interactive_payload && message.sender_type !== 'customer') {
         return (
           <LocalizedInteractivePreview payload={message.interactive_payload} />
         );

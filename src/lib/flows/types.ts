@@ -108,12 +108,40 @@ export interface HandoffNodeConfig {
 }
 
 /**
- * Captures the customer's next free-text reply into
- * `flow_runs.vars[var_key]`, then advances.
- *
- * Optional validation is enforced before storing the response.
+ * Timing any node may carry. Both run through the durable `flow.timer`
+ * job, so they survive worker restarts.
  */
-export interface CollectInputNodeConfig {
+export interface NodeTiming {
+  /** Wait this long (1 s – 24 h) before running the node. */
+  delay_seconds?: number;
+  /** Waiting nodes only: stop waiting for a reply after this many minutes… */
+  timeout_minutes?: number;
+  /** …and continue here. Required when `timeout_minutes` is set. */
+  after_timeout?: string;
+}
+
+/**
+ * Per-node handling of invalid replies on the nodes that ask for input.
+ * When `max_attempts` is unset, invalid replies use the flow's fallback
+ * policy exactly as before.
+ */
+export interface AskRetry {
+  /** Replies allowed (1–10) before the node gives up. */
+  max_attempts?: number;
+  /** Sent after an invalid reply; defaults to the prompt itself. */
+  error_text?: string;
+  /** Where to go once `max_attempts` invalid replies arrive; unset follows the flow's `on_exhaust`. */
+  exhausted_next?: string;
+}
+
+export type InputFormat = "any" | "email" | "phone" | "regex" | "number" | "date" | "boolean";
+
+/**
+ * Ask Question: captures the customer's next reply into
+ * `flow_runs.vars[var_key]`, then advances. The node type keeps its
+ * original name so stored flows run unchanged.
+ */
+export interface CollectInputNodeConfig extends AskRetry {
   /** Prompt text sent to the customer before they reply. */
   prompt_text: string;
   /**
@@ -123,39 +151,107 @@ export interface CollectInputNodeConfig {
    */
   var_key: string;
   /**
-   * Defaults to any non-empty text. Invalid responses use the flow's fallback policy.
+   * Defaults to any non-empty text. `number` stores the parsed number,
+   * `date` stores YYYY-MM-DD and `boolean` stores "true"/"false".
    */
-  validation?: "any" | "email" | "phone" | "regex";
+  validation?: InputFormat;
   /** Used only when `validation === 'regex'`. */
   regex?: string;
+  /** Inclusive bounds when `validation === 'number'`. */
+  min?: number;
+  max?: number;
+  /** Adds a Skip button to the prompt; tapping it goes to `skip_next` without capturing. */
+  skip_label?: string;
+  skip_next?: string;
   /** Node to advance to after capture. */
+  next_node_key: string;
+}
+
+export type MediaReplyType = "image" | "video" | "document" | "audio";
+
+/** Ask Media: waits for a photo, video, document or voice note and stores its link. */
+export interface AskMediaNodeConfig extends AskRetry {
+  prompt_text: string;
+  /** Accepted kinds; empty accepts any. */
+  media_types?: MediaReplyType[];
+  var_key: string;
+  skip_label?: string;
+  skip_next?: string;
+  next_node_key: string;
+}
+
+/**
+ * Ask Location: sends a share-location request. Stores "lat,lng" in
+ * `var_key` plus `<var_key>_latitude`, `_longitude`, `_name`, `_address`.
+ */
+export interface AskLocationNodeConfig extends AskRetry {
+  prompt_text: string;
+  var_key: string;
+  next_node_key: string;
+}
+
+/**
+ * Ask Address: Meta's address form for Indian numbers, a typed address
+ * elsewhere. Stores the full address in `var_key` and each form field
+ * as `<var_key>_<field>` (city, state, in_pin_code, …).
+ */
+export interface AskAddressNodeConfig extends AskRetry {
+  prompt_text: string;
+  var_key: string;
+  next_node_key: string;
+}
+
+/** Writes a run variable or a contact field from a literal or `{{vars.x}}`. */
+export interface SetAttributeNodeConfig {
+  target: "var" | "contact_field" | "custom_field";
+  /** Variable name, one of name/email/company, or a custom field id. */
+  key: string;
+  value: string;
   next_node_key: string;
 }
 
 export type ConditionOperator =
   | "equals"
+  | "not_equals"
   | "contains"
   | "present"
-  | "absent";
+  | "absent"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between";
 
-export type ConditionSubject = "var" | "tag" | "contact_field";
+export type ConditionSubject = "var" | "tag" | "contact_field" | "custom_field" | "time" | "date";
 
-/**
- * Routes the run based on a predicate over the contact's tags,
- * profile fields, or stored vars. Always auto-advances — no Meta
- * call, no customer-side input.
- */
-export interface ConditionNodeConfig {
+/** One test. `time` and `date` read the clock in the node's timezone (HH:MM, YYYY-MM-DD). */
+export interface ConditionRule {
   subject: ConditionSubject;
   /**
    * For `var`: the key in flow_runs.vars.
    * For `tag`: the tag UUID (matched against contact_tags).
    * For `contact_field`: one of 'name' | 'email' | 'phone' | 'company'.
+   * For `custom_field`: the custom field id. Unused for `time` / `date`.
    */
   subject_key: string;
   operator: ConditionOperator;
-  /** Compared against `subject` for `equals`/`contains`. Ignored for `present`/`absent`. */
+  /** Compared value; the lower bound for `between`. */
   value?: string;
+  /** Upper bound for `between` (inclusive; a time window may cross midnight). */
+  value2?: string;
+}
+
+/**
+ * Routes the run based on its rules. Without `rules` the node is the
+ * original single test (the ConditionRule fields at the top level).
+ * Always auto-advances — no Meta call, no customer-side input.
+ */
+export interface ConditionNodeConfig extends Partial<ConditionRule> {
+  /** Every rule must hold (`all`, default) or any one (`any`). */
+  match?: "all" | "any";
+  rules?: ConditionRule[];
+  /** IANA timezone for `time` / `date` rules; defaults to UTC. */
+  timezone?: string;
   /** Node to advance to when the predicate evaluates true. */
   true_next: string;
   /** Node to advance to when it evaluates false. */
@@ -189,6 +285,10 @@ export type FlowNodeConfig =
   | { node_type: "collect_input"; config: CollectInputNodeConfig }
   | { node_type: "condition"; config: ConditionNodeConfig }
   | { node_type: "set_tag"; config: SetTagNodeConfig }
+  | { node_type: "set_attribute"; config: SetAttributeNodeConfig }
+  | { node_type: "ask_media"; config: AskMediaNodeConfig }
+  | { node_type: "ask_location"; config: AskLocationNodeConfig }
+  | { node_type: "ask_address"; config: AskAddressNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 
@@ -277,6 +377,8 @@ export interface FlowRunRow {
   last_advanced_at: string;
   ended_at: string | null;
   end_reason: string | null;
+  /** Set while the run waits out a node delay. */
+  delay_until?: string | null;
 }
 
 // ============================================================
@@ -325,6 +427,28 @@ export type ParsedInbound =
       /** The visible title of the tapped option (for logging). */
       reply_title: string;
       meta_message_id: string;
+    }
+  | {
+      kind: "media";
+      media_type: MediaReplyType;
+      /** Stored link (mirrored copy or the media proxy). */
+      url: string;
+      caption: string;
+      meta_message_id: string;
+    }
+  | {
+      kind: "location";
+      latitude: number;
+      longitude: number;
+      name?: string;
+      address?: string;
+      meta_message_id: string;
+    }
+  | {
+      kind: "address";
+      /** Address-form fields (city, state, in_pin_code, …). */
+      values: Record<string, string>;
+      meta_message_id: string;
     };
 
 export interface DispatchInboundInput {
@@ -357,6 +481,7 @@ export interface DispatchInboundResult {
     | "fallback_fired"
     | "ai_fallback"
     | "duplicate_inbound_ignored"
+    | "waiting"
     | "no_match";
 }
 

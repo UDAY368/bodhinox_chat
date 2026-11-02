@@ -1,6 +1,8 @@
 import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause'
 import { providerMediaUrl } from '@/lib/storage/server'
 import {
+  MetaApiError,
+  sendInteractiveRequest,
   sendMediaMessage,
   sendTextMessage,
   type InteractiveButton,
@@ -79,6 +81,8 @@ interface SendTextEngineArgs {
   aiGenerated?: boolean
   /** AI can lose ownership or its service window while credentials load. */
   beforeSend?: () => Promise<void>
+  /** Send the text as a share-location request or (Indian numbers only) Meta's address form. */
+  request?: 'location' | 'address'
 }
 
 /**
@@ -131,6 +135,17 @@ export async function engineSendText(
   const attempt = async (phone: string): Promise<string> => {
     await assertBotRepliesEnabled(args.accountId, args.conversationId)
     await args.beforeSend?.()
+    // Meta offers the address form only to Indian numbers; elsewhere the
+    // prompt goes as text and the engine accepts a typed address.
+    const request = args.request === 'address' && !/^\+?91\d{10}$/.test(phone) ? undefined : args.request
+    if (request) {
+      try {
+        return (await sendInteractiveRequest({ phoneNumberId, accessToken, to: phone, bodyText: args.text, request })).messageId
+      } catch (err) {
+        // A rejected address form was not delivered, so plain text is safe to send instead.
+        if (request !== 'address' || !(err instanceof MetaApiError) || err.httpStatus >= 500 || isRecipientNotAllowedError(err.message)) throw err
+      }
+    }
     const r = await sendTextMessage({
       phoneNumberId,
       accessToken,

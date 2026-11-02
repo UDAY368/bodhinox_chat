@@ -15,6 +15,7 @@ import {
   queueScheduledOccurrence,
 } from './scheduled-audience';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
+import { handleFlowTimer, staleSince } from '@/lib/flows/engine';
 import {
   deliverBroadcast,
   finalizeBroadcastStatus,
@@ -235,6 +236,12 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         );
       await sweepFlows(db);
     } else if (job.type === 'flow.sweep') await sweepFlows(db);
+    else if (job.type === 'flow.timer') {
+      const { nodeKey, seq, kind } = job.payload;
+      if (typeof nodeKey !== 'string' || !Number.isInteger(seq) || (kind !== 'delay' && kind !== 'timeout'))
+        throw new Error('Invalid flow timer contract');
+      await handleFlowTimer({ accountId, runId: uuid(job.payload.runId), nodeKey, seq: seq as number, kind });
+    }
     else if (job.type === 'webhook.delivery')
       await deliverQueuedWebhook(db, accountId, job.payload);
     else throw new Error('Unsupported job type');
@@ -243,14 +250,14 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
 async function sweepFlows(db: ReturnType<typeof createAdminClient>) {
   const { data: runs, error } = await db
     .from('flow_runs')
-    .select('id,last_advanced_at,flows(fallback_policy)')
+    .select('id,last_advanced_at,delay_until,flows(fallback_policy)')
     .eq('status', 'active')
     .limit(500);
   if (error) throw new Error('Flow sweep failed');
   for (const run of runs ?? []) {
     const flow = Array.isArray(run.flows) ? run.flows[0] : run.flows;
     if (
-      Date.now() - Date.parse(run.last_advanced_at) <
+      Date.now() - Date.parse(staleSince(run)) <
       resolveFallbackPolicy(flow?.fallback_policy).on_timeout_hours * 3_600_000
     )
       continue;

@@ -1,5 +1,4 @@
 "use client";
-import { loadFlowTags } from '../load-tags';
 
 /**
  * Per-node configuration form, dispatched by node_type.
@@ -25,7 +24,7 @@ import { loadFlowTags } from '../load-tags';
  * renders the advanced rows.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   Loader2,
   Paperclip,
@@ -50,6 +49,8 @@ import { cn } from "@/lib/utils";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
 import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
+import { ConditionForm, QuestionForm, SetAttributeForm, TimingFields } from "./question-forms";
+import { useUserTags } from "./use-pickers";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -58,7 +59,17 @@ interface NodeConfigFormProps {
   onUpdateConfig: (patch: Record<string, unknown>) => void;
 }
 
-export function NodeConfigForm({
+export function NodeConfigForm(props: NodeConfigFormProps) {
+  const t = useTranslations("Flows.builder.form");
+  return (
+    <>
+      <NodeFields {...props} />
+      <TimingFields node={props.node} allNodes={props.allNodes} onUpdateConfig={props.onUpdateConfig} t={t} />
+    </>
+  );
+}
+
+function NodeFields({
   node,
   allNodes,
   showAdvanced,
@@ -133,74 +144,16 @@ export function NodeConfigForm({
       );
 
     case "collect_input":
-      return (
-        <>
-          <TextRow
-            label={t("promptToCustomer")}
-            value={(cfg as { prompt_text?: string }).prompt_text ?? ""}
-            onChange={(v) => onUpdateConfig({ prompt_text: v })}
-            rows={2}
-          />
-          <div className="space-y-2">
-            <label htmlFor={`validation-${node.node_key}`} className="block text-xs text-muted-foreground">{t('inputValidation')}</label>
-            <Select value={String(cfg.validation ?? 'any')} onValueChange={(value) => onUpdateConfig({ validation: value })}>
-              <SelectTrigger id={`validation-${node.node_key}`} className="bg-muted"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">{t('validationAny')}</SelectItem>
-                <SelectItem value="email">{t('validationEmail')}</SelectItem>
-                <SelectItem value="phone">{t('validationPhone')}</SelectItem>
-                <SelectItem value="regex">{t('validationRegex')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{t(cfg.validation === 'phone' ? 'validationPhoneHelp' : 'validationHelp')}</p>
-            {cfg.validation === 'regex' && (
-              <TextRow label={t('validationPattern')} value={typeof cfg.regex === 'string' ? cfg.regex : ''} onChange={(regex) => onUpdateConfig({ regex })} rows={2} />
-            )}
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              {t("varKeyLabel")}
-            </label>
-            <Input
-              value={(cfg as { var_key?: string }).var_key ?? ""}
-              onChange={(e) =>
-                onUpdateConfig({
-                  var_key: e.target.value.replace(/[^a-zA-Z0-9_]/g, ""),
-                })
-              }
-              placeholder={t("varKeyPlaceholder")}
-              className="bg-muted font-mono text-xs"
-            />
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              {t("varKeyHelp")}{" "}
-              <code className="rounded bg-muted px-1">
-                {"{{vars."}
-                {(cfg as { var_key?: string }).var_key || "name"}
-                {"}}"}
-              </code>
-              .
-            </p>
-          </div>
-          <NextNodeRow
-            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
-            allNodes={allNodes}
-            currentKey={node.node_key}
-            onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label={t("advanceAfterCapture")}
-          />
-        </>
-      );
+    case "ask_media":
+    case "ask_location":
+    case "ask_address":
+      return <QuestionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "set_attribute":
+      return <SetAttributeForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "condition":
-      return (
-        <ConditionForm
-          cfg={cfg as ConditionCfg}
-          allNodes={allNodes}
-          currentKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          t={t}
-        />
-      );
+      return <ConditionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "set_tag":
       return (
@@ -603,174 +556,6 @@ function SendListForm({
 }
 
 // ============================================================
-// condition
-// ============================================================
-
-interface ConditionCfg {
-  subject?: "var" | "tag" | "contact_field";
-  subject_key?: string;
-  operator?: "equals" | "contains" | "present" | "absent";
-  value?: string;
-  true_next?: string;
-  false_next?: string;
-}
-
-interface UserTag {
-  id: string;
-  name: string;
-  color?: string;
-}
-
-function ConditionForm({
-  cfg,
-  allNodes,
-  currentKey,
-  onUpdateConfig,
-  t,
-}: {
-  cfg: ConditionCfg;
-  allNodes: BuilderNode[];
-  currentKey: string;
-  onUpdateConfig: (patch: Record<string, unknown>) => void;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const tags = useUserTags();
-
-  const subject = cfg.subject ?? "var";
-  const operator = cfg.operator ?? "equals";
-  const showValue = operator === "equals" || operator === "contains";
-
-  return (
-    <>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">{t("ifLabel")}</label>
-          <Select
-            value={subject}
-            onValueChange={(v) =>
-              onUpdateConfig({ subject: v as ConditionCfg["subject"] })
-            }
-          >
-            <SelectTrigger className="bg-muted">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="var">{t("capturedVariable")}</SelectItem>
-              <SelectItem value="tag">{t("contactHasTag")}</SelectItem>
-              <SelectItem value="contact_field">{t("contactField")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="mb-1 block text-xs text-muted-foreground">
-            {subject === "var"
-              ? t("varName")
-              : subject === "tag"
-                ? t("tagLabel")
-                : t("fieldLabel")}
-          </label>
-          {subject === "tag" && tags.length > 0 ? (
-            <Select
-              value={cfg.subject_key ?? ""}
-              onValueChange={(v) => onUpdateConfig({ subject_key: v })}
-            >
-              <SelectTrigger className="bg-muted">
-                <SelectValue placeholder={t("pickTag")} />
-              </SelectTrigger>
-              <SelectContent>
-                {tags.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : subject === "contact_field" ? (
-            <Select
-              value={cfg.subject_key ?? ""}
-              onValueChange={(v) => onUpdateConfig({ subject_key: v })}
-            >
-              <SelectTrigger className="bg-muted">
-                <SelectValue placeholder={t("pickField")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">name</SelectItem>
-                <SelectItem value="email">email</SelectItem>
-                <SelectItem value="phone">phone</SelectItem>
-                <SelectItem value="company">company</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input
-              value={cfg.subject_key ?? ""}
-              onChange={(e) =>
-                onUpdateConfig({ subject_key: e.target.value })
-              }
-              placeholder={subject === "var" ? t("varKeyPlaceholder") : t("tagUuidPlaceholder")}
-              className="bg-muted font-mono text-xs"
-            />
-          )}
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "grid grid-cols-1 gap-3",
-          showValue ? "md:grid-cols-2" : "",
-        )}
-      >
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">{t("operatorLabel")}</label>
-          <Select
-            value={operator}
-            onValueChange={(v) =>
-              onUpdateConfig({ operator: v as ConditionCfg["operator"] })
-            }
-          >
-            <SelectTrigger className="bg-muted">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="present">{t("isPresent")}</SelectItem>
-              <SelectItem value="absent">{t("isAbsent")}</SelectItem>
-              <SelectItem value="equals">{t("equals")}</SelectItem>
-              <SelectItem value="contains">{t("contains")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {showValue && (
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">{t("valueLabel")}</label>
-            <Input
-              value={cfg.value ?? ""}
-              onChange={(e) => onUpdateConfig({ value: e.target.value })}
-              className="bg-muted"
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <NextNodeRow
-          value={cfg.true_next ?? ""}
-          allNodes={allNodes}
-          currentKey={currentKey}
-          onChange={(v) => onUpdateConfig({ true_next: v })}
-          label={t("ifTrueAdvance")}
-        />
-        <NextNodeRow
-          value={cfg.false_next ?? ""}
-          allNodes={allNodes}
-          currentKey={currentKey}
-          onChange={(v) => onUpdateConfig({ false_next: v })}
-          label={t("ifFalseAdvance")}
-        />
-      </div>
-    </>
-  );
-}
-
-// ============================================================
 // set_tag
 // ============================================================
 
@@ -852,29 +637,6 @@ function SetTagForm({
       />
     </>
   );
-}
-
-/**
- * Shared loader for both `condition` (subject=tag) and `set_tag`.
- * Uses the tenant-scoped CRM client; manual UUID entry remains a fallback.
- */
-function useUserTags(): UserTag[] {
-  const [tags, setTags] = useState<UserTag[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const loaded = await loadFlowTags();
-        if (!cancelled) setTags(loaded);
-      } catch {
-        // The caller keeps manual tag entry available.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return tags;
 }
 
 // ============================================================

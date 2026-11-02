@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({ explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
-  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[] }));
-vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: () => {
+  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null }));
+vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const b = { select: () => b, eq: () => b, in: () => b, is: () => b, order: () => b, limit: async () => ({ data: [], error: null }),
     update: (row: Record<string, unknown>) => { h.consentUpdates.push(row); return b; },
-    maybeSingle: async () => ({ data: h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
+    maybeSingle: async () => ({ data: table === 'messages' ? h.message : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
 } }) }));
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: h.explicit }));
@@ -20,7 +20,7 @@ import { processInboundActions } from './inbound-actions';
 import type { MessageActionsPayload } from './ingest';
 const id = '00000000-0000-4000-8000-000000000001';
 const input: MessageActionsPayload = { kind: 'message', accountId: id, conversationId: id, contactId: id, userId: id, messageId: id, metaMessageId: 'wamid.tap', interactiveReplyId: 'qr_token', contentType: 'interactive', contentText: 'Start', wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true };
-beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
+beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.message = null; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
 
 const text = (contentText: string) => ({ ...input, interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, isFirstInboundMessage: false });
 it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword without any automated response', async (word, kind) => {
@@ -74,4 +74,15 @@ it('reserves a legacy menu text question for AI without content triggers', async
   await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false });
   expect(h.automations).not.toHaveBeenCalled();
   expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ routingChecked: true, requireHandoffOnUnavailable: true }));
+});
+
+it.each([
+  ['location', { interactive_payload: { location: { latitude: 12.9, longitude: 77.5, name: 'Office' } } }, { kind: 'location', latitude: 12.9, longitude: 77.5, name: 'Office' }],
+  ['image', { media_url: 'https://cdn/x.jpg', media_type: 'image/jpeg' }, { kind: 'media', media_type: 'image', url: 'https://cdn/x.jpg', caption: 'Look' }],
+  ['interactive', { interactive_payload: { address: { city: 'Pune' } } }, { kind: 'address', values: { city: 'Pune' } }],
+  ['image', { media_url: null }, { kind: 'text', text: 'Look' }],
+])('hands flows the stored %s message in its structured shape', async (contentType, row, expected) => {
+  h.explicit.mockResolvedValue({ handled: false }); h.message = row;
+  await processInboundActions({ ...input, interactiveReplyId: null, contentType, contentText: 'Look', wasContactCreated: false, isFirstInboundMessage: false });
+  expect(h.flow.mock.calls[0][0].message).toEqual({ ...expected, meta_message_id: 'wamid.tap' });
 });

@@ -6,6 +6,8 @@ export interface IngestInboundInput {
   accountId: string; userId: string; contactId: string; conversationId: string;
   metaMessageId: string; contentType: string; contentText: string | null;
   mediaUrl: string | null; mediaType: string | null; interactiveReplyId: string | null;
+  /** Structured location or address-form reply (messages.interactive_payload). */
+  interactivePayload?: Record<string, unknown> | null;
   replyToMessageId: string | null; createdAt: Date;
   wasContactCreated: boolean; wasConversationCreated: boolean;
 }
@@ -30,9 +32,10 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
     const first = await tx.$queryRaw<{ is_first: boolean }[]>`SELECT NOT EXISTS(SELECT 1 FROM messages
       WHERE account_id=${input.accountId}::uuid AND conversation_id=${input.conversationId}::uuid AND sender_type='customer') AS is_first`;
     const inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,
-      content_text,media_url,media_type,message_id,status,created_at,reply_to_message_id,interactive_reply_id)
+      content_text,media_url,media_type,message_id,status,created_at,reply_to_message_id,interactive_reply_id,interactive_payload)
       VALUES(${input.accountId}::uuid,${input.conversationId}::uuid,'customer',${input.contentType},${input.contentText},
-        ${input.mediaUrl},${input.mediaType},${input.metaMessageId},'delivered',${input.createdAt},${input.replyToMessageId}::uuid,${input.interactiveReplyId})
+        ${input.mediaUrl},${input.mediaType},${input.metaMessageId},'delivered',${input.createdAt},${input.replyToMessageId}::uuid,${input.interactiveReplyId},
+        ${input.interactivePayload ? JSON.stringify(input.interactivePayload) : null}::jsonb)
       ON CONFLICT(conversation_id,message_id) DO NOTHING RETURNING id`;
     if (!inserted.length) {
       const existing = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM messages WHERE account_id=${input.accountId}::uuid

@@ -49,6 +49,7 @@ import {
 import { cn } from '@/lib/utils';
 import { type ValidationIssue } from '@/lib/flows/validate';
 import {
+  ADD_NODE_TYPES,
   NODE_META,
   NodeIconChip,
   groupNodeTypesByCategory,
@@ -580,18 +581,7 @@ function NodeConfigWithAdvanced({
 // ============================================================
 
 function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: ReturnType<typeof useTranslations> }) {
-  const types: NodeType[] = [
-    'start',
-    'send_buttons',
-    'send_list',
-    'send_message',
-    'send_media',
-    'collect_input',
-    'condition',
-    'set_tag',
-    'handoff',
-    'end',
-  ];
+  const types = ADD_NODE_TYPES;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

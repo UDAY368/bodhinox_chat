@@ -1685,7 +1685,67 @@
         "uploadFailed": "Upload failed.",
         "fileTooLarge": "File is {size} MB — limit is 16 MB.",
         "defaultOptionTitle": "Option",
-        "optionN": "Option {n}"
+        "optionN": "Option {n}",
+        "validationNumber": "Number",
+        "validationDate": "Date",
+        "validationBoolean": "Yes / No",
+        "validationNumberHelp": "Stores the number. Leave minimum or maximum empty for no limit.",
+        "validationDateHelp": "Accepts 2026-11-02 or 02/11/2026 (day first) and stores YYYY-MM-DD.",
+        "validationBooleanHelp": "Accepts yes/no (also y/n, true/false) and stores true or false.",
+        "minLabel": "Minimum",
+        "maxLabel": "Maximum",
+        "acceptedMedia": "Accepted files",
+        "mediaKind_image": "Image",
+        "mediaKind_video": "Video",
+        "mediaKind_document": "Document",
+        "mediaKind_audio": "Audio / voice note",
+        "acceptedMediaHelp": "Leave all unticked to accept any file. Stores the file link; {name}_type holds its kind.",
+        "locationHelp": "The customer gets a Send location button. Stores \"latitude,longitude\", plus {name}_latitude, _longitude, _name and _address.",
+        "addressHelp": "Indian numbers get WhatsApp's address form; others type their address. Stores the full address, plus fields such as {name}_city and {name}_in_pin_code.",
+        "retryTitle": "When the answer doesn't fit",
+        "maxAttemptsLabel": "Attempts allowed",
+        "maxAttemptsHelp": "Leave empty to use the flow's fallback setting.",
+        "errorTextLabel": "Error message (optional)",
+        "exhaustedLabel": "When attempts are used up, go to",
+        "exhaustedHelp": "Leave empty to use the flow's fallback setting. An empty error message repeats the question.",
+        "skipLabelLabel": "Skip button text (optional)",
+        "skipHelp": "Adds a Skip button to the question.",
+        "skipNextLabel": "When skipped, go to",
+        "setTarget": "Set",
+        "targetVar": "Flow variable",
+        "targetContactField": "Contact field",
+        "targetCustomField": "Custom field",
+        "pickCustomField": "Pick a custom field",
+        "attributeValue": "Value",
+        "attributeValueHelp": "Text, or insert {{vars.name}} or {{workspace.key}}.",
+        "matchLabel": "Match",
+        "matchAll": "All rules",
+        "matchAny": "Any rule",
+        "ruleN": "Rule {n}",
+        "addRule": "Add rule",
+        "removeRule": "Remove rule",
+        "subjectTime": "Time of day",
+        "subjectDate": "Today's date",
+        "notEquals": "is not",
+        "opGt": "greater than",
+        "opGte": "at least",
+        "opLt": "less than",
+        "opLte": "at most",
+        "opBetween": "between",
+        "value2Label": "and",
+        "timezoneLabel": "Timezone",
+        "timeHelp": "24-hour HH:MM, e.g. 09:00 and 18:00. A window can cross midnight; the end time is excluded.",
+        "dateHelp": "YYYY-MM-DD, e.g. 2026-12-25.",
+        "timingTitle": "Timing",
+        "delayLabel": "Wait before this step",
+        "delayUnit": "Unit",
+        "unit_seconds": "seconds",
+        "unit_minutes": "minutes",
+        "unit_hours": "hours",
+        "delayHelp": "Up to 24 hours. Replies during the wait are ignored.",
+        "timeoutLabel": "Stop waiting for a reply after (minutes)",
+        "timeoutHelp": "Up to 7 days. Leave empty to wait until the flow's inactivity limit.",
+        "afterTimeoutLabel": "On timeout, go to"
       },
       "categories": {
         "messaging": "Messaging",
@@ -1714,8 +1774,8 @@
           "blurb": "Sends an image, video, or document"
         },
         "collect_input": {
-          "label": "Collect input",
-          "blurb": "Asks a question, saves the reply"
+          "label": "Ask question",
+          "blurb": "Asks a question, checks and saves the answer"
         },
         "condition": {
           "label": "If / else",
@@ -1732,7 +1792,28 @@
         "end": {
           "label": "End",
           "blurb": "Ends the flow"
+        },
+        "ask_media": {
+          "label": "Ask for media",
+          "blurb": "Asks for a photo, video, file or voice note"
+        },
+        "ask_location": {
+          "label": "Ask for location",
+          "blurb": "Asks the customer to share a location"
+        },
+        "ask_address": {
+          "label": "Ask for address",
+          "blurb": "Asks for a delivery address"
+        },
+        "set_attribute": {
+          "label": "Set attribute",
+          "blurb": "Saves a value to a variable or contact field"
         }
+      },
+      "ports": {
+        "skip": "Skip",
+        "exhausted": "Attempts used up",
+        "timeout": "Timeout"
       }
     },
     "validation": {
@@ -1772,7 +1853,10 @@
       "modeAdd": "Add",
       "modeRemove": "Remove",
       "tagPicked": "{mode} tag {tag}…",
-      "tagNone": "{mode} tag (none picked)"
+      "tagNone": "{mode} tag (none picked)",
+      "customField": "custom field",
+      "rulesAll": "{count, plural, one {# rule} other {# rules}}, all must match",
+      "rulesAny": "{count, plural, one {# rule} other {# rules}}, any can match"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -2952,7 +3036,38 @@
       "setTagNeedsNext": "Set-tag must point to a next node.",
       "setTagMissingNext": "Set-tag points to non-existent node \"{key}\".",
       "unknownNodeType": "Unknown node type \"{type}\".",
-      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply."
+      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply.",
+      "questionNeedsPrompt": "Enter the question to send the customer.",
+      "questionNeedsVarKey": "Enter a variable name to store the answer under.",
+      "nodeNeedsNext": "This node must point to a next node.",
+      "nodeMissingNext": "This node points to non-existent node \"{key}\".",
+      "promptTooLongForInteractive": "With a Skip button, or as a location or address request, the question can be at most {max} characters.",
+      "invalidNumberRange": "Minimum must be less than or equal to maximum.",
+      "invalidMediaTypes": "Choose image, video, document or audio.",
+      "skipNotAllowed": "Only text and media questions can have a Skip button.",
+      "skipLabelInvalid": "Skip button text must be 1–{max} characters.",
+      "skipNeedsNext": "Choose a node for the Skip path.",
+      "skipMissingNext": "The Skip path points to non-existent node \"{key}\".",
+      "invalidMaxAttempts": "Attempts must be a whole number from 1 to 10.",
+      "exhaustedMissingNext": "The \"attempts used up\" path points to non-existent node \"{key}\".",
+      "exhaustedNeedsAttempts": "Set the number of attempts, or the \"attempts used up\" path is never taken.",
+      "setAttributeNeedsTarget": "Choose what to set: a variable, a contact field or a custom field.",
+      "setAttributeBadKey": "Choose a valid variable name, contact field (name, email, company) or custom field.",
+      "setAttributeValueTooLong": "The value can be at most {max} characters.",
+      "conditionBadMatch": "Choose whether all rules or any rule must match.",
+      "conditionRuleCount": "A condition needs 1 to {max} rules.",
+      "operatorRequiresValue": "Operator \"{operator}\" needs a comparison value.",
+      "conditionNeedsBound": "\"Between\" needs both a start and an end value.",
+      "conditionBadTime": "Times must be in 24-hour HH:MM format.",
+      "conditionBadDate": "Dates must be YYYY-MM-DD or DD/MM/YYYY.",
+      "conditionBadTimezone": "Choose a valid timezone.",
+      "delayNotAllowed": "The start node cannot have a delay.",
+      "invalidDelay": "Delay must be a whole number of seconds from 1 to 86,400 (24 hours).",
+      "timeoutNotAllowed": "Only nodes that wait for a reply can have a timeout.",
+      "invalidTimeout": "Timeout must be a whole number of minutes from 1 to 10,080 (7 days).",
+      "timeoutAfterRunTimeout": "This timeout is longer than the flow's {hours}-hour inactivity limit, so the run ends before it fires.",
+      "timeoutNeedsNext": "Choose a node for the timeout path.",
+      "timeoutMissingNext": "The timeout path points to non-existent node \"{key}\"."
     },
     "automations": {
       "needsStep": "active automations need at least one step",

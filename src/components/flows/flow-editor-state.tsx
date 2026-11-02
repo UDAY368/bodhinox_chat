@@ -178,6 +178,14 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
         var_key: "answer",
         next_node_key: "",
       };
+    case "ask_media":
+      return { prompt_text: "", media_types: [], var_key: "media", next_node_key: "" };
+    case "ask_location":
+      return { prompt_text: "", var_key: "location", next_node_key: "" };
+    case "ask_address":
+      return { prompt_text: "", var_key: "address", next_node_key: "" };
+    case "set_attribute":
+      return { target: "var", key: "", value: "", next_node_key: "" };
     case "condition":
       return {
         subject: "var",
@@ -325,6 +333,7 @@ export function FlowEditorProvider({
           trigger_type: state.trigger_type,
           trigger_config: state.trigger_config,
           entry_node_id: state.entry_node_id,
+          fallback_policy: state.fallback_policy,
         },
         state.nodes,
       ),

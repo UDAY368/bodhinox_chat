@@ -1,7 +1,10 @@
 import { checkRunTimeout, markRunTimedOut, type RunTimeoutCheck } from "./timeout";
 import { botRepliesPaused } from '@/lib/whatsapp/bot-pause';
-import { validateCollectedInput } from './input-validation';
+import { normalizeCollectedInput } from './input-validation';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
+import { enqueueJob } from '@/lib/jobs/queue';
+import { writeContactField } from '@/lib/contacts/field-write';
+import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
 /**
  * Flow runner.
  *
@@ -49,9 +52,14 @@ import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { fillWorkspace, workspaceValuesFor } from "@/lib/workspace/attributes";
 import {
+  type AskMediaNodeConfig,
+  type AskRetry,
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
+  type ConditionRule,
   type DispatchInboundInput,
+  type NodeTiming,
+  type SetAttributeNodeConfig,
   type DispatchInboundResult,
   type FlowNodeRow,
   type FlowRow,
@@ -133,11 +141,32 @@ export function matchesKeywordTrigger(
  * silently breaks the author who keyed on it.
  */
 export function entryTriggerTexts(message: ParsedInbound): string[] {
-  if (message.kind === "text") return [message.text];
+  if (message.kind !== "interactive_reply") {
+    const text = messageText(message);
+    return text.trim() ? [text] : [];
+  }
   return [...new Set([message.reply_title, message.reply_id])].filter(
     (v): v is string => Boolean(v && v.trim()),
   );
 }
+
+/**
+ * The text a message offered before photos, locations and address forms
+ * had their own shapes: a caption, or the location / address joined up.
+ * Keeps keyword triggers and text questions behaving as they did.
+ */
+export function messageText(message: ParsedInbound): string {
+  switch (message.kind) {
+    case "text": return message.text;
+    case "interactive_reply": return message.reply_title;
+    case "media": return message.caption;
+    case "location": return [message.name, message.address, `${message.latitude},${message.longitude}`].filter(Boolean).join(" - ");
+    case "address": return Object.values(message.values).join(", ");
+  }
+}
+
+/** reply_id of the Skip button on question nodes. */
+export const SKIP_REPLY_ID = "__skip";
 
 /** Nodes that advance to a next_node_key without waiting for input. */
 export function isAutoAdvancing(node_type: string): boolean {
@@ -146,8 +175,33 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "send_message" ||
     node_type === "send_media" ||
     node_type === "condition" ||
-    node_type === "set_tag"
+    node_type === "set_tag" ||
+    node_type === "set_attribute"
   );
+}
+
+/** Nodes that ask a question and store the answer. */
+export function isAskNode(node_type: string): boolean {
+  return (
+    node_type === "collect_input" ||
+    node_type === "ask_media" ||
+    node_type === "ask_location" ||
+    node_type === "ask_address"
+  );
+}
+
+/** A valid per-node delay in whole seconds (1 s – 24 h), else 0. */
+export function nodeDelaySeconds(config: Record<string, unknown>): number {
+  const d = (config as NodeTiming).delay_seconds;
+  return typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 86_400 ? d : 0;
+}
+
+/** A valid wait-for-reply timeout in minutes (1 min – 7 days) with its port, else null. */
+export function nodeTimeout(config: Record<string, unknown>): { minutes: number; next: string } | null {
+  const { timeout_minutes: m, after_timeout: next } = config as NodeTiming;
+  return typeof m === "number" && Number.isInteger(m) && m >= 1 && m <= 10_080 && typeof next === "string" && next
+    ? { minutes: m, next }
+    : null;
 }
 
 export type ActiveRunClosure =
@@ -155,8 +209,15 @@ export type ActiveRunClosure =
   | { kind: "fail"; reason: "active_run_missing_current_node" }
   | { kind: "timeout"; check: RunTimeoutCheck };
 
+/** A run waiting out a delay is not stale until the delay ends. */
+export function staleSince(run: Pick<FlowRunRow, "last_advanced_at" | "delay_until">): string {
+  return run.delay_until && Date.parse(run.delay_until) > Date.parse(run.last_advanced_at)
+    ? run.delay_until
+    : run.last_advanced_at;
+}
+
 export function closureForActiveRun(args: {
-  run: Pick<FlowRunRow, "current_node_key" | "last_advanced_at">;
+  run: Pick<FlowRunRow, "current_node_key" | "last_advanced_at" | "delay_until">;
   flow: Pick<FlowRow, "status" | "fallback_policy"> | null;
   nodeKeys: ReadonlySet<string> | { has(key: string): boolean };
   now: Date;
@@ -165,7 +226,7 @@ export function closureForActiveRun(args: {
     return { kind: "cancel", reason: "flow_not_active" };
   }
   const check = checkRunTimeout(
-    args.run.last_advanced_at,
+    staleSince(args.run),
     args.flow.fallback_policy,
     args.now,
   );
@@ -184,7 +245,7 @@ export function isSuspending(node_type: string): boolean {
   return (
     node_type === "send_buttons" ||
     node_type === "send_list" ||
-    node_type === "collect_input"
+    isAskNode(node_type)
   );
 }
 
@@ -199,7 +260,7 @@ export function isTerminal(node_type: string): boolean {
  * DB lookup for `tag` / `contact_field` subjects.
  */
 export function evaluateConditionPredicate(args: {
-  operator: ConditionNodeConfig["operator"];
+  operator: ConditionRule["operator"];
   /**
    * Resolved value of the subject. `undefined` means the subject is
    * absent (no var with that key / no such tag / contact field is
@@ -208,19 +269,10 @@ export function evaluateConditionPredicate(args: {
   subjectValue: string | undefined;
   /** The configured comparison value, when applicable. */
   configValue: string | undefined;
+  /** Upper bound for `between`. */
+  configValue2?: string;
 }): boolean {
-  switch (args.operator) {
-    case "present":
-      return args.subjectValue !== undefined && args.subjectValue !== "";
-    case "absent":
-      return args.subjectValue === undefined || args.subjectValue === "";
-    case "equals":
-      if (args.subjectValue === undefined) return false;
-      return args.subjectValue === (args.configValue ?? "");
-    case "contains":
-      if (args.subjectValue === undefined) return false;
-      return args.subjectValue.includes(args.configValue ?? "");
-  }
+  return predicateHolds(args.operator, args.subjectValue, args.configValue, args.configValue2);
 }
 
 // ============================================================
@@ -315,7 +367,10 @@ async function logEvent(
     | "handoff"
     | "timeout"
     | "error"
-    | "completed",
+    | "completed"
+    | "delay_scheduled"
+    | "input_invalid"
+    | "attribute_set",
   node_key: string | null,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
@@ -556,40 +611,101 @@ async function evaluateConditionNode(
   run: FlowRunRow,
   cfg: ConditionNodeConfig,
 ): Promise<boolean> {
-  let subjectValue: string | undefined;
-  if (cfg.subject === "var") {
-    const v = run.vars[cfg.subject_key];
-    subjectValue = typeof v === "string" ? v : v === undefined ? undefined : String(v);
-  } else if (cfg.subject === "tag") {
+  const clock = { now: new Date(), timezone: clockTimezone(cfg) };
+  const rules = conditionRules(cfg);
+  // Evaluated in order and stopped early, so a later rule's lookup is skipped once the answer is known.
+  for (const rule of rules) {
+    const holds = ruleHolds(rule, await conditionSubject(db, run, rule), clock);
+    if (cfg.match === "any" ? holds : !holds) return holds;
+  }
+  return cfg.match !== "any";
+}
+
+async function conditionSubject(
+  db: AdminClient,
+  run: FlowRunRow,
+  rule: ConditionRule,
+): Promise<string | undefined> {
+  if (rule.subject === "time" || rule.subject === "date") return undefined;
+  if (rule.subject === "var") {
+    const v = run.vars[rule.subject_key];
+    return typeof v === "string" ? v : v === undefined || v === null ? undefined : String(v);
+  }
+  if (rule.subject === "tag") {
     const { count } = await db
       .from("contact_tags")
       .select("contact_id", { count: "exact", head: true })
       .eq("contact_id", run.contact_id!)
-      .eq("tag_id", cfg.subject_key);
+      .eq("tag_id", rule.subject_key);
     // For tags, "present" really is the only meaningful test — the
     // `present`/`absent` operators are the natural fit. equals/contains
     // against a tag UUID would still work mechanically (compare its
     // existence to the value).
-    subjectValue = (count ?? 0) > 0 ? cfg.subject_key : undefined;
-  } else {
-    const ALLOWED = ["name", "email", "phone", "company"] as const;
-    type AllowedField = (typeof ALLOWED)[number];
-    if (!ALLOWED.includes(cfg.subject_key as AllowedField)) {
-      throw new Error(`unsupported contact_field: ${cfg.subject_key}`);
-    }
-    const { data } = await db
-      .from("contacts")
-      .select(cfg.subject_key)
-      .eq("id", run.contact_id!)
-      .maybeSingle();
-    const raw = (data as Record<string, unknown> | null)?.[cfg.subject_key];
-    subjectValue = typeof raw === "string" && raw.length > 0 ? raw : undefined;
+    return (count ?? 0) > 0 ? rule.subject_key : undefined;
   }
-  return evaluateConditionPredicate({
-    operator: cfg.operator,
-    subjectValue,
-    configValue: cfg.value,
-  });
+  if (rule.subject === "custom_field") {
+    const { data } = await db
+      .from("contact_custom_values")
+      .select("value")
+      .eq("account_id", run.account_id)
+      .eq("contact_id", run.contact_id!)
+      .eq("custom_field_id", rule.subject_key)
+      .maybeSingle();
+    const raw = (data as { value?: unknown } | null)?.value;
+    return typeof raw === "string" && raw.length > 0 ? raw : undefined;
+  }
+  const ALLOWED = ["name", "email", "phone", "company"] as const;
+  type AllowedField = (typeof ALLOWED)[number];
+  if (!ALLOWED.includes(rule.subject_key as AllowedField)) {
+    throw new Error(`unsupported contact_field: ${rule.subject_key}`);
+  }
+  const { data } = await db
+    .from("contacts")
+    .select(rule.subject_key)
+    .eq("id", run.contact_id!)
+    .maybeSingle();
+  const raw = (data as Record<string, unknown> | null)?.[rule.subject_key];
+  return typeof raw === "string" && raw.length > 0 ? raw : undefined;
+}
+
+/**
+ * Sends a question node's prompt. `attempt` keeps each re-send a
+ * distinct outbound intent; `text` replaces the prompt (error message).
+ * A Skip button turns the prompt into a one-button message.
+ */
+async function sendAskPrompt(
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  attempt: number,
+  text?: string,
+): Promise<string> {
+  const cfg = node.config as unknown as CollectInputNodeConfig & AskMediaNodeConfig;
+  const body = text ?? cfg.prompt_text;
+  const ws = await workspaceValuesFor(run.account_id, `${body} ${cfg.skip_label ?? ""}`);
+  const base = {
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+  };
+  const key = `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`;
+  const skip = (node.node_type === "collect_input" || node.node_type === "ask_media") && cfg.skip_label && cfg.skip_next;
+  const { whatsapp_message_id } = await dispatchOnce(run.account_id, key, () =>
+    skip
+      ? engineSendInteractiveButtons({
+          ...base,
+          bodyText: interpolateVars(body, run.vars, ws),
+          buttons: [{ id: SKIP_REPLY_ID, title: interpolateVars(cfg.skip_label!, run.vars, ws) }],
+        })
+      : engineSendText({
+          ...base,
+          text: interpolateVars(body, run.vars, ws),
+          // An error message is plain text; only the prompt itself carries the request.
+          request: text === undefined && node.node_type === "ask_location" ? "location"
+            : text === undefined && node.node_type === "ask_address" ? "address" : undefined,
+        }),
+  );
+  return whatsapp_message_id;
 }
 
 /**
@@ -655,6 +771,172 @@ async function endRun(
 }
 
 // ============================================================
+// Timers. A delay or a wait-for-reply timeout is a `flow.timer` job
+// keyed by the run's transition_seq: any reply, timer or delay moves
+// the seq on, so a timer that lost its race finds a different seq and
+// does nothing.
+// ============================================================
+
+type TimerKind = "delay" | "timeout";
+
+function timerKey(runId: string, seq: number, kind: TimerKind, nodeKey: string): string {
+  return `flow-timer:${runId}:${seq}:${kind}:${nodeKey}`;
+}
+
+/**
+ * Parks the run on `node` until its delay ends. The job is queued
+ * before the run moves, so a crash in between leaves at worst a timer
+ * that finds a stale seq.
+ */
+async function scheduleDelay(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  seconds: number,
+): Promise<"scheduled" | "lost" | "failed"> {
+  const seq = (run.transition_seq ?? 0) + 1;
+  const until = new Date(Date.now() + seconds * 1000);
+  try {
+    await enqueueJob("flow.timer", { runId: run.id, nodeKey: node.node_key, seq, kind: "delay" }, {
+      tenantId: run.account_id,
+      runAt: until,
+      dedupeKey: timerKey(run.id, seq, "delay", node.node_key),
+    });
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, {
+      reason: "delay_schedule_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    await endRun(db, run.id, "failed", "delay_schedule_failed");
+    return "failed";
+  }
+  let q = db
+    .from("flow_runs")
+    .update({
+      current_node_key: node.node_key,
+      transition_seq: seq,
+      reprompt_count: 0,
+      delay_until: until.toISOString(),
+      last_advanced_at: new Date().toISOString(),
+    })
+    .eq("id", run.id)
+    .eq("status", "active")
+    .eq("transition_seq", run.transition_seq ?? 0);
+  q = run.current_node_key === null ? q.is("current_node_key", null) : q.eq("current_node_key", run.current_node_key);
+  const { data, error } = await q.select("id");
+  if (error) {
+    // The queued timer cannot match a run that never moved, so end the run rather than strand it.
+    await logEvent(db, run.id, "error", node.node_key, { reason: "delay_schedule_failed" });
+    await endRun(db, run.id, "failed", "delay_schedule_failed");
+    return "failed";
+  }
+  if (!Array.isArray(data) || data.length !== 1) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_delay" });
+    return "lost";
+  }
+  Object.assign(run, { current_node_key: node.node_key, transition_seq: seq, reprompt_count: 0, delay_until: until.toISOString() });
+  await logEvent(db, run.id, "delay_scheduled", node.node_key, { seconds, until: until.toISOString() });
+  return "scheduled";
+}
+
+/** After a node starts waiting for a reply, queues its timeout (if any). Best-effort: the stale sweep is the backstop. */
+async function scheduleReplyTimeout(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<void> {
+  const timeout = nodeTimeout(node.config);
+  if (!timeout) return;
+  const seq = run.transition_seq ?? 0;
+  try {
+    await enqueueJob("flow.timer", { runId: run.id, nodeKey: node.node_key, seq, kind: "timeout" }, {
+      tenantId: run.account_id,
+      runAt: new Date(Date.now() + timeout.minutes * 60_000),
+      // A re-prompt reuses the key, so the timeout still counts from the first prompt.
+      dedupeKey: timerKey(run.id, seq, "timeout", node.node_key),
+    });
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, {
+      reason: "timeout_schedule_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Runs a due `flow.timer` job. Every check repeats here because the
+ * run may have moved, ended or been taken over while the job waited.
+ */
+export async function handleFlowTimer(payload: {
+  accountId: string;
+  runId: string;
+  nodeKey: string;
+  seq: number;
+  kind: TimerKind;
+}): Promise<"fired" | "stale"> {
+  const db = databaseAdmin();
+  const { data, error } = await db
+    .from("flow_runs")
+    .select("*")
+    .eq("account_id", payload.accountId)
+    .eq("id", payload.runId)
+    .maybeSingle();
+  if (error) throw new Error("Flow timer run lookup failed");
+  const run = data as FlowRunRow | null;
+  if (!run || run.status !== "active") return "stale";
+  const seq = run.transition_seq ?? 0;
+  const due = seq === payload.seq && run.current_node_key === payload.nodeKey && (payload.kind === "delay") === Boolean(run.delay_until);
+  // A worker that died after claiming this timer but before the next step
+  // finished left the run claimed and untouched since: carry on from there.
+  // Re-running is safe because the sends' dispatchOnce keys repeat.
+  const claimedEarlier = seq === payload.seq + 1 && run.reprompt_count === 0 && !run.delay_until;
+  if (!due && !claimedEarlier) return "stale";
+  const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
+  const timer = nodes.get(payload.nodeKey);
+  const timeout = timer ? nodeTimeout(timer.config) : null;
+  const resumeAt = payload.kind === "delay" ? payload.nodeKey : timeout?.next;
+  if (!due && (!resumeAt || run.current_node_key !== resumeAt)) return "stale";
+  const now = new Date();
+  const closure = closureForActiveRun({ run, flow, nodeKeys: nodes, now });
+  if (closure) {
+    await closeActiveRun(db, run, closure, now);
+    return "fired";
+  }
+  // An agent took over or the contact was blocked while the run waited: no more bot messages.
+  const { data: contact } = await db
+    .from("contacts")
+    .select("blocked_at")
+    .eq("account_id", run.account_id)
+    .eq("id", run.contact_id!)
+    .maybeSingle();
+  if (!run.conversation_id || !contact || (contact as { blocked_at?: string | null }).blocked_at ||
+      (await botRepliesPaused(run.account_id, run.conversation_id))) {
+    await endRun(db, run.id, "cancelled", "bot_paused_during_wait");
+    return "fired";
+  }
+  if (payload.kind === "delay") {
+    if (due) {
+      const { data: claimed, error: claimError } = await db
+        .from("flow_runs")
+        .update({ delay_until: null, transition_seq: payload.seq + 1, last_advanced_at: now.toISOString() })
+        .eq("id", run.id)
+        .eq("status", "active")
+        .eq("current_node_key", payload.nodeKey)
+        .eq("transition_seq", payload.seq)
+        .select("id");
+      if (claimError) throw new Error("Flow delay claim failed");
+      if (!Array.isArray(claimed) || claimed.length !== 1) return "stale";
+      Object.assign(run, { delay_until: null, transition_seq: payload.seq + 1 });
+    }
+    await advanceFromNodeKey(db, run, payload.nodeKey, nodes, payload.nodeKey);
+    return "fired";
+  }
+  if (!timeout) return "stale";
+  if (due) {
+    if (!(await claimReplyTransition(db, run, timeout.next))) return "stale";
+    await logEvent(db, run.id, "timeout", payload.nodeKey, { reason: "node_timeout", minutes: timeout.minutes });
+  }
+  await advanceFromNodeKey(db, run, timeout.next, nodes);
+  return "fired";
+}
+
+// ============================================================
 // The synchronous advance loop. Walks through auto-advance nodes
 // until it hits one that suspends (send_buttons/send_list) or
 // terminates (handoff/end). Each suspending node persists the
@@ -666,6 +948,8 @@ async function advanceFromNodeKey(
   run: FlowRunRow,
   startNodeKey: string,
   nodes: Map<string, FlowNodeRow>,
+  /** The node whose delay just elapsed; it runs now. */
+  delayDoneFor?: string,
 ): Promise<{ outcome: "advanced" | "completed" | "handed_off" }> {
   let currentKey: string | null = startNodeKey;
   // Defensive cap — if a flow has a cycle (which the validator
@@ -685,6 +969,12 @@ async function advanceFromNodeKey(
       });
       await endRun(db, run.id, "failed", "node_not_found");
       return { outcome: "completed" };
+    }
+    const delay = node.node_type === "start" || node.node_key === delayDoneFor ? 0 : nodeDelaySeconds(node.config);
+    delayDoneFor = undefined;
+    if (delay) {
+      const scheduled = await scheduleDelay(db, run, node, delay);
+      return { outcome: scheduled === "failed" ? "completed" : "advanced" };
     }
     await logEvent(db, run.id, "node_entered", node.node_key, {
       node_type: node.node_type,
@@ -752,21 +1042,13 @@ async function advanceFromNodeKey(
       currentKey = cfg.next_node_key;
       continue;
     }
-    if (node.node_type === "collect_input") {
-      // Send the prompt and suspend. Customer's next TEXT reply will
-      // wake us up via handleReplyForActiveRun's collect_input branch.
-      const cfg = node.config as unknown as CollectInputNodeConfig;
+    if (isAskNode(node.node_type)) {
+      // Send the prompt and suspend. The customer's next reply wakes us
+      // up via handleReplyForActiveRun's question branch.
       try {
-        const ws = await workspaceValuesFor(run.account_id, cfg.prompt_text);
-        const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendText({
-          accountId: run.account_id,
-    userId: run.user_id,
-          conversationId: run.conversation_id!,
-          contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars, ws),
-        }));
+        const whatsapp_message_id = await sendAskPrompt(run, node, run.reprompt_count);
         await logEvent(db, run.id, "message_sent", node.node_key, {
-          node_type: "collect_input",
+          node_type: node.node_type,
           whatsapp_message_id,
         });
         const { data: msg } = await db
@@ -781,11 +1063,12 @@ async function advanceFromNodeKey(
           })
           .eq("id", run.id);
       } catch (err) {
+        const reason = `${node.node_type}_prompt_failed`;
         await logEvent(db, run.id, "error", node.node_key, {
-          reason: "collect_input_prompt_failed",
+          reason,
           detail: err instanceof Error ? err.message : String(err),
         });
-        await endRun(db, run.id, "failed", "collect_input_prompt_failed");
+        await endRun(db, run.id, "failed", reason);
         return { outcome: "completed" };
       }
       const advanced = await advanceCurrentNodeKey(
@@ -798,8 +1081,39 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
       }
       return { outcome: "advanced" };
+    }
+    if (node.node_type === "set_attribute") {
+      const cfg = node.config as unknown as SetAttributeNodeConfig;
+      try {
+        const ws = await workspaceValuesFor(run.account_id, cfg.value ?? "");
+        const value = interpolateVars(cfg.value ?? "", run.vars, ws);
+        if (cfg.target === "var") {
+          const vars = { ...run.vars, [cfg.key]: value };
+          const { error } = await db
+            .from("flow_runs")
+            .update({ vars })
+            .eq("id", run.id)
+            .eq("status", "active");
+          if (error) throw new Error("Run variable write failed");
+          run.vars = vars;
+        } else if (!(await writeContactField(db, run.account_id, run.contact_id!, cfg.target === "custom_field" ? `custom:${cfg.key}` : cfg.key, value))) {
+          throw new Error(`field ${cfg.key} is not writable`);
+        }
+        // The value itself may be customer input, so only its size is logged.
+        await logEvent(db, run.id, "attribute_set", node.node_key, { target: cfg.target, key: cfg.key, length: value.length });
+      } catch (err) {
+        // Non-fatal, like set_tag: a failed write should not strand the customer.
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "set_attribute_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+      }
+      currentKey = cfg.next_node_key;
+      continue;
     }
     if (node.node_type === "condition") {
       const cfg = node.config as unknown as ConditionNodeConfig;
@@ -885,6 +1199,8 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
       }
       return { outcome: "advanced" };
     }
@@ -909,6 +1225,8 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
       }
       return { outcome: "advanced" };
     }
@@ -1153,9 +1471,15 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: "no_match" };
   }
 
+  // A reply during a delay is recorded but changes nothing: the run
+  // carries on when the delay ends, and no automation answers instead.
+  if (run.delay_until) {
+    return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+  }
+
   // Two ways a reply can advance:
   //   1. Interactive button/list tap on a send_buttons/send_list node.
-  //   2. Text reply on a collect_input node — capture into vars.
+  //   2. An answer on a question node — captured into vars.
   //
   // Everything else falls through to the fallback policy below.
   let matched: string | null = null;
@@ -1165,24 +1489,32 @@ async function handleReplyForActiveRun(
       currentNode.node_type === "send_list")
   ) {
     matched = matchReplyId(currentNode, message.reply_id);
-  } else if (
-    message.kind === "text" &&
-    currentNode.node_type === "collect_input"
-  ) {
-    const cfg = currentNode.config as unknown as CollectInputNodeConfig;
-    const captured = message.text.trim();
-    if (cfg.var_key && await validateCollectedInput(captured, cfg)) {
-      const newVars = { ...run.vars, [cfg.var_key]: captured };
+  } else if (isAskNode(currentNode.node_type)) {
+    const cfg = currentNode.config as unknown as AskRetry & { skip_label?: string; skip_next?: string; next_node_key: string; var_key?: string };
+    if (message.kind === "interactive_reply" && message.reply_id === SKIP_REPLY_ID && cfg.skip_label && cfg.skip_next) {
+      if (!(await claimReplyTransition(db, run, cfg.skip_next))) {
+        return lostReplyRace(db, run, currentNode.node_key);
+      }
+      await logEvent(db, run.id, "node_entered", currentNode.node_key, { skipped: true });
+      const outcome = await advanceFromNodeKey(db, run, cfg.skip_next, nodes);
+      return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+    }
+    const captured = await captureAnswer(currentNode, message);
+    if (captured && cfg.var_key) {
+      const newVars = { ...run.vars, ...captured };
       if (!(await claimReplyTransition(db, run, cfg.next_node_key, { vars: newVars }))) {
         return lostReplyRace(db, run, currentNode.node_key);
       }
       run.vars = newVars;
       await logEvent(db, run.id, "node_entered", currentNode.node_key, {
         captured_key: cfg.var_key,
-        captured_length: captured.length,
+        captured_length: captured[cfg.var_key].length,
       });
       const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
       return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+    }
+    if (typeof cfg.max_attempts === "number" && cfg.max_attempts >= 1) {
+      return retryQuestion(db, run, flow, currentNode, nodes);
     }
   }
 
@@ -1235,18 +1567,10 @@ async function handleReplyForActiveRun(
         await sendButtonsAndSuspend(db, run, currentNode);
       } else if (currentNode.node_type === "send_list") {
         await sendListAndSuspend(db, run, currentNode);
-      } else if (currentNode.node_type === "collect_input") {
-        // Customer typed something we couldn't accept (empty after trim,
-        // or var_key missing — rare). Re-send the prompt so they try again.
-        const cfg = currentNode.config as unknown as CollectInputNodeConfig;
-        const ws = await workspaceValuesFor(run.account_id, cfg.prompt_text);
-        await dispatchOnce(run.account_id, `flow:${run.id}:${currentNode.node_key}:${run.transition_seq ?? 0}:${newReprompts}`, () => engineSendText({
-          accountId: run.account_id,
-          userId: run.user_id,
-          conversationId: run.conversation_id!,
-          contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars, ws),
-        }));
+      } else if (isAskNode(currentNode.node_type)) {
+        // The customer sent something we couldn't accept. Re-send the
+        // prompt so they try again.
+        await sendAskPrompt(run, currentNode, newReprompts);
       }
     } catch (err) {
       await logEvent(db, run.id, "error", currentNode.node_key, {
@@ -1256,22 +1580,123 @@ async function handleReplyForActiveRun(
     }
     return { consumed: true, flow_run_id: run.id, outcome: "fallback_fired" };
   }
-  if (action.type === "handoff") {
-    if (run.conversation_id) {
-      await db
-        .from("conversations")
-        .update({ status: "pending", bot_paused: true, updated_at: new Date().toISOString() })
-        .eq("id", run.conversation_id);
-    }
-    await logEvent(db, run.id, "handoff", run.current_node_key, {
-      reason: "fallback_exhausted",
-    });
-    await endRun(db, run.id, "handed_off", "fallback_exhausted");
-    return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
-  }
+  if (action.type === "handoff") return fallbackHandoff(db, run);
   // action.type === 'end'
   await endRun(db, run.id, "completed", "fallback_exhausted_end");
   return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+}
+
+async function fallbackHandoff(db: AdminClient, run: FlowRunRow): Promise<DispatchInboundResult> {
+  if (run.conversation_id) {
+    await db
+      .from("conversations")
+      .update({ status: "pending", bot_paused: true, updated_at: new Date().toISOString() })
+      .eq("id", run.conversation_id);
+  }
+  await logEvent(db, run.id, "handoff", run.current_node_key, {
+    reason: "fallback_exhausted",
+  });
+  await endRun(db, run.id, "handed_off", "fallback_exhausted");
+  return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
+}
+
+/**
+ * The answer a question node stores, as run variables, or null when the
+ * reply does not fit. A text question still reads a photo's caption or a
+ * shared location as text, as it always has.
+ */
+async function captureAnswer(node: FlowNodeRow, message: ParsedInbound): Promise<Record<string, string> | null> {
+  const key = (node.config as { var_key?: unknown }).var_key;
+  if (typeof key !== "string" || !key) return null;
+  switch (node.node_type) {
+    case "collect_input": {
+      if (message.kind === "interactive_reply") return null;
+      const value = await normalizeCollectedInput(messageText(message), node.config as unknown as CollectInputNodeConfig);
+      return value === null ? null : { [key]: value };
+    }
+    case "ask_media": {
+      const types = (node.config as unknown as AskMediaNodeConfig).media_types ?? [];
+      if (message.kind !== "media" || (types.length > 0 && !types.includes(message.media_type))) return null;
+      return { [key]: message.url, [`${key}_type`]: message.media_type };
+    }
+    case "ask_location": {
+      if (message.kind !== "location") return null;
+      const { latitude, longitude, name, address } = message;
+      return {
+        [key]: `${latitude},${longitude}`,
+        [`${key}_latitude`]: String(latitude),
+        [`${key}_longitude`]: String(longitude),
+        ...(name ? { [`${key}_name`]: name } : {}),
+        ...(address ? { [`${key}_address`]: address } : {}),
+      };
+    }
+    case "ask_address": {
+      if (message.kind === "address") {
+        return {
+          [key]: Object.values(message.values).join(", "),
+          ...Object.fromEntries(Object.entries(message.values).map(([field, value]) => [`${key}_${field}`, value])),
+        };
+      }
+      // Outside India (or when the form is ignored) the address is typed.
+      const typed = message.kind === "text" ? message.text.trim() : "";
+      return typed ? { [key]: typed.slice(0, 1000) } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Node-level retries for a question with `max_attempts`: an invalid reply
+ * gets the error message until the attempts run out, then the run follows
+ * `exhausted_next`, or the flow's `on_exhaust` when that port is unset.
+ */
+async function retryQuestion(
+  db: AdminClient,
+  run: FlowRunRow,
+  flow: FlowRow,
+  node: FlowNodeRow,
+  nodes: Map<string, FlowNodeRow>,
+): Promise<DispatchInboundResult> {
+  const cfg = node.config as unknown as AskRetry;
+  const attempt = run.reprompt_count + 1;
+  await logEvent(db, run.id, "input_invalid", node.node_key, { attempt, max_attempts: cfg.max_attempts });
+  if (attempt < cfg.max_attempts!) {
+    const { data, error } = await db
+      .from("flow_runs")
+      .update({ reprompt_count: attempt })
+      .eq("id", run.id)
+      .eq("status", "active")
+      .eq("current_node_key", node.node_key)
+      .eq("transition_seq", run.transition_seq ?? 0)
+      .eq("reprompt_count", run.reprompt_count)
+      .select("id");
+    if (error || !Array.isArray(data) || data.length !== 1) {
+      return lostReplyRace(db, run, node.node_key);
+    }
+    run.reprompt_count = attempt;
+    try {
+      await sendAskPrompt(run, node, attempt, cfg.error_text?.trim() ? cfg.error_text : undefined);
+    } catch (err) {
+      await logEvent(db, run.id, "error", node.node_key, {
+        reason: "reprompt_send_failed",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return { consumed: true, flow_run_id: run.id, outcome: "fallback_fired" };
+  }
+  if (cfg.exhausted_next) {
+    if (!(await claimReplyTransition(db, run, cfg.exhausted_next))) {
+      return lostReplyRace(db, run, node.node_key);
+    }
+    const outcome = await advanceFromNodeKey(db, run, cfg.exhausted_next, nodes);
+    return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+  }
+  if (resolveFallbackPolicy(flow.fallback_policy).on_exhaust === "end") {
+    await endRun(db, run.id, "completed", "fallback_exhausted_end");
+    return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+  }
+  return fallbackHandoff(db, run);
 }
 
 async function lostReplyRace(

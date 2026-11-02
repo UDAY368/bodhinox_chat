@@ -2756,6 +2756,14 @@
         "default": "0",
         "reference": null,
         "definition": "transition_seq integer"
+      },
+      {
+        "name": "delay_until",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "delay_until TIMESTAMPTZ"
       }
     ],
     "flow_run_events": [

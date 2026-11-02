@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/data/admin";
 import { withJobScope } from "@/lib/jobs/scope";
 import { resumeAwaitingReply, runAutomationsForTrigger } from "@/lib/automations/engine";
 import { dispatchInboundToFlows } from "@/lib/flows/engine";
+import type { ParsedInbound } from "@/lib/flows/types";
 import { dispatchInboundToAiReply } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { dispatchQuickReplyAction } from "./quick-reply-actions";
@@ -65,13 +66,36 @@ export async function processInboundActions(input: InboundActionsPayload, assert
 type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
 type MessageInput=Extract<InboundActionsPayload,{kind:"message"}>;
 
+const MEDIA_TYPES=new Set(["image","video","document","audio"]);
+
+/**
+ * The inbound as the flow engine sees it. Photos, locations and address
+ * forms are re-read from the stored message, so queued jobs keep their
+ * original payload shape.
+ */
+async function flowMessage(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string): Promise<ParsedInbound> {
+  const meta_message_id=input.metaMessageId;
+  if(input.interactiveReplyId) return {kind:"interactive_reply",reply_id:input.interactiveReplyId,reply_title:text,meta_message_id};
+  if(!MEDIA_TYPES.has(input.contentType)&&input.contentType!=="location"&&input.contentType!=="interactive") return {kind:"text",text,meta_message_id};
+  const {data,error}=await db.from("messages").select("media_url,media_type,interactive_payload")
+    .eq("account_id",input.accountId).eq("id",input.messageId).maybeSingle();
+  if(error) throw new Error("Inbound message lookup failed");
+  const row=data as {media_url:string|null;media_type:string|null;interactive_payload:unknown}|null;
+  const structured=row?.interactive_payload as Partial<{location:{latitude:number;longitude:number;name?:string;address?:string};address:Record<string,string>}>|null|undefined;
+  if(MEDIA_TYPES.has(input.contentType)&&row?.media_url) {
+    return {kind:"media",media_type:input.contentType as "image"|"video"|"document"|"audio",url:row.media_url,caption:text,meta_message_id};
+  }
+  if(input.contentType==="location"&&structured?.location) return {kind:"location",...structured.location,meta_message_id};
+  if(input.contentType==="interactive"&&structured?.address) return {kind:"address",values:structured.address,meta_message_id};
+  return {kind:"text",text,meta_message_id};
+}
+
 /** Quick-reply actions, flows, automations and the AI fallback, in that order. */
 async function respondAutomatically(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string,stage:Stage): Promise<void> {
     const explicit=await stage("quick_reply_action",()=>dispatchQuickReplyAction(db,input));
-    const flow=explicit.handled ? {consumed:true,outcome:undefined} : await stage("flow",()=>dispatchInboundToFlows({
+    const flow=explicit.handled ? {consumed:true,outcome:undefined} : await stage("flow",async()=>dispatchInboundToFlows({
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
-      message:input.interactiveReplyId ? {kind:"interactive_reply",reply_id:input.interactiveReplyId,reply_title:text,meta_message_id:input.metaMessageId}
-        : {kind:"text",text,meta_message_id:input.metaMessageId},
+      message:await flowMessage(db,input,text),
       isFirstInboundMessage:input.isFirstInboundMessage,
     }));
     const replied=flow.consumed ? false : await stage("reply_resume",()=>resumeAwaitingReply({

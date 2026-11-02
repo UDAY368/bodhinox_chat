@@ -75,7 +75,7 @@ export async function POST(
     const [{ data: flow }, { data: nodes }] = await Promise.all([
       admin
         .from('flows')
-        .select('name, trigger_type, trigger_config, entry_node_id')
+        .select('name, trigger_type, trigger_config, entry_node_id, fallback_policy')
         .eq('id', id)
         .maybeSingle(),
       admin
@@ -95,6 +95,7 @@ export async function POST(
         trigger_type: 'keyword' | 'first_inbound_message' | 'manual';
         trigger_config: Record<string, unknown>;
         entry_node_id: string | null;
+        fallback_policy: unknown;
       },
       (nodes ?? []) as Array<{
         node_key: string;

@@ -21,6 +21,7 @@ import { currentJobScope, withJobScope } from '@/lib/jobs/scope';
 import { resolveWhatsAppAccount, resolveWabaAccount } from '@/lib/repositories/routing';
 import { createServerStorageFacade } from '@/lib/storage/server';
 import { applyProviderStatus, ingestInboundMessage } from '@/lib/whatsapp/ingest';
+import { inboundAddress, inboundLocation, type InboundStructuredPayload } from '@/lib/whatsapp/inbound-structured';
 export { processInboundActions } from '@/lib/whatsapp/inbound-actions';
 export type { InboundActionsPayload } from '@/lib/whatsapp/ingest';
 function databaseAdmin() { return createAdminClient(currentJobScope()); }
@@ -58,6 +59,8 @@ interface WhatsAppMessage {
     type: 'button_reply' | 'list_reply'
     button_reply?: { id: string; title: string }
     list_reply?: { id: string; title: string; description?: string }
+    /** Reply to an address_message form; `response_json` holds `{ values: {...} }`. */
+    nfm_reply?: { name?: string; response_json?: string }
   }
   /**
    * Set when the customer taps a QUICK_REPLY button on a *template*
@@ -292,7 +295,7 @@ async function processMessage(
   }
 
   // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId } =
+  const { contentText, mediaUrl, mediaType, interactiveReplyId, interactivePayload } =
     await parseMessageContent(
       message,
       accessToken,
@@ -340,7 +343,7 @@ async function processMessage(
 
   await ingestInboundMessage({
     accountId,userId:configOwnerUserId,contactId:contactRecord.id,conversationId:conversation.id,
-    metaMessageId:message.id,contentType,contentText,mediaUrl,mediaType,interactiveReplyId,
+    metaMessageId:message.id,contentType,contentText,mediaUrl,mediaType,interactiveReplyId,interactivePayload,
     replyToMessageId:replyToInternalId,createdAt:new Date(parseInt(message.timestamp,10)*1000),
     wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,
   });
@@ -365,6 +368,8 @@ async function parseMessageContent(
    * tap with the right affordance. Null for everything else.
    */
   interactiveReplyId: string | null
+  /** Structured location or address-form reply, kept for flows. */
+  interactivePayload: InboundStructuredPayload | null
 }> {
   // getMediaUrl signature is (mediaId, accessToken) — earlier code had
   // the args swapped, so every verification hit an invalid Meta URL and
@@ -422,6 +427,7 @@ async function parseMessageContent(
     mediaUrl: null,
     mediaType: null,
     interactiveReplyId: null,
+    interactivePayload: null,
   }
 
   switch (message.type) {
@@ -497,7 +503,7 @@ async function parseMessageContent(
         const locationText = [loc.name, loc.address, `${loc.latitude},${loc.longitude}`]
           .filter(Boolean)
           .join(' - ')
-        return { ...empty, contentText: locationText }
+        return { ...empty, contentText: locationText, interactivePayload: inboundLocation(loc) }
       }
       return empty
 
@@ -519,6 +525,10 @@ async function parseMessageContent(
           contentText: reply.title || reply.id,
           interactiveReplyId: reply.id,
         }
+      }
+      const address = inboundAddress(message.interactive?.nfm_reply)
+      if (address) {
+        return { ...empty, contentText: Object.values(address.address).join(', ') || '[Address]', interactivePayload: address }
       }
       return { ...empty, contentText: '[Interactive reply]' }
     }

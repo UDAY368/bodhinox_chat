@@ -111,6 +111,16 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     }
   });
 
+  it("stores a shared location's coordinates for flows, and nothing extra for plain text",async()=>{
+    const input=await fixture();
+    const location={location:{latitude:12.97,longitude:77.59,name:"Office"}};
+    const {messageId}=await ingestInboundMessage({...input,contentType:"location",contentText:"Office - 12.97,77.59",interactivePayload:location});
+    const plain=await ingestInboundMessage({...input,metaMessageId:randomUUID()});
+    const rows=(await owner.query("SELECT id,interactive_payload FROM messages WHERE id=ANY($1::uuid[])",[[messageId,plain.messageId]])).rows;
+    expect(rows.find(row=>row.id===messageId)?.interactive_payload).toEqual(location);
+    expect(rows.find(row=>row.id===plain.messageId)?.interactive_payload).toBeNull();
+  });
+
   it("serializes distinct first inbounds so only one actions payload is marked first",async()=>{
     const input=await fixture();
     const results=await Promise.all([ingestInboundMessage(input),ingestInboundMessage({...input,metaMessageId:randomUUID()})]);

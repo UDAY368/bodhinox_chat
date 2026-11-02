@@ -25,6 +25,11 @@
 
 import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/interactive-limits";
 import { getT } from "@/lib/i18n/translate";
+import { isValidTimeZone } from "@/lib/automations/time-of-day";
+import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
+import { resolveFallbackPolicy } from "./fallback";
+import { parseDateInput } from "./input-formats";
+import type { ConditionRule, NodeTiming } from "./types";
 
 const t = getT("Validation.flows");
 
@@ -43,6 +48,8 @@ interface FlowInput {
   trigger_type: "keyword" | "first_inbound_message" | "manual";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
+  /** When given, reply timeouts are checked against its inactivity limit. */
+  fallback_policy?: unknown;
 }
 
 interface NodeInput {
@@ -114,8 +121,9 @@ export function validateFlowForActivation(
   }
 
   // Per-node rules (Meta limits + dead-end + edge resolution).
+  const runTimeoutHours = flow.fallback_policy === undefined ? undefined : resolveFallbackPolicy(flow.fallback_policy).on_timeout_hours;
   for (const n of nodes) {
-    issues.push(...validateNode(n, keys));
+    issues.push(...validateNode(n, keys), ...timingIssues(n, keys, runTimeoutHours));
   }
 
   // Warn rather than block: explicit starts may supply variables externally.
@@ -143,12 +151,15 @@ export function validateFlowForActivation(
         visited.add(key);
         const earlier = byKey.get(key);
         if (!earlier) continue;
-        if (ancestors.has(key) && earlier.node_type === 'collect_input' && typeof earlier.config.var_key === 'string') available.add(earlier.config.var_key);
+        if (ancestors.has(key)) for (const name of producedVars(earlier)) available.add(name);
         pending.push(...outgoingEdges(earlier));
       }
       const references: Array<{ field: string; key: string }> = [];
-      if (node.node_type === 'condition' && node.config.subject === 'var' && typeof node.config.subject_key === 'string') {
-        references.push({ field: 'subject_key', key: node.config.subject_key });
+      if (node.node_type === 'condition') {
+        const rules = Array.isArray(node.config.rules) ? node.config.rules as Array<Record<string, unknown>> : null;
+        (rules ?? [node.config]).forEach((rule, i) => {
+          if (rule?.subject === 'var' && typeof rule.subject_key === 'string') references.push({ field: rules ? `rules.${i}.subject_key` : 'subject_key', key: rule.subject_key });
+        });
       }
       const scan = (value: unknown, field: string) => {
         if (typeof value === 'string') {
@@ -156,7 +167,7 @@ export function validateFlowForActivation(
         } else if (Array.isArray(value)) value.forEach((item, i) => scan(item, `${field}.${i}`));
         else if (value && typeof value === 'object') {
           for (const [key, item] of Object.entries(value)) {
-            if (!['regex', 'media_url', 'reply_id', 'next_node_key', 'true_next', 'false_next'].includes(key)) scan(item, field ? `${field}.${key}` : key);
+            if (!NOT_TEXT_FIELDS.includes(key)) scan(item, field ? `${field}.${key}` : key);
           }
         }
       };
@@ -199,12 +210,19 @@ export function validateFlowForActivation(
 export function findAutoAdvancingCycles(nodes: NodeInput[]): string[][] {
   const autoNodes = new Map<string, NodeInput>();
   for (const n of nodes) {
-    if (["start", "send_message", "send_media", "condition", "set_tag"].includes(n.node_type) && !autoNodes.has(n.node_key)) {
+    // A delay does not exempt a node: a loop of delayed sends would message the customer forever.
+    // A waiting node with a reply timeout also moves on by itself, through its timeout port.
+    const timesOut = WAITING_TYPES.includes(n.node_type) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
+    if ((timesOut || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute"].includes(n.node_type)) && !autoNodes.has(n.node_key)) {
       autoNodes.set(n.node_key, n);
     }
   }
-  const successors = (key: string): string[] =>
-    outgoingEdges(autoNodes.get(key)!).filter((next) => autoNodes.has(next));
+  const successors = (key: string): string[] => {
+    const node = autoNodes.get(key)!;
+    // Only the timeout port of a waiting node needs no customer input.
+    const next = WAITING_TYPES.includes(node.node_type) ? [node.config.after_timeout as string] : outgoingEdges(node);
+    return next.filter((k) => autoNodes.has(k));
+  };
 
   const index = new Map<string, number>();
   const lowLink = new Map<string, number>();
@@ -653,21 +671,42 @@ function validateNode(
       break;
     }
 
-    case "collect_input": {
+    case "collect_input":
+    case "ask_media":
+    case "ask_location":
+    case "ask_address": {
       const cfg = node.config as {
         prompt_text?: string;
         var_key?: string;
         next_node_key?: string;
         validation?: string;
         regex?: string;
+        min?: unknown;
+        max?: unknown;
+        media_types?: unknown;
+        skip_label?: string;
+        skip_next?: string;
+        max_attempts?: unknown;
+        exhausted_next?: string;
       };
-      if (cfg.validation !== undefined && !['any', 'email', 'phone', 'regex'].includes(cfg.validation)) {
+      const legacy = node.node_type === "collect_input";
+      if (legacy && cfg.validation !== undefined && !INPUT_FORMATS.includes(cfg.validation)) {
         issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'validation', message: t('invalidInputValidation') });
       }
-      if (cfg.validation === 'regex') {
+      if (legacy && cfg.validation === 'regex') {
         let valid = typeof cfg.regex === 'string' && cfg.regex.length > 0 && cfg.regex.length <= 256;
         if (valid) { try { new RegExp(`^(?:${cfg.regex})$`, 'u'); } catch { valid = false; } }
         if (!valid) issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'regex', message: t('invalidInputRegex') });
+      }
+      if (legacy && cfg.validation === 'number') {
+        const bound = (v: unknown) => v === undefined || v === null || (typeof v === 'number' && Number.isFinite(v));
+        if (!bound(cfg.min) || !bound(cfg.max) || (typeof cfg.min === 'number' && typeof cfg.max === 'number' && cfg.min > cfg.max)) {
+          issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'min', message: t('invalidNumberRange') });
+        }
+      }
+      if (node.node_type === "ask_media" && cfg.media_types !== undefined &&
+          (!Array.isArray(cfg.media_types) || cfg.media_types.some((m) => !MEDIA_REPLY_TYPES.includes(m)))) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'media_types', message: t('invalidMediaTypes') });
       }
       if (!cfg.prompt_text?.trim()) {
         issues.push({
@@ -675,8 +714,18 @@ function validateNode(
           scope: "node",
           node_key: node.node_key,
           field: "prompt_text",
-          message: t("collectNeedsPrompt"),
+          message: t(legacy ? "collectNeedsPrompt" : "questionNeedsPrompt"),
         });
+      }
+      // These prompts go out as interactive messages, which have a shorter body limit.
+      const interactivePrompt = Boolean(cfg.skip_label) || node.node_type === "ask_location" || node.node_type === "ask_address";
+      if (interactivePrompt && (cfg.prompt_text?.length ?? 0) > INTERACTIVE_LIMITS.bodyMaxLength) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'prompt_text', message: t('promptTooLongForInteractive', { max: INTERACTIVE_LIMITS.bodyMaxLength }) });
+      }
+      // With a Skip button the error message is sent as the body of a button message too.
+      const errorText = (node.config as { error_text?: unknown }).error_text;
+      if (cfg.skip_label && typeof errorText === 'string' && errorText.length > INTERACTIVE_LIMITS.bodyMaxLength) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'error_text', message: t('promptTooLongForInteractive', { max: INTERACTIVE_LIMITS.bodyMaxLength }) });
       }
       if (!cfg.var_key?.trim()) {
         issues.push({
@@ -684,9 +733,9 @@ function validateNode(
           scope: "node",
           node_key: node.node_key,
           field: "var_key",
-          message: t("collectNeedsVarKey"),
+          message: t(legacy ? "collectNeedsVarKey" : "questionNeedsVarKey"),
         });
-      } else if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(cfg.var_key)) {
+      } else if (!VAR_KEY.test(cfg.var_key)) {
         issues.push({
           severity: "error",
           scope: "node",
@@ -701,7 +750,7 @@ function validateNode(
           scope: "node",
           node_key: node.node_key,
           field: "next_node_key",
-          message: t("collectNeedsNext"),
+          message: t(legacy ? "collectNeedsNext" : "nodeNeedsNext"),
         });
       } else if (!knownKeys.has(cfg.next_node_key)) {
         issues.push({
@@ -709,61 +758,72 @@ function validateNode(
           scope: "node",
           node_key: node.node_key,
           field: "next_node_key",
-          message: t("collectMissingNext", { key: cfg.next_node_key }),
+          message: t(legacy ? "collectMissingNext" : "nodeMissingNext", { key: cfg.next_node_key }),
         });
       }
+      if (cfg.skip_label !== undefined && cfg.skip_label !== "") {
+        if (node.node_type !== "collect_input" && node.node_type !== "ask_media") {
+          issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'skip_label', message: t('skipNotAllowed') });
+        } else if (cfg.skip_label.trim().length === 0 || cfg.skip_label.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
+          issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'skip_label', message: t('skipLabelInvalid', { max: INTERACTIVE_LIMITS.buttonTitleMaxLength }) });
+        }
+        issues.push(...portIssues(node, knownKeys, "skip_next", "skipNeedsNext", "skipMissingNext"));
+      }
+      if (cfg.max_attempts !== undefined && cfg.max_attempts !== null &&
+          !(typeof cfg.max_attempts === 'number' && Number.isInteger(cfg.max_attempts) && cfg.max_attempts >= 1 && cfg.max_attempts <= 10)) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'max_attempts', message: t('invalidMaxAttempts') });
+      }
+      if (cfg.exhausted_next) {
+        if (!knownKeys.has(cfg.exhausted_next)) {
+          issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'exhausted_next', message: t('exhaustedMissingNext', { key: cfg.exhausted_next }) });
+        }
+        if (cfg.max_attempts === undefined || cfg.max_attempts === null) {
+          issues.push({ severity: 'warning', scope: 'node', node_key: node.node_key, field: 'exhausted_next', message: t('exhaustedNeedsAttempts') });
+        }
+      }
+      break;
+    }
+
+    case "set_attribute": {
+      const cfg = node.config as { target?: string; key?: string; value?: unknown; next_node_key?: string };
+      if (!cfg.target || !["var", "contact_field", "custom_field"].includes(cfg.target)) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'target', message: t('setAttributeNeedsTarget') });
+      } else {
+        const key = typeof cfg.key === 'string' ? cfg.key : '';
+        const valid = cfg.target === 'var' ? VAR_KEY.test(key)
+          : cfg.target === 'contact_field' ? (WRITABLE_CONTACT_FIELDS as readonly string[]).includes(key)
+          : UUID.test(key);
+        if (!valid) issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'key', message: t('setAttributeBadKey') });
+      }
+      if (typeof cfg.value !== 'string' || cfg.value.length > SET_ATTRIBUTE_MAX) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'value', message: t('setAttributeValueTooLong', { max: SET_ATTRIBUTE_MAX }) });
+      }
+      issues.push(...portIssues(node, knownKeys, "next_node_key", "nodeNeedsNext", "nodeMissingNext"));
       break;
     }
 
     case "condition": {
       const cfg = node.config as {
-        subject?: "var" | "tag" | "contact_field";
-        subject_key?: string;
-        operator?: "equals" | "contains" | "present" | "absent";
-        value?: string;
+        match?: unknown;
+        rules?: unknown;
+        timezone?: unknown;
         true_next?: string;
         false_next?: string;
-      };
-      if (!cfg.subject || !["var", "tag", "contact_field"].includes(cfg.subject)) {
-        issues.push({
-          severity: "error",
-          scope: "node",
-          node_key: node.node_key,
-          field: "subject",
-          message: t("conditionNeedsSubject"),
-        });
+      } & Partial<Record<keyof ConditionRule, unknown>>;
+      if (cfg.match !== undefined && cfg.match !== "all" && cfg.match !== "any") {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'match', message: t('conditionBadMatch') });
       }
-      if (!cfg.subject_key?.trim()) {
-        issues.push({
-          severity: "error",
-          scope: "node",
-          node_key: node.node_key,
-          field: "subject_key",
-          message: t("conditionNeedsSubjectKey"),
-        });
+      const grouped = cfg.rules !== undefined;
+      if (grouped && (!Array.isArray(cfg.rules) || cfg.rules.length < 1 || cfg.rules.length > MAX_CONDITION_RULES)) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'rules', message: t('conditionRuleCount', { max: MAX_CONDITION_RULES }) });
       }
-      if (
-        !cfg.operator ||
-        !["equals", "contains", "present", "absent"].includes(cfg.operator)
-      ) {
-        issues.push({
-          severity: "error",
-          scope: "node",
-          node_key: node.node_key,
-          field: "operator",
-          message: t("conditionNeedsOperator"),
-        });
-      } else if (
-        (cfg.operator === "equals" || cfg.operator === "contains") &&
-        (cfg.value === undefined || cfg.value === "")
-      ) {
-        issues.push({
-          severity: "warning",
-          scope: "node",
-          node_key: node.node_key,
-          field: "value",
-          message: t("operatorNeedsValue", { operator: cfg.operator }),
-        });
+      const rules: Array<[Record<string, unknown>, string]> = grouped
+        ? (Array.isArray(cfg.rules) ? cfg.rules : []).map((rule, i) => [rule && typeof rule === 'object' ? rule as Record<string, unknown> : {}, `rules.${i}.`])
+        : [[cfg, ""]];
+      for (const [rule, prefix] of rules) issues.push(...ruleIssues(node.node_key, rule, prefix));
+      if (rules.some(([rule]) => rule.subject === "time" || rule.subject === "date") &&
+          cfg.timezone !== undefined && !isValidTimeZone(cfg.timezone)) {
+        issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'timezone', message: t('conditionBadTimezone') });
       }
       for (const branch of ["true_next", "false_next"] as const) {
         const key = cfg[branch];
@@ -878,49 +938,136 @@ export function reachableFromEntry(
   return visited;
 }
 
+const VAR_KEY = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
+const INPUT_FORMATS: string[] = ["any", "email", "phone", "regex", "number", "date", "boolean"];
+const MEDIA_REPLY_TYPES: unknown[] = ["image", "video", "document", "audio"];
+const CONDITION_SUBJECTS: unknown[] = ["var", "tag", "contact_field", "custom_field", "time", "date"];
+const CONDITION_OPERATORS: unknown[] = ["equals", "not_equals", "contains", "present", "absent", "gt", "gte", "lt", "lte", "between"];
+const MAX_CONDITION_RULES = 10;
+const SET_ATTRIBUTE_MAX = 1000;
+/** Nodes that wait for the customer, so a reply timeout means something. */
+const WAITING_TYPES = ["send_buttons", "send_list", "collect_input", "ask_media", "ask_location", "ask_address"];
+/** Config keys that hold routing or patterns rather than customer-visible text. */
+const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target"];
+
+/** Variables a node stores for the nodes after it. */
+function producedVars(node: NodeInput): string[] {
+  const cfg = node.config;
+  if (node.node_type === "set_attribute") return cfg.target === "var" && typeof cfg.key === "string" ? [cfg.key] : [];
+  const key = typeof cfg.var_key === "string" ? cfg.var_key : null;
+  if (!key) return [];
+  switch (node.node_type) {
+    case "collect_input": return [key];
+    case "ask_media": return [key, `${key}_type`];
+    case "ask_location": return [key, `${key}_latitude`, `${key}_longitude`, `${key}_name`, `${key}_address`];
+    case "ask_address": return [key, ...["name", "phone_number", "in_pin_code", "house_number", "floor_number", "tower_number",
+      "building_name", "address", "landmark_area", "city", "state"].map((field) => `${key}_${field}`)];
+    default: return [];
+  }
+}
+
+function portIssues(node: NodeInput, knownKeys: Set<string>, field: string, needs: string, missing: string): ValidationIssue[] {
+  const key = node.config[field];
+  if (!key) return [{ severity: "error", scope: "node", node_key: node.node_key, field, message: t(needs) }];
+  if (typeof key !== "string" || !knownKeys.has(key)) {
+    return [{ severity: "error", scope: "node", node_key: node.node_key, field, message: t(missing, { key: String(key) }) }];
+  }
+  return [];
+}
+
+/** Delay and reply-timeout settings, which any node may carry. */
+function timingIssues(node: NodeInput, knownKeys: Set<string>, runTimeoutHours?: number): ValidationIssue[] {
+  const cfg = node.config as NodeTiming;
+  const issues: ValidationIssue[] = [];
+  const at = (field: string, message: string, severity: "error" | "warning" = "error") =>
+    issues.push({ severity, scope: "node", node_key: node.node_key, field, message });
+  if (cfg.delay_seconds !== undefined && cfg.delay_seconds !== null) {
+    if (node.node_type === "start") at("delay_seconds", t("delayNotAllowed"));
+    else if (!(Number.isInteger(cfg.delay_seconds) && cfg.delay_seconds >= 1 && cfg.delay_seconds <= 86_400)) at("delay_seconds", t("invalidDelay"));
+  }
+  if (cfg.timeout_minutes !== undefined && cfg.timeout_minutes !== null) {
+    const minutes = cfg.timeout_minutes;
+    if (!WAITING_TYPES.includes(node.node_type)) {
+      at("timeout_minutes", t("timeoutNotAllowed"));
+    } else {
+      if (!(Number.isInteger(minutes) && minutes >= 1 && minutes <= 10_080)) at("timeout_minutes", t("invalidTimeout"));
+      else if (runTimeoutHours !== undefined && minutes > runTimeoutHours * 60) {
+        at("timeout_minutes", t("timeoutAfterRunTimeout", { hours: runTimeoutHours }), "warning");
+      }
+      issues.push(...portIssues(node, knownKeys, "after_timeout", "timeoutNeedsNext", "timeoutMissingNext"));
+    }
+  }
+  return issues;
+}
+
+/** One condition rule; `prefix` locates it ("" for a single-test node, "rules.N." in a group). */
+function ruleIssues(nodeKey: string, rule: Record<string, unknown>, prefix: string): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const at = (field: string, message: string, severity: "error" | "warning" = "error") =>
+    issues.push({ severity, scope: "node", node_key: nodeKey, field: prefix + field, message });
+  const { subject, operator } = rule;
+  const clock = subject === "time" || subject === "date";
+  if (!CONDITION_SUBJECTS.includes(subject)) at("subject", t("conditionNeedsSubject"));
+  if (!clock && !(typeof rule.subject_key === "string" && rule.subject_key.trim())) at("subject_key", t("conditionNeedsSubjectKey"));
+  if (!CONDITION_OPERATORS.includes(operator) || (clock && (operator === "present" || operator === "absent"))) {
+    at("operator", t("conditionNeedsOperator"));
+    return issues;
+  }
+  if (operator === "present" || operator === "absent") return issues;
+  const value = typeof rule.value === "string" ? rule.value : "";
+  const value2 = typeof rule.value2 === "string" ? rule.value2 : "";
+  if (operator === "equals" || operator === "contains") {
+    // Kept a warning: an empty value deliberately matches empty subjects.
+    if (!value) at("value", t("operatorNeedsValue", { operator: String(operator) }), "warning");
+  } else if (!value) {
+    at("value", t("operatorRequiresValue", { operator: String(operator) }));
+  }
+  if (operator === "between" && !value2) at("value2", t("conditionNeedsBound"));
+  const bounds = [value, operator === "between" ? value2 : ""].filter(Boolean);
+  if (subject === "time" && bounds.some((v) => !CLOCK.test(v))) at("value", t("conditionBadTime"));
+  if (subject === "date" && bounds.some((v) => !parseDateInput(v))) at("value", t("conditionBadDate"));
+  return issues;
+}
+
 function outgoingEdges(node: NodeInput): string[] {
+  const cfg = node.config;
+  const out: string[] = [];
+  const add = (key: unknown) => {
+    if (typeof key === "string" && key) out.push(key);
+  };
   switch (node.node_type) {
     case "start":
     case "send_message":
     case "send_media":
+    case "set_tag":
+    case "set_attribute":
+      add(cfg.next_node_key);
+      break;
     case "collect_input":
-    case "set_tag": {
-      const cfg = node.config as { next_node_key?: string };
-      return cfg.next_node_key ? [cfg.next_node_key] : [];
-    }
-    case "condition": {
-      const cfg = node.config as {
-        true_next?: string;
-        false_next?: string;
-      };
-      const out: string[] = [];
-      if (cfg.true_next) out.push(cfg.true_next);
-      if (cfg.false_next) out.push(cfg.false_next);
-      return out;
-    }
-    case "send_buttons": {
-      const cfg = node.config as {
-        buttons?: Array<{ next_node_key?: string }>;
-      };
-      return (cfg.buttons ?? [])
-        .map((b) => b.next_node_key)
-        .filter((k): k is string => !!k);
-    }
-    case "send_list": {
-      const cfg = node.config as {
-        sections?: Array<{ rows?: Array<{ next_node_key?: string }> }>;
-      };
-      const out: string[] = [];
-      for (const s of cfg.sections ?? []) {
-        for (const r of s.rows ?? []) {
-          if (r.next_node_key) out.push(r.next_node_key);
-        }
+    case "ask_media":
+    case "ask_location":
+    case "ask_address":
+      add(cfg.next_node_key);
+      if (cfg.skip_label) add(cfg.skip_next);
+      add(cfg.exhausted_next);
+      break;
+    case "condition":
+      add(cfg.true_next);
+      add(cfg.false_next);
+      break;
+    case "send_buttons":
+      for (const b of (cfg.buttons as Array<{ next_node_key?: string }> | undefined) ?? []) add(b.next_node_key);
+      break;
+    case "send_list":
+      for (const s of (cfg.sections as Array<{ rows?: Array<{ next_node_key?: string }> }> | undefined) ?? []) {
+        for (const r of s.rows ?? []) add(r.next_node_key);
       }
-      return out;
-    }
-    case "handoff":
-    case "end":
+      break;
     default:
       return [];
   }
+  if (WAITING_TYPES.includes(node.node_type) && cfg.timeout_minutes) add(cfg.after_timeout);
+  return out;
 }

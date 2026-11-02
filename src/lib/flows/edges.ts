@@ -20,9 +20,33 @@
  *   - `button:<reply_id>` for send_buttons rows
  *   - `row:<reply_id>`    for send_list rows
  *   - `true` / `false`    for condition branches
+ *   - `skip` / `exhausted` / `timeout` for the optional question and
+ *     wait-for-reply ports (see `extraPorts`)
  */
 
 import type { BuilderNode } from "@/components/flows/shared";
+
+const WAITING_TYPES = new Set(["send_buttons", "send_list", "collect_input", "ask_media", "ask_location", "ask_address"]);
+
+/**
+ * Optional ports a node shows once its setting is on: Skip (a skip
+ * button), "Attempts used up" (max_attempts) and Timeout (timeout_minutes).
+ */
+export function extraPorts(node: BuilderNode): Array<{ handle: string; field: string; label: string }> {
+  const cfg = node.config;
+  const ports: Array<{ handle: string; field: string; label: string }> = [];
+  if ((node.node_type === "collect_input" || node.node_type === "ask_media") && cfg.skip_label) {
+    ports.push({ handle: "skip", field: "skip_next", label: "Skip" });
+  }
+  if (["collect_input", "ask_media", "ask_location", "ask_address"].includes(node.node_type) &&
+      cfg.max_attempts !== undefined && cfg.max_attempts !== null) {
+    ports.push({ handle: "exhausted", field: "exhausted_next", label: "Attempts used up" });
+  }
+  if (WAITING_TYPES.has(node.node_type) && cfg.timeout_minutes !== undefined && cfg.timeout_minutes !== null) {
+    ports.push({ handle: "timeout", field: "after_timeout", label: "Timeout" });
+  }
+  return ports;
+}
 
 export interface CanvasEdge {
   /** Stable per-edge id — required by React-Flow. */
@@ -43,12 +67,27 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
 
   for (const node of nodes) {
     const cfg = node.config;
+    for (const port of extraPorts(node)) {
+      const next = cfg[port.field];
+      if (typeof next !== "string" || !knownKeys.has(next)) continue;
+      edges.push({
+        id: `${node.node_key}--${port.handle}--${next}`,
+        source: node.node_key,
+        target: next,
+        sourceHandle: port.handle,
+        label: port.label,
+      });
+    }
     switch (node.node_type) {
       case "start":
       case "send_message":
       case "send_media":
       case "collect_input":
-      case "set_tag": {
+      case "ask_media":
+      case "ask_location":
+      case "ask_address":
+      case "set_tag":
+      case "set_attribute": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         if (next && knownKeys.has(next)) {
           edges.push({
@@ -172,13 +211,21 @@ export interface OutgoingSlot {
 }
 
 export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
+  return [...baseSlots(node), ...extraPorts(node).map((port) => ({ id: port.handle, label: port.label }))];
+}
+
+function baseSlots(node: BuilderNode): OutgoingSlot[] {
   const cfg = node.config;
   switch (node.node_type) {
     case "start":
     case "send_message":
     case "send_media":
     case "collect_input":
+    case "ask_media":
+    case "ask_location":
+    case "ask_address":
     case "set_tag":
+    case "set_attribute":
       return [{ id: "next", label: "Next" }];
 
     case "condition":
@@ -247,12 +294,18 @@ export function applyEdgeConnection(
   sourceHandle: string,
   targetKey: string,
 ): Record<string, unknown> | null {
+  const port = extraPorts(node).find((p) => p.handle === sourceHandle);
+  if (port) return { [port.field]: targetKey };
   switch (node.node_type) {
     case "start":
     case "send_message":
     case "send_media":
     case "collect_input":
+    case "ask_media":
+    case "ask_location":
+    case "ask_address":
     case "set_tag":
+    case "set_attribute":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
 
@@ -332,7 +385,10 @@ export function unlinkNodeReferences(
 ): BuilderNode[] {
   return nodes.map((n) => {
     const patched = patchedConfigWithoutKey(n, deletedKey);
-    return patched ? { ...n, config: patched } : n;
+    // Optional ports (skip / attempts used up / timeout) are cleared on any node type.
+    const ports = ["skip_next", "exhausted_next", "after_timeout"].filter((field) => n.config[field] === deletedKey);
+    if (!patched && !ports.length) return n;
+    return { ...n, config: { ...(patched ?? n.config), ...Object.fromEntries(ports.map((field) => [field, ""])) } };
   });
 }
 
@@ -346,7 +402,11 @@ function patchedConfigWithoutKey(
     case "send_message":
     case "send_media":
     case "collect_input":
-    case "set_tag": {
+    case "ask_media":
+    case "ask_location":
+    case "ask_address":
+    case "set_tag":
+    case "set_attribute": {
       const next = (cfg as { next_node_key?: string }).next_node_key;
       if (next !== deletedKey) return null;
       return { ...cfg, next_node_key: "" };

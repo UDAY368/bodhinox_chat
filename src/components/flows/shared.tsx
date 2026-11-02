@@ -19,7 +19,11 @@
 import {
   Flag,
   GitFork,
+  House,
+  ImagePlus,
   Inbox,
+  MapPin,
+  Variable,
   ListChecks,
   ListPlus,
   MessageCircle,
@@ -47,8 +51,12 @@ export type NodeType =
   | 'send_list'
   | 'send_media'
   | 'collect_input'
+  | 'ask_media'
+  | 'ask_location'
+  | 'ask_address'
   | 'condition'
   | 'set_tag'
+  | 'set_attribute'
   | 'handoff'
   | 'end';
 
@@ -78,6 +86,24 @@ export interface BuilderNode {
 // triggered by flow-level config (`trigger_type`), not by a node on
 // the canvas, so `start` is just the entry point under Flow control.
 // ------------------------------------------------------------
+
+/** The types the add-step menus offer, in menu order (canvas and list views). */
+export const ADD_NODE_TYPES: NodeType[] = [
+  'start',
+  'send_buttons',
+  'send_list',
+  'send_message',
+  'send_media',
+  'collect_input',
+  'ask_media',
+  'ask_location',
+  'ask_address',
+  'condition',
+  'set_tag',
+  'set_attribute',
+  'handoff',
+  'end',
+];
 
 export type NodeCategory = 'messaging' | 'logic' | 'flow';
 
@@ -133,6 +159,24 @@ export const NODE_META: Record<
     color: 'text-teal-400',
     category: 'logic',
   },
+  ask_media: {
+    slugSeed: 'Ask media',
+    icon: ImagePlus,
+    color: 'text-teal-400',
+    category: 'logic',
+  },
+  ask_location: {
+    slugSeed: 'Ask location',
+    icon: MapPin,
+    color: 'text-teal-400',
+    category: 'logic',
+  },
+  ask_address: {
+    slugSeed: 'Ask address',
+    icon: House,
+    color: 'text-teal-400',
+    category: 'logic',
+  },
   condition: {
     slugSeed: 'If / else',
     icon: GitFork,
@@ -142,6 +186,12 @@ export const NODE_META: Record<
   set_tag: {
     slugSeed: 'Tag contact',
     icon: Tag,
+    color: 'text-pink-400',
+    category: 'logic',
+  },
+  set_attribute: {
+    slugSeed: 'Set attribute',
+    icon: Variable,
     color: 'text-pink-400',
     category: 'logic',
   },
@@ -193,8 +243,12 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   send_list: { l: 0.62, c: 0.15, h: 277 }, // indigo
   send_media: { l: 0.65, c: 0.12, h: 210 }, // sky
   collect_input: { l: 0.65, c: 0.1, h: 185 }, // teal — capture
+  ask_media: { l: 0.65, c: 0.1, h: 185 }, // the question family shares teal
+  ask_location: { l: 0.65, c: 0.1, h: 185 },
+  ask_address: { l: 0.65, c: 0.1, h: 185 },
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
+  set_attribute: { l: 0.65, c: 0.15, h: 330 }, // magenta — writes data, like set_tag
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
@@ -359,7 +413,10 @@ export function summarizeNode(
         ? `${label}: ${truncate(name, 30)} · ${truncate(caption, 40)}`
         : `${label}: ${truncate(name, 60)}`;
     }
-    case 'collect_input': {
+    case 'collect_input':
+    case 'ask_media':
+    case 'ask_location':
+    case 'ask_address': {
       const prompt = typeof cfg.prompt_text === 'string' ? cfg.prompt_text : '';
       const varKey = typeof cfg.var_key === 'string' ? cfg.var_key : '';
       if (prompt.length > 0) {
@@ -369,7 +426,20 @@ export function summarizeNode(
       }
       return varKey ? `→ vars.${varKey}` : null;
     }
+    case 'set_attribute': {
+      const key = typeof cfg.key === 'string' ? cfg.key : '';
+      const value = typeof cfg.value === 'string' ? cfg.value : '';
+      if (!key) return null;
+      const target = cfg.target === 'var' ? `vars.${key}` : cfg.target === 'custom_field' ? (t ? t('customField') : 'custom field') : key;
+      return `${target} = ${truncate(value, 40) || '""'}`;
+    }
     case 'condition': {
+      if (Array.isArray(cfg.rules) && cfg.rules.length > 0) {
+        const count = cfg.rules.length;
+        return t
+          ? t(cfg.match === 'any' ? 'rulesAny' : 'rulesAll', { count })
+          : `${count} rule${count === 1 ? '' : 's'} (${cfg.match === 'any' ? 'any' : 'all'})`;
+      }
       const subjectKey =
         typeof cfg.subject_key === 'string' ? cfg.subject_key : '';
       if (!subjectKey) return null;

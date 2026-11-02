@@ -400,6 +400,7 @@ model flow_runs {
   last_advanced_at DateTime @db.Timestamptz(6) @default(now())
   ended_at DateTime? @db.Timestamptz(6)
   end_reason String?
+  delay_until DateTime? @db.Timestamptz(6)
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   @@unique([account_id, id])
 }

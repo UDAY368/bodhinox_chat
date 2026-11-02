@@ -10,7 +10,7 @@ Preserve fixed resource/query/RPC contracts; never expose arbitrary tables, raw 
 
 Queue background tasks before acknowledging them. Outbound intents and inbound stage checkpoints prevent blind re-sends after ambiguous outcomes; surface reconciliation instead of automatically clearing those records. Keep customer content and secrets out of logs.
 
-Validate with npm run typecheck, npm run lint, npm test -- --maxWorkers=1, and npm run build. Add meaningful security, durability and tenancy tests for behavior changes. Update the feature inventory and deployment runbook as behavior changes.
+Validate with npm run typecheck, npm run lint, npm run test:all, and npm run build. test:all runs the unit tests in parallel, then the real-database tests (*.integration.test.ts, *.load.test.ts) on one worker because they share the test database; CI still runs npm test -- --maxWorkers=1. While building, run only the tests for the files you changed, and run test:all once per change, before committing. Add meaningful security, durability and tenancy tests for behavior changes. Update the feature inventory and deployment runbook as behavior changes.
 
 ## ponytail
 

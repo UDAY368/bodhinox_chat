@@ -74,6 +74,7 @@ import {
 } from '@/lib/flows/edges';
 import { autoLayout, shouldAutoLayout } from '@/lib/flows/layout';
 import {
+  ADD_NODE_TYPES,
   NodeIconChip,
   groupNodeTypesByCategory,
   nodeColors,
@@ -118,6 +119,9 @@ function slotColor(nodeType: NodeType, slotId: string, fallback: string) {
   }
   return fallback;
 }
+
+/** Optional ports (edges.ts extraPorts) carry English labels; show them translated. */
+const PORT_LABELS: Record<string, string> = { skip: 'ports.skip', exhausted: 'ports.exhausted', timeout: 'ports.timeout' };
 
 function FlowNodeCard({ data, selected }: NodeProps) {
   const t = useTranslations('Flows.builder');
@@ -207,8 +211,8 @@ function FlowNodeCard({ data, selected }: NodeProps) {
               key={slot.id}
               className="text-primary relative flex items-center justify-between gap-2 rounded-lg border border-border bg-primary-soft px-2 py-2 text-[11px] font-medium"
             >
-              <span className="truncate" title={slot.label}>
-                {slot.label}
+              <span className="truncate" title={PORT_LABELS[slot.id] ? t(PORT_LABELS[slot.id]) : slot.label}>
+                {PORT_LABELS[slot.id] ? t(PORT_LABELS[slot.id]) : slot.label}
               </span>
               <Handle
                 type="source"
@@ -358,7 +362,7 @@ function FlowCanvasInner() {
       source: e.source,
       target: e.target,
       sourceHandle: e.sourceHandle,
-      label: e.label,
+      label: PORT_LABELS[e.sourceHandle] ? t(PORT_LABELS[e.sourceHandle]) : e.label,
       // Mode-aware via CSS tokens so edge chrome flips with light/dark.
       labelStyle: { fill: 'var(--muted-foreground)', fontSize: 11 },
       labelBgStyle: { fill: 'var(--card)' },
@@ -369,7 +373,7 @@ function FlowCanvasInner() {
     }));
 
     return rfEdges;
-  }, [builderNodes]);
+  }, [builderNodes, t]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange<RfNode<NodeData>>[]) => {
@@ -639,6 +643,8 @@ function NodeInspector({
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
           <code className="text-[10px] text-muted-foreground">{node.node_key}</code>
           <NodeConfigForm
+            // Remount per node so per-form state (the delay unit) never carries across nodes.
+            key={node.node_key}
             node={node}
             allNodes={allNodes}
             showAdvanced={false}
@@ -675,18 +681,6 @@ function NodeInspector({
 // center of the visible viewport rather than appending to a list.
 // ============================================================
 
-const ADD_NODE_TYPES: NodeType[] = [
-  'start',
-  'send_buttons',
-  'send_list',
-  'send_message',
-  'send_media',
-  'collect_input',
-  'condition',
-  'set_tag',
-  'handoff',
-  'end',
-];
 
 function CanvasBlockLibrary({ t, onAdded }: { t: ReturnType<typeof useTranslations>; onAdded: (key: string) => void }) {
   const reactFlow = useReactFlow();
