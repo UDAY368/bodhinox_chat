@@ -10,7 +10,7 @@ Preserve fixed resource/query/RPC contracts; never expose arbitrary tables, raw 
 
 Queue background tasks before acknowledging them. Outbound intents and inbound stage checkpoints prevent blind re-sends after ambiguous outcomes; surface reconciliation instead of automatically clearing those records. Keep customer content and secrets out of logs.
 
-Validate with npm run typecheck, npm run lint, npm run test:all, and npm run build. test:all runs the unit tests in parallel, then the real-database tests (*.integration.test.ts, *.load.test.ts) on one worker because they share the test database; CI still runs npm test -- --maxWorkers=1. While building, run only the tests for the files you changed, and run test:all once per change, before committing. Add meaningful security, durability and tenancy tests for behavior changes. Update the feature inventory and deployment runbook as behavior changes.
+Validate with npm run typecheck, npm run lint, npm run test:all:local, and npm run build. test:all:local runs the unit tests in parallel, then the real-database tests (*.integration.test.ts, *.load.test.ts) on one worker against a disposable local Docker PostgreSQL built like CI's (scripts/test-db-local.cjs; credentials in the git-ignored .env.test.docker; `node scripts/test-db-local.cjs stop` removes it). npm run test:all does the same against the remote test database in .env.test and is far slower. CI still runs npm test -- --maxWorkers=1. While building, run only the tests for the files you changed, and run test:all:local once per change, before committing. Add meaningful security, durability and tenancy tests for behavior changes. Update the feature inventory and deployment runbook as behavior changes.
 
 ## ponytail
 

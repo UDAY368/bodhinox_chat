@@ -39,6 +39,8 @@
     "test:unit": "vitest run --exclude \"**/*.integration.test.ts\" --exclude \"**/*.load.test.ts\"",
     "test:db": "vitest run --maxWorkers=1 integration.test load.test",
     "test:all": "npm run test:unit && npm run test:db",
+    "test:db:local": "node scripts/test-db-local.cjs run",
+    "test:all:local": "npm run test:unit && npm run test:db:local",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
