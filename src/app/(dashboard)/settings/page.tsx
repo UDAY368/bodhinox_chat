@@ -20,7 +20,10 @@ import { InboxSettings } from '@/components/settings/inbox-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { WebhooksSettings } from '@/components/settings/webhooks-settings';
+import { ShopifyCard } from '@/components/settings/shopify-card';
+import { WooCommerceCard } from '@/components/settings/woocommerce-card';
 import { PlanPanel } from '@/components/settings/plan-panel';
+import { PaymentsCard } from '@/components/settings/payments-card';
 import {
   resolveSection,
   type SettingsSection,
@@ -88,8 +91,11 @@ function SettingsPageInner() {
       <div className="space-y-10">
         <ApiKeysSettings />
         <WebhooksSettings />
+        <ShopifyCard />
+        <WooCommerceCard />
       </div>
     ),
+    payments: <PaymentsCard />,
     plan: <PlanPanel />,
   };
 

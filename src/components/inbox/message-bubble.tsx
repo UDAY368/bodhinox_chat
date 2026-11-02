@@ -24,6 +24,7 @@ import {
   MediaVideoBubble,
 } from './message-media';
 import { InteractivePreview } from '@/components/interactive/interactive-preview';
+import { OrderBubble, orderFromPayload } from '@/components/commerce/orders/order-bubble';
 import { useTranslations } from 'next-intl';
 
 interface MessageBubbleProps {
@@ -292,6 +293,10 @@ function MessageContent({
         return (
           <LocalizedInteractivePreview payload={message.interactive_payload} />
         );
+      }
+      // A cart sent from the catalogue (its items are in interactive_payload.order).
+      if (message.sender_type === 'customer' && orderFromPayload(message.interactive_payload)) {
+        return <OrderBubble payload={message.interactive_payload} />;
       }
       if (message.sender_type === 'customer') {
         return (

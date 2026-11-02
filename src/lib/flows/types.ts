@@ -221,6 +221,32 @@ export interface SendFormNodeConfig {
 }
 
 /**
+ * Payment link: creates a Razorpay payment link for the run (one per run,
+ * node and transition, so a replay never creates a second), sends it as a
+ * text message and waits for the payment. A verified webhook or a verified
+ * fetch resumes the run on `paid_next`; an expired or cancelled link on
+ * `expired_next`; a link that could not be created or sent on `failed_next`.
+ * An unwired expired/failed port ends the run. Stores `payment_link_url`,
+ * `payment_status` and `payment_link_id` in vars. May carry a reply timeout
+ * (`after_timeout` port) like the other waiting steps.
+ */
+export interface PaymentLinkNodeConfig {
+  /** Amount in major units ("499", "1,250.50"); may use {{vars.x}}. */
+  amount: string;
+  /** ISO 4217 code, e.g. INR. */
+  currency: string;
+  /** Shown on the Razorpay payment page (≤ 2048 chars); may use {{vars.x}}. */
+  description?: string;
+  /** Text sent above the link (≤ 900 chars); may use {{vars.x}}. */
+  message: string;
+  /** Minutes until the link expires (16 – 259200); unset means it does not expire. */
+  expire_minutes?: number;
+  paid_next: string;
+  expired_next?: string;
+  failed_next?: string;
+}
+
+/**
  * Sends an approved WhatsApp template. A template with quick-reply
  * buttons waits for a tap and routes per button (same `buttons` shape
  * as send_buttons, plus the template button `index`); one without
@@ -340,6 +366,35 @@ export interface SetTagNodeConfig {
 export type EndNodeConfig = Record<string, never>;
 
 /**
+ * Catalogue steps (lib/commerce/catalog-send). They send from the
+ * conversation's number with the catalogue linked to it, then auto-advance.
+ * Products are named by their catalogue content id (retailer id), so a
+ * flow survives re-syncs; texts may use {{vars.X}}.
+ */
+export interface SendProductNodeConfig {
+  product_retailer_id: string;
+  body_text?: string;
+  footer_text?: string;
+  next_node_key: string;
+}
+
+export interface SendProductListNodeConfig {
+  header_text: string;
+  body_text: string;
+  footer_text?: string;
+  /** 1-10 sections, 1-30 products in total; titles required when more than one section. */
+  sections: Array<{ title: string; product_retailer_ids: string[] }>;
+  next_node_key: string;
+}
+
+export interface SendCatalogNodeConfig {
+  body_text: string;
+  footer_text?: string;
+  thumbnail_product_retailer_id?: string;
+  next_node_key: string;
+}
+
+/**
  * Total union — every concrete node_type the v1 engine understands.
  * Add new node types here and the engine's switch will flag missing
  * cases via TypeScript's exhaustiveness check.
@@ -361,6 +416,10 @@ export type FlowNodeConfig =
   | { node_type: "ask_location"; config: AskLocationNodeConfig }
   | { node_type: "ask_address"; config: AskAddressNodeConfig }
   | { node_type: "send_form"; config: SendFormNodeConfig }
+  | { node_type: "send_product"; config: SendProductNodeConfig }
+  | { node_type: "send_product_list"; config: SendProductListNodeConfig }
+  | { node_type: "send_catalog"; config: SendCatalogNodeConfig }
+  | { node_type: "payment_link"; config: PaymentLinkNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }
   | { node_type: "api_request"; config: ApiRequestNodeConfig }
   | { node_type: "connect_flow"; config: ConnectFlowNodeConfig }
@@ -402,7 +461,11 @@ export interface TemplateReplyTriggerConfig {
 // the no-empty-object-type lint rule.
 export type FirstInboundTriggerConfig = Record<string, never>;
 
+/** Starts the flow when a customer sends a WhatsApp cart. No knobs yet. */
+export type OrderReceivedTriggerConfig = Record<string, never>;
+
 export type FlowTriggerConfig =
+  | { trigger_type: "order_received"; config: OrderReceivedTriggerConfig }
   | { trigger_type: "keyword"; config: KeywordTriggerConfig }
   | { trigger_type: "first_inbound_message"; config: FirstInboundTriggerConfig }
   | { trigger_type: "manual"; config: Record<string, never> }
@@ -423,7 +486,7 @@ export interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received";
   trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | Record<string, unknown>;
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
@@ -571,6 +634,14 @@ export type ParsedInbound =
       /** The run and send_form node the session was issued for, when trusted. */
       flow_run_id: string | null;
       node_key: string | null;
+      meta_message_id: string;
+    }
+  | {
+      kind: "order";
+      /** The inbox text for the cart ("[Order] 2 × Shirt — ₹998.00"). */
+      summary: string;
+      /** order_id, order_total, order_currency, order_items_count, order_items. */
+      vars: Record<string, string>;
       meta_message_id: string;
     };
 

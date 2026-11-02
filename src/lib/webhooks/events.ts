@@ -14,6 +14,9 @@ export const WEBHOOK_EVENTS = [
   'broadcast.completed', // a broadcast finished (no recipient left pending)
   'template.status_updated', // Meta approved/rejected/paused a template
   'flow.completed', // a chatbot flow run reached its end, with collected vars
+  'order.created', // a store order was recorded (src/lib/webhooks/commerce-events.ts)
+  'order.paid', // a store order was paid
+  'payment_link.paid', // a payment link sent from Bodhinox was paid
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
@@ -27,6 +30,9 @@ export const WEBHOOK_EVENT_DESCRIPTIONS: Record<WebhookEvent, string> = {
   'broadcast.completed': 'A broadcast finished sending, with its delivery counts',
   'template.status_updated': 'Meta changed a template status (approved, rejected, paused)',
   'flow.completed': 'A chatbot flow run finished, with the answers it collected',
+  'order.created': 'A store order was received (Shopify, WooCommerce or a WhatsApp cart)',
+  'order.paid': 'A store order was paid',
+  'payment_link.paid': 'A payment link sent from Bodhinox was paid in full',
 };
 
 /** Type-narrow an unknown value into a valid `WebhookEvent`. */

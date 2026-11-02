@@ -3,6 +3,10 @@ import { withTenant } from "@/lib/db/tenant";
 import { UncertainDispatchError } from "@/lib/jobs/dispatch";
 import { formSummaryText, recordFormResponse, type FormAnswers } from "@/lib/whatsapp/forms/responses";
 import type { InboundFormPayload } from "@/lib/whatsapp/inbound-structured";
+import { randomUUID } from "node:crypto";
+import { orderContentText, type InboundOrder, type OrderMessagePayload } from "@/lib/commerce/order-format";
+import { recordWhatsAppOrder, withProductNames } from "@/lib/commerce/orders";
+import { emitOrderCreated } from "@/lib/webhooks/commerce-events";
 
 export interface IngestInboundInput {
   accountId: string; userId: string; contactId: string; conversationId: string;
@@ -15,6 +19,8 @@ export interface IngestInboundInput {
   contextMetaId?: string | null;
   /** A submitted WhatsApp form; stored with the message and summarised as its text. */
   formReply?: { flowToken: string | null; answers: FormAnswers };
+  /** A WhatsApp cart; the order commits with the message (once per message id). */
+  order?: InboundOrder;
   wasContactCreated: boolean; wasConversationCreated: boolean;
   /** The number (whatsapp_config.id) the message arrived on; replies go out from it. */
   whatsappConfigId?: string | null;
@@ -37,7 +43,10 @@ export type InboundActionsPayload = MessageActionsPayload | StatusActionsPayload
 
 /** Message identity, unread state and follow-up work commit together. */
 export async function ingestInboundMessage(input: IngestInboundInput): Promise<{ messageId: string; inserted: boolean; isFirstInboundMessage: boolean }> {
-  return withTenant({ accountId: input.accountId, userId: input.userId, role: "owner" }, async tx => {
+  // Set only by the attempt that commits a new cart order (reset per attempt).
+  let createdOrder: { order: OrderMessagePayload; createdAt: Date } | null = null;
+  const result = await withTenant({ accountId: input.accountId, userId: input.userId, role: "owner" }, async tx => {
+    createdOrder = null;
     const conversation = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM conversations
       WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid AND contact_id=${input.contactId}::uuid FOR UPDATE`;
     if (!conversation.length) throw new Error("Inbound conversation is unavailable");
@@ -52,6 +61,11 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       input = { ...input, contentText: formSummaryText(recorded.formName, recorded.definition, input.formReply.answers),
         interactivePayload: { form } };
     }
+    let order: OrderMessagePayload | null = null;
+    if (input.order) {
+      order = { order_id: randomUUID(), ...(await withProductNames(tx, input.accountId, input.order)) };
+      input = { ...input, contentText: orderContentText(order), interactivePayload: { order } };
+    }
     const inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,
       content_text,media_url,media_type,message_id,status,created_at,reply_to_message_id,interactive_reply_id,interactive_payload)
       VALUES(${input.accountId}::uuid,${input.conversationId}::uuid,'customer',${input.contentType},${input.contentText},
@@ -63,6 +77,10 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
         AND conversation_id=${input.conversationId}::uuid AND message_id=${input.metaMessageId}`;
       if (!existing.length) throw new Error("Inbound message identity could not be resolved");
       return { messageId: existing[0].id, inserted: false, isFirstInboundMessage: false };
+    }
+    if (order && await recordWhatsAppOrder(tx, { accountId: input.accountId, orderId: order.order_id, metaMessageId: input.metaMessageId,
+      contactId: input.contactId, conversationId: input.conversationId, whatsappConfigId: input.whatsappConfigId ?? null, order })) {
+      createdOrder = { order, createdAt: input.createdAt };
     }
     const payload: MessageActionsPayload = {
       kind: "message", messageId: inserted[0].id, accountId: input.accountId, userId: input.userId,
@@ -82,6 +100,21 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       ON CONFLICT(dedupe_key) DO NOTHING`;
     return { messageId: inserted[0].id, inserted: true, isFirstInboundMessage: payload.isFirstInboundMessage };
   }, getWorkerPrisma());
+  // order.created goes out only after the order has committed, and only from
+  // the delivery that created it: a redelivered webhook finds the message and
+  // never reaches recordWhatsAppOrder, so the event is emitted once per cart.
+  // Best effort like every outbound webhook (emitOrderCreated never throws);
+  // ids, totals and counts only, no item names or the customer's note.
+  const created = createdOrder as { order: OrderMessagePayload; createdAt: Date } | null;
+  if (created) {
+    await emitOrderCreated(input.accountId, {
+      orderId: created.order.order_id, source: "whatsapp_cart", status: "new",
+      totalMinor: created.order.subtotal_minor, currency: created.order.currency,
+      itemCount: created.order.items.reduce((sum, item) => sum + item.quantity, 0),
+      contactId: input.contactId, conversationId: input.conversationId, occurredAt: created.createdAt,
+    });
+  }
+  return result;
 }
 
 export interface ProviderStatus {

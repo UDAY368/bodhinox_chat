@@ -12,6 +12,8 @@ import { withTenant } from "@/lib/db/tenant";
 import { getWorkerPrisma } from "@/lib/db/prisma";
 import { applyFormSaveTo, loadFormDefinition } from "./forms/responses";
 import type { InboundFormPayload } from "./inbound-structured";
+import { asOrderMessagePayload, orderFlowVars, type OrderMessagePayload } from "@/lib/commerce/order-format";
+import { sendOrderConfirmation } from "@/lib/commerce/order-confirmation";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function validatePayload(input: InboundActionsPayload): void {
@@ -67,7 +69,13 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")
       .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
     if(contactError) throw new Error("Contact consent lookup failed");
-    if(!keyword&&!contact?.blocked_at) await respondAutomatically(db,input,text,stage,Boolean(form));
+    const order=form ? null : await cartOrder(db,input);
+    if(!keyword&&!contact?.blocked_at) {
+      await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
+      // After the flow and automations, so an unresolved confirmation never holds them back.
+      if(order) await stage("order_confirmation",()=>sendOrderConfirmation({accountId:input.accountId,userId:input.userId,
+        conversationId:input.conversationId,contactId:input.contactId,order}));
+    }
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{
       conversation_id:input.conversationId,contact_id:input.contactId,whatsapp_message_id:input.metaMessageId,
       content_type:input.contentType,content_text:input.contentText,
@@ -90,6 +98,15 @@ async function submittedForm(db:ReturnType<typeof createAdminClient>,input:Messa
   return form&&typeof form==="object"&&form.answers&&typeof form.answers==="object" ? form : null;
 }
 
+/** The cart an inbound order message carries (stored by ingest), if any. */
+async function cartOrder(db:ReturnType<typeof createAdminClient>,input:MessageInput): Promise<OrderMessagePayload|null> {
+  if(input.contentType!=="interactive"||input.interactiveReplyId) return null;
+  const {data,error}=await db.from("messages").select("interactive_payload")
+    .eq("account_id",input.accountId).eq("id",input.messageId).maybeSingle();
+  if(error) throw new Error("Inbound message lookup failed");
+  return asOrderMessagePayload(((data as {interactive_payload:unknown}|null)?.interactive_payload as {order?:unknown}|null)?.order);
+}
+
 /**
  * The inbound as the flow engine sees it. Photos, locations and address
  * forms are re-read from the stored message, so queued jobs keep their
@@ -106,12 +123,14 @@ async function flowMessage(db:ReturnType<typeof createAdminClient>,input:Message
     .eq("account_id",input.accountId).eq("id",input.messageId).maybeSingle();
   if(error) throw new Error("Inbound message lookup failed");
   const row=data as {media_url:string|null;media_type:string|null;interactive_payload:unknown}|null;
-  const structured=row?.interactive_payload as Partial<{location:{latitude:number;longitude:number;name?:string;address?:string};address:Record<string,string>;form:InboundFormPayload}>|null|undefined;
+  const structured=row?.interactive_payload as Partial<{location:{latitude:number;longitude:number;name?:string;address?:string};address:Record<string,string>;form:InboundFormPayload;order:unknown}>|null|undefined;
   if(MEDIA_TYPES.has(input.contentType)&&row?.media_url) {
     return {kind:"media",media_type:input.contentType as "image"|"video"|"document"|"audio",url:row.media_url,caption:text,meta_message_id};
   }
   if(input.contentType==="location"&&structured?.location) return {kind:"location",...structured.location,meta_message_id};
   if(input.contentType==="interactive"&&structured?.address) return {kind:"address",values:structured.address,meta_message_id};
+  const order=input.contentType==="interactive" ? asOrderMessagePayload(structured?.order) : null;
+  if(order) return {kind:"order",summary:text,vars:orderFlowVars(order),meta_message_id};
   if(input.contentType==="interactive"&&structured?.form) {
     const f=structured.form;
     return {kind:"form",form_id:f.form_id,answers:f.answers??{},summary:text,trusted:f.trusted===true,

@@ -37,6 +37,10 @@ import {
   Tag,
   UserPlus,
   Workflow,
+  ShoppingBag,
+  ShoppingCart,
+  Store,
+  CreditCard,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -60,6 +64,10 @@ export type NodeType =
   | 'ask_location'
   | 'ask_address'
   | 'send_form'
+  | 'payment_link'
+  | 'send_product'
+  | 'send_product_list'
+  | 'send_catalog'
   | 'condition'
   | 'set_tag'
   | 'set_attribute'
@@ -109,6 +117,10 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'ask_location',
   'ask_address',
   'send_form',
+  'payment_link',
+  'send_product',
+  'send_product_list',
+  'send_catalog',
   'condition',
   'set_tag',
   'set_attribute',
@@ -192,10 +204,34 @@ export const NODE_META: Record<
     color: 'text-teal-400',
     category: 'logic',
   },
+  payment_link: {
+    slugSeed: 'Payment link',
+    icon: CreditCard,
+    color: 'text-emerald-400',
+    category: 'messaging',
+  },
   send_form: {
     slugSeed: 'Send form',
     icon: ClipboardList,
     color: 'text-teal-400',
+    category: 'messaging',
+  },
+  send_product: {
+    slugSeed: 'Send product',
+    icon: ShoppingBag,
+    color: 'text-lime-400',
+    category: 'messaging',
+  },
+  send_product_list: {
+    slugSeed: 'Send products',
+    icon: ShoppingCart,
+    color: 'text-lime-400',
+    category: 'messaging',
+  },
+  send_catalog: {
+    slugSeed: 'Send catalogue',
+    icon: Store,
+    color: 'text-lime-400',
     category: 'messaging',
   },
   condition: {
@@ -292,6 +328,10 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   ask_location: { l: 0.65, c: 0.1, h: 185 },
   ask_address: { l: 0.65, c: 0.1, h: 185 },
   send_form: { l: 0.64, c: 0.12, h: 200 }, // teal-blue — a question asked as a form
+  payment_link: { l: 0.64, c: 0.14, h: 150 }, // money green — asks for a payment
+  send_product: { l: 0.66, c: 0.15, h: 125 }, // lime — the shop family
+  send_product_list: { l: 0.66, c: 0.15, h: 125 },
+  send_catalog: { l: 0.66, c: 0.15, h: 125 },
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
   set_attribute: { l: 0.65, c: 0.15, h: 330 }, // magenta — writes data, like set_tag
@@ -475,6 +515,25 @@ export function summarizeNode(
           : truncate(prompt);
       }
       return varKey ? `→ vars.${varKey}` : null;
+    }
+    case 'send_product':
+      return typeof cfg.product_retailer_id === 'string' && cfg.product_retailer_id
+        ? truncate(cfg.product_retailer_id, 60) : (t ? t('productNone') : 'No product picked');
+    case 'send_product_list': {
+      const count = (Array.isArray(cfg.sections) ? (cfg.sections as Array<Record<string, unknown>>) : [])
+        .reduce<number>((sum, s) => sum + (Array.isArray(s.product_retailer_ids) ? s.product_retailer_ids.length : 0), 0);
+      const header = typeof cfg.header_text === 'string' ? cfg.header_text : '';
+      const label = t ? t('products', { count }) : `${count} product${count === 1 ? '' : 's'}`;
+      return header ? `${truncate(header, 40)} · ${label}` : label;
+    }
+    case 'send_catalog': {
+      const body = typeof cfg.body_text === 'string' ? cfg.body_text : '';
+      return body ? truncate(body) : null;
+    }
+    case 'payment_link': {
+      const amount = typeof cfg.amount === 'string' ? cfg.amount.trim() : '';
+      const currency = typeof cfg.currency === 'string' ? cfg.currency : '';
+      return amount ? truncate(`${currency} ${amount}`.trim(), 60) : (t ? t('paymentNone') : 'No amount set');
     }
     case 'send_form': {
       const cta = typeof cfg.cta === 'string' ? cfg.cta : '';

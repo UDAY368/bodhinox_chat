@@ -192,7 +192,11 @@ async function prepare(tx: TenantTransaction, args: SendFormArgs): Promise<Prepa
     WHERE account_id=${args.accountId}::uuid AND id=${args.formId}::uuid`;
   const conversations = await tx.$queryRaw<{ contact_id: string; last_customer_message_at: Date | null; phone: string | null;
     wa_user_id: string | null; blocked_at: Date | null; whatsapp_config_id: string | null }[]>`
-    SELECT c.contact_id,c.last_customer_message_at,ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id
+    SELECT c.contact_id,
+      -- conversations has no such column; the 24-hour window comes from the latest customer message.
+      (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
+        AND m.sender_type='customer') AS last_customer_message_at,
+      ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id
     FROM conversations c JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
     WHERE c.account_id=${args.accountId}::uuid AND c.id=${args.conversationId}::uuid`;
   const conversation = conversations[0] ?? null;

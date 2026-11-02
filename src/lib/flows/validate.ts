@@ -28,7 +28,9 @@ import { getT } from "@/lib/i18n/translate";
 import { flowTemplateExtrasIssues, type FlowTemplateExtras } from "@/lib/whatsapp/template-send-params";
 import { isValidTimeZone } from "@/lib/automations/time-of-day";
 import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
+import { commerceNodeIssues, isCommerceNodeType } from "./commerce-nodes";
 import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
+import { PAYMENT_LINK_VARS, paymentLinkEdges, paymentLinkIssues } from "./payment-node";
 import { parseDateInput } from "./input-formats";
 import type { ConditionRule, NodeTiming } from "./types";
 
@@ -46,7 +48,7 @@ export interface ValidationIssue {
 
 interface FlowInput {
   name: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   /** When given, a Connect Flow step back to this flow is checked for loops. */
@@ -241,7 +243,7 @@ export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: str
     const restartsSelf = Boolean(self) && n.node_type === "connect_flow" && n.config.flow_id === self?.flowId;
     const autoTemplate = n.node_type === "send_template" && !(Array.isArray(n.config.buttons) && n.config.buttons.length);
     const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
-    if ((timesOut || autoTemplate || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent"].includes(n.node_type)) && !autoNodes.has(n.node_key)) {
+    if ((timesOut || autoTemplate || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
       autoNodes.set(n.node_key, n);
     }
   }
@@ -347,7 +349,7 @@ function validateTrigger(
       }
     }
   }
-  // first_inbound_message / manual have no config; nothing to validate.
+  // first_inbound_message / manual / order_received have no config; nothing to validate.
 
   return issues;
 }
@@ -1047,8 +1049,18 @@ function validateNode(
       break;
     }
 
+    case "send_product":
+    case "send_product_list":
+    case "send_catalog":
+      issues.push(...commerceNodeIssues(node, knownKeys));
+      break;
+
     case "send_form":
       // Checked by sendFormIssues, which also knows the account's forms.
+      break;
+
+    case "payment_link":
+      issues.push(...paymentLinkIssues(node, knownKeys));
       break;
 
     case "handoff":
@@ -1106,7 +1118,7 @@ const MAX_CONDITION_RULES = 10;
 const SET_ATTRIBUTE_MAX = 1000;
 const MAX_API_ROUTES = 5;
 /** Nodes that wait for the customer, so a reply timeout means something. */
-const WAITING_TYPES = ["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form"];
+const WAITING_TYPES = ["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link"];
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Meta's limits on the flow message around a form. */
 export const SEND_FORM_LIMITS = { cta: 30, body: 1024, header: 60, footer: 60 } as const;
@@ -1145,7 +1157,7 @@ function waitsForReply(node: NodeInput): boolean {
   return WAITING_TYPES.includes(node.node_type);
 }
 /** Config keys that hold routing or patterns rather than customer-visible text. */
-const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target"];
+const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target", "paid_next", "expired_next", "failed_next", "currency"];
 
 /** Variables a node stores for the nodes after it. */
 function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
@@ -1154,6 +1166,7 @@ function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
   if (node.node_type === "api_request") {
     return Array.isArray(cfg.mappings) ? (cfg.mappings as Array<{ var_key?: unknown }>).map((m) => m?.var_key).filter((k): k is string => typeof k === "string") : [];
   }
+  if (node.node_type === "payment_link") return [...PAYMENT_LINK_VARS];
   const key = typeof cfg.var_key === "string" ? cfg.var_key : null;
   if (!key) return [];
   switch (node.node_type) {
@@ -1246,6 +1259,9 @@ function outgoingEdges(node: NodeInput): string[] {
     case "set_tag":
     case "set_attribute":
     case "assign_agent":
+    case "send_product":
+    case "send_product_list":
+    case "send_catalog":
       add(cfg.next_node_key);
       break;
     case "send_template": {
@@ -1260,6 +1276,9 @@ function outgoingEdges(node: NodeInput): string[] {
       break;
     case "send_form":
       add(cfg.next_node_key);
+      break;
+    case "payment_link":
+      paymentLinkEdges(cfg).forEach(add);
       break;
     case "collect_input":
     case "ask_media":

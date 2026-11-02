@@ -3,6 +3,7 @@
 // Precedence, highest first (an active run always takes the message before
 // any of this, and the AI auto-reply only gets what no flow or automation
 // took):
+//   0. order_received   a cart sent from the catalogue
 //   1. template_reply   a tap on a sent template's quick-reply button
 //   2. keyword          exact, contains or regex
 //   3. first_inbound_message
@@ -13,7 +14,7 @@
 import { regexMatches } from "./input-validation";
 import type { FlowRow, KeywordTriggerConfig, ParsedInbound, TemplateReplyTriggerConfig } from "./types";
 
-const TIER: Record<string, number> = { template_reply: 0, keyword: 1, first_inbound_message: 2 };
+const TIER: Record<string, number> = { order_received: -1, template_reply: 0, keyword: 1, first_inbound_message: 2 };
 
 /** Digits only, the form contacts.phone_normalized and flows.test_numbers use. */
 export function phoneDigits(phone: string | null | undefined): string {
@@ -63,4 +64,9 @@ export function templateReplyMatch(message: ParsedInbound, cfg: TemplateReplyTri
   const wanted = (cfg.buttons ?? []).filter(Boolean);
   if (wanted.length && !wanted.includes(message.reply_title) && !wanted.includes(message.reply_id)) return null;
   return { trigger_button: message.reply_title || message.reply_id };
+}
+
+/** The variables an order_received start sets, or null when the message is not a cart. */
+export function orderReceivedMatch(message: ParsedInbound): Record<string, string> | null {
+  return message.kind === "order" ? { ...message.vars } : null;
 }

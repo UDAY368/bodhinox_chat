@@ -65,7 +65,7 @@ import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 export interface BuilderState {
   name: string;
   description: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   status: FlowRow["status"];
@@ -199,6 +199,14 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { prompt_text: "", var_key: "address", next_node_key: "" };
     case "send_form":
       return { form_id: "", cta: "", body: "", var_key: "form", next_node_key: "" };
+    case "payment_link":
+      return { amount: "", currency: "INR", description: "", message: "", paid_next: "", expired_next: "", failed_next: "" };
+    case "send_product":
+      return { product_retailer_id: "", body_text: "", next_node_key: "" };
+    case "send_product_list":
+      return { header_text: "", body_text: "", sections: [{ title: "", product_retailer_ids: [] }], next_node_key: "" };
+    case "send_catalog":
+      return { body_text: "", next_node_key: "" };
     case "set_attribute":
       return { target: "var", key: "", value: "", next_node_key: "" };
     case "send_template":

@@ -60,7 +60,7 @@ import {
   type NodeType,
 } from './shared';
 import { NodeConfigForm } from './forms/node-config-form';
-import { KeywordTriggerFields, TemplateReplyTriggerFields } from './trigger-fields';
+import { KeywordTriggerFields, OrderReceivedTriggerFields, TemplateReplyTriggerFields } from './trigger-fields';
 import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
@@ -259,6 +259,9 @@ function TriggerPanel({
               <SelectItem value="first_inbound_message">
                 {t('triggerFirstInboundTitle')}
               </SelectItem>
+              <SelectItem value="order_received">
+                {t('triggerOrderReceivedTitle')}
+              </SelectItem>
               <SelectItem value="manual">
                 {t('triggerManualTitle')}
               </SelectItem>
@@ -273,6 +276,7 @@ function TriggerPanel({
           <TemplateReplyTriggerFields config={state.trigger_config} t={t}
             onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
         )}
+        {state.trigger_type === 'order_received' && <OrderReceivedTriggerFields t={t} />}
       </div>
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">

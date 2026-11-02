@@ -26,7 +26,7 @@
 
 import type { BuilderNode } from "@/components/flows/shared";
 
-const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form"]);
+const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link"]);
 
 /**
  * Optional ports a node shows once its setting is on: Skip (a skip
@@ -41,6 +41,10 @@ export function extraPorts(node: BuilderNode): Array<{ handle: string; field: st
   if (["collect_input", "ask_media", "ask_location", "ask_address"].includes(node.node_type) &&
       cfg.max_attempts !== undefined && cfg.max_attempts !== null) {
     ports.push({ handle: "exhausted", field: "exhausted_next", label: "Attempts used up" });
+  }
+  // A payment link always offers its expired and failed outcomes (an unwired one ends the run).
+  if (node.node_type === "payment_link") {
+    ports.push({ handle: "expired", field: "expired_next", label: "Expired" }, { handle: "failed", field: "failed_next", label: "Failed" });
   }
   // A template waits only when it has quick-reply buttons.
   const waits = WAITING_TYPES.has(node.node_type) && (node.node_type !== "send_template" || (Array.isArray(cfg.buttons) && cfg.buttons.length > 0));
@@ -98,6 +102,9 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "ask_location":
       case "ask_address":
       case "send_form":
+      case "send_product":
+      case "send_product_list":
+      case "send_catalog":
       case "set_tag":
       case "assign_agent":
     case "set_attribute": {
@@ -109,6 +116,14 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
             target: next,
             sourceHandle: "next",
           });
+        }
+        break;
+      }
+
+      case "payment_link": {
+        const paid = (cfg as { paid_next?: string }).paid_next;
+        if (paid && knownKeys.has(paid)) {
+          edges.push({ id: `${node.node_key}--paid--${paid}`, source: node.node_key, target: paid, sourceHandle: "paid", label: "Paid" });
         }
         break;
       }
@@ -253,10 +268,16 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "ask_location":
     case "ask_address":
     case "send_form":
+    case "send_product":
+    case "send_product_list":
+    case "send_catalog":
     case "set_tag":
     case "assign_agent":
     case "set_attribute":
       return [{ id: "next", label: "Next" }];
+
+    case "payment_link":
+      return [{ id: "paid", label: "Paid" }];
 
     case "condition":
       return [
@@ -342,11 +363,17 @@ export function applyEdgeConnection(
     case "ask_location":
     case "ask_address":
     case "send_form":
+    case "send_product":
+    case "send_product_list":
+    case "send_catalog":
     case "set_tag":
     case "assign_agent":
     case "set_attribute":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
+
+    case "payment_link":
+      return sourceHandle === "paid" ? { paid_next: targetKey } : null;
 
     case "condition":
       if (sourceHandle === "true") return { true_next: targetKey };
@@ -434,7 +461,7 @@ export function unlinkNodeReferences(
   return nodes.map((n) => {
     const patched = patchedConfigWithoutKey(n, deletedKey);
     // Optional ports (skip / attempts used up / timeout) are cleared on any node type.
-    const ports = ["skip_next", "exhausted_next", "after_timeout"].filter((field) => n.config[field] === deletedKey);
+    const ports = ["skip_next", "exhausted_next", "after_timeout", "expired_next", "failed_next"].filter((field) => n.config[field] === deletedKey);
     if (!patched && !ports.length) return n;
     return { ...n, config: { ...(patched ?? n.config), ...Object.fromEntries(ports.map((field) => [field, ""])) } };
   });
@@ -454,6 +481,9 @@ function patchedConfigWithoutKey(
     case "ask_location":
     case "ask_address":
     case "send_form":
+    case "send_product":
+    case "send_product_list":
+    case "send_catalog":
     case "set_tag":
     case "assign_agent":
     case "set_attribute": {
@@ -461,6 +491,9 @@ function patchedConfigWithoutKey(
       if (next !== deletedKey) return null;
       return { ...cfg, next_node_key: "" };
     }
+
+    case "payment_link":
+      return cfg.paid_next === deletedKey ? { ...cfg, paid_next: "" } : null;
 
     case "condition": {
       const c = cfg as { true_next?: string; false_next?: string };

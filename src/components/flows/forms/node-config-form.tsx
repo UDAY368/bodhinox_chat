@@ -53,6 +53,8 @@ import { ConditionForm, QuestionForm, SetAttributeForm, TimingFields } from "./q
 import { useUserTags } from "./use-pickers";
 import { ApiRequestForm, AssignAgentForm, ConnectFlowForm, SendTemplateForm } from "./integration-forms";
 import { SendFormStepForm } from "./send-form-step";
+import { PaymentLinkForm } from "./payment-forms";
+import { CommerceStepForm } from "./commerce-forms";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -151,8 +153,16 @@ function NodeFields({
     case "ask_address":
       return <QuestionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
+    case "send_product":
+    case "send_product_list":
+    case "send_catalog":
+      return <CommerceStepForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
     case "send_form":
       return <SendFormStepForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "payment_link":
+      return <PaymentLinkForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "set_attribute":
       return <SetAttributeForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;

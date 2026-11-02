@@ -5,11 +5,14 @@ import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
-import { byPrecedence, isTestContact, keywordTriggerMatches, phoneDigits, templateReplyMatch } from './triggers';
+import { byPrecedence, isTestContact, keywordTriggerMatches, orderReceivedMatch, phoneDigits, templateReplyMatch } from './triggers';
 import { runApiRequest } from './api-request';
 import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
 import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
+import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
+import { parseMoney } from '@/lib/commerce/money';
+import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPaymentReference, paymentLinkMessageText, PaymentLinkError } from '@/lib/payments/links';
 /**
  * Flow runner.
  *
@@ -70,6 +73,7 @@ import {
   type ConnectFlowNodeConfig,
   type SendTemplateNodeConfig,
   type SendFormNodeConfig,
+  type PaymentLinkNodeConfig,
   type AskMediaNodeConfig,
   type AskRetry,
   type CollectInputNodeConfig,
@@ -145,8 +149,9 @@ export function matchReplyId(
  * silently breaks the author who keyed on it.
  */
 export function entryTriggerTexts(message: ParsedInbound): string[] {
-  // A form submission answers a form; it never starts a flow by keyword.
-  if (message.kind === "form") return [];
+  // A form submission answers a form, and a cart starts order_received
+  // flows; neither starts a flow by keyword.
+  if (message.kind === "form" || message.kind === "order") return [];
   if (message.kind !== "interactive_reply") {
     const text = messageText(message);
     return text.trim() ? [text] : [];
@@ -169,6 +174,7 @@ export function messageText(message: ParsedInbound): string {
     case "location": return [message.name, message.address, `${message.latitude},${message.longitude}`].filter(Boolean).join(" - ");
     case "address": return Object.values(message.values).join(", ");
     case "form": return message.summary;
+    case "order": return message.summary;
   }
 }
 
@@ -181,6 +187,7 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "start" ||
     node_type === "send_message" ||
     node_type === "send_media" ||
+    isCommerceNodeType(node_type) ||
     node_type === "condition" ||
     node_type === "set_tag" ||
     node_type === "set_attribute" ||
@@ -392,7 +399,10 @@ async function logEvent(
     | "flow_connected"
     | "agent_assigned"
     | "form_sent"
-    | "form_submitted",
+    | "form_submitted"
+    | "payment_link_sent"
+    | "payment_received"
+    | "payment_expired",
   node_key: string | null,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
@@ -501,7 +511,10 @@ async function findEntryFlow(
   const typed = byPrecedence(candidatesByStatus.filter((f) =>
     flowListensOnNumber(f, inboundNumberId)));
   for (const flow of typed) {
-    if (flow.trigger_type === "template_reply") {
+    if (flow.trigger_type === "order_received") {
+      const vars = orderReceivedMatch(message);
+      if (vars) return { flow, vars };
+    } else if (flow.trigger_type === "template_reply") {
       const vars = templateReplyMatch(message, flow.trigger_config as TemplateReplyTriggerConfig);
       if (vars) return { flow, vars };
     } else if (flow.trigger_type === "keyword") {
@@ -980,6 +993,174 @@ export function formAnswerVars(key: string, answers: Record<string, string | num
   };
 }
 
+// ============================================================
+// Payment link step. The link's reference is derived from the run, node
+// and transition, so a replayed step finds the link it already created
+// (lib/payments/links) instead of creating a second one. A verified
+// Razorpay webhook or fetch resumes the run (resumePaymentLinkRun).
+// ============================================================
+
+type PaymentOutcome = "paid" | "expired" | "failed";
+
+/** The node a payment outcome continues at, or null when that port is unwired (the run ends). */
+export function paymentPortFor(cfg: Partial<PaymentLinkNodeConfig>, outcome: PaymentOutcome): string | null {
+  const key = outcome === "paid" ? cfg.paid_next : outcome === "expired" ? cfg.expired_next : cfg.failed_next;
+  return typeof key === "string" && key ? key : null;
+}
+
+/** How a run ends when a payment outcome has no port. */
+function paymentEnd(outcome: PaymentOutcome): { status: "completed" | "failed"; reason: string } {
+  return outcome === "failed" ? { status: "failed", reason: "payment_link_failed" } : { status: "completed", reason: `payment_${outcome}` };
+}
+
+async function setRunVars(db: AdminClient, run: FlowRunRow, patch: Record<string, unknown>): Promise<void> {
+  const vars = { ...run.vars, ...patch };
+  const { error } = await db.from("flow_runs").update({ vars }).eq("id", run.id).eq("status", "active");
+  if (error) throw new Error("Run variable write failed");
+  run.vars = vars;
+}
+
+/** Sends the step's message with the link under it. `attempt` keeps a re-send a distinct outbound intent. */
+async function sendPaymentLinkText(run: FlowRunRow, node: FlowNodeRow, url: string, attempt: number): Promise<string> {
+  const cfg = node.config as unknown as PaymentLinkNodeConfig;
+  const ws = await workspaceValuesFor(run.account_id, cfg.message ?? "");
+  const text = paymentLinkMessageText(interpolateVars(cfg.message ?? "", run.vars, ws), url);
+  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, () => engineSendText({
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+    text,
+  }));
+  return whatsapp_message_id;
+}
+
+/**
+ * Creates (or, on a replay, finds) the step's link and sends it. Returns
+ * "waiting" once the link is out, or the port to continue at. A create with
+ * an unknown outcome goes to the failed port and stays 'unknown' on the
+ * payments page for reconciliation; it is never created again here.
+ */
+async function startPaymentLinkNode(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+): Promise<{ kind: "waiting" } | { kind: "next"; outcome: PaymentOutcome; key: string | null }> {
+  const cfg = node.config as unknown as PaymentLinkNodeConfig;
+  const fail = async (reason: string, status = "failed") => {
+    await setRunVars(db, run, { payment_status: status }).catch(() => undefined);
+    await logEvent(db, run.id, "error", node.node_key, { reason });
+    return { kind: "next" as const, outcome: "failed" as const, key: paymentPortFor(cfg, "failed") };
+  };
+  if (!run.conversation_id || !run.contact_id) return fail("payment_link_no_conversation");
+  const ws = await workspaceValuesFor(run.account_id, `${cfg.amount ?? ""} ${cfg.description ?? ""}`);
+  let amountMinor: number;
+  try {
+    amountMinor = parseMoney(interpolateVars(String(cfg.amount ?? ""), run.vars, ws), cfg.currency);
+  } catch {
+    return fail("payment_link_invalid_amount");
+  }
+  const minutes = cfg.expire_minutes;
+  const expireBy = typeof minutes === "number" && Number.isInteger(minutes) && minutes > 0 ? new Date(Date.now() + minutes * 60_000) : null;
+  let link: Awaited<ReturnType<typeof createPaymentLinkRecord>>["link"];
+  try {
+    ({ link } = await createPaymentLinkRecord({
+      accountId: run.account_id,
+      actor: { kind: "bot" },
+      amountMinor,
+      currency: cfg.currency,
+      description: interpolateOptionalVars(cfg.description, run.vars, ws) || null,
+      conversationId: run.conversation_id,
+      contactId: run.contact_id,
+      flowRunId: run.id,
+      nodeKey: node.node_key,
+      expireBy,
+      referenceId: flowPaymentReference(run.id, node.node_key, run.transition_seq ?? 0),
+    }));
+  } catch (err) {
+    return fail(err instanceof PaymentLinkError ? `payment_link_${err.code}` : "payment_link_failed");
+  }
+  await setRunVars(db, run, { payment_link_id: link.id, payment_status: link.status, ...(link.short_url ? { payment_link_url: link.short_url } : {}) });
+  const settled = flowOutcomeFor(link.status);
+  if (settled === "paid" || settled === "expired") {
+    // A replay after the link already settled: continue as the webhook would have.
+    await logEvent(db, run.id, settled === "paid" ? "payment_received" : "payment_expired", node.node_key, { payment_link_id: link.id, status: link.status });
+    return { kind: "next", outcome: settled, key: paymentPortFor(cfg, settled) };
+  }
+  if (link.status === "failed") return fail("payment_link_rejected");
+  if (!link.short_url || !(link.status === "created" || link.status === "partially_paid")) return fail("payment_link_unknown", link.status);
+  try {
+    const whatsapp_message_id = await sendPaymentLinkText(run, node, link.short_url, run.reprompt_count);
+    await logEvent(db, run.id, "payment_link_sent", node.node_key, { payment_link_id: link.id, whatsapp_message_id });
+  } catch (err) {
+    if (err instanceof Error && err.name === "UncertainDispatchError") {
+      // The message may have reached the customer, so wait for the payment rather than move on.
+      await logEvent(db, run.id, "error", node.node_key, { reason: "payment_link_send_uncertain", payment_link_id: link.id });
+      return { kind: "waiting" };
+    }
+    return fail("payment_link_send_failed", "send_failed");
+  }
+  return { kind: "waiting" };
+}
+
+/**
+ * Resumes a run waiting on a payment_link step once its link is paid,
+ * expired/cancelled or failed. Called after a verified Razorpay webhook or
+ * fetch (lib/payments/links). Idempotent: only a run still waiting on that
+ * node, in the transition the link was created for, moves.
+ */
+export async function resumePaymentLinkRun(args: {
+  accountId: string;
+  runId: string;
+  nodeKey: string;
+  referenceId: string;
+  outcome: PaymentOutcome;
+  /** The link's status, stored as vars.payment_status. */
+  status: string;
+}): Promise<"resumed" | "stale"> {
+  const db = databaseAdmin();
+  const { data, error } = await db.from("flow_runs").select("*").eq("account_id", args.accountId).eq("id", args.runId).maybeSingle();
+  if (error) throw new Error("Payment resume run lookup failed");
+  const run = data as FlowRunRow | null;
+  if (!run || run.status !== "active" || run.current_node_key !== args.nodeKey || run.delay_until) return "stale";
+  if (flowPaymentReference(run.id, args.nodeKey, run.transition_seq ?? 0) !== args.referenceId) return "stale";
+  const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
+  const node = nodes.get(args.nodeKey);
+  if (!node || node.node_type !== "payment_link") return "stale";
+  const now = new Date();
+  const { data: contact } = await db.from("contacts").select("blocked_at,phone").eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
+  const testContact = Boolean(flow) && isTestContact(flow!, phoneDigits((contact as { phone?: string | null } | null)?.phone));
+  const closure = closureForActiveRun({ run, flow, nodeKeys: nodes, now, testContact });
+  if (closure) {
+    await closeActiveRun(db, run, closure, now);
+    return "resumed";
+  }
+  // An agent took over or the contact was blocked while the run waited: no more bot messages.
+  if (!run.conversation_id || !contact || (contact as { blocked_at?: string | null }).blocked_at ||
+      (await botRepliesPaused(run.account_id, run.conversation_id))) {
+    await endRun(db, run.id, "cancelled", "bot_paused_during_wait");
+    return "resumed";
+  }
+  const cfg = node.config as unknown as PaymentLinkNodeConfig;
+  const vars = { ...run.vars, payment_status: args.status };
+  const event = args.outcome === "paid" ? "payment_received" : args.outcome === "expired" ? "payment_expired" : "error";
+  const next = paymentPortFor(cfg, args.outcome);
+  if (!next) {
+    const { data: claimed } = await db.from("flow_runs").update({ vars }).eq("id", run.id).eq("status", "active")
+      .eq("current_node_key", args.nodeKey).eq("transition_seq", run.transition_seq ?? 0).select("id");
+    if (!Array.isArray(claimed) || claimed.length !== 1) return "stale";
+    await logEvent(db, run.id, event, args.nodeKey, { status: args.status });
+    const end = paymentEnd(args.outcome);
+    await endRun(db, run.id, end.status, end.reason);
+    return "resumed";
+  }
+  if (!(await claimReplyTransition(db, run, next, { vars }))) return "stale";
+  run.vars = vars;
+  await logEvent(db, run.id, event, args.nodeKey, { status: args.status });
+  await advanceFromNodeKey(db, run, next, nodes);
+  return "resumed";
+}
+
 /**
  * Tiny `{{vars.foo}}` (and `{{workspace.key}}`) interpolation. Used by send_message + collect_input
  * prompt text so a captured `name` can show up in the next prompt
@@ -1315,6 +1496,29 @@ async function advanceFromNodeKey(
       currentKey = cfg.next_node_key;
       continue;
     }
+    if (isCommerceNodeType(node.node_type)) {
+      // Catalogue steps: one outbound intent per transition, like send_media.
+      const cfg = node.config as unknown as Record<string, unknown>;
+      try {
+        const texts = ["header_text", "body_text", "footer_text"].map((k) => (typeof cfg[k] === "string" ? cfg[k] : "")).join("\n");
+        const ws = await workspaceValuesFor(run.account_id, texts);
+        const { whatsappMessageId } = await sendCommerceMessage({
+          accountId: run.account_id, role: "owner", sender: "bot", conversationId: run.conversation_id!,
+          message: commerceMessageFromNode(node.node_type, cfg, (text) => interpolateVars(text, run.vars, ws)),
+          intentKey: `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`,
+        });
+        await logEvent(db, run.id, "message_sent", node.node_key, { node_type: node.node_type, whatsapp_message_id: whatsappMessageId });
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: `${node.node_type}_failed`,
+          detail: err instanceof CommerceSendError ? err.code : err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", `${node.node_type}_failed`);
+        return { outcome: "completed" };
+      }
+      currentKey = typeof cfg.next_node_key === "string" ? cfg.next_node_key : "";
+      continue;
+    }
     if (isAskNode(node.node_type)) {
       // Send the prompt and suspend. The customer's next reply wakes us
       // up via handleReplyForActiveRun's question branch.
@@ -1380,6 +1584,32 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
         await scheduleReplyTimeout(db, run, node);
+      }
+      return { outcome: "advanced" };
+    }
+    if (node.node_type === "payment_link") {
+      const started = await startPaymentLinkNode(db, run, node);
+      if (started.kind === "next") {
+        if (started.key) {
+          currentKey = started.key;
+          continue;
+        }
+        const end = paymentEnd(started.outcome);
+        await endRun(db, run.id, end.status, end.reason);
+        return { outcome: "completed" };
+      }
+      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
+        return { outcome: "advanced" };
+      }
+      await scheduleReplyTimeout(db, run, node);
+      // A payment that settled before the run started waiting found no waiting run: catch up now.
+      const reference = flowPaymentReference(run.id, node.node_key, run.transition_seq ?? 0);
+      const latest = await findLinkByReference(run.account_id, reference).catch(() => null);
+      const outcome = latest ? flowOutcomeFor(latest.status) : null;
+      if (latest && outcome) {
+        await resumePaymentLinkRun({ accountId: run.account_id, runId: run.id, nodeKey: node.node_key, referenceId: reference, outcome, status: latest.status });
       }
       return { outcome: "advanced" };
     }
@@ -1658,6 +1888,29 @@ async function claimReplyTransition(
   return true;
 }
 
+/**
+ * Adds vars to a run that stays on its current node. Compare-and-set on the
+ * run's position: if the run moved meanwhile the merge is skipped (the vars
+ * are a convenience, never worth overwriting a concurrent transition).
+ */
+async function mergeWaitingRunVars(db: AdminClient, run: FlowRunRow, vars: Record<string, string>): Promise<void> {
+  if (run.current_node_key === null || Object.keys(vars).length === 0) return;
+  const merged = { ...run.vars, ...vars };
+  const { data, error } = await db
+    .from("flow_runs")
+    .update({ vars: merged })
+    .eq("id", run.id)
+    .eq("status", "active")
+    .eq("current_node_key", run.current_node_key)
+    .eq("transition_seq", run.transition_seq ?? 0)
+    .select("id");
+  if (error) {
+    console.error("[flows] mergeWaitingRunVars error:", error.message);
+    return;
+  }
+  if (Array.isArray(data) && data.length === 1) run.vars = merged;
+}
+
 async function closeActiveRun(
   db: AdminClient,
   run: FlowRunRow,
@@ -1850,6 +2103,21 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
   }
 
+  if (message.kind === "order") {
+    // Policy: a WhatsApp cart is never an answer. While a run waits (on a
+    // question, buttons, a form...), the cart leaves it waiting where it is:
+    // no var is captured from the cart summary, no reprompt or fallback fires.
+    // The order itself is still handled outside the run (stored with its
+    // message, order confirmation, order.created webhook). Its order_* vars
+    // are merged into the waiting run so a flow that sent the product list can
+    // use them later. An order_received flow starts only when no run is active
+    // on the conversation: one active run per conversation is a database
+    // invariant, and silently ending a run the customer is in the middle of
+    // would lose their place.
+    await mergeWaitingRunVars(db, run, message.vars);
+    return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+  }
+
   let matched: string | null = null;
   if (
     message.kind === "interactive_reply" &&
@@ -1946,6 +2214,9 @@ async function handleReplyForActiveRun(
       } else if (currentNode.node_type === "send_form") {
         // Each re-send issues its own session for this run and node; either submission resumes it.
         await sendFormForNode(run, currentNode, newReprompts);
+      } else if (currentNode.node_type === "payment_link" && typeof run.vars.payment_link_url === "string" && run.vars.payment_link_url) {
+        // The same link again; the step never creates a second one.
+        await sendPaymentLinkText(run, currentNode, run.vars.payment_link_url, newReprompts);
       }
     } catch (err) {
       await logEvent(db, run.id, "error", currentNode.node_key, {
@@ -2017,7 +2288,8 @@ async function captureAnswer(node: FlowNodeRow, message: ParsedInbound): Promise
   if (typeof key !== "string" || !key) return null;
   switch (node.node_type) {
     case "collect_input": {
-      if (message.kind === "interactive_reply") return null;
+      // A tap, a cart or a form submission is never a typed answer.
+      if (message.kind === "interactive_reply" || message.kind === "order" || message.kind === "form") return null;
       const value = await normalizeCollectedInput(messageText(message), node.config as unknown as CollectInputNodeConfig);
       return value === null ? null : { [key]: value };
     }

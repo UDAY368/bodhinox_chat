@@ -258,6 +258,8 @@ function nextFor(node: BuilderNode, optionId: string): string {
     case "send_buttons":
     case "send_template":
       return str(rows(cfg.buttons).find((b) => b.reply_id === optionId)?.next_node_key);
+    case "payment_link":
+      return str(cfg[`${optionId}_next`]);
     case "send_list":
       for (const section of rows(cfg.sections)) {
         const row = rows(section.rows).find((r) => r.reply_id === optionId);
@@ -312,6 +314,24 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
         key = str(cfg.next_node_key);
         continue;
 
+      case "send_product":
+        // The customer sees Meta's product card; the content id stands in for it here.
+        push({ from: "bot", nodeKey, text: str(cfg.body_text), footer, media: { type: "image", filename: str(cfg.product_retailer_id) || undefined } });
+        key = str(cfg.next_node_key);
+        continue;
+
+      case "send_product_list":
+        push({ from: "bot", nodeKey, text: str(cfg.body_text), header, footer, list: { button: "", rows: rows(cfg.sections)
+          .flatMap((s) => (Array.isArray(s.product_retailer_ids) ? s.product_retailer_ids : []).map((id) => ({ id: str(id), title: str(id), description: str(s.title) || undefined })))
+          .filter((r) => r.id) } });
+        key = str(cfg.next_node_key);
+        continue;
+
+      case "send_catalog":
+        push({ from: "bot", nodeKey, text: str(cfg.body_text), footer });
+        key = str(cfg.next_node_key);
+        continue;
+
       case "send_buttons": {
         const options = rows(cfg.buttons).filter((b) => str(b.reply_id)).map((b) => ({ id: str(b.reply_id), label: str(b.title) || str(b.reply_id) }));
         push({ from: "bot", nodeKey, text: str(cfg.text), header, footer, buttons: options.map((o) => o.label) });
@@ -343,6 +363,11 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
           { kind: "text", options: skip ? [{ id: "skip", label: skip }] : [] },
           node.node_type === "ask_media" || node.node_type === "ask_location" ? [{ id: "share", label: "share" }, ...ports] : ports,
         );
+
+      case "payment_link":
+        // The engine creates the link at Razorpay; a placeholder URL stands in for it. The author picks the outcome.
+        push({ from: "bot", nodeKey, text: [str(cfg.message).trim(), "https://rzp.io/…"].filter(Boolean).join("\n") });
+        return wait(nodeKey, { kind: "branch", options: [{ id: "paid", label: "paid" }, { id: "expired", label: "expired" }, { id: "failed", label: "failed" }] }, ports);
 
       case "send_form":
         // The form opens from its button; typed replies are off-script, as in the engine.

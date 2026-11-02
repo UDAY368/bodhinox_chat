@@ -1,5 +1,6 @@
 import {
   Coins,
+  CreditCard,
   FileText,
   KeyRound,
   LayoutGrid,
@@ -35,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'fields',
   'deals',
   'members',
+  'payments',
   'api',
   'plan',
 ] as const;
@@ -113,6 +115,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: UsersRound,
     group: 'workspace',
   },
+  payments: { id: 'payments', label: 'Payments', icon: CreditCard, group: 'workspace' },
   api: { id: 'api', label: 'API & webhooks', icon: KeyRound, group: 'workspace' },
   plan: { id: 'plan', label: 'Plan & usage', icon: Gauge, group: 'workspace' },
 };

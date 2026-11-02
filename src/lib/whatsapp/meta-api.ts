@@ -1645,3 +1645,229 @@ export async function updateBusinessProfile(args: {
   })
   if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
 }
+
+// ============================================================
+// Commerce: catalogues, products and commerce settings
+// ============================================================
+
+const tc = getT('Validation.commerce')
+
+/** Meta's limits for product list messages. */
+export const PRODUCT_MESSAGE_LIMITS = {
+  maxProducts: 30,
+  maxSections: 10,
+  sectionTitleMaxLength: 24,
+} as const
+
+/** A product as Meta's catalogue API returns it (the fields we request). */
+export interface MetaCatalogProduct {
+  id: string
+  retailer_id: string
+  name: string
+  description?: string
+  /** Meta's formatted price, e.g. "₹1,234.00" (parse with parseMoney in lib/commerce/money). */
+  price?: string
+  currency?: string
+  image_url?: string
+  url?: string
+  availability?: string
+  /** 'published' or 'staging'; staging products are not shown to customers. */
+  visibility?: string
+}
+
+export interface MetaCatalogProductsPage {
+  products: MetaCatalogProduct[]
+  /** Cursor for the next page, or null on the last page. */
+  after: string | null
+}
+
+const CATALOG_PRODUCT_FIELDS = 'id,retailer_id,name,description,price,currency,image_url,url,availability,visibility'
+const META_NUMERIC_ID = /^\d{1,32}$/
+
+/** One page (up to 100) of a catalogue's products. Pass `after` from the previous page. */
+export async function getCatalogProducts(args: {
+  catalogId: string
+  accessToken: string
+  after?: string | null
+  limit?: number
+}): Promise<MetaCatalogProductsPage> {
+  if (!META_NUMERIC_ID.test(args.catalogId)) throw new Error(tc('catalogIdInvalid'))
+  const params = new URLSearchParams({
+    fields: CATALOG_PRODUCT_FIELDS,
+    limit: String(Math.min(Math.max(Math.trunc(args.limit ?? 100), 1), 100)),
+  })
+  if (args.after) params.set('after', args.after)
+  const response = await fetch(`${META_API_BASE}/${args.catalogId}/products?${params.toString()}`, {
+    signal: AbortSignal.timeout(20_000),
+    headers: { Authorization: `Bearer ${args.accessToken}` },
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = (await response.json()) as {
+    data?: MetaCatalogProduct[]
+    paging?: { cursors?: { after?: string }; next?: string }
+  }
+  const products = (data.data ?? []).filter(
+    (p) => p && typeof p.id === 'string' && typeof p.retailer_id === 'string' && typeof p.name === 'string',
+  )
+  // Meta also returns an `after` cursor on the last page; `next` is present only when more exist.
+  const after = data.paging?.next ? (data.paging.cursors?.after ?? null) : null
+  return { products, after }
+}
+
+/** The catalogues owned by a WhatsApp Business Account. */
+export async function getWabaCatalogs(args: {
+  wabaId: string
+  accessToken: string
+}): Promise<{ id: string; name: string }[]> {
+  if (!META_NUMERIC_ID.test(args.wabaId)) throw new Error(tc('wabaIdInvalid'))
+  const out: { id: string; name: string }[] = []
+  let url: string | undefined = `${META_API_BASE}/${args.wabaId}/product_catalogs?fields=id,name&limit=100`
+  for (let page = 0; url && page < 5; page++) {
+    const response: Response = await fetch(url, {
+      signal: AbortSignal.timeout(15_000),
+      headers: { Authorization: `Bearer ${args.accessToken}` },
+    })
+    if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+    const data = (await response.json()) as { data?: { id?: unknown; name?: unknown }[]; paging?: { next?: string } }
+    for (const row of data.data ?? []) {
+      if (typeof row.id === 'string') out.push({ id: row.id, name: typeof row.name === 'string' ? row.name : '' })
+    }
+    url = data.paging?.next
+  }
+  return out
+}
+
+/** Shows or hides the catalogue and the cart for a number. */
+export async function setCommerceSettings(args: {
+  phoneNumberId: string
+  accessToken: string
+  isCatalogVisible: boolean
+  isCartEnabled: boolean
+}): Promise<void> {
+  const params = new URLSearchParams({
+    is_catalog_visible: String(args.isCatalogVisible),
+    is_cart_enabled: String(args.isCartEnabled),
+  })
+  const response = await fetch(`${META_API_BASE}/${args.phoneNumberId}/whatsapp_commerce_settings?${params.toString()}`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(15_000),
+    headers: { Authorization: `Bearer ${args.accessToken}` },
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+}
+
+interface CommerceSendBase {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+}
+
+function requireCatalogId(catalogId: string): void {
+  if (!META_NUMERIC_ID.test(catalogId ?? '')) throw new Error(tc('catalogIdInvalid'))
+}
+
+function requireRetailerId(retailerId: string | undefined): string {
+  const id = (retailerId ?? '').trim()
+  if (!id || id.length > 200) throw new Error(tc('retailerIdRequired'))
+  return id
+}
+
+async function postInteractive(args: CommerceSendBase, interactive: Record<string, unknown>): Promise<MetaSendResult> {
+  const response = await fetch(`${META_API_BASE}/${args.phoneNumberId}/messages`, {
+    signal: AbortSignal.timeout(15_000),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${args.accessToken}` },
+    body: JSON.stringify({ messaging_product: 'whatsapp', ...recipientFields(args.to), type: 'interactive', interactive }),
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+/** A single product from a catalogue. Body and footer are optional. */
+export async function sendProductMessage(args: CommerceSendBase & {
+  catalogId: string
+  productRetailerId: string
+  bodyText?: string
+  footerText?: string
+}): Promise<MetaSendResult> {
+  requireCatalogId(args.catalogId)
+  const productRetailerId = requireRetailerId(args.productRetailerId)
+  if (args.bodyText) validateInteractiveBody(args.bodyText)
+  validateInteractiveHeaderFooter(undefined, args.footerText)
+  return postInteractive(args, {
+    type: 'product',
+    ...(args.bodyText ? { body: { text: args.bodyText } } : {}),
+    ...(args.footerText ? { footer: { text: args.footerText } } : {}),
+    action: { catalog_id: args.catalogId, product_retailer_id: productRetailerId },
+  })
+}
+
+export interface ProductListSection {
+  title: string
+  productRetailerIds: string[]
+}
+
+/**
+ * Several products in sections. Header text and body are required; at most 30
+ * products across at most 10 sections, and every section needs a title when
+ * there is more than one.
+ */
+export async function sendProductListMessage(args: CommerceSendBase & {
+  catalogId: string
+  headerText: string
+  bodyText: string
+  footerText?: string
+  sections: ProductListSection[]
+}): Promise<MetaSendResult> {
+  requireCatalogId(args.catalogId)
+  if (!args.headerText?.trim()) throw new Error(tc('headerRequired'))
+  validateInteractiveHeaderFooter(args.headerText, args.footerText)
+  validateInteractiveBody(args.bodyText)
+  const sections = args.sections ?? []
+  if (sections.length < 1 || sections.length > PRODUCT_MESSAGE_LIMITS.maxSections) {
+    throw new Error(tc('sectionCount', { max: PRODUCT_MESSAGE_LIMITS.maxSections }))
+  }
+  const total = sections.reduce((sum, s) => sum + (s.productRetailerIds?.length ?? 0), 0)
+  if (total > PRODUCT_MESSAGE_LIMITS.maxProducts || sections.some((s) => !s.productRetailerIds?.length)) {
+    throw new Error(tc('productCount', { max: PRODUCT_MESSAGE_LIMITS.maxProducts }))
+  }
+  const wire = sections.map((section) => {
+    const title = (section.title ?? '').trim()
+    if (sections.length > 1 && !title) throw new Error(tc('sectionTitleRequired'))
+    if (title.length > PRODUCT_MESSAGE_LIMITS.sectionTitleMaxLength) {
+      throw new Error(tc('sectionTitleTooLong', { max: PRODUCT_MESSAGE_LIMITS.sectionTitleMaxLength }))
+    }
+    return {
+      ...(title ? { title } : {}),
+      product_items: section.productRetailerIds.map((id) => ({ product_retailer_id: requireRetailerId(id) })),
+    }
+  })
+  return postInteractive(args, {
+    type: 'product_list',
+    header: { type: 'text', text: args.headerText },
+    body: { text: args.bodyText },
+    ...(args.footerText ? { footer: { text: args.footerText } } : {}),
+    action: { catalog_id: args.catalogId, sections: wire },
+  })
+}
+
+/** The number's whole catalogue, optionally with one product as the thumbnail. */
+export async function sendCatalogMessage(args: CommerceSendBase & {
+  bodyText: string
+  footerText?: string
+  thumbnailProductRetailerId?: string
+}): Promise<MetaSendResult> {
+  validateInteractiveBody(args.bodyText)
+  validateInteractiveHeaderFooter(undefined, args.footerText)
+  const thumbnail = args.thumbnailProductRetailerId ? requireRetailerId(args.thumbnailProductRetailerId) : null
+  return postInteractive(args, {
+    type: 'catalog_message',
+    body: { text: args.bodyText },
+    ...(args.footerText ? { footer: { text: args.footerText } } : {}),
+    action: {
+      name: 'catalog_message',
+      ...(thumbnail ? { parameters: { thumbnail_product_retailer_id: thumbnail } } : {}),
+    },
+  })
+}

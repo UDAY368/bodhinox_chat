@@ -12,14 +12,17 @@ import {
   Bell,
   Bot,
   ClipboardList,
+  CreditCard,
   Crown,
   GitBranch,
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  Package,
   Radio,
   Settings,
   Shield,
+  ShoppingBag,
   Sun,
   User,
   UserCog,
@@ -95,6 +98,12 @@ const navItems: NavItem[] = [
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
   { href: '/forms', labelKey: 'forms', icon: ClipboardList },
   { href: '/agents', labelKey: 'aiAgents', icon: Bot },
+];
+
+const commerceNavItems: NavItem[] = [
+  { href: '/commerce/orders', labelKey: 'orders', icon: ShoppingBag },
+  { href: '/commerce/products', labelKey: 'products', icon: Package },
+  { href: '/commerce/payments', labelKey: 'payments', icon: CreditCard },
 ];
 
 const bottomNavItems = [
@@ -272,6 +281,32 @@ export function Sidebar({ open = false, onClose, compact = false }: SidebarProps
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
                       </span>
                     )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="px-3 pt-7 pb-3 text-[9px] font-semibold tracking-[1.8px] text-[#7b7771] uppercase">
+            {t('commerce')}
+          </p>
+          <ul className="flex flex-col gap-1">
+            {commerceNavItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'studio-sidebar-link flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-[12px] font-medium transition-colors lg:min-h-[41px] lg:py-2',
+                      isActive
+                        ? 'bg-[#30251d] text-[#f9e3cc] shadow-[inset_2px_0_#c9793e]'
+                        : 'text-[#a6a29b] hover:bg-[#272624] hover:text-white'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {t(item.labelKey)}
                   </Link>
                 </li>
               );

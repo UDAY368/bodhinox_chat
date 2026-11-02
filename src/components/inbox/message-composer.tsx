@@ -24,6 +24,8 @@ import {
   MessageSquareDashed,
   Zap,
   ClipboardList,
+  CreditCard,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -59,6 +61,8 @@ import { validateInteractivePayload } from "@/lib/whatsapp/interactive";
 import type { InteractiveMessagePayload, QuickReply } from "@/types";
 import { QuickReplyPicker } from "./quick-reply-picker";
 import { SendFormDialog } from "./send-form-dialog";
+import { SendPaymentLinkDialog } from "./send-payment-link-dialog";
+import { SendProductDialog } from "@/components/commerce/catalog/send-product-dialog";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -160,6 +164,8 @@ export function MessageComposer({
   const [savingQuickReply, setSavingQuickReply] = useState(false);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
   const [sendFormOpen, setSendFormOpen] = useState(false);
+  const [paymentLinkOpen, setPaymentLinkOpen] = useState(false);
+  const [sendProductOpen, setSendProductOpen] = useState(false);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
@@ -706,6 +712,14 @@ export function MessageComposer({
                 <ClipboardList className="mr-2 h-4 w-4" />
                 {t("sendForm")}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPaymentLinkOpen(true)}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                {t("sendPaymentLink")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSendProductOpen(true)}>
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                {t("sendProducts")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -818,6 +832,8 @@ export function MessageComposer({
       </Dialog>
 
       <SendFormDialog open={sendFormOpen} onOpenChange={setSendFormOpen} conversationId={conversationId} />
+      <SendPaymentLinkDialog open={paymentLinkOpen} onOpenChange={setPaymentLinkOpen} conversationId={conversationId} />
+      <SendProductDialog open={sendProductOpen} onOpenChange={setSendProductOpen} conversationId={conversationId} />
 
       {/* Quick-reply picker. */}
       <QuickReplyPicker

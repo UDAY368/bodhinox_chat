@@ -670,6 +670,32 @@ describe('inbound webhook: template quick-reply buttons (#478)', () => {
   });
 });
 
+describe('inbound webhook: catalogue carts', () => {
+  const cart = (items: unknown[]) => ({
+    id: 'wamid.ORDER1', from: '15551230000', timestamp: '1700000000', type: 'order',
+    order: { catalog_id: '123456789', text: 'Gift wrap', product_items: items },
+  });
+
+  it('hands the parsed cart to ingest as an interactive message, prices in minor units', async () => {
+    await runWebhook(cart([{ product_retailer_id: 'SKU-1', quantity: 2, item_price: 499.5, currency: 'INR' }]));
+    expect(h.ingestInputs).toHaveLength(1);
+    expect(h.ingestInputs[0]).toMatchObject({
+      contentType: 'interactive', interactiveReplyId: null,
+      order: { catalog_id: '123456789', currency: 'INR', subtotal_minor: 99900, note: 'Gift wrap',
+        items: [{ retailer_id: 'SKU-1', name: null, quantity: 2, unit_price_minor: 49950 }] },
+    });
+  });
+
+  it('keeps a cart it cannot store exactly as a plain message', async () => {
+    await runWebhook(cart([
+      { product_retailer_id: 'A', quantity: 1, item_price: 1, currency: 'INR' },
+      { product_retailer_id: 'B', quantity: 1, item_price: 1, currency: 'USD' },
+    ]));
+    expect(h.ingestInputs[0]).toMatchObject({ contentType: 'text', contentText: '[Order]' });
+    expect(h.ingestInputs[0].order).toBeUndefined();
+  });
+});
+
 describe('inbound webhook: inbound media is mirrored (#466)', () => {
   const IMAGE_MESSAGE = {
     id: 'wamid.IMG1',

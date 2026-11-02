@@ -2,7 +2,7 @@
 
 /**
  * Trigger settings for keyword (chips, exact / contains / regex, case,
- * ice breakers) and template-reply flows. Mounted by the trigger panel.
+ * ice breakers), template-reply and order flows. Mounted by the trigger panel.
  */
 
 import { useState } from "react";
@@ -145,6 +145,21 @@ export function TemplateReplyTriggerFields({ config, onChange, t }: { config: Co
           <p className="mt-1 text-[10px] text-muted-foreground">{t.raw("templateButtonsHelp")}</p>
         </fieldset>
       )}
+    </div>
+  );
+}
+
+/** The variables an order_received flow starts with (set by the engine; see lib/commerce/order-format). */
+export const ORDER_TRIGGER_VARIABLES = ["order_id", "order_total", "order_currency", "order_items_count", "order_items"] as const;
+
+/** No settings: explains what starts the flow and lists the variables it gets. */
+export function OrderReceivedTriggerFields({ t }: { t: T }) {
+  return (
+    <div className="space-y-2 md:col-span-2">
+      <p className="text-xs text-muted-foreground">{t("orderTriggerHelp")}</p>
+      <div className="flex flex-wrap gap-1.5" aria-label={t("orderTriggerVariables")}>
+        {ORDER_TRIGGER_VARIABLES.map((v) => <code key={v} className={chip}>{`{{vars.${v}}}`}</code>)}
+      </div>
     </div>
   );
 }

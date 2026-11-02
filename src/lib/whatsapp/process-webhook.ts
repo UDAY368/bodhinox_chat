@@ -23,6 +23,7 @@ import { createServerStorageFacade } from '@/lib/storage/server';
 import { applyProviderStatus, ingestInboundMessage } from '@/lib/whatsapp/ingest';
 import { inboundAddress, inboundLocation, type InboundStructuredPayload } from '@/lib/whatsapp/inbound-structured';
 import { parseFormReply, type FormAnswers } from '@/lib/whatsapp/forms/responses';
+import { parseInboundOrder, type InboundOrder } from '@/lib/commerce/order-format';
 export { processInboundActions } from '@/lib/whatsapp/inbound-actions';
 export type { InboundActionsPayload } from '@/lib/whatsapp/ingest';
 function databaseAdmin() { return createAdminClient(currentJobScope()); }
@@ -75,6 +76,12 @@ interface WhatsAppMessage {
    * payload and mirrors the label into it).
    */
   button?: { text?: string; payload?: string }
+  /** A cart sent from a catalogue: `type: 'order'`. Prices are major units. */
+  order?: {
+    catalog_id?: string
+    text?: string
+    product_items?: Array<{ product_retailer_id?: string; quantity?: number | string; item_price?: number | string; currency?: string }>
+  }
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
 }
@@ -303,7 +310,7 @@ async function processMessage(
   }
 
   // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId, interactivePayload, formReply } =
+  const { contentText, mediaUrl, mediaType, interactiveReplyId, interactivePayload, formReply, order } =
     await parseMessageContent(
       message,
       accessToken,
@@ -345,14 +352,15 @@ async function processMessage(
     ? message.type
     : message.type === 'sticker'
       ? 'image'         // stickers are images
-      : message.type === 'button'
-        ? 'interactive' // template quick-reply tap (issue #478)
+      : message.type === 'button' || (message.type === 'order' && order)
+        ? 'interactive' // template quick-reply tap (issue #478); a cart (its items in interactive_payload.order)
         : 'text'        // reaction, unknown → text fallback
 
   await ingestInboundMessage({
     accountId,userId:configOwnerUserId,contactId:contactRecord.id,conversationId:conversation.id,
     metaMessageId:message.id,contentType,contentText,mediaUrl,mediaType,interactiveReplyId,interactivePayload,
     ...(formReply ? { formReply } : {}),
+    ...(order ? { order } : {}),
     replyToMessageId:replyToInternalId,contextMetaId:message.context?.id ?? null,createdAt:new Date(parseInt(message.timestamp,10)*1000),
     wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,whatsappConfigId,
   });
@@ -381,6 +389,8 @@ async function parseMessageContent(
   interactivePayload: InboundStructuredPayload | null
   /** A submitted WhatsApp form; ingest stores it and writes the inbox summary. */
   formReply?: { flowToken: string | null; answers: FormAnswers }
+  /** A cart; ingest stores the order with the message and writes the inbox summary. */
+  order?: InboundOrder
 }> {
   // getMediaUrl signature is (mediaId, accessToken) — earlier code had
   // the args swapped, so every verification hit an invalid Meta URL and
@@ -566,6 +576,13 @@ async function parseMessageContent(
         contentText: label || payload,
         interactiveReplyId: payload || label,
       }
+    }
+
+    case 'order': {
+      // A cart sent from the catalogue. A cart that cannot be stored exactly
+      // (mixed currencies, a malformed price) is kept as a plain message.
+      const order = parseInboundOrder(message.order)
+      return order ? { ...empty, contentText: '[Order]', order } : { ...empty, contentText: '[Order]' }
     }
 
     default:

@@ -38,6 +38,7 @@ import { withJobScope } from './scope';
 import { enqueueJob, type Job } from './queue';
 import { deliverQueuedWebhook } from '@/lib/webhooks/deliver';
 import { HEALTH_SYNC_JOB, scheduleHealthSync, syncNumberHealth } from '@/lib/whatsapp/health-sync';
+import { COMMERCE_EVENT_JOB, handleCommerceEventJob } from '@/lib/commerce/event-rules';
 
 const uuid = (value: unknown): string => {
   if (typeof value !== 'string' || !/^[0-9a-f-]{36}$/i.test(value))
@@ -261,6 +262,13 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === HEALTH_SYNC_JOB)
       // Meta failures are recorded on the number and retried next cycle, not thrown.
       await syncNumberHealth({ accountId, configId: uuid(job.payload.configId) });
+    else if (job.type === COMMERCE_EVENT_JOB)
+      // One template send per store event; an ambiguous outcome waits for reconciliation.
+      await handleCommerceEventJob(accountId, job.payload);
+    else if (job.type === 'commerce.catalog_sync') await (await import('@/lib/commerce/catalog-sync')).handleCatalogSyncJob(accountId, job.payload);
+    else if (job.type === 'payments.razorpay_event')
+      // One verified Razorpay delivery: link status, order paid, agent alert, waiting flow run.
+      await (await import('@/lib/payments/links')).handlePaymentEventJob(accountId, job.payload);
     else throw new Error('Unsupported job type');
   });
 }

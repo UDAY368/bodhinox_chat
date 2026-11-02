@@ -55,7 +55,11 @@
     "studio": "CRM STUDIO",
     "workspace": "Espaço de trabalho",
     "preferences": "Preferências",
-    "forms": "Formulários"
+    "forms": "Formulários",
+    "commerce": "Comércio",
+    "orders": "Pedidos",
+    "products": "Produtos",
+    "payments": "Pagamentos"
   },
   "Header": {
     "dashboard": "Painel",
@@ -384,7 +388,9 @@
         "audio": "áudio"
       },
       "uploadFailed": "Falha no upload.",
-      "sendForm": "Enviar formulário"
+      "sendForm": "Enviar formulário",
+      "sendProducts": "Enviar produtos",
+      "sendPaymentLink": "Enviar link de pagamento"
     },
     "bubble": {
       "photo": "Foto",
@@ -532,6 +538,28 @@
       "send": "Enviar formulário",
       "sent": "Formulário enviado.",
       "failed": "Não foi possível enviar o formulário."
+    },
+    "sendPaymentLink": {
+      "title": "Enviar um link de pagamento",
+      "defaultMessage": "Aqui está o seu link de pagamento:",
+      "amount": "Valor",
+      "currency": "Moeda",
+      "description": "Descrição (opcional, aparece na página de pagamento)",
+      "expiry": "O link expira",
+      "expiry_none": "Nunca",
+      "expiry_60": "Em 1 hora",
+      "expiry_1440": "Em 24 horas",
+      "expiry_10080": "Em 7 dias",
+      "message": "Mensagem (até {max} caracteres; o link vai abaixo)",
+      "windowHelp": "Links só podem ser enviados nas 24 horas após a última mensagem do cliente.",
+      "send": "Criar e enviar",
+      "sendAgain": "Enviar de novo",
+      "sent": "Link de pagamento enviado.",
+      "sendFailed": "O link foi criado, mas a mensagem não foi enviada.",
+      "createFailed": "Não foi possível criar o link de pagamento.",
+      "notReady": "O Razorpay ainda não confirmou o link. Confira o status na página de Pagamentos.",
+      "linkCreated": "O link de pagamento foi criado.",
+      "uncertainHelp": "Não conseguimos confirmar que a mensagem foi entregue. Confira a conversa antes de enviar de novo."
     }
   },
   "Contacts": {
@@ -1623,7 +1651,8 @@
       "duplicate": "Duplicar",
       "duplicateSuccess": "\"{name}\" criado.",
       "duplicateError": "Não foi possível duplicar o fluxo.",
-      "creatorTeammate": "um colega de equipe"
+      "creatorTeammate": "um colega de equipe",
+      "triggerOrderReceived": "Dispara com: um carrinho do WhatsApp"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -1887,7 +1916,19 @@
         "formFooter": "Rodapé (opcional, até {max} caracteres)",
         "formCta": "Texto do botão (até {max} caracteres)",
         "formVarHelp": "As respostas são salvas em {name}, e cada uma como {name}_ seguido do ID do campo.",
-        "formAfterSubmit": "Depois que o formulário for enviado, ir para"
+        "formAfterSubmit": "Depois que o formulário for enviado, ir para",
+        "paymentAmount": "Valor",
+        "paymentCurrency": "Moeda",
+        "paymentAmountHelp": "Na unidade principal da moeda, ex.: 499.50. Você pode usar '{{'vars.total'}}'.",
+        "paymentDescription": "Descrição na página de pagamento (até {max} caracteres)",
+        "paymentMessage": "Mensagem (até {max} caracteres; o link vai abaixo)",
+        "paymentMessageHelp": "Enviada como texto do WhatsApp, então o cliente precisa ter escrito nas últimas 24 horas.",
+        "paymentExpire": "O link expira após (minutos, opcional)",
+        "paymentExpireHelp": "Pelo menos {min} minutos. Deixe vazio para um link que não expira.",
+        "paymentPaidNext": "Quando pago, ir para",
+        "paymentExpiredNext": "Quando expirar ou for cancelado, ir para (opcional)",
+        "paymentFailedNext": "Quando o link não puder ser criado ou enviado, ir para (opcional)",
+        "paymentVarsHelp": "Salva vars.payment_link_url, vars.payment_status e vars.payment_link_id. Um resultado sem ligação encerra o fluxo."
       },
       "categories": {
         "messaging": "Mensagens",
@@ -1970,13 +2011,32 @@
         "send_form": {
           "label": "Enviar formulário",
           "blurb": "Envia um formulário do WhatsApp e salva as respostas"
+        },
+        "send_product": {
+          "label": "Enviar produto",
+          "blurb": "Mostra um produto do seu catálogo do WhatsApp"
+        },
+        "send_product_list": {
+          "label": "Enviar produtos",
+          "blurb": "Mostra até 30 produtos do catálogo em seções"
+        },
+        "send_catalog": {
+          "label": "Enviar catálogo",
+          "blurb": "Abre todo o seu catálogo do WhatsApp"
+        },
+        "payment_link": {
+          "label": "Link de pagamento",
+          "blurb": "Envia um link de pagamento do Razorpay e aguarda o pagamento"
         }
       },
       "ports": {
         "skip": "Pular",
         "exhausted": "Tentativas esgotadas",
         "timeout": "Tempo esgotado",
-        "fallback": "Alternativa"
+        "fallback": "Alternativa",
+        "paid": "Pago",
+        "expired": "Expirado",
+        "failed": "Falhou"
       },
       "triggerTemplateReplyTitle": "Resposta a um botão de modelo",
       "matchTypeLabel": "Correspondência",
@@ -2051,7 +2111,10 @@
           "form": "Enviou o formulário"
         }
       },
-      "studioLockedHint": "A tela está bloqueada. Desbloqueie-a para editar esta etapa."
+      "studioLockedHint": "A tela está bloqueada. Desbloqueie-a para editar esta etapa.",
+      "triggerOrderReceivedTitle": "Um cliente envia um carrinho pelo catálogo",
+      "orderTriggerHelp": "Começa quando um cliente envia um carrinho do WhatsApp, antes de qualquer fluxo por palavra-chave. O fluxo pode usar estas variáveis:",
+      "orderTriggerVariables": "Variáveis do pedido"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -2095,7 +2158,10 @@
       "rulesAll": "{count, plural, one {# regra} other {# regras}}, todas devem corresponder",
       "rulesAny": "{count, plural, one {# regra} other {# regras}}, basta uma",
       "roundRobin": "Rodízio",
-      "formNone": "Nenhum formulário escolhido"
+      "formNone": "Nenhum formulário escolhido",
+      "productNone": "Nenhum produto escolhido",
+      "products": "{count, plural, one {# produto} other {# produtos}}",
+      "paymentNone": "Sem valor"
     },
     "header": {
       "backToFlows": "Voltar aos fluxos",
@@ -2608,7 +2674,8 @@
       "members": "Membros da equipe",
       "api": "API e webhooks",
       "inbox": "Caixa de entrada",
-      "plan": "Plano e uso"
+      "plan": "Plano e uso",
+      "payments": "Pagamentos"
     },
     "groups": {
       "account": "Conta",
@@ -3080,6 +3147,89 @@
           "link": "Abrir o Gerenciador do WhatsApp"
         }
       }
+    },
+    "shopify": {
+      "title": "Shopify",
+      "description": "Envie mensagens de WhatsApp quando clientes fazem um pedido, pagam, recebem o pedido ou abandonam o checkout na sua loja Shopify.",
+      "loadFailed": "Não foi possível carregar as configurações do Shopify.",
+      "retry": "Tentar novamente",
+      "notConfigured": "O app Shopify ainda não está configurado neste servidor. Peça ao administrador para configurá-lo.",
+      "statusConnected": "Conectada",
+      "statusUninstalled": "Desinstalada",
+      "statusNotConnected": "Não conectada",
+      "connectedOn": "Conectada em {date}",
+      "disconnect": "Desconectar",
+      "disconnectConfirm": "Desconectar esta loja? O app Bodhinox será desinstalado do Shopify e todas as mensagens do Shopify param.",
+      "disconnected": "Loja desconectada.",
+      "domainLabel": "Endereço da loja",
+      "connect": "Conectar loja",
+      "optInOnly": "Marketing só para clientes inscritos",
+      "optInOnlyHelp": "Lembretes de checkout abandonado e modelos de marketing vão só para clientes que aceitaram marketing na sua loja.",
+      "rulesTitle": "Mensagens para eventos da loja",
+      "rulesHelp": "Escolha um modelo aprovado para cada evento. As variáveis são preenchidas com os dados do pedido.",
+      "ruleSaved": "Salvo.",
+      "saveRule": "Salvar",
+      "enableEvent": "Ativar a mensagem de {event}",
+      "marketingBadge": "Marketing",
+      "number": "Número de WhatsApp",
+      "defaultNumber": "Número padrão",
+      "template": "Modelo",
+      "chooseTemplate": "Escolha um modelo",
+      "delay": "Atraso (minutos)",
+      "variable": "Variável {n}",
+      "fieldNone": "Não usada",
+      "domainPlaceholder": "your-store.myshopify.com",
+      "events": {
+        "order_created": "Pedido feito",
+        "order_paid": "Pedido pago",
+        "order_fulfilled": "Pedido enviado",
+        "order_cancelled": "Pedido cancelado",
+        "checkout_abandoned": "Checkout abandonado"
+      },
+      "fields": {
+        "customer_first_name": "Primeiro nome do cliente",
+        "customer_name": "Nome do cliente",
+        "order_number": "Número do pedido",
+        "total": "Total do pedido",
+        "subtotal": "Subtotal",
+        "currency": "Moeda",
+        "item_count": "Quantidade de itens",
+        "status_url": "Página de status do pedido",
+        "tracking_url": "Link de rastreio",
+        "tracking_number": "Código de rastreio",
+        "carrier": "Transportadora",
+        "checkout_url": "Link do checkout",
+        "cancel_reason": "Motivo do cancelamento",
+        "financial_status": "Status do pagamento",
+        "fulfillment_status": "Status do envio",
+        "shop_domain": "Endereço da loja"
+      },
+      "outcomes": {
+        "connected": "Sua loja Shopify está conectada.",
+        "webhooks_failed": "A loja está conectada, mas alguns eventos não puderam ser assinados. Desconecte e conecte novamente.",
+        "signed_out": "Entre novamente e conecte a loja.",
+        "forbidden": "Só administradores podem conectar uma loja.",
+        "invalid_hmac": "Não foi possível verificar a resposta do Shopify. Tente novamente.",
+        "invalid_shop": "Informe um endereço de loja myshopify.com válido.",
+        "invalid_state": "A solicitação de conexão expirou ou não confere. Comece de novo por esta página.",
+        "expired": "A solicitação de conexão expirou. Comece de novo.",
+        "exchange_failed": "O Shopify não concedeu acesso. Tente novamente.",
+        "missing_scopes": "O Shopify não concedeu todas as permissões de que o app precisa.",
+        "connected_elsewhere": "Esta loja já está conectada a outro espaço de trabalho.",
+        "save_failed": "Não foi possível salvar a loja. Tente novamente."
+      },
+      "errors": {
+        "generic": "Algo deu errado. Tente novamente.",
+        "not_configured": "O app Shopify não está configurado neste servidor.",
+        "invalid_shop": "Informe um endereço de loja myshopify.com válido.",
+        "invalid_request": "Confira os valores e tente novamente.",
+        "invalid_rule": "Confira o modelo, o atraso e as variáveis e tente novamente.",
+        "not_connected": "Nenhuma loja Shopify está conectada.",
+        "shopify_unreachable": "Não foi possível acessar o Shopify. Tente novamente.",
+        "template_not_found": "Escolha um modelo aprovado.",
+        "template_not_on_number": "Este modelo não pertence ao número de WhatsApp escolhido.",
+        "number_not_found": "Esse número de WhatsApp não foi encontrado."
+      }
     }
   },
   "SignupPage": {
@@ -3300,7 +3450,8 @@
       "createPipelines": "criar pipelines",
       "createDeals": "criar negócios",
       "sendMessages": "enviar mensagens",
-      "manageForms": "gerenciar formulários do WhatsApp"
+      "manageForms": "gerenciar formulários do WhatsApp",
+      "manageCatalogs": "gerenciar catálogos"
     }
   },
   "Metadata": {
@@ -3966,7 +4117,24 @@
       "formNotPublished": "O formulário escolhido não está publicado. Publique-o antes de ativar este fluxo.",
       "formNeedsCta": "Adicione o texto do botão.",
       "formNeedsBody": "Adicione a mensagem enviada com o formulário.",
-      "formTextTooLong": "Este texto pode ter no máximo {max} caracteres."
+      "formTextTooLong": "Este texto pode ter no máximo {max} caracteres.",
+      "commerceFooterTooLong": "O rodapé pode ter no máximo {max} caracteres.",
+      "commerceBodyTooLong": "A mensagem pode ter no máximo {max} caracteres.",
+      "commerceNeedsProduct": "Escolha um produto.",
+      "commerceNeedsBody": "Escreva o texto da mensagem.",
+      "commerceNeedsHeader": "Escreva o texto do cabeçalho.",
+      "commerceHeaderTooLong": "O cabeçalho pode ter no máximo {max} caracteres.",
+      "commerceSectionCount": "Use de 1 a {max} seções.",
+      "commerceSectionNeedsTitle": "Dê um título a cada seção quando houver mais de uma.",
+      "commerceSectionTitleTooLong": "Os títulos das seções podem ter no máximo {max} caracteres.",
+      "commerceDuplicateProduct": "O produto {id} aparece mais de uma vez.",
+      "commerceTooManyProducts": "Uma lista de produtos pode ter no máximo {max} produtos.",
+      "paymentNeedsCurrency": "Escolha um código de moeda de três letras, como INR.",
+      "paymentNeedsAmount": "Informe o valor a cobrar.",
+      "paymentInvalidAmount": "Informe um valor acima de zero, sem mais casas decimais do que a moeda permite.",
+      "paymentTextTooLong": "Este texto pode ter até {max} caracteres.",
+      "paymentInvalidExpiry": "A validade deve ficar entre {min} e {max} minutos.",
+      "paymentNeedsPaidNext": "Escolha a etapa que roda depois do pagamento."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -4191,6 +4359,74 @@
       "uncertain": "Não foi possível confirmar se o formulário foi enviado. Confira a conversa antes de tentar de novo.",
       "form_wrong_number": "Este formulário pertence a uma conta do WhatsApp Business diferente da do número desta conversa. Envie um formulário criado em um número dessa conta.",
       "form_key_missing": "Este formulário valida as respostas no nosso servidor, mas o número desta conversa não tem chave de criptografia de formulários. Envie uma primeiro em Configurações."
+    },
+    "catalog": {
+      "invalid_input": "Escolha um número conectado e um catálogo válido.",
+      "not_found": "Esse catálogo não está vinculado a este espaço de trabalho.",
+      "number_unavailable": "Esse número do WhatsApp não está conectado. Reconecte-o em Configurações primeiro.",
+      "no_waba": "Este número não tem uma conta do WhatsApp Business, por isso não pode usar um catálogo.",
+      "catalog_not_in_waba": "Esse catálogo não pertence à conta do WhatsApp Business deste número.",
+      "number_has_catalog": "Este número já tem um catálogo. Desvincule-o primeiro.",
+      "meta_error": "O WhatsApp não respondeu como esperado. Tente novamente em alguns minutos."
+    },
+    "commerceSend": {
+      "invalid_message": "Verifique a mensagem: escolha produtos e preencha o texto obrigatório dentro dos limites.",
+      "conversation_not_found": "Conversa não encontrada.",
+      "contact_blocked": "Este contato está bloqueado.",
+      "no_address": "Este contato não tem número de WhatsApp.",
+      "window_closed": "Só é possível enviar produtos até 24 horas após a última mensagem do cliente.",
+      "number_unavailable": "O número do WhatsApp desta conversa não está conectado.",
+      "no_catalog": "Nenhum catálogo está vinculado ao número do WhatsApp desta conversa.",
+      "product_not_found": "Um produto escolhido não está mais no catálogo. Sincronize o catálogo e escolha novamente.",
+      "uncertain": "Não conseguimos confirmar se a mensagem foi enviada. Verifique a conversa antes de enviar de novo.",
+      "rejected": "O WhatsApp recusou a mensagem."
+    },
+    "commerce": {
+      "catalogIdInvalid": "Escolha um catálogo válido.",
+      "wabaIdInvalid": "Este número não tem uma conta do WhatsApp Business válida.",
+      "retailerIdRequired": "Cada produto precisa do ID de conteúdo (até 200 caracteres).",
+      "headerRequired": "Uma lista de produtos precisa de um texto de cabeçalho.",
+      "sectionCount": "Uma lista de produtos precisa de 1 a {max} seções.",
+      "productCount": "Uma lista de produtos precisa de 1 a {max} produtos no total, e cada seção de pelo menos um.",
+      "sectionTitleRequired": "Dê um título a cada seção quando houver mais de uma.",
+      "sectionTitleTooLong": "Os títulos das seções podem ter no máximo {max} caracteres."
+    },
+    "payments": {
+      "not_connected": "Conecte o Razorpay em Configurações → Pagamentos primeiro.",
+      "invalid_amount": "Informe um valor acima de zero, sem mais casas decimais do que a moeda permite.",
+      "invalid_currency": "Escolha um código de moeda válido de três letras, como INR.",
+      "invalid_description": "A descrição pode ter até 2048 caracteres.",
+      "invalid_expiry": "Um link precisa ficar aberto por pelo menos 16 minutos e no máximo 180 dias.",
+      "invalid_message": "A mensagem pode ter até 900 caracteres.",
+      "target_not_found": "Essa conversa, contato ou pedido não foi encontrado neste espaço de trabalho.",
+      "reference_conflict": "Esta solicitação já foi usada para outro link de pagamento. Tente novamente.",
+      "not_found": "Link de pagamento não encontrado.",
+      "not_cancellable": "Só é possível cancelar um link ativo e não pago.",
+      "busy": "Este link está sendo criado agora. Verifique de novo em um minuto.",
+      "provider_auth": "O Razorpay recusou as chaves salvas. Atualize-as em Configurações → Pagamentos.",
+      "provider_rejected": "O Razorpay recusou este link de pagamento.",
+      "provider_unreachable": "Não foi possível acessar o Razorpay. Nada foi alterado; tente novamente em instantes.",
+      "conversation_not_found": "Escolha uma conversa para enviar o link.",
+      "contact_blocked": "Este contato está bloqueado.",
+      "no_address": "Este contato não tem um número de WhatsApp para envio.",
+      "window_closed": "Um link só pode ser enviado nas 24 horas após a última mensagem do cliente.",
+      "number_unavailable": "O número de WhatsApp desta conversa não está conectado.",
+      "link_not_ready": "Este link ainda não pode ser enviado. Confira o status na página de Pagamentos.",
+      "invalidSettings": "Envie o id da chave, o segredo da chave e, se quiser, o segredo do webhook.",
+      "invalidKey": "Informe um id de chave do Razorpay que comece com rzp_test_ ou rzp_live_, e o segredo dela.",
+      "modeMismatch": "O id da chave não corresponde ao modo escolhido.",
+      "invalidWebhookSecret": "O segredo do webhook pode ter até 200 caracteres.",
+      "keyRejected": "O Razorpay não aceitou estas chaves.",
+      "providerUnreachable": "Não foi possível acessar o Razorpay para verificar as chaves. Tente novamente em instantes.",
+      "invalidFilter": "Esse filtro não é válido.",
+      "invalidRequest": "A solicitação não é válida.",
+      "sendUncertain": "Não conseguimos confirmar que a mensagem foi entregue. Ela não será reenviada automaticamente; confira a conversa primeiro.",
+      "sendRejected": "O WhatsApp recusou a mensagem, então ela não foi enviada."
+    },
+    "commerceEvents": {
+      "resolution": "Indique se o cliente recebeu a mensagem.",
+      "not_found": "Evento da loja não encontrado.",
+      "not_open": "Este evento não precisa mais de atenção."
     }
   },
   "Api": {
@@ -5211,6 +5447,464 @@
       "flowNumberInvalid": "Escolha um dos números deste espaço de trabalho, ou todos os números.",
       "flowNotFound": "Fluxo não encontrado.",
       "disconnectedSuffix": "{name} (desconectado)"
+    }
+  },
+  "Commerce": {
+    "catalog": {
+      "picker": {
+        "search": "Pesquisar produtos",
+        "label": "Produtos",
+        "loading": "Carregando produtos",
+        "loadError": "Não foi possível carregar os produtos.",
+        "noMatches": "Nenhum produto corresponde.",
+        "empty": "Ainda não há produtos. Vincule e sincronize um catálogo em Produtos."
+      },
+      "flowStep": {
+        "product": "Produto",
+        "thumbnail": "Produto de capa (opcional)",
+        "header": "Cabeçalho (até {max} caracteres)",
+        "body": "Mensagem (até {max} caracteres)",
+        "bodyOptional": "Mensagem (opcional, até {max} caracteres)",
+        "footer": "Rodapé (opcional, até {max} caracteres)",
+        "listLimits": "Até {products} produtos em até {sections} seções. {count} escolhidos.",
+        "sectionTitle": "Título da seção (até {max} caracteres)",
+        "removeSection": "Remover seção",
+        "removeProduct": "Remover {id}",
+        "addSection": "Adicionar seção",
+        "numberHelp": "Enviado pelo número do WhatsApp da conversa, com o catálogo vinculado a ele. Precisa de uma janela de 24 horas aberta."
+      },
+      "sendDialog": {
+        "title": "Enviar produtos",
+        "description": "Os produtos vêm do catálogo vinculado ao número do WhatsApp desta conversa.",
+        "kindLabel": "O que enviar",
+        "kinds": {
+          "product": "Um produto",
+          "product_list": "Lista de produtos",
+          "catalog": "Catálogo"
+        },
+        "header": "Cabeçalho (até {max} caracteres)",
+        "body": "Mensagem (até {max} caracteres)",
+        "bodyOptional": "Mensagem (opcional, até {max} caracteres)",
+        "footer": "Rodapé (opcional, até {max} caracteres)",
+        "product": "Produto",
+        "thumbnail": "Produto de capa (opcional)",
+        "listLimits": "Até {products} produtos em até {sections} seções. {count} escolhidos.",
+        "sectionTitle": "Título da seção (até {max} caracteres, obrigatório com várias seções)",
+        "removeSection": "Remover seção",
+        "addSection": "Adicionar seção",
+        "windowHelp": "Só é possível enviar produtos até 24 horas após a última mensagem do cliente.",
+        "send": "Enviar",
+        "sent": "Enviado.",
+        "failed": "Não foi possível enviar a mensagem."
+      },
+      "manager": {
+        "title": "Catálogos",
+        "refresh": "Atualizar",
+        "connect": "Conectar catálogo",
+        "loading": "Carregando catálogos",
+        "loadError": "Não foi possível carregar os catálogos.",
+        "emptyTitle": "Nenhum catálogo vinculado ainda",
+        "emptyDesc": "Vincule um catálogo do Meta Commerce Manager a um número do WhatsApp para enviar produtos e receber carrinhos.",
+        "onNumber": "Em {number}",
+        "noNumber": "Sem número (o número foi removido)",
+        "productCount": "{count, plural, one {# produto} other {# produtos}}",
+        "lastSynced": "Última sincronização: {when}",
+        "neverSynced": "Ainda não sincronizado",
+        "syncErrors": {
+          "number_unavailable": "A última sincronização falhou: o número do WhatsApp não está conectado.",
+          "token": "A última sincronização falhou: o token de acesso não consegue ler este catálogo. Verifique a permissão de catálogo na Meta.",
+          "not_found": "A última sincronização falhou: a Meta não encontrou este catálogo.",
+          "unavailable": "A última sincronização falhou: o WhatsApp estava indisponível. Será tentado novamente de forma automática.",
+          "too_many_products": "A última sincronização parou em 10.000 produtos. Catálogos maiores aparecem só em parte."
+        },
+        "cart": "Carrinho",
+        "visible": "Botão do catálogo",
+        "settingsSaved": "Configurações salvas.",
+        "settingsError": "Não foi possível salvar as configurações.",
+        "syncNow": "Sincronizar agora",
+        "syncQueued": "Sincronização iniciada. Os produtos são atualizados em um ou dois minutos.",
+        "syncError": "Não foi possível iniciar a sincronização.",
+        "unlink": "Desvincular",
+        "unlinkTitle": "Desvincular o catálogo?",
+        "unlinkDesc": "{name} será desvinculado aqui e seus produtos sairão desta lista. Nada muda no Meta Commerce Manager.",
+        "unlinkConfirm": "Desvincular",
+        "unlinked": "Catálogo desvinculado.",
+        "unlinkError": "Não foi possível desvincular o catálogo.",
+        "cancel": "Cancelar"
+      },
+      "connect": {
+        "title": "Conectar um catálogo",
+        "description": "Escolha um número do WhatsApp e um dos catálogos da conta do WhatsApp Business dele.",
+        "number": "Número do WhatsApp",
+        "pickNumber": "Escolha um número",
+        "noNumbers": "Nenhum número conectado",
+        "catalog": "Catálogo",
+        "pickCatalog": "Escolha um catálogo",
+        "noCatalogs": "Nenhum catálogo encontrado. Crie um no Meta Commerce Manager e conecte-o a esta conta do WhatsApp Business.",
+        "linkedOption": "{name} (já vinculado)",
+        "loading": "Carregando…",
+        "loadError": "Não foi possível carregar os catálogos.",
+        "cart": "Permitir que os clientes adicionem produtos a um carrinho",
+        "visible": "Mostrar o botão do catálogo nas conversas",
+        "help": "Os produtos são sincronizados agora e depois a cada seis horas.",
+        "cancel": "Cancelar",
+        "submit": "Conectar",
+        "connected": "Catálogo conectado. Os produtos estão sendo sincronizados.",
+        "error": "Não foi possível conectar o catálogo."
+      },
+      "products": {
+        "title": "Produtos",
+        "description": "Os produtos do seu catálogo do WhatsApp, sincronizados com o Meta Commerce Manager.",
+        "listTitle": "Produtos",
+        "search": "Pesquisar por nome ou ID de conteúdo",
+        "availabilityFilter": "Disponibilidade",
+        "allAvailability": "Qualquer disponibilidade",
+        "availability": {
+          "in_stock": "Em estoque",
+          "out_of_stock": "Esgotado",
+          "other": "Outra"
+        },
+        "catalogFilter": "Catálogo",
+        "allCatalogs": "Todos os catálogos",
+        "showHidden": "Mostrar ocultos",
+        "loading": "Carregando produtos",
+        "loadError": "Não foi possível carregar os produtos.",
+        "noMatches": "Nenhum produto corresponde a estes filtros.",
+        "empty": "Ainda não há produtos. Conecte um catálogo para ver os produtos aqui.",
+        "colProduct": "Produto",
+        "colContentId": "ID de conteúdo",
+        "colPrice": "Preço",
+        "colAvailability": "Disponibilidade",
+        "hidden": "Oculto",
+        "noPrice": "—",
+        "range": "{from}–{to} de {total}",
+        "previous": "Página anterior",
+        "next": "Próxima página"
+      }
+    },
+    "events": {
+      "statuses": {
+        "received": "Recebido",
+        "scheduled": "Agendado",
+        "sent": "Enviado",
+        "skipped": "Ignorado",
+        "failed": "Falhou"
+      },
+      "reasons": {
+        "no_rule": "Nenhuma mensagem está configurada para este evento.",
+        "rule_disabled": "A mensagem deste evento está desativada.",
+        "no_phone": "O cliente não tem um número de WhatsApp válido.",
+        "contact_blocked": "O contato está bloqueado.",
+        "contact_opted_out": "O contato cancelou as mensagens de marketing.",
+        "no_marketing_consent": "O cliente não concordou em receber mensagens de marketing.",
+        "template_not_found": "O modelo não foi encontrado. Sincronize os modelos ou escolha outro.",
+        "template_refused": "Este modelo não pode ser enviado automaticamente deste número.",
+        "number_unavailable": "O número de WhatsApp desta mensagem não está conectado.",
+        "bot_paused": "As mensagens automáticas estão pausadas nesta conversa.",
+        "checkout_completed": "O cliente concluiu o pedido, então o lembrete não foi enviado.",
+        "contact_missing": "O contato foi excluído.",
+        "provider_rejected": "O WhatsApp rejeitou a mensagem.",
+        "outcome_unknown": "Não conseguimos confirmar se a mensagem foi enviada. Confira a conversa antes de enviar de novo.",
+        "store_disconnected": "A loja foi desconectada, então a mensagem não foi enviada.",
+        "customer_redacted": "O cliente pediu à loja para apagar seus dados, então a mensagem não foi enviada."
+      }
+    },
+    "orders": {
+      "title": "Pedidos",
+      "description": "Carrinhos enviados pelo seu catálogo do WhatsApp e pedidos de lojas conectadas.",
+      "loading": "Carregando pedidos",
+      "loadError": "Não foi possível carregar os pedidos",
+      "searchPlaceholder": "Buscar por cliente ou número do pedido",
+      "filterStatus": "Filtrar por status",
+      "filterSource": "Filtrar por origem",
+      "allStatuses": "Todos os status",
+      "allSources": "Todas as origens",
+      "noMatches": "Nenhum pedido corresponde a estes filtros",
+      "emptyTitle": "Ainda não há pedidos",
+      "emptyDesc": "Os pedidos aparecem aqui quando um cliente envia um carrinho pelo seu catálogo do WhatsApp ou uma loja conectada informa um.",
+      "colOrder": "Pedido",
+      "colCustomer": "Cliente",
+      "colStatus": "Status",
+      "colItems": "Itens",
+      "colTotal": "Total",
+      "colPlaced": "Feito em",
+      "unknownCustomer": "Cliente desconhecido",
+      "loadMore": "Carregar mais",
+      "statuses": {
+        "new": "Novo",
+        "confirmed": "Confirmado",
+        "awaiting_payment": "Aguardando pagamento",
+        "paid": "Pago",
+        "fulfilled": "Entregue",
+        "cancelled": "Cancelado"
+      },
+      "sources": {
+        "whatsapp": "WhatsApp",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "manual": "Manual"
+      },
+      "detail": {
+        "back": "Todos os pedidos",
+        "notFound": "Este pedido não existe ou não pertence a este espaço de trabalho.",
+        "title": "Pedido {ref}",
+        "colProduct": "Produto",
+        "colQuantity": "Qtd.",
+        "colPrice": "Preço",
+        "colAmount": "Valor",
+        "unknownProduct": "Produto desconhecido",
+        "total": "Total",
+        "customerNote": "Mensagem do cliente",
+        "customer": "Cliente",
+        "openConversation": "Abrir conversa",
+        "changeStatus": "Alterar status",
+        "finalStatus": "Este pedido está encerrado; o status não pode mudar.",
+        "moveTo": "Mover para…",
+        "note": "Nota interna",
+        "notePlaceholder": "Visível só para sua equipe",
+        "noteHelp": "Os clientes nunca veem esta nota.",
+        "saveNote": "Salvar nota",
+        "conflict": "Outra pessoa alterou este pedido. Ele foi recarregado.",
+        "badTransition": "Essa mudança de status não é permitida.",
+        "saveError": "Não foi possível salvar o pedido",
+        "statusSaved": "Status atualizado",
+        "noteSaved": "Nota salva"
+      },
+      "settings": {
+        "open": "Mensagem de confirmação",
+        "title": "Confirmação do pedido",
+        "description": "Responda automaticamente, se quiser, quando um cliente enviar um carrinho. É enviada uma vez por pedido.",
+        "loadError": "Não foi possível carregar a configuração",
+        "modeLabel": "Quando chega um carrinho",
+        "modeOff": "Não enviar nada",
+        "modeText": "Enviar uma mensagem de texto",
+        "modeTemplate": "Enviar um modelo aprovado",
+        "textLabel": "Mensagem",
+        "textPlaceholder": "Obrigado! Recebemos seu pedido e vamos confirmá-lo em breve.",
+        "textHelp": "Enviada dentro da janela de atendimento ao cliente. Insira dados do pedido com os botões abaixo.",
+        "templateLabel": "Modelo",
+        "templatePlaceholder": "Escolha um modelo",
+        "templateHelp": "Só aparecem modelos aprovados. Modelos com variáveis no cabeçalho ou nos botões não podem ser enviados automaticamente.",
+        "variableLabel": "Variável {n}",
+        "variablePlaceholder": "Escolha um valor",
+        "adminOnly": "Só administradores podem alterar esta configuração.",
+        "cancel": "Cancelar",
+        "save": "Salvar",
+        "saved": "Configuração de confirmação salva",
+        "saveError": "Não foi possível salvar a configuração",
+        "fields": {
+          "customer_name": "Nome do cliente",
+          "order_id": "ID do pedido",
+          "order_total": "Total do pedido",
+          "order_currency": "Moeda",
+          "order_items_count": "Número de itens",
+          "order_items": "Itens"
+        }
+      },
+      "bubble": {
+        "label": "{count, plural, =1 {Pedido · 1 item} other {Pedido · # itens}}",
+        "more": "{count, plural, =1 {+1 item} other {+# itens}}",
+        "total": "Total",
+        "view": "Ver pedido"
+      }
+    },
+    "attention": {
+      "title": "{count, plural, one {# mensagem da loja precisa de atenção} other {# mensagens da loja precisam de atenção}}",
+      "description": "Estas mensagens falharam ou não conseguimos confirmar o envio. Verifique o chat e registre o que aconteceu. Nada é reenviado daqui.",
+      "openChat": "Abrir chat",
+      "markSent": "O cliente recebeu",
+      "markNotSent": "Não enviada",
+      "resolved": "Registrado.",
+      "resolveError": "Não foi possível registrar. Tente novamente.",
+      "failedGeneric": "A mensagem não foi enviada.",
+      "unknownContact": "Contato desconhecido",
+      "events": {
+        "order_created": "Pedido criado",
+        "order_paid": "Pedido pago",
+        "order_fulfilled": "Pedido enviado",
+        "order_cancelled": "Pedido cancelado",
+        "checkout_abandoned": "Carrinho abandonado"
+      }
+    }
+  },
+  "Payments": {
+    "notifications": {
+      "paidTitle": "Pagamento recebido",
+      "paidBody": "{amount} foi pago por um link de pagamento."
+    },
+    "statuses": {
+      "creating": "Criando",
+      "created": "Aguardando pagamento",
+      "paid": "Pago",
+      "partially_paid": "Pago em parte",
+      "expired": "Expirado",
+      "cancelled": "Cancelado",
+      "failed": "Falhou",
+      "unknown": "Verificar"
+    },
+    "settings": {
+      "title": "Pagamentos",
+      "description": "Conecte o Razorpay para que sua equipe e seus fluxos enviem links de pagamento pelo WhatsApp.",
+      "razorpay": "Razorpay",
+      "live": "Produção",
+      "test": "Teste",
+      "loading": "Carregando…",
+      "loadFailed": "Não foi possível carregar as configurações de pagamento.",
+      "connectedAs": "Conectado com a chave {keyId}.",
+      "notConnected": "Não conectado.",
+      "webhookUrl": "URL do webhook",
+      "copy": "Copiar",
+      "copyFailed": "Não foi possível copiar.",
+      "webhookHelp": "No painel do Razorpay, abra Settings → Webhooks, adicione esta URL com o mesmo segredo de webhook e selecione os eventos payment_link (pago, pago em parte, expirado, cancelado).",
+      "webhookSecretMissing": "Nenhum segredo de webhook está salvo, então os pagamentos não podem ser confirmados automaticamente. Adicione um abaixo.",
+      "keyId": "Id da chave",
+      "keySecret": "Segredo da chave",
+      "webhookSecret": "Segredo do webhook",
+      "webhookSecretKeep": "Salvo; deixe vazio para manter",
+      "keysHelp": "As chaves são verificadas com o Razorpay antes de serem salvas e ficam criptografadas. Elas não são exibidas de novo.",
+      "connect": "Conectar Razorpay",
+      "replace": "Trocar chaves",
+      "disconnect": "Desconectar",
+      "disconnectConfirm": "Desconectar o Razorpay? Novos links de pagamento não poderão ser criados até você conectar de novo.",
+      "disconnected": "Razorpay desconectado.",
+      "disconnectFailed": "Não foi possível desconectar o Razorpay.",
+      "saved": "Razorpay conectado.",
+      "saveFailed": "Não foi possível salvar as chaves.",
+      "adminOnly": "Só administradores podem alterar as configurações de pagamento."
+    },
+    "list": {
+      "title": "Pagamentos",
+      "description": "Links de pagamento enviados pela caixa de entrada, por fluxos e para pedidos.",
+      "new": "Novo link",
+      "statusFilter": "Filtrar por status",
+      "allStatuses": "Todos os status",
+      "empty": "Ainda não há links de pagamento.",
+      "emptyHelp": "Envie um em uma conversa ou adicione uma etapa de link de pagamento a um fluxo.",
+      "colCreated": "Criado",
+      "colAmount": "Valor",
+      "colDescription": "Descrição",
+      "colStatus": "Status",
+      "colSource": "Origem",
+      "colActions": "Ações",
+      "sourceFlow": "Fluxo",
+      "sourceConversation": "Conversa",
+      "sourceOrder": "Pedido",
+      "sourceManual": "Manual",
+      "copy": "Copiar link",
+      "copied": "Link copiado.",
+      "copyFailed": "Não foi possível copiar.",
+      "reconcile": "Verificar status no Razorpay",
+      "reconciled": "Status: {status}.",
+      "cancel": "Cancelar link",
+      "cancelConfirm": "Cancelar este link de pagamento? O cliente não poderá mais pagar com ele.",
+      "cancelled": "Link cancelado.",
+      "actionFailed": "Não deu certo. Tente novamente.",
+      "loadFailed": "Não foi possível carregar os links de pagamento.",
+      "loadMore": "Carregar mais"
+    },
+    "create": {
+      "title": "Novo link de pagamento",
+      "amount": "Valor",
+      "currency": "Moeda",
+      "description": "Descrição (aparece na página de pagamento)",
+      "submit": "Criar link",
+      "done": "Concluir",
+      "ready": "O link está pronto para compartilhar.",
+      "unknownHelp": "O Razorpay ainda não confirmou o link. Use “Verificar status” na página de Pagamentos antes de criar outro.",
+      "failed": "Não foi possível criar o link.",
+      "copy": "Copiar link",
+      "copyFailed": "Não foi possível copiar."
+    }
+  },
+  "Integrations": {
+    "woocommerce": {
+      "title": "WooCommerce",
+      "description": "Envie mensagens de WhatsApp quando pedidos forem criados, pagos, concluídos ou cancelados na sua loja WooCommerce.",
+      "empty": "Nenhuma loja conectada ainda.",
+      "loadFailed": "Não foi possível carregar suas lojas WooCommerce",
+      "connectFailed": "Não foi possível conectar a loja",
+      "disconnectFailed": "Não foi possível desconectar a loja",
+      "disconnected": "Loja desconectada",
+      "disconnectConfirm": "Desconectar esta loja? O webhook dela deixará de funcionar imediatamente.",
+      "disconnect": "Desconectar",
+      "copied": "Copiado",
+      "copyFailed": "Não foi possível copiar",
+      "copyUrl": "Copiar URL de entrega",
+      "copySecret": "Copiar segredo",
+      "consentKeySet": "O consentimento de marketing é lido do campo do pedido {key}.",
+      "consentKeyNone": "Sem campo de consentimento: modelos de marketing só vão para contatos existentes que não cancelaram a inscrição.",
+      "connectTitle": "Conectar uma loja",
+      "storeUrl": "URL da loja",
+      "consentKey": "Campo de consentimento do pedido (opcional)",
+      "consentKeyHelp": "Se o seu checkout salva a aceitação do WhatsApp em um campo meta do pedido, informe a chave. Valores como yes, true ou 1 contam como consentimento.",
+      "connect": "Conectar loja",
+      "rulesTitle": "Mensagens para eventos de pedidos",
+      "setupTitle": "Conclua a configuração no WooCommerce",
+      "setupDesc": "Adicione um webhook na sua loja com estes dados.",
+      "steps": {
+        "open": "No WordPress, abra WooCommerce → Configurações → Avançado → Webhooks.",
+        "add": "Clique em Adicionar webhook e defina o status como Ativo.",
+        "topic": "Escolha o tópico Pedido criado.",
+        "paste": "Cole a URL de entrega e o segredo abaixo e mantenha a versão da API WP REST API v3.",
+        "save": "Salve o webhook.",
+        "repeat": "Adicione um segundo webhook da mesma forma com o tópico Pedido atualizado, usando a mesma URL e o mesmo segredo."
+      },
+      "deliveryUrl": "URL de entrega",
+      "secret": "Segredo",
+      "secretOnce": "O segredo é mostrado apenas uma vez. Se você perdê-lo, desconecte a loja e conecte-a novamente.",
+      "done": "Concluído",
+      "errors": {
+        "store_url_invalid": "Informe o endereço da loja, por exemplo https://shop.example.com.",
+        "consent_key_invalid": "O campo de consentimento pode usar letras, números, _ . : e - (até 100 caracteres).",
+        "store_exists": "Esta loja já está conectada.",
+        "store_limit": "Você atingiu o limite de lojas conectadas."
+      }
+    },
+    "commerceRules": {
+      "loadFailed": "Não foi possível carregar as mensagens de pedidos",
+      "saveFailed": "Não foi possível salvar a mensagem",
+      "saved": "Mensagem salva",
+      "consentNote": "Contatos bloqueados nunca recebem estas mensagens. Modelos de marketing só vão para clientes que aceitaram marketing ou contatos existentes que não cancelaram a inscrição.",
+      "noTemplates": "Ainda não há modelos aprovados. Crie e envie um modelo primeiro.",
+      "marketingHint": "Modelo de marketing: enviado apenas com consentimento de marketing.",
+      "enabled": "Enviar esta mensagem",
+      "template": "Modelo",
+      "chooseTemplate": "Escolha um modelo",
+      "delay": "Atraso (minutos)",
+      "number": "Enviar de",
+      "defaultNumber": "Número padrão",
+      "variables": "Variáveis do modelo",
+      "noValue": "Sem valor (mostra -)",
+      "remove": "Remover",
+      "save": "Salvar",
+      "events": {
+        "order_created": "Pedido feito",
+        "order_paid": "Pedido pago",
+        "order_fulfilled": "Pedido concluído",
+        "order_cancelled": "Pedido cancelado",
+        "checkout_abandoned": "Checkout abandonado"
+      },
+      "fields": {
+        "customer_name": "Nome do cliente",
+        "order_number": "Número do pedido",
+        "order_id": "ID do pedido",
+        "order_status": "Status do pedido",
+        "total": "Total do pedido",
+        "currency": "Moeda",
+        "item_count": "Número de itens",
+        "payment_method": "Forma de pagamento",
+        "payment_url": "Link de pagamento",
+        "store_url": "URL da loja"
+      },
+      "errors": {
+        "source_invalid": "Tipo de loja desconhecido.",
+        "event_invalid": "Este evento não está disponível para esta loja.",
+        "template_invalid": "Escolha um modelo aprovado.",
+        "language_invalid": "O idioma do modelo não é válido.",
+        "number_invalid": "Escolha um dos seus números de WhatsApp.",
+        "delay_invalid": "O atraso deve estar entre 0 e 10080 minutos (7 dias).",
+        "variables_invalid": "Associe cada variável a um campo do pedido."
+      }
     }
   }
 }

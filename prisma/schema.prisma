@@ -889,3 +889,183 @@ model whatsapp_form_responses {
   @@unique([account_id, id])
   @@index([account_id, form_id, created_at], map: "whatsapp_form_responses_form_idx")
 }
+
+model whatsapp_catalogs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  whatsapp_config_id String? @db.Uuid
+  catalog_id String
+  name String @default("")
+  is_cart_enabled Boolean @default(true)
+  is_catalog_visible Boolean @default(true)
+  last_synced_at DateTime? @db.Timestamptz(6)
+  sync_error String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, catalog_id])
+  @@unique([account_id, id])
+  @@index([account_id, whatsapp_config_id], map: "whatsapp_catalogs_number_idx")
+}
+
+model products {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  catalog_row_id String @db.Uuid
+  retailer_id String
+  meta_product_id String?
+  name String
+  description String?
+  price_minor BigInt?
+  currency String?
+  image_url String?
+  url String?
+  availability String?
+  is_hidden Boolean @default(false)
+  synced_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, catalog_row_id, retailer_id])
+  @@unique([account_id, id])
+}
+
+model orders {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  source String
+  external_id String?
+  message_id String?
+  contact_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  whatsapp_config_id String? @db.Uuid
+  catalog_id String?
+  currency String
+  subtotal_minor BigInt
+  total_minor BigInt?
+  status String @default("new")
+  note String?
+  customer_note String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, message_id])
+  @@unique([account_id, source, external_id])
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "orders_account_created_idx")
+}
+
+model order_items {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  retailer_id String?
+  name String?
+  quantity Int
+  unit_price_minor BigInt
+  currency String
+  @@unique([account_id, id])
+  @@index([account_id, order_id], map: "order_items_order_idx")
+}
+
+/// The app role can SELECT only id/account_id/provider/mode/key_id/connected_at:
+/// always pass an explicit `select` from the app client. Secrets are encrypted.
+model payment_providers {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  provider String
+  mode String
+  key_id String
+  key_secret_enc String
+  webhook_secret_enc String?
+  connected_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, provider])
+  @@unique([account_id, id])
+}
+
+model payment_links {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  provider String
+  provider_link_id String?
+  reference_id String @unique
+  short_url String?
+  amount_minor BigInt
+  currency String
+  description String?
+  contact_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  order_id String? @db.Uuid
+  flow_run_id String? @db.Uuid
+  node_key String?
+  status String @default("creating")
+  paid_at DateTime? @db.Timestamptz(6)
+  expires_at DateTime? @db.Timestamptz(6)
+  last_event_at DateTime? @db.Timestamptz(6)
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "payment_links_account_created_idx")
+}
+
+model commerce_event_rules {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  source String
+  event String
+  enabled Boolean @default(false)
+  template_name String
+  template_language String?
+  whatsapp_config_id String? @db.Uuid
+  delay_minutes Int @default(0)
+  variable_map Json @default("{}") @db.JsonB
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, source, event])
+  @@unique([account_id, id])
+}
+
+model commerce_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  source String
+  event String
+  external_id String?
+  dedupe_key String
+  payload Json @default("{}") @db.JsonB
+  contact_id String? @db.Uuid
+  status String @default("received")
+  reason String?
+  scheduled_for DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  created_contact_id String? @db.Uuid
+  marketing_consent Boolean?
+  resolution String?
+  resolved_at DateTime? @db.Timestamptz(6)
+  resolved_by String? @db.Uuid
+  @@unique([account_id, dedupe_key])
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "commerce_events_account_created_idx")
+}
+
+model shopify_stores {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  shop_domain String
+  access_token_enc String?
+  scopes String @default("")
+  installed_at DateTime @db.Timestamptz(6) @default(now())
+  uninstalled_at DateTime? @db.Timestamptz(6)
+  marketing_opt_in_only Boolean @default(true)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@unique([account_id, shop_domain], map: "shopify_stores_account_shop_key")
+  @@index([shop_domain], map: "shopify_stores_domain_idx")
+}
+
+model woocommerce_stores {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  store_url String
+  webhook_secret_enc String
+  consent_meta_key String?
+  connected_at DateTime @db.Timestamptz(6) @default(now())
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, store_url])
+  @@unique([account_id, id])
+}
