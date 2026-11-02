@@ -1745,7 +1745,53 @@
         "delayHelp": "Hasta 24 horas. Las respuestas durante la espera se ignoran.",
         "timeoutLabel": "Dejar de esperar respuesta tras (minutos)",
         "timeoutHelp": "Hasta 7 días. Déjalo vacío para esperar hasta el límite de inactividad del flujo.",
-        "afterTimeoutLabel": "Al agotarse el tiempo, ir a"
+        "afterTimeoutLabel": "Al agotarse el tiempo, ir a",
+        "templateLabel": "Plantilla",
+        "pickTemplate": "Elige una plantilla aprobada",
+        "templateHelp": "Solo aparecen plantillas aprobadas. Una plantilla puede enviarse fuera de la ventana de 24 horas.",
+        "templateParam": "Valor del cuerpo {n}",
+        "templateButtonNext": "Al pulsar \"{title}\", ir a",
+        "apiMethod": "Método",
+        "apiUrl": "URL",
+        "apiValuesHelp": "Usa {{vars.name}}, {{contact.name}} o {{workspace.key}}. Los valores secretos solo funcionan en encabezados y en el cuerpo, y solo la prueba de un administrador los envía.",
+        "apiParams": "Parámetros de consulta",
+        "apiHeaders": "Encabezados",
+        "apiBody": "Cuerpo JSON",
+        "pairKey": "Nombre {n}",
+        "pairValue": "Valor {n}",
+        "pairKeyPlaceholder": "nombre",
+        "pairValuePlaceholder": "valor",
+        "removeRow": "Quitar fila",
+        "apiMappings": "Guardar de la respuesta",
+        "mappingPath": "Ruta en la respuesta {n}",
+        "mappingVar": "Variable {n}",
+        "addMapping": "Añadir mapeo",
+        "apiMappingsHelp": "Una ruta con puntos en la respuesta JSON, como data.items.0.id. Solo se guarda con una respuesta 2xx.",
+        "apiRoutes": "Ruta según el estado",
+        "apiStatus": "Estado",
+        "addRoute": "Añadir ruta",
+        "apiFallback": "Si no (otro estado, tiempo agotado o error), ir a",
+        "apiFallbackHelp": "Las solicitudes expiran a los 10 segundos, nunca siguen redirecciones y rechazan direcciones privadas. Una respuesta de más de 256 KB cuenta como error.",
+        "testRequest": "Probar solicitud",
+        "testFailed": "No se pudo ejecutar la prueba.",
+        "testStatus": "Estado {status} en {ms} ms",
+        "testError_invalid_url": "La URL no es una dirección http(s) válida.",
+        "testError_blocked": "Esa dirección no está permitida (red privada o local).",
+        "testError_timeout": "Sin respuesta en 10 segundos.",
+        "testError_too_large": "La respuesta supera los 256 KB.",
+        "testError_network": "No se pudo conectar.",
+        "assignMode": "Asignar a",
+        "assignRoundRobin": "Siguiente agente (rotación)",
+        "assignSpecific": "Un agente concreto",
+        "assignAgent": "Agente",
+        "pickAgent": "Elige un agente",
+        "assignHelp": "El bot continúa. Usa Traspaso para pausarlo.",
+        "connectTarget": "Flujo que se inicia",
+        "pickFlow": "Elige un flujo",
+        "connectHelp": "Este flujo termina y el flujo elegido empieza para el mismo contacto, con las mismas variables. El flujo elegido debe estar activo.",
+        "testSamples": "Valores de ejemplo para la prueba",
+        "flowStatusDraft": "borrador",
+        "flowStatusArchived": "archivado"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -1808,12 +1854,29 @@
         "set_attribute": {
           "label": "Establecer atributo",
           "blurb": "Guarda un valor en una variable o campo del contacto"
+        },
+        "send_template": {
+          "label": "Enviar plantilla",
+          "blurb": "Envía una plantilla aprobada, incluso tras 24 horas"
+        },
+        "api_request": {
+          "label": "Solicitud API",
+          "blurb": "Llama a una API externa y se ramifica según la respuesta"
+        },
+        "assign_agent": {
+          "label": "Asignar agente",
+          "blurb": "Asigna el chat a un compañero y continúa"
+        },
+        "connect_flow": {
+          "label": "Conectar flujo",
+          "blurb": "Termina este flujo e inicia otro"
         }
       },
       "ports": {
         "skip": "Omitir",
         "exhausted": "Intentos agotados",
-        "timeout": "Tiempo agotado"
+        "timeout": "Tiempo agotado",
+        "fallback": "Alternativa"
       }
     },
     "validation": {
@@ -1856,7 +1919,8 @@
       "tagNone": "{mode} etiqueta (ninguna elegida)",
       "customField": "campo personalizado",
       "rulesAll": "{count, plural, one {# regla} other {# reglas}}, deben cumplirse todas",
-      "rulesAny": "{count, plural, one {# regla} other {# reglas}}, basta con una"
+      "rulesAny": "{count, plural, one {# regla} other {# reglas}}, basta con una",
+      "roundRobin": "Rotación"
     },
     "header": {
       "backToFlows": "Volver a flujos",
@@ -3067,7 +3131,22 @@
       "invalidTimeout": "El tiempo límite debe ser un número entero de minutos de 1 a 10.080 (7 días).",
       "timeoutAfterRunTimeout": "Este tiempo límite supera el límite de inactividad de {hours} horas del flujo, así que la ejecución termina antes.",
       "timeoutNeedsNext": "Elige un nodo para la ruta de tiempo agotado.",
-      "timeoutMissingNext": "La ruta de tiempo agotado apunta al nodo inexistente \"{key}\"."
+      "timeoutMissingNext": "La ruta de tiempo agotado apunta al nodo inexistente \"{key}\".",
+      "templateNeedsName": "Elige una plantilla.",
+      "templateParamEmpty": "El valor {n} de la plantilla está vacío.",
+      "templateBadReplyId": "Cada botón de plantilla necesita su propio id de respuesta, que no empiece por qr_.",
+      "apiBadMethod": "Elige GET, POST, PUT, PATCH o DELETE.",
+      "apiBadUrl": "Escribe una URL http(s) sin usuario ni contraseña.",
+      "apiTooMany": "Como máximo {max} filas.",
+      "apiBadPair": "Cada fila necesita un nombre válido y un valor.",
+      "apiBadBody": "El cuerpo debe ser JSON válido, con cada marcador entre comillas.",
+      "apiBadMapping": "Cada mapeo necesita una ruta en la respuesta y un nombre de variable válido.",
+      "apiBadStatus": "Usa un estado como 200 o una clase como 2xx.",
+      "apiRouteNeedsNext": "Elige un nodo para el estado {status}.",
+      "apiNeedsFallback": "Elige un nodo para la ruta alternativa.",
+      "connectNeedsFlow": "Elige un flujo para iniciar.",
+      "assignNeedsMode": "Elige a quién asignar.",
+      "assignNeedsAgent": "Elige un agente."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -3280,7 +3359,8 @@
       "unknownTemplate": "Plantilla de flujo desconocida \"{slug}\"",
       "insertFailed": "error al crear el flujo",
       "nameRequired": "El nombre es obligatorio",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "secretNeedsAdmin": "Solo un administrador puede añadir o cambiar un paso de solicitud API que use un valor secreto del espacio de trabajo."
     },
     "quickReplies": {
       "kindInvalid": "El tipo debe ser \"text\" o \"interactive\"",

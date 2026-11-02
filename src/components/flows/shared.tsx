@@ -17,8 +17,12 @@
  */
 
 import {
+  FileText,
   Flag,
   GitFork,
+  Globe,
+  Shuffle,
+  UserCheck,
   House,
   ImagePlus,
   Inbox,
@@ -57,6 +61,10 @@ export type NodeType =
   | 'condition'
   | 'set_tag'
   | 'set_attribute'
+  | 'send_template'
+  | 'api_request'
+  | 'assign_agent'
+  | 'connect_flow'
   | 'handoff'
   | 'end';
 
@@ -101,6 +109,10 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'condition',
   'set_tag',
   'set_attribute',
+  'send_template',
+  'api_request',
+  'assign_agent',
+  'connect_flow',
   'handoff',
   'end',
 ];
@@ -195,6 +207,30 @@ export const NODE_META: Record<
     color: 'text-pink-400',
     category: 'logic',
   },
+  send_template: {
+    slugSeed: 'Send template',
+    icon: FileText,
+    color: 'text-sky-400',
+    category: 'messaging',
+  },
+  api_request: {
+    slugSeed: 'API request',
+    icon: Globe,
+    color: 'text-orange-400',
+    category: 'logic',
+  },
+  assign_agent: {
+    slugSeed: 'Assign agent',
+    icon: UserCheck,
+    color: 'text-amber-400',
+    category: 'flow',
+  },
+  connect_flow: {
+    slugSeed: 'Connect flow',
+    icon: Shuffle,
+    color: 'text-emerald-400',
+    category: 'flow',
+  },
   handoff: {
     slugSeed: 'Handoff to agent',
     icon: UserPlus,
@@ -249,6 +285,10 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
   set_attribute: { l: 0.65, c: 0.15, h: 330 }, // magenta — writes data, like set_tag
+  send_template: { l: 0.62, c: 0.14, h: 230 }, // blue — a message, between send and buttons
+  api_request: { l: 0.7, c: 0.15, h: 50 }, // orange — leaves the workspace
+  assign_agent: { l: 0.68, c: 0.15, h: 35 }, // warm amber, near handoff
+  connect_flow: { l: 0.62, c: 0.13, h: 145 }, // green, like start: it starts a flow
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
@@ -426,6 +466,18 @@ export function summarizeNode(
       }
       return varKey ? `→ vars.${varKey}` : null;
     }
+    case 'send_template': {
+      const name = typeof cfg.template_name === 'string' ? cfg.template_name : '';
+      return name ? truncate(name, 60) : null;
+    }
+    case 'api_request': {
+      const url = typeof cfg.url === 'string' ? cfg.url : '';
+      return url ? `${typeof cfg.method === 'string' ? cfg.method : 'GET'} ${truncate(url, 60)}` : null;
+    }
+    case 'assign_agent':
+      return cfg.mode === 'round_robin' ? (t ? t('roundRobin') : 'Round robin') : null;
+    case 'connect_flow':
+      return null;
     case 'set_attribute': {
       const key = typeof cfg.key === 'string' ? cfg.key : '';
       const value = typeof cfg.value === 'string' ? cfg.value : '';

@@ -111,6 +111,8 @@ const browserReadOnly = new Set([
   'automation_steps',
   // Flow routes enforce activation validation and the plan's active-flow cap.
   'flows',
+  // Nodes are saved only through PUT /api/flows/[id], which validates active flows.
+  'flow_nodes',
   'whatsapp_config',
   'ai_configs',
   'automation_logs',

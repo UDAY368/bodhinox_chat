@@ -527,7 +527,7 @@ export function TimingFields({ node, allNodes, onUpdateConfig, t }: { node: Buil
           </div>
           <p className={help}>{t("delayHelp")}</p>
         </div>
-        {WAITING.has(node.node_type) && (
+        {(WAITING.has(node.node_type) || (node.node_type === "send_template" && Array.isArray(cfg.buttons) && cfg.buttons.length > 0)) && (
           <>
             <div>
               <label htmlFor={`timeout-${key}`} className={label}>{t("timeoutLabel")}</label>

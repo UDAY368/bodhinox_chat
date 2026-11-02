@@ -51,6 +51,7 @@ import { slugify, type BuilderNode } from "../shared";
 import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
 import { ConditionForm, QuestionForm, SetAttributeForm, TimingFields } from "./question-forms";
 import { useUserTags } from "./use-pickers";
+import { ApiRequestForm, AssignAgentForm, ConnectFlowForm, SendTemplateForm } from "./integration-forms";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -151,6 +152,18 @@ function NodeFields({
 
     case "set_attribute":
       return <SetAttributeForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "send_template":
+      return <SendTemplateForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "api_request":
+      return <ApiRequestForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "assign_agent":
+      return <AssignAgentForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "connect_flow":
+      return <ConnectFlowForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "condition":
       return <ConditionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;

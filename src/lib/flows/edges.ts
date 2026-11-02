@@ -26,7 +26,7 @@
 
 import type { BuilderNode } from "@/components/flows/shared";
 
-const WAITING_TYPES = new Set(["send_buttons", "send_list", "collect_input", "ask_media", "ask_location", "ask_address"]);
+const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address"]);
 
 /**
  * Optional ports a node shows once its setting is on: Skip (a skip
@@ -42,7 +42,9 @@ export function extraPorts(node: BuilderNode): Array<{ handle: string; field: st
       cfg.max_attempts !== undefined && cfg.max_attempts !== null) {
     ports.push({ handle: "exhausted", field: "exhausted_next", label: "Attempts used up" });
   }
-  if (WAITING_TYPES.has(node.node_type) && cfg.timeout_minutes !== undefined && cfg.timeout_minutes !== null) {
+  // A template waits only when it has quick-reply buttons.
+  const waits = WAITING_TYPES.has(node.node_type) && (node.node_type !== "send_template" || (Array.isArray(cfg.buttons) && cfg.buttons.length > 0));
+  if (waits && cfg.timeout_minutes !== undefined && cfg.timeout_minutes !== null) {
     ports.push({ handle: "timeout", field: "after_timeout", label: "Timeout" });
   }
   return ports;
@@ -59,6 +61,15 @@ export interface CanvasEdge {
   sourceHandle: string;
   /** Human-readable label rendered on the canvas (e.g. "Yes button"). */
   label?: string;
+}
+
+/**
+ * The edge shape a node has: a template with quick replies routes like
+ * send_buttons (same buttons array), one without like a single-next node.
+ */
+function edgeKind(node: BuilderNode): Exclude<BuilderNode["node_type"], "send_template"> {
+  if (node.node_type !== "send_template") return node.node_type;
+  return Array.isArray(node.config.buttons) && node.config.buttons.length > 0 ? "send_buttons" : "send_message";
 }
 
 export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
@@ -78,7 +89,7 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         label: port.label,
       });
     }
-    switch (node.node_type) {
+    switch (edgeKind(node)) {
       case "start":
       case "send_message":
       case "send_media":
@@ -87,7 +98,8 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "ask_location":
       case "ask_address":
       case "set_tag":
-      case "set_attribute": {
+      case "assign_agent":
+    case "set_attribute": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         if (next && knownKeys.has(next)) {
           edges.push({
@@ -120,6 +132,20 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
             sourceHandle: "false",
             label: "false",
           });
+        }
+        break;
+      }
+
+      case "api_request": {
+        ((Array.isArray(cfg.routes) ? cfg.routes : []) as Array<Record<string, unknown>>).forEach((route, i) => {
+          const next = route.next_node_key;
+          if (typeof next === "string" && knownKeys.has(next)) {
+            edges.push({ id: `${node.node_key}--route:${i}--${next}`, source: node.node_key, target: next, sourceHandle: `route:${i}`, label: String(route.status ?? "") });
+          }
+        });
+        const fallback = cfg.fallback_next;
+        if (typeof fallback === "string" && knownKeys.has(fallback)) {
+          edges.push({ id: `${node.node_key}--fallback--${fallback}`, source: node.node_key, target: fallback, sourceHandle: "fallback", label: "Fallback" });
         }
         break;
       }
@@ -177,7 +203,8 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         break;
       }
 
-      case "handoff":
+      case "connect_flow":
+    case "handoff":
       case "end":
         // Terminal nodes — no outgoing edges.
         break;
@@ -216,7 +243,7 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
 
 function baseSlots(node: BuilderNode): OutgoingSlot[] {
   const cfg = node.config;
-  switch (node.node_type) {
+  switch (edgeKind(node)) {
     case "start":
     case "send_message":
     case "send_media":
@@ -225,6 +252,7 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "ask_location":
     case "ask_address":
     case "set_tag":
+    case "assign_agent":
     case "set_attribute":
       return [{ id: "next", label: "Next" }];
 
@@ -232,6 +260,12 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
       return [
         { id: "true", label: "true" },
         { id: "false", label: "false" },
+      ];
+
+    case "api_request":
+      return [
+        ...((Array.isArray(cfg.routes) ? cfg.routes : []) as Array<Record<string, unknown>>).map((route, i) => ({ id: `route:${i}`, label: String(route.status ?? "") })),
+        { id: "fallback", label: "Fallback" },
       ];
 
     case "send_buttons": {
@@ -273,6 +307,7 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
       return slots;
     }
 
+    case "connect_flow":
     case "handoff":
     case "end":
       return [];
@@ -296,7 +331,7 @@ export function applyEdgeConnection(
 ): Record<string, unknown> | null {
   const port = extraPorts(node).find((p) => p.handle === sourceHandle);
   if (port) return { [port.field]: targetKey };
-  switch (node.node_type) {
+  switch (edgeKind(node)) {
     case "start":
     case "send_message":
     case "send_media":
@@ -305,6 +340,7 @@ export function applyEdgeConnection(
     case "ask_location":
     case "ask_address":
     case "set_tag":
+    case "assign_agent":
     case "set_attribute":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
@@ -313,6 +349,14 @@ export function applyEdgeConnection(
       if (sourceHandle === "true") return { true_next: targetKey };
       if (sourceHandle === "false") return { false_next: targetKey };
       return null;
+
+    case "api_request": {
+      if (sourceHandle === "fallback") return { fallback_next: targetKey };
+      const i = sourceHandle.startsWith("route:") ? Number(sourceHandle.slice("route:".length)) : NaN;
+      const list = (Array.isArray(node.config.routes) ? node.config.routes : []) as Array<Record<string, unknown>>;
+      if (!Number.isInteger(i) || !list[i]) return null;
+      return { routes: list.map((r, j) => (j === i ? { ...r, next_node_key: targetKey } : r)) };
+    }
 
     case "send_buttons": {
       if (!sourceHandle.startsWith("button:")) return null;
@@ -363,6 +407,7 @@ export function applyEdgeConnection(
       return matched ? { sections: next } : null;
     }
 
+    case "connect_flow":
     case "handoff":
     case "end":
       return null;
@@ -397,7 +442,7 @@ function patchedConfigWithoutKey(
   deletedKey: string,
 ): Record<string, unknown> | null {
   const cfg = node.config;
-  switch (node.node_type) {
+  switch (edgeKind(node)) {
     case "start":
     case "send_message":
     case "send_media":
@@ -406,6 +451,7 @@ function patchedConfigWithoutKey(
     case "ask_location":
     case "ask_address":
     case "set_tag":
+    case "assign_agent":
     case "set_attribute": {
       const next = (cfg as { next_node_key?: string }).next_node_key;
       if (next !== deletedKey) return null;
@@ -421,6 +467,16 @@ function patchedConfigWithoutKey(
         ...cfg,
         ...(trueMatch ? { true_next: "" } : {}),
         ...(falseMatch ? { false_next: "" } : {}),
+      };
+    }
+
+    case "api_request": {
+      const list = ((Array.isArray(cfg.routes) ? cfg.routes : []) as Array<Record<string, unknown>>);
+      if (!list.some((r) => r.next_node_key === deletedKey) && cfg.fallback_next !== deletedKey) return null;
+      return {
+        ...cfg,
+        routes: list.map((r) => (r.next_node_key === deletedKey ? { ...r, next_node_key: "" } : r)),
+        ...(cfg.fallback_next === deletedKey ? { fallback_next: "" } : {}),
       };
     }
 
@@ -464,6 +520,7 @@ function patchedConfigWithoutKey(
       return dirty ? { ...cfg, sections: next } : null;
     }
 
+    case "connect_flow":
     case "handoff":
     case "end":
       return null;

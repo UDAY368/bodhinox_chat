@@ -57,6 +57,10 @@ export function createFakeDb(tables: FakeTables) {
         filters.push((r) => (readColumn(r, column) ?? null) === value);
         return builder;
       },
+      gte: (column: string, value: string | number) => {
+        filters.push((r) => { const v = readColumn(r, column); return v !== null && v !== undefined && (v as string | number) >= value; });
+        return builder;
+      },
       in: (column: string, values: unknown[]) => {
         filters.push((r) => values.includes(readColumn(r, column)));
         return builder;

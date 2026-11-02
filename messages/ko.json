@@ -1745,7 +1745,53 @@
         "delayHelp": "최대 24시간. 대기 중 받은 답장은 무시됩니다.",
         "timeoutLabel": "답장 대기 중단(분)",
         "timeoutHelp": "최대 7일. 비워 두면 플로우의 비활성 한도까지 기다립니다.",
-        "afterTimeoutLabel": "시간 초과 시 이동"
+        "afterTimeoutLabel": "시간 초과 시 이동",
+        "templateLabel": "템플릿",
+        "pickTemplate": "승인된 템플릿 선택",
+        "templateHelp": "승인된 템플릿만 표시됩니다. 템플릿은 24시간 창 밖에서도 보낼 수 있습니다.",
+        "templateParam": "본문 값 {n}",
+        "templateButtonNext": "\"{title}\"을(를) 누르면 이동",
+        "apiMethod": "메서드",
+        "apiUrl": "URL",
+        "apiValuesHelp": "{{vars.name}}, {{contact.name}}, {{workspace.key}}를 사용하세요. 비밀 값은 헤더와 본문에서만 작동하며 관리자의 테스트에서만 전송됩니다.",
+        "apiParams": "쿼리 매개변수",
+        "apiHeaders": "헤더",
+        "apiBody": "JSON 본문",
+        "pairKey": "이름 {n}",
+        "pairValue": "값 {n}",
+        "pairKeyPlaceholder": "이름",
+        "pairValuePlaceholder": "값",
+        "removeRow": "행 삭제",
+        "apiMappings": "응답에서 저장",
+        "mappingPath": "응답 경로 {n}",
+        "mappingVar": "변수 {n}",
+        "addMapping": "매핑 추가",
+        "apiMappingsHelp": "JSON 응답의 점 경로(예: data.items.0.id)입니다. 2xx 응답일 때만 저장됩니다.",
+        "apiRoutes": "상태별 경로",
+        "apiStatus": "상태",
+        "addRoute": "경로 추가",
+        "apiFallback": "그 외(다른 상태, 시간 초과, 오류)에는 이동",
+        "apiFallbackHelp": "요청은 10초 후 시간 초과되며 리디렉션을 따르지 않고 사설 주소를 거부합니다. 256KB를 넘는 응답은 오류로 처리됩니다.",
+        "testRequest": "요청 테스트",
+        "testFailed": "테스트를 실행할 수 없습니다.",
+        "testStatus": "상태 {status}, {ms}ms",
+        "testError_invalid_url": "URL이 올바른 http(s) 주소가 아닙니다.",
+        "testError_blocked": "허용되지 않는 주소입니다(사설 또는 로컬 네트워크).",
+        "testError_timeout": "10초 안에 응답이 없습니다.",
+        "testError_too_large": "응답이 256KB를 넘습니다.",
+        "testError_network": "연결할 수 없습니다.",
+        "assignMode": "배정 대상",
+        "assignRoundRobin": "다음 상담원(순환)",
+        "assignSpecific": "특정 상담원",
+        "assignAgent": "상담원",
+        "pickAgent": "상담원 선택",
+        "assignHelp": "봇은 계속 진행합니다. 일시 중지하려면 인계를 사용하세요.",
+        "connectTarget": "시작할 플로우",
+        "pickFlow": "플로우 선택",
+        "connectHelp": "이 플로우가 끝나고 선택한 플로우가 같은 연락처에 같은 변수로 시작됩니다. 선택한 플로우는 활성 상태여야 합니다.",
+        "testSamples": "테스트용 예시 값",
+        "flowStatusDraft": "초안",
+        "flowStatusArchived": "보관됨"
       },
       "categories": {
         "messaging": "메시징",
@@ -1808,12 +1854,29 @@
         "set_attribute": {
           "label": "속성 설정",
           "blurb": "변수나 연락처 필드에 값을 저장합니다"
+        },
+        "send_template": {
+          "label": "템플릿 보내기",
+          "blurb": "24시간이 지나도 승인된 템플릿을 보냅니다"
+        },
+        "api_request": {
+          "label": "API 요청",
+          "blurb": "외부 API를 호출하고 응답에 따라 분기합니다"
+        },
+        "assign_agent": {
+          "label": "상담원 배정",
+          "blurb": "대화를 팀원에게 배정하고 계속 진행합니다"
+        },
+        "connect_flow": {
+          "label": "플로우 연결",
+          "blurb": "이 플로우를 끝내고 다른 플로우를 시작합니다"
         }
       },
       "ports": {
         "skip": "건너뛰기",
         "exhausted": "시도 소진",
-        "timeout": "시간 초과"
+        "timeout": "시간 초과",
+        "fallback": "대체 경로"
       }
     },
     "validation": {
@@ -1856,7 +1919,8 @@
       "tagNone": "태그 {mode} (선택된 태그 없음)",
       "customField": "사용자 지정 필드",
       "rulesAll": "규칙 {count}개, 모두 일치해야 함",
-      "rulesAny": "규칙 {count}개, 하나 이상 일치"
+      "rulesAny": "규칙 {count}개, 하나 이상 일치",
+      "roundRobin": "순환 배정"
     },
     "header": {
       "backToFlows": "플로우로 돌아가기",
@@ -3067,7 +3131,22 @@
       "invalidTimeout": "시간 제한은 1~10,080분(7일)의 정수여야 합니다.",
       "timeoutAfterRunTimeout": "이 시간 제한이 플로우의 {hours}시간 비활성 한도보다 길어 실행이 먼저 종료됩니다.",
       "timeoutNeedsNext": "시간 초과 경로의 노드를 선택하세요.",
-      "timeoutMissingNext": "시간 초과 경로가 존재하지 않는 노드 \"{key}\"를 가리킵니다."
+      "timeoutMissingNext": "시간 초과 경로가 존재하지 않는 노드 \"{key}\"를 가리킵니다.",
+      "templateNeedsName": "템플릿을 선택하세요.",
+      "templateParamEmpty": "템플릿 값 {n}이(가) 비어 있습니다.",
+      "templateBadReplyId": "템플릿 버튼마다 qr_로 시작하지 않는 고유한 응답 ID가 필요합니다.",
+      "apiBadMethod": "GET, POST, PUT, PATCH, DELETE 중 하나를 선택하세요.",
+      "apiBadUrl": "사용자 이름이나 비밀번호가 없는 http(s) URL을 입력하세요.",
+      "apiTooMany": "최대 {max}개 행입니다.",
+      "apiBadPair": "각 행에는 올바른 이름과 값이 필요합니다.",
+      "apiBadBody": "본문은 올바른 JSON이어야 하며 자리표시자는 따옴표 안에 있어야 합니다.",
+      "apiBadMapping": "각 매핑에는 응답 경로와 올바른 변수 이름이 필요합니다.",
+      "apiBadStatus": "200 같은 상태나 2xx 같은 범위를 사용하세요.",
+      "apiRouteNeedsNext": "상태 {status}의 노드를 선택하세요.",
+      "apiNeedsFallback": "대체 경로의 노드를 선택하세요.",
+      "connectNeedsFlow": "시작할 플로우를 선택하세요.",
+      "assignNeedsMode": "배정 대상을 선택하세요.",
+      "assignNeedsAgent": "상담원을 선택하세요."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -3280,7 +3359,8 @@
       "unknownTemplate": "알 수 없는 플로우 템플릿 \"{slug}\"",
       "insertFailed": "플로우를 생성하지 못했습니다",
       "nameRequired": "이름은 필수입니다",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "secretNeedsAdmin": "비밀 작업 공간 값을 쓰는 API 요청 단계는 관리자만 추가하거나 바꿀 수 있습니다."
     },
     "quickReplies": {
       "kindInvalid": "종류는 \"text\" 또는 \"interactive\"여야 합니다",

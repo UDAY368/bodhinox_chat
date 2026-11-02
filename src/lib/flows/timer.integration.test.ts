@@ -29,6 +29,7 @@ describe.skipIf(!ownerUrl || !workerUrl)('flow timers on PostgreSQL', { timeout:
     // The new node kinds pass the widened CHECK; the run waits on a delayed end node.
     await owner.query(`INSERT INTO flow_nodes(account_id,flow_id,node_key,node_type,config) VALUES
       ($1,$2,'start','start','{"next_node_key":"done"}'),($1,$2,'where','ask_location','{}'),($1,$2,'set','set_attribute','{}'),
+      ($1,$2,'tpl','send_template','{}'),($1,$2,'api','api_request','{}'),($1,$2,'go','connect_flow','{}'),($1,$2,'assign','assign_agent','{}'),
       ($1,$2,'done','end','{"delay_seconds":60}')`, [account, flow]);
     await owner.query(`INSERT INTO flow_runs(id,account_id,flow_id,user_id,contact_id,conversation_id,status,current_node_key,transition_seq,delay_until)
       VALUES($1,$2,$3,$4,$5,$6,'active','done',1,now())`, [run, account, flow, user, contact, conversation]);

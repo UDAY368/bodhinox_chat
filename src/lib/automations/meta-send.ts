@@ -1,6 +1,7 @@
 import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause'
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
+import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -54,6 +55,8 @@ interface SendTemplateArgs {
   templateName: string
   language?: string
   params?: string[]
+  /** Send-time values beyond the body, e.g. quick-reply payloads (flows route on them). */
+  messageParams?: SendTimeParams
 }
 
 export async function engineSendText(args: SendTextArgs): Promise<{ whatsapp_message_id: string }> {
@@ -189,6 +192,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
         language: input.language,
         params: input.params,
         template: templateRow ?? undefined,
+        messageParams: input.messageParams,
       })
       return r.messageId
     }

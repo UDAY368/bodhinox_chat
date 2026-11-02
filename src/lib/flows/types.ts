@@ -201,6 +201,50 @@ export interface AskAddressNodeConfig extends AskRetry {
   next_node_key: string;
 }
 
+/**
+ * Sends an approved WhatsApp template. A template with quick-reply
+ * buttons waits for a tap and routes per button (same `buttons` shape
+ * as send_buttons, plus the template button `index`); one without
+ * advances to `next_node_key`. Templates may be sent outside the 24-hour
+ * window, so this is the step to re-engage after a long wait.
+ */
+export interface SendTemplateNodeConfig {
+  template_name: string;
+  language?: string;
+  /** One value per {{n}} in the body; each may use {{vars.x}} / {{workspace.x}}. */
+  body_params?: string[];
+  buttons?: Array<{ index: number; reply_id: string; title: string; next_node_key: string }>;
+  next_node_key?: string;
+}
+
+/** Calls an external HTTP API, maps the JSON reply into run variables and routes on the status. */
+export interface ApiRequestNodeConfig {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  url: string;
+  params?: Array<{ key: string; value: string }>;
+  headers?: Array<{ key: string; value: string }>;
+  /** JSON text; placeholders inside it are JSON-escaped. */
+  body?: string;
+  /** Dot path into the JSON reply (e.g. data.items.0.id) stored as `var_key`. */
+  mappings?: Array<{ path: string; var_key: string }>;
+  /** Up to 5 routes on an exact status ("200") or a class ("2xx"), checked in order. */
+  routes?: Array<{ status: string; next_node_key: string }>;
+  /** Any other status, a timeout, a blocked destination or a network error. */
+  fallback_next: string;
+}
+
+/** Ends this run and starts another active flow for the same contact, carrying the run's variables. */
+export interface ConnectFlowNodeConfig {
+  flow_id: string;
+}
+
+/** Assigns the conversation to an agent and carries on (handoff also pauses the bot and ends the run). */
+export interface AssignAgentNodeConfig {
+  mode: "specific" | "round_robin";
+  agent_id?: string;
+  next_node_key: string;
+}
+
 /** Writes a run variable or a contact field from a literal or `{{vars.x}}`. */
 export interface SetAttributeNodeConfig {
   target: "var" | "contact_field" | "custom_field";
@@ -289,6 +333,10 @@ export type FlowNodeConfig =
   | { node_type: "ask_media"; config: AskMediaNodeConfig }
   | { node_type: "ask_location"; config: AskLocationNodeConfig }
   | { node_type: "ask_address"; config: AskAddressNodeConfig }
+  | { node_type: "send_template"; config: SendTemplateNodeConfig }
+  | { node_type: "api_request"; config: ApiRequestNodeConfig }
+  | { node_type: "connect_flow"; config: ConnectFlowNodeConfig }
+  | { node_type: "assign_agent"; config: AssignAgentNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 

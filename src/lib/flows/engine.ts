@@ -5,6 +5,9 @@ import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
+import { runApiRequest } from './api-request';
+import { engineSendTemplate } from '@/lib/automations/meta-send';
+import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
 /**
  * Flow runner.
  *
@@ -52,6 +55,10 @@ import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { fillWorkspace, workspaceValuesFor } from "@/lib/workspace/attributes";
 import {
+  type ApiRequestNodeConfig,
+  type AssignAgentNodeConfig,
+  type ConnectFlowNodeConfig,
+  type SendTemplateNodeConfig,
   type AskMediaNodeConfig,
   type AskRetry,
   type CollectInputNodeConfig,
@@ -99,6 +106,13 @@ export function matchReplyId(
       if (hit) return hit.next_node_key;
     }
     return null;
+  }
+  if (node.node_type === "send_template") {
+    // We send each quick reply's reply_id as its payload; Meta echoes the
+    // button text instead when a payload is missing, so match that too.
+    const buttons = (node.config as unknown as SendTemplateNodeConfig).buttons ?? [];
+    const hit = buttons.find((b) => b.reply_id === reply_id) ?? buttons.find((b) => b.title === reply_id);
+    return hit?.next_node_key ?? null;
   }
   return null;
 }
@@ -176,7 +190,9 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "send_media" ||
     node_type === "condition" ||
     node_type === "set_tag" ||
-    node_type === "set_attribute"
+    node_type === "set_attribute" ||
+    node_type === "api_request" ||
+    node_type === "assign_agent"
   );
 }
 
@@ -249,9 +265,14 @@ export function isSuspending(node_type: string): boolean {
   );
 }
 
+/** A template waits for a tap only when it has quick-reply buttons; otherwise it advances. */
+export function templateWaits(config: Record<string, unknown>): boolean {
+  return ((config as unknown as SendTemplateNodeConfig).buttons ?? []).length > 0;
+}
+
 /** Nodes that end the run. */
 export function isTerminal(node_type: string): boolean {
-  return node_type === "handoff" || node_type === "end";
+  return node_type === "handoff" || node_type === "end" || node_type === "connect_flow";
 }
 
 /**
@@ -370,7 +391,10 @@ async function logEvent(
     | "completed"
     | "delay_scheduled"
     | "input_invalid"
-    | "attribute_set",
+    | "attribute_set"
+    | "api_request"
+    | "flow_connected"
+    | "agent_assigned",
   node_key: string | null,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
@@ -568,6 +592,172 @@ async function sendListAndSuspend(
   return { outcome: "advanced", node_key: node.node_key };
 }
 
+/**
+ * Sends the node's template. Each quick reply carries its reply_id as
+ * payload so the tap routes reliably. Meta rejects empty parameters, so
+ * a value that interpolates to nothing is sent as "-".
+ */
+async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<void> {
+  const cfg = node.config as unknown as SendTemplateNodeConfig;
+  const raw = cfg.body_params ?? [];
+  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(raw));
+  const params = raw.map((p) => interpolateVars(p, run.vars, ws).trim() || "-");
+  const buttonParams = Object.fromEntries((cfg.buttons ?? []).map((b) => [b.index, b.reply_id]));
+  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendTemplate({
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+    templateName: cfg.template_name,
+    language: cfg.language,
+    params,
+    messageParams: { body: params, buttonParams },
+  }));
+  await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "send_template", whatsapp_message_id });
+  if (!templateWaits(node.config)) return;
+  const { data: msg } = await db.from("messages").select("id").eq("message_id", whatsapp_message_id).maybeSingle();
+  await db
+    .from("flow_runs")
+    .update({ last_prompt_message_id: (msg as { id: string } | null)?.id ?? null })
+    .eq("id", run.id);
+}
+
+/**
+ * Calls the configured API, stores mapped values in the run's variables
+ * and returns the port to follow. Only the status, timing and mapped
+ * variable names are logged: never the URL, headers, body or reply.
+ */
+async function executeApiRequest(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<string> {
+  const cfg = node.config as unknown as ApiRequestNodeConfig;
+  try {
+    const { data: contact } = await db
+      .from("contacts")
+      .select("name,email,phone,company")
+      .eq("account_id", run.account_id)
+      .eq("id", run.contact_id!)
+      .maybeSingle();
+    const contactValues = Object.fromEntries(
+      Object.entries((contact ?? {}) as Record<string, unknown>).filter(([, v]) => typeof v === "string"),
+    ) as Record<string, string>;
+    // Secret workspace attributes (API keys) resolve only into headers and the body.
+    const [workspace, publicWorkspace] = await Promise.all([
+      workspaceValuesFor(run.account_id, JSON.stringify([cfg.headers, cfg.body]), { secrets: true }),
+      workspaceValuesFor(run.account_id, JSON.stringify([cfg.url, cfg.params])),
+    ]);
+    // Recorded like a send, so a replayed step (worker restart) reuses this
+    // outcome instead of repeating a POST; an unknown outcome is never retried.
+    const outcome = await dispatchOnce(run.account_id, `flow-api:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, async () => {
+      const o = await runApiRequest(cfg, { vars: run.vars, contact: contactValues, workspace, publicWorkspace });
+      return {
+        status: o.result.ok ? o.result.status : null,
+        error: o.result.ok ? null : o.result.error,
+        mapped: o.mapped,
+        next: o.next,
+        durationMs: o.durationMs,
+      };
+    });
+    if (Object.keys(outcome.mapped).length) {
+      const vars = { ...run.vars, ...outcome.mapped };
+      const { error } = await db.from("flow_runs").update({ vars }).eq("id", run.id).eq("status", "active");
+      if (error) throw new Error("Run variable write failed");
+      run.vars = vars;
+    }
+    await logEvent(db, run.id, "api_request", node.node_key, {
+      status: outcome.status,
+      error: outcome.error,
+      duration_ms: outcome.durationMs,
+      mapped: Object.keys(outcome.mapped),
+      route: outcome.next === cfg.fallback_next ? "fallback" : "status",
+    });
+    return outcome.next;
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, {
+      reason: "api_request_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return cfg.fallback_next;
+  }
+}
+
+/** Assigns the conversation (a specific member or the next in the round-robin) and carries on. */
+async function executeAssignAgent(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<void> {
+  const cfg = node.config as unknown as AssignAgentNodeConfig;
+  try {
+    // A replayed step (worker restart) keeps the agent it already picked
+    // rather than moving the shared round-robin cursor again.
+    const seq = String(run.transition_seq ?? 0);
+    const { data: prior } = await db
+      .from("flow_run_events")
+      .select("payload")
+      .eq("flow_run_id", run.id)
+      .eq("event_type", "agent_assigned")
+      .eq("node_key", node.node_key)
+      .filter("payload->>seq", "eq", seq)
+      .limit(1);
+    const already = (prior as Array<{ payload: { agent_id?: string } }> | null)?.[0]?.payload.agent_id;
+    const agentId = already ?? (cfg.mode === "round_robin" ? await nextRoundRobinAgent(run.account_id) : cfg.agent_id ?? null);
+    if (!agentId || !run.conversation_id) throw new Error("no agent to assign");
+    // The (account_id, assigned_agent_id) membership key rejects anyone outside the workspace.
+    const { error } = await db
+      .from("conversations")
+      .update({ assigned_agent_id: agentId, updated_at: new Date().toISOString() })
+      .eq("account_id", run.account_id)
+      .eq("id", run.conversation_id);
+    if (error) throw new Error("conversation assignment failed");
+    if (!already) await logEvent(db, run.id, "agent_assigned", node.node_key, { agent_id: agentId, mode: cfg.mode, seq });
+  } catch (err) {
+    // Non-fatal, like set_tag: the conversation simply stays unassigned.
+    await logEvent(db, run.id, "error", node.node_key, {
+      reason: "assign_agent_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/** Connect Flow hops in a row without a customer reply before a loop is assumed. */
+export const MAX_CONNECT_HOPS = 5;
+/** Run variable counting those hops; carried to the next flow, reset by any reply. */
+export const CONNECT_HOPS_VAR = "_connect_hops";
+
+/**
+ * Ends this run and starts the target flow for the same contact with the
+ * run's variables. The run must end first: a contact has one active run.
+ */
+async function executeConnectFlow(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<void> {
+  const cfg = node.config as unknown as ConnectFlowNodeConfig;
+  const { data } = await db
+    .from("flows")
+    .select("*")
+    .eq("account_id", run.account_id)
+    .eq("id", cfg.flow_id)
+    .maybeSingle();
+  const target = data as FlowRow | null;
+  // Counted in hops rather than time, so a loop slowed by delays still stops.
+  const { count: replies } = await db
+    .from("flow_run_events")
+    .select("id", { count: "exact", head: true })
+    .eq("flow_run_id", run.id)
+    .eq("event_type", "reply_received");
+  const hops = (replies ?? 0) > 0 ? 1 : (Number(run.vars[CONNECT_HOPS_VAR]) || 0) + 1;
+  const reason = !target || target.status !== "active" || !target.entry_node_id
+    ? "connect_flow_unavailable"
+    : hops > MAX_CONNECT_HOPS ? "connect_flow_loop" : null;
+  if (reason || !target || !run.contact_id || !run.conversation_id) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: reason ?? "connect_flow_unavailable" });
+    await endRun(db, run.id, "failed", reason ?? "connect_flow_unavailable");
+    return;
+  }
+  await logEvent(db, run.id, "flow_connected", node.node_key, { flow_id: target.id });
+  await endRun(db, run.id, "completed", "connect_flow");
+  await startNewRun(db, target, {
+    accountId: run.account_id,
+    userId: run.user_id,
+    contactId: run.contact_id,
+    conversationId: run.conversation_id,
+    message: { kind: "text", text: "", meta_message_id: `connect:${run.id}` },
+  }, await loadAllNodes(db, target.id), { ...run.vars, [CONNECT_HOPS_VAR]: hops });
+}
+
 async function executeHandoff(
   db: AdminClient,
   run: FlowRunRow,
@@ -585,6 +775,7 @@ async function executeHandoff(
     await db
       .from("conversations")
       .update(convUpdate)
+      .eq("account_id", run.account_id)
       .eq("id", run.conversation_id);
   }
   await logEvent(db, run.id, "handoff", node.node_key, {
@@ -1086,6 +1277,43 @@ async function advanceFromNodeKey(
       }
       return { outcome: "advanced" };
     }
+    if (node.node_type === "send_template") {
+      const cfg = node.config as unknown as SendTemplateNodeConfig;
+      try {
+        await sendTemplateNode(db, run, node);
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_template_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_template_failed");
+        return { outcome: "completed" };
+      }
+      if (!templateWaits(node.config)) {
+        currentKey = cfg.next_node_key ?? null;
+        continue;
+      }
+      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
+      }
+      return { outcome: "advanced" };
+    }
+    if (node.node_type === "api_request") {
+      currentKey = await executeApiRequest(db, run, node);
+      continue;
+    }
+    if (node.node_type === "assign_agent") {
+      await executeAssignAgent(db, run, node);
+      currentKey = (node.config as unknown as AssignAgentNodeConfig).next_node_key;
+      continue;
+    }
+    if (node.node_type === "connect_flow") {
+      await executeConnectFlow(db, run, node);
+      return { outcome: "completed" };
+    }
     if (node.node_type === "set_attribute") {
       const cfg = node.config as unknown as SetAttributeNodeConfig;
       try {
@@ -1486,8 +1714,11 @@ async function handleReplyForActiveRun(
   if (
     message.kind === "interactive_reply" &&
     (currentNode.node_type === "send_buttons" ||
-      currentNode.node_type === "send_list")
+      currentNode.node_type === "send_list" ||
+      currentNode.node_type === "send_template")
   ) {
+    // A template is never re-sent as a reprompt (it costs money), so an
+    // unknown reply below only counts towards the flow's exhaust policy.
     matched = matchReplyId(currentNode, message.reply_id);
   } else if (isAskNode(currentNode.node_type)) {
     const cfg = currentNode.config as unknown as AskRetry & { skip_label?: string; skip_next?: string; next_node_key: string; var_key?: string };
@@ -1719,6 +1950,8 @@ async function startNewRun(
   flow: FlowRow,
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
+  /** Variables carried over by Connect Flow. */
+  vars: Record<string, unknown> = {},
 ): Promise<DispatchInboundResult> {
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
@@ -1739,6 +1972,7 @@ async function startNewRun(
       conversation_id: input.conversationId,
       status: "active",
       current_node_key: flow.entry_node_id,
+      vars,
     })
     .select("*")
     .maybeSingle();

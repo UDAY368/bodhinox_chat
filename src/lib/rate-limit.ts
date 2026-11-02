@@ -152,6 +152,8 @@ export const RATE_LIMITS = {
   adminAction: { limit: 30, windowMs: 60_000 },
   /** Campaign test sends (up to 3 real messages each), per user. */
   campaignTest: { limit: 10, windowMs: 60_000 },
+  /** Flow API Request "Test request": each call reaches a third-party server. */
+  flowTestRequest: { limit: 10, windowMs: 60_000 },
   /** Public REST API (`/api/v1/*`), keyed per API key. 120/min ≈ 2
    *  req/s sustained — comfortable for a polling integration or an
    *  automation firing on inbound events, while bounding a runaway

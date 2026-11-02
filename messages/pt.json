@@ -1745,7 +1745,53 @@
         "delayHelp": "Até 24 horas. Respostas durante a espera são ignoradas.",
         "timeoutLabel": "Parar de esperar resposta após (minutos)",
         "timeoutHelp": "Até 7 dias. Deixe vazio para esperar até o limite de inatividade do fluxo.",
-        "afterTimeoutLabel": "Ao esgotar o tempo, ir para"
+        "afterTimeoutLabel": "Ao esgotar o tempo, ir para",
+        "templateLabel": "Modelo",
+        "pickTemplate": "Escolha um modelo aprovado",
+        "templateHelp": "Só aparecem modelos aprovados. Um modelo pode ser enviado fora da janela de 24 horas.",
+        "templateParam": "Valor do corpo {n}",
+        "templateButtonNext": "Ao tocar em \"{title}\", ir para",
+        "apiMethod": "Método",
+        "apiUrl": "URL",
+        "apiValuesHelp": "Use {{vars.name}}, {{contact.name}} ou {{workspace.key}}. Valores secretos só funcionam nos cabeçalhos e no corpo, e só o teste de um administrador os envia.",
+        "apiParams": "Parâmetros de consulta",
+        "apiHeaders": "Cabeçalhos",
+        "apiBody": "Corpo JSON",
+        "pairKey": "Nome {n}",
+        "pairValue": "Valor {n}",
+        "pairKeyPlaceholder": "nome",
+        "pairValuePlaceholder": "valor",
+        "removeRow": "Remover linha",
+        "apiMappings": "Salvar da resposta",
+        "mappingPath": "Caminho na resposta {n}",
+        "mappingVar": "Variável {n}",
+        "addMapping": "Adicionar mapeamento",
+        "apiMappingsHelp": "Um caminho com pontos na resposta JSON, como data.items.0.id. Salvo só com resposta 2xx.",
+        "apiRoutes": "Rota por status",
+        "apiStatus": "Status",
+        "addRoute": "Adicionar rota",
+        "apiFallback": "Caso contrário (outro status, tempo esgotado ou erro), ir para",
+        "apiFallbackHelp": "As requisições expiram em 10 segundos, nunca seguem redirecionamentos e recusam endereços privados. Uma resposta acima de 256 KB conta como erro.",
+        "testRequest": "Testar requisição",
+        "testFailed": "Não foi possível executar o teste.",
+        "testStatus": "Status {status} em {ms} ms",
+        "testError_invalid_url": "A URL não é um endereço http(s) válido.",
+        "testError_blocked": "Esse endereço não é permitido (rede privada ou local).",
+        "testError_timeout": "Sem resposta em 10 segundos.",
+        "testError_too_large": "A resposta tem mais de 256 KB.",
+        "testError_network": "Não foi possível conectar.",
+        "assignMode": "Atribuir a",
+        "assignRoundRobin": "Próximo agente (rodízio)",
+        "assignSpecific": "Um agente específico",
+        "assignAgent": "Agente",
+        "pickAgent": "Escolha um agente",
+        "assignHelp": "O bot continua. Use Transferência para pausá-lo.",
+        "connectTarget": "Fluxo a iniciar",
+        "pickFlow": "Escolha um fluxo",
+        "connectHelp": "Este fluxo termina e o fluxo escolhido começa para o mesmo contato, com as mesmas variáveis. O fluxo escolhido deve estar ativo.",
+        "testSamples": "Valores de exemplo para o teste",
+        "flowStatusDraft": "rascunho",
+        "flowStatusArchived": "arquivado"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -1808,12 +1854,29 @@
         "set_attribute": {
           "label": "Definir atributo",
           "blurb": "Salva um valor em uma variável ou campo do contato"
+        },
+        "send_template": {
+          "label": "Enviar modelo",
+          "blurb": "Envia um modelo aprovado, mesmo após 24 horas"
+        },
+        "api_request": {
+          "label": "Requisição de API",
+          "blurb": "Chama uma API externa e ramifica conforme a resposta"
+        },
+        "assign_agent": {
+          "label": "Atribuir agente",
+          "blurb": "Atribui a conversa a um colega e continua"
+        },
+        "connect_flow": {
+          "label": "Conectar fluxo",
+          "blurb": "Encerra este fluxo e inicia outro"
         }
       },
       "ports": {
         "skip": "Pular",
         "exhausted": "Tentativas esgotadas",
-        "timeout": "Tempo esgotado"
+        "timeout": "Tempo esgotado",
+        "fallback": "Alternativa"
       }
     },
     "validation": {
@@ -1856,7 +1919,8 @@
       "tagNone": "{mode} tag (nenhuma escolhida)",
       "customField": "campo personalizado",
       "rulesAll": "{count, plural, one {# regra} other {# regras}}, todas devem corresponder",
-      "rulesAny": "{count, plural, one {# regra} other {# regras}}, basta uma"
+      "rulesAny": "{count, plural, one {# regra} other {# regras}}, basta uma",
+      "roundRobin": "Rodízio"
     },
     "header": {
       "backToFlows": "Voltar aos fluxos",
@@ -3067,7 +3131,22 @@
       "invalidTimeout": "O tempo limite deve ser um número inteiro de minutos de 1 a 10.080 (7 dias).",
       "timeoutAfterRunTimeout": "Este tempo limite é maior que o limite de inatividade de {hours} horas do fluxo, então a execução termina antes.",
       "timeoutNeedsNext": "Escolha um nó para o caminho de tempo esgotado.",
-      "timeoutMissingNext": "O caminho de tempo esgotado aponta para o nó inexistente \"{key}\"."
+      "timeoutMissingNext": "O caminho de tempo esgotado aponta para o nó inexistente \"{key}\".",
+      "templateNeedsName": "Escolha um modelo.",
+      "templateParamEmpty": "O valor {n} do modelo está vazio.",
+      "templateBadReplyId": "Cada botão do modelo precisa do próprio id de resposta, sem começar com qr_.",
+      "apiBadMethod": "Escolha GET, POST, PUT, PATCH ou DELETE.",
+      "apiBadUrl": "Digite uma URL http(s) sem usuário nem senha.",
+      "apiTooMany": "No máximo {max} linhas.",
+      "apiBadPair": "Cada linha precisa de um nome válido e de um valor.",
+      "apiBadBody": "O corpo deve ser JSON válido, com cada marcador entre aspas.",
+      "apiBadMapping": "Cada mapeamento precisa de um caminho na resposta e de um nome de variável válido.",
+      "apiBadStatus": "Use um status como 200 ou uma classe como 2xx.",
+      "apiRouteNeedsNext": "Escolha um nó para o status {status}.",
+      "apiNeedsFallback": "Escolha um nó para o caminho alternativo.",
+      "connectNeedsFlow": "Escolha um fluxo para iniciar.",
+      "assignNeedsMode": "Escolha a quem atribuir.",
+      "assignNeedsAgent": "Escolha um agente."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -3280,7 +3359,8 @@
       "unknownTemplate": "Modelo de fluxo desconhecido \"{slug}\"",
       "insertFailed": "falha ao criar o fluxo",
       "nameRequired": "O nome é obrigatório",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "secretNeedsAdmin": "Só um administrador pode adicionar ou alterar uma etapa de requisição de API que use um valor secreto do espaço de trabalho."
     },
     "quickReplies": {
       "kindInvalid": "O tipo deve ser \"text\" ou \"interactive\"",

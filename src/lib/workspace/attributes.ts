@@ -82,3 +82,10 @@ export async function workspaceValuesFor(accountId: string, text: string, option
 export function fillWorkspace(text: string, values: Record<string, string>): string {
   return text.replace(/\{\{\s*workspace\.([a-z][a-z0-9_]*)\s*\}\}/g, (_, key: string) => (Object.hasOwn(values, key) ? values[key] : ''));
 }
+
+/** Keys of this workspace's secret attributes (never their values). */
+export async function secretAttributeKeys(accountId: string): Promise<Set<string>> {
+  const rows = await withTenant({ accountId }, (tx) => tx.$queryRaw<{ key: string }[]>`
+    SELECT key FROM workspace_attributes WHERE account_id=${accountId}::uuid AND is_secret`);
+  return new Set(rows.map((row) => row.key));
+}

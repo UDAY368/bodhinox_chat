@@ -44,6 +44,8 @@ Migration `20261102030000_entitlements` adds the `plans` catalogue (seeded with 
 
 Migration `20261102040000_flow_builder_nodes` widens the flow node and run-event CHECK lists and adds `flow_runs.delay_until`; it changes no existing rows. Flow delays and reply timeouts are `flow.timer` jobs run by the worker, so the worker must be deployed with the web service: a timer queued before the worker restarts runs when it comes back (late, never twice). Inbound locations and WhatsApp address-form replies are now stored in `messages.interactive_payload`.
 
+Migration `20261102050000_flow_integration_nodes` widens the same CHECK lists for the template, API request, assign agent and connect flow steps; it changes no existing rows. Flow nodes are now read-only through the generic browser data API (the flow editor saves through `PUT /api/flows/[id]`). API request steps call customer-configured URLs from the worker; outbound traffic must be allowed from the worker service.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

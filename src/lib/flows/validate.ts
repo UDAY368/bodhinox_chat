@@ -48,6 +48,8 @@ interface FlowInput {
   trigger_type: "keyword" | "first_inbound_message" | "manual";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
+  /** When given, a Connect Flow step back to this flow is checked for loops. */
+  id?: string;
   /** When given, reply timeouts are checked against its inactivity limit. */
   fallback_policy?: unknown;
 }
@@ -195,7 +197,8 @@ export function validateFlowForActivation(
     }
   }
 
-  for (const cycle of findAutoAdvancingCycles(nodes)) {
+  const self = flow.id && flow.entry_node_id ? { flowId: flow.id, entry: flow.entry_node_id } : undefined;
+  for (const cycle of findAutoAdvancingCycles(nodes, self)) {
     issues.push({
       severity: "error",
       scope: "node",
@@ -207,20 +210,25 @@ export function validateFlowForActivation(
   return issues;
 }
 
-export function findAutoAdvancingCycles(nodes: NodeInput[]): string[][] {
+/** `self` lets a Connect Flow step that restarts this same flow count as an edge back to its entry. */
+export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: string; entry: string }): string[][] {
   const autoNodes = new Map<string, NodeInput>();
   for (const n of nodes) {
     // A delay does not exempt a node: a loop of delayed sends would message the customer forever.
     // A waiting node with a reply timeout also moves on by itself, through its timeout port.
-    const timesOut = WAITING_TYPES.includes(n.node_type) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
-    if ((timesOut || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute"].includes(n.node_type)) && !autoNodes.has(n.node_key)) {
+    // A template without buttons, an API call and an assignment all move on by themselves.
+    const restartsSelf = Boolean(self) && n.node_type === "connect_flow" && n.config.flow_id === self?.flowId;
+    const autoTemplate = n.node_type === "send_template" && !(Array.isArray(n.config.buttons) && n.config.buttons.length);
+    const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
+    if ((timesOut || autoTemplate || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent"].includes(n.node_type)) && !autoNodes.has(n.node_key)) {
       autoNodes.set(n.node_key, n);
     }
   }
   const successors = (key: string): string[] => {
     const node = autoNodes.get(key)!;
     // Only the timeout port of a waiting node needs no customer input.
-    const next = WAITING_TYPES.includes(node.node_type) ? [node.config.after_timeout as string] : outgoingEdges(node);
+    const next = node.node_type === "connect_flow" ? [self!.entry]
+      : waitsForReply(node) ? [node.config.after_timeout as string] : outgoingEdges(node);
     return next.filter((k) => autoNodes.has(k));
   };
 
@@ -850,6 +858,111 @@ function validateNode(
       break;
     }
 
+    case "send_template": {
+      const cfg = node.config as { template_name?: unknown; body_params?: unknown; buttons?: unknown; next_node_key?: string };
+      if (typeof cfg.template_name !== "string" || !cfg.template_name.trim()) {
+        issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: "template_name", message: t("templateNeedsName") });
+      }
+      const params = Array.isArray(cfg.body_params) ? cfg.body_params : [];
+      params.forEach((p, i) => {
+        if (typeof p !== "string" || !p.trim()) {
+          issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: `body_params.${i}`, message: t("templateParamEmpty", { n: i + 1 }) });
+        }
+      });
+      const buttons = Array.isArray(cfg.buttons) ? (cfg.buttons as Array<Record<string, unknown>>) : [];
+      const seen = new Set<string>();
+      buttons.forEach((b, i) => {
+        const replyId = typeof b.reply_id === "string" ? b.reply_id : "";
+        // qr_<uuid> payloads belong to quick-reply actions, which run before flows.
+        if (!replyId || seen.has(replyId) || /^qr_/i.test(replyId)) {
+          issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: `buttons.${i}.reply_id`, message: t("templateBadReplyId") });
+        }
+        seen.add(replyId);
+        const next = b.next_node_key;
+        if (!next) {
+          issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: `buttons.${i}.next_node_key`, message: t("buttonNeedsNext", { n: i + 1 }) });
+        } else if (typeof next !== "string" || !knownKeys.has(next)) {
+          issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: `buttons.${i}.next_node_key`, message: t("nodeMissingNext", { key: String(next) }) });
+        }
+      });
+      if (!buttons.length) issues.push(...portIssues(node, knownKeys, "next_node_key", "nodeNeedsNext", "nodeMissingNext"));
+      break;
+    }
+
+    case "api_request": {
+      const cfg = node.config as {
+        method?: unknown; url?: unknown; params?: unknown; headers?: unknown; body?: unknown;
+        mappings?: unknown; routes?: unknown;
+      };
+      const at = (field: string, key: string, values?: Record<string, string | number>) =>
+        issues.push({ severity: "error", scope: "node", node_key: node.node_key, field, message: t(key, values) });
+      if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(cfg.method as string)) at("method", "apiBadMethod");
+      // Placeholders become a harmless stand-in so the shape itself can be checked.
+      const sample = (v: string) => v.replace(/\{\{[^}]*\}\}/g, "0");
+      let urlOk = false;
+      if (typeof cfg.url === "string") {
+        try {
+          const u = new URL(sample(cfg.url.trim()));
+          urlOk = (u.protocol === "https:" || u.protocol === "http:") && !u.username && !u.password;
+        } catch { /* reported below */ }
+      }
+      if (!urlOk) at("url", "apiBadUrl");
+      const pairs = (list: unknown, field: string) => {
+        if (list === undefined) return;
+        if (!Array.isArray(list) || list.length > 20) return at(field, "apiTooMany", { max: 20 });
+        list.forEach((p: { key?: unknown; value?: unknown }, i) => {
+          if (typeof p?.key !== "string" || typeof p.value !== "string" || (field === "headers" && !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(p.key))) {
+            at(`${field}.${i}`, "apiBadPair");
+          }
+        });
+      };
+      pairs(cfg.params, "params");
+      pairs(cfg.headers, "headers");
+      // A GET or DELETE never sends its body, so a leftover one is not checked.
+      if (cfg.method !== "GET" && cfg.method !== "DELETE" && cfg.body !== undefined && cfg.body !== "") {
+        let bodyOk = typeof cfg.body === "string" && cfg.body.length <= 20_000;
+        // Values are inserted as escaped string content, so each placeholder must sit
+        // inside quotes; unknown placeholders are left in and fail the parse.
+        const bodySample = (v: string) => v.replace(/\{\{\s*(vars|contact|workspace)\.[a-zA-Z0-9_]+\s*\}\}/g, "x");
+        if (bodyOk) { try { JSON.parse(bodySample(cfg.body as string)); } catch { bodyOk = false; } }
+        if (!bodyOk) at("body", "apiBadBody");
+      }
+      if (cfg.mappings !== undefined) {
+        if (!Array.isArray(cfg.mappings) || cfg.mappings.length > 20) at("mappings", "apiTooMany", { max: 20 });
+        else cfg.mappings.forEach((m: { path?: unknown; var_key?: unknown }, i) => {
+          if (typeof m?.path !== "string" || !m.path.trim() || typeof m.var_key !== "string" || !VAR_KEY.test(m.var_key)) at(`mappings.${i}`, "apiBadMapping");
+        });
+      }
+      const routes = Array.isArray(cfg.routes) ? (cfg.routes as Array<{ status?: unknown; next_node_key?: unknown }>) : [];
+      if (cfg.routes !== undefined && (!Array.isArray(cfg.routes) || routes.length > MAX_API_ROUTES)) at("routes", "apiTooMany", { max: MAX_API_ROUTES });
+      routes.slice(0, MAX_API_ROUTES).forEach((r, i) => {
+        if (typeof r?.status !== "string" || !/^([1-5]\d\d|[1-5]xx)$/i.test(r.status.trim())) at(`routes.${i}.status`, "apiBadStatus");
+        if (!r?.next_node_key) at(`routes.${i}.next_node_key`, "apiRouteNeedsNext", { status: String(r?.status ?? "") });
+        else if (typeof r.next_node_key !== "string" || !knownKeys.has(r.next_node_key)) at(`routes.${i}.next_node_key`, "nodeMissingNext", { key: String(r.next_node_key) });
+      });
+      issues.push(...portIssues(node, knownKeys, "fallback_next", "apiNeedsFallback", "nodeMissingNext"));
+      break;
+    }
+
+    case "connect_flow": {
+      const flowId = node.config.flow_id;
+      if (typeof flowId !== "string" || !UUID.test(flowId)) {
+        issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: "flow_id", message: t("connectNeedsFlow") });
+      }
+      break;
+    }
+
+    case "assign_agent": {
+      const cfg = node.config as { mode?: unknown; agent_id?: unknown };
+      if (cfg.mode !== "specific" && cfg.mode !== "round_robin") {
+        issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: "mode", message: t("assignNeedsMode") });
+      } else if (cfg.mode === "specific" && (typeof cfg.agent_id !== "string" || !UUID.test(cfg.agent_id))) {
+        issues.push({ severity: "error", scope: "node", node_key: node.node_key, field: "agent_id", message: t("assignNeedsAgent") });
+      }
+      issues.push(...portIssues(node, knownKeys, "next_node_key", "nodeNeedsNext", "nodeMissingNext"));
+      break;
+    }
+
     case "set_tag": {
       const cfg = node.config as {
         mode?: "add" | "remove";
@@ -947,8 +1060,15 @@ const CONDITION_SUBJECTS: unknown[] = ["var", "tag", "contact_field", "custom_fi
 const CONDITION_OPERATORS: unknown[] = ["equals", "not_equals", "contains", "present", "absent", "gt", "gte", "lt", "lte", "between"];
 const MAX_CONDITION_RULES = 10;
 const SET_ATTRIBUTE_MAX = 1000;
+const MAX_API_ROUTES = 5;
 /** Nodes that wait for the customer, so a reply timeout means something. */
-const WAITING_TYPES = ["send_buttons", "send_list", "collect_input", "ask_media", "ask_location", "ask_address"];
+const WAITING_TYPES = ["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address"];
+
+/** Whether the node stops for the customer: a template only when it has quick-reply buttons. */
+function waitsForReply(node: NodeInput): boolean {
+  if (node.node_type === "send_template") return Array.isArray(node.config.buttons) && node.config.buttons.length > 0;
+  return WAITING_TYPES.includes(node.node_type);
+}
 /** Config keys that hold routing or patterns rather than customer-visible text. */
 const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target"];
 
@@ -956,6 +1076,9 @@ const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "tru
 function producedVars(node: NodeInput): string[] {
   const cfg = node.config;
   if (node.node_type === "set_attribute") return cfg.target === "var" && typeof cfg.key === "string" ? [cfg.key] : [];
+  if (node.node_type === "api_request") {
+    return Array.isArray(cfg.mappings) ? (cfg.mappings as Array<{ var_key?: unknown }>).map((m) => m?.var_key).filter((k): k is string => typeof k === "string") : [];
+  }
   const key = typeof cfg.var_key === "string" ? cfg.var_key : null;
   if (!key) return [];
   switch (node.node_type) {
@@ -989,7 +1112,7 @@ function timingIssues(node: NodeInput, knownKeys: Set<string>, runTimeoutHours?:
   }
   if (cfg.timeout_minutes !== undefined && cfg.timeout_minutes !== null) {
     const minutes = cfg.timeout_minutes;
-    if (!WAITING_TYPES.includes(node.node_type)) {
+    if (!waitsForReply(node)) {
       at("timeout_minutes", t("timeoutNotAllowed"));
     } else {
       if (!(Number.isInteger(minutes) && minutes >= 1 && minutes <= 10_080)) at("timeout_minutes", t("invalidTimeout"));
@@ -1043,7 +1166,18 @@ function outgoingEdges(node: NodeInput): string[] {
     case "send_media":
     case "set_tag":
     case "set_attribute":
+    case "assign_agent":
       add(cfg.next_node_key);
+      break;
+    case "send_template": {
+      const buttons = Array.isArray(cfg.buttons) ? (cfg.buttons as Array<{ next_node_key?: unknown }>) : [];
+      if (buttons.length) buttons.forEach((b) => add(b.next_node_key));
+      else add(cfg.next_node_key);
+      break;
+    }
+    case "api_request":
+      for (const r of (Array.isArray(cfg.routes) ? cfg.routes : []) as Array<{ next_node_key?: unknown }>) add(r?.next_node_key);
+      add(cfg.fallback_next);
       break;
     case "collect_input":
     case "ask_media":
@@ -1068,6 +1202,6 @@ function outgoingEdges(node: NodeInput): string[] {
     default:
       return [];
   }
-  if (WAITING_TYPES.includes(node.node_type) && cfg.timeout_minutes) add(cfg.after_timeout);
+  if (waitsForReply(node) && cfg.timeout_minutes) add(cfg.after_timeout);
   return out;
 }

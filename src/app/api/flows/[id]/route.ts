@@ -4,6 +4,9 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { validateFlowForActivation } from '@/lib/flows/validate';
 import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
+import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
+import { apiNodeUsesSecrets, canonicalJson } from '@/lib/flows/api-request';
+import { secretAttributeKeys } from '@/lib/workspace/attributes';
 
 const t = getT('Api');
 
@@ -100,8 +103,10 @@ export async function PUT(
   const { id } = await context.params;
 
   // Use the authenticated tenant client; role and RLS both apply.
+  let role: AccountRole;
+  let accountId: string;
   try {
-    await requireRole('agent');
+    ({ role, accountId } = await requireRole('agent'));
   } catch (err) {
     return toErrorResponse(err);
   }
@@ -121,6 +126,20 @@ export async function PUT(
   }
 
   const admin = guard.db;
+  // Secret workspace values are admin-only. A non-admin may keep an admin's
+  // API step that uses one, but not add or change one: that step could send
+  // the secret anywhere.
+  if (body.nodes !== undefined && !hasMinRole(role, 'admin')) {
+    const secrets = await secretAttributeKeys(accountId);
+    if (secrets.size) {
+      const { data: before, error: beforeError } = await admin.from('flow_nodes').select('node_key,config').eq('flow_id', id);
+      if (beforeError) return NextResponse.json({ error: beforeError.message }, { status: 500 });
+      const kept = new Set((before ?? []).map((n: { node_key: string; config: unknown }) => `${JSON.stringify([n.node_key, canonicalJson(n.config)])}`));
+      const changed = body.nodes.some((n) => n.node_type === 'api_request' && apiNodeUsesSecrets(n.config, secrets) &&
+        !kept.has(`${JSON.stringify([n.node_key, canonicalJson(n.config)])}`));
+      if (changed) return NextResponse.json({ error: t('flows.secretNeedsAdmin') }, { status: 403 });
+    }
+  }
   const { data: current, error: readError } = await admin.from('flows').select('*').eq('id', id).maybeSingle();
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
   if ((current as FlowRow | null)?.status === 'active') {
@@ -135,6 +154,7 @@ export async function PUT(
       trigger_config: body.trigger_config ?? { ...flow.trigger_config },
       entry_node_id: body.entry_node_id !== undefined ? body.entry_node_id : flow.entry_node_id,
       fallback_policy: body.fallback_policy ?? flow.fallback_policy,
+      id,
     }, (existing.data ?? []) as FlowNodeRow[]);
     if (issues.some((issue) => issue.severity === 'error')) {
       return NextResponse.json({ error: t('flows.cannotSaveActive'), issues }, { status: 422 });

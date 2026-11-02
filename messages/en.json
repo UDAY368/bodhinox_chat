@@ -1745,7 +1745,53 @@
         "delayHelp": "Up to 24 hours. Replies during the wait are ignored.",
         "timeoutLabel": "Stop waiting for a reply after (minutes)",
         "timeoutHelp": "Up to 7 days. Leave empty to wait until the flow's inactivity limit.",
-        "afterTimeoutLabel": "On timeout, go to"
+        "afterTimeoutLabel": "On timeout, go to",
+        "templateLabel": "Template",
+        "pickTemplate": "Pick an approved template",
+        "templateHelp": "Only approved templates are listed. A template can be sent outside the 24-hour window.",
+        "templateParam": "Body value {n}",
+        "templateButtonNext": "When \"{title}\" is tapped, go to",
+        "apiMethod": "Method",
+        "apiUrl": "URL",
+        "apiValuesHelp": "Use {{vars.name}}, {{contact.name}} or {{workspace.key}}. Secret workspace values work only in headers and the body, and only an admin's test sends them.",
+        "apiParams": "Query parameters",
+        "apiHeaders": "Headers",
+        "apiBody": "JSON body",
+        "pairKey": "Name {n}",
+        "pairValue": "Value {n}",
+        "pairKeyPlaceholder": "name",
+        "pairValuePlaceholder": "value",
+        "removeRow": "Remove row",
+        "apiMappings": "Save from the reply",
+        "mappingPath": "Reply path {n}",
+        "mappingVar": "Variable {n}",
+        "addMapping": "Add mapping",
+        "apiMappingsHelp": "A dot path into the JSON reply, such as data.items.0.id. Saved only on a 2xx reply.",
+        "apiRoutes": "Route by status",
+        "apiStatus": "Status",
+        "addRoute": "Add route",
+        "apiFallback": "Otherwise (other status, timeout or error), go to",
+        "apiFallbackHelp": "Requests time out after 10 seconds, never follow redirects and refuse private addresses. A reply over 256 KB counts as an error.",
+        "testRequest": "Test request",
+        "testFailed": "The test could not run.",
+        "testStatus": "Status {status} in {ms} ms",
+        "testError_invalid_url": "The URL is not a valid http(s) address.",
+        "testError_blocked": "That address is not allowed (a private or local network).",
+        "testError_timeout": "No reply within 10 seconds.",
+        "testError_too_large": "The reply is larger than 256 KB.",
+        "testError_network": "Could not connect.",
+        "assignMode": "Assign to",
+        "assignRoundRobin": "Next agent (round robin)",
+        "assignSpecific": "A specific agent",
+        "assignAgent": "Agent",
+        "pickAgent": "Pick an agent",
+        "assignHelp": "The bot keeps going. Use Handoff to pause it.",
+        "connectTarget": "Flow to start",
+        "pickFlow": "Pick a flow",
+        "connectHelp": "This flow ends and the chosen flow starts for the same contact, with the same variables. The chosen flow must be active.",
+        "testSamples": "Sample values for the test",
+        "flowStatusDraft": "draft",
+        "flowStatusArchived": "archived"
       },
       "categories": {
         "messaging": "Messaging",
@@ -1808,12 +1854,29 @@
         "set_attribute": {
           "label": "Set attribute",
           "blurb": "Saves a value to a variable or contact field"
+        },
+        "send_template": {
+          "label": "Send template",
+          "blurb": "Sends an approved template, even after 24 hours"
+        },
+        "api_request": {
+          "label": "API request",
+          "blurb": "Calls an external API and branches on the reply"
+        },
+        "assign_agent": {
+          "label": "Assign agent",
+          "blurb": "Assigns the chat to a teammate and carries on"
+        },
+        "connect_flow": {
+          "label": "Connect flow",
+          "blurb": "Ends this flow and starts another"
         }
       },
       "ports": {
         "skip": "Skip",
         "exhausted": "Attempts used up",
-        "timeout": "Timeout"
+        "timeout": "Timeout",
+        "fallback": "Fallback"
       }
     },
     "validation": {
@@ -1856,7 +1919,8 @@
       "tagNone": "{mode} tag (none picked)",
       "customField": "custom field",
       "rulesAll": "{count, plural, one {# rule} other {# rules}}, all must match",
-      "rulesAny": "{count, plural, one {# rule} other {# rules}}, any can match"
+      "rulesAny": "{count, plural, one {# rule} other {# rules}}, any can match",
+      "roundRobin": "Round robin"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -3067,7 +3131,22 @@
       "invalidTimeout": "Timeout must be a whole number of minutes from 1 to 10,080 (7 days).",
       "timeoutAfterRunTimeout": "This timeout is longer than the flow's {hours}-hour inactivity limit, so the run ends before it fires.",
       "timeoutNeedsNext": "Choose a node for the timeout path.",
-      "timeoutMissingNext": "The timeout path points to non-existent node \"{key}\"."
+      "timeoutMissingNext": "The timeout path points to non-existent node \"{key}\".",
+      "templateNeedsName": "Choose a template.",
+      "templateParamEmpty": "Template value {n} is empty.",
+      "templateBadReplyId": "Each template button needs its own reply id, not starting with qr_.",
+      "apiBadMethod": "Choose GET, POST, PUT, PATCH or DELETE.",
+      "apiBadUrl": "Enter an http(s) URL without a username or password.",
+      "apiTooMany": "At most {max} rows.",
+      "apiBadPair": "Each row needs a valid name and a value.",
+      "apiBadBody": "The body must be valid JSON, with each placeholder inside quotes.",
+      "apiBadMapping": "Each mapping needs a reply path and a valid variable name.",
+      "apiBadStatus": "Use a status such as 200 or a class such as 2xx.",
+      "apiRouteNeedsNext": "Choose a node for status {status}.",
+      "apiNeedsFallback": "Choose a node for the fallback path.",
+      "connectNeedsFlow": "Choose a flow to start.",
+      "assignNeedsMode": "Choose who to assign.",
+      "assignNeedsAgent": "Choose an agent."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -3280,7 +3359,8 @@
       "unknownTemplate": "Unknown template_slug \"{slug}\"",
       "insertFailed": "flow insert failed",
       "nameRequired": "name is required",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors."
+      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "secretNeedsAdmin": "Only an admin can add or change an API request step that uses a secret workspace value."
     },
     "quickReplies": {
       "kindInvalid": "kind must be \"text\" or \"interactive\"",

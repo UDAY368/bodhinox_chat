@@ -129,3 +129,82 @@ describe("review fixes", () => {
     expect(errors(nodes)).toEqual([expect.objectContaining({ field: "error_text" })]);
   });
 });
+
+describe("Phase 4.2 nodes", () => {
+  const FLOW_ID = "00000000-0000-4000-8000-000000000001";
+  it("accepts a well-formed template, API request, assignment and connect", () => {
+    const nodes: N[] = [
+      start("tpl"),
+      { node_key: "tpl", node_type: "send_template", config: { template_name: "order", body_params: ["{{vars.x}}"],
+        buttons: [{ index: 0, reply_id: "tpl_1", title: "Yes", next_node_key: "api" }], timeout_minutes: 60, after_timeout: "done" } },
+      { node_key: "api", node_type: "api_request", config: { method: "POST", url: "https://api.example.com/{{vars.x}}",
+        headers: [{ key: "Authorization", value: "Bearer {{workspace.token}}" }], body: '{"s": "{{vars.x}}", "c": "{{contact.name}}"}',
+        mappings: [{ path: "data.id", var_key: "order_id" }], routes: [{ status: "2xx", next_node_key: "assign" }], fallback_next: "done" } },
+      { node_key: "assign", node_type: "assign_agent", config: { mode: "round_robin", next_node_key: "say" } },
+      { node_key: "say", node_type: "send_message", config: { text: "{{vars.order_id}}", next_node_key: "go" } },
+      { node_key: "go", node_type: "connect_flow", config: { flow_id: FLOW_ID } },
+      end,
+    ];
+    expect(errors(nodes)).toEqual([]);
+  });
+
+  it("rejects bad template, API, assignment and connect settings", () => {
+    const nodes: N[] = [
+      start("tpl"),
+      { node_key: "tpl", node_type: "send_template", config: { template_name: "", body_params: [" "],
+        buttons: [{ index: 0, reply_id: "qr_x", title: "Yes", next_node_key: "" }] } },
+      { node_key: "api", node_type: "api_request", config: { method: "TRACE", url: "ftp://x", body: "{bad",
+        headers: [{ key: "Bad Header", value: "x" }], routes: [{ status: "20", next_node_key: "done" }] } },
+      { node_key: "assign", node_type: "assign_agent", config: { mode: "specific", next_node_key: "done" } },
+      { node_key: "go", node_type: "connect_flow", config: { flow_id: "nope" } },
+      end,
+    ];
+    expect(errors(nodes).map((i) => `${i.node_key}.${i.field}`).sort()).toEqual([
+      "api.body", "api.fallback_next", "api.headers.0", "api.method", "api.routes.0.status", "api.url",
+      "assign.agent_id", "go.flow_id",
+      "tpl.body_params.0", "tpl.buttons.0.next_node_key", "tpl.buttons.0.reply_id", "tpl.template_name",
+    ]);
+  });
+
+  it("rejects a reply timeout on a template with no buttons, and a loop of API calls", () => {
+    const nodes: N[] = [
+      start("tpl"),
+      { node_key: "tpl", node_type: "send_template", config: { template_name: "x", next_node_key: "api", timeout_minutes: 5, after_timeout: "done" } },
+      { node_key: "api", node_type: "api_request", config: { method: "GET", url: "https://x.example", fallback_next: "tpl" } },
+      end,
+    ];
+    const found = errors(nodes);
+    expect(found.some((i) => i.node_key === "tpl" && i.field === "timeout_minutes")).toBe(true);
+    expect(found.some((i) => i.message.includes("tpl") && i.message.includes("api") && !i.field)).toBe(true);
+  });
+
+  it("gives the API request a port per route plus the fallback", () => {
+    const node: BuilderNode = { node_key: "api", node_type: "api_request", config: {
+      routes: [{ status: "200", next_node_key: "a" }, { status: "4xx", next_node_key: "b" }], fallback_next: "c" } };
+    expect(outgoingSlots(node).map((s) => s.id)).toEqual(["route:0", "route:1", "fallback"]);
+    expect(applyEdgeConnection(node, "route:1", "z")).toEqual({ routes: [{ status: "200", next_node_key: "a" }, { status: "4xx", next_node_key: "z" }] });
+    const [cleared] = unlinkNodeReferences([node], "c");
+    expect(cleared.config.fallback_next).toBe("");
+    const tpl: BuilderNode = { node_key: "t", node_type: "send_template", config: { buttons: [{ index: 1, reply_id: "tpl_2", title: "No", next_node_key: "a" }] } };
+    expect(outgoingSlots(tpl).map((s) => s.id)).toEqual(["button:tpl_2"]);
+  });
+});
+
+it("requires body placeholders inside quotes, and ignores the body of a GET", () => {
+  const api = (method: string, body: string): N[] => [start("api"),
+    { node_key: "api", node_type: "api_request", config: { method, url: "https://x.example", body, fallback_next: "done" } }, end];
+  expect(errors(api("POST", '{"n": {{vars.x}}}')).map((i) => i.field)).toEqual(["body"]);
+  expect(errors(api("POST", '{"n": "{{other.x}}"}')).map((i) => i.field)).toEqual([]);
+  expect(errors(api("POST", '{"n": {{other}}}')).map((i) => i.field)).toEqual(["body"]);
+  expect(errors(api("GET", "{leftover"))).toEqual([]);
+});
+
+it("rejects a flow that restarts itself without waiting for the customer", () => {
+  const self = { ...flow, id: "00000000-0000-4000-8000-000000000009" };
+  const loop: N[] = [start("say"), { node_key: "say", node_type: "send_message", config: { text: "hi", next_node_key: "again" } },
+    { node_key: "again", node_type: "connect_flow", config: { flow_id: self.id } }];
+  expect(validateFlowForActivation(self, loop).some((i) => i.severity === "error" && i.message.includes("again"))).toBe(true);
+  const menu: N[] = [start("ask"), { node_key: "ask", node_type: "collect_input", config: { prompt_text: "q", var_key: "a", next_node_key: "again" } },
+    { node_key: "again", node_type: "connect_flow", config: { flow_id: self.id } }];
+  expect(validateFlowForActivation(self, menu).filter((i) => i.severity === "error")).toEqual([]);
+});

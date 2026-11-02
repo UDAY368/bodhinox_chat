@@ -186,6 +186,14 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { prompt_text: "", var_key: "address", next_node_key: "" };
     case "set_attribute":
       return { target: "var", key: "", value: "", next_node_key: "" };
+    case "send_template":
+      return { template_name: "", body_params: [], buttons: [], next_node_key: "" };
+    case "api_request":
+      return { method: "GET", url: "", params: [], headers: [], body: "", mappings: [], routes: [{ status: "2xx", next_node_key: "" }], fallback_next: "" };
+    case "assign_agent":
+      return { mode: "round_robin", next_node_key: "" };
+    case "connect_flow":
+      return { flow_id: "" };
     case "condition":
       return {
         subject: "var",
@@ -334,10 +342,11 @@ export function FlowEditorProvider({
           trigger_config: state.trigger_config,
           entry_node_id: state.entry_node_id,
           fallback_policy: state.fallback_policy,
+          id: initialFlow.id,
         },
         state.nodes,
       ),
-    [state],
+    [state, initialFlow.id],
   );
   const canActivate = useMemo(
     () => issues.every((i) => i.severity !== "error"),
