@@ -26,6 +26,10 @@ const TEMPLATE = {
   language: 'en_US',
 }
 
+/** Set to model a workspace with several numbers (listed, not `.single()`). */
+let numbers: Record<string, unknown>[] | null = null
+let templateWaba: string | null = null
+
 /** Local writes the route managed to land. */
 const templateUpdates: Record<string, unknown>[] = []
 let templateDeletes = 0
@@ -42,7 +46,7 @@ function makeSupabaseMock() {
         case 'accounts':
           return { data: { id: 'acct-1', name: 'Acme' }, error: null }
         case 'message_templates':
-          return { data: TEMPLATE, error: null }
+          return { data: { ...TEMPLATE, waba_id: templateWaba }, error: null }
         case 'whatsapp_config':
           return {
             data: {
@@ -72,7 +76,13 @@ function makeSupabaseMock() {
     })
     b.single = vi.fn(async () => result())
     b.maybeSingle = vi.fn(async () => result())
-    b.then = (resolve: (v: unknown) => unknown) => resolve(result())
+    const filters: [string, unknown][] = []
+    b.eq = vi.fn((field: string, value: unknown) => { filters.push([field, value]); return b })
+    b.then = (resolve: (v: unknown) => unknown) => {
+      if (table !== 'whatsapp_config' || !numbers) return resolve(result())
+      const waba = filters.find(([field]) => field === 'waba_id')?.[1]
+      return resolve({ data: numbers.filter((row) => waba === undefined || row.waba_id === waba), error: null })
+    }
     return b
   }
 
@@ -139,6 +149,8 @@ beforeEach(() => {
   templateUpdates.length = 0
   templateDeletes = 0
   callerRole = 'admin'
+  numbers = null
+  templateWaba = null
   supabaseMock = makeSupabaseMock()
   meta.editMessageTemplate.mockClear()
   meta.deleteMessageTemplate.mockClear()
@@ -228,3 +240,36 @@ describe('template edit — kinds and status history', () => {
     expect(history.record).not.toHaveBeenCalled()
   })
 })
+
+describe('template edit and delete — numbers in two WABAs', () => {
+  beforeEach(() => {
+    numbers = [
+      { id: 'cfg-1', waba_id: 'WABA-1', access_token: 'token-1', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'cfg-2', waba_id: 'WABA-2', access_token: 'token-2', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+    ]
+  })
+
+  it("deletes with a number from the template's own WABA", async () => {
+    templateWaba = 'WABA-2'
+    const res = await DELETE(new Request('http://localhost/t'), { params })
+    expect(res.status).toBe(200)
+    expect(meta.deleteMessageTemplate).toHaveBeenCalledWith(expect.objectContaining({ wabaId: 'WABA-2' }))
+  })
+
+  it("edits with the template's WABA token, and a legacy template uses the default number", async () => {
+    const { decrypt } = await import('@/lib/whatsapp/encryption')
+    templateWaba = 'WABA-2'
+    expect((await patchTemplate()).status).toBe(200)
+    expect(decrypt).toHaveBeenLastCalledWith('token-2')
+    templateWaba = null
+    expect((await patchTemplate()).status).toBe(200)
+    expect(decrypt).toHaveBeenLastCalledWith('token-1')
+  })
+
+  it('refuses when no connected number is in the template WABA', async () => {
+    templateWaba = 'WABA-9'
+    expect((await DELETE(new Request('http://localhost/t'), { params })).status).toBe(400)
+    expect(meta.deleteMessageTemplate).not.toHaveBeenCalled()
+  })
+})
+

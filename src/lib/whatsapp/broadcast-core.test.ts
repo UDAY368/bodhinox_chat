@@ -72,7 +72,11 @@ describe('createBroadcast validation', () => {
 
 // Build a Supabase-shaped mock that gets createBroadcast past its config +
 // template lookups and into the create transaction.
-function makeDb(createRows: unknown[] | Error) {
+function makeDb(
+  createRows: unknown[] | Error,
+  numbers: Record<string, unknown>[] = [{ phone_number_id: 'pn-1', access_token: 'enc' }],
+  templates: Record<string, unknown>[] = []
+) {
   tx.createRows = createRows;
   tx.statements = [];
   const calls = {
@@ -83,23 +87,25 @@ function makeDb(createRows: unknown[] | Error) {
   const database = {
     from(table: string) {
       if (table === 'whatsapp_config') {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: () =>
-                Promise.resolve({
-                  data: { phone_number_id: 'pn-1', access_token: 'enc' },
-                  error: null,
-                }),
-            }),
-          }),
+        const filters: Record<string, unknown> = {};
+        const match = () => numbers.filter((n) => Object.entries(filters).every(([k, v]) => k === 'account_id' || n[k] === v));
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: (field: string, value: unknown) => {
+            filters[field] = value;
+            return chain;
+          },
+          maybeSingle: () => Promise.resolve({ data: match()[0] ?? null, error: null }),
+          then: (resolve: (r: { data: unknown[]; error: null }) => unknown) => resolve({ data: match(), error: null }),
         };
+        return chain;
       }
       if (table === 'message_templates') {
         const chain: Record<string, unknown> = {
           select: () => chain,
           eq: () => chain,
           maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          then: (resolve: (r: { data: unknown[]; error: null }) => unknown) => resolve({ data: templates, error: null }),
         };
         return chain;
       }
@@ -195,6 +201,49 @@ describe('createBroadcast atomicity (#370)', () => {
     // transaction back, so no parent or job can survive as an orphan.
     expect(tx.statements).toHaveLength(1);
     expect(calls.usedDirectInsert).toBe(0);
+  });
+});
+
+describe('createBroadcast — two numbers in one workspace', () => {
+  const A = '11111111-1111-4111-8111-11111111111a';
+  const B = '22222222-2222-4222-8222-22222222222b';
+  const NUMBERS = [
+    { id: A, phone_number_id: '1000', access_token: 'enc', waba_id: 'waba-a', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+    { id: B, phone_number_id: '2000', access_token: 'enc', waba_id: 'waba-b', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+  ];
+  const ROWS = [{ broadcast_id: 'b-1', recipient_id: 'r-1', contact_id: 'c1' }];
+  const recipients = [{ to: '+14155550123' }];
+
+  it('stores and sends from the default number when none is named', async () => {
+    const { db } = makeDb(ROWS, NUMBERS);
+    const plan = await createBroadcast(db, 'acc', 'user', { templateName: 'promo', recipients });
+    expect(plan.phoneNumberId).toBe('1000');
+    expect(tx.statements.some((st) => st.includes('UPDATE broadcasts SET whatsapp_config_id'))).toBe(true);
+  });
+
+  it('sends from the number named by phone_number_id', async () => {
+    const { db } = makeDb(ROWS, NUMBERS);
+    const plan = await createBroadcast(db, 'acc', 'user', { templateName: 'promo', recipients, phoneNumberId: '2000' });
+    expect(plan.phoneNumberId).toBe('2000');
+  });
+
+  it('refuses a number that is not connected to the workspace before creating anything', async () => {
+    const { db } = makeDb(ROWS, NUMBERS);
+    await expect(
+      createBroadcast(db, 'acc', 'user', { templateName: 'promo', recipients, phoneNumberId: '9999' })
+    ).rejects.toMatchObject({ code: 'whatsapp_number_unavailable', status: 400 });
+    await expect(
+      createBroadcast(db, 'acc', 'user', { templateName: 'promo', recipients, whatsappConfigId: '33333333-3333-4333-8333-333333333333' })
+    ).rejects.toMatchObject({ code: 'whatsapp_number_unavailable', status: 400 });
+    expect(tx.statements).toHaveLength(0);
+  });
+
+  it("refuses a template from another number's WABA", async () => {
+    const { db } = makeDb(ROWS, NUMBERS, [{ id: 't', user_id: 'u', name: 'promo', category: 'Marketing', language: 'en_US', body_text: 'Hi', created_at: '2026-01-01T00:00:00Z', waba_id: 'waba-a' }]);
+    await expect(
+      createBroadcast(db, 'acc', 'user', { templateName: 'promo', recipients, whatsappConfigId: B })
+    ).rejects.toMatchObject({ code: 'template_wrong_number', status: 422 });
+    expect(tx.statements).toHaveLength(0);
   });
 });
 

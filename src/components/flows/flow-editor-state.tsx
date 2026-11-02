@@ -128,6 +128,16 @@ export interface FlowEditorContextValue {
    */
   flashKey: string | null;
   requestFlash: (key: string) => void;
+
+  /**
+   * The WhatsApp number the flow triggers on (null = every number).
+   * Saved on its own through PUT /api/flows/[id]/number, not by Save,
+   * so it is not part of `state` and never marks the form dirty. Kept
+   * here rather than in the Settings popover, which unmounts on close:
+   * reopening it must show the last saved number, not the loaded row's.
+   */
+  triggerNumber: string | null;
+  setTriggerNumber: (next: string | null) => void;
 }
 
 // ============================================================
@@ -319,6 +329,7 @@ export function FlowEditorProvider({
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [triggerNumber, setTriggerNumber] = useState<string | null>(initialFlow.whatsapp_config_id ?? null);
   // dirty flips on user edits; status-only updates (after the activate
   // API succeeds) use setStateRaw so they don't falsely re-flag the
   // form as dirty.
@@ -592,6 +603,8 @@ export function FlowEditorProvider({
       deleteFlow,
       flashKey,
       requestFlash,
+      triggerNumber,
+      setTriggerNumber,
     }),
     [
       initialFlow,
@@ -613,6 +626,7 @@ export function FlowEditorProvider({
       deleteFlow,
       flashKey,
       requestFlash,
+      triggerNumber,
     ],
   );
 

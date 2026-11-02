@@ -94,11 +94,19 @@ vi.mock('@/lib/data/admin', () => ({
               },
             };
           case 'conversations':
-            // findOrCreateConversation: select().eq().eq().order().limit()
+            // findOrCreateConversation: select().eq().eq()[.eq()].order().limit()
+            // (the third eq scopes the lookup to the receiving number).
             return {
               select: () => ({
                 eq: () => ({
                   eq: () => ({
+                    eq: () => ({ order: () => ({
+                      limit: () =>
+                        Promise.resolve({
+                          data: [h.state.conversation],
+                          error: null,
+                        }),
+                    }) }),
                     order: () => ({
                       limit: () =>
                         Promise.resolve({

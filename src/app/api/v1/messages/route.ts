@@ -23,7 +23,8 @@
 //       "params": ["A123"] | { "body": [...] }   // array = positional body; object = structured
 //     },
 //     "reply_to_message_id": "<uuid>",       // optional, must be in the same conversation
-//     "name": "Jane Doe"                     // optional, names a newly-created contact
+//     "name": "Jane Doe",                    // optional, names a newly-created contact
+//     "phone_number_id": "1234567890"        // optional Meta phone number id to send from (default: the workspace's default number)
 //   }
 //
 // Response (201):
@@ -40,6 +41,8 @@ import {
   SendMessageError,
 } from '@/lib/whatsapp/send-message';
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
+import { NoNumberError } from '@/lib/whatsapp/numbers';
+import { loadSenderConfigByPhoneNumberId, numberErrorText } from '@/lib/whatsapp/sender-config';
 
 export async function POST(request: Request) {
   try {
@@ -96,6 +99,26 @@ export async function POST(request: Request) {
       templateMessageParams,
     });
 
+    // The number to send from: the one named by phone_number_id, else
+    // the workspace default (resolveConversationByPhone picks it).
+    if (body.phone_number_id !== undefined && body.phone_number_id !== null && typeof body.phone_number_id !== 'string') {
+      return fail('bad_request', "'phone_number_id' must be a string", 400);
+    }
+    let whatsappConfigId: string | null = null;
+    if (typeof body.phone_number_id === 'string' && body.phone_number_id.trim()) {
+      try {
+        whatsappConfigId = (await loadSenderConfigByPhoneNumberId(ctx.db, ctx.accountId, body.phone_number_id.trim())).id;
+      } catch (error) {
+        if (error instanceof NoNumberError) {
+          if (error.reason === 'disconnected') return fail('whatsapp_number_disconnected', numberErrorText(error), 409);
+          return error.reason === 'none'
+            ? fail('whatsapp_not_configured', 'WhatsApp not configured. Please set up your WhatsApp integration first.', 400)
+            : fail('whatsapp_number_unavailable', numberErrorText(error), 400);
+        }
+        throw error;
+      }
+    }
+
     // Find-or-create the conversation for this phone, then send. Both
     // steps share `SendMessageError`, so one catch maps the whole
     // pipeline to the envelope.
@@ -103,7 +126,8 @@ export async function POST(request: Request) {
       ctx.db,
       ctx.accountId,
       to,
-      typeof body.name === 'string' ? body.name : null
+      typeof body.name === 'string' ? body.name : null,
+      { whatsappConfigId }
     );
 
     const result = await sendMessageToConversation(

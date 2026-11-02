@@ -113,6 +113,31 @@ type TemplateEventRow = {
 
 const textOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : null)
 
+/** A Meta WABA id; anything else is ignored rather than put in a filter. */
+const validWabaId = (v: string | undefined): string | undefined =>
+  v && /^\d{1,32}$/.test(v) ? v : undefined
+
+/**
+ * UPDATE the template rows for `metaTemplateId`, limited to the event's
+ * WABA when it is known: a workspace with numbers in several WABAs must
+ * not have another WABA's rows touched. Rows with no WABA yet (created
+ * before the column existed, or by a path that did not set it) still
+ * match and are stamped with this WABA.
+ */
+function updateTemplates(
+  db: DataClient,
+  fields: Record<string, unknown>,
+  metaTemplateId: string,
+  wabaId: string | undefined,
+  columns: string,
+) {
+  const query = db
+    .from('message_templates')
+    .update(wabaId ? { ...fields, waba_id: wabaId } : fields)
+    .eq('meta_template_id', metaTemplateId)
+  return (wabaId ? query.or(`waba_id.eq.${wabaId},waba_id.is.null`) : query).select(columns)
+}
+
 /**
  * Append a 'webhook' status event for each template row the event
  * touched, in that row's own account, on the worker connection.
@@ -151,19 +176,20 @@ export async function handleTemplateWebhookChange(
   // DataClient here so this module is testable in isolation.
   db: DataClient,
 ): Promise<void> {
+  const wabaId = validWabaId(change.wabaId)
   switch (change.field) {
     case 'message_template_status_update':
       await handleStatusUpdate(
         change.value as TemplateStatusUpdateValue,
         db,
-        change.wabaId,
+        wabaId,
       )
       return
     case 'message_template_quality_update':
       await handleQualityUpdate(
         change.value as TemplateQualityUpdateValue,
         db,
-        change.wabaId,
+        wabaId,
       )
       return
     case 'message_template_components_update':
@@ -204,11 +230,7 @@ async function handleStatusUpdate(
     submission_error: null,
   }
 
-  const { data, error } = await db
-    .from('message_templates')
-    .update(update)
-    .eq('meta_template_id', metaTemplateId)
-    .select(`${EVENT_COLUMNS},name,language`)
+  const { data, error } = await updateTemplates(db, update, metaTemplateId, wabaId, `${EVENT_COLUMNS},name,language`)
 
   if (error) {
     console.error(
@@ -226,12 +248,7 @@ async function handleStatusUpdate(
       language: value.message_template_language,
       wabaId,
       fields: update,
-      retryUpdate: () =>
-        db
-          .from('message_templates')
-          .update(update)
-          .eq('meta_template_id', metaTemplateId)
-          .select(EVENT_COLUMNS),
+      retryUpdate: () => updateTemplates(db, update, metaTemplateId, wabaId, EVENT_COLUMNS),
       db,
     })
     return
@@ -277,12 +294,7 @@ async function handleQualityUpdate(
       : null
 
   const update = { quality_score: score }
-  const runUpdate = () =>
-    db
-      .from('message_templates')
-      .update(update)
-      .eq('meta_template_id', metaTemplateId)
-      .select(EVENT_COLUMNS)
+  const runUpdate = () => updateTemplates(db, update, metaTemplateId, wabaId, EVENT_COLUMNS)
 
   const { data, error } = await runUpdate()
 
@@ -362,7 +374,7 @@ async function createStubForUnknownTemplate(p: StubParams): Promise<void> {
 
   const { data: configs, error: configError } = await db
     .from('whatsapp_config')
-    .select('account_id, user_id')
+    .select('account_id, user_id, is_default')
     .eq('waba_id', wabaId)
 
   if (configError) {
@@ -372,15 +384,18 @@ async function createStubForUnknownTemplate(p: StubParams): Promise<void> {
     )
     return
   }
-  const rows = (configs ?? []) as { account_id: string; user_id: string }[]
-  if (rows.length !== 1) {
+  // Several numbers of one workspace can share a WABA; only a WABA
+  // shared by several workspaces is ambiguous.
+  const rows = (configs ?? []) as { account_id: string; user_id: string; is_default?: boolean }[]
+  const accounts = new Set(rows.map((row) => row.account_id))
+  if (accounts.size !== 1) {
     console.warn(
-      `[template-webhook] ${kind} for unknown template ${where} — ${rows.length === 0 ? 'no' : rows.length} whatsapp_config rows match that WABA id; not creating a stub. Run "Sync from Meta" for the owning account.`,
+      `[template-webhook] ${kind} for unknown template ${where} — ${accounts.size === 0 ? 'no' : accounts.size} workspaces match that WABA id; not creating a stub. Run "Sync from Meta" for the owning account.`,
     )
     return
   }
 
-  const config = rows[0]
+  const config = rows.find((row) => row.is_default) ?? rows[0]
   // account_id is tenancy; user_id is the NOT NULL audit FK — the
   // config owner, same convention the webhook uses for inbound writes.
   // `category` and `status` fall back to their column defaults unless
@@ -392,6 +407,7 @@ async function createStubForUnknownTemplate(p: StubParams): Promise<void> {
     account_id: config.account_id,
     user_id: config.user_id,
     meta_template_id: metaTemplateId,
+    waba_id: wabaId,
     name,
     language: p.language || DEFAULT_TEMPLATE_LANGUAGE,
     body_text: STUB_BODY_TEXT,

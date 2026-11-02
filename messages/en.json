@@ -1267,7 +1267,8 @@
         "testNumbersInvalid": "Enter 1 to 3 numbers, separated by commas.",
         "testFailed": "Could not send the test",
         "testSent": "Test sent to {phone}",
-        "testNotSent": "Not sent to {phone}: {error}"
+        "testNotSent": "Not sent to {phone}: {error}",
+        "confirmSendFrom": "It will be sent from {number}."
       }
     },
     "sending": {
@@ -2586,7 +2587,13 @@
       "phoneNumberIdNotNumeric": "Phone Number ID must contain only digits. Copy the numeric id from Meta → WhatsApp → API Setup, not the phone number itself.",
       "wabaIdNotNumeric": "WhatsApp Business Account ID must contain only digits. Copy it from Meta → WhatsApp → API Setup.",
       "wabaSubscribed": "The WhatsApp Business Account is subscribed to this app — inbound webhooks can be delivered.",
-      "wabaNotSubscribed": "The WhatsApp Business Account is not subscribed to this app, so Meta will not deliver inbound webhooks. Re-enter the access token and save again to subscribe it."
+      "wabaNotSubscribed": "The WhatsApp Business Account is not subscribed to this app, so Meta will not deliver inbound webhooks. Re-enter the access token and save again to subscribe it.",
+      "businessProfileTitle": "Business profile",
+      "businessProfileDesc": "The about text, address, websites and photo customers see for {name}.",
+      "businessProfileEdit": "Edit business profile",
+      "businessProfileView": "View business profile",
+      "numberDisconnectedTitle": "This number is disconnected",
+      "numberDisconnectedHint": "Nothing sends from this number. To use it again, enter a new access token below and save (the Phone Number ID stays the same), or reconnect it with Embedded Signup. Its conversations, campaigns and flows are kept."
     },
     "sections": {
       "overview": "Overview",
@@ -2948,7 +2955,9 @@
       "saveFailed": "Could not save the ice breakers.",
       "syncedAt": "Last saved to WhatsApp {date}.",
       "notSynced": "Not saved to WhatsApp yet.",
-      "loadFailed": "Couldn't load the ice breakers. Reload the page to edit them."
+      "loadFailed": "Couldn't load the ice breakers. Reload the page to edit them.",
+      "numberLabel": "WhatsApp number for these ice breakers",
+      "defaultNumber": "Default number"
     },
     "formsEncryption": {
       "title": "Forms encryption key",
@@ -2961,7 +2970,116 @@
       "rotateHint": "Rotate only if you think the key was exposed or WhatsApp reports a key problem.",
       "generated": "Encryption key saved to WhatsApp.",
       "generateFailed": "Could not generate the encryption key.",
-      "loadFailed": "Could not load the key status. Reload the page to try again."
+      "loadFailed": "Could not load the key status. Reload the page to try again.",
+      "numberLabel": "WhatsApp number for this key",
+      "defaultNumber": "Default number"
+    },
+    "embeddedSignup": {
+      "button": "Connect with Facebook",
+      "connected": "{name} is connected.",
+      "failed": "Could not connect the number. Try again.",
+      "cancelled": "Facebook signup was cancelled.",
+      "sdkFailed": "Could not load Facebook login. Check that pop-ups and facebook.com are not blocked.",
+      "noNumberPicked": "Facebook did not return a phone number. Finish every step in the Facebook window and try again.",
+      "pinTitle": "Save your two-step PIN",
+      "pinDescription": "We set this 6-digit two-step verification PIN on the number. It is shown only once; keep it somewhere safe. You need it to move the number later.",
+      "pinDone": "I have saved it",
+      "existingPinTitle": "Two-step verification PIN",
+      "existingPinDescription": "If this number already has a two-step verification PIN, enter it so Meta can register the number. Leave it empty if there is none: we will set a new PIN and show it to you once.",
+      "existingPinLabel": "6-digit PIN",
+      "pinInvalid": "The PIN must be exactly 6 digits.",
+      "continue": "Continue with Facebook",
+      "retryPinTitle": "Enter the number's existing PIN",
+      "retryPinDescription": "The number is saved. Enter its current two-step verification PIN to finish connecting; you do not need to sign in with Facebook again.",
+      "retryPin": "Finish connecting"
+    },
+    "businessProfile": {
+      "title": "Business profile",
+      "description": "What customers see about this WhatsApp number.",
+      "descriptionFor": "What customers see about {number}.",
+      "loadFailed": "Could not load the business profile.",
+      "saveFailed": "Could not save the business profile.",
+      "saved": "Business profile saved.",
+      "photoAlt": "Profile photo",
+      "photo": {
+        "label": "Profile photo",
+        "hint": "JPEG or PNG, up to 5 MB. Square images work best.",
+        "type": "Use a JPEG or PNG image.",
+        "tooLarge": "The photo can be at most 5 MB.",
+        "empty": "The photo file is empty."
+      },
+      "about": "About",
+      "descriptionField": "Description",
+      "address": "Address",
+      "email": "Email",
+      "websites": "Websites",
+      "website2": "Second website",
+      "vertical": "Category",
+      "verticalNone": "Not set",
+      "close": "Close",
+      "save": "Save",
+      "verticals": {
+        "UNDEFINED": "Undefined",
+        "OTHER": "Other",
+        "AUTO": "Automotive",
+        "BEAUTY": "Beauty, spa and salon",
+        "APPAREL": "Clothing and apparel",
+        "EDU": "Education",
+        "ENTERTAIN": "Entertainment",
+        "EVENT_PLAN": "Event planning and service",
+        "FINANCE": "Finance and banking",
+        "GROCERY": "Food and grocery",
+        "GOVT": "Public service",
+        "HOTEL": "Hotel and lodging",
+        "HEALTH": "Medical and health",
+        "NONPROFIT": "Non-profit",
+        "PROF_SERVICES": "Professional services",
+        "RETAIL": "Shopping and retail",
+        "TRAVEL": "Travel and transportation",
+        "RESTAURANT": "Restaurant",
+        "ALCOHOL": "Alcoholic beverages",
+        "ONLINE_GAMBLING": "Online gambling and gaming",
+        "PHYSICAL_GAMBLING": "Non-online gambling and gaming",
+        "OTC_DRUGS": "Over-the-counter drugs"
+      }
+    },
+    "greenTick": {
+      "title": "Get the green tick",
+      "description": "Meta grants the green tick (Official Business Account) itself; you can't apply for it from here. These steps give your request the best chance.",
+      "opensInNewTab": "(opens in a new tab)",
+      "footnote": "Meta decides every request. If it is declined, you can apply again after 30 days.",
+      "status": {
+        "done": "done",
+        "rejected": "rejected"
+      },
+      "steps": {
+        "businessVerification": {
+          "title": "Verify your business",
+          "body": "Complete business verification in Meta Business Manager's Security Center.",
+          "link": "Open Security Center"
+        },
+        "displayName": {
+          "title": "Get your display name approved",
+          "body": "Your display name must be approved and match your brand.",
+          "rejected": "Meta rejected your display name. Edit it in WhatsApp Manager and resubmit it for review.",
+          "link": "Open WhatsApp Manager"
+        },
+        "twoStep": {
+          "title": "Turn on two-step verification",
+          "body": "Set a two-step verification PIN on this number.",
+          "link": "Open phone number settings"
+        },
+        "notability": {
+          "title": "Show your brand is notable",
+          "body": "Collect links to news articles about your brand. Paid or promotional content doesn't count.",
+          "link": "Read Meta's requirements"
+        },
+        "request": {
+          "title": "Request the green tick",
+          "body": "In WhatsApp Manager, open the phone number's settings and submit the Official Business Account request with your links.",
+          "link": "Open WhatsApp Manager"
+        }
+      }
     }
   },
   "SignupPage": {
@@ -4070,7 +4188,9 @@
       "not_configured": "Connect WhatsApp before sending forms.",
       "invalid_message": "Add a message (up to 1024 characters) and a button label (up to 30 characters). The header and footer can be up to 60 characters.",
       "idsRequired": "Choose a conversation and a form.",
-      "uncertain": "We couldn't confirm whether the form was sent. Check the conversation before trying again."
+      "uncertain": "We couldn't confirm whether the form was sent. Check the conversation before trying again.",
+      "form_wrong_number": "This form belongs to a different WhatsApp Business account than this conversation's number. Send a form created on a number of that account.",
+      "form_key_missing": "This form checks answers on our server, but this conversation's number has no forms encryption key. Upload one in Settings first."
     }
   },
   "Api": {
@@ -4342,7 +4462,63 @@
       "csvContactName": "Contact name",
       "csvPhone": "Phone",
       "changedDuringPublish": "This form was edited while it was being published. Publish it again.",
-      "publishedVersionDiffers": "WhatsApp already published an earlier version of this form. Undo the changes made since then and publish again, or duplicate the form and publish the copy."
+      "publishedVersionDiffers": "WhatsApp already published an earlier version of this form. Undo the changes made since then and publish again, or duplicate the form and publish the copy.",
+      "numberWabaLocked": "This form's Meta Flow lives in another WhatsApp Business account. Choose a number from that account, or duplicate the form to use it on this number."
+    },
+    "embeddedSignup": {
+      "notConfigured": "Connecting with Facebook is not set up on this server. Ask the administrator to configure Embedded Signup, or add the number manually.",
+      "invalidRequest": "The signup response was incomplete. Start Connect with Facebook again.",
+      "codeExchangeFailed": "Meta did not accept the signup code. It may have expired; start Connect with Facebook again.",
+      "numberNotAccessible": "Meta did not give access to the phone number you picked. Start Connect with Facebook again and make sure you grant access to it.",
+      "wabaMismatch": "The phone number you picked is not in the WhatsApp Business Account you picked. Start again and choose them together.",
+      "numberLinkedElsewhere": "This WhatsApp number is already connected to another workspace.",
+      "subscribeFailed": "Meta did not subscribe this app to your WhatsApp Business Account, so no messages would arrive. Try again in a few minutes.",
+      "registerFailed": "Meta did not register the phone number for messaging. The number is saved; try Connect with Facebook again to finish.",
+      "saveFailed": "The number could not be saved. Try Connect with Facebook again; if a two-step PIN is shown, keep it.",
+      "invalidPin": "Enter the number's two-step verification PIN as exactly 6 digits.",
+      "pinMismatch": "Meta rejected the two-step verification PIN. This number already has a PIN: enter the 6-digit PIN from WhatsApp Manager → Phone numbers → Two-step verification (or reset it there) and try again.",
+      "pinLocked": "Meta has temporarily locked PIN attempts for this number after too many wrong PINs. Wait a while, then try again with the correct PIN.",
+      "notFound": "This number is no longer saved in this workspace. Start Connect with Facebook again."
+    },
+    "businessProfile": {
+      "readFailed": "Could not load the business profile from WhatsApp. Try again.",
+      "saveFailed": "WhatsApp did not accept the profile changes. Try again.",
+      "photoUploadFailed": "The profile photo could not be uploaded to WhatsApp. Try again.",
+      "invalid": {
+        "body": "The profile could not be read. Reload and try again.",
+        "empty": "Nothing to save.",
+        "about_type": "About must be text.",
+        "about_empty": "About cannot be empty.",
+        "about_tooLong": "About can be at most 139 characters.",
+        "about_invalid": "About must be a single line.",
+        "address_type": "Address must be text.",
+        "address_tooLong": "Address can be at most 256 characters.",
+        "description_type": "Description must be text.",
+        "description_tooLong": "Description can be at most 512 characters.",
+        "email_type": "Email must be text.",
+        "email_tooLong": "Email can be at most 128 characters.",
+        "email_invalid": "Enter a valid email address.",
+        "websites_type": "Websites must be a list of links.",
+        "websites_tooMany": "Add at most two websites.",
+        "websites_tooLong": "Each website can be at most 256 characters.",
+        "websites_invalid": "Websites must start with http:// or https://.",
+        "vertical_invalid": "Choose a category from the list."
+      },
+      "photo": {
+        "type": "Use a JPEG or PNG image.",
+        "tooLarge": "The photo can be at most 5 MB.",
+        "empty": "The photo file is empty.",
+        "notConfigured": "Photo uploads need META_APP_ID to be configured on the server."
+      }
+    },
+    "whatsappHealth": {
+      "notConnected": "Connect a WhatsApp number first.",
+      "numberNotFound": "That WhatsApp number is not connected to this workspace.",
+      "chooseNumber": "Choose which WhatsApp number to check.",
+      "error": {
+        "token": "Meta rejected this number's access token. Reconnect the number, then check again.",
+        "unavailable": "Meta did not return this number's health. We will try again at the next check."
+      }
     }
   },
   "PageSearch": {
@@ -4924,7 +5100,11 @@
       "usesEndpoint": "Check answers on the server",
       "usesEndpointHint": "Each screen is checked by your workspace before the contact moves on. Answers are encrypted in transit.",
       "usesEndpointNoKey": "Set up the forms encryption key in WhatsApp settings to turn this on.",
-      "previewTitle": "Preview"
+      "previewTitle": "Preview",
+      "number": "Number",
+      "numberDefault": "Default number",
+      "numberUnavailable": "Number no longer connected",
+      "numberSameWaba": "A published form can only move to a number of the same WhatsApp Business account."
     },
     "preview": {
       "label": "WhatsApp form preview",
@@ -4952,6 +5132,85 @@
       "yes": "Yes",
       "no": "No",
       "loadMore": "Load more"
+    }
+  },
+  "whatsappNumbers": {
+    "errors": {
+      "none": "WhatsApp is not connected. Connect a number in Settings first.",
+      "notFound": "That WhatsApp number is not connected to this workspace.",
+      "noDefault": "Choose which WhatsApp number to use.",
+      "templateWrongNumber": "This template belongs to a different WhatsApp Business account than the sending number. Choose a template from that number’s account.",
+      "disconnected": "This WhatsApp number was disconnected. Reconnect it in Settings to send from it."
+    },
+    "defaultBadge": "Default",
+    "unnamedNumber": "Number {phoneNumberId}",
+    "settings": {
+      "title": "Connected numbers",
+      "description": "Every WhatsApp number this workspace sends and receives on. The default number is used whenever nothing else picks one.",
+      "addManually": "Add number manually",
+      "addingTitle": "Add a number",
+      "addingDesc": "Enter the credentials of another WhatsApp number. Saving a Phone Number ID this workspace already has updates that number instead.",
+      "editing": "Editing {name}",
+      "makeDefault": "Make default",
+      "rename": "Rename",
+      "renamePlaceholder": "Label, for example Support",
+      "save": "Save",
+      "cancel": "Cancel",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect {name}? Its conversations keep their history, and flows that trigger only on this number go back to draft.",
+      "disconnected": "Number disconnected",
+      "disconnectedPaused": "Number disconnected. {count, plural, one {# flow} other {# flows}} moved back to draft.",
+      "defaultChanged": "{name} is now the default number",
+      "renamed": "Number renamed",
+      "actionFailed": "That did not work. Try again.",
+      "quality": "Quality",
+      "tier": "Limit",
+      "tierPerDay": "{limit} per day",
+      "tierUnlimited": "Unlimited",
+      "unknown": "Unknown",
+      "statusConnected": "Connected",
+      "statusDisconnected": "Disconnected",
+      "phoneNumberIdLabel": "Phone Number ID {id}",
+      "wabaIdLabel": "WABA {id}",
+      "empty": "No numbers connected yet.",
+      "select": "Edit",
+      "selected": "Editing",
+      "phoneLocked": "To connect a different number, use Add number manually.",
+      "ratings": {
+        "GREEN": "High",
+        "YELLOW": "Medium",
+        "RED": "Low",
+        "UNKNOWN": "Unknown"
+      },
+      "disconnectConfirmHold": "Disconnect {name}? Its access token is removed and nothing can send from it until you connect the same Phone Number ID again. Its conversations, campaigns and flows stay on this number: live flows that trigger only on it go back to draft, and campaigns scheduled or sending from it are held, not cancelled. {isDefault, select, true {The oldest other connected number becomes the default.} other {}}",
+      "removedHint": "Disconnected. Connect this Phone Number ID again to use it; its conversations, campaigns and flows are kept."
+    },
+    "api": {
+      "invalidChange": "Send a display name of up to 200 characters, or is_default set to true.",
+      "chooseNumber": "This workspace has several WhatsApp numbers. Choose which one to disconnect.",
+      "disconnectedSummary": "Number disconnected.",
+      "newDefault": "{name} is now the default number.",
+      "flowsDrafted": "{count, plural, one {# flow that triggered only on this number was} other {# flows that triggered only on this number were}} moved back to draft.",
+      "campaignsCancelled": "{count, plural, one {# campaign waiting to send from this number was cancelled. Create it again on another number if you still need it.} other {# campaigns waiting to send from this number were cancelled. Create them again on another number if you still need them.}}",
+      "noDefaultLeft": "No connected number is left, so the workspace has no default number until you connect one.",
+      "campaignsHeld": "{count, plural, one {# campaign on this number is on hold. It is not cancelled and sends nothing until this number is reconnected.} other {# campaigns on this number are on hold. They are not cancelled and send nothing until this number is reconnected.}}"
+    },
+    "picker": {
+      "allNumbers": "All numbers",
+      "noNumber": "No number",
+      "onNumber": "On {name}",
+      "inboxFilter": "Number",
+      "sendFrom": "Send from",
+      "sendFromHelp": "The WhatsApp number this campaign is sent from. Only numbers in the template's WhatsApp Business Account are listed.",
+      "defaultNumber": "Default number ({name})",
+      "defaultNumberUnset": "Default number",
+      "disconnectedNumber": "A disconnected number",
+      "triggersOn": "Triggers on",
+      "triggersOnHelp": "Which number's incoming messages can start this flow. Saved right away.",
+      "flowNumberSaveFailed": "Could not change the number this flow triggers on.",
+      "flowNumberInvalid": "Choose one of this workspace's numbers, or all numbers.",
+      "flowNotFound": "Flow not found.",
+      "disconnectedSuffix": "{name} (disconnected)"
     }
   }
 }

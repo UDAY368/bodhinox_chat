@@ -33,9 +33,11 @@ import {
   lockBroadcastDelivery,
   unlockBroadcastDelivery,
 } from '@/lib/broadcasts/schedule';
+import { NUMBER_DISCONNECTED_REASON } from '@/lib/whatsapp/number-admin';
 import { withJobScope } from './scope';
 import { enqueueJob, type Job } from './queue';
 import { deliverQueuedWebhook } from '@/lib/webhooks/deliver';
+import { HEALTH_SYNC_JOB, scheduleHealthSync, syncNumberHealth } from '@/lib/whatsapp/health-sync';
 
 const uuid = (value: unknown): string => {
   if (typeof value !== 'string' || !/^[0-9a-f-]{36}$/i.test(value))
@@ -57,6 +59,8 @@ export async function scheduleWork() {
       },
       { tenantId: account_id, dedupeKey: `schedule:${account_id}:${window}` }
     );
+  // Number health every six hours; its failure must not stop automation scheduling.
+  await scheduleHealthSync().catch(() => console.error('[worker] health sync scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -160,6 +164,16 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           await finalizeBroadcastStatus(db, broadcastId);
           return;
         }
+        if (
+          error instanceof BroadcastError &&
+          error.code === NUMBER_DISCONNECTED_REASON
+        ) {
+          // Held, not failed: its number was disconnected. Planning failed before the
+          // start claim, so the status is unchanged and no recipient was touched; no
+          // retry is burnt and nothing moves to another number. Resume once reconnected.
+          console.warn('[worker] broadcast held', { broadcastId, reason: NUMBER_DISCONNECTED_REASON });
+          return;
+        }
         throw error;
       } finally {
         await unlockBroadcastDelivery(accountId, broadcastId);
@@ -244,6 +258,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     }
     else if (job.type === 'webhook.delivery')
       await deliverQueuedWebhook(db, accountId, job.payload);
+    else if (job.type === HEALTH_SYNC_JOB)
+      // Meta failures are recorded on the number and retried next cycle, not thrown.
+      await syncNumberHealth({ accountId, configId: uuid(job.payload.configId) });
     else throw new Error('Unsupported job type');
   });
 }

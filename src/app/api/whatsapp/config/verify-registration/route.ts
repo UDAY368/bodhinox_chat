@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/data/server'
+import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account'
+import { tenantOf } from '@/lib/audience/http'
+import { withTenant } from '@/lib/db/tenant'
+import { getNumberConfig, NoNumberError, type NumberConfig } from '@/lib/whatsapp/numbers'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import {
   getSubscribedApps,
@@ -8,9 +11,12 @@ import {
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
+const tn = getT('whatsappNumbers')
 
 /**
- * GET /api/whatsapp/config/verify-registration
+ * GET /api/whatsapp/config/verify-registration[?id=<number id>]
+ *
+ * Checks one number: `?id=` names it, otherwise the workspace default.
  *
  * Diagnostic endpoint — confirms the user's saved phone number is
  * actually reachable on Meta's side. Solves the failure mode that
@@ -31,44 +37,24 @@ const t = getT('Api')
  * rather than a generic error toast. The combined `live` flag is
  * what the UI badges on.
  */
-export async function GET() {
-  const db = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await db.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: t('common.unauthorized') }, { status: 401 })
+export async function GET(request: Request) {
+  let ctx
+  try {
+    ctx = await getCurrentAccount()
+  } catch (error) {
+    return toErrorResponse(error)
   }
 
-  // whatsapp_config is one-row-per-account post-017. Resolve the
-  // caller's account_id so a teammate who joined an existing account
-  // sees the same registration state as the admin who set it up.
-  const { data: profile } = await db
-    .from('profiles')
-    .select('account_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-  const accountId = profile?.account_id as string | undefined
-  if (!accountId) {
+  let config: NumberConfig
+  try {
+    const id = new URL(request.url).searchParams.get('id') || null
+    config = await withTenant(tenantOf(ctx), (tx) => getNumberConfig(tx, ctx.accountId, id))
+  } catch (err) {
+    if (!(err instanceof NoNumberError)) return toErrorResponse(err)
     return NextResponse.json({
       live: false,
       checks: { config_exists: false },
-      message: t('common.profileNotLinked'),
-    })
-  }
-
-  const { data: config } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', accountId)
-    .maybeSingle()
-
-  if (!config) {
-    return NextResponse.json({
-      live: false,
-      checks: { config_exists: false },
-      message: t('whatsappConfig.noConfigShort'),
+      message: err.reason === 'none' ? t('whatsappConfig.noConfigShort') : tn(err.messageKey.slice('whatsappNumbers.'.length)),
     })
   }
 

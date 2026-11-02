@@ -14,6 +14,7 @@ import {
   Zap,
   AlertTriangle,
   RotateCcw,
+  Store,
 } from 'lucide-react';
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -40,11 +41,17 @@ import {
   AccordionContent,
 } from '@/components/ui/accordion';
 import type { WhatsAppConfig as WhatsAppConfigType } from '@/types';
+import { NumbersList } from './numbers/numbers-list';
+import { EmbeddedSignupButton } from './numbers/embedded-signup-button';
+import { BusinessProfileDialog } from './numbers/business-profile-dialog';
+import { GreenTickChecklist } from './numbers/green-tick-checklist';
+import { numberLabel, useWhatsAppNumbers } from './numbers/use-whatsapp-numbers';
 
 const MASKED_TOKEN = '••••••••••••••••';
 
 type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
-type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
+// 'number_disconnected': an admin disconnected this number; it needs reconnecting, not fixing.
+type ResetReason = 'token_corrupted' | 'meta_api_error' | 'number_disconnected' | null;
 
 // Meta ids are decimal digit strings — mirrors the server-side check in
 // POST /api/whatsapp/config so the obvious paste mistakes get a named
@@ -69,14 +76,22 @@ type WabaSubscription = {
   error?: string;
 };
 
+/** What a failed health check (GET /api/whatsapp/config) asks the user to do. */
+function healthResetReason(payload: { needs_reset?: boolean; reason?: string }): ResetReason {
+  if (payload.needs_reset) return 'token_corrupted';
+  if (payload.reason === 'disconnected') return 'number_disconnected';
+  if (payload.reason === 'meta_api_error') return 'meta_api_error';
+  return null;
+}
+
 export function WhatsAppConfig() {
   const t = useTranslations('Settings.whatsapp');
+  const tn = useTranslations('whatsappNumbers');
   const db = createClient();
-  // After multi-user, whatsapp_config is one-row-per-account, not
-  // one-row-per-user. We pull `accountId` straight off the auth
-  // context and key every read off it — so a teammate who just
-  // joined an account sees the inviter's saved config without
-  // having to re-enter anything.
+  // A workspace can connect several numbers (whatsapp_config rows keyed by
+  // account_id). The list at the top picks which one the form below edits;
+  // "Add number manually" empties the form to connect another one. Every
+  // read is keyed off `accountId` so all members see the same numbers.
   const {
     user,
     accountId,
@@ -91,6 +106,12 @@ export function WhatsAppConfig() {
   const [resetting, setResetting] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [config, setConfig] = useState<WhatsAppConfigType | null>(null);
+  const { numbers, reload: reloadNumbers } = useWhatsAppNumbers();
+  const selectedNumber = config ? numbers.find((n) => n.id === config.id) ?? null : null;
+  // True while the form is connecting an additional number.
+  const [adding, setAdding] = useState(false);
+  // The business profile dialog of the number the form is showing.
+  const [profileOpen, setProfileOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>('unknown');
   const [resetReason, setResetReason] = useState<ResetReason>(null);
@@ -152,24 +173,25 @@ export function WhatsAppConfig() {
       : '';
 
   const fetchConfig = useCallback(
-    async (acctId: string) => {
+    async (acctId: string, wantedId: string | null) => {
       setLoading(true);
+      setAdding(false);
       try {
-        // Load form values from Supabase (shows what's in DB).
-        // Switched from `user_id` (which would only match the row's
-        // original author) to `account_id` so every member of the
-        // account sees the same saved configuration. UNIQUE(account_id)
-        // on the table guarantees the .maybeSingle() return type
-        // remains accurate.
-        const { data, error } = await db
+        // Load the workspace's numbers (token columns never reach the
+        // browser) and edit the requested one, else the default, else the
+        // oldest.
+        const { data: rows, error } = await db
           .from('whatsapp_config')
           .select('*')
           .eq('account_id', acctId)
-          .maybeSingle();
+          .order('is_default', { ascending: false })
+          .order('created_at', { ascending: true });
 
         if (error) {
-          console.error('Failed to load config row:', error);
+          console.error('Failed to load config row:', error.code ?? 'unknown');
         }
+        const list = (rows ?? []) as WhatsAppConfigType[];
+        const data = list.find((row) => row.id === wantedId) ?? list[0] ?? null;
 
         if (data) {
           setConfig(data);
@@ -203,9 +225,10 @@ export function WhatsAppConfig() {
         // Then verify health via the API (decrypts token + pings Meta)
         if (data) {
           try {
-            const res = await authFetch('/api/whatsapp/config', {
-              method: 'GET',
-            });
+            const res = await authFetch(
+              `/api/whatsapp/config?id=${encodeURIComponent(data.id)}`,
+              { method: 'GET' }
+            );
             const payload = await res.json();
 
             if (payload.connected) {
@@ -216,14 +239,8 @@ export function WhatsAppConfig() {
               setWabaSubscription(payload.waba_subscription ?? null);
             } else {
               setConnectionStatus('disconnected');
-              setResetReason(
-                payload.needs_reset
-                  ? 'token_corrupted'
-                  : payload.reason === 'meta_api_error'
-                    ? 'meta_api_error'
-                    : null
-              );
-              setStatusMessage(payload.message || '');
+              setResetReason(healthResetReason(payload));
+              setStatusMessage(payload.reason === 'disconnected' ? '' : payload.message || '');
               setStatusMeta(payload.meta ?? null);
               setWabaSubscription(null);
             }
@@ -262,8 +279,36 @@ export function WhatsAppConfig() {
     }
     if (loadedAccountIdRef.current === accountId) return;
     loadedAccountIdRef.current = accountId;
-    fetchConfig(accountId);
+    fetchConfig(accountId, null);
   }, [authLoading, profileLoading, user?.id, accountId, fetchConfig]);
+
+  // Empty the form to connect another number; the list stays as it is.
+  function startAdding() {
+    setAdding(true);
+    setConfig(null);
+    setPhoneNumberId('');
+    setWabaId('');
+    setAccessToken('');
+    setVerifyToken('');
+    setPin('');
+    setTokenEdited(false);
+    setVerifyEdited(false);
+    setShowToken(false);
+    setConnectionStatus('unknown');
+    setResetReason(null);
+    setStatusMessage('');
+    setStatusMeta(null);
+    setSaveFailure(null);
+    setWabaSubscription(null);
+    setRegistrationProbe(null);
+  }
+
+  async function handleNumbersChanged(change: { removedId?: string }) {
+    await reloadNumbers();
+    if (accountId && change.removedId && change.removedId === config?.id) {
+      await fetchConfig(accountId, null);
+    }
+  }
 
   async function handleToggleMirrorMedia(next: boolean) {
     if (!config || !accountId || savingMirror) return;
@@ -399,7 +444,8 @@ export function WhatsAppConfig() {
         setPin('');
       }
 
-      if (accountId) await fetchConfig(accountId);
+      await reloadNumbers();
+      if (accountId) await fetchConfig(accountId, data.number_id ?? config?.id ?? null);
     } catch (err) {
       console.error('Save error:', err);
       toast.error(t('saveFailed'));
@@ -411,7 +457,10 @@ export function WhatsAppConfig() {
   async function handleTestConnection() {
     try {
       setTesting(true);
-      const res = await authFetch('/api/whatsapp/config', { method: 'GET' });
+      const res = await authFetch(
+        `/api/whatsapp/config${config ? `?id=${encodeURIComponent(config.id)}` : ''}`,
+        { method: 'GET' }
+      );
       const payload = await res.json();
 
       if (payload.connected) {
@@ -427,19 +476,19 @@ export function WhatsAppConfig() {
         );
       } else {
         setConnectionStatus('disconnected');
-        setResetReason(
-          payload.needs_reset
-            ? 'token_corrupted'
-            : payload.reason === 'meta_api_error'
-              ? 'meta_api_error'
-              : null
-        );
-        setStatusMessage(payload.message || '');
+        setResetReason(healthResetReason(payload));
         setStatusMeta(payload.meta ?? null);
         setWabaSubscription(null);
-        toast.error(payload.message || t('apiConnectionFailed'), {
-          duration: 10000,
-        });
+        if (payload.reason === 'disconnected') {
+          // Not a failure: an admin disconnected it. Say how to bring it back.
+          setStatusMessage('');
+          toast.info(t('numberDisconnectedHint'), { duration: 10000 });
+        } else {
+          setStatusMessage(payload.message || '');
+          toast.error(payload.message || t('apiConnectionFailed'), {
+            duration: 10000,
+          });
+        }
       }
     } catch (err) {
       console.error('Test connection error:', err);
@@ -454,9 +503,10 @@ export function WhatsAppConfig() {
     setVerifyingRegistration(true);
     setRegistrationProbe(null);
     try {
-      const res = await authFetch('/api/whatsapp/config/verify-registration', {
-        method: 'GET',
-      });
+      const res = await authFetch(
+        `/api/whatsapp/config/verify-registration${config ? `?id=${encodeURIComponent(config.id)}` : ''}`,
+        { method: 'GET' }
+      );
       const data = (await res.json()) as RegistrationProbe;
       setRegistrationProbe(data);
       if (data.live) {
@@ -464,7 +514,7 @@ export function WhatsAppConfig() {
       } else {
         toast.error(t('notFullyRegistered'), { duration: 8000 });
       }
-      if (accountId) await fetchConfig(accountId);
+      if (accountId) await fetchConfig(accountId, config?.id ?? null);
     } catch (err) {
       console.error('verify-registration failed:', err);
       toast.error(t('verifyEndpointUnreachable'));
@@ -474,13 +524,26 @@ export function WhatsAppConfig() {
   }
 
   async function handleReset() {
-    if (!confirm(t('resetConfirm'))) {
+    if (!config) return;
+    // The same soft disconnect as the numbers list, so the same warning:
+    // the token is removed, campaigns are held and live flows go to draft.
+    if (
+      !confirm(
+        tn('settings.disconnectConfirmHold', {
+          name: numberLabel(selectedNumber ?? { display_name: null, phone_number_id: config.phone_number_id }, tn),
+          isDefault: String(selectedNumber?.is_default ?? false),
+        })
+      )
+    ) {
       return;
     }
 
     try {
       setResetting(true);
-      const res = await authFetch('/api/whatsapp/config', { method: 'DELETE' });
+      const res = await authFetch(
+        `/api/whatsapp/config?id=${encodeURIComponent(config.id)}`,
+        { method: 'DELETE' }
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -488,7 +551,17 @@ export function WhatsAppConfig() {
         return;
       }
 
-      toast.success(t('resetDone'));
+      // The server says what changed: new default, flows drafted, campaigns held.
+      if (typeof data.message === 'string' && data.message) {
+        toast.success(data.message, { duration: 10_000 });
+      } else {
+        toast.success(t('resetDone'));
+      }
+      await reloadNumbers();
+      if (accountId) {
+        await fetchConfig(accountId, null);
+        return;
+      }
       setConfig(null);
       setPhoneNumberId('');
       setWabaId('');
@@ -527,6 +600,8 @@ export function WhatsAppConfig() {
   }
 
   const showResetBanner = resetReason === 'token_corrupted';
+  // An admin disconnected this number: a reconnect hint, not an error.
+  const numberDisconnected = resetReason === 'number_disconnected' || Boolean(selectedNumber?.removed);
 
   // Step + code + trace id in small muted text, so a user can quote
   // them to Meta support (issue #505). The step names are wire values
@@ -569,6 +644,22 @@ export function WhatsAppConfig() {
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         {/* Main config form */}
         <div className="space-y-6">
+          {canEditSettings && <div className="flex justify-end"><EmbeddedSignupButton canEdit onConnected={() => void reloadNumbers()} /></div>}
+          {/* Every connected number; picks which one the form below edits. */}
+          {(numbers.length > 0 || adding) && (
+            <NumbersList
+              numbers={numbers}
+              selectedId={config?.id ?? null}
+              adding={adding}
+              canEdit={canEditSettings}
+              onSelect={(id) => {
+                if (accountId) void fetchConfig(accountId, id);
+              }}
+              onAdd={startAdding}
+              onChanged={handleNumbersChanged}
+            />
+          )}
+
           {/* Corrupted-token reset banner */}
           {showResetBanner && (
             <Alert className="border-amber-600/40 bg-amber-950/40">
@@ -627,19 +718,25 @@ export function WhatsAppConfig() {
             <div className="flex items-center gap-2">
               {connectionStatus === 'connected' ? (
                 <CheckCircle2 className="text-primary size-4" />
+              ) : numberDisconnected ? (
+                <AlertTriangle className="size-4 text-amber-400" />
               ) : (
                 <XCircle className="size-4 text-red-500" />
               )}
               <AlertTitle className="text-foreground mb-0">
                 {connectionStatus === 'connected'
                   ? t('credentialsValid')
-                  : t('notConnected')}
+                  : numberDisconnected
+                    ? t('numberDisconnectedTitle')
+                    : t('notConnected')}
               </AlertTitle>
             </div>
             <AlertDescription className="text-muted-foreground">
               {connectionStatus === 'connected'
                 ? t('connectedDesc')
-                : statusMessage || t('notConnectedDesc')}
+                : numberDisconnected
+                  ? t('numberDisconnectedHint')
+                  : statusMessage || t('notConnectedDesc')}
             </AlertDescription>
             {connectionStatus === 'connected' && wabaSubscription?.checked && (
               <p
@@ -774,10 +871,14 @@ export function WhatsAppConfig() {
           <Card>
             <CardHeader>
               <CardTitle className="text-foreground">
-                {t('apiCredentialsTitle')}
+                {adding
+                  ? tn('settings.addingTitle')
+                  : selectedNumber && numbers.length > 1
+                    ? tn('settings.editing', { name: numberLabel(selectedNumber, tn) })
+                    : t('apiCredentialsTitle')}
               </CardTitle>
               <CardDescription className="text-muted-foreground">
-                {t('apiCredentialsDesc')}
+                {adding ? tn('settings.addingDesc') : t('apiCredentialsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -788,9 +889,17 @@ export function WhatsAppConfig() {
                 <Input
                   placeholder={t('phoneNumberIdPlaceholder')}
                   value={phoneNumberId}
+                  // A saved number keeps its id: a different id is another
+                  // number, connected through "Add number manually".
+                  readOnly={Boolean(config)}
                   onChange={(e) => setPhoneNumberId(e.target.value)}
                   className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                 />
+                {config && (
+                  <p className="text-muted-foreground text-xs">
+                    {tn('settings.phoneLocked')}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -928,9 +1037,36 @@ export function WhatsAppConfig() {
             </CardContent>
           </Card>
 
-          {config && <IceBreakersCard canEdit={canEditSettings} />}
+          {/* The business profile of the number the form is showing (Meta's copy). */}
+          {config && selectedNumber && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-foreground">{t('businessProfileTitle')}</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  {t('businessProfileDesc', { name: numberLabel(selectedNumber, tn) })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button type="button" variant="outline" size="sm" onClick={() => setProfileOpen(true)}>
+                  <Store className="size-3.5" />
+                  {canEditSettings ? t('businessProfileEdit') : t('businessProfileView')}
+                </Button>
+                <BusinessProfileDialog
+                  key={selectedNumber.id}
+                  numberId={selectedNumber.id}
+                  numberLabel={numberLabel(selectedNumber, tn)}
+                  open={profileOpen}
+                  onOpenChange={setProfileOpen}
+                  canEdit={canEditSettings}
+                />
+              </CardContent>
+            </Card>
+          )}
 
-          {config && <FormsEncryptionCard canEdit={canEditSettings} />}
+          {/* Both are per number; they start on the number the form is showing. */}
+          {config && <IceBreakersCard key={config.id} numberId={config.id} canEdit={canEditSettings} />}
+
+          {config && <FormsEncryptionCard key={config.id} numberId={config.id} canEdit={canEditSettings} />}
 
           {/* Attachment retention. Only meaningful once a number is
             connected, since it governs what the webhook does with
@@ -987,6 +1123,17 @@ export function WhatsAppConfig() {
                 t('saveConfig')
               )}
             </Button>
+            {adding && numbers.length > 0 && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (accountId) void fetchConfig(accountId, null);
+                }}
+                disabled={saving}
+              >
+                {tn('settings.cancel')}
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={handleTestConnection}
@@ -1005,7 +1152,7 @@ export function WhatsAppConfig() {
                 </>
               )}
             </Button>
-            {config && (
+            {config && !numberDisconnected && (
               <Button
                 variant="outline"
                 onClick={handleReset}
@@ -1029,7 +1176,7 @@ export function WhatsAppConfig() {
         </div>
 
         {/* Setup Instructions Sidebar */}
-        <div>
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-foreground text-base">
@@ -1141,6 +1288,9 @@ export function WhatsAppConfig() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Green tick guidance; the display-name step follows the shown number's name status. */}
+          {config && <GreenTickChecklist nameStatus={selectedNumber?.name_status ?? null} />}
         </div>
       </div>
     </section>

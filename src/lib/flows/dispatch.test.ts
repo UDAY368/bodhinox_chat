@@ -23,6 +23,8 @@ const h = vi.hoisted(() => ({
     /** Set by the flow_runs INSERT; what its .maybeSingle() returns. */
     insertedRun: null as Record<string, unknown> | null,
     rpcCalls: [] as string[],
+    /** The number the conversation (and so the inbound) is on. */
+    conversationNumber: null as string | null,
   },
 }));
 
@@ -31,7 +33,7 @@ vi.mock("./admin-client", () => {
     if (table === "flow_runs") return h.state.activeRuns;
     if (table === "flows") return h.state.flows;
     if (table === "flow_nodes") return h.state.nodes;
-    if (table === 'conversations') return [{ id: 'cv-1', account_id: 'acct-1', contact_id: 'ct-1' }];
+    if (table === 'conversations') return [{ id: 'cv-1', account_id: 'acct-1', contact_id: 'ct-1', whatsapp_config_id: h.state.conversationNumber }];
     if (table === 'contacts') return [{ id: 'ct-1', account_id: 'acct-1' }];
     return [];
   }
@@ -185,6 +187,7 @@ beforeEach(() => {
   h.state.inserted = [];
   h.state.insertedRun = null;
   h.state.rpcCalls = [];
+  h.state.conversationNumber = null;
   engineSendText.mockClear();
 });
 
@@ -342,6 +345,34 @@ describe("dispatchInboundToFlows — entry triggers (#490)", () => {
     // treated it that way.
     expect(result.consumed).toBe(true);
     expect(result.flow_run_id).toBe("run-1");
+    expect(startedRuns()).toHaveLength(1);
+  });
+});
+
+describe('entry triggers with several WhatsApp numbers', () => {
+  const NUMBER_A = '11111111-1111-4111-8111-11111111111a';
+  const NUMBER_B = '22222222-2222-4222-8222-22222222222b';
+  const text = { kind: 'text' as const, text: 'order status', meta_message_id: 'multi-1' };
+
+  it('starts a flow tied to a number for a message on that number', async () => {
+    h.state.flows = [{ ...KEYWORD_FLOW, whatsapp_config_id: NUMBER_A }];
+    h.state.conversationNumber = NUMBER_A;
+    await dispatch(text);
+    expect(startedRuns()).toHaveLength(1);
+  });
+
+  it('does not start it for a message on another number', async () => {
+    h.state.flows = [{ ...KEYWORD_FLOW, whatsapp_config_id: NUMBER_A }];
+    h.state.conversationNumber = NUMBER_B;
+    const result = await dispatch(text);
+    expect(result.outcome).toBe('no_match');
+    expect(startedRuns()).toHaveLength(0);
+  });
+
+  it('starts an untied flow on every number, as before', async () => {
+    h.state.flows = [{ ...KEYWORD_FLOW, whatsapp_config_id: null }];
+    h.state.conversationNumber = NUMBER_B;
+    await dispatch(text);
     expect(startedRuns()).toHaveLength(1);
   });
 });

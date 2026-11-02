@@ -23,14 +23,21 @@ const h = vi.hoisted(() => ({
   session: null as null | { id: string; answers: Record<string, unknown>; expired: boolean; completed: boolean; definition: unknown },
   scopes: [] as unknown[],
   limited: false,
+  keyWaba: "waba-1" as string | null,
+  formWaba: "waba-1" as string | null,
 }));
 
 // A stand-in for the tenant transaction: answers by the statement it is given.
 const tx = {
   $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const sql = strings.join("?");
-    if (sql.includes("FROM whatsapp_config")) return [{ forms_private_key_enc: h.privateKey, forms_pending_private_key_enc: h.pendingKey }];
-    if (sql.includes("FROM whatsapp_form_sessions")) return h.session && values.includes(TOKEN) ? [h.session] : [];
+    if (sql.includes("FROM whatsapp_config")) return [{ forms_private_key_enc: h.privateKey, forms_pending_private_key_enc: h.pendingKey, waba_id: h.keyWaba }];
+    if (sql.includes("FROM whatsapp_form_sessions")) {
+      // Mirrors the WABA filter: (unscoped OR form WABA unknown OR form WABA in the key's WABAs).
+      const [unscoped, wabaIds] = values.slice(-2) as [boolean, string[]];
+      const inScope = unscoped || h.formWaba === null || wabaIds.includes(h.formWaba);
+      return h.session && values.includes(TOKEN) && inScope ? [h.session] : [];
+    }
     if (sql.includes("completed_at = now()")) {
       if (!h.session || h.session.completed) return [];
       h.session.answers = { ...h.session.answers, ...JSON.parse(values[0] as string) };
@@ -83,6 +90,16 @@ beforeEach(() => {
   h.session = { id: "s-1", answers: {}, expired: false, completed: false, definition };
   h.scopes = [];
   h.limited = false;
+  h.keyWaba = "waba-1";
+  h.formWaba = "waba-1";
+});
+
+it("only serves forms of the WABA whose number holds the decrypting key", async () => {
+  expect((await exchange({ action: "INIT", flow_token: TOKEN })).status).toBe(200);
+  h.formWaba = "waba-2";
+  expect((await exchange({ action: "INIT", flow_token: TOKEN })).status).toBe(427);
+  h.keyWaba = "waba-2";
+  expect((await exchange({ action: "INIT", flow_token: TOKEN })).status).toBe(200);
 });
 
 it("answers a ping with an encrypted active status, as the account's worker scope", async () => {

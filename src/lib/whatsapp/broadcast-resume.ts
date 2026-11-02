@@ -18,7 +18,9 @@
 
 import type { DataClient } from '@/lib/data/types';
 
-import { BroadcastError, type BroadcastPlan } from '@/lib/whatsapp/broadcast-core';
+import { BroadcastError, broadcastNumberError, type BroadcastPlan } from '@/lib/whatsapp/broadcast-core';
+import { assertTemplateOnNumber, loadSenderConfig, type SenderConfigRow } from '@/lib/whatsapp/sender-config';
+import { assertNumberConnected } from '@/lib/whatsapp/numbers';
 import { chunk } from '@/lib/data/paged-query';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
@@ -154,7 +156,7 @@ export async function planBroadcastResume(
 ): Promise<ResumePlan> {
   const { data: broadcast, error: bcError } = await db
     .from('broadcasts')
-    .select('id, template_name, template_language, template_variables')
+    .select('id, template_name, template_language, template_variables, whatsapp_config_id')
     .eq('id', broadcastId)
     .eq('account_id', accountId)
     .maybeSingle();
@@ -223,17 +225,18 @@ export async function planBroadcastResume(
     );
   }
 
-  const { data: config, error: configError } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', accountId)
-    .single();
-  if (configError || !config) {
-    throw new BroadcastError(
-      'whatsapp_not_configured',
-      'WhatsApp not configured. Please set up your WhatsApp integration first.',
-      400
-    );
+  // The campaign's number; the workspace default when it has none. A
+  // disconnected number holds the campaign (whatsapp_number_disconnected)
+  // until it is reconnected: never a fallback to another number.
+  let config: SenderConfigRow;
+  try {
+    config = assertNumberConnected(await loadSenderConfig(
+      db,
+      accountId,
+      (broadcast as { whatsapp_config_id?: string | null }).whatsapp_config_id ?? null
+    ));
+  } catch (error) {
+    throw broadcastNumberError(error);
   }
 
   const resolvedTemplate = await resolveTemplateRow(
@@ -248,6 +251,13 @@ export async function planBroadcastResume(
       'Template row is malformed locally — run "Sync from Meta" in Settings to repair it before resuming.',
       500
     );
+  }
+
+  // A template synced from another WABA cannot go out from this number.
+  try {
+    assertTemplateOnNumber(resolvedTemplate.row, config);
+  } catch (error) {
+    throw broadcastNumberError(error);
   }
 
   const plan: BroadcastPlan = {

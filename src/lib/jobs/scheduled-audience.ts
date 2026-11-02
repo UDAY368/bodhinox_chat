@@ -9,6 +9,7 @@ import {
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchOnce } from './dispatch';
 import { enqueueJob } from './queue';
+import { pickContactConversationId } from '@/lib/whatsapp/contact-conversation';
 
 type ScheduledAutomation = {
   id: string;
@@ -96,6 +97,15 @@ export async function queueScheduledOccurrence(
   }
 }
 
+/** The contact's conversation a scheduled automation acts on (one per number; see pickContactConversationId). */
+async function findContactConversationId(db: DataClient, accountId: string, contactId: string) {
+  try {
+    return await pickContactConversationId(db, accountId, contactId);
+  } catch {
+    throw new Error('Could not resolve scheduled conversation');
+  }
+}
+
 /** Entire executions are fenced too: retry cannot mint a fresh log and resend completed steps. */
 export async function executeScheduledOccurrence(
   db: DataClient,
@@ -143,14 +153,7 @@ export async function executeScheduledOccurrence(
         ].includes(step.step_type)
       )
     ) {
-      const found = await db
-        .from('conversations')
-        .select('id')
-        .eq('contact_id', contactId)
-        .maybeSingle();
-      if (found.error)
-        throw new Error('Could not resolve scheduled conversation');
-      conversationId = found.data?.id;
+      conversationId = await findContactConversationId(db, accountId, contactId);
       if (!conversationId) {
         const inserted = await db
           .from('conversations')
@@ -161,18 +164,15 @@ export async function executeScheduledOccurrence(
               contact_id: contactId,
               status: 'open',
             },
-            { onConflict: 'account_id,contact_id', ignoreDuplicates: true }
+            // One conversation per (contact, number); the insert trigger
+            // fills whatsapp_config_id with the workspace default.
+            { onConflict: 'account_id,contact_id,whatsapp_config_id', ignoreDuplicates: true }
           );
         if (inserted.error)
           throw new Error('Could not create scheduled conversation');
-        const resolved = await db
-          .from('conversations')
-          .select('id')
-          .eq('contact_id', contactId)
-          .single();
-        if (resolved.error || !resolved.data)
+        conversationId = await findContactConversationId(db, accountId, contactId);
+        if (!conversationId)
           throw new Error('Could not resolve scheduled conversation');
-        conversationId = resolved.data.id;
       }
     }
   }

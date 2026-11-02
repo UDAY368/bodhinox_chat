@@ -9,7 +9,7 @@
 //
 // It deliberately reuses the exact find-or-create logic the inbound
 // webhook uses (the `findExistingContact` dedupe helper, the
-// one-conversation-per-(account, contact) convention, the
+// one-conversation-per-(contact, number) convention, the
 // account_id-tenancy / user_id-audit split) so a contact created via
 // the API is indistinguishable from one created by an inbound message.
 //
@@ -28,6 +28,8 @@ import { resolveAuditUserId, ContactError } from '@/lib/api/v1/contacts';
 export interface ResolvedConversation {
   conversationId: string;
   contactId: string;
+  /** The number (whatsapp_config.id) the conversation belongs to. */
+  whatsappConfigId: string;
   /** True if this call created the contact (vs matched an existing one). */
   contactCreated: boolean;
 }
@@ -37,12 +39,17 @@ export interface ResolvedConversation {
  * `accountId`. Throws `SendMessageError` (shared with the send core,
  * so the route maps one error family) on a bad phone, a missing
  * WhatsApp config, or a DB failure.
+ *
+ * `options.whatsappConfigId` picks the number; without it the
+ * workspace default (or its only number) is used, matching
+ * getNumberConfig in `@/lib/whatsapp/numbers`.
  */
 export async function resolveConversationByPhone(
   db: DataClient,
   accountId: string,
   phone: string,
-  name?: string | null
+  name?: string | null,
+  options: { whatsappConfigId?: string | null } = {}
 ): Promise<ResolvedConversation> {
   // Raw integrator input: the leading `+` is required so the country
   // code is explicit — "4155551212" would otherwise be delivered to
@@ -58,18 +65,7 @@ export async function resolveConversationByPhone(
 
   // Fail fast (and create nothing) when the account has no WhatsApp
   // connected — the same error the send would raise anyway.
-  const { data: config } = await db
-    .from('whatsapp_config')
-    .select('id')
-    .eq('account_id', accountId)
-    .maybeSingle();
-  if (!config) {
-    throw new SendMessageError(
-      'whatsapp_not_configured',
-      'WhatsApp not configured. Please set up your WhatsApp integration first.',
-      400
-    );
-  }
+  const whatsappConfigId = await resolveNumberId(db, accountId, options.whatsappConfigId);
 
   // Audit user for created rows = the single account-wide default used
   // by every public-API write (see resolveAuditUserId), so a contact
@@ -140,7 +136,7 @@ export async function resolveConversationByPhone(
   }
 
   // ---- conversation -------------------------------------------
-  // One conversation per (account, contact) — same convention as the
+  // One conversation per (contact, number) — same convention as the
   // webhook. Order oldest-first and take one row rather than
   // `.maybeSingle()`, which errors on ≥2 rows: if duplicates predate the
   // unique index (migration 036), we resolve to the canonical survivor
@@ -149,39 +145,105 @@ export async function resolveConversationByPhone(
     db,
     accountId,
     contactId,
-    ownerUserId
+    ownerUserId,
+    whatsappConfigId
   );
 
-  return { conversationId, contactId, contactCreated };
+  return { conversationId, contactId, contactCreated, whatsappConfigId };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The requested number, else the default, else the only one. */
+async function resolveNumberId(
+  db: DataClient,
+  accountId: string,
+  requested: string | null | undefined
+): Promise<string> {
+  const notConfigured = () =>
+    new SendMessageError(
+      'whatsapp_not_configured',
+      'WhatsApp not configured. Please set up your WhatsApp integration first.',
+      400
+    );
+  if (requested) {
+    if (!UUID.test(requested)) {
+      throw new SendMessageError('bad_request', 'Unknown WhatsApp number', 400);
+    }
+    const { data, error } = await db
+      .from('whatsapp_config')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('id', requested)
+      .limit(1);
+    if (error) throw new SendMessageError('db_error', 'Failed to resolve WhatsApp number', 500);
+    if (!data || data.length === 0) {
+      throw new SendMessageError('bad_request', 'Unknown WhatsApp number', 400);
+    }
+    return data[0].id as string;
+  }
+  const { data, error } = await db
+    .from('whatsapp_config')
+    .select('id,is_default')
+    .eq('account_id', accountId)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(2);
+  if (error) throw new SendMessageError('db_error', 'Failed to resolve WhatsApp number', 500);
+  const rows = (data ?? []) as { id: string; is_default: boolean }[];
+  if (rows.length === 0) throw notConfigured();
+  if (rows[0].is_default || rows.length === 1) return rows[0].id;
+  throw new SendMessageError('bad_request', 'Choose which WhatsApp number to send from', 400);
 }
 
 /**
- * Find (oldest-first) or create the single conversation for
- * `(accountId, contactId)`. Handles the unique-index race the same way
- * the inbound webhook does: on a 23505 from a concurrent create,
- * re-resolve the winning row rather than failing the send.
+ * Find (oldest-first) or create the conversation for
+ * `(accountId, contactId, whatsappConfigId)`, adopting the contact's
+ * unnumbered conversation if it has one. Handles the unique-index race
+ * the same way the inbound webhook does: on a 23505 from a concurrent
+ * create, re-resolve the winning row rather than failing the send.
  */
 async function findOrCreateConversationRow(
   db: DataClient,
   accountId: string,
   contactId: string,
-  ownerUserId: string
+  ownerUserId: string,
+  whatsappConfigId: string
 ): Promise<string> {
-  const { data: existing, error: findErr } = await db
-    .from('conversations')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('contact_id', contactId)
-    .order('created_at', { ascending: true })
-    .limit(1);
+  const findForNumber = () =>
+    db
+      .from('conversations')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('contact_id', contactId)
+      .eq('whatsapp_config_id', whatsappConfigId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+  const { data: existing, error: findErr } = await findForNumber();
 
   if (findErr) {
-    console.error('[resolve-conversation] conversation lookup error:', findErr);
+    console.error('[resolve-conversation] conversation lookup failed');
     throw new SendMessageError('db_error', 'Failed to resolve conversation', 500);
   }
 
   if (existing && existing.length > 0) {
     return existing[0].id;
+  }
+
+  const { data: adopted, error: adoptErr } = await db
+    .from('conversations')
+    .update({ whatsapp_config_id: whatsappConfigId })
+    .eq('account_id', accountId)
+    .eq('contact_id', contactId)
+    .is('whatsapp_config_id', null)
+    .select('id');
+  if (adoptErr && !isUniqueViolation(adoptErr)) {
+    console.error('[resolve-conversation] conversation adopt failed');
+    throw new SendMessageError('db_error', 'Failed to resolve conversation', 500);
+  }
+  if (adopted && adopted.length > 0) {
+    return adopted[0].id as string;
   }
 
   const { data: newConv, error: convErr } = await db
@@ -190,24 +252,19 @@ async function findOrCreateConversationRow(
       account_id: accountId,
       user_id: ownerUserId,
       contact_id: contactId,
+      whatsapp_config_id: whatsappConfigId,
     })
     .select('id')
     .single();
 
   if (convErr || !newConv) {
-    if (isUniqueViolation(convErr)) {
-      const { data: raced } = await db
-        .from('conversations')
-        .select('id')
-        .eq('account_id', accountId)
-        .eq('contact_id', contactId)
-        .order('created_at', { ascending: true })
-        .limit(1);
+    if (isUniqueViolation(convErr) || adoptErr) {
+      const { data: raced } = await findForNumber();
       if (raced && raced.length > 0) {
         return raced[0].id;
       }
     }
-    console.error('[resolve-conversation] conversation create error:', convErr);
+    console.error('[resolve-conversation] conversation create failed');
     throw new SendMessageError('db_error', 'Failed to create conversation', 500);
   }
 

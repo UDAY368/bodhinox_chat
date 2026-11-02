@@ -11,7 +11,8 @@ import { z } from 'zod';
 import { AuthError } from '@/lib/auth/errors';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { databaseAdmin } from '@/lib/flows/admin-client';
-import { loadAccountMetaCredentials } from '@/lib/flows/meta-send';
+import { decrypt } from '@/lib/whatsapp/encryption';
+import { loadSenderConfig } from '@/lib/whatsapp/sender-config';
 import { providerMediaUrl } from '@/lib/storage/server';
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
@@ -23,6 +24,7 @@ import {
 import { resolveTemplateMediaParams } from '@/lib/whatsapp/template-media';
 import { marketingSuppression } from '@/lib/contacts/consent';
 import { assertMedia, variableMapping } from './create-campaign';
+import { campaignNumberId } from './api-campaign';
 import { TEST_CLICK_TOKEN, trackedButtonIndex } from './tracking';
 
 export const MAX_TEST_NUMBERS = 3;
@@ -33,6 +35,8 @@ const inputSchema = z.object({
   headerMediaUrl: z.string().trim().min(1).max(2048).optional(),
   /** The campaign's location, offer end and coupon code (template-send-params). */
   sendExtras: z.unknown().optional(),
+  /** The number the campaign will send from; omitted means the workspace default. */
+  whatsappConfigId: z.string().uuid().nullish(),
 }).strict();
 
 export interface TestSendResult { phone: string; ok: boolean; error?: string }
@@ -75,6 +79,8 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
     if (Object.keys(input.variables).length !== keys.length || keys.some((key) => !Object.hasOwn(input.variables, key))) invalid('Map every template variable before sending a test');
     const headerMediaUrl = input.headerMediaUrl ?? (template.header_media_url?.trim() || undefined);
     await assertMedia(tx, accountId, headerMediaUrl);
+    // The campaign's number (or the default), checked against the template's WABA like the campaign itself.
+    const numberId = await campaignNumberId(tx, accountId, input.whatsappConfigId, template as { waba_id?: string | null });
     const fieldIds = keys.flatMap((key) => (input.variables[key].type === 'custom_field' ? [input.variables[key].value] : []));
 
     const targets: Target[] = [];
@@ -91,7 +97,7 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
       const custom = new Map(values.map((row) => [row.custom_field_id, row.value ?? '']));
       targets.push({ phone: raw, to: digits, params: testParams(keys, input.variables, contact ?? null, custom) });
     }
-    return { template, headerMediaUrl, targets };
+    return { template, headerMediaUrl, targets, numberId };
   });
   const extras = parseCampaignSendExtras(input.sendExtras);
   if (!extras.ok) invalid(extras.error);
@@ -103,8 +109,14 @@ export async function sendCampaignTest(scope: TenantContext, raw: unknown): Prom
   let media: string | undefined;
   let setupError = '';
   if (sendable) {
-    try { credentials = await loadAccountMetaCredentials(databaseAdmin({ accountId, role: 'owner' }), accountId); }
-    catch { setupError = 'WhatsApp is not connected for this workspace'; }
+    try {
+      const config = prepared.numberId
+        ? await loadSenderConfig(databaseAdmin({ accountId, role: 'owner' }), accountId, prepared.numberId)
+        : null;
+      if (config?.phone_number_id && config.access_token) {
+        credentials = { phoneNumberId: config.phone_number_id, accessToken: decrypt(config.access_token) };
+      } else setupError = 'WhatsApp is not connected for this workspace';
+    } catch { setupError = 'WhatsApp is not connected for this workspace'; }
     if (credentials && prepared.headerMediaUrl && !carousel) {
       try { media = await providerMediaUrl(accountId, prepared.headerMediaUrl); }
       catch { credentials = null; setupError = 'The header media is unavailable'; }

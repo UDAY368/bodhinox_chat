@@ -8,7 +8,7 @@
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { decryptRequest, encryptResponse, isEncryptedFormsRequest } from '@/lib/whatsapp/forms/crypto';
 import { handleFormsExchange } from '@/lib/whatsapp/forms/endpoint';
-import { formsPrivateKeys, formsSessionStore } from '@/lib/whatsapp/forms/session-store';
+import { formsKeyring, formsSessionStore } from '@/lib/whatsapp/forms/session-store';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 
 export const runtime = 'nodejs';
@@ -49,15 +49,17 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
   if (!isEncryptedFormsRequest(body)) return new Response('Invalid payload', { status: 400 });
 
   try {
-    // The current key first, then a rotation Meta may hold but we never promoted.
-    const privateKeys = await formsPrivateKeys(accountId);
-    if (privateKeys.length === 0) return new Response('Key unavailable', { status: 421 });
+    // The current keys first, then a rotation Meta may hold but we never promoted.
+    const keyring = await formsKeyring(accountId);
+    if (keyring.length === 0) return new Response('Key unavailable', { status: 421 });
     let opened;
-    for (const privateKeyPem of privateKeys) {
-      try { opened = decryptRequest(body, privateKeyPem); break; } catch { /* try the next key */ }
+    let wabaIds: string[] = [];
+    for (const key of keyring) {
+      try { opened = decryptRequest(body, key.privateKeyPem); wabaIds = key.wabaIds; break; } catch { /* try the next key */ }
     }
     if (!opened) return new Response('Decryption failed', { status: 421 });
-    const result = await handleFormsExchange(opened.decrypted, formsSessionStore(accountId));
+    // Only forms of a WABA whose number holds the key that decrypted the request.
+    const result = await handleFormsExchange(opened.decrypted, formsSessionStore(accountId, { wabaIds }));
     if (result.status !== 200) return new Response(null, { status: result.status });
     return new Response(encryptResponse(result.body, opened.aesKey, opened.iv), { headers: { 'Content-Type': 'text/plain' } });
   } catch {

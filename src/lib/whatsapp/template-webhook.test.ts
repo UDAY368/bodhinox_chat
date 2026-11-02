@@ -29,7 +29,7 @@ type SelectResult = {
 function makeSupabaseStub(
   selectResult: SelectResult = { data: [{ id: 'row-1' }], error: null },
   opts: {
-    configRows?: { account_id: string; user_id: string }[];
+    configRows?: { account_id: string; user_id: string; is_default?: boolean }[];
     insertError?: { message: string; code?: string } | null;
     retrySelectResult?: SelectResult;
   } = {},
@@ -38,6 +38,8 @@ function makeSupabaseStub(
     table: string;
     update?: Record<string, unknown>;
     filter?: { column: string; value: unknown };
+    /** The WABA scope (`.or(...)`) on a message_templates UPDATE. */
+    or?: string;
     insert?: Record<string, unknown>;
     select?: string;
   }[] = [];
@@ -78,7 +80,11 @@ function makeSupabaseStub(
           return {
             eq(column: string, value: unknown) {
               entry.filter = { column, value };
-              return {
+              const scoped = {
+                or(expression: string) {
+                  entry.or = expression;
+                  return scoped;
+                },
                 select() {
                   return Promise.resolve(result);
                 },
@@ -93,6 +99,7 @@ function makeSupabaseStub(
                   );
                 },
               };
+              return scoped;
             },
           };
         },
@@ -279,7 +286,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
           message_template_name: 'created_in_meta',
           message_template_language: 'de',
         },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
@@ -289,13 +296,14 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
       'whatsapp_config', // resolve the tenant
       'message_templates', // the stub INSERT
     ]);
-    expect(calls[1].select).toBe('account_id, user_id');
-    expect(calls[1].filter).toEqual({ column: 'waba_id', value: 'WABA-1' });
+    expect(calls[1].select).toBe('account_id, user_id, is_default');
+    expect(calls[1].filter).toEqual({ column: 'waba_id', value: '1001' });
     expect(calls[2].insert).toEqual({
       id: expect.any(String),
       account_id: 'acc-1',
       user_id: 'admin-1',
       meta_template_id: '555',
+      waba_id: '1001',
       name: 'created_in_meta',
       language: 'de',
       body_text: '',
@@ -319,7 +327,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
           message_template_name: 'spammy',
           reason: 'INVALID_FORMAT',
         },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
@@ -344,7 +352,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
           message_template_id: '557',
           message_template_name: 'orphan',
         },
-        wabaId: 'WABA-NOBODY',
+        wabaId: '9009',
       },
       stub,
     );
@@ -352,9 +360,9 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
     expect(calls.some((c) => c.insert)).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0][0]);
-    expect(message).toContain('WABA WABA-NOBODY');
+    expect(message).toContain('WABA 9009');
     expect(message).toContain('557');
-    expect(message).toContain('no whatsapp_config rows');
+    expect(message).toContain('no workspaces');
   });
 
   it('refuses to guess the tenant when several configs share the WABA id', async () => {
@@ -373,12 +381,12 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
           message_template_id: '558',
           message_template_name: 'shared',
         },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
     expect(calls.some((c) => c.insert)).toBe(false);
-    expect(String(warn.mock.calls[0][0])).toContain('2 whatsapp_config rows');
+    expect(String(warn.mock.calls[0][0])).toContain('2 workspaces');
   });
 
   it('inserts a stub with quality_score (and no status) for a 0-row quality update', async () => {
@@ -397,16 +405,17 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
           previous_quality_score: 'UNKNOWN',
           new_quality_score: 'RED',
         },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
-    expect(calls[0].update).toEqual({ quality_score: 'RED' });
+    expect(calls[0].update).toEqual({ quality_score: 'RED', waba_id: '1001' });
     expect(calls[2].insert).toEqual({
       id: expect.any(String),
       account_id: 'acc-1',
       user_id: 'admin-1',
       meta_template_id: '559',
+      waba_id: '1001',
       name: 'created_in_meta',
       language: 'en_US',
       body_text: '',
@@ -431,13 +440,13 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
           message_template_name: 'orphan',
           new_quality_score: 'GREEN',
         },
-        wabaId: 'WABA-NOBODY',
+        wabaId: '9009',
       },
       stub,
     );
     expect(calls.some((c) => c.insert)).toBe(false);
     expect(String(warn.mock.calls[0][0])).toContain('quality update');
-    expect(String(warn.mock.calls[0][0])).toContain('WABA WABA-NOBODY');
+    expect(String(warn.mock.calls[0][0])).toContain('WABA 9009');
   });
 
   it('retries the update once when the stub insert hits a unique violation', async () => {
@@ -458,7 +467,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
           message_template_id: '561',
           message_template_name: 'raced',
         },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
@@ -482,7 +491,7 @@ describe('handleTemplateWebhookChange — unknown template stub (#534)', () => {
       {
         field: 'message_template_status_update',
         value: { event: 'APPROVED', message_template_id: '562' },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
@@ -629,7 +638,7 @@ describe('handleTemplateWebhookChange — status history', () => {
       {
         field: 'message_template_status_update',
         value: { event: 'APPROVED', message_template_id: '555', message_template_name: 'from_meta' },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
@@ -651,7 +660,7 @@ describe('handleTemplateWebhookChange — status history', () => {
       {
         field: 'message_template_quality_update',
         value: { message_template_id: '556', message_template_name: 'from_meta', new_quality_score: 'GREEN' },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
@@ -673,7 +682,7 @@ describe('handleTemplateWebhookChange — status history', () => {
       {
         field: 'message_template_status_update',
         value: { event: 'PAUSED', message_template_id: '561', message_template_name: 'raced' },
-        wabaId: 'WABA-1',
+        wabaId: '1001',
       },
       stub,
     );
@@ -694,10 +703,67 @@ describe('handleTemplateWebhookChange — status history', () => {
       {
         field: 'message_template_status_update',
         value: { event: 'APPROVED', message_template_id: '2', message_template_name: 'x' },
-        wabaId: 'WABA-NOBODY',
+        wabaId: '9009',
       },
       orphan.stub,
     );
     expect(history.record).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleTemplateWebhookChange — WABA scope (multi-number)', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it("updates only the event WABA's templates and stamps unscoped rows with it", async () => {
+    const { stub, calls } = makeSupabaseStub();
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_status_update',
+        value: { event: 'APPROVED', message_template_id: '701', message_template_name: 'x' },
+        wabaId: '2002',
+      },
+      stub,
+    );
+    expect(calls[0].or).toBe('waba_id.eq.2002,waba_id.is.null');
+    expect(calls[0].update).toMatchObject({ status: 'APPROVED', waba_id: '2002' });
+  });
+
+  it('ignores a malformed WABA id instead of filtering on it', async () => {
+    const { stub, calls } = makeSupabaseStub();
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_quality_update',
+        value: { message_template_id: '702', new_quality_score: 'GREEN' },
+        wabaId: "1,waba_id.neq.0",
+      },
+      stub,
+    );
+    expect(calls[0].or).toBeUndefined();
+    expect(calls[0].update).toEqual({ quality_score: 'GREEN' });
+  });
+
+  it('creates the stub for a workspace whose several numbers share the WABA, as the default number owner', async () => {
+    const { stub, calls } = makeSupabaseStub(
+      { data: [], error: null },
+      {
+        configRows: [
+          { account_id: 'acc-1', user_id: 'admin-1', is_default: false },
+          { account_id: 'acc-1', user_id: 'admin-2', is_default: true },
+        ],
+      },
+    );
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_status_update',
+        value: { event: 'APPROVED', message_template_id: '703', message_template_name: 'shared_waba' },
+        wabaId: '1001',
+      },
+      stub,
+    );
+    expect(calls[2].insert).toMatchObject({ account_id: 'acc-1', user_id: 'admin-2', waba_id: '1001' });
   });
 });

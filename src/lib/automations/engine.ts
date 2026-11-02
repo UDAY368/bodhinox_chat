@@ -32,6 +32,7 @@ import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { fillWorkspace, workspaceValuesFor } from '@/lib/workspace/attributes'
 import { getT } from '@/lib/i18n/translate'
+import { ContactConversationLookupError, pickContactConversationId } from '@/lib/whatsapp/contact-conversation'
 
 /** Step errors land in automation_logs and are shown on the logs page. */
 const tErr = getT('LibErrors.engine')
@@ -928,11 +929,9 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         agentId = (await nextRoundRobinAgent(args.automation.account_id)) ?? undefined
       }
       if (!agentId) return 'no agent resolved'
-      await db
+      await inConversationScope(db
         .from('conversations')
-        .update({ assigned_agent_id: agentId })
-        .eq('account_id', args.automation.account_id)
-        .eq('contact_id', args.contactId)
+        .update({ assigned_agent_id: agentId }), args)
       return `assigned to ${agentId}`
     }
 
@@ -1009,11 +1008,9 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 
     case 'close_conversation': {
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'close_conversation' }))
-      await db
+      await inConversationScope(db
         .from('conversations')
-        .update({ status: 'closed', updated_at: new Date().toISOString() })
-        .eq('account_id', args.automation.account_id)
-        .eq('contact_id', args.contactId)
+        .update({ status: 'closed', updated_at: new Date().toISOString() }), args)
       return 'conversation closed'
     }
 
@@ -1025,6 +1022,17 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
+
+/**
+ * The conversations an assign/close step changes: the triggering one when the
+ * run has it (a contact has one conversation per number), else all of the
+ * contact's, as before multi-number.
+ */
+function inConversationScope<Q extends { eq(field: string, value: unknown): Q }>(query: Q, args: ExecuteArgs): Q {
+  const scoped = query.eq('account_id', args.automation.account_id).eq('contact_id', args.contactId)
+  const fromCtx = args.context.conversation_id
+  return typeof fromCtx === 'string' && fromCtx ? scoped.eq('id', fromCtx) : scoped
+}
 
 /**
  * Pick the conversation a send-type step should use. Prefer the id the
@@ -1052,20 +1060,21 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
     return data.id as string
   }
   if (!args.contactId) throw new Error(tErr('noContactForConversation'))
-  const { data, error } = await databaseAdmin()
-    .from('conversations')
-    .select('id')
-    .eq('account_id', args.automation.account_id)
-    .eq('contact_id', args.contactId)
-    .maybeSingle()
-  if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message,
-      }))
-  if (!data?.id) {
+  // One conversation per (contact, number): the default number's thread.
+  let conversationId: string | undefined
+  try {
+    conversationId = await pickContactConversationId(databaseAdmin(), args.automation.account_id, args.contactId)
+  } catch (error) {
+    const cause = error instanceof ContactConversationLookupError ? error.cause : error
+    const message = cause && typeof cause === 'object' && 'message' in cause ? String((cause as { message: unknown }).message) : 'lookup failed'
+    throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message }))
+  }
+  if (!conversationId) {
     throw new Error(
       tErr(args.triggerEvent === 'tag_added' ? 'tagAddedNoConversation' : 'noConversation')
     )
   }
-  return data.id as string
+  return conversationId
 }
 
 /** Letter, digit or underscore in any script — the "inside a word" test. */

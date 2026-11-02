@@ -9,6 +9,7 @@ import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
 import { getSessionWindow } from '@/lib/inbox/session'
 import {
+  conversationNumberDisconnected,
   engineSendText,
   loadAccountMetaCredentials,
 } from '@/lib/flows/meta-send'
@@ -133,6 +134,13 @@ export async function dispatchInboundToAiReply(
 
     const conv = await eligible()
     if (!conv) return
+    // The thread's number was disconnected: replies are refused, never sent from
+    // another number. Stand down quietly (no handoff, no LLM call); the reason
+    // code is logged, never the content.
+    if (await conversationNumberDisconnected(db, accountId, conversationId)) {
+      console.info('[ai auto-reply] skipped', { reason: 'whatsapp_number_disconnected' })
+      return
+    }
     observedCustomerTimestamp = conv.last_customer_message_at
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) { await unavailable(); return }
 
@@ -163,7 +171,7 @@ export async function dispatchInboundToAiReply(
     // nothing to undo on the handoff / no-text path. Strictly
     // best-effort: a failed indicator must never cost us the reply.
     if (inboundMessageId) {
-      await showTypingIndicator(db, accountId, inboundMessageId)
+      await showTypingIndicator(db, accountId, conversationId, inboundMessageId)
     }
 
     // Ground the reply in the account's knowledge base (best-effort).
@@ -272,12 +280,15 @@ export async function dispatchInboundToAiReply(
 async function showTypingIndicator(
   db: ReturnType<typeof databaseAdmin>,
   accountId: string,
+  conversationId: string,
   inboundMessageId: string,
 ): Promise<void> {
   try {
+    // The number the inbound arrived on: the conversation's number.
     const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
       db,
       accountId,
+      conversationId,
     )
     await sendTypingIndicator({
       phoneNumberId,

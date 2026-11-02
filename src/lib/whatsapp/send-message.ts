@@ -45,6 +45,13 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
+import { assertNumberConnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import {
+  assertTemplateOnNumber,
+  loadSenderConfig,
+  numberErrorText,
+  TemplateNumberMismatchError,
+} from '@/lib/whatsapp/sender-config';
 import type { MessageTemplate } from '@/types';
 import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import {
@@ -75,6 +82,26 @@ export class SendMessageError extends Error {
     this.code = code;
     this.status = status;
   }
+}
+
+/** Map a sender-number failure to the send core's typed error. */
+function senderConfigError(error: unknown): unknown {
+  if (error instanceof NoNumberError) {
+    if (error.reason === 'disconnected') {
+      return new SendMessageError('whatsapp_number_disconnected', numberErrorText(error), 409);
+    }
+    return error.reason === 'none'
+      ? new SendMessageError(
+          'whatsapp_not_configured',
+          'WhatsApp not configured. Please set up your WhatsApp integration first.',
+          400
+        )
+      : new SendMessageError('whatsapp_number_unavailable', numberErrorText(error), 400);
+  }
+  if (error instanceof TemplateNumberMismatchError) {
+    return new SendMessageError(error.code, numberErrorText(error), 422);
+  }
+  return error;
 }
 
 export interface SendMessageParams {
@@ -271,20 +298,15 @@ export async function sendMessageToConversation(
   const hasValidPhone = resolvedTarget.isPhone;
   const sanitizedPhone = hasValidPhone ? sendTarget : '';
 
-  // WhatsApp config, account-scoped.
-  const { data: config, error: configError } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', accountId)
-    .single();
-
-  if (configError || !config) {
-    throw new SendMessageError(
-      'whatsapp_not_configured',
-      'WhatsApp not configured. Please set up your WhatsApp integration first.',
-      400
-    );
-  }
+  // The conversation's number (default for a legacy row without one),
+  // account-scoped. A disconnected number is refused, never swapped for another.
+  const config = await loadSenderConfig(
+    db,
+    accountId,
+    (conversation as { whatsapp_config_id?: string | null }).whatsapp_config_id ?? null
+  ).then(assertNumberConnected).catch((error: unknown) => {
+    throw senderConfigError(error);
+  });
 
   const accessToken = decrypt(config.access_token);
 
@@ -363,6 +385,12 @@ export async function sendMessageToConversation(
     }
     templateRow = resolved.row;
     sendLanguage = resolved.language;
+    // A template synced from another WABA cannot be sent from this number.
+    try {
+      assertTemplateOnNumber(templateRow, config);
+    } catch (error) {
+      throw senderConfigError(error);
+    }
     // Both callers (inbox and the public API) may send every kind,
     // authentication included. Building the components once here turns a
     // missing value (location, offer expiry, one-time code, card
@@ -547,8 +575,10 @@ export async function sendMessageToConversation(
     })
     .eq('id', conversationId);
 
-  // Pause any active Flow run for this contact — the agent stepping in
-  // is the strongest "yield, human is here" signal. Best-effort.
+  // Pause the active Flow run on this conversation — the agent stepping in
+  // is the strongest "yield, human is here" signal. A run belongs to one
+  // conversation (one per WhatsApp number), so a reply on number B leaves a
+  // run waiting on number A's conversation alone. Best-effort.
   try {
     const { error: pauseErr } = await databaseAdmin()
       .from('flow_runs')
@@ -559,6 +589,7 @@ export async function sendMessageToConversation(
       })
       .eq('account_id', accountId)
       .eq('contact_id', contact.id)
+      .eq('conversation_id', conversationId)
       .eq('status', 'active');
     if (pauseErr) {
       console.error('[flows] pause-on-agent-send failed:', pauseErr.message);

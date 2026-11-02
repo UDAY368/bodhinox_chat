@@ -66,7 +66,8 @@ export function serializeContact(row: Record<string, unknown>): ApiContact {
  * broadcasts, resolve-conversation), so the same key's writes are
  * always attributed to the same human. API callers have no logged-in
  * user, so — like the inbound webhook — we attribute writes to the
- * **WhatsApp config owner** (the webhook's own convention). Contacts
+ * **WhatsApp config owner** (the webhook's own convention; with several
+ * numbers, the default number's owner). Contacts
  * can be created before WhatsApp is connected, so we fall back to the
  * account owner when there's no config yet.
  */
@@ -74,10 +75,13 @@ export async function resolveAuditUserId(
   db: DataClient,
   accountId: string
 ): Promise<string> {
+  // The default number's owner (a workspace may connect several numbers;
+  // the first one connected is the default).
   const { data: config } = await db
     .from('whatsapp_config')
     .select('user_id')
     .eq('account_id', accountId)
+    .eq('is_default', true)
     .maybeSingle();
   const configOwner = config?.user_id as string | undefined;
   if (configOwner) return configOwner;

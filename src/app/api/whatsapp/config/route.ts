@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/data/server'
+import { getCurrentAccount, requireRole, toErrorResponse } from '@/lib/auth/account'
+import { tenantOf } from '@/lib/audience/http'
+import { withTenant } from '@/lib/db/tenant'
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing'
 import { createHash } from 'node:crypto'
 import {
@@ -24,30 +26,15 @@ import {
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
 import { resolveVerifyTokenForSave } from '@/lib/whatsapp/verify-token'
 import { getT } from '@/lib/i18n/translate'
+import { DISPLAY_NAME_MAX, disconnectAndReport, disconnectResponse } from '@/lib/whatsapp/number-admin'
+import { getNumberConfig, isNumberDisconnected, listNumbers, NoNumberError, type NumberConfig } from '@/lib/whatsapp/numbers'
 
 const t = getT('Api')
+const tn = getT('whatsappNumbers')
 
-/**
- * Resolve the caller's account_id from their profile. Inlined here
- * (rather than going through `@/lib/auth/account.getCurrentAccount`)
- * because the GET handler wants to return shaped 200s for every
- * non-auth failure mode, not throw — keeping the helper minimal lets
- * the existing response branches stay as-is.
- *
- * Returns null if the user has no profile or no account; callers
- * should treat that the same as "not connected".
- */
-async function resolveAccountId(
-  db: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-): Promise<string | null> {
-  const { data, error } = await db
-    .from('profiles')
-    .select('account_id')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data?.account_id) return null
-  return data.account_id as string
+/** `?id=` names one number; absent means the workspace default. */
+function requestedNumberId(request: Request): string | null {
+  return new URL(request.url).searchParams.get('id') || null
 }
 
 /**
@@ -70,66 +57,57 @@ function metaFailure(err: unknown, step: MetaConnectStep, ctx: MetaErrorContext)
 }
 
 /**
- * GET /api/whatsapp/config
+ * GET /api/whatsapp/config[?id=<number id>]
+ *
+ * Checks one number: `?id=` names it, otherwise the workspace default
+ * (any member). A workspace with several numbers and no default answers
+ * reason 'no_default'; an id that is not the workspace's answers 'not_found'.
  *
  * Used by the "Test API Connection" button and by the page to check
  * whether the saved config is healthy. Returns 200 in all non-auth cases
  * so the UI can render an appropriate message rather than show a 500.
  *
  * Response shape:
- *   { connected: true,  phone_info: {...},
+ *   { connected: true,  number_id, phone_info: {...},
  *     waba_subscription: { checked, subscribed, app_id_match, error? } }
  *   { connected: false, reason: 'no_config',        message: '...' }
  *   { connected: false, reason: 'token_corrupted',  message: '...', needs_reset: true }
+ *   { connected: false, reason: 'disconnected',     message: '...', number_id } (an admin disconnected it)
  *   { connected: false, reason: 'meta_api_error',   message: '...',
  *     meta: { code, subcode, fbtrace_id, step, field, message } }
  */
-export async function GET() {
+export async function GET(request: Request) {
+  let ctx
   try {
-    const db = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await db.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: t('common.unauthorized') }, { status: 401 })
-    }
-
-    const accountId = await resolveAccountId(db, user.id)
-    if (!accountId) {
+    ctx = await getCurrentAccount()
+  } catch (error) {
+    return toErrorResponse(error)
+  }
+  try {
+    const accountId = ctx.accountId
+    let config: NumberConfig
+    try {
+      config = await withTenant(tenantOf(ctx), (tx) => getNumberConfig(tx, accountId, requestedNumberId(request)))
+    } catch (err) {
+      if (!(err instanceof NoNumberError)) {
+        console.error('Error fetching whatsapp_config:', err instanceof Error ? err.name : 'unknown')
+        return NextResponse.json(
+          { connected: false, reason: 'db_error', message: t('whatsappConfig.fetchFailed') },
+          { status: 200 }
+        )
+      }
       return NextResponse.json(
-        {
-          connected: false,
-          reason: 'no_account',
-          message: t('common.profileNotLinked'),
-        },
-        { status: 200 },
-      )
-    }
-
-    const { data: config, error: configError } = await db
-      .from('whatsapp_config')
-      .select('phone_number_id, waba_id, access_token, status')
-      .eq('account_id', accountId)
-      .maybeSingle()
-
-    if (configError) {
-      console.error('Error fetching whatsapp_config:', configError)
-      return NextResponse.json(
-        { connected: false, reason: 'db_error', message: t('whatsappConfig.fetchFailed') },
+        err.reason === 'none'
+          ? { connected: false, reason: 'no_config', message: t('whatsappConfig.noConfig') }
+          : { connected: false, reason: err.reason, message: tn(err.messageKey.slice('whatsappNumbers.'.length)) },
         { status: 200 }
       )
     }
 
-    if (!config) {
+    // Disconnected by an admin: its token is gone on purpose, not corrupted.
+    if (isNumberDisconnected(config)) {
       return NextResponse.json(
-        {
-          connected: false,
-          reason: 'no_config',
-          message: t('whatsappConfig.noConfig'),
-        },
+        { connected: false, reason: 'disconnected', number_id: config.id, message: tn('errors.disconnected') },
         { status: 200 }
       )
     }
@@ -210,6 +188,7 @@ export async function GET() {
 
     return NextResponse.json({
       connected: true,
+      number_id: config.id,
       phone_info: phoneInfo,
       waba_subscription: wabaSubscription,
     })
@@ -225,8 +204,11 @@ export async function GET() {
 /**
  * POST /api/whatsapp/config
  *
- * Saves or updates the WhatsApp config for the authenticated user.
- * Verifies credentials with Meta first, then encrypts and stores.
+ * Connects a WhatsApp number for the caller's workspace (admin). Saving a
+ * phone_number_id the workspace already has updates that number; a new
+ * phone_number_id adds another number (the workspace's first becomes its
+ * default). Verifies credentials with Meta first, then encrypts and stores.
+ * Answers `number_id` (the saved number) and `created` (true when added).
  *
  * Every Meta failure answers `{ error, meta: { code, subcode,
  * fbtrace_id, step, field, message } }` — `error` is the actionable
@@ -234,25 +216,14 @@ export async function GET() {
  * form (token / ids / PIN), 502 = Meta has to change something.
  */
 export async function POST(request: Request) {
+  let ctx
   try {
-    const db = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await db.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: t('common.unauthorized') }, { status: 401 })
-    }
-
-    const accountId = await resolveAccountId(db, user.id)
-    if (!accountId) {
-      return NextResponse.json(
-        { error: t('common.profileNotLinked') },
-        { status: 403 },
-      )
-    }
+    ctx = await requireRole('admin')
+  } catch (error) {
+    return toErrorResponse(error)
+  }
+  try {
+    const { db, accountId, userId } = ctx
 
     const body = await request.json()
     const { phone_number_id, waba_id, access_token, verify_token, pin } = body
@@ -299,13 +270,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // Reject if another account has already claimed this phone_number_id.
-    // wacrm is single-tenant-per-WhatsApp-number — letting two accounts
-    // bind the same number causes the webhook's `.single()` lookup to
-    // throw PGRST116 ("multiple rows"), silently dropping every
-    // inbound message. See issue #136. Post-multi-user we key on
-    // account_id (not user_id) since teammates inside the same account
-    // all share one config; the conflict is between accounts.
+    // Reject if another account holds this phone_number_id connected: inbound
+    // webhooks route a number to exactly one workspace (issue #136). A number
+    // that another workspace only disconnected (its row kept for history,
+    // token cleared) is free to connect here and that history is untouched;
+    // the routing function and the partial unique index
+    // whatsapp_config_phone_number_id_connected_key ignore such rows.
     const claimed = await resolveWhatsAppAccount(phone_number_id)
     if (claimed && claimed !== accountId) return NextResponse.json({ error: t('whatsappConfig.numberLinkedElsewhere') }, { status: 409 })
 
@@ -353,17 +323,27 @@ export async function POST(request: Request) {
       }
     }
 
-    // Look up any pre-existing row for this account. Two reasons: we need
-    // to know whether this number is already registered with Meta (so we
-    // can skip /register when the user didn't provide a PIN this time
-    // around), and we need the stored verify_token — the settings form
-    // never shows it, so a save that leaves the field blank must keep it
-    // rather than null it out.
-    const { data: existing } = await db
+    // Look up this workspace's row for THIS phone_number_id. A workspace can
+    // connect several numbers: saving the same phone_number_id updates that
+    // number (and revives it in place when an admin had disconnected it, so
+    // its conversations, campaigns and flows are on it again), a different one
+    // adds another number (a number connected while the workspace has no
+    // default becomes the default, by trigger). Two reasons to read it: we need to
+    // know whether this number is already registered with Meta (so we can
+    // skip /register when the user didn't provide a PIN this time around),
+    // and we need the stored verify_token — the settings form never shows
+    // it, so a save that leaves the field blank must keep it rather than
+    // null it out.
+    const { data: existing, error: existingError } = await db
       .from('whatsapp_config')
-      .select('id, registered_at, phone_number_id, verify_token')
+      .select('id, registered_at, phone_number_id, verify_token, display_name, status, access_token')
       .eq('account_id', accountId)
+      .eq('phone_number_id', phone_number_id)
       .maybeSingle()
+    if (existingError) {
+      console.error('Error fetching whatsapp_config:', existingError.code ?? 'unknown')
+      return NextResponse.json({ error: t('whatsappConfig.saveFailed') }, { status: 500 })
+    }
 
     // Encrypt sensitive tokens before storing
     let encryptedAccessToken: string
@@ -480,40 +460,67 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }
 
+    // A new number gets Meta's verified name and display phone as its label,
+    // so a workspace with several numbers can tell them apart; admins can
+    // rename it later. An existing label is never overwritten.
+    const metaLabel = [phoneInfo?.verified_name, phoneInfo?.display_phone_number]
+      .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+      .join(' · ')
+      .slice(0, DISPLAY_NAME_MAX)
+    const labelPatch = !existing?.display_name && metaLabel ? { display_name: metaLabel } : {}
+
+    let numberId: string | null = existing?.id ?? null
     if (existing) {
       const { error: updateError } = await db
         .from('whatsapp_config')
-        .update(baseRow)
+        .update({ ...baseRow, ...labelPatch })
         .eq('account_id', accountId)
+        .eq('id', existing.id)
 
       if (updateError) {
-        console.error('Error updating whatsapp_config:', updateError)
+        console.error('Error updating whatsapp_config:', updateError.code ?? 'unknown')
+        // Reconnecting this workspace's disconnected row while another
+        // workspace connected the same number meanwhile.
+        if (updateError.code === '23505') {
+          return NextResponse.json({ error: t('whatsappConfig.numberLinkedElsewhere') }, { status: 409 })
+        }
         return NextResponse.json(
           { error: t('whatsappConfig.updateFailed') },
           { status: 500 }
         )
       }
     } else {
-      // Insert with both columns: `account_id` is the tenancy key
-      // (NOT NULL post-017, UNIQUE so duplicates trip the constraint
-      // up-front), `user_id` is the audit column identifying which
-      // member of the account saved the config.
-      const { error: insertError } = await db
+      // Insert with both columns: `account_id` is the tenancy key, `user_id`
+      // is the audit column identifying which member saved the number.
+      // A connected phone_number_id is unique across workspaces, so a
+      // concurrent save of the same number by another workspace trips the
+      // partial unique index here.
+      const { data: inserted, error: insertError } = await db
         .from('whatsapp_config')
         .insert({
           account_id: accountId,
-          user_id: user.id,
+          user_id: userId,
           ...baseRow,
+          ...labelPatch,
         })
+        .select('id')
+        .maybeSingle()
 
       if (insertError) {
-        console.error('Error inserting whatsapp_config:', insertError)
+        console.error('Error inserting whatsapp_config:', insertError.code ?? 'unknown')
+        if (insertError.code === '23505') {
+          return NextResponse.json({ error: t('whatsappConfig.numberLinkedElsewhere') }, { status: 409 })
+        }
         return NextResponse.json(
           { error: t('whatsappConfig.saveFailed') },
           { status: 500 }
         )
       }
+      numberId = (inserted as { id?: string } | null)?.id ?? null
     }
+
+    // The token is read only to tell a disconnected row apart; never returned.
+    const reconnected = existing ? isNumberDisconnected(existing as { status?: string; access_token?: string }) : false
 
     if (registrationError) {
       // Save succeeded but the number isn't actually live. Return
@@ -522,6 +529,9 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: false,
         saved: true,
+        number_id: numberId,
+        created: !existing,
+        reconnected,
         registered: false,
         registration_error: registrationError,
         error: registrationError,
@@ -533,6 +543,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       saved: true,
+      number_id: numberId,
+      created: !existing,
+      reconnected,
       registered: registeredAt != null,
       // Credentials are valid and saved, but inbound webhook
       // registration was skipped because no PIN was supplied (e.g. a
@@ -548,49 +561,47 @@ export async function POST(request: Request) {
 }
 
 /**
- * DELETE /api/whatsapp/config
+ * DELETE /api/whatsapp/config[?id=<number id>]
  *
- * Removes the authenticated user's WhatsApp configuration row.
- * Used by the "Reset Configuration" button to recover from a corrupted
- * encrypted token (mismatched ENCRYPTION_KEY across environments).
+ * Disconnects one WhatsApp number (admin). Used by the "Reset Configuration"
+ * button to recover from a corrupted encrypted token (mismatched
+ * ENCRYPTION_KEY across environments). Without `?id=` it disconnects the
+ * workspace's only connected number; a workspace with several must name one.
+ * Same soft disconnect as DELETE /api/whatsapp/numbers/[id]: the row is kept,
+ * nothing is cancelled, campaigns on it are held until the same Phone Number
+ * ID is saved again (which revives the row), and the body says what changed.
  */
-export async function DELETE() {
+export async function DELETE(request: Request) {
+  let ctx
   try {
-    const db = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await db.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: t('common.unauthorized') }, { status: 401 })
-    }
-
-    const accountId = await resolveAccountId(db, user.id)
-    if (!accountId) {
-      return NextResponse.json(
-        { error: t('common.profileNotLinked') },
-        { status: 403 },
-      )
-    }
-
-    const { error: deleteError } = await db
-      .from('whatsapp_config')
-      .delete()
-      .eq('account_id', accountId)
-
-    if (deleteError) {
-      console.error('Error deleting whatsapp_config:', deleteError)
-      return NextResponse.json(
-        { error: t('whatsappConfig.deleteFailed') },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ success: true })
+    ctx = await requireRole('admin')
   } catch (error) {
-    console.error('Error in WhatsApp config DELETE:', error)
-    return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 })
+    return toErrorResponse(error)
+  }
+  try {
+    const { accountId } = ctx
+    const requested = requestedNumberId(request)
+    const outcome = await withTenant(tenantOf(ctx), async (tx) => {
+      let id = requested
+      if (!id) {
+        const numbers = (await listNumbers(tx, accountId)).filter((n) => !n.removed)
+        if (numbers.length === 0) return 'none' as const
+        if (numbers.length > 1) return 'ambiguous' as const
+        id = numbers[0].id
+      }
+      return (await disconnectAndReport(tx, accountId, id, ctx.userId)) ?? ('not_found' as const)
+    })
+
+    if (outcome === 'ambiguous') {
+      return NextResponse.json({ error: tn('api.chooseNumber') }, { status: 400 })
+    }
+    if (outcome === 'not_found') {
+      return NextResponse.json({ error: tn('errors.notFound') }, { status: 404 })
+    }
+    if (outcome === 'none') return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, ...disconnectResponse(outcome) })
+  } catch (error) {
+    console.error('Error in WhatsApp config DELETE:', error instanceof Error ? error.name : 'unknown')
+    return NextResponse.json({ error: t('whatsappConfig.deleteFailed') }, { status: 500 })
   }
 }

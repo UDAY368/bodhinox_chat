@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   generateReply: vi.fn(),
   engineSendText: vi.fn(),
   loadAccountMetaCredentials: vi.fn(),
+  conversationNumberDisconnected: vi.fn(),
   sendTypingIndicator: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
@@ -31,6 +32,7 @@ vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,
   loadAccountMetaCredentials: h.loadAccountMetaCredentials,
+  conversationNumberDisconnected: h.conversationNumberDisconnected,
 }))
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendTypingIndicator: h.sendTypingIndicator,
@@ -137,6 +139,7 @@ beforeEach(() => {
   h.retrieveKnowledge.mockResolvedValue([])
   h.generateReply.mockResolvedValue({ text: 'Hello!', handoff: false })
   h.engineSendText.mockResolvedValue({ whatsapp_message_id: 'm1' })
+  h.conversationNumberDisconnected.mockResolvedValue(false)
   h.loadAccountMetaCredentials.mockResolvedValue({
     phoneNumberId: 'pn-1',
     accessToken: 'tok',
@@ -229,6 +232,21 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
+  it("stands down quietly when the thread's number was disconnected", async () => {
+    h.conversationNumberDisconnected.mockResolvedValue(true)
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
+    // No LLM call, no send from another number, and no handoff note either.
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.sendTypingIndicator).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toBeNull()
+    expect(h.conversationNumberDisconnected).toHaveBeenCalledWith(expect.anything(), ARGS.accountId, ARGS.conversationId)
+    // Only a reason code is logged, never content.
+    expect(info).toHaveBeenCalledWith('[ai auto-reply] skipped', { reason: 'whatsapp_number_disconnected' })
+    info.mockRestore()
+  })
+
   it('skips when there is nothing to reply to', async () => {
     h.buildConversationContext.mockResolvedValue([])
     await dispatchInboundToAiReply(ARGS)
@@ -241,9 +259,11 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
 describe('dispatchInboundToAiReply — typing indicator (#527)', () => {
   it('shows "typing…" on the inbound wamid before calling the LLM', async () => {
     await dispatchInboundToAiReply(ARGS)
+    // From the number the inbound arrived on (the conversation's number).
     expect(h.loadAccountMetaCredentials).toHaveBeenCalledWith(
       expect.anything(),
       'acct-1',
+      'conv-1',
     )
     expect(h.sendTypingIndicator).toHaveBeenCalledTimes(1)
     expect(h.sendTypingIndicator).toHaveBeenCalledWith({

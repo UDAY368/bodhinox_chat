@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { CalendarClock, ChevronLeft, ChevronRight, Code, Loader2, Plus, Radio, Search } from 'lucide-react';
 import { NumberHealthBar } from '@/components/broadcasts/number-health-bar';
+import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import { ApiCampaignDialog } from '@/components/broadcasts/api-campaign-dialog';
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
@@ -70,6 +71,15 @@ export default function BroadcastsPage() {
   const t = useTranslations('Broadcasts.page');
   const tStatus = useTranslations('Broadcasts.status');
   const tGate = useTranslations('GatedButton');
+  const tn = useTranslations('whatsappNumbers');
+  // "Send from" only matters when the workspace has more than one number.
+  const { numbers } = useWhatsAppNumbers();
+  const showSendFrom = numbers.length > 1;
+  const sendFromOf = (b: Broadcast): string => {
+    const id = (b as Broadcast & { whatsapp_config_id?: string | null }).whatsapp_config_id;
+    const n = id ? numbers.find((x) => x.id === id) : undefined;
+    return n ? numberLabel(n, tn) : '—';
+  };
   const canCreate = useCan('send-messages');
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
@@ -300,6 +310,9 @@ export default function BroadcastsPage() {
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-muted-foreground">{t('table.name')}</TableHead>
                 <TableHead className="hidden text-muted-foreground md:table-cell">{t('table.template')}</TableHead>
+                {showSendFrom && (
+                  <TableHead className="hidden text-muted-foreground md:table-cell">{tn('picker.sendFrom')}</TableHead>
+                )}
                 <TableHead className="hidden text-right text-muted-foreground sm:table-cell">
                   {t('table.recipients')}
                 </TableHead>
@@ -324,6 +337,9 @@ export default function BroadcastsPage() {
                     <TableCell className="hidden text-muted-foreground md:table-cell">
                       {broadcast.template_name}
                     </TableCell>
+                    {showSendFrom && (
+                      <TableCell className="hidden text-muted-foreground md:table-cell">{sendFromOf(broadcast)}</TableCell>
+                    )}
                     <TableCell className="hidden text-right text-muted-foreground tabular-nums sm:table-cell">
                       {broadcast.total_recipients}
                     </TableCell>

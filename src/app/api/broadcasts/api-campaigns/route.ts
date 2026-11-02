@@ -1,4 +1,5 @@
-// POST /api/broadcasts/api-campaigns { name, templateId } — create an API campaign (agent+).
+// POST /api/broadcasts/api-campaigns { name, templateId, whatsappConfigId? } — create an API
+// campaign (agent+). whatsappConfigId must be one of the workspace's numbers; default when omitted.
 
 import { NextResponse } from 'next/server';
 

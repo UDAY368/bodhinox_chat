@@ -10,19 +10,71 @@ import { z } from 'zod';
 import { AuthError, ForbiddenError } from '@/lib/auth/errors';
 import { hasMinRole } from '@/lib/auth/roles';
 import { getWorkerPrisma } from '@/lib/db/prisma';
-import { withTenant, type TenantContext } from '@/lib/db/tenant';
+import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import type { DataClient } from '@/lib/data/types';
 import { assertMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import { buildSendComponents } from '@/lib/whatsapp/template-send-builder';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
-import { BroadcastError, resolveApiRecipients, type BroadcastRecipientInput } from '@/lib/whatsapp/broadcast-core';
+import { BroadcastError, broadcastNumberError, resolveApiRecipients, type BroadcastRecipientInput } from '@/lib/whatsapp/broadcast-core';
+import { NoNumberError } from '@/lib/whatsapp/numbers';
+import {
+  assertTemplateOnNumber,
+  loadSenderConfig,
+  numberErrorText,
+  pickDefaultNumber,
+  TemplateNumberMismatchError,
+} from '@/lib/whatsapp/sender-config';
 import { trackedButtonIndex } from './tracking';
 import { PlanLimitError, requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
 
 export const MAX_API_BATCH = 1000;
-const createSchema = z.object({ name: z.string().trim().min(1).max(200), templateId: z.string().uuid() }).strict();
+const createSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  templateId: z.string().uuid(),
+  /** The number to send from; the workspace default when omitted. */
+  whatsappConfigId: z.string().uuid().nullish(),
+}).strict();
+
+/**
+ * The number a new campaign sends from, inside its tenant transaction: the one
+ * asked for (it must be this workspace's), else the default. Null when the
+ * workspace has no number yet, which creation has always allowed. Refuses a
+ * template synced from another WABA than the number's.
+ */
+export async function campaignNumberId(
+  tx: TenantTransaction,
+  accountId: string,
+  requested: string | null | undefined,
+  template: { waba_id?: string | null },
+): Promise<string | null> {
+  // `removed` is computed in SQL, so the token itself is never read.
+  const numbers = await tx.$queryRaw<{ id: string; waba_id: string | null; is_default: boolean; created_at: Date | null; removed: boolean }[]>`
+    SELECT id::text AS id,waba_id,is_default,created_at,(status='disconnected' AND access_token='') AS removed
+    FROM whatsapp_config WHERE account_id=${accountId}::uuid`;
+  let config: { id: string; waba_id: string | null; removed?: boolean } | null;
+  try {
+    if (requested) {
+      config = numbers.find((row) => row.id === requested.toLowerCase()) ?? null;
+      if (!config) throw new NoNumberError('not_found');
+      if (config.removed) throw new NoNumberError('disconnected');
+    } else {
+      // No connected number yet (none, or all disconnected): creation has always allowed this.
+      if (!numbers.some((row) => !row.removed)) return null;
+      config = pickDefaultNumber(numbers);
+      if (!config) throw new NoNumberError('no_default');
+    }
+    assertTemplateOnNumber(template, config);
+  } catch (error) {
+    if (error instanceof NoNumberError && error.reason === 'disconnected')
+      throw new AuthError(numberErrorText(error), 409, 'whatsapp_number_disconnected');
+    if (error instanceof NoNumberError) throw new AuthError(numberErrorText(error), 400, 'whatsapp_number_unavailable');
+    if (error instanceof TemplateNumberMismatchError) throw new AuthError(numberErrorText(error), 422, error.code);
+    throw error;
+  }
+  return config.id;
+}
 
 /** Create an empty API campaign for an approved template (agent+). */
 export async function createApiCampaign(scope: TenantContext, raw: unknown): Promise<{ id: string }> {
@@ -38,6 +90,7 @@ export async function createApiCampaign(scope: TenantContext, raw: unknown): Pro
     if (refusal) throw new AuthError(refusal, 400, 'template_kind_not_allowed');
     await requireFeature(tx, scope.accountId, 'api_campaigns');
     if (trackedButtonIndex(template) >= 0) throw new AuthError('Click-tracked templates cannot be used for API campaigns', 400, 'campaign_input');
+    const numberId = await campaignNumberId(tx, scope.accountId, parsed.data.whatsappConfigId, template as { waba_id?: string | null });
     // The API supplies body values only: a header or link button that needs its own value could never send.
     const bodyCount = extractVariableIndices(template.body_text).length;
     try {
@@ -47,8 +100,8 @@ export async function createApiCampaign(scope: TenantContext, raw: unknown): Pro
     }
     // 'sent' with no recipients: it settles back to 'sent' after every batch.
     const [row] = await tx.$queryRaw<{ id: string }[]>`
-      INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,status,total_recipients,kind)
-      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${parsed.data.name},${template.name},${template.language || 'en_US'},'sent',0,'api')
+      INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,status,total_recipients,kind,whatsapp_config_id)
+      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${parsed.data.name},${template.name},${template.language || 'en_US'},'sent',0,'api',${numberId}::uuid)
       RETURNING id::text`;
     return { id: row.id };
   });
@@ -72,14 +125,25 @@ export async function addApiCampaignRecipients(
   if (recipients.length > MAX_API_BATCH)
     throw new BroadcastError('bad_request', `At most ${MAX_API_BATCH} recipients per request; send larger lists in batches`, 400);
   const { data: campaign, error } = await db.from('broadcasts')
-    .select('id,kind,template_name,template_language').eq('id', broadcastId).eq('account_id', accountId).maybeSingle();
+    .select('id,kind,status,template_name,template_language,whatsapp_config_id').eq('id', broadcastId).eq('account_id', accountId).maybeSingle();
   if (error || !campaign) throw new BroadcastError('not_found', 'Campaign not found', 404);
   if (campaign.kind !== 'api') throw new BroadcastError('conflict', 'Recipients can only be added to an API campaign', 409);
-  const { data: config } = await db.from('whatsapp_config').select('id').eq('account_id', accountId).maybeSingle();
-  if (!config) throw new BroadcastError('whatsapp_not_configured', 'WhatsApp not configured. Please set up your WhatsApp integration first.', 400);
+  // Cancelled (for example when its number was disconnected): never fall back to another number.
+  if (campaign.status === 'cancelled') throw new BroadcastError('conflict', 'This campaign was cancelled', 409);
+  // The campaign's number (the default when it has none) must still be connected:
+  // checked before any contact is resolved or recipient stored, so a batch for a
+  // disconnected number is refused (409 whatsapp_number_disconnected) with nothing kept.
+  const config = await loadSenderConfig(db, accountId, campaign.whatsapp_config_id ?? null).catch((error: unknown) => {
+    throw broadcastNumberError(error);
+  });
 
   // Every recipient needs a non-empty value for each body variable, or Meta would refuse the send.
   const template = await resolveTemplateRow(db, accountId, campaign.template_name, campaign.template_language);
+  try {
+    assertTemplateOnNumber(template.row, config);
+  } catch (error) {
+    throw broadcastNumberError(error);
+  }
   const needed = extractVariableIndices(template.row?.body_text ?? '').length;
   const resolved = await resolveApiRecipients(db, accountId, auditUserId, recipients);
   const complete = resolved.deduped.filter((r) => r.params.length >= needed && r.params.slice(0, needed).every((p) => p.trim() !== ''));

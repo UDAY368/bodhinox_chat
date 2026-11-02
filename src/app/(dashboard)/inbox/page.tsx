@@ -218,13 +218,16 @@ function InboxPageInner() {
         return;
       }
 
+      // A workspace can connect several numbers; the banner shows only
+      // when none of them is connected.
       const { data } = await db
         .from('whatsapp_config')
         .select('status')
-        .eq('account_id', accountId)
-        .maybeSingle();
+        .eq('account_id', accountId);
 
-      setWhatsappConnected(data?.status === 'connected');
+      setWhatsappConnected(
+        ((data ?? []) as { status?: string }[]).some((row) => row.status === 'connected')
+      );
     };
 
     checkConnection();

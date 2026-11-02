@@ -13,6 +13,8 @@ export interface BroadcastCreationInput {
   trackedUrl?: string;
   /** Location, offer end and coupon code, the same for every recipient. */
   sendExtras?: CampaignSendExtras;
+  /** The number to send from; the server uses the workspace default when omitted. */
+  whatsappConfigId?: string | null;
 }
 
 export async function requestBroadcastCreation(input: BroadcastCreationInput, send: typeof authFetch = authFetch): Promise<string> {

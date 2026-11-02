@@ -12,7 +12,12 @@ import { SendMessageError } from './send-message';
 type ContactRow = { id: string; phone: string; name?: string | null };
 
 interface Script {
-  config?: { user_id: string } | null; // whatsapp_config.maybeSingle
+  config?: { user_id: string } | null; // whatsapp_config.maybeSingle (audit user)
+  /** whatsapp_config number lookup (`.limit()`); defaults to one default
+   *  number `cfg-1` when `config` is set, none otherwise. */
+  numbers?: { id: string; is_default: boolean }[];
+  /** Unnumbered conversation adopted by `update().is().select()`. */
+  adoptedConversation?: { id: string } | null;
   contactCandidates?: ContactRow[]; // contacts .like (same every call)
   /** Per-call `.like` results — overrides contactCandidates. Lets a
    *  test simulate "miss, then hit" for the unique-race path. */
@@ -36,7 +41,15 @@ function makeDb(script: Script): DataClient {
   let convLookupCalls = 0;
 
   const builder: Record<string, unknown> = {
-    select: () => builder,
+    select: () => {
+      // The adopt `update(...).is(...).select('id')` terminates here.
+      if (table === 'conversations' && mode === 'update') {
+        const row = script.adoptedConversation ?? null;
+        return Promise.resolve({ data: row ? [row] : [], error: null });
+      }
+      return builder;
+    },
+    is: () => builder,
     insert: () => {
       mode = 'insert';
       return builder;
@@ -55,6 +68,11 @@ function makeDb(script: Script): DataClient {
           : (script.existingConversation ?? null);
         convLookupCalls++;
         return Promise.resolve({ data: row ? [row] : [], error: null });
+      }
+      if (table === 'whatsapp_config') {
+        const numbers =
+          script.numbers ?? (script.config ? [{ id: 'cfg-1', is_default: true }] : []);
+        return Promise.resolve({ data: numbers, error: null });
       }
       return Promise.resolve({ data: [], error: null });
     },
@@ -167,6 +185,7 @@ describe('resolveConversationByPhone', () => {
       conversationId: 'cv1',
       contactId: 'c1',
       contactCreated: false,
+      whatsappConfigId: 'cfg-1',
     });
   });
 
@@ -188,6 +207,7 @@ describe('resolveConversationByPhone', () => {
       conversationId: 'cv2',
       contactId: 'c2',
       contactCreated: true,
+      whatsappConfigId: 'cfg-1',
     });
   });
 
@@ -223,6 +243,71 @@ describe('resolveConversationByPhone', () => {
       conversationId: 'cv-raced',
       contactId: 'c1',
       contactCreated: false,
+      whatsappConfigId: 'cfg-1',
     });
+  });
+
+  it('uses the only number when none is marked default', async () => {
+    const db = makeDb({
+      config: { user_id: 'owner-1' },
+      numbers: [{ id: 'cfg-only', is_default: false }],
+      contactCandidates: [{ id: 'c1', phone: '14155550123' }],
+      existingConversation: { id: 'cv1' },
+    });
+    const res = await resolveConversationByPhone(db, 'acct', '+14155550123');
+    expect(res.whatsappConfigId).toBe('cfg-only');
+  });
+
+  it('refuses to guess between several numbers with no default', async () => {
+    const db = makeDb({
+      config: { user_id: 'owner-1' },
+      numbers: [
+        { id: 'cfg-a', is_default: false },
+        { id: 'cfg-b', is_default: false },
+      ],
+    });
+    await expect(
+      resolveConversationByPhone(db, 'acct', '+14155550123')
+    ).rejects.toMatchObject({ code: 'bad_request', status: 400 });
+  });
+
+  it('rejects a requested number from outside the workspace', async () => {
+    const db = makeDb({ config: { user_id: 'owner-1' }, numbers: [] });
+    await expect(
+      resolveConversationByPhone(db, 'acct', '+14155550123', null, {
+        whatsappConfigId: '00000000-0000-4000-8000-000000000001',
+      })
+    ).rejects.toMatchObject({ code: 'bad_request', status: 400 });
+    await expect(
+      resolveConversationByPhone(db, 'acct', '+14155550123', null, {
+        whatsappConfigId: 'not-a-uuid',
+      })
+    ).rejects.toMatchObject({ code: 'bad_request', status: 400 });
+  });
+
+  it('sends from the requested number', async () => {
+    const requested = '00000000-0000-4000-8000-000000000002';
+    const db = makeDb({
+      config: { user_id: 'owner-1' },
+      numbers: [{ id: requested, is_default: false }],
+      contactCandidates: [{ id: 'c1', phone: '14155550123' }],
+      existingConversation: { id: 'cv-b' },
+    });
+    const res = await resolveConversationByPhone(db, 'acct', '+14155550123', null, {
+      whatsappConfigId: requested,
+    });
+    expect(res).toMatchObject({ conversationId: 'cv-b', whatsappConfigId: requested });
+  });
+
+  it('adopts an unnumbered conversation instead of starting another', async () => {
+    const db = makeDb({
+      config: { user_id: 'owner-1' },
+      contactCandidates: [{ id: 'c1', phone: '14155550123' }],
+      existingConversation: null,
+      adoptedConversation: { id: 'cv-legacy' },
+      insertConversationError: { code: 'should-not-insert' },
+    });
+    const res = await resolveConversationByPhone(db, 'acct', '+14155550123');
+    expect(res.conversationId).toBe('cv-legacy');
   });
 });

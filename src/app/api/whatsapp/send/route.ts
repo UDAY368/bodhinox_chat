@@ -16,6 +16,9 @@ import { randomUUID } from 'node:crypto'
 import { FormSendError, sendForm } from '@/lib/whatsapp/forms/send'
 import { MetaApiError } from '@/lib/whatsapp/meta-api'
 import { UncertainDispatchError } from '@/lib/jobs/dispatch'
+import { isUniqueViolation } from '@/lib/contacts/dedupe'
+import { NoNumberError } from '@/lib/whatsapp/numbers'
+import { loadPickableNumbers, loadSenderConfig, numberErrorText, pickDefaultNumber } from '@/lib/whatsapp/sender-config'
 
 const t = getT('Api')
 const tForm = getT('Validation.formSend')
@@ -57,6 +60,9 @@ export async function POST(request: Request) {
       // yet (Contact detail → Send template) — we find-or-create one below.
       conversation_id: conversationIdInput,
       contact_id,
+      // contact_id path only: the number to send from (whatsapp_config.id);
+      // omitted means the workspace default, as before multi-number.
+      whatsapp_config_id: whatsappConfigIdInput,
       message_type,
       content_text,
       media_url,
@@ -142,11 +148,28 @@ export async function POST(request: Request) {
         )
       }
 
+      // A contact has one conversation per number: resolve the sending
+      // number first so the thread (and the reply number) are the right ones.
+      let numberId: string
+      try {
+        const requested = typeof whatsappConfigIdInput === 'string' && whatsappConfigIdInput ? whatsappConfigIdInput : null
+        numberId = (await loadSenderConfig(db, accountId, requested)).id
+      } catch (err) {
+        if (err instanceof NoNumberError) {
+          return NextResponse.json(
+            { error: numberErrorText(err), code: `whatsapp_number_${err.reason}` },
+            { status: err.reason === 'disconnected' ? 409 : err.reason === 'not_found' ? 404 : 400 }
+          )
+        }
+        throw err
+      }
+
       const resolved = await findOrCreateConversation(
         db,
         accountId,
         userId,
-        contact_id
+        contact_id,
+        numberId
       )
       if (!resolved) {
         return NextResponse.json(
@@ -250,27 +273,57 @@ async function sendFormMessage(args: {
 
 type SendSupabase = Awaited<ReturnType<typeof createClient>>
 
+type ConversationRef = { id: string; whatsapp_config_id: string | null }
+
+/** Query results as a list (a single-row result reads as a one-item list). */
+function conversationRows(data: unknown): ConversationRef[] {
+  return (Array.isArray(data) ? data : data ? [data] : []) as ConversationRef[]
+}
+
 /**
- * Return the contact's conversation id in this account, creating one if
- * it doesn't exist yet. Mirrors the webhook's find-or-create so an
- * inbound-then-outbound (or outbound-first) sequence converges on a single
- * thread per contact. Runs under the caller's RLS — the conversations_insert
- * policy requires account agent membership, which the caller already is.
+ * Return the contact's conversation on `numberId`, creating one if it
+ * doesn't exist yet. A contact has one conversation per (contact, number),
+ * as the webhook creates them; a legacy conversation with no number counts
+ * for the workspace default, which is what it replies from. Never picks a
+ * conversation on another number, and never fails because the contact has
+ * several. Runs under the caller's RLS — the conversations_insert policy
+ * requires account agent membership, which the caller already is.
  */
 async function findOrCreateConversation(
   db: SendSupabase,
   accountId: string,
   userId: string,
   contactId: string,
+  numberId: string,
 ): Promise<string | null> {
-  const { data: existing } = await db
-    .from('conversations')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('contact_id', contactId)
-    .maybeSingle()
+  const find = async (): Promise<string | null | undefined> => {
+    const { data, error } = await db
+      .from('conversations')
+      .select('id,whatsapp_config_id')
+      .eq('account_id', accountId)
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: true })
+      .limit(100)
+    if (error) return undefined
+    const rows = conversationRows(data)
+    const onNumber = rows.find((row) => row.whatsapp_config_id === numberId)
+    if (onNumber) return onNumber.id
+    const legacy = rows.find((row) => !row.whatsapp_config_id)
+    if (!legacy) return null
+    // An unnumbered conversation replies from the default number.
+    // Status and the cleared-token check, so a disconnected number is never the fallback.
+    const numbers = await loadPickableNumbers(db, accountId)
+    if (!numbers) return undefined
+    const fallback = pickDefaultNumber(numbers)
+    return fallback?.id === numberId ? legacy.id : null
+  }
 
-  if (existing) return existing.id
+  const existing = await find()
+  if (existing === undefined) {
+    console.error('Error resolving conversation for contact send')
+    return null
+  }
+  if (existing) return existing
 
   const { data: created, error } = await db
     .from('conversations')
@@ -278,12 +331,15 @@ async function findOrCreateConversation(
       account_id: accountId,
       user_id: userId,
       contact_id: contactId,
+      whatsapp_config_id: numberId,
     })
     .select('id')
     .single()
 
   if (error) {
-    console.error('Error creating conversation for contact send:', error.message)
+    // A concurrent send or inbound message created it first.
+    if (isUniqueViolation(error)) return (await find()) ?? null
+    console.error('Error creating conversation for contact send:', error.code ?? 'unknown')
     return null
   }
 

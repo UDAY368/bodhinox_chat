@@ -7,6 +7,8 @@ vi.mock('@/lib/whatsapp/bot-pause', () => ({
 const state = vi.hoisted(() => ({
   templateRows: [] as unknown[],
   insertedMessage: null as Record<string, unknown> | null,
+  numbers: [{ id: 'cfg-1', phone_number_id: 'pn-1', access_token: 'token' }] as Record<string, unknown>[],
+  conversationNumber: null as string | null,
 }));
 
 vi.mock('@/lib/whatsapp/encryption', () => ({
@@ -16,9 +18,13 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
 vi.mock('./admin-client', () => ({
   databaseAdmin: () => ({
     from(table: string) {
+      const filters: Record<string, unknown> = {};
       const builder: Record<string, unknown> = {
         select: () => builder,
-        eq: () => builder,
+        eq: (field: string, value: unknown) => {
+          filters[field] = value;
+          return builder;
+        },
         update: () => builder,
         insert: (row: Record<string, unknown>) => {
           if (table === 'messages') state.insertedMessage = row;
@@ -32,7 +38,9 @@ vi.mock('./admin-client', () => ({
             };
           }
           if (table === 'conversations')
-            return { data: { id: 'cv-1' }, error: null };
+            return { data: { id: 'cv-1', whatsapp_config_id: state.conversationNumber }, error: null };
+          if (table === 'whatsapp_config')
+            return { data: state.numbers.find((n) => n.id === filters.id) ?? null, error: null };
           return { data: null, error: null };
         },
         single: async () => {
@@ -46,7 +54,7 @@ vi.mock('./admin-client', () => ({
         },
         then: (resolve: (r: { data: unknown; error: null }) => unknown) =>
           resolve({
-            data: table === 'message_templates' ? state.templateRows : null,
+            data: table === 'message_templates' ? state.templateRows : table === 'whatsapp_config' ? state.numbers : null,
             error: null,
           }),
       };
@@ -56,6 +64,7 @@ vi.mock('./admin-client', () => ({
 }));
 
 import { engineSendTemplate } from './meta-send';
+import { TemplateSendRefusedError } from '@/lib/whatsapp/template-send-params';
 
 type FetchResult = { ok: boolean; json: () => Promise<unknown> };
 
@@ -100,9 +109,14 @@ const BODY_COMPONENT = {
   ],
 };
 
+const SINGLE_NUMBER = [{ id: 'cfg-1', phone_number_id: 'pn-1', access_token: 'token' }];
+
 beforeEach(() => {
   state.templateRows = [];
   state.insertedMessage = null;
+  state.numbers = SINGLE_NUMBER;
+  state.conversationNumber = null;
+  fetchMock.mockClear();
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -202,5 +216,37 @@ describe('engineSendTemplate — templates without a header keep their payload',
       language: { code: 'en_US' },
       components: [BODY_COMPONENT],
     });
+  });
+});
+
+describe('engineSendTemplate — two numbers in one workspace', () => {
+  const A = '11111111-1111-4111-8111-11111111111a';
+  const B = '22222222-2222-4222-8222-22222222222b';
+  const NUMBERS = [
+    { id: A, phone_number_id: 'pn-default', access_token: 'token', waba_id: 'waba-a', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+    { id: B, phone_number_id: 'pn-second', access_token: 'token', waba_id: 'waba-b', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+  ];
+
+  it("sends from the conversation's number", async () => {
+    state.numbers = NUMBERS;
+    state.conversationNumber = B;
+    state.templateRows = [{ ...BASE_ROW, waba_id: 'waba-b' }];
+    await engineSendTemplate(SEND_ARGS);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/pn-second/');
+  });
+
+  it('uses the default number for a legacy conversation', async () => {
+    state.numbers = NUMBERS;
+    state.conversationNumber = null;
+    await engineSendTemplate(SEND_ARGS);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/pn-default/');
+  });
+
+  it("refuses a template from another number's WABA without calling Meta", async () => {
+    state.numbers = NUMBERS;
+    state.conversationNumber = B;
+    state.templateRows = [{ ...BASE_ROW, waba_id: 'waba-a' }];
+    await expect(engineSendTemplate(SEND_ARGS)).rejects.toThrow(TemplateSendRefusedError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

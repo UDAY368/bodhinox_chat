@@ -7,6 +7,7 @@
 //     "name": "July promo",                 // optional label
 //     "template_name": "promo_july",        // required, approved template
 //     "template_language": "en_US",         // optional (default en_US)
+//     "phone_number_id": "1234567890",      // optional Meta phone number id to send from (default: the workspace's default number)
 //     "recipients": [                        // required, 1..1000
 //       { "to": "+14155550123", "params": ["Jane"] },
 //       { "to": "+14155550124" }
@@ -44,6 +45,12 @@ export async function POST(request: Request) {
 
     const templateName =
       typeof body.template_name === 'string' ? body.template_name : '';
+    if (body.phone_number_id !== undefined && body.phone_number_id !== null && typeof body.phone_number_id !== 'string') {
+      return fail('bad_request', "'phone_number_id' must be a string", 400);
+    }
+    const phoneNumberId = typeof body.phone_number_id === 'string' && body.phone_number_id.trim()
+      ? body.phone_number_id.trim()
+      : null;
     const recipients = Array.isArray(body.recipients) ? body.recipients : [];
 
     const auditUserId = await resolveAuditUserId(ctx.db, ctx.accountId);
@@ -55,6 +62,7 @@ export async function POST(request: Request) {
         typeof body.template_language === 'string'
           ? body.template_language
           : null,
+      phoneNumberId,
       recipients: recipients.map((r) => ({
         to: typeof r?.to === 'string' ? r.to : '',
         params: Array.isArray(r?.params) ? r.params : undefined,

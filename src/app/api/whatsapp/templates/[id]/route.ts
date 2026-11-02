@@ -23,6 +23,7 @@ import { recordTemplateEvents } from '@/lib/whatsapp/template-events'
 import { templateRowFields } from '@/lib/whatsapp/template-row'
 import { tenantOf } from '@/lib/audience/http'
 import { getT } from '@/lib/i18n/translate'
+import { loadTemplateNumberConfig } from '@/lib/whatsapp/template-number'
 
 const t = getT('Api')
 
@@ -92,7 +93,7 @@ export async function PATCH(
     // meta_template_id and status — fetch explicitly.
     const { data: existing, error: lookupErr } = await db
       .from('message_templates')
-      .select('id, name, status, meta_template_id, language, template_kind')
+      .select('id, name, status, meta_template_id, language, template_kind, waba_id')
       .eq('id', id)
       .eq('account_id', accountId)
       .maybeSingle()
@@ -154,12 +155,9 @@ export async function PATCH(
     }
 
     if (!isDryRun()) {
-      const { data: config, error: configError } = await db
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .single()
-      if (configError || !config) {
+      // The template lives in one WABA: edit it with a number from there.
+      const config = await loadTemplateNumberConfig(db, accountId, existing.waba_id as string | null).catch(() => null)
+      if (!config) {
         return NextResponse.json(
           { error: t('common.whatsappNotConfiguredDot') },
           { status: 400 },
@@ -267,7 +265,7 @@ export async function DELETE(
 
     const { data: existing, error: lookupErr } = await db
       .from('message_templates')
-      .select('id, name, meta_template_id')
+      .select('id, name, meta_template_id, waba_id')
       .eq('id', id)
       .eq('account_id', accountId)
       .maybeSingle()
@@ -276,12 +274,8 @@ export async function DELETE(
     }
 
     if (existing.meta_template_id && !isDryRun()) {
-      const { data: config, error: configError } = await db
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .single()
-      if (configError || !config || !config.waba_id) {
+      const config = await loadTemplateNumberConfig(db, accountId, existing.waba_id as string | null).catch(() => null)
+      if (!config || !config.waba_id) {
         return NextResponse.json(
           { error: t('templates.notConfiguredDelete') },
           { status: 400 },

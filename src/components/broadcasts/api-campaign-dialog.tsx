@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authFetch } from '@/lib/auth/client';
 import { createClient } from '@/lib/data/client';
+import { NumberSelect } from '@/components/settings/numbers/number-select';
+import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 
 export function ApiCampaignDialog({ open, onOpenChange, onCreated }: {
   open: boolean;
@@ -23,12 +25,20 @@ export function ApiCampaignDialog({ open, onOpenChange, onCreated }: {
   const t = useTranslations('Broadcasts.apiCampaign');
   const [name, setName] = useState('');
   const [templateId, setTemplateId] = useState('');
-  const [templates, setTemplates] = useState<{ id: string; name: string; language: string | null }[]>([]);
+  const [templates, setTemplates] = useState<{ id: string; name: string; language: string | null; waba_id?: string | null }[]>([]);
+  const tn = useTranslations('whatsappNumbers');
+  const { numbers: allNumbers } = useWhatsAppNumbers();
+  const defaultNumber = allNumbers.find((n) => n.is_default);
+  // null = the workspace default number.
+  const [fromNumberId, setFromNumberId] = useState<string | null>(null);
+  // A template is approved per WhatsApp Business Account: only numbers in its WABA can send it.
+  const templateWaba = templates.find((tpl) => tpl.id === templateId)?.waba_id ?? null;
+  const numbers = allNumbers.filter((n) => !templateWaba || !n.waba_id || n.waba_id === templateWaba);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    createClient().from('message_templates').select('id,name,language').eq('status', 'APPROVED').order('name')
+    createClient().from('message_templates').select('id,name,language,waba_id').eq('status', 'APPROVED').order('name')
       .then(({ data }) => setTemplates(data ?? []));
   }, [open]);
 
@@ -38,7 +48,7 @@ export function ApiCampaignDialog({ open, onOpenChange, onCreated }: {
       const res = await authFetch('/api/broadcasts/api-campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), templateId }),
+        body: JSON.stringify({ name: name.trim(), templateId, ...(fromNumberId ? { whatsappConfigId: fromNumberId } : {}) }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -48,6 +58,7 @@ export function ApiCampaignDialog({ open, onOpenChange, onCreated }: {
       onOpenChange(false);
       setName('');
       setTemplateId('');
+      setFromNumberId(null);
       onCreated(payload.id);
     } catch {
       toast.error(t('createFailed'));
@@ -76,6 +87,19 @@ export function ApiCampaignDialog({ open, onOpenChange, onCreated }: {
               {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language ?? 'en_US'})</option>)}
             </select>
           </div>
+          {allNumbers.length > 1 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="api-campaign-send-from" className="text-muted-foreground">{tn('picker.sendFrom')}</Label>
+              <NumberSelect
+                id="api-campaign-send-from"
+                numbers={numbers}
+                value={fromNumberId}
+                onChange={setFromNumberId}
+                emptyLabel={defaultNumber ? tn('picker.defaultNumber', { name: numberLabel(defaultNumber, tn) }) : tn('picker.defaultNumberUnset')}
+                className="h-9 w-full rounded-md border border-border bg-muted px-2 text-sm text-foreground"
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>

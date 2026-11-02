@@ -38,8 +38,10 @@ export async function dispatchQuickReplyAction(db: DataClient, input: QuickReply
   if (target.error) throw new Error('Quick reply target availability lookup failed');
   if (!target.data) return { handled: true, outcome: 'unavailable' };
   if (action.type === 'flow') {
+    // A run belongs to one conversation (one per WhatsApp number). Only a run on this
+    // conversation conflicts; a run waiting on the contact's other number does not.
     const active = await db.from('flow_runs').select('id').eq('account_id', input.accountId)
-      .eq('contact_id', input.contactId).eq('status', 'active').limit(1);
+      .eq('contact_id', input.contactId).eq('conversation_id', input.conversationId).eq('status', 'active').limit(1);
     if (active.error) throw new Error('Quick reply active flow lookup failed');
     if (active.data?.length) return { handled: true, outcome: 'conflict' };
   }

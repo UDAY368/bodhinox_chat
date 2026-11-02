@@ -39,9 +39,16 @@ import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
  *   - Optimistic UPDATE with `current_node_key` precondition: two
  *     simultaneous taps for the same run collide at the DB layer; the
  *     second is a no-op.
- *   - Partial unique index `idx_one_active_run_per_contact`: two
- *     simultaneous starts for the same contact collide; the second
+ *   - Partial unique index `idx_one_active_run_per_conversation`: two
+ *     simultaneous starts on the same conversation collide; the second
  *     INSERT raises 23505 and the runner catches & exits.
+ *
+ * Multi-number policy: a contact has one conversation per WhatsApp
+ * number, and each conversation has at most one active run. An inbound
+ * only ever answers the run on its own conversation. A run waiting on
+ * another conversation of the same contact (another number) is left
+ * alone — it is not answered, closed or re-routed — so replies always
+ * go out from the number the customer wrote to.
  */
 
 import { databaseAdmin } from "./admin-client";
@@ -292,29 +299,29 @@ export function evaluateConditionPredicate(args: {
 
 type AdminClient = ReturnType<typeof databaseAdmin>;
 
-async function loadActiveRunForContact(
+async function loadActiveRunForConversation(
   db: AdminClient,
   accountId: string,
   contactId: string,
+  conversationId: string,
 ): Promise<FlowRunRow | null> {
-  // The partial unique index `idx_one_active_run_per_contact` was
-  // rebuilt in migration 017 over `(account_id, contact_id)` — so
-  // "two active runs for one contact in one account" is impossible
-  // by design. But a future migration glitch or manual SQL could
-  // create one, and .maybeSingle() throws on >1 row — which would
-  // kill dispatch for that contact's webhook entirely. .limit(1) is
-  // forgiving: pick the newest, let the cron sweep clean up the
-  // stale one.
+  // Only the run on this inbound's conversation may answer it (see the
+  // multi-number policy in the header). The partial unique index
+  // `idx_one_active_run_per_conversation` makes two active runs on one
+  // conversation impossible, but .maybeSingle() would throw on >1 row
+  // after manual SQL and kill dispatch for the conversation; .limit(1)
+  // picks the newest and lets the cron sweep clean up the stale one.
   const { data, error } = await db
     .from("flow_runs")
     .select("*")
     .eq("account_id", accountId)
     .eq("contact_id", contactId)
+    .eq("conversation_id", conversationId)
     .eq("status", "active")
     .order("started_at", { ascending: false })
     .limit(1);
   if (error) {
-    console.error("[flows] loadActiveRunForContact error:", error.message);
+    console.error("[flows] loadActiveRunForConversation error:", error.message);
     return null;
   }
   const rows = (data as FlowRunRow[] | null) ?? [];
@@ -437,9 +444,23 @@ async function isDuplicateInbound(
   return (count ?? 0) > 0;
 }
 
+/**
+ * Whether a flow listens on the number an inbound arrived on. A flow tied to a
+ * number (flows.whatsapp_config_id) starts only for messages on it; an untied
+ * flow (null, every flow before multi-number) starts on every number.
+ */
+export function flowListensOnNumber(
+  flow: { whatsapp_config_id?: string | null },
+  inboundNumberId: string | null,
+): boolean {
+  const tied = flow.whatsapp_config_id ?? null;
+  return !tied || tied === inboundNumberId;
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
+  conversationId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
   contactDigits: () => Promise<string>,
@@ -447,7 +468,7 @@ async function findEntryFlow(
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
   // only while a prompt is outstanding — and this function runs solely
-  // when the contact has NO active run, so there is nothing the tap
+  // when the conversation has NO active run, so there is nothing the tap
   // could be answering. What it actually blocked was issue #490: an
   // *automation* sends the buttons, the customer taps one, and the flow
   // whose keyword matches that button never starts. Retyping the label
@@ -463,10 +484,22 @@ async function findEntryFlow(
   if (active.error || drafts.error) return null;
   const testing = ((drafts.data ?? []) as FlowRow[]).filter((f) => f.status === "draft" && (f.test_numbers ?? []).length > 0);
   const digits = testing.length ? await contactDigits() : "";
-  const typed = byPrecedence([
+  const candidatesByStatus = [
     ...((active.data ?? []) as FlowRow[]).filter((f) => f.status === "active"),
     ...testing.filter((f) => isTestContact(f, digits)),
-  ]);
+  ];
+  // The inbound's number is its conversation's (one conversation per contact
+  // and number); read only when some flow is tied to a number.
+  const tiedFlows = candidatesByStatus.some((f) => f.whatsapp_config_id);
+  let inboundNumberId: string | null = null;
+  if (tiedFlows) {
+    const { data, error } = await db.from("conversations").select("whatsapp_config_id")
+      .eq("account_id", accountId).eq("id", conversationId).maybeSingle();
+    if (error) return null;
+    inboundNumberId = (data as { whatsapp_config_id?: string | null } | null)?.whatsapp_config_id ?? null;
+  }
+  const typed = byPrecedence(candidatesByStatus.filter((f) =>
+    flowListensOnNumber(f, inboundNumberId)));
   for (const flow of typed) {
     if (flow.trigger_type === "template_reply") {
       const vars = templateReplyMatch(message, flow.trigger_config as TemplateReplyTriggerConfig);
@@ -1658,7 +1691,9 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
   if (target.error) throw new Error('Explicit flow target lookup failed');
   const flow = target.data as FlowRow | null;
   if (!flow || flow.id !== input.flowId || flow.account_id !== input.accountId || flow.status !== 'active' || !flow.entry_node_id) return { outcome: 'unavailable' };
-  const existing = await db.from('flow_runs').select('id').eq('account_id', input.accountId).eq('contact_id', input.contactId).eq('status', 'active').limit(1);
+  // Same policy as inbound dispatch: only a run on this conversation conflicts.
+  const existing = await db.from('flow_runs').select('id').eq('account_id', input.accountId).eq('contact_id', input.contactId)
+    .eq('conversation_id', input.conversationId).eq('status', 'active').limit(1);
   if (existing.error) throw new Error('Explicit flow active run lookup failed');
   if (existing.data?.length) return { outcome: 'conflict' };
   const nodes = await loadAllNodes(db, flow.id);
@@ -1685,14 +1720,15 @@ export async function dispatchInboundToFlows(
   })());
   try {
     if (await botRepliesPaused(input.accountId, input.conversationId)) return { consumed: true, outcome: 'no_match' };
-    const activeRun = await loadActiveRunForContact(
+    const activeRun = await loadActiveRunForConversation(
       db,
       input.accountId,
       input.contactId,
+      input.conversationId,
     );
 
-    // Idempotency — only matters if there's already a run for this
-    // contact. For new runs, the partial unique index catches duplicate
+    // Idempotency — only matters if there's already a run on this
+    // conversation. For new runs, the partial unique index catches duplicate
     // starts at INSERT time.
     if (activeRun) {
       const dupe = await isDuplicateInbound(
@@ -1724,6 +1760,7 @@ export async function dispatchInboundToFlows(
     const entry = await findEntryFlow(
       db,
       input.accountId,
+      input.conversationId,
       input.message,
       input.isFirstInboundMessage,
       contactDigits,
@@ -2092,7 +2129,7 @@ async function startNewRun(
   /** Variables carried over by Connect Flow. */
   vars: Record<string, unknown> = {},
 ): Promise<DispatchInboundResult> {
-  // INSERT — partial unique index `idx_one_active_run_per_contact`
+  // INSERT — partial unique index `idx_one_active_run_per_conversation`
   // catches concurrent inserts with 23505. We catch and return as
   // consumed:true (the parallel webhook handles it).
   const { data: inserted, error: insErr } = await db
@@ -2100,9 +2137,10 @@ async function startNewRun(
     .insert({
       flow_id: flow.id,
       // Tenancy: NOT NULL post-017. The partial unique index
-      // `idx_one_active_run_per_contact` is over (account_id,
-      // contact_id) WHERE status='active', so two accounts sharing
-      // a contact phone number each run their own flows independently.
+      // `idx_one_active_run_per_conversation` is over (account_id,
+      // contact_id, conversation_id) WHERE status='active', so two
+      // accounts sharing a phone number, and two numbers of one
+      // account, each run their own flows independently.
       account_id: flow.account_id,
       // Audit: preserves the flow's author on the run row for log
       // attribution.

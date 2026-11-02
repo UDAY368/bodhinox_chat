@@ -21,6 +21,8 @@ import { usePresence } from '@/hooks/use-presence';
 import { PresenceDot } from '@/components/presence/presence-dot';
 import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
+import { ConversationNumberBadge } from '@/components/settings/numbers/conversation-number';
+import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import type {
   Conversation,
   Message,
@@ -184,6 +186,8 @@ export function MessageThread({
 }: MessageThreadProps) {
   const t = useTranslations('Inbox.messageThread');
   const tTimer = useTranslations('Inbox.sessionTimer');
+  // Which number this conversation is on (shown with 2+ numbers only).
+  const { numbers: whatsappNumbers } = useWhatsAppNumbers();
   const sessionNow = useSessionClock();
   const tQuote = useTranslations('Inbox.replyQuote');
 
@@ -1028,6 +1032,7 @@ export function MessageThread({
             <p className="text-muted-foreground truncate text-xs">
               {contactHandle(contact)}
             </p>
+            <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}

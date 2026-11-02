@@ -146,7 +146,7 @@ export async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }, a
         const decryptedAccessToken = decrypt(config.access_token);
         await withJobScope({ accountId, userId: config.user_id, role: 'owner' }, async () => {
           for (let index = 0; index < value.messages!.length; index++) {
-            await processMessage(value.messages![index], value.contacts?.[index] || value.contacts?.[0], accountId, config.user_id, decryptedAccessToken, config.mirror_inbound_media !== false);
+            await processMessage(value.messages![index], value.contacts?.[index] || value.contacts?.[0], accountId, config.user_id, decryptedAccessToken, config.mirror_inbound_media !== false, config.id);
           }
         });
       });
@@ -253,7 +253,10 @@ async function processMessage(
   accessToken: string,
   // Per-account opt-out for the inbound-media mirror (migration 039).
   // See parseMessageContent for what it turns off.
-  mirrorMedia: boolean
+  mirrorMedia: boolean,
+  // The number (whatsapp_config.id) the message arrived on; the
+  // conversation is per (contact, number).
+  whatsappConfigId: string
 ) {
   // Phone number OR business-scoped user ID — Meta sends only the
   // latter for a sender who has adopted a WhatsApp username (#519).
@@ -284,7 +287,8 @@ async function processMessage(
     accountId,
     configOwnerUserId,
     contactRecord.id,
-    message.id
+    message.id,
+    whatsappConfigId
   )
   if (!convResult) throw new Error('Inbound conversation persistence failed')
   const conversation = convResult.conversation
@@ -350,7 +354,7 @@ async function processMessage(
     metaMessageId:message.id,contentType,contentText,mediaUrl,mediaType,interactiveReplyId,interactivePayload,
     ...(formReply ? { formReply } : {}),
     replyToMessageId:replyToInternalId,contextMetaId:message.context?.id ?? null,createdAt:new Date(parseInt(message.timestamp,10)*1000),
-    wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,
+    wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,whatsappConfigId,
   });
 }
 
@@ -760,11 +764,14 @@ async function findOrCreateConversation(
   configOwnerUserId: string,
   contactId: string,
   metaMessageId: string,
+  whatsappConfigId: string,
 ) {
-  // Look for an existing conversation in this account, oldest-first.
+  // One conversation per (contact, number): a contact who messages two
+  // of the workspace's numbers has two threads, and each thread keeps
+  // the number it started on.
   //
   // We deliberately do NOT use `.single()` here. `.single()` errors on
-  // *both* 0 rows and ≥2 rows, and the old code treated any error as
+  // *both* 0 rows and >=2 rows, and the old code treated any error as
   // "none found" and inserted a new row. So once two conversations
   // existed for a contact (from a race — Meta retries a delivery, or a
   // batch fans out to concurrent runs), every subsequent inbound
@@ -774,21 +781,37 @@ async function findOrCreateConversation(
   // Ordering oldest-first and taking one row makes the lookup resolve to
   // the same canonical survivor the dedup migration (036) keeps, so any
   // pre-existing duplicates converge instead of compounding.
-  const { data: existingRows, error: findError } = await databaseAdmin()
+  const findForNumber = () => databaseAdmin()
     .from('conversations')
     .select('*')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
+    .eq('whatsapp_config_id', whatsappConfigId)
     .order('created_at', { ascending: true })
     .limit(1)
+  const existingFor = (row: { inbound_created_meta_id?: string | null }) =>
+    ({ conversation: row, created: row.inbound_created_meta_id === metaMessageId })
 
+  const { data: existingRows, error: findError } = await findForNumber()
   if (findError) {
     throw new Error('Inbound conversation lookup failed')
   }
+  if (existingRows && existingRows.length > 0) return existingFor(existingRows[0])
 
-  if (existingRows && existingRows.length > 0) {
-    return { conversation: existingRows[0], created: existingRows[0].inbound_created_meta_id === metaMessageId }
+  // A conversation with no number (created before any number was
+  // connected, or whose number was removed) is this contact's thread:
+  // the number it now arrives on adopts it rather than starting another.
+  const { data: adopted, error: adoptError } = await databaseAdmin()
+    .from('conversations')
+    .update({ whatsapp_config_id: whatsappConfigId })
+    .eq('account_id', accountId)
+    .eq('contact_id', contactId)
+    .is('whatsapp_config_id', null)
+    .select('*')
+  if (adoptError && !isUniqueViolation(adoptError)) {
+    throw new Error('Inbound conversation lookup failed')
   }
+  if (adopted && adopted.length > 0) return existingFor(adopted[0])
 
   // Create new conversation. Same tenancy + audit split as
   // findOrCreateContact above.
@@ -798,27 +821,20 @@ async function findOrCreateConversation(
       account_id: accountId,
       user_id: configOwnerUserId,
       contact_id: contactId,
+      whatsapp_config_id: whatsappConfigId,
       inbound_created_meta_id: metaMessageId,
     })
     .select()
     .single()
 
   if (createError) {
-    // Lost a race: a concurrent inbound delivery created the
-    // conversation between our lookup and insert, and the unique index
-    // (migration 036) rejected the duplicate. Re-resolve the winning
-    // row instead of dropping the message — mirrors findOrCreateContact.
-    if (isUniqueViolation(createError)) {
-      const { data: raced } = await databaseAdmin()
-        .from('conversations')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('contact_id', contactId)
-        .order('created_at', { ascending: true })
-        .limit(1)
-      if (raced && raced.length > 0) {
-        return { conversation: raced[0], created: raced[0].inbound_created_meta_id === metaMessageId }
-      }
+    // Lost a race: a concurrent inbound delivery created (or adopted)
+    // the conversation between our lookup and insert, and the unique
+    // index rejected the duplicate. Re-resolve the winning row instead
+    // of dropping the message — mirrors findOrCreateContact.
+    if (isUniqueViolation(createError) || adoptError) {
+      const { data: raced } = await findForNumber()
+      if (raced && raced.length > 0) return existingFor(raced[0])
     }
     throw new Error('Inbound conversation persistence failed')
   }

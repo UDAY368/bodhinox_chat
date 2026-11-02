@@ -13,6 +13,13 @@ import { validateInteractivePayload, type InteractiveMedia, type InteractiveMess
 import { assertInteractiveTargets, bindInteractiveActions } from '@/lib/whatsapp/interactive-actions'
 import { createInteractiveDelivery } from '@/lib/whatsapp/interactive-delivery'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { assertNumberConnected, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers'
+import {
+  loadConversationSenderConfig,
+  loadSenderConfig,
+  numberErrorText,
+  type SenderConfigRow,
+} from '@/lib/whatsapp/sender-config'
 import {
   phoneVariants,
   isRecipientNotAllowedError,
@@ -40,26 +47,52 @@ const t = getT('LibErrors')
 // ------------------------------------------------------------
 
 /**
- * Resolve the account's Meta sending credentials: the phone number id
- * plus the DECRYPTED access token from `whatsapp_config`. The single
- * home for that decrypt step — callers outside this file (the AI
- * auto-reply's typing indicator) reuse it rather than growing a copy.
+ * Resolve the Meta sending credentials: the phone number id plus the
+ * DECRYPTED access token from `whatsapp_config`. With a conversation it is
+ * that conversation's number (the workspace default for a legacy row without
+ * one); without, the workspace default. The single home for that decrypt
+ * step — callers outside this file (the AI auto-reply's typing indicator, the
+ * campaign test send) reuse it rather than growing a copy. A disconnected
+ * number is refused with its own message; there is no fallback to another.
  */
 export async function loadAccountMetaCredentials(
   db: ReturnType<typeof databaseAdmin>,
   accountId: string,
-): Promise<{ phoneNumberId: string; accessToken: string }> {
-  const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('phone_number_id, access_token')
-    .eq('account_id', accountId)
-    .single()
-  if (configErr || !config) {
+  conversationId?: string | null,
+): Promise<{ phoneNumberId: string; accessToken: string; configId: string; wabaId: string | null }> {
+  let config: SenderConfigRow
+  try {
+    config = assertNumberConnected(conversationId
+      ? await loadConversationSenderConfig(db, accountId, conversationId)
+      : await loadSenderConfig(db, accountId))
+  } catch (error) {
+    if (error instanceof NoNumberError && error.reason !== 'none') throw new Error(numberErrorText(error))
     throw new Error(t('send.notConfigured'))
   }
+  if (!config.phone_number_id || !config.access_token) throw new Error(t('send.notConfigured'))
   return {
     phoneNumberId: config.phone_number_id,
     accessToken: decrypt(config.access_token),
+    configId: config.id,
+    wabaId: config.waba_id ?? null,
+  }
+}
+
+/**
+ * True when the conversation's own number was disconnected by an admin, so a
+ * bot (the AI auto-reply) can stand down quietly before doing any work. A
+ * lookup failure answers false: the send itself still refuses.
+ */
+export async function conversationNumberDisconnected(
+  db: ReturnType<typeof databaseAdmin>,
+  accountId: string,
+  conversationId: string,
+): Promise<boolean> {
+  try {
+    return isNumberDisconnected(await loadConversationSenderConfig(db, accountId, conversationId))
+  } catch (error) {
+    // The sender lookup refuses a disconnected number outright; that is still a yes here.
+    return error instanceof NoNumberError && error.reason === 'disconnected'
   }
 }
 
@@ -130,6 +163,7 @@ export async function engineSendText(
   const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
     db,
     args.accountId,
+    args.conversationId,
   )
 
   const attempt = async (phone: string): Promise<string> => {
@@ -258,6 +292,7 @@ export async function engineSendMedia(
   const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
     db,
     args.accountId,
+    args.conversationId,
   )
 
   const attempt = async (phone: string): Promise<string> => {
@@ -426,6 +461,7 @@ async function sendInteractiveViaMeta(
   const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
     db,
     input.accountId,
+    input.conversationId,
   )
 
   const delivery = createInteractiveDelivery({ db, accountId: input.accountId,

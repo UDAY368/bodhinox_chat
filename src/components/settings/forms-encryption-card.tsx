@@ -2,9 +2,11 @@
 
 /**
  * Settings → WhatsApp: the encryption key for WhatsApp Forms that check
- * answers on our server. Meta encrypts those requests with the number's
- * public key; generating one uploads the public half to Meta and keeps the
- * private half (encrypted) on the server. The browser only sees the status.
+ * answers on our server. Meta encrypts those requests with the public key of
+ * the number the form was sent from, so each number has its own key; with two
+ * or more numbers the card shows a picker (the empty choice is the default).
+ * Generating one uploads the public half to Meta and keeps the private half
+ * (encrypted) on the server. The browser only sees the status.
  */
 
 import { useEffect, useState } from "react";
@@ -15,29 +17,40 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { authFetch } from "@/lib/auth/client";
+import { NumberSelect } from "./numbers/number-select";
+import { useWhatsAppNumbers } from "./numbers/use-whatsapp-numbers";
 
-type KeyStatus = { configured: boolean; uploaded_at: string | null };
+type KeyStatus = { number_id: string | null; configured: boolean; uploaded_at: string | null };
 
-export function FormsEncryptionCard({ canEdit }: { canEdit: boolean }) {
+const endpoint = (numberId: string | null) =>
+  numberId ? `/api/whatsapp/forms/encryption-key?number=${encodeURIComponent(numberId)}` : "/api/whatsapp/forms/encryption-key";
+
+/** `numberId` preselects a number (the one the settings form is editing; remount with a key to change it); null means the default. */
+export function FormsEncryptionCard({ canEdit, numberId: initialNumberId = null }: { canEdit: boolean; numberId?: string | null }) {
   const t = useTranslations("Settings.formsEncryption");
+  const { numbers } = useWhatsAppNumbers();
+  const [numberId, setNumberId] = useState<string | null>(initialNumberId);
   const [status, setStatus] = useState<KeyStatus | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
     let live = true;
-    authFetch("/api/whatsapp/forms/encryption-key", { cache: "no-store" })
+    setStatus(null);
+    setLoadFailed(false);
+    authFetch(endpoint(numberId), { cache: "no-store" })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((json: KeyStatus) => { if (live) setStatus(json); })
       .catch(() => { if (live) setLoadFailed(true); });
     return () => { live = false; };
-  }, []);
+  }, [numberId]);
 
   const generate = async () => {
     if (status?.configured && !window.confirm(t("rotateConfirm"))) return;
     setWorking(true);
     try {
-      const res = await authFetch("/api/whatsapp/forms/encryption-key", { method: "POST" });
+      // Rotate the number whose status is shown, even if the default changed meanwhile.
+      const res = await authFetch(endpoint(status?.number_id ?? numberId), { method: "POST" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : t("generateFailed"));
       setStatus(json as KeyStatus);
@@ -56,6 +69,19 @@ export function FormsEncryptionCard({ canEdit }: { canEdit: boolean }) {
         <CardDescription className="text-muted-foreground">{t("description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {numbers.length > 1 && (
+          <>
+            <label htmlFor="forms-encryption-number" className="sr-only">{t("numberLabel")}</label>
+            <NumberSelect
+              id="forms-encryption-number"
+              numbers={numbers}
+              value={numberId}
+              onChange={setNumberId}
+              emptyLabel={t("defaultNumber")}
+              disabled={working}
+            />
+          </>
+        )}
         {!status && !loadFailed ? (
           <Loader2 className="size-4 animate-spin text-primary" />
         ) : (

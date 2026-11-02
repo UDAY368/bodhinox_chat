@@ -22,6 +22,10 @@ let callerRole: string = 'admin'
 // the shared send core re-loads the conversation (with its contact) from
 // just the id, so the mock must model insert-then-select-by-id.
 let createdConversation: Record<string, unknown> | null = null
+// Multi-number scenario: when set, the workspace's numbers and the contact's
+// conversations are listed (one conversation per contact and number).
+let numberList: Record<string, unknown>[] | null = null
+let conversationList: Record<string, unknown>[] | null = null
 
 const CONTACT = {
   id: 'contact-1',
@@ -35,8 +39,20 @@ const CONTACT = {
 function makeSupabaseMock() {
   function builder(table: string) {
     let didInsert = false
+    const filters: Record<string, unknown> = {}
 
     const selectResult = () => {
+      if (table === 'whatsapp_config' && numberList) {
+        const matching = numberList.filter((row) => Object.entries(filters).every(([field, value]) => row[field] === value))
+        return { data: 'id' in filters ? matching[0] ?? null : matching, error: null }
+      }
+      if (table === 'conversations' && conversationList) {
+        if ('id' in filters) {
+          const row = [...conversationList, ...(createdConversation ? [createdConversation] : [])].find((c) => c.id === filters.id)
+          return { data: row ? { ...row, contact: CONTACT } : null, error: null }
+        }
+        return { data: conversationList, error: null }
+      }
       switch (table) {
         case 'profiles':
           return {
@@ -92,9 +108,13 @@ function makeSupabaseMock() {
 
     const b: Record<string, unknown> = {}
     const chain = () => b
-    for (const m of ['select', 'eq', 'in', 'order', 'limit', 'update', 'delete']) {
+    for (const m of ['select', 'in', 'order', 'limit', 'update', 'delete']) {
       b[m] = vi.fn(chain)
     }
+    b.eq = vi.fn((field: string, value: unknown) => {
+      filters[field] = value
+      return b
+    })
     b.insert = vi.fn((payload: Record<string, unknown>) => {
       didInsert = true
       if (table === 'conversations') {
@@ -103,6 +123,9 @@ function makeSupabaseMock() {
           id: 'conv-new',
           account_id: 'acct-1',
           contact_id: 'contact-1',
+          // The single-number fixture's 'cfg-1' is not a UUID; only the
+          // multi-number scenario reloads the conversation's number.
+          ...(numberList ? { whatsapp_config_id: payload.whatsapp_config_id ?? null } : {}),
           contact: CONTACT,
         }
       }
@@ -187,6 +210,8 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     messageInserts.length = 0
     existingConversation = null
     createdConversation = null
+    numberList = null
+    conversationList = null
     contactRow = CONTACT
     callerRole = 'admin'
     supabaseMock = makeSupabaseMock()
@@ -281,6 +306,8 @@ describe('POST /api/whatsapp/send — role enforcement', () => {
       contact: CONTACT,
     }
     createdConversation = null
+    numberList = null
+    conversationList = null
     contactRow = CONTACT
     callerRole = 'admin'
     supabaseMock = makeSupabaseMock()
@@ -315,3 +342,111 @@ describe('POST /api/whatsapp/send — role enforcement', () => {
     expect(sendTemplateMessage).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('POST /api/whatsapp/send — contact_id with two numbers', () => {
+  const NUMBER_A = '00000000-0000-4000-8000-00000000000a'
+  const NUMBER_B = '00000000-0000-4000-8000-00000000000b'
+
+  beforeEach(() => {
+    conversationInserts.length = 0
+    messageInserts.length = 0
+    existingConversation = null
+    createdConversation = null
+    contactRow = CONTACT
+    callerRole = 'admin'
+    numberList = [
+      { id: NUMBER_A, account_id: 'acct-1', phone_number_id: 'PNID-A', access_token: 'enc-a', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: NUMBER_B, account_id: 'acct-1', phone_number_id: 'PNID-B', access_token: 'enc-b', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+    ]
+    conversationList = [
+      { id: 'conv-a', account_id: 'acct-1', contact_id: 'contact-1', whatsapp_config_id: NUMBER_A },
+      { id: 'conv-b', account_id: 'acct-1', contact_id: 'contact-1', whatsapp_config_id: NUMBER_B },
+    ]
+    supabaseMock = makeSupabaseMock()
+    sendTemplateMessage.mockClear()
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("uses the default number's conversation instead of failing on two", async () => {
+    const res = await postContactTemplate()
+    expect(res.status).toBe(200)
+    expect(conversationInserts).toHaveLength(0)
+    expect(messageInserts[0]).toMatchObject({ conversation_id: 'conv-a' })
+    expect((sendTemplateMessage.mock.calls[0] as unknown[])[0]).toMatchObject({ phoneNumberId: 'PNID-A' })
+  })
+
+  it("uses the chosen number's conversation", async () => {
+    const res = await postContactTemplate({ whatsapp_config_id: NUMBER_B })
+    expect(res.status).toBe(200)
+    expect(conversationInserts).toHaveLength(0)
+    expect(messageInserts[0]).toMatchObject({ conversation_id: 'conv-b' })
+    expect((sendTemplateMessage.mock.calls[0] as unknown[])[0]).toMatchObject({ phoneNumberId: 'PNID-B' })
+  })
+
+  it('opens a conversation on the chosen number when the contact has none there', async () => {
+    conversationList = [conversationList![0]]
+    const res = await postContactTemplate({ whatsapp_config_id: NUMBER_B })
+    expect(res.status).toBe(200)
+    expect(conversationInserts).toEqual([expect.objectContaining({ contact_id: 'contact-1', whatsapp_config_id: NUMBER_B })])
+  })
+
+  it('does not reuse an unnumbered conversation for a non-default number', async () => {
+    conversationList = [{ id: 'conv-legacy', account_id: 'acct-1', contact_id: 'contact-1', whatsapp_config_id: null }]
+    expect((await postContactTemplate({ whatsapp_config_id: NUMBER_B })).status).toBe(200)
+    expect(conversationInserts).toHaveLength(1)
+    conversationInserts.length = 0
+    createdConversation = null
+    expect((await postContactTemplate()).status).toBe(200)
+    expect(conversationInserts).toHaveLength(0)
+    expect(messageInserts.at(-1)).toMatchObject({ conversation_id: 'conv-legacy' })
+  })
+
+  it('refuses a number outside the workspace before anything is created or sent', async () => {
+    const res = await postContactTemplate({ whatsapp_config_id: '00000000-0000-4000-8000-0000000000ff' })
+    expect(res.status).toBe(404)
+    expect(conversationInserts).toHaveLength(0)
+    expect(sendTemplateMessage).not.toHaveBeenCalled()
+  })
+
+  it('refuses a disconnected number with 409 before anything is created or sent', async () => {
+    numberList = numberList!.map((row) => row.id === NUMBER_B ? { ...row, status: 'disconnected', access_token: '' } : row)
+    const res = await postContactTemplate({ whatsapp_config_id: NUMBER_B })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'whatsapp_number_disconnected', error: expect.any(String) })
+    expect(conversationInserts).toHaveLength(0)
+    expect(sendTemplateMessage).not.toHaveBeenCalled()
+  })
+
+  it('never treats a disconnected number as the only one when reusing an unnumbered conversation', async () => {
+    // A was disconnected (no longer default); B is the only connected number.
+    numberList = [
+      { ...numberList![0], is_default: false, status: 'disconnected', access_token: '' },
+      { ...numberList![1], status: 'connected' },
+    ]
+    conversationList = [{ id: 'conv-legacy', account_id: 'acct-1', contact_id: 'contact-1', whatsapp_config_id: null }]
+    expect((await postContactTemplate({ whatsapp_config_id: NUMBER_B })).status).toBe(200)
+    expect(conversationInserts).toHaveLength(0)
+    expect(messageInserts.at(-1)).toMatchObject({ conversation_id: 'conv-legacy' })
+  })
+
+  it('still counts a failed-registration number (status disconnected, token kept) as connected', async () => {
+    numberList = [
+      { ...numberList![0], is_default: false, status: 'disconnected' },
+      { ...numberList![1], status: 'connected' },
+    ]
+    conversationList = [{ id: 'conv-legacy', account_id: 'acct-1', contact_id: 'contact-1', whatsapp_config_id: null }]
+    expect((await postContactTemplate({ whatsapp_config_id: NUMBER_B })).status).toBe(200)
+    expect(conversationInserts).toHaveLength(1)
+  })
+
+  it('asks for a number when there are several and no default', async () => {
+    numberList = numberList!.map((row) => ({ ...row, is_default: false }))
+    const res = await postContactTemplate()
+    expect(res.status).toBe(400)
+    expect(sendTemplateMessage).not.toHaveBeenCalled()
+  })
+})
+

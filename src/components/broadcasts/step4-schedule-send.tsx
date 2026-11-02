@@ -24,6 +24,8 @@ import type { VariableMapping } from '@/lib/broadcast-create';
 
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
+import { NumberSelect } from '@/components/settings/numbers/number-select';
+import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 
 const TEST_NUMBERS_KEY = 'bodhinox.campaignTestNumbers';
 
@@ -32,8 +34,12 @@ interface Step4Props {
   onNameChange: (name: string) => void;
   template: MessageTemplate;
   audience: AudienceConfig;
-  /** `scheduledAt` (ISO) sends later instead of now. */
-  onSend: (scheduledAt?: string) => void;
+  /**
+   * `scheduledAt` (ISO) sends later instead of now. `whatsappConfigId` is the
+   * number chosen under "Send from" (null = the workspace default; the picker
+   * only shows when the workspace has two or more numbers).
+   */
+  onSend: (scheduledAt?: string, options?: { whatsappConfigId: string | null }) => void;
   /** Variable mappings and header media, so a test send matches the real campaign. */
   variables: Record<string, VariableMapping>;
   headerMediaUrl?: string;
@@ -60,6 +66,18 @@ export function Step4ScheduleSend({
   progress,
 }: Step4Props) {
   const t = useTranslations('Broadcasts.wizard');
+  const tn = useTranslations('whatsappNumbers');
+  const { numbers: allNumbers } = useWhatsAppNumbers();
+  // A template is approved per WhatsApp Business Account, so only numbers in
+  // the template's WABA (or with no WABA on file) can send it.
+  const templateWaba = (template as { waba_id?: string | null }).waba_id ?? null;
+  const numbers = allNumbers.filter((n) => !templateWaba || !n.waba_id || n.waba_id === templateWaba);
+  const defaultNumber = allNumbers.find((n) => n.is_default);
+  // null = the workspace default number.
+  const [fromNumberId, setFromNumberId] = useState<string | null>(null);
+  // Shown in the summary and confirmation only when there is a choice to see.
+  const sendingNumber = fromNumberId ? allNumbers.find((n) => n.id === fromNumberId) : defaultNumber;
+  const sendFromLabel = allNumbers.length > 1 && sendingNumber ? numberLabel(sendingNumber, tn) : null;
   const [showConfirm, setShowConfirm] = useState(false);
   const canSchedule = planAllows(usePlan(), 'campaign_scheduling');
   const [later, setLater] = useState(false);
@@ -87,6 +105,7 @@ export function Step4ScheduleSend({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           templateId: template.id, phones, variables, headerMediaUrl: headerMediaUrl?.trim() || undefined,
+          ...(fromNumberId ? { whatsappConfigId: fromNumberId } : {}),
           ...(sendExtras && Object.keys(sendExtras).length ? { sendExtras } : {}),
         }),
       });
@@ -156,6 +175,28 @@ export function Step4ScheduleSend({
         />
       </div>
 
+      {/* Send from: only when the workspace has more than one number. */}
+      {allNumbers.length > 1 && (
+        <div>
+          <label htmlFor="broadcast-send-from" className="mb-1.5 block text-sm font-medium text-foreground">
+            {tn('picker.sendFrom')}
+          </label>
+          <NumberSelect
+            id="broadcast-send-from"
+            numbers={numbers}
+            value={fromNumberId}
+            onChange={setFromNumberId}
+            emptyLabel={
+              defaultNumber
+                ? tn('picker.defaultNumber', { name: numberLabel(defaultNumber, tn) })
+                : tn('picker.defaultNumberUnset')
+            }
+            className="border-border bg-muted text-foreground h-9 w-full rounded-md border px-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">{tn('picker.sendFromHelp')}</p>
+        </div>
+      )}
+
       {/* Summary Card */}
       <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">{t('scheduleSend.summary')}</p>
@@ -185,6 +226,12 @@ export function Step4ScheduleSend({
             <p className="text-xs text-muted-foreground">{t('scheduleSend.language')}</p>
             <p className="text-foreground">{template.language ?? 'en_US'}</p>
           </div>
+          {sendFromLabel && (
+            <div>
+              <p className="text-xs text-muted-foreground">{tn('picker.sendFrom')}</p>
+              <p className="text-foreground">{sendFromLabel}</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -305,6 +352,9 @@ export function Step4ScheduleSend({
                     <span className="font-medium text-popover-foreground">{chunks}</span>
                   ),
                 })}
+                {sendFromLabel && (
+                  <span className="mt-2 block">{t('scheduleSend.confirmSendFrom', { number: sendFromLabel })}</span>
+                )}
                 {scheduledDate && (
                   <span className="mt-2 block">
                     {t('scheduleSend.confirmScheduled', { when: scheduledDate.toLocaleString() })}
@@ -323,7 +373,7 @@ export function Step4ScheduleSend({
               <Button
                 onClick={() => {
                   setShowConfirm(false);
-                  onSend(scheduledDate?.toISOString());
+                  onSend(scheduledDate?.toISOString(), { whatsappConfigId: fromNumberId });
                 }}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >

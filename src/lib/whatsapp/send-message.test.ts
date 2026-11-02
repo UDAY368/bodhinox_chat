@@ -195,13 +195,20 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
   isLegacyFormat: () => false,
 }));
 
+// Records the best-effort "pause active flow run" write so tests can assert its scope.
+const flowRunPause = vi.hoisted(() => ({ calls: [] as Array<{ table: string; patch: Record<string, unknown>; filters: Record<string, unknown> }> }));
 vi.mock('@/lib/flows/admin-client', () => ({
-  // Only used for the best-effort "pause active flow run" write.
   databaseAdmin: () => ({
-    from: () => ({
-      update: () => ({
-        eq: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) }),
-      }),
+    from: (table: string) => ({
+      update: (patch: Record<string, unknown>) => {
+        const call = { table, patch, filters: {} as Record<string, unknown> };
+        flowRunPause.calls.push(call);
+        const builder = {
+          eq: (key: string, value: unknown) => { call.filters[key] = value; return builder; },
+          then: (resolve: (r: { error: null }) => unknown) => Promise.resolve({ error: null }).then(resolve),
+        };
+        return builder;
+      },
     }),
   }),
 }));
@@ -220,23 +227,29 @@ interface CapturedWrites {
 function sendPathDb(
   templateRows: unknown[],
   captured: CapturedWrites,
-  contact: Record<string, unknown> = { id: 'ct-1', phone: '+15551234567' }
+  contact: Record<string, unknown> = { id: 'ct-1', phone: '+15551234567' },
+  numbers: { configs?: Record<string, unknown>[]; conversationConfigId?: string | null } = {}
 ): DataClient {
   const conversation = {
     id: 'cv-1',
     contact,
+    whatsapp_config_id: numbers.conversationConfigId ?? null,
   };
-  const config = {
+  const configs = numbers.configs ?? [{
     id: 'cfg-1',
     phone_number_id: 'pn-1',
     access_token: 'token',
-  };
+  }];
 
   return {
     from(table: string) {
+      const filters: Record<string, unknown> = {};
       const builder: Record<string, unknown> = {
         select: () => builder,
-        eq: () => builder,
+        eq: (field: string, value: unknown) => {
+          filters[field] = value;
+          return builder;
+        },
         insert: (row: Record<string, unknown>) => {
           if (table === 'messages') captured.message = row;
           return builder;
@@ -245,21 +258,25 @@ function sendPathDb(
           if (table === 'conversations') captured.conversation = row;
           return builder;
         },
-        maybeSingle: async () => ({ data: null, error: null }),
+        maybeSingle: async () => {
+          if (table === 'whatsapp_config') {
+            return { data: configs.find((c) => c.id === filters.id) ?? null, error: null };
+          }
+          return { data: null, error: null };
+        },
         single: async () => {
           if (table === 'conversations') {
             return { data: conversation, error: null };
           }
-          if (table === 'whatsapp_config') return { data: config, error: null };
           if (table === 'messages') {
             return { data: { id: 'msg-1' }, error: null };
           }
           return { data: null, error: null };
         },
-        // Bare-await result — only message_templates is read this way.
+        // Bare-await result: templates and the workspace's numbers.
         then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
           resolve({
-            data: table === 'message_templates' ? templateRows : [],
+            data: table === 'message_templates' ? templateRows : table === 'whatsapp_config' ? configs : [],
             error: null,
           }),
       };
@@ -456,5 +473,79 @@ describe('sendMessageToConversation — BSUID recipients (#519)', () => {
         { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' }
       )
     ).rejects.toThrow(/no phone number or WhatsApp user ID/);
+  });
+});
+
+describe('sendMessageToConversation — agent reply pauses only the replied conversation run', () => {
+  it('pauses the active run on the replied conversation, not every run for the contact', async () => {
+    flowRunPause.calls.length = 0;
+    await sendMessageToConversation(sendPathDb([], {}), 'acct-1', { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' });
+    expect(flowRunPause.calls).toEqual([{
+      table: 'flow_runs',
+      patch: expect.objectContaining({ status: 'paused_by_agent', end_reason: 'agent_replied' }),
+      filters: { account_id: 'acct-1', contact_id: 'ct-1', conversation_id: 'cv-1', status: 'active' },
+    }]);
+  });
+});
+
+describe('sendMessageToConversation — two numbers in one workspace', () => {
+  const NUMBERS = [
+    { id: '11111111-1111-4111-8111-111111111111', phone_number_id: 'pn-default', access_token: 'token', waba_id: 'waba-a', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+    { id: '22222222-2222-4222-8222-222222222222', phone_number_id: 'pn-second', access_token: 'token', waba_id: 'waba-b', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+  ];
+
+  it("replies from the conversation's number", async () => {
+    const { sendTextMessage } = await import('@/lib/whatsapp/meta-api');
+    vi.mocked(sendTextMessage).mockClear();
+    await sendMessageToConversation(
+      sendPathDb([], {}, undefined, { configs: NUMBERS, conversationConfigId: NUMBERS[1].id }),
+      'acct-1',
+      { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' }
+    );
+    expect(vi.mocked(sendTextMessage)).toHaveBeenCalledWith(expect.objectContaining({ phoneNumberId: 'pn-second' }));
+  });
+
+  it('falls back to the default number for a legacy conversation without one', async () => {
+    const { sendTextMessage } = await import('@/lib/whatsapp/meta-api');
+    vi.mocked(sendTextMessage).mockClear();
+    await sendMessageToConversation(
+      sendPathDb([], {}, undefined, { configs: [NUMBERS[1], NUMBERS[0]], conversationConfigId: null }),
+      'acct-1',
+      { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' }
+    );
+    expect(vi.mocked(sendTextMessage)).toHaveBeenCalledWith(expect.objectContaining({ phoneNumberId: 'pn-default' }));
+  });
+
+  it("refuses a template from another number's WABA before calling Meta", async () => {
+    vi.mocked(sendTemplateMessage).mockClear();
+    const error = await sendMessageToConversation(
+      sendPathDb([{ ...TEMPLATE_ROW, waba_id: 'waba-a' }], {}, undefined, { configs: NUMBERS, conversationConfigId: NUMBERS[1].id }),
+      'acct-1',
+      { conversationId: 'cv-1', messageType: 'template', templateName: 'order_update', templateParams: ['A', 'B'] }
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SendMessageError);
+    expect((error as SendMessageError).code).toBe('template_wrong_number');
+    expect((error as SendMessageError).status).toBe(422);
+    expect(vi.mocked(sendTemplateMessage)).not.toHaveBeenCalled();
+  });
+
+  it('sends a template from its own WABA', async () => {
+    vi.mocked(sendTemplateMessage).mockClear();
+    await sendMessageToConversation(
+      sendPathDb([{ ...TEMPLATE_ROW, waba_id: 'waba-b' }], {}, undefined, { configs: NUMBERS, conversationConfigId: NUMBERS[1].id }),
+      'acct-1',
+      { conversationId: 'cv-1', messageType: 'template', templateName: 'order_update', templateParams: ['A', 'B'] }
+    );
+    expect(vi.mocked(sendTemplateMessage)).toHaveBeenCalledWith(expect.objectContaining({ phoneNumberId: 'pn-second' }));
+  });
+
+  it('asks which number to use when several exist and none is the default', async () => {
+    const error = await sendMessageToConversation(
+      sendPathDb([], {}, undefined, { configs: NUMBERS.map((n) => ({ ...n, is_default: false })), conversationConfigId: null }),
+      'acct-1',
+      { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' }
+    ).catch((e: unknown) => e);
+    expect((error as SendMessageError).code).toBe('whatsapp_number_unavailable');
+    expect((error as SendMessageError).status).toBe(400);
   });
 });

@@ -44,6 +44,7 @@ import {
 } from '@/lib/broadcast-status';
 import { useTranslations } from 'next-intl';
 import { useCan } from '@/hooks/use-can';
+import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 
 interface StatCardProps {
   label: string;
@@ -153,7 +154,10 @@ export default function BroadcastDetailPage() {
   const router = useRouter();
   const t = useTranslations('Broadcasts.detail');
   const tStatus = useTranslations('Broadcasts.status');
+  const tn = useTranslations('whatsappNumbers');
   const canSend = useCan('send-messages');
+  // "Send from" only matters when the workspace has more than one number.
+  const { numbers } = useWhatsAppNumbers();
   // Set after mount so the server render and the first client render match.
   const [origin, setOrigin] = useState('');
   useEffect(() => setOrigin(window.location.origin), []);
@@ -405,6 +409,16 @@ export default function BroadcastDetailPage() {
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
               <span>{t('template', { name: broadcast.template_name })}</span>
               <span>-</span>
+              {numbers.length > 1 && (() => {
+                const id = (broadcast as Broadcast & { whatsapp_config_id?: string | null }).whatsapp_config_id;
+                const n = id ? numbers.find((x) => x.id === id) : undefined;
+                return (
+                  <>
+                    <span>{tn('picker.sendFrom')}: {n ? numberLabel(n, tn) : '—'}</span>
+                    <span>-</span>
+                  </>
+                );
+              })()}
               <span>
                 {t('createdAt', { date: new Date(broadcast.created_at).toLocaleDateString() })}
               </span>

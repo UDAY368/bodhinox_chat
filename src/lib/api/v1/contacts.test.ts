@@ -14,6 +14,7 @@ vi.mock('@/lib/contacts/tag-events', () => ({
 }));
 
 import {
+  resolveAuditUserId,
   serializeContact,
   findOrCreateContact,
   setContactTags,
@@ -175,5 +176,40 @@ describe('setContactTags', () => {
 
     expect(addContactTagAndDispatch).not.toHaveBeenCalled();
     expect(removed.sort()).toEqual(['tag-a', 'tag-c']);
+  });
+});
+
+describe('resolveAuditUserId with several WhatsApp numbers', () => {
+  function auditDb(configs: Record<string, unknown>[], owner = 'owner-1'): DataClient {
+    return {
+      from(table: string) {
+        const filters: Record<string, unknown> = {};
+        const b: Record<string, unknown> = {
+          select: () => b,
+          eq: (field: string, value: unknown) => { filters[field] = value; return b; },
+          maybeSingle: async () => {
+            if (table === 'accounts') return { data: { owner_user_id: owner }, error: null };
+            const rows = configs.filter((c) => filters.is_default === undefined || c.is_default === filters.is_default);
+            return rows.length > 1
+              ? { data: null, error: { message: 'multiple rows' } }
+              : { data: rows[0] ?? null, error: null };
+          },
+        };
+        return b;
+      },
+    } as unknown as DataClient;
+  }
+
+  it("attributes to the default number's owner, not the account owner", async () => {
+    const db = auditDb([
+      { id: 'b', user_id: 'second-owner', is_default: false },
+      { id: 'a', user_id: 'default-owner', is_default: true },
+    ]);
+    await expect(resolveAuditUserId(db, 'acct-1')).resolves.toBe('default-owner');
+  });
+
+  it('keeps the single-number owner and falls back to the account owner with no number', async () => {
+    await expect(resolveAuditUserId(auditDb([{ id: 'a', user_id: 'only-owner', is_default: true }]), 'acct-1')).resolves.toBe('only-owner');
+    await expect(resolveAuditUserId(auditDb([]), 'acct-1')).resolves.toBe('owner-1');
   });
 });

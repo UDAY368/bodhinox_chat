@@ -68,7 +68,7 @@ export async function getForm(id: string): Promise<WhatsAppForm | null> {
 
 export async function saveForm(
   id: string,
-  body: { name: string; category: FormCategory; definition: FormDefinition; uses_endpoint: boolean },
+  body: { name: string; category: FormCategory; definition: FormDefinition; uses_endpoint: boolean; whatsapp_config_id?: string },
 ): Promise<FormResult> {
   return formResult(await authFetch(`/api/whatsapp/forms/${id}`, {
     method: "PUT",

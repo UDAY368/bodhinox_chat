@@ -788,6 +788,18 @@
         "default": null,
         "reference": null,
         "definition": "inbound_created_meta_id TEXT"
+      },
+      {
+        "reference": {
+          "table": "whatsapp_config",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "name": "whatsapp_config_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "definition": "whatsapp_config_id UUID"
       }
     ],
     "messages": [
@@ -1132,6 +1144,78 @@
         "nullable": true,
         "default": null,
         "definition": "forms_key_uploaded_at TIMESTAMPTZ"
+      },
+      {
+        "reference": null,
+        "name": "is_default",
+        "type": "boolean",
+        "nullable": false,
+        "default": "FALSE",
+        "definition": "is_default BOOLEAN NOT NULL DEFAULT FALSE"
+      },
+      {
+        "reference": null,
+        "name": "display_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "definition": "display_name TEXT"
+      },
+      {
+        "reference": null,
+        "name": "quality_rating",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "definition": "quality_rating TEXT"
+      },
+      {
+        "reference": null,
+        "name": "messaging_limit_tier",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "definition": "messaging_limit_tier TEXT"
+      },
+      {
+        "reference": null,
+        "name": "name_status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "definition": "name_status TEXT"
+      },
+      {
+        "reference": null,
+        "name": "health_checked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "definition": "health_checked_at TIMESTAMPTZ"
+      },
+      {
+        "name": "code_verification_status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "code_verification_status TEXT"
+      },
+      {
+        "name": "health_error",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "health_error TEXT"
+      },
+      {
+        "name": "health_error_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "health_error_at TIMESTAMPTZ"
       }
     ],
     "message_templates": [
@@ -1350,6 +1434,14 @@
         "nullable": true,
         "default": null,
         "definition": "lto JSONB"
+      },
+      {
+        "reference": null,
+        "name": "waba_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "definition": "waba_id TEXT"
       }
     ],
     "pipelines": [
@@ -1810,6 +1902,18 @@
         "default": "0",
         "reference": null,
         "definition": "click_count INTEGER NOT NULL DEFAULT 0"
+      },
+      {
+        "reference": {
+          "table": "whatsapp_config",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "name": "whatsapp_config_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "definition": "whatsapp_config_id UUID"
       }
     ],
     "broadcast_recipients": [
@@ -2584,6 +2688,18 @@
         "nullable": false,
         "default": "'{}'",
         "definition": "test_numbers TEXT[] NOT NULL DEFAULT '{}'"
+      },
+      {
+        "reference": {
+          "table": "whatsapp_config",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "name": "whatsapp_config_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "definition": "whatsapp_config_id UUID"
       }
     ],
     "flow_nodes": [
@@ -3300,6 +3416,22 @@
         "default": "NOW()",
         "reference": null,
         "definition": "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+      },
+      {
+        "name": "whatsapp_config_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "whatsapp_config_id UUID"
+      },
+      {
+        "name": "dedupe_key",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "dedupe_key TEXT"
       }
     ],
     "webhook_endpoints": [

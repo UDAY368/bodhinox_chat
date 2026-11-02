@@ -27,6 +27,15 @@ import { marketingSuppression } from '@/lib/contacts/consent';
 
 import { MetaApiError, sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import { assertNumberConnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import {
+  assertTemplateOnNumber,
+  loadSenderConfig,
+  loadSenderConfigByPhoneNumberId,
+  numberErrorText,
+  TemplateNumberMismatchError,
+  type SenderConfigRow,
+} from '@/lib/whatsapp/sender-config';
 import {
   parseInternationalPhone,
   phoneVariants,
@@ -46,6 +55,27 @@ import { findOrCreateContact } from '@/lib/api/v1/contacts';
 import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
 import { PlanLimitError, requireWithinLimit } from '@/lib/billing/entitlements';
 import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
+
+/** Map a sending-number failure to a BroadcastError (the old message when none is connected). */
+export function broadcastNumberError(error: unknown): unknown {
+  if (error instanceof NoNumberError) {
+    // Held, not moved: the campaign waits until its own number is reconnected.
+    if (error.reason === 'disconnected') {
+      return new BroadcastError('whatsapp_number_disconnected', numberErrorText(error), 409);
+    }
+    return error.reason === 'none'
+      ? new BroadcastError(
+          'whatsapp_not_configured',
+          'WhatsApp not configured. Please set up your WhatsApp integration first.',
+          400
+        )
+      : new BroadcastError('whatsapp_number_unavailable', numberErrorText(error), 400);
+  }
+  if (error instanceof TemplateNumberMismatchError) {
+    return new BroadcastError(error.code, numberErrorText(error), 422);
+  }
+  return error;
+}
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -71,6 +101,10 @@ export interface CreateBroadcastParams {
   templateName: string;
   templateLanguage?: string | null;
   recipients: BroadcastRecipientInput[];
+  /** The number to send from (whatsapp_config.id); the default when omitted. */
+  whatsappConfigId?: string | null;
+  /** The number to send from by its Meta phone_number_id (public API); the default when omitted. */
+  phoneNumberId?: string | null;
 }
 
 interface PlannedRecipient {
@@ -131,19 +165,15 @@ export async function createBroadcast(
     );
   }
 
-  // Config (fail fast + provides the audit trail owner already resolved
-  // by the caller). Meta send needs phone_number_id + decrypted token.
-  const { data: config, error: configError } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', accountId)
-    .single();
-  if (configError || !config) {
-    throw new BroadcastError(
-      'whatsapp_not_configured',
-      'WhatsApp not configured. Please set up your WhatsApp integration first.',
-      400
-    );
+  // The sending number (fail fast): the one asked for, else the default.
+  // Meta send needs phone_number_id + decrypted token.
+  let config: SenderConfigRow;
+  try {
+    config = assertNumberConnected(params.phoneNumberId
+      ? await loadSenderConfigByPhoneNumberId(db, accountId, params.phoneNumberId)
+      : await loadSenderConfig(db, accountId, params.whatsappConfigId));
+  } catch (error) {
+    throw broadcastNumberError(error);
   }
   const accessToken = decrypt(config.access_token);
 
@@ -163,6 +193,12 @@ export async function createBroadcast(
     );
   }
   const templateRow = resolvedTemplate.row;
+  // A template synced from another WABA cannot go out from this number.
+  try {
+    assertTemplateOnNumber(templateRow, config);
+  } catch (error) {
+    throw broadcastNumberError(error);
+  }
   // API recipients carry body values only. An authentication template
   // needs a per-person code, and a location header, an offer end or
   // card values cannot be given here either, so refuse those templates
@@ -204,6 +240,11 @@ export async function createBroadcast(
           ARRAY(SELECT value FROM jsonb_array_elements(${JSON.stringify(deduped.map((r) => r.params))}::jsonb)))`;
       const id = rows[0]?.broadcast_id;
       if (!id) throw new Error('Broadcast creation returned no rows');
+      // The number this campaign sends from (resumes and retries reuse it).
+      if (config.id) {
+        await tx.$executeRaw`UPDATE broadcasts SET whatsapp_config_id=${config.id}::uuid
+          WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
+      }
       await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
         VALUES('broadcast.dispatch',${accountId}::uuid,${JSON.stringify({ broadcastId: id })}::jsonb,${`broadcast:${id}:initial`})`;
       return rows;

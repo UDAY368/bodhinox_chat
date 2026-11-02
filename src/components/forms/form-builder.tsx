@@ -42,6 +42,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useCustomFields } from "@/components/flows/forms/use-pickers";
+import { useWhatsAppNumbers } from "@/components/settings/numbers/use-whatsapp-numbers";
+import { numberOptionLabel, pickableNumbers } from "@/components/settings/numbers/number-select";
 import { FORM_LIMITS, validateFormDefinition } from "@/lib/whatsapp/forms/definition";
 import {
   FORM_CATEGORIES,
@@ -94,6 +96,8 @@ interface Draft {
   category: FormCategory;
   definition: FormDefinition;
   uses_endpoint: boolean;
+  /** The form's number; empty when it has none yet (publishing binds the default). */
+  whatsapp_config_id: string;
 }
 
 const draftOf = (form: WhatsAppForm): Draft => ({
@@ -101,6 +105,7 @@ const draftOf = (form: WhatsAppForm): Draft => ({
   category: form.category,
   definition: form.definition,
   uses_endpoint: form.uses_endpoint,
+  whatsapp_config_id: form.whatsapp_config_id ?? "",
 });
 
 export function FormBuilder({
@@ -117,7 +122,9 @@ export function FormBuilder({
   const tType = useTranslations("Forms.fieldTypes");
   const tCat = useTranslations("Forms.categories");
   const tGate = useTranslations("GatedButton");
+  const tn = useTranslations("whatsappNumbers");
   const customFields = useCustomFields();
+  const { numbers } = useWhatsAppNumbers();
 
   const [form, setForm] = useState(initialForm);
   const [draft, setDraft] = useState<Draft>(() => draftOf(initialForm));
@@ -135,6 +142,10 @@ export function FormBuilder({
   const screen = screens[current];
   const metaErrors = metaErrorMessages(form.validation_errors);
   const looseErrors = unplacedErrors(errors);
+  // Disconnected numbers are not offered, except the form's own (marked "(disconnected)").
+  const pickable = pickableNumbers(numbers, draft.whatsapp_config_id || null);
+  // Once its Meta Flow exists, a form can only move to a number of the same WABA.
+  const numberChoices = form.meta_flow_id ? pickable.filter((n) => n.waba_id && n.waba_id === form.waba_id) : pickable;
 
   // Same guard as the flow editor: catches reloads and closed tabs, not
   // client-side route changes.
@@ -195,7 +206,13 @@ export function FormBuilder({
       toast.error(t("fixErrors"));
       return false;
     }
-    const result = await saveForm(form.id, { ...draft, name: draft.name.trim(), definition: local.definition });
+    const { whatsapp_config_id, ...fields } = draft;
+    const result = await saveForm(form.id, {
+      ...fields,
+      name: draft.name.trim(),
+      definition: local.definition,
+      ...(whatsapp_config_id ? { whatsapp_config_id } : {}),
+    });
     if (!result.ok) {
       setErrors(result.errors.length ? result.errors : [{ message: result.error ?? t("saveError") }]);
       toast.error(result.status === 422 ? t("fixErrors") : (result.error ?? t("saveError")));
@@ -301,6 +318,27 @@ export function FormBuilder({
                   <option key={c} value={c}>{tCat(c)}</option>
                 ))}
               </select>
+              {pickable.length >= 2 && (
+                <>
+                  <Label htmlFor="form-number" className="text-xs text-muted-foreground">{t("number")}</Label>
+                  <select
+                    id="form-number"
+                    value={draft.whatsapp_config_id}
+                    disabled={readOnly || numberChoices.length < 2}
+                    title={form.meta_flow_id ? t("numberSameWaba") : undefined}
+                    onChange={(e) => setDraft((d) => ({ ...d, whatsapp_config_id: e.target.value }))}
+                    className={selectClass}
+                  >
+                    {!draft.whatsapp_config_id && <option value="">{t("numberDefault")}</option>}
+                    {draft.whatsapp_config_id && !numberChoices.some((n) => n.id === draft.whatsapp_config_id) && (
+                      <option value={draft.whatsapp_config_id}>{t("numberUnavailable")}</option>
+                    )}
+                    {numberChoices.map((n) => (
+                      <option key={n.id} value={n.id}>{numberOptionLabel(n, tn)}</option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/data/server'
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { orderNumbers } from '@/lib/whatsapp/sender-config'
 import { getT } from '@/lib/i18n/translate'
 import { mediaProxyHeaders } from '@/lib/media/proxy-response-headers'
 
@@ -52,24 +53,39 @@ export async function GET(
       )
     }
 
-    // Fetch and decrypt WhatsApp config
-    const { data: config, error: configError } = await db
+    // The workspace's numbers, default first. Meta hands a media id only to
+    // the WABA it arrived on, so a workspace with numbers in several WABAs
+    // (each with its own token) tries each distinct token in turn.
+    const { data: rows, error: configError } = await db
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
-      .single()
+    const configs = orderNumbers(
+      ((Array.isArray(rows) ? rows : rows ? [rows] : []) as { id?: string; is_default?: boolean | null; created_at?: string | null; access_token?: string | null }[])
+        .filter((row) => !!row.access_token)
+    )
 
-    if (configError || !config) {
+    if (configError || configs.length === 0) {
       return NextResponse.json(
         { error: t('common.whatsappNotConfigured') },
         { status: 400 }
       )
     }
 
-    const accessToken = decrypt(config.access_token)
-
-    // Get the download URL from Meta
-    const mediaInfo = await getMediaUrl({ mediaId, accessToken })
+    const tokens = [...new Set(configs.map((row) => decrypt(row.access_token!)))]
+    let accessToken = ''
+    let mediaInfo: Awaited<ReturnType<typeof getMediaUrl>> | null = null
+    let lastError: unknown = null
+    for (const token of tokens) {
+      try {
+        mediaInfo = await getMediaUrl({ mediaId, accessToken: token })
+        accessToken = token
+        break
+      } catch (error) {
+        lastError = error
+      }
+    }
+    if (!mediaInfo) throw lastError
 
     // Download the binary data
     const { buffer, contentType } = await downloadMedia({

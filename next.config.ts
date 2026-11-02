@@ -42,7 +42,8 @@ const SECURITY_HEADERS = [
       // Next.js needs 'unsafe-inline' for its inline hydration script
       // and 'unsafe-eval' in dev + some production optimisations.
       // Nonce-based CSP is a later project.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // connect.facebook.net: the Facebook JS SDK for WhatsApp Embedded Signup.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net",
       // Tailwind + inline style attributes on lots of components.
       "style-src 'self' 'unsafe-inline'",
       // Supabase public-bucket avatars, contact avatars (arbitrary
@@ -54,8 +55,10 @@ const SECURITY_HEADERS = [
       "media-src 'self' blob: https:",
       "font-src 'self' data:",
       // Supabase REST + realtime (WSS). All Meta API calls happen
-      // server-side, so graph.facebook.com does not belong here.
-      "connect-src 'self'",
+      // server-side; the Embedded Signup SDK only talks to facebook.com
+      // (login status) and runs its popup/iframe from there.
+      "connect-src 'self' https://www.facebook.com https://web.facebook.com",
+      "frame-src 'self' https://www.facebook.com https://web.facebook.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

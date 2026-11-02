@@ -122,16 +122,20 @@ export function SettingsOverview({
     (async () => {
       setWhatsappLoading(true);
       const [row, health] = await Promise.allSettled([
+        // A workspace can connect several numbers; any one counts as set up.
         db
           .from('whatsapp_config')
           .select('phone_number_id')
           .eq('account_id', acctId)
-          .maybeSingle(),
+          .limit(1),
+        // Health of the default number.
         authFetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
       ]);
       if (cancelled) return;
       setWhatsapp({
-        configured: row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
+        configured:
+          row.status === 'fulfilled' &&
+          !!(row.value.data as { phone_number_id?: string }[] | null)?.[0]?.phone_number_id,
         connected: health.status === 'fulfilled' && !!health.value?.connected,
       });
       setWhatsappLoading(false);

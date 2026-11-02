@@ -33,6 +33,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  ConversationNumberBadge,
+  inboxFilterNumbers,
+  matchesNumberFilter,
+  NO_NUMBER,
+} from '@/components/settings/numbers/conversation-number';
+import { numberOptionLabel } from '@/components/settings/numbers/number-select';
+import {
+  useWhatsAppNumbers,
+  type WhatsAppNumberDto,
+} from '@/components/settings/numbers/use-whatsapp-numbers';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -62,6 +73,29 @@ export function ConversationList({
   resyncToken = 0,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
+  const tn = useTranslations('whatsappNumbers');
+  // With two or more numbers each row names its number and a filter appears.
+  const { numbers } = useWhatsAppNumbers();
+  const multiNumber = numbers.length > 1;
+  const [numberFilter, setNumberFilter] = useState<string | null>(null);
+  // Disconnected numbers are offered only while listed conversations are on
+  // them (history), marked "(disconnected)".
+  const filterNumbers = useMemo(
+    () => inboxFilterNumbers(numbers, conversations, numberFilter),
+    [numbers, conversations, numberFilter]
+  );
+  // A filter on a number that is gone from the workspace falls back to all.
+  const activeNumberFilter =
+    multiNumber &&
+    (numberFilter === NO_NUMBER || filterNumbers.some((n) => n.id === numberFilter))
+      ? numberFilter
+      : null;
+  const numberFilterLabel =
+    activeNumberFilter === null
+      ? tn('picker.inboxFilter')
+      : activeNumberFilter === NO_NUMBER
+        ? tn('picker.noNumber')
+        : numberOptionLabel(filterNumbers.find((n) => n.id === activeNumberFilter)!, tn);
 
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () => [
@@ -194,6 +228,10 @@ export function ConversationList({
 
     result = result.filter((c) => matchesInboxFilter(c, filter, now));
 
+    if (activeNumberFilter !== null) {
+      result = result.filter((c) => matchesNumberFilter(c, activeNumberFilter));
+    }
+
     // Contact-based filters (tags via OR logic, exact company match).
     if (selectedTagIds.length > 0 || selectedCompany !== null) {
       result = result.filter((c) =>
@@ -215,7 +253,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany, now]);
+  }, [conversations, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter]);
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>
@@ -245,12 +283,14 @@ export function ConversationList({
     setSelectedTagIds([]);
     setSelectedCompany(null);
     setSessionFilter('all');
+    setNumberFilter(null);
   }, []);
 
   const hasContactFilters =
     selectedTagIds.length > 0 ||
     selectedCompany !== null ||
-    sessionFilter !== 'all';
+    sessionFilter !== 'all' ||
+    activeNumberFilter !== null;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -407,6 +447,43 @@ export function ConversationList({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {multiNumber && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={`${tn('picker.inboxFilter')}: ${numberFilterLabel}`}
+                className={cn(
+                  'hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                  activeNumberFilter === null
+                    ? 'text-muted-foreground hover:text-foreground'
+                    : 'text-primary'
+                )}
+              >
+                <span className="truncate">{numberFilterLabel}</span>
+                <ChevronDown className="h-3 w-3 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="border-border bg-popover max-h-64 w-56"
+              >
+                <DropdownMenuRadioGroup
+                  value={activeNumberFilter ?? ''}
+                  onValueChange={(value) => setNumberFilter(value || null)}
+                >
+                  <DropdownMenuRadioItem value="" className="text-sm">
+                    {tn('picker.allNumbers')}
+                  </DropdownMenuRadioItem>
+                  {filterNumbers.map((n) => (
+                    <DropdownMenuRadioItem key={n.id} value={n.id} className="text-sm">
+                      <span className="truncate">{numberOptionLabel(n, tn)}</span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                  <DropdownMenuRadioItem value={NO_NUMBER} className="text-sm">
+                    {tn('picker.noNumber')}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`${t('session')}: ${sessionLabel}`}
@@ -479,6 +556,15 @@ export function ConversationList({
                 <X className="h-3 w-3" />
               </button>
             )}
+            {activeNumberFilter !== null && (
+              <button
+                onClick={() => setNumberFilter(null)}
+                className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+              >
+                <span className="max-w-24 truncate">{numberFilterLabel}</span>
+                <X className="h-3 w-3" />
+              </button>
+            )}
             {sessionFilter !== 'all' && (
               <button
                 onClick={() => setSessionFilter('all')}
@@ -524,6 +610,7 @@ export function ConversationList({
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
                 t={t}
+                numbers={multiNumber ? numbers : NO_NUMBERS}
               />
             ))}
           </div>
@@ -538,13 +625,18 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
   t: ReturnType<typeof useTranslations>;
+  /** The workspace's numbers when it has two or more, else empty. */
+  numbers: WhatsAppNumberDto[];
 }
+
+const NO_NUMBERS: WhatsAppNumberDto[] = [];
 
 function ConversationItem({
   conversation,
   isActive,
   onSelect,
   t,
+  numbers,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || t('unknown');
@@ -613,6 +705,7 @@ function ConversationItem({
             />
           </div>
         </div>
+        <ConversationNumberBadge conversation={conversation} numbers={numbers} className="mt-0.5" />
       </div>
     </button>
   );

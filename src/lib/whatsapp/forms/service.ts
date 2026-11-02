@@ -25,6 +25,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { getT } from '@/lib/i18n/translate';
 import { csvCell } from '@/lib/audience/export';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import { getNumberConfig, NoNumberError, type NumberConfig } from '@/lib/whatsapp/numbers';
 import {
   MetaApiError,
   createFlow,
@@ -49,6 +50,7 @@ import {
 } from './types';
 
 const t = getT('Api');
+const tNumbers = getT('whatsappNumbers');
 
 export const FORM_NAME_MAX = 200;
 export const RESPONSES_PAGE_DEFAULT = 50;
@@ -106,6 +108,8 @@ function serialiseForm(row: FormRow): WhatsAppForm {
     validation_errors: (row.validation_errors as unknown as WhatsAppForm['validation_errors']) ?? null,
     preview_url: row.preview_url,
     uses_endpoint: row.uses_endpoint,
+    whatsapp_config_id: row.whatsapp_config_id,
+    waba_id: row.waba_id,
     published_at: row.published_at?.toISOString() ?? null,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -129,6 +133,8 @@ export interface FormInput {
   category?: FormCategory;
   definition?: FormDefinition;
   uses_endpoint?: boolean;
+  /** The number the form belongs to; omitted on create means the default number. */
+  whatsapp_config_id?: string;
 }
 
 /**
@@ -151,6 +157,12 @@ export function parseFormInput(body: unknown, partial: boolean): FormInput {
   if (raw.uses_endpoint !== undefined) {
     if (typeof raw.uses_endpoint !== 'boolean') throw new FormServiceError(400, t('forms.invalidBody'));
     input.uses_endpoint = raw.uses_endpoint;
+  }
+  if (raw.whatsapp_config_id !== undefined) {
+    if (typeof raw.whatsapp_config_id !== 'string' || !UUID_RE.test(raw.whatsapp_config_id)) {
+      throw new FormServiceError(400, t('forms.invalidBody'));
+    }
+    input.whatsapp_config_id = raw.whatsapp_config_id;
   }
   if (raw.definition !== undefined) {
     const result = validateFormDefinition(raw.definition);
@@ -212,16 +224,23 @@ export async function getForm(ctx: TenantContext, id: string): Promise<WhatsAppF
 export async function createForm(ctx: TenantContext, input: FormInput): Promise<WhatsAppForm> {
   const userId = assertAdmin(ctx);
   try {
-    return await withTenant(ctx, async (tx) => serialiseForm(await tx.whatsapp_forms.create({
-      data: {
-        account_id: ctx.accountId,
-        user_id: userId,
-        name: input.name!,
-        category: input.category!,
-        definition: (input.definition ?? emptyFormDefinition()) as unknown as Prisma.InputJsonValue,
-        uses_endpoint: input.uses_endpoint ?? false,
-      },
-    })));
+    return await withTenant(ctx, async (tx) => {
+      // The chosen number, else the default. A workspace with no number yet
+      // can still draft a form; publishing binds it to the default then.
+      const number = await formNumber(tx, ctx, input.whatsapp_config_id ?? null, true);
+      return serialiseForm(await tx.whatsapp_forms.create({
+        data: {
+          account_id: ctx.accountId,
+          user_id: userId,
+          name: input.name!,
+          category: input.category!,
+          definition: (input.definition ?? emptyFormDefinition()) as unknown as Prisma.InputJsonValue,
+          uses_endpoint: input.uses_endpoint ?? false,
+          whatsapp_config_id: number?.id ?? null,
+          waba_id: number?.waba_id ?? null,
+        },
+      }));
+    });
   } catch (err) {
     if (isUniqueViolation(err)) throw new FormServiceError(409, t('forms.nameTaken'));
     throw err;
@@ -240,6 +259,16 @@ export async function updateForm(ctx: TenantContext, id: string, input: FormInpu
       if (input.name !== undefined) data.name = input.name;
       if (input.category !== undefined) data.category = input.category;
       if (input.uses_endpoint !== undefined) data.uses_endpoint = input.uses_endpoint;
+      if (input.whatsapp_config_id !== undefined && input.whatsapp_config_id !== existing.whatsapp_config_id) {
+        const number = (await formNumber(tx, ctx, input.whatsapp_config_id, false))!;
+        // The Meta Flow lives in the form's WABA: once it exists, only a number
+        // of that same WABA may take the form over.
+        if (existing.meta_flow_id && (!number.waba_id || number.waba_id !== existing.waba_id)) {
+          throw new FormServiceError(409, t('forms.numberWabaLocked'));
+        }
+        data.whatsapp_config_id = number.id;
+        data.waba_id = number.waba_id;
+      }
       if (input.definition !== undefined) {
         data.definition = input.definition as unknown as Prisma.InputJsonValue;
         // Meta's errors described the previous definition.
@@ -284,6 +313,9 @@ export async function duplicateForm(ctx: TenantContext, id: string): Promise<Wha
           category: source.category,
           definition: source.definition as Prisma.InputJsonValue,
           uses_endpoint: source.uses_endpoint,
+          // Same number and WABA; the copy gets its own Meta Flow on publish.
+          whatsapp_config_id: source.whatsapp_config_id,
+          waba_id: source.waba_id,
         },
       }));
     });
@@ -301,14 +333,62 @@ interface MetaAccess {
   hasFormsKey: boolean;
 }
 
-/** The number's Meta credentials, or a 409 when WhatsApp is not connected. */
-async function metaAccess(tx: TenantTransaction, ctx: TenantContext): Promise<MetaAccess> {
-  const config = await tx.whatsapp_config.findFirst({
-    where: { account_id: ctx.accountId },
-    select: { waba_id: true, access_token: true, status: true, forms_key_uploaded_at: true, forms_private_key_enc: true },
-  });
-  if (!config || config.status !== 'connected' || !config.waba_id || !config.access_token) {
-    throw new FormServiceError(409, t('forms.whatsappNotConnected'));
+/** A NoNumberError as the form service's refusal. */
+function numberRefusal(err: unknown): never {
+  if (err instanceof NoNumberError) {
+    throw new FormServiceError(err.reason === 'none' ? 409 : 400, tNumbers(err.messageKey.replace(/^whatsappNumbers\./, '')));
+  }
+  throw err;
+}
+
+/**
+ * The number a form is created on or moved to: `configId` (it must belong to
+ * the workspace) or the default. Null only when `allowNone` and the workspace
+ * has no number at all.
+ */
+async function formNumber(tx: TenantTransaction, ctx: TenantContext, configId: string | null, allowNone: boolean): Promise<NumberConfig | null> {
+  try {
+    return await getNumberConfig(tx, ctx.accountId, configId);
+  } catch (err) {
+    if (allowNone && !configId && err instanceof NoNumberError && err.reason === 'none') return null;
+    return numberRefusal(err);
+  }
+}
+
+type UsableNumber = NumberConfig & { waba_id: string; access_token: string };
+const usableNumber = (n: NumberConfig | null): n is UsableNumber =>
+  Boolean(n && n.status === 'connected' && n.waba_id && n.access_token);
+
+/**
+ * The Meta credentials for the form's Meta Flow, or a 409. The form's own
+ * number; when that number is disconnected or deleted, another connected
+ * number of the form's WABA; never a number of another WABA. A form that never
+ * had a number (drafted before one was connected) is bound to the default
+ * number here, before its Meta Flow exists, so every later call uses it.
+ */
+async function metaAccess(tx: TenantTransaction, ctx: TenantContext, form: FormRow): Promise<MetaAccess> {
+  let config: NumberConfig | null = form.whatsapp_config_id
+    ? await tx.whatsapp_config.findFirst({ where: { account_id: ctx.accountId, id: form.whatsapp_config_id } })
+    : null;
+  if (!usableNumber(config)) {
+    if (form.waba_id) {
+      config = await tx.whatsapp_config.findFirst({
+        where: { account_id: ctx.accountId, waba_id: form.waba_id, status: 'connected', NOT: { access_token: '' } },
+        orderBy: [{ is_default: 'desc' }, { created_at: 'asc' }, { id: 'asc' }],
+      });
+    } else if (!form.whatsapp_config_id && !form.meta_flow_id) {
+      config = await formNumber(tx, ctx, null, false);
+    }
+    // Otherwise a Meta Flow or number in an unknown WABA: never guess.
+  }
+  if (!usableNumber(config)) throw new FormServiceError(409, t('forms.whatsappNotConnected'));
+  if (form.waba_id && config.waba_id !== form.waba_id) throw new FormServiceError(409, t('forms.numberWabaLocked'));
+  if (!form.waba_id) {
+    // Record the number and WABA before any Meta Flow is created in it.
+    await tx.whatsapp_forms.updateMany({
+      where: { id: form.id, account_id: ctx.accountId, whatsapp_config_id: form.whatsapp_config_id, waba_id: null },
+      data: { whatsapp_config_id: config.id, waba_id: config.waba_id },
+    });
   }
   return {
     wabaId: config.waba_id,
@@ -345,7 +425,7 @@ export async function deleteForm(ctx: TenantContext, id: string): Promise<void> 
   assertAdmin(ctx);
   const { form, access } = await withTenant(ctx, async (tx) => {
     const row = await findForm(tx, ctx, id);
-    return { form: row, access: row.meta_flow_id ? await metaAccess(tx, ctx) : null };
+    return { form: row, access: row.meta_flow_id ? await metaAccess(tx, ctx, row) : null };
   });
   if (form.meta_flow_id && access) {
     const args = { flowId: form.meta_flow_id, accessToken: decryptToken(access.accessToken) };
@@ -375,7 +455,7 @@ export async function publishForm(ctx: TenantContext, id: string): Promise<Whats
   assertAdmin(ctx);
   const { form, access } = await withTenant(ctx, async (tx) => {
     const row = await findForm(tx, ctx, id);
-    return { form: row, access: LOCKED_STATUSES.has(row.status) ? null : await metaAccess(tx, ctx) };
+    return { form: row, access: LOCKED_STATUSES.has(row.status) ? null : await metaAccess(tx, ctx, row) };
   });
   if (!access) {
     if (form.status === 'published') return serialiseForm(form);
@@ -402,7 +482,7 @@ export async function publishForm(ctx: TenantContext, id: string): Promise<Whats
   try {
     if (!flowId) {
       const created = await createFlow({ wabaId: access.wabaId, accessToken, name: form.name, categories, endpointUri });
-      flowId = await claimFlowId(ctx, form.id, created.id, accessToken);
+      flowId = await claimFlowId(ctx, form.id, created.id, accessToken, access.wabaId);
     } else {
       // A retry: Meta may have published before we could record it.
       metaStatus = (await getFlow({ flowId, accessToken, fields: ['status'] })).status;
@@ -473,10 +553,10 @@ export async function publishForm(ctx: TenantContext, id: string): Promise<Whats
  * concurrent publish recorded one first, ours is deleted (best effort) and
  * the recorded id wins, so a form never points at two flows.
  */
-async function claimFlowId(ctx: TenantContext, formId: string, createdId: string, accessToken: string): Promise<string> {
+async function claimFlowId(ctx: TenantContext, formId: string, createdId: string, accessToken: string, wabaId: string): Promise<string> {
   let winner: string | null;
   try {
-    winner = await recordFlowId(ctx, formId, createdId);
+    winner = await recordFlowId(ctx, formId, createdId, wabaId);
   } catch (err) {
     // The write may still have committed (a lost commit acknowledgement), so
     // look before deleting: never delete a flow the form now points at.
@@ -495,14 +575,20 @@ async function claimFlowId(ctx: TenantContext, formId: string, createdId: string
   return winner;
 }
 
-async function recordFlowId(ctx: TenantContext, formId: string, createdId: string): Promise<string | null> {
+/**
+ * Records the flow id only while the form is still in the WABA the flow was
+ * created in; a form moved to another WABA mid-publish is refused (409) and
+ * the new flow is deleted by the caller.
+ */
+async function recordFlowId(ctx: TenantContext, formId: string, createdId: string, wabaId: string): Promise<string | null> {
   return withTenant(ctx, async (tx) => {
     const { count } = await tx.whatsapp_forms.updateMany({
-      where: { id: formId, account_id: ctx.accountId, meta_flow_id: null },
+      where: { id: formId, account_id: ctx.accountId, meta_flow_id: null, waba_id: wabaId },
       data: { meta_flow_id: createdId },
     });
     if (count === 1) return createdId;
     const row = await tx.whatsapp_forms.findFirst({ where: { id: formId, account_id: ctx.accountId }, select: { meta_flow_id: true } });
+    if (row && !row.meta_flow_id) throw new FormServiceError(409, t('forms.changedDuringPublish'));
     return row?.meta_flow_id ?? null;
   });
 }

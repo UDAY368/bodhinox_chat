@@ -1567,3 +1567,81 @@ export async function setBusinessEncryptionKey(args: {
     body,
   })
 }
+
+// ============================================================
+// Embedded Signup (Tech Provider) and business profile
+// ============================================================
+
+/**
+ * Exchange an Embedded Signup authorization code for a business
+ * integration system user token. Server only: the app secret and the
+ * returned token never reach the browser and must never be logged.
+ * The code is single use, so a retry needs a fresh FB.login.
+ */
+export async function exchangeEmbeddedSignupCode(args: {
+  appId: string
+  appSecret: string
+  code: string
+}): Promise<{ accessToken: string }> {
+  const params = new URLSearchParams({ client_id: args.appId, client_secret: args.appSecret, code: args.code })
+  const response = await fetch(`${META_API_BASE}/oauth/access_token?${params.toString()}`, {
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = (await response.json()) as { access_token?: unknown }
+  if (typeof data.access_token !== 'string' || !data.access_token) {
+    throw new Error('Meta did not return an access token for the signup code.')
+  }
+  return { accessToken: data.access_token }
+}
+
+/** The editable fields of a number's WhatsApp business profile, as Meta returns them. */
+export interface MetaBusinessProfile {
+  about?: string
+  address?: string
+  description?: string
+  email?: string
+  websites?: string[]
+  vertical?: string
+  profile_picture_url?: string
+}
+
+const BUSINESS_PROFILE_FIELDS = 'about,address,description,email,profile_picture_url,websites,vertical'
+
+export async function getBusinessProfile(args: {
+  phoneNumberId: string
+  accessToken: string
+}): Promise<MetaBusinessProfile> {
+  const response = await fetch(
+    `${META_API_BASE}/${args.phoneNumberId}/whatsapp_business_profile?fields=${BUSINESS_PROFILE_FIELDS}`,
+    { signal: AbortSignal.timeout(15_000), headers: { Authorization: `Bearer ${args.accessToken}` } },
+  )
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = (await response.json()) as { data?: MetaBusinessProfile[] }
+  return data.data?.[0] ?? {}
+}
+
+/** Fields to change; `profile_picture_handle` comes from uploadResumableMedia. */
+export interface BusinessProfileUpdate {
+  about?: string
+  address?: string
+  description?: string
+  email?: string
+  websites?: string[]
+  vertical?: string
+  profile_picture_handle?: string
+}
+
+export async function updateBusinessProfile(args: {
+  phoneNumberId: string
+  accessToken: string
+  profile: BusinessProfileUpdate
+}): Promise<void> {
+  const response = await fetch(`${META_API_BASE}/${args.phoneNumberId}/whatsapp_business_profile`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(15_000),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${args.accessToken}` },
+    body: JSON.stringify({ messaging_product: 'whatsapp', ...args.profile }),
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+}

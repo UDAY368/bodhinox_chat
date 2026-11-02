@@ -10,6 +10,14 @@ import {
   engineSendInteractiveList,
 } from '@/lib/flows/meta-send'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { assertNumberConnected, NoNumberError } from '@/lib/whatsapp/numbers'
+import {
+  assertTemplateOnNumber,
+  loadConversationSenderConfig,
+  numberErrorText,
+  TemplateNumberMismatchError,
+  type SenderConfigRow,
+} from '@/lib/whatsapp/sender-config'
 import {
   phoneVariants,
   isRecipientNotAllowedError,
@@ -159,12 +167,13 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   }
   const sanitized = sendTarget.target
 
-  const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', input.accountId)
-    .single()
-  if (configErr || !config) {
+  // The conversation's number; the workspace default for a legacy row.
+  // A disconnected number is refused, never swapped for another.
+  let config: SenderConfigRow
+  try {
+    config = assertNumberConnected(await loadConversationSenderConfig(db, input.accountId, input.conversationId))
+  } catch (error) {
+    if (error instanceof NoNumberError && error.reason !== 'none') throw new Error(numberErrorText(error))
     throw new Error(t('send.notConfigured'))
   }
 
@@ -189,6 +198,15 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   // needs a one-time code typed for one person, so it is refused here
   // for both before anything reaches Meta.
   if (input.kind === 'template') assertTemplateSendable(templateRow, 'automation')
+  // A template synced from another WABA cannot go out from this number.
+  if (input.kind === 'template') {
+    try {
+      assertTemplateOnNumber(templateRow, config)
+    } catch (error) {
+      if (error instanceof TemplateNumberMismatchError) throw new TemplateSendRefusedError(numberErrorText(error))
+      throw error
+    }
+  }
   if (input.kind === 'template' && input.bodyValuesOnly) {
     const refusal = automationTemplateRefusal(templateRow)
     if (refusal) throw new TemplateSendRefusedError(refusal)

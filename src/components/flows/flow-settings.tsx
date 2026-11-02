@@ -2,8 +2,10 @@
 
 /**
  * Flow-wide settings in the editor's Settings popover: what an off-script
- * reply does, the default fallback message sent with it, and the test
- * numbers a draft runs for.
+ * reply does, the default fallback message sent with it, the test
+ * numbers a draft runs for and, when the workspace has several WhatsApp
+ * numbers, which one the flow triggers on (saved at once through
+ * PUT /api/flows/[id]/number, separately from the editor's Save).
  */
 
 import { useState } from "react";
@@ -17,15 +19,54 @@ import { Textarea } from "@/components/ui/textarea";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import type { FallbackMessage, FlowRow } from "@/lib/flows/types";
 import { uploadAccountMedia } from "@/lib/storage/upload-media";
+import { authFetch } from "@/lib/auth/client";
+import { NumberSelect } from "@/components/settings/numbers/number-select";
+import { useWhatsAppNumbers } from "@/components/settings/numbers/use-whatsapp-numbers";
 import { useFlowEditor } from "./flow-editor-state";
 import { FLOW_MEDIA_BUCKET, MEDIA_ACCEPT } from "./forms/node-config-form";
 
 const label = "mb-1 block text-xs text-muted-foreground";
 const help = "mt-1 text-[10px] text-muted-foreground";
 
+/**
+ * Shows `next` at once, saves it, and puts `previous` back if the save
+ * fails. `set` is the editor-level setter, so the saved number outlives
+ * the popover. Returns whether the server took it.
+ */
+export async function persistTriggerNumber(
+  flowId: string,
+  previous: string | null,
+  next: string | null,
+  set: (value: string | null) => void,
+): Promise<boolean> {
+  set(next);
+  try {
+    const res = await authFetch(`/api/flows/${encodeURIComponent(flowId)}/number`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ whatsapp_config_id: next }),
+    });
+    if (res.ok) return true;
+  } catch {
+    // Falls through to the rollback.
+  }
+  set(previous);
+  return false;
+}
+
 export function FlowSettings() {
-  const { state, setState } = useFlowEditor();
+  const { state, setState, flow, triggerNumber, setTriggerNumber } = useFlowEditor();
   const t = useTranslations("Flows.menuFallback");
+  const tn = useTranslations("whatsappNumbers");
+  const { numbers: whatsappNumbers } = useWhatsAppNumbers();
+  const [savingNumber, setSavingNumber] = useState(false);
+
+  const saveTriggerNumber = async (next: string | null) => {
+    setSavingNumber(true);
+    const saved = await persistTriggerNumber(flow.id, triggerNumber, next, setTriggerNumber);
+    setSavingNumber(false);
+    if (!saved) toast.error(tn("picker.flowNumberSaveFailed"));
+  };
   const policy = state.fallback_policy as FlowRow["fallback_policy"];
   const message = (policy.fallback_message ?? { text: "" }) as FallbackMessage;
   const [uploading, setUploading] = useState(false);
@@ -60,6 +101,16 @@ export function FlowSettings() {
 
   return (
     <div className="space-y-4 px-6 py-2 text-sm">
+      {(whatsappNumbers.length > 1 || triggerNumber !== null) && (
+        <div>
+          <label htmlFor="flow-trigger-number" className={label}>{tn("picker.triggersOn")}</label>
+          <NumberSelect id="flow-trigger-number" numbers={whatsappNumbers} value={triggerNumber}
+            onChange={(next) => void saveTriggerNumber(next)} emptyLabel={tn("picker.allNumbers")}
+            disabled={savingNumber} className="w-full rounded border border-border bg-card px-2 py-1 text-xs" />
+          <p className={help}>{tn("picker.triggersOnHelp")}</p>
+        </div>
+      )}
+
       <div>
         <label className="flex flex-wrap items-center gap-2">
           <span>{t("label")}</span>

@@ -117,6 +117,8 @@ interface PlanFixture {
   recipients?: Record<string, unknown>[];
   recipientCount?: number;
   config?: Record<string, unknown> | null;
+  /** Several numbers in the workspace (overrides `config`). */
+  configs?: Record<string, unknown>[];
   templates?: Record<string, unknown>[];
 }
 
@@ -128,11 +130,16 @@ interface PlanWrites {
 }
 
 function planDb(fx: PlanFixture, writes: PlanWrites = {}): DataClient {
+  const configs = fx.configs ?? (fx.config ? [fx.config] : []);
   return {
     from(table: string) {
+      const filters: Record<string, unknown> = {};
       const b: Record<string, unknown> = {
         select: () => b,
-        eq: () => b,
+        eq: (col: string, val: unknown) => {
+          filters[col] = val;
+          return b;
+        },
         order: () => b,
         range: () => b,
         in: (col: string, vals: unknown) => {
@@ -148,7 +155,9 @@ function planDb(fx: PlanFixture, writes: PlanWrites = {}): DataClient {
           return b;
         },
         maybeSingle: async () => ({
-          data: fx.broadcast === undefined ? null : fx.broadcast,
+          data: table === 'whatsapp_config'
+            ? configs.find((c) => c.id === filters.id) ?? null
+            : fx.broadcast === undefined ? null : fx.broadcast,
           error: null,
         }),
         single: async () => ({
@@ -167,6 +176,9 @@ function planDb(fx: PlanFixture, writes: PlanWrites = {}): DataClient {
           }
           if (table === 'message_templates') {
             return resolve({ data: fx.templates ?? [], error: null });
+          }
+          if (table === 'whatsapp_config') {
+            return resolve({ data: configs, error: null });
           }
           return resolve({ data: [], error: null });
         },
@@ -439,5 +451,46 @@ describe('planBroadcastResume', () => {
       'pending',
     );
     expect(plan.templateRow?.language).toBe('en');
+  });
+});
+
+describe('planBroadcastResume — two numbers in one workspace', () => {
+  const A = '11111111-1111-4111-8111-11111111111a';
+  const B = '22222222-2222-4222-8222-22222222222b';
+  const NUMBERS = [
+    { id: A, phone_number_id: 'pn-default', access_token: 'tok-a', waba_id: 'waba-a', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+    { id: B, phone_number_id: 'pn-second', access_token: 'tok-b', waba_id: 'waba-b', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+  ];
+  const ROWS = [recipient('r-1', '+15551230001')];
+
+  it("sends from the campaign's number", async () => {
+    const { plan } = await planBroadcastResume(
+      planDb({ broadcast: { ...BROADCAST, whatsapp_config_id: B }, configs: NUMBERS, recipients: ROWS }),
+      'acct-1', 'bc-1', 'pending'
+    );
+    expect(plan.phoneNumberId).toBe('pn-second');
+    expect(plan.accessToken).toBe('decrypted:tok-b');
+  });
+
+  it('uses the default number for a campaign without one', async () => {
+    const { plan } = await planBroadcastResume(
+      planDb({ broadcast: { ...BROADCAST, whatsapp_config_id: null }, configs: [NUMBERS[1], NUMBERS[0]], recipients: ROWS }),
+      'acct-1', 'bc-1', 'pending'
+    );
+    expect(plan.phoneNumberId).toBe('pn-default');
+  });
+
+  it("refuses a template from another number's WABA", async () => {
+    const error = await planBroadcastResume(
+      planDb({
+        broadcast: { ...BROADCAST, whatsapp_config_id: B },
+        configs: NUMBERS,
+        recipients: ROWS,
+        templates: [{ id: 't-1', user_id: 'u', name: 'order_update', category: 'Utility', language: 'en_US', body_text: 'Hi {{1}}', created_at: '2026-01-01T00:00:00Z', waba_id: 'waba-a' }],
+      }),
+      'acct-1', 'bc-1', 'pending'
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BroadcastError);
+    expect(error).toMatchObject({ code: 'template_wrong_number', status: 422 });
   });
 });

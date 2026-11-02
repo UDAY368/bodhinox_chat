@@ -22,6 +22,8 @@ import { normalizeStatus } from '@/lib/whatsapp/template-status-normalize'
 import { recordTemplateEvents } from '@/lib/whatsapp/template-events'
 import { templateRowFields } from '@/lib/whatsapp/template-row'
 import { getT } from '@/lib/i18n/translate'
+import { NoNumberError } from '@/lib/whatsapp/numbers'
+import { loadSenderConfig, numberErrorText } from '@/lib/whatsapp/sender-config'
 
 const t = getT('Api')
 
@@ -41,6 +43,8 @@ function buildUpsertRow(
     status: 'DRAFT' | string
     metaTemplateId: string | null
     submissionError: string | null
+    /** The WABA the template was submitted to; omitted leaves the row's as is. */
+    wabaId?: string | null
   },
 ) {
   return {
@@ -56,6 +60,7 @@ function buildUpsertRow(
     status: extras.status,
     meta_template_id: extras.metaTemplateId,
     submission_error: extras.submissionError,
+    ...(extras.wabaId ? { waba_id: extras.wabaId } : {}),
     // Clear stale rejection_reason whenever we re-submit; the
     // webhook will set it again if Meta still rejects.
     rejection_reason: null,
@@ -124,9 +129,9 @@ export async function POST(request: Request) {
     const ctx = await requireRole('admin')
     const { db, accountId, userId } = ctx
 
-    let body: (TemplatePayload & { id?: unknown }) | null
+    let body: (TemplatePayload & { id?: unknown; whatsapp_config_id?: unknown }) | null
     try {
-      body = (await request.json()) as (TemplatePayload & { id?: unknown }) | null
+      body = (await request.json()) as (TemplatePayload & { id?: unknown; whatsapp_config_id?: unknown }) | null
     } catch {
       return NextResponse.json({ error: t('templates.invalidJsonBody') }, { status: 400 })
     }
@@ -134,7 +139,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('templates.invalidJsonBody') }, { status: 400 })
     }
 
-    const { id: rawDraftId, ...rest } = body
+    // `whatsapp_config_id` picks the number (and so the WABA) the template
+    // is submitted to; omitted means the workspace default, as before.
+    const { id: rawDraftId, whatsapp_config_id: rawNumberId, ...rest } = body
+    if (rawNumberId !== undefined && rawNumberId !== null && (typeof rawNumberId !== 'string' || !UUID_RE.test(rawNumberId))) {
+      return NextResponse.json({ error: numberErrorText(new NoNumberError('not_found')) }, { status: 400 })
+    }
     const payload: TemplatePayload = rest
     let draftId: string | null = null
     if (rawDraftId !== undefined && rawDraftId !== null) {
@@ -216,22 +226,22 @@ export async function POST(request: Request) {
 
     let metaTemplateId: string
     let metaStatus: string
+    let wabaId: string | null = null
 
     if (dryRun) {
       metaTemplateId = `dry-run-${crypto.randomUUID()}`
       metaStatus = 'PENDING'
     } else {
-      const { data: config, error: configError } = await db
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .single()
-      if (configError || !config) {
+      let config
+      try {
+        config = await loadSenderConfig(db, accountId, (rawNumberId as string | null | undefined) ?? null)
+      } catch (e) {
+        if (!(e instanceof NoNumberError)) throw e
+        if (e.reason === 'disconnected') {
+          return NextResponse.json({ error: numberErrorText(e), code: 'whatsapp_number_disconnected' }, { status: 409 })
+        }
         return NextResponse.json(
-          {
-            error:
-              t('common.whatsappNotConfiguredConnect'),
-          },
+          { error: e.reason === 'none' ? t('common.whatsappNotConfiguredConnect') : numberErrorText(e) },
           { status: 400 },
         )
       }
@@ -245,6 +255,7 @@ export async function POST(request: Request) {
         )
       }
 
+      wabaId = config.waba_id ?? null
       const accessToken = decrypt(config.access_token)
 
       // Media headers (image/video/document) need a Resumable-Upload
@@ -281,6 +292,7 @@ export async function POST(request: Request) {
             status: 'DRAFT',
             metaTemplateId: null,
             submissionError: message,
+            wabaId,
           }),
           draftId,
         )
@@ -316,6 +328,7 @@ export async function POST(request: Request) {
         status,
         metaTemplateId,
         submissionError: null,
+        wabaId,
       }),
       draftId,
     )

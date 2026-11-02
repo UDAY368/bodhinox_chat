@@ -210,7 +210,7 @@ export interface Conversation {
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned';
+export type NotificationType = 'conversation_assigned' | 'whatsapp_number_health';
 
 export interface Notification {
   id: string;
@@ -222,6 +222,10 @@ export interface Notification {
   contact_id?: string;
   /** Who triggered it. Null when an automation/system assigned it. */
   actor_user_id?: string;
+  /** The WhatsApp number a whatsapp_number_health alert is about; null once that number is removed. */
+  whatsapp_config_id?: string | null;
+  /** Server-side idempotency key for an alert (one per recipient per observed change). */
+  dedupe_key?: string | null;
   title: string;
   body?: string;
   read_at?: string;

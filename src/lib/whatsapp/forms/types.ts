@@ -108,6 +108,10 @@ export interface WhatsAppForm {
   validation_errors?: FlowValidationError[] | null;
   preview_url?: string | null;
   uses_endpoint: boolean;
+  /** The number the form belongs to; its Meta Flow lives in that number's WABA. */
+  whatsapp_config_id?: string | null;
+  /** The WABA of the form's Meta Flow; kept when the number is deleted. */
+  waba_id?: string | null;
   published_at?: string | null;
   created_at: string;
   updated_at: string;

@@ -429,6 +429,8 @@ export interface FlowRow {
   fallback_policy: FlowFallbackPolicy;
   /** While the flow is a draft it runs only for these numbers (digits, up to 3). */
   test_numbers?: string[];
+  /** The WhatsApp number (whatsapp_config.id) the flow listens on; null listens on every number. */
+  whatsapp_config_id?: string | null;
   execution_count: number;
   last_executed_at: string | null;
   created_at: string;

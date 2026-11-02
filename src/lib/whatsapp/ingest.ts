@@ -16,6 +16,8 @@ export interface IngestInboundInput {
   /** A submitted WhatsApp form; stored with the message and summarised as its text. */
   formReply?: { flowToken: string | null; answers: FormAnswers };
   wasContactCreated: boolean; wasConversationCreated: boolean;
+  /** The number (whatsapp_config.id) the message arrived on; replies go out from it. */
+  whatsappConfigId?: string | null;
 }
 export interface MessageActionsPayload {
   kind: "message"; messageId: string; accountId: string; userId: string;
@@ -23,6 +25,8 @@ export interface MessageActionsPayload {
   contentType: string; contentText: string | null; interactiveReplyId: string | null;
   /** Absent on jobs queued before it existed. */
   contextMetaId?: string;
+  /** The number the message arrived on. Absent on jobs queued before multi-number. */
+  whatsappConfigId?: string;
   wasContactCreated: boolean; wasConversationCreated: boolean; isFirstInboundMessage: boolean;
 }
 export interface StatusActionsPayload {
@@ -65,6 +69,7 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       contactId: input.contactId, conversationId: input.conversationId, metaMessageId: input.metaMessageId,
       contentType: input.contentType, contentText: input.contentText, interactiveReplyId: input.interactiveReplyId,
       ...(input.contextMetaId ? { contextMetaId: input.contextMetaId } : {}),
+      ...(input.whatsappConfigId ? { whatsappConfigId: input.whatsappConfigId } : {}),
       wasContactCreated: input.wasContactCreated, wasConversationCreated: input.wasConversationCreated,
       isFirstInboundMessage: first[0].is_first,
     };

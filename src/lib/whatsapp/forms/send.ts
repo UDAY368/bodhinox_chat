@@ -19,6 +19,7 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { FLOW_CTA_MAX_LENGTH, sendFlowMessage } from '@/lib/whatsapp/meta-api';
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
+import { getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
 import { getT } from '@/lib/i18n/translate';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
 import { normaliseFormDefinition } from './definition';
@@ -36,6 +37,8 @@ export type FormSendRefusal =
   | 'no_address'
   | 'window_closed'
   | 'not_configured'
+  | 'form_wrong_number'
+  | 'form_key_missing'
   | 'invalid_message';
 
 const REFUSAL_STATUS: Record<FormSendRefusal, number> = {
@@ -46,6 +49,8 @@ const REFUSAL_STATUS: Record<FormSendRefusal, number> = {
   no_address: 400,
   window_closed: 409,
   not_configured: 400,
+  form_wrong_number: 409,
+  form_key_missing: 409,
   invalid_message: 400,
 };
 
@@ -165,21 +170,43 @@ async function sessionTtlHours(tx: TenantTransaction, args: SendFormArgs): Promi
   return formNodeSessionTtlHours(rows[0]?.config ?? null, rows[0]?.fallback_policy ?? null);
 }
 
+/**
+ * Why this number cannot send this form, or null. A Meta Flow exists only in
+ * its form's WABA, so a number of another WABA is refused rather than sent
+ * from (Meta would reject it). An endpoint form is encrypted with the sending
+ * number's own key, so that number must have uploaded one.
+ */
+export function formNumberRefusal(
+  form: { waba_id: string | null; uses_endpoint: boolean },
+  number: { waba_id: string | null; forms_private_key_enc: string | null; forms_key_uploaded_at: Date | string | null },
+): FormSendRefusal | null {
+  if (form.waba_id && number.waba_id !== form.waba_id) return 'form_wrong_number';
+  if (form.uses_endpoint && !(number.forms_private_key_enc && number.forms_key_uploaded_at)) return 'form_key_missing';
+  return null;
+}
+
 async function prepare(tx: TenantTransaction, args: SendFormArgs): Promise<Prepared> {
-  const forms = await tx.$queryRaw<{ name: string; status: string; meta_flow_id: string | null; definition: unknown }[]>`
-    SELECT name,status,meta_flow_id,definition FROM whatsapp_forms WHERE account_id=${args.accountId}::uuid AND id=${args.formId}::uuid`;
+  const forms = await tx.$queryRaw<{ name: string; status: string; meta_flow_id: string | null; definition: unknown;
+    uses_endpoint: boolean; waba_id: string | null }[]>`
+    SELECT name,status,meta_flow_id,definition,uses_endpoint,waba_id FROM whatsapp_forms
+    WHERE account_id=${args.accountId}::uuid AND id=${args.formId}::uuid`;
   const conversations = await tx.$queryRaw<{ contact_id: string; last_customer_message_at: Date | null; phone: string | null;
-    wa_user_id: string | null; blocked_at: Date | null }[]>`
-    SELECT c.contact_id,c.last_customer_message_at,ct.phone,ct.wa_user_id,ct.blocked_at
+    wa_user_id: string | null; blocked_at: Date | null; whatsapp_config_id: string | null }[]>`
+    SELECT c.contact_id,c.last_customer_message_at,ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id
     FROM conversations c JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
     WHERE c.account_id=${args.accountId}::uuid AND c.id=${args.conversationId}::uuid`;
   const conversation = conversations[0] ?? null;
   const refusal = formSendRefusal({ form: forms[0] ?? null, contact: conversation,
     lastCustomerMessageAt: conversation?.last_customer_message_at ?? null });
   if (refusal) throw new FormSendError(refusal);
-  const configs = await tx.$queryRaw<{ phone_number_id: string; access_token: string }[]>`
-    SELECT phone_number_id,access_token FROM whatsapp_config WHERE account_id=${args.accountId}::uuid`;
-  if (!configs[0]?.phone_number_id || !configs[0].access_token) throw new FormSendError('not_configured');
+  // The conversation's number; the workspace default for a legacy row.
+  const config = await getNumberConfig(tx, args.accountId, conversation?.whatsapp_config_id ?? null).catch((error: unknown) => {
+    if (error instanceof NoNumberError) throw new FormSendError('not_configured');
+    throw error;
+  });
+  if (!config.phone_number_id || !config.access_token) throw new FormSendError('not_configured');
+  const refusedNumber = formNumberRefusal(forms[0], config);
+  if (refusedNumber) throw new FormSendError(refusedNumber);
   const definition = normaliseFormDefinition(forms[0].definition);
   if (!definition.screens[0]) throw new FormSendError('form_not_published');
   return {
@@ -188,8 +215,8 @@ async function prepare(tx: TenantTransaction, args: SendFormArgs): Promise<Prepa
     screen: definition.screens[0].id,
     contactId: conversation!.contact_id,
     target: resolveContactSendTarget(conversation!)!,
-    phoneNumberId: configs[0].phone_number_id,
-    accessTokenEnc: configs[0].access_token,
+    phoneNumberId: config.phone_number_id,
+    accessTokenEnc: config.access_token,
     ttlHours: await sessionTtlHours(tx, args),
   };
 }

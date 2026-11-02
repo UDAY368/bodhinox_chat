@@ -20,6 +20,8 @@ interface BroadcastPayload {
   trackedUrl?: string;
   /** Location, offer end and coupon code for templates that need them. */
   sendExtras?: CampaignSendExtras;
+  /** The number to send from; omitted uses the workspace default. */
+  whatsappConfigId?: string | null;
 }
 
 export function useBroadcastSending() {
@@ -38,6 +40,7 @@ export function useBroadcastSending() {
         scheduledAt: payload.scheduledAt,
         trackedUrl: payload.trackedUrl,
         ...(payload.sendExtras && Object.keys(payload.sendExtras).length ? { sendExtras: payload.sendExtras } : {}),
+        ...(payload.whatsappConfigId ? { whatsappConfigId: payload.whatsappConfigId } : {}),
       });
       setProgress(100);
       return id;

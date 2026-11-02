@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { NoNumberError } from '@/lib/whatsapp/numbers'
+import {
+  assertTemplateOnNumber,
+  loadSenderConfig,
+  numberErrorText,
+  TemplateNumberMismatchError,
+  type SenderConfigRow,
+} from '@/lib/whatsapp/sender-config'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body'
 import {
@@ -29,6 +37,9 @@ interface BroadcastResult {
 
 /**
  * Two input shapes are accepted:
+ *
+ * Both accept an optional `whatsapp_config_id`: the number to send from
+ * (default: the workspace's default number).
  *
  *   NEW (preferred — supports per-recipient variable substitution):
  *     {
@@ -134,13 +145,22 @@ export async function POST(request: Request) {
       if (recipient) recipient.messageParams = parsed.value
     }
 
-    const { data: config, error: configError } = await db
-      .from('whatsapp_config')
-      .select('*')
-      .eq('account_id', accountId)
-      .single()
-
-    if (configError || !config) {
+    // The number to send from: `whatsapp_config_id` when given (it must be
+    // this workspace's), else the default number.
+    let config: SenderConfigRow
+    try {
+      config = await loadSenderConfig(
+        db,
+        accountId,
+        typeof body.whatsapp_config_id === 'string' ? body.whatsapp_config_id : null,
+      )
+    } catch (error) {
+      if (error instanceof NoNumberError && error.reason === 'disconnected') {
+        return NextResponse.json({ error: numberErrorText(error), code: 'whatsapp_number_disconnected' }, { status: 409 })
+      }
+      if (error instanceof NoNumberError && error.reason !== 'none') {
+        return NextResponse.json({ error: numberErrorText(error), code: 'whatsapp_number_unavailable' }, { status: 400 })
+      }
       return NextResponse.json(
         {
           error:
@@ -173,6 +193,15 @@ export async function POST(request: Request) {
       )
     }
     const templateRow = resolvedTemplate.row
+    // A template synced from another WABA cannot go out from this number.
+    try {
+      assertTemplateOnNumber(templateRow, config)
+    } catch (error) {
+      if (error instanceof TemplateNumberMismatchError) {
+        return NextResponse.json({ error: numberErrorText(error), code: error.code }, { status: 422 })
+      }
+      throw error
+    }
     // A broadcast never carries a per-person one-time code.
     const refusal = templateSendRefusal(templateRow, 'campaign')
     if (refusal) {

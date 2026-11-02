@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   existing: null as Record<string, unknown> | null,
   updates: [] as Record<string, unknown>[],
   inserts: [] as Record<string, unknown>[],
+  numbers: [] as Record<string, unknown>[],
 }))
 
 function makeDb() {
@@ -21,6 +22,9 @@ function makeDb() {
           ? { data: { waba_id: 'WABA-1', access_token: 'enc' }, error: null }
           : { data: { id: 'new-row' }, error: null }
       b.maybeSingle = async () => ({ data: state.existing, error: null })
+      if (table === 'whatsapp_config') {
+        b.then = (resolve: (v: unknown) => unknown) => resolve({ data: state.numbers, error: null })
+      }
       b.update = (row: Record<string, unknown>) => {
         state.updates.push(row)
         return { eq: async () => ({ error: null }) }
@@ -69,6 +73,7 @@ beforeEach(() => {
   state.existing = null
   state.updates.length = 0
   state.inserts.length = 0
+  state.numbers = [{ id: 'n-1', waba_id: 'WABA-1', access_token: 'enc', is_default: true, created_at: '2026-01-01T00:00:00Z' }]
   history.record.mockClear()
 })
 
@@ -142,3 +147,45 @@ describe('POST /api/whatsapp/templates/sync — rejection reason', () => {
     expect(state.updates[0].rejection_reason).toBe('INVALID_FORMAT')
   })
 })
+
+describe('POST /api/whatsapp/templates/sync — numbers in two WABAs', () => {
+  const tpl = (id: string, name: string) => ({
+    id, name, language: 'en_US', status: 'APPROVED', category: 'MARKETING', components: [{ type: 'BODY', text: 'Hi' }],
+  })
+
+  it('fetches each WABA once with its own number and stamps every row with its WABA', async () => {
+    state.numbers = [
+      { id: 'n-1', waba_id: 'WABA-1', access_token: 'enc', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'n-2', waba_id: 'WABA-2', access_token: 'enc', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+      { id: 'n-3', waba_id: 'WABA-1', access_token: 'enc', is_default: false, created_at: '2026-03-01T00:00:00Z' },
+    ]
+    const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify({
+      data: [url.includes('/WABA-2/') ? tpl('m-2', 'two') : tpl('m-1', 'one')],
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await POST()
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(state.inserts.map((row) => [row.name, row.waba_id])).toEqual([['one', 'WABA-1'], ['two', 'WABA-2']])
+  })
+
+  it('never writes a same-named template from another WABA over the stored one', async () => {
+    state.numbers = [
+      { id: 'n-1', waba_id: 'WABA-1', access_token: 'enc', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'n-2', waba_id: 'WABA-2', access_token: 'enc', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+    ]
+    state.existing = { id: 'row-1', template_kind: 'standard', cards: null, waba_id: 'WABA-1' }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [tpl('m-x', 'same')] }), { status: 200 })))
+    const res = await POST()
+    const body = await res.json()
+    expect(state.updates).toHaveLength(1)
+    expect(state.updates[0].waba_id).toBe('WABA-1')
+    expect(body.errors).toHaveLength(1)
+  })
+
+  it('reports a workspace with no number as not configured', async () => {
+    state.numbers = []
+    expect((await POST()).status).toBe(400)
+  })
+})
+

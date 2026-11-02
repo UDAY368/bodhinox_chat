@@ -40,7 +40,7 @@ export default function NewBroadcastPage() {
   const [sendExtras, setSendExtras] = useState<CampaignSendExtras>({});
   const [name, setName] = useState('');
 
-  async function handleSend(scheduledAt?: string) {
+  async function handleSend(scheduledAt?: string, options?: { whatsappConfigId: string | null }) {
     if (!template) return;
     // Only the CSV columns a variable uses travel to the server, so unused columns cannot block the campaign.
     const used = new Set(Object.values(variables).flatMap((v) => (v.type === 'csv_column' ? [v.value] : [])));
@@ -72,6 +72,7 @@ export default function NewBroadcastPage() {
         scheduledAt,
         trackedUrl: trackedUrl.trim() || undefined,
         sendExtras,
+        whatsappConfigId: options?.whatsappConfigId ?? null,
       });
       router.push(`/broadcasts/${broadcastId}`);
     } catch (err) {

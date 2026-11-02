@@ -16,6 +16,10 @@ let draftRow: { id: string; meta_template_id: string | null } | null = null
 let clashRow: { id: string; meta_template_id?: string | null } | null = null
 // Simulates a concurrent submit linking the row between the read and the write.
 let linkedBeforeWrite = false
+// The workspace's numbers; one by default, as before multi-number.
+const NUMBER_A = '22222222-2222-4222-8222-222222222222'
+const NUMBER_B = '33333333-3333-4333-8333-333333333333'
+let numbers: Record<string, unknown>[] = []
 
 function makeDb() {
   return {
@@ -46,7 +50,14 @@ function makeDb() {
         return { data: { ...op.values, id: op.kind === 'update' ? DRAFT_ID : ROW_ID }, error: null }
       }
       b.single = vi.fn(result)
-      b.maybeSingle = vi.fn(result)
+      b.maybeSingle = vi.fn(async () => {
+        if (table !== 'whatsapp_config') return result()
+        const id = op.filters.find(([f]) => f === 'id')?.[1]
+        return { data: numbers.find((row) => row.id === id) ?? null, error: null }
+      })
+      if (table === 'whatsapp_config') {
+        b.then = (resolve: (v: unknown) => unknown) => resolve({ data: numbers, error: null })
+      }
       return b
     },
   }
@@ -111,6 +122,7 @@ beforeEach(() => {
   draftRow = null
   clashRow = null
   linkedBeforeWrite = false
+  numbers = [{ id: NUMBER_A, waba_id: 'WABA-1', access_token: 'enc', is_default: true, created_at: '2026-01-01T00:00:00Z' }]
   delete process.env.WHATSAPP_TEMPLATES_DRY_RUN
   meta.submit.mockClear()
   media.cards.mockClear()
@@ -228,5 +240,53 @@ describe('POST /api/whatsapp/templates/submit', () => {
     expect((await submit(CAROUSEL)).status).toBe(403)
     expect(meta.submit).not.toHaveBeenCalled()
     expect(history.record).not.toHaveBeenCalled()
+  })
+
+  it('stamps the WABA of the number it submitted to', async () => {
+    expect((await submit(CAROUSEL)).status).toBe(200)
+    expect(meta.submit.mock.calls[0][0]).toMatchObject({ wabaId: 'WABA-1' })
+    expect(ops.find((o) => o.kind === 'insert')!.values).toMatchObject({ waba_id: 'WABA-1' })
+  })
+})
+
+describe('POST /api/whatsapp/templates/submit — two numbers', () => {
+  beforeEach(() => {
+    numbers = [
+      { id: NUMBER_A, waba_id: 'WABA-1', access_token: 'enc', is_default: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: NUMBER_B, waba_id: 'WABA-2', access_token: 'enc', is_default: false, created_at: '2026-02-01T00:00:00Z' },
+    ]
+  })
+
+  it('submits to the default number without a choice instead of failing on two rows', async () => {
+    expect((await submit(CAROUSEL)).status).toBe(200)
+    expect(meta.submit.mock.calls[0][0]).toMatchObject({ wabaId: 'WABA-1' })
+  })
+
+  it('submits to the chosen number and stamps its WABA, without sending the choice to Meta', async () => {
+    expect((await submit({ ...CAROUSEL, whatsapp_config_id: NUMBER_B })).status).toBe(200)
+    expect(meta.submit.mock.calls[0][0]).toMatchObject({ wabaId: 'WABA-2' })
+    expect(JSON.stringify(meta.submit.mock.calls[0][0])).not.toContain(NUMBER_B)
+    expect(ops.find((o) => o.kind === 'insert')!.values).toMatchObject({ waba_id: 'WABA-2' })
+  })
+
+  it('refuses a number outside the workspace before Meta', async () => {
+    const res = await submit({ ...CAROUSEL, whatsapp_config_id: '44444444-4444-4444-8444-444444444444' })
+    expect(res.status).toBe(400)
+    expect(meta.submit).not.toHaveBeenCalled()
+    expect((await submit({ ...CAROUSEL, whatsapp_config_id: 'nope' })).status).toBe(400)
+  })
+
+  it('refuses a disconnected number with 409 before Meta', async () => {
+    numbers = numbers.map((row) => row.id === NUMBER_B ? { ...row, status: 'disconnected', access_token: '' } : row)
+    const res = await submit({ ...CAROUSEL, whatsapp_config_id: NUMBER_B })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'whatsapp_number_disconnected', error: expect.any(String) })
+    expect(meta.submit).not.toHaveBeenCalled()
+  })
+
+  it('asks for a number when the workspace has several and no default', async () => {
+    numbers = numbers.map((row) => ({ ...row, is_default: false }))
+    expect((await submit(CAROUSEL)).status).toBe(400)
+    expect(meta.submit).not.toHaveBeenCalled()
   })
 })

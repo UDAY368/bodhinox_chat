@@ -103,9 +103,16 @@ it('consumes malformed stored target IDs without querying targets or unpausing',
 });
 it('preserves the human handoff when another flow is active', async () => {
   const { db, rows, updates } = database({ interactive_payload: { kind: 'buttons', buttons: [{ id: token, action: { type: 'flow', targetId } }] } });
-  rows.flow_runs.push({ id: 'other', account_id: 'account', contact_id: 'contact', status: 'active' });
+  rows.flow_runs.push({ id: 'other', account_id: 'account', contact_id: 'contact', conversation_id: 'conversation', status: 'active' });
   expect(await dispatchQuickReplyAction(db, input)).toEqual({ handled: true, outcome: 'conflict' });
   expect(updates).toEqual([]); expect(h.flow).not.toHaveBeenCalled(); expect(rows.conversations[0].bot_paused).toBe(true);
+});
+it("starts the flow when the contact's only active run is on another number's conversation", async () => {
+  const { db, rows } = database({ interactive_payload: { kind: 'buttons', buttons: [{ id: token, action: { type: 'flow', targetId } }] } });
+  rows.flow_runs.push({ id: 'number-a-run', account_id: 'account', contact_id: 'contact', conversation_id: 'conversation-on-number-a', status: 'active' });
+  expect(await dispatchQuickReplyAction(db, input)).toEqual({ handled: true, outcome: 'started' });
+  expect(h.flow).toHaveBeenCalledWith(expect.objectContaining({ flowId: targetId, contactId: 'contact', conversationId: 'conversation' }));
+  expect(rows.flow_runs[0].status).toBe('active');
 });
 it('restores the paused state if a concurrent flow start wins after preflight', async () => {
   const { db, rows } = database({ interactive_payload: { kind: 'buttons', buttons: [{ id: token, action: { type: 'flow', targetId } }] } });

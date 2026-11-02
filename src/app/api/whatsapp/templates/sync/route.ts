@@ -22,6 +22,8 @@ import type {
   TemplateSampleValues,
 } from '@/types'
 import { getT } from '@/lib/i18n/translate'
+import { listTemplateWabaNumbers } from '@/lib/whatsapp/template-number'
+import type { SenderConfigRow } from '@/lib/whatsapp/sender-config'
 
 const t = getT('Api')
 
@@ -248,13 +250,12 @@ export async function POST() {
     const ctx = await requireRole('admin')
     const { db, accountId, userId } = ctx
 
-    const { data: config, error: configError } = await db
-      .from('whatsapp_config')
-      .select('*')
-      .eq('account_id', accountId)
-      .single()
-
-    if (configError || !config) {
+    // A workspace can connect numbers in several WABAs; each WABA's
+    // templates are fetched with one of its numbers' tokens.
+    let wabaNumbers: SenderConfigRow[]
+    try {
+      wabaNumbers = await listTemplateWabaNumbers(db, accountId)
+    } catch {
       return NextResponse.json(
         {
           error:
@@ -264,7 +265,7 @@ export async function POST() {
       )
     }
 
-    if (!config.waba_id) {
+    if (wabaNumbers.length === 0) {
       return NextResponse.json(
         {
           error:
@@ -274,38 +275,45 @@ export async function POST() {
       )
     }
 
-    const accessToken = decrypt(config.access_token)
-
-    const metaTemplates: MetaTemplate[] = []
-    let nextUrl:
-      | string
-      | null = `${META_API_BASE}/${config.waba_id}/message_templates?limit=100&fields=id,name,language,status,category,components,quality_score,rejected_reason`
+    // Every WABA is fetched before anything is written, so a Meta error
+    // leaves the local table as it was.
+    const metaTemplates: (MetaTemplate & { waba_id: string })[] = []
     const PAGE_CAP = 20
-    let pageCount = 0
+    let truncated = false
 
-    while (nextUrl && pageCount < PAGE_CAP) {
-      pageCount++
-      const metaRes: Response = await fetch(nextUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
+    for (const config of wabaNumbers) {
+      const wabaId = config.waba_id as string
+      const accessToken = decrypt(config.access_token)
+      let nextUrl:
+        | string
+        | null = `${META_API_BASE}/${wabaId}/message_templates?limit=100&fields=id,name,language,status,category,components,quality_score,rejected_reason`
+      let pageCount = 0
 
-      if (!metaRes.ok) {
-        let metaErr = t('templates.metaApiStatus', { status: metaRes.status })
-        try {
-          const body = await metaRes.json()
-          if (body?.error?.message) metaErr = body.error.message
-        } catch {
-          // response wasn't JSON — keep the fallback
+      while (nextUrl && pageCount < PAGE_CAP) {
+        pageCount++
+        const metaRes: Response = await fetch(nextUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+
+        if (!metaRes.ok) {
+          let metaErr = t('templates.metaApiStatus', { status: metaRes.status })
+          try {
+            const body = await metaRes.json()
+            if (body?.error?.message) metaErr = body.error.message
+          } catch {
+            // response wasn't JSON — keep the fallback
+          }
+          return NextResponse.json({ error: metaErr }, { status: 502 })
         }
-        return NextResponse.json({ error: metaErr }, { status: 502 })
-      }
 
-      const metaBody: {
-        data?: MetaTemplate[]
-        paging?: { next?: string }
-      } = await metaRes.json()
-      if (metaBody.data) metaTemplates.push(...metaBody.data)
-      nextUrl = metaBody.paging?.next ?? null
+        const metaBody: {
+          data?: MetaTemplate[]
+          paging?: { next?: string }
+        } = await metaRes.json()
+        if (metaBody.data) metaTemplates.push(...metaBody.data.map((tpl) => ({ ...tpl, waba_id: wabaId })))
+        nextUrl = metaBody.paging?.next ?? null
+      }
+      if (nextUrl !== null) truncated = true
     }
 
     let inserted = 0
@@ -359,12 +367,13 @@ export async function POST() {
         meta_template_id: t.id,
         quality_score: qualityScore,
         rejection_reason: rejectionReason,
+        waba_id: t.waba_id,
         updated_at: new Date().toISOString(),
       }
 
       const { data: existing, error: lookupErr } = await db
         .from('message_templates')
-        .select('id,template_kind,cards')
+        .select('id,template_kind,cards,waba_id')
         .eq('account_id', accountId)
         .eq('name', t.name)
         .eq('language', t.language)
@@ -375,6 +384,17 @@ export async function POST() {
           name: t.name,
           language: t.language,
           message: lookupErr.message,
+        })
+        continue
+      }
+
+      // (name, language) is unique per workspace: a same-named template in
+      // another WABA is reported, never written over the stored one.
+      if (existing?.waba_id && existing.waba_id !== t.waba_id) {
+        errors.push({
+          name: t.name,
+          language: t.language,
+          message: 'A template with this name and language already exists in another WhatsApp Business account',
         })
         continue
       }
@@ -441,7 +461,7 @@ export async function POST() {
       inserted,
       updated,
       errors,
-      truncated: pageCount >= PAGE_CAP && nextUrl !== null,
+      truncated,
     })
   } catch (error) {
     // Auth failures map to 401/403 rather than being folded into the

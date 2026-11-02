@@ -70,7 +70,7 @@ function fakeDb(templateRows: unknown[], writes: { table: string; row: unknown }
           return { data: null, error: null };
         },
         then: (resolve: (r: { data: unknown; error: null }) => unknown) =>
-          resolve({ data: table === 'message_templates' ? templateRows : [], error: null }),
+          resolve({ data: table === 'message_templates' ? templateRows : table === 'whatsapp_config' ? [{ id: 'cfg-1', phone_number_id: 'pn-1', access_token: 'token' }] : [], error: null }),
       };
       return builder;
     },

@@ -19,7 +19,14 @@ vi.mock('@/lib/db/tenant', () => ({
       const key = Object.keys(h.rows).find((k) => sql.includes(k));
       return Promise.resolve(key ? h.rows[key] : []);
     };
-    return operation({ $queryRaw: run, $executeRaw: async (s: TemplateStringsArray, ...v: unknown[]) => { await run(s, ...v); return 1; } });
+    // getNumberConfig reads the workspace's numbers through the Prisma delegate.
+    const numbers = () => (h.rows['FROM whatsapp_config'] ?? []) as Array<Record<string, unknown>>;
+    const ordered = () => numbers().slice().sort((a, b) => Number(!!b.is_default) - Number(!!a.is_default));
+    const whatsapp_config = {
+      findFirst: async ({ where }: { where: { id?: string } }) => numbers().find((n) => !where.id || n.id === where.id) ?? null,
+      findMany: async ({ take }: { take?: number }) => ordered().slice(0, take ?? undefined),
+    };
+    return operation({ whatsapp_config, $queryRaw: run, $executeRaw: async (s: TemplateStringsArray, ...v: unknown[]) => { await run(s, ...v); return 1; } });
   },
 }));
 vi.mock('@/lib/jobs/dispatch', () => ({
@@ -138,6 +145,29 @@ describe('sendForm', () => {
     expect(h.sendFlow).not.toHaveBeenCalled();
   });
 
+  it('refuses a conversation whose number is in another WABA than the form, before any intent or send (R3)', async () => {
+    h.rows['FROM whatsapp_forms'] = [{ name: 'Lead', status: 'published', meta_flow_id: '1234567890', definition, uses_endpoint: false, waba_id: 'waba-1' }];
+    h.rows['FROM whatsapp_config'] = [{ phone_number_id: 'pn-2', access_token: 'enc', waba_id: 'waba-2' }];
+    await expect(sendForm(args)).rejects.toMatchObject({ code: 'form_wrong_number', status: 409 });
+    expect(h.steps).toEqual([]);
+    expect(h.sql.some((q) => q.sql.includes('whatsapp_form_sessions'))).toBe(false);
+    // Same WABA, another number: sent from the conversation's number.
+    h.rows['FROM whatsapp_config'] = [{ phone_number_id: 'pn-2', access_token: 'enc', waba_id: 'waba-1' }];
+    await sendForm(args);
+    expect(h.sendFlow.mock.calls[0][0]).toMatchObject({ phoneNumberId: 'pn-2', flowId: '1234567890' });
+  });
+
+  it('refuses an endpoint form when the conversation number has no forms key (R3)', async () => {
+    h.rows['FROM whatsapp_forms'] = [{ name: 'Lead', status: 'published', meta_flow_id: '1234567890', definition, uses_endpoint: true, waba_id: 'waba-1' }];
+    h.rows['FROM whatsapp_config'] = [{ phone_number_id: 'pn-2', access_token: 'enc', waba_id: 'waba-1',
+      forms_private_key_enc: null, forms_key_uploaded_at: null }];
+    await expect(sendForm(args)).rejects.toMatchObject({ code: 'form_key_missing', status: 409 });
+    expect(h.steps).toEqual([]);
+    h.rows['FROM whatsapp_config'] = [{ phone_number_id: 'pn-2', access_token: 'enc', waba_id: 'waba-1',
+      forms_private_key_enc: 'enc-key', forms_key_uploaded_at: new Date() }];
+    await expect(sendForm(args)).resolves.toMatchObject({ whatsappMessageId: 'wamid.form' });
+  });
+
   it('refuses bad message text without touching the database', async () => {
     await expect(sendForm({ ...args, cta: '' })).rejects.toMatchObject({ code: 'invalid_message' });
     expect(h.sql).toHaveLength(0);
@@ -239,5 +269,35 @@ describe('templateFlowTokens with an intent key (R9)', () => {
   it('returns no token on a retry when the first call found no form', async () => {
     h.rows = { 'INSERT INTO outbound_intents': [], 'SELECT result FROM outbound_intents': [{ result: {} }] };
     expect(await call()).toBeUndefined();
+  });
+});
+
+describe('sendForm — two numbers in one workspace', () => {
+  const DEFAULT_NUMBER = '55555555-5555-4555-8555-555555555555';
+  const SECOND_NUMBER = '66666666-6666-4666-8666-666666666666';
+  const args = { accountId: ACCOUNT, userId: '44444444-4444-4444-8444-444444444444', role: 'agent' as const, sender: 'agent' as const,
+    conversationId: CONV, formId: FORM, cta: 'Open', body: 'Please fill in', intentKey: 'form:inbox:two' };
+  const rows = (conversationNumber: string | null) => ({
+    'FROM whatsapp_forms': [{ name: 'Lead', status: 'published', meta_flow_id: '1234567890', definition }],
+    'FROM conversations c JOIN contacts': [{ contact_id: 'ct-1', last_customer_message_at: new Date(Date.now() - 60_000), ...contact, whatsapp_config_id: conversationNumber }],
+    'FROM whatsapp_config': [
+      { id: SECOND_NUMBER, phone_number_id: 'pn-second', access_token: 'enc-2', is_default: false },
+      { id: DEFAULT_NUMBER, phone_number_id: 'pn-default', access_token: 'enc-1', is_default: true },
+    ],
+    'INSERT INTO whatsapp_form_sessions': [{ id: 'sess-1' }],
+    'INSERT INTO messages': [{ id: 'msg-1' }],
+  });
+  beforeEach(() => { h.steps = []; h.sql = []; h.contexts = []; h.paused = false; h.sendFlow.mockClear(); });
+
+  it("sends from the conversation's number", async () => {
+    h.rows = rows(SECOND_NUMBER);
+    await sendForm(args);
+    expect(h.sendFlow.mock.calls[0][0]).toMatchObject({ phoneNumberId: 'pn-second', accessToken: 'plain:enc-2' });
+  });
+
+  it('uses the default number for a legacy conversation without one', async () => {
+    h.rows = rows(null);
+    await sendForm(args);
+    expect(h.sendFlow.mock.calls[0][0]).toMatchObject({ phoneNumberId: 'pn-default', accessToken: 'plain:enc-1' });
   });
 });

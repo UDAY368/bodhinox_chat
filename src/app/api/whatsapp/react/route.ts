@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { sendReactionMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import { NoNumberError } from '@/lib/whatsapp/numbers';
+import { loadSenderConfig, numberErrorText, type SenderConfigRow } from '@/lib/whatsapp/sender-config';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import {
   checkRateLimit,
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
 
     const { data: conversation, error: convError } = await db
       .from('conversations')
-      .select('id, account_id, contact:contacts(phone, wa_user_id)')
+      .select('id, account_id, whatsapp_config_id, contact:contacts(phone, wa_user_id)')
       .eq('id', targetMessage.conversation_id)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -94,14 +96,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // WhatsApp config + access token. Account-scoped post-multi-user.
-    const { data: config, error: configError } = await db
-      .from('whatsapp_config')
-      .select('phone_number_id, access_token')
-      .eq('account_id', accountId)
-      .single();
-
-    if (configError || !config) {
+    // React from the number the conversation is on (the default for a
+    // legacy conversation without one). Account-scoped.
+    let config: SenderConfigRow;
+    try {
+      config = await loadSenderConfig(
+        db,
+        accountId,
+        (conversation as { whatsapp_config_id?: string | null }).whatsapp_config_id ?? null,
+      );
+    } catch (error) {
+      if (error instanceof NoNumberError && error.reason === 'disconnected') {
+        return NextResponse.json({ error: numberErrorText(error), code: 'whatsapp_number_disconnected' }, { status: 409 });
+      }
+      if (error instanceof NoNumberError && error.reason !== 'none') {
+        return NextResponse.json({ error: numberErrorText(error) }, { status: 400 });
+      }
       return NextResponse.json(
         { error: t('common.whatsappNotConfiguredDot') },
         { status: 400 },

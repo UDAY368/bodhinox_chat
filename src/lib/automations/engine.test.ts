@@ -24,6 +24,9 @@ const h = vi.hoisted(() => ({
     ownedCustomField: null as { id: string } | null,
     /** Row the account-scoped `conversations` lookup resolves. */
     ownedConversation: null as { id: string } | null,
+    /** Multi-number scenario: the contact's conversations and the workspace's numbers. */
+    conversations: null as Record<string, unknown>[] | null,
+    numbers: [] as Record<string, unknown>[],
     automations: [] as Record<string, unknown>[],
     steps: [] as Record<string, unknown>[],
     fromCalls: [] as string[],
@@ -93,7 +96,17 @@ vi.mock("./admin-client", () => {
       return { data: state.owned, error: null };
     }
     if (table === "conversations") {
+      if (state.conversations) {
+        if (type === "update") {
+          state.updateCalls.push({ table, filters: ops.filters });
+          return { data: null, error: null };
+        }
+        return { data: one(state.conversations.filter((r) => matches(r, ops.filters))), error: null };
+      }
       return { data: state.ownedConversation, error: null };
+    }
+    if (table === "whatsapp_config") {
+      return { data: state.numbers, error: null };
     }
     if (table === "custom_fields") {
       // account-scoped ownership lookup for a custom field definition
@@ -220,6 +233,8 @@ beforeEach(() => {
   h.state.owned = null;
   h.state.ownedCustomField = null;
   h.state.ownedConversation = null;
+  h.state.conversations = null;
+  h.state.numbers = [];
   h.state.automations = [];
   h.state.steps = [];
   h.state.fromCalls = [];
@@ -1148,3 +1163,52 @@ it("does not match a blank contact-field comparison even for a blank stored fiel
   });
   expect(h.state.updateCalls).toHaveLength(0);
 });
+
+describe("contact conversations on two numbers", () => {
+  const NUMBER_A = "00000000-0000-4000-8000-00000000000a";
+  const NUMBER_B = "00000000-0000-4000-8000-00000000000b";
+
+  function automation(stepType: string, stepConfig: Record<string, unknown>) {
+    h.state.automations = [{
+      id: "a1", account_id: ACCOUNT, user_id: "u1", name: "two numbers",
+      trigger_type: "tag_added", trigger_config: { tag_id: "tag-a" }, is_active: true,
+    }];
+    h.state.steps = [{
+      id: "s1", automation_id: "a1", step_type: stepType, position: 0, parent_step_id: null, step_config: stepConfig,
+    }];
+  }
+
+  beforeEach(() => {
+    h.state.owned = { id: "c1" };
+    h.state.numbers = [
+      { id: NUMBER_A, is_default: true, created_at: "2026-01-01T00:00:00Z" },
+      { id: NUMBER_B, is_default: false, created_at: "2026-02-01T00:00:00Z" },
+    ];
+    h.state.conversations = [
+      { id: "conv-b", account_id: ACCOUNT, contact_id: "c1", whatsapp_config_id: NUMBER_B },
+      { id: "conv-a", account_id: ACCOUNT, contact_id: "c1", whatsapp_config_id: NUMBER_A },
+    ];
+  });
+
+  it("sends on the default number's conversation when no conversation is in the context", async () => {
+    automation("send_message", { text: "Hello" });
+    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
+    expect(vi.mocked(engineSendText)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(engineSendText).mock.calls[0][0]).toMatchObject({ conversationId: "conv-a" });
+  });
+
+  it("closes only the triggering conversation when the run has one", async () => {
+    automation("close_conversation", {});
+    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a", conversation_id: "conv-b" } });
+    const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "id", "conv-b"]]);
+  });
+
+  it("closes all of the contact's conversations without one, as before", async () => {
+    automation("close_conversation", {});
+    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
+    const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"]]);
+  });
+});
+

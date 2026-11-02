@@ -16,6 +16,7 @@ import { listFilter } from '@/lib/audience/lists';
 import { loadSegmentFilter } from '@/lib/audience/segments';
 import { trackedButtonIndex, validTrackedUrl } from './tracking';
 import { requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
+import { campaignNumberId } from './api-campaign';
 
 // Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
 // parameterCells bounds recipients × variables, so one request cannot freeze an unbounded amount of data.
@@ -56,6 +57,8 @@ const inputSchema=z.object({
   trackedUrl:z.string().trim().max(2048).optional(),
   /** Location, offer end and coupon code: the same for every recipient. */
   sendExtras:z.unknown().optional(),
+  /** The number to send from; the workspace default when omitted. */
+  whatsappConfigId:z.string().uuid().nullish(),
 }).strict();
 export type CampaignInput=z.infer<typeof inputSchema>;
 const FIELD_COLUMNS={name:Prisma.sql`c.name`,phone:Prisma.sql`c.phone`,email:Prisma.sql`c.email`,company:Prisma.sql`c.company`};
@@ -186,6 +189,8 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     if(template.status!=='APPROVED')invalid('Choose an approved template');
     // A campaign never carries a per-person one-time code.
     const refusal=templateSendRefusal(template,'campaign');if(refusal)invalid(refusal);
+    // The sending number must be this workspace's, and the template must be from its WABA.
+    const numberId=await campaignNumberId(tx,scope.accountId,input.whatsappConfigId,template as {waba_id?:string|null});
     // Values are frozen in this order: body placeholders, then each carousel card's.
     const keys=campaignVariableKeys(template);
     if(Object.keys(input.variables).length!==keys.length||keys.some(key=>!Object.hasOwn(input.variables,key)))invalid('Variable mappings must match every template body placeholder');
@@ -214,8 +219,8 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
     const trackedUrl=tracked>=0?input.trackedUrl!:null;
-    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url)
-      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(Object.keys(extras.value).length?{...input.variables,[CAMPAIGN_SEND_EXTRAS_KEY]:extras.value}:input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl}) RETURNING id`;
+    const broadcasts=await tx.$queryRaw<{id:string}[]>`INSERT INTO broadcasts(account_id,user_id,name,template_name,template_language,template_variables,audience_filter,status,scheduled_at,total_recipients,tracked_url,whatsapp_config_id)
+      VALUES(${scope.accountId}::uuid,${scope.userId}::uuid,${input.name},${template.name},${template.language||'en_US'},${JSON.stringify(Object.keys(extras.value).length?{...input.variables,[CAMPAIGN_SEND_EXTRAS_KEY]:extras.value}:input.variables)}::jsonb,${JSON.stringify(audienceFilter)}::jsonb,${scheduledAt?'scheduled':'sending'},${scheduledAt},0,${trackedUrl},${numberId}::uuid) RETURNING id`;
     const id=broadcasts[0].id;
     // 122 random bits per recipient when tracking; the token is the button's {{1}}.
     const token=trackedUrl?Prisma.sql`replace(gen_random_uuid()::text,'-','')`:Prisma.sql`NULL`;
