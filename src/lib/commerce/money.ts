@@ -1,4 +1,5 @@
 /**
+ * Phase 6 commerce helper.
  * Money is always an integer count of the currency's minor unit (paise, cents,
  * yen, fils). Floats never hold an amount: they are only produced for display
  * by Intl, and parsing works on the decimal string, not on a float.
