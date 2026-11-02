@@ -82,7 +82,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     name?: string;
     description?: string | null;
-    trigger_type?: 'keyword' | 'first_inbound_message' | 'manual';
+    trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply';
     trigger_config?: Record<string, unknown>;
     /**
      * If set, clone the matching template's name + trigger +

@@ -48,10 +48,11 @@ interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply";
   trigger_config: { keywords?: string[] } | Record<string, unknown>;
   execution_count: number;
   last_executed_at: string | null;
+  test_numbers?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -394,7 +395,7 @@ function FlowCard({
           )}
         >
           <StatusIcon className="h-3 w-3" />
-          {STATUS_LABELS(t)[flow.status]}
+          {flow.status === "draft" && (flow.test_numbers ?? []).length > 0 ? t("statusTesting") : STATUS_LABELS(t)[flow.status]}
         </Badge>
       </div>
 
@@ -429,12 +430,15 @@ function FlowCard({
 }
 
 function describeTrigger(flow: FlowRow, t: ReturnType<typeof useTranslations>): string {
+  const cfg = flow.trigger_config as Record<string, unknown>;
   if (flow.trigger_type === "keyword") {
-    const keywords = Array.isArray(flow.trigger_config.keywords)
-      ? (flow.trigger_config.keywords as string[])
-      : [];
+    if (cfg.match_type === "regex") return t("triggerRegex");
+    const keywords = Array.isArray(cfg.keywords) ? (cfg.keywords as string[]) : [];
     if (keywords.length === 0) return t("triggerKeywordNone");
     return t("triggerKeyword", { keywords: keywords.join(", ") });
+  }
+  if (flow.trigger_type === "template_reply") {
+    return t("triggerTemplateReply", { template: String(cfg.template_name ?? "") });
   }
   if (flow.trigger_type === "first_inbound_message") {
     return t("triggerFirstInbound");

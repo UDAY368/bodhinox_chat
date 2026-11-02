@@ -53,6 +53,10 @@ export function createFakeDb(tables: FakeTables) {
         filters.push((r) => readColumn(r, column) === value);
         return builder;
       },
+      neq: (column: string, value: unknown) => {
+        filters.push((r) => JSON.stringify(readColumn(r, column) ?? null) !== JSON.stringify(value));
+        return builder;
+      },
       is: (column: string, value: unknown) => {
         filters.push((r) => (readColumn(r, column) ?? null) === value);
         return builder;

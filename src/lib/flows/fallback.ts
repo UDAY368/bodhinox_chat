@@ -13,8 +13,24 @@
 
 import {
   DEFAULT_FALLBACK_POLICY,
+  type FallbackMessage,
   type FlowFallbackPolicy,
 } from "./types";
+
+/** WhatsApp's caption limit; a text message allows more, but one cap keeps both forms valid. */
+export const FALLBACK_MESSAGE_MAX = 1024;
+
+/** A usable fallback message, or undefined when the stored one is missing or malformed. */
+export function resolveFallbackMessage(raw: unknown): FallbackMessage | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const m = raw as Partial<FallbackMessage>;
+  const text = typeof m.text === "string" ? m.text.trim() : "";
+  const media = (m.media_type === "image" || m.media_type === "video") && typeof m.media_url === "string" && m.media_url.trim()
+    ? { media_type: m.media_type, media_url: m.media_url.trim() }
+    : {};
+  if ((!text && !("media_type" in media)) || text.length > FALLBACK_MESSAGE_MAX) return undefined;
+  return { text, ...media };
+}
 
 export type FallbackAction =
   /** Re-send the same prompt and wait again. */
@@ -57,6 +73,7 @@ export function resolveFallbackPolicy(
       r.on_exhaust === "handoff" || r.on_exhaust === "end"
         ? r.on_exhaust
         : DEFAULT_FALLBACK_POLICY.on_exhaust,
+    fallback_message: resolveFallbackMessage(r.fallback_message),
   };
 }
 

@@ -101,12 +101,12 @@ vi.mock("./meta-send", () => ({
 import {
   dispatchInboundToFlows,
   matchReplyId,
-  matchesKeywordTrigger,
   isAutoAdvancing,
   isSuspending,
   isTerminal,
   evaluateConditionPredicate,
 } from "./engine";
+import { keywordTriggerMatches as matchesKeywordTrigger } from "./triggers";
 import type {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -203,48 +203,48 @@ describe("matchReplyId", () => {
 });
 
 describe("matchesKeywordTrigger", () => {
-  it("returns false for empty text", () => {
-    expect(matchesKeywordTrigger("", { keywords: ["hi"] })).toBe(false);
+  it("returns false for empty text", async () => {
+    expect(await matchesKeywordTrigger("", { keywords: ["hi"] })).toBe(false);
   });
 
-  it("returns false when keywords array is empty", () => {
-    expect(matchesKeywordTrigger("anything", { keywords: [] })).toBe(false);
+  it("returns false when keywords array is empty", async () => {
+    expect(await matchesKeywordTrigger("anything", { keywords: [] })).toBe(false);
   });
 
-  it("default match_type='contains' does case-insensitive substring", () => {
+  it("default match_type='contains' does case-insensitive substring", async () => {
     const cfg = { keywords: ["support"] };
-    expect(matchesKeywordTrigger("I need SUPPORT please", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("Support is great", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("Help me", cfg)).toBe(false);
+    expect(await matchesKeywordTrigger("I need SUPPORT please", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("Support is great", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("Help me", cfg)).toBe(false);
   });
 
-  it("match_type='exact' compares the whole string case-insensitively", () => {
+  it("match_type='exact' compares the whole string case-insensitively", async () => {
     const cfg = { keywords: ["help"], match_type: "exact" as const };
-    expect(matchesKeywordTrigger("help", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("HELP", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("help me", cfg)).toBe(false);
+    expect(await matchesKeywordTrigger("help", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("HELP", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("help me", cfg)).toBe(false);
   });
 
-  it("case_sensitive=true preserves case", () => {
+  it("case_sensitive=true preserves case", async () => {
     const cfg = {
       keywords: ["Support"],
       case_sensitive: true,
     };
-    expect(matchesKeywordTrigger("I need Support", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("I need support", cfg)).toBe(false);
+    expect(await matchesKeywordTrigger("I need Support", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("I need support", cfg)).toBe(false);
   });
 
-  it("matches any one of multiple keywords", () => {
+  it("matches any one of multiple keywords", async () => {
     const cfg = { keywords: ["help", "support", "issue"] };
-    expect(matchesKeywordTrigger("I have an issue", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("I need Help!", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("nothing to see here", cfg)).toBe(false);
+    expect(await matchesKeywordTrigger("I have an issue", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("I need Help!", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("nothing to see here", cfg)).toBe(false);
   });
 
-  it("skips empty strings in the keywords array", () => {
+  it("skips empty strings in the keywords array", async () => {
     const cfg = { keywords: ["", "support", ""] };
-    expect(matchesKeywordTrigger("support center", cfg)).toBe(true);
-    expect(matchesKeywordTrigger("nope", cfg)).toBe(false);
+    expect(await matchesKeywordTrigger("support center", cfg)).toBe(true);
+    expect(await matchesKeywordTrigger("nope", cfg)).toBe(false);
   });
 });
 

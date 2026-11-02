@@ -60,6 +60,7 @@ import {
   type NodeType,
 } from './shared';
 import { NodeConfigForm } from './forms/node-config-form';
+import { KeywordTriggerFields, TemplateReplyTriggerFields } from './trigger-fields';
 import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
@@ -211,53 +212,6 @@ export function FlowBuilder() {
 // Keyword trigger input
 // ============================================================
 
-/**
- * Comma-separated keyword entry. Keeps a local draft string so the
- * comma (and trailing space) the user types survive until they're done
- * — parsing into the keywords array on every keystroke stripped the
- * trailing comma the instant it was typed, making it impossible to
- * start a second keyword (issue #234). We commit on blur / Enter, then
- * re-display the cleaned, rejoined form. Seeded once on mount; the
- * component unmounts/remounts when the trigger type changes, so the
- * seed stays in sync. Mirrors the automations builder's KeywordMatchConfig.
- */
-function KeywordsInput({
-  keywords,
-  onChange,
-  t,
-}: {
-  keywords: string[];
-  onChange: (keywords: string[]) => void;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const [draft, setDraft] = useState(keywords.join(', '));
-
-  function commit() {
-    const parsed = draft
-      .split(',')
-      .map((k) => k.trim())
-      .filter(Boolean);
-    setDraft(parsed.join(', '));
-    onChange(parsed);
-  }
-
-  return (
-    <Input
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          commit();
-        }
-      }}
-      placeholder={t('keywordsPlaceholder')}
-      className="bg-muted"
-    />
-  );
-}
-
 // ============================================================
 // Trigger panel
 // ============================================================
@@ -288,7 +242,7 @@ function TriggerPanel({
                 ...s,
                 trigger_type: v as BuilderState['trigger_type'],
                 trigger_config:
-                  v === 'keyword' ? { keywords: [] } : v === 'manual' ? {} : {},
+                  v === 'keyword' ? { keywords: [] } : v === 'template_reply' ? { template_name: '', buttons: [] } : {},
               }))
             }
           >
@@ -298,6 +252,9 @@ function TriggerPanel({
             <SelectContent>
               <SelectItem value="keyword">
                 {t('triggerKeywordTitle')}
+              </SelectItem>
+              <SelectItem value="template_reply">
+                {t('triggerTemplateReplyTitle')}
               </SelectItem>
               <SelectItem value="first_inbound_message">
                 {t('triggerFirstInboundTitle')}
@@ -309,25 +266,12 @@ function TriggerPanel({
           </Select>
         </div>
         {state.trigger_type === 'keyword' && (
-          <div>
-            <label className="text-muted-foreground mb-1 block text-xs">
-              {t('keywordsLabel')}
-            </label>
-            <KeywordsInput
-              keywords={
-                Array.isArray(state.trigger_config.keywords)
-                  ? (state.trigger_config.keywords as string[])
-                  : []
-              }
-              onChange={(keywords) =>
-                setState((s) => ({
-                  ...s,
-                  trigger_config: { ...s.trigger_config, keywords },
-                }))
-              }
-              t={t}
-            />
-          </div>
+          <KeywordTriggerFields config={state.trigger_config} t={t}
+            onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
+        )}
+        {state.trigger_type === 'template_reply' && (
+          <TemplateReplyTriggerFields config={state.trigger_config} t={t}
+            onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
         )}
       </div>
       {triggerIssues.length > 0 && (

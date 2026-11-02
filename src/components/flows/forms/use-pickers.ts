@@ -77,11 +77,11 @@ export interface FlowMember {
   role: string;
 }
 
-async function loadTemplates(): Promise<FlowTemplate[]> {
+async function loadApprovedTemplates(): Promise<FlowTemplate[]> {
   try {
     const { data, error } = await createClient().from<FlowTemplate>("message_templates")
       .select("id,name,language,body_text,header_type,header_content,header_media_url,buttons").eq("status", "APPROVED").order("name");
-    return error ? [] : (data ?? []).filter(templateFlowSendable);
+    return error ? [] : data ?? [];
   } catch {
     return [];
   }
@@ -107,9 +107,34 @@ async function loadMembers(): Promise<FlowMember[]> {
   }
 }
 
+const loadSendableTemplates = async () => (await loadApprovedTemplates()).filter(templateFlowSendable);
+const loadQuickReplyTemplates = async () =>
+  (await loadApprovedTemplates()).filter((t) => (t.buttons ?? []).some((b) => b.type === "QUICK_REPLY"));
+
 /** Approved templates a flow can send (see templateFlowSendable): Meta refuses anything unapproved. */
 export function useApprovedTemplates(): FlowTemplate[] {
-  return useLoaded(loadTemplates);
+  return useLoaded(loadSendableTemplates);
+}
+
+/** Approved templates with quick-reply buttons, whoever sends them (a broadcast, say). */
+export function useQuickReplyTemplates(): FlowTemplate[] {
+  return useLoaded(loadQuickReplyTemplates);
+}
+
+async function loadIceBreakers(): Promise<string[]> {
+  try {
+    const res = await authFetch("/api/whatsapp/ice-breakers", { cache: "no-store" });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { prompts?: string[] };
+    return json.prompts ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** The number's ice breakers, offered as exact keywords. */
+export function useIceBreakers(): string[] {
+  return useLoaded(loadIceBreakers);
 }
 
 export function useFlowList(): FlowSummary[] {

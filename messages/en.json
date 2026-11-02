@@ -1514,7 +1514,18 @@
       "handoff": "Hand over to a human",
       "ignore": "Allow other automations",
       "ai": "Let AI answer business questions",
-      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."
+      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first.",
+      "messageLabel": "Default fallback message (optional)",
+      "messageHelp": "Sent whenever a reply is off-script, before the action above. Add an image or video to send it with the text as caption.",
+      "imageAttached": "Image attached",
+      "videoAttached": "Video attached",
+      "removeMedia": "Remove attachment",
+      "addImage": "Add image",
+      "addVideo": "Add video",
+      "uploadFailed": "Upload failed.",
+      "testNumbersLabel": "Test numbers (draft only)",
+      "testNumbersHelp": "While this flow is a draft it runs only for these numbers (up to 3, with country code). Activate it to go live for everyone.",
+      "stopTesting": "Stop testing"
     },
     "list": {
       "title": "Flows",
@@ -1548,7 +1559,10 @@
       "triggerKeyword": "Triggers on: {keywords}",
       "triggerFirstInbound": "Triggers on a contact's first-ever inbound message",
       "triggerManual": "Manual trigger",
-      "cloneFailedStatus": "Clone failed: {status}"
+      "cloneFailedStatus": "Clone failed: {status}",
+      "statusTesting": "Testing",
+      "triggerRegex": "Triggers on: a message matching a pattern",
+      "triggerTemplateReply": "Triggers on: a button reply to {template}"
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -1581,7 +1595,7 @@
       "triggerKeywordTitle": "A message contains a keyword",
       "triggerFirstInboundTitle": "Customer's first ever inbound message",
       "triggerManualTitle": "Manual only (no auto-trigger)",
-      "keywordsLabel": "Keywords (comma-separated)",
+      "keywordsLabel": "Keywords",
       "keywordsPlaceholder": "support, help, hi",
       "entryNodeTitle": "Entry node:",
       "entryNodePlaceholder": "Pick the first node…",
@@ -1877,7 +1891,22 @@
         "exhausted": "Attempts used up",
         "timeout": "Timeout",
         "fallback": "Fallback"
-      }
+      },
+      "triggerTemplateReplyTitle": "Reply to a template button",
+      "matchTypeLabel": "Match",
+      "matchContains": "Message contains a keyword",
+      "matchExact": "Message is exactly a keyword",
+      "matchRegex": "Message matches a pattern (regex)",
+      "caseSensitive": "Case-sensitive",
+      "patternLabel": "Pattern",
+      "patternHelp": "Searched anywhere in the message. Checked when you save; slow patterns never match.",
+      "removeKeyword": "Remove {keyword}",
+      "iceBreakersLabel": "Your ice breakers",
+      "iceBreakersHelp": "A tapped ice breaker arrives as its text; adding one sets the match to exact.",
+      "templateLabel": "Template",
+      "pickTemplate": "Pick a template with quick-reply buttons",
+      "templateButtonsLabel": "Buttons that start this flow",
+      "templateButtonsHelp": "None ticked means any button. The tapped button's text is saved as {{vars.trigger_button}}."
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -2649,6 +2678,19 @@
       },
       "loadFailed": "Could not load your plan",
       "retry": "Retry"
+    },
+    "iceBreakers": {
+      "title": "Ice breakers",
+      "description": "Up to {max} prompts a customer can tap when they open a new chat with your number. A flow can start on one with an exact keyword.",
+      "promptN": "Ice breaker {n}",
+      "remove": "Remove ice breaker",
+      "add": "Add ice breaker",
+      "save": "Save to WhatsApp",
+      "saved": "Ice breakers saved to WhatsApp.",
+      "saveFailed": "Could not save the ice breakers.",
+      "syncedAt": "Last saved to WhatsApp {date}.",
+      "notSynced": "Not saved to WhatsApp yet.",
+      "loadFailed": "Couldn't load the ice breakers. Reload the page to edit them."
     }
   },
   "SignupPage": {
@@ -3146,7 +3188,11 @@
       "apiNeedsFallback": "Choose a node for the fallback path.",
       "connectNeedsFlow": "Choose a flow to start.",
       "assignNeedsMode": "Choose who to assign.",
-      "assignNeedsAgent": "Choose an agent."
+      "assignNeedsAgent": "Choose an agent.",
+      "triggerBadPattern": "Enter a valid regular expression of 1–256 characters.",
+      "triggerNeedsTemplate": "Choose the template whose button replies start this flow.",
+      "triggerBadButtons": "Choose buttons from the template.",
+      "fallbackMessageInvalid": "The fallback message needs text (up to {max} characters) or an image or video."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -3360,7 +3406,8 @@
       "insertFailed": "flow insert failed",
       "nameRequired": "name is required",
       "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
-      "secretNeedsAdmin": "Only an admin can add or change an API request step that uses a secret workspace value."
+      "secretNeedsAdmin": "Only an admin can add or change an API request step that uses a secret workspace value.",
+      "testNumbersInvalid": "Enter up to {max} phone numbers with country code (8–15 digits each)."
     },
     "quickReplies": {
       "kindInvalid": "kind must be \"text\" or \"interactive\"",
@@ -3393,7 +3440,10 @@
       "phoneCheckFailed": "Phone metadata check failed: {message}",
       "wabaNoApps": "WABA has no subscribed apps. Re-save the configuration to subscribe.",
       "wabaCheckFailed": "WABA subscription check failed: {message}",
-      "noWabaId": "No WABA ID on file — webhooks can't be wired without it. Add it in the form and re-save."
+      "noWabaId": "No WABA ID on file — webhooks can't be wired without it. Add it in the form and re-save.",
+      "notConnected": "Connect a WhatsApp number first.",
+      "iceBreakersInvalid": "Use up to {max} different prompts of 1–{length} characters.",
+      "iceBreakersSyncFailed": "WhatsApp did not accept the ice breakers. Check the number's connection and try again."
     },
     "media": {
       "idRequired": "Media ID is required",

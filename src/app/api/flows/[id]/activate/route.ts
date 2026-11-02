@@ -15,9 +15,10 @@ const t = getT('Api');
  * Body: { status: 'draft' | 'active' | 'archived' }
  *
  * Activating runs the full validator and refuses on any 'error'
- * severity issue. Drafts and archives are unconditional — users
- * need to be able to save broken-work-in-progress and pause flows
- * without first fixing them.
+ * severity issue, and clears the flow's test numbers so pausing it
+ * later gives a plain draft. Moving to draft is validated the same way
+ * when the flow still has test numbers (it would run for them).
+ * Archiving is unconditional.
  *
  * Returns the updated flow on success; on validation failure returns
  * the full issue list so the builder can highlight each problem.
@@ -61,7 +62,7 @@ export async function POST(
   // Ownership via RLS — caller's client.
   const { data: existing } = await db
     .from('flows')
-    .select('id')
+    .select('id, test_numbers')
     .eq('id', id)
     .maybeSingle();
   if (!existing) {
@@ -70,7 +71,8 @@ export async function POST(
 
   const admin = db;
 
-  if (status === 'active') {
+  const testing = status === 'draft' && ((existing as { test_numbers?: string[] | null }).test_numbers ?? []).length > 0;
+  if (status === 'active' || testing) {
     // Re-load with the full payload the validator needs.
     const [{ data: flow }, { data: nodes }] = await Promise.all([
       admin
@@ -92,7 +94,7 @@ export async function POST(
     const issues = validateFlowForActivation(
       flow as {
         name: string;
-        trigger_type: 'keyword' | 'first_inbound_message' | 'manual';
+        trigger_type: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply';
         trigger_config: Record<string, unknown>;
         entry_node_id: string | null;
         fallback_policy: unknown;
@@ -114,13 +116,14 @@ export async function POST(
         { status: 422 }
       );
     }
-    // Plan cap on active flows; re-activating an already active flow does not count twice.
+    // Plan cap on active flows (testing drafts count, they run too); this flow does not count twice.
     // shortcut: checked before the update in another transaction, so two simultaneous activations can pass one over the cap; move the update under requireRoomFor if that matters.
     try {
       const ctx = await requireRole('agent');
       await withTenant(tenantOf(ctx), async (tx) => {
         const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM flows
-          WHERE account_id=${ctx.accountId}::uuid AND status='active' AND id<>${id}::uuid`;
+          WHERE account_id=${ctx.accountId}::uuid AND id<>${id}::uuid
+          AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`;
         await requireWithinLimit(tx, ctx.accountId, 'active_flows', n + 1);
       });
     } catch (err) {
@@ -130,7 +133,7 @@ export async function POST(
 
   const { data: updated, error } = await admin
     .from('flows')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status, updated_at: new Date().toISOString(), ...(status === 'active' ? { test_numbers: [] } : {}) })
     .eq('id', id)
     .select()
     .maybeSingle();

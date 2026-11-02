@@ -8,7 +8,11 @@ const h = vi.hoisted(() => ({
   nodes: [] as Row[],
   writes: [] as QuerySpec[],
   secrets: new Set<string>(),
+  limit: vi.fn(async () => {}),
 }));
+vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_t: unknown, fn: (tx: unknown) => unknown) => fn({ $queryRaw: async () => [{ n: 1 }] }) }));
+vi.mock('@/lib/audience/http', () => ({ tenantOf: () => ({}) }));
+vi.mock('@/lib/billing/entitlements', () => ({ requireWithinLimit: h.limit }));
 vi.mock('@/lib/workspace/attributes', () => ({ secretAttributeKeys: async () => h.secrets }));
 vi.mock('@/lib/flows/admin-client', () => ({
   databaseAdmin: () => {
@@ -74,6 +78,7 @@ beforeEach(() => {
   h.nodes = [{ flow_id: 'flow-a', account_id: 'account-a', node_key: 'old' }];
   h.writes = [];
   h.secrets = new Set();
+  h.limit.mockReset();
 });
 it('retains the request client when updating the graph and deleting the flow', async () => {
   const result = await PUT(
@@ -140,4 +145,39 @@ it("refuses an agent's new or changed API step that uses a secret, but keeps an 
     headers: [{ value: 'Bearer {{workspace.api_key}}', key: 'Authorization' }] } }];
   expect((await save(apiNode('https://api.example.com/'))).status).toBe(200);
   expect((await save(apiNode('https://attacker.example/'))).status).toBe(403);
+});
+
+it('stores test numbers as digits and refuses more than three', async () => {
+  const save = (test_numbers: unknown) => PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify({ test_numbers }) }), context);
+  h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Original', status: 'draft', trigger_type: 'manual', trigger_config: {}, entry_node_id: null }];
+  expect((await save(['1', '2', '3', '4'])).status).toBe(400);
+  expect((await save(['+91 98765 43210', '1234'])).status).toBe(400);
+  expect(h.writes).toEqual([]);
+});
+
+it('refuses to start testing a draft that would not pass activation', async () => {
+  h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Original', status: 'draft', trigger_type: 'keyword', trigger_config: { keywords: [] }, entry_node_id: null }];
+  h.nodes = [{ flow_id: 'flow-a', account_id: 'account-a', node_key: 'start', node_type: 'start', config: { next_node_key: '' } }];
+  const response = await PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify({ test_numbers: ['+91 98765 43210'] }) }), context);
+  expect(response.status).toBe(422);
+  expect(h.writes).toEqual([]);
+});
+
+it('counts a draft that starts testing against the active-flow limit', async () => {
+  h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Original', status: 'draft', trigger_type: 'manual', trigger_config: {}, entry_node_id: 'start', test_numbers: [] }];
+  h.nodes = [
+    { flow_id: 'flow-a', account_id: 'account-a', node_key: 'start', node_type: 'start', config: { next_node_key: 'done' } },
+    { flow_id: 'flow-a', account_id: 'account-a', node_key: 'done', node_type: 'end', config: {} },
+  ];
+  const save = () => PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify({ test_numbers: ['919876543210'] }) }), context);
+  h.limit.mockRejectedValueOnce(new Error('limit'));
+  expect((await save()).status).toBe(403);
+  expect(h.writes).toEqual([]);
+  expect(h.limit).toHaveBeenCalledWith(expect.anything(), 'account-a', 'active_flows', 2);
+  expect((await save()).status).toBe(200);
+  expect(h.flows[0].test_numbers).toEqual(['919876543210']);
+  // Already testing: changing the numbers takes no new slot.
+  h.limit.mockClear();
+  expect((await save()).status).toBe(200);
+  expect(h.limit).not.toHaveBeenCalled();
 });

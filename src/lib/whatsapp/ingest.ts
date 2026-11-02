@@ -9,12 +9,16 @@ export interface IngestInboundInput {
   /** Structured location or address-form reply (messages.interactive_payload). */
   interactivePayload?: Record<string, unknown> | null;
   replyToMessageId: string | null; createdAt: Date;
+  /** Meta id of the message this one replies to (a broadcast template, say). */
+  contextMetaId?: string | null;
   wasContactCreated: boolean; wasConversationCreated: boolean;
 }
 export interface MessageActionsPayload {
   kind: "message"; messageId: string; accountId: string; userId: string;
   contactId: string; conversationId: string; metaMessageId: string;
   contentType: string; contentText: string | null; interactiveReplyId: string | null;
+  /** Absent on jobs queued before it existed. */
+  contextMetaId?: string;
   wasContactCreated: boolean; wasConversationCreated: boolean; isFirstInboundMessage: boolean;
 }
 export interface StatusActionsPayload {
@@ -47,6 +51,7 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       kind: "message", messageId: inserted[0].id, accountId: input.accountId, userId: input.userId,
       contactId: input.contactId, conversationId: input.conversationId, metaMessageId: input.metaMessageId,
       contentType: input.contentType, contentText: input.contentText, interactiveReplyId: input.interactiveReplyId,
+      ...(input.contextMetaId ? { contextMetaId: input.contextMetaId } : {}),
       wasContactCreated: input.wasContactCreated, wasConversationCreated: input.wasConversationCreated,
       isFirstInboundMessage: first[0].is_first,
     };

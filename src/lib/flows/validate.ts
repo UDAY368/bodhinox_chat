@@ -27,7 +27,7 @@ import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/interactive-limits";
 import { getT } from "@/lib/i18n/translate";
 import { isValidTimeZone } from "@/lib/automations/time-of-day";
 import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
-import { resolveFallbackPolicy } from "./fallback";
+import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
 import { parseDateInput } from "./input-formats";
 import type { ConditionRule, NodeTiming } from "./types";
 
@@ -45,7 +45,7 @@ export interface ValidationIssue {
 
 interface FlowInput {
   name: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   /** When given, a Connect Flow step back to this flow is checked for loops. */
@@ -120,6 +120,12 @@ export function validateFlowForActivation(
       });
     }
     seen.add(n.node_key);
+  }
+
+  // A malformed fallback message is dropped at run time, so say so here.
+  const rawFallback = (flow.fallback_policy as { fallback_message?: unknown } | undefined)?.fallback_message;
+  if (rawFallback !== undefined && rawFallback !== null && !resolveFallbackMessage(rawFallback)) {
+    issues.push({ severity: "error", scope: "flow", field: "fallback_policy.fallback_message", message: t("fallbackMessageInvalid", { max: FALLBACK_MESSAGE_MAX }) });
   }
 
   // Per-node rules (Meta limits + dead-end + edge resolution).
@@ -282,8 +288,23 @@ function validateTrigger(
   trigger_config: Record<string, unknown>,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  const at = (field: string, key: string, severity: "error" | "warning" = "error") =>
+    issues.push({ severity, scope: "trigger", field, message: t(key) });
 
-  if (trigger_type === "keyword") {
+  if (trigger_type === "keyword" && trigger_config.match_type === "regex") {
+    const pattern = trigger_config.pattern;
+    let valid = typeof pattern === "string" && pattern.length > 0 && pattern.length <= 256;
+    if (valid) { try { new RegExp(pattern as string, "u"); } catch { valid = false; } }
+    if (!valid) at("trigger_config.pattern", "triggerBadPattern");
+  } else if (trigger_type === "template_reply") {
+    if (typeof trigger_config.template_name !== "string" || !trigger_config.template_name.trim()) {
+      at("trigger_config.template_name", "triggerNeedsTemplate");
+    }
+    const buttons = trigger_config.buttons;
+    if (buttons !== undefined && (!Array.isArray(buttons) || buttons.some((b) => typeof b !== "string"))) {
+      at("trigger_config.buttons", "triggerBadButtons");
+    }
+  } else if (trigger_type === "keyword") {
     const keywords = Array.isArray(trigger_config.keywords)
       ? (trigger_config.keywords as unknown[])
       : null;

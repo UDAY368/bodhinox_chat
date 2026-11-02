@@ -7,8 +7,20 @@ import { getT } from '@/lib/i18n/translate';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { apiNodeUsesSecrets, canonicalJson } from '@/lib/flows/api-request';
 import { secretAttributeKeys } from '@/lib/workspace/attributes';
+import { tenantOf } from '@/lib/audience/http';
+import { withTenant } from '@/lib/db/tenant';
+import { requireWithinLimit } from '@/lib/billing/entitlements';
 
 const t = getT('Api');
+
+const MAX_TEST_NUMBERS = 3;
+
+/** Digits-only, de-duplicated test numbers (8–15 digits each), or null when the list is invalid. */
+function parseTestNumbers(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const numbers = [...new Set(raw.map((n) => (typeof n === 'string' ? n.replace(/\D/g, '') : '')))];
+  return numbers.length <= MAX_TEST_NUMBERS && numbers.every((n) => n.length >= 8 && n.length <= 15) ? numbers : null;
+}
 
 /**
  * GET   /api/flows/[id]  — fetch one flow with its nodes.
@@ -83,10 +95,12 @@ export async function GET(
 interface PutBody {
   name?: string;
   description?: string | null;
-  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual';
+  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply';
   trigger_config?: Record<string, unknown>;
   entry_node_id?: string | null;
   fallback_policy?: Record<string, unknown>;
+  /** Up to 3 numbers a draft runs for; stored as digits. */
+  test_numbers?: string[];
   nodes?: Array<{
     node_key: string;
     node_type: string;
@@ -103,10 +117,12 @@ export async function PUT(
   const { id } = await context.params;
 
   // Use the authenticated tenant client; role and RLS both apply.
+  let ctx: Awaited<ReturnType<typeof requireRole>>;
   let role: AccountRole;
   let accountId: string;
   try {
-    ({ role, accountId } = await requireRole('agent'));
+    ctx = await requireRole('agent');
+    ({ role, accountId } = ctx);
   } catch (err) {
     return toErrorResponse(err);
   }
@@ -123,6 +139,10 @@ export async function PUT(
   }
   if (body.name !== undefined && !body.name.trim()) {
     return NextResponse.json({ error: t('flows.nameEmpty') }, { status: 400 });
+  }
+  const testNumbers = body.test_numbers === undefined ? undefined : parseTestNumbers(body.test_numbers);
+  if (testNumbers === null) {
+    return NextResponse.json({ error: t('flows.testNumbersInvalid', { max: MAX_TEST_NUMBERS }) }, { status: 400 });
   }
 
   const admin = guard.db;
@@ -142,7 +162,10 @@ export async function PUT(
   }
   const { data: current, error: readError } = await admin.from('flows').select('*').eq('id', id).maybeSingle();
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
-  if ((current as FlowRow | null)?.status === 'active') {
+  // A draft with test numbers runs for real customers' phones too, so it must be as valid as a live flow.
+  const testing = (current as FlowRow | null)?.status === 'draft' &&
+    (testNumbers ?? (current as FlowRow | null)?.test_numbers ?? []).length > 0;
+  if ((current as FlowRow | null)?.status === 'active' || testing) {
     const existing = body.nodes === undefined
       ? await admin.from('flow_nodes').select('*').eq('flow_id', id)
       : { data: body.nodes, error: null };
@@ -158,6 +181,20 @@ export async function PUT(
     }, (existing.data ?? []) as FlowNodeRow[]);
     if (issues.some((issue) => issue.severity === 'error')) {
       return NextResponse.json({ error: t('flows.cannotSaveActive'), issues }, { status: 422 });
+    }
+  }
+  // A draft that starts testing runs like a live flow, so it takes a slot of the plan's active_flows.
+  // shortcut: checked before the update in another transaction, like the activate route.
+  if (testing && !((current as FlowRow).test_numbers ?? []).length) {
+    try {
+      await withTenant(tenantOf(ctx), async (tx) => {
+        const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM flows
+          WHERE account_id=${accountId}::uuid AND id<>${id}::uuid
+          AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`;
+        await requireWithinLimit(tx, accountId, 'active_flows', n + 1);
+      });
+    } catch (err) {
+      return toErrorResponse(err);
     }
   }
 
@@ -177,6 +214,7 @@ export async function PUT(
     flowPatch.entry_node_id = body.entry_node_id;
   if (body.fallback_policy !== undefined)
     flowPatch.fallback_policy = body.fallback_policy;
+  if (testNumbers !== undefined) flowPatch.test_numbers = testNumbers;
 
   const { error: updErr } = await admin
     .from('flows')

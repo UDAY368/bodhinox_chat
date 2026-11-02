@@ -43,6 +43,21 @@ export async function getPhoneNumberHealth(args: VerifyPhoneNumberArgs): Promise
     ? { whatsapp_business_manager_messaging_limit: tier.whatsapp_business_manager_messaging_limit } : {}) };
 }
 
+/**
+ * Sets the number's ice breakers: up to 4 prompts a customer can tap when
+ * opening a new chat. A tap arrives as an ordinary text message with the
+ * prompt's text, so flows match it with an exact keyword.
+ */
+export async function setIceBreakers(args: { phoneNumberId: string; accessToken: string; prompts: string[] }): Promise<void> {
+  const response = await fetch(`${META_API_BASE}/${args.phoneNumberId}/conversational_automation`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(15_000),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${args.accessToken}` },
+    body: JSON.stringify({ prompts: args.prompts }),
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+}
+
 interface MetaErrorResponse {
   error?: {
     message?: string

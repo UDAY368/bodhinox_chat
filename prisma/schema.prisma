@@ -163,6 +163,8 @@ model whatsapp_config {
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   mirror_inbound_media Boolean  @default(true)
   verify_token_hash String?
+  ice_breakers String[]  @default([])
+  ice_breakers_synced_at DateTime? @db.Timestamptz(6)
   @@unique([account_id])
   @@unique([account_id, id])
 }
@@ -367,6 +369,7 @@ model flows {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  test_numbers String[]  @default([])
   @@unique([account_id, id])
 }
 

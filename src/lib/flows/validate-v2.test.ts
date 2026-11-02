@@ -208,3 +208,30 @@ it("rejects a flow that restarts itself without waiting for the customer", () =>
     { node_key: "again", node_type: "connect_flow", config: { flow_id: self.id } }];
   expect(validateFlowForActivation(self, menu).filter((i) => i.severity === "error")).toEqual([]);
 });
+
+describe("Phase 4.3 triggers and fallback message", () => {
+  const nodes: N[] = [start("done"), end];
+  const triggerErrors = (trigger_type: string, trigger_config: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+    validateFlowForActivation({ ...flow, trigger_type: trigger_type as never, trigger_config, ...extra }, nodes)
+      .filter((i) => i.severity === "error").map((i) => i.field);
+
+  it("checks regex patterns instead of keywords", () => {
+    expect(triggerErrors("keyword", { keywords: [], match_type: "regex", pattern: "order\d+" })).toEqual([]);
+    expect(triggerErrors("keyword", { keywords: [], match_type: "regex", pattern: "(" })).toEqual(["trigger_config.pattern"]);
+    expect(triggerErrors("keyword", { keywords: [], match_type: "regex" })).toEqual(["trigger_config.pattern"]);
+  });
+
+  it("requires a template for a template-reply trigger", () => {
+    expect(triggerErrors("template_reply", { template_name: "order_update", buttons: ["Track"] })).toEqual([]);
+    expect(triggerErrors("template_reply", { template_name: "" })).toEqual(["trigger_config.template_name"]);
+    expect(triggerErrors("template_reply", { template_name: "x", buttons: [1] })).toEqual(["trigger_config.buttons"]);
+  });
+
+  it("rejects a fallback message with nothing to send or too much text", () => {
+    const withMessage = (fallback_message: unknown) => triggerErrors("keyword", { keywords: ["hi"] }, { fallback_policy: { fallback_message } });
+    expect(withMessage({ text: "Sorry?" })).toEqual([]);
+    expect(withMessage({ text: "", media_type: "image", media_url: "https://cdn.example/a.png" })).toEqual([]);
+    expect(withMessage({ text: "" })).toEqual(["fallback_policy.fallback_message"]);
+    expect(withMessage({ text: "x".repeat(1025) })).toEqual(["fallback_policy.fallback_message"]);
+  });
+});

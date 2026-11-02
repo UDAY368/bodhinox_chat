@@ -1514,7 +1514,18 @@
       "handoff": "Hand over to a human",
       "ignore": "Allow other automations",
       "ai": "Let AI answer business questions",
-      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."
+      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first.",
+      "messageLabel": "Mensagem alternativa padrão (opcional)",
+      "messageHelp": "Enviada sempre que uma resposta foge do roteiro, antes da ação acima. Adicione uma imagem ou vídeo para enviá-la com o texto como legenda.",
+      "imageAttached": "Imagem anexada",
+      "videoAttached": "Vídeo anexado",
+      "removeMedia": "Remover anexo",
+      "addImage": "Adicionar imagem",
+      "addVideo": "Adicionar vídeo",
+      "uploadFailed": "Falha no envio.",
+      "testNumbersLabel": "Números de teste (só rascunho)",
+      "testNumbersHelp": "Enquanto este fluxo for rascunho, ele só roda para estes números (até 3, com código do país). Ative-o para publicá-lo para todos.",
+      "stopTesting": "Parar de testar"
     },
     "list": {
       "title": "Fluxos",
@@ -1548,7 +1559,10 @@
       "triggerKeyword": "Acionado por: {keywords}",
       "triggerFirstInbound": "Acionado pela primeira mensagem recebida de um contato",
       "triggerManual": "Acionamento manual",
-      "cloneFailedStatus": "Falha ao clonar: {status}"
+      "cloneFailedStatus": "Falha ao clonar: {status}",
+      "statusTesting": "Em teste",
+      "triggerRegex": "Dispara com: uma mensagem que corresponde a um padrão",
+      "triggerTemplateReply": "Dispara com: uma resposta de botão a {template}"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -1581,7 +1595,7 @@
       "triggerKeywordTitle": "Uma mensagem contém uma palavra-chave",
       "triggerFirstInboundTitle": "Primeira mensagem recebida do cliente",
       "triggerManualTitle": "Somente manual (sem acionamento automático)",
-      "keywordsLabel": "Palavras-chave (separadas por vírgula)",
+      "keywordsLabel": "Palavras-chave",
       "keywordsPlaceholder": "suporte, ajuda, oi",
       "entryNodeTitle": "Nó de entrada:",
       "entryNodePlaceholder": "Escolha o primeiro nó…",
@@ -1877,7 +1891,22 @@
         "exhausted": "Tentativas esgotadas",
         "timeout": "Tempo esgotado",
         "fallback": "Alternativa"
-      }
+      },
+      "triggerTemplateReplyTitle": "Resposta a um botão de modelo",
+      "matchTypeLabel": "Correspondência",
+      "matchContains": "A mensagem contém uma palavra-chave",
+      "matchExact": "A mensagem é exatamente uma palavra-chave",
+      "matchRegex": "A mensagem corresponde a um padrão (regex)",
+      "caseSensitive": "Diferenciar maiúsculas",
+      "patternLabel": "Padrão",
+      "patternHelp": "Procurado em qualquer parte da mensagem. Verificado ao salvar; padrões lentos nunca correspondem.",
+      "removeKeyword": "Remover {keyword}",
+      "iceBreakersLabel": "Seus iniciadores de conversa",
+      "iceBreakersHelp": "Um iniciador tocado chega como seu texto; ao adicioná-lo, a correspondência passa a exata.",
+      "templateLabel": "Modelo",
+      "pickTemplate": "Escolha um modelo com botões de resposta rápida",
+      "templateButtonsLabel": "Botões que iniciam este fluxo",
+      "templateButtonsHelp": "Nenhum marcado significa qualquer botão. O texto do botão tocado é salvo em {{vars.trigger_button}}."
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -2649,6 +2678,19 @@
       },
       "loadFailed": "Não foi possível carregar seu plano",
       "retry": "Tentar novamente"
+    },
+    "iceBreakers": {
+      "title": "Iniciadores de conversa",
+      "description": "Até {max} frases que um cliente pode tocar ao abrir uma conversa nova com seu número. Um fluxo pode começar com uma usando uma palavra-chave exata.",
+      "promptN": "Iniciador {n}",
+      "remove": "Remover iniciador",
+      "add": "Adicionar iniciador",
+      "save": "Salvar no WhatsApp",
+      "saved": "Iniciadores salvos no WhatsApp.",
+      "saveFailed": "Não foi possível salvar os iniciadores.",
+      "syncedAt": "Salvo no WhatsApp pela última vez em {date}.",
+      "notSynced": "Ainda não salvo no WhatsApp.",
+      "loadFailed": "Não foi possível carregar os iniciadores de conversa. Recarregue a página para editá-los."
     }
   },
   "SignupPage": {
@@ -3146,7 +3188,11 @@
       "apiNeedsFallback": "Escolha um nó para o caminho alternativo.",
       "connectNeedsFlow": "Escolha um fluxo para iniciar.",
       "assignNeedsMode": "Escolha a quem atribuir.",
-      "assignNeedsAgent": "Escolha um agente."
+      "assignNeedsAgent": "Escolha um agente.",
+      "triggerBadPattern": "Digite uma expressão regular válida de 1 a 256 caracteres.",
+      "triggerNeedsTemplate": "Escolha o modelo cujas respostas de botão iniciam este fluxo.",
+      "triggerBadButtons": "Escolha botões do modelo.",
+      "fallbackMessageInvalid": "A mensagem alternativa precisa de texto (até {max} caracteres) ou de uma imagem ou vídeo."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -3360,7 +3406,8 @@
       "insertFailed": "falha ao criar o fluxo",
       "nameRequired": "O nome é obrigatório",
       "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
-      "secretNeedsAdmin": "Só um administrador pode adicionar ou alterar uma etapa de requisição de API que use um valor secreto do espaço de trabalho."
+      "secretNeedsAdmin": "Só um administrador pode adicionar ou alterar uma etapa de requisição de API que use um valor secreto do espaço de trabalho.",
+      "testNumbersInvalid": "Informe até {max} números com código do país (8 a 15 dígitos cada)."
     },
     "quickReplies": {
       "kindInvalid": "O tipo deve ser \"text\" ou \"interactive\"",
@@ -3393,7 +3440,10 @@
       "phoneCheckFailed": "Falha na verificação dos dados do número: {message}",
       "wabaNoApps": "O WABA não tem apps inscritos. Salve a configuração novamente para inscrevê-lo.",
       "wabaCheckFailed": "Falha na verificação da inscrição do WABA: {message}",
-      "noWabaId": "Nenhum WABA ID registrado — os webhooks não podem ser conectados sem ele. Adicione-o no formulário e salve novamente."
+      "noWabaId": "Nenhum WABA ID registrado — os webhooks não podem ser conectados sem ele. Adicione-o no formulário e salve novamente.",
+      "notConnected": "Conecte um número de WhatsApp primeiro.",
+      "iceBreakersInvalid": "Use até {max} frases diferentes de 1 a {length} caracteres.",
+      "iceBreakersSyncFailed": "O WhatsApp não aceitou os iniciadores de conversa. Verifique a conexão do número e tente novamente."
     },
     "media": {
       "idRequired": "O ID da mídia é obrigatório",

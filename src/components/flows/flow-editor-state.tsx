@@ -64,11 +64,13 @@ import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 export interface BuilderState {
   name: string;
   description: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   status: FlowRow["status"];
   fallback_policy: FlowRow["fallback_policy"];
+  /** Numbers a draft runs for while it is being tested (digits, up to 3). */
+  test_numbers: string[];
   nodes: BuilderNode[];
 }
 
@@ -270,6 +272,7 @@ export function FlowEditorProvider({
     entry_node_id: initialFlow.entry_node_id,
     fallback_policy: initialFlow.fallback_policy ?? resolveFallbackPolicy(null),
     status: initialFlow.status,
+    test_numbers: initialFlow.test_numbers ?? [],
     nodes: initialNodes.map((n) => ({
       node_key: n.node_key,
       node_type: n.node_type as NodeType,
@@ -367,6 +370,7 @@ export function FlowEditorProvider({
           trigger_type: state.trigger_type,
           trigger_config: state.trigger_config,
           entry_node_id: state.entry_node_id,
+          test_numbers: state.test_numbers,
           nodes: state.nodes,
         }),
       });

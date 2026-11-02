@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({ explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
-  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null }));
+  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
-  const b = { select: () => b, eq: () => b, in: () => b, is: () => b, order: () => b, limit: async () => ({ data: [], error: null }),
+  const b = { select: () => b, eq: () => b, in: () => b, is: () => b, order: () => b, limit: async () => ({ data: table === 'broadcast_recipients' ? h.recipients : [], error: null }),
     update: (row: Record<string, unknown>) => { h.consentUpdates.push(row); return b; },
     maybeSingle: async () => ({ data: table === 'messages' ? h.message : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
 } }) }));
@@ -20,7 +20,7 @@ import { processInboundActions } from './inbound-actions';
 import type { MessageActionsPayload } from './ingest';
 const id = '00000000-0000-4000-8000-000000000001';
 const input: MessageActionsPayload = { kind: 'message', accountId: id, conversationId: id, contactId: id, userId: id, messageId: id, metaMessageId: 'wamid.tap', interactiveReplyId: 'qr_token', contentType: 'interactive', contentText: 'Start', wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true };
-beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.message = null; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
+beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.message = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
 
 const text = (contentText: string) => ({ ...input, interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, isFirstInboundMessage: false });
 it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword without any automated response', async (word, kind) => {
@@ -85,4 +85,26 @@ it.each([
   h.explicit.mockResolvedValue({ handled: false }); h.message = row;
   await processInboundActions({ ...input, interactiveReplyId: null, contentType, contentText: 'Look', wasContactCreated: false, isFirstInboundMessage: false });
   expect(h.flow.mock.calls[0][0].message).toEqual({ ...expected, meta_message_id: 'wamid.tap' });
+});
+
+it('tells flows which template a button tap answers: a saved template message, or a broadcast send', async () => {
+  h.explicit.mockResolvedValue({ handled: false });
+  const tap = { ...input, interactiveReplyId: 'Track', contentType: 'interactive', contentText: 'Track', wasContactCreated: false, isFirstInboundMessage: false };
+  h.message = { reply_to_message_id: '00000000-0000-4000-8000-000000000002', content_type: 'template', template_name: 'order_update' };
+  await processInboundActions(tap);
+  expect(h.flow.mock.calls[0][0].message).toMatchObject({ kind: 'interactive_reply', context_template: 'order_update' });
+
+  h.flow.mockClear(); h.stages.clear();
+  h.message = { reply_to_message_id: null };
+  h.recipients = [{ id: 'r1', broadcasts: { template_name: 'spring_sale' } }];
+  await processInboundActions({ ...tap, contextMetaId: 'wamid.broadcast' });
+  expect(h.flow.mock.calls[0][0].message).toMatchObject({ context_template: 'spring_sale' });
+
+  h.flow.mockClear(); h.stages.clear();
+  await processInboundActions(tap);
+  expect(h.flow.mock.calls[0][0].message.context_template).toBeUndefined();
+});
+
+it('rejects a malformed context id in a queued job', async () => {
+  await expect(processInboundActions({ ...input, contextMetaId: 42 as never })).rejects.toThrow('Invalid message actions contract');
 });

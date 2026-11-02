@@ -1108,6 +1108,22 @@
         "default": null,
         "reference": null,
         "definition": "verify_token_hash TEXT CHECK (verify_token_hash IS NULL OR verify_token_hash ~ '^[0-9a-f]{64}$')"
+      },
+      {
+        "reference": null,
+        "name": "ice_breakers",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "definition": "ice_breakers TEXT[] NOT NULL DEFAULT '{}'"
+      },
+      {
+        "reference": null,
+        "name": "ice_breakers_synced_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "definition": "ice_breakers_synced_at TIMESTAMPTZ"
       }
     ],
     "message_templates": [
@@ -2520,6 +2536,14 @@
           "onDelete": "CASCADE"
         },
         "definition": "account_id UUID NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "reference": null,
+        "name": "test_numbers",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "definition": "test_numbers TEXT[] NOT NULL DEFAULT '{}'"
       }
     ],
     "flow_nodes": [

@@ -1514,7 +1514,18 @@
       "handoff": "Hand over to a human",
       "ignore": "Allow other automations",
       "ai": "Let AI answer business questions",
-      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first."
+      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first.",
+      "messageLabel": "기본 대체 메시지(선택)",
+      "messageHelp": "답장이 흐름에서 벗어날 때마다 위 동작 전에 보냅니다. 이미지나 동영상을 추가하면 텍스트를 캡션으로 함께 보냅니다.",
+      "imageAttached": "이미지 첨부됨",
+      "videoAttached": "동영상 첨부됨",
+      "removeMedia": "첨부 삭제",
+      "addImage": "이미지 추가",
+      "addVideo": "동영상 추가",
+      "uploadFailed": "업로드에 실패했습니다.",
+      "testNumbersLabel": "테스트 번호(초안 전용)",
+      "testNumbersHelp": "이 플로우가 초안인 동안에는 이 번호(국가 코드 포함 최대 3개)에서만 실행됩니다. 모두에게 공개하려면 활성화하세요.",
+      "stopTesting": "테스트 중지"
     },
     "list": {
       "title": "플로우",
@@ -1548,7 +1559,10 @@
       "triggerKeyword": "트리거 조건: {keywords}",
       "triggerFirstInbound": "연락처의 첫 수신 메시지에서 트리거됨",
       "triggerManual": "수동 트리거",
-      "cloneFailedStatus": "복제 실패: {status}"
+      "cloneFailedStatus": "복제 실패: {status}",
+      "statusTesting": "테스트 중",
+      "triggerRegex": "실행 조건: 패턴과 일치하는 메시지",
+      "triggerTemplateReply": "실행 조건: {template}의 버튼 응답"
     },
     "edit": {
       "notFound": "플로우를 찾을 수 없습니다.",
@@ -1581,7 +1595,7 @@
       "triggerKeywordTitle": "메시지에 키워드가 포함될 때",
       "triggerFirstInboundTitle": "고객의 첫 수신 메시지",
       "triggerManualTitle": "수동 전용 (자동 트리거 없음)",
-      "keywordsLabel": "키워드 (쉼표로 구분)",
+      "keywordsLabel": "키워드",
       "keywordsPlaceholder": "support, help, hi",
       "entryNodeTitle": "시작 노드:",
       "entryNodePlaceholder": "첫 노드를 선택하세요…",
@@ -1877,7 +1891,22 @@
         "exhausted": "시도 소진",
         "timeout": "시간 초과",
         "fallback": "대체 경로"
-      }
+      },
+      "triggerTemplateReplyTitle": "템플릿 버튼 응답",
+      "matchTypeLabel": "일치 방식",
+      "matchContains": "메시지에 키워드가 포함됨",
+      "matchExact": "메시지가 키워드와 정확히 같음",
+      "matchRegex": "메시지가 패턴(정규식)과 일치",
+      "caseSensitive": "대소문자 구분",
+      "patternLabel": "패턴",
+      "patternHelp": "메시지 어디에서든 찾습니다. 저장할 때 확인하며 느린 패턴은 일치하지 않습니다.",
+      "removeKeyword": "{keyword} 삭제",
+      "iceBreakersLabel": "내 대화 시작 문구",
+      "iceBreakersHelp": "누른 대화 시작 문구는 그 텍스트로 도착하며, 추가하면 일치 방식이 정확히 같음으로 바뀝니다.",
+      "templateLabel": "템플릿",
+      "pickTemplate": "빠른 응답 버튼이 있는 템플릿 선택",
+      "templateButtonsLabel": "이 플로우를 시작하는 버튼",
+      "templateButtonsHelp": "아무것도 선택하지 않으면 모든 버튼입니다. 누른 버튼 텍스트는 {{vars.trigger_button}}에 저장됩니다."
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -2649,6 +2678,19 @@
       },
       "loadFailed": "요금제를 불러오지 못했습니다",
       "retry": "다시 시도"
+    },
+    "iceBreakers": {
+      "title": "대화 시작 문구",
+      "description": "고객이 내 번호와 새 대화를 열 때 누를 수 있는 문구를 최대 {max}개까지 설정합니다. 플로우는 정확한 키워드로 문구에서 시작할 수 있습니다.",
+      "promptN": "대화 시작 문구 {n}",
+      "remove": "대화 시작 문구 삭제",
+      "add": "대화 시작 문구 추가",
+      "save": "WhatsApp에 저장",
+      "saved": "대화 시작 문구를 WhatsApp에 저장했습니다.",
+      "saveFailed": "대화 시작 문구를 저장하지 못했습니다.",
+      "syncedAt": "마지막으로 WhatsApp에 저장: {date}.",
+      "notSynced": "아직 WhatsApp에 저장되지 않았습니다.",
+      "loadFailed": "아이스브레이커를 불러오지 못했습니다. 편집하려면 페이지를 새로고침하세요."
     }
   },
   "SignupPage": {
@@ -3146,7 +3188,11 @@
       "apiNeedsFallback": "대체 경로의 노드를 선택하세요.",
       "connectNeedsFlow": "시작할 플로우를 선택하세요.",
       "assignNeedsMode": "배정 대상을 선택하세요.",
-      "assignNeedsAgent": "상담원을 선택하세요."
+      "assignNeedsAgent": "상담원을 선택하세요.",
+      "triggerBadPattern": "1~256자의 올바른 정규식을 입력하세요.",
+      "triggerNeedsTemplate": "버튼 응답으로 이 플로우를 시작할 템플릿을 선택하세요.",
+      "triggerBadButtons": "템플릿의 버튼을 선택하세요.",
+      "fallbackMessageInvalid": "대체 메시지에는 텍스트(최대 {max}자) 또는 이미지나 동영상이 필요합니다."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -3360,7 +3406,8 @@
       "insertFailed": "플로우를 생성하지 못했습니다",
       "nameRequired": "이름은 필수입니다",
       "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
-      "secretNeedsAdmin": "비밀 작업 공간 값을 쓰는 API 요청 단계는 관리자만 추가하거나 바꿀 수 있습니다."
+      "secretNeedsAdmin": "비밀 작업 공간 값을 쓰는 API 요청 단계는 관리자만 추가하거나 바꿀 수 있습니다.",
+      "testNumbersInvalid": "국가 코드를 포함한 전화번호를 최대 {max}개 입력하세요(각 8~15자리)."
     },
     "quickReplies": {
       "kindInvalid": "종류는 \"text\" 또는 \"interactive\"여야 합니다",
@@ -3393,7 +3440,10 @@
       "phoneCheckFailed": "전화번호 메타데이터 확인 실패: {message}",
       "wabaNoApps": "WABA에 구독된 앱이 없습니다. 설정을 다시 저장해 구독하세요.",
       "wabaCheckFailed": "WABA 구독 확인 실패: {message}",
-      "noWabaId": "등록된 WABA ID가 없습니다 — WABA ID 없이는 웹훅을 연결할 수 없습니다. 양식에 추가한 후 다시 저장하세요."
+      "noWabaId": "등록된 WABA ID가 없습니다 — WABA ID 없이는 웹훅을 연결할 수 없습니다. 양식에 추가한 후 다시 저장하세요.",
+      "notConnected": "먼저 WhatsApp 번호를 연결하세요.",
+      "iceBreakersInvalid": "1~{length}자 길이의 서로 다른 문구를 최대 {max}개까지 사용하세요.",
+      "iceBreakersSyncFailed": "WhatsApp이 대화 시작 문구를 받아들이지 않았습니다. 번호 연결을 확인하고 다시 시도하세요."
     },
     "media": {
       "idRequired": "미디어 ID는 필수입니다",

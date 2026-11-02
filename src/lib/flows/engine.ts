@@ -5,6 +5,7 @@ import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
+import { byPrecedence, isTestContact, keywordTriggerMatches, phoneDigits, templateReplyMatch } from './triggers';
 import { runApiRequest } from './api-request';
 import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
@@ -79,6 +80,7 @@ import {
   type SetTagNodeConfig,
   type StartNodeConfig,
   type KeywordTriggerConfig,
+  type TemplateReplyTriggerConfig,
 } from "./types";
 
 // ============================================================
@@ -115,28 +117,6 @@ export function matchReplyId(
     return hit?.next_node_key ?? null;
   }
   return null;
-}
-
-/**
- * Case-insensitive contains/exact match against a list of keywords.
- * Used by the trigger evaluator. Stable enough that the v3 builder
- * UI can preview matches by passing canned strings.
- */
-export function matchesKeywordTrigger(
-  text: string,
-  cfg: KeywordTriggerConfig,
-): boolean {
-  if (!text || !cfg.keywords?.length) return false;
-  const matchType = cfg.match_type ?? "contains";
-  const haystack = cfg.case_sensitive ? text : text.toLowerCase();
-  for (const raw of cfg.keywords) {
-    if (!raw) continue;
-    const needle = cfg.case_sensitive ? raw : raw.toLowerCase();
-    if (matchType === "exact" ? haystack === needle : haystack.includes(needle)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /**
@@ -237,8 +217,10 @@ export function closureForActiveRun(args: {
   flow: Pick<FlowRow, "status" | "fallback_policy"> | null;
   nodeKeys: ReadonlySet<string> | { has(key: string): boolean };
   now: Date;
+  /** The contact is one of the draft flow's test numbers, so its run may continue. */
+  testContact?: boolean;
 }): ActiveRunClosure | null {
-  if (!args.flow || args.flow.status !== "active") {
+  if (!args.flow || (args.flow.status !== "active" && !(args.flow.status === "draft" && args.testContact))) {
     return { kind: "cancel", reason: "flow_not_active" };
   }
   const check = checkRunTimeout(
@@ -451,7 +433,8 @@ async function findEntryFlow(
   accountId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
-): Promise<FlowRow | null> {
+  contactDigits: () => Promise<string>,
+): Promise<{ flow: FlowRow; vars: Record<string, string> } | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
   // only while a prompt is outstanding — and this function runs solely
@@ -462,23 +445,27 @@ async function findEntryFlow(
   // by hand worked, which is the tell — same words, different envelope.
   const candidates = entryTriggerTexts(message);
 
-  // Pull all active flows for this account. Active set is bounded
-  // (the builder discourages double-trigger overlap; partial index
-  // makes the lookup index-supported).
-  const { data: flows, error } = await db
-    .from("flows")
-    .select("*")
-    .eq("account_id", accountId)
-    .eq("status", "active")
-    .order("created_at", { ascending: true });
-  if (error || !flows) return null;
-
-  const typed = flows as FlowRow[];
+  // Active flows, plus drafts being tested (only those with test numbers
+  // are fetched); both sets are small.
+  const [active, drafts] = await Promise.all([
+    db.from("flows").select("*").eq("account_id", accountId).eq("status", "active").order("created_at", { ascending: true }),
+    db.from("flows").select("*").eq("account_id", accountId).eq("status", "draft").neq("test_numbers", []).order("created_at", { ascending: true }),
+  ]);
+  if (active.error || drafts.error) return null;
+  const testing = ((drafts.data ?? []) as FlowRow[]).filter((f) => f.status === "draft" && (f.test_numbers ?? []).length > 0);
+  const digits = testing.length ? await contactDigits() : "";
+  const typed = byPrecedence([
+    ...((active.data ?? []) as FlowRow[]).filter((f) => f.status === "active"),
+    ...testing.filter((f) => isTestContact(f, digits)),
+  ]);
   for (const flow of typed) {
-    if (flow.trigger_type === "keyword") {
+    if (flow.trigger_type === "template_reply") {
+      const vars = templateReplyMatch(message, flow.trigger_config as TemplateReplyTriggerConfig);
+      if (vars) return { flow, vars };
+    } else if (flow.trigger_type === "keyword") {
       const cfg = flow.trigger_config as KeywordTriggerConfig;
-      if (candidates.some((text) => matchesKeywordTrigger(text, cfg))) {
-        return flow;
+      for (const text of candidates) {
+        if (await keywordTriggerMatches(text, cfg)) return { flow, vars: {} };
       }
     } else if (flow.trigger_type === "first_inbound_message" && isFirstInbound) {
       // Also reachable by a tap now: a broadcast template with a
@@ -487,7 +474,7 @@ async function findEntryFlow(
       // treated a tap that way (the webhook pushes
       // `first_inbound_message` regardless of envelope) — flows were
       // the inconsistent half.
-      return flow;
+      return { flow, vars: {} };
     }
     // 'manual' triggers do not auto-start from inbound messages.
   }
@@ -1084,18 +1071,19 @@ export async function handleFlowTimer(payload: {
   const resumeAt = payload.kind === "delay" ? payload.nodeKey : timeout?.next;
   if (!due && (!resumeAt || run.current_node_key !== resumeAt)) return "stale";
   const now = new Date();
-  const closure = closureForActiveRun({ run, flow, nodeKeys: nodes, now });
+  const { data: contact } = await db
+    .from("contacts")
+    .select("blocked_at,phone")
+    .eq("account_id", run.account_id)
+    .eq("id", run.contact_id!)
+    .maybeSingle();
+  const testContact = Boolean(flow) && isTestContact(flow!, phoneDigits((contact as { phone?: string | null } | null)?.phone));
+  const closure = closureForActiveRun({ run, flow, nodeKeys: nodes, now, testContact });
   if (closure) {
     await closeActiveRun(db, run, closure, now);
     return "fired";
   }
   // An agent took over or the contact was blocked while the run waited: no more bot messages.
-  const { data: contact } = await db
-    .from("contacts")
-    .select("blocked_at")
-    .eq("account_id", run.account_id)
-    .eq("id", run.contact_id!)
-    .maybeSingle();
   if (!run.conversation_id || !contact || (contact as { blocked_at?: string | null }).blocked_at ||
       (await botRepliesPaused(run.account_id, run.conversation_id))) {
     await endRun(db, run.id, "cancelled", "bot_paused_during_wait");
@@ -1604,6 +1592,12 @@ export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {
   const db = databaseAdmin();
+  // The contact's number is needed only when a draft flow is being tested; read it at most once.
+  let digits: Promise<string> | undefined;
+  const contactDigits = () => (digits ??= (async () => {
+    const { data } = await db.from("contacts").select("phone").eq("account_id", input.accountId).eq("id", input.contactId).maybeSingle();
+    return phoneDigits((data as { phone?: string | null } | null)?.phone);
+  })());
   try {
     if (await botRepliesPaused(input.accountId, input.conversationId)) return { consumed: true, outcome: 'no_match' };
     const activeRun = await loadActiveRunForContact(
@@ -1633,7 +1627,8 @@ export async function dispatchInboundToFlows(
       // in-memory. See loadAllNodes.
       const [runFlow, nodes] = await Promise.all([loadFlow(db, activeRun.flow_id), loadAllNodes(db, activeRun.flow_id)]);
       const now = new Date();
-      const closure = closureForActiveRun({ run: activeRun, flow: runFlow, nodeKeys: nodes, now });
+      const testContact = runFlow?.status === "draft" && isTestContact(runFlow, await contactDigits());
+      const closure = closureForActiveRun({ run: activeRun, flow: runFlow, nodeKeys: nodes, now, testContact });
       if (!closure) return handleReplyForActiveRun(db, activeRun, runFlow!, input.message, nodes);
       if (!(await closeActiveRun(db, activeRun, closure, now))) {
         return { consumed: true, flow_run_id: activeRun.id, outcome: "duplicate_inbound_ignored" };
@@ -1641,17 +1636,18 @@ export async function dispatchInboundToFlows(
     }
 
     // No active run → look for a flow whose entry trigger matches.
-    const flow = await findEntryFlow(
+    const entry = await findEntryFlow(
       db,
       input.accountId,
       input.message,
       input.isFirstInboundMessage,
+      contactDigits,
     );
-    if (!flow || !flow.entry_node_id) {
+    if (!entry || !entry.flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };
     }
-    const nodes = await loadAllNodes(db, flow.id);
-    return startNewRun(db, flow, input, nodes);
+    const nodes = await loadAllNodes(db, entry.flow.id);
+    return startNewRun(db, entry.flow, input, nodes, entry.vars);
   } catch (err) {
     console.error(
       "[flows] dispatchInboundToFlows threw:",
@@ -1786,6 +1782,7 @@ async function handleReplyForActiveRun(
     // Don't consume — let automations have a shot at it.
     return { consumed: false, flow_run_id: run.id, outcome: "no_match" };
   }
+  await sendFallbackMessage(db, run, currentNode, policy, message.meta_message_id);
   if (action.type === "reprompt") {
     run.reprompt_count = newReprompts;
     // Re-send the same prompt. Same node, no current_node_key change.
@@ -1815,6 +1812,38 @@ async function handleReplyForActiveRun(
   // action.type === 'end'
   await endRun(db, run.id, "completed", "fallback_exhausted_end");
   return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+}
+
+/**
+ * The flow's default reply to an off-script message, sent before the
+ * reprompt / handoff / end it triggers. One outbound intent per inbound
+ * message, so a replayed inbound never sends it twice; a failed send is
+ * logged and the fallback action still runs.
+ */
+async function sendFallbackMessage(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  policy: ReturnType<typeof resolveFallbackPolicy>,
+  inboundMessageId: string,
+): Promise<void> {
+  const message = policy.fallback_message;
+  if (!message) return;
+  try {
+    const ws = await workspaceValuesFor(run.account_id, message.text);
+    const text = interpolateVars(message.text, run.vars, ws);
+    const base = { accountId: run.account_id, userId: run.user_id, conversationId: run.conversation_id!, contactId: run.contact_id! };
+    const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow-fallback:${run.id}:${inboundMessageId}`, () =>
+      message.media_type && message.media_url
+        ? engineSendMedia({ ...base, kind: message.media_type, link: message.media_url, caption: text || undefined })
+        : engineSendText({ ...base, text }));
+    await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "fallback_message", whatsapp_message_id });
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, {
+      reason: "fallback_message_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 async function fallbackHandoff(db: AdminClient, run: FlowRunRow): Promise<DispatchInboundResult> {

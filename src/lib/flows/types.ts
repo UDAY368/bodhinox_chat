@@ -349,8 +349,24 @@ export type FlowNodeType = FlowNodeConfig["node_type"];
 export interface KeywordTriggerConfig {
   /** One or more keywords. Match is case-insensitive by default. */
   keywords: string[];
-  match_type?: "exact" | "contains";
+  /** `regex` tests `pattern` against the message instead of the keywords. */
+  match_type?: "exact" | "contains" | "regex";
   case_sensitive?: boolean;
+  /** Regular expression for `match_type: "regex"` (searched, not anchored). */
+  pattern?: string;
+  /** Editor hint: the keywords are WhatsApp ice breakers (matched exactly). */
+  icebreaker?: boolean;
+}
+
+/**
+ * Starts the flow when a customer taps a quick-reply button on a sent
+ * template (a broadcast, say). The tapped button's text is stored in the
+ * run's `trigger_button` variable so the flow can branch on it.
+ */
+export interface TemplateReplyTriggerConfig {
+  template_name: string;
+  /** Button texts that start the flow; empty means any button. */
+  buttons?: string[];
 }
 
 // No knobs in v1 — the trigger has a single semantic. Kept as a type
@@ -361,7 +377,8 @@ export type FirstInboundTriggerConfig = Record<string, never>;
 export type FlowTriggerConfig =
   | { trigger_type: "keyword"; config: KeywordTriggerConfig }
   | { trigger_type: "first_inbound_message"; config: FirstInboundTriggerConfig }
-  | { trigger_type: "manual"; config: Record<string, never> };
+  | { trigger_type: "manual"; config: Record<string, never> }
+  | { trigger_type: "template_reply"; config: TemplateReplyTriggerConfig };
 
 // ============================================================
 // DB-row shapes (read by the engine via databaseAdmin)
@@ -378,10 +395,12 @@ export interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
-  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | Record<string, unknown>;
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply";
+  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | Record<string, unknown>;
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
+  /** While the flow is a draft it runs only for these numbers (digits, up to 3). */
+  test_numbers?: string[];
   execution_count: number;
   last_executed_at: string | null;
   created_at: string;
@@ -442,6 +461,15 @@ export interface FlowFallbackPolicy {
   on_timeout_hours: number;
   /** What to do once max_reprompts has been hit. */
   on_exhaust: "handoff" | "end";
+  /** Sent whenever a reply is off-script, before the action above. */
+  fallback_message?: FallbackMessage;
+}
+
+/** The default reply to an off-script message: text, or an image / video with the text as caption. */
+export interface FallbackMessage {
+  text: string;
+  media_type?: "image" | "video";
+  media_url?: string;
 }
 
 export const DEFAULT_FALLBACK_POLICY: FlowFallbackPolicy = {
@@ -475,6 +503,8 @@ export type ParsedInbound =
       /** The visible title of the tapped option (for logging). */
       reply_title: string;
       meta_message_id: string;
+      /** Name of the sent template whose quick-reply button this tap answers. */
+      context_template?: string;
     }
   | {
       kind: "media";

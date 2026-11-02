@@ -16,7 +16,8 @@ function validatePayload(input: InboundActionsPayload): void {
     typeof input.metaMessageId!=="string") throw new Error("Invalid inbound actions contract");
   if (input.kind==="message" && (!uuid.test(input.userId) || !uuid.test(input.contactId) ||
     typeof input.contentType!=="string" || (input.contentText!==null && typeof input.contentText!=="string") ||
-    (input.interactiveReplyId!==null && typeof input.interactiveReplyId!=="string"))) throw new Error("Invalid message actions contract");
+    (input.interactiveReplyId!==null && typeof input.interactiveReplyId!=="string") ||
+    (input.contextMetaId!==undefined && (typeof input.contextMetaId!=="string" || input.contextMetaId.length>256)))) throw new Error("Invalid message actions contract");
   if (input.kind==="status" && !["sent","delivered","read","failed"].includes(input.status)) throw new Error("Invalid status actions contract");
 }
 
@@ -75,7 +76,10 @@ const MEDIA_TYPES=new Set(["image","video","document","audio"]);
  */
 async function flowMessage(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string): Promise<ParsedInbound> {
   const meta_message_id=input.metaMessageId;
-  if(input.interactiveReplyId) return {kind:"interactive_reply",reply_id:input.interactiveReplyId,reply_title:text,meta_message_id};
+  if(input.interactiveReplyId) {
+    const context_template=await repliedTemplate(db,input);
+    return {kind:"interactive_reply",reply_id:input.interactiveReplyId,reply_title:text,meta_message_id,...(context_template?{context_template}:{})};
+  }
   if(!MEDIA_TYPES.has(input.contentType)&&input.contentType!=="location"&&input.contentType!=="interactive") return {kind:"text",text,meta_message_id};
   const {data,error}=await db.from("messages").select("media_url,media_type,interactive_payload")
     .eq("account_id",input.accountId).eq("id",input.messageId).maybeSingle();
@@ -88,6 +92,29 @@ async function flowMessage(db:ReturnType<typeof createAdminClient>,input:Message
   if(input.contentType==="location"&&structured?.location) return {kind:"location",...structured.location,meta_message_id};
   if(input.contentType==="interactive"&&structured?.address) return {kind:"address",values:structured.address,meta_message_id};
   return {kind:"text",text,meta_message_id};
+}
+
+/** The template a quick-reply tap answers: Meta sends the tap as a reply to that template message. */
+async function repliedTemplate(db:ReturnType<typeof createAdminClient>,input:MessageInput): Promise<string|undefined> {
+  const {data:tap,error}=await db.from("messages").select("reply_to_message_id")
+    .eq("account_id",input.accountId).eq("id",input.messageId).maybeSingle();
+  if(error) throw new Error("Inbound message lookup failed");
+  const parent=(tap as {reply_to_message_id:string|null}|null)?.reply_to_message_id;
+  if(!parent) {
+    // Broadcast sends are recorded on their recipient row, not as messages.
+    if(!input.contextMetaId) return undefined;
+    const {data:recipients,error:recipientError}=await db.from("broadcast_recipients").select("id,broadcasts!inner(account_id,template_name)")
+      .eq("whatsapp_message_id",input.contextMetaId).eq("broadcasts.account_id",input.accountId).limit(1);
+    if(recipientError) throw new Error("Broadcast reply lookup failed");
+    const broadcast=(recipients as Array<{broadcasts:{template_name:string|null}|Array<{template_name:string|null}>}>|null)?.[0]?.broadcasts;
+    const name=Array.isArray(broadcast)?broadcast[0]?.template_name:broadcast?.template_name;
+    return name||undefined;
+  }
+  const {data:sent,error:sentError}=await db.from("messages").select("content_type,template_name")
+    .eq("account_id",input.accountId).eq("id",parent).maybeSingle();
+  if(sentError) throw new Error("Replied message lookup failed");
+  const row=sent as {content_type:string;template_name:string|null}|null;
+  return row?.content_type==="template"&&row.template_name ? row.template_name : undefined;
 }
 
 /** Quick-reply actions, flows, automations and the AI fallback, in that order. */

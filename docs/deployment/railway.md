@@ -46,6 +46,8 @@ Migration `20261102040000_flow_builder_nodes` widens the flow node and run-event
 
 Migration `20261102050000_flow_integration_nodes` widens the same CHECK lists for the template, API request, assign agent and connect flow steps; it changes no existing rows. Flow nodes are now read-only through the generic browser data API (the flow editor saves through `PUT /api/flows/[id]`). API request steps call customer-configured URLs from the worker; outbound traffic must be allowed from the worker service.
 
+Migration `20261102060000_flow_triggers_testing` adds the `template_reply` flow trigger, `flows.test_numbers` (at most 3, digits only) and `whatsapp_config.ice_breakers` / `ice_breakers_synced_at`; it changes no existing rows. Inbound-action jobs may now carry `contextMetaId`; jobs queued before the deploy are still accepted without it. Ice breakers are saved only after Meta's conversational_automation endpoint accepts them.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

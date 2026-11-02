@@ -344,7 +344,7 @@ async function processMessage(
   await ingestInboundMessage({
     accountId,userId:configOwnerUserId,contactId:contactRecord.id,conversationId:conversation.id,
     metaMessageId:message.id,contentType,contentText,mediaUrl,mediaType,interactiveReplyId,interactivePayload,
-    replyToMessageId:replyToInternalId,createdAt:new Date(parseInt(message.timestamp,10)*1000),
+    replyToMessageId:replyToInternalId,contextMetaId:message.context?.id ?? null,createdAt:new Date(parseInt(message.timestamp,10)*1000),
     wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,
   });
 }

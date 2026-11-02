@@ -29,13 +29,13 @@ import { GitFork, List } from "lucide-react";
 
 import { FlowBuilder } from "./flow-builder";
 import { FlowCanvas } from "./flow-canvas";
-import { FlowEditorProvider, useFlowEditor } from "./flow-editor-state";
+import { FlowEditorProvider } from "./flow-editor-state";
 import { EditorHeader } from "./header";
 import { ValidationPanel } from "./validation-panel";
+import { FlowSettings } from "./flow-settings";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from "@/lib/utils";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
-import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import { useTranslations } from "next-intl";
 
 /**
@@ -125,7 +125,7 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
             )}
             <Popover>
               <PopoverTrigger className="ml-auto rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium">{t('studioSettings')}</PopoverTrigger>
-              <PopoverContent align="end" className="w-80"><MenuFallbackSettings /></PopoverContent>
+              <PopoverContent align="end" className="w-96"><FlowSettings /></PopoverContent>
             </Popover>
           </div>
 
@@ -147,26 +147,6 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
       </div>
     </FlowEditorProvider>
   );
-}
-
-function MenuFallbackSettings() {
-  const { state, setState } = useFlowEditor();
-  const t = useTranslations("Flows.menuFallback");
-  return <div className="px-6 py-2 text-sm">
-    <label className="flex flex-wrap items-center gap-2">
-      <span>{t("label")}</span>
-      <select className="rounded border border-border bg-card px-2 py-1" value={resolveFallbackPolicy(state.fallback_policy).on_unknown_reply}
-        onChange={event => setState(previous => ({ ...previous, fallback_policy: { ...previous.fallback_policy,
-          on_unknown_reply: event.target.value as FlowRow["fallback_policy"]["on_unknown_reply"],
-        } }))}>
-        <option value="reprompt">{t("reprompt")}</option>
-        <option value="handoff">{t("handoff")}</option>
-        <option value="ignore">{t("ignore")}</option>
-        <option value="ai">{t("ai")}</option>
-      </select>
-    </label>
-    <p className="mt-1 text-xs text-muted-foreground">{t("help")}</p>
-  </div>;
 }
 
 /**
