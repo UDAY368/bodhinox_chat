@@ -51,7 +51,7 @@ it('hands the cart to flows as an order with its variables', async () => {
   await processInboundActions(input);
   expect(h.flow).toHaveBeenCalledWith(expect.objectContaining({ message: {
     kind: 'order', summary: input.contentText, meta_message_id: 'wamid.order',
-    vars: { order_id: ORDER, order_total: '₹1,099.00', order_currency: 'INR', order_items_count: '3', order_items: '2 × Blue shirt, 1 × CAP' },
+    vars: { order_id: ORDER, order_total: '₹1,099.00', order_total_minor: '109900', order_currency: 'INR', order_items_count: '3', order_items: '2 × Blue shirt, 1 × CAP' },
   } }));
 });
 

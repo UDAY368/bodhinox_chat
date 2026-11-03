@@ -10,6 +10,9 @@
  *    first and creates again only when Razorpay has no link for it.
  *  - 'paid' comes only from a verified webhook or a verified fetch; a browser
  *    request can never set it (the app role cannot even UPDATE payment_links).
+ *    A link's 'paid' is evidence, not settlement: the money is credited to an
+ *    order or appointment only by settle.ts after authoritative fetches of the
+ *    link and its payments with the tenant's keys (design E7).
  *  - Sending the link is an outbound intent (dispatchOnce), so an ambiguous
  *    send is never repeated automatically.
  *
@@ -84,7 +87,8 @@ export type PaymentLinkErrorCode =
   | 'no_address'
   | 'window_closed'
   | 'number_unavailable'
-  | 'link_not_ready';
+  | 'link_not_ready'
+  | 'link_exists';
 
 const ERROR_STATUS: Record<PaymentLinkErrorCode, number> = {
   not_connected: 409,
@@ -107,6 +111,7 @@ const ERROR_STATUS: Record<PaymentLinkErrorCode, number> = {
   window_closed: 409,
   number_unavailable: 409,
   link_not_ready: 409,
+  link_exists: 409,
 };
 
 export class PaymentLinkError extends Error {
@@ -130,6 +135,7 @@ export interface PaymentLinkView {
   contact_id: string | null;
   conversation_id: string | null;
   order_id: string | null;
+  appointment_id: string | null;
   flow_run_id: string | null;
   node_key: string | null;
   status: PaymentLinkStatus;
@@ -140,7 +146,7 @@ export interface PaymentLinkView {
   updated_at: string;
 }
 
-interface LinkRow {
+export interface LinkRow {
   id: string;
   account_id: string;
   provider: string;
@@ -153,6 +159,9 @@ interface LinkRow {
   contact_id: string | null;
   conversation_id: string | null;
   order_id: string | null;
+  appointment_id: string | null;
+  /** Razorpay key id stamped by the insert trigger (null for links made before Phase 8). */
+  provider_key_id: string | null;
   flow_run_id: string | null;
   node_key: string | null;
   status: string;
@@ -177,6 +186,7 @@ export function toView(row: LinkRow): PaymentLinkView {
     contact_id: row.contact_id,
     conversation_id: row.conversation_id,
     order_id: row.order_id,
+    appointment_id: row.appointment_id,
     flow_run_id: row.flow_run_id,
     node_key: row.node_key,
     status: row.status as PaymentLinkStatus,
@@ -243,10 +253,14 @@ export interface CreateLinkInput {
   contactId?: string | null;
   conversationId?: string | null;
   orderId?: string | null;
+  /** A paid public hold (T6): settlement confirms the appointment. */
+  appointmentId?: string | null;
   flowRunId?: string | null;
   nodeKey?: string | null;
   expireBy?: Date | null;
   referenceId: string;
+  /** Razorpay's after-payment redirect: this app's /shop/<token>/done or /my-booking/<token> (read-only pages). */
+  callbackUrl?: string | null;
 }
 
 /** Throws PaymentLinkError for input that must never reach Razorpay. */
@@ -263,12 +277,12 @@ export function validateCreateInput(input: Pick<CreateLinkInput, 'amountMinor' |
 // ---------------------------------------------------------------------------
 // Database access
 
-const LINK_COLUMNS = 'id,account_id,provider,provider_link_id,reference_id,short_url,amount_minor,currency,description,contact_id,conversation_id,order_id,flow_run_id,node_key,status,paid_at,expires_at,created_by,created_at,updated_at';
+const LINK_COLUMNS = 'id,account_id,provider,provider_link_id,reference_id,short_url,amount_minor,currency,description,contact_id,conversation_id,order_id,appointment_id,provider_key_id,flow_run_id,node_key,status,paid_at,expires_at,created_by,created_at,updated_at';
 
 const worker = <T>(accountId: string, op: (tx: TenantTransaction) => Promise<T>) =>
   withTenant({ accountId, role: 'owner' }, op, getWorkerPrisma());
 
-async function selectLink(tx: TenantTransaction, accountId: string, where: { id?: string; referenceId?: string; providerLinkId?: string }, lock = false): Promise<LinkRow | null> {
+export async function selectLink(tx: TenantTransaction, accountId: string, where: { id?: string; referenceId?: string; providerLinkId?: string }, lock = false): Promise<LinkRow | null> {
   const lockSql = lock ? ' FOR UPDATE' : '';
   let rows: LinkRow[];
   if (where.id) {
@@ -338,17 +352,30 @@ function providerError(error: unknown): PaymentLinkError {
 }
 
 /** The ids a new link is tied to, checked inside the caller's tenant scope. */
-async function resolveTargets(tx: TenantTransaction, input: CreateLinkInput): Promise<{ contactId: string | null; conversationId: string | null; orderId: string | null }> {
+async function resolveTargets(tx: TenantTransaction, input: CreateLinkInput): Promise<{ contactId: string | null; conversationId: string | null; orderId: string | null; appointmentId: string | null }> {
   let contactId = input.contactId ?? null;
   let conversationId = input.conversationId ?? null;
   const orderId = input.orderId ?? null;
-  for (const id of [contactId, conversationId, orderId, input.flowRunId ?? null]) {
+  const appointmentId = input.appointmentId ?? null;
+  for (const id of [contactId, conversationId, orderId, appointmentId, input.flowRunId ?? null]) {
     if (id !== null && !UUID.test(id)) throw new PaymentLinkError('target_not_found');
+  }
+  // One subject per link: an order or an appointment, never both.
+  if (orderId && appointmentId) throw new PaymentLinkError('target_not_found');
+  if (appointmentId) {
+    const appointments = await tx.$queryRaw<{ contact_id: string | null }[]>`
+      SELECT contact_id FROM appointments WHERE account_id=${input.accountId}::uuid AND id=${appointmentId}::uuid`;
+    if (!appointments[0]) throw new PaymentLinkError('target_not_found');
+    // Never bind one customer's link to another customer's appointment.
+    if (contactId && appointments[0].contact_id && appointments[0].contact_id !== contactId) throw new PaymentLinkError('target_not_found');
+    contactId ??= appointments[0].contact_id;
   }
   if (orderId) {
     const orders = await tx.$queryRaw<{ contact_id: string | null; conversation_id: string | null }[]>`
       SELECT contact_id,conversation_id FROM orders WHERE account_id=${input.accountId}::uuid AND id=${orderId}::uuid`;
     if (!orders[0]) throw new PaymentLinkError('target_not_found');
+    // Never bind one customer's link to another customer's order.
+    if (contactId && orders[0].contact_id && orders[0].contact_id !== contactId) throw new PaymentLinkError('target_not_found');
     conversationId ??= orders[0].conversation_id;
     contactId ??= orders[0].contact_id;
   }
@@ -362,7 +389,32 @@ async function resolveTargets(tx: TenantTransaction, input: CreateLinkInput): Pr
     const contacts = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM contacts WHERE account_id=${input.accountId}::uuid AND id=${contactId}::uuid`;
     if (!contacts[0]) throw new PaymentLinkError('target_not_found');
   }
-  return { contactId, conversationId, orderId };
+  return { contactId, conversationId, orderId, appointmentId };
+}
+
+/** Statuses of a link that may still take (or already took, unseen) the customer's money. */
+export const LIVE_LINK_STATUSES = ['creating', 'created', 'unknown', 'partially_paid'] as const;
+
+/**
+ * An order or appointment carries at most one live link: a second one could
+ * collect twice. Checked under the subject's row lock, so two concurrent
+ * creates cannot both pass.
+ */
+async function assertNoLiveLink(tx: TenantTransaction, accountId: string, target: { orderId: string | null; appointmentId: string | null }, referenceId: string): Promise<void> {
+  if (target.orderId) {
+    await tx.$queryRaw`SELECT id FROM orders WHERE account_id=${accountId}::uuid AND id=${target.orderId}::uuid FOR UPDATE`;
+  } else if (target.appointmentId) {
+    await tx.$queryRaw`SELECT id FROM appointments WHERE account_id=${accountId}::uuid AND id=${target.appointmentId}::uuid FOR UPDATE`;
+  } else {
+    return;
+  }
+  const live = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM payment_links WHERE account_id=${accountId}::uuid AND reference_id<>${referenceId}
+      AND status = ANY(${[...LIVE_LINK_STATUSES]}::text[])
+      AND ((${target.orderId}::uuid IS NOT NULL AND order_id=${target.orderId}::uuid)
+        OR (${target.appointmentId}::uuid IS NOT NULL AND appointment_id=${target.appointmentId}::uuid))
+    LIMIT 1`;
+  if (live[0]) throw new PaymentLinkError('link_exists');
 }
 
 /**
@@ -376,16 +428,21 @@ async function claimReference(input: CreateLinkInput): Promise<{ row: LinkRow; i
   const prisma: PrismaClient = agent ? getPrisma() : getWorkerPrisma();
   return withTenant(context, async (tx) => {
     const targets = await resolveTargets(tx, input);
-    const inserted = await tx.$queryRawUnsafe<LinkRow[]>(
-      `INSERT INTO payment_links(account_id,provider,reference_id,amount_minor,currency,description,contact_id,conversation_id,order_id,flow_run_id,node_key,status,expires_at,created_by)
-       VALUES($1::uuid,'razorpay',$2,$3,$4,$5,$6::uuid,$7::uuid,$8::uuid,$9::uuid,$10,'creating',$11,$12::uuid)
-       ON CONFLICT(reference_id) DO NOTHING RETURNING ${LINK_COLUMNS}`,
-      input.accountId, input.referenceId, BigInt(input.amountMinor), input.currency, input.description || null,
-      targets.contactId, targets.conversationId, targets.orderId, input.flowRunId ?? null, input.nodeKey ?? null,
-      input.expireBy ?? null, agent?.userId ?? null,
-    );
-    if (inserted[0]) return { row: inserted[0], inserted: true };
-    const existing = await selectLink(tx, input.accountId, { referenceId: input.referenceId });
+    // A replay finds its own row before the one-live-link rule is checked.
+    let existing = await selectLink(tx, input.accountId, { referenceId: input.referenceId });
+    if (!existing) {
+      await assertNoLiveLink(tx, input.accountId, targets, input.referenceId);
+      const inserted = await tx.$queryRawUnsafe<LinkRow[]>(
+        `INSERT INTO payment_links(account_id,provider,reference_id,amount_minor,currency,description,contact_id,conversation_id,order_id,appointment_id,flow_run_id,node_key,status,expires_at,created_by)
+         VALUES($1::uuid,'razorpay',$2,$3,$4,$5,$6::uuid,$7::uuid,$8::uuid,$9::uuid,$10::uuid,$11,'creating',$12,$13::uuid)
+         ON CONFLICT(reference_id) DO NOTHING RETURNING ${LINK_COLUMNS}`,
+        input.accountId, input.referenceId, BigInt(input.amountMinor), input.currency, input.description || null,
+        targets.contactId, targets.conversationId, targets.orderId, targets.appointmentId, input.flowRunId ?? null, input.nodeKey ?? null,
+        input.expireBy ?? null, agent?.userId ?? null,
+      );
+      if (inserted[0]) return { row: inserted[0], inserted: true };
+      existing = await selectLink(tx, input.accountId, { referenceId: input.referenceId });
+    }
     // Not visible: the reference belongs to another workspace (or a role that cannot read it).
     if (!existing) throw new PaymentLinkError('reference_conflict');
     if (minorFromDb(existing.amount_minor) !== input.amountMinor || existing.currency !== input.currency) throw new PaymentLinkError('reference_conflict');
@@ -397,12 +454,10 @@ export interface ApplyResult {
   row: LinkRow;
   /** True when this call moved the link to 'paid'. */
   becamePaid: boolean;
-  /** The linked order this call moved to 'paid' (only when becamePaid). */
-  paidOrder: PaidOrderRow | null;
   changed: boolean;
 }
 
-interface PaidOrderRow {
+export interface PaidOrderRow {
   id: string;
   source: string;
   external_id: string | null;
@@ -417,8 +472,11 @@ interface PaidOrderRow {
 
 /**
  * Applies what Razorpay reports about a link (a verified webhook or a verified
- * fetch) under a row lock. Marks the linked order paid and notifies agents the
- * first time the link is paid. Runs as the worker; never from browser input.
+ * fetch) under a row lock. Runs as the worker; never from browser input.
+ * For a plain link (no order or appointment) the first 'paid' also notifies
+ * agents and queues payment_link.paid and the Purchase event, as before
+ * Phase 8. For an order or appointment link nothing is credited here: settle.ts
+ * does that, and its side effects, after verifying the payment (design E7).
  */
 export async function applyProviderState(
   accountId: string,
@@ -438,7 +496,7 @@ export async function applyProviderState(
  * a replayed transition can never queue a second delivery. Ids and amounts
  * only, never customer content.
  */
-async function queueWebhookTx(tx: TenantTransaction, accountId: string, event: CommerceWebhookEvent, subjectId: string, data: Record<string, unknown>): Promise<void> {
+export async function queueWebhookTx(tx: TenantTransaction, accountId: string, event: CommerceWebhookEvent, subjectId: string, data: Record<string, unknown>): Promise<void> {
   const endpoints = await tx.$queryRaw<{ id: string }[]>`
     SELECT id::text AS id FROM webhook_endpoints
     WHERE account_id=${accountId}::uuid AND is_active AND events @> ARRAY[${event}]::text[]`;
@@ -452,7 +510,7 @@ async function queueWebhookTx(tx: TenantTransaction, accountId: string, event: C
   }
 }
 
-async function queuePaidWebhooksTx(tx: TenantTransaction, accountId: string, row: LinkRow, order: PaidOrderRow | null): Promise<void> {
+export async function queuePaidWebhooksTx(tx: TenantTransaction, accountId: string, row: LinkRow, order: PaidOrderRow | null): Promise<void> {
   const amountMinor = minorFromDb(row.amount_minor) ?? 0;
   await queueWebhookTx(tx, accountId, 'payment_link.paid', row.id, paymentLinkWebhookData({
     paymentLinkId: row.id, provider: row.provider, referenceId: row.reference_id, providerLinkId: row.provider_link_id,
@@ -478,7 +536,7 @@ async function applyProviderStateTx(
     const row = await selectLink(tx, accountId, { id: linkId }, true);
     if (!row) return null;
     // A provider id that disagrees with the stored one is someone else's link.
-    if (incoming.providerLinkId && row.provider_link_id && incoming.providerLinkId !== row.provider_link_id) return { row, becamePaid: false, paidOrder: null, changed: false };
+    if (incoming.providerLinkId && row.provider_link_id && incoming.providerLinkId !== row.provider_link_id) return { row, becamePaid: false, changed: false };
     const status = nextStatus(row.status as PaymentLinkStatus, incoming.status);
     const becamePaid = status === 'paid' && row.status !== 'paid';
     const providerLinkId = row.provider_link_id ?? incoming.providerLinkId ?? null;
@@ -492,24 +550,15 @@ async function applyProviderStateTx(
        WHERE account_id=$1::uuid AND id=$2::uuid RETURNING ${LINK_COLUMNS}`,
       accountId, linkId, status, providerLinkId, shortUrl, expiresAt, becamePaid, source === 'webhook',
     );
-    let paidOrder: PaidOrderRow | null = null;
-    if (becamePaid) {
-      if (row.order_id) {
-        // RETURNING tells us whether the order itself moved to 'paid' (order.paid fires only then).
-        const orders = await tx.$queryRaw<PaidOrderRow[]>`UPDATE orders o SET status='paid'
-          WHERE o.account_id=${accountId}::uuid AND o.id=${row.order_id}::uuid AND o.status IN ('new','confirmed','awaiting_payment')
-          RETURNING o.id::text AS id,o.source,o.external_id,o.status,o.total_minor,o.subtotal_minor,o.currency,
-            o.contact_id::text AS contact_id,o.conversation_id::text AS conversation_id,
-            (SELECT count(*)::int FROM order_items i WHERE i.account_id=o.account_id AND i.order_id=o.id) AS item_count`;
-        paidOrder = orders[0] ?? null;
-      }
+    // An order or appointment link is credited, and announced, only by settlement.
+    if (becamePaid && !row.order_id && !row.appointment_id) {
       await notifyPaid(tx, updated[0] ?? row);
-      await queuePurchase(tx, accountId, updated[0] ?? row, paidOrder);
+      await queuePurchase(tx, accountId, updated[0] ?? row, null);
       // Not under a savepoint: if the deliveries cannot be queued the paid
       // transition rolls back too, and the provider event job retries both.
-      await queuePaidWebhooksTx(tx, accountId, updated[0] ?? row, paidOrder);
+      await queuePaidWebhooksTx(tx, accountId, updated[0] ?? row, null);
     }
-    return { row: updated[0] ?? row, becamePaid, paidOrder, changed };
+    return { row: updated[0] ?? row, becamePaid, changed };
   });
 }
 
@@ -519,7 +568,7 @@ async function applyProviderStateTx(
  * path cannot count it twice. A no-op unless the feature and CAPI are on and
  * the contact came from an ad; it never throws.
  */
-async function queuePurchase(tx: TenantTransaction, accountId: string, row: LinkRow, paidOrder: PaidOrderRow | null): Promise<void> {
+export async function queuePurchase(tx: TenantTransaction, accountId: string, row: LinkRow, paidOrder: PaidOrderRow | null): Promise<void> {
   const total = paidOrder ? paidOrder.total_minor ?? paidOrder.subtotal_minor : null;
   const value = paidOrder ? capiValue(minorFromDb(total), paidOrder.currency) : capiValue(minorFromDb(row.amount_minor), row.currency);
   await queueConversionEventTx(tx, {
@@ -533,7 +582,7 @@ async function queuePurchase(tx: TenantTransaction, accountId: string, row: Link
  * conversation is assigned to; with neither, the owners and admins. One per
  * recipient per link (dedupe key). The amount only, never customer content.
  */
-async function notifyPaid(tx: TenantTransaction, row: LinkRow): Promise<void> {
+export async function notifyPaid(tx: TenantTransaction, row: LinkRow): Promise<void> {
   const t = getT('Payments.notifications');
   const recipients = await tx.$queryRaw<{ user_id: string }[]>`
     SELECT DISTINCT m.user_id FROM account_memberships m
@@ -583,7 +632,7 @@ async function applyCreated(accountId: string, linkId: string, link: RazorpayPay
 export type CreateOutcome = 'created' | 'existing' | 'rejected' | 'unknown';
 
 /** Calls Razorpay for a row this process has claimed (status 'creating') and records what happened. */
-async function createAtProvider(row: LinkRow, secrets: RazorpaySecrets): Promise<{ row: LinkRow; outcome: CreateOutcome; reason?: string }> {
+async function createAtProvider(row: LinkRow, secrets: RazorpaySecrets, callbackUrl?: string | null): Promise<{ row: LinkRow; outcome: CreateOutcome; reason?: string }> {
   const expiresAt = row.expires_at ? new Date(row.expires_at) : undefined;
   if (expiresAt && expiresAt.getTime() < Date.now() + 15 * 60_000) {
     // Too late to create: the link would expire before Razorpay accepts it.
@@ -595,6 +644,7 @@ async function createAtProvider(row: LinkRow, secrets: RazorpaySecrets): Promise
       keyId: secrets.keyId, keySecret: secrets.keySecret,
       amountMinor: minorFromDb(row.amount_minor) ?? 0, currency: row.currency,
       description: row.description ?? undefined, referenceId: row.reference_id, expireBy: expiresAt,
+      ...(callbackUrl ? { callbackUrl } : {}),
     });
   } catch {
     // Input refused before any request: nothing was created.
@@ -627,7 +677,7 @@ export async function createPaymentLinkRecord(input: CreateLinkInput): Promise<{
     const settled = await settleExisting(row, secrets);
     return { link: toView(settled), outcome: 'existing' };
   }
-  const created = await createAtProvider(row, secrets);
+  const created = await createAtProvider(row, secrets, input.callbackUrl);
   return { link: toView(created.row), outcome: created.outcome, reason: created.reason };
 }
 
@@ -690,9 +740,27 @@ async function reconcileRow(row: LinkRow, secrets: RazorpaySecrets): Promise<{ r
     const applied = await applyProviderState(row.account_id, row.id, {
       status: fetched.status, providerLinkId: fetched.id, shortUrl: fetched.shortUrl, expireBy: fetched.expireBy,
     }, 'fetch');
-    return { row: applied?.row ?? row, changed: applied?.changed ?? false };
+    const final = applied?.row ?? row;
+    await settleQuietly(final);
+    return { row: final, changed: applied?.changed ?? false };
   }
+  if (row.status === 'paid' && row.provider_link_id) await settleQuietly(row);
   return { row, changed: false };
+}
+
+/**
+ * Settles a paid link (settle.ts verifies it with Razorpay first). A provider
+ * or connection failure is left for the reconcile sweep, which looks for paid
+ * links without a settled payment; nothing here is lost by not throwing.
+ */
+async function settleQuietly(row: Pick<LinkRow, 'account_id' | 'id' | 'status'>): Promise<void> {
+  if (row.status !== 'paid') return;
+  try {
+    const { verifyAndSettle } = await import('./settle');
+    await verifyAndSettle(row.account_id, row.id);
+  } catch (error) {
+    console.error('[payments] settlement deferred to reconciliation', error instanceof Error ? error.name : 'unknown');
+  }
 }
 
 /** Loads a link through the worker role (after the caller's own role check). */
@@ -706,6 +774,12 @@ async function loadForAction(accountId: string, linkId: string): Promise<LinkRow
 /** Reconcile action for the API: settles the link, then resumes a waiting flow step if it ended. */
 export async function reconcilePaymentLink(accountId: string, linkId: string): Promise<{ link: PaymentLinkView; changed: boolean }> {
   const row = await loadForAction(accountId, linkId);
+  if (row.status === 'paid') {
+    // Paid at Razorpay: make sure the payment is verified and settled, then resume a waiting flow.
+    await settleQuietly(row);
+    await resumeFlowForLink(row);
+    return { link: toView(row), changed: false };
+  }
   if (TERMINAL_STATUSES.has(row.status as PaymentLinkStatus)) return { link: toView(row), changed: false };
   const secrets = await secretsOrThrow(accountId);
   const result = await reconcileRow(row, secrets);
@@ -778,7 +852,23 @@ export interface PaymentEventReceipt {
   paymentLinkId: string;
   referenceId: string | null;
   status: RazorpayLinkStatus | 'unknown';
+  /** The payment the event names (a hint; settlement trusts only the link's own payments[]). */
+  paymentId?: string | null;
+  /** The payload's merchant account id, stored on the payment for audit only. */
+  providerAccountId?: string | null;
 }
+
+/** A refund.* delivery (ids, amounts and statuses only). */
+export interface RefundEventReceipt {
+  accountId: string;
+  event: string;
+  refundId: string;
+  paymentId: string;
+  status: string;
+}
+
+/** Reference prefixes Bodhinox gives its links (flow, inbox, checkout, appointment). */
+export const BODHINOX_REFERENCE = /^(fl|in|co|ap)_[A-Za-z0-9_-]{8,40}$/;
 
 /**
  * Applies one verified Razorpay delivery: finds the link by provider id (or
@@ -794,14 +884,30 @@ export async function handlePaymentEventJob(accountId: string, payload: Record<s
   const receipt = receipts[0];
   if (!receipt || receipt.status === 'processed') return;
   if (receipt.payload?.accountId !== accountId) throw new Error('Payment event tenant mismatch');
-  const status = statusForEvent(receipt.payload.event);
-  if (status) {
-    const row = await worker(accountId, async (tx) =>
-      (await selectLink(tx, accountId, { providerLinkId: receipt.payload.paymentLinkId }))
-      ?? (receipt.payload.referenceId ? await selectLink(tx, accountId, { referenceId: receipt.payload.referenceId }) : null));
-    if (row) {
-      const applied = await applyProviderState(accountId, row.id, { status, providerLinkId: receipt.payload.paymentLinkId }, 'webhook');
-      if (applied) await resumeFlowForLink(applied.row);
+  if (typeof receipt.payload.event === 'string' && receipt.payload.event.startsWith('refund.')) {
+    // A refund delivery: Razorpay's refund list for that payment is read and applied (ours and dashboard refunds).
+    const refund = receipt.payload as unknown as RefundEventReceipt;
+    const { syncProviderRefunds } = await import('./refunds');
+    await syncProviderRefunds(accountId, refund.paymentId);
+  } else {
+    const status = statusForEvent(receipt.payload.event);
+    if (status) {
+      const row = await worker(accountId, async (tx) =>
+        (await selectLink(tx, accountId, { providerLinkId: receipt.payload.paymentLinkId }))
+        ?? (receipt.payload.referenceId ? await selectLink(tx, accountId, { referenceId: receipt.payload.referenceId }) : null));
+      if (row) {
+        const applied = await applyProviderState(accountId, row.id, { status, providerLinkId: receipt.payload.paymentLinkId }, 'webhook');
+        if (applied?.row.status === 'paid') {
+          // Throws on a provider failure, so the job retries; settlement is idempotent.
+          const { verifyAndSettle } = await import('./settle');
+          await verifyAndSettle(accountId, applied.row.id, { providerAccountId: receipt.payload.providerAccountId ?? null });
+        }
+        if (applied) await resumeFlowForLink(applied.row);
+      } else if (status === 'paid' && receipt.payload.referenceId && BODHINOX_REFERENCE.test(receipt.payload.referenceId)) {
+        // Paid with one of our references but no row in this workspace: never credited, surfaced for review.
+        const { openUnmatchedLinkException } = await import('./settle');
+        await openUnmatchedLinkException(accountId, receipt.payload.paymentLinkId);
+      }
     }
   }
   await getWorkerPrisma().$executeRaw`UPDATE webhook_receipts SET status='processed' WHERE id=${receiptId}::uuid`;
@@ -815,13 +921,27 @@ export function flowOutcomeFor(status: PaymentLinkStatus): 'paid' | 'expired' | 
   return null;
 }
 
-/** Resumes the flow run waiting on this link, if any. Idempotent: the engine checks the run still waits on it. */
-export async function resumeFlowForLink(row: Pick<LinkRow, 'account_id' | 'flow_run_id' | 'node_key' | 'reference_id' | 'status'>): Promise<void> {
-  const outcome = flowOutcomeFor(row.status as PaymentLinkStatus);
+/**
+ * Resumes the flow run waiting on this link, if any. Idempotent: the engine
+ * checks the run still waits on it. A paid order or appointment link resumes
+ * 'paid' only once its payment is settled; a payment that opened an exception
+ * resumes the failed port; one not yet verified waits (the sweep retries).
+ */
+export async function resumeFlowForLink(row: Pick<LinkRow, 'account_id' | 'flow_run_id' | 'node_key' | 'reference_id' | 'status'>
+  & Partial<Pick<LinkRow, 'id' | 'order_id' | 'appointment_id'>>): Promise<void> {
+  let outcome = flowOutcomeFor(row.status as PaymentLinkStatus);
   if (!outcome || !row.flow_run_id || !row.node_key) return;
+  let status = row.status;
+  if (outcome === 'paid' && row.id && (row.order_id || row.appointment_id)) {
+    const states = await worker(row.account_id, (tx) => tx.$queryRaw<{ settlement: string }[]>`
+      SELECT settlement FROM customer_payments WHERE account_id=${row.account_id}::uuid AND payment_link_id=${row.id}::uuid AND status='captured'`);
+    if (states.some((s) => s.settlement === 'settled')) outcome = 'paid';
+    else if (states.some((s) => s.settlement === 'exception')) { outcome = 'failed'; status = 'payment_review'; }
+    else return;
+  }
   // Imported lazily: the engine imports this module to create links.
   const { resumePaymentLinkRun } = await import('@/lib/flows/engine');
-  await resumePaymentLinkRun({ accountId: row.account_id, runId: row.flow_run_id, nodeKey: row.node_key, referenceId: row.reference_id, outcome, status: row.status });
+  await resumePaymentLinkRun({ accountId: row.account_id, runId: row.flow_run_id, nodeKey: row.node_key, referenceId: row.reference_id, outcome, status });
 }
 
 /** The current state of a link by reference (worker role), for the flow engine. */

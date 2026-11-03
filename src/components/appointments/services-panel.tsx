@@ -4,8 +4,9 @@
  * Services: duration, break, slot step, capacity, price, mode, meeting link
  * (online only), bookable weekdays with the "Monday only" preset, feedback and
  * rebooking follow-ups, and who offers the service where (a shared calendar or
- * named practitioners per location, never both). Advance payment is shown but
- * disabled until payments support it.
+ * named practitioners per location, never both). "Require advance payment"
+ * needs a price above zero; the server also checks the store and Razorpay are
+ * ready (field payment_required, detail price_required / payments_not_ready).
  */
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -25,11 +26,12 @@ import {
 export interface ServiceDraft {
   name: string; mode: 'offline' | 'online'; duration: string; buffer: string; step: string; capacity: string;
   price: string; currency: string; weekdays: number[] | null; meetingUrl: string; feedbackDelay: string; rebookAfter: string;
+  paymentRequired: boolean;
 }
 
 export const EMPTY_SERVICE: ServiceDraft = {
   name: '', mode: 'offline', duration: '30', buffer: '0', step: '', capacity: '1', price: '', currency: '', weekdays: null,
-  meetingUrl: '', feedbackDelay: '', rebookAfter: '',
+  meetingUrl: '', feedbackDelay: '', rebookAfter: '', paymentRequired: false,
 };
 
 const toDraft = (s: ServiceDto): ServiceDraft => ({
@@ -38,6 +40,7 @@ const toDraft = (s: ServiceDto): ServiceDraft => ({
   price: fromMinor(s.price_minor, s.currency), currency: s.currency ?? '', weekdays: s.allowed_weekdays,
   meetingUrl: s.meeting_url ?? '', feedbackDelay: s.feedback_delay_minutes == null ? '' : String(s.feedback_delay_minutes),
   rebookAfter: s.rebook_after_days == null ? '' : String(s.rebook_after_days),
+  paymentRequired: s.payment_required,
 });
 
 const optNum = (v: string) => (v.trim() === '' ? null : Number(v));
@@ -49,6 +52,7 @@ export function serviceBody(d: ServiceDraft): { body: Record<string, unknown> } 
   if (price === undefined) return { invalid: 'price_minor' };
   if (price !== null && !currency) return { invalid: 'currency' };
   if (d.weekdays && d.weekdays.length === 0) return { invalid: 'allowed_weekdays' };
+  if (d.paymentRequired && !(price !== null && price > 0)) return { invalid: 'payment_required' };
   return {
     body: {
       name: d.name.trim(), mode: d.mode, duration_minutes: Number(d.duration), buffer_minutes: Number(d.buffer || 0),
@@ -56,6 +60,7 @@ export function serviceBody(d: ServiceDraft): { body: Record<string, unknown> } 
       allowed_weekdays: d.weekdays,
       meeting_url: d.mode === 'online' && d.meetingUrl.trim() ? d.meetingUrl.trim() : null,
       feedback_delay_minutes: optNum(d.feedbackDelay), rebook_after_days: optNum(d.rebookAfter),
+      payment_required: d.paymentRequired,
     },
   };
 }
@@ -77,7 +82,7 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
 
   async function save() {
     const parsed = serviceBody(draft);
-    if ('invalid' in parsed) return void toast.error(t('fieldErrors.invalid'));
+    if ('invalid' in parsed) return void toast.error(t(parsed.invalid === 'payment_required' ? 'fieldErrors.price_required' : 'fieldErrors.invalid'));
     setBusy(true);
     const r = editing === 'new'
       ? await apiRequest('/api/appointments/services', { method: 'POST', body: parsed.body })
@@ -192,10 +197,13 @@ export function ServicesPanel({ config, canEdit, onChanged }: { config: Appointm
             <Field label={t('services.rebookAfter')} id="svc-rebook">
               <Input id="svc-rebook" type="number" min={1} max={365} value={draft.rebookAfter} onChange={(e) => set('rebookAfter')(e.target.value)} />
             </Field>
-            <label className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
-              <Switch checked={false} disabled aria-label={t('services.paymentRequired')} />
-              {t('services.paymentRequired')} <span className="text-xs">({t('services.paymentComingSoon')})</span>
-            </label>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="flex items-center gap-2">
+                <Switch checked={draft.paymentRequired} onCheckedChange={(v) => set('paymentRequired')(!!v)} aria-label={t('services.paymentRequired')} />
+                {t('services.paymentRequired')}
+              </label>
+              <p className="text-[11px] text-muted-foreground">{t('services.paymentRequiredHelp')}</p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" disabled={busy || !draft.name.trim()} onClick={() => void save()}>{t('sheet.save')}</Button>

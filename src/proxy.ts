@@ -29,10 +29,11 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   // Authentication endpoints enforce their own pre-auth/session CSRF protections.
-  // Public booking endpoints are anonymous: each POST checks its own Origin, and
-  // a staff session cookie must neither 401 nor demand the staff CSRF header there.
+  // Public booking and storefront endpoints are anonymous (the storefront is
+  // gated by its own contact-bound token): each mutation checks its own Origin,
+  // and a staff session cookie must neither 401 nor demand the staff CSRF header there.
   if (pathname.startsWith('/api/auth/') || pathname === '/auth/callback' || pathname === '/api/health' ||
-    pathname.startsWith('/api/public/booking/'))
+    pathname.startsWith('/api/public/booking/') || pathname.startsWith('/api/public/shop/'))
     return response;
   const protectedPage = protectedPaths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)

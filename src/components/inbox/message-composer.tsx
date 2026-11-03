@@ -26,6 +26,7 @@ import {
   ClipboardList,
   CreditCard,
   ShoppingBag,
+  Store,
   Images,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ import type { InteractiveMessagePayload, QuickReply } from "@/types";
 import { QuickReplyPicker } from "./quick-reply-picker";
 import { SendFormDialog } from "./send-form-dialog";
 import { SendPaymentLinkDialog } from "./send-payment-link-dialog";
+import { SendStorefrontLinkDialog } from "./send-storefront-link-dialog";
 import { SendProductDialog } from "@/components/commerce/catalog/send-product-dialog";
 import { MediaPicker, type PickedMedia } from "./media-library/media-picker";
 
@@ -171,6 +173,7 @@ export function MessageComposer({
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
   const [sendFormOpen, setSendFormOpen] = useState(false);
   const [paymentLinkOpen, setPaymentLinkOpen] = useState(false);
+  const [storefrontLinkOpen, setStorefrontLinkOpen] = useState(false);
   const [sendProductOpen, setSendProductOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
@@ -747,6 +750,12 @@ export function MessageComposer({
                 <ShoppingBag className="mr-2 h-4 w-4" />
                 {t("sendProducts")}
               </DropdownMenuItem>
+              {canSend && (
+                <DropdownMenuItem onClick={() => setStorefrontLinkOpen(true)}>
+                  <Store className="mr-2 h-4 w-4" />
+                  {t("sendStorefrontLink")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -860,6 +869,7 @@ export function MessageComposer({
 
       <SendFormDialog open={sendFormOpen} onOpenChange={setSendFormOpen} conversationId={conversationId} />
       <SendPaymentLinkDialog open={paymentLinkOpen} onOpenChange={setPaymentLinkOpen} conversationId={conversationId} />
+      <SendStorefrontLinkDialog open={storefrontLinkOpen} onOpenChange={setStorefrontLinkOpen} conversationId={conversationId} />
       <SendProductDialog open={sendProductOpen} onOpenChange={setSendProductOpen} conversationId={conversationId} />
 
       <MediaPicker

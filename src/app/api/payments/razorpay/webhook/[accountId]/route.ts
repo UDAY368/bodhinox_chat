@@ -3,7 +3,12 @@
 // webhook secret the workspace saved (X-Razorpay-Signature, hex HMAC-SHA256).
 // Set up in the Razorpay dashboard: Settings → Webhooks → URL
 // https://<APP_URL>/api/payments/razorpay/webhook/<accountId>, the same secret,
-// events payment_link.paid / partially_paid / expired / cancelled.
+// events payment_link.paid / partially_paid / expired / cancelled and
+// refund.created / processed / failed. payment.* events carry no link id and
+// are acknowledged and ignored (design E16).
+//
+// Nothing here settles money: the job re-reads the link and its payments (or
+// the payment's refunds) from Razorpay with the workspace's own keys first.
 //
 // The verified delivery is recorded once (webhook_receipts) and its processing
 // job is queued in the same transaction before the 200, so a crash after the
@@ -17,7 +22,7 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { claimWebhookReceipt } from '@/lib/commerce/webhook-receipts';
 import { PAYMENT_EVENT_JOB, statusForEvent } from '@/lib/payments/links';
 import { loadRazorpaySecrets, PaymentProviderError } from '@/lib/payments/providers';
-import { parsePaymentLinkEvent, verifyWebhookSignature } from '@/lib/payments/razorpay';
+import { parsePaymentLinkEvent, parseRefundEvent, verifyWebhookSignature } from '@/lib/payments/razorpay';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -66,9 +71,20 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
 
   let body: unknown;
   try { body = JSON.parse(raw); } catch { return new Response('Invalid payload', { status: 400 }); }
-  const event = parsePaymentLinkEvent(body);
-  // Anything but a payment-link event we act on is acknowledged and ignored.
-  if (!event || !statusForEvent(event.event)) return NextResponse.json({ ok: true });
+  const linkEvent = parsePaymentLinkEvent(body);
+  const refundEvent = linkEvent ? null : parseRefundEvent(body);
+  // Ids, statuses and amounts only: no customer details.
+  let payload: Record<string, unknown>;
+  if (linkEvent && statusForEvent(linkEvent.event)) {
+    payload = { accountId, event: linkEvent.event, paymentLinkId: linkEvent.paymentLinkId, referenceId: linkEvent.referenceId, status: linkEvent.status,
+      paymentId: linkEvent.paymentId, providerAccountId: linkEvent.providerAccountId };
+  } else if (refundEvent) {
+    payload = { accountId, event: refundEvent.event, refundId: refundEvent.refundId, paymentId: refundEvent.paymentId, status: refundEvent.status,
+      amountMinor: refundEvent.amountMinor, currency: refundEvent.currency, providerAccountId: refundEvent.providerAccountId };
+  } else {
+    // Anything else (payment.*, an unhandled link event) is acknowledged and ignored.
+    return NextResponse.json({ ok: true });
+  }
 
   // Razorpay's delivery id; a body hash when it is missing. Namespaced by
   // account so one Razorpay account connected to two workspaces reaches both.
@@ -79,8 +95,7 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
       const receipt = await claimWebhookReceipt(tx, {
         provider: 'razorpay',
         receiptId: `${accountId}:${deliveryId}`,
-        // Ids and statuses only: no customer details.
-        payload: { accountId, event: event.event, paymentLinkId: event.paymentLinkId, referenceId: event.referenceId, status: event.status },
+        payload,
       });
       if (receipt.duplicate) return;
       await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)

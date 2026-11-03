@@ -47,6 +47,10 @@ export function extraPorts(node: BuilderNode): Array<{ handle: string; field: st
   if (node.node_type === "payment_link") {
     ports.push({ handle: "expired", field: "expired_next", label: "Expired" }, { handle: "failed", field: "failed_next", label: "Failed" });
   }
+  // A storefront link always offers its failed outcome (an unwired one ends the run).
+  if (node.node_type === "send_storefront_link") {
+    ports.push({ handle: "failed", field: "failed_next", label: "Failed" });
+  }
   // A booking step always offers its unavailable and cancelled outcomes (an unwired one ends the run).
   if (node.node_type === "book_appointment") {
     ports.push({ handle: "unavailable", field: "unavailable_next", label: "Unavailable" }, { handle: "cancelled", field: "cancelled_next", label: "Cancelled" });
@@ -119,6 +123,7 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "set_tag":
       case "assign_agent":
     case "conversion_event":
+    case "send_storefront_link":
     case "set_attribute": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         if (next && knownKeys.has(next)) {
@@ -302,6 +307,7 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "set_tag":
     case "assign_agent":
     case "conversion_event":
+    case "send_storefront_link":
     case "set_attribute":
       return [{ id: "next", label: "Next" }];
 
@@ -404,6 +410,7 @@ export function applyEdgeConnection(
     case "set_tag":
     case "assign_agent":
     case "conversion_event":
+    case "send_storefront_link":
     case "set_attribute":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
@@ -529,6 +536,7 @@ function patchedConfigWithoutKey(
     case "set_tag":
     case "assign_agent":
     case "conversion_event":
+    case "send_storefront_link":
     case "set_attribute": {
       const next = (cfg as { next_node_key?: string }).next_node_key;
       if (next !== deletedKey) return null;

@@ -32,6 +32,25 @@ export interface Fixtures {
     appointmentDate: string;
     manageToken: string;
   };
+  /**
+   * Phase 8 commerce in workspace A (store checkout on, INR, prices include
+   * 18% tax, one IN shipping rate): a published product whose only variant
+   * has 1 unit in stock, two live storefront links for two contacts (the
+   * second one's checkout of the same product must get out_of_stock), and a
+   * paid storefront order with its settled payment and receipt.
+   */
+  commerce: {
+    productId: string;
+    productName: string;
+    variantId: string;
+    sku: string;
+    /** Storefront token of the consent contact's shop session. */
+    token: string;
+    /** Storefront token of a second contact's shop session. */
+    secondToken: string;
+    paidOrderId: string;
+    receiptNumber: string;
+  };
 }
 
 // Outside the project (the dev server reloads on project file writes); it

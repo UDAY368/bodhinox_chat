@@ -6,6 +6,7 @@
  */
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { loadSettings } from '@/lib/appointments/availability';
+import { paidBookingReady } from '@/lib/appointments/booking';
 import type { AppointmentStatus, LocationKind, ServiceMode } from '@/lib/appointments/types';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
@@ -29,6 +30,8 @@ export interface PublicService {
   currency: string | null;
   /** More than one place per slot (a group session). */
   group: boolean;
+  /** Paid in advance: a payment link follows the WhatsApp code and the booking is confirmed once paid (E15). */
+  paymentRequired: boolean;
   locations: (PublicLocation & { staff: PublicStaff[] })[];
 }
 export interface PublicPage {
@@ -51,11 +54,13 @@ async function pageRow(tx: TenantTransaction, accountId: string, pageId: string)
 export async function loadPublicPage(tx: TenantTransaction, accountId: string, pageId: string): Promise<PublicPage | null> {
   const page = await pageRow(tx, accountId, pageId);
   if (!page) return null;
+  // Paid services are offered only while the workspace can take the payment online.
+  const payable = await paidBookingReady(tx, accountId);
   const services = await tx.$queryRaw<{ id: string; name: string; mode: ServiceMode; duration_minutes: number;
-    price_minor: bigint | null; currency: string | null; capacity: number }[]>`
-    SELECT s.id::text, s.name, s.mode, s.duration_minutes, s.price_minor, s.currency, s.capacity
+    price_minor: bigint | null; currency: string | null; capacity: number; payment_required: boolean }[]>`
+    SELECT s.id::text, s.name, s.mode, s.duration_minutes, s.price_minor, s.currency, s.capacity, s.payment_required
     FROM booking_page_services ps JOIN appointment_services s ON s.account_id=ps.account_id AND s.id=ps.service_id
-    WHERE ps.account_id=${accountId}::uuid AND ps.page_id=${pageId}::uuid AND s.archived_at IS NULL AND NOT s.payment_required
+    WHERE ps.account_id=${accountId}::uuid AND ps.page_id=${pageId}::uuid AND s.archived_at IS NULL AND (${payable} OR NOT s.payment_required)
     ORDER BY s.name, s.id`;
   const offerings = services.length ? await tx.$queryRaw<{ service_id: string; staff_id: string | null; staff_name: string | null;
     location_id: string; name: string; address: string | null; timezone: string; kind: LocationKind }[]>`
@@ -78,7 +83,7 @@ export async function loadPublicPage(tx: TenantTransaction, accountId: string, p
     }
     if (!locations.size) continue;
     out.push({ id: s.id, name: s.name, mode: s.mode, durationMinutes: s.duration_minutes, priceMinor: num(s.price_minor),
-      currency: s.currency, group: s.capacity > 1, locations: [...locations.values()] });
+      currency: s.currency, group: s.capacity > 1, paymentRequired: s.payment_required, locations: [...locations.values()] });
   }
   return { title: page.title, businessName: page.business_name, services: out };
 }

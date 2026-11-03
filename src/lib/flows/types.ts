@@ -241,6 +241,14 @@ export interface PaymentLinkNodeConfig {
   message: string;
   /** Minutes until the link expires (16 – 259200); unset means it does not expire. */
   expire_minutes?: number;
+  /**
+   * Charge the run's order (vars.order_id, set by the order_received trigger)
+   * instead of `amount`/`currency`: the link is attached to the order and asks
+   * for what is still due. A server-priced order uses its own total; an
+   * unpriced WhatsApp cart is refused (failed port) while store checkout is
+   * enabled, so a Meta catalogue price is never charged.
+   */
+  link_order?: boolean;
   paid_next: string;
   expired_next?: string;
   failed_next?: string;
@@ -478,6 +486,27 @@ export interface ConversionEventNodeConfig {
 }
 
 /**
+ * Send storefront link: issues a secure storefront link bound to the run's
+ * contact (lib/commerce/storefront, design E12) and sends it as a text in
+ * the 24-hour window. `shop` opens the store; `status` shows the contact's
+ * latest order. The link itself is never stored in run variables. Continues
+ * on `next_node_key` once sent; on `failed_next` when the store is off, the
+ * contact has no order (status), or the send was refused. An unwired failed
+ * port ends the run. Runtime: lib/flows/storefront-node.ts.
+ */
+export interface SendStorefrontLinkNodeConfig {
+  /** Text sent above the link (≤ 1024 chars); may use {{vars.x}}. */
+  message: string;
+  /** Hours the link stays valid (1 – 168, default 24). */
+  ttl_hours?: number;
+  purpose: "shop" | "status";
+  next_node_key: string;
+  failed_next?: string;
+}
+
+export const STOREFRONT_LINK_LIMITS = { messageMax: 1024, ttlMinHours: 1, ttlMaxHours: 168, ttlDefaultHours: 24 } as const;
+
+/**
  * Total union — every concrete node_type the v1 engine understands.
  * Add new node types here and the engine's switch will flag missing
  * cases via TypeScript's exhaustiveness check.
@@ -506,6 +535,7 @@ export type FlowNodeConfig =
   | { node_type: "book_appointment"; config: BookAppointmentNodeConfig }
   | { node_type: "ai_reply"; config: AiReplyNodeConfig }
   | { node_type: "conversion_event"; config: ConversionEventNodeConfig }
+  | { node_type: "send_storefront_link"; config: SendStorefrontLinkNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }
   | { node_type: "api_request"; config: ApiRequestNodeConfig }
   | { node_type: "connect_flow"; config: ConnectFlowNodeConfig }

@@ -98,6 +98,48 @@ Appointments (Phase 7): migrations `20261106100000_appointments` (FORCE RLS tabl
 - **Worker:** reminders, notices, hold expiry, staff notifications and follow-ups are `appointments.*` jobs; deploy the worker with the web service. An uncertain send is stored as `outcome_unknown` with its outbound intent and is never re-sent automatically; reconcile it from the appointment's message log.
 - **Plans:** the wiring migration turns on the `appointments` feature for free, basic, pro and enterprise (a workspace with no subscription runs on enterprise); custom plans need `UPDATE plans SET features = features || '{"appointments":true}'::jsonb WHERE id = '<plan>'`.
 
+Commerce (Phase 8): migrations `20261107100000_commerce_catalogue_inventory`, `20261107100500_commerce_checkout`, `20261107101000_customer_payments`, `20261107101500_order_lifecycle`, `20261107102000_paid_appointments` and `20261107102500_commerce_wiring` (FORCE RLS tables with composite tenant foreign keys for the catalogue, stock, storefront sessions, customer payments, refunds, exceptions, order history, returns and documents).
+
+- Migrations `20261107100000` to `20261107102500` are additive; apply with `prisma migrate deploy` as usual. The
+  wiring migration enables the `storefront` feature on the `free`, `basic`, `pro` and `enterprise` plans and adds a
+  migration-owner SELECT policy on `storefront_sessions` and `orders` for the token lookup function, and on `payment_links` and `customer_refunds` for `crm_accounts_for_payment_reconcile()` (the reconcile sweep's list of workspaces, worker only).
+- `/api/public/shop/*` bypasses the staff session and CSRF middleware (like `/api/public/booking/*`); each mutation
+  checks its own Origin and token.
+- Storefront links contain a bearer token in the path (`/shop/<token>`); host access logs can record it, as they can
+  manage links. Rotating `ENCRYPTION_KEY` invalidates every storefront link.
+- The worker tick now also schedules `payments.reconcile_sweep` (every 10 minutes per workspace with payment work).
+- After deploying, existing orders are unchanged (no row migration): they are unpriced and keep their statuses;
+  "paid" can no longer be chosen by hand. Check open orders in "awaiting payment" that were created by hand before
+  the deploy: record their offline payment with "Record offline payment" or send a payment link.
+- `APP_URL` must be the public HTTPS origin: storefront links (`/shop/<token>`) and the Razorpay `callback_url`
+  (`/shop/<token>/done`) are built from it, and storefront mutations are refused unless their Origin matches it.
+- To sell online: set the store currency and tax in Commerce → Store settings, add at least one shipping rate, publish
+  priced products, connect Razorpay, then turn on online checkout. For WhatsApp carts outside the 24-hour window choose an
+  approved UTILITY checkout template (`{{1}}` link, `{{2}}` order reference); without one the checkout link is recorded as
+  blocked (`order_messages`) instead of being sent.
+- Stock holds expire through the `commerce.reservation_expiry` job; the worker must be running for holds to be released.
+- **Razorpay webhook events**: enable `payment_link.paid`, `payment_link.partially_paid`, `payment_link.expired`, `payment_link.cancelled`, `refund.created`, `refund.processed`, `refund.failed` on `https://<APP_URL>/api/payments/razorpay/webhook/<accountId>`. `payment.*` events may stay enabled; they are ignored.
+- **Nothing is credited from a webhook alone**: each paid event triggers authoritative fetches with the workspace's keys. If a workspace replaces its Razorpay keys, links made under the old keys are not fetched; they open `merchant_changed` exceptions for review.
+- **Reconcile sweep**: `payments.reconcile_sweep` is queued per workspace every 10 minutes by the worker tick (needs the `crm_accounts_for_payment_reconcile()` definer function). If the worker logs `[payments] reconcile sweep function missing`, the migration with that function was not applied.
+- **Exception queue**: check Payments → Exceptions daily during the pilot; a `refund_unknown` must be checked with Razorpay ("Check with Razorpay") before any manual action; it is never re-sent automatically.
+- **Stale refund attempt** (`refund_unknown`, detail `stale_attempt_processed`, subject `provider_refund:<rfnd id>`): Razorpay reported an earlier, superseded attempt of a retried refund as processed. That money is neither counted nor dropped and the live attempt is unchanged. Staff reconcile it by hand in Razorpay; it is never cleared automatically, even when the payment later shows fully refunded. Each attempt now has its own Razorpay receipt (`<refund id>:<attempt>`) and `notes.attempt`.
+- **Refund restock rules**: a refund not linked to a return restocks only an order that has not been dispatched and is being unwound (cancelled, or refunded in full); a partial refund of an order that still ships restocks nothing (use a return). Once the order-level `refund_restocked` event exists nothing restocks that order again, including closing a return. Closing a return with restock refuses (409) while its refund is still in flight, and restocks after a failed refund. Restocking a payment-review order (exception "restocked") is refused while any refund on that payment is in flight. Dispatch is refused (409) while a whole-order restocking refund is in flight. One refund per return (unique index `customer_refunds_return_key`).
+- **Credit notes** are issued only for a payment that has a receipt; refunds of exception or unattached payments get no credit note and use no series number. Partial credit notes reverse tax cumulatively, so they add up to exactly the order's tax.
+- **Cancel and refund with offline money**: an order paid wholly or partly offline, or a legacy paid order with no payment record, is refused with 409 `offline_payment` until staff confirm they returned that money outside the app (`refunded_outside: true`, the confirm box in the order panel). The offline part is then recorded as an `external` refund. Recording an offline payment is refused while a paid payment link on the order is still settling.
+- **Store currency lock**: the currency cannot change once any variant has a price, any shipping rate exists, a fixed coupon or a coupon with a minimum subtotal or discount cap exists, or any order has been priced.
+- **Checkout open-order cap**: one contact may hold at most 3 unpaid (`awaiting_payment`, unexpired) orders and 99 held units of one variant across all storefront and WhatsApp-cart sessions; further places are refused (`too_many_open_orders`, 409) and WhatsApp carts from that contact are recorded as `skipped`. The caps are constants, not settings.
+- **Reconcile sweep batches**: each kind of row (unclear links, paid unsettled links, unknown/stale-sending refunds, refunds pending at Razorpay over an hour) has its own batch (50, 50, 50, 20) taken in random order, so stuck rows cannot starve the rest. One sweep can make up to 100 link and 70 refund calls per workspace.
+- **`APP_URL`** is used to validate Razorpay `callback_url` (only `/shop/<token>[/done]` and `/my-booking/<token>` on this origin are accepted); the success page is read-only.
+- Logs carry error names and codes only; refund notes, customer details and provider texts are never logged.
+- Receipts and credit notes are issued by the `commerce.issue_receipt` / `commerce.issue_credit_note` jobs; numbering uses `commerce_document_sequences` (one row per workspace and financial year). Never edit or delete those rows: a gap or a reused number breaks the series.
+- Set the workspace timezone (Inbox settings) before the first receipt: it decides which financial year a receipt near midnight on 31 March falls in.
+- Blocked/failed/outcome_unknown order notices appear in `order_messages`; an `outcome_unknown` notice is never re-sent automatically (check the conversation, then mark it resolved).
+- Document addresses omit the phone; address snapshots on orders are kept for tax records (erasure policy pending legal decision).
+- Paid appointments use the same Razorpay webhook (`payment_link.*`) and reconciliation sweep as orders; nothing extra to enable. The worker must run for `appointments.payment_link` jobs.
+- A paid hold lasts at least 20 minutes after BOOK (Razorpay refuses links that expire in under 15 minutes).
+- Message outcomes for payment links appear on the appointment's messages list; `outcome_unknown` needs a manual check of the conversation before any resend.
+- Product images chosen from the media library are referenced by id (`shop_product_images.media_id`); deleting such an image from the library only hides it while a product still uses it. The catalogue needs no new environment variables or jobs.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error through a trusted operator database session. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

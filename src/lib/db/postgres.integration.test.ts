@@ -162,6 +162,15 @@ describe.skipIf(!connectionString)("real PostgreSQL tenant and concurrency guara
     });
   });
 
+  it("allows only the worker to enumerate workspaces with payment work to reconcile", async () => {
+    await tenant(accountA,db=>db.query("INSERT INTO payment_links(account_id,provider,reference_id,amount_minor,currency,status) VALUES($1,'razorpay',$2,100,'INR','unknown')",[accountA,`pl_rec_${accountA.replace(/-/g,"").slice(0,24)}`]),"bodhinox_worker");
+    await expect(tenant(null,db=>db.query("SELECT * FROM crm_accounts_for_payment_reconcile()"))).rejects.toMatchObject({code:"42501"});
+    const rows=await tenant(null,async db=>(await db.query("SELECT * FROM crm_accounts_for_payment_reconcile()")).rows,"bodhinox_worker");
+    expect(rows.map(row=>row.account_id)).toContain(accountA);
+    expect(rows.map(row=>row.account_id)).not.toContain(accountB);
+    for(const row of rows) expect(Object.keys(row)).toEqual(["account_id"]);
+  });
+
   it("allows only the worker to enumerate scheduling account IDs", async () => {
     await tenant(accountA,db=>db.query("INSERT INTO automations(user_id,name,trigger_type,is_active) VALUES($1,'Scheduled test','time_based',true)",[userA]));
     await expect(tenant(null,db=>db.query("SELECT * FROM crm_accounts_for_scheduling()"))).rejects.toMatchObject({code:"42501"});

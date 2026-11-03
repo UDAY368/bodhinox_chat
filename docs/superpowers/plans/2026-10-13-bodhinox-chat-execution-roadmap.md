@@ -223,15 +223,15 @@ Completion gate: concurrent requests cannot overbook capacity; cancellation/resc
 
 Dependencies: Phases 4–6 and approved merchant/payment model.
 
-- [ ] Implement categories, SKU/variants, images, reviewed descriptions/disclosures, pricing, inventory movements and alerts.
+- [x] Implement categories, SKU/variants, images, reviewed descriptions/disclosures, pricing, inventory movements and alerts.
 - [ ] Add product search/filtering, carts, quantity updates, addresses, coupons, shipping/tax configuration, totals and secure checkout.
-- [ ] Create pending orders and stock reservations transactionally with expiry rules; preserve price/tax/item snapshots.
-- [ ] Generate gateway orders/payment links/checkout sessions; verify signatures and authoritative payment status, amount, currency, merchant connection and internal order association server-side.
-- [ ] Deduplicate and tolerate out-of-order payment events. Separate payment authorization from confirmed capture/success according to the selected gateway contract.
-- [ ] Handle reservation expiry followed by delayed payment as a reconciliation exception; do not silently fulfil unavailable stock.
-- [ ] Implement receipts/invoices, order status history, cancellations, refunds, returns, and payment reconciliation.
-- [ ] Record fulfilment and feedback. Authoritative automated courier tracking arrives in Phase 9; audited staff-confirmed dispatch/delivery can serve the pilot and is labeled as staff recorded.
-- [ ] Connect the Ayurvedic menu path to permitted catalog messages or secure storefront links and product-specific follow-up.
+- [x] Create pending orders and stock reservations transactionally with expiry rules; preserve price/tax/item snapshots.
+- [x] Generate gateway orders/payment links/checkout sessions; verify signatures and authoritative payment status, amount, currency, merchant connection and internal order association server-side.
+- [x] Deduplicate and tolerate out-of-order payment events. Separate payment authorization from confirmed capture/success according to the selected gateway contract.
+- [x] Handle reservation expiry followed by delayed payment as a reconciliation exception; do not silently fulfil unavailable stock.
+- [x] Implement receipts/invoices, order status history, cancellations, refunds, returns, and payment reconciliation.
+- [x] Record fulfilment and feedback. Authoritative automated courier tracking arrives in Phase 9; audited staff-confirmed dispatch/delivery can serve the pilot and is labeled as staff recorded.
+- [x] Connect the Ayurvedic menu path to permitted catalog messages or secure storefront links and product-specific follow-up.
 
 Deliverable: a customer can buy a product and the business can reconcile its payment, stock and order.
 

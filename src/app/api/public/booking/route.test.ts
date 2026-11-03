@@ -42,7 +42,7 @@ function fakeTx() {
       const sql = strings.join('?');
       if (sql.includes('FROM booking_pages p JOIN accounts')) return [{ id: PAGE, title: 'Clinic', location_id: null, whatsapp_config_id: null, business_name: 'Acme Clinic' }];
       if (sql.includes('FROM booking_page_services ps JOIN appointment_services')) return [{ id: SERVICE, name: 'Free consultation', mode: 'offline',
-        duration_minutes: 30, price_minor: BigInt(0), currency: 'INR', capacity: 1 }];
+        duration_minutes: 30, price_minor: BigInt(0), currency: 'INR', capacity: 1, payment_required: false }];
       if (sql.includes('FROM appointment_offerings o')) return [{ service_id: SERVICE, staff_id: null, staff_name: null, location_id: LOCATION,
         name: 'Main', address: 'MG Road', timezone: 'Asia/Kolkata', kind: 'physical' }];
       if (sql.includes('SELECT EXISTS(')) return [{ ok: true }];
@@ -105,6 +105,8 @@ vi.mock('@/lib/appointments/booking', async () => {
       h.changes.push({ fn: 'reschedule', input });
       if (h.bookError) throw h.bookError;
     },
+    // Phase 8: paid services are listed only while online payment is available.
+    paidBookingReady: async () => false,
   };
 });
 

@@ -66,6 +66,7 @@ const FEATURE_NAMES: Record<Feature, string> = {
   retargeting: 'Retargeting by campaign',
   workspace_attributes: 'Workspace attributes',
   appointments: 'Appointments',
+  storefront: 'Storefront and online payments',
 };
 const LIMIT_NAMES: Record<LimitKey, string> = {
   seats: 'team members',

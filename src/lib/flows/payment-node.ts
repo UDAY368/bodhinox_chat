@@ -37,10 +37,17 @@ export function paymentLinkIssues(node: NodeLike, knownKeys: ReadonlySet<string>
   const at = (field: string, message: string, severity: "error" | "warning" = "error") =>
     issues.push({ severity, scope: "node", node_key: node.node_key, field, message });
 
+  if (cfg.link_order !== undefined && cfg.link_order !== null && typeof cfg.link_order !== "boolean") {
+    at("link_order", t("paymentInvalidLinkOrder"));
+  }
+  // Charging the run's order: the amount and currency come from the order itself.
+  const linkOrder = cfg.link_order === true;
   const currency = typeof cfg.currency === "string" ? cfg.currency : "";
-  if (!isCurrencyCode(currency)) at("currency", t("paymentNeedsCurrency"));
+  if (!linkOrder && !isCurrencyCode(currency)) at("currency", t("paymentNeedsCurrency"));
   const amount = typeof cfg.amount === "string" ? cfg.amount.trim() : typeof cfg.amount === "number" ? String(cfg.amount) : "";
-  if (!amount) {
+  if (linkOrder) {
+    // Nothing to check: the order's due amount is read when the step runs.
+  } else if (!amount) {
     at("amount", t("paymentNeedsAmount"));
   } else if (!amount.includes("{{") && isCurrencyCode(currency)) {
     // A fixed amount is checked now; one built from variables is checked when the step runs.

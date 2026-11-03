@@ -98,7 +98,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl || !authUrl)('public booking 
     const page = await response.json();
     expect(page).toEqual({ title: 'Book a visit', businessName: 'Acme Clinic', services: [{
       id: ids.service, name: 'Free consultation', mode: 'offline', durationMinutes: 30, priceMinor: 0, currency: 'INR', group: false,
-      locations: [{ id: ids.location, name: 'Main', address: 'MG Road', timezone: 'Asia/Kolkata', kind: 'physical',
+      paymentRequired: false, locations: [{ id: ids.location, name: 'Main', address: 'MG Road', timezone: 'Asia/Kolkata', kind: 'physical',
         staff: [{ id: ids.staff, displayName: 'Dr Rao' }] }],
     }] });
   });

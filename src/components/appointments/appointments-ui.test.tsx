@@ -95,10 +95,12 @@ describe('serviceBody', () => {
     expect(serviceBody({ ...EMPTY_SERVICE, name: 'x', price: 'abc', currency: 'INR' })).toEqual({ invalid: 'price_minor' });
   });
 
-  it('never sends advance payment (not supported until payments)', () => {
+  it('sends advance payment only with a positive price', () => {
     const r = serviceBody({ ...EMPTY_SERVICE, name: 'Paid', price: '500', currency: 'inr', mode: 'online', meetingUrl: 'https://meet.test/a' });
-    expect('body' in r && r.body).toMatchObject({ price_minor: 50000, currency: 'INR', meeting_url: 'https://meet.test/a' });
-    expect('body' in r && 'payment_required' in r.body).toBe(false);
+    expect('body' in r && r.body).toMatchObject({ price_minor: 50000, currency: 'INR', meeting_url: 'https://meet.test/a', payment_required: false });
+    const paid = serviceBody({ ...EMPTY_SERVICE, name: 'Paid', price: '500', currency: 'INR', paymentRequired: true });
+    expect('body' in paid && paid.body).toMatchObject({ payment_required: true, price_minor: 50000 });
+    expect(serviceBody({ ...EMPTY_SERVICE, name: 'Free', paymentRequired: true })).toEqual({ invalid: 'payment_required' });
   });
 });
 

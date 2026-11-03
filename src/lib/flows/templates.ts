@@ -31,6 +31,7 @@ import type {
   SendButtonsNodeConfig,
   SendListNodeConfig,
   SendMessageNodeConfig,
+  SendStorefrontLinkNodeConfig,
   SetAttributeNodeConfig,
   StartNodeConfig,
 } from "./types";
@@ -49,6 +50,7 @@ export type FlowTemplateNodeType =
   | "ask_location"
   | "ask_address"
   | "book_appointment"
+  | "send_storefront_link"
   | "handoff"
   | "end";
 
@@ -68,6 +70,7 @@ export interface FlowTemplateNode {
     | AskLocationNodeConfig
     | AskAddressNodeConfig
     | BookAppointmentNodeConfig
+    | SendStorefrontLinkNodeConfig
     | Record<string, unknown>;
 }
 
@@ -661,6 +664,40 @@ function freeConsultation(): FlowTemplate {
   ]);
 }
 
+/**
+ * J4 Ayurvedic store (Phase 8): a four-row menu. Shop and My orders send a
+ * secure storefront link bound to this contact (send_storefront_link; the
+ * store or status page, never a saved profile); when the store is off or
+ * the contact has no order the step takes its failed port. Consult books a
+ * free service (flow bookings never take paid services). Talk to us hands
+ * over. A WA-02 welcome menu reaches it through its Ayurvedic option (a
+ * connect_flow step in the workspace's own menu), so it never replaces those
+ * journeys.
+ */
+function ayurvedicStore(): FlowTemplate {
+  const s = scoped("ayurvedic_store");
+  const link = (key: string, purpose: "shop" | "status", message: string, failed: string) =>
+    node(key, "send_storefront_link", {
+      message, purpose, ttl_hours: 24, next_node_key: "end", failed_next: failed,
+    } as SendStorefrontLinkNodeConfig);
+  return template("ayurvedic_store", "health", "Leaf", "keyword", [
+    startAt("menu"),
+    list("menu", s("text"), s("buttonLabel"), [
+      ["shop", s("shopRow"), "shop", s("shopDescription")],
+      ["consult", s("consultRow"), "consult", s("consultDescription")],
+      ["orders", s("ordersRow"), "orders", s("ordersDescription")],
+      ["talk", s("talkRow"), "agent", s("talkDescription")],
+    ]),
+    link("shop", "shop", s("shopMessage"), "shop_offline"),
+    say("shop_offline", s("shopOffline"), "agent"),
+    book("consult", { success: "end", unavailable: "agent", cancelled: "end" }),
+    link("orders", "status", s("ordersMessage"), "no_orders"),
+    say("no_orders", s("noOrders"), "end"),
+    handoff("agent", s("handoffNote")),
+    END,
+  ]);
+}
+
 function clinicTriage(): FlowTemplate {
   const s = scoped("clinic_triage");
   return template("clinic_triage", "health", "Stethoscope", "keyword", [
@@ -1057,6 +1094,7 @@ const TEMPLATES: Record<string, FlowTemplate> = Object.fromEntries(
     foodOrder(),
     clinicAppointment(),
     freeConsultation(),
+    ayurvedicStore(),
     clinicTriage(),
     courseEnquiry(),
     admissionEnquiry(),

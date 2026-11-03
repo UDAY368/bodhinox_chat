@@ -24,6 +24,12 @@ export const FEATURE_PERMISSIONS = {
   'settings.billing': 'admin',
   'appointments.manage': 'agent',
   'appointments.settings': 'admin',
+  // Phase 8: stock adjustments, refunds and staff-recorded payments are finance actions (admin ceiling);
+  // sending a contact a storefront link is an agent action.
+  'commerce.inventory': 'admin',
+  'commerce.refunds': 'admin',
+  'commerce.record_payments': 'admin',
+  'commerce.checkout': 'agent',
 } as const satisfies Record<string, AccountRole>;
 
 export type FeaturePermission = keyof typeof FEATURE_PERMISSIONS;

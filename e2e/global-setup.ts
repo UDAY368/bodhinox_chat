@@ -6,6 +6,7 @@ import { config } from 'dotenv';
 import pg from 'pg';
 import { FIXTURES_FILE, type Fixtures, type Role, type SeededUser } from './fixtures';
 import { deriveManageToken, manageTokenHash } from '../src/lib/appointments/tokens';
+import { deriveStorefrontToken, storefrontTokenHash } from '../src/lib/commerce/storefront-token';
 
 /** Owner connection to the isolated test database; refuses anything else. */
 export async function testDatabase(): Promise<pg.Client> {
@@ -38,6 +39,7 @@ export default async function globalSetup() {
   const accountA = randomUUID(), accountB = randomUUID();
   const contact = { id: randomUUID(), name: `E2E Consent ${runId}` };
   let appointments!: Fixtures['appointments'];
+  let commerce!: Fixtures['commerce'];
   const members: [string, SeededUser, Role][] = [
     ...roles.map((role) => [accountA, users[role], role] as [string, SeededUser, Role]),
     [accountB, outsider, 'owner'],
@@ -67,6 +69,7 @@ export default async function globalSetup() {
     await db.query("INSERT INTO message_templates(account_id,user_id,name,body_text,status) VALUES($1,$2,'e2e_template','Hello from E2E','APPROVED')",
       [accountA, users.owner.id]);
     appointments = await seedAppointments(db, accountA, contact.id, runId);
+    commerce = await seedCommerce(db, accountA, users.owner.id, contact.id, runId);
   } catch (error) {
     await db.query('ROLLBACK');
     throw error;
@@ -74,7 +77,7 @@ export default async function globalSetup() {
     await db.end();
   }
 
-  const data: Fixtures = { runId, accountA, accountB, users, outsider, contact, appointments };
+  const data: Fixtures = { runId, accountA, accountB, users, outsider, contact, appointments, commerce };
   fs.mkdirSync(path.dirname(FIXTURES_FILE), { recursive: true });
   fs.writeFileSync(FIXTURES_FILE, JSON.stringify(data, null, 2));
 }
@@ -117,4 +120,67 @@ async function seedAppointments(db: pg.Client, accountId: string, contactId: str
     [ids.appointmentId, accountId, contactId, ids.serviceId, ids.staffId, ids.locationId, appointmentDate, timezone, manageTokenHash(manageToken)]);
   return { serviceId: ids.serviceId, staffId: ids.staffId, locationId: ids.locationId, timezone, pageSlug,
     appointmentId: ids.appointmentId, appointmentDate, manageToken };
+}
+
+/** Financial year April-March, e.g. 2026-27 (the receipt numbering of lib/commerce/documents). */
+function financialYear(date: Date): string {
+  const start = date.getUTCMonth() >= 3 ? date.getUTCFullYear() : date.getUTCFullYear() - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+/**
+ * Phase 8 seed (owner connection). Amounts are minor units: 499.00 including
+ * 18% tax plus 50.00 shipping (taxed the same way) = 549.00; the inclusive tax
+ * is 76.12 + 7.63 = 83.75, split CGST 41.88 / SGST 41.87 (seller and buyer in state 29).
+ */
+async function seedCommerce(db: pg.Client, accountId: string, ownerId: string, contactId: string, runId: string): Promise<Fixtures['commerce']> {
+  const ids = { productId: randomUUID(), variantId: randomUUID(), sessionId: randomUUID(), secondSessionId: randomUUID(),
+    secondContactId: randomUUID(), paidOrderId: randomUUID(), paymentId: randomUUID() };
+  const sku = `E2E-${runId}`;
+  const productName = `E2E Ashwagandha ${runId}`;
+  await db.query(`INSERT INTO commerce_settings(account_id,currency,prices_include_tax,default_tax_rate_bps,checkout_enabled,
+      legal_name,state_code,document_prefix,storefront_title) VALUES($1,'INR',true,1800,true,'E2E Ayurveda Store','29','RCPT','E2E Store')`,
+    [accountId]);
+  await db.query(`INSERT INTO shipping_rates(account_id,name,country,fee_minor) VALUES($1,'India','IN',5000)`, [accountId]);
+  await db.query(`INSERT INTO shop_products(id,account_id,name,description,status,content_reviewed_by,content_reviewed_at)
+    VALUES($1,$2,$3,'Herbal supplement, 60 tablets.','published',$4,NOW())`, [ids.productId, accountId, productName, ownerId]);
+  await db.query(`INSERT INTO shop_variants(id,account_id,product_id,sku,option_values,price_minor,hsn_code)
+    VALUES($1,$2,$3,$4,'{"Size":"60 tablets"}',49900,'30049011')`, [ids.variantId, accountId, ids.productId, sku]);
+  await db.query('INSERT INTO inventory_levels(account_id,variant_id,on_hand,reserved) VALUES($1,$2,1,0)', [accountId, ids.variantId]);
+  await db.query(`INSERT INTO inventory_movements(account_id,variant_id,kind,quantity,on_hand_after,reserved_after,reason,actor_user_id)
+    VALUES($1,$2,'receipt',1,1,0,'E2E seed',$3)`, [accountId, ids.variantId, ownerId]);
+  await db.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,$4,$5)",
+    [ids.secondContactId, accountId, ownerId, `E2E Shopper ${runId}`, `1416${String(Date.now()).slice(-7)}`]);
+  const token = deriveStorefrontToken(ids.sessionId, 1);
+  const secondToken = deriveStorefrontToken(ids.secondSessionId, 1);
+  await db.query(`INSERT INTO storefront_sessions(id,account_id,token_hash,contact_id,purpose,expires_at)
+    VALUES($1,$2,$3,$4,'shop',NOW() + interval '24 hours'),($5,$2,$6,$7,'shop',NOW() + interval '24 hours')`,
+    [ids.sessionId, accountId, storefrontTokenHash(token), contactId, ids.secondSessionId, storefrontTokenHash(secondToken), ids.secondContactId]);
+
+  const address = { name: 'E2E Shopper', phone: '+919900000000', line1: '1 MG Road', city: 'Bengaluru', state: 'Karnataka',
+    state_code: '29', postal_code: '560001', country: 'IN' };
+  await db.query(`INSERT INTO orders(id,account_id,source,contact_id,currency,subtotal_minor,discount_minor,shipping_minor,tax_minor,
+      tax_inclusive,total_minor,status,priced_at,shipping_address,paid_at,amount_paid_minor,checkout_attempt)
+    VALUES($1,$2,'storefront',$3,'INR',49900,0,5000,8375,true,54900,'paid',NOW() - interval '1 hour',$4,NOW() - interval '50 minutes',54900,1)`,
+    [ids.paidOrderId, accountId, contactId, JSON.stringify(address)]);
+  await db.query(`INSERT INTO order_items(account_id,order_id,variant_id,sku,retailer_id,name,quantity,unit_price_minor,currency,
+      tax_rate_bps,tax_minor,discount_minor,line_total_minor,hsn_code)
+    VALUES($1,$2,$3,$4,$4,$5,1,49900,'INR',1800,7612,0,49900,'30049011')`, [accountId, ids.paidOrderId, ids.variantId, sku, productName]);
+  await db.query(`INSERT INTO customer_payments(id,account_id,source,order_id,amount_minor,currency,status,method,offline_reference,
+      recorded_by,captured_at,settlement) VALUES($1,$2,'offline',$3,54900,'INR','captured','cash','E2E-SEED',$4,NOW() - interval '50 minutes','settled')`,
+    [ids.paymentId, accountId, ids.paidOrderId, ownerId]);
+  await db.query(`INSERT INTO order_events(account_id,order_id,kind,from_status,to_status,actor) VALUES
+    ($1,$2,'priced',NULL,'awaiting_payment','customer'),($1,$2,'payment_captured','awaiting_payment','paid','system')`,
+    [accountId, ids.paidOrderId]);
+  const fy = financialYear(new Date());
+  const receiptNumber = `RCPT/${fy}/1`;
+  await db.query('INSERT INTO commerce_document_sequences(account_id,fy,next_number) VALUES($1,$2,2)', [accountId, fy]);
+  await db.query(`INSERT INTO commerce_documents(account_id,order_id,payment_id,kind,number,fy,currency,seller,buyer,address,line_items,
+      subtotal_minor,discount_minor,shipping_minor,tax_minor,cgst_minor,sgst_minor,igst_minor,total_minor)
+    VALUES($1,$2,$3,'receipt',$4,$5,'INR',$6,$7,$8,$9,49900,0,5000,8375,4188,4187,0,54900)`,
+    [accountId, ids.paidOrderId, ids.paymentId, receiptNumber, fy,
+      JSON.stringify({ legal_name: 'E2E Ayurveda Store', state_code: '29' }), JSON.stringify({ name: 'E2E Shopper' }), JSON.stringify(address),
+      JSON.stringify([{ sku, name: productName, hsn_code: '30049011', quantity: 1, unit_price_minor: 49900, tax_rate_bps: 1800,
+        tax_minor: 7612, line_total_minor: 49900 }])]);
+  return { productId: ids.productId, productName, variantId: ids.variantId, sku, token, secondToken, paidOrderId: ids.paidOrderId, receiptNumber };
 }

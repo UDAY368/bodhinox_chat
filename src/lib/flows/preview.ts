@@ -409,6 +409,12 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
         key = str(cfg.next_node_key);
         continue;
 
+      case "send_storefront_link":
+        // The engine issues a contact-bound link; a placeholder stands in for it and the run carries on.
+        push({ from: "bot", nodeKey, text: [str(cfg.message).trim(), "https://…/shop/…"].filter(Boolean).join("\n") });
+        key = str(cfg.next_node_key);
+        continue;
+
       case "conversion_event":
         // Simulated: nothing is queued or sent to Meta from the preview.
         push({ from: "system", nodeKey, note: "conversion_event", detail: str(cfg.event_name) || undefined });

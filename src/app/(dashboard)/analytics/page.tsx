@@ -9,6 +9,7 @@ import type { AgentLeaderboardRow, AiStats, CampaignFunnel as Funnel, FlowStats 
 import { AgentLeaderboard } from '@/components/analytics/agent-leaderboard';
 import { AiSection } from '@/components/analytics/ai-section';
 import { CampaignFunnel } from '@/components/analytics/campaign-funnel';
+import { CommerceCard } from '@/components/analytics/commerce-card';
 import { FlowDropOff } from '@/components/analytics/flow-dropoff';
 import { ConversationCharts, OverviewTiles, type OverviewReport } from '@/components/analytics/overview-section';
 import { NumberFilter, RangePicker, rangeParams, type RangeValue } from '@/components/analytics/range-picker';
@@ -68,6 +69,7 @@ export default function AnalyticsPage() {
         error={flows.error}
         onRetry={flows.retry}
       />
+      {canSeeAi && <CommerceCard query={rangeQuery} />}
       {canSeeAi && <AiSection stats={ai.data?.stats ?? null} loading={ai.loading} error={ai.error} onRetry={ai.retry} />}
       {number && <p className="text-xs text-muted-foreground">{t('numberScope')}</p>}
       {accountRole && hasMinRole(accountRole, 'admin') && <ReportsTab canManage />}

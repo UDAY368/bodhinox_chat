@@ -23,6 +23,11 @@ describe('paymentLinkIssues', () => {
     expect(fields({ ...good, currency: 'rs' })).toContain('currency');
     expect(fields({ ...good, paid_next: '' })).toContain('paid_next');
   });
+  it('charges the run order without an amount or currency when link_order is on', () => {
+    expect(fields({ ...good, amount: '', currency: '', link_order: true })).toEqual([]);
+    expect(fields({ ...good, link_order: 'yes' })).toContain('link_order');
+    expect(fields({ ...good, amount: '', link_order: false })).toContain('amount');
+  });
   it('lets the expired and failed ports stay unwired, but not point nowhere', () => {
     expect(fields({ ...good, expired_next: '', failed_next: undefined })).toEqual([]);
     expect(fields({ ...good, expired_next: 'gone' })).toEqual(['expired_next']);

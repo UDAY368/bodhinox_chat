@@ -76,11 +76,13 @@
     "forms": "Formularios",
     "commerce": "Comercio",
     "orders": "Pedidos",
-    "products": "Productos",
+    "products": "Catálogo de Meta",
     "payments": "Pagos",
     "analytics": "Analíticas",
     "ads": "Anuncios",
-    "appointments": "Citas"
+    "appointments": "Citas",
+    "catalogue": "Catálogo",
+    "storeSettings": "Ajustes de la tienda"
   },
   "Header": {
     "dashboard": "Panel",
@@ -429,7 +431,8 @@
       "sendForm": "Enviar formulario",
       "sendProducts": "Enviar productos",
       "sendPaymentLink": "Enviar enlace de pago",
-      "mediaLibrary": "Biblioteca de medios"
+      "mediaLibrary": "Biblioteca de medios",
+      "sendStorefrontLink": "Enviar enlace de la tienda"
     },
     "bubble": {
       "photo": "Foto",
@@ -2088,7 +2091,18 @@
         "conversionHelp": "Se envía una vez por ejecución, solo si el cliente llegó desde un anuncio en los últimos 7 días. El flujo siempre continúa.",
         "conversionNotEnabled": "La API de conversiones no está activada, así que este paso no envía nada y continúa.",
         "conversionNext": "Después ir a",
-        "conversionPurchaseNote": "Las compras se informan automáticamente cuando se paga un enlace de pago o un pedido, por eso no aparecen aquí."
+        "conversionPurchaseNote": "Las compras se informan automáticamente cuando se paga un enlace de pago o un pedido, por eso no aparecen aquí.",
+        "paymentLinkOrder": "Cobrar el pedido de este flujo",
+        "paymentLinkOrderHelp": "Para flujos iniciados por un pedido. El enlace pide lo que queda por pagar de ese pedido, en su moneda. Un pedido que tu tienda aún no ha tarifado se rechaza mientras el pago en la tienda esté activado.",
+        "storefrontPurpose": "El enlace abre",
+        "storefrontPurposeShop": "La tienda",
+        "storefrontPurposeStatus": "Su último pedido",
+        "storefrontMessage": "Mensaje (máx. {max} caracteres)",
+        "storefrontMessageHelp": "Se envía encima del enlace dentro de la ventana de 24 horas. Puedes usar '{{'vars.name'}}'.",
+        "storefrontTtl": "Validez del enlace (horas)",
+        "storefrontTtlHelp": "Entre {min} y {max} horas. Déjalo vacío para 24.",
+        "storefrontNext": "Paso siguiente tras el envío",
+        "storefrontFailedNext": "Si no se puede enviar el enlace"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -2199,6 +2213,10 @@
         "book_appointment": {
           "label": "Reservar cita",
           "blurb": "Ofrece horarios libres por WhatsApp y reserva el que elija el cliente"
+        },
+        "send_storefront_link": {
+          "label": "Enlace de la tienda",
+          "blurb": "Envía al contacto un enlace seguro a tu tienda o a su último pedido"
         }
       },
       "ports": {
@@ -2380,7 +2398,10 @@
       "aiReplyDefault": "Responde con el agente de IA",
       "conversionDefault": "Envía {event} a Meta",
       "appointmentAllServices": "Todos los servicios reservables",
-      "appointmentServices": "{count, plural, one {# servicio} other {# servicios}}"
+      "appointmentServices": "{count, plural, one {# servicio} other {# servicios}}",
+      "paymentOrder": "Cobra el pedido del flujo",
+      "storefrontShop": "Enlace de la tienda",
+      "storefrontStatus": "Enlace al estado del pedido"
     },
     "header": {
       "backToFlows": "Volver a flujos",
@@ -3262,7 +3283,8 @@
         "click_tracking": "Seguimiento de clics",
         "retargeting": "Retargeting por campaña",
         "workspace_attributes": "Atributos del espacio de trabajo",
-        "appointments": "Citas"
+        "appointments": "Citas",
+        "storefront": "Tienda y pagos en línea"
       },
       "limits": {
         "seats": "Miembros e invitaciones abiertas",
@@ -3624,7 +3646,11 @@
         "templates_submit": "Enviar plantillas a WhatsApp",
         "settings_billing": "Gestionar plan y facturación",
         "appointments_manage": "Reservar y gestionar citas",
-        "appointments_settings": "Configurar citas y páginas de reserva"
+        "appointments_settings": "Configurar citas y páginas de reserva",
+        "commerce_inventory": "Ajustar existencias",
+        "commerce_refunds": "Reembolsar pagos de clientes",
+        "commerce_record_payments": "Registrar pagos fuera de línea",
+        "commerce_checkout": "Enviar enlaces de la tienda"
       }
     },
     "auditLog": {
@@ -3880,7 +3906,9 @@
       "billing": "Facturación",
       "appointment_booked": "Nueva reserva",
       "appointment_cancelled": "Reserva cancelada",
-      "appointment_rescheduled": "Reserva movida"
+      "appointment_rescheduled": "Reserva movida",
+      "low_stock": "Existencias bajas",
+      "payment_exception": "Pago por revisar"
     }
   },
   "Agents": {
@@ -4489,6 +4517,26 @@
       "askCity": "¿En qué ciudad estás?",
       "askState": "¿Y en qué estado o provincia?",
       "handoffNote": "Solicitud de consulta gratuita ({mode}) de {name}, {city}, {state}. No se pudo reservar un horario libre; haz el seguimiento."
+    },
+    "ayurvedic_store": {
+      "name": "Tienda ayurvédica",
+      "description": "Compra productos ayurvédicos con un enlace seguro a la tienda, reserva una consulta gratuita, consulta un pedido o habla con el equipo.",
+      "keywords": "ayurveda,tienda ayurvédica,productos herbales",
+      "text": "¡Hola! ¿Cómo podemos ayudarte hoy?",
+      "buttonLabel": "Ver opciones",
+      "shopRow": "Comprar productos",
+      "shopDescription": "Explora y pide con un enlace seguro",
+      "consultRow": "Reservar consulta",
+      "consultDescription": "Una consulta gratuita con nuestro especialista",
+      "ordersRow": "Mis pedidos",
+      "ordersDescription": "Consulta el estado de tu último pedido",
+      "talkRow": "Hablar con nosotros",
+      "talkDescription": "Escribe a nuestro equipo",
+      "shopMessage": "Aquí tienes tu enlace personal a la tienda. Es solo para ti y funciona durante 24 horas:",
+      "shopOffline": "Nuestra tienda en línea no está abierta ahora. Alguien de nuestro equipo te ayudará aquí.",
+      "ordersMessage": "Este es el estado de tu último pedido:",
+      "noOrders": "Todavía no encontramos ningún pedido tuyo.",
+      "handoffNote": "Tienda ayurvédica: el cliente pidió hablar con el equipo."
     }
   },
   "LibErrors": {
@@ -4720,7 +4768,13 @@
       "appointmentMode": "Elige en línea, presencial o ambos.",
       "appointmentLocation": "Elige una ubicación de la lista.",
       "appointmentStaffMode": "Elige cómo se asigna el profesional.",
-      "appointmentDays": "Los días a ofrecer deben ser un número entero de {min} a {max}."
+      "appointmentDays": "Los días a ofrecer deben ser un número entero de {min} a {max}.",
+      "paymentInvalidLinkOrder": "«Cobrar el pedido» debe estar activado o desactivado.",
+      "storefrontNeedsMessage": "Escribe el mensaje que se envía con el enlace.",
+      "storefrontMessageTooLong": "El mensaje no puede superar {max} caracteres.",
+      "storefrontInvalidTtl": "Elige una validez del enlace entre {min} y {max} horas.",
+      "storefrontInvalidPurpose": "Elige si el enlace abre la tienda o el último pedido del contacto.",
+      "storefrontNeedsNext": "Conecta el paso que sigue cuando se envía el enlace."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -5009,7 +5063,8 @@
       "invalidFilter": "Ese filtro no es válido.",
       "invalidRequest": "La solicitud no es válida.",
       "sendUncertain": "No pudimos confirmar que el mensaje se entregara. No se volverá a enviar automáticamente; revisa antes la conversación.",
-      "sendRejected": "WhatsApp rechazó el mensaje, así que no se envió."
+      "sendRejected": "WhatsApp rechazó el mensaje, así que no se envió.",
+      "link_exists": "Este pedido o cita ya tiene un enlace de pago abierto. Cancela o revisa ese enlace primero."
     },
     "commerceEvents": {
       "resolution": "Indica si el cliente recibió el mensaje.",
@@ -6371,14 +6426,18 @@
         "confirmed": "Confirmado",
         "awaiting_payment": "Pendiente de pago",
         "paid": "Pagado",
-        "fulfilled": "Entregado",
-        "cancelled": "Cancelado"
+        "fulfilled": "Entregado (registrado por el equipo)",
+        "cancelled": "Cancelado",
+        "payment_review": "Pago en revisión",
+        "dispatched": "Enviado",
+        "expired": "Caducado"
       },
       "sources": {
         "whatsapp": "WhatsApp",
         "shopify": "Shopify",
         "woocommerce": "WooCommerce",
-        "manual": "Manual"
+        "manual": "Manual",
+        "storefront": "Tienda"
       },
       "detail": {
         "back": "Todos los pedidos",
@@ -6442,6 +6501,91 @@
         "more": "{count, plural, =1 {+1 artículo más} other {+# artículos más}}",
         "total": "Total",
         "view": "Ver pedido"
+      },
+      "refundStates": {
+        "none": "Sin reembolso",
+        "partial": "Reembolsado en parte",
+        "full": "Reembolsado"
+      },
+      "lifecycle": {
+        "title": "Envío",
+        "trackingShown": "Seguimiento: {note}",
+        "trackingLabel": "Nota de seguimiento (opcional)",
+        "trackingPlaceholder": "Mensajería y número de seguimiento",
+        "dispatch": "Marcar como enviado",
+        "dispatched": "Envío registrado",
+        "deliver": "Marcar como entregado",
+        "delivered": "Entrega registrada",
+        "staffRecorded": "Lo registra tu equipo; Bodhinox no sigue a las mensajerías.",
+        "feedbackLabel": "Valoración del cliente",
+        "feedbackScore": "Puntuación {score} de 5",
+        "feedbackSaved": "Valoración registrada",
+        "cancelRefund": "Cancelar y reembolsar",
+        "cancelRefundConfirm": "Se reembolsa lo que aún se puede reembolsar de cada pago de este pedido y luego se cancela. El stock vuelve cuando se procesa el reembolso.",
+        "refundNotePlaceholder": "Motivo (opcional, interno)",
+        "cancelRefundGo": "Cancelar y reembolsar",
+        "cancelRefundDone": "Reembolso solicitado y pedido cancelado",
+        "back": "Volver",
+        "conflict": "Otra persona cambió este pedido. Se ha recargado.",
+        "forbidden": "Tu rol no puede hacer esto.",
+        "notAllowed": "Ahora no está permitido para este pedido.",
+        "error": "No se pudo actualizar el pedido",
+        "subtotal": "Subtotal",
+        "discount": "Descuento",
+        "discountCode": "Descuento ({code})",
+        "shipping": "Envío",
+        "tax": "Impuestos",
+        "taxIncluded": "Impuestos incluidos",
+        "paid": "Pagado {amount}",
+        "refunded": "Reembolsado {amount}",
+        "cancelRefundOutsideNeeded": "Parte de este pedido no se pagó con Razorpay (un pago que registró tu equipo o un pedido pagado antes de que se registraran los pagos). Devuelve ese dinero por el mismo medio con el que se pagó y confirma abajo para cancelar.",
+        "cancelRefundOutsideConfirm": "He devuelto fuera de Bodhinox el dinero que no se pagó con Razorpay",
+        "cancelRefundDoneOutside": "Pedido cancelado. Se registró el reembolso hecho fuera de Bodhinox."
+      },
+      "timeline": {
+        "title": "Historial",
+        "empty": "Aún no hay cambios.",
+        "statusChanged": "{from} → {to}",
+        "byStaff": "por {name}",
+        "teamMember": "un miembro del equipo",
+        "actors": {
+          "customer": "por el cliente",
+          "system": "automáticamente"
+        },
+        "events": {
+          "status_changed": "Estado cambiado",
+          "feedback": "Valoración registrada",
+          "document_issued": "Documento emitido",
+          "return_requested": "Devolución abierta",
+          "return_received": "Devolución recibida",
+          "return_inspected": "Devolución inspeccionada",
+          "return_closed": "Devolución cerrada",
+          "return_rejected": "Devolución rechazada",
+          "return_refund_requested": "Reembolso de devolución solicitado",
+          "other": "Evento: {kind}"
+        },
+        "documents": "Documentos",
+        "documentKinds": {
+          "receipt": "Recibo",
+          "credit_note": "Nota de crédito"
+        },
+        "messages": "Avisos al cliente",
+        "messageKinds": {
+          "checkout_link": "Enlace de compra",
+          "payment_link": "Enlace de pago",
+          "receipt": "Recibo",
+          "dispatched": "Aviso de envío",
+          "delivered": "Aviso de entrega",
+          "feedback": "Solicitud de valoración",
+          "product_follow_up": "Seguimiento del producto"
+        },
+        "messageStatuses": {
+          "sent": "Enviado",
+          "skipped": "Omitido",
+          "blocked": "Bloqueado",
+          "failed": "Falló",
+          "outcome_unknown": "Requiere revisión"
+        }
       }
     },
     "attention": {
@@ -6461,12 +6605,424 @@
         "order_cancelled": "Pedido cancelado",
         "checkout_abandoned": "Carrito abandonado"
       }
+    },
+    "catalogue": {
+      "title": "Catálogo",
+      "description": "Los productos que vendes con enlaces de tienda y pago. Los precios, impuestos y existencias de aquí son lo que se cobra; el catálogo de Meta queda como copia de solo lectura.",
+      "tabs": {
+        "products": "Productos",
+        "categories": "Categorías",
+        "inventory": "Inventario",
+        "meta": "Vínculo con el catálogo de Meta"
+      },
+      "statuses": {
+        "draft": "Borrador",
+        "published": "Publicado",
+        "archived": "Archivado"
+      },
+      "errors": {
+        "invalid": "Revisa el valor indicado e inténtalo de nuevo.",
+        "not_found": "Este elemento ya no existe.",
+        "conflict": "Otra persona cambió este producto. Se ha recargado; vuelve a hacer el cambio.",
+        "sku_taken": "Otra variante ya usa este SKU.",
+        "store_not_configured": "Define la moneda de la tienda en Ajustes de la tienda antes de añadir precios.",
+        "needs_priced_variant": "Un producto publicado necesita al menos una variante activa con precio.",
+        "category_depth": "Las categorías solo pueden tener dos niveles.",
+        "category_has_children": "Una categoría con subcategorías no se puede mover bajo otra.",
+        "not_tracked": "Esta variante no controla existencias.",
+        "stock_changed": "Las existencias cambiaron desde que abriste esto (por ejemplo, una venta). Se han recargado; revisa la cantidad e inténtalo de nuevo.",
+        "below_reserved": "Las existencias no pueden quedar por debajo de las unidades reservadas para pedidos abiertos.",
+        "forbidden": "Tu rol no puede hacer esto.",
+        "rate_limited": "Demasiados cambios a la vez. Espera un momento e inténtalo de nuevo.",
+        "generic": "Algo salió mal. Inténtalo de nuevo."
+      },
+      "products": {
+        "newName": "Nombre del nuevo producto",
+        "create": "Añadir producto",
+        "search": "Buscar por nombre o SKU",
+        "statusFilter": "Estado",
+        "activeStatuses": "Borradores y publicados",
+        "allStatuses": "Todos, también archivados",
+        "stockFilter": "Existencias",
+        "allStock": "Cualquier existencia",
+        "stock": {
+          "in_stock": "Disponible",
+          "low": "Pocas existencias",
+          "out": "Agotado"
+        },
+        "categoryFilter": "Categoría",
+        "allCategories": "Todas las categorías",
+        "loading": "Cargando productos",
+        "loadError": "No se pudieron cargar los productos.",
+        "noMatches": "Ningún producto coincide con estos filtros.",
+        "empty": "Aún no hay productos. Añade uno o importa borradores desde el vínculo con el catálogo de Meta.",
+        "colProduct": "Producto",
+        "colStatus": "Estado",
+        "colPrice": "Precio",
+        "colStock": "Existencias",
+        "variants": "{count, plural, one {# variante} other {# variantes}}",
+        "noPrice": "Sin precio",
+        "madeToOrder": "Bajo pedido",
+        "available": "{count} disponibles",
+        "range": "{from}–{to} de {total}",
+        "previous": "Página anterior",
+        "next": "Página siguiente"
+      },
+      "categories": {
+        "name": "Nombre de la categoría",
+        "parent": "Categoría superior",
+        "none": "Nivel superior",
+        "add": "Añadir categoría",
+        "empty": "Aún no hay categorías.",
+        "products": "{count, plural, one {# producto} other {# productos}}",
+        "archived": "Archivada",
+        "archive": "Archivar",
+        "restore": "Restaurar",
+        "saved": "Categoría guardada"
+      },
+      "meta": {
+        "description": "Las variantes se vinculan al catálogo de Meta copiado cuando el SKU coincide con el ID de contenido. Importar solo crea borradores; no cambia nada existente ni publica nada hasta que lo revises.",
+        "linked": "Vinculados ({count})",
+        "variantsWithout": "Variantes que no están en el catálogo de Meta ({count})",
+        "metaWithout": "Productos de Meta que no están en este catálogo ({count})",
+        "none": "Ninguno.",
+        "prices": "Precio {ours} · Meta {meta}",
+        "selectAll": "Seleccionar todo",
+        "import": "Importar {count} como borradores",
+        "importHint": "El precio de Meta solo se copia si está en la moneda de la tienda. Revisa cada borrador antes de publicarlo.",
+        "notImportable": "El ID de contenido no es un SKU válido",
+        "imported": "{count} borradores creados, {skipped} omitidos"
+      },
+      "editor": {
+        "notFound": "Este producto no existe.",
+        "back": "Catálogo",
+        "reviewed": "Contenido revisado el {date, date, medium}",
+        "notReviewed": "Contenido aún sin revisar",
+        "publish": "Revisar y publicar",
+        "publishHint": "Al publicar quedas registrado como revisor del nombre, la descripción y el aviso. Necesita al menos una variante con precio.",
+        "publishedToast": "Producto publicado",
+        "unpublish": "Retirar",
+        "unpublished": "Producto devuelto a borrador",
+        "archive": "Archivar",
+        "archivedToast": "Producto archivado",
+        "restore": "Restaurar",
+        "restored": "Producto restaurado como borrador",
+        "saved": "Producto guardado",
+        "details": "Detalles",
+        "name": "Nombre",
+        "category": "Categoría",
+        "noCategory": "Sin categoría",
+        "description": "Descripción",
+        "disclosure": "Aviso",
+        "disclosureHint": "Se muestra con el producto, por ejemplo notas de uso o regulatorias para productos ayurvédicos.",
+        "followUp": "Seguimiento tras la entrega",
+        "followUpTemplate": "Nombre de la plantilla",
+        "followUpLanguage": "Idioma de la plantilla",
+        "followUpDays": "Días tras la entrega",
+        "followUpHint": "Opcional. Una plantilla de utilidad aprobada que se envía una vez tras entregar el pedido.",
+        "rereviewHint": "Guardar texto modificado en un producto publicado te registra como su revisor.",
+        "save": "Guardar detalles",
+        "images": "Imágenes",
+        "noImages": "Sin imágenes.",
+        "imageUrl": "URL de la imagen",
+        "addImage": "Añadir imagen",
+        "removeImage": "Quitar imagen",
+        "saveImages": "Guardar imágenes",
+        "imagesHint": "Hasta 10 imágenes https, en este orden.",
+        "variants": "Variantes",
+        "currencyMissing": "Define la moneda en Ajustes de la tienda para añadir precios.",
+        "variantSaved": "Variante guardada",
+        "addVariant": "Nueva variante",
+        "archivedVariant": "Archivada",
+        "metaLinked": "En el catálogo de Meta",
+        "madeToOrder": "Bajo pedido",
+        "sku": "SKU",
+        "options": "Opciones",
+        "optionsPlaceholder": "Talla: M, Color: Azul",
+        "price": "Precio ({currency})",
+        "compareAt": "Precio anterior",
+        "taxRate": "Impuesto %",
+        "taxDefault": "Predeterminado de la tienda",
+        "hsn": "Código HSN",
+        "weight": "Peso (g)",
+        "trackInventory": "Controlar existencias",
+        "saveVariant": "Guardar variante",
+        "createVariant": "Añadir variante",
+        "invalid": {
+          "sku": "Letras, dígitos, punto, guion o guion bajo (hasta 64).",
+          "options": "Usa pares \"Nombre: valor\" separados por comas (hasta 4).",
+          "price": "Introduce un importe en la moneda de la tienda.",
+          "compareAt": "Introduce un importe en la moneda de la tienda.",
+          "tax": "Un porcentaje de 0 a 100, con hasta dos decimales.",
+          "hsn": "De 4 a 8 dígitos.",
+          "weight": "Gramos enteros, hasta 1.000.000."
+        }
+      }
+    },
+    "inventory": {
+      "search": "Buscar por producto o SKU",
+      "filterLabel": "Filtro de existencias",
+      "filter": {
+        "all": "Todo lo controlado",
+        "low": "Pocas existencias",
+        "out": "Agotado"
+      },
+      "empty": "Ninguna variante controlada coincide.",
+      "colProduct": "Producto",
+      "colSku": "SKU",
+      "colOnHand": "En almacén",
+      "colReserved": "Reservado",
+      "colAvailable": "Disponible",
+      "low": "Bajo",
+      "out": "Agotado",
+      "history": "Historial",
+      "adjust": "Ajustar existencias",
+      "stockLine": "En almacén {onHand} · reservado {reserved} · disponible {available}",
+      "movements": {
+        "title": "Historial de existencias",
+        "titleFor": "Historial de existencias: {label}",
+        "showAll": "Ver todo",
+        "empty": "Aún no hay cambios de existencias.",
+        "colWhen": "Cuándo",
+        "colItem": "Artículo",
+        "colKind": "Cambio",
+        "colQty": "Cant.",
+        "colAfter": "Después",
+        "colBy": "Por",
+        "after": "{onHand} en almacén, {reserved} reservadas",
+        "staff": "Equipo",
+        "system": "Sistema",
+        "more": "Cargar más",
+        "kinds": {
+          "adjustment": "Ajuste",
+          "receipt": "Recibido",
+          "reserve": "Reservado para pedido",
+          "release": "Reserva liberada",
+          "sale": "Vendido",
+          "return_restock": "Devuelto a existencias",
+          "write_off": "Dado de baja",
+          "refund_restock": "Repuesto tras reembolso"
+        }
+      },
+      "adjustDialog": {
+        "title": "Ajustar existencias",
+        "current": "en almacén {onHand}, reservado {reserved}",
+        "kind": "Tipo de cambio",
+        "kinds": {
+          "receipt": "Mercancía recibida",
+          "write_off": "Baja (dañado, caducado, perdido)",
+          "adjustment": "Corrección tras un recuento"
+        },
+        "quantity": "Cantidad",
+        "hints": {
+          "receipt": "Unidades que se suman a las existencias.",
+          "write_off": "Unidades que se restan de las existencias.",
+          "adjustment": "Usa un signo menos para restar unidades, por ejemplo -2."
+        },
+        "reason": "Nota (opcional)",
+        "reasonRequired": "Motivo (obligatorio)",
+        "cancel": "Cancelar",
+        "submit": "Guardar cambio",
+        "done": "Existencias actualizadas: {onHand} en almacén"
+      }
+    },
+    "lowStock": {
+      "title": "Stock bajo",
+      "body": "{product} ({sku}): quedan {available} para vender"
+    },
+    "settings": {
+      "errors": {
+        "invalid": "Revisa los valores marcados e inténtalo de nuevo.",
+        "not_found": "No encontrado.",
+        "conflict": "Esto cambió mientras tanto. Recarga e inténtalo de nuevo.",
+        "currency_locked": "La moneda no puede cambiar cuando una variante ya tiene precio.",
+        "invalid_gstin": "Introduce un GSTIN válido.",
+        "store_not_configured": "Configura primero la moneda y los impuestos de la tienda.",
+        "checkout_disabled": "El pago en línea está desactivado en esta tienda.",
+        "feature_unavailable": "La tienda en línea no está incluida en este plan.",
+        "coupon_code_taken": "Ya existe un cupón con este código.",
+        "cart_locked": "Este carrito ya no se puede cambiar.",
+        "address_required": "Añade primero una dirección de entrega.",
+        "quote_changed": "El total cambió. Revisa el nuevo total antes de pagar.",
+        "out_of_stock": "Algo del carrito acaba de agotarse.",
+        "coupon_exhausted": "Este cupón ya se agotó.",
+        "coupon_limit_reached": "Ya usaste este cupón.",
+        "order_not_open": "Este pedido ya no se puede pagar aquí.",
+        "no_order": "Este contacto aún no tiene pedidos.",
+        "contact_not_found": "Esta conversación no tiene un contacto que pueda recibir un enlace.",
+        "contact_blocked": "Este contacto está bloqueado.",
+        "outside_window": "El cliente no escribió en las últimas 24 horas, así que no se puede enviar el enlace como mensaje libre.",
+        "number_unavailable": "El número de WhatsApp de esta conversación no está conectado.",
+        "send_failed": "WhatsApp rechazó el mensaje. No se envió nada.",
+        "send_uncertain": "No pudimos confirmar si el enlace se entregó. Revisa la conversación antes de volver a enviarlo.",
+        "session_expired": "Este enlace caducó.",
+        "cart_empty": "El carrito está vacío.",
+        "invalid_cart": "No se pudo leer el carrito. Quita un artículo e inténtalo de nuevo.",
+        "variant_unavailable": "Un artículo del carrito ya no está a la venta.",
+        "price_not_configured": "Un artículo aún no tiene precio, así que no se puede comprar en línea.",
+        "tax_not_configured": "La tienda no configuró la tasa de impuesto de un artículo.",
+        "shipping_unavailable": "La tienda aún no entrega en esta dirección.",
+        "coupon_not_found": "Este código de cupón no existe.",
+        "coupon_inactive": "Este cupón no está activo.",
+        "coupon_not_started": "Este cupón aún no es válido.",
+        "coupon_expired": "Este cupón caducó.",
+        "coupon_min_subtotal": "El carrito no alcanza el mínimo de este cupón.",
+        "amount_out_of_range": "El importe es demasiado grande.",
+        "too_many_open_orders": "Este cliente ya tiene el máximo de pedidos sin pagar permitidos. Paga uno o espera a que caduque."
+      },
+      "title": "Ajustes de la tienda",
+      "subtitle": "Moneda, impuestos, pago, datos del vendedor, envío y cupones de tu tienda en línea.",
+      "loadError": "No se pudieron cargar los ajustes de la tienda.",
+      "loading": "Cargando",
+      "saved": "Ajustes de la tienda guardados.",
+      "generalTitle": "Pago e impuestos",
+      "generalHelp": "Los precios y los impuestos siempre salen de estos ajustes; si falta una tasa, el pago se detiene en lugar de cobrar sin impuestos.",
+      "checkoutEnabled": "Pago en línea activado",
+      "currency": "Moneda de la tienda",
+      "currencyLocked": "Bloqueada: ya hay variantes con precio en esta moneda.",
+      "currencyHelp": "Código de tres letras, por ejemplo INR.",
+      "defaultTax": "Tasa de impuesto predeterminada (%)",
+      "defaultTaxHelp": "Se usa cuando una variante no tiene tasa propia. Déjalo vacío para exigir una tasa en cada variante; 0 es una tasa cero explícita.",
+      "pricesIncludeTax": "Los precios incluyen impuestos",
+      "reservationMinutes": "Reserva de stock (minutos)",
+      "reservationHelp": "Cuánto tiempo un pedido reserva su stock mientras el cliente paga (15 a 60).",
+      "lowStockDefault": "Aviso de stock bajo en",
+      "returnWindowDays": "Plazo de devolución (días)",
+      "storefrontTitle": "Título de la tienda",
+      "sellerTitle": "Datos del vendedor en los recibos",
+      "legalName": "Razón social",
+      "gstin": "GSTIN",
+      "stateCode": "Código de estado",
+      "stateCodeHelp": "Dos caracteres; separa CGST y SGST de IGST.",
+      "documentPrefix": "Prefijo del número de recibo",
+      "sellerAddress": "Dirección del vendedor",
+      "checkoutTemplate": "Plantilla del enlace de pago",
+      "checkoutTemplateHelp": "Una plantilla UTILITY aprobada para carritos de WhatsApp fuera de la ventana de 24 horas. Su primera variable es el enlace y la segunda, la referencia del pedido.",
+      "noTemplate": "Ninguna",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "active": "Activo",
+      "inactive": "inactivo",
+      "shippingTitle": "Tarifas de envío",
+      "shippingHelp": "El pago rechaza una dirección que ninguna tarifa activa cubre. Gana el prefijo postal coincidente más largo.",
+      "noShipping": "Aún no hay tarifas de envío.",
+      "addShipping": "Añadir tarifa de envío",
+      "rateName": "Nombre",
+      "country": "Código de país",
+      "postalPrefixes": "Prefijos de código postal",
+      "postalPrefixesHelp": "Separados por comas. Vacío cubre todo el país.",
+      "fee": "Tarifa ({currency})",
+      "minSubtotal": "Pedido mínimo ({currency})",
+      "maxSubtotal": "Pedido máximo ({currency})",
+      "shippingTax": "Impuesto del envío (%)",
+      "shippingTaxHelp": "Vacío usa la tasa predeterminada.",
+      "couponsTitle": "Cupones",
+      "couponsHelp": "El código, el tipo y el valor de un cupón no cambian una vez creado.",
+      "noCoupons": "Aún no hay cupones.",
+      "redeemed": "{count} de {max} usados",
+      "addCoupon": "Añadir cupón",
+      "couponCode": "Código",
+      "couponKind": "Tipo",
+      "kindPercent": "Porcentaje de descuento",
+      "kindFixed": "Importe de descuento ({currency})",
+      "couponValue": "Valor",
+      "maxDiscount": "Descuento máximo ({currency})",
+      "maxRedemptions": "Usos totales",
+      "perContactLimit": "Usos por cliente",
+      "startsAt": "Empieza",
+      "endsAt": "Termina"
+    },
+    "storefrontLink": {
+      "title": "Enviar enlace de la tienda",
+      "description": "Un enlace seguro que solo este contacto puede usar. Muestra tu tienda o su último pedido, nunca sus otros datos.",
+      "purpose": "El enlace abre",
+      "purposeShop": "La tienda",
+      "purposeStatus": "Su último pedido",
+      "ttl": "Válido durante (horas)",
+      "ttlHelp": "De 1 a 168 horas. Enviar un nuevo enlace de tienda reemplaza el anterior.",
+      "message": "Mensaje",
+      "messageHelp": "Se envía encima del enlace. Requiere un mensaje del cliente en las últimas 24 horas.",
+      "defaultMessage": "Este es tu enlace seguro a nuestra tienda:",
+      "sent": "Enlace de la tienda enviado.",
+      "failed": "No se pudo enviar el enlace.",
+      "cancel": "Cancelar",
+      "send": "Enviar enlace"
+    },
+    "returns": {
+      "title": "Devoluciones",
+      "open": "Abrir devolución",
+      "chooseItems": "Indica cuántas unidades de cada artículo se devuelven.",
+      "notePlaceholder": "Motivo (interno)",
+      "create": "Crear devolución",
+      "created": "Devolución abierta",
+      "cancel": "Cancelar",
+      "none": "Sin devoluciones.",
+      "statuses": {
+        "requested": "Solicitada",
+        "received": "Recibida",
+        "inspected": "Inspeccionada",
+        "closed": "Cerrada",
+        "rejected": "Rechazada"
+      },
+      "dispositions": {
+        "restock": "Reponer",
+        "discard": "Desechar"
+      },
+      "refundLinked": "Reembolso solicitado",
+      "restocked": "Repuesto",
+      "receive": "Marcar como recibida",
+      "received": "Devolución recibida",
+      "reject": "Rechazar",
+      "rejected": "Devolución rechazada",
+      "inspect": "Guardar inspección",
+      "inspected": "Inspección guardada",
+      "refundAmount": "Importe a reembolsar",
+      "refund": "Reembolsar",
+      "refundRequested": "Reembolso solicitado",
+      "badAmount": "Introduce un importe válido.",
+      "closeRestock": "Cerrar y reponer",
+      "close": "Cerrar sin reponer",
+      "closed": "Devolución cerrada",
+      "forbidden": "Tu rol no puede hacer esto.",
+      "conflict": "Esta devolución o pedido cambió. Se ha recargado.",
+      "error": "No se pudo actualizar la devolución"
+    },
+    "documents": {
+      "print": {
+        "receipt": "Recibo",
+        "taxInvoice": "Factura con impuestos",
+        "creditNote": "Nota de crédito",
+        "number": "Número",
+        "date": "Fecha",
+        "seller": "Vendedor",
+        "gstin": "GSTIN",
+        "billTo": "Facturar a",
+        "shipTo": "Enviar a",
+        "item": "Artículo",
+        "hsn": "HSN",
+        "qty": "Cant.",
+        "price": "Precio",
+        "discount": "Descuento",
+        "tax": "Impuestos",
+        "amount": "Importe",
+        "subtotal": "Subtotal",
+        "shipping": "Envío",
+        "cgst": "CGST",
+        "sgst": "SGST",
+        "igst": "IGST",
+        "total": "Total",
+        "taxIncluded": "Los precios incluyen impuestos."
+      }
     }
   },
   "Payments": {
     "notifications": {
       "paidTitle": "Pago recibido",
-      "paidBody": "Se pagaron {amount} mediante un enlace de pago."
+      "paidBody": "Se pagaron {amount} mediante un enlace de pago.",
+      "exceptionTitle": "Un pago necesita revisión",
+      "exceptionBody": "{kind}. Abre Pagos → Excepciones para resolverlo."
     },
     "statuses": {
       "creating": "Creando",
@@ -6550,6 +7106,213 @@
       "failed": "No se pudo crear el enlace.",
       "copy": "Copiar enlace",
       "copyFailed": "No se pudo copiar."
+    },
+    "tabs": {
+      "links": "Enlaces",
+      "payments": "Pagos de clientes",
+      "exceptions": "Excepciones",
+      "reconciliation": "Conciliación"
+    },
+    "customer": {
+      "loadFailed": "No se pudieron cargar los pagos.",
+      "empty": "Aún no hay pagos de clientes. Aparecen aquí cuando Razorpay los confirma o se registra un pago.",
+      "colDate": "Fecha",
+      "colAmount": "Importe",
+      "colSource": "Pagado con",
+      "colSettlement": "Estado",
+      "colFor": "Para",
+      "colActions": "Acciones",
+      "refunded": "{amount} reembolsado",
+      "offline": "Registrado por el equipo ({method})",
+      "order": "Pedido",
+      "appointment": "Cita",
+      "link": "Enlace de pago",
+      "settlements": {
+        "pending": "Pendiente de verificar",
+        "settled": "Acreditado",
+        "exception": "Requiere revisión",
+        "unattached": "Recibido (sin pedido)"
+      },
+      "statuses": {
+        "authorized": "Autorizado, no capturado",
+        "captured": "Capturado",
+        "failed": "Fallido"
+      },
+      "methods": {
+        "cash": "Efectivo",
+        "upi": "UPI",
+        "bank_transfer": "Transferencia bancaria",
+        "card": "Tarjeta",
+        "cheque": "Cheque",
+        "other": "Otro"
+      }
+    },
+    "refunds": {
+      "heading": "Reembolsos",
+      "refund": "Reembolsar",
+      "title": "Reembolsar pago",
+      "description": "Aún se pueden reembolsar hasta {amount}.",
+      "amount": "Importe ({currency})",
+      "reason": "Motivo",
+      "note": "Nota interna (opcional)",
+      "restock": "Devolver los artículos al inventario",
+      "restockHelp": "Solo si el pedido no se envió. El inventario vuelve cuando Razorpay confirma el reembolso.",
+      "cancel": "Cancelar",
+      "submit": "Reembolsar",
+      "failed": "No se pudo solicitar el reembolso.",
+      "requested": "Reembolso solicitado. Se mostrará como procesado cuando Razorpay lo confirme.",
+      "colReason": "Motivo",
+      "colStatus": "Estado",
+      "external": "Hecho en el panel de Razorpay",
+      "restocks": "Repone artículos",
+      "absent": "Razorpay no tiene registro de él, así que puede enviarse de nuevo.",
+      "reconcile": "Verificar con Razorpay",
+      "retry": "Enviar de nuevo",
+      "retryConfirm": "Razorpay no tiene ningún reembolso para esto. ¿Enviarlo de nuevo como un nuevo intento?",
+      "retried": "Reembolso enviado de nuevo.",
+      "reconciled": "Reembolso verificado con Razorpay.",
+      "actionFailed": "No se pudo actualizar el reembolso.",
+      "reasons": {
+        "customer_request": "Solicitud del cliente",
+        "out_of_stock": "Sin existencias",
+        "return": "Devolución",
+        "duplicate": "Pago duplicado",
+        "cancelled": "Pedido cancelado",
+        "other": "Otro"
+      },
+      "statuses": {
+        "requested": "Solicitado",
+        "sending": "Enviando",
+        "pending": "Pendiente en Razorpay",
+        "processed": "Procesado",
+        "failed": "Fallido",
+        "unknown": "Requiere verificación"
+      },
+      "errors": {
+        "not_found": "No se encontró ese pago o reembolso.",
+        "invalid_amount": "Introduce un importe mayor que cero.",
+        "invalid_reason": "Elige un motivo.",
+        "invalid_note": "La nota puede tener como máximo 500 caracteres.",
+        "not_refundable": "Solo se puede reembolsar un pago capturado.",
+        "offline_payment": "Un pago registrado por el equipo no se puede reembolsar por Razorpay. Reembólsalo por el mismo medio en que se pagó.",
+        "amount_exceeds": "Es más de lo que aún se puede reembolsar de este pago (los reembolsos ya solicitados también cuentan).",
+        "return_mismatch": "Esa devolución no pertenece al pedido de este pago.",
+        "not_retryable": "Solo se puede reenviar un reembolso que Razorpay no realizó.",
+        "not_reconcilable": "No hay nada que verificar en este reembolso: ya está resuelto.",
+        "not_connected": "Razorpay no está conectado.",
+        "provider_unreachable": "No se pudo contactar con Razorpay. Inténtalo de nuevo en breve."
+      }
+    },
+    "offline": {
+      "title": "Registrar pago fuera de línea",
+      "description": "El importe debe ser exactamente lo pendiente: {amount}.",
+      "amount": "Importe recibido ({currency})",
+      "method": "Pagado con",
+      "reference": "Referencia (opcional)",
+      "help": "Primero se cancela cualquier enlace de pago abierto del pedido. El pedido muestra el pago como registrado por ti.",
+      "cancel": "Cancelar",
+      "submit": "Registrar pago",
+      "failed": "No se pudo registrar el pago.",
+      "recorded": "Pago registrado. El pedido está pagado.",
+      "methods": {
+        "cash": "Efectivo",
+        "upi": "UPI",
+        "bank_transfer": "Transferencia bancaria",
+        "card": "Tarjeta",
+        "cheque": "Cheque",
+        "other": "Otro"
+      },
+      "errors": {
+        "not_found": "No se encontró ese pedido.",
+        "invalid_amount": "Introduce el importe recibido.",
+        "invalid_method": "Elige cómo se pagó.",
+        "invalid_reference": "La referencia puede tener como máximo 100 caracteres.",
+        "not_payable": "Este pedido no puede recibir un pago ahora.",
+        "amount_not_due": "El importe debe ser exactamente lo que el pedido aún debe.",
+        "currency_mismatch": "El pago debe estar en la moneda del pedido.",
+        "link_pending": "Todavía se está creando o verificando un enlace de pago de este pedido. Revísalo primero en la página Pagos.",
+        "link_paid": "El cliente acaba de pagar en línea, así que no se registró nada."
+      }
+    },
+    "exceptions": {
+      "description": "Pagos que no se acreditaron automáticamente y reembolsos que requieren una decisión.",
+      "statusFilter": "Estado",
+      "open": "Abiertas",
+      "resolvedFilter": "Resueltas",
+      "emptyOpen": "Nada requiere revisión.",
+      "emptyResolved": "Aún no hay excepciones resueltas.",
+      "loadFailed": "No se pudieron cargar las excepciones.",
+      "colDate": "Fecha",
+      "colKind": "Qué pasó",
+      "colAmount": "Importe",
+      "colFor": "Para",
+      "colActions": "Resolver",
+      "colResolution": "Resolución",
+      "order": "Pedido",
+      "appointment": "Cita",
+      "resolved": "Excepción resuelta.",
+      "resolveFailed": "No se pudo resolver la excepción.",
+      "kinds": {
+        "late_payment_no_stock": "Pagado tras vencer la reserva, sin existencias",
+        "late_payment_slot_lost": "Pagado después de ocuparse el horario",
+        "payment_on_closed_order": "Pagado para un pedido cancelado",
+        "duplicate_payment": "Pagado dos veces",
+        "amount_mismatch": "El importe no coincide",
+        "currency_mismatch": "La moneda no coincide",
+        "merchant_changed": "Cambiaron las claves de Razorpay",
+        "payment_unmatched": "Pago de un enlace desconocido",
+        "refund_unknown": "Resultado del reembolso desconocido",
+        "refund_failed": "Reembolso fallido"
+      },
+      "help": {
+        "late_payment_no_stock": "Reembólsalo, o repón los artículos y acéptalo.",
+        "late_payment_slot_lost": "Reembolsa al cliente u ofrece otro horario.",
+        "payment_on_closed_order": "El pedido sigue cancelado. Reembolsa al cliente.",
+        "duplicate_payment": "El pedido ya estaba pagado. Reembolsa este pago.",
+        "amount_mismatch": "No se acreditó nada. Reembólsalo y envía un enlace correcto.",
+        "currency_mismatch": "No se acreditó nada. Reembólsalo.",
+        "merchant_changed": "Este enlace se creó con otras claves de Razorpay, así que no se verificó. Revísalo en Razorpay.",
+        "payment_unmatched": "Razorpay informó un pago de un enlace del que este espacio de trabajo no tiene registro.",
+        "refund_unknown": "Verifícalo con Razorpay antes de hacer nada más; nunca se reenvía automáticamente.",
+        "refund_failed": "Razorpay no hizo el reembolso. Envíalo de nuevo o resuélvelo de otra forma."
+      },
+      "resolutions": {
+        "refunded": "Marcar reembolsado",
+        "restocked": "Reponer y aceptar",
+        "accepted": "Aceptar",
+        "dismissed": "Descartar"
+      },
+      "confirm": {
+        "refunded": "¿Marcar como resuelto por el reembolso completo?",
+        "restocked": "¿Reponer los artículos en el inventario y acreditar este pago al pedido?",
+        "accepted": "¿Aceptar este pago?",
+        "dismissed": "¿Descartar esta excepción?"
+      },
+      "errors": {
+        "not_found": "No se encontró esa excepción.",
+        "not_open": "Esa excepción ya está resuelta.",
+        "invalid_resolution": "Esa resolución no aplica aquí.",
+        "not_refunded": "Primero reembolsa el pago completo.",
+        "out_of_stock": "Los artículos siguen sin existencias. Añade inventario primero.",
+        "not_payable": "Este pago ya no se puede acreditar al pedido."
+      }
+    },
+    "reconciliation": {
+      "description": "Dinero capturado y reembolsado por día, para comparar con el informe de liquidación de Razorpay.",
+      "from": "Desde",
+      "to": "Hasta",
+      "apply": "Mostrar",
+      "loadFailed": "No se pudo cargar el informe.",
+      "attention": "Excepciones abiertas: {exceptions}. Reembolsos con resultado desconocido: {refunds}.",
+      "empty": "No hubo cobros ni reembolsos en este periodo.",
+      "net": "Neto ({currency})",
+      "totals": "{captured} capturado − {refunds} reembolsado",
+      "colDay": "Día",
+      "colCaptured": "Capturado",
+      "colRefunds": "Reembolsado",
+      "colExternal": "De ello en el panel de Razorpay",
+      "colNet": "Neto",
+      "timezone": "Los días están en la zona horaria del espacio de trabajo ({timezone})."
     }
   },
   "Integrations": {
@@ -7511,6 +8274,22 @@
       },
       "ofSent": "{count} mensajes",
       "period": "Período"
+    },
+    "commerce": {
+      "title": "Ingresos de comercio",
+      "description": "Pedidos pagados verificados y dinero cobrado en este periodo. Los reembolsos incluyen los hechos en el panel de Razorpay.",
+      "netMerchandise": "Ingresos netos de productos",
+      "grossSubtitle": "Bruto {gross}, descuentos {discounts}",
+      "averageOrderValue": "Valor medio del pedido",
+      "paidOrders": "{count, plural, one {# pedido pagado} other {# pedidos pagados}}",
+      "collected": "Cobrado",
+      "collectedSubtitle": "En línea {gateway}, registrado por el equipo {offline}",
+      "netCollected": "Cobros netos",
+      "refundsSubtitle": "Reembolsos {refunds} (panel de Razorpay {external})",
+      "tax": "Impuestos",
+      "shipping": "Envío",
+      "merchandiseRefunds": "Reembolsos de productos",
+      "orders": "Pedidos pagados"
     }
   },
   "Ads": {
@@ -7738,7 +8517,10 @@
       "completed": "Completada",
       "no_show": "Marcada como no presentada",
       "feedback": "Valoración registrada",
-      "reminder_skipped": "Recordatorio omitido"
+      "reminder_skipped": "Recordatorio omitido",
+      "payment_pending": "Esperando el pago",
+      "payment_captured": "Pago recibido",
+      "late_payment": "El pago llegó después de perder el horario"
     },
     "actors": {
       "staff": "Equipo",
@@ -7752,7 +8534,8 @@
       "cancelled": "Cancelación",
       "rescheduled": "Cambio de hora",
       "feedback": "Solicitud de valoración",
-      "rebook": "Recordatorio para volver a reservar"
+      "rebook": "Recordatorio para volver a reservar",
+      "payment_link": "Enlace de pago"
     },
     "messageStatuses": {
       "sent": "Enviado",
@@ -7780,7 +8563,14 @@
       "template_not_found": "La plantilla configurada en los ajustes de citas ya no existe.",
       "template_not_approved": "La plantilla configurada en los ajustes de citas no está aprobada.",
       "template_wrong_number": "La plantilla pertenece a otro número de WhatsApp.",
-      "feedback_recorded": "La valoración ya estaba registrada, así que no se envió la solicitud."
+      "feedback_recorded": "La valoración ya estaba registrada, así que no se envió la solicitud.",
+      "hold_expired": "La reserva temporal terminó antes de poder enviar el enlace.",
+      "window_closed": "La ventana de 24 horas del cliente se había cerrado.",
+      "not_connected": "Razorpay no está conectado.",
+      "link_unknown": "Razorpay no confirmó el enlace de pago. Revisa la página de Pagos.",
+      "link_not_ready": "El enlace de pago no estaba listo para enviarse.",
+      "already_paid": "El enlace ya estaba pagado.",
+      "conversation_not_found": "El cliente no tiene una conversación donde enviar el enlace."
     },
     "create": {
       "title": "Nueva cita",
@@ -7820,6 +8610,7 @@
       "feedbackDelay": "Pedir valoración después de (minutos)",
       "rebookAfter": "Sugerir volver a reservar después de (días)",
       "paymentRequired": "Exigir pago por adelantado",
+      "paymentRequiredHelp": "Quien reserva en línea paga con un enlace de Razorpay antes de que se confirme la reserva. Necesita un precio, la tienda y una cuenta de Razorpay conectada.",
       "paymentComingSoon": "Llegará con los pagos",
       "offerings": "Dónde y con quién",
       "pooled": "Calendario compartido (cualquier horario libre)",
@@ -7947,7 +8738,9 @@
       "invalid": "Revisa este campo.",
       "taken": "Ya está en uso. Elige otro.",
       "pooled_or_staffed": "Elige un calendario compartido o profesionales, no ambos.",
-      "mode_in_use": "Todavía hay reservas activas con la configuración actual. Muévelas o cancélalas antes de cambiar entre un calendario compartido y profesionales."
+      "mode_in_use": "Todavía hay reservas activas con la configuración actual. Muévelas o cancélalas antes de cambiar entre un calendario compartido y profesionales.",
+      "price_required": "Un servicio de pago por adelantado necesita un precio mayor que cero y una moneda.",
+      "payments_not_ready": "Conecta Razorpay y asegúrate de que tu plan incluya la tienda antes de pedir el pago por adelantado."
     },
     "form": {
       "edit": "Editar"
@@ -8046,7 +8839,10 @@
       "not_yet_supported": "Este servicio aún no se puede reservar en línea.",
       "forbidden": "Se bloqueó esta solicitud. Recarga la página e inténtalo de nuevo.",
       "error": "Algo salió mal. Inténtalo de nuevo."
-    }
+    },
+    "payInAdvance": "Pago por adelantado",
+    "paymentNotice": "Este servicio se paga por adelantado. Después de enviar el código por WhatsApp, te enviamos un enlace de pago seguro; la reserva se confirma cuando se recibe el pago.",
+    "paymentAfterCode": "Después de enviar el código, te responderemos con un enlace de pago seguro. Tu reserva se confirma cuando se recibe el pago."
   },
   "BookingManage": {
     "metaTitle": "Tu reserva",
@@ -8082,6 +8878,113 @@
     "online": "en línea",
     "staffBooked": "Nueva reserva: {service} el {time}",
     "staffCancelled": "Reserva cancelada: {service} el {time}",
-    "staffRescheduled": "Reserva movida: {service} al {time}"
+    "staffRescheduled": "Reserva movida: {service} al {time}",
+    "paymentLink": "Para confirmar tu cita de {service} el {time}, paga {amount} con este enlace seguro. Tu reserva queda confirmada cuando recibamos el pago."
+  },
+  "Storefront": {
+    "metaTitle": "Tu pedido",
+    "loading": "Cargando",
+    "notFoundTitle": "Este enlace no está disponible",
+    "notFoundBody": "Puede que haya caducado o se haya reemplazado. Pide a la tienda un enlace nuevo por WhatsApp.",
+    "expired": "Este enlace caducó. Pide uno nuevo a la tienda por WhatsApp.",
+    "checkoutClosed": "La tienda no acepta pedidos en línea en este momento.",
+    "productsHeading": "Productos",
+    "noProducts": "Aún no hay productos a la venta.",
+    "variant": "Opción",
+    "add": "Añadir",
+    "outOfStock": "Agotado",
+    "cartHeading": "Tu carrito",
+    "cartEmpty": "Tu carrito está vacío.",
+    "decrease": "Uno menos",
+    "increase": "Uno más",
+    "addressHeading": "Dirección de entrega",
+    "address": {
+      "name": "Nombre completo",
+      "phone": "Teléfono",
+      "line1": "Dirección",
+      "line2": "Piso, referencia (opcional)",
+      "city": "Ciudad",
+      "state": "Estado o provincia",
+      "postal_code": "Código postal",
+      "country": "Código de país",
+      "instructions": "Indicaciones de entrega (opcional)"
+    },
+    "saveAddress": "Usar esta dirección",
+    "summaryHeading": "Resumen del pedido",
+    "couponLabel": "Código de cupón",
+    "applyCoupon": "Aplicar",
+    "removeCoupon": "Quitar",
+    "addAddressForShipping": "Añade tu dirección para ver el envío y el total final.",
+    "placeAndPay": "Hacer el pedido y pagar {amount}",
+    "placeOrder": "Hacer el pedido",
+    "paymentNote": "Pagas en una página segura de Razorpay. Tu pedido se confirma solo cuando la tienda verifica el pago.",
+    "subtotal": "Subtotal",
+    "discount": "Descuento",
+    "discountWithCode": "Descuento ({code})",
+    "shipping": "Envío",
+    "shippingWith": "Envío ({name})",
+    "tax": "Impuestos",
+    "taxIncluded": "Impuestos incluidos",
+    "total": "Total",
+    "orderReference": "Pedido {reference}",
+    "payNow": "Pagar {amount}",
+    "preparingLink": "Preparando tu enlace de pago seguro…",
+    "holdUntil": "Tus artículos están reservados hasta las {time}.",
+    "paymentReview": "Recibimos tu pago y la tienda lo está revisando. Te contactarán por WhatsApp.",
+    "receiptNumber": "Recibo {number}",
+    "confirmingPayment": "Confirmando tu pago con la tienda…",
+    "backToOrder": "Volver a tu pedido",
+    "payment": {
+      "linkDescription": "Pedido {reference}",
+      "checkoutMessage": "Gracias por tu pedido {reference}. Añade tu dirección y paga de forma segura aquí:"
+    },
+    "orderStatus": {
+      "new": "Recibido",
+      "confirmed": "Confirmado",
+      "awaiting_payment": "Pendiente de pago",
+      "payment_review": "Pago en revisión",
+      "paid": "Pagado",
+      "dispatched": "Enviado",
+      "fulfilled": "Entregado",
+      "expired": "Caducado: no se pagó a tiempo",
+      "cancelled": "Cancelado"
+    },
+    "errors": {
+      "not_found": "No encontrado.",
+      "too_many": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+      "forbidden": "Se rechazó la solicitud. Recarga la página e inténtalo de nuevo.",
+      "error": "Algo salió mal. Inténtalo de nuevo.",
+      "invalid": "Revisa los valores marcados e inténtalo de nuevo.",
+      "conflict": "Esto cambió mientras tanto. Recarga e inténtalo de nuevo.",
+      "cart_locked": "Este carrito ya no se puede cambiar.",
+      "session_expired": "Este enlace caducó.",
+      "address_required": "Añade primero una dirección de entrega.",
+      "quote_changed": "El total cambió. Revisa el nuevo total antes de pagar.",
+      "out_of_stock": "Algo del carrito acaba de agotarse.",
+      "checkout_disabled": "El pago en línea está desactivado en esta tienda.",
+      "store_not_configured": "Configura primero la moneda y los impuestos de la tienda.",
+      "cart_empty": "El carrito está vacío.",
+      "invalid_cart": "No se pudo leer el carrito. Quita un artículo e inténtalo de nuevo.",
+      "variant_unavailable": "Un artículo del carrito ya no está a la venta.",
+      "price_not_configured": "Un artículo aún no tiene precio, así que no se puede comprar en línea.",
+      "tax_not_configured": "La tienda no configuró la tasa de impuesto de un artículo.",
+      "shipping_unavailable": "La tienda aún no entrega en esta dirección.",
+      "coupon_not_found": "Este código de cupón no existe.",
+      "coupon_inactive": "Este cupón no está activo.",
+      "coupon_not_started": "Este cupón aún no es válido.",
+      "coupon_expired": "Este cupón caducó.",
+      "coupon_min_subtotal": "El carrito no alcanza el mínimo de este cupón.",
+      "coupon_exhausted": "Este cupón ya se agotó.",
+      "coupon_limit_reached": "Ya usaste este cupón.",
+      "order_not_open": "Este pedido ya no se puede pagar aquí.",
+      "amount_out_of_range": "El importe es demasiado grande.",
+      "too_many_open_orders": "Ya tienes pedidos sin pagar reservados. Paga uno o espera a que caduque y vuelve a intentarlo."
+    }
+  },
+  "OrderNotices": {
+    "dispatched": "Tu pedido {ref} ya va en camino.",
+    "dispatchedWithTracking": "Tu pedido {ref} ya va en camino. Seguimiento: {tracking}",
+    "delivered": "Tu pedido {ref} ha sido entregado. ¡Gracias!",
+    "feedback": "¿Qué tal tu pedido {ref}? Responde con una puntuación del 1 al 5."
   }
 }

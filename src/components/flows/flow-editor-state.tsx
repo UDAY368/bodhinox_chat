@@ -236,6 +236,8 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { instructions: "", use_knowledge: true, max_turns: 1, next_node_key: "", handoff_next: "" };
     case "conversion_event":
       return { event_name: "LeadSubmitted", next_node_key: "" };
+    case "send_storefront_link":
+      return { message: "", ttl_hours: 24, purpose: "shop", next_node_key: "", failed_next: "" };
     case "handoff":
       return { note: "" };
     case "end":

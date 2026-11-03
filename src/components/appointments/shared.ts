@@ -63,7 +63,7 @@ export async function apiRequest<T>(url: string, init?: { method?: string; body?
 }
 
 const TEMPLATE_DETAILS = new Set<string>([...APPOINTMENT_TEMPLATE_REFUSALS, 'not_found', 'not_approved']);
-const FIELD_DETAILS = new Set(['invalid', 'taken', 'pooled_or_staffed', 'mode_in_use']);
+const FIELD_DETAILS = new Set(['invalid', 'taken', 'pooled_or_staffed', 'mode_in_use', 'price_required', 'payments_not_ready']);
 
 /** The message key (relative to the root namespace) for a failed call. Pure, so it is unit-tested. */
 export function failureKey(failure: ApiFailure): string {

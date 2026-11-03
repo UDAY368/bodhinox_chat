@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   asOrderMessagePayload, canTransition, fillOrderPlaceholders, orderContentText, orderFlowVars, orderItemsSummary,
-  ORDER_STATUSES, ORDER_TRANSITIONS, parseInboundOrder,
+  nextStatuses, ORDER_STATUSES, ORDER_TRANSITIONS, parseInboundOrder, WORKER_ONLY_STATUSES,
 } from './order-format';
 
 const item = (over: Record<string, unknown> = {}) => ({ product_retailer_id: 'SKU-1', quantity: 2, item_price: 499.5, currency: 'INR', ...over });
@@ -60,7 +60,7 @@ describe('order text and variables', () => {
 
   it('sets the order_received flow variables', () => {
     expect(orderFlowVars(order)).toEqual({
-      order_id: order.order_id, order_total: '₹1,099.00', order_currency: 'INR', order_items_count: '3', order_items: '2 × Blue shirt, 1 × CAP',
+      order_id: order.order_id, order_total: '₹1,099.00', order_total_minor: '109900', order_currency: 'INR', order_items_count: '3', order_items: '2 × Blue shirt, 1 × CAP',
     });
   });
 
@@ -85,7 +85,22 @@ describe('status transitions', () => {
       expect(canTransition(from, from)).toBe(false);
       expect(canTransition(from, 'new')).toBe(false);
     }
-    expect(canTransition('new', 'paid')).toBe(true);
     expect(canTransition('paid', 'awaiting_payment')).toBe(false);
+  });
+
+  it('never lets staff set a worker-only status (no manual "paid")', () => {
+    for (const from of ORDER_STATUSES)
+      for (const to of WORKER_ONLY_STATUSES) expect(canTransition(from, to)).toBe(false);
+    for (const from of ['payment_review', 'expired', 'fulfilled', 'cancelled'] as const) expect(nextStatuses(from)).toEqual([]);
+  });
+
+  it('dispatches and delivers a priced order only after payment; legacy orders keep confirmed -> fulfilled', () => {
+    expect(canTransition('paid', 'dispatched', { priced: true })).toBe(true);
+    expect(canTransition('dispatched', 'fulfilled', { priced: true })).toBe(true);
+    expect(canTransition('confirmed', 'fulfilled', { priced: true })).toBe(false);
+    expect(canTransition('new', 'awaiting_payment', { priced: true })).toBe(false);
+    expect(canTransition('confirmed', 'fulfilled')).toBe(true);
+    expect(canTransition('awaiting_payment', 'cancelled', { priced: true })).toBe(true);
+    expect(nextStatuses('confirmed', { priced: true })).toEqual(['cancelled']);
   });
 });

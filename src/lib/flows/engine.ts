@@ -13,7 +13,10 @@ import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
 import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
-import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
+import { isCurrencyCode, minorFromDb, parseMoney } from '@/lib/commerce/money';
+import { getWorkerPrisma } from '@/lib/db/prisma';
+import { withTenant } from '@/lib/db/tenant';
+import { runStorefrontLinkNode, type StorefrontNodeResult } from './storefront-node';
 import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPaymentReference, paymentLinkMessageText, PaymentLinkError } from '@/lib/payments/links';
 import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
 import { AI_REPLY_LIMITS, aiReplyMaxTurns } from './ai-reply-node';
@@ -87,6 +90,7 @@ import {
   type SendTemplateNodeConfig,
   type SendFormNodeConfig,
   type PaymentLinkNodeConfig,
+  type SendStorefrontLinkNodeConfig,
   type AiReplyNodeConfig,
   type AskMediaNodeConfig,
   type AskRetry,
@@ -1102,10 +1106,19 @@ async function startPaymentLinkNode(
   if (!run.conversation_id || !run.contact_id) return fail("payment_link_no_conversation");
   const ws = await workspaceValuesFor(run.account_id, `${cfg.amount ?? ""} ${cfg.description ?? ""}`);
   let amountMinor: number;
-  try {
-    amountMinor = parseMoney(interpolateVars(String(cfg.amount ?? ""), run.vars, ws), cfg.currency);
-  } catch {
-    return fail("payment_link_invalid_amount");
+  let currency = cfg.currency;
+  let orderId: string | null = null;
+  if (cfg.link_order === true) {
+    // Charge the run's order for what is still due (design E2): never a Meta price while checkout is on.
+    const due = await flowOrderDue(run.account_id, run.contact_id, run.vars.order_id);
+    if (due.kind === "refused") return fail(`payment_link_${due.reason}`);
+    ({ amountMinor, currency, orderId } = due);
+  } else {
+    try {
+      amountMinor = parseMoney(interpolateVars(String(cfg.amount ?? ""), run.vars, ws), cfg.currency);
+    } catch {
+      return fail("payment_link_invalid_amount");
+    }
   }
   const expireBy = new Date(Date.now() + (await paymentLinkExpiryMinutes(db, run, cfg)) * 60_000);
   let link: Awaited<ReturnType<typeof createPaymentLinkRecord>>["link"];
@@ -1114,10 +1127,11 @@ async function startPaymentLinkNode(
       accountId: run.account_id,
       actor: { kind: "bot" },
       amountMinor,
-      currency: cfg.currency,
+      currency,
       description: interpolateOptionalVars(cfg.description, run.vars, ws) || null,
       conversationId: run.conversation_id,
       contactId: run.contact_id,
+      orderId,
       flowRunId: run.id,
       nodeKey: node.node_key,
       expireBy,
@@ -1147,6 +1161,40 @@ async function startPaymentLinkNode(
     return fail("payment_link_send_failed", "send_failed");
   }
   return { kind: "waiting", expiresAt: link.expires_at };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * What a payment_link step with link_order charges: the order's total minus
+ * what was already paid, in the order's currency. A server-priced order uses
+ * its frozen total. An unpriced WhatsApp cart (Meta's prices) is refused while
+ * store checkout is enabled, so the checkout reprices it instead; with
+ * checkout off it keeps the legacy behaviour (the cart total). Only orders
+ * still waiting for payment can be charged, and only the run contact's own:
+ * order_id is an ordinary variable a customer can type into, so another
+ * customer's order reads as no order at all.
+ */
+async function flowOrderDue(accountId: string, contactId: string, orderVar: unknown): Promise<
+  { kind: "due"; amountMinor: number; currency: string; orderId: string } | { kind: "refused"; reason: string }> {
+  if (typeof orderVar !== "string" || !UUID_RE.test(orderVar)) return { kind: "refused", reason: "no_order" };
+  return withTenant({ accountId, role: "owner" }, async (tx) => {
+    const [order] = await tx.$queryRaw<{ status: string; currency: string; subtotal_minor: bigint; total_minor: bigint | null;
+      amount_paid_minor: bigint; priced_at: Date | null }[]>`
+      SELECT status,currency,subtotal_minor,total_minor,amount_paid_minor,priced_at FROM orders
+      WHERE account_id=${accountId}::uuid AND id=${orderVar}::uuid AND contact_id=${contactId}::uuid`;
+    if (!order) return { kind: "refused" as const, reason: "no_order" };
+    if (!["new", "confirmed", "awaiting_payment"].includes(order.status)) return { kind: "refused" as const, reason: "order_closed" };
+    if (!order.priced_at) {
+      const [settings] = await tx.$queryRaw<{ checkout_enabled: boolean }[]>`
+        SELECT checkout_enabled FROM commerce_settings WHERE account_id=${accountId}::uuid`;
+      if (settings?.checkout_enabled) return { kind: "refused" as const, reason: "order_unpriced" };
+    }
+    const total = minorFromDb(order.total_minor ?? order.subtotal_minor) ?? 0;
+    const amountMinor = total - (minorFromDb(order.amount_paid_minor) ?? 0);
+    if (amountMinor <= 0) return { kind: "refused" as const, reason: "order_nothing_due" };
+    return { kind: "due" as const, amountMinor, currency: order.currency, orderId: orderVar };
+  }, getWorkerPrisma());
 }
 
 /**
@@ -2277,6 +2325,37 @@ async function advanceFromNodeKey(
       }
       currentKey = typeof node.config.next_node_key === "string" ? node.config.next_node_key : null;
       continue;
+    }
+    if (node.node_type === "send_storefront_link") {
+      const cfg = node.config as unknown as SendStorefrontLinkNodeConfig;
+      let result: StorefrontNodeResult;
+      try {
+        result = await runStorefrontLinkNode({
+          accountId: run.account_id, runId: run.id, nodeKey: node.node_key, transitionSeq: run.transition_seq ?? 0,
+          contactId: run.contact_id, conversationId: run.conversation_id, vars: run.vars, config: cfg,
+        });
+      } catch {
+        // Never log the error itself: it could carry customer content or the link.
+        result = { ok: false, reason: "failed" };
+      }
+      if (result.ok) {
+        // The link itself is never logged or stored in run variables.
+        await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "send_storefront_link", whatsapp_message_id: result.whatsappMessageId });
+        currentKey = cfg.next_node_key || null;
+        continue;
+      }
+      await logEvent(db, run.id, "error", node.node_key, { reason: `storefront_link_${result.reason}` });
+      // A send whose outcome is unknown may have reached the customer: carry on rather than offer a second link.
+      if (result.uncertain) {
+        currentKey = cfg.next_node_key || null;
+        continue;
+      }
+      if (cfg.failed_next) {
+        currentKey = cfg.failed_next;
+        continue;
+      }
+      await endRun(db, run.id, "failed", "storefront_link_failed");
+      return { outcome: "completed" };
     }
     if (node.node_type === "assign_agent") {
       await executeAssignAgent(db, run, node);

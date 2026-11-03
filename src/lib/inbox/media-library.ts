@@ -220,10 +220,12 @@ export async function findMediaReferences(tx: TenantTransaction, accountId: stri
     UNION ALL SELECT 'automation' WHERE EXISTS (SELECT 1 FROM automation_steps WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`step_config::text`)})
     UNION ALL SELECT 'quick_reply' WHERE EXISTS (SELECT 1 FROM quick_replies WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`interactive_payload::text`)})
     UNION ALL SELECT 'product' WHERE EXISTS (SELECT 1 FROM products WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`image_url`)})
+    UNION ALL SELECT 'product' WHERE EXISTS (SELECT 1 FROM shop_product_images i WHERE i.account_id=${accountId}::uuid AND (${has(Prisma.sql`i.url`)}
+      OR EXISTS (SELECT 1 FROM media_objects m WHERE m.account_id=i.account_id AND m.id=i.media_id AND m.bucket=${bucket} AND m.object_key=${objectKey})))
     UNION ALL SELECT 'form' WHERE EXISTS (SELECT 1 FROM whatsapp_forms WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`definition::text`)})
     UNION ALL SELECT 'campaign' WHERE EXISTS (SELECT 1 FROM jobs WHERE tenant_id=${accountId}::uuid AND type='broadcast.dispatch'
       AND status IN ('pending','running') AND ${has(Prisma.sql`payload::text`)})`;
-  return rows.map((row) => row.source);
+  return [...new Set(rows.map((row) => row.source))];
 }
 
 export type DeleteDecision =

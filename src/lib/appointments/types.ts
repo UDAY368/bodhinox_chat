@@ -15,6 +15,8 @@ export type AppointmentSource = (typeof APPOINTMENT_SOURCES)[number];
 export const APPOINTMENT_EVENT_KINDS = [
   'held', 'confirmed', 'rescheduled', 'reassigned', 'cancelled', 'expired',
   'completed', 'no_show', 'feedback', 'reminder_skipped',
+  // Phase 8 paid holds (design E15): waiting for the link, verified capture, a capture after the slot was lost.
+  'payment_pending', 'payment_captured', 'late_payment',
 ] as const;
 export type AppointmentEventKind = (typeof APPOINTMENT_EVENT_KINDS)[number];
 
@@ -22,12 +24,21 @@ export const APPOINTMENT_ACTORS = ['staff', 'customer', 'system'] as const;
 export type AppointmentActor = (typeof APPOINTMENT_ACTORS)[number];
 
 export const APPOINTMENT_MESSAGE_KINDS = [
-  'confirmation', 'reminder_24h', 'reminder_2h', 'cancelled', 'rescheduled', 'feedback', 'rebook',
+  'confirmation', 'reminder_24h', 'reminder_2h', 'cancelled', 'rescheduled', 'feedback', 'rebook', 'payment_link',
 ] as const;
 export type AppointmentMessageKind = (typeof APPOINTMENT_MESSAGE_KINDS)[number];
 
 export const APPOINTMENT_MESSAGE_STATUSES = ['sent', 'skipped', 'blocked', 'failed', 'outcome_unknown'] as const;
 export type AppointmentMessageStatus = (typeof APPOINTMENT_MESSAGE_STATUSES)[number];
+
+/**
+ * Online collection for a booking (Phase 8, design E15). none: nothing is
+ * collected online (free service, or a staff booking of a paid one); pending:
+ * a public hold waiting for its payment link to be paid; paid / refunded: set
+ * by the worker after settlement. The app role may only insert 'none'.
+ */
+export const APPOINTMENT_PAYMENT_STATUSES = ['none', 'pending', 'paid', 'refunded'] as const;
+export type AppointmentPaymentStatus = (typeof APPOINTMENT_PAYMENT_STATUSES)[number];
 
 export const CANCEL_REASONS = ['customer', 'staff', 'expired', 'other'] as const;
 export type CancelReason = (typeof CANCEL_REASONS)[number];
@@ -218,6 +229,8 @@ export interface AppointmentRow {
   /** Staff-only: routes strip it for members without appointments.manage. */
   outcome_note: string | null;
   feedback_score: number | null;
+  /** Phase 8; read by APPOINTMENT_COLUMNS (optional for rows built before it). */
+  payment_status?: AppointmentPaymentStatus;
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
@@ -253,6 +266,13 @@ export const APPOINTMENT_JOB_TYPES = {
   followup: 'appointments.followup',
 } as const;
 export type AppointmentJobType = (typeof APPOINTMENT_JOB_TYPES)[keyof typeof APPOINTMENT_JOB_TYPES];
+
+/**
+ * Phase 8 (E15): a paid hold's payment link, created and sent once per hold
+ * version. Routed by src/lib/jobs/handlers.ts to paid.ts (not part of
+ * APPOINTMENT_JOB_TYPES, whose handler validates only the Phase 7 jobs).
+ */
+export const APPOINTMENT_PAYMENT_LINK_JOB = 'appointments.payment_link';
 
 export function isAppointmentJobType(type: string): type is AppointmentJobType {
   return (Object.values(APPOINTMENT_JOB_TYPES) as string[]).includes(type);

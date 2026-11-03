@@ -84,3 +84,24 @@ describe('flow template gallery', () => {
     }
   })
 })
+
+describe('ayurvedic_store (J4, Phase 8)', () => {
+  const template = getFlowTemplate('ayurvedic_store')!
+  const byKey = new Map(template.nodes.map(n => [n.node_key, n]))
+
+  it('offers shop, consult, my orders and talk to us from one list', () => {
+    const menu = byKey.get('menu')!
+    expect(menu.node_type).toBe('send_list')
+    const rows = (menu.config as { sections: { rows: { reply_id: string; next_node_key: string }[] }[] }).sections[0].rows
+    expect(rows.map(r => [r.reply_id, r.next_node_key])).toEqual([['shop', 'shop'], ['consult', 'consult'], ['orders', 'orders'], ['talk', 'agent']])
+  })
+
+  it('sends contact-bound storefront links with a failed port, and books only through the flow step', () => {
+    expect(byKey.get('shop')).toMatchObject({ node_type: 'send_storefront_link', config: { purpose: 'shop', failed_next: 'shop_offline' } })
+    expect(byKey.get('orders')).toMatchObject({ node_type: 'send_storefront_link', config: { purpose: 'status', failed_next: 'no_orders' } })
+    expect(byKey.get('consult')).toMatchObject({ node_type: 'book_appointment', config: { unavailable_next: 'agent' } })
+    expect(byKey.get('agent')?.node_type).toBe('handoff')
+    // The link itself is never stored in run variables or the template.
+    expect(JSON.stringify(template)).not.toMatch(/\/shop\//)
+  })
+})

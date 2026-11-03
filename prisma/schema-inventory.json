@@ -5436,6 +5436,162 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "discount_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "discount_minor bigint NOT NULL DEFAULT 0 CHECK (discount_minor >= 0)"
+      },
+      {
+        "name": "shipping_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "shipping_minor bigint NOT NULL DEFAULT 0 CHECK (shipping_minor >= 0)"
+      },
+      {
+        "name": "tax_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "tax_minor bigint NOT NULL DEFAULT 0 CHECK (tax_minor >= 0)"
+      },
+      {
+        "name": "tax_inclusive",
+        "type": "boolean",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tax_inclusive boolean"
+      },
+      {
+        "name": "priced_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "priced_at timestamptz"
+      },
+      {
+        "name": "coupon_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "coupon_code text CHECK (coupon_code IS NULL OR coupon_code ~ '^[A-Z0-9_-]{3,32}$')"
+      },
+      {
+        "name": "shipping_address",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "shipping_address jsonb CHECK (shipping_address IS NULL OR (jsonb_typeof(shipping_address) = 'object' AND pg_column_size(shipping_address) <= 2048))"
+      },
+      {
+        "name": "storefront_session_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "storefront_sessions",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "storefront_session_id uuid"
+      },
+      {
+        "name": "reservation_expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reservation_expires_at timestamptz"
+      },
+      {
+        "name": "paid_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "paid_at timestamptz"
+      },
+      {
+        "name": "amount_paid_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "amount_paid_minor bigint NOT NULL DEFAULT 0 CHECK (amount_paid_minor >= 0)"
+      },
+      {
+        "name": "amount_refunded_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "amount_refunded_minor bigint NOT NULL DEFAULT 0 CHECK (amount_refunded_minor >= 0)"
+      },
+      {
+        "name": "refund_state",
+        "type": "text",
+        "nullable": false,
+        "default": "'none'",
+        "reference": null,
+        "definition": "refund_state text NOT NULL DEFAULT 'none' CHECK (refund_state IN ('none','partial','full'))"
+      },
+      {
+        "name": "dispatched_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "dispatched_at timestamptz"
+      },
+      {
+        "name": "delivered_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "delivered_at timestamptz"
+      },
+      {
+        "name": "fulfilment_recorded_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "fulfilment_recorded_by uuid"
+      },
+      {
+        "name": "tracking_note",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tracking_note text CHECK (tracking_note IS NULL OR char_length(tracking_note) <= 200)"
+      },
+      {
+        "name": "feedback_score",
+        "type": "smallint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "feedback_score smallint CHECK (feedback_score IS NULL OR feedback_score BETWEEN 1 AND 5)"
+      },
+      {
+        "name": "checkout_attempt",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "checkout_attempt integer NOT NULL DEFAULT 0 CHECK (checkout_attempt >= 0)"
       }
     ],
     "order_items": [
@@ -5510,6 +5666,74 @@
         "default": null,
         "reference": null,
         "definition": "currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "variant_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "shop_variants",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "variant_id uuid"
+      },
+      {
+        "name": "submitted_unit_price_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "submitted_unit_price_minor bigint CHECK (submitted_unit_price_minor IS NULL OR submitted_unit_price_minor >= 0)"
+      },
+      {
+        "name": "tax_rate_bps",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tax_rate_bps integer CHECK (tax_rate_bps IS NULL OR tax_rate_bps BETWEEN 0 AND 10000)"
+      },
+      {
+        "name": "tax_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tax_minor bigint CHECK (tax_minor IS NULL OR tax_minor >= 0)"
+      },
+      {
+        "name": "discount_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "discount_minor bigint CHECK (discount_minor IS NULL OR discount_minor >= 0)"
+      },
+      {
+        "name": "line_total_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "line_total_minor bigint CHECK (line_total_minor IS NULL OR line_total_minor >= 0)"
+      },
+      {
+        "name": "hsn_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "hsn_code text CHECK (hsn_code IS NULL OR hsn_code ~ '^[0-9]{4,8}$')"
+      },
+      {
+        "name": "sku",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "sku text CHECK (sku IS NULL OR sku ~ '^[A-Za-z0-9._-]{1,64}$')"
       }
     ],
     "payment_providers": [
@@ -5754,6 +5978,26 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "appointment_id uuid"
+      },
+      {
+        "name": "provider_key_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "provider_key_id text CHECK (provider_key_id IS NULL OR char_length(provider_key_id) BETWEEN 1 AND 100)"
       }
     ],
     "commerce_event_rules": [
@@ -10206,6 +10450,14 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "payment_status",
+        "type": "text",
+        "nullable": false,
+        "default": "'none'",
+        "reference": null,
+        "definition": "payment_status text NOT NULL DEFAULT 'none' CHECK (payment_status IN ('none','pending','paid','refunded'))"
       }
     ],
     "appointment_events": [
@@ -10500,6 +10752,2350 @@
         "default": null,
         "reference": null,
         "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "commerce_settings": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid PRIMARY KEY DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "currency",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "prices_include_tax",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "prices_include_tax boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "default_tax_rate_bps",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "default_tax_rate_bps integer CHECK (default_tax_rate_bps IS NULL OR default_tax_rate_bps BETWEEN 0 AND 10000)"
+      },
+      {
+        "name": "reservation_minutes",
+        "type": "integer",
+        "nullable": false,
+        "default": "15",
+        "reference": null,
+        "definition": "reservation_minutes integer NOT NULL DEFAULT 15 CHECK (reservation_minutes BETWEEN 15 AND 60)"
+      },
+      {
+        "name": "checkout_enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "checkout_enabled boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "low_stock_default",
+        "type": "integer",
+        "nullable": false,
+        "default": "5",
+        "reference": null,
+        "definition": "low_stock_default integer NOT NULL DEFAULT 5 CHECK (low_stock_default BETWEEN 0 AND 100000)"
+      },
+      {
+        "name": "legal_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "legal_name text CHECK (legal_name IS NULL OR char_length(legal_name) <= 200)"
+      },
+      {
+        "name": "gstin",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "gstin text CHECK (gstin IS NULL OR gstin ~ '^[0-9A-Z]{15}$')"
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "address text CHECK (address IS NULL OR char_length(address) <= 500)"
+      },
+      {
+        "name": "state_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "state_code text CHECK (state_code IS NULL OR state_code ~ '^[0-9A-Z]{2}$')"
+      },
+      {
+        "name": "document_prefix",
+        "type": "text",
+        "nullable": false,
+        "default": "'RCPT'",
+        "reference": null,
+        "definition": "document_prefix text NOT NULL DEFAULT 'RCPT' CHECK (document_prefix ~ '^[A-Z0-9]{1,8}$')"
+      },
+      {
+        "name": "storefront_title",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "storefront_title text CHECK (storefront_title IS NULL OR char_length(storefront_title) <= 120)"
+      },
+      {
+        "name": "return_window_days",
+        "type": "integer",
+        "nullable": false,
+        "default": "7",
+        "reference": null,
+        "definition": "return_window_days integer NOT NULL DEFAULT 7 CHECK (return_window_days BETWEEN 0 AND 90)"
+      },
+      {
+        "name": "checkout_template_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "checkout_template_name text CHECK (checkout_template_name IS NULL OR char_length(checkout_template_name) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "checkout_template_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "checkout_template_language text CHECK (checkout_template_language IS NULL OR char_length(checkout_template_language) BETWEEN 1 AND 15)"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "shop_categories": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 80)"
+      },
+      {
+        "name": "parent_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "shop_categories",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "parent_id uuid"
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "position integer NOT NULL DEFAULT 0 CHECK (position BETWEEN 0 AND 10000)"
+      },
+      {
+        "name": "archived_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "archived_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "shop_products": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 200)"
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "description text CHECK (description IS NULL OR char_length(description) <= 5000)"
+      },
+      {
+        "name": "disclosure",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "disclosure text CHECK (disclosure IS NULL OR char_length(disclosure) <= 2000)"
+      },
+      {
+        "name": "category_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "shop_categories",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "category_id uuid"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'draft'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','archived'))"
+      },
+      {
+        "name": "content_reviewed_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "content_reviewed_by uuid"
+      },
+      {
+        "name": "content_reviewed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "content_reviewed_at timestamptz"
+      },
+      {
+        "name": "follow_up_template",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "follow_up_template text CHECK (follow_up_template IS NULL OR char_length(follow_up_template) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "follow_up_template_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "follow_up_template_language text CHECK (follow_up_template_language IS NULL OR char_length(follow_up_template_language) BETWEEN 1 AND 15)"
+      },
+      {
+        "name": "follow_up_after_days",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "follow_up_after_days integer CHECK (follow_up_after_days IS NULL OR follow_up_after_days BETWEEN 1 AND 365)"
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "version integer NOT NULL DEFAULT 1 CHECK (version > 0)"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "shop_product_images": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "product_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "shop_products",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "product_id uuid NOT NULL"
+      },
+      {
+        "name": "media_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "media_objects",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "media_id uuid"
+      },
+      {
+        "name": "url",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "url text CHECK (url IS NULL OR (url ~ '^https://' AND char_length(url) <= 2048))"
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "position integer NOT NULL CHECK (position BETWEEN 0 AND 9)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "shop_variants": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "product_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "shop_products",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "product_id uuid NOT NULL"
+      },
+      {
+        "name": "sku",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "sku text NOT NULL CHECK (sku ~ '^[A-Za-z0-9._-]{1,64}$')"
+      },
+      {
+        "name": "option_values",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'{}'::jsonb",
+        "reference": null,
+        "definition": "option_values jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(option_values) = 'object' AND pg_column_size(option_values) <= 1024)"
+      },
+      {
+        "name": "price_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "price_minor bigint CHECK (price_minor IS NULL OR price_minor >= 0)"
+      },
+      {
+        "name": "compare_at_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "compare_at_minor bigint CHECK (compare_at_minor IS NULL OR compare_at_minor >= 0)"
+      },
+      {
+        "name": "tax_rate_bps",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tax_rate_bps integer CHECK (tax_rate_bps IS NULL OR tax_rate_bps BETWEEN 0 AND 10000)"
+      },
+      {
+        "name": "hsn_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "hsn_code text CHECK (hsn_code IS NULL OR hsn_code ~ '^[0-9]{4,8}$')"
+      },
+      {
+        "name": "track_inventory",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "track_inventory boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "weight_grams",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "weight_grams integer CHECK (weight_grams IS NULL OR weight_grams BETWEEN 0 AND 1000000)"
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "position integer NOT NULL DEFAULT 0 CHECK (position BETWEEN 0 AND 10000)"
+      },
+      {
+        "name": "archived_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "archived_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "inventory_levels": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "variant_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "shop_variants",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "variant_id uuid NOT NULL"
+      },
+      {
+        "name": "on_hand",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "on_hand integer NOT NULL DEFAULT 0"
+      },
+      {
+        "name": "reserved",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "reserved integer NOT NULL DEFAULT 0"
+      },
+      {
+        "name": "low_stock_threshold",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "low_stock_threshold integer CHECK (low_stock_threshold IS NULL OR low_stock_threshold BETWEEN 0 AND 100000)"
+      },
+      {
+        "name": "low_notified_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "low_notified_at timestamptz"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "inventory_movements": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "variant_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "shop_variants",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "variant_id uuid NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('adjustment','receipt','reserve','release','sale','return_restock','write_off','refund_restock'))"
+      },
+      {
+        "name": "quantity",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "quantity integer NOT NULL CHECK (quantity <> 0)"
+      },
+      {
+        "name": "on_hand_after",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "on_hand_after integer NOT NULL CHECK (on_hand_after >= 0)"
+      },
+      {
+        "name": "reserved_after",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "reserved_after integer NOT NULL CHECK (reserved_after >= 0)"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "order_id uuid"
+      },
+      {
+        "name": "return_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "return_id uuid"
+      },
+      {
+        "name": "reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reason text CHECK (reason IS NULL OR char_length(reason) <= 200)"
+      },
+      {
+        "name": "actor_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "actor_user_id uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "shipping_rates": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 80)"
+      },
+      {
+        "name": "country",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "country text NOT NULL CHECK (country ~ '^[A-Z]{2}$')"
+      },
+      {
+        "name": "postal_prefixes",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "postal_prefixes text[] NOT NULL DEFAULT '{}' CHECK (cardinality(postal_prefixes) <= 200 AND array_to_string(postal_prefixes, ',') ~ '^([0-9A-Z]{1,6}(,[0-9A-Z]{1,6})*)?$')"
+      },
+      {
+        "name": "min_subtotal_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "min_subtotal_minor bigint NOT NULL DEFAULT 0 CHECK (min_subtotal_minor >= 0)"
+      },
+      {
+        "name": "max_subtotal_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "max_subtotal_minor bigint CHECK (max_subtotal_minor IS NULL OR max_subtotal_minor >= min_subtotal_minor)"
+      },
+      {
+        "name": "fee_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "fee_minor bigint NOT NULL CHECK (fee_minor >= 0)"
+      },
+      {
+        "name": "tax_rate_bps",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tax_rate_bps integer CHECK (tax_rate_bps IS NULL OR tax_rate_bps BETWEEN 0 AND 10000)"
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "active boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "position integer NOT NULL DEFAULT 0 CHECK (position BETWEEN 0 AND 10000)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "coupons": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "code",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "code text NOT NULL CHECK (code ~ '^[A-Z0-9_-]{3,32}$')"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('percent','fixed'))"
+      },
+      {
+        "name": "value",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "value bigint NOT NULL"
+      },
+      {
+        "name": "min_subtotal_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "min_subtotal_minor bigint NOT NULL DEFAULT 0 CHECK (min_subtotal_minor >= 0)"
+      },
+      {
+        "name": "max_discount_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "max_discount_minor bigint CHECK (max_discount_minor IS NULL OR max_discount_minor > 0)"
+      },
+      {
+        "name": "starts_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "starts_at timestamptz"
+      },
+      {
+        "name": "ends_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "ends_at timestamptz"
+      },
+      {
+        "name": "max_redemptions",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "max_redemptions integer CHECK (max_redemptions IS NULL OR max_redemptions > 0)"
+      },
+      {
+        "name": "per_contact_limit",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "per_contact_limit integer CHECK (per_contact_limit IS NULL OR per_contact_limit > 0)"
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "active boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "storefront_sessions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "token_hash",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "token_hash text NOT NULL UNIQUE CHECK (token_hash ~ '^[0-9a-f]{64}$')"
+      },
+      {
+        "name": "token_epoch",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "token_epoch integer NOT NULL DEFAULT 1 CHECK (token_epoch > 0)"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "contacts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "contact_id uuid NOT NULL"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "conversations",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "conversation_id uuid"
+      },
+      {
+        "name": "whatsapp_config_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "whatsapp_config",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "whatsapp_config_id uuid"
+      },
+      {
+        "name": "purpose",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "purpose text NOT NULL CHECK (purpose IN ('shop','order','status'))"
+      },
+      {
+        "name": "expires_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "expires_at timestamptz NOT NULL"
+      },
+      {
+        "name": "revoked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "revoked_at timestamptz"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "order_id uuid"
+      },
+      {
+        "name": "cart",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'[]'::jsonb",
+        "reference": null,
+        "definition": "cart jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(cart) = 'array' AND jsonb_array_length(cart) <= 50 AND pg_column_size(cart) <= 16384)"
+      },
+      {
+        "name": "address",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "address jsonb CHECK (address IS NULL OR (jsonb_typeof(address) = 'object' AND pg_column_size(address) <= 2048))"
+      },
+      {
+        "name": "coupon_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "coupon_code text CHECK (coupon_code IS NULL OR coupon_code ~ '^[A-Z0-9_-]{3,32}$')"
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "version integer NOT NULL DEFAULT 1 CHECK (version > 0)"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "stock_reservations": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "order_id uuid NOT NULL"
+      },
+      {
+        "name": "variant_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "shop_variants",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "variant_id uuid NOT NULL"
+      },
+      {
+        "name": "quantity",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "quantity integer NOT NULL CHECK (quantity > 0)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'held'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'held' CHECK (status IN ('held','committed','released'))"
+      },
+      {
+        "name": "expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "expires_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "coupon_redemptions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "coupon_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "coupons",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "coupon_id uuid NOT NULL"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "order_id uuid NOT NULL"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "contacts",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "contact_id uuid"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'reserved'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'reserved' CHECK (status IN ('reserved','committed','released'))"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "customer_payments": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "source text NOT NULL CHECK (source IN ('razorpay','offline'))"
+      },
+      {
+        "name": "provider_payment_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "provider_payment_id text CHECK (provider_payment_id IS NULL OR provider_payment_id ~ '^pay_[A-Za-z0-9]{1,40}$')"
+      },
+      {
+        "name": "provider_account_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "provider_account_id text CHECK (provider_account_id IS NULL OR char_length(provider_account_id) <= 64)"
+      },
+      {
+        "name": "payment_link_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "payment_links",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "payment_link_id uuid"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "order_id uuid"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "appointment_id uuid"
+      },
+      {
+        "name": "amount_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "amount_minor bigint NOT NULL CHECK (amount_minor > 0)"
+      },
+      {
+        "name": "currency",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "status text NOT NULL CHECK (status IN ('authorized','captured','failed'))"
+      },
+      {
+        "name": "method",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "method text CHECK (method IS NULL OR char_length(method) <= 32)"
+      },
+      {
+        "name": "offline_reference",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "offline_reference text CHECK (offline_reference IS NULL OR char_length(offline_reference) <= 100)"
+      },
+      {
+        "name": "recorded_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "recorded_by uuid"
+      },
+      {
+        "name": "captured_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "captured_at timestamptz"
+      },
+      {
+        "name": "refunded_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "refunded_minor bigint NOT NULL DEFAULT 0 CHECK (refunded_minor >= 0)"
+      },
+      {
+        "name": "settlement",
+        "type": "text",
+        "nullable": false,
+        "default": "'pending'",
+        "reference": null,
+        "definition": "settlement text NOT NULL DEFAULT 'pending' CHECK (settlement IN ('pending','settled','exception','unattached'))"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "customer_refunds": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "payment_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "customer_payments",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "payment_id uuid NOT NULL"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "order_id uuid"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "appointment_id uuid"
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "source text NOT NULL CHECK (source IN ('bodhinox','external'))"
+      },
+      {
+        "name": "amount_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "amount_minor bigint NOT NULL CHECK (amount_minor > 0)"
+      },
+      {
+        "name": "currency",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "reason_code",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "reason_code text NOT NULL CHECK (reason_code IN ('customer_request','out_of_stock','return','duplicate','cancelled','other'))"
+      },
+      {
+        "name": "note",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "note text CHECK (note IS NULL OR char_length(note) <= 500)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "status text NOT NULL CHECK (status IN ('requested','sending','pending','processed','failed','unknown'))"
+      },
+      {
+        "name": "provider_refund_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "provider_refund_id text CHECK (provider_refund_id IS NULL OR provider_refund_id ~ '^rfnd_[A-Za-z0-9]{1,40}$')"
+      },
+      {
+        "name": "failure_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "failure_code text CHECK (failure_code IS NULL OR failure_code ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "attempt",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "attempt integer NOT NULL DEFAULT 1 CHECK (attempt BETWEEN 1 AND 20)"
+      },
+      {
+        "name": "superseded_provider_refund_ids",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "superseded_provider_refund_ids text[] NOT NULL DEFAULT '{}' CHECK (cardinality(superseded_provider_refund_ids) <= 20)"
+      },
+      {
+        "name": "requested_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "requested_by uuid"
+      },
+      {
+        "name": "restock",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "restock boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "return_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "return_id uuid"
+      },
+      {
+        "name": "processed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "processed_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "payment_exceptions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('late_payment_no_stock','late_payment_slot_lost','payment_on_closed_order', 'duplicate_payment','amount_mismatch','currency_mismatch','merchant_changed','payment_unmatched', 'refund_unknown','refund_failed'))"
+      },
+      {
+        "name": "subject_key",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "subject_key text NOT NULL CHECK (subject_key ~ '^[a-z_]{1,16}:[A-Za-z0-9_-]{1,64}$')"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "order_id uuid"
+      },
+      {
+        "name": "payment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "customer_payments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "payment_id uuid"
+      },
+      {
+        "name": "refund_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "customer_refunds",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "refund_id uuid"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "appointment_id uuid"
+      },
+      {
+        "name": "payment_link_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "payment_links",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "payment_link_id uuid"
+      },
+      {
+        "name": "detail",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "detail text CHECK (detail IS NULL OR detail ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'open'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved'))"
+      },
+      {
+        "name": "resolution",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolution text CHECK (resolution IS NULL OR resolution IN ('refunded','restocked','accepted','dismissed'))"
+      },
+      {
+        "name": "resolved_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_by uuid"
+      },
+      {
+        "name": "resolved_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "order_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "order_id uuid NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind ~ '^[a-z_]{1,40}$')"
+      },
+      {
+        "name": "from_status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "from_status text"
+      },
+      {
+        "name": "to_status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "to_status text"
+      },
+      {
+        "name": "actor",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "actor text NOT NULL CHECK (actor IN ('staff','customer','system'))"
+      },
+      {
+        "name": "actor_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "actor_user_id uuid"
+      },
+      {
+        "name": "detail",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "detail text CHECK (detail IS NULL OR detail ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "order_returns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "order_id uuid NOT NULL"
+      },
+      {
+        "name": "items",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "items jsonb NOT NULL CHECK (jsonb_typeof(items) = 'array' AND jsonb_array_length(items) BETWEEN 1 AND 100 AND pg_column_size(items) <= 8192)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'requested'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','received','inspected','closed','rejected'))"
+      },
+      {
+        "name": "disposition",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "disposition jsonb CHECK (disposition IS NULL OR (jsonb_typeof(disposition) = 'object' AND pg_column_size(disposition) <= 8192))"
+      },
+      {
+        "name": "refund_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "customer_refunds",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "refund_id uuid"
+      },
+      {
+        "name": "note",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "note text CHECK (note IS NULL OR char_length(note) <= 500)"
+      },
+      {
+        "name": "restocked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "restocked_at timestamptz"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "commerce_document_sequences": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "fy",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "fy text NOT NULL CHECK (fy ~ '^[0-9]{4}-[0-9]{2}$')"
+      },
+      {
+        "name": "next_number",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "next_number integer NOT NULL DEFAULT 1 CHECK (next_number > 0)"
+      }
+    ],
+    "commerce_documents": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "order_id uuid"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "appointment_id uuid"
+      },
+      {
+        "name": "payment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "customer_payments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "payment_id uuid"
+      },
+      {
+        "name": "refund_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "customer_refunds",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "refund_id uuid"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('receipt','credit_note'))"
+      },
+      {
+        "name": "number",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "number text NOT NULL CHECK (number ~ '^[A-Z0-9]{1,8}/[0-9]{4}-[0-9]{2}/[0-9]{1,9}$')"
+      },
+      {
+        "name": "fy",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "fy text NOT NULL CHECK (fy ~ '^[0-9]{4}-[0-9]{2}$')"
+      },
+      {
+        "name": "currency",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "seller",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "seller jsonb NOT NULL CHECK (jsonb_typeof(seller) = 'object' AND pg_column_size(seller) <= 4096)"
+      },
+      {
+        "name": "buyer",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "buyer jsonb NOT NULL CHECK (jsonb_typeof(buyer) = 'object' AND pg_column_size(buyer) <= 4096)"
+      },
+      {
+        "name": "address",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "address jsonb CHECK (address IS NULL OR (jsonb_typeof(address) = 'object' AND pg_column_size(address) <= 2048))"
+      },
+      {
+        "name": "line_items",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "line_items jsonb NOT NULL CHECK (jsonb_typeof(line_items) = 'array' AND pg_column_size(line_items) <= 65536)"
+      },
+      {
+        "name": "subtotal_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "subtotal_minor bigint NOT NULL CHECK (subtotal_minor >= 0)"
+      },
+      {
+        "name": "discount_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "discount_minor bigint NOT NULL DEFAULT 0 CHECK (discount_minor >= 0)"
+      },
+      {
+        "name": "shipping_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "shipping_minor bigint NOT NULL DEFAULT 0 CHECK (shipping_minor >= 0)"
+      },
+      {
+        "name": "tax_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "tax_minor bigint NOT NULL DEFAULT 0 CHECK (tax_minor >= 0)"
+      },
+      {
+        "name": "cgst_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "cgst_minor bigint NOT NULL DEFAULT 0 CHECK (cgst_minor >= 0)"
+      },
+      {
+        "name": "sgst_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "sgst_minor bigint NOT NULL DEFAULT 0 CHECK (sgst_minor >= 0)"
+      },
+      {
+        "name": "igst_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "igst_minor bigint NOT NULL DEFAULT 0 CHECK (igst_minor >= 0)"
+      },
+      {
+        "name": "total_minor",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "total_minor bigint NOT NULL CHECK (total_minor >= 0)"
+      },
+      {
+        "name": "issued_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "issued_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "order_messages": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "order_id uuid NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('checkout_link','payment_link','receipt','dispatched','delivered','feedback','product_follow_up'))"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "status text NOT NULL CHECK (status IN ('sent','skipped','blocked','failed','outcome_unknown'))"
+      },
+      {
+        "name": "reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reason text CHECK (reason IS NULL OR reason ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "resolved_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_at timestamptz"
+      },
+      {
+        "name": "resolved_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_by uuid"
       },
       {
         "name": "created_at",

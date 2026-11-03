@@ -11,6 +11,7 @@ vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: vi.fn(async () 
 
 import { updateOrder } from '@/lib/commerce/orders';
 import { applyProviderState } from '@/lib/payments/links';
+import { settlePaymentTx } from '@/lib/payments/settle';
 import { CapiError, handleCapiEventJob, CONVERSIONS_PAGE_SIZE, listConversionEvents, parseEventCursor, queueConversionEvent, queueConversionEventTx, resolveConversionEvent } from './capi';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
@@ -44,7 +45,16 @@ async function link(contactId: string, orderId: string | null, amount = 49_900) 
   return (await owner.query("INSERT INTO payment_links(account_id,provider,provider_link_id,reference_id,amount_minor,currency,contact_id,order_id,status) VALUES($1,'razorpay',$2,$3,$4,'INR',$5,$6,'created') RETURNING id",
     [accountA, `plink_${seed}_${++n}`, `capiref${seed}x${n}xxxxxxxx`, amount, contactId, orderId])).rows[0].id as string;
 }
-const pay = (linkId: string) => applyProviderState(accountA, linkId, { status: 'paid' }, 'webhook');
+// Paid order links credit only through settlement (a verified payment), as in production.
+const pay = async (linkId: string) => {
+  const applied = await applyProviderState(accountA, linkId, { status: 'paid' }, 'webhook');
+  const amount = (await owner.query('SELECT amount_minor::int AS a FROM payment_links WHERE id=$1', [linkId])).rows[0].a as number;
+  await worker((tx) => settlePaymentTx(tx, {
+    accountId: accountA, paymentLinkId: linkId, providerPaymentId: `pay_capi${linkId.replace(/-/g, '').slice(0, 24)}`, providerKeyId: null,
+    providerAccountId: null, amountMinor: amount, currency: 'INR', status: 'captured', method: 'upi', capturedAt: new Date(),
+  }));
+  return applied;
+};
 const fetchMock = vi.fn<typeof fetch>();
 
 describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Conversions API on PostgreSQL', { timeout: 120_000 }, () => {
@@ -101,18 +111,16 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Conversions API on PostgreS
     expect(await jobsFor(rows[0].event_id)).toEqual([{ payload: { capiEventId: rows[0].id } }]);
   });
 
-  it('lets an agent session queue a manual-order Purchase, and dedupes it against the payment link', async () => {
+  it('reports Purchase from a paid order link once, never from a manual status change', async () => {
     const orderId = await order(clicked, 'confirmed', 1_250);
-    await updateOrder(asAgentA, orderId, { status: 'paid' });
-    const rows = await events(`AND event_id='order:${orderId}:Purchase'`);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ source: 'order', status: 'queued' });
-    expect(Number(rows[0].value)).toBe(12.5);
-    expect(await jobsFor(rows[0].event_id)).toHaveLength(1);
-    // A payment link for that order paid later: same event id, no second row or job.
+    // Phase 8: nobody marks an order paid by hand, so a status change reports nothing.
+    await expect(updateOrder(asAgentA, orderId, { status: 'paid' })).rejects.toMatchObject({ code: 'bad_transition' });
+    expect(await events(`AND event_id='order:${orderId}:Purchase'`)).toEqual([]);
     await owner.query("UPDATE orders SET status='awaiting_payment' WHERE id=$1", [orderId]);
     await pay(await link(clicked, orderId, 1_250));
-    expect(await events(`AND event_id='order:${orderId}:Purchase'`)).toHaveLength(1);
+    const rows = await events(`AND event_id='order:${orderId}:Purchase'`);
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0].value)).toBe(12.5);
     expect(await jobsFor(rows[0].event_id)).toHaveLength(1);
   });
 

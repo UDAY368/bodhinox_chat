@@ -12,13 +12,30 @@ const h = vi.hoisted(() => {
   let n = 0;
   const link = (referenceId: string, status = 'created', amount = 49_900) => ({
     id: `plink_T${++n}x${Date.now() % 100000}`, shortUrl: `https://rzp.io/l/t${n}`, status, amountMinor: amount, amountPaidMinor: status === 'paid' ? amount : 0,
-    currency: 'INR', referenceId, expireBy: null,
+    currency: 'INR', referenceId, expireBy: null, payments: [] as { paymentId: string; amountMinor: number; status: string }[],
   });
+  /** Razorpay's side once a link is paid: the link with its payment, and that payment. */
+  const gateway = new Map<string, ReturnType<typeof link>>();
+  const payments = new Map<string, { id: string; amountMinor: number; currency: string; status: string; captured: boolean; method: string; amountRefundedMinor: number; createdAt: number }>();
+  const pay = (row: { provider_link_id: string; reference_id: string }, amount = 49_900) => {
+    const paymentId = `pay_T${++n}x${Date.now() % 100000}`;
+    payments.set(paymentId, { id: paymentId, amountMinor: amount, currency: 'INR', status: 'captured', captured: true, method: 'upi', amountRefundedMinor: 0, createdAt: Math.floor(Date.now() / 1000) });
+    gateway.set(row.provider_link_id, { ...link(row.reference_id, 'paid', amount), id: row.provider_link_id, payments: [{ paymentId, amountMinor: amount, status: 'captured' }] });
+    return paymentId;
+  };
   return {
     link,
+    gateway,
+    payments,
+    pay,
+    fetchPayment: vi.fn(async (args: { id: string }) => {
+      const p = payments.get(args.id);
+      if (!p) throw new Error('not found');
+      return p;
+    }),
     create: vi.fn(async (args: { referenceId: string; amountMinor: number }) => ({ outcome: 'created' as const, link: link(args.referenceId, 'created', args.amountMinor) }) as unknown),
     fetchByReference: vi.fn<(args: { referenceId: string }) => Promise<unknown>>(async () => null),
-    fetch: vi.fn<(args: { id: string }) => Promise<unknown>>(async () => null),
+    fetch: vi.fn<(args: { id: string }) => Promise<unknown>>(async (args) => gateway.get(args.id) ?? null),
     cancel: vi.fn(async (args: { id: string }) => ({ ...link('x', 'cancelled'), id: args.id }) as unknown),
     sendText: vi.fn<(args: { conversationId: string; text: string }) => Promise<{ whatsapp_message_id: string }>>(async () => ({ whatsapp_message_id: `wamid.pay.${++n}` })),
     metaSendText: vi.fn<(args: { phoneNumberId: string; to: string; text: string }) => Promise<{ messageId: string }>>(async () => ({ messageId: `wamid.inbox.${++n}` })),
@@ -31,6 +48,7 @@ vi.mock('@/lib/payments/razorpay', async (orig) => ({
   fetchPaymentLinkByReference: h.fetchByReference,
   fetchPaymentLink: h.fetch,
   cancelPaymentLink: h.cancel,
+  fetchPayment: h.fetchPayment,
 }));
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.sendText, engineSendMedia: h.sendText, engineSendInteractiveButtons: h.sendText, engineSendInteractiveList: h.sendText,
@@ -214,6 +232,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     const { link } = await create({ orderId: order, conversationId: null });
     expect(link.conversation_id).toBe(convA);
     const row = await linkRow(link.id);
+    h.pay(row);
     const receipt = await deliver('payment_link.paid', row);
     expect(await linkRow(link.id)).toMatchObject({ status: 'paid' });
     expect((await linkRow(link.id)).paid_at).not.toBeNull();
@@ -228,6 +247,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     expect(await queued(order)).toEqual([{ tenant: accountA, endpointId: endpointA, event: 'order.paid', body: expect.objectContaining({
       event: 'order.paid', data: expect.objectContaining({ order_id: order, source: 'manual', status: 'paid', total_minor: 49_900, currency: 'INR', item_count: 0 }) }) }]);
     expect(h.dispatch).not.toHaveBeenCalled();
+    // The money is recorded once, verified and credited to the order.
+    const credited = async () => (await owner.query("SELECT settlement,amount_minor::int AS amount FROM customer_payments WHERE account_id=$1 AND payment_link_id=$2", [accountA, link.id])).rows;
+    expect(await credited()).toEqual([{ settlement: 'settled', amount: 49_900 }]);
+    expect((await owner.query('SELECT amount_paid_minor::int AS paid FROM orders WHERE id=$1', [order])).rows[0].paid).toBe(49_900);
 
     // A redelivery under another id, then an out-of-order expiry: nothing changes and nothing is queued again.
     await deliver('payment_link.paid', row);
@@ -236,21 +259,42 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     expect(await notes()).toHaveLength(1);
     expect(await queued(link.id)).toHaveLength(1);
     expect(await queued(order)).toHaveLength(1);
+    expect(await credited()).toHaveLength(1);
   });
 
-  it('emits payment_link.paid once when a reconcile finds the link paid, and no order.paid for an order already paid', async () => {
+  it('refuses a second live link for the same order', async () => {
+    const order = (await owner.query(`INSERT INTO orders(account_id,source,contact_id,conversation_id,currency,subtotal_minor,status)
+      VALUES($1,'manual',$2,$3,'INR',49900,'awaiting_payment') RETURNING id`, [accountA, contactA, convA])).rows[0].id;
+    await create({ orderId: order });
+    await expect(create({ orderId: order })).rejects.toMatchObject({ code: 'link_exists' });
+  });
+
+  it("never binds a link to another customer's order", async () => {
+    const other = randomUUID();
+    await owner.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'Other',$4)", [other, accountA, adminA, `+9196${seed}`]);
+    const order = (await owner.query(`INSERT INTO orders(account_id,source,contact_id,currency,subtotal_minor,status)
+      VALUES($1,'manual',$2,'INR',49900,'awaiting_payment') RETURNING id`, [accountA, other])).rows[0].id;
+    await expect(create({ orderId: order })).rejects.toMatchObject({ code: 'target_not_found' });
+    await expect(create({ orderId: order, conversationId: undefined, contactId: contactA })).rejects.toMatchObject({ code: 'target_not_found' });
+    expect((await owner.query('SELECT count(*)::int AS n FROM payment_links WHERE order_id=$1', [order])).rows[0].n).toBe(0);
+  });
+
+  it('holds a payment a reconcile finds for an order already paid as a duplicate, announcing nothing', async () => {
     const order = (await owner.query(`INSERT INTO orders(account_id,source,contact_id,conversation_id,currency,subtotal_minor,status)
       VALUES($1,'manual',$2,$3,'INR',49900,'paid') RETURNING id`, [accountA, contactA, convA])).rows[0].id;
     const { link } = await create({ orderId: order });
     const row = await linkRow(link.id);
-    h.fetch.mockResolvedValueOnce({ ...h.link(row.reference_id, 'paid'), id: row.provider_link_id });
+    h.pay(row);
     expect((await reconcilePaymentLink(accountA, link.id)).link.status).toBe('paid');
-    expect((await queued(link.id)).map((d) => d.event)).toEqual(['payment_link.paid']);
+    expect(await queued(link.id)).toEqual([]);
     expect(await queued(order)).toEqual([]);
-    // Already paid: a later webhook and reconcile queue nothing more.
+    const held = async () => (await owner.query("SELECT kind,status FROM payment_exceptions WHERE account_id=$1 AND payment_link_id=$2", [accountA, link.id])).rows;
+    expect(await held()).toEqual([{ kind: 'duplicate_payment', status: 'open' }]);
+    // A later webhook and reconcile change nothing.
     await deliver('payment_link.paid', row);
     await reconcilePaymentLink(accountA, link.id);
-    expect(await queued(link.id)).toHaveLength(1);
+    expect(await queued(link.id)).toEqual([]);
+    expect(await held()).toHaveLength(1);
   });
 
   it('rolls the paid transition back with its deliveries when they cannot be queued, and the retry queues them', async () => {
@@ -258,7 +302,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
       VALUES($1,'manual',$2,$3,'INR',49900,'awaiting_payment') RETURNING id`, [accountA, contactA, convA])).rows[0].id;
     const { link } = await create({ orderId: order, conversationId: null });
     const row = await linkRow(link.id);
-    // Simulate the crash window: the delivery insert fails inside the payment transaction.
+    h.pay(row);
+    // Simulate the crash window: the delivery insert fails inside the settlement transaction.
     const trigger = `fail_webhook_jobs_${seed}`;
     await owner.query(`CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
       IF NEW.type='webhook.delivery' AND NEW.tenant_id='${accountA}'::uuid THEN RAISE EXCEPTION 'simulated enqueue failure'; END IF; RETURN NEW; END $$`);
@@ -269,8 +314,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
       await owner.query(`DROP TRIGGER ${trigger} ON jobs`);
       await owner.query(`DROP FUNCTION ${trigger}()`);
     }
-    expect((await linkRow(link.id)).status).toBe('created');
+    // The link's own status is only evidence; nothing was credited and no payment row survived.
+    expect((await linkRow(link.id)).status).toBe('paid');
     expect((await owner.query('SELECT status FROM orders WHERE id=$1', [order])).rows[0].status).toBe('awaiting_payment');
+    expect((await owner.query('SELECT count(*)::int AS n FROM customer_payments WHERE payment_link_id=$1', [link.id])).rows[0].n).toBe(0);
     expect(await queued(link.id)).toEqual([]);
     // The provider event is retried (a redelivery here): the payment and both deliveries now commit together.
     await deliver('payment_link.paid', row);
@@ -346,6 +393,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
 
     const link = (await owner.query('SELECT id,provider_link_id,reference_id,flow_run_id,node_key FROM payment_links WHERE flow_run_id=$1', [waiting.id])).rows;
     expect(link).toHaveLength(1);
+    h.pay(link[0], 25_000);
     await deliver('payment_link.paid', link[0]);
     const done = (await owner.query('SELECT status,vars FROM flow_runs WHERE id=$1', [waiting.id])).rows[0];
     expect(done).toMatchObject({ status: 'completed', vars: { payment_status: 'paid' } });

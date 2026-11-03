@@ -49,7 +49,17 @@ import { POST } from './route';
 
 const event = (name: string, extra: Record<string, unknown> = {}) => JSON.stringify({
   event: name,
-  payload: { payment_link: { entity: { id: 'plink_Abc123', reference_id: 'fl_abcdefghijklmnopqrstuvwxyz012345', status: name.split('.')[1], amount: 49900, amount_paid: 49900, currency: 'INR', customer: { contact: '+919800000000', email: 'a@example.invalid' }, ...extra } } },
+  account_id: 'acc_Merchant1',
+  payload: {
+    payment_link: { entity: { id: 'plink_Abc123', reference_id: 'fl_abcdefghijklmnopqrstuvwxyz012345', status: name.split('.')[1], amount: 49900, amount_paid: 49900, currency: 'INR', customer: { contact: '+919800000000', email: 'a@example.invalid' }, ...extra } },
+    payment: { entity: { id: 'pay_Xyz789', amount: 49900, currency: 'INR', status: 'captured', contact: '+919800000000', email: 'a@example.invalid', vpa: 'asha@upi' } },
+  },
+});
+const refundEvent = (name: string) => JSON.stringify({
+  event: name,
+  account_id: 'acc_Merchant1',
+  payload: { refund: { entity: { id: 'rfnd_Ref123', payment_id: 'pay_Xyz789', amount: 10000, currency: 'INR', status: name.split('.')[1],
+    notes: { bodhinox_refund_id: '22222222-2222-4222-8222-222222222222', customer: 'Asha +919800000000' } } } },
 });
 const sign = (raw: string, secret = SECRET) => createHmac('sha256', secret).update(raw).digest('hex');
 const call = (raw: string, headers: Record<string, string>, account = ACCOUNT) =>
@@ -69,7 +79,8 @@ it('records a verified payment once and queues its job before acknowledging', as
   expect(h.jobs).toEqual([{ type: 'payments.razorpay_event', tenant: ACCOUNT, payload: JSON.stringify({ receiptId: 'r1' }), dedupe: 'payment-event:r1' }]);
   const receipt = h.receipts.get(`razorpay:${ACCOUNT}:evt_1`)!;
   // Ids and statuses only: no customer contact details are stored.
-  expect(receipt.payload).toEqual({ accountId: ACCOUNT, event: 'payment_link.paid', paymentLinkId: 'plink_Abc123', referenceId: 'fl_abcdefghijklmnopqrstuvwxyz012345', status: 'paid' });
+  expect(receipt.payload).toEqual({ accountId: ACCOUNT, event: 'payment_link.paid', paymentLinkId: 'plink_Abc123', referenceId: 'fl_abcdefghijklmnopqrstuvwxyz012345', status: 'paid',
+    paymentId: 'pay_Xyz789', providerAccountId: 'acc_Merchant1' });
   expect(JSON.stringify(receipt.payload)).not.toContain('9800000000');
 
   // Razorpay redelivers: acknowledged, nothing queued again.
@@ -114,4 +125,22 @@ it('asks Razorpay to retry when the receipt cannot be stored, and rejects oversi
   expect((await call(big, { 'x-razorpay-signature': sign(big) })).status).toBe(400);
   const broken = '{not json';
   expect((await call(broken, { 'x-razorpay-signature': sign(broken) })).status).toBe(400);
+});
+
+it('records a verified refund event with ids and amounts only, and queues the same job', async () => {
+  const raw = refundEvent('refund.processed');
+  const res = await call(raw, { 'x-razorpay-signature': sign(raw), 'x-razorpay-event-id': 'evt_r1' });
+  expect(res.status).toBe(200);
+  expect(h.jobs).toEqual([{ type: 'payments.razorpay_event', tenant: ACCOUNT, payload: JSON.stringify({ receiptId: 'r1' }), dedupe: 'payment-event:r1' }]);
+  const receipt = h.receipts.get(`razorpay:${ACCOUNT}:evt_r1`)!;
+  expect(receipt.payload).toEqual({ accountId: ACCOUNT, event: 'refund.processed', refundId: 'rfnd_Ref123', paymentId: 'pay_Xyz789', status: 'processed',
+    amountMinor: 10000, currency: 'INR', providerAccountId: 'acc_Merchant1' });
+  expect(JSON.stringify(receipt.payload)).not.toContain('9800000000');
+});
+
+it('ignores payment.* events even when they carry a captured payment', async () => {
+  const raw = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_Xyz789', amount: 49900, status: 'captured' } } } });
+  expect((await call(raw, { 'x-razorpay-signature': sign(raw), 'x-razorpay-event-id': 'evt_p1' })).status).toBe(200);
+  expect(h.receipts.size).toBe(0);
+  expect(h.jobs).toHaveLength(0);
 });

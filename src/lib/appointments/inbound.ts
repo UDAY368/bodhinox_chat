@@ -6,7 +6,9 @@
  * confirmHold checks the receiving number is the booking page's, makes the
  * sender the appointment's contact and queues the confirmation and reminders
  * in the same transaction, so this needs no inbound stage checkpoint: a
- * retried job finds the hold already confirmed.
+ * retried job finds the hold already confirmed. A paid service's hold is not
+ * confirmed here: the sender is bound and its payment link queued in that
+ * transaction (payment_pending), and settlement confirms it (paid.ts).
  *
  * Only a workspace with the appointments feature and a booking page takes
  * part. Text shaped like a code that matches no public appointment there
@@ -49,7 +51,7 @@ export interface BookingCodeResult {
   /** True when the code was processed (confirmed or answered); the bots then stay silent. */
   handled: boolean;
   /** What happened, for tests and logs (codes only). */
-  outcome?: 'confirmed' | 'already_confirmed' | NonNullable<NotifyJobPayload['reason']> | 'rate_limited' | 'replayed' | 'not_booking';
+  outcome?: 'confirmed' | 'already_confirmed' | 'payment_pending' | NonNullable<NotifyJobPayload['reason']> | 'rate_limited' | 'replayed' | 'not_booking';
 }
 
 /** Codes that belong to a real appointment of this workspace and are answered. not_found is not here: it falls through. */

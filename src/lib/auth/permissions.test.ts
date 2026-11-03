@@ -82,3 +82,16 @@ describe('requirePermission', () => {
     expect(h.queries).toBe(0);
   });
 });
+
+describe('phase 8 commerce permissions', () => {
+  it('match the role_permission_restrictions CHECK pattern and keep their ceilings', () => {
+    // prisma/migrations/20261102132000_teams_permissions: permission ~ '^[a-z_]{1,32}\.[a-z_]{1,32}$'
+    for (const p of PERMISSIONS) expect(p).toMatch(/^[a-z_]{1,32}\.[a-z_]{1,32}$/);
+    expect(FEATURE_PERMISSIONS['commerce.inventory']).toBe('admin');
+    expect(FEATURE_PERMISSIONS['commerce.refunds']).toBe('admin');
+    expect(FEATURE_PERMISSIONS['commerce.record_payments']).toBe('admin');
+    expect(FEATURE_PERMISSIONS['commerce.checkout']).toBe('agent');
+    expect(roleAllows('agent', 'commerce.refunds')).toBe(false);
+    expect(roleAllows('viewer', 'commerce.checkout')).toBe(false);
+  });
+});

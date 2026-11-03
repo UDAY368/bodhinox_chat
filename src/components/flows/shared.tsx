@@ -71,6 +71,7 @@ export type NodeType =
   | 'book_appointment'
   | 'ai_reply'
   | 'conversion_event'
+  | 'send_storefront_link'
   | 'send_product'
   | 'send_product_list'
   | 'send_catalog'
@@ -124,6 +125,7 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'ask_address',
   'send_form',
   'payment_link',
+  'send_storefront_link',
   'book_appointment',
   'ai_reply',
   'send_product',
@@ -229,6 +231,12 @@ export const NODE_META: Record<
     slugSeed: 'AI reply',
     icon: Sparkles,
     color: 'text-violet-400',
+    category: 'messaging',
+  },
+  send_storefront_link: {
+    slugSeed: 'Storefront link',
+    icon: Store,
+    color: 'text-emerald-400',
     category: 'messaging',
   },
   conversion_event: {
@@ -358,6 +366,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   payment_link: { l: 0.64, c: 0.14, h: 150 }, // money green — asks for a payment
   book_appointment: { l: 0.64, c: 0.13, h: 195 }, // cyan — books a time on the calendar
   ai_reply: { l: 0.62, c: 0.17, h: 305 }, // purple — the AI agent answers
+  send_storefront_link: { l: 0.66, c: 0.15, h: 125 }, // lime — the shop family
   conversion_event: { l: 0.65, c: 0.15, h: 0 }, // red-pink — reports an ad conversion, writes data like set_tag
   send_product: { l: 0.66, c: 0.15, h: 125 }, // lime — the shop family
   send_product_list: { l: 0.66, c: 0.15, h: 125 },
@@ -561,6 +570,7 @@ export function summarizeNode(
       return body ? truncate(body) : null;
     }
     case 'payment_link': {
+      if (cfg.link_order === true) return t ? t('paymentOrder') : "Charges the run's order";
       const amount = typeof cfg.amount === 'string' ? cfg.amount.trim() : '';
       const currency = typeof cfg.currency === 'string' ? cfg.currency : '';
       return amount ? truncate(`${currency} ${amount}`.trim(), 60) : (t ? t('paymentNone') : 'No amount set');
@@ -576,6 +586,10 @@ export function summarizeNode(
       const text = instructions ? truncate(instructions, 50) : (t ? t('aiReplyDefault') : 'Answers with the AI agent');
       return varKey ? `${text} → vars.${varKey}` : text;
     }
+    case 'send_storefront_link':
+      return cfg.purpose === 'status'
+        ? (t ? t('storefrontStatus') : 'Order status link')
+        : (t ? t('storefrontShop') : 'Store link');
     case 'conversion_event': {
       const event = typeof cfg.event_name === 'string' && cfg.event_name ? cfg.event_name : 'Purchase';
       return t ? t('conversionDefault', { event }) : `Reports ${event} to Meta`;

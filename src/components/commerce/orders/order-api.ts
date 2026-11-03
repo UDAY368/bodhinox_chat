@@ -4,7 +4,7 @@
 // the mutation-origin headers.
 
 import { authFetch } from "@/lib/auth/client";
-import type { OrderSource, OrderStatus } from "@/lib/commerce/order-format";
+import type { OrderSource, OrderStatus, RefundState } from "@/lib/commerce/order-format";
 
 export interface OrderListItem {
   id: string;
@@ -26,7 +26,47 @@ export interface OrderDetail extends OrderListItem {
   whatsapp_config_id: string | null;
   note: string | null;
   customer_note: string | null;
-  items: Array<{ id: string; retailer_id: string | null; name: string | null; quantity: number; unit_price_minor: number; currency: string }>;
+  priced_at: string | null;
+  discount_minor: number;
+  shipping_minor: number;
+  tax_minor: number;
+  tax_inclusive: boolean | null;
+  coupon_code: string | null;
+  shipping_address: Record<string, unknown> | null;
+  reservation_expires_at: string | null;
+  paid_at: string | null;
+  amount_paid_minor: number;
+  amount_refunded_minor: number;
+  refund_state: RefundState;
+  dispatched_at: string | null;
+  delivered_at: string | null;
+  tracking_note: string | null;
+  feedback_score: number | null;
+  items: Array<{
+    id: string; retailer_id: string | null; name: string | null; quantity: number; unit_price_minor: number; currency: string;
+    variant_id?: string | null; sku?: string | null; tax_minor?: number | null; discount_minor?: number | null;
+    line_total_minor?: number | null;
+  }>;
+}
+
+export interface OrderTimeline {
+  events: Array<{ id: string; kind: string; from_status: string | null; to_status: string | null; actor: string;
+    actor_name: string | null; detail: string | null; created_at: string }>;
+  documents: Array<{ id: string; kind: "receipt" | "credit_note"; number: string; total_minor: number; currency: string; issued_at: string }>;
+  messages: Array<{ kind: string; status: string; reason: string | null; resolved_at: string | null; updated_at: string }>;
+}
+
+export interface OrderReturn {
+  id: string;
+  order_id: string;
+  status: "requested" | "received" | "inspected" | "closed" | "rejected";
+  items: Array<{ order_item_id: string; qty: number }>;
+  disposition: Record<string, "restock" | "discard"> | null;
+  refund_id: string | null;
+  note: string | null;
+  restocked_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface OrderSettings {
@@ -86,3 +126,63 @@ export async function saveOrderSettings(settings: OrderSettings): Promise<ApiRes
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings),
   }), "settings");
 }
+
+const post = (url: string, body: unknown) => authFetch(url, {
+  method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+});
+const orderUrl = (id: string, path: string) => `/api/commerce/orders/${encodeURIComponent(id)}/${path}`;
+
+export async function dispatchOrder(id: string, input: { from: OrderStatus; tracking_note?: string | null }): Promise<ApiResult<true>> {
+  return result(await post(orderUrl(id, "dispatch"), input), "ok");
+}
+
+export async function deliverOrder(id: string, input: { from: OrderStatus }): Promise<ApiResult<true>> {
+  return result(await post(orderUrl(id, "deliver"), input), "ok");
+}
+
+export async function recordOrderFeedback(id: string, score: number): Promise<ApiResult<true>> {
+  return result(await post(orderUrl(id, "feedback"), { score }), "ok");
+}
+
+/**
+ * "Cancel and refund". refundedOutside is the staff's confirmation that money
+ * Razorpay does not hold (an offline payment, or a legacy order with no payment
+ * record) was returned outside the app; without it the server answers 409
+ * offline_payment and requests nothing.
+ */
+export async function cancelAndRefundOrder(id: string, note: string | null, refundedOutside = false): Promise<ApiResult<{ refundIds: string[]; refundedOutside: boolean }>> {
+  const res = await post(orderUrl(id, "cancel-refund"), refundedOutside ? { note, refunded_outside: true } : { note });
+  const r = await result<string[]>(res.clone(), "refund_ids");
+  if (!r.ok) return r;
+  const json = (await res.json().catch(() => ({}))) as { refunded_outside?: unknown };
+  return { ok: true, value: { refundIds: r.value, refundedOutside: json.refunded_outside === true } };
+}
+
+export async function getOrderTimeline(id: string): Promise<OrderTimeline | null> {
+  const res = await authFetch(orderUrl(id, "events"), { cache: "no-store" });
+  return res.ok ? ((await res.json()) as OrderTimeline) : null;
+}
+
+export async function listOrderReturns(id: string): Promise<OrderReturn[]> {
+  const res = await authFetch(orderUrl(id, "returns"), { cache: "no-store" });
+  return res.ok ? ((await res.json()) as { returns: OrderReturn[] }).returns : [];
+}
+
+export async function createOrderReturn(id: string, input: { items: Array<{ order_item_id: string; qty: number }>; note?: string | null }): Promise<ApiResult<OrderReturn>> {
+  return result(await post(orderUrl(id, "returns"), input), "return");
+}
+
+export type ReturnAction =
+  | { action: "receive" } | { action: "reject" }
+  | { action: "inspect"; disposition: Record<string, "restock" | "discard"> }
+  | { action: "close"; restock: boolean };
+
+export async function moveReturn(returnId: string, input: ReturnAction): Promise<ApiResult<OrderReturn>> {
+  return result(await post(`/api/commerce/returns/${encodeURIComponent(returnId)}`, input), "return");
+}
+
+export async function refundReturn(returnId: string, amountMinor: number, note: string | null): Promise<ApiResult<string>> {
+  return result(await post(`/api/commerce/returns/${encodeURIComponent(returnId)}`, { action: "refund", amount_minor: amountMinor, note }), "refund_id");
+}
+
+export const documentUrl = (documentId: string) => `/api/commerce/documents/${encodeURIComponent(documentId)}`;

@@ -143,6 +143,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('orders on PostgreSQL', { ti
     const confirmed = await updateOrder(asAgentA, orderId, { status: 'confirmed', note: 'Ships Monday' });
     expect(confirmed).toMatchObject({ status: 'confirmed', note: 'Ships Monday' });
     await expect(updateOrder(asAgentA, orderId, { status: 'new' })).rejects.toMatchObject({ status: 409, code: 'bad_transition' });
+    // Phase 8: nobody marks an order paid by hand (verified payments and "Record offline payment" only).
+    await expect(updateOrder(asAgentA, orderId, { status: 'paid' })).rejects.toMatchObject({ status: 409, code: 'bad_transition' });
     await expect(updateOrder(asViewerA, orderId, { status: 'paid' })).rejects.toMatchObject({ status: 404 });
     await expect(updateOrder(asB, orderId, { status: 'paid' })).rejects.toMatchObject({ status: 404 });
     await expect(withTenant(asAgentA, (tx) => tx.$executeRaw`UPDATE orders SET subtotal_minor=1 WHERE id=${orderId}::uuid`))

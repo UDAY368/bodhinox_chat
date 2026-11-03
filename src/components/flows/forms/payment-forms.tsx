@@ -11,6 +11,7 @@
 import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { PAYMENT_LINK_LIMITS } from "@/lib/flows/payment-node";
 import type { PaymentLinkNodeConfig } from "@/lib/flows/types";
@@ -35,8 +36,21 @@ export function PaymentLinkForm({ node, allNodes, onUpdateConfig, t }: { node: B
       onChange={(v) => onUpdateConfig({ [field]: v })}
     />
   );
+  const linkOrder = cfg.link_order === true;
   return (
     <>
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor={id("link-order")} className="text-xs text-muted-foreground">{t("paymentLinkOrder")}</label>
+          <Switch
+            id={id("link-order")}
+            checked={linkOrder}
+            onCheckedChange={(checked) => onUpdateConfig({ link_order: checked || undefined })}
+          />
+        </div>
+        <p className={help}>{t("paymentLinkOrderHelp")}</p>
+      </div>
+      {!linkOrder && (<>
       <div className="grid grid-cols-[1fr_96px] gap-2">
         <div>
           <label htmlFor={id("amount")} className={label}>{t("paymentAmount")}</label>
@@ -62,6 +76,7 @@ export function PaymentLinkForm({ node, allNodes, onUpdateConfig, t }: { node: B
         </div>
       </div>
       <p className={help}>{t("paymentAmountHelp")}</p>
+      </>)}
       <div>
         <label htmlFor={id("description")} className={label}>{t("paymentDescription", { max: PAYMENT_LINK_LIMITS.description })}</label>
         <Input

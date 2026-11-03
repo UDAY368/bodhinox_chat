@@ -49,6 +49,11 @@ const uuid = (value: unknown): string => {
     throw new Error('Invalid job identifier');
   return value;
 };
+/** A job's attempt/version counter: a positive integer, else the contract is invalid. */
+const counter = (value: unknown): number => {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) throw new Error('Invalid job counter');
+  return value as number;
+};
 export async function scheduleWork() {
   const accounts = await getWorkerPrisma().$queryRaw<
     { account_id: string }[]
@@ -79,6 +84,9 @@ export async function scheduleWork() {
   // Meta ads insights and lead backfill; nothing while META_ADS_ENABLED is off or unconfigured.
   await import('@/lib/meta-ads/schedule').then((m) => m.scheduleMetaAds())
     .catch(() => console.error('[worker] meta ads scheduling failed'));
+  // Customer payments: every 10 minutes per workspace, reconcile unknown links and refunds (never re-sends).
+  await import('@/lib/payments/reconcile-sweep').then((m) => m.scheduleReconcileSweeps())
+    .catch(() => console.error('[worker] payment reconcile scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -298,7 +306,7 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // Entries are claimed before sending; only a provably undelivered email is retried.
       await sendNotificationDigest(accountId);
     else if (job.type === 'payments.razorpay_event')
-      // One verified Razorpay delivery: link status, order paid, agent alert, waiting flow run.
+      // One verified Razorpay delivery: link status; a paid link is settled only after an authoritative fetch.
       await (await import('@/lib/payments/links')).handlePaymentEventJob(accountId, job.payload);
     else if (job.type === 'payments.cancel_link')
       // Cancels the Razorpay link a flow run left unpaid when it ended (queued by the flow_runs trigger).
@@ -313,6 +321,38 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'analytics.report' || job.type === 'analytics.report_sweep')
       // Builds one CSV report into private storage, or expires old report files.
       await (await import('@/lib/analytics/reports')).handleReportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'commerce.prepare_whatsapp_order')
+      // Reprice a WhatsApp cart from the Bodhinox catalogue and send its checkout link once.
+      await (await import('@/lib/commerce/checkout')).prepareWhatsAppOrderJob(accountId, { orderId: uuid(job.payload.orderId) });
+    else if (job.type === 'commerce.create_checkout_link')
+      // The placed order's payment link (skipped unless still awaiting payment without a live link).
+      await (await import('@/lib/commerce/checkout')).createCheckoutLinkJob(accountId,
+        { orderId: uuid(job.payload.orderId), attempt: counter(job.payload.attempt) });
+    else if (job.type === 'commerce.reservation_expiry')
+      // Release the stock and coupon of an unpaid order whose hold ended, then cancel its link.
+      await (await import('@/lib/commerce/checkout')).expireReservation(accountId,
+        { orderId: uuid(job.payload.orderId), attempt: counter(job.payload.attempt) });
+    else if (job.type === 'commerce.issue_receipt')
+      await (await import('@/lib/commerce/documents')).handleIssueReceiptJob(accountId, { paymentId: uuid(job.payload.paymentId) });
+    else if (job.type === 'commerce.issue_credit_note')
+      await (await import('@/lib/commerce/documents')).handleIssueCreditNoteJob(accountId, { refundId: uuid(job.payload.refundId) });
+    else if (job.type === 'commerce.order_followup') {
+      const kind = job.payload.kind;
+      if (kind !== 'feedback' && kind !== 'product_follow_up' && kind !== 'dispatched' && kind !== 'delivered') throw new Error('Invalid order follow-up kind');
+      await (await import('@/lib/commerce/order-followup')).handleOrderFollowupJob(accountId,
+        { orderId: uuid(job.payload.orderId), kind }, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    }
+    else if (job.type === 'payments.refund')
+      // One refund send, claimed requested -> sending first; an ambiguous outcome is reconciled, never re-sent.
+      await (await import('@/lib/payments/refunds')).handleRefundJob(accountId,
+        { refundId: uuid(job.payload.refundId), attempt: counter(job.payload.attempt) });
+    else if (job.type === 'payments.reconcile_sweep')
+      await (await import('@/lib/payments/reconcile-sweep')).runReconcileSweep(accountId);
+    else if (job.type === 'appointments.payment_link')
+      // A paid public hold's payment link (created and sent once); confirmation waits for settlement.
+      await (await import('@/lib/appointments/paid')).handleAppointmentPaymentLinkJob(accountId,
+        { appointmentId: uuid(job.payload.appointmentId), version: counter(job.payload.version) },
+        { attempts: job.attempts, maxAttempts: job.max_attempts });
     else if (isAppointmentJobType(job.type))
       // Reminders, customer notices, staff/automation/webhook fan-out, hold expiry and follow-up.
       // Each re-checks the appointment version, so a superseded job is a no-op.

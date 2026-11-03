@@ -21,6 +21,26 @@ export function linkErrorResponse(error: unknown): NextResponse {
   return toErrorResponse(error);
 }
 
+/** A coded payments service error (refunds, offline payments, exceptions, links) → its status and code. */
+export function paymentsErrorResponse(error: unknown): NextResponse {
+  if (error instanceof Error && 'code' in error && 'status' in error && typeof error.status === 'number'
+    && ['RefundError', 'OfflinePaymentError', 'ExceptionError', 'PaymentLinkError'].includes(error.name))
+    return NextResponse.json({ error: error.message, code: (error as { code: string }).code }, { status: error.status });
+  return toErrorResponse(error);
+}
+
+/** The JSON object body of a request, or null for anything else. */
+export async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
+  try {
+    const text = await request.text();
+    if (text.length > 8 * 1024) return null;
+    const parsed: unknown = JSON.parse(text);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Sends a created link into its conversation and reports how it went; never throws for a send outcome. */
 export async function sendLinkInto(ctx: AccountContext, link: PaymentLinkView, message: string | undefined, intentKey: string): Promise<SendResult> {
   const t = getT('Validation.payments');

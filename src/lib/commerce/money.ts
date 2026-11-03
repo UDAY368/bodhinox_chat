@@ -105,3 +105,56 @@ export function minorFromDb(value: bigint | number | string | null | undefined):
   if (big > BigInt(MAX_MINOR) || big < -BigInt(MAX_MINOR)) throw new MoneyError('Amount is out of range');
   return Number(big);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 8 pricing arithmetic (design E4). Exact integers only: products run in
+// bigint so taxable × rate never loses precision, results are safe numbers.
+
+function nonNegative(value: number | bigint, field: string): bigint {
+  const big = typeof value === 'bigint' ? value : Number.isSafeInteger(value) ? BigInt(value) : null;
+  if (big === null || big < BigInt(0)) throw new MoneyError(`${field} must be a non-negative integer`);
+  return big;
+}
+
+function toSafe(value: bigint): number {
+  if (value > BigInt(MAX_MINOR)) throw new MoneyError('Amount is out of range');
+  return Number(value);
+}
+
+/** round(n / d) with halves rounded up, for non-negative n and positive d: (2n + d) div 2d. */
+export function roundHalfUp(numerator: number | bigint, denominator: number | bigint): number {
+  const n = nonNegative(numerator, 'numerator');
+  const d = nonNegative(denominator, 'denominator');
+  if (d === BigInt(0)) throw new MoneyError('denominator must be positive');
+  return toSafe((BigInt(2) * n + d) / (BigInt(2) * d));
+}
+
+/** round(a × b / d) half up, computed exactly (e.g. tax = mulDivHalfUp(taxable, bps, 10000)). */
+export function mulDivHalfUp(a: number | bigint, b: number | bigint, d: number | bigint): number {
+  return roundHalfUp(nonNegative(a, 'a') * nonNegative(b, 'b'), d);
+}
+
+/**
+ * Split `total` across lines in proportion to `weights` (largest remainder):
+ * each share is floor(total × w / Σw), then the leftover units go one each to
+ * the largest remainders, ties to the lower index. The shares always sum to
+ * exactly `total`. All inputs are non-negative integers; a zero total gives
+ * zeros, and a positive total needs a positive weight sum.
+ */
+export function allocateLargestRemainder(total: number, weights: readonly number[]): number[] {
+  const t = nonNegative(total, 'total');
+  const w = weights.map((x) => nonNegative(x, 'weight'));
+  const sum = w.reduce((a, b) => a + b, BigInt(0));
+  if (t === BigInt(0)) return w.map(() => 0);
+  if (sum === BigInt(0)) throw new MoneyError('Cannot allocate across zero weights');
+  const shares = w.map((x) => (t * x) / sum);
+  const remainders = w.map((x, index) => ({ index, rem: (t * x) % sum }));
+  let left = t - shares.reduce((a, b) => a + b, BigInt(0));
+  remainders.sort((a, b) => (a.rem === b.rem ? a.index - b.index : a.rem > b.rem ? -1 : 1));
+  for (const { index } of remainders) {
+    if (left === BigInt(0)) break;
+    shares[index] += BigInt(1);
+    left -= BigInt(1);
+  }
+  return shares.map(toSafe);
+}

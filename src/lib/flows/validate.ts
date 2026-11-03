@@ -34,6 +34,7 @@ import { PAYMENT_LINK_VARS, paymentLinkEdges, paymentLinkIssues } from "./paymen
 import { BOOK_APPOINTMENT_VARS, bookAppointmentEdges, bookAppointmentIssues } from "./appointment-node";
 import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai-reply-node";
 import { conversionEdges, conversionIssues } from "./conversion-node";
+import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
 import { parseDateInput } from "./input-formats";
 import type { ConditionRule, NodeTiming } from "./types";
 
@@ -254,7 +255,7 @@ export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: str
     // A one-turn AI reply answers and moves on without waiting for the customer.
     const autoAiReply = n.node_type === "ai_reply" && aiReplyMaxTurns(n.config) === 1;
     const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
-    if ((timesOut || autoTemplate || autoAiReply || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
+    if ((timesOut || autoTemplate || autoAiReply || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event", "send_storefront_link"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
       autoNodes.set(n.node_key, n);
     }
   }
@@ -1093,6 +1094,10 @@ function validateNode(
       issues.push(...conversionIssues(node, knownKeys));
       break;
 
+    case "send_storefront_link":
+      issues.push(...storefrontLinkIssues(node, knownKeys));
+      break;
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
@@ -1321,6 +1326,9 @@ function outgoingEdges(node: NodeInput): string[] {
       break;
     case "conversion_event":
       conversionEdges(cfg).forEach(add);
+      break;
+    case "send_storefront_link":
+      storefrontLinkEdges(cfg).forEach(add);
       break;
     case "collect_input":
     case "ask_media":

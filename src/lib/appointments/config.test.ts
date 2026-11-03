@@ -27,8 +27,21 @@ describe('parseService', () => {
     expect(field(() => parseService({ ...base, duration_minutes: 4 }))).toBe('duration_minutes');
   });
 
-  it('refuses payment-required services until payments land (D16)', () => {
-    expect(field(() => parseService({ ...base, payment_required: true }))).toBe('not_yet_supported');
+  it('allows payment-required services only with a positive price (Phase 8, E15)', () => {
+    const detail = (fn: () => unknown) => {
+      try {
+        fn();
+      } catch (error) {
+        return error instanceof AppointmentFieldError ? `${error.field}:${error.detail}` : 'other';
+      }
+      return null;
+    };
+    expect(detail(() => parseService({ ...base, payment_required: true }))).toBe('payment_required:price_required');
+    expect(detail(() => parseService({ ...base, payment_required: true, price_minor: 0, currency: 'INR' }))).toBe('payment_required:price_required');
+    expect(parseService({ ...base, payment_required: true, price_minor: 50000, currency: 'INR' })).toMatchObject({ payment_required: true });
+    // An update that clears the price of a paid service is refused too.
+    expect(detail(() => parseService({ price_minor: null, currency: null },
+      { ...parseService({ ...base, payment_required: true, price_minor: 50000, currency: 'INR' }) }))).toBe('payment_required:price_required');
   });
 
   it('keeps price and currency together, meeting links only for online https', () => {

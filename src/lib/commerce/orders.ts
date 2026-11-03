@@ -13,8 +13,8 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { isVariableMap } from './event-rules';
 import { minorFromDb } from './money';
-import { capiValue, queueConversionEventTx } from '@/lib/meta-ads/capi';
 import { classifyMaskedPhoneSearch, loadPhoneMask } from '@/lib/inbox/masking-apply';
+import { transitionOrder } from './order-lifecycle';
 import {
   canTransition,
   isOrderSource,
@@ -23,6 +23,7 @@ import {
   type InboundOrder,
   type OrderSource,
   type OrderStatus,
+  type RefundState,
 } from './order-format';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -64,6 +65,11 @@ export async function withProductNames(tx: TenantTransaction, accountId: string,
  * Store a WhatsApp cart once per inbound message id (UNIQUE(account_id,
  * message_id)). `tx` must be the worker transaction that inserts the message.
  * Returns false when the order already exists (a redelivered webhook).
+ *
+ * The cart's Meta prices are only what the customer saw: when store checkout
+ * is enabled, the same transaction queues commerce.prepare_whatsapp_order,
+ * which reprices the lines from the Bodhinox catalogue and sends a checkout
+ * link (design E2, E6). Without checkout the order stays unpriced (legacy).
  */
 export async function recordWhatsAppOrder(tx: TenantTransaction, input: {
   accountId: string; orderId: string; metaMessageId: string; contactId: string; conversationId: string;
@@ -82,6 +88,14 @@ export async function recordWhatsAppOrder(tx: TenantTransaction, input: {
     await tx.$executeRaw`INSERT INTO order_items(account_id,order_id,retailer_id,name,quantity,unit_price_minor,currency)
       VALUES(${input.accountId}::uuid,${input.orderId}::uuid,${item.retailer_id},${item.name},${item.quantity},
         ${item.unit_price_minor},${order.currency})`;
+  }
+  const [settings] = await tx.$queryRaw<{ checkout_enabled: boolean }[]>`
+    SELECT checkout_enabled FROM commerce_settings WHERE account_id=${input.accountId}::uuid`;
+  if (settings?.checkout_enabled) {
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
+      VALUES('commerce.prepare_whatsapp_order',${input.accountId}::uuid,${JSON.stringify({ orderId: input.orderId })}::jsonb,
+        ${`prep:${input.orderId}`})
+      ON CONFLICT(dedupe_key) DO NOTHING`;
   }
   return true;
 }
@@ -109,7 +123,30 @@ export interface OrderDetail extends OrderListItem {
   whatsapp_config_id: string | null;
   note: string | null;
   customer_note: string | null;
-  items: Array<{ id: string; retailer_id: string | null; name: string | null; quantity: number; unit_price_minor: number; currency: string }>;
+  /** Server-priced (Phase 8): the money columns and line snapshots are frozen once set. */
+  priced_at: string | null;
+  discount_minor: number;
+  shipping_minor: number;
+  tax_minor: number;
+  tax_inclusive: boolean | null;
+  coupon_code: string | null;
+  shipping_address: Record<string, unknown> | null;
+  reservation_expires_at: string | null;
+  paid_at: string | null;
+  amount_paid_minor: number;
+  amount_refunded_minor: number;
+  refund_state: RefundState;
+  dispatched_at: string | null;
+  delivered_at: string | null;
+  tracking_note: string | null;
+  feedback_score: number | null;
+  items: Array<{
+    id: string; retailer_id: string | null; name: string | null; quantity: number; unit_price_minor: number; currency: string;
+    variant_id: string | null; sku: string | null; hsn_code: string | null;
+    /** The price the customer's WhatsApp cart showed, kept for reference only. */
+    submitted_unit_price_minor: number | null;
+    tax_rate_bps: number | null; tax_minor: number | null; discount_minor: number | null; line_total_minor: number | null;
+  }>;
 }
 
 export interface OrderFilters {
@@ -255,17 +292,37 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
   if (!UUID.test(id)) throw new OrderError(404, 'not_found', 'Order not found');
   const row = await tx.orders.findFirst({
     where: { account_id: accountId, id },
-    select: { ...listSelect, catalog_id: true, whatsapp_config_id: true, note: true, customer_note: true },
+    select: {
+      ...listSelect, catalog_id: true, whatsapp_config_id: true, note: true, customer_note: true,
+      priced_at: true, discount_minor: true, shipping_minor: true, tax_minor: true, tax_inclusive: true, coupon_code: true,
+      shipping_address: true, reservation_expires_at: true, paid_at: true, amount_paid_minor: true, amount_refunded_minor: true,
+      refund_state: true, dispatched_at: true, delivered_at: true, tracking_note: true, feedback_score: true,
+    },
   });
   if (!row) throw new OrderError(404, 'not_found', 'Order not found');
   const [base] = await decorate(tx, accountId, [row]);
   const items = await tx.order_items.findMany({
     where: { account_id: accountId, order_id: id }, orderBy: { id: 'asc' },
-    select: { id: true, retailer_id: true, name: true, quantity: true, unit_price_minor: true, currency: true },
+    select: {
+      id: true, retailer_id: true, name: true, quantity: true, unit_price_minor: true, currency: true, variant_id: true, sku: true,
+      hsn_code: true, submitted_unit_price_minor: true, tax_rate_bps: true, tax_minor: true, discount_minor: true, line_total_minor: true,
+    },
   });
+  const iso = (d: Date | null) => (d ? d.toISOString() : null);
+  const address = row.shipping_address;
   return {
     ...base, catalog_id: row.catalog_id, whatsapp_config_id: row.whatsapp_config_id, note: row.note, customer_note: row.customer_note,
-    items: items.map((i) => ({ ...i, unit_price_minor: minorFromDb(i.unit_price_minor)! })),
+    priced_at: iso(row.priced_at), discount_minor: minorFromDb(row.discount_minor)!, shipping_minor: minorFromDb(row.shipping_minor)!,
+    tax_minor: minorFromDb(row.tax_minor)!, tax_inclusive: row.tax_inclusive, coupon_code: row.coupon_code,
+    shipping_address: address && typeof address === 'object' && !Array.isArray(address) ? (address as Record<string, unknown>) : null,
+    reservation_expires_at: iso(row.reservation_expires_at), paid_at: iso(row.paid_at),
+    amount_paid_minor: minorFromDb(row.amount_paid_minor)!, amount_refunded_minor: minorFromDb(row.amount_refunded_minor)!,
+    refund_state: row.refund_state as RefundState, dispatched_at: iso(row.dispatched_at), delivered_at: iso(row.delivered_at),
+    tracking_note: row.tracking_note, feedback_score: row.feedback_score,
+    items: items.map((i) => ({
+      ...i, unit_price_minor: minorFromDb(i.unit_price_minor)!, submitted_unit_price_minor: minorFromDb(i.submitted_unit_price_minor),
+      tax_minor: minorFromDb(i.tax_minor), discount_minor: minorFromDb(i.discount_minor), line_total_minor: minorFromDb(i.line_total_minor),
+    })),
   };
 }
 
@@ -296,31 +353,26 @@ export function parseOrderPatch(body: unknown): OrderPatch {
 }
 
 /**
- * Change status (only along ORDER_TRANSITIONS) and/or the internal note. The
- * update is conditional on the status read, so two agents moving the same
- * order at once get one success and one 409.
+ * Change the internal note and/or the status. A status change goes only along
+ * ORDER_TRANSITIONS (never to paid: payments settle through verified gateway
+ * payments or "Record offline payment") and is carried out by
+ * order-lifecycle.transitionOrder, which releases stock and cancels links as
+ * needed; it is conditional on the status read, so two agents moving the same
+ * order at once get one success and one 409. The Conversions API Purchase is
+ * queued by settlement now, not here.
  */
 export async function updateOrder(ctx: TenantContext, id: string, patch: OrderPatch): Promise<OrderDetail> {
+  const current = await withTenant(ctx, (tx) => readOrder(tx, ctx.accountId, id));
+  if (patch.status !== undefined && patch.status !== current.status) {
+    if (!canTransition(current.status, patch.status, { priced: current.priced_at !== null }))
+      throw new OrderError(409, 'bad_transition', `An order cannot move from ${current.status} to ${patch.status}`);
+    if (!ctx.userId) throw new OrderError(403, 'invalid', 'A signed-in member is required');
+    await transitionOrder({ ...ctx, userId: ctx.userId }, id, { from: current.status, to: patch.status });
+  }
   return withTenant(ctx, async (tx) => {
-    const current = await readOrder(tx, ctx.accountId, id);
-    const data: { status?: string; note?: string | null } = {};
-    if (patch.status !== undefined && patch.status !== current.status) {
-      if (!canTransition(current.status, patch.status))
-        throw new OrderError(409, 'bad_transition', `An order cannot move from ${current.status} to ${patch.status}`);
-      data.status = patch.status;
-    }
-    if (patch.note !== undefined) data.note = patch.note;
-    if (!Object.keys(data).length) return current;
-    const { count } = await tx.orders.updateMany({ where: { account_id: ctx.accountId, id, status: current.status }, data });
-    if (count !== 1) throw new OrderError(409, 'conflict', 'The order changed; reload and try again');
-    // Conversions API Purchase, in this transaction. Same event id as the payment-link
-    // path (order:<id>:Purchase), so an order already reported there is a no-op here.
-    if (data.status === 'paid') {
-      await queueConversionEventTx(tx, {
-        accountId: ctx.accountId, eventName: 'Purchase', source: 'order', sourceId: id, orderId: id,
-        contactId: current.contact?.id ?? null,
-        value: capiValue(current.total_minor ?? current.subtotal_minor, current.currency), currency: current.currency,
-      });
+    if (patch.note !== undefined) {
+      const { count } = await tx.orders.updateMany({ where: { account_id: ctx.accountId, id }, data: { note: patch.note } });
+      if (count !== 1) throw new OrderError(404, 'not_found', 'Order not found');
     }
     return readOrder(tx, ctx.accountId, id);
   });

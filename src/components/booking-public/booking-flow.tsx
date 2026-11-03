@@ -150,7 +150,7 @@ export function BookingFlow({ slug }: { slug: string }) {
   }
 
   if (step === 'code' && hold) {
-    return <HoldScreen hold={hold} businessName={page.businessName} onRestart={() => { setHold(null); setStep('choose'); resetSlot(); if (windowFrom) void loadSlots(windowFrom); }} />;
+    return <HoldScreen hold={hold} businessName={page.businessName} paid={service?.paymentRequired ?? false} onRestart={() => { setHold(null); setStep('choose'); resetSlot(); if (windowFrom) void loadSlots(windowFrom); }} />;
   }
 
   const price = service ? (service.priceMinor === 0 ? t('free') : formatPrice(service.priceMinor, service.currency, locale)) : null;
@@ -180,6 +180,7 @@ export function BookingFlow({ slug }: { slug: string }) {
                     <span className="font-medium">{s.name}</span>
                     <span className="text-muted-foreground text-xs">
                       {t('duration', { minutes: s.durationMinutes })} · {s.mode === 'online' ? t('online') : t('inPerson')}
+                      {s.paymentRequired && <> · {t('payInAdvance')}</>}
                     </span>
                   </Choice>
                 ))}
@@ -265,6 +266,7 @@ export function BookingFlow({ slug }: { slug: string }) {
               </div>
             </Section>
             <p className="text-muted-foreground text-xs">{t('serviceNotice')}</p>
+            {service.paymentRequired && <p className="text-muted-foreground text-xs">{t('paymentNotice')}</p>}
             <div className="flex justify-between">
               <Button type="button" variant="ghost" onClick={() => setStep('choose')} disabled={submitting}>{t('back')}</Button>
               <Button type="button" onClick={() => void submit()} disabled={submitting}>
@@ -279,7 +281,7 @@ export function BookingFlow({ slug }: { slug: string }) {
   );
 }
 
-function HoldScreen({ hold, businessName, onRestart }: { hold: HoldResponse; businessName: string; onRestart: () => void }) {
+function HoldScreen({ hold, businessName, paid, onRestart }: { hold: HoldResponse; businessName: string; paid: boolean; onRestart: () => void }) {
   const t = useTranslations('BookingPublic');
   const locale = useLocale();
   const [now, setNow] = useState(() => Date.now());
@@ -328,6 +330,7 @@ function HoldScreen({ hold, businessName, onRestart }: { hold: HoldResponse; bus
                 {copied ? t('copied') : t('copy')}
               </Button>
             </div>
+            {paid && <p className="text-sm" data-testid="booking-payment-note">{t('paymentAfterCode')}</p>}
             <p className="text-muted-foreground text-xs">{t('expiresIn', { minutes })}</p>
           </>
         )}

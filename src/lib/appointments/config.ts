@@ -10,6 +10,7 @@ import { requireRoomFor } from '@/lib/billing/entitlements';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { parseWorkingHours, type TimeRange, type WorkingHours } from '@/lib/inbox/working-hours';
 import { loadSettings } from './availability';
+import { paidBookingReady } from './booking';
 import { lockKeys } from './keys';
 import { appointmentTemplateRefusal, type AppointmentCheckedTemplate, type AppointmentTemplateRefusal } from './template-check';
 import { isCalendarDate, isValidTimeZone } from './time';
@@ -275,9 +276,10 @@ export function parseService(raw: unknown, current?: ServiceFields): ServiceFiel
     if (has(b, key)) (out as Record<string, unknown>)[key] = SERVICE_PARSERS[key](b);
     else if (!current && (key === 'name' || key === 'mode' || key === 'duration_minutes')) throw new AppointmentFieldError(key);
   }
-  // Payment-gated confirmation arrives with payments (design D16).
-  if (out.payment_required) throw new AppointmentError('not_yet_supported');
   if ((out.price_minor === null) !== (out.currency === null)) throw new AppointmentFieldError(out.price_minor === null ? 'price_minor' : 'currency');
+  // Payment before confirmation (Phase 8, E15) needs a price to charge (the database enforces it too).
+  if (out.payment_required && !(out.price_minor !== null && out.price_minor > 0 && out.currency))
+    throw new AppointmentFieldError('payment_required', 'price_required');
   if (out.mode !== 'online' && out.meeting_url) throw new AppointmentFieldError('meeting_url');
   return out;
 }
@@ -302,8 +304,21 @@ async function writeService(tx: TenantTransaction, accountId: string, f: Service
   return rows[0];
 }
 
+/**
+ * Turning on payment_required needs the storefront feature and a connected
+ * Razorpay account (E15), checked when it is switched on; a service already
+ * requiring payment keeps saving even if payments are later disconnected (its
+ * public page then stops offering it).
+ */
+async function assertPaymentsReady(tx: TenantTransaction, accountId: string, fields: ServiceFields, before?: { payment_required: boolean }) {
+  if (!fields.payment_required || before?.payment_required) return;
+  if (!(await paidBookingReady(tx, accountId))) throw new AppointmentFieldError('payment_required', 'payments_not_ready');
+}
+
 export async function createService(tx: TenantTransaction, accountId: string, userId: string | null, raw: unknown): Promise<ServiceRow> {
-  const row = await writeService(tx, accountId, parseService(raw));
+  const fields = parseService(raw);
+  await assertPaymentsReady(tx, accountId, fields);
+  const row = await writeService(tx, accountId, fields);
   await audit(tx, accountId, userId, 'appointments.service.created', row.id);
   return row;
 }
@@ -314,9 +329,12 @@ export async function updateService(tx: TenantTransaction, accountId: string, us
     WHERE account_id=$1::uuid AND id=$2::uuid FOR UPDATE`, accountId, id);
   if (!current) throw new AppointmentError('not_found');
   const rest = Object.fromEntries(Object.entries(b).filter(([k]) => k !== 'archived'));
-  let row = Object.keys(rest).length ? await writeService(tx, accountId, parseService(rest, {
-    ...current, price_minor: current.price_minor === null ? null : Number(current.price_minor),
-  }), id) : current;
+  let row = current;
+  if (Object.keys(rest).length) {
+    const fields = parseService(rest, { ...current, price_minor: current.price_minor === null ? null : Number(current.price_minor) });
+    await assertPaymentsReady(tx, accountId, fields, current);
+    row = await writeService(tx, accountId, fields, id);
+  }
   if (has(b, 'archived')) {
     const archive = bool(b, 'archived');
     [row] = await tx.$queryRawUnsafe<ServiceRow[]>(`UPDATE appointment_services SET archived_at=${archive ? 'COALESCE(archived_at, now())' : 'NULL'},

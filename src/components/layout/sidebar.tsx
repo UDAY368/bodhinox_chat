@@ -22,6 +22,8 @@ import {
   Megaphone,
   MessageSquare,
   Package,
+  Boxes,
+  Store,
   Radio,
   Settings,
   Shield,
@@ -108,8 +110,10 @@ const navItems: NavItem[] = [
 
 const commerceNavItems: NavItem[] = [
   { href: '/commerce/orders', labelKey: 'orders', icon: ShoppingBag },
+  { href: '/commerce/catalogue', labelKey: 'catalogue', icon: Boxes },
   { href: '/commerce/products', labelKey: 'products', icon: Package },
   { href: '/commerce/payments', labelKey: 'payments', icon: CreditCard },
+  { href: '/commerce/settings', labelKey: 'storeSettings', icon: Store },
 ];
 
 const bottomNavItems = [

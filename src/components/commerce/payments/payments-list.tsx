@@ -1,10 +1,14 @@
 "use client";
 
 /**
- * Payment links, newest first (agents and above). 'Check status' settles a
- * link with Razorpay: an unknown create is looked up by its reference before
- * anything is created again, and a live link is re-read, which may show it
- * paid. Paid is only ever set by Razorpay's verified answer.
+ * The Payments page: links, customer payments and refunds (agents and above),
+ * and the exception queue and reconciliation report (admins).
+ *
+ * Payment links, newest first. 'Check status' settles a link with Razorpay:
+ * an unknown create is looked up by its reference before anything is created
+ * again, and a live link is re-read, which may show it paid. Paid is only ever
+ * set by Razorpay's verified answer, and money is credited to an order only
+ * after the payment itself is verified.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -18,13 +22,45 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/commerce/money";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreatePaymentLinkDialog } from "./create-payment-link-dialog";
+import { CustomerPaymentsTable } from "./customer-payments-table";
+import { ExceptionsQueue } from "./exceptions-queue";
+import { ReconciliationReport } from "./reconciliation-report";
 import { listPaymentLinks, PAYMENT_LINK_STATUSES, paymentLinkAction, RECONCILABLE, type PaymentLinkItem } from "./payment-api";
 import { PaymentStatusBadge } from "./payment-status-badge";
 
 const ALL = "all";
 
 export function PaymentsList() {
+  const t = useTranslations("Payments.list");
+  const tTabs = useTranslations("Payments.tabs");
+  const isAdmin = useCan("edit-settings");
+  const [tab, setTab] = useState("links");
+  return (
+    <div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
+      </div>
+      <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="mt-6">
+        <TabsList>
+          <TabsTrigger value="links">{tTabs("links")}</TabsTrigger>
+          <TabsTrigger value="payments">{tTabs("payments")}</TabsTrigger>
+          {isAdmin && <TabsTrigger value="exceptions">{tTabs("exceptions")}</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="reconciliation">{tTabs("reconciliation")}</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="links" className="mt-4"><PaymentLinksList /></TabsContent>
+        <TabsContent value="payments" className="mt-4">{tab === "payments" && <CustomerPaymentsTable />}</TabsContent>
+        {isAdmin && <TabsContent value="exceptions" className="mt-4">{tab === "exceptions" && <ExceptionsQueue />}</TabsContent>}
+        {isAdmin && <TabsContent value="reconciliation" className="mt-4">{tab === "reconciliation" && <ReconciliationReport />}</TabsContent>}
+      </Tabs>
+    </div>
+  );
+}
+
+/** Payment links, newest first (agents and above). */
+export function PaymentLinksList() {
   const t = useTranslations("Payments.list");
   const tStatus = useTranslations("Payments.statuses");
   const format = useFormatter();
@@ -93,20 +129,7 @@ export function PaymentsList() {
 
   return (
     <div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-        {canAct && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" />
-            {t("new")}
-          </Button>
-        )}
-      </div>
-
-      <div className="mt-6 flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
         <Select value={status || ALL} onValueChange={(v) => setStatus(!v || v === ALL ? "" : v)}>
           <SelectTrigger className="w-48" aria-label={t("statusFilter")}><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -114,6 +137,12 @@ export function PaymentsList() {
             {PAYMENT_LINK_STATUSES.map((s) => <SelectItem key={s} value={s}>{tStatus(s)}</SelectItem>)}
           </SelectContent>
         </Select>
+        {canAct && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            {t("new")}
+          </Button>
+        )}
       </div>
 
       <div className="mt-4 rounded-lg border border-border">

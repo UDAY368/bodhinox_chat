@@ -978,10 +978,30 @@ model orders {
   customer_note String?
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  discount_minor BigInt @default(0)
+  shipping_minor BigInt @default(0)
+  tax_minor BigInt @default(0)
+  tax_inclusive Boolean?
+  priced_at DateTime? @db.Timestamptz(6)
+  coupon_code String?
+  shipping_address Json?
+  storefront_session_id String? @db.Uuid
+  reservation_expires_at DateTime? @db.Timestamptz(6)
+  paid_at DateTime? @db.Timestamptz(6)
+  amount_paid_minor BigInt @default(0)
+  amount_refunded_minor BigInt @default(0)
+  refund_state String @default("none")
+  dispatched_at DateTime? @db.Timestamptz(6)
+  delivered_at DateTime? @db.Timestamptz(6)
+  fulfilment_recorded_by String? @db.Uuid
+  tracking_note String?
+  feedback_score Int? @db.SmallInt
+  checkout_attempt Int @default(0)
   @@unique([account_id, message_id])
   @@unique([account_id, source, external_id])
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "orders_account_created_idx")
+  @@unique([account_id, storefront_session_id])
 }
 
 model order_items {
@@ -993,6 +1013,14 @@ model order_items {
   quantity Int
   unit_price_minor BigInt
   currency String
+  variant_id String? @db.Uuid
+  submitted_unit_price_minor BigInt?
+  tax_rate_bps Int?
+  tax_minor BigInt?
+  discount_minor BigInt?
+  line_total_minor BigInt?
+  hsn_code String?
+  sku String?
   @@unique([account_id, id])
   @@index([account_id, order_id], map: "order_items_order_idx")
 }
@@ -1034,6 +1062,8 @@ model payment_links {
   created_by String? @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  appointment_id String? @db.Uuid
+  provider_key_id String?
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "payment_links_account_created_idx")
 }
@@ -1764,6 +1794,7 @@ model appointments {
   created_by String? @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  payment_status String @default("none")
   @@unique([account_id, id])
   @@unique([account_id, source_ref])
   @@index([account_id, contact_id, start_at], map: "appointments_contact_idx")
@@ -1819,4 +1850,356 @@ model tasks {
   @@unique([account_id, id])
   @@index([account_id, status, due_at], map: "tasks_open_idx")
   @@index([account_id, appointment_id], map: "tasks_appointment_idx")
+}
+
+// Phase 8: commerce, customer payments and the product journey (prisma/migrations/20261107*).
+// Domain code uses raw SQL inside withTenant; these models document the shape.
+model commerce_settings {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  currency String
+  prices_include_tax Boolean @default(true)
+  default_tax_rate_bps Int?
+  reservation_minutes Int @default(15)
+  checkout_enabled Boolean @default(false)
+  low_stock_default Int @default(5)
+  legal_name String?
+  gstin String?
+  address String?
+  state_code String?
+  document_prefix String @default("RCPT")
+  storefront_title String?
+  return_window_days Int @default(7)
+  checkout_template_name String?
+  checkout_template_language String?
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model shop_categories {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  parent_id String? @db.Uuid
+  position Int @default(0)
+  archived_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model shop_products {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  description String?
+  disclosure String?
+  category_id String? @db.Uuid
+  status String @default("draft")
+  content_reviewed_by String? @db.Uuid
+  content_reviewed_at DateTime? @db.Timestamptz(6)
+  follow_up_template String?
+  follow_up_template_language String?
+  follow_up_after_days Int?
+  version Int @default(1)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model shop_product_images {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  product_id String @db.Uuid
+  media_id String? @db.Uuid
+  url String?
+  position Int
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, product_id, position])
+}
+
+model shop_variants {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  product_id String @db.Uuid
+  sku String
+  option_values Json @default("{}")
+  price_minor BigInt?
+  compare_at_minor BigInt?
+  tax_rate_bps Int?
+  hsn_code String?
+  track_inventory Boolean @default(true)
+  weight_grams Int?
+  position Int @default(0)
+  archived_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, sku])
+}
+
+model inventory_levels {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  variant_id String @db.Uuid
+  on_hand Int @default(0)
+  reserved Int @default(0)
+  low_stock_threshold Int?
+  low_notified_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, variant_id])
+}
+
+model inventory_movements {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  variant_id String @db.Uuid
+  kind String
+  quantity Int
+  on_hand_after Int
+  reserved_after Int
+  order_id String? @db.Uuid
+  return_id String? @db.Uuid
+  reason String?
+  actor_user_id String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model shipping_rates {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  country String
+  postal_prefixes String[] @default([])
+  min_subtotal_minor BigInt @default(0)
+  max_subtotal_minor BigInt?
+  fee_minor BigInt
+  tax_rate_bps Int?
+  active Boolean @default(true)
+  position Int @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model coupons {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  code String
+  kind String
+  value BigInt
+  min_subtotal_minor BigInt @default(0)
+  max_discount_minor BigInt?
+  starts_at DateTime? @db.Timestamptz(6)
+  ends_at DateTime? @db.Timestamptz(6)
+  max_redemptions Int?
+  per_contact_limit Int?
+  active Boolean @default(true)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, code])
+  @@unique([account_id, id])
+}
+
+model coupon_redemptions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  coupon_id String @db.Uuid
+  order_id String @db.Uuid
+  contact_id String? @db.Uuid
+  status String @default("reserved")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, order_id])
+}
+
+model storefront_sessions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  token_hash String @unique
+  token_epoch Int @default(1)
+  contact_id String @db.Uuid
+  conversation_id String? @db.Uuid
+  whatsapp_config_id String? @db.Uuid
+  purpose String
+  expires_at DateTime @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  order_id String? @db.Uuid
+  cart Json @default("[]")
+  address Json?
+  coupon_code String?
+  version Int @default(1)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model stock_reservations {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  variant_id String @db.Uuid
+  quantity Int
+  status String @default("held")
+  expires_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, order_id, variant_id])
+}
+
+model customer_payments {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  source String
+  provider_payment_id String?
+  provider_account_id String?
+  payment_link_id String? @db.Uuid
+  order_id String? @db.Uuid
+  appointment_id String? @db.Uuid
+  amount_minor BigInt
+  currency String
+  status String
+  method String?
+  offline_reference String?
+  recorded_by String? @db.Uuid
+  captured_at DateTime? @db.Timestamptz(6)
+  refunded_minor BigInt @default(0)
+  settlement String @default("pending")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, provider_payment_id])
+}
+
+model customer_refunds {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  payment_id String @db.Uuid
+  order_id String? @db.Uuid
+  appointment_id String? @db.Uuid
+  source String
+  amount_minor BigInt
+  currency String
+  reason_code String
+  note String?
+  status String
+  provider_refund_id String?
+  failure_code String?
+  attempt Int @default(1)
+  superseded_provider_refund_ids String[] @default([])
+  requested_by String? @db.Uuid
+  restock Boolean @default(false)
+  return_id String? @db.Uuid
+  processed_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, provider_refund_id])
+}
+
+model payment_exceptions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  subject_key String
+  order_id String? @db.Uuid
+  payment_id String? @db.Uuid
+  refund_id String? @db.Uuid
+  appointment_id String? @db.Uuid
+  payment_link_id String? @db.Uuid
+  detail String?
+  status String @default("open")
+  resolution String?
+  resolved_by String? @db.Uuid
+  resolved_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model order_events {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  kind String
+  from_status String?
+  to_status String?
+  actor String
+  actor_user_id String? @db.Uuid
+  detail String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model order_returns {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  items Json
+  status String @default("requested")
+  disposition Json?
+  refund_id String? @db.Uuid
+  note String?
+  restocked_at DateTime? @db.Timestamptz(6)
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model commerce_document_sequences {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  fy String
+  next_number Int @default(1)
+  @@id([account_id, fy])
+}
+
+model commerce_documents {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String? @db.Uuid
+  appointment_id String? @db.Uuid
+  payment_id String? @db.Uuid
+  refund_id String? @db.Uuid
+  kind String
+  number String
+  fy String
+  currency String
+  seller Json
+  buyer Json
+  address Json?
+  line_items Json
+  subtotal_minor BigInt
+  discount_minor BigInt @default(0)
+  shipping_minor BigInt @default(0)
+  tax_minor BigInt @default(0)
+  cgst_minor BigInt @default(0)
+  sgst_minor BigInt @default(0)
+  igst_minor BigInt @default(0)
+  total_minor BigInt
+  issued_at DateTime @default(now()) @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, number])
+  @@unique([account_id, payment_id, kind])
+  @@unique([account_id, refund_id])
+}
+
+model order_messages {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  kind String
+  status String
+  reason String?
+  resolved_at DateTime? @db.Timestamptz(6)
+  resolved_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, order_id, kind])
 }

@@ -9,23 +9,43 @@
 
 import { formatMoney, isCurrencyCode, MAX_MINOR, MoneyError, parseMoney } from './money';
 
-export const ORDER_STATUSES = ['new', 'confirmed', 'awaiting_payment', 'paid', 'fulfilled', 'cancelled'] as const;
+export const ORDER_STATUSES = [
+  'new', 'confirmed', 'awaiting_payment', 'payment_review', 'paid', 'dispatched', 'fulfilled', 'expired', 'cancelled',
+] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
-export const ORDER_SOURCES = ['whatsapp', 'shopify', 'woocommerce', 'manual'] as const;
+export const ORDER_SOURCES = ['whatsapp', 'shopify', 'woocommerce', 'manual', 'storefront'] as const;
 export type OrderSource = (typeof ORDER_SOURCES)[number];
+export const REFUND_STATES = ['none', 'partial', 'full'] as const;
+export type RefundState = (typeof REFUND_STATES)[number];
 
 /**
- * Status changes an agent may make. Fulfilled and cancelled are final. "Paid"
- * set by hand records a payment taken outside a payment link (cash, transfer).
+ * Statuses only the worker sets, after a verified payment, a reservation
+ * expiry or a payment exception (the orders_status_guard trigger refuses them
+ * for a browser session). Staff never mark an order paid by hand: a payment
+ * taken outside a link is recorded through "Record offline payment".
+ */
+export const WORKER_ONLY_STATUSES: readonly OrderStatus[] = ['paid', 'payment_review', 'expired'];
+
+/**
+ * Status changes staff may make. `fulfilled` is shown as "Delivered (staff
+ * recorded)". paid -> cancelled goes through "Cancel and refund" only.
+ * Final for staff: fulfilled, cancelled, expired, payment_review (resolved
+ * through the payment exceptions queue).
  */
 export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
-  new: ['confirmed', 'awaiting_payment', 'paid', 'cancelled'],
-  confirmed: ['awaiting_payment', 'paid', 'fulfilled', 'cancelled'],
-  awaiting_payment: ['confirmed', 'paid', 'cancelled'],
-  paid: ['fulfilled', 'cancelled'],
+  new: ['confirmed', 'awaiting_payment', 'cancelled'],
+  confirmed: ['awaiting_payment', 'fulfilled', 'cancelled'],
+  awaiting_payment: ['cancelled'],
+  payment_review: [],
+  paid: ['dispatched', 'cancelled'],
+  dispatched: ['fulfilled'],
   fulfilled: [],
+  expired: [],
   cancelled: [],
 };
+
+/** Moves allowed only for legacy unpriced orders (a priced order is paid before it is fulfilled). */
+const UNPRICED_ONLY: ReadonlySet<string> = new Set(['new>awaiting_payment', 'confirmed>awaiting_payment', 'confirmed>fulfilled']);
 
 export function isOrderStatus(value: unknown): value is OrderStatus {
   return typeof value === 'string' && (ORDER_STATUSES as readonly string[]).includes(value);
@@ -35,8 +55,15 @@ export function isOrderSource(value: unknown): value is OrderSource {
   return typeof value === 'string' && (ORDER_SOURCES as readonly string[]).includes(value);
 }
 
-export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
-  return ORDER_TRANSITIONS[from].includes(to);
+/** May staff move an order from `from` to `to`? `priced` = the order has server-priced snapshots (priced_at set). */
+export function canTransition(from: OrderStatus, to: OrderStatus, opts: { priced?: boolean } = {}): boolean {
+  if (!ORDER_TRANSITIONS[from].includes(to)) return false;
+  return !(opts.priced && UNPRICED_ONLY.has(`${from}>${to}`));
+}
+
+/** Statuses staff can pick next for an order (the order detail selector). */
+export function nextStatuses(from: OrderStatus, opts: { priced?: boolean } = {}): OrderStatus[] {
+  return ORDER_TRANSITIONS[from].filter((to) => canTransition(from, to, opts));
 }
 
 export const ORDER_LIMITS = { maxItems: 100, maxQuantity: 100_000, noteMaxLength: 2000, retailerIdMaxLength: 200 } as const;
@@ -141,6 +168,7 @@ export function orderFlowVars(order: OrderMessagePayload): Record<string, string
   return {
     order_id: order.order_id,
     order_total: formatMoney(order.subtotal_minor, order.currency),
+    order_total_minor: String(order.subtotal_minor),
     order_currency: order.currency,
     order_items_count: String(orderUnitCount(order.items)),
     order_items: orderItemsSummary(order.items),

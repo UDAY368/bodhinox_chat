@@ -44,7 +44,10 @@ export interface PublicLocation {
 }
 export interface PublicService {
   id: string; name: string; mode: ServiceMode; durationMinutes: number; priceMinor: number | null; currency: string | null;
-  group: boolean; locations: PublicLocation[];
+  group: boolean;
+  /** Paid in advance: a payment link follows the WhatsApp code; the booking is confirmed once paid. */
+  paymentRequired: boolean;
+  locations: PublicLocation[];
 }
 export interface PublicPage { title: string; businessName: string; services: PublicService[] }
 

@@ -45,6 +45,7 @@ const MESSAGE_REASONS = new Set([
   'stale_version', 'contact_missing', 'past_due', 'disabled', 'contact_blocked', 'opted_out', 'workspace_suspended',
   'number_unavailable', 'no_address', 'no_template', 'category', 'template_refused', 'provider_rejected', 'uncertain',
   'template_not_found', 'template_not_approved', 'template_wrong_number', 'feedback_recorded',
+  'hold_expired', 'window_closed', 'not_connected', 'link_unknown', 'link_not_ready', 'already_paid', 'conversation_not_found',
 ]);
 /** The translation key for a stored reason code (codes only; unknown ones read "Not sent"). */
 export function messageReasonKey(reason: string | null): string {

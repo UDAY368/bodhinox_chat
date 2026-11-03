@@ -57,6 +57,7 @@ import { PaymentLinkForm } from "./payment-forms";
 import { BookAppointmentForm } from "./appointment-forms";
 import { AiReplyForm } from "./ai-reply-form";
 import { ConversionEventForm } from "./conversion-event-form";
+import { StorefrontLinkForm } from "./storefront-link-form";
 import { CommerceStepForm } from "./commerce-forms";
 
 interface NodeConfigFormProps {
@@ -175,6 +176,9 @@ function NodeFields({
 
     case "conversion_event":
       return <ConversionEventForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "send_storefront_link":
+      return <StorefrontLinkForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "set_attribute":
       return <SetAttributeForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;

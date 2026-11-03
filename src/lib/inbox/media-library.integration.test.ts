@@ -156,6 +156,18 @@ describe.skipIf(!ownerUrl || !appUrl)('media library on PostgreSQL', { timeout: 
     await expect(app(asAgent, (tx) => prepareLibraryDelete(tx, accountA, old, viewer(asAgent)))).rejects.toMatchObject({ status: 404 });
   });
 
+  it('keeps a library image that a storefront product still uses', async () => {
+    const image = await media('product-shot.png', 'image/png', adminA);
+    const product = (await owner.query("INSERT INTO shop_products(account_id,name) VALUES($1,'Herbal oil') RETURNING id", [accountA])).rows[0].id;
+    await owner.query('INSERT INTO shop_product_images(account_id,product_id,media_id,position) VALUES($1,$2,$3,0)', [accountA, product, image]);
+    const refs = (k: string) => app(asAgent, (tx) => findMediaReferences(tx, accountA, 'chat-media', k));
+    expect(await refs(key('product-shot.png'))).toEqual(['product']);
+    expect(await app(asB, (tx) => findMediaReferences(tx, accountB, 'chat-media', key('product-shot.png')))).toEqual([]);
+    expect(await app(asAdmin, (tx) => prepareLibraryDelete(tx, accountA, image, viewer(asAdmin)))).toEqual({ outcome: 'hidden', references: ['product'], retained: false });
+    expect(await row(image)).toMatchObject({ in_library: false, deleted_at: null });
+    await owner.query('DELETE FROM shop_products WHERE id=$1', [product]);
+  });
+
   it('keeps the header media of a scheduled campaign until its dispatch job finishes', async () => {
     const header = await media('campaign-header.png', 'image/png', agentA);
     const url = mediaObjectUrl('chat-media', key('campaign-header.png'));
