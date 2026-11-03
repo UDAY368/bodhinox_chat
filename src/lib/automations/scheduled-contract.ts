@@ -23,6 +23,16 @@ export function scheduleNeedsContact(steps: readonly ScheduledStep[]): boolean {
       scheduleNeedsContact(step.branches?.no ?? [])
   );
 }
+/** Steps that message the customer; a schedule that runs one is a recurring campaign. */
+export const SENDING_STEP_TYPES: readonly string[] = ['send_message', 'send_template', 'send_buttons', 'send_list'];
+export function stepsSendMessages(steps: readonly ScheduledStep[]): boolean {
+  return steps.some(
+    (step) =>
+      SENDING_STEP_TYPES.includes(step.step_type) ||
+      stepsSendMessages(step.branches?.yes ?? []) ||
+      stepsSendMessages(step.branches?.no ?? [])
+  );
+}
 export function validCronSchedule(schedule: unknown): boolean {
   if (
     typeof schedule !== 'string' ||

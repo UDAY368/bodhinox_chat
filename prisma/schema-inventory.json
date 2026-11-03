@@ -2992,6 +2992,14 @@
         "default": null,
         "reference": null,
         "definition": "delay_until TIMESTAMPTZ"
+      },
+      {
+        "name": "wait_until",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "wait_until TIMESTAMPTZ"
       }
     ],
     "flow_run_events": [

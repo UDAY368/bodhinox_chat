@@ -7525,7 +7525,8 @@
         "AddToCart": "Adicionado ao carrinho",
         "ViewContent": "Conteúdo visualizado",
         "OrderCreated": "Pedido criado"
-      }
+      },
+      "loadMore": "Carregar mais"
     },
     "notConnected": "Nenhuma conta de anúncios da Meta está conectada ainda. Um administrador a conecta em Configurações > Anúncios.",
     "tokenInvalid": "O acesso à Meta expirou, então os resultados não são mais atualizados. Um administrador precisa reconectar em Configurações > Anúncios.",

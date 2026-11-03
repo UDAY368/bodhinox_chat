@@ -78,6 +78,7 @@ import {
 import { deleteAccountMedia } from '@/lib/storage/upload-media';
 import { TemplatePicker, type TemplateSendValues } from './template-picker';
 import { AiThreadBanner } from './ai-thread-banner';
+import { AdReferralBadge } from './ad-referral-badge';
 import { buildReplyPreview } from './reply-quote';
 import { renderTemplateBody } from '@/lib/whatsapp/template-body';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
@@ -1119,6 +1120,7 @@ export function MessageThread({
               {contactHandle(contact)}
             </p>
             <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
+            <AdReferralBadge conversationId={conversation.id} />
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}

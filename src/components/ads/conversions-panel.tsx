@@ -3,7 +3,7 @@
 // Conversions API event log and the "Outcome unknown" review list. Events with
 // an unknown outcome are never re-sent automatically: an admin checks Events
 // Manager and records what happened. Nothing here sends anything to Meta.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AlertTriangle } from 'lucide-react';
@@ -11,6 +11,7 @@ import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { authFetch } from '@/lib/auth/client';
+import { createRequestSequencer } from '@/components/ads/leads-table';
 import type { CapiListFilter, CapiResolution, ConversionEventDto } from '@/lib/meta-ads/capi';
 
 export interface ConversionsPanelProps {
@@ -23,6 +24,33 @@ const STATUS_VARIANT: Record<ConversionEventDto['status'], 'default' | 'secondar
   queued: 'secondary', sent: 'default', failed: 'destructive', unknown: 'outline', skipped: 'secondary',
 };
 
+export interface ConversionsPage {
+  events: ConversionEventDto[];
+  nextCursor: string | null;
+}
+
+/** The list URL for a status filter ('' is all) and an optional cursor from the previous page. */
+export function conversionsUrl(status: string, cursor: string | null = null): string {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (cursor) params.set('cursor', cursor);
+  const qs = params.toString();
+  return `/api/meta-ads/conversions${qs ? `?${qs}` : ''}`;
+}
+
+export async function fetchConversionsPage(status: string, cursor: string | null = null): Promise<ConversionsPage> {
+  const res = await authFetch(conversionsUrl(status, cursor));
+  const json = (await res.json().catch(() => ({}))) as Partial<ConversionsPage>;
+  if (!res.ok || !Array.isArray(json.events)) throw new Error('load failed');
+  return { events: json.events, nextCursor: typeof json.nextCursor === 'string' ? json.nextCursor : null };
+}
+
+/** Appends the next page, skipping any row already shown. */
+export function appendPage(shown: ConversionEventDto[], next: ConversionEventDto[]): ConversionEventDto[] {
+  const ids = new Set(shown.map((e) => e.id));
+  return [...shown, ...next.filter((e) => !ids.has(e.id))];
+}
+
 export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
   const t = useTranslations('Ads.conversions');
   const tAds = useTranslations('Ads');
@@ -32,24 +60,42 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
   const [review, setReview] = useState<ConversionEventDto[]>([]);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // A response for an older filter or reload never overwrites a newer one.
+  const sequencer = useRef(createRequestSequencer());
 
   const load = useCallback(async () => {
     if (!canResolve) return;
+    const token = sequencer.current.next();
     setFailed(false);
+    setLoadingMore(false);
     try {
-      const fetchList = async (status: string) => {
-        const res = await authFetch(`/api/meta-ads/conversions${status ? `?status=${encodeURIComponent(status)}` : ''}`);
-        const json = (await res.json().catch(() => ({}))) as { events?: ConversionEventDto[] };
-        if (!res.ok || !Array.isArray(json.events)) throw new Error('load failed');
-        return json.events;
-      };
-      const [list, open] = await Promise.all([fetchList(filter), fetchList('review')]);
-      setEvents(list);
-      setReview(open);
+      const [list, open] = await Promise.all([fetchConversionsPage(filter), fetchConversionsPage('review')]);
+      if (!sequencer.current.isCurrent(token)) return;
+      setEvents(list.events);
+      setCursor(list.nextCursor);
+      setReview(open.events);
     } catch {
-      setFailed(true);
+      if (sequencer.current.isCurrent(token)) setFailed(true);
     }
   }, [canResolve, filter]);
+
+  const loadMore = async () => {
+    if (!cursor) return;
+    const token = sequencer.current.next();
+    setLoadingMore(true);
+    try {
+      const page = await fetchConversionsPage(filter, cursor);
+      if (!sequencer.current.isCurrent(token)) return;
+      setEvents((shown) => appendPage(shown ?? [], page.events));
+      setCursor(page.nextCursor);
+    } catch {
+      if (sequencer.current.isCurrent(token)) toast.error(tAds('loadFailed'));
+    } finally {
+      if (sequencer.current.isCurrent(token)) setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -135,7 +181,12 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
         <select
           className="h-8 rounded-md border border-border bg-background px-2 text-sm"
           value={filter}
-          onChange={(ev) => setFilter(ev.target.value as CapiListFilter | '')}
+          onChange={(ev) => {
+            // Drop the old filter's rows and cursor so "Load more" cannot mix two filters.
+            setCursor(null);
+            setEvents(null);
+            setFilter(ev.target.value as CapiListFilter | '');
+          }}
         >
           <option value="">{t('filterAll')}</option>
           {FILTERS.map((f) => (
@@ -177,6 +228,11 @@ export function ConversionsPanel({ canResolve }: ConversionsPanelProps) {
           </table>
         </div>
       )}
+      {cursor ? (
+        <Button type="button" variant="outline" size="sm" disabled={loadingMore} onClick={() => void loadMore()}>
+          {t('loadMore')}
+        </Button>
+      ) : null}
     </div>
   );
 }

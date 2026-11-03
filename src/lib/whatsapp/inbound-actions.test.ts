@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
-  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
+  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], runUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
-  const b = { select: () => b, eq: () => b, in: () => b, is: () => b, order: () => b, limit: async () => ({ data: table === 'broadcast_recipients' ? h.recipients : [], error: null }),
-    update: (row: Record<string, unknown>) => { h.consentUpdates.push(row); return b; },
+  const b = { select: () => b, eq: () => b, in: () => b, is: () => b, gte: () => b, order: () => b, limit: async () => ({ data: table === 'broadcast_recipients' ? h.recipients : [], error: null }),
+    update: (row: Record<string, unknown>) => { (table === 'flow_runs' ? h.runUpdates : h.consentUpdates).push(row); return b; },
     maybeSingle: async () => ({ data: table === 'messages' ? h.message : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
 } }) }));
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
@@ -22,7 +22,7 @@ import { processInboundActions } from './inbound-actions';
 import type { MessageActionsPayload } from './ingest';
 const id = '00000000-0000-4000-8000-000000000001';
 const input: MessageActionsPayload = { kind: 'message', accountId: id, conversationId: id, contactId: id, userId: id, messageId: id, metaMessageId: 'wamid.tap', interactiveReplyId: 'qr_token', contentType: 'interactive', contentText: 'Start', wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true };
-beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.message = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }); h.away.mockResolvedValue('sent'); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
+beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.runUpdates = []; h.message = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }); h.away.mockResolvedValue('sent'); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
 
 const text = (contentText: string) => ({ ...input, interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, isFirstInboundMessage: false });
 it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword without any automated response', async (word, kind) => {
@@ -30,6 +30,8 @@ it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword withou
   expect(h.consentUpdates).toEqual([kind === 'opt_out' ? { opted_out_at: expect.any(String), opt_out_source: 'keyword' } : { opted_out_at: null, opt_out_source: null }]);
   expect(h.explicit).not.toHaveBeenCalled(); expect(h.flow).not.toHaveBeenCalled(); expect(h.automations).not.toHaveBeenCalled(); expect(h.ai).not.toHaveBeenCalled();
   expect(h.webhook).toHaveBeenCalledWith(expect.anything(), id, 'message.received', expect.anything());
+  // STOP also cancels the contact's running flows (A15); START leaves them alone.
+  expect(h.runUpdates).toEqual(kind === 'opt_out' ? [expect.objectContaining({ status: 'cancelled', end_reason: 'contact_opted_out' })] : []);
 });
 it('gives a blocked contact no automated response but still emits message.received', async () => {
   h.contact = { blocked_at: '2026-11-01T00:00:00Z' };

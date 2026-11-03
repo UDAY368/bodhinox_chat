@@ -11,7 +11,7 @@ vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: vi.fn(async () 
 
 import { updateOrder } from '@/lib/commerce/orders';
 import { applyProviderState } from '@/lib/payments/links';
-import { CapiError, handleCapiEventJob, listConversionEvents, queueConversionEvent, queueConversionEventTx, resolveConversionEvent } from './capi';
+import { CapiError, handleCapiEventJob, CONVERSIONS_PAGE_SIZE, listConversionEvents, parseEventCursor, queueConversionEvent, queueConversionEventTx, resolveConversionEvent } from './capi';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
 const ownerUrl = process.env.TEST_DATABASE_URL;
@@ -213,14 +213,39 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Conversions API on PostgreS
     await expect(resolveConversionEvent(asAdminA, row.id, 'confirmed_not_sent')).rejects.toBeInstanceOf(CapiError);
     const audit = (await owner.query("SELECT user_id,metadata FROM audit_logs WHERE account_id=$1 AND action='meta_capi.resolve' AND resource_id=$2", [accountA, row.id])).rows;
     expect(audit).toEqual([{ user_id: adminA, metadata: { resolution: 'confirmed_sent' } }]);
-    expect((await listConversionEvents(asAdminA, 'review')).map((e) => e.id)).not.toContain(row.id);
+    expect((await listConversionEvents(asAdminA, 'review')).events.map((e) => e.id)).not.toContain(row.id);
   });
 
   it('keeps events and the click id inside the workspace', async () => {
-    expect(await listConversionEvents(asB)).toEqual([]);
+    expect(await listConversionEvents(asB)).toEqual({ events: [], nextCursor: null });
     await expect(resolveConversionEvent(asB, (await events())[0].id, 'confirmed_sent')).rejects.toMatchObject({ code: 'not_found' });
-    const list = await listConversionEvents(asAdminA);
+    const list = (await listConversionEvents(asAdminA)).events;
     expect(list.length).toBeGreaterThan(0);
     expect(JSON.stringify(list)).not.toContain('clid-test');
+  });
+
+  it('pages the event log by (created_at, id) without gaps or repeats, inside the workspace', async () => {
+    // 205 events, 50 at a time sharing one created_at to the microsecond, so the id breaks ties.
+    await owner.query(`INSERT INTO capi_events(account_id,event_id,event_name,source,source_id,status,skip_reason,event_time,created_at)
+      SELECT $1, 'page:' || g || ':' || $2, 'ViewContent', 'flow', 'page-' || g || '-' || $2, 'skipped', 'disabled', now(),
+        '2026-01-01T00:00:00.123456Z'::timestamptz + make_interval(secs => (g / 50))
+      FROM generate_series(1, 205) g`, [accountA, seed]);
+    const all = (await owner.query('SELECT id::text AS id FROM capi_events WHERE account_id=$1 ORDER BY created_at DESC, id DESC', [accountA])).rows.map((row) => row.id);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page = await listConversionEvents(asAdminA, null, cursor ? parseEventCursor(cursor) : null);
+      expect(page.events.length).toBeLessThanOrEqual(CONVERSIONS_PAGE_SIZE);
+      seen.push(...page.events.map((e) => e.id));
+      cursor = page.nextCursor;
+      pages += 1;
+    } while (cursor && pages < 20);
+    expect(seen).toEqual(all);
+    expect(pages).toBe(Math.ceil(all.length / CONVERSIONS_PAGE_SIZE));
+    // Another workspace replaying A's cursor sees nothing of A.
+    const first = await listConversionEvents(asAdminA);
+    expect(first.nextCursor).not.toBeNull();
+    expect((await listConversionEvents(asB, null, parseEventCursor(first.nextCursor))).events).toEqual([]);
   });
 });

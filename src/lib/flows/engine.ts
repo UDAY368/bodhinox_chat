@@ -17,6 +17,7 @@ import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
 import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPaymentReference, paymentLinkMessageText, PaymentLinkError } from '@/lib/payments/links';
 import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
 import { AI_REPLY_LIMITS, aiReplyMaxTurns } from './ai-reply-node';
+import { PAYMENT_LINK_LIMITS } from './payment-node';
 /**
  * Flow runner.
  *
@@ -69,6 +70,7 @@ import {
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
+import { marketingSuppression } from "@/lib/contacts/consent";
 import { fillWorkspace, workspaceValuesFor } from "@/lib/workspace/attributes";
 import { flowTemplateSendExtras } from "@/lib/whatsapp/template-send-params";
 import {
@@ -232,15 +234,23 @@ export type ActiveRunClosure =
   | { kind: "fail"; reason: "active_run_missing_current_node" }
   | { kind: "timeout"; check: RunTimeoutCheck };
 
-/** A run waiting out a delay is not stale until the delay ends. */
-export function staleSince(run: Pick<FlowRunRow, "last_advanced_at" | "delay_until">): string {
-  return run.delay_until && Date.parse(run.delay_until) > Date.parse(run.last_advanced_at)
-    ? run.delay_until
-    : run.last_advanced_at;
+/** The run fields its age is counted from. wait_until is a payment link's expiry (absent on older rows). */
+export type RunStaleFields = Pick<FlowRunRow, "last_advanced_at" | "delay_until"> & { wait_until?: string | null };
+
+/**
+ * A run waiting out a delay, or waiting on a payment link that can still
+ * be paid, is not stale until that delay or link ends.
+ */
+export function staleSince(run: RunStaleFields): string {
+  let since = run.last_advanced_at;
+  for (const until of [run.delay_until, run.wait_until]) {
+    if (until && Date.parse(until) > Date.parse(since)) since = until;
+  }
+  return since;
 }
 
 export function closureForActiveRun(args: {
-  run: Pick<FlowRunRow, "current_node_key" | "last_advanced_at" | "delay_until">;
+  run: Pick<FlowRunRow, "current_node_key"> & RunStaleFields;
   flow: Pick<FlowRow, "status" | "fallback_policy"> | null;
   nodeKeys: ReadonlySet<string> | { has(key: string): boolean };
   now: Date;
@@ -685,6 +695,18 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
     .eq("id", run.id);
 }
 
+/**
+ * Why the run's contact must not get a template (opted out or blocked), or
+ * null. Read fresh each time: a STOP can arrive while the run waits.
+ */
+async function templateSuppression(db: AdminClient, run: FlowRunRow): Promise<string | null> {
+  if (!run.contact_id) return null;
+  const { data, error } = await db.from("contacts").select("opted_out_at,blocked_at")
+    .eq("account_id", run.account_id).eq("id", run.contact_id).maybeSingle();
+  if (error) throw new Error("Contact consent lookup failed");
+  return marketingSuppression(data as { opted_out_at?: string | null; blocked_at?: string | null } | null);
+}
+
 /** Form sessions for the template's FLOW buttons, if it has any (see templateFlowTokens). */
 async function templateFormTokens(db: AdminClient, run: FlowRunRow, cfg: SendTemplateNodeConfig): Promise<Record<number, string> | undefined> {
   let query = db.from("message_templates").select("buttons").eq("account_id", run.account_id).eq("name", cfg.template_name);
@@ -820,7 +842,8 @@ async function executeConnectFlow(db: AdminClient, run: FlowRunRow, node: FlowNo
     return;
   }
   await logEvent(db, run.id, "flow_connected", node.node_key, { flow_id: target.id });
-  await endRun(db, run.id, "completed", "connect_flow");
+  // Paused by an agent (or timed out) meanwhile: the contact gets no new flow.
+  if (!(await endRun(db, run.id, "completed", "connect_flow"))) return;
   await startNewRun(db, target, {
     accountId: run.account_id,
     userId: run.user_id,
@@ -1061,7 +1084,7 @@ async function startPaymentLinkNode(
   db: AdminClient,
   run: FlowRunRow,
   node: FlowNodeRow,
-): Promise<{ kind: "waiting" } | { kind: "next"; outcome: PaymentOutcome; key: string | null }> {
+): Promise<{ kind: "waiting"; expiresAt: string | null } | { kind: "next"; outcome: PaymentOutcome; key: string | null }> {
   const cfg = node.config as unknown as PaymentLinkNodeConfig;
   const fail = async (reason: string, status = "failed") => {
     await setRunVars(db, run, { payment_status: status }).catch(() => undefined);
@@ -1076,8 +1099,7 @@ async function startPaymentLinkNode(
   } catch {
     return fail("payment_link_invalid_amount");
   }
-  const minutes = cfg.expire_minutes;
-  const expireBy = typeof minutes === "number" && Number.isInteger(minutes) && minutes > 0 ? new Date(Date.now() + minutes * 60_000) : null;
+  const expireBy = new Date(Date.now() + (await paymentLinkExpiryMinutes(db, run, cfg)) * 60_000);
   let link: Awaited<ReturnType<typeof createPaymentLinkRecord>>["link"];
   try {
     ({ link } = await createPaymentLinkRecord({
@@ -1112,18 +1134,34 @@ async function startPaymentLinkNode(
     if (err instanceof Error && err.name === "UncertainDispatchError") {
       // The message may have reached the customer, so wait for the payment rather than move on.
       await logEvent(db, run.id, "error", node.node_key, { reason: "payment_link_send_uncertain", payment_link_id: link.id });
-      return { kind: "waiting" };
+      return { kind: "waiting", expiresAt: link.expires_at };
     }
     return fail("payment_link_send_failed", "send_failed");
   }
-  return { kind: "waiting" };
+  return { kind: "waiting", expiresAt: link.expires_at };
+}
+
+/**
+ * How long the step's link stays payable. Without expire_minutes the link
+ * lasts as long as the run would wait (the flow's on_timeout_hours), so a
+ * customer can never pay a link whose run has already timed out.
+ */
+async function paymentLinkExpiryMinutes(db: AdminClient, run: FlowRunRow, cfg: PaymentLinkNodeConfig): Promise<number> {
+  const minutes = cfg.expire_minutes;
+  if (typeof minutes === "number" && Number.isInteger(minutes) && minutes > 0) return minutes;
+  const flow = await loadFlow(db, run.flow_id);
+  const hours = resolveFallbackPolicy(flow?.fallback_policy).on_timeout_hours;
+  return Math.min(PAYMENT_LINK_LIMITS.expireMaxMinutes, Math.max(PAYMENT_LINK_LIMITS.expireMinMinutes, Math.round(hours * 60)));
 }
 
 /**
  * Resumes a run waiting on a payment_link step once its link is paid,
  * expired/cancelled or failed. Called after a verified Razorpay webhook or
  * fetch (lib/payments/links). Idempotent: only a run still waiting on that
- * node, in the transition the link was created for, moves.
+ * node, in the transition the link was created for, moves. A run a crashed
+ * worker already claimed for this outcome (one transition on, sitting on the
+ * outcome's port, untouched since) carries on from there; its sends repeat
+ * their dispatchOnce keys, so nothing goes out twice.
  */
 export async function resumePaymentLinkRun(args: {
   accountId: string;
@@ -1138,11 +1176,18 @@ export async function resumePaymentLinkRun(args: {
   const { data, error } = await db.from("flow_runs").select("*").eq("account_id", args.accountId).eq("id", args.runId).maybeSingle();
   if (error) throw new Error("Payment resume run lookup failed");
   const run = data as FlowRunRow | null;
-  if (!run || run.status !== "active" || run.current_node_key !== args.nodeKey || run.delay_until) return "stale";
-  if (flowPaymentReference(run.id, args.nodeKey, run.transition_seq ?? 0) !== args.referenceId) return "stale";
+  if (!run || run.status !== "active" || run.delay_until) return "stale";
+  const seq = run.transition_seq ?? 0;
+  const due = run.current_node_key === args.nodeKey && flowPaymentReference(run.id, args.nodeKey, seq) === args.referenceId;
+  const claimedEarlier = !due && seq > 0 && run.reprompt_count === 0 &&
+    flowPaymentReference(run.id, args.nodeKey, seq - 1) === args.referenceId;
+  if (!due && !claimedEarlier) return "stale";
   const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
   const node = nodes.get(args.nodeKey);
   if (!node || node.node_type !== "payment_link") return "stale";
+  const cfg = node.config as unknown as PaymentLinkNodeConfig;
+  const next = paymentPortFor(cfg, args.outcome);
+  if (claimedEarlier && (!next || run.current_node_key !== next)) return "stale";
   const now = new Date();
   const { data: contact } = await db.from("contacts").select("blocked_at,phone").eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
   const testContact = Boolean(flow) && isTestContact(flow!, phoneDigits((contact as { phone?: string | null } | null)?.phone));
@@ -1157,10 +1202,12 @@ export async function resumePaymentLinkRun(args: {
     await endRun(db, run.id, "cancelled", "bot_paused_during_wait");
     return "resumed";
   }
-  const cfg = node.config as unknown as PaymentLinkNodeConfig;
+  if (claimedEarlier) {
+    await advanceFromNodeKey(db, run, next!, nodes);
+    return "resumed";
+  }
   const vars = { ...run.vars, payment_status: args.status };
   const event = args.outcome === "paid" ? "payment_received" : args.outcome === "expired" ? "payment_expired" : "error";
-  const next = paymentPortFor(cfg, args.outcome);
   if (!next) {
     const { data: claimed } = await db.from("flow_runs").update({ vars }).eq("id", run.id).eq("status", "active")
       .eq("current_node_key", args.nodeKey).eq("transition_seq", run.transition_seq ?? 0).select("id");
@@ -1308,23 +1355,32 @@ async function continueAiReplyNode(
   return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
 }
 
+/**
+ * Ends a run that is still active. A run an agent paused or the sweep timed
+ * out meanwhile keeps that ending (and emits no flow.completed). Returns
+ * whether this call ended the run.
+ */
 async function endRun(
   db: AdminClient,
   runId: string,
   status: "completed" | "handed_off" | "timed_out" | "failed" | "cancelled",
   reason: string,
-): Promise<void> {
-  const { data } = await db
+): Promise<boolean> {
+  const { data, error } = await db
     .from("flow_runs")
     .update({
       status,
       ended_at: new Date().toISOString(),
       end_reason: reason,
+      wait_until: null,
     })
     .eq("id", runId)
+    .eq("status", "active")
     .select("id,account_id,flow_id,contact_id,conversation_id,vars");
+  if (error) throw new Error("Flow run end failed");
   const row = (data as Record<string, unknown>[] | null)?.[0];
-  if (status !== "completed" || !row) return;
+  if (!row) return false;
+  if (status !== "completed") return true;
   // Best-effort: the run already ended and its messages went out, so a
   // failed enqueue must not mark the inbound stage uncertain.
   await dispatchWebhookEvent(db, row.account_id as string, "flow.completed", {
@@ -1335,6 +1391,7 @@ async function endRun(
     vars: row.vars,
     end_reason: reason,
   }).catch(() => console.error("[flows] flow.completed webhook enqueue failed", { runId }));
+  return true;
 }
 
 // ============================================================
@@ -1384,6 +1441,7 @@ async function scheduleDelay(
       transition_seq: seq,
       reprompt_count: 0,
       delay_until: until.toISOString(),
+      wait_until: null,
       last_advanced_at: new Date().toISOString(),
     })
     .eq("id", run.id)
@@ -1766,7 +1824,8 @@ async function advanceFromNodeKey(
         await endRun(db, run.id, end.status, end.reason);
         return { outcome: "completed" };
       }
-      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      // The run is not stale while the link can still be paid (staleSince).
+      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key, { wait_until: started.expiresAt });
       if (!advanced) {
         await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
         return { outcome: "advanced" };
@@ -1783,6 +1842,20 @@ async function advanceFromNodeKey(
     }
     if (node.node_type === "send_template") {
       const cfg = node.config as unknown as SendTemplateNodeConfig;
+      // Templates are business-initiated: an opted-out or blocked contact is skipped (lib/contacts/consent).
+      const suppressed = await templateSuppression(db, run);
+      if (suppressed) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "template_suppressed",
+          detail: suppressed.toLowerCase(),
+        });
+        if (!cfg.next_node_key) {
+          await endRun(db, run.id, "cancelled", "contact_opted_out");
+          return { outcome: "completed" };
+        }
+        currentKey = cfg.next_node_key;
+        continue;
+      }
       try {
         await sendTemplateNode(db, run, node);
       } catch (err) {
@@ -2010,6 +2083,8 @@ async function advanceCurrentNodeKey(
   runId: string,
   expectedOldKey: string | null,
   newKey: string,
+  /** Only a payment_link step waits until a deadline; any other move clears it. */
+  wait: { wait_until: string | null } = { wait_until: null },
 ): Promise<boolean> {
   // PostgREST: when expectedOldKey is null we can't `.eq` (would match
   // any row); use `.is('current_node_key', null)` instead.
@@ -2018,6 +2093,7 @@ async function advanceCurrentNodeKey(
     .update({
       current_node_key: newKey,
       last_advanced_at: new Date().toISOString(),
+      wait_until: wait.wait_until,
     })
     .eq("id", runId)
     .eq("status", "active");
@@ -2051,6 +2127,7 @@ async function claimReplyTransition(
       current_node_key: nextNodeKey,
       transition_seq: nextSeq,
       reprompt_count: 0,
+      wait_until: null,
       last_advanced_at: new Date().toISOString(),
     })
     .eq("id", run.id)

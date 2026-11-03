@@ -38,8 +38,11 @@
 // - Activity in a range: created in the range, or has a message in the range.
 // - AI handoffs: conversations.ai_handoff_at in the range (set at handoff and
 //   kept when AI is resumed; a later handoff overwrites it).
-// - Campaign reply: a customer message in the contact's conversation within
-//   72 hours after the campaign message was delivered (or sent).
+// - Campaign reply: a customer message in the contact's conversation on the
+//   campaign's number within 72 hours after the campaign message was delivered
+//   (or sent). A campaign or conversation with no number (from before numbers
+//   were recorded) counts as the workspace default number's, as in
+//   markBroadcastReply (src/lib/whatsapp/inbound-actions.ts).
 
 import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
@@ -88,6 +91,15 @@ const to = (range: AnalyticsRange) => Prisma.sql`${range.to.toISOString()}::time
 /** The member credited with an agent row: its sender, or for pre-cutoff rows the current assignee. */
 const agentOf = (senderId: string, at: string, assignee: string) => Prisma.sql`COALESCE(${Prisma.raw(senderId)},
   CASE WHEN ${Prisma.raw(at)} < ${AGENT_ATTRIBUTION_CUTOFF}::timestamptz THEN ${Prisma.raw(assignee)} END)`;
+/**
+ * CTE `dn`: the workspace default number (the is_default row, or the only
+ * number), NULL when there is none. Same rule as markBroadcastReply.
+ */
+const defaultNumberCte = (accountId: string) => Prisma.sql`dn AS (
+  SELECT CASE WHEN bool_or(w.is_default) OR count(*)=1 THEN (array_agg(w.id ORDER BY w.is_default DESC, w.created_at))[1] END AS id
+  FROM whatsapp_config w WHERE w.account_id=${accountId}::uuid)`;
+/** A number column with NULL read as the default number (needs the `dn` CTE). */
+const numberOf = (column: string) => Prisma.sql`COALESCE(${Prisma.raw(column)}, (SELECT id FROM dn))`;
 const isReply = (m: string) => Prisma.raw(
   `${m}.sender_type IN ('agent','bot') AND ${m}.status <> 'failed' AND ${m}.content_type NOT IN ('template','system')`);
 
@@ -162,17 +174,18 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
     ${filters.teamId ? Prisma.sql`AND c.assigned_agent_id IN (
       SELECT tm.user_id FROM team_members tm WHERE tm.account_id=${accountId}::uuid AND tm.team_id=${filters.teamId}::uuid)` : Prisma.empty}`;
   const rows = await tx.$queryRaw<{ stats: ConversationStats }[]>(Prisma.sql`
-    WITH scope AS (
+    WITH ${defaultNumberCte(accountId)}, scope AS (
       SELECT c.id, c.contact_id, c.created_at, c.lifecycle_state, c.last_message_at, c.resolved_at,
-        c.reopened_count, c.inbound_created_meta_id IS NOT NULL AS inbound, c.inbound_created_meta_id
+        c.reopened_count, c.inbound_created_meta_id IS NOT NULL AS inbound, c.inbound_created_meta_id, c.whatsapp_config_id
       FROM conversations c WHERE c.account_id=${accountId}::uuid ${scopeFilter}
     ), campaign_sends AS MATERIALIZED (
-      SELECT contact_id, sent_at FROM broadcast_recipients
-      WHERE account_id=${accountId}::uuid AND sent_at >= ${from(range)} - ${REPLY_WINDOW} AND sent_at < ${to(range)}
-        AND contact_id IS NOT NULL
+      SELECT r.contact_id, r.sent_at, ${numberOf('b.whatsapp_config_id')} AS number_id
+      FROM broadcast_recipients r JOIN broadcasts b ON b.account_id=r.account_id AND b.id=r.broadcast_id
+      WHERE r.account_id=${accountId}::uuid AND r.sent_at >= ${from(range)} - ${REPLY_WINDOW} AND r.sent_at < ${to(range)}
+        AND r.contact_id IS NOT NULL
     ), started AS (
-      SELECT s.id, s.contact_id, s.created_at, s.inbound, s.inbound_created_meta_id FROM scope s
-      WHERE s.created_at >= ${from(range)} AND s.created_at < ${to(range)}
+      SELECT s.id, s.contact_id, s.created_at, s.inbound, s.inbound_created_meta_id, ${numberOf('s.whatsapp_config_id')} AS number_id
+      FROM scope s WHERE s.created_at >= ${from(range)} AND s.created_at < ${to(range)}
     ), from_ad AS (
       -- The creating message carried an ad referral (a later re-click in the same conversation does not count).
       -- ad_referrals.wa_message_id is not granted to the app role, so match through the stored message.
@@ -182,8 +195,9 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
           AND rm.message_id=s.inbound_created_meta_id)
     ), campaign AS (
       -- A join, not EXISTS in the select list, so it plans as one hash join.
+      -- Only a campaign sent from the number the conversation is on.
       SELECT DISTINCT s.id FROM started s JOIN campaign_sends cs ON cs.contact_id=s.contact_id
-      WHERE s.inbound AND cs.sent_at <= s.created_at AND cs.sent_at >= s.created_at - ${REPLY_WINDOW}
+      WHERE s.inbound AND cs.number_id IS NOT DISTINCT FROM s.number_id AND cs.sent_at <= s.created_at AND cs.sent_at >= s.created_at - ${REPLY_WINDOW}
     ), active AS (
       SELECT s.lifecycle_state FROM scope s
       WHERE s.created_at < ${to(range)} AND (s.created_at >= ${from(range)} OR ${activeIn(accountId, range, 's')})
@@ -308,14 +322,15 @@ export async function campaignFunnel(tx: TenantTransaction, accountId: string,
     match = Prisma.sql`COALESCE(scheduled_at, created_at) >= ${from(scope.range)} AND COALESCE(scheduled_at, created_at) < ${to(scope.range)}`;
   }
   const rows = await tx.$queryRaw<{ funnel: CampaignFunnel }[]>(Prisma.sql`
-    WITH b AS (
-      SELECT id, name, template_name, COALESCE(scheduled_at, created_at) AS at FROM broadcasts
-      WHERE account_id=${accountId}::uuid AND ${match}
+    WITH ${defaultNumberCte(accountId)}, b AS (
+      SELECT id, name, template_name, COALESCE(scheduled_at, created_at) AS at, ${numberOf('whatsapp_config_id')} AS number_id
+      FROM broadcasts WHERE account_id=${accountId}::uuid AND ${match}
     ), r AS (
       SELECT r.broadcast_id, r.status, r.sent_at, r.delivered_at, r.read_at, r.clicked_at,
         r.contact_id IS NOT NULL AND COALESCE(r.sent_at, r.delivered_at) IS NOT NULL AND EXISTS (
           SELECT 1 FROM conversations c JOIN messages m ON m.account_id=c.account_id AND m.conversation_id=c.id
           WHERE c.account_id=${accountId}::uuid AND c.contact_id=r.contact_id AND m.sender_type='customer'
+            AND ${numberOf('c.whatsapp_config_id')} IS NOT DISTINCT FROM b.number_id
             AND m.created_at >= COALESCE(r.sent_at, r.delivered_at)
             AND m.created_at <= COALESCE(r.delivered_at, r.sent_at) + ${REPLY_WINDOW}) AS replied
       FROM broadcast_recipients r JOIN b ON b.id=r.broadcast_id WHERE r.account_id=${accountId}::uuid
@@ -342,7 +357,14 @@ export interface FlowStats {
   failed: number;
   cancelled: number;
   active: number;
-  /** Where runs that did not complete stopped: the last node each one reached. */
+  /**
+   * Where runs that did not complete stopped: the node of each run's last
+   * node-scoped flow_run_events row (an error, handoff or timeout outranks a
+   * node_entered written in the same instant). flow_runs.current_node_key is
+   * only the fallback for runs with no events: the engine moves it at waiting
+   * points only, so it still names the last question when a later
+   * auto-advancing node fails or hands off.
+   */
   dropOff: { flowId: string; nodeKey: string; nodeType: string | null; runs: number }[];
 }
 
@@ -352,22 +374,31 @@ export async function flowStats(tx: TenantTransaction, accountId: string, range:
   assertUuid(flowId, 'flow');
   const rows = await tx.$queryRaw<{ stats: FlowStats }[]>(Prisma.sql`
     WITH runs AS (
-      SELECT flow_id, status, current_node_key FROM flow_runs
+      SELECT id, flow_id, status, current_node_key FROM flow_runs
       WHERE account_id=${accountId}::uuid AND started_at >= ${from(range)} AND started_at < ${to(range)}
         ${flowId ? Prisma.sql`AND flow_id=${flowId}::uuid` : Prisma.empty}
+    ), stopped AS (
+      SELECT r.flow_id, COALESCE(last_event.node_key, r.current_node_key) AS node_key
+      FROM runs r LEFT JOIN LATERAL (
+        SELECT e.node_key FROM flow_run_events e
+        WHERE e.account_id=${accountId}::uuid AND e.flow_run_id=r.id AND e.node_key IS NOT NULL
+        ORDER BY e.created_at DESC, (e.event_type IN ('error','handoff','ai_handoff','timeout')) DESC
+        LIMIT 1
+      ) last_event ON true
+      WHERE r.status NOT IN ('completed','active')
     ), drops AS (
-      SELECT r.flow_id, r.current_node_key, n.node_type, count(*) AS runs
-      FROM runs r LEFT JOIN flow_nodes n ON n.account_id=${accountId}::uuid AND n.flow_id=r.flow_id AND n.node_key=r.current_node_key
-      WHERE r.status NOT IN ('completed','active') AND r.current_node_key IS NOT NULL
-      GROUP BY r.flow_id, r.current_node_key, n.node_type
+      SELECT s.flow_id, s.node_key, n.node_type, count(*) AS runs
+      FROM stopped s LEFT JOIN flow_nodes n ON n.account_id=${accountId}::uuid AND n.flow_id=s.flow_id AND n.node_key=s.node_key
+      WHERE s.node_key IS NOT NULL
+      GROUP BY s.flow_id, s.node_key, n.node_type
     )
     SELECT json_build_object(
       'started', count(*), 'completed', count(*) FILTER (WHERE status='completed'),
       'handedOff', count(*) FILTER (WHERE status='handed_off'), 'timedOut', count(*) FILTER (WHERE status='timed_out'),
       'failed', count(*) FILTER (WHERE status='failed'), 'cancelled', count(*) FILTER (WHERE status='cancelled'),
       'active', count(*) FILTER (WHERE status='active'),
-      'dropOff', COALESCE((SELECT json_agg(json_build_object('flowId', flow_id, 'nodeKey', current_node_key, 'nodeType', node_type, 'runs', runs)
-        ORDER BY runs DESC, current_node_key) FROM (SELECT * FROM drops ORDER BY runs DESC, current_node_key LIMIT ${DROP_OFF_LIMIT}) d), '[]'::json)
+      'dropOff', COALESCE((SELECT json_agg(json_build_object('flowId', flow_id, 'nodeKey', node_key, 'nodeType', node_type, 'runs', runs)
+        ORDER BY runs DESC, node_key) FROM (SELECT * FROM drops ORDER BY runs DESC, node_key LIMIT ${DROP_OFF_LIMIT}) d), '[]'::json)
     ) AS stats FROM runs`);
   return rows[0].stats;
 }
@@ -443,7 +474,7 @@ export async function templateDaily(tx: TenantTransaction, accountId: string, ra
     throw new AnalyticsInputError('Invalid template');
   const bucket = range.bucket === 'week' ? 'week' : 'day';
   return tx.$queryRaw<TemplateDailyRow[]>(Prisma.sql`
-    WITH sends AS (
+    WITH ${defaultNumberCte(accountId)}, sends AS (
       SELECT b.template_name, r.sent_at AS at,
         (r.delivered_at IS NOT NULL OR r.status IN ('delivered','read','replied')) AS delivered,
         (r.read_at IS NOT NULL OR r.status IN ('read','replied')) AS read,
@@ -451,6 +482,7 @@ export async function templateDaily(tx: TenantTransaction, accountId: string, ra
         r.contact_id IS NOT NULL AND EXISTS (
           SELECT 1 FROM conversations c JOIN messages i ON i.account_id=c.account_id AND i.conversation_id=c.id
           WHERE c.account_id=${accountId}::uuid AND c.contact_id=r.contact_id AND i.sender_type='customer'
+            AND ${numberOf('c.whatsapp_config_id')} IS NOT DISTINCT FROM ${numberOf('b.whatsapp_config_id')}
             AND i.created_at >= r.sent_at AND i.created_at <= COALESCE(r.delivered_at, r.sent_at) + ${REPLY_WINDOW}) AS replied
       FROM broadcast_recipients r JOIN broadcasts b ON b.account_id=r.account_id AND b.id=r.broadcast_id
       WHERE r.account_id=${accountId}::uuid AND r.sent_at >= ${from(range)} AND r.sent_at < ${to(range)}

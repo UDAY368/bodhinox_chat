@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
+import { requirePermission } from '@/lib/auth/permissions'
 import { enqueueJob } from '@/lib/jobs/queue'
 import { BroadcastError, broadcastNumberError } from '@/lib/whatsapp/broadcast-core'
 import { loadSenderConfig } from '@/lib/whatsapp/sender-config'
@@ -7,7 +8,8 @@ import { randomUUID } from 'node:crypto'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { db, accountId } = await requireRole('agent')
+    const { db, accountId, userId, role } = await requireRole('agent')
+    await requirePermission({ accountId, userId, role }, 'campaigns.send')
     const { id } = await params
     const body = await request.json().catch(() => ({}))
     const scope = body.scope === 'failed' || body.scope === 'all' ? body.scope : 'pending'
@@ -16,8 +18,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // A scheduled campaign whose time has passed but has not started was held
     // (its number was disconnected) and may be resumed; one still due later may not.
     const due = data.status === 'scheduled' && !!data.scheduled_at && new Date(data.scheduled_at as string).getTime() <= Date.now()
-    if ((data.status === 'scheduled' && !due) || data.status === 'cancelled')
-      return NextResponse.json({ error: 'Scheduled or cancelled campaigns cannot be resumed' }, { status: 409 })
+    // A draft was never sent: it must go through create/schedule, not resume.
+    if ((data.status === 'scheduled' && !due) || data.status === 'cancelled' || data.status === 'draft')
+      return NextResponse.json({ error: 'Draft, scheduled or cancelled campaigns cannot be resumed' }, { status: 409 })
     // Its own number (the default when it has none) must be connected: a held
     // campaign stays held, never moved to another number.
     try {

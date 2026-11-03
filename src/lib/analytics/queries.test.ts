@@ -99,6 +99,24 @@ describe('analytics SQL shape', () => {
     expect(last().values).toContain(OTHER);
   });
 
+  it('counts a campaign reply only on the number the campaign was sent from', async () => {
+    const defaultNumber = /dn AS \( SELECT CASE WHEN bool_or\(w\.is_default\) OR count\(\*\)=1 THEN .* FROM whatsapp_config w WHERE w\.account_id=\$\d+::uuid\)/;
+    await campaignFunnel(tx, ACCOUNT, { range });
+    let sql = squash(last().text);
+    expect(sql).toMatch(defaultNumber);
+    expect(sql).toContain('COALESCE(whatsapp_config_id, (SELECT id FROM dn)) AS number_id');
+    expect(sql).toContain('COALESCE(c.whatsapp_config_id, (SELECT id FROM dn)) IS NOT DISTINCT FROM b.number_id');
+    await templateDaily(tx, ACCOUNT, range);
+    sql = squash(last().text);
+    expect(sql).toMatch(defaultNumber);
+    expect(sql).toContain('COALESCE(c.whatsapp_config_id, (SELECT id FROM dn)) IS NOT DISTINCT FROM COALESCE(b.whatsapp_config_id, (SELECT id FROM dn))');
+    await conversationStats(tx, ACCOUNT, range);
+    sql = squash(last().text);
+    expect(sql).toMatch(defaultNumber);
+    expect(sql).toMatch(/FROM broadcast_recipients r JOIN broadcasts b ON b\.account_id=r\.account_id AND b\.id=r\.broadcast_id WHERE r\.account_id=\$\d+::uuid/);
+    expect(sql).toContain('cs.contact_id=s.contact_id WHERE s.inbound AND cs.number_id IS NOT DISTINCT FROM s.number_id');
+  });
+
   it('runs inside the tenant transaction with a statement timeout and the workspace timezone', async () => {
     h.result = [{ timezone: 'Asia/Kolkata' }];
     const seen = await runAnalytics({ accountId: ACCOUNT }, async (_tx, timezone) => timezone);

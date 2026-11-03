@@ -25,6 +25,7 @@ import { Prisma } from '@prisma/client';
 import { PlanLimitError, requireWhatsAppNumberRoom } from '@/lib/billing/entitlements';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing';
+import { isNumberDisconnected } from '@/lib/whatsapp/numbers';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
 import { explainMetaError, metaErrorPayload, type MetaConnectStep } from '@/lib/whatsapp/meta-error-explain';
 import {
@@ -333,9 +334,11 @@ async function upsertRow(
     const now = new Date();
     const existing = await tx.whatsapp_config.findFirst({
       where: { account_id: tenant.accountId, phone_number_id: input.phone_number_id },
-      select: numberSelect,
+      select: { ...numberSelect, access_token: true },
     });
     if (existing) {
+      // Reviving a number an admin removed takes a slot again, so it must fit the plan too.
+      if (isNumberDisconnected(existing)) await requireWhatsAppNumberRoom(tx, tenant.accountId);
       const wabaChanged = existing.waba_id !== input.waba_id;
       await tx.whatsapp_config.updateMany({
         where: { account_id: tenant.accountId, id: existing.id },

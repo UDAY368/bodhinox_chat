@@ -252,3 +252,25 @@ export async function prepareLibraryDelete(tx: TenantTransaction, accountId: str
   await tx.$executeRaw`UPDATE media_objects SET in_library=false, deleted_at=${now} WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
   return { outcome: 'remove', bucket: row.bucket, objectKey: row.object_key };
 }
+
+/**
+ * Guard for the generic /api/media/object route, which deletes or overwrites
+ * stored objects by key. It may not reach around the library's own delete
+ * rules: library and mirrored inbound folders are off limits, and an existing
+ * object can be changed only by an admin or its uploader, only when it is not
+ * a library item, not under a retention date and not referenced by anything.
+ */
+export async function assertDirectObjectChange(tx: TenantTransaction, accountId: string, bucket: string, objectKey: string, viewer: Viewer, now = new Date()): Promise<void> {
+  const root = `account-${accountId}/`;
+  if (objectKey.startsWith(`${root}${MEDIA_LIBRARY_SUBFOLDER}/`) || objectKey.startsWith(`${root}inbound/`))
+    throw new MediaLibraryError('Library and inbound media can only be changed through the media library', 'forbidden', 403);
+  const rows = await tx.$queryRaw<{ uploaded_by: string | null; in_library: boolean; retain_until: Date | null }[]>`
+    SELECT uploaded_by, in_library, retain_until FROM media_objects
+    WHERE account_id=${accountId}::uuid AND bucket=${bucket} AND object_key=${objectKey} AND deleted_at IS NULL FOR UPDATE`;
+  const row = rows[0];
+  if (!row) return;
+  if (row.in_library) throw new MediaLibraryError('Library media can only be changed through the media library', 'forbidden', 403);
+  if (!canDeleteMedia(viewer, row.uploaded_by)) throw new MediaLibraryError('Only an admin or the uploader can change this file', 'forbidden', 403);
+  if (row.retain_until && row.retain_until > now) throw new MediaLibraryError('This file is retained', 'retained', 409);
+  if ((await findMediaReferences(tx, accountId, bucket, objectKey, now)).length) throw new MediaLibraryError('This file is still in use', 'in_use', 409);
+}

@@ -17,6 +17,7 @@ import {
 import { automationTemplateIssues } from '@/lib/automations/template-check';
 import { getT } from '@/lib/i18n/translate';
 import { requireActiveAutomationRoom } from '@/lib/billing/activation';
+import { requireScheduledSendingAllowed } from '@/lib/automations/schedule-gate';
 
 const t = getT('Api');
 
@@ -153,13 +154,19 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    // Only turning an automation on counts against the plan's active cap.
-    if (update.is_active === true && !existing.is_active) {
-      try {
+    try {
+      // Only turning an automation on counts against the plan's active cap.
+      if (update.is_active === true && !existing.is_active)
         await requireActiveAutomationRoom(accountId, id);
-      } catch (err) {
-        return toErrorResponse(err);
-      }
+      // A schedule that messages contacts is a recurring campaign: checked
+      // on every save that leaves it active, so an edit cannot add a send.
+      await requireScheduledSendingAllowed(
+        accountId,
+        mergedTriggerType,
+        mergedSteps
+      );
+    } catch (err) {
+      return toErrorResponse(err);
     }
   }
 

@@ -168,6 +168,74 @@ describe('fixed CRM resource authorization', () => {
       )
     ).not.toThrow();
   });
+  it('keeps a conversation number and the AI handoff stamps out of browser writes', () => {
+    const id = [{ field: 'id', op: 'eq', value: '33333333-3333-4333-8333-333333333333' }] as Filter[];
+    for (const [field, value] of [
+      ['whatsapp_config_id', '44444444-4444-4444-8444-444444444444'],
+      ['ai_handoff_at', null],
+      ['ai_handoff_at', '2026-11-02T10:00:00.000Z'],
+      ['ai_handoff_summary', 'Customer asked for a refund'],
+    ] as const) {
+      for (const operation of ['insert', 'update', 'upsert'])
+        expect(() => validateWrite('conversations', { [field]: value }, tenant, true, operation)).toThrow(/server-managed/);
+      expect(() =>
+        validateQuery('conversations', { operation: 'update', values: { [field]: value }, filters: id }, tenant, true)
+      ).toThrow(/server-managed/);
+      // Server routes (auto-reply, inbound webhook) still write them.
+      expect(() => validateWrite('conversations', { [field]: value }, tenant, false, 'update')).not.toThrow();
+    }
+    // Pausing the bot from the inbox stays a browser write.
+    expect(() =>
+      validateQuery('conversations', { operation: 'update', values: { bot_paused: false, ai_autoreply_disabled: false }, filters: id }, tenant, true)
+    ).not.toThrow();
+  });
+  it('lets a browser only save campaign drafts and rename campaigns', () => {
+    const id = [{ field: 'id', op: 'eq', value: '33333333-3333-4333-8333-333333333333' }] as Filter[];
+    const draft = {
+      user_id: tenant.userId,
+      account_id: tenant.accountId,
+      name: 'Diwali',
+      template_name: 'utility_x',
+      template_language: 'en_US',
+      template_variables: { body: ['a'] },
+      audience_filter: { type: 'all' },
+      status: 'draft',
+    };
+    // broadcasts/new "Save draft".
+    expect(() => validateQuery('broadcasts', { operation: 'insert', values: draft }, tenant, true)).not.toThrow();
+    for (const status of ['scheduled', 'sending', 'completed'])
+      expect(() => validateWrite('broadcasts', { ...draft, status }, tenant, true)).toThrow();
+    for (const [field, value] of [
+      ['kind', 'api'],
+      ['whatsapp_config_id', '44444444-4444-4444-8444-444444444444'],
+      ['scheduled_at', '2026-11-05T18:00:00.000Z'],
+    ] as const)
+      expect(() => validateWrite('broadcasts', { ...draft, [field]: value }, tenant, true)).toThrow(/server-managed/);
+    // A saved campaign's sending fields cannot be edited from the browser.
+    for (const [field, value] of [
+      ['template_name', 'promo_x'],
+      ['template_language', 'hi'],
+      ['template_variables', { body: ['b'] }],
+      ['whatsapp_config_id', '44444444-4444-4444-8444-444444444444'],
+      ['scheduled_at', '2026-11-05T18:00:00.000Z'],
+      ['audience_filter', { type: 'all' }],
+      ['status', 'scheduled'],
+      ['kind', 'api'],
+    ] as const) {
+      for (const operation of ['update', 'upsert'])
+        expect(() => validateWrite('broadcasts', { [field]: value }, tenant, true, operation)).toThrow(/server-managed/);
+      expect(() =>
+        validateQuery('broadcasts', { operation: 'update', values: { [field]: value }, filters: id }, tenant, true)
+      ).toThrow(/server-managed/);
+    }
+    expect(() =>
+      validateQuery('broadcasts', { operation: 'update', values: { name: 'Renamed' }, filters: id }, tenant, true)
+    ).not.toThrow();
+    // Campaign routes write them server-side.
+    expect(() =>
+      validateWrite('broadcasts', { template_name: 'promo_x', scheduled_at: '2026-11-05T18:00:00.000Z', status: 'scheduled' }, tenant, false, 'update')
+    ).not.toThrow();
+  });
   it('keeps conversation lifecycle and SLA stamps out of browser writes while status stays writable', () => {
     for (const [field, value] of [
       ['lifecycle_state', 'resolved'],

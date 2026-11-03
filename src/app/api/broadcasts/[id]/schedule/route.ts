@@ -1,5 +1,5 @@
-// PATCH  /api/broadcasts/[id]/schedule { scheduledAt } — move a scheduled campaign (agent+)
-// DELETE /api/broadcasts/[id]/schedule — cancel it before it starts (agent+)
+// PATCH  /api/broadcasts/[id]/schedule { scheduledAt } — move a scheduled campaign (agent+ with campaigns.send)
+// DELETE /api/broadcasts/[id]/schedule — cancel it before it starts (agent+ with campaigns.send)
 
 import { NextResponse } from 'next/server';
 
@@ -28,6 +28,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await requireRole('agent');
+    await requirePermission(tenantOf(ctx), 'campaigns.send');
     const { id } = await params;
     if (UUID.test(id) && (await cancelScheduledBroadcast(tenantOf(ctx), id))) return NextResponse.json({ success: true });
     return NextResponse.json({ error: 'Only scheduled campaigns can be cancelled' }, { status: 409 });

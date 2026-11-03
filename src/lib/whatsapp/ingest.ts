@@ -155,18 +155,34 @@ export class StatusAwaitingPersistenceError extends Error {
   }
 }
 
+/**
+ * How long a status for an unknown wamid is retried. The sender commits the
+ * wamid moments after Meta accepts the send (the provider call times out at
+ * 15 s), so a callback older than this belongs to a send that never stores a
+ * row (a campaign test send, say) and is dropped instead of failing the whole
+ * whatsapp.webhook job with its sibling statuses. Kept below the job's retry
+ * span (2+4+8+16 s across its default 5 attempts) so a retry reaches it.
+ */
+export const STATUS_PERSISTENCE_GRACE_MS = 20_000;
+
 /** Predicates are evaluated on the locked current row, so reordered concurrent events cannot regress status. */
-export async function applyProviderStatus(accountId: string, event: ProviderStatus): Promise<void> {
+export async function applyProviderStatus(accountId: string, event: ProviderStatus, now: Date = new Date()): Promise<void> {
   if (!["sent", "delivered", "read", "failed"].includes(event.status)) return;
   const when = new Date(Number(event.timestamp) * 1000);
   if (!Number.isFinite(when.getTime())) throw new Error("Invalid provider status timestamp");
+  // A future timestamp (clock skew) counts as fresh.
+  const stale = now.getTime() - when.getTime() > STATUS_PERSISTENCE_GRACE_MS;
   const failure = event.status === "failed" ? event.errors?.[0] : undefined;
   await withTenant({ accountId, role: "owner" }, async tx => {
     const presence=await tx.$queryRaw<{exists:boolean}[]>`SELECT (
       EXISTS(SELECT 1 FROM messages WHERE account_id=${accountId}::uuid AND message_id=${event.id}) OR
       EXISTS(SELECT 1 FROM broadcast_recipients WHERE account_id=${accountId}::uuid AND whatsapp_message_id=${event.id})
     ) AS exists`;
-    if(!presence[0]?.exists) throw new StatusAwaitingPersistenceError();
+    if(!presence[0]?.exists) {
+      // Nothing local to update and no row will appear: a no-op, never an endless retry.
+      if (stale) return;
+      throw new StatusAwaitingPersistenceError();
+    }
     const updated = await tx.$queryRaw<{ id: string; conversation_id: string }[]>`UPDATE messages SET status=${event.status},
       error_code=CASE WHEN ${event.status}='failed' THEN ${failure?.code ?? null} ELSE error_code END,
       error_title=CASE WHEN ${event.status}='failed' THEN ${failure?.title ?? null} ELSE error_title END,

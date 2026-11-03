@@ -4,8 +4,16 @@ import {
   MAX_SCHEDULED_CONTACTS,
   parseScheduledAudience,
   scheduleNeedsContact,
+  stepsSendMessages,
   type ScheduledStep,
 } from '@/lib/automations/scheduled-contract';
+import { withTenant } from '@/lib/db/tenant';
+import { getWorkerPrisma } from '@/lib/db/prisma';
+import {
+  PlanLimitError,
+  requireFeature,
+  requireWithinLimit,
+} from '@/lib/billing/entitlements';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchOnce } from './dispatch';
 import { enqueueJob } from './queue';
@@ -49,6 +57,29 @@ async function requireAudienceReferences(
       );
   }
 }
+/** Turn a schedule off when its plan no longer allows it, with a failed log row saying why. */
+async function pauseForPlan(db: DataClient, accountId: string, automationId: string, reason: string) {
+  const { data: paused, error } = await db
+    .from('automations')
+    .update({ is_active: false })
+    .eq('id', automationId)
+    .eq('is_active', true)
+    .select('id,user_id');
+  if (error) throw new Error('Could not pause scheduled automation');
+  // Another worker already paused it: one log row is enough.
+  const row = paused?.[0];
+  if (!row) return;
+  const log = await db.from('automation_logs').insert({
+    automation_id: automationId,
+    account_id: accountId,
+    user_id: row.user_id,
+    trigger_event: 'time_based',
+    steps_executed: [],
+    status: 'failed',
+    error_message: `Schedule turned off: ${reason}`,
+  });
+  if (log.error) throw new Error('Could not log paused scheduled automation');
+}
 /** Resolve once for this occurrence, then persist a stable tenant/contact/slot dispatch identity. */
 export async function queueScheduledOccurrence(
   db: DataClient,
@@ -84,6 +115,25 @@ export async function queueScheduledOccurrence(
     },
     { maxRows: MAX_SCHEDULED_CONTACTS }
   );
+  if (stepsSendMessages(await loadSteps(db, automation.id))) {
+    // A schedule that messages contacts is a recurring campaign. The plan can
+    // change after activation, so it is checked per occurrence; a refusal
+    // turns the automation off and logs why instead of retrying every slot.
+    try {
+      await withTenant(
+        { accountId },
+        async (tx) => {
+          await requireFeature(tx, accountId, 'campaign_scheduling');
+          await requireWithinLimit(tx, accountId, 'campaign_recipients', contacts.length);
+        },
+        getWorkerPrisma()
+      );
+    } catch (error) {
+      if (!(error instanceof PlanLimitError)) throw error;
+      await pauseForPlan(db, accountId, automation.id, error.message);
+      return;
+    }
+  }
   for (const contact of contacts) {
     assertLease();
     await enqueueJob(

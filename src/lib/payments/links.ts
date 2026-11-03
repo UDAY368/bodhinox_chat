@@ -17,7 +17,7 @@
  * WhatsApp) and never logged.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
 import { getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
@@ -30,7 +30,7 @@ import { sendTextMessage } from '@/lib/whatsapp/meta-api';
 import { getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
-import { emitOrderPaid, emitPaymentLinkPaid } from '@/lib/webhooks/commerce-events';
+import { orderWebhookData, paymentLinkWebhookData, type CommerceWebhookEvent } from '@/lib/webhooks/commerce-events';
 import { capiValue, queueConversionEventTx } from '@/lib/meta-ads/capi';
 import {
   cancelPaymentLink as razorpayCancel,
@@ -426,28 +426,45 @@ export async function applyProviderState(
   incoming: { status: RazorpayLinkStatus | 'unknown'; providerLinkId?: string | null; shortUrl?: string | null; expireBy?: number | null },
   source: 'webhook' | 'fetch',
 ): Promise<ApplyResult | null> {
-  const result = await applyProviderStateTx(accountId, linkId, incoming, source);
-  // After COMMIT, and only for the one call whose row-locked update moved the
-  // link to 'paid', so each event goes out once. Best effort: never throws.
-  if (result?.becamePaid) await emitPaidEvents(accountId, result);
-  return result;
+  // The payment_link.paid / order.paid deliveries are queued inside the same
+  // transaction as the 'paid' transition, so a crash after COMMIT cannot lose them.
+  return applyProviderStateTx(accountId, linkId, incoming, source);
 }
 
-async function emitPaidEvents(accountId: string, result: ApplyResult): Promise<void> {
-  const row = result.row;
+/**
+ * Queues one 'webhook.delivery' job per active endpoint subscribed to `event`,
+ * in the caller's transaction, so the delivery commits (or rolls back) with the
+ * state it describes. The dedupe key is deterministic per subject and endpoint:
+ * a replayed transition can never queue a second delivery. Ids and amounts
+ * only, never customer content.
+ */
+async function queueWebhookTx(tx: TenantTransaction, accountId: string, event: CommerceWebhookEvent, subjectId: string, data: Record<string, unknown>): Promise<void> {
+  const endpoints = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id::text AS id FROM webhook_endpoints
+    WHERE account_id=${accountId}::uuid AND is_active AND events @> ARRAY[${event}]::text[]`;
+  if (!endpoints.length) return;
+  const payload = JSON.stringify({ id: randomUUID(), event, occurred_at: new Date().toISOString(), account_id: accountId, data });
+  for (const endpoint of endpoints) {
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
+      VALUES('webhook.delivery',${accountId}::uuid,${JSON.stringify({ endpointId: endpoint.id, event, payload })}::jsonb,
+        ${`outbound-webhook:${event}:${subjectId}:${endpoint.id}`})
+      ON CONFLICT(dedupe_key) DO NOTHING`;
+  }
+}
+
+async function queuePaidWebhooksTx(tx: TenantTransaction, accountId: string, row: LinkRow, order: PaidOrderRow | null): Promise<void> {
   const amountMinor = minorFromDb(row.amount_minor) ?? 0;
-  await emitPaymentLinkPaid(accountId, {
+  await queueWebhookTx(tx, accountId, 'payment_link.paid', row.id, paymentLinkWebhookData({
     paymentLinkId: row.id, provider: row.provider, referenceId: row.reference_id, providerLinkId: row.provider_link_id,
     amountMinor, amountPaidMinor: amountMinor, currency: row.currency, orderId: row.order_id,
     contactId: row.contact_id, conversationId: row.conversation_id, paidAt: row.paid_at ? new Date(row.paid_at) : undefined,
-  });
-  const order = result.paidOrder;
+  }));
   if (order) {
-    await emitOrderPaid(accountId, {
+    await queueWebhookTx(tx, accountId, 'order.paid', order.id, orderWebhookData({
       orderId: order.id, source: order.source, externalId: order.external_id, status: order.status,
       totalMinor: minorFromDb(order.total_minor ?? order.subtotal_minor), currency: order.currency,
       itemCount: order.item_count, contactId: order.contact_id, conversationId: order.conversation_id,
-    });
+    }));
   }
 }
 
@@ -488,6 +505,9 @@ async function applyProviderStateTx(
       }
       await notifyPaid(tx, updated[0] ?? row);
       await queuePurchase(tx, accountId, updated[0] ?? row, paidOrder);
+      // Not under a savepoint: if the deliveries cannot be queued the paid
+      // transition rolls back too, and the provider event job retries both.
+      await queuePaidWebhooksTx(tx, accountId, updated[0] ?? row, paidOrder);
     }
     return { row: updated[0] ?? row, becamePaid, paidOrder, changed };
   });
@@ -716,6 +736,37 @@ export async function cancelPaymentLinkRecord(accountId: string, linkId: string)
   const final = applied?.row ?? row;
   await resumeFlowForLink(final);
   return toView(final);
+}
+
+/**
+ * Job queued by the flow_runs trigger (migration 20261105121500) when a run
+ * waiting on this link ends without the payment. Payload: { linkId }.
+ */
+export const CANCEL_LINK_JOB = 'payments.cancel_link';
+
+/**
+ * Cancels the link an ended flow run left open. The link is re-read at
+ * Razorpay first, so one paid (or expired) meanwhile is recorded and never
+ * cancelled; Razorpay also refuses to cancel a paid link, which
+ * cancelPaymentLinkRecord turns into a reconcile. Cancelling is idempotent at
+ * the provider, so a retry after an unclear outcome is safe. Only a 'created'
+ * link is cancelled: a partially paid one holds the customer's money and is
+ * left for an agent. Provider and connection errors throw so the job retries
+ * and, when attempts run out, stays visible as failed.
+ */
+export async function handleCancelLinkJob(accountId: string, payload: Record<string, unknown>): Promise<void> {
+  const linkId = typeof payload.linkId === 'string' && UUID.test(payload.linkId) ? payload.linkId : null;
+  if (!linkId) throw new Error('Invalid payment link cancel job contract');
+  const row = await worker(accountId, (tx) => selectLink(tx, accountId, { id: linkId }));
+  if (!row || row.status !== 'created') return;
+  try {
+    const { link } = await reconcilePaymentLink(accountId, linkId);
+    if (link.status !== 'created') return;
+    await cancelPaymentLinkRecord(accountId, linkId);
+  } catch (error) {
+    if (error instanceof PaymentLinkError && (error.code === 'not_cancellable' || error.code === 'not_found')) return;
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -105,6 +105,19 @@ const serverOnly = new Set([
   'webhook_endpoints',
   'ai_knowledge_chunks',
 ]);
+// Fields a browser may set when saving a campaign draft (broadcasts/new). Status
+// defaults to and may only be 'draft'; nothing is sent until a campaign route runs.
+const browserBroadcastDraftFields = [
+  'id',
+  'account_id',
+  'user_id',
+  'name',
+  'template_name',
+  'template_language',
+  'template_variables',
+  'audience_filter',
+  'status',
+];
 const browserReadOnly = new Set([
   // Dedicated automation routes enforce activation and scheduling validators.
   'automations',
@@ -542,6 +555,10 @@ export function validateWrite(
         'first_responded_at',
         'resolved_at',
         'reopened_count',
+        // The AI agent's handoff stamp and note are written by auto-reply.ts and
+        // /api/ai/autoreply; analytics counts AI resolutions and handoffs from them.
+        'ai_handoff_at',
+        'ai_handoff_summary',
       ].includes(field)
     )
       throw new ContractError(`Field ${field} is server-managed`);
@@ -549,9 +566,23 @@ export function validateWrite(
     // that raised it; a browser may only mark its own notifications read.
     if (browser && name === 'notifications' && ['link', 'dedupe_key'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
-    // A campaign's kind is fixed at creation (other tables, e.g. quick_replies, have their own `kind`).
-    if (browser && name === 'broadcasts' && field === 'kind')
+    // A conversation keeps the number the customer wrote to; replies, number-scoped
+    // routing and away messages follow it. Inserts fall back to the
+    // conversations_default_number trigger. Other tables set their number through
+    // their own routes, so this stays scoped to conversations.
+    if (browser && name === 'conversations' && field === 'whatsapp_config_id')
       throw new ContractError(`Field ${field} is server-managed`);
+    // What a campaign sends (template, variables, number, schedule, status, kind) is
+    // validated by create-campaign.ts and the schedule/resume routes, which check
+    // campaigns.send. The dispatcher reads those fields back from the row, so a
+    // browser may only save an inert draft and rename a campaign.
+    if (browser && name === 'broadcasts') {
+      const allowed = operation === 'insert' ? browserBroadcastDraftFields : ['name'];
+      if (!allowed.includes(field))
+        throw new ContractError(`Field ${field} is server-managed`);
+      if (field === 'status' && value !== 'draft')
+        throw new ContractError('Campaigns are scheduled and sent through campaign routes');
+    }
     // A knowledge document's source link, content hash, fetch time and url are
     // set by the crawler and upload routes (lib/ai/knowledge-sources.ts).
     if (browser && name === 'ai_knowledge_documents' &&

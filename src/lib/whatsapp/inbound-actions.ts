@@ -64,16 +64,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       conversation_id:input.conversationId,contact_id:input.contactId,
     }));
     // This local update is idempotent and retryable; external stages carry checkpoints below.
-    const {data:recipients,error:replyLookupError}=await db.from("broadcast_recipients")
-      .select("id,status,broadcast_id,broadcasts!inner(account_id)").eq("contact_id",input.contactId)
-      .eq("broadcasts.account_id",input.accountId).in("status",["sent","delivered","read"])
-      .order("sent_at",{ascending:false}).limit(1);
-    if(replyLookupError) throw new Error("Broadcast reply lookup failed");
-    if(recipients?.[0]) {
-      const reply=await db.from("broadcast_recipients").update({status:"replied",replied_at:new Date().toISOString()})
-        .eq("id",recipients[0].id).in("status",["sent","delivered","read"]);
-      if(reply.error) throw new Error("Broadcast reply update failed");
-    }
+    await markBroadcastReply(db,input);
     const text=input.contentText??"";
     const form=await submittedForm(db,input);
     // A trusted submission fills the contact fields its form maps answers to.
@@ -86,6 +77,8 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     // no automated response; both still reach the message.received webhook.
     const keyword=input.contentType==="text"&&!input.interactiveReplyId ? consentKeyword(text) : null;
     if(keyword) await applyConsentKeyword(db,input.accountId,input.contactId,keyword);
+    // STOP also ends the contact's running flows, so no timer or payment resume sends more.
+    if(keyword==="opt_out") await endRunsOnOptOut(db,input);
     const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")
       .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
     if(contactError) throw new Error("Contact consent lookup failed");
@@ -112,6 +105,55 @@ export async function processInboundActions(input: InboundActionsPayload, assert
 
 type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
 type MessageInput=Extract<InboundActionsPayload,{kind:"message"}>;
+type Db=ReturnType<typeof createAdminClient>;
+
+/** Matches analytics (lib/analytics/queries REPLY_WINDOW): a later message is not a campaign reply. */
+export const BROADCAST_REPLY_WINDOW_MS=72*3_600_000;
+const OPEN_RECIPIENT=["sent","delivered","read"];
+
+/**
+ * Marks the contact's latest open campaign send as replied, but only one sent
+ * from the number this message came in on, within the reply window. Campaigns
+ * from before numbers were recorded (NULL) count as the default number's.
+ */
+async function markBroadcastReply(db:Db,input:MessageInput): Promise<void> {
+  const {data:conversation,error:conversationError}=await db.from("conversations").select("whatsapp_config_id")
+    .eq("account_id",input.accountId).eq("id",input.conversationId).maybeSingle();
+  if(conversationError) throw new Error("Broadcast reply lookup failed");
+  const numberId=(conversation as {whatsapp_config_id?:string|null}|null)?.whatsapp_config_id??null;
+  const {data:numbers,error:numberError}=await db.from("whatsapp_config").select("id,is_default")
+    .eq("account_id",input.accountId).order("is_default",{ascending:false}).order("created_at",{ascending:true}).limit(2);
+  if(numberError) throw new Error("Broadcast reply lookup failed");
+  const rows=(numbers??[]) as Array<{id:string;is_default:boolean}>;
+  const defaultId=rows[0]&&(rows[0].is_default||rows.length===1) ? rows[0].id : null;
+  const ids=[numberId??defaultId].filter((id):id is string=>Boolean(id));
+  const legacy=numberId===null||numberId===defaultId;
+  const since=new Date(Date.now()-BROADCAST_REPLY_WINDOW_MS).toISOString();
+  const latest=async(match:(q:ReturnType<Db["from"]>)=>ReturnType<Db["from"]>)=>{
+    const {data,error}=await match(db.from("broadcast_recipients")
+      .select("id,sent_at,broadcasts!inner(account_id)").eq("contact_id",input.contactId)
+      .eq("broadcasts.account_id",input.accountId).in("status",OPEN_RECIPIENT).gte("sent_at",since))
+      .order("sent_at",{ascending:false}).limit(1);
+    if(error) throw new Error("Broadcast reply lookup failed");
+    return (data as Array<{id:string;sent_at:string|null}>|null)?.[0]??null;
+  };
+  const candidates=[
+    ids.length ? await latest(q=>q.in("broadcasts.whatsapp_config_id",ids)) : null,
+    legacy ? await latest(q=>q.is("broadcasts.whatsapp_config_id",null)) : null,
+  ].filter((row):row is {id:string;sent_at:string|null}=>row!==null)
+    .sort((a,b)=>Date.parse(b.sent_at??"")-Date.parse(a.sent_at??""));
+  if(!candidates[0]) return;
+  const reply=await db.from("broadcast_recipients").update({status:"replied",replied_at:new Date().toISOString()})
+    .eq("id",candidates[0].id).in("status",OPEN_RECIPIENT);
+  if(reply.error) throw new Error("Broadcast reply update failed");
+}
+
+/** Cancels the contact's active flow runs after a STOP. Idempotent on a retried job. */
+async function endRunsOnOptOut(db:Db,input:MessageInput): Promise<void> {
+  const {error}=await db.from("flow_runs").update({status:"cancelled",ended_at:new Date().toISOString(),end_reason:"contact_opted_out",wait_until:null})
+    .eq("account_id",input.accountId).eq("contact_id",input.contactId).eq("status","active");
+  if(error) throw new Error("Flow run opt-out update failed");
+}
 
 const MEDIA_TYPES=new Set(["image","video","document","audio"]);
 

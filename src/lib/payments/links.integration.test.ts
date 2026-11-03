@@ -74,6 +74,11 @@ const seed = String(Date.now()).slice(-9);
 const scope = { accountId: accountA, role: 'owner' as const };
 let owner: pg.Client;
 let convA = '';
+let endpointA = '';
+/** Queued outbound deliveries (job payloads) for one link or order. */
+const queued = async (subjectId: string) => (await owner.query(
+  "SELECT tenant_id::text AS tenant_id,payload FROM jobs WHERE type='webhook.delivery' AND dedupe_key LIKE $1 ORDER BY dedupe_key",
+  [`outbound-webhook:%:${subjectId}:%`])).rows.map((r) => ({ tenant: r.tenant_id, endpointId: r.payload.endpointId, event: r.payload.event, body: JSON.parse(r.payload.payload) }));
 
 const agent = { kind: 'agent' as const, userId: agentA, role: 'agent' as const };
 const create = (overrides: Partial<Parameters<typeof createPaymentLinkRecord>[0]> = {}) => createPaymentLinkRecord({
@@ -107,6 +112,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     await owner.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'Payer',$4)", [contactA, accountA, adminA, `+9197${seed}`]);
     convA = (await owner.query("INSERT INTO conversations(account_id,user_id,contact_id,status,whatsapp_config_id,assigned_agent_id) VALUES($1,$2,$3,'open',$4,$5) RETURNING id",
       [accountA, adminA, contactA, configA, agentA])).rows[0].id;
+    // One subscribed endpoint, one inactive and one unsubscribed in A; B subscribes to everything (never used for A's events).
+    endpointA = (await owner.query("INSERT INTO webhook_endpoints(account_id,url,secret,events) VALUES($1,'https://example.invalid/a','test-only',ARRAY['payment_link.paid','order.paid']) RETURNING id", [accountA])).rows[0].id;
+    await owner.query("INSERT INTO webhook_endpoints(account_id,url,secret,events,is_active) VALUES($1,'https://example.invalid/off','test-only',ARRAY['payment_link.paid','order.paid'],false),($1,'https://example.invalid/msg','test-only',ARRAY['message.received'],true),($2,'https://example.invalid/b','test-only',ARRAY['payment_link.paid','order.paid'],true)", [accountA, accountB]);
     await withTenant(asAdminA, (tx) => savePaymentProvider(tx, accountA, { keyId: 'rzp_test_AbCdEf123456', keySecret: 'test-only-secret', webhookSecret: 'test-only-hook' }));
     await withTenant(asB, (tx) => savePaymentProvider(tx, accountB, { keyId: 'rzp_test_ZyXwVu654321', keySecret: 'test-only-secret-b' }));
     // start -> pay (payment_link) -> paid: thanks -> done; expired: sorry (end)
@@ -213,19 +221,21 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     const notes = async () => (await owner.query("SELECT user_id,type,conversation_id,body FROM notifications WHERE account_id=$1 AND dedupe_key=$2", [accountA, `payment:${link.id}:paid`])).rows;
     expect(await notes()).toEqual([{ user_id: agentA, type: 'payment_received', conversation_id: convA, body: expect.any(String) }]);
     expect((await owner.query('SELECT status FROM webhook_receipts WHERE id=$1', [receipt])).rows[0].status).toBe('processed');
-    // Outbound webhooks after commit: payment_link.paid and order.paid, once each.
-    const events = () => h.dispatch.mock.calls.map((c) => [c[1], c[2], c[3]]);
-    expect(events()).toEqual([
-      [accountA, 'payment_link.paid', expect.objectContaining({ payment_link_id: link.id, reference_id: row.reference_id, amount_paid_minor: 49_900, currency: 'INR', order_id: order, conversation_id: convA })],
-      [accountA, 'order.paid', expect.objectContaining({ order_id: order, source: 'manual', status: 'paid', total_minor: 49_900, currency: 'INR', item_count: 0 })],
-    ]);
+    // Outbound webhooks committed with the payment: one delivery job per subscribed active endpoint of A, once each.
+    expect(await queued(link.id)).toEqual([{ tenant: accountA, endpointId: endpointA, event: 'payment_link.paid', body: expect.objectContaining({
+      event: 'payment_link.paid', account_id: accountA,
+      data: expect.objectContaining({ payment_link_id: link.id, reference_id: row.reference_id, amount_paid_minor: 49_900, currency: 'INR', order_id: order, conversation_id: convA }) }) }]);
+    expect(await queued(order)).toEqual([{ tenant: accountA, endpointId: endpointA, event: 'order.paid', body: expect.objectContaining({
+      event: 'order.paid', data: expect.objectContaining({ order_id: order, source: 'manual', status: 'paid', total_minor: 49_900, currency: 'INR', item_count: 0 }) }) }]);
+    expect(h.dispatch).not.toHaveBeenCalled();
 
-    // A redelivery under another id, then an out-of-order expiry: nothing changes and nothing is emitted again.
+    // A redelivery under another id, then an out-of-order expiry: nothing changes and nothing is queued again.
     await deliver('payment_link.paid', row);
     await deliver('payment_link.expired', row);
     expect((await linkRow(link.id)).status).toBe('paid');
     expect(await notes()).toHaveLength(1);
-    expect(h.dispatch).toHaveBeenCalledTimes(2);
+    expect(await queued(link.id)).toHaveLength(1);
+    expect(await queued(order)).toHaveLength(1);
   });
 
   it('emits payment_link.paid once when a reconcile finds the link paid, and no order.paid for an order already paid', async () => {
@@ -235,11 +245,38 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     const row = await linkRow(link.id);
     h.fetch.mockResolvedValueOnce({ ...h.link(row.reference_id, 'paid'), id: row.provider_link_id });
     expect((await reconcilePaymentLink(accountA, link.id)).link.status).toBe('paid');
-    expect(h.dispatch.mock.calls.map((c) => c[2])).toEqual(['payment_link.paid']);
-    // Already paid: a later webhook and reconcile emit nothing more.
+    expect((await queued(link.id)).map((d) => d.event)).toEqual(['payment_link.paid']);
+    expect(await queued(order)).toEqual([]);
+    // Already paid: a later webhook and reconcile queue nothing more.
     await deliver('payment_link.paid', row);
     await reconcilePaymentLink(accountA, link.id);
-    expect(h.dispatch).toHaveBeenCalledTimes(1);
+    expect(await queued(link.id)).toHaveLength(1);
+  });
+
+  it('rolls the paid transition back with its deliveries when they cannot be queued, and the retry queues them', async () => {
+    const order = (await owner.query(`INSERT INTO orders(account_id,source,contact_id,conversation_id,currency,subtotal_minor,status)
+      VALUES($1,'manual',$2,$3,'INR',49900,'awaiting_payment') RETURNING id`, [accountA, contactA, convA])).rows[0].id;
+    const { link } = await create({ orderId: order, conversationId: null });
+    const row = await linkRow(link.id);
+    // Simulate the crash window: the delivery insert fails inside the payment transaction.
+    const trigger = `fail_webhook_jobs_${seed}`;
+    await owner.query(`CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.type='webhook.delivery' AND NEW.tenant_id='${accountA}'::uuid THEN RAISE EXCEPTION 'simulated enqueue failure'; END IF; RETURN NEW; END $$`);
+    await owner.query(`CREATE TRIGGER ${trigger} BEFORE INSERT ON jobs FOR EACH ROW EXECUTE FUNCTION ${trigger}()`);
+    try {
+      await expect(deliver('payment_link.paid', row)).rejects.toThrow();
+    } finally {
+      await owner.query(`DROP TRIGGER ${trigger} ON jobs`);
+      await owner.query(`DROP FUNCTION ${trigger}()`);
+    }
+    expect((await linkRow(link.id)).status).toBe('created');
+    expect((await owner.query('SELECT status FROM orders WHERE id=$1', [order])).rows[0].status).toBe('awaiting_payment');
+    expect(await queued(link.id)).toEqual([]);
+    // The provider event is retried (a redelivery here): the payment and both deliveries now commit together.
+    await deliver('payment_link.paid', row);
+    expect((await linkRow(link.id)).status).toBe('paid');
+    expect((await queued(link.id)).map((d) => d.event)).toEqual(['payment_link.paid']);
+    expect((await queued(order)).map((d) => d.event)).toEqual(['order.paid']);
   });
 
   it('sends a link into the conversation only inside the 24-hour window, once per intent', async () => {

@@ -13,6 +13,7 @@ import {
 import { automationTemplateIssues } from '@/lib/automations/template-check';
 import { getT } from '@/lib/i18n/translate';
 import { requireActiveAutomationRoom } from '@/lib/billing/activation';
+import { requireScheduledSendingAllowed } from '@/lib/automations/schedule-gate';
 
 const t = getT('Api');
 
@@ -149,6 +150,11 @@ export async function POST(request: Request) {
     }
     try {
       await requireActiveAutomationRoom(accountId);
+      await requireScheduledSendingAllowed(
+        accountId,
+        effectiveTriggerType,
+        effectiveSteps ?? []
+      );
     } catch (err) {
       return toErrorResponse(err);
     }

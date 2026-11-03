@@ -1037,8 +1037,9 @@ export function WhatsAppConfig() {
             </CardContent>
           </Card>
 
-          {/* The business profile of the number the form is showing (Meta's copy). */}
-          {config && selectedNumber && (
+          {/* The business profile of the number the form is showing (Meta's copy).
+              Hidden for a removed number: it has no token, so the route answers 409. */}
+          {config && selectedNumber && !selectedNumber.removed && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-foreground">{t('businessProfileTitle')}</CardTitle>

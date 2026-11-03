@@ -19,6 +19,7 @@ if (workerUrl) process.env.WORKER_DATABASE_URL = workerUrl;
 const A = randomUUID(), B = randomUUID();
 const owner = randomUUID(), agentX = randomUUID(), agentY = randomUUID(), ownerB = randomUUID();
 const team = randomUUID(), number1 = randomUUID(), number2 = randomUUID(), flow = randomUUID();
+const runHanded = randomUUID(), runFailed = randomUUID();
 const [c1, c2, c3, c4, c5, cb] = Array.from({ length: 6 }, () => randomUUID());
 const [v1, v2, v3, v4, v5, vb] = Array.from({ length: 6 }, () => randomUUID());
 const [b0, b1, b2, bB] = Array.from({ length: 4 }, () => randomUUID());
@@ -105,6 +106,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
       ($2,$5,$6,'October','promo','sent','2026-10-04T07:00:00Z','2026-10-03T06:00:00Z'),
       ($3,$5,$6,'Empty','promo','draft',NULL,'2026-10-05T06:00:00Z'),
       ($4,$7,$8,'B launch','promo','sent','2026-10-04T07:00:00Z','2026-10-04T06:00:00Z')`, [b0, b1, b2, bB, A, owner, B, ownerB]);
+    // October goes out from number2, where c3's reply (v3) arrives.
+    await q('UPDATE broadcasts SET whatsapp_config_id=$1 WHERE id=$2', [number2, b1]);
     await q(`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,sent_at,delivered_at,read_at,clicked_at) VALUES
       ($1,$2,$4,'read','2026-10-04T07:00:00Z','2026-10-04T07:01:00Z','2026-10-04T07:02:00Z',NULL),
       ($1,$2,$5,'delivered','2026-10-04T07:00:00Z','2026-10-04T07:01:00Z',NULL,'2026-10-04T07:30:00Z'),
@@ -114,11 +117,23 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     [A, b1, b0, c3, c1, c2, B, bB, cb]);
 
     await q("INSERT INTO flows(id,account_id,user_id,name,trigger_type,status) VALUES($1,$2,$3,'Welcome','keyword','active')", [flow, A, owner]);
-    await q("INSERT INTO flow_nodes(account_id,flow_id,node_key,node_type) VALUES($1,$2,'start','start'),($1,$2,'ask','send_buttons')", [A, flow]);
-    await q(`INSERT INTO flow_runs(account_id,flow_id,user_id,contact_id,status,current_node_key,started_at) VALUES
-      ($1,$2,$3,$4,'completed','end','2026-10-02T10:00:00Z'), ($1,$2,$3,$4,'handed_off','ask','2026-10-03T10:00:00Z'),
-      ($1,$2,$3,$4,'timed_out','ask','2026-10-04T10:00:00Z'), ($1,$2,$3,$4,'failed','start','2026-10-05T10:00:00Z'),
-      ($1,$2,$3,$5,'active','ask','2026-10-06T10:00:00Z'), ($1,$2,$3,$5,'failed','start','2026-09-05T10:00:00Z')`, [A, flow, owner, c1, c2]);
+    await q(`INSERT INTO flow_nodes(account_id,flow_id,node_key,node_type) VALUES($1,$2,'start','start'),($1,$2,'ask','send_buttons'),
+      ($1,$2,'human','handoff'),($1,$2,'send','send_message')`, [A, flow]);
+    // current_node_key moves only at waiting points, so the handed-off and
+    // failed runs still name the question / start node; their events say where
+    // they really stopped. The timed-out run has no events and falls back.
+    await q(`INSERT INTO flow_runs(id,account_id,flow_id,user_id,contact_id,status,current_node_key,started_at) VALUES
+      (gen_random_uuid(),$1,$2,$3,$4,'completed','end','2026-10-02T10:00:00Z'), ($6,$1,$2,$3,$4,'handed_off','ask','2026-10-03T10:00:00Z'),
+      (gen_random_uuid(),$1,$2,$3,$4,'timed_out','ask','2026-10-04T10:00:00Z'), ($7,$1,$2,$3,$4,'failed','start','2026-10-05T10:00:00Z'),
+      (gen_random_uuid(),$1,$2,$3,$5,'active','ask','2026-10-06T10:00:00Z'), (gen_random_uuid(),$1,$2,$3,$5,'failed','start','2026-09-05T10:00:00Z')`,
+    [A, flow, owner, c1, c2, runHanded, runFailed]);
+    await q(`INSERT INTO flow_run_events(account_id,flow_run_id,event_type,node_key,created_at) VALUES
+      ($1,$2,'started','start','2026-10-03T10:00:00Z'), ($1,$2,'node_entered','ask','2026-10-03T10:00:01Z'),
+      ($1,$2,'reply_received','ask','2026-10-03T10:05:00Z'), ($1,$2,'node_entered','human','2026-10-03T10:05:01Z'),
+      ($1,$2,'handoff','human','2026-10-03T10:05:02Z'),
+      ($1,$3,'started','start','2026-10-05T10:00:00Z'), ($1,$3,'node_entered','start','2026-10-05T10:00:01Z'),
+      ($1,$3,'error','send','2026-10-05T10:00:02Z'), ($1,$3,'node_entered','send','2026-10-05T10:00:02Z'),
+      ($1,$3,'error',NULL,'2026-10-05T10:00:03Z')`, [A, runHanded, runFailed]);
     await q(`INSERT INTO ai_unanswered_questions(account_id,question,normalized_question,created_at) VALUES
       ($1,'q1','q1','2026-10-03T10:00:00Z'), ($1,'q2','q2','2026-09-03T10:00:00Z'), ($2,'q3','q3','2026-10-03T10:00:00Z')`, [A, B]);
   });
@@ -258,10 +273,49 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     expect((await runAnalytics(ctxA, (tx) => campaignFunnel(tx, A, { broadcastId: bB }))).totals.recipients).toBe(0);
   });
 
+  it('counts a campaign reply only on the number the campaign was sent from, NULL meaning the default', async () => {
+    // A separate week. number1 is the default (the first number added).
+    const week = parseRange({ from: '2026-10-12', to: '2026-10-13' }, 'UTC', new Date('2026-11-03T00:00:00Z'));
+    const k = randomUUID(), l = randomUUID(), kTwo = randomUUID(), lOne = randomUUID(), bn = randomUUID(), bl = randomUUID();
+    await q("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$3,$4,'K','919811116666'),($2,$3,$4,'L','919811117777')", [k, l, A, owner]);
+    await q(`INSERT INTO broadcasts(id,account_id,user_id,name,template_name,status,scheduled_at,created_at,whatsapp_config_id) VALUES
+      ($1,$3,$4,'Per number','number_promo','sent','2026-10-12T07:00:00Z','2026-10-12T06:00:00Z',$5),
+      ($2,$3,$4,'Legacy','legacy_promo','sent','2026-10-12T07:00:00Z','2026-10-12T06:00:00Z',NULL)`, [bn, bl, A, owner, number1]);
+    await q(`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,sent_at,delivered_at)
+      SELECT $1, b, c, 'delivered', '2026-10-12T07:00:00Z', '2026-10-12T07:01:00Z' FROM unnest($2::uuid[]) b CROSS JOIN unnest($3::uuid[]) c`,
+    [A, [bn, bl], [k, l]]);
+    // K answers on number2 (not the campaigns' number); L on number1.
+    await q(`INSERT INTO conversations(id,account_id,user_id,contact_id,created_at,last_message_at,inbound_created_meta_id,whatsapp_config_id) VALUES
+      ($1,$3,$4,$5,'2026-10-12T08:00:00Z','2026-10-12T08:00:00Z',$7,$9), ($2,$3,$4,$6,'2026-10-12T09:00:00Z','2026-10-12T09:00:00Z',$8,$10)`,
+    [kTwo, lOne, A, owner, k, l, `wamid.k.${seed}`, `wamid.l.${seed}`, number2, number1]);
+    await msg(A, kTwo, 'customer', '2026-10-12T08:00:00Z');
+    await msg(A, lOne, 'customer', '2026-10-12T09:00:00Z');
+
+    const funnel = (id: string) => runAnalytics(ctxA, (tx) => campaignFunnel(tx, A, { broadcastId: id }));
+    expect((await funnel(bn)).totals).toMatchObject({ recipients: 2, replied: 1 });
+    expect((await funnel(bl)).totals).toMatchObject({ recipients: 2, replied: 1 });
+    expect((await runAnalytics(ctxA, (tx) => templateDaily(tx, A, week))).map((r) => [r.templateName, r.sent, r.replied])).toEqual([
+      ['legacy_promo', 2, 1], ['number_promo', 2, 1],
+    ]);
+    const stats = await runAnalytics(ctxA, (tx) => conversationStats(tx, A, week));
+    expect(stats.started).toEqual({ total: 2, inbound: 1, business: 0, campaignReply: 1, ad: 0 });
+    const onNumber2 = await runAnalytics(ctxA, (tx) => conversationStats(tx, A, week, { whatsappConfigId: number2 }));
+    expect(onNumber2.started).toEqual({ total: 1, inbound: 1, business: 0, campaignReply: 0, ad: 0 });
+
+    // Once K also answers on number1, both campaigns count it.
+    const kOne = randomUUID();
+    await q(`INSERT INTO conversations(id,account_id,user_id,contact_id,created_at,last_message_at,whatsapp_config_id)
+      VALUES($1,$2,$3,$4,'2026-10-12T07:00:00Z','2026-10-12T10:00:00Z',$5)`, [kOne, A, owner, k, number1]);
+    await msg(A, kOne, 'customer', '2026-10-12T10:00:00Z');
+    expect((await funnel(bn)).totals.replied).toBe(2);
+    expect((await funnel(bl)).totals.replied).toBe(2);
+  });
+
   it('reports flow outcomes and where runs stopped', async () => {
     const stats = await runAnalytics(ctxA, (tx) => flowStats(tx, A, range, flow));
     expect(stats).toEqual({ started: 5, completed: 1, handedOff: 1, timedOut: 1, failed: 1, cancelled: 0, active: 1,
-      dropOff: [{ flowId: flow, nodeKey: 'ask', nodeType: 'send_buttons', runs: 2 }, { flowId: flow, nodeKey: 'start', nodeType: 'start', runs: 1 }] });
+      dropOff: [{ flowId: flow, nodeKey: 'ask', nodeType: 'send_buttons', runs: 1 }, { flowId: flow, nodeKey: 'human', nodeType: 'handoff', runs: 1 },
+        { flowId: flow, nodeKey: 'send', nodeType: 'send_message', runs: 1 }] });
   });
 
   it('reports AI replies, handoffs, unanswered questions and AI resolution', async () => {

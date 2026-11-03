@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/data/admin';
 import {
   processWebhook,
   processInboundActions,
+  retryProviderStatus,
   type InboundActionsPayload,
 } from '@/lib/whatsapp/process-webhook';
 import {
@@ -107,6 +108,8 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         job.payload as unknown as InboundActionsPayload,
         assertLease
       );
+    } else if (job.type === 'whatsapp.status_retry') {
+      await retryProviderStatus(accountId, job.payload);
     } else if (job.type === 'broadcast.dispatch') {
       const broadcastId = uuid(job.payload.broadcastId);
       const scope: ResumeScope =
@@ -296,6 +299,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'payments.razorpay_event')
       // One verified Razorpay delivery: link status, order paid, agent alert, waiting flow run.
       await (await import('@/lib/payments/links')).handlePaymentEventJob(accountId, job.payload);
+    else if (job.type === 'payments.cancel_link')
+      // Cancels the Razorpay link a flow run left unpaid when it ended (queued by the flow_runs trigger).
+      await (await import('@/lib/payments/links')).handleCancelLinkJob(accountId, job.payload);
     else if (job.type === 'billing.lifecycle_sweep')
       await (await import('@/lib/billing/subscriptions')).runLifecycleSweep(accountId);
     else if (job.type === 'billing.email')
@@ -315,7 +321,7 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
 async function sweepFlows(db: ReturnType<typeof createAdminClient>) {
   const { data: runs, error } = await db
     .from('flow_runs')
-    .select('id,last_advanced_at,delay_until,flows(fallback_policy)')
+    .select('id,last_advanced_at,delay_until,wait_until,flows(fallback_policy)')
     .eq('status', 'active')
     .limit(500);
   if (error) throw new Error('Flow sweep failed');

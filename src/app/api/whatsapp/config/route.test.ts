@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import { ForbiddenError } from "@/lib/auth/errors";
 
 type Op = { table: string; op: string; values?: Record<string, unknown>; filters: [string, unknown][] };
@@ -45,7 +46,24 @@ vi.mock("@/lib/auth/account", async () => {
   const { toErrorResponse } = await vi.importActual<typeof import("@/lib/auth/account")>("@/lib/auth/account");
   return { getCurrentAccount: h.getCurrentAccount, requireRole: h.requireRole, toErrorResponse };
 });
-vi.mock("@/lib/db/tenant", () => ({ withTenant: async (_t: unknown, op: (tx: unknown) => unknown) => op({ tx: true }) }));
+// Tenant transaction: the write (and its room check) runs here, recorded like the data client.
+const prismaError = (code: string) => new Prisma.PrismaClientKnownRequestError("write failed", { code, clientVersion: "test" });
+const tx = {
+  tx: true,
+  whatsapp_config: {
+    updateMany: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+      h.ops.push({ table: "whatsapp_config", op: "update", values: data, filters: Object.entries(where) });
+      if (h.updateError) throw prismaError(h.updateError.code);
+      return { count: 1 };
+    },
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      h.ops.push({ table: "whatsapp_config", op: "insert", values: data, filters: [] });
+      if (h.insertError) throw prismaError(h.insertError.code);
+      return { id: "new-id" };
+    },
+  },
+};
+vi.mock("@/lib/db/tenant", () => ({ withTenant: async (_t: unknown, op: (t: unknown) => unknown) => op(tx) }));
 vi.mock("@/lib/whatsapp/numbers", async () => {
   const actual = await vi.importActual<typeof import("@/lib/whatsapp/numbers")>("@/lib/whatsapp/numbers");
   return {
@@ -141,7 +159,7 @@ it("refuses an additional number over the plan before Meta registration or any w
   const res = await post({ ...save, pin: "123456" });
   expect(res.status).toBe(402);
   expect(await res.json()).toMatchObject({ error: expect.stringContaining("WhatsApp numbers") });
-  expect(h.numberRoom).toHaveBeenCalledWith({ tx: true }, ACCOUNT);
+  expect(h.numberRoom).toHaveBeenCalledWith(tx, ACCOUNT);
   expect(h.subscribeWabaToApp).not.toHaveBeenCalled();
   expect(h.ops.some((o) => o.op === "insert" || o.op === "update")).toBe(false);
 });
@@ -151,7 +169,7 @@ it("refuses a number another workspace has, and maps a racing insert to 409", as
   expect((await post(save)).status).toBe(409);
   expect(h.ops).toEqual([]);
   h.claimed = null;
-  h.insertError = { code: "23505" };
+  h.insertError = { code: "P2002" };
   expect((await post(save)).status).toBe(409);
 });
 
@@ -170,7 +188,7 @@ it("reconnects a number another workspace only disconnected, but not one it hold
 
   // ...or connected it between the check and the write: the partial unique index answers 409.
   h.claimed = null;
-  h.updateError = { code: "23505" };
+  h.updateError = { code: "P2002" };
   const raced = await post(save);
   expect(raced.status).toBe(409);
   expect(await raced.json()).toMatchObject({ error: expect.any(String) });
@@ -179,7 +197,7 @@ it("reconnects a number another workspace only disconnected, but not one it hold
 it("health-checks the requested number (any member) and never returns its token", async () => {
   h.getNumberConfig.mockResolvedValueOnce({ id: ID, phone_number_id: "123", waba_id: "456", access_token: "enc:EAAG-secret", status: "connected" });
   const res = await GET(new Request(`http://localhost/api/whatsapp/config?id=${ID}`));
-  expect(h.getNumberConfig).toHaveBeenCalledWith({ tx: true }, ACCOUNT, ID);
+  expect(h.getNumberConfig).toHaveBeenCalledWith(tx, ACCOUNT, ID);
   const body = await res.json();
   expect(body).toMatchObject({ connected: true, number_id: ID });
   expect(JSON.stringify(body)).not.toMatch(/EAAG|access_token/);
@@ -210,11 +228,11 @@ it("resets one number: the named one, or the only connected one, never all of se
   expect(body).not.toHaveProperty("cancelled_campaigns");
   expect(typeof body.message).toBe("string");
   // Attributed to the admin who reset it.
-  expect(h.disconnectAndReport).toHaveBeenLastCalledWith({ tx: true }, ACCOUNT, ID, ctx.userId);
+  expect(h.disconnectAndReport).toHaveBeenLastCalledWith(tx, ACCOUNT, ID, ctx.userId);
 
   h.listNumbers.mockResolvedValueOnce([{ id: "only" }, { id: "gone", removed: true }]);
   expect((await del()).status).toBe(200);
-  expect(h.disconnectAndReport).toHaveBeenLastCalledWith({ tx: true }, ACCOUNT, "only", ctx.userId);
+  expect(h.disconnectAndReport).toHaveBeenLastCalledWith(tx, ACCOUNT, "only", ctx.userId);
 
   // Only disconnected numbers left: nothing to reset.
   h.listNumbers.mockResolvedValueOnce([{ id: "gone", removed: true }]);
@@ -245,4 +263,23 @@ it("saving a disconnected number's Phone Number ID again revives that row in pla
   expect(write.values).toMatchObject({ status: "connected", access_token: "enc:EAAG-secret" });
   expect(h.ops.some((o) => o.op === "insert")).toBe(false);
   expect(JSON.stringify(body)).not.toContain("EAAG-secret");
+});
+
+it("reviving a removed number takes a slot again, so it must fit the plan (402, no write)", async () => {
+  h.existing = { id: ID, phone_number_id: "123", registered_at: null, verify_token: null, display_name: "Sales", status: "disconnected", access_token: "" };
+  h.numberRoom.mockRejectedValueOnce(new PlanLimitError("The Free plan allows up to 1 WhatsApp numbers. Upgrade for more."));
+  const res = await post(save);
+  expect(res.status).toBe(402);
+  expect(h.numberRoom).toHaveBeenCalledWith(tx, ACCOUNT);
+  expect(h.subscribeWabaToApp).not.toHaveBeenCalled();
+  expect(h.ops.some((o) => o.op === "insert" || o.op === "update")).toBe(false);
+});
+
+it("re-checks the room inside the write transaction, so a concurrent add that took the slot wins (402, no write)", async () => {
+  // First check (before Meta) passes; the locked re-check in the write transaction does not.
+  h.numberRoom.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new PlanLimitError("The Free plan allows up to 1 WhatsApp numbers. Upgrade for more."));
+  const res = await post(save);
+  expect(res.status).toBe(402);
+  expect(h.numberRoom).toHaveBeenCalledTimes(2);
+  expect(h.ops.some((o) => o.op === "insert" || o.op === "update")).toBe(false);
 });

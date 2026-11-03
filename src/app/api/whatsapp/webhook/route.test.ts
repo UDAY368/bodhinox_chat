@@ -80,6 +80,9 @@ vi.mock('@/lib/data/admin', () => ({
               select: () => {
                 const query = {
                   eq: () => query,
+                  // The campaign reply lookup reads the default number.
+                  order: () => query,
+                  limit: async () => ({ data: [], error: null }),
                   single: async () => ({
                     data: {
                       account_id: '11111111-1111-4111-8111-111111111111',
@@ -114,6 +117,8 @@ vi.mock('@/lib/data/admin', () => ({
                           error: null,
                         }),
                     }),
+                    // The campaign reply lookup reads the conversation's number.
+                    maybeSingle: () => Promise.resolve({ data: h.state.conversation, error: null }),
                   }),
                 }),
               }),
@@ -127,11 +132,14 @@ vi.mock('@/lib/data/admin', () => ({
               select: () => ({
                 eq: () => ({
                   eq: () => ({
-                    in: () => ({
-                      order: () => ({
+                    // Campaign reply lookup: .in(status).gte(sent_at) then the number filter.
+                    in: () => {
+                      const q = {
+                        gte: () => q, in: () => q, is: () => q, order: () => q,
                         limit: () => Promise.resolve({ data: [], error: null }),
-                      }),
-                    }),
+                      };
+                      return q;
+                    },
                   }),
                   maybeSingle: () =>
                     Promise.resolve({

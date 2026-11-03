@@ -7525,7 +7525,8 @@
         "AddToCart": "Añadido al carrito",
         "ViewContent": "Contenido visto",
         "OrderCreated": "Pedido creado"
-      }
+      },
+      "loadMore": "Cargar más"
     },
     "notConnected": "Aún no hay ninguna cuenta publicitaria de Meta conectada. Un administrador la conecta en Configuración > Anuncios.",
     "tokenInvalid": "El acceso a Meta caducó, así que los resultados ya no se actualizan. Un administrador debe volver a conectar en Configuración > Anuncios.",

@@ -20,7 +20,8 @@ import { createAdminClient } from '@/lib/data/admin';
 import { currentJobScope, withJobScope } from '@/lib/jobs/scope';
 import { resolveWhatsAppAccount, resolveWabaAccount } from '@/lib/repositories/routing';
 import { createServerStorageFacade } from '@/lib/storage/server';
-import { applyProviderStatus, ingestInboundMessage } from '@/lib/whatsapp/ingest';
+import { applyProviderStatus, ingestInboundMessage, type ProviderStatus } from '@/lib/whatsapp/ingest';
+import { enqueueJob } from '@/lib/jobs/queue';
 import { inboundAddress, inboundLocation, type InboundStructuredPayload } from '@/lib/whatsapp/inbound-structured';
 import { parseFormReply, type FormAnswers } from '@/lib/whatsapp/forms/responses';
 import { parseInboundOrder, type InboundOrder } from '@/lib/commerce/order-format';
@@ -166,7 +167,61 @@ export async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }, a
 async function handleStatusUpdate(status: { id: string; status: string; timestamp: string; recipient_id: string; errors?: MetaStatusError[] }) {
   const context=currentJobScope();
   if(!context) throw new Error('Provider status requires a resolved tenant');
-  await applyProviderStatus(context.accountId,status);
+  try {
+    await applyProviderStatus(context.accountId,status);
+  } catch (error) {
+    // A callback that beat the sender's commit retries on its own job, so it
+    // cannot fail (and replay) the sibling statuses and messages of this delivery.
+    if (!isAwaitingPersistence(error)) throw error;
+    await deferProviderStatus(context.accountId, status);
+  }
+}
+
+/** Job that retries one provider status whose outbound row was not committed yet. */
+export const PROVIDER_STATUS_RETRY_JOB = 'whatsapp.status_retry';
+const PROVIDER_STATUS_RETRY_DELAY_MS = 2_000;
+
+// By name, like UncertainDispatchError in the queue, so module mocks and bundling cannot defeat it.
+function isAwaitingPersistence(error: unknown) {
+  return error instanceof Error && error.name === 'StatusAwaitingPersistenceError';
+}
+
+/** Only what applyProviderStatus reads; the recipient's phone number stays out of the job row. */
+function retryableStatus(status: ProviderStatus): ProviderStatus {
+  const failure = status.errors?.[0];
+  return {
+    id: status.id, status: status.status, timestamp: status.timestamp,
+    ...(failure ? { errors: [{ code: failure.code, title: failure.title,
+      ...(failure.error_data?.details ? { error_data: { details: failure.error_data.details } } : {}) }] } : {}),
+  };
+}
+
+async function deferProviderStatus(accountId: string, status: ProviderStatus) {
+  // Committed before this delivery's job finishes, so the status is never lost;
+  // a replayed delivery reuses the same retry job instead of adding another.
+  await enqueueJob(PROVIDER_STATUS_RETRY_JOB, { accountId, status: retryableStatus(status) }, {
+    tenantId: accountId,
+    runAt: new Date(Date.now() + PROVIDER_STATUS_RETRY_DELAY_MS),
+    dedupeKey: `provider-status:${accountId}:${status.id}:${status.status}`,
+  });
+}
+
+function parseRetryableStatus(value: unknown): ProviderStatus {
+  const v = value as Partial<ProviderStatus> | null;
+  if (!v || typeof v !== 'object' || typeof v.id !== 'string' || typeof v.status !== 'string'
+    || typeof v.timestamp !== 'string' || (v.errors !== undefined && !Array.isArray(v.errors)))
+    throw new Error('Invalid provider status retry payload');
+  return retryableStatus(v as ProviderStatus);
+}
+
+/**
+ * Retries one deferred status. Still unknown and fresh, it throws and the queue
+ * backs off (2+4+8+16 s, past STATUS_PERSISTENCE_GRACE_MS), so a later attempt
+ * applies it or applyProviderStatus drops it as stale: never an endless retry.
+ */
+export async function retryProviderStatus(accountId: string, payload: Record<string, unknown>) {
+  if (payload.accountId !== accountId) throw new Error('Provider status retry tenant mismatch');
+  await applyProviderStatus(accountId, parseRetryableStatus(payload.status));
 }
 
 /**

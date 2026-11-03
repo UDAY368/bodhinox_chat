@@ -7525,7 +7525,8 @@
         "AddToCart": "장바구니에 추가",
         "ViewContent": "콘텐츠 조회",
         "OrderCreated": "주문 생성"
-      }
+      },
+      "loadMore": "더 보기"
     },
     "notConnected": "아직 연결된 Meta 광고 계정이 없습니다. 관리자가 설정 > 광고에서 연결합니다.",
     "tokenInvalid": "Meta 액세스가 만료되어 결과가 더 이상 업데이트되지 않습니다. 관리자가 설정 > 광고에서 다시 연결해야 합니다.",

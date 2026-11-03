@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({
   message: null as Record<string, unknown> | null, contact: { blocked_at: null as string | null },
 }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
-  const b = { select: () => b, eq: () => b, in: () => b, is: () => b, order: () => b, limit: async () => ({ data: [], error: null }),
+  const b = { select: () => b, eq: () => b, in: () => b, is: () => b, gte: () => b, order: () => b, limit: async () => ({ data: [], error: null }),
     update: () => b, maybeSingle: async () => ({ data: table === 'messages' ? h.message : h.contact, error: null }),
     then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) };
   return b;

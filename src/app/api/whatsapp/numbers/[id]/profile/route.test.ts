@@ -30,7 +30,7 @@ vi.mock('@/lib/db/tenant', () => ({ withTenant: (_t: unknown, op: (tx: unknown) 
 vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: (v: string) => v.replace('enc:', '') }));
 vi.mock('@/lib/whatsapp/numbers', async (orig) => {
   const actual = await orig<typeof import('@/lib/whatsapp/numbers')>();
-  return { NoNumberError: actual.NoNumberError, getNumberConfig: h.getNumberConfig };
+  return { NoNumberError: actual.NoNumberError, assertNumberConnected: actual.assertNumberConnected, getNumberConfig: h.getNumberConfig };
 });
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   getBusinessProfile: h.getProfile,
@@ -71,6 +71,16 @@ it('answers 404 for a number outside the workspace', async () => {
   h.getNumberConfig.mockRejectedValue(new NoNumberError('not_found'));
   expect((await GET(new Request('http://x'), params('nope'))).status).toBe(404);
   expect((await putJson({ about: 'x' }, 'nope')).status).toBe(404);
+  expect(h.updateProfile).not.toHaveBeenCalled();
+});
+
+it('answers 409 "disconnected" for a removed number instead of failing to decrypt its cleared token', async () => {
+  h.getNumberConfig.mockResolvedValue({ id: NUMBER, phone_number_id: '777', status: 'disconnected', access_token: '' });
+  const read = await GET(new Request('http://x'), params());
+  expect(read.status).toBe(409);
+  expect(await read.json()).toEqual({ error: expect.stringContaining('disconnected') });
+  expect((await putJson({ about: 'x' })).status).toBe(409);
+  expect(h.getProfile).not.toHaveBeenCalled();
   expect(h.updateProfile).not.toHaveBeenCalled();
 });
 

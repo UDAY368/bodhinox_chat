@@ -2,12 +2,24 @@ import { readBoundedBody } from '@/lib/api/bounded-body';
 import { ForbiddenError } from '@/lib/auth/errors';
 import { PlanLimitError } from '@/lib/billing/entitlements';
 import { requireSession, assertMutation } from '@/lib/auth/session';
+import { withTenant } from '@/lib/db/tenant';
+import { assertDirectObjectChange, MediaLibraryError } from '@/lib/inbox/media-library';
+import { authorizeObject } from '@/lib/storage/policy';
 import { getMedia, putMedia, removeMedia } from '@/lib/storage/server';
 export const runtime = 'nodejs';
 function failure(error: unknown) {
   const status = error && typeof error === 'object' && 'status' in error ? Number(error.status) : 400;
-  const message = error instanceof PlanLimitError ? error.message : error instanceof Error && /Missing required configuration/.test(error.message) ? 'Media storage is not configured' : error instanceof Error && /not found/.test(error.message) ? 'Media not found' : 'Media request was rejected';
-  return Response.json({ error: { message } }, { status: message.includes('not configured') ? 503 : status, headers: { 'Cache-Control': 'no-store' } });
+  const message = error instanceof PlanLimitError || error instanceof MediaLibraryError ? error.message : error instanceof Error && /Missing required configuration/.test(error.message) ? 'Media storage is not configured' : error instanceof Error && /not found/.test(error.message) ? 'Media not found' : 'Media request was rejected';
+  return Response.json({ error: { message, ...(error instanceof MediaLibraryError ? { code: error.code } : {}) } }, { status: message.includes('not configured') ? 503 : status, headers: { 'Cache-Control': 'no-store' } });
+}
+type Context = Awaited<ReturnType<typeof requireSession>>;
+// Library items, mirrored inbound customer media, retained or referenced objects and other members'
+// files keep the media library's rules here too (see assertDirectObjectChange).
+async function guardChange(context: Context, bucket: string, key: string) {
+  authorizeObject(bucket, key, context, 'write');
+  // A member's own avatar folder is already the only one they can write (authorizeObject).
+  if (bucket === 'avatars') return;
+  await withTenant(context, (tx) => assertDirectObjectChange(tx, context.accountId, bucket, key, { userId: context.userId, role: context.role }));
 }
 export async function GET(request: Request) {
   try {
@@ -25,8 +37,8 @@ export async function POST(request: Request) {
     const bytes = await readBoundedBody(request, 17 * 1024 * 1024);
     const form = await new Response(bytes, { headers: { 'Content-Type': request.headers.get('Content-Type') || '' } }).formData(); const file = form.get('file');
     if (!(file instanceof File) || file.size > 16 * 1024 * 1024) throw new Error('Invalid upload');
-    // inbound/ holds mirrored customer media, which the storage limit does not count; members may not write there.
-    if (String(form.get('key')).startsWith(`account-${context.accountId}/inbound/`)) throw new ForbiddenError('Uploads cannot use the inbound media folder');
+    // inbound/ holds mirrored customer media, which the storage limit does not count; library/ belongs to /api/media/library.
+    await guardChange(context, String(form.get('bucket')), String(form.get('key')));
     await putMedia(context, String(form.get('bucket')), String(form.get('key')), new Uint8Array(await file.arrayBuffer()), file.type, form.get('upsert') === 'true');
     return Response.json({ data: { path: String(form.get('key')) } }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return failure(error); }
@@ -36,6 +48,8 @@ export async function DELETE(request: Request) {
     const context = await requireSession(request); await assertMutation(request, context);
     const body = JSON.parse(new TextDecoder().decode(await readBoundedBody(request, 32 * 1024)));
     if (typeof body.bucket !== 'string' || !Array.isArray(body.paths) || body.paths.length > 50 || body.paths.some((p: unknown) => typeof p !== 'string')) throw new Error('Invalid delete request');
+    // Every path is checked before any is removed, so a refused path never leaves a partial delete behind.
+    for (const path of body.paths) await guardChange(context, body.bucket, path);
     for (const path of body.paths) await removeMedia(context, body.bucket, path);
     return Response.json({ data: { removed: body.paths.length } });
   } catch (error) { return failure(error); }

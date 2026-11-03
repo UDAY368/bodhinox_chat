@@ -5,6 +5,7 @@ import { withTenant } from '@/lib/db/tenant'
 import { PlanLimitError, requireWhatsAppNumberRoom } from '@/lib/billing/entitlements'
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing'
 import { createHash } from 'node:crypto'
+import { Prisma } from '@prisma/client'
 import {
   getSubscribedApps,
   listWabaPhoneNumbers,
@@ -346,10 +347,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('whatsappConfig.saveFailed') }, { status: 500 })
     }
 
-    // Adding ANOTHER number must fit the plan (402), checked before /register
-    // and the WABA subscription change Meta state. Saving or reconnecting a
-    // number this workspace already has is never limited.
-    if (!existing) {
+    // Adding ANOTHER number, or reviving one an admin removed (its slot was
+    // freed), must fit the plan (402). Checked here before /register and the
+    // WABA subscription change Meta state, and again under the lock in the
+    // write transaction below. Saving a number that still holds its slot is
+    // never limited.
+    const takesSlot = !existing || isNumberDisconnected(existing as { status?: string; access_token?: string })
+    if (takesSlot) {
       try {
         await withTenant(tenantOf(ctx), (tx) => requireWhatsAppNumberRoom(tx, accountId))
       } catch (err) {
@@ -482,54 +486,47 @@ export async function POST(request: Request) {
       .slice(0, DISPLAY_NAME_MAX)
     const labelPatch = !existing?.display_name && metaLabel ? { display_name: metaLabel } : {}
 
+    // The room check and the write share one transaction, so the per-workspace
+    // advisory lock is held until the row takes its slot: two concurrent adds
+    // (or revives) cannot both pass a 1-number plan.
+    const toDate = (v: unknown) => (v == null ? null : new Date(v as string))
+    const row = {
+      ...baseRow,
+      connected_at: toDate(baseRow.connected_at),
+      registered_at: toDate(baseRow.registered_at),
+      subscribed_apps_at: toDate(baseRow.subscribed_apps_at),
+      updated_at: new Date(baseRow.updated_at),
+      ...labelPatch,
+    }
     let numberId: string | null = existing?.id ?? null
-    if (existing) {
-      const { error: updateError } = await db
-        .from('whatsapp_config')
-        .update({ ...baseRow, ...labelPatch })
-        .eq('account_id', accountId)
-        .eq('id', existing.id)
-
-      if (updateError) {
-        console.error('Error updating whatsapp_config:', updateError.code ?? 'unknown')
-        // Reconnecting this workspace's disconnected row while another
-        // workspace connected the same number meanwhile.
-        if (updateError.code === '23505') {
-          return NextResponse.json({ error: t('whatsappConfig.numberLinkedElsewhere') }, { status: 409 })
+    try {
+      numberId = await withTenant(tenantOf(ctx), async (tx) => {
+        if (takesSlot) await requireWhatsAppNumberRoom(tx, accountId)
+        if (existing) {
+          await tx.whatsapp_config.updateMany({ where: { account_id: accountId, id: existing.id }, data: row })
+          return existing.id as string
         }
-        return NextResponse.json(
-          { error: t('whatsappConfig.updateFailed') },
-          { status: 500 }
-        )
-      }
-    } else {
-      // Insert with both columns: `account_id` is the tenancy key, `user_id`
-      // is the audit column identifying which member saved the number.
-      // A connected phone_number_id is unique across workspaces, so a
-      // concurrent save of the same number by another workspace trips the
-      // partial unique index here.
-      const { data: inserted, error: insertError } = await db
-        .from('whatsapp_config')
-        .insert({
-          account_id: accountId,
-          user_id: userId,
-          ...baseRow,
-          ...labelPatch,
+        // `account_id` is the tenancy key, `user_id` the audit column for the
+        // member who saved the number.
+        const inserted = await tx.whatsapp_config.create({
+          data: { account_id: accountId, user_id: userId, ...row },
+          select: { id: true },
         })
-        .select('id')
-        .maybeSingle()
-
-      if (insertError) {
-        console.error('Error inserting whatsapp_config:', insertError.code ?? 'unknown')
-        if (insertError.code === '23505') {
-          return NextResponse.json({ error: t('whatsappConfig.numberLinkedElsewhere') }, { status: 409 })
-        }
-        return NextResponse.json(
-          { error: t('whatsappConfig.saveFailed') },
-          { status: 500 }
-        )
+        return inserted.id
+      })
+    } catch (err) {
+      if (err instanceof PlanLimitError) return toErrorResponse(err)
+      const code = err instanceof Prisma.PrismaClientKnownRequestError ? err.code : null
+      console.error(existing ? 'Error updating whatsapp_config:' : 'Error inserting whatsapp_config:', code ?? 'unknown')
+      // A connected phone_number_id is unique across workspaces: another
+      // workspace connected it between the check and this write.
+      if (code === 'P2002') {
+        return NextResponse.json({ error: t('whatsappConfig.numberLinkedElsewhere') }, { status: 409 })
       }
-      numberId = (inserted as { id?: string } | null)?.id ?? null
+      return NextResponse.json(
+        { error: t(existing ? 'whatsappConfig.updateFailed' : 'whatsappConfig.saveFailed') },
+        { status: 500 }
+      )
     }
 
     // The token is read only to tell a disconnected row apart; never returned.

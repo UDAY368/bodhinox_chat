@@ -7525,7 +7525,8 @@
         "AddToCart": "Added to cart",
         "ViewContent": "Viewed content",
         "OrderCreated": "Order created"
-      }
+      },
+      "loadMore": "Load more"
     },
     "notConnected": "No Meta ad account is connected yet. An administrator connects one in Settings > Ads.",
     "tokenInvalid": "Meta access expired, so results are no longer updated. An administrator must reconnect in Settings > Ads.",

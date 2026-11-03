@@ -31,7 +31,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   Object.assign(process.env, ENV);
   h.role = 'admin';
-  h.list.mockResolvedValue([{ id: 'e1' }]);
+  h.list.mockResolvedValue({ events: [{ id: 'e1' }], nextCursor: 'next' });
 });
 afterEach(() => {
   process.env = { ...saved };
@@ -42,8 +42,8 @@ describe('GET /api/meta-ads/conversions', () => {
     const res = await get('?status=review');
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
-    expect(await res.json()).toEqual({ events: [{ id: 'e1' }] });
-    expect(h.list).toHaveBeenCalledWith({ accountId: ACCOUNT, userId: USER, role: 'admin' }, 'review');
+    expect(await res.json()).toEqual({ events: [{ id: 'e1' }], nextCursor: 'next' });
+    expect(h.list).toHaveBeenCalledWith({ accountId: ACCOUNT, userId: USER, role: 'admin' }, 'review', null);
   });
 
   it('answers 503 before any read while the feature is off', async () => {
@@ -51,6 +51,26 @@ describe('GET /api/meta-ads/conversions', () => {
     const res = await get();
     expect(res.status).toBe(503);
     expect((await res.json()).error).toBe('meta_ads_not_enabled');
+    expect(h.list).not.toHaveBeenCalled();
+  });
+
+  it('passes a valid cursor through as a parsed key', async () => {
+    const cursor = Buffer.from('2026-11-01T10:00:00.123456Z|33333333-3333-4333-8333-333333333333').toString('base64url');
+    expect((await get(`?cursor=${cursor}`)).status).toBe(200);
+    expect(h.list).toHaveBeenCalledWith(expect.anything(), null,
+      { createdKey: '2026-11-01T10:00:00.123456Z', id: '33333333-3333-4333-8333-333333333333' });
+  });
+
+  it.each([
+    'bad',
+    Buffer.from('2026-11-01T10:00:00.123Z|33333333-3333-4333-8333-333333333333').toString('base64url'),
+    Buffer.from('2026-11-01T10:00:00.123456Z|not-a-uuid').toString('base64url'),
+    Buffer.from("2026-11-01T10:00:00.123456Z|33333333-3333-4333-8333-333333333333|x").toString('base64url'),
+    'a'.repeat(201),
+  ])('rejects a malformed cursor %s before any read', async (cursor) => {
+    const res = await get(`?cursor=${encodeURIComponent(cursor)}`);
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('invalid');
     expect(h.list).not.toHaveBeenCalled();
   });
 

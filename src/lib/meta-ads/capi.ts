@@ -358,7 +358,7 @@ interface EventRow {
   id: string; event_name: CapiEventName; source: ConversionSource; status: CapiEventStatus; skip_reason: CapiSkipReason | null;
   last_error_code: string | null; value: number | null; currency: string | null; contact_id: string | null;
   contact_name: string | null; event_time: Date; created_at: Date; sent_at: Date | null; resolution: CapiResolution | null;
-  resolved_at: Date | null;
+  resolved_at: Date | null; created_key: string;
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -383,11 +383,26 @@ export function parseResolution(body: unknown): CapiResolution | null {
   return typeof r === 'string' && (CAPI_RESOLUTIONS as readonly string[]).includes(r) ? (r as CapiResolution) : null;
 }
 
-const selectEvents = (tx: TenantTransaction, accountId: string, filter: CapiListFilter | null, id: string | null) =>
+/** created_at at full (microsecond) precision; a JS Date would cut it to milliseconds and skip rows. */
+const CREATED_KEY = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+export type EventCursor = { createdKey: string; id: string };
+
+const encodeEventCursor = (row: EventRow): string => Buffer.from(`${row.created_key}|${row.id}`).toString('base64url');
+
+/** A cursor from a previous page, or null when it is malformed. */
+export function parseEventCursor(value: string | null): EventCursor | null {
+  if (!value || value.length > 200) return null;
+  const [createdKey, id, extra] = Buffer.from(value, 'base64url').toString('utf8').split('|');
+  return createdKey && CREATED_KEY.test(createdKey) && Number.isFinite(Date.parse(createdKey)) && id && UUID.test(id) && extra === undefined
+    ? { createdKey, id } : null;
+}
+
+const selectEvents = (tx: TenantTransaction, accountId: string, filter: CapiListFilter | null, id: string | null,
+  after: EventCursor | null = null) =>
   tx.$queryRaw<EventRow[]>`
     SELECT e.id::text AS id, e.event_name, e.source, e.status, e.skip_reason, e.last_error_code, e.value::float8 AS value,
       e.currency, e.contact_id::text AS contact_id, c.name AS contact_name, e.event_time, e.created_at, e.sent_at,
-      e.resolution, e.resolved_at
+      e.resolution, e.resolved_at, to_char(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_key
     FROM capi_events e
     LEFT JOIN contacts c ON c.account_id=e.account_id AND c.id=e.contact_id
     WHERE e.account_id=${accountId}::uuid
@@ -395,12 +410,23 @@ const selectEvents = (tx: TenantTransaction, accountId: string, filter: CapiList
       AND (${filter}::text IS NULL
         OR (${filter}::text='review' AND e.status='unknown' AND e.resolution IS NULL)
         OR e.status=${filter}::text)
+      AND (${after?.createdKey ?? null}::timestamptz IS NULL
+        OR (e.created_at, e.id) < (${after?.createdKey ?? null}::timestamptz, ${after?.id ?? null}::uuid))
     ORDER BY e.created_at DESC, e.id DESC
-    LIMIT ${CONVERSIONS_PAGE_SIZE}`;
+    LIMIT ${CONVERSIONS_PAGE_SIZE + 1}`;
 
-/** The newest events (at most 100), optionally by status or the 'review' queue. Stored data only. */
-export async function listConversionEvents(ctx: TenantContext, filter: CapiListFilter | null = null): Promise<ConversionEventDto[]> {
-  return withTenant(ctx, async (tx) => (await selectEvents(tx, ctx.accountId, filter, null)).map(toDto));
+/**
+ * One page (100) of events, newest first, optionally by status or the 'review'
+ * queue; keyset-paged by (created_at, id). Stored data only.
+ */
+export async function listConversionEvents(ctx: TenantContext, filter: CapiListFilter | null = null,
+  after: EventCursor | null = null): Promise<{ events: ConversionEventDto[]; nextCursor: string | null }> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await selectEvents(tx, ctx.accountId, filter, null, after);
+    const page = rows.slice(0, CONVERSIONS_PAGE_SIZE);
+    const last = page[page.length - 1];
+    return { events: page.map(toDto), nextCursor: rows.length > CONVERSIONS_PAGE_SIZE && last ? encodeEventCursor(last) : null };
+  });
 }
 
 /**

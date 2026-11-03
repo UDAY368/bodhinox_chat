@@ -20,7 +20,7 @@ import {
 } from '@/lib/whatsapp/business-profile';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { getBusinessProfile, updateBusinessProfile, uploadResumableMedia, type BusinessProfileUpdate } from '@/lib/whatsapp/meta-api';
-import { getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertNumberConnected, getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
 
 const t = getT('Api.businessProfile');
 const tn = getT('whatsappNumbers');
@@ -35,9 +35,12 @@ async function loadNumber(ctx: AccountContext, id: string): Promise<{ phoneNumbe
     const row = await withTenant({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role }, (tx) =>
       getNumberConfig(tx, ctx.accountId, id)
     );
+    // A removed number has no token to decrypt: say it needs reconnecting.
+    assertNumberConnected(row);
     return { phoneNumberId: row.phone_number_id, accessToken: decrypt(row.access_token) };
   } catch (err) {
-    if (err instanceof NoNumberError) return NextResponse.json({ error: tn(err.messageKey.replace(/^whatsappNumbers\./, '')) }, { status: 404 });
+    if (err instanceof NoNumberError)
+      return NextResponse.json({ error: tn(err.messageKey.replace(/^whatsappNumbers\./, '')) }, { status: err.reason === 'disconnected' ? 409 : 404 });
     throw err;
   }
 }

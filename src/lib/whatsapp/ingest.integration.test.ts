@@ -3,7 +3,7 @@ import { config } from "dotenv";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { disconnectDatabases, getWorkerPrisma } from "@/lib/db/prisma";
-import { applyProviderStatus, ingestInboundMessage, runInboundStage, type IngestInboundInput } from "./ingest";
+import { applyProviderStatus, ingestInboundMessage, runInboundStage, STATUS_PERSISTENCE_GRACE_MS, type IngestInboundInput } from "./ingest";
 import { UncertainDispatchError } from "@/lib/jobs/dispatch";
 
 const configured=config({ path: ".env.test", quiet: true }).parsed;
@@ -80,6 +80,23 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     await expect(applyProviderStatus(accountId,event)).resolves.toBeUndefined();
     expect((await owner.query("SELECT status FROM messages WHERE id=$1",[messageId])).rows[0].status).toBe("read");
     expect((await owner.query("SELECT count(*)::int AS count FROM jobs WHERE dedupe_key=$1",[`status:${messageId}:read`])).rows[0].count).toBe(1);
+  });
+
+  it("drops a status for a wamid that never gets a local row once the persistence grace has passed",async()=>{
+    const input=await fixture();
+    const sentAt=Math.floor(Date.now()/1000);
+    const event={id:input.metaMessageId,status:"delivered",timestamp:String(sentAt)};
+    // Fresh: the sender may not have committed yet, so the job must retry.
+    await expect(applyProviderStatus(accountId,event,new Date((sentAt*1000)+STATUS_PERSISTENCE_GRACE_MS-1000))).rejects.toMatchObject({name:"StatusAwaitingPersistenceError"});
+    // A clock-skewed future timestamp still counts as fresh.
+    await expect(applyProviderStatus(accountId,event,new Date((sentAt-60)*1000))).rejects.toMatchObject({name:"StatusAwaitingPersistenceError"});
+    // Past the grace (a campaign test send, say): a no-op that writes nothing.
+    await expect(applyProviderStatus(accountId,event,new Date((sentAt*1000)+STATUS_PERSISTENCE_GRACE_MS+1000))).resolves.toBeUndefined();
+    expect((await owner.query("SELECT count(*)::int AS count FROM jobs WHERE tenant_id=$1 AND payload->>'metaMessageId'=$2",[accountId,input.metaMessageId])).rows[0].count).toBe(0);
+    // A known wamid is still applied however old the callback is.
+    const messageId=(await owner.query("INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,message_id,status) VALUES($1,$2,'bot','text','Test outbound',$3,'sent') RETURNING id",[accountId,input.conversationId,input.metaMessageId])).rows[0].id;
+    await applyProviderStatus(accountId,event,new Date((sentAt+3600)*1000));
+    expect((await owner.query("SELECT status FROM messages WHERE id=$1",[messageId])).rows[0].status).toBe("delivered");
   });
 
   it("concurrent duplicates commit exactly one message, unread increment and action job",async()=>{

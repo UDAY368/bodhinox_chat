@@ -5,12 +5,15 @@ const h = vi.hoisted(() => ({
   broadcast: null as Record<string, unknown> | null,
   numbers: [] as Record<string, unknown>[],
   enqueued: [] as unknown[][],
+  permissionDenied: false,
+  permissionChecks: [] as unknown[][],
 }));
 
 vi.mock('@/lib/auth/account', () => ({
   requireRole: async () => ({
     accountId: 'acct',
     userId: 'u-1',
+    role: 'agent',
     db: {
       from(table: string) {
         const filters: Record<string, unknown> = {};
@@ -27,7 +30,13 @@ vi.mock('@/lib/auth/account', () => ({
       },
     },
   }),
-  toErrorResponse: () => new Response(null, { status: 500 }),
+  toErrorResponse: (e: { status?: number }) => new Response(null, { status: e?.status ?? 500 }),
+}));
+vi.mock('@/lib/auth/permissions', () => ({
+  requirePermission: async (...args: unknown[]) => {
+    h.permissionChecks.push(args);
+    if (h.permissionDenied) throw Object.assign(new Error('This feature is turned off for your role'), { status: 403 });
+  },
 }));
 vi.mock('@/lib/jobs/queue', () => ({ enqueueJob: async (...args: unknown[]) => { h.enqueued.push(args); return 'job-1'; } }));
 
@@ -43,7 +52,21 @@ const connected = { id: A, phone_number_id: '1000', access_token: 'enc', status:
 const disconnected = { ...connected, access_token: '', status: 'disconnected', is_default: false };
 
 describe('POST /api/whatsapp/broadcast/[id]/resume for a held campaign', () => {
-  beforeEach(() => { h.enqueued = []; h.numbers = [connected]; });
+  beforeEach(() => { h.enqueued = []; h.numbers = [connected]; h.permissionDenied = false; h.permissionChecks = []; });
+
+  it('requires campaigns.send for the caller and queues nothing when it is turned off', async () => {
+    h.broadcast = { id: 'b-1', status: 'sending', scheduled_at: null, whatsapp_config_id: A };
+    h.permissionDenied = true;
+    expect((await resume()).status).toBe(403);
+    expect(h.permissionChecks).toEqual([[{ accountId: 'acct', userId: 'u-1', role: 'agent' }, 'campaigns.send']]);
+    expect(h.enqueued).toEqual([]);
+  });
+
+  it('refuses a draft campaign: drafts are started by create/schedule, never resume', async () => {
+    h.broadcast = { id: 'b-1', status: 'draft', scheduled_at: null, whatsapp_config_id: A };
+    for (const scope of ['pending', 'failed', 'all']) expect((await resume(scope)).status).toBe(409);
+    expect(h.enqueued).toEqual([]);
+  });
 
   it('refuses while its number is still disconnected, with the clear message and nothing queued', async () => {
     h.broadcast = { id: 'b-1', status: 'sending', scheduled_at: null, whatsapp_config_id: A };
