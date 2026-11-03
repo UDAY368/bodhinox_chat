@@ -2009,7 +2009,21 @@
         "paymentPaidNext": "Al pagar, ir a",
         "paymentExpiredNext": "Si caduca o se cancela, ir a (opcional)",
         "paymentFailedNext": "Si no se puede crear o enviar el enlace, ir a (opcional)",
-        "paymentVarsHelp": "Guarda vars.payment_link_url, vars.payment_status y vars.payment_link_id. Un resultado sin conectar termina el flujo."
+        "paymentVarsHelp": "Guarda vars.payment_link_url, vars.payment_status y vars.payment_link_id. Un resultado sin conectar termina el flujo.",
+        "aiReplyInstructions": "Instrucciones para este paso (opcional, hasta {max} caracteres)",
+        "aiReplyInstructionsPlaceholder": "p. ej., Ayuda al cliente a elegir un plan. Responde de forma breve.",
+        "aiReplyInstructionsHelp": "Se añaden a las instrucciones de tu agente de IA solo en este paso. Aquí no se sustituyen variables.",
+        "aiReplyUseKnowledge": "Responder con la base de conocimiento",
+        "aiReplyMaxTurns": "Respuestas en este paso",
+        "aiReplyThreshold": "Umbral de confianza (0–1)",
+        "aiReplyThresholdPlaceholder": "Valor del agente",
+        "aiReplyTurnsHelp": "De 1 a {max}. Con más de 1, el paso responde a los mensajes siguientes antes de continuar.",
+        "aiReplyThresholdHelp": "Por debajo de este valor, la respuesta no se envía y el paso deriva la conversación. Por encima de 0,5, la base de conocimiento debe respaldar la respuesta.",
+        "aiReplyVarKey": "Guardar la última respuesta como variable (opcional)",
+        "aiReplyAnsweredNext": "Si responde, ir a",
+        "aiReplyHandoffNext": "Si deriva, ir a",
+        "aiReplyHandoffHelp": "El paso deriva cuando la IA no tiene suficiente confianza, no puede responder, el cliente pide hablar con una persona o la IA no está disponible. Las preguntas sin respuesta aparecen en la lista del agente de IA.",
+        "aiReplyWindowHelp": "Las respuestas se envían desde el número de esta conversación, solo dentro de las 24 horas posteriores al último mensaje del cliente, y cuentan para los mensajes de IA de tu plan."
       },
       "categories": {
         "messaging": "Mensajería",
@@ -2108,6 +2122,10 @@
         "payment_link": {
           "label": "Enlace de pago",
           "blurb": "Envía un enlace de pago de Razorpay y espera el pago"
+        },
+        "ai_reply": {
+          "label": "Respuesta con IA",
+          "blurb": "Responde al cliente con tu agente de IA y su base de conocimiento"
         }
       },
       "ports": {
@@ -2117,7 +2135,9 @@
         "fallback": "Alternativa",
         "paid": "Pagado",
         "expired": "Caducado",
-        "failed": "Fallido"
+        "failed": "Fallido",
+        "answered": "Respondido",
+        "handoff": "Derivar a una persona"
       },
       "triggerTemplateReplyTitle": "Respuesta a un botón de plantilla",
       "matchTypeLabel": "Coincidencia",
@@ -2177,7 +2197,8 @@
           "invalid_answer": "Respuesta no aceptada (intento {attempt} de {max}); vuelve a preguntar",
           "exhausted": "Intentos agotados",
           "timeout": "Sin respuesta en {minutes, plural, one {# minuto} other {# minutos}}",
-          "fallback": "Respuesta no aceptada; se aplica la política de respaldo del flujo"
+          "fallback": "Respuesta no aceptada; se aplica la política de respaldo del flujo",
+          "ai_reply": "El agente de IA responde (simulado; no se genera nada)"
         },
         "simulate": {
           "shareMedia": "Simular: el cliente envía un archivo",
@@ -2242,7 +2263,8 @@
       "formNone": "Ningún formulario elegido",
       "productNone": "Ningún producto elegido",
       "products": "{count, plural, one {# producto} other {# productos}}",
-      "paymentNone": "Sin importe"
+      "paymentNone": "Sin importe",
+      "aiReplyDefault": "Responde con el agente de IA"
     },
     "header": {
       "backToFlows": "Volver a flujos",
@@ -3718,7 +3740,9 @@
     },
     "studioEyebrow": "07 / Your intelligent workspace",
     "studioTitle": "Conoce KHAGA.",
-    "studioDescription": "Respuestas cuidadas. Tu conocimiento. Un toque humano."
+    "studioDescription": "Respuestas cuidadas. Tu conocimiento. Un toque humano.",
+    "tabKnowledge": "Conocimiento",
+    "tabLearnings": "Aprendizajes"
   },
   "Interactive": {
     "replyButtons": "Botones de respuesta",
@@ -4480,7 +4504,13 @@
       "paymentInvalidAmount": "Indica un importe mayor que cero y sin más decimales de los que admite la moneda.",
       "paymentTextTooLong": "Este texto puede tener hasta {max} caracteres.",
       "paymentInvalidExpiry": "La caducidad debe estar entre {min} y {max} minutos.",
-      "paymentNeedsPaidNext": "Elige el paso que se ejecuta después del pago."
+      "paymentNeedsPaidNext": "Elige el paso que se ejecuta después del pago.",
+      "aiReplyInstructionsTooLong": "Las instrucciones pueden tener hasta {max} caracteres.",
+      "aiReplyInvalidUseKnowledge": "Elige si el paso responde con la base de conocimiento.",
+      "aiReplyInvalidMaxTurns": "Las respuestas en este paso deben ser un número entero de 1 a {max}.",
+      "aiReplyInvalidThreshold": "El umbral de confianza debe ser un número de 0 a 1.",
+      "aiReplyNeedsHandoffNext": "Elige el paso que se ejecuta cuando la IA deriva la conversación.",
+      "aiReplyNotConfigured": "La IA no está configurada o está desactivada, así que este paso siempre derivará la conversación. Configúrala en Ajustes › IA."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -5205,6 +5235,13 @@
       "notFound": "No se encontró la vista guardada.",
       "favouriteInvalid": "Envía el id de una respuesta rápida e indica si es favorita.",
       "quickReplyNotFound": "No se encontró la respuesta rápida."
+    },
+    "aiAssist": {
+      "goalRequired": "Describe lo que quieres conseguir.",
+      "goalTooLong": "La descripción debe tener menos de {max} caracteres.",
+      "invalidOutput": "La IA no pudo generar una sugerencia útil. Prueba a reformular tu objetivo.",
+      "loadFailed": "No se pudieron cargar tus plantillas. Inténtalo de nuevo.",
+      "noApprovedTemplates": "Necesitas al menos una plantilla aprobada para que el asistente pueda planificar una campaña."
     }
   },
   "PageSearch": {
@@ -6638,5 +6675,292 @@
       "blocked": "Tu navegador bloqueó la pestaña de pago. Usa el enlace de esta página para continuar.",
       "checkoutFallback": "No se pudo cargar el pago aquí. Usa el enlace de la página de pago para continuar."
     }
+  },
+  "AiAgentFoundation": {
+    "tones": {
+      "friendly": "Cercano",
+      "professional": "Profesional",
+      "concise": "Conciso",
+      "enthusiastic": "Entusiasta",
+      "formal": "Formal"
+    },
+    "sourceKinds": {
+      "website": "Sitio web",
+      "sitemap": "Mapa del sitio",
+      "file": "Archivo",
+      "text": "Texto",
+      "learning": "Respuestas aprendidas"
+    },
+    "sourceStatus": {
+      "queued": "En cola",
+      "crawling": "Rastreando",
+      "ready": "Listo",
+      "failed": "Error",
+      "disabled": "Desactivado"
+    },
+    "unansweredStatus": {
+      "open": "Abierta",
+      "answered": "Respondida",
+      "dismissed": "Descartada"
+    },
+    "learnedSourceTitle": "Respuestas aprendidas",
+    "askedTimes": "{count, plural, one {Preguntada # vez} other {Preguntada # veces}}",
+    "errors": {
+      "adminsOnly": "Solo los administradores pueden cambiar el agente de IA",
+      "agentsOnly": "Solo los agentes o roles superiores pueden gestionar las preguntas sin responder",
+      "teachAdminsOnly": "Solo los administradores pueden enseñar al agente de IA",
+      "invalidSettings": "La configuración del agente de IA no es válida",
+      "websiteInvalid": "Introduce una dirección web válida",
+      "websiteTooLong": "La dirección web es demasiado larga",
+      "textTooLong": "{label} admite como máximo {max} caracteres",
+      "tooManyKeywords": "Como máximo {max} palabras clave de traspaso",
+      "keywordTooLong": "Las palabras clave de traspaso admiten como máximo {max} caracteres",
+      "answerRequired": "Escribe una respuesta",
+      "answerTooLong": "Las respuestas admiten como máximo {max} caracteres",
+      "invalidRequest": "Solicitud no válida"
+    }
+  },
+  "AiFlowGenerator": {
+    "button": "Generar con IA",
+    "title": "Generar un flujo con IA",
+    "description": "Describe lo que debe hacer el chatbot. Creamos un borrador de flujo que puedes revisar y editar antes de activarlo.",
+    "goalLabel": "Objetivo",
+    "goalPlaceholder": "p. ej., saludar a los clientes que escriben hola, preguntar si quieren rastrear un pedido o hablar con alguien, y pedir el número de pedido.",
+    "draftNote": "El flujo se guarda como borrador y nunca se activa automáticamente. Cada intento usa un mensaje de IA.",
+    "generate": "Generar borrador",
+    "generating": "Generando…",
+    "cancel": "Cancelar",
+    "created": "Borrador de flujo creado. Revísalo antes de activarlo.",
+    "createdWithIssues": "Borrador creado con {count, plural, one {# problema} other {# problemas}} que corregir antes de activarlo.",
+    "failed": "No se pudo generar un flujo. Inténtalo de nuevo."
+  },
+  "AiCampaignAssistant": {
+    "title": "Planificar con IA",
+    "description": "Describe la campaña y a quién va dirigida. El asistente sugiere una plantilla aprobada, variables, una audiencia y una hora de envío. No se envía nada.",
+    "goalLabel": "Objetivo de la campaña",
+    "goalPlaceholder": "p. ej., anunciar nuestra oferta de fin de semana con un 20 % de descuento",
+    "audienceLabel": "Audiencia (opcional)",
+    "audiencePlaceholder": "p. ej., clientes VIP que no están en la lista del boletín",
+    "suggest": "Sugerir",
+    "suggesting": "Pensando…",
+    "failed": "No se pudo obtener una sugerencia. Inténtalo de nuevo.",
+    "template": "Plantilla",
+    "variables": "Variables",
+    "variablesMapped": "{count, plural, =0 {ninguna asignada} one {# asignada} other {# asignadas}}",
+    "audience": "Audiencia",
+    "segmentSummary": "{name} ({count, plural, one {# condición} other {# condiciones}})",
+    "noSegment": "No se sugirió ningún filtro",
+    "sendTime": "Hora de envío sugerida",
+    "sendNow": "Enviar ahora",
+    "reviewIssues": "No se {count, plural, one {pudo usar # parte} other {pudieron usar # partes}} de la sugerencia. Revisa cada paso.",
+    "reviewNote": "Al aplicar se completa el asistente y la audiencia se guarda como segmento. Revisas cada paso antes de enviar; programa el envío en el último paso.",
+    "apply": "Aplicar a la campaña",
+    "applied": "Sugerencia aplicada. Revisa cada paso.",
+    "segmentNotSaved": "No se pudo guardar la audiencia como segmento ({reason}). Elígela en el paso de audiencia."
+  },
+  "AiKnowledgeSources": {
+    "title": "Fuentes de conocimiento",
+    "description": "Enseña al agente de IA con tu sitio web, mapa del sitio, documentos o notas. Las páginas se obtienen en segundo plano y se actualizan cuando vuelves a rastrear.",
+    "noEmbeddingsKey": "Primero añade una clave de embeddings en la configuración de IA. Las fuentes se guardan, pero no se pueden indexar hasta que haya una clave.",
+    "addLabel": "Añadir una fuente de conocimiento",
+    "modes": {
+      "website": "Sitio web",
+      "sitemap": "Mapa del sitio",
+      "file": "Subir archivo",
+      "text": "Texto"
+    },
+    "fields": {
+      "websiteUrl": "Dirección del sitio web",
+      "sitemapUrl": "Dirección del mapa del sitio",
+      "pageLimit": "Límite de páginas",
+      "title": "Título",
+      "titleOptional": "Título (opcional)",
+      "content": "Contenido",
+      "file": "Archivo"
+    },
+    "hints": {
+      "website": "Seguimos los enlaces del mismo sitio, respetamos robots.txt y nos detenemos en el límite de páginas.",
+      "sitemap": "Solo leemos las páginas que aparecen en el mapa del sitio (y en los mapas que enlaza).",
+      "file": "PDF, DOCX, TXT o Markdown, de hasta 10 MB y 300 páginas."
+    },
+    "add": "Añadir fuente",
+    "upload": "Subir",
+    "chooseFile": "Elige un archivo para subir.",
+    "loading": "Cargando fuentes",
+    "loadFailed": "No se pudieron cargar las fuentes de conocimiento.",
+    "empty": "Todavía no hay fuentes de conocimiento.",
+    "added": "Fuente añadida. La indexación ha comenzado.",
+    "uploadedTruncated": "Archivo añadido. Era muy largo, así que solo se guardó la primera parte.",
+    "recrawlQueued": "Actualización en cola.",
+    "deleted": "Fuente eliminada.",
+    "actionFailed": "Algo salió mal. Inténtalo de nuevo.",
+    "recrawl": "Volver a rastrear",
+    "reindex": "Volver a indexar",
+    "deleteLabel": "Eliminar {title}",
+    "deleteConfirm": "¿Eliminar «{title}» y todo lo aprendido de ella?",
+    "pages": "{count, plural, =0 {Sin páginas} one {# página} other {# páginas}}",
+    "lastCrawled": "Actualizado {when}",
+    "neverCrawled": "Aún sin indexar",
+    "kinds": {
+      "website": "Sitio web",
+      "sitemap": "Mapa del sitio",
+      "file": "Archivo",
+      "text": "Texto",
+      "learning": "Respuestas aprendidas"
+    },
+    "statuses": {
+      "queued": "En cola",
+      "crawling": "Indexando",
+      "ready": "Lista",
+      "failed": "Error",
+      "disabled": "Desactivada"
+    },
+    "reasons": {
+      "embeddings_key_missing": "No hay una clave de embeddings. Añade una en la configuración de IA y vuelve a rastrear.",
+      "embeddings_key_corrupt": "No se puede leer la clave de embeddings guardada. Vuelve a introducirla en la configuración de IA y vuelve a rastrear.",
+      "invalid_url": "La dirección no es una dirección web válida.",
+      "blocked": "Esta dirección no es accesible desde internet.",
+      "robots_disallowed": "El robots.txt del sitio no permite el rastreo o no se pudo leer.",
+      "robots_unreachable": "No se pudo leer el robots.txt del sitio, así que no se obtuvo nada.",
+      "no_pages": "No se encontraron páginas legibles. Se conservaron las páginas anteriores, si las había.",
+      "embedding_failed": "Las páginas se guardaron, pero la indexación falló. La búsqueda por palabras clave sigue funcionando; vuelve a rastrear para reintentarlo.",
+      "embedding_partial": "Algunas páginas no se pudieron indexar. Se reintentarán en el próximo rastreo.",
+      "unknown": "La indexación falló.",
+      "crawl_failed": "La última ejecución falló repetidamente y se detuvo. Vuelve a rastrear para intentarlo de nuevo.",
+      "crawl_partial": "Esta vez no se pudo acceder a algunas páginas, así que no se eliminó ninguna. Vuelve a rastrear más tarde para actualizarlas."
+    },
+    "errors": {
+      "forbidden": "Solo los administradores pueden gestionar las fuentes de conocimiento.",
+      "invalid_input": "Revisa los datos e inténtalo de nuevo.",
+      "invalid_url": "Introduce una dirección web pública (http o https).",
+      "not_found": "Esa fuente de conocimiento ya no existe.",
+      "busy": "Esta fuente ya se está indexando.",
+      "limit_reached": "Has alcanzado el límite de fuentes de conocimiento de este espacio de trabajo.",
+      "file_unsupported_type": "Sube un archivo PDF, DOCX, TXT o Markdown.",
+      "file_too_large": "Los archivos pueden tener hasta 10 MB y 300 páginas.",
+      "file_too_many_pages": "Los PDF pueden tener hasta 300 páginas.",
+      "file_unreadable": "No se pudo leer este archivo. Puede estar dañado o protegido con contraseña.",
+      "file_empty": "No se encontró texto en este archivo. Los documentos escaneados aún no son compatibles."
+    }
+  },
+  "AgentSetup": {
+    "title": "Configura tu agente de IA",
+    "description": "Cuéntale al agente sobre tu negocio, cómo hablar y cuándo pasar la conversación a una persona. Cada paso se guarda sobre la marcha.",
+    "completedDescription": "La configuración está completa. Cambia cualquier paso y vuelve a guardarlo.",
+    "readOnly": "Solo los administradores pueden cambiar esta configuración.",
+    "progress": "Pasos de configuración",
+    "loading": "Cargando",
+    "loadFailed": "No se pudo cargar la configuración del agente.",
+    "retry": "Reintentar",
+    "saveFailed": "No se pudo guardar. Inténtalo de nuevo.",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "saveAndContinue": "Guardar y continuar",
+    "steps": {
+      "business": "Negocio",
+      "instructions": "Instrucciones",
+      "greeting": "Saludo",
+      "handoff": "Traspaso",
+      "knowledge": "Conocimiento",
+      "review": "Revisión"
+    },
+    "business": {
+      "website": "Sitio web",
+      "websiteHint": "El agente lo menciona cuando es útil. Añade sus páginas como conocimiento en el paso Conocimiento.",
+      "name": "Nombre del negocio",
+      "type": "Tipo de negocio",
+      "typeHint": "Elige uno o escribe el tuyo.",
+      "types": {
+        "ecommerce": "Tienda online",
+        "restaurant": "Restaurante",
+        "education": "Educación",
+        "healthcare": "Salud",
+        "real_estate": "Inmobiliaria",
+        "travel": "Viajes",
+        "salon": "Salón y spa",
+        "services": "Servicios",
+        "other": "Otro"
+      }
+    },
+    "instructions": {
+      "label": "Instrucciones",
+      "hint": "¿Qué debe hacer, prometer o evitar el agente? Las sigue en cada respuesta.",
+      "placeholder": "Por ejemplo: Responde preguntas sobre nuestros productos y envíos. Nunca prometas reembolsos; ofrece poner al cliente en contacto con nuestro equipo.",
+      "tone": "Tono"
+    },
+    "tones": {
+      "friendly": "Cercano",
+      "professional": "Profesional",
+      "concise": "Conciso",
+      "enthusiastic": "Entusiasta",
+      "formal": "Formal"
+    },
+    "greeting": {
+      "label": "Saludo",
+      "hint": "Se usa cuando un cliente empieza con un hola.",
+      "placeholder": "¡Hola! Gracias por escribirnos. ¿En qué podemos ayudarte hoy?"
+    },
+    "handoff": {
+      "keywords": "Palabras de traspaso",
+      "keywordsHint": "Si el mensaje de un cliente contiene una de estas palabras, una persona toma el control de inmediato. Sepáralas con comas.",
+      "keywordsPlaceholder": "reembolso, gerente, queja",
+      "lowConfidence": "Traspasar cuando el agente no esté seguro",
+      "lowConfidenceHint": "Las preguntas que no puede responder pasan a una persona y aparecen en Aprendizajes.",
+      "threshold": "Confianza necesaria para responder: {value} %",
+      "thresholdHint": "Con valores más altos se traspasa con más frecuencia.",
+      "maxTurns": "Traspasar después de esta cantidad de respuestas de la IA",
+      "maxTurnsHint": "0 significa sin límite."
+    },
+    "knowledge": {
+      "title": "Añade conocimiento",
+      "placeholder": "Añade las páginas de tu sitio web, archivos o respuestas escritas en la pestaña Conocimiento. El agente responde a partir de ellos.",
+      "open": "Abrir Conocimiento"
+    },
+    "review": {
+      "notSet": "Sin definir",
+      "none": "Ninguna",
+      "noLimit": "Sin límite",
+      "explain": "Al activar la respuesta automática, el agente responde por sí solo a los nuevos mensajes de clientes y pasa la conversación a una persona según las reglas anteriores.",
+      "enable": "Guardar y activar la respuesta automática",
+      "enabled": "La respuesta automática está activada.",
+      "enableFailed": "No se pudo activar la respuesta automática.",
+      "providerMissing": "Conecta un proveedor de IA abajo antes de activar la respuesta automática."
+    }
+  },
+  "AgentLearnings": {
+    "title": "Aprendizajes",
+    "description": "Preguntas que tu agente de IA no pudo responder. Respóndelas una vez y enséñale la respuesta al agente.",
+    "filterLabel": "Filtrar preguntas",
+    "status": {
+      "open": "Abiertas",
+      "answered": "Respondidas",
+      "dismissed": "Descartadas"
+    },
+    "loading": "Cargando",
+    "loadFailed": "No se pudieron cargar las preguntas.",
+    "actionFailed": "Algo salió mal. Inténtalo de nuevo.",
+    "empty": {
+      "open": "No hay preguntas abiertas. Tu agente va al día.",
+      "answered": "Aún no hay preguntas respondidas.",
+      "dismissed": "No hay preguntas descartadas."
+    },
+    "askedTimes": "{count, plural, one {Preguntada una vez} other {Preguntada # veces}}",
+    "answerLabel": "Respuesta",
+    "answerPlaceholder": "Escribe la respuesta que debe dar el agente",
+    "saveAnswer": "Guardar respuesta",
+    "saveAndTeach": "Guardar y enseñar al agente",
+    "dismiss": "Descartar",
+    "editAnswer": "Editar respuesta",
+    "cancel": "Cancelar",
+    "promote": "Enseñar al agente",
+    "updateKnowledge": "Actualizar conocimiento",
+    "inKnowledge": "En el conocimiento",
+    "loadMore": "Cargar más",
+    "answerRequired": "Escribe una respuesta primero.",
+    "answerSaved": "Respuesta guardada.",
+    "dismissed": "Pregunta descartada.",
+    "promoted": "El agente aprendió esta respuesta.",
+    "promotedNotIndexed": "Guardada en el conocimiento. La indexación falló; vuelve a indexarla desde la pestaña Conocimiento.",
+    "answerChanged": "Un compañero cambió esta respuesta después de que la abrieras. Se volvió a cargar la lista; revisa la nueva respuesta antes de enseñarla."
   }
 }

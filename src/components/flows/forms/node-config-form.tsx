@@ -54,6 +54,7 @@ import { useUserTags } from "./use-pickers";
 import { ApiRequestForm, AssignAgentForm, ConnectFlowForm, SendTemplateForm } from "./integration-forms";
 import { SendFormStepForm } from "./send-form-step";
 import { PaymentLinkForm } from "./payment-forms";
+import { AiReplyForm } from "./ai-reply-form";
 import { CommerceStepForm } from "./commerce-forms";
 
 interface NodeConfigFormProps {
@@ -163,6 +164,9 @@ function NodeFields({
 
     case "payment_link":
       return <PaymentLinkForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "ai_reply":
+      return <AiReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "set_attribute":
       return <SetAttributeForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;

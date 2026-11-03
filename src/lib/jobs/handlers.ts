@@ -291,6 +291,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await (await import('@/lib/billing/subscriptions')).runLifecycleSweep(accountId);
     else if (job.type === 'billing.email')
       await (await import('@/lib/billing/billing-notify')).sendBillingEmail(accountId, job.payload);
+    else if (job.type === 'ai.crawl_source')
+      // One time-boxed slice of a knowledge-source crawl or re-index; queues its own continuation.
+      await (await import('@/lib/ai/knowledge-sources')).handleCrawlSourceJob(accountId, job.payload);
     else throw new Error('Unsupported job type');
   });
 }

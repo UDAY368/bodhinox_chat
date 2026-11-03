@@ -189,6 +189,24 @@ describe('fixed CRM resource authorization', () => {
       expect(() => validateWrite('notifications', { user_id: tenant.userId, type: 'mention', title: 'x', [field]: value }, tenant, true)).toThrow(/server-managed/);
     }
   });
+  it('keeps a knowledge document\'s source, hash, fetch time and url server-managed for browsers', () => {
+    expect(() => validateWrite('ai_knowledge_documents', { title: 'FAQ', content: 'Hours 9-5' }, tenant, true, 'update')).not.toThrow();
+    for (const [field, value] of [
+      ['source_id', '00000000-0000-4000-8000-000000000001'],
+      ['content_hash', 'abc'],
+      ['fetched_at', '2026-11-02T10:00:00.000Z'],
+      ['source_url', 'https://evil.example/'],
+    ] as const) {
+      expect(() => validateWrite('ai_knowledge_documents', { [field]: value }, tenant, true, 'update')).toThrow(/server-managed/);
+      expect(() => validateWrite('ai_knowledge_documents', { title: 'x', content: 'y', [field]: value }, tenant, true)).toThrow(/server-managed/);
+      // Server routes (crawler, uploads) still set them.
+      expect(() => validateWrite('ai_knowledge_documents', { [field]: value }, tenant, false, 'update')).not.toThrow();
+    }
+    // Still readable, so the UI can show where a document came from.
+    expect(getResource('ai_knowledge_documents', true).read).toEqual(
+      expect.arrayContaining(['source_id', 'content_hash', 'fetched_at', 'source_url'])
+    );
+  });
   it('exposes no Phase 5 inbox table through the generic browser resource API', () => {
     for (const table of [
       'conversation_notes',

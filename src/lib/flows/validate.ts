@@ -31,6 +31,7 @@ import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
 import { commerceNodeIssues, isCommerceNodeType } from "./commerce-nodes";
 import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
 import { PAYMENT_LINK_VARS, paymentLinkEdges, paymentLinkIssues } from "./payment-node";
+import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai-reply-node";
 import { parseDateInput } from "./input-formats";
 import type { ConditionRule, NodeTiming } from "./types";
 
@@ -73,6 +74,11 @@ export interface FlowValidationContext {
    * collected variables. The builder omits it and checks shape only.
    */
   forms?: FlowFormLookup;
+  /**
+   * When given (the server, at activation), an ai_reply step warns if the
+   * workspace's AI is not set up, since every run would take its handoff port.
+   */
+  aiConfigured?: boolean;
 }
 
 export function validateFlowForActivation(
@@ -149,6 +155,7 @@ export function validateFlowForActivation(
   for (const n of nodes) {
     issues.push(...validateNode(n, keys), ...timingIssues(n, keys, runTimeoutHours));
     if (n.node_type === "send_form") issues.push(...sendFormIssues(n, keys, context.forms));
+    if (n.node_type === "ai_reply") issues.push(...aiReplyIssues(n, keys, context.aiConfigured));
   }
 
   // Warn rather than block: explicit starts may supply variables externally.
@@ -242,8 +249,10 @@ export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: str
     // A template without buttons, an API call and an assignment all move on by themselves.
     const restartsSelf = Boolean(self) && n.node_type === "connect_flow" && n.config.flow_id === self?.flowId;
     const autoTemplate = n.node_type === "send_template" && !(Array.isArray(n.config.buttons) && n.config.buttons.length);
+    // A one-turn AI reply answers and moves on without waiting for the customer.
+    const autoAiReply = n.node_type === "ai_reply" && aiReplyMaxTurns(n.config) === 1;
     const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
-    if ((timesOut || autoTemplate || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
+    if ((timesOut || autoTemplate || autoAiReply || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
       autoNodes.set(n.node_key, n);
     }
   }
@@ -1063,6 +1072,10 @@ function validateNode(
       issues.push(...paymentLinkIssues(node, knownKeys));
       break;
 
+    case "ai_reply":
+      // Checked by aiReplyIssues, which also knows whether AI is set up.
+      break;
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
@@ -1154,10 +1167,11 @@ export function sendFormIssues(node: NodeInput, knownKeys: ReadonlySet<string>, 
 /** Whether the node stops for the customer: a template only when it has quick-reply buttons. */
 function waitsForReply(node: NodeInput): boolean {
   if (node.node_type === "send_template") return Array.isArray(node.config.buttons) && node.config.buttons.length > 0;
+  if (node.node_type === "ai_reply") return aiReplyWaits(node.config);
   return WAITING_TYPES.includes(node.node_type);
 }
 /** Config keys that hold routing or patterns rather than customer-visible text. */
-const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target", "paid_next", "expired_next", "failed_next", "currency"];
+const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target", "paid_next", "expired_next", "failed_next", "currency", "handoff_next", "instructions"];
 
 /** Variables a node stores for the nodes after it. */
 function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
@@ -1167,6 +1181,7 @@ function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
     return Array.isArray(cfg.mappings) ? (cfg.mappings as Array<{ var_key?: unknown }>).map((m) => m?.var_key).filter((k): k is string => typeof k === "string") : [];
   }
   if (node.node_type === "payment_link") return [...PAYMENT_LINK_VARS];
+  if (node.node_type === "ai_reply") return typeof cfg.var_key === "string" && cfg.var_key ? [cfg.var_key] : [];
   const key = typeof cfg.var_key === "string" ? cfg.var_key : null;
   if (!key) return [];
   switch (node.node_type) {
@@ -1279,6 +1294,9 @@ function outgoingEdges(node: NodeInput): string[] {
       break;
     case "payment_link":
       paymentLinkEdges(cfg).forEach(add);
+      break;
+    case "ai_reply":
+      aiReplyEdges(cfg).forEach(add);
       break;
     case "collect_input":
     case "ask_media":

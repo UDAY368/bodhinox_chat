@@ -2009,7 +2009,21 @@
         "paymentPaidNext": "When paid, go to",
         "paymentExpiredNext": "When it expires or is cancelled, go to (optional)",
         "paymentFailedNext": "When the link cannot be created or sent, go to (optional)",
-        "paymentVarsHelp": "Saves vars.payment_link_url, vars.payment_status and vars.payment_link_id. An unconnected outcome ends the flow."
+        "paymentVarsHelp": "Saves vars.payment_link_url, vars.payment_status and vars.payment_link_id. An unconnected outcome ends the flow.",
+        "aiReplyInstructions": "Instructions for this step (optional, up to {max} characters)",
+        "aiReplyInstructionsPlaceholder": "e.g. Help the customer choose a plan. Keep answers short.",
+        "aiReplyInstructionsHelp": "Added to your AI agent’s instructions for this step only. Variables are not filled in here.",
+        "aiReplyUseKnowledge": "Answer from the knowledge base",
+        "aiReplyMaxTurns": "Answers in this step",
+        "aiReplyThreshold": "Confidence threshold (0–1)",
+        "aiReplyThresholdPlaceholder": "Agent default",
+        "aiReplyTurnsHelp": "1 to {max}. With more than 1, the step answers follow-up messages before it moves on.",
+        "aiReplyThresholdHelp": "Below this, the answer is not sent and the step hands off. Above 0.5 the knowledge base must support the answer.",
+        "aiReplyVarKey": "Save the last answer as variable (optional)",
+        "aiReplyAnsweredNext": "When answered, go to",
+        "aiReplyHandoffNext": "When it hands off, go to",
+        "aiReplyHandoffHelp": "The step hands off when the AI is not confident, cannot answer, the customer asks for a person, or AI is unavailable. Unanswered questions appear in the AI agent’s list.",
+        "aiReplyWindowHelp": "Replies are sent from this conversation’s number, only within 24 hours of the customer’s last message, and count towards your plan’s AI messages."
       },
       "categories": {
         "messaging": "Messaging",
@@ -2108,6 +2122,10 @@
         "payment_link": {
           "label": "Payment link",
           "blurb": "Sends a Razorpay payment link and waits for the payment"
+        },
+        "ai_reply": {
+          "label": "AI reply",
+          "blurb": "Answers the customer with your AI agent and its knowledge base"
         }
       },
       "ports": {
@@ -2117,7 +2135,9 @@
         "fallback": "Fallback",
         "paid": "Paid",
         "expired": "Expired",
-        "failed": "Failed"
+        "failed": "Failed",
+        "answered": "Answered",
+        "handoff": "Handoff"
       },
       "triggerTemplateReplyTitle": "Reply to a template button",
       "matchTypeLabel": "Match",
@@ -2177,7 +2197,8 @@
           "invalid_answer": "Reply not accepted (attempt {attempt} of {max}); asks again",
           "exhausted": "Attempts used up",
           "timeout": "No reply within {minutes, plural, one {# minute} other {# minutes}}",
-          "fallback": "Reply not accepted; the flow's fallback policy takes over"
+          "fallback": "Reply not accepted; the flow's fallback policy takes over",
+          "ai_reply": "The AI agent answers (simulated; nothing is generated)"
         },
         "simulate": {
           "shareMedia": "Simulate: customer sends media",
@@ -2242,7 +2263,8 @@
       "formNone": "No form picked",
       "productNone": "No product picked",
       "products": "{count, plural, one {# product} other {# products}}",
-      "paymentNone": "No amount set"
+      "paymentNone": "No amount set",
+      "aiReplyDefault": "Answers with the AI agent"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -3718,7 +3740,9 @@
     },
     "studioEyebrow": "07 / Your intelligent workspace",
     "studioTitle": "Meet KHAGA.",
-    "studioDescription": "Thoughtful replies. Your knowledge. A human touch."
+    "studioDescription": "Thoughtful replies. Your knowledge. A human touch.",
+    "tabKnowledge": "Knowledge",
+    "tabLearnings": "Learnings"
   },
   "Interactive": {
     "replyButtons": "Reply buttons",
@@ -4480,7 +4504,13 @@
       "paymentInvalidAmount": "Enter an amount above zero with no more decimals than the currency allows.",
       "paymentTextTooLong": "This text can be up to {max} characters.",
       "paymentInvalidExpiry": "Expiry must be between {min} and {max} minutes.",
-      "paymentNeedsPaidNext": "Choose the step that runs after the payment."
+      "paymentNeedsPaidNext": "Choose the step that runs after the payment.",
+      "aiReplyInstructionsTooLong": "Instructions can be up to {max} characters.",
+      "aiReplyInvalidUseKnowledge": "Choose whether the step answers from the knowledge base.",
+      "aiReplyInvalidMaxTurns": "Answers in this step must be a whole number from 1 to {max}.",
+      "aiReplyInvalidThreshold": "The confidence threshold must be a number from 0 to 1.",
+      "aiReplyNeedsHandoffNext": "Choose the step that runs when the AI hands off.",
+      "aiReplyNotConfigured": "AI is not set up or is switched off, so this step will always hand off. Set it up in Settings › AI."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -5205,6 +5235,13 @@
       "notFound": "Saved view not found.",
       "favouriteInvalid": "Send a quick reply id and whether it is a favourite.",
       "quickReplyNotFound": "Quick reply not found."
+    },
+    "aiAssist": {
+      "goalRequired": "Describe what you want to achieve.",
+      "goalTooLong": "Keep the description under {max} characters.",
+      "invalidOutput": "The AI could not produce a usable suggestion. Try rephrasing your goal.",
+      "loadFailed": "Could not load your templates. Try again.",
+      "noApprovedTemplates": "You need at least one approved template before the assistant can plan a campaign."
     }
   },
   "PageSearch": {
@@ -6638,5 +6675,292 @@
       "blocked": "Your browser blocked the payment tab. Use the link on this page to continue.",
       "checkoutFallback": "Checkout could not load here. Use the payment page link to continue."
     }
+  },
+  "AiAgentFoundation": {
+    "tones": {
+      "friendly": "Friendly",
+      "professional": "Professional",
+      "concise": "Concise",
+      "enthusiastic": "Enthusiastic",
+      "formal": "Formal"
+    },
+    "sourceKinds": {
+      "website": "Website",
+      "sitemap": "Sitemap",
+      "file": "File",
+      "text": "Text",
+      "learning": "Learned answers"
+    },
+    "sourceStatus": {
+      "queued": "Queued",
+      "crawling": "Crawling",
+      "ready": "Ready",
+      "failed": "Failed",
+      "disabled": "Disabled"
+    },
+    "unansweredStatus": {
+      "open": "Open",
+      "answered": "Answered",
+      "dismissed": "Dismissed"
+    },
+    "learnedSourceTitle": "Learned answers",
+    "askedTimes": "{count, plural, one {Asked # time} other {Asked # times}}",
+    "errors": {
+      "adminsOnly": "Only admins can change the AI agent",
+      "agentsOnly": "Agents and above can manage unanswered questions",
+      "teachAdminsOnly": "Only admins can teach the AI agent",
+      "invalidSettings": "Invalid AI agent settings",
+      "websiteInvalid": "Enter a valid website address",
+      "websiteTooLong": "The website address is too long",
+      "textTooLong": "{label} is at most {max} characters",
+      "tooManyKeywords": "At most {max} handoff keywords",
+      "keywordTooLong": "Handoff keywords are at most {max} characters",
+      "answerRequired": "Enter an answer",
+      "answerTooLong": "Answers are at most {max} characters",
+      "invalidRequest": "Invalid request"
+    }
+  },
+  "AiFlowGenerator": {
+    "button": "Generate with AI",
+    "title": "Generate a flow with AI",
+    "description": "Describe what the chatbot should do. We build a draft flow you can review and edit before activating it.",
+    "goalLabel": "Goal",
+    "goalPlaceholder": "e.g. Greet customers who say hi, ask whether they want to track an order or talk to someone, and collect the order number.",
+    "draftNote": "The flow is saved as a draft and is never activated automatically. Each attempt uses one AI message.",
+    "generate": "Generate draft",
+    "generating": "Generating…",
+    "cancel": "Cancel",
+    "created": "Draft flow created. Review it before activating.",
+    "createdWithIssues": "Draft created with {count, plural, one {# issue} other {# issues}} to fix before activating.",
+    "failed": "Could not generate a flow. Try again."
+  },
+  "AiCampaignAssistant": {
+    "title": "Plan with AI",
+    "description": "Describe the campaign and who it is for. The assistant suggests an approved template, variables, an audience and a send time. Nothing is sent.",
+    "goalLabel": "Campaign goal",
+    "goalPlaceholder": "e.g. Announce our weekend sale with 20% off",
+    "audienceLabel": "Audience (optional)",
+    "audiencePlaceholder": "e.g. VIP customers who are not on the newsletter list",
+    "suggest": "Suggest",
+    "suggesting": "Thinking…",
+    "failed": "Could not get a suggestion. Try again.",
+    "template": "Template",
+    "variables": "Variables",
+    "variablesMapped": "{count, plural, =0 {none mapped} one {# mapped} other {# mapped}}",
+    "audience": "Audience",
+    "segmentSummary": "{name} ({count, plural, one {# condition} other {# conditions}})",
+    "noSegment": "No filter suggested",
+    "sendTime": "Suggested send time",
+    "sendNow": "Send now",
+    "reviewIssues": "{count, plural, one {# part} other {# parts}} of the suggestion could not be used. Check each step.",
+    "reviewNote": "Applying fills in the wizard and saves the audience as a segment. You review every step before sending; set the schedule in the last step.",
+    "apply": "Apply to campaign",
+    "applied": "Suggestion applied. Review each step.",
+    "segmentNotSaved": "The audience could not be saved as a segment ({reason}). Choose it in the audience step."
+  },
+  "AiKnowledgeSources": {
+    "title": "Knowledge sources",
+    "description": "Teach the AI agent from your website, sitemap, documents or typed notes. Pages are fetched in the background and refreshed when you re-crawl.",
+    "noEmbeddingsKey": "Add an embeddings key in AI settings first. Sources are saved, but they can't be indexed until a key is set.",
+    "addLabel": "Add a knowledge source",
+    "modes": {
+      "website": "Website",
+      "sitemap": "Sitemap",
+      "file": "Upload file",
+      "text": "Text"
+    },
+    "fields": {
+      "websiteUrl": "Website address",
+      "sitemapUrl": "Sitemap address",
+      "pageLimit": "Page limit",
+      "title": "Title",
+      "titleOptional": "Title (optional)",
+      "content": "Content",
+      "file": "File"
+    },
+    "hints": {
+      "website": "We follow links on the same site, respect robots.txt and stop at the page limit.",
+      "sitemap": "We read only the pages listed in the sitemap (and any sitemaps it links to).",
+      "file": "PDF, DOCX, TXT or Markdown, up to 10 MB and 300 pages."
+    },
+    "add": "Add source",
+    "upload": "Upload",
+    "chooseFile": "Choose a file to upload.",
+    "loading": "Loading sources",
+    "loadFailed": "Failed to load knowledge sources.",
+    "empty": "No knowledge sources yet.",
+    "added": "Source added. Indexing has started.",
+    "uploadedTruncated": "File added. It was very long, so only the first part was kept.",
+    "recrawlQueued": "Refresh queued.",
+    "deleted": "Source deleted.",
+    "actionFailed": "Something went wrong. Please try again.",
+    "recrawl": "Re-crawl",
+    "reindex": "Re-index",
+    "deleteLabel": "Delete {title}",
+    "deleteConfirm": "Delete \"{title}\" and everything learned from it?",
+    "pages": "{count, plural, =0 {No pages} one {# page} other {# pages}}",
+    "lastCrawled": "Updated {when}",
+    "neverCrawled": "Not indexed yet",
+    "kinds": {
+      "website": "Website",
+      "sitemap": "Sitemap",
+      "file": "File",
+      "text": "Text",
+      "learning": "Learned answers"
+    },
+    "statuses": {
+      "queued": "Queued",
+      "crawling": "Indexing",
+      "ready": "Ready",
+      "failed": "Failed",
+      "disabled": "Disabled"
+    },
+    "reasons": {
+      "embeddings_key_missing": "No embeddings key is set. Add one in AI settings, then re-crawl.",
+      "embeddings_key_corrupt": "The saved embeddings key can't be read. Enter it again in AI settings, then re-crawl.",
+      "invalid_url": "The address isn't a valid web address.",
+      "blocked": "This address isn't reachable from the public internet.",
+      "robots_disallowed": "The site's robots.txt doesn't allow crawling, or it couldn't be read.",
+      "robots_unreachable": "The site's robots.txt couldn't be read, so nothing was fetched.",
+      "no_pages": "No readable pages were found. Earlier pages, if any, were kept.",
+      "embedding_failed": "Pages were saved, but indexing failed. Keyword search still works; re-crawl to retry.",
+      "embedding_partial": "Some pages couldn't be indexed. They'll be retried on the next re-crawl.",
+      "unknown": "Indexing failed.",
+      "crawl_failed": "The last run kept failing and was stopped. Re-crawl to try again.",
+      "crawl_partial": "Some pages couldn't be reached this time, so no pages were removed. Re-crawl later to refresh them."
+    },
+    "errors": {
+      "forbidden": "Only admins can manage knowledge sources.",
+      "invalid_input": "Check the details and try again.",
+      "invalid_url": "Enter a public website address (http or https).",
+      "not_found": "That knowledge source no longer exists.",
+      "busy": "This source is already being indexed.",
+      "limit_reached": "You've reached the limit of knowledge sources for this workspace.",
+      "file_unsupported_type": "Upload a PDF, DOCX, TXT or Markdown file.",
+      "file_too_large": "Files can be up to 10 MB and 300 pages.",
+      "file_too_many_pages": "PDFs can have up to 300 pages.",
+      "file_unreadable": "This file couldn't be read. It may be damaged or password-protected.",
+      "file_empty": "No text was found in this file. Scanned documents aren't supported yet."
+    }
+  },
+  "AgentSetup": {
+    "title": "Set up your AI agent",
+    "description": "Tell the agent about your business, how to talk and when to bring in a person. Each step is saved as you go.",
+    "completedDescription": "Setup is complete. Change any step and save it again.",
+    "readOnly": "Only admins can change these settings.",
+    "progress": "Setup steps",
+    "loading": "Loading",
+    "loadFailed": "Couldn't load the agent settings.",
+    "retry": "Retry",
+    "saveFailed": "Couldn't save. Try again.",
+    "back": "Back",
+    "next": "Next",
+    "saveAndContinue": "Save and continue",
+    "steps": {
+      "business": "Business",
+      "instructions": "Instructions",
+      "greeting": "Greeting",
+      "handoff": "Handoff",
+      "knowledge": "Knowledge",
+      "review": "Review"
+    },
+    "business": {
+      "website": "Website",
+      "websiteHint": "The agent mentions it when useful. Add its pages as knowledge in the Knowledge step.",
+      "name": "Business name",
+      "type": "Type of business",
+      "typeHint": "Pick one or type your own.",
+      "types": {
+        "ecommerce": "Online store",
+        "restaurant": "Restaurant",
+        "education": "Education",
+        "healthcare": "Healthcare",
+        "real_estate": "Real estate",
+        "travel": "Travel",
+        "salon": "Salon and spa",
+        "services": "Services",
+        "other": "Other"
+      }
+    },
+    "instructions": {
+      "label": "Instructions",
+      "hint": "What should the agent do, promise or avoid? It follows these in every reply.",
+      "placeholder": "For example: Answer questions about our products and delivery. Never promise refunds; offer to connect the customer with our team instead.",
+      "tone": "Tone"
+    },
+    "tones": {
+      "friendly": "Friendly",
+      "professional": "Professional",
+      "concise": "Concise",
+      "enthusiastic": "Enthusiastic",
+      "formal": "Formal"
+    },
+    "greeting": {
+      "label": "Greeting",
+      "hint": "Used when a customer opens with a hello.",
+      "placeholder": "Hi! Thanks for reaching out. How can we help today?"
+    },
+    "handoff": {
+      "keywords": "Handoff keywords",
+      "keywordsHint": "When a customer message contains one of these words, a person takes over right away. Separate them with commas.",
+      "keywordsPlaceholder": "refund, manager, complaint",
+      "lowConfidence": "Hand off when the agent isn't sure",
+      "lowConfidenceHint": "Questions it can't answer go to a person and appear in Learnings.",
+      "threshold": "Confidence needed to reply: {value}%",
+      "thresholdHint": "Higher values hand off more often.",
+      "maxTurns": "Hand off after this many AI replies",
+      "maxTurnsHint": "0 means no limit."
+    },
+    "knowledge": {
+      "title": "Add knowledge",
+      "placeholder": "Add your website pages, files or written answers in the Knowledge tab. The agent replies from them.",
+      "open": "Open Knowledge"
+    },
+    "review": {
+      "notSet": "Not set",
+      "none": "None",
+      "noLimit": "No limit",
+      "explain": "When you enable auto-reply, the agent answers new customer messages on its own and hands off to a person using the rules above.",
+      "enable": "Save and enable auto-reply",
+      "enabled": "Auto-reply is on.",
+      "enableFailed": "Couldn't enable auto-reply.",
+      "providerMissing": "Connect an AI provider below before enabling auto-reply."
+    }
+  },
+  "AgentLearnings": {
+    "title": "Learnings",
+    "description": "Questions your AI agent couldn't answer. Answer them once and teach the answer to the agent.",
+    "filterLabel": "Filter questions",
+    "status": {
+      "open": "Open",
+      "answered": "Answered",
+      "dismissed": "Dismissed"
+    },
+    "loading": "Loading",
+    "loadFailed": "Couldn't load questions.",
+    "actionFailed": "Something went wrong. Try again.",
+    "empty": {
+      "open": "No open questions. Your agent is keeping up.",
+      "answered": "No answered questions yet.",
+      "dismissed": "No dismissed questions."
+    },
+    "askedTimes": "{count, plural, one {Asked once} other {Asked # times}}",
+    "answerLabel": "Answer",
+    "answerPlaceholder": "Write the answer the agent should give",
+    "saveAnswer": "Save answer",
+    "saveAndTeach": "Save and teach agent",
+    "dismiss": "Dismiss",
+    "editAnswer": "Edit answer",
+    "cancel": "Cancel",
+    "promote": "Teach agent",
+    "updateKnowledge": "Update knowledge",
+    "inKnowledge": "In knowledge",
+    "loadMore": "Load more",
+    "answerRequired": "Enter an answer first.",
+    "answerSaved": "Answer saved.",
+    "dismissed": "Question dismissed.",
+    "promoted": "The agent learned this answer.",
+    "promotedNotIndexed": "Saved to knowledge. Indexing failed; reindex it from the Knowledge tab.",
+    "answerChanged": "A teammate changed this answer after you opened it. The list has been reloaded; review the new answer before teaching it."
   }
 }

@@ -1,9 +1,11 @@
 import { databaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
-import { retrieveKnowledge } from './knowledge'
+import { retrieveKnowledgeScored } from './knowledge'
 import { generateReply } from './generate'
-import { buildSystemPrompt } from './defaults'
+import { buildAgentSystemPrompt, loadAgentProfileTx, matchHandoffKeyword, type AgentProfile } from './agent-profile'
+import { assessConfidence, type RetrievalScores } from './confidence'
+import { recordUnanswered } from './unanswered'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
@@ -18,6 +20,7 @@ import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { PlanLimitError } from '@/lib/billing/entitlements'
 import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
 import { getWorkerPrisma } from '@/lib/db/prisma'
+import { withTenant } from '@/lib/db/tenant'
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -72,7 +75,7 @@ export async function dispatchInboundToAiReply(
   try {
     db = databaseAdmin({ accountId, userId: configOwnerUserId, role: 'owner' })
   } catch (error) {
-    console.error('[ai auto-reply] client initialization failed:', error)
+    console.error('[ai auto-reply] client initialization failed', { error: error instanceof Error ? error.name : 'unknown' })
     return
   }
   const readConversation = async () => {
@@ -150,6 +153,28 @@ export async function dispatchInboundToAiReply(
     const messages = await buildConversationContext(db, conversationId)
     if (messages.length === 0) { await unavailable(); return }
 
+    // The workspace's agent profile (setup wizard). Missing or unreadable
+    // means the defaults: no keywords, no turn limit.
+    const profile = await loadProfile(accountId)
+    const rules = profile?.handoff_rules
+    const question = latestUserMessage(messages)
+    const handOff = () => pauseForHuman(
+      buildHandoffSummary({ messages, replyCount: conv.ai_reply_count ?? 0 }),
+      config.handoffAgentId,
+    )
+    // Operator handoff rules run before any model call: a keyword in the
+    // customer's message, or the AI has already replied enough times.
+    if (rules && matchHandoffKeyword(question, rules)) {
+      console.info('[ai auto-reply] handed off', { reason: 'handoff_keyword' })
+      await handOff()
+      return
+    }
+    if (rules && rules.max_turns_before_handoff > 0 && (conv.ai_reply_count ?? 0) >= rules.max_turns_before_handoff) {
+      console.info('[ai auto-reply] handed off', { reason: 'max_turns' })
+      await handOff()
+      return
+    }
+
     // Account-wide throttle on the shared BYO key. The per-conversation
     // cap bounds one thread; this bounds a burst across many threads (a
     // marketing blast landing 200 replies at once) so we never run the
@@ -188,20 +213,23 @@ export async function dispatchInboundToAiReply(
     }
 
     // Ground the reply in the account's knowledge base (best-effort).
-    const knowledge = await retrieveKnowledge(
+    const { chunks, retrieval } = await retrieveKnowledgeScored(
       db,
       accountId,
       config,
-      latestUserMessage(messages),
+      question,
     )
+    const knowledge = chunks.map((c) => c.content)
 
-    const systemPrompt = buildSystemPrompt({
-      userPrompt: config.systemPrompt,
+    // Platform rules first, then the operator's profile, then knowledge
+    // quoted as untrusted reference material (see agent-profile.ts).
+    const systemPrompt = buildAgentSystemPrompt(profile, {
       mode: 'auto_reply',
       knowledge,
+      legacyPrompt: config.systemPrompt,
     })
 
-    const { text, handoff, usage } = await generateReply({
+    const { text: rawText, handoff, noAnswer, usage } = await generateReply({
       config,
       systemPrompt,
       messages,
@@ -224,7 +252,23 @@ export async function dispatchInboundToAiReply(
 
     if (!await eligible()) return
 
-    if (handoff || !text) {
+    // Both control phrases are stripped (parseGeneration and
+    // assessConfidence) before anything can be sent.
+    const confidence = assessConfidence({
+      reply: rawText,
+      handoff,
+      noAnswer,
+      retrieval,
+      threshold: autoReplyThreshold(rules?.confidence_threshold ?? 0, retrieval),
+    })
+    const text = confidence.text
+    const lowConfidence = confidence.reason === 'low_score' && (rules?.on_low_confidence ?? false)
+    const handingOff = !confidence.confident && (confidence.reason !== 'low_score' || lowConfidence)
+    // The question the agent could not answer goes to the Learnings list
+    // (stored, never logged).
+    if (handingOff) await noteUnanswered(accountId, question, conversationId, contactId)
+
+    if (handingOff) {
       // The model can't (or shouldn't) answer — stop auto-replying on
       // this thread and hand it to a human. We (a) pause the bot here
       // (sticky until re-enabled), (b) route the conversation to the
@@ -232,11 +276,7 @@ export async function dispatchInboundToAiReply(
       // and (c) leave a short internal note so whoever picks it up has
       // context. Assigning fires the `on_conversation_assigned` trigger,
       // which notifies the agent.
-      const summary = buildHandoffSummary({
-        messages,
-        replyCount: conv.ai_reply_count ?? 0,
-      })
-      await pauseForHuman(summary, config.handoffAgentId)
+      await handOff()
       return
     }
 
@@ -257,7 +297,7 @@ export async function dispatchInboundToAiReply(
       // deploy issue — e.g. `claim_ai_reply_slot` not EXECUTE-able by the
       // service role, or the migration not applied. Log it loudly: a
       // silent return makes "auto-reply never fires" undiagnosable.
-      console.error('[ai auto-reply] claim_ai_reply_slot failed:', claimErr)
+      console.error('[ai auto-reply] claim_ai_reply_slot failed', { code: (claimErr as { code?: string }).code ?? null })
       await unavailable()
       return
     }
@@ -279,11 +319,22 @@ export async function dispatchInboundToAiReply(
       beforeSend,
     })
   } catch (err) {
-    console.error('[ai auto-reply] dispatch failed:', err)
+    console.error('[ai auto-reply] dispatch failed', { error: err instanceof Error ? err.name : 'unknown' })
     try { await unavailable() } catch (handoffError) {
-      console.error('[ai auto-reply] unavailable handoff failed:', handoffError)
+      console.error('[ai auto-reply] unavailable handoff failed', { error: handoffError instanceof Error ? handoffError.name : 'unknown' })
     }
   }
+}
+
+/**
+ * The profile's threshold. Without retrieval evidence (no knowledge
+ * base, or nothing matched) a threshold above 0.5 could never pass, so
+ * it is capped there: the model's own control phrases decide.
+ */
+export function autoReplyThreshold(threshold: number, retrieval: RetrievalScores | null): number {
+  const t = Number.isFinite(threshold) ? Math.min(1, Math.max(0, threshold)) : 0
+  const evidence = Boolean(retrieval && ((retrieval.semanticDistances?.length ?? 0) + (retrieval.lexicalRanks?.length ?? 0)))
+  return evidence ? t : Math.min(t, 0.5)
 }
 
 /**
@@ -310,6 +361,31 @@ async function showTypingIndicator(
       messageId: inboundMessageId,
     })
   } catch (err) {
-    console.warn('[ai auto-reply] typing indicator failed (continuing):', err)
+    console.warn('[ai auto-reply] typing indicator failed (continuing)', { error: err instanceof Error ? err.name : 'unknown' })
+  }
+}
+
+/** The agent profile, read with the worker role. Best-effort: null on any failure. */
+async function loadProfile(accountId: string): Promise<AgentProfile | null> {
+  try {
+    return await withTenant({ accountId, role: 'owner' }, (tx) => loadAgentProfileTx(tx, accountId), getWorkerPrisma())
+  } catch (err) {
+    console.warn('[ai auto-reply] agent profile unavailable (using defaults):', err instanceof Error ? err.name : 'unknown')
+    return null
+  }
+}
+
+/**
+ * Record the customer's question for the Learnings list. Best-effort:
+ * a failure never blocks the handoff. The question is customer content,
+ * so only the error name is logged.
+ */
+async function noteUnanswered(accountId: string, question: string, conversationId: string, contactId: string): Promise<void> {
+  if (!question.trim()) return
+  try {
+    await withTenant({ accountId, role: 'owner' },
+      (tx) => recordUnanswered(tx, { accountId, question, conversationId, contactId }), getWorkerPrisma())
+  } catch (err) {
+    console.warn('[ai auto-reply] recording an unanswered question failed:', err instanceof Error ? err.name : 'unknown')
   }
 }

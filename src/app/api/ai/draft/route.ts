@@ -9,7 +9,7 @@ import { loadAiConfig } from '@/lib/ai/config';
 import { buildConversationContext } from '@/lib/ai/context';
 import { retrieveKnowledge } from '@/lib/ai/knowledge';
 import { generateReply } from '@/lib/ai/generate';
-import { buildSystemPrompt } from '@/lib/ai/defaults';
+import { buildAgentSystemPrompt, loadAgentProfile } from '@/lib/ai/agent-profile';
 import { latestUserMessage } from '@/lib/ai/query';
 import { logAiUsage } from '@/lib/ai/usage';
 import { databaseAdmin } from '@/lib/ai/admin-client';
@@ -30,7 +30,7 @@ const t = getT('Api');
  */
 export async function POST(request: Request) {
   try {
-    const { db, accountId, userId } = await requireRole('agent');
+    const { db, accountId, userId, role } = await requireRole('agent');
 
     const userLimit = checkRateLimit(`ai-draft:${userId}`, RATE_LIMITS.aiDraft);
     if (!userLimit.success) return rateLimitResponse(userLimit);
@@ -114,10 +114,14 @@ export async function POST(request: Request) {
       latestUserMessage(messages)
     );
 
-    const systemPrompt = buildSystemPrompt({
-      userPrompt: config.systemPrompt,
+    // Same prompt as the live agent: the workspace's agent profile (its
+    // business context and instructions), else the legacy system prompt
+    // unchanged. The profile is read best-effort, like auto-reply.
+    const profile = await loadAgentProfile({ accountId, userId, role }).catch(() => null);
+    const systemPrompt = buildAgentSystemPrompt(profile, {
       mode: 'draft',
       knowledge,
+      legacyPrompt: config.systemPrompt,
     });
 
     // The plan's monthly AI messages (402 with an upgrade hint when used up).

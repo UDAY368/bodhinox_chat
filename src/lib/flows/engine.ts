@@ -13,6 +13,8 @@ import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
 import { parseMoney } from '@/lib/commerce/money';
 import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPaymentReference, paymentLinkMessageText, PaymentLinkError } from '@/lib/payments/links';
+import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
+import { AI_REPLY_LIMITS, aiReplyMaxTurns } from './ai-reply-node';
 /**
  * Flow runner.
  *
@@ -74,6 +76,7 @@ import {
   type SendTemplateNodeConfig,
   type SendFormNodeConfig,
   type PaymentLinkNodeConfig,
+  type AiReplyNodeConfig,
   type AskMediaNodeConfig,
   type AskRetry,
   type CollectInputNodeConfig,
@@ -402,7 +405,9 @@ async function logEvent(
     | "form_submitted"
     | "payment_link_sent"
     | "payment_received"
-    | "payment_expired",
+    | "payment_expired"
+    | "ai_replied"
+    | "ai_handoff",
   node_key: string | null,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
@@ -1194,6 +1199,104 @@ function interpolateOptionalVars(
     : interpolateVars(template, vars, workspace);
 }
 
+/**
+ * One AI turn of an ai_reply step (lib/ai/flow-reply.ts) and its event:
+ * `ai_replied` with the score and citations (document ids, titles and
+ * urls, never content) or `ai_handoff` with a reason code. Returns the
+ * port to follow, or null to keep waiting for the next follow-up, plus
+ * the run vars to store (the answer under var_key).
+ */
+async function aiReplyTurn(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  intentKey: string,
+  answerNumber: number,
+): Promise<{ next: string | null; vars?: Record<string, unknown>; ended?: true }> {
+  const cfg = node.config as unknown as Partial<AiReplyNodeConfig>;
+  const outcome = await runFlowAiReply({
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+    config: cfg,
+    intentKey,
+  });
+  if (outcome.kind === "answered") {
+    await logEvent(db, run.id, "ai_replied", node.node_key, {
+      whatsapp_message_id: outcome.whatsappMessageId,
+      score: outcome.score,
+      turn: answerNumber,
+      citations: outcome.citations,
+    });
+    const vars = cfg.var_key ? { ...run.vars, [cfg.var_key]: outcome.text.slice(0, AI_REPLY_LIMITS.varValue) } : undefined;
+    return { next: answerNumber < aiReplyMaxTurns(node.config) ? null : cfg.next_node_key ?? "", vars };
+  }
+  if (outcome.kind === "unavailable" && (outcome.reason === "send_uncertain" || outcome.reason === "turn_uncertain")) {
+    // The answer may have reached the customer (or the turn may already be
+    // billed): never follow the handoff port or send more bot messages on
+    // top of it. End the run, like send_message does, for reconciliation.
+    const reason = `ai_reply_${outcome.reason}`;
+    await logEvent(db, run.id, "error", node.node_key, { reason, turn: answerNumber });
+    await endRun(db, run.id, "failed", reason);
+    return { next: null, ended: true };
+  }
+  await logEvent(db, run.id, "ai_handoff", node.node_key, outcome.kind === "handoff"
+    ? { reason: outcome.reason, score: outcome.score, turn: answerNumber, citations: outcome.citations }
+    : { reason: outcome.reason, turn: answerNumber });
+  return { next: cfg.handoff_next ?? "" };
+}
+
+/**
+ * A follow-up message on an ai_reply step that is waiting. The turn is
+ * claimed first (transition_seq moves on, so the old reply timeout goes
+ * stale and two inbounds cannot both answer), then answered under an
+ * outbound intent keyed by the inbound message. The step moves on after
+ * its last allowed answer, or through its handoff port.
+ */
+async function continueAiReplyNode(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  nodes: Map<string, FlowNodeRow>,
+  inboundMessageId: string,
+): Promise<DispatchInboundResult> {
+  const intentKey = `flow-ai:${run.id}:${inboundMessageId}`;
+  // A retry of this inbound (the worker stopped after the turn began)
+  // already claimed and counted it: replay that turn instead of claiming
+  // another, so the turn counter does not skip and the AI is not re-run.
+  let turns = run.reprompt_count;
+  if (!(await flowAiTurnStarted(run.account_id, intentKey))) {
+    const seq = (run.transition_seq ?? 0) + 1;
+    turns = run.reprompt_count + 1;
+    const { data, error } = await db
+      .from("flow_runs")
+      .update({ transition_seq: seq, reprompt_count: turns, last_advanced_at: new Date().toISOString() })
+      .eq("id", run.id)
+      .eq("status", "active")
+      .eq("current_node_key", node.node_key)
+      .eq("transition_seq", run.transition_seq ?? 0)
+      .eq("reprompt_count", run.reprompt_count)
+      .select("id");
+    if (error || !Array.isArray(data) || data.length !== 1) return lostReplyRace(db, run, node.node_key);
+    Object.assign(run, { transition_seq: seq, reprompt_count: turns });
+  }
+  // Answers sent so far on this step: the first one plus one per follow-up.
+  const turn = await aiReplyTurn(db, run, node, intentKey, turns + 1);
+  if (turn.ended) return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+  if (turn.next === null) {
+    if (turn.vars) await mergeWaitingRunVars(db, run, turn.vars as Record<string, string>);
+    await scheduleReplyTimeout(db, run, node);
+    return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+  }
+  if (!(await claimReplyTransition(db, run, turn.next, turn.vars ? { vars: turn.vars } : {}))) {
+    return lostReplyRace(db, run, node.node_key);
+  }
+  if (turn.vars) run.vars = turn.vars;
+  const outcome = await advanceFromNodeKey(db, run, turn.next, nodes);
+  return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+}
+
 async function endRun(
   db: AdminClient,
   runId: string,
@@ -1558,6 +1661,31 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
+      }
+      return { outcome: "advanced" };
+    }
+    if (node.node_type === "ai_reply") {
+      // The AI answers the customer's latest message. One answer moves on
+      // through a port; with more turns the step waits for follow-ups.
+      const turn = await aiReplyTurn(db, run, node, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, 1);
+      if (turn.ended) return { outcome: "completed" };
+      if (turn.vars) {
+        try {
+          await setRunVars(db, run, turn.vars);
+        } catch (err) {
+          // Non-fatal, like set_attribute: the answer already went out.
+          await logEvent(db, run.id, "error", node.node_key, { reason: "ai_reply_var_failed", detail: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      if (turn.next !== null) {
+        currentKey = turn.next;
+        continue;
+      }
+      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
         await scheduleReplyTimeout(db, run, node);
       }
@@ -2115,6 +2243,17 @@ async function handleReplyForActiveRun(
     // invariant, and silently ending a run the customer is in the middle of
     // would lose their place.
     await mergeWaitingRunVars(db, run, message.vars);
+    return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+  }
+
+  // A typed follow-up on a waiting AI reply step is answered by the AI.
+  if (currentNode.node_type === "ai_reply" && message.kind === "text" && message.text.trim()) {
+    return continueAiReplyNode(db, run, currentNode, nodes, message.meta_message_id);
+  }
+  // Anything else on a waiting AI reply step (a photo, a sticker, an old
+  // button tap, empty text) is not a question: it must not use up an AI
+  // turn through reprompt_count or fire the flow's fallback.
+  if (currentNode.node_type === "ai_reply") {
     return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
   }
 

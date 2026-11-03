@@ -6,6 +6,7 @@ import {
   uniqueNodeKey,
 } from "./flow-editor-state";
 import type { BuilderState } from "./flow-editor-state";
+import { aiReplyIssues } from "@/lib/flows/ai-reply-node";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import type { BuilderNode, NodeType } from "./shared";
 
@@ -129,6 +130,14 @@ describe("defaultConfigFor", () => {
     // Mirrors the regex in validate.ts: alphanumeric + underscore,
     // starts with letter or underscore.
     expect(cfg.var_key).toMatch(/^[a-zA-Z_][a-zA-Z0-9_]*$/);
+  });
+
+  it("ai_reply's default has empty ports, knowledge on and one turn, with no validation issues", () => {
+    const cfg = defaultConfigFor("ai_reply");
+    expect(cfg).toEqual({ instructions: "", use_knowledge: true, max_turns: 1, next_node_key: "", handoff_next: "" });
+    const issues = aiReplyIssues({ node_key: "ai_1", node_type: "ai_reply", config: cfg }, new Set(["ai_1"]))
+      .filter((i) => i.field !== "next_node_key" && i.field !== "handoff_next");
+    expect(issues).toEqual([]);
   });
 
   it("end's default is an empty object (terminal — no config)", () => {

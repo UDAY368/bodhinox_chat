@@ -41,6 +41,7 @@ import {
   ShoppingCart,
   Store,
   CreditCard,
+  Sparkles,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -65,6 +66,7 @@ export type NodeType =
   | 'ask_address'
   | 'send_form'
   | 'payment_link'
+  | 'ai_reply'
   | 'send_product'
   | 'send_product_list'
   | 'send_catalog'
@@ -118,6 +120,7 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'ask_address',
   'send_form',
   'payment_link',
+  'ai_reply',
   'send_product',
   'send_product_list',
   'send_catalog',
@@ -208,6 +211,12 @@ export const NODE_META: Record<
     slugSeed: 'Payment link',
     icon: CreditCard,
     color: 'text-emerald-400',
+    category: 'messaging',
+  },
+  ai_reply: {
+    slugSeed: 'AI reply',
+    icon: Sparkles,
+    color: 'text-violet-400',
     category: 'messaging',
   },
   send_form: {
@@ -329,6 +338,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   ask_address: { l: 0.65, c: 0.1, h: 185 },
   send_form: { l: 0.64, c: 0.12, h: 200 }, // teal-blue — a question asked as a form
   payment_link: { l: 0.64, c: 0.14, h: 150 }, // money green — asks for a payment
+  ai_reply: { l: 0.62, c: 0.17, h: 305 }, // purple — the AI agent answers
   send_product: { l: 0.66, c: 0.15, h: 125 }, // lime — the shop family
   send_product_list: { l: 0.66, c: 0.15, h: 125 },
   send_catalog: { l: 0.66, c: 0.15, h: 125 },
@@ -534,6 +544,12 @@ export function summarizeNode(
       const amount = typeof cfg.amount === 'string' ? cfg.amount.trim() : '';
       const currency = typeof cfg.currency === 'string' ? cfg.currency : '';
       return amount ? truncate(`${currency} ${amount}`.trim(), 60) : (t ? t('paymentNone') : 'No amount set');
+    }
+    case 'ai_reply': {
+      const instructions = typeof cfg.instructions === 'string' ? cfg.instructions : '';
+      const varKey = typeof cfg.var_key === 'string' ? cfg.var_key : '';
+      const text = instructions ? truncate(instructions, 50) : (t ? t('aiReplyDefault') : 'Answers with the AI agent');
+      return varKey ? `${text} → vars.${varKey}` : text;
     }
     case 'send_form': {
       const cta = typeof cfg.cta === 'string' ? cfg.cta : '';

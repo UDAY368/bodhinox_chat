@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { MessageTemplate } from '@/types';
 import { Step1ChooseTemplate } from '@/components/broadcasts/step1-choose-template';
+import { AiCampaignAssistant } from '@/components/broadcasts/ai-campaign-assistant';
 import { Step2SelectAudience } from '@/components/broadcasts/step2-select-audience';
 import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
@@ -195,6 +196,16 @@ export default function NewBroadcastPage() {
             pointerEvents: isProcessing ? 'none' : 'auto',
           }}
         >
+          {currentStep === 0 && (
+            <AiCampaignAssistant
+              onApply={(draft) => {
+                if (draft.template.id !== template?.id) setSendExtras({});
+                setTemplate(draft.template);
+                setVariables(draft.variables);
+                if (draft.audience) setAudience(draft.audience);
+              }}
+            />
+          )}
           {currentStep === 0 && (
             <Step1ChooseTemplate
               selectedTemplate={template}

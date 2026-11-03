@@ -124,7 +124,7 @@ export async function generateOpenAiCompatible(
       body: JSON.stringify({
         model,
         messages: [{ role: 'system', content: systemPrompt }, ...mergeConsecutive(messages)],
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_tokens: args.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
         // Keep business replies concise instead of spending the output budget
         // on extensive reasoning. Other compatible APIs retain their payload.
         ...(isOpenRouterBaseUrl(baseUrl) ? { reasoning: { effort: 'low', exclude: true } } : {}),

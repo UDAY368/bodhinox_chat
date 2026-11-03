@@ -395,6 +395,34 @@ export interface SendCatalogNodeConfig {
 }
 
 /**
+ * AI reply: answers the customer with the workspace's AI agent (agent
+ * profile + these instructions, grounded in the knowledge base when
+ * `use_knowledge`), sent from the conversation's own number inside the
+ * 24-hour window. A confident answer goes on through `next_node_key`
+ * ("answered"); a low-confidence answer, a control phrase, a handoff
+ * keyword or AI being unavailable goes through `handoff_next`. With
+ * `max_turns` above 1 the step waits and answers follow-up messages
+ * until that many answers were sent, then moves on; it may then carry a
+ * reply timeout like the question steps. Engine: lib/ai/flow-reply.ts.
+ */
+export interface AiReplyNodeConfig {
+  /** Extra operator instructions (<= 2000 chars) appended to the agent profile. Not interpolated. */
+  instructions?: string;
+  /** Ground the answer in the knowledge base. */
+  use_knowledge?: boolean;
+  /** Answers sent inside this step before it moves on (1-10, default 1). */
+  max_turns?: number;
+  /** Stores the latest answer in vars[var_key]. */
+  var_key?: string;
+  /** 0..1; defaults to the agent profile's threshold. */
+  confidence_threshold?: number;
+  /** "Answered" port. */
+  next_node_key: string;
+  /** "Handoff" port. */
+  handoff_next: string;
+}
+
+/**
  * Total union — every concrete node_type the v1 engine understands.
  * Add new node types here and the engine's switch will flag missing
  * cases via TypeScript's exhaustiveness check.
@@ -420,6 +448,7 @@ export type FlowNodeConfig =
   | { node_type: "send_product_list"; config: SendProductListNodeConfig }
   | { node_type: "send_catalog"; config: SendCatalogNodeConfig }
   | { node_type: "payment_link"; config: PaymentLinkNodeConfig }
+  | { node_type: "ai_reply"; config: AiReplyNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }
   | { node_type: "api_request"; config: ApiRequestNodeConfig }
   | { node_type: "connect_flow"; config: ConnectFlowNodeConfig }

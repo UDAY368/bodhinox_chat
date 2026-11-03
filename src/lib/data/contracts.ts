@@ -548,6 +548,11 @@ export function validateWrite(
     // A campaign's kind is fixed at creation (other tables, e.g. quick_replies, have their own `kind`).
     if (browser && name === 'broadcasts' && field === 'kind')
       throw new ContractError(`Field ${field} is server-managed`);
+    // A knowledge document's source link, content hash, fetch time and url are
+    // set by the crawler and upload routes (lib/ai/knowledge-sources.ts).
+    if (browser && name === 'ai_knowledge_documents' &&
+      ['source_id', 'content_hash', 'fetched_at', 'source_url'].includes(field))
+      throw new ContractError(`Field ${field} is server-managed`);
     if (field === 'account_id' && value !== context.accountId)
       throw new ContractError(
         'Cross-tenant payload rejected',

@@ -2009,7 +2009,21 @@
         "paymentPaidNext": "결제되면 이동",
         "paymentExpiredNext": "만료되거나 취소되면 이동(선택 사항)",
         "paymentFailedNext": "링크를 만들거나 보낼 수 없으면 이동(선택 사항)",
-        "paymentVarsHelp": "vars.payment_link_url, vars.payment_status, vars.payment_link_id를 저장합니다. 연결되지 않은 결과는 플로우를 종료합니다."
+        "paymentVarsHelp": "vars.payment_link_url, vars.payment_status, vars.payment_link_id를 저장합니다. 연결되지 않은 결과는 플로우를 종료합니다.",
+        "aiReplyInstructions": "이 단계의 지침(선택, 최대 {max}자)",
+        "aiReplyInstructionsPlaceholder": "예: 고객이 요금제를 고르도록 도와주세요. 짧게 답하세요.",
+        "aiReplyInstructionsHelp": "이 단계에서만 AI 에이전트의 지침에 추가됩니다. 여기서는 변수가 채워지지 않습니다.",
+        "aiReplyUseKnowledge": "지식 베이스로 답변",
+        "aiReplyMaxTurns": "이 단계의 답변 수",
+        "aiReplyThreshold": "신뢰도 기준(0–1)",
+        "aiReplyThresholdPlaceholder": "에이전트 기본값",
+        "aiReplyTurnsHelp": "1~{max}. 1보다 크면 다음 단계로 넘어가기 전에 이어지는 메시지에도 답변합니다.",
+        "aiReplyThresholdHelp": "이 값보다 낮으면 답변을 보내지 않고 상담원에게 넘깁니다. 0.5보다 높으면 지식 베이스가 답변을 뒷받침해야 합니다.",
+        "aiReplyVarKey": "마지막 답변을 변수로 저장(선택)",
+        "aiReplyAnsweredNext": "답변하면 이동할 단계",
+        "aiReplyHandoffNext": "상담원에게 넘기면 이동할 단계",
+        "aiReplyHandoffHelp": "AI의 신뢰도가 낮거나, 답할 수 없거나, 고객이 상담원을 요청하거나, AI를 사용할 수 없으면 상담원에게 넘깁니다. 답하지 못한 질문은 AI 에이전트 목록에 표시됩니다.",
+        "aiReplyWindowHelp": "답변은 이 대화의 번호로, 고객의 마지막 메시지 후 24시간 이내에만 보내지며 요금제의 AI 메시지 수에 포함됩니다."
       },
       "categories": {
         "messaging": "메시징",
@@ -2108,6 +2122,10 @@
         "payment_link": {
           "label": "결제 링크",
           "blurb": "Razorpay 결제 링크를 보내고 결제를 기다립니다"
+        },
+        "ai_reply": {
+          "label": "AI 답변",
+          "blurb": "AI 에이전트와 지식 베이스로 고객에게 답변합니다"
         }
       },
       "ports": {
@@ -2117,7 +2135,9 @@
         "fallback": "대체 경로",
         "paid": "결제됨",
         "expired": "만료됨",
-        "failed": "실패"
+        "failed": "실패",
+        "answered": "답변함",
+        "handoff": "상담원 연결"
       },
       "triggerTemplateReplyTitle": "템플릿 버튼 응답",
       "matchTypeLabel": "일치 방식",
@@ -2177,7 +2197,8 @@
           "invalid_answer": "응답이 거부됨 ({max}회 중 {attempt}회째), 다시 질문합니다",
           "exhausted": "시도 횟수 소진",
           "timeout": "{minutes}분 동안 응답 없음",
-          "fallback": "응답이 거부됨, 흐름의 대체 정책이 적용됩니다"
+          "fallback": "응답이 거부됨, 흐름의 대체 정책이 적용됩니다",
+          "ai_reply": "AI 에이전트가 답변합니다(시뮬레이션이며 실제로 생성되지 않음)"
         },
         "simulate": {
           "shareMedia": "시뮬레이션: 고객이 파일 전송",
@@ -2242,7 +2263,8 @@
       "formNone": "선택한 양식 없음",
       "productNone": "선택한 상품 없음",
       "products": "상품 {count}개",
-      "paymentNone": "금액 없음"
+      "paymentNone": "금액 없음",
+      "aiReplyDefault": "AI 에이전트로 답변"
     },
     "header": {
       "backToFlows": "플로우로 돌아가기",
@@ -3718,7 +3740,9 @@
     },
     "studioEyebrow": "07 / Your intelligent workspace",
     "studioTitle": "KHAGA를 만나보세요.",
-    "studioDescription": "세심한 답변. 나의 지식. 사람의 온기."
+    "studioDescription": "세심한 답변. 나의 지식. 사람의 온기.",
+    "tabKnowledge": "지식",
+    "tabLearnings": "학습"
   },
   "Interactive": {
     "replyButtons": "답장 버튼",
@@ -4480,7 +4504,13 @@
       "paymentInvalidAmount": "0보다 크고 통화가 허용하는 소수 자릿수 이내의 금액을 입력하세요.",
       "paymentTextTooLong": "이 텍스트는 최대 {max}자까지 입력할 수 있습니다.",
       "paymentInvalidExpiry": "만료 시간은 {min}분에서 {max}분 사이여야 합니다.",
-      "paymentNeedsPaidNext": "결제 후 실행할 단계를 선택하세요."
+      "paymentNeedsPaidNext": "결제 후 실행할 단계를 선택하세요.",
+      "aiReplyInstructionsTooLong": "지침은 최대 {max}자까지 입력할 수 있습니다.",
+      "aiReplyInvalidUseKnowledge": "이 단계에서 지식 베이스로 답변할지 선택하세요.",
+      "aiReplyInvalidMaxTurns": "이 단계의 답변 수는 1~{max} 사이의 정수여야 합니다.",
+      "aiReplyInvalidThreshold": "신뢰도 기준은 0~1 사이의 숫자여야 합니다.",
+      "aiReplyNeedsHandoffNext": "AI가 상담원에게 넘길 때 실행할 단계를 선택하세요.",
+      "aiReplyNotConfigured": "AI가 설정되지 않았거나 꺼져 있어 이 단계는 항상 상담원에게 넘깁니다. 설정 › AI에서 설정하세요."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -5205,6 +5235,13 @@
       "notFound": "저장된 보기를 찾을 수 없습니다.",
       "favouriteInvalid": "빠른 답장 ID와 즐겨찾기 여부를 보내세요.",
       "quickReplyNotFound": "빠른 답장을 찾을 수 없습니다."
+    },
+    "aiAssist": {
+      "goalRequired": "달성하려는 목표를 설명해 주세요.",
+      "goalTooLong": "설명은 {max}자 이내로 작성해 주세요.",
+      "invalidOutput": "AI가 사용할 수 있는 제안을 만들지 못했습니다. 목표를 다르게 표현해 보세요.",
+      "loadFailed": "템플릿을 불러오지 못했습니다. 다시 시도해 주세요.",
+      "noApprovedTemplates": "어시스턴트가 캠페인을 계획하려면 승인된 템플릿이 하나 이상 있어야 합니다."
     }
   },
   "PageSearch": {
@@ -6638,5 +6675,292 @@
       "blocked": "브라우저가 결제 탭을 차단했습니다. 이 페이지의 링크를 사용해 계속하세요.",
       "checkoutFallback": "여기에서 결제창을 불러오지 못했습니다. 결제 페이지 링크를 사용해 계속하세요."
     }
+  },
+  "AiAgentFoundation": {
+    "tones": {
+      "friendly": "친근하게",
+      "professional": "전문적으로",
+      "concise": "간결하게",
+      "enthusiastic": "활기차게",
+      "formal": "격식 있게"
+    },
+    "sourceKinds": {
+      "website": "웹사이트",
+      "sitemap": "사이트맵",
+      "file": "파일",
+      "text": "텍스트",
+      "learning": "학습된 답변"
+    },
+    "sourceStatus": {
+      "queued": "대기 중",
+      "crawling": "수집 중",
+      "ready": "준비됨",
+      "failed": "실패",
+      "disabled": "사용 안 함"
+    },
+    "unansweredStatus": {
+      "open": "미해결",
+      "answered": "답변됨",
+      "dismissed": "무시됨"
+    },
+    "learnedSourceTitle": "학습된 답변",
+    "askedTimes": "{count, plural, other {#번 질문됨}}",
+    "errors": {
+      "adminsOnly": "관리자만 AI 에이전트를 변경할 수 있습니다",
+      "agentsOnly": "상담원 이상만 답변되지 않은 질문을 관리할 수 있습니다",
+      "teachAdminsOnly": "관리자만 AI 에이전트를 학습시킬 수 있습니다",
+      "invalidSettings": "AI 에이전트 설정이 올바르지 않습니다",
+      "websiteInvalid": "올바른 웹사이트 주소를 입력하세요",
+      "websiteTooLong": "웹사이트 주소가 너무 깁니다",
+      "textTooLong": "{label}은(는) 최대 {max}자까지 입력할 수 있습니다",
+      "tooManyKeywords": "상담원 연결 키워드는 최대 {max}개입니다",
+      "keywordTooLong": "상담원 연결 키워드는 최대 {max}자입니다",
+      "answerRequired": "답변을 입력하세요",
+      "answerTooLong": "답변은 최대 {max}자까지 입력할 수 있습니다",
+      "invalidRequest": "잘못된 요청입니다"
+    }
+  },
+  "AiFlowGenerator": {
+    "button": "AI로 생성",
+    "title": "AI로 플로우 생성",
+    "description": "챗봇이 할 일을 설명해 주세요. 활성화하기 전에 검토하고 수정할 수 있는 초안 플로우를 만들어 드립니다.",
+    "goalLabel": "목표",
+    "goalPlaceholder": "예: 안녕이라고 말하는 고객에게 인사하고, 주문 조회와 상담원 연결 중 무엇을 원하는지 물은 뒤 주문 번호를 받습니다.",
+    "draftNote": "플로우는 초안으로 저장되며 자동으로 활성화되지 않습니다. 시도할 때마다 AI 메시지 1개가 사용됩니다.",
+    "generate": "초안 생성",
+    "generating": "생성 중…",
+    "cancel": "취소",
+    "created": "초안 플로우를 만들었습니다. 활성화하기 전에 검토해 주세요.",
+    "createdWithIssues": "초안을 만들었습니다. 활성화하기 전에 문제 {count, plural, other {#개}}를 해결해 주세요.",
+    "failed": "플로우를 생성하지 못했습니다. 다시 시도해 주세요."
+  },
+  "AiCampaignAssistant": {
+    "title": "AI로 계획하기",
+    "description": "캠페인과 대상을 설명해 주세요. 어시스턴트가 승인된 템플릿, 변수, 대상, 발송 시간을 제안합니다. 아무것도 발송되지 않습니다.",
+    "goalLabel": "캠페인 목표",
+    "goalPlaceholder": "예: 20% 할인 주말 세일 안내",
+    "audienceLabel": "대상 (선택)",
+    "audiencePlaceholder": "예: 뉴스레터 목록에 없는 VIP 고객",
+    "suggest": "제안 받기",
+    "suggesting": "생각 중…",
+    "failed": "제안을 받지 못했습니다. 다시 시도해 주세요.",
+    "template": "템플릿",
+    "variables": "변수",
+    "variablesMapped": "{count, plural, =0 {매핑 없음} other {#개 매핑됨}}",
+    "audience": "대상",
+    "segmentSummary": "{name} (조건 {count, plural, other {#개}})",
+    "noSegment": "제안된 필터 없음",
+    "sendTime": "추천 발송 시간",
+    "sendNow": "지금 발송",
+    "reviewIssues": "제안 중 {count, plural, other {#개 항목}}을 사용할 수 없었습니다. 각 단계를 확인해 주세요.",
+    "reviewNote": "적용하면 마법사가 채워지고 대상이 세그먼트로 저장됩니다. 발송 전에 모든 단계를 검토하며, 예약은 마지막 단계에서 설정합니다.",
+    "apply": "캠페인에 적용",
+    "applied": "제안을 적용했습니다. 각 단계를 검토해 주세요.",
+    "segmentNotSaved": "대상을 세그먼트로 저장하지 못했습니다({reason}). 대상 단계에서 선택해 주세요."
+  },
+  "AiKnowledgeSources": {
+    "title": "지식 소스",
+    "description": "웹사이트, 사이트맵, 문서 또는 직접 작성한 메모로 AI 에이전트를 학습시키세요. 페이지는 백그라운드에서 가져오며 다시 크롤링하면 새로 고쳐집니다.",
+    "noEmbeddingsKey": "먼저 AI 설정에서 임베딩 키를 추가하세요. 소스는 저장되지만 키가 설정되기 전까지는 색인할 수 없습니다.",
+    "addLabel": "지식 소스 추가",
+    "modes": {
+      "website": "웹사이트",
+      "sitemap": "사이트맵",
+      "file": "파일 업로드",
+      "text": "텍스트"
+    },
+    "fields": {
+      "websiteUrl": "웹사이트 주소",
+      "sitemapUrl": "사이트맵 주소",
+      "pageLimit": "페이지 한도",
+      "title": "제목",
+      "titleOptional": "제목(선택)",
+      "content": "내용",
+      "file": "파일"
+    },
+    "hints": {
+      "website": "같은 사이트의 링크만 따라가고, robots.txt를 준수하며, 페이지 한도에 도달하면 멈춥니다.",
+      "sitemap": "사이트맵(및 연결된 사이트맵)에 나열된 페이지만 읽습니다.",
+      "file": "PDF, DOCX, TXT 또는 Markdown, 최대 10MB 및 300페이지."
+    },
+    "add": "소스 추가",
+    "upload": "업로드",
+    "chooseFile": "업로드할 파일을 선택하세요.",
+    "loading": "소스를 불러오는 중",
+    "loadFailed": "지식 소스를 불러오지 못했습니다.",
+    "empty": "아직 지식 소스가 없습니다.",
+    "added": "소스를 추가했습니다. 색인을 시작했습니다.",
+    "uploadedTruncated": "파일을 추가했습니다. 내용이 너무 길어 앞부분만 저장했습니다.",
+    "recrawlQueued": "새로 고침을 대기열에 추가했습니다.",
+    "deleted": "소스를 삭제했습니다.",
+    "actionFailed": "문제가 발생했습니다. 다시 시도해 주세요.",
+    "recrawl": "다시 크롤링",
+    "reindex": "다시 색인",
+    "deleteLabel": "{title} 삭제",
+    "deleteConfirm": "\"{title}\"과(와) 이 소스에서 학습한 모든 내용을 삭제할까요?",
+    "pages": "{count, plural, =0 {페이지 없음} other {#페이지}}",
+    "lastCrawled": "{when} 업데이트됨",
+    "neverCrawled": "아직 색인되지 않음",
+    "kinds": {
+      "website": "웹사이트",
+      "sitemap": "사이트맵",
+      "file": "파일",
+      "text": "텍스트",
+      "learning": "학습한 답변"
+    },
+    "statuses": {
+      "queued": "대기 중",
+      "crawling": "색인 중",
+      "ready": "준비됨",
+      "failed": "실패",
+      "disabled": "사용 안 함"
+    },
+    "reasons": {
+      "embeddings_key_missing": "임베딩 키가 설정되지 않았습니다. AI 설정에서 키를 추가한 뒤 다시 크롤링하세요.",
+      "embeddings_key_corrupt": "저장된 임베딩 키를 읽을 수 없습니다. AI 설정에서 다시 입력한 뒤 다시 크롤링하세요.",
+      "invalid_url": "올바른 웹 주소가 아닙니다.",
+      "blocked": "이 주소는 공용 인터넷에서 접근할 수 없습니다.",
+      "robots_disallowed": "사이트의 robots.txt가 크롤링을 허용하지 않거나 읽을 수 없습니다.",
+      "robots_unreachable": "사이트의 robots.txt를 읽을 수 없어 아무것도 가져오지 않았습니다.",
+      "no_pages": "읽을 수 있는 페이지를 찾지 못했습니다. 이전 페이지가 있다면 그대로 유지했습니다.",
+      "embedding_failed": "페이지는 저장했지만 색인에 실패했습니다. 키워드 검색은 계속 작동하며, 다시 크롤링하면 재시도합니다.",
+      "embedding_partial": "일부 페이지를 색인하지 못했습니다. 다음 크롤링 때 다시 시도합니다.",
+      "unknown": "색인에 실패했습니다.",
+      "crawl_failed": "마지막 실행이 계속 실패해 중단되었습니다. 다시 크롤링해 재시도하세요.",
+      "crawl_partial": "이번에는 일부 페이지에 접근하지 못해 어떤 페이지도 삭제하지 않았습니다. 나중에 다시 크롤링해 새로 고치세요."
+    },
+    "errors": {
+      "forbidden": "관리자만 지식 소스를 관리할 수 있습니다.",
+      "invalid_input": "입력 내용을 확인한 뒤 다시 시도하세요.",
+      "invalid_url": "공개 웹 주소(http 또는 https)를 입력하세요.",
+      "not_found": "해당 지식 소스가 더 이상 존재하지 않습니다.",
+      "busy": "이 소스는 이미 색인 중입니다.",
+      "limit_reached": "이 워크스페이스의 지식 소스 한도에 도달했습니다.",
+      "file_unsupported_type": "PDF, DOCX, TXT 또는 Markdown 파일을 업로드하세요.",
+      "file_too_large": "파일은 최대 10MB, 300페이지까지 가능합니다.",
+      "file_too_many_pages": "PDF는 최대 300페이지까지 가능합니다.",
+      "file_unreadable": "이 파일을 읽을 수 없습니다. 손상되었거나 암호로 보호되어 있을 수 있습니다.",
+      "file_empty": "이 파일에서 텍스트를 찾지 못했습니다. 스캔한 문서는 아직 지원하지 않습니다."
+    }
+  },
+  "AgentSetup": {
+    "title": "AI 에이전트 설정",
+    "description": "비즈니스 정보, 말투, 사람에게 넘길 시점을 에이전트에게 알려 주세요. 각 단계는 진행하면서 저장됩니다.",
+    "completedDescription": "설정이 완료되었습니다. 원하는 단계를 바꾸고 다시 저장하세요.",
+    "readOnly": "관리자만 이 설정을 변경할 수 있습니다.",
+    "progress": "설정 단계",
+    "loading": "불러오는 중",
+    "loadFailed": "에이전트 설정을 불러오지 못했습니다.",
+    "retry": "다시 시도",
+    "saveFailed": "저장하지 못했습니다. 다시 시도해 주세요.",
+    "back": "이전",
+    "next": "다음",
+    "saveAndContinue": "저장하고 계속",
+    "steps": {
+      "business": "비즈니스",
+      "instructions": "지침",
+      "greeting": "인사말",
+      "handoff": "상담원 연결",
+      "knowledge": "지식",
+      "review": "검토"
+    },
+    "business": {
+      "website": "웹사이트",
+      "websiteHint": "필요할 때 에이전트가 안내합니다. 지식 단계에서 웹사이트 페이지를 지식으로 추가하세요.",
+      "name": "비즈니스 이름",
+      "type": "업종",
+      "typeHint": "하나를 고르거나 직접 입력하세요.",
+      "types": {
+        "ecommerce": "온라인 쇼핑몰",
+        "restaurant": "음식점",
+        "education": "교육",
+        "healthcare": "의료",
+        "real_estate": "부동산",
+        "travel": "여행",
+        "salon": "미용실·스파",
+        "services": "서비스",
+        "other": "기타"
+      }
+    },
+    "instructions": {
+      "label": "지침",
+      "hint": "에이전트가 무엇을 하고, 약속하고, 피해야 하나요? 모든 답변에서 이 지침을 따릅니다.",
+      "placeholder": "예: 제품과 배송에 관한 질문에 답하세요. 환불은 절대 약속하지 말고, 대신 팀과 연결해 드리겠다고 안내하세요.",
+      "tone": "말투"
+    },
+    "tones": {
+      "friendly": "친근하게",
+      "professional": "전문적으로",
+      "concise": "간결하게",
+      "enthusiastic": "활기차게",
+      "formal": "격식 있게"
+    },
+    "greeting": {
+      "label": "인사말",
+      "hint": "고객이 인사로 대화를 시작할 때 사용합니다.",
+      "placeholder": "안녕하세요! 문의해 주셔서 감사합니다. 무엇을 도와드릴까요?"
+    },
+    "handoff": {
+      "keywords": "상담원 연결 키워드",
+      "keywordsHint": "고객 메시지에 이 단어 중 하나가 있으면 바로 사람이 대화를 이어받습니다. 쉼표로 구분하세요.",
+      "keywordsPlaceholder": "환불, 매니저, 불만",
+      "lowConfidence": "에이전트가 확신하지 못하면 상담원에게 연결",
+      "lowConfidenceHint": "답하지 못한 질문은 사람에게 넘어가고 학습 탭에 표시됩니다.",
+      "threshold": "답변에 필요한 신뢰도: {value}%",
+      "thresholdHint": "값이 높을수록 더 자주 상담원에게 연결합니다.",
+      "maxTurns": "AI 답변이 이 횟수에 도달하면 상담원에게 연결",
+      "maxTurnsHint": "0은 제한 없음을 뜻합니다."
+    },
+    "knowledge": {
+      "title": "지식 추가",
+      "placeholder": "지식 탭에서 웹사이트 페이지, 파일 또는 직접 쓴 답변을 추가하세요. 에이전트는 이를 바탕으로 답합니다.",
+      "open": "지식 열기"
+    },
+    "review": {
+      "notSet": "설정 안 됨",
+      "none": "없음",
+      "noLimit": "제한 없음",
+      "explain": "자동 응답을 켜면 에이전트가 새 고객 메시지에 직접 답하고, 위 규칙에 따라 사람에게 대화를 넘깁니다.",
+      "enable": "저장하고 자동 응답 켜기",
+      "enabled": "자동 응답이 켜졌습니다.",
+      "enableFailed": "자동 응답을 켜지 못했습니다.",
+      "providerMissing": "자동 응답을 켜기 전에 아래에서 AI 제공업체를 연결하세요."
+    }
+  },
+  "AgentLearnings": {
+    "title": "학습",
+    "description": "AI 에이전트가 답하지 못한 질문입니다. 한 번 답하고 그 답을 에이전트에게 가르치세요.",
+    "filterLabel": "질문 필터",
+    "status": {
+      "open": "미해결",
+      "answered": "답변됨",
+      "dismissed": "무시됨"
+    },
+    "loading": "불러오는 중",
+    "loadFailed": "질문을 불러오지 못했습니다.",
+    "actionFailed": "문제가 발생했습니다. 다시 시도해 주세요.",
+    "empty": {
+      "open": "미해결 질문이 없습니다. 에이전트가 잘 대응하고 있어요.",
+      "answered": "아직 답변한 질문이 없습니다.",
+      "dismissed": "무시한 질문이 없습니다."
+    },
+    "askedTimes": "{count, plural, other {#회 질문됨}}",
+    "answerLabel": "답변",
+    "answerPlaceholder": "에이전트가 할 답변을 작성하세요",
+    "saveAnswer": "답변 저장",
+    "saveAndTeach": "저장하고 에이전트에게 가르치기",
+    "dismiss": "무시",
+    "editAnswer": "답변 수정",
+    "cancel": "취소",
+    "promote": "에이전트에게 가르치기",
+    "updateKnowledge": "지식 업데이트",
+    "inKnowledge": "지식에 추가됨",
+    "loadMore": "더 보기",
+    "answerRequired": "먼저 답변을 입력하세요.",
+    "answerSaved": "답변을 저장했습니다.",
+    "dismissed": "질문을 무시했습니다.",
+    "promoted": "에이전트가 이 답변을 학습했습니다.",
+    "promotedNotIndexed": "지식에 저장했지만 색인에 실패했습니다. 지식 탭에서 다시 색인하세요.",
+    "answerChanged": "회원님이 연 뒤에 팀원이 이 답변을 변경했습니다. 목록을 다시 불러왔으니 새 답변을 확인한 뒤 학습시키세요."
   }
 }

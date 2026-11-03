@@ -25,6 +25,7 @@
  */
 
 import type { BuilderNode } from "@/components/flows/shared";
+import { aiReplyWaits } from "./ai-reply-node";
 
 const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link"]);
 
@@ -46,8 +47,14 @@ export function extraPorts(node: BuilderNode): Array<{ handle: string; field: st
   if (node.node_type === "payment_link") {
     ports.push({ handle: "expired", field: "expired_next", label: "Expired" }, { handle: "failed", field: "failed_next", label: "Failed" });
   }
+  // An AI reply always offers its handoff outcome (low confidence, no answer, AI unavailable).
+  if (node.node_type === "ai_reply") {
+    ports.push({ handle: "handoff", field: "handoff_next", label: "Handoff" });
+  }
   // A template waits only when it has quick-reply buttons.
-  const waits = WAITING_TYPES.has(node.node_type) && (node.node_type !== "send_template" || (Array.isArray(cfg.buttons) && cfg.buttons.length > 0));
+  const waits = (WAITING_TYPES.has(node.node_type) && (node.node_type !== "send_template" || (Array.isArray(cfg.buttons) && cfg.buttons.length > 0))) ||
+    // An AI reply waits for follow-ups only when it answers more than once.
+    (node.node_type === "ai_reply" && aiReplyWaits(cfg));
   if (waits && cfg.timeout_minutes !== undefined && cfg.timeout_minutes !== null) {
     ports.push({ handle: "timeout", field: "after_timeout", label: "Timeout" });
   }
@@ -116,6 +123,14 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
             target: next,
             sourceHandle: "next",
           });
+        }
+        break;
+      }
+
+      case "ai_reply": {
+        const answered = (cfg as { next_node_key?: string }).next_node_key;
+        if (answered && knownKeys.has(answered)) {
+          edges.push({ id: `${node.node_key}--answered--${answered}`, source: node.node_key, target: answered, sourceHandle: "answered", label: "Answered" });
         }
         break;
       }
@@ -279,6 +294,9 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "payment_link":
       return [{ id: "paid", label: "Paid" }];
 
+    case "ai_reply":
+      return [{ id: "answered", label: "Answered" }];
+
     case "condition":
       return [
         { id: "true", label: "true" },
@@ -375,6 +393,9 @@ export function applyEdgeConnection(
     case "payment_link":
       return sourceHandle === "paid" ? { paid_next: targetKey } : null;
 
+    case "ai_reply":
+      return sourceHandle === "answered" ? { next_node_key: targetKey } : null;
+
     case "condition":
       if (sourceHandle === "true") return { true_next: targetKey };
       if (sourceHandle === "false") return { false_next: targetKey };
@@ -461,7 +482,7 @@ export function unlinkNodeReferences(
   return nodes.map((n) => {
     const patched = patchedConfigWithoutKey(n, deletedKey);
     // Optional ports (skip / attempts used up / timeout) are cleared on any node type.
-    const ports = ["skip_next", "exhausted_next", "after_timeout", "expired_next", "failed_next"].filter((field) => n.config[field] === deletedKey);
+    const ports = ["skip_next", "exhausted_next", "after_timeout", "expired_next", "failed_next", "handoff_next"].filter((field) => n.config[field] === deletedKey);
     if (!patched && !ports.length) return n;
     return { ...n, config: { ...(patched ?? n.config), ...Object.fromEntries(ports.map((field) => [field, ""])) } };
   });
@@ -494,6 +515,9 @@ function patchedConfigWithoutKey(
 
     case "payment_link":
       return cfg.paid_next === deletedKey ? { ...cfg, paid_next: "" } : null;
+
+    case "ai_reply":
+      return cfg.next_node_key === deletedKey ? { ...cfg, next_node_key: "" } : null;
 
     case "condition": {
       const c = cfg as { true_next?: string; false_next?: string };

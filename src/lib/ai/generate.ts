@@ -6,6 +6,7 @@ import {
   type GenerateResult,
 } from './types'
 import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults'
+import { NO_ANSWER_SENTINEL } from './confidence'
 import { generateOpenAi } from './providers/openai'
 import { generateOpenAiCompatible } from './providers/openai-compatible'
 import { generateAnthropic } from './providers/anthropic'
@@ -17,6 +18,8 @@ export interface GenerateArgs {
   systemPrompt: string
   /** Recent conversation turns, oldest first. */
   messages: ChatMessage[]
+  /** Output token cap. Omit for chat replies (MAX_OUTPUT_TOKENS); JSON generators pass more. */
+  maxOutputTokens?: number
 }
 
 /**
@@ -25,7 +28,7 @@ export interface GenerateArgs {
  * of the raw text. Throws `AiError` on any provider/network failure.
  */
 export async function generateReply(args: GenerateArgs): Promise<GenerateResult> {
-  const { config, systemPrompt, messages } = args
+  const { config, systemPrompt, messages, maxOutputTokens } = args
   const timeoutMs = aiRequestTimeoutMs()
   const providerArgs = {
     apiKey: config.apiKey,
@@ -34,6 +37,7 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
     messages,
     timeoutMs,
     baseUrl: config.baseUrl,
+    ...(maxOutputTokens ? { maxOutputTokens } : {}),
   }
 
   let result: { text: string; usage: AiUsage | null }
@@ -74,15 +78,18 @@ export function parseGeneration(
   // Providers can put commentary in ordinary content even when separate
   // reasoning is excluded. Withhold the whole turn rather than guessing
   // which part is a safe customer answer.
+  // Both control phrases are stripped here, so no caller can ever send
+  // a raw [[HANDOFF]] or [[NO_ANSWER]] to a customer.
   const handoff = raw.includes(HANDOFF_SENTINEL)
-  const text = raw.split(HANDOFF_SENTINEL).join('').trim()
+  const noAnswer = raw.includes(NO_ANSWER_SENTINEL)
+  const text = raw.split(HANDOFF_SENTINEL).join('').split(NO_ANSWER_SENTINEL).join('').trim()
     .replace(/^(?:#{1,6}\s*)?[*_]{0,2}(?:response|reply|final (?:answer|response))[*_]{0,2}\s*:[*_]{0,2}\s*/i, '')
   const plain = text.replace(/[*_`]/g, '')
   const reasoningMarkup = /<\s*\/?\s*(?:think(?:ing)?|analysis|reasoning|scratchpad)\b|\[(?:analysis|reasoning)\]|<\|(?:analysis|channel|im_start|start_header_id)\|>/i
   const reasoningHeading = /(?:^|\n)[\t ]*(?:#{1,6}[\t ]*)?(?:reasoning|analysis|internal notes?|thought process|chain of thought|scratchpad)[\t ]*(?::|\r?$)/im
   const customerAnalysis = /(?:^|[\n.!?])\s*(?:#{1,6}\s*)?(?:(?:note|explanation)\s*:\s*)?the (?:user|customer) (?:appears|seems|is (?:asking|requesting|speaking|switching|writing))\b/i
   if (reasoningMarkup.test(raw) || reasoningHeading.test(plain) || customerAnalysis.test(plain)) {
-    return { text: '', handoff: true, usage }
+    return { text: '', handoff: true, usage, ...(noAnswer ? { noAnswer } : {}) }
   }
-  return { text, handoff, usage }
+  return { text, handoff, usage, ...(noAnswer ? { noAnswer } : {}) }
 }

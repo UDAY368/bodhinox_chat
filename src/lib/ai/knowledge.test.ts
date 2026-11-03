@@ -7,7 +7,7 @@ vi.mock('./embeddings', () => ({
   toVectorLiteral: (v: number[]) => `[${v.join(',')}]`,
 }))
 
-import { retrieveKnowledge, ingestDocument } from './knowledge'
+import { retrieveKnowledge, retrieveKnowledgeScored, ingestDocument } from './knowledge'
 
 interface FakeState {
   semantic: { id: string; content: string }[]
@@ -156,5 +156,79 @@ describe('ingestDocument', () => {
     // Chunks were inserted (lexical search works) despite the embed failure…
     expect(state.inserted).toHaveLength(1)
     expect(state.inserted![0].embedding).toBeNull()
+  })
+})
+
+describe('retrieveKnowledgeScored', () => {
+  function scoredDb(opts: {
+    semantic?: { id: string; content: string; distance: number }[]
+    fts?: { id: string; content: string; rank: number }[]
+    chunkDocs?: Record<string, string>
+    docs?: { id: string; title: string; source_url: string | null; account_id?: string }[]
+    failDocs?: boolean
+  }) {
+    const tables: string[] = []
+    const db = {
+      rpc: (name: string) => Promise.resolve({
+        data: name === 'match_ai_knowledge_semantic' ? opts.semantic ?? [] : opts.fts ?? [],
+        error: null,
+      }),
+      from: (table: string) => {
+        tables.push(table)
+        return {
+          select: () => ({
+            eq: () => Object.assign(Promise.resolve({ count: 3, error: null }), {
+              in: (_col: string, ids: string[]) => {
+                if (table === 'ai_knowledge_chunks') {
+                  return Promise.resolve({
+                    data: ids.filter((id) => opts.chunkDocs?.[id]).map((id) => ({ id, document_id: opts.chunkDocs![id] })),
+                    error: null,
+                  })
+                }
+                if (opts.failDocs) return Promise.resolve({ data: null, error: { code: 'XX000' } })
+                return Promise.resolve({ data: (opts.docs ?? []).filter((d) => ids.includes(d.id)), error: null })
+              },
+            }),
+          }),
+        }
+      },
+    }
+    return { db: db as unknown as DataClient, tables }
+  }
+
+  it('keeps semantic distances, lexical ranks and each chunk\'s document', async () => {
+    const { db } = scoredDb({
+      semantic: [{ id: 's1', content: 'S1', distance: 0.3 }],
+      fts: [{ id: 's1', content: 'S1', rank: 1.5 }, { id: 'f1', content: 'F1', rank: 0.7 }],
+      chunkDocs: { s1: 'd1', f1: 'd2' },
+      docs: [{ id: 'd1', title: 'Shipping', source_url: 'https://acme.test/ship' }, { id: 'd2', title: 'FAQ', source_url: null }],
+    })
+    const out = await retrieveKnowledgeScored(db, 'acct', { embeddingsApiKey: 'sk-x' }, 'q', 3)
+    expect(out.retrieval).toEqual({ semanticDistances: [0.3], lexicalRanks: [1.5, 0.7] })
+    expect(out.chunks).toEqual([
+      { id: 's1', content: 'S1', distance: 0.3, rank: 1.5, document_id: 'd1', title: 'Shipping', source_url: 'https://acme.test/ship' },
+      { id: 'f1', content: 'F1', rank: 0.7, document_id: 'd2', title: 'FAQ', source_url: null },
+    ])
+  })
+
+  it('returns no chunks and null retrieval when nothing matched', async () => {
+    const { db, tables } = scoredDb({})
+    expect(await retrieveKnowledgeScored(db, 'acct', { embeddingsApiKey: null }, 'q')).toEqual({ chunks: [], retrieval: null })
+    expect(tables).not.toContain('ai_knowledge_documents')
+  })
+
+  it('leaves document fields null when the document lookup fails', async () => {
+    const { db } = scoredDb({ fts: [{ id: 'f1', content: 'F1', rank: 1 }], chunkDocs: { f1: 'd1' }, failDocs: true })
+    const out = await retrieveKnowledgeScored(db, 'acct', { embeddingsApiKey: null }, 'q')
+    expect(out.chunks).toEqual([{ id: 'f1', content: 'F1', rank: 1, document_id: null, title: null, source_url: null }])
+  })
+
+  it('logs only an error name when semantic search fails, never the query', async () => {
+    h.embedTexts.mockRejectedValue(new Error('embedding failed for: secret customer question'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { db } = scoredDb({ fts: [{ id: 'f1', content: 'F1', rank: 1 }] })
+    await retrieveKnowledgeScored(db, 'acct', { embeddingsApiKey: 'sk-x' }, 'secret customer question')
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('secret customer question')
+    warn.mockRestore()
   })
 })

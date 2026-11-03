@@ -15,6 +15,8 @@ export interface ProviderArgs {
   timeoutMs: number
   /** Custom OpenAI-compatible base URL; omitted for native providers. */
   baseUrl?: string | null
+  /** Output token cap; defaults to MAX_OUTPUT_TOKENS (short chat replies). */
+  maxOutputTokens?: number
 }
 
 /**

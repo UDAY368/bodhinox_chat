@@ -33,6 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TemplateGallery, type TemplateSummary } from "@/components/flows/template-gallery";
+import { AiGenerateFlowButton } from "@/components/flows/ai-generate-dialog";
 import type { AccountMember } from "@/types";
 import { cn } from "@/lib/utils";
 import { creatorLabel, type CreatorLabel } from "@/lib/flows/creator-label";
@@ -369,6 +370,7 @@ export default function FlowsPage() {
           </div>
 
           <DialogFooter>
+            <AiGenerateFlowButton disabled={creating} onCreated={(id) => { setCreateOpen(false); router.push(`/flows/${id}`); }} />
             <Button
               variant="ghost"
               onClick={() => setCreateOpen(false)}

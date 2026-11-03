@@ -86,7 +86,7 @@ export async function generateGemini(args: ProviderArgs): Promise<ProviderResult
           role: turn.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: turn.content }],
         })),
-        generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS },
+        generationConfig: { maxOutputTokens: args.maxOutputTokens ?? MAX_OUTPUT_TOKENS },
       }),
       signal: AbortSignal.timeout(timeoutMs),
       redirect: 'manual',

@@ -132,7 +132,7 @@ function slotColor(nodeType: NodeType, slotId: string, fallback: string) {
 
 /** Optional ports (edges.ts extraPorts) carry English labels; show them translated. */
 const PORT_LABELS: Record<string, string> = { skip: 'ports.skip', exhausted: 'ports.exhausted', timeout: 'ports.timeout', fallback: 'ports.fallback',
-  paid: 'ports.paid', expired: 'ports.expired', failed: 'ports.failed' };
+  paid: 'ports.paid', expired: 'ports.expired', failed: 'ports.failed', answered: 'ports.answered', handoff: 'ports.handoff' };
 
 function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
   const t = useTranslations('Flows.builder');

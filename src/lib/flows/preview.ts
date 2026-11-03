@@ -36,7 +36,8 @@ export type PreviewNote =
   | "invalid_answer"
   | "exhausted"
   | "timeout"
-  | "fallback";
+  | "fallback"
+  | "ai_reply";
 
 export interface PreviewMessage {
   id: number;
@@ -260,6 +261,8 @@ function nextFor(node: BuilderNode, optionId: string): string {
       return str(rows(cfg.buttons).find((b) => b.reply_id === optionId)?.next_node_key);
     case "payment_link":
       return str(cfg[`${optionId}_next`]);
+    case "ai_reply":
+      return str(optionId === "handoff" ? cfg.handoff_next : cfg.next_node_key);
     case "send_list":
       for (const section of rows(cfg.sections)) {
         const row = rows(section.rows).find((r) => r.reply_id === optionId);
@@ -368,6 +371,13 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
         // The engine creates the link at Razorpay; a placeholder URL stands in for it. The author picks the outcome.
         push({ from: "bot", nodeKey, text: [str(cfg.message).trim(), "https://rzp.io/…"].filter(Boolean).join("\n") });
         return wait(nodeKey, { kind: "branch", options: [{ id: "paid", label: "paid" }, { id: "expired", label: "expired" }, { id: "failed", label: "failed" }] }, ports);
+
+      case "ai_reply":
+        // Nothing is generated here: a note stands in for the AI's answer, and the
+        // author picks whether it answered or handed off. With more than one turn,
+        // "answered" stands for the last answer the step sends.
+        push({ from: "system", nodeKey, note: "ai_reply", detail: str(cfg.var_key) || undefined });
+        return wait(nodeKey, { kind: "branch", options: [{ id: "answered", label: "answered" }, { id: "handoff", label: "handoff" }] }, ports);
 
       case "send_form":
         // The form opens from its button; typed replies are off-script, as in the engine.

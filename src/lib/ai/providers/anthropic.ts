@@ -57,7 +57,7 @@ export async function generateAnthropic(args: ProviderArgs): Promise<ProviderRes
       body: JSON.stringify({
         model,
         system: systemPrompt,
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_tokens: args.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
         messages: normalizeForAnthropic(messages),
       }),
       signal: AbortSignal.timeout(timeoutMs),

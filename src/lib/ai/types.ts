@@ -62,6 +62,9 @@ export interface GenerateResult {
   text: string
   /** True when the model asked to hand off to a human (auto-reply mode). */
   handoff: boolean
+  /** True when the model said the knowledge does not cover the question
+   *  (NO_ANSWER_SENTINEL, stripped from `text`). */
+  noAnswer?: boolean
   /** Provider token usage for this call, or null when unavailable. */
   usage: AiUsage | null
 }

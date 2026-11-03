@@ -61,6 +61,13 @@ describe('parseGeneration', () => {
     })
   })
 
+  it('detects + strips the no-answer sentinel so no caller can send it', () => {
+    expect(parseGeneration('[[NO_ANSWER]]')).toEqual({ text: '', handoff: false, noAnswer: true, usage: null })
+    const mixed = parseGeneration('Not sure [[NO_ANSWER]] [[HANDOFF]]')
+    expect(mixed).toMatchObject({ handoff: true, noAnswer: true })
+    expect(mixed.text).not.toContain('[[')
+  })
+
   it('passes usage straight through', () => {
     const usage = { promptTokens: 10, completionTokens: 5, totalTokens: 15 }
     expect(parseGeneration('Hi', usage)).toEqual({
@@ -307,4 +314,30 @@ describe('generateReply — OpenAI-compatible', () => {
 
     expect(fetchMock.mock.calls[0][1].redirect).toBe('manual')
   })
+})
+
+describe('generateReply — output token cap', () => {
+  const cases = [
+    { provider: 'openai', field: (b: Record<string, unknown>) => b.max_completion_tokens, response: { choices: [{ message: { content: 'ok' } }] } },
+    { provider: 'anthropic', field: (b: Record<string, unknown>) => b.max_tokens, response: { content: [{ type: 'text', text: 'ok' }] } },
+    { provider: 'gemini', field: (b: Record<string, unknown>) => (b.generationConfig as { maxOutputTokens: number }).maxOutputTokens, response: { candidates: [{ content: { parts: [{ text: 'ok' }] } }] } },
+    { provider: 'openai_compatible', field: (b: Record<string, unknown>) => b.max_tokens, response: { choices: [{ message: { content: 'ok' } }] } },
+  ] as const
+
+  for (const c of cases) {
+    it(`${c.provider}: keeps the 1024 chat-reply default and honours an explicit cap`, async () => {
+      const fetchMock = vi.fn().mockImplementation(async () =>
+        new Response(JSON.stringify(c.response), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      vi.stubGlobal('fetch', fetchMock)
+      const base = {
+        config: config({ provider: c.provider, ...(c.provider === 'openai_compatible' ? { baseUrl: 'https://8.8.8.8/v1/' } : {}) }),
+        systemPrompt: 'sys',
+        messages: [{ role: 'user' as const, content: 'Hi' }],
+      }
+      await generateReply(base)
+      await generateReply({ ...base, maxOutputTokens: 8192 })
+      expect(c.field(JSON.parse(fetchMock.mock.calls[0][1].body))).toBe(1024)
+      expect(c.field(JSON.parse(fetchMock.mock.calls[1][1].body))).toBe(8192)
+    })
+  }
 })

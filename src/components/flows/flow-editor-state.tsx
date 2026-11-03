@@ -228,6 +228,9 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       };
     case "set_tag":
       return { mode: "add", tag_id: "", next_node_key: "" };
+    case "ai_reply":
+      // One answer from the knowledge base; both ports are wired by the author.
+      return { instructions: "", use_knowledge: true, max_turns: 1, next_node_key: "", handoff_next: "" };
     case "handoff":
       return { note: "" };
     case "end":

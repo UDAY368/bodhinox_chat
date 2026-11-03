@@ -29,7 +29,16 @@ const h = vi.hoisted(() => ({
 
 vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
 vi.mock('./context', () => ({ buildConversationContext: h.buildConversationContext }))
-vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }))
+// The tests keep handing back excerpts; the scored search wraps them.
+vi.mock('./knowledge', () => ({
+  retrieveKnowledgeScored: async (...args: unknown[]) => {
+    const excerpts = ((await h.retrieveKnowledge(...args)) ?? []) as string[]
+    return {
+      chunks: excerpts.map((content, i) => ({ id: `c${i}`, content, document_id: null, title: null, source_url: null })),
+      retrieval: null,
+    }
+  },
+}))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: h.requireAiMessageRoom, recordAiMessage: h.recordAiMessage }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
@@ -310,7 +319,7 @@ describe('dispatchInboundToAiReply — typing indicator (#527)', () => {
     )
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('typing indicator failed'),
-      expect.any(Error),
+      { error: 'Error' },
     )
     warn.mockRestore()
   })

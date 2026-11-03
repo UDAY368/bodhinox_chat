@@ -567,7 +567,12 @@ model ai_knowledge_documents {
   content String
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  source_id String? @db.Uuid
+  source_url String?
+  content_hash String?
+  fetched_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
+  @@unique([account_id, source_id, source_url], map: "ai_knowledge_documents_source_page_key")
 }
 
 model ai_knowledge_chunks {
@@ -1367,4 +1372,54 @@ model downgrade_selections {
   chosen_by String? @db.Uuid
   chosen_at DateTime @db.Timestamptz(6) @default(now())
   applied_at DateTime? @db.Timestamptz(6)
+}
+
+// 20261103100000_ai_agents.
+model ai_knowledge_sources {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  url String?
+  title String
+  status String  @default("queued")
+  page_limit Int  @default(50)
+  pages_indexed Int  @default(0)
+  last_crawled_at DateTime? @db.Timestamptz(6)
+  error String?
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model ai_agent_profiles {
+  account_id String @db.Uuid @id @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  business_name String?
+  business_type String?
+  website_url String?
+  instructions String?
+  greeting String?
+  tone String?
+  handoff_rules Json @db.JsonB @default("{}")
+  setup_completed_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model ai_unanswered_questions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String? @db.Uuid
+  contact_id String? @db.Uuid
+  question String
+  normalized_question String
+  occurrences Int  @default(1)
+  last_asked_at DateTime @db.Timestamptz(6) @default(now())
+  status String  @default("open")
+  answer String?
+  answered_by String? @db.Uuid
+  answered_at DateTime? @db.Timestamptz(6)
+  promoted_document_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, status, last_asked_at(sort: Desc)], map: "ai_unanswered_questions_list_idx")
 }
