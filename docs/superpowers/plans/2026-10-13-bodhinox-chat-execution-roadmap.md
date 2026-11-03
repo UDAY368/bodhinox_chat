@@ -207,13 +207,13 @@ Completion gate: a permitted real inbound conversation creates/matches the conta
 
 Dependencies: Phases 4–6.
 
-- [ ] Implement services, practitioners, locations, working hours, exceptions/holidays, capacity, duration/pricing and customer booking links.
-- [ ] Enforce Monday-only offline free consultation when enabled; keep it tenant/service configurable.
-- [ ] Implement atomic booking/conflict checks, confirmation, cancellation, rescheduling, staff notifications and customer status views.
-- [ ] Schedule one-day and two-hour reminders; skip times already passed for late bookings rather than sending overdue reminders immediately.
-- [ ] Replace reminders on rescheduling, cancel obsolete jobs and recheck booking version/status at dispatch.
-- [ ] Support configurable online meetings: initially an authorized supplied link; automatic meeting creation/attendance via approved integration when ready.
-- [ ] Implement consultation/chiropractic completion, attendance/no-show, feedback, next-step tasks and rebooking follow-up.
+- [x] Implement services, practitioners, locations, working hours, exceptions/holidays, capacity, duration/pricing and customer booking links.
+- [x] Enforce Monday-only offline free consultation when enabled; keep it tenant/service configurable.
+- [x] Implement atomic booking/conflict checks, confirmation, cancellation, rescheduling, staff notifications and customer status views.
+- [x] Schedule one-day and two-hour reminders; skip times already passed for late bookings rather than sending overdue reminders immediately.
+- [x] Replace reminders on rescheduling, cancel obsolete jobs and recheck booking version/status at dispatch.
+- [x] Support configurable online meetings: initially an authorized supplied link; automatic meeting creation/attendance via approved integration when ready.
+- [x] Implement consultation/chiropractic completion, attendance/no-show, feedback, next-step tasks and rebooking follow-up.
 
 Deliverable: complete free-consultation and chiropractic journeys.
 

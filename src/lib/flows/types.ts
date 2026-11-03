@@ -247,6 +247,34 @@ export interface PaymentLinkNodeConfig {
 }
 
 /**
+ * Book appointment: offers free times as WhatsApp lists (service, then
+ * practitioner when the customer chooses, then day, then time) and books the
+ * time the customer taps (lib/appointments/booking, source 'flow', idempotent
+ * per run, node and transition). Continues on `success_next` with
+ * `appointment_id` and `appointment_local_time` in vars (never the manage
+ * link); on `unavailable_next` when nothing can be booked or the replies run
+ * out; on `cancelled_next` when the customer taps Cancel. An unwired
+ * unavailable/cancelled port ends the run. May carry a reply timeout.
+ * Engine: engine.ts (runAppointmentStep / handleAppointmentReply),
+ * lib/flows/appointment-node.ts and appointment-runtime.ts.
+ */
+export interface BookAppointmentNodeConfig {
+  /** appointment_services ids, at most 9; empty or absent offers every bookable service. */
+  service_ids?: string[];
+  /** Only services of this mode (the J2 online/offline choice); absent = both. */
+  service_mode?: "online" | "offline";
+  /** appointment_locations id; absent = the first location offering the chosen service. */
+  location_id?: string;
+  /** 'choose' lets the customer pick the practitioner; 'any' (default) books any free one. */
+  staff_mode?: "any" | "choose";
+  /** Days ahead to look for free times, 1–14 (default 7). */
+  days_ahead?: number;
+  success_next: string;
+  unavailable_next?: string;
+  cancelled_next?: string;
+}
+
+/**
  * Sends an approved WhatsApp template. A template with quick-reply
  * buttons waits for a tap and routes per button (same `buttons` shape
  * as send_buttons, plus the template button `index`); one without
@@ -475,6 +503,7 @@ export type FlowNodeConfig =
   | { node_type: "send_product_list"; config: SendProductListNodeConfig }
   | { node_type: "send_catalog"; config: SendCatalogNodeConfig }
   | { node_type: "payment_link"; config: PaymentLinkNodeConfig }
+  | { node_type: "book_appointment"; config: BookAppointmentNodeConfig }
   | { node_type: "ai_reply"; config: AiReplyNodeConfig }
   | { node_type: "conversion_event"; config: ConversionEventNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }

@@ -129,6 +129,19 @@ The **Ads** page (sidebar) collects what happens after someone taps a click-to-W
 
 Creating or editing ads is done in Meta Ads Manager; Bodhinox does not create ads or spend budget.
 
+## 9b. Appointments and booking pages
+
+The **Appointments** page (sidebar) books consultations, confirms them on WhatsApp and follows up after the visit.
+
+1. **Set up (admins).** Add **Locations** (each with its own time zone), **Services** (duration, buffer, capacity, price, in person or online with a meeting link, and the days it can be booked: the *Offline free consultation: Monday only* preset allows Mondays only, judged on the location's local date), and **Staff & hours** (weekly hours per practitioner and location). A service at a location is either a shared calendar or offered by named practitioners, not both. Add **Holidays & exceptions** for closed days or changed hours.
+2. **Booking page.** Under **Booking pages**, choose a slug, the services, optionally a location and the WhatsApp number, and share the link `/book/<slug>`. Visitors choose a service, place, practitioner (or any available), a date and a time (always shown in the location's time zone), optionally their name, city and state, and get a code. The slot is held for 15 minutes; it becomes a booking when they send `BOOK <code>` to your WhatsApp number from their own phone. The page never asks for a phone number.
+3. **Customer link.** Confirmed customers receive a link to their booking. It shows the service, practitioner, place, time and price (and the meeting link from 24 hours before an online visit), and lets them cancel or move the booking until the cutoff set in settings (default 2 hours before). It never shows their name or phone, so it is safe if forwarded.
+4. **Reminders.** Sent 24 hours and 2 hours before the visit when the toggles are on; a reminder that would be late is skipped, never sent late, and a booking that was moved or cancelled never gets the old reminder. Outside the 24-hour WhatsApp window you need approved **Utility** templates in settings.
+5. **After the visit.** Mark **Completed** or **No-show** (recorded by staff). A no-show creates a follow-up task; a completed visit can send a feedback message and creates a rebooking task when the service has those settings. Do not record clinical details in the staff note.
+6. **Flows and automations.** The **Book appointment** flow step lets customers book inside a WhatsApp conversation; the triggers *Appointment booked / cancelled / rescheduled / completed / no-show* start automations.
+
+Payment before confirmation is not available yet: services that require advance payment cannot be booked.
+
 ## 10. Other functionality and where to go next
 
 **Inbox:** use quick replies from Settings, send permitted text/media/templates or interactive choices, assign conversations, mark status/unread, and deliberately pause/resume bot handoff. **Contacts:** edit profile, tags, custom fields and notes. **Settings:** profile, password/security/MFA, appearance, browser notifications, account/team, WhatsApp, templates, quick replies, fields/tags, deals/currency and API keys. **Integrations:** public scoped API keys, outbound signed webhooks and an MCP API client are implemented for later integrations; use minimal scopes and test delivery. **Live updates:** authenticated server-sent events refresh the UI, while a separate worker handles durable jobs.

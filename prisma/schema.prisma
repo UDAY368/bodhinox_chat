@@ -1604,3 +1604,219 @@ model capi_events {
   @@unique([account_id, id])
   @@index([account_id, status, created_at(sort: Desc)], map: "capi_events_review")
 }
+
+// Phase 7: appointments (prisma/migrations/20261106100000_appointments). Domain
+// code uses raw SQL inside withTenant; these models document the shape.
+model appointment_settings {
+  account_id String @db.Uuid @id @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  hold_minutes Int @default(15)
+  max_active_holds_per_page Int @default(20)
+  min_notice_minutes Int @default(60)
+  horizon_days Int @default(60)
+  customer_cancel_cutoff_minutes Int @default(120)
+  reminder_24h Boolean @default(true)
+  reminder_2h Boolean @default(true)
+  staff_notify Boolean @default(true)
+  confirm_template_name String?
+  confirm_template_language String?
+  reminder_template_name String?
+  reminder_template_language String?
+  change_template_name String?
+  change_template_language String?
+  feedback_template_name String?
+  feedback_template_language String?
+  rebook_template_name String?
+  rebook_template_language String?
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+model appointment_locations {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  address String?
+  timezone String
+  kind String @default("physical")
+  archived_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model appointment_services {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  mode String
+  duration_minutes Int
+  buffer_minutes Int @default(0)
+  slot_step_minutes Int?
+  capacity Int @default(1)
+  price_minor BigInt?
+  currency String?
+  payment_required Boolean @default(false)
+  allowed_weekdays Int[] @db.SmallInt
+  meeting_url String?
+  feedback_delay_minutes Int?
+  rebook_after_days Int?
+  archived_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model appointment_staff {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  display_name String
+  user_id String? @db.Uuid
+  archived_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model appointment_offerings {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  service_id String @db.Uuid
+  staff_id String? @db.Uuid
+  location_id String @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model appointment_hours {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  staff_id String? @db.Uuid
+  location_id String @db.Uuid
+  hours Json @db.JsonB
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model appointment_exceptions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  staff_id String? @db.Uuid
+  location_id String @db.Uuid
+  starts_on DateTime @db.Date
+  ends_on DateTime @db.Date
+  ranges Json? @db.JsonB
+  reason String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, location_id, starts_on, ends_on], map: "appointment_exceptions_range_idx")
+}
+
+model booking_pages {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  slug String @unique
+  title String
+  active Boolean @default(true)
+  location_id String? @db.Uuid
+  whatsapp_config_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+}
+
+model booking_page_services {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  page_id String @db.Uuid
+  service_id String @db.Uuid
+  @@id([account_id, page_id, service_id])
+}
+
+model appointments {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String? @db.Uuid
+  service_id String @db.Uuid
+  staff_id String? @db.Uuid
+  location_id String @db.Uuid
+  start_at DateTime @db.Timestamptz(6)
+  end_at DateTime @db.Timestamptz(6)
+  timezone String
+  /// GENERATED ALWAYS AS ((start_at AT TIME ZONE timezone)::date) STORED; never written.
+  local_date DateTime? @db.Date @default(dbgenerated())
+  status String
+  version Int @default(1)
+  source String
+  source_ref String?
+  booking_page_id String? @db.Uuid
+  hold_expires_at DateTime? @db.Timestamptz(6)
+  hold_code String?
+  intake Json? @db.JsonB
+  hold_client_hash String?
+  confirmed_at DateTime? @db.Timestamptz(6)
+  price_minor BigInt?
+  currency String?
+  meeting_url String?
+  service_name String
+  manage_token_hash String? @unique
+  token_epoch Int @default(1)
+  cancel_reason String?
+  outcome_note String?
+  feedback_score Int? @db.SmallInt
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@unique([account_id, source_ref])
+  @@index([account_id, contact_id, start_at], map: "appointments_contact_idx")
+  @@index([account_id, local_date], map: "appointments_local_date_idx")
+}
+
+model appointment_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  appointment_id String @db.Uuid
+  version Int
+  kind String
+  old_start_at DateTime? @db.Timestamptz(6)
+  new_start_at DateTime? @db.Timestamptz(6)
+  actor String
+  actor_user_id String? @db.Uuid
+  detail String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, appointment_id, created_at], map: "appointment_events_appointment_idx")
+  @@index([account_id, created_at], map: "appointment_events_created_idx")
+}
+
+model appointment_messages {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  appointment_id String @db.Uuid
+  version Int
+  kind String
+  status String
+  reason String?
+  resolved_at DateTime? @db.Timestamptz(6)
+  resolved_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@unique([account_id, appointment_id, version, kind])
+}
+
+model tasks {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String? @db.Uuid
+  appointment_id String? @db.Uuid
+  kind String
+  title String
+  due_at DateTime? @db.Timestamptz(6)
+  assigned_to String? @db.Uuid
+  status String @default("open")
+  created_by String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, status, due_at], map: "tasks_open_idx")
+  @@index([account_id, appointment_id], map: "tasks_appointment_idx")
+}

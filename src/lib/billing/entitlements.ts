@@ -65,6 +65,7 @@ const FEATURE_NAMES: Record<Feature, string> = {
   click_tracking: 'Click tracking',
   retargeting: 'Retargeting by campaign',
   workspace_attributes: 'Workspace attributes',
+  appointments: 'Appointments',
 };
 const LIMIT_NAMES: Record<LimitKey, string> = {
   seats: 'team members',
@@ -77,6 +78,7 @@ const LIMIT_NAMES: Record<LimitKey, string> = {
   monthly_active_contacts: 'active contacts this month',
   storage_bytes: 'bytes of media storage',
   whatsapp_numbers: 'WhatsApp numbers',
+  appointment_staff: 'practitioners',
 };
 
 export async function requireFeature(tx: TenantTransaction, accountId: string, feature: Feature): Promise<void> {

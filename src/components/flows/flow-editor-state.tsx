@@ -201,6 +201,9 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { form_id: "", cta: "", body: "", var_key: "form", next_node_key: "" };
     case "payment_link":
       return { amount: "", currency: "INR", description: "", message: "", paid_next: "", expired_next: "", failed_next: "" };
+    case "book_appointment":
+      // No services picked = every bookable service, so a fresh step works as soon as appointments are set up.
+      return { service_ids: [], staff_mode: "any", days_ahead: 7, success_next: "", unavailable_next: "", cancelled_next: "" };
     case "send_product":
       return { product_retailer_id: "", body_text: "", next_node_key: "" };
     case "send_product_list":

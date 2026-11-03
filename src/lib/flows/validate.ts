@@ -31,6 +31,7 @@ import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
 import { commerceNodeIssues, isCommerceNodeType } from "./commerce-nodes";
 import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
 import { PAYMENT_LINK_VARS, paymentLinkEdges, paymentLinkIssues } from "./payment-node";
+import { BOOK_APPOINTMENT_VARS, bookAppointmentEdges, bookAppointmentIssues } from "./appointment-node";
 import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai-reply-node";
 import { conversionEdges, conversionIssues } from "./conversion-node";
 import { parseDateInput } from "./input-formats";
@@ -1080,6 +1081,10 @@ function validateNode(
       issues.push(...paymentLinkIssues(node, knownKeys));
       break;
 
+    case "book_appointment":
+      issues.push(...bookAppointmentIssues(node, knownKeys));
+      break;
+
     case "ai_reply":
       // Checked by aiReplyIssues, which also knows whether AI is set up.
       break;
@@ -1143,7 +1148,7 @@ const MAX_CONDITION_RULES = 10;
 const SET_ATTRIBUTE_MAX = 1000;
 const MAX_API_ROUTES = 5;
 /** Nodes that wait for the customer, so a reply timeout means something. */
-const WAITING_TYPES = ["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link"];
+const WAITING_TYPES = ["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link", "book_appointment"];
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Meta's limits on the flow message around a form. */
 export const SEND_FORM_LIMITS = { cta: 30, body: 1024, header: 60, footer: 60 } as const;
@@ -1183,7 +1188,7 @@ function waitsForReply(node: NodeInput): boolean {
   return WAITING_TYPES.includes(node.node_type);
 }
 /** Config keys that hold routing or patterns rather than customer-visible text. */
-const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target", "paid_next", "expired_next", "failed_next", "currency", "handoff_next", "instructions"];
+const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target", "paid_next", "expired_next", "failed_next", "success_next", "unavailable_next", "cancelled_next", "service_ids", "location_id", "currency", "handoff_next", "instructions"];
 
 /** Variables a node stores for the nodes after it. */
 function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
@@ -1193,6 +1198,7 @@ function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
     return Array.isArray(cfg.mappings) ? (cfg.mappings as Array<{ var_key?: unknown }>).map((m) => m?.var_key).filter((k): k is string => typeof k === "string") : [];
   }
   if (node.node_type === "payment_link") return [...PAYMENT_LINK_VARS];
+  if (node.node_type === "book_appointment") return [...BOOK_APPOINTMENT_VARS];
   if (node.node_type === "ai_reply") return typeof cfg.var_key === "string" && cfg.var_key ? [cfg.var_key] : [];
   const key = typeof cfg.var_key === "string" ? cfg.var_key : null;
   if (!key) return [];
@@ -1306,6 +1312,9 @@ function outgoingEdges(node: NodeInput): string[] {
       break;
     case "payment_link":
       paymentLinkEdges(cfg).forEach(add);
+      break;
+    case "book_appointment":
+      bookAppointmentEdges(cfg).forEach(add);
       break;
     case "ai_reply":
       aiReplyEdges(cfg).forEach(add);

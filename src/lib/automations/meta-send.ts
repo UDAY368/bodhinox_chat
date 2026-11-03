@@ -1,4 +1,5 @@
 import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause'
+import { assertOutboundAllowed } from '@/lib/billing/suspension'
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
@@ -56,6 +57,12 @@ interface SendTextArgs {
   conversationId: string
   contactId: string
   text: string
+  /**
+   * A service message the customer asked for (appointment confirmations
+   * and reminders). It still needs an unsuspended workspace, but an agent
+   * taking over the conversation does not hold it back (INB-02).
+   */
+  serviceMessage?: true
 }
 
 interface SendTemplateArgs {
@@ -70,6 +77,8 @@ interface SendTemplateArgs {
   messageParams?: SendTimeParams
   /** Automations send body values only; refuse templates that need more. */
   bodyValuesOnly?: boolean
+  /** See SendTextArgs.serviceMessage. */
+  serviceMessage?: true
 }
 
 export async function engineSendText(args: SendTextArgs): Promise<{ whatsapp_message_id: string }> {
@@ -131,8 +140,17 @@ type SendInput =
   (SendTextArgs & { kind: 'text' })
   | (SendTemplateArgs & { kind: 'template' })
 
+/**
+ * Bot sends stop while an agent has taken over; service messages skip only
+ * that pause. Both still refuse a suspended workspace.
+ */
+async function assertMaySend(input: SendInput): Promise<void> {
+  if (input.serviceMessage) await assertOutboundAllowed(input.accountId)
+  else await assertBotRepliesEnabled(input.accountId, input.conversationId)
+}
+
 async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: string }> {
-  await assertBotRepliesEnabled(input.accountId, input.conversationId)
+  await assertMaySend(input)
   const db = databaseAdmin()
 
   // Scope the contact + config lookups by account_id, not user_id.
@@ -217,7 +235,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
       : undefined
 
   const attempt = async (phone: string): Promise<string> => {
-    await assertBotRepliesEnabled(input.accountId, input.conversationId)
+    await assertMaySend(input)
     if (input.kind === 'template') {
       const r = await sendTemplateMessage({
         phoneNumberId: config.phone_number_id,

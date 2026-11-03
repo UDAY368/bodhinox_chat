@@ -9,6 +9,9 @@ import {
   AlarmClock,
   AtSign,
   Bell,
+  CalendarCheck,
+  CalendarClock,
+  CalendarX,
   CheckCheck,
   CreditCard,
   FileX,
@@ -36,6 +39,9 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   campaign_finished: Megaphone,
   template_rejected: FileX,
   billing: CreditCard,
+  appointment_booked: CalendarCheck,
+  appointment_cancelled: CalendarX,
+  appointment_rescheduled: CalendarClock,
 };
 
 export default function NotificationsPage() {
@@ -145,6 +151,9 @@ export default function NotificationsPage() {
       } else if (n.type === "whatsapp_number_health") {
         // Number health alerts open the WhatsApp numbers settings.
         router.push("/settings?tab=whatsapp");
+      } else if (n.type.startsWith("appointment_")) {
+        // Booking alerts carry /appointments?id=<id>; without it, open the schedule.
+        router.push("/appointments");
       }
     },
     [markRead, router],

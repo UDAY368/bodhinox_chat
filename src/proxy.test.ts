@@ -62,4 +62,47 @@ describe('proxy cookie protections', () => {
     expect(response.status).toBe(401);
     expect(mocks.mutation).not.toHaveBeenCalled();
   });
+  it('protects the staff appointments page', async () => {
+    const response = await proxy(new NextRequest('https://crm.test/appointments?tab=services'));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('/login');
+  });
+});
+describe('public booking exemption', () => {
+  const post = (cookie?: string) =>
+    proxy(
+      new NextRequest('https://crm.test/api/public/booking/clinic', {
+        method: 'POST',
+        headers: cookie ? { cookie } : {},
+      })
+    );
+  it('passes an anonymous POST to the route', async () => {
+    const response = await post();
+    expect(response.status).toBe(200);
+    expect(mocks.resolve).not.toHaveBeenCalled();
+  });
+  it('passes a POST with a live staff session and no CSRF header to the route', async () => {
+    mocks.resolve.mockResolvedValue({ userId: 'user' });
+    mocks.mutation.mockRejectedValue(new ForbiddenError('Invalid CSRF token'));
+    const response = await post('bnx_access=jwt');
+    expect(response.status).toBe(200);
+    expect(mocks.mutation).not.toHaveBeenCalled();
+  });
+  it('passes a POST with an expired session cookie to the route', async () => {
+    const response = await post('bnx_refresh=opaque');
+    expect(response.status).toBe(200);
+  });
+  it('leaves the public pages and the manage API unauthenticated', async () => {
+    for (const path of ['/book/clinic', '/my-booking/abc', '/api/public/booking/manage/abc'])
+      expect((await proxy(new NextRequest(`https://crm.test${path}`))).status, path).toBe(200);
+  });
+  it('does not exempt a look-alike prefix', async () => {
+    const response = await proxy(
+      new NextRequest('https://crm.test/api/public/bookingx', {
+        method: 'POST',
+        headers: { cookie: 'bnx_refresh=opaque' },
+      })
+    );
+    expect(response.status).toBe(401);
+  });
 });

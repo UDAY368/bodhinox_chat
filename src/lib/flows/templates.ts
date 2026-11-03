@@ -20,6 +20,7 @@
  */
 
 import type {
+  BookAppointmentNodeConfig,
   AskAddressNodeConfig,
   AskLocationNodeConfig,
   AskMediaNodeConfig,
@@ -47,6 +48,7 @@ export type FlowTemplateNodeType =
   | "ask_media"
   | "ask_location"
   | "ask_address"
+  | "book_appointment"
   | "handoff"
   | "end";
 
@@ -65,6 +67,7 @@ export interface FlowTemplateNode {
     | AskMediaNodeConfig
     | AskLocationNodeConfig
     | AskAddressNodeConfig
+    | BookAppointmentNodeConfig
     | Record<string, unknown>;
 }
 
@@ -388,6 +391,19 @@ const setVar = (key: string, varKey: string, value: string, next: string) =>
 const setContact = (key: string, field: "name" | "email", value: string, next: string) =>
   node(key, "set_attribute", { target: "contact_field", key: field, value, next_node_key: next } as SetAttributeNodeConfig);
 const handoff = (key: string, note: string) => node(key, "handoff", { note } as HandoffNodeConfig);
+/**
+ * Offers the workspace's free times and books one. No service ids, so the
+ * template works in any workspace: every bookable service is offered, and
+ * with appointments not set up the step takes its unavailable port.
+ */
+const book = (key: string, ports: { success: string; unavailable: string; cancelled: string }, extra: Partial<BookAppointmentNodeConfig> = {}) =>
+  node(key, "book_appointment", {
+    staff_mode: "any",
+    ...extra,
+    success_next: ports.success,
+    unavailable_next: ports.unavailable,
+    cancelled_next: ports.cancelled,
+  } as BookAppointmentNodeConfig);
 const END = node("end", "end", {});
 const v = (key: string) => `{{vars.${key}}}`;
 
@@ -595,8 +611,11 @@ function clinicAppointment(): FlowTemplate {
     ["afternoon", s("afternoonButton")],
     ["evening", s("eveningButton")],
   ]);
+  // Books a real time when the workspace has appointments set up; otherwise
+  // (or when nothing is free) the request goes to the front desk as before.
   return template("clinic_appointment", "health", "CalendarCheck", "keyword", [
-    startAt("department"),
+    startAt("book"),
+    book("book", { success: "end", unavailable: "department", cancelled: "end" }),
     list("department", s("text"), s("buttonLabel"), department.rows),
     ...department.nodes,
     ask("ask_name", s("askName"), "patient_name", "save_name"),
@@ -608,6 +627,37 @@ function clinicAppointment(): FlowTemplate {
     handoff("agent", s("handoffNote", {
       department: v("department"), name: v("patient_name"), date: v("date"), time: v("time"),
     })),
+    END,
+  ]);
+}
+
+/**
+ * Journey J2: online or in-person free consultation. The customer picks the
+ * mode and registers (name, city, state); the booking step then offers only
+ * services of that mode. A Monday-only rule is the service's own setting.
+ */
+function freeConsultation(): FlowTemplate {
+  const s = scoped("free_consultation");
+  const ports = { success: "end", unavailable: "agent", cancelled: "end" };
+  return template("free_consultation", "health", "CalendarDays", "keyword", [
+    startAt("mode"),
+    buttons("mode", s("text"), [
+      ["online", s("onlineButton"), "set_online"],
+      ["offline", s("offlineButton"), "set_offline"],
+    ]),
+    setVar("set_online", "consult_mode", "online", "ask_name"),
+    setVar("set_offline", "consult_mode", "offline", "ask_name"),
+    ask("ask_name", s("askName"), "client_name", "save_name"),
+    setContact("save_name", "name", v("client_name"), "ask_city"),
+    ask("ask_city", s("askCity"), "city", "ask_state"),
+    ask("ask_state", s("askState"), "state", "which_mode"),
+    node("which_mode", "condition", {
+      subject: "var", subject_key: "consult_mode", operator: "equals", value: "online", true_next: "book_online", false_next: "book_offline",
+    } as ConditionNodeConfig),
+    book("book_online", ports, { service_mode: "online" }),
+    book("book_offline", ports, { service_mode: "offline" }),
+    handoff("agent", s("handoffNote", { name: v("client_name"), city: v("city"), state: v("state"), mode: v("consult_mode") })),
+    END,
   ]);
 }
 
@@ -862,8 +912,11 @@ function salonAppointment(): FlowTemplate {
     ["facial", s("facialRow")],
     ["bridal", s("bridalRow")],
   ]);
+  // Books a real time when the workspace has appointments set up; otherwise
+  // (or when nothing is free) the team confirms the slot as before.
   return template("salon_appointment", "beauty", "Scissors", "keyword", [
-    startAt("service"),
+    startAt("book"),
+    book("book", { success: "end", unavailable: "service", cancelled: "end" }),
     list("service", s("text"), s("buttonLabel"), service.rows),
     ...service.nodes,
     ask("ask_date", s("askDate"), "date", "ask_time", { validation: "date", max_attempts: 3, error_text: s("dateError") }),
@@ -874,6 +927,7 @@ function salonAppointment(): FlowTemplate {
     handoff("agent", s("handoffNote", {
       service: v("service"), date: v("date"), time: v("time"), name: v("client_name"),
     })),
+    END,
   ]);
 }
 
@@ -1002,6 +1056,7 @@ const TEMPLATES: Record<string, FlowTemplate> = Object.fromEntries(
     tableBooking(),
     foodOrder(),
     clinicAppointment(),
+    freeConsultation(),
     clinicTriage(),
     courseEnquiry(),
     admissionEnquiry(),

@@ -16,6 +16,8 @@ import { asOrderMessagePayload, orderFlowVars, type OrderMessagePayload } from "
 import { sendOrderConfirmation } from "@/lib/commerce/order-confirmation";
 import { applyInboundLifecycle } from "@/lib/inbox/lifecycle";
 import { sendAwayMessage } from "@/lib/inbox/away-message";
+import { parseHoldCodeMessage } from "@/lib/appointments/types";
+import { handleBookingCode } from "@/lib/appointments/inbound";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function validatePayload(input: InboundActionsPayload): void {
@@ -84,7 +86,15 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     if(contactError) throw new Error("Contact consent lookup failed");
     const order=form ? null : await cartOrder(db,input);
     if(!keyword&&!contact?.blocked_at) {
-      await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
+      // "BOOK <CODE>" confirms a public booking hold for this sender. Local and
+      // transactional (customer messages go out as queued jobs), so it needs no
+      // stage checkpoint. It handles only a real code of a workspace with the
+      // appointments feature and a booking page; then flows, automations, AI and
+      // the away message stay silent. Anything else ("book sunday") falls through.
+      const holdCode=input.contentType==="text"&&!input.interactiveReplyId&&!form&&!order ? parseHoldCodeMessage(text) : null;
+      const booking=holdCode ? await handleBookingCode({accountId:input.accountId,userId:input.userId,contactId:input.contactId,
+        conversationId:input.conversationId,messageId:input.messageId,whatsappConfigId:input.whatsappConfigId??null,code:holdCode}) : {handled:false};
+      if(!booking.handled) await respondAutomatically(db,input,text,stage,Boolean(form)||Boolean(order));
       // After the flow and automations, so an unresolved confirmation never holds them back.
       if(order) await stage("order_confirmation",()=>sendOrderConfirmation({accountId:input.accountId,userId:input.userId,
         conversationId:input.conversationId,contactId:input.contactId,order}));
@@ -93,7 +103,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       const lifecycle=await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
         contactId:input.contactId,messageId:input.messageId,text});
       // Out of hours and nobody automatic answered: the away message, once per window.
-      if(!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
+      if(!booking.handled&&!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
         userId:input.userId,conversationId:input.conversationId,contactId:input.contactId,messageId:input.messageId}));
     }
     await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{

@@ -18,6 +18,13 @@ import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPayme
 import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
 import { AI_REPLY_LIMITS, aiReplyMaxTurns } from './ai-reply-node';
 import { PAYMENT_LINK_LIMITS } from './payment-node';
+import { getT } from '@/lib/i18n/translate';
+import * as appointmentRuntime from './appointment-runtime';
+import {
+  APPOINTMENT_STATE_VAR, BOOK_APPOINTMENT_LIMITS, appointmentDaysAhead, appointmentPortFor, appointmentReplyIds, dayLabel,
+  pagedRows, parseAppointmentReply, readAppointmentState, rowTitle, singleListRows, slotDays,
+  type AppointmentListRow, type AppointmentOutcome, type AppointmentStepState,
+} from './appointment-node';
 /**
  * Flow runner.
  *
@@ -281,6 +288,7 @@ export function isSuspending(node_type: string): boolean {
     node_type === "send_buttons" ||
     node_type === "send_list" ||
     node_type === "send_form" ||
+    node_type === "book_appointment" ||
     isAskNode(node_type)
   );
 }
@@ -1224,6 +1232,359 @@ export async function resumePaymentLinkRun(args: {
   return "resumed";
 }
 
+// ============================================================
+// Book appointment step. One node asks up to four questions (service,
+// practitioner, day, time) as WhatsApp lists. Each question after the
+// first is sent after a transition back onto the same node, so every
+// prompt has its own outbound intent and its own reply timeout, and a
+// stale tap on an earlier list cannot move the run. The tapped time is
+// booked through lib/appointments with source_ref
+// flow:<run>:<node>:<transition_seq> (appointment-runtime), so a replayed
+// reply finds the booking it already made. Progress lives in
+// vars._appointment (ids, a local date and a page; no customer content)
+// and is removed when the step ends.
+// ============================================================
+
+interface AppointmentPrompt {
+  state: AppointmentStepState;
+  text: string;
+  rows: AppointmentListRow[];
+}
+
+type AppointmentProgress = Omit<AppointmentStepState, "stage">;
+
+const appointmentT = () => getT("Flows.builder.appointment");
+const appointmentLocale = () => process.env.NEXT_PUBLIC_APP_LOCALE || "en";
+
+function withoutAppointmentState(vars: Record<string, unknown>): Record<string, unknown> {
+  const rest = { ...vars };
+  delete rest[APPOINTMENT_STATE_VAR];
+  return rest;
+}
+
+/**
+ * The next question to ask from `from`, resolving every question that has
+ * one possible answer (a single service, one location, no practitioner
+ * choice). Null when nothing can be booked.
+ */
+async function planAppointmentPrompt(run: FlowRunRow, node: FlowNodeRow, from: AppointmentProgress, notice?: string): Promise<AppointmentPrompt | null> {
+  const cfg = node.config;
+  const tx = appointmentT();
+  const cancel = tx("cancelRow");
+  const body = (prompt: string) => (notice ? `${notice}\n\n${prompt}` : prompt);
+  const state: AppointmentProgress = { ...from };
+  if (!state.service_id) {
+    const services = await appointmentRuntime.appointmentServices(run.account_id, cfg);
+    if (!services.length) return null;
+    if (services.length > 1) {
+      return {
+        state: { ...state, stage: "service", page: 0 },
+        text: body(tx("promptService")),
+        // Every offered service (at most maxServices = 9) and Cancel: one list, no "More".
+        rows: singleListRows(services, (s) => ({ id: appointmentReplyIds.service(s.id), title: rowTitle(s.name) }), cancel),
+      };
+    }
+    state.service_id = services[0].id;
+  }
+  if (!state.location_id) {
+    const configured = typeof cfg.location_id === "string" ? cfg.location_id : null;
+    const location = await appointmentRuntime.appointmentLocation(run.account_id, state.service_id, configured);
+    if (!location) return null;
+    state.location_id = location;
+  }
+  if (state.staff_id === undefined) {
+    const staff = cfg.staff_mode === "choose" ? await appointmentRuntime.appointmentStaff(run.account_id, state.service_id, state.location_id) : [];
+    if (staff.length > 1) {
+      // "Any practitioner", up to eight names and Cancel: WhatsApp's ten rows.
+      return {
+        state: { ...state, stage: "staff", page: 0 },
+        text: body(tx("promptStaff")),
+        rows: [
+          { id: appointmentReplyIds.anyStaff, title: rowTitle(tx("staffAny")) },
+          ...staff.slice(0, BOOK_APPOINTMENT_LIMITS.pageSize).map((s) => ({ id: appointmentReplyIds.staff(s.id), title: rowTitle(s.name) })),
+          { id: appointmentReplyIds.cancel, title: rowTitle(cancel) },
+        ],
+      };
+    }
+    state.staff_id = staff.length === 1 ? staff[0].id : null;
+  }
+  const base = { serviceId: state.service_id, locationId: state.location_id, staffId: state.staff_id };
+  if (!state.day) {
+    const days = slotDays(await appointmentRuntime.appointmentSlots(run.account_id, { ...base, days: appointmentDaysAhead(cfg) }));
+    if (!days.length) return null;
+    const page = state.page * BOOK_APPOINTMENT_LIMITS.pageSize < days.length ? state.page : 0;
+    const locale = appointmentLocale();
+    return {
+      state: { ...state, stage: "day", page },
+      text: body(tx("promptDay")),
+      rows: pagedRows(days, page, (d) => ({ id: appointmentReplyIds.day(d), title: rowTitle(dayLabel(d, locale)) }), { more: tx("moreDates"), cancel }),
+    };
+  }
+  const slots = await appointmentRuntime.appointmentSlots(run.account_id, { ...base, fromDay: state.day, days: 1 });
+  // That day filled up meanwhile: offer the days again.
+  if (!slots.length) return planAppointmentPrompt(run, node, { ...state, day: undefined, page: 0 }, notice);
+  const page = state.page * BOOK_APPOINTMENT_LIMITS.pageSize < slots.length ? state.page : 0;
+  return {
+    state: { ...state, stage: "slot", page },
+    text: body(tx("promptSlot")),
+    rows: pagedRows(slots, page, (s) => ({ id: appointmentReplyIds.slot(s.startAt), title: rowTitle(s.hhmm) }), { more: tx("later"), cancel }),
+  };
+}
+
+/** Sends one question as a list. `attempt` keeps a re-prompt a distinct outbound intent. */
+async function sendAppointmentPrompt(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, prompt: AppointmentPrompt, attempt: number): Promise<void> {
+  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, () => engineSendInteractiveList({
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+    bodyText: prompt.text,
+    buttonLabel: appointmentT()("listButton"),
+    sections: [{ rows: prompt.rows }],
+  }));
+  // The stage only: row titles can carry practitioner names, never logged.
+  await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "book_appointment", stage: prompt.state.stage, whatsapp_message_id });
+  const { data: msg } = await db.from("messages").select("id").eq("message_id", whatsapp_message_id).maybeSingle();
+  await db.from("flow_runs").update({ last_prompt_message_id: (msg as { id: string } | null)?.id ?? null }).eq("id", run.id);
+}
+
+/**
+ * Entering the step: asks the first question that needs the customer, or
+ * returns the port to continue at when nothing can be booked.
+ */
+async function startAppointmentStep(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+): Promise<{ kind: "waiting" } | { kind: "next"; outcome: AppointmentOutcome; key: string | null } | { kind: "failed" }> {
+  const unavailable = async (reason: string) => {
+    await logEvent(db, run.id, "error", node.node_key, { reason });
+    if (APPOINTMENT_STATE_VAR in run.vars) {
+      const vars = withoutAppointmentState(run.vars);
+      const { error } = await db.from("flow_runs").update({ vars }).eq("id", run.id).eq("status", "active");
+      if (!error) run.vars = vars;
+    }
+    return { kind: "next" as const, outcome: "unavailable" as const, key: appointmentPortFor(node.config, "unavailable") };
+  };
+  if (!run.conversation_id || !run.contact_id) return unavailable("appointment_no_conversation");
+  let prompt: AppointmentPrompt | null;
+  try {
+    prompt = await planAppointmentPrompt(run, node, { page: 0 });
+  } catch (err) {
+    return unavailable(`appointment_lookup_failed:${err instanceof Error ? err.name : "error"}`);
+  }
+  if (!prompt) return unavailable("appointment_no_slots");
+  try {
+    await setRunVars(db, run, { [APPOINTMENT_STATE_VAR]: prompt.state });
+    await sendAppointmentPrompt(db, run, node, prompt, run.reprompt_count);
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "book_appointment_failed", detail: err instanceof Error ? err.message : String(err) });
+    await endRun(db, run.id, "failed", "book_appointment_failed");
+    return { kind: "failed" };
+  }
+  return { kind: "waiting" };
+}
+
+/** Leaves the step through an outcome port (an unwired one ends the run), dropping its progress. */
+async function finishAppointmentStep(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  nodes: Map<string, FlowNodeRow>,
+  outcome: AppointmentOutcome,
+  extraVars: Record<string, unknown> = {},
+): Promise<DispatchInboundResult> {
+  const vars = { ...withoutAppointmentState(run.vars), ...extraVars };
+  const next = appointmentPortFor(node.config, outcome);
+  if (!next) {
+    const { data: claimed } = await db.from("flow_runs").update({ vars }).eq("id", run.id).eq("status", "active")
+      .eq("current_node_key", node.node_key).eq("transition_seq", run.transition_seq ?? 0).select("id");
+    if (!Array.isArray(claimed) || claimed.length !== 1) return lostReplyRace(db, run, node.node_key);
+    await endRun(db, run.id, "completed", `appointment_${outcome}`);
+    return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+  }
+  if (!(await claimReplyTransition(db, run, next, { vars }))) return lostReplyRace(db, run, node.node_key);
+  run.vars = vars;
+  const advanced = await advanceFromNodeKey(db, run, next, nodes);
+  return { consumed: true, flow_run_id: run.id, outcome: advanced.outcome };
+}
+
+/** Moves to the next question: a transition back onto this node, then the list and its timeout. */
+async function askNextAppointmentQuestion(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  prompt: AppointmentPrompt,
+): Promise<DispatchInboundResult> {
+  const vars = { ...run.vars, [APPOINTMENT_STATE_VAR]: prompt.state };
+  if (!(await claimReplyTransition(db, run, node.node_key, { vars }))) return lostReplyRace(db, run, node.node_key);
+  run.vars = vars;
+  try {
+    await sendAppointmentPrompt(db, run, node, prompt, 0);
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "book_appointment_failed", detail: err instanceof Error ? err.message : String(err) });
+    await endRun(db, run.id, "failed", "book_appointment_failed");
+    return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+  }
+  await scheduleReplyTimeout(db, run, node);
+  return { consumed: true, flow_run_id: run.id, outcome: "advanced" };
+}
+
+/** An off-script reply: the same question again with a hint, at most twice, then the unavailable port. */
+async function retryAppointmentQuestion(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  nodes: Map<string, FlowNodeRow>,
+  state: AppointmentStepState,
+): Promise<DispatchInboundResult> {
+  const attempt = run.reprompt_count + 1;
+  await logEvent(db, run.id, "input_invalid", node.node_key, { attempt, max_attempts: BOOK_APPOINTMENT_LIMITS.maxInvalid + 1 });
+  if (attempt > BOOK_APPOINTMENT_LIMITS.maxInvalid) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "appointment_invalid_replies" });
+    return finishAppointmentStep(db, run, node, nodes, "unavailable");
+  }
+  const progress: AppointmentProgress = { ...state };
+  delete (progress as Partial<AppointmentStepState>).stage;
+  const prompt = await planAppointmentPrompt(run, node, progress, appointmentT()("invalidChoice"));
+  if (!prompt) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "appointment_no_slots" });
+    return finishAppointmentStep(db, run, node, nodes, "unavailable");
+  }
+  const vars = { ...run.vars, [APPOINTMENT_STATE_VAR]: prompt.state };
+  const { data, error } = await db.from("flow_runs").update({ reprompt_count: attempt, vars }).eq("id", run.id).eq("status", "active")
+    .eq("current_node_key", node.node_key).eq("transition_seq", run.transition_seq ?? 0).eq("reprompt_count", run.reprompt_count).select("id");
+  if (error || !Array.isArray(data) || data.length !== 1) return lostReplyRace(db, run, node.node_key);
+  run.reprompt_count = attempt;
+  run.vars = vars;
+  try {
+    await sendAppointmentPrompt(db, run, node, prompt, attempt);
+  } catch (err) {
+    // The customer still has the earlier list and can tap it.
+    await logEvent(db, run.id, "error", node.node_key, { reason: "reprompt_send_failed", detail: err instanceof Error ? err.message : String(err) });
+  }
+  return { consumed: true, flow_run_id: run.id, outcome: "fallback_fired" };
+}
+
+/** A customer reply while the step waits: the next question, a booking, Cancel, or a re-prompt. */
+async function handleAppointmentReply(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  message: ParsedInbound,
+  nodes: Map<string, FlowNodeRow>,
+): Promise<DispatchInboundResult> {
+  const state = readAppointmentState(run.vars);
+  if (!state) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "appointment_state_missing" });
+    return finishAppointmentStep(db, run, node, nodes, "unavailable");
+  }
+  const reply = message.kind === "interactive_reply" ? parseAppointmentReply(message.reply_id) : null;
+  if (reply?.kind === "cancel") return finishAppointmentStep(db, run, node, nodes, "cancelled");
+  const chosen = { service_id: state.service_id, location_id: state.location_id, staff_id: state.staff_id, retried: state.retried };
+  let next: AppointmentProgress | null = null;
+  let notice: string | undefined;
+  const lookupFailed = async (err: unknown) => {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "appointment_lookup_failed", detail: err instanceof Error ? err.name : "error" });
+    return finishAppointmentStep(db, run, node, nodes, "unavailable");
+  };
+  if (state.stage === "slot" && reply?.kind === "slot" && state.day && state.service_id && state.location_id && run.contact_id) {
+    let result: appointmentRuntime.AppointmentBookResult;
+    try {
+      result = await appointmentRuntime.bookFlowAppointment(run.account_id, {
+        runId: run.id,
+        nodeKey: node.node_key,
+        transitionSeq: run.transition_seq ?? 0,
+        contactId: run.contact_id,
+        serviceId: state.service_id,
+        locationId: state.location_id,
+        staffId: state.staff_id ?? null,
+        startAt: reply.startAt,
+      });
+    } catch (err) {
+      // The booking transaction rolled back.
+      return lookupFailed(err);
+    }
+    if (result.ok) {
+      // Committed: from here on a failure must not fall into the unavailable
+      // port. A crash before the success claim is finished by the retried
+      // inbound (resumeInterruptedBooking), which replays this source_ref.
+      // Ids only; the manage link never goes into vars (flow.completed webhooks carry them).
+      await logEvent(db, run.id, "node_entered", node.node_key, { appointment_result: "booked", appointment_id: result.appointmentId, replayed: result.replayed });
+      return finishAppointmentStep(db, run, node, nodes, "success", {
+        appointment_id: result.appointmentId,
+        appointment_local_time: result.localTime,
+      });
+    }
+    await logEvent(db, run.id, "error", node.node_key, { reason: `appointment_${result.code}` });
+    if (result.code !== "slot_unavailable" || state.retried) return finishAppointmentStep(db, run, node, nodes, "unavailable");
+    // Taken a moment ago: offer that day's remaining times once.
+    next = { ...chosen, day: state.day, page: 0, retried: true };
+    notice = appointmentT()("slotTaken");
+  }
+  try {
+    if (next) {
+      // The tapped time was just taken: re-offer that day below.
+    } else if (state.stage === "service" && reply?.kind === "service") {
+      const services = await appointmentRuntime.appointmentServices(run.account_id, node.config);
+      if (services.some((s) => s.id === reply.id)) next = { service_id: reply.id, page: 0 };
+    } else if (state.stage === "staff" && reply?.kind === "staff" && state.service_id && state.location_id) {
+      const staff = reply.id === null ? [] : await appointmentRuntime.appointmentStaff(run.account_id, state.service_id, state.location_id);
+      if (reply.id === null || staff.some((s) => s.id === reply.id)) next = { ...chosen, staff_id: reply.id, page: 0 };
+    } else if (state.stage === "day" && reply?.kind === "day") {
+      next = { ...chosen, day: reply.day, page: 0 };
+    } else if (state.stage === "day" && reply?.kind === "more") {
+      next = { ...chosen, page: state.page + 1 };
+    } else if (state.stage === "slot" && reply?.kind === "more" && state.day) {
+      next = { ...chosen, day: state.day, page: state.page + 1 };
+    }
+    if (!next) return retryAppointmentQuestion(db, run, node, nodes, state);
+    const prompt = await planAppointmentPrompt(run, node, next, notice);
+    if (!prompt) {
+      await logEvent(db, run.id, "error", node.node_key, { reason: "appointment_no_slots" });
+      return finishAppointmentStep(db, run, node, nodes, "unavailable");
+    }
+    return askNextAppointmentQuestion(db, run, node, prompt);
+  } catch (err) {
+    // A lookup that failed outright.
+    return lookupFailed(err);
+  }
+}
+
+/**
+ * A retried inbound job whose reply was already recorded (isDuplicateInbound)
+ * is normally ignored. A time tap is the exception: when the worker stopped
+ * after recording it but before the step moved on, the run still waits at
+ * the same transition with the same time question, and the booking may
+ * already be committed. The tap is then handled again: bookFlowAppointment
+ * replays source_ref flow:<run>:<node>:<seq> (or books it if the first try
+ * rolled back) and the step leaves through its port. Every completed handling
+ * of a time tap moves transition_seq (or ends the run), so a match on the
+ * recorded transition proves the first handling did not finish, and nothing
+ * already sent is sent again. Null for an ordinary duplicate.
+ */
+async function resumeInterruptedBooking(
+  db: AdminClient,
+  run: FlowRunRow,
+  message: ParsedInbound,
+): Promise<DispatchInboundResult | null> {
+  if (message.kind !== "interactive_reply" || parseAppointmentReply(message.reply_id)?.kind !== "slot") return null;
+  if (readAppointmentState(run.vars)?.stage !== "slot" || !run.current_node_key) return null;
+  const { data: recorded } = await db
+    .from("flow_run_events")
+    .select("node_key,payload")
+    .eq("flow_run_id", run.id)
+    .eq("event_type", "reply_received")
+    .filter("payload->>meta_message_id", "eq", message.meta_message_id);
+  const seq = run.transition_seq ?? 0;
+  const rows = (recorded ?? []) as Array<{ node_key: string | null; payload: Record<string, unknown> | null }>;
+  if (!rows.some((e) => e.node_key === run.current_node_key && e.payload?.transition_seq === seq)) return null;
+  const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
+  const node = nodes.get(run.current_node_key);
+  if (!flow || node?.node_type !== "book_appointment") return null;
+  return handleAppointmentReply(db, run, node, message, nodes);
+}
+
 /**
  * Tiny `{{vars.foo}}` (and `{{workspace.key}}`) interpolation. Used by send_message + collect_input
  * prompt text so a captured `name` can show up in the next prompt
@@ -1555,7 +1916,10 @@ export async function handleFlowTimer(payload: {
   }
   if (!timeout) return "stale";
   if (due) {
-    if (!(await claimReplyTransition(db, run, timeout.next))) return "stale";
+    // A book_appointment step that timed out drops its progress in the same claim.
+    const vars = timer?.node_type === "book_appointment" && APPOINTMENT_STATE_VAR in run.vars ? withoutAppointmentState(run.vars) : null;
+    if (!(await claimReplyTransition(db, run, timeout.next, vars ? { vars } : {}))) return "stale";
+    if (vars) run.vars = vars;
     await logEvent(db, run.id, "timeout", payload.nodeKey, { reason: "node_timeout", minutes: timeout.minutes });
   }
   await advanceFromNodeKey(db, run, timeout.next, nodes);
@@ -1837,6 +2201,25 @@ async function advanceFromNodeKey(
       const outcome = latest ? flowOutcomeFor(latest.status) : null;
       if (latest && outcome) {
         await resumePaymentLinkRun({ accountId: run.account_id, runId: run.id, nodeKey: node.node_key, referenceId: reference, outcome, status: latest.status });
+      }
+      return { outcome: "advanced" };
+    }
+    if (node.node_type === "book_appointment") {
+      const started = await startAppointmentStep(db, run, node);
+      if (started.kind === "failed") return { outcome: "completed" };
+      if (started.kind === "next") {
+        if (started.key) {
+          currentKey = started.key;
+          continue;
+        }
+        await endRun(db, run.id, "completed", `appointment_${started.outcome}`);
+        return { outcome: "completed" };
+      }
+      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
       }
       return { outcome: "advanced" };
     }
@@ -2249,6 +2632,8 @@ export async function dispatchInboundToFlows(
         input.message.meta_message_id,
       );
       if (dupe) {
+        const resumed = await resumeInterruptedBooking(db, activeRun, input.message);
+        if (resumed) return resumed;
         return {
           consumed: true,
           flow_run_id: activeRun.id,
@@ -2309,6 +2694,8 @@ async function handleReplyForActiveRun(
     reply_kind: message.kind,
     reply_id: message.kind === "interactive_reply" ? message.reply_id : null,
     text_length: message.kind === "text" ? message.text.length : null,
+    // The transition the reply arrived at: resumeInterruptedBooking matches a retried job on it.
+    transition_seq: run.transition_seq ?? 0,
   });
 
   if (!run.current_node_key) {
@@ -2385,6 +2772,11 @@ async function handleReplyForActiveRun(
   // turn through reprompt_count or fire the flow's fallback.
   if (currentNode.node_type === "ai_reply") {
     return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+  }
+
+  // The booking step answers every reply itself: its next question, Cancel, or a re-prompt.
+  if (currentNode.node_type === "book_appointment") {
+    return handleAppointmentReply(db, run, currentNode, message, nodes);
   }
 
   let matched: string | null = null;

@@ -79,7 +79,8 @@
     "products": "상품",
     "payments": "결제",
     "analytics": "분석",
-    "ads": "광고"
+    "ads": "광고",
+    "appointments": "예약"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -105,7 +106,8 @@
     "orders": "주문",
     "products": "상품",
     "payments": "결제",
-    "ads": "광고"
+    "ads": "광고",
+    "appointments": "예약"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
@@ -1561,6 +1563,26 @@
         "ad_click": {
           "label": "광고에서 온 메시지",
           "hint": "고객이 WhatsApp 클릭 광고에서 메시지를 보냄"
+        },
+        "appointment_booked": {
+          "label": "예약 확정",
+          "hint": "예약이 확정될 때(직원, 플로우 또는 고객의 WhatsApp 코드)"
+        },
+        "appointment_cancelled": {
+          "label": "예약 취소",
+          "hint": "확정된 예약이 취소될 때"
+        },
+        "appointment_rescheduled": {
+          "label": "예약 시간 변경",
+          "hint": "확정된 예약의 시간이 바뀔 때"
+        },
+        "appointment_completed": {
+          "label": "예약 완료",
+          "hint": "직원이 예약을 완료로 표시할 때"
+        },
+        "appointment_no_show": {
+          "label": "예약 노쇼",
+          "hint": "직원이 예약을 노쇼로 표시할 때"
         }
       },
       "trigger": "트리거",
@@ -2173,6 +2195,10 @@
         "conversion_event": {
           "label": "전환 이벤트",
           "blurb": "광고를 통해 들어온 고객의 전환을 Meta에 보고합니다"
+        },
+        "book_appointment": {
+          "label": "예약하기",
+          "blurb": "WhatsApp에서 빈 시간을 보여 주고 고객이 고른 시간을 예약합니다"
         }
       },
       "ports": {
@@ -2184,7 +2210,10 @@
         "expired": "만료됨",
         "failed": "실패",
         "answered": "답변함",
-        "handoff": "상담원 연결"
+        "handoff": "상담원 연결",
+        "success": "예약됨",
+        "unavailable": "예약 불가",
+        "cancelled": "취소됨"
       },
       "triggerTemplateReplyTitle": "템플릿 버튼 응답",
       "matchTypeLabel": "일치 방식",
@@ -2246,7 +2275,8 @@
           "timeout": "{minutes}분 동안 응답 없음",
           "fallback": "응답이 거부됨, 흐름의 대체 정책이 적용됩니다",
           "ai_reply": "AI 에이전트가 답변합니다(시뮬레이션이며 실제로 생성되지 않음)",
-          "conversion_event": "전환이 Meta에 보고됩니다(시뮬레이션이며 실제로 보내지 않음)"
+          "conversion_event": "전환이 Meta에 보고됩니다(시뮬레이션이며 실제로 보내지 않음)",
+          "book_appointment": "빈 시간을 보여 주고 고객이 고른 시간을 예약합니다 (시뮬레이션이며 실제로 예약되지 않음)"
         },
         "simulate": {
           "shareMedia": "시뮬레이션: 고객이 파일 전송",
@@ -2270,7 +2300,36 @@
       "adClickIdsLabel": "광고 ID(선택)",
       "adClickIdsPlaceholder": "예: 120211234567890",
       "adClickIdsHelp": "비워 두면 모든 광고에서 시작됩니다. 숫자로만 최대 {max}개까지 입력할 수 있습니다.",
-      "adClickVariables": "광고 변수"
+      "adClickVariables": "광고 변수",
+      "appointment": {
+        "services": "서비스",
+        "servicesHelp": "두 개 이상이면 고객이 선택합니다(최대 10개).",
+        "location": "장소",
+        "anyLocation": "서비스를 제공하는 첫 번째 장소",
+        "staffMode": "담당자",
+        "staffAny": "가능한 아무 담당자",
+        "staffChoose": "고객이 선택",
+        "daysAhead": "제공할 기간(일)",
+        "daysAheadHelp": "며칠 앞까지 빈 시간을 찾을지 정합니다(1~14일).",
+        "promptService": "어떤 서비스를 예약하시겠어요?",
+        "promptStaff": "어느 담당자와 예약하시겠어요?",
+        "promptDay": "날짜를 선택하세요:",
+        "promptSlot": "시간을 선택하세요:",
+        "listButton": "선택",
+        "moreDates": "다른 날짜",
+        "later": "더 늦은 시간",
+        "noSlots": "죄송합니다. 지금은 빈 시간이 없습니다.",
+        "slotTaken": "방금 그 시간이 마감되었습니다. 그날 아직 비어 있는 시간입니다.",
+        "invalidChoice": "보기 중 하나를 선택해 주세요.",
+        "variablesHelp": "다음 단계에서 쓸 수 있도록 appointment_id와 appointment_local_time을 저장합니다.",
+        "cancelRow": "취소",
+        "noServices": "아직 서비스가 없습니다. 예약 설정에서 추가하세요. 그전까지 이 단계는 아무것도 제공하지 않고 '예약 불가' 경로로 이동합니다.",
+        "servicesAllHelp": "최대 {max}개까지 고르세요. 고르지 않으면 예약 가능한 모든 서비스를 제공합니다. 둘 이상이면 고객이 선택합니다.",
+        "serviceMode": "서비스 유형",
+        "modeBoth": "온라인과 방문 모두",
+        "modeOnline": "온라인만",
+        "modeOffline": "방문만"
+      }
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -2319,7 +2378,9 @@
       "products": "상품 {count}개",
       "paymentNone": "금액 없음",
       "aiReplyDefault": "AI 에이전트로 답변",
-      "conversionDefault": "Meta에 {event} 보고"
+      "conversionDefault": "Meta에 {event} 보고",
+      "appointmentAllServices": "예약 가능한 모든 서비스",
+      "appointmentServices": "{count, plural, other {서비스 #개}}"
     },
     "header": {
       "backToFlows": "플로우로 돌아가기",
@@ -3200,7 +3261,8 @@
         "api_campaigns": "API 캠페인",
         "click_tracking": "클릭 추적",
         "retargeting": "캠페인 기반 리타기팅",
-        "workspace_attributes": "워크스페이스 속성"
+        "workspace_attributes": "워크스페이스 속성",
+        "appointments": "예약"
       },
       "limits": {
         "seats": "팀원 및 대기 중인 초대",
@@ -3212,7 +3274,8 @@
         "ai_messages": "이번 달 AI 답변",
         "monthly_active_contacts": "이번 달 활성 연락처",
         "storage_bytes": "미디어 저장 공간(바이트)",
-        "whatsapp_numbers": "WhatsApp 번호"
+        "whatsapp_numbers": "WhatsApp 번호",
+        "appointment_staff": "담당자"
       },
       "loadFailed": "요금제를 불러오지 못했습니다",
       "retry": "다시 시도",
@@ -3559,7 +3622,9 @@
         "contacts_export": "연락처 내보내기",
         "flows_publish": "플로우 게시",
         "templates_submit": "WhatsApp에 템플릿 제출",
-        "settings_billing": "요금제 및 결제 관리"
+        "settings_billing": "요금제 및 결제 관리",
+        "appointments_manage": "예약 등록 및 관리",
+        "appointments_settings": "예약 및 예약 페이지 설정"
       }
     },
     "auditLog": {
@@ -3812,7 +3877,10 @@
       "template_rejected": "템플릿 거부됨",
       "whatsapp_number_health": "WhatsApp 번호",
       "payment_received": "결제 완료",
-      "billing": "결제"
+      "billing": "결제",
+      "appointment_booked": "새 예약",
+      "appointment_cancelled": "예약 취소",
+      "appointment_rescheduled": "예약 변경"
     }
   },
   "Agents": {
@@ -4409,6 +4477,18 @@
       "askPassive": "감사합니다! 저희가 더 잘할 수 있는 점 한 가지를 알려 주세요.",
       "skipPassive": "더 없어요",
       "passiveReply": "의견 감사합니다. 모든 답변을 꼼꼼히 읽고 있습니다."
+    },
+    "free_consultation": {
+      "name": "무료 상담 예약",
+      "description": "고객이 온라인 또는 방문 상담을 고르고 이름, 도시, 지역을 알려 주면 일정에서 빈 시간을 골라 예약합니다.",
+      "keywords": "무료 상담,상담 신청,전문가 상담",
+      "text": "안녕하세요! 무료 상담을 온라인으로 받으시겠어요, 방문으로 받으시겠어요?",
+      "onlineButton": "온라인",
+      "offlineButton": "방문",
+      "askName": "성함을 알려 주세요.",
+      "askCity": "어느 도시에 계신가요?",
+      "askState": "어느 시·도인가요?",
+      "handoffNote": "무료 상담 요청({mode}): {name}, {city}, {state}. 빈 시간을 예약하지 못했으니 후속 연락이 필요합니다."
     }
   },
   "LibErrors": {
@@ -4635,7 +4715,12 @@
       "conversionNeedsNext": "전환 이벤트 다음에 실행할 단계를 선택하세요.",
       "conversionMissingNext": "전환 이벤트 다음 단계가 더 이상 존재하지 않습니다.",
       "conversionPurchaseAutomatic": "구매는 결제 링크나 주문이 결제되면 자동으로 보고됩니다. 다른 이벤트를 선택하세요.",
-      "conversionValueNeedsBoth": "값 변수와 통화를 모두 설정하거나 둘 다 비워 두세요."
+      "conversionValueNeedsBoth": "값 변수와 통화를 모두 설정하거나 둘 다 비워 두세요.",
+      "appointmentServices": "서비스를 최대 {max}개까지 고르세요. 고르지 않으면 예약 가능한 모든 서비스를 제공합니다.",
+      "appointmentMode": "온라인, 방문 또는 둘 다 중에서 고르세요.",
+      "appointmentLocation": "목록에서 지점을 고르세요.",
+      "appointmentStaffMode": "담당자를 정하는 방법을 고르세요.",
+      "appointmentDays": "제공할 일수는 {min}에서 {max} 사이의 정수여야 합니다."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -4670,7 +4755,8 @@
       "templateLocationHeader": "자동화는 위치 헤더가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 위치는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
       "templateHeaderVariable": "자동화는 헤더에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다.",
       "templateUrlVariable": "자동화는 URL 버튼에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다.",
-      "adIdsInvalid": "광고 ID는 숫자만 입력할 수 있으며 최대 {max}개까지 가능합니다"
+      "adIdsInvalid": "광고 ID는 숫자만 입력할 수 있으며 최대 {max}개까지 가능합니다",
+      "serviceIdsInvalid": "서비스 ID는 올바른 ID여야 하며 최대 {max}개까지 가능합니다"
     },
     "templates": {
       "nameRequired": "템플릿 이름은 필수입니다.",
@@ -5721,6 +5807,16 @@
       "header": "휴무 안내",
       "body": "안녕하세요, {v1}님. {v2}은(는) {v4}을(를) 맞아 {v3}에 휴무합니다. 다음 영업일부터 정상 운영합니다.",
       "samples": "고객|저희 사무실|1월 1일|신정"
+    },
+    "appointment_reminder_manage": {
+      "title": "관리 링크가 있는 예약 알림",
+      "description": "고객에게 예약을 알리고 예약을 확인, 변경 또는 취소할 수 있게 합니다.",
+      "header": "예약 알림",
+      "body": "알림: {v1} 예약이 {v2}에 있습니다({v3}). 아래 버튼으로 예약을 확인, 변경 또는 취소할 수 있습니다.",
+      "buttons": {
+        "b1": "예약 관리"
+      },
+      "samples": "치과 검진|6월 10일 월요일 오전 11:30 IST|안데리 클리닉"
     }
   },
   "Templates": {
@@ -6582,7 +6678,19 @@
       "description": "WhatsApp 번호의 품질 등급이나 메시지 한도가 바뀝니다."
     },
     "inApp": "앱 내",
-    "email": "이메일 요약"
+    "email": "이메일 요약",
+    "appointment_booked": {
+      "label": "새 예약",
+      "description": "나와의 예약 또는 워크스페이스의 예약이 확정됩니다."
+    },
+    "appointment_cancelled": {
+      "label": "취소된 예약",
+      "description": "확정된 예약이 취소됩니다."
+    },
+    "appointment_rescheduled": {
+      "label": "변경된 예약",
+      "description": "확정된 예약의 시간이 바뀝니다."
+    }
   },
   "Weekdays": {
     "mon": "월요일",
@@ -7531,5 +7639,449 @@
     "notConnected": "아직 연결된 Meta 광고 계정이 없습니다. 관리자가 설정 > 광고에서 연결합니다.",
     "tokenInvalid": "Meta 액세스가 만료되어 결과가 더 이상 업데이트되지 않습니다. 관리자가 설정 > 광고에서 다시 연결해야 합니다.",
     "openSettings": "설정 > 광고 열기"
+  },
+  "Appointments": {
+    "title": "예약",
+    "description": "상담을 예약하고 WhatsApp으로 확정한 뒤 방문 후 후속 조치를 합니다.",
+    "loadFailed": "예약을 불러오지 못했습니다. 페이지를 새로 고쳐 다시 시도하세요.",
+    "retry": "다시 시도",
+    "upgrade": "현재 요금제에는 예약 기능이 없습니다. 업그레이드하면 사용할 수 있습니다.",
+    "readOnly": "예약을 볼 수는 있지만 변경할 수는 없습니다.",
+    "tabs": {
+      "schedule": "일정",
+      "services": "서비스",
+      "staff": "담당자 및 근무 시간",
+      "locations": "장소",
+      "exceptions": "휴일 및 예외",
+      "pages": "예약 페이지",
+      "settings": "설정",
+      "tasks": "할 일"
+    },
+    "status": {
+      "held": "WhatsApp 대기 중",
+      "confirmed": "확정",
+      "cancelled": "취소",
+      "completed": "완료",
+      "no_show": "노쇼",
+      "expired": "만료"
+    },
+    "source": {
+      "staff": "직원",
+      "public": "예약 페이지",
+      "flow": "WhatsApp 플로우"
+    },
+    "schedule": {
+      "day": "일",
+      "week": "주",
+      "today": "오늘",
+      "previous": "이전",
+      "next": "다음",
+      "filterStaff": "담당자",
+      "filterLocation": "장소",
+      "filterService": "서비스",
+      "filterStatus": "상태",
+      "all": "전체",
+      "needsOutcome": "결과 미입력",
+      "empty": "이 기간에 예약이 없습니다.",
+      "newAppointment": "새 예약",
+      "timesIn": "{zone} 기준 시간",
+      "awaitingContact": "고객의 WhatsApp 코드를 기다리는 중",
+      "anyStaff": "아무 담당자",
+      "pool": "공유 일정"
+    },
+    "sheet": {
+      "title": "예약",
+      "service": "서비스",
+      "practitioner": "담당자",
+      "location": "장소",
+      "when": "일시",
+      "contact": "고객",
+      "openInbox": "대화 열기",
+      "status": "상태",
+      "source": "예약 경로",
+      "history": "기록",
+      "messages": "고객 메시지",
+      "confirm": "확정",
+      "reschedule": "시간 변경",
+      "cancel": "예약 취소",
+      "cancelReason": "사유",
+      "cancelConfirm": "이 예약을 취소할까요? 고객에게 WhatsApp으로 알립니다.",
+      "markCompleted": "완료로 표시",
+      "markNoShow": "노쇼로 표시",
+      "outcomeNote": "직원 메모",
+      "outcomeNoteWarning": "여기에 진료 정보를 기록하지 마세요.",
+      "feedbackScore": "평가 점수(1~5)",
+      "staffRecorded": "직원이 기록함",
+      "createTask": "할 일 만들기",
+      "markResolved": "해결됨으로 표시",
+      "resolved": "해결됨",
+      "confirmHoldHelp": "예약 페이지에서 들어온 예약은 고객이 WhatsApp으로 코드를 보내면 확정됩니다.",
+      "save": "저장",
+      "saved": "저장됨",
+      "close": "닫기",
+      "noMessages": "아직 고객 메시지가 없습니다.",
+      "noHistory": "아직 기록이 없습니다."
+    },
+    "cancelReasons": {
+      "customer": "고객 요청",
+      "staff": "직원이 취소",
+      "expired": "임시 예약 만료",
+      "other": "기타"
+    },
+    "events": {
+      "held": "시간 임시 확보",
+      "confirmed": "확정",
+      "rescheduled": "{from}에서 {to}(으)로 변경",
+      "reassigned": "담당자 변경",
+      "cancelled": "취소",
+      "expired": "임시 예약 만료",
+      "completed": "완료",
+      "no_show": "노쇼로 표시",
+      "feedback": "평가 기록",
+      "reminder_skipped": "알림 건너뜀"
+    },
+    "actors": {
+      "staff": "직원",
+      "customer": "고객",
+      "system": "시스템"
+    },
+    "messageKinds": {
+      "confirmation": "확정 안내",
+      "reminder_24h": "알림(24시간 전)",
+      "reminder_2h": "알림(2시간 전)",
+      "cancelled": "취소 안내",
+      "rescheduled": "시간 변경 안내",
+      "feedback": "평가 요청",
+      "rebook": "재예약 안내"
+    },
+    "messageStatuses": {
+      "sent": "보냄",
+      "skipped": "건너뜀",
+      "blocked": "보내지 않음",
+      "failed": "실패",
+      "outcome_unknown": "결과 알 수 없음"
+    },
+    "messageReasons": {
+      "stale_version": "예약이 바뀌어 이 메시지가 더 이상 필요하지 않았습니다.",
+      "contact_missing": "고객 연락처가 더 이상 없습니다.",
+      "past_due": "이 알림을 보내기에는 너무 늦었습니다.",
+      "disabled": "설정에서 이 알림이 꺼져 있습니다.",
+      "contact_blocked": "차단된 고객입니다.",
+      "opted_out": "고객이 예약 후 수신을 거부했습니다.",
+      "workspace_suspended": "워크스페이스가 정지되었습니다.",
+      "number_unavailable": "WhatsApp 번호가 연결되어 있지 않습니다.",
+      "no_address": "고객의 WhatsApp 주소가 없습니다.",
+      "no_template": "승인된 템플릿이 없고 24시간 창이 닫혔습니다.",
+      "category": "유틸리티 템플릿이 아닙니다.",
+      "template_refused": "이 메시지에는 이 템플릿을 사용할 수 없습니다.",
+      "provider_rejected": "WhatsApp이 메시지를 거부했습니다.",
+      "uncertain": "WhatsApp이 전송 여부를 확인해 주지 않았습니다. 다시 보내기 전에 대화를 확인하세요.",
+      "other": "보내지 않음.",
+      "template_not_found": "예약 설정에 지정된 템플릿이 더 이상 존재하지 않습니다.",
+      "template_not_approved": "예약 설정에 지정된 템플릿이 승인되지 않았습니다.",
+      "template_wrong_number": "템플릿이 다른 WhatsApp 번호에 속해 있습니다.",
+      "feedback_recorded": "피드백이 이미 기록되어 요청을 보내지 않았습니다."
+    },
+    "create": {
+      "title": "새 예약",
+      "contact": "고객",
+      "contactSearch": "연락처 검색",
+      "service": "서비스",
+      "location": "장소",
+      "practitioner": "담당자",
+      "date": "날짜",
+      "slot": "시간",
+      "noSlots": "이 날에는 빈 시간이 없습니다.",
+      "book": "예약",
+      "booked": "예약했습니다"
+    },
+    "services": {
+      "title": "서비스",
+      "add": "서비스 추가",
+      "name": "이름",
+      "mode": "유형",
+      "modes": {
+        "offline": "대면",
+        "online": "온라인"
+      },
+      "duration": "소요 시간(분)",
+      "buffer": "종료 후 휴식(분)",
+      "step": "예약 시작 간격(분)",
+      "stepHelp": "비워 두면 소요 시간을 사용합니다.",
+      "capacity": "시간당 고객 수",
+      "price": "가격",
+      "currency": "통화",
+      "free": "무료",
+      "meetingUrl": "회의 링크",
+      "meetingUrlHelp": "예약이 확정된 뒤에만 고객에게 보이는 https 링크입니다.",
+      "allowedWeekdays": "예약 가능 요일",
+      "allDays": "매일",
+      "mondayPreset": "대면 무료 상담: 월요일만",
+      "feedbackDelay": "평가 요청 시점(분 후)",
+      "rebookAfter": "재예약 제안 시점(일 후)",
+      "paymentRequired": "선결제 필요",
+      "paymentComingSoon": "결제 기능과 함께 제공 예정",
+      "offerings": "장소와 담당자",
+      "pooled": "공유 일정(아무 빈 시간)",
+      "staffed": "지정 담당자",
+      "offeringConflict": "한 장소의 서비스는 공유 일정과 담당자 중 하나만 사용할 수 있습니다.",
+      "archive": "보관",
+      "archived": "보관됨",
+      "restore": "복원",
+      "empty": "아직 서비스가 없습니다."
+    },
+    "staff": {
+      "title": "담당자",
+      "add": "담당자 추가",
+      "name": "표시 이름",
+      "linkedMember": "연결된 팀원",
+      "noMember": "연결 안 됨",
+      "hours": "근무 시간",
+      "hoursAt": "{location} 근무 시간",
+      "poolHours": "공유 일정 시간",
+      "archive": "보관",
+      "empty": "아직 담당자가 없습니다.",
+      "limitReached": "현재 요금제에서는 담당자를 {count}명까지 둘 수 있습니다.",
+      "limitReachedGeneric": "요금제의 담당자 한도에 도달했습니다. 업그레이드하거나 먼저 담당자를 보관하세요.",
+      "clearHours": "시간 지우기"
+    },
+    "locations": {
+      "title": "장소",
+      "add": "장소 추가",
+      "name": "이름",
+      "address": "주소",
+      "timezone": "시간대",
+      "kind": "유형",
+      "kinds": {
+        "physical": "오프라인",
+        "online": "온라인"
+      },
+      "archive": "보관",
+      "empty": "아직 장소가 없습니다.",
+      "timezoneHelp": "예약 시간은 이 시간대를 기준으로 표시되고 확인됩니다."
+    },
+    "exceptions": {
+      "title": "휴일 및 예외",
+      "add": "예외 추가",
+      "scope": "적용 대상",
+      "scopeLocation": "장소 전체",
+      "scopeStaff": "담당자 한 명",
+      "from": "시작",
+      "to": "종료",
+      "closed": "종일 휴무",
+      "customHours": "특별 근무 시간",
+      "reason": "사유",
+      "empty": "예외가 없습니다.",
+      "delete": "삭제"
+    },
+    "pages": {
+      "title": "예약 페이지",
+      "add": "예약 페이지 추가",
+      "slug": "링크 이름",
+      "slugHelp": "영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.",
+      "slugTaken": "이미 사용 중인 링크 이름입니다.",
+      "titleLabel": "페이지 제목",
+      "services": "서비스",
+      "location": "장소",
+      "number": "WhatsApp 번호",
+      "defaultNumber": "기본 번호",
+      "active": "사용",
+      "copyLink": "링크 복사",
+      "copied": "링크를 복사했습니다",
+      "empty": "아직 예약 페이지가 없습니다.",
+      "inactive": "비활성"
+    },
+    "tasks": {
+      "title": "할 일",
+      "add": "할 일 추가",
+      "titleLabel": "제목",
+      "due": "기한",
+      "assignee": "담당",
+      "unassigned": "미지정",
+      "markDone": "완료로 표시",
+      "empty": "열린 할 일이 없습니다.",
+      "kinds": {
+        "next_step": "다음 단계",
+        "rebook": "재예약",
+        "manual": "할 일"
+      },
+      "statuses": {
+        "open": "열림",
+        "done": "완료",
+        "cancelled": "취소"
+      },
+      "cancel": "작업 취소"
+    },
+    "stats": {
+      "booked": "예약",
+      "confirmed": "확정",
+      "cancelled": "취소",
+      "completed": "완료",
+      "noShow": "노쇼",
+      "noShowRate": "노쇼 비율",
+      "notAvailable": "해당 없음"
+    },
+    "slotPicker": {
+      "chooseDate": "날짜 선택",
+      "chooseTime": "시간 선택",
+      "noSlots": "이 날에는 빈 시간이 없습니다.",
+      "loading": "시간을 불러오는 중…",
+      "remaining": "{count}자리 남음",
+      "timesIn": "{zone} 기준 시간",
+      "previousDays": "이전 날짜",
+      "nextDays": "다음 날짜"
+    },
+    "errors": {
+      "slot_unavailable": "그 시간은 더 이상 예약할 수 없습니다. 다른 시간을 선택하세요.",
+      "day_not_allowed": "이 서비스는 그날 예약할 수 없습니다.",
+      "customer_conflict": "이 고객은 그 시간에 이미 예약이 있습니다.",
+      "too_many": "지금은 예약이 너무 많습니다. 나중에 다시 시도하세요.",
+      "hold_expired": "임시 예약이 만료되었습니다. 처음부터 다시 시도하세요.",
+      "conflict": "그사이 예약이 바뀌었습니다. 새로 고친 뒤 다시 시도하세요.",
+      "not_yet_supported": "아직 사용할 수 없는 옵션입니다.",
+      "not_found": "예약을 찾을 수 없습니다.",
+      "invalid": "입력 내용을 확인하고 다시 시도하세요.",
+      "feature_unavailable": "현재 요금제에는 예약 기능이 없습니다."
+    },
+    "fieldErrors": {
+      "invalid": "이 항목을 확인하세요.",
+      "taken": "이미 사용 중입니다. 다른 값을 선택하세요.",
+      "pooled_or_staffed": "공유 캘린더 또는 담당자 중 하나만 선택하세요.",
+      "mode_in_use": "현재 설정으로 진행 중인 예약이 있습니다. 공유 캘린더와 담당자 간에 전환하기 전에 예약을 옮기거나 취소하세요."
+    },
+    "form": {
+      "edit": "편집"
+    }
+  },
+  "AppointmentSettings": {
+    "title": "예약 설정",
+    "holdMinutes": "시간 임시 확보 기간(분)",
+    "holdMinutesHelp": "예약 페이지에서 들어온 예약이 고객의 WhatsApp 코드를 기다리는 시간입니다.",
+    "maxActiveHolds": "예약 페이지당 미확정 예약 수",
+    "maxActiveHoldsHelp": "미확정 예약이 동시에 차지할 수 있는 시간 수를 제한합니다.",
+    "minNotice": "최소 사전 예약 시간(분)",
+    "horizon": "예약 가능 기간(일)",
+    "cancelCutoff": "고객 변경·취소 가능 시점(시작 몇 분 전까지)",
+    "reminder24h": "24시간 전에 알림 보내기",
+    "reminder2h": "2시간 전에 알림 보내기",
+    "remindersHelp": "알림을 켜면 그 뒤에 확정된 예약부터 적용됩니다.",
+    "staffNotify": "직원에게 예약 알리기",
+    "templates": "WhatsApp 템플릿",
+    "templatesHelp": "WhatsApp의 24시간 창 밖에서는 승인된 유틸리티 템플릿이 있어야 고객에게 메시지를 보낼 수 있습니다.",
+    "templateSlots": {
+      "confirm": "확정 안내",
+      "reminder": "알림",
+      "change": "변경 또는 취소 안내",
+      "feedback": "평가 요청",
+      "rebook": "재예약 안내"
+    },
+    "noTemplate": "없음",
+    "manageButtonHelp": "템플릿에는 링크 버튼을 하나 둘 수 있습니다. 주소는 {url} 뒤에 변수가 붙은 형태여야 합니다.",
+    "useLibraryTemplate": "라이브러리의 알림 템플릿으로 시작하기",
+    "templateErrors": {
+      "not_utility": "예약 메시지에는 유틸리티 템플릿만 사용할 수 있습니다.",
+      "authentication": "여기에서는 인증 템플릿을 사용할 수 없습니다.",
+      "carousel": "여기에서는 캐러셀 템플릿을 사용할 수 없습니다.",
+      "limited_time_offer": "여기에서는 기간 한정 혜택 템플릿을 사용할 수 없습니다.",
+      "location_header": "여기에서는 위치 헤더가 있는 템플릿을 사용할 수 없습니다.",
+      "media_header_without_url": "미디어 헤더에는 저장된 이미지, 동영상 또는 문서가 필요합니다.",
+      "header_variables": "헤더에는 변수를 하나까지만 넣을 수 있습니다.",
+      "flow_button": "여기에서는 양식 버튼을 지원하지 않습니다.",
+      "too_many_url_buttons": "변수를 넣을 수 있는 링크 버튼은 하나뿐입니다.",
+      "url_button_base": "링크 버튼은 예약 관리 페이지를 가리켜야 합니다.",
+      "not_found": "이 언어로 된 템플릿을 찾을 수 없습니다.",
+      "not_approved": "WhatsApp에서 승인된 템플릿만 사용할 수 있습니다."
+    },
+    "save": "설정 저장",
+    "saved": "설정을 저장했습니다",
+    "saveFailed": "설정을 저장하지 못했습니다."
+  },
+  "BookingPublic": {
+    "metaTitle": "예약하기",
+    "chooseService": "서비스 선택",
+    "chooseLocation": "장소 선택",
+    "chooseStaff": "담당자 선택",
+    "anyStaff": "가능한 아무나",
+    "chooseDate": "날짜 선택",
+    "chooseTime": "시간 선택",
+    "noSlots": "이 날에는 빈 시간이 없습니다.",
+    "noDates": "앞으로 며칠 동안 빈 날짜가 없습니다.",
+    "moreDates": "다른 날짜",
+    "duration": "{minutes}분",
+    "price": "가격: {price}",
+    "free": "무료",
+    "online": "온라인",
+    "inPerson": "대면",
+    "timesShownIn": "시간은 {zone} 기준으로 표시됩니다.",
+    "details": "내 정보(선택 사항)",
+    "name": "이름",
+    "city": "도시",
+    "state": "주/도",
+    "serviceNotice": "WhatsApp은 이 예약을 확정하고 예약 알림을 보내는 데만 사용합니다.",
+    "continue": "계속",
+    "back": "뒤로",
+    "sendCodeTitle": "WhatsApp으로 확정하기",
+    "sendCodeHelp": "예약을 확정하려면 이 코드를 WhatsApp으로 보내 주세요.",
+    "code": "내 코드",
+    "openWhatsApp": "WhatsApp으로 코드 보내기",
+    "expiresIn": "이 임시 예약은 {minutes}분 후 만료됩니다.",
+    "expired": "임시 예약이 만료되었습니다. 시간을 다시 선택하세요.",
+    "notFound": "이 예약 페이지는 사용할 수 없습니다.",
+    "error": "문제가 생겼습니다. 다시 시도하세요.",
+    "loading": "불러오는 중…",
+    "heldFor": "{when} 예약을 잡아 두었습니다.",
+    "messageToSend": "보낼 메시지",
+    "noWhatsAppLink": "WhatsApp을 열고 {business}에 이 메시지를 보내세요.",
+    "copy": "복사",
+    "copied": "복사됨",
+    "startOver": "시간 다시 선택",
+    "errors": {
+      "slot_unavailable": "그 시간은 더 이상 예약할 수 없습니다. 다른 시간을 선택하세요.",
+      "day_not_allowed": "이 서비스는 그날 예약할 수 없습니다.",
+      "customer_conflict": "그 시간에 이미 다른 예약이 있습니다.",
+      "too_many": "지금 요청이 너무 많습니다. 몇 분 후에 다시 시도하세요.",
+      "hold_expired": "임시 예약이 만료되었습니다. 시간을 다시 선택하세요.",
+      "conflict": "이 예약이 변경되었거나 더 이상 온라인으로 변경할 수 없습니다. 페이지를 새로고침하세요.",
+      "invalid": "선택 내용을 확인하고 다시 시도하세요.",
+      "not_yet_supported": "이 서비스는 아직 온라인으로 예약할 수 없습니다.",
+      "forbidden": "요청이 차단되었습니다. 페이지를 새로고침하고 다시 시도하세요.",
+      "error": "문제가 발생했습니다. 다시 시도하세요."
+    }
+  },
+  "BookingManage": {
+    "metaTitle": "내 예약",
+    "title": "내 예약",
+    "service": "서비스",
+    "practitioner": "담당자",
+    "location": "장소",
+    "when": "일시",
+    "price": "가격",
+    "online": "온라인",
+    "meetingLink": "회의 참여",
+    "meetingLinkLater": "회의 링크는 예약 24시간 전에 여기에 표시됩니다.",
+    "cancel": "예약 취소",
+    "cancelConfirm": "이 예약을 취소할까요?",
+    "keepBooking": "예약 유지",
+    "cancelled": "예약이 취소되었습니다.",
+    "reschedule": "시간 변경",
+    "chooseNewTime": "새 시간 선택",
+    "rescheduled": "예약 시간이 변경되었습니다.",
+    "cutoffPassed": "이 예약은 더 이상 온라인으로 변경할 수 없습니다. WhatsApp으로 문의해 주세요.",
+    "notFound": "올바르지 않은 예약 링크입니다.",
+    "error": "문제가 생겼습니다. 다시 시도하세요.",
+    "loading": "불러오는 중…",
+    "saveTime": "이 시간으로 변경"
+  },
+  "AppointmentNotices": {
+    "confirmation": "{service} 예약이 {time}({location})으로 확정되었습니다. 여기에서 확인, 변경 또는 취소할 수 있습니다: {link}",
+    "rescheduled": "{service} 예약이 {time}({location})으로 변경되었습니다. 여기에서 확인, 변경 또는 취소할 수 있습니다: {link}",
+    "cancelled": "{time} {service} 예약이 취소되었습니다.",
+    "holdUnknownCode": "해당 예약 코드를 찾을 수 없습니다. 코드를 확인하거나 예약 페이지에서 다시 예약해 주세요.",
+    "holdUnavailable": "죄송합니다. 그 시간은 더 이상 예약할 수 없습니다. 예약 페이지에서 다시 예약해 주세요.",
+    "holdConflict": "그 시간에 이미 예약이 있습니다.",
+    "online": "온라인",
+    "staffBooked": "새 예약: {time} {service}",
+    "staffCancelled": "예약 취소: {time} {service}",
+    "staffRescheduled": "예약 변경: {service}, {time}(으)로"
   }
 }

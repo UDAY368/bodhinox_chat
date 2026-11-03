@@ -22,6 +22,8 @@ export const FEATURE_PERMISSIONS = {
   'flows.publish': 'agent',
   'templates.submit': 'admin',
   'settings.billing': 'admin',
+  'appointments.manage': 'agent',
+  'appointments.settings': 'admin',
 } as const satisfies Record<string, AccountRole>;
 
 export type FeaturePermission = keyof typeof FEATURE_PERMISSIONS;

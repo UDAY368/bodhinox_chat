@@ -41,6 +41,7 @@ import {
   ShoppingCart,
   Store,
   CreditCard,
+  CalendarCheck,
   Sparkles,
   Target,
 } from 'lucide-react';
@@ -67,6 +68,7 @@ export type NodeType =
   | 'ask_address'
   | 'send_form'
   | 'payment_link'
+  | 'book_appointment'
   | 'ai_reply'
   | 'conversion_event'
   | 'send_product'
@@ -122,6 +124,7 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'ask_address',
   'send_form',
   'payment_link',
+  'book_appointment',
   'ai_reply',
   'send_product',
   'send_product_list',
@@ -214,6 +217,12 @@ export const NODE_META: Record<
     slugSeed: 'Payment link',
     icon: CreditCard,
     color: 'text-emerald-400',
+    category: 'messaging',
+  },
+  book_appointment: {
+    slugSeed: 'Book appointment',
+    icon: CalendarCheck,
+    color: 'text-cyan-400',
     category: 'messaging',
   },
   ai_reply: {
@@ -347,6 +356,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   ask_address: { l: 0.65, c: 0.1, h: 185 },
   send_form: { l: 0.64, c: 0.12, h: 200 }, // teal-blue — a question asked as a form
   payment_link: { l: 0.64, c: 0.14, h: 150 }, // money green — asks for a payment
+  book_appointment: { l: 0.64, c: 0.13, h: 195 }, // cyan — books a time on the calendar
   ai_reply: { l: 0.62, c: 0.17, h: 305 }, // purple — the AI agent answers
   conversion_event: { l: 0.65, c: 0.15, h: 0 }, // red-pink — reports an ad conversion, writes data like set_tag
   send_product: { l: 0.66, c: 0.15, h: 125 }, // lime — the shop family
@@ -554,6 +564,11 @@ export function summarizeNode(
       const amount = typeof cfg.amount === 'string' ? cfg.amount.trim() : '';
       const currency = typeof cfg.currency === 'string' ? cfg.currency : '';
       return amount ? truncate(`${currency} ${amount}`.trim(), 60) : (t ? t('paymentNone') : 'No amount set');
+    }
+    case 'book_appointment': {
+      const count = Array.isArray(cfg.service_ids) ? cfg.service_ids.length : 0;
+      if (count === 0) return t ? t('appointmentAllServices') : 'Every bookable service';
+      return t ? t('appointmentServices', { count }) : `${count} service${count === 1 ? '' : 's'}`;
     }
     case 'ai_reply': {
       const instructions = typeof cfg.instructions === 'string' ? cfg.instructions : '';

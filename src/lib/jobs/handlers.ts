@@ -41,6 +41,7 @@ import { deliverQueuedWebhook } from '@/lib/webhooks/deliver';
 import { HEALTH_SYNC_JOB, scheduleHealthSync, syncNumberHealth } from '@/lib/whatsapp/health-sync';
 import { COMMERCE_EVENT_JOB, handleCommerceEventJob } from '@/lib/commerce/event-rules';
 import { handleInboxJob, isInboxJob, scheduleInboxSweeps } from '@/lib/inbox/jobs';
+import { isAppointmentJobType } from '@/lib/appointments/types';
 import { NOTIFICATION_DIGEST_JOB, scheduleNotificationDigests, sendNotificationDigest } from '@/lib/notifications/digest';
 
 const uuid = (value: unknown): string => {
@@ -312,6 +313,10 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'analytics.report' || job.type === 'analytics.report_sweep')
       // Builds one CSV report into private storage, or expires old report files.
       await (await import('@/lib/analytics/reports')).handleReportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (isAppointmentJobType(job.type))
+      // Reminders, customer notices, staff/automation/webhook fan-out, hold expiry and follow-up.
+      // Each re-checks the appointment version, so a superseded job is a no-op.
+      await (await import('@/lib/appointments/job-handlers')).handleAppointmentJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else if (job.type.startsWith('meta.'))
       // Click-to-WhatsApp ads: lead fetch/backfill, insights sync and Conversions API sends.
       await (await import('@/lib/meta-ads/jobs')).handleMetaAdsJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

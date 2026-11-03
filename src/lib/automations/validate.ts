@@ -10,6 +10,7 @@ import {
 } from './scheduled-contract';
 
 const t = getT('Validation.automations');
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ------------------------------------------------------------
 // Pre-flight config validation for automations about to be activated.
@@ -307,6 +308,13 @@ export function validateTriggerForActivation(
     if (ids !== undefined && ids !== null && (!Array.isArray(ids) || ids.length > 50 ||
       ids.some((v) => typeof v !== 'string' || !/^\d{1,32}$/.test(v)))) {
       issues.push({ path: 'trigger.ad_ids', message: t('adIdsInvalid', { max: 50 }) });
+    }
+  } else if (triggerType.startsWith('appointment_')) {
+    // Optional service ids: empty or absent runs for every service.
+    const ids = cfg.service_ids;
+    if (ids !== undefined && ids !== null && (!Array.isArray(ids) || ids.length > 50 ||
+      ids.some((v) => typeof v !== 'string' || !UUID.test(v)))) {
+      issues.push({ path: 'trigger.service_ids', message: t('serviceIdsInvalid', { max: 50 }) });
     }
   }
 

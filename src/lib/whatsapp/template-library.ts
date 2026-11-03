@@ -86,6 +86,9 @@ const SPECS: Spec[] = [
   // health / beauty
   { slug: 'appointment_reminder', industry: 'health', category: 'Utility', header: true, buttons: ['QUICK_REPLY', 'QUICK_REPLY'] },
   { slug: 'appointment_confirmed', industry: 'beauty', category: 'Utility', buttons: ['PHONE_NUMBER'] },
+  // Phase 7 appointment reminders: the URL button must become `${APP_URL}/my-booking/{{1}}`
+  // (src/lib/appointments/template-check.ts manageButtonUrl); the job fills {{1}} with the manage token.
+  { slug: 'appointment_reminder_manage', industry: 'health', category: 'Utility', header: true, buttons: ['URL'] },
   // finance
   { slug: 'payment_reminder', industry: 'finance', category: 'Utility', buttons: ['URL'] },
   { slug: 'payment_received', industry: 'finance', category: 'Utility', header: true, footer: true },

@@ -9131,6 +9131,1392 @@
         "reference": null,
         "definition": "created_at timestamptz NOT NULL DEFAULT now()"
       }
+    ],
+    "appointment_settings": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid PRIMARY KEY DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "hold_minutes",
+        "type": "integer",
+        "nullable": false,
+        "default": "15",
+        "reference": null,
+        "definition": "hold_minutes integer NOT NULL DEFAULT 15 CHECK (hold_minutes BETWEEN 5 AND 60)"
+      },
+      {
+        "name": "max_active_holds_per_page",
+        "type": "integer",
+        "nullable": false,
+        "default": "20",
+        "reference": null,
+        "definition": "max_active_holds_per_page integer NOT NULL DEFAULT 20 CHECK (max_active_holds_per_page BETWEEN 1 AND 200)"
+      },
+      {
+        "name": "min_notice_minutes",
+        "type": "integer",
+        "nullable": false,
+        "default": "60",
+        "reference": null,
+        "definition": "min_notice_minutes integer NOT NULL DEFAULT 60 CHECK (min_notice_minutes BETWEEN 0 AND 10080)"
+      },
+      {
+        "name": "horizon_days",
+        "type": "integer",
+        "nullable": false,
+        "default": "60",
+        "reference": null,
+        "definition": "horizon_days integer NOT NULL DEFAULT 60 CHECK (horizon_days BETWEEN 1 AND 365)"
+      },
+      {
+        "name": "customer_cancel_cutoff_minutes",
+        "type": "integer",
+        "nullable": false,
+        "default": "120",
+        "reference": null,
+        "definition": "customer_cancel_cutoff_minutes integer NOT NULL DEFAULT 120 CHECK (customer_cancel_cutoff_minutes BETWEEN 0 AND 10080)"
+      },
+      {
+        "name": "reminder_24h",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "reminder_24h boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "reminder_2h",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "reminder_2h boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "staff_notify",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "staff_notify boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "confirm_template_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "confirm_template_name text CHECK (confirm_template_name IS NULL OR char_length(confirm_template_name) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "confirm_template_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "confirm_template_language text CHECK (confirm_template_language IS NULL OR char_length(confirm_template_language) BETWEEN 2 AND 15)"
+      },
+      {
+        "name": "reminder_template_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reminder_template_name text CHECK (reminder_template_name IS NULL OR char_length(reminder_template_name) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "reminder_template_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reminder_template_language text CHECK (reminder_template_language IS NULL OR char_length(reminder_template_language) BETWEEN 2 AND 15)"
+      },
+      {
+        "name": "change_template_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "change_template_name text CHECK (change_template_name IS NULL OR char_length(change_template_name) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "change_template_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "change_template_language text CHECK (change_template_language IS NULL OR char_length(change_template_language) BETWEEN 2 AND 15)"
+      },
+      {
+        "name": "feedback_template_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "feedback_template_name text CHECK (feedback_template_name IS NULL OR char_length(feedback_template_name) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "feedback_template_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "feedback_template_language text CHECK (feedback_template_language IS NULL OR char_length(feedback_template_language) BETWEEN 2 AND 15)"
+      },
+      {
+        "name": "rebook_template_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "rebook_template_name text CHECK (rebook_template_name IS NULL OR char_length(rebook_template_name) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "rebook_template_language",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "rebook_template_language text CHECK (rebook_template_language IS NULL OR char_length(rebook_template_language) BETWEEN 2 AND 15)"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_locations": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 120)"
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "address text CHECK (address IS NULL OR char_length(address) <= 500)"
+      },
+      {
+        "name": "timezone",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "timezone text NOT NULL CHECK (char_length(timezone) BETWEEN 1 AND 64)"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": "'physical'",
+        "reference": null,
+        "definition": "kind text NOT NULL DEFAULT 'physical' CHECK (kind IN ('physical','online'))"
+      },
+      {
+        "name": "archived_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "archived_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_services": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 120)"
+      },
+      {
+        "name": "mode",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "mode text NOT NULL CHECK (mode IN ('offline','online'))"
+      },
+      {
+        "name": "duration_minutes",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "duration_minutes integer NOT NULL CHECK (duration_minutes BETWEEN 5 AND 480)"
+      },
+      {
+        "name": "buffer_minutes",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "buffer_minutes integer NOT NULL DEFAULT 0 CHECK (buffer_minutes BETWEEN 0 AND 240)"
+      },
+      {
+        "name": "slot_step_minutes",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "slot_step_minutes integer CHECK (slot_step_minutes IS NULL OR slot_step_minutes BETWEEN 5 AND 480)"
+      },
+      {
+        "name": "capacity",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "capacity integer NOT NULL DEFAULT 1 CHECK (capacity BETWEEN 1 AND 200)"
+      },
+      {
+        "name": "price_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "price_minor bigint CHECK (price_minor IS NULL OR price_minor >= 0)"
+      },
+      {
+        "name": "currency",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "currency text CHECK (currency IS NULL OR currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "payment_required",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "payment_required boolean NOT NULL DEFAULT false CONSTRAINT appointment_services_payment_required_check CHECK (NOT payment_required)"
+      },
+      {
+        "name": "allowed_weekdays",
+        "type": "smallint[]",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "allowed_weekdays smallint[] CHECK (allowed_weekdays IS NULL OR (cardinality(allowed_weekdays) BETWEEN 1 AND 7 AND allowed_weekdays <@ ARRAY[1,2,3,4,5,6,7]::smallint[]))"
+      },
+      {
+        "name": "meeting_url",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "meeting_url text CHECK (meeting_url IS NULL OR (meeting_url ~ '^https://' AND char_length(meeting_url) <= 2048))"
+      },
+      {
+        "name": "feedback_delay_minutes",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "feedback_delay_minutes integer CHECK (feedback_delay_minutes IS NULL OR feedback_delay_minutes BETWEEN 0 AND 10080)"
+      },
+      {
+        "name": "rebook_after_days",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "rebook_after_days integer CHECK (rebook_after_days IS NULL OR rebook_after_days BETWEEN 1 AND 365)"
+      },
+      {
+        "name": "archived_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "archived_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_staff": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "display_name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "display_name text NOT NULL CHECK (char_length(btrim(display_name)) BETWEEN 1 AND 80)"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "account_memberships",
+          "column": "user_id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "user_id uuid"
+      },
+      {
+        "name": "archived_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "archived_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_offerings": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "service_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_services",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "service_id uuid NOT NULL"
+      },
+      {
+        "name": "staff_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointment_staff",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "staff_id uuid"
+      },
+      {
+        "name": "location_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_locations",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "location_id uuid NOT NULL"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_hours": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "staff_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointment_staff",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "staff_id uuid"
+      },
+      {
+        "name": "location_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_locations",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "location_id uuid NOT NULL"
+      },
+      {
+        "name": "hours",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "hours jsonb NOT NULL CHECK (jsonb_typeof(hours) = 'object' AND pg_column_size(hours) <= 8192)"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_exceptions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "staff_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointment_staff",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "staff_id uuid"
+      },
+      {
+        "name": "location_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_locations",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "location_id uuid NOT NULL"
+      },
+      {
+        "name": "starts_on",
+        "type": "date",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "starts_on date NOT NULL"
+      },
+      {
+        "name": "ends_on",
+        "type": "date",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "ends_on date NOT NULL"
+      },
+      {
+        "name": "ranges",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "ranges jsonb CHECK (ranges IS NULL OR (jsonb_typeof(ranges) = 'array' AND pg_column_size(ranges) <= 2048))"
+      },
+      {
+        "name": "reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reason text CHECK (reason IS NULL OR char_length(reason) <= 120)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "booking_pages": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "slug",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "slug text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$')"
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "title text NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 120)"
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "active boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "location_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointment_locations",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "location_id uuid"
+      },
+      {
+        "name": "whatsapp_config_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "whatsapp_config",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "whatsapp_config_id uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "booking_page_services": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": null,
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "page_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "booking_pages",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "page_id uuid NOT NULL"
+      },
+      {
+        "name": "service_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_services",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "service_id uuid NOT NULL"
+      }
+    ],
+    "appointments": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "contacts",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "contact_id uuid"
+      },
+      {
+        "name": "service_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_services",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "service_id uuid NOT NULL"
+      },
+      {
+        "name": "staff_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointment_staff",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "staff_id uuid"
+      },
+      {
+        "name": "location_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_locations",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "location_id uuid NOT NULL"
+      },
+      {
+        "name": "start_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "start_at timestamptz NOT NULL"
+      },
+      {
+        "name": "end_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "end_at timestamptz NOT NULL"
+      },
+      {
+        "name": "timezone",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "timezone text NOT NULL CHECK (char_length(timezone) BETWEEN 1 AND 64)"
+      },
+      {
+        "name": "local_date",
+        "type": "date",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "local_date date GENERATED ALWAYS AS ((start_at AT TIME ZONE timezone)::date) STORED"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "status text NOT NULL CHECK (status IN ('held','confirmed','cancelled','completed','no_show','expired'))"
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "version integer NOT NULL DEFAULT 1 CHECK (version > 0)"
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "source text NOT NULL CHECK (source IN ('staff','public','flow'))"
+      },
+      {
+        "name": "source_ref",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "source_ref text CHECK (source_ref IS NULL OR char_length(source_ref) <= 200)"
+      },
+      {
+        "name": "booking_page_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "booking_pages",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "booking_page_id uuid"
+      },
+      {
+        "name": "hold_expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "hold_expires_at timestamptz"
+      },
+      {
+        "name": "hold_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "hold_code text CHECK (hold_code IS NULL OR hold_code ~ '^[A-HJ-NP-Z2-9]{6}$')"
+      },
+      {
+        "name": "intake",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "intake jsonb CHECK (intake IS NULL OR (jsonb_typeof(intake) = 'object' AND pg_column_size(intake) <= 2048))"
+      },
+      {
+        "name": "hold_client_hash",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "hold_client_hash text CHECK (hold_client_hash IS NULL OR hold_client_hash ~ '^[0-9a-f]{64}$')"
+      },
+      {
+        "name": "confirmed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "confirmed_at timestamptz"
+      },
+      {
+        "name": "price_minor",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "price_minor bigint CHECK (price_minor IS NULL OR price_minor >= 0)"
+      },
+      {
+        "name": "currency",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "currency text CHECK (currency IS NULL OR currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "meeting_url",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "meeting_url text CHECK (meeting_url IS NULL OR (meeting_url ~ '^https://' AND char_length(meeting_url) <= 2048))"
+      },
+      {
+        "name": "service_name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "service_name text NOT NULL CHECK (char_length(service_name) BETWEEN 1 AND 120)"
+      },
+      {
+        "name": "manage_token_hash",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "manage_token_hash text UNIQUE CHECK (manage_token_hash IS NULL OR manage_token_hash ~ '^[0-9a-f]{64}$')"
+      },
+      {
+        "name": "token_epoch",
+        "type": "integer",
+        "nullable": false,
+        "default": "1",
+        "reference": null,
+        "definition": "token_epoch integer NOT NULL DEFAULT 1 CHECK (token_epoch > 0)"
+      },
+      {
+        "name": "cancel_reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "cancel_reason text CHECK (cancel_reason IS NULL OR cancel_reason IN ('customer','staff','expired','other'))"
+      },
+      {
+        "name": "outcome_note",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "outcome_note text CHECK (outcome_note IS NULL OR char_length(outcome_note) <= 1000)"
+      },
+      {
+        "name": "feedback_score",
+        "type": "smallint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "feedback_score smallint CHECK (feedback_score IS NULL OR feedback_score BETWEEN 1 AND 5)"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "appointment_id uuid NOT NULL"
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "version integer NOT NULL CHECK (version > 0)"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('held','confirmed','rescheduled','reassigned','cancelled','expired', 'completed','no_show','feedback','reminder_skipped'))"
+      },
+      {
+        "name": "old_start_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "old_start_at timestamptz"
+      },
+      {
+        "name": "new_start_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "new_start_at timestamptz"
+      },
+      {
+        "name": "actor",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "actor text NOT NULL CHECK (actor IN ('staff','customer','system'))"
+      },
+      {
+        "name": "actor_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "actor_user_id uuid"
+      },
+      {
+        "name": "detail",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "detail text CHECK (detail IS NULL OR detail ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_messages": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "appointment_id uuid NOT NULL"
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "version integer NOT NULL CHECK (version > 0)"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('confirmation','reminder_24h','reminder_2h','cancelled','rescheduled','feedback','rebook'))"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "status text NOT NULL CHECK (status IN ('sent','skipped','blocked','failed','outcome_unknown'))"
+      },
+      {
+        "name": "reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reason text CHECK (reason IS NULL OR reason ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "resolved_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_at timestamptz"
+      },
+      {
+        "name": "resolved_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "tasks": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "contacts",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "contact_id uuid"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "appointment_id uuid"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('next_step','rebook','manual'))"
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "title text NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 200)"
+      },
+      {
+        "name": "due_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "due_at timestamptz"
+      },
+      {
+        "name": "assigned_to",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "account_memberships",
+          "column": "user_id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "assigned_to uuid"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'open'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','done','cancelled'))"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
     ]
   }
 }

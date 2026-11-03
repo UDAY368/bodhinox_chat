@@ -22,6 +22,9 @@ export const NOTIFICATION_EVENTS = [
   'campaign_finished',
   'template_rejected',
   'number_quality',
+  'appointment_booked',
+  'appointment_cancelled',
+  'appointment_rescheduled',
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -33,6 +36,9 @@ export const NOTIFICATION_TYPE_BY_EVENT: Record<NotificationEvent, string> = {
   campaign_finished: 'campaign_finished',
   template_rejected: 'template_rejected',
   number_quality: 'whatsapp_number_health',
+  appointment_booked: 'appointment_booked',
+  appointment_cancelled: 'appointment_cancelled',
+  appointment_rescheduled: 'appointment_rescheduled',
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCE = { in_app: true, email: false } as const;

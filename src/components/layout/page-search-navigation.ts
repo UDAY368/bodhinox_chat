@@ -10,6 +10,7 @@ export const navigationPages = [
   { href: '/automations', labelKey: 'automations' },
   { href: '/flows', labelKey: 'flows' },
   { href: '/forms', labelKey: 'forms' },
+  { href: '/appointments', labelKey: 'appointments' },
   { href: '/agents', labelKey: 'aiAgents' },
   { href: '/commerce/orders', labelKey: 'orders' },
   { href: '/commerce/products', labelKey: 'products' },

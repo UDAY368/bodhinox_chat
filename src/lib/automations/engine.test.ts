@@ -1230,3 +1230,35 @@ describe("triggerMatches — ad_click", () => {
     expect(triggerMatches(automation({}), undefined)).toBe(false);
   });
 });
+
+describe("triggerMatches — appointment triggers", () => {
+  const SERVICE = "11111111-1111-4111-8111-111111111111";
+  function automation(trigger_config: Record<string, unknown>): Automation {
+    return {
+      id: "a2",
+      account_id: ACCOUNT,
+      user_id: "u1",
+      name: "booked",
+      trigger_type: "appointment_booked",
+      trigger_config,
+      is_active: true,
+      execution_count: 0,
+      created_at: "",
+      updated_at: "",
+    };
+  }
+
+  it("matches any service when none are listed", () => {
+    expect(triggerMatches(automation({}), { service_id: SERVICE })).toBe(true);
+    expect(triggerMatches(automation({ service_ids: [] }), { service_id: SERVICE })).toBe(true);
+  });
+
+  it("matches only the listed services", () => {
+    expect(triggerMatches(automation({ service_ids: [SERVICE] }), { service_id: SERVICE })).toBe(true);
+    expect(triggerMatches(automation({ service_ids: [SERVICE] }), { service_id: "other" })).toBe(false);
+  });
+
+  it("does not match an event without a service", () => {
+    expect(triggerMatches(automation({}), {})).toBe(false);
+  });
+});

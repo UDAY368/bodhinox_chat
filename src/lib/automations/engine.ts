@@ -57,6 +57,8 @@ export interface AutomationContext {
   interactive_reply_id?: string
   /** Meta ad id of a click-to-WhatsApp referral, for ad_click (never the click id). */
   ad_id?: string
+  /** Service of the appointment, for appointment_* triggers. */
+  service_id?: string
 }
 
 export interface DispatchInput {
@@ -1156,6 +1158,14 @@ export function triggerMatches(automation: Automation, ctx: AutomationContext | 
     if (typeof adId !== 'string') return false
     const ids = (automation.trigger_config as AdClickAutomationTriggerConfig | null)?.ad_ids
     return !Array.isArray(ids) || ids.length === 0 || (adId !== '' && ids.includes(adId))
+  }
+
+  // An appointment lifecycle event: the listed services, or any service when none are listed.
+  if (typeof automation.trigger_type === 'string' && automation.trigger_type.startsWith('appointment_')) {
+    const serviceId = ctx?.service_id
+    if (typeof serviceId !== 'string') return false
+    const ids = (automation.trigger_config as { service_ids?: unknown } | null)?.service_ids
+    return !Array.isArray(ids) || ids.length === 0 || ids.includes(serviceId)
   }
 
   if (automation.trigger_type === 'tag_added') {

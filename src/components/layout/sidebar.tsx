@@ -12,6 +12,7 @@ import {
   BarChart3,
   Bell,
   Bot,
+  CalendarCheck,
   ClipboardList,
   CreditCard,
   Crown,
@@ -101,6 +102,7 @@ const navItems: NavItem[] = [
   { href: '/automations', labelKey: 'automations', icon: Zap },
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
   { href: '/forms', labelKey: 'forms', icon: ClipboardList },
+  { href: '/appointments', labelKey: 'appointments', icon: CalendarCheck },
   { href: '/agents', labelKey: 'aiAgents', icon: Bot },
 ];
 

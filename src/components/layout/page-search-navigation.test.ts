@@ -6,10 +6,10 @@ import {
 } from './page-search-navigation';
 
 describe('workspace navigation', () => {
-  it('includes all sixteen live destinations', () => {
-    expect(filterPages('', (key) => key)).toHaveLength(16);
+  it('includes all seventeen live destinations', () => {
+    expect(filterPages('', (key) => key)).toHaveLength(17);
     const hrefs = navigationPages.map((page) => page.href);
-    for (const href of ['/ads', '/agents', '/flows', '/forms', '/analytics', '/commerce/orders', '/commerce/products', '/commerce/payments'])
+    for (const href of ['/ads', '/agents', '/appointments', '/flows', '/forms', '/analytics', '/commerce/orders', '/commerce/products', '/commerce/payments'])
       expect(hrefs).toContain(href);
   });
 
@@ -40,6 +40,7 @@ describe('workspace navigation', () => {
     expect(getPageTitleKey('/forms/123')).toBe('forms');
     expect(getPageTitleKey('/analytics')).toBe('analytics');
     expect(getPageTitleKey('/ads')).toBe('ads');
+    expect(getPageTitleKey('/appointments')).toBe('appointments');
     expect(getPageTitleKey('/commerce/orders/42')).toBe('orders');
     expect(getPageTitleKey('/commerce')).toBe('dashboard');
     expect(getPageTitleKey('/inbox-archive')).toBe('dashboard');

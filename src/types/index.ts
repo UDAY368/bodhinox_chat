@@ -234,6 +234,9 @@ export const NOTIFICATION_TYPES = [
   'campaign_finished',
   'template_rejected',
   'billing',
+  'appointment_booked',
+  'appointment_cancelled',
+  'appointment_rescheduled',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -579,7 +582,14 @@ export type AutomationTriggerType =
   | 'interactive_reply'
   /** A conversation message carried a click-to-WhatsApp ad referral;
    *  trigger_config.ad_ids (Meta ad ids) limits it to those ads. */
-  | 'ad_click';
+  | 'ad_click'
+  /** Appointment lifecycle, fired after commit by the appointments.event job;
+   *  trigger_config.service_ids optionally limits it to those services. */
+  | 'appointment_booked'
+  | 'appointment_cancelled'
+  | 'appointment_rescheduled'
+  | 'appointment_completed'
+  | 'appointment_no_show';
 
 export type AutomationStepType =
   | 'send_message'

@@ -79,7 +79,8 @@
     "products": "Productos",
     "payments": "Pagos",
     "analytics": "Analíticas",
-    "ads": "Anuncios"
+    "ads": "Anuncios",
+    "appointments": "Citas"
   },
   "Header": {
     "dashboard": "Panel",
@@ -105,7 +106,8 @@
     "orders": "Pedidos",
     "products": "Productos",
     "payments": "Pagos",
-    "ads": "Anuncios"
+    "ads": "Anuncios",
+    "appointments": "Citas"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -1561,6 +1563,26 @@
         "ad_click": {
           "label": "Mensaje desde un anuncio",
           "hint": "El cliente te escribe desde un anuncio que abre WhatsApp"
+        },
+        "appointment_booked": {
+          "label": "Cita reservada",
+          "hint": "Se confirma una cita (por el equipo, un flujo o el código de WhatsApp del cliente)"
+        },
+        "appointment_cancelled": {
+          "label": "Cita cancelada",
+          "hint": "Se cancela una cita confirmada"
+        },
+        "appointment_rescheduled": {
+          "label": "Cita reprogramada",
+          "hint": "Una cita confirmada pasa a otra hora"
+        },
+        "appointment_completed": {
+          "label": "Cita completada",
+          "hint": "El equipo marca una cita como completada"
+        },
+        "appointment_no_show": {
+          "label": "Cita no presentada",
+          "hint": "El equipo marca que el cliente no se presentó"
         }
       },
       "trigger": "Disparador",
@@ -2173,6 +2195,10 @@
         "conversion_event": {
           "label": "Evento de conversión",
           "blurb": "Envía una conversión a Meta para un cliente que llegó desde un anuncio"
+        },
+        "book_appointment": {
+          "label": "Reservar cita",
+          "blurb": "Ofrece horarios libres por WhatsApp y reserva el que elija el cliente"
         }
       },
       "ports": {
@@ -2184,7 +2210,10 @@
         "expired": "Caducado",
         "failed": "Fallido",
         "answered": "Respondido",
-        "handoff": "Derivar a una persona"
+        "handoff": "Derivar a una persona",
+        "success": "Reservada",
+        "unavailable": "No disponible",
+        "cancelled": "Cancelada"
       },
       "triggerTemplateReplyTitle": "Respuesta a un botón de plantilla",
       "matchTypeLabel": "Coincidencia",
@@ -2246,7 +2275,8 @@
           "timeout": "Sin respuesta en {minutes, plural, one {# minuto} other {# minutos}}",
           "fallback": "Respuesta no aceptada; se aplica la política de respaldo del flujo",
           "ai_reply": "El agente de IA responde (simulado; no se genera nada)",
-          "conversion_event": "Se envía una conversión a Meta (simulado; no se envía nada)"
+          "conversion_event": "Se envía una conversión a Meta (simulado; no se envía nada)",
+          "book_appointment": "Ofrece horarios libres y reserva el que elija el cliente (simulado; no se reserva nada)"
         },
         "simulate": {
           "shareMedia": "Simular: el cliente envía un archivo",
@@ -2270,7 +2300,36 @@
       "adClickIdsLabel": "ID de anuncios (opcional)",
       "adClickIdsPlaceholder": "p. ej. 120211234567890",
       "adClickIdsHelp": "Déjalo vacío para empezar con cualquier anuncio. Hasta {max} ID, solo dígitos.",
-      "adClickVariables": "Variables del anuncio"
+      "adClickVariables": "Variables del anuncio",
+      "appointment": {
+        "services": "Servicios",
+        "servicesHelp": "Si indicas más de uno, el cliente elige (hasta 10).",
+        "location": "Ubicación",
+        "anyLocation": "Primera ubicación que ofrezca el servicio",
+        "staffMode": "Profesional",
+        "staffAny": "Cualquier profesional libre",
+        "staffChoose": "Que el cliente elija",
+        "daysAhead": "Días que se ofrecen",
+        "daysAheadHelp": "Cuántos días hacia adelante buscar horarios libres (de 1 a 14).",
+        "promptService": "¿Qué servicio quieres reservar?",
+        "promptStaff": "¿Con quién quieres la cita?",
+        "promptDay": "Elige un día:",
+        "promptSlot": "Elige una hora:",
+        "listButton": "Elegir",
+        "moreDates": "Más fechas",
+        "later": "Horas más tarde",
+        "noSlots": "Lo sentimos, ahora no hay horarios libres.",
+        "slotTaken": "Esa hora acaba de ocuparse. Estas son las horas que siguen libres ese día.",
+        "invalidChoice": "Elige una de las opciones.",
+        "variablesHelp": "Guarda appointment_id y appointment_local_time para los pasos siguientes.",
+        "cancelRow": "Cancelar",
+        "noServices": "Aún no hay servicios. Añádelos en los ajustes de Citas; mientras tanto, el paso no ofrece nada y sigue su camino No disponible.",
+        "servicesAllHelp": "Elige hasta {max}. Si no eliges ninguno, se ofrecen todos los servicios reservables. El cliente elige cuando hay más de uno.",
+        "serviceMode": "Tipo de servicio",
+        "modeBoth": "En línea y presencial",
+        "modeOnline": "Solo en línea",
+        "modeOffline": "Solo presencial"
+      }
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -2319,7 +2378,9 @@
       "products": "{count, plural, one {# producto} other {# productos}}",
       "paymentNone": "Sin importe",
       "aiReplyDefault": "Responde con el agente de IA",
-      "conversionDefault": "Envía {event} a Meta"
+      "conversionDefault": "Envía {event} a Meta",
+      "appointmentAllServices": "Todos los servicios reservables",
+      "appointmentServices": "{count, plural, one {# servicio} other {# servicios}}"
     },
     "header": {
       "backToFlows": "Volver a flujos",
@@ -3200,7 +3261,8 @@
         "api_campaigns": "Campañas por API",
         "click_tracking": "Seguimiento de clics",
         "retargeting": "Retargeting por campaña",
-        "workspace_attributes": "Atributos del espacio de trabajo"
+        "workspace_attributes": "Atributos del espacio de trabajo",
+        "appointments": "Citas"
       },
       "limits": {
         "seats": "Miembros e invitaciones abiertas",
@@ -3212,7 +3274,8 @@
         "ai_messages": "Respuestas de IA este mes",
         "monthly_active_contacts": "Contactos activos este mes",
         "storage_bytes": "Almacenamiento de archivos (bytes)",
-        "whatsapp_numbers": "Números de WhatsApp"
+        "whatsapp_numbers": "Números de WhatsApp",
+        "appointment_staff": "Profesionales"
       },
       "loadFailed": "No se pudo cargar tu plan",
       "retry": "Reintentar",
@@ -3559,7 +3622,9 @@
         "contacts_export": "Exportar contactos",
         "flows_publish": "Publicar flujos",
         "templates_submit": "Enviar plantillas a WhatsApp",
-        "settings_billing": "Gestionar plan y facturación"
+        "settings_billing": "Gestionar plan y facturación",
+        "appointments_manage": "Reservar y gestionar citas",
+        "appointments_settings": "Configurar citas y páginas de reserva"
       }
     },
     "auditLog": {
@@ -3812,7 +3877,10 @@
       "template_rejected": "Plantilla rechazada",
       "whatsapp_number_health": "Número de WhatsApp",
       "payment_received": "Pago recibido",
-      "billing": "Facturación"
+      "billing": "Facturación",
+      "appointment_booked": "Nueva reserva",
+      "appointment_cancelled": "Reserva cancelada",
+      "appointment_rescheduled": "Reserva movida"
     }
   },
   "Agents": {
@@ -4409,6 +4477,18 @@
       "askPassive": "¡Gracias! ¿Qué es lo que podríamos hacer mejor?",
       "skipPassive": "Nada que añadir",
       "passiveReply": "Gracias por tu opinión. Leemos todas las respuestas."
+    },
+    "free_consultation": {
+      "name": "Reserva de consulta gratuita",
+      "description": "El cliente elige una consulta en línea o presencial, indica su nombre, ciudad y estado, y luego escoge un horario libre de tu agenda.",
+      "keywords": "consulta gratis,asesoría gratuita,hablar con un experto",
+      "text": "¡Hola! ¿Quieres tu consulta gratuita en línea o presencial?",
+      "onlineButton": "En línea",
+      "offlineButton": "Presencial",
+      "askName": "¿Cuál es tu nombre completo?",
+      "askCity": "¿En qué ciudad estás?",
+      "askState": "¿Y en qué estado o provincia?",
+      "handoffNote": "Solicitud de consulta gratuita ({mode}) de {name}, {city}, {state}. No se pudo reservar un horario libre; haz el seguimiento."
     }
   },
   "LibErrors": {
@@ -4635,7 +4715,12 @@
       "conversionNeedsNext": "Elige el paso que se ejecuta después del evento de conversión.",
       "conversionMissingNext": "El paso posterior al evento de conversión ya no existe.",
       "conversionPurchaseAutomatic": "Las compras se informan automáticamente cuando se paga un enlace de pago o un pedido. Elige otro evento.",
-      "conversionValueNeedsBoth": "Define la variable del valor y la moneda, o ninguna de las dos."
+      "conversionValueNeedsBoth": "Define la variable del valor y la moneda, o ninguna de las dos.",
+      "appointmentServices": "Elige hasta {max} servicios, o ninguno para ofrecer todos los servicios reservables.",
+      "appointmentMode": "Elige en línea, presencial o ambos.",
+      "appointmentLocation": "Elige una ubicación de la lista.",
+      "appointmentStaffMode": "Elige cómo se asigna el profesional.",
+      "appointmentDays": "Los días a ofrecer deben ser un número entero de {min} a {max}."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -4670,7 +4755,8 @@
       "templateLocationHeader": "Las automatizaciones no pueden enviar plantillas con encabezado de ubicación: el paso solo rellena valores del cuerpo, no una ubicación. Usa un flujo o una campaña.",
       "templateHeaderVariable": "Las automatizaciones no pueden enviar plantillas con una variable en el encabezado: el paso solo rellena valores del cuerpo.",
       "templateUrlVariable": "Las automatizaciones no pueden enviar plantillas con una variable en un botón de URL: el paso solo rellena valores del cuerpo.",
-      "adIdsInvalid": "Los ID de anuncio deben ser solo dígitos, hasta {max}"
+      "adIdsInvalid": "Los ID de anuncio deben ser solo dígitos, hasta {max}",
+      "serviceIdsInvalid": "Los ID de servicio deben ser válidos, hasta {max}"
     },
     "templates": {
       "nameRequired": "El nombre de la plantilla es obligatorio.",
@@ -5721,6 +5807,16 @@
       "header": "Aviso de feriado",
       "body": "Hola {v1}, te informamos que {v2} estará cerrado el {v3} por {v4}. Retomaremos la atención normal el siguiente día hábil.",
       "samples": "Cristina|nuestra oficina|1 de enero|Año Nuevo"
+    },
+    "appointment_reminder_manage": {
+      "title": "Recordatorio de cita con enlace de gestión",
+      "description": "Recuerda una reserva a tus clientes y permite verla, cambiarla o cancelarla.",
+      "header": "Recordatorio de cita",
+      "body": "Recordatorio: tu cita de {v1} es el {v2} ({v3}). Usa el botón de abajo para verla, cambiarla o cancelarla.",
+      "buttons": {
+        "b1": "Gestionar reserva"
+      },
+      "samples": "Revisión dental|lunes 10 de junio, 11:30 IST|Clínica Andheri"
     }
   },
   "Templates": {
@@ -6582,7 +6678,19 @@
       "description": "Cambia la calificación de calidad o el límite de mensajes de un número de WhatsApp."
     },
     "inApp": "En la app",
-    "email": "Resumen por correo"
+    "email": "Resumen por correo",
+    "appointment_booked": {
+      "label": "Nuevas reservas",
+      "description": "Se confirma una cita contigo o en tu espacio de trabajo."
+    },
+    "appointment_cancelled": {
+      "label": "Reservas canceladas",
+      "description": "Se cancela una cita confirmada."
+    },
+    "appointment_rescheduled": {
+      "label": "Reservas movidas",
+      "description": "Una cita confirmada pasa a otra hora."
+    }
   },
   "Weekdays": {
     "mon": "Lunes",
@@ -7531,5 +7639,449 @@
     "notConnected": "Aún no hay ninguna cuenta publicitaria de Meta conectada. Un administrador la conecta en Configuración > Anuncios.",
     "tokenInvalid": "El acceso a Meta caducó, así que los resultados ya no se actualizan. Un administrador debe volver a conectar en Configuración > Anuncios.",
     "openSettings": "Abrir Configuración > Anuncios"
+  },
+  "Appointments": {
+    "title": "Citas",
+    "description": "Reserva consultas, confírmalas por WhatsApp y haz el seguimiento después de la visita.",
+    "loadFailed": "No se pudieron cargar las citas. Recarga la página para intentarlo de nuevo.",
+    "retry": "Reintentar",
+    "upgrade": "Las citas no están incluidas en tu plan. Mejora el plan para usarlas.",
+    "readOnly": "Puedes ver las citas, pero no cambiarlas.",
+    "tabs": {
+      "schedule": "Agenda",
+      "services": "Servicios",
+      "staff": "Equipo y horarios",
+      "locations": "Ubicaciones",
+      "exceptions": "Festivos y excepciones",
+      "pages": "Páginas de reserva",
+      "settings": "Ajustes",
+      "tasks": "Tareas"
+    },
+    "status": {
+      "held": "Esperando WhatsApp",
+      "confirmed": "Confirmada",
+      "cancelled": "Cancelada",
+      "completed": "Completada",
+      "no_show": "No se presentó",
+      "expired": "Caducada"
+    },
+    "source": {
+      "staff": "Equipo",
+      "public": "Página de reserva",
+      "flow": "Flujo de WhatsApp"
+    },
+    "schedule": {
+      "day": "Día",
+      "week": "Semana",
+      "today": "Hoy",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "filterStaff": "Profesional",
+      "filterLocation": "Ubicación",
+      "filterService": "Servicio",
+      "filterStatus": "Estado",
+      "all": "Todas",
+      "needsOutcome": "Falta resultado",
+      "empty": "No hay citas en este periodo.",
+      "newAppointment": "Nueva cita",
+      "timesIn": "Horas en {zone}",
+      "awaitingContact": "Esperando el código de WhatsApp del cliente",
+      "anyStaff": "Cualquier profesional",
+      "pool": "Calendario compartido"
+    },
+    "sheet": {
+      "title": "Cita",
+      "service": "Servicio",
+      "practitioner": "Profesional",
+      "location": "Ubicación",
+      "when": "Cuándo",
+      "contact": "Cliente",
+      "openInbox": "Abrir conversación",
+      "status": "Estado",
+      "source": "Reservada desde",
+      "history": "Historial",
+      "messages": "Mensajes al cliente",
+      "confirm": "Confirmar",
+      "reschedule": "Reprogramar",
+      "cancel": "Cancelar cita",
+      "cancelReason": "Motivo",
+      "cancelConfirm": "¿Cancelar esta cita? Se avisará al cliente por WhatsApp.",
+      "markCompleted": "Marcar como completada",
+      "markNoShow": "Marcar como no presentada",
+      "outcomeNote": "Nota del equipo",
+      "outcomeNoteWarning": "No anotes datos clínicos aquí.",
+      "feedbackScore": "Valoración (de 1 a 5)",
+      "staffRecorded": "Registrado por el equipo",
+      "createTask": "Crear tarea",
+      "markResolved": "Marcar como resuelto",
+      "resolved": "Resuelto",
+      "confirmHoldHelp": "Las reservas de la página de reserva se confirman cuando el cliente envía su código por WhatsApp.",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "close": "Cerrar",
+      "noMessages": "Aún no hay mensajes al cliente.",
+      "noHistory": "Aún no hay historial."
+    },
+    "cancelReasons": {
+      "customer": "Lo pidió el cliente",
+      "staff": "Cancelada por el equipo",
+      "expired": "Reserva caducada",
+      "other": "Otro"
+    },
+    "events": {
+      "held": "Horario reservado",
+      "confirmed": "Confirmada",
+      "rescheduled": "Movida de {from} a {to}",
+      "reassigned": "Cambio de profesional",
+      "cancelled": "Cancelada",
+      "expired": "Reserva caducada",
+      "completed": "Completada",
+      "no_show": "Marcada como no presentada",
+      "feedback": "Valoración registrada",
+      "reminder_skipped": "Recordatorio omitido"
+    },
+    "actors": {
+      "staff": "Equipo",
+      "customer": "Cliente",
+      "system": "Sistema"
+    },
+    "messageKinds": {
+      "confirmation": "Confirmación",
+      "reminder_24h": "Recordatorio (24 horas)",
+      "reminder_2h": "Recordatorio (2 horas)",
+      "cancelled": "Cancelación",
+      "rescheduled": "Cambio de hora",
+      "feedback": "Solicitud de valoración",
+      "rebook": "Recordatorio para volver a reservar"
+    },
+    "messageStatuses": {
+      "sent": "Enviado",
+      "skipped": "Omitido",
+      "blocked": "No enviado",
+      "failed": "Falló",
+      "outcome_unknown": "Resultado desconocido"
+    },
+    "messageReasons": {
+      "stale_version": "La cita cambió, así que este mensaje ya no hacía falta.",
+      "contact_missing": "El contacto del cliente ya no existe.",
+      "past_due": "Era demasiado tarde para enviar este recordatorio.",
+      "disabled": "Este recordatorio está desactivado en los ajustes.",
+      "contact_blocked": "El cliente está bloqueado.",
+      "opted_out": "El cliente se dio de baja después de reservar.",
+      "workspace_suspended": "El espacio de trabajo está suspendido.",
+      "number_unavailable": "El número de WhatsApp no está conectado.",
+      "no_address": "El cliente no tiene dirección de WhatsApp.",
+      "no_template": "No hay una plantilla aprobada y la ventana de 24 horas está cerrada.",
+      "category": "La plantilla no es de tipo Utilidad.",
+      "template_refused": "La plantilla no se puede usar para este mensaje.",
+      "provider_rejected": "WhatsApp rechazó el mensaje.",
+      "uncertain": "WhatsApp no confirmó si se envió. Revisa la conversación antes de reenviar.",
+      "other": "No enviado.",
+      "template_not_found": "La plantilla configurada en los ajustes de citas ya no existe.",
+      "template_not_approved": "La plantilla configurada en los ajustes de citas no está aprobada.",
+      "template_wrong_number": "La plantilla pertenece a otro número de WhatsApp.",
+      "feedback_recorded": "La valoración ya estaba registrada, así que no se envió la solicitud."
+    },
+    "create": {
+      "title": "Nueva cita",
+      "contact": "Cliente",
+      "contactSearch": "Buscar contactos",
+      "service": "Servicio",
+      "location": "Ubicación",
+      "practitioner": "Profesional",
+      "date": "Fecha",
+      "slot": "Hora",
+      "noSlots": "No hay horarios libres este día.",
+      "book": "Reservar",
+      "booked": "Cita reservada"
+    },
+    "services": {
+      "title": "Servicios",
+      "add": "Añadir servicio",
+      "name": "Nombre",
+      "mode": "Tipo",
+      "modes": {
+        "offline": "Presencial",
+        "online": "En línea"
+      },
+      "duration": "Duración (minutos)",
+      "buffer": "Pausa después (minutos)",
+      "step": "Iniciar un horario cada (minutos)",
+      "stepHelp": "Déjalo vacío para usar la duración.",
+      "capacity": "Clientes por horario",
+      "price": "Precio",
+      "currency": "Moneda",
+      "free": "Gratis",
+      "meetingUrl": "Enlace de la reunión",
+      "meetingUrlHelp": "Un enlace https que el cliente solo ve cuando la cita está confirmada.",
+      "allowedWeekdays": "Días reservables",
+      "allDays": "Todos los días",
+      "mondayPreset": "Consulta gratuita presencial: solo lunes",
+      "feedbackDelay": "Pedir valoración después de (minutos)",
+      "rebookAfter": "Sugerir volver a reservar después de (días)",
+      "paymentRequired": "Exigir pago por adelantado",
+      "paymentComingSoon": "Llegará con los pagos",
+      "offerings": "Dónde y con quién",
+      "pooled": "Calendario compartido (cualquier horario libre)",
+      "staffed": "Profesionales concretos",
+      "offeringConflict": "Un servicio en una ubicación usa un calendario compartido o profesionales, no ambos.",
+      "archive": "Archivar",
+      "archived": "Archivado",
+      "restore": "Restaurar",
+      "empty": "Aún no hay servicios."
+    },
+    "staff": {
+      "title": "Profesionales",
+      "add": "Añadir profesional",
+      "name": "Nombre visible",
+      "linkedMember": "Miembro del equipo vinculado",
+      "noMember": "Sin vincular",
+      "hours": "Horario de trabajo",
+      "hoursAt": "Horario en {location}",
+      "poolHours": "Horario del calendario compartido",
+      "archive": "Archivar",
+      "empty": "Aún no hay profesionales.",
+      "limitReached": "Tu plan permite {count, plural, one {# profesional} other {# profesionales}}.",
+      "limitReachedGeneric": "Alcanzaste el límite de profesionales de tu plan. Mejora el plan o archiva un profesional primero.",
+      "clearHours": "Borrar horario"
+    },
+    "locations": {
+      "title": "Ubicaciones",
+      "add": "Añadir ubicación",
+      "name": "Nombre",
+      "address": "Dirección",
+      "timezone": "Zona horaria",
+      "kind": "Tipo",
+      "kinds": {
+        "physical": "Física",
+        "online": "En línea"
+      },
+      "archive": "Archivar",
+      "empty": "Aún no hay ubicaciones.",
+      "timezoneHelp": "Las horas de reserva se muestran y comprueban en esta zona."
+    },
+    "exceptions": {
+      "title": "Festivos y excepciones",
+      "add": "Añadir excepción",
+      "scope": "Se aplica a",
+      "scopeLocation": "Toda la ubicación",
+      "scopeStaff": "Un profesional",
+      "from": "Desde",
+      "to": "Hasta",
+      "closed": "Cerrado todo el día",
+      "customHours": "Horario especial",
+      "reason": "Motivo",
+      "empty": "No hay excepciones.",
+      "delete": "Eliminar"
+    },
+    "pages": {
+      "title": "Páginas de reserva",
+      "add": "Añadir página de reserva",
+      "slug": "Nombre del enlace",
+      "slugHelp": "Minúsculas, números y guiones.",
+      "slugTaken": "Ese nombre de enlace ya está en uso.",
+      "titleLabel": "Título de la página",
+      "services": "Servicios",
+      "location": "Ubicación",
+      "number": "Número de WhatsApp",
+      "defaultNumber": "Número predeterminado",
+      "active": "Activa",
+      "copyLink": "Copiar enlace",
+      "copied": "Enlace copiado",
+      "empty": "Aún no hay páginas de reserva.",
+      "inactive": "Inactiva"
+    },
+    "tasks": {
+      "title": "Tareas",
+      "add": "Añadir tarea",
+      "titleLabel": "Título",
+      "due": "Vence",
+      "assignee": "Asignada a",
+      "unassigned": "Sin asignar",
+      "markDone": "Marcar como hecha",
+      "empty": "No hay tareas abiertas.",
+      "kinds": {
+        "next_step": "Siguiente paso",
+        "rebook": "Volver a reservar",
+        "manual": "Tarea"
+      },
+      "statuses": {
+        "open": "Abierta",
+        "done": "Hecha",
+        "cancelled": "Cancelada"
+      },
+      "cancel": "Cancelar tarea"
+    },
+    "stats": {
+      "booked": "Reservadas",
+      "confirmed": "Confirmadas",
+      "cancelled": "Canceladas",
+      "completed": "Completadas",
+      "noShow": "No presentadas",
+      "noShowRate": "Tasa de no presentación",
+      "notAvailable": "N/D"
+    },
+    "slotPicker": {
+      "chooseDate": "Elige una fecha",
+      "chooseTime": "Elige una hora",
+      "noSlots": "No hay horarios libres este día.",
+      "loading": "Cargando horarios…",
+      "remaining": "{count, plural, one {Queda # plaza} other {Quedan # plazas}}",
+      "timesIn": "Horas en {zone}",
+      "previousDays": "Fechas anteriores",
+      "nextDays": "Fechas posteriores"
+    },
+    "errors": {
+      "slot_unavailable": "Esa hora ya no está disponible. Elige otra.",
+      "day_not_allowed": "Este servicio no se puede reservar ese día.",
+      "customer_conflict": "Este cliente ya tiene una cita a esa hora.",
+      "too_many": "Demasiadas reservas en este momento. Inténtalo más tarde.",
+      "hold_expired": "Esta reserva provisional caducó. Empieza de nuevo.",
+      "conflict": "La cita cambió mientras tanto. Recarga e inténtalo de nuevo.",
+      "not_yet_supported": "Esta opción aún no está disponible.",
+      "not_found": "No se encontró la cita.",
+      "invalid": "Revisa los datos e inténtalo de nuevo.",
+      "feature_unavailable": "Las citas no están incluidas en tu plan."
+    },
+    "fieldErrors": {
+      "invalid": "Revisa este campo.",
+      "taken": "Ya está en uso. Elige otro.",
+      "pooled_or_staffed": "Elige un calendario compartido o profesionales, no ambos.",
+      "mode_in_use": "Todavía hay reservas activas con la configuración actual. Muévelas o cancélalas antes de cambiar entre un calendario compartido y profesionales."
+    },
+    "form": {
+      "edit": "Editar"
+    }
+  },
+  "AppointmentSettings": {
+    "title": "Ajustes de reserva",
+    "holdMinutes": "Reservar un horario durante (minutos)",
+    "holdMinutesHelp": "Cuánto tiempo espera una reserva de la página de reserva el código de WhatsApp del cliente.",
+    "maxActiveHolds": "Reservas sin confirmar por página de reserva",
+    "maxActiveHoldsHelp": "Limita cuántos horarios pueden ocupar a la vez las reservas sin confirmar.",
+    "minNotice": "Antelación mínima (minutos)",
+    "horizon": "Reservable hasta (días por delante)",
+    "cancelCutoff": "Los clientes pueden cambiar o cancelar hasta (minutos antes)",
+    "reminder24h": "Enviar un recordatorio 24 horas antes",
+    "reminder2h": "Enviar un recordatorio 2 horas antes",
+    "remindersHelp": "Activar un recordatorio afecta a las reservas confirmadas a partir de ese momento.",
+    "staffNotify": "Avisar al equipo de las reservas",
+    "templates": "Plantillas de WhatsApp",
+    "templatesHelp": "Fuera de la ventana de 24 horas de WhatsApp, los mensajes al cliente necesitan una plantilla de Utilidad aprobada.",
+    "templateSlots": {
+      "confirm": "Confirmación",
+      "reminder": "Recordatorio",
+      "change": "Cambio o cancelación",
+      "feedback": "Solicitud de valoración",
+      "rebook": "Recordatorio para volver a reservar"
+    },
+    "noTemplate": "Ninguna",
+    "manageButtonHelp": "Una plantilla puede tener un botón de enlace. Su dirección debe ser {url} seguida de la variable.",
+    "useLibraryTemplate": "Partir de la plantilla de recordatorio de la biblioteca",
+    "templateErrors": {
+      "not_utility": "Solo se pueden usar plantillas de Utilidad para los mensajes de citas.",
+      "authentication": "Aquí no se pueden usar plantillas de autenticación.",
+      "carousel": "Aquí no se pueden usar plantillas de carrusel.",
+      "limited_time_offer": "Aquí no se pueden usar plantillas de oferta por tiempo limitado.",
+      "location_header": "Aquí no se pueden usar plantillas con encabezado de ubicación.",
+      "media_header_without_url": "Un encabezado multimedia necesita una imagen, un vídeo o un documento guardado.",
+      "header_variables": "El encabezado puede tener como máximo una variable.",
+      "flow_button": "Aquí no se admiten botones de formulario.",
+      "too_many_url_buttons": "Solo un botón de enlace puede llevar una variable.",
+      "url_button_base": "El botón de enlace debe apuntar a la página de gestión de la reserva.",
+      "not_found": "No se encontró esa plantilla en este idioma.",
+      "not_approved": "Solo se pueden usar plantillas aprobadas por WhatsApp."
+    },
+    "save": "Guardar ajustes",
+    "saved": "Ajustes guardados",
+    "saveFailed": "No se pudieron guardar los ajustes."
+  },
+  "BookingPublic": {
+    "metaTitle": "Reservar una cita",
+    "chooseService": "Elige un servicio",
+    "chooseLocation": "Elige una ubicación",
+    "chooseStaff": "Elige un profesional",
+    "anyStaff": "Cualquiera disponible",
+    "chooseDate": "Elige una fecha",
+    "chooseTime": "Elige una hora",
+    "noSlots": "No hay horarios libres este día.",
+    "noDates": "No hay fechas libres en los próximos días.",
+    "moreDates": "Más fechas",
+    "duration": "{minutes} min",
+    "price": "Precio: {price}",
+    "free": "Gratis",
+    "online": "En línea",
+    "inPerson": "Presencial",
+    "timesShownIn": "Las horas se muestran en {zone}.",
+    "details": "Tus datos (opcional)",
+    "name": "Nombre",
+    "city": "Ciudad",
+    "state": "Estado o provincia",
+    "serviceNotice": "Usamos WhatsApp solo para confirmar esta reserva y enviarte recordatorios sobre ella.",
+    "continue": "Continuar",
+    "back": "Atrás",
+    "sendCodeTitle": "Confirma por WhatsApp",
+    "sendCodeHelp": "Envíanos este código por WhatsApp para confirmar tu reserva.",
+    "code": "Tu código",
+    "openWhatsApp": "Enviar el código por WhatsApp",
+    "expiresIn": "Esta reserva provisional caduca en {minutes, plural, one {# minuto} other {# minutos}}.",
+    "expired": "Esta reserva provisional caducó. Vuelve a elegir una hora.",
+    "notFound": "Esta página de reserva no está disponible.",
+    "error": "Algo salió mal. Inténtalo de nuevo.",
+    "loading": "Cargando…",
+    "heldFor": "Te reservamos {when}.",
+    "messageToSend": "Mensaje para enviar",
+    "noWhatsAppLink": "Abre WhatsApp y envía este mensaje a {business}.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "startOver": "Elegir otra hora",
+    "errors": {
+      "slot_unavailable": "Esa hora ya no está disponible. Elige otra.",
+      "day_not_allowed": "Este servicio no se puede reservar ese día.",
+      "customer_conflict": "Ya tienes otra reserva a esa hora.",
+      "too_many": "Demasiadas solicitudes ahora. Inténtalo en unos minutos.",
+      "hold_expired": "Esta reserva provisional caducó. Elige una hora de nuevo.",
+      "conflict": "Esta reserva cambió o ya no se puede modificar en línea. Recarga la página.",
+      "invalid": "Revisa tus opciones e inténtalo de nuevo.",
+      "not_yet_supported": "Este servicio aún no se puede reservar en línea.",
+      "forbidden": "Se bloqueó esta solicitud. Recarga la página e inténtalo de nuevo.",
+      "error": "Algo salió mal. Inténtalo de nuevo."
+    }
+  },
+  "BookingManage": {
+    "metaTitle": "Tu reserva",
+    "title": "Tu reserva",
+    "service": "Servicio",
+    "practitioner": "Con",
+    "location": "Dónde",
+    "when": "Cuándo",
+    "price": "Precio",
+    "online": "En línea",
+    "meetingLink": "Unirse a la reunión",
+    "meetingLinkLater": "El enlace de la reunión aparecerá aquí 24 horas antes de tu cita.",
+    "cancel": "Cancelar reserva",
+    "cancelConfirm": "¿Cancelar esta reserva?",
+    "keepBooking": "Mantener la reserva",
+    "cancelled": "Tu reserva está cancelada.",
+    "reschedule": "Cambiar la hora",
+    "chooseNewTime": "Elige una nueva hora",
+    "rescheduled": "Tu reserva se ha movido.",
+    "cutoffPassed": "Esta reserva ya no se puede cambiar en línea. Escríbenos por WhatsApp.",
+    "notFound": "Este enlace de reserva no es válido.",
+    "error": "Algo salió mal. Inténtalo de nuevo.",
+    "loading": "Cargando…",
+    "saveTime": "Cambiar a esta hora"
+  },
+  "AppointmentNotices": {
+    "confirmation": "Tu cita de {service} está confirmada para el {time} ({location}). Puedes verla, cambiarla o cancelarla aquí: {link}",
+    "rescheduled": "Tu cita de {service} se ha movido al {time} ({location}). Puedes verla, cambiarla o cancelarla aquí: {link}",
+    "cancelled": "Tu cita de {service} del {time} está cancelada.",
+    "holdUnknownCode": "No encontramos ese código de reserva. Revísalo o vuelve a reservar en nuestra página de reserva.",
+    "holdUnavailable": "Lo sentimos, esa hora ya no está disponible. Vuelve a reservar en nuestra página de reserva.",
+    "holdConflict": "Ya tienes una cita a esa hora.",
+    "online": "en línea",
+    "staffBooked": "Nueva reserva: {service} el {time}",
+    "staffCancelled": "Reserva cancelada: {service} el {time}",
+    "staffRescheduled": "Reserva movida: {service} al {time}"
   }
 }

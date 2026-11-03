@@ -79,7 +79,8 @@
     "products": "Produtos",
     "payments": "Pagamentos",
     "analytics": "Análises",
-    "ads": "Anúncios"
+    "ads": "Anúncios",
+    "appointments": "Agendamentos"
   },
   "Header": {
     "dashboard": "Painel",
@@ -105,7 +106,8 @@
     "orders": "Pedidos",
     "products": "Produtos",
     "payments": "Pagamentos",
-    "ads": "Anúncios"
+    "ads": "Anúncios",
+    "appointments": "Agendamentos"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
@@ -1561,6 +1563,26 @@
         "ad_click": {
           "label": "Mensagem de um anúncio",
           "hint": "O cliente envia mensagem a partir de um anúncio de clique para o WhatsApp"
+        },
+        "appointment_booked": {
+          "label": "Agendamento confirmado",
+          "hint": "Um agendamento é confirmado (pela equipe, por um fluxo ou pelo código de WhatsApp do cliente)"
+        },
+        "appointment_cancelled": {
+          "label": "Agendamento cancelado",
+          "hint": "Um agendamento confirmado é cancelado"
+        },
+        "appointment_rescheduled": {
+          "label": "Agendamento remarcado",
+          "hint": "Um agendamento confirmado muda de horário"
+        },
+        "appointment_completed": {
+          "label": "Agendamento concluído",
+          "hint": "A equipe marca um agendamento como concluído"
+        },
+        "appointment_no_show": {
+          "label": "Não comparecimento",
+          "hint": "A equipe marca que o cliente não compareceu"
         }
       },
       "trigger": "Gatilho",
@@ -2173,6 +2195,10 @@
         "conversion_event": {
           "label": "Evento de conversão",
           "blurb": "Envia uma conversão à Meta para um cliente que veio de um anúncio"
+        },
+        "book_appointment": {
+          "label": "Agendar atendimento",
+          "blurb": "Oferece horários livres no WhatsApp e agenda o que o cliente escolher"
         }
       },
       "ports": {
@@ -2184,7 +2210,10 @@
         "expired": "Expirado",
         "failed": "Falhou",
         "answered": "Respondido",
-        "handoff": "Transferir para uma pessoa"
+        "handoff": "Transferir para uma pessoa",
+        "success": "Agendado",
+        "unavailable": "Indisponível",
+        "cancelled": "Cancelado"
       },
       "triggerTemplateReplyTitle": "Resposta a um botão de modelo",
       "matchTypeLabel": "Correspondência",
@@ -2246,7 +2275,8 @@
           "timeout": "Sem resposta em {minutes, plural, one {# minuto} other {# minutos}}",
           "fallback": "Resposta não aceita; a política de fallback do fluxo assume",
           "ai_reply": "O agente de IA responde (simulado; nada é gerado)",
-          "conversion_event": "Uma conversão é enviada à Meta (simulado; nada é enviado)"
+          "conversion_event": "Uma conversão é enviada à Meta (simulado; nada é enviado)",
+          "book_appointment": "Oferece horários livres e agenda o que o cliente escolher (simulado; nada é agendado)"
         },
         "simulate": {
           "shareMedia": "Simular: cliente envia um arquivo",
@@ -2270,7 +2300,36 @@
       "adClickIdsLabel": "IDs de anúncios (opcional)",
       "adClickIdsPlaceholder": "ex.: 120211234567890",
       "adClickIdsHelp": "Deixe vazio para começar com qualquer anúncio. Até {max} IDs, apenas dígitos.",
-      "adClickVariables": "Variáveis do anúncio"
+      "adClickVariables": "Variáveis do anúncio",
+      "appointment": {
+        "services": "Serviços",
+        "servicesHelp": "Se você listar mais de um, o cliente escolhe (até 10).",
+        "location": "Local",
+        "anyLocation": "Primeiro local que oferece o serviço",
+        "staffMode": "Profissional",
+        "staffAny": "Qualquer profissional livre",
+        "staffChoose": "Deixar o cliente escolher",
+        "daysAhead": "Dias oferecidos",
+        "daysAheadHelp": "Quantos dias à frente procurar horários livres (de 1 a 14).",
+        "promptService": "Qual serviço você quer agendar?",
+        "promptStaff": "Com quem você quer o atendimento?",
+        "promptDay": "Escolha um dia:",
+        "promptSlot": "Escolha um horário:",
+        "listButton": "Escolher",
+        "moreDates": "Mais datas",
+        "later": "Horários mais tarde",
+        "noSlots": "Desculpe, não há horários livres agora.",
+        "slotTaken": "Esse horário acabou de ser ocupado. Estes são os horários ainda livres nesse dia.",
+        "invalidChoice": "Escolha uma das opções.",
+        "variablesHelp": "Salva appointment_id e appointment_local_time para as próximas etapas.",
+        "cancelRow": "Cancelar",
+        "noServices": "Ainda não há serviços. Adicione-os nas configurações de Agendamentos; até lá, a etapa não oferece nada e segue o caminho Indisponível.",
+        "servicesAllHelp": "Escolha até {max}. Sem nenhum escolhido, todos os serviços agendáveis são oferecidos. O cliente escolhe quando há mais de um.",
+        "serviceMode": "Tipo de serviço",
+        "modeBoth": "Online e presencial",
+        "modeOnline": "Somente online",
+        "modeOffline": "Somente presencial"
+      }
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -2319,7 +2378,9 @@
       "products": "{count, plural, one {# produto} other {# produtos}}",
       "paymentNone": "Sem valor",
       "aiReplyDefault": "Responde com o agente de IA",
-      "conversionDefault": "Envia {event} à Meta"
+      "conversionDefault": "Envia {event} à Meta",
+      "appointmentAllServices": "Todos os serviços agendáveis",
+      "appointmentServices": "{count, plural, one {# serviço} other {# serviços}}"
     },
     "header": {
       "backToFlows": "Voltar aos fluxos",
@@ -3200,7 +3261,8 @@
         "api_campaigns": "Campanhas via API",
         "click_tracking": "Rastreamento de cliques",
         "retargeting": "Retargeting por campanha",
-        "workspace_attributes": "Atributos do espaço de trabalho"
+        "workspace_attributes": "Atributos do espaço de trabalho",
+        "appointments": "Agendamentos"
       },
       "limits": {
         "seats": "Membros e convites abertos",
@@ -3212,7 +3274,8 @@
         "ai_messages": "Respostas de IA neste mês",
         "monthly_active_contacts": "Contatos ativos neste mês",
         "storage_bytes": "Armazenamento de mídia (bytes)",
-        "whatsapp_numbers": "Números de WhatsApp"
+        "whatsapp_numbers": "Números de WhatsApp",
+        "appointment_staff": "Profissionais"
       },
       "loadFailed": "Não foi possível carregar seu plano",
       "retry": "Tentar novamente",
@@ -3559,7 +3622,9 @@
         "contacts_export": "Exportar contatos",
         "flows_publish": "Publicar fluxos",
         "templates_submit": "Enviar modelos ao WhatsApp",
-        "settings_billing": "Gerenciar plano e cobrança"
+        "settings_billing": "Gerenciar plano e cobrança",
+        "appointments_manage": "Agendar e gerenciar atendimentos",
+        "appointments_settings": "Configurar agendamentos e páginas de agendamento"
       }
     },
     "auditLog": {
@@ -3812,7 +3877,10 @@
       "template_rejected": "Modelo rejeitado",
       "whatsapp_number_health": "Número do WhatsApp",
       "payment_received": "Pagamento recebido",
-      "billing": "Cobrança"
+      "billing": "Cobrança",
+      "appointment_booked": "Novo agendamento",
+      "appointment_cancelled": "Agendamento cancelado",
+      "appointment_rescheduled": "Agendamento remarcado"
     }
   },
   "Agents": {
@@ -4409,6 +4477,18 @@
       "askPassive": "Obrigado! O que poderíamos fazer melhor?",
       "skipPassive": "Nada a acrescentar",
       "passiveReply": "Obrigado pelo feedback. Lemos todas as respostas."
+    },
+    "free_consultation": {
+      "name": "Agendamento de consulta gratuita",
+      "description": "O cliente escolhe uma consulta online ou presencial, informa nome, cidade e estado e depois escolhe um horário livre da sua agenda.",
+      "keywords": "consulta grátis,consultoria gratuita,falar com especialista",
+      "text": "Olá! Você quer sua consulta gratuita online ou presencial?",
+      "onlineButton": "Online",
+      "offlineButton": "Presencial",
+      "askName": "Qual é o seu nome completo?",
+      "askCity": "Em qual cidade você está?",
+      "askState": "E em qual estado?",
+      "handoffNote": "Pedido de consulta gratuita ({mode}) de {name}, {city}, {state}. Não foi possível agendar um horário livre; faça o acompanhamento."
     }
   },
   "LibErrors": {
@@ -4635,7 +4715,12 @@
       "conversionNeedsNext": "Escolha a etapa executada após o evento de conversão.",
       "conversionMissingNext": "A etapa após o evento de conversão não existe mais.",
       "conversionPurchaseAutomatic": "As compras são informadas automaticamente quando um link de pagamento ou pedido é pago. Escolha outro evento.",
-      "conversionValueNeedsBoth": "Defina a variável do valor e a moeda, ou nenhuma das duas."
+      "conversionValueNeedsBoth": "Defina a variável do valor e a moeda, ou nenhuma das duas.",
+      "appointmentServices": "Escolha até {max} serviços, ou nenhum para oferecer todos os serviços agendáveis.",
+      "appointmentMode": "Escolha online, presencial ou ambos.",
+      "appointmentLocation": "Escolha um local da lista.",
+      "appointmentStaffMode": "Escolha como o profissional é definido.",
+      "appointmentDays": "Os dias oferecidos devem ser um número inteiro de {min} a {max}."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -4670,7 +4755,8 @@
       "templateLocationHeader": "As automações não podem enviar modelos com cabeçalho de localização: a etapa só preenche valores do corpo, não uma localização. Use um fluxo ou uma campanha.",
       "templateHeaderVariable": "As automações não podem enviar modelos com uma variável no cabeçalho: a etapa só preenche valores do corpo.",
       "templateUrlVariable": "As automações não podem enviar modelos com uma variável em um botão de URL: a etapa só preenche valores do corpo.",
-      "adIdsInvalid": "Os IDs de anúncio devem conter apenas dígitos, até {max}"
+      "adIdsInvalid": "Os IDs de anúncio devem conter apenas dígitos, até {max}",
+      "serviceIdsInvalid": "Os IDs de serviço devem ser válidos, até {max}"
     },
     "templates": {
       "nameRequired": "O nome do modelo é obrigatório.",
@@ -5721,6 +5807,16 @@
       "header": "Aviso de feriado",
       "body": "Olá {v1}, informamos que {v2} estará fechado em {v3} por causa do {v4}. Voltaremos ao atendimento normal no próximo dia útil.",
       "samples": "Cristina|nosso escritório|1º de janeiro|Ano-Novo"
+    },
+    "appointment_reminder_manage": {
+      "title": "Lembrete de agendamento com link de gerenciamento",
+      "description": "Lembre os clientes de um agendamento e permita que vejam, alterem ou cancelem.",
+      "header": "Lembrete de agendamento",
+      "body": "Lembrete: seu atendimento de {v1} é em {v2} ({v3}). Use o botão abaixo para ver, alterar ou cancelar.",
+      "buttons": {
+        "b1": "Gerenciar agendamento"
+      },
+      "samples": "Consulta odontológica|segunda-feira, 10 de junho, 11:30 IST|Clínica Andheri"
     }
   },
   "Templates": {
@@ -6582,7 +6678,19 @@
       "description": "A classificação de qualidade ou o limite de mensagens de um número do WhatsApp muda."
     },
     "inApp": "No app",
-    "email": "Resumo por e-mail"
+    "email": "Resumo por e-mail",
+    "appointment_booked": {
+      "label": "Novos agendamentos",
+      "description": "Um agendamento com você, ou no seu espaço de trabalho, é confirmado."
+    },
+    "appointment_cancelled": {
+      "label": "Agendamentos cancelados",
+      "description": "Um agendamento confirmado é cancelado."
+    },
+    "appointment_rescheduled": {
+      "label": "Agendamentos remarcados",
+      "description": "Um agendamento confirmado muda de horário."
+    }
   },
   "Weekdays": {
     "mon": "Segunda-feira",
@@ -7531,5 +7639,449 @@
     "notConnected": "Nenhuma conta de anúncios da Meta está conectada ainda. Um administrador a conecta em Configurações > Anúncios.",
     "tokenInvalid": "O acesso à Meta expirou, então os resultados não são mais atualizados. Um administrador precisa reconectar em Configurações > Anúncios.",
     "openSettings": "Abrir Configurações > Anúncios"
+  },
+  "Appointments": {
+    "title": "Agendamentos",
+    "description": "Agende consultas, confirme pelo WhatsApp e acompanhe depois do atendimento.",
+    "loadFailed": "Não foi possível carregar os agendamentos. Recarregue a página para tentar de novo.",
+    "retry": "Tentar de novo",
+    "upgrade": "Agendamentos não estão incluídos no seu plano. Faça upgrade para usá-los.",
+    "readOnly": "Você pode ver os agendamentos, mas não alterá-los.",
+    "tabs": {
+      "schedule": "Agenda",
+      "services": "Serviços",
+      "staff": "Equipe e horários",
+      "locations": "Locais",
+      "exceptions": "Feriados e exceções",
+      "pages": "Páginas de agendamento",
+      "settings": "Configurações",
+      "tasks": "Tarefas"
+    },
+    "status": {
+      "held": "Aguardando WhatsApp",
+      "confirmed": "Confirmado",
+      "cancelled": "Cancelado",
+      "completed": "Concluído",
+      "no_show": "Não compareceu",
+      "expired": "Expirado"
+    },
+    "source": {
+      "staff": "Equipe",
+      "public": "Página de agendamento",
+      "flow": "Fluxo do WhatsApp"
+    },
+    "schedule": {
+      "day": "Dia",
+      "week": "Semana",
+      "today": "Hoje",
+      "previous": "Anterior",
+      "next": "Próximo",
+      "filterStaff": "Profissional",
+      "filterLocation": "Local",
+      "filterService": "Serviço",
+      "filterStatus": "Status",
+      "all": "Todos",
+      "needsOutcome": "Falta resultado",
+      "empty": "Nenhum agendamento neste período.",
+      "newAppointment": "Novo agendamento",
+      "timesIn": "Horários em {zone}",
+      "awaitingContact": "Aguardando o código de WhatsApp do cliente",
+      "anyStaff": "Qualquer profissional",
+      "pool": "Agenda compartilhada"
+    },
+    "sheet": {
+      "title": "Agendamento",
+      "service": "Serviço",
+      "practitioner": "Profissional",
+      "location": "Local",
+      "when": "Quando",
+      "contact": "Cliente",
+      "openInbox": "Abrir conversa",
+      "status": "Status",
+      "source": "Agendado por",
+      "history": "Histórico",
+      "messages": "Mensagens ao cliente",
+      "confirm": "Confirmar",
+      "reschedule": "Remarcar",
+      "cancel": "Cancelar agendamento",
+      "cancelReason": "Motivo",
+      "cancelConfirm": "Cancelar este agendamento? O cliente será avisado pelo WhatsApp.",
+      "markCompleted": "Marcar como concluído",
+      "markNoShow": "Marcar não comparecimento",
+      "outcomeNote": "Observação da equipe",
+      "outcomeNoteWarning": "Não registre dados clínicos aqui.",
+      "feedbackScore": "Avaliação (de 1 a 5)",
+      "staffRecorded": "Registrado pela equipe",
+      "createTask": "Criar tarefa",
+      "markResolved": "Marcar como resolvido",
+      "resolved": "Resolvido",
+      "confirmHoldHelp": "Agendamentos da página de agendamento são confirmados quando o cliente envia o código pelo WhatsApp.",
+      "save": "Salvar",
+      "saved": "Salvo",
+      "close": "Fechar",
+      "noMessages": "Ainda não há mensagens ao cliente.",
+      "noHistory": "Ainda não há histórico."
+    },
+    "cancelReasons": {
+      "customer": "A pedido do cliente",
+      "staff": "Cancelado pela equipe",
+      "expired": "Reserva expirada",
+      "other": "Outro"
+    },
+    "events": {
+      "held": "Horário reservado",
+      "confirmed": "Confirmado",
+      "rescheduled": "Remarcado de {from} para {to}",
+      "reassigned": "Profissional alterado",
+      "cancelled": "Cancelado",
+      "expired": "Reserva expirada",
+      "completed": "Concluído",
+      "no_show": "Não comparecimento registrado",
+      "feedback": "Avaliação registrada",
+      "reminder_skipped": "Lembrete ignorado"
+    },
+    "actors": {
+      "staff": "Equipe",
+      "customer": "Cliente",
+      "system": "Sistema"
+    },
+    "messageKinds": {
+      "confirmation": "Confirmação",
+      "reminder_24h": "Lembrete (24 horas)",
+      "reminder_2h": "Lembrete (2 horas)",
+      "cancelled": "Cancelamento",
+      "rescheduled": "Mudança de horário",
+      "feedback": "Pedido de avaliação",
+      "rebook": "Lembrete para reagendar"
+    },
+    "messageStatuses": {
+      "sent": "Enviada",
+      "skipped": "Ignorada",
+      "blocked": "Não enviada",
+      "failed": "Falhou",
+      "outcome_unknown": "Resultado desconhecido"
+    },
+    "messageReasons": {
+      "stale_version": "O agendamento mudou, então esta mensagem não era mais necessária.",
+      "contact_missing": "O contato do cliente não existe mais.",
+      "past_due": "Era tarde demais para enviar este lembrete.",
+      "disabled": "Este lembrete está desativado nas configurações.",
+      "contact_blocked": "O cliente está bloqueado.",
+      "opted_out": "O cliente cancelou a inscrição depois de agendar.",
+      "workspace_suspended": "O espaço de trabalho está suspenso.",
+      "number_unavailable": "O número de WhatsApp não está conectado.",
+      "no_address": "O cliente não tem endereço de WhatsApp.",
+      "no_template": "Não há modelo aprovado e a janela de 24 horas está fechada.",
+      "category": "O modelo não é da categoria Utilidade.",
+      "template_refused": "O modelo não pode ser usado para esta mensagem.",
+      "provider_rejected": "O WhatsApp recusou a mensagem.",
+      "uncertain": "O WhatsApp não confirmou se foi enviada. Verifique a conversa antes de reenviar.",
+      "other": "Não enviada.",
+      "template_not_found": "O modelo definido nas configurações de agendamentos não existe mais.",
+      "template_not_approved": "O modelo definido nas configurações de agendamentos não está aprovado.",
+      "template_wrong_number": "O modelo pertence a outro número do WhatsApp.",
+      "feedback_recorded": "A avaliação já estava registrada, então o pedido não foi enviado."
+    },
+    "create": {
+      "title": "Novo agendamento",
+      "contact": "Cliente",
+      "contactSearch": "Buscar contatos",
+      "service": "Serviço",
+      "location": "Local",
+      "practitioner": "Profissional",
+      "date": "Data",
+      "slot": "Horário",
+      "noSlots": "Não há horários livres neste dia.",
+      "book": "Agendar",
+      "booked": "Agendamento criado"
+    },
+    "services": {
+      "title": "Serviços",
+      "add": "Adicionar serviço",
+      "name": "Nome",
+      "mode": "Tipo",
+      "modes": {
+        "offline": "Presencial",
+        "online": "On-line"
+      },
+      "duration": "Duração (minutos)",
+      "buffer": "Intervalo depois (minutos)",
+      "step": "Iniciar um horário a cada (minutos)",
+      "stepHelp": "Deixe vazio para usar a duração.",
+      "capacity": "Clientes por horário",
+      "price": "Preço",
+      "currency": "Moeda",
+      "free": "Gratuito",
+      "meetingUrl": "Link da reunião",
+      "meetingUrlHelp": "Um link https que o cliente só vê quando o agendamento está confirmado.",
+      "allowedWeekdays": "Dias disponíveis",
+      "allDays": "Todos os dias",
+      "mondayPreset": "Consulta gratuita presencial: só às segundas",
+      "feedbackDelay": "Pedir avaliação depois de (minutos)",
+      "rebookAfter": "Sugerir reagendar depois de (dias)",
+      "paymentRequired": "Exigir pagamento antecipado",
+      "paymentComingSoon": "Chega com os pagamentos",
+      "offerings": "Onde e com quem",
+      "pooled": "Agenda compartilhada (qualquer horário livre)",
+      "staffed": "Profissionais específicos",
+      "offeringConflict": "Um serviço em um local usa agenda compartilhada ou profissionais, não os dois.",
+      "archive": "Arquivar",
+      "archived": "Arquivado",
+      "restore": "Restaurar",
+      "empty": "Ainda não há serviços."
+    },
+    "staff": {
+      "title": "Profissionais",
+      "add": "Adicionar profissional",
+      "name": "Nome exibido",
+      "linkedMember": "Membro da equipe vinculado",
+      "noMember": "Não vinculado",
+      "hours": "Horário de trabalho",
+      "hoursAt": "Horário em {location}",
+      "poolHours": "Horário da agenda compartilhada",
+      "archive": "Arquivar",
+      "empty": "Ainda não há profissionais.",
+      "limitReached": "Seu plano permite {count, plural, one {# profissional} other {# profissionais}}.",
+      "limitReachedGeneric": "O limite de profissionais do seu plano foi atingido. Faça upgrade ou arquive um profissional primeiro.",
+      "clearHours": "Limpar horário"
+    },
+    "locations": {
+      "title": "Locais",
+      "add": "Adicionar local",
+      "name": "Nome",
+      "address": "Endereço",
+      "timezone": "Fuso horário",
+      "kind": "Tipo",
+      "kinds": {
+        "physical": "Físico",
+        "online": "On-line"
+      },
+      "archive": "Arquivar",
+      "empty": "Ainda não há locais.",
+      "timezoneHelp": "Os horários de agendamento são mostrados e verificados neste fuso."
+    },
+    "exceptions": {
+      "title": "Feriados e exceções",
+      "add": "Adicionar exceção",
+      "scope": "Aplica-se a",
+      "scopeLocation": "Local inteiro",
+      "scopeStaff": "Um profissional",
+      "from": "De",
+      "to": "Até",
+      "closed": "Fechado o dia todo",
+      "customHours": "Horário especial",
+      "reason": "Motivo",
+      "empty": "Nenhuma exceção.",
+      "delete": "Excluir"
+    },
+    "pages": {
+      "title": "Páginas de agendamento",
+      "add": "Adicionar página de agendamento",
+      "slug": "Nome do link",
+      "slugHelp": "Letras minúsculas, números e hifens.",
+      "slugTaken": "Esse nome de link já está em uso.",
+      "titleLabel": "Título da página",
+      "services": "Serviços",
+      "location": "Local",
+      "number": "Número de WhatsApp",
+      "defaultNumber": "Número padrão",
+      "active": "Ativa",
+      "copyLink": "Copiar link",
+      "copied": "Link copiado",
+      "empty": "Ainda não há páginas de agendamento.",
+      "inactive": "Inativa"
+    },
+    "tasks": {
+      "title": "Tarefas",
+      "add": "Adicionar tarefa",
+      "titleLabel": "Título",
+      "due": "Prazo",
+      "assignee": "Responsável",
+      "unassigned": "Sem responsável",
+      "markDone": "Marcar como feita",
+      "empty": "Nenhuma tarefa aberta.",
+      "kinds": {
+        "next_step": "Próximo passo",
+        "rebook": "Reagendar",
+        "manual": "Tarefa"
+      },
+      "statuses": {
+        "open": "Aberta",
+        "done": "Feita",
+        "cancelled": "Cancelada"
+      },
+      "cancel": "Cancelar tarefa"
+    },
+    "stats": {
+      "booked": "Agendados",
+      "confirmed": "Confirmados",
+      "cancelled": "Cancelados",
+      "completed": "Concluídos",
+      "noShow": "Não comparecimentos",
+      "noShowRate": "Taxa de não comparecimento",
+      "notAvailable": "N/D"
+    },
+    "slotPicker": {
+      "chooseDate": "Escolha uma data",
+      "chooseTime": "Escolha um horário",
+      "noSlots": "Não há horários livres neste dia.",
+      "loading": "Carregando horários…",
+      "remaining": "{count, plural, one {Resta # vaga} other {Restam # vagas}}",
+      "timesIn": "Horários em {zone}",
+      "previousDays": "Datas anteriores",
+      "nextDays": "Datas seguintes"
+    },
+    "errors": {
+      "slot_unavailable": "Esse horário não está mais disponível. Escolha outro.",
+      "day_not_allowed": "Este serviço não pode ser agendado nesse dia.",
+      "customer_conflict": "Este cliente já tem um agendamento nesse horário.",
+      "too_many": "Muitos agendamentos no momento. Tente mais tarde.",
+      "hold_expired": "Esta reserva provisória expirou. Comece de novo.",
+      "conflict": "O agendamento mudou enquanto isso. Recarregue e tente de novo.",
+      "not_yet_supported": "Esta opção ainda não está disponível.",
+      "not_found": "Agendamento não encontrado.",
+      "invalid": "Verifique os dados e tente de novo.",
+      "feature_unavailable": "Agendamentos não estão incluídos no seu plano."
+    },
+    "fieldErrors": {
+      "invalid": "Verifique este campo.",
+      "taken": "Já está em uso. Escolha outro.",
+      "pooled_or_staffed": "Escolha uma agenda compartilhada ou profissionais, não ambos.",
+      "mode_in_use": "Ainda há agendamentos ativos na configuração atual. Mova ou cancele-os antes de alternar entre uma agenda compartilhada e profissionais."
+    },
+    "form": {
+      "edit": "Editar"
+    }
+  },
+  "AppointmentSettings": {
+    "title": "Configurações de agendamento",
+    "holdMinutes": "Reservar um horário por (minutos)",
+    "holdMinutesHelp": "Quanto tempo um agendamento da página de agendamento espera o código de WhatsApp do cliente.",
+    "maxActiveHolds": "Reservas não confirmadas por página de agendamento",
+    "maxActiveHoldsHelp": "Limita quantos horários as reservas não confirmadas podem ocupar ao mesmo tempo.",
+    "minNotice": "Antecedência mínima (minutos)",
+    "horizon": "Agendável até (dias à frente)",
+    "cancelCutoff": "Os clientes podem alterar ou cancelar até (minutos antes)",
+    "reminder24h": "Enviar um lembrete 24 horas antes",
+    "reminder2h": "Enviar um lembrete 2 horas antes",
+    "remindersHelp": "Ativar um lembrete vale para os agendamentos confirmados a partir de então.",
+    "staffNotify": "Avisar a equipe sobre agendamentos",
+    "templates": "Modelos de WhatsApp",
+    "templatesHelp": "Fora da janela de 24 horas do WhatsApp, as mensagens ao cliente precisam de um modelo de Utilidade aprovado.",
+    "templateSlots": {
+      "confirm": "Confirmação",
+      "reminder": "Lembrete",
+      "change": "Alteração ou cancelamento",
+      "feedback": "Pedido de avaliação",
+      "rebook": "Lembrete para reagendar"
+    },
+    "noTemplate": "Nenhum",
+    "manageButtonHelp": "Um modelo pode ter um botão de link. O endereço deve ser {url} seguido da variável.",
+    "useLibraryTemplate": "Começar pelo modelo de lembrete da biblioteca",
+    "templateErrors": {
+      "not_utility": "Somente modelos de Utilidade podem ser usados em mensagens de agendamento.",
+      "authentication": "Modelos de autenticação não podem ser usados aqui.",
+      "carousel": "Modelos de carrossel não podem ser usados aqui.",
+      "limited_time_offer": "Modelos de oferta por tempo limitado não podem ser usados aqui.",
+      "location_header": "Modelos com cabeçalho de localização não podem ser usados aqui.",
+      "media_header_without_url": "Um cabeçalho de mídia precisa de uma imagem, um vídeo ou um documento salvo.",
+      "header_variables": "O cabeçalho pode ter no máximo uma variável.",
+      "flow_button": "Botões de formulário não são aceitos aqui.",
+      "too_many_url_buttons": "Só um botão de link pode ter uma variável.",
+      "url_button_base": "O botão de link deve apontar para a página de gerenciamento do agendamento.",
+      "not_found": "Esse modelo não foi encontrado neste idioma.",
+      "not_approved": "Só é possível usar modelos aprovados pelo WhatsApp."
+    },
+    "save": "Salvar configurações",
+    "saved": "Configurações salvas",
+    "saveFailed": "Não foi possível salvar as configurações."
+  },
+  "BookingPublic": {
+    "metaTitle": "Agendar um atendimento",
+    "chooseService": "Escolha um serviço",
+    "chooseLocation": "Escolha um local",
+    "chooseStaff": "Escolha um profissional",
+    "anyStaff": "Qualquer disponível",
+    "chooseDate": "Escolha uma data",
+    "chooseTime": "Escolha um horário",
+    "noSlots": "Não há horários livres neste dia.",
+    "noDates": "Não há datas livres nos próximos dias.",
+    "moreDates": "Mais datas",
+    "duration": "{minutes} min",
+    "price": "Preço: {price}",
+    "free": "Gratuito",
+    "online": "On-line",
+    "inPerson": "Presencial",
+    "timesShownIn": "Os horários são mostrados em {zone}.",
+    "details": "Seus dados (opcional)",
+    "name": "Nome",
+    "city": "Cidade",
+    "state": "Estado",
+    "serviceNotice": "Usamos o WhatsApp só para confirmar este agendamento e enviar lembretes sobre ele.",
+    "continue": "Continuar",
+    "back": "Voltar",
+    "sendCodeTitle": "Confirme pelo WhatsApp",
+    "sendCodeHelp": "Envie este código para nós pelo WhatsApp para confirmar seu agendamento.",
+    "code": "Seu código",
+    "openWhatsApp": "Enviar o código pelo WhatsApp",
+    "expiresIn": "Esta reserva provisória expira em {minutes, plural, one {# minuto} other {# minutos}}.",
+    "expired": "Esta reserva provisória expirou. Escolha um horário de novo.",
+    "notFound": "Esta página de agendamento não está disponível.",
+    "error": "Algo deu errado. Tente de novo.",
+    "loading": "Carregando…",
+    "heldFor": "Estamos reservando {when} para você.",
+    "messageToSend": "Mensagem para enviar",
+    "noWhatsAppLink": "Abra o WhatsApp e envie esta mensagem para {business}.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "startOver": "Escolher outro horário",
+    "errors": {
+      "slot_unavailable": "Esse horário não está mais disponível. Escolha outro.",
+      "day_not_allowed": "Este serviço não pode ser agendado nesse dia.",
+      "customer_conflict": "Você já tem outro agendamento nesse horário.",
+      "too_many": "Muitas solicitações agora. Tente novamente em alguns minutos.",
+      "hold_expired": "Esta reserva provisória expirou. Escolha um horário novamente.",
+      "conflict": "Este agendamento mudou ou não pode mais ser alterado online. Recarregue a página.",
+      "invalid": "Confira suas escolhas e tente novamente.",
+      "not_yet_supported": "Este serviço ainda não pode ser agendado online.",
+      "forbidden": "Esta solicitação foi bloqueada. Recarregue a página e tente novamente.",
+      "error": "Algo deu errado. Tente novamente."
+    }
+  },
+  "BookingManage": {
+    "metaTitle": "Seu agendamento",
+    "title": "Seu agendamento",
+    "service": "Serviço",
+    "practitioner": "Com",
+    "location": "Onde",
+    "when": "Quando",
+    "price": "Preço",
+    "online": "On-line",
+    "meetingLink": "Entrar na reunião",
+    "meetingLinkLater": "O link da reunião aparece aqui 24 horas antes do seu atendimento.",
+    "cancel": "Cancelar agendamento",
+    "cancelConfirm": "Cancelar este agendamento?",
+    "keepBooking": "Manter agendamento",
+    "cancelled": "Seu agendamento foi cancelado.",
+    "reschedule": "Mudar horário",
+    "chooseNewTime": "Escolha um novo horário",
+    "rescheduled": "Seu agendamento foi remarcado.",
+    "cutoffPassed": "Este agendamento não pode mais ser alterado on-line. Fale conosco pelo WhatsApp.",
+    "notFound": "Este link de agendamento não é válido.",
+    "error": "Algo deu errado. Tente de novo.",
+    "loading": "Carregando…",
+    "saveTime": "Mudar para este horário"
+  },
+  "AppointmentNotices": {
+    "confirmation": "Seu atendimento de {service} está confirmado para {time} ({location}). Veja, altere ou cancele aqui: {link}",
+    "rescheduled": "Seu atendimento de {service} foi remarcado para {time} ({location}). Veja, altere ou cancele aqui: {link}",
+    "cancelled": "Seu atendimento de {service} em {time} foi cancelado.",
+    "holdUnknownCode": "Não encontramos esse código de agendamento. Verifique-o ou agende de novo na nossa página de agendamento.",
+    "holdUnavailable": "Desculpe, esse horário não está mais disponível. Agende de novo na nossa página de agendamento.",
+    "holdConflict": "Você já tem um agendamento nesse horário.",
+    "online": "on-line",
+    "staffBooked": "Novo agendamento: {service} em {time}",
+    "staffCancelled": "Agendamento cancelado: {service} em {time}",
+    "staffRescheduled": "Agendamento remarcado: {service} para {time}"
   }
 }

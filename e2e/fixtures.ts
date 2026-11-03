@@ -15,6 +15,23 @@ export interface Fixtures {
   outsider: SeededUser;
   /** A contact in workspace A with no consent flags set. */
   contact: { id: string; name: string };
+  /**
+   * Phase 7 appointments in workspace A: an offline service bookable on
+   * Mondays only, one practitioner at an Asia/Kolkata location with weekday
+   * hours, an active booking page, and a confirmed appointment (for the
+   * contact) whose manage-link token is derived here.
+   */
+  appointments: {
+    serviceId: string;
+    staffId: string;
+    locationId: string;
+    timezone: string;
+    pageSlug: string;
+    appointmentId: string;
+    /** Local Monday (YYYY-MM-DD) of the seeded appointment. */
+    appointmentDate: string;
+    manageToken: string;
+  };
 }
 
 // Outside the project (the dev server reloads on project file writes); it

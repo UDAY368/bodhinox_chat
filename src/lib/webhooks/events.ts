@@ -17,6 +17,11 @@ export const WEBHOOK_EVENTS = [
   'order.created', // a store order was recorded (src/lib/webhooks/commerce-events.ts)
   'order.paid', // a store order was paid
   'payment_link.paid', // a payment link sent from Bodhinox was paid
+  'appointment.booked', // an appointment was confirmed (src/lib/webhooks/appointment-events.ts)
+  'appointment.cancelled', // an appointment was cancelled
+  'appointment.rescheduled', // an appointment moved to a new time
+  'appointment.completed', // staff marked an appointment completed
+  'appointment.no_show', // staff marked an appointment as a no-show
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
@@ -33,6 +38,11 @@ export const WEBHOOK_EVENT_DESCRIPTIONS: Record<WebhookEvent, string> = {
   'order.created': 'A store order was received (Shopify, WooCommerce or a WhatsApp cart)',
   'order.paid': 'A store order was paid',
   'payment_link.paid': 'A payment link sent from Bodhinox was paid in full',
+  'appointment.booked': 'An appointment was booked and confirmed',
+  'appointment.cancelled': 'An appointment was cancelled',
+  'appointment.rescheduled': 'An appointment was moved to a new time',
+  'appointment.completed': 'An appointment was marked completed',
+  'appointment.no_show': 'An appointment was marked as a no-show',
 };
 
 /** Type-narrow an unknown value into a valid `WebhookEvent`. */

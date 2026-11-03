@@ -142,6 +142,12 @@ export const RATE_LIMITS = {
    *  successful redemption mutates two profiles and an invite row, so
    *  the abuse surface is "spam join attempts." */
   invitationRedeem: { limit: 10, windowMs: 60_000 },
+  /** Public booking pages (per IP, best effort: the leftmost forwarded
+   *  address can be spoofed). The durable per-hour limits in the routes and
+   *  the per-page cap on unconfirmed holds are the real backstops. */
+  bookingSlots: { limit: 60, windowMs: 60_000 },
+  bookingCreate: { limit: 10, windowMs: 60_000 },
+  bookingManage: { limit: 30, windowMs: 60_000 },
   /** Admin-only account / member-management actions: create/revoke
    *  invitation, rename account, change member role, remove member,
    *  transfer ownership. 30/min per user is comfortably above any

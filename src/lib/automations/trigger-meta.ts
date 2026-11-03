@@ -38,6 +38,21 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
   interactive_reply: {
     pillClass: 'border-pink-500/30 bg-pink-500/10 text-pink-300',
   },
+  appointment_booked: {
+    pillClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  },
+  appointment_cancelled: {
+    pillClass: 'border-rose-500/30 bg-rose-500/10 text-rose-300',
+  },
+  appointment_rescheduled: {
+    pillClass: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300',
+  },
+  appointment_completed: {
+    pillClass: 'border-green-500/30 bg-green-500/10 text-green-300',
+  },
+  appointment_no_show: {
+    pillClass: 'border-orange-500/30 bg-orange-500/10 text-orange-300',
+  },
 }
 
 export function isKnownTrigger(t: string): t is AutomationTriggerType {

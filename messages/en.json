@@ -79,7 +79,8 @@
     "products": "Products",
     "payments": "Payments",
     "analytics": "Analytics",
-    "ads": "Ads"
+    "ads": "Ads",
+    "appointments": "Appointments"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -105,7 +106,8 @@
     "orders": "Orders",
     "products": "Products",
     "payments": "Payments",
-    "ads": "Ads"
+    "ads": "Ads",
+    "appointments": "Appointments"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -1561,6 +1563,26 @@
         "ad_click": {
           "label": "Message from an Ad",
           "hint": "Customer messages you from a click-to-WhatsApp ad"
+        },
+        "appointment_booked": {
+          "label": "Appointment Booked",
+          "hint": "An appointment is confirmed (by staff, a flow or the customer's WhatsApp code)"
+        },
+        "appointment_cancelled": {
+          "label": "Appointment Cancelled",
+          "hint": "A confirmed appointment is cancelled"
+        },
+        "appointment_rescheduled": {
+          "label": "Appointment Rescheduled",
+          "hint": "A confirmed appointment moves to a new time"
+        },
+        "appointment_completed": {
+          "label": "Appointment Completed",
+          "hint": "Staff mark an appointment completed"
+        },
+        "appointment_no_show": {
+          "label": "Appointment No-show",
+          "hint": "Staff mark an appointment as a no-show"
         }
       },
       "trigger": "Trigger",
@@ -2173,6 +2195,10 @@
         "conversion_event": {
           "label": "Conversion event",
           "blurb": "Reports a conversion to Meta for a customer who came from an ad"
+        },
+        "book_appointment": {
+          "label": "Book appointment",
+          "blurb": "Offers free times on WhatsApp and books the one the customer picks"
         }
       },
       "ports": {
@@ -2184,7 +2210,10 @@
         "expired": "Expired",
         "failed": "Failed",
         "answered": "Answered",
-        "handoff": "Handoff"
+        "handoff": "Handoff",
+        "success": "Booked",
+        "unavailable": "Unavailable",
+        "cancelled": "Cancelled"
       },
       "triggerTemplateReplyTitle": "Reply to a template button",
       "matchTypeLabel": "Match",
@@ -2246,7 +2275,8 @@
           "timeout": "No reply within {minutes, plural, one {# minute} other {# minutes}}",
           "fallback": "Reply not accepted; the flow's fallback policy takes over",
           "ai_reply": "The AI agent answers (simulated; nothing is generated)",
-          "conversion_event": "A conversion is reported to Meta (simulated; nothing is sent)"
+          "conversion_event": "A conversion is reported to Meta (simulated; nothing is sent)",
+          "book_appointment": "Offers free times and books the one the customer picks (simulated; nothing is booked)"
         },
         "simulate": {
           "shareMedia": "Simulate: customer sends media",
@@ -2270,7 +2300,36 @@
       "adClickIdsLabel": "Ad IDs (optional)",
       "adClickIdsPlaceholder": "e.g. 120211234567890",
       "adClickIdsHelp": "Leave empty to start for any ad. Up to {max} IDs, digits only.",
-      "adClickVariables": "Ad variables"
+      "adClickVariables": "Ad variables",
+      "appointment": {
+        "services": "Services",
+        "servicesHelp": "Customers choose one when you list more than one (up to 10).",
+        "location": "Location",
+        "anyLocation": "First location offering the service",
+        "staffMode": "Practitioner",
+        "staffAny": "Any free practitioner",
+        "staffChoose": "Let the customer choose",
+        "daysAhead": "Days to offer",
+        "daysAheadHelp": "How many days ahead to look for free times (1 to 14).",
+        "promptService": "Which service would you like to book?",
+        "promptStaff": "Who would you like to see?",
+        "promptDay": "Choose a day:",
+        "promptSlot": "Choose a time:",
+        "listButton": "Choose",
+        "moreDates": "More dates",
+        "later": "Later times",
+        "noSlots": "Sorry, there are no free times right now.",
+        "slotTaken": "That time was just taken. Here are the times still free that day.",
+        "invalidChoice": "Please choose one of the options.",
+        "variablesHelp": "Saves appointment_id and appointment_local_time for later steps.",
+        "cancelRow": "Cancel",
+        "noServices": "No services yet. Add them under Appointments settings; until then the step offers nothing and takes its Unavailable path.",
+        "servicesAllHelp": "Pick up to {max}. Pick none to offer every bookable service. Customers choose when more than one is offered.",
+        "serviceMode": "Service type",
+        "modeBoth": "Online and in person",
+        "modeOnline": "Online only",
+        "modeOffline": "In person only"
+      }
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -2319,7 +2378,9 @@
       "products": "{count, plural, one {# product} other {# products}}",
       "paymentNone": "No amount set",
       "aiReplyDefault": "Answers with the AI agent",
-      "conversionDefault": "Reports {event} to Meta"
+      "conversionDefault": "Reports {event} to Meta",
+      "appointmentAllServices": "Every bookable service",
+      "appointmentServices": "{count, plural, one {# service} other {# services}}"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -3200,7 +3261,8 @@
         "api_campaigns": "API campaigns",
         "click_tracking": "Click tracking",
         "retargeting": "Retargeting by campaign",
-        "workspace_attributes": "Workspace attributes"
+        "workspace_attributes": "Workspace attributes",
+        "appointments": "Appointments"
       },
       "limits": {
         "seats": "Team members and open invitations",
@@ -3212,7 +3274,8 @@
         "ai_messages": "AI replies this month",
         "monthly_active_contacts": "Active contacts this month",
         "storage_bytes": "Media storage (bytes)",
-        "whatsapp_numbers": "WhatsApp numbers"
+        "whatsapp_numbers": "WhatsApp numbers",
+        "appointment_staff": "Practitioners"
       },
       "loadFailed": "Could not load your plan",
       "retry": "Retry",
@@ -3559,7 +3622,9 @@
         "contacts_export": "Export contacts",
         "flows_publish": "Publish flows",
         "templates_submit": "Submit templates to WhatsApp",
-        "settings_billing": "Manage plan and billing"
+        "settings_billing": "Manage plan and billing",
+        "appointments_manage": "Book and manage appointments",
+        "appointments_settings": "Configure appointments and booking pages"
       }
     },
     "auditLog": {
@@ -3812,7 +3877,10 @@
       "template_rejected": "Template rejected",
       "whatsapp_number_health": "WhatsApp number",
       "payment_received": "Payment received",
-      "billing": "Billing"
+      "billing": "Billing",
+      "appointment_booked": "New booking",
+      "appointment_cancelled": "Booking cancelled",
+      "appointment_rescheduled": "Booking moved"
     }
   },
   "Agents": {
@@ -4409,6 +4477,18 @@
       "askPassive": "Thanks! What's one thing we could do better?",
       "skipPassive": "Nothing to add",
       "passiveReply": "Thanks for the feedback. We read every reply."
+    },
+    "free_consultation": {
+      "name": "Free consultation booking",
+      "description": "Customers choose an online or in-person consultation, share their name, city and state, then pick a free time from your calendar.",
+      "keywords": "free consult,book a session,talk to an expert",
+      "text": "Hello! Would you like your free consultation online or in person?",
+      "onlineButton": "Online",
+      "offlineButton": "In person",
+      "askName": "What is your full name?",
+      "askCity": "Which city are you in?",
+      "askState": "And which state?",
+      "handoffNote": "Free consultation request ({mode}) from {name}, {city}, {state}. No free time could be booked; please follow up."
     }
   },
   "LibErrors": {
@@ -4635,7 +4715,12 @@
       "conversionNeedsNext": "Choose the step that runs after the conversion event.",
       "conversionMissingNext": "The step after the conversion event no longer exists.",
       "conversionPurchaseAutomatic": "Purchases are reported automatically when a payment link or order is paid. Choose another event.",
-      "conversionValueNeedsBoth": "Set both the value variable and the currency, or neither."
+      "conversionValueNeedsBoth": "Set both the value variable and the currency, or neither.",
+      "appointmentServices": "Pick up to {max} services, or none to offer every bookable service.",
+      "appointmentMode": "Choose online, in person, or both.",
+      "appointmentLocation": "Choose a location from the list.",
+      "appointmentStaffMode": "Choose how the practitioner is picked.",
+      "appointmentDays": "Days to offer must be a whole number from {min} to {max}."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -4670,7 +4755,8 @@
       "templateLocationHeader": "Automations can't send templates with a location header: the step only fills body values, not a location. Use a flow or a campaign instead.",
       "templateHeaderVariable": "Automations can't send templates with a variable in the header: the step only fills body values.",
       "templateUrlVariable": "Automations can't send templates with a variable in a URL button: the step only fills body values.",
-      "adIdsInvalid": "Ad IDs must be digits only, up to {max} of them"
+      "adIdsInvalid": "Ad IDs must be digits only, up to {max} of them",
+      "serviceIdsInvalid": "Service IDs must be valid IDs, up to {max} of them"
     },
     "templates": {
       "nameRequired": "Template name is required.",
@@ -5721,6 +5807,16 @@
       "header": "Holiday notice",
       "body": "Hi {v1}, please note that {v2} will be closed on {v3} for {v4}. We will resume regular service on the next working day.",
       "samples": "Chris|our office|1 January|New Year celebrations"
+    },
+    "appointment_reminder_manage": {
+      "title": "Appointment reminder with manage link",
+      "description": "Remind customers of a booking and let them view, change or cancel it.",
+      "header": "Appointment reminder",
+      "body": "Reminder: your {v1} appointment is on {v2} ({v3}). Use the button below to view, change or cancel it.",
+      "buttons": {
+        "b1": "Manage booking"
+      },
+      "samples": "Dental check-up|Monday 10 June, 11:30 AM IST|Andheri clinic"
     }
   },
   "Templates": {
@@ -6582,7 +6678,19 @@
       "description": "A WhatsApp number's quality rating or messaging limit changes."
     },
     "inApp": "In app",
-    "email": "Email digest"
+    "email": "Email digest",
+    "appointment_booked": {
+      "label": "New bookings",
+      "description": "An appointment with you, or in your workspace, is confirmed."
+    },
+    "appointment_cancelled": {
+      "label": "Cancelled bookings",
+      "description": "A confirmed appointment is cancelled."
+    },
+    "appointment_rescheduled": {
+      "label": "Moved bookings",
+      "description": "A confirmed appointment moves to a new time."
+    }
   },
   "Weekdays": {
     "mon": "Monday",
@@ -7531,5 +7639,449 @@
     "notConnected": "No Meta ad account is connected yet. An administrator connects one in Settings > Ads.",
     "tokenInvalid": "Meta access expired, so results are no longer updated. An administrator must reconnect in Settings > Ads.",
     "openSettings": "Open Settings > Ads"
+  },
+  "Appointments": {
+    "title": "Appointments",
+    "description": "Book consultations, confirm them on WhatsApp and follow up after the visit.",
+    "loadFailed": "Could not load appointments. Reload the page to try again.",
+    "retry": "Retry",
+    "upgrade": "Appointments are not included in your plan. Upgrade to use them.",
+    "readOnly": "You can view appointments but not change them.",
+    "tabs": {
+      "schedule": "Schedule",
+      "services": "Services",
+      "staff": "Staff & hours",
+      "locations": "Locations",
+      "exceptions": "Holidays & exceptions",
+      "pages": "Booking pages",
+      "settings": "Settings",
+      "tasks": "Tasks"
+    },
+    "status": {
+      "held": "Awaiting WhatsApp",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "no_show": "No-show",
+      "expired": "Expired"
+    },
+    "source": {
+      "staff": "Staff",
+      "public": "Booking page",
+      "flow": "WhatsApp flow"
+    },
+    "schedule": {
+      "day": "Day",
+      "week": "Week",
+      "today": "Today",
+      "previous": "Previous",
+      "next": "Next",
+      "filterStaff": "Practitioner",
+      "filterLocation": "Location",
+      "filterService": "Service",
+      "filterStatus": "Status",
+      "all": "All",
+      "needsOutcome": "Needs outcome",
+      "empty": "No appointments in this period.",
+      "newAppointment": "New appointment",
+      "timesIn": "Times in {zone}",
+      "awaitingContact": "Waiting for the customer's WhatsApp code",
+      "anyStaff": "Any practitioner",
+      "pool": "Shared calendar"
+    },
+    "sheet": {
+      "title": "Appointment",
+      "service": "Service",
+      "practitioner": "Practitioner",
+      "location": "Location",
+      "when": "When",
+      "contact": "Customer",
+      "openInbox": "Open conversation",
+      "status": "Status",
+      "source": "Booked from",
+      "history": "History",
+      "messages": "Customer messages",
+      "confirm": "Confirm",
+      "reschedule": "Reschedule",
+      "cancel": "Cancel appointment",
+      "cancelReason": "Reason",
+      "cancelConfirm": "Cancel this appointment? The customer is told on WhatsApp.",
+      "markCompleted": "Mark completed",
+      "markNoShow": "Mark no-show",
+      "outcomeNote": "Staff note",
+      "outcomeNoteWarning": "Do not record clinical details here.",
+      "feedbackScore": "Feedback score (1 to 5)",
+      "staffRecorded": "Recorded by staff",
+      "createTask": "Create task",
+      "markResolved": "Mark resolved",
+      "resolved": "Resolved",
+      "confirmHoldHelp": "Bookings from the booking page are confirmed when the customer sends their code on WhatsApp.",
+      "save": "Save",
+      "saved": "Saved",
+      "close": "Close",
+      "noMessages": "No customer messages yet.",
+      "noHistory": "No history yet."
+    },
+    "cancelReasons": {
+      "customer": "Customer asked",
+      "staff": "Staff cancelled",
+      "expired": "Hold expired",
+      "other": "Other"
+    },
+    "events": {
+      "held": "Slot held",
+      "confirmed": "Confirmed",
+      "rescheduled": "Moved from {from} to {to}",
+      "reassigned": "Practitioner changed",
+      "cancelled": "Cancelled",
+      "expired": "Hold expired",
+      "completed": "Completed",
+      "no_show": "Marked no-show",
+      "feedback": "Feedback recorded",
+      "reminder_skipped": "Reminder skipped"
+    },
+    "actors": {
+      "staff": "Staff",
+      "customer": "Customer",
+      "system": "System"
+    },
+    "messageKinds": {
+      "confirmation": "Confirmation",
+      "reminder_24h": "Reminder (24 hours)",
+      "reminder_2h": "Reminder (2 hours)",
+      "cancelled": "Cancellation",
+      "rescheduled": "Change of time",
+      "feedback": "Feedback request",
+      "rebook": "Rebooking reminder"
+    },
+    "messageStatuses": {
+      "sent": "Sent",
+      "skipped": "Skipped",
+      "blocked": "Not sent",
+      "failed": "Failed",
+      "outcome_unknown": "Outcome unknown"
+    },
+    "messageReasons": {
+      "stale_version": "The appointment changed, so this message was no longer needed.",
+      "contact_missing": "The customer's contact no longer exists.",
+      "past_due": "It was too late to send this reminder.",
+      "disabled": "This reminder is turned off in settings.",
+      "contact_blocked": "The customer is blocked.",
+      "opted_out": "The customer opted out after booking.",
+      "workspace_suspended": "The workspace is suspended.",
+      "number_unavailable": "The WhatsApp number is not connected.",
+      "no_address": "The customer has no WhatsApp address.",
+      "no_template": "No approved template is set and the 24-hour window is closed.",
+      "category": "The template is not a Utility template.",
+      "template_refused": "The template cannot be used for this message.",
+      "provider_rejected": "WhatsApp rejected the message.",
+      "uncertain": "WhatsApp did not confirm whether this was sent. Check the conversation before resending.",
+      "other": "Not sent.",
+      "template_not_found": "The template set in appointment settings no longer exists.",
+      "template_not_approved": "The template set in appointment settings is not approved.",
+      "template_wrong_number": "The template belongs to a different WhatsApp number.",
+      "feedback_recorded": "Feedback was already recorded, so the request was not sent."
+    },
+    "create": {
+      "title": "New appointment",
+      "contact": "Customer",
+      "contactSearch": "Search contacts",
+      "service": "Service",
+      "location": "Location",
+      "practitioner": "Practitioner",
+      "date": "Date",
+      "slot": "Time",
+      "noSlots": "No free times on this day.",
+      "book": "Book",
+      "booked": "Appointment booked"
+    },
+    "services": {
+      "title": "Services",
+      "add": "Add service",
+      "name": "Name",
+      "mode": "Type",
+      "modes": {
+        "offline": "In person",
+        "online": "Online"
+      },
+      "duration": "Duration (minutes)",
+      "buffer": "Break after (minutes)",
+      "step": "Start a slot every (minutes)",
+      "stepHelp": "Leave empty to use the duration.",
+      "capacity": "Customers per slot",
+      "price": "Price",
+      "currency": "Currency",
+      "free": "Free",
+      "meetingUrl": "Meeting link",
+      "meetingUrlHelp": "An https link the customer sees only once the appointment is confirmed.",
+      "allowedWeekdays": "Bookable days",
+      "allDays": "Every day",
+      "mondayPreset": "Offline free consultation: Monday only",
+      "feedbackDelay": "Ask for feedback after (minutes)",
+      "rebookAfter": "Suggest rebooking after (days)",
+      "paymentRequired": "Require advance payment",
+      "paymentComingSoon": "Coming with payments",
+      "offerings": "Where and with whom",
+      "pooled": "Shared calendar (any free slot)",
+      "staffed": "Specific practitioners",
+      "offeringConflict": "A service at a location uses either a shared calendar or practitioners, not both.",
+      "archive": "Archive",
+      "archived": "Archived",
+      "restore": "Restore",
+      "empty": "No services yet."
+    },
+    "staff": {
+      "title": "Practitioners",
+      "add": "Add practitioner",
+      "name": "Display name",
+      "linkedMember": "Linked team member",
+      "noMember": "Not linked",
+      "hours": "Working hours",
+      "hoursAt": "Hours at {location}",
+      "poolHours": "Shared calendar hours",
+      "archive": "Archive",
+      "empty": "No practitioners yet.",
+      "limitReached": "Your plan allows {count, plural, one {# practitioner} other {# practitioners}}.",
+      "limitReachedGeneric": "Your plan's practitioner limit is reached. Upgrade or archive a practitioner first.",
+      "clearHours": "Clear hours"
+    },
+    "locations": {
+      "title": "Locations",
+      "add": "Add location",
+      "name": "Name",
+      "address": "Address",
+      "timezone": "Time zone",
+      "kind": "Type",
+      "kinds": {
+        "physical": "Physical",
+        "online": "Online"
+      },
+      "archive": "Archive",
+      "empty": "No locations yet.",
+      "timezoneHelp": "Booking times are shown and checked in this zone."
+    },
+    "exceptions": {
+      "title": "Holidays & exceptions",
+      "add": "Add exception",
+      "scope": "Applies to",
+      "scopeLocation": "Whole location",
+      "scopeStaff": "One practitioner",
+      "from": "From",
+      "to": "To",
+      "closed": "Closed all day",
+      "customHours": "Custom hours",
+      "reason": "Reason",
+      "empty": "No exceptions.",
+      "delete": "Delete"
+    },
+    "pages": {
+      "title": "Booking pages",
+      "add": "Add booking page",
+      "slug": "Link name",
+      "slugHelp": "Lowercase letters, numbers and dashes.",
+      "slugTaken": "That link name is taken.",
+      "titleLabel": "Page title",
+      "services": "Services",
+      "location": "Location",
+      "number": "WhatsApp number",
+      "defaultNumber": "Default number",
+      "active": "Active",
+      "copyLink": "Copy link",
+      "copied": "Link copied",
+      "empty": "No booking pages yet.",
+      "inactive": "Inactive"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "add": "Add task",
+      "titleLabel": "Title",
+      "due": "Due",
+      "assignee": "Assigned to",
+      "unassigned": "Unassigned",
+      "markDone": "Mark done",
+      "empty": "No open tasks.",
+      "kinds": {
+        "next_step": "Next step",
+        "rebook": "Rebook",
+        "manual": "Task"
+      },
+      "statuses": {
+        "open": "Open",
+        "done": "Done",
+        "cancelled": "Cancelled"
+      },
+      "cancel": "Cancel task"
+    },
+    "stats": {
+      "booked": "Booked",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "noShow": "No-shows",
+      "noShowRate": "No-show rate",
+      "notAvailable": "N/A"
+    },
+    "slotPicker": {
+      "chooseDate": "Choose a date",
+      "chooseTime": "Choose a time",
+      "noSlots": "No free times on this day.",
+      "loading": "Loading times…",
+      "remaining": "{count, plural, one {# place left} other {# places left}}",
+      "timesIn": "Times in {zone}",
+      "previousDays": "Earlier dates",
+      "nextDays": "Later dates"
+    },
+    "errors": {
+      "slot_unavailable": "That time is no longer available. Choose another.",
+      "day_not_allowed": "This service cannot be booked on that day.",
+      "customer_conflict": "This customer already has an appointment at that time.",
+      "too_many": "Too many bookings right now. Try again later.",
+      "hold_expired": "This booking hold has expired. Start again.",
+      "conflict": "This appointment changed in the meantime. Reload and try again.",
+      "not_yet_supported": "This option is not available yet.",
+      "not_found": "Appointment not found.",
+      "invalid": "Check the details and try again.",
+      "feature_unavailable": "Appointments are not included in your plan."
+    },
+    "fieldErrors": {
+      "invalid": "Check this field.",
+      "taken": "This is already in use. Choose another.",
+      "pooled_or_staffed": "Choose either a shared calendar or practitioners, not both.",
+      "mode_in_use": "Bookings are still open under the current setup. Move or cancel them before switching between a shared calendar and practitioners."
+    },
+    "form": {
+      "edit": "Edit"
+    }
+  },
+  "AppointmentSettings": {
+    "title": "Booking settings",
+    "holdMinutes": "Hold a slot for (minutes)",
+    "holdMinutesHelp": "How long a booking from the booking page waits for the customer's WhatsApp code.",
+    "maxActiveHolds": "Unconfirmed holds per booking page",
+    "maxActiveHoldsHelp": "Caps how many slots unconfirmed bookings can hold at once.",
+    "minNotice": "Minimum notice (minutes)",
+    "horizon": "Bookable up to (days ahead)",
+    "cancelCutoff": "Customers can change or cancel until (minutes before)",
+    "reminder24h": "Send a reminder 24 hours before",
+    "reminder2h": "Send a reminder 2 hours before",
+    "remindersHelp": "Turning a reminder on applies to bookings confirmed afterwards.",
+    "staffNotify": "Notify staff about bookings",
+    "templates": "WhatsApp templates",
+    "templatesHelp": "Outside WhatsApp's 24-hour window, customer messages need an approved Utility template.",
+    "templateSlots": {
+      "confirm": "Confirmation",
+      "reminder": "Reminder",
+      "change": "Change or cancellation",
+      "feedback": "Feedback request",
+      "rebook": "Rebooking reminder"
+    },
+    "noTemplate": "None",
+    "manageButtonHelp": "A template may have one link button. Its address must be {url} followed by the variable.",
+    "useLibraryTemplate": "Start from the reminder template in the library",
+    "templateErrors": {
+      "not_utility": "Only Utility templates can be used for appointment messages.",
+      "authentication": "Authentication templates cannot be used here.",
+      "carousel": "Carousel templates cannot be used here.",
+      "limited_time_offer": "Limited-time offer templates cannot be used here.",
+      "location_header": "Templates with a location header cannot be used here.",
+      "media_header_without_url": "A media header needs a saved image, video or document.",
+      "header_variables": "The header can have at most one variable.",
+      "flow_button": "Form buttons are not supported here.",
+      "too_many_url_buttons": "Only one link button can carry a variable.",
+      "url_button_base": "The link button must point to the booking management page.",
+      "not_found": "That template was not found in this language.",
+      "not_approved": "Only templates approved by WhatsApp can be used."
+    },
+    "save": "Save settings",
+    "saved": "Settings saved",
+    "saveFailed": "Could not save the settings."
+  },
+  "BookingPublic": {
+    "metaTitle": "Book an appointment",
+    "chooseService": "Choose a service",
+    "chooseLocation": "Choose a location",
+    "chooseStaff": "Choose a practitioner",
+    "anyStaff": "Any available",
+    "chooseDate": "Choose a date",
+    "chooseTime": "Choose a time",
+    "noSlots": "No free times on this day.",
+    "noDates": "No free dates in the coming days.",
+    "moreDates": "More dates",
+    "duration": "{minutes} min",
+    "price": "Price: {price}",
+    "free": "Free",
+    "online": "Online",
+    "inPerson": "In person",
+    "timesShownIn": "Times are shown in {zone}.",
+    "details": "Your details (optional)",
+    "name": "Name",
+    "city": "City",
+    "state": "State",
+    "serviceNotice": "We use WhatsApp only to confirm this booking and send reminders about it.",
+    "continue": "Continue",
+    "back": "Back",
+    "sendCodeTitle": "Confirm on WhatsApp",
+    "sendCodeHelp": "Send this code to us on WhatsApp to confirm your booking.",
+    "code": "Your code",
+    "openWhatsApp": "Send code on WhatsApp",
+    "expiresIn": "This hold expires in {minutes, plural, one {# minute} other {# minutes}}.",
+    "expired": "This hold has expired. Choose a time again.",
+    "notFound": "This booking page is not available.",
+    "error": "Something went wrong. Try again.",
+    "loading": "Loading…",
+    "heldFor": "We are holding {when} for you.",
+    "messageToSend": "Message to send",
+    "noWhatsAppLink": "Open WhatsApp and send this message to {business}.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "startOver": "Choose a time again",
+    "errors": {
+      "slot_unavailable": "That time is no longer available. Choose another.",
+      "day_not_allowed": "This service cannot be booked on that day.",
+      "customer_conflict": "You already have another booking at that time.",
+      "too_many": "Too many requests right now. Try again in a few minutes.",
+      "hold_expired": "This hold has expired. Choose a time again.",
+      "conflict": "This booking changed or can no longer be changed online. Reload the page.",
+      "invalid": "Check your choices and try again.",
+      "not_yet_supported": "This service cannot be booked online yet.",
+      "forbidden": "This request was blocked. Reload the page and try again.",
+      "error": "Something went wrong. Try again."
+    }
+  },
+  "BookingManage": {
+    "metaTitle": "Your booking",
+    "title": "Your booking",
+    "service": "Service",
+    "practitioner": "With",
+    "location": "Where",
+    "when": "When",
+    "price": "Price",
+    "online": "Online",
+    "meetingLink": "Join the meeting",
+    "meetingLinkLater": "The meeting link appears here 24 hours before your appointment.",
+    "cancel": "Cancel booking",
+    "cancelConfirm": "Cancel this booking?",
+    "keepBooking": "Keep booking",
+    "cancelled": "Your booking is cancelled.",
+    "reschedule": "Change time",
+    "chooseNewTime": "Choose a new time",
+    "rescheduled": "Your booking has been moved.",
+    "cutoffPassed": "This booking can no longer be changed online. Message us on WhatsApp.",
+    "notFound": "This booking link is not valid.",
+    "error": "Something went wrong. Try again.",
+    "loading": "Loading…",
+    "saveTime": "Move to this time"
+  },
+  "AppointmentNotices": {
+    "confirmation": "Your {service} appointment is confirmed for {time} ({location}). View, change or cancel it here: {link}",
+    "rescheduled": "Your {service} appointment has moved to {time} ({location}). View, change or cancel it here: {link}",
+    "cancelled": "Your {service} appointment on {time} is cancelled.",
+    "holdUnknownCode": "We could not find that booking code. Check it, or book again on our booking page.",
+    "holdUnavailable": "Sorry, that time is no longer available. Please book again on our booking page.",
+    "holdConflict": "You already have an appointment at that time.",
+    "online": "online",
+    "staffBooked": "New booking: {service} at {time}",
+    "staffCancelled": "Booking cancelled: {service} at {time}",
+    "staffRescheduled": "Booking moved: {service} to {time}"
   }
 }

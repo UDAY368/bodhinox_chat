@@ -198,6 +198,11 @@ const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: 'conversation_assigned' },
   { value: 'tag_added' },
   { value: 'time_based' },
+  { value: 'appointment_booked' },
+  { value: 'appointment_cancelled' },
+  { value: 'appointment_rescheduled' },
+  { value: 'appointment_completed' },
+  { value: 'appointment_no_show' },
 ];
 
 function cid(): string {

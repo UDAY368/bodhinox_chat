@@ -5,6 +5,7 @@ import { hash, argon2id } from 'argon2';
 import { config } from 'dotenv';
 import pg from 'pg';
 import { FIXTURES_FILE, type Fixtures, type Role, type SeededUser } from './fixtures';
+import { deriveManageToken, manageTokenHash } from '../src/lib/appointments/tokens';
 
 /** Owner connection to the isolated test database; refuses anything else. */
 export async function testDatabase(): Promise<pg.Client> {
@@ -36,6 +37,7 @@ export default async function globalSetup() {
   const outsider = newUser('outsider');
   const accountA = randomUUID(), accountB = randomUUID();
   const contact = { id: randomUUID(), name: `E2E Consent ${runId}` };
+  let appointments!: Fixtures['appointments'];
   const members: [string, SeededUser, Role][] = [
     ...roles.map((role) => [accountA, users[role], role] as [string, SeededUser, Role]),
     [accountB, outsider, 'owner'],
@@ -64,6 +66,7 @@ export default async function globalSetup() {
     // A variable-free approved template, so campaigns can be scheduled without WhatsApp.
     await db.query("INSERT INTO message_templates(account_id,user_id,name,body_text,status) VALUES($1,$2,'e2e_template','Hello from E2E','APPROVED')",
       [accountA, users.owner.id]);
+    appointments = await seedAppointments(db, accountA, contact.id, runId);
   } catch (error) {
     await db.query('ROLLBACK');
     throw error;
@@ -71,7 +74,47 @@ export default async function globalSetup() {
     await db.end();
   }
 
-  const data: Fixtures = { runId, accountA, accountB, users, outsider, contact };
+  const data: Fixtures = { runId, accountA, accountB, users, outsider, contact, appointments };
   fs.mkdirSync(path.dirname(FIXTURES_FILE), { recursive: true });
   fs.writeFileSync(FIXTURES_FILE, JSON.stringify(data, null, 2));
+}
+
+/** The next Monday (YYYY-MM-DD) strictly after today in Asia/Kolkata, at least 2 days out. */
+function nextKolkataMonday(): string {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const [y, m, d] = today.split('-').map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  let offset = (8 - base.getUTCDay()) % 7 || 7;
+  if (offset < 2) offset += 7;
+  return new Date(base.getTime() + offset * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Phase 7 seed (owner connection, like the contact above). */
+async function seedAppointments(db: pg.Client, accountId: string, contactId: string, runId: string): Promise<Fixtures['appointments']> {
+  const timezone = 'Asia/Kolkata';
+  const ids = { serviceId: randomUUID(), staffId: randomUUID(), locationId: randomUUID(), appointmentId: randomUUID(), pageId: randomUUID() };
+  const pageSlug = `e2e-${runId}`;
+  const weekday = [{ start: '09:00', end: '17:00' }];
+  await db.query("INSERT INTO appointment_locations(id,account_id,name,timezone,kind) VALUES($1,$2,'E2E Clinic',$3,'physical')",
+    [ids.locationId, accountId, timezone]);
+  await db.query(`INSERT INTO appointment_services(id,account_id,name,mode,duration_minutes,capacity,allowed_weekdays)
+    VALUES($1,$2,'E2E Free consultation','offline',30,1,'{1}')`, [ids.serviceId, accountId]);
+  await db.query("INSERT INTO appointment_staff(id,account_id,display_name) VALUES($1,$2,'Dr E2E')", [ids.staffId, accountId]);
+  await db.query('INSERT INTO appointment_offerings(account_id,service_id,staff_id,location_id) VALUES($1,$2,$3,$4)',
+    [accountId, ids.serviceId, ids.staffId, ids.locationId]);
+  await db.query('INSERT INTO appointment_hours(account_id,staff_id,location_id,hours) VALUES($1,$2,$3,$4)',
+    [accountId, ids.staffId, ids.locationId, JSON.stringify({ mon: weekday, tue: weekday, wed: weekday, thu: weekday, fri: weekday })]);
+  await db.query("INSERT INTO booking_pages(id,account_id,slug,title,location_id) VALUES($1,$2,$3,'E2E Clinic bookings',$4)",
+    [ids.pageId, accountId, pageSlug, ids.locationId]);
+  await db.query('INSERT INTO booking_page_services(account_id,page_id,service_id) VALUES($1,$2,$3)', [accountId, ids.pageId, ids.serviceId]);
+  // 16:00 local on that Monday: leaves the morning free for the booking spec.
+  const appointmentDate = nextKolkataMonday();
+  const manageToken = deriveManageToken(ids.appointmentId, 1);
+  await db.query(`INSERT INTO appointments(id,account_id,contact_id,service_id,staff_id,location_id,start_at,end_at,timezone,status,
+      source,confirmed_at,service_name,manage_token_hash)
+    VALUES($1,$2,$3,$4,$5,$6,($7 || ' 16:00')::timestamp AT TIME ZONE $8,($7 || ' 16:30')::timestamp AT TIME ZONE $8,$8,'confirmed',
+      'staff',NOW(),'E2E Free consultation',$9)`,
+    [ids.appointmentId, accountId, contactId, ids.serviceId, ids.staffId, ids.locationId, appointmentDate, timezone, manageTokenHash(manageToken)]);
+  return { serviceId: ids.serviceId, staffId: ids.staffId, locationId: ids.locationId, timezone, pageSlug,
+    appointmentId: ids.appointmentId, appointmentDate, manageToken };
 }

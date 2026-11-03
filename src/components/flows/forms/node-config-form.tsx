@@ -54,6 +54,7 @@ import { useUserTags } from "./use-pickers";
 import { ApiRequestForm, AssignAgentForm, ConnectFlowForm, SendTemplateForm } from "./integration-forms";
 import { SendFormStepForm } from "./send-form-step";
 import { PaymentLinkForm } from "./payment-forms";
+import { BookAppointmentForm } from "./appointment-forms";
 import { AiReplyForm } from "./ai-reply-form";
 import { ConversionEventForm } from "./conversion-event-form";
 import { CommerceStepForm } from "./commerce-forms";
@@ -165,6 +166,9 @@ function NodeFields({
 
     case "payment_link":
       return <PaymentLinkForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "book_appointment":
+      return <BookAppointmentForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "ai_reply":
       return <AiReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;

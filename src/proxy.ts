@@ -20,6 +20,7 @@ const protectedPaths = [
   '/forms',
   '/commerce',
   '/agents',
+  '/appointments',
   '/notifications',
   '/settings',
 ];
@@ -28,7 +29,10 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   // Authentication endpoints enforce their own pre-auth/session CSRF protections.
-  if (pathname.startsWith('/api/auth/') || pathname === '/auth/callback' || pathname === '/api/health')
+  // Public booking endpoints are anonymous: each POST checks its own Origin, and
+  // a staff session cookie must neither 401 nor demand the staff CSRF header there.
+  if (pathname.startsWith('/api/auth/') || pathname === '/auth/callback' || pathname === '/api/health' ||
+    pathname.startsWith('/api/public/booking/'))
     return response;
   const protectedPage = protectedPaths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)

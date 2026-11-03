@@ -27,7 +27,7 @@
 import type { BuilderNode } from "@/components/flows/shared";
 import { aiReplyWaits } from "./ai-reply-node";
 
-const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link"]);
+const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link", "book_appointment"]);
 
 /**
  * Optional ports a node shows once its setting is on: Skip (a skip
@@ -46,6 +46,10 @@ export function extraPorts(node: BuilderNode): Array<{ handle: string; field: st
   // A payment link always offers its expired and failed outcomes (an unwired one ends the run).
   if (node.node_type === "payment_link") {
     ports.push({ handle: "expired", field: "expired_next", label: "Expired" }, { handle: "failed", field: "failed_next", label: "Failed" });
+  }
+  // A booking step always offers its unavailable and cancelled outcomes (an unwired one ends the run).
+  if (node.node_type === "book_appointment") {
+    ports.push({ handle: "unavailable", field: "unavailable_next", label: "Unavailable" }, { handle: "cancelled", field: "cancelled_next", label: "Cancelled" });
   }
   // An AI reply always offers its handoff outcome (low confidence, no answer, AI unavailable).
   if (node.node_type === "ai_reply") {
@@ -124,6 +128,14 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
             target: next,
             sourceHandle: "next",
           });
+        }
+        break;
+      }
+
+      case "book_appointment": {
+        const booked = (cfg as { success_next?: string }).success_next;
+        if (booked && knownKeys.has(booked)) {
+          edges.push({ id: `${node.node_key}--success--${booked}`, source: node.node_key, target: booked, sourceHandle: "success", label: "Booked" });
         }
         break;
       }
@@ -296,6 +308,9 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "payment_link":
       return [{ id: "paid", label: "Paid" }];
 
+    case "book_appointment":
+      return [{ id: "success", label: "Booked" }];
+
     case "ai_reply":
       return [{ id: "answered", label: "Answered" }];
 
@@ -396,6 +411,9 @@ export function applyEdgeConnection(
     case "payment_link":
       return sourceHandle === "paid" ? { paid_next: targetKey } : null;
 
+    case "book_appointment":
+      return sourceHandle === "success" ? { success_next: targetKey } : null;
+
     case "ai_reply":
       return sourceHandle === "answered" ? { next_node_key: targetKey } : null;
 
@@ -485,7 +503,7 @@ export function unlinkNodeReferences(
   return nodes.map((n) => {
     const patched = patchedConfigWithoutKey(n, deletedKey);
     // Optional ports (skip / attempts used up / timeout) are cleared on any node type.
-    const ports = ["skip_next", "exhausted_next", "after_timeout", "expired_next", "failed_next", "handoff_next"].filter((field) => n.config[field] === deletedKey);
+    const ports = ["skip_next", "exhausted_next", "after_timeout", "expired_next", "failed_next", "handoff_next", "unavailable_next", "cancelled_next"].filter((field) => n.config[field] === deletedKey);
     if (!patched && !ports.length) return n;
     return { ...n, config: { ...(patched ?? n.config), ...Object.fromEntries(ports.map((field) => [field, ""])) } };
   });
@@ -519,6 +537,9 @@ function patchedConfigWithoutKey(
 
     case "payment_link":
       return cfg.paid_next === deletedKey ? { ...cfg, paid_next: "" } : null;
+
+    case "book_appointment":
+      return cfg.success_next === deletedKey ? { ...cfg, success_next: "" } : null;
 
     case "ai_reply":
       return cfg.next_node_key === deletedKey ? { ...cfg, next_node_key: "" } : null;
