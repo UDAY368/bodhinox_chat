@@ -1456,3 +1456,150 @@ model report_runs {
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "report_runs_account_created_idx")
 }
+
+model meta_ad_connections {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connected_by String @db.Uuid
+  status String @default("pending")
+  business_id String?
+  ad_account_id String?
+  ad_account_name String?
+  ad_account_currency String?
+  page_id String?
+  page_name String?
+  user_token_enc String @default("")
+  page_token_enc String @default("")
+  token_expires_at DateTime? @db.Timestamptz(6)
+  scopes String[] @default([])
+  page_subscribed_at DateTime? @db.Timestamptz(6)
+  capi_enabled Boolean @default(false)
+  capi_dataset_id String?
+  capi_whatsapp_config_id String? @db.Uuid
+  capi_waba_id String?
+  capi_auto_purchase Boolean @default(true)
+  capi_auto_lead Boolean @default(false)
+  insights_synced_at DateTime? @db.Timestamptz(6)
+  leads_synced_at DateTime? @db.Timestamptz(6)
+  last_error_code String?
+  connected_at DateTime? @db.Timestamptz(6)
+  disconnected_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  // 20261104100000_meta_ad_connections: the partial unique indexes meta_ad_connections_one_live and meta_ad_connections_page_live, the column grants that hide the tokens from the app role, and the crm_* definer lookups are owned by the SQL.
+  @@unique([account_id, id])
+}
+
+model ad_referrals {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  conversation_id String? @db.Uuid
+  message_id String? @db.Uuid
+  wa_message_id String
+  whatsapp_config_id String? @db.Uuid
+  source_id String?
+  source_type String
+  source_url String?
+  headline String?
+  body String?
+  media_type String?
+  ctwa_clid String?
+  has_click_id Boolean @default(dbgenerated())
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  // 20261104101000_ad_referrals: has_click_id is GENERATED ALWAYS AS (ctwa_clid IS NOT NULL); the app role cannot read ctwa_clid.
+  @@unique([account_id, wa_message_id])
+  @@unique([account_id, id])
+  @@index([account_id, contact_id, created_at(sort: Desc)], map: "ad_referrals_contact")
+  @@index([account_id, source_id, created_at], map: "ad_referrals_source")
+  @@index([account_id, conversation_id], map: "ad_referrals_conversation")
+}
+
+model meta_lead_forms {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  form_id String
+  name String?
+  status String?
+  questions Json @db.JsonB @default("[]")
+  synced_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, form_id])
+  @@unique([account_id, id])
+}
+
+model meta_leads {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  leadgen_id String
+  form_id String?
+  ad_id String?
+  adset_id String?
+  campaign_id String?
+  page_id String?
+  ad_name String?
+  campaign_name String?
+  status String @default("pending")
+  field_data Json @db.JsonB @default("[]")
+  contact_id String? @db.Uuid
+  lead_created_at DateTime? @db.Timestamptz(6)
+  received_at DateTime @db.Timestamptz(6) @default(now())
+  fetched_at DateTime? @db.Timestamptz(6)
+  fetch_error_code String?
+  @@unique([account_id, leadgen_id])
+  @@unique([account_id, id])
+  @@index([account_id, received_at(sort: Desc)], map: "meta_leads_list")
+  @@index([account_id, form_id], map: "meta_leads_form")
+  @@index([account_id, ad_id], map: "meta_leads_ad")
+  @@index([account_id, contact_id], map: "meta_leads_contact")
+}
+
+model meta_ad_insights {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String @db.Uuid
+  level String
+  object_id String
+  campaign_id String?
+  name String?
+  status String?
+  objective String?
+  day DateTime @db.Date
+  spend Decimal @db.Decimal(14, 2) @default(0)
+  currency String?
+  impressions BigInt @default(0)
+  clicks BigInt @default(0)
+  conversations_started BigInt @default(0)
+  synced_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, level, object_id, day])
+  @@index([account_id, day], map: "meta_ad_insights_day")
+}
+
+model capi_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  connection_id String? @db.Uuid
+  event_name String
+  event_id String
+  source String
+  source_id String
+  contact_id String? @db.Uuid
+  ad_referral_id String? @db.Uuid
+  value Decimal? @db.Decimal(18, 6)
+  currency String?
+  event_time DateTime @db.Timestamptz(6)
+  status String @default("queued")
+  skip_reason String?
+  last_error_code String?
+  throttle_count Int @default(0)
+  sent_at DateTime? @db.Timestamptz(6)
+  resolution String?
+  resolved_by String? @db.Uuid
+  resolved_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  // 20261104104000_meta_capi_events: the app role may insert a queued event and resolve an 'unknown' one (policies app_enqueue, app_resolve).
+  @@unique([account_id, event_id])
+  @@unique([account_id, id])
+  @@index([account_id, status, created_at(sort: Desc)], map: "capi_events_review")
+}

@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
   contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
@@ -131,4 +131,35 @@ it('neither routes nor sends an away message to a blocked contact or a STOP keyw
   h.contact = { blocked_at: '2026-11-01T00:00:00Z' };
   await processInboundActions(text('Hello'));
   expect(h.lifecycle).not.toHaveBeenCalled(); expect(h.away).not.toHaveBeenCalled();
+});
+
+describe('click-to-WhatsApp ad referrals', () => {
+  const adReferral = { id: '00000000-0000-4000-8000-0000000000ad', sourceId: '120211234567890', sourceType: 'ad' as 'ad' | 'post' | 'unknown', headline: 'Summer sale', sourceUrl: 'https://fb.me/x' };
+  const fromAd = (patch: Partial<typeof adReferral> = {}) => ({ ...text('Hi'), isFirstInboundMessage: true, adReferral: { ...adReferral, ...patch } });
+
+  it('still accepts jobs queued before the referral existed, and refuses a malformed one', async () => {
+    await expect(processInboundActions(text('Hi'))).resolves.toBeUndefined();
+    for (const bad of [{ id: 'not-a-uuid' }, { sourceId: 'act_1' }, { sourceType: 'story' }, { headline: 'x'.repeat(257) }, { sourceUrl: 7 }]) {
+      await expect(processInboundActions(fromAd(bad as never))).rejects.toThrow('Invalid message actions contract');
+    }
+    await expect(processInboundActions({ ...text('Hi'), adReferral: null as never })).rejects.toThrow('Invalid message actions contract');
+  });
+
+  it('gives flows the referral (never the click id) and runs ad_click ahead of the first-message automations', async () => {
+    h.explicit.mockResolvedValue({ handled: false });
+    await processInboundActions(fromAd());
+    expect(h.flow.mock.calls[0][0].message.referral).toEqual({ source_id: '120211234567890', source_type: 'ad', headline: 'Summer sale', source_url: 'https://fb.me/x' });
+    expect(h.automations.mock.calls.map(call => call[0].triggerType)).toEqual(['ad_click', 'first_inbound_message', 'new_message_received', 'keyword_match']);
+    expect(h.automations.mock.calls[0][0].context).toMatchObject({ ad_id: '120211234567890' });
+    expect(h.automations.mock.calls[1][0].context).not.toHaveProperty('ad_id');
+  });
+
+  it('skips ad_click for a boosted post, and keeps it with the first-message triggers when a flow took the message', async () => {
+    h.explicit.mockResolvedValue({ handled: false });
+    await processInboundActions(fromAd({ sourceType: 'post' }));
+    expect(h.automations.mock.calls.map(call => call[0].triggerType)).not.toContain('ad_click');
+    vi.clearAllMocks(); h.stages.clear(); h.explicit.mockResolvedValue({ handled: false }); h.flow.mockResolvedValue({ consumed: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null });
+    await processInboundActions(fromAd({ id: '00000000-0000-4000-8000-0000000000ae' }));
+    expect(h.automations.mock.calls.map(call => call[0].triggerType)).toEqual(['ad_click', 'first_inbound_message']);
+  });
 });

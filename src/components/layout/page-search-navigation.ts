@@ -6,6 +6,7 @@ export const navigationPages = [
   { href: '/contacts', labelKey: 'contacts' },
   { href: '/pipelines', labelKey: 'pipelines' },
   { href: '/broadcasts', labelKey: 'broadcasts' },
+  { href: '/ads', labelKey: 'ads' },
   { href: '/automations', labelKey: 'automations' },
   { href: '/flows', labelKey: 'flows' },
   { href: '/forms', labelKey: 'forms' },

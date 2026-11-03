@@ -31,6 +31,7 @@ import { getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { emitOrderPaid, emitPaymentLinkPaid } from '@/lib/webhooks/commerce-events';
+import { capiValue, queueConversionEventTx } from '@/lib/meta-ads/capi';
 import {
   cancelPaymentLink as razorpayCancel,
   createPaymentLink as razorpayCreate,
@@ -486,8 +487,24 @@ async function applyProviderStateTx(
         paidOrder = orders[0] ?? null;
       }
       await notifyPaid(tx, updated[0] ?? row);
+      await queuePurchase(tx, accountId, updated[0] ?? row, paidOrder);
     }
     return { row: updated[0] ?? row, becamePaid, paidOrder, changed };
+  });
+}
+
+/**
+ * Conversions API Purchase, queued in this transaction so it commits with the
+ * payment. Keyed by the order when there is one, so the manual "mark paid"
+ * path cannot count it twice. A no-op unless the feature and CAPI are on and
+ * the contact came from an ad; it never throws.
+ */
+async function queuePurchase(tx: TenantTransaction, accountId: string, row: LinkRow, paidOrder: PaidOrderRow | null): Promise<void> {
+  const total = paidOrder ? paidOrder.total_minor ?? paidOrder.subtotal_minor : null;
+  const value = paidOrder ? capiValue(minorFromDb(total), paidOrder.currency) : capiValue(minorFromDb(row.amount_minor), row.currency);
+  await queueConversionEventTx(tx, {
+    accountId, eventName: 'Purchase', source: 'payment_link', sourceId: row.id, orderId: row.order_id,
+    contactId: row.contact_id ?? paidOrder?.contact_id ?? null, value, currency: paidOrder ? paidOrder.currency : row.currency,
   });
 }
 

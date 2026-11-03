@@ -422,6 +422,33 @@ export interface AiReplyNodeConfig {
   handoff_next: string;
 }
 
+/** The Conversions API events a flow can report for a click-to-WhatsApp ad contact. */
+export const CONVERSION_EVENT_NAMES = [
+  "Purchase",
+  "LeadSubmitted",
+  "QualifiedLead",
+  "InitiateCheckout",
+  "AddToCart",
+  "ViewContent",
+] as const;
+export type ConversionEventName = (typeof CONVERSION_EVENT_NAMES)[number];
+
+/**
+ * Report a conversion to Meta's Conversions API for the contact's latest
+ * attributable ad click, then continue. The event is queued durably (one per
+ * run and node, a loop revisit is a no-op) and sent by the worker; nothing is
+ * queued while CAPI is off, and the node advances either way. Single `next`
+ * port. Engine: lib/flows/conversion-node.ts.
+ */
+export interface ConversionEventNodeConfig {
+  event_name: ConversionEventName;
+  /** Run variable holding the value (a non-negative decimal <= 1e12); omitted when unset or invalid. */
+  value_var?: string;
+  /** ISO 4217 code (3 upper-case letters) for the value. */
+  currency?: string;
+  next_node_key: string;
+}
+
 /**
  * Total union — every concrete node_type the v1 engine understands.
  * Add new node types here and the engine's switch will flag missing
@@ -449,6 +476,7 @@ export type FlowNodeConfig =
   | { node_type: "send_catalog"; config: SendCatalogNodeConfig }
   | { node_type: "payment_link"; config: PaymentLinkNodeConfig }
   | { node_type: "ai_reply"; config: AiReplyNodeConfig }
+  | { node_type: "conversion_event"; config: ConversionEventNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }
   | { node_type: "api_request"; config: ApiRequestNodeConfig }
   | { node_type: "connect_flow"; config: ConnectFlowNodeConfig }
@@ -493,12 +521,23 @@ export type FirstInboundTriggerConfig = Record<string, never>;
 /** Starts the flow when a customer sends a WhatsApp cart. No knobs yet. */
 export type OrderReceivedTriggerConfig = Record<string, never>;
 
+/**
+ * Starts the flow when a conversation message carries a click-to-WhatsApp ad
+ * referral. `ad_ids` (Meta ad ids, digits, at most 50) limits it to those
+ * ads; empty or absent means any ad. The run gets `ad_id`, `ad_headline` and
+ * `ad_source_url` variables (never the click id).
+ */
+export interface AdClickTriggerConfig {
+  ad_ids?: string[];
+}
+
 export type FlowTriggerConfig =
   | { trigger_type: "order_received"; config: OrderReceivedTriggerConfig }
   | { trigger_type: "keyword"; config: KeywordTriggerConfig }
   | { trigger_type: "first_inbound_message"; config: FirstInboundTriggerConfig }
   | { trigger_type: "manual"; config: Record<string, never> }
-  | { trigger_type: "template_reply"; config: TemplateReplyTriggerConfig };
+  | { trigger_type: "template_reply"; config: TemplateReplyTriggerConfig }
+  | { trigger_type: "ad_click"; config: AdClickTriggerConfig };
 
 // ============================================================
 // DB-row shapes (read by the engine via databaseAdmin)
@@ -515,8 +554,8 @@ export interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received";
-  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | Record<string, unknown>;
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
+  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | AdClickTriggerConfig | Record<string, unknown>;
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
   /** While the flow is a draft it runs only for these numbers (digits, up to 3). */
@@ -606,11 +645,22 @@ export const DEFAULT_FALLBACK_POLICY: FlowFallbackPolicy = {
 // ============================================================
 
 /**
+ * The click-to-WhatsApp ad summary carried with an inbound message (from
+ * ad_referrals, via the inbound-actions job payload). Never the click id.
+ */
+export interface ParsedInboundReferral {
+  source_id: string | null;
+  source_type: "ad" | "post" | "unknown";
+  headline: string | null;
+  source_url: string | null;
+}
+
+/**
  * Normalised view of an inbound message that the runner needs. The
  * webhook lifts this out of the raw Meta payload before invoking the
  * runner; keeps the runner free of any WhatsApp-API specifics.
  */
-export type ParsedInbound =
+export type ParsedInbound = (
   | {
       kind: "text";
       /** The user's typed message body. */
@@ -672,7 +722,11 @@ export type ParsedInbound =
       /** order_id, order_total, order_currency, order_items_count, order_items. */
       vars: Record<string, string>;
       meta_message_id: string;
-    };
+    }
+) & {
+  /** Present when the message started from a click-to-WhatsApp ad or post. */
+  referral?: ParsedInboundReferral;
+};
 
 export interface DispatchInboundInput {
   /** Account tenancy key. Drives the lookup of active flows and the

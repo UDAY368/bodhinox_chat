@@ -11,6 +11,8 @@ import {
   normalizeGeneratedFlow,
   parseGeneratedFlow,
   type GeneratedFlow,
+  GENERATOR_NODE_TYPES,
+  supportedGeneratorNodeTypes,
 } from './flow-generator'
 import { AiError, type AiConfig, type GenerateResult } from './types'
 
@@ -264,5 +266,12 @@ describe('ai_reply nodes', () => {
       { tags: [], nodeTypes: ['end'] },
     )
     expect(errors.some((e) => e.includes('ai_reply'))).toBe(true)
+  })
+})
+
+describe('node type allowlist', () => {
+  it('never lets a generated draft report ad conversions to Meta', () => {
+    expect(GENERATOR_NODE_TYPES as readonly string[]).not.toContain('conversion_event')
+    expect(supportedGeneratorNodeTypes() as string[]).not.toContain('conversion_event')
   })
 })

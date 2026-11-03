@@ -60,7 +60,7 @@ import {
   type NodeType,
 } from './shared';
 import { NodeConfigForm } from './forms/node-config-form';
-import { KeywordTriggerFields, OrderReceivedTriggerFields, TemplateReplyTriggerFields } from './trigger-fields';
+import { AdClickTriggerFields, KeywordTriggerFields, OrderReceivedTriggerFields, TemplateReplyTriggerFields } from './trigger-fields';
 import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
@@ -216,6 +216,15 @@ export function FlowBuilder() {
 // Trigger panel
 // ============================================================
 
+const TRIGGER_TITLE_KEYS: Record<BuilderState['trigger_type'], string> = {
+  keyword: 'triggerKeywordTitle',
+  template_reply: 'triggerTemplateReplyTitle',
+  first_inbound_message: 'triggerFirstInboundTitle',
+  order_received: 'triggerOrderReceivedTitle',
+  ad_click: 'triggerAdClickTitle',
+  manual: 'triggerManualTitle',
+};
+
 function TriggerPanel({
   state,
   setState,
@@ -247,7 +256,7 @@ function TriggerPanel({
             }
           >
             <SelectTrigger className="bg-muted">
-              <SelectValue />
+              <SelectValue>{t(TRIGGER_TITLE_KEYS[state.trigger_type])}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="keyword">
@@ -261,6 +270,9 @@ function TriggerPanel({
               </SelectItem>
               <SelectItem value="order_received">
                 {t('triggerOrderReceivedTitle')}
+              </SelectItem>
+              <SelectItem value="ad_click">
+                {t('triggerAdClickTitle')}
               </SelectItem>
               <SelectItem value="manual">
                 {t('triggerManualTitle')}
@@ -277,6 +289,10 @@ function TriggerPanel({
             onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
         )}
         {state.trigger_type === 'order_received' && <OrderReceivedTriggerFields t={t} />}
+        {state.trigger_type === 'ad_click' && (
+          <AdClickTriggerFields config={state.trigger_config} t={t}
+            onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
+        )}
       </div>
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">

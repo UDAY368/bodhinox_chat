@@ -78,7 +78,8 @@
     "orders": "Pedidos",
     "products": "Produtos",
     "payments": "Pagamentos",
-    "analytics": "Análises"
+    "analytics": "Análises",
+    "ads": "Anúncios"
   },
   "Header": {
     "dashboard": "Painel",
@@ -103,7 +104,8 @@
     "analytics": "Análises",
     "orders": "Pedidos",
     "products": "Produtos",
-    "payments": "Pagamentos"
+    "payments": "Pagamentos",
+    "ads": "Anúncios"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
@@ -642,6 +644,12 @@
       "addShort": "Adicionar aos favoritos",
       "removeShort": "Remover dos favoritos",
       "failed": "Não foi possível atualizar os favoritos"
+    },
+    "adReferral": {
+      "startedFromAd": "Iniciada pelo anúncio: {headline}",
+      "startedFromAdNoHeadline": "Iniciada por um anúncio",
+      "startedFromPost": "Iniciada por uma publicação do Facebook ou Instagram",
+      "viewAd": "Ver anúncio"
     }
   },
   "Contacts": {
@@ -945,7 +953,9 @@
         "opted_out": "Descadastrado do marketing",
         "blocked": "Bloqueado",
         "list": "Lista",
-        "campaign": "Campanha"
+        "campaign": "Campanha",
+        "ad": "Clicou em um anúncio",
+        "lead_form": "Formulário de cadastro"
       },
       "ops": {
         "has_any": "tem alguma de",
@@ -958,7 +968,11 @@
         "before": "antes de",
         "after": "depois de",
         "in_any": "está em alguma de",
-        "in_none": "não está em nenhuma de"
+        "in_none": "não está em nenhuma de",
+        "clicked_any": "iniciou uma conversa por",
+        "clicked_none": "nunca iniciou uma conversa por",
+        "submitted_any": "enviou",
+        "submitted_none": "nunca enviou"
       },
       "noLists": "Ainda não há listas",
       "campaignLabel": "Campanha",
@@ -972,7 +986,13 @@
         "not_read": "recebeu mas não leu",
         "not_received": "não recebeu"
       },
-      "olderCampaign": "(uma campanha anterior)"
+      "olderCampaign": "(uma campanha anterior)",
+      "adIdsLabel": "IDs de anúncios",
+      "adIdsPlaceholder": "Qualquer anúncio, ou IDs separados por vírgula",
+      "anyAd": "qualquer anúncio",
+      "formIdsLabel": "Formulários de cadastro",
+      "anyForm": "qualquer formulário",
+      "formIdsPlaceholder": "Qualquer formulário, ou IDs de formulários separados por vírgulas"
     }
   },
   "Pipelines": {
@@ -1537,6 +1557,10 @@
         "time_based": {
           "label": "Por horário",
           "hint": "Em um agendamento recorrente"
+        },
+        "ad_click": {
+          "label": "Mensagem de um anúncio",
+          "hint": "O cliente envia mensagem a partir de um anúncio de clique para o WhatsApp"
         }
       },
       "trigger": "Gatilho",
@@ -1669,7 +1693,10 @@
         },
         "when": "quando {subject}",
         "noUrl": "sem URL"
-      }
+      },
+      "adIds": "IDs de anúncios",
+      "adIdsHint": "IDs de anúncios da Meta separados por vírgula",
+      "adIdsHelp": "Deixe vazio para executar com qualquer anúncio."
     }
   },
   "Flows": {
@@ -1738,7 +1765,9 @@
       "duplicateSuccess": "\"{name}\" criado.",
       "duplicateError": "Não foi possível duplicar o fluxo.",
       "creatorTeammate": "um colega de equipe",
-      "triggerOrderReceived": "Dispara com: um carrinho do WhatsApp"
+      "triggerOrderReceived": "Dispara com: um carrinho do WhatsApp",
+      "triggerAdClick": "Dispara com: um clique em {count, plural, one {# anúncio escolhido} other {# anúncios escolhidos}}",
+      "triggerAdClickAny": "Dispara com: um clique em qualquer anúncio"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -2028,7 +2057,16 @@
         "aiReplyAnsweredNext": "Quando responder, ir para",
         "aiReplyHandoffNext": "Quando transferir, ir para",
         "aiReplyHandoffHelp": "A etapa transfere a conversa quando a IA não tem confiança suficiente, não consegue responder, o cliente pede para falar com uma pessoa ou a IA está indisponível. Perguntas sem resposta aparecem na lista do agente de IA.",
-        "aiReplyWindowHelp": "As respostas são enviadas pelo número desta conversa, somente dentro de 24 horas após a última mensagem do cliente, e contam para as mensagens de IA do seu plano."
+        "aiReplyWindowHelp": "As respostas são enviadas pelo número desta conversa, somente dentro de 24 horas após a última mensagem do cliente, e contam para as mensagens de IA do seu plano.",
+        "conversionEventName": "Evento",
+        "conversionValueVar": "Valor da variável (opcional)",
+        "conversionValueVarHelp": "Um número como 499.00, enviado com a moeda. Defina ambos ou nenhum. Se a variável estiver vazia ou não for um número quando a etapa for executada, o evento é enviado sem valor.",
+        "conversionCurrency": "Moeda (opcional)",
+        "conversionCurrencyPlaceholder": "ex.: INR",
+        "conversionHelp": "Enviado uma vez por execução, somente se o cliente veio de um anúncio nos últimos 7 dias. O fluxo sempre continua.",
+        "conversionNotEnabled": "A API de Conversões não está ativada, então esta etapa não envia nada e continua.",
+        "conversionNext": "Depois ir para",
+        "conversionPurchaseNote": "As compras são informadas automaticamente quando um link de pagamento ou pedido é pago, por isso não aparecem aqui."
       },
       "categories": {
         "messaging": "Mensagens",
@@ -2131,6 +2169,10 @@
         "ai_reply": {
           "label": "Resposta com IA",
           "blurb": "Responde ao cliente com seu agente de IA e a base de conhecimento dele"
+        },
+        "conversion_event": {
+          "label": "Evento de conversão",
+          "blurb": "Envia uma conversão à Meta para um cliente que veio de um anúncio"
         }
       },
       "ports": {
@@ -2203,7 +2245,8 @@
           "exhausted": "Tentativas esgotadas",
           "timeout": "Sem resposta em {minutes, plural, one {# minuto} other {# minutos}}",
           "fallback": "Resposta não aceita; a política de fallback do fluxo assume",
-          "ai_reply": "O agente de IA responde (simulado; nada é gerado)"
+          "ai_reply": "O agente de IA responde (simulado; nada é gerado)",
+          "conversion_event": "Uma conversão é enviada à Meta (simulado; nada é enviado)"
         },
         "simulate": {
           "shareMedia": "Simular: cliente envia um arquivo",
@@ -2221,7 +2264,13 @@
       "studioLockedHint": "A tela está bloqueada. Desbloqueie-a para editar esta etapa.",
       "triggerOrderReceivedTitle": "Um cliente envia um carrinho pelo catálogo",
       "orderTriggerHelp": "Começa quando um cliente envia um carrinho do WhatsApp, antes de qualquer fluxo por palavra-chave. O fluxo pode usar estas variáveis:",
-      "orderTriggerVariables": "Variáveis do pedido"
+      "orderTriggerVariables": "Variáveis do pedido",
+      "triggerAdClickTitle": "Um cliente envia mensagem a partir de um anúncio",
+      "adClickTriggerHelp": "Começa quando chega uma mensagem de um anúncio de clique para o WhatsApp, antes de qualquer fluxo por palavra-chave. Um fluxo ativo na conversa continua.",
+      "adClickIdsLabel": "IDs de anúncios (opcional)",
+      "adClickIdsPlaceholder": "ex.: 120211234567890",
+      "adClickIdsHelp": "Deixe vazio para começar com qualquer anúncio. Até {max} IDs, apenas dígitos.",
+      "adClickVariables": "Variáveis do anúncio"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -2269,7 +2318,8 @@
       "productNone": "Nenhum produto escolhido",
       "products": "{count, plural, one {# produto} other {# produtos}}",
       "paymentNone": "Sem valor",
-      "aiReplyDefault": "Responde com o agente de IA"
+      "aiReplyDefault": "Responde com o agente de IA",
+      "conversionDefault": "Envia {event} à Meta"
     },
     "header": {
       "backToFlows": "Voltar aos fluxos",
@@ -2791,7 +2841,8 @@
       "plan": "Plano e uso",
       "payments": "Pagamentos",
       "notifications": "Notificações",
-      "media": "Biblioteca de mídia"
+      "media": "Biblioteca de mídia",
+      "ads": "Anúncios"
     },
     "groups": {
       "account": "Conta",
@@ -3590,6 +3641,67 @@
       "saved": "Salvo. Os itens que não cabem foram arquivados.",
       "savedPending": "Salvo. Será aplicado quando o novo plano começar.",
       "saveFailed": "Não foi possível salvar sua escolha"
+    },
+    "metaAds": {
+      "title": "Anúncios da Meta",
+      "description": "Conecte uma conta de anúncios da Meta e uma Página do Facebook para ver resultados, receber anúncios de cadastro e enviar conversões.",
+      "notConfigured": "Os anúncios da Meta ainda não estão ativados nesta instalação.",
+      "loadFailed": "Não foi possível carregar a conexão de anúncios da Meta.",
+      "connect": "Conectar com o Facebook",
+      "connecting": "Conectando...",
+      "statusPending": "Escolha uma conta de anúncios e uma Página para concluir",
+      "statusActive": "Conectado",
+      "statusTokenInvalid": "O acesso expirou. Desconecte e conecte novamente.",
+      "adAccount": "Conta de anúncios",
+      "page": "Página do Facebook",
+      "chooseAdAccount": "Escolha uma conta de anúncios",
+      "choosePage": "Escolha uma Página",
+      "finish": "Concluir conexão",
+      "missingScopes": "{feature} precisa destas permissões: {scopes}",
+      "features": {
+        "insights": "Resultados de anúncios",
+        "leads": "Anúncios de cadastro",
+        "capi": "API de Conversões"
+      },
+      "capi": {
+        "title": "API de Conversões",
+        "help": "Envie à Meta as compras e leads de conversas iniciadas por anúncios para otimizar seus anúncios.",
+        "enable": "Enviar eventos de conversão",
+        "number": "Número do WhatsApp",
+        "chooseNumber": "Escolha o número que seus anúncios abrem",
+        "numberHelp": "Os eventos são enviados apenas para cliques em anúncios da conta do WhatsApp Business deste número.",
+        "autoPurchase": "Enviar compras automaticamente",
+        "autoLead": "Enviar envios de formulários do WhatsApp como leads",
+        "dataset": "Conjunto de dados {id}",
+        "saved": "Configurações da API de Conversões salvas",
+        "saveNumber": "Salvar número"
+      },
+      "disconnect": "Desconectar",
+      "disconnectConfirm": "Desconectar os anúncios da Meta? Os leads deixam de chegar e nenhuma conversão será enviada. Os resultados e leads salvos são mantidos.",
+      "disconnected": "Anúncios da Meta desconectados",
+      "errors": {
+        "meta_ads_not_enabled": "Os anúncios da Meta não estão ativados.",
+        "not_connected": "Não há conexão de anúncios da Meta.",
+        "already_connected": "Os anúncios da Meta já estão conectados. Desconecte primeiro.",
+        "page_in_use": "Esta Página está conectada a outro espaço de trabalho.",
+        "token_invalid": "O acesso à Meta expirou. Conecte novamente.",
+        "invalid_choice": "Escolha uma conta de anúncios e uma Página da lista.",
+        "revoke_failed": "Não foi possível acessar a Meta para desconectar a Página. Tente novamente.",
+        "meta_error": "A Meta retornou um erro. Tente novamente.",
+        "rate_limited": "Muitas tentativas. Aguarde um momento e tente novamente.",
+        "generic": "Algo deu errado. Tente novamente.",
+        "missing_scope": "A Meta não concedeu a permissão de que este recurso precisa. Conecte novamente e permita-a.",
+        "invalid_number": "Escolha um número de WhatsApp conectado deste espaço de trabalho.",
+        "invalid_request": "Solicitação inválida.",
+        "forbidden": "Somente administradores podem alterar os anúncios da Meta."
+      },
+      "retry": "Tentar novamente",
+      "statusNotConnected": "Não conectado",
+      "adminOnly": "Somente administradores podem conectar os anúncios da Meta.",
+      "sdkFailed": "Não foi possível carregar o login do Facebook. Permita pop-ups e facebook.com e tente novamente.",
+      "loginCancelled": "O login do Facebook foi cancelado.",
+      "leadsNotSubscribed": "Os anúncios de cadastro ainda não estão inscritos para esta Página. Desconecte e conecte novamente para tentar de novo.",
+      "lastError": "Último código de erro da Meta: {code}"
     }
   },
   "SignupPage": {
@@ -4515,7 +4627,15 @@
       "aiReplyInvalidMaxTurns": "As respostas nesta etapa devem ser um número inteiro de 1 a {max}.",
       "aiReplyInvalidThreshold": "O limite de confiança deve ser um número de 0 a 1.",
       "aiReplyNeedsHandoffNext": "Escolha a etapa que é executada quando a IA transfere a conversa.",
-      "aiReplyNotConfigured": "A IA não está configurada ou está desativada, então esta etapa sempre vai transferir a conversa. Configure-a em Configurações › IA."
+      "aiReplyNotConfigured": "A IA não está configurada ou está desativada, então esta etapa sempre vai transferir a conversa. Configure-a em Configurações › IA.",
+      "adClickIds": "Os IDs de anúncios devem conter apenas dígitos, até {max}.",
+      "conversionInvalidEvent": "Escolha um evento de conversão.",
+      "conversionInvalidValueVar": "A variável do valor deve ser um nome de variável válido.",
+      "conversionInvalidCurrency": "A moeda deve ser um código de três letras, como INR.",
+      "conversionNeedsNext": "Escolha a etapa executada após o evento de conversão.",
+      "conversionMissingNext": "A etapa após o evento de conversão não existe mais.",
+      "conversionPurchaseAutomatic": "As compras são informadas automaticamente quando um link de pagamento ou pedido é pago. Escolha outro evento.",
+      "conversionValueNeedsBoth": "Defina a variável do valor e a moeda, ou nenhuma das duas."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -4549,7 +4669,8 @@
       "templateLimitedTimeOffer": "As automações não podem enviar modelos de oferta por tempo limitado: a etapa só preenche valores do corpo, não os dados da oferta. Use um fluxo ou uma campanha.",
       "templateLocationHeader": "As automações não podem enviar modelos com cabeçalho de localização: a etapa só preenche valores do corpo, não uma localização. Use um fluxo ou uma campanha.",
       "templateHeaderVariable": "As automações não podem enviar modelos com uma variável no cabeçalho: a etapa só preenche valores do corpo.",
-      "templateUrlVariable": "As automações não podem enviar modelos com uma variável em um botão de URL: a etapa só preenche valores do corpo."
+      "templateUrlVariable": "As automações não podem enviar modelos com uma variável em um botão de URL: a etapa só preenche valores do corpo.",
+      "adIdsInvalid": "Os IDs de anúncio devem conter apenas dígitos, até {max}"
     },
     "templates": {
       "nameRequired": "O nome do modelo é obrigatório.",
@@ -5256,6 +5377,24 @@
       "invalidOutput": "A IA não conseguiu gerar uma sugestão utilizável. Tente reformular seu objetivo.",
       "loadFailed": "Não foi possível carregar seus modelos. Tente novamente.",
       "noApprovedTemplates": "Você precisa de pelo menos um modelo aprovado para que o assistente planeje uma campanha."
+    },
+    "metaAds": {
+      "notEnabled": "Os anúncios da Meta não estão ativados",
+      "notConnected": "Não há conexão de anúncios da Meta",
+      "alreadyConnected": "Os anúncios da Meta já estão conectados",
+      "pageInUse": "Esta Página está conectada a outro espaço de trabalho",
+      "tokenInvalid": "O acesso à Meta expirou; conecte novamente",
+      "rateLimited": "Muitas solicitações",
+      "revokeFailed": "Não foi possível acessar a Meta para desconectar a Página",
+      "invalidResolution": "Não é possível registrar o resultado deste evento",
+      "invalidChoice": "Escolha uma conta de anúncios e uma Página da lista",
+      "invalidRequest": "Solicitação inválida",
+      "metaError": "A Meta retornou um erro",
+      "notFound": "Não encontrado",
+      "forbidden": "Somente administradores podem alterar os anúncios da Meta",
+      "invalidNumber": "Escolha um número de WhatsApp conectado deste espaço de trabalho",
+      "missingScope": "A Meta não concedeu a permissão de que este recurso precisa",
+      "exportTooLarge": "Há leads demais para exportar de uma vez; restrinja o filtro"
     }
   },
   "PageSearch": {
@@ -7076,7 +7215,8 @@
       "source": {
         "inbound": "Iniciadas pelo cliente",
         "business": "Iniciadas pela empresa",
-        "campaignReply": "Resposta a campanha"
+        "campaignReply": "Resposta a campanha",
+        "ad": "Iniciada por um anúncio"
       },
       "minutes": "Minutos",
       "minutesValue": "{value} min",
@@ -7086,13 +7226,14 @@
       "byStateDescription": "Estado atual das conversas ativas no período.",
       "stateColumn": "Estado",
       "bySourceTitle": "Conversas por origem",
-      "bySourceDescription": "Quem iniciou cada nova conversa. Uma resposta a campanha é uma mensagem do cliente em até 72 horas após uma campanha.",
+      "bySourceDescription": "Quem iniciou cada nova conversa. Uma resposta a campanha é uma mensagem do cliente em até 72 horas após uma campanha; um início por anúncio é uma conversa cuja primeira mensagem veio de um anúncio de clique para o WhatsApp.",
       "sourceColumn": "Origem",
       "timingTitle": "Tempo de resposta e de resolução",
       "timingDescription": "A primeira resposta conta a primeira espera do cliente em cada conversa. O tempo de resolução inclui conversas resolvidas sem reabertura.",
       "metricColumn": "Medida",
       "samples": "Conversas medidas",
-      "unanswered": "{count, plural, =1 {# conversa ainda aguarda} other {# conversas ainda aguardam}} uma primeira resposta."
+      "unanswered": "{count, plural, =1 {# conversa ainda aguarda} other {# conversas ainda aguardam}} uma primeira resposta.",
+      "startedFromAds": "Iniciadas por anúncios"
     },
     "agents": {
       "title": "Ranking da equipe",
@@ -7263,5 +7404,131 @@
       "ofSent": "{count} mensagens",
       "period": "Período"
     }
+  },
+  "Ads": {
+    "title": "Anúncios",
+    "description": "Anúncios de clique para o WhatsApp, anúncios de cadastro e conversões enviadas à Meta.",
+    "createInAdsManager": "Criar um anúncio de clique para o WhatsApp no Gerenciador de Anúncios",
+    "retarget": "Remarketing",
+    "broadcastLeads": "Enviar transmissão para estes leads",
+    "exportCsv": "Exportar CSV",
+    "loadFailed": "Não foi possível carregar os dados de anúncios.",
+    "retry": "Tentar novamente",
+    "notEnabled": {
+      "title": "Os anúncios não estão ativados",
+      "flagOff": "A Meta ainda não aprovou este app para anúncios. Um administrador ativa os anúncios quando a aprovação estiver concluída.",
+      "notConfigured": "Os anúncios estão ativados, mas não totalmente configurados. Um administrador precisa adicionar o app da Meta e as configurações do Login for Business.",
+      "adClicks": "{count, plural, =0 {Nenhuma conversa começou por anúncios nos últimos 30 dias.} one {# conversa começou por um anúncio nos últimos 30 dias.} other {# conversas começaram por anúncios nos últimos 30 dias.}}"
+    },
+    "tabs": {
+      "ads": "Anúncios",
+      "leads": "Leads",
+      "conversions": "Conversões"
+    },
+    "table": {
+      "level": "Mostrar",
+      "levelCampaign": "Campanhas",
+      "levelAd": "Anúncios",
+      "campaign": "Campanha",
+      "ad": "Anúncio",
+      "status": "Status",
+      "spend": "Valor gasto",
+      "impressions": "Impressões",
+      "clicks": "Cliques",
+      "conversationsStarted": "Conversas iniciadas (Meta)",
+      "conversationsInBodhinox": "Conversas no Bodhinox",
+      "purchases": "Compras",
+      "empty": "Ainda não há resultados de anúncios para este período.",
+      "syncedAt": "Última sincronização: {time}",
+      "neverSynced": "Ainda não sincronizado",
+      "sync": "Sincronizar agora",
+      "syncQueued": "Sincronização na fila. Os resultados são atualizados em alguns minutos.",
+      "from": "De",
+      "to": "Até",
+      "syncFailed": "Não foi possível agendar a sincronização. Tente novamente.",
+      "retargetSaved": "Segmento salvo. Escolha-o como público de uma transmissão."
+    },
+    "leads": {
+      "empty": "Ainda não há leads.",
+      "form": "Formulário",
+      "allForms": "Todos os formulários",
+      "ad": "Anúncio",
+      "allAds": "Todos os anúncios",
+      "from": "De",
+      "to": "Até",
+      "receivedAt": "Recebido",
+      "contact": "Contato",
+      "noContact": "Nenhum contato correspondente",
+      "answers": "Respostas",
+      "status": {
+        "pending": "Buscando",
+        "fetched": "Recebido",
+        "failed": "Não foi possível buscar"
+      },
+      "loadMore": "Carregar mais",
+      "deleteLead": "Excluir lead",
+      "deleteConfirm": "Excluir este lead e as respostas dele? Não é possível desfazer.",
+      "deleted": "Lead excluído",
+      "notOptedIn": "Os leads não recebem consentimento de WhatsApp automaticamente. As transmissões usam modelos e respeitam os descadastros.",
+      "segmentName": "Leads: {form}",
+      "segmentCreated": "Segmento criado para estes leads",
+      "segmentFailed": "Não foi possível criar um segmento para estes leads."
+    },
+    "conversions": {
+      "empty": "Ainda não há eventos de conversão.",
+      "event": "Evento",
+      "source": "Origem",
+      "value": "Valor",
+      "createdAt": "Na fila",
+      "filterAll": "Todos os status",
+      "status": {
+        "queued": "Na fila",
+        "sent": "Enviado",
+        "failed": "Rejeitado pela Meta",
+        "unknown": "Resultado desconhecido",
+        "skipped": "Ignorado"
+      },
+      "skipReasons": {
+        "disabled": "A API de Conversões está desativada",
+        "no_connection": "Sem conexão com a Meta",
+        "missing_scope": "Permissão não concedida",
+        "no_dataset": "Sem conjunto de dados",
+        "wrong_waba": "Clique no anúncio de outra conta do WhatsApp"
+      },
+      "sources": {
+        "payment_link": "Link de pagamento",
+        "order": "Pedido",
+        "form": "Formulário",
+        "flow": "Fluxo"
+      },
+      "reviewTitle": "Resultado desconhecido",
+      "reviewHelp": "A Meta não confirmou estes eventos, por isso eles nunca são reenviados automaticamente. Verifique o Gerenciador de Eventos e registre o que aconteceu.",
+      "resolve": {
+        "sent": "Chegou à Meta",
+        "notSent": "Não chegou à Meta",
+        "confirmedSent": "Envio confirmado",
+        "confirmedNotSent": "Confirmado como não enviado",
+        "done": "Resultado registrado",
+        "failed": "Não foi possível registrar o resultado."
+      },
+      "adminOnly": "Somente administradores e proprietários podem ver os eventos de conversão.",
+      "filterLabel": "Status",
+      "statusLabel": "Status",
+      "contact": "Contato",
+      "unknownContact": "Contato desconhecido",
+      "errorCode": "Erro da Meta {code}",
+      "events": {
+        "Purchase": "Compra",
+        "LeadSubmitted": "Lead enviado",
+        "QualifiedLead": "Lead qualificado",
+        "InitiateCheckout": "Checkout iniciado",
+        "AddToCart": "Adicionado ao carrinho",
+        "ViewContent": "Conteúdo visualizado",
+        "OrderCreated": "Pedido criado"
+      }
+    },
+    "notConnected": "Nenhuma conta de anúncios da Meta está conectada ainda. Um administrador a conecta em Configurações > Anúncios.",
+    "tokenInvalid": "O acesso à Meta expirou, então os resultados não são mais atualizados. Um administrador precisa reconectar em Configurações > Anúncios.",
+    "openSettings": "Abrir Configurações > Anúncios"
   }
 }

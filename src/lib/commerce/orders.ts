@@ -13,6 +13,7 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { isVariableMap } from './event-rules';
 import { minorFromDb } from './money';
+import { capiValue, queueConversionEventTx } from '@/lib/meta-ads/capi';
 import { classifyMaskedPhoneSearch, loadPhoneMask } from '@/lib/inbox/masking-apply';
 import {
   canTransition,
@@ -312,6 +313,15 @@ export async function updateOrder(ctx: TenantContext, id: string, patch: OrderPa
     if (!Object.keys(data).length) return current;
     const { count } = await tx.orders.updateMany({ where: { account_id: ctx.accountId, id, status: current.status }, data });
     if (count !== 1) throw new OrderError(409, 'conflict', 'The order changed; reload and try again');
+    // Conversions API Purchase, in this transaction. Same event id as the payment-link
+    // path (order:<id>:Purchase), so an order already reported there is a no-op here.
+    if (data.status === 'paid') {
+      await queueConversionEventTx(tx, {
+        accountId: ctx.accountId, eventName: 'Purchase', source: 'order', sourceId: id, orderId: id,
+        contactId: current.contact?.id ?? null,
+        value: capiValue(current.total_minor ?? current.subtotal_minor, current.currency), currency: current.currency,
+      });
+    }
     return readOrder(tx, ctx.accountId, id);
   });
 }

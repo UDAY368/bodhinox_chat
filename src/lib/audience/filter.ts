@@ -13,6 +13,8 @@ import { requireFeature } from '@/lib/billing/entitlements';
 
 const uuid = z.string().uuid();
 const text = z.string().trim().max(1024);
+/** A Meta object id (ad, lead form): digits only. */
+const metaId = z.string().regex(/^\d{1,32}$/);
 
 const condition = z.discriminatedUnion('field', [
   z.object({ field: z.literal('tags'), op: z.enum(['has_any', 'has_none']), tagIds: z.array(uuid).min(1).max(50) }).strict(),
@@ -32,6 +34,10 @@ const condition = z.discriminatedUnion('field', [
   }).strict(),
   z.object({ field: z.literal('created_at'), op: z.enum(['before', 'after']), value: z.string().date() }).strict(),
   z.object({ field: z.enum(['opted_out', 'blocked']), op: z.literal('is'), value: z.boolean() }).strict(),
+  // Click-to-WhatsApp ads: contacts who started a conversation from these ads (empty = any ad).
+  z.object({ field: z.literal('ad'), op: z.enum(['clicked_any', 'clicked_none']), adIds: z.array(metaId).max(50) }).strict(),
+  // Meta lead ads: contacts matched to a lead from these forms (empty = any form).
+  z.object({ field: z.literal('lead_form'), op: z.enum(['submitted_any', 'submitted_none']), formIds: z.array(metaId).max(50) }).strict(),
 ]).superRefine((c, ctx) => {
   const needsValue = ['is', 'is_not', 'contains'].includes(c.op) && c.field !== 'opted_out' && c.field !== 'blocked';
   if (needsValue && !('value' in c && typeof c.value === 'string' && c.value.length > 0))
@@ -45,6 +51,9 @@ export type AudienceCondition = AudienceFilter['conditions'][number];
 
 const ids = (values: string[]) =>
   Prisma.sql`SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(values)}::jsonb)`;
+/** Meta ids are text (digits), not uuids. */
+const textIds = (values: string[]) =>
+  Prisma.sql`SELECT value FROM jsonb_array_elements_text(${JSON.stringify(values)}::jsonb)`;
 const like = (value: string) => `%${value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 const COLUMNS = { name: Prisma.sql`c.name`, email: Prisma.sql`c.email`, company: Prisma.sql`c.company`, phone: Prisma.sql`c.phone` };
 
@@ -88,6 +97,19 @@ function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
       return c.value ? Prisma.sql`c.opted_out_at IS NOT NULL` : Prisma.sql`c.opted_out_at IS NULL`;
     case 'blocked':
       return c.value ? Prisma.sql`c.blocked_at IS NOT NULL` : Prisma.sql`c.blocked_at IS NULL`;
+    case 'ad': {
+      // A stored click-to-WhatsApp referral from an ad; an empty list means any ad.
+      const only = c.adIds.length ? Prisma.sql` AND r.source_id IN (${textIds(c.adIds)})` : Prisma.empty;
+      const clicked = Prisma.sql`EXISTS(SELECT 1 FROM ad_referrals r WHERE r.account_id=${accountId}::uuid AND r.contact_id=c.id
+        AND r.source_type='ad'${only})`;
+      return c.op === 'clicked_any' ? clicked : Prisma.sql`NOT ${clicked}`;
+    }
+    case 'lead_form': {
+      // A Meta lead matched to this contact; an empty list means any form.
+      const only = c.formIds.length ? Prisma.sql` AND l.form_id IN (${textIds(c.formIds)})` : Prisma.empty;
+      const submitted = Prisma.sql`EXISTS(SELECT 1 FROM meta_leads l WHERE l.account_id=${accountId}::uuid AND l.contact_id=c.id${only})`;
+      return c.op === 'submitted_any' ? submitted : Prisma.sql`NOT ${submitted}`;
+    }
   }
 }
 
@@ -105,8 +127,10 @@ export async function assertFilterReferences(tx: TenantTransaction, accountId: s
   const listIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'list' ? c.listIds : [])))];
   const fieldIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'custom_field' ? [c.fieldId] : [])))];
   const broadcastIds = [...new Set(filter.conditions.flatMap((c) => (c.field === 'campaign' ? [c.broadcastId] : [])))];
-  if (broadcastIds.length) {
+  // Ad and lead-form conditions are retargeting too; their ids are Meta ids, not rows, so nothing is looked up.
+  if (broadcastIds.length || filter.conditions.some((c) => c.field === 'ad' || c.field === 'lead_form'))
     await requireFeature(tx, accountId, 'retargeting');
+  if (broadcastIds.length) {
     const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM broadcasts WHERE account_id=${accountId}::uuid AND id IN (${ids(broadcastIds)})`);
     if (found.length !== broadcastIds.length) throw new AudienceFilterError('Some campaigns in this filter are unavailable in this workspace');
   }

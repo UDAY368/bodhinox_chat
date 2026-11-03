@@ -78,7 +78,8 @@
     "orders": "주문",
     "products": "상품",
     "payments": "결제",
-    "analytics": "분석"
+    "analytics": "분석",
+    "ads": "광고"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -103,7 +104,8 @@
     "analytics": "분석",
     "orders": "주문",
     "products": "상품",
-    "payments": "결제"
+    "payments": "결제",
+    "ads": "광고"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
@@ -642,6 +644,12 @@
       "addShort": "즐겨찾기에 추가",
       "removeShort": "즐겨찾기에서 제거",
       "failed": "즐겨찾기를 업데이트하지 못했습니다"
+    },
+    "adReferral": {
+      "startedFromAd": "광고에서 시작: {headline}",
+      "startedFromAdNoHeadline": "광고에서 시작",
+      "startedFromPost": "Facebook 또는 Instagram 게시물에서 시작",
+      "viewAd": "광고 보기"
     }
   },
   "Contacts": {
@@ -945,7 +953,9 @@
         "opted_out": "마케팅 수신 거부",
         "blocked": "차단됨",
         "list": "목록",
-        "campaign": "캠페인"
+        "campaign": "캠페인",
+        "ad": "광고 클릭",
+        "lead_form": "잠재 고객 양식"
       },
       "ops": {
         "has_any": "다음 중 하나라도 있음",
@@ -958,7 +968,11 @@
         "before": "이전",
         "after": "이후",
         "in_any": "다음 중 하나에 포함",
-        "in_none": "다음 중 어디에도 없음"
+        "in_none": "다음 중 어디에도 없음",
+        "clicked_any": "다음에서 채팅 시작",
+        "clicked_none": "다음에서 채팅을 시작한 적 없음",
+        "submitted_any": "제출함",
+        "submitted_none": "제출한 적 없음"
       },
       "noLists": "아직 목록이 없습니다",
       "campaignLabel": "캠페인",
@@ -972,7 +986,13 @@
         "not_read": "받았지만 읽지 않음",
         "not_received": "받지 않음"
       },
-      "olderCampaign": "(이전 캠페인)"
+      "olderCampaign": "(이전 캠페인)",
+      "adIdsLabel": "광고 ID",
+      "adIdsPlaceholder": "모든 광고 또는 쉼표로 구분한 광고 ID",
+      "anyAd": "모든 광고",
+      "formIdsLabel": "잠재 고객 양식",
+      "anyForm": "모든 잠재 고객 양식",
+      "formIdsPlaceholder": "모든 양식 또는 쉼표로 구분한 양식 ID"
     }
   },
   "Pipelines": {
@@ -1537,6 +1557,10 @@
         "time_based": {
           "label": "시간 기반",
           "hint": "반복 일정에 따라"
+        },
+        "ad_click": {
+          "label": "광고에서 온 메시지",
+          "hint": "고객이 WhatsApp 클릭 광고에서 메시지를 보냄"
         }
       },
       "trigger": "트리거",
@@ -1669,7 +1693,10 @@
         },
         "when": "{subject} 조건",
         "noUrl": "URL 없음"
-      }
+      },
+      "adIds": "광고 ID",
+      "adIdsHint": "쉼표로 구분한 Meta 광고 ID",
+      "adIdsHelp": "비워 두면 모든 광고에서 실행됩니다."
     }
   },
   "Flows": {
@@ -1738,7 +1765,9 @@
       "duplicateSuccess": "\"{name}\"을(를) 만들었습니다.",
       "duplicateError": "플로우를 복제하지 못했습니다.",
       "creatorTeammate": "팀원",
-      "triggerOrderReceived": "트리거: WhatsApp 장바구니"
+      "triggerOrderReceived": "트리거: WhatsApp 장바구니",
+      "triggerAdClick": "트리거: 선택한 광고 {count, plural, other {#개}} 클릭",
+      "triggerAdClickAny": "트리거: 모든 광고 클릭"
     },
     "edit": {
       "notFound": "플로우를 찾을 수 없습니다.",
@@ -2028,7 +2057,16 @@
         "aiReplyAnsweredNext": "답변하면 이동할 단계",
         "aiReplyHandoffNext": "상담원에게 넘기면 이동할 단계",
         "aiReplyHandoffHelp": "AI의 신뢰도가 낮거나, 답할 수 없거나, 고객이 상담원을 요청하거나, AI를 사용할 수 없으면 상담원에게 넘깁니다. 답하지 못한 질문은 AI 에이전트 목록에 표시됩니다.",
-        "aiReplyWindowHelp": "답변은 이 대화의 번호로, 고객의 마지막 메시지 후 24시간 이내에만 보내지며 요금제의 AI 메시지 수에 포함됩니다."
+        "aiReplyWindowHelp": "답변은 이 대화의 번호로, 고객의 마지막 메시지 후 24시간 이내에만 보내지며 요금제의 AI 메시지 수에 포함됩니다.",
+        "conversionEventName": "이벤트",
+        "conversionValueVar": "변수의 값(선택)",
+        "conversionValueVarHelp": "499.00과 같은 숫자이며 통화와 함께 보냅니다. 둘 다 설정하거나 둘 다 비워 두세요. 단계가 실행될 때 변수가 비어 있거나 숫자가 아니면 값 없이 이벤트를 보냅니다.",
+        "conversionCurrency": "통화(선택)",
+        "conversionCurrencyPlaceholder": "예: INR",
+        "conversionHelp": "플로우 실행당 한 번, 고객이 7일 이내에 광고를 통해 들어온 경우에만 보냅니다. 플로우는 항상 계속됩니다.",
+        "conversionNotEnabled": "전환 API가 활성화되지 않아 이 단계는 아무것도 보내지 않고 넘어갑니다.",
+        "conversionNext": "다음 단계",
+        "conversionPurchaseNote": "구매는 결제 링크나 주문이 결제되면 자동으로 보고되므로 여기에 표시되지 않습니다."
       },
       "categories": {
         "messaging": "메시징",
@@ -2131,6 +2169,10 @@
         "ai_reply": {
           "label": "AI 답변",
           "blurb": "AI 에이전트와 지식 베이스로 고객에게 답변합니다"
+        },
+        "conversion_event": {
+          "label": "전환 이벤트",
+          "blurb": "광고를 통해 들어온 고객의 전환을 Meta에 보고합니다"
         }
       },
       "ports": {
@@ -2203,7 +2245,8 @@
           "exhausted": "시도 횟수 소진",
           "timeout": "{minutes}분 동안 응답 없음",
           "fallback": "응답이 거부됨, 흐름의 대체 정책이 적용됩니다",
-          "ai_reply": "AI 에이전트가 답변합니다(시뮬레이션이며 실제로 생성되지 않음)"
+          "ai_reply": "AI 에이전트가 답변합니다(시뮬레이션이며 실제로 생성되지 않음)",
+          "conversion_event": "전환이 Meta에 보고됩니다(시뮬레이션이며 실제로 보내지 않음)"
         },
         "simulate": {
           "shareMedia": "시뮬레이션: 고객이 파일 전송",
@@ -2221,7 +2264,13 @@
       "studioLockedHint": "캔버스가 잠겨 있습니다. 이 단계를 편집하려면 잠금을 해제하세요.",
       "triggerOrderReceivedTitle": "고객이 카탈로그에서 장바구니를 보냄",
       "orderTriggerHelp": "고객이 WhatsApp 장바구니를 보내면 키워드 플로우보다 먼저 시작됩니다. 플로우에서 다음 변수를 사용할 수 있습니다.",
-      "orderTriggerVariables": "주문 변수"
+      "orderTriggerVariables": "주문 변수",
+      "triggerAdClickTitle": "고객이 광고에서 메시지를 보냄",
+      "adClickTriggerHelp": "WhatsApp 클릭 광고에서 메시지가 오면 키워드 플로우보다 먼저 시작됩니다. 대화에서 진행 중인 플로우는 계속 실행됩니다.",
+      "adClickIdsLabel": "광고 ID(선택)",
+      "adClickIdsPlaceholder": "예: 120211234567890",
+      "adClickIdsHelp": "비워 두면 모든 광고에서 시작됩니다. 숫자로만 최대 {max}개까지 입력할 수 있습니다.",
+      "adClickVariables": "광고 변수"
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -2269,7 +2318,8 @@
       "productNone": "선택한 상품 없음",
       "products": "상품 {count}개",
       "paymentNone": "금액 없음",
-      "aiReplyDefault": "AI 에이전트로 답변"
+      "aiReplyDefault": "AI 에이전트로 답변",
+      "conversionDefault": "Meta에 {event} 보고"
     },
     "header": {
       "backToFlows": "플로우로 돌아가기",
@@ -2791,7 +2841,8 @@
       "plan": "요금제 및 사용량",
       "payments": "결제",
       "notifications": "알림",
-      "media": "미디어 라이브러리"
+      "media": "미디어 라이브러리",
+      "ads": "광고"
     },
     "groups": {
       "account": "계정",
@@ -3590,6 +3641,67 @@
       "saved": "저장했습니다. 한도를 넘는 항목은 보관되었습니다.",
       "savedPending": "저장했습니다. 새 요금제가 시작될 때 적용됩니다.",
       "saveFailed": "선택을 저장하지 못했습니다"
+    },
+    "metaAds": {
+      "title": "Meta 광고",
+      "description": "Meta 광고 계정과 Facebook 페이지를 연결하여 광고 결과를 보고, 잠재 고객 광고를 받고, 전환을 보고하세요.",
+      "notConfigured": "이 배포에서는 아직 Meta 광고가 활성화되지 않았습니다.",
+      "loadFailed": "Meta 광고 연결을 불러오지 못했습니다.",
+      "connect": "Facebook으로 연결",
+      "connecting": "연결 중...",
+      "statusPending": "완료하려면 광고 계정과 페이지를 선택하세요",
+      "statusActive": "연결됨",
+      "statusTokenInvalid": "액세스가 만료되었습니다. 연결을 해제한 뒤 다시 연결하세요.",
+      "adAccount": "광고 계정",
+      "page": "Facebook 페이지",
+      "chooseAdAccount": "광고 계정 선택",
+      "choosePage": "페이지 선택",
+      "finish": "연결 완료",
+      "missingScopes": "{feature}에 필요한 권한: {scopes}",
+      "features": {
+        "insights": "광고 결과",
+        "leads": "잠재 고객 광고",
+        "capi": "전환 API"
+      },
+      "capi": {
+        "title": "전환 API",
+        "help": "WhatsApp 클릭 광고 대화에서 발생한 구매와 잠재 고객을 Meta에 보고하여 광고를 최적화합니다.",
+        "enable": "전환 이벤트 보내기",
+        "number": "WhatsApp 번호",
+        "chooseNumber": "광고가 여는 번호를 선택하세요",
+        "numberHelp": "이 번호의 WhatsApp Business 계정에서 발생한 광고 클릭에 대해서만 이벤트를 보냅니다.",
+        "autoPurchase": "구매 자동 보고",
+        "autoLead": "WhatsApp 양식 제출을 잠재 고객으로 보고",
+        "dataset": "데이터 세트 {id}",
+        "saved": "전환 API 설정이 저장되었습니다",
+        "saveNumber": "번호 저장"
+      },
+      "disconnect": "연결 해제",
+      "disconnectConfirm": "Meta 광고 연결을 해제할까요? 잠재 고객 광고 수신과 전환 전송이 중단됩니다. 저장된 결과와 잠재 고객은 유지됩니다.",
+      "disconnected": "Meta 광고 연결이 해제되었습니다",
+      "errors": {
+        "meta_ads_not_enabled": "Meta 광고가 활성화되지 않았습니다.",
+        "not_connected": "Meta 광고 연결이 없습니다.",
+        "already_connected": "Meta 광고가 이미 연결되어 있습니다. 먼저 연결을 해제하세요.",
+        "page_in_use": "이 페이지는 다른 워크스페이스에 연결되어 있습니다.",
+        "token_invalid": "Meta 액세스가 만료되었습니다. 다시 연결하세요.",
+        "invalid_choice": "목록에서 광고 계정과 페이지를 선택하세요.",
+        "revoke_failed": "페이지 연결을 해제하기 위해 Meta에 연결하지 못했습니다. 다시 시도하세요.",
+        "meta_error": "Meta에서 오류가 반환되었습니다. 다시 시도하세요.",
+        "rate_limited": "시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.",
+        "generic": "문제가 발생했습니다. 다시 시도하세요.",
+        "missing_scope": "Meta가 이 기능에 필요한 권한을 부여하지 않았습니다. 다시 연결하고 권한을 허용하세요.",
+        "invalid_number": "이 워크스페이스에 연결된 WhatsApp 번호를 선택하세요.",
+        "invalid_request": "잘못된 요청입니다.",
+        "forbidden": "관리자만 Meta 광고를 변경할 수 있습니다."
+      },
+      "retry": "다시 시도",
+      "statusNotConnected": "연결되지 않음",
+      "adminOnly": "관리자만 Meta 광고를 연결할 수 있습니다.",
+      "sdkFailed": "Facebook 로그인을 불러오지 못했습니다. 팝업과 facebook.com을 허용한 뒤 다시 시도하세요.",
+      "loginCancelled": "Facebook 로그인이 취소되었습니다.",
+      "leadsNotSubscribed": "이 페이지는 아직 잠재 고객 광고를 구독하지 않았습니다. 연결을 해제한 뒤 다시 연결해 재시도하세요.",
+      "lastError": "마지막 Meta 오류 코드: {code}"
     }
   },
   "SignupPage": {
@@ -4515,7 +4627,15 @@
       "aiReplyInvalidMaxTurns": "이 단계의 답변 수는 1~{max} 사이의 정수여야 합니다.",
       "aiReplyInvalidThreshold": "신뢰도 기준은 0~1 사이의 숫자여야 합니다.",
       "aiReplyNeedsHandoffNext": "AI가 상담원에게 넘길 때 실행할 단계를 선택하세요.",
-      "aiReplyNotConfigured": "AI가 설정되지 않았거나 꺼져 있어 이 단계는 항상 상담원에게 넘깁니다. 설정 › AI에서 설정하세요."
+      "aiReplyNotConfigured": "AI가 설정되지 않았거나 꺼져 있어 이 단계는 항상 상담원에게 넘깁니다. 설정 › AI에서 설정하세요.",
+      "adClickIds": "광고 ID는 숫자만 사용할 수 있으며 최대 {max}개입니다.",
+      "conversionInvalidEvent": "전환 이벤트를 선택하세요.",
+      "conversionInvalidValueVar": "값 변수는 올바른 변수 이름이어야 합니다.",
+      "conversionInvalidCurrency": "통화는 INR과 같은 세 글자 코드여야 합니다.",
+      "conversionNeedsNext": "전환 이벤트 다음에 실행할 단계를 선택하세요.",
+      "conversionMissingNext": "전환 이벤트 다음 단계가 더 이상 존재하지 않습니다.",
+      "conversionPurchaseAutomatic": "구매는 결제 링크나 주문이 결제되면 자동으로 보고됩니다. 다른 이벤트를 선택하세요.",
+      "conversionValueNeedsBoth": "값 변수와 통화를 모두 설정하거나 둘 다 비워 두세요."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -4549,7 +4669,8 @@
       "templateLimitedTimeOffer": "자동화는 기간 한정 혜택 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 혜택 정보는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
       "templateLocationHeader": "자동화는 위치 헤더가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 위치는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
       "templateHeaderVariable": "자동화는 헤더에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다.",
-      "templateUrlVariable": "자동화는 URL 버튼에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다."
+      "templateUrlVariable": "자동화는 URL 버튼에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다.",
+      "adIdsInvalid": "광고 ID는 숫자만 입력할 수 있으며 최대 {max}개까지 가능합니다"
     },
     "templates": {
       "nameRequired": "템플릿 이름은 필수입니다.",
@@ -5256,6 +5377,24 @@
       "invalidOutput": "AI가 사용할 수 있는 제안을 만들지 못했습니다. 목표를 다르게 표현해 보세요.",
       "loadFailed": "템플릿을 불러오지 못했습니다. 다시 시도해 주세요.",
       "noApprovedTemplates": "어시스턴트가 캠페인을 계획하려면 승인된 템플릿이 하나 이상 있어야 합니다."
+    },
+    "metaAds": {
+      "notEnabled": "Meta 광고가 활성화되지 않았습니다",
+      "notConnected": "Meta 광고 연결이 없습니다",
+      "alreadyConnected": "Meta 광고가 이미 연결되어 있습니다",
+      "pageInUse": "이 페이지는 다른 워크스페이스에 연결되어 있습니다",
+      "tokenInvalid": "Meta 액세스가 만료되었습니다. 다시 연결하세요",
+      "rateLimited": "요청이 너무 많습니다",
+      "revokeFailed": "페이지 연결을 해제하기 위해 Meta에 연결하지 못했습니다",
+      "invalidResolution": "이 이벤트의 결과를 기록할 수 없습니다",
+      "invalidChoice": "목록에서 광고 계정과 페이지를 선택하세요",
+      "invalidRequest": "잘못된 요청입니다",
+      "metaError": "Meta에서 오류가 반환되었습니다",
+      "notFound": "찾을 수 없습니다",
+      "forbidden": "관리자만 Meta 광고를 변경할 수 있습니다",
+      "invalidNumber": "이 워크스페이스에 연결된 WhatsApp 번호를 선택하세요",
+      "missingScope": "Meta가 이 기능에 필요한 권한을 부여하지 않았습니다",
+      "exportTooLarge": "한 번에 내보내기에는 리드가 너무 많습니다. 필터를 좁혀 주세요"
     }
   },
   "PageSearch": {
@@ -7076,7 +7215,8 @@
       "source": {
         "inbound": "고객이 시작",
         "business": "비즈니스가 시작",
-        "campaignReply": "캠페인 답장"
+        "campaignReply": "캠페인 답장",
+        "ad": "광고에서 시작"
       },
       "minutes": "분",
       "minutesValue": "{value}분",
@@ -7086,13 +7226,14 @@
       "byStateDescription": "기간 중 활동한 대화의 현재 상태입니다.",
       "stateColumn": "상태",
       "bySourceTitle": "유입 경로별 대화",
-      "bySourceDescription": "새 대화를 누가 시작했는지 보여 줍니다. 캠페인 답장은 캠페인 후 72시간 안에 받은 고객 메시지입니다.",
+      "bySourceDescription": "새 대화를 누가 시작했는지 보여 줍니다. 캠페인 답장은 캠페인 후 72시간 안에 받은 고객 메시지이고, 광고 시작은 첫 메시지가 WhatsApp 클릭 광고에서 온 대화입니다.",
       "sourceColumn": "유입 경로",
       "timingTitle": "응답 및 해결 시간",
       "timingDescription": "첫 응답은 대화별 고객의 첫 대기를 기준으로 합니다. 해결 시간은 다시 열리지 않고 해결된 대화만 포함합니다.",
       "metricColumn": "항목",
       "samples": "측정된 대화",
-      "unanswered": "{count}개의 대화가 아직 첫 답장을 기다리고 있습니다."
+      "unanswered": "{count}개의 대화가 아직 첫 답장을 기다리고 있습니다.",
+      "startedFromAds": "광고에서 시작된 대화"
     },
     "agents": {
       "title": "팀 순위",
@@ -7263,5 +7404,131 @@
       "ofSent": "{count}건",
       "period": "기간"
     }
+  },
+  "Ads": {
+    "title": "광고",
+    "description": "WhatsApp 클릭 광고, 잠재 고객 광고, Meta에 보고된 전환입니다.",
+    "createInAdsManager": "광고 관리자에서 WhatsApp 클릭 광고 만들기",
+    "retarget": "리타기팅",
+    "broadcastLeads": "이 잠재 고객에게 브로드캐스트",
+    "exportCsv": "CSV 내보내기",
+    "loadFailed": "광고 데이터를 불러오지 못했습니다.",
+    "retry": "다시 시도",
+    "notEnabled": {
+      "title": "광고가 활성화되지 않았습니다",
+      "flagOff": "Meta가 아직 이 앱의 광고 사용을 승인하지 않았습니다. 승인이 완료되면 관리자가 광고를 켭니다.",
+      "notConfigured": "광고가 켜져 있지만 설정이 완료되지 않았습니다. 관리자가 Meta 앱과 Login for Business 설정을 추가해야 합니다.",
+      "adClicks": "{count, plural, other {지난 30일 동안 광고에서 시작된 대화 #건}}"
+    },
+    "tabs": {
+      "ads": "광고",
+      "leads": "잠재 고객",
+      "conversions": "전환"
+    },
+    "table": {
+      "level": "표시",
+      "levelCampaign": "캠페인",
+      "levelAd": "광고",
+      "campaign": "캠페인",
+      "ad": "광고",
+      "status": "상태",
+      "spend": "지출",
+      "impressions": "노출",
+      "clicks": "클릭",
+      "conversationsStarted": "시작된 대화(Meta)",
+      "conversationsInBodhinox": "Bodhinox 대화",
+      "purchases": "구매",
+      "empty": "이 기간의 광고 결과가 아직 없습니다.",
+      "syncedAt": "마지막 동기화: {time}",
+      "neverSynced": "아직 동기화되지 않음",
+      "sync": "지금 동기화",
+      "syncQueued": "동기화가 대기열에 추가되었습니다. 몇 분 후 결과가 업데이트됩니다.",
+      "from": "시작일",
+      "to": "종료일",
+      "syncFailed": "동기화를 예약하지 못했습니다. 다시 시도하세요.",
+      "retargetSaved": "세그먼트를 저장했습니다. 브로드캐스트 대상으로 선택하세요."
+    },
+    "leads": {
+      "empty": "아직 잠재 고객이 없습니다.",
+      "form": "양식",
+      "allForms": "모든 양식",
+      "ad": "광고",
+      "allAds": "모든 광고",
+      "from": "시작",
+      "to": "종료",
+      "receivedAt": "수신",
+      "contact": "연락처",
+      "noContact": "일치하는 연락처 없음",
+      "answers": "답변",
+      "status": {
+        "pending": "가져오는 중",
+        "fetched": "수신됨",
+        "failed": "가져오지 못함"
+      },
+      "loadMore": "더 보기",
+      "deleteLead": "잠재 고객 삭제",
+      "deleteConfirm": "이 잠재 고객과 답변을 삭제할까요? 되돌릴 수 없습니다.",
+      "deleted": "잠재 고객이 삭제되었습니다",
+      "notOptedIn": "잠재 고객은 WhatsApp 수신에 자동으로 동의되지 않습니다. 브로드캐스트는 템플릿을 사용하며 수신 거부를 존중합니다.",
+      "segmentName": "리드: {form}",
+      "segmentCreated": "이 리드로 세그먼트를 만들었습니다",
+      "segmentFailed": "이 리드로 세그먼트를 만들지 못했습니다."
+    },
+    "conversions": {
+      "empty": "아직 전환 이벤트가 없습니다.",
+      "event": "이벤트",
+      "source": "출처",
+      "value": "값",
+      "createdAt": "대기열 추가",
+      "filterAll": "모든 상태",
+      "status": {
+        "queued": "대기 중",
+        "sent": "전송됨",
+        "failed": "Meta에서 거부됨",
+        "unknown": "결과 알 수 없음",
+        "skipped": "건너뜀"
+      },
+      "skipReasons": {
+        "disabled": "전환 API가 꺼져 있음",
+        "no_connection": "Meta 연결 없음",
+        "missing_scope": "권한이 부여되지 않음",
+        "no_dataset": "데이터 세트 없음",
+        "wrong_waba": "다른 WhatsApp 계정의 광고 클릭"
+      },
+      "sources": {
+        "payment_link": "결제 링크",
+        "order": "주문",
+        "form": "양식",
+        "flow": "플로우"
+      },
+      "reviewTitle": "결과 알 수 없음",
+      "reviewHelp": "Meta가 이 이벤트를 확인하지 않았으므로 자동으로 다시 보내지 않습니다. 이벤트 관리자를 확인한 뒤 결과를 기록하세요.",
+      "resolve": {
+        "sent": "Meta에 도달함",
+        "notSent": "Meta에 도달하지 않음",
+        "confirmedSent": "전송 확인됨",
+        "confirmedNotSent": "미전송 확인됨",
+        "done": "결과가 기록되었습니다",
+        "failed": "결과를 기록하지 못했습니다."
+      },
+      "adminOnly": "관리자와 소유자만 전환 이벤트를 볼 수 있습니다.",
+      "filterLabel": "상태",
+      "statusLabel": "상태",
+      "contact": "연락처",
+      "unknownContact": "알 수 없는 연락처",
+      "errorCode": "Meta 오류 {code}",
+      "events": {
+        "Purchase": "구매",
+        "LeadSubmitted": "리드 제출",
+        "QualifiedLead": "적격 리드",
+        "InitiateCheckout": "결제 시작",
+        "AddToCart": "장바구니에 추가",
+        "ViewContent": "콘텐츠 조회",
+        "OrderCreated": "주문 생성"
+      }
+    },
+    "notConnected": "아직 연결된 Meta 광고 계정이 없습니다. 관리자가 설정 > 광고에서 연결합니다.",
+    "tokenInvalid": "Meta 액세스가 만료되어 결과가 더 이상 업데이트되지 않습니다. 관리자가 설정 > 광고에서 다시 연결해야 합니다.",
+    "openSettings": "설정 > 광고 열기"
   }
 }

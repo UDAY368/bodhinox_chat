@@ -301,6 +301,13 @@ export function validateTriggerForActivation(
         message: t('replyIdsEmpty'),
       });
     }
+  } else if (triggerType === 'ad_click') {
+    // Optional Meta ad ids: empty or absent runs for any ad.
+    const ids = cfg.ad_ids;
+    if (ids !== undefined && ids !== null && (!Array.isArray(ids) || ids.length > 50 ||
+      ids.some((v) => typeof v !== 'string' || !/^\d{1,32}$/.test(v)))) {
+      issues.push({ path: 'trigger.ad_ids', message: t('adIdsInvalid', { max: 50 }) });
+    }
   }
 
   return issues;

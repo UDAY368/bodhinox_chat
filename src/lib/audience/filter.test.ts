@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AudienceFilterError, compileAudienceFilter, parseAudienceFilter } from './filter';
+import { AudienceFilterError, assertFilterReferences, compileAudienceFilter, parseAudienceFilter } from './filter';
 import { csvCell } from './export';
 
 const tag = '00000000-0000-4000-8000-000000000001';
@@ -63,6 +63,70 @@ describe('parseAudienceFilter', () => {
   it('escapes LIKE wildcards in contains', () => {
     const sql = compileAudienceFilter(account, parseAudienceFilter({ conditions: [{ field: 'email', op: 'contains', value: '50%_off' }] }));
     expect(sql.values).toContain('%50\\%\\_off%');
+  });
+});
+
+describe('ad and lead_form conditions', () => {
+  const compile = (condition: unknown) => compileAudienceFilter(account, parseAudienceFilter({ conditions: [condition] }));
+
+  it('compiles an ad click to a scoped referral check with bound text ids', () => {
+    const sql = compile({ field: 'ad', op: 'clicked_any', adIds: ['120211234567890'] });
+    expect(sql.sql).toContain('EXISTS(SELECT 1 FROM ad_referrals r WHERE r.account_id=');
+    expect(sql.sql).toContain("r.source_type='ad'");
+    expect(sql.sql).toContain('r.source_id IN (SELECT value FROM jsonb_array_elements_text(');
+    expect(sql.sql).not.toContain('::uuid FROM jsonb');
+    expect(sql.values).toEqual(expect.arrayContaining([account, JSON.stringify(['120211234567890'])]));
+  });
+
+  it('treats an empty ad list as any ad and negates clicked_none', () => {
+    const any = compile({ field: 'ad', op: 'clicked_any', adIds: [] });
+    expect(any.sql).not.toContain('source_id IN');
+    expect(any.sql).not.toContain('NOT EXISTS');
+    expect(compile({ field: 'ad', op: 'clicked_none', adIds: [] }).sql).toContain('NOT EXISTS(SELECT 1 FROM ad_referrals r');
+  });
+
+  it('compiles a lead form condition over meta_leads, with or without form ids', () => {
+    const some = compile({ field: 'lead_form', op: 'submitted_any', formIds: ['555'] });
+    expect(some.sql).toContain('EXISTS(SELECT 1 FROM meta_leads l WHERE l.account_id=');
+    expect(some.sql).toContain('l.form_id IN (SELECT value FROM jsonb_array_elements_text(');
+    expect(some.values).toContain(JSON.stringify(['555']));
+    const none = compile({ field: 'lead_form', op: 'submitted_none', formIds: [] });
+    expect(none.sql).toContain('NOT EXISTS(SELECT 1 FROM meta_leads l');
+    expect(none.sql).not.toContain('form_id IN');
+  });
+
+  it('never puts a Meta id into the SQL text', () => {
+    const sql = compile({ field: 'ad', op: 'clicked_any', adIds: ['987654321'] });
+    expect(sql.sql).not.toContain('987654321');
+  });
+
+  it.each<[unknown, string]>([
+    [{ field: 'ad', op: 'clicked_any', adIds: ['act_123'] }, 'prefixed id'],
+    [{ field: 'ad', op: 'clicked_any', adIds: ["1' OR '1'='1"] }, 'injection'],
+    [{ field: 'ad', op: 'clicked_any', adIds: ['1'.repeat(33)] }, 'too long'],
+    [{ field: 'ad', op: 'clicked_any', adIds: Array.from({ length: 51 }, (_, i) => String(i + 1)) }, 'too many'],
+    [{ field: 'ad', op: 'has_any', adIds: [] }, 'wrong operator'],
+    [{ field: 'ad', op: 'clicked_any' }, 'missing ids'],
+    [{ field: 'lead_form', op: 'submitted_any', formIds: ['12_34'] }, 'post-style id'],
+    [{ field: 'lead_form', op: 'submitted_any', formIds: [], adIds: [] }, 'unknown key'],
+  ])('rejects %j (%s)', (condition) => {
+    expect(() => parseAudienceFilter({ conditions: [condition] })).toThrow(AudienceFilterError);
+  });
+
+  it('requires the retargeting entitlement for ad and lead form conditions without looking ids up', async () => {
+    const queries: string[] = [];
+    const tx = {
+      $queryRaw: async (sql: { sql?: string; strings?: string[] }) => {
+        const text = sql.sql ?? sql.strings?.join('?') ?? '';
+        queries.push(text);
+        return text.includes('FROM accounts') || text.includes('plan') ? [] : [];
+      },
+    };
+    const filter = parseAudienceFilter({ conditions: [{ field: 'ad', op: 'clicked_any', adIds: ['1'] }] });
+    // getEntitlements reads the plan; any failure there proves the check ran, a pass means no row lookups.
+    await assertFilterReferences(tx as never, account, filter).catch(() => undefined);
+    expect(queries.length).toBeGreaterThan(0);
+    expect(queries.some((q) => /FROM (broadcasts|tags|contact_lists|custom_fields)/.test(q))).toBe(false);
   });
 });
 

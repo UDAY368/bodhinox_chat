@@ -29,7 +29,7 @@ import { CAMPAIGN_OUTCOMES } from '@/lib/audience/outcomes';
 import type { CustomField, Tag } from '@/types';
 
 type Field = AudienceCondition['field'];
-const FIELDS: Field[] = ['tags', 'list', 'campaign', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked'];
+const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked'];
 const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
 
 function blank(field: Field): AudienceCondition {
@@ -41,8 +41,26 @@ function blank(field: Field): AudienceCondition {
     case 'created_at': return { field, op: 'after', value: new Date().toISOString().slice(0, 10) };
     case 'opted_out':
     case 'blocked': return { field, op: 'is', value: false };
+    case 'ad': return { field, op: 'clicked_any', adIds: [] };
+    case 'lead_form': return { field, op: 'submitted_any', formIds: [] };
     default: return { field, op: 'contains', value: '' };
   }
+}
+
+/** Meta ids typed as a comma- or space-separated list (digits only, at most 50). */
+function parseIds(text: string): string[] {
+  return [...new Set(text.split(/[\s,]+/).map((part) => part.replace(/\D/g, '').slice(0, 32)).filter(Boolean))].slice(0, 50);
+}
+
+/** Keeps the typed text (so separators can be typed) and reports the parsed ids. */
+function IdListInput({ ids, onChange, label, placeholder }: { ids: string[]; onChange: (ids: string[]) => void; label: string; placeholder: string }) {
+  const [text, setText] = useState(ids.join(', '));
+  // An outside change (field switch, prefill) replaces the text; our own edits parse to the same ids.
+  if (parseIds(text).join(',') !== ids.join(',')) setText(ids.join(', '));
+  return (
+    <Input aria-label={label} className="h-8 w-64" inputMode="numeric" placeholder={placeholder} value={text}
+      onChange={(e) => { setText(e.target.value); onChange(parseIds(e.target.value)); }} />
+  );
 }
 
 function complete(c: AudienceCondition): boolean {
@@ -63,6 +81,7 @@ export function SegmentBuilderDialog({
   campaigns,
   customFields,
   onSaved,
+  initialConditions,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -74,6 +93,8 @@ export function SegmentBuilderDialog({
   campaigns: { id: string; name: string }[];
   customFields: CustomField[];
   onSaved: (segment: SegmentSummary) => void;
+  /** Prefill a new segment with these conditions (the Ads page's Retarget action); ignored when editing. */
+  initialConditions?: AudienceCondition[];
 }) {
   const t = useTranslations('Contacts.segments');
   const [name, setName] = useState('');
@@ -81,12 +102,15 @@ export function SegmentBuilderDialog({
   const [count, setCount] = useState<{ total: number; sendable: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // By value, so a parent passing a fresh array each render does not reset the editor.
+  const initialKey = JSON.stringify(initialConditions ?? null);
   useEffect(() => {
     if (!open) return;
+    const prefill = JSON.parse(initialKey) as AudienceCondition[] | null;
     setName(segment?.name ?? '');
-    setConditions(segment?.filter.conditions ?? [blank('tags')]);
+    setConditions(segment?.filter.conditions ?? (prefill?.length ? prefill.slice(0, 20) : [blank('tags')]));
     setCount(null);
-  }, [open, segment]);
+  }, [open, segment, initialKey]);
 
   const ready = conditions.length > 0 && conditions.every(complete);
   const filterKey = useMemo(() => JSON.stringify(conditions), [conditions]);
@@ -216,6 +240,32 @@ export function SegmentBuilderDialog({
                       onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
                       {CAMPAIGN_OUTCOMES.map((op) => <option key={op} value={op}>{t(`campaignOps.${op}`)}</option>)}
                     </select>
+                  </>
+                )}
+
+                {c.field === 'ad' && (
+                  <>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                      <option value="clicked_any">{t('ops.clicked_any')}</option>
+                      <option value="clicked_none">{t('ops.clicked_none')}</option>
+                    </select>
+                    <IdListInput ids={c.adIds} label={t('adIdsLabel')} placeholder={t('adIdsPlaceholder')}
+                      onChange={(adIds) => update(index, { ...c, adIds })} />
+                    {c.adIds.length === 0 && <span className="text-xs text-muted-foreground">{t('anyAd')}</span>}
+                  </>
+                )}
+
+                {c.field === 'lead_form' && (
+                  <>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                      <option value="submitted_any">{t('ops.submitted_any')}</option>
+                      <option value="submitted_none">{t('ops.submitted_none')}</option>
+                    </select>
+                    <IdListInput ids={c.formIds} label={t('formIdsLabel')} placeholder={t('formIdsPlaceholder')}
+                      onChange={(formIds) => update(index, { ...c, formIds })} />
+                    {c.formIds.length === 0 && <span className="text-xs text-muted-foreground">{t('anyForm')}</span>}
                   </>
                 )}
 

@@ -193,6 +193,7 @@ const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: 'first_inbound_message' },
   { value: 'keyword_match' },
   { value: 'interactive_reply' },
+  { value: 'ad_click' },
   { value: 'new_contact_created' },
   { value: 'conversation_assigned' },
   { value: 'tag_added' },
@@ -957,6 +958,13 @@ function TriggerCard({
                 t={t}
               />
             )}
+            {type === 'ad_click' && (
+              <AdClickConfig
+                config={config}
+                onChange={onConfigChange}
+                t={t}
+              />
+            )}
             {type === 'tag_added' && (
               <div>
                 <label className="text-muted-foreground mb-1 block text-xs font-medium">
@@ -1279,6 +1287,57 @@ function InteractiveReplyConfig({
       />
       <p className="text-muted-foreground mt-1 text-[11px]">
         {t('replyIdsHelp')}
+      </p>
+    </div>
+  );
+}
+
+/** Optional Meta ad ids for ad_click; empty means any ad. */
+function AdClickConfig({
+  config,
+  onChange,
+  t,
+}: {
+  config: Record<string, unknown>;
+  onChange: (c: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const ids = (config?.ad_ids as string[] | undefined) ?? [];
+  const [draft, setDraft] = useState(ids.join(', '));
+
+  function commit() {
+    const parsed = draft
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setDraft(parsed.join(', '));
+    const next = { ...config };
+    if (parsed.length) next.ad_ids = parsed;
+    else delete next.ad_ids;
+    onChange(next);
+  }
+
+  return (
+    <div>
+      <label className="text-muted-foreground mb-1 block text-xs font-medium">
+        {t('adIds')}
+      </label>
+      <Input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
+        }}
+        placeholder={t('adIdsHint')}
+        inputMode="numeric"
+        className="bg-muted text-foreground font-mono"
+      />
+      <p className="text-muted-foreground mt-1 text-[11px]">
+        {t('adIdsHelp')}
       </p>
     </div>
   );

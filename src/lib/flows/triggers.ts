@@ -4,6 +4,7 @@
 // any of this, and the AI auto-reply only gets what no flow or automation
 // took):
 //   0. order_received   a cart sent from the catalogue
+//   0b. ad_click        a message from a click-to-WhatsApp ad
 //   1. template_reply   a tap on a sent template's quick-reply button
 //   2. keyword          exact, contains or regex
 //   3. first_inbound_message
@@ -12,9 +13,9 @@
 // its test numbers.
 
 import { regexMatches } from "./input-validation";
-import type { FlowRow, KeywordTriggerConfig, ParsedInbound, TemplateReplyTriggerConfig } from "./types";
+import type { AdClickTriggerConfig, FlowRow, KeywordTriggerConfig, ParsedInbound, TemplateReplyTriggerConfig } from "./types";
 
-const TIER: Record<string, number> = { order_received: -1, template_reply: 0, keyword: 1, first_inbound_message: 2 };
+const TIER: Record<string, number> = { order_received: -1, ad_click: -0.5, template_reply: 0, keyword: 1, first_inbound_message: 2 };
 
 /** Digits only, the form contacts.phone_normalized and flows.test_numbers use. */
 export function phoneDigits(phone: string | null | undefined): string {
@@ -69,4 +70,17 @@ export function templateReplyMatch(message: ParsedInbound, cfg: TemplateReplyTri
 /** The variables an order_received start sets, or null when the message is not a cart. */
 export function orderReceivedMatch(message: ParsedInbound): Record<string, string> | null {
   return message.kind === "order" ? { ...message.vars } : null;
+}
+
+/**
+ * The variables an ad_click start sets, or null when the message did not
+ * come from a click-to-WhatsApp ad (or from another ad than the listed ones).
+ * The click id is never a variable.
+ */
+export function adClickMatch(message: ParsedInbound, cfg: AdClickTriggerConfig | null | undefined): Record<string, string> | null {
+  const referral = message.referral;
+  if (!referral || referral.source_type !== "ad") return null;
+  const wanted = Array.isArray(cfg?.ad_ids) ? cfg.ad_ids.filter((id) => typeof id === "string" && id) : [];
+  if (wanted.length && (!referral.source_id || !wanted.includes(referral.source_id))) return null;
+  return { ad_id: referral.source_id ?? "", ad_headline: referral.headline ?? "", ad_source_url: referral.source_url ?? "" };
 }

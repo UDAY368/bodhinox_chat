@@ -74,6 +74,9 @@ export async function scheduleWork() {
   // Hourly expiry of 30-day-old report files.
   await import('@/lib/analytics/reports').then((m) => m.scheduleReportSweeps())
     .catch(() => console.error('[worker] report sweep scheduling failed'));
+  // Meta ads insights and lead backfill; nothing while META_ADS_ENABLED is off or unconfigured.
+  await import('@/lib/meta-ads/schedule').then((m) => m.scheduleMetaAds())
+    .catch(() => console.error('[worker] meta ads scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -91,6 +94,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   if (job.type === 'billing.event')
     // One verified billing webhook event; the workspace is resolved from its subscription.
     return (await import('@/lib/billing/subscriptions')).handleBillingEventJob(job.payload);
+  if (job.type === 'meta.page_webhook')
+    // One verified Page webhook delivery; each leadgen change is resolved to its workspace by Page id.
+    return (await import('@/lib/meta-ads/jobs')).handleMetaPageWebhookJob(job.payload, assertLease);
   const accountId = uuid(job.tenant_id);
   return withJobScope({ accountId, role: 'owner' }, async () => {
     const db = createAdminClient({ accountId, role: 'owner' });
@@ -300,6 +306,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'analytics.report' || job.type === 'analytics.report_sweep')
       // Builds one CSV report into private storage, or expires old report files.
       await (await import('@/lib/analytics/reports')).handleReportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type.startsWith('meta.'))
+      // Click-to-WhatsApp ads: lead fetch/backfill, insights sync and Conversions API sends.
+      await (await import('@/lib/meta-ads/jobs')).handleMetaAdsJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else throw new Error('Unsupported job type');
   });
 }

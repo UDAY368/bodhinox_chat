@@ -18,7 +18,7 @@ import { getT } from '@/lib/i18n/translate'
 
 const ti = getT('Validation.interactive')
 
-const META_API_VERSION = 'v21.0'
+export const META_API_VERSION = 'v21.0'
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
 export interface MetaSendResult {
@@ -115,7 +115,7 @@ export class MetaApiError extends Error {
  * Read a failed Graph response into a MetaApiError without throwing.
  * Consumes the body — call at most once per response.
  */
-async function readMetaError(response: Response, fallback: string): Promise<MetaApiError> {
+export async function readMetaError(response: Response, fallback: string): Promise<MetaApiError> {
   let message = fallback
   let envelope: MetaErrorResponse['error'] | undefined
   try {
@@ -135,7 +135,7 @@ async function readMetaError(response: Response, fallback: string): Promise<Meta
   })
 }
 
-async function throwMetaError(response: Response, fallback: string): Promise<never> {
+export async function throwMetaError(response: Response, fallback: string): Promise<never> {
   throw await readMetaError(response, fallback)
 }
 

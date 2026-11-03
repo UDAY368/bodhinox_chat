@@ -21,7 +21,7 @@ const render = (node: React.ReactNode) =>
 const noop = () => {};
 
 const stats = (over: Partial<ConversationStats> = {}): ConversationStats => ({
-  started: { total: 10, inbound: 6, business: 3, campaignReply: 1 },
+  started: { total: 10, inbound: 5, business: 3, campaignReply: 1, ad: 1 },
   byLifecycle: { bot: 1, requesting: 2, assigned: 3, resolved: 4 },
   firstResponse: { count: 8, unanswered: 2, medianSeconds: 125, p90Seconds: 4000 },
   resolution: { resolved: 4, count: 3, medianSeconds: 90_000, p90Seconds: null },
@@ -48,7 +48,7 @@ describe('analytics panels', () => {
     range: { startDay: '2026-10-01', endDay: '2026-10-30', days: 30 },
     previousRange: { startDay: '2026-09-01', endDay: '2026-09-30' },
     current: stats(),
-    previous: stats({ started: { total: 5, inbound: 5, business: 0, campaignReply: 0 } }),
+    previous: stats({ started: { total: 5, inbound: 5, business: 0, campaignReply: 0, ad: 0 } }),
     numbers: [],
   };
 
@@ -85,11 +85,13 @@ describe('analytics panels', () => {
     expect(html.match(/<table/g)).toHaveLength(3);
     expect(html).toContain('scope="col"');
     expect(html).toContain('scope="row"');
+    // Click-to-WhatsApp ad starts are their own source row.
+    expect(html).toContain('Analytics.overview.source.ad');
   });
 
   it('shows a retry on error and an empty state without data', () => {
     expect(render(<ConversationCharts data={null} loading={false} error onRetry={noop} />)).toContain('role="alert"');
-    const empty = { ...report, current: stats({ started: { total: 0, inbound: 0, business: 0, campaignReply: 0 }, byLifecycle: { bot: 0, requesting: 0, assigned: 0, resolved: 0 },
+    const empty = { ...report, current: stats({ started: { total: 0, inbound: 0, business: 0, campaignReply: 0, ad: 0 }, byLifecycle: { bot: 0, requesting: 0, assigned: 0, resolved: 0 },
       firstResponse: { count: 0, unanswered: 0, medianSeconds: null, p90Seconds: null }, resolution: { resolved: 0, count: 0, medianSeconds: null, p90Seconds: null } }) };
     expect(render(<ConversationCharts data={empty} loading={false} error={false} onRetry={noop} />)).toContain('Analytics.emptyTitle');
   });

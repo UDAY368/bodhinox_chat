@@ -26,7 +26,25 @@ function validatePayload(input: InboundActionsPayload): void {
     typeof input.contentType!=="string" || (input.contentText!==null && typeof input.contentText!=="string") ||
     (input.interactiveReplyId!==null && typeof input.interactiveReplyId!=="string") ||
     (input.contextMetaId!==undefined && (typeof input.contextMetaId!=="string" || input.contextMetaId.length>256)))) throw new Error("Invalid message actions contract");
+  if (input.kind==="message" && input.adReferral!==undefined && !validAdReferral(input.adReferral)) throw new Error("Invalid message actions contract");
   if (input.kind==="status" && !["sent","delivered","read","failed"].includes(input.status)) throw new Error("Invalid status actions contract");
+}
+
+/** The optional ad summary (jobs queued before it existed have none). */
+function validAdReferral(value: unknown): boolean {
+  if (!value || typeof value!=="object" || Array.isArray(value)) return false;
+  const r=value as Record<string,unknown>;
+  const optional=(v:unknown,max:number)=>v===null||(typeof v==="string"&&v.length<=max);
+  return typeof r.id==="string" && uuid.test(r.id) &&
+    (r.sourceId===null||(typeof r.sourceId==="string"&&/^[0-9_]{1,64}$/.test(r.sourceId))) &&
+    (r.sourceType==="ad"||r.sourceType==="post"||r.sourceType==="unknown") &&
+    optional(r.headline,256) && optional(r.sourceUrl,2048);
+}
+
+/** The flow engine's view of the referral (never the click id). */
+function flowReferral(input: MessageInput): Pick<ParsedInbound,"referral"> {
+  const r=input.adReferral;
+  return r ? {referral:{source_id:r.sourceId,source_type:r.sourceType,headline:r.headline,source_url:r.sourceUrl}} : {};
 }
 
 /** Invoked only from the persisted inbound.actions worker job, never the HTTP acknowledgment. */
@@ -122,6 +140,10 @@ async function cartOrder(db:ReturnType<typeof createAdminClient>,input:MessageIn
  * original payload shape.
  */
 async function flowMessage(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string): Promise<ParsedInbound> {
+  return {...await flowMessageBody(db,input,text),...flowReferral(input)};
+}
+
+async function flowMessageBody(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string): Promise<ParsedInbound> {
   const meta_message_id=input.metaMessageId;
   if(input.interactiveReplyId) {
     const context_template=await repliedTemplate(db,input);
@@ -183,7 +205,7 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
       accountId:input.accountId,contactId:input.contactId,reserveMenuTextForAi:input.contentType==="text",context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
     }));
     const consumed=flow.consumed||replied;
-    const triggers: Array<"new_contact_created"|"first_inbound_message"|"new_message_received"|"keyword_match"|"interactive_reply">=[];
+    const triggers: Array<"new_contact_created"|"first_inbound_message"|"new_message_received"|"keyword_match"|"interactive_reply"|"ad_click">=[];
     if(!consumed) {
       // A form summary is not typed text, so it never matches keywords.
       triggers.push("new_message_received",...(isForm ? [] : ["keyword_match" as const]));
@@ -192,11 +214,15 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
     const aiFallback=flow.outcome==="ai_fallback"||replied==="ai_fallback";
     if(!explicit.handled&&!aiFallback&&input.wasContactCreated) triggers.unshift("new_contact_created");
     if(!explicit.handled&&!aiFallback&&input.isFirstInboundMessage) triggers.unshift("first_inbound_message");
+    // A click-to-WhatsApp ad message runs its own stage, ahead of the first-message trigger.
+    const ad=input.adReferral?.sourceType==="ad" ? input.adReferral : undefined;
+    if(!explicit.handled&&!aiFallback&&ad) triggers.unshift("ad_click");
     let automationMatched=false;
     for(const triggerType of triggers) {
       const matched=await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
       accountId:input.accountId,triggerType,contactId:input.contactId,
-      context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
+      context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined,
+        ...(triggerType==="ad_click"&&ad ? {ad_id:ad.sourceId??""} : {})},
       }));
       // Older completed stages persisted null; their dispatch decision is
       // unknown, so do not introduce a second responder during replay.

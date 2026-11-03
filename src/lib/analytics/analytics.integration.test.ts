@@ -86,6 +86,20 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     await msg(B, vb, 'agent', '2026-10-02T10:00:30Z', { contentType: 'template', template: 'promo' });
     await msg(B, vb, 'bot', '2026-10-02T10:00:40Z', { ai: true });
 
+    // Click-to-WhatsApp referrals on the creating messages: v3 (also a campaign reply; ad wins) and v5
+    // from ads, v1 from a boosted post (stays a plain inbound start), and B's conversation from an ad.
+    // A re-click later in v4 (created before the range) changes nothing.
+    await q(`UPDATE messages m SET message_id = c.inbound_created_meta_id FROM conversations c
+      WHERE c.id = m.conversation_id AND c.id = ANY($1::uuid[]) AND m.sender_type = 'customer'
+        AND m.created_at = c.created_at`, [[v1, v3, v5, vb]]);
+    await q(`INSERT INTO ad_referrals(account_id,contact_id,conversation_id,message_id,wa_message_id,source_id,source_type,ctwa_clid)
+      SELECT c.account_id, c.contact_id, c.id, m.id, COALESCE(m.message_id, 'wamid.later.' || c.id), x.source_id, x.source_type, x.clid
+      FROM (VALUES ($1::uuid,'1201','ad','clid-v3'), ($2::uuid,'1202','ad',NULL), ($3::uuid,'55_66','post',NULL),
+        ($4::uuid,'1203','ad','clid-vb'), ($5::uuid,'1204','ad','clid-v4')) x(conversation_id, source_id, source_type, clid)
+      JOIN conversations c ON c.id = x.conversation_id
+      JOIN LATERAL (SELECT id, message_id FROM messages WHERE conversation_id = c.id AND sender_type = 'customer'
+        ORDER BY created_at LIMIT 1) m ON true`, [v3, v5, v1, vb, v4]);
+
     await q(`INSERT INTO broadcasts(id,account_id,user_id,name,template_name,status,scheduled_at,created_at) VALUES
       ($1,$5,$6,'Old','promo','sent','2026-09-01T07:00:00Z','2026-09-01T06:00:00Z'),
       ($2,$5,$6,'October','promo','sent','2026-10-04T07:00:00Z','2026-10-03T06:00:00Z'),
@@ -122,7 +136,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
   it('counts conversations by source and lifecycle with response and resolution times', async () => {
     const stats = await runAnalytics(ctxA, (tx) => conversationStats(tx, A, range));
     expect(stats).toEqual({
-      started: { total: 4, inbound: 2, business: 1, campaignReply: 1 },
+      started: { total: 4, inbound: 1, business: 1, campaignReply: 0, ad: 2 },
       byLifecycle: { bot: 0, requesting: 1, assigned: 2, resolved: 2 },
       firstResponse: { count: 4, unanswered: 1, medianSeconds: 210, p90Seconds: 510 },
       resolution: { resolved: 2, count: 2, medianSeconds: 5400, p90Seconds: 6840 },
@@ -270,7 +284,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     const b = await runAnalytics(ctxB, async (tx) => ({
       conversations: await conversationStats(tx, B, range), ai: await aiStats(tx, B, range), templates: await templateDaily(tx, B, range),
     }));
-    expect(b.conversations.started).toEqual({ total: 1, inbound: 1, business: 0, campaignReply: 0 });
+    expect(b.conversations.started).toEqual({ total: 1, inbound: 0, business: 0, campaignReply: 0, ad: 1 });
     expect(b.ai).toMatchObject({ aiReplies: 1, unansweredRecorded: 1, handoffs: 0 });
     expect(b.templates.map((r) => [r.day, r.sent])).toEqual([['2026-10-02', 1], ['2026-10-04', 1]]);
     // RLS: inside A's tenant transaction, B's account id finds nothing.

@@ -576,7 +576,10 @@ export type AutomationTriggerType =
   | 'time_based'
   /** Customer tapped a reply button / list row whose id matches; lets
    *  multi-step menus be chained across automations. */
-  | 'interactive_reply';
+  | 'interactive_reply'
+  /** A conversation message carried a click-to-WhatsApp ad referral;
+   *  trigger_config.ad_ids (Meta ad ids) limits it to those ads. */
+  | 'ad_click';
 
 export type AutomationStepType =
   | 'send_message'
@@ -626,12 +629,18 @@ export interface InteractiveReplyTriggerConfig {
   reply_ids: string[];
 }
 
+export interface AdClickAutomationTriggerConfig {
+  /** Meta ad ids (digits, at most 50); empty or absent fires for any ad. */
+  ad_ids?: string[];
+}
+
 export type AutomationTriggerConfig =
   | Record<string, never>
   | KeywordMatchTriggerConfig
   | TagTriggerConfig
   | TimeBasedTriggerConfig
   | InteractiveReplyTriggerConfig
+  | AdClickAutomationTriggerConfig
   | Record<string, unknown>;
 
 export interface SendMessageStepConfig {

@@ -65,7 +65,7 @@ import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 export interface BuilderState {
   name: string;
   description: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   status: FlowRow["status"];
@@ -231,6 +231,8 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
     case "ai_reply":
       // One answer from the knowledge base; both ports are wired by the author.
       return { instructions: "", use_knowledge: true, max_turns: 1, next_node_key: "", handoff_next: "" };
+    case "conversion_event":
+      return { event_name: "LeadSubmitted", next_node_key: "" };
     case "handoff":
       return { note: "" };
     case "end":

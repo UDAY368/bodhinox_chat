@@ -42,6 +42,7 @@ import {
   Store,
   CreditCard,
   Sparkles,
+  Target,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -67,6 +68,7 @@ export type NodeType =
   | 'send_form'
   | 'payment_link'
   | 'ai_reply'
+  | 'conversion_event'
   | 'send_product'
   | 'send_product_list'
   | 'send_catalog'
@@ -127,6 +129,7 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'condition',
   'set_tag',
   'set_attribute',
+  'conversion_event',
   'send_template',
   'api_request',
   'assign_agent',
@@ -218,6 +221,12 @@ export const NODE_META: Record<
     icon: Sparkles,
     color: 'text-violet-400',
     category: 'messaging',
+  },
+  conversion_event: {
+    slugSeed: 'Conversion event',
+    icon: Target,
+    color: 'text-pink-400',
+    category: 'logic',
   },
   send_form: {
     slugSeed: 'Send form',
@@ -339,6 +348,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   send_form: { l: 0.64, c: 0.12, h: 200 }, // teal-blue — a question asked as a form
   payment_link: { l: 0.64, c: 0.14, h: 150 }, // money green — asks for a payment
   ai_reply: { l: 0.62, c: 0.17, h: 305 }, // purple — the AI agent answers
+  conversion_event: { l: 0.65, c: 0.15, h: 0 }, // red-pink — reports an ad conversion, writes data like set_tag
   send_product: { l: 0.66, c: 0.15, h: 125 }, // lime — the shop family
   send_product_list: { l: 0.66, c: 0.15, h: 125 },
   send_catalog: { l: 0.66, c: 0.15, h: 125 },
@@ -550,6 +560,10 @@ export function summarizeNode(
       const varKey = typeof cfg.var_key === 'string' ? cfg.var_key : '';
       const text = instructions ? truncate(instructions, 50) : (t ? t('aiReplyDefault') : 'Answers with the AI agent');
       return varKey ? `${text} → vars.${varKey}` : text;
+    }
+    case 'conversion_event': {
+      const event = typeof cfg.event_name === 'string' && cfg.event_name ? cfg.event_name : 'Purchase';
+      return t ? t('conversionDefault', { event }) : `Reports ${event} to Meta`;
     }
     case 'send_form': {
       const cta = typeof cfg.cta === 'string' ? cfg.cta : '';

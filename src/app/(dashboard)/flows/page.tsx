@@ -53,7 +53,7 @@ interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
   trigger_config: { keywords?: string[] } | Record<string, unknown>;
   execution_count: number;
   last_executed_at: string | null;
@@ -539,5 +539,9 @@ function describeTrigger(flow: FlowRow, t: ReturnType<typeof useTranslations>): 
     return t("triggerFirstInbound");
   }
   if (flow.trigger_type === "order_received") return t("triggerOrderReceived");
+  if (flow.trigger_type === "ad_click") {
+    const ids = Array.isArray(cfg.ad_ids) ? cfg.ad_ids.length : 0;
+    return ids ? t("triggerAdClick", { count: ids }) : t("triggerAdClickAny");
+  }
   return t("triggerManual");
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -16,6 +16,8 @@ import type { AudienceConfig, CsvAudienceRow } from '@/lib/broadcast-audience';
 import type { VariableMapping } from '@/lib/broadcast-create';
 import type { CampaignSendExtras } from '@/lib/whatsapp/template-send-params';
 import { csvValueColumns } from '@/lib/broadcast-csv';
+import { fetchSegments } from '@/lib/audience/client';
+import { presetSegmentAudience } from '@/components/broadcasts/preset-segment';
 import { Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -26,8 +28,19 @@ const steps = [
   { label: 'send', key: 'send' },
 ] as const;
 
+// `useSearchParams` requires a Suspense boundary or the production build
+// bails out of prerendering this page.
 export default function NewBroadcastPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewBroadcastWizard />
+    </Suspense>
+  );
+}
+
+function NewBroadcastWizard() {
   const router = useRouter();
+  const presetSegmentId = useSearchParams().get('segmentId');
   const t = useTranslations('Broadcasts.new');
   const { accountId } = useAuth();
   const { createAndSendBroadcast, isProcessing, progress } = useBroadcastSending();
@@ -40,6 +53,22 @@ export default function NewBroadcastPage() {
   const [trackedUrl, setTrackedUrl] = useState('');
   const [sendExtras, setSendExtras] = useState<CampaignSendExtras>({});
   const [name, setName] = useState('');
+
+  // ?segmentId= (from "Broadcast to these leads") preselects that segment, but
+  // only once the workspace's own segment list confirms it, and only while the
+  // user has not picked another audience yet.
+  useEffect(() => {
+    if (!presetSegmentId) return;
+    let cancelled = false;
+    fetchSegments()
+      .then((segments) => {
+        if (!cancelled) setAudience((current) => presetSegmentAudience(current, presetSegmentId, segments));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [presetSegmentId]);
 
   async function handleSend(scheduledAt?: string, options?: { whatsappConfigId: string | null }) {
     if (!template) return;

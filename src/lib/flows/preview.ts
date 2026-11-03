@@ -37,7 +37,8 @@ export type PreviewNote =
   | "exhausted"
   | "timeout"
   | "fallback"
-  | "ai_reply";
+  | "ai_reply"
+  | "conversion_event";
 
 export interface PreviewMessage {
   id: number;
@@ -398,6 +399,12 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
       case "set_attribute":
       case "assign_agent":
         push({ from: "system", nodeKey, note: node.node_type, detail: str(cfg.key) || undefined });
+        key = str(cfg.next_node_key);
+        continue;
+
+      case "conversion_event":
+        // Simulated: nothing is queued or sent to Meta from the preview.
+        push({ from: "system", nodeKey, note: "conversion_event", detail: str(cfg.event_name) || undefined });
         key = str(cfg.next_node_key);
         continue;
 

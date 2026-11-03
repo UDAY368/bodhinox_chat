@@ -111,7 +111,7 @@ export async function POST(
     const issues = validateFlowForActivation(
       flow as {
         name: string;
-        trigger_type: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply';
+        trigger_type: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply' | 'order_received' | 'ad_click';
         trigger_config: Record<string, unknown>;
         entry_node_id: string | null;
         fallback_policy: unknown;

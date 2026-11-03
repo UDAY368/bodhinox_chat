@@ -27,7 +27,11 @@ export const GENERATED_NODE_LIMIT = 30
 /** Largest model output we try to parse; anything longer is rejected. */
 export const MAX_MODEL_OUTPUT_CHARS = 60_000
 
-/** Node types the generator may emit (`ai_reply` only when the validator knows it). */
+/**
+ * Node types the generator may emit (`ai_reply` only when the validator knows it).
+ * Deliberately excluded: `conversion_event`, which reports ad conversions to
+ * Meta and must be placed by a person, never by a generated draft.
+ */
 export const GENERATOR_NODE_TYPES = [
   'send_message',
   'send_buttons',

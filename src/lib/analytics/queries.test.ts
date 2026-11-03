@@ -52,6 +52,15 @@ describe('analytics SQL shape', () => {
     expect(squash(last().text)).not.toContain('m.conversation_id IN');
   });
 
+  it('counts ad-started conversations from the creating message referral, scoped and without the click id', async () => {
+    await conversationStats(tx, ACCOUNT, range);
+    const sql = squash(last().text);
+    expect(sql).toMatch(/FROM ad_referrals r JOIN messages rm ON rm\.account_id=r\.account_id AND rm\.id=r\.message_id WHERE r\.account_id=\$\d+::uuid AND r\.conversation_id=s\.id AND r\.source_type='ad' AND rm.message_id=s\.inbound_created_meta_id/);
+    expect(sql).toContain("'ad', count(a.id)");
+    // The app role has no grant on ctwa_clid; analytics must never name it.
+    expect(sql).not.toContain('ctwa_clid');
+  });
+
   it('applies number and team filters, and refuses malformed ids', async () => {
     await conversationStats(tx, ACCOUNT, range, { whatsappConfigId: OTHER, teamId: OTHER });
     const sql = squash(last().text);

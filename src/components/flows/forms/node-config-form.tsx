@@ -55,6 +55,7 @@ import { ApiRequestForm, AssignAgentForm, ConnectFlowForm, SendTemplateForm } fr
 import { SendFormStepForm } from "./send-form-step";
 import { PaymentLinkForm } from "./payment-forms";
 import { AiReplyForm } from "./ai-reply-form";
+import { ConversionEventForm } from "./conversion-event-form";
 import { CommerceStepForm } from "./commerce-forms";
 
 interface NodeConfigFormProps {
@@ -167,6 +168,9 @@ function NodeFields({
 
     case "ai_reply":
       return <AiReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
+    case "conversion_event":
+      return <ConversionEventForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "set_attribute":
       return <SetAttributeForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;

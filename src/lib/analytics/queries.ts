@@ -21,8 +21,11 @@
 //   `resolved` but not timed.
 // - Conversation source: inbound (created by a customer message), business
 //   (created by an outbound send), or campaign reply (inbound within 72 hours
-//   after a campaign message to that contact). Ad/referral data is not stored
-//   by the webhook today, so there is no referral source.
+//   after a campaign message to that contact), or ad (the inbound message that
+//   created the conversation carried a click-to-WhatsApp ad referral, stored in
+//   ad_referrals since Phase 10). The buckets are exclusive and add up to the
+//   total: ad wins over campaign reply, which wins over plain inbound. Only
+//   ad_referrals columns the app role may read are used (never ctwa_clid).
 // - Agent attribution: messages.sender_id when stamped. Inbox sends by a
 //   member (text, media, templates, interactive, forms, products, payment
 //   links) stamp sender_id since Phase 9 (src/lib/whatsapp/agent-attribution.ts);
@@ -142,7 +145,7 @@ export interface DurationStats {
 }
 
 export interface ConversationStats {
-  started: { total: number; inbound: number; business: number; campaignReply: number };
+  started: { total: number; inbound: number; business: number; campaignReply: number; ad: number };
   /** Current lifecycle state of conversations with activity in the range. */
   byLifecycle: { bot: number; requesting: number; assigned: number; resolved: number };
   firstResponse: DurationStats & { unanswered: number };
@@ -161,15 +164,22 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
   const rows = await tx.$queryRaw<{ stats: ConversationStats }[]>(Prisma.sql`
     WITH scope AS (
       SELECT c.id, c.contact_id, c.created_at, c.lifecycle_state, c.last_message_at, c.resolved_at,
-        c.reopened_count, c.inbound_created_meta_id IS NOT NULL AS inbound
+        c.reopened_count, c.inbound_created_meta_id IS NOT NULL AS inbound, c.inbound_created_meta_id
       FROM conversations c WHERE c.account_id=${accountId}::uuid ${scopeFilter}
     ), campaign_sends AS MATERIALIZED (
       SELECT contact_id, sent_at FROM broadcast_recipients
       WHERE account_id=${accountId}::uuid AND sent_at >= ${from(range)} - ${REPLY_WINDOW} AND sent_at < ${to(range)}
         AND contact_id IS NOT NULL
     ), started AS (
-      SELECT s.id, s.contact_id, s.created_at, s.inbound FROM scope s
+      SELECT s.id, s.contact_id, s.created_at, s.inbound, s.inbound_created_meta_id FROM scope s
       WHERE s.created_at >= ${from(range)} AND s.created_at < ${to(range)}
+    ), from_ad AS (
+      -- The creating message carried an ad referral (a later re-click in the same conversation does not count).
+      -- ad_referrals.wa_message_id is not granted to the app role, so match through the stored message.
+      SELECT s.id FROM started s
+      WHERE s.inbound AND EXISTS (SELECT 1 FROM ad_referrals r JOIN messages rm ON rm.account_id=r.account_id AND rm.id=r.message_id
+        WHERE r.account_id=${accountId}::uuid AND r.conversation_id=s.id AND r.source_type='ad'
+          AND rm.message_id=s.inbound_created_meta_id)
     ), campaign AS (
       -- A join, not EXISTS in the select list, so it plans as one hash join.
       SELECT DISTINCT s.id FROM started s JOIN campaign_sends cs ON cs.contact_id=s.contact_id
@@ -185,9 +195,11 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
       SELECT DISTINCT ON (conversation_id) wait_at, reply_at FROM responses ORDER BY conversation_id, wait_at
     )
     SELECT json_build_object(
-      'started', (SELECT json_build_object('total', count(*), 'inbound', count(*) FILTER (WHERE inbound AND c.id IS NULL),
-        'business', count(*) FILTER (WHERE NOT inbound), 'campaignReply', count(c.id))
-        FROM started s LEFT JOIN campaign c ON c.id=s.id),
+      'started', (SELECT json_build_object('total', count(*),
+        'inbound', count(*) FILTER (WHERE inbound AND c.id IS NULL AND a.id IS NULL),
+        'business', count(*) FILTER (WHERE NOT inbound), 'campaignReply', count(c.id) FILTER (WHERE a.id IS NULL),
+        'ad', count(a.id))
+        FROM started s LEFT JOIN campaign c ON c.id=s.id LEFT JOIN from_ad a ON a.id=s.id),
       'byLifecycle', (SELECT json_build_object(
         'bot', count(*) FILTER (WHERE lifecycle_state='bot'), 'requesting', count(*) FILTER (WHERE lifecycle_state='requesting'),
         'assigned', count(*) FILTER (WHERE lifecycle_state='assigned'), 'resolved', count(*) FILTER (WHERE lifecycle_state='resolved')) FROM active),

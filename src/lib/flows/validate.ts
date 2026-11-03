@@ -32,6 +32,7 @@ import { commerceNodeIssues, isCommerceNodeType } from "./commerce-nodes";
 import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
 import { PAYMENT_LINK_VARS, paymentLinkEdges, paymentLinkIssues } from "./payment-node";
 import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai-reply-node";
+import { conversionEdges, conversionIssues } from "./conversion-node";
 import { parseDateInput } from "./input-formats";
 import type { ConditionRule, NodeTiming } from "./types";
 
@@ -49,7 +50,7 @@ export interface ValidationIssue {
 
 interface FlowInput {
   name: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   /** When given, a Connect Flow step back to this flow is checked for loops. */
@@ -252,7 +253,7 @@ export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: str
     // A one-turn AI reply answers and moves on without waiting for the customer.
     const autoAiReply = n.node_type === "ai_reply" && aiReplyMaxTurns(n.config) === 1;
     const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
-    if ((timesOut || autoTemplate || autoAiReply || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
+    if ((timesOut || autoTemplate || autoAiReply || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
       autoNodes.set(n.node_key, n);
     }
   }
@@ -322,6 +323,13 @@ function validateTrigger(
     let valid = typeof pattern === "string" && pattern.length > 0 && pattern.length <= 256;
     if (valid) { try { new RegExp(pattern as string, "u"); } catch { valid = false; } }
     if (!valid) at("trigger_config.pattern", "triggerBadPattern");
+  } else if (trigger_type === "ad_click") {
+    // Optional Meta ad ids (empty or absent = any ad); digits only, at most 50.
+    const ids = trigger_config.ad_ids;
+    if (ids !== undefined && (!Array.isArray(ids) || ids.length > 50
+      || ids.some((id) => typeof id !== "string" || !/^\d{1,32}$/.test(id)))) {
+      issues.push({ severity: "error", scope: "trigger", field: "trigger_config.ad_ids", message: t("adClickIds", { max: 50 }) });
+    }
   } else if (trigger_type === "template_reply") {
     if (typeof trigger_config.template_name !== "string" || !trigger_config.template_name.trim()) {
       at("trigger_config.template_name", "triggerNeedsTemplate");
@@ -1076,6 +1084,10 @@ function validateNode(
       // Checked by aiReplyIssues, which also knows whether AI is set up.
       break;
 
+    case "conversion_event":
+      issues.push(...conversionIssues(node, knownKeys));
+      break;
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
@@ -1297,6 +1309,9 @@ function outgoingEdges(node: NodeInput): string[] {
       break;
     case "ai_reply":
       aiReplyEdges(cfg).forEach(add);
+      break;
+    case "conversion_event":
+      conversionEdges(cfg).forEach(add);
       break;
     case "collect_input":
     case "ask_media":

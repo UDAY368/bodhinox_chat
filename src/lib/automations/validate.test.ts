@@ -414,3 +414,17 @@ describe('condition validation', () => {
     ).toEqual(['steps[0].timezone']);
   });
 });
+
+describe('validateTriggerForActivation — ad_click', () => {
+  it('accepts any ad or up to 50 digit-only ad ids', () => {
+    expect(validateTriggerForActivation('ad_click', {})).toEqual([]);
+    expect(validateTriggerForActivation('ad_click', { ad_ids: [] })).toEqual([]);
+    expect(validateTriggerForActivation('ad_click', { ad_ids: ['120211234567890'] })).toEqual([]);
+  });
+
+  it('refuses ids that are not Meta ad ids, or too many of them', () => {
+    for (const ad_ids of [['act_1'], [''], 'x', Array.from({ length: 51 }, (_, i) => String(i + 1))]) {
+      expect(validateTriggerForActivation('ad_click', { ad_ids }).map((i) => i.path)).toEqual(['trigger.ad_ids']);
+    }
+  });
+});

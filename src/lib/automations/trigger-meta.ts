@@ -20,6 +20,9 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
   keyword_match: {
     pillClass: 'border-purple-500/30 bg-purple-500/10 text-purple-300',
   },
+  ad_click: {
+    pillClass: 'border-pink-500/30 bg-pink-500/10 text-pink-300',
+  },
   new_contact_created: {
     pillClass: 'border-primary/30 bg-primary/10 text-primary',
   },

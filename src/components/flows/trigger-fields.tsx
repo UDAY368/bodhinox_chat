@@ -2,7 +2,7 @@
 
 /**
  * Trigger settings for keyword (chips, exact / contains / regex, case,
- * ice breakers), template-reply and order flows. Mounted by the trigger panel.
+ * ice breakers), template-reply, order and ad-click flows. Mounted by the trigger panel.
  */
 
 import { useState } from "react";
@@ -159,6 +159,58 @@ export function OrderReceivedTriggerFields({ t }: { t: T }) {
       <p className="text-xs text-muted-foreground">{t("orderTriggerHelp")}</p>
       <div className="flex flex-wrap gap-1.5" aria-label={t("orderTriggerVariables")}>
         {ORDER_TRIGGER_VARIABLES.map((v) => <code key={v} className={chip}>{`{{vars.${v}}}`}</code>)}
+      </div>
+    </div>
+  );
+}
+
+/** The variables an ad_click flow starts with (set by the engine; never the click id). */
+export const AD_CLICK_TRIGGER_VARIABLES = ["ad_id", "ad_headline", "ad_source_url"] as const;
+const AD_CLICK_MAX_IDS = 50;
+
+/** Optional Meta ad ids as chips (empty = any ad), plus the variables the run gets. */
+export function AdClickTriggerFields({ config, onChange, t }: { config: Config; onChange: (c: Config) => void; t: T }) {
+  const ids = Array.isArray(config.ad_ids) ? (config.ad_ids as string[]) : [];
+  const [draft, setDraft] = useState("");
+  const set = (next: string[]) => {
+    const { ad_ids: _drop, ...rest } = config;
+    void _drop;
+    onChange(next.length ? { ...rest, ad_ids: next } : rest);
+  };
+  const add = (text = draft) => {
+    const fresh = [...new Set(text.split(/[\s,]+/).map((k) => k.trim()))].filter((k) => /^\d{1,32}$/.test(k) && !ids.includes(k));
+    if (fresh.length) set([...ids, ...fresh].slice(0, AD_CLICK_MAX_IDS));
+    setDraft("");
+  };
+  return (
+    <div className="space-y-2 md:col-span-2">
+      <p className="text-xs text-muted-foreground">{t("adClickTriggerHelp")}</p>
+      <div>
+        <label htmlFor="trigger-ad-ids" className={label}>{t("adClickIdsLabel")}</label>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-muted p-1.5">
+          {ids.map((id) => (
+            <span key={id} className={chip}>
+              <span className="font-mono">{id}</span>
+              <button type="button" aria-label={t("removeKeyword", { keyword: id })} onClick={() => set(ids.filter((x) => x !== id))}>
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+          <input
+            id="trigger-ad-ids"
+            value={draft}
+            inputMode="numeric"
+            onChange={(e) => (/[\s,]$/.test(e.target.value) ? add(e.target.value) : setDraft(e.target.value))}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+            onBlur={() => add()}
+            placeholder={ids.length ? "" : t("adClickIdsPlaceholder")}
+            className="min-w-24 flex-1 bg-transparent px-1 font-mono text-sm outline-none"
+          />
+        </div>
+        <p className="mt-1 text-[10px] text-muted-foreground">{t("adClickIdsHelp", { max: AD_CLICK_MAX_IDS })}</p>
+      </div>
+      <div className="flex flex-wrap gap-1.5" aria-label={t("adClickVariables")}>
+        {AD_CLICK_TRIGGER_VARIABLES.map((v) => <code key={v} className={chip}>{`{{vars.${v}}}`}</code>)}
       </div>
     </div>
   );

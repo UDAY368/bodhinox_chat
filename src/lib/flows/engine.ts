@@ -5,13 +5,15 @@ import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
-import { byPrecedence, isTestContact, keywordTriggerMatches, orderReceivedMatch, phoneDigits, templateReplyMatch } from './triggers';
+import { adClickMatch, byPrecedence, isTestContact, keywordTriggerMatches, orderReceivedMatch, phoneDigits, templateReplyMatch } from './triggers';
+import { conversionValue, isConversionEventName } from './conversion-node';
+import { queueConversionEvent } from '@/lib/meta-ads/capi';
 import { runApiRequest } from './api-request';
 import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
 import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
-import { parseMoney } from '@/lib/commerce/money';
+import { isCurrencyCode, parseMoney } from '@/lib/commerce/money';
 import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPaymentReference, paymentLinkMessageText, PaymentLinkError } from '@/lib/payments/links';
 import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
 import { AI_REPLY_LIMITS, aiReplyMaxTurns } from './ai-reply-node';
@@ -98,6 +100,7 @@ import {
   type StartNodeConfig,
   type KeywordTriggerConfig,
   type TemplateReplyTriggerConfig,
+  type AdClickTriggerConfig,
 } from "./types";
 
 // ============================================================
@@ -195,7 +198,8 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "set_tag" ||
     node_type === "set_attribute" ||
     node_type === "api_request" ||
-    node_type === "assign_agent"
+    node_type === "assign_agent" ||
+    node_type === "conversion_event"
   );
 }
 
@@ -407,7 +411,9 @@ async function logEvent(
     | "payment_received"
     | "payment_expired"
     | "ai_replied"
-    | "ai_handoff",
+    | "ai_handoff"
+    | "conversion_queued"
+    | "ad_click",
   node_key: string | null,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
@@ -518,6 +524,11 @@ async function findEntryFlow(
   for (const flow of typed) {
     if (flow.trigger_type === "order_received") {
       const vars = orderReceivedMatch(message);
+      if (vars) return { flow, vars };
+    } else if (flow.trigger_type === "ad_click") {
+      // Only a click-to-WhatsApp ad (not a boosted post); an active run
+      // already took the message before this point (no preemption).
+      const vars = adClickMatch(message, flow.trigger_config as AdClickTriggerConfig);
       if (vars) return { flow, vars };
     } else if (flow.trigger_type === "template_reply") {
       const vars = templateReplyMatch(message, flow.trigger_config as TemplateReplyTriggerConfig);
@@ -1493,6 +1504,35 @@ export async function handleFlowTimer(payload: {
   return "fired";
 }
 
+/**
+ * A conversion_event step: queues the event in its own worker transaction
+ * (this executor holds no transaction). The id is `flow:<run>:<node>:<event>`,
+ * so a loop revisit or a re-run after a crash is a no-op. A value is sent only
+ * with a currency. Purchase is never reported from a flow: its run-keyed id
+ * would not dedupe with the order-keyed one from payment links and orders. Never throws: a failure must not strand the customer, and
+ * only the error's name is kept (no customer content).
+ */
+async function runConversionEvent(run: FlowRunRow, node: FlowNodeRow): Promise<{ queued: boolean; error?: string }> {
+  const cfg = node.config;
+  // Purchase is rejected here too (payments and orders report it, keyed by the order).
+  if (!isConversionEventName(cfg.event_name)) return { queued: false, error: "invalid_event" };
+  if (!run.contact_id) return { queued: false };
+  const value = conversionValue(run.vars, cfg.value_var);
+  const currency = isCurrencyCode(cfg.currency) ? cfg.currency : undefined;
+  try {
+    const queued = await queueConversionEvent(run.account_id, {
+      eventName: cfg.event_name,
+      source: "flow",
+      sourceId: `${run.id}:${node.node_key}`,
+      contactId: run.contact_id,
+      ...(value !== undefined && currency ? { value, currency } : {}),
+    });
+    return { queued };
+  } catch (err) {
+    return { queued: false, error: err instanceof Error ? err.name : "error" };
+  }
+}
+
 // ============================================================
 // The synchronous advance loop. Walks through auto-advance nodes
 // until it hits one that suspends (send_buttons/send_list) or
@@ -1767,6 +1807,19 @@ async function advanceFromNodeKey(
     }
     if (node.node_type === "api_request") {
       currentKey = await executeApiRequest(db, run, node);
+      continue;
+    }
+    if (node.node_type === "conversion_event") {
+      // Queued for the worker, never sent inline; a no-op while CAPI is off.
+      const result = await runConversionEvent(run, node);
+      if (result.queued) {
+        await logEvent(db, run.id, "conversion_queued", node.node_key, { event_name: node.config.event_name });
+      } else if (result.error) {
+        await logEvent(db, run.id, "error", node.node_key, result.error === "invalid_event"
+          ? { reason: "conversion_invalid_event" }
+          : { reason: "conversion_queue_failed", detail: result.error });
+      }
+      currentKey = typeof node.config.next_node_key === "string" ? node.config.next_node_key : null;
       continue;
     }
     if (node.node_type === "assign_agent") {
@@ -2579,6 +2632,10 @@ async function startNewRun(
     trigger_type: flow.trigger_type,
     meta_message_id: input.message.meta_message_id,
   });
+  if (flow.trigger_type === "ad_click" && input.message.referral?.source_type === "ad") {
+    // The ad id only: never the click id, and no customer content.
+    await logEvent(db, run.id, "ad_click", flow.entry_node_id, { ad_id: input.message.referral.source_id });
+  }
   // Bump the flow's execution counter — used by the builder UI to
   // surface "X runs since activation" on the flow card.
   //

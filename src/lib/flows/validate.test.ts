@@ -102,6 +102,18 @@ describe("validateFlowForActivation — flow-level", () => {
 });
 
 describe("validateFlowForActivation — trigger", () => {
+  it("accepts an ad-click trigger for any ad or listed ad ids, and refuses bad ids", () => {
+    const adIssues = (trigger_config: Record<string, unknown>) =>
+      validateFlowForActivation({ ...validFlow, trigger_type: "ad_click", trigger_config }, validNodes)
+        .filter((i) => i.field === "trigger_config.ad_ids");
+    expect(adIssues({})).toEqual([]);
+    expect(adIssues({ ad_ids: [] })).toEqual([]);
+    expect(adIssues({ ad_ids: ["1234567890"] })).toEqual([]);
+    expect(adIssues({ ad_ids: ["act_123"] })).toHaveLength(1);
+    expect(adIssues({ ad_ids: "1234567890" })).toHaveLength(1);
+    expect(adIssues({ ad_ids: Array.from({ length: 51 }, (_, i) => String(i + 1)) })).toHaveLength(1);
+  });
+
   it("flags keyword trigger with no keywords", () => {
     const issues = validateFlowForActivation(
       {
@@ -620,5 +632,51 @@ describe("auto-advancing cycles", () => {
 
   it("finds no cycle in the well-formed flow", () => {
     expect(findAutoAdvancingCycles(validNodes)).toEqual([]);
+  });
+});
+
+describe("validateFlowForActivation — conversion_event", () => {
+  const withConversion = (config: Record<string, unknown>) => [
+    { node_key: "start", node_type: "start", config: { next_node_key: "conv" } },
+    { node_key: "conv", node_type: "conversion_event", config },
+    { node_key: "ho", node_type: "handoff", config: {} },
+  ];
+  const nodeIssues = (config: Record<string, unknown>) =>
+    validateFlowForActivation(validFlow, withConversion(config)).filter((i) => i.node_key === "conv");
+
+  it("accepts a conversion event that continues to a known step", () => {
+    expect(nodeIssues({ event_name: "LeadSubmitted", next_node_key: "ho" })).toEqual([]);
+    expect(nodeIssues({ event_name: "QualifiedLead", value_var: "order_total", currency: "INR", next_node_key: "ho" })).toEqual([]);
+  });
+
+  it("flags an unknown event, a bad variable or currency, and a missing or dangling next step", () => {
+    const fields = (config: Record<string, unknown>) => nodeIssues(config).map((i) => i.field);
+    expect(fields({ event_name: "Refund", next_node_key: "ho" })).toEqual(["event_name"]);
+    expect(fields({ event_name: "AddToCart", value_var: "order total", currency: "INR", next_node_key: "ho" })).toEqual(["value_var"]);
+    expect(fields({ event_name: "AddToCart", value_var: "total", currency: "inr", next_node_key: "ho" })).toEqual(["currency"]);
+    expect(fields({ event_name: "AddToCart" })).toEqual(["next_node_key"]);
+    expect(fields({ event_name: "AddToCart", next_node_key: "gone" })).toEqual(["next_node_key"]);
+  });
+
+  it("rejects Purchase, which payment links and orders report under the order's event id", () => {
+    const issues = nodeIssues({ event_name: "Purchase", value_var: "total", currency: "INR", next_node_key: "ho" });
+    expect(issues.map((i) => [i.field, i.severity])).toEqual([["event_name", "error"]]);
+    expect(issues[0].message).not.toBe(nodeIssues({ event_name: "Refund", next_node_key: "ho" })[0].message);
+  });
+
+  it("requires the value variable and currency together, since a value is never sent without its currency", () => {
+    const fields = (config: Record<string, unknown>) => nodeIssues(config).map((i) => i.field);
+    expect(fields({ event_name: "InitiateCheckout", value_var: "total", next_node_key: "ho" })).toEqual(["currency"]);
+    expect(fields({ event_name: "InitiateCheckout", currency: "INR", next_node_key: "ho" })).toEqual(["value_var"]);
+    expect(fields({ event_name: "InitiateCheckout", value_var: "", currency: "", next_node_key: "ho" })).toEqual([]);
+  });
+
+  it("treats the step as auto-advancing when looking for loops", () => {
+    const nodes = [
+      { node_key: "start", node_type: "start", config: { next_node_key: "conv" } },
+      { node_key: "conv", node_type: "conversion_event", config: { event_name: "LeadSubmitted", next_node_key: "msg" } },
+      { node_key: "msg", node_type: "send_message", config: { text: "hi", next_node_key: "conv" } },
+    ];
+    expect(findAutoAdvancingCycles(nodes)).toHaveLength(1);
   });
 });

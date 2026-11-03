@@ -14,6 +14,7 @@ const protectedPaths = [
   '/contacts',
   '/pipelines',
   '/broadcasts',
+  '/ads',
   '/automations',
   '/flows',
   '/forms',

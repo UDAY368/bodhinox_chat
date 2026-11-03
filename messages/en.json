@@ -78,7 +78,8 @@
     "orders": "Orders",
     "products": "Products",
     "payments": "Payments",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "ads": "Ads"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -103,7 +104,8 @@
     "analytics": "Analytics",
     "orders": "Orders",
     "products": "Products",
-    "payments": "Payments"
+    "payments": "Payments",
+    "ads": "Ads"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -642,6 +644,12 @@
       "addShort": "Add to favourites",
       "removeShort": "Remove from favourites",
       "failed": "Could not update favourites"
+    },
+    "adReferral": {
+      "startedFromAd": "Started from ad: {headline}",
+      "startedFromAdNoHeadline": "Started from an ad",
+      "startedFromPost": "Started from a Facebook or Instagram post",
+      "viewAd": "View ad"
     }
   },
   "Contacts": {
@@ -945,7 +953,9 @@
         "opted_out": "Opted out of marketing",
         "blocked": "Blocked",
         "list": "List",
-        "campaign": "Campaign"
+        "campaign": "Campaign",
+        "ad": "Clicked an ad",
+        "lead_form": "Lead form"
       },
       "ops": {
         "has_any": "has any of",
@@ -958,7 +968,11 @@
         "before": "before",
         "after": "after",
         "in_any": "is in any of",
-        "in_none": "is in none of"
+        "in_none": "is in none of",
+        "clicked_any": "started a chat from",
+        "clicked_none": "never started a chat from",
+        "submitted_any": "submitted",
+        "submitted_none": "never submitted"
       },
       "noLists": "No lists yet",
       "campaignLabel": "Campaign",
@@ -972,7 +986,13 @@
         "not_read": "received it but did not read it",
         "not_received": "did not receive it"
       },
-      "olderCampaign": "(an older campaign)"
+      "olderCampaign": "(an older campaign)",
+      "adIdsLabel": "Ad IDs",
+      "adIdsPlaceholder": "Any ad, or ad IDs separated by commas",
+      "anyAd": "any ad",
+      "formIdsLabel": "Lead forms",
+      "anyForm": "any lead form",
+      "formIdsPlaceholder": "Any form, or form IDs separated by commas"
     }
   },
   "Pipelines": {
@@ -1537,6 +1557,10 @@
         "time_based": {
           "label": "Time-Based",
           "hint": "On a recurring schedule"
+        },
+        "ad_click": {
+          "label": "Message from an Ad",
+          "hint": "Customer messages you from a click-to-WhatsApp ad"
         }
       },
       "trigger": "Trigger",
@@ -1669,7 +1693,10 @@
         },
         "when": "when {subject}",
         "noUrl": "no url"
-      }
+      },
+      "adIds": "Ad IDs",
+      "adIdsHint": "Comma-separated Meta ad IDs",
+      "adIdsHelp": "Leave empty to run for any ad."
     }
   },
   "Flows": {
@@ -1738,7 +1765,9 @@
       "duplicateSuccess": "Created \"{name}\".",
       "duplicateError": "Couldn't duplicate flow.",
       "creatorTeammate": "a teammate",
-      "triggerOrderReceived": "Triggers on: a WhatsApp cart"
+      "triggerOrderReceived": "Triggers on: a WhatsApp cart",
+      "triggerAdClick": "Triggers on: a click on {count, plural, one {# chosen ad} other {# chosen ads}}",
+      "triggerAdClickAny": "Triggers on: a click on any ad"
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -2028,7 +2057,16 @@
         "aiReplyAnsweredNext": "When answered, go to",
         "aiReplyHandoffNext": "When it hands off, go to",
         "aiReplyHandoffHelp": "The step hands off when the AI is not confident, cannot answer, the customer asks for a person, or AI is unavailable. Unanswered questions appear in the AI agent’s list.",
-        "aiReplyWindowHelp": "Replies are sent from this conversation’s number, only within 24 hours of the customer’s last message, and count towards your plan’s AI messages."
+        "aiReplyWindowHelp": "Replies are sent from this conversation’s number, only within 24 hours of the customer’s last message, and count towards your plan’s AI messages.",
+        "conversionEventName": "Event",
+        "conversionValueVar": "Value from variable (optional)",
+        "conversionValueVarHelp": "A number such as 499.00, sent with the currency. Set both or neither. If the variable is empty or not a number when the step runs, the event is sent without a value.",
+        "conversionCurrency": "Currency (optional)",
+        "conversionCurrencyPlaceholder": "e.g. INR",
+        "conversionHelp": "Sent once per flow run, only when the customer started from an ad within 7 days. The flow always continues.",
+        "conversionNotEnabled": "The Conversions API is not enabled, so this step sends nothing and moves on.",
+        "conversionNext": "Then go to",
+        "conversionPurchaseNote": "Purchases are reported automatically when a payment link or order is paid, so they are not listed here."
       },
       "categories": {
         "messaging": "Messaging",
@@ -2131,6 +2169,10 @@
         "ai_reply": {
           "label": "AI reply",
           "blurb": "Answers the customer with your AI agent and its knowledge base"
+        },
+        "conversion_event": {
+          "label": "Conversion event",
+          "blurb": "Reports a conversion to Meta for a customer who came from an ad"
         }
       },
       "ports": {
@@ -2203,7 +2245,8 @@
           "exhausted": "Attempts used up",
           "timeout": "No reply within {minutes, plural, one {# minute} other {# minutes}}",
           "fallback": "Reply not accepted; the flow's fallback policy takes over",
-          "ai_reply": "The AI agent answers (simulated; nothing is generated)"
+          "ai_reply": "The AI agent answers (simulated; nothing is generated)",
+          "conversion_event": "A conversion is reported to Meta (simulated; nothing is sent)"
         },
         "simulate": {
           "shareMedia": "Simulate: customer sends media",
@@ -2221,7 +2264,13 @@
       "studioLockedHint": "Canvas is locked. Unlock it to edit this step.",
       "triggerOrderReceivedTitle": "A customer sends a cart from the catalogue",
       "orderTriggerHelp": "Starts when a customer sends a WhatsApp cart, before any keyword flow. The flow can use these variables:",
-      "orderTriggerVariables": "Order variables"
+      "orderTriggerVariables": "Order variables",
+      "triggerAdClickTitle": "A customer messages you from an ad",
+      "adClickTriggerHelp": "Starts when a message arrives from a click-to-WhatsApp ad, before any keyword flow. An active conversation flow keeps running.",
+      "adClickIdsLabel": "Ad IDs (optional)",
+      "adClickIdsPlaceholder": "e.g. 120211234567890",
+      "adClickIdsHelp": "Leave empty to start for any ad. Up to {max} IDs, digits only.",
+      "adClickVariables": "Ad variables"
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -2269,7 +2318,8 @@
       "productNone": "No product picked",
       "products": "{count, plural, one {# product} other {# products}}",
       "paymentNone": "No amount set",
-      "aiReplyDefault": "Answers with the AI agent"
+      "aiReplyDefault": "Answers with the AI agent",
+      "conversionDefault": "Reports {event} to Meta"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -2791,7 +2841,8 @@
       "plan": "Plan & usage",
       "payments": "Payments",
       "notifications": "Notifications",
-      "media": "Media library"
+      "media": "Media library",
+      "ads": "Ads"
     },
     "groups": {
       "account": "Account",
@@ -3590,6 +3641,67 @@
       "saved": "Saved. Items that do not fit were archived.",
       "savedPending": "Saved. It applies when the new plan starts.",
       "saveFailed": "Could not save your choice"
+    },
+    "metaAds": {
+      "title": "Meta ads",
+      "description": "Connect a Meta ad account and Facebook Page to see ad results, receive lead ads and report conversions.",
+      "notConfigured": "Meta ads are not enabled on this deployment yet.",
+      "loadFailed": "Could not load the Meta ads connection.",
+      "connect": "Connect with Facebook",
+      "connecting": "Connecting...",
+      "statusPending": "Choose an ad account and Page to finish",
+      "statusActive": "Connected",
+      "statusTokenInvalid": "Access expired. Disconnect and connect again.",
+      "adAccount": "Ad account",
+      "page": "Facebook Page",
+      "chooseAdAccount": "Choose an ad account",
+      "choosePage": "Choose a Page",
+      "finish": "Finish connecting",
+      "missingScopes": "{feature} needs these permissions: {scopes}",
+      "features": {
+        "insights": "Ad results",
+        "leads": "Lead ads",
+        "capi": "Conversions API"
+      },
+      "capi": {
+        "title": "Conversions API",
+        "help": "Report purchases and leads from click-to-WhatsApp ad conversations to Meta, so it can optimise your ads.",
+        "enable": "Send conversion events",
+        "number": "WhatsApp number",
+        "chooseNumber": "Choose the number your ads open",
+        "numberHelp": "Events are sent only for ad clicks on this number's WhatsApp Business account.",
+        "autoPurchase": "Report purchases automatically",
+        "autoLead": "Report WhatsApp form submissions as leads",
+        "dataset": "Dataset {id}",
+        "saved": "Conversions API settings saved",
+        "saveNumber": "Save number"
+      },
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect Meta ads? Lead ads stop arriving and no more conversions are sent. Stored results and leads are kept.",
+      "disconnected": "Meta ads disconnected",
+      "errors": {
+        "meta_ads_not_enabled": "Meta ads are not enabled.",
+        "not_connected": "No Meta ads connection.",
+        "already_connected": "Meta ads are already connected. Disconnect first.",
+        "page_in_use": "This Page is connected to another workspace.",
+        "token_invalid": "Meta access expired. Connect again.",
+        "invalid_choice": "Choose an ad account and Page from the list.",
+        "revoke_failed": "Meta could not be reached to disconnect the Page. Try again.",
+        "meta_error": "Meta returned an error. Try again.",
+        "rate_limited": "Too many attempts. Wait a moment and try again.",
+        "generic": "Something went wrong. Try again.",
+        "missing_scope": "Meta did not grant the permission this feature needs. Connect again and allow it.",
+        "invalid_number": "Choose a connected WhatsApp number of this workspace.",
+        "invalid_request": "Invalid request.",
+        "forbidden": "Only administrators can change Meta ads."
+      },
+      "retry": "Retry",
+      "statusNotConnected": "Not connected",
+      "adminOnly": "Only administrators can connect Meta ads.",
+      "sdkFailed": "Could not load Facebook login. Allow pop-ups and facebook.com, then try again.",
+      "loginCancelled": "Facebook login was cancelled.",
+      "leadsNotSubscribed": "Lead ads are not subscribed for this Page yet. Disconnect and connect again to retry.",
+      "lastError": "Last Meta error code: {code}"
     }
   },
   "SignupPage": {
@@ -4515,7 +4627,15 @@
       "aiReplyInvalidMaxTurns": "Answers in this step must be a whole number from 1 to {max}.",
       "aiReplyInvalidThreshold": "The confidence threshold must be a number from 0 to 1.",
       "aiReplyNeedsHandoffNext": "Choose the step that runs when the AI hands off.",
-      "aiReplyNotConfigured": "AI is not set up or is switched off, so this step will always hand off. Set it up in Settings › AI."
+      "aiReplyNotConfigured": "AI is not set up or is switched off, so this step will always hand off. Set it up in Settings › AI.",
+      "adClickIds": "Ad IDs must be digits only, up to {max} of them.",
+      "conversionInvalidEvent": "Choose a conversion event.",
+      "conversionInvalidValueVar": "The value variable must be a valid variable name.",
+      "conversionInvalidCurrency": "The currency must be a three-letter code such as INR.",
+      "conversionNeedsNext": "Choose the step that runs after the conversion event.",
+      "conversionMissingNext": "The step after the conversion event no longer exists.",
+      "conversionPurchaseAutomatic": "Purchases are reported automatically when a payment link or order is paid. Choose another event.",
+      "conversionValueNeedsBoth": "Set both the value variable and the currency, or neither."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -4549,7 +4669,8 @@
       "templateLimitedTimeOffer": "Automations can't send limited-time offer templates: the step only fills body values, not the offer details. Use a flow or a campaign instead.",
       "templateLocationHeader": "Automations can't send templates with a location header: the step only fills body values, not a location. Use a flow or a campaign instead.",
       "templateHeaderVariable": "Automations can't send templates with a variable in the header: the step only fills body values.",
-      "templateUrlVariable": "Automations can't send templates with a variable in a URL button: the step only fills body values."
+      "templateUrlVariable": "Automations can't send templates with a variable in a URL button: the step only fills body values.",
+      "adIdsInvalid": "Ad IDs must be digits only, up to {max} of them"
     },
     "templates": {
       "nameRequired": "Template name is required.",
@@ -5256,6 +5377,24 @@
       "invalidOutput": "The AI could not produce a usable suggestion. Try rephrasing your goal.",
       "loadFailed": "Could not load your templates. Try again.",
       "noApprovedTemplates": "You need at least one approved template before the assistant can plan a campaign."
+    },
+    "metaAds": {
+      "notEnabled": "Meta ads are not enabled",
+      "notConnected": "No Meta ads connection",
+      "alreadyConnected": "Meta ads are already connected",
+      "pageInUse": "This Page is connected to another workspace",
+      "tokenInvalid": "Meta access expired; connect again",
+      "rateLimited": "Too many requests",
+      "revokeFailed": "Meta could not be reached to disconnect the Page",
+      "invalidResolution": "This event's outcome cannot be recorded",
+      "invalidChoice": "Choose an ad account and Page from the list",
+      "invalidRequest": "Invalid request",
+      "metaError": "Meta returned an error",
+      "notFound": "Not found",
+      "forbidden": "Only administrators can change Meta ads",
+      "invalidNumber": "Choose a connected WhatsApp number of this workspace",
+      "missingScope": "Meta did not grant the permission this feature needs",
+      "exportTooLarge": "Too many leads to export at once; narrow the filter"
     }
   },
   "PageSearch": {
@@ -7076,7 +7215,8 @@
       "source": {
         "inbound": "Customer started",
         "business": "Business started",
-        "campaignReply": "Campaign reply"
+        "campaignReply": "Campaign reply",
+        "ad": "Started from an ad"
       },
       "minutes": "Minutes",
       "minutesValue": "{value} min",
@@ -7086,13 +7226,14 @@
       "byStateDescription": "Current state of conversations active in the period.",
       "stateColumn": "State",
       "bySourceTitle": "Conversations by source",
-      "bySourceDescription": "Who started each new conversation. A campaign reply is a customer message within 72 hours of a campaign.",
+      "bySourceDescription": "Who started each new conversation. A campaign reply is a customer message within 72 hours of a campaign; an ad start is a conversation whose first message came from a click-to-WhatsApp ad.",
       "sourceColumn": "Source",
       "timingTitle": "Response and resolution time",
       "timingDescription": "First response counts the first customer wait per conversation. Resolution time covers conversations resolved without being reopened.",
       "metricColumn": "Measure",
       "samples": "Conversations measured",
-      "unanswered": "{count, plural, =1 {# conversation is} other {# conversations are}} still waiting for a first reply."
+      "unanswered": "{count, plural, =1 {# conversation is} other {# conversations are}} still waiting for a first reply.",
+      "startedFromAds": "Started from ads"
     },
     "agents": {
       "title": "Team leaderboard",
@@ -7263,5 +7404,131 @@
       "ofSent": "{count} messages",
       "period": "Period"
     }
+  },
+  "Ads": {
+    "title": "Ads",
+    "description": "Click-to-WhatsApp ads, lead ads and conversions reported to Meta.",
+    "createInAdsManager": "Create a click-to-WhatsApp ad in Ads Manager",
+    "retarget": "Retarget",
+    "broadcastLeads": "Broadcast to these leads",
+    "exportCsv": "Export CSV",
+    "loadFailed": "Could not load ads data.",
+    "retry": "Retry",
+    "notEnabled": {
+      "title": "Ads are not enabled",
+      "flagOff": "Meta has not yet approved this app for ads. An administrator turns ads on once the approval is in place.",
+      "notConfigured": "Ads are switched on but not fully configured. An administrator must add the Meta app and Login for Business settings.",
+      "adClicks": "{count, plural, =0 {No conversations started from ads in the last 30 days.} one {# conversation started from an ad in the last 30 days.} other {# conversations started from ads in the last 30 days.}}"
+    },
+    "tabs": {
+      "ads": "Ads",
+      "leads": "Leads",
+      "conversions": "Conversions"
+    },
+    "table": {
+      "level": "Show",
+      "levelCampaign": "Campaigns",
+      "levelAd": "Ads",
+      "campaign": "Campaign",
+      "ad": "Ad",
+      "status": "Status",
+      "spend": "Spend",
+      "impressions": "Impressions",
+      "clicks": "Clicks",
+      "conversationsStarted": "Conversations started (Meta)",
+      "conversationsInBodhinox": "Conversations in Bodhinox",
+      "purchases": "Purchases",
+      "empty": "No ad results for this period yet.",
+      "syncedAt": "Last synced {time}",
+      "neverSynced": "Not synced yet",
+      "sync": "Sync now",
+      "syncQueued": "Sync queued. Results update in a few minutes.",
+      "from": "From",
+      "to": "To",
+      "syncFailed": "Could not queue a sync. Try again.",
+      "retargetSaved": "Segment saved. Choose it as the audience of a broadcast."
+    },
+    "leads": {
+      "empty": "No leads yet.",
+      "form": "Form",
+      "allForms": "All forms",
+      "ad": "Ad",
+      "allAds": "All ads",
+      "from": "From",
+      "to": "To",
+      "receivedAt": "Received",
+      "contact": "Contact",
+      "noContact": "No matching contact",
+      "answers": "Answers",
+      "status": {
+        "pending": "Fetching",
+        "fetched": "Received",
+        "failed": "Could not fetch"
+      },
+      "loadMore": "Load more",
+      "deleteLead": "Delete lead",
+      "deleteConfirm": "Delete this lead and its answers? This cannot be undone.",
+      "deleted": "Lead deleted",
+      "notOptedIn": "Leads are not opted in to WhatsApp automatically. Broadcasts to them use templates and respect opt-outs.",
+      "segmentName": "Leads: {form}",
+      "segmentCreated": "Segment created for these leads",
+      "segmentFailed": "Could not create a segment for these leads."
+    },
+    "conversions": {
+      "empty": "No conversion events yet.",
+      "event": "Event",
+      "source": "Source",
+      "value": "Value",
+      "createdAt": "Queued",
+      "filterAll": "All statuses",
+      "status": {
+        "queued": "Queued",
+        "sent": "Sent",
+        "failed": "Rejected by Meta",
+        "unknown": "Outcome unknown",
+        "skipped": "Skipped"
+      },
+      "skipReasons": {
+        "disabled": "Conversions API is off",
+        "no_connection": "No Meta connection",
+        "missing_scope": "Permission not granted",
+        "no_dataset": "No dataset",
+        "wrong_waba": "Ad click on another WhatsApp account"
+      },
+      "sources": {
+        "payment_link": "Payment link",
+        "order": "Order",
+        "form": "Form",
+        "flow": "Flow"
+      },
+      "reviewTitle": "Outcome unknown",
+      "reviewHelp": "Meta did not confirm these events, so they are never re-sent automatically. Check Events Manager, then record what happened.",
+      "resolve": {
+        "sent": "It reached Meta",
+        "notSent": "It did not reach Meta",
+        "confirmedSent": "Confirmed sent",
+        "confirmedNotSent": "Confirmed not sent",
+        "done": "Outcome recorded",
+        "failed": "Could not record the outcome."
+      },
+      "adminOnly": "Only admins and owners can see conversion events.",
+      "filterLabel": "Status",
+      "statusLabel": "Status",
+      "contact": "Contact",
+      "unknownContact": "Unknown contact",
+      "errorCode": "Meta error {code}",
+      "events": {
+        "Purchase": "Purchase",
+        "LeadSubmitted": "Lead submitted",
+        "QualifiedLead": "Qualified lead",
+        "InitiateCheckout": "Checkout started",
+        "AddToCart": "Added to cart",
+        "ViewContent": "Viewed content",
+        "OrderCreated": "Order created"
+      }
+    },
+    "notConnected": "No Meta ad account is connected yet. An administrator connects one in Settings > Ads.",
+    "tokenInvalid": "Meta access expired, so results are no longer updated. An administrator must reconnect in Settings > Ads.",
+    "openSettings": "Open Settings > Ads"
   }
 }

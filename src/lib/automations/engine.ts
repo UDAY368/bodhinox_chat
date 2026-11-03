@@ -8,6 +8,7 @@ import type {
   ConditionStepConfig,
   KeywordMatchTriggerConfig,
   InteractiveReplyTriggerConfig,
+  AdClickAutomationTriggerConfig,
   TagTriggerConfig,
   SendMessageStepConfig,
   SendButtonsStepConfig,
@@ -54,6 +55,8 @@ export interface AutomationContext {
   agent_id?: string
   /** Button / list-row id the customer tapped, for interactive_reply. */
   interactive_reply_id?: string
+  /** Meta ad id of a click-to-WhatsApp referral, for ad_click (never the click id). */
+  ad_id?: string
 }
 
 export interface DispatchInput {
@@ -1144,6 +1147,15 @@ export function triggerMatches(automation: Automation, ctx: AutomationContext | 
       return false
     }
     return cfg.reply_ids.includes(replyId)
+  }
+
+  // A click-to-WhatsApp ad: the listed ad ids, or any ad when none are listed.
+  if (automation.trigger_type === 'ad_click') {
+    // '' is an ad click whose ad id Meta did not send (or failed validation): it matches "any ad" only.
+    const adId = ctx?.ad_id
+    if (typeof adId !== 'string') return false
+    const ids = (automation.trigger_config as AdClickAutomationTriggerConfig | null)?.ad_ids
+    return !Array.isArray(ids) || ids.length === 0 || (adId !== '' && ids.includes(adId))
   }
 
   if (automation.trigger_type === 'tag_added') {

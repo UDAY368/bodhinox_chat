@@ -96,7 +96,7 @@ export async function GET(
 interface PutBody {
   name?: string;
   description?: string | null;
-  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply';
+  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply' | 'order_received' | 'ad_click';
   trigger_config?: Record<string, unknown>;
   entry_node_id?: string | null;
   fallback_policy?: Record<string, unknown>;

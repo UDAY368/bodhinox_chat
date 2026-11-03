@@ -8,6 +8,8 @@ import { orderContentText, type InboundOrder, type OrderMessagePayload } from "@
 import { recordWhatsAppOrder, withProductNames } from "@/lib/commerce/orders";
 import { emitOrderCreated } from "@/lib/webhooks/commerce-events";
 import { notifyAssignedMessage } from "@/lib/notifications/emit";
+import { recordReferralTx, toAdReferralSummary, type AdReferral, type AdReferralSummary } from "@/lib/meta-ads/referrals";
+import { queueConversionEventTx } from "@/lib/meta-ads/capi";
 
 export interface IngestInboundInput {
   accountId: string; userId: string; contactId: string; conversationId: string;
@@ -25,6 +27,8 @@ export interface IngestInboundInput {
   wasContactCreated: boolean; wasConversationCreated: boolean;
   /** The number (whatsapp_config.id) the message arrived on; replies go out from it. */
   whatsappConfigId?: string | null;
+  /** The click-to-WhatsApp ad or post referral (parsed and bounded); stored with the message. */
+  referral?: AdReferral | null;
 }
 export interface MessageActionsPayload {
   kind: "message"; messageId: string; accountId: string; userId: string;
@@ -35,6 +39,12 @@ export interface MessageActionsPayload {
   /** The number the message arrived on. Absent on jobs queued before multi-number. */
   whatsappConfigId?: string;
   wasContactCreated: boolean; wasConversationCreated: boolean; isFirstInboundMessage: boolean;
+  /**
+   * The stored ad referral (never the click id). Carried here because the
+   * actions job reads through the data client, which cannot read ad_referrals.
+   * Absent on jobs queued before it existed and on messages without a referral.
+   */
+  adReferral?: AdReferralSummary;
 }
 export interface StatusActionsPayload {
   kind: "status"; messageId: string; accountId: string; conversationId: string;
@@ -83,12 +93,23 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       contactId: input.contactId, conversationId: input.conversationId, whatsappConfigId: input.whatsappConfigId ?? null, order })) {
       createdOrder = { order, createdAt: input.createdAt };
     }
+    // Pure DB work under a savepoint; never throws, so a bad referral cannot drop the message.
+    // A redelivery returned above, and ON CONFLICT makes the insert idempotent as well.
+    const referralId = input.referral ? await recordReferralTx(tx, { accountId: input.accountId, contactId: input.contactId,
+      conversationId: input.conversationId, messageId: inserted[0].id, waMessageId: input.metaMessageId,
+      whatsappConfigId: input.whatsappConfigId ?? null, referral: input.referral }) : null;
+    if (input.formReply) {
+      // A no-op unless Meta ads, CAPI and automatic lead events are on. The WhatsApp message id is the submission's key.
+      await queueConversionEventTx(tx, { accountId: input.accountId, eventName: "LeadSubmitted", source: "form",
+        sourceId: input.metaMessageId, contactId: input.contactId });
+    }
     const payload: MessageActionsPayload = {
       kind: "message", messageId: inserted[0].id, accountId: input.accountId, userId: input.userId,
       contactId: input.contactId, conversationId: input.conversationId, metaMessageId: input.metaMessageId,
       contentType: input.contentType, contentText: input.contentText, interactiveReplyId: input.interactiveReplyId,
       ...(input.contextMetaId ? { contextMetaId: input.contextMetaId } : {}),
       ...(input.whatsappConfigId ? { whatsappConfigId: input.whatsappConfigId } : {}),
+      ...(referralId && input.referral ? { adReferral: toAdReferralSummary(referralId, input.referral) } : {}),
       wasContactCreated: input.wasContactCreated, wasConversationCreated: input.wasConversationCreated,
       isFirstInboundMessage: first[0].is_first,
     };

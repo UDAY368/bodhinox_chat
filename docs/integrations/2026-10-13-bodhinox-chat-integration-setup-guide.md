@@ -156,7 +156,7 @@ Prepare a WhatsApp billing method for the actual messaging account/route and doc
 4. For customer accounts, satisfy required Advanced Access and production feature-tier criteria shown in the dashboard. Limited development access does not prove production suitability. Do not manufacture API traffic to satisfy upgrade requirements.
 5. Later compare an authorized real account's spend/campaign metrics with Ads Manager for the same dates, currency, timezone and attribution/reporting basis. A new account with zero data proves access only, not spend reconciliation or conversion attribution.
 
-B does not request `ads_management` for campaign changes. Campaign/budget mutations remain separately authorized D scope. [Meta Marketing API authorization and feature tiers](https://developers.facebook.com/documentation/ads-commerce/marketing-api/get-started/authorization).
+B does not request `ads_management` for campaign changes. Campaign/budget mutations remain separately authorized D scope. Phase 10 (click-to-WhatsApp ads, November 2026) follows this: it reads insights, leads and sends Conversions API events, and ad creation stays out of scope; the Ads page links to Ads Manager instead. Its Login for Business configuration and Page webhook steps are in the [Railway runbook](../deployment/railway.md). [Meta Marketing API authorization and feature tiers](https://developers.facebook.com/documentation/ads-commerce/marketing-api/get-started/authorization).
 
 ### Step 2.10 — Prepare Instagram for Release C
 

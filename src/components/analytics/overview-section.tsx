@@ -120,7 +120,7 @@ export function ConversationCharts({
     ? (['bot', 'requesting', 'assigned', 'resolved'] as const).map((key) => ({ name: t(`state.${key}`), [count]: stats.byLifecycle[key] }))
     : [];
   const sources = stats
-    ? (['inbound', 'business', 'campaignReply'] as const).map((key) => ({ name: t(`source.${key}`), [count]: stats.started[key] }))
+    ? (['inbound', 'business', 'campaignReply', 'ad'] as const).map((key) => ({ name: t(`source.${key}`), [count]: stats.started[key] }))
     : [];
   const minutes = t('minutes');
   const timing = stats

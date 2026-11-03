@@ -301,6 +301,7 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
   isLegacyFormat: () => false,
 }));
 vi.mock('@/lib/whatsapp/meta-api', () => ({
+  META_API_VERSION: 'v21.0',
   getMediaUrl: vi.fn(),
   downloadMedia: vi.fn(),
 }));

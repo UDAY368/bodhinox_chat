@@ -150,4 +150,35 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('segments, export and segmen
     })).rejects.toBeTruthy();
     await deleteSegment(a, segment.id);
   });
+  it('matches ad clicks and lead forms only within this workspace, and needs the retargeting feature', async () => {
+    const connection = randomUUID(), connectionB = randomUUID();
+    const foreign = randomUUID();
+    await owner.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'Foreign','14155550199')", [foreign, accountB, outsider]);
+    await owner.query("INSERT INTO meta_ad_connections(id,account_id,connected_by,status) VALUES($1,$2,$3,'active'),($4,$5,$6,'active')",
+      [connection, accountA, agent, connectionB, accountB, outsider]);
+    await owner.query(`INSERT INTO ad_referrals(account_id,contact_id,wa_message_id,source_type,source_id,ctwa_clid) VALUES
+      ($1,$2,'wamid.seg1','ad','120200000000001','clid-1'),
+      ($1,$3,'wamid.seg2','post','111_222',NULL),
+      ($4,$5,'wamid.seg3','ad','120200000000001','clid-2')`, [accountA, asha, bilal, accountB, foreign]);
+    await owner.query(`INSERT INTO meta_leads(account_id,connection_id,leadgen_id,form_id,status,contact_id) VALUES
+      ($1,$2,'9001','555','fetched',$3),($4,$5,'9002','555','fetched',$6)`, [accountA, connection, chen, accountB, connectionB, foreign]);
+
+    expect(await count([{ field: 'ad', op: 'clicked_any', adIds: ['120200000000001'] }])).toBe(1);
+    expect(await count([{ field: 'ad', op: 'clicked_any', adIds: [] }])).toBe(1); // a post referral is not an ad click
+    expect(await count([{ field: 'ad', op: 'clicked_any', adIds: ['999'] }])).toBe(0);
+    expect(await count([{ field: 'ad', op: 'clicked_none', adIds: [] }])).toBe(3);
+    expect(await count([{ field: 'lead_form', op: 'submitted_any', formIds: ['555'] }])).toBe(1);
+    expect(await count([{ field: 'lead_form', op: 'submitted_any', formIds: [] }])).toBe(1);
+    expect(await count([{ field: 'lead_form', op: 'submitted_none', formIds: ['555'] }])).toBe(3);
+    // Tenant B's matching referral and lead never count for B's id in A, nor A's in B.
+    expect(await previewAudience(b, { filter: { conditions: [{ field: 'ad', op: 'clicked_any', adIds: [] }] } })).toEqual({ total: 1, sendable: 1 });
+
+    await owner.query("INSERT INTO account_subscriptions(account_id,plan_id) VALUES($1,'basic')", [accountA]);
+    try {
+      await expect(count([{ field: 'ad', op: 'clicked_any', adIds: [] }])).rejects.toThrow(/Retargeting/);
+      await expect(count([{ field: 'lead_form', op: 'submitted_any', formIds: [] }])).rejects.toThrow(/Retargeting/);
+    } finally {
+      await owner.query('DELETE FROM account_subscriptions WHERE account_id=$1', [accountA]);
+    }
+  });
 });

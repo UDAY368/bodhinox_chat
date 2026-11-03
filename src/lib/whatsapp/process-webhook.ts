@@ -24,6 +24,7 @@ import { applyProviderStatus, ingestInboundMessage } from '@/lib/whatsapp/ingest
 import { inboundAddress, inboundLocation, type InboundStructuredPayload } from '@/lib/whatsapp/inbound-structured';
 import { parseFormReply, type FormAnswers } from '@/lib/whatsapp/forms/responses';
 import { parseInboundOrder, type InboundOrder } from '@/lib/commerce/order-format';
+import { parseReferral, type WhatsAppReferral } from '@/lib/meta-ads/referrals';
 export { processInboundActions } from '@/lib/whatsapp/inbound-actions';
 export type { InboundActionsPayload } from '@/lib/whatsapp/ingest';
 function databaseAdmin() { return createAdminClient(currentJobScope()); }
@@ -84,6 +85,8 @@ interface WhatsAppMessage {
   }
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
+  /** Present on the first message after the customer taps a click-to-WhatsApp ad or post. Untrusted. */
+  referral?: WhatsAppReferral
 }
 
 /** One entry of a failed status's `errors` array, as Meta sends it. */
@@ -363,6 +366,8 @@ async function processMessage(
     ...(order ? { order } : {}),
     replyToMessageId:replyToInternalId,contextMetaId:message.context?.id ?? null,createdAt:new Date(parseInt(message.timestamp,10)*1000),
     wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,whatsappConfigId,
+    // Bounded and never throws; null when absent or unusable.
+    referral:parseReferral(message.referral),
   });
 }
 

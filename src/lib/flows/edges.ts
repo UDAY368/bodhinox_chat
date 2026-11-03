@@ -114,6 +114,7 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "send_catalog":
       case "set_tag":
       case "assign_agent":
+    case "conversion_event":
     case "set_attribute": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         if (next && knownKeys.has(next)) {
@@ -288,6 +289,7 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "send_catalog":
     case "set_tag":
     case "assign_agent":
+    case "conversion_event":
     case "set_attribute":
       return [{ id: "next", label: "Next" }];
 
@@ -386,6 +388,7 @@ export function applyEdgeConnection(
     case "send_catalog":
     case "set_tag":
     case "assign_agent":
+    case "conversion_event":
     case "set_attribute":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
@@ -507,6 +510,7 @@ function patchedConfigWithoutKey(
     case "send_catalog":
     case "set_tag":
     case "assign_agent":
+    case "conversion_event":
     case "set_attribute": {
       const next = (cfg as { next_node_key?: string }).next_node_key;
       if (next !== deletedKey) return null;

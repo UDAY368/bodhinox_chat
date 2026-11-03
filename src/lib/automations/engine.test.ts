@@ -1212,3 +1212,21 @@ describe("contact conversations on two numbers", () => {
   });
 });
 
+
+describe("triggerMatches — ad_click", () => {
+  const automation = (trigger_config: Record<string, unknown>) =>
+    ({ id: "a1", trigger_type: "ad_click", trigger_config } as unknown as Automation);
+
+  it("runs for any ad when no ad ids are set, and only for the listed ads otherwise", () => {
+    expect(triggerMatches(automation({}), { ad_id: "123" })).toBe(true);
+    expect(triggerMatches(automation({ ad_ids: [] }), { ad_id: "" })).toBe(true);
+    expect(triggerMatches(automation({ ad_ids: ["123"] }), { ad_id: "123" })).toBe(true);
+    expect(triggerMatches(automation({ ad_ids: ["123"] }), { ad_id: "456" })).toBe(false);
+    expect(triggerMatches(automation({ ad_ids: ["123"] }), { ad_id: "" })).toBe(false);
+  });
+
+  it("never runs for a message that did not come from an ad", () => {
+    expect(triggerMatches(automation({}), {})).toBe(false);
+    expect(triggerMatches(automation({}), undefined)).toBe(false);
+  });
+});

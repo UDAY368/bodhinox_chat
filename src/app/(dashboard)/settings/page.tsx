@@ -32,6 +32,7 @@ import { WooCommerceCard } from '@/components/settings/woocommerce-card';
 import { PlanPanel } from '@/components/settings/plan-panel';
 import { BillingSection } from '@/components/settings/billing/billing-section';
 import { PaymentsCard } from '@/components/settings/payments-card';
+import { MetaAdsCard } from '@/components/settings/meta-ads-card';
 import { RateCardEditor } from '@/components/settings/rate-card-editor';
 import {
   resolveSection,
@@ -120,6 +121,7 @@ function SettingsPageInner() {
       </div>
     ),
     payments: <PaymentsCard />,
+    ads: <MetaAdsCard key={accountId} />,
     plan: (
       <div className="space-y-10">
         <PlanPanel />
