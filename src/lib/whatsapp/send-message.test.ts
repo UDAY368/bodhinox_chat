@@ -321,6 +321,20 @@ describe('sendMessageToConversation — template persistence (#483)', () => {
     );
   });
 
+  it('stamps the sending member as sender_id, and leaves a member-less (API) send unattributed', async () => {
+    const member: CapturedWrites = {};
+    await sendMessageToConversation(sendPathDb([TEMPLATE_ROW], member), 'acct-1', {
+      conversationId: 'cv-1', messageType: 'template', templateName: 'order_update',
+      templateParams: ['A1', 'Fri'], senderId: 'user-7',
+    });
+    expect(member.message).toMatchObject({ sender_type: 'agent', sender_id: 'user-7' });
+    const api: CapturedWrites = {};
+    await sendMessageToConversation(sendPathDb([TEMPLATE_ROW], api), 'acct-1', {
+      conversationId: 'cv-1', messageType: 'template', templateName: 'order_update', templateParams: ['A1', 'Fri'],
+    });
+    expect(api.message?.sender_id).toBeNull();
+  });
+
   it('reads body values out of the structured params shape too', async () => {
     const captured: CapturedWrites = {};
     await sendMessageToConversation(sendPathDb([TEMPLATE_ROW], captured), 'acct-1', {

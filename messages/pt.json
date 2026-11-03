@@ -77,7 +77,8 @@
     "commerce": "Comércio",
     "orders": "Pedidos",
     "products": "Produtos",
-    "payments": "Pagamentos"
+    "payments": "Pagamentos",
+    "analytics": "Análises"
   },
   "Header": {
     "dashboard": "Painel",
@@ -98,7 +99,11 @@
     "workspace": "Espaço de trabalho",
     "flows": "Fluxos",
     "aiAgents": "Agentes de IA",
-    "forms": "Formulários"
+    "forms": "Formulários",
+    "analytics": "Análises",
+    "orders": "Pedidos",
+    "products": "Produtos",
+    "payments": "Pagamentos"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
@@ -4881,6 +4886,15 @@
     "permissions": {
       "invalid": "Escolha uma função e um recurso para alterar.",
       "ownerOnly": "Somente um proprietário pode alterar o que os administradores podem fazer."
+    },
+    "analytics": {
+      "invalidRateCard": "Cada tarifa precisa de uma categoria (marketing, utility, authentication ou service), um código de país de duas letras, uma moeda de três letras e um preço de zero ou mais com até 4 casas decimais. Envie entre 1 e 1000 tarifas.",
+      "invalidRange": "Escolha um período válido de até 366 dias que não comece no futuro.",
+      "invalidFilter": "Esse filtro não é válido.",
+      "invalidReport": "Escolha um tipo de relatório válido.",
+      "tooManyReports": "Vários relatórios ainda estão sendo gerados. Aguarde a conclusão e tente novamente.",
+      "reportNotFound": "Relatório não encontrado.",
+      "reportNotReady": "Este relatório não está disponível para download."
     }
   },
   "Api": {
@@ -6962,5 +6976,292 @@
     "promoted": "O agente aprendeu esta resposta.",
     "promotedNotIndexed": "Salva no conhecimento. A indexação falhou; reindexe pela aba Conhecimento.",
     "answerChanged": "Um colega alterou esta resposta depois que você a abriu. A lista foi recarregada; revise a nova resposta antes de ensiná-la."
+  },
+  "Analytics": {
+    "cost": {
+      "estimatedCost": "Custo estimado",
+      "unavailable": "Estimativa de custo indisponível",
+      "rateNotConfigured": "Tarifa não configurada",
+      "missingCountries": "{count, plural, one {# destinatário não incluído} other {# destinatários não incluídos}} (tarifa não configurada): {countries}",
+      "estimateNote": "Estimativa baseada na tabela de tarifas configurada. A fatura da Meta é o valor final.",
+      "unknownCountry": "País desconhecido",
+      "title": "Custo de mensagens",
+      "currency": "Moeda",
+      "estimated": "Estimado",
+      "actual": "Real",
+      "country": "País",
+      "recipients": "Destinatários",
+      "sent": "Enviadas",
+      "delivered": "Entregues",
+      "rate": "Tarifa por mensagem",
+      "actualNote": "O custo real considera as mensagens entregues, que é o que a Meta cobra.",
+      "rateCard": {
+        "title": "Tabela de tarifas de mensagens",
+        "description": "Preço por mensagem para toda a plataforma por categoria de modelo e país, usado nas estimativas de custo das campanhas. Os preços estão na menor unidade da moeda (paise, centavos) e aceitam até 4 casas decimais.",
+        "categories": {
+          "marketing": "Marketing",
+          "utility": "Utilidade",
+          "authentication": "Autenticação",
+          "service": "Atendimento"
+        },
+        "country": "Código do país",
+        "currency": "Moeda",
+        "price": "Preço (menor unidade)",
+        "priceFor": "Preço para {country} em {currency}",
+        "remove": "Remover",
+        "empty": "Ainda não há tarifas para esta categoria.",
+        "add": "Adicionar tarifa",
+        "save": "Salvar tarifas",
+        "saved": "Tabela de tarifas salva",
+        "saveFailed": "Não foi possível salvar a tabela de tarifas",
+        "invalidRow": "Informe um código de país de 2 letras, uma moeda de 3 letras e um preço igual ou maior que 0."
+      },
+      "overLimit": "Este público ultrapassa o limite de {limit} destinatários por campanha. Reduza-o antes de criar a campanha.",
+      "noCurrencyRate": "Nenhuma tarifa configurada em {currency}",
+      "missingCountriesInCurrency": "{count, plural, one {# destinatário não incluído} other {# destinatários não incluídos}} (sem tarifa em {currency}): {countries}"
+    },
+    "loadFailed": "Não foi possível carregar este relatório.",
+    "retry": "Tentar novamente",
+    "emptyTitle": "Nenhuma atividade neste período",
+    "emptyHint": "Tente um intervalo de datas maior.",
+    "showTable": "Ver os dados em tabela",
+    "duration": {
+      "none": "–",
+      "seconds": "{s} s",
+      "minutes": "{m} min {s} s",
+      "hours": "{h} h {m} min",
+      "days": "{d} d {h} h"
+    },
+    "range": {
+      "label": "Intervalo de datas",
+      "today": "Hoje",
+      "7d": "7 dias",
+      "30d": "30 dias",
+      "90d": "90 dias",
+      "custom": "Personalizado",
+      "from": "De",
+      "to": "Até",
+      "apply": "Aplicar",
+      "maxDays": "Até 366 dias. As datas usam o fuso horário do seu espaço de trabalho."
+    },
+    "numbers": {
+      "label": "Número",
+      "all": "Todos os números",
+      "fallback": "Número {n}",
+      "default": "(padrão)"
+    },
+    "page": {
+      "eyebrow": "Relatórios",
+      "title": "Análises",
+      "description": "Como as conversas, sua equipe, as campanhas, os fluxos e o agente de IA se saíram em um período.",
+      "showing": "Exibindo de {from} a {to}, comparado com {previousFrom} a {previousTo}.",
+      "overviewFailed": "Não foi possível carregar o resumo das conversas.",
+      "numberScope": "O filtro de número se aplica ao resumo e aos gráficos de conversas."
+    },
+    "overview": {
+      "noBaseline": "Sem dados anteriores para comparar",
+      "noChange": "Sem alteração em relação ao período anterior",
+      "change": "{change}% em relação ao período anterior",
+      "started": "Conversas iniciadas",
+      "firstResponse": "Mediana da primeira resposta",
+      "resolutionTime": "Mediana do tempo de resolução",
+      "resolved": "Conversas resolvidas",
+      "count": "Conversas",
+      "state": {
+        "bot": "Com o bot",
+        "requesting": "Aguardando um agente",
+        "assigned": "Atribuídas",
+        "resolved": "Resolvidas"
+      },
+      "source": {
+        "inbound": "Iniciadas pelo cliente",
+        "business": "Iniciadas pela empresa",
+        "campaignReply": "Resposta a campanha"
+      },
+      "minutes": "Minutos",
+      "minutesValue": "{value} min",
+      "median": "Mediana",
+      "p90": "Percentil 90",
+      "byStateTitle": "Conversas por estado",
+      "byStateDescription": "Estado atual das conversas ativas no período.",
+      "stateColumn": "Estado",
+      "bySourceTitle": "Conversas por origem",
+      "bySourceDescription": "Quem iniciou cada nova conversa. Uma resposta a campanha é uma mensagem do cliente em até 72 horas após uma campanha.",
+      "sourceColumn": "Origem",
+      "timingTitle": "Tempo de resposta e de resolução",
+      "timingDescription": "A primeira resposta conta a primeira espera do cliente em cada conversa. O tempo de resolução inclui conversas resolvidas sem reabertura.",
+      "metricColumn": "Medida",
+      "samples": "Conversas medidas",
+      "unanswered": "{count, plural, =1 {# conversa ainda aguarda} other {# conversas ainda aguardam}} uma primeira resposta."
+    },
+    "agents": {
+      "title": "Ranking da equipe",
+      "description": "Conversas que cada membro atendeu no período, do mais ativo ao menos ativo.",
+      "member": "Membro",
+      "handled": "Conversas",
+      "replies": "Respostas",
+      "medianFirstResponse": "Mediana da primeira resposta",
+      "resolved": "Resolvidas",
+      "unnamed": "Membro sem nome",
+      "none": "–",
+      "attribution": "As respostas e as primeiras respostas são atribuídas ao membro que as enviou. Respostas antigas sem remetente registrado, e as resoluções, contam para o responsável atual."
+    },
+    "campaigns": {
+      "title": "Funil de campanhas",
+      "description": "Campanhas agendadas no período, do envio ao clique. Respostas contam em até 72 horas.",
+      "recipients": "Destinatários",
+      "stage": {
+        "sent": "Enviados",
+        "delivered": "Entregues",
+        "read": "Lidos",
+        "replied": "Respondidos",
+        "clicked": "Clicados",
+        "failed": "Com falha"
+      },
+      "percent": "{value}%",
+      "funnelLabel": "Funil de todas as campanhas do período",
+      "stageColumn": "Etapa",
+      "ofSent": "Percentual dos enviados",
+      "failed": "{count, plural, =1 {# mensagem falhou} other {# mensagens falharam}} no envio.",
+      "perCampaign": "Por campanha (percentuais sobre os enviados)",
+      "campaign": "Campanha"
+    },
+    "flows": {
+      "title": "Desempenho dos fluxos",
+      "description": "Execuções iniciadas no período e onde pararam as que não terminaram.",
+      "runs": "Execuções",
+      "unknownFlow": "Fluxo excluído",
+      "filter": "Fluxo",
+      "allFlows": "Todos os fluxos",
+      "outcome": {
+        "started": "Iniciadas",
+        "completed": "Concluídas",
+        "handedOff": "Transferidas para uma pessoa",
+        "timedOut": "Expiradas",
+        "failed": "Com falha",
+        "cancelled": "Canceladas",
+        "active": "Em andamento"
+      },
+      "noDropOff": "Todas as execuções encerradas neste período foram concluídas.",
+      "dropOffTitle": "Abandono por etapa",
+      "node": "Etapa",
+      "dropOffHint": "A última etapa alcançada pelas execuções que não foram concluídas."
+    },
+    "ai": {
+      "title": "Agente de IA",
+      "description": "Conversas em que o agente de IA respondeu e quantas resolveu sem uma pessoa.",
+      "resolutionRate": "Taxa de resolução da IA",
+      "resolvedByAi": "{count, plural, =1 {# conversa resolvida} other {# conversas resolvidas}} pela IA",
+      "replies": "Respostas da IA",
+      "conversations": "Conversas com IA",
+      "handoffs": "Transferidas para uma pessoa",
+      "unanswered": "Perguntas sem resposta"
+    },
+    "reports": {
+      "title": "Relatórios",
+      "description": "Baixe relatórios CSV de um período. Os relatórios contêm apenas contagens e nomes, nunca o conteúdo das mensagens, e ficam disponíveis por 30 dias.",
+      "adminsOnly": "Somente administradores e proprietários podem criar e baixar relatórios.",
+      "kind": "Relatório",
+      "kinds": {
+        "campaign_daily": "Campanhas por dia",
+        "campaign_summary": "Resumo das campanhas",
+        "member_campaigns": "Campanhas por membro da equipe",
+        "agent_performance": "Desempenho dos agentes por dia"
+      },
+      "range": "Período",
+      "presets": {
+        "7d": "Últimos 7 dias",
+        "30d": "Últimos 30 dias",
+        "90d": "Últimos 90 dias",
+        "custom": "Período personalizado"
+      },
+      "from": "De",
+      "to": "Até",
+      "pickDates": "Escolha uma data de início e uma de término.",
+      "emailMe": "Enviar um link de download por e-mail quando estiver pronto",
+      "request": "Criar relatório",
+      "requestFailed": "Não foi possível solicitar o relatório. Tente novamente.",
+      "listTitle": "Relatórios recentes",
+      "listDescription": "Os relatórios são gerados em segundo plano. Os links de download exigem que você esteja conectado.",
+      "loadFailed": "Não foi possível carregar os relatórios.",
+      "empty": "Ainda não há relatórios.",
+      "requested": "Solicitado",
+      "statusLabel": "Status",
+      "status": {
+        "queued": "Na fila",
+        "running": "Gerando",
+        "ready": "Pronto",
+        "failed": "Falhou",
+        "expired": "Expirado"
+      },
+      "rangeValue": "{from} – {to}",
+      "formerMember": "Ex-membro",
+      "rows": "{count, plural, one {# linha} other {# linhas}}",
+      "truncated": "apenas as primeiras 100.000 linhas",
+      "expires": "Disponível até {date}",
+      "download": "Baixar",
+      "email": {
+        "subject": "Seu relatório está pronto: {report}",
+        "body": "Seu relatório \"{report}\" de {from} a {to} está pronto. Entre na sua conta para baixá-lo:",
+        "footer": "O arquivo fica disponível por 30 dias. Ele contém apenas contagens e nomes, nunca o conteúdo das mensagens."
+      }
+    },
+    "templates": {
+      "action": "Análises",
+      "actionAria": "Análises de {name}",
+      "dialogTitle": "Análises: {name}",
+      "dialogDescription": "Envios, entregas, leituras, respostas, cliques e falhas deste modelo.",
+      "qualityTitle": "Status e qualidade",
+      "quality": {
+        "GREEN": "Qualidade alta",
+        "YELLOW": "Qualidade média",
+        "RED": "Qualidade baixa",
+        "unknown": "Qualidade não avaliada"
+      },
+      "languagesNote": "As contagens incluem todos os idiomas com este nome de modelo.",
+      "historyTitle": "Histórico de status",
+      "loadFailed": "Não foi possível carregar as análises do modelo.",
+      "retry": "Tentar novamente",
+      "loading": "Carregando análises...",
+      "rangeLabel": "Período",
+      "presets": {
+        "7d": "7 dias",
+        "30d": "30 dias",
+        "90d": "90 dias",
+        "custom": "Personalizado"
+      },
+      "from": "Data inicial",
+      "to": "Data final",
+      "weekOf": "Semana de {date}",
+      "rangeSummary": "De {start} a {end} ({timezone})",
+      "modeLabel": "Valores do gráfico",
+      "modes": {
+        "counts": "Contagens",
+        "rates": "Taxas"
+      },
+      "chartTitleDaily": "Desempenho diário",
+      "chartTitleWeekly": "Desempenho semanal",
+      "empty": "Nenhum envio deste modelo neste período.",
+      "definitions": "As taxas são proporções das mensagens enviadas. Uma resposta é uma mensagem do cliente em até 72 horas. Cliques são registrados apenas em campanhas.",
+      "byTemplate": "Por modelo",
+      "template": "Modelo",
+      "metrics": {
+        "sent": "Enviadas",
+        "delivered": "Entregues",
+        "read": "Lidas",
+        "replied": "Respondidas",
+        "clicked": "Clicadas",
+        "failed": "Com falha"
+      },
+      "rates": {
+        "delivered": "Taxa de entrega",
+        "read": "Taxa de leitura",
+        "replied": "Taxa de resposta",
+        "clicked": "Taxa de cliques",
+        "failed": "Taxa de falhas"
+      },
+      "ofSent": "{count} mensagens",
+      "period": "Período"
+    }
   }
 }

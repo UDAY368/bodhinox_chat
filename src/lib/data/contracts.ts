@@ -122,6 +122,10 @@ const browserReadOnly = new Set([
   'member_presence',
   'ai_usage_log',
   'broadcast_recipients',
+  // Messages are written only by send routes, webhooks and workers. Analytics
+  // credits agents, AI replies and response times from sender_id, sender_type,
+  // ai_generated and status, so browsers may read but never forge them.
+  'messages',
 ]);
 const immutable = new Set([
   'arrival_sequence',

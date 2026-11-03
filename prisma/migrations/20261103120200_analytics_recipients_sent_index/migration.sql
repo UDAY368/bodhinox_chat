@@ -1,0 +1,14 @@
+-- Analytics (Phase 9): campaign recipients by send time, for per-day template
+-- reports and for classifying conversations that answer a campaign. Partial:
+-- recipients that were never sent have no sent_at and are not in time reports.
+--
+-- Built CONCURRENTLY: delivery workers and status webhooks write
+-- broadcast_recipients continuously during a campaign.
+--
+-- This file holds a single statement on purpose: CREATE INDEX CONCURRENTLY
+-- cannot run inside a transaction block. If a deploy is interrupted mid-build,
+-- PostgreSQL leaves an INVALID index; drop it (DROP INDEX CONCURRENTLY
+-- broadcast_recipients_account_sent_idx) and mark the migration rolled back
+-- (prisma migrate resolve --rolled-back 20261103120200_analytics_recipients_sent_index)
+-- before re-running.
+CREATE INDEX CONCURRENTLY broadcast_recipients_account_sent_idx ON broadcast_recipients (account_id, sent_at) WHERE sent_at IS NOT NULL;

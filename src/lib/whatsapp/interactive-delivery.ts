@@ -1,6 +1,7 @@
 import type { DataClient } from '@/lib/data/types'
 import { providerMediaUrl } from '@/lib/storage/server'
 import type { InteractiveMessagePayload } from './interactive'
+import { agentSenderId } from './agent-attribution'
 import { sendInteractiveButtons, sendInteractiveList, sendLocationMessage, sendMediaMessage } from './meta-api'
 
 /** One delivery owns its prelude state across recipient variant retries. */
@@ -9,6 +10,8 @@ export function createInteractiveDelivery(args: {
   accountId: string
   conversationId: string
   senderType: 'agent' | 'bot'
+  /** The inbox member sending (messages.sender_id); stored only when senderType is 'agent'. */
+  senderId?: string | null
   phoneNumberId: string
   accessToken: string
   payload: InteractiveMessagePayload
@@ -42,6 +45,7 @@ export function createInteractiveDelivery(args: {
           account_id: accountId,
           conversation_id: conversationId,
           sender_type: senderType,
+          sender_id: agentSenderId(senderType, args.senderId),
           content_type: media.type,
           content_text: text,
           media_url: media.type === 'location' ? null : media.url,

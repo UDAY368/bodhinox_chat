@@ -259,8 +259,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     expect(sent.messageId).toEqual(expect.any(String));
     expect(h.metaSendText).toHaveBeenCalledTimes(1);
     expect(h.metaSendText.mock.calls[0][0]).toMatchObject({ phoneNumberId: `63${seed}`, text: `Pay here\n${link.short_url}` });
-    const stored = (await owner.query('SELECT sender_type,content_text,status FROM messages WHERE account_id=$1 AND message_id=$2', [accountA, sent.whatsappMessageId])).rows;
-    expect(stored).toEqual([{ sender_type: 'agent', content_text: `Pay here\n${link.short_url}`, status: 'sent' }]);
+    const stored = (await owner.query('SELECT sender_type,sender_id,content_text,status FROM messages WHERE account_id=$1 AND message_id=$2', [accountA, sent.whatsappMessageId])).rows;
+    expect(stored).toEqual([{ sender_type: 'agent', sender_id: agentA, content_text: `Pay here\n${link.short_url}`, status: 'sent' }]);
     expect((await owner.query('SELECT bot_paused FROM conversations WHERE id=$1', [convA])).rows[0].bot_paused).toBe(true);
 
     // A replay of the same intent returns the stored result without sending again.

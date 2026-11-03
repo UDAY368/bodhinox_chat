@@ -205,6 +205,7 @@ export async function POST(request: Request) {
         templateMessageParams: template_message_params,
         interactivePayload: interactive_payload,
         replyToMessageId: reply_to_message_id,
+        senderId: userId,
       })
       // The replying member takes an unassigned conversation. Best effort:
       // the message is already sent, so a failure here must not fail the send.

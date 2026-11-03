@@ -344,6 +344,8 @@ describe('POST /api/whatsapp/send — role enforcement', () => {
     expect(sendTemplateMessage).toHaveBeenCalledTimes(1)
     // The replying agent claims the conversation as themselves.
     expect(claimOnAgentReply).toHaveBeenCalledWith({ accountId: 'acct-1', userId: 'user-1', role: 'agent' }, 'conv-existing')
+    // The stored message names the member who wrote it, for agent analytics.
+    expect(messageInserts).toEqual([expect.objectContaining({ sender_type: 'agent', sender_id: 'user-1' })])
   })
 
   it('still reports the send when claiming the conversation fails', async () => {

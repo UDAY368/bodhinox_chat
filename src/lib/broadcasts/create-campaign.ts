@@ -34,7 +34,8 @@ const csvRow=z.object({
   phone:z.string().min(1).max(64),name:z.string().max(256).optional(),
   values:z.record(z.string().max(64),z.string().max(1024)).refine(v=>Object.keys(v).length<=CAMPAIGN_LIMITS.csvColumns,'Too many CSV columns').optional(),
 }).strict();
-const audienceSchema=z.object({
+/** Exported for the cost estimate (lib/analytics/campaign-cost), which counts the same audience. */
+export const audienceSchema=z.object({
   type:z.enum(['all','tags','custom_field','csv','segment','list']),
   segmentId:z.string().uuid().optional(),
   listId:z.string().uuid().optional(),
@@ -100,8 +101,9 @@ export async function assertMedia(tx:TenantTransaction,accountId:string,value:st
 /**
  * The audience as `FROM … WHERE … ORDER BY` over `contacts c`. A CSV audience first upserts its
  * contacts, then joins its rows as `x` (one recipient per row, so a row can carry its own values).
+ * Read-only callers must not pass a CSV audience (it writes contacts).
  */
-async function audienceSource(tx:TenantTransaction,scope:TenantContext,input:CampaignInput):Promise<{from:Prisma.Sql;where:Prisma.Sql;order:Prisma.Sql}>{
+export async function audienceSource(tx:TenantTransaction,scope:TenantContext,input:Pick<CampaignInput,'audience'>):Promise<{from:Prisma.Sql;where:Prisma.Sql;order:Prisma.Sql}>{
   const {audience}=input;const accountId=scope.accountId;
   const conditions:Prisma.Sql[]=[Prisma.sql`c.account_id=${accountId}::uuid`];
   let from=Prisma.sql`contacts c`,order=Prisma.sql`c.id`;

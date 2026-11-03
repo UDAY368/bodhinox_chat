@@ -117,6 +117,7 @@ model conversations {
   ai_autoreply_disabled Boolean  @default(false)
   ai_reply_count Int  @default(0)
   ai_handoff_summary String?
+  ai_handoff_at DateTime? @db.Timestamptz(6)
   bot_paused Boolean  @default(false)
   inbound_created_meta_id String?
   whatsapp_config_id String? @db.Uuid
@@ -1422,4 +1423,36 @@ model ai_unanswered_questions {
   created_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, id])
   @@index([account_id, status, last_asked_at(sort: Desc)], map: "ai_unanswered_questions_list_idx")
+}
+
+model rate_cards {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  category String
+  country_code String
+  currency String
+  price_minor Decimal @db.Decimal(14, 4)
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  // 20261103120000_analytics: platform catalogue (no tenant data); the app role reads it through the campaign estimate route only, writes go through the worker role for a platform admin, like plan_prices.
+  @@unique([category, country_code, currency])
+}
+
+model report_runs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  params Json @db.JsonB @default("{}")
+  status String @default("queued")
+  requested_by String? @db.Uuid
+  email_requested Boolean @default(false)
+  object_key String?
+  row_count Int?
+  truncated Boolean @default(false)
+  byte_size BigInt?
+  error String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  finished_at DateTime? @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6) @default(dbgenerated("(now() + '30 days'::interval)"))
+  // 20261103121000_reports: the partial index report_runs_due_idx (WHERE status <> 'expired') is owned by the SQL.
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "report_runs_account_created_idx")
 }

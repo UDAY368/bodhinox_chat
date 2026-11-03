@@ -1,5 +1,6 @@
 export const navigationPages = [
   { href: '/dashboard', labelKey: 'dashboard' },
+  { href: '/analytics', labelKey: 'analytics' },
   { href: '/inbox', labelKey: 'inbox' },
   { href: '/notifications', labelKey: 'notifications' },
   { href: '/contacts', labelKey: 'contacts' },
@@ -9,6 +10,9 @@ export const navigationPages = [
   { href: '/flows', labelKey: 'flows' },
   { href: '/forms', labelKey: 'forms' },
   { href: '/agents', labelKey: 'aiAgents' },
+  { href: '/commerce/orders', labelKey: 'orders' },
+  { href: '/commerce/products', labelKey: 'products' },
+  { href: '/commerce/payments', labelKey: 'payments' },
   { href: '/settings', labelKey: 'settings' },
 ];
 

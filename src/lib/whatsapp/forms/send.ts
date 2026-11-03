@@ -15,6 +15,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause';
+import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { FLOW_CTA_MAX_LENGTH, sendFlowMessage } from '@/lib/whatsapp/meta-api';
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
@@ -260,9 +261,9 @@ export async function sendForm(args: SendFormArgs): Promise<SendFormResult> {
 
   const text = formMessageText(content);
   const messageId = await withTenant(context, async (tx) => {
-    const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,
+    const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_type,
         content_text,message_id,status)
-      VALUES(${args.accountId}::uuid,${args.conversationId}::uuid,${args.sender},'interactive',${text},${whatsapp_message_id},'sent')
+      VALUES(${args.accountId}::uuid,${args.conversationId}::uuid,${args.sender},${agentSenderId(args.sender, args.userId)}::uuid,'interactive',${text},${whatsapp_message_id},'sent')
       ON CONFLICT(conversation_id,message_id) DO NOTHING RETURNING id`;
     // An agent stepping in pauses the bot, as every inbox send does.
     await tx.$executeRaw`UPDATE conversations SET last_message_text=${text},last_message_at=NOW(),updated_at=NOW(),

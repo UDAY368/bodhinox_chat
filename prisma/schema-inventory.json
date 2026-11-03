@@ -774,6 +774,14 @@
         "definition": "ai_handoff_summary text"
       },
       {
+        "name": "ai_handoff_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "ai_handoff_at timestamptz"
+      },
+      {
         "name": "bot_paused",
         "type": "boolean",
         "nullable": false,
@@ -7994,6 +8002,186 @@
         "default": "now()",
         "reference": null,
         "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "rate_cards": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "category",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "category text NOT NULL CHECK (category IN ('marketing','utility','authentication','service'))"
+      },
+      {
+        "name": "country_code",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "country_code text NOT NULL CHECK (country_code ~ '^[A-Z]{2}$')"
+      },
+      {
+        "name": "currency",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$')"
+      },
+      {
+        "name": "price_minor",
+        "type": "numeric(14,4)",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "price_minor numeric(14,4) NOT NULL CHECK (price_minor >= 0)"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "report_runs": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('campaign_daily','campaign_summary','member_campaigns','agent_performance'))"
+      },
+      {
+        "name": "params",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'{}'::jsonb",
+        "reference": null,
+        "definition": "params jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(params) = 'object' AND octet_length(params::text) <= 2048)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'queued'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','ready','failed','expired'))"
+      },
+      {
+        "name": "requested_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "auth_users",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "requested_by uuid"
+      },
+      {
+        "name": "email_requested",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "email_requested boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "object_key",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "object_key text CHECK (object_key IS NULL OR object_key ~ '^[0-9a-f-]{36}/reports/[0-9a-f-]{36}\\.csv$')"
+      },
+      {
+        "name": "row_count",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "row_count integer CHECK (row_count >= 0)"
+      },
+      {
+        "name": "truncated",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "truncated boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "byte_size",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "byte_size bigint CHECK (byte_size >= 0)"
+      },
+      {
+        "name": "error",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "error text CHECK (char_length(error) <= 200)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "finished_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "finished_at timestamptz"
+      },
+      {
+        "name": "expires_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now() + interval '30 days'",
+        "reference": null,
+        "definition": "expires_at timestamptz NOT NULL DEFAULT now() + interval '30 days'"
       }
     ]
   }

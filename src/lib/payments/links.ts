@@ -24,6 +24,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { getT } from '@/lib/i18n/translate';
 import { formatMoney, isCurrencyCode, MAX_MINOR, minorFromDb } from '@/lib/commerce/money';
+import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { sendTextMessage } from '@/lib/whatsapp/meta-api';
 import { getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
@@ -832,8 +833,8 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
   });
 
   const messageId = await withTenant(context, async (tx) => {
-    const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,message_id,status)
-      VALUES(${args.accountId}::uuid,${prepared.conversationId}::uuid,'agent','text',${text},${whatsappMessageId},'sent')
+    const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_type,content_text,message_id,status)
+      VALUES(${args.accountId}::uuid,${prepared.conversationId}::uuid,'agent',${agentSenderId('agent', args.userId)}::uuid,'text',${text},${whatsappMessageId},'sent')
       ON CONFLICT(conversation_id,message_id) DO NOTHING RETURNING id`;
     // An agent stepping in pauses the bot, as every inbox send does.
     await tx.$executeRaw`UPDATE conversations SET last_message_text=${text},last_message_at=NOW(),updated_at=NOW(),bot_paused=true

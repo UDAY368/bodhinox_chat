@@ -119,6 +119,12 @@ export interface SendMessageParams {
   /** Structured payload for `messageType === 'interactive'`. */
   interactivePayload?: InteractiveMessagePayload | null;
   replyToMessageId?: string | null;
+  /**
+   * The signed-in member sending from the inbox, stored as messages.sender_id
+   * for agent attribution. Omitted by the public API (an API key is not a
+   * member), so those messages stay unattributed.
+   */
+  senderId?: string | null;
 }
 
 export interface SendMessageResult {
@@ -239,6 +245,7 @@ export async function sendMessageToConversation(
     templateMessageParams,
     interactivePayload: sourceInteractivePayload,
     replyToMessageId,
+    senderId,
   } = params;
 
   if (!conversationId) {
@@ -415,7 +422,7 @@ export async function sendMessageToConversation(
   if (pause.error) throw new SendMessageError('internal', 'Could not pause bot replies before sending', 503);
 
   const interactiveDelivery = messageType === 'interactive' ? createInteractiveDelivery({
-    db, accountId, conversationId, senderType: 'agent', phoneNumberId: config.phone_number_id,
+    db, accountId, conversationId, senderType: 'agent', senderId, phoneNumberId: config.phone_number_id,
     accessToken, payload: interactivePayload!, contextMessageId, replyToMessageId: replyToMessageId || undefined,
   }) : null;
 
@@ -539,6 +546,7 @@ export async function sendMessageToConversation(
     .insert({
       conversation_id: conversationId,
       sender_type: 'agent',
+      sender_id: senderId || null,
       content_type: messageType,
       content_text: persistedText,
       media_url: mediaUrl || null,

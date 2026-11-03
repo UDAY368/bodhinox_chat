@@ -40,6 +40,7 @@ import { templateLanguageForAppLocale } from '@/lib/whatsapp/template-languages'
 import { cn } from '@/lib/utils';
 import { TemplateEditorDialog } from '@/components/templates/template-editor-dialog';
 import { TemplateTimeline } from '@/components/templates/template-timeline';
+import { TemplateAnalyticsAction } from '@/components/analytics/templates/template-analytics-dialog';
 import { TemplateLibraryDialog } from '@/components/templates/template-library-dialog';
 import { TemplateAiDialog } from '@/components/templates/template-ai-dialog';
 import type { TemplateDraftInput } from '@/components/templates/types';
@@ -515,6 +516,7 @@ export function TemplateManager() {
                         >
                           <History className="size-4" />
                         </Button>
+                        <TemplateAnalyticsAction template={template} />
                         {canEdit && (
                           <Button
                             variant="ghost"

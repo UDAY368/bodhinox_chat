@@ -25,6 +25,7 @@ import type { VariableMapping } from '@/lib/broadcast-create';
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
 import { NumberSelect } from '@/components/settings/numbers/number-select';
+import { CampaignCostEstimate } from '@/components/broadcasts/campaign-cost';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 
 const TEST_NUMBERS_KEY = 'bodhinox.campaignTestNumbers';
@@ -233,6 +234,7 @@ export function Step4ScheduleSend({
             </div>
           )}
         </div>
+        <CampaignCostEstimate templateId={template.id} audience={audience} />
       </div>
 
       {/* Test send */}

@@ -46,6 +46,15 @@ describe('interactive delivery', () => {
     expect(rows[0]).toMatchObject({ media_url: 'private://guide', content_text: 'guide.pdf', sender_type: 'bot' })
     expect(meta.sendInteractiveList).toHaveBeenCalledTimes(1)
   })
+  it('stamps the member on an agent prelude and never on a bot (flow) prelude', async () => {
+    const payload = { kind: 'buttons' as const, body: 'Pick', media: { type: 'location' as const, latitude: 1, longitude: 2 }, buttons: [{ id: 'a', title: 'A' }] }
+    const agent = setup()
+    await createInteractiveDelivery({ ...agent.base, senderId: 'member-1', payload }).send('recipient')
+    expect(agent.rows[0]).toMatchObject({ sender_type: 'agent', sender_id: 'member-1' })
+    const bot = setup()
+    await createInteractiveDelivery({ ...bot.base, senderType: 'bot', senderId: 'flow-owner', payload }).send('recipient')
+    expect(bot.rows[0]).toMatchObject({ sender_type: 'bot', sender_id: null })
+  })
   it('fails before sending the prompt if the preceding sent message cannot be saved', async () => {
     const { base } = setup(true)
     const delivery = createInteractiveDelivery({ ...base, payload: { kind: 'buttons', body: 'Pick', media: { type: 'location', latitude: 0, longitude: 0 }, buttons: [{ id: 'a', title: 'A' }] } })

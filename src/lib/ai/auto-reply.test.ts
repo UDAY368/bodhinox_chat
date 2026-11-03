@@ -379,6 +379,8 @@ describe('dispatchInboundToAiReply — handoff', () => {
     expect(h.state.updatePayload?.ai_handoff_summary).toContain(
       'AI agent handed off',
     )
+    // Analytics counts the handoff by this time.
+    expect(Date.parse(String(h.state.updatePayload?.ai_handoff_at))).not.toBeNaN()
     // No handoff target configured → conversation left unassigned.
     expect(h.state.updatePayload).not.toHaveProperty('assigned_agent_id')
   })

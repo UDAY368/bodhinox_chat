@@ -77,7 +77,8 @@
     "commerce": "Commerce",
     "orders": "Orders",
     "products": "Products",
-    "payments": "Payments"
+    "payments": "Payments",
+    "analytics": "Analytics"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -98,7 +99,11 @@
     "workspace": "Workspace",
     "flows": "Flows",
     "aiAgents": "AI Agents",
-    "forms": "Forms"
+    "forms": "Forms",
+    "analytics": "Analytics",
+    "orders": "Orders",
+    "products": "Products",
+    "payments": "Payments"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -4881,6 +4886,15 @@
     "permissions": {
       "invalid": "Choose a role and a feature to change.",
       "ownerOnly": "Only an owner can change what admins can do."
+    },
+    "analytics": {
+      "invalidRateCard": "Each rate needs a category (marketing, utility, authentication or service), a two-letter country code, a three-letter currency and a price of zero or more with up to 4 decimals. Send between 1 and 1000 rates.",
+      "invalidRange": "Choose a valid date range of up to 366 days that does not start in the future.",
+      "invalidFilter": "That filter is not valid.",
+      "invalidReport": "Choose a valid report type.",
+      "tooManyReports": "Several reports are still being built. Wait for them to finish, then try again.",
+      "reportNotFound": "Report not found.",
+      "reportNotReady": "This report is not available for download."
     }
   },
   "Api": {
@@ -6962,5 +6976,292 @@
     "promoted": "The agent learned this answer.",
     "promotedNotIndexed": "Saved to knowledge. Indexing failed; reindex it from the Knowledge tab.",
     "answerChanged": "A teammate changed this answer after you opened it. The list has been reloaded; review the new answer before teaching it."
+  },
+  "Analytics": {
+    "cost": {
+      "estimatedCost": "Estimated cost",
+      "unavailable": "Cost estimate unavailable",
+      "rateNotConfigured": "Rate not configured",
+      "missingCountries": "{count, plural, one {# recipient} other {# recipients}} not included (rate not configured): {countries}",
+      "estimateNote": "Estimate, based on the configured rate card. Meta’s invoice is the final amount.",
+      "unknownCountry": "Unknown country",
+      "title": "Messaging cost",
+      "currency": "Currency",
+      "estimated": "Estimated",
+      "actual": "Actual",
+      "country": "Country",
+      "recipients": "Recipients",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "rate": "Rate per message",
+      "actualNote": "Actual cost counts delivered messages, which is what Meta charges for.",
+      "rateCard": {
+        "title": "Message rate card",
+        "description": "Platform-wide price per message by template category and country, used for campaign cost estimates. Prices are in the currency’s minor unit (paise, cents) and can have up to 4 decimals.",
+        "categories": {
+          "marketing": "Marketing",
+          "utility": "Utility",
+          "authentication": "Authentication",
+          "service": "Service"
+        },
+        "country": "Country code",
+        "currency": "Currency",
+        "price": "Price (minor units)",
+        "priceFor": "Price for {country} in {currency}",
+        "remove": "Remove",
+        "empty": "No rates for this category yet.",
+        "add": "Add rate",
+        "save": "Save rates",
+        "saved": "Rate card saved",
+        "saveFailed": "Could not save the rate card",
+        "invalidRow": "Enter a 2-letter country code, a 3-letter currency and a price of 0 or more."
+      },
+      "overLimit": "This audience is over the {limit} recipient limit for one campaign. Narrow it before creating the campaign.",
+      "noCurrencyRate": "No {currency} rate configured",
+      "missingCountriesInCurrency": "{count, plural, one {# recipient} other {# recipients}} not included (no {currency} rate): {countries}"
+    },
+    "loadFailed": "This report could not be loaded.",
+    "retry": "Try again",
+    "emptyTitle": "No activity in this period",
+    "emptyHint": "Try a longer date range.",
+    "showTable": "Show data as a table",
+    "duration": {
+      "none": "–",
+      "seconds": "{s}s",
+      "minutes": "{m}m {s}s",
+      "hours": "{h}h {m}m",
+      "days": "{d}d {h}h"
+    },
+    "range": {
+      "label": "Date range",
+      "today": "Today",
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "custom": "Custom",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "maxDays": "Up to 366 days. Dates use your workspace time zone."
+    },
+    "numbers": {
+      "label": "Number",
+      "all": "All numbers",
+      "fallback": "Number {n}",
+      "default": "(default)"
+    },
+    "page": {
+      "eyebrow": "Reports",
+      "title": "Analytics",
+      "description": "How conversations, your team, campaigns, flows and the AI agent performed over a period.",
+      "showing": "Showing {from} to {to}, compared with {previousFrom} to {previousTo}.",
+      "overviewFailed": "The conversation summary could not be loaded.",
+      "numberScope": "The number filter applies to the conversation summary and charts."
+    },
+    "overview": {
+      "noBaseline": "No earlier data to compare",
+      "noChange": "No change vs previous period",
+      "change": "{change}% vs previous period",
+      "started": "Conversations started",
+      "firstResponse": "Median first response",
+      "resolutionTime": "Median resolution time",
+      "resolved": "Conversations resolved",
+      "count": "Conversations",
+      "state": {
+        "bot": "With bot",
+        "requesting": "Waiting for an agent",
+        "assigned": "Assigned",
+        "resolved": "Resolved"
+      },
+      "source": {
+        "inbound": "Customer started",
+        "business": "Business started",
+        "campaignReply": "Campaign reply"
+      },
+      "minutes": "Minutes",
+      "minutesValue": "{value} min",
+      "median": "Median",
+      "p90": "90th percentile",
+      "byStateTitle": "Conversations by state",
+      "byStateDescription": "Current state of conversations active in the period.",
+      "stateColumn": "State",
+      "bySourceTitle": "Conversations by source",
+      "bySourceDescription": "Who started each new conversation. A campaign reply is a customer message within 72 hours of a campaign.",
+      "sourceColumn": "Source",
+      "timingTitle": "Response and resolution time",
+      "timingDescription": "First response counts the first customer wait per conversation. Resolution time covers conversations resolved without being reopened.",
+      "metricColumn": "Measure",
+      "samples": "Conversations measured",
+      "unanswered": "{count, plural, =1 {# conversation is} other {# conversations are}} still waiting for a first reply."
+    },
+    "agents": {
+      "title": "Team leaderboard",
+      "description": "Conversations each member handled in the period, busiest first.",
+      "member": "Member",
+      "handled": "Conversations",
+      "replies": "Replies",
+      "medianFirstResponse": "Median first response",
+      "resolved": "Resolved",
+      "unnamed": "Unnamed member",
+      "none": "–",
+      "attribution": "Replies and first responses are credited to the member who sent them. Older replies without a recorded sender, and resolutions, count for the current assignee."
+    },
+    "campaigns": {
+      "title": "Campaign funnel",
+      "description": "Campaigns scheduled in the period, from sent to clicked. Replies count within 72 hours.",
+      "recipients": "Recipients",
+      "stage": {
+        "sent": "Sent",
+        "delivered": "Delivered",
+        "read": "Read",
+        "replied": "Replied",
+        "clicked": "Clicked",
+        "failed": "Failed"
+      },
+      "percent": "{value}%",
+      "funnelLabel": "Campaign funnel for all campaigns in the period",
+      "stageColumn": "Stage",
+      "ofSent": "Share of sent",
+      "failed": "{count, plural, =1 {# message} other {# messages}} failed to send.",
+      "perCampaign": "By campaign (rates are a share of sent)",
+      "campaign": "Campaign"
+    },
+    "flows": {
+      "title": "Flow performance",
+      "description": "Runs started in the period and where unfinished runs stopped.",
+      "runs": "Runs",
+      "unknownFlow": "Deleted flow",
+      "filter": "Flow",
+      "allFlows": "All flows",
+      "outcome": {
+        "started": "Started",
+        "completed": "Completed",
+        "handedOff": "Handed to a person",
+        "timedOut": "Timed out",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "active": "Still running"
+      },
+      "noDropOff": "Every finished run in this period completed.",
+      "dropOffTitle": "Drop-off by step",
+      "node": "Step",
+      "dropOffHint": "The last step reached by runs that did not complete."
+    },
+    "ai": {
+      "title": "AI agent",
+      "description": "Conversations the AI agent replied in, and how many it resolved without a person.",
+      "resolutionRate": "AI resolution rate",
+      "resolvedByAi": "{count, plural, =1 {# conversation} other {# conversations}} resolved by AI",
+      "replies": "AI replies",
+      "conversations": "Conversations with AI",
+      "handoffs": "Handed to a person",
+      "unanswered": "Unanswered questions"
+    },
+    "reports": {
+      "title": "Reports",
+      "description": "Download CSV reports for a date range. Reports contain counts and names only, never message content, and are kept for 30 days.",
+      "adminsOnly": "Only admins and owners can create and download reports.",
+      "kind": "Report",
+      "kinds": {
+        "campaign_daily": "Campaigns by day",
+        "campaign_summary": "Campaign summary",
+        "member_campaigns": "Campaigns by team member",
+        "agent_performance": "Agent performance by day"
+      },
+      "range": "Date range",
+      "presets": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+        "custom": "Custom range"
+      },
+      "from": "From",
+      "to": "To",
+      "pickDates": "Choose a start and end date.",
+      "emailMe": "Email me a download link when it is ready",
+      "request": "Create report",
+      "requestFailed": "The report could not be requested. Try again.",
+      "listTitle": "Recent reports",
+      "listDescription": "Reports build in the background. Download links require you to be signed in.",
+      "loadFailed": "Reports could not be loaded.",
+      "empty": "No reports yet.",
+      "requested": "Requested",
+      "statusLabel": "Status",
+      "status": {
+        "queued": "Queued",
+        "running": "Building",
+        "ready": "Ready",
+        "failed": "Failed",
+        "expired": "Expired"
+      },
+      "rangeValue": "{from} – {to}",
+      "formerMember": "Former member",
+      "rows": "{count, plural, one {# row} other {# rows}}",
+      "truncated": "first 100,000 rows only",
+      "expires": "Available until {date}",
+      "download": "Download",
+      "email": {
+        "subject": "Your report is ready: {report}",
+        "body": "Your {report} report for {from} to {to} is ready. Sign in to download it:",
+        "footer": "The file is available for 30 days. It contains counts and names only, never message content."
+      }
+    },
+    "templates": {
+      "action": "Analytics",
+      "actionAria": "Analytics for {name}",
+      "dialogTitle": "Analytics: {name}",
+      "dialogDescription": "Sends, deliveries, reads, replies, clicks and failures for this template.",
+      "qualityTitle": "Status and quality",
+      "quality": {
+        "GREEN": "High quality",
+        "YELLOW": "Medium quality",
+        "RED": "Low quality",
+        "unknown": "Quality not rated"
+      },
+      "languagesNote": "Counts include every language of this template name.",
+      "historyTitle": "Status history",
+      "loadFailed": "Could not load template analytics.",
+      "retry": "Retry",
+      "loading": "Loading analytics...",
+      "rangeLabel": "Date range",
+      "presets": {
+        "7d": "7 days",
+        "30d": "30 days",
+        "90d": "90 days",
+        "custom": "Custom"
+      },
+      "from": "Start date",
+      "to": "End date",
+      "weekOf": "Week of {date}",
+      "rangeSummary": "{start} to {end} ({timezone})",
+      "modeLabel": "Chart values",
+      "modes": {
+        "counts": "Counts",
+        "rates": "Rates"
+      },
+      "chartTitleDaily": "Daily performance",
+      "chartTitleWeekly": "Weekly performance",
+      "empty": "No sends of this template in this range.",
+      "definitions": "Rates are shares of messages sent. A reply is a customer message within 72 hours. Clicks are tracked for campaigns only.",
+      "byTemplate": "By template",
+      "template": "Template",
+      "metrics": {
+        "sent": "Sent",
+        "delivered": "Delivered",
+        "read": "Read",
+        "replied": "Replied",
+        "clicked": "Clicked",
+        "failed": "Failed"
+      },
+      "rates": {
+        "delivered": "Delivery rate",
+        "read": "Read rate",
+        "replied": "Reply rate",
+        "clicked": "Click rate",
+        "failed": "Failure rate"
+      },
+      "ofSent": "{count} messages",
+      "period": "Period"
+    }
   }
 }

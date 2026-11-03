@@ -45,6 +45,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { useCan } from '@/hooks/use-can';
 import { numberLabel, useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
+import { CampaignCostCard } from '@/components/broadcasts/campaign-cost';
 
 interface StatCardProps {
   label: string;
@@ -616,6 +617,8 @@ export default function BroadcastDetailPage() {
       )}
 
       <FunnelChart steps={funnelSteps} />
+
+      <CampaignCostCard broadcastId={broadcast.id} />
 
       {/* Recipients Table */}
       <div className="rounded-xl border border-border bg-card">

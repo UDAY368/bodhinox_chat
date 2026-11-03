@@ -19,6 +19,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { getT } from '@/lib/i18n/translate';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause';
+import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   PRODUCT_MESSAGE_LIMITS,
@@ -296,9 +297,9 @@ export async function sendCommerceMessage(args: SendCommerceArgs): Promise<SendC
 
   const text = commerceMessageText(args.message, prepared.products);
   const messageId = await withTenant(context, async (tx) => {
-    const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,
+    const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_type,
         content_text,message_id,status)
-      VALUES(${args.accountId}::uuid,${args.conversationId}::uuid,${args.sender},'interactive',${text},${whatsapp_message_id},'sent')
+      VALUES(${args.accountId}::uuid,${args.conversationId}::uuid,${args.sender},${agentSenderId(args.sender, args.userId)}::uuid,'interactive',${text},${whatsapp_message_id},'sent')
       ON CONFLICT(conversation_id,message_id) DO NOTHING RETURNING id::text AS id`;
     // An agent stepping in pauses the bot, as every inbox send does.
     await tx.$executeRaw`UPDATE conversations SET last_message_text=${text},last_message_at=NOW(),updated_at=NOW(),

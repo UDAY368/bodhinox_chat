@@ -124,6 +124,23 @@ describe('fixed CRM resource authorization', () => {
       ).toContain('inbound_created_meta_id');
     }
   });
+  it('keeps messages readable but server-managed for browser writes so attribution cannot be forged', () => {
+    const conversationId = '33333333-3333-4333-8333-333333333333';
+    const forged = { conversation_id: conversationId, sender_type: 'agent', sender_id: tenant.userId, content_type: 'text', content_text: 'x', status: 'sent', ai_generated: true };
+    for (const role of ['agent', 'admin', 'owner'] as const) {
+      const ctx = { ...tenant, role };
+      expect(getResource('messages', true).browserWrite).toBe(false);
+      for (const operation of ['insert', 'update', 'upsert'])
+        expect(() => validateWrite('messages', operation === 'update' ? { sender_id: tenant.userId } : forged, ctx, true, operation)).toThrow(expect.objectContaining({ code: 'FORBIDDEN', status: 403 }));
+      for (const operation of ['insert', 'update', 'delete'] as const)
+        expect(() => validateQuery('messages', { operation, values: operation === 'delete' ? undefined : (operation === 'update' ? { sender_type: 'bot' } : forged), filters: operation === 'insert' ? [] : [{ field: 'conversation_id', op: 'eq', value: conversationId }] }, ctx, true)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+      expect(() => validateQuery('messages', { projection: 'id,sender_id,sender_type,ai_generated,status', filters: [{ field: 'conversation_id', op: 'eq', value: conversationId }] }, ctx, true)).not.toThrow();
+    }
+    // Server routes and workers (browser=false) still record sends.
+    expect(() => validateWrite('messages', forged, tenant, false)).not.toThrow();
+    expect(() => validateWrite('messages', { status: 'delivered' }, tenant, false, 'update')).not.toThrow();
+    expect(() => validateQuery('messages', { operation: 'insert', values: forged, filters: [] }, tenant, false)).not.toThrow();
+  });
   it('rejects forged HTTP timestamps and direct unread counter writes', () => {
     for (const field of ['created_at', 'updated_at'])
       expect(() =>

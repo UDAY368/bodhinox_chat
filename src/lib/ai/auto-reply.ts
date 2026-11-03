@@ -104,6 +104,8 @@ export async function dispatchInboundToAiReply(
     if (!current) return
     const update: Record<string, unknown> = {
       ai_autoreply_disabled: true, bot_paused: true, ai_handoff_summary: summary,
+      // Analytics counts handoffs by this time; resuming AI keeps it.
+      ai_handoff_at: new Date().toISOString(),
     }
     if (handoffAgentId) update.assigned_agent_id = handoffAgentId
     // Compare ownership at the UPDATE itself so a new human assignee wins.

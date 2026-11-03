@@ -71,6 +71,9 @@ export async function scheduleWork() {
   // Billing grace expiry, trial ends, scheduled changes and unconfirmed provider calls; nothing while billing is off.
   await import('@/lib/billing/subscriptions').then((m) => m.scheduleBillingSweeps())
     .catch(() => console.error('[worker] billing sweep scheduling failed'));
+  // Hourly expiry of 30-day-old report files.
+  await import('@/lib/analytics/reports').then((m) => m.scheduleReportSweeps())
+    .catch(() => console.error('[worker] report sweep scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -294,6 +297,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'ai.crawl_source')
       // One time-boxed slice of a knowledge-source crawl or re-index; queues its own continuation.
       await (await import('@/lib/ai/knowledge-sources')).handleCrawlSourceJob(accountId, job.payload);
+    else if (job.type === 'analytics.report' || job.type === 'analytics.report_sweep')
+      // Builds one CSV report into private storage, or expires old report files.
+      await (await import('@/lib/analytics/reports')).handleReportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else throw new Error('Unsupported job type');
   });
 }

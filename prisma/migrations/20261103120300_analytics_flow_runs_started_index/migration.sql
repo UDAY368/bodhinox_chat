@@ -1,0 +1,13 @@
+-- Analytics (Phase 9): flow runs by start time for flow reports (runs started,
+-- outcomes and drop-off per node in a date range).
+--
+-- Built CONCURRENTLY: the flow engine writes flow_runs on every inbound message
+-- that matches a flow.
+--
+-- This file holds a single statement on purpose: CREATE INDEX CONCURRENTLY
+-- cannot run inside a transaction block. If a deploy is interrupted mid-build,
+-- PostgreSQL leaves an INVALID index; drop it (DROP INDEX CONCURRENTLY
+-- flow_runs_account_started_idx) and mark the migration rolled back
+-- (prisma migrate resolve --rolled-back 20261103120300_analytics_flow_runs_started_index)
+-- before re-running.
+CREATE INDEX CONCURRENTLY flow_runs_account_started_idx ON flow_runs (account_id, started_at);

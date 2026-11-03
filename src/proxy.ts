@@ -9,6 +9,7 @@ import { AuthError } from '@/lib/auth/errors';
 import { postLoginPath } from '@/lib/auth/callback';
 const protectedPaths = [
   '/dashboard',
+  '/analytics',
   '/inbox',
   '/contacts',
   '/pipelines',

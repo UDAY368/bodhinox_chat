@@ -189,8 +189,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('WhatsApp catalogues on Post
     // A replay of the same request returns the stored result and never calls Meta again.
     expect((await sendCommerceMessage(args)).whatsappMessageId).toBe('wamid.list');
     expect(meta.list).toHaveBeenCalledTimes(1);
-    const messages = (await owner.query("SELECT content_type,content_text,sender_type FROM messages WHERE conversation_id=$1 AND message_id='wamid.list'", [conversationA])).rows;
-    expect(messages).toEqual([{ content_type: 'interactive', sender_type: 'agent', content_text: 'New in\nPick one\n[Item A, Red shoe]' }]);
+    const messages = (await owner.query("SELECT content_type,content_text,sender_type,sender_id FROM messages WHERE conversation_id=$1 AND message_id='wamid.list'", [conversationA])).rows;
+    // The sending member is stamped for agent analytics.
+    expect(messages).toEqual([{ content_type: 'interactive', sender_type: 'agent', sender_id: agentA, content_text: 'New in\nPick one\n[Item A, Red shoe]' }]);
     expect((await owner.query("SELECT status FROM outbound_intents WHERE idempotency_key=$1", [`${accountA}:${args.intentKey}`])).rows[0].status).toBe('accepted');
   });
 

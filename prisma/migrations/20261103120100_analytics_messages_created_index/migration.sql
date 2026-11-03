@@ -1,0 +1,16 @@
+-- Analytics (Phase 9): time-range scans of one workspace's messages. Every
+-- analytics query bounds messages by (account_id, created_at); without this the
+-- planner reads all of the workspace's messages through messages_tenant_idx and
+-- filters by time. Measured on 1M messages per workspace (see
+-- 20261103120000_analytics): a one-day report fell from ~300 ms to ~20 ms.
+--
+-- Built CONCURRENTLY: messages is the busiest table, and a plain CREATE INDEX
+-- would block inbound and outbound message writes for the whole build.
+--
+-- This file holds a single statement on purpose: CREATE INDEX CONCURRENTLY
+-- cannot run inside a transaction block. If a deploy is interrupted mid-build,
+-- PostgreSQL leaves an INVALID index; drop it (DROP INDEX CONCURRENTLY
+-- messages_account_created_idx) and mark the migration rolled back
+-- (prisma migrate resolve --rolled-back 20261103120100_analytics_messages_created_index)
+-- before re-running.
+CREATE INDEX CONCURRENTLY messages_account_created_idx ON messages (account_id, created_at);

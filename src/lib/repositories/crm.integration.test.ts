@@ -395,9 +395,11 @@ describe.skipIf(!database || !authDatabase)(
         expect(preserved.data).toMatchObject({ current_node_key: 'menu', reprompt_count: 0, status: 'active' });
         answer = '[[HANDOFF]]';
         await processInboundActions(await customer('Write an unrelated poem about aliens.'));
-        const paused = await db.from('conversations').select('bot_paused,ai_autoreply_disabled,ai_handoff_summary').eq('id', conversationId).single();
+        const paused = await db.from('conversations').select('bot_paused,ai_autoreply_disabled,ai_handoff_summary,ai_handoff_at').eq('id', conversationId).single();
         expect(paused.data).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true });
         expect(paused.data!.ai_handoff_summary).toBeTruthy();
+        // Analytics counts the handoff by this time.
+        expect(paused.data!.ai_handoff_at).toBeTruthy();
         expect((await db.from('messages').select('id').eq('conversation_id', conversationId).eq('ai_generated', true)).data).toHaveLength(1);
       } finally {
         network.mockRestore();
