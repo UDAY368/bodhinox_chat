@@ -25,6 +25,8 @@ jobs:
           --health-interval 10s --health-timeout 5s --health-retries 10
     env:
       DATABASE_ENV_FILE: .env.test
+      # tsc needs ~2.4 GB for this codebase, above Node's default heap on the runner (16 GB RAM).
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
