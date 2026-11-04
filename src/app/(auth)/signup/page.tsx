@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -31,14 +31,44 @@ export default function SignupPage() {
 }
 
 function SignupPageInner() {
-  const searchParams = useSearchParams();
-  // When the user lands here from `/join/<token>` we carry the
-  // invite token in the query so it survives the signup → email
-  // verification → redirect round-trip. `emailRedirectTo` below
-  // sends the verified user to /join/<token> so they land on the
-  // redeem step instead of being dropped on /dashboard.
-  const inviteToken = searchParams.get('invite');
+  // When the user lands here from `/join/<token>` the invite token
+  // rides along in the query. Signup sends it to the server, which
+  // joins the new identity to the inviting workspace with the
+  // invited role (no personal workspace is created). Keyed so
+  // "sign up without the invitation" starts from a clean form.
+  const inviteToken = useSearchParams().get('invite');
+  return <SignupForm key={inviteToken ?? ''} inviteToken={inviteToken} />;
+}
+
+function SignupForm({ inviteToken }: { inviteToken: string | null }) {
   const t = useTranslations('SignupPage');
+  const tRoles = useTranslations('Settings.roles');
+  const [invite, setInvite] = useState<{
+    account_name: string;
+    role: 'admin' | 'agent' | 'viewer';
+  } | null>(null);
+  const [inviteUnavailable, setInviteUnavailable] = useState(false);
+
+  // Show which workspace and role the invitation is for.
+  useEffect(() => {
+    if (!inviteToken) return;
+    let cancelled = false;
+    fetch(`/api/invitations/${encodeURIComponent(inviteToken)}/peek`, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    })
+      .then((response) => response.json())
+      .then((result) => {
+        if (cancelled) return;
+        if (result?.ok === true) setInvite(result);
+        else if (result?.reason && result.reason !== 'server_error')
+          setInviteUnavailable(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken]);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -64,6 +94,7 @@ function SignupPageInner() {
     }
 
     setLoading(true);
+    setInviteUnavailable(false);
 
     // Always name our own origin as the place the confirmation link
     // returns to. Previously this was left unset unless an invite was
@@ -75,9 +106,8 @@ function SignupPageInner() {
     // for a session and forwards to `next` (issue #592). db still
     // has to allow this origin under Authentication → URL Configuration
     // → Redirect URLs; see docs/auth-emails.md.
-    const next = inviteToken
-      ? `/join/${encodeURIComponent(inviteToken)}`
-      : '/dashboard';
+    // An invited signup is already a member once verified, so it lands on the dashboard.
+    const next = '/dashboard';
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
     const { error } = await db.auth.signUp({
@@ -88,11 +118,16 @@ function SignupPageInner() {
           full_name: fullName,
         },
         emailRedirectTo,
+        ...(inviteToken ? { invite: inviteToken } : {}),
       },
     });
 
     if (error) {
-      setError(error.message);
+      // Used, expired or malformed link (the server answers all three with invite_unavailable):
+      // never fall back to creating a workspace silently. Other errors show as they are.
+      if (inviteToken && error.code === 'invite_unavailable')
+        setInviteUnavailable(true);
+      else setError(error.message);
       setLoading(false);
       return;
     }
@@ -122,13 +157,7 @@ function SignupPageInner() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : '/login'
-              }
-            >
+            <Link href="/login">
               <Button
                 variant="outline"
                 className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
@@ -157,11 +186,32 @@ function SignupPageInner() {
             {inviteToken ? t('titleJoin') : t('title')}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            {inviteToken ? t('descJoin') : t('desc')}
+            {invite
+              ? t.rich('descJoinWorkspace', {
+                  workspace: invite.account_name,
+                  role: tRoles(invite.role),
+                  strong: (chunks) => (
+                    <span className="text-foreground">{chunks}</span>
+                  ),
+                })
+              : inviteToken
+                ? t('descJoin')
+                : t('desc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="flex flex-col gap-4">
+            {inviteUnavailable && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+              >
+                {t('inviteUnavailable')}{' '}
+                <Link href="/signup" className="text-primary underline">
+                  {t('signupWithoutInvite')}
+                </Link>
+              </div>
+            )}
             {error && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}

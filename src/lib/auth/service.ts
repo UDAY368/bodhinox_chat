@@ -15,6 +15,7 @@ import { type AuthContext } from './session';
 import { checkMfa } from './mfa';
 import { safeNextPath } from './callback';
 import { storableUserAgent } from './user-agent';
+import { hashInviteToken, INVITE_TOKEN_PATTERN } from './invitations';
 
 export const SESSION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 type AuthDatabase = ReturnType<typeof getAuthPrisma>;
@@ -85,7 +86,8 @@ async function sendVerification(
 }
 async function createVerification(
   userId: string,
-  purpose: 'verify' | 'reset'
+  purpose: 'verify' | 'reset',
+  metadata: Record<string, string> = {}
 ): Promise<string> {
   const token = randomToken(),
     id = randomUUID();
@@ -95,15 +97,79 @@ async function createVerification(
   await getAuthPrisma().$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM auth_users WHERE id=${userId}::uuid FOR UPDATE`;
     await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${userId}::uuid AND purpose=${purpose} AND consumed_at IS NULL`;
-    await tx.$executeRaw`INSERT INTO auth_verifications(id,user_id,purpose,token_hash,expires_at) VALUES(${id}::uuid,${userId}::uuid,${purpose},${hashToken(token)},${expires})`;
+    await tx.$executeRaw`INSERT INTO auth_verifications(id,user_id,purpose,token_hash,expires_at,metadata) VALUES(${id}::uuid,${userId}::uuid,${purpose},${hashToken(token)},${expires},${JSON.stringify(metadata)}::jsonb)`;
   });
   return token;
+}
+export const INVITE_ROLES = ['admin', 'agent', 'viewer'] as const;
+export function inviteUnavailable(): AuthError {
+  return new AuthError(
+    'This invitation link is no longer valid. Ask for a new link or sign up without it.',
+    410,
+    'invite_unavailable'
+  );
+}
+type LockedInvite = { id: string; account_id: string; role: string };
+/** Locks an open invitation by token for the rest of the transaction, or refuses it. */
+export async function lockOpenInvitation(
+  tx: AuthTransaction,
+  token: string
+): Promise<LockedInvite> {
+  if (!INVITE_TOKEN_PATTERN.test(token)) throw inviteUnavailable();
+  const invite = await lockInvitationByHash(tx, hashInviteToken(token));
+  if (!invite) throw inviteUnavailable();
+  return invite;
+}
+async function lockInvitationByHash(
+  tx: AuthTransaction,
+  tokenHash: string
+): Promise<LockedInvite | null> {
+  const rows = await tx.$queryRaw<LockedInvite[]>`
+    SELECT id,account_id,role FROM account_invitations
+    WHERE token_hash=${tokenHash} AND accepted_at IS NULL AND expires_at>NOW() FOR UPDATE`;
+  const invite = rows[0];
+  return invite && (INVITE_ROLES as readonly string[]).includes(invite.role)
+    ? invite
+    : null;
+}
+/**
+ * Joins an identity to the invited workspace with the invitation's role instead of creating a
+ * personal workspace (email signup at verification, Google signup), and marks it redeemed.
+ */
+export async function joinInvitedWorkspace(
+  tx: AuthTransaction,
+  invite: LockedInvite,
+  user: { id: string; fullName: string; email: string },
+  via: 'verify' | 'google' = 'verify'
+): Promise<void> {
+  await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${invite.account_id}::uuid,${user.id}::uuid,${invite.role})
+    ON CONFLICT(account_id,user_id) DO NOTHING`;
+  await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${user.id}::uuid,${user.fullName},${user.email},${invite.account_id}::uuid,${invite.role})
+    ON CONFLICT(user_id) DO NOTHING`;
+  await tx.$executeRaw`UPDATE account_invitations SET accepted_at=NOW(),accepted_by_user_id=${user.id}::uuid WHERE id=${invite.id}::uuid`;
+  await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
+    VALUES(${invite.account_id}::uuid,${user.id}::uuid,'invitation.redeemed',${invite.id},${JSON.stringify({ role: invite.role, via })}::jsonb)`;
+}
+/** Creates "<name>'s workspace" owned by the user (email signup, and sign-in with no membership left). */
+async function createPersonalWorkspace(
+  tx: AuthTransaction,
+  user: { id: string; fullName: string; email: string }
+): Promise<string> {
+  const accountId = randomUUID();
+  await tx.$executeRaw`SELECT set_config('app.user_id',${user.id},true),set_config('app.account_id',${accountId},true),set_config('app.account_role','owner',true)`;
+  await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${accountId}::uuid,${`${user.fullName}'s workspace`},${user.id}::uuid)`;
+  await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${user.id}::uuid,'owner')`;
+  await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${user.id}::uuid,${user.fullName},${user.email},${accountId}::uuid,'owner')
+    ON CONFLICT(user_id) DO NOTHING`;
+  return accountId;
 }
 export async function signup(input: {
   email: string;
   password: string;
   fullName?: string;
   next?: string;
+  /** Invitation link token: join that workspace instead of creating one. */
+  invite?: string;
 }): Promise<void> {
   const email = normalizeEmail(input.email);
   await enforceAuthRateLimit('signup', email, 5, 3600);
@@ -111,42 +177,56 @@ export async function signup(input: {
   const passwordHash = await hashPassword(input.password);
   const fullName = (input.fullName ?? '').trim().slice(0, 200);
   if (!fullName) throw new AuthError('Enter your name', 400);
-  const userId = randomUUID(),
-    accountId = randomUUID();
+  const invite = input.invite;
+  if (invite !== undefined && !INVITE_TOKEN_PATTERN.test(invite))
+    throw inviteUnavailable();
+  const userId = randomUUID();
   const user = await getAuthPrisma().$transaction(async (tx) => {
+    // Check the invitation before touching auth_users, so a dead link gets the same 410 whether
+    // or not the email is registered (no enumeration). It is redeemed only at email verification.
+    if (invite) await lockOpenInvitation(tx, invite);
     const inserted = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO auth_users(id,email,full_name,password_hash) VALUES(${userId}::uuid,${email},${fullName},${passwordHash})
       ON CONFLICT(email) DO NOTHING RETURNING id`;
     // A failed delivery must not strand a pending signup. Reissue proof without
     // changing the original password or exposing whether a verified account exists.
     if (!inserted[0]) {
-      const existing = await tx.$queryRaw<{ id: string; verified: boolean }[]>`SELECT id, email_verified_at IS NOT NULL AS verified FROM auth_users WHERE email=${email} AND disabled_at IS NULL`;
-      return existing[0] ?? null;
+      const existing = await tx.$queryRaw<{ id: string; verified: boolean }[]>`
+        SELECT id, email_verified_at IS NOT NULL AS verified
+        FROM auth_users WHERE email=${email} AND disabled_at IS NULL`;
+      return existing[0] ? { ...existing[0] } : null;
     }
-    await tx.$executeRaw`SELECT set_config('app.user_id',${userId},true),set_config('app.account_id',${accountId},true),set_config('app.account_role','owner',true)`;
-    await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${accountId}::uuid,${`${fullName}'s workspace`},${userId}::uuid)`;
-    await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${userId}::uuid,'owner')`;
-    await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${userId}::uuid,${fullName},${email},${accountId}::uuid,'owner')`;
+    // Invited people get no personal owner workspace: verifying the email joins the invited one.
+    if (!invite)
+      await createPersonalWorkspace(tx, { id: userId, fullName, email });
     return { ...inserted[0], verified: false };
   });
   if (user?.verified) {
     // Same response as a new signup, so the form never reveals which emails are registered;
     // the owner of the address still learns why no verification link arrived.
     const signIn = new URL('/login', appOrigin());
+    const join = invite
+      ? `\nTo join the workspace you were invited to, sign in and open: ${new URL(`/join/${encodeURIComponent(invite)}`, appOrigin()).toString()}`
+      : '';
     await sendAuthEmail({
       from: process.env.AUTH_EMAIL_FROM,
       to: email,
       subject: 'You already have a Bodhinox account',
       text: `Someone tried to create a Bodhinox account with this email, but one already exists.
-Sign in: ${signIn.toString()}
+Sign in: ${signIn.toString()}${join}
 Forgot your password? Use "Forgot password" on the sign-in page. If this wasn't you, ignore this message.`,
     });
   } else if (user)
     await sendVerification(
       email,
-      await createVerification(user.id, 'verify'),
+      // The verification carries the invitation (hash only) and redeems it once the email is proven.
+      await createVerification(
+        user.id,
+        'verify',
+        invite ? { inviteTokenHash: hashInviteToken(invite) } : {}
+      ),
       'verify',
-      input.next
+      invite ? '/dashboard' : input.next
     );
 }
 let dummyPasswordHash: Promise<string> | undefined;
@@ -188,7 +268,7 @@ export interface IssueSessionOptions {
   method: SignInMethod;
   mfaCode?: string;
   userAgent?: string | null;
-  /** Pick this membership instead of the oldest one. */
+  /** Pick this membership instead of the last-used (else oldest) one. */
   accountId?: string;
   /** Password sign-in: refuse when the password changed after it was verified. */
   expectedPasswordHash?: string;
@@ -219,9 +299,24 @@ export async function issueSession(
         locked[0].password_hash !== options.expectedPasswordHash)
     )
       throw options.refuseUser?.() ?? new UnauthorizedError('Sign in again');
+    // Without a requested workspace, return to the one the latest session ended in (a tenant
+    // switch moves the session), while the person is still a member; else the oldest membership.
     const memberships = await tx.$queryRaw<
       { account_id: string }[]
-    >`SELECT account_id FROM account_memberships WHERE user_id=${userId}::uuid ORDER BY created_at`;
+    >`SELECT m.account_id FROM account_memberships m
+      LEFT JOIN LATERAL (SELECT s.account_id FROM auth_sessions s WHERE s.user_id=${userId}::uuid
+        ORDER BY s.created_at DESC LIMIT 1) last ON last.account_id=m.account_id
+      WHERE m.user_id=${userId}::uuid ORDER BY (last.account_id IS NULL), m.created_at`;
+    // A verified identity with no membership left (removed from its only workspace, or its
+    // invitation was used up before it verified) gets a personal workspace instead of a lockout.
+    if (!memberships[0] && !options.accountId)
+      memberships.push({
+        account_id: await createPersonalWorkspace(tx, {
+          id: userId,
+          fullName: locked[0].full_name,
+          email: locked[0].email,
+        }),
+      });
     const membership = options.accountId
       ? memberships.find((m) => m.account_id === options.accountId)
       : memberships[0];
@@ -450,12 +545,34 @@ export async function confirmEmailChange(token: string): Promise<void> {
 }
 export async function verifyEmailToken(token: string): Promise<void> {
   const result = await getAuthPrisma().$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<{ user_id: string; id: string }[]>`
-      SELECT v.id,v.user_id FROM auth_verifications v JOIN auth_users u ON u.id=v.user_id
+    const rows = await tx.$queryRaw<
+      {
+        user_id: string;
+        id: string;
+        full_name: string;
+        email: string;
+        metadata: { inviteTokenHash?: unknown };
+      }[]
+    >`
+      SELECT v.id,v.user_id,v.metadata,u.full_name,u.email FROM auth_verifications v JOIN auth_users u ON u.id=v.user_id
       WHERE v.token_hash=${hashToken(token)} AND v.purpose='verify' AND v.consumed_at IS NULL AND v.expires_at>NOW() AND u.disabled_at IS NULL FOR UPDATE OF v,u`;
-    if (!rows[0]) return false;
-    await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE id=${rows[0].id}::uuid`;
-    await tx.$executeRaw`UPDATE auth_users SET email_verified_at=COALESCE(email_verified_at,NOW()) WHERE id=${rows[0].user_id}::uuid`;
+    const row = rows[0];
+    if (!row) return false;
+    await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE id=${row.id}::uuid`;
+    await tx.$executeRaw`UPDATE auth_users SET email_verified_at=COALESCE(email_verified_at,NOW()) WHERE id=${row.user_id}::uuid`;
+    // Invited signup: join now that the address is proven. A link used or expired meanwhile is
+    // skipped; sign-in then falls back to a personal workspace.
+    const inviteHash = row.metadata?.inviteTokenHash;
+    const invite =
+      typeof inviteHash === 'string'
+        ? await lockInvitationByHash(tx, inviteHash)
+        : null;
+    if (invite)
+      await joinInvitedWorkspace(tx, invite, {
+        id: row.user_id,
+        fullName: row.full_name,
+        email: row.email,
+      });
     return true;
   });
   if (!result)

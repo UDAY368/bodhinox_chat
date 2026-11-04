@@ -227,7 +227,12 @@ const auth = {
   async signUp(input: {
     email: string;
     password: string;
-    options?: { data?: { full_name?: string }; emailRedirectTo?: string };
+    options?: {
+      data?: { full_name?: string };
+      emailRedirectTo?: string;
+      /** Invitation link token: the new identity joins that workspace. */
+      invite?: string;
+    };
   }) {
     const redirect = input.options?.emailRedirectTo
       ? new URL(input.options.emailRedirectTo, window.location.origin)
@@ -237,6 +242,7 @@ const auth = {
       password: input.password,
       fullName: input.options?.data?.full_name,
       next: redirect?.searchParams.get('next') ?? '/dashboard',
+      ...(input.options?.invite ? { invite: input.options.invite } : {}),
     });
     return { data: { user: null, session: null }, error: result.error };
   },

@@ -40,7 +40,8 @@
         "google_failed": "Não conseguimos fazer seu login com o Google. Tente novamente.",
         "google_link_required": "Já existe uma conta com este e-mail. Entre com sua senha e depois vincule o Google em Configurações → Login e segurança.",
         "google_no_workspace": "Sua conta não faz parte de nenhum espaço de trabalho.",
-        "google_rate_limited": "Muitas tentativas. Tente mais tarde."
+        "google_rate_limited": "Muitas tentativas. Tente mais tarde.",
+        "google_invite_unavailable": "Este link de convite não é mais válido. Peça um novo link à sua equipe ou cadastre-se sem ele."
       }
     }
   },
@@ -4237,7 +4238,8 @@
     "backToSignIn": "Voltar ao login",
     "titleJoin": "Criar conta e entrar na equipe",
     "title": "Criar conta",
-    "descJoin": "Confirme seu e-mail e depois aceite o convite para entrar na sua equipe.",
+    "descJoin": "Crie seu login para entrar na sua equipe. Você será membro assim que confirmar seu e-mail.",
+    "descJoinWorkspace": "Você vai entrar em <strong>{workspace}</strong> como {role}. Confirme seu e-mail e pronto.",
     "desc": "Comece a usar o Modelo de CRM para WhatsApp",
     "fullNameLabel": "Nome completo",
     "fullNamePlaceholder": "João Silva",
@@ -4250,7 +4252,9 @@
     "creating": "Criando conta...",
     "submit": "Criar conta",
     "haveAccount": "Já tem uma conta?",
-    "signIn": "Entrar"
+    "signIn": "Entrar",
+    "inviteUnavailable": "Este link de convite não é mais válido: já foi usado ou expirou. Peça um novo link à sua equipe.",
+    "signupWithoutInvite": "Cadastrar sem o convite"
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "Verifique seu e-mail",
@@ -4294,7 +4298,7 @@
       "serverErrorTitle": "Algo deu errado",
       "serverErrorBody": "Não conseguimos verificar este convite agora. Tente recarregar a página em instantes."
     },
-    "conflictDefault": "Você já está em outra conta. Entre com um e-mail diferente para ingressar nesta.",
+    "conflictDefault": "Você já é membro deste espaço de trabalho.",
     "acceptFailed": "Falha ao aceitar o convite",
     "welcome": "Bem-vindo à equipe",
     "serverUnreachable": "Não foi possível conectar ao servidor",
@@ -4307,7 +4311,7 @@
     "joinAs": "Você entrará como <badge>{role}</badge>. Link válido até {date}.",
     "accepting": "Aceitando…",
     "acceptInvitation": "Aceitar convite",
-    "acceptNote": "Ao aceitar, seu login passa para {name}. Sua conta pessoal vazia criada no cadastro será removida.",
+    "acceptNote": "Ao aceitar, {name} é adicionado aos seus espaços de trabalho. Você pode alternar entre eles quando quiser.",
     "conflictTitle": "Não é possível entrar em {name} com esta conta",
     "conflictBody": "Para entrar em <account>{name}</account>, saia e cadastre-se novamente com um endereço de e-mail diferente. O link do convite continua válido enquanto não expirar.",
     "staySignedIn": "Continuar conectado",

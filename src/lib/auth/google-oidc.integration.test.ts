@@ -8,6 +8,7 @@ import { hashPassword } from './password';
 import { decryptMfaSecret, encryptMfaSecret, enrollMfa, getMfaStatus, hasOwnPassword, verifyMfaEnrollment } from './mfa';
 import { login, resetPassword } from './service';
 import { hashToken } from './csrf';
+import { hashInviteToken } from './invitations';
 import type { AuthContext } from './session';
 import { verifyAccessToken } from './jwt';
 import {
@@ -93,6 +94,30 @@ describe.skipIf(!connectionString)('Google sign-in and device sessions on a real
     const again = await signInWithGoogle({ ...identity, email: `changed-${identity.email}` }, null);
     expect(again).toMatchObject({ kind: 'session', created: false });
     expect(await getGoogleLink(claims.sub)).toMatchObject({ email: `changed-${identity.email}` });
+  });
+
+  it('joins the invited workspace for a new Google identity started from an invitation link', async () => {
+    const owner = await passwordUser();
+    const inviteId = randomUUID(),
+      token = randomBytes(32).toString('base64url');
+    await getAuthPrisma().$executeRaw`INSERT INTO account_invitations(id,account_id,token_hash,role,created_by_user_id,expires_at)
+      VALUES(${inviteId}::uuid,${owner.accountId}::uuid,${hashInviteToken(token)},'viewer',${owner.id}::uuid,NOW()+INTERVAL '1 day')`;
+    const identity = { subject: subject(), email: `${randomUUID()}@example.invalid`, name: 'Invited Googler' };
+    const result = await signInWithGoogle(identity, UA, token);
+    expect(result).toMatchObject({ kind: 'session', created: true, joinedInvite: true });
+    const claims = await verifyAccessToken((result as { session: { accessToken: string } }).session.accessToken);
+    users.push(claims.sub);
+    const rows = await getAuthPrisma().$queryRaw<{ account_id: string; role: string }[]>`
+      SELECT account_id,role FROM account_memberships WHERE user_id=${claims.sub}::uuid`;
+    expect(rows).toEqual([{ account_id: owner.accountId, role: 'viewer' }]);
+    expect(await getAuthPrisma().$queryRaw<unknown[]>`SELECT id FROM accounts WHERE owner_user_id=${claims.sub}::uuid`).toHaveLength(0);
+    const sessions = await getAuthPrisma().$queryRaw<{ account_id: string }[]>`
+      SELECT account_id FROM auth_sessions WHERE user_id=${claims.sub}::uuid`;
+    expect(sessions).toEqual([{ account_id: owner.accountId }]);
+    // The link is now used: another new Google identity is refused and nothing is created.
+    const late = { subject: subject(), email: `${randomUUID()}@example.invalid`, name: 'Late' };
+    await expect(signInWithGoogle(late, UA, token)).rejects.toMatchObject({ code: 'google_invite_unavailable' });
+    expect(await getAuthPrisma().$queryRaw<unknown[]>`SELECT id FROM auth_users WHERE email=${late.email}`).toHaveLength(0);
   });
 
   it('never links on an email match, even for a verified user', async () => {

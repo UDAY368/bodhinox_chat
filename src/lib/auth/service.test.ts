@@ -141,12 +141,29 @@ describe('shared session issuing', () => {
     ).rejects.toThrow('custom user');
     mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([]);
     await expect(
-      issueSession(user.id, { method: 'google', refuseWorkspace: () => new Error('custom workspace') })
+      issueSession(user.id, {
+        method: 'google',
+        accountId: row.account_id,
+        refuseWorkspace: () => new Error('custom workspace'),
+      })
     ).rejects.toThrow('custom workspace');
     mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([{ account_id: row.account_id }]);
     await expect(
       issueSession(user.id, { method: 'password', accountId: row.session_id })
     ).rejects.toMatchObject({ status: 403 });
     expect(mocks.execute).not.toHaveBeenCalled();
+  });
+  it('gives a verified identity with no membership left a personal workspace instead of refusing it', async () => {
+    mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([]);
+    await issueSession(user.id, { method: 'password' });
+    const owned = mocks.execute.mock.calls.find((c) => sql(c).includes('INSERT INTO accounts'))!;
+    const session = mocks.execute.mock.calls.find((c) => sql(c).includes('INSERT INTO auth_sessions'))!;
+    expect(owned).toContain(user.id);
+    expect(session).toContain(owned[1]);
+    expect(
+      mocks.execute.mock.calls.some(
+        (c) => sql(c).includes('INSERT INTO account_memberships') && sql(c).includes("'owner'")
+      )
+    ).toBe(true);
   });
 });

@@ -41,6 +41,8 @@ import {
   verifyEmailToken,
 } from './service';
 import { handleAuthGet, handleAuthPost } from './http';
+import { hashInviteToken } from './invitations';
+import { executeMembershipRpc } from '@/lib/repositories/memberships';
 import { enrollMfa, verifyMfaEnrollment } from './mfa';
 
 config({ path: '.env.test', quiet: true });
@@ -181,6 +183,174 @@ describe.skipIf(!connectionString)(
       await verifyEmailToken(link.searchParams.get('token')!);
       await expect(login({ email: newEmail, password: validPassword })).resolves.toHaveProperty('accessToken');
       await expect(login({ email: newEmail, password: 'Different1!' })).rejects.toMatchObject({ code: 'unauthorized' });
+    }, 30000);
+    async function invitation(
+      role: 'admin' | 'agent' | 'viewer',
+      expiresAt = new Date(Date.now() + 86400_000)
+    ): Promise<{ id: string; token: string }> {
+      const id = randomUUID(),
+        token = randomToken();
+      await getAuthPrisma()
+        .$executeRaw`INSERT INTO account_invitations(id,account_id,token_hash,role,created_by_user_id,expires_at)
+          VALUES(${id}::uuid,${accountId}::uuid,${hashInviteToken(token)},${role},${userId}::uuid,${expiresAt})`;
+      return { id, token };
+    }
+    async function membershipsOf(id: string) {
+      return getAuthPrisma().$queryRaw<{ account_id: string; role: string }[]>`
+        SELECT account_id,role FROM account_memberships WHERE user_id=${id}::uuid ORDER BY created_at`;
+    }
+    async function invitedSignup(token: string, fullName: string) {
+      const newEmail = `${randomUUID()}@example.invalid`;
+      await signup({ email: newEmail, password, fullName, invite: token });
+      const created = await getAuthPrisma().$queryRaw<{ id: string }[]>`SELECT id FROM auth_users WHERE email=${newEmail}`;
+      additionalUsers.push(created[0].id);
+      const delivered = mail.send.mock.calls.at(-1)?.[0] as { to: string; text: string };
+      expect(delivered.to).toBe(newEmail);
+      const link = new URL(delivered.text.split(': ')[1].split('\n')[0]);
+      return { id: created[0].id, email: newEmail, link };
+    }
+    it('joins the invited workspace at email verification with the invited role and no owner workspace of its own', async () => {
+      const invite = await invitation('agent');
+      const invited = await invitedSignup(invite.token, 'Invited agent');
+      expect(invited.link.searchParams.get('next')).toBe('/dashboard');
+      // Nothing is granted or used up until the address is proven.
+      expect(await membershipsOf(invited.id)).toEqual([]);
+      const pending = await getAuthPrisma().$queryRaw<{ accepted: boolean }[]>`
+        SELECT accepted_at IS NOT NULL AS accepted FROM account_invitations WHERE id=${invite.id}::uuid`;
+      expect(pending[0].accepted).toBe(false);
+      await verifyEmailToken(invited.link.searchParams.get('token')!);
+      const owned = await getAuthPrisma().$queryRaw<{ id: string }[]>`SELECT id FROM accounts WHERE owner_user_id=${invited.id}::uuid`;
+      expect(owned).toHaveLength(0);
+      expect(await membershipsOf(invited.id)).toEqual([{ account_id: accountId, role: 'agent' }]);
+      const profile = await getAuthPrisma().$queryRaw<{ account_id: string; account_role: string }[]>`
+        SELECT account_id,account_role FROM profiles WHERE user_id=${invited.id}::uuid`;
+      expect(profile).toEqual([{ account_id: accountId, account_role: 'agent' }]);
+      const redeemed = await getAuthPrisma().$queryRaw<{ accepted_by_user_id: string | null; accepted: boolean }[]>`
+        SELECT accepted_by_user_id,accepted_at IS NOT NULL AS accepted FROM account_invitations WHERE id=${invite.id}::uuid`;
+      expect(redeemed[0]).toEqual({ accepted_by_user_id: invited.id, accepted: true });
+      const issued = await login({ email: invited.email, password });
+      expect(await requireSession(request(issued.accessToken))).toMatchObject({
+        userId: invited.id,
+        accountId,
+        role: 'agent',
+      });
+    }, 30000);
+    it('re-sends verification to a pending invited signup without creating a second identity', async () => {
+      const invite = await invitation('viewer');
+      const newEmail = `${randomUUID()}@example.invalid`;
+      mail.send.mockRejectedValueOnce(new Error('Test delivery failure'));
+      await expect(
+        signup({ email: newEmail, password, fullName: 'Invited viewer', invite: invite.token })
+      ).rejects.toThrow();
+      const created = await getAuthPrisma().$queryRaw<{ id: string }[]>`SELECT id FROM auth_users WHERE email=${newEmail}`;
+      additionalUsers.push(created[0].id);
+      await signup({ email: newEmail, password: 'Different1!', fullName: 'Retry', invite: invite.token });
+      const delivered = mail.send.mock.calls.at(-1)?.[0] as { to: string; text: string };
+      expect(delivered.to).toBe(newEmail);
+      const link = new URL(delivered.text.split(': ')[1].split('\n')[0]);
+      expect(link.searchParams.get('next')).toBe('/dashboard');
+      await verifyEmailToken(link.searchParams.get('token')!);
+      expect(await membershipsOf(created[0].id)).toEqual([{ account_id: accountId, role: 'viewer' }]);
+      await expect(login({ email: newEmail, password })).resolves.toHaveProperty('accessToken');
+    }, 30000);
+    it('answers a dead invitation with the same 410 whether or not the email is registered', async () => {
+      const pendingEmail = `${randomUUID()}@example.invalid`;
+      await signup({ email: pendingEmail, password, fullName: 'Pending' });
+      const pending = await getAuthPrisma().$queryRaw<{ id: string }[]>`SELECT id FROM auth_users WHERE email=${pendingEmail}`;
+      additionalUsers.push(pending[0].id);
+      const sentBefore = mail.send.mock.calls.length;
+      for (const address of [`${randomUUID()}@example.invalid`, pendingEmail, email])
+        await expect(
+          signup({ email: address, password, fullName: 'Probe', invite: randomToken() })
+        ).rejects.toMatchObject({ status: 410, code: 'invite_unavailable' });
+      // No mail reaches the registered addresses either.
+      expect(mail.send.mock.calls.length).toBe(sentBefore);
+    }, 30000);
+    it('leaves the invitation to whoever verifies first; a later verifier still signs in, to a workspace of its own', async () => {
+      const invite = await invitation('agent');
+      const mistyped = await invitedSignup(invite.token, 'Mistyped address');
+      const real = await invitedSignup(invite.token, 'Real invitee');
+      await verifyEmailToken(real.link.searchParams.get('token')!);
+      expect(await membershipsOf(real.id)).toEqual([{ account_id: accountId, role: 'agent' }]);
+      await verifyEmailToken(mistyped.link.searchParams.get('token')!);
+      expect(await membershipsOf(mistyped.id)).toEqual([]);
+      const issued = await login({ email: mistyped.email, password });
+      const context = await requireSession(request(issued.accessToken));
+      expect(context.role).toBe('owner');
+      expect(context.accountId).not.toBe(accountId);
+    }, 30000);
+    it('lets an invite-only member who was removed sign in again and accept a new invitation', async () => {
+      const first = await invitation('agent');
+      const invited = await invitedSignup(first.token, 'Removed member');
+      await verifyEmailToken(invited.link.searchParams.get('token')!);
+      await getAuthPrisma()
+        .$executeRaw`DELETE FROM account_memberships WHERE account_id=${accountId}::uuid AND user_id=${invited.id}::uuid`;
+      const issued = await login({ email: invited.email, password });
+      const context = await requireSession(request(issued.accessToken));
+      expect(context).toMatchObject({ userId: invited.id, role: 'owner' });
+      // Signing up again from a new link mails the join link instead of losing the invitation.
+      const second = await invitation('viewer');
+      await signup({ email: invited.email, password, fullName: 'Again', invite: second.token });
+      const notice = mail.send.mock.calls.at(-1)?.[0] as { to: string; subject: string; text: string };
+      expect(notice).toMatchObject({ to: invited.email, subject: 'You already have a Bodhinox account' });
+      expect(notice.text).toContain(`https://auth.integration.test/join/${second.token}`);
+      const joined = await executeMembershipRpc(
+        'redeem_invitation',
+        { p_token_hash: hashInviteToken(second.token) },
+        { accountId: context.accountId, userId: invited.id }
+      );
+      expect(joined.data).toBe(accountId);
+      await switchTenant(context, accountId);
+      const again = await login({ email: invited.email, password });
+      expect(await requireSession(request(again.accessToken))).toMatchObject({ accountId, role: 'viewer' });
+    }, 30000);
+    it('refuses used, expired and unknown invitations without creating a user or workspace', async () => {
+      const used = await invitation('agent');
+      await getAuthPrisma()
+        .$executeRaw`UPDATE account_invitations SET accepted_at=NOW() WHERE id=${used.id}::uuid`;
+      const expired = await invitation('agent', new Date(Date.now() - 1000));
+      for (const token of [used.token, expired.token, randomToken(), 'not-a-token']) {
+        const newEmail = `${randomUUID()}@example.invalid`;
+        const fullName = `Refused ${randomUUID()}`;
+        await expect(
+          signup({ email: newEmail, password, fullName, invite: token })
+        ).rejects.toMatchObject({ status: 410, code: 'invite_unavailable' });
+        expect(
+          await getAuthPrisma().$queryRaw<unknown[]>`SELECT id FROM auth_users WHERE email=${newEmail}`
+        ).toHaveLength(0);
+        expect(
+          await getAuthPrisma().$queryRaw<unknown[]>`SELECT id FROM accounts WHERE name=${`${fullName}'s workspace`}`
+        ).toHaveLength(0);
+      }
+      const unchanged = await getAuthPrisma().$queryRaw<{ accepted_by_user_id: string | null }[]>`
+        SELECT accepted_by_user_id FROM account_invitations WHERE id IN (${used.id}::uuid,${expired.id}::uuid)`;
+      expect(unchanged.every((row) => row.accepted_by_user_id === null)).toBe(true);
+    }, 30000);
+    it('signs back in to the last-used workspace while still a member, else the oldest', async () => {
+      const id = randomUUID(),
+        home = randomUUID(),
+        team = randomUUID(),
+        address = `${id}@example.invalid`;
+      additionalUsers.push(id);
+      additionalAccounts.push(team);
+      const encoded = await hashPassword(password);
+      await getAuthPrisma().$transaction(async (tx) => {
+        await tx.$executeRaw`INSERT INTO auth_users(id,email,full_name,password_hash,email_verified_at) VALUES(${id}::uuid,${address},'Two workspaces',${encoded},NOW())`;
+        await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${home}::uuid,'Home workspace',${id}::uuid)`;
+        await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${home}::uuid,${id}::uuid,'owner')`;
+        await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${team}::uuid,'Team workspace',${userId}::uuid)`;
+        await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role,created_at) VALUES(${randomUUID()}::uuid,${team}::uuid,${id}::uuid,'agent',NOW()+INTERVAL '1 second')`;
+      });
+      const first = await login({ email: address, password });
+      const context = await requireSession(request(first.accessToken));
+      expect(context.accountId).toBe(home);
+      await switchTenant(context, team);
+      const again = await login({ email: address, password });
+      expect(await requireSession(request(again.accessToken))).toMatchObject({ accountId: team, role: 'agent' });
+      await getAuthPrisma()
+        .$executeRaw`DELETE FROM account_memberships WHERE account_id=${team}::uuid AND user_id=${id}::uuid`;
+      const removed = await login({ email: address, password });
+      expect((await requireSession(request(removed.accessToken))).accountId).toBe(home);
     }, 30000);
     it('resolves membership roles live and immediately rejects logout-issued JWTs', async () => {
       const issued = await login({ email, password });

@@ -25,6 +25,9 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 
+/** Shape of every generated invite token: 32 bytes, base64url (43 chars). */
+export const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
 /** Default invite link lifetime if the caller doesn't specify. */
 export const DEFAULT_INVITE_EXPIRY_DAYS = 7;
 

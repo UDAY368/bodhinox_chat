@@ -40,7 +40,8 @@
         "google_failed": "We couldn’t sign you in with Google. Try again.",
         "google_link_required": "An account with this email already exists. Sign in with your password, then link Google in Settings → Login & security.",
         "google_no_workspace": "Your account isn’t a member of any workspace.",
-        "google_rate_limited": "Too many attempts. Try again later."
+        "google_rate_limited": "Too many attempts. Try again later.",
+        "google_invite_unavailable": "This invitation link is no longer valid. Ask your team for a new link, or sign up without it."
       }
     }
   },
@@ -4237,7 +4238,8 @@
     "backToSignIn": "Back to sign in",
     "titleJoin": "Create account & join",
     "title": "Create account",
-    "descJoin": "Verify your email, then accept the invitation to join your team.",
+    "descJoin": "Create your login to join your team. You'll be a member as soon as you verify your email.",
+    "descJoinWorkspace": "You're joining <strong>{workspace}</strong> as {role}. Verify your email and you're in.",
     "desc": "Get started with Bodhinox Chat",
     "fullNameLabel": "Full name",
     "fullNamePlaceholder": "John Doe",
@@ -4250,7 +4252,9 @@
     "creating": "Creating account...",
     "submit": "Create account",
     "haveAccount": "Already have an account?",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "inviteUnavailable": "This invitation link is no longer valid: it was already used or has expired. Ask your team for a new link.",
+    "signupWithoutInvite": "Sign up without the invitation"
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "Check your email",
@@ -4294,7 +4298,7 @@
       "serverErrorTitle": "Something went wrong",
       "serverErrorBody": "We couldn't verify this invitation right now. Try refreshing the page in a moment."
     },
-    "conflictDefault": "You are already in another account. Sign in with a different email to join this one.",
+    "conflictDefault": "You're already a member of this workspace.",
     "acceptFailed": "Failed to accept invitation",
     "welcome": "Welcome to the team",
     "serverUnreachable": "Could not reach the server",
@@ -4307,7 +4311,7 @@
     "joinAs": "You'll join as <badge>{role}</badge>. Link valid until {date}.",
     "accepting": "Accepting…",
     "acceptInvitation": "Accept invitation",
-    "acceptNote": "Accepting moves your login into {name}. Your empty personal account from signup will be cleaned up.",
+    "acceptNote": "Accepting adds {name} to your workspaces. You can switch workspaces at any time.",
     "conflictTitle": "Can't join {name} with this account",
     "conflictBody": "To join <account>{name}</account>, sign out and sign up again with a different email address. The invite link stays valid as long as it hasn't expired.",
     "staySignedIn": "Stay signed in",

@@ -40,7 +40,8 @@
         "google_failed": "No pudimos iniciar tu sesión con Google. Inténtalo de nuevo.",
         "google_link_required": "Ya existe una cuenta con este correo. Inicia sesión con tu contraseña y luego vincula Google en Configuración → Inicio de sesión y seguridad.",
         "google_no_workspace": "Tu cuenta no pertenece a ningún espacio de trabajo.",
-        "google_rate_limited": "Demasiados intentos. Inténtalo más tarde."
+        "google_rate_limited": "Demasiados intentos. Inténtalo más tarde.",
+        "google_invite_unavailable": "Este enlace de invitación ya no es válido. Pide un enlace nuevo a tu equipo o regístrate sin él."
       }
     }
   },
@@ -4237,7 +4238,8 @@
     "backToSignIn": "Volver a iniciar sesión",
     "titleJoin": "Crear cuenta y unirse",
     "title": "Crear cuenta",
-    "descJoin": "Verifica tu correo y luego acepta la invitación para unirte a tu equipo.",
+    "descJoin": "Crea tu acceso para unirte a tu equipo. Serás miembro en cuanto verifiques tu correo.",
+    "descJoinWorkspace": "Te unes a <strong>{workspace}</strong> como {role}. Verifica tu correo y listo.",
     "desc": "Empieza a usar la Plantilla de CRM para WhatsApp",
     "fullNameLabel": "Nombre completo",
     "fullNamePlaceholder": "Juan Pérez",
@@ -4250,7 +4252,9 @@
     "creating": "Creando cuenta...",
     "submit": "Crear cuenta",
     "haveAccount": "¿Ya tienes una cuenta?",
-    "signIn": "Iniciar sesión"
+    "signIn": "Iniciar sesión",
+    "inviteUnavailable": "Este enlace de invitación ya no es válido: ya se usó o ha expirado. Pide un enlace nuevo a tu equipo.",
+    "signupWithoutInvite": "Registrarse sin la invitación"
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "Revisa tu correo",
@@ -4294,7 +4298,7 @@
       "serverErrorTitle": "Algo salió mal",
       "serverErrorBody": "No pudimos verificar esta invitación en este momento. Intenta recargar la página en un momento."
     },
-    "conflictDefault": "Ya perteneces a otra cuenta. Inicia sesión con un correo distinto para unirte a esta.",
+    "conflictDefault": "Ya eres miembro de este espacio de trabajo.",
     "acceptFailed": "Error al aceptar la invitación",
     "welcome": "Bienvenido al equipo",
     "serverUnreachable": "No se pudo conectar con el servidor",
@@ -4307,7 +4311,7 @@
     "joinAs": "Te unirás como <badge>{role}</badge>. Enlace válido hasta {date}.",
     "accepting": "Aceptando…",
     "acceptInvitation": "Aceptar invitación",
-    "acceptNote": "Al aceptar, tu acceso pasa a {name}. La cuenta personal vacía que se creó al registrarte se eliminará.",
+    "acceptNote": "Al aceptar, {name} se añade a tus espacios de trabajo. Puedes cambiar de espacio en cualquier momento.",
     "conflictTitle": "No puedes unirte a {name} con esta cuenta",
     "conflictBody": "Para unirte a <account>{name}</account>, cierra sesión y regístrate de nuevo con otra dirección de correo. El enlace de invitación sigue siendo válido mientras no haya expirado.",
     "staySignedIn": "Seguir con la sesión iniciada",

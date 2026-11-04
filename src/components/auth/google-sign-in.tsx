@@ -15,6 +15,7 @@ const ERRORS = [
   'google_failed',
   'google_link_required',
   'google_no_workspace',
+  'google_invite_unavailable',
   'google_rate_limited',
 ] as const;
 

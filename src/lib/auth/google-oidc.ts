@@ -10,7 +10,10 @@
  *   - A verified Google email that matches an existing user is never linked automatically: the
  *     person signs in with their password and links Google from Settings → Login & security.
  *   - Otherwise a new verified user and workspace are created, under the same open, rate-limited
- *     signup policy as email signup (5 per address per hour, 100 per 15 minutes overall).
+ *     signup policy as email signup (5 per address per hour, 100 per 15 minutes overall). When
+ *     the flow started from an invitation link, the new user joins that workspace with the
+ *     invited role instead, and no personal workspace is created; a used or expired link is
+ *     refused (google_invite_unavailable) rather than creating one.
  * The flow cookie (state, nonce, PKCE verifier) and the pending-MFA cookie are AES-GCM sealed,
  * httpOnly and short-lived. Google tokens are never stored, logged or sent to the browser.
  */
@@ -28,7 +31,13 @@ import { appOrigin, randomToken } from './csrf';
 import { AuthError } from './errors';
 import { hashPassword, verifyPassword } from './password';
 import { safeNextPath } from './callback';
-import { enforceAuthRateLimit, issueSession, type IssuedSession } from './service';
+import {
+  enforceAuthRateLimit,
+  issueSession,
+  joinInvitedWorkspace,
+  lockOpenInvitation,
+  type IssuedSession,
+} from './service';
 import type { AuthContext } from './session';
 
 export const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
@@ -45,6 +54,7 @@ export type GoogleErrorCode =
   | 'google_in_use'
   | 'google_already_linked'
   | 'google_no_workspace'
+  | 'google_invite_unavailable'
   | 'google_rate_limited';
 export class GoogleOidcError extends Error {
   constructor(readonly code: GoogleErrorCode) {
@@ -345,7 +355,7 @@ async function hasMfa(userId: string): Promise<boolean> {
     SELECT id FROM auth_mfa_factors WHERE user_id=${userId}::uuid AND verified_at IS NOT NULL`;
   return !!rows[0];
 }
-async function createGoogleUser(identity: GoogleIdentity): Promise<string> {
+async function createGoogleUser(identity: GoogleIdentity, invite: string | null): Promise<string> {
   // Same policy as email signup: open, but rate limited per address and overall.
   try {
     await enforceAuthRateLimit('global-signup', 'application', 100, 900);
@@ -367,6 +377,23 @@ async function createGoogleUser(identity: GoogleIdentity): Promise<string> {
       VALUES(${userId}::uuid,${identity.email},${fullName},${passwordHash},NOW(),false)
       ON CONFLICT(email) DO NOTHING RETURNING id`;
     if (!inserted[0]) return false;
+    if (invite) {
+      let locked;
+      try {
+        locked = await lockOpenInvitation(tx, invite);
+      } catch (error) {
+        if (error instanceof AuthError) throw new GoogleOidcError('google_invite_unavailable');
+        throw error;
+      }
+      await joinInvitedWorkspace(tx, locked, { id: userId, fullName, email: identity.email }, 'google');
+      const joined = await tx.$queryRaw<{ id: string }[]>`
+        INSERT INTO auth_identities(user_id,provider,subject,email) VALUES(${userId}::uuid,'google',${identity.subject},${identity.email})
+        ON CONFLICT DO NOTHING RETURNING id`;
+      if (!joined[0]) throw new GoogleOidcError('google_failed');
+      await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
+        VALUES(${locked.account_id}::uuid,${userId}::uuid,'auth.google_signup',${userId},'{}'::jsonb)`;
+      return true;
+    }
     await tx.$executeRaw`SELECT set_config('app.user_id',${userId},true),set_config('app.account_id',${accountId},true),set_config('app.account_role','owner',true)`;
     await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${accountId}::uuid,${`${fullName}'s workspace`},${userId}::uuid)`;
     await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${userId}::uuid,'owner')`;
@@ -385,11 +412,13 @@ async function createGoogleUser(identity: GoogleIdentity): Promise<string> {
 }
 
 export type GoogleSignInResult =
-  | { kind: 'session'; session: IssuedSession; created: boolean }
+  | { kind: 'session'; session: IssuedSession; created: boolean; joinedInvite: boolean }
   | { kind: 'mfa'; userId: string };
 export async function signInWithGoogle(
   identity: GoogleIdentity,
-  userAgent: string | null
+  userAgent: string | null,
+  /** Invitation link token from the sign-in flow: a new identity joins that workspace. */
+  invite: string | null = null
 ): Promise<GoogleSignInResult> {
   try {
     await enforceAuthRateLimit('google-login', identity.subject);
@@ -410,11 +439,16 @@ export async function signInWithGoogle(
       SELECT id FROM auth_users WHERE email=${identity.email}`;
     // Never link on an email match: sign in with the password, then link from settings.
     if (existing[0]) throw new GoogleOidcError('google_link_required');
-    userId = await createGoogleUser(identity);
+    userId = await createGoogleUser(identity, invite);
     created = true;
   }
   if (await hasMfa(userId)) return { kind: 'mfa', userId };
-  return { kind: 'session', session: await issueGoogleSession(userId, { userAgent }), created };
+  return {
+    kind: 'session',
+    session: await issueGoogleSession(userId, { userAgent }),
+    created,
+    joinedInvite: created && !!invite,
+  };
 }
 
 export interface PendingMfa extends Record<string, unknown> {

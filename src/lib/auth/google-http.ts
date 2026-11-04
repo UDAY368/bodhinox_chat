@@ -145,7 +145,7 @@ export async function handleGoogleCallback(request: Request): Promise<NextRespon
       await linkGoogleIdentity(context, identity);
       return back('linked');
     }
-    const result = await signInWithGoogle(identity, userAgent(request));
+    const result = await signInWithGoogle(identity, userAgent(request), flow!.invite);
     if (result.kind === 'mfa') {
       const response = redirect('/login?google=mfa');
       clearCookie(response, names.flow);
@@ -153,7 +153,10 @@ export async function handleGoogleCallback(request: Request): Promise<NextRespon
       response.cookies.set(names.mfa, sealPendingMfa(pending, config), googleCookieOptions(MFA_TTL_SECONDS));
       return response;
     }
-    const response = redirect(postLoginPath(flow!.invite, flow!.next));
+    // A new identity created from the invitation is already a member: skip the accept page.
+    const response = redirect(
+      postLoginPath(result.joinedInvite ? null : flow!.invite, flow!.next)
+    );
     clearCookie(response, names.flow);
     setSessionCookies(response, result.session);
     return response;

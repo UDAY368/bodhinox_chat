@@ -282,6 +282,8 @@ export async function handleAuthPost(
               password,
               fullName: z.string().min(1).max(200),
               next: z.string().max(2048).optional(),
+              // Any string: signup() answers a malformed link with the same 410 as a dead one.
+              invite: z.string().max(256).optional(),
             })
             .strict()
             .parse(input)

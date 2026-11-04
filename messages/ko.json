@@ -40,7 +40,8 @@
         "google_failed": "Google로 로그인하지 못했습니다. 다시 시도하세요.",
         "google_link_required": "이 이메일을 사용하는 계정이 이미 있습니다. 비밀번호로 로그인한 다음 설정 → 로그인 및 보안에서 Google을 연결하세요.",
         "google_no_workspace": "계정이 속한 워크스페이스가 없습니다.",
-        "google_rate_limited": "시도 횟수가 너무 많습니다. 나중에 다시 시도하세요."
+        "google_rate_limited": "시도 횟수가 너무 많습니다. 나중에 다시 시도하세요.",
+        "google_invite_unavailable": "이 초대 링크는 더 이상 유효하지 않습니다. 팀에 새 링크를 요청하거나 초대 없이 가입하세요."
       }
     }
   },
@@ -4237,7 +4238,8 @@
     "backToSignIn": "로그인으로 돌아가기",
     "titleJoin": "계정 만들고 참여하기",
     "title": "계정 만들기",
-    "descJoin": "이메일을 인증한 뒤 초대를 수락해 팀에 참여하세요.",
+    "descJoin": "로그인을 만들어 팀에 참여하세요. 이메일을 인증하면 바로 멤버가 됩니다.",
+    "descJoinWorkspace": "<strong>{workspace}</strong>에 {role}(으)로 참여합니다. 이메일을 인증하면 완료됩니다.",
     "desc": "WhatsApp용 CRM Template을 시작하세요",
     "fullNameLabel": "이름",
     "fullNamePlaceholder": "홍길동",
@@ -4250,7 +4252,9 @@
     "creating": "계정 만드는 중...",
     "submit": "계정 만들기",
     "haveAccount": "이미 계정이 있으신가요?",
-    "signIn": "로그인"
+    "signIn": "로그인",
+    "inviteUnavailable": "이 초대 링크는 더 이상 유효하지 않습니다. 이미 사용되었거나 만료되었습니다. 팀에 새 링크를 요청하세요.",
+    "signupWithoutInvite": "초대 없이 가입하기"
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "이메일을 확인하세요",
@@ -4294,7 +4298,7 @@
       "serverErrorTitle": "문제가 발생했습니다",
       "serverErrorBody": "지금은 이 초대를 확인할 수 없습니다. 잠시 후 페이지를 새로 고쳐 보세요."
     },
-    "conflictDefault": "이미 다른 계정에 속해 있습니다. 이 계정에 참여하려면 다른 이메일로 로그인하세요.",
+    "conflictDefault": "이미 이 워크스페이스의 멤버입니다.",
     "acceptFailed": "초대를 수락하지 못했습니다",
     "welcome": "팀에 오신 것을 환영합니다",
     "serverUnreachable": "서버에 연결할 수 없습니다",
@@ -4307,7 +4311,7 @@
     "joinAs": "<badge>{role}</badge> 역할로 참여합니다. 링크는 {date}까지 유효합니다.",
     "accepting": "수락 중…",
     "acceptInvitation": "초대 수락",
-    "acceptNote": "수락하면 로그인 계정이 {name}으로 이동합니다. 가입 시 만들어진 빈 개인 계정은 정리됩니다.",
+    "acceptNote": "수락하면 {name}이(가) 내 워크스페이스에 추가됩니다. 언제든지 워크스페이스를 전환할 수 있습니다.",
     "conflictTitle": "이 계정으로는 {name}에 참여할 수 없습니다",
     "conflictBody": "<account>{name}</account>에 참여하려면 로그아웃한 뒤 다른 이메일 주소로 다시 가입하세요. 초대 링크는 만료되지 않은 한 계속 유효합니다.",
     "staySignedIn": "로그인 유지",
