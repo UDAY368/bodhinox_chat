@@ -2,7 +2,8 @@
 
 /**
  * Commerce → Store settings (design §6): currency, tax, reservation minutes,
- * checkout toggle, seller details, shipping rates and coupons. Admins edit;
+ * checkout toggle, seller details, shipping rates, coupons and the order
+ * notice templates (Phase 9). Admins edit;
  * agents read (the APIs and RLS enforce the same rule). Money is typed as a
  * decimal and stored in integer minor units; tax rates are typed as percent
  * and stored in basis points.
@@ -20,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useApprovedTemplates } from "@/components/flows/forms/use-pickers";
 import { formatMoney, minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { NoticeTemplates } from "./notice-templates";
 import { storeApi, type ApiResult, type CouponView, type ShippingRateView, type StoreSettings, type StoreSettingsInput } from "./settings-api";
 
 /** "18" or "12.5" percent -> basis points; null for empty; NaN when invalid. */
@@ -59,6 +61,7 @@ export function StoreSettingsPanel() {
       {settings && <GeneralForm initial={settings} canEdit={canEdit} onSaved={setSettings} />}
       {settings?.configured && settings.currency && <ShippingRates currency={settings.currency} canEdit={canEdit} />}
       {settings?.configured && settings.currency && <Coupons currency={settings.currency} canEdit={canEdit} />}
+      {settings?.configured && <NoticeTemplates canEdit={canEdit} />}
     </div>
   );
 }

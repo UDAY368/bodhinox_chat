@@ -2924,7 +2924,8 @@
       "payments": "Pagamentos",
       "notifications": "Notificações",
       "media": "Biblioteca de mídia",
-      "ads": "Anúncios"
+      "ads": "Anúncios",
+      "connections": "Reuniões e envios"
     },
     "groups": {
       "account": "Conta",
@@ -3284,7 +3285,9 @@
         "retargeting": "Retargeting por campanha",
         "workspace_attributes": "Atributos do espaço de trabalho",
         "appointments": "Agendamentos",
-        "storefront": "Loja e pagamentos online"
+        "storefront": "Loja e pagamentos online",
+        "online_meetings": "Reuniões online (Zoom)",
+        "courier_shipping": "Envios por transportadora (Shiprocket)"
       },
       "limits": {
         "seats": "Membros e convites abertos",
@@ -3650,7 +3653,9 @@
         "commerce_inventory": "Ajustar estoque",
         "commerce_refunds": "Reembolsar pagamentos de clientes",
         "commerce_record_payments": "Registrar pagamentos offline",
-        "commerce_checkout": "Enviar links da loja"
+        "commerce_checkout": "Enviar links da loja",
+        "commerce_shipments": "Criar e cancelar envios por transportadora",
+        "integrations_meetings": "Conectar o Zoom para reuniões online"
       }
     },
     "auditLog": {
@@ -3793,6 +3798,100 @@
       "loginCancelled": "O login do Facebook foi cancelado.",
       "leadsNotSubscribed": "Os anúncios de cadastro ainda não estão inscritos para esta Página. Desconecte e conecte novamente para tentar de novo.",
       "lastError": "Último código de erro da Meta: {code}"
+    },
+    "zoom": {
+      "title": "Reuniões do Zoom",
+      "description": "Crie automaticamente uma reunião do Zoom para cada agendamento online confirmado.",
+      "loading": "Carregando",
+      "loadFailed": "Não foi possível carregar a conexão com o Zoom.",
+      "statusUnavailable": "Indisponível nesta instalação",
+      "statusConnected": "Conectado",
+      "statusReconnect": "Reconexão necessária",
+      "statusNotConnected": "Não conectado",
+      "connectedOn": "Conectado em {date}",
+      "unavailableHelp": "Os agendamentos online mantêm o link de reunião definido no serviço. O operador da plataforma pode ativar o Zoom.",
+      "connectHelp": "Um administrador da conta do Zoom aprova o app uma vez. Depois, as reuniões são criadas nessa conta do Zoom, tendo como anfitrião o e-mail do Zoom do profissional ou o administrador que conectou.",
+      "reconnectHelp": "O Zoom não aceita mais esta conexão. Conecte novamente a mesma conta do Zoom para manter as reuniões existentes.",
+      "connect": "Conectar Zoom",
+      "reconnect": "Reconectar Zoom",
+      "disconnect": "Desconectar",
+      "disconnectConfirm": "Desconectar o Zoom? As reuniões existentes mantêm os links, mas a Bodhinox deixa de criar, mover e remover reuniões.",
+      "disconnected": "Zoom desconectado.",
+      "registerAttendees": "Inscrever os clientes na reunião",
+      "registerAttendeesHelp": "Quando o cliente tem e-mail, ele é compartilhado com o Zoom para que receba um link pessoal e o Zoom possa informar quando entrou. Desativado por padrão.",
+      "registerConfirm": "Os e-mails dos clientes serão compartilhados com o Zoom para as reuniões. Ativar?",
+      "errors": {
+        "generic": "Algo deu errado. Tente novamente.",
+        "not_configured": "O Zoom não está disponível nesta instalação.",
+        "not_connected": "O Zoom não está conectado.",
+        "zoom_account_in_use": "Esta conta do Zoom já está conectada a outro espaço de trabalho.",
+        "auth": "O Zoom não aceitou a autorização. Conecte novamente.",
+        "provider_unreachable": "Não foi possível acessar o Zoom. Tente novamente em alguns minutos.",
+        "invalid_state": "O login do Zoom expirou ou foi iniciado por outra pessoa. Comece de novo.",
+        "missing_scopes": "O app do Zoom foi aprovado sem as permissões necessárias. Conecte novamente e aprove todas.",
+        "feature_unavailable": "Reuniões online não estão incluídas no seu plano."
+      },
+      "outcomes": {
+        "connected": "Zoom conectado.",
+        "denied": "A autorização do Zoom foi cancelada.",
+        "signed_out": "Sua sessão foi encerrada. Entre e conecte o Zoom novamente.",
+        "forbidden": "Somente administradores com a permissão do Zoom podem conectar o Zoom.",
+        "save_failed": "Não foi possível salvar a conexão com o Zoom. Tente novamente.",
+        "not_configured": "O Zoom não está disponível nesta instalação.",
+        "invalid_state": "O login do Zoom expirou ou foi iniciado por outra pessoa. Comece de novo.",
+        "auth": "O Zoom não aceitou a autorização. Conecte novamente.",
+        "missing_scopes": "O app do Zoom foi aprovado sem as permissões necessárias. Conecte novamente e aprove todas.",
+        "provider_unreachable": "Não foi possível acessar o Zoom. Tente novamente em alguns minutos.",
+        "zoom_account_in_use": "Esta conta do Zoom já está conectada a outro espaço de trabalho.",
+        "feature_unavailable": "Reuniões online não estão incluídas no seu plano."
+      }
+    },
+    "shiprocket": {
+      "title": "Shiprocket",
+      "loading": "Carregando…",
+      "loadFailed": "Não foi possível carregar a conexão com o Shiprocket.",
+      "unavailable": "O envio por transportadora está desativado nesta instalação.",
+      "notConnected": "Não conectado",
+      "connectedAs": "Conectado como {email}",
+      "reconnectNeeded": "É preciso reconectar: o Shiprocket recusou o usuário de API salvo. Digite a senha novamente e salve.",
+      "reconnectBadge": "Reconectar",
+      "connectedBadge": "Conectado",
+      "walletNote": "Criar um envio atribui uma transportadora e debita a sua carteira do Shiprocket. A equipe cria os envios um a um na página do pedido; nada é criado automaticamente.",
+      "apiHelp": "No Shiprocket, abra Settings → API → Create an API user e informe aqui o e-mail e a senha desse usuário (não o seu próprio login).",
+      "apiEmail": "E-mail do usuário de API",
+      "apiPassword": "Senha do usuário de API",
+      "passwordKeep": "Deixe em branco para manter a senha salva",
+      "pickupLocation": "Local de coleta",
+      "pickupHelp": "Verifique os dados para carregar os locais de coleta",
+      "test": "Verificar dados",
+      "testFailed": "O Shiprocket não conseguiu verificar estes dados.",
+      "noPickup": "Esta conta do Shiprocket não tem locais de coleta. Adicione um no Shiprocket primeiro.",
+      "defaults": "Pacote padrão",
+      "length": "Comprimento (cm)",
+      "breadth": "Largura (cm)",
+      "height": "Altura (cm)",
+      "weight": "Peso (g)",
+      "connect": "Conectar Shiprocket",
+      "save": "Salvar alterações",
+      "saved": "Conexão com o Shiprocket salva.",
+      "saveFailed": "Não foi possível salvar a conexão com o Shiprocket.",
+      "disconnect": "Desconectar",
+      "disconnectConfirm": "Desconectar o Shiprocket? O usuário de API e o token do webhook salvos são excluídos e as atualizações de rastreamento param. Os envios existentes continuam nos pedidos.",
+      "disconnected": "Shiprocket desconectado.",
+      "disconnectFailed": "Não foi possível desconectar o Shiprocket.",
+      "webhookUrl": "URL do webhook de rastreamento",
+      "webhookHelp": "No Shiprocket, abra Settings → API → Webhooks, cole esta URL e use o token abaixo como token de segurança. Cada atualização é conferida de novo com o Shiprocket antes de um pedido mudar.",
+      "hostnameWarning": "O Shiprocket recusa URLs de webhook que contenham \"shiprocket\", \"kartrocket\", \"sr\" ou \"kr\", inclusive no domínio. Use um domínio sem esses termos para este app.",
+      "tokenSet": "Há um token de webhook configurado.",
+      "tokenMissing": "Ainda não há token de webhook: as atualizações de rastreamento só chegam depois que você gerar um.",
+      "generateToken": "Gerar token",
+      "regenerateToken": "Gerar novo token",
+      "regenerateConfirm": "O token de webhook atual para de funcionar imediatamente. Continuar?",
+      "tokenOnce": "Copie este token no Shiprocket agora. Ele não será mostrado de novo.",
+      "tokenFailed": "Não foi possível gerar um token de webhook.",
+      "copy": "Copiar",
+      "copyFailed": "Não foi possível copiar.",
+      "adminOnly": "Somente administradores podem alterar a conexão com o Shiprocket."
     }
   },
   "SignupPage": {
@@ -5157,6 +5256,37 @@
       "tooManyReports": "Vários relatórios ainda estão sendo gerados. Aguarde a conclusão e tente novamente.",
       "reportNotFound": "Relatório não encontrado.",
       "reportNotReady": "Este relatório não está disponível para download."
+    },
+    "meetings": {
+      "not_configured": "O Zoom não está disponível nesta instalação.",
+      "not_connected": "Conecte o Zoom primeiro em Configurações → Reuniões e envios.",
+      "zoom_account_in_use": "Esta conta do Zoom já está conectada a outro espaço de trabalho.",
+      "auth": "O Zoom não aceitou a autorização. Conecte novamente.",
+      "provider_unreachable": "Não foi possível acessar o Zoom. Tente novamente em alguns minutos.",
+      "invalid_state": "O login do Zoom expirou ou foi iniciado por outra pessoa. Comece novamente.",
+      "missing_scopes": "O app do Zoom foi autorizado sem as permissões necessárias. Conecte novamente e aprove todas.",
+      "not_found": "Essa reunião não foi encontrada neste espaço de trabalho.",
+      "conflict": "A reunião mudou nesse meio-tempo. Recarregue e tente novamente.",
+      "feature_unavailable": "Reuniões online não estão incluídas no seu plano.",
+      "not_implemented": "Esta ação ainda não está disponível."
+    },
+    "shipments": {
+      "not_connected": "Conecte o Shiprocket primeiro em Configurações → Reuniões e envios.",
+      "not_configured": "Os envios por transportadora estão desativados nesta instalação.",
+      "auth": "O Shiprocket não aceitou os dados deste usuário de API.",
+      "provider_unreachable": "Não foi possível acessar o Shiprocket. Tente novamente em alguns minutos.",
+      "order_not_paid": "Só é possível enviar um pedido pago.",
+      "shipment_exists": "Este pedido já tem um envio.",
+      "refund_in_flight": "Há um reembolso em andamento para este pedido. Aguarde a conclusão.",
+      "shipment_live": "Cancele o envio pela transportadora antes de cancelar este pedido, ou use Devoluções depois da coleta.",
+      "address_incomplete": "O endereço de entrega precisa de um estado, e o pedido deve estar em INR para a Índia.",
+      "wrong_category": "Escolha um modelo aprovado da categoria certa para este aviso.",
+      "not_found": "Esse envio não foi encontrado neste espaço de trabalho.",
+      "conflict": "O envio mudou nesse meio-tempo. Recarregue e tente novamente.",
+      "invalid": "Verifique o tamanho e o peso do pacote.",
+      "throttled": "O Shiprocket está ocupado. Tente novamente em um minuto.",
+      "feature_unavailable": "Envios por transportadora não estão incluídos no seu plano.",
+      "not_implemented": "Esta ação ainda não está disponível."
     }
   },
   "Api": {
@@ -6426,7 +6556,7 @@
         "confirmed": "Confirmado",
         "awaiting_payment": "Aguardando pagamento",
         "paid": "Pago",
-        "fulfilled": "Entregue (registrado pela equipe)",
+        "fulfilled": "Entregue",
         "cancelled": "Cancelado",
         "payment_review": "Pagamento em revisão",
         "dispatched": "Despachado",
@@ -6516,7 +6646,7 @@
         "dispatched": "Envio registrado",
         "deliver": "Marcar como entregue",
         "delivered": "Entrega registrada",
-        "staffRecorded": "Registrado pela sua equipe; o Bodhinox não acompanha transportadoras.",
+        "staffRecorded": "Registrado pela sua equipe.",
         "feedbackLabel": "Avaliação do cliente",
         "feedbackScore": "Nota {score} de 5",
         "feedbackSaved": "Avaliação registrada",
@@ -6540,7 +6670,9 @@
         "refunded": "Reembolsado {amount}",
         "cancelRefundOutsideNeeded": "Parte deste pedido não foi paga pelo Razorpay (um pagamento registrado pela sua equipe ou um pedido pago antes de os pagamentos serem registrados). Devolva esse dinheiro pela mesma forma em que foi pago e confirme abaixo para cancelar.",
         "cancelRefundOutsideConfirm": "Devolvi fora do Bodhinox o dinheiro que não foi pago pelo Razorpay",
-        "cancelRefundDoneOutside": "Pedido cancelado. O reembolso feito fora do Bodhinox foi registrado."
+        "cancelRefundDoneOutside": "Pedido cancelado. O reembolso feito fora do Bodhinox foi registrado.",
+        "courierTracked": "O rastreamento do Shiprocket atualiza este pedido automaticamente. Você ainda pode registrá-lo manualmente.",
+        "shipmentLive": "Cancele o envio na transportadora antes de cancelar este pedido, ou use Devoluções se já foi coletado."
       },
       "timeline": {
         "title": "Histórico",
@@ -6562,7 +6694,10 @@
           "return_closed": "Devolução encerrada",
           "return_rejected": "Devolução recusada",
           "return_refund_requested": "Reembolso da devolução solicitado",
-          "other": "Evento: {kind}"
+          "other": "Evento: {kind}",
+          "shipment_created": "Envio pela transportadora criado",
+          "shipment_cancelled": "Envio pela transportadora cancelado",
+          "shipment_correction_accepted": "Correção de rastreamento aceita"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -6577,7 +6712,8 @@
           "dispatched": "Aviso de envio",
           "delivered": "Aviso de entrega",
           "feedback": "Pedido de avaliação",
-          "product_follow_up": "Acompanhamento do produto"
+          "product_follow_up": "Acompanhamento do produto",
+          "repeat_purchase": "Lembrete de recompra"
         },
         "messageStatuses": {
           "sent": "Enviado",
@@ -6756,7 +6892,9 @@
           "tax": "Uma porcentagem de 0 a 100, com até duas casas decimais.",
           "hsn": "De 4 a 8 dígitos.",
           "weight": "Gramas inteiros, até 1.000.000."
-        }
+        },
+        "repurchaseDays": "Lembrete de recompra após (dias)",
+        "repurchaseHint": "Opcional. Dias após a entrega para lembrar os clientes que aceitaram ofertas no checkout. Usa o modelo de lembrete de recompra das configurações da loja."
       }
     },
     "inventory": {
@@ -7014,6 +7152,135 @@
         "igst": "IGST",
         "total": "Total",
         "taxIncluded": "Os preços incluem impostos."
+      }
+    },
+    "shipments": {
+      "title": "Envio por transportadora",
+      "create": "Criar envio",
+      "createConfirm": "Criar envio",
+      "close": "Fechar",
+      "walletWarning": "Criar o envio atribui uma transportadora e debita a sua carteira do Shiprocket.",
+      "confirm": "Criar este envio e debitar a carteira do Shiprocket?",
+      "created": "Envio solicitado. O AWB aparece aqui em instantes.",
+      "failed": "Não foi possível concluir a ação do envio.",
+      "dims": {
+        "length_cm": "Comprimento (cm)",
+        "breadth_cm": "Largura (cm)",
+        "height_cm": "Altura (cm)",
+        "weight_grams": "Peso (g)"
+      },
+      "stateCreating": "Sendo criado no Shiprocket…",
+      "stateUnknown": "O Shiprocket ainda não confirmou o envio. Estamos verificando; nada é enviado duas vezes.",
+      "stateFailed": "O Shiprocket recusou o envio ({code}). Nada foi cobrado.",
+      "stateCancelled": "Envio cancelado.",
+      "awbAssigning": "Atribuindo uma transportadora…",
+      "awbUnknown": "O Shiprocket não confirmou a atribuição da transportadora. Ela nunca é repetida automaticamente; confira as exceções de envio.",
+      "awbFailed": "Nenhuma transportadora foi atribuída ({code}). Nada foi cobrado.",
+      "pickupFailed": "O Shiprocket não agendou a coleta. Agende-a no Shiprocket.",
+      "awb": "AWB",
+      "courier": "Transportadora",
+      "status": "Rastreamento",
+      "noTracking": "Ainda sem atualização de rastreamento",
+      "reference": "Referência {reference}",
+      "track": "Rastrear",
+      "label": "Etiqueta",
+      "cancel": "Cancelar envio",
+      "cancelConfirm": "Cancelar este envio no Shiprocket? O pedido continua pago.",
+      "cancelled": "Envio cancelado.",
+      "assignAgain": "Atribuir transportadora novamente",
+      "assignConfirm": "Pedir ao Shiprocket para atribuir uma transportadora novamente? Se der certo, a carteira do Shiprocket é debitada.",
+      "assignQueued": "Atribuindo uma transportadora novamente.",
+      "adminOnly": "Somente administradores podem criar envios por transportadora.",
+      "statuses": {
+        "created": "Criado",
+        "awb_assigned": "Transportadora atribuída",
+        "pickup_scheduled": "Coleta agendada",
+        "picked_up": "Coletado",
+        "in_transit": "Em trânsito",
+        "out_for_delivery": "Saiu para entrega",
+        "delivery_failed": "Tentativa de entrega falhou",
+        "rto_initiated": "Retornando ao remetente",
+        "rto_in_transit": "Devolução em trânsito",
+        "delivered": "Entregue (Shiprocket)",
+        "lost": "Extraviado ou danificado",
+        "rto_delivered": "Devolvido ao remetente",
+        "cancelled": "Cancelado"
+      }
+    },
+    "evidence": {
+      "provider": "Confirmado pela transportadora",
+      "staff": "Registrado pela equipe",
+      "unknown": "Não confirmado"
+    },
+    "shipmentExceptions": {
+      "title": "{count, plural, one {# envio precisa de atenção} other {# envios precisam de atenção}}",
+      "description": "Rastreamento da transportadora que precisa de uma decisão. Nada aqui muda o status de um pedido: use Devoluções para mercadorias que voltam.",
+      "awb": "AWB {awb}",
+      "observed": "A transportadora informou: {status}",
+      "current": "Envio: {status}",
+      "openOrder": "Abrir pedido",
+      "resolved": "Marcado como resolvido",
+      "correctionAccepted": "Correção aceita. O status do pedido não muda; use Devoluções se a mercadoria estiver voltando.",
+      "resolveError": "Não foi possível atualizar esta exceção",
+      "kinds": {
+        "contradiction": "O rastreamento mudou após um status final",
+        "create_unknown": "Resultado da criação do envio desconhecido",
+        "awb_unknown": "Resultado da atribuição da transportadora desconhecido",
+        "rto": "Voltando à origem",
+        "lost_or_damaged": "Extraviado ou danificado",
+        "stale_tracking": "Sem atualizações de rastreamento há 10 dias",
+        "order_conflict": "O status da transportadora não confere com o pedido"
+      },
+      "hints": {
+        "contradiction": "Confira o envio no Shiprocket. Aceite a correção só se o novo status da transportadora estiver certo.",
+        "create_unknown": "Procure esta referência no Shiprocket. Crie de novo só se nenhum pedido existir lá.",
+        "awb_unknown": "Procure um AWB no Shiprocket. Crie de novo só se nenhum foi atribuído: uma segunda atribuição é cobrada outra vez.",
+        "rto": "O pacote está voltando. Abra uma devolução no pedido quando ele chegar.",
+        "lost_or_damaged": "Abra uma reclamação no Shiprocket e reembolse ou substitua pelo pedido.",
+        "stale_tracking": "Confira o envio com a transportadora.",
+        "order_conflict": "O pedido foi cancelado, reembolsado ou nunca pago enquanto o pacote se movia. Confira o pedido e o envio."
+      },
+      "resolutions": {
+        "accept_correction": "Aceitar correção",
+        "recreate": "Permitir criar de novo",
+        "dismiss": "Dispensar",
+        "manual": "Resolvido por fora"
+      },
+      "statuses": {
+        "created": "Criado",
+        "awb_assigned": "Transportadora atribuída",
+        "pickup_scheduled": "Coleta agendada",
+        "picked_up": "Coletado",
+        "in_transit": "Em trânsito",
+        "out_for_delivery": "Saiu para entrega",
+        "delivery_failed": "Tentativa de entrega falhou",
+        "rto_initiated": "Devolução à origem iniciada",
+        "rto_in_transit": "Voltando à origem",
+        "delivered": "Entregue",
+        "lost": "Extraviado ou danificado",
+        "rto_delivered": "Devolvido à origem",
+        "cancelled": "Cancelado"
+      }
+    },
+    "noticeTemplates": {
+      "title": "Modelos de avisos de pedidos",
+      "help": "O modelo aprovado que cada mensagem do pedido usa depois que a janela de 24 horas do cliente fechou. Sem um, a mensagem não é enviada fora da janela.",
+      "loading": "Carregando modelos",
+      "loadError": "Não foi possível carregar os modelos de avisos de pedidos",
+      "saved": "Modelo salvo",
+      "none": "Sem modelo",
+      "kinds": {
+        "dispatched": "Aviso de envio",
+        "delivered": "Aviso de entrega",
+        "feedback": "Pedido de avaliação",
+        "repeat_purchase": "Lembrete de recompra"
+      },
+      "utilityHelp": "Um modelo de utilidade aprovado. Variáveis: '{{'1'}}' nome do cliente, '{{'2'}}' produto, '{{'3'}}' número do pedido, '{{'4'}}' link de rastreio (apenas envio).",
+      "marketingHelp": "Um modelo de marketing aprovado, sempre usado para esta mensagem. Enviado só a clientes que marcaram a caixa de recompra no checkout e nunca cancelaram. Variáveis: '{{'1'}}' nome do cliente, '{{'2'}}' produto, '{{'3'}}' número do pedido.",
+      "notUsable": "Este modelo não está mais aprovado ou tem a categoria errada, então a mensagem não será enviada.",
+      "errors": {
+        "invalid": "Escolha um modelo e o idioma.",
+        "template_not_found": "Esse modelo não foi encontrado. Sincronize seus modelos e tente de novo."
       }
     }
   },
@@ -8499,7 +8766,11 @@
       "saved": "Salvo",
       "close": "Fechar",
       "noMessages": "Ainda não há mensagens ao cliente.",
-      "noHistory": "Ainda não há histórico."
+      "noHistory": "Ainda não há histórico.",
+      "evidenceCustomerJoined": "Zoom: o cliente entrou às {time} ({minutes} min)",
+      "evidenceGuestJoined": "Zoom: um convidado entrou às {time} ({minutes} min)",
+      "evidenceNoJoin": "Zoom: nenhuma entrada registrada",
+      "evidenceNote": "A presença no Zoom é apenas uma evidência. A equipe ainda registra o resultado."
     },
     "cancelReasons": {
       "customer": "A pedido do cliente",
@@ -8520,7 +8791,12 @@
       "reminder_skipped": "Lembrete ignorado",
       "payment_pending": "Aguardando pagamento",
       "payment_captured": "Pagamento recebido",
-      "late_payment": "O pagamento chegou depois que o horário foi perdido"
+      "late_payment": "O pagamento chegou depois que o horário foi perdido",
+      "meeting_created": "Reunião do Zoom criada",
+      "meeting_updated": "Reunião do Zoom atualizada",
+      "meeting_deleted": "Reunião do Zoom removida",
+      "meeting_sync_failed": "Não foi possível preparar a reunião do Zoom",
+      "meeting_joined_provider": "O Zoom registrou uma entrada"
     },
     "actors": {
       "staff": "Equipe",
@@ -8634,7 +8910,10 @@
       "empty": "Ainda não há profissionais.",
       "limitReached": "Seu plano permite {count, plural, one {# profissional} other {# profissionais}}.",
       "limitReachedGeneric": "O limite de profissionais do seu plano foi atingido. Faça upgrade ou arquive um profissional primeiro.",
-      "clearHours": "Limpar horário"
+      "clearHours": "Limpar horário",
+      "zoomHostEmail": "E-mail do anfitrião no Zoom",
+      "zoomHostPlaceholder": "Deixe em branco para usar o usuário do Zoom conectado",
+      "zoomHostHelp": "As reuniões online de um profissional são organizadas por este usuário na sua conta do Zoom conectada. Deixe em branco para usar o usuário do Zoom que conectou o espaço de trabalho."
     },
     "locations": {
       "title": "Locais",
@@ -8694,7 +8973,9 @@
       "kinds": {
         "next_step": "Próximo passo",
         "rebook": "Reagendar",
-        "manual": "Tarefa"
+        "manual": "Tarefa",
+        "meeting_sync": "Link da reunião",
+        "meeting_outcome": "Registrar resultado"
       },
       "statuses": {
         "open": "Aberta",
@@ -8744,6 +9025,22 @@
     },
     "form": {
       "edit": "Editar"
+    },
+    "meeting": {
+      "title": "Reunião online",
+      "states": {
+        "creating": "Criando",
+        "ready": "Pronta",
+        "attention": "Precisa de atenção",
+        "removed": "Removida",
+        "supplied": "Link fornecido",
+        "previous": "Conexão anterior"
+      },
+      "attentionHelp": "O Zoom não conseguiu confirmar esta reunião. Crie-a novamente ou use o link que você forneceu.",
+      "previousHelp": "Criada com uma conexão anterior do Zoom. O link continua funcionando naquela conta do Zoom.",
+      "registrationUnavailable": "O Zoom não aceitou a inscrição, então o cliente entra com o link compartilhado.",
+      "recreate": "Criar novamente",
+      "useLink": "Usar o link fornecido"
     }
   },
   "AppointmentSettings": {
@@ -8842,7 +9139,8 @@
     },
     "payInAdvance": "Pagamento antecipado",
     "paymentNotice": "Este serviço é pago antecipadamente. Depois de enviar o código pelo WhatsApp, enviamos um link de pagamento seguro; a reserva é confirmada quando o pagamento for recebido.",
-    "paymentAfterCode": "Depois de enviar o código, responderemos com um link de pagamento seguro. Sua reserva é confirmada quando o pagamento for recebido."
+    "paymentAfterCode": "Depois de enviar o código, responderemos com um link de pagamento seguro. Sua reserva é confirmada quando o pagamento for recebido.",
+    "meetingLinkPending": "O link da sua reunião aparecerá aqui em breve."
   },
   "BookingManage": {
     "metaTitle": "Seu agendamento",
@@ -8979,12 +9277,16 @@
       "order_not_open": "Este pedido não pode mais ser pago aqui.",
       "amount_out_of_range": "O valor é grande demais.",
       "too_many_open_orders": "Você já tem pedidos não pagos reservados. Pague um ou espere que expire e tente novamente."
+    },
+    "marketingOptIn": {
+      "reorder_offers_v1": "Envie-me lembretes de recompra e ofertas pelo WhatsApp. Você pode interrompê-los a qualquer momento respondendo STOP."
     }
   },
   "OrderNotices": {
     "dispatched": "Seu pedido {ref} está a caminho.",
     "dispatchedWithTracking": "Seu pedido {ref} está a caminho. Rastreio: {tracking}",
     "delivered": "Seu pedido {ref} foi entregue. Obrigado!",
-    "feedback": "Como foi seu pedido {ref}? Responda com uma nota de 1 a 5."
+    "feedback": "Como foi seu pedido {ref}? Responda com uma nota de 1 a 5.",
+    "dispatchedWithLink": "Seu pedido {ref} está a caminho. Acompanhe aqui: {url}"
   }
 }

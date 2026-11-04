@@ -5,6 +5,7 @@
  * bypassed through this view.
  */
 import type { TenantTransaction } from '@/lib/db/tenant';
+import type { AppointmentMeetingView } from '@/lib/meetings/types';
 import { APPOINTMENT_COLUMNS, getAppointment } from './booking';
 import { isUuid } from './config';
 import { listTasks, type TaskRow } from './tasks';
@@ -77,6 +78,23 @@ export interface AppointmentDetail {
   events: EventRow[];
   messages: MessageRow[];
   tasks: TaskRow[];
+  /** The Zoom meeting (Phase 9), or null; agents and above only (RLS), never the registrant id or claim token. */
+  meeting: AppointmentMeetingView | null;
+}
+
+type MeetingDbRow = Omit<AppointmentMeetingView, 'first_join_at' | 'meeting_ended_at'> & { first_join_at: Date | null; meeting_ended_at: Date | null };
+
+/** The meeting view for the sheet (granted columns only). */
+export async function getAppointmentMeeting(tx: TenantTransaction, accountId: string, appointmentId: string): Promise<AppointmentMeetingView | null> {
+  const [row] = await tx.$queryRaw<MeetingDbRow[]>`SELECT sync_state, join_url, supplied_url, last_error_code, attendance_evidence,
+      first_join_at, attended_seconds, meeting_ended_at
+    FROM appointment_meetings WHERE account_id=${accountId}::uuid AND appointment_id=${appointmentId}::uuid`;
+  if (!row) return null;
+  return {
+    ...row,
+    first_join_at: row.first_join_at ? row.first_join_at.toISOString() : null,
+    meeting_ended_at: row.meeting_ended_at ? row.meeting_ended_at.toISOString() : null,
+  };
 }
 
 export async function getAppointmentDetail(tx: TenantTransaction, accountId: string, id: string): Promise<AppointmentDetail> {
@@ -88,7 +106,8 @@ export async function getAppointmentDetail(tx: TenantTransaction, accountId: str
   const messages = await tx.$queryRaw<MessageRow[]>`SELECT id, version, kind, status, reason, resolved_at, resolved_by, created_at, updated_at
     FROM appointment_messages WHERE account_id=${accountId}::uuid AND appointment_id=${id}::uuid ORDER BY created_at, id`;
   const tasks = await listTasks(tx, accountId, { appointmentId: id });
-  return { appointment, events, messages, tasks };
+  const meeting = await getAppointmentMeeting(tx, accountId, id);
+  return { appointment, events, messages, tasks, meeting };
 }
 
 /** Admin: mark a blocked, failed or uncertain customer message as reconciled. Never re-sends. */

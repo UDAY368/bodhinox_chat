@@ -79,11 +79,16 @@ export function appointmentErrorResponse(error: unknown): NextResponse {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 
-/** Strip columns no browser should see (hold code) and the staff note unless allowed. */
+/**
+ * Strip columns no browser should see (hold code; a Zoom registrant id or claim
+ * token should one ever be joined in) and the staff note unless allowed.
+ */
 export function publicRow<T extends { hold_code?: unknown; outcome_note?: unknown; price_minor?: unknown }>(row: T, canManage: boolean) {
   const { hold_code: _code, ...rest } = row;
   void _code;
   const out: Record<string, unknown> = { ...rest };
+  delete out.registrant_id;
+  delete out.claim_token;
   if (!canManage) delete out.outcome_note;
   if (typeof out.price_minor === 'bigint') out.price_minor = Number(out.price_minor);
   return out;

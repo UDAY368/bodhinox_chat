@@ -17,6 +17,7 @@ import {
   type LucideIcon,
   Gauge,
   Megaphone,
+  Truck,
 } from 'lucide-react';
 
 /**
@@ -42,6 +43,7 @@ export const SETTINGS_SECTIONS = [
   'deals',
   'members',
   'payments',
+  'connections',
   'ads',
   'api',
   'plan',
@@ -129,6 +131,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     group: 'workspace',
   },
   payments: { id: 'payments', label: 'Payments', icon: CreditCard, group: 'workspace' },
+  connections: { id: 'connections', label: 'Meetings & shipping', icon: Truck, group: 'workspace' },
   ads: { id: 'ads', label: 'Ads', icon: Megaphone, group: 'workspace' },
   api: { id: 'api', label: 'API & webhooks', icon: KeyRound, group: 'workspace' },
   plan: { id: 'plan', label: 'Plan & usage', icon: Gauge, group: 'workspace' },

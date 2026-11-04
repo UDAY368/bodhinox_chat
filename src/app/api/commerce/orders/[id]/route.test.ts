@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const ACCOUNT = '11111111-1111-4111-8111-111111111111';
 const USER = '22222222-2222-4222-8222-222222222222';
 const ORDER = '33333333-3333-4333-8333-333333333333';
-const h = vi.hoisted(() => ({ role: 'agent', getOrder: vi.fn(), updateOrder: vi.fn(), limited: false }));
+const h = vi.hoisted(() => ({ role: 'agent', getOrder: vi.fn(), updateOrder: vi.fn(), getOrderFulfilment: vi.fn(), limited: false }));
 
 vi.mock('@/lib/inbox/masking-apply', async (original) => ({
   ...(await original<typeof import('@/lib/inbox/masking-apply')>()),
@@ -32,6 +32,8 @@ vi.mock('@/lib/commerce/orders', async (original) => ({
   updateOrder: h.updateOrder,
 }));
 
+vi.mock('@/lib/commerce/order-lifecycle', () => ({ getOrderFulfilment: h.getOrderFulfilment }));
+
 import { OrderError } from '@/lib/commerce/orders';
 import { GET, PATCH } from './route';
 
@@ -43,6 +45,7 @@ beforeEach(() => {
   h.role = 'agent';
   h.limited = false;
   h.getOrder.mockResolvedValue({ id: ORDER, status: 'new' });
+  h.getOrderFulfilment.mockResolvedValue({ shipment: null, evidence: null });
   h.updateOrder.mockImplementation(async (_ctx, id, p) => ({ id, ...p }));
 });
 
@@ -50,7 +53,16 @@ describe('GET /api/commerce/orders/[id]', () => {
   it('returns the order to agents', async () => {
     const res = await GET(new Request('http://localhost/o'), params());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ order: { id: ORDER, status: 'new' } });
+    expect(await res.json()).toEqual({ order: { id: ORDER, status: 'new', shipment: null, evidence: null } });
+    expect(res.headers.get('cache-control')).toBe('private, no-store');
+  });
+
+  it('adds the courier shipment and how the fulfilment step is known', async () => {
+    h.getOrder.mockResolvedValueOnce({ id: ORDER, status: 'fulfilled' });
+    h.getOrderFulfilment.mockResolvedValueOnce({ shipment: { id: 's1', awb: 'AWB123' }, evidence: 'provider' });
+    const res = await GET(new Request('http://localhost/o'), params());
+    expect(await res.json()).toEqual({ order: { id: ORDER, status: 'fulfilled', shipment: { id: 's1', awb: 'AWB123' }, evidence: 'provider' } });
+    expect(h.getOrderFulfilment).toHaveBeenCalledWith({ accountId: ACCOUNT, userId: USER, role: 'agent' }, ORDER);
   });
 
   it('refuses viewers and hides other accounts as 404', async () => {

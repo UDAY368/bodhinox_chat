@@ -1,4 +1,4 @@
-// POST /api/public/shop/<token>/place  { clientRequestId, expectedVersion, expectedTotalMinor }
+// POST /api/public/shop/<token>/place  { clientRequestId, expectedVersion, expectedTotalMinor, marketingOptIn? }
 // Places the session's order (design E6): reprices, checks the total the
 // customer saw, reserves stock and queues the payment link. A replay returns
 // the same order. Nothing here can mark an order paid.
@@ -24,7 +24,9 @@ export async function POST(request: Request, { params }: TokenParams) {
     const body = await readBody(request);
     const expectedVersion = versionOf(body);
     const total = body?.expectedTotalMinor;
-    if (!body || expectedVersion === null || !isUuid(body.clientRequestId) || typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0)
+    const optIn = body?.marketingOptIn;
+    if (!body || expectedVersion === null || !isUuid(body.clientRequestId) || typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0
+      || (optIn !== undefined && typeof optIn !== 'boolean'))
       return json({ code: 'invalid' }, 400);
     const ref = await resolveToken(token, request);
     if (!ref) return notFound();
@@ -32,6 +34,8 @@ export async function POST(request: Request, { params }: TokenParams) {
     // placeOrder runs its own worker transaction and repeats the feature and suspension checks.
     const placed = await placeOrder(ref.accountId, ref.sessionId, {
       expectedVersion, expectedTotalMinor: total, clientRequestId: body.clientRequestId,
+      // Repeat-purchase consent (D13): only an explicit tick counts.
+      ...(optIn === undefined ? {} : { marketingOptIn: optIn }),
     });
     const view = await inPublicTenant(ref.accountId, (tx) => loadStorefrontView(tx, ref.accountId, ref.sessionId));
     return json({ created: placed.created, view }, placed.created ? 201 : 200);

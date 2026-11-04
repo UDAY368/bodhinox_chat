@@ -10,12 +10,15 @@ import { documentUrl, type OrderTimeline } from "./order-api";
 const KNOWN_EVENTS = new Set([
   "status_changed", "feedback", "document_issued", "return_requested", "return_received", "return_inspected", "return_closed",
   "return_rejected", "return_refund_requested",
+  // Courier shipments (Phase 9): created, cancelled, and an admin-accepted tracking correction.
+  "shipment_created", "shipment_cancelled", "shipment_correction_accepted",
 ]);
 
 /** The order's history, its documents and how each customer notice went. */
 export function OrderTimelinePanel({ timeline }: { timeline: OrderTimeline | null }) {
   const t = useTranslations("Commerce.orders.timeline");
   const tStatus = useTranslations("Commerce.orders.statuses");
+  const tTracking = useTranslations("Commerce.shipmentExceptions.statuses");
   const format = useFormatter();
   const locale = useLocale();
   if (!timeline) return null;
@@ -59,6 +62,7 @@ export function OrderTimelinePanel({ timeline }: { timeline: OrderTimeline | nul
                   {e.kind === "status_changed"
                     ? t("statusChanged", { from: status(e.from_status), to: status(e.to_status) })
                     : KNOWN_EVENTS.has(e.kind) ? t(`events.${e.kind}`) : t("events.other", { kind: e.kind })}
+                  {e.kind === "shipment_correction_accepted" && e.detail && tTracking.has(e.detail) ? ` · ${tTracking(e.detail)}` : null}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {format.dateTime(new Date(e.created_at), { dateStyle: "medium", timeStyle: "short" })}

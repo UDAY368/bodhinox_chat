@@ -17,8 +17,14 @@
  *   is recorded and the order cancelled; a gateway refund restocks when it is
  *   processed, and dispatch waits while it is in flight.
  * - paid, payment_review and expired are never set here (worker only).
- * - Dispatch and delivery are staff-recorded (never a courier claim) and queue
- *   the customer notices, the feedback request and the product follow-up.
+ * - Dispatch and delivery are staff-recorded, or (Phase 9) system-recorded
+ *   from Shiprocket tracking read back with the workspace's own credentials
+ *   (systemDispatch / systemDeliver, called by lib/fulfilment/tracking-job).
+ *   Either way they queue the customer notices, the feedback request, the
+ *   product follow-up and the reorder reminder, each at most once per order
+ *   (dedupe ofu:<orderId>:<kind>).
+ * - A paid order with a live courier shipment is not cancelled (409
+ *   shipment_live): the shipment is cancelled first, or Returns used after pickup.
  *
  * Logs and audit metadata carry ids and codes only.
  */
@@ -29,9 +35,11 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { orderEventTx } from '@/lib/payments/ledger';
 import { applyRefundStateTx, RefundError, requestRefund } from '@/lib/payments/refunds';
+import { getOrderShipment } from '@/lib/fulfilment/shipments';
+import { ShipmentError, type OrderShipmentView } from '@/lib/fulfilment/types';
 import { minorFromDb } from './money';
-import { canTransition, type OrderStatus } from './order-format';
-import type { OrderFollowupKind } from './order-followup';
+import { canTransition, fulfilmentEvidence, type FulfilmentEvidence, type OrderStatus } from './order-format';
+import { repeatPurchaseDueAt, type OrderFollowupKind } from './order-followup';
 import { OrderError } from './orders';
 import { releaseTx } from './stock';
 
@@ -83,7 +91,9 @@ export async function enqueueJob(
     ON CONFLICT(dedupe_key) DO NOTHING`;
 }
 
-function queueNotice(tx: TenantTransaction, accountId: string, orderId: string, kind: OrderFollowupKind, runAt?: Date) {
+type NoticeKind = OrderFollowupKind;
+
+function queueNotice(tx: TenantTransaction, accountId: string, orderId: string, kind: NoticeKind, runAt?: Date) {
   return enqueueJob(tx, accountId, 'commerce.order_followup', { orderId, kind }, `ofu:${orderId}:${kind}`, runAt);
 }
 
@@ -161,10 +171,8 @@ export async function recordDispatch(
 }
 
 /**
- * Staff-recorded delivery (shown as "Delivered (staff recorded)"). Queues the
- * delivered notice now, the feedback request a day later, and the product
- * follow-up after the first product's follow_up_after_days, when it has a
- * follow-up template.
+ * Staff-recorded delivery (shown as "Delivered"; the evidence badge says staff recorded). Queues the
+ * follow-ups with scheduleDeliveryFollowups.
  */
 export async function recordDelivery(ctx: StaffContext, orderId: string, input: { from?: OrderStatus } = {}): Promise<void> {
   assertStaff(ctx);
@@ -174,18 +182,118 @@ export async function recordDelivery(ctx: StaffContext, orderId: string, input: 
     if (!canTransition(order.status, 'fulfilled', { priced: order.priced }))
       throw new OrderError(409, 'bad_transition', `An order cannot move from ${order.status} to fulfilled`);
     await setStatus(tx, ctx.accountId, order, 'fulfilled');
-    const now = Date.now();
-    await queueNotice(tx, ctx.accountId, orderId, 'delivered');
-    await queueNotice(tx, ctx.accountId, orderId, 'feedback', new Date(now + FEEDBACK_DELAY_MS));
-    const [followUp] = await tx.$queryRaw<{ days: number }[]>`
-      SELECT p.follow_up_after_days AS days FROM order_items i
-      JOIN shop_variants v ON v.account_id=i.account_id AND v.id=i.variant_id
-      JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
-      WHERE i.account_id=${ctx.accountId}::uuid AND i.order_id=${orderId}::uuid
-        AND p.follow_up_template IS NOT NULL AND p.follow_up_after_days IS NOT NULL
-      ORDER BY i.id LIMIT 1`;
-    if (followUp) await queueNotice(tx, ctx.accountId, orderId, 'product_follow_up', new Date(now + followUp.days * 86_400_000));
+    await scheduleDeliveryFollowups(tx, ctx.accountId, orderId);
     await auditOrder(tx, ctx, 'order.delivered', orderId);
+  });
+}
+
+/**
+ * What a delivery queues, whoever recorded it (staff or courier tracking): the
+ * delivered notice now, the feedback request a day later, the product
+ * follow-up after the first product's follow_up_after_days when it has a
+ * follow-up template, and the reorder reminder after the smallest
+ * repurchase_after_days (its consent and template are checked when it runs).
+ * Each kind at
+ * most once per order (dedupe ofu:<orderId>:<kind>).
+ */
+export async function scheduleDeliveryFollowups(tx: TenantTransaction, accountId: string, orderId: string): Promise<void> {
+  const now = Date.now();
+  await queueNotice(tx, accountId, orderId, 'delivered');
+  await queueNotice(tx, accountId, orderId, 'feedback', new Date(now + FEEDBACK_DELAY_MS));
+  const [followUp] = await tx.$queryRaw<{ days: number }[]>`
+    SELECT p.follow_up_after_days AS days FROM order_items i
+    JOIN shop_variants v ON v.account_id=i.account_id AND v.id=i.variant_id
+    JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
+    WHERE i.account_id=${accountId}::uuid AND i.order_id=${orderId}::uuid
+      AND p.follow_up_template IS NOT NULL AND p.follow_up_after_days IS NOT NULL
+    ORDER BY i.id LIMIT 1`;
+  if (followUp) await queueNotice(tx, accountId, orderId, 'product_follow_up', new Date(now + followUp.days * 86_400_000));
+  const repeatAt = await repeatPurchaseDueAt(tx, accountId, orderId, new Date(now));
+  if (repeatAt) await queueNotice(tx, accountId, orderId, 'repeat_purchase', repeatAt);
+}
+
+// ---------------------------------------------------------------------------
+// System fulfilment from courier tracking (Phase 9, design §2 "Order effects", D10)
+//
+// Called by lib/fulfilment/tracking-job inside its worker transaction with no
+// app.user_id, after it locked the order (then the shipment, D16), so the
+// status history records `system` and the fulfilment stamp leaves
+// fulfilment_recorded_by NULL. Only data read back from Shiprocket with the
+// workspace's own credentials reaches here. Nothing moves backwards.
+
+/**
+ * applied: the order moved; already: it was already there (or beyond);
+ * conflict: the courier claim disagrees with the order (cancelled, never
+ * paid, fully refunded, or a restocking refund in flight). The caller opens an
+ * order_conflict exception and nothing changes.
+ */
+export type SystemFulfilmentOutcome = 'applied' | 'already' | 'conflict';
+
+async function fullyRefunded(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ full: boolean }[]>`SELECT refund_state = 'full' AS full FROM orders
+    WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
+  return row?.full === true;
+}
+
+/** The courier picked the parcel up (or later) for a paid order: paid → dispatched, with the dispatched notice. */
+export async function systemDispatch(tx: TenantTransaction, accountId: string, orderId: string): Promise<SystemFulfilmentOutcome> {
+  const order = await lockOrder(tx, accountId, orderId);
+  if (order.status === 'dispatched' || order.status === 'fulfilled') return 'already';
+  if (order.status !== 'paid') return 'conflict';
+  if ((await fullyRefunded(tx, accountId, orderId)) || (await restockRefundInFlight(tx, accountId, orderId))) return 'conflict';
+  await setStatus(tx, accountId, order, 'dispatched');
+  await queueNotice(tx, accountId, orderId, 'dispatched');
+  return 'applied';
+}
+
+/**
+ * The courier confirmed delivery: dispatched → fulfilled, or paid → dispatched
+ * → fulfilled when the first event seen is the delivery (no dispatched notice
+ * then: it would be stale), then the delivery follow-ups. An order staff
+ * already marked delivered is left alone ('already'; the caller records the
+ * provider evidence).
+ */
+export async function systemDeliver(tx: TenantTransaction, accountId: string, orderId: string): Promise<SystemFulfilmentOutcome> {
+  let order = await lockOrder(tx, accountId, orderId);
+  if (order.status === 'fulfilled') return 'already';
+  if (order.status !== 'paid' && order.status !== 'dispatched') return 'conflict';
+  if (await fullyRefunded(tx, accountId, orderId)) return 'conflict';
+  if (order.status === 'paid') {
+    if (await restockRefundInFlight(tx, accountId, orderId)) return 'conflict';
+    await setStatus(tx, accountId, order, 'dispatched');
+    order = { ...order, status: 'dispatched' };
+  }
+  await setStatus(tx, accountId, order, 'fulfilled');
+  await scheduleDeliveryFollowups(tx, accountId, orderId);
+  return 'applied';
+}
+
+/**
+ * A courier shipment that may still leave (or has left) with the goods: it
+ * has an AWB, or its creation or AWB assignment is in flight or ambiguous,
+ * and it is neither cancelled, failed nor final (delivered, returned, lost).
+ */
+export async function liveShipmentExists(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_shipments
+    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid
+      AND create_state NOT IN ('failed','cancelled')
+      AND (awb IS NOT NULL OR create_state IN ('creating','unknown') OR awb_state IN ('assigning','unknown'))
+      AND (tracking_rank IS NULL OR tracking_rank < 90)`;
+  return (row?.n ?? 0) > 0;
+}
+
+/** The order's shipment and how its dispatch or delivery is known (order detail). Caller's session (app role). */
+export async function getOrderFulfilment(
+  ctx: TenantContext, orderId: string,
+): Promise<{ shipment: OrderShipmentView | null; evidence: FulfilmentEvidence | null }> {
+  if (!UUID.test(orderId)) throw new OrderError(404, 'not_found', 'Order not found');
+  return withTenant(ctx, async (tx) => {
+    const [order] = await tx.$queryRaw<{ status: OrderStatus; recorded: boolean }[]>`
+      SELECT status, fulfilment_recorded_by IS NOT NULL AS recorded FROM orders
+      WHERE account_id=${ctx.accountId}::uuid AND id=${orderId}::uuid`;
+    if (!order) throw new OrderError(404, 'not_found', 'Order not found');
+    const shipment = await getOrderShipment(tx, ctx.accountId, orderId);
+    return { shipment, evidence: fulfilmentEvidence({ status: order.status, fulfilment_recorded: order.recorded }, shipment) };
   });
 }
 
@@ -259,6 +367,8 @@ export async function cancelAndRefund(
     const settled = await lockSettledPayments(tx, ctx.accountId, orderId);
     const order = await lockOrder(tx, ctx.accountId, orderId);
     if (order.status !== 'paid') throw new OrderError(409, 'bad_transition', 'Only a paid order that is not dispatched can be cancelled and refunded');
+    // Goods could leave after the refund: the courier shipment is cancelled first (or Returns used after pickup).
+    if (await liveShipmentExists(tx, ctx.accountId, orderId)) throw new ShipmentError('shipment_live');
     const outside = !settled.length || settled.some((p) => !viaGateway(p) && (minorFromDb(p.refundable) ?? 0) > 0);
     if (outside && input.refundedOutside !== true) throw new RefundError('offline_payment');
     return settled;
@@ -274,10 +384,12 @@ export async function cancelAndRefund(
     const settled = await lockSettledPayments(tx, ctx.accountId, orderId);
     const order = await lockOrder(tx, ctx.accountId, orderId);
     if (order.status === 'cancelled') return 'done' as const; // a concurrent Cancel and refund finished it
-    if (order.status !== 'paid') {
+    // A shipment requested between the two steps counts as a change too.
+    const shipped = order.status === 'paid' && (await liveShipmentExists(tx, ctx.accountId, orderId));
+    if (order.status !== 'paid' || shipped) {
       const withdrawn = await withdrawUnsentTx(tx, ctx, orderId, refundIds);
       await auditOrder(tx, ctx, 'order.cancel_refund_withdrawn', orderId, { withdrawn });
-      return 'changed' as const;
+      return shipped ? ('shipped' as const) : ('changed' as const);
     }
     let outside = 0;
     for (const payment of settled) {
@@ -300,6 +412,7 @@ export async function cancelAndRefund(
     return 'done' as const;
   });
   if (outcome === 'changed') throw new OrderError(409, 'conflict', 'The order changed; reload and try again');
+  if (outcome === 'shipped') throw new ShipmentError('shipment_live');
   return { refundIds, refundedOutside: input.refundedOutside === true };
 }
 

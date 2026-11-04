@@ -26,6 +26,7 @@ import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { getT } from '@/lib/i18n/translate';
 import { lockCouponTx, redeemCouponTx, releaseCouponTx } from './coupons';
+import { MARKETING_OPT_IN_VERSION } from './marketing-consent';
 import { minorFromDb } from './money';
 import { CART_LIMITS } from './pricing';
 import { releaseTx, reserveTx, StockError } from './stock';
@@ -138,6 +139,12 @@ export interface PlaceInput {
   expectedVersion: number;
   expectedTotalMinor: number;
   clientRequestId: string;
+  /**
+   * The repeat-purchase consent checkbox (Phase 9 D13): true only when the
+   * customer ticked it. Undefined (an older client) records nothing, which
+   * reads as unknown and never sends.
+   */
+  marketingOptIn?: boolean;
 }
 
 export interface PlaceResult {
@@ -156,7 +163,11 @@ export interface PlaceResult {
  */
 export async function placeOrder(accountId: string, sessionId: string, input: PlaceInput, now = new Date()): Promise<PlaceResult> {
   if (!isUuid(sessionId) || !isUuid(input.clientRequestId) || !Number.isInteger(input.expectedVersion)
-    || !Number.isSafeInteger(input.expectedTotalMinor) || input.expectedTotalMinor < 0) throw new StoreError('invalid');
+    || !Number.isSafeInteger(input.expectedTotalMinor) || input.expectedTotalMinor < 0
+    || (input.marketingOptIn !== undefined && typeof input.marketingOptIn !== 'boolean')) throw new StoreError('invalid');
+  const optIn = input.marketingOptIn ?? null;
+  const optInAt = optIn === null ? null : now;
+  const optInVersion = optIn === null ? null : MARKETING_OPT_IN_VERSION;
   return worker(accountId, async (tx) => {
     const session = await loadSession(tx, accountId, sessionId, true);
     if (!session || session.revoked_at) throw new StoreError('not_found');
@@ -197,10 +208,12 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
     const address = JSON.stringify(session.address);
     if (!existing) {
       await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
-          discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,coupon_code,shipping_address,storefront_session_id,status)
+          discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,coupon_code,shipping_address,storefront_session_id,status,
+          marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version)
         VALUES(${orderId}::uuid,${accountId}::uuid,'storefront',${session.contact_id}::uuid,${session.conversation_id}::uuid,
           ${session.whatsapp_config_id}::uuid,${quote.currency},${quote.subtotalMinor},${quote.discountMinor},${quote.shippingMinor},
-          ${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},${quote.couponCode},${address}::jsonb,${session.id}::uuid,'new')`;
+          ${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},${quote.couponCode},${address}::jsonb,${session.id}::uuid,'new',
+          ${optIn}::boolean,${optInAt}::timestamptz,${optInVersion}::text)`;
       for (const line of quote.lines) {
         const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
         const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);
@@ -227,7 +240,8 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
       }
       await tx.$executeRaw`UPDATE orders SET currency=${quote.currency},subtotal_minor=${quote.subtotalMinor},discount_minor=${quote.discountMinor},
           shipping_minor=${quote.shippingMinor},tax_minor=${quote.taxMinor},tax_inclusive=${quote.taxInclusive},total_minor=${quote.totalMinor},
-          coupon_code=${quote.couponCode},shipping_address=${address}::jsonb,storefront_session_id=${session.id}::uuid
+          coupon_code=${quote.couponCode},shipping_address=${address}::jsonb,storefront_session_id=${session.id}::uuid,
+          marketing_opt_in=${optIn}::boolean,marketing_opt_in_at=${optInAt}::timestamptz,marketing_opt_in_version=${optInVersion}::text
         WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     }
 

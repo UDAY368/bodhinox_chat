@@ -95,3 +95,14 @@ describe('phase 8 commerce permissions', () => {
     expect(roleAllows('viewer', 'commerce.checkout')).toBe(false);
   });
 });
+
+describe('phase 9 fulfilment permissions', () => {
+  it('are admin-ceiling features that match the restriction pattern', () => {
+    expect(FEATURE_PERMISSIONS['commerce.shipments']).toBe('admin');
+    expect(FEATURE_PERMISSIONS['integrations.meetings']).toBe('admin');
+    expect(roleAllows('agent', 'commerce.shipments')).toBe(false);
+    expect(roleAllows('agent', 'integrations.meetings')).toBe(false);
+    expect(roleAllows('admin', 'commerce.shipments')).toBe(true);
+    expect('integrations.meetings').toMatch(/^[a-z_]{1,32}\.[a-z_]{1,32}$/);
+  });
+});

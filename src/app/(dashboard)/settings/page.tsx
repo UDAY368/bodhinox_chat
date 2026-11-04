@@ -33,6 +33,8 @@ import { PlanPanel } from '@/components/settings/plan-panel';
 import { BillingSection } from '@/components/settings/billing/billing-section';
 import { PaymentsCard } from '@/components/settings/payments-card';
 import { MetaAdsCard } from '@/components/settings/meta-ads-card';
+import { ZoomCard } from '@/components/settings/zoom-card';
+import { ShiprocketCard } from '@/components/settings/shiprocket-card';
 import { RateCardEditor } from '@/components/settings/rate-card-editor';
 import {
   resolveSection,
@@ -121,6 +123,12 @@ function SettingsPageInner() {
       </div>
     ),
     payments: <PaymentsCard />,
+    connections: (
+      <div key={accountId} className="space-y-10">
+        <ZoomCard />
+        <ShiprocketCard />
+      </div>
+    ),
     ads: <MetaAdsCard key={accountId} />,
     plan: (
       <div className="space-y-10">

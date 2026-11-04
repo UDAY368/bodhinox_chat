@@ -241,10 +241,10 @@ Completion gate: duplicate webhooks create no duplicate financial effects; simul
 
 Dependencies: Phases 7–8 and provider prerequisites. B uses permitted audited staff-confirmed operations or verified provider events already available; automatic meeting/courier adapters below are required C scope.
 
-- [ ] Add authorized Zoom/meeting creation, updates, session registration and attendance where the provider exposes verified data.
-- [ ] Add one shipping/courier provider: shipment creation, tracking normalization, signatures where applicable and reconciliation.
-- [ ] Guard against repeated/out-of-order tracking and contradictory delivery events.
-- [ ] Trigger dispatch/delivery notices, post-session/visit/delivery feedback and consent-based repeat-purchase follow-up.
+- [x] Add authorized Zoom/meeting creation, updates, session registration and attendance where the provider exposes verified data. Zoom, provider-gated (off until `ZOOM_ENABLED` and Zoom app approval); attendance is evidence only, staff still record completed/no-show.
+- [x] Add one shipping/courier provider: shipment creation, tracking normalization, signatures where applicable and reconciliation. Shiprocket, per-workspace API user; the push is authenticated by a per-workspace token and only a hint (tracking is read back).
+- [x] Guard against repeated/out-of-order tracking and contradictory delivery events. Fold over stored scans; contradictions open a reviewed exception.
+- [x] Trigger dispatch/delivery notices, post-session/visit/delivery feedback and consent-based repeat-purchase follow-up. Courier-driven notices at most once per order and kind; reorder reminder needs checkout opt-in, no opt-out ever and a MARKETING template.
 
 Deliverable: all four journeys connect to operational fulfilment with evidence-labeled statuses.
 

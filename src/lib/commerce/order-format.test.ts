@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  asOrderMessagePayload, canTransition, fillOrderPlaceholders, orderContentText, orderFlowVars, orderItemsSummary,
+  asOrderMessagePayload, canTransition, fillOrderPlaceholders, fulfilmentEvidence, orderContentText, orderFlowVars, orderItemsSummary,
   nextStatuses, ORDER_STATUSES, ORDER_TRANSITIONS, parseInboundOrder, WORKER_ONLY_STATUSES,
 } from './order-format';
 
@@ -102,5 +102,20 @@ describe('status transitions', () => {
     expect(canTransition('confirmed', 'fulfilled')).toBe(true);
     expect(canTransition('awaiting_payment', 'cancelled', { priced: true })).toBe(true);
     expect(nextStatuses('confirmed', { priced: true })).toEqual(['cancelled']);
+  });
+});
+
+describe('fulfilmentEvidence (Phase 9 evidence label)', () => {
+  const ship = (dispatched: string | null, delivered: string | null) => ({ provider_dispatched_at: dispatched, provider_delivered_at: delivered });
+  it('is provider only when Shiprocket confirmed that step, staff when a member recorded it, unknown otherwise', () => {
+    expect(fulfilmentEvidence({ status: 'fulfilled', fulfilment_recorded: true }, ship('2026-11-01T00:00:00Z', '2026-11-02T00:00:00Z'))).toBe('provider');
+    expect(fulfilmentEvidence({ status: 'fulfilled', fulfilment_recorded: true }, ship('2026-11-01T00:00:00Z', null))).toBe('staff');
+    expect(fulfilmentEvidence({ status: 'fulfilled', fulfilment_recorded: false }, null)).toBe('unknown');
+    expect(fulfilmentEvidence({ status: 'dispatched', fulfilment_recorded: false }, ship('2026-11-01T00:00:00Z', null))).toBe('provider');
+    expect(fulfilmentEvidence({ status: 'dispatched', fulfilment_recorded: true }, ship(null, null))).toBe('staff');
+  });
+  it('is null before dispatch', () => {
+    for (const status of ['new', 'paid', 'cancelled', 'awaiting_payment'] as const)
+      expect(fulfilmentEvidence({ status, fulfilment_recorded: true }, ship('2026-11-01T00:00:00Z', '2026-11-02T00:00:00Z'))).toBeNull();
   });
 });

@@ -54,6 +54,11 @@ const counter = (value: unknown): number => {
   if (!Number.isSafeInteger(value) || (value as number) < 0) throw new Error('Invalid job counter');
   return value as number;
 };
+/** A version number: a positive integer. */
+const positive = (value: unknown): number => {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) throw new Error('Invalid job counter');
+  return value as number;
+};
 export async function scheduleWork() {
   const accounts = await getWorkerPrisma().$queryRaw<
     { account_id: string }[]
@@ -87,6 +92,9 @@ export async function scheduleWork() {
   // Customer payments: every 10 minutes per workspace, reconcile unknown links and refunds (never re-sends).
   await import('@/lib/payments/reconcile-sweep').then((m) => m.scheduleReconcileSweeps())
     .catch(() => console.error('[worker] payment reconcile scheduling failed'));
+  // Zoom meetings and Shiprocket shipments: every 30 minutes, only for workspaces with a live connection and open work.
+  await import('@/lib/fulfilment/sweep').then((m) => m.scheduleFulfilmentSweeps())
+    .catch(() => console.error('[worker] fulfilment sweep scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -337,11 +345,32 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'commerce.issue_credit_note')
       await (await import('@/lib/commerce/documents')).handleIssueCreditNoteJob(accountId, { refundId: uuid(job.payload.refundId) });
     else if (job.type === 'commerce.order_followup') {
+      // Every kind the follow-up module declares (Phase 9 adds repeat_purchase there).
+      const followup = await import('@/lib/commerce/order-followup');
       const kind = job.payload.kind;
-      if (kind !== 'feedback' && kind !== 'product_follow_up' && kind !== 'dispatched' && kind !== 'delivered') throw new Error('Invalid order follow-up kind');
-      await (await import('@/lib/commerce/order-followup')).handleOrderFollowupJob(accountId,
-        { orderId: uuid(job.payload.orderId), kind }, { attempts: job.attempts, maxAttempts: job.max_attempts });
+      if (typeof kind !== 'string' || !(followup.ORDER_FOLLOWUP_KINDS as readonly string[]).includes(kind))
+        throw new Error('Invalid order follow-up kind');
+      await followup.handleOrderFollowupJob(accountId,
+        { orderId: uuid(job.payload.orderId), kind: kind as (typeof followup.ORDER_FOLLOWUP_KINDS)[number] },
+        { attempts: job.attempts, maxAttempts: job.max_attempts });
     }
+    else if (job.type === 'appointments.meeting_sync')
+      // Zoom meeting create/update/delete for one appointment version; claimed, an ambiguous create is reconciled, never repeated.
+      await (await import('@/lib/meetings/sync')).handleMeetingSyncJob(accountId,
+        { appointmentId: uuid(job.payload.appointmentId), version: positive(job.payload.version) },
+        { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'meetings.zoom_event')
+      // One verified, minimised Zoom event: attendance evidence only, never an appointment status.
+      await (await import('@/lib/meetings/attendance')).handleZoomEventJob(accountId, job.payload);
+    else if (job.type === 'commerce.create_shipment')
+      // Staff-requested Shiprocket shipment (spends the wallet); claimed, an ambiguous create or AWB is reconciled, never repeated.
+      await (await import('@/lib/fulfilment/shipments')).handleCreateShipmentJob(accountId,
+        { shipmentId: uuid(job.payload.shipmentId) }, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'commerce.shipment_track')
+      // Re-fetches tracking with the workspace's own token; only re-fetched data changes state.
+      await (await import('@/lib/fulfilment/tracking-job')).handleShipmentTrackJob(accountId, { shipmentId: uuid(job.payload.shipmentId) });
+    else if (job.type === 'fulfilment.sweep')
+      await (await import('@/lib/fulfilment/sweep')).runFulfilmentSweep(accountId);
     else if (job.type === 'payments.refund')
       // One refund send, claimed requested -> sending first; an ambiguous outcome is reconciled, never re-sent.
       await (await import('@/lib/payments/refunds')).handleRefundJob(accountId,

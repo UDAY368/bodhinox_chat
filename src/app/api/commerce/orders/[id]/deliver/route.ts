@@ -1,5 +1,5 @@
-// POST /api/commerce/orders/[id]/deliver { from? } — staff-recorded delivery ("Delivered (staff
-//   recorded)"; agents and above). Queues the delivered notice, feedback request and product
+// POST /api/commerce/orders/[id]/deliver { from? } — staff-recorded delivery ("Delivered", evidence
+//   "staff recorded"; agents and above). Queues the delivered notice, feedback request and product
 //   follow-up. 200 { ok: true }; 409 bad_transition | conflict.
 
 import { NextResponse } from 'next/server';

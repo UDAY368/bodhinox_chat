@@ -8,6 +8,13 @@ import type { Quote } from '@/lib/commerce/pricing';
 
 export type { StorefrontOrderView, StorefrontView, Quote };
 
+/**
+ * The wording version of the repeat-purchase consent checkbox: the message key
+ * Storefront.marketingOptIn.<version> and the value placeOrder records as
+ * orders.marketing_opt_in_version. A new wording gets a new version.
+ */
+export { MARKETING_OPT_IN_VERSION } from '@/lib/commerce/marketing-consent';
+
 export class ShopApiError extends Error {
   constructor(readonly code: string, readonly status: number, readonly body: Record<string, unknown> = {}) {
     super(code);
@@ -48,7 +55,7 @@ export const shopApi = {
     call<StorefrontView>(`${base(token)}/address`, 'PUT', { expectedVersion, address }),
   coupon: (token: string, expectedVersion: number, code: string | null) =>
     call<StorefrontView>(`${base(token)}/coupon`, 'PUT', { expectedVersion, code }),
-  place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; clientRequestId: string }) =>
+  place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; clientRequestId: string; marketingOptIn: boolean }) =>
     call<{ created: boolean; view: StorefrontView | null }>(`${base(token)}/place`, 'POST', body),
   status: (token: string) => call<{ order: StorefrontOrderView | null }>(`${base(token)}/status`, 'GET'),
   imageUrl: (token: string, imageId: string) => `${base(token)}/images/${encodeURIComponent(imageId)}`,

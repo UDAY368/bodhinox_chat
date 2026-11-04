@@ -9,7 +9,7 @@ import type { Prisma } from '@prisma/client';
  * the signature has been verified, and enqueue the processing job in the same
  * transaction so the receipt and its job commit together before the HTTP 200.
  */
-export type CommerceWebhookProvider = 'razorpay' | 'shopify' | 'woocommerce';
+export type CommerceWebhookProvider = 'razorpay' | 'shopify' | 'woocommerce' | 'zoom' | 'shiprocket';
 
 const RECEIPT_ID = /^[A-Za-z0-9._:-]{1,200}$/;
 

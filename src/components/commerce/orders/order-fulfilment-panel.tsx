@@ -12,14 +12,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { canTransition } from "@/lib/commerce/order-format";
 import { cancelAndRefundOrder, deliverOrder, dispatchOrder, recordOrderFeedback, type ApiResult, type OrderDetail } from "./order-api";
+import { ShipmentCard } from "./shipment-card";
 
 const TRACKING_MAX = 200;
 
 /**
- * Staff-recorded fulfilment: dispatch (with an optional tracking note),
- * delivery, the customer's feedback score, and "Cancel and refund" for a paid
- * order that has not left. The server re-checks every rule; this only offers
- * what the current status allows.
+ * Fulfilment: the courier shipment (Shiprocket, when connected), staff-recorded
+ * dispatch (with an optional tracking note) and delivery, how the current step
+ * is known (courier confirmed / staff recorded / not confirmed), the customer's
+ * feedback score, and "Cancel and refund" for a paid order that has not left.
+ * The server re-checks every rule; this only offers what the status allows.
  */
 export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
   order: OrderDetail;
@@ -28,6 +30,7 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
   onChanged: () => Promise<void>;
 }) {
   const t = useTranslations("Commerce.orders.lifecycle");
+  const tEvidence = useTranslations("Commerce.evidence");
   const [tracking, setTracking] = useState("");
   const [refundNote, setRefundNote] = useState("");
   const [confirmRefund, setConfirmRefund] = useState(false);
@@ -40,13 +43,17 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
   const canDeliver = canTransition(order.status, "fulfilled", { priced });
   const delivered = order.status === "fulfilled";
   const canCancelRefund = order.status === "paid" && canRefund;
+  const shipment = order.shipment ?? null;
+  // Tracking moves this order by itself once the courier has the parcel.
+  const courierTracked = Boolean(shipment?.awb) && shipment?.create_state === "created";
 
   async function run<T>(key: string, call: () => Promise<ApiResult<T>>, success: string | ((value: T) => string)) {
     setBusy(key);
     try {
       const r = await call();
       if (!r.ok) {
-        if (r.code === "offline_payment") {
+        if (r.code === "shipment_live") toast.error(t("shipmentLive"));
+        else if (r.code === "offline_payment") {
           setOutsideNeeded(true);
           toast.error(t("cancelRefundOutsideNeeded"));
         } else toast.error(r.code === "conflict" ? t("conflict") : r.status === 403 ? t("forbidden") : r.code === "bad_transition" ? t("notAllowed") : t("error"));
@@ -59,11 +66,19 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
     }
   }
 
-  if (!canDispatch && !canDeliver && !delivered && !canCancelRefund && !order.tracking_note) return null;
+  if (!canDispatch && !canDeliver && !delivered && !canCancelRefund && !order.tracking_note && !shipment && order.status !== "dispatched") return null;
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-      <h2 className="text-sm font-medium text-foreground">{t("title")}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-foreground">{t("title")}</h2>
+        {order.evidence && (
+          <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground" data-evidence={order.evidence}>
+            {tEvidence(order.evidence)}
+          </span>
+        )}
+      </div>
+      <ShipmentCard orderId={order.id} orderStatus={order.status} onChanged={() => void onChanged()} />
       {order.tracking_note && (
         <p className="text-xs text-muted-foreground break-words">{t("trackingShown", { note: order.tracking_note })}</p>
       )}
@@ -86,7 +101,7 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
           {t("deliver")}
         </Button>
       )}
-      {canDeliver && <p className="text-xs text-muted-foreground">{t("staffRecorded")}</p>}
+      {canDeliver && <p className="text-xs text-muted-foreground">{courierTracked ? t("courierTracked") : t("staffRecorded")}</p>}
       {delivered && (
         <div className="space-y-1">
           <Label>{t("feedbackLabel")}</Label>

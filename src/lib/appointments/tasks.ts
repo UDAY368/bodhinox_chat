@@ -4,7 +4,9 @@
  */
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { AppointmentFieldError, isUuid } from './config';
-import { AppointmentError, TASK_KINDS, TASK_STATUSES, type TaskKind, type TaskStatus } from './types';
+import {
+  AppointmentError, SYSTEM_TASK_KINDS, TASK_KINDS, TASK_STATUSES, type SystemTaskKind, type TaskKind, type TaskStatus,
+} from './types';
 
 export interface TaskRow {
   id: string;
@@ -83,6 +85,28 @@ export async function createTask(tx: TenantTransaction, accountId: string, userI
     contactId, appointmentId, kind, title(b), b.due_at === undefined ? null : dueAt(b), optId(b, 'assigned_to'), userId)
     .catch((e) => dbError(e, 'assigned_to'));
   return row;
+}
+
+/**
+ * Opens a worker-only task (Phase 9: meeting_sync, meeting_outcome) for an
+ * appointment's customer, assigned to the practitioner's linked member while
+ * that member is still in the workspace. At most one open task per
+ * appointment and kind (partial unique tasks_open_meeting_key), so a repeated
+ * call is a no-op. Returns whether a task was opened. Members never create
+ * these kinds (createTask accepts TASK_KINDS only).
+ */
+export async function openSystemTask(
+  tx: TenantTransaction, accountId: string, input: { kind: SystemTaskKind; appointmentId: string; dueAt?: Date | null },
+): Promise<boolean> {
+  if (!(SYSTEM_TASK_KINDS as readonly string[]).includes(input.kind) || !isUuid(input.appointmentId)) throw new AppointmentError('invalid');
+  const inserted = await tx.$executeRaw`INSERT INTO tasks(contact_id,appointment_id,kind,title,due_at,assigned_to,created_by)
+    SELECT a.contact_id, a.id, ${input.kind}, left(a.service_name, 200), ${input.dueAt ?? new Date()},
+      (SELECT m.user_id FROM appointment_staff s JOIN account_memberships m ON m.account_id=s.account_id AND m.user_id=s.user_id
+        WHERE s.account_id=a.account_id AND s.id=a.staff_id),
+      NULL
+    FROM appointments a WHERE a.account_id=${accountId}::uuid AND a.id=${input.appointmentId}::uuid
+    ON CONFLICT DO NOTHING`;
+  return inserted > 0;
 }
 
 export async function updateTask(tx: TenantTransaction, accountId: string, id: string, raw: unknown): Promise<TaskRow> {

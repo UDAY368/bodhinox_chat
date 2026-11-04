@@ -37,16 +37,19 @@ export function ManageBooking({ token }: { token: string }) {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<PublicSlot | null>(null);
+  /** When the view was loaded: "is it over" is judged against this, not the render clock. */
+  const [loadedAt, setLoadedAt] = useState(0);
 
   useEffect(() => {
     let live = true;
     bookingApi.manage(token)
-      .then((data) => { if (live) { setView(data); setLoadState('ready'); } })
+      .then((data) => { if (live) { setView(data); setLoadedAt(Date.now()); setLoadState('ready'); } })
       .catch((e) => { if (live) setLoadState(errorCode(e) === 'not_found' ? 'not_found' : 'error'); });
     return () => { live = false; };
   }, [token]);
 
   const today = useMemo(() => (view ? todayIn(view.timezone) : null), [view]);
+  const ended = view ? Date.parse(view.endAt) <= loadedAt : false;
 
   const loadSlots = useCallback(async (from: string) => {
     setSlotsLoading(true);
@@ -91,6 +94,7 @@ export function ManageBooking({ token }: { token: string }) {
         action, expectedVersion: view.version, ...(action === 'reschedule' && slot ? { startAt: slot.startAt } : {}),
       });
       setView(next);
+      setLoadedAt(Date.now());
       setMode('view');
       setNotice(action === 'cancel' ? 'cancelled' : 'rescheduled');
     } catch (e) {
@@ -159,6 +163,10 @@ export function ManageBooking({ token }: { token: string }) {
           </a>
         )}
         {view.meetingLinkLater && <p className="text-muted-foreground text-xs">{t('meetingLinkLater')}</p>}
+        {/* Inside the link window but the online meeting is not ready yet (being created, or staff will send it). */}
+        {view.online && view.status === 'confirmed' && !view.meetingUrl && !view.meetingLinkLater && !ended && (
+          <p className="text-muted-foreground text-xs" data-testid="meeting-link-pending">{tp('meetingLinkPending')}</p>
+        )}
 
         {view.status === 'confirmed' && !view.canChange && <p className="text-muted-foreground text-sm">{t('cutoffPassed')}</p>}
 

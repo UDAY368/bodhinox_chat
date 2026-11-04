@@ -41,13 +41,14 @@ export async function jsonBody(request: Request): Promise<Record<string, unknown
 /**
  * OrderError and auth errors as usual; a stock refusal is a 409 with its
  * code; a payments error that carries its own 4xx status and code (refunds)
- * is passed through; anything else is a 500 with no detail.
+ * or a shipment refusal (shipment_live) is passed through; anything else is
+ * a 500 with no detail.
  */
 export function lifecycleErrorResponse(error: unknown): NextResponse {
   if (error instanceof StockError) return NextResponse.json({ error: 'Stock changed', code: error.code }, { status: 409 });
   const e = error as { status?: unknown; code?: unknown; name?: unknown } | null;
   if (e && typeof e.status === 'number' && e.status >= 400 && e.status < 500 && typeof e.code === 'string'
-    && typeof e.name === 'string' && /Refund|Payment/.test(e.name))
+    && typeof e.name === 'string' && /Refund|Payment|Shipment/.test(e.name))
     return NextResponse.json({ error: 'Refund refused', code: e.code }, { status: e.status });
   return orderErrorResponse(error);
 }

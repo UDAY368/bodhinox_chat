@@ -21,6 +21,8 @@ export const appointmentKeys = {
   feedback: (id: string, version: number) => `appt-fbk:${id}:v${version}`,
   /** appointments.followup rebook message (UTILITY only). */
   rebook: (id: string, version: number) => `appt-rbk:${id}:v${version}`,
+  /** appointments.meeting_sync job (Phase 9: Zoom meeting create, update or delete). */
+  meetingSync: (id: string, version: number) => `appt-mtg:${id}:v${version}`,
 } as const;
 
 /** Prefix shared by every reminder key of one appointment (retirement queries). */

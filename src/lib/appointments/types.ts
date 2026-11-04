@@ -17,8 +17,22 @@ export const APPOINTMENT_EVENT_KINDS = [
   'completed', 'no_show', 'feedback', 'reminder_skipped',
   // Phase 8 paid holds (design E15): waiting for the link, verified capture, a capture after the slot was lost.
   'payment_pending', 'payment_captured', 'late_payment',
+  // Phase 9 Zoom meetings: history only (see HISTORY_ONLY_EVENT_KINDS).
+  'meeting_created', 'meeting_updated', 'meeting_deleted', 'meeting_sync_failed', 'meeting_joined_provider',
 ] as const;
 export type AppointmentEventKind = (typeof APPOINTMENT_EVENT_KINDS)[number];
+
+/**
+ * Event kinds recorded in the appointment history only. They never become an
+ * appointments.event job, so they are never fanned out to staff notifications,
+ * automations or tenant webhooks, and never retire reminders.
+ */
+export const HISTORY_ONLY_EVENT_KINDS: ReadonlySet<AppointmentEventKind> = new Set<AppointmentEventKind>([
+  'meeting_created', 'meeting_updated', 'meeting_deleted', 'meeting_sync_failed', 'meeting_joined_provider',
+]);
+export function isHistoryOnlyEventKind(kind: string): boolean {
+  return (HISTORY_ONLY_EVENT_KINDS as ReadonlySet<string>).has(kind);
+}
 
 export const APPOINTMENT_ACTORS = ['staff', 'customer', 'system'] as const;
 export type AppointmentActor = (typeof APPOINTMENT_ACTORS)[number];
@@ -49,8 +63,12 @@ export type ServiceMode = (typeof SERVICE_MODES)[number];
 export const LOCATION_KINDS = ['physical', 'online'] as const;
 export type LocationKind = (typeof LOCATION_KINDS)[number];
 
+/** Kinds a member may create. */
 export const TASK_KINDS = ['next_step', 'rebook', 'manual'] as const;
-export type TaskKind = (typeof TASK_KINDS)[number];
+/** Phase 9: opened by the worker only (at most one open task per appointment and kind). */
+export const SYSTEM_TASK_KINDS = ['meeting_sync', 'meeting_outcome'] as const;
+export type SystemTaskKind = (typeof SYSTEM_TASK_KINDS)[number];
+export type TaskKind = (typeof TASK_KINDS)[number] | SystemTaskKind;
 export const TASK_STATUSES = ['open', 'done', 'cancelled'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 

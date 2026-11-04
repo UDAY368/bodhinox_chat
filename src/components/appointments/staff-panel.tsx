@@ -18,6 +18,42 @@ import {
 } from './shared';
 
 interface HoursDto { id: string; staff_id: string | null; location_id: string; hours: WorkingHours }
+/** Phase 9: the practitioner's Zoom host (null: the Zoom user who connected the workspace hosts). */
+type StaffWithHostDto = StaffDto & { meeting_host_email?: string | null };
+
+/** Whether this workspace has a live Zoom connection (the host email only matters then). */
+function useZoomConnected(): boolean {
+  const [connected, setConnected] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void apiRequest<{ available?: boolean; connected?: boolean }>('/api/integrations/zoom').then((r) => {
+      if (live) setConnected(r.ok && r.data.available === true && r.data.connected === true);
+    });
+    return () => { live = false; };
+  }, []);
+  return connected;
+}
+
+function ZoomHostEmail({ staff, canEdit, onSave }: { staff: StaffWithHostDto; canEdit: boolean; onSave: (email: string | null) => Promise<void> }) {
+  const t = useTranslations('Appointments');
+  const stored = staff.meeting_host_email ?? '';
+  const [value, setValue] = useState(stored);
+  const [busy, setBusy] = useState(false);
+  const id = `zoom-host-${staff.id}`;
+  return (
+    <div className="flex w-full flex-wrap items-end gap-2">
+      <div className="min-w-0 flex-1 space-y-1">
+        <Label htmlFor={id} className="text-xs">{t('staff.zoomHostEmail')}</Label>
+        <Input id={id} type="email" maxLength={254} className="h-8" placeholder={t('staff.zoomHostPlaceholder')} value={value}
+          disabled={!canEdit || busy || !!staff.archived_at} onChange={(e) => setValue(e.target.value)} />
+      </div>
+      {canEdit && value.trim() !== stored && (
+        <Button type="button" size="sm" variant="outline" disabled={busy}
+          onClick={() => { setBusy(true); void onSave(value.trim() || null).finally(() => setBusy(false)); }}>{t('sheet.save')}</Button>
+      )}
+    </div>
+  );
+}
 
 export function StaffPanel({ config, canEdit, onChanged }: { config: AppointmentConfig; canEdit: boolean; onChanged: () => void }) {
   const t = useTranslations('Appointments');
@@ -26,6 +62,7 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
   const [name, setName] = useState('');
   const [linked, setLinked] = useState('');
   const [busy, setBusy] = useState(false);
+  const zoomConnected = useZoomConnected();
 
   async function add() {
     setBusy(true);
@@ -63,6 +100,10 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
                   {s.archived_at ? t('services.restore') : t('staff.archive')}
                 </Button>
               )}
+              {zoomConnected && (
+                <ZoomHostEmail key={(s as StaffWithHostDto).meeting_host_email ?? ''} staff={s as StaffWithHostDto} canEdit={canEdit}
+                  onSave={(email) => update(s, { meeting_host_email: email })} />
+              )}
             </li>
           ))}
         </ul>
@@ -82,6 +123,7 @@ export function StaffPanel({ config, canEdit, onChanged }: { config: Appointment
             <Button type="button" disabled={busy || !name.trim()} onClick={() => void add()}>{t('staff.add')}</Button>
           </div>
         )}
+        {zoomConnected && <p className="text-xs text-muted-foreground">{t('staff.zoomHostHelp')}</p>}
       </section>
 
       <HoursSection config={config} canEdit={canEdit} />

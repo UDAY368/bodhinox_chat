@@ -51,6 +51,16 @@ export interface Fixtures {
     paidOrderId: string;
     receiptNumber: string;
   };
+  /**
+   * Phase 9 in workspace A, with no Zoom or Shiprocket configuration: a
+   * confirmed appointment of an online service using its supplied meeting link,
+   * and a paid order that no other spec dispatches.
+   */
+  integrations: {
+    onlineAppointmentId: string;
+    meetingUrl: string;
+    unshippedOrderId: string;
+  };
 }
 
 // Outside the project (the dev server reloads on project file writes); it

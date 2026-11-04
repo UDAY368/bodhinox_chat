@@ -30,6 +30,9 @@ export const FEATURE_PERMISSIONS = {
   'commerce.refunds': 'admin',
   'commerce.record_payments': 'admin',
   'commerce.checkout': 'agent',
+  // Phase 9: creating a courier shipment spends the Shiprocket wallet; connecting Zoom shares account access.
+  'commerce.shipments': 'admin',
+  'integrations.meetings': 'admin',
 } as const satisfies Record<string, AccountRole>;
 
 export type FeaturePermission = keyof typeof FEATURE_PERMISSIONS;

@@ -67,6 +67,8 @@ const FEATURE_NAMES: Record<Feature, string> = {
   workspace_attributes: 'Workspace attributes',
   appointments: 'Appointments',
   storefront: 'Storefront and online payments',
+  online_meetings: 'Online meetings (Zoom)',
+  courier_shipping: 'Courier shipping (Shiprocket)',
 };
 const LIMIT_NAMES: Record<LimitKey, string> = {
   seats: 'team members',

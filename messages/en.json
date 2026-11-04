@@ -2924,7 +2924,8 @@
       "payments": "Payments",
       "notifications": "Notifications",
       "media": "Media library",
-      "ads": "Ads"
+      "ads": "Ads",
+      "connections": "Meetings & shipping"
     },
     "groups": {
       "account": "Account",
@@ -3284,7 +3285,9 @@
         "retargeting": "Retargeting by campaign",
         "workspace_attributes": "Workspace attributes",
         "appointments": "Appointments",
-        "storefront": "Storefront and online payments"
+        "storefront": "Storefront and online payments",
+        "online_meetings": "Online meetings (Zoom)",
+        "courier_shipping": "Courier shipping (Shiprocket)"
       },
       "limits": {
         "seats": "Team members and open invitations",
@@ -3650,7 +3653,9 @@
         "commerce_inventory": "Adjust stock",
         "commerce_refunds": "Refund customer payments",
         "commerce_record_payments": "Record offline payments",
-        "commerce_checkout": "Send storefront links"
+        "commerce_checkout": "Send storefront links",
+        "commerce_shipments": "Create and cancel courier shipments",
+        "integrations_meetings": "Connect Zoom for online meetings"
       }
     },
     "auditLog": {
@@ -3793,6 +3798,100 @@
       "loginCancelled": "Facebook login was cancelled.",
       "leadsNotSubscribed": "Lead ads are not subscribed for this Page yet. Disconnect and connect again to retry.",
       "lastError": "Last Meta error code: {code}"
+    },
+    "zoom": {
+      "title": "Zoom meetings",
+      "description": "Create a Zoom meeting automatically for each confirmed online appointment.",
+      "loading": "Loading",
+      "loadFailed": "The Zoom connection could not be loaded.",
+      "statusUnavailable": "Not available on this deployment",
+      "statusConnected": "Connected",
+      "statusReconnect": "Reconnect needed",
+      "statusNotConnected": "Not connected",
+      "connectedOn": "Connected on {date}",
+      "unavailableHelp": "Online appointments keep the meeting link set on their service. Your platform operator can enable Zoom.",
+      "connectHelp": "A Zoom account admin approves the app once. Meetings are then created under that Zoom account, hosted by the practitioner’s Zoom email or the admin who connected it.",
+      "reconnectHelp": "Zoom no longer accepts this connection. Connect again with the same Zoom account to keep existing meetings.",
+      "connect": "Connect Zoom",
+      "reconnect": "Reconnect Zoom",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect Zoom? Existing meetings keep their links, but Bodhinox stops creating, moving and removing meetings.",
+      "disconnected": "Zoom disconnected.",
+      "registerAttendees": "Register customers for their meeting",
+      "registerAttendeesHelp": "When the customer has an email address, it is shared with Zoom so they get a personal join link and Zoom can tell when they joined. Off by default.",
+      "registerConfirm": "Customers’ email addresses will be shared with Zoom for their meetings. Turn this on?",
+      "errors": {
+        "generic": "Something went wrong. Try again.",
+        "not_configured": "Zoom is not available on this deployment.",
+        "not_connected": "Zoom is not connected.",
+        "zoom_account_in_use": "This Zoom account is already connected to another workspace.",
+        "auth": "Zoom did not accept the authorization. Connect again.",
+        "provider_unreachable": "Zoom could not be reached. Try again in a few minutes.",
+        "invalid_state": "The Zoom sign-in expired or was started by someone else. Start again.",
+        "missing_scopes": "The Zoom app was approved without the permissions it needs. Connect again and approve all of them.",
+        "feature_unavailable": "Online meetings are not included in your plan."
+      },
+      "outcomes": {
+        "connected": "Zoom connected.",
+        "denied": "The Zoom authorization was cancelled.",
+        "signed_out": "You were signed out. Sign in and connect Zoom again.",
+        "forbidden": "Only workspace admins with the Zoom permission can connect Zoom.",
+        "save_failed": "The Zoom connection could not be saved. Try again.",
+        "not_configured": "Zoom is not available on this deployment.",
+        "invalid_state": "The Zoom sign-in expired or was started by someone else. Start again.",
+        "auth": "Zoom did not accept the authorization. Connect again.",
+        "missing_scopes": "The Zoom app was approved without the permissions it needs. Connect again and approve all of them.",
+        "provider_unreachable": "Zoom could not be reached. Try again in a few minutes.",
+        "zoom_account_in_use": "This Zoom account is already connected to another workspace.",
+        "feature_unavailable": "Online meetings are not included in your plan."
+      }
+    },
+    "shiprocket": {
+      "title": "Shiprocket",
+      "loading": "Loading…",
+      "loadFailed": "Could not load the Shiprocket connection.",
+      "unavailable": "Courier shipping is turned off on this deployment.",
+      "notConnected": "Not connected",
+      "connectedAs": "Connected as {email}",
+      "reconnectNeeded": "Reconnect needed: Shiprocket refused the saved API user. Enter its password again and save.",
+      "reconnectBadge": "Reconnect needed",
+      "connectedBadge": "Connected",
+      "walletNote": "Creating a shipment assigns a courier and charges your Shiprocket wallet. Staff create shipments one at a time from the order page; nothing is created automatically.",
+      "apiHelp": "In Shiprocket, open Settings → API → Create an API user, then enter that user’s email and password here (not your own login).",
+      "apiEmail": "API user email",
+      "apiPassword": "API user password",
+      "passwordKeep": "Leave blank to keep the saved password",
+      "pickupLocation": "Pickup location",
+      "pickupHelp": "Check the details to load pickup locations",
+      "test": "Check details",
+      "testFailed": "Shiprocket could not check these details.",
+      "noPickup": "This Shiprocket account has no pickup locations. Add one in Shiprocket first.",
+      "defaults": "Default package",
+      "length": "Length (cm)",
+      "breadth": "Breadth (cm)",
+      "height": "Height (cm)",
+      "weight": "Weight (g)",
+      "connect": "Connect Shiprocket",
+      "save": "Save changes",
+      "saved": "Shiprocket connection saved.",
+      "saveFailed": "Could not save the Shiprocket connection.",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect Shiprocket? The saved API user and webhook token are deleted and tracking updates stop. Existing shipments stay on their orders.",
+      "disconnected": "Shiprocket disconnected.",
+      "disconnectFailed": "Could not disconnect Shiprocket.",
+      "webhookUrl": "Tracking webhook URL",
+      "webhookHelp": "In Shiprocket, open Settings → API → Webhooks, paste this URL and use the webhook token below as the security token. Updates are always re-checked with Shiprocket before an order changes.",
+      "hostnameWarning": "Shiprocket refuses webhook URLs that contain \"shiprocket\", \"kartrocket\", \"sr\" or \"kr\", including in the domain name. Use a domain without them for this app.",
+      "tokenSet": "A webhook token is set.",
+      "tokenMissing": "No webhook token yet: tracking updates are not received until you generate one.",
+      "generateToken": "Generate token",
+      "regenerateToken": "Regenerate token",
+      "regenerateConfirm": "The current webhook token stops working immediately. Continue?",
+      "tokenOnce": "Copy this token into Shiprocket now. It will not be shown again.",
+      "tokenFailed": "Could not generate a webhook token.",
+      "copy": "Copy",
+      "copyFailed": "Could not copy.",
+      "adminOnly": "Only admins can change the Shiprocket connection."
     }
   },
   "SignupPage": {
@@ -5157,6 +5256,37 @@
       "tooManyReports": "Several reports are still being built. Wait for them to finish, then try again.",
       "reportNotFound": "Report not found.",
       "reportNotReady": "This report is not available for download."
+    },
+    "meetings": {
+      "not_configured": "Zoom is not available on this deployment.",
+      "not_connected": "Connect Zoom in Settings → Meetings & shipping first.",
+      "zoom_account_in_use": "This Zoom account is already connected to another workspace.",
+      "auth": "Zoom did not accept the authorization. Connect again.",
+      "provider_unreachable": "Zoom could not be reached. Try again in a few minutes.",
+      "invalid_state": "The Zoom sign-in expired or was started by someone else. Start again.",
+      "missing_scopes": "The Zoom app was authorized without the permissions it needs. Connect again and approve all of them.",
+      "not_found": "That meeting was not found in this workspace.",
+      "conflict": "The meeting changed in the meantime. Reload and try again.",
+      "feature_unavailable": "Online meetings are not included in your plan.",
+      "not_implemented": "This action is not available yet."
+    },
+    "shipments": {
+      "not_connected": "Connect Shiprocket in Settings → Meetings & shipping first.",
+      "not_configured": "Courier shipping is turned off on this deployment.",
+      "auth": "Shiprocket did not accept these API user details.",
+      "provider_unreachable": "Shiprocket could not be reached. Try again in a few minutes.",
+      "order_not_paid": "Only a paid order can be shipped.",
+      "shipment_exists": "This order already has a shipment.",
+      "refund_in_flight": "A refund for this order is in progress. Wait for it to finish first.",
+      "shipment_live": "Cancel the courier shipment before cancelling this order, or use Returns once it was picked up.",
+      "address_incomplete": "The shipping address needs a state, and the order must be in INR for India.",
+      "wrong_category": "Choose an approved template of the right category for this notice.",
+      "not_found": "That shipment was not found in this workspace.",
+      "conflict": "The shipment changed in the meantime. Reload and try again.",
+      "invalid": "Check the package size and weight.",
+      "throttled": "Shiprocket is busy. Try again in a minute.",
+      "feature_unavailable": "Courier shipping is not included in your plan.",
+      "not_implemented": "This action is not available yet."
     }
   },
   "Api": {
@@ -6426,7 +6556,7 @@
         "confirmed": "Confirmed",
         "awaiting_payment": "Awaiting payment",
         "paid": "Paid",
-        "fulfilled": "Delivered (staff recorded)",
+        "fulfilled": "Delivered",
         "cancelled": "Cancelled",
         "payment_review": "Payment review",
         "dispatched": "Dispatched",
@@ -6516,7 +6646,7 @@
         "dispatched": "Dispatch recorded",
         "deliver": "Mark delivered",
         "delivered": "Delivery recorded",
-        "staffRecorded": "Recorded by your team; Bodhinox does not track couriers.",
+        "staffRecorded": "Recorded by your team.",
         "feedbackLabel": "Customer feedback",
         "feedbackScore": "Score {score} of 5",
         "feedbackSaved": "Feedback recorded",
@@ -6540,7 +6670,9 @@
         "refunded": "Refunded {amount}",
         "cancelRefundOutsideNeeded": "Part of this order was not paid through Razorpay (a payment your team recorded, or an order paid before payments were tracked). Return that money the way it was paid, then confirm below to cancel.",
         "cancelRefundOutsideConfirm": "I have returned the money not paid through Razorpay outside Bodhinox",
-        "cancelRefundDoneOutside": "Order cancelled. The refund made outside Bodhinox is recorded."
+        "cancelRefundDoneOutside": "Order cancelled. The refund made outside Bodhinox is recorded.",
+        "courierTracked": "Shiprocket tracking updates this order automatically. You can still record it yourself.",
+        "shipmentLive": "Cancel the courier shipment before cancelling this order, or use Returns once it was picked up."
       },
       "timeline": {
         "title": "History",
@@ -6562,7 +6694,10 @@
           "return_closed": "Return closed",
           "return_rejected": "Return rejected",
           "return_refund_requested": "Return refund requested",
-          "other": "Event: {kind}"
+          "other": "Event: {kind}",
+          "shipment_created": "Courier shipment created",
+          "shipment_cancelled": "Courier shipment cancelled",
+          "shipment_correction_accepted": "Tracking correction accepted"
         },
         "documents": "Documents",
         "documentKinds": {
@@ -6577,7 +6712,8 @@
           "dispatched": "Dispatched notice",
           "delivered": "Delivered notice",
           "feedback": "Feedback request",
-          "product_follow_up": "Product follow-up"
+          "product_follow_up": "Product follow-up",
+          "repeat_purchase": "Reorder reminder"
         },
         "messageStatuses": {
           "sent": "Sent",
@@ -6756,7 +6892,9 @@
           "tax": "A percentage from 0 to 100, up to two decimals.",
           "hsn": "4 to 8 digits.",
           "weight": "Whole grams, up to 1,000,000."
-        }
+        },
+        "repurchaseDays": "Reorder reminder after (days)",
+        "repurchaseHint": "Optional. Days after delivery to remind customers who agreed to offers at checkout. Uses the reorder reminder template in Store settings."
       }
     },
     "inventory": {
@@ -7014,6 +7152,135 @@
         "igst": "IGST",
         "total": "Total",
         "taxIncluded": "Prices include tax."
+      }
+    },
+    "shipments": {
+      "title": "Courier shipment",
+      "create": "Create shipment",
+      "createConfirm": "Create shipment",
+      "close": "Close",
+      "walletWarning": "Creating the shipment assigns a courier and charges your Shiprocket wallet.",
+      "confirm": "Create this shipment and charge the Shiprocket wallet?",
+      "created": "Shipment requested. The AWB appears here shortly.",
+      "failed": "The shipment action did not go through.",
+      "dims": {
+        "length_cm": "Length (cm)",
+        "breadth_cm": "Breadth (cm)",
+        "height_cm": "Height (cm)",
+        "weight_grams": "Weight (g)"
+      },
+      "stateCreating": "Being created at Shiprocket…",
+      "stateUnknown": "Shiprocket has not confirmed the shipment yet. We are checking; nothing is sent twice.",
+      "stateFailed": "Shiprocket refused the shipment ({code}). Nothing was charged.",
+      "stateCancelled": "Shipment cancelled.",
+      "awbAssigning": "Assigning a courier…",
+      "awbUnknown": "Shiprocket has not confirmed the courier assignment. It is never repeated automatically; check the shipment exceptions.",
+      "awbFailed": "No courier was assigned ({code}). Nothing was charged.",
+      "pickupFailed": "Shiprocket did not schedule the pickup. Schedule it in Shiprocket.",
+      "awb": "AWB",
+      "courier": "Courier",
+      "status": "Tracking",
+      "noTracking": "No tracking update yet",
+      "reference": "Reference {reference}",
+      "track": "Track",
+      "label": "Label",
+      "cancel": "Cancel shipment",
+      "cancelConfirm": "Cancel this shipment at Shiprocket? The order stays paid.",
+      "cancelled": "Shipment cancelled.",
+      "assignAgain": "Assign courier again",
+      "assignConfirm": "Ask Shiprocket to assign a courier again? This charges the Shiprocket wallet if it succeeds.",
+      "assignQueued": "Assigning a courier again.",
+      "adminOnly": "Only admins can create courier shipments.",
+      "statuses": {
+        "created": "Created",
+        "awb_assigned": "Courier assigned",
+        "pickup_scheduled": "Pickup scheduled",
+        "picked_up": "Picked up",
+        "in_transit": "In transit",
+        "out_for_delivery": "Out for delivery",
+        "delivery_failed": "Delivery attempt failed",
+        "rto_initiated": "Returning to sender",
+        "rto_in_transit": "Return in transit",
+        "delivered": "Delivered (Shiprocket)",
+        "lost": "Lost or damaged",
+        "rto_delivered": "Returned to sender",
+        "cancelled": "Cancelled"
+      }
+    },
+    "evidence": {
+      "provider": "Courier confirmed",
+      "staff": "Staff recorded",
+      "unknown": "Not confirmed"
+    },
+    "shipmentExceptions": {
+      "title": "{count, plural, one {# shipment needs attention} other {# shipments need attention}}",
+      "description": "Courier tracking that needs a decision. Nothing here changes an order's status: use Returns for goods coming back.",
+      "awb": "AWB {awb}",
+      "observed": "Courier reported: {status}",
+      "current": "Shipment: {status}",
+      "openOrder": "Open order",
+      "resolved": "Marked as handled",
+      "correctionAccepted": "Correction accepted. The order status is unchanged; use Returns if goods are coming back.",
+      "resolveError": "Couldn’t update this exception",
+      "kinds": {
+        "contradiction": "Tracking changed after a final status",
+        "create_unknown": "Shipment creation outcome unknown",
+        "awb_unknown": "Courier assignment outcome unknown",
+        "rto": "Returning to origin",
+        "lost_or_damaged": "Lost or damaged",
+        "stale_tracking": "No tracking updates for 10 days",
+        "order_conflict": "Courier status disagrees with the order"
+      },
+      "hints": {
+        "contradiction": "Check the shipment in Shiprocket. Accept the correction only if the courier’s new status is right.",
+        "create_unknown": "Check Shiprocket for this reference. Create again only if no order exists there.",
+        "awb_unknown": "Check Shiprocket for an AWB. Create again only if none was assigned: a second assignment is charged again.",
+        "rto": "The parcel is coming back. Open a return on the order when it arrives.",
+        "lost_or_damaged": "Raise a claim with Shiprocket and refund or replace from the order.",
+        "stale_tracking": "Check the shipment with the courier.",
+        "order_conflict": "The order was cancelled, refunded or never paid while the parcel moved. Check the order and the shipment."
+      },
+      "resolutions": {
+        "accept_correction": "Accept correction",
+        "recreate": "Allow creating again",
+        "dismiss": "Dismiss",
+        "manual": "Handled outside"
+      },
+      "statuses": {
+        "created": "Created",
+        "awb_assigned": "Courier assigned",
+        "pickup_scheduled": "Pickup scheduled",
+        "picked_up": "Picked up",
+        "in_transit": "In transit",
+        "out_for_delivery": "Out for delivery",
+        "delivery_failed": "Delivery attempt failed",
+        "rto_initiated": "Return to origin started",
+        "rto_in_transit": "Returning to origin",
+        "delivered": "Delivered",
+        "lost": "Lost or damaged",
+        "rto_delivered": "Returned to origin",
+        "cancelled": "Cancelled"
+      }
+    },
+    "noticeTemplates": {
+      "title": "Order notice templates",
+      "help": "The approved template each order message uses once the customer's 24-hour window has closed. Without one, the message is not sent outside the window.",
+      "loading": "Loading templates",
+      "loadError": "Couldn’t load the order notice templates",
+      "saved": "Template saved",
+      "none": "No template",
+      "kinds": {
+        "dispatched": "Dispatched notice",
+        "delivered": "Delivered notice",
+        "feedback": "Feedback request",
+        "repeat_purchase": "Reorder reminder"
+      },
+      "utilityHelp": "An approved utility template. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' order number, '{{'4'}}' tracking link (dispatched only).",
+      "marketingHelp": "An approved marketing template, always used for this message. Sent only to customers who ticked the reorder checkbox at checkout and never opted out. Variables: '{{'1'}}' customer name, '{{'2'}}' product, '{{'3'}}' order number.",
+      "notUsable": "This template is no longer approved or has the wrong category, so the message will not be sent.",
+      "errors": {
+        "invalid": "Choose a template and its language.",
+        "template_not_found": "That template was not found. Sync your templates and try again."
       }
     }
   },
@@ -8499,7 +8766,11 @@
       "saved": "Saved",
       "close": "Close",
       "noMessages": "No customer messages yet.",
-      "noHistory": "No history yet."
+      "noHistory": "No history yet.",
+      "evidenceCustomerJoined": "Zoom: customer joined at {time} ({minutes} min)",
+      "evidenceGuestJoined": "Zoom: a guest joined at {time} ({minutes} min)",
+      "evidenceNoJoin": "Zoom: no join recorded",
+      "evidenceNote": "Zoom attendance is evidence only. Staff still record the outcome."
     },
     "cancelReasons": {
       "customer": "Customer asked",
@@ -8520,7 +8791,12 @@
       "reminder_skipped": "Reminder skipped",
       "payment_pending": "Waiting for payment",
       "payment_captured": "Payment received",
-      "late_payment": "Payment arrived after the slot was lost"
+      "late_payment": "Payment arrived after the slot was lost",
+      "meeting_created": "Zoom meeting created",
+      "meeting_updated": "Zoom meeting updated",
+      "meeting_deleted": "Zoom meeting removed",
+      "meeting_sync_failed": "Zoom meeting could not be set up",
+      "meeting_joined_provider": "Zoom recorded a join"
     },
     "actors": {
       "staff": "Staff",
@@ -8634,7 +8910,10 @@
       "empty": "No practitioners yet.",
       "limitReached": "Your plan allows {count, plural, one {# practitioner} other {# practitioners}}.",
       "limitReachedGeneric": "Your plan's practitioner limit is reached. Upgrade or archive a practitioner first.",
-      "clearHours": "Clear hours"
+      "clearHours": "Clear hours",
+      "zoomHostEmail": "Zoom host email",
+      "zoomHostPlaceholder": "Leave blank to use the connected Zoom user",
+      "zoomHostHelp": "Online meetings for a practitioner are hosted by this user in your connected Zoom account. Leave it blank to use the Zoom user who connected the workspace."
     },
     "locations": {
       "title": "Locations",
@@ -8694,7 +8973,9 @@
       "kinds": {
         "next_step": "Next step",
         "rebook": "Rebook",
-        "manual": "Task"
+        "manual": "Task",
+        "meeting_sync": "Meeting link",
+        "meeting_outcome": "Record outcome"
       },
       "statuses": {
         "open": "Open",
@@ -8744,6 +9025,22 @@
     },
     "form": {
       "edit": "Edit"
+    },
+    "meeting": {
+      "title": "Online meeting",
+      "states": {
+        "creating": "Creating",
+        "ready": "Ready",
+        "attention": "Needs attention",
+        "removed": "Removed",
+        "supplied": "Supplied link",
+        "previous": "Previous connection"
+      },
+      "attentionHelp": "Zoom could not confirm this meeting. Create it again, or use the link you supplied.",
+      "previousHelp": "Created under a previous Zoom connection. The link still works in that Zoom account.",
+      "registrationUnavailable": "Zoom did not accept the registration, so the customer joins with the shared link.",
+      "recreate": "Create again",
+      "useLink": "Use supplied link"
     }
   },
   "AppointmentSettings": {
@@ -8842,7 +9139,8 @@
     },
     "payInAdvance": "Pay in advance",
     "paymentNotice": "This service is paid in advance. After you send the WhatsApp code, we send you a secure payment link; the booking is confirmed once the payment is received.",
-    "paymentAfterCode": "After you send the code, we will reply with a secure payment link. Your booking is confirmed once the payment is received."
+    "paymentAfterCode": "After you send the code, we will reply with a secure payment link. Your booking is confirmed once the payment is received.",
+    "meetingLinkPending": "Your meeting link will appear here shortly."
   },
   "BookingManage": {
     "metaTitle": "Your booking",
@@ -8979,12 +9277,16 @@
       "order_not_open": "This order can no longer be paid here.",
       "amount_out_of_range": "The amount is too large.",
       "too_many_open_orders": "You already have unpaid orders on hold. Pay for one or wait for it to expire, then try again."
+    },
+    "marketingOptIn": {
+      "reorder_offers_v1": "Send me reorder reminders and offers on WhatsApp. You can stop them at any time by replying STOP."
     }
   },
   "OrderNotices": {
     "dispatched": "Your order {ref} is on its way.",
     "dispatchedWithTracking": "Your order {ref} is on its way. Tracking: {tracking}",
     "delivered": "Your order {ref} has been delivered. Thank you!",
-    "feedback": "How was your order {ref}? Reply with a score from 1 to 5."
+    "feedback": "How was your order {ref}? Reply with a score from 1 to 5.",
+    "dispatchedWithLink": "Your order {ref} is on its way. Track it here: {url}"
   }
 }

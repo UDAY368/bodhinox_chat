@@ -18,7 +18,8 @@ import { handleAppointmentFollowupJob } from './followup';
 import { handleAppointmentNoticeJob, handleHoldReplyJob } from './notify-customer';
 import { handleAppointmentReminderJob } from './reminders';
 import {
-  APPOINTMENT_EVENT_KINDS, APPOINTMENT_JOB_TYPES, type AppointmentEventKind, type AppointmentJobType, type NotifyJobPayload,
+  APPOINTMENT_EVENT_KINDS, APPOINTMENT_JOB_TYPES, isHistoryOnlyEventKind, type AppointmentEventKind, type AppointmentJobType,
+  type NotifyJobPayload,
 } from './types';
 
 export interface AppointmentJobMeta {
@@ -65,12 +66,13 @@ export async function handleAppointmentJob(
       await handleAppointmentNoticeJob(accountId, { appointmentId: id(p.appointmentId, type), version: version(p.version, type), kind });
       return;
     }
-    case APPOINTMENT_JOB_TYPES.event:
-      await handleAppointmentEventJob(accountId, {
-        appointmentId: id(p.appointmentId, type), version: version(p.version, type),
-        kind: oneOf<AppointmentEventKind>(p.kind, APPOINTMENT_EVENT_KINDS, type),
-      });
+    case APPOINTMENT_JOB_TYPES.event: {
+      const kind = oneOf<AppointmentEventKind>(p.kind, APPOINTMENT_EVENT_KINDS, type);
+      // Meeting history (Phase 9) is never fanned out to staff, automations or tenant webhooks.
+      if (isHistoryOnlyEventKind(kind)) return;
+      await handleAppointmentEventJob(accountId, { appointmentId: id(p.appointmentId, type), version: version(p.version, type), kind });
       return;
+    }
     case APPOINTMENT_JOB_TYPES.holdExpire: {
       const input = { accountId, appointmentId: id(p.appointmentId, type), version: version(p.version, type) };
       await withTenant({ accountId, role: 'owner' }, (tx) => expireHold(tx, input), getWorkerPrisma());

@@ -1,7 +1,7 @@
 // GET  /api/commerce/shop/products?q=&status=draft|published|archived|all&category_id=&stock=in_stock|low|out&limit=&offset=
 //   The Bodhinox-owned catalogue (agents and above). 200 { products, total }. Prices are integer minor units.
 // POST /api/commerce/shop/products { name, description?, disclosure?, category_id?, follow_up_template?,
-//   follow_up_template_language?, follow_up_after_days?, images? } (admins). 201 { product } as a draft.
+//   follow_up_template_language?, follow_up_after_days?, repurchase_after_days?, images? } (admins). 201 { product } as a draft.
 export const runtime = 'nodejs';
 
 import { listShopProducts, parseShopProductQuery, upsertProduct } from '@/lib/commerce/catalogue/products';

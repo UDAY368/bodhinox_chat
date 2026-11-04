@@ -186,10 +186,13 @@ export async function manageRow(tx: TenantTransaction, accountId: string, id: st
 export async function loadManageView(tx: TenantTransaction, accountId: string, id: string, now = new Date()): Promise<ManageView | null> {
   const [row] = await tx.$queryRaw<{ status: AppointmentStatus; version: number; service_name: string; staff_name: string | null;
     location_name: string | null; location_address: string | null; location_kind: LocationKind | null; start_at: Date; end_at: Date;
-    timezone: string; price_minor: bigint | null; currency: string | null; meeting_url: string | null; business_name: string }[]>`
+    timezone: string; price_minor: bigint | null; currency: string | null; meeting_url: string | null; business_name: string;
+    service_mode: string | null }[]>`
     SELECT a.status, a.version, a.service_name, st.display_name AS staff_name, l.name AS location_name, l.address AS location_address,
-      l.kind AS location_kind, a.start_at, a.end_at, a.timezone, a.price_minor, a.currency, a.meeting_url, acc.name AS business_name
+      l.kind AS location_kind, a.start_at, a.end_at, a.timezone, a.price_minor, a.currency, a.meeting_url, acc.name AS business_name,
+      sv.mode AS service_mode
     FROM appointments a JOIN accounts acc ON acc.id=a.account_id
+      LEFT JOIN appointment_services sv ON sv.account_id=a.account_id AND sv.id=a.service_id
       LEFT JOIN appointment_staff st ON st.account_id=a.account_id AND st.id=a.staff_id
       LEFT JOIN appointment_locations l ON l.account_id=a.account_id AND l.id=a.location_id
     WHERE a.account_id=${accountId}::uuid AND a.id=${id}::uuid AND a.status <> 'held'`;
@@ -197,7 +200,8 @@ export async function loadManageView(tx: TenantTransaction, accountId: string, i
   const settings = await loadSettings(tx, accountId);
   const start = row.start_at.getTime();
   const confirmed = row.status === 'confirmed';
-  const online = row.meeting_url !== null;
+  // Online by the service's mode (a Zoom link may not exist yet: the page then says it will appear), or a supplied link.
+  const online = row.service_mode === 'online' || row.meeting_url !== null;
   const linkWindow = confirmed && online && start - now.getTime() <= DAY && now.getTime() < row.end_at.getTime();
   return {
     businessName: row.business_name,
@@ -212,7 +216,7 @@ export async function loadManageView(tx: TenantTransaction, accountId: string, i
     timezone: row.timezone,
     priceMinor: num(row.price_minor),
     currency: row.currency,
-    meetingUrl: linkWindow ? row.meeting_url : null,
+    meetingUrl: linkWindow && row.meeting_url ? row.meeting_url : null,
     meetingLinkLater: confirmed && online && !linkWindow && now.getTime() < start,
     canChange: confirmed && now.getTime() <= start - settings.customer_cancel_cutoff_minutes * MINUTE,
   };

@@ -14,10 +14,11 @@ import { useLocale, useTranslations } from 'next-intl';
 import { AlertTriangle, Loader2, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { shopApi, shopErrorCode, type Quote, type ShopErrorCode, type StorefrontView } from './api';
+import { MARKETING_OPT_IN_VERSION, shopApi, shopErrorCode, type Quote, type ShopErrorCode, type StorefrontView } from './api';
 import { money, OrderSummary } from './order-summary';
 
 type Address = Record<'name' | 'phone' | 'line1' | 'line2' | 'city' | 'state' | 'state_code' | 'postal_code' | 'country' | 'instructions', string>;
@@ -34,6 +35,8 @@ export function Storefront({ token }: { token: string }) {
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [coupon, setCoupon] = useState('');
   const [picked, setPicked] = useState<Record<string, string>>({});
+  // Repeat-purchase consent (Phase 9 D13): unticked by default, sent with the place request only.
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const justPlaced = useRef(false);
 
   const accept = useCallback((next: StorefrontView | null) => {
@@ -124,7 +127,8 @@ export function Storefront({ token }: { token: string }) {
     justPlaced.current = true;
     void run(async () => {
       try {
-        const placed = await shopApi.place(token, { expectedVersion: view.version, expectedTotalMinor: quote.totalMinor, clientRequestId: crypto.randomUUID() });
+        const placed = await shopApi.place(token, { expectedVersion: view.version, expectedTotalMinor: quote.totalMinor, clientRequestId: crypto.randomUUID(),
+          marketingOptIn });
         if (placed.view?.order?.paymentUrl) window.location.assign(placed.view.order.paymentUrl);
         return placed.view;
       } catch (e) {
@@ -266,6 +270,13 @@ export function Storefront({ token }: { token: string }) {
                   {quoteError && <p className="text-sm text-destructive" role="alert">{t(`errors.${(quoteError in ERROR_SET ? quoteError : 'error') as ShopErrorCode}`)}</p>}
                   {quote && <QuoteTotals quote={quote} locale={locale} />}
                   {quote && !quote.shipping && <p className="text-sm text-muted-foreground">{t('addAddressForShipping')}</p>}
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="marketing-opt-in" checked={marketingOptIn} disabled={busy}
+                      onCheckedChange={(v) => setMarketingOptIn(v === true)} />
+                    <Label htmlFor="marketing-opt-in" className="text-sm font-normal leading-snug">
+                      {t(`marketingOptIn.${MARKETING_OPT_IN_VERSION}`)}
+                    </Label>
+                  </div>
                   <Button className="w-full" disabled={busy || !quote?.shipping || !view.store.checkoutEnabled} onClick={placeOrder}>
                     {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
                     {quote ? t('placeAndPay', { amount: money(quote.totalMinor, quote.currency, locale) }) : t('placeOrder')}

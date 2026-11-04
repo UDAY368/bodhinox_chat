@@ -40,6 +40,7 @@ export default async function globalSetup() {
   const contact = { id: randomUUID(), name: `E2E Consent ${runId}` };
   let appointments!: Fixtures['appointments'];
   let commerce!: Fixtures['commerce'];
+  let integrations!: Fixtures['integrations'];
   const members: [string, SeededUser, Role][] = [
     ...roles.map((role) => [accountA, users[role], role] as [string, SeededUser, Role]),
     [accountB, outsider, 'owner'],
@@ -70,6 +71,7 @@ export default async function globalSetup() {
       [accountA, users.owner.id]);
     appointments = await seedAppointments(db, accountA, contact.id, runId);
     commerce = await seedCommerce(db, accountA, users.owner.id, contact.id, runId);
+    integrations = await seedIntegrations(db, accountA, contact.id, runId, appointments);
   } catch (error) {
     await db.query('ROLLBACK');
     throw error;
@@ -77,7 +79,7 @@ export default async function globalSetup() {
     await db.end();
   }
 
-  const data: Fixtures = { runId, accountA, accountB, users, outsider, contact, appointments, commerce };
+  const data: Fixtures = { runId, accountA, accountB, users, outsider, contact, appointments, commerce, integrations };
   fs.mkdirSync(path.dirname(FIXTURES_FILE), { recursive: true });
   fs.writeFileSync(FIXTURES_FILE, JSON.stringify(data, null, 2));
 }
@@ -183,4 +185,36 @@ async function seedCommerce(db: pg.Client, accountId: string, ownerId: string, c
       JSON.stringify([{ sku, name: productName, hsn_code: '30049011', quantity: 1, unit_price_minor: 49900, tax_rate_bps: 1800,
         tax_minor: 7612, line_total_minor: 49900 }])]);
   return { productId: ids.productId, productName, variantId: ids.variantId, sku, token, secondToken, paidOrderId: ids.paidOrderId, receiptNumber };
+}
+
+/**
+ * Phase 9 seed (owner connection). No Zoom or Shiprocket configuration and no
+ * connection rows: an online service with a supplied meeting link and a
+ * confirmed appointment that uses it (a Tuesday, away from the Monday booking
+ * spec, with its own practitioner), and a second paid order that no other spec
+ * dispatches.
+ */
+async function seedIntegrations(db: pg.Client, accountId: string, contactId: string, runId: string,
+  appointments: Fixtures['appointments']): Promise<Fixtures['integrations']> {
+  const ids = { serviceId: randomUUID(), staffId: randomUUID(), appointmentId: randomUUID(), orderId: randomUUID() };
+  const meetingUrl = `https://meet.example.invalid/e2e-${runId}`;
+  await db.query(`INSERT INTO appointment_services(id,account_id,name,mode,duration_minutes,capacity,meeting_url)
+    VALUES($1,$2,'E2E Video consultation','online',30,1,$3)`, [ids.serviceId, accountId, meetingUrl]);
+  await db.query("INSERT INTO appointment_staff(id,account_id,display_name) VALUES($1,$2,'Dr Online E2E')", [ids.staffId, accountId]);
+  const tuesday = new Date(Date.parse(`${appointments.appointmentDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  await db.query(`INSERT INTO appointments(id,account_id,contact_id,service_id,staff_id,location_id,start_at,end_at,timezone,status,
+      source,confirmed_at,service_name,meeting_url)
+    VALUES($1,$2,$3,$4,$5,$6,($7 || ' 11:00')::timestamp AT TIME ZONE $8,($7 || ' 11:30')::timestamp AT TIME ZONE $8,$8,'confirmed',
+      'staff',NOW(),'E2E Video consultation',$9)`,
+    [ids.appointmentId, accountId, contactId, ids.serviceId, ids.staffId, appointments.locationId, tuesday, appointments.timezone, meetingUrl]);
+  const address = { name: 'E2E Shopper', phone: '+919900000002', line1: '3 MG Road', city: 'Bengaluru', state: 'Karnataka',
+    state_code: '29', postal_code: '560001', country: 'IN' };
+  await db.query(`INSERT INTO orders(id,account_id,source,contact_id,currency,subtotal_minor,discount_minor,shipping_minor,tax_minor,
+      tax_inclusive,total_minor,status,priced_at,shipping_address,paid_at,amount_paid_minor,checkout_attempt)
+    VALUES($1,$2,'storefront',$3,'INR',49900,0,5000,8375,true,54900,'paid',NOW() - interval '1 hour',$4,NOW() - interval '50 minutes',54900,1)`,
+    [ids.orderId, accountId, contactId, JSON.stringify(address)]);
+  await db.query(`INSERT INTO order_items(account_id,order_id,sku,retailer_id,name,quantity,unit_price_minor,currency,
+      tax_rate_bps,tax_minor,discount_minor,line_total_minor,hsn_code)
+    VALUES($1,$2,$3,$3,'E2E shipping check',1,49900,'INR',1800,7612,0,49900,'30049011')`, [accountId, ids.orderId, `E2E-SHIP-${runId}`]);
+  return { onlineAppointmentId: ids.appointmentId, meetingUrl, unshippedOrderId: ids.orderId };
 }

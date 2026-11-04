@@ -997,6 +997,9 @@ model orders {
   tracking_note String?
   feedback_score Int? @db.SmallInt
   checkout_attempt Int @default(0)
+  marketing_opt_in Boolean?
+  marketing_opt_in_at DateTime? @db.Timestamptz(6)
+  marketing_opt_in_version String?
   @@unique([account_id, message_id])
   @@unique([account_id, source, external_id])
   @@unique([account_id, id])
@@ -1701,6 +1704,7 @@ model appointment_staff {
   display_name String
   user_id String? @db.Uuid
   archived_at DateTime? @db.Timestamptz(6)
+  meeting_host_email String?
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, id])
@@ -1900,6 +1904,7 @@ model shop_products {
   follow_up_template_language String?
   follow_up_after_days Int?
   version Int @default(1)
+  repurchase_after_days Int? @db.SmallInt
   created_by String? @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
@@ -2202,4 +2207,173 @@ model order_messages {
   updated_at DateTime @default(now()) @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, order_id, kind])
+}
+
+/// Phase 9. The app role can SELECT only id/account_id/provider/status/register_attendees/last_error_code/
+/// connected_at/disconnected_at: always pass an explicit `select` from the app client. Tokens are encrypted.
+model meeting_connections {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  provider String @default("zoom")
+  status String @default("active")
+  zoom_account_id String?
+  authorized_zoom_user_id String?
+  access_token_enc String?
+  refresh_token_enc String?
+  token_expires_at DateTime? @db.Timestamptz(6)
+  refresh_rotated_at DateTime? @db.Timestamptz(6)
+  scopes String[] @default([])
+  register_attendees Boolean @default(false)
+  last_error_code String?
+  connected_by String? @db.Uuid
+  connected_at DateTime @default(now()) @db.Timestamptz(6)
+  disconnected_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+/// Phase 9. The app role cannot SELECT registrant_id or claim_token: always pass an explicit `select`
+/// from the app client. Written by the worker only.
+model appointment_meetings {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  appointment_id String @db.Uuid
+  connection_id String @db.Uuid
+  provider String @default("zoom")
+  meeting_ref String
+  host_zoom_user String?
+  external_meeting_id String?
+  registrant_id String?
+  join_url String?
+  supplied_url String?
+  sync_state String @default("creating")
+  claim_token String? @db.Uuid
+  claimed_until DateTime? @db.Timestamptz(6)
+  synced_version Int?
+  synced_start_at DateTime? @db.Timestamptz(6)
+  synced_duration_min Int?
+  last_error_code String?
+  attendance_evidence String @default("none")
+  first_join_at DateTime? @db.Timestamptz(6)
+  attended_seconds Int @default(0)
+  meeting_ended_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, appointment_id])
+  @@unique([account_id, meeting_ref])
+}
+
+/// Phase 9. Append-only attendance evidence (worker insert); never a name or an email.
+model meeting_participant_events {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  appointment_meeting_id String @db.Uuid
+  kind String
+  participant_kind String?
+  participant_key String?
+  event_at DateTime @db.Timestamptz(6)
+  receipt_key String @unique
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+/// Phase 9. The app role can SELECT only id/account_id/provider/status/api_email/pickup_location/default_*/
+/// last_error_code/connected_at: always pass an explicit `select` from the app client. Secrets are encrypted;
+/// the webhook token is stored only as a sha256 digest.
+model courier_connections {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  provider String @default("shiprocket")
+  status String @default("active")
+  api_email String
+  api_password_enc String?
+  token_enc String?
+  token_expires_at DateTime? @db.Timestamptz(6)
+  webhook_token_hash String?
+  pickup_location String?
+  default_length_cm Decimal? @db.Decimal(6, 1)
+  default_breadth_cm Decimal? @db.Decimal(6, 1)
+  default_height_cm Decimal? @db.Decimal(6, 1)
+  default_weight_grams Int?
+  last_error_code String?
+  connected_by String? @db.Uuid
+  connected_at DateTime @default(now()) @db.Timestamptz(6)
+  disconnected_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+/// Phase 9. The app role cannot SELECT claim_token: always pass an explicit `select` from the app client.
+/// Written by the worker only.
+model order_shipments {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  order_id String @db.Uuid
+  connection_id String @db.Uuid
+  provider String @default("shiprocket")
+  reference String
+  create_state String @default("creating")
+  awb_state String @default("none")
+  claim_token String? @db.Uuid
+  claimed_until DateTime? @db.Timestamptz(6)
+  sr_order_id String?
+  sr_shipment_id String?
+  awb String?
+  courier_name String?
+  tracking_status String?
+  tracking_rank Int? @db.SmallInt
+  tracking_event_at DateTime? @db.Timestamptz(6)
+  provider_dispatched_at DateTime? @db.Timestamptz(6)
+  provider_delivered_at DateTime? @db.Timestamptz(6)
+  last_error_code String?
+  length_cm Decimal @db.Decimal(6, 1)
+  breadth_cm Decimal @db.Decimal(6, 1)
+  height_cm Decimal @db.Decimal(6, 1)
+  weight_grams Int
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, reference])
+}
+
+/// Phase 9. Tracking evidence read back from the provider (worker insert); no location or customer fields.
+model shipment_tracking_events {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  shipment_id String @db.Uuid
+  status String
+  provider_code String
+  event_at DateTime @db.Timestamptz(6)
+  source String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, shipment_id, provider_code, event_at])
+}
+
+/// Phase 9. Opened by the worker; admins resolve.
+model shipment_exceptions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  shipment_id String @db.Uuid
+  kind String
+  observed_status String?
+  status String @default("open")
+  resolution String?
+  resolved_by String? @db.Uuid
+  resolved_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+/// Phase 9. The approved template per order notice kind (admin write).
+model order_notice_templates {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  template_name String
+  language String
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, kind])
 }

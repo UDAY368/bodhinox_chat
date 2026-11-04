@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { consentRefusal, followupApplies, followupBodyValues, orderReference, orderTemplateOutcome } from './order-followup';
+import {
+  agentHoldRefusal, consentRefusal, followupApplies, followupBodyValues, NOTICE_TEMPLATE_CATEGORY, ORDER_FOLLOWUP_KINDS, orderReference, orderTemplateOutcome,
+  shipmentTrackingUrl,
+} from './order-followup';
 
 describe('followupApplies', () => {
   const order = (over: Partial<{ status: string; refund_state: string; feedback_score: number | null }> = {}) =>
@@ -56,5 +59,43 @@ describe('followupBodyValues', () => {
   it('names the order by its store number or short id', () => {
     expect(orderReference({ id: 'abcdef12-0000-4000-8000-000000000000', external_id: null })).toBe('ABCDEF12');
     expect(orderReference({ id: 'x', external_id: '1001' })).toBe('#1001');
+  });
+});
+
+describe('repeat purchase (Phase 9 D13)', () => {
+  const base = {
+    name: 'reorder', language: 'en', status: 'APPROVED', waba_id: null, category: 'MARKETING', body_text: 'Hi {{1}}, more {{2}}?',
+    header_type: null, header_content: null, header_media_url: null, buttons: [], template_kind: null, cards: null, lto: null,
+  } as never as Parameters<typeof orderTemplateOutcome>[0] & object;
+  const number = { id: 'n', waba_id: null };
+  it('needs a MARKETING template for the reminder and a UTILITY one for the notices', () => {
+    expect(orderTemplateOutcome(base, number, 'MARKETING')).toBeNull();
+    expect(orderTemplateOutcome({ ...base, category: 'UTILITY' } as never, number, 'MARKETING')).toEqual({ status: 'blocked', reason: 'category' });
+    expect(orderTemplateOutcome(base, number, 'UTILITY')).toEqual({ status: 'blocked', reason: 'category' });
+    expect(orderTemplateOutcome({ ...base, template_kind: 'carousel' } as never, number, 'MARKETING'))
+      .toEqual({ status: 'blocked', reason: 'template_refused' });
+  });
+  it('applies only to a delivered order that was not fully refunded', () => {
+    const order = { status: 'fulfilled', refund_state: 'none', feedback_score: 5 };
+    expect(followupApplies(order, 'repeat_purchase')).toBeNull();
+    expect(followupApplies({ ...order, status: 'dispatched' }, 'repeat_purchase')).toBe('stale_status');
+    expect(followupApplies({ ...order, refund_state: 'full' }, 'repeat_purchase')).toBe('refunded');
+  });
+  it('names a courier tracking page only for a well-formed AWB', () => {
+    expect(shipmentTrackingUrl('AWB-1234')).toBe('https://shiprocket.co/tracking/AWB-1234');
+    expect(shipmentTrackingUrl('../x?y')).toBeNull();
+    expect(shipmentTrackingUrl(null)).toBeNull();
+  });
+  it('maps each notice kind to its template category', () => {
+    expect(NOTICE_TEMPLATE_CATEGORY).toEqual({ dispatched: 'UTILITY', delivered: 'UTILITY', feedback: 'UTILITY', repeat_purchase: 'MARKETING' });
+    expect(ORDER_FOLLOWUP_KINDS).toContain('repeat_purchase');
+  });
+});
+
+describe('agentHoldRefusal', () => {
+  it('holds back only the marketing reminder while an agent has taken over the chat', () => {
+    expect(agentHoldRefusal('repeat_purchase', true)).toBe('bot_paused');
+    expect(agentHoldRefusal('repeat_purchase', false)).toBeNull();
+    for (const kind of ORDER_FOLLOWUP_KINDS.filter((k) => k !== 'repeat_purchase')) expect(agentHoldRefusal(kind, true)).toBeNull();
   });
 });

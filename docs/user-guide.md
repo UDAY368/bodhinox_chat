@@ -192,7 +192,7 @@ it is priced from your catalogue, not from the prices Meta shows.
 
 - **Orders.** An order is marked paid only when the payment gateway confirms it, or when an admin records an
   offline payment. The status menu no longer offers "Paid". A storefront order moves Awaiting payment → Paid →
-  Dispatched → Delivered (staff recorded). Older orders without store pricing can still go Confirmed → Delivered.
+  Dispatched → Delivered (the order shows whether each step was courier confirmed or staff recorded). Older orders without store pricing can still go Confirmed → Delivered.
 - **Flows.** Add a "Storefront link" step to send the store (or the customer's latest order) from a flow. On a
   "Payment link" step, turn on "Charge the order from this flow" in flows started by an order to ask for exactly what
   the order still owes.
@@ -203,6 +203,32 @@ it is priced from your catalogue, not from the prices Meta shows.
 - **Cancel and refund** (admins with the Refunds permission): refunds what is left on the order's payments and cancels it. Stock returns when Razorpay confirms the refund.
 - **Returns**: open a return on a dispatched or delivered order, mark it received, choose restock or discard for each item, then refund it or close it (admins may close with restock).
 - **Receipts**: each paid order gets a numbered receipt (Tax invoice when your GSTIN is set in Store settings); refunds get credit notes. Open them from the order's Documents list and print from the browser.
+
+### Courier shipping (Shiprocket)
+
+1. In Shiprocket: Settings → API → Create an API user (not your own login).
+2. In Bodhinox: Settings → Meetings & shipping → Shiprocket. Enter the API user email and password, press **Check details**, choose the pickup location, optionally set a default package, and **Connect Shiprocket**.
+3. Press **Generate token**, copy the webhook URL and the token (shown once) into Shiprocket → Settings → API → Webhooks.
+4. On a paid order, **Create shipment**, check the package size and confirm. This charges your Shiprocket wallet. The AWB, courier and tracking status appear on the order; use **Track**, **Label**, **Cancel shipment** (before pickup) or **Assign courier again** (only after Shiprocket refused the courier assignment).
+5. If Shiprocket did not confirm a shipment or a courier assignment, Bodhinox never repeats it automatically; it looks it up and, if it cannot find it, opens a shipment exception for an admin.
+
+- **Courier tracking.** When Shiprocket is connected and an order has a shipment, tracking moves the order to Dispatched and Delivered by itself and sends the usual customer notices once. You can still record dispatch or delivery yourself; the order shows whether each step was **Courier confirmed**, **Staff recorded** or **Not confirmed**.
+- **Cancelling a shipped order.** Cancel and refund is refused while a courier shipment is live. Cancel the shipment first, or, once it was picked up, use Returns.
+- **Shipments that need attention** (admins, Orders page): tracking that changed after a final status, parcels returning to origin, lost or damaged parcels, and courier updates that disagree with the order. Accepting a correction updates the shipment only; the order's status never moves backwards, so use Returns for goods that come back.
+
+### Order notice templates
+Go to Commerce → Store settings → Order notice templates. Choose an approved template for:
+- the dispatched notice, the delivered notice and the feedback request. These need **utility** templates;
+- the reorder reminder. This needs a **marketing** template.
+
+These templates are used only after the customer's 24-hour WhatsApp window has closed. Inside the window, Bodhinox sends a short text instead, and the dispatched text includes the courier tracking link when the order has a Shiprocket shipment. A warning appears when a chosen template is no longer approved. Only admins can change these settings.
+
+### Reorder reminders
+1. In the product editor, set **Reorder reminder after (days)**, for example 30 for a month's supply.
+2. Choose a marketing template for **Reorder reminder** in Store settings.
+3. Customers who tick "Send me reorder reminders and offers on WhatsApp" at checkout get one reminder that many days after delivery.
+
+Customers who do not tick the box, and anyone who has ever replied STOP, never receive it. Orders placed before this checkbox existed never receive it either. On the order's timeline under Messages, a reminder that was not sent shows the reason, for example "no_marketing_consent".
 
 ### Payments → Customer payments
 Every payment Razorpay confirmed (after Bodhinox checked it with Razorpay itself) and every offline payment recorded by staff. "Needs review" means it was not credited automatically; see Exceptions. Admins can refund from the row (Refund): choose the amount, a reason and, for an order not yet dispatched, whether to put the items back in stock. The refund shows "Pending at Razorpay" until Razorpay processes it. A refund shown as "Needs check" was sent but Razorpay's answer was unclear: use "Check with Razorpay"; it is never sent twice automatically. "Send again" appears only when Razorpay definitely did not make it.
@@ -220,6 +246,20 @@ Per day: money captured, refunds (including ones made in the Razorpay dashboard)
 
 - **Ayurvedic store template**: Flows → templates → "Ayurvedic store".
 - **Commerce revenue**: Analytics shows net merchandise revenue, average order value, money collected (online and recorded by staff), refunds (including Razorpay dashboard refunds) and net collections for the chosen dates.
+
+## 9d. Online meetings and courier shipping
+
+- **Settings → Meetings & shipping** is where admins connect Zoom (online appointments) and Shiprocket (courier shipping). Both are optional and off until connected.
+- Creating and cancelling courier shipments needs the **Create and cancel courier shipments** permission; connecting Zoom needs **Connect Zoom for online meetings**. Both can be taken away from admins in Settings → Team members → Feature permissions.
+
+### Online meetings (Zoom)
+
+- Settings → Meetings & shipping → Zoom meetings → **Connect Zoom**. A Zoom account admin approves the app once. Meetings for confirmed online appointments are then created automatically. The host is the practitioner's Zoom host email (Appointments → Practitioners), or otherwise the admin who connected Zoom.
+- If an appointment shows that its meeting needs attention, open its task. **Create again** makes a new Zoom meeting; **Use supplied link** goes back to the service's own meeting link.
+- **Disconnect** stops Bodhinox from creating, moving or removing meetings. Links already sent keep working.
+- After Zoom is connected (Settings → Meetings & shipping), set a **Zoom host email** on each practitioner who hosts from their own Zoom user in your Zoom account; leave it blank to host from the account that connected Zoom.
+- The appointment sheet shows the meeting state and, after the meeting, what Zoom recorded about joins. This is evidence only: mark the appointment completed or no-show yourself. A **Record outcome** task reminds the practitioner after Zoom reports the meeting ended.
+- If the sheet says **Needs attention**, choose **Create again** (a new Zoom meeting and link) or **Use supplied link** (go back to the link you entered before Zoom).
 
 ## 10. Other functionality and where to go next
 

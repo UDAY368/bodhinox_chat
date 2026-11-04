@@ -5592,6 +5592,30 @@
         "default": "0",
         "reference": null,
         "definition": "checkout_attempt integer NOT NULL DEFAULT 0 CHECK (checkout_attempt >= 0)"
+      },
+      {
+        "name": "marketing_opt_in",
+        "type": "boolean",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "marketing_opt_in boolean"
+      },
+      {
+        "name": "marketing_opt_in_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "marketing_opt_in_at timestamptz"
+      },
+      {
+        "name": "marketing_opt_in_version",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "marketing_opt_in_version text CHECK (marketing_opt_in_version IS NULL OR marketing_opt_in_version ~ '^[a-z0-9_]{1,32}$')"
       }
     ],
     "order_items": [
@@ -9834,6 +9858,14 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "meeting_host_email",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "meeting_host_email text CHECK (meeting_host_email IS NULL OR (char_length(meeting_host_email) <= 254 AND position('@' in meeting_host_email) > 1))"
       }
     ],
     "appointment_offerings": [
@@ -11122,6 +11154,14 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "repurchase_after_days",
+        "type": "smallint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "repurchase_after_days smallint CHECK (repurchase_after_days IS NULL OR repurchase_after_days BETWEEN 1 AND 365)"
       }
     ],
     "shop_product_images": [
@@ -13104,6 +13144,1042 @@
         "default": "now()",
         "reference": null,
         "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "meeting_connections": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "nullable": false,
+        "default": "'zoom'",
+        "reference": null,
+        "definition": "provider text NOT NULL DEFAULT 'zoom' CHECK (provider = 'zoom')"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'active'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','token_invalid','disconnected'))"
+      },
+      {
+        "name": "zoom_account_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "zoom_account_id text CHECK (zoom_account_id IS NULL OR zoom_account_id ~ '^[A-Za-z0-9_-]{1,64}$')"
+      },
+      {
+        "name": "authorized_zoom_user_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "authorized_zoom_user_id text CHECK (authorized_zoom_user_id IS NULL OR authorized_zoom_user_id ~ '^[A-Za-z0-9_-]{1,64}$')"
+      },
+      {
+        "name": "access_token_enc",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "access_token_enc text CHECK (access_token_enc IS NULL OR char_length(access_token_enc) <= 4096)"
+      },
+      {
+        "name": "refresh_token_enc",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "refresh_token_enc text CHECK (refresh_token_enc IS NULL OR char_length(refresh_token_enc) <= 4096)"
+      },
+      {
+        "name": "token_expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "token_expires_at timestamptz"
+      },
+      {
+        "name": "refresh_rotated_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "refresh_rotated_at timestamptz"
+      },
+      {
+        "name": "scopes",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "scopes text[] NOT NULL DEFAULT '{}' CHECK (cardinality(scopes) <= 50)"
+      },
+      {
+        "name": "register_attendees",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "register_attendees boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_error_code text CHECK (last_error_code IS NULL OR last_error_code ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "connected_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "connected_by uuid"
+      },
+      {
+        "name": "connected_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "connected_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "disconnected_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "disconnected_at timestamptz"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "appointment_meetings": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "appointment_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointments",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "appointment_id uuid NOT NULL"
+      },
+      {
+        "name": "connection_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "meeting_connections",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "connection_id uuid NOT NULL"
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "nullable": false,
+        "default": "'zoom'",
+        "reference": null,
+        "definition": "provider text NOT NULL DEFAULT 'zoom' CHECK (provider = 'zoom')"
+      },
+      {
+        "name": "meeting_ref",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "meeting_ref text NOT NULL CHECK (meeting_ref ~ '^[a-z0-9]{10}$')"
+      },
+      {
+        "name": "host_zoom_user",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "host_zoom_user text CHECK (host_zoom_user IS NULL OR char_length(host_zoom_user) BETWEEN 1 AND 254)"
+      },
+      {
+        "name": "external_meeting_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "external_meeting_id text CHECK (external_meeting_id IS NULL OR external_meeting_id ~ '^[0-9]{1,20}$')"
+      },
+      {
+        "name": "registrant_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "registrant_id text CHECK (registrant_id IS NULL OR char_length(registrant_id) BETWEEN 1 AND 128)"
+      },
+      {
+        "name": "join_url",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "join_url text CHECK (join_url IS NULL OR (join_url ~ '^https://' AND char_length(join_url) <= 2048))"
+      },
+      {
+        "name": "supplied_url",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "supplied_url text CHECK (supplied_url IS NULL OR (supplied_url ~ '^https://' AND char_length(supplied_url) <= 2048))"
+      },
+      {
+        "name": "sync_state",
+        "type": "text",
+        "nullable": false,
+        "default": "'creating'",
+        "reference": null,
+        "definition": "sync_state text NOT NULL DEFAULT 'creating' CHECK (sync_state IN ('creating','active','unknown','failed','deleted','manual','detached'))"
+      },
+      {
+        "name": "claim_token",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "claim_token uuid"
+      },
+      {
+        "name": "claimed_until",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "claimed_until timestamptz"
+      },
+      {
+        "name": "synced_version",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "synced_version integer CHECK (synced_version IS NULL OR synced_version > 0)"
+      },
+      {
+        "name": "synced_start_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "synced_start_at timestamptz"
+      },
+      {
+        "name": "synced_duration_min",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "synced_duration_min integer CHECK (synced_duration_min IS NULL OR synced_duration_min BETWEEN 1 AND 1440)"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_error_code text CHECK (last_error_code IS NULL OR last_error_code ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "attendance_evidence",
+        "type": "text",
+        "nullable": false,
+        "default": "'none'",
+        "reference": null,
+        "definition": "attendance_evidence text NOT NULL DEFAULT 'none' CHECK (attendance_evidence IN ('none','guest_joined','registrant_joined'))"
+      },
+      {
+        "name": "first_join_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "first_join_at timestamptz"
+      },
+      {
+        "name": "attended_seconds",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "attended_seconds integer NOT NULL DEFAULT 0 CHECK (attended_seconds >= 0)"
+      },
+      {
+        "name": "meeting_ended_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "meeting_ended_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "meeting_participant_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "appointment_meeting_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "appointment_meetings",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "appointment_meeting_id uuid NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('meeting_started','participant_joined','participant_left','meeting_ended'))"
+      },
+      {
+        "name": "participant_kind",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "participant_kind text CHECK (participant_kind IS NULL OR participant_kind IN ('host','registrant','guest'))"
+      },
+      {
+        "name": "participant_key",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "participant_key text CHECK (participant_key IS NULL OR participant_key ~ '^[0-9a-f]{64}$')"
+      },
+      {
+        "name": "event_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "event_at timestamptz NOT NULL"
+      },
+      {
+        "name": "receipt_key",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "receipt_key text NOT NULL UNIQUE CHECK (char_length(receipt_key) BETWEEN 1 AND 200)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "courier_connections": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "nullable": false,
+        "default": "'shiprocket'",
+        "reference": null,
+        "definition": "provider text NOT NULL DEFAULT 'shiprocket' CHECK (provider = 'shiprocket')"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'active'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','token_invalid','disconnected'))"
+      },
+      {
+        "name": "api_email",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "api_email text NOT NULL CHECK (char_length(api_email) BETWEEN 3 AND 254 AND position('@' in api_email) > 1)"
+      },
+      {
+        "name": "api_password_enc",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "api_password_enc text CHECK (api_password_enc IS NULL OR char_length(api_password_enc) <= 4096)"
+      },
+      {
+        "name": "token_enc",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "token_enc text CHECK (token_enc IS NULL OR char_length(token_enc) <= 4096)"
+      },
+      {
+        "name": "token_expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "token_expires_at timestamptz"
+      },
+      {
+        "name": "webhook_token_hash",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "webhook_token_hash text CHECK (webhook_token_hash IS NULL OR webhook_token_hash ~ '^[0-9a-f]{64}$')"
+      },
+      {
+        "name": "pickup_location",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "pickup_location text CHECK (pickup_location IS NULL OR char_length(pickup_location) BETWEEN 1 AND 100)"
+      },
+      {
+        "name": "default_length_cm",
+        "type": "numeric(6,1)",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "default_length_cm numeric(6,1) CHECK (default_length_cm IS NULL OR (default_length_cm > 0 AND default_length_cm <= 300))"
+      },
+      {
+        "name": "default_breadth_cm",
+        "type": "numeric(6,1)",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "default_breadth_cm numeric(6,1) CHECK (default_breadth_cm IS NULL OR (default_breadth_cm > 0 AND default_breadth_cm <= 300))"
+      },
+      {
+        "name": "default_height_cm",
+        "type": "numeric(6,1)",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "default_height_cm numeric(6,1) CHECK (default_height_cm IS NULL OR (default_height_cm > 0 AND default_height_cm <= 300))"
+      },
+      {
+        "name": "default_weight_grams",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "default_weight_grams integer CHECK (default_weight_grams IS NULL OR default_weight_grams BETWEEN 1 AND 100000)"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_error_code text CHECK (last_error_code IS NULL OR last_error_code ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "connected_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "connected_by uuid"
+      },
+      {
+        "name": "connected_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "connected_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "disconnected_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "disconnected_at timestamptz"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "order_shipments": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "order_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "order_id uuid NOT NULL"
+      },
+      {
+        "name": "connection_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "courier_connections",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "connection_id uuid NOT NULL"
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "nullable": false,
+        "default": "'shiprocket'",
+        "reference": null,
+        "definition": "provider text NOT NULL DEFAULT 'shiprocket' CHECK (provider = 'shiprocket')"
+      },
+      {
+        "name": "reference",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "reference text NOT NULL CHECK (reference ~ '^bx[a-z0-9]{12}$')"
+      },
+      {
+        "name": "create_state",
+        "type": "text",
+        "nullable": false,
+        "default": "'creating'",
+        "reference": null,
+        "definition": "create_state text NOT NULL DEFAULT 'creating' CHECK (create_state IN ('creating','created','unknown','failed','cancelled'))"
+      },
+      {
+        "name": "awb_state",
+        "type": "text",
+        "nullable": false,
+        "default": "'none'",
+        "reference": null,
+        "definition": "awb_state text NOT NULL DEFAULT 'none' CHECK (awb_state IN ('none','assigning','assigned','unknown','failed'))"
+      },
+      {
+        "name": "claim_token",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "claim_token uuid"
+      },
+      {
+        "name": "claimed_until",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "claimed_until timestamptz"
+      },
+      {
+        "name": "sr_order_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "sr_order_id text CHECK (sr_order_id IS NULL OR sr_order_id ~ '^[0-9]{1,20}$')"
+      },
+      {
+        "name": "sr_shipment_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "sr_shipment_id text CHECK (sr_shipment_id IS NULL OR sr_shipment_id ~ '^[0-9]{1,20}$')"
+      },
+      {
+        "name": "awb",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "awb text CHECK (awb IS NULL OR awb ~ '^[A-Za-z0-9-]{4,40}$')"
+      },
+      {
+        "name": "courier_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "courier_name text CHECK (courier_name IS NULL OR char_length(courier_name) <= 80)"
+      },
+      {
+        "name": "tracking_status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tracking_status text CHECK (tracking_status IS NULL OR tracking_status ~ '^[a-z_]{1,32}$')"
+      },
+      {
+        "name": "tracking_rank",
+        "type": "smallint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tracking_rank smallint CHECK (tracking_rank IS NULL OR tracking_rank BETWEEN 0 AND 100)"
+      },
+      {
+        "name": "tracking_event_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "tracking_event_at timestamptz"
+      },
+      {
+        "name": "provider_dispatched_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "provider_dispatched_at timestamptz"
+      },
+      {
+        "name": "provider_delivered_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "provider_delivered_at timestamptz"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_error_code text CHECK (last_error_code IS NULL OR last_error_code ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "length_cm",
+        "type": "numeric(6,1)",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "length_cm numeric(6,1) NOT NULL CHECK (length_cm > 0 AND length_cm <= 300)"
+      },
+      {
+        "name": "breadth_cm",
+        "type": "numeric(6,1)",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "breadth_cm numeric(6,1) NOT NULL CHECK (breadth_cm > 0 AND breadth_cm <= 300)"
+      },
+      {
+        "name": "height_cm",
+        "type": "numeric(6,1)",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "height_cm numeric(6,1) NOT NULL CHECK (height_cm > 0 AND height_cm <= 300)"
+      },
+      {
+        "name": "weight_grams",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "weight_grams integer NOT NULL CHECK (weight_grams BETWEEN 1 AND 100000)"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "shipment_tracking_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "shipment_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "order_shipments",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "shipment_id uuid NOT NULL"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "status text NOT NULL CHECK (status ~ '^[a-z_]{1,32}$')"
+      },
+      {
+        "name": "provider_code",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "provider_code text NOT NULL CHECK (char_length(provider_code) BETWEEN 1 AND 40)"
+      },
+      {
+        "name": "event_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "event_at timestamptz NOT NULL"
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "source text NOT NULL CHECK (source IN ('refetch','poll','create'))"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "shipment_exceptions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "shipment_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "order_shipments",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "shipment_id uuid NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('contradiction','create_unknown','awb_unknown','rto','lost_or_damaged','stale_tracking','order_conflict'))"
+      },
+      {
+        "name": "observed_status",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "observed_status text CHECK (observed_status IS NULL OR observed_status ~ '^[a-z_]{1,32}$')"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'open'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved'))"
+      },
+      {
+        "name": "resolution",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolution text CHECK (resolution IS NULL OR resolution IN ('accept_correction','dismiss','recreate','manual'))"
+      },
+      {
+        "name": "resolved_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_by uuid"
+      },
+      {
+        "name": "resolved_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "order_notice_templates": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('dispatched','delivered','feedback','repeat_purchase'))"
+      },
+      {
+        "name": "template_name",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "template_name text NOT NULL CHECK (char_length(template_name) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "language",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "language text NOT NULL CHECK (char_length(language) BETWEEN 2 AND 15)"
       },
       {
         "name": "updated_at",

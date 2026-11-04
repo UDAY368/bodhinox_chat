@@ -20,6 +20,7 @@ import type {
   AppointmentEventKind, AppointmentMessageKind, AppointmentMessageStatus, AppointmentStatus, Slot, TaskKind, TaskStatus,
 } from '@/lib/appointments/types';
 import { zoneLabel } from '@/lib/appointments/time';
+import { MEETING_ERROR_CODES, type AppointmentMeetingView, type MeetingSyncState } from '@/lib/meetings/types';
 import { AppointmentStatusBadge } from './appointment-status-badge';
 import { SlotSelector } from './slot-selector';
 import {
@@ -39,6 +40,24 @@ export interface AppointmentDetailDto {
   events: { id: string; kind: AppointmentEventKind; actor: 'staff' | 'customer' | 'system'; old_start_at: string | null; new_start_at: string | null; created_at: string }[];
   messages: { id: string; kind: AppointmentMessageKind; status: AppointmentMessageStatus; reason: string | null; resolved_at: string | null; created_at: string }[];
   tasks: { id: string; kind: TaskKind; title: string; due_at: string | null; status: TaskStatus }[];
+  /** The Zoom meeting (agents and above; null when there is none). */
+  meeting?: AppointmentMeetingView | null;
+}
+
+/** The chip shown for each meeting sync state. */
+const MEETING_CHIP: Record<MeetingSyncState, 'creating' | 'ready' | 'attention' | 'removed' | 'supplied' | 'previous'> = {
+  creating: 'creating', active: 'ready', unknown: 'attention', failed: 'attention', deleted: 'removed', manual: 'supplied', detached: 'previous',
+};
+const SYSTEM_TASK_KINDS = new Set<TaskKind>(['meeting_sync', 'meeting_outcome']);
+
+/** Zoom attendance evidence as one sentence key, or null when there is nothing to say yet. */
+export function meetingEvidence(m: AppointmentMeetingView | null | undefined):
+  { key: 'evidenceCustomerJoined' | 'evidenceGuestJoined' | 'evidenceNoJoin'; at: string | null; minutes: number } | null {
+  if (!m) return null;
+  const minutes = Math.round(m.attended_seconds / 60);
+  if (m.attendance_evidence === 'registrant_joined') return { key: 'evidenceCustomerJoined', at: m.first_join_at, minutes };
+  if (m.attendance_evidence === 'guest_joined') return { key: 'evidenceGuestJoined', at: m.first_join_at, minutes };
+  return m.meeting_ended_at ? { key: 'evidenceNoJoin', at: null, minutes: 0 } : null;
 }
 
 const MESSAGE_REASONS = new Set([
@@ -80,6 +99,7 @@ export function AppointmentSheet({
   const [score, setScore] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDue, setTaskDue] = useState('');
+  const tAll = useTranslations();
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -148,6 +168,21 @@ export function AppointmentSheet({
     void load();
   }
 
+  async function meetingAction(action: 'recreate' | 'use_link') {
+    if (!a) return;
+    setBusy(true);
+    const r = await apiRequest(`/api/appointments/${a.id}/meeting`, { method: 'POST', body: { action } });
+    setBusy(false);
+    if (!r.ok) {
+      const code = (r as ApiFailure).code;
+      const meetingCode = code && (MEETING_ERROR_CODES as readonly string[]).includes(code) && !['not_found', 'conflict', 'feature_unavailable'].includes(code);
+      return void toast.error(meetingCode ? tAll(`Validation.meetings.${code}` as never) : failureText(r));
+    }
+    toast.success(t('sheet.saved'));
+    onChanged();
+    void load();
+  }
+
   async function resolve(messageId: string) {
     const r = await apiRequest(`/api/appointments/messages/${messageId}/resolve`, { method: 'POST', body: {} });
     if (!r.ok) return void toast.error(failureText(r));
@@ -159,6 +194,9 @@ export function AppointmentSheet({
   const started = a ? new Date(a.start_at).getTime() <= loadedAt : false;
   const fmt = (iso: string) => (a ? formatDateTime(iso, a.timezone, locale) : '');
   const price = a ? formatPrice(a.price_minor, a.currency, locale) : null;
+  const meeting = detail?.meeting ?? null;
+  const evidence = meetingEvidence(meeting);
+  const meetingNeedsAction = !!meeting && (meeting.sync_state === 'failed' || meeting.sync_state === 'unknown');
 
   return (
     <Sheet open={!!id} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -204,8 +242,35 @@ export function AppointmentSheet({
                 {price && (<><dt className="text-muted-foreground">{t('services.price')}</dt><dd>{price}</dd></>)}
                 {a.meeting_url && (<><dt className="text-muted-foreground">{t('services.meetingUrl')}</dt>
                   <dd className="truncate"><a className="text-primary hover:underline" href={a.meeting_url} target="_blank" rel="noopener noreferrer">{a.meeting_url}</a></dd></>)}
+                {meeting && (<><dt className="text-muted-foreground">{t('meeting.title')}</dt>
+                  <dd><span data-testid="meeting-state" data-state={meeting.sync_state}
+                    className="rounded bg-muted px-1.5 py-0.5 text-xs">{t(`meeting.states.${MEETING_CHIP[meeting.sync_state]}`)}</span></dd></>)}
                 {a.cancel_reason && (<><dt className="text-muted-foreground">{t('sheet.cancelReason')}</dt><dd>{t(`cancelReasons.${a.cancel_reason as 'staff'}`)}</dd></>)}
               </dl>
+
+              {meetingNeedsAction && (
+                <div className="space-y-2 rounded-lg border border-amber-500/40 p-3" data-testid="meeting-attention">
+                  <p className="text-xs">{t('meeting.attentionHelp')}</p>
+                  {abilities.manage && a.status === 'confirmed' && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void meetingAction('recreate')}>{t('meeting.recreate')}</Button>
+                      {meeting?.supplied_url && (
+                        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void meetingAction('use_link')}>{t('meeting.useLink')}</Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {meeting?.sync_state === 'detached' && <p className="text-xs text-muted-foreground">{t('meeting.previousHelp')}</p>}
+              {meeting?.last_error_code === 'registration_unavailable' && meeting.sync_state === 'active' && (
+                <p className="text-xs text-muted-foreground">{t('meeting.registrationUnavailable')}</p>
+              )}
+              {evidence && (
+                <p className="text-xs" data-testid="meeting-evidence">
+                  {t(`sheet.${evidence.key}`, { time: evidence.at ? formatTime(evidence.at, a.timezone, locale) : '', minutes: evidence.minutes })}
+                  <span className="block text-[11px] text-muted-foreground">{t('sheet.evidenceNote')}</span>
+                </p>
+              )}
 
               {a.status === 'held' && <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">{t('sheet.confirmHoldHelp')}</p>}
 
@@ -292,6 +357,7 @@ export function AppointmentSheet({
                 <ul className="space-y-1">
                   {detail.tasks.map((task) => (
                     <li key={task.id} className="flex items-center gap-2">
+                      {SYSTEM_TASK_KINDS.has(task.kind) && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">{t(`tasks.kinds.${task.kind}`)}</span>}
                       <span className="flex-1 truncate">{task.title}</span>
                       <span className="text-xs text-muted-foreground">{t(`tasks.statuses.${task.status}`)}</span>
                       {abilities.manage && task.status === 'open' && (

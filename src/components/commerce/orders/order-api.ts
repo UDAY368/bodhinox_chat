@@ -4,7 +4,9 @@
 // the mutation-origin headers.
 
 import { authFetch } from "@/lib/auth/client";
-import type { OrderSource, OrderStatus, RefundState } from "@/lib/commerce/order-format";
+import type { FulfilmentEvidence, OrderSource, OrderStatus, RefundState } from "@/lib/commerce/order-format";
+import type { ShipmentExceptionView } from "@/lib/fulfilment/exceptions";
+import type { OrderShipmentView, ShipmentExceptionResolution } from "@/lib/fulfilment/types";
 
 export interface OrderListItem {
   id: string;
@@ -42,6 +44,10 @@ export interface OrderDetail extends OrderListItem {
   delivered_at: string | null;
   tracking_note: string | null;
   feedback_score: number | null;
+  /** The courier shipment (Shiprocket), or null; absent from older responses. */
+  shipment?: OrderShipmentView | null;
+  /** How the current dispatch or delivery is known; null before dispatch. */
+  evidence?: FulfilmentEvidence | null;
   items: Array<{
     id: string; retailer_id: string | null; name: string | null; quantity: number; unit_price_minor: number; currency: string;
     variant_id?: string | null; sku?: string | null; tax_minor?: number | null; discount_minor?: number | null;
@@ -186,3 +192,17 @@ export async function refundReturn(returnId: string, amountMinor: number, note: 
 }
 
 export const documentUrl = (documentId: string) => `/api/commerce/documents/${encodeURIComponent(documentId)}`;
+
+export type { ShipmentExceptionView };
+
+/** Open (default) or resolved courier shipment exceptions; admins with commerce.shipments, else null. */
+export async function listShipmentExceptions(status: "open" | "resolved" = "open"): Promise<ShipmentExceptionView[] | null> {
+  const res = await authFetch(`/api/commerce/shipment-exceptions?status=${status}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => ({}))) as { exceptions?: ShipmentExceptionView[] };
+  return Array.isArray(json.exceptions) ? json.exceptions : null;
+}
+
+export async function resolveShipmentException(id: string, resolution: ShipmentExceptionResolution): Promise<ApiResult<ShipmentExceptionView>> {
+  return result(await post(`/api/commerce/shipment-exceptions/${encodeURIComponent(id)}`, { resolution }), "exception");
+}

@@ -24,6 +24,7 @@ import {
 } from './availability';
 import { lockKeys, lockOrder } from './keys';
 import { enqueueEvent, enqueueFollowup, enqueueHoldExpiry, enqueueNotice, scheduleReminders } from './schedule-jobs';
+import { enqueueMeetingSync } from '@/lib/meetings/sync';
 import { localParts } from './time';
 import { deriveManageToken, manageTokenHash } from './tokens';
 import {
@@ -367,6 +368,8 @@ export async function bookAppointment(tx: TenantTransaction, input: BookInput): 
   else {
     await enqueueNotice(tx, accountId, id, 1, 'confirmation', startAt);
     await scheduleReminders(tx, accountId, { id, version: 1, start_at: startAt }, now);
+    // Phase 9: a Zoom meeting for an online service (no job unless Zoom is connected and configured).
+    await enqueueMeetingSync(tx, accountId, appointment, 1);
   }
   return { appointment, replayed: false };
 }
@@ -485,6 +488,7 @@ export async function confirmHold(tx: TenantTransaction, input: ConfirmHoldInput
   await enqueueEvent(tx, accountId, row.id, version, 'confirmed');
   await enqueueNotice(tx, accountId, row.id, version, 'confirmation', row.start_at);
   await scheduleReminders(tx, accountId, { id: row.id, version, start_at: row.start_at }, now);
+  await enqueueMeetingSync(tx, accountId, updated, version);
   return { status: 'confirmed', appointment: updated };
 }
 
@@ -591,6 +595,7 @@ export async function confirmPaidHold(tx: TenantTransaction, input: ConfirmPaidH
   await enqueueEvent(tx, accountId, row.id, version, 'confirmed');
   await enqueueNotice(tx, accountId, row.id, version, 'confirmation', row.start_at);
   await scheduleReminders(tx, accountId, { id: row.id, version, start_at: row.start_at }, now);
+  await enqueueMeetingSync(tx, accountId, { ...row, status: 'confirmed' }, version);
   return { kind: 'confirmed' };
 }
 
@@ -673,6 +678,8 @@ export async function rescheduleAppointment(tx: TenantTransaction, input: Resche
   await enqueueEvent(tx, accountId, row.id, version, kind);
   if (timeChanged) await enqueueNotice(tx, accountId, row.id, version, 'rescheduled', startAt);
   await scheduleReminders(tx, accountId, { id: row.id, version, start_at: startAt }, now);
+  // A new time or practitioner moves (or re-hosts) the Zoom meeting.
+  await enqueueMeetingSync(tx, accountId, updated, version);
   return updated;
 }
 
@@ -708,6 +715,8 @@ export async function cancelAppointment(tx: TenantTransaction, input: CancelInpu
   // A cancelled paid hold must not stay payable (as expireHold); a capture that still
   // lands takes confirmPaidHold's closed path and is surfaced for a manual refund.
   if (row.payment_status === 'pending') await enqueueLinkCancels(tx, accountId, row.id);
+  // A cancelled appointment's Zoom meeting is deleted (no job when it never had one).
+  await enqueueMeetingSync(tx, accountId, updated, version);
   return updated;
 }
 

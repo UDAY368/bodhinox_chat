@@ -27,8 +27,8 @@ export type RefundState = (typeof REFUND_STATES)[number];
 export const WORKER_ONLY_STATUSES: readonly OrderStatus[] = ['paid', 'payment_review', 'expired'];
 
 /**
- * Status changes staff may make. `fulfilled` is shown as "Delivered (staff
- * recorded)". paid -> cancelled goes through "Cancel and refund" only.
+ * Status changes staff may make. `fulfilled` is shown as "Delivered" (the
+ * evidence badge says who confirmed it). paid -> cancelled goes through "Cancel and refund" only.
  * Final for staff: fulfilled, cancelled, expired, payment_review (resolved
  * through the payment exceptions queue).
  */
@@ -66,7 +66,29 @@ export function nextStatuses(from: OrderStatus, opts: { priced?: boolean } = {})
   return ORDER_TRANSITIONS[from].filter((to) => canTransition(from, to, opts));
 }
 
-export const ORDER_LIMITS = { maxItems: 100, maxQuantity: 100_000, noteMaxLength: 2000, retailerIdMaxLength: 200 } as const;
+/**
+ * How a dispatch or delivery is known (Phase 9, design §2 "Evidence label"):
+ * provider = Shiprocket tracking read back with the workspace's credentials;
+ * staff = a team member recorded it; unknown = neither (system or legacy).
+ */
+export type FulfilmentEvidence = 'provider' | 'staff' | 'unknown';
+
+/**
+ * The evidence for the order's current fulfilment step: the delivery for a
+ * fulfilled order, the dispatch for a dispatched one, null otherwise.
+ * `fulfilment_recorded` = orders.fulfilment_recorded_by is set.
+ */
+export function fulfilmentEvidence(
+  order: { status: OrderStatus; fulfilment_recorded: boolean },
+  shipment: { provider_dispatched_at: string | Date | null; provider_delivered_at: string | Date | null } | null,
+): FulfilmentEvidence | null {
+  if (order.status !== 'fulfilled' && order.status !== 'dispatched') return null;
+  const providerAt = order.status === 'fulfilled' ? shipment?.provider_delivered_at : shipment?.provider_dispatched_at;
+  if (providerAt) return 'provider';
+  return order.fulfilment_recorded ? 'staff' : 'unknown';
+}
+
+export const ORDER_LIMITS ={ maxItems: 100, maxQuantity: 100_000, noteMaxLength: 2000, retailerIdMaxLength: 200 } as const;
 
 export interface InboundOrderItem {
   retailer_id: string;

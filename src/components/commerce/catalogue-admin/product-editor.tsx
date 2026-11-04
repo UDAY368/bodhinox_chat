@@ -139,15 +139,19 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
     name: product.name, description: product.description ?? "", disclosure: product.disclosure ?? "",
     category_id: product.category_id ?? "", follow_up_template: product.follow_up_template ?? "",
     follow_up_template_language: product.follow_up_template_language ?? "", follow_up_after_days: product.follow_up_after_days?.toString() ?? "",
+    repurchase_after_days: product.repurchase_after_days?.toString() ?? "",
   });
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const days = form.follow_up_after_days.trim() ? Number(form.follow_up_after_days) : null;
-  const valid = form.name.trim().length > 0 && (days === null || (Number.isInteger(days) && days >= 1 && days <= 365))
+  const repurchase = form.repurchase_after_days.trim() ? Number(form.repurchase_after_days) : null;
+  const dayOk = (n: number | null) => n === null || (Number.isInteger(n) && n >= 1 && n <= 365);
+  const valid = form.name.trim().length > 0 && dayOk(days) && dayOk(repurchase)
     && (!form.follow_up_template.trim() || form.follow_up_template_language.trim().length >= 2);
   const submit = () => onSave({
     name: form.name, description: form.description || null, disclosure: form.disclosure || null, category_id: form.category_id || null,
     follow_up_template: form.follow_up_template.trim() || null, follow_up_template_language: form.follow_up_template_language.trim() || null,
     follow_up_after_days: form.follow_up_template.trim() ? days : null,
+    repurchase_after_days: repurchase,
   });
   const ro = !canManage;
   return (
@@ -194,6 +198,11 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
         </div>
         <p className="text-xs text-muted-foreground sm:col-span-3">{t("followUpHint")}</p>
       </fieldset>
+      <div className="space-y-1 sm:max-w-xs">
+        <Label htmlFor="p-rpd">{t("repurchaseDays")}</Label>
+        <Input id="p-rpd" inputMode="numeric" value={form.repurchase_after_days} readOnly={ro} onChange={set("repurchase_after_days")} className="bg-muted" />
+        <p className="text-xs text-muted-foreground">{t("repurchaseHint")}</p>
+      </div>
       {product.status === "published" && canManage && <p className="text-xs text-muted-foreground">{t("rereviewHint")}</p>}
       {canManage && <Button type="submit" disabled={busy || !valid}>{t("save")}</Button>}
     </form>

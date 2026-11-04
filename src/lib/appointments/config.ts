@@ -346,9 +346,31 @@ export async function updateService(tx: TenantTransaction, accountId: string, us
 
 // ------------------------------------------------------------ practitioners
 
-export async function listStaff(tx: TenantTransaction, accountId: string): Promise<StaffRow[]> {
-  return tx.$queryRaw<StaffRow[]>`SELECT id, display_name, user_id, archived_at FROM appointment_staff
-    WHERE account_id=${accountId}::uuid ORDER BY archived_at NULLS FIRST, display_name, id`;
+/** A practitioner with the Zoom host email (Phase 9; NULL: the Zoom user who authorized the connection hosts). */
+export type StaffWithHost = StaffRow & { meeting_host_email: string | null };
+const STAFF_RETURNING = 'id, display_name, user_id, archived_at, meeting_host_email';
+const HOST_EMAIL = /^[^\s@]{1,64}@[^\s@]+\.[^\s@]+$/;
+
+/** The Zoom host email: blank or null clears it; otherwise one address, at most 254 characters. */
+function hostEmail(b: Body): string | null {
+  const v = b.meeting_host_email;
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') throw new AppointmentFieldError('meeting_host_email');
+  const email = v.trim().toLowerCase();
+  if (!email) return null;
+  if (email.length > 254 || !HOST_EMAIL.test(email)) throw new AppointmentFieldError('meeting_host_email');
+  return email;
+}
+
+/**
+ * Practitioners, archived last. The Zoom host email (a staff member's Zoom login)
+ * is only selected for agents and above: pass withHost=false for viewers, who
+ * read nothing new in Phase 9. The column is not even read in that case.
+ */
+export async function listStaff(tx: TenantTransaction, accountId: string, opts: { withHost?: boolean } = {}): Promise<(StaffRow | StaffWithHost)[]> {
+  const cols = opts.withHost === false ? 'id, display_name, user_id, archived_at' : STAFF_RETURNING;
+  return tx.$queryRawUnsafe<StaffWithHost[]>(`SELECT ${cols} FROM appointment_staff
+    WHERE account_id=$1::uuid ORDER BY archived_at NULLS FIRST, display_name, id`, accountId);
 }
 
 const countActiveStaff = (tx: TenantTransaction, accountId: string) => async () => {
@@ -357,33 +379,37 @@ const countActiveStaff = (tx: TenantTransaction, accountId: string) => async () 
   return row?.n ?? 0;
 };
 
-export async function createStaff(tx: TenantTransaction, accountId: string, userId: string | null, raw: unknown): Promise<StaffRow> {
+export async function createStaff(tx: TenantTransaction, accountId: string, userId: string | null, raw: unknown): Promise<StaffWithHost> {
   const b = asBody(raw);
   const displayName = text(b, 'display_name', 1, 80);
   const linked = has(b, 'user_id') ? optUuid(b, 'user_id') : null;
+  const host = has(b, 'meeting_host_email') ? hostEmail(b) : null;
   await requireRoomFor(tx, accountId, 'appointment_staff', countActiveStaff(tx, accountId));
-  const [row] = await tx.$queryRaw<StaffRow[]>`INSERT INTO appointment_staff(display_name,user_id) VALUES(${displayName},${linked}::uuid)
-    RETURNING id, display_name, user_id, archived_at`.catch((e) => mapDbError(e, 'user_id'));
+  const [row] = await tx.$queryRawUnsafe<StaffWithHost[]>(`INSERT INTO appointment_staff(display_name,user_id,meeting_host_email)
+    VALUES($1,$2::uuid,$3) RETURNING ${STAFF_RETURNING}`, displayName, linked, host).catch((e) => mapDbError(e, 'user_id'));
   await audit(tx, accountId, userId, 'appointments.staff.created', row.id);
   return row;
 }
 
-export async function updateStaff(tx: TenantTransaction, accountId: string, userId: string | null, id: string, raw: unknown): Promise<StaffRow> {
+export async function updateStaff(tx: TenantTransaction, accountId: string, userId: string | null, id: string, raw: unknown): Promise<StaffWithHost> {
   const b = asBody(raw);
   const displayName = has(b, 'display_name') ? text(b, 'display_name', 1, 80) : null;
   const linked = has(b, 'user_id') ? optUuid(b, 'user_id') : undefined;
+  const host = has(b, 'meeting_host_email') ? hostEmail(b) : undefined;
   const archive = has(b, 'archived') ? bool(b, 'archived') : undefined;
   const [current] = await tx.$queryRaw<StaffRow[]>`SELECT id, display_name, user_id, archived_at FROM appointment_staff
     WHERE account_id=${accountId}::uuid AND id=${id}::uuid FOR UPDATE`;
   if (!current) throw new AppointmentError('not_found');
   // Restoring a practitioner takes a seat again.
   if (archive === false && current.archived_at) await requireRoomFor(tx, accountId, 'appointment_staff', countActiveStaff(tx, accountId));
-  const [row] = await tx.$queryRaw<StaffRow[]>`UPDATE appointment_staff SET
+  const [row] = await tx.$queryRaw<StaffWithHost[]>`UPDATE appointment_staff SET
       display_name=COALESCE(${displayName},display_name),
       user_id=CASE WHEN ${linked === undefined} THEN user_id ELSE ${linked ?? null}::uuid END,
       archived_at=CASE WHEN ${archive === undefined} THEN archived_at WHEN ${archive === true} THEN COALESCE(archived_at, now()) ELSE NULL END,
+      meeting_host_email=CASE WHEN ${host === undefined} THEN meeting_host_email ELSE ${host ?? null}::text END,
       updated_at=now()
-    WHERE account_id=${accountId}::uuid AND id=${id}::uuid RETURNING id, display_name, user_id, archived_at`.catch((e) => mapDbError(e, 'user_id'));
+    WHERE account_id=${accountId}::uuid AND id=${id}::uuid
+    RETURNING id, display_name, user_id, archived_at, meeting_host_email`.catch((e) => mapDbError(e, 'user_id'));
   await audit(tx, accountId, userId, 'appointments.staff.updated', id, { fields: Object.keys(b) });
   return row;
 }

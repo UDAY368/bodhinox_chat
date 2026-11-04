@@ -57,7 +57,7 @@ export async function fetchShopProduct(id: string): Promise<ApiResult<ShopProduc
 }
 
 export type ProductBody = Partial<Pick<ShopProduct, "name" | "description" | "disclosure" | "category_id" | "follow_up_template"
-  | "follow_up_template_language" | "follow_up_after_days">> & { version?: number; images?: ({ url: string } | { media_id: string })[] };
+  | "follow_up_template_language" | "follow_up_after_days" | "repurchase_after_days">> & { version?: number; images?: ({ url: string } | { media_id: string })[] };
 
 export async function createShopProduct(body: ProductBody): Promise<ApiResult<ShopProduct>> {
   return result(await send("/api/commerce/shop/products", "POST", body), asProduct);
