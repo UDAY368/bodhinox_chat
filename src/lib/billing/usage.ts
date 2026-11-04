@@ -7,7 +7,7 @@ import type { LimitKey } from './entitlements';
 
 export type UsageKey = Exclude<LimitKey, 'campaign_recipients'>;
 /** Metered counters kept in usage_counters. */
-export const USAGE_METRICS = ['ai_messages', 'monthly_active_contacts', 'storage_bytes'] as const;
+export const USAGE_METRICS = ['ai_messages', 'monthly_active_contacts', 'storage_bytes', 'ai_tokens'] as const;
 export type UsageMetric = (typeof USAGE_METRICS)[number];
 
 const BILLING_TIME_ZONE = 'Asia/Kolkata';
@@ -39,7 +39,8 @@ export async function incrementUsage(tx: TenantTransaction, metric: UsageMetric,
  */
 export async function currentUsage(tx: TenantTransaction, accountId: string): Promise<Record<UsageKey, number>> {
   const period = usagePeriod();
-  const [row] = await tx.$queryRaw<(Omit<Record<UsageKey, number>, 'storage_bytes' | 'ai_messages' | 'monthly_active_contacts'> & { storage_bytes: bigint; ai_messages: bigint })[]>`
+  const [row] = await tx.$queryRaw<(Omit<Record<UsageKey, number>, 'storage_bytes' | 'ai_messages' | 'monthly_active_contacts' | 'ai_tokens_monthly'>
+    & { storage_bytes: bigint; ai_messages: bigint; ai_tokens_monthly: bigint })[]>`
     SELECT
       (SELECT count(*)::int FROM account_memberships m WHERE m.account_id=${accountId}::uuid)
         + (SELECT count(*)::int FROM account_invitations i WHERE i.account_id=${accountId}::uuid AND i.accepted_at IS NULL AND i.expires_at > now()) AS seats,
@@ -50,12 +51,14 @@ export async function currentUsage(tx: TenantTransaction, accountId: string): Pr
       (SELECT count(*)::int FROM automations a WHERE a.account_id=${accountId}::uuid AND a.is_active) AS active_automations,
       (SELECT COALESCE(max(u.value), 0)::bigint FROM usage_counters u
         WHERE u.account_id=${accountId}::uuid AND u.metric='ai_messages' AND u.period=${period}) AS ai_messages,
+      (SELECT COALESCE(max(u.value), 0)::bigint FROM usage_counters u
+        WHERE u.account_id=${accountId}::uuid AND u.metric='ai_tokens' AND u.period=${period}) AS ai_tokens_monthly,
       (SELECT COALESCE(sum(o.byte_size), 0)::bigint FROM media_objects o
         WHERE o.account_id=${accountId}::uuid AND o.deleted_at IS NULL
           AND NOT (o.bucket='chat-media' AND o.object_key LIKE 'account-' || o.account_id::text || '/inbound/%')) AS storage_bytes,
       (SELECT count(*)::int FROM whatsapp_config w WHERE w.account_id=${accountId}::uuid
         AND NOT (w.status='disconnected' AND w.access_token='')) AS whatsapp_numbers`;
-  return { ...row, ai_messages: Number(row.ai_messages), storage_bytes: Number(row.storage_bytes),
+  return { ...row, ai_messages: Number(row.ai_messages), storage_bytes: Number(row.storage_bytes), ai_tokens_monthly: Number(row.ai_tokens_monthly),
     monthly_active_contacts: await monthlyActiveContacts(tx, accountId) };
 }
 

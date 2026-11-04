@@ -71,6 +71,7 @@ import type { ConversationChannel } from "@/types";
 import { instagramMediaAllowed } from "@/lib/channels/capabilities";
 import { INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
 import { instagramWindowBanner } from "@/lib/instagram/window";
+import { AiReplySuggestions, type ReplyOptionView } from "./ai-assist/ai-reply-suggestions";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -121,6 +122,18 @@ export type AttachMenuItem = "photo" | "video" | "document" | "voiceNote" | "med
  * audio must be aac/m4a/wav/mp4) and no media library (library files are
  * not checked against Instagram's formats).
  */
+/**
+ * The composer's assist state after a conversation switch (null when the
+ * conversation is unchanged): suggestions panel closed, no suggestion id, no
+ * text carried over to the next customer.
+ */
+export function assistResetOnSwitch(
+  shownFor: string,
+  conversationId: string,
+): { suggestionsOpen: false; aiSuggestionId: null; text: "" } | null {
+  return shownFor === conversationId ? null : { suggestionsOpen: false, aiSuggestionId: null, text: "" };
+}
+
 export function attachMenuItems(isInstagram: boolean): AttachMenuItem[] {
   return isInstagram
     ? ["photo", "video", "document"]
@@ -153,7 +166,8 @@ interface MediaDraft {
 interface MessageComposerProps {
   conversationId: string;
   sessionExpired: boolean;
-  onSend: (text: string, replyToId?: string) => void;
+  /** `aiSuggestionId`: the text started as an AI suggested reply (recorded after the send). */
+  onSend: (text: string, replyToId?: string, aiSuggestionId?: string) => void;
   onSendMedia: (payload: SendMediaPayload) => void;
   onSendInteractive: (payload: InteractiveMessagePayload, replyToId?: string) => void;
   onOpenTemplates: () => void;
@@ -172,6 +186,11 @@ interface MessageComposerProps {
   now?: number;
   /** Instagram: Meta approved the Human Agent feature (staff replies up to 7 days). */
   humanAgentEnabled?: boolean;
+  /**
+   * Suggested replies are on for this workspace and member: the ✨ button
+   * opens up to three options to review instead of the single AI draft.
+   */
+  assistSuggest?: boolean;
 }
 
 /** Time left in an Instagram reply window: "3d", "5h", "12m". */
@@ -206,8 +225,10 @@ export function MessageComposer({
   lastCustomerAt = null,
   now,
   humanAgentEnabled = false,
+  assistSuggest = false,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
+  const tAssist = useTranslations("AiAssist");
   const tGate = useTranslations("GatedButton");
   const tc = useTranslations("Inbox.channel");
   const isInstagram = channel === "instagram";
@@ -224,7 +245,24 @@ export function MessageComposer({
   const overInstagramLimit = isInstagram && textBytes > INSTAGRAM_LIMITS.textBytes;
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  // Suggested replies panel, and the suggestion the current text came from.
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionsKey, setSuggestionsKey] = useState(0);
+  const [aiSuggestionId, setAiSuggestionId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // The composer is reused across conversations: on a switch, close the
+  // suggestions panel (an open panel would otherwise generate, and spend
+  // tokens, for the next conversation unasked) and drop the text and the
+  // suggestion it came from, so one conversation's reply is never sent to
+  // another customer.
+  const [composerConversationId, setComposerConversationId] = useState(conversationId);
+  const reset = assistResetOnSwitch(composerConversationId, conversationId);
+  if (reset) {
+    setComposerConversationId(conversationId);
+    setSuggestionsOpen(reset.suggestionsOpen);
+    setAiSuggestionId(reset.aiSuggestionId);
+    setText(reset.text);
+  }
 
   // Interactive-message builder dialog + quick-reply picker.
   const [interactiveOpen, setInteractiveOpen] = useState(false);
@@ -311,15 +349,16 @@ export function MessageComposer({
 
     setSending(true);
     try {
-      onSend(trimmed, replyTo?.id);
+      onSend(trimmed, replyTo?.id, aiSuggestionId ?? undefined);
       setText("");
+      setAiSuggestionId(null);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
     } finally {
       setSending(false);
     }
-  }, [text, sending, windowClosed, isInstagram, onSend, replyTo?.id]);
+  }, [text, sending, windowClosed, isInstagram, onSend, replyTo?.id, aiSuggestionId]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -334,6 +373,8 @@ export function MessageComposer({
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setText(e.target.value);
+      // Clearing the box drops the link to an AI suggestion.
+      if (!e.target.value.trim()) setAiSuggestionId(null);
       adjustHeight();
     },
     [adjustHeight]
@@ -352,9 +393,20 @@ export function MessageComposer({
         body: JSON.stringify({ conversation_id: conversationId }),
       });
       const data = await res.json().catch(() => ({}));
+      // A health or sensitive question, or a withheld draft: staff reply themselves.
+      if (data.code === "route_to_staff") {
+        toast.warning(tAssist("draftRouteToStaff"));
+        return;
+      }
+      if (data.code === "guard_blocked") {
+        toast.warning(tAssist("draftWithheld"));
+        return;
+      }
       if (!res.ok) {
         if (data.code === "ai_not_configured") {
           toast.error(t("aiNotConfigured"));
+        } else if (data.code === "ai_disabled") {
+          toast.error(tAssist("aiDisabled"));
         } else {
           toast.error(data.error ?? t("draftFailed"));
         }
@@ -366,6 +418,7 @@ export function MessageComposer({
         return;
       }
       setText(draftText);
+      setAiSuggestionId(null);
       // Let the textarea grow to fit and drop the cursor at the end so
       // the agent can tweak immediately.
       requestAnimationFrame(() => {
@@ -381,7 +434,28 @@ export function MessageComposer({
     } finally {
       setDrafting(false);
     }
-  }, [drafting, conversationId, adjustHeight, t]);
+  }, [drafting, conversationId, adjustHeight, t, tAssist]);
+
+  // ✨ with suggested replies on: open (or refresh) the options panel.
+  const handleSuggest = useCallback(() => {
+    setSuggestionsKey((k) => k + 1);
+    setSuggestionsOpen(true);
+  }, []);
+
+  // "Use" puts the option in the box for the agent to edit; nothing is sent.
+  const applySuggestion = useCallback((option: ReplyOptionView) => {
+    setText(option.text);
+    setAiSuggestionId(option.suggestionId);
+    setSuggestionsOpen(false);
+    requestAnimationFrame(() => {
+      adjustHeight();
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    });
+  }, [adjustHeight]);
 
   // ---- Interactive message + quick replies --------------------------
 
@@ -694,6 +768,15 @@ export function MessageComposer({
         </div>
       )}
 
+      {suggestionsOpen && !readOnly && (
+        <AiReplySuggestions
+          key={`${conversationId}:${suggestionsKey}`}
+          conversationId={conversationId}
+          onUse={applySuggestion}
+          onClose={() => setSuggestionsOpen(false)}
+        />
+      )}
+
       {/* Hidden file inputs driven by the attach menu. */}
       <input
         ref={imageInputRef}
@@ -881,9 +964,9 @@ export function MessageComposer({
             canAct={!readOnly}
             gateReason={tGate("reasons.sendMessages")}
             disabled={drafting}
-            title={readOnly ? undefined : t("draftWithAI")}
+            title={readOnly ? undefined : assistSuggest ? tAssist("suggestReplies") : t("draftWithAI")}
             className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-primary"
-            onClick={handleDraft}
+            onClick={assistSuggest ? handleSuggest : handleDraft}
           >
             {drafting ? (
               <Loader2 className="h-4 w-4 animate-spin" />

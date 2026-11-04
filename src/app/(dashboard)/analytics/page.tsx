@@ -16,6 +16,7 @@ import { ConversationCharts, OverviewTiles, type OverviewReport } from '@/compon
 import { NumberFilter, RangePicker, rangeParams, type RangeValue } from '@/components/analytics/range-picker';
 import { reportQuery, useReport } from '@/components/analytics/shared';
 import { ReportsTab } from '@/components/analytics/reports';
+import { AiInsightsPanel } from '@/components/analytics/ai-insights';
 
 export default function AnalyticsPage() {
   const t = useTranslations('Analytics.page');
@@ -73,6 +74,7 @@ export default function AnalyticsPage() {
       <CompareSection query={rangeQuery} campaigns={campaigns.data?.funnel.broadcasts ?? []} showProducts={canSeeAi} />
       {canSeeAi && <CommerceCard query={rangeQuery} />}
       {canSeeAi && <AiSection stats={ai.data?.stats ?? null} loading={ai.loading} error={ai.error} onRetry={ai.retry} />}
+      {canSeeAi && <AiInsightsPanel range={range} />}
       {number && <p className="text-xs text-muted-foreground">{t('numberScope')}</p>}
       {accountRole && hasMinRole(accountRole, 'admin') && <ReportsTab canManage />}
     </div>

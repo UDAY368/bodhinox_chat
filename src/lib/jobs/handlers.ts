@@ -102,6 +102,9 @@ export async function scheduleWork() {
   // Instagram token refresh and health, daily per workspace with a live account; nothing while INSTAGRAM_ENABLED is off.
   await import('@/lib/instagram/token-sweep').then((m) => m.scheduleInstagramSweeps())
     .catch(() => console.error('[worker] instagram sweep scheduling failed'));
+  // AI assistant data retention: daily per workspace with something due.
+  await import('@/lib/ai/retention').then((m) => m.scheduleAiRetention())
+    .catch(() => console.error('[worker] ai retention scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -407,6 +410,14 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // Reminders, customer notices, staff/automation/webhook fan-out, hold expiry and follow-up.
       // Each re-checks the appointment version, so a superseded job is a no-op.
       await (await import('@/lib/appointments/job-handlers')).handleAppointmentJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'ai.assess_conversation')
+      // Advisory intent and lead assessment; writes only ai_assessments, never sends.
+      await (await import('@/lib/ai/assess/job')).handleAssessConversationJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'ai.insight_run')
+      // One insight run from a fixed reporting query; skipped (not failed) when AI is unavailable.
+      await (await import('@/lib/ai/insights/job')).handleInsightRunJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'ai.retention_sweep')
+      await (await import('@/lib/ai/retention')).runAiRetentionSweep(accountId);
     else if (job.type.startsWith('instagram.'))
       // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
       await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

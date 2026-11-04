@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { daysAgoStart, lastNDayKeys, localDayKey } from '@/lib/dashboard/date-utils'
 import { getT } from '@/lib/i18n/translate'
+import { AI_USAGE_MODES, type AiUsageMode } from '@/lib/ai/types'
+import { logAiEvent } from '@/lib/ai/log'
 
 const t = getT('Api')
 
@@ -15,7 +17,7 @@ const DEFAULT_WINDOW_DAYS = 30
 
 interface UsageRow {
   created_at: string
-  mode: 'auto_reply' | 'draft'
+  mode: AiUsageMode
   provider: string
   model: string
   prompt_tokens: number
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
       .limit(MAX_ROWS + 1)
 
     if (error) {
-      console.error('[ai/usage GET] fetch error:', error)
+      logAiEvent({ feature: 'usage', reason: 'load_failed', accountId })
       return NextResponse.json(
         { error: t('ai.loadUsageFailed') },
         { status: 500 },
@@ -82,10 +84,9 @@ export async function GET(request: Request) {
     let totalTokens = 0
 
     // Per-mode + per-model tallies.
-    const byMode = {
-      auto_reply: { calls: 0, tokens: 0 },
-      draft: { calls: 0, tokens: 0 },
-    }
+    // Every mode the DB allows (ai_usage_log_mode_check), so a new mode never throws.
+    const byMode = Object.fromEntries(AI_USAGE_MODES.map((m) => [m, { calls: 0, tokens: 0 }])) as
+      Record<AiUsageMode, { calls: number; tokens: number }>
     const modelMap = new Map<
       string,
       { model: string; provider: string; calls: number; tokens: number }
@@ -104,9 +105,12 @@ export async function GET(request: Request) {
       completionTokens += r.completion_tokens
       totalTokens += r.total_tokens
 
-      // `mode` is DB-CHECK-constrained to these two values.
-      byMode[r.mode].calls += 1
-      byMode[r.mode].tokens += r.total_tokens
+      // `mode` is DB-CHECK-constrained; an unknown value is skipped, never thrown on.
+      const bucketForMode = byMode[r.mode]
+      if (bucketForMode) {
+        bucketForMode.calls += 1
+        bucketForMode.tokens += r.total_tokens
+      }
 
       const mk = `${r.provider}:${r.model}`
       const m =

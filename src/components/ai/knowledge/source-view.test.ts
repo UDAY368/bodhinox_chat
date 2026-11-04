@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isCrawled, shouldPoll, sourceReason, statusVariant } from './source-view'
+import { isCrawled, nextAccess, shouldPoll, sourceReason, statusVariant } from './source-view'
 
 describe('source view helpers', () => {
   it('maps stored reason codes and hides unknown text', () => {
@@ -20,5 +20,18 @@ describe('source view helpers', () => {
     expect(statusVariant('crawling')).toBe('secondary')
     expect(isCrawled('website')).toBe(true)
     expect(isCrawled('file')).toBe(false)
+  })
+})
+
+describe('nextAccess', () => {
+  const open = { min_role: 'agent' as const, customer_facing: true }
+  it('turns customer use off when a source becomes admin-only', () => {
+    expect(nextAccess(open, { min_role: 'admin' })).toEqual({ min_role: 'admin', customer_facing: false })
+  })
+  it('keeps customer use when a source goes back to agents', () => {
+    expect(nextAccess({ min_role: 'admin', customer_facing: false }, { min_role: 'agent' })).toEqual({ min_role: 'agent', customer_facing: false })
+  })
+  it('refuses customer use for an admin-only source', () => {
+    expect(nextAccess({ min_role: 'admin', customer_facing: false }, { customer_facing: true })).toBeNull()
   })
 })

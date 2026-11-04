@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       },
       hooks: {
         beforeAttempt: () => requireAiMessageRoom(accountId),
-        afterAttempt: async (usage) => {
+        afterAttempt: async (usage, estimate) => {
           await recordAiMessage(accountId)
           try {
             void logAiUsage(databaseAdmin({ accountId, userId, role: 'agent' }), {
@@ -96,6 +96,7 @@ export async function POST(request: Request) {
               provider: config.provider,
               model: config.model,
               usage,
+              estimate,
             })
           } catch {
             console.error('[ai/campaign-assistant] usage log skipped')

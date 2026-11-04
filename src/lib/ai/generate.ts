@@ -11,6 +11,10 @@ import { generateOpenAi } from './providers/openai'
 import { generateOpenAiCompatible } from './providers/openai-compatible'
 import { generateAnthropic } from './providers/anthropic'
 import { generateGemini } from './providers/gemini'
+import { assertProviderCallAllowed } from './gate'
+import { testTransport } from './providers/fake'
+
+export { setAiTransportForTests } from './providers/fake'
 
 export interface GenerateArgs {
   config: AiConfig
@@ -20,16 +24,26 @@ export interface GenerateArgs {
   messages: ChatMessage[]
   /** Output token cap. Omit for chat replies (MAX_OUTPUT_TOKENS); JSON generators pass more. */
   maxOutputTokens?: number
+  /** Per-call timeout; defaults to AI_REQUEST_TIMEOUT_MS (aiRequestTimeoutMs). */
+  timeoutMs?: number
 }
 
 /**
  * Generate the next reply from the account's configured provider.
  * Dispatches to the right adapter, then parses the handoff sentinel out
- * of the raw text. Throws `AiError` on any provider/network failure.
+ * of the raw text. Throws `AiError` on any provider/network failure, and
+ * `AiError` ai_disabled (503) before any request while the deployment kill
+ * switch AI_ENABLED is off (see gate.ts).
  */
 export async function generateReply(args: GenerateArgs): Promise<GenerateResult> {
+  assertProviderCallAllowed()
   const { config, systemPrompt, messages, maxOutputTokens } = args
-  const timeoutMs = aiRequestTimeoutMs()
+  const timeoutMs = args.timeoutMs && args.timeoutMs > 0 ? Math.min(args.timeoutMs, aiRequestTimeoutMs()) : aiRequestTimeoutMs()
+  const fake = testTransport()
+  if (fake) {
+    const result = await fake.chat({ model: config.model, systemPrompt, messages, maxOutputTokens, timeoutMs })
+    return parseGeneration(result.text, result.usage)
+  }
   const providerArgs = {
     apiKey: config.apiKey,
     model: config.model,

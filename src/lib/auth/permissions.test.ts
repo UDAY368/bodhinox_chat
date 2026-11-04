@@ -106,3 +106,34 @@ describe('phase 9 fulfilment permissions', () => {
     expect('integrations.meetings').toMatch(/^[a-z_]{1,32}\.[a-z_]{1,32}$/);
   });
 });
+
+describe('phase 13 AI assistant permissions', () => {
+  it('have the designed ceilings and match the restriction pattern', () => {
+    expect(FEATURE_PERMISSIONS['ai.assist']).toBe('agent');
+    expect(FEATURE_PERMISSIONS['ai.assess']).toBe('agent');
+    expect(FEATURE_PERMISSIONS['ai.insights']).toBe('agent');
+    expect(FEATURE_PERMISSIONS['ai.knowledge']).toBe('admin');
+    expect(FEATURE_PERMISSIONS['ai.settings']).toBe('admin');
+    for (const p of ['ai.assist', 'ai.assess', 'ai.insights', 'ai.knowledge', 'ai.settings'])
+      expect(p).toMatch(/^[a-z_]{1,32}\.[a-z_]{1,32}$/);
+  });
+
+  it('never reach viewers, and keep admin-only keys from agents', () => {
+    for (const p of ['ai.assist', 'ai.assess', 'ai.insights', 'ai.knowledge', 'ai.settings'] as const)
+      expect(roleAllows('viewer', p)).toBe(false);
+    expect(roleAllows('agent', 'ai.assist')).toBe(true);
+    expect(roleAllows('agent', 'ai.knowledge')).toBe(false);
+    expect(roleAllows('agent', 'ai.settings')).toBe(false);
+    expect(roleAllows('admin', 'ai.settings')).toBe(true);
+  });
+
+  it('a workspace restriction takes ai.assist from agents but never from owners', () => {
+    const matrix = permissionMatrix(new Set(['agent:ai.assist', 'admin:ai.insights']));
+    expect(matrix.agent['ai.assist']).toBe(false);
+    expect(matrix.admin['ai.assist']).toBe(true);
+    expect(matrix.admin['ai.insights']).toBe(false);
+    expect(matrix.owner['ai.insights']).toBe(true);
+    expect(isFeaturePermission('ai.assist')).toBe(true);
+    expect(isFeaturePermission('ai.everything')).toBe(false);
+  });
+});

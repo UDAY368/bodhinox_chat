@@ -22,7 +22,7 @@ vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
 vi.mock('./context', () => ({ buildConversationContext: h.buildConversationContext }))
 vi.mock('./knowledge', () => ({ retrieveKnowledgeScored: h.retrieveKnowledgeScored }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
-vi.mock('./usage', () => ({ logAiUsage: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('./usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('./unanswered', () => ({ recordUnanswered: h.recordUnanswered }))
 vi.mock('./agent-profile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./agent-profile')>()),

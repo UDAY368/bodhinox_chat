@@ -20,6 +20,7 @@ import type { Contact, ConversationChannel } from '@/types';
 import { ChannelBadge } from '@/components/inbox/channel-badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AssessmentPanel } from '@/components/inbox/ai-assessment/assessment-panel';
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -28,6 +29,8 @@ interface ContactSidebarProps {
   onCollapse?: () => void;
   /** The open conversation's channel (from its row); Instagram is marked. */
   channel?: ConversationChannel;
+  /** The open conversation, for its advisory AI assessment (hidden without it). */
+  conversationId?: string | null;
 }
 
 export function ContactSidebar({
@@ -36,6 +39,7 @@ export function ContactSidebar({
   onUpdated,
   onCollapse,
   channel = 'whatsapp',
+  conversationId,
 }: ContactSidebarProps) {
   const t = useTranslations('Inbox.sidebar');
   const tThread = useTranslations('Inbox.messageThread');
@@ -206,6 +210,7 @@ export function ContactSidebar({
           )}
           {data && (
             <>
+              <AssessmentPanel conversationId={conversationId} refreshToken={refreshToken} />
               <section className={sectionClass}>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-xs font-semibold uppercase">

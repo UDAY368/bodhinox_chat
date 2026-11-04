@@ -635,6 +635,8 @@ model ai_usage_log {
   total_tokens Int  @default(0)
   created_at DateTime @db.Timestamptz(6) @default(now())
   @@unique([account_id, id])
+  // 20261111101000_ai_usage_log_created_index (built CONCURRENTLY by the SQL).
+  @@index([created_at], map: "ai_usage_log_created_idx")
 }
 
 model quick_replies {
@@ -1458,6 +1460,10 @@ model ai_knowledge_sources {
   created_by String? @db.Uuid
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  /// Phase 13 (20261111100400_ai_knowledge_access): 'agent' | 'admin'; who may read this source's documents.
+  min_role String @default("agent")
+  /// Phase 13: may ground customer-facing text (only with min_role 'agent', CHECK-enforced).
+  customer_facing Boolean @default(true)
   @@unique([account_id, id])
 }
 
@@ -2553,4 +2559,95 @@ model instagram_comment_events {
   // instagram_comment_events_rate_idx (partial) is owned by the SQL.
   @@unique([account_id, id])
   @@unique([instagram_account_id, comment_id])
+}
+
+/// Phase 13 (20261111100000_ai_workspace_settings): per-workspace AI assistant switches; a missing row means all off.
+model ai_workspace_settings {
+  account_id String @db.Uuid @id @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  summaries_enabled Boolean @default(false)
+  suggestions_enabled Boolean @default(false)
+  assessment_enabled Boolean @default(false)
+  insights_enabled Boolean @default(false)
+  monthly_token_cap BigInt?
+  updated_by String? @db.Uuid
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+/// Phase 13 (20261111100100_ai_suggestions): staff-reviewed summaries and suggested replies; never sent by the system.
+model ai_suggestions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  /// 'summary' | 'reply' | 'route_to_staff'
+  kind String
+  /// 'shown' | 'accepted' | 'edited' | 'rejected'
+  status String @default("shown")
+  output Json @db.JsonB
+  citations Json @db.JsonB @default("[]")
+  guard_flags String[] @default([])
+  provider String?
+  model String?
+  prompt_version String
+  created_by String @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  decided_by String? @db.Uuid
+  decided_at DateTime? @db.Timestamptz(6)
+  sent_message_id String? @db.Uuid
+  edit_distance Int? @db.SmallInt
+  // The partial index ai_suggestions_sent_message_idx (WHERE sent_message_id IS NOT NULL) is owned by the SQL.
+  @@unique([account_id, id])
+  @@index([created_at], map: "ai_suggestions_created_idx")
+  @@index([account_id, created_at(sort: Desc)], map: "ai_suggestions_account_created_idx")
+  @@index([account_id, conversation_id, created_at(sort: Desc)], map: "ai_suggestions_conversation_idx")
+}
+
+/// Phase 13 (20261111100200_ai_assessments): advisory intent and lead assessment, written by the worker only.
+model ai_assessments {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  conversation_id String @db.Uuid
+  intent String
+  intent_confidence Int @db.SmallInt
+  lead_score Int? @db.SmallInt
+  qualification Json @db.JsonB
+  rationale String
+  source_message_ids String[] @db.Uuid
+  /// 'model' | 'deterministic'
+  source String
+  model String?
+  prompt_version String
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  superseded_at DateTime? @db.Timestamptz(6)
+  // The partial indexes ai_assessments_current_key (unique) and ai_assessments_contact_idx
+  // (WHERE superseded_at IS NULL) and ai_assessments_superseded_idx (WHERE superseded_at IS NOT NULL)
+  // are owned by the SQL.
+  @@unique([account_id, id])
+  @@index([created_at], map: "ai_assessments_created_idx")
+}
+
+/// Phase 13 (20261111100300_ai_insight_runs): insights from fixed reporting queries.
+model ai_insight_runs {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  requested_by String @db.Uuid
+  insight_key String
+  range_from DateTime @db.Date
+  range_to DateTime @db.Date
+  /// 'queued' | 'running' | 'done' | 'skipped' | 'failed'
+  status String @default("queued")
+  data Json? @db.JsonB
+  coverage Json? @db.JsonB
+  caveats String[] @default([])
+  uncertainty String?
+  narrative String?
+  narrative_source String?
+  guard_flags String[] @default([])
+  source_links Json @db.JsonB @default("[]")
+  error_code String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  completed_at DateTime? @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([created_at], map: "ai_insight_runs_created_idx")
+  @@index([account_id, created_at(sort: Desc)], map: "ai_insight_runs_account_created_idx")
 }

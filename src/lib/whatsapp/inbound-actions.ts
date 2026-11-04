@@ -18,6 +18,8 @@ import { applyInboundLifecycle } from "@/lib/inbox/lifecycle";
 import { sendAwayMessage } from "@/lib/inbox/away-message";
 import { parseHoldCodeMessage } from "@/lib/appointments/types";
 import { handleBookingCode } from "@/lib/appointments/inbound";
+import { aiDeploymentEnabled } from "@/lib/ai/gate";
+import { enqueueAssessmentForInbound } from "@/lib/ai/assess/enqueue";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function validatePayload(input: InboundActionsPayload): void {
@@ -122,6 +124,11 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       conversation_id:input.conversationId,contact_id:input.contactId,whatsapp_message_id:input.metaMessageId,
       content_type:input.contentType,content_text:input.contentText,
     }));
+    // Advisory AI assessment (Phase 13): only queues a debounced job for typed
+    // customer text, never sends, and never throws. The env check keeps the
+    // stage off the hot path when the deployment kill switch is off.
+    if(!keyword&&!contact?.blocked_at&&input.contentType==="text"&&!input.interactiveReplyId&&text.trim()&&aiDeploymentEnabled())
+      await stage("ai_assess",()=>enqueueAssessmentForInbound(input.accountId,input.conversationId));
   });
 }
 

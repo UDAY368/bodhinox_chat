@@ -64,3 +64,12 @@ describe('buildHandoffSummary', () => {
     expect(summary).toBe('🤖 AI agent handed off without replying.')
   })
 })
+
+describe('buildHandoffSummary with a safety reason', () => {
+  it('tells staff why the AI stood down', () => {
+    expect(buildHandoffSummary({ messages: [], replyCount: 0, reason: 'sensitive_topic' }))
+      .toBe('🤖 AI agent handed off without replying. Sensitive or health topic: route to qualified staff.')
+    expect(buildHandoffSummary({ messages: [{ role: 'user', content: 'ok' }], replyCount: 1, reason: 'guard_blocked' }))
+      .toBe('🤖 AI agent handed off after 1 reply. Its answer was withheld by a safety check: please reply yourself. Last customer message: “ok”')
+  })
+})

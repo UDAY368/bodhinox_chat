@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  ACCEPTED_UPLOADS, isCrawled, isRunning, shouldPoll, sourceReason, statusVariant, UPLOAD_MAX_BYTES,
-  type KnowledgeSourceView,
+  ACCEPTED_UPLOADS, isCrawled, isRunning, nextAccess, shouldPoll, sourceReason, statusVariant, UPLOAD_MAX_BYTES,
+  type AccessPatch, type KnowledgeSourceView,
 } from './source-view';
 
 export interface KnowledgePanelProps {
@@ -23,14 +24,20 @@ export interface KnowledgePanelProps {
   hasEmbeddingsKey?: boolean;
   /** Called after a source is added or removed, e.g. to refresh a setup checklist. */
   onChange?: () => void;
+  /**
+   * Admins may change who sees each source and whether it grounds customer
+   * replies (the server also requires the 'ai.knowledge' permission). Defaults to canEdit.
+   */
+  canManageAccess?: boolean;
 }
 
 type AddMode = 'website' | 'sitemap' | 'text' | 'file';
 const POLL_MS = 5_000;
 
 /** Knowledge sources for the AI agent: websites, sitemaps, files and text, with crawl status. */
-export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange }: KnowledgePanelProps) {
+export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange, canManageAccess = canEdit }: KnowledgePanelProps) {
   const t = useTranslations('AiKnowledgeSources');
+  const ta = useTranslations('AiKnowledgeAccess');
   const format = useFormatter();
   const [sources, setSources] = useState<KnowledgeSourceView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +118,24 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange }: K
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { toast.error(data.error ?? t('actionFailed')); return; }
       toast.success(t('recrawlQueued'));
+      setSources((list) => list.map((s) => (s.id === source.id ? data.source : s)));
+    } catch {
+      toast.error(t('actionFailed'));
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const changeAccess = async (source: KnowledgeSourceView, patch: AccessPatch) => {
+    if (!nextAccess(source, patch)) { toast.error(ta('adminOnlyNotCustomer')); return; }
+    setPending(source.id);
+    try {
+      const res = await authFetch(`/api/ai/knowledge/sources/${source.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(res.status === 403 ? ta('forbidden') : data.error ?? t('actionFailed')); return; }
+      toast.success(ta('saved'));
       setSources((list) => list.map((s) => (s.id === source.id ? data.source : s)));
     } catch {
       toast.error(t('actionFailed'));
@@ -242,6 +267,29 @@ export function KnowledgePanel({ canEdit, hasEmbeddingsKey = true, onChange }: K
                     </p>
                     {reason && (
                       <p className={`text-xs ${source.status === 'failed' ? 'text-destructive' : 'text-amber-600'}`}>{t(`reasons.${reason}`)}</p>
+                    )}
+                    {canManageAccess ? (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-xs">
+                        <label className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{ta('visibleTo')}</span>
+                          <select className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+                            value={source.min_role} disabled={pending === source.id}
+                            onChange={(e) => changeAccess(source, { min_role: e.target.value === 'admin' ? 'admin' : 'agent' })}>
+                            <option value="agent">{ta('roles.agent')}</option>
+                            <option value="admin">{ta('roles.admin')}</option>
+                          </select>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <Switch checked={source.customer_facing} disabled={pending === source.id || source.min_role === 'admin'}
+                            onCheckedChange={(checked) => changeAccess(source, { customer_facing: checked === true })} />
+                          <span className="text-muted-foreground">{ta('customerFacing')}</span>
+                        </label>
+                        {source.min_role === 'admin' && <span className="text-muted-foreground">{ta('adminOnlyHint')}</span>}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {ta(source.customer_facing ? 'summaryCustomer' : 'summaryStaff')}
+                      </p>
                     )}
                   </div>
                   {canEdit && (

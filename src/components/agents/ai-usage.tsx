@@ -4,7 +4,7 @@ import { authFetch } from "@/lib/auth/client";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { BarChart3, Bot, PencilLine } from 'lucide-react';
+import { BarChart3, Bot, PencilLine, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
 import {
@@ -25,6 +25,12 @@ import { Skeleton } from '@/components/dashboard/skeleton';
 import { BarChart } from '@/components/tremor/bar-chart';
 import { formatCompactNumber } from '@/lib/currency';
 import { format, parseISO } from 'date-fns';
+import type { AiUsageMode } from '@/lib/ai/types';
+
+/** The AI assistant features (summaries, suggestions, assessments, insights), shown as one total. */
+const ASSISTANT_MODES: readonly AiUsageMode[] = ['summary', 'suggest', 'assess', 'insights'];
+const modeTokens = (byMode: Partial<Record<AiUsageMode, { tokens: number }>>, modes: readonly AiUsageMode[]) =>
+  modes.reduce((n, m) => n + (byMode[m]?.tokens ?? 0), 0);
 
 interface UsageResponse {
   window_days: number;
@@ -35,10 +41,8 @@ interface UsageResponse {
     completion_tokens: number;
     total_tokens: number;
   };
-  by_mode: {
-    auto_reply: { calls: number; tokens: number };
-    draft: { calls: number; tokens: number };
-  };
+  /** One entry per ai_usage_log mode (the route fills every mode). */
+  by_mode: Record<AiUsageMode, { calls: number; tokens: number }>;
   by_model: {
     model: string;
     provider: string;
@@ -154,14 +158,21 @@ export function AiUsageCard() {
               <Stat label={t('llmCalls')} value={String(data.totals.calls)} />
               <Stat
                 label={t('autoReply')}
-                value={formatCompactNumber(data.by_mode.auto_reply.tokens)}
+                value={formatCompactNumber(modeTokens(data.by_mode, ['auto_reply']))}
                 icon={Bot}
               />
               <Stat
                 label={t('drafts')}
-                value={formatCompactNumber(data.by_mode.draft.tokens)}
+                value={formatCompactNumber(modeTokens(data.by_mode, ['draft']))}
                 icon={PencilLine}
               />
+              {modeTokens(data.by_mode, ASSISTANT_MODES) > 0 && (
+                <Stat
+                  label={t('assistant')}
+                  value={formatCompactNumber(modeTokens(data.by_mode, ASSISTANT_MODES))}
+                  icon={Sparkles}
+                />
+              )}
             </div>
 
             <div>

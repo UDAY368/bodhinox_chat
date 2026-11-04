@@ -20,7 +20,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/generate', () => ({ generateReply: mocks.generateReply }))
-vi.mock('@/lib/ai/usage', () => ({ logAiUsage: vi.fn() }))
+vi.mock('@/lib/ai/usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: vi.fn() }))
 vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: () => ({}) }))
 vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: mocks.requireAiMessageRoom, recordAiMessage: mocks.recordAiMessage }))
 

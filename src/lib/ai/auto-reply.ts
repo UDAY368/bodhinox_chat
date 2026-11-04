@@ -6,9 +6,12 @@ import { generateReply } from './generate'
 import { buildAgentSystemPrompt, loadAgentProfileTx, matchHandoffKeyword, type AgentProfile } from './agent-profile'
 import { assessConfidence, type RetrievalScores } from './confidence'
 import { recordUnanswered } from './unanswered'
-import { buildHandoffSummary } from './handoff'
-import { logAiUsage } from './usage'
-import { latestUserMessage } from './query'
+import { buildHandoffSummary, pauseConversationForStaff, type HandoffGuardReason } from './handoff'
+import { logAiEvent } from './log'
+import { classifySensitive, hasUncoveredScript } from './safety/sensitive'
+import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from './assist/guards'
+import { logAiUsage, promptCharsOf } from './usage'
+import { latestUserMessage, recentCustomerText } from './query'
 import { getSessionWindow } from '@/lib/inbox/session'
 import {
   conversationNumberDisconnected,
@@ -102,18 +105,10 @@ export async function dispatchInboundToAiReply(
   const pauseForHuman = async (summary: string, handoffAgentId?: string | null) => {
     const current = await eligible()
     if (!current) return
-    const update: Record<string, unknown> = {
-      ai_autoreply_disabled: true, bot_paused: true, ai_handoff_summary: summary,
-      // Analytics counts handoffs by this time; resuming AI keeps it.
-      ai_handoff_at: new Date().toISOString(),
-    }
-    if (handoffAgentId) update.assigned_agent_id = handoffAgentId
-    // Compare ownership at the UPDATE itself so a new human assignee wins.
-    await db.from('conversations').update(update)
-      .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId)
-      .is('assigned_agent_id', null).eq('bot_paused', false).eq('ai_autoreply_disabled', false)
-      .eq('last_customer_message_at', current.last_customer_message_at)
-      .gt('last_customer_message_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    await pauseConversationForStaff(db, {
+      accountId, conversationId, contactId, summary, handoffAgentId,
+      observedCustomerAt: current.last_customer_message_at,
+    })
   }
   const unavailable = async () => {
     if (requireHandoffOnUnavailable) await pauseForHuman('AI agent handed off: AI assistance is unavailable. A human should review the latest customer message.')
@@ -160,13 +155,16 @@ export async function dispatchInboundToAiReply(
     const profile = await loadProfile(accountId)
     const rules = profile?.handoff_rules
     const question = latestUserMessage(messages)
-    const handOff = () => pauseForHuman(
-      buildHandoffSummary({ messages, replyCount: conv.ai_reply_count ?? 0 }),
+    // Routing checks every customer turn since the last reply, so a burst
+    // ("<health question>", then "hello??") is still routed to staff.
+    const recent = recentCustomerText(messages)
+    const handOff = (reason?: HandoffGuardReason) => pauseForHuman(
+      buildHandoffSummary({ messages, replyCount: conv.ai_reply_count ?? 0, reason }),
       config.handoffAgentId,
     )
     // Operator handoff rules run before any model call: a keyword in the
     // customer's message, or the AI has already replied enough times.
-    if (rules && matchHandoffKeyword(question, rules)) {
+    if (rules && matchHandoffKeyword(recent, rules)) {
       console.info('[ai auto-reply] handed off', { reason: 'handoff_keyword' })
       await handOff()
       return
@@ -174,6 +172,13 @@ export async function dispatchInboundToAiReply(
     if (rules && rules.max_turns_before_handoff > 0 && (conv.ai_reply_count ?? 0) >= rules.max_turns_before_handoff) {
       console.info('[ai auto-reply] handed off', { reason: 'max_turns' })
       await handOff()
+      return
+    }
+    // A health or safety-sensitive question goes to qualified staff, before
+    // any model call (the existing handoff: summary note plus assignment).
+    if (classifySensitive(recent).sensitive) {
+      logAiEvent({ feature: 'auto_reply', reason: 'sensitive_topic', accountId })
+      await handOff('sensitive_topic')
       return
     }
 
@@ -187,9 +192,7 @@ export async function dispatchInboundToAiReply(
       RATE_LIMITS.aiAutoReplyAccount,
     )
     if (!acctLimit.success) {
-      console.warn(
-        `[ai auto-reply] account ${accountId} hit the per-account rate limit — skipping this inbound.`,
-      )
+      logAiEvent({ feature: 'auto_reply', reason: 'rate_limited', accountId })
       await unavailable()
       return
     }
@@ -215,11 +218,13 @@ export async function dispatchInboundToAiReply(
     }
 
     // Ground the reply in the account's knowledge base (best-effort).
-    const { chunks, retrieval } = await retrieveKnowledgeScored(
+    const { chunks, retrieval, citations } = await retrieveKnowledgeScored(
       db,
       accountId,
       config,
       question,
+      5,
+      'customer',
     )
     const knowledge = chunks.map((c) => c.content)
 
@@ -231,10 +236,11 @@ export async function dispatchInboundToAiReply(
       legacyPrompt: config.systemPrompt,
     })
 
+    // Personal data in customer messages is masked before it leaves for the provider.
     const { text: rawText, handoff, noAnswer, usage } = await generateReply({
       config,
       systemPrompt,
-      messages,
+      messages: redactChat(messages).messages,
     })
     await recordAiMessage(accountId, getWorkerPrisma())
 
@@ -250,6 +256,7 @@ export async function dispatchInboundToAiReply(
       provider: config.provider,
       model: config.model,
       usage,
+      estimate: { promptChars: promptCharsOf(systemPrompt, messages), outputChars: rawText.length },
     })
 
     if (!await eligible()) return
@@ -263,12 +270,31 @@ export async function dispatchInboundToAiReply(
       retrieval,
       threshold: autoReplyThreshold(rules?.confidence_threshold ?? 0, retrieval),
     })
-    const text = confidence.text
+    let text = confidence.text
     const lowConfidence = confidence.reason === 'low_score' && (rules?.on_low_confidence ?? false)
     const handingOff = !confidence.confident && (confidence.reason !== 'low_score' || lowConfidence)
     // The question the agent could not answer goes to the Learnings list
     // (stored, never logged).
     if (handingOff) await noteUnanswered(accountId, question, conversationId, contactId)
+
+    if (!handingOff) {
+      // Output guards: no medical advice, no claim that a payment, refund,
+      // attendance, shipment or delivery happened, no unreadable script for a
+      // health-type workspace, and only allowed links. A blocked answer is
+      // never sent; the conversation goes to a human instead.
+      const health = hasUncoveredScript(text) ? await healthWorkspace(accountId, profile) : false
+      const guarded = guardCustomerText(text, {
+        allow: urlAllowlist({ citations, profile, legacyPrompt: config.systemPrompt }),
+        healthWorkspace: health,
+      })
+      if (!guarded.ok) {
+        logAiEvent({ feature: 'auto_reply', reason: 'guard_blocked', accountId, flags: guarded.flags })
+        await handOff('guard_blocked')
+        return
+      }
+      text = guarded.text
+      if (!text.trim()) { await handOff('guard_blocked'); return }
+    }
 
     if (handingOff) {
       // The model can't (or shouldn't) answer — stop auto-replying on
@@ -364,6 +390,15 @@ async function showTypingIndicator(
     })
   } catch (err) {
     console.warn('[ai auto-reply] typing indicator failed (continuing)', { error: err instanceof Error ? err.name : 'unknown' })
+  }
+}
+
+/** Health-type workspace (fail closed: true when it cannot be read). */
+async function healthWorkspace(accountId: string, profile: AgentProfile | null): Promise<boolean> {
+  try {
+    return await withTenant({ accountId, role: 'owner' }, (tx) => isHealthWorkspace(tx, accountId, profile), getWorkerPrisma())
+  } catch {
+    return true
   }
 }
 

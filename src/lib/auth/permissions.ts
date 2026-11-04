@@ -37,6 +37,14 @@ export const FEATURE_PERMISSIONS = {
   // saving an automation that ends active publishes it (same ceiling as today's agent check).
   'flows.replay': 'admin',
   'automations.publish': 'agent',
+  // Phase 13: AI business assistant. Summaries, suggested replies (and Draft) and reading
+  // assessments; refreshing an assessment; requesting insights (each insight also has its own
+  // minimum role); knowledge source access controls; the AI switches, caps and quality page.
+  'ai.assist': 'agent',
+  'ai.assess': 'agent',
+  'ai.insights': 'agent',
+  'ai.knowledge': 'admin',
+  'ai.settings': 'admin',
 } as const satisfies Record<string, AccountRole>;
 
 export type FeaturePermission = keyof typeof FEATURE_PERMISSIONS;

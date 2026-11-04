@@ -118,3 +118,28 @@ describe('Gemini agent playground workflow', () => {
     expect(data).toMatchObject({ reply: 'We are open from 9am to 5pm.', handoff: false, reason: 'answered' })
   })
 })
+
+describe('deployment kill switch (phase 13)', () => {
+  afterEach(() => { vi.unstubAllEnvs() })
+
+  it('runs exactly as before when AI_ENABLED is unset, retrieving the customer audience', async () => {
+    delete process.env.AI_ENABLED
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Open 9 to 5.' }] } }] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await POST(new Request('https://crm.test/api/ai/playground', { method: 'POST', body: JSON.stringify({ messages: [{ role: 'user', content: 'When are you open?' }] }) }))
+    expect(response.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mocks.retrieveKnowledgeScored).toHaveBeenCalledWith({}, 'account-1', expect.anything(), 'When are you open?', 5, 'customer')
+  })
+
+  it('answers 503 ai_disabled and calls no provider when AI_ENABLED=false', async () => {
+    vi.stubEnv('AI_ENABLED', 'false')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await POST(new Request('https://crm.test/api/ai/playground', { method: 'POST', body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }) }))
+    expect(response.status).toBe(503)
+    expect((await response.json()).code).toBe('ai_disabled')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mocks.loadAiConfig).not.toHaveBeenCalled()
+  })
+})

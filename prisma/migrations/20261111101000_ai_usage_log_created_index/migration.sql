@@ -1,0 +1,14 @@
+-- Phase 13: age index for ai_usage_log, built CONCURRENTLY. ai_usage_log gets
+-- one row per provider call, so a plain CREATE INDEX would hold a SHARE lock
+-- and block those inserts for the whole build. It turns the retention due
+-- check (crm_accounts_with_ai_retention_due) into an empty range probe until
+-- a row is 400 days old, and lets the per-workspace oldest-first delete walk
+-- created_at instead of scanning the workspace's whole log.
+--
+-- This file holds a single statement on purpose: CREATE INDEX CONCURRENTLY
+-- cannot run inside a transaction block. If a deploy is interrupted mid-build,
+-- PostgreSQL leaves an INVALID index; drop it (DROP INDEX CONCURRENTLY
+-- ai_usage_log_created_idx) and mark the migration rolled back
+-- (prisma migrate resolve --rolled-back 20261111101000_ai_usage_log_created_index)
+-- before re-running.
+CREATE INDEX CONCURRENTLY ai_usage_log_created_idx ON ai_usage_log (created_at);

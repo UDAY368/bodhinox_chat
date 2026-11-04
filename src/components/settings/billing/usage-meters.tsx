@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LIMITS, type LimitKey } from '@/lib/billing/entitlements-catalogue';
 import type { PlanView } from '@/lib/billing/client';
 
-const MONTHLY: readonly LimitKey[] = ['ai_messages', 'monthly_active_contacts'];
+const MONTHLY: readonly LimitKey[] = ['ai_messages', 'monthly_active_contacts', 'ai_tokens_monthly'];
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
 
 /** 1536 -> { value: 1.5, unit: 'KB' } (binary units, as plans define storage). */

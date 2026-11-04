@@ -23,6 +23,14 @@
 // A run that keeps failing is marked 'crawl_failed' on its last attempt.
 // Without an embeddings key nothing is fetched and the source is marked
 // failed with a reason code. Fetched text, titles and URLs are never logged.
+//
+// Access (Phase 13): each source says who may see it (min_role: 'agent' =
+// agents and above, 'admin' = admins only) and whether it may ground
+// customer-facing text (customer_facing). An admin-only source never grounds
+// customer text (CHECK in SQL, refused here first). Choosing access other
+// than the default needs admin plus the 'ai.knowledge' permission (checked by
+// the routes) and is audited. Below admin, an admin-only source is left out of
+// the list and its pages (the document policy hides its documents too).
 
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
@@ -58,7 +66,14 @@ export type SourceErrorCode =
   | 'embeddings_key_missing' | 'embeddings_key_corrupt' | 'invalid_url' | 'blocked' | 'robots_disallowed'
   | 'robots_unreachable' | 'no_pages' | 'embedding_failed' | 'embedding_partial' | 'crawl_failed' | 'crawl_partial'
 
-export interface KnowledgeSource {
+export type SourceMinRole = 'agent' | 'admin'
+
+export interface SourceAccess {
+  min_role: SourceMinRole
+  customer_facing: boolean
+}
+
+export interface KnowledgeSource extends SourceAccess {
   id: string
   kind: SourceKind
   url: string | null
@@ -89,24 +104,57 @@ export class KnowledgeSourceError extends Error {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const title = z.string().trim().min(1).max(SOURCE_TITLE_MAX)
+const minRole = z.enum(['agent', 'admin'])
 export const sourceInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.enum(['website', 'sitemap']),
     url: z.string().trim().min(1).max(2048),
     title: title.optional(),
     page_limit: z.number().int().min(1).max(MAX_PAGE_LIMIT).optional(),
+    min_role: minRole.optional(),
+    customer_facing: z.boolean().optional(),
   }).strict(),
   z.object({
     kind: z.literal('text'),
     title,
     content: z.string().trim().min(1).max(TEXT_SOURCE_MAX_CHARS),
+    min_role: minRole.optional(),
+    customer_facing: z.boolean().optional(),
   }).strict(),
 ])
 export type SourceInput = z.infer<typeof sourceInputSchema>
 
+/** The pairing rule: an admin-only source can never ground customer-facing text. */
+export const validAccess = (a: SourceAccess): boolean => !a.customer_facing || a.min_role === 'agent'
+
+/**
+ * The access a new source gets: agents and above, used in customer replies,
+ * unless given. Choosing 'admin' alone also turns customer use off. Throws
+ * invalid_input for an admin-only source used in customer replies.
+ */
+export function resolveAccess(input: Partial<SourceAccess>): SourceAccess {
+  const min_role = input.min_role ?? 'agent'
+  const access: SourceAccess = { min_role, customer_facing: input.customer_facing ?? min_role === 'agent' }
+  if (!validAccess(access)) throw new KnowledgeSourceError('invalid_input')
+  return access
+}
+
+/** True when the input chooses access explicitly (the routes then require 'ai.knowledge'). */
+export const setsAccess = (input: Partial<SourceAccess>): boolean => input.min_role !== undefined || input.customer_facing !== undefined
+
+const accessSchema = z.object({ min_role: minRole.optional(), customer_facing: z.boolean().optional() }).strict()
+
+/** A PATCH body: at least one of min_role, customer_facing. Throws invalid_input. */
+export function parseAccessPatch(body: unknown): Partial<SourceAccess> {
+  const parsed = accessSchema.safeParse(body)
+  if (!parsed.success || !setsAccess(parsed.data)) throw new KnowledgeSourceError('invalid_input')
+  return parsed.data
+}
+
 export function parseSourceInput(body: unknown): SourceInput {
   const parsed = sourceInputSchema.safeParse(body)
   if (!parsed.success) throw new KnowledgeSourceError('invalid_input')
+  resolveAccess(parsed.data)
   if (parsed.data.kind === 'website' || parsed.data.kind === 'sitemap') {
     const raw = /^https?:\/\//i.test(parsed.data.url) ? parsed.data.url : `https://${parsed.data.url}`
     const checked = checkCrawlUrl(raw)
@@ -121,12 +169,14 @@ function assertRole(ctx: TenantContext, min: AccountRole): void {
   if (!ctx.role || !hasMinRole(ctx.role, min)) throw new KnowledgeSourceError('forbidden')
 }
 
-const SOURCE_COLUMNS = 'id::text, kind, url, title, status, page_limit, pages_indexed, last_crawled_at, error, created_by::text, current_run_id::text, created_at, updated_at'
+const SOURCE_COLUMNS = 'id::text, kind, url, title, status, page_limit, pages_indexed, last_crawled_at, error, min_role, customer_facing, created_by::text, current_run_id::text, created_at, updated_at'
 type SourceRow = Omit<KnowledgeSource, 'last_crawled_at' | 'created_at' | 'updated_at'> &
   { last_crawled_at: Date | null; created_at: Date; updated_at: Date; created_by: string | null; current_run_id: string | null }
 const toSource = (r: SourceRow): KnowledgeSource => ({
   id: r.id, kind: r.kind, url: r.url, title: r.title, status: r.status, page_limit: r.page_limit,
   pages_indexed: r.pages_indexed, error: r.error,
+  // Rows read before the Phase 13 columns existed (or a mocked row) keep the defaults.
+  min_role: r.min_role === 'admin' ? 'admin' : 'agent', customer_facing: r.customer_facing !== false,
   last_crawled_at: r.last_crawled_at ? r.last_crawled_at.toISOString() : null,
   created_at: r.created_at.toISOString(),
   updated_at: r.updated_at.toISOString(),
@@ -147,10 +197,14 @@ export async function queueCrawlJob(tx: TenantTransaction, accountId: string, pa
     ON CONFLICT(dedupe_key) DO NOTHING`
 }
 
+/** Below admin, admin-only sources are not shown at all. */
+const seesAdminSources = (ctx: TenantContext): boolean => !!ctx.role && hasMinRole(ctx.role, 'admin')
+
 export async function listSources(ctx: TenantContext): Promise<KnowledgeSource[]> {
   assertRole(ctx, 'viewer')
+  const filter = seesAdminSources(ctx) ? '' : ` AND min_role = 'agent'`
   return withTenant(ctx, async (tx) => (await tx.$queryRawUnsafe<SourceRow[]>(
-    `SELECT ${SOURCE_COLUMNS} FROM ai_knowledge_sources WHERE account_id=$1::uuid ORDER BY created_at DESC LIMIT 200`, ctx.accountId,
+    `SELECT ${SOURCE_COLUMNS} FROM ai_knowledge_sources WHERE account_id=$1::uuid${filter} ORDER BY created_at DESC LIMIT 200`, ctx.accountId,
   )).map(toSource))
 }
 
@@ -159,7 +213,7 @@ export async function getSource(ctx: TenantContext, id: string): Promise<{ sourc
   if (!UUID.test(id)) return null
   return withTenant(ctx, async (tx) => {
     const row = await selectSource(tx, ctx.accountId, id)
-    if (!row) return null
+    if (!row || (row.min_role === 'admin' && !seesAdminSources(ctx))) return null
     const pages = await tx.$queryRaw<{ id: string; title: string; source_url: string | null; fetched_at: Date | null }[]>`
       SELECT id::text, title, source_url, fetched_at FROM ai_knowledge_documents
       WHERE account_id=${ctx.accountId}::uuid AND source_id=${id}::uuid ORDER BY source_url NULLS FIRST, title LIMIT 500`
@@ -183,16 +237,19 @@ export async function createSource(ctx: TenantContext, input: SourceInput): Prom
     await assertRoom(tx, ctx.accountId)
     const runId = randomUUID()
     let row: SourceRow
+    const access = resolveAccess(input)
     if (input.kind === 'text') {
-      row = await insertSourceWithDocument(tx, ctx, 'text', input.title, input.content, runId)
+      row = await insertSourceWithDocument(tx, ctx, 'text', input.title, input.content, runId, access)
     } else {
       const name = input.title ?? new URL(input.url).hostname
       row = (await tx.$queryRawUnsafe<SourceRow[]>(
-        `INSERT INTO ai_knowledge_sources(account_id, kind, url, title, status, page_limit, created_by, current_run_id)
-         VALUES ($1::uuid, $2, $3, $4, 'queued', $5, $6::uuid, $7::uuid) RETURNING ${SOURCE_COLUMNS}`,
+        `INSERT INTO ai_knowledge_sources(account_id, kind, url, title, status, page_limit, created_by, current_run_id, min_role, customer_facing)
+         VALUES ($1::uuid, $2, $3, $4, 'queued', $5, $6::uuid, $7::uuid, $8, $9) RETURNING ${SOURCE_COLUMNS}`,
         ctx.accountId, input.kind, input.url, name.slice(0, SOURCE_TITLE_MAX), input.page_limit ?? DEFAULT_PAGE_LIMIT, ctx.userId ?? null, runId,
+        access.min_role, access.customer_facing,
       ))[0]
     }
+    if (setsAccess(input)) await auditAccess(tx, ctx, row.id, access)
     await queueCrawlJob(tx, ctx.accountId, { sourceId: row.id, runId })
     return toSource(row)
   })
@@ -213,16 +270,48 @@ export async function createFileSource(ctx: TenantContext, input: { title: strin
 }
 
 async function insertSourceWithDocument(tx: TenantTransaction, ctx: TenantContext, kind: 'text' | 'file', name: string, content: string,
-  runId: string): Promise<SourceRow> {
+  runId: string, access: SourceAccess = resolveAccess({})): Promise<SourceRow> {
   const row = (await tx.$queryRawUnsafe<SourceRow[]>(
-    `INSERT INTO ai_knowledge_sources(account_id, kind, title, status, created_by, current_run_id)
-     VALUES ($1::uuid, $2, $3, 'queued', $4::uuid, $5::uuid) RETURNING ${SOURCE_COLUMNS}`,
-    ctx.accountId, kind, name, ctx.userId ?? null, runId,
+    `INSERT INTO ai_knowledge_sources(account_id, kind, title, status, created_by, current_run_id, min_role, customer_facing)
+     VALUES ($1::uuid, $2, $3, 'queued', $4::uuid, $5::uuid, $6, $7) RETURNING ${SOURCE_COLUMNS}`,
+    ctx.accountId, kind, name, ctx.userId ?? null, runId, access.min_role, access.customer_facing,
   ))[0]
   // content_hash is set only once the document is indexed.
   await tx.$executeRaw`INSERT INTO ai_knowledge_documents(account_id, created_by, title, content, source_id, fetched_at)
     VALUES (${ctx.accountId}::uuid, ${ctx.userId ?? null}::uuid, ${name}, ${content}, ${row.id}::uuid, now())`
   return row
+}
+
+const auditAccess = (tx: TenantTransaction, ctx: TenantContext, sourceId: string, access: SourceAccess) => tx.$executeRaw`
+  INSERT INTO audit_logs(account_id, user_id, action, resource_id, metadata)
+  VALUES (${ctx.accountId}::uuid, ${ctx.userId ?? null}::uuid, 'ai.knowledge_access_updated', ${sourceId}, ${JSON.stringify(access)}::jsonb)`
+
+/**
+ * Changes who may see a source and whether it grounds customer replies
+ * (admin; the route also requires 'ai.knowledge'). A field left out keeps its
+ * value, except that making a source admin-only also turns customer use off.
+ * The pair must stay valid (invalid_input otherwise). Audited when changed.
+ */
+export async function updateSourceAccess(ctx: TenantContext, id: string, patch: Partial<SourceAccess>): Promise<KnowledgeSource> {
+  assertRole(ctx, 'admin')
+  if (!UUID.test(id)) throw new KnowledgeSourceError('not_found')
+  return withTenant(ctx, async (tx) => {
+    const current = await selectSource(tx, ctx.accountId, id, true)
+    if (!current) throw new KnowledgeSourceError('not_found')
+    const before = toSource(current)
+    const next: SourceAccess = {
+      min_role: patch.min_role ?? before.min_role,
+      customer_facing: patch.customer_facing ?? (patch.min_role === 'admin' ? false : before.customer_facing),
+    }
+    if (!validAccess(next)) throw new KnowledgeSourceError('invalid_input')
+    if (next.min_role === before.min_role && next.customer_facing === before.customer_facing) return before
+    const row = (await tx.$queryRawUnsafe<SourceRow[]>(
+      `UPDATE ai_knowledge_sources SET min_role=$3, customer_facing=$4 WHERE account_id=$1::uuid AND id=$2::uuid RETURNING ${SOURCE_COLUMNS}`,
+      ctx.accountId, id, next.min_role, next.customer_facing,
+    ))[0]
+    await auditAccess(tx, ctx, id, next)
+    return toSource(row)
+  })
 }
 
 /** Deletes a source; its documents and chunks cascade. A queued run finds nothing and stops (admin). */

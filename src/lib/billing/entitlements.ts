@@ -84,6 +84,7 @@ const LIMIT_NAMES: Record<LimitKey, string> = {
   whatsapp_numbers: 'WhatsApp numbers',
   appointment_staff: 'practitioners',
   instagram_accounts: 'Instagram accounts',
+  ai_tokens_monthly: 'AI tokens this month',
 };
 
 export async function requireFeature(tx: TenantTransaction, accountId: string, feature: Feature): Promise<void> {

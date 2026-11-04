@@ -20,6 +20,13 @@ export async function aiMessagesUsed(tx: TenantTransaction, accountId: string, a
   return Number(row?.value ?? 0);
 }
 
+/** AI tokens counted this period (IST month), across every AI feature (metric 'ai_tokens'). */
+export async function aiTokensUsed(tx: TenantTransaction, accountId: string, at: Date = new Date()): Promise<number> {
+  const [row] = await tx.$queryRaw<{ value: bigint }[]>`SELECT COALESCE(max(value), 0)::bigint AS value FROM usage_counters
+    WHERE account_id=${accountId}::uuid AND metric='ai_tokens' AND period=${usagePeriod(at)}`;
+  return Number(row?.value ?? 0);
+}
+
 /** Throws PlanLimitError when one more AI generation would exceed the plan's monthly AI messages. */
 export async function requireAiMessageRoom(accountId: string, db?: PrismaClient): Promise<void> {
   await withTenant({ accountId }, async (tx) => {

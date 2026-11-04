@@ -70,7 +70,8 @@ export interface ParseResult<T> {
 /** Billing/usage hooks the route wires around every model call. */
 export interface GenerationHooks {
   beforeAttempt?: () => Promise<void>
-  afterAttempt?: (usage: AiUsage | null) => Promise<void> | void
+  /** `estimate`: prompt and output characters, so a provider that reports no usage is still metered. */
+  afterAttempt?: (usage: AiUsage | null, estimate: { promptChars: number; outputChars: number }) => Promise<void> | void
 }
 
 export type Generate = (args: {
@@ -166,7 +167,10 @@ export async function runJsonGeneration<T>(args: {
         maxOutputTokens: JSON_GENERATION_MAX_OUTPUT_TOKENS,
       })
       attempts++
-      await args.hooks?.afterAttempt?.(result.usage)
+      await args.hooks?.afterAttempt?.(result.usage, {
+        promptChars: args.systemPrompt.length + messages.reduce((n, m) => n + m.content.length, 0),
+        outputChars: result.text.length,
+      })
       text = result.text
     } catch (err) {
       // The corrective retry is optional: keep the draft we already have.

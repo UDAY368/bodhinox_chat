@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { requirePermission } from '@/lib/auth/permissions';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -7,30 +8,49 @@ import {
 } from '@/lib/rate-limit';
 import { loadAiConfig } from '@/lib/ai/config';
 import { buildConversationContext } from '@/lib/ai/context';
-import { retrieveKnowledge } from '@/lib/ai/knowledge';
+import { retrieveKnowledgeScored } from '@/lib/ai/knowledge';
 import { generateReply } from '@/lib/ai/generate';
-import { buildAgentSystemPrompt, loadAgentProfile } from '@/lib/ai/agent-profile';
-import { latestUserMessage } from '@/lib/ai/query';
-import { logAiUsage } from '@/lib/ai/usage';
+import { buildAgentSystemPrompt, loadAgentProfile, type AgentProfile } from '@/lib/ai/agent-profile';
+import { latestUserMessage, recentCustomerText } from '@/lib/ai/query';
+import { logAiUsage, promptCharsOf } from '@/lib/ai/usage';
+import { logAiEvent } from '@/lib/ai/log';
+import { aiDeploymentEnabled } from '@/lib/ai/gate';
 import { databaseAdmin } from '@/lib/ai/admin-client';
+import { classifySensitive } from '@/lib/ai/safety/sensitive';
+import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from '@/lib/ai/assist/guards';
 import { AiError } from '@/lib/ai/types';
+import { withTenant } from '@/lib/db/tenant';
 import { getT } from '@/lib/i18n/translate';
 import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits';
 
 const t = getT('Api');
 
 /**
- * POST /api/ai/draft  (agent+)
+ * POST /api/ai/draft  (agent+, 'ai.assist')
  *
  * Body: { conversation_id }
- * Returns: { draft } — a suggested reply for the agent to edit + send.
+ * Returns: { draft, citations } — a suggested reply for the agent to edit + send.
  *
  * Uses the account's configured provider/key (BYO). Read-only: it never
  * sends or stores anything, just hands text back to the composer.
+ *
+ * Guards (Phase 13):
+ *  - a health or other sensitive latest customer message gets no draft at
+ *    all: 200 { draft: null, code: 'route_to_staff', categories } (no
+ *    provider call);
+ *  - customer messages are redacted before the call; knowledge is the
+ *    customer-facing audience only;
+ *  - a draft that asserts a payment, refund, attendance, shipment or
+ *    delivery status, or gives medical advice, is withheld:
+ *    422 { code: 'guard_blocked' }; links that are not allowed are removed;
+ *  - the deployment kill switch off: 503 { code: 'ai_disabled' }.
+ * Only reason codes are logged, never customer text, prompts or output.
  */
 export async function POST(request: Request) {
   try {
     const { db, accountId, userId, role } = await requireRole('agent');
+    // Workspaces can turn the AI assistant (drafts included) off per role.
+    await requirePermission({ accountId, userId, role }, 'ai.assist');
 
     const userLimit = checkRateLimit(`ai-draft:${userId}`, RATE_LIMITS.aiDraft);
     if (!userLimit.success) return rateLimitResponse(userLimit);
@@ -61,7 +81,7 @@ export async function POST(request: Request) {
       .eq('id', conversationId)
       .maybeSingle();
     if (convErr) {
-      console.error('[ai/draft] conversation lookup error:', convErr);
+      logAiEvent({ feature: 'draft', reason: 'conversation_lookup_failed', accountId });
       return NextResponse.json(
         { error: t('common.failedToLoadConversation') },
         { status: 500 }
@@ -74,9 +94,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Emergency kill switch: no provider call (and no paid retrieval embedding).
+    if (!aiDeploymentEnabled()) {
+      throw new AiError('AI is turned off on this deployment.', { code: 'ai_disabled', status: 503 });
+    }
+
     const config = await loadAiConfig(db, accountId).catch((err) => {
       // Decrypt failure — surface distinctly from "not configured".
-      console.error('[ai/draft] loadAiConfig error:', err);
+      logAiEvent({ feature: 'draft', reason: 'config_load_failed', accountId, error: err });
       throw new AiError(t('ai.storedKeyUndecryptable'), {
         code: 'key_decrypt_failed',
         status: 400,
@@ -105,31 +130,40 @@ export async function POST(request: Request) {
       );
     }
 
-    // Ground the draft in the account's knowledge base (best-effort —
-    // returns [] when there's no KB or retrieval fails).
-    const knowledge = await retrieveKnowledge(
-      db,
-      accountId,
-      config,
-      latestUserMessage(messages)
-    );
+    // A health or safety-sensitive question is answered by qualified staff,
+    // never drafted by the model (checked before any provider call).
+    // Every customer turn since the last reply is checked, so a burst is still routed.
+    const question = latestUserMessage(messages);
+    const sensitive = classifySensitive(recentCustomerText(messages));
+    if (sensitive.sensitive) {
+      logAiEvent({ feature: 'draft', reason: 'sensitive_topic', accountId });
+      return NextResponse.json({ draft: null, code: 'route_to_staff', categories: sensitive.categories });
+    }
+
+    // Ground the draft in the account's customer-facing knowledge
+    // (best-effort — empty when there's no KB or retrieval fails).
+    const knowledge = await retrieveKnowledgeScored(db, accountId, config, question, 5, 'customer');
+    const excerpts = knowledge.chunks.map((c) => c.content);
 
     // Same prompt as the live agent: the workspace's agent profile (its
     // business context and instructions), else the legacy system prompt
     // unchanged. The profile is read best-effort, like auto-reply.
-    const profile = await loadAgentProfile({ accountId, userId, role }).catch(() => null);
+    const profile: AgentProfile | null = await loadAgentProfile({ accountId, userId, role }).catch(() => null);
     const systemPrompt = buildAgentSystemPrompt(profile, {
       mode: 'draft',
-      knowledge,
+      knowledge: excerpts,
       legacyPrompt: config.systemPrompt,
     });
+    const healthWorkspace = await withTenant({ accountId, userId, role }, (tx) => isHealthWorkspace(tx, accountId, profile))
+      .catch(() => true);
 
     // The plan's monthly AI messages (402 with an upgrade hint when used up).
     await requireAiMessageRoom(accountId);
+    const redacted = redactChat(messages);
     const { text, usage } = await generateReply({
       config,
       systemPrompt,
-      messages,
+      messages: redacted.messages,
     });
     await recordAiMessage(accountId);
 
@@ -148,12 +182,24 @@ export async function POST(request: Request) {
         provider: config.provider,
         model: config.model,
         usage,
+        estimate: { promptChars: promptCharsOf(systemPrompt, redacted.messages), outputChars: text.length },
       });
     } catch (logErr) {
-      console.error('[ai/draft] usage log skipped:', logErr);
+      logAiEvent({ feature: 'draft', reason: 'usage_log_skipped', accountId, error: logErr });
     }
 
-    return NextResponse.json({ draft: text });
+    const guarded = guardCustomerText(text, {
+      allow: urlAllowlist({ citations: knowledge.citations, profile, legacyPrompt: config.systemPrompt }),
+      healthWorkspace,
+    });
+    if (!guarded.ok) {
+      logAiEvent({ feature: 'draft', reason: 'guard_blocked', accountId, flags: guarded.flags });
+      return NextResponse.json({ draft: null, code: 'guard_blocked', error: 'guard_blocked' }, { status: 422 });
+    }
+    const flags = [...guarded.flags, ...(redacted.redacted ? ['pii_redacted'] : [])];
+    if (flags.length) logAiEvent({ feature: 'draft', reason: 'ok', accountId, flags });
+
+    return NextResponse.json({ draft: guarded.text, citations: knowledge.citations });
   } catch (err) {
     if (err instanceof AiError) {
       return NextResponse.json(

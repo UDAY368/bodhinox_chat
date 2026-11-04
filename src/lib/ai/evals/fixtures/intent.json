@@ -1,0 +1,28 @@
+{
+  "description": "Conversations from clinic, salon, D2C and coaching workspaces with the gold intent. Turns oldest first; a turn starting with 'agent:' is staff, the rest are the customer. 'model' is what the fake provider answers on the model path (omitted: a valid answer with the gold intent).",
+  "cases": [
+    { "id": "clinic-en-booking", "vertical": "clinic", "gold": "booking", "messages": ["agent:Hello, how can we help?", "Can I book an appointment with the dentist on Friday?"] },
+    { "id": "clinic-hinglish-booking", "vertical": "clinic", "gold": "booking", "messages": ["Doctor ka appointment chahiye kal ke liye"] },
+    { "id": "clinic-en-pricing", "vertical": "clinic", "gold": "pricing", "messages": ["How much is a teeth cleaning?"] },
+    { "id": "clinic-en-health", "vertical": "clinic", "gold": "sensitive_health", "messages": ["I have chest pain since morning, is it serious?"] },
+    { "id": "clinic-es-health", "vertical": "clinic", "gold": "sensitive_health", "messages": ["Tengo fiebre y dolor de cabeza, ¿qué pastilla puedo tomar?"] },
+    { "id": "clinic-ko-health", "vertical": "clinic", "gold": "sensitive_health", "messages": ["두통이 너무 심해요"] },
+    { "id": "salon-en-pricing", "vertical": "salon", "gold": "pricing", "messages": ["What are your prices for a haircut and colour?"] },
+    { "id": "salon-pt-booking", "vertical": "salon", "gold": "booking", "messages": ["Oi!", "Quero agendar um horário para sábado"] },
+    { "id": "salon-ko-pricing", "vertical": "salon", "gold": "pricing", "messages": ["커트 가격이 얼마예요?"] },
+    { "id": "salon-en-multi-turn", "vertical": "salon", "gold": "booking", "messages": ["What's the price of the facial?", "agent:It is Rs 1200.", "Ok, book me for tomorrow 5pm"] },
+    { "id": "d2c-en-purchase", "vertical": "d2c", "gold": "purchase", "messages": ["I want to order two of the blue kurtas, is COD available?"] },
+    { "id": "d2c-en-order-status", "vertical": "d2c", "gold": "order_status", "messages": ["Where is my order? It's been 5 days"] },
+    { "id": "d2c-en-complaint", "vertical": "d2c", "gold": "complaint", "messages": ["The item arrived damaged, I want a refund"] },
+    { "id": "d2c-hinglish-pricing", "vertical": "d2c", "gold": "pricing", "messages": ["Ye saree kitne ka hai?"] },
+    { "id": "d2c-es-order-status", "vertical": "d2c", "gold": "order_status", "messages": ["Mi pedido no ha llegado todavía"] },
+    { "id": "d2c-hinglish-complaint", "vertical": "d2c", "gold": "complaint", "messages": ["Bakwas product, paisa wapas karo"] },
+    { "id": "coaching-en-purchase", "vertical": "coaching", "gold": "purchase", "messages": ["I'd like to buy the 3 month coaching plan"] },
+    { "id": "coaching-en-support", "vertical": "coaching", "gold": "support", "messages": ["How do I log in to the course portal? It's not working"] },
+    { "id": "coaching-pt-pricing", "vertical": "coaching", "gold": "pricing", "messages": ["Quanto custa o curso de inglês?"] },
+    { "id": "coaching-en-other", "vertical": "coaching", "gold": "other", "messages": ["Thank you so much!"] },
+    { "id": "d2c-model-enum-drift", "vertical": "d2c", "gold": "pricing", "messages": ["What is the price of the cotton kurta?"], "model": "{\"intent\":\"urgent_lead\",\"confidence\":90}" },
+    { "id": "salon-model-invalid-json", "vertical": "salon", "gold": "booking", "messages": ["Is there a slot available tomorrow for a pedicure?"], "model": "{\"intent\": \"booking\", " },
+    { "id": "clinic-health-never-asks-model", "vertical": "clinic", "gold": "sensitive_health", "messages": ["My baby has a fever since last night"], "model": "{\"intent\":\"booking\",\"confidence\":80}" }
+  ]
+}

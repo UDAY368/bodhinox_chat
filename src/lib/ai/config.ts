@@ -2,6 +2,8 @@ import type { DataClient } from '@/lib/data/types'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import type { AiConfig } from './types'
 import { geminiApiKey } from './gemini-key'
+import { aiDeploymentEnabled } from './gate'
+import { logAiEvent } from './log'
 
 interface AiConfigRow {
   provider: 'openai' | 'anthropic' | 'openai_compatible' | 'gemini'
@@ -36,6 +38,9 @@ export async function loadAiConfig(
   opts: { requireActive?: boolean } = {},
 ): Promise<AiConfig | null> {
   const { requireActive = true } = opts
+  // Deployment kill switch (AI_ENABLED=false): every caller sees "not
+  // configured" and takes its existing fallback; no provider is called.
+  if (!aiDeploymentEnabled()) return null
   const { data, error } = await db
     .from('ai_configs')
     .select(CONFIG_COLUMNS)
@@ -66,9 +71,8 @@ export async function loadAiConfig(
     } catch {
       // Not silent — a rotated/mismatched ENCRYPTION_KEY here means
       // semantic search quietly stops working, so leave a breadcrumb.
-      console.error(
-        `[ai config] embeddings key for account ${accountId} could not be decrypted — check ENCRYPTION_KEY; semantic search is disabled until it is re-entered.`,
-      )
+      // Semantic search stays off until the key is re-entered (check ENCRYPTION_KEY).
+      logAiEvent({ feature: 'config', reason: 'embeddings_key_undecryptable', accountId })
       embeddingsApiKey = null
     }
   }
@@ -102,6 +106,8 @@ export async function loadEmbeddingsKey(
   db: DataClient,
   accountId: string,
 ): Promise<{ key: string | null; corrupt: boolean }> {
+  // Kill switch off: ingest stores chunks without embeddings (FTS still works).
+  if (!aiDeploymentEnabled()) return { key: null, corrupt: false }
   const { data, error } = await db
     .from('ai_configs')
     .select('embeddings_api_key')
@@ -111,9 +117,7 @@ export async function loadEmbeddingsKey(
   try {
     return { key: decrypt(data.embeddings_api_key), corrupt: false }
   } catch {
-    console.error(
-      `[ai config] embeddings key for account ${accountId} could not be decrypted — check ENCRYPTION_KEY.`,
-    )
+    logAiEvent({ feature: 'config', reason: 'embeddings_key_undecryptable', accountId })
     return { key: null, corrupt: true }
   }
 }

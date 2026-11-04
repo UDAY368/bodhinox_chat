@@ -1,0 +1,39 @@
+{
+  "description": "Low-coverage insight datasets. The template narrative must always be grounded; a model narrative is accepted only when every number in it is in the data. Row names never reach the model.",
+  "cases": [
+    {
+      "id": "volume-low-sample", "key": "conversation_volume", "rowCount": 12,
+      "metrics": { "conversations_started": 12, "started_by_customer": 9, "started_by_business": 2, "campaign_replies": 1, "from_ads": 0, "open_with_bot": 1, "waiting_for_agent": 2, "assigned": 4, "resolved": 5 },
+      "coverage": { "requestedDays": 30, "coveredDays": 12, "ratio": 0.4, "inProgress": false },
+      "narratives": [
+        { "text": "12 conversations started, 9 of them by customers; 5 are resolved.", "grounded": true },
+        { "text": "Conversations grew 35% compared with last month.", "grounded": false }
+      ],
+      "expectUncertainty": "high"
+    },
+    {
+      "id": "response-times", "key": "response_times", "rowCount": 140,
+      "metrics": { "first_responses": 130, "unanswered": 10, "median_first_response_seconds": 540, "p90_first_response_seconds": 3600, "resolved": 100, "median_resolution_seconds": 7200, "p90_resolution_seconds": 86400 },
+      "coverage": { "requestedDays": 30, "coveredDays": 30, "ratio": 1, "inProgress": false },
+      "narratives": [
+        { "text": "The median first response took 9 minutes and the 90th percentile 1 hour; 10 conversations are still unanswered.", "grounded": true },
+        { "text": "Response times improved by 4 minutes.", "grounded": false }
+      ],
+      "expectUncertainty": "low"
+    },
+    {
+      "id": "agents-partial", "key": "agent_workload", "rowCount": 25,
+      "metrics": { "active_agents": 2, "conversations_handled": 25, "replies_sent": 180 },
+      "rows": [
+        { "label": "Agent 1", "name": "Ravi Kumar", "values": { "conversations": 15, "replies": 110 } },
+        { "label": "Agent 2", "name": "Meena Iyer", "values": { "conversations": 10, "replies": 70 } }
+      ],
+      "coverage": { "requestedDays": 30, "coveredDays": 9, "ratio": 0.3, "inProgress": true },
+      "narratives": [
+        { "text": "Agent 1 handled 15 conversations and Agent 2 handled 10.", "grounded": true },
+        { "text": "Agent 1 handled 60% of the work.", "grounded": false }
+      ],
+      "expectUncertainty": "high"
+    }
+  ]
+}

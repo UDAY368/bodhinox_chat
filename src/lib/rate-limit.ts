@@ -185,6 +185,12 @@ export const RATE_LIMITS = {
    *  capping a stampede; excess inbounds simply don't get an auto-reply
    *  (they still land in the inbox for a human). */
   aiAutoReplyAccount: { limit: 30, windowMs: 60_000 },
+  /** AI assistant (summaries, suggested replies, assessments, insights), per
+   *  member. A soft per-instance first line; the durable limit is the monthly
+   *  token cap checked in the database before every provider call. */
+  aiAssistUser: { limit: 20, windowMs: 60_000 },
+  /** AI assistant, per workspace across all members. */
+  aiAssistAccount: { limit: 60, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't

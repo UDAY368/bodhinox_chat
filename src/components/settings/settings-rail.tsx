@@ -3,13 +3,26 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   RAIL_GROUPS,
   SECTION_META,
   SETTINGS_SECTIONS,
+  type SectionMeta,
   type SettingsSection,
 } from './settings-sections';
+
+/**
+ * A rail entry the page adds on its own (e.g. the admin-only AI assistant
+ * section), shown after the group's built-in sections with a ready label.
+ */
+export interface RailExtraItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  group: SectionMeta['group'];
+}
 
 // Width at/above which the rail is a vertical column (already in view, so
 // no auto-scroll needed). Mirrors the Tailwind `lg:` breakpoint that
@@ -26,10 +39,14 @@ export function SettingsRail({
   active,
   onSelect,
   hints,
+  extraItems = [],
+  onSelectExtra,
 }: {
-  active: SettingsSection;
+  active: SettingsSection | string;
   onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
+  extraItems?: readonly RailExtraItem[];
+  onSelectExtra?: (id: string) => void;
 }) {
   const t = useTranslations('Settings');
   const activeRef = useRef<HTMLButtonElement>(null);
@@ -103,6 +120,31 @@ export function SettingsRail({
                 </button>
               );
             })}
+            {extraItems
+              .filter((item) => item.group === group)
+              .map((item) => {
+                const Icon = item.icon;
+                const isActive = item.id === active;
+                return (
+                  <button
+                    key={item.id}
+                    ref={isActive ? activeRef : undefined}
+                    type="button"
+                    onClick={() => onSelectExtra?.(item.id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',
+                      'lg:w-full',
+                      isActive
+                        ? 'bg-primary-soft text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    <span className="flex-1">{item.label}</span>
+                  </button>
+                );
+              })}
           </div>
         );
       })}

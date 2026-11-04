@@ -7,6 +7,8 @@ import { AiError, type AiProvider } from '@/lib/ai/types'
 import { normalizeOpenAiCompatibleBaseUrl } from '@/lib/ai/providers/openai-compatible'
 import { geminiApiKey } from '@/lib/ai/gemini-key'
 import { getT } from '@/lib/i18n/translate'
+import { aiDeploymentEnabled } from '@/lib/ai/gate'
+import { logAiEvent } from '@/lib/ai/log'
 
 const t = getT('Api')
 
@@ -25,6 +27,11 @@ export async function POST(request: Request) {
 
     const limit = checkRateLimit(`ai-test:${userId}`, RATE_LIMITS.adminAction)
     if (!limit.success) return rateLimitResponse(limit)
+
+    // Deployment kill switch: no provider round-trip at all.
+    if (!aiDeploymentEnabled()) {
+      return NextResponse.json({ error: t('ai.aiDisabled'), code: 'ai_disabled' }, { status: 503 })
+    }
 
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== 'object') {
@@ -119,7 +126,7 @@ export async function POST(request: Request) {
           { status: 400 },
         )
       }
-      console.error('[ai/test] validation error:', err)
+      logAiEvent({ feature: 'config_test', reason: 'validation_failed', accountId, error: err })
       return NextResponse.json(
         { error: t('ai.validateFailed') },
         { status: 400 },

@@ -23,6 +23,8 @@ import { claimOnAgentReply } from '@/lib/inbox/lifecycle'
 import { instagramConfig } from '@/lib/instagram/config'
 import { InstagramError } from '@/lib/instagram/errors'
 import { instagramErrorResponse, NO_STORE } from '@/lib/instagram/http'
+import { recordSuggestionUse } from '@/lib/ai/assist/suggestions'
+import { logAiEvent } from '@/lib/ai/log'
 
 const t = getT('Api')
 const tForm = getT('Validation.formSend')
@@ -79,6 +81,9 @@ export async function POST(request: Request) {
       interactive_payload,
       reply_to_message_id,
     } = body
+    // A text that started as an AI suggested reply (inserted into the composer
+    // by staff). Only used to record the suggestion after the send.
+    const aiSuggestionId = aiSuggestionIdOf(body)
 
     // A WhatsApp form goes to an open conversation only (it needs the
     // 24-hour window), through the shared form sender.
@@ -137,7 +142,7 @@ export async function POST(request: Request) {
       }
       // The channel comes from the conversation row, never from the client.
       if ((data as { channel?: string | null }).channel === 'instagram') {
-        return sendInstagramMessage({ accountId, userId, role, conversationId: data.id, body })
+        return sendInstagramMessage({ accountId, userId, role, conversationId: data.id, body, aiSuggestionId })
       }
       conversationId = data.id
     } else {
@@ -220,6 +225,9 @@ export async function POST(request: Request) {
       await claimOnAgentReply({ accountId, userId, role }, conversationId).catch(() =>
         console.error('[send] conversation claim failed')
       )
+      if (aiSuggestionId && message_type === 'text') {
+        await noteSuggestionUse({ accountId, userId, role }, aiSuggestionId, conversationId, result.messageId, content_text)
+      }
 
       return NextResponse.json({
         success: true,
@@ -238,7 +246,8 @@ export async function POST(request: Request) {
   } catch (error) {
     // requireRole throws Unauthorized/Forbidden; toErrorResponse maps
     // those to 401/403 and collapses anything else to a generic 500.
-    console.error('Error in WhatsApp send POST:', error)
+    // Class name only: provider errors can echo message text or tokens.
+    console.error('Error in WhatsApp send POST:', error instanceof Error ? error.name : typeof error)
     return toErrorResponse(error)
   }
 }
@@ -298,6 +307,7 @@ async function sendInstagramMessage(args: {
   role: 'owner' | 'admin' | 'agent' | 'viewer'
   conversationId: string
   body: Record<string, unknown>
+  aiSuggestionId?: string | null
 }) {
   if (!instagramConfig()) return instagramErrorResponse('instagram_not_enabled')
   const { body } = args
@@ -317,6 +327,10 @@ async function sendInstagramMessage(args: {
     await claimOnAgentReply({ accountId: args.accountId, userId: args.userId, role: args.role }, args.conversationId).catch(() =>
       console.error('[send] conversation claim failed')
     )
+    if (args.aiSuggestionId && body.message_type === 'text') {
+      await noteSuggestionUse({ accountId: args.accountId, userId: args.userId, role: args.role },
+        args.aiSuggestionId, args.conversationId, result.messageId, body.content_text)
+    }
     return NextResponse.json({ success: true, message_id: result.messageId, provider_message_id: result.providerMessageId })
   } catch (err) {
     if (err instanceof InstagramError) return instagramErrorResponse(err.code)
@@ -328,6 +342,33 @@ async function sendInstagramMessage(args: {
       return NextResponse.json({ error: err.code, message: tIg('meta_error'), message_id: err.messageId },
         { status: 502, headers: NO_STORE })
     throw err
+  }
+}
+
+/** The optional `ai_suggestion_id` of a text send (a uuid), else null. */
+function aiSuggestionIdOf(body: unknown): string | null {
+  const value = (body as { ai_suggestion_id?: unknown } | null)?.ai_suggestion_id
+  return typeof value === 'string' && UUID.test(value) ? value : null
+}
+
+/**
+ * Records that a sent text used an AI suggested reply (accepted unchanged or
+ * edited). Runs only after the message was sent and stored; best-effort in
+ * its own transaction, so it never changes or fails the send. Only a reason
+ * code is logged.
+ */
+async function noteSuggestionUse(
+  member: { accountId: string; userId: string; role: 'owner' | 'admin' | 'agent' | 'viewer' },
+  suggestionId: string,
+  conversationId: string,
+  messageId: unknown,
+  sentText: unknown,
+): Promise<void> {
+  if (typeof messageId !== 'string' || !UUID.test(messageId) || typeof sentText !== 'string') return
+  try {
+    await recordSuggestionUse(member, { suggestionId, conversationId, messageId, sentText })
+  } catch (error) {
+    logAiEvent({ feature: 'suggest', reason: 'suggestion_use_not_recorded', accountId: member.accountId, error })
   }
 }
 

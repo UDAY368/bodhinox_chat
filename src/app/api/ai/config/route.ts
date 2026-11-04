@@ -12,6 +12,8 @@ import { AiError, type AiProvider } from '@/lib/ai/types'
 import { geminiApiKey } from '@/lib/ai/gemini-key'
 import { normalizeOpenAiCompatibleBaseUrl } from '@/lib/ai/providers/openai-compatible'
 import { getT } from '@/lib/i18n/translate'
+import { aiDeploymentEnabled } from '@/lib/ai/gate'
+import { logAiEvent } from '@/lib/ai/log'
 
 const t = getT('Api')
 
@@ -41,7 +43,7 @@ export async function GET() {
       .maybeSingle()
 
     if (error) {
-      console.error('[ai/config GET] fetch error:', error)
+      logAiEvent({ feature: 'config', reason: 'load_failed', accountId })
       return NextResponse.json(
         { error: t('ai.loadConfigFailed') },
         { status: 500 },
@@ -188,6 +190,13 @@ export async function POST(request: Request) {
       baseUrl !== (existing.base_url ?? null) ||
       provider === 'gemini'
 
+    // Keys are verified with the provider before they are saved. While the
+    // deployment kill switch is off nothing can be verified, so nothing that
+    // needs verifying is saved (toggling AI off still works).
+    if ((credentialsChanged || rawEmbeddingsKey) && !aiDeploymentEnabled()) {
+      return NextResponse.json({ error: t('ai.aiDisabled'), code: 'ai_disabled' }, { status: 503 })
+    }
+
     if (credentialsChanged) {
       try {
         await validateAiCredentials({
@@ -209,7 +218,7 @@ export async function POST(request: Request) {
             { status: 400 },
           )
         }
-        console.error('[ai/config POST] validation error:', err)
+        logAiEvent({ feature: 'config', reason: 'validation_failed', accountId, error: err })
         return bad(t('ai.validateWithProviderFailed'))
       }
     }
@@ -226,7 +235,7 @@ export async function POST(request: Request) {
             { status: 400 },
           )
         }
-        console.error('[ai/config POST] embeddings validation error:', err)
+        logAiEvent({ feature: 'config', reason: 'embeddings_validation_failed', accountId, error: err })
         return bad(t('ai.validateEmbeddingsFailed'))
       }
     }
@@ -258,7 +267,7 @@ export async function POST(request: Request) {
           : encryptedKey ? { ...shared, api_key: encryptedKey } : shared)
         .eq('account_id', accountId)
       if (upErr) {
-        console.error('[ai/config POST] update error:', upErr)
+        logAiEvent({ feature: 'config', reason: 'update_failed', accountId })
         return NextResponse.json(
           { error: t('ai.saveConfigFailed') },
           { status: 500 },
@@ -272,7 +281,7 @@ export async function POST(request: Request) {
         ...shared,
       })
       if (insErr) {
-        console.error('[ai/config POST] insert error:', insErr)
+        logAiEvent({ feature: 'config', reason: 'insert_failed', accountId })
         return NextResponse.json(
           { error: t('ai.saveConfigFailed') },
           { status: 500 },
@@ -300,7 +309,7 @@ export async function DELETE() {
       .delete()
       .eq('account_id', accountId)
     if (error) {
-      console.error('[ai/config DELETE] error:', error)
+      logAiEvent({ feature: 'config', reason: 'delete_failed', accountId })
       return NextResponse.json(
         { error: t('ai.deleteConfigFailed') },
         { status: 500 },

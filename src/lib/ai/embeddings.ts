@@ -2,6 +2,8 @@ import { AiError } from './types'
 import { aiRequestTimeoutMs } from './defaults'
 import { providerHttpError, toNetworkError } from './providers/shared'
 import { getT } from '@/lib/i18n/translate'
+import { assertProviderCallAllowed } from './gate'
+import { testTransport } from './providers/fake'
 
 const t = getT('LibErrors')
 
@@ -46,6 +48,10 @@ export async function embedTexts(
   inputs: string[],
 ): Promise<number[][]> {
   if (inputs.length === 0) return []
+  // Deployment kill switch and dry-run guard, before any request.
+  assertProviderCallAllowed()
+  const fake = testTransport()
+  if (fake) return fake.embed(inputs)
   const timeoutMs = aiRequestTimeoutMs()
   const out: number[][] = []
 

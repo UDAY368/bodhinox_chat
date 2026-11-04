@@ -37,7 +37,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/generate', () => ({ generateReply: mocks.generateReply }))
-vi.mock('@/lib/ai/usage', () => ({ logAiUsage: mocks.logAiUsage }))
+vi.mock('@/lib/ai/usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: mocks.logAiUsage }))
 vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: mocks.databaseAdmin }))
 vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: mocks.requireAiMessageRoom, recordAiMessage: mocks.recordAiMessage }))
 
@@ -137,7 +137,10 @@ describe('POST /api/whatsapp/templates/ai-draft', () => {
     expect(mocks.logAiUsage).toHaveBeenCalledWith({ tag: 'admin' }, {
       accountId: 'account-1', conversationId: null, mode: 'draft', provider: 'openai',
       model: 'gpt-test', usage,
+      // Sizes of the call, so a provider that reports no usage is still metered.
+      estimate: { promptChars: expect.any(Number), outputChars: expect.any(Number) },
     })
+    expect(mocks.logAiUsage.mock.calls[0][1].estimate.outputChars).toBeGreaterThan(0)
   })
 
   it('returns 422 when the draft is invalid twice, logging both calls', async () => {

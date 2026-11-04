@@ -100,3 +100,26 @@ it('encrypts an OpenRouter key without exposing it in settings responses', async
   mocks.existing = mocks.stored
   expect(JSON.stringify(await (await GET()).json())).not.toContain('test-openrouter-key')
 })
+
+describe('deployment kill switch (phase 13)', () => {
+  it('refuses to verify or save a key while AI_ENABLED=false, before any probe', async () => {
+    vi.stubEnv('AI_ENABLED', 'false')
+    const response = await POST(new Request('https://crm.test/api/ai/config', { method: 'POST', body: JSON.stringify({ provider: 'openai', model: 'gpt-x', api_key: 'sk-new' }) }))
+    expect(response.status).toBe(503)
+    expect((await response.json()).code).toBe('ai_disabled')
+    expect(mocks.validateAiCredentials).not.toHaveBeenCalled()
+    expect(mocks.stored).toBeNull()
+  })
+
+  it('still lets an admin save a change that needs no verification (turning AI off)', async () => {
+    vi.stubEnv('AI_ENABLED', 'false')
+    mocks.existing = { id: 'config-1', provider: 'openai', model: 'gpt-x', base_url: null, api_key: encrypt('stored-key') }
+    const update = vi.fn(() => ({ eq: async () => ({ error: null }) }))
+    const db = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mocks.existing, error: null }) }) }), update }) }
+    mocks.requireRole.mockResolvedValue({ db, accountId: 'account-1', userId: 'admin-1' })
+    const response = await POST(new Request('https://crm.test/api/ai/config', { method: 'POST', body: JSON.stringify({ provider: 'openai', model: 'gpt-x', is_active: false }) }))
+    expect(response.status).toBe(200)
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ is_active: false }))
+    expect(mocks.validateAiCredentials).not.toHaveBeenCalled()
+  })
+})

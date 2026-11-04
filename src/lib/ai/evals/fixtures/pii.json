@@ -1,0 +1,22 @@
+{
+  "description": "Personal data that must never reach the provider (redact), and business references that must survive redaction (keep).",
+  "redact": [
+    { "id": "email", "text": "My email is priya.sharma@example.com, please send the invoice", "secret": "priya.sharma@example.com" },
+    { "id": "phone-e164", "text": "Call me on +91 98765 43210 after 6", "secret": "98765 43210" },
+    { "id": "phone-mobile", "text": "my number is 9876543210", "secret": "9876543210" },
+    { "id": "card", "text": "Card 4111 1111 1111 1111 exp 12/27", "secret": "4111 1111 1111 1111" },
+    { "id": "aadhaar", "text": "My Aadhaar is 2341 2341 2346", "secret": "2341 2341 2346" },
+    { "id": "pan", "text": "PAN ABCDE1234F for the invoice", "secret": "ABCDE1234F" },
+    { "id": "iban", "text": "Refund to IBAN GB82 WEST 1234 5698 7654 32", "secret": "GB82 WEST 1234 5698 7654 32" },
+    { "id": "upi", "text": "Pay to priya@okhdfcbank", "secret": "priya@okhdfcbank" },
+    { "id": "otp", "text": "Your OTP is 482913, do not share", "secret": "482913" },
+    { "id": "url-query", "text": "Track https://shop.example.com/track?phone=9876543210&email=a@b.co", "secret": "phone=9876543210" }
+  ],
+  "keep": [
+    { "id": "order-number", "text": "order no 9876543210 has not arrived", "keep": "9876543210" },
+    { "id": "booking-number", "text": "Booking 8123456789 for tomorrow", "keep": "8123456789" },
+    { "id": "hash-order", "text": "My order #4521987634 has not arrived", "keep": "#4521987634" },
+    { "id": "invoice", "text": "Invoice INV-2024-0042 attached", "keep": "INV-2024-0042" },
+    { "id": "awb", "text": "AWB 77123456789 status?", "keep": "77123456789" }
+  ]
+}

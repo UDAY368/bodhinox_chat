@@ -156,6 +156,15 @@ describe.skipIf(!connectionString)(
       const issued = await login({ email: newEmail, password });
       const context = await requireSession(request(issued.accessToken));
       expect(context.role).toBe('owner');
+      // Signing up again with a verified address emails a sign-in notice instead of silently sending nothing.
+      const sentBefore = mail.send.mock.calls.length;
+      await signup({ email: newEmail, password: 'Different1!', fullName: 'Again' });
+      expect(mail.send.mock.calls.length).toBe(sentBefore + 1);
+      const notice = mail.send.mock.calls.at(-1)?.[0] as { to: string; subject: string; text: string };
+      expect(notice.to).toBe(newEmail);
+      expect(notice.subject).toBe('You already have a Bodhinox account');
+      expect(notice.text).not.toContain('token=');
+      await expect(login({ email: newEmail, password: 'Different1!' })).rejects.toMatchObject({ code: 'unauthorized' });
     }, 30000);
     it('retries a failed invitation signup email without changing credentials or losing the invitation', async () => {
       const newEmail = `${randomUUID()}@example.invalid`;

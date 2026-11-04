@@ -120,16 +120,28 @@ export async function signup(input: {
     // A failed delivery must not strand a pending signup. Reissue proof without
     // changing the original password or exposing whether a verified account exists.
     if (!inserted[0]) {
-      const pending = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM auth_users WHERE email=${email} AND email_verified_at IS NULL AND disabled_at IS NULL`;
-      return pending[0] ?? null;
+      const existing = await tx.$queryRaw<{ id: string; verified: boolean }[]>`SELECT id, email_verified_at IS NOT NULL AS verified FROM auth_users WHERE email=${email} AND disabled_at IS NULL`;
+      return existing[0] ?? null;
     }
     await tx.$executeRaw`SELECT set_config('app.user_id',${userId},true),set_config('app.account_id',${accountId},true),set_config('app.account_role','owner',true)`;
     await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${accountId}::uuid,${`${fullName}'s workspace`},${userId}::uuid)`;
     await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${userId}::uuid,'owner')`;
     await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${userId}::uuid,${fullName},${email},${accountId}::uuid,'owner')`;
-    return inserted[0];
+    return { ...inserted[0], verified: false };
   });
-  if (user)
+  if (user?.verified) {
+    // Same response as a new signup, so the form never reveals which emails are registered;
+    // the owner of the address still learns why no verification link arrived.
+    const signIn = new URL('/login', appOrigin());
+    await sendAuthEmail({
+      from: process.env.AUTH_EMAIL_FROM,
+      to: email,
+      subject: 'You already have a Bodhinox account',
+      text: `Someone tried to create a Bodhinox account with this email, but one already exists.
+Sign in: ${signIn.toString()}
+Forgot your password? Use "Forgot password" on the sign-in page. If this wasn't you, ignore this message.`,
+    });
+  } else if (user)
     await sendVerification(
       email,
       await createVerification(user.id, 'verify'),

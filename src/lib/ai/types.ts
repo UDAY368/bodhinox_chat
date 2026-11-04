@@ -84,3 +84,42 @@ export class AiError extends Error {
     this.status = opts.status ?? 502
   }
 }
+
+// ------------------------------------------------------------------
+// Phase 13: AI business assistant.
+// ------------------------------------------------------------------
+
+/** The assistant features that each have a workspace switch (ai_workspace_settings). */
+export const AI_ASSIST_FEATURES = ['summary', 'suggest', 'assess', 'insights'] as const
+export type AiAssistFeature = (typeof AI_ASSIST_FEATURES)[number]
+
+/** ai_usage_log.mode values (DB CHECK ai_usage_log_mode_check). */
+export const AI_USAGE_MODES = ['auto_reply', 'draft', 'summary', 'suggest', 'assess', 'insights'] as const
+export type AiUsageMode = (typeof AI_USAGE_MODES)[number]
+
+/** Why an assistant task produced no model output (each has an AiFallback.<reason> message). */
+export const AI_FALLBACK_REASONS = [
+  'deployment_off', 'not_configured', 'feature_off', 'no_permission', 'quota',
+  'timeout', 'provider_error', 'invalid_output', 'guard_blocked',
+] as const
+export type AiFallbackReason = (typeof AI_FALLBACK_REASONS)[number]
+
+/** Who retrieved knowledge may be shown to: customer-facing text, or staff only. */
+export type KnowledgeAudience = 'customer' | 'staff'
+
+/** One knowledge chunk that grounded an answer, as shown next to it. */
+export interface KnowledgeCitation {
+  chunk_id: string
+  document_id: string | null
+  source_id: string | null
+  title: string | null
+  source_url: string | null
+}
+
+/** Untrusted text handed to a model, always delimited as data (safety/untrusted.ts). */
+export interface UntrustedBlock {
+  source: 'customer' | 'knowledge' | 'crm'
+  text: string
+  /** Optional short label shown inside the block (e.g. "transcript", a document title). */
+  label?: string
+}

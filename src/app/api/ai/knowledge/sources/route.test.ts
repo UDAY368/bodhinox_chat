@@ -6,7 +6,7 @@ const SOURCE = '33333333-3333-4333-8333-333333333333'
 const h = vi.hoisted(() => ({
   role: 'admin', limited: false,
   listSources: vi.fn(), createSource: vi.fn(), getSource: vi.fn(), deleteSource: vi.fn(), recrawlSource: vi.fn(),
-  createFileSource: vi.fn(), extractFileText: vi.fn(),
+  createFileSource: vi.fn(), extractFileText: vi.fn(), updateSourceAccess: vi.fn(), restricted: false,
 }))
 
 vi.mock('@/lib/auth/session', () => ({ requireSession: async () => ({ userId: USER, accountId: ACCOUNT, role: h.role, sessionId: 's' }) }))
@@ -26,10 +26,14 @@ vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: () => ({ success: !h.limited }),
   rateLimitResponse: () => Response.json({}, { status: 429 }),
 }))
+vi.mock('@/lib/auth/permissions', async () => {
+  const { ForbiddenError } = await import('@/lib/auth/errors')
+  return { requirePermission: async () => { if (h.restricted) throw new ForbiddenError('This feature is turned off for your role') } }
+})
 vi.mock('@/lib/ai/knowledge-sources', async (original) => ({
   ...(await original<typeof import('@/lib/ai/knowledge-sources')>()),
   listSources: h.listSources, createSource: h.createSource, getSource: h.getSource, deleteSource: h.deleteSource,
-  recrawlSource: h.recrawlSource, createFileSource: h.createFileSource,
+  recrawlSource: h.recrawlSource, createFileSource: h.createFileSource, updateSourceAccess: h.updateSourceAccess,
 }))
 vi.mock('@/lib/ai/file-extract', async (original) => ({
   ...(await original<typeof import('@/lib/ai/file-extract')>()),
@@ -39,7 +43,7 @@ vi.mock('@/lib/ai/file-extract', async (original) => ({
 import { FileExtractError } from '@/lib/ai/file-extract'
 import { KnowledgeSourceError } from '@/lib/ai/knowledge-sources'
 import { GET, POST } from './route'
-import { DELETE, GET as GET_ONE, POST as RECRAWL } from './[id]/route'
+import { DELETE, GET as GET_ONE, PATCH, POST as RECRAWL } from './[id]/route'
 import { POST as UPLOAD } from '../upload/route'
 
 const ctx = { accountId: ACCOUNT, userId: USER, role: 'admin' }
@@ -56,6 +60,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   h.role = 'admin'
   h.limited = false
+  h.restricted = false
+  h.updateSourceAccess.mockResolvedValue({ id: SOURCE, min_role: 'admin', customer_facing: false })
   h.listSources.mockResolvedValue([{ id: SOURCE }])
   h.createSource.mockResolvedValue({ id: SOURCE, status: 'queued' })
   h.getSource.mockResolvedValue({ source: { id: SOURCE }, pages: [] })
@@ -126,6 +132,52 @@ describe('/api/ai/knowledge/sources/:id', () => {
     expect((await DELETE(new Request('http://localhost/x', { method: 'DELETE' }), params)).status).toBe(404)
     h.role = 'agent'
     expect((await DELETE(new Request('http://localhost/x', { method: 'DELETE' }), params)).status).toBe(403)
+  })
+})
+
+describe('knowledge source access', () => {
+  const patch = (body: unknown) => new Request('http://localhost/x', { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } })
+
+  it('lets an admin with ai.knowledge make a source admin-only', async () => {
+    const res = await PATCH(patch({ min_role: 'admin' }), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ source: { id: SOURCE, min_role: 'admin', customer_facing: false } })
+    expect(h.updateSourceAccess).toHaveBeenCalledWith(ctx, SOURCE, { min_role: 'admin' })
+  })
+
+  it('refuses agents, admins restricted from ai.knowledge, and the rate limit', async () => {
+    h.role = 'agent'
+    expect((await PATCH(patch({ min_role: 'admin' }), params)).status).toBe(403)
+    h.role = 'admin'
+    h.restricted = true
+    expect((await PATCH(patch({ min_role: 'admin' }), params)).status).toBe(403)
+    h.restricted = false
+    h.limited = true
+    expect((await PATCH(patch({ min_role: 'admin' }), params)).status).toBe(429)
+    expect(h.updateSourceAccess).not.toHaveBeenCalled()
+  })
+
+  it('refuses invalid bodies and an admin-only source used in customer replies', async () => {
+    for (const body of [{}, { min_role: 'viewer' }, { customer_facing: 'yes' }, { min_role: 'agent', extra: 1 }]) {
+      const res = await PATCH(patch(body), params)
+      expect(res.status).toBe(400)
+      expect((await res.json()).code).toBe('invalid_input')
+    }
+    h.updateSourceAccess.mockRejectedValue(new KnowledgeSourceError('invalid_input'))
+    expect((await PATCH(patch({ customer_facing: true }), params)).status).toBe(400)
+    h.updateSourceAccess.mockRejectedValue(new KnowledgeSourceError('not_found'))
+    expect((await PATCH(patch({ customer_facing: false }), params)).status).toBe(404)
+  })
+
+  it('needs ai.knowledge only when a new source chooses its access', async () => {
+    h.restricted = true
+    expect((await POST(json({ kind: 'text', title: 'a', content: 'b' }))).status).toBe(201)
+    expect((await POST(json({ kind: 'text', title: 'a', content: 'b', min_role: 'admin' }))).status).toBe(403)
+    h.restricted = false
+    expect((await POST(json({ kind: 'text', title: 'a', content: 'b', min_role: 'admin' }))).status).toBe(201)
+    expect(h.createSource).toHaveBeenLastCalledWith(ctx, { kind: 'text', title: 'a', content: 'b', min_role: 'admin' })
+    const bad = await POST(json({ kind: 'text', title: 'a', content: 'b', min_role: 'admin', customer_facing: true }))
+    expect(bad.status).toBe(400)
   })
 })
 

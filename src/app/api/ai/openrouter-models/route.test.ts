@@ -23,3 +23,11 @@ it('keeps the free router usable if the catalogue is unavailable', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
   expect(await (await GET()).json()).toMatchObject({ available: false, models: [{ id: 'openrouter/free' }] })
 })
+it('makes no outbound request while the AI kill switch is off', async () => {
+  vi.stubEnv('AI_ENABLED', 'false')
+  auth.requireRole.mockResolvedValue({ accountId: 'account' })
+  const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock)
+  expect(await (await GET()).json()).toEqual({ models: [], available: false, disabled: true })
+  expect(fetchMock).not.toHaveBeenCalled()
+  vi.unstubAllEnvs()
+})

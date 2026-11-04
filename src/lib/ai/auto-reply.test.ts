@@ -513,3 +513,76 @@ it('breaks provider timestamp ties using persisted arrival order', async () => {
   await dispatchInboundToAiReply(ARGS)
   expect(h.state.messageOrders.slice(0, 2)).toEqual(['created_at', 'arrival_sequence'])
 })
+
+describe('dispatchInboundToAiReply — Phase 13 safety guards', () => {
+  beforeEach(async () => (await import('@/lib/rate-limit')).__resetRateLimitForTests())
+
+  it('hands a health question to staff before any model call', async () => {
+    h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'I have chest pain and fever, what should I take?' }])
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.requireAiMessageRoom).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true })
+    expect(String(h.state.updatePayload?.ai_handoff_summary)).toContain('route to qualified staff')
+  })
+
+  it('routes a burst to staff: a health question followed at once by "hello??"', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'I have chest pain since morning, what should I take' },
+      { role: 'user', content: 'hello??' },
+    ])
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true })
+  })
+
+  it.each([
+    'Your payment has been received and confirmed.',
+    'Your refund has been processed.',
+    'Your order has been delivered.',
+    'This sounds like a viral infection. Take 500 mg of paracetamol three times a day.',
+  ])('never sends a reply that asserts a status or gives medical advice: %s', async (text) => {
+    h.generateReply.mockResolvedValue({ text, handoff: false })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.rpcCalls).toHaveLength(0)
+    expect(h.state.updatePayload).toMatchObject({ bot_paused: true })
+    expect(String(h.state.updatePayload?.ai_handoff_summary)).toContain('safety check')
+  })
+
+  it('sends conditional status wording', async () => {
+    h.generateReply.mockResolvedValue({ text: 'Once your payment is confirmed we will ship it.', handoff: false })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalledWith(expect.objectContaining({ text: 'Once your payment is confirmed we will ship it.' }))
+  })
+
+  it('strips links that are not allowed and masks personal data sent to the provider', async () => {
+    h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'hi, my email is ravi@example.com' }])
+    h.generateReply.mockResolvedValue({ text: 'Hello! Pay at https://evil.example.net/pay?x=1 now.', handoff: false })
+    await dispatchInboundToAiReply(ARGS)
+    const sentToModel = JSON.stringify(h.generateReply.mock.calls[0][0].messages)
+    expect(sentToModel).not.toContain('ravi@example.com')
+    const sent = h.engineSendText.mock.calls[0][0].text as string
+    expect(sent).not.toContain('evil.example')
+    expect(sent).toContain('Hello!')
+  })
+
+  it('retrieves customer-facing knowledge only', async () => {
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.retrieveKnowledge).toHaveBeenCalledWith(expect.anything(), 'acct-1', expect.anything(), 'hi', 5, 'customer')
+  })
+
+  it('never logs the account id or customer text on the rate-limit path', async () => {
+    const { __resetRateLimitForTests } = await import('@/lib/rate-limit')
+    __resetRateLimitForTests()
+    const logs = [vi.spyOn(console, 'info'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')].map((s) => s.mockImplementation(() => {}))
+    for (let i = 0; i < 70; i++) await dispatchInboundToAiReply(ARGS)
+    const logged = JSON.stringify(logs.flatMap((s) => s.mock.calls))
+    expect(logged).toContain('rate_limited')
+    expect(logged).not.toContain('acct-1')
+    logs.forEach((s) => s.mockRestore())
+    __resetRateLimitForTests()
+  })
+})

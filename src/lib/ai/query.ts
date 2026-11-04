@@ -1,4 +1,5 @@
 import type { ChatMessage } from './types'
+import { SENSITIVE_WINDOW } from './assess/classify'
 
 /**
  * The text to retrieve knowledge against: the most recent customer
@@ -11,4 +12,19 @@ export function latestUserMessage(messages: ChatMessage[]): string {
     if (messages[i].role === 'user') return messages[i].content
   }
   return messages.length > 0 ? messages[messages.length - 1].content : ''
+}
+
+/**
+ * Every customer turn since the last assistant/staff turn, at most the
+ * newest `window` of them, joined by newlines. Health routing and handoff
+ * keywords check this rather than only the latest turn, so a sensitive
+ * message followed at once by "hello??" is still caught.
+ */
+export function recentCustomerText(messages: ChatMessage[], window = SENSITIVE_WINDOW): string {
+  const turns: string[] = []
+  for (let i = messages.length - 1; i >= 0 && turns.length < window; i--) {
+    if (messages[i].role !== 'user') break
+    turns.unshift(messages[i].content)
+  }
+  return turns.length ? turns.join('\n') : latestUserMessage(messages)
 }

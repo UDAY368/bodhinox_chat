@@ -44,6 +44,7 @@
     "test:e2e": "playwright test",
     "test:e2e:local": "node scripts/test-db-local.cjs e2e",
     "test:watch": "vitest",
+    "eval:ai": "vitest run src/lib/ai/evals",
     "postinstall": "prisma generate",
     "worker": "tsx src/lib/jobs/worker.ts",
     "db:migrate": "prisma migrate deploy",

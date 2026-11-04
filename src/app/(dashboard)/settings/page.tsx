@@ -3,10 +3,11 @@
 import { Suspense, useMemo, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { Sparkles } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
-import { SettingsRail } from '@/components/settings/settings-rail';
+import { SettingsRail, type RailExtraItem } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { SecurityPanel } from '@/components/settings/security-panel';
@@ -37,10 +38,15 @@ import { InstagramCard } from '@/components/settings/instagram-card';
 import { ZoomCard } from '@/components/settings/zoom-card';
 import { ShiprocketCard } from '@/components/settings/shiprocket-card';
 import { RateCardEditor } from '@/components/settings/rate-card-editor';
+import { AiAssistantSettings } from '@/components/settings/ai-assistant-settings';
+import { AiQuality } from '@/components/settings/ai-quality';
 import {
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
+
+/** The admin-only AI assistant section (`?tab=ai`). */
+const AI_SECTION = 'ai';
 
 // `useSearchParams` opts this page out of static prerendering unless it
 // sits under a Suspense boundary. Without one, the production build hits
@@ -64,14 +70,22 @@ function SettingsPageInner() {
   const { accountId, defaultCurrency, canEditSettings, canManageMembers } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
+  const tAi = useTranslations('AiAssistantSettings');
 
   // The URL (`?tab=`) is the single source of truth for the active
   // section — deep-linkable, and it keeps the existing links in the
   // app sidebar/header working. Legacy tab values (tags, custom-fields)
   // resolve onto their new home; unknown/empty → the Overview landing.
-  const section = resolveSection(searchParams.get('tab'));
+  // `?tab=ai` (the AI assistant, admins only) is handled here, outside
+  // the shared section list.
+  const rawTab = searchParams.get('tab');
+  const showAi = rawTab === AI_SECTION && canEditSettings;
+  const section = resolveSection(rawTab);
+  const aiItems: RailExtraItem[] = canEditSettings
+    ? [{ id: AI_SECTION, label: tAi('railLabel'), icon: Sparkles, group: 'workspace' }]
+    : [];
 
-  const go = (next: SettingsSection) => {
+  const go = (next: SettingsSection | typeof AI_SECTION) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
     router.replace(`/settings?${params.toString()}`, { scroll: false });
@@ -151,8 +165,16 @@ function SettingsPageInner() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
-        <SettingsRail active={section} onSelect={go} hints={hints} />
-        <div className="min-w-0">{panel[section]}</div>
+        <SettingsRail active={showAi ? AI_SECTION : section} onSelect={go} hints={hints}
+          extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} />
+        <div className="min-w-0">
+          {showAi ? (
+            <div key={accountId} className="space-y-10">
+              <AiAssistantSettings />
+              <AiQuality />
+            </div>
+          ) : panel[section]}
+        </div>
       </div>
     </div>
   );

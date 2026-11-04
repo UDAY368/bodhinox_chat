@@ -8,7 +8,9 @@ export interface JobOptions { tenantId?: string; runAt?: Date; dedupeKey?: strin
 const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigger', 'broadcast.dispatch', 'webhook.delivery', 'automation.resume', 'automation.schedule', 'flow.sweep', 'flow.timer', 'whatsapp.health_sync', 'inbox.notification_digest', 'whatsapp.status_retry',
   'instagram.token_sweep', 'instagram.profile_fetch', 'instagram.private_reply',
   // Phase 12: replay of a failed flow run, and due scheduled reports per workspace.
-  'flow.replay', 'analytics.report_schedules']);
+  'flow.replay', 'analytics.report_schedules',
+  // Phase 13: AI assessment (debounced per conversation), insight runs and daily AI data retention.
+  'ai.assess_conversation', 'ai.insight_run', 'ai.retention_sweep']);
 export async function enqueueJob(type: string, payload: Record<string, unknown>, options: JobOptions = {}): Promise<string> {
   assertLiveEffects('job');
   if (!types.has(type) || JSON.stringify(payload).length > 2 * 1024 * 1024) throw new Error('Invalid job contract');

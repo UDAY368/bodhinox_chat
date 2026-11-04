@@ -131,6 +131,12 @@ describe('generateFlowDraft', () => {
     expect(issues).toEqual([])
     expect(before).toHaveBeenCalledTimes(2)
     expect(after).toHaveBeenCalledTimes(2)
+    // Each attempt reports its sizes, so a provider without usage is still metered.
+    const [, firstEstimate] = after.mock.calls[0]
+    const [, retryEstimate] = after.mock.calls[1]
+    expect(firstEstimate.promptChars).toBeGreaterThan(0)
+    expect(firstEstimate.outputChars).toBe(JSON.stringify(broken).length)
+    expect(retryEstimate.promptChars).toBeGreaterThan(firstEstimate.promptChars)
     const retry = generate.mock.calls[1][0].messages
     expect(retry).toHaveLength(3)
     expect(retry[2].content).toContain('entry')

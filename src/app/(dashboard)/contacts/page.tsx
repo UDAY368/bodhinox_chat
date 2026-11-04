@@ -64,6 +64,7 @@ import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
+import { LeadScoreCell, useLeadScores } from '@/components/contacts/lead-score-cell';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
@@ -83,6 +84,8 @@ export default function ContactsPage() {
   const canExport = planAllows(usePlan(), 'contact_export');
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
+  // Advisory AI lead scores for the contacts on screen (agents and above).
+  const leadScores = useLeadScores(contacts.map((c) => c.id));
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -894,6 +897,7 @@ export default function ContactsPage() {
                   </TableCell>
                   <TableCell className="text-foreground font-medium">
                     {contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>}
+                    <LeadScoreCell entry={leadScores[contact.id]} />
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {contact.phone}

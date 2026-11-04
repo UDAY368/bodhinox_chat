@@ -11,6 +11,7 @@ import { latestUserMessage } from '@/lib/ai/query'
 import { AiError, type ChatMessage } from '@/lib/ai/types'
 import { getT } from '@/lib/i18n/translate'
 import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
+import { aiDeploymentEnabled } from '@/lib/ai/gate'
 
 const t = getT('Api')
 
@@ -63,6 +64,11 @@ export async function POST(request: Request) {
       )
     }
 
+    // Deployment kill switch (AI_ENABLED=false): say so instead of "not configured".
+    if (!aiDeploymentEnabled()) {
+      return NextResponse.json({ error: t('ai.aiDisabled'), code: 'ai_disabled' }, { status: 503 })
+    }
+
     const config = await loadAiConfig(db, accountId, {
       requireActive: false,
     }).catch((err) => {
@@ -107,7 +113,8 @@ export async function POST(request: Request) {
     }
 
     const retrievalStartedAt = performance.now()
-    const { chunks, retrieval } = await retrieveKnowledgeScored(db, accountId, config, question)
+    // The playground previews the customer agent, so it retrieves what customers may be shown.
+    const { chunks, retrieval } = await retrieveKnowledgeScored(db, accountId, config, question, 5, 'customer')
     const knowledge = chunks.map((c) => c.content)
     const retrievalMs = Math.round(performance.now() - retrievalStartedAt)
     const systemPrompt = buildAgentSystemPrompt(profile, {

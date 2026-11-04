@@ -4,7 +4,7 @@ import { assertMutation, requireSession } from '@/lib/auth/session'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { loadAiConfig } from '@/lib/ai/config'
 import { generateReply } from '@/lib/ai/generate'
-import { logAiUsage } from '@/lib/ai/usage'
+import { logAiUsage, promptCharsOf } from '@/lib/ai/usage'
 import { databaseAdmin } from '@/lib/ai/admin-client'
 import { AiError } from '@/lib/ai/types'
 import { draftTemplate, parseTemplateDraftRequest } from '@/lib/whatsapp/template-ai'
@@ -64,8 +64,11 @@ export async function POST(request: Request) {
     }
 
     await requireAiMessageRoom(accountId)
+    // Prompt/output sizes per call, so a provider that reports no usage is still metered.
+    const estimates: { promptChars: number; outputChars: number }[] = []
     const result = await draftTemplate(parsed.value, async (systemPrompt, messages) => {
       const { text, usage } = await generateReply({ config, systemPrompt, messages })
+      estimates.push({ promptChars: promptCharsOf(systemPrompt, messages), outputChars: text.length })
       return { text, usage }
     })
 
@@ -75,7 +78,7 @@ export async function POST(request: Request) {
     // accounting must not fail or delay the response.
     try {
       const admin = databaseAdmin({ accountId, userId, role: 'admin' })
-      for (const usage of result.usages) {
+      for (const [i, usage] of result.usages.entries()) {
         void logAiUsage(admin, {
           accountId,
           conversationId: null,
@@ -83,6 +86,7 @@ export async function POST(request: Request) {
           provider: config.provider,
           model: config.model,
           usage,
+          estimate: estimates[i] ?? { promptChars: 0, outputChars: 0 },
         })
       }
     } catch (logErr) {

@@ -79,6 +79,8 @@ import {
 import { deleteAccountMedia } from '@/lib/storage/upload-media';
 import { TemplatePicker, type TemplateSendValues } from './template-picker';
 import { AiThreadBanner } from './ai-thread-banner';
+import { AiSummaryPanel } from './ai-assist/ai-summary-panel';
+import { useAssistAvailability } from './ai-assist/use-ai-assist';
 import { AdReferralBadge } from './ad-referral-badge';
 import { buildReplyPreview } from './reply-quote';
 import { renderTemplateBody } from '@/lib/whatsapp/template-body';
@@ -218,6 +220,8 @@ export function MessageThread({
   const tQuote = useTranslations('Inbox.replyQuote');
 
   const { user, canSendMessages } = useAuth();
+  // AI assistant features this member can use (summaries, suggested replies).
+  const assist = useAssistAvailability(canSendMessages);
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<{
@@ -633,7 +637,7 @@ export function MessageThread({
   }, [messages]);
 
   const handleSend = useCallback(
-    async (text: string, replyToId?: string) => {
+    async (text: string, replyToId?: string, aiSuggestionId?: string) => {
       if (!conversation) return;
 
       const tempId = newTempMessageId();
@@ -661,6 +665,8 @@ export function MessageThread({
             message_type: 'text',
             content_text: text,
             reply_to_message_id: replyToId,
+            // Recorded after the send (accepted or edited); never changes it.
+            ...(aiSuggestionId ? { ai_suggestion_id: aiSuggestionId } : {}),
           }),
         });
 
@@ -1481,6 +1487,9 @@ export function MessageThread({
         }}
       />
 
+      {/* AI summary for staff (only when the workspace turned it on). */}
+      {canSendMessages && assist?.summary.ok && <AiSummaryPanel key={conversation.id} conversationId={conversation.id} />}
+
       {/* Composer */}
       <MessageComposer
         conversationId={conversation.id}
@@ -1495,6 +1504,7 @@ export function MessageThread({
         lastCustomerAt={lastCustomerAt}
         now={sessionNow}
         humanAgentEnabled={instagramHumanAgent}
+        assistSuggest={canSendMessages && (assist?.suggest.ok ?? false)}
       />
       </div>
       {notesOpen && (

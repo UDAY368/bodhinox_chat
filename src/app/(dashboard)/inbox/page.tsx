@@ -776,6 +776,7 @@ function InboxPageInner() {
             <ContactSidebar
               key={activeContact?.id}
               contact={activeContact}
+              conversationId={activeConversation?.id}
               channel={conversationChannel(activeConversation)}
               onCollapse={handleToggleContactPanel}
               refreshToken={`${resyncToken}:${messages.length}`}

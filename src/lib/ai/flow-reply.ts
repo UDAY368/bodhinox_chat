@@ -35,8 +35,8 @@ import { databaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { generateReply } from './generate'
-import { latestUserMessage } from './query'
-import { logAiUsage } from './usage'
+import { latestUserMessage, recentCustomerText } from './query'
+import { logAiUsage, promptCharsOf } from './usage'
 import { retrieveKnowledgeScored, type ScoredKnowledgeChunk } from './knowledge'
 import {
   buildAgentSystemPrompt,
@@ -48,7 +48,11 @@ import {
 } from './agent-profile'
 import { assessConfidence, type ConfidenceReason, type RetrievalScores } from './confidence'
 import { recordUnanswered } from './unanswered'
-import type { AiConfig } from './types'
+import { logAiEvent } from './log'
+import { classifySensitive, hasUncoveredScript } from './safety/sensitive'
+import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from './assist/guards'
+import type { AiConfig, ChatMessage } from './types'
+import { buildHandoffSummary, pauseConversationForStaff, type HandoffGuardReason } from './handoff'
 import type { DataClient } from '@/lib/data/types'
 import { getSessionWindow } from '@/lib/inbox/session'
 import { conversationNumberDisconnected, engineSendText } from '@/lib/flows/meta-send'
@@ -86,7 +90,13 @@ export type FlowAiUnavailableReason =
   /** An earlier attempt of this turn stopped mid-generation: reconcile, never regenerate. */
   | 'turn_uncertain'
 
-export type FlowAiHandoffReason = Exclude<ConfidenceReason, 'answered'> | 'keyword'
+export type FlowAiHandoffReason =
+  | Exclude<ConfidenceReason, 'answered'>
+  | 'keyword'
+  /** A health or safety-sensitive question: qualified staff answer it (no model call). */
+  | 'sensitive_topic'
+  /** The answer made a forbidden claim or used an unreadable script: withheld, never sent. */
+  | 'guard_blocked'
 
 export type FlowAiOutcome =
   | { kind: 'answered'; text: string; whatsappMessageId: string; score: number; citations: FlowAiCitation[] }
@@ -165,6 +175,22 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
     const config = await loadAiConfig(db, accountId)
     if (!config) return unavailable('ai_not_configured')
 
+    // A safety handoff (health topic, withheld answer) goes to qualified
+    // staff exactly like the inbox auto-reply's: AI and bot paused, the
+    // internal note, and the handoff agent assigned. Whatever the step's
+    // handoff port leads to afterwards, nothing answers the thread
+    // automatically until a person resumes it.
+    let transcript: ChatMessage[] | null = null
+    const routeToStaff = async (reason: HandoffGuardReason, knownReplyCount?: number) => {
+      const row = knownReplyCount === undefined ? await readConversation() : null
+      const replyCount = knownReplyCount ?? (row && typeof row !== 'string' ? row.ai_reply_count ?? 0 : 0)
+      const messages = transcript ?? await buildConversationContext(db, conversationId).catch(() => [] as ChatMessage[])
+      await pauseConversationForStaff(db, {
+        accountId, conversationId, contactId, handoffAgentId: config.handoffAgentId,
+        summary: buildHandoffSummary({ messages, replyCount, reason }),
+      })
+    }
+
     let decision: TurnDecision
     if (generationIntent) {
       decision = generationIntent.result as TurnDecision
@@ -176,13 +202,22 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
       if ((conversation.ai_reply_count ?? 0) >= config.autoReplyMaxPerConversation) return unavailable('reply_cap')
 
       const messages = await buildConversationContext(db, conversationId)
+      transcript = messages
       const question = latestUserMessage(messages)
       if (!messages.length || !question.trim()) return unavailable('no_question')
 
       const profile = await loadProfile(accountId)
       const rules = profile?.handoff_rules ?? DEFAULT_HANDOFF_RULES
       // Operator handoff keywords win before any model call.
-      if (matchHandoffKeyword(question, rules)) return { kind: 'handoff', reason: 'keyword', score: 0, citations: [] }
+      // Every customer turn since the last reply is checked, so a burst is still routed.
+      const recent = recentCustomerText(messages)
+      if (matchHandoffKeyword(recent, rules)) return { kind: 'handoff', reason: 'keyword', score: 0, citations: [] }
+      // Health and safety-sensitive questions go to qualified staff before any model call.
+      if (classifySensitive(recent).sensitive) {
+        logAiEvent({ feature: 'flow_reply', reason: 'sensitive_topic', accountId })
+        await routeToStaff('sensitive_topic', conversation.ai_reply_count ?? 0)
+        return { kind: 'handoff', reason: 'sensitive_topic', score: 0, citations: [] }
+      }
 
       // Shared with the inbox auto-reply: bounds a burst on the account's key.
       if (!checkRateLimit(`ai-autoreply:${accountId}`, RATE_LIMITS.aiAutoReplyAccount).success) return unavailable('rate_limited')
@@ -196,7 +231,7 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
       const useKnowledge = args.config.use_knowledge !== false
       const knowledge = useKnowledge
         ? await retrieveFlowKnowledge(db, accountId, config, question)
-        : { excerpts: [], retrieval: null, citations: [] }
+        : { excerpts: [], retrieval: null, citations: [] as FlowAiCitation[] }
       const lowScoreHandsOff = typeof args.config.confidence_threshold === 'number' || rules.on_low_confidence
 
       const systemPrompt = buildAgentSystemPrompt(withStepInstructions(profile, config, args.config.instructions), {
@@ -212,13 +247,17 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
         decision = await dispatchOnce(accountId, generationKey(args.intentKey), async (): Promise<TurnDecision> => {
           let result: Awaited<ReturnType<typeof generateReply>>
           try {
-            result = await generateReply({ config, systemPrompt, messages })
+            // Personal data in customer messages is masked before it leaves for the provider.
+            result = await generateReply({ config, systemPrompt, messages: redactChat(messages).messages })
           } catch (error) {
             console.warn('[ai flow reply] generation failed', { error: error instanceof Error ? error.name : 'unknown' })
             return { decision: 'unavailable', reason: 'generation_failed' }
           }
           await recordAiMessage(accountId, getWorkerPrisma())
-          void logAiUsage(db, { accountId, conversationId, mode: 'auto_reply', provider: config.provider, model: config.model, usage: result.usage })
+          void logAiUsage(db, {
+            accountId, conversationId, mode: 'auto_reply', provider: config.provider, model: config.model, usage: result.usage,
+            estimate: { promptChars: promptCharsOf(systemPrompt, messages), outputChars: result.text.length },
+          })
 
           const confidence = assessConfidence({
             reply: result.text,
@@ -233,6 +272,22 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
             return { decision: 'handoff', reason: confidence.reason as FlowAiHandoffReason, score: confidence.score, citations: knowledge.citations }
           }
 
+          // Output guards: no medical advice, no claim that a payment, refund,
+          // attendance, shipment or delivery happened, no unreadable script for
+          // a health-type workspace, and only allowed links. Withheld, never sent.
+          const health = hasUncoveredScript(confidence.text) ? await healthWorkspace(accountId, profile) : false
+          const guarded = guardCustomerText(confidence.text, {
+            allow: urlAllowlist({
+              citations: knowledge.citations.map((c) => ({ chunk_id: '', document_id: c.document_id, source_id: null, title: c.title, source_url: c.url })),
+              profile, legacyPrompt: config.systemPrompt,
+            }),
+            healthWorkspace: health,
+          })
+          if (!guarded.ok || !guarded.text.trim()) {
+            logAiEvent({ feature: 'flow_reply', reason: 'guard_blocked', accountId, flags: guarded.flags })
+            return { decision: 'handoff', reason: 'guard_blocked', score: confidence.score, citations: knowledge.citations }
+          }
+
           // Atomically take an AI reply slot under the existing per-conversation cap.
           const { data: claimed, error: claimError } = await db.rpc('claim_ai_reply_slot', {
             conversation_id: conversationId,
@@ -243,7 +298,7 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
             return { decision: 'unavailable', reason: 'reply_cap' }
           }
           if (claimed !== true) return { decision: 'unavailable', reason: 'reply_cap' }
-          return { decision: 'answer', text: confidence.text, score: confidence.score, citations: knowledge.citations }
+          return { decision: 'answer', text: guarded.text, score: confidence.score, citations: knowledge.citations }
         })
       } catch (error) {
         if (isUncertain(error)) return unavailable('turn_uncertain')
@@ -253,6 +308,7 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
 
     if (decision.decision === 'unavailable') return unavailable(decision.reason)
     if (decision.decision === 'handoff') {
+      if (decision.reason === 'guard_blocked' || decision.reason === 'sensitive_topic') await routeToStaff(decision.reason)
       return { kind: 'handoff', reason: decision.reason, score: decision.score, citations: decision.citations }
     }
 
@@ -401,7 +457,8 @@ export async function retrieveFlowKnowledge(
   queryText: string,
   k = RETRIEVE_K,
 ): Promise<{ excerpts: string[]; retrieval: RetrievalScores | null; citations: FlowAiCitation[] }> {
-  const { chunks, retrieval } = await retrieveKnowledgeScored(db, accountId, config, queryText, k)
+  // Flow answers go to customers: customer-facing sources only.
+  const { chunks, retrieval } = await retrieveKnowledgeScored(db, accountId, config, queryText, k, 'customer')
   if (!chunks.length) return { excerpts: [], retrieval: null, citations: [] }
   return { excerpts: chunks.map((c) => c.content), retrieval, citations: citationsOf(chunks) }
 }
@@ -416,6 +473,15 @@ export function citationsOf(chunks: readonly ScoredKnowledgeChunk[]): FlowAiCita
     out.push({ document_id: c.document_id, title: c.title ?? '', url: c.source_url })
   }
   return out
+}
+
+/** Health-type workspace (fail closed: true when it cannot be read). */
+async function healthWorkspace(accountId: string, profile: AgentProfile | null): Promise<boolean> {
+  try {
+    return await withTenant({ accountId, role: 'owner' }, (tx) => isHealthWorkspace(tx, accountId, profile), getWorkerPrisma())
+  } catch {
+    return true
+  }
 }
 
 /** The agent profile, read with the worker role. Null (defaults) on any failure. */

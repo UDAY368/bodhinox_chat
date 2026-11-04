@@ -105,6 +105,28 @@ export const rpcContracts: Record<string, RpcContract> = {
       p_match_count: argument('integer'),
     },
   },
+  // Phase 13: audience-aware retrieval (no caller-supplied role). 'staff' is
+  // refused to the worker by the function itself.
+  match_ai_knowledge_fts_v2: {
+    slug: 'knowledge-text-v2',
+    read: true,
+    args: {
+      p_account_id: argument('uuid'),
+      p_query: argument('text'),
+      p_match_count: argument('integer'),
+      p_audience: argument('text'),
+    },
+  },
+  match_ai_knowledge_semantic_v2: {
+    slug: 'knowledge-semantic-v2',
+    read: true,
+    args: {
+      p_account_id: argument('uuid'),
+      p_query_embedding: argument('text'),
+      p_match_count: argument('integer'),
+      p_audience: argument('text'),
+    },
+  },
   record_webhook_failure: {
     slug: 'webhook-failure',
     returnsVoid: true,

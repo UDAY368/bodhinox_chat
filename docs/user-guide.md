@@ -304,6 +304,33 @@ Broadcasts, automations, AI auto-replies, away messages and chat order or appoin
 - **Schedule a report (admins).** Under **Scheduled reports**, choose the report, format, how often (daily, weekly on Monday, monthly on the 1st) and the hour, then pick up to 10 admins or owners. Each report covers the previous complete day, week or month. Recipients get an email with a sign-in link. A recipient who is no longer an admin is skipped. If the person who created the schedule is no longer an admin, the schedule pauses.
 - **Share a report (admins).** Next to a ready report, choose **Share**, pick who can open it (viewers, agents, or admins and above) and for how long (up to 7 days), then copy the link. Only people signed in to this workspace with that role can open it; the page shows the report and until when it opens. You can see how often it was opened and revoke it at any time. Someone signed in to a different workspace sees "not available" and should switch workspace first.
 
+## 9g. AI business assistant
+
+The assistant helps your team; it never acts on its own. Summaries, suggested replies, assessments and insights are shown to members, and nothing reaches a customer until a member reviews it and presses Send. It never marks a payment, attendance or delivery as confirmed, never gives medical advice, and routes health questions to qualified staff. (AI auto-reply and the flow AI reply step, which already existed, still send without review; they now hand health questions and unsafe answers to staff instead.)
+
+### Turning it on (admins)
+- **Settings → AI assistant** (admins and owners) has four switches: **Summaries**, **Suggested replies**, **Intent and lead assessment** and **Business insights**. All are off until you turn them on. You can also set a monthly AI token cap for the workspace (empty means only your plan's limit applies). The cap stops summaries, suggested replies, assessments and insights once reached; auto-replies, flow AI replies and Draft are counted towards it but are limited by your plan's monthly AI messages instead.
+- A switched-on feature still needs an active AI key (AI Agents → Setup). The status line on the page tells you when the key is missing or AI is turned off for the whole deployment.
+- What each role can do is in Settings → Team members → Permissions: "AI summaries, suggested replies and drafts", "Refresh AI lead assessments", "Request AI business insights", "Control who can see knowledge sources" and "Manage AI assistant settings". Taking the first one away from agents also removes their ✨ Draft.
+
+### In the inbox
+- **Summarize with AI** shows a summary of the conversation for staff only, with open questions and next steps. Any statement about a payment, refund, appointment or delivery is replaced with "[check the order/payment/appointment record]": always check the real record.
+- **Suggested replies:** the ✨ button in the composer shows up to three replies with the knowledge they used. **Use** puts the text in the composer; edit it and press Send yourself. If suggested replies are off, ✨ gives the usual single AI draft.
+- When the customer asks about a health topic (symptoms, treatment, dosage, emergencies, pregnancy), you see **Route to qualified staff** instead of text: assign the conversation from the control at the top of the thread.
+- **Assessment** (contact panel): the customer's likely intent (pricing, purchase, booking, support, order status, complaint and so on), how sure it is, buying signals and a lead score from 0 to 100, with when it was assessed and whether it came from AI or keyword matching. **Refresh** reassesses now (once per 10 minutes). Keyword-only results have no score. The contacts list shows a small lead-score badge next to each name. Assessments are advice only: they never tag, create deals or send anything.
+
+### Knowledge access (admins)
+- AI Agents → Knowledge: each source has **Visible to** (agents and above, or admins only) and **Use in customer replies**. Customer-facing text (Draft, suggested replies, auto-reply, flow AI replies) uses only sources marked for customer replies and visible to agents. Admin-only sources are never used for customers. Existing and uploaded sources start as visible to agents and used in customer replies.
+
+### Business insights
+- Analytics → **AI insights** (agents and above): pick an insight (conversation volume, response times, agent workload, campaign funnel, flow outcomes, template delivery, AI performance, commerce sales) and a period. The numbers come from the same reports as the Analytics page; a short written summary is added, by AI when it is available and every number it quotes matches the data, otherwise from a template. Each insight shows its data range, when it was read, how much of the period it covers, caveats, how certain it is, and a link to the report. Up to three insights can be waiting at once.
+
+### AI quality (admins)
+- Below the switches, **AI quality** shows the last 30 days: how many suggested replies were sent as written, edited, rejected or left unused, how much people changed them, summaries, route-to-staff items, which safety checks fired, how many assessments used AI vs keywords, and AI tokens used this month. It shows counts only, never message text.
+
+### Data kept
+- Suggested reply text is cleared after 30 days and the records removed after 180; old assessments are removed after 30 days (all after 180), insights after 90 days and AI usage records after 400 days.
+
 ## 10. Other functionality and where to go next
 
 **Inbox:** use quick replies from Settings, send permitted text/media/templates or interactive choices, assign conversations, mark status/unread, and deliberately pause/resume bot handoff. **Contacts:** edit profile, tags, custom fields and notes. **Settings:** profile, password/security/MFA, appearance, browser notifications, account/team, WhatsApp, templates, quick replies, fields/tags, deals/currency and API keys. **Integrations:** public scoped API keys, outbound signed webhooks and an MCP API client are implemented for later integrations; use minimal scopes and test delivery. **Live updates:** authenticated server-sent events refresh the UI, while a separate worker handles durable jobs.
