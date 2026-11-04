@@ -24,6 +24,7 @@ beforeAll(async () => {
     if (req.url === "/json") return res.writeHead(201, { "content-type": "application/json" }).end('{"ok":true}');
     if (req.url === "/redirect") return res.writeHead(302, { location: "http://169.254.169.254/" }).end();
     if (req.url === "/big") return res.writeHead(200).end("x".repeat(2048));
+    if (req.url === "/slowbody") { res.writeHead(200, { "content-length": "999999" }); res.write("x".repeat(4096)); return void setTimeout(() => res.end(), 500); }
     if (req.url === "/slow") return setTimeout(() => res.end("late"), 500);
     if (req.url === "/echo") { let body = ""; req.on("data", (c) => (body += c)); req.on("end", () => res.end(JSON.stringify({ body, auth: req.headers.authorization }))); return; }
     res.writeHead(404).end();
@@ -50,6 +51,13 @@ describe("safeFetch", () => {
   it("stops at the size cap and the deadline", async () => {
     expect(await safeFetch(`${base}/big`, { method: "GET", headers: {} }, { maxBytes: 1024 })).toEqual({ ok: false, error: "too_large" });
     expect(await safeFetch(`${base}/slow`, { method: "GET", headers: {} }, { timeoutMs: 100 })).toEqual({ ok: false, error: "timeout" });
+  });
+
+  it("answers on the headers with discardBody, so a large or slow reply body cannot fail an accepted request", async () => {
+    expect(await safeFetch(`${base}/big`, { method: "POST", headers: {} }, { maxBytes: 1024, discardBody: true }))
+      .toEqual({ ok: true, status: 200, contentType: "", body: "" });
+    expect(await safeFetch(`${base}/slowbody`, { method: "POST", headers: {} }, { maxBytes: 1024, timeoutMs: 200, discardBody: true }))
+      .toEqual({ ok: true, status: 200, contentType: "", body: "" });
   });
 
   it("refuses non-http schemes, credentials in the URL, header injection and blocked hosts", async () => {

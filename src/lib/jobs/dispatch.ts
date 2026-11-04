@@ -2,6 +2,7 @@ import { withTenant } from '@/lib/db/tenant';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertLiveEffects } from '@/lib/runtime/dry-run-guard';
 export class UncertainDispatchError extends Error { constructor() { super('Provider outcome needs reconciliation before another send'); this.name = 'UncertainDispatchError'; } }
 
 /**
@@ -20,6 +21,8 @@ function refusedBeforeProvider(error: unknown): boolean {
 /** A persisted send intent prevents automatic retry after a crash or ambiguous provider timeout. */
 export async function dispatchOnce<T>(accountId: string, key: string, send: () => Promise<T>,
   options: { retryRejected?: boolean } = {}): Promise<T> {
+  // Before the intent is claimed: a dry run neither records nor sends anything.
+  assertLiveEffects('dispatch');
   const context = { accountId, role: 'owner' as const };
   const idempotencyKey = `${accountId}:${key}`;
   const claim = await withTenant(context, tx => tx.$queryRaw<{ id: string }[]>`

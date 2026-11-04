@@ -2776,6 +2776,18 @@
         "default": "'whatsapp'",
         "reference": null,
         "definition": "channel_scope text NOT NULL DEFAULT 'whatsapp'"
+      },
+      {
+        "name": "published_version_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "flow_versions",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "published_version_id uuid"
       }
     ],
     "flow_nodes": [
@@ -3028,6 +3040,18 @@
         "default": null,
         "reference": null,
         "definition": "wait_until TIMESTAMPTZ"
+      },
+      {
+        "name": "flow_version_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "flow_versions",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "flow_version_id uuid"
       }
     ],
     "flow_run_events": [
@@ -8498,6 +8522,26 @@
         "default": "now() + interval '30 days'",
         "reference": null,
         "definition": "expires_at timestamptz NOT NULL DEFAULT now() + interval '30 days'"
+      },
+      {
+        "name": "format",
+        "type": "text",
+        "nullable": false,
+        "default": "'csv'",
+        "reference": null,
+        "definition": "format text NOT NULL DEFAULT 'csv' CHECK (format IN ('csv','pdf'))"
+      },
+      {
+        "name": "schedule_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "report_schedules",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "schedule_id uuid"
       }
     ],
     "meta_ad_connections": [
@@ -14778,6 +14822,324 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "flow_versions": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "name": "flow_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "flows",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "flow_id uuid NOT NULL"
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "version integer NOT NULL CHECK (version > 0)"
+      },
+      {
+        "name": "trigger_type",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "trigger_type text NOT NULL"
+      },
+      {
+        "name": "trigger_config",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "trigger_config jsonb NOT NULL"
+      },
+      {
+        "name": "entry_node_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "entry_node_id text"
+      },
+      {
+        "name": "fallback_policy",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "fallback_policy jsonb NOT NULL"
+      },
+      {
+        "name": "channel_scope",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "channel_scope text NOT NULL CHECK (channel_scope IN ('whatsapp','instagram','any'))"
+      },
+      {
+        "name": "nodes",
+        "type": "jsonb",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "nodes jsonb NOT NULL CHECK (jsonb_typeof(nodes) = 'array' AND octet_length(nodes::text) <= 1048576)"
+      },
+      {
+        "name": "published_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "published_by uuid"
+      },
+      {
+        "name": "published_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "published_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "report_schedules": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('campaign_daily','campaign_summary','member_campaigns','agent_performance','product_summary','service_summary','commerce_daily'))"
+      },
+      {
+        "name": "format",
+        "type": "text",
+        "nullable": false,
+        "default": "'csv'",
+        "reference": null,
+        "definition": "format text NOT NULL DEFAULT 'csv' CHECK (format IN ('csv','pdf'))"
+      },
+      {
+        "name": "cadence",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "cadence text NOT NULL CHECK (cadence IN ('daily','weekly','monthly'))"
+      },
+      {
+        "name": "hour_local",
+        "type": "smallint",
+        "nullable": false,
+        "default": "8",
+        "reference": null,
+        "definition": "hour_local smallint NOT NULL DEFAULT 8 CHECK (hour_local BETWEEN 0 AND 23)"
+      },
+      {
+        "name": "recipients",
+        "type": "uuid[]",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "recipients uuid[] NOT NULL CHECK (cardinality(recipients) BETWEEN 1 AND 10)"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid NOT NULL"
+      },
+      {
+        "name": "paused_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "paused_at timestamptz"
+      },
+      {
+        "name": "pause_reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "pause_reason text CHECK (pause_reason IN ('manual','creator_lost_access','no_recipients'))"
+      },
+      {
+        "name": "next_run_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "next_run_at timestamptz NOT NULL"
+      },
+      {
+        "name": "last_run_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "report_runs",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "last_run_id uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "report_shares": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "name": "report_run_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "report_runs",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "report_run_id uuid NOT NULL"
+      },
+      {
+        "name": "min_role",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "min_role text NOT NULL CHECK (min_role IN ('viewer','agent','admin'))"
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "created_by uuid NOT NULL"
+      },
+      {
+        "name": "expires_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "expires_at timestamptz NOT NULL"
+      },
+      {
+        "name": "revoked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "revoked_at timestamptz"
+      },
+      {
+        "name": "open_count",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "open_count integer NOT NULL DEFAULT 0 CHECK (open_count >= 0)"
+      },
+      {
+        "name": "last_opened_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_opened_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
       }
     ]
   }

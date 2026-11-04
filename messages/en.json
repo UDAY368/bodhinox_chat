@@ -1573,7 +1573,8 @@
         "wait": "Wait",
         "condition": "Condition (If/Else)",
         "send_webhook": "Send Webhook",
-        "close_conversation": "Close Conversation"
+        "close_conversation": "Close Conversation",
+        "notify_team": "Notify Team"
       },
       "triggers": {
         "new_message_received": {
@@ -1748,7 +1749,14 @@
         "waitForReplyHint": "Pauses here until the customer taps a button or replies (up to 24h). The steps after this one, including If/Else on message content, then use their reply.",
         "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed.",
         "conditionTimezoneLabel": "Timezone",
-        "conditionTimezoneHint": "Business timezone used to evaluate this time window."
+        "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
+        "notifyAudienceLabel": "Notify",
+        "notifyAssignee": "The conversation's assignee",
+        "notifyAdmins": "Workspace owners and admins",
+        "notifyTextLabel": "Notice text",
+        "notifyTextPlaceholder": "New lead from {name}",
+        "notifyTextHint": "In-app notice, up to 200 characters. You can use {contact} and {automation}; message content is never included.",
+        "bodyTemplateHint": "JSON. Placeholders are filled safely inside quoted strings, for example {example}."
       },
       "preview": {
         "noText": "no text yet",
@@ -1766,7 +1774,16 @@
       },
       "adIds": "Ad IDs",
       "adIdsHint": "Comma-separated Meta ad IDs",
-      "adIdsHelp": "Leave empty to run for any ad."
+      "adIdsHelp": "Leave empty to run for any ad.",
+      "recipients": {
+        "segment": "Contacts in a saved segment",
+        "segmentLabel": "Recipient segment",
+        "segmentChoose": "Choose a segment",
+        "segmentHint": "The segment is checked again at every run, so new matches are included and contacts who left it are not.",
+        "segmentNone": "Create a segment in Contacts first.",
+        "oncePerContact": "Run once per contact",
+        "oncePerContactHint": "Skip contacts this automation has already run for."
+      }
     }
   },
   "Flows": {
@@ -1796,6 +1813,7 @@
       "newFlow": "New flow",
       "statusDraft": "Draft",
       "statusActive": "Active",
+      "statusPaused": "Paused",
       "statusArchived": "Archived",
       "loadError": "Couldn't load flows.",
       "createError": "Couldn't create flow.",
@@ -1862,7 +1880,16 @@
       "statusTimedOut": "Timed out",
       "statusPaused": "Paused by agent",
       "statusFailed": "Failed",
-      "statusCancelled": "Cancelled"
+      "statusCancelled": "Cancelled",
+      "filterStatus": "Filter by status",
+      "filterAllStatuses": "All statuses",
+      "filterVersion": "Filter by version",
+      "filterAllVersions": "All versions",
+      "filterUnversioned": "Draft and older runs",
+      "versionLabel": "v{version}",
+      "unversioned": "Draft",
+      "loadMore": "Load more",
+      "openDetails": "Details"
     },
     "builder": {
       "triggerTitle": "Trigger",
@@ -2147,7 +2174,8 @@
         "storefrontTtl": "Link valid for (hours)",
         "storefrontTtlHelp": "Between {min} and {max} hours. Leave empty for 24.",
         "storefrontNext": "Next step once sent",
-        "storefrontFailedNext": "If the link can’t be sent"
+        "storefrontFailedNext": "If the link can’t be sent",
+        "flowStatusPaused": "paused"
       },
       "categories": {
         "messaging": "Messaging",
@@ -2339,7 +2367,10 @@
           "fallback": "Reply not accepted; the flow's fallback policy takes over",
           "ai_reply": "The AI agent answers (simulated; nothing is generated)",
           "conversion_event": "A conversion is reported to Meta (simulated; nothing is sent)",
-          "book_appointment": "Offers free times and books the one the customer picks (simulated; nothing is booked)"
+          "book_appointment": "Offers free times and books the one the customer picks (simulated; nothing is booked)",
+          "condition_true": "The condition is true for this contact",
+          "condition_false": "The condition is false for this contact",
+          "api_port": "The API result you picked: {port}"
         },
         "simulate": {
           "shareMedia": "Simulate: customer sends media",
@@ -2392,6 +2423,16 @@
         "modeBoth": "Online and in person",
         "modeOnline": "Online only",
         "modeOffline": "In person only"
+      },
+      "capabilitySetUp": "Set up",
+      "capabilityBlocked": {
+        "payments": "Connect a payment gateway to use this step.",
+        "appointments": "Add a bookable service to use this step.",
+        "ai": "Turn on an AI agent to use this step.",
+        "capi": "Set up the Meta Conversions API to use this step.",
+        "commerce": "Turn on store checkout to use this step.",
+        "meetings": "Connect Zoom to use this step.",
+        "shipping": "Connect a courier to use this step."
       }
     },
     "validation": {
@@ -2402,6 +2443,7 @@
     "editorState": {
       "saved": "Saved.",
       "fixIssues": "Fix the issues below before activating.",
+      "draftChanged": "The draft changed since you opened it. Review it, then publish again.",
       "statusActivated": "Flow activated.",
       "statusArchived": "Archived.",
       "statusDraft": "Saved as draft.",
@@ -2413,7 +2455,8 @@
       "statusUpdateFailedStatus": "Status update failed: {status}",
       "statusUpdateFailed": "Status update failed",
       "deleteFailedStatus": "Delete failed: {status}",
-      "deleteFailed": "Delete failed"
+      "deleteFailed": "Delete failed",
+      "statusPaused": "Paused. New conversations no longer start this flow."
     },
     "summary": {
       "options": "{count} {count, plural, =1 {option} other {options}}",
@@ -2481,7 +2524,8 @@
         "finance": "Finance",
         "beauty": "Salon & spa",
         "events": "Events",
-        "services": "Services"
+        "services": "Services",
+        "journeys": "Journeys"
       }
     },
     "channel": {
@@ -2494,6 +2538,134 @@
       "textOverLimit": "Instagram messages are limited to 1000 bytes",
       "runsOnHelp": "Instagram flows can use only the steps and triggers Instagram supports. Changing this is saved at once.",
       "scopeSaveFailed": "Could not change where this flow runs. Fix the flow's issues and try again."
+    },
+    "liveTest": {
+      "label": "Live test (sends real messages)",
+      "help": "While this flow is a draft it runs only for these numbers (up to 3, with country code), and they receive real messages. Use the dry run to try it without sending anything."
+    },
+    "versions": {
+      "pill": {
+        "draft": "Draft",
+        "live": "Live v{version}",
+        "liveUnpinned": "Live (republish to pin)",
+        "paused": "Paused v{version}",
+        "pausedPlain": "Paused",
+        "archived": "Archived"
+      },
+      "unpublishedChanges": "Unpublished changes",
+      "versionsButton": "Versions ({count})",
+      "publish": "Publish",
+      "publishNew": "Publish changes",
+      "resume": "Resume",
+      "pause": "Pause",
+      "archive": "Archive",
+      "back": "Back",
+      "saveFirst": "Save your changes first",
+      "fixIssues": "Fix the issues below before publishing",
+      "actionFailed": "That did not work. Try again.",
+      "done": {
+        "active": "Published",
+        "paused": "Paused",
+        "archived": "Archived",
+        "draft": "Moved to draft"
+      },
+      "pauseTitle": "Pause this flow?",
+      "pauseBody": "No new customers will start it. Customers already in it finish on the version they started.",
+      "archiveTitle": "Archive this flow?",
+      "archiveBody": "An archived flow stops for everyone. You can delete it once no customers are in it.",
+      "cancelActive": "Also cancel the {count, plural, one {# run} other {# runs}} in progress",
+      "archiveNeedsCancel": "{count, plural, one {# customer is} other {# customers are}} still in this flow; cancel their runs to archive it.",
+      "drawerTitle": "Versions",
+      "drawerHint": "Each publish is kept. Customers stay on the version they started.",
+      "viewingTitle": "Version {version}",
+      "viewingHint": "Read only. Edit the draft and publish to change it.",
+      "entry": "Entry",
+      "liveTag": "Live",
+      "pausedTag": "Paused",
+      "versionMeta": "By {by} · {steps} steps · {runs} in progress",
+      "view": "View",
+      "migrate": "Move waiting runs to v{version}",
+      "migrated": "{migrated} moved, {left} left on this version",
+      "cancelRuns": "Cancel runs",
+      "cancelConfirm": "Cancel {count} runs on version {version}? Those customers get no further messages from this flow.",
+      "cancelled": "{count} runs cancelled"
+    },
+    "dryRun": {
+      "open": "Dry run",
+      "title": "Dry run",
+      "subtitle": "Walks the flow on the server and shows what would happen. Nothing is sent, saved or charged, and no run is created.",
+      "source": "Version",
+      "sourceDraft": "Saved draft",
+      "sourcePublished": "Live version",
+      "sourceVersion": "Version {version}",
+      "unsavedNote": "The dry run uses the saved draft. Save to include your latest edits.",
+      "contact": "Sample contact (optional)",
+      "contactSearch": "Search contacts by name",
+      "noContact": "No contact",
+      "unnamedContact": "Unnamed contact",
+      "apiPorts": "API results",
+      "apiPortFor": "API result for {node}",
+      "apiPortAsk": "Ask me at that step",
+      "start": "Start dry run",
+      "restart": "Restart",
+      "back": "Undo last step",
+      "failed": "The dry run did not work. Try again.",
+      "empty": "Pick a version and start the dry run.",
+      "asContact": "As {name} {phone}",
+      "ended": "End of dry run",
+      "inputRejected": "A choice no longer fits the flow; the walk stopped there.",
+      "issuesTitle": "{count, plural, =0 {Nothing blocks publishing} one {# issue blocks publishing} other {# issues block publishing}}",
+      "would": {
+        "would_send_message": "Would send this message",
+        "would_send_template": "Would send the template {template}",
+        "would_call_api": "Would call {method} {host}",
+        "would_create_payment_link": "Would create a payment link for {amount} {currency}",
+        "would_book": "Would book an appointment",
+        "would_tag": "{mode, select, remove {Would remove a tag} other {Would add a tag}}",
+        "would_set_attribute": "Would save {key}",
+        "would_assign": "Would assign an agent",
+        "would_send_conversion": "Would report {event} to Meta",
+        "would_handoff": "Would hand the chat to a human agent",
+        "would_connect_flow": "Would continue in another flow",
+        "would_reply_with_ai": "Would answer with the AI agent",
+        "would_send_storefront_link": "Would send a store link"
+      }
+    },
+    "runDetail": {
+      "backToRuns": "Back to runs",
+      "endReason": "Ended: {reason}",
+      "failedAt": "Failed at {node}",
+      "replay": "Replay failed step",
+      "cancel": "Cancel run",
+      "actionFailed": "That did not work. Try again.",
+      "replayQueued": "Replay queued",
+      "cancelDone": "Run cancelled",
+      "intentsTitle": "Messages and calls",
+      "noIntents": "This run has not sent anything.",
+      "intentsHelp": "\"unknown\" means the provider did not confirm the send: check the conversation; it is never re-sent automatically.",
+      "colStep": "Step",
+      "colKind": "Kind",
+      "colTransition": "Transition / attempt",
+      "colStatus": "Status",
+      "colUpdated": "Updated",
+      "timelineTitle": "Timeline",
+      "kind": {
+        "flow": "Message",
+        "flow-api": "API call",
+        "flow-ai": "AI answer",
+        "flow-fallback": "Fallback message"
+      },
+      "refusal": {
+        "not_failed": "Only a failed run can be replayed.",
+        "too_old": "Failed more than 7 days ago; it can no longer be replayed.",
+        "no_contact": "No contact or conversation to continue with.",
+        "flow_archived": "The flow is archived.",
+        "not_pinned": "This run is not on a published version.",
+        "not_replayable_reason": "This kind of failure cannot be replayed safely.",
+        "needs_reconciliation": "A message from this step may already have been delivered. Check the conversation; it will not be re-sent.",
+        "already_sent": "This step's message was already sent.",
+        "conversation_busy": "Another flow is running in this conversation."
+      }
     }
   },
   "Settings": {
@@ -3718,7 +3890,9 @@
         "commerce_record_payments": "Record offline payments",
         "commerce_checkout": "Send storefront links",
         "commerce_shipments": "Create and cancel courier shipments",
-        "integrations_meetings": "Connect Zoom for online meetings"
+        "integrations_meetings": "Connect Zoom for online meetings",
+        "flows_replay": "Replay failed flow runs",
+        "automations_publish": "Publish automations"
       }
     },
     "auditLog": {
@@ -4163,7 +4337,8 @@
       "appointment_rescheduled": "Booking moved",
       "low_stock": "Low stock",
       "payment_exception": "Payment needs review",
-      "instagram_account_health": "Instagram account"
+      "instagram_account_health": "Instagram account",
+      "automation_notice": "Automation notice"
     }
   },
   "Agents": {
@@ -4792,6 +4967,55 @@
       "ordersMessage": "Here is the status of your latest order:",
       "noOrders": "We could not find an order for you yet.",
       "handoffNote": "Ayurvedic store: the customer asked to talk to the team."
+    },
+    "journey_router": {
+      "name": "Journey menu",
+      "description": "A welcome menu with four journeys: Work From Home, Free Consultation, Chiropractic and Ayurvedic Products. Customers tap a choice or type its number. Replace each placeholder with a Connect flow step.",
+      "text": "Welcome! How can we help you today?\n1. Work From Home\n2. Free Consultation\n3. Chiropractic\n4. Ayurvedic Products",
+      "menuButton": "Show the menu",
+      "typeButton": "Type a number",
+      "menuText": "Choose what you are looking for:",
+      "buttonLabel": "See options",
+      "wfhRow": "Work From Home",
+      "wfhDescription": "Register your interest",
+      "consultRow": "Free Consultation",
+      "consultDescription": "Online or in person",
+      "chiroRow": "Chiropractic",
+      "chiroDescription": "Book a visit",
+      "ayurvedaRow": "Ayurvedic Products",
+      "ayurvedaDescription": "Shop, orders and advice",
+      "askNumber": "Please reply with 1, 2, 3 or 4.",
+      "numberError": "Please reply with a number from 1 to 4.",
+      "placeholderNote": "Journey menu: the customer chose {journey}. Replace this step with a Connect flow step to your {journey} flow.",
+      "handoffNote": "Journey menu: the customer did not pick an option."
+    },
+    "work_from_home": {
+      "name": "Work From Home registration",
+      "description": "Registers interest in work-from-home opportunities: name, number, city, state and preference, then shares your information link and hands over to the team.",
+      "intro": "Thanks for your interest in working from home with us. We will ask a few short questions so our team can contact you.",
+      "askName": "What is your full name?",
+      "confirmPhone": "Can we reach you on this WhatsApp number?",
+      "samePhoneButton": "Yes, this number",
+      "otherPhoneButton": "Use another number",
+      "askPhone": "Which number should we use? Include the country code.",
+      "phoneError": "Please send a valid phone number with the country code.",
+      "askCity": "Which city are you in?",
+      "askState": "And which state?",
+      "askPreference": "What would suit you best?",
+      "partTimeButton": "Part-time",
+      "fullTimeButton": "Full-time",
+      "weekendsButton": "Weekends only",
+      "linkMessage": "Thank you! Here is more information about the opportunity: {link}\nA member of our team will contact you to explain the details.",
+      "handoffNote": "Work From Home registration: {name}, {city}, {state}. Preference: {preference}. Other number: {phone}."
+    },
+    "chiropractic_visit": {
+      "name": "Chiropractic visit",
+      "description": "Books a chiropractic visit from your calendar, takes the visit fee with a payment link when you set one, and hands over to the clinic.",
+      "intro": "Hello! Let's find a time for your chiropractic visit.",
+      "payMessage": "To confirm your visit, please pay the visit fee here:",
+      "payDescription": "Chiropractic visit",
+      "consent": "Thank you. Before your visit, please share only the minimum health detail we need, such as where it hurts and since when. Our team will take it from here.",
+      "handoffNote": "Chiropractic visit: booking finished; follow up with the patient."
     }
   },
   "LibErrors": {
@@ -4869,7 +5093,12 @@
       "tagAddedNoConversation": "tag_added automation cannot send: contact has no existing conversation",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
-      "scheduleWaitFailed": "Could not schedule the wait: {message}"
+      "scheduleWaitFailed": "Could not schedule the wait: {message}",
+      "webhookInvalidBody": "send_webhook: the filled-in body is not valid JSON",
+      "webhookInvalidHeader": "send_webhook: a header is not allowed or has a line break",
+      "webhookUncertain": "send_webhook: no reply from the destination, so it may or may not have the request; it will not be sent again",
+      "webhookRefused": "send_webhook: the request could not be sent to this destination",
+      "notifyInvalid": "notify_team needs an audience and text"
     }
   },
   "Validation": {
@@ -5029,7 +5258,9 @@
       "storefrontMessageTooLong": "Keep the message within {max} characters.",
       "storefrontInvalidTtl": "Choose a link lifetime between {min} and {max} hours.",
       "storefrontInvalidPurpose": "Choose whether the link opens the store or the contact’s latest order.",
-      "storefrontNeedsNext": "Connect the step that follows once the link is sent."
+      "storefrontNeedsNext": "Connect the step that follows once the link is sent.",
+      "capabilityUnavailable": "Step \"{key}\" needs {capability}, which this workspace has not set up yet.",
+      "crossFlowLoop": "Connect Flow steps form a loop with no customer reply in between: {flows}."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -5065,7 +5296,16 @@
       "templateHeaderVariable": "Automations can't send templates with a variable in the header: the step only fills body values.",
       "templateUrlVariable": "Automations can't send templates with a variable in a URL button: the step only fills body values.",
       "adIdsInvalid": "Ad IDs must be digits only, up to {max} of them",
-      "serviceIdsInvalid": "Service IDs must be valid IDs, up to {max} of them"
+      "serviceIdsInvalid": "Service IDs must be valid IDs, up to {max} of them",
+      "notifyAudienceInvalid": "Choose who gets the notice: the assignee or the admins.",
+      "notifyTextInvalid": "Enter the notice text, up to {max} characters.",
+      "notifyPlaceholderInvalid": "A team notice can only use the contact name and the automation name placeholders.",
+      "webhookUrlNoWorkspace": "The webhook URL cannot use workspace values. Put them in a header or the body instead.",
+      "webhookHeaderInvalid": "Webhook headers need a valid name and a single-line value. Host, Content-Length, Transfer-Encoding, Connection and Cookie cannot be set.",
+      "webhookBodyInvalid": "The webhook body must be valid JSON. Put placeholders inside quoted strings.",
+      "webhookUrlNotAllowed": "The webhook URL points to a private or reserved address. Use a public address.",
+      "oncePerContactInvalid": "Once per contact must be on or off.",
+      "segmentUnavailable": "The chosen segment is not available in this workspace."
     },
     "templates": {
       "nameRequired": "Template name is required.",
@@ -5411,7 +5651,16 @@
       "invalidReport": "Choose a valid report type.",
       "tooManyReports": "Several reports are still being built. Wait for them to finish, then try again.",
       "reportNotFound": "Report not found.",
-      "reportNotReady": "This report is not available for download."
+      "reportNotReady": "This report is not available for download.",
+      "invalidFormat": "Choose CSV or PDF.",
+      "invalidSchedule": "Choose a report, a cadence (daily, weekly or monthly) and an hour from 0 to 23.",
+      "invalidRecipients": "Choose 1 to 10 recipients, each an admin or owner of this workspace.",
+      "scheduleNotFound": "Schedule not found.",
+      "tooManySchedules": "This workspace already has 10 scheduled reports. Delete one first.",
+      "scheduleCreatorLostAccess": "This schedule's creator is no longer an admin. Create a new schedule instead.",
+      "invalidShare": "Choose who can open the link and an expiry of up to 7 days.",
+      "shareRoleTooLow": "This report holds data that role cannot see. Choose a higher role.",
+      "shareNotFound": "This report is not available."
     },
     "meetings": {
       "not_configured": "Zoom is not available on this deployment.",
@@ -5553,7 +5802,9 @@
       "copyFailed": "copy failed",
       "invalidActiveConfig": "Cannot keep automation active with invalid configuration",
       "invalidActivateConfig": "Cannot activate automation with invalid configuration",
-      "nameTriggerRequired": "name and trigger_type are required"
+      "nameTriggerRequired": "name and trigger_type are required",
+      "secretNeedsAdmin": "Only an admin can add or change a webhook step that uses a secret workspace value.",
+      "automationLoop": "This automation would start a loop: {chain}. Change a tag so the chain ends."
     },
     "contacts": {
       "tagIdRequired": "tag_id required"
@@ -5569,7 +5820,24 @@
       "secretNeedsAdmin": "Only an admin can add or change an API request step that uses a secret workspace value.",
       "testNumbersInvalid": "Enter up to {max} phone numbers with country code (8–15 digits each).",
       "copyName": "Copy of {name}",
-      "channelScopeInvalid": "Runs on must be WhatsApp, Instagram or both."
+      "channelScopeInvalid": "Runs on must be WhatsApp, Instagram or both.",
+      "draftChanged": "The draft changed since you opened it. Review it, then publish again.",
+      "notPublished": "Publish this flow before pausing it.",
+      "activeRuns": "{count, plural, one {# customer is} other {# customers are}} still in this flow. Cancel their runs to archive it.",
+      "nothingToMigrate": "There is no newer live version to move these runs to.",
+      "useArchive": "A published flow must be archived, with no customers still in it, before it can be deleted.",
+      "dryRunNotPublished": "This flow has no published version yet.",
+      "replay": {
+        "notFailed": "Only a failed run can be replayed.",
+        "tooOld": "This run failed more than 7 days ago and can no longer be replayed.",
+        "noContact": "This run has no contact or conversation to continue with.",
+        "flowArchived": "The flow is archived, so its runs cannot be replayed.",
+        "notPinned": "This run is not on a published version, so it cannot be replayed.",
+        "notReplayableReason": "This kind of failure cannot be replayed safely.",
+        "needsReconciliation": "A message from this step may already have been delivered. Check the conversation before doing anything else; it will not be sent again automatically.",
+        "alreadySent": "This step's message was already sent; replaying would send it twice.",
+        "conversationBusy": "Another flow is running in this conversation. Try again when it ends."
+      }
     },
     "quickReplies": {
       "kindInvalid": "kind must be \"text\" or \"interactive\"",
@@ -7899,6 +8167,10 @@
     "appointment_rescheduled": {
       "label": "Moved bookings",
       "description": "A confirmed appointment moves to a new time."
+    },
+    "automation_notice": {
+      "label": "Automation notices",
+      "description": "An automation's Notify team step tells you about a conversation."
     }
   },
   "Weekdays": {
@@ -8501,7 +8773,13 @@
       "from": "From",
       "to": "To",
       "apply": "Apply",
-      "maxDays": "Up to 366 days. Dates use your workspace time zone."
+      "maxDays": "Up to 366 days. Dates use your workspace time zone.",
+      "this_week": "This week",
+      "last_week": "Last week",
+      "this_month": "This month",
+      "last_month": "Last month",
+      "calendar": "Calendar period",
+      "calendarLabel": "Calendar period (weeks start on Monday)"
     },
     "numbers": {
       "label": "Number",
@@ -8627,14 +8905,21 @@
         "campaign_daily": "Campaigns by day",
         "campaign_summary": "Campaign summary",
         "member_campaigns": "Campaigns by team member",
-        "agent_performance": "Agent performance by day"
+        "agent_performance": "Agent performance by day",
+        "product_summary": "Product sales",
+        "service_summary": "Appointments by service",
+        "commerce_daily": "Collections by day"
       },
       "range": "Date range",
       "presets": {
         "7d": "Last 7 days",
         "30d": "Last 30 days",
         "90d": "Last 90 days",
-        "custom": "Custom range"
+        "custom": "Custom range",
+        "this_week": "This week",
+        "last_week": "Last week",
+        "this_month": "This month",
+        "last_month": "Last month"
       },
       "from": "From",
       "to": "To",
@@ -8665,6 +8950,84 @@
         "subject": "Your report is ready: {report}",
         "body": "Your {report} report for {from} to {to} is ready. Sign in to download it:",
         "footer": "The file is available for 30 days. It contains counts and names only, never message content."
+      },
+      "format": "Format",
+      "formats": {
+        "csv": "CSV",
+        "pdf": "PDF"
+      },
+      "pdfNote": "PDF shows at most 2,000 rows. Characters the PDF font cannot show (for example Korean) appear as \"?\"; use CSV for the complete report.",
+      "scheduledRun": "Scheduled",
+      "truncatedPdf": "first 2,000 rows only",
+      "share": {
+        "open": "Share",
+        "explain": "Anyone signed in to this workspace with at least the chosen role can download this report until the link expires or you revoke it. The link works for no one outside the workspace.",
+        "minRole": "Who can open it",
+        "roles": {
+          "viewer": "Viewers and above",
+          "agent": "Agents and above",
+          "admin": "Admins and owners"
+        },
+        "expiresIn": "Link expires after",
+        "hours": {
+          "24": "1 day",
+          "72": "3 days",
+          "168": "7 days"
+        },
+        "create": "Create link",
+        "copy": "Copy link",
+        "copied": "Copied",
+        "none": "This report has not been shared.",
+        "summary": "{role} · until {date} · {count, plural, one {# open} other {# opens}}",
+        "active": "Active",
+        "expired": "Expired",
+        "revoked": "Revoked",
+        "revoke": "Revoke",
+        "loadFailed": "Shares could not be loaded.",
+        "createFailed": "The link could not be created. Try again.",
+        "revokeFailed": "The link could not be revoked. Try again."
+      },
+      "schedules": {
+        "title": "Scheduled reports",
+        "description": "Email a report automatically for the previous day, week (Monday to Sunday) or month. Recipients must be admins or owners, and each one is checked again when the report is sent. The email holds a sign-in link, never the file.",
+        "cadence": "Repeat",
+        "cadences": {
+          "daily": "Daily",
+          "weekly": "Weekly (Monday)",
+          "monthly": "Monthly (1st)"
+        },
+        "hour": "Send at (workspace time)",
+        "recipients": "Recipients",
+        "recipientsHelp": "Up to 10 admins or owners. Anyone who is no longer an admin when the report is sent is skipped.",
+        "noAdmins": "No admins or owners found.",
+        "pickRecipients": "Choose at least one recipient.",
+        "create": "Schedule report",
+        "empty": "No scheduled reports yet.",
+        "when": "When",
+        "whenValue": "{cadence} at {hour}",
+        "actions": "Actions",
+        "next": "Next: {date}",
+        "paused": {
+          "manual": "Paused",
+          "creator_lost_access": "Paused: its creator is no longer an admin. Create a new schedule.",
+          "no_recipients": "Paused: no recipients left"
+        },
+        "pause": "Pause",
+        "resume": "Resume",
+        "delete": "Delete",
+        "confirmDelete": "Delete this schedule? Reports it already produced are kept until they expire.",
+        "loadFailed": "Scheduled reports could not be loaded.",
+        "saveFailed": "The schedule could not be saved. Try again."
+      },
+      "shared": {
+        "title": "Shared report",
+        "description": "A report shared with members of your workspace.",
+        "download": "Download report",
+        "downloaded": "Your download has started.",
+        "unavailable": "This report is not available to you. The link may have expired or been revoked, your role may not include it, or it belongs to another workspace: switch to that workspace and open the link again.",
+        "failed": "The report could not be downloaded. Try again.",
+        "privacy": "Every download is recorded. Shared reports contain counts and names only, never message content.",
+        "details": "{kind} ({format}). Opens until {expires}."
       }
     },
     "templates": {
@@ -8739,6 +9102,47 @@
       "shipping": "Shipping",
       "merchandiseRefunds": "Item refunds",
       "orders": "Paid orders"
+    },
+    "compare": {
+      "title": "Compare",
+      "description": "Campaigns side by side, appointment outcomes per service, and top products in the period.",
+      "tabs": {
+        "campaigns": "Campaigns",
+        "services": "Services",
+        "products": "Products"
+      },
+      "percent": "{value}%",
+      "notApplicable": "N/A",
+      "campaigns": {
+        "needTwo": "At least two campaigns in the period are needed to compare. Choose a longer period.",
+        "pick": "Choose 2 to {max} campaigns",
+        "selectMore": "Select at least two campaigns.",
+        "chartLabel": "Campaign comparison, as a share of sent",
+        "campaign": "Campaign",
+        "recipients": "Recipients",
+        "hint": "Sent is a count; the other stages are a share of sent. Replies count within 72 hours."
+      },
+      "services": {
+        "chartLabel": "Appointments by service",
+        "service": "Service",
+        "booked": "Booked",
+        "confirmed": "Confirmed",
+        "cancelled": "Cancelled",
+        "completed": "Completed",
+        "noShow": "No-shows",
+        "noShowRate": "No-show rate"
+      },
+      "products": {
+        "chartLabel": "Top products by net revenue",
+        "product": "Product",
+        "orders": "Orders",
+        "units": "Units",
+        "gross": "Gross",
+        "discounts": "Discounts",
+        "refunds": "Refunds",
+        "net": "Net",
+        "hint": "Paid orders in the period. Order discounts and refunds are shared across lines by value, so totals can differ by rounding."
+      }
     }
   },
   "Ads": {

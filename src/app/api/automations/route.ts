@@ -14,6 +14,14 @@ import { automationTemplateIssues } from '@/lib/automations/template-check';
 import { getT } from '@/lib/i18n/translate';
 import { requireActiveAutomationRoom } from '@/lib/billing/activation';
 import { requireScheduledSendingAllowed } from '@/lib/automations/schedule-gate';
+import { hasMinRole } from '@/lib/auth/roles';
+import {
+  addsSecretWebhook,
+  loopRefusal,
+  publishChecks,
+} from '@/lib/automations/publish-checks';
+import { activateWithLoopLock } from '@/lib/automations/activation-lock';
+import { tenantOf } from '@/lib/audience/http';
 
 const t = getT('Api');
 
@@ -39,8 +47,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   // Use the authenticated tenant client; role and RLS both apply.
+  let ctx: Awaited<ReturnType<typeof requireRole>>;
   try {
-    await requireRole('agent');
+    ctx = await requireRole('agent');
   } catch (err) {
     return toErrorResponse(err);
   }
@@ -124,6 +133,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // A secret workspace value in a webhook step is admin-only, draft or active.
+  if (
+    !hasMinRole(ctx.role, 'admin') &&
+    (await addsSecretWebhook(accountId, effectiveSteps ?? [], []))
+  ) {
+    return NextResponse.json(
+      { error: t('automations.secretNeedsAdmin') },
+      { status: 403 }
+    );
+  }
+
   // Block activation of a clearly broken automation up-front instead of
   // letting every trigger silently produce a failed log row. Drafts
   // (is_active=false) are allowed to be incomplete so users can save
@@ -148,6 +168,13 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    const published = await publishChecks(ctx, accountId, {
+      name: effectiveName,
+      trigger_type: effectiveTriggerType,
+      trigger_config: effectiveTriggerConfig ?? {},
+      steps: effectiveSteps ?? [],
+    });
+    if (published) return published;
     try {
       await requireActiveAutomationRoom(accountId);
       await requireScheduledSendingAllowed(
@@ -170,7 +197,8 @@ export async function POST(request: Request) {
       description: effectiveDescription ?? null,
       trigger_type: effectiveTriggerType,
       trigger_config: effectiveTriggerConfig ?? {},
-      is_active: !!is_active,
+      // Turned on below, under the per-account loop lock, once its steps exist.
+      is_active: false,
     })
     .select()
     .single();
@@ -187,5 +215,27 @@ export async function POST(request: Request) {
     if (err) return NextResponse.json({ error: err }, { status: 500 });
   }
 
+  if (is_active) {
+    // A concurrent activation may have closed a loop since publishChecks:
+    // checked again under the lock; a refused new automation is removed.
+    let chain: string[] | null;
+    try {
+      chain = await activateWithLoopLock(tenantOf(ctx), accountId, automation.id, {
+        name: effectiveName,
+        trigger_type: effectiveTriggerType,
+        trigger_config: effectiveTriggerConfig ?? {},
+        steps: effectiveSteps ?? [],
+      });
+    } catch (err) {
+      return toErrorResponse(err);
+    }
+    if (chain) {
+      await db.from('automations').delete().eq('id', automation.id).eq('account_id', accountId);
+      return loopRefusal(chain);
+    }
+    automation.is_active = true;
+  }
+
   return NextResponse.json({ automation }, { status: 201 });
 }
+

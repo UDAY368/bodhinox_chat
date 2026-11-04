@@ -75,7 +75,7 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { filterPaletteTypes } from './palette';
+import { CAPABILITY_SETUP_HREF, filterPaletteTypes, paletteBlock, useWorkspaceCapabilities } from './palette';
 import { canvasNodeDimensions } from './canvas-layout';
 import {
   applyEdgeConnection,
@@ -914,6 +914,7 @@ function NodeInspector({
 function CanvasBlockLibrary({ t, onAdded }: { t: ReturnType<typeof useTranslations>; onAdded: (key: string) => void }) {
   const reactFlow = useReactFlow();
   const { addNode, updateNodePosition } = useFlowEditor();
+  const caps = useWorkspaceCapabilities();
   const [query, setQuery] = useState('');
   const matching = filterPaletteTypes(ADD_NODE_TYPES.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
 
@@ -953,12 +954,25 @@ function CanvasBlockLibrary({ t, onAdded }: { t: ReturnType<typeof useTranslatio
         {groupNodeTypesByCategory(matching.map(item => item.type)).map(group => (
           <section key={group.id} className="mb-5">
             <h3 className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t(`categories.${group.id}`)}</h3>
-            <div className="grid grid-cols-2 gap-2">{group.types.map(type => (
-              <button key={type} type="button" title={t(`nodes.${type}.blurb`)} onClick={() => handleAdd(type)} className="flow-studio-block group flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-border px-2 py-3 text-center transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary">
-                <NodeIconChip type={type} size={30} iconSize={15} />
-                <span className="text-xs font-medium text-foreground">{t(`nodes.${type}.label`)}</span>
-              </button>
-            ))}</div>
+            <div className="grid grid-cols-2 gap-2">{group.types.map(type => {
+              const blocked = paletteBlock(type, caps);
+              if (blocked) {
+                // Provider not configured: the step could not be published, so it is not offered.
+                return (
+                  <div key={type} title={t(`capabilityBlocked.${blocked}`)} aria-disabled="true" data-blocked={blocked} className="flow-studio-block flex min-h-24 w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border px-2 py-3 text-center opacity-60">
+                    <NodeIconChip type={type} size={30} iconSize={15} />
+                    <span className="text-xs font-medium text-muted-foreground">{t(`nodes.${type}.label`)}</span>
+                    <a href={CAPABILITY_SETUP_HREF[blocked]} className="text-[10px] font-medium text-primary hover:underline">{t('capabilitySetUp')}</a>
+                  </div>
+                );
+              }
+              return (
+                <button key={type} type="button" title={t(`nodes.${type}.blurb`)} onClick={() => handleAdd(type)} className="flow-studio-block group flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-border px-2 py-3 text-center transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary">
+                  <NodeIconChip type={type} size={30} iconSize={15} />
+                  <span className="text-xs font-medium text-foreground">{t(`nodes.${type}.label`)}</span>
+                </button>
+              );
+            })}</div>
           </section>
         ))}
         {matching.length === 0 && <p className="px-2 py-6 text-center text-xs text-muted-foreground">{t('studioNoResults')}</p>}
@@ -983,6 +997,7 @@ function DropStepPicker({ x, y, onPick, onClose, t }: {
   onClose: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const caps = useWorkspaceCapabilities();
   const [query, setQuery] = useState('');
   const matching = filterPaletteTypes(ADD_NODE_TYPES.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
   return (
@@ -1003,12 +1018,15 @@ function DropStepPicker({ x, y, onPick, onClose, t }: {
           {groupNodeTypesByCategory(matching.map(item => item.type)).map(group => (
             <section key={group.id} className="mb-1.5">
               <h3 className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t(`categories.${group.id}`)}</h3>
-              {group.types.map(type => (
-                <button key={type} type="button" title={t(`nodes.${type}.blurb`)} onClick={() => onPick(type)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary">
-                  <NodeIconChip type={type} size={22} iconSize={12} />
-                  {t(`nodes.${type}.label`)}
-                </button>
-              ))}
+              {group.types.map(type => {
+                const blocked = paletteBlock(type, caps);
+                return (
+                  <button key={type} type="button" disabled={!!blocked} title={blocked ? t(`capabilityBlocked.${blocked}`) : t(`nodes.${type}.blurb`)} onClick={() => onPick(type)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent">
+                    <NodeIconChip type={type} size={22} iconSize={12} />
+                    {t(`nodes.${type}.label`)}
+                  </button>
+                );
+              })}
             </section>
           ))}
           {matching.length === 0 && <p className="px-2 py-4 text-center text-xs text-muted-foreground">{t('studioNoResults')}</p>}

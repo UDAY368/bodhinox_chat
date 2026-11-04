@@ -1,5 +1,5 @@
 // Private object storage for report files, in the same bucket as media but
-// under <account_id>/reports/<report id>.csv, outside the media buckets: report
+// under <account_id>/reports/<report id>.<csv|pdf>, outside the media buckets: report
 // files are never listed in the media library, never served by the media proxy
 // and do not count toward the plan's storage (they expire after 30 days).
 // Only the report download route reads them, after its own checks.
@@ -7,7 +7,14 @@
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const KEY = /^([0-9a-f-]{36})\/reports\/([0-9a-f-]{36})\.csv$/;
+const KEY = /^([0-9a-f-]{36})\/reports\/([0-9a-f-]{36})\.(csv|pdf)$/;
+
+export type ReportFileFormat = 'csv' | 'pdf';
+
+/** The download content type of a report file. */
+export function reportContentType(format: ReportFileFormat): string {
+  return format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8';
+}
 
 let client: S3Client | undefined;
 function s3(): S3Client {
@@ -22,22 +29,24 @@ function s3(): S3Client {
   return client;
 }
 
-export function reportObjectKey(accountId: string, reportId: string): string {
-  if (!UUID.test(accountId) || !UUID.test(reportId)) throw new Error('Invalid report identity');
-  return `${accountId.toLowerCase()}/reports/${reportId.toLowerCase()}.csv`;
+/** The deterministic key of a report file; its extension matches report_runs.format (checked in SQL too). */
+export function reportObjectKey(accountId: string, reportId: string, format: ReportFileFormat = 'csv'): string {
+  if (!UUID.test(accountId) || !UUID.test(reportId) || (format !== 'csv' && format !== 'pdf')) throw new Error('Invalid report identity');
+  return `${accountId.toLowerCase()}/reports/${reportId.toLowerCase()}.${format}`;
 }
 
 /** A stored key must belong to this workspace; anything else is refused. */
-function assertOwnKey(accountId: string, key: string): void {
+function assertOwnKey(accountId: string, key: string): ReportFileFormat {
   const match = KEY.exec(key);
   if (!match || match[1] !== accountId.toLowerCase()) throw new Error('Report file belongs to another workspace');
+  return match[3] as ReportFileFormat;
 }
 
 /** Writes (or, on a retried job, overwrites) the report file. */
 export async function putReportFile(accountId: string, key: string, body: Uint8Array): Promise<void> {
-  assertOwnKey(accountId, key);
+  const format = assertOwnKey(accountId, key);
   await s3().send(new PutObjectCommand({
-    Bucket: process.env.S3_BUCKET, Key: key, Body: body, ContentType: 'text/csv; charset=utf-8',
+    Bucket: process.env.S3_BUCKET, Key: key, Body: body, ContentType: reportContentType(format),
   }));
 }
 

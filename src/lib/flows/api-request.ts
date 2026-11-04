@@ -26,7 +26,8 @@ function fill(text: string, values: RequestValues, workspace: Record<string, str
   })
 }
 
-const jsonEscape = (s: string) => JSON.stringify(s).slice(1, -1)
+/** A value placed inside a JSON string literal (also used by the automation send_webhook body). */
+export const jsonEscape = (s: string) => JSON.stringify(s).slice(1, -1)
 // Header values may not carry line breaks (request splitting).
 const headerSafe = (s: string) => s.replace(/[\r\n]+/g, ' ')
 

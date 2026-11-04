@@ -167,7 +167,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics CSV reports on Po
     await runReportJob(A, { reportId: run.id });
     expect(files.puts.size).toBe(1);
 
-    expect(await openReportDownload(ownerCtx, run.id)).toEqual({ objectKey: key, filename: 'campaign_daily_2026-10-01_2026-10-07.csv' });
+    expect(await openReportDownload(ownerCtx, run.id)).toEqual({ objectKey: key, filename: 'campaign_daily_2026-10-01_2026-10-07.csv', format: 'csv' });
     const audits = await q('SELECT action FROM audit_logs WHERE account_id=$1 AND resource_id=$2 ORDER BY created_at, action', [A, run.id]);
     expect(audits.rows.map((r) => r.action).sort()).toEqual(['analytics.report_downloaded', 'analytics.report_requested']);
   });

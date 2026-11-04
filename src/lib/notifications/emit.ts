@@ -170,3 +170,52 @@ export async function notifyTemplateRejected(row: {
     return EMPTY;
   }
 }
+
+export type AutomationNoticeAudience = 'assignee' | 'admins';
+
+export interface AutomationNoticeInput {
+  accountId: string;
+  automationId: string;
+  audience: AutomationNoticeAudience;
+  /** The notice text, already filled from the automation and contact names only (no message content). */
+  title: string;
+  conversationId?: string | null;
+  contactId?: string | null;
+  /** Stable per run and step, so a retried step adds nothing. */
+  dedupeKey: string;
+}
+
+/**
+ * The automation step notify_team: an in-app notice to the conversation's
+ * assignee or to the workspace's owners and admins, as type automation_notice.
+ * Recipients must be current members. It goes through createNotification,
+ * so each member's automation_notice preference decides in-app and email
+ * digest, and the dedupe key makes a retried step a no-op. Returns the members
+ * notified (in-app or email). Runs on the worker connection.
+ */
+export async function notifyAutomationNotice(input: AutomationNoticeInput): Promise<string[]> {
+  if (!UUID.test(input.accountId) || !UUID.test(input.automationId)) throw new Error('Invalid automation notice');
+  const conversationId = input.conversationId && UUID.test(input.conversationId) ? input.conversationId : null;
+  const contactId = input.contactId && UUID.test(input.contactId) ? input.contactId : null;
+  const title = input.title.trim().slice(0, 200);
+  if (!title || !input.dedupeKey || input.dedupeKey.length > 200) throw new Error('Invalid automation notice');
+  return withTenant({ accountId: input.accountId, role: 'owner' }, async (tx) => {
+    let userIds: string[];
+    if (input.audience === 'assignee') {
+      if (!conversationId) return [];
+      const rows = await tx.$queryRaw<{ assignee: string | null }[]>`
+        SELECT assigned_agent_id::text AS assignee FROM conversations
+        WHERE account_id=${input.accountId}::uuid AND id=${conversationId}::uuid`;
+      userIds = rows[0]?.assignee ? [rows[0].assignee] : [];
+    } else {
+      userIds = await workspaceAdmins(tx, input.accountId);
+    }
+    if (!userIds.length) return [];
+    const link = conversationId ? conversationLink(conversationId) : `/automations/${input.automationId}/edit`;
+    const result = await createNotification(tx, {
+      accountId: input.accountId, userIds, event: 'automation_notice', title, link,
+      dedupeKey: input.dedupeKey, conversationId, contactId,
+    });
+    return [...new Set([...result.inApp, ...result.emailQueued])];
+  }, getWorkerPrisma());
+}

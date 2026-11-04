@@ -1,4 +1,3 @@
-import { leaseFetch as fetch } from '@/lib/jobs/lease'
 import { enqueueJob } from '@/lib/jobs/queue';
 // ============================================================
 // Outbound webhook delivery.
@@ -27,6 +26,7 @@ import type { DataClient } from '@/lib/data/types';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { buildSignatureHeader } from '@/lib/webhooks/sign';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
+import { safeFetch } from '@/lib/webhooks/safe-fetch';
 import type { WebhookEvent } from '@/lib/webhooks/events';
 
 /** Per-endpoint HTTP timeout. Kept short — this runs in `after()`. */
@@ -109,7 +109,12 @@ async function deliverOne(
   }
 
   try {
-    const res = await fetch(row.url, {
+    // safeFetch dials only the address it checked (closing the DNS-rebinding
+    // gap between the check above and the connect), never follows redirects
+    // (a 3xx is a misconfiguration and counts as a failure) and holds the
+    // job lease. Success is judged on the status alone: the reply body is
+    // never read, so a large or slow body cannot fail an accepted delivery.
+    const res = await safeFetch(row.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -118,13 +123,9 @@ async function deliverOne(
         'X-Wacrm-Signature': buildSignatureHeader(payload, secret, tsSeconds),
       },
       body: payload,
-      // Do NOT follow redirects — a public URL could 3xx-bounce to an
-      // internal address, bypassing the SSRF check above. A 3xx is a
-      // misconfiguration; treat it as a failure.
-      redirect: 'manual',
-      signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-    });
-    if (!res.ok) throw new Error(`endpoint responded ${res.status}`);
+    }, { timeoutMs: DELIVERY_TIMEOUT_MS, discardBody: true });
+    if (!res.ok) throw new Error(`endpoint unreachable (${res.error})`);
+    if (res.status < 200 || res.status >= 300) throw new Error(`endpoint responded ${res.status}`);
 
     // Success: clear the failure streak.
     await db

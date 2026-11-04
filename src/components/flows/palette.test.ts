@@ -15,3 +15,14 @@ describe('flow block search', () => {
     expect(filterPaletteTypes(items, 'unavailable')).toEqual([])
   })
 })
+
+describe('palette capability block', () => {
+  it('blocks a provider-gated node only once the workspace is known to lack it', async () => {
+    const { paletteBlock, CAPABILITY_SETUP_HREF } = await import('./palette')
+    expect(paletteBlock('payment_link', null)).toBeNull()
+    expect(paletteBlock('payment_link', { payments: false })).toBe('payments')
+    expect(paletteBlock('payment_link', { payments: true })).toBeNull()
+    expect(paletteBlock('send_message', { payments: false })).toBeNull()
+    expect(CAPABILITY_SETUP_HREF.payments).toMatch(/^\//)
+  })
+})

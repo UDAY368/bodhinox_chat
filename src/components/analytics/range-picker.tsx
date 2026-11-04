@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export type Preset = 'today' | '7d' | '30d' | '90d' | 'custom';
+export type Preset = 'today' | '7d' | '30d' | '90d' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom';
 export interface RangeValue {
   preset: Preset;
   from?: string;
@@ -14,6 +14,8 @@ export interface RangeValue {
 }
 
 const PRESETS: Exclude<Preset, 'custom'>[] = ['today', '7d', '30d', '90d'];
+/** Calendar periods in the workspace timezone; weeks start on Monday. */
+const CALENDAR_PRESETS: Exclude<Preset, 'custom'>[] = ['this_week', 'last_week', 'this_month', 'last_month'];
 
 /** Range query values for a report request. */
 export function rangeParams(value: RangeValue) {
@@ -53,6 +55,24 @@ export function RangePicker({
             {t(preset)}
           </Button>
         ))}
+        <select
+          aria-label={t('calendarLabel')}
+          className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+          value={!custom && CALENDAR_PRESETS.includes(value.preset as Exclude<Preset, 'custom'>) ? value.preset : ''}
+          onChange={(e) => {
+            const preset = e.target.value as Exclude<Preset, 'custom'>;
+            if (!CALENDAR_PRESETS.includes(preset)) return;
+            setCustom(false);
+            onChange({ preset });
+          }}
+        >
+          <option value="">{t('calendar')}</option>
+          {CALENDAR_PRESETS.map((preset) => (
+            <option key={preset} value={preset}>
+              {t(preset)}
+            </option>
+          ))}
+        </select>
         <Button size="sm" variant={custom ? 'default' : 'outline'} aria-pressed={custom} onClick={() => setCustom(true)}>
           {t('custom')}
         </Button>

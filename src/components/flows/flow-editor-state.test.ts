@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   appendNode,
   applyNodePositions,
   defaultConfigFor,
+  publishDraft,
   uniqueNodeKey,
 } from "./flow-editor-state";
 import type { BuilderState } from "./flow-editor-state";
@@ -174,5 +175,38 @@ describe("appendNode", () => {
     expect(appendNode(base, "start", "start").entry_node_id).toBe("start");
     expect(appendNode(base, "send_message", "m").entry_node_id).toBeNull();
     expect(appendNode({ ...base, entry_node_id: "x" }, "start", "start").entry_node_id).toBe("x");
+  });
+});
+
+describe("publishDraft", () => {
+  const HASH = "a".repeat(64);
+  const SAVED = "b".repeat(64);
+  const respond = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+
+  it("publishes exactly the hash it was given, without saving", async () => {
+    const fetcher = vi.fn(async () => respond(200, { flow: { status: "active" } }));
+    expect(await publishDraft({ flowId: "f1", draftHash: HASH, fetcher })).toEqual({ kind: "published", status: "active" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String((fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].body))).toEqual({ status: "active", draft_hash: HASH });
+  });
+
+  it("stops when the save first fails, so the older server draft never goes live", async () => {
+    const fetcher = vi.fn();
+    const outcome = await publishDraft({ flowId: "f1", draftHash: HASH, saveFirst: async () => false, fetcher });
+    expect(outcome).toEqual({ kind: "save_failed" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("sends the hash of the draft it just saved", async () => {
+    const fetcher = vi.fn(async () => respond(200, { flow: { status: "active" } }));
+    await publishDraft({ flowId: "f1", draftHash: HASH, saveFirst: async () => SAVED, fetcher });
+    expect(JSON.parse(String((fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].body)).draft_hash).toBe(SAVED);
+  });
+
+  it("reports a draft another member changed apart from other failures", async () => {
+    const changed = vi.fn(async () => respond(409, { error: "Draft changed", draft_hash: SAVED }));
+    expect(await publishDraft({ flowId: "f1", draftHash: HASH, fetcher: changed })).toEqual({ kind: "draft_changed", message: "Draft changed" });
+    const invalid = vi.fn(async () => respond(422, { error: "Cannot activate" }));
+    expect(await publishDraft({ flowId: "f1", draftHash: HASH, fetcher: invalid })).toEqual({ kind: "failed", message: "Cannot activate", status: 422 });
   });
 });

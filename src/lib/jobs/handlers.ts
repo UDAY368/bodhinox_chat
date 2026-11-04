@@ -16,7 +16,8 @@ import {
   queueScheduledOccurrence,
 } from './scheduled-audience';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
-import { handleFlowTimer, staleSince } from '@/lib/flows/engine';
+import { handleFlowReplay, handleFlowTimer, staleSince } from '@/lib/flows/engine';
+import { withTenant } from '@/lib/db/tenant';
 import {
   deliverBroadcast,
   finalizeBroadcastStatus,
@@ -86,6 +87,9 @@ export async function scheduleWork() {
   // Hourly expiry of 30-day-old report files.
   await import('@/lib/analytics/reports').then((m) => m.scheduleReportSweeps())
     .catch(() => console.error('[worker] report sweep scheduling failed'));
+  // Scheduled report delivery: every 5 minutes, one job per workspace with a due schedule.
+  await import('@/lib/analytics/report-schedules').then((m) => m.scheduleReportSchedules())
+    .catch(() => console.error('[worker] report schedule scheduling failed'));
   // Meta ads insights and lead backfill; nothing while META_ADS_ENABLED is off or unconfigured.
   await import('@/lib/meta-ads/schedule').then((m) => m.scheduleMetaAds())
     .catch(() => console.error('[worker] meta ads scheduling failed'));
@@ -296,13 +300,21 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           { pendingId: row.id },
           { tenantId: accountId, dedupeKey: `automation:${row.id}` }
         );
-      await sweepFlows(db);
-    } else if (job.type === 'flow.sweep') await sweepFlows(db);
+      await sweepFlows(db, accountId);
+    } else if (job.type === 'flow.sweep') await sweepFlows(db, accountId);
     else if (job.type === 'flow.timer') {
       const { nodeKey, seq, kind } = job.payload;
       if (typeof nodeKey !== 'string' || !Number.isInteger(seq) || (kind !== 'delay' && kind !== 'timeout'))
         throw new Error('Invalid flow timer contract');
       await handleFlowTimer({ accountId, runId: uuid(job.payload.runId), nodeKey, seq: seq as number, kind });
+    }
+    else if (job.type === 'flow.replay') {
+      // A member-approved replay of a failed run's node (queued with the run's seq bump); stale replays are no-ops.
+      const { seq, nodeKey } = job.payload;
+      if ((job.payload.accountId !== undefined && job.payload.accountId !== accountId)
+        || (seq !== undefined && !Number.isSafeInteger(seq)) || (nodeKey !== undefined && typeof nodeKey !== 'string'))
+        throw new Error('Invalid flow replay contract');
+      await handleFlowReplay({ accountId, runId: uuid(job.payload.runId), seq: seq as number | undefined, nodeKey: nodeKey as string | undefined });
     }
     else if (job.type === 'webhook.delivery')
       await deliverQueuedWebhook(db, accountId, job.payload);
@@ -333,8 +345,11 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // One time-boxed slice of a knowledge-source crawl or re-index; queues its own continuation.
       await (await import('@/lib/ai/knowledge-sources')).handleCrawlSourceJob(accountId, job.payload);
     else if (job.type === 'analytics.report' || job.type === 'analytics.report_sweep')
-      // Builds one CSV report into private storage, or expires old report files.
+      // Builds one CSV or PDF report into private storage, or expires old report files.
       await (await import('@/lib/analytics/reports')).handleReportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'analytics.report_schedules')
+      // Due report schedules: rechecks the creator, inserts one run per period (idempotent) and queues its build.
+      await (await import('@/lib/analytics/report-schedules')).runReportSchedules(accountId);
     else if (job.type === 'commerce.prepare_whatsapp_order')
       // Reprice a WhatsApp cart from the Bodhinox catalogue and send its checkout link once.
       await (await import('@/lib/commerce/checkout')).prepareWhatsAppOrderJob(accountId, { orderId: uuid(job.payload.orderId) });
@@ -401,18 +416,27 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else throw new Error('Unsupported job type');
   });
 }
-async function sweepFlows(db: ReturnType<typeof createAdminClient>) {
+async function sweepFlows(db: ReturnType<typeof createAdminClient>, accountId: string) {
   const { data: runs, error } = await db
     .from('flow_runs')
-    .select('id,last_advanced_at,delay_until,wait_until,flows(fallback_policy)')
+    .select('id,last_advanced_at,delay_until,wait_until,flow_version_id,flows(fallback_policy)')
     .eq('status', 'active')
     .limit(500);
   if (error) throw new Error('Flow sweep failed');
+  // A run pinned to a published version times out by that version's policy (COALESCE with the live flow's for unpinned runs).
+  const versionIds = [...new Set((runs ?? []).map((r) => r.flow_version_id).filter((v): v is string => typeof v === 'string'))];
+  const versionPolicy = new Map<string, unknown>();
+  if (versionIds.length)
+    for (const v of await withTenant({ accountId, role: 'owner' }, (tx) => tx.$queryRaw<{ id: string; fallback_policy: unknown }[]>`
+      SELECT id::text AS id, fallback_policy FROM flow_versions WHERE account_id=${accountId}::uuid AND id = ANY(${versionIds}::uuid[])`,
+    getWorkerPrisma()))
+      versionPolicy.set(v.id, v.fallback_policy);
   for (const run of runs ?? []) {
     const flow = Array.isArray(run.flows) ? run.flows[0] : run.flows;
+    const policy = (run.flow_version_id && versionPolicy.get(run.flow_version_id)) ?? flow?.fallback_policy;
     if (
       Date.now() - Date.parse(staleSince(run)) <
-      resolveFallbackPolicy(flow?.fallback_policy).on_timeout_hours * 3_600_000
+      resolveFallbackPolicy(policy).on_timeout_hours * 3_600_000
     )
       continue;
     const { data: updated, error: updateError } = await db

@@ -21,6 +21,9 @@ vi.mock('@/lib/jobs/queue', () => ({
   enqueueJob: vi.fn(async () => 'queued-job'),
 }));
 import { isDeliverableUrl } from './ssrf';
+// Delivery goes through safeFetch (pinned DNS, no redirects, size and time caps).
+const sf = vi.hoisted(() => ({ fetch: vi.fn() }));
+vi.mock('@/lib/webhooks/safe-fetch', () => ({ safeFetch: sf.fetch }));
 
 interface Row {
   id: string;
@@ -71,15 +74,13 @@ beforeEach(() => {
   vi.mocked(enqueueJob).mockClear();
   vi.mocked(isDeliverableUrl).mockResolvedValue(true);
   vi.stubGlobal('fetch', vi.fn());
+  sf.fetch.mockReset();
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('dispatchWebhookEvent', () => {
-  it('signs + POSTs (no redirect follow) and resets failure_count on success', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, status: 200 } as Response);
-    vi.stubGlobal('fetch', fetchMock);
+  it('signs + POSTs through safeFetch and resets failure_count on success', async () => {
+    const fetchMock = sf.fetch.mockResolvedValue({ ok: true, status: 200, contentType: '', body: '' });
     const calls = emptyCalls();
 
     await deliverQueuedWebhook(
@@ -98,7 +99,9 @@ describe('dispatchWebhookEvent', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toBe('https://a.test/hook');
-    expect(opts.redirect).toBe('manual');
+    expect(opts.method).toBe('POST');
+    // Judged on the status alone: a 200 with a large or slow body is a success.
+    expect(fetchMock.mock.calls[0][2]).toEqual({ timeoutMs: 5000, discardBody: true });
     expect(opts.headers['X-Wacrm-Event']).toBe('message.received');
     expect(opts.headers['X-Wacrm-Signature']).toMatch(
       /^t=\d+,v1=[0-9a-f]{64}$/
@@ -112,11 +115,13 @@ describe('dispatchWebhookEvent', () => {
     expect(calls.rpcs).toHaveLength(0);
   });
 
-  it('records an atomic failure (RPC) when the endpoint errors', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response)
-    );
+  it.each([
+    ['a 500 reply', { ok: true, status: 500, contentType: '', body: '' }],
+    ['a redirect (never followed)', { ok: true, status: 302, contentType: '', body: '' }],
+    ['a blocked address at connect time', { ok: false, error: 'blocked' }],
+    ['a timeout', { ok: false, error: 'timeout' }],
+  ])('records an atomic failure (RPC) on %s', async (_label, result) => {
+    sf.fetch.mockResolvedValue(result);
     const calls = emptyCalls();
 
     await expect(
@@ -136,8 +141,7 @@ describe('dispatchWebhookEvent', () => {
 
   it('blocks a non-public target (SSRF guard) without fetching', async () => {
     vi.mocked(isDeliverableUrl).mockResolvedValue(false);
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = sf.fetch;
     const calls = emptyCalls();
 
     await expect(

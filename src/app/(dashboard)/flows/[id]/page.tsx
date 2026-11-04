@@ -30,6 +30,7 @@ export default function FlowEditorPage() {
 
   const [flow, setFlow] = useState<FlowRow | null>(null);
   const [nodes, setNodes] = useState<FlowNodeRow[]>([]);
+  const [draftHash, setDraftHash] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -47,10 +48,12 @@ export default function FlowEditorPage() {
         const json = (await res.json()) as {
           flow: FlowRow;
           nodes: FlowNodeRow[];
+          draft_hash?: string;
         };
         if (!cancelled) {
           setFlow(json.flow);
           setNodes(json.nodes ?? []);
+          setDraftHash(json.draft_hash ?? null);
         }
       } catch (err) {
         if (!cancelled) {
@@ -88,5 +91,5 @@ export default function FlowEditorPage() {
     );
   }
 
-  return <FlowEditorShell initialFlow={flow} initialNodes={nodes} />;
+  return <FlowEditorShell initialFlow={flow} initialNodes={nodes} initialDraftHash={draftHash} />;
 }

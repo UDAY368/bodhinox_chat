@@ -38,6 +38,7 @@ import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-val
 import { parseDateInput } from "./input-formats";
 import { nodeAvailableOn, scopeIncludes, triggerAvailableOn } from "@/lib/channels/capabilities";
 import { FLOW_CHANNEL_SCOPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type NodeTiming } from "./types";
+import { nodeCapabilityBlock, type WorkspaceCapabilities } from "./node-registry";
 
 const t = getT("Validation.flows");
 const tChannel = getT("Flows.channel");
@@ -50,6 +51,10 @@ export interface ValidationIssue {
   /** Dotted path to the bad field, e.g. 'buttons.0.title'. */
   field?: string;
   message: string;
+  /** A machine-readable reason for the Phase 12 publish checks. */
+  code?: "capabilityUnavailable" | "crossFlowLoop";
+  /** With code 'capabilityUnavailable': the workspace capability the node needs. */
+  capability?: string;
 }
 
 interface FlowInput {
@@ -86,6 +91,27 @@ export interface FlowValidationContext {
    * workspace's AI is not set up, since every run would take its handoff port.
    */
   aiConfigured?: boolean;
+  /**
+   * When given (the server, at publish and in a dry run), a node that needs a
+   * provider the workspace has not configured is an error (AUT-05 capability
+   * block), so it cannot go live and fail at run time.
+   */
+  caps?: Partial<WorkspaceCapabilities>;
+  /**
+   * When given (the server, at publish and resume, under the account's
+   * publish lock), the published snapshots of the workspace's other active
+   * or paused flows: a Connect Flow chain that loops back to this flow
+   * without customer input is an error.
+   */
+  otherFlows?: ReadonlyArray<CrossFlowSnapshot>;
+}
+
+/** A flow as the cross-flow loop check sees it: its published (or, for this flow, publishing) graph. */
+export interface CrossFlowSnapshot {
+  id: string;
+  name: string;
+  entry_node_id: string | null;
+  nodes: ReadonlyArray<NodeInput>;
 }
 
 export function validateFlowForActivation(
@@ -245,30 +271,121 @@ export function validateFlowForActivation(
     });
   }
 
+  // Provider-gated steps (Phase 12): unpublishable until the workspace has the provider.
+  if (context.caps) {
+    for (const n of nodes) {
+      const capability = nodeCapabilityBlock(n.node_type, context.caps);
+      if (capability) {
+        issues.push({ severity: "error", scope: "node", node_key: n.node_key, field: "node_type", code: "capabilityUnavailable", capability,
+          message: t("capabilityUnavailable", { key: n.node_key, capability }) });
+      }
+    }
+  }
+
+  // A Connect Flow chain through other live flows back to this one, with no customer input on the way.
+  if (context.otherFlows && flow.id && flow.entry_node_id) {
+    const chain = findCrossFlowLoop({ id: flow.id, name: flow.name, entry_node_id: flow.entry_node_id, nodes }, context.otherFlows);
+    if (chain) {
+      issues.push({ severity: "error", scope: "flow", code: "crossFlowLoop", message: t("crossFlowLoop", { flows: chain.join(" > ") }) });
+    }
+  }
+
   return issues;
+}
+
+/**
+ * Nodes that move on without the customer: what both loop checks follow.
+ * A delay does not exempt a node: a loop of delayed sends would message the
+ * customer forever. A waiting node with a reply timeout also moves on by
+ * itself, through its timeout port. A template without buttons, an API call
+ * and an assignment all move on by themselves.
+ */
+function isAutoNode(n: NodeInput): boolean {
+  const autoTemplate = n.node_type === "send_template" && !(Array.isArray(n.config.buttons) && n.config.buttons.length);
+  // A one-turn AI reply answers and moves on without waiting for the customer.
+  const autoAiReply = n.node_type === "ai_reply" && aiReplyMaxTurns(n.config) === 1;
+  const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
+  return timesOut || autoTemplate || autoAiReply ||
+    ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event", "send_storefront_link"].includes(n.node_type) ||
+    isCommerceNodeType(n.node_type);
+}
+
+/** The next nodes an auto node can move to without customer input. */
+function autoSuccessors(node: NodeInput): string[] {
+  // Only the timeout port of a waiting node needs no customer input.
+  return waitsForReply(node) ? [node.config.after_timeout as string] : outgoingEdges(node);
+}
+
+/**
+ * The flows a run of this graph can connect to straight from its entry with
+ * no customer input on the way (Connect Flow counted as automatic).
+ */
+export function autoConnectTargets(nodes: ReadonlyArray<NodeInput>, entry: string | null): string[] {
+  if (!entry) return [];
+  const byKey = new Map<string, NodeInput>();
+  for (const n of nodes) if (!byKey.has(n.node_key)) byKey.set(n.node_key, n);
+  const targets = new Set<string>();
+  const seen = new Set<string>();
+  const pending = [entry];
+  while (pending.length) {
+    const key = pending.pop()!;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const node = byKey.get(key);
+    if (!node) continue;
+    if (node.node_type === "connect_flow") {
+      if (typeof node.config.flow_id === "string" && node.config.flow_id) targets.add(node.config.flow_id);
+      continue;
+    }
+    if (!isAutoNode(node)) continue;
+    pending.push(...autoSuccessors(node));
+  }
+  return [...targets];
+}
+
+/**
+ * A chain of flow names that leads from `candidate` back to itself through
+ * Connect Flow steps reachable without customer input, or null. A flow that
+ * restarts itself is left to findAutoAdvancingCycles.
+ */
+export function findCrossFlowLoop(candidate: CrossFlowSnapshot, others: ReadonlyArray<CrossFlowSnapshot>): string[] | null {
+  const flows = new Map<string, CrossFlowSnapshot>();
+  for (const f of others) if (f.id !== candidate.id) flows.set(f.id, f);
+  flows.set(candidate.id, candidate);
+  const edges = new Map<string, string[]>();
+  for (const f of flows.values()) {
+    edges.set(f.id, autoConnectTargets(f.nodes, f.entry_node_id).filter((id) => id !== f.id && flows.has(id)));
+  }
+  // Depth-first from the candidate, looking for an edge back to it.
+  const path: string[] = [candidate.id];
+  const visited = new Set<string>([candidate.id]);
+  const walk = (id: string): boolean => {
+    for (const next of edges.get(id) ?? []) {
+      if (next === candidate.id) return true;
+      if (visited.has(next)) continue;
+      visited.add(next);
+      path.push(next);
+      if (walk(next)) return true;
+      path.pop();
+    }
+    return false;
+  };
+  if (!walk(candidate.id)) return null;
+  return [...path, candidate.id].map((id) => flows.get(id)!.name);
 }
 
 /** `self` lets a Connect Flow step that restarts this same flow count as an edge back to its entry. */
 export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: string; entry: string }): string[][] {
   const autoNodes = new Map<string, NodeInput>();
   for (const n of nodes) {
-    // A delay does not exempt a node: a loop of delayed sends would message the customer forever.
-    // A waiting node with a reply timeout also moves on by itself, through its timeout port.
-    // A template without buttons, an API call and an assignment all move on by themselves.
     const restartsSelf = Boolean(self) && n.node_type === "connect_flow" && n.config.flow_id === self?.flowId;
-    const autoTemplate = n.node_type === "send_template" && !(Array.isArray(n.config.buttons) && n.config.buttons.length);
-    // A one-turn AI reply answers and moves on without waiting for the customer.
-    const autoAiReply = n.node_type === "ai_reply" && aiReplyMaxTurns(n.config) === 1;
-    const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
-    if ((timesOut || autoTemplate || autoAiReply || restartsSelf || ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event", "send_storefront_link"].includes(n.node_type) || isCommerceNodeType(n.node_type)) && !autoNodes.has(n.node_key)) {
+    if ((restartsSelf || isAutoNode(n)) && !autoNodes.has(n.node_key)) {
       autoNodes.set(n.node_key, n);
     }
   }
   const successors = (key: string): string[] => {
     const node = autoNodes.get(key)!;
-    // Only the timeout port of a waiting node needs no customer input.
-    const next = node.node_type === "connect_flow" ? [self!.entry]
-      : waitsForReply(node) ? [node.config.after_timeout as string] : outgoingEdges(node);
+    const next = node.node_type === "connect_flow" ? [self!.entry] : autoSuccessors(node);
     return next.filter((k) => autoNodes.has(k));
   };
 

@@ -5,7 +5,7 @@
 
 import type { TenantTransaction } from '@/lib/db/tenant';
 
-export const RANGE_PRESETS = ['today', '7d', '30d', '90d', 'custom'] as const;
+export const RANGE_PRESETS = ['today', '7d', '30d', '90d', 'this_week', 'last_week', 'this_month', 'last_month', 'custom'] as const;
 export type RangePreset = (typeof RANGE_PRESETS)[number];
 export type RangeBucket = 'day' | 'week';
 export const MAX_RANGE_DAYS = 366;
@@ -40,7 +40,20 @@ export class AnalyticsRangeError extends Error {
 
 const DAY_MS = 86_400_000;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const PRESET_DAYS: Record<Exclude<RangePreset, 'custom'>, number> = { today: 1, '7d': 7, '30d': 30, '90d': 90 };
+const PRESET_DAYS: Record<'today' | '7d' | '30d' | '90d', number> = { today: 1, '7d': 7, '30d': 30, '90d': 90 };
+
+/** First and last local day of a calendar preset (weeks start on Monday), relative to `today`. */
+function calendarDays(preset: 'this_week' | 'last_week' | 'this_month' | 'last_month', today: string): [string, string] {
+  if (preset === 'this_week') return [weekStart(today), today];
+  if (preset === 'last_week') {
+    const start = addDays(weekStart(today), -7);
+    return [start, addDays(start, 6)];
+  }
+  const monthStart = `${today.slice(0, 7)}-01`;
+  if (preset === 'this_month') return [monthStart, today];
+  const lastDay = addDays(monthStart, -1);
+  return [`${lastDay.slice(0, 7)}-01`, lastDay];
+}
 
 export function isValidTimezone(timezone: string): boolean {
   if (!timezone || timezone.length > 64) return false;
@@ -105,7 +118,7 @@ function validDay(day: string | null | undefined): day is string {
   return date.toISOString().slice(0, 10) === day;
 }
 
-function dayCount(startDay: string, endDay: string): number {
+export function dayCount(startDay: string, endDay: string): number {
   return Math.round((Date.parse(`${endDay}T00:00:00Z`) - Date.parse(`${startDay}T00:00:00Z`)) / DAY_MS) + 1;
 }
 
@@ -127,9 +140,11 @@ export function parseRange(input: RangeInput, timezone: string, now: Date = new 
     if (input.from > today) throw new AnalyticsRangeError('Range is in the future');
     endDay = input.to > today ? today : input.to;
     startDay = dayCount(input.from, endDay) > MAX_RANGE_DAYS ? addDays(endDay, 1 - MAX_RANGE_DAYS) : input.from;
-  } else {
+  } else if (preset in PRESET_DAYS) {
     endDay = today;
-    startDay = addDays(today, 1 - PRESET_DAYS[preset]);
+    startDay = addDays(today, 1 - PRESET_DAYS[preset as keyof typeof PRESET_DAYS]);
+  } else {
+    [startDay, endDay] = calendarDays(preset as Parameters<typeof calendarDays>[0], today);
   }
   const days = dayCount(startDay, endDay);
   const bucket = input.bucket ?? (days > 90 ? 'week' : 'day');
@@ -158,4 +173,19 @@ export function bucketKeys(range: Pick<AnalyticsRange, 'startDay' | 'endDay' | '
 export function weekStart(day: string): string {
   const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
   return addDays(day, -((dow + 6) % 7));
+}
+
+export type ReportCadence = 'daily' | 'weekly' | 'monthly';
+
+/**
+ * The last complete period before `now` in the workspace timezone: yesterday,
+ * last week (Monday to Sunday) or last month. Used by scheduled reports, so
+ * the same schedule run twice in one period resolves the same startDay.
+ */
+export function previousCompletePeriod(cadence: ReportCadence, timezone: string, now: Date = new Date()): AnalyticsRange {
+  if (cadence === 'weekly') return parseRange({ preset: 'last_week' }, timezone, now);
+  if (cadence === 'monthly') return parseRange({ preset: 'last_month' }, timezone, now);
+  if (cadence !== 'daily') throw new AnalyticsRangeError('Invalid cadence');
+  const yesterday = addDays(localDay(now, timezone), -1);
+  return parseRange({ preset: 'custom', from: yesterday, to: yesterday }, timezone, now);
 }

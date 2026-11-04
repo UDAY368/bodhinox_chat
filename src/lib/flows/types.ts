@@ -616,7 +616,8 @@ export interface FlowRow {
   user_id: string;
   name: string;
   description: string | null;
-  status: "draft" | "active" | "archived";
+  /** `paused` (Phase 12): no new enrollments; pinned runs finish on their version. */
+  status: "draft" | "active" | "paused" | "archived";
   trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
   trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | AdClickTriggerConfig | Record<string, unknown>;
   entry_node_id: string | null;
@@ -627,6 +628,8 @@ export interface FlowRow {
   whatsapp_config_id?: string | null;
   /** Channels the flow runs on; absent (rows read before Phase 11) means 'whatsapp'. */
   channel_scope?: FlowChannelScope;
+  /** The live flow_versions row (Phase 12); null until first published. Absent on rows read before Phase 12. */
+  published_version_id?: string | null;
   execution_count: number;
   last_executed_at: string | null;
   created_at: string;
@@ -672,6 +675,13 @@ export interface FlowRunRow {
   end_reason: string | null;
   /** Set while the run waits out a node delay. */
   delay_until?: string | null;
+  /**
+   * The flow version the run is pinned to (Phase 12). Null for draft
+   * test-number runs and runs started before the flow was versioned; those
+   * run on the live draft. Optional so rows and fixtures built before Phase
+   * 12 still type-check; the engine treats absent as null.
+   */
+  flow_version_id?: string | null;
 }
 
 // ============================================================

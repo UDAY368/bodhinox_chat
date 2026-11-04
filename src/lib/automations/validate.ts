@@ -211,9 +211,20 @@ function validateOne(
       } catch {
         issues.push({ path: `${path}.url`, message: t('webhookUrlInvalid') });
       }
+      issues.push(...webhookConfigIssues(c, path));
       break;
     case 'close_conversation':
       // No config required.
+      break;
+    case 'notify_team':
+      if (c.audience !== 'assignee' && c.audience !== 'admins') {
+        issues.push({ path: `${path}.audience`, message: t('notifyAudienceInvalid') });
+      }
+      if (!nonEmpty(c.text) || String(c.text).length > NOTIFY_TEXT_MAX) {
+        issues.push({ path: `${path}.text`, message: t('notifyTextInvalid', { max: NOTIFY_TEXT_MAX }) });
+      } else if (notifyTextPlaceholders(String(c.text)).some((p) => !NOTIFY_PLACEHOLDERS.has(p))) {
+        issues.push({ path: `${path}.text`, message: t('notifyPlaceholderInvalid') });
+      }
       break;
     default:
       issues.push({
@@ -272,6 +283,9 @@ export function validateTriggerForActivation(
           'Choose a valid IANA timezone, for example Asia/Kolkata or UTC',
       });
     }
+    if (cfg.once_per_contact !== undefined && typeof cfg.once_per_contact !== 'boolean') {
+      issues.push({ path: 'trigger.once_per_contact', message: t('oncePerContactInvalid') });
+    }
     if (cfg.audience !== undefined || scheduleNeedsContact(steps)) {
       try {
         parseScheduledAudience(cfg.audience);
@@ -323,4 +337,156 @@ export function validateTriggerForActivation(
 
 function nonEmpty(v: unknown): boolean {
   return typeof v === 'string' && v.trim().length > 0;
+}
+
+// ------------------------------------------------------------
+// notify_team: an in-app notice to the team, never message content.
+// ------------------------------------------------------------
+
+export const NOTIFY_TEXT_MAX = 200;
+/** The only placeholders a team notice may use. */
+export const NOTIFY_PLACEHOLDERS: ReadonlySet<string> = new Set(['contact.name', 'automation.name']);
+
+function notifyTextPlaceholders(text: string): string[] {
+  return [...text.matchAll(/\{\{\s*([^}]*?)\s*\}\}/g)].map((m) => m[1]);
+}
+
+// ------------------------------------------------------------
+// send_webhook: headers and body the engine can send safely.
+// ------------------------------------------------------------
+
+/** Headers the transport owns, or that would carry ambient credentials. */
+export const WEBHOOK_DENIED_HEADERS: ReadonlySet<string> = new Set([
+  'host', 'content-length', 'transfer-encoding', 'connection', 'cookie',
+]);
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const BODY_PLACEHOLDER = /\{\{\s*([\w.]+)\s*\}\}/g;
+
+/** Why a header cannot be sent, or null. `value` is checked after placeholders are filled. */
+export function webhookHeaderProblem(name: string, value: string): 'name' | 'denied' | 'value' | null {
+  if (!HEADER_NAME.test(name)) return 'name';
+  if (WEBHOOK_DENIED_HEADERS.has(name.toLowerCase())) return 'denied';
+  if (/[\r\n\0]/.test(value)) return 'value';
+  return null;
+}
+
+function webhookConfigIssues(c: Record<string, unknown>, path: string): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  // The URL is sent as written: a workspace placeholder there would leak into logs, and a secret must never go there.
+  if (/\{\{\s*workspace\./.test(String(c.url))) {
+    issues.push({ path: `${path}.url`, message: t('webhookUrlNoWorkspace') });
+  }
+  if (c.headers !== undefined && c.headers !== null) {
+    if (typeof c.headers !== 'object' || Array.isArray(c.headers)) {
+      issues.push({ path: `${path}.headers`, message: t('webhookHeaderInvalid') });
+    } else {
+      for (const [name, value] of Object.entries(c.headers as Record<string, unknown>)) {
+        if (typeof value !== 'string' || webhookHeaderProblem(name, value)) {
+          issues.push({ path: `${path}.headers`, message: t('webhookHeaderInvalid') });
+          break;
+        }
+      }
+    }
+  }
+  // Placeholders are filled JSON-escaped, so they belong inside string literals; the result must still be JSON.
+  if (nonEmpty(c.body_template)) {
+    try {
+      JSON.parse(String(c.body_template).replace(BODY_PLACEHOLDER, ''));
+    } catch {
+      issues.push({ path: `${path}.body_template`, message: t('webhookBodyInvalid') });
+    }
+  }
+  return issues;
+}
+
+interface TreeStep {
+  step_type: string;
+  step_config?: Record<string, unknown> | null;
+  branches?: { yes?: TreeStep[]; no?: TreeStep[] };
+}
+
+/** Every step in a builder tree, branches included (legacy flat seeds are already flat). */
+export function allSteps<S extends TreeStep>(steps: readonly S[] | null | undefined): S[] {
+  return (steps ?? []).flatMap((s) => [
+    s,
+    ...allSteps((s.branches?.yes ?? []) as S[]),
+    ...allSteps((s.branches?.no ?? []) as S[]),
+  ]);
+}
+
+/** Whether a send_webhook step's headers or body (where secrets resolve) name one of `secretKeys`. */
+export function automationUsesSecrets(steps: readonly TreeStep[], secretKeys: ReadonlySet<string>): boolean {
+  return allSteps(steps).some((s) => webhookStepUsesSecrets(s, secretKeys));
+}
+
+export function webhookStepUsesSecrets(step: TreeStep, secretKeys: ReadonlySet<string>): boolean {
+  if (step.step_type !== 'send_webhook' || !secretKeys.size) return false;
+  const text = JSON.stringify([step.step_config?.headers ?? {}, step.step_config?.body_template ?? '']);
+  for (const match of text.matchAll(/\{\{\s*workspace\.([a-z][a-z0-9_]*)\s*\}\}/g)) {
+    if (secretKeys.has(match[1])) return true;
+  }
+  return false;
+}
+
+// ------------------------------------------------------------
+// Loop prevention.
+//
+// The only automatic edge between automations is add_tag(t) → every
+// automation triggered by tag_added on t (engine.ts runStep 'add_tag').
+// Not edges:
+//   - assign_conversation only updates the conversation row; it never
+//     dispatches conversation_assigned, so it cannot start another run.
+//   - send_buttons / send_list → interactive_reply needs a customer tap.
+// This is conservative: tag_added fires only for a newly added tag, so a
+// cycle without a remove_tag re-arming it settles by itself. It still
+// cannot be published. MAX_TAG_CHAIN_DEPTH stays as the runtime backstop.
+// ------------------------------------------------------------
+
+export interface LoopCandidate {
+  /** Absent for a new automation. */
+  id?: string;
+  name: string;
+  trigger_type: string;
+  trigger_config: unknown;
+  steps: readonly TreeStep[];
+}
+
+function addedTags(steps: readonly TreeStep[]): Set<string> {
+  return new Set(
+    allSteps(steps)
+      .filter((s) => s.step_type === 'add_tag' && nonEmpty(s.step_config?.tag_id))
+      .map((s) => String(s.step_config!.tag_id))
+  );
+}
+
+function triggerTag(a: LoopCandidate): string | null {
+  const tag = (a.trigger_config as { tag_id?: unknown } | null)?.tag_id;
+  return a.trigger_type === 'tag_added' && nonEmpty(tag) ? String(tag) : null;
+}
+
+/**
+ * The names along a tag_added cycle that runs through `candidate`, starting
+ * and ending with it, or null when there is none. `others` are the other
+ * active automations of the workspace (the candidate is skipped by id).
+ */
+export function findAutomationCycles(candidate: LoopCandidate, others: readonly LoopCandidate[]): string[] | null {
+  const nodes = [candidate, ...others.filter((o) => !candidate.id || o.id !== candidate.id)];
+  const adds = nodes.map((n) => addedTags(n.steps));
+  const tags = nodes.map(triggerTag);
+  const next = (i: number) => nodes.flatMap((_, j) => (tags[j] && adds[i].has(tags[j]!) ? [j] : []));
+  // Depth-first from the candidate; reaching it again is a cycle through it.
+  const seen = new Set<number>();
+  const path: number[] = [0];
+  const visit = (i: number): boolean => {
+    for (const j of next(i)) {
+      if (j === 0) return true;
+      if (seen.has(j)) continue;
+      seen.add(j);
+      path.push(j);
+      if (visit(j)) return true;
+      path.pop();
+    }
+    return false;
+  };
+  return visit(0) ? [...path, 0].map((i) => nodes[i].name) : null;
 }

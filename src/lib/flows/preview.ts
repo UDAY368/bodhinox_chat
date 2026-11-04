@@ -8,9 +8,11 @@
  * waits for the customer and exposes the choices they could make.
  *
  * Pure and framework-free on purpose: it never sends, saves or fetches
- * anything, and it does not interpolate — `{{vars.x}}` stays literal so
- * the author sees exactly what they wrote. The component translates the
- * note codes; this file carries no user-facing English.
+ * anything. Without options it does not interpolate — `{{vars.x}}` stays
+ * literal so the author sees exactly what they wrote. The server-side dry
+ * run (dry-run.ts) passes PreviewOptions to fill placeholders, pick API
+ * ports and evaluate conditions against a sample contact. The component
+ * translates the note codes; this file carries no user-facing English.
  */
 
 import type { BuilderNode } from "@/components/flows/shared";
@@ -39,7 +41,11 @@ export type PreviewNote =
   | "fallback"
   | "ai_reply"
   | "conversion_event"
-  | "book_appointment";
+  | "book_appointment"
+  /** Dry run only: a condition evaluated for the sample contact ("true"/"false"). */
+  | "condition_result"
+  /** Dry run only: the API port the author picked up front. */
+  | "api_port";
 
 export interface PreviewMessage {
   id: number;
@@ -82,6 +88,19 @@ export interface PreviewWaiting {
   simulate: PreviewOption[];
 }
 
+/**
+ * Optional hooks for the server-side dry run. The builder's local preview
+ * passes none and behaves exactly as before.
+ */
+export interface PreviewOptions {
+  /** Fills placeholders in text the customer would see; `vars` are the answers collected so far. */
+  interpolate?: (text: string, vars: Readonly<Record<string, string>>) => string;
+  /** The port an api_request node takes ("route:<i>" or "fallback"), or undefined to wait for the author. */
+  apiPort?: (nodeKey: string) => string | undefined;
+  /** A condition node's result for a sample contact, or undefined to wait for the author. */
+  condition?: (node: BuilderNode, vars: Readonly<Record<string, string>>) => boolean | undefined;
+}
+
 export interface PreviewState {
   messages: PreviewMessage[];
   waiting: null | PreviewWaiting;
@@ -91,6 +110,10 @@ export interface PreviewState {
   at: string | null;
   /** Internal: invalid replies so far on the question being waited on. */
   attempts: number;
+  /** Internal: answers collected so far, by var_key (used only to fill placeholders). */
+  vars?: Record<string, string>;
+  /** Internal: the dry run's hooks, carried from step to step. */
+  options?: PreviewOptions;
 }
 
 type Cfg = Record<string, unknown>;
@@ -169,8 +192,8 @@ function simulatedPorts(node: BuilderNode): PreviewOption[] {
 }
 
 /** Start the preview at the flow's entry node. */
-export function startPreview(nodes: BuilderNode[], entry: string | null): PreviewState {
-  const state: PreviewState = { messages: [], waiting: null, ended: false, nodes, at: null, attempts: 0 };
+export function startPreview(nodes: BuilderNode[], entry: string | null, options?: PreviewOptions): PreviewState {
+  const state: PreviewState = { messages: [], waiting: null, ended: false, nodes, at: null, attempts: 0, ...(options ? { vars: {}, options } : {}) };
   if (!entry || !nodes.some((n) => n.node_key === entry)) {
     return { ...state, ended: true };
   }
@@ -195,7 +218,12 @@ export function choose(state: PreviewState, optionId: string, text?: string): Pr
 
   const messages = [...state.messages];
   const push = (m: Omit<PreviewMessage, "id">) => messages.push({ id: messages.length, ...m });
-  const go = (next: string) => walk({ ...state, messages, waiting: null, at: null }, next);
+  let vars = state.vars;
+  const remember = (value: string) => {
+    if (vars && str(cfg.var_key)) vars = { ...vars, [str(cfg.var_key)]: value };
+  };
+  const go = (next: string) => walk({ ...state, messages, vars, waiting: null, at: null }, next);
+  const fill = (text: string) => fillText(state, text);
   const fallback = (): PreviewState => {
     push({ from: "system", nodeKey, note: "fallback" });
     return { ...state, messages, waiting: null, ended: true, at: null };
@@ -213,7 +241,7 @@ export function choose(state: PreviewState, optionId: string, text?: string): Pr
     if (attempts >= max) return exhaust();
     push({ from: "system", nodeKey, note: "invalid_answer", detail: `${attempts}/${max}` });
     const skip = skipLabel(node);
-    push({ from: "bot", nodeKey, text: str(cfg.error_text).trim() ? str(cfg.error_text) : str(cfg.prompt_text), buttons: skip ? [skip] : undefined });
+    push({ from: "bot", nodeKey, text: fill(str(cfg.error_text).trim() ? str(cfg.error_text) : str(cfg.prompt_text)), buttons: skip ? [fill(skip)] : undefined });
     return { ...state, messages, attempts };
   };
 
@@ -221,7 +249,9 @@ export function choose(state: PreviewState, optionId: string, text?: string): Pr
     const said = (text ?? "").trim();
     if (!said) return state;
     push({ from: "customer", text: said });
-    return previewAcceptsText(node, said) ? go(str(cfg.next_node_key)) : reject();
+    if (!previewAcceptsText(node, said)) return reject();
+    remember(said);
+    return go(str(cfg.next_node_key));
   }
 
   if (waiting.simulate.some((o) => o.id === optionId)) {
@@ -244,6 +274,12 @@ export function choose(state: PreviewState, optionId: string, text?: string): Pr
   if (!option) return state;
   if (waiting.kind !== "branch") push({ from: "customer", text: option.label });
   return go(nextFor(node, optionId));
+}
+
+/** Text the customer would see, filled by the dry run's interpolate hook (literal without it). */
+function fillText(state: Pick<PreviewState, "options" | "vars">, text: string): string {
+  const interpolate = state.options?.interpolate;
+  return interpolate && text ? interpolate(text, state.vars ?? {}) : text;
 }
 
 /** The node_key a choice on `node` leads to ("" when the slot is unwired). */
@@ -280,12 +316,15 @@ function nextFor(node: BuilderNode, optionId: string): string {
 function walk(start: PreviewState, firstKey: string): PreviewState {
   const messages = [...start.messages];
   const push = (m: Omit<PreviewMessage, "id">) => messages.push({ id: messages.length, ...m });
-  const stop = (note: PreviewNote, detail?: string): PreviewState => {
-    push({ from: "system", note, detail });
-    return { ...start, messages, waiting: null, ended: true, at: null };
+  let vars = start.vars;
+  const stop = (note: PreviewNote, detail?: string, nodeKey?: string): PreviewState => {
+    push({ from: "system", nodeKey, note, detail });
+    return { ...start, messages, vars, waiting: null, ended: true, at: null };
   };
   const wait = (key: string, waiting: Omit<PreviewWaiting, "simulate">, simulate: PreviewOption[] = []): PreviewState =>
-    ({ ...start, messages, waiting: { ...waiting, simulate }, ended: false, at: key, attempts: 0 });
+    ({ ...start, messages, vars, waiting: { ...waiting, simulate }, ended: false, at: key, attempts: 0 });
+  const fill = (text: string) => fillText({ options: start.options, vars }, text);
+  const fillOpt = (text: string | undefined) => (text === undefined ? undefined : fill(text));
   const byKey = new Map(start.nodes.map((n) => [n.node_key, n]));
 
   let key = firstKey;
@@ -300,9 +339,9 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
     const delay = Number(cfg.delay_seconds);
     if (Number.isFinite(delay) && delay > 0) push({ from: "system", nodeKey, note: "delay", detail: String(delay) });
 
-    const header = str(cfg.header_text) || undefined;
-    const footer = str(cfg.footer_text) || undefined;
-    const skip = skipLabel(node);
+    const header = fillOpt(str(cfg.header_text) || undefined);
+    const footer = fillOpt(str(cfg.footer_text) || undefined);
+    const skip = fill(skipLabel(node));
     const ports = simulatedPorts(node);
 
     switch (node.node_type) {
@@ -311,12 +350,12 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
         continue;
 
       case "send_message":
-        push({ from: "bot", nodeKey, text: str(cfg.text) });
+        push({ from: "bot", nodeKey, text: fill(str(cfg.text)) });
         key = str(cfg.next_node_key);
         continue;
 
       case "send_media":
-        push({ from: "bot", nodeKey, text: str(cfg.caption), media: { type: str(cfg.media_type) || "image", filename: str(cfg.filename) || undefined } });
+        push({ from: "bot", nodeKey, text: fill(str(cfg.caption)), media: { type: str(cfg.media_type) || "image", filename: str(cfg.filename) || undefined } });
         key = str(cfg.next_node_key);
         continue;
 
@@ -339,15 +378,15 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
         continue;
 
       case "send_buttons": {
-        const options = rows(cfg.buttons).filter((b) => str(b.reply_id)).map((b) => ({ id: str(b.reply_id), label: str(b.title) || str(b.reply_id) }));
-        push({ from: "bot", nodeKey, text: str(cfg.text), header, footer, buttons: options.map((o) => o.label) });
+        const options = rows(cfg.buttons).filter((b) => str(b.reply_id)).map((b) => ({ id: str(b.reply_id), label: fill(str(b.title)) || str(b.reply_id) }));
+        push({ from: "bot", nodeKey, text: fill(str(cfg.text)), header, footer, buttons: options.map((o) => o.label) });
         return wait(nodeKey, { kind: "buttons", options }, ports);
       }
 
       case "send_list": {
         const listRows = rows(cfg.sections).flatMap((s) => rows(s.rows)).filter((r) => str(r.reply_id))
-          .map((r) => ({ id: str(r.reply_id), title: str(r.title) || str(r.reply_id), description: str(r.description) || undefined }));
-        push({ from: "bot", nodeKey, text: str(cfg.text), header, footer, list: { button: str(cfg.button_label), rows: listRows } });
+          .map((r) => ({ id: str(r.reply_id), title: fill(str(r.title)) || str(r.reply_id), description: fillOpt(str(r.description) || undefined) }));
+        push({ from: "bot", nodeKey, text: fill(str(cfg.text)), header, footer, list: { button: fill(str(cfg.button_label)), rows: listRows } });
         return wait(nodeKey, { kind: "list", options: listRows.map((r) => ({ id: r.id, label: r.title })) }, ports);
       }
 
@@ -363,7 +402,7 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
       case "ask_media":
       case "ask_location":
       case "ask_address":
-        push({ from: "bot", nodeKey, text: str(cfg.prompt_text), buttons: skip ? [skip] : undefined });
+        push({ from: "bot", nodeKey, text: fill(str(cfg.prompt_text)), buttons: skip ? [skip] : undefined });
         return wait(
           nodeKey,
           { kind: "text", options: skip ? [{ id: "skip", label: skip }] : [] },
@@ -372,7 +411,7 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
 
       case "payment_link":
         // The engine creates the link at Razorpay; a placeholder URL stands in for it. The author picks the outcome.
-        push({ from: "bot", nodeKey, text: [str(cfg.message).trim(), "https://rzp.io/…"].filter(Boolean).join("\n") });
+        push({ from: "bot", nodeKey, text: [fill(str(cfg.message)).trim(), "https://rzp.io/…"].filter(Boolean).join("\n") });
         return wait(nodeKey, { kind: "branch", options: [{ id: "paid", label: "paid" }, { id: "expired", label: "expired" }, { id: "failed", label: "failed" }] }, ports);
 
       case "book_appointment":
@@ -389,21 +428,43 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
 
       case "send_form":
         // The form opens from its button; typed replies are off-script, as in the engine.
-        push({ from: "bot", nodeKey, text: str(cfg.body), header: str(cfg.header) || undefined, footer: str(cfg.footer) || undefined, buttons: [str(cfg.cta) || "…"] });
+        push({ from: "bot", nodeKey, text: fill(str(cfg.body)), header: fillOpt(str(cfg.header) || undefined), footer: fillOpt(str(cfg.footer) || undefined), buttons: [fill(str(cfg.cta)) || "…"] });
         return wait(nodeKey, { kind: "text", options: [] }, [{ id: "submit", label: "submit" }, ...ports]);
 
-      case "condition":
+      case "condition": {
         push({ from: "system", nodeKey, note: "condition", detail: str(cfg.subject_key) || undefined });
+        // The dry run evaluates the rules for its sample contact when it can.
+        const result = start.options?.condition?.(node, vars ?? {});
+        if (result !== undefined) {
+          push({ from: "system", nodeKey, note: "condition_result", detail: String(result) });
+          key = nextFor(node, String(result));
+          continue;
+        }
         return wait(nodeKey, { kind: "branch", options: [{ id: "true", label: "true" }, { id: "false", label: "false" }] });
+      }
 
       case "api_request": {
         push({ from: "system", nodeKey, note: "api_request", detail: str(cfg.method) || undefined });
         const routes = rows(cfg.routes).map((r, i) => ({ id: `route:${i}`, label: str(r.status) }));
+        // The dry run never calls the API: the author may pick the port up front.
+        const port = start.options?.apiPort?.(nodeKey);
+        if (port && (port === "fallback" || routes.some((r) => r.id === port))) {
+          const route = routes.find((r) => r.id === port);
+          push({ from: "system", nodeKey, note: "api_port", detail: route ? route.label : "fallback" });
+          key = nextFor(node, port);
+          continue;
+        }
         return wait(nodeKey, { kind: "branch", options: [...routes, { id: "fallback", label: "fallback" }] });
       }
 
-      case "set_tag":
       case "set_attribute":
+        push({ from: "system", nodeKey, note: node.node_type, detail: str(cfg.key) || undefined });
+        // A run variable set here fills later text in the dry run.
+        if (vars && str(cfg.target) === "var" && str(cfg.key)) vars = { ...vars, [str(cfg.key)]: fill(str(cfg.value)) };
+        key = str(cfg.next_node_key);
+        continue;
+
+      case "set_tag":
       case "assign_agent":
         push({ from: "system", nodeKey, note: node.node_type, detail: str(cfg.key) || undefined });
         key = str(cfg.next_node_key);
@@ -411,7 +472,7 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
 
       case "send_storefront_link":
         // The engine issues a contact-bound link; a placeholder stands in for it and the run carries on.
-        push({ from: "bot", nodeKey, text: [str(cfg.message).trim(), "https://…/shop/…"].filter(Boolean).join("\n") });
+        push({ from: "bot", nodeKey, text: [fill(str(cfg.message)).trim(), "https://…/shop/…"].filter(Boolean).join("\n") });
         key = str(cfg.next_node_key);
         continue;
 
@@ -424,7 +485,7 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
       case "connect_flow":
       case "handoff":
       case "end":
-        return stop(node.node_type);
+        return stop(node.node_type, undefined, nodeKey);
     }
   }
 }

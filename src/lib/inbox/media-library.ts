@@ -16,6 +16,7 @@ import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { getEntitlements } from '@/lib/billing/entitlements';
 import { mediaObjectUrl } from '@/lib/storage/client';
+import { REPLAY_WINDOW_MS } from '@/lib/flows/replay';
 
 export const MEDIA_LIBRARY_BUCKET = 'chat-media';
 export const MEDIA_LIBRARY_SUBFOLDER = 'library';
@@ -210,6 +211,8 @@ export async function getStorageUsage(tx: TenantTransaction, accountId: string):
 export async function findMediaReferences(tx: TenantTransaction, accountId: string, bucket: string, objectKey: string, now = new Date()): Promise<MediaReferenceSource[]> {
   const url = mediaObjectUrl(bucket, objectKey);
   const since = new Date(now.getTime() - MEDIA_REFERENCE_DAYS * 86_400_000);
+  // A failed run can be replayed for REPLAY_WINDOW_MS, re-sending its version's media.
+  const replaySince = new Date(now.getTime() - REPLAY_WINDOW_MS);
   const has = (column: Prisma.Sql) => Prisma.sql`(strpos(COALESCE(${column},''), ${url}) > 0 OR strpos(COALESCE(${column},''), ${objectKey}) > 0)`;
   const rows = await tx.$queryRaw<{ source: MediaReferenceSource }[]>`
     SELECT 'message' AS source WHERE EXISTS (SELECT 1 FROM messages WHERE account_id=${accountId}::uuid AND created_at >= ${since}
@@ -217,6 +220,14 @@ export async function findMediaReferences(tx: TenantTransaction, accountId: stri
     UNION ALL SELECT 'template' WHERE EXISTS (SELECT 1 FROM message_templates WHERE account_id=${accountId}::uuid
       AND (${has(Prisma.sql`header_media_url`)} OR ${has(Prisma.sql`cards::text`)}))
     UNION ALL SELECT 'flow' WHERE EXISTS (SELECT 1 FROM flow_nodes WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`config::text`)})
+    -- A published version (live, pinned by a run still in progress, or by a
+    -- failed run still inside the replay window) keeps sending its media
+    -- after the draft drops it.
+    UNION ALL SELECT 'flow' WHERE EXISTS (SELECT 1 FROM flow_versions v WHERE v.account_id=${accountId}::uuid
+      AND (EXISTS (SELECT 1 FROM flows f WHERE f.account_id=v.account_id AND f.published_version_id=v.id)
+        OR EXISTS (SELECT 1 FROM flow_runs r WHERE r.account_id=v.account_id AND r.flow_version_id=v.id
+          AND (r.status='active' OR (r.status='failed' AND r.ended_at > ${replaySince}))))
+      AND ${has(Prisma.sql`v.nodes::text`)})
     UNION ALL SELECT 'automation' WHERE EXISTS (SELECT 1 FROM automation_steps WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`step_config::text`)})
     UNION ALL SELECT 'quick_reply' WHERE EXISTS (SELECT 1 FROM quick_replies WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`interactive_payload::text`)})
     UNION ALL SELECT 'product' WHERE EXISTS (SELECT 1 FROM products WHERE account_id=${accountId}::uuid AND ${has(Prisma.sql`image_url`)})

@@ -444,7 +444,7 @@ export function ConnectFlowForm({ node, onUpdateConfig, t }: FormProps) {
         <SelectTrigger id={`connect-${node.node_key}`} className="bg-muted"><SelectValue placeholder={t("pickFlow")} /></SelectTrigger>
         <SelectContent>
           {flows.map((f) => (
-            <SelectItem key={f.id} value={f.id}>{f.name}{f.status !== "active" ? ` (${t(f.status === "draft" ? "flowStatusDraft" : "flowStatusArchived")})` : ""}</SelectItem>
+            <SelectItem key={f.id} value={f.id}>{f.name}{f.status !== "active" ? ` (${t(f.status === "draft" ? "flowStatusDraft" : f.status === "paused" ? "flowStatusPaused" : "flowStatusArchived")})` : ""}</SelectItem>
           ))}
         </SelectContent>
       </Select>

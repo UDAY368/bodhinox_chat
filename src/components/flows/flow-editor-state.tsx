@@ -111,8 +111,17 @@ export interface FlowEditorContextValue {
   removeNode: (key: string) => void;
 
   // Actions
-  save: () => Promise<void>;
+  /** Saves the draft; resolves false when the save failed (already toasted). */
+  save: () => Promise<boolean>;
   setStatus: (status: BuilderState["status"]) => Promise<void>;
+  /**
+   * Hash of the draft as this editor last loaded or saved it. Publishing
+   * sends it, so a draft another member saved since is refused (409)
+   * instead of going live unseen.
+   */
+  draftHash: string | null;
+  /** Publishes the saved draft (no save first) by draftHash; resolves true when it went live. */
+  publish: () => Promise<boolean>;
   deleteFlow: () => Promise<void>;
 
   /**
@@ -311,12 +320,50 @@ export function useFlowEditor(): FlowEditorContextValue {
 interface ProviderProps {
   initialFlow: FlowRow;
   initialNodes: FlowNodeRow[];
+  /** draft_hash from the page-load GET. */
+  initialDraftHash?: string | null;
   children: ReactNode;
+}
+
+export type PublishOutcome =
+  | { kind: "published"; status: BuilderState["status"] }
+  | { kind: "save_failed" }
+  | { kind: "draft_changed"; message: string | null }
+  | { kind: "failed"; message: string | null; status: number };
+
+/**
+ * Publishes a flow's saved draft. With saveFirst, saves and stops when the
+ * save fails; the hash sent is the one that save returned, else draftHash.
+ * The server refuses (409) a draft other than the hashed one.
+ */
+export async function publishDraft(args: {
+  flowId: string;
+  draftHash: string | null;
+  saveFirst?: () => Promise<string | null | false>;
+  fetcher?: typeof authFetch;
+}): Promise<PublishOutcome> {
+  let hash = args.draftHash;
+  if (args.saveFirst) {
+    const saved = await args.saveFirst();
+    if (saved === false) return { kind: "save_failed" };
+    hash = saved ?? hash;
+  }
+  const res = await (args.fetcher ?? authFetch)(`/api/flows/${args.flowId}/activate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(hash ? { status: "active", draft_hash: hash } : { status: "active" }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { error?: unknown; draft_hash?: unknown; flow?: { status?: BuilderState["status"] } };
+  const message = typeof json.error === "string" ? json.error : null;
+  if (res.status === 409 && json.draft_hash !== undefined) return { kind: "draft_changed", message };
+  if (!res.ok) return { kind: "failed", message, status: res.status };
+  return { kind: "published", status: json.flow?.status ?? "active" };
 }
 
 export function FlowEditorProvider({
   initialFlow,
   initialNodes,
+  initialDraftHash = null,
   children,
 }: ProviderProps) {
   const router = useRouter();
@@ -350,6 +397,13 @@ export function FlowEditorProvider({
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
+  // The ref is read right after a save in the same tick; the state re-renders consumers.
+  const [draftHash, setDraftHashState] = useState<string | null>(initialDraftHash);
+  const draftHashRef = useRef<string | null>(initialDraftHash);
+  const setDraftHash = useCallback((next: string | null) => {
+    draftHashRef.current = next;
+    setDraftHashState(next);
+  }, []);
   const [triggerNumber, setTriggerNumber] = useState<string | null>(initialFlow.whatsapp_config_id ?? null);
   const [channelScope, setChannelScope] = useState<FlowChannelScope>(initialFlow.channel_scope ?? "whatsapp");
   // dirty flips on user edits; status-only updates (after the activate
@@ -426,7 +480,9 @@ export function FlowEditorProvider({
   );
 
   // ---- Save (PUT) ----
-  const save = useCallback(async () => {
+  // Resolves the saved draft's hash (null when the server sent none), or
+  // false when the save failed; failures are toasted here.
+  const saveDraft = useCallback(async (): Promise<string | null | false> => {
     setSaving(true);
     try {
       const res = await authFetch(`/api/flows/${initialFlow.id}`, {
@@ -444,19 +500,53 @@ export function FlowEditorProvider({
           nodes: state.nodes,
         }),
       });
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
         throw new Error(json.error ?? t("saveFailedStatus", { status: res.status }));
       }
+      const hash = typeof json.draft_hash === "string" ? json.draft_hash : null;
+      if (hash) setDraftHash(hash);
       setDirty(false);
       toast.success(t("saved"));
+      return hash;
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("saveFailed");
       toast.error(msg);
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [initialFlow.id, state, channelScope, t]);
+  }, [initialFlow.id, state, channelScope, t, setDraftHash]);
+  const save = useCallback(async () => (await saveDraft()) !== false, [saveDraft]);
+
+  // Applies a publish outcome. A draft another member changed is never
+  // retried: the page reloads so the author sees what is saved now.
+  const finishPublish = useCallback((outcome: PublishOutcome): boolean => {
+    if (outcome.kind === "published") {
+      setStateRaw((s) => ({ ...s, status: outcome.status }));
+      toast.success(t("statusActivated"));
+      return true;
+    }
+    if (outcome.kind === "draft_changed") {
+      toast.error(outcome.message ?? t("draftChanged"));
+      window.location.reload();
+    } else if (outcome.kind === "failed") {
+      toast.error(outcome.message ?? t("statusUpdateFailedStatus", { status: outcome.status }));
+    }
+    return false;
+  }, [t]);
+
+  const publish = useCallback(async () => {
+    setActivating(true);
+    try {
+      return finishPublish(await publishDraft({ flowId: initialFlow.id, draftHash: draftHashRef.current }));
+    } catch {
+      toast.error(t("statusUpdateFailed"));
+      return false;
+    } finally {
+      setActivating(false);
+    }
+  }, [finishPublish, initialFlow.id, t]);
 
   // ---- Activate / Pause / Archive ----
   const setStatus = useCallback(
@@ -467,28 +557,34 @@ export function FlowEditorProvider({
       }
       setActivating(true);
       try {
-        // Always save first so the activation validator sees the
-        // latest state — the user shouldn't have to remember "save
-        // then activate".
+        // Always save first so the activation validator sees the latest
+        // state, and publish exactly what was saved (by its hash). A failed
+        // save stops here: the older server draft must not go live.
         if (next === "active") {
-          await save();
+          finishPublish(await publishDraft({ flowId: initialFlow.id, draftHash: draftHashRef.current, saveFirst: saveDraft }));
+          return;
         }
         const res = await authFetch(`/api/flows/${initialFlow.id}/activate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: next }),
         });
+        const json = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
           throw new Error(json.error ?? t("statusUpdateFailedStatus", { status: res.status }));
         }
-        setStateRaw((s) => ({ ...s, status: next }));
+        // The server decides the resulting status: asking a published flow
+        // for "draft" pauses it, so trust the response over `next`.
+        const applied: BuilderState["status"] = json.flow?.status ?? next;
+        setStateRaw((s) => ({ ...s, status: applied }));
         toast.success(
-          next === "active"
+          applied === "active"
             ? t("statusActivated")
-            : next === "archived"
+            : applied === "archived"
               ? t("statusArchived")
-              : t("statusDraft")
+              : applied === "paused"
+                ? t("statusPaused")
+                : t("statusDraft")
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : t("statusUpdateFailed");
@@ -497,7 +593,7 @@ export function FlowEditorProvider({
         setActivating(false);
       }
     },
-    [canActivate, save, initialFlow.id, t],
+    [canActivate, saveDraft, finishPublish, initialFlow.id, t],
   );
 
   // ---- Delete ----
@@ -508,7 +604,12 @@ export function FlowEditorProvider({
       const res = await authFetch(`/api/flows/${initialFlow.id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error(t("deleteFailedStatus", { status: res.status }));
+      if (!res.ok) {
+        // 409: a published flow must be archived (with no runs left) first;
+        // the server's message says so.
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error ?? t("deleteFailedStatus", { status: res.status }));
+      }
       router.push("/flows");
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("deleteFailed");
@@ -624,6 +725,8 @@ export function FlowEditorProvider({
       removeNode,
       save,
       setStatus,
+      draftHash,
+      publish,
       deleteFlow,
       flashKey,
       requestFlash,
@@ -649,6 +752,8 @@ export function FlowEditorProvider({
       removeNode,
       save,
       setStatus,
+      draftHash,
+      publish,
       deleteFlow,
       flashKey,
       requestFlash,

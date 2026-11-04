@@ -9,6 +9,7 @@ import http from 'node:http'
 import https from 'node:https'
 import { isIP } from 'node:net'
 import { assertJobLease } from '@/lib/jobs/lease'
+import { assertLiveEffects } from '@/lib/runtime/dry-run-guard'
 import { isPrivateOrReservedIp } from './ssrf'
 
 export const SAFE_FETCH_TIMEOUT_MS = 10_000
@@ -40,8 +41,10 @@ function isLocalName(host: string): boolean {
 export async function safeFetch(
   rawUrl: string,
   init: { method: string; headers: Record<string, string>; body?: string },
-  { timeoutMs = SAFE_FETCH_TIMEOUT_MS, maxBytes = SAFE_FETCH_MAX_BYTES } = {},
+  { timeoutMs = SAFE_FETCH_TIMEOUT_MS, maxBytes = SAFE_FETCH_MAX_BYTES, discardBody = false }:
+    { timeoutMs?: number; maxBytes?: number; discardBody?: boolean } = {},
 ): Promise<SafeFetchResult> {
+  assertLiveEffects('fetch')
   let url: URL
   try { url = new URL(rawUrl) } catch { return { ok: false, error: 'invalid_url' } }
   if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password) return { ok: false, error: 'invalid_url' }
@@ -69,6 +72,13 @@ export async function safeFetch(
       // An IP literal skips DNS; it was checked above.
       ...(isIP(host) ? {} : { lookup: safeLookup as unknown as typeof lookup }),
     }, (res) => {
+      // A caller that only needs the status (webhook delivery) is answered on
+      // the headers: a large or slow reply body must not turn an accepted
+      // POST into a failure (and a re-POST). body is '' then.
+      if (discardBody) {
+        res.resume()
+        return done({ ok: true, status: res.statusCode ?? 0, contentType: String(res.headers['content-type'] ?? ''), body: '' })
+      }
       const declared = Number(res.headers['content-length'])
       if (Number.isFinite(declared) && declared > maxBytes) return done({ ok: false, error: 'too_large' })
       const chunks: Buffer[] = []

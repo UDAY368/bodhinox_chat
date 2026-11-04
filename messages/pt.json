@@ -1573,7 +1573,8 @@
         "wait": "Aguardar",
         "condition": "Condição (Se/Senão)",
         "send_webhook": "Enviar webhook",
-        "close_conversation": "Fechar conversa"
+        "close_conversation": "Fechar conversa",
+        "notify_team": "Avisar a equipe"
       },
       "triggers": {
         "new_message_received": {
@@ -1748,7 +1749,14 @@
         "waitForReplyHint": "Pausa aqui até o cliente tocar em um botão ou responder (até 24h). As etapas seguintes, incluindo Se/Senão no conteúdo da mensagem, usam essa resposta.",
         "closeConversationHint": "Define o status da conversa como \"fechada\". Nenhuma configuração necessária.",
         "conditionTimezoneLabel": "Timezone",
-        "conditionTimezoneHint": "Business timezone used to evaluate this time window."
+        "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
+        "notifyAudienceLabel": "Avisar",
+        "notifyAssignee": "O responsável pela conversa",
+        "notifyAdmins": "Proprietários e administradores",
+        "notifyTextLabel": "Texto do aviso",
+        "notifyTextPlaceholder": "Novo lead de {name}",
+        "notifyTextHint": "Aviso no app, com até 200 caracteres. Você pode usar {contact} e {automation}; o conteúdo das mensagens nunca é incluído.",
+        "bodyTemplateHint": "JSON. Os marcadores são preenchidos com segurança dentro de textos entre aspas, por exemplo {example}."
       },
       "preview": {
         "noText": "sem texto ainda",
@@ -1766,7 +1774,16 @@
       },
       "adIds": "IDs de anúncios",
       "adIdsHint": "IDs de anúncios da Meta separados por vírgula",
-      "adIdsHelp": "Deixe vazio para executar com qualquer anúncio."
+      "adIdsHelp": "Deixe vazio para executar com qualquer anúncio.",
+      "recipients": {
+        "segment": "Contatos de um segmento salvo",
+        "segmentLabel": "Segmento de destinatários",
+        "segmentChoose": "Escolha um segmento",
+        "segmentHint": "O segmento é verificado de novo a cada execução: novas correspondências entram e contatos que saíram dele ficam de fora.",
+        "segmentNone": "Crie um segmento em Contatos primeiro.",
+        "oncePerContact": "Executar uma vez por contato",
+        "oncePerContactHint": "Pula os contatos para os quais esta automação já foi executada."
+      }
     }
   },
   "Flows": {
@@ -1796,6 +1813,7 @@
       "newFlow": "Novo fluxo",
       "statusDraft": "Rascunho",
       "statusActive": "Ativo",
+      "statusPaused": "Pausado",
       "statusArchived": "Arquivado",
       "loadError": "Não foi possível carregar os fluxos.",
       "createError": "Não foi possível criar o fluxo.",
@@ -1862,7 +1880,16 @@
       "statusTimedOut": "Tempo esgotado",
       "statusPaused": "Pausada pelo agente",
       "statusFailed": "Falhou",
-      "statusCancelled": "Cancelado"
+      "statusCancelled": "Cancelado",
+      "filterStatus": "Filtrar por status",
+      "filterAllStatuses": "Todos os status",
+      "filterVersion": "Filtrar por versão",
+      "filterAllVersions": "Todas as versões",
+      "filterUnversioned": "Rascunho e execuções anteriores",
+      "versionLabel": "v{version}",
+      "unversioned": "Rascunho",
+      "loadMore": "Carregar mais",
+      "openDetails": "Detalhes"
     },
     "builder": {
       "triggerTitle": "Gatilho",
@@ -2147,7 +2174,8 @@
         "storefrontTtl": "Validade do link (horas)",
         "storefrontTtlHelp": "Entre {min} e {max} horas. Deixe vazio para 24.",
         "storefrontNext": "Próxima etapa após o envio",
-        "storefrontFailedNext": "Se o link não puder ser enviado"
+        "storefrontFailedNext": "Se o link não puder ser enviado",
+        "flowStatusPaused": "pausado"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -2339,7 +2367,10 @@
           "fallback": "Resposta não aceita; a política de fallback do fluxo assume",
           "ai_reply": "O agente de IA responde (simulado; nada é gerado)",
           "conversion_event": "Uma conversão é enviada à Meta (simulado; nada é enviado)",
-          "book_appointment": "Oferece horários livres e agenda o que o cliente escolher (simulado; nada é agendado)"
+          "book_appointment": "Oferece horários livres e agenda o que o cliente escolher (simulado; nada é agendado)",
+          "condition_true": "A condição é verdadeira para este contato",
+          "condition_false": "A condição é falsa para este contato",
+          "api_port": "O resultado de API que você escolheu: {port}"
         },
         "simulate": {
           "shareMedia": "Simular: cliente envia um arquivo",
@@ -2392,6 +2423,16 @@
         "modeBoth": "Online e presencial",
         "modeOnline": "Somente online",
         "modeOffline": "Somente presencial"
+      },
+      "capabilitySetUp": "Configurar",
+      "capabilityBlocked": {
+        "payments": "Conecte um gateway de pagamento para usar esta etapa.",
+        "appointments": "Adicione um serviço agendável para usar esta etapa.",
+        "ai": "Ative um agente de IA para usar esta etapa.",
+        "capi": "Configure a API de Conversões da Meta para usar esta etapa.",
+        "commerce": "Ative o checkout da loja para usar esta etapa.",
+        "meetings": "Conecte o Zoom para usar esta etapa.",
+        "shipping": "Conecte uma transportadora para usar esta etapa."
       }
     },
     "validation": {
@@ -2402,6 +2443,7 @@
     "editorState": {
       "saved": "Salvo.",
       "fixIssues": "Corrija os problemas abaixo antes de ativar.",
+      "draftChanged": "O rascunho mudou desde que você o abriu. Revise-o e publique novamente.",
       "statusActivated": "Fluxo ativado.",
       "statusArchived": "Arquivado.",
       "statusDraft": "Salvo como rascunho.",
@@ -2413,7 +2455,8 @@
       "statusUpdateFailedStatus": "Falha ao atualizar o status: {status}",
       "statusUpdateFailed": "Falha ao atualizar o status",
       "deleteFailedStatus": "Falha ao excluir: {status}",
-      "deleteFailed": "Falha ao excluir"
+      "deleteFailed": "Falha ao excluir",
+      "statusPaused": "Pausado. Novas conversas não iniciam mais este fluxo."
     },
     "summary": {
       "options": "{count} {count, plural, =1 {opção} other {opções}}",
@@ -2481,7 +2524,8 @@
         "finance": "Finanças",
         "beauty": "Salão e spa",
         "events": "Eventos",
-        "services": "Serviços"
+        "services": "Serviços",
+        "journeys": "Jornadas"
       }
     },
     "channel": {
@@ -2494,6 +2538,134 @@
       "textOverLimit": "As mensagens do Instagram são limitadas a 1000 bytes",
       "runsOnHelp": "Fluxos do Instagram só podem usar as etapas e os gatilhos que o Instagram suporta. A alteração é salva na hora.",
       "scopeSaveFailed": "Não foi possível alterar onde este fluxo é executado. Corrija os problemas do fluxo e tente novamente."
+    },
+    "liveTest": {
+      "label": "Teste ao vivo (envia mensagens reais)",
+      "help": "Enquanto este fluxo for um rascunho, ele roda apenas para estes números (até 3, com código do país), que recebem mensagens reais. Use a simulação para testar sem enviar nada."
+    },
+    "versions": {
+      "pill": {
+        "draft": "Rascunho",
+        "live": "No ar v{version}",
+        "liveUnpinned": "No ar (publique de novo para fixar)",
+        "paused": "Pausado v{version}",
+        "pausedPlain": "Pausado",
+        "archived": "Arquivado"
+      },
+      "unpublishedChanges": "Alterações não publicadas",
+      "versionsButton": "Versões ({count})",
+      "publish": "Publicar",
+      "publishNew": "Publicar alterações",
+      "resume": "Retomar",
+      "pause": "Pausar",
+      "archive": "Arquivar",
+      "back": "Voltar",
+      "saveFirst": "Salve suas alterações primeiro",
+      "fixIssues": "Corrija os problemas antes de publicar",
+      "actionFailed": "Não funcionou. Tente novamente.",
+      "done": {
+        "active": "Publicado",
+        "paused": "Pausado",
+        "archived": "Arquivado",
+        "draft": "Movido para rascunho"
+      },
+      "pauseTitle": "Pausar este fluxo?",
+      "pauseBody": "Nenhum cliente novo vai iniciá-lo. Quem já está nele termina na versão em que começou.",
+      "archiveTitle": "Arquivar este fluxo?",
+      "archiveBody": "Um fluxo arquivado para para todos. Você pode excluí-lo quando não houver clientes nele.",
+      "cancelActive": "Cancelar também {count, plural, one {a execução} other {as # execuções}} em andamento",
+      "archiveNeedsCancel": "{count, plural, one {# cliente ainda está} other {# clientes ainda estão}} neste fluxo; cancele as execuções para arquivá-lo.",
+      "drawerTitle": "Versões",
+      "drawerHint": "Cada publicação é mantida. Os clientes ficam na versão em que começaram.",
+      "viewingTitle": "Versão {version}",
+      "viewingHint": "Somente leitura. Edite o rascunho e publique para alterá-la.",
+      "entry": "Entrada",
+      "liveTag": "No ar",
+      "pausedTag": "Pausada",
+      "versionMeta": "Por {by} · {steps} etapas · {runs} em andamento",
+      "view": "Ver",
+      "migrate": "Mover execuções em espera para v{version}",
+      "migrated": "{migrated} movidas, {left} ficaram nesta versão",
+      "cancelRuns": "Cancelar execuções",
+      "cancelConfirm": "Cancelar {count} execuções da versão {version}? Esses clientes não receberão mais mensagens deste fluxo.",
+      "cancelled": "{count} execuções canceladas"
+    },
+    "dryRun": {
+      "open": "Teste a seco",
+      "title": "Teste a seco",
+      "subtitle": "Percorre o fluxo no servidor e mostra o que aconteceria. Nada é enviado, salvo ou cobrado, e nenhuma execução é criada.",
+      "source": "Versão",
+      "sourceDraft": "Rascunho salvo",
+      "sourcePublished": "Versão publicada",
+      "sourceVersion": "Versão {version}",
+      "unsavedNote": "O teste usa o rascunho salvo. Salve para incluir suas últimas edições.",
+      "contact": "Contato de exemplo (opcional)",
+      "contactSearch": "Pesquisar contatos pelo nome",
+      "noContact": "Sem contato",
+      "unnamedContact": "Contato sem nome",
+      "apiPorts": "Resultados de API",
+      "apiPortFor": "Resultado de API para {node}",
+      "apiPortAsk": "Perguntar nessa etapa",
+      "start": "Iniciar teste",
+      "restart": "Reiniciar",
+      "back": "Desfazer a última etapa",
+      "failed": "O teste não funcionou. Tente novamente.",
+      "empty": "Escolha uma versão e inicie o teste.",
+      "asContact": "Como {name} {phone}",
+      "ended": "Fim do teste",
+      "inputRejected": "Uma escolha não se encaixa mais no fluxo; o percurso parou ali.",
+      "issuesTitle": "{count, plural, =0 {Nada impede a publicação} one {# problema impede a publicação} other {# problemas impedem a publicação}}",
+      "would": {
+        "would_send_message": "Enviaria esta mensagem",
+        "would_send_template": "Enviaria o modelo {template}",
+        "would_call_api": "Chamaria {method} {host}",
+        "would_create_payment_link": "Criaria um link de pagamento de {amount} {currency}",
+        "would_book": "Agendaria um horário",
+        "would_tag": "{mode, select, remove {Removeria uma etiqueta} other {Adicionaria uma etiqueta}}",
+        "would_set_attribute": "Salvaria {key}",
+        "would_assign": "Atribuiria um agente",
+        "would_send_conversion": "Informaria {event} à Meta",
+        "would_handoff": "Passaria a conversa para um agente humano",
+        "would_connect_flow": "Continuaria em outro fluxo",
+        "would_reply_with_ai": "Responderia com o agente de IA",
+        "would_send_storefront_link": "Enviaria um link da loja"
+      }
+    },
+    "runDetail": {
+      "backToRuns": "Voltar às execuções",
+      "endReason": "Terminou: {reason}",
+      "failedAt": "Falhou em {node}",
+      "replay": "Repetir a etapa com falha",
+      "cancel": "Cancelar execução",
+      "actionFailed": "Não funcionou. Tente novamente.",
+      "replayQueued": "Repetição na fila",
+      "cancelDone": "Execução cancelada",
+      "intentsTitle": "Mensagens e chamadas",
+      "noIntents": "Esta execução não enviou nada.",
+      "intentsHelp": "\"unknown\" significa que o provedor não confirmou o envio: verifique a conversa; nunca é reenviado automaticamente.",
+      "colStep": "Etapa",
+      "colKind": "Tipo",
+      "colTransition": "Transição / tentativa",
+      "colStatus": "Status",
+      "colUpdated": "Atualizado",
+      "timelineTitle": "Linha do tempo",
+      "kind": {
+        "flow": "Mensagem",
+        "flow-api": "Chamada de API",
+        "flow-ai": "Resposta de IA",
+        "flow-fallback": "Mensagem alternativa"
+      },
+      "refusal": {
+        "not_failed": "Só uma execução com falha pode ser repetida.",
+        "too_old": "Falhou há mais de 7 dias; não pode mais ser repetida.",
+        "no_contact": "Sem contato ou conversa para continuar.",
+        "flow_archived": "O fluxo está arquivado.",
+        "not_pinned": "Esta execução não está em uma versão publicada.",
+        "not_replayable_reason": "Este tipo de falha não pode ser repetido com segurança.",
+        "needs_reconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa; ela não será reenviada.",
+        "already_sent": "A mensagem desta etapa já foi enviada.",
+        "conversation_busy": "Outro fluxo está em execução nesta conversa."
+      }
     }
   },
   "Settings": {
@@ -3718,7 +3890,9 @@
         "commerce_record_payments": "Registrar pagamentos offline",
         "commerce_checkout": "Enviar links da loja",
         "commerce_shipments": "Criar e cancelar envios por transportadora",
-        "integrations_meetings": "Conectar o Zoom para reuniões online"
+        "integrations_meetings": "Conectar o Zoom para reuniões online",
+        "flows_replay": "Repetir execuções de fluxo com falha",
+        "automations_publish": "Publicar automações"
       }
     },
     "auditLog": {
@@ -4163,7 +4337,8 @@
       "appointment_rescheduled": "Agendamento remarcado",
       "low_stock": "Estoque baixo",
       "payment_exception": "Pagamento para revisar",
-      "instagram_account_health": "Conta do Instagram"
+      "instagram_account_health": "Conta do Instagram",
+      "automation_notice": "Aviso de automação"
     }
   },
   "Agents": {
@@ -4792,6 +4967,55 @@
       "ordersMessage": "Este é o status do seu último pedido:",
       "noOrders": "Ainda não encontramos nenhum pedido seu.",
       "handoffNote": "Loja ayurvédica: o cliente pediu para falar com a equipe."
+    },
+    "journey_router": {
+      "name": "Menu de jornadas",
+      "description": "Um menu de boas-vindas com quatro jornadas: Trabalho em casa, Consulta gratuita, Quiropraxia e Produtos ayurvédicos. O cliente toca uma opção ou digita o número dela. Substitua cada marcador por uma etapa Conectar fluxo.",
+      "text": "Olá! Como podemos ajudar hoje?\n1. Trabalho em casa\n2. Consulta gratuita\n3. Quiropraxia\n4. Produtos ayurvédicos",
+      "menuButton": "Ver o menu",
+      "typeButton": "Digitar um número",
+      "menuText": "Escolha o que você procura:",
+      "buttonLabel": "Ver opções",
+      "wfhRow": "Trabalho em casa",
+      "wfhDescription": "Registre seu interesse",
+      "consultRow": "Consulta gratuita",
+      "consultDescription": "Online ou presencial",
+      "chiroRow": "Quiropraxia",
+      "chiroDescription": "Agende uma visita",
+      "ayurvedaRow": "Produtos ayurvédicos",
+      "ayurvedaDescription": "Loja, pedidos e orientação",
+      "askNumber": "Responda com 1, 2, 3 ou 4.",
+      "numberError": "Responda com um número de 1 a 4.",
+      "placeholderNote": "Menu de jornadas: o cliente escolheu {journey}. Substitua esta etapa por uma etapa Conectar fluxo para o seu fluxo de {journey}.",
+      "handoffNote": "Menu de jornadas: o cliente não escolheu nenhuma opção."
+    },
+    "work_from_home": {
+      "name": "Cadastro Trabalho em casa",
+      "description": "Registra o interesse em oportunidades de trabalho em casa: nome, número, cidade, estado e preferência; depois compartilha seu link de informações e passa a conversa para a equipe.",
+      "intro": "Obrigado pelo interesse em trabalhar em casa com a gente. Vamos fazer algumas perguntas rápidas para que nossa equipe possa entrar em contato.",
+      "askName": "Qual é o seu nome completo?",
+      "confirmPhone": "Podemos falar com você neste número de WhatsApp?",
+      "samePhoneButton": "Sim, este número",
+      "otherPhoneButton": "Usar outro número",
+      "askPhone": "Qual número devemos usar? Inclua o código do país.",
+      "phoneError": "Envie um número de telefone válido com o código do país.",
+      "askCity": "Em qual cidade você está?",
+      "askState": "E em qual estado?",
+      "askPreference": "O que funciona melhor para você?",
+      "partTimeButton": "Meio período",
+      "fullTimeButton": "Período integral",
+      "weekendsButton": "Só fins de semana",
+      "linkMessage": "Obrigado! Aqui estão mais informações sobre a oportunidade: {link}\nAlguém da nossa equipe vai entrar em contato para explicar os detalhes.",
+      "handoffNote": "Cadastro Trabalho em casa: {name}, {city}, {state}. Preferência: {preference}. Outro número: {phone}."
+    },
+    "chiropractic_visit": {
+      "name": "Visita de quiropraxia",
+      "description": "Agenda uma visita de quiropraxia na sua agenda, cobra a taxa com um link de pagamento quando você define uma e passa a conversa para a clínica.",
+      "intro": "Olá! Vamos encontrar um horário para a sua visita de quiropraxia.",
+      "payMessage": "Para confirmar sua visita, pague a taxa aqui:",
+      "payDescription": "Visita de quiropraxia",
+      "consent": "Obrigado. Antes da visita, compartilhe apenas o mínimo de informações de saúde de que precisamos, como onde dói e desde quando. Nossa equipe cuida do resto.",
+      "handoffNote": "Visita de quiropraxia: agendamento concluído; faça o acompanhamento com o paciente."
     }
   },
   "LibErrors": {
@@ -4869,7 +5093,12 @@
       "tagAddedNoConversation": "a automação tag_added não pode enviar: o contato não tem uma conversa existente",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
-      "scheduleWaitFailed": "Could not schedule the wait: {message}"
+      "scheduleWaitFailed": "Could not schedule the wait: {message}",
+      "webhookInvalidBody": "send_webhook: o corpo preenchido não é um JSON válido",
+      "webhookInvalidHeader": "send_webhook: um cabeçalho não é permitido ou tem uma quebra de linha",
+      "webhookUncertain": "send_webhook: o destino não respondeu, então ele pode ou não ter recebido a solicitação; ela não será enviada de novo",
+      "webhookRefused": "send_webhook: não foi possível enviar a solicitação para este destino",
+      "notifyInvalid": "notify_team precisa de destinatários e de texto"
     }
   },
   "Validation": {
@@ -5029,7 +5258,9 @@
       "storefrontMessageTooLong": "A mensagem pode ter no máximo {max} caracteres.",
       "storefrontInvalidTtl": "Escolha uma validade do link entre {min} e {max} horas.",
       "storefrontInvalidPurpose": "Escolha se o link abre a loja ou o último pedido do contato.",
-      "storefrontNeedsNext": "Conecte a etapa seguinte ao envio do link."
+      "storefrontNeedsNext": "Conecte a etapa seguinte ao envio do link.",
+      "capabilityUnavailable": "A etapa \"{key}\" precisa de {capability}, que este espaço de trabalho ainda não configurou.",
+      "crossFlowLoop": "As etapas Conectar fluxo formam um ciclo sem resposta do cliente: {flows}."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",
@@ -5065,7 +5296,16 @@
       "templateHeaderVariable": "As automações não podem enviar modelos com uma variável no cabeçalho: a etapa só preenche valores do corpo.",
       "templateUrlVariable": "As automações não podem enviar modelos com uma variável em um botão de URL: a etapa só preenche valores do corpo.",
       "adIdsInvalid": "Os IDs de anúncio devem conter apenas dígitos, até {max}",
-      "serviceIdsInvalid": "Os IDs de serviço devem ser válidos, até {max}"
+      "serviceIdsInvalid": "Os IDs de serviço devem ser válidos, até {max}",
+      "notifyAudienceInvalid": "Escolha quem recebe o aviso: o responsável ou os administradores.",
+      "notifyTextInvalid": "Digite o texto do aviso, com até {max} caracteres.",
+      "notifyPlaceholderInvalid": "Um aviso à equipe só pode usar os marcadores do nome do contato e do nome da automação.",
+      "webhookUrlNoWorkspace": "A URL do webhook não pode usar valores do espaço de trabalho. Coloque-os em um cabeçalho ou no corpo.",
+      "webhookHeaderInvalid": "Os cabeçalhos do webhook precisam de um nome válido e de um valor em uma única linha. Host, Content-Length, Transfer-Encoding, Connection e Cookie não podem ser definidos.",
+      "webhookBodyInvalid": "O corpo do webhook deve ser um JSON válido. Coloque os marcadores dentro de textos entre aspas.",
+      "webhookUrlNotAllowed": "A URL do webhook aponta para um endereço privado ou reservado. Use um endereço público.",
+      "oncePerContactInvalid": "Uma vez por contato deve estar ligado ou desligado.",
+      "segmentUnavailable": "O segmento escolhido não está disponível neste espaço de trabalho."
     },
     "templates": {
       "nameRequired": "O nome do modelo é obrigatório.",
@@ -5411,7 +5651,16 @@
       "invalidReport": "Escolha um tipo de relatório válido.",
       "tooManyReports": "Vários relatórios ainda estão sendo gerados. Aguarde a conclusão e tente novamente.",
       "reportNotFound": "Relatório não encontrado.",
-      "reportNotReady": "Este relatório não está disponível para download."
+      "reportNotReady": "Este relatório não está disponível para download.",
+      "invalidFormat": "Escolha CSV ou PDF.",
+      "invalidSchedule": "Escolha um relatório, uma frequência (diária, semanal ou mensal) e uma hora de 0 a 23.",
+      "invalidRecipients": "Escolha de 1 a 10 destinatários, cada um administrador ou proprietário deste espaço de trabalho.",
+      "scheduleNotFound": "Agendamento não encontrado.",
+      "tooManySchedules": "Este espaço de trabalho já tem 10 relatórios agendados. Exclua um primeiro.",
+      "scheduleCreatorLostAccess": "O criador deste agendamento não é mais administrador. Crie um novo agendamento.",
+      "invalidShare": "Escolha quem pode abrir o link e uma validade de até 7 dias.",
+      "shareRoleTooLow": "Este relatório contém dados que essa função não pode ver. Escolha uma função superior.",
+      "shareNotFound": "Este relatório não está disponível."
     },
     "meetings": {
       "not_configured": "O Zoom não está disponível nesta instalação.",
@@ -5553,7 +5802,9 @@
       "copyFailed": "falha ao duplicar",
       "invalidActiveConfig": "Não é possível manter a automação ativa com configuração inválida",
       "invalidActivateConfig": "Não é possível ativar a automação com configuração inválida",
-      "nameTriggerRequired": "Nome e gatilho são obrigatórios"
+      "nameTriggerRequired": "Nome e gatilho são obrigatórios",
+      "secretNeedsAdmin": "Somente um administrador pode adicionar ou alterar uma etapa de webhook que usa um valor secreto do espaço de trabalho.",
+      "automationLoop": "Esta automação iniciaria um ciclo: {chain}. Altere uma etiqueta para que a cadeia termine."
     },
     "contacts": {
       "tagIdRequired": "tag_id é obrigatório"
@@ -5569,7 +5820,24 @@
       "secretNeedsAdmin": "Só um administrador pode adicionar ou alterar uma etapa de requisição de API que use um valor secreto do espaço de trabalho.",
       "testNumbersInvalid": "Informe até {max} números com código do país (8 a 15 dígitos cada).",
       "copyName": "Cópia de {name}",
-      "channelScopeInvalid": "«Executa em» deve ser WhatsApp, Instagram ou ambos."
+      "channelScopeInvalid": "«Executa em» deve ser WhatsApp, Instagram ou ambos.",
+      "draftChanged": "O rascunho mudou desde que você o abriu. Revise-o e publique novamente.",
+      "notPublished": "Publique este fluxo antes de pausá-lo.",
+      "activeRuns": "{count, plural, one {# cliente ainda está} other {# clientes ainda estão}} neste fluxo. Cancele as execuções para arquivá-lo.",
+      "nothingToMigrate": "Não há uma versão publicada mais recente para onde mover estas execuções.",
+      "useArchive": "Um fluxo publicado precisa ser arquivado, sem clientes em andamento, antes de ser excluído.",
+      "dryRunNotPublished": "Este fluxo ainda não tem uma versão publicada.",
+      "replay": {
+        "notFailed": "Só uma execução com falha pode ser repetida.",
+        "tooOld": "Esta execução falhou há mais de 7 dias e não pode mais ser repetida.",
+        "noContact": "Esta execução não tem contato nem conversa para continuar.",
+        "flowArchived": "O fluxo está arquivado, então suas execuções não podem ser repetidas.",
+        "notPinned": "Esta execução não está em uma versão publicada, então não pode ser repetida.",
+        "notReplayableReason": "Este tipo de falha não pode ser repetido com segurança.",
+        "needsReconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa antes de fazer qualquer outra coisa; ela não será enviada de novo automaticamente.",
+        "alreadySent": "A mensagem desta etapa já foi enviada; repetir enviaria duas vezes.",
+        "conversationBusy": "Outro fluxo está em execução nesta conversa. Tente novamente quando ele terminar."
+      }
     },
     "quickReplies": {
       "kindInvalid": "O tipo deve ser \"text\" ou \"interactive\"",
@@ -7899,6 +8167,10 @@
     "appointment_rescheduled": {
       "label": "Agendamentos remarcados",
       "description": "Um agendamento confirmado muda de horário."
+    },
+    "automation_notice": {
+      "label": "Avisos de automações",
+      "description": "A etapa Avisar a equipe de uma automação avisa você sobre uma conversa."
     }
   },
   "Weekdays": {
@@ -8501,7 +8773,13 @@
       "from": "De",
       "to": "Até",
       "apply": "Aplicar",
-      "maxDays": "Até 366 dias. As datas usam o fuso horário do seu espaço de trabalho."
+      "maxDays": "Até 366 dias. As datas usam o fuso horário do seu espaço de trabalho.",
+      "this_week": "Esta semana",
+      "last_week": "Semana passada",
+      "this_month": "Este mês",
+      "last_month": "Mês passado",
+      "calendar": "Período do calendário",
+      "calendarLabel": "Período do calendário (as semanas começam na segunda-feira)"
     },
     "numbers": {
       "label": "Número",
@@ -8627,14 +8905,21 @@
         "campaign_daily": "Campanhas por dia",
         "campaign_summary": "Resumo das campanhas",
         "member_campaigns": "Campanhas por membro da equipe",
-        "agent_performance": "Desempenho dos agentes por dia"
+        "agent_performance": "Desempenho dos agentes por dia",
+        "product_summary": "Vendas por produto",
+        "service_summary": "Agendamentos por serviço",
+        "commerce_daily": "Recebimentos por dia"
       },
       "range": "Período",
       "presets": {
         "7d": "Últimos 7 dias",
         "30d": "Últimos 30 dias",
         "90d": "Últimos 90 dias",
-        "custom": "Período personalizado"
+        "custom": "Período personalizado",
+        "this_week": "Esta semana",
+        "last_week": "Semana passada",
+        "this_month": "Este mês",
+        "last_month": "Mês passado"
       },
       "from": "De",
       "to": "Até",
@@ -8665,6 +8950,84 @@
         "subject": "Seu relatório está pronto: {report}",
         "body": "Seu relatório \"{report}\" de {from} a {to} está pronto. Entre na sua conta para baixá-lo:",
         "footer": "O arquivo fica disponível por 30 dias. Ele contém apenas contagens e nomes, nunca o conteúdo das mensagens."
+      },
+      "format": "Formato",
+      "formats": {
+        "csv": "CSV",
+        "pdf": "PDF"
+      },
+      "pdfNote": "O PDF mostra no máximo 2.000 linhas. Caracteres que a fonte do PDF não consegue exibir (por exemplo, coreano) aparecem como \"?\"; use CSV para o relatório completo.",
+      "scheduledRun": "Agendado",
+      "truncatedPdf": "apenas as primeiras 2.000 linhas",
+      "share": {
+        "open": "Compartilhar",
+        "explain": "Qualquer pessoa conectada a este espaço de trabalho com pelo menos a função escolhida pode baixar este relatório até o link expirar ou você revogá-lo. O link não funciona para ninguém fora do espaço de trabalho.",
+        "minRole": "Quem pode abrir",
+        "roles": {
+          "viewer": "Leitores e acima",
+          "agent": "Agentes e acima",
+          "admin": "Administradores e proprietários"
+        },
+        "expiresIn": "O link expira após",
+        "hours": {
+          "24": "1 dia",
+          "72": "3 dias",
+          "168": "7 dias"
+        },
+        "create": "Criar link",
+        "copy": "Copiar link",
+        "copied": "Copiado",
+        "none": "Este relatório não foi compartilhado.",
+        "summary": "{role} · até {date} · {count, plural, one {# abertura} other {# aberturas}}",
+        "active": "Ativo",
+        "expired": "Expirado",
+        "revoked": "Revogado",
+        "revoke": "Revogar",
+        "loadFailed": "Não foi possível carregar os compartilhamentos.",
+        "createFailed": "Não foi possível criar o link. Tente novamente.",
+        "revokeFailed": "Não foi possível revogar o link. Tente novamente."
+      },
+      "schedules": {
+        "title": "Relatórios agendados",
+        "description": "Envie um relatório por e-mail automaticamente referente ao dia, à semana (segunda a domingo) ou ao mês anterior. Os destinatários devem ser administradores ou proprietários, e cada um é verificado novamente quando o relatório é enviado. O e-mail contém um link de acesso, nunca o arquivo.",
+        "cadence": "Repetir",
+        "cadences": {
+          "daily": "Diário",
+          "weekly": "Semanal (segunda)",
+          "monthly": "Mensal (dia 1)"
+        },
+        "hour": "Enviar às (horário do espaço de trabalho)",
+        "recipients": "Destinatários",
+        "recipientsHelp": "Até 10 administradores ou proprietários. Quem não for mais administrador no envio é ignorado.",
+        "noAdmins": "Nenhum administrador ou proprietário encontrado.",
+        "pickRecipients": "Escolha pelo menos um destinatário.",
+        "create": "Agendar relatório",
+        "empty": "Ainda não há relatórios agendados.",
+        "when": "Quando",
+        "whenValue": "{cadence} às {hour}",
+        "actions": "Ações",
+        "next": "Próximo: {date}",
+        "paused": {
+          "manual": "Pausado",
+          "creator_lost_access": "Pausado: o criador não é mais administrador. Crie um novo agendamento.",
+          "no_recipients": "Pausado: não restam destinatários"
+        },
+        "pause": "Pausar",
+        "resume": "Retomar",
+        "delete": "Excluir",
+        "confirmDelete": "Excluir este agendamento? Os relatórios já gerados são mantidos até expirarem.",
+        "loadFailed": "Não foi possível carregar os relatórios agendados.",
+        "saveFailed": "Não foi possível salvar o agendamento. Tente novamente."
+      },
+      "shared": {
+        "title": "Relatório compartilhado",
+        "description": "Um relatório compartilhado com membros do seu espaço de trabalho.",
+        "download": "Baixar relatório",
+        "downloaded": "O download começou.",
+        "unavailable": "Este relatório não está disponível para você. O link pode ter expirado ou sido revogado, sua função pode não incluí-lo ou ele pertence a outro espaço de trabalho: mude para esse espaço de trabalho e abra o link novamente.",
+        "failed": "Não foi possível baixar o relatório. Tente novamente.",
+        "privacy": "Cada download é registrado. Relatórios compartilhados contêm apenas contagens e nomes, nunca o conteúdo das mensagens.",
+        "details": "{kind} ({format}). Pode ser aberto até {expires}."
       }
     },
     "templates": {
@@ -8739,6 +9102,47 @@
       "shipping": "Frete",
       "merchandiseRefunds": "Reembolsos de produtos",
       "orders": "Pedidos pagos"
+    },
+    "compare": {
+      "title": "Comparar",
+      "description": "Campanhas lado a lado, resultados de agendamentos por serviço e principais produtos do período.",
+      "tabs": {
+        "campaigns": "Campanhas",
+        "services": "Serviços",
+        "products": "Produtos"
+      },
+      "percent": "{value}%",
+      "notApplicable": "N/D",
+      "campaigns": {
+        "needTwo": "São necessárias pelo menos duas campanhas no período para comparar. Escolha um período maior.",
+        "pick": "Escolha de 2 a {max} campanhas",
+        "selectMore": "Selecione pelo menos duas campanhas.",
+        "chartLabel": "Comparação de campanhas, como parcela dos enviados",
+        "campaign": "Campanha",
+        "recipients": "Destinatários",
+        "hint": "Enviados é uma contagem; as outras etapas são uma parcela dos enviados. Respostas contam em até 72 horas."
+      },
+      "services": {
+        "chartLabel": "Agendamentos por serviço",
+        "service": "Serviço",
+        "booked": "Agendados",
+        "confirmed": "Confirmados",
+        "cancelled": "Cancelados",
+        "completed": "Concluídos",
+        "noShow": "Faltas",
+        "noShowRate": "Taxa de faltas"
+      },
+      "products": {
+        "chartLabel": "Principais produtos por receita líquida",
+        "product": "Produto",
+        "orders": "Pedidos",
+        "units": "Unidades",
+        "gross": "Bruto",
+        "discounts": "Descontos",
+        "refunds": "Reembolsos",
+        "net": "Líquido",
+        "hint": "Pedidos pagos no período. Descontos e reembolsos do pedido são divididos entre as linhas pelo valor, então os totais podem diferir por arredondamento."
+      }
     }
   },
   "Ads": {

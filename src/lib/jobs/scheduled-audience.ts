@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import type { DataClient } from '@/lib/data/types';
 import { resolveAudienceContacts } from '@/lib/broadcast-audience';
 import {
@@ -20,6 +21,9 @@ import { enqueueJob } from './queue';
 import { pickContactConversationId } from '@/lib/whatsapp/contact-conversation';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { loadSegmentFilter } from '@/lib/audience/segments';
+import { AudienceFilterError, assertFilterReferences, compileAudienceFilter } from '@/lib/audience/filter';
+import type { Contact } from '@/types';
 
 type ScheduledAutomation = {
   id: string;
@@ -59,6 +63,52 @@ async function requireAudienceReferences(
       );
   }
 }
+/**
+ * A saved segment's members now: its filter is read at each occurrence, so
+ * membership is dynamic. A segment archived by a plan downgrade, or whose
+ * filter names a deleted tag, list, campaign or custom field, is refused (as
+ * for campaigns: a has_none on a deleted tag would match everyone); a
+ * retargeting condition the plan no longer allows throws PlanLimitError.
+ * Opted-out and blocked contacts, and with onlyNewFor the contacts that
+ * automation already ran for, are left out in SQL before the
+ * MAX_SCHEDULED_CONTACTS cap, so the cap counts real recipients only; more
+ * than that is refused, never truncated.
+ */
+export async function segmentRecipients(accountId: string, segmentId: string,
+  options: { onlyNewFor?: string } = {}): Promise<Pick<Contact, 'id'>[]> {
+  const rows = await withTenant({ accountId }, async (tx) => {
+    let filter;
+    try {
+      filter = await loadSegmentFilter(tx, accountId, segmentId, { lock: true });
+      await assertFilterReferences(tx, accountId, filter);
+    } catch (error) {
+      if (!(error instanceof AudienceFilterError)) throw error;
+      throw new Error('Scheduled recipient segment must belong to this workspace and be active');
+    }
+    // once_per_contact: served by automation_logs_automation_contact_idx.
+    const notYetRun = options.onlyNewFor
+      ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM automation_logs l WHERE l.account_id=${accountId}::uuid
+          AND l.automation_id=${options.onlyNewFor}::uuid AND l.contact_id=c.id)`
+      : Prisma.empty;
+    return tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT c.id::text AS id FROM contacts c
+      WHERE ${compileAudienceFilter(accountId, filter)} AND c.opted_out_at IS NULL AND c.blocked_at IS NULL ${notYetRun}
+      ORDER BY c.created_at, c.id LIMIT ${MAX_SCHEDULED_CONTACTS + 1}`);
+  }, getWorkerPrisma());
+  if (rows.length > MAX_SCHEDULED_CONTACTS)
+    throw new Error(`Scheduled audience exceeds the ${MAX_SCHEDULED_CONTACTS}-row limit; use a narrower recipient filter`);
+  return rows.map((row) => ({ id: String(row.id) }));
+}
+
+/** Contacts this automation has already run for (once_per_contact); uses automation_logs_automation_contact_idx. */
+export async function contactsAlreadyRun(accountId: string, automationId: string, contactIds: readonly string[]): Promise<Set<string>> {
+  if (!contactIds.length) return new Set();
+  const rows = await withTenant({ accountId }, (tx) => tx.$queryRaw<{ contact_id: string }[]>`
+    SELECT DISTINCT contact_id::text AS contact_id FROM automation_logs
+    WHERE account_id=${accountId}::uuid AND automation_id=${automationId}::uuid AND contact_id = ANY(${[...contactIds]}::uuid[])`,
+  getWorkerPrisma());
+  return new Set(rows.map((row) => row.contact_id));
+}
+
 /** Turn a schedule off when its plan no longer allows it, with a failed log row saying why. */
 async function pauseForPlan(db: DataClient, accountId: string, automationId: string, reason: string) {
   const { data: paused, error } = await db
@@ -108,15 +158,33 @@ export async function queueScheduledOccurrence(
     return;
   }
   const audience = parseScheduledAudience(config.audience);
-  await requireAudienceReferences(db, audience);
-  const contacts = await resolveAudienceContacts(
-    db,
-    audience,
-    async () => {
-      throw new Error('CSV recipients are unsupported for schedules');
-    },
-    { maxRows: MAX_SCHEDULED_CONTACTS }
-  );
+  const oncePerContact = config.once_per_contact === true;
+  let contacts: Pick<Contact, 'id'>[];
+  if (audience.type === 'segment') {
+    try {
+      contacts = await segmentRecipients(accountId, audience.segmentId!, oncePerContact ? { onlyNewFor: automation.id } : {});
+    } catch (error) {
+      // A retargeting segment after a downgrade: turn the schedule off once, not fail every slot.
+      if (!(error instanceof PlanLimitError)) throw error;
+      await pauseForPlan(db, accountId, automation.id, error.message);
+      return;
+    }
+  } else {
+    await requireAudienceReferences(db, audience);
+    contacts = await resolveAudienceContacts(
+      db,
+      audience,
+      async () => {
+        throw new Error('CSV recipients are unsupported for schedules');
+      },
+      { maxRows: MAX_SCHEDULED_CONTACTS }
+    );
+  }
+  // Segments already left out contacts that ran (in SQL, before the cap).
+  if (oncePerContact && audience.type !== 'segment') {
+    const done = await contactsAlreadyRun(accountId, automation.id, contacts.map((c) => c.id));
+    contacts = contacts.filter((c) => !done.has(c.id));
+  }
   if (stepsSendMessages(await loadSteps(db, automation.id))) {
     // A schedule that messages contacts is a recurring campaign. The plan can
     // change after activation, so it is checked per occurrence; a refusal
@@ -181,6 +249,10 @@ export async function executeScheduledOccurrence(
     automation.trigger_type !== 'time_based'
   )
     return;
+  // once_per_contact: an earlier occurrence may have run for this contact since this one was queued.
+  if (contactId && (automation.trigger_config as Record<string, unknown> | null)?.once_per_contact === true &&
+    (await contactsAlreadyRun(accountId, automationId, [contactId])).size)
+    return;
   const steps = await loadSteps(db, automationId);
   if (!contactId && scheduleNeedsContact(steps))
     throw new Error('Scheduled contact actions require explicit recipients');
@@ -232,9 +304,14 @@ export async function executeScheduledOccurrence(
     }
   }
   assertLease();
+  // once_per_contact fences per contact, not per slot: two occurrences for
+  // the same contact running at once (a backlog on several workers) share one
+  // intent, so the second never runs the automation again.
+  const oncePerContact = contactId !== undefined
+    && (automation.trigger_config as Record<string, unknown> | null)?.once_per_contact === true;
   await dispatchOnce(
     accountId,
-    `scheduled:${automationId}:${slot}:${contactId ?? 'account'}`,
+    oncePerContact ? `scheduled-once:${automationId}:${contactId}` : `scheduled:${automationId}:${slot}:${contactId ?? 'account'}`,
     async () => {
       assertLease();
       await runAutomationsForTrigger({

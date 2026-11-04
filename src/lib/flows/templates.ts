@@ -28,6 +28,7 @@ import type {
   ConditionNodeConfig,
   HandoffNodeConfig,
   KeywordTriggerConfig,
+  PaymentLinkNodeConfig,
   SendButtonsNodeConfig,
   SendListNodeConfig,
   SendMessageNodeConfig,
@@ -51,6 +52,7 @@ export type FlowTemplateNodeType =
   | "ask_address"
   | "book_appointment"
   | "send_storefront_link"
+  | "payment_link"
   | "handoff"
   | "end";
 
@@ -71,12 +73,14 @@ export interface FlowTemplateNode {
     | AskAddressNodeConfig
     | BookAppointmentNodeConfig
     | SendStorefrontLinkNodeConfig
+    | PaymentLinkNodeConfig
     | Record<string, unknown>;
 }
 
 /** Gallery groups, in display order. */
 export const FLOW_TEMPLATE_CATEGORIES = [
   "general",
+  "journeys",
   "retail",
   "food",
   "health",
@@ -642,7 +646,7 @@ function clinicAppointment(): FlowTemplate {
 function freeConsultation(): FlowTemplate {
   const s = scoped("free_consultation");
   const ports = { success: "end", unavailable: "agent", cancelled: "end" };
-  return template("free_consultation", "health", "CalendarDays", "keyword", [
+  return template("free_consultation", "journeys", "CalendarDays", "keyword", [
     startAt("mode"),
     buttons("mode", s("text"), [
       ["online", s("onlineButton"), "set_online"],
@@ -680,7 +684,7 @@ function ayurvedicStore(): FlowTemplate {
     node(key, "send_storefront_link", {
       message, purpose, ttl_hours: 24, next_node_key: "end", failed_next: failed,
     } as SendStorefrontLinkNodeConfig);
-  return template("ayurvedic_store", "health", "Leaf", "keyword", [
+  return template("ayurvedic_store", "journeys", "Leaf", "keyword", [
     startAt("menu"),
     list("menu", s("text"), s("buttonLabel"), [
       ["shop", s("shopRow"), "shop", s("shopDescription")],
@@ -882,6 +886,112 @@ function tripSupport(): FlowTemplate {
     ask("ask_details", s("askDetails"), "details", "ack"),
     say("ack", s("ack"), "agent"),
     handoff("agent", s("handoffNote", { reference: v("reference"), request: v("request"), details: v("details") })),
+  ]);
+}
+
+// ---- journeys (WA-02 router, J1, J3; J2 and J4 are above) ----
+
+const JOURNEYS = [
+  ["wfh", "1"],
+  ["consult", "2"],
+  ["chiro", "3"],
+  ["ayurveda", "4"],
+] as const;
+
+/**
+ * WA-02 journey router: the four-option menu (Work From Home, Free
+ * Consultation, Chiropractic, Ayurvedic Products) as a list, with a typed
+ * fallback for phones that do not show lists: an Ask Question that accepts
+ * 1-4. Each option ends at a hand-off placeholder named after its journey;
+ * the author replaces it with a Connect flow step to that journey's flow
+ * (cloned from the templates below). The placeholders keep the clone
+ * publishable as-is, since a Connect flow step needs a real flow.
+ */
+function journeyRouter(): FlowTemplate {
+  const s = scoped("journey_router");
+  return template("journey_router", "journeys", "Signpost", "first_inbound_message", [
+    startAt("welcome"),
+    buttons("welcome", s("text"), [
+      ["menu", s("menuButton"), "menu"],
+      ["type", s("typeButton"), "ask_number"],
+    ]),
+    list("menu", s("menuText"), s("buttonLabel"), JOURNEYS.map(([id]) => [id, s(`${id}Row`), `go_${id}`, s(`${id}Description`)] as Row)),
+    ask("ask_number", s("askNumber"), "journey_number", "is_1", {
+      validation: "regex", regex: "[1-4]", max_attempts: 3, error_text: s("numberError"), exhausted_next: "agent",
+    }),
+    ...JOURNEYS.map(([id, number], i) =>
+      node(`is_${number}`, "condition", {
+        subject: "var", subject_key: "journey_number", operator: "equals", value: number,
+        true_next: `go_${id}`, false_next: i < JOURNEYS.length - 1 ? `is_${JOURNEYS[i + 1][1]}` : "agent",
+      } as ConditionNodeConfig)),
+    ...JOURNEYS.map(([id]) => handoff(`go_${id}`, s("placeholderNote", { journey: s(`${id}Row`) }))),
+    handoff("agent", s("handoffNote")),
+  ]);
+}
+
+/**
+ * Journey J1 (PRD L131-141): Work From Home registration. Name, the WhatsApp
+ * number (confirmed rather than retyped), city, state and preference, then a
+ * link from the workspace value `wfh_link`, the wfh_registered tag (the author
+ * binds the tag before publishing) and a hand-off. The copy makes no
+ * earnings or income claims. Reached through the router (Connect flow), so it
+ * has no keywords of its own.
+ */
+function workFromHome(): FlowTemplate {
+  const s = scoped("work_from_home");
+  const preference = choices("preference", "send_link", [
+    ["part_time", s("partTimeButton")],
+    ["full_time", s("fullTimeButton")],
+    ["weekends", s("weekendsButton")],
+  ]);
+  const details = { name: v("applicant_name"), city: v("city"), state: v("state"), preference: v("preference"), phone: v("alt_phone") };
+  return template("work_from_home", "journeys", "Laptop", "manual", [
+    startAt("intro"),
+    say("intro", s("intro"), "ask_name"),
+    ask("ask_name", s("askName"), "applicant_name", "save_name"),
+    setContact("save_name", "name", v("applicant_name"), "confirm_phone"),
+    buttons("confirm_phone", s("confirmPhone"), [
+      ["same", s("samePhoneButton"), "ask_city"],
+      ["other", s("otherPhoneButton"), "ask_phone"],
+    ]),
+    ask("ask_phone", s("askPhone"), "alt_phone", "ask_city", { validation: "phone", max_attempts: 3, error_text: s("phoneError") }),
+    ask("ask_city", s("askCity"), "city", "ask_state"),
+    ask("ask_state", s("askState"), "state", "preference"),
+    buttons("preference", s("askPreference"), preference.options),
+    ...preference.nodes,
+    say("send_link", s("linkMessage", { link: "{{workspace.wfh_link}}" }), "registered"),
+    // Tags the contact as registered, so segments and automations (a
+    // follow-up drip) can find applicants. The author binds the workspace's
+    // wfh_registered tag; publishing reports setTagNeedsTag until then.
+    node("registered", "set_tag", { mode: "add", tag_id: "", next_node_key: "agent" }),
+    handoff("agent", s("handoffNote", details)),
+  ]);
+}
+
+/**
+ * Journey J3: a chiropractic visit. Books a time (every bookable service, any
+ * practitioner); with a fee in the workspace value `chiropractic_fee` it then
+ * sends a payment link, otherwise it skips payment. It ends with a line asking
+ * for minimal clinical detail and hands over. Until appointments (and payments,
+ * for the fee) are set up, publishing reports the missing capability.
+ */
+function chiropracticVisit(): FlowTemplate {
+  const s = scoped("chiropractic_visit");
+  return template("chiropractic_visit", "journeys", "Stethoscope", "manual", [
+    startAt("intro"),
+    say("intro", s("intro"), "book"),
+    book("book", { success: "fee", unavailable: "agent", cancelled: "end" }),
+    setVar("fee", "visit_fee", "{{workspace.chiropractic_fee}}", "has_fee"),
+    node("has_fee", "condition", {
+      subject: "var", subject_key: "visit_fee", operator: "present", true_next: "pay", false_next: "consent",
+    } as ConditionNodeConfig),
+    node("pay", "payment_link", {
+      amount: v("visit_fee"), currency: "INR", message: s("payMessage"), description: s("payDescription"),
+      expire_minutes: 1440, paid_next: "consent", expired_next: "consent", failed_next: "consent",
+    } as PaymentLinkNodeConfig),
+    say("consent", s("consent"), "agent"),
+    handoff("agent", s("handoffNote")),
+    END,
   ]);
 }
 
@@ -1093,7 +1203,10 @@ const TEMPLATES: Record<string, FlowTemplate> = Object.fromEntries(
     tableBooking(),
     foodOrder(),
     clinicAppointment(),
+    journeyRouter(),
+    workFromHome(),
     freeConsultation(),
+    chiropracticVisit(),
     ayurvedicStore(),
     clinicTriage(),
     courseEnquiry(),

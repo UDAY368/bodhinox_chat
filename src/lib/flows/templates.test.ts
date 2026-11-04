@@ -17,6 +17,9 @@ function catalogueKeywords(messages: { StarterFlows: Record<string, unknown> }):
   })
 }
 
+/** Steps a template leaves for the author to bind to a workspace record (publishing reports them until then). */
+const TO_BIND = new Set(['work_from_home.registered'])
+
 const RESERVED_CONSENT_WORDS = ['stop', 'start', 'subscribe', 'unsubscribe']
 
 describe.each([['en', en], ['es', es], ['pt', pt], ['ko', ko]] as const)('%s starter keywords', (_locale, messages) => {
@@ -69,18 +72,19 @@ describe('flow template gallery', () => {
     expect(template.description.trim()).not.toBe('')
   })
 
-  it.each(templates.map(t => [t.slug, t] as const))('%s passes activation validation as-is', (_slug, template) => {
+  it.each(templates.map(t => [t.slug, t] as const))('%s passes activation validation as-is, apart from its tag to bind', (_slug, template) => {
     const issues = validateFlowForActivation(
       { name: template.name, trigger_type: template.trigger_type, trigger_config: template.trigger_config as Record<string, unknown>, entry_node_id: template.entry_node_id },
       template.nodes.map(n => ({ node_key: n.node_key, node_type: n.node_type, config: n.config as Record<string, unknown> })),
     )
-    expect(issues.filter(i => i.severity === 'error')).toEqual([])
+    expect(issues.filter(i => i.severity === 'error' && !TO_BIND.has(`${template.slug}.${i.node_key}`))).toEqual([])
   })
 
-  it('needs no workspace-specific node types', () => {
+  it('needs no workspace-specific node types, apart from the tags an author binds', () => {
     const workspaceBound = new Set(['send_template', 'api_request', 'connect_flow', 'assign_agent', 'set_tag', 'send_media'])
     for (const template of templates) {
-      expect(template.nodes.filter(n => workspaceBound.has(n.node_type)).map(n => `${template.slug}.${n.node_key}`)).toEqual([])
+      expect(template.nodes.filter(n => workspaceBound.has(n.node_type)).map(n => `${template.slug}.${n.node_key}`)
+        .filter(key => !TO_BIND.has(key))).toEqual([])
     }
   })
 })
@@ -103,5 +107,22 @@ describe('ayurvedic_store (J4, Phase 8)', () => {
     expect(byKey.get('agent')?.node_type).toBe('handoff')
     // The link itself is never stored in run variables or the template.
     expect(JSON.stringify(template)).not.toMatch(/\/shop\//)
+  })
+})
+
+describe('work_from_home (J1, Phase 12)', () => {
+  const template = getFlowTemplate('work_from_home')!
+  const nodes = template.nodes.map(n => ({ node_key: n.node_key, node_type: n.node_type, config: n.config as Record<string, unknown> }))
+
+  it('tags the contact as registered (a tag the author binds), not a run variable segments cannot see', () => {
+    expect(template.nodes.find(n => n.node_key === 'registered')).toMatchObject({ node_type: 'set_tag', config: { mode: 'add', tag_id: '', next_node_key: 'agent' } })
+    const errors = validateFlowForActivation({ name: template.name, trigger_type: template.trigger_type,
+      trigger_config: template.trigger_config as Record<string, unknown>, entry_node_id: template.entry_node_id }, nodes)
+      .filter(i => i.severity === 'error')
+    expect(errors).toEqual([expect.objectContaining({ node_key: 'registered', field: 'tag_id' })])
+    const bound = nodes.map(n => (n.node_key === 'registered' ? { ...n, config: { ...n.config, tag_id: '00000000-0000-4000-8000-000000000001' } } : n))
+    expect(validateFlowForActivation({ name: template.name, trigger_type: template.trigger_type,
+      trigger_config: template.trigger_config as Record<string, unknown>, entry_node_id: template.entry_node_id }, bound)
+      .filter(i => i.severity === 'error')).toEqual([])
   })
 })

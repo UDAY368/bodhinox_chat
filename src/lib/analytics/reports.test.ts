@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   deletes: [] as string[],
   putFails: false,
   sent: [] as unknown[],
+  keys: [] as string[],
 }));
 
 function render(args: unknown[]): Call {
@@ -24,7 +25,7 @@ const tx = {
 vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_ctx: unknown, op: (t: typeof tx) => unknown) => op(tx) }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => tx, getPrisma: () => tx }));
 vi.mock('./report-storage', () => ({
-  reportObjectKey: (a: string, r: string) => `${a}/reports/${r}.csv`,
+  reportObjectKey: (a: string, r: string, f = 'csv') => `${a}/reports/${r}.${f}`,
   putReportFile: async (_a: string, key: string, bytes: Uint8Array) => {
     if (h.putFails) throw new Error('s3 down');
     h.puts.push({ key, bytes });
@@ -33,15 +34,16 @@ vi.mock('./report-storage', () => ({
 }));
 vi.mock('@/lib/jobs/dispatch', () => ({
   UncertainDispatchError: class extends Error {},
-  dispatchOnce: async (_a: string, _k: string, send: () => Promise<unknown>) => send(),
+  dispatchOnce: async (_a: string, key: string, send: () => Promise<unknown>) => { h.keys.push(key); return send(); },
 }));
 vi.mock('@/lib/auth/email', () => ({
   authEmailTransport: () => ({ sendMail: async (m: unknown) => { h.sent.push(m); }, close: () => {} }),
 }));
 
 import { parseRange } from './range';
+import { PDF_MAX_ROWS } from './report-pdf';
 import {
-  buildReport, handleReportJob, isReportKind, listReports, MAX_REPORT_ROWS, rate, REPORT_KINDS, ReportError,
+  buildReport, handleReportJob, isReportKind, KIND_MIN_ROLE, listReports, MAX_REPORT_ROWS, rate, REPORT_KINDS, ReportError,
   reportFilename, requestReport, runReportSweep, toCsv,
 } from './reports';
 
@@ -58,6 +60,7 @@ beforeEach(() => {
   h.deletes = [];
   h.putFails = false;
   h.sent = [];
+  h.keys = [];
   delete process.env.SMTP_URL;
   delete process.env.AUTH_EMAIL_FROM;
   delete process.env.APP_URL;
@@ -87,8 +90,10 @@ describe('CSV', () => {
   });
 });
 
+const BOUNDED_KINDS = ['product_summary', 'service_summary', 'commerce_daily'];
+
 describe('report queries', () => {
-  it.each(REPORT_KINDS)('%s is scoped to the workspace and range, capped, and reads no message content', async (kind) => {
+  it.each(REPORT_KINDS.filter((k) => !BOUNDED_KINDS.includes(k)))('%s is scoped to the workspace and range, capped, and reads no message content', async (kind) => {
     await buildReport(tx as never, A, kind, range);
     const sql = h.calls.map((c) => c.sql).join('\n');
     const values = h.calls.flatMap((c) => c.values);
@@ -99,6 +104,47 @@ describe('report queries', () => {
     expect(values).toContain(MAX_REPORT_ROWS + 1);
     expect(sql).toMatch(/account_id=\?::uuid/);
     expect(sql).not.toMatch(/content_text|\.phone|contacts\.name|media_url|caption/);
+  });
+
+  it.each(BOUNDED_KINDS)('%s is scoped to the workspace, reads no customer data and is naturally bounded', async (kind) => {
+    await buildReport(tx as never, A, kind as never, range);
+    const sql = h.calls.map((c) => c.sql).join('\n');
+    const values = h.calls.flatMap((c) => c.values);
+    expect(values).toContain(A);
+    if (kind === 'service_summary') expect(values).toEqual(expect.arrayContaining([range.startDay, range.endDay]));
+    else expect(values).toEqual(expect.arrayContaining([range.from.toISOString(), range.to.toISOString()]));
+    expect(sql).toMatch(/account_id=\?::uuid/);
+    expect(sql).not.toMatch(/content_text|\.phone|contacts\.name|customer_name|media_url|caption/);
+    if (kind === 'product_summary') expect(sql).toMatch(/LIMIT \?/);
+  });
+
+  it('renders products, services and daily collections in major units with English headers', async () => {
+    h.respond = () => [{ key: 'SKU-1', name: 'Ashwagandha', currency: 'INR', orders: 2, units: 3, gross: BigInt(150000), discounts: BigInt(10000),
+      refunds: BigInt(0), net: BigInt(140000) }];
+    let lines = decode((await buildReport(tx as never, A, 'product_summary', range)).bytes).slice(1).split('\r\n');
+    expect(lines[0]).toBe('"product_key","product","currency","orders","units","gross","discounts","refunds","net"');
+    expect(lines[1]).toBe('"SKU-1","Ashwagandha","INR","2","3","1500.00","100.00","0.00","1400.00"');
+
+    h.respond = () => [
+      { service_id: 's1', service_name: 'Chiropractic', day: '2026-10-02', booked: 2, confirmed: 2, cancelled: 0, completed: 1, no_show: 1 },
+      { service_id: 's1', service_name: 'Chiropractic', day: '2026-10-03', booked: 1, confirmed: 1, cancelled: 1, completed: 2, no_show: 0 },
+    ];
+    lines = decode((await buildReport(tx as never, A, 'service_summary', range)).bytes).slice(1).split('\r\n');
+    expect(lines[1]).toBe('"s1","Chiropractic","3","3","1","3","1","25.0"');
+
+    h.respond = (sql) => (sql.includes('ledger') ? [{ day: '2026-10-02', currency: 'INR', collected: BigInt(50000), refunds: BigInt(2000) }] : []);
+    lines = decode((await buildReport(tx as never, A, 'commerce_daily', range)).bytes).slice(1).split('\r\n');
+    expect(lines[0]).toBe('"day (Asia/Kolkata)","currency","collected","refunds","net_collected"');
+    expect(lines[1]).toBe('"2026-10-02","INR","500.00","20.00","480.00"');
+  });
+
+  it('renders a PDF of the same table, capped at PDF_MAX_ROWS', async () => {
+    const row = { campaignId: R, campaign: 'Diwali', template: 'promo', status: 'sent', createdBy: 'Olu', createdAt: '2026-10-03 11:30',
+      scheduledAt: null, recipients: 4, sent: 3, delivered: 2, read: 1, replied: 1, clicked: 0, failed: 1 };
+    h.respond = () => Array.from({ length: PDF_MAX_ROWS + 1 }, () => row);
+    const built = await buildReport(tx as never, A, 'campaign_summary', range, 'pdf');
+    expect(new TextDecoder().decode(built.bytes.slice(0, 5))).toBe('%PDF-');
+    expect(built).toMatchObject({ rowCount: PDF_MAX_ROWS, truncated: true });
   });
 
   it('marks a report truncated past the row cap and keeps exactly the cap', async () => {
@@ -245,5 +291,83 @@ describe('worker job', () => {
     expect(result).toEqual({ failed: 1, expired: 2 });
     expect(h.calls.find((c) => c.sql.includes("error='timed_out'"))).toBeDefined();
     await expect(handleReportJob(A, 'analytics.other', {})).rejects.toThrow('Unsupported');
+  });
+});
+
+describe('Phase 12: formats, scheduled delivery and share bounds', () => {
+  const claim = (extra: Record<string, unknown> = {}) => (sql: string) => {
+    if (sql.includes("SET status='running'")) return [{ kind: 'member_campaigns', params: { from: '2026-10-01', to: '2026-10-07', timezone: 'UTC' },
+      email_requested: true, requested_by: U, schedule_id: null, format: 'csv', ...extra }];
+    return [];
+  };
+  const S = '44444444-4444-4444-8444-444444444444';
+  const V = '55555555-5555-4555-8555-555555555555';
+
+  it('refuses an unknown format before touching the database and records the chosen one', async () => {
+    await expect(requestReport({ accountId: A, userId: U, role: 'owner' }, { kind: 'campaign_daily', range: {}, format: 'xlsx' }))
+      .rejects.toMatchObject({ code: 'invalid_format', status: 400 });
+    expect(h.calls).toEqual([]);
+    h.respond = (sql) => (sql.includes("status IN ('queued','running')") ? [{ n: 0 }] : sql.includes('INSERT INTO report_runs') ? [{ id: R }]
+      : sql.includes('FROM report_runs r') ? [{ id: R, kind: 'campaign_daily', format: 'pdf', schedule_id: null, status: 'queued',
+        params: { from: '2026-10-01', to: '2026-10-07', timezone: 'UTC' }, requested_by: U, requester_name: null, email_requested: false,
+        row_count: null, truncated: false, byte_size: null, error: null, created_at: new Date(), finished_at: null, expires_at: new Date() }] : []);
+    const run = await requestReport({ accountId: A, userId: U, role: 'owner' }, { kind: 'campaign_daily', range: {}, format: 'pdf' });
+    expect(run).toMatchObject({ format: 'pdf', scheduled: false });
+    expect(h.calls.find((c) => c.sql.includes('INSERT INTO report_runs'))!.values).toContain('pdf');
+  });
+
+  it('names PDF files .pdf and stores them under a .pdf key', async () => {
+    expect(reportFilename('commerce_daily', { from: '2026-10-01', to: '2026-10-07', timezone: 'UTC' }, 'pdf'))
+      .toBe('commerce_daily_2026-10-01_2026-10-07.pdf');
+    h.respond = claim({ format: 'pdf', email_requested: false });
+    await handleReportJob(A, 'analytics.report', { reportId: R });
+    expect(h.puts.map((p) => p.key)).toEqual([`${A}/reports/${R}.pdf`]);
+    expect(new TextDecoder().decode(h.puts[0].bytes.slice(0, 5))).toBe('%PDF-');
+  });
+
+  it('emails each current admin recipient of a scheduled run once, and audits the skipped ones by id only', async () => {
+    Object.assign(process.env, { SMTP_URL: 'smtp://x', AUTH_EMAIL_FROM: 'reports@bodhinox.test', APP_URL: 'https://app.bodhinox.test' });
+    const base = claim({ schedule_id: S });
+    h.respond = (sql, values) => {
+      if (sql.includes('FROM report_schedules')) return [{ recipients: [U, V] }];
+      if (sql.includes('FROM account_memberships m'))
+        return values.includes(U) ? [{ email: 'olu@example.test', role: 'admin' }] : [{ email: 'vee@example.test', role: 'viewer' }];
+      return base(sql);
+    };
+    await handleReportJob(A, 'analytics.report', { reportId: R });
+    expect(h.sent).toHaveLength(1);
+    expect((h.sent[0] as { to: string }).to).toBe('olu@example.test');
+    expect(h.keys).toEqual([`report-email:${R}:${U}`]);
+    const skipped = h.calls.find((c) => c.sql.includes('analytics.report_delivery_skipped'))!;
+    expect(skipped.values).toEqual(expect.arrayContaining([A, R, JSON.stringify({ recipient: V })]));
+    expect(JSON.stringify(skipped.values)).not.toContain('vee@example.test');
+  });
+
+  it('emails nobody for a scheduled run whose schedule was deleted while it was in flight', async () => {
+    Object.assign(process.env, { SMTP_URL: 'smtp://x', AUTH_EMAIL_FROM: 'reports@bodhinox.test', APP_URL: 'https://app.bodhinox.test' });
+    // The foreign key set schedule_id NULL; the run still asks for email.
+    const base = claim({ schedule_id: null });
+    h.respond = (sql) => (sql.includes('FROM account_memberships m') ? [{ email: 'olu@example.test', role: 'owner' }] : base(sql));
+    await handleReportJob(A, 'analytics.report', { reportId: R, scheduled: true });
+    expect(h.sent).toEqual([]);
+    expect(h.keys).toEqual([]);
+    expect(h.puts).toHaveLength(1);
+  });
+
+  it('keeps the requester email key for unscheduled runs', async () => {
+    Object.assign(process.env, { SMTP_URL: 'smtp://x', AUTH_EMAIL_FROM: 'reports@bodhinox.test', APP_URL: 'https://app.bodhinox.test' });
+    const base = claim();
+    h.respond = (sql) => (sql.includes('FROM account_memberships m') ? [{ email: 'olu@example.test', role: 'owner' }] : base(sql));
+    await handleReportJob(A, 'analytics.report', { reportId: R });
+    expect(h.keys).toEqual([`report-email:${R}`]);
+    expect(h.calls.some((c) => c.sql.includes('FROM report_schedules'))).toBe(false);
+  });
+
+  it('bounds sharing by the live minimum role of each kind', () => {
+    expect(KIND_MIN_ROLE.campaign_summary).toBe('viewer');
+    expect(KIND_MIN_ROLE.service_summary).toBe('viewer');
+    expect(KIND_MIN_ROLE.product_summary).toBe('agent');
+    expect(KIND_MIN_ROLE.commerce_daily).toBe('agent');
+    expect(Object.keys(KIND_MIN_ROLE).sort()).toEqual([...REPORT_KINDS].sort());
   });
 });

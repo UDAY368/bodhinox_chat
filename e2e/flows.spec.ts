@@ -27,8 +27,9 @@ test('an agent starts from a gallery template, previews it, duplicates it and fi
   await page.getByRole('button', { name: 'New flow' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Search templates').fill('welcome menu');
-  const card = dialog.locator('div, li, article').filter({ hasText: 'Welcome menu' }).filter({ has: page.getByRole('button', { name: 'Use this' }) }).last();
-  await card.getByRole('button', { name: 'Use this' }).click();
+  // Pick the card by its exact name: other templates' descriptions can mention it
+  // (Journey menu is "A welcome menu with four journeys").
+  await dialog.getByRole('button', { name: 'Use this: Welcome menu', exact: true }).click();
   await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
 
   // The preview walks the template like a customer would, without sending anything.
@@ -39,7 +40,9 @@ test('an agent starts from a gallery template, previews it, duplicates it and fi
 
   await page.goto('/flows');
   await page.getByPlaceholder('Search flows').fill('Welcome menu');
-  await page.getByRole('button', { name: 'Duplicate' }).first().click();
+  // The search also matches Journey menu flows (their description says "welcome menu"), so duplicate the card named Welcome menu.
+  const welcome = page.locator('div').filter({ has: page.getByRole('heading', { name: 'Welcome menu', exact: true }) }).filter({ has: page.getByRole('button', { name: 'Duplicate' }) }).last();
+  await welcome.getByRole('button', { name: 'Duplicate' }).click();
   await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
   await page.goto('/flows');
   await page.getByPlaceholder('Search flows').fill('Copy of Welcome menu');

@@ -19,6 +19,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { paletteBlock, useWorkspaceCapabilities } from './palette';
 import {
   CircleAlert,
   Plus,
@@ -67,6 +68,8 @@ import { AdClickTriggerFields, KeywordTriggerFields, OrderReceivedTriggerFields,
 import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
+import { VersionBar } from './version-bar';
+import { DryRunPanel } from './dry-run-panel';
 
 // ============================================================
 // Local state shape — mirrors the DB but the configs are typed
@@ -214,6 +217,19 @@ export function FlowBuilder() {
       </section>
     </div>
   );
+}
+
+// ============================================================
+// Version bar (Phase 12)
+// ============================================================
+
+/**
+ * What is live, unpublished changes, and Publish / Pause / Resume / Archive
+ * with the versions drawer. `toolbarExtra` is the slot for tools that sit
+ * beside those actions (the dry-run panel mounts there).
+ */
+export function FlowVersionBar() {
+  return <VersionBar toolbarExtra={<DryRunPanel />} />;
 }
 
 // ============================================================
@@ -613,6 +629,9 @@ function NodeConfigWithAdvanced({
 
 function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: ReturnType<typeof useTranslations> }) {
   const types = ADD_NODE_TYPES;
+  // Steps whose provider is not set up are shown disabled with the reason,
+  // as in the canvas palette; publish validation enforces the same rule.
+  const caps = useWorkspaceCapabilities();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -636,8 +655,15 @@ function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: Retur
               </DropdownMenuLabel>
               {group.types.map((t_type) => {
                 const meta = NODE_META[t_type];
+                const blocked = paletteBlock(t_type, caps);
                 return (
-                  <DropdownMenuItem key={t_type} onClick={() => onAdd(t_type)}>
+                  <DropdownMenuItem
+                    key={t_type}
+                    disabled={!!blocked}
+                    title={blocked ? t(`capabilityBlocked.${blocked}`) : undefined}
+                    data-blocked={blocked ?? undefined}
+                    onClick={() => onAdd(t_type)}
+                  >
                     <meta.icon className={cn('h-3.5 w-3.5', meta.color)} />
                     {t(`nodes.${t_type}.label`)}
                   </DropdownMenuItem>

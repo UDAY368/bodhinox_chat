@@ -1573,7 +1573,8 @@
         "wait": "대기",
         "condition": "조건 (If/Else)",
         "send_webhook": "웹훅 보내기",
-        "close_conversation": "대화 닫기"
+        "close_conversation": "대화 닫기",
+        "notify_team": "팀에 알림"
       },
       "triggers": {
         "new_message_received": {
@@ -1748,7 +1749,14 @@
         "waitForReplyHint": "고객이 버튼을 누르거나 답장할 때까지 여기서 멈춥니다(최대 24시간). 이후 단계(메시지 내용 조건 포함)는 그 답장을 사용합니다.",
         "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다.",
         "conditionTimezoneLabel": "Timezone",
-        "conditionTimezoneHint": "Business timezone used to evaluate this time window."
+        "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
+        "notifyAudienceLabel": "알림 대상",
+        "notifyAssignee": "대화 담당자",
+        "notifyAdmins": "워크스페이스 소유자 및 관리자",
+        "notifyTextLabel": "알림 내용",
+        "notifyTextPlaceholder": "{name}님의 새 리드",
+        "notifyTextHint": "앱 내 알림, 최대 200자. {contact}와 {automation}을 사용할 수 있으며 메시지 내용은 포함되지 않습니다.",
+        "bodyTemplateHint": "JSON. 자리표시자는 따옴표로 묶은 문자열 안에서 안전하게 채워집니다. 예: {example}"
       },
       "preview": {
         "noText": "아직 텍스트 없음",
@@ -1766,7 +1774,16 @@
       },
       "adIds": "광고 ID",
       "adIdsHint": "쉼표로 구분한 Meta 광고 ID",
-      "adIdsHelp": "비워 두면 모든 광고에서 실행됩니다."
+      "adIdsHelp": "비워 두면 모든 광고에서 실행됩니다.",
+      "recipients": {
+        "segment": "저장된 세그먼트의 연락처",
+        "segmentLabel": "수신자 세그먼트",
+        "segmentChoose": "세그먼트 선택",
+        "segmentHint": "세그먼트는 실행할 때마다 다시 확인되므로 새로 일치하는 연락처는 포함되고 빠진 연락처는 제외됩니다.",
+        "segmentNone": "먼저 연락처에서 세그먼트를 만드세요.",
+        "oncePerContact": "연락처당 한 번만 실행",
+        "oncePerContactHint": "이 자동화가 이미 실행된 연락처는 건너뜁니다."
+      }
     }
   },
   "Flows": {
@@ -1796,6 +1813,7 @@
       "newFlow": "새 플로우",
       "statusDraft": "초안",
       "statusActive": "활성",
+      "statusPaused": "일시 중지됨",
       "statusArchived": "보관됨",
       "loadError": "플로우를 불러올 수 없습니다.",
       "createError": "플로우를 만들 수 없습니다.",
@@ -1862,7 +1880,16 @@
       "statusTimedOut": "시간 초과",
       "statusPaused": "상담원이 일시 중지함",
       "statusFailed": "실패",
-      "statusCancelled": "취소됨"
+      "statusCancelled": "취소됨",
+      "filterStatus": "상태로 필터링",
+      "filterAllStatuses": "모든 상태",
+      "filterVersion": "버전으로 필터링",
+      "filterAllVersions": "모든 버전",
+      "filterUnversioned": "초안 및 이전 실행",
+      "versionLabel": "v{version}",
+      "unversioned": "초안",
+      "loadMore": "더 보기",
+      "openDetails": "세부 정보"
     },
     "builder": {
       "triggerTitle": "트리거",
@@ -2147,7 +2174,8 @@
         "storefrontTtl": "링크 유효 시간(시간)",
         "storefrontTtlHelp": "{min}~{max}시간 사이입니다. 비워 두면 24시간입니다.",
         "storefrontNext": "보낸 후 다음 단계",
-        "storefrontFailedNext": "링크를 보낼 수 없을 때"
+        "storefrontFailedNext": "링크를 보낼 수 없을 때",
+        "flowStatusPaused": "일시 중지됨"
       },
       "categories": {
         "messaging": "메시징",
@@ -2339,7 +2367,10 @@
           "fallback": "응답이 거부됨, 흐름의 대체 정책이 적용됩니다",
           "ai_reply": "AI 에이전트가 답변합니다(시뮬레이션이며 실제로 생성되지 않음)",
           "conversion_event": "전환이 Meta에 보고됩니다(시뮬레이션이며 실제로 보내지 않음)",
-          "book_appointment": "빈 시간을 보여 주고 고객이 고른 시간을 예약합니다 (시뮬레이션이며 실제로 예약되지 않음)"
+          "book_appointment": "빈 시간을 보여 주고 고객이 고른 시간을 예약합니다 (시뮬레이션이며 실제로 예약되지 않음)",
+          "condition_true": "이 연락처에 대해 조건이 참입니다",
+          "condition_false": "이 연락처에 대해 조건이 거짓입니다",
+          "api_port": "선택한 API 결과: {port}"
         },
         "simulate": {
           "shareMedia": "시뮬레이션: 고객이 파일 전송",
@@ -2392,6 +2423,16 @@
         "modeBoth": "온라인과 방문 모두",
         "modeOnline": "온라인만",
         "modeOffline": "방문만"
+      },
+      "capabilitySetUp": "설정",
+      "capabilityBlocked": {
+        "payments": "이 단계를 사용하려면 결제 게이트웨이를 연결하세요.",
+        "appointments": "이 단계를 사용하려면 예약 가능한 서비스를 추가하세요.",
+        "ai": "이 단계를 사용하려면 AI 에이전트를 켜세요.",
+        "capi": "이 단계를 사용하려면 Meta 전환 API를 설정하세요.",
+        "commerce": "이 단계를 사용하려면 스토어 결제를 켜세요.",
+        "meetings": "이 단계를 사용하려면 Zoom을 연결하세요.",
+        "shipping": "이 단계를 사용하려면 택배사를 연결하세요."
       }
     },
     "validation": {
@@ -2402,6 +2443,7 @@
     "editorState": {
       "saved": "저장되었습니다.",
       "fixIssues": "활성화하기 전에 아래 문제를 해결하세요.",
+      "draftChanged": "열어 본 이후 초안이 변경되었습니다. 확인한 뒤 다시 게시하세요.",
       "statusActivated": "플로우가 활성화되었습니다.",
       "statusArchived": "보관되었습니다.",
       "statusDraft": "초안으로 저장되었습니다.",
@@ -2413,7 +2455,8 @@
       "statusUpdateFailedStatus": "상태 업데이트 실패: {status}",
       "statusUpdateFailed": "상태 업데이트 실패",
       "deleteFailedStatus": "삭제 실패: {status}",
-      "deleteFailed": "삭제 실패"
+      "deleteFailed": "삭제 실패",
+      "statusPaused": "일시 중지되었습니다. 새 대화에서 이 플로우가 더 이상 시작되지 않습니다."
     },
     "summary": {
       "options": "옵션 {count}개",
@@ -2481,7 +2524,8 @@
         "finance": "금융",
         "beauty": "미용실·스파",
         "events": "이벤트",
-        "services": "서비스"
+        "services": "서비스",
+        "journeys": "여정"
       }
     },
     "channel": {
@@ -2494,6 +2538,134 @@
       "textOverLimit": "Instagram 메시지는 1000바이트로 제한됩니다",
       "runsOnHelp": "Instagram 플로우는 Instagram이 지원하는 단계와 트리거만 사용할 수 있습니다. 변경 사항은 바로 저장됩니다.",
       "scopeSaveFailed": "이 플로우의 실행 채널을 변경하지 못했습니다. 플로우의 문제를 해결한 후 다시 시도하세요."
+    },
+    "liveTest": {
+      "label": "실시간 테스트(실제 메시지 발송)",
+      "help": "이 플로우가 초안인 동안에는 이 번호(국가 코드 포함 최대 3개)에서만 실행되며 실제 메시지가 발송됩니다. 아무것도 보내지 않고 확인하려면 시험 실행을 사용하세요."
+    },
+    "versions": {
+      "pill": {
+        "draft": "초안",
+        "live": "게시됨 v{version}",
+        "liveUnpinned": "게시됨(고정하려면 다시 게시)",
+        "paused": "일시 중지됨 v{version}",
+        "pausedPlain": "일시 중지됨",
+        "archived": "보관됨"
+      },
+      "unpublishedChanges": "게시되지 않은 변경 사항",
+      "versionsButton": "버전 ({count})",
+      "publish": "게시",
+      "publishNew": "변경 사항 게시",
+      "resume": "재개",
+      "pause": "일시 중지",
+      "archive": "보관",
+      "back": "뒤로",
+      "saveFirst": "먼저 변경 사항을 저장하세요",
+      "fixIssues": "게시하기 전에 아래 문제를 해결하세요",
+      "actionFailed": "작업에 실패했습니다. 다시 시도하세요.",
+      "done": {
+        "active": "게시되었습니다",
+        "paused": "일시 중지되었습니다",
+        "archived": "보관되었습니다",
+        "draft": "초안으로 전환되었습니다"
+      },
+      "pauseTitle": "이 플로우를 일시 중지할까요?",
+      "pauseBody": "새 고객은 시작하지 않습니다. 이미 진행 중인 고객은 시작한 버전으로 마칩니다.",
+      "archiveTitle": "이 플로우를 보관할까요?",
+      "archiveBody": "보관된 플로우는 모든 고객에게 중지됩니다. 진행 중인 고객이 없으면 삭제할 수 있습니다.",
+      "cancelActive": "진행 중인 실행 {count}개도 취소",
+      "archiveNeedsCancel": "아직 이 플로우에 고객 {count}명이 있습니다. 보관하려면 실행을 취소하세요.",
+      "drawerTitle": "버전",
+      "drawerHint": "게시할 때마다 버전이 보존됩니다. 고객은 시작한 버전에 머뭅니다.",
+      "viewingTitle": "버전 {version}",
+      "viewingHint": "읽기 전용입니다. 변경하려면 초안을 편집해 게시하세요.",
+      "entry": "시작",
+      "liveTag": "게시됨",
+      "pausedTag": "일시 중지됨",
+      "versionMeta": "{by} · 단계 {steps}개 · 진행 중 {runs}",
+      "view": "보기",
+      "migrate": "대기 중인 실행을 v{version}(으)로 이동",
+      "migrated": "{migrated}개 이동, {left}개는 이 버전에 남음",
+      "cancelRuns": "실행 취소",
+      "cancelConfirm": "버전 {version}의 실행 {count}개를 취소할까요? 해당 고객은 이 플로우의 메시지를 더 받지 않습니다.",
+      "cancelled": "실행 {count}개가 취소되었습니다"
+    },
+    "dryRun": {
+      "open": "시험 실행",
+      "title": "시험 실행",
+      "subtitle": "서버에서 플로우를 따라가며 어떤 일이 일어날지 보여 줍니다. 아무것도 보내거나 저장하거나 청구하지 않으며 실행도 만들지 않습니다.",
+      "source": "버전",
+      "sourceDraft": "저장된 초안",
+      "sourcePublished": "게시된 버전",
+      "sourceVersion": "버전 {version}",
+      "unsavedNote": "시험 실행은 저장된 초안을 사용합니다. 최근 수정 사항을 포함하려면 저장하세요.",
+      "contact": "샘플 연락처(선택)",
+      "contactSearch": "이름으로 연락처 검색",
+      "noContact": "연락처 없음",
+      "unnamedContact": "이름 없는 연락처",
+      "apiPorts": "API 결과",
+      "apiPortFor": "{node}의 API 결과",
+      "apiPortAsk": "그 단계에서 묻기",
+      "start": "시험 실행 시작",
+      "restart": "다시 시작",
+      "back": "마지막 단계 취소",
+      "failed": "시험 실행이 되지 않았습니다. 다시 시도하세요.",
+      "empty": "버전을 선택하고 시험 실행을 시작하세요.",
+      "asContact": "{name} {phone}(으)로",
+      "ended": "시험 실행 종료",
+      "inputRejected": "선택 항목이 더 이상 플로우에 맞지 않아 그 지점에서 멈췄습니다.",
+      "issuesTitle": "{count, plural, =0 {게시를 막는 문제가 없습니다} other {#개의 문제가 게시를 막고 있습니다}}",
+      "would": {
+        "would_send_message": "이 메시지를 보냅니다",
+        "would_send_template": "{template} 템플릿을 보냅니다",
+        "would_call_api": "{method} {host}를 호출합니다",
+        "would_create_payment_link": "{amount} {currency} 결제 링크를 만듭니다",
+        "would_book": "예약을 잡습니다",
+        "would_tag": "{mode, select, remove {태그를 제거합니다} other {태그를 추가합니다}}",
+        "would_set_attribute": "{key}을(를) 저장합니다",
+        "would_assign": "상담원을 배정합니다",
+        "would_send_conversion": "Meta에 {event}을(를) 보고합니다",
+        "would_handoff": "채팅을 상담원에게 넘깁니다",
+        "would_connect_flow": "다른 플로우로 이어집니다",
+        "would_reply_with_ai": "AI 에이전트로 답변합니다",
+        "would_send_storefront_link": "스토어 링크를 보냅니다"
+      }
+    },
+    "runDetail": {
+      "backToRuns": "실행 목록으로 돌아가기",
+      "endReason": "종료: {reason}",
+      "failedAt": "{node}에서 실패",
+      "replay": "실패한 단계 다시 실행",
+      "cancel": "실행 취소",
+      "actionFailed": "작업이 되지 않았습니다. 다시 시도하세요.",
+      "replayQueued": "다시 실행이 대기열에 추가되었습니다",
+      "cancelDone": "실행이 취소되었습니다",
+      "intentsTitle": "메시지 및 호출",
+      "noIntents": "이 실행은 아무것도 보내지 않았습니다.",
+      "intentsHelp": "\"unknown\"은 제공업체가 전송을 확인하지 않았다는 뜻입니다. 대화를 확인하세요. 자동으로 다시 보내지 않습니다.",
+      "colStep": "단계",
+      "colKind": "종류",
+      "colTransition": "전환 / 시도",
+      "colStatus": "상태",
+      "colUpdated": "업데이트",
+      "timelineTitle": "타임라인",
+      "kind": {
+        "flow": "메시지",
+        "flow-api": "API 호출",
+        "flow-ai": "AI 답변",
+        "flow-fallback": "대체 메시지"
+      },
+      "refusal": {
+        "not_failed": "실패한 실행만 다시 실행할 수 있습니다.",
+        "too_old": "7일 전에 실패하여 더 이상 다시 실행할 수 없습니다.",
+        "no_contact": "이어갈 연락처나 대화가 없습니다.",
+        "flow_archived": "플로우가 보관되었습니다.",
+        "not_pinned": "이 실행은 게시된 버전에 있지 않습니다.",
+        "not_replayable_reason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
+        "needs_reconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 대화를 확인하세요. 다시 보내지 않습니다.",
+        "already_sent": "이 단계의 메시지는 이미 전송되었습니다.",
+        "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다."
+      }
     }
   },
   "Settings": {
@@ -3718,7 +3890,9 @@
         "commerce_record_payments": "오프라인 결제 기록",
         "commerce_checkout": "스토어 링크 보내기",
         "commerce_shipments": "택배 배송 생성 및 취소",
-        "integrations_meetings": "온라인 회의용 Zoom 연결"
+        "integrations_meetings": "온라인 회의용 Zoom 연결",
+        "flows_replay": "실패한 플로우 실행 다시 실행",
+        "automations_publish": "자동화 게시"
       }
     },
     "auditLog": {
@@ -4163,7 +4337,8 @@
       "appointment_rescheduled": "예약 변경",
       "low_stock": "재고 부족",
       "payment_exception": "결제 검토 필요",
-      "instagram_account_health": "Instagram 계정"
+      "instagram_account_health": "Instagram 계정",
+      "automation_notice": "자동화 알림"
     }
   },
   "Agents": {
@@ -4792,6 +4967,55 @@
       "ordersMessage": "최근 주문 상태입니다:",
       "noOrders": "아직 고객님의 주문을 찾을 수 없습니다.",
       "handoffNote": "아유르베다 스토어: 고객이 상담원 연결을 요청했습니다."
+    },
+    "journey_router": {
+      "name": "여정 메뉴",
+      "description": "재택근무, 무료 상담, 카이로프랙틱, 아유르베다 제품의 네 가지 여정이 있는 환영 메뉴입니다. 고객은 옵션을 누르거나 번호를 입력합니다. 각 자리표시자를 흐름 연결 단계로 바꾸세요.",
+      "text": "안녕하세요! 무엇을 도와드릴까요?\n1. 재택근무\n2. 무료 상담\n3. 카이로프랙틱\n4. 아유르베다 제품",
+      "menuButton": "메뉴 보기",
+      "typeButton": "번호 입력",
+      "menuText": "원하는 항목을 선택하세요:",
+      "buttonLabel": "옵션 보기",
+      "wfhRow": "재택근무",
+      "wfhDescription": "관심 등록하기",
+      "consultRow": "무료 상담",
+      "consultDescription": "온라인 또는 방문",
+      "chiroRow": "카이로프랙틱",
+      "chiroDescription": "방문 예약하기",
+      "ayurvedaRow": "아유르베다 제품",
+      "ayurvedaDescription": "쇼핑, 주문, 상담",
+      "askNumber": "1, 2, 3, 4 중 하나로 답해 주세요.",
+      "numberError": "1부터 4까지의 숫자로 답해 주세요.",
+      "placeholderNote": "여정 메뉴: 고객이 {journey}을(를) 선택했습니다. 이 단계를 {journey} 흐름으로 가는 흐름 연결 단계로 바꾸세요.",
+      "handoffNote": "여정 메뉴: 고객이 옵션을 선택하지 않았습니다."
+    },
+    "work_from_home": {
+      "name": "재택근무 등록",
+      "description": "재택근무 기회에 대한 관심을 등록합니다. 이름, 번호, 도시, 주, 선호 사항을 받은 뒤 안내 링크를 보내고 팀에 대화를 넘깁니다.",
+      "intro": "재택근무에 관심을 가져 주셔서 감사합니다. 팀이 연락드릴 수 있도록 몇 가지 간단히 여쭤보겠습니다.",
+      "askName": "성함이 어떻게 되시나요?",
+      "confirmPhone": "이 WhatsApp 번호로 연락드려도 될까요?",
+      "samePhoneButton": "네, 이 번호로",
+      "otherPhoneButton": "다른 번호 사용",
+      "askPhone": "어떤 번호로 연락드릴까요? 국가 번호를 포함해 주세요.",
+      "phoneError": "국가 번호를 포함한 올바른 전화번호를 보내 주세요.",
+      "askCity": "어느 도시에 계신가요?",
+      "askState": "어느 주에 계신가요?",
+      "askPreference": "어떤 형태가 가장 좋으신가요?",
+      "partTimeButton": "파트타임",
+      "fullTimeButton": "풀타임",
+      "weekendsButton": "주말만",
+      "linkMessage": "감사합니다! 기회에 대한 자세한 정보는 여기에서 확인하세요: {link}\n팀원이 연락드려 자세히 안내해 드리겠습니다.",
+      "handoffNote": "재택근무 등록: {name}, {city}, {state}. 선호: {preference}. 다른 번호: {phone}."
+    },
+    "chiropractic_visit": {
+      "name": "카이로프랙틱 방문",
+      "description": "캘린더에서 카이로프랙틱 방문을 예약하고, 진료비를 설정한 경우 결제 링크로 받은 뒤 클리닉에 대화를 넘깁니다.",
+      "intro": "안녕하세요! 카이로프랙틱 방문 시간을 찾아 드릴게요.",
+      "payMessage": "방문을 확정하려면 여기에서 진료비를 결제해 주세요:",
+      "payDescription": "카이로프랙틱 방문",
+      "consent": "감사합니다. 방문 전에 어디가 언제부터 아픈지 등 꼭 필요한 최소한의 건강 정보만 알려 주세요. 이후는 저희 팀이 안내해 드리겠습니다.",
+      "handoffNote": "카이로프랙틱 방문: 예약 완료, 환자에게 후속 연락하세요."
     }
   },
   "LibErrors": {
@@ -4869,7 +5093,12 @@
       "tagAddedNoConversation": "tag_added 자동화가 전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
-      "scheduleWaitFailed": "Could not schedule the wait: {message}"
+      "scheduleWaitFailed": "Could not schedule the wait: {message}",
+      "webhookInvalidBody": "send_webhook: 채워진 본문이 올바른 JSON이 아닙니다",
+      "webhookInvalidHeader": "send_webhook: 허용되지 않는 헤더이거나 줄바꿈이 있습니다",
+      "webhookUncertain": "send_webhook: 대상이 응답하지 않아 요청을 받았는지 알 수 없습니다. 다시 보내지 않습니다",
+      "webhookRefused": "send_webhook: 이 대상으로 요청을 보낼 수 없습니다",
+      "notifyInvalid": "notify_team에는 대상과 내용이 필요합니다"
     }
   },
   "Validation": {
@@ -5029,7 +5258,9 @@
       "storefrontMessageTooLong": "메시지는 {max}자 이내로 작성하세요.",
       "storefrontInvalidTtl": "링크 유효 시간을 {min}~{max}시간 사이로 선택하세요.",
       "storefrontInvalidPurpose": "링크가 스토어를 열지, 연락처의 최근 주문을 열지 선택하세요.",
-      "storefrontNeedsNext": "링크를 보낸 후 이어질 단계를 연결하세요."
+      "storefrontNeedsNext": "링크를 보낸 후 이어질 단계를 연결하세요.",
+      "capabilityUnavailable": "\"{key}\" 단계에는 아직 이 워크스페이스에 설정되지 않은 {capability}이(가) 필요합니다.",
+      "crossFlowLoop": "고객 응답 없이 플로우 연결 단계가 순환합니다: {flows}."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -5065,7 +5296,16 @@
       "templateHeaderVariable": "자동화는 헤더에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다.",
       "templateUrlVariable": "자동화는 URL 버튼에 변수가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채웁니다.",
       "adIdsInvalid": "광고 ID는 숫자만 입력할 수 있으며 최대 {max}개까지 가능합니다",
-      "serviceIdsInvalid": "서비스 ID는 올바른 ID여야 하며 최대 {max}개까지 가능합니다"
+      "serviceIdsInvalid": "서비스 ID는 올바른 ID여야 하며 최대 {max}개까지 가능합니다",
+      "notifyAudienceInvalid": "알림을 받을 대상을 선택하세요: 담당자 또는 관리자.",
+      "notifyTextInvalid": "알림 내용을 {max}자 이내로 입력하세요.",
+      "notifyPlaceholderInvalid": "팀 알림에는 연락처 이름과 자동화 이름 자리표시자만 사용할 수 있습니다.",
+      "webhookUrlNoWorkspace": "웹훅 URL에는 워크스페이스 값을 사용할 수 없습니다. 헤더나 본문에 넣으세요.",
+      "webhookHeaderInvalid": "웹훅 헤더에는 올바른 이름과 한 줄 값이 필요합니다. Host, Content-Length, Transfer-Encoding, Connection, Cookie는 설정할 수 없습니다.",
+      "webhookBodyInvalid": "웹훅 본문은 올바른 JSON이어야 합니다. 자리표시자는 따옴표로 묶은 문자열 안에 넣으세요.",
+      "webhookUrlNotAllowed": "웹훅 URL이 사설 또는 예약된 주소를 가리킵니다. 공개 주소를 사용하세요.",
+      "oncePerContactInvalid": "연락처당 한 번은 켜거나 꺼야 합니다.",
+      "segmentUnavailable": "선택한 세그먼트를 이 워크스페이스에서 사용할 수 없습니다."
     },
     "templates": {
       "nameRequired": "템플릿 이름은 필수입니다.",
@@ -5411,7 +5651,16 @@
       "invalidReport": "올바른 보고서 유형을 선택하세요.",
       "tooManyReports": "아직 생성 중인 보고서가 여러 개 있습니다. 완료된 후 다시 시도하세요.",
       "reportNotFound": "보고서를 찾을 수 없습니다.",
-      "reportNotReady": "이 보고서는 다운로드할 수 없습니다."
+      "reportNotReady": "이 보고서는 다운로드할 수 없습니다.",
+      "invalidFormat": "CSV 또는 PDF를 선택하세요.",
+      "invalidSchedule": "보고서, 반복 주기(매일, 매주, 매월), 0~23 사이의 시각을 선택하세요.",
+      "invalidRecipients": "이 워크스페이스의 관리자 또는 소유자 중에서 받는 사람을 1~10명 선택하세요.",
+      "scheduleNotFound": "예약을 찾을 수 없습니다.",
+      "tooManySchedules": "이 워크스페이스에는 이미 예약 보고서가 10개 있습니다. 먼저 하나를 삭제하세요.",
+      "scheduleCreatorLostAccess": "이 예약을 만든 사람이 더 이상 관리자가 아닙니다. 새 예약을 만드세요.",
+      "invalidShare": "링크를 열 수 있는 사람과 최대 7일의 만료 기간을 선택하세요.",
+      "shareRoleTooLow": "이 보고서에는 해당 역할이 볼 수 없는 데이터가 있습니다. 더 높은 역할을 선택하세요.",
+      "shareNotFound": "이 보고서를 사용할 수 없습니다."
     },
     "meetings": {
       "not_configured": "이 배포에서는 Zoom을 사용할 수 없습니다.",
@@ -5553,7 +5802,9 @@
       "copyFailed": "복제하지 못했습니다",
       "invalidActiveConfig": "잘못된 설정으로는 자동화를 활성 상태로 유지할 수 없습니다",
       "invalidActivateConfig": "잘못된 설정으로는 자동화를 활성화할 수 없습니다",
-      "nameTriggerRequired": "이름과 트리거는 필수입니다"
+      "nameTriggerRequired": "이름과 트리거는 필수입니다",
+      "secretNeedsAdmin": "비밀 워크스페이스 값을 사용하는 웹훅 단계는 관리자만 추가하거나 변경할 수 있습니다.",
+      "automationLoop": "이 자동화는 반복 루프를 만듭니다: {chain}. 체인이 끝나도록 태그를 변경하세요."
     },
     "contacts": {
       "tagIdRequired": "tag_id는 필수입니다"
@@ -5569,7 +5820,24 @@
       "secretNeedsAdmin": "비밀 작업 공간 값을 쓰는 API 요청 단계는 관리자만 추가하거나 바꿀 수 있습니다.",
       "testNumbersInvalid": "국가 코드를 포함한 전화번호를 최대 {max}개 입력하세요(각 8~15자리).",
       "copyName": "{name} 사본",
-      "channelScopeInvalid": "실행 채널은 WhatsApp, Instagram 또는 둘 다여야 합니다."
+      "channelScopeInvalid": "실행 채널은 WhatsApp, Instagram 또는 둘 다여야 합니다.",
+      "draftChanged": "열어 본 이후 초안이 변경되었습니다. 확인한 뒤 다시 게시하세요.",
+      "notPublished": "일시 중지하기 전에 이 플로우를 게시하세요.",
+      "activeRuns": "아직 이 플로우에 고객 {count}명이 있습니다. 보관하려면 해당 실행을 취소하세요.",
+      "nothingToMigrate": "이 실행을 옮길 최신 게시 버전이 없습니다.",
+      "useArchive": "게시된 플로우는 진행 중인 고객이 없도록 보관한 뒤에만 삭제할 수 있습니다.",
+      "dryRunNotPublished": "이 플로우에는 아직 게시된 버전이 없습니다.",
+      "replay": {
+        "notFailed": "실패한 실행만 다시 실행할 수 있습니다.",
+        "tooOld": "이 실행은 7일 전에 실패하여 더 이상 다시 실행할 수 없습니다.",
+        "noContact": "이 실행에는 이어갈 연락처나 대화가 없습니다.",
+        "flowArchived": "플로우가 보관되어 실행을 다시 실행할 수 없습니다.",
+        "notPinned": "이 실행은 게시된 버전에 있지 않아 다시 실행할 수 없습니다.",
+        "notReplayableReason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
+        "needsReconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 다른 작업을 하기 전에 대화를 확인하세요. 자동으로 다시 보내지 않습니다.",
+        "alreadySent": "이 단계의 메시지는 이미 전송되었습니다. 다시 실행하면 두 번 전송됩니다.",
+        "conversationBusy": "이 대화에서 다른 플로우가 실행 중입니다. 끝난 후 다시 시도하세요."
+      }
     },
     "quickReplies": {
       "kindInvalid": "종류는 \"text\" 또는 \"interactive\"여야 합니다",
@@ -7899,6 +8167,10 @@
     "appointment_rescheduled": {
       "label": "변경된 예약",
       "description": "확정된 예약의 시간이 바뀝니다."
+    },
+    "automation_notice": {
+      "label": "자동화 알림",
+      "description": "자동화의 팀에 알리기 단계가 대화에 대해 알려 줍니다."
     }
   },
   "Weekdays": {
@@ -8501,7 +8773,13 @@
       "from": "시작일",
       "to": "종료일",
       "apply": "적용",
-      "maxDays": "최대 366일까지 선택할 수 있습니다. 날짜는 워크스페이스 시간대를 따릅니다."
+      "maxDays": "최대 366일까지 선택할 수 있습니다. 날짜는 워크스페이스 시간대를 따릅니다.",
+      "this_week": "이번 주",
+      "last_week": "지난주",
+      "this_month": "이번 달",
+      "last_month": "지난달",
+      "calendar": "달력 기간",
+      "calendarLabel": "달력 기간 (한 주는 월요일에 시작)"
     },
     "numbers": {
       "label": "번호",
@@ -8627,14 +8905,21 @@
         "campaign_daily": "일별 캠페인",
         "campaign_summary": "캠페인 요약",
         "member_campaigns": "팀원별 캠페인",
-        "agent_performance": "일별 상담원 실적"
+        "agent_performance": "일별 상담원 실적",
+        "product_summary": "상품별 판매",
+        "service_summary": "서비스별 예약",
+        "commerce_daily": "일별 수금"
       },
       "range": "기간",
       "presets": {
         "7d": "최근 7일",
         "30d": "최근 30일",
         "90d": "최근 90일",
-        "custom": "사용자 지정 기간"
+        "custom": "사용자 지정 기간",
+        "this_week": "이번 주",
+        "last_week": "지난주",
+        "this_month": "이번 달",
+        "last_month": "지난달"
       },
       "from": "시작",
       "to": "종료",
@@ -8665,6 +8950,84 @@
         "subject": "보고서가 준비되었습니다: {report}",
         "body": "{from}부터 {to}까지의 \"{report}\" 보고서가 준비되었습니다. 로그인한 후 다운로드하세요:",
         "footer": "파일은 30일 동안 이용할 수 있습니다. 메시지 내용 없이 집계와 이름만 포함됩니다."
+      },
+      "format": "형식",
+      "formats": {
+        "csv": "CSV",
+        "pdf": "PDF"
+      },
+      "pdfNote": "PDF에는 최대 2,000행이 표시됩니다. PDF 글꼴로 표시할 수 없는 문자(예: 한국어)는 \"?\"로 나타납니다. 전체 보고서는 CSV를 사용하세요.",
+      "scheduledRun": "예약됨",
+      "truncatedPdf": "처음 2,000행만",
+      "share": {
+        "open": "공유",
+        "explain": "이 워크스페이스에 로그인했고 선택한 역할 이상인 사람은 링크가 만료되거나 취소될 때까지 이 보고서를 다운로드할 수 있습니다. 워크스페이스 밖의 사람에게는 링크가 작동하지 않습니다.",
+        "minRole": "열 수 있는 사람",
+        "roles": {
+          "viewer": "뷰어 이상",
+          "agent": "상담원 이상",
+          "admin": "관리자 및 소유자"
+        },
+        "expiresIn": "링크 만료",
+        "hours": {
+          "24": "1일",
+          "72": "3일",
+          "168": "7일"
+        },
+        "create": "링크 만들기",
+        "copy": "링크 복사",
+        "copied": "복사됨",
+        "none": "이 보고서는 공유되지 않았습니다.",
+        "summary": "{role} · {date}까지 · {count, plural, other {#회 열람}}",
+        "active": "활성",
+        "expired": "만료됨",
+        "revoked": "취소됨",
+        "revoke": "취소",
+        "loadFailed": "공유 목록을 불러오지 못했습니다.",
+        "createFailed": "링크를 만들지 못했습니다. 다시 시도하세요.",
+        "revokeFailed": "링크를 취소하지 못했습니다. 다시 시도하세요."
+      },
+      "schedules": {
+        "title": "예약 보고서",
+        "description": "전날, 지난주(월요일~일요일) 또는 지난달 보고서를 자동으로 이메일로 보냅니다. 받는 사람은 관리자 또는 소유자여야 하며, 보고서를 보낼 때마다 다시 확인됩니다. 이메일에는 파일이 아니라 로그인 링크만 들어 있습니다.",
+        "cadence": "반복",
+        "cadences": {
+          "daily": "매일",
+          "weekly": "매주(월요일)",
+          "monthly": "매월(1일)"
+        },
+        "hour": "보내는 시각(워크스페이스 시간)",
+        "recipients": "받는 사람",
+        "recipientsHelp": "관리자 또는 소유자 최대 10명. 보낼 때 더 이상 관리자가 아닌 사람은 건너뜁니다.",
+        "noAdmins": "관리자나 소유자를 찾을 수 없습니다.",
+        "pickRecipients": "받는 사람을 한 명 이상 선택하세요.",
+        "create": "보고서 예약",
+        "empty": "예약된 보고서가 아직 없습니다.",
+        "when": "시기",
+        "whenValue": "{cadence} {hour}",
+        "actions": "작업",
+        "next": "다음: {date}",
+        "paused": {
+          "manual": "일시 중지됨",
+          "creator_lost_access": "일시 중지됨: 만든 사람이 더 이상 관리자가 아닙니다. 새 예약을 만드세요.",
+          "no_recipients": "일시 중지됨: 남은 받는 사람이 없습니다"
+        },
+        "pause": "일시 중지",
+        "resume": "재개",
+        "delete": "삭제",
+        "confirmDelete": "이 예약을 삭제할까요? 이미 만들어진 보고서는 만료될 때까지 유지됩니다.",
+        "loadFailed": "예약 보고서를 불러오지 못했습니다.",
+        "saveFailed": "예약을 저장하지 못했습니다. 다시 시도하세요."
+      },
+      "shared": {
+        "title": "공유된 보고서",
+        "description": "워크스페이스 구성원과 공유된 보고서입니다.",
+        "download": "보고서 다운로드",
+        "downloaded": "다운로드가 시작되었습니다.",
+        "unavailable": "이 보고서를 볼 수 없습니다. 링크가 만료되었거나 취소되었거나, 역할에 포함되지 않거나, 다른 워크스페이스의 보고서일 수 있습니다. 해당 워크스페이스로 전환한 뒤 링크를 다시 여세요.",
+        "failed": "보고서를 다운로드하지 못했습니다. 다시 시도하세요.",
+        "privacy": "모든 다운로드는 기록됩니다. 공유 보고서에는 메시지 내용 없이 집계와 이름만 들어 있습니다.",
+        "details": "{kind} ({format}). {expires}까지 열 수 있습니다."
       }
     },
     "templates": {
@@ -8739,6 +9102,47 @@
       "shipping": "배송비",
       "merchandiseRefunds": "상품 환불",
       "orders": "결제된 주문"
+    },
+    "compare": {
+      "title": "비교",
+      "description": "캠페인 나란히 비교, 서비스별 예약 결과, 기간 내 상위 상품입니다.",
+      "tabs": {
+        "campaigns": "캠페인",
+        "services": "서비스",
+        "products": "상품"
+      },
+      "percent": "{value}%",
+      "notApplicable": "해당 없음",
+      "campaigns": {
+        "needTwo": "비교하려면 기간 내 캠페인이 두 개 이상 필요합니다. 더 긴 기간을 선택하세요.",
+        "pick": "캠페인을 2~{max}개 선택하세요",
+        "selectMore": "캠페인을 두 개 이상 선택하세요.",
+        "chartLabel": "캠페인 비교 (발송 대비 비율)",
+        "campaign": "캠페인",
+        "recipients": "수신자",
+        "hint": "발송은 건수이며, 나머지 단계는 발송 대비 비율입니다. 답장은 72시간 이내만 집계합니다."
+      },
+      "services": {
+        "chartLabel": "서비스별 예약",
+        "service": "서비스",
+        "booked": "예약",
+        "confirmed": "확정",
+        "cancelled": "취소",
+        "completed": "완료",
+        "noShow": "노쇼",
+        "noShowRate": "노쇼 비율"
+      },
+      "products": {
+        "chartLabel": "순매출 기준 상위 상품",
+        "product": "상품",
+        "orders": "주문",
+        "units": "수량",
+        "gross": "총액",
+        "discounts": "할인",
+        "refunds": "환불",
+        "net": "순액",
+        "hint": "기간 내 결제된 주문입니다. 주문 할인과 환불은 금액 비율로 각 품목에 나누므로 합계가 반올림으로 다를 수 있습니다."
+      }
     }
   },
   "Ads": {

@@ -23,6 +23,7 @@ import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
 import { AI_REPLY_LIMITS, aiReplyMaxTurns } from './ai-reply-node';
 import { PAYMENT_LINK_LIMITS } from './payment-node';
 import { getT } from '@/lib/i18n/translate';
+import { effectiveFlow, loadPublishedVersions, loadVersion, versionNodeMap, type EffectiveFlow, type FlowVersionRow } from './versions';
 import * as appointmentRuntime from './appointment-runtime';
 import {
   APPOINTMENT_STATE_VAR, BOOK_APPOINTMENT_LIMITS, appointmentDaysAhead, appointmentPortFor, appointmentReplyIds, dayLabel,
@@ -239,7 +240,7 @@ export function nodeTimeout(config: Record<string, unknown>): { minutes: number;
 }
 
 export type ActiveRunClosure =
-  | { kind: "cancel"; reason: "flow_not_active" | "current_node_removed" }
+  | { kind: "cancel"; reason: "flow_not_active" | "flow_archived" | "current_node_removed" }
   | { kind: "fail"; reason: "active_run_missing_current_node" }
   | { kind: "timeout"; check: RunTimeoutCheck };
 
@@ -259,14 +260,23 @@ export function staleSince(run: RunStaleFields): string {
 }
 
 export function closureForActiveRun(args: {
-  run: Pick<FlowRunRow, "current_node_key"> & RunStaleFields;
+  /** flow_version_id: the run is pinned to a published version (Phase 12). */
+  run: Pick<FlowRunRow, "current_node_key"> & RunStaleFields & { flow_version_id?: string | null };
+  /** For a pinned run, the flow overlaid with its version (fallback policy from the version). */
   flow: Pick<FlowRow, "status" | "fallback_policy"> | null;
   nodeKeys: ReadonlySet<string> | { has(key: string): boolean };
   now: Date;
   /** The contact is one of the draft flow's test numbers, so its run may continue. */
   testContact?: boolean;
 }): ActiveRunClosure | null {
-  if (!args.flow || (args.flow.status !== "active" && !(args.flow.status === "draft" && args.testContact))) {
+  if (!args.flow) return { kind: "cancel", reason: "flow_not_active" };
+  if (args.run.flow_version_id) {
+    // A pinned run finishes on its version while the flow is live or paused;
+    // only archiving ends it.
+    if (args.flow.status === "archived") return { kind: "cancel", reason: "flow_archived" };
+  } else if (args.flow.status !== "active" && !(args.flow.status === "draft" && args.testContact)) {
+    // An unpinned run (draft test number, or started before versioning) runs
+    // on the live draft, under the rule that applied before Phase 12.
     return { kind: "cancel", reason: "flow_not_active" };
   }
   const check = checkRunTimeout(
@@ -406,6 +416,54 @@ async function loadAllNodes(
   return map;
 }
 
+/**
+ * The graph a run executes (Phase 12). A run pinned to a version runs on that
+ * version's snapshot, with the flow's trigger, entry, fallback policy and
+ * scope taken from the version; the flow's status and number stay live. An
+ * unpinned run (a draft's test-number run, or one started before the flow
+ * was versioned) runs on the live draft as before. A pinned version that
+ * cannot be found gives an empty graph, which ends the run cleanly.
+ */
+export async function loadRunGraph(
+  db: AdminClient,
+  run: Pick<FlowRunRow, "account_id" | "flow_id"> & { flow_version_id?: string | null },
+): Promise<{ flow: EffectiveFlow | null; nodes: Map<string, FlowNodeRow> }> {
+  if (!run.flow_version_id) {
+    const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
+    return { flow, nodes };
+  }
+  const [flow, version] = await Promise.all([loadFlow(db, run.flow_id), loadVersion(run.account_id, run.flow_version_id)]);
+  if (!flow || !version || version.flow_id !== run.flow_id) return { flow, nodes: new Map() };
+  return { flow: effectiveFlow(flow, version), nodes: versionNodeMap(version) };
+}
+
+/**
+ * The graph a new run of `flow` starts on: its published version, or the live
+ * draft for a draft being tested and for an active flow not yet versioned (a
+ * deploy-window straggler, logged). Null when the published version is gone.
+ */
+async function startGraph(
+  db: AdminClient,
+  flow: FlowRow,
+): Promise<{ flow: EffectiveFlow; nodes: Map<string, FlowNodeRow> } | null> {
+  if (flow.published_version_id && flow.status !== "draft") {
+    const version = await loadVersion(flow.account_id, flow.published_version_id);
+    if (!version || version.flow_id !== flow.id) return null;
+    return { flow: effectiveFlow(flow, version), nodes: versionNodeMap(version) };
+  }
+  if (flow.status === "active") console.warn("[flows] unversioned active flow", { flowId: flow.id });
+  return { flow, nodes: await loadAllNodes(db, flow.id) };
+}
+
+/** The fallback policy a run follows: its version's, or the live flow's when unpinned. */
+async function runFallbackPolicy(db: AdminClient, run: FlowRunRow): Promise<FlowRow["fallback_policy"] | undefined> {
+  if (run.flow_version_id) {
+    const version = await loadVersion(run.account_id, run.flow_version_id);
+    return version?.fallback_policy as FlowRow["fallback_policy"] | undefined;
+  }
+  return (await loadFlow(db, run.flow_id))?.fallback_policy;
+}
+
 async function logEvent(
   db: AdminClient,
   flowRunId: string,
@@ -520,7 +578,7 @@ async function findEntryFlow(
   message: ParsedInbound,
   isFirstInbound: boolean,
   contactDigits: () => Promise<string>,
-): Promise<{ flow: FlowRow; vars: Record<string, string> } | null> {
+): Promise<{ flow: EffectiveFlow; vars: Record<string, string>; version?: FlowVersionRow } | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
   // only while a prompt is outstanding — and this function runs solely
@@ -540,8 +598,26 @@ async function findEntryFlow(
   if (active.error || drafts.error) return null;
   const testing = ((drafts.data ?? []) as FlowRow[]).filter((f) => f.status === "draft" && (f.test_numbers ?? []).length > 0);
   const digits = testing.length ? await contactDigits() : "";
-  const candidatesByStatus = [
-    ...((active.data ?? []) as FlowRow[]).filter((f) => f.status === "active"),
+  // An active flow matches on its published version (Phase 12); one not yet
+  // versioned (deploy-window straggler) matches on its draft, as before.
+  const live = ((active.data ?? []) as FlowRow[]).filter((f) => f.status === "active");
+  const versionIds = live.map((f) => f.published_version_id).filter((id): id is string => Boolean(id));
+  const versions = versionIds.length ? await loadPublishedVersions(accountId, versionIds) : new Map<string, FlowVersionRow>();
+  const versionOf = new Map<string, FlowVersionRow>();
+  const liveFlows: EffectiveFlow[] = [];
+  for (const f of live) {
+    if (!f.published_version_id) {
+      console.warn("[flows] unversioned active flow", { flowId: f.id });
+      liveFlows.push(f);
+      continue;
+    }
+    const version = versions.get(f.published_version_id);
+    if (!version || version.flow_id !== f.id) continue;
+    versionOf.set(f.id, version);
+    liveFlows.push(effectiveFlow(f, version));
+  }
+  const candidatesByStatus: EffectiveFlow[] = [
+    ...liveFlows,
     ...testing.filter((f) => isTestContact(f, digits)),
   ];
   if (!candidatesByStatus.length) return null;
@@ -558,22 +634,23 @@ async function findEntryFlow(
   };
   const typed = byPrecedence(candidatesByStatus.filter((f) =>
     flowListensOnConversation(f, conversation)));
+  const found = (flow: EffectiveFlow, vars: Record<string, string>) => ({ flow, vars, version: versionOf.get(flow.id) });
   for (const flow of typed) {
     if (flow.trigger_type === "order_received") {
       const vars = orderReceivedMatch(message);
-      if (vars) return { flow, vars };
+      if (vars) return found(flow, vars);
     } else if (flow.trigger_type === "ad_click") {
       // Only a click-to-WhatsApp ad (not a boosted post); an active run
       // already took the message before this point (no preemption).
       const vars = adClickMatch(message, flow.trigger_config as AdClickTriggerConfig);
-      if (vars) return { flow, vars };
+      if (vars) return found(flow, vars);
     } else if (flow.trigger_type === "template_reply") {
       const vars = templateReplyMatch(message, flow.trigger_config as TemplateReplyTriggerConfig);
-      if (vars) return { flow, vars };
+      if (vars) return found(flow, vars);
     } else if (flow.trigger_type === "keyword") {
       const cfg = flow.trigger_config as KeywordTriggerConfig;
       for (const text of candidates) {
-        if (await keywordTriggerMatches(text, cfg)) return { flow, vars: {} };
+        if (await keywordTriggerMatches(text, cfg)) return found(flow, {});
       }
     } else if (flow.trigger_type === "first_inbound_message" && isFirstInbound) {
       // Also reachable by a tap now: a broadcast template with a
@@ -582,7 +659,7 @@ async function findEntryFlow(
       // treated a tap that way (the webhook pushes
       // `first_inbound_message` regardless of envelope) — flows were
       // the inconsistent half.
-      return { flow, vars: {} };
+      return found(flow, {});
     }
     // 'manual' triggers do not auto-start from inbound messages.
   }
@@ -863,7 +940,10 @@ async function executeConnectFlow(db: AdminClient, run: FlowRunRow, node: FlowNo
     .eq("account_id", run.account_id)
     .eq("id", cfg.flow_id)
     .maybeSingle();
-  const target = data as FlowRow | null;
+  const targetRow = data as FlowRow | null;
+  // The target starts on its published version (or its draft, if not yet versioned).
+  const graph = targetRow && targetRow.status === "active" ? await startGraph(db, targetRow) : null;
+  const target = graph?.flow ?? null;
   // Counted in hops rather than time, so a loop slowed by delays still stops.
   const { count: replies } = await db
     .from("flow_run_events")
@@ -889,7 +969,7 @@ async function executeConnectFlow(db: AdminClient, run: FlowRunRow, node: FlowNo
     contactId: run.contact_id,
     conversationId: run.conversation_id,
     message: { kind: "text", text: "", meta_message_id: `connect:${run.id}` },
-  }, await loadAllNodes(db, target.id), { ...run.vars, [CONNECT_HOPS_VAR]: hops });
+  }, graph!.nodes, { ...run.vars, [CONNECT_HOPS_VAR]: hops });
 }
 
 async function executeHandoff(
@@ -1232,8 +1312,7 @@ async function flowOrderDue(accountId: string, contactId: string, orderVar: unkn
 async function paymentLinkExpiryMinutes(db: AdminClient, run: FlowRunRow, cfg: PaymentLinkNodeConfig): Promise<number> {
   const minutes = cfg.expire_minutes;
   if (typeof minutes === "number" && Number.isInteger(minutes) && minutes > 0) return minutes;
-  const flow = await loadFlow(db, run.flow_id);
-  const hours = resolveFallbackPolicy(flow?.fallback_policy).on_timeout_hours;
+  const hours = resolveFallbackPolicy(await runFallbackPolicy(db, run)).on_timeout_hours;
   return Math.min(PAYMENT_LINK_LIMITS.expireMaxMinutes, Math.max(PAYMENT_LINK_LIMITS.expireMinMinutes, Math.round(hours * 60)));
 }
 
@@ -1265,7 +1344,7 @@ export async function resumePaymentLinkRun(args: {
   const claimedEarlier = !due && seq > 0 && run.reprompt_count === 0 &&
     flowPaymentReference(run.id, args.nodeKey, seq - 1) === args.referenceId;
   if (!due && !claimedEarlier) return "stale";
-  const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
+  const { flow, nodes } = await loadRunGraph(db, run);
   const node = nodes.get(args.nodeKey);
   if (!node || node.node_type !== "payment_link") return "stale";
   const cfg = node.config as unknown as PaymentLinkNodeConfig;
@@ -1655,7 +1734,7 @@ async function resumeInterruptedBooking(
   const seq = run.transition_seq ?? 0;
   const rows = (recorded ?? []) as Array<{ node_key: string | null; payload: Record<string, unknown> | null }>;
   if (!rows.some((e) => e.node_key === run.current_node_key && e.payload?.transition_seq === seq)) return null;
-  const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
+  const { flow, nodes } = await loadRunGraph(db, run);
   const node = nodes.get(run.current_node_key);
   if (!flow || node?.node_type !== "book_appointment") return null;
   return handleAppointmentReply(db, run, node, message, nodes);
@@ -1885,6 +1964,7 @@ async function scheduleDelay(
     .eq("status", "active")
     .eq("transition_seq", run.transition_seq ?? 0);
   q = run.current_node_key === null ? q.is("current_node_key", null) : q.eq("current_node_key", run.current_node_key);
+  if (run.flow_version_id) q = q.eq("flow_version_id", run.flow_version_id);
   const { data, error } = await q.select("id");
   if (error) {
     // The queued timer cannot match a run that never moved, so end the run rather than strand it.
@@ -1949,7 +2029,7 @@ export async function handleFlowTimer(payload: {
   // Re-running is safe because the sends' dispatchOnce keys repeat.
   const claimedEarlier = seq === payload.seq + 1 && run.reprompt_count === 0 && !run.delay_until;
   if (!due && !claimedEarlier) return "stale";
-  const [flow, nodes] = await Promise.all([loadFlow(db, run.flow_id), loadAllNodes(db, run.flow_id)]);
+  const { flow, nodes } = await loadRunGraph(db, run);
   const timer = nodes.get(payload.nodeKey);
   const timeout = timer ? nodeTimeout(timer.config) : null;
   const resumeAt = payload.kind === "delay" ? payload.nodeKey : timeout?.next;
@@ -1975,14 +2055,15 @@ export async function handleFlowTimer(payload: {
   }
   if (payload.kind === "delay") {
     if (due) {
-      const { data: claimed, error: claimError } = await db
+      let claim = db
         .from("flow_runs")
         .update({ delay_until: null, transition_seq: payload.seq + 1, last_advanced_at: now.toISOString() })
         .eq("id", run.id)
         .eq("status", "active")
         .eq("current_node_key", payload.nodeKey)
-        .eq("transition_seq", payload.seq)
-        .select("id");
+        .eq("transition_seq", payload.seq);
+      if (run.flow_version_id) claim = claim.eq("flow_version_id", run.flow_version_id);
+      const { data: claimed, error: claimError } = await claim.select("id");
       if (claimError) throw new Error("Flow delay claim failed");
       if (!Array.isArray(claimed) || claimed.length !== 1) return "stale";
       Object.assign(run, { delay_until: null, transition_seq: payload.seq + 1 });
@@ -2225,7 +2306,7 @@ async function advanceFromNodeKey(
       }
       const advanced = await advanceCurrentNodeKey(
         db,
-        run.id,
+        run,
         run.current_node_key,
         node.node_key,
       );
@@ -2255,7 +2336,7 @@ async function advanceFromNodeKey(
         currentKey = turn.next;
         continue;
       }
-      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      const advanced = await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key);
       if (!advanced) {
         await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
@@ -2279,7 +2360,7 @@ async function advanceFromNodeKey(
         await endRun(db, run.id, "failed", "send_form_failed");
         return { outcome: "completed" };
       }
-      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      const advanced = await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key);
       if (!advanced) {
         await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
@@ -2299,7 +2380,7 @@ async function advanceFromNodeKey(
         return { outcome: "completed" };
       }
       // The run is not stale while the link can still be paid (staleSince).
-      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key, { wait_until: started.expiresAt });
+      const advanced = await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key, { wait_until: started.expiresAt });
       if (!advanced) {
         await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
         return { outcome: "advanced" };
@@ -2325,7 +2406,7 @@ async function advanceFromNodeKey(
         await endRun(db, run.id, "completed", `appointment_${started.outcome}`);
         return { outcome: "completed" };
       }
-      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      const advanced = await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key);
       if (!advanced) {
         await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
@@ -2363,7 +2444,7 @@ async function advanceFromNodeKey(
         currentKey = cfg.next_node_key ?? null;
         continue;
       }
-      const advanced = await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      const advanced = await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key);
       if (!advanced) {
         await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
@@ -2533,7 +2614,7 @@ async function advanceFromNodeKey(
       // Persist the new current_node_key via optimistic UPDATE.
       const advanced = await advanceCurrentNodeKey(
         db,
-        run.id,
+        run,
         run.current_node_key,
         node.node_key,
       );
@@ -2559,7 +2640,7 @@ async function advanceFromNodeKey(
       }
       const advanced = await advanceCurrentNodeKey(
         db,
-        run.id,
+        run,
         run.current_node_key,
         node.node_key,
       );
@@ -2604,7 +2685,7 @@ async function advanceFromNodeKey(
  */
 async function advanceCurrentNodeKey(
   db: AdminClient,
-  runId: string,
+  run: Pick<FlowRunRow, "id" | "flow_version_id">,
   expectedOldKey: string | null,
   newKey: string,
   /** Only a payment_link step waits until a deadline; any other move clears it. */
@@ -2619,8 +2700,10 @@ async function advanceCurrentNodeKey(
       last_advanced_at: new Date().toISOString(),
       wait_until: wait.wait_until,
     })
-    .eq("id", runId)
+    .eq("id", run.id)
     .eq("status", "active");
+  // A run moved to another version meanwhile (Phase 12 migrate) loses the race.
+  if (run.flow_version_id) q = q.eq("flow_version_id", run.flow_version_id);
   if (expectedOldKey === null) {
     q = q.is("current_node_key", null);
   } else {
@@ -2644,7 +2727,7 @@ async function claimReplyTransition(
   const fromKey = run.current_node_key;
   if (fromKey === null) return false;
   const nextSeq = (run.transition_seq ?? 0) + 1;
-  const { data, error } = await db
+  let q = db
     .from("flow_runs")
     .update({
       ...extra,
@@ -2657,8 +2740,10 @@ async function claimReplyTransition(
     .eq("id", run.id)
     .eq("status", "active")
     .eq("current_node_key", fromKey)
-    .eq("transition_seq", run.transition_seq ?? 0)
-    .select("id");
+    .eq("transition_seq", run.transition_seq ?? 0);
+  // The run's version is part of its position: a run migrated meanwhile loses the race.
+  if (run.flow_version_id) q = q.eq("flow_version_id", run.flow_version_id);
+  const { data, error } = await q.select("id");
   if (error) {
     console.error("[flows] claimReplyTransition error:", error.message);
     return false;
@@ -2678,14 +2763,15 @@ async function claimReplyTransition(
 async function mergeWaitingRunVars(db: AdminClient, run: FlowRunRow, vars: Record<string, string>): Promise<void> {
   if (run.current_node_key === null || Object.keys(vars).length === 0) return;
   const merged = { ...run.vars, ...vars };
-  const { data, error } = await db
+  let q = db
     .from("flow_runs")
     .update({ vars: merged })
     .eq("id", run.id)
     .eq("status", "active")
     .eq("current_node_key", run.current_node_key)
-    .eq("transition_seq", run.transition_seq ?? 0)
-    .select("id");
+    .eq("transition_seq", run.transition_seq ?? 0);
+  if (run.flow_version_id) q = q.eq("flow_version_id", run.flow_version_id);
+  const { data, error } = await q.select("id");
   if (error) {
     console.error("[flows] mergeWaitingRunVars error:", error.message);
     return;
@@ -2714,6 +2800,53 @@ async function closeActiveRun(
 // Public entry point — the webhook calls this on every inbound.
 // ============================================================
 
+/**
+ * Continues a failed run that the replay route has re-opened (Phase 12,
+ * design §3.3). The route checked eligibility (a transient send failure,
+ * no ambiguous or accepted outbound intent for the failed step), set the run
+ * active again and moved its transition_seq on, so every send here gets a
+ * fresh dispatchOnce key. This re-checks that nothing moved since, then runs
+ * the pinned version from `nodeKey` (the failed step; the run's current node
+ * when absent). The bot-pause, blocked-contact and opt-out checks still apply.
+ */
+export async function replayRun(args: {
+  accountId: string;
+  runId: string;
+  /** The transition_seq the route left the run at; a run that moved since is stale. */
+  seq?: number;
+  nodeKey?: string;
+}): Promise<"replayed" | "stale"> {
+  const db = databaseAdmin();
+  const { data, error } = await db.from("flow_runs").select("*").eq("account_id", args.accountId).eq("id", args.runId).maybeSingle();
+  if (error) throw new Error("Flow replay run lookup failed");
+  const run = data as FlowRunRow | null;
+  // Replay is for runs pinned to a version only: the graph cannot change under it.
+  if (!run || run.status !== "active" || !run.flow_version_id || run.delay_until) return "stale";
+  if (args.seq !== undefined && (run.transition_seq ?? 0) !== args.seq) return "stale";
+  const startKey = args.nodeKey ?? run.current_node_key;
+  if (!startKey) return "stale";
+  const { flow, nodes } = await loadRunGraph(db, run);
+  const now = new Date();
+  const closure = closureForActiveRun({ run: { ...run, current_node_key: startKey }, flow, nodeKeys: nodes, now });
+  if (closure) {
+    await closeActiveRun(db, run, closure, now);
+    return "replayed";
+  }
+  const { data: contact } = await db.from("contacts").select("blocked_at").eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
+  if (!run.conversation_id || !contact || (contact as { blocked_at?: string | null }).blocked_at ||
+      (await botRepliesPaused(run.account_id, run.conversation_id))) {
+    await endRun(db, run.id, "cancelled", "bot_paused_during_wait");
+    return "replayed";
+  }
+  await advanceFromNodeKey(db, run, startKey, nodes);
+  return "replayed";
+}
+
+/** The `flow.replay` job (queued by the replay route; registered in jobs/handlers). */
+export async function handleFlowReplay(payload: { accountId: string; runId: string; seq?: number; nodeKey?: string }): Promise<"replayed" | "stale"> {
+  return replayRun(payload);
+}
+
 /** Start only the selected active flow; never hijack an existing contact run. */
 export async function startFlowById(input: DispatchInboundInput & { flowId: string }): Promise<{ outcome: 'started' | 'unavailable' | 'conflict' }> {
   const db = databaseAdmin();
@@ -2725,17 +2858,18 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
   const target = await db.from('flows').select('*').eq('account_id', input.accountId).eq('id', input.flowId).eq('status', 'active').maybeSingle();
   if (target.error) throw new Error('Explicit flow target lookup failed');
   const flow = target.data as FlowRow | null;
-  if (!flow || flow.id !== input.flowId || flow.account_id !== input.accountId || flow.status !== 'active' || !flow.entry_node_id) return { outcome: 'unavailable' };
+  // Entry and channel scope are checked on the graph the run will start on (its published version).
+  if (!flow || flow.id !== input.flowId || flow.account_id !== input.accountId || flow.status !== 'active') return { outcome: 'unavailable' };
   const channel: Channel = (conversation.data as { channel?: string | null }).channel === 'instagram' ? 'instagram' : 'whatsapp';
-  if (!scopeIncludes(flow.channel_scope, channel)) return { outcome: 'unavailable' };
   // Same policy as inbound dispatch: only a run on this conversation conflicts.
   const existing = await db.from('flow_runs').select('id').eq('account_id', input.accountId).eq('contact_id', input.contactId)
     .eq('conversation_id', input.conversationId).eq('status', 'active').limit(1);
   if (existing.error) throw new Error('Explicit flow active run lookup failed');
   if (existing.data?.length) return { outcome: 'conflict' };
-  const nodes = await loadAllNodes(db, flow.id);
-  if (!nodes.has(flow.entry_node_id)) return { outcome: 'unavailable' };
-  const result = await startNewRun(db, flow, input, nodes);
+  const graph = await startGraph(db, flow);
+  if (!graph || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return { outcome: 'unavailable' };
+  if (!scopeIncludes(graph.flow.channel_scope, channel)) return { outcome: 'unavailable' };
+  const result = await startNewRun(db, graph.flow, input, graph.nodes);
   if (result.outcome === 'duplicate_inbound_ignored') return { outcome: 'conflict' };
   if (result.flow_run_id) {
     const run = await db.from('flow_runs').select('status').eq('account_id', input.accountId).eq('id', result.flow_run_id).maybeSingle();
@@ -2785,7 +2919,7 @@ export async function dispatchInboundToFlows(
       }
       // One SELECT for the whole flow's nodes — advance loop is now
       // in-memory. See loadAllNodes.
-      const [runFlow, nodes] = await Promise.all([loadFlow(db, activeRun.flow_id), loadAllNodes(db, activeRun.flow_id)]);
+      const { flow: runFlow, nodes } = await loadRunGraph(db, activeRun);
       const now = new Date();
       const testContact = runFlow?.status === "draft" && isTestContact(runFlow, await contactDigits());
       const closure = closureForActiveRun({ run: activeRun, flow: runFlow, nodeKeys: nodes, now, testContact });
@@ -2807,7 +2941,7 @@ export async function dispatchInboundToFlows(
     if (!entry || !entry.flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };
     }
-    const nodes = await loadAllNodes(db, entry.flow.id);
+    const nodes = entry.version ? versionNodeMap(entry.version) : await loadAllNodes(db, entry.flow.id);
     return startNewRun(db, entry.flow, input, nodes, entry.vars);
   } catch (err) {
     console.error(
@@ -2861,6 +2995,14 @@ async function handleReplyForActiveRun(
   // A reply during a delay is recorded but changes nothing: the run
   // carries on when the delay ends, and no automation answers instead.
   if (run.delay_until) {
+    return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+  }
+
+  // A replayed run is active on its failed step before the flow.replay job
+  // has re-sent that step's prompt. A message in that gap is recorded but
+  // must not answer (or fall back on) a prompt the customer never saw; the
+  // replay's node_entered event ends the gap.
+  if (await awaitingReplay(db, run)) {
     return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
   }
 
@@ -2984,10 +3126,22 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: "ai_fallback" };
   }
   const newReprompts = run.reprompt_count + 1;
-  await db
+  // Claimed like every other reply-path write: a run that advanced, was
+  // re-prompted or was migrated to another version meanwhile loses the race
+  // instead of getting this version's fallback prompt and count.
+  let fallbackClaim = db
     .from("flow_runs")
     .update({ reprompt_count: newReprompts })
-    .eq("id", run.id);
+    .eq("id", run.id)
+    .eq("status", "active")
+    .eq("current_node_key", currentNode.node_key)
+    .eq("transition_seq", run.transition_seq ?? 0)
+    .eq("reprompt_count", run.reprompt_count);
+  if (run.flow_version_id) fallbackClaim = fallbackClaim.eq("flow_version_id", run.flow_version_id);
+  const claimed = await fallbackClaim.select("id");
+  if (claimed.error || !Array.isArray(claimed.data) || claimed.data.length !== 1) {
+    return lostReplyRace(db, run, currentNode.node_key);
+  }
 
   const action = decideFallback({ policy, reprompt_count: newReprompts });
   await logEvent(db, run.id, "fallback_fired", run.current_node_key, {
@@ -3145,15 +3299,17 @@ async function retryQuestion(
   const attempt = run.reprompt_count + 1;
   await logEvent(db, run.id, "input_invalid", node.node_key, { attempt, max_attempts: cfg.max_attempts });
   if (attempt < cfg.max_attempts!) {
-    const { data, error } = await db
+    let claim = db
       .from("flow_runs")
       .update({ reprompt_count: attempt })
       .eq("id", run.id)
       .eq("status", "active")
       .eq("current_node_key", node.node_key)
       .eq("transition_seq", run.transition_seq ?? 0)
-      .eq("reprompt_count", run.reprompt_count)
-      .select("id");
+      .eq("reprompt_count", run.reprompt_count);
+    // A run migrated to another version meanwhile must not get this version's error text.
+    if (run.flow_version_id) claim = claim.eq("flow_version_id", run.flow_version_id);
+    const { data, error } = await claim.select("id");
     if (error || !Array.isArray(data) || data.length !== 1) {
       return lostReplyRace(db, run, node.node_key);
     }
@@ -3182,6 +3338,24 @@ async function retryQuestion(
   return fallbackHandoff(db, run);
 }
 
+/**
+ * Whether the run was replayed onto its current step and the replay job has
+ * not run that step yet: its newest event other than reply_received (logged
+ * for this very inbound) is the 'replayed' event for the current node.
+ */
+async function awaitingReplay(db: AdminClient, run: FlowRunRow): Promise<boolean> {
+  const { data, error } = await db
+    .from("flow_run_events")
+    .select("event_type,node_key")
+    .eq("flow_run_id", run.id)
+    .neq("event_type", "reply_received")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error || !Array.isArray(data) || !data.length) return false;
+  const latest = data[0] as { event_type: string; node_key: string | null };
+  return latest.event_type === "replayed" && latest.node_key === run.current_node_key;
+}
+
 async function lostReplyRace(
   db: AdminClient,
   run: FlowRunRow,
@@ -3199,7 +3373,8 @@ async function lostReplyRace(
 
 async function startNewRun(
   db: AdminClient,
-  flow: FlowRow,
+  /** Overlaid with the version whose trigger matched; the run is pinned to it. */
+  flow: EffectiveFlow,
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
   /** Variables carried over by Connect Flow. */
@@ -3226,6 +3401,8 @@ async function startNewRun(
       status: "active",
       current_node_key: flow.entry_node_id,
       vars,
+      // Pinned to the version it starts on (Phase 12); a draft test run has none.
+      ...(flow.version_id ? { flow_version_id: flow.version_id } : {}),
     })
     .select("*")
     .maybeSingle();
@@ -3241,6 +3418,7 @@ async function startNewRun(
   const run = inserted as FlowRunRow;
   await logEvent(db, run.id, "started", flow.entry_node_id, {
     flow_id: flow.id,
+    ...(flow.version ? { version: flow.version } : {}),
     trigger_type: flow.trigger_type,
     meta_message_id: input.message.meta_message_id,
   });

@@ -11,6 +11,8 @@ import { tenantOf } from '@/lib/audience/http';
 import { withTenant } from '@/lib/db/tenant';
 import { requireWithinLimit } from '@/lib/billing/entitlements';
 import { requirePermission } from '@/lib/auth/permissions';
+import { readPublishState, saveDraft, type DraftPatch, type VersionNode } from '@/lib/flows/versions';
+import { flowVersionErrorResponse } from '@/lib/flows/version-http';
 
 const t = getT('Api');
 
@@ -24,14 +26,19 @@ function parseTestNumbers(raw: unknown): string[] | null {
 }
 
 /**
- * GET   /api/flows/[id]  — fetch one flow with its nodes.
+ * GET   /api/flows/[id]  — fetch one flow with its draft nodes, plus
+ *                          { published_version, draft_hash,
+ *                          has_unpublished_changes } (Phase 12).
  * PUT   /api/flows/[id]  — replace name/trigger/entry/fallback + the
- *                          full node graph (delete-then-insert under
- *                          the hood; not atomic, but the runner is
- *                          resilient to mid-edit reads — node_not_found
- *                          gracefully ends the run).
+ *                          full draft node graph, in one transaction
+ *                          (flow row first, so a publish never sees half
+ *                          a save). A published flow's runs keep their
+ *                          version: the draft goes live only through
+ *                          /activate (publish), which validates it then.
  * DELETE /api/flows/[id] — hard delete (RLS+CASCADE clean up nodes,
- *                          runs, events).
+ *                          versions, runs, events). A flow that was ever
+ *                          published must be archived first, with no runs
+ *                          in progress (409 useArchive).
  *
  * All three require a signed-in caller who owns the flow. Flows is in
  * soft-GA — the beta gate that previously 404'd non-beta accounts is
@@ -90,7 +97,13 @@ export async function GET(
   if (!flow) {
     return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
   }
-  return NextResponse.json({ flow, nodes: nodes ?? [] });
+  try {
+    const ctx = await requireRole('viewer');
+    const state = await withTenant(tenantOf(ctx), (tx) => readPublishState(tx, ctx.accountId, id));
+    return NextResponse.json({ flow, nodes: nodes ?? [], ...state });
+  } catch (err) {
+    return flowVersionErrorResponse(err);
+  }
 }
 
 interface PutBody {
@@ -160,7 +173,7 @@ export async function PUT(
     const secrets = await secretAttributeKeys(accountId);
     if (secrets.size) {
       const { data: before, error: beforeError } = await admin.from('flow_nodes').select('node_key,config').eq('flow_id', id);
-      if (beforeError) return NextResponse.json({ error: beforeError.message }, { status: 500 });
+      if (beforeError) return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 });
       const kept = new Set((before ?? []).map((n: { node_key: string; config: unknown }) => `${JSON.stringify([n.node_key, canonicalJson(n.config)])}`));
       const changed = body.nodes.some((n) => n.node_type === 'api_request' && apiNodeUsesSecrets(n.config, secrets) &&
         !kept.has(`${JSON.stringify([n.node_key, canonicalJson(n.config)])}`));
@@ -168,13 +181,17 @@ export async function PUT(
     }
   }
   const { data: current, error: readError } = await admin.from('flows').select('*').eq('id', id).maybeSingle();
-  if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
-  // Editing an active flow goes live at once, and new test numbers start a draft running on real
-  // phones: both publish flow behaviour, so they need 'flows.publish' like /activate.
+  if (readError) return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 });
+  // A published flow (Phase 12) runs its version, so editing its draft changes nothing live:
+  // validation and 'flows.publish' apply when it is published. An active flow not yet
+  // versioned (deploy-window straggler) still runs its draft, so it keeps the old rules.
+  const draftIsLive = (current as FlowRow | null)?.status === 'active' && !(current as FlowRow | null)?.published_version_id;
+  // New test numbers start a draft running on real phones: that publishes flow behaviour
+  // too, so it needs 'flows.publish' like /activate.
   const storedNumbers = (current as FlowRow | null)?.test_numbers ?? [];
   const startsOrChangesTesting = !!testNumbers?.length &&
     (testNumbers.length !== storedNumbers.length || testNumbers.some((n) => !storedNumbers.includes(n)));
-  if ((current as FlowRow | null)?.status === 'active' || startsOrChangesTesting) {
+  if (draftIsLive || startsOrChangesTesting) {
     try {
       await requirePermission(tenantOf(ctx), 'flows.publish');
     } catch (err) {
@@ -184,11 +201,11 @@ export async function PUT(
   // A draft with test numbers runs for real customers' phones too, so it must be as valid as a live flow.
   const testing = (current as FlowRow | null)?.status === 'draft' &&
     (testNumbers ?? (current as FlowRow | null)?.test_numbers ?? []).length > 0;
-  if ((current as FlowRow | null)?.status === 'active' || testing) {
+  if (draftIsLive || testing) {
     const existing = body.nodes === undefined
       ? await admin.from('flow_nodes').select('*').eq('flow_id', id)
       : { data: body.nodes, error: null };
-    if (existing.error) return NextResponse.json({ error: existing.error.message }, { status: 500 });
+    if (existing.error) return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 });
     const flow = current as FlowRow;
     const issues = validateFlowForActivation({
       name: body.name !== undefined ? body.name.trim() : flow.name,
@@ -218,58 +235,26 @@ export async function PUT(
     }
   }
 
-  // Update the flow row first — the body may not include `nodes` (a
-  // header-only save for editing the trigger config without touching
-  // the graph). Skip node replacement in that case.
-  const flowPatch: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-  if (body.name !== undefined) flowPatch.name = body.name.trim();
-  if (body.description !== undefined) flowPatch.description = body.description;
-  if (body.trigger_type !== undefined)
-    flowPatch.trigger_type = body.trigger_type;
-  if (body.trigger_config !== undefined)
-    flowPatch.trigger_config = body.trigger_config;
-  if (body.entry_node_id !== undefined)
-    flowPatch.entry_node_id = body.entry_node_id;
-  if (body.fallback_policy !== undefined)
-    flowPatch.fallback_policy = body.fallback_policy;
-  if (testNumbers !== undefined) flowPatch.test_numbers = testNumbers;
-  if (channelScope !== undefined) flowPatch.channel_scope = channelScope;
+  // The body may not include `nodes` (a header-only save for editing the
+  // trigger config without touching the graph): the node list is then kept.
+  const patch: DraftPatch = {};
+  if (body.name !== undefined) patch.name = body.name.trim();
+  if (body.description !== undefined) patch.description = body.description;
+  if (body.trigger_type !== undefined) patch.trigger_type = body.trigger_type;
+  if (body.trigger_config !== undefined) patch.trigger_config = body.trigger_config;
+  if (body.entry_node_id !== undefined) patch.entry_node_id = body.entry_node_id;
+  if (body.fallback_policy !== undefined) patch.fallback_policy = body.fallback_policy;
+  if (testNumbers !== undefined) patch.test_numbers = testNumbers;
+  if (channelScope !== undefined) patch.channel_scope = channelScope;
 
-  const { error: updErr } = await admin
-    .from('flows')
-    .update(flowPatch)
-    .eq('id', id);
-  if (updErr) {
-    return NextResponse.json({ error: updErr.message }, { status: 500 });
-  }
-
-  if (body.nodes !== undefined) {
-    // Delete-then-insert. Not transactional but the runner handles
-    // mid-edit reads safely (a node_not_found ends the run cleanly).
-    const { error: delErr } = await admin
-      .from('flow_nodes')
-      .delete()
-      .eq('flow_id', id);
-    if (delErr) {
-      return NextResponse.json({ error: delErr.message }, { status: 500 });
-    }
-    if (body.nodes.length > 0) {
-      const { error: insErr } = await admin.from('flow_nodes').insert(
-        body.nodes.map((n) => ({
-          flow_id: id,
-          node_key: n.node_key,
-          node_type: n.node_type,
-          config: n.config,
-          position_x: n.position_x ?? 0,
-          position_y: n.position_y ?? 0,
-        }))
-      );
-      if (insErr) {
-        return NextResponse.json({ error: insErr.message }, { status: 500 });
-      }
-    }
+  let state;
+  try {
+    state = await withTenant(tenantOf(ctx), async (tx) => {
+      await saveDraft(tx, { accountId, flowId: id, patch, nodes: body.nodes as VersionNode[] | undefined });
+      return readPublishState(tx, accountId, id);
+    });
+  } catch (err) {
+    return flowVersionErrorResponse(err);
   }
 
   // Re-fetch and return the new state — the editor uses the response
@@ -282,7 +267,7 @@ export async function PUT(
       .eq('flow_id', id)
       .order('created_at', { ascending: true }),
   ]);
-  return NextResponse.json({ flow, nodes: nodes ?? [] });
+  return NextResponse.json({ flow, nodes: nodes ?? [], ...state });
 }
 
 export async function DELETE(
@@ -301,6 +286,21 @@ export async function DELETE(
   const guard = await requireOwnership(id);
   if (!guard.ok) return NextResponse.json(guard.body, { status: guard.status });
 
+  // A flow that was ever published has runs pinned to its versions and an
+  // audit trail: it is archived (which ends or waits out its runs) before it
+  // can be deleted. A never-published flow deletes as before.
+  const { data: row, error: rowError } = await guard.db.from('flows').select('id,status,published_version_id').eq('id', id).maybeSingle();
+  if (rowError) return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 });
+  const flowRow = row as Pick<FlowRow, 'status' | 'published_version_id'> | null;
+  if (flowRow?.published_version_id) {
+    const { count, error: countError } = await guard.db.from('flow_runs').select('id', { count: 'exact', head: true })
+      .eq('flow_id', id).eq('status', 'active');
+    if (countError) return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 });
+    if (flowRow.status !== 'archived' || (count ?? 0) > 0) {
+      return NextResponse.json({ error: t('flows.useArchive'), active_runs: count ?? 0 }, { status: 409 });
+    }
+  }
+
   // CASCADE on flow_nodes / flow_runs / flow_run_events handles the
   // children. Active runs end abruptly — there's no graceful "drain"
   // mechanism in v1, but that's intentional: deleting a flow is a
@@ -308,7 +308,7 @@ export async function DELETE(
   // free up the contact for new triggers immediately.
   const { error } = await guard.db.from('flows').delete().eq('id', id);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

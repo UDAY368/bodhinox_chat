@@ -28,6 +28,10 @@ const h = vi.hoisted(() => ({
     events: [] as Record<string, unknown>[],
     /** Every UPDATE, by table. */
     updates: [] as { table: string; row: Record<string, unknown> }[],
+    /** flow_run_events rows a read returns (newest first). */
+    eventRows: [] as Record<string, unknown>[],
+    /** A flow_runs UPDATE matches nothing: the run moved (or was migrated) meanwhile. */
+    staleRunUpdates: false,
   },
   sendButtons: vi.fn<
     (
@@ -49,13 +53,16 @@ vi.mock("./admin-client", () => {
     if (table === "flow_runs") return h.state.activeRuns;
     if (table === "flows") return h.state.flows;
     if (table === "flow_nodes") return h.state.nodes;
+    if (table === "flow_run_events") return h.state.eventRows;
     return [];
   }
 
   function builder(table: string) {
+    let updating = false;
     const b: Record<string, unknown> = {
       select: () => b,
       eq: () => b,
+      neq: () => b,
       is: () => b,
       in: () => b,
       contains: () => b,
@@ -64,6 +71,7 @@ vi.mock("./admin-client", () => {
       limit: () => b,
       update: (row: Record<string, unknown>) => {
         h.state.updates.push({ table, row });
+        updating = true;
         return b;
       },
       insert: (row: Record<string, unknown>) => {
@@ -78,7 +86,7 @@ vi.mock("./admin-client", () => {
           error: null;
           count: number;
         }) => unknown,
-      ) => resolve({ data: rows(table), error: null, count: 0 }),
+      ) => resolve({ data: updating && table === "flow_runs" && h.state.staleRunUpdates ? [] : rows(table), error: null, count: 0 }),
     };
     return b;
   }
@@ -536,6 +544,8 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
     h.state.nodes = nodesEndingIn("choose");
     h.state.events = [];
     h.state.updates = [];
+    h.state.eventRows = [];
+    h.state.staleRunUpdates = false;
   });
 
   it("send_buttons after collect_input renders body, header and button titles", async () => {
@@ -591,6 +601,25 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
         ],
       },
     ]);
+  });
+
+  it("a fallback reprompt that loses its claim (the run moved or was migrated) sends nothing", async () => {
+    h.state.activeRuns = [{ ...RUN, current_node_key: "choose", vars: { name: "Alice" } }];
+    h.state.staleRunUpdates = true;
+    expect(await dispatch(text("huh?"))).toMatchObject({ consumed: true, outcome: "duplicate_inbound_ignored" });
+    expect(h.sendButtons).not.toHaveBeenCalled();
+    expect(h.state.events.some((e) => e.event_type === "fallback_fired")).toBe(false);
+  });
+
+  it("holds a reply to a replayed step whose prompt the replay job has not sent yet", async () => {
+    h.state.activeRuns = [{ ...RUN, current_node_key: "choose", vars: { name: "Alice" } }];
+    h.state.eventRows = [{ event_type: "replayed", node_key: "choose" }];
+    expect(await dispatch(text("hello?"))).toMatchObject({ consumed: true, outcome: "waiting" });
+    expect(h.state.updates.filter((u) => u.table === "flow_runs")).toEqual([]);
+    expect(h.sendButtons).not.toHaveBeenCalled();
+    // Once the replay entered the step, replies are handled again.
+    h.state.eventRows = [{ event_type: "node_entered", node_key: "choose" }];
+    expect(await dispatch(text("huh?"))).toMatchObject({ consumed: true, outcome: "fallback_fired" });
   });
 
   it("reprompt re-sends the interactive node with the same interpolation", async () => {

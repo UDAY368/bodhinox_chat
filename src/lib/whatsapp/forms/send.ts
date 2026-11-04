@@ -163,9 +163,15 @@ interface Prepared {
 async function sessionTtlHours(tx: TenantTransaction, args: SendFormArgs): Promise<number> {
   if (args.ttlHours !== undefined) return args.ttlHours;
   if (!args.flowRunId || !args.nodeKey) return FORM_SESSION_TTL_HOURS;
+  // A run pinned to a published version (Phase 12) reads its step and policy
+  // from that version; an unpinned run reads the live draft, as before.
   const rows = await tx.$queryRaw<{ config: unknown; fallback_policy: unknown }[]>`
-    SELECT n.config,f.fallback_policy FROM flow_runs r
+    SELECT CASE WHEN r.flow_version_id IS NULL THEN n.config
+        ELSE (SELECT e->'config' FROM jsonb_array_elements(v.nodes) e WHERE e->>'node_key'=${args.nodeKey} LIMIT 1) END AS config,
+      CASE WHEN r.flow_version_id IS NULL THEN f.fallback_policy ELSE v.fallback_policy END AS fallback_policy
+    FROM flow_runs r
     JOIN flows f ON f.account_id=r.account_id AND f.id=r.flow_id
+    LEFT JOIN flow_versions v ON v.account_id=r.account_id AND v.id=r.flow_version_id
     LEFT JOIN flow_nodes n ON n.account_id=r.account_id AND n.flow_id=r.flow_id AND n.node_key=${args.nodeKey}
     WHERE r.account_id=${args.accountId}::uuid AND r.id=${args.flowRunId}::uuid`;
   return formNodeSessionTtlHours(rows[0]?.config ?? null, rows[0]?.fallback_policy ?? null);

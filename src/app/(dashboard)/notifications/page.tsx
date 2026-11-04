@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Smartphone,
   UserPlus,
+  Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   appointment_booked: CalendarCheck,
   appointment_cancelled: CalendarX,
   appointment_rescheduled: CalendarClock,
+  automation_notice: Zap,
 };
 
 export default function NotificationsPage() {

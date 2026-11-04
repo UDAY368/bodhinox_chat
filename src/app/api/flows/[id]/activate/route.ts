@@ -1,164 +1,75 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/data/server';
-import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { requirePermission } from '@/lib/auth/permissions';
-import { validateFlowForActivation } from '@/lib/flows/validate';
-import type { FlowChannelScope } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 import { tenantOf } from '@/lib/audience/http';
 import { withTenant } from '@/lib/db/tenant';
-import { requireWithinLimit } from '@/lib/billing/entitlements';
-import { loadFlowFormLookup } from '@/lib/whatsapp/forms/flow-lookup';
+import { loadWorkspaceCapabilities } from '@/lib/flows/capabilities';
+import { archiveFlow, moveToDraft, pauseFlow, publishFlow } from '@/lib/flows/versions';
+import { FLOW_ID, flowVersionErrorResponse, requireFlowMutation } from '@/lib/flows/version-http';
 
 const t = getT('Api');
+
+const STATUSES = ['draft', 'active', 'paused', 'archived'] as const;
+type Target = (typeof STATUSES)[number];
 
 /**
  * POST /api/flows/[id]/activate
  *
- * Body: { status: 'draft' | 'active' | 'archived' }
+ * Body: { status: 'active' | 'paused' | 'archived' | 'draft', cancel_active?: boolean, draft_hash?: string }
  *
- * Activating runs the full validator and refuses on any 'error'
- * severity issue, and clears the flow's test numbers so pausing it
- * later gives a plain draft. Moving to draft is validated the same way
- * when the flow still has test numbers (it would run for them).
- * Archiving is unconditional.
+ * - active: publishes the draft as a new immutable version (or reuses the
+ *   live one when nothing changed) and makes it live; a paused flow resumes
+ *   this way. Needs 'flows.publish'. The draft is validated, including
+ *   provider capabilities and Connect Flow loops through other live flows,
+ *   under a per-account lock. draft_hash, when given, must match the draft
+ *   on the server (409 draftChanged), so the author publishes what they saw.
+ * - paused: no new enrollments; runs in progress finish on their version.
+ *   cancel_active ends them now. Needs a published version (409).
+ * - archived: 409 with active_runs while runs are in progress, unless
+ *   cancel_active ends them.
+ * - draft: a published flow is paused instead; a never-published flow keeps
+ *   the draft/test-number meaning.
  *
- * Returns the updated flow on success; on validation failure returns
- * the full issue list so the builder can highlight each problem.
+ * Ending runs (cancel_active) needs 'flows.publish' as well. Returns
+ * { flow, version? }; on validation failure 422 { error, issues }.
  */
-
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-
-  // Use the authenticated tenant client; role and RLS both apply.
-  let caller;
   try {
-    caller = await requireRole('agent');
+    const caller = await requireFlowMutation(request);
+    if (!FLOW_ID.test(id)) return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    const status = body?.status as Target | undefined;
+    if (!status || !STATUSES.includes(status) ||
+        (body?.cancel_active !== undefined && typeof body.cancel_active !== 'boolean') ||
+        (body?.draft_hash !== undefined && (typeof body.draft_hash !== 'string' || !/^[0-9a-f]{64}$/.test(body.draft_hash)))) {
+      return NextResponse.json({ error: t('flows.statusInvalid') }, { status: 400 });
+    }
+    const cancelActive = body?.cancel_active === true;
+    const tenant = tenantOf(caller);
+    // Publishing, and ending customers' runs, are per-feature permissions a workspace may turn off for a role.
+    if (status === 'active' || cancelActive) await requirePermission(tenant, 'flows.publish');
+    const args = { accountId: caller.accountId, flowId: id, userId: caller.userId };
+
+    if (status === 'active') {
+      // Capabilities are read on the worker connection, so they never depend on the caller's role.
+      const caps = await loadWorkspaceCapabilities(tenant);
+      const result = await withTenant(tenant, (tx) => publishFlow(tx, {
+        ...args, caps, expectedDraftHash: typeof body?.draft_hash === 'string' ? body.draft_hash : undefined,
+      }));
+      return NextResponse.json({ flow: result.flow, version: result.version, reused: result.reused });
+    }
+    if (status === 'paused') {
+      const result = await withTenant(tenant, (tx) => pauseFlow(tx, { ...args, cancelActive }));
+      return NextResponse.json({ flow: result.flow, cancelled: result.cancelled });
+    }
+    if (status === 'archived') {
+      const result = await withTenant(tenant, (tx) => archiveFlow(tx, { ...args, cancelActive }));
+      return NextResponse.json({ flow: result.flow, cancelled: result.cancelled });
+    }
+    const result = await withTenant(tenant, (tx) => moveToDraft(tx, args));
+    return NextResponse.json({ flow: result.flow, paused: result.paused });
   } catch (err) {
-    return toErrorResponse(err);
+    return flowVersionErrorResponse(err);
   }
-
-  const db = await createClient();
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) {
-    return NextResponse.json(
-      { error: t('common.unauthorized') },
-      { status: 401 }
-    );
-  }
-
-  const body = (await request.json().catch(() => null)) as {
-    status?: 'draft' | 'active' | 'archived';
-  } | null;
-  const status = body?.status;
-  if (!status || !['draft', 'active', 'archived'].includes(status)) {
-    return NextResponse.json(
-      { error: t('flows.statusInvalid') },
-      { status: 400 }
-    );
-  }
-  // Publishing is a per-feature permission a workspace may turn off for a role.
-  if (status === 'active') {
-    try {
-      await requirePermission(tenantOf(caller), 'flows.publish');
-    } catch (err) {
-      return toErrorResponse(err);
-    }
-  }
-
-  // Ownership via RLS — caller's client.
-  const { data: existing } = await db
-    .from('flows')
-    .select('id, test_numbers')
-    .eq('id', id)
-    .maybeSingle();
-  if (!existing) {
-    return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
-  }
-
-  const admin = db;
-
-  const testing = status === 'draft' && ((existing as { test_numbers?: string[] | null }).test_numbers ?? []).length > 0;
-  if (status === 'active' || testing) {
-    // Re-load with the full payload the validator needs.
-    const [{ data: flow }, { data: nodes }] = await Promise.all([
-      admin
-        .from('flows')
-        .select('id, name, trigger_type, trigger_config, entry_node_id, fallback_policy, channel_scope')
-        .eq('id', id)
-        .maybeSingle(),
-      admin
-        .from('flow_nodes')
-        .select('node_key, node_type, config')
-        .eq('flow_id', id),
-    ]);
-    if (!flow) {
-      return NextResponse.json(
-        { error: t('common.notFound') },
-        { status: 404 }
-      );
-    }
-    // A send_form step must use a form that is published right now.
-    let forms: Awaited<ReturnType<typeof loadFlowFormLookup>> | undefined;
-    if ((nodes ?? []).some((n: { node_type?: string }) => n.node_type === 'send_form')) {
-      const ctx = await requireRole('agent');
-      forms = await withTenant(tenantOf(ctx), (tx) => loadFlowFormLookup(tx, ctx.accountId));
-    }
-    const issues = validateFlowForActivation(
-      flow as {
-        name: string;
-        trigger_type: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply' | 'order_received' | 'ad_click';
-        trigger_config: Record<string, unknown>;
-        entry_node_id: string | null;
-        fallback_policy: unknown;
-        channel_scope: FlowChannelScope | null;
-        id: string;
-      },
-      (nodes ?? []) as Array<{
-        node_key: string;
-        node_type: string;
-        config: Record<string, unknown>;
-      }>,
-      { forms }
-    );
-    const blockers = issues.filter((i) => i.severity === 'error');
-    if (blockers.length > 0) {
-      return NextResponse.json(
-        {
-          error: t('flows.cannotActivate'),
-          issues,
-        },
-        { status: 422 }
-      );
-    }
-    // Plan cap on active flows (testing drafts count, they run too); this flow does not count twice.
-    // shortcut: checked before the update in another transaction, so two simultaneous activations can pass one over the cap; move the update under requireRoomFor if that matters.
-    try {
-      const ctx = await requireRole('agent');
-      await withTenant(tenantOf(ctx), async (tx) => {
-        const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM flows
-          WHERE account_id=${ctx.accountId}::uuid AND id<>${id}::uuid
-          AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`;
-        await requireWithinLimit(tx, ctx.accountId, 'active_flows', n + 1);
-      });
-    } catch (err) {
-      return toErrorResponse(err);
-    }
-  }
-
-  const { data: updated, error } = await admin
-    .from('flows')
-    .update({ status, updated_at: new Date().toISOString(), ...(status === 'active' ? { test_numbers: [] } : {}) })
-    .eq('id', id)
-    .select()
-    .maybeSingle();
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ flow: updated });
 }

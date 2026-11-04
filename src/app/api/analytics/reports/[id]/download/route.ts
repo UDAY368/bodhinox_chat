@@ -1,4 +1,4 @@
-// GET /api/analytics/reports/[id]/download — streams one ready report CSV.
+// GET /api/analytics/reports/[id]/download — streams one ready report (CSV or PDF).
 // Signed-in admins and owners of the report's workspace only (the link in the
 // "report ready" email lands here and needs a session). Every download is
 // audit-logged before the file is sent; files are private, never cached and
@@ -11,7 +11,7 @@ import { ForbiddenError, toErrorResponse } from '@/lib/auth/account';
 import { hasMinRole } from '@/lib/auth/roles';
 import { requireSession } from '@/lib/auth/session';
 import { openReportDownload, ReportError } from '@/lib/analytics/reports';
-import { getReportFile } from '@/lib/analytics/report-storage';
+import { getReportFile, reportContentType } from '@/lib/analytics/report-storage';
 import { getT } from '@/lib/i18n/translate';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const body = await getReportFile(session.accountId, opened.objectKey);
     return new Response(body, {
       headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Type': reportContentType(opened.format),
         'Content-Disposition': `attachment; filename="${opened.filename}"`,
         'Cache-Control': 'private, no-store',
         'X-Content-Type-Options': 'nosniff',

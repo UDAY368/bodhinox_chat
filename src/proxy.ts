@@ -22,6 +22,7 @@ const protectedPaths = [
   '/agents',
   '/appointments',
   '/notifications',
+  '/reports',
   '/settings',
 ];
 export async function proxy(request: NextRequest) {

@@ -226,3 +226,44 @@ describe("previewAcceptsText", () => {
     expect(previewAcceptsText(n("q", "ask_address", { var_key: "a" }), "1 Main St")).toBe(true);
   });
 });
+
+describe("flow preview options (server-side dry run)", () => {
+  const nodes = [
+    n("start", "start", { next_node_key: "ask" }),
+    n("ask", "collect_input", { prompt_text: "Name?", var_key: "name", validation: "any", next_node_key: "set" }),
+    n("set", "set_attribute", { target: "var", key: "greeting", value: "Hello {{vars.name}}", next_node_key: "check" }),
+    n("check", "condition", { subject: "var", subject_key: "name", operator: "present", true_next: "api", false_next: "bye" }),
+    n("api", "api_request", { method: "GET", url: "https://x.test", routes: [{ status: "200", next_node_key: "say" }], fallback_next: "bye" }),
+    n("say", "send_message", { text: "{{vars.greeting}}!", next_node_key: "bye" }),
+    n("bye", "end", {}),
+  ];
+  const fill = (text: string, vars: Readonly<Record<string, string>>) => text.replace(/\{\{vars\.(\w+)\}\}/g, (_, k: string) => vars[k] ?? "");
+
+  it("fills placeholders from collected answers, decides conditions and takes the picked API port", () => {
+    const first = startPreview(nodes, "start", { interpolate: fill, apiPort: () => "route:0", condition: () => true });
+    const done = choose(first, "text", "Asha");
+    expect(done.ended).toBe(true);
+    expect(done.messages.map((m) => m.text ?? m.note)).toEqual([
+      "Name?", "Asha", "set_attribute", "condition", "condition_result", "api_request", "api_port", "Hello Asha!", "end",
+    ]);
+    expect(done.messages.find((m) => m.note === "api_port")?.detail).toBe("200");
+    expect(done.messages.at(-1)).toMatchObject({ note: "end", nodeKey: "bye" });
+  });
+
+  it("waits for the author when a hook has no answer, and ignores an unknown port", () => {
+    const first = startPreview(nodes, "start", { interpolate: fill, apiPort: () => "route:9", condition: () => undefined });
+    const atCondition = choose(first, "text", "Asha");
+    expect(atCondition.waiting?.kind).toBe("branch");
+    const atApi = choose(atCondition, "true");
+    expect(atApi.at).toBe("api");
+  });
+
+  it("is unchanged without options: placeholders stay literal and no vars are tracked", () => {
+    const first = startPreview(nodes, "start");
+    expect(first.vars).toBeUndefined();
+    const atCondition = choose(first, "text", "Asha");
+    expect(atCondition.waiting?.kind).toBe("branch");
+    const end = choose(choose(atCondition, "true"), "route:0");
+    expect(end.messages.find((m) => m.nodeKey === "say")?.text).toBe("{{vars.greeting}}!");
+  });
+});

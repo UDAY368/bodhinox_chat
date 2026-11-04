@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   accountId: 'account-a',
   flows: [] as Row[],
   nodes: [] as Row[],
+  runs: [] as Row[],
   writes: [] as QuerySpec[],
   secrets: new Set<string>(),
   limit: vi.fn(async () => {}),
@@ -16,6 +17,22 @@ vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_t: unknown, fn: (tx: unk
 vi.mock('@/lib/audience/http', () => ({ tenantOf: () => ({}) }));
 vi.mock('@/lib/billing/entitlements', () => ({ requireWithinLimit: h.limit }));
 vi.mock('@/lib/workspace/attributes', () => ({ secretAttributeKeys: async () => h.secrets }));
+// The draft is saved in one tenant transaction (lib/flows/versions, covered by
+// versions.integration.test.ts); here it applies to the in-memory rows.
+vi.mock('@/lib/flows/versions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/flows/versions')>()),
+  saveDraft: async (_tx: unknown, args: { accountId: string; flowId: string; patch: Row; nodes?: Row[] }) => {
+    h.writes.push({ operation: 'update', resource: 'flows', filters: [], values: args.patch } as unknown as QuerySpec);
+    for (const row of h.flows) if (row.id === args.flowId && row.account_id === args.accountId) Object.assign(row, args.patch);
+    if (args.nodes) {
+      h.nodes = [
+        ...h.nodes.filter((n) => n.flow_id !== args.flowId),
+        ...args.nodes.map((n) => ({ ...n, flow_id: args.flowId, account_id: args.accountId })),
+      ];
+    }
+  },
+  readPublishState: async () => ({ published_version: null, draft_hash: 'a'.repeat(64), has_unpublished_changes: true }),
+}));
 vi.mock('@/lib/flows/admin-client', () => ({
   databaseAdmin: () => {
     throw new Error(
@@ -41,7 +58,7 @@ function db() {
     },
     from: (table: string) =>
       buildQuery(table, async (spec) => {
-        const source = table === 'flows' ? h.flows : h.nodes;
+        const source = table === 'flows' ? h.flows : table === 'flow_runs' ? h.runs : h.nodes;
         const matches = (row: Row) =>
           row.account_id === h.accountId &&
           spec.filters.every((f) => row[f.field] === f.value);
@@ -67,6 +84,7 @@ function db() {
         }
         return {
           data: spec.cardinality ? (found[0] ?? null) : found,
+          count: found.length,
           error: null,
         };
       }),
@@ -78,6 +96,7 @@ beforeEach(() => {
   h.accountId = 'account-a';
   h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Original' }];
   h.nodes = [{ flow_id: 'flow-a', account_id: 'account-a', node_key: 'old' }];
+  h.runs = [];
   h.writes = [];
   h.secrets = new Set();
   h.limit.mockReset();
@@ -252,5 +271,48 @@ describe('channel_scope (Phase 11)', () => {
     expect((await response.json()).issues).toContainEqual(expect.objectContaining({ scope: 'node', node_key: 'tpl', field: 'node_type' }));
     expect(h.writes).toEqual([]);
     expect(h.flows[0].channel_scope).toBe('whatsapp');
+  });
+});
+
+describe('Phase 12: published flows', () => {
+  const graph = () => [
+    { flow_id: 'flow-a', account_id: 'account-a', node_key: 'start', node_type: 'start', config: { next_node_key: 'done' } },
+    { flow_id: 'flow-a', account_id: 'account-a', node_key: 'done', node_type: 'end', config: {} },
+  ];
+  const put = (body: unknown) => PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify(body) }), context);
+  const del = () => DELETE(new Request('http://localhost/'), context);
+
+  it('saves an invalid draft of a live published flow without publishing permission: it changes nothing live', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Live', status: 'active', trigger_type: 'manual', trigger_config: {},
+      entry_node_id: 'start', published_version_id: 'version-1' }];
+    h.nodes = graph();
+    h.permission.mockRejectedValue(new Error('This feature is turned off for your role'));
+    const response = await put({ nodes: [] });
+    expect(response.status).toBe(200);
+    expect(h.permission).not.toHaveBeenCalled();
+    expect(h.nodes.filter((n) => n.flow_id === 'flow-a')).toEqual([]);
+    expect(await response.json()).toMatchObject({ has_unpublished_changes: true, draft_hash: 'a'.repeat(64) });
+  });
+
+  it('keeps the old rules for an active flow that has no version yet, whose draft is live', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Live', status: 'active', trigger_type: 'manual', trigger_config: {},
+      entry_node_id: 'start', published_version_id: null }];
+    h.nodes = graph();
+    expect((await put({ nodes: [] })).status).toBe(422);
+    expect(h.writes).toEqual([]);
+  });
+
+  it('refuses to delete a published flow until it is archived with no runs in progress', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Live', status: 'paused', published_version_id: 'version-1' }];
+    expect((await del()).status).toBe(409);
+    h.flows[0].status = 'archived';
+    h.runs = [{ id: 'run-1', flow_id: 'flow-a', account_id: 'account-a', status: 'active' }];
+    const busy = await del();
+    expect(busy.status).toBe(409);
+    expect(await busy.json()).toMatchObject({ active_runs: 1 });
+    expect(h.flows).toHaveLength(1);
+    h.runs = [];
+    expect((await del()).status).toBe(200);
+    expect(h.flows).toEqual([]);
   });
 });

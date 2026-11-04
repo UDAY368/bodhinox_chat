@@ -33,6 +33,10 @@ export const FEATURE_PERMISSIONS = {
   // Phase 9: creating a courier shipment spends the Shiprocket wallet; connecting Zoom shares account access.
   'commerce.shipments': 'admin',
   'integrations.meetings': 'admin',
+  // Phase 12: replaying a failed flow run re-sends from the failed node (admin ceiling);
+  // saving an automation that ends active publishes it (same ceiling as today's agent check).
+  'flows.replay': 'admin',
+  'automations.publish': 'agent',
 } as const satisfies Record<string, AccountRole>;
 
 export type FeaturePermission = keyof typeof FEATURE_PERMISSIONS;

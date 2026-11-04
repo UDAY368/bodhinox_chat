@@ -58,6 +58,7 @@ export function FlowSettings() {
   const { state, setState, flow, triggerNumber, setTriggerNumber } = useFlowEditor();
   const t = useTranslations("Flows.menuFallback");
   const tn = useTranslations("whatsappNumbers");
+  const tLive = useTranslations("Flows.liveTest");
   const { numbers: whatsappNumbers } = useWhatsAppNumbers();
   const [savingNumber, setSavingNumber] = useState(false);
 
@@ -155,12 +156,13 @@ export function FlowSettings() {
 
       {state.status === "draft" && (
         <div>
-          <label htmlFor="test-numbers" className={label}>{t("testNumbersLabel")}</label>
+          {/* A live test: these numbers get real messages. It is not the dry run, which sends nothing. */}
+          <label htmlFor="test-numbers" className={label}>{tLive("label")}</label>
           <Input id="test-numbers" value={numbers} placeholder="919876543210, 14155550100"
             onChange={(e) => setNumbers(e.target.value)} onBlur={commitNumbers}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitNumbers(); } }}
             className="bg-muted font-mono text-xs" />
-          <p className={help}>{t("testNumbersHelp")}</p>
+          <p className={help}>{tLive("help")}</p>
           {(state.test_numbers ?? []).length > 0 && (
             <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 px-2 text-xs"
               onClick={() => { setNumbers(""); setState((s) => ({ ...s, test_numbers: [] })); }}>

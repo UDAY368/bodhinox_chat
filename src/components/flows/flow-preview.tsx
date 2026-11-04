@@ -130,16 +130,18 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
   );
 }
 
-type T = ReturnType<typeof useTranslations>;
+export type PreviewT = ReturnType<typeof useTranslations>;
+type T = PreviewT;
 
-function branchLabel(id: string, label: string, t: T) {
+export function branchLabel(id: string, label: string, t: T) {
   if (id === 'true') return t('branchTrue');
   if (id === 'false') return t('branchFalse');
   if (id === 'fallback') return t('branchFallback');
   return label || id;
 }
 
-function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPickRow, t }: {
+/** One trace message; reused by the dry-run panel. */
+export function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPickRow, t }: {
   message: PreviewMessage;
   active: boolean;
   listOpen: boolean;
@@ -223,7 +225,7 @@ function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPi
   );
 }
 
-function noteText(m: PreviewMessage, t: T): string {
+export function noteText(m: PreviewMessage, t: T): string {
   switch (m.note) {
     case 'delay':
       return t('notes.delay', { seconds: Number(m.detail ?? 0) });
@@ -237,6 +239,10 @@ function noteText(m: PreviewMessage, t: T): string {
     }
     case 'timeout':
       return t('notes.timeout', { minutes: Number(m.detail) || 0 });
+    case 'condition_result':
+      return t(m.detail === 'true' ? 'notes.condition_true' : 'notes.condition_false');
+    case 'api_port':
+      return t('notes.api_port', { port: m.detail ?? '' });
     case undefined:
       return '';
     default:

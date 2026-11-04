@@ -315,13 +315,26 @@ const funnelColumns = Prisma.sql`
   'clicked', count(*) FILTER (WHERE clicked_at IS NOT NULL),
   'failed', count(*) FILTER (WHERE status='failed')`;
 
-/** Funnel for the campaigns scheduled (or created) in a range, or for one campaign. */
+/** Campaigns a comparison may name at once. */
+export const COMPARE_CAMPAIGNS_MIN = 2;
+export const COMPARE_CAMPAIGNS_MAX = 5;
+
+/**
+ * Funnel for the campaigns scheduled (or created) in a range, for one
+ * campaign, or for a set of 2-5 campaigns to compare (any date; ids from
+ * another workspace simply match nothing under RLS and the account filter).
+ */
 export async function campaignFunnel(tx: TenantTransaction, accountId: string,
-  scope: { range: AnalyticsRange } | { broadcastId: string }): Promise<CampaignFunnel> {
+  scope: { range: AnalyticsRange } | { broadcastId: string } | { ids: string[] }): Promise<CampaignFunnel> {
   let match: Prisma.Sql;
   if ('broadcastId' in scope) {
     assertUuid(scope.broadcastId, 'campaign');
     match = Prisma.sql`id=${scope.broadcastId}::uuid`;
+  } else if ('ids' in scope) {
+    const ids = [...new Set(scope.ids.map((id) => id.toLowerCase()))];
+    if (ids.length < COMPARE_CAMPAIGNS_MIN || ids.length > COMPARE_CAMPAIGNS_MAX) throw new AnalyticsInputError('Invalid campaigns');
+    for (const id of ids) assertUuid(id, 'campaign');
+    match = Prisma.sql`id = ANY(${ids}::uuid[])`;
   } else {
     match = Prisma.sql`COALESCE(scheduled_at, created_at) >= ${from(scope.range)} AND COALESCE(scheduled_at, created_at) < ${to(scope.range)}`;
   }
@@ -378,11 +391,11 @@ export async function flowStats(tx: TenantTransaction, accountId: string, range:
   assertUuid(flowId, 'flow');
   const rows = await tx.$queryRaw<{ stats: FlowStats }[]>(Prisma.sql`
     WITH runs AS (
-      SELECT id, flow_id, status, current_node_key FROM flow_runs
+      SELECT id, flow_id, flow_version_id, status, current_node_key FROM flow_runs
       WHERE account_id=${accountId}::uuid AND started_at >= ${from(range)} AND started_at < ${to(range)}
         ${flowId ? Prisma.sql`AND flow_id=${flowId}::uuid` : Prisma.empty}
     ), stopped AS (
-      SELECT r.flow_id, COALESCE(last_event.node_key, r.current_node_key) AS node_key
+      SELECT r.flow_id, r.flow_version_id, COALESCE(last_event.node_key, r.current_node_key) AS node_key
       FROM runs r LEFT JOIN LATERAL (
         SELECT e.node_key FROM flow_run_events e
         WHERE e.account_id=${accountId}::uuid AND e.flow_run_id=r.id AND e.node_key IS NOT NULL
@@ -390,11 +403,19 @@ export async function flowStats(tx: TenantTransaction, accountId: string, range:
         LIMIT 1
       ) last_event ON true
       WHERE r.status NOT IN ('completed','active')
-    ), drops AS (
-      SELECT s.flow_id, s.node_key, n.node_type, count(*) AS runs
+    ), typed AS (
+      -- A run pinned to a version is labelled from that version's node (the
+      -- draft may have renamed or removed it); an unpinned run from the draft.
+      SELECT s.flow_id, s.node_key, COALESCE((
+        SELECT x->>'node_type' FROM flow_versions v CROSS JOIN LATERAL jsonb_array_elements(v.nodes) x
+        WHERE v.account_id=${accountId}::uuid AND v.flow_id=s.flow_id AND v.id=s.flow_version_id AND x->>'node_key'=s.node_key
+        LIMIT 1), n.node_type) AS node_type
       FROM stopped s LEFT JOIN flow_nodes n ON n.account_id=${accountId}::uuid AND n.flow_id=s.flow_id AND n.node_key=s.node_key
       WHERE s.node_key IS NOT NULL
-      GROUP BY s.flow_id, s.node_key, n.node_type
+    ), drops AS (
+      -- One row per node key: when versions disagree on its type, the most common label wins.
+      SELECT flow_id, node_key, mode() WITHIN GROUP (ORDER BY node_type) AS node_type, count(*) AS runs
+      FROM typed GROUP BY flow_id, node_key
     )
     SELECT json_build_object(
       'started', count(*), 'completed', count(*) FILTER (WHERE status='completed'),

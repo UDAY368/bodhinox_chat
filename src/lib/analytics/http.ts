@@ -19,6 +19,7 @@ import { AnalyticsInputError, runAnalytics } from './queries';
 import {
   addDays,
   AnalyticsRangeError,
+  dayCount,
   localMidnight,
   parseRange,
   rangeInputFromSearchParams,
@@ -50,15 +51,33 @@ export function rangeSummary(range: AnalyticsRange) {
 }
 
 /**
- * The period of the same length immediately before `range`, cut to the same
- * elapsed time (so "today so far" compares with "yesterday up to this hour").
+ * The period to compare `range` with, cut to the same elapsed time (so
+ * "today so far" compares with "yesterday up to this hour"). Rolling and
+ * custom ranges take the period of the same length immediately before.
+ * Calendar presets take the previous calendar period: the week before
+ * (Monday start), or the month before from its 1st, as many days as the
+ * range has but never past that month's end (October compares with all of
+ * September; 4 days into November with 1-4 October).
  */
 export function previousRange(range: AnalyticsRange): AnalyticsRange {
-  const startDay = addDays(range.startDay, -range.days);
+  let startDay: string, endDay: string;
+  if (range.preset === 'this_month' || range.preset === 'last_month') {
+    const monthBeforeEnd = addDays(`${range.startDay.slice(0, 7)}-01`, -1);
+    startDay = `${monthBeforeEnd.slice(0, 7)}-01`;
+    const sameLength = addDays(startDay, range.days - 1);
+    endDay = sameLength < monthBeforeEnd ? sameLength : monthBeforeEnd;
+  } else if (range.preset === 'this_week' || range.preset === 'last_week') {
+    startDay = addDays(range.startDay, -7);
+    endDay = addDays(startDay, range.days - 1);
+  } else {
+    startDay = addDays(range.startDay, -range.days);
+    endDay = addDays(range.startDay, -1);
+  }
   const from = localMidnight(startDay, range.timezone);
+  const dayEnd = localMidnight(addDays(endDay, 1), range.timezone);
   const span = range.to.getTime() - range.from.getTime();
-  const to = new Date(Math.min(from.getTime() + span, range.from.getTime()));
-  return { ...range, preset: 'custom', startDay, endDay: addDays(range.startDay, -1), from, to };
+  const to = new Date(Math.min(from.getTime() + span, dayEnd.getTime()));
+  return { ...range, preset: 'custom', startDay, endDay, days: dayCount(startDay, endDay), from, to };
 }
 
 export async function analyticsReport<T extends object>(

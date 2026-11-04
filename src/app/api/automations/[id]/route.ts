@@ -18,6 +18,15 @@ import { automationTemplateIssues } from '@/lib/automations/template-check';
 import { getT } from '@/lib/i18n/translate';
 import { requireActiveAutomationRoom } from '@/lib/billing/activation';
 import { requireScheduledSendingAllowed } from '@/lib/automations/schedule-gate';
+import { hasMinRole } from '@/lib/auth/roles';
+import type { AccountContext } from '@/lib/auth/account';
+import {
+  addsSecretWebhook,
+  loopRefusal,
+  publishChecks,
+} from '@/lib/automations/publish-checks';
+import { activateWithLoopLock } from '@/lib/automations/activation-lock';
+import { tenantOf } from '@/lib/audience/http';
 
 const t = getT('Api');
 
@@ -66,8 +75,9 @@ export async function PATCH(
   // Use the authenticated tenant client; role and RLS both apply.
   let accountId: string;
   let admin: DataClient;
+  let ctx: AccountContext;
   try {
-    const ctx = await requireRole('agent');
+    ctx = await requireRole('agent');
     accountId = ctx.accountId;
     admin = ctx.db;
   } catch (err) {
@@ -85,7 +95,7 @@ export async function PATCH(
   // to compute the post-patch "effective" state for validation.
   const { data: existing } = await admin
     .from('automations')
-    .select('id, account_id, is_active, trigger_type, trigger_config')
+    .select('id, account_id, name, is_active, trigger_type, trigger_config')
     .eq('id', id)
     .eq('account_id', accountId)
     .maybeSingle();
@@ -131,6 +141,22 @@ export async function PATCH(
       { status: 400 }
     );
   }
+  // A secret workspace value in a webhook step is admin-only: a non-admin
+  // may keep an admin's step but not add or change one.
+  if (
+    Array.isArray(body.steps) &&
+    !hasMinRole(ctx.role, 'admin') &&
+    (await addsSecretWebhook(
+      accountId,
+      body.steps as BuilderStepInput[],
+      await loadStepsTree(id, admin)
+    ))
+  ) {
+    return NextResponse.json(
+      { error: t('automations.secretNeedsAdmin') },
+      { status: 403 }
+    );
+  }
   if (willBeActive) {
     const mergedTriggerType = (update.trigger_type ??
       existing.trigger_type) as string;
@@ -154,6 +180,14 @@ export async function PATCH(
         { status: 400 }
       );
     }
+    const published = await publishChecks(ctx, accountId, {
+      id,
+      name: String(update.name ?? existing.name ?? ''),
+      trigger_type: mergedTriggerType,
+      trigger_config: mergedTriggerConfig,
+      steps: mergedSteps,
+    });
+    if (published) return published;
     try {
       // Only turning an automation on counts against the plan's active cap.
       if (update.is_active === true && !existing.is_active)
@@ -170,6 +204,10 @@ export async function PATCH(
     }
   }
 
+  // Turning it on happens below, under the per-account loop lock, after the
+  // steps are written; until then it stays off.
+  if (willBeActive && update.is_active === true) delete update.is_active;
+
   if (Object.keys(update).length > 0) {
     const { error: updErr } = await admin
       .from('automations')
@@ -183,6 +221,24 @@ export async function PATCH(
   if (Array.isArray(body.steps)) {
     const err = await replaceSteps(id, body.steps as BuilderStepInput[], admin);
     if (err) return NextResponse.json({ error: err }, { status: 500 });
+  }
+
+  if (willBeActive) {
+    // A concurrent activation may have closed a loop since publishChecks:
+    // checked again under the lock, which leaves (or turns) it off on a loop.
+    let chain: string[] | null;
+    try {
+      chain = await activateWithLoopLock(tenantOf(ctx), accountId, id, {
+        id,
+        name: String(update.name ?? existing.name ?? ''),
+        trigger_type: (update.trigger_type ?? existing.trigger_type) as string,
+        trigger_config: update.trigger_config ?? existing.trigger_config,
+        steps: stepsToCheck,
+      });
+    } catch (err) {
+      return toErrorResponse(err);
+    }
+    if (chain) return loopRefusal(chain);
   }
 
   return NextResponse.json({ ok: true });

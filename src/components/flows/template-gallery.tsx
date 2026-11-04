@@ -12,6 +12,8 @@ import {
   HelpCircle,
   Home,
   Landmark,
+  Laptop,
+  Leaf,
   LifeBuoy,
   Luggage,
   MapPin,
@@ -25,6 +27,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  Signpost,
   Sparkles,
   Star,
   Stethoscope,
@@ -49,16 +52,16 @@ export interface TemplateSummary {
 }
 
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  BellRing, CalendarCheck, CalendarDays, ChefHat, GraduationCap, HelpCircle, Home, Landmark, LifeBuoy,
+  BellRing, CalendarCheck, CalendarDays, ChefHat, GraduationCap, HelpCircle, Home, Landmark, Laptop, Leaf, LifeBuoy,
   Luggage, MapPin, MessageSquare, Package, PartyPopper, Plane, RotateCcw, School, Scissors, ShieldCheck,
-  ShoppingCart, Sparkles, Star, Stethoscope, UserPlus, UtensilsCrossed, Video,
+  ShoppingCart, Signpost, Sparkles, Star, Stethoscope, UserPlus, UtensilsCrossed, Video,
 };
 
 // Mirrors FLOW_TEMPLATE_CATEGORIES in src/lib/flows/templates.ts (not
 // imported: that module pulls the server message catalogue). Unknown
 // categories sort after these.
 const CATEGORY_ORDER = [
-  "general", "retail", "food", "health", "education", "real_estate",
+  "general", "journeys", "retail", "food", "health", "education", "real_estate",
   "travel", "finance", "beauty", "events", "services",
 ];
 

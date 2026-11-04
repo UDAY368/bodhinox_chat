@@ -289,16 +289,18 @@ Status (4 November 2026): built and tested against the local database with Insta
 
 Dependencies: tested Phase 5 runtime and stable domain actions from Phases 7–11.
 
-- [ ] Add a node editor with a registry of only implemented triggers, conditions and actions. Cover the master prompt's complete documented node catalog in C; unavailable provider actions expose their specific capability block.
-- [ ] Add validation, draft/publish/pause/archive, immutable published versions, dry runs, run histories, retry inspection and permission-controlled replay.
-- [ ] Keep running executions pinned to their published version. Define whether edits affect future enrollments only; require explicit migration/cancellation for active runs.
-- [ ] Add reusable templates for the four business journeys, dynamic segment enrollment and controlled internal/external notifications/webhooks.
-- [ ] Secure external webhook actions against SSRF, restricted destinations, injection and leaked credentials.
-- [ ] Expand dashboard views, daily/weekly/monthly/custom reports, campaign/product/service comparisons, CSV/spreadsheet exports, PDF generation and permission-controlled sharing.
+- [x] Add a node editor with a registry of only implemented triggers, conditions and actions. Cover the master prompt's complete documented node catalog in C; unavailable provider actions expose their specific capability block. Node registry with capability blocks in the palette and at publish (payments, appointments, AI, Conversions API, store checkout). Deferred: the full master-prompt catalogue.
+- [x] Add validation, draft/publish/pause/archive, immutable published versions, dry runs, run histories, retry inspection and permission-controlled replay. For flows: immutable `flow_versions`, a side-effect-free dry run (read-only transactions, guarded jobs/dispatch/fetch), run list and detail with outbound intent states, and admin replay that refuses uncertain sends. Deferred: versioning, dry run and replay for automations; persisted dry-run traces.
+- [x] Keep running executions pinned to their published version. Define whether edits affect future enrollments only; require explicit migration/cancellation for active runs. Edits affect future enrollments only; migrate (idle waiting runs at a compatible step) or cancel is explicit; pause lets runs finish unless cancelled.
+- [x] Add reusable templates for the four business journeys, dynamic segment enrollment and controlled internal/external notifications/webhooks. Journeys gallery (menu with typed fallback, Work From Home, Free consultation, Chiropractic, Ayurvedic store; the author wires Connect flow targets), segment audiences for scheduled automations with run-once-per-contact, the Notify team step and hardened webhooks. Deferred: segment-triggered flow enrollment.
+- [x] Secure external webhook actions against SSRF, restricted destinations, injection and leaked credentials. `safeFetch` (checked address dialled, no redirects), JSON-escaped bodies, header injection refused, secrets admin-only and never in URLs, at-most-once POST via outbound intents. Deferred: a per-tenant destination allow/deny list.
+- [x] Expand dashboard views, daily/weekly/monthly/custom reports, campaign/product/service comparisons, CSV/spreadsheet exports, PDF generation and permission-controlled sharing. Calendar presets, compare panel, three new report kinds, CSV or PDF, schedules with live role rechecks, and role-scoped expiring shares. Deferred: XLSX, charts and non-Latin glyphs in PDF, a month bucket for long ranges, campaign A/B attribution, consistent minimum roles across live analytics.
 
 Deliverable: business users can safely author and test automation and obtain reconciled operational reports.
 
 Completion gate: invalid/looping workflows cannot publish; dry run has no customer side effects; an export or scheduled report cannot escape tenant/role restrictions.
+
+Status (4 November 2026): built for flows, automations and reports, and tested with unit and local real-database tests (publish refuses invalid, capability-blocked and cross-flow looping flows and tag-looping automations; dry run proven to change no rows and make no requests; shares and schedules proven against other workspaces, lower roles, revocation and expiry). The Playwright spec `e2e/flow-versions.spec.ts` and the production build are still to run before release. Also deferred: versioning a flow's WhatsApp number (it stays a live routing setting).
 
 ### Phase 13 — AI business assistant
 

@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { getPrisma } from "./prisma";
+import { isDryRun } from "@/lib/runtime/dry-run-guard";
 
 export type TenantContext = {
   accountId: string;
@@ -15,7 +16,11 @@ export async function withTenant<T>(context: TenantContext, operation: (tx: Tena
   if (!uuid.test(context.accountId) || (context.userId && !uuid.test(context.userId))) {
     throw new Error("Invalid tenant identity");
   }
+  const readOnly = isDryRun();
   return db.$transaction(async (tx) => {
+    // A flow dry run (withDryRun) may read but never write: the first statement
+    // makes the whole transaction read-only, so any write raises SQLSTATE 25006.
+    if (readOnly) await tx.$executeRaw(Prisma.sql`SET TRANSACTION READ ONLY`);
     await tx.$queryRaw(Prisma.sql`SELECT set_config('app.account_id', ${context.accountId}, true),
       set_config('app.user_id', ${context.userId || ""}, true),
       set_config('app.account_role', ${context.role || ""}, true)`);

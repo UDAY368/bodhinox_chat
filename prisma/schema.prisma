@@ -420,6 +420,8 @@ model flows {
   archived_at DateTime? @db.Timestamptz(6)
   /// Phase 11: 'whatsapp' | 'instagram' | 'any'.
   channel_scope String @default("whatsapp")
+  /// Phase 12: the live flow_versions row; null until first published. Status adds 'paused'.
+  published_version_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -456,7 +458,31 @@ model flow_runs {
   delay_until DateTime? @db.Timestamptz(6)
   wait_until DateTime? @db.Timestamptz(6)
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  /// Phase 12: the version the run is pinned to; null for draft test-number and legacy runs.
+  flow_version_id String? @db.Uuid
+  // 20261110100300: the partial index flow_runs_version_active_idx (WHERE status='active') is owned by the SQL.
   @@unique([account_id, id])
+}
+
+/// Phase 12: immutable published snapshot of a flow (20261110100000_flow_versions). No UPDATE or DELETE
+/// grant to any role; read and written only through withTenant raw SQL (never the generic data client).
+model flow_versions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  flow_id String @db.Uuid
+  version Int
+  trigger_type String
+  trigger_config Json @db.JsonB
+  entry_node_id String?
+  fallback_policy Json @db.JsonB
+  channel_scope String
+  /// [{node_key,node_type,config,position_x,position_y}]
+  nodes Json @db.JsonB
+  published_by String? @db.Uuid
+  published_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@unique([account_id, flow_id, id])
+  @@unique([account_id, flow_id, version])
 }
 
 model flow_run_events {
@@ -1494,9 +1520,55 @@ model report_runs {
   created_at DateTime @db.Timestamptz(6) @default(now())
   finished_at DateTime? @db.Timestamptz(6)
   expires_at DateTime @db.Timestamptz(6) @default(dbgenerated("(now() + '30 days'::interval)"))
+  /// Phase 12: 'csv' | 'pdf'.
+  format String @default("csv")
+  /// Phase 12: the schedule that produced the run (worker only).
+  schedule_id String? @db.Uuid
   // 20261103121000_reports: the partial index report_runs_due_idx (WHERE status <> 'expired') is owned by the SQL.
+  // 20261110101000: the partial expression index report_runs_schedule_period is owned by the SQL.
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "report_runs_account_created_idx")
+}
+
+/// Phase 12 (20261110101000_report_schedules_shares): admin-only scheduled report delivery.
+model report_schedules {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  kind String
+  format String @default("csv")
+  /// 'daily' | 'weekly' | 'monthly'
+  cadence String
+  hour_local Int @db.SmallInt @default(8)
+  recipients String[] @db.Uuid
+  created_by String @db.Uuid
+  paused_at DateTime? @db.Timestamptz(6)
+  /// 'manual' | 'creator_lost_access' | 'no_recipients'; set exactly when paused_at is.
+  pause_reason String?
+  next_run_at DateTime @db.Timestamptz(6)
+  last_run_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  // The partial index report_schedules_due_idx (WHERE paused_at IS NULL) is owned by the SQL.
+  @@unique([account_id, id])
+  @@index([account_id, created_at], map: "report_schedules_account_idx")
+}
+
+/// Phase 12: a permission-controlled link to a ready report. No token; opened only through
+/// crm_open_report_share() for a live session in the same workspace with role >= min_role.
+model report_shares {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  report_run_id String @db.Uuid
+  /// 'viewer' | 'agent' | 'admin'
+  min_role String
+  created_by String @db.Uuid
+  expires_at DateTime @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  open_count Int @default(0)
+  last_opened_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, report_run_id], map: "report_shares_run_idx")
 }
 
 model meta_ad_connections {

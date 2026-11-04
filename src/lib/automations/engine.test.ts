@@ -7,6 +7,16 @@ const dispatch = vi.hoisted(() => ({ once: vi.fn((_account: string, _key: string
 vi.mock("@/lib/jobs/dispatch", () => ({ dispatchOnce: dispatch.once,
 }));
 
+// send_webhook goes through safeFetch; the save-time SSRF lookup is stubbed so no DNS runs.
+const sf = vi.hoisted(() => ({ fetch: vi.fn() }));
+vi.mock("@/lib/webhooks/safe-fetch", () => ({ safeFetch: sf.fetch }));
+vi.mock("@/lib/webhooks/ssrf", async (original) => ({
+  ...(await original<typeof import("@/lib/webhooks/ssrf")>()),
+  isDeliverableUrl: async (url: string) => !/169\.254|127\.0/.test(url),
+}));
+const notice = vi.hoisted(() => ({ notify: vi.fn(async () => ["u1"]) }));
+vi.mock("@/lib/notifications/emit", () => ({ notifyAutomationNotice: notice.notify }));
+
 // Workspace attributes come from the database; record each lookup instead.
 const ws = vi.hoisted(() => ({ calls: [] as { text: string; secrets: boolean }[] }));
 vi.mock("@/lib/workspace/attributes", async (original) => ({
@@ -204,6 +214,7 @@ import {
 } from "./engine";
 import { engineSendInteractive, engineSendText } from "./meta-send";
 import type { Automation, KeywordMatchTriggerConfig } from "@/types";
+import { getT } from "@/lib/i18n/translate";
 
 const ACCOUNT = "acct-1";
 
@@ -1293,5 +1304,87 @@ describe("send steps on a conversation that is not on WhatsApp", () => {
       context: { tag_id: "tag-a", conversation_id: "wa-conv" } });
     expect(dispatch.once).toHaveBeenCalledTimes(1);
     expect(vi.mocked(engineSendText).mock.calls[0][0]).toMatchObject({ conversationId: "wa-conv" });
+  });
+});
+
+describe("send_webhook — Phase 12 hardening", () => {
+  const tErr = getT("LibErrors.engine");
+  const hook = (step_config: Record<string, unknown>) => ({
+    id: "s1", automation_id: "a1", step_type: "send_webhook", position: 0, parent_step_id: null, step_config,
+  });
+  const run = async (step_config: Record<string, unknown>, message_text = "hi") => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [hook({ url: "https://hooks.example.com/in", ...step_config })];
+    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: { message_text } });
+    return h.state.logUpdates.find((u) => u.status === "failed")?.error_message as string | undefined;
+  };
+
+  it("JSON-escapes filled values so customer text cannot add keys", async () => {
+    sf.fetch.mockResolvedValue({ ok: true, status: 200, contentType: "", body: "" });
+    const failed = await run({ body_template: '{"text": "{{message.text}}", "tier": "{{workspace.tier}}"}', headers: { "X-Tier": "{{workspace.tier}}" } },
+      'x", "admin": true, "y": "\n');
+    expect(failed).toBeUndefined();
+    const [url, init] = sf.fetch.mock.calls[0];
+    expect(url).toBe("https://hooks.example.com/in");
+    const body = JSON.parse(init.body);
+    expect(body).toEqual({ text: 'x", "admin": true, "y": "\n', tier: "Gold" });
+    expect(init.headers).toMatchObject({ "content-type": "application/json", "x-tier": "Gold" });
+    expect(dispatch.once.mock.calls[0][1]).toBe("auto-webhook:log1:s1");
+  });
+
+  it("fails without sending when the filled body is not JSON", async () => {
+    const failed = await run({ body_template: '{"n": {{vars.count}}}' });
+    expect(failed).toBe(tErr("webhookInvalidBody"));
+    expect(sf.fetch).not.toHaveBeenCalled();
+    expect(dispatch.once).not.toHaveBeenCalled();
+  });
+
+  it("refuses a header with a line break or a denied name, without sending", async () => {
+    expect(await run({ headers: { "X-A": "a\r\nX-Injected: 1" } })).toBe(tErr("webhookInvalidHeader"));
+    expect(await run({ headers: { Cookie: "session=1" } })).toBe(tErr("webhookInvalidHeader"));
+    expect(sf.fetch).not.toHaveBeenCalled();
+  });
+
+  it("records a non-2xx reply as a definite outcome and fails the step", async () => {
+    sf.fetch.mockResolvedValue({ ok: true, status: 500, contentType: "", body: "" });
+    const failed = await run({ body_template: "{}" });
+    expect(failed).toBe(tErr("webhookStatus", { status: "500" }));
+    expect(sf.fetch).toHaveBeenCalledTimes(1);
+    // dispatchOnce got a value back (so the intent is 'accepted'), not an error.
+    await expect(dispatch.once.mock.results[0].value).resolves.toEqual({ status: 500 });
+  });
+
+  it("reports a timeout as uncertain: the intent is not accepted and nothing is re-sent", async () => {
+    sf.fetch.mockResolvedValue({ ok: false, error: "timeout" });
+    const failed = await run({ body_template: "{}" });
+    expect(failed).toBe(tErr("webhookUncertain"));
+    await expect(dispatch.once.mock.results[0].value).rejects.toThrow();
+    expect(sf.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the recorded outcome on a retry instead of POSTing again", async () => {
+    dispatch.once.mockImplementationOnce(async () => ({ status: 202 }));
+    expect(await run({ body_template: "{}" })).toBeUndefined();
+    expect(sf.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("notify_team", () => {
+  it("fills only the contact and automation names and dedupes per run and step", async () => {
+    h.state.owned = { id: "c1", name: "Asha" } as { id: string };
+    h.state.ownedConversation = { id: "00000000-0000-4000-8000-0000000000c1" };
+    h.state.automations = [{ ...automationWithUpdateStep(), name: "Lead alert" }];
+    h.state.steps = [{ id: "s1", automation_id: "a1", step_type: "notify_team", position: 0, parent_step_id: null,
+      step_config: { audience: "assignee", text: "{{contact.name}} via {{automation.name}}: {{message.text}}" } }];
+    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "00000000-0000-4000-8000-0000000000c1", message_text: "my card number is 4111" } });
+    expect(notice.notify).toHaveBeenCalledTimes(1);
+    const input = (notice.notify.mock.calls[0] as unknown as [Record<string, unknown>])[0];
+    expect(input).toMatchObject({
+      accountId: ACCOUNT, automationId: "a1", audience: "assignee", title: "Asha via Lead alert:",
+      conversationId: "00000000-0000-4000-8000-0000000000c1", contactId: "c1", dedupeKey: "automation-notice:log1:s1",
+    });
+    expect(JSON.stringify(input)).not.toContain("4111");
   });
 });

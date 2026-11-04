@@ -1,19 +1,15 @@
 "use client";
 import { authFetch } from "@/lib/auth/client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Loader2,
-  CircleCheck,
-  CircleAlert,
-  Clock,
-  UserPlus,
-  PlayCircle,
-  PauseCircle,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -23,78 +19,17 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { RUN_STATUSES, STATUS_META, EventLine, runStatusKey, type EventRow, type RunRow } from "./run-shared";
 
 /**
  * Run history viewer.
  *
- * Lists the 50 most recent runs for a flow, newest first. Each row
- * collapses to a one-liner (contact + status + time); expanding shows
- * the full `flow_run_events` timeline for that run — useful for
- * debugging "why didn't my flow advance?" by surfacing the engine's
- * own log.
+ * Lists a flow's runs, newest first, 50 at a time ("Load more" follows
+ * the server's cursor), filtered by status and version. Each row
+ * collapses to a one-liner (contact + status + version + time);
+ * expanding shows the `flow_run_events` timeline, and "Details" opens
+ * the run page (outbound intent states, replay and cancel).
  */
-
-interface RunRow {
-  id: string;
-  status:
-    | "active"
-    | "completed"
-    | "handed_off"
-    | "timed_out"
-    | "paused_by_agent"
-    | "cancelled"
-    | "failed";
-  current_node_key: string | null;
-  started_at: string;
-  last_advanced_at: string;
-  ended_at: string | null;
-  end_reason: string | null;
-  vars: Record<string, unknown>;
-  reprompt_count: number;
-  contact: { id: string; name: string | null; phone: string } | null;
-}
-
-interface EventRow {
-  flow_run_id: string;
-  event_type: string;
-  node_key: string | null;
-  payload: Record<string, unknown>;
-  created_at: string;
-}
-
-const STATUS_META: Record<
-  RunRow["status"],
-  { classes: string; icon: typeof Clock }
-> = {
-  active: {
-    classes: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
-    icon: PlayCircle,
-  },
-  completed: {
-    classes: "border-border bg-muted text-muted-foreground",
-    icon: CircleCheck,
-  },
-  handed_off: {
-    classes: "border-amber-600/40 bg-amber-500/10 text-amber-300",
-    icon: UserPlus,
-  },
-  timed_out: {
-    classes: "border-border bg-muted/60 text-muted-foreground",
-    icon: Clock,
-  },
-  paused_by_agent: {
-    classes: "border-border bg-muted text-muted-foreground",
-    icon: PauseCircle,
-  },
-  failed: {
-    classes: "border-red-600/40 bg-red-500/10 text-red-300",
-    icon: CircleAlert,
-  },
-  cancelled: {
-    classes: "border-border bg-muted text-muted-foreground",
-    icon: PauseCircle,
-  },
-};
 
 export default function FlowRunsPage() {
   const router = useRouter();
@@ -105,31 +40,48 @@ export default function FlowRunsPage() {
   const [flow, setFlow] = useState<{ id: string; name: string } | null>(null);
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [versions, setVersions] = useState<Array<{ id: string; version: number }>>([]);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [versionFilter, setVersionFilter] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [notFound, setNotFound] = useState(false);
+
+  const fetchPage = useCallback(async (before: string | null) => {
+    const query = new URLSearchParams();
+    if (statusFilter) query.set("status", statusFilter);
+    if (versionFilter) query.set("version", versionFilter);
+    if (before) query.set("before", before);
+    const res = await authFetch(`/api/flows/${params.id}/runs?${query.toString()}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    return (await res.json()) as {
+      flow: { id: string; name: string };
+      runs: RunRow[];
+      events: EventRow[];
+      versions: Array<{ id: string; version: number }>;
+      next_cursor: string | null;
+    };
+  }, [params.id, statusFilter, versionFilter]);
 
   useEffect(() => {
     if (!params.id) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await authFetch(`/api/flows/${params.id}/runs`);
-        if (res.status === 404) {
-          if (!cancelled) setNotFound(true);
+        const json = await fetchPage(null);
+        if (cancelled) return;
+        if (!json) {
+          setNotFound(true);
           return;
         }
-        if (!res.ok) throw new Error(`Failed: ${res.status}`);
-        const json = (await res.json()) as {
-          flow: { id: string; name: string };
-          runs: RunRow[];
-          events: EventRow[];
-        };
-        if (!cancelled) {
-          setFlow(json.flow);
-          setRuns(json.runs ?? []);
-          setEvents(json.events ?? []);
-        }
+        setFlow(json.flow);
+        setRuns(json.runs ?? []);
+        setEvents(json.events ?? []);
+        setVersions(json.versions ?? []);
+        setCursor(json.next_cursor);
       } catch (err) {
         if (!cancelled) {
           console.error(err);
@@ -142,7 +94,24 @@ export default function FlowRunsPage() {
     return () => {
       cancelled = true;
     };
-  }, [params.id]);
+  }, [params.id, fetchPage, t]);
+
+  async function loadMore() {
+    if (!cursor) return;
+    setLoadingMore(true);
+    try {
+      const json = await fetchPage(cursor);
+      if (!json) return;
+      setRuns((prev) => [...prev, ...json.runs]);
+      setEvents((prev) => [...prev, ...json.events]);
+      setCursor(json.next_cursor);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("loadError"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function toggle(runId: string) {
     setExpanded((prev) => {
@@ -190,6 +159,32 @@ export default function FlowRunsPage() {
         {t("description")}
       </p>
 
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+        <select
+          aria-label={t("filterStatus")}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="h-8 rounded-md border border-border bg-muted px-2"
+        >
+          <option value="">{t("filterAllStatuses")}</option>
+          {RUN_STATUSES.map((s) => (
+            <option key={s} value={s}>{t(runStatusKey(s))}</option>
+          ))}
+        </select>
+        <select
+          aria-label={t("filterVersion")}
+          value={versionFilter}
+          onChange={(e) => setVersionFilter(e.target.value)}
+          className="h-8 rounded-md border border-border bg-muted px-2"
+        >
+          <option value="">{t("filterAllVersions")}</option>
+          {versions.map((v) => (
+            <option key={v.id} value={v.id}>{t("versionLabel", { version: v.version })}</option>
+          ))}
+          <option value="none">{t("filterUnversioned")}</option>
+        </select>
+      </div>
+
       {runs.length === 0 ? (
         <div className="mt-6 rounded-lg border border-dashed border-border bg-card/50 px-6 py-12 text-center text-sm text-muted-foreground">
           {t("emptyState")}
@@ -203,9 +198,21 @@ export default function FlowRunsPage() {
               events={events.filter((e) => e.flow_run_id === run.id)}
               expanded={expanded.has(run.id)}
               onToggle={() => toggle(run.id)}
+              detailHref={`/flows/${flow.id}/runs/${run.id}`}
               t={t}
             />
           ))}
+          {cursor && (
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="mx-auto mt-2 inline-flex items-center gap-1 text-xs text-primary hover:opacity-80 disabled:opacity-50"
+            >
+              {loadingMore && <Loader2 className="h-3 w-3 animate-spin" />}
+              {t("loadMore")}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -217,12 +224,14 @@ function RunCard({
   events,
   expanded,
   onToggle,
+  detailHref,
   t,
 }: {
   run: RunRow;
   events: EventRow[];
   expanded: boolean;
   onToggle: () => void;
+  detailHref: string;
   t: ReturnType<typeof useTranslations>;
 }) {
   const meta = STATUS_META[run.status] ?? STATUS_META.failed;
@@ -249,22 +258,11 @@ function RunCard({
             </span>
             <Badge variant="outline" className={cn("gap-1", meta.classes)}>
               <StatusIcon className="h-3 w-3" />
-              {t(
-                run.status === "active"
-                  ? "statusActive"
-                  : run.status === "completed"
-                  ? "statusCompleted"
-                  : run.status === "handed_off"
-                  ? "statusHandedOff"
-                  : run.status === "timed_out"
-                  ? "statusTimedOut"
-                  : run.status === "paused_by_agent"
-                  ? "statusPaused"
-                  : run.status === "cancelled"
-                  ? "statusCancelled"
-                  : "statusFailed"
-              )}
+              {t(runStatusKey(run.status))}
             </Badge>
+            <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {run.version ? t("versionLabel", { version: run.version }) : t("unversioned")}
+            </span>
             {run.status === "active" && run.current_node_key && (
               <code className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {t("atNode", { node: run.current_node_key })}
@@ -282,6 +280,10 @@ function RunCard({
       </button>
       {expanded && (
         <div className="border-t border-border px-4 py-3">
+          <Link href={detailHref} className="mb-2 inline-flex items-center gap-1 text-xs text-primary hover:opacity-80">
+            <ExternalLink className="h-3 w-3" />
+            {t("openDetails")}
+          </Link>
           {Object.keys(run.vars).length > 0 && (
             <details className="mb-3">
               <summary className="cursor-pointer text-xs text-muted-foreground">
@@ -305,55 +307,4 @@ function RunCard({
       )}
     </div>
   );
-}
-
-const EVENT_COLOR: Record<string, string> = {
-  started: "text-emerald-300",
-  node_entered: "text-muted-foreground",
-  message_sent: "text-sky-300",
-  reply_received: "text-primary",
-  fallback_fired: "text-amber-300",
-  handoff: "text-amber-300",
-  timeout: "text-muted-foreground",
-  error: "text-red-300",
-  completed: "text-emerald-300",
-  delay_scheduled: "text-sky-300",
-  input_invalid: "text-amber-300",
-  attribute_set: "text-muted-foreground",
-};
-
-function EventLine({ ev }: { ev: EventRow }) {
-  const cls = EVENT_COLOR[ev.event_type] ?? "text-muted-foreground";
-  return (
-    <div className="flex items-start gap-2 rounded-md px-2 py-1 text-xs">
-      <span className="w-32 shrink-0 text-[10px] text-muted-foreground">
-        {format(new Date(ev.created_at), "HH:mm:ss")}
-      </span>
-      <span className={cn("w-32 shrink-0 font-mono text-[10px]", cls)}>
-        {ev.event_type}
-      </span>
-      {ev.node_key && (
-        <code className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
-          {ev.node_key}
-        </code>
-      )}
-      {Object.keys(ev.payload).length > 0 && (
-        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
-          {summarizePayload(ev.payload)}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function summarizePayload(payload: Record<string, unknown>): string {
-  // Show the keys that matter most to a human debugger; full JSON is
-  // available via the "Captured vars" details panel for the run.
-  const keys = ["reply_id", "captured_key", "reason", "advancing_to"];
-  for (const k of keys) {
-    if (k in payload && payload[k] !== null && payload[k] !== undefined) {
-      return `${k}=${String(payload[k]).slice(0, 80)}`;
-    }
-  }
-  return "";
 }

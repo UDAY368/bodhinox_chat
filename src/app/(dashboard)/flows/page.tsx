@@ -52,7 +52,7 @@ interface FlowRow {
   user_id: string;
   name: string;
   description: string | null;
-  status: "draft" | "active" | "archived";
+  status: "draft" | "active" | "paused" | "archived";
   trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
   trigger_config: { keywords?: string[] } | Record<string, unknown>;
   execution_count: number;
@@ -65,18 +65,20 @@ interface FlowRow {
 const STATUS_LABELS = (t: ReturnType<typeof useTranslations>): Record<FlowRow["status"], string> => ({
   draft: t("statusDraft"),
   active: t("statusActive"),
+  paused: t("statusPaused"),
   archived: t("statusArchived"),
 });
 
 const STATUS_COLORS: Record<FlowRow["status"], string> = {
   draft: "border-border bg-muted text-muted-foreground",
   active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
+  paused: "border-sky-600/40 bg-sky-500/10 text-sky-300",
   archived: "border-border bg-muted/50 text-muted-foreground",
 };
 
 /** "testing" is a draft with test numbers — the same split the status badge shows. */
-type StatusFilter = "all" | "active" | "draft" | "testing" | "archived";
-const STATUS_FILTERS: StatusFilter[] = ["all", "active", "draft", "testing", "archived"];
+type StatusFilter = "all" | "active" | "paused" | "draft" | "testing" | "archived";
+const STATUS_FILTERS: StatusFilter[] = ["all", "active", "paused", "draft", "testing", "archived"];
 
 function displayStatus(flow: FlowRow): Exclude<StatusFilter, "all"> {
   return flow.status === "draft" && (flow.test_numbers ?? []).length > 0 ? "testing" : flow.status;
@@ -234,6 +236,12 @@ export default function FlowsPage() {
     if (!yes) return;
     try {
       const res = await authFetch(`/api/flows/${flow.id}`, { method: "DELETE" });
+      if (res.status === 409) {
+        // A published flow is archived (with no runs in progress) before it can be deleted.
+        const json = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(json?.error ?? t("deleteError"));
+        return;
+      }
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
       setFlows((prev) => prev.filter((f) => f.id !== flow.id));
       toast.success(t("deleteSuccess"));

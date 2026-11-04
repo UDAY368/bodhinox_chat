@@ -189,6 +189,10 @@ function StatusChip({ status }: { status: BuilderState["status"] }) {
       cls: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
       label: t("statusActive"),
     },
+    paused: {
+      cls: "border-sky-600/40 bg-sky-500/10 text-sky-300",
+      label: t("statusPaused"),
+    },
     archived: {
       cls: "border-border bg-muted/50 text-muted-foreground",
       label: t("statusArchived"),

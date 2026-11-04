@@ -9,6 +9,10 @@ vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: async (_a: string, key: st
 
 const h = vi.hoisted(() => ({
   dispatches: new Map<string, Promise<unknown>>(),
+  /** flow_versions rows (Phase 12), read by the engine through lib/flows/versions. */
+  versions: [] as Record<string, unknown>[],
+  /** Runs just before a version is returned: lets a test move the run meanwhile. */
+  onVersionLoad: null as null | (() => void),
   tables: {} as Record<string, Record<string, unknown>[]>,
   sendText: vi.fn(async () => ({ whatsapp_message_id: "wamid.text" })),
   sendButtons: vi.fn(async () => ({ whatsapp_message_id: "wamid.buttons" })),
@@ -17,6 +21,20 @@ const h = vi.hoisted(() => ({
 vi.mock("./admin-client", async () => {
   const { createFakeDb } = await import("./fake-db.test-helper");
   return { databaseAdmin: () => createFakeDb(h.tables as FakeTables) };
+});
+
+vi.mock("./versions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./versions")>();
+  const find = (id: string) => structuredClone(h.versions.find((v) => v.id === id) ?? null) as never;
+  return {
+    ...actual,
+    loadVersion: async (_account: string, id: string) => {
+      h.onVersionLoad?.();
+      return find(id);
+    },
+    loadPublishedVersions: async (_account: string, ids: string[]) =>
+      new Map(ids.map((id) => [id, find(id)] as [string, unknown]).filter(([, v]) => v)),
+  };
 });
 
 vi.mock("./meta-send", () => ({
@@ -139,6 +157,8 @@ function setup(flowStatus: string, runOverrides: Record<string, unknown> = {}, o
 
 beforeEach(() => {
   h.dispatches.clear();
+  h.versions = [];
+  h.onVersionLoad = null;
   h.sendText.mockClear();
   h.sendButtons.mockClear();
 });
@@ -276,4 +296,110 @@ it('keeps reprompt sends distinct from the original prompt', async () => {
   await dispatch(tap('m-1'));
   await dispatch({ kind: 'text', text: 'unknown', meta_message_id: 'm-2' });
   expect(h.sendButtons).toHaveBeenCalledTimes(2);
+});
+
+// ============================================================
+// Phase 12: runs pinned to a published version
+// ============================================================
+
+/** Version 1 of the menu flow: menu -> thanks -> done (what was published). */
+function menuVersion(id = "ver-1") {
+  return {
+    id, account_id: "acct-1", flow_id: "flow-menu", version: 1,
+    trigger_type: "keyword", trigger_config: { keywords: ["menu"] }, entry_node_id: "menu",
+    fallback_policy: { on_timeout_hours: 24 }, channel_scope: "whatsapp", published_by: "u-1", published_at: "2026-11-01T00:00:00Z",
+    nodes: structuredClone(NODES.filter((n) => n.flow_id === "flow-menu")).map((n) => ({ node_key: n.node_key, node_type: n.node_type, config: n.config })),
+  };
+}
+
+describe("closureForActiveRun with versions", () => {
+  const now = new Date("2026-10-16T12:00:00Z");
+  const keys = new Set(["menu"]);
+  const run = (pinned: boolean) => ({ current_node_key: "menu", last_advanced_at: "2026-10-16T11:00:00Z", flow_version_id: pinned ? "ver-1" : null });
+  const flow = (status: "draft" | "active" | "paused" | "archived") => ({ status, fallback_policy: menuFlow(status).fallback_policy as never });
+
+  it("lets a pinned run finish on an active or paused flow, and ends it when the flow is archived", () => {
+    expect(closureForActiveRun({ run: run(true), flow: flow("active"), nodeKeys: keys, now })).toBeNull();
+    expect(closureForActiveRun({ run: run(true), flow: flow("paused"), nodeKeys: keys, now })).toBeNull();
+    expect(closureForActiveRun({ run: run(true), flow: flow("archived"), nodeKeys: keys, now })).toEqual({ kind: "cancel", reason: "flow_archived" });
+  });
+
+  it("keeps the pre-versioning rule for an unpinned run", () => {
+    expect(closureForActiveRun({ run: run(false), flow: flow("active"), nodeKeys: keys, now })).toBeNull();
+    for (const status of ["paused", "draft", "archived"] as const) {
+      expect(closureForActiveRun({ run: run(false), flow: flow(status), nodeKeys: keys, now })).toEqual({ kind: "cancel", reason: "flow_not_active" });
+    }
+    expect(closureForActiveRun({ run: run(false), flow: flow("draft"), nodeKeys: keys, now, testContact: true })).toBeNull();
+  });
+});
+
+describe("dispatchInboundToFlows on published versions", () => {
+  function setupPinned(flowStatus: string) {
+    setup(flowStatus, { flow_version_id: "ver-1" });
+    Object.assign(h.tables.flows[0], { published_version_id: "ver-1" });
+    h.versions = [menuVersion()];
+    // The draft has moved on since v1: its menu step is gone.
+    h.tables.flow_nodes = h.tables.flow_nodes.filter((n) => n.flow_id !== "flow-menu" || n.node_key === "done");
+  }
+
+  it("continues a pinned run on its version after the draft dropped the step it waits at", async () => {
+    setupPinned("active");
+    const result = await dispatch(tap("m-1"));
+    expect(result).toMatchObject({ consumed: true, outcome: "completed" });
+    expect(h.sendText).toHaveBeenCalledTimes(1);
+    expect(run("run-1")).toMatchObject({ status: "completed", transition_seq: 1 });
+  });
+
+  it("lets a pinned run finish while its flow is paused", async () => {
+    setupPinned("paused");
+    expect(await dispatch(tap("m-1"))).toMatchObject({ outcome: "completed" });
+    expect(run("run-1").status).toBe("completed");
+  });
+
+  it("ends a pinned run of an archived flow", async () => {
+    setupPinned("archived");
+    await dispatch(tap("m-1"));
+    expect(run("run-1")).toMatchObject({ status: "cancelled", end_reason: "flow_archived" });
+    expect(h.sendText).not.toHaveBeenCalled();
+  });
+
+  it("loses the race cleanly when the run is moved to another version meanwhile", async () => {
+    setupPinned("active");
+    // A member migrates the run while this reply is being handled.
+    h.onVersionLoad = () => { run("run-1").flow_version_id = "ver-2"; };
+    const result = await dispatch(tap("m-1"));
+    expect(result).toMatchObject({ outcome: "duplicate_inbound_ignored" });
+    expect(h.sendText).not.toHaveBeenCalled();
+    expect(run("run-1")).toMatchObject({ status: "active", current_node_key: "menu", transition_seq: 0 });
+  });
+
+  it("starts a new run on the published trigger and graph, pinned to that version", async () => {
+    setup("active");
+    h.tables.flow_runs = [];
+    Object.assign(h.tables.flows[0], { published_version_id: "ver-1", trigger_type: "manual", entry_node_id: "nowhere" });
+    h.versions = [menuVersion()];
+    const result = await dispatch({ kind: "text", text: "menu please", meta_message_id: "m-menu" });
+    expect(result).toMatchObject({ consumed: true, outcome: "started" });
+    expect(h.tables.flow_runs).toHaveLength(1);
+    expect(h.tables.flow_runs[0]).toMatchObject({ flow_id: "flow-menu", flow_version_id: "ver-1", current_node_key: "menu" });
+    expect(h.sendButtons).toHaveBeenCalledTimes(1);
+  });
+
+  it("never starts a paused flow, even when its published trigger matches", async () => {
+    setup("paused");
+    h.tables.flow_runs = [];
+    Object.assign(h.tables.flows[0], { published_version_id: "ver-1" });
+    h.versions = [menuVersion()];
+    expect(await dispatch({ kind: "text", text: "menu", meta_message_id: "m-menu" })).toEqual({ consumed: false, outcome: "no_match" });
+    expect(h.tables.flow_runs).toHaveLength(0);
+  });
+
+  it("still runs an active flow that has no version yet on its draft, unpinned", async () => {
+    setup("active");
+    h.tables.flow_runs = [];
+    const result = await dispatch(hi);
+    expect(result).toMatchObject({ consumed: true, outcome: "completed" });
+    expect(h.tables.flow_runs[0]).toMatchObject({ flow_id: "flow-greet" });
+    expect(h.tables.flow_runs[0].flow_version_id).toBeUndefined();
+  });
 });

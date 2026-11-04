@@ -35,6 +35,22 @@ import { fillWorkspace, workspaceValuesFor } from '@/lib/workspace/attributes'
 import { getT } from '@/lib/i18n/translate'
 import { ContactConversationLookupError, pickContactConversationId } from '@/lib/whatsapp/contact-conversation'
 import { assertWhatsAppConversation } from '@/lib/whatsapp/numbers'
+import { safeFetch } from '@/lib/webhooks/safe-fetch'
+import { jsonEscape } from '@/lib/flows/api-request'
+import { notifyAutomationNotice } from '@/lib/notifications/emit'
+import { NOTIFY_TEXT_MAX, webhookHeaderProblem } from './validate'
+
+/** notify_team step config (Phase 12). */
+interface NotifyTeamStepConfig {
+  audience?: 'assignee' | 'admins'
+  text?: string
+}
+
+/** What a send_webhook dispatch records: an HTTP status, or a definite local refusal. Never the body. */
+type WebhookOutcome = { status: number } | { refused: 'blocked' | 'invalid_url' | 'too_large' }
+
+/** A network error or timeout: the receiver may or may not have the POST. */
+class WebhookOutcomeUnknown extends Error {}
 
 /** Step errors land in automation_logs and are shown on the logs page. */
 const tErr = getT('LibErrors.engine')
@@ -996,20 +1012,86 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       }
       // Secret workspace attributes (API keys) resolve only here, never in customer messages.
       const ws = await workspaceValuesFor(args.automation.account_id, JSON.stringify([cfg.body_template, cfg.headers]), { secrets: true })
-      const body = cfg.body_template ? interpolate(cfg.body_template, args, ws) : JSON.stringify(args.context)
-      const headers = Object.fromEntries(Object.entries(cfg.headers ?? {}).map(([name, value]) => [name, fillWorkspace(String(value), ws)]))
-      const res = await fetch(cfg.url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...headers },
-        body,
-        // Do NOT follow redirects — a public URL could 3xx-bounce to an
-        // internal address, defeating the guard above. Bound the request
-        // so a hung/slow internal host can't tie up the runner.
-        redirect: 'manual',
-        signal: AbortSignal.timeout(10_000),
+      // Filled values are JSON-escaped, so a customer's text cannot add keys or break the document.
+      const body = cfg.body_template ? interpolate(cfg.body_template, args, ws, jsonEscape) : JSON.stringify(args.context)
+      if (cfg.body_template) {
+        try { JSON.parse(body) } catch { throw new Error(tErr('webhookInvalidBody')) }
+      }
+      const headers: Record<string, string> = { 'content-type': 'application/json' }
+      for (const [name, value] of Object.entries(cfg.headers ?? {})) {
+        const filled = fillWorkspace(String(value), ws)
+        if (webhookHeaderProblem(name, filled)) throw new Error(tErr('webhookInvalidHeader'))
+        headers[name.toLowerCase()] = filled
+      }
+      // safeFetch dials only the address it checked (no DNS rebinding), never
+      // follows redirects, and caps time and size. The intent makes a retry of
+      // this step return the recorded outcome instead of POSTing again; a
+      // network error or timeout stays 'unknown' and is never re-sent.
+      let outcome: WebhookOutcome
+      try {
+        outcome = await dispatchOnce<WebhookOutcome>(args.automation.account_id, `auto-webhook:${args.logId}:${step.id}`, async () => {
+          // The reply body is not used: judge the POST on its status only.
+          const res = await safeFetch(cfg.url, { method: 'POST', headers, body }, { discardBody: true })
+          if (res.ok) return { status: res.status }
+          if (res.error === 'timeout' || res.error === 'network') throw new WebhookOutcomeUnknown()
+          return { refused: res.error }
+        })
+      } catch (err) {
+        if (err instanceof WebhookOutcomeUnknown || (err instanceof Error && err.name === 'UncertainDispatchError')) {
+          throw new Error(tErr('webhookUncertain'))
+        }
+        throw err
+      }
+      if ('refused' in outcome) {
+        throw new Error(outcome.refused === 'blocked' ? tErr('destinationNotAllowed') : tErr('webhookRefused'))
+      }
+      if (outcome.status < 200 || outcome.status >= 300) throw new Error(tErr('webhookStatus', { status: String(outcome.status) }))
+      return `webhook ${outcome.status}`
+    }
+
+    case 'notify_team': {
+      const cfg = step.step_config as unknown as NotifyTeamStepConfig
+      const audience = cfg.audience === 'admins' ? 'admins' : cfg.audience === 'assignee' ? 'assignee' : null
+      if (!audience || typeof cfg.text !== 'string' || !cfg.text.trim()) throw new Error(tErr('notifyInvalid'))
+      let contactName = ''
+      if (args.contactId) {
+        const { data } = await db
+          .from('contacts')
+          .select('name')
+          .eq('id', args.contactId)
+          .eq('account_id', args.automation.account_id)
+          .maybeSingle()
+        contactName = String((data as { name?: string | null } | null)?.name ?? '')
+      }
+      // Only these two names are ever filled in: a notice never carries message content.
+      const title = cfg.text.slice(0, NOTIFY_TEXT_MAX).replace(/\{\{\s*(contact\.name|automation\.name)\s*\}\}/g, (_, key: string) =>
+        key === 'contact.name' ? contactName : String(args.automation.name ?? '')
+      ).replace(/\{\{[^}]*\}\}/g, '')
+      // The notice links the triggering conversation (any channel, verified in this
+      // account), else the contact's default one; the assignee audience needs it.
+      let conversationId: string | null = null
+      if (args.context.conversation_id) {
+        const { data } = await db
+          .from('conversations')
+          .select('id')
+          .eq('id', args.context.conversation_id)
+          .eq('account_id', args.automation.account_id)
+          .maybeSingle()
+        conversationId = (data as { id?: string } | null)?.id ?? null
+      } else if (args.contactId) {
+        conversationId = (await pickContactConversationId(db, args.automation.account_id, args.contactId).catch(() => undefined)) ?? null
+      }
+      if (audience === 'assignee' && !conversationId) return 'no conversation to notify about'
+      const notified = await notifyAutomationNotice({
+        accountId: args.automation.account_id,
+        automationId: args.automation.id,
+        audience,
+        title: title.trim() || String(args.automation.name ?? ''),
+        conversationId,
+        contactId: args.contactId,
+        dedupeKey: `automation-notice:${args.logId}:${step.id}`,
       })
-      if (!res.ok) throw new Error(tErr('webhookStatus', { status: String(res.status) }))
-      return `webhook ${res.status}`
+      return `team notified (${notified.length})`
     }
 
     case 'close_conversation': {
@@ -1231,12 +1313,17 @@ function waitMs(cfg: WaitStepConfig): number {
   return Math.max(1_000, cfg.amount * unitMs)
 }
 
-function interpolate(s: string, args: ExecuteArgs, workspace: Record<string, string> = {}): string {
+function interpolate(
+  s: string,
+  args: ExecuteArgs,
+  workspace: Record<string, string> = {},
+  escape: (value: string) => string = (value) => value
+): string {
   return s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
     const [ns, prop] = String(key).split('.')
-    if (ns === 'message' && prop === 'text') return String(args.context.message_text ?? '')
-    if (ns === 'vars' && prop) return String(args.context.vars?.[prop] ?? '')
-    if (ns === 'workspace' && prop && Object.hasOwn(workspace, prop)) return workspace[prop]
+    if (ns === 'message' && prop === 'text') return escape(String(args.context.message_text ?? ''))
+    if (ns === 'vars' && prop) return escape(String(args.context.vars?.[prop] ?? ''))
+    if (ns === 'workspace' && prop && Object.hasOwn(workspace, prop)) return escape(workspace[prop])
     return ''
   })
 }

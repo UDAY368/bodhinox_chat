@@ -245,6 +245,7 @@ export const NOTIFICATION_TYPES = [
   'appointment_booked',
   'appointment_cancelled',
   'appointment_rescheduled',
+  'automation_notice',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -621,7 +622,9 @@ export type AutomationStepType =
   | 'wait'
   | 'condition'
   | 'send_webhook'
-  | 'close_conversation';
+  | 'close_conversation'
+  /** Phase 12: an in-app notice to the assignee or the admins (no message content). */
+  | 'notify_team';
 
 export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 

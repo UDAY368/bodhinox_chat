@@ -99,6 +99,24 @@ describe('analytics SQL shape', () => {
     expect(last().values).toContain(OTHER);
   });
 
+  it('compares 2 to 5 named campaigns, deduplicated, and refuses anything else', async () => {
+    await campaignFunnel(tx, ACCOUNT, { ids: [OTHER, ACCOUNT, OTHER.toUpperCase()] });
+    expect(squash(last().text)).toMatch(/account_id=\$\d+::uuid AND id = ANY\(\$\d+::uuid\[\]\)/);
+    expect(last().values).toContainEqual([OTHER, ACCOUNT]);
+    for (const ids of [[OTHER], [OTHER, OTHER], [OTHER, 'nope'], ['1', '2', '3', '4', '5', '6'],
+      Array.from({ length: 6 }, (_, i) => `33333333-3333-4333-8333-33333333333${i}`)])
+      await expect(campaignFunnel(tx, ACCOUNT, { ids })).rejects.toBeInstanceOf(AnalyticsInputError);
+  });
+
+  it('labels drop-off nodes from the run version, then the draft, one row per node key', async () => {
+    await flowStats(tx, ACCOUNT, range);
+    const sql = squash(last().text);
+    expect(sql).toContain('SELECT id, flow_id, flow_version_id, status, current_node_key FROM flow_runs');
+    expect(sql).toMatch(/FROM flow_versions v CROSS JOIN LATERAL jsonb_array_elements\(v\.nodes\) x WHERE v\.account_id=\$\d+::uuid AND v\.flow_id=s\.flow_id AND v\.id=s\.flow_version_id/);
+    expect(sql).toMatch(/\), n\.node_type\) AS node_type FROM stopped s LEFT JOIN flow_nodes n/);
+    expect(sql).toContain('FROM typed GROUP BY flow_id, node_key');
+  });
+
   it('counts a campaign reply only on the number the campaign was sent from', async () => {
     const defaultNumber = /dn AS \( SELECT CASE WHEN bool_or\(w\.is_default\) OR count\(\*\)=1 THEN .* FROM whatsapp_config w WHERE w\.account_id=\$\d+::uuid\)/;
     await campaignFunnel(tx, ACCOUNT, { range });

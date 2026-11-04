@@ -1,12 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { retryDecision } from './retry';
+import { assertLiveEffects } from '@/lib/runtime/dry-run-guard';
 
 export interface Job { id: string; type: string; tenant_id: string | null; payload: Record<string, unknown>; attempts: number; max_attempts: number; lease_token: string }
 export interface JobOptions { tenantId?: string; runAt?: Date; dedupeKey?: string; maxAttempts?: number; requeueCompleted?: boolean }
 const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigger', 'broadcast.dispatch', 'webhook.delivery', 'automation.resume', 'automation.schedule', 'flow.sweep', 'flow.timer', 'whatsapp.health_sync', 'inbox.notification_digest', 'whatsapp.status_retry',
-  'instagram.token_sweep', 'instagram.profile_fetch', 'instagram.private_reply']);
+  'instagram.token_sweep', 'instagram.profile_fetch', 'instagram.private_reply',
+  // Phase 12: replay of a failed flow run, and due scheduled reports per workspace.
+  'flow.replay', 'analytics.report_schedules']);
 export async function enqueueJob(type: string, payload: Record<string, unknown>, options: JobOptions = {}): Promise<string> {
+  assertLiveEffects('job');
   if (!types.has(type) || JSON.stringify(payload).length > 2 * 1024 * 1024) throw new Error('Invalid job contract');
   const rows = await getWorkerPrisma().$queryRaw<{ id: string }[]>`
     INSERT INTO jobs(type,tenant_id,payload,dedupe_key,run_at,max_attempts)

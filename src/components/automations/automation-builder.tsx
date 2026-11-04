@@ -40,6 +40,7 @@ import {
   ArrowUp,
   MousePointerClick,
   List,
+  Bell,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -170,6 +171,7 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     icon: CircleSlash,
     border: 'border-l-primary',
   },
+  notify_team: { label: 'notify_team', icon: Bell, border: 'border-l-primary' },
 };
 
 const ADDABLE_STEPS: AutomationStepType[] = [
@@ -186,6 +188,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   'condition',
   'send_webhook',
   'close_conversation',
+  'notify_team',
 ];
 
 const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
@@ -255,6 +258,8 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { url: '', headers: {}, body_template: '' };
     case 'close_conversation':
       return {};
+    case 'notify_team':
+      return { audience: 'assignee', text: '' };
     default:
       return {};
   }
@@ -270,7 +275,13 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
 // an older deployment), so an automation is always authorable.
 // ------------------------------------------------------------
 
+interface SegmentOption {
+  id: string;
+  name: string;
+}
+
 interface AutomationResources {
+  segments: SegmentOption[];
   tags: TagRecord[];
   members: AccountMember[];
   templates: MessageTemplate[];
@@ -292,6 +303,7 @@ interface PipelineStageOption {
 }
 
 const ResourcesContext = createContext<AutomationResources>({
+  segments: [],
   tags: [],
   members: [],
   templates: [],
@@ -311,6 +323,7 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [stages, setStages] = useState<PipelineStageOption[]>([]);
+  const [segments, setSegments] = useState<SegmentOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -368,6 +381,18 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
       }
     })();
 
+    // Saved segments for a scheduled audience (any member may list them).
+    void (async () => {
+      try {
+        const res = await authFetch('/api/segments', { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = (await res.json()) as { segments?: SegmentOption[] };
+        if (!cancelled) setSegments(json.segments ?? []);
+      } catch {
+        // No segments: the option lists none.
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -375,7 +400,7 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
 
   return (
     <ResourcesContext.Provider
-      value={{ tags, members, templates, customFields, pipelines, stages }}
+      value={{ segments, tags, members, templates, customFields, pipelines, stages }}
     >
       {children}
     </ResourcesContext.Provider>
@@ -1034,7 +1059,8 @@ function ScheduledRecipients({
   config: Record<string, unknown>;
   onChange: (config: Record<string, unknown>) => void;
 }) {
-  const { tags, customFields } = useResources();
+  const { tags, customFields, segments } = useResources();
+  const t = useTranslations('Automations.builder.recipients');
   const audience = config.audience as ScheduledAudience | undefined;
   const update = (next: ScheduledAudience | undefined) =>
     onChange({ ...config, audience: next });
@@ -1057,7 +1083,9 @@ function ScheduledRecipients({
                         type: 'custom_field',
                         customField: { fieldId: '', operator: 'is', value: '' },
                       }
-                    : { type: 'all' }
+                    : type === 'segment'
+                      ? { type: 'segment', segmentId: '' }
+                      : { type: 'all' }
             );
           }}
         >
@@ -1065,8 +1093,50 @@ function ScheduledRecipients({
           <option value="all">All contacts</option>
           <option value="tags">Contacts with selected tags</option>
           <option value="custom_field">Contacts matching a custom field</option>
+          <option value="segment">{t('segment')}</option>
         </select>
       </label>
+      {audience?.type === 'segment' && (
+        <div className="space-y-1">
+          <select
+            aria-label={t('segmentLabel')}
+            className={SELECT_CLASS}
+            value={audience.segmentId ?? ''}
+            onChange={(event) =>
+              update({ type: 'segment', segmentId: event.target.value })
+            }
+          >
+            <option value="">{t('segmentChoose')}</option>
+            {segments.map((segment) => (
+              <option value={segment.id} key={segment.id}>
+                {segment.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-muted-foreground text-[11px]">
+            {segments.length ? t('segmentHint') : t('segmentNone')}
+          </p>
+        </div>
+      )}
+      {audience && (
+        <label className="text-muted-foreground flex items-start gap-2 text-xs">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={config.once_per_contact === true}
+            onChange={(event) =>
+              onChange({
+                ...config,
+                once_per_contact: event.target.checked || undefined,
+              })
+            }
+          />
+          <span>
+            {t('oncePerContact')}
+            <span className="block text-[11px]">{t('oncePerContactHint')}</span>
+          </span>
+        </label>
+      )}
       {audience?.type === 'tags' && (
         <fieldset className="max-h-40 space-y-1 overflow-auto rounded border p-2 text-xs">
           <legend className="px-1">Match any selected tag</legend>
@@ -1907,6 +1977,36 @@ function StepEditor({
               onChange={(e) => set({ body_template: e.target.value })}
               className="bg-muted text-foreground min-h-20 font-mono text-xs"
             />
+            <p className="text-muted-foreground mt-1 text-[11px]">
+              {t('config.bodyTemplateHint', { example: '{"text": "{{message.text}}"}' })}
+            </p>
+          </FieldBlock>
+        </>
+      );
+    case 'notify_team':
+      return (
+        <>
+          <FieldBlock label={t('config.notifyAudienceLabel')}>
+            <select
+              className={SELECT_CLASS}
+              value={(cfg.audience as string) ?? 'assignee'}
+              onChange={(e) => set({ audience: e.target.value })}
+            >
+              <option value="assignee">{t('config.notifyAssignee')}</option>
+              <option value="admins">{t('config.notifyAdmins')}</option>
+            </select>
+          </FieldBlock>
+          <FieldBlock label={t('config.notifyTextLabel')}>
+            <Textarea
+              value={(cfg.text as string) ?? ''}
+              maxLength={200}
+              onChange={(e) => set({ text: e.target.value })}
+              placeholder={t('config.notifyTextPlaceholder', { name: '{{contact.name}}' })}
+              className="bg-muted text-foreground min-h-16"
+            />
+            <p className="text-muted-foreground mt-1 text-[11px]">
+              {t('config.notifyTextHint', { contact: '{{contact.name}}', automation: '{{automation.name}}' })}
+            </p>
           </FieldBlock>
         </>
       );
@@ -1978,6 +2078,8 @@ function previewFor(
       });
     case 'send_webhook':
       return (step.step_config.url as string) || t('preview.noUrl');
+    case 'notify_team':
+      return (step.step_config.text as string) || t('preview.noText');
     default:
       return '';
   }

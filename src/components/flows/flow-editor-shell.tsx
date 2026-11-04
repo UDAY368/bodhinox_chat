@@ -27,7 +27,7 @@
 import { useEffect, useState } from "react";
 import { GitFork, List, Smartphone } from "lucide-react";
 
-import { FlowBuilder } from "./flow-builder";
+import { FlowBuilder, FlowVersionBar } from "./flow-builder";
 import { FlowCanvas } from "./flow-canvas";
 import { FlowEditorProvider } from "./flow-editor-state";
 import { EditorHeader } from "./header";
@@ -58,9 +58,10 @@ const STORAGE_KEY = "wacrm.flowEditor.view";
 interface Props {
   initialFlow: FlowRow;
   initialNodes: FlowNodeRow[];
+  initialDraftHash?: string | null;
 }
 
-export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
+export function FlowEditorShell({ initialFlow, initialNodes, initialDraftHash = null }: Props) {
   const t = useTranslations("Flows.builder");
 
   // Read the persisted choice in the useState initializer. Safe even
@@ -97,9 +98,10 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
   };
 
   return (
-    <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes}>
+    <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes} initialDraftHash={initialDraftHash}>
       <div className="flow-studio flex h-full min-h-0 flex-col">
         <EditorHeader />
+        <FlowVersionBar />
 
         {/* ---- mode row: view toggle + node-type legend ----
             Omitted entirely on mobile (canvas is unavailable there and

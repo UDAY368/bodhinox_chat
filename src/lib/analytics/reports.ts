@@ -1,11 +1,15 @@
-// Downloadable analytics reports (CSV).
+// Downloadable analytics reports (CSV or PDF).
 //
 // Flow: an admin or owner requests a report (requestReport). The report_runs
 // row and its 'analytics.report' job commit in one transaction before the
 // request is acknowledged. The worker (runReportJob) builds the CSV, stores it
 // privately (report-storage.ts), marks the row ready and, when asked, emails
 // the requester a link to the download route, which requires sign-in. Every
-// download is audit-logged (openReportDownload). Reports expire 30 days after
+// download is audit-logged (openReportDownload). Scheduled runs
+// (report-schedules.ts) email each of the schedule's current recipients who is
+// still an admin or owner of the workspace when the file is ready, once each.
+// PDF files are rendered by report-pdf.ts (pdf-lib, no browser); CSV is the
+// lossless format. Reports expire 30 days after
 // the request; the hourly 'analytics.report_sweep' deletes the file and marks
 // the row expired, and fails requests stuck for six hours.
 //
@@ -32,13 +36,20 @@ import { csvCell } from '@/lib/audience/export';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { getT } from '@/lib/i18n/translate';
+import { appointmentStats } from '@/lib/appointments/stats';
+import { minorToDecimalString } from '@/lib/commerce/money';
 import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
+import { commerceStats, type CommerceDay } from './commerce';
+import { productStats, type ProductStatsRow } from './products';
 import { AGENT_ATTRIBUTION_CUTOFF } from './queries';
 import { parseRange, workspaceTimezone, type AnalyticsRange, type RangeInput } from './range';
+import { PDF_MAX_ROWS, toPdf } from './report-pdf';
 import { deleteReportFile, putReportFile, reportObjectKey } from './report-storage';
 
-export const REPORT_KINDS = ['campaign_daily', 'campaign_summary', 'member_campaigns', 'agent_performance'] as const;
-export type ReportKind = (typeof REPORT_KINDS)[number];
+import { isReportFormat, isReportKind, type ReportFormat, type ReportKind } from './report-kinds';
+
+export { isReportFormat, isReportKind, KIND_MIN_ROLE, REPORT_FORMATS, REPORT_KINDS } from './report-kinds';
+export type { ReportFormat, ReportKind } from './report-kinds';
 export type ReportStatus = 'queued' | 'running' | 'ready' | 'failed' | 'expired';
 
 export const REPORT_JOB = 'analytics.report';
@@ -57,15 +68,12 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const ADDRESS = /^[^\s@<>",;]{1,64}@[^\s@<>",;]{1,255}$/;
 
 export class ReportError extends Error {
-  constructor(public readonly code: 'invalid_kind' | 'too_many_pending' | 'not_found' | 'not_ready', public readonly status: number) {
+  constructor(public readonly code: 'invalid_kind' | 'invalid_format' | 'too_many_pending' | 'not_found' | 'not_ready', public readonly status: number) {
     super(code);
     this.name = 'ReportError';
   }
 }
 
-export function isReportKind(value: unknown): value is ReportKind {
-  return typeof value === 'string' && (REPORT_KINDS as readonly string[]).includes(value);
-}
 
 export interface ReportParams {
   from: string;
@@ -76,8 +84,11 @@ export interface ReportParams {
 export interface ReportRun {
   id: string;
   kind: ReportKind;
+  format: ReportFormat;
   status: ReportStatus;
   params: ReportParams;
+  /** Produced by a report schedule (emailed to its recipients). */
+  scheduled: boolean;
   requestedBy: { userId: string; name: string | null } | null;
   emailRequested: boolean;
   rowCount: number | null;
@@ -324,15 +335,85 @@ export interface BuiltReport {
   truncated: boolean;
 }
 
-function finish<R>(columns: CsvColumn<R>[], rows: R[]): BuiltReport {
-  const truncated = rows.length > MAX_REPORT_ROWS;
-  const kept = truncated ? rows.slice(0, MAX_REPORT_ROWS) : rows;
-  return { bytes: toCsv(columns, kept), rowCount: kept.length, truncated };
+/** One report's columns (English labels) and rows, before rendering. */
+export interface ReportTable {
+  columns: CsvColumn<unknown>[];
+  rows: unknown[];
 }
 
-/** Runs one report's query and renders its CSV. Times are local to range.timezone. */
-export async function buildReport(tx: TenantTransaction, accountId: string, kind: ReportKind, range: AnalyticsRange): Promise<BuiltReport> {
+function finish<R>(columns: CsvColumn<R>[], rows: R[]): ReportTable {
+  return { columns: columns as CsvColumn<unknown>[], rows };
+}
+
+const money = (minor: number, currency: string) => {
+  try {
+    return minorToDecimalString(minor, currency);
+  } catch {
+    return String(minor);
+  }
+};
+
+export interface ServiceSummaryRow {
+  serviceId: string;
+  service: string;
+  booked: number;
+  confirmed: number;
+  cancelled: number;
+  completed: number;
+  noShow: number;
+}
+
+/** Appointment counts per service over the range's local days (appointmentStats buckets in each booking's zone). */
+export async function serviceSummaryRows(tx: TenantTransaction, accountId: string, range: AnalyticsRange): Promise<ServiceSummaryRow[]> {
+  const { rows } = await appointmentStats(tx, accountId, { from: range.startDay, to: range.endDay });
+  const byService = new Map<string, ServiceSummaryRow>();
+  for (const r of rows) {
+    const row = byService.get(r.service_id)
+      ?? { serviceId: r.service_id, service: r.service_name, booked: 0, confirmed: 0, cancelled: 0, completed: 0, noShow: 0 };
+    row.booked += r.booked;
+    row.confirmed += r.confirmed;
+    row.cancelled += r.cancelled;
+    row.completed += r.completed;
+    row.noShow += r.no_show;
+    byService.set(r.service_id, row);
+  }
+  return [...byService.values()].sort((a, b) => b.booked - a.booked || a.service.localeCompare(b.service) || a.serviceId.localeCompare(b.serviceId));
+}
+
+/** Runs one report's query. Times are local to range.timezone. */
+export async function reportTable(tx: TenantTransaction, accountId: string, kind: ReportKind, range: AnalyticsRange): Promise<ReportTable> {
   const tz = range.timezone;
+  if (kind === 'product_summary')
+    return finish<ProductStatsRow>([
+      { header: 'product_key', value: (r) => r.key },
+      { header: 'product', value: (r) => r.name },
+      { header: 'currency', value: (r) => r.currency },
+      { header: 'orders', value: (r) => r.orders },
+      { header: 'units', value: (r) => r.units },
+      { header: 'gross', value: (r) => money(r.grossMinor, r.currency) },
+      { header: 'discounts', value: (r) => money(r.discountsMinor, r.currency) },
+      { header: 'refunds', value: (r) => money(r.refundsMinor, r.currency) },
+      { header: 'net', value: (r) => money(r.netMinor, r.currency) },
+    ], await productStats(tx, accountId, range));
+  if (kind === 'service_summary')
+    return finish<ServiceSummaryRow>([
+      { header: 'service_id', value: (r) => r.serviceId },
+      { header: 'service', value: (r) => r.service },
+      { header: 'booked', value: (r) => r.booked },
+      { header: 'confirmed', value: (r) => r.confirmed },
+      { header: 'cancelled', value: (r) => r.cancelled },
+      { header: 'completed', value: (r) => r.completed },
+      { header: 'no_show', value: (r) => r.noShow },
+      { header: 'no_show_rate_pct', value: (r) => rate(r.noShow, r.completed + r.noShow) },
+    ], await serviceSummaryRows(tx, accountId, range));
+  if (kind === 'commerce_daily')
+    return finish<CommerceDay>([
+      { header: `day (${tz})`, value: (r) => r.day },
+      { header: 'currency', value: (r) => r.currency },
+      { header: 'collected', value: (r) => money(r.collectedMinor, r.currency) },
+      { header: 'refunds', value: (r) => money(r.refundsMinor, r.currency) },
+      { header: 'net_collected', value: (r) => money(r.collectedMinor - r.refundsMinor, r.currency) },
+    ], (await commerceStats(tx, accountId, range)).daily);
   if (kind === 'campaign_daily')
     return finish<CampaignDailyRow>([
       { header: `day (${tz})`, value: (r) => r.day },
@@ -375,6 +456,38 @@ export async function buildReport(tx: TenantTransaction, accountId: string, kind
   ], await agentDayRows(tx, accountId, range));
 }
 
+export interface RenderMeta {
+  kind: ReportKind;
+  params: ReportParams;
+  generatedAt?: Date;
+}
+
+/** Renders a table: CSV up to MAX_REPORT_ROWS rows, PDF up to PDF_MAX_ROWS (each flags truncation). */
+export async function renderReport(table: ReportTable, format: ReportFormat, meta: RenderMeta): Promise<BuiltReport> {
+  if (format === 'pdf') {
+    const pdf = await toPdf({
+      title: getT('Analytics.reports')(`kinds.${meta.kind}`),
+      rangeLabel: `${meta.params.from} to ${meta.params.to} (${meta.params.timezone})`,
+      columns: table.columns.map((c) => c.header),
+      rows: table.rows.slice(0, PDF_MAX_ROWS).map((row) => table.columns.map((c) => c.value(row))),
+      timezone: meta.params.timezone,
+      generatedAt: meta.generatedAt,
+      truncated: table.rows.length > PDF_MAX_ROWS,
+    });
+    return { bytes: pdf.bytes, rowCount: pdf.rowCount, truncated: pdf.truncated };
+  }
+  const truncated = table.rows.length > MAX_REPORT_ROWS;
+  const kept = truncated ? table.rows.slice(0, MAX_REPORT_ROWS) : table.rows;
+  return { bytes: toCsv(table.columns, kept), rowCount: kept.length, truncated };
+}
+
+/** Runs one report's query and renders it (CSV unless asked). Times are local to range.timezone. */
+export async function buildReport(tx: TenantTransaction, accountId: string, kind: ReportKind, range: AnalyticsRange,
+  format: ReportFormat = 'csv'): Promise<BuiltReport> {
+  return renderReport(await reportTable(tx, accountId, kind, range), format,
+    { kind, params: { from: range.startDay, to: range.endDay, timezone: range.timezone } });
+}
+
 // ------------------------------------------------------------------ requests (app role)
 
 export interface ReportActor {
@@ -384,18 +497,19 @@ export interface ReportActor {
 }
 
 type RunRow = {
-  id: string; kind: ReportKind; status: ReportStatus; params: ReportParams; requested_by: string | null;
+  id: string; kind: ReportKind; format?: ReportFormat | null; schedule_id?: string | null; status: ReportStatus; params: ReportParams; requested_by: string | null;
   requester_name: string | null; email_requested: boolean; row_count: number | null; truncated: boolean;
   byte_size: bigint | number | null; error: string | null; created_at: Date; finished_at: Date | null; expires_at: Date;
 };
 
-const RUN_COLUMNS = Prisma.sql`r.id::text AS id, r.kind, r.status, r.params, r.requested_by::text AS requested_by,
+const RUN_COLUMNS = Prisma.sql`r.id::text AS id, r.kind, r.format, r.schedule_id::text AS schedule_id, r.status, r.params, r.requested_by::text AS requested_by,
   (SELECT p.full_name FROM profiles p WHERE p.user_id=r.requested_by LIMIT 1) AS requester_name,
   r.email_requested, r.row_count, r.truncated, r.byte_size, r.error, r.created_at, r.finished_at, r.expires_at`;
 
 function toRun(row: RunRow): ReportRun {
   return {
-    id: row.id, kind: row.kind, status: row.status, params: row.params,
+    id: row.id, kind: row.kind, format: row.format === 'pdf' ? 'pdf' : 'csv', status: row.status, params: row.params,
+    scheduled: row.schedule_id != null,
     requestedBy: row.requested_by ? { userId: row.requested_by, name: row.requester_name } : null,
     emailRequested: row.email_requested, rowCount: row.row_count, truncated: row.truncated,
     byteSize: row.byte_size == null ? null : Number(row.byte_size), error: row.error,
@@ -417,10 +531,13 @@ const audit = (tx: TenantTransaction, actor: ReportActor, action: string, report
  * resolved now, in the workspace timezone, so the file covers exactly the days
  * shown when it was requested. Throws AnalyticsRangeError or ReportError.
  */
-export async function requestReport(actor: ReportActor, input: { kind: unknown; range: RangeInput; email?: boolean }): Promise<ReportRun> {
+export async function requestReport(actor: ReportActor,
+  input: { kind: unknown; range: RangeInput; email?: boolean; format?: unknown }): Promise<ReportRun> {
   assertAdmin(actor);
   if (!isReportKind(input.kind)) throw new ReportError('invalid_kind', 400);
+  if (input.format !== undefined && !isReportFormat(input.format)) throw new ReportError('invalid_format', 400);
   const kind = input.kind;
+  const format: ReportFormat = input.format === 'pdf' ? 'pdf' : 'csv';
   return withTenant(actor, async (tx) => {
     const timezone = await workspaceTimezone(tx, actor.accountId);
     const range = parseRange(input.range, timezone);
@@ -429,13 +546,13 @@ export async function requestReport(actor: ReportActor, input: { kind: unknown; 
     const pending = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM report_runs
       WHERE account_id=${actor.accountId}::uuid AND status IN ('queued','running')`;
     if ((pending[0]?.n ?? 0) >= MAX_PENDING_REPORTS) throw new ReportError('too_many_pending', 429);
-    const inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO report_runs(account_id,kind,params,requested_by,email_requested)
-      VALUES(${actor.accountId}::uuid,${kind},${JSON.stringify(params)}::jsonb,${actor.userId}::uuid,${input.email === true})
+    const inserted = await tx.$queryRaw<{ id: string }[]>`INSERT INTO report_runs(account_id,kind,format,params,requested_by,email_requested)
+      VALUES(${actor.accountId}::uuid,${kind},${format},${JSON.stringify(params)}::jsonb,${actor.userId}::uuid,${input.email === true})
       RETURNING id::text AS id`;
     const id = inserted[0].id;
     await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
       VALUES(${REPORT_JOB},${actor.accountId}::uuid,${JSON.stringify({ reportId: id })}::jsonb,${`analytics-report:${id}`},3)`;
-    await audit(tx, actor, 'analytics.report_requested', id, { kind, from: params.from, to: params.to, email: input.email === true });
+    await audit(tx, actor, 'analytics.report_requested', id, { kind, format, from: params.from, to: params.to, email: input.email === true });
     const rows = await tx.$queryRaw<RunRow[]>(Prisma.sql`SELECT ${RUN_COLUMNS} FROM report_runs r
       WHERE r.account_id=${actor.accountId}::uuid AND r.id=${id}::uuid`);
     return toRun(rows[0]);
@@ -451,9 +568,9 @@ export async function listReports(actor: ReportActor, limit = REPORT_LIST_LIMIT)
   return rows.map(toRun);
 }
 
-export function reportFilename(kind: ReportKind, params: ReportParams): string {
+export function reportFilename(kind: ReportKind, params: ReportParams, format: ReportFormat = 'csv'): string {
   const day = (d: string) => (DAY.test(d) ? d : 'range');
-  return `${kind}_${day(params.from)}_${day(params.to)}.csv`;
+  return `${kind}_${day(params.from)}_${day(params.to)}.${format === 'pdf' ? 'pdf' : 'csv'}`;
 }
 
 /**
@@ -461,18 +578,19 @@ export function reportFilename(kind: ReportKind, params: ReportParams): string {
  * the private object key; the caller streams the file. Not ready, failed or
  * expired reports are refused.
  */
-export async function openReportDownload(actor: ReportActor, reportId: string): Promise<{ objectKey: string; filename: string }> {
+export async function openReportDownload(actor: ReportActor, reportId: string): Promise<{ objectKey: string; filename: string; format: ReportFormat }> {
   assertAdmin(actor);
   if (!UUID.test(reportId)) throw new ReportError('not_found', 404);
   return withTenant(actor, async (tx) => {
-    const rows = await tx.$queryRaw<{ kind: ReportKind; status: ReportStatus; params: ReportParams; object_key: string | null; row_count: number | null; live: boolean }[]>`
-      SELECT kind, status, params, object_key, row_count, expires_at > now() AS live FROM report_runs
+    const rows = await tx.$queryRaw<{ kind: ReportKind; format: ReportFormat | null; status: ReportStatus; params: ReportParams; object_key: string | null; row_count: number | null; live: boolean }[]>`
+      SELECT kind, format, status, params, object_key, row_count, expires_at > now() AS live FROM report_runs
       WHERE account_id=${actor.accountId}::uuid AND id=${reportId}::uuid`;
     const row = rows[0];
     if (!row) throw new ReportError('not_found', 404);
     if (row.status !== 'ready' || !row.object_key || !row.live) throw new ReportError('not_ready', 409);
-    await audit(tx, actor, 'analytics.report_downloaded', reportId, { kind: row.kind, rows: row.row_count ?? 0 });
-    return { objectKey: row.object_key, filename: reportFilename(row.kind, row.params) };
+    const format: ReportFormat = row.format === 'pdf' ? 'pdf' : 'csv';
+    await audit(tx, actor, 'analytics.report_downloaded', reportId, { kind: row.kind, format, rows: row.row_count ?? 0 });
+    return { objectKey: row.object_key, filename: reportFilename(row.kind, row.params, format), format };
   });
 }
 
@@ -480,7 +598,7 @@ export async function openReportDownload(actor: ReportActor, reportId: string): 
 
 const worker = (accountId: string) => ({ accountId, role: 'owner' as const });
 
-function validParams(value: unknown): ReportParams | null {
+export function validParams(value: unknown): ReportParams | null {
   const p = value as Partial<ReportParams> | null;
   return p && typeof p.from === 'string' && DAY.test(p.from) && typeof p.to === 'string' && DAY.test(p.to)
     && typeof p.timezone === 'string' ? { from: p.from, to: p.to, timezone: p.timezone } : null;
@@ -500,21 +618,26 @@ export async function runReportJob(accountId: string, payload: Record<string, un
   attempt: { attempts: number; maxAttempts: number } = { attempts: 1, maxAttempts: 1 }): Promise<void> {
   const reportId = typeof payload.reportId === 'string' && UUID.test(payload.reportId) ? payload.reportId : null;
   if (!reportId) throw new Error('Invalid report job');
-  const claimed = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ kind: ReportKind; params: unknown; email_requested: boolean; requested_by: string | null }[]>`
+  const claimed = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ kind: ReportKind; format?: string | null; params: unknown;
+    email_requested: boolean; requested_by: string | null; schedule_id?: string | null }[]>`
     UPDATE report_runs SET status='running' WHERE account_id=${accountId}::uuid AND id=${reportId}::uuid
       AND status IN ('queued','running') AND expires_at > now()
-    RETURNING kind, params, email_requested, requested_by::text AS requested_by`, getWorkerPrisma());
+    RETURNING kind, format, params, email_requested, requested_by::text AS requested_by, schedule_id::text AS schedule_id`, getWorkerPrisma());
   const run = claimed[0];
   if (!run) return; // Already finished, failed, expired or gone.
   const params = validParams(run.params);
-  if (!isReportKind(run.kind) || !params) return markFailed(accountId, reportId, 'invalid_request');
+  const format: ReportFormat | null = run.format == null ? 'csv' : isReportFormat(run.format) ? run.format : null;
+  if (!isReportKind(run.kind) || !params || !format) return markFailed(accountId, reportId, 'invalid_request');
+  const kind = run.kind;
   try {
-    const built = await withTenant(worker(accountId), async (tx) => {
+    // The query runs inside the transaction; rendering (PDF) happens after it commits.
+    const table = await withTenant(worker(accountId), async (tx) => {
       await tx.$queryRaw`SELECT set_config('statement_timeout', ${String(REPORT_STATEMENT_TIMEOUT_MS)}, true)`;
       const range = parseRange({ preset: 'custom', from: params.from, to: params.to, bucket: 'day' }, params.timezone);
-      return buildReport(tx, accountId, run.kind, range);
+      return reportTable(tx, accountId, kind, range);
     }, getWorkerPrisma());
-    const key = reportObjectKey(accountId, reportId);
+    const built = await renderReport(table, format, { kind, params });
+    const key = reportObjectKey(accountId, reportId, format);
     await putReportFile(accountId, key, built.bytes);
     const marked = await withTenant(worker(accountId), (tx) => tx.$executeRaw`UPDATE report_runs SET status='ready',object_key=${key},
       row_count=${built.rowCount},truncated=${built.truncated},byte_size=${built.bytes.byteLength},error=NULL,finished_at=now()
@@ -535,41 +658,85 @@ export async function runReportJob(accountId: string, payload: Record<string, un
     if (attempt.attempts >= attempt.maxAttempts) await markFailed(accountId, reportId, 'build_failed');
     throw error;
   }
-  if (run.email_requested && run.requested_by) await emailReportReady(accountId, reportId, run.kind, params, run.requested_by);
+  // A scheduled run whose schedule was deleted meanwhile (schedule_id set
+  // NULL by the foreign key) is delivered to nobody: deleting the schedule
+  // stops delivery, and its creator never asked for this run.
+  if (payload.scheduled === true && !run.schedule_id) return;
+  if (run.email_requested)
+    await emailReportRecipients(accountId, reportId, kind, params, { requestedBy: run.requested_by, scheduleId: run.schedule_id ?? null });
 }
 
-/** Sent once (outbound intent); skipped while SMTP or APP_URL is unset, or when the requester is no longer an admin. */
-async function emailReportReady(accountId: string, reportId: string, kind: ReportKind, params: ReportParams, userId: string): Promise<void> {
+/**
+ * The "report ready" email, sent once per recipient (outbound intent) and
+ * skipped while SMTP or APP_URL is unset.
+ * - A requested run emails its requester (key report-email:<run>) while they
+ *   are still an admin or owner of the workspace.
+ * - A scheduled run reads the schedule's current recipients now, at send time,
+ *   and emails each one who still has an admin or owner membership in this
+ *   workspace and a valid address (key report-email:<run>:<user>). Anyone else
+ *   is skipped with an 'analytics.report_delivery_skipped' audit entry naming
+ *   the user id only.
+ * The email holds a link to the sign-in download route only, never the file.
+ */
+async function emailReportRecipients(accountId: string, reportId: string, kind: ReportKind, params: ReportParams,
+  source: { requestedBy: string | null; scheduleId: string | null }): Promise<void> {
   const sender = process.env.AUTH_EMAIL_FROM;
   const origin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
   if (!process.env.SMTP_URL || !sender || !origin) return;
   // The row is already ready, so a retry would not reach this step: every
   // failure here, including the lookup, is logged by category and swallowed.
   try {
-    const rows = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ email: string | null; role: string }[]>`
-      SELECT p.email, m.role FROM account_memberships m LEFT JOIN profiles p ON p.user_id=m.user_id
-      WHERE m.account_id=${accountId}::uuid AND m.user_id=${userId}::uuid LIMIT 1`, getWorkerPrisma());
-    const address = rows[0]?.email?.trim() ?? '';
-    if (!rows[0] || !['owner', 'admin'].includes(rows[0].role) || !ADDRESS.test(address)) return;
-    const t = getT('Analytics.reports');
-    const link = new URL(`/api/analytics/reports/${reportId}/download`, origin).toString();
-    const values = { report: t(`kinds.${kind}`), from: params.from, to: params.to };
-    await dispatchOnce(accountId, `report-email:${reportId}`, async () => {
-      const transport = authEmailTransport();
+    if (!source.scheduleId) {
+      if (source.requestedBy)
+        await emailOne(accountId, reportId, kind, params, source.requestedBy, `report-email:${reportId}`, { sender, origin });
+      return;
+    }
+    const schedule = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ recipients: string[] }[]>`
+      SELECT recipients::text[] AS recipients FROM report_schedules
+      WHERE account_id=${accountId}::uuid AND id=${source.scheduleId}::uuid`, getWorkerPrisma());
+    for (const userId of schedule[0]?.recipients ?? []) {
+      if (!UUID.test(userId)) continue;
       try {
-        await transport.sendMail({
-          from: sender, to: address, subject: t('email.subject', values),
-          text: `${t('email.body', values)}\n\n${link}\n\n${t('email.footer')}\n`,
-        });
-      } finally {
-        transport.close();
+        const outcome = await emailOne(accountId, reportId, kind, params, userId, `report-email:${reportId}:${userId}`, { sender, origin });
+        if (outcome === 'skipped')
+          await withTenant(worker(accountId), (tx) => tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
+            VALUES(${accountId}::uuid,NULL,'analytics.report_delivery_skipped',${reportId},${JSON.stringify({ recipient: userId })}::jsonb)`,
+          getWorkerPrisma());
+      } catch (error) {
+        // One recipient's failure never blocks the others; an ambiguous send is never repeated.
+        if (!(error instanceof UncertainDispatchError)) console.error('[reports] ready email failed', { kind });
       }
-      return { sent: true };
-    });
+    }
   } catch (error) {
     // The report is ready in the app either way; never re-send blindly.
     if (!(error instanceof UncertainDispatchError)) console.error('[reports] ready email failed', { kind });
   }
+}
+
+/** One recipient: rechecks the live admin/owner membership and address, then sends once under `key`. */
+async function emailOne(accountId: string, reportId: string, kind: ReportKind, params: ReportParams, userId: string, key: string,
+  mail: { sender: string; origin: string }): Promise<'sent' | 'skipped'> {
+  const rows = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ email: string | null; role: string }[]>`
+    SELECT p.email, m.role FROM account_memberships m LEFT JOIN profiles p ON p.user_id=m.user_id
+    WHERE m.account_id=${accountId}::uuid AND m.user_id=${userId}::uuid LIMIT 1`, getWorkerPrisma());
+  const address = rows[0]?.email?.trim() ?? '';
+  if (!rows[0] || !['owner', 'admin'].includes(rows[0].role) || !ADDRESS.test(address)) return 'skipped';
+  const t = getT('Analytics.reports');
+  const link = new URL(`/api/analytics/reports/${reportId}/download`, mail.origin).toString();
+  const values = { report: t(`kinds.${kind}`), from: params.from, to: params.to };
+  await dispatchOnce(accountId, key, async () => {
+    const transport = authEmailTransport();
+    try {
+      await transport.sendMail({
+        from: mail.sender, to: address, subject: t('email.subject', values),
+        text: `${t('email.body', values)}\n\n${link}\n\n${t('email.footer')}\n`,
+      });
+    } finally {
+      transport.close();
+    }
+    return { sent: true };
+  });
+  return 'sent';
 }
 
 let lastSweepSchedule = Number.NEGATIVE_INFINITY;
@@ -595,15 +762,15 @@ export function resetReportSweepScheduleForTests(): void {
 export async function runReportSweep(accountId: string): Promise<{ failed: number; expired: number }> {
   const failed = await withTenant(worker(accountId), (tx) => tx.$executeRaw`UPDATE report_runs SET status='failed',error='timed_out',finished_at=now()
     WHERE account_id=${accountId}::uuid AND status IN ('queued','running') AND created_at < now() - interval '6 hours'`, getWorkerPrisma());
-  const due = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ id: string; object_key: string | null }[]>`
-    SELECT id::text AS id, object_key FROM report_runs
+  const due = await withTenant(worker(accountId), (tx) => tx.$queryRaw<{ id: string; object_key: string | null; format?: string | null }[]>`
+    SELECT id::text AS id, object_key, format FROM report_runs
     WHERE account_id=${accountId}::uuid AND status <> 'expired' AND expires_at < now() ORDER BY expires_at LIMIT 500`, getWorkerPrisma());
   let expired = 0;
   for (const row of due) {
     // File first: a failed delete leaves the row for the next sweep.
     // Always by the deterministic key: a file can exist without object_key
     // (uploaded, then the ready update failed or found the row timed out).
-    await deleteReportFile(accountId, row.object_key ?? reportObjectKey(accountId, row.id));
+    await deleteReportFile(accountId, row.object_key ?? reportObjectKey(accountId, row.id, row.format === 'pdf' ? 'pdf' : 'csv'));
     expired += await withTenant(worker(accountId), (tx) => tx.$executeRaw`UPDATE report_runs SET status='expired',object_key=NULL
       WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid AND status <> 'expired'`, getWorkerPrisma());
   }

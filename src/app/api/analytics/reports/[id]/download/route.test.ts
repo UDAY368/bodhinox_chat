@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   opened: [] as string[],
   fetched: [] as string[],
   fail: null as unknown,
+  format: 'csv' as 'csv' | 'pdf',
 }));
 
 vi.mock('@/lib/auth/session', () => ({
@@ -18,10 +19,12 @@ vi.mock('@/lib/analytics/reports', async (original) => ({
   openReportDownload: async (_actor: unknown, id: string) => {
     if (h.fail) throw h.fail;
     h.opened.push(id);
-    return { objectKey: `11111111-1111-4111-8111-111111111111/reports/${id}.csv`, filename: 'campaign_daily_2026-10-01_2026-10-07.csv' };
+    return { objectKey: `11111111-1111-4111-8111-111111111111/reports/${id}.${h.format}`,
+      filename: `campaign_daily_2026-10-01_2026-10-07.${h.format}`, format: h.format };
   },
 }));
-vi.mock('@/lib/analytics/report-storage', () => ({
+vi.mock('@/lib/analytics/report-storage', async (original) => ({
+  reportContentType: (await original<typeof import('@/lib/analytics/report-storage')>()).reportContentType,
   getReportFile: async (_account: string, key: string) => {
     h.fetched.push(key);
     return new Blob(['﻿"day"\r\n']).stream();
@@ -39,6 +42,7 @@ beforeEach(() => {
   h.opened = [];
   h.fetched = [];
   h.fail = null;
+  h.format = 'csv';
   __resetRateLimitForTests();
 });
 
@@ -65,4 +69,13 @@ it('answers 404 for unknown reports and 409 for ones not ready', async () => {
   h.fail = new ReportError('not_ready', 409);
   expect((await get()).status).toBe(409);
   expect(h.fetched).toEqual([]);
+});
+
+it('serves a PDF report with the PDF content type and file name', async () => {
+  h.format = 'pdf';
+  const res = await get();
+  expect(res.status).toBe(200);
+  expect(res.headers.get('content-type')).toBe('application/pdf');
+  expect(res.headers.get('content-disposition')).toBe('attachment; filename="campaign_daily_2026-10-01_2026-10-07.pdf"');
+  expect(h.fetched).toEqual([`${ACCOUNT}/reports/${REPORT}.pdf`]);
 });

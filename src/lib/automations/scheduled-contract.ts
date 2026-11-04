@@ -3,7 +3,8 @@ import type { AudienceConfig } from '@/lib/broadcast-audience';
 
 export const MAX_SCHEDULED_CONTACTS = 1000;
 export type ScheduledAudience = Omit<AudienceConfig, 'type' | 'csvContacts'> & {
-  type: 'all' | 'tags' | 'custom_field';
+  /** 'segment' resolves the saved segment's filter at each occurrence, so membership is dynamic. */
+  type: 'all' | 'tags' | 'custom_field' | 'segment';
 };
 export interface ScheduledStep {
   step_type: string;
@@ -14,7 +15,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function scheduleNeedsContact(steps: readonly ScheduledStep[]): boolean {
   return steps.some(
     (step) =>
-      !['wait', 'send_webhook', 'condition'].includes(step.step_type) ||
+      !['wait', 'send_webhook', 'condition', 'notify_team'].includes(step.step_type) ||
       (step.step_type === 'condition' &&
         ['tag_presence', 'contact_field'].includes(
           String(step.step_config?.subject)
@@ -61,12 +62,22 @@ export function validScheduleTimezone(timezone: unknown): boolean {
 export function parseScheduledAudience(value: unknown): ScheduledAudience {
   const fail = () => {
     throw new Error(
-      'Choose all contacts, at least one tenant tag, or a valid custom-field filter for this schedule'
+      'Choose all contacts, at least one tenant tag, a valid custom-field filter or a saved segment for this schedule'
     );
   };
   if (!value || typeof value !== 'object' || Array.isArray(value))
     return fail();
   const input = value as Record<string, unknown>;
+  if (input.type === 'segment') {
+    // The segment's own filter decides membership; nothing else may be combined with it.
+    if (
+      typeof input.segmentId !== 'string' ||
+      !uuid.test(input.segmentId) ||
+      Object.keys(input).some((key) => key !== 'type' && key !== 'segmentId')
+    )
+      return fail();
+    return { type: 'segment', segmentId: input.segmentId };
+  }
   if (
     Object.keys(input).some(
       (key) => !['type', 'tagIds', 'customField', 'excludeTagIds'].includes(key)
