@@ -20,13 +20,15 @@ import { createHash } from 'node:crypto';
 import { requirePermission } from '@/lib/auth/permissions';
 import { requireFeature } from '@/lib/billing/entitlements';
 import { requireSendingAllowed } from '@/lib/billing/suspension';
+import { checkInstagramText, loadInstagramTarget, sendInstagramText, storeInstagramSentMessage, type InstagramSendContext, type InstagramTarget } from '@/lib/channels/sender';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
+import { InstagramError } from '@/lib/instagram/errors';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { sendTextMessage } from '@/lib/whatsapp/meta-api';
-import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { findCouponTx, normaliseCouponCode, toPricingCoupon, type CouponRow } from './coupons';
@@ -248,46 +250,79 @@ export interface StorefrontTextInput {
   now?: Date;
 }
 
+/** An Instagram refusal as the storefront's own fixed codes (decided before any intent). */
+export function storeErrorFromInstagram(error: unknown): unknown {
+  if (!(error instanceof InstagramError)) return error;
+  if (error.code === 'instagram_window_closed') return new StoreError('outside_window');
+  if (error.code === 'contact_blocked') return new StoreError('contact_blocked');
+  if (error.code === 'invalid_request') return new StoreError('invalid', { field: 'text' });
+  if (error.code === 'not_found') return new StoreError('contact_not_found');
+  // Off, disconnected, token or permission problems: the channel cannot send now.
+  return new StoreError('number_unavailable', { channel: 'instagram', reason: error.code });
+}
+
 /**
- * Send a text with a storefront link inside the customer's 24-hour window.
- * Throws StoreError for every refusal (nothing sent), MetaApiError when Meta
- * rejects it and UncertainDispatchError when the outcome is unknown.
+ * Send a text with a storefront link inside the customer's window. A WhatsApp
+ * conversation sends from its number (24-hour window); an Instagram
+ * conversation (Phase 11) sends through the Instagram sender, whose window
+ * and account checks run before the intent. Without a conversation id only a
+ * WhatsApp conversation is picked. Throws StoreError for every refusal
+ * (nothing sent), MetaApiError when Meta rejects it and
+ * UncertainDispatchError when the outcome is unknown.
  */
 export async function sendStorefrontText(input: StorefrontTextInput): Promise<{ whatsappMessageId: string; conversationId: string }> {
   const now = input.now ?? new Date();
   const ctx = { accountId: input.accountId, role: 'owner' as const };
+  const igContext: InstagramSendContext = { sender: 'automated', now };
   const prepared = await worker(ctx, async (tx) => {
     await requireSendingAllowed(tx, input.accountId);
     const [contact] = await tx.$queryRaw<{ phone: string | null; wa_user_id: string | null; blocked_at: Date | null }[]>`
       SELECT phone, wa_user_id, blocked_at FROM contacts WHERE account_id=${input.accountId}::uuid AND id=${input.contactId}::uuid`;
     if (!contact) throw new StoreError('contact_not_found');
     if (contact.blocked_at) throw new StoreError('contact_blocked');
+    // A phone-less (Instagram-only) contact has no WhatsApp target; it may still have an Instagram conversation.
     const target = resolveContactSendTarget(contact);
-    if (!target) throw new StoreError('contact_not_found');
-    const [conversation] = await tx.$queryRaw<{ id: string; whatsapp_config_id: string | null; bot_paused: boolean; last_customer_at: Date | null }[]>`
-      SELECT c.id::text AS id, c.whatsapp_config_id::text AS whatsapp_config_id, c.bot_paused,
+    const [conversation] = await tx.$queryRaw<{ id: string; whatsapp_config_id: string | null; channel: string; bot_paused: boolean;
+      last_customer_at: Date | null }[]>`
+      SELECT c.id::text AS id, c.whatsapp_config_id::text AS whatsapp_config_id, c.channel, c.bot_paused,
         (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
           AND m.sender_type='customer') AS last_customer_at
       FROM conversations c WHERE c.account_id=${input.accountId}::uuid AND c.contact_id=${input.contactId}::uuid
-        AND (${input.conversationId}::uuid IS NULL OR c.id=${input.conversationId}::uuid)
+        AND ((${input.conversationId}::uuid IS NULL AND c.channel='whatsapp') OR c.id=${input.conversationId}::uuid)
       ORDER BY last_customer_at DESC NULLS LAST, c.created_at DESC LIMIT 1`;
-    if (!conversation) throw new StoreError('outside_window');
+    if (!conversation) throw new StoreError(target ? 'outside_window' : 'contact_not_found');
+    if (conversation.channel === 'instagram') {
+      // The window, account state and text limit are checked here, before any intent exists.
+      let ig: InstagramTarget;
+      try {
+        ig = await loadInstagramTarget(tx, input.accountId, conversation.id);
+        checkInstagramText(ig, input.text, igContext);
+      } catch (error) {
+        throw storeErrorFromInstagram(error);
+      }
+      if (input.sender.kind === 'bot' && !input.sender.service && conversation.bot_paused) throw new StoreError('send_failed', { reason: 'bot_paused' });
+      return { channel: 'instagram' as const, conversationId: conversation.id, ig };
+    }
+    if (!target) throw new StoreError('contact_not_found');
     const last = conversation.last_customer_at ? new Date(conversation.last_customer_at).getTime() : NaN;
     if (!Number.isFinite(last) || now.getTime() - last >= OPEN_WINDOW_MS) throw new StoreError('outside_window');
     // A bot send respects an agent's takeover; an agent's own send does not.
     if (input.sender.kind === 'bot' && !input.sender.service && conversation.bot_paused) throw new StoreError('send_failed', { reason: 'bot_paused' });
     let config;
     try {
+      assertWhatsAppConversation(conversation);
       config = await getNumberConfig(tx, input.accountId, conversation.whatsapp_config_id);
     } catch (error) {
       if (error instanceof NoNumberError) throw new StoreError('number_unavailable');
       throw error;
     }
     if (isNumberDisconnected(config) || !config.phone_number_id || !config.access_token) throw new StoreError('number_unavailable');
-    return { conversationId: conversation.id, target, phoneNumberId: config.phone_number_id, accessTokenEnc: config.access_token };
+    return { channel: 'whatsapp' as const, conversationId: conversation.id, target, phoneNumberId: config.phone_number_id, accessTokenEnc: config.access_token };
   });
 
   const { messageId: whatsappMessageId } = await dispatchOnce(input.accountId, input.intentKey, async () => {
+    // Instagram: the same checks with the same instant, then one Graph call. Never tagged (a link is not a composer reply).
+    if (prepared.channel === 'instagram') return sendInstagramText(prepared.ig, input.text, igContext);
     const accessToken = decrypt(prepared.accessTokenEnc);
     const variants = prepared.target.isPhone ? phoneVariants(prepared.target.target) : [prepared.target.target];
     let lastError: unknown = null;
@@ -305,10 +340,16 @@ export async function sendStorefrontText(input: StorefrontTextInput): Promise<{ 
   const agent = input.sender.kind === 'agent';
   const userId = input.sender.kind === 'agent' ? input.sender.userId : null;
   await worker(ctx, async (tx) => {
-    await tx.$executeRaw`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_type,content_text,message_id,status)
-      VALUES(${input.accountId}::uuid,${prepared.conversationId}::uuid,${agent ? 'agent' : 'bot'},${agentSenderId(agent ? 'agent' : 'bot', userId)}::uuid,
-        'text',${input.text},${whatsappMessageId},'sent')
-      ON CONFLICT(conversation_id,message_id) DO NOTHING`;
+    // Instagram: the row replaces an is_echo row Meta may already have delivered for this mid.
+    if (prepared.channel === 'instagram')
+      await storeInstagramSentMessage(tx, { accountId: input.accountId, conversationId: prepared.conversationId,
+        senderType: agent ? 'agent' : 'bot', senderId: agentSenderId(agent ? 'agent' : 'bot', userId), contentType: 'text',
+        contentText: input.text, messageId: whatsappMessageId });
+    else
+      await tx.$executeRaw`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_type,content_text,message_id,status)
+        VALUES(${input.accountId}::uuid,${prepared.conversationId}::uuid,${agent ? 'agent' : 'bot'},${agentSenderId(agent ? 'agent' : 'bot', userId)}::uuid,
+          'text',${input.text},${whatsappMessageId},'sent')
+        ON CONFLICT(conversation_id,message_id) DO NOTHING`;
     // An agent stepping in pauses the bot, as every inbox send does.
     if (agent)
       await tx.$executeRaw`UPDATE conversations SET last_message_text=${input.text},last_message_at=NOW(),updated_at=NOW(),bot_paused=true

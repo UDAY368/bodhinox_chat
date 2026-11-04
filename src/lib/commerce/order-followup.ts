@@ -39,7 +39,7 @@ import { marketingConsentRefusal } from './marketing-consent';
 import { shipmentTrackingUrl } from '@/lib/fulfilment/types';
 import { getT } from '@/lib/i18n/translate';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
-import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
 import { assertTemplateOnNumber } from '@/lib/whatsapp/sender-config';
 import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
@@ -259,12 +259,15 @@ async function plan(accountId: string, orderId: string, kind: OrderFollowupKind,
     if (!resolveContactSendTarget(contact)) return fail('no_address');
 
     // The order's own conversation first, else the contact's most recent one.
-    const [conversation] = await tx.$queryRaw<{ id: string; whatsapp_config_id: string | null; last_customer_at: Date | null;
-      bot_paused: boolean }[]>`
-      SELECT c.id::text AS id, c.whatsapp_config_id::text AS whatsapp_config_id, c.bot_paused,
+    const [conversation] = await tx.$queryRaw<{ id: string; whatsapp_config_id: string | null; channel: string;
+      last_customer_at: Date | null; bot_paused: boolean }[]>`
+      SELECT c.id::text AS id, c.whatsapp_config_id::text AS whatsapp_config_id, c.channel, c.bot_paused,
         (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
           AND m.sender_type='customer') AS last_customer_at
       FROM conversations c WHERE c.account_id=${accountId}::uuid AND c.contact_id=${contact.id}::uuid
+        -- The order's own conversation whatever its channel (an Instagram one is refused below),
+        -- else only the contact's WhatsApp conversations.
+        AND (c.channel='whatsapp' OR c.id=${order.conversation_id}::uuid)
       ORDER BY (c.id=${order.conversation_id}::uuid) DESC NULLS LAST, last_customer_at DESC NULLS LAST, c.created_at DESC LIMIT 1`;
     if (!conversation) return fail('no_conversation');
     // Decided here, before any outbound intent: the send path would refuse it
@@ -273,6 +276,7 @@ async function plan(accountId: string, orderId: string, kind: OrderFollowupKind,
     if (held) return block(held);
     let config;
     try {
+      assertWhatsAppConversation(conversation);
       config = await getNumberConfig(tx, accountId, conversation.whatsapp_config_id ?? order.whatsapp_config_id);
     } catch (error) {
       if (error instanceof NoNumberError) return fail('number_unavailable');

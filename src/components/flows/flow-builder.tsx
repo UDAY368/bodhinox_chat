@@ -46,8 +46,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { type ValidationIssue } from '@/lib/flows/validate';
+import { authFetch } from '@/lib/auth/client';
+import type { ValidationIssue } from '@/lib/flows/validate';
+import { FLOW_CHANNEL_SCOPES, type FlowChannelScope } from '@/lib/flows/types';
 import {
   ADD_NODE_TYPES,
   NODE_META,
@@ -78,9 +81,12 @@ import { useFlowEditor, type BuilderState } from './flow-editor-state';
 export function FlowBuilder() {
   const t = useTranslations('Flows.builder');
   const {
+    flow,
     state,
     setState,
     issues,
+    channelScope,
+    setChannelScope,
     flashKey,
     addNode: addNodeCtx,
     updateNode,
@@ -158,6 +164,8 @@ export function FlowBuilder() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-7">
+      <ChannelScopePanel flowId={flow.id} scope={channelScope} onSaved={setChannelScope} />
+
       <TriggerPanel
         state={state}
         setState={setState}
@@ -205,6 +213,65 @@ export function FlowBuilder() {
         )}
       </section>
     </div>
+  );
+}
+
+// ============================================================
+// Channel scope ("Runs on")
+// ============================================================
+
+/** Saves `next` through PUT /api/flows/[id]; true when the server took it. */
+export async function persistChannelScope(flowId: string, next: FlowChannelScope): Promise<boolean> {
+  try {
+    const res = await authFetch(`/api/flows/${encodeURIComponent(flowId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel_scope: next }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function ChannelScopePanel({
+  flowId,
+  scope,
+  onSaved,
+}: {
+  flowId: string;
+  scope: FlowChannelScope;
+  onSaved: (scope: FlowChannelScope) => void;
+}) {
+  const t = useTranslations('Flows.channel');
+  const [saving, setSaving] = useState(false);
+  const change = async (next: FlowChannelScope) => {
+    if (next === scope) return;
+    setSaving(true);
+    const saved = await persistChannelScope(flowId, next);
+    setSaving(false);
+    if (saved) onSaved(next);
+    else toast.error(t('scopeSaveFailed'));
+  };
+  return (
+    <section className="border-border bg-card rounded-lg border p-4">
+      <label htmlFor="flow-channel-scope" className="text-foreground mb-1 block text-sm font-semibold">
+        {t('runsOn')}
+      </label>
+      <Select value={scope} disabled={saving} onValueChange={(v) => void change(v as FlowChannelScope)}>
+        <SelectTrigger id="flow-channel-scope" className="bg-muted md:w-64">
+          <SelectValue>{t(scope)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {FLOW_CHANNEL_SCOPES.map((value) => (
+            <SelectItem key={value} value={value}>
+              {t(value)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-muted-foreground mt-1 text-xs">{t('runsOnHelp')}</p>
+    </section>
   );
 }
 

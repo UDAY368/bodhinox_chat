@@ -18,6 +18,7 @@ import {
   Gauge,
   Megaphone,
   Truck,
+  AtSign,
 } from 'lucide-react';
 
 /**
@@ -35,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'notifications',
   'whatsapp',
+  'instagram',
   'inbox',
   'media',
   'templates',
@@ -98,6 +100,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: PlugZap,
     group: 'workspace',
   },
+  instagram: { id: 'instagram', label: 'Instagram', icon: AtSign, group: 'workspace' },
   inbox: { id: 'inbox', label: 'Inbox', icon: Inbox, group: 'workspace' },
   media: { id: 'media', label: 'Media library', icon: Images, group: 'workspace' },
   templates: {

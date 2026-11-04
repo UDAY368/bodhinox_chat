@@ -52,7 +52,7 @@ export function normalizeKeywordText(text: string): string {
 export function parseConditions(value: unknown): RoutingConditions | null {
   if (value === undefined || value === null) return {};
   if (!isObject(value)) return null;
-  const allowed = new Set(['tags_any', 'keywords_any', 'whatsapp_config_id', 'within_working_hours']);
+  const allowed = new Set(['tags_any', 'keywords_any', 'whatsapp_config_id', 'channel', 'within_working_hours']);
   if (Object.keys(value).some((key) => !allowed.has(key))) return null;
   const out: RoutingConditions = {};
   if (value.tags_any !== undefined) {
@@ -74,6 +74,10 @@ export function parseConditions(value: unknown): RoutingConditions | null {
   if (value.whatsapp_config_id !== undefined && value.whatsapp_config_id !== null) {
     if (!isUuid(value.whatsapp_config_id)) return null;
     out.whatsapp_config_id = value.whatsapp_config_id.toLowerCase();
+  }
+  if (value.channel !== undefined && value.channel !== null) {
+    if (value.channel !== 'whatsapp' && value.channel !== 'instagram') return null;
+    out.channel = value.channel;
   }
   if (value.within_working_hours !== undefined && value.within_working_hours !== null) {
     if (typeof value.within_working_hours !== 'boolean') return null;
@@ -120,6 +124,12 @@ export interface RoutingContext {
   tagIds: ReadonlySet<string>;
   text: string;
   whatsappConfigId: string | null;
+  /**
+   * The conversation's channel (Phase 11). A caller that does not pass it
+   * matches no rule with a channel condition, so a conversation is never
+   * routed by a guess at its channel.
+   */
+  channel?: 'whatsapp' | 'instagram';
   withinWorkingHours: boolean;
 }
 
@@ -131,6 +141,7 @@ export function ruleMatches(conditions: RoutingConditions, context: RoutingConte
     if (!conditions.keywords_any.some((keyword) => text.includes(keyword))) return false;
   }
   if (conditions.whatsapp_config_id && conditions.whatsapp_config_id !== context.whatsappConfigId?.toLowerCase()) return false;
+  if (conditions.channel && conditions.channel !== context.channel) return false;
   if (conditions.within_working_hours !== undefined && conditions.within_working_hours !== context.withinWorkingHours) return false;
   return true;
 }

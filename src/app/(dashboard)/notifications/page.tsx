@@ -32,6 +32,7 @@ import { safeNotificationLink } from "@/lib/notifications/link";
 const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   conversation_assigned: UserPlus,
   whatsapp_number_health: Smartphone,
+  instagram_account_health: AtSign,
   payment_received: CreditCard,
   assigned_message: MessageSquare,
   mention: AtSign,
@@ -151,6 +152,8 @@ export default function NotificationsPage() {
       } else if (n.type === "whatsapp_number_health") {
         // Number health alerts open the WhatsApp numbers settings.
         router.push("/settings?tab=whatsapp");
+      } else if (n.type === "instagram_account_health") {
+        router.push("/settings?tab=instagram");
       } else if (n.type.startsWith("appointment_")) {
         // Booking alerts carry /appointments?id=<id>; without it, open the schedule.
         router.push("/appointments");

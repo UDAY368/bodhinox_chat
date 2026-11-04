@@ -95,6 +95,9 @@ export async function scheduleWork() {
   // Zoom meetings and Shiprocket shipments: every 30 minutes, only for workspaces with a live connection and open work.
   await import('@/lib/fulfilment/sweep').then((m) => m.scheduleFulfilmentSweeps())
     .catch(() => console.error('[worker] fulfilment sweep scheduling failed'));
+  // Instagram token refresh and health, daily per workspace with a live account; nothing while INSTAGRAM_ENABLED is off.
+  await import('@/lib/instagram/token-sweep').then((m) => m.scheduleInstagramSweeps())
+    .catch(() => console.error('[worker] instagram sweep scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -115,6 +118,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   if (job.type === 'meta.page_webhook')
     // One verified Page webhook delivery; each leadgen change is resolved to its workspace by Page id.
     return (await import('@/lib/meta-ads/jobs')).handleMetaPageWebhookJob(job.payload, assertLease);
+  if (job.type === 'instagram.webhook')
+    // One verified Instagram webhook delivery; each entry is resolved to its workspace by entry[].id.
+    return (await import('@/lib/instagram/jobs')).handleInstagramWebhookJob(job.payload, assertLease);
   const accountId = uuid(job.tenant_id);
   return withJobScope({ accountId, role: 'owner' }, async () => {
     const db = createAdminClient({ accountId, role: 'owner' });
@@ -386,6 +392,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // Reminders, customer notices, staff/automation/webhook fan-out, hold expiry and follow-up.
       // Each re-checks the appointment version, so a superseded job is a no-op.
       await (await import('@/lib/appointments/job-handlers')).handleAppointmentJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type.startsWith('instagram.'))
+      // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
+      await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else if (job.type.startsWith('meta.'))
       // Click-to-WhatsApp ads: lead fetch/backfill, insights sync and Conversions API sends.
       await (await import('@/lib/meta-ads/jobs')).handleMetaAdsJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

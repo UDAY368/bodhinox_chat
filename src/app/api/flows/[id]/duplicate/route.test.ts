@@ -82,6 +82,7 @@ it('copies the flow and every node into a new draft owned by the caller', async 
   expect(flow).toMatchObject({
     user_id: 'copier', name: copyName, description: 'Greets people', status: 'draft', trigger_type: 'keyword',
     trigger_config: { keywords: ['hi'] }, entry_node_id: 'start', fallback_policy: { mode: 'end' }, test_numbers: [],
+    channel_scope: 'whatsapp',
   });
   expect(flow.execution_count).toBeUndefined();
   expect(h.nodes.filter((n) => n.flow_id === flow.id).map(({ node_key, node_type, config, position_x, position_y }) =>
@@ -91,6 +92,13 @@ it('copies the flow and every node into a new draft owned by the caller', async 
   ]);
   // The source is untouched.
   expect(h.flows[0]).toMatchObject({ id: 'flow-a', status: 'active', test_numbers: ['919876543210'] });
+});
+
+it('keeps the source flow channel scope on the copy', async () => {
+  h.flows[0].channel_scope = 'instagram';
+  const response = await duplicate();
+  expect(response.status).toBe(201);
+  expect((await response.json()).flow.channel_scope).toBe('instagram');
 });
 
 it("returns 404 for another account's flow without writing anything", async () => {

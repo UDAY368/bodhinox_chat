@@ -150,6 +150,8 @@ export async function audienceSource(tx:TenantTransaction,scope:TenantContext,in
   }
   // Opted-out and blocked contacts never receive campaigns (lib/contacts/consent).
   conditions.push(Prisma.sql`c.opted_out_at IS NULL AND c.blocked_at IS NULL`);
+  // A campaign needs a WhatsApp address; phone-less Instagram-only contacts are never recipients.
+  conditions.push(Prisma.sql`(c.phone_normalized<>'' OR c.wa_user_id IS NOT NULL)`);
   if(audience.excludeTagIds?.length)conditions.push(Prisma.sql`NOT EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id AND t.tag_id IN (${jsonIds(audience.excludeTagIds)}))`);
   return {from,where:Prisma.join(conditions,' AND '),order};
 }

@@ -18,7 +18,7 @@ import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { isSuspended } from '@/lib/billing/suspension';
 import { getT } from '@/lib/i18n/translate';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
-import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { appointmentKeys } from './keys';
 import { OPEN_WINDOW_MS, sendCustomerMessage } from './customer-send';
@@ -76,9 +76,9 @@ export async function handleHoldReplyJob(accountId: string, payload: NotifyJobPa
   const { contactId, messageId, reason } = payload;
   if (!contactId || !messageId || !reason || !(reason in HOLD_REPLY_TEXT)) throw new Error('Invalid hold reply job');
   const prepared = await withTenant({ accountId, role: 'owner' }, async (tx) => {
-    const [row] = await tx.$queryRaw<{ conversation_id: string; whatsapp_config_id: string | null; phone: string | null;
+    const [row] = await tx.$queryRaw<{ conversation_id: string; whatsapp_config_id: string | null; channel: string; phone: string | null;
       wa_user_id: string | null; blocked_at: Date | null; last_customer_at: Date | null }[]>`
-      SELECT c.id::text AS conversation_id, c.whatsapp_config_id::text AS whatsapp_config_id, ct.phone, ct.wa_user_id, ct.blocked_at,
+      SELECT c.id::text AS conversation_id, c.whatsapp_config_id::text AS whatsapp_config_id, c.channel, ct.phone, ct.wa_user_id, ct.blocked_at,
         (SELECT max(m2.created_at) FROM messages m2 WHERE m2.account_id=c.account_id AND m2.conversation_id=c.id
           AND m2.sender_type='customer') AS last_customer_at
       FROM messages m JOIN conversations c ON c.account_id=m.account_id AND c.id=m.conversation_id
@@ -90,6 +90,8 @@ export async function handleHoldReplyJob(accountId: string, payload: NotifyJobPa
     const last = row.last_customer_at ? new Date(row.last_customer_at).getTime() : NaN;
     if (!Number.isFinite(last) || now.getTime() - last >= OPEN_WINDOW_MS) return null;
     try {
+      // A code that arrived on Instagram is never answered over WhatsApp.
+      assertWhatsAppConversation(row);
       if (isNumberDisconnected(await getNumberConfig(tx, accountId, row.whatsapp_config_id))) return null;
     } catch (error) {
       if (error instanceof NoNumberError) return null;

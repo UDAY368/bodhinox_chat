@@ -20,9 +20,13 @@ import { isUniqueViolation } from '@/lib/contacts/dedupe'
 import { NoNumberError } from '@/lib/whatsapp/numbers'
 import { loadPickableNumbers, loadSenderConfig, numberErrorText, pickDefaultNumber } from '@/lib/whatsapp/sender-config'
 import { claimOnAgentReply } from '@/lib/inbox/lifecycle'
+import { instagramConfig } from '@/lib/instagram/config'
+import { InstagramError } from '@/lib/instagram/errors'
+import { instagramErrorResponse, NO_STORE } from '@/lib/instagram/http'
 
 const t = getT('Api')
 const tForm = getT('Validation.formSend')
+const tIg = getT('Api.instagram')
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // The dashboard's outbound-send endpoint. It owns auth, per-user rate
@@ -120,7 +124,7 @@ export async function POST(request: Request) {
     if (conversationIdInput) {
       const { data, error: convError } = await db
         .from('conversations')
-        .select('id')
+        .select('id,channel')
         .eq('id', conversationIdInput)
         .eq('account_id', accountId)
         .single()
@@ -130,6 +134,10 @@ export async function POST(request: Request) {
           { error: t('common.conversationNotFound') },
           { status: 404 }
         )
+      }
+      // The channel comes from the conversation row, never from the client.
+      if ((data as { channel?: string | null }).channel === 'instagram') {
+        return sendInstagramMessage({ accountId, userId, role, conversationId: data.id, body })
       }
       conversationId = data.id
     } else {
@@ -278,6 +286,51 @@ async function sendFormMessage(args: {
   }
 }
 
+/**
+ * An Instagram conversation (the row says so): text, image, audio, video or
+ * PDF inside the messaging window, through the Instagram composer sender.
+ * Every other kind is channel_not_supported. A refusal stores nothing; an
+ * ambiguous outcome leaves the row 'unknown' for a person to check.
+ */
+async function sendInstagramMessage(args: {
+  accountId: string
+  userId: string
+  role: 'owner' | 'admin' | 'agent' | 'viewer'
+  conversationId: string
+  body: Record<string, unknown>
+}) {
+  if (!instagramConfig()) return instagramErrorResponse('instagram_not_enabled')
+  const { body } = args
+  // Loaded only for Instagram conversations, so the WhatsApp path's module graph is unchanged.
+  const [{ ChannelUnavailableError }, { InstagramDeliveryUncertainError, InstagramSendRejectedError, sendInstagramFromComposer }] =
+    await Promise.all([import('@/lib/channels/sender'), import('@/lib/instagram/composer-send')])
+  try {
+    const result = await sendInstagramFromComposer({
+      accountId: args.accountId,
+      userId: args.userId,
+      conversationId: args.conversationId,
+      messageType: body.message_type,
+      contentText: body.content_text,
+      mediaUrl: body.media_url,
+      filename: body.filename,
+    })
+    await claimOnAgentReply({ accountId: args.accountId, userId: args.userId, role: args.role }, args.conversationId).catch(() =>
+      console.error('[send] conversation claim failed')
+    )
+    return NextResponse.json({ success: true, message_id: result.messageId, provider_message_id: result.providerMessageId })
+  } catch (err) {
+    if (err instanceof InstagramError) return instagramErrorResponse(err.code)
+    if (err instanceof ChannelUnavailableError) return instagramErrorResponse('channel_not_supported')
+    if (err instanceof InstagramDeliveryUncertainError)
+      return NextResponse.json({ error: err.code, message: tIg('delivery_uncertain'), message_id: err.messageId },
+        { status: 409, headers: NO_STORE })
+    if (err instanceof InstagramSendRejectedError)
+      return NextResponse.json({ error: err.code, message: tIg('meta_error'), message_id: err.messageId },
+        { status: 502, headers: NO_STORE })
+    throw err
+  }
+}
+
 type SendSupabase = Awaited<ReturnType<typeof createClient>>
 
 type ConversationRef = { id: string; whatsapp_config_id: string | null }
@@ -309,6 +362,8 @@ async function findOrCreateConversation(
       .select('id,whatsapp_config_id')
       .eq('account_id', accountId)
       .eq('contact_id', contactId)
+      // An Instagram conversation (no number either) is never this contact's WhatsApp thread.
+      .eq('channel', 'whatsapp')
       .order('created_at', { ascending: true })
       .limit(100)
     if (error) return undefined

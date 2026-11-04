@@ -130,8 +130,12 @@ export async function handleAppointmentEventJob(accountId: string, payload: Even
       ORDER BY created_at LIMIT 1`;
     // A cancelled hold that was never confirmed is not a booking anyone was told about.
     if (kind === 'cancelled' && !row.confirmed_at) return null;
+    // WhatsApp conversations only: the automations this fans out to send over
+    // WhatsApp, and a contact linked to an Instagram identity may have a more
+    // recently active Instagram thread.
     const [conversation] = row.contact_id ? await tx.$queryRaw<{ id: string }[]>`
       SELECT id::text AS id FROM conversations WHERE account_id=${accountId}::uuid AND contact_id=${row.contact_id}::uuid
+        AND channel='whatsapp'
       ORDER BY updated_at DESC LIMIT 1` : [];
     return { row, actorUserId: event?.actor_user_id ?? null, previousStartAt: event?.old_start_at ?? null,
       newStartAt: event?.new_start_at ?? null, conversationId: conversation?.id ?? null };

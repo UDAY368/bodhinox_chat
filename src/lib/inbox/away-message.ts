@@ -4,7 +4,7 @@ import { engineSendText } from '@/lib/flows/meta-send';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { botRepliesPaused } from '@/lib/whatsapp/bot-pause';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
-import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
 import { readInboxSettings } from './inbox-settings';
 import { nextWindowKey } from './working-hours';
 
@@ -54,9 +54,11 @@ export async function sendAwayMessage(input: AwayMessageInput, now: Date = new D
     const windowKey = nextWindowKey(settings, receivedAt);
     if (!windowKey) return { outcome: 'within_hours' as const };
     const conversation = await tx.conversations.findFirst({
-      where: { account_id: accountId, id: conversationId }, select: { whatsapp_config_id: true },
+      where: { account_id: accountId, id: conversationId }, select: { whatsapp_config_id: true, channel: true },
     });
     try {
+      // The away message is WhatsApp only in Phase 11 (Instagram is refused, never sent from the default number).
+      if (conversation) assertWhatsAppConversation(conversation);
       const config = await getNumberConfig(tx, accountId, conversation?.whatsapp_config_id ?? null);
       if (isNumberDisconnected(config)) return { outcome: 'number_unavailable' as const };
     } catch (error) {

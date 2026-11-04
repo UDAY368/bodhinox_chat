@@ -216,6 +216,7 @@ async function findOrCreateConversationRow(
       .select('id')
       .eq('account_id', accountId)
       .eq('contact_id', contactId)
+      // A number match excludes Instagram rows (they never have one).
       .eq('whatsapp_config_id', whatsappConfigId)
       .order('created_at', { ascending: true })
       .limit(1);
@@ -236,6 +237,8 @@ async function findOrCreateConversationRow(
     .update({ whatsapp_config_id: whatsappConfigId })
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
+    // Never an Instagram conversation (no number either) of a linked contact.
+    .eq('channel', 'whatsapp')
     .is('whatsapp_config_id', null)
     .select('id');
   if (adoptErr && !isUniqueViolation(adoptErr)) {

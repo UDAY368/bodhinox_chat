@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
-  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], runUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
+  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], runUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, conversation: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const b = { select: () => b, eq: () => b, in: () => b, is: () => b, gte: () => b, order: () => b, limit: async () => ({ data: table === 'broadcast_recipients' ? h.recipients : [], error: null }),
     update: (row: Record<string, unknown>) => { (table === 'flow_runs' ? h.runUpdates : h.consentUpdates).push(row); return b; },
-    maybeSingle: async () => ({ data: table === 'messages' ? h.message : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
+    maybeSingle: async () => ({ data: table === 'messages' ? h.message : table === 'conversations' && h.conversation ? h.conversation : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
 } }) }));
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: h.explicit }));
@@ -22,7 +22,7 @@ import { processInboundActions } from './inbound-actions';
 import type { MessageActionsPayload } from './ingest';
 const id = '00000000-0000-4000-8000-000000000001';
 const input: MessageActionsPayload = { kind: 'message', accountId: id, conversationId: id, contactId: id, userId: id, messageId: id, metaMessageId: 'wamid.tap', interactiveReplyId: 'qr_token', contentType: 'interactive', contentText: 'Start', wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true };
-beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.runUpdates = []; h.message = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }); h.away.mockResolvedValue('sent'); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
+beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.runUpdates = []; h.message = null; h.conversation = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }); h.away.mockResolvedValue('sent'); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
 
 const text = (contentText: string) => ({ ...input, interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, isFirstInboundMessage: false });
 it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword without any automated response', async (word, kind) => {
@@ -164,4 +164,14 @@ describe('click-to-WhatsApp ad referrals', () => {
     await processInboundActions(fromAd({ id: '00000000-0000-4000-8000-0000000000ae' }));
     expect(h.automations.mock.calls.map(call => call[0].triggerType)).toEqual(['ad_click', 'first_inbound_message']);
   });
+});
+
+it('acts on an Instagram message for the contact that owns the conversation now, not the queued one', async () => {
+  const moved = '00000000-0000-4000-8000-0000000000b2';
+  h.conversation = { channel: 'instagram', contact_id: moved };
+  await processInboundActions(text('Hello'));
+  expect(h.flow).toHaveBeenCalledOnce();
+  expect(h.flow.mock.calls[0][0]).toMatchObject({ contactId: moved, conversationId: id });
+  expect(h.lifecycle).toHaveBeenCalledWith(expect.objectContaining({ contactId: moved }));
+  expect(h.automations).not.toHaveBeenCalled();
 });

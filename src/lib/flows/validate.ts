@@ -36,9 +36,11 @@ import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai
 import { conversionEdges, conversionIssues } from "./conversion-node";
 import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
 import { parseDateInput } from "./input-formats";
-import type { ConditionRule, NodeTiming } from "./types";
+import { nodeAvailableOn, scopeIncludes, triggerAvailableOn } from "@/lib/channels/capabilities";
+import { FLOW_CHANNEL_SCOPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type NodeTiming } from "./types";
 
 const t = getT("Validation.flows");
+const tChannel = getT("Flows.channel");
 
 export interface ValidationIssue {
   severity: "error" | "warning";
@@ -59,6 +61,8 @@ interface FlowInput {
   id?: string;
   /** When given, reply timeouts are checked against its inactivity limit. */
   fallback_policy?: unknown;
+  /** Channels the flow runs on (Phase 11); absent is WhatsApp only. */
+  channel_scope?: FlowChannelScope | null;
 }
 
 interface NodeInput {
@@ -160,6 +164,7 @@ export function validateFlowForActivation(
     if (n.node_type === "send_form") issues.push(...sendFormIssues(n, keys, context.forms));
     if (n.node_type === "ai_reply") issues.push(...aiReplyIssues(n, keys, context.aiConfigured));
   }
+  issues.push(...channelScopeIssues(flow.channel_scope, flow.trigger_type, nodes));
 
   // Warn rather than block: explicit starts may supply variables externally.
   if (flow.entry_node_id && keys.has(flow.entry_node_id)) {
@@ -306,6 +311,54 @@ export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: str
     if (!index.has(key)) visit(key);
   }
   return cycles;
+}
+
+// ============================================================
+// Channel scope (Phase 11)
+// ============================================================
+
+/**
+ * A request body's channel_scope: undefined when absent, null when it is not
+ * one of 'whatsapp' | 'instagram' | 'any' (the route answers 400).
+ */
+export function parseChannelScope(value: unknown): FlowChannelScope | undefined | null {
+  if (value === undefined) return undefined;
+  return typeof value === "string" && (FLOW_CHANNEL_SCOPES as readonly string[]).includes(value)
+    ? (value as FlowChannelScope)
+    : null;
+}
+
+/**
+ * A flow that runs on Instagram ('instagram' or 'any') may use only the
+ * triggers and steps Instagram supports (src/lib/channels/capabilities.ts):
+ * anything else blocks publishing, shown on the trigger or the step. A
+ * WhatsApp-only flow gets no issue here, so existing flows are unchanged.
+ */
+export function channelScopeIssues(
+  scope: FlowChannelScope | null | undefined,
+  triggerType: FlowInput["trigger_type"],
+  nodes: NodeInput[],
+): ValidationIssue[] {
+  if (!scopeIncludes(scope, "instagram")) return [];
+  const issues: ValidationIssue[] = [];
+  if (!triggerAvailableOn(triggerType, "instagram")) {
+    issues.push({ severity: "error", scope: "trigger", field: "trigger_type", message: tChannel("triggerUnavailable") });
+  }
+  for (const node of nodes) {
+    const availability = nodeAvailableOn(node.node_type as FlowNodeType, "instagram", node.config ?? {});
+    if (!availability.ok) {
+      issues.push({
+        severity: "error",
+        scope: "node",
+        node_key: node.node_key,
+        field: "node_type",
+        message: tChannel("unavailableOnChannel", { node: node.node_type }),
+      });
+    } else if (availability.warning === "text_over_limit") {
+      issues.push({ severity: "warning", scope: "node", node_key: node.node_key, message: tChannel("textOverLimit") });
+    }
+  }
+  return issues;
 }
 
 // ============================================================

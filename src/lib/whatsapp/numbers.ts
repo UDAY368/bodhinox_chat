@@ -48,7 +48,8 @@ export interface WhatsAppNumber {
   removed?: boolean;
 }
 
-export type NoNumberReason = 'none' | 'not_found' | 'no_default' | 'disconnected';
+/** 'other_channel': the conversation is not on WhatsApp (Phase 11 Instagram). */
+export type NoNumberReason = 'none' | 'not_found' | 'no_default' | 'disconnected' | 'other_channel';
 
 /** The workspace has no usable number for this request. */
 export class NoNumberError extends Error {
@@ -60,6 +61,8 @@ export class NoNumberError extends Error {
           ? 'This WhatsApp number was disconnected. Reconnect it in Settings to send from it.'
           : reason === 'no_default'
           ? 'Choose which WhatsApp number to use'
+          : reason === 'other_channel'
+          ? 'This conversation is not on WhatsApp'
           : 'WhatsApp not configured. Please set up your WhatsApp integration first.'
     );
     this.name = 'NoNumberError';
@@ -67,9 +70,29 @@ export class NoNumberError extends Error {
 
   /** next-intl key for a localised message (whatsappNumbers.errors.*). */
   get messageKey(): string {
-    const key = { none: 'none', not_found: 'notFound', no_default: 'noDefault', disconnected: 'disconnected' }[this.reason];
+    const key = {
+      none: 'none', not_found: 'notFound', no_default: 'noDefault', disconnected: 'disconnected', other_channel: 'otherChannel',
+    }[this.reason];
     return `whatsappNumbers.errors.${key}`;
   }
+}
+
+/**
+ * Refuse a WhatsApp send, reaction or number lookup for a conversation on
+ * another channel. An Instagram conversation has no whatsapp_config_id, which
+ * every WhatsApp path would otherwise read as "use the default number" and
+ * send to the contact's phone. Callers load `channel` with the conversation
+ * and treat NoNumberError as a pre-send "number unavailable" refusal.
+ *
+ * A send wrapped in dispatchOnce must call this BEFORE dispatchOnce, so no
+ * outbound intent is claimed for a conversation that can never be sent on.
+ * When the refusal does surface inside dispatchOnce (sender-config's last line
+ * of defence), dispatchOnce records the intent as 'failed', not 'unknown',
+ * because nothing reached the provider.
+ */
+export function assertWhatsAppConversation<T extends { channel: string | null | undefined }>(row: T): T {
+  if (row.channel != null && row.channel !== 'whatsapp') throw new NoNumberError('other_channel');
+  return row;
 }
 
 /**

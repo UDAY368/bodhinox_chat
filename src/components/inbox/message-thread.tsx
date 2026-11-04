@@ -22,6 +22,7 @@ import { PresenceDot } from '@/components/presence/presence-dot';
 import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
 import { ConversationNumberBadge } from '@/components/settings/numbers/conversation-number';
+import { ChannelBadge, conversationChannel } from '@/components/inbox/channel-badge';
 import { useWhatsAppNumbers } from '@/components/settings/numbers/use-whatsapp-numbers';
 import type {
   Conversation,
@@ -143,6 +144,8 @@ interface MessageThreadProps {
    * the jump for the same message. Older history pages load as needed.
    */
   jumpRequest?: { messageId: string; nonce: number } | null;
+  /** Meta approved the Instagram Human Agent feature (from /api/instagram/status); banner only, the server re-checks. */
+  instagramHumanAgent?: boolean;
 }
 
 function formatDateSeparator(
@@ -200,6 +203,7 @@ export function MessageThread({
   contactPanelOpen,
   onToggleContactPanel,
   jumpRequest = null,
+  instagramHumanAgent = false,
 }: MessageThreadProps) {
   const t = useTranslations('Inbox.messageThread');
   const tList = useTranslations('Inbox.conversationList');
@@ -287,12 +291,19 @@ export function MessageThread({
     };
   }, []);
 
+  const threadChannel = conversationChannel(conversation);
+  const isInstagram = threadChannel === 'instagram';
+  const lastCustomerAt = useMemo(
+    () =>
+      messages.reduce(
+        (latest, message) => latestCustomerMessageAt(latest, message),
+        conversation?.last_customer_message_at ?? null
+      ),
+    [messages, conversation?.last_customer_message_at]
+  );
+
   // 24-hour session timer
   const sessionInfo = useMemo(() => {
-    const lastCustomerAt = messages.reduce(
-      (latest, message) => latestCustomerMessageAt(latest, message),
-      conversation?.last_customer_message_at ?? null
-    );
     if (!lastCustomerAt)
       return { expired: true, remaining: tTimer('noCustomerMessages') };
     const window = getSessionWindow(lastCustomerAt, sessionNow);
@@ -308,7 +319,7 @@ export function MessageThread({
             minutes: Math.ceil(window.remainingMs / 60_000),
           });
     return { expired: false, remaining };
-  }, [messages, conversation?.last_customer_message_at, sessionNow, tTimer]);
+  }, [lastCustomerAt, sessionNow, tTimer]);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause
@@ -656,11 +667,13 @@ export function MessageThread({
         const payload = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          const reason = payload?.error || `HTTP ${res.status}`;
-          console.error('Failed to send message:', reason);
+          const reason = payload?.message || payload?.error || `HTTP ${res.status}`;
+          console.error('Failed to send message:', res.status);
           toast.error(t('sendFailed', { reason }));
-          // Mark the optimistic bubble as failed so the user sees what happened
-          onUpdateMessage(tempId, { status: 'failed' });
+          // Mark the optimistic bubble as failed so the user sees what happened.
+          // An Instagram send whose outcome is unknown is never shown as failed:
+          // it may have been delivered (check Instagram before resending).
+          onUpdateMessage(tempId, uncertainSendUpdate(payload) ?? { status: 'failed' });
           return;
         }
 
@@ -722,10 +735,13 @@ export function MessageThread({
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          const reason = data?.error || `HTTP ${res.status}`;
-          console.error('Failed to send media:', reason);
+          const reason = data?.message || data?.error || `HTTP ${res.status}`;
+          console.error('Failed to send media:', res.status);
           toast.error(t('sendFailed', { reason }));
-          onUpdateMessage(tempId, { status: 'failed' });
+          const uncertain = uncertainSendUpdate(data);
+          onUpdateMessage(tempId, uncertain ?? { status: 'failed' });
+          // An uncertain Instagram send may have delivered the file: keep it.
+          if (uncertain) return;
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
           if (payload.path)
@@ -1119,8 +1135,13 @@ export function MessageThread({
             <p className="text-muted-foreground truncate text-xs">
               {contactHandle(contact)}
             </p>
-            <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
-            <AdReferralBadge conversationId={conversation.id} />
+            <div className="flex min-w-0 items-center gap-1.5">
+              <ChannelBadge channel={threadChannel} />
+              {!isInstagram && (
+                <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
+              )}
+            </div>
+            {!isInstagram && <AdReferralBadge conversationId={conversation.id} />}
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}
@@ -1128,6 +1149,7 @@ export function MessageThread({
             variant="outline"
             className={cn(
               'border-border ml-1 hidden gap-1 text-[10px] sm:ml-2 sm:inline-flex',
+              isInstagram && 'sm:hidden',
               sessionInfo.expired ? 'text-red-400' : 'text-primary'
             )}
           >
@@ -1402,6 +1424,14 @@ export function MessageThread({
                         key={msg.id}
                         {...{ [MESSAGE_ID_ATTRIBUTE]: msg.id }}
                       >
+                      {isInstagram ? (
+                        <MessageBubble
+                          message={msg}
+                          reply={reply}
+                          onOpenMedia={handleMediaChange}
+                          channel={threadChannel}
+                        />
+                      ) : (
                       <MessageActions
                         message={msg}
                         onReply={() => handleStartReply(msg)}
@@ -1419,6 +1449,7 @@ export function MessageThread({
                           onOpenMedia={handleMediaChange}
                         />
                       </MessageActions>
+                      )}
                       </div>
                     );
                   })}
@@ -1458,8 +1489,12 @@ export function MessageThread({
         onSendMedia={handleSendMedia}
         onSendInteractive={handleSendInteractive}
         onOpenTemplates={handleOpenTemplates}
-        replyTo={replyTo}
+        replyTo={isInstagram ? null : replyTo}
         onClearReply={() => setReplyTo(null)}
+        channel={threadChannel}
+        lastCustomerAt={lastCustomerAt}
+        now={sessionNow}
+        humanAgentEnabled={instagramHumanAgent}
       />
       </div>
       {notesOpen && (
@@ -1494,4 +1529,17 @@ export function MessageThread({
       />
     </div>
   );
+}
+
+/**
+ * An Instagram send whose provider outcome is uncertain (409
+ * delivery_uncertain): the bubble becomes the stored 'unknown' row, never
+ * 'failed', so nobody resends blindly. Null for every other error.
+ */
+function uncertainSendUpdate(response: unknown): Partial<Message> | null {
+  const body = response as { error?: unknown; message_id?: unknown } | null;
+  if (body?.error !== 'delivery_uncertain') return null;
+  return typeof body.message_id === 'string' && body.message_id
+    ? { status: 'unknown', id: body.message_id }
+    : { status: 'unknown' };
 }

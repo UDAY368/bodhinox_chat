@@ -3,6 +3,7 @@ import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { requirePermission } from '@/lib/auth/permissions';
 import { validateFlowForActivation } from '@/lib/flows/validate';
+import type { FlowChannelScope } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 import { tenantOf } from '@/lib/audience/http';
 import { withTenant } from '@/lib/db/tenant';
@@ -88,7 +89,7 @@ export async function POST(
     const [{ data: flow }, { data: nodes }] = await Promise.all([
       admin
         .from('flows')
-        .select('id, name, trigger_type, trigger_config, entry_node_id, fallback_policy')
+        .select('id, name, trigger_type, trigger_config, entry_node_id, fallback_policy, channel_scope')
         .eq('id', id)
         .maybeSingle(),
       admin
@@ -115,6 +116,7 @@ export async function POST(
         trigger_config: Record<string, unknown>;
         entry_node_id: string | null;
         fallback_policy: unknown;
+        channel_scope: FlowChannelScope | null;
         id: string;
       },
       (nodes ?? []) as Array<{

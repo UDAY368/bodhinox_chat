@@ -103,7 +103,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('WhatsApp number admin on Po
     const oldest = await addNumber(accountA, adminA, `64${seed}`, '2026-02-01T00:00:00Z');
     const middle = await addNumber(accountA, adminA, `65${seed}`, '2026-03-01T00:00:00Z');
     const newest = await addNumber(accountA, adminA, `66${seed}`, '2026-04-01T00:00:00Z');
-    await owner.query('UPDATE whatsapp_config SET is_default=(id=$2) WHERE account_id=$1', [accountA, middle]);
+    // Two statements: the one-default unique index is checked per row, so a single swap can fail on row order.
+    await owner.query('UPDATE whatsapp_config SET is_default=false WHERE account_id=$1 AND id<>$2', [accountA, middle]);
+    await owner.query('UPDATE whatsapp_config SET is_default=true WHERE id=$1', [middle]);
     const contact = (await owner.query("INSERT INTO contacts(account_id,user_id,phone,name) VALUES($1,$2,$3,'Number admin') RETURNING id", [accountA, adminA, `5${seed}`])).rows[0].id;
     const conversation = (await owner.query('INSERT INTO conversations(account_id,user_id,contact_id,whatsapp_config_id) VALUES($1,$2,$3,$4) RETURNING id', [accountA, adminA, contact, middle])).rows[0].id;
     const liveOnMiddle = await addFlow(accountA, adminA, 'active', middle);

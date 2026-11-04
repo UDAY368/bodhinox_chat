@@ -105,6 +105,7 @@ async function plan(accountId: string, payload: AppointmentPaymentLinkJobPayload
       WHERE account_id=${accountId}::uuid AND id=${row.booking_page_id}::uuid` : [];
     const [conversation] = await tx.$queryRaw<{ id: string }[]>`
       SELECT c.id::text AS id FROM conversations c WHERE c.account_id=${accountId}::uuid AND c.contact_id=${row.contact_id}::uuid
+        AND c.channel='whatsapp'
       ORDER BY (c.whatsapp_config_id IS NOT NULL AND c.whatsapp_config_id=${page?.whatsapp_config_id ?? null}::uuid) DESC,
         (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
           AND m.sender_type='customer') DESC NULLS LAST, c.created_at DESC LIMIT 1`;

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { sendReactionMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
-import { NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertWhatsAppConversation, NoNumberError } from '@/lib/whatsapp/numbers';
 import { loadSenderConfig, numberErrorText, type SenderConfigRow } from '@/lib/whatsapp/sender-config';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import {
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
     const { data: conversation, error: convError } = await db
       .from('conversations')
-      .select('id, account_id, whatsapp_config_id, contact:contacts(phone, wa_user_id)')
+      .select('id, account_id, whatsapp_config_id, channel, contact:contacts(phone, wa_user_id)')
       .eq('id', targetMessage.conversation_id)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -81,6 +81,17 @@ export async function POST(request: Request) {
         { error: t('common.conversationNotFound') },
         { status: 404 },
       );
+    }
+
+    // Reactions are WhatsApp only (Instagram reactions are deferred): never
+    // react from the default number on an Instagram conversation.
+    try {
+      assertWhatsAppConversation(conversation as { channel: string | null | undefined });
+    } catch (error) {
+      if (error instanceof NoNumberError) {
+        return NextResponse.json({ error: numberErrorText(error), code: 'channel_not_supported' }, { status: 409 });
+      }
+      throw error;
     }
 
     const contact = Array.isArray(conversation.contact)

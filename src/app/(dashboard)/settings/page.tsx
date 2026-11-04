@@ -33,6 +33,7 @@ import { PlanPanel } from '@/components/settings/plan-panel';
 import { BillingSection } from '@/components/settings/billing/billing-section';
 import { PaymentsCard } from '@/components/settings/payments-card';
 import { MetaAdsCard } from '@/components/settings/meta-ads-card';
+import { InstagramCard } from '@/components/settings/instagram-card';
 import { ZoomCard } from '@/components/settings/zoom-card';
 import { ShiprocketCard } from '@/components/settings/shiprocket-card';
 import { RateCardEditor } from '@/components/settings/rate-card-editor';
@@ -94,6 +95,7 @@ function SettingsPageInner() {
     appearance: <AppearancePanel />,
     notifications: <NotificationPreferences key={accountId} />,
     whatsapp: <WhatsAppConfig />,
+    instagram: <InstagramCard key={accountId} />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,
     fields: <FieldsAndTagsPanel />,

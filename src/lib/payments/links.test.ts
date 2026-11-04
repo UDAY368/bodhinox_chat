@@ -128,3 +128,23 @@ describe('helpers', () => {
     expect(isStaleCreating({ status: 'unknown', updated_at: new Date(now - 3 * 60_000) }, now)).toBe(false);
   });
 });
+
+describe('paymentLinkErrorFromInstagram (Phase 11)', () => {
+  it('maps every Instagram refusal to a fixed payment-link code', async () => {
+    const { paymentLinkErrorFromInstagram } = await import('./links');
+    const { INSTAGRAM_ERROR_CODES, InstagramError } = await import('@/lib/instagram/errors');
+    const expected: Record<string, string> = {
+      instagram_window_closed: 'window_closed', contact_blocked: 'contact_blocked', invalid_request: 'invalid_message', not_found: 'no_address',
+    };
+    for (const code of INSTAGRAM_ERROR_CODES) {
+      const mapped = paymentLinkErrorFromInstagram(new InstagramError(code));
+      expect(mapped).toBeInstanceOf(PaymentLinkError);
+      expect((mapped as PaymentLinkError).code).toBe(expected[code] ?? 'number_unavailable');
+    }
+  });
+  it('passes anything else through unchanged', async () => {
+    const { paymentLinkErrorFromInstagram } = await import('./links');
+    const error = new Error('boom');
+    expect(paymentLinkErrorFromInstagram(error)).toBe(error);
+  });
+});

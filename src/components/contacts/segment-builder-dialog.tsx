@@ -29,7 +29,7 @@ import { CAMPAIGN_OUTCOMES } from '@/lib/audience/outcomes';
 import type { CustomField, Tag } from '@/types';
 
 type Field = AudienceCondition['field'];
-const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked'];
+const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked', 'instagram'];
 const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
 
 function blank(field: Field): AudienceCondition {
@@ -43,6 +43,7 @@ function blank(field: Field): AudienceCondition {
     case 'blocked': return { field, op: 'is', value: false };
     case 'ad': return { field, op: 'clicked_any', adIds: [] };
     case 'lead_form': return { field, op: 'submitted_any', formIds: [] };
+    case 'instagram': return { field, op: 'has_identity' };
     default: return { field, op: 'contains', value: '' };
   }
 }
@@ -308,6 +309,14 @@ export function SegmentBuilderDialog({
                     <Input aria-label={t('valueLabel')} type="date" className="h-8 w-40" value={c.value}
                       onChange={(e) => update(index, { ...c, value: e.target.value })} />
                   </>
+                )}
+
+                {c.field === 'instagram' && (
+                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                    <option value="has_identity">{t('ops.has_identity')}</option>
+                    <option value="has_no_identity">{t('ops.has_no_identity')}</option>
+                  </select>
                 )}
 
                 {(c.field === 'opted_out' || c.field === 'blocked') && (

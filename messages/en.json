@@ -655,6 +655,25 @@
       "startedFromAdNoHeadline": "Started from an ad",
       "startedFromPost": "Started from a Facebook or Instagram post",
       "viewAd": "View ad"
+    },
+    "channel": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "filterLabel": "Channel",
+      "all": "All channels",
+      "windowOpen": "Reply window closes in {time}",
+      "windowHumanAgent": "Human agent reply only ({time} left)",
+      "windowClosed": "Can't reply: the window is closed",
+      "storyReply": "Replied to your story",
+      "share": "Shared a post",
+      "unsupported": "This Instagram message type isn't supported yet",
+      "mediaUnavailable": "Media no longer available on Instagram",
+      "accountDisconnected": "Instagram account disconnected",
+      "reconnectNeeded": "Instagram needs reconnecting",
+      "deliveryUncertain": "Delivery uncertain; check Instagram before resending",
+      "byteCounter": "{used} / {max} bytes",
+      "notOnChannel": "Not available on Instagram",
+      "openSettings": "Open Instagram settings"
     }
   },
   "Contacts": {
@@ -960,7 +979,8 @@
         "list": "List",
         "campaign": "Campaign",
         "ad": "Clicked an ad",
-        "lead_form": "Lead form"
+        "lead_form": "Lead form",
+        "instagram": "Instagram identity"
       },
       "ops": {
         "has_any": "has any of",
@@ -977,7 +997,9 @@
         "clicked_any": "started a chat from",
         "clicked_none": "never started a chat from",
         "submitted_any": "submitted",
-        "submitted_none": "never submitted"
+        "submitted_none": "never submitted",
+        "has_identity": "has an Instagram identity",
+        "has_no_identity": "has no Instagram identity"
       },
       "noLists": "No lists yet",
       "campaignLabel": "Campaign",
@@ -998,6 +1020,29 @@
       "formIdsLabel": "Lead forms",
       "anyForm": "any lead form",
       "formIdsPlaceholder": "Any form, or form IDs separated by commas"
+    },
+    "identity": {
+      "title": "Channel identities",
+      "instagram": "Instagram",
+      "link": "Link Instagram identity to another contact",
+      "unlink": "Unlink",
+      "pickContact": "Choose a contact",
+      "note": "Note (optional)",
+      "confirmLink": "Link {identity} to {contact}? Both conversation histories are kept. You can undo this.",
+      "confirmUnlink": "Move {identity} back to its own contact? Both conversation histories are kept.",
+      "linked": "Identity linked",
+      "unlinked": "Identity unlinked",
+      "none": "No other channel identities",
+      "failed": "Could not update the identity",
+      "linkShort": "Link",
+      "cancel": "Cancel",
+      "confirm": "Link",
+      "linkHint": "Move this Instagram identity and its conversation to another contact. Nothing is matched automatically.",
+      "searchPlaceholder": "Search contacts by name",
+      "searching": "Searching…",
+      "typeToSearch": "Type at least 2 characters",
+      "noMatches": "No matching contacts",
+      "unnamed": "Unnamed contact"
     }
   },
   "Pipelines": {
@@ -2438,6 +2483,17 @@
         "events": "Events",
         "services": "Services"
       }
+    },
+    "channel": {
+      "runsOn": "Runs on",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "any": "Both",
+      "unavailableOnChannel": "{node} is not available on Instagram",
+      "triggerUnavailable": "This trigger works on WhatsApp only",
+      "textOverLimit": "Instagram messages are limited to 1000 bytes",
+      "runsOnHelp": "Instagram flows can use only the steps and triggers Instagram supports. Changing this is saved at once.",
+      "scopeSaveFailed": "Could not change where this flow runs. Fix the flow's issues and try again."
     }
   },
   "Settings": {
@@ -2925,7 +2981,8 @@
       "notifications": "Notifications",
       "media": "Media library",
       "ads": "Ads",
-      "connections": "Meetings & shipping"
+      "connections": "Meetings & shipping",
+      "instagram": "Instagram"
     },
     "groups": {
       "account": "Account",
@@ -3287,7 +3344,8 @@
         "appointments": "Appointments",
         "storefront": "Storefront and online payments",
         "online_meetings": "Online meetings (Zoom)",
-        "courier_shipping": "Courier shipping (Shiprocket)"
+        "courier_shipping": "Courier shipping (Shiprocket)",
+        "instagram": "Instagram messaging"
       },
       "limits": {
         "seats": "Team members and open invitations",
@@ -3300,7 +3358,8 @@
         "monthly_active_contacts": "Active contacts this month",
         "storage_bytes": "Media storage (bytes)",
         "whatsapp_numbers": "WhatsApp numbers",
-        "appointment_staff": "Practitioners"
+        "appointment_staff": "Practitioners",
+        "instagram_accounts": "Instagram accounts"
       },
       "loadFailed": "Could not load your plan",
       "retry": "Retry",
@@ -3606,7 +3665,11 @@
       "modeTeam": "A team (round robin)",
       "team": "Team",
       "teamSummary": "Team: {team}",
-      "unknownTeam": "deleted team"
+      "unknownTeam": "deleted team",
+      "channel": "Channel",
+      "channelAny": "Any channel",
+      "channelWhatsapp": "WhatsApp",
+      "channelInstagram": "Instagram"
     },
     "teams": {
       "title": "Teams",
@@ -3892,6 +3955,98 @@
       "copy": "Copy",
       "copyFailed": "Could not copy.",
       "adminOnly": "Only admins can change the Shiprocket connection."
+    },
+    "instagram": {
+      "title": "Instagram",
+      "description": "Connect an Instagram professional account to answer direct messages and reply privately to comments in the inbox.",
+      "notEnabled": "Instagram: not enabled",
+      "reasonFlagOff": "Instagram is not turned on for this deployment yet.",
+      "reasonNotConfigured": "Instagram is turned on but not fully configured on this deployment.",
+      "loadFailed": "Could not load Instagram accounts.",
+      "connect": "Connect Instagram",
+      "connecting": "Connecting...",
+      "reconnect": "Reconnect",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect @{username}? Conversations are kept, but you can't reply until you connect it again.",
+      "checkNow": "Check now",
+      "statusActive": "Connected",
+      "statusTokenInvalid": "Access expired. Reconnect to keep replying.",
+      "statusPermissionMissing": "Permission missing: {feature} needs {scopes}",
+      "statusDisconnected": "Disconnected",
+      "lastWebhook": "Last message received {date}",
+      "neverReceived": "No messages received yet",
+      "tokenExpires": "Access renews automatically; expires {date}",
+      "commentsAvailable": "Comment replies: available",
+      "commentsNotEnabled": "Comment replies: not enabled (permission not granted)",
+      "unsupportedEvents": "{count, plural, one {# event of an unsupported type was received} other {# events of an unsupported type were received}}",
+      "features": {
+        "dm": "Direct messages",
+        "comments": "Comment replies"
+      },
+      "connected": "Instagram account connected",
+      "connectFailed": "Could not connect Instagram",
+      "commentRules": {
+        "title": "Comment replies",
+        "help": "Send one private message to people who comment on your posts. They can reply to continue in the inbox.",
+        "add": "Add rule",
+        "anyPost": "Any post",
+        "postId": "Post ID",
+        "keywords": "Keywords (empty matches every comment)",
+        "replyText": "Private reply",
+        "active": "Active",
+        "save": "Save",
+        "delete": "Delete",
+        "empty": "No comment rules yet",
+        "saved": "Rule saved",
+        "deleteConfirm": "Delete this comment rule?",
+        "deleted": "Rule deleted",
+        "mediaLabel": "Post {id}",
+        "keywordsAny": "any comment",
+        "edit": "Edit",
+        "cancel": "Cancel",
+        "postIdHelp": "Leave empty to match every post.",
+        "postIdInvalid": "A post ID contains digits only.",
+        "keywordsHelp": "Separate keywords with commas. Matching ignores case.",
+        "replyBytes": "{count} / {max} bytes",
+        "loadFailed": "Could not load comment rules."
+      },
+      "loading": "Loading",
+      "retry": "Try again",
+      "noAccounts": "No Instagram account connected yet.",
+      "memberReadOnly": "Only administrators can change Instagram settings.",
+      "includeComments": "Also reply to comments",
+      "includeCommentsHelp": "Asks Instagram for the comments permission, so comment rules can send one private reply per comment.",
+      "connectAnother": "Connect another account",
+      "badgeReconnect": "Reconnect needed",
+      "badgePermission": "Permission missing",
+      "disconnected": "Instagram account disconnected",
+      "disconnectedHelp": "Conversations are kept. Connect again to reply.",
+      "healthChecked": "Connection checked",
+      "errors": {
+        "generic": "Something went wrong. Try again."
+      },
+      "callbackErrors": {
+        "instagram_not_enabled": "Instagram is not enabled on this deployment.",
+        "signed_out": "You were signed out. Sign in and connect again.",
+        "forbidden": "Only administrators can connect Instagram.",
+        "denied": "Instagram access was not granted.",
+        "state_mismatch": "The Instagram sign-in expired; try connecting again.",
+        "invalid_request": "Instagram sent an invalid response; try again.",
+        "account_in_use": "This Instagram account is connected to another workspace.",
+        "limit_reached": "Your plan's Instagram account limit is reached.",
+        "feature_unavailable": "Your plan doesn't include Instagram.",
+        "instagram_token_invalid": "Instagram did not accept the sign-in; try again.",
+        "meta_error": "Instagram returned an error; try again later.",
+        "save_failed": "The connection could not be saved; try again."
+      },
+      "notifications": {
+        "activeTitle": "{name} is connected again",
+        "activeBody": "Instagram messages can be sent and received again.",
+        "token_invalidTitle": "{name}: Instagram access expired",
+        "token_invalidBody": "Reconnect the account in Settings → Instagram to keep replying to messages.",
+        "permission_missingTitle": "{name}: Instagram permission missing",
+        "permission_missingBody": "Reconnect the account in Settings → Instagram and grant the messaging permission."
+      }
     }
   },
   "SignupPage": {
@@ -4007,7 +4162,8 @@
       "appointment_cancelled": "Booking cancelled",
       "appointment_rescheduled": "Booking moved",
       "low_stock": "Low stock",
-      "payment_exception": "Payment needs review"
+      "payment_exception": "Payment needs review",
+      "instagram_account_health": "Instagram account"
     }
   },
   "Agents": {
@@ -5412,7 +5568,8 @@
       "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
       "secretNeedsAdmin": "Only an admin can add or change an API request step that uses a secret workspace value.",
       "testNumbersInvalid": "Enter up to {max} phone numbers with country code (8–15 digits each).",
-      "copyName": "Copy of {name}"
+      "copyName": "Copy of {name}",
+      "channelScopeInvalid": "Runs on must be WhatsApp, Instagram or both."
     },
     "quickReplies": {
       "kindInvalid": "kind must be \"text\" or \"interactive\"",
@@ -5630,7 +5787,8 @@
       "invalidDateRange": "The start date must be before the end date.",
       "invalidCursor": "The page cursor is not valid.",
       "invalidLimit": "Limit must be a whole number from 1 to 50.",
-      "timeout": "The search took too long. Narrow it with a longer query or filters."
+      "timeout": "The search took too long. Narrow it with a longer query or filters.",
+      "invalidChannel": "Channel must be whatsapp or instagram."
     },
     "savedFilters": {
       "nameInvalid": "Give the view a name of 1 to 80 characters.",
@@ -5666,6 +5824,26 @@
       "invalidNumber": "Choose a connected WhatsApp number of this workspace",
       "missingScope": "Meta did not grant the permission this feature needs",
       "exportTooLarge": "Too many leads to export at once; narrow the filter"
+    },
+    "instagram": {
+      "instagram_not_enabled": "Instagram is not enabled",
+      "forbidden": "Only administrators can change Instagram",
+      "invalid_request": "Invalid request",
+      "not_found": "Not found",
+      "rate_limited": "Too many requests",
+      "account_in_use": "This Instagram account is connected to another workspace",
+      "limit_reached": "Your plan's Instagram account limit is reached",
+      "instagram_token_invalid": "Instagram access expired; reconnect the account",
+      "instagram_permission_missing": "Instagram did not grant the permission this feature needs",
+      "instagram_account_disconnected": "This Instagram account is disconnected",
+      "instagram_window_closed": "Can't reply: the Instagram reply window is closed",
+      "channel_not_supported": "This isn't available on this channel",
+      "contact_blocked": "This contact is blocked",
+      "identity_conflict": "That contact already has a conversation on this Instagram account",
+      "identity_busy": "A flow is running in this conversation; try again when it ends",
+      "state_mismatch": "The Instagram sign-in expired; try connecting again",
+      "meta_error": "Instagram returned an error",
+      "delivery_uncertain": "Delivery uncertain; check Instagram before resending"
     }
   },
   "PageSearch": {
@@ -6297,7 +6475,8 @@
       "notFound": "That WhatsApp number is not connected to this workspace.",
       "noDefault": "Choose which WhatsApp number to use.",
       "templateWrongNumber": "This template belongs to a different WhatsApp Business account than the sending number. Choose a template from that number’s account.",
-      "disconnected": "This WhatsApp number was disconnected. Reconnect it in Settings to send from it."
+      "disconnected": "This WhatsApp number was disconnected. Reconnect it in Settings to send from it.",
+      "otherChannel": "This conversation is not on WhatsApp."
     },
     "defaultBadge": "Default",
     "unnamedNumber": "Number {phoneNumberId}",
@@ -7965,6 +8144,9 @@
       "open": "Open payment page",
       "blocked": "Your browser blocked the payment tab. Use the link on this page to continue.",
       "checkoutFallback": "Checkout could not load here. Use the payment page link to continue."
+    },
+    "instagram": {
+      "activeContactsNote": "An Instagram user linked to a WhatsApp contact counts once in active contacts; unlinked, they count separately."
     }
   },
   "AiAgentFoundation": {

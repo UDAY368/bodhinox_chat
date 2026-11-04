@@ -69,6 +69,7 @@ const FEATURE_NAMES: Record<Feature, string> = {
   storefront: 'Storefront and online payments',
   online_meetings: 'Online meetings (Zoom)',
   courier_shipping: 'Courier shipping (Shiprocket)',
+  instagram: 'Instagram messaging',
 };
 const LIMIT_NAMES: Record<LimitKey, string> = {
   seats: 'team members',
@@ -82,6 +83,7 @@ const LIMIT_NAMES: Record<LimitKey, string> = {
   storage_bytes: 'bytes of media storage',
   whatsapp_numbers: 'WhatsApp numbers',
   appointment_staff: 'practitioners',
+  instagram_accounts: 'Instagram accounts',
 };
 
 export async function requireFeature(tx: TenantTransaction, accountId: string, feature: Feature): Promise<void> {

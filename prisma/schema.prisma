@@ -126,6 +126,11 @@ model conversations {
   first_responded_at DateTime? @db.Timestamptz(6)
   resolved_at DateTime? @db.Timestamptz(6)
   reopened_count Int  @default(0)
+  /// Phase 11: 'whatsapp' | 'instagram'. Server-managed; an Instagram row names instagram_account_id and never a number.
+  channel String @default("whatsapp")
+  instagram_account_id String? @db.Uuid
+  // 20261109101100/101200: partial unique indexes idx_conversations_wa_contact_number (WhatsApp, NULLS NOT DISTINCT)
+  // and idx_conversations_ig_contact_account (Instagram) are built CONCURRENTLY by the SQL; conversations_channel_sender_check is owned by the SQL.
   @@unique([account_id, id])
 }
 
@@ -413,6 +418,8 @@ model flows {
   test_numbers String[]  @default([])
   whatsapp_config_id String? @db.Uuid
   archived_at DateTime? @db.Timestamptz(6)
+  /// Phase 11: 'whatsapp' | 'instagram' | 'any'.
+  channel_scope String @default("whatsapp")
   @@unique([account_id, id])
 }
 
@@ -525,6 +532,7 @@ model notifications {
   whatsapp_config_id String? @db.Uuid
   dedupe_key String?
   link String?
+  instagram_account_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -2376,4 +2384,101 @@ model order_notice_templates {
   language String
   updated_at DateTime @default(now()) @db.Timestamptz(6)
   @@id([account_id, kind])
+}
+
+/// Phase 11. An Instagram professional account (Instagram API with Instagram Login). The app role cannot
+/// SELECT access_token_enc: always pass an explicit `select` from the app client. Written by the worker only.
+model instagram_accounts {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  ig_user_id String
+  username String?
+  name String?
+  access_token_enc String?
+  token_expires_at DateTime? @db.Timestamptz(6)
+  token_refreshed_at DateTime? @db.Timestamptz(6)
+  scopes String[] @default([])
+  status String @default("active")
+  webhook_subscribed_at DateTime? @db.Timestamptz(6)
+  last_webhook_at DateTime? @db.Timestamptz(6)
+  last_error_code String?
+  unsupported_event_count Int @default(0)
+  unsupported_event_last_at DateTime? @db.Timestamptz(6)
+  connected_by_user_id String? @db.Uuid
+  connected_at DateTime @default(now()) @db.Timestamptz(6)
+  disconnected_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  // 20261109100000_instagram_accounts: the partial unique index instagram_accounts_live_ig_user, the column grants that
+  // hide the token from the app role, and the crm_* definer lookups are owned by the SQL.
+  @@unique([account_id, id])
+  @@unique([account_id, ig_user_id])
+}
+
+/// Phase 11 (CRM-02). A contact's Instagram identity (IGSID per professional account). Never a match key.
+model contact_channel_identities {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  contact_id String @db.Uuid
+  channel String @default("instagram")
+  instagram_account_id String @db.Uuid
+  external_id String
+  username String?
+  display_name String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, instagram_account_id, external_id])
+  @@index([account_id, contact_id], map: "contact_channel_identities_contact_idx")
+}
+
+/// Phase 11 (CRM-02). Append-only history of staff link/unlink decisions.
+model contact_identity_links {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  identity_id String? @db.Uuid
+  from_contact_id String @db.Uuid
+  to_contact_id String @db.Uuid
+  kind String
+  basis String @default("staff_decision")
+  note String?
+  decided_by_user_id String @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, identity_id, created_at(sort: Desc)], map: "contact_identity_links_identity_idx")
+}
+
+/// Phase 11. Comment-to-private-reply rules (admin write).
+model instagram_comment_rules {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  instagram_account_id String @db.Uuid
+  media_id String?
+  keywords String[] @default([])
+  reply_text String
+  active Boolean @default(true)
+  created_by_user_id String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, instagram_account_id], map: "instagram_comment_rules_account_idx")
+}
+
+/// Phase 11. A comment a rule may answer with one private reply. No comment text is stored. Worker write only.
+model instagram_comment_events {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  instagram_account_id String @db.Uuid
+  comment_id String
+  media_id String?
+  from_igsid String?
+  rule_id String? @db.Uuid
+  received_at DateTime @default(now()) @db.Timestamptz(6)
+  private_reply_status String @default("none")
+  private_reply_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  // instagram_comment_events_rate_idx (partial) is owned by the SQL.
+  @@unique([account_id, id])
+  @@unique([instagram_account_id, comment_id])
 }

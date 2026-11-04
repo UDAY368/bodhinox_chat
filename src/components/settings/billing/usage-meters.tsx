@@ -33,6 +33,7 @@ export function usedPercent(used: number | undefined, limit: number | null): num
 
 export function UsageMeters({ plan }: { plan: PlanView }) {
   const t = useTranslations('Settings.plan');
+  const tIg = useTranslations('Billing.instagram');
   const format = useFormatter();
   const amount = (key: LimitKey, n: number) => {
     if (key !== 'storage_bytes') return format.number(n);
@@ -70,6 +71,9 @@ export function UsageMeters({ plan }: { plan: PlanView }) {
               )}
               {limit !== null && used !== undefined && pct >= 100 && (
                 <p className="text-xs text-red-600 dark:text-red-400">{t('meters.reached')}</p>
+              )}
+              {key === 'monthly_active_contacts' && (
+                <p className="text-xs text-muted-foreground">{tIg('activeContactsNote')}</p>
               )}
             </div>
           );

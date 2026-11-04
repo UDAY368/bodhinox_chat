@@ -848,6 +848,26 @@
         "default": "0",
         "reference": null,
         "definition": "reopened_count INTEGER NOT NULL DEFAULT 0"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": "'whatsapp'",
+        "reference": null,
+        "definition": "channel text NOT NULL DEFAULT 'whatsapp'"
+      },
+      {
+        "name": "instagram_account_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "instagram_accounts",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "instagram_account_id uuid"
       }
     ],
     "messages": [
@@ -2748,6 +2768,14 @@
         "nullable": true,
         "default": null,
         "definition": "whatsapp_config_id UUID"
+      },
+      {
+        "name": "channel_scope",
+        "type": "text",
+        "nullable": false,
+        "default": "'whatsapp'",
+        "reference": null,
+        "definition": "channel_scope text NOT NULL DEFAULT 'whatsapp'"
       }
     ],
     "flow_nodes": [
@@ -3496,6 +3524,18 @@
         "default": null,
         "reference": null,
         "definition": "link TEXT"
+      },
+      {
+        "name": "instagram_account_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "instagram_accounts",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "instagram_account_id uuid"
       }
     ],
     "webhook_endpoints": [
@@ -14180,6 +14220,556 @@
         "default": null,
         "reference": null,
         "definition": "language text NOT NULL CHECK (char_length(language) BETWEEN 2 AND 15)"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "instagram_accounts": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "ig_user_id",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "ig_user_id text NOT NULL CHECK (ig_user_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "username",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "username text CHECK (char_length(username) <= 64)"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "name text CHECK (char_length(name) <= 500)"
+      },
+      {
+        "name": "access_token_enc",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "access_token_enc text CHECK (access_token_enc IS NULL OR char_length(access_token_enc) <= 8192)"
+      },
+      {
+        "name": "token_expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "token_expires_at timestamptz"
+      },
+      {
+        "name": "token_refreshed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "token_refreshed_at timestamptz"
+      },
+      {
+        "name": "scopes",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "scopes text[] NOT NULL DEFAULT '{}' CHECK (cardinality(scopes) <= 50)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'active'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','token_invalid','permission_missing','disconnected'))"
+      },
+      {
+        "name": "webhook_subscribed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "webhook_subscribed_at timestamptz"
+      },
+      {
+        "name": "last_webhook_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_webhook_at timestamptz"
+      },
+      {
+        "name": "last_error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "last_error_code text CHECK (last_error_code ~ '^[0-9:]{0,32}$')"
+      },
+      {
+        "name": "unsupported_event_count",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "unsupported_event_count integer NOT NULL DEFAULT 0 CHECK (unsupported_event_count >= 0)"
+      },
+      {
+        "name": "unsupported_event_last_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "unsupported_event_last_at timestamptz"
+      },
+      {
+        "name": "connected_by_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "connected_by_user_id uuid"
+      },
+      {
+        "name": "connected_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "connected_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "disconnected_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "disconnected_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "contact_channel_identities": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "contacts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "contact_id uuid NOT NULL"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": "'instagram'",
+        "reference": null,
+        "definition": "channel text NOT NULL DEFAULT 'instagram' CHECK (channel IN ('instagram'))"
+      },
+      {
+        "name": "instagram_account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "instagram_accounts",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "instagram_account_id uuid NOT NULL"
+      },
+      {
+        "name": "external_id",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "external_id text NOT NULL CHECK (external_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "username",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "username text CHECK (char_length(username) <= 64)"
+      },
+      {
+        "name": "display_name",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "display_name text CHECK (char_length(display_name) <= 500)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "contact_identity_links": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "identity_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "contact_channel_identities",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "identity_id uuid"
+      },
+      {
+        "name": "from_contact_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "from_contact_id uuid NOT NULL"
+      },
+      {
+        "name": "to_contact_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "to_contact_id uuid NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('link','unlink'))"
+      },
+      {
+        "name": "basis",
+        "type": "text",
+        "nullable": false,
+        "default": "'staff_decision'",
+        "reference": null,
+        "definition": "basis text NOT NULL DEFAULT 'staff_decision' CHECK (basis IN ('staff_decision'))"
+      },
+      {
+        "name": "note",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "note text CHECK (char_length(note) <= 200)"
+      },
+      {
+        "name": "decided_by_user_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "decided_by_user_id uuid NOT NULL"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "instagram_comment_rules": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "instagram_account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "instagram_accounts",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "instagram_account_id uuid NOT NULL"
+      },
+      {
+        "name": "media_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "media_id text CHECK (media_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "keywords",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "keywords text[] NOT NULL DEFAULT '{}' CHECK (cardinality(keywords) <= 20)"
+      },
+      {
+        "name": "reply_text",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "reply_text text NOT NULL CHECK (octet_length(reply_text) BETWEEN 1 AND 1000)"
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "nullable": false,
+        "default": "true",
+        "reference": null,
+        "definition": "active boolean NOT NULL DEFAULT true"
+      },
+      {
+        "name": "created_by_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "created_by_user_id uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "instagram_comment_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid"
+      },
+      {
+        "name": "instagram_account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "instagram_accounts",
+          "column": "id",
+          "onDelete": "NO ACTION"
+        },
+        "definition": "instagram_account_id uuid NOT NULL"
+      },
+      {
+        "name": "comment_id",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "comment_id text NOT NULL CHECK (comment_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "media_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "media_id text CHECK (media_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "from_igsid",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "from_igsid text CHECK (from_igsid ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "rule_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "instagram_comment_rules",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "rule_id uuid"
+      },
+      {
+        "name": "received_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "received_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "private_reply_status",
+        "type": "text",
+        "nullable": false,
+        "default": "'none'",
+        "reference": null,
+        "definition": "private_reply_status text NOT NULL DEFAULT 'none' CHECK (private_reply_status IN ('none','queued','sent','unknown','expired','rejected','no_rule'))"
+      },
+      {
+        "name": "private_reply_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "private_reply_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
       },
       {
         "name": "updated_at",

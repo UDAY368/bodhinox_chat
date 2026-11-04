@@ -130,4 +130,15 @@ describe("verifyMetaWebhookSignature", () => {
       expect(verifyMetaWebhookSignature(body, signedHeader(body, ""))).toBe(false);
     });
   });
+  describe("explicit secret list (Instagram webhook, Phase 11)", () => {
+    it("checks only the passed list, so existing callers keep META_APP_SECRET", () => {
+      const body = "{}";
+      const ig = "instagram-app-secret";
+      expect(verifyMetaWebhookSignature(body, signedHeader(body, ig), ig + "," + SECRET)).toBe(true);
+      expect(verifyMetaWebhookSignature(body, signedHeader(body, SECRET), ig + "," + SECRET)).toBe(true);
+      expect(verifyMetaWebhookSignature(body, signedHeader(body, SECRET), ig)).toBe(false);
+      expect(verifyMetaWebhookSignature(body, signedHeader(body, ig))).toBe(false);
+      expect(verifyMetaWebhookSignature(body, signedHeader(body, ig), "")).toBe(false);
+    });
+  });
 });

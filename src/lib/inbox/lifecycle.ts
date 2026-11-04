@@ -52,7 +52,7 @@ export interface InboundLifecycleResult {
 
 type ConversationRow = {
   status: string; lifecycle_state: LifecycleState; assigned_agent_id: string | null; bot_paused: boolean;
-  whatsapp_config_id: string | null; reopened_count: number;
+  whatsapp_config_id: string | null; reopened_count: number; channel: string;
 };
 
 /**
@@ -64,7 +64,7 @@ export async function applyInboundLifecycle(input: InboundLifecycleInput, now: D
   const { accountId, conversationId } = input;
   return withTenant({ accountId, role: 'owner' }, async (tx) => {
     const rows = await tx.$queryRaw<ConversationRow[]>`SELECT status,lifecycle_state,assigned_agent_id::text AS assigned_agent_id,bot_paused,
-        whatsapp_config_id::text AS whatsapp_config_id,reopened_count
+        whatsapp_config_id::text AS whatsapp_config_id,reopened_count,channel
       FROM conversations WHERE account_id=${accountId}::uuid AND id=${conversationId}::uuid FOR UPDATE`;
     const row = rows[0];
     const result: InboundLifecycleResult = {
@@ -105,6 +105,7 @@ export async function applyInboundLifecycle(input: InboundLifecycleInput, now: D
       tagIds: new Set(tags.map((tag) => tag.tag_id.toLowerCase())),
       text: input.text,
       whatsappConfigId: row.whatsapp_config_id,
+      channel: row.channel === 'instagram' ? 'instagram' : 'whatsapp',
       // The receipt time, like the away message: a delayed or retried job routes by when the customer wrote.
       withinWorkingHours: isWithinWorkingHours(settings, handled[0]?.received_at ?? now),
     });

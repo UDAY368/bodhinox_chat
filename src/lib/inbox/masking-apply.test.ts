@@ -6,6 +6,7 @@ import {
   maskContactIdentifier,
   maskContactRow,
   maskEmbeddedContact,
+  maskIdentityRow,
   maskMarkers,
   maskNotificationRow,
   maskRealtimePayload,
@@ -235,5 +236,14 @@ describe('query compiler for a masked member', () => {
   it('leaves unmasked members unchanged', () => {
     const query = select({ filters: [{ field: 'phone', op: 'eq', value: '+919876543210' }] }, plain);
     expect(query.values).toContain('+919876543210');
+  });
+});
+
+describe('maskIdentityRow', () => {
+  it('masks an Instagram identity handle and IGSID for masked members only', () => {
+    const row = { id: 'i1', username: 'shop.owner', external_id: '1234567890', display_name: 'Shop Owner' };
+    expect(maskIdentityRow(row, false)).toBe(row);
+    expect(maskIdentityRow(row, true)).toEqual({ id: 'i1', username: 's••••••••r', external_id: '1••••••••0', display_name: 'Shop Owner' });
+    expect(maskIdentityRow({ id: 'i2', username: null }, true)).toEqual({ id: 'i2', username: null });
   });
 });

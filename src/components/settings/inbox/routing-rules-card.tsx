@@ -31,6 +31,7 @@ interface Member { user_id: string; full_name: string; email: string | null; rol
 interface Tag { id: string; name: string }
 interface Team { id: string; name: string }
 type HoursChoice = "any" | "within" | "outside";
+type ChannelChoice = "any" | "whatsapp" | "instagram";
 
 const ENDPOINT = "/api/inbox/routing-rules";
 const json = { "content-type": "application/json" };
@@ -210,6 +211,7 @@ function RuleDialog({ rule, members, teams, tags, numbers, onClose, onSaved }: {
   const [tagIds, setTagIds] = useState<string[]>(rule?.conditions.tags_any ?? []);
   const [keywords, setKeywords] = useState((rule?.conditions.keywords_any ?? []).join(", "));
   const [numberId, setNumberId] = useState<string | null>(rule?.conditions.whatsapp_config_id ?? null);
+  const [channel, setChannel] = useState<ChannelChoice>(rule?.conditions.channel ?? "any");
   const [hours, setHours] = useState<HoursChoice>(
     rule?.conditions.within_working_hours === undefined ? "any" : rule.conditions.within_working_hours ? "within" : "outside");
   const [mode, setMode] = useState<AssignTo["mode"]>(rule?.assign_to.mode ?? "member");
@@ -232,6 +234,7 @@ function RuleDialog({ rule, members, teams, tags, numbers, onClose, onSaved }: {
           ...(tagIds.length ? { tags_any: tagIds } : {}),
           ...(words.length ? { keywords_any: words } : {}),
           ...(numberId ? { whatsapp_config_id: numberId } : {}),
+          ...(channel === "any" ? {} : { channel }),
           ...(hours === "any" ? {} : { within_working_hours: hours === "within" }),
         },
         assign_to: mode === "member" ? { mode, user_id: assignees[0] ?? "" }
@@ -289,6 +292,15 @@ function RuleDialog({ rule, members, teams, tags, numbers, onClose, onSaved }: {
                 <NumberSelect id="routing-rule-number" numbers={numbers} value={numberId} onChange={setNumberId} emptyLabel={t("anyNumber")} />
               </div>
             )}
+            <div className="space-y-1.5">
+              <Label htmlFor="routing-rule-channel">{t("channel")}</Label>
+              <select id="routing-rule-channel" value={channel} onChange={(e) => setChannel(e.target.value as ChannelChoice)}
+                className="border-border bg-card text-foreground h-9 w-full rounded-md border px-2 text-sm">
+                <option value="any">{t("channelAny")}</option>
+                <option value="whatsapp">{t("channelWhatsapp")}</option>
+                <option value="instagram">{t("channelInstagram")}</option>
+              </select>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="routing-rule-hours">{t("hours")}</Label>
               <select id="routing-rule-hours" value={hours} onChange={(e) => setHours(e.target.value as HoursChoice)}

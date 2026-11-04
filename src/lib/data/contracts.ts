@@ -564,7 +564,11 @@ export function validateWrite(
       throw new ContractError(`Field ${field} is server-managed`);
     // A notification's destination and idempotency key are chosen by the server
     // that raised it; a browser may only mark its own notifications read.
-    if (browser && name === 'notifications' && ['link', 'dedupe_key'].includes(field))
+    if (browser && name === 'notifications' && ['link', 'dedupe_key', 'instagram_account_id'].includes(field))
+      throw new ContractError(`Field ${field} is server-managed`);
+    // A conversation's channel and Instagram account are fixed by the inbound
+    // pipeline that created it; every send route derives the channel from the row.
+    if (browser && name === 'conversations' && ['channel', 'instagram_account_id'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
     // A conversation keeps the number the customer wrote to; replies, number-scoped
     // routing and away messages follow it. Inserts fall back to the

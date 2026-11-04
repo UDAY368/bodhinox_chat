@@ -3,7 +3,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {},
 }));
 
-vi.mock("@/lib/jobs/dispatch", () => ({ dispatchOnce: (_account: string, _key: string, send: () => Promise<unknown>) => send(),
+const dispatch = vi.hoisted(() => ({ once: vi.fn((_account: string, _key: string, send: () => Promise<unknown>) => send()) }));
+vi.mock("@/lib/jobs/dispatch", () => ({ dispatchOnce: dispatch.once,
 }));
 
 // Workspace attributes come from the database; record each lookup instead.
@@ -1260,5 +1261,37 @@ describe("triggerMatches — appointment triggers", () => {
 
   it("does not match an event without a service", () => {
     expect(triggerMatches(automation({}), {})).toBe(false);
+  });
+});
+
+describe("send steps on a conversation that is not on WhatsApp", () => {
+  function tagAutomation() {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [{
+      id: "a1", account_id: ACCOUNT, user_id: "u1", name: "tag", trigger_type: "tag_added",
+      trigger_config: { tag_id: "tag-a" }, is_active: true,
+    }];
+    h.state.steps = [{ id: "s1", automation_id: "a1", step_type: "send_message", position: 0, parent_step_id: null,
+      step_config: { text: "Hello" } }];
+  }
+
+  it("refuses an Instagram conversation in the context before dispatching, leaving no outbound intent", async () => {
+    // An Instagram-scoped flow's set_tag fires tag_added with its Instagram conversation.
+    tagAutomation();
+    h.state.conversations = [{ id: "ig-conv", account_id: ACCOUNT, contact_id: "c1", channel: "instagram", whatsapp_config_id: null }];
+    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1",
+      context: { tag_id: "tag-a", conversation_id: "ig-conv" } });
+    expect(dispatch.once).not.toHaveBeenCalled();
+    expect(engineSendText).not.toHaveBeenCalled();
+    expect(JSON.stringify(h.state.logUpdates)).toContain("not on WhatsApp");
+  });
+
+  it("still sends on a WhatsApp conversation in the context", async () => {
+    tagAutomation();
+    h.state.conversations = [{ id: "wa-conv", account_id: ACCOUNT, contact_id: "c1", channel: "whatsapp", whatsapp_config_id: null }];
+    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1",
+      context: { tag_id: "tag-a", conversation_id: "wa-conv" } });
+    expect(dispatch.once).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(engineSendText).mock.calls[0][0]).toMatchObject({ conversationId: "wa-conv" });
   });
 });

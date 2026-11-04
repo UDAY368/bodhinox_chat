@@ -130,6 +130,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox lifecycle and routing
     await deleteRoutingRule(asAdmin, pool.id);
   });
 
+  it('matches a channel condition against the conversation channel', async () => {
+    const base = { enabled: true, reassign_after_minutes: null } as const;
+    const ig = await createRoutingRule(asAdmin, { ...base, name: 'Instagram', conditions: { channel: 'instagram' }, assign_to: { mode: 'member', user_id: agent2A } });
+    const wa = await createRoutingRule(asAdmin, { ...base, name: 'WhatsApp', conditions: { channel: 'whatsapp' }, assign_to: { mode: 'member', user_id: agentA } });
+    // A plain WhatsApp conversation skips the Instagram rule and takes the WhatsApp one.
+    const whatsapp = await inbound('hello there');
+    expect(await applyInboundLifecycle(whatsapp.input)).toMatchObject({ routedTo: agentA, ruleId: wa.id });
+    await deleteRoutingRule(asAdmin, ig.id);
+    await deleteRoutingRule(asAdmin, wa.id);
+  });
+
   it('marks AI-owned conversations as bot without an SLA clock, but routes after a one-off bot reply', async () => {
     const pool = await createRoutingRule(asAdmin, { enabled: true, reassign_after_minutes: null, name: 'Pool', conditions: {}, assign_to: { mode: 'member', user_id: agentA } });
     const ai = await inbound('hi', { at: new Date(Date.now() - 1000).toISOString() });

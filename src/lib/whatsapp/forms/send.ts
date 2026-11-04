@@ -192,8 +192,8 @@ async function prepare(tx: TenantTransaction, args: SendFormArgs): Promise<Prepa
     SELECT name,status,meta_flow_id,definition,uses_endpoint,waba_id FROM whatsapp_forms
     WHERE account_id=${args.accountId}::uuid AND id=${args.formId}::uuid`;
   const conversations = await tx.$queryRaw<{ contact_id: string; last_customer_message_at: Date | null; phone: string | null;
-    wa_user_id: string | null; blocked_at: Date | null; whatsapp_config_id: string | null }[]>`
-    SELECT c.contact_id,
+    wa_user_id: string | null; blocked_at: Date | null; whatsapp_config_id: string | null; channel: string }[]>`
+    SELECT c.contact_id, c.channel,
       -- conversations has no such column; the 24-hour window comes from the latest customer message.
       (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
         AND m.sender_type='customer') AS last_customer_message_at,
@@ -201,6 +201,8 @@ async function prepare(tx: TenantTransaction, args: SendFormArgs): Promise<Prepa
     FROM conversations c JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
     WHERE c.account_id=${args.accountId}::uuid AND c.id=${args.conversationId}::uuid`;
   const conversation = conversations[0] ?? null;
+  // WhatsApp Flows forms exist only on WhatsApp.
+  if (conversation?.channel && conversation.channel !== 'whatsapp') throw new FormSendError('not_configured');
   const refusal = formSendRefusal({ form: forms[0] ?? null, contact: conversation,
     lastCustomerMessageAt: conversation?.last_customer_message_at ?? null });
   if (refusal) throw new FormSendError(refusal);

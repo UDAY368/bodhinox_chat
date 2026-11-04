@@ -62,6 +62,18 @@ export async function processInboundActions(input: InboundActionsPayload, assert
       }));
       return;
     }
+    // The channel comes from the stored conversation, never from the job payload.
+    const stored=await storedConversation(db,input);
+    if(stored.channel==="instagram") {
+      // A link/unlink can move the conversation to another contact after this job
+      // was queued: act for the contact that owns the conversation now, never the
+      // queued one (ids-only log).
+      const contactId=stored.contactId??input.contactId;
+      if(contactId!==input.contactId) console.info("[inbound-actions] contact_rebound",{accountId:input.accountId,
+        conversationId:input.conversationId,messageId:input.messageId});
+      await processInstagramActions(db,{...input,contactId},stage);
+      return;
+    }
     if(input.wasConversationCreated) await stage("conversation_webhook",()=>dispatchWebhookEvent(db,input.accountId,"conversation.created",{
       conversation_id:input.conversationId,contact_id:input.contactId,
     }));
@@ -116,6 +128,47 @@ export async function processInboundActions(input: InboundActionsPayload, assert
 type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
 type MessageInput=Extract<InboundActionsPayload,{kind:"message"}>;
 type Db=ReturnType<typeof createAdminClient>;
+
+/**
+ * The stored conversation's channel and current contact. Only a stored
+ * Instagram conversation (Phase 11) takes the Instagram path; every other row
+ * keeps the WhatsApp path.
+ */
+async function storedConversation(db:Db,input:MessageInput): Promise<{channel:"instagram"|"whatsapp";contactId:string|null}> {
+  const {data,error}=await db.from("conversations").select("channel,contact_id")
+    .eq("account_id",input.accountId).eq("id",input.conversationId).maybeSingle();
+  if(error) throw new Error("Conversation channel lookup failed");
+  const row=data as {channel?:string|null;contact_id?:string|null}|null;
+  return {channel:row?.channel==="instagram" ? "instagram" : "whatsapp",contactId:row?.contact_id??null};
+}
+
+/**
+ * Instagram inbound (Phase 11): STOP/START consent, then flows only, then
+ * lifecycle and routing (channel-neutral). Skipped because they are
+ * WhatsApp-only or WhatsApp-shaped: campaign reply credit, WhatsApp forms, cart
+ * orders and their confirmation, BOOK codes, automations, AI auto-reply, the
+ * away message, and the message.received / conversation.created webhooks (their
+ * payload carries whatsapp_message_id). Skips are logged with ids only.
+ */
+async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Promise<void> {
+  const text=input.contentText??"";
+  const keyword=input.contentType==="text"&&!input.interactiveReplyId ? consentKeyword(text) : null;
+  if(keyword) await applyConsentKeyword(db,input.accountId,input.contactId,keyword);
+  if(keyword==="opt_out") await endRunsOnOptOut(db,input);
+  const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")
+    .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
+  if(contactError) throw new Error("Contact consent lookup failed");
+  if(keyword||contact?.blocked_at) return;
+  const flow=await stage("flow",async()=>dispatchInboundToFlows({
+    accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
+    message:await flowMessage(db,input,text),
+    isFirstInboundMessage:input.isFirstInboundMessage,
+  }));
+  if(!flow?.consumed) console.info("[inbound-actions] channel_not_supported",{accountId:input.accountId,
+    conversationId:input.conversationId,skipped:"automations_ai_away"});
+  await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
+    contactId:input.contactId,messageId:input.messageId,text});
+}
 
 /** Matches analytics (lib/analytics/queries REPLY_WINDOW): a later message is not a campaign reply. */
 export const BROADCAST_REPLY_WINDOW_MS=72*3_600_000;

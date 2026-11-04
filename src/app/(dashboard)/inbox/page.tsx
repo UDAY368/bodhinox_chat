@@ -25,6 +25,9 @@ import { useRealtime } from '@/hooks/use-realtime';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
+import { conversationChannel } from '@/components/inbox/channel-badge';
+import { authFetch } from '@/lib/auth/client';
+import Link from 'next/link';
 import { InboxSearch } from '@/components/inbox/search/inbox-search';
 import {
   jumpRequestFor,
@@ -36,7 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { TextSearch, WifiOff } from 'lucide-react';
+import { Camera, TextSearch, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -57,6 +60,7 @@ export default function InboxPage() {
 
 function InboxPageInner() {
   const t = useTranslations('Inbox.page');
+  const tChannel = useTranslations('Inbox.channel');
   const tSearch = useTranslations('InboxSearch');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -75,6 +79,10 @@ function InboxPageInner() {
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
     null
   );
+  // Phase 11: Instagram accounts needing attention. Empty while Instagram is
+  // off (the status route answers {enabled:false} and never calls Meta).
+  const [instagramAccounts, setInstagramAccounts] = useState<InstagramBannerAccount[]>([]);
+  const [instagramHumanAgent, setInstagramHumanAgent] = useState(false);
   /**
    * Bumped whenever we want children (ConversationList, MessageThread)
    * to refetch from the DB — used as a safety net against missed
@@ -247,6 +255,25 @@ function InboxPageInner() {
     };
 
     checkConnection();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await authFetch('/api/instagram/status');
+        if (!res.ok) return;
+        const body = (await res.json().catch(() => null)) as InstagramStatusBody | null;
+        if (cancelled || !body?.enabled) return;
+        if (Array.isArray(body.accounts)) setInstagramAccounts(body.accounts);
+        setInstagramHumanAgent(body.humanAgentEnabled === true);
+      } catch {
+        // The banner is advisory; the inbox works without it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Handle realtime message events
@@ -639,6 +666,8 @@ function InboxPageInner() {
   // it back to the list. On lg+ both panes render side-by-side as
   // before, unchanged.
   const hasActiveConv = !!activeConversation;
+  const instagramBanners = instagramBannerRows(instagramAccounts, conversations);
+  // The Settings section with the Instagram card (INSTAGRAM_SETTINGS_PATH, server-only module).
 
   return (
     <div className="studio-inbox bg-background -m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
@@ -652,6 +681,26 @@ function InboxPageInner() {
           </p>
         </div>
       )}
+
+      {instagramBanners.map((row) => (
+        <div
+          key={row.id}
+          data-instagram-banner={row.kind}
+          className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2"
+        >
+          <Camera className="h-4 w-4 text-amber-700 dark:text-amber-400" aria-hidden />
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {tChannel(row.kind === 'disconnected' ? 'accountDisconnected' : 'reconnectNeeded')}
+            {row.username ? ` (@${row.username})` : ''}
+          </p>
+          <Link
+            href="/settings?tab=instagram"
+            className="text-xs font-medium text-amber-800 underline-offset-2 hover:underline dark:text-amber-300"
+          >
+            {tChannel('openSettings')}
+          </Link>
+        </div>
+      ))}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
@@ -714,6 +763,7 @@ function InboxPageInner() {
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
             jumpRequest={jumpRequestFor(jumpRequest, activeConversation?.id)}
+            instagramHumanAgent={instagramHumanAgent}
           />
         </div>
 
@@ -726,6 +776,7 @@ function InboxPageInner() {
             <ContactSidebar
               key={activeContact?.id}
               contact={activeContact}
+              channel={conversationChannel(activeConversation)}
               onCollapse={handleToggleContactPanel}
               refreshToken={`${resyncToken}:${messages.length}`}
               onUpdated={(updated) => {
@@ -761,4 +812,47 @@ function InboxPageInner() {
       </Dialog>
     </div>
   );
+}
+
+interface InstagramBannerAccount {
+  id: string;
+  username: string | null;
+  status: 'active' | 'token_invalid' | 'permission_missing' | 'disconnected';
+  missingScopes?: { dm?: string[] };
+}
+
+interface InstagramBannerRow {
+  id: string;
+  username: string | null;
+  kind: 'reconnect' | 'disconnected';
+}
+
+interface InstagramStatusBody {
+  enabled?: boolean;
+  humanAgentEnabled?: boolean;
+  accounts?: InstagramBannerAccount[];
+}
+
+/**
+ * One banner per Instagram account staff must act on: token invalid or DM
+ * permission missing ("reconnect needed"), or disconnected while its
+ * conversations are still listed (sends there are refused).
+ */
+function instagramBannerRows(
+  accounts: InstagramBannerAccount[],
+  conversations: Conversation[]
+): InstagramBannerRow[] {
+  if (accounts.length === 0) return [];
+  const listed = new Set(
+    conversations
+      .filter((c) => conversationChannel(c) === 'instagram' && c.instagram_account_id)
+      .map((c) => c.instagram_account_id as string)
+  );
+  return accounts.flatMap((account): InstagramBannerRow[] => {
+    if (account.status === 'token_invalid' || (account.status === 'permission_missing' && (account.missingScopes?.dm?.length ?? 0) > 0))
+      return [{ id: account.id, username: account.username, kind: 'reconnect' }];
+    if (account.status === 'disconnected' && listed.has(account.id))
+      return [{ id: account.id, username: account.username, kind: 'disconnected' }];
+    return [];
+  });
 }

@@ -38,6 +38,8 @@ const condition = z.discriminatedUnion('field', [
   z.object({ field: z.literal('ad'), op: z.enum(['clicked_any', 'clicked_none']), adIds: z.array(metaId).max(50) }).strict(),
   // Meta lead ads: contacts matched to a lead from these forms (empty = any form).
   z.object({ field: z.literal('lead_form'), op: z.enum(['submitted_any', 'submitted_none']), formIds: z.array(metaId).max(50) }).strict(),
+  // Phase 11: contacts with (or without) an Instagram identity. Never a broadcast channel: campaigns still need a phone.
+  z.object({ field: z.literal('instagram'), op: z.enum(['has_identity', 'has_no_identity']) }).strict(),
 ]).superRefine((c, ctx) => {
   const needsValue = ['is', 'is_not', 'contains'].includes(c.op) && c.field !== 'opted_out' && c.field !== 'blocked';
   if (needsValue && !('value' in c && typeof c.value === 'string' && c.value.length > 0))
@@ -109,6 +111,11 @@ function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
       const only = c.formIds.length ? Prisma.sql` AND l.form_id IN (${textIds(c.formIds)})` : Prisma.empty;
       const submitted = Prisma.sql`EXISTS(SELECT 1 FROM meta_leads l WHERE l.account_id=${accountId}::uuid AND l.contact_id=c.id${only})`;
       return c.op === 'submitted_any' ? submitted : Prisma.sql`NOT ${submitted}`;
+    }
+    case 'instagram': {
+      const identity = Prisma.sql`EXISTS(SELECT 1 FROM contact_channel_identities i WHERE i.account_id=${accountId}::uuid AND i.contact_id=c.id
+        AND i.channel='instagram')`;
+      return c.op === 'has_identity' ? identity : Prisma.sql`NOT ${identity}`;
     }
   }
 }

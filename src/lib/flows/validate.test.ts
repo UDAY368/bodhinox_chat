@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateFlowForActivation, reachableFromEntry, findAutoAdvancingCycles } from "./validate";
+import { validateFlowForActivation, reachableFromEntry, findAutoAdvancingCycles, channelScopeIssues, parseChannelScope } from "./validate";
 
 const validFlow = {
   name: "Welcome",
@@ -678,5 +678,56 @@ describe("validateFlowForActivation — conversion_event", () => {
       { node_key: "msg", node_type: "send_message", config: { text: "hi", next_node_key: "conv" } },
     ];
     expect(findAutoAdvancingCycles(nodes)).toHaveLength(1);
+  });
+});
+
+describe("channel scope (Phase 11)", () => {
+  const igNodes = (extra: Array<{ node_key: string; node_type: string; config: Record<string, unknown> }>) => [
+    { node_key: "start", node_type: "start", config: { next_node_key: extra[0]?.node_key ?? "ho" } },
+    ...extra,
+    { node_key: "ho", node_type: "handoff", config: {} },
+  ];
+  const errorsOf = (issues: ReturnType<typeof validateFlowForActivation>) => issues.filter((i) => i.severity === "error");
+
+  it("leaves a WhatsApp flow (or one without a scope) exactly as before", () => {
+    const template = igNodes([{ node_key: "tpl", node_type: "send_template", config: { template_name: "promo", language: "en", next_node_key: "ho" } }]);
+    const before = validateFlowForActivation(validFlow, template);
+    expect(validateFlowForActivation({ ...validFlow, channel_scope: "whatsapp" }, template)).toEqual(before);
+    expect(channelScopeIssues("whatsapp", "ad_click", template)).toEqual([]);
+    expect(channelScopeIssues(undefined, "ad_click", template)).toEqual([]);
+  });
+
+  it("blocks publishing an Instagram or 'any' flow with a step Instagram cannot run, on that step", () => {
+    const nodes = igNodes([{ node_key: "tpl", node_type: "send_template", config: { template_name: "promo", language: "en", next_node_key: "ho" } }]);
+    for (const channel_scope of ["instagram", "any"] as const) {
+      expect(errorsOf(validateFlowForActivation({ ...validFlow, channel_scope }, nodes)))
+        .toContainEqual(expect.objectContaining({ scope: "node", node_key: "tpl", field: "node_type" }));
+    }
+  });
+
+  it("blocks a WhatsApp-only trigger on Instagram", () => {
+    for (const trigger_type of ["template_reply", "order_received", "ad_click"] as const) {
+      expect(channelScopeIssues("any", trigger_type, validNodes))
+        .toContainEqual(expect.objectContaining({ severity: "error", scope: "trigger", field: "trigger_type" }));
+    }
+    expect(channelScopeIssues("instagram", "keyword", validNodes)).toEqual([]);
+  });
+
+  it("allows the steps Instagram supports and warns on long text", () => {
+    expect(channelScopeIssues("instagram", "keyword", validNodes)).toEqual([]);
+    const long = igNodes([{ node_key: "say", node_type: "send_message", config: { text: "x".repeat(1001), next_node_key: "ho" } }]);
+    expect(channelScopeIssues("instagram", "keyword", long)).toEqual([expect.objectContaining({ severity: "warning", node_key: "say" })]);
+    const media = (media_type: string, extra: Record<string, unknown> = {}) =>
+      channelScopeIssues("instagram", "keyword", igNodes([{ node_key: "m", node_type: "send_media", config: { media_type, media_url: "https://x.test/a", next_node_key: "ho", ...extra } }]));
+    expect(media("image")).toEqual([]);
+    expect(media("document", { filename: "menu.pdf" })).toEqual([]);
+    expect(media("document", { filename: "menu.docx" })).toHaveLength(1);
+  });
+
+  it("parses a request's scope", () => {
+    expect(parseChannelScope(undefined)).toBeUndefined();
+    expect(parseChannelScope("any")).toBe("any");
+    expect(parseChannelScope("instagram")).toBe("instagram");
+    for (const bad of [null, "", "sms", 1, ["any"]]) expect(parseChannelScope(bad)).toBeNull();
   });
 });

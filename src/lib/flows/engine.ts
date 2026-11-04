@@ -2,6 +2,7 @@ import { checkRunTimeout, markRunTimedOut, type RunTimeoutCheck } from "./timeou
 import { botRepliesPaused } from '@/lib/whatsapp/bot-pause';
 import { normalizeCollectedInput } from './input-validation';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
+import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
@@ -71,12 +72,9 @@ import {
 
 import { databaseAdmin } from "./admin-client";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
-import {
-  engineSendInteractiveButtons,
-  engineSendInteractiveList,
-  engineSendMedia,
-  engineSendText,
-} from "./meta-send";
+import { engineSendInteractiveList } from "./meta-send";
+import { flowSend, runChannel } from "./channel-send";
+import { nodeAvailableOn, scopeIncludes, triggerAvailableOn, type Channel } from "@/lib/channels/capabilities";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
@@ -500,6 +498,21 @@ export function flowListensOnNumber(
   return !tied || tied === inboundNumberId;
 }
 
+/**
+ * Whether a flow may start on a conversation (Phase 11). The flow's
+ * channel_scope must include the conversation's channel. On WhatsApp the
+ * number tie applies as before; on Instagram the number tie is ignored and
+ * only the triggers Instagram supports can start a run.
+ */
+export function flowListensOnConversation(
+  flow: Pick<FlowRow, "channel_scope" | "whatsapp_config_id" | "trigger_type">,
+  conversation: { channel: Channel; whatsappConfigId: string | null },
+): boolean {
+  if (!scopeIncludes(flow.channel_scope, conversation.channel)) return false;
+  if (conversation.channel === "instagram") return triggerAvailableOn(flow.trigger_type, "instagram");
+  return flowListensOnNumber(flow, conversation.whatsappConfigId);
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
@@ -531,18 +544,20 @@ async function findEntryFlow(
     ...((active.data ?? []) as FlowRow[]).filter((f) => f.status === "active"),
     ...testing.filter((f) => isTestContact(f, digits)),
   ];
-  // The inbound's number is its conversation's (one conversation per contact
-  // and number); read only when some flow is tied to a number.
-  const tiedFlows = candidatesByStatus.some((f) => f.whatsapp_config_id);
-  let inboundNumberId: string | null = null;
-  if (tiedFlows) {
-    const { data, error } = await db.from("conversations").select("whatsapp_config_id")
-      .eq("account_id", accountId).eq("id", conversationId).maybeSingle();
-    if (error) return null;
-    inboundNumberId = (data as { whatsapp_config_id?: string | null } | null)?.whatsapp_config_id ?? null;
-  }
+  if (!candidatesByStatus.length) return null;
+  // The inbound's channel and number are its conversation's (one conversation
+  // per contact and number, or per contact and Instagram account). Always read:
+  // an Instagram conversation must never start a WhatsApp-only flow.
+  const { data, error } = await db.from("conversations").select("channel, whatsapp_config_id")
+    .eq("account_id", accountId).eq("id", conversationId).maybeSingle();
+  if (error) return null;
+  const row = data as { channel?: string | null; whatsapp_config_id?: string | null } | null;
+  const conversation = {
+    channel: (row?.channel === "instagram" ? "instagram" : "whatsapp") as Channel,
+    whatsappConfigId: row?.whatsapp_config_id ?? null,
+  };
   const typed = byPrecedence(candidatesByStatus.filter((f) =>
-    flowListensOnNumber(f, inboundNumberId)));
+    flowListensOnConversation(f, conversation)));
   for (const flow of typed) {
     if (flow.trigger_type === "order_received") {
       const vars = orderReceivedMatch(message);
@@ -594,7 +609,7 @@ async function sendButtonsAndSuspend(
   // Meta's 20-char cap; meta-api's validator throws a descriptive error
   // and the caller logs it — we never truncate silently.
   const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cfg));
-  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendInteractiveButtons({
+  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "buttons", args: {
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
@@ -606,7 +621,7 @@ async function sendButtonsAndSuspend(
       id: b.reply_id,
       title: interpolateVars(b.title, run.vars, ws),
     })),
-  }));
+  } });
   await logEvent(db, run.id, "message_sent", node.node_key, {
     node_type: "send_buttons",
     whatsapp_message_id,
@@ -636,7 +651,7 @@ async function sendListAndSuspend(
   // See sendButtonsAndSuspend — interpolate every visible string,
   // never the row `reply_id`.
   const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cfg));
-  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendInteractiveList({
+  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "list", args: {
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
@@ -653,7 +668,7 @@ async function sendListAndSuspend(
         description: interpolateOptionalVars(r.description, run.vars, ws),
       })),
     })),
-  }));
+  } });
   await logEvent(db, run.id, "message_sent", node.node_key, {
     node_type: "send_list",
     whatsapp_message_id,
@@ -677,7 +692,18 @@ async function sendListAndSuspend(
  * payload so the tap routes reliably. Meta rejects empty parameters, so
  * a value that interpolates to nothing is sent as "-".
  */
+/**
+ * WhatsApp-only sends (templates, appointment lists) refuse an Instagram run
+ * BEFORE dispatchOnce, so no outbound intent is ever claimed for them. The main
+ * loop already routes these node types away on Instagram; this also covers the
+ * resume paths (a waiting appointment step answered later) that skip it.
+ */
+async function assertWhatsAppRun(run: FlowRunRow): Promise<void> {
+  if ((await runChannel(run)) === "instagram") throw new NoNumberError("other_channel");
+}
+
 async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<void> {
+  await assertWhatsAppRun(run);
   const cfg = node.config as unknown as SendTemplateNodeConfig;
   const raw = cfg.body_params ?? [];
   const ws = await workspaceValuesFor(run.account_id, JSON.stringify([raw, cfg.card_params ?? [], cfg.coupon_code ?? ""]));
@@ -847,6 +873,7 @@ async function executeConnectFlow(db: AdminClient, run: FlowRunRow, node: FlowNo
   const hops = (replies ?? 0) > 0 ? 1 : (Number(run.vars[CONNECT_HOPS_VAR]) || 0) + 1;
   const reason = !target || target.status !== "active" || !target.entry_node_id
     ? "connect_flow_unavailable"
+    : !scopeIncludes(target.channel_scope, await runChannel(run)) ? "unavailable_on_channel"
     : hops > MAX_CONNECT_HOPS ? "connect_flow_loop" : null;
   if (reason || !target || !run.contact_id || !run.conversation_id) {
     await logEvent(db, run.id, "error", node.node_key, { reason: reason ?? "connect_flow_unavailable" });
@@ -988,20 +1015,20 @@ async function sendAskPrompt(
   };
   const key = `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`;
   const skip = (node.node_type === "collect_input" || node.node_type === "ask_media") && cfg.skip_label && cfg.skip_next;
-  const { whatsapp_message_id } = await dispatchOnce(run.account_id, key, () =>
+  const { whatsapp_message_id } = await flowSend(run, key,
     skip
-      ? engineSendInteractiveButtons({
+      ? { kind: "buttons", args: {
           ...base,
           bodyText: interpolateVars(body, run.vars, ws),
           buttons: [{ id: SKIP_REPLY_ID, title: interpolateVars(cfg.skip_label!, run.vars, ws) }],
-        })
-      : engineSendText({
+        } }
+      : { kind: "text", args: {
           ...base,
           text: interpolateVars(body, run.vars, ws),
           // An error message is plain text; only the prompt itself carries the request.
           request: text === undefined && node.node_type === "ask_location" ? "location"
             : text === undefined && node.node_type === "ask_address" ? "address" : undefined,
-        }),
+        } },
   );
   return whatsapp_message_id;
 }
@@ -1076,13 +1103,13 @@ async function sendPaymentLinkText(run: FlowRunRow, node: FlowNodeRow, url: stri
   const cfg = node.config as unknown as PaymentLinkNodeConfig;
   const ws = await workspaceValuesFor(run.account_id, cfg.message ?? "");
   const text = paymentLinkMessageText(interpolateVars(cfg.message ?? "", run.vars, ws), url);
-  const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, () => engineSendText({
+  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, { kind: "text", args: {
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
     text,
-  }));
+  } });
   return whatsapp_message_id;
 }
 
@@ -1381,6 +1408,7 @@ async function planAppointmentPrompt(run: FlowRunRow, node: FlowNodeRow, from: A
 
 /** Sends one question as a list. `attempt` keeps a re-prompt a distinct outbound intent. */
 async function sendAppointmentPrompt(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, prompt: AppointmentPrompt, attempt: number): Promise<void> {
+  await assertWhatsAppRun(run);
   const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, () => engineSendInteractiveList({
     accountId: run.account_id,
     userId: run.user_id,
@@ -2010,6 +2038,29 @@ async function runConversionEvent(run: FlowRunRow, node: FlowNodeRow): Promise<{
 // new current_node_key before returning.
 // ============================================================
 
+/** The failure-style port a step offers, taken when the step cannot run on the conversation's channel. */
+function channelFailurePort(config: Record<string, unknown>): string | null {
+  for (const key of ["failed_next", "unavailable_next", "handoff_next"]) {
+    const next = config[key];
+    if (typeof next === "string" && next) return next;
+  }
+  return null;
+}
+
+/** A step this channel cannot run and no failure port: the conversation goes to a person. */
+async function handOffUnavailable(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<{ outcome: "handed_off" }> {
+  if (run.conversation_id) {
+    await db
+      .from("conversations")
+      .update({ status: "pending", bot_paused: true, updated_at: new Date().toISOString() })
+      .eq("account_id", run.account_id)
+      .eq("id", run.conversation_id);
+  }
+  await logEvent(db, run.id, "handoff", node.node_key, { reason: "unavailable_on_channel" });
+  await endRun(db, run.id, "handed_off", "unavailable_on_channel");
+  return { outcome: "handed_off" };
+}
+
 async function advanceFromNodeKey(
   db: AdminClient,
   run: FlowRunRow,
@@ -2047,6 +2098,17 @@ async function advanceFromNodeKey(
       node_type: node.node_type,
     });
 
+    if (node.node_type !== "start" && (await runChannel(run)) === "instagram"
+      && !nodeAvailableOn(node.node_type, "instagram", node.config).ok) {
+      await logEvent(db, run.id, "error", node.node_key, { reason: "unavailable_on_channel", node_type: node.node_type });
+      const failure = channelFailurePort(node.config);
+      if (failure) {
+        currentKey = failure;
+        continue;
+      }
+      return handOffUnavailable(db, run, node);
+    }
+
     if (node.node_type === "start") {
       currentKey = (node.config as unknown as StartNodeConfig).next_node_key;
       continue;
@@ -2055,13 +2117,13 @@ async function advanceFromNodeKey(
       const cfg = node.config as unknown as SendMessageNodeConfig;
       try {
         const ws = await workspaceValuesFor(run.account_id, cfg.text);
-        const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendText({
+        const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "text", args: {
           accountId: run.account_id,
     userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
           text: interpolateVars(cfg.text, run.vars, ws),
-        }));
+        } });
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "send_message",
           whatsapp_message_id,
@@ -2081,7 +2143,7 @@ async function advanceFromNodeKey(
       const cfg = node.config as unknown as SendMediaNodeConfig;
       try {
         const ws = await workspaceValuesFor(run.account_id, cfg.caption ?? '');
-        const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, () => engineSendMedia({
+        const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "media", args: {
           accountId: run.account_id,
     userId: run.user_id,
           conversationId: run.conversation_id!,
@@ -2092,7 +2154,7 @@ async function advanceFromNodeKey(
             ? interpolateVars(cfg.caption, run.vars, ws)
             : undefined,
           filename: cfg.filename,
-        }));
+        } });
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "send_media",
           media_type: cfg.media_type,
@@ -2656,7 +2718,7 @@ async function closeActiveRun(
 export async function startFlowById(input: DispatchInboundInput & { flowId: string }): Promise<{ outcome: 'started' | 'unavailable' | 'conflict' }> {
   const db = databaseAdmin();
   const contact = await db.from('contacts').select('id').eq('account_id', input.accountId).eq('id', input.contactId).maybeSingle();
-  const conversation = await db.from('conversations').select('id').eq('account_id', input.accountId)
+  const conversation = await db.from('conversations').select('id, channel').eq('account_id', input.accountId)
     .eq('id', input.conversationId).eq('contact_id', input.contactId).maybeSingle();
   if (contact.error || conversation.error) throw new Error('Explicit flow ownership lookup failed');
   if (!contact.data || !conversation.data || await botRepliesPaused(input.accountId, input.conversationId)) return { outcome: 'unavailable' };
@@ -2664,6 +2726,8 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
   if (target.error) throw new Error('Explicit flow target lookup failed');
   const flow = target.data as FlowRow | null;
   if (!flow || flow.id !== input.flowId || flow.account_id !== input.accountId || flow.status !== 'active' || !flow.entry_node_id) return { outcome: 'unavailable' };
+  const channel: Channel = (conversation.data as { channel?: string | null }).channel === 'instagram' ? 'instagram' : 'whatsapp';
+  if (!scopeIncludes(flow.channel_scope, channel)) return { outcome: 'unavailable' };
   // Same policy as inbound dispatch: only a run on this conversation conflicts.
   const existing = await db.from('flow_runs').select('id').eq('account_id', input.accountId).eq('contact_id', input.contactId)
     .eq('conversation_id', input.conversationId).eq('status', 'active').limit(1);
@@ -2991,10 +3055,10 @@ async function sendFallbackMessage(
     const ws = await workspaceValuesFor(run.account_id, message.text);
     const text = interpolateVars(message.text, run.vars, ws);
     const base = { accountId: run.account_id, userId: run.user_id, conversationId: run.conversation_id!, contactId: run.contact_id! };
-    const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow-fallback:${run.id}:${inboundMessageId}`, () =>
+    const { whatsapp_message_id } = await flowSend(run, `flow-fallback:${run.id}:${inboundMessageId}`,
       message.media_type && message.media_url
-        ? engineSendMedia({ ...base, kind: message.media_type, link: message.media_url, caption: text || undefined })
-        : engineSendText({ ...base, text }));
+        ? { kind: "media", args: { ...base, kind: message.media_type, link: message.media_url, caption: text || undefined } }
+        : { kind: "text", args: { ...base, text } });
     await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "fallback_message", whatsapp_message_id });
   } catch (err) {
     await logEvent(db, run.id, "error", node.node_key, {

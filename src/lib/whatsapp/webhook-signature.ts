@@ -51,11 +51,17 @@ function signatureMatches(rawBody: string, signatureHeader: string, secret: stri
   return crypto.timingSafeEqual(a, b)
 }
 
+/**
+ * `secretsRaw` (comma-separated, like META_APP_SECRET) defaults to
+ * META_APP_SECRET. The Instagram webhook passes its own list (the Instagram app
+ * secret and the main app secret, both ours); existing callers are unchanged.
+ */
 export function verifyMetaWebhookSignature(
   rawBody: string,
   signatureHeader: string | null,
+  secretsRaw: string | undefined = process.env.META_APP_SECRET,
 ): boolean {
-  const secrets = parseAppSecrets(process.env.META_APP_SECRET)
+  const secrets = parseAppSecrets(secretsRaw)
   if (secrets.length === 0) {
     console.error(
       '[webhook] META_APP_SECRET is not set — rejecting request. ' +

@@ -261,6 +261,19 @@ Per day: money captured, refunds (including ones made in the Razorpay dashboard)
 - The appointment sheet shows the meeting state and, after the meeting, what Zoom recorded about joins. This is evidence only: mark the appointment completed or no-show yourself. A **Record outcome** task reminds the practitioner after Zoom reports the meeting ended.
 - If the sheet says **Needs attention**, choose **Create again** (a new Zoom meeting and link) or **Use supplied link** (go back to the link you entered before Zoom).
 
+## 9e. Instagram
+
+- **Not enabled yet.** Until the platform's Instagram app is approved and an administrator turns Instagram on for the deployment, Settings → Instagram shows **Instagram: not enabled** with the reason, and the inbox has no Instagram filter or banner. Nothing contacts Instagram while it is off.
+- **Connect (admins).** Settings → Instagram → **Connect Instagram**, sign in with the professional account and accept the permissions; you come back to Settings. Turn on **Also reply to comments** before connecting if you want comment rules. The card shows whether direct messages and comment replies are available, when the last message arrived and when access renews. If it says **Access expired** or **Permission missing**, press **Reconnect**. **Disconnect** stops new messages but keeps the conversations; you can't reply until you connect again. Other members see the card read-only.
+- **Inbox.** Instagram conversations carry an Instagram badge, and you can filter by channel. Within 24 hours of the customer's last message you can reply with text (up to 1000 bytes), images, audio, video or PDF. Templates, forms, catalogue messages, location requests, replies-to and reactions are not available on Instagram. If a message shows **Delivery uncertain**, check Instagram before you send it again. A banner in the inbox tells you when an Instagram account needs reconnecting.
+- **Flows.** In the flow editor, **Runs on** chooses WhatsApp, Instagram or both. A flow for Instagram cannot contain steps Instagram does not support, and the editor marks them. Send shop and payment links as text; storefront and payment links work in an Instagram conversation while its reply window is open.
+- **Routing rules.** Settings → Inbox → Routing rules can match the **Channel** (WhatsApp or Instagram).
+- **Comment replies (admins).** A comment rule sends one private message to someone who comments on your posts, optionally only for chosen posts or keywords. Their reply continues in the inbox.
+- **Linking a person's Instagram and WhatsApp (admins).** Bodhinox never joins them automatically, even when names match. Contacts → open a contact → **Channel identities** → **Link**, search for the other contact, add an optional note and confirm. The Instagram conversation moves to that contact and both histories are kept; **Unlink** undoes it. A linked person counts once in monthly active contacts.
+- **Segments.** Add the condition **Instagram identity → has / has no Instagram identity**.
+
+Broadcasts, automations, AI auto-replies, away messages and chat order or appointment notices are not available on Instagram.
+
 ## 10. Other functionality and where to go next
 
 **Inbox:** use quick replies from Settings, send permitted text/media/templates or interactive choices, assign conversations, mark status/unread, and deliberately pause/resume bot handoff. **Contacts:** edit profile, tags, custom fields and notes. **Settings:** profile, password/security/MFA, appearance, browser notifications, account/team, WhatsApp, templates, quick replies, fields/tags, deals/currency and API keys. **Integrations:** public scoped API keys, outbound signed webhooks and an MCP API client are implemented for later integrations; use minimal scopes and test delivery. **Live updates:** authenticated server-sent events refresh the UI, while a separate worker handles durable jobs.

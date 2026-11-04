@@ -16,7 +16,7 @@ import { automationTemplateRefusal } from '@/lib/automations/template-check';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { botRepliesPaused } from '@/lib/whatsapp/bot-pause';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
-import { getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertWhatsAppConversation, getNumberConfig, isNumberDisconnected, NoNumberError } from '@/lib/whatsapp/numbers';
 import { assertTemplateOnNumber } from '@/lib/whatsapp/sender-config';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import { templateSendRefusal } from '@/lib/whatsapp/template-send-params';
@@ -45,8 +45,10 @@ export async function sendOrderConfirmation(input: OrderConfirmationInput): Prom
   if (await botRepliesPaused(accountId, conversationId)) return 'bot_paused';
 
   const number = await withTenant({ accountId, role: 'owner' }, async (tx) => {
-    const conversation = await tx.conversations.findFirst({ where: { account_id: accountId, id: conversationId }, select: { whatsapp_config_id: true } });
+    const conversation = await tx.conversations.findFirst({ where: { account_id: accountId, id: conversationId }, select: { whatsapp_config_id: true, channel: true } });
     try {
+      // An order that arrived on Instagram is never confirmed over WhatsApp.
+      if (conversation) assertWhatsAppConversation(conversation);
       const config = await getNumberConfig(tx, accountId, conversation?.whatsapp_config_id ?? null);
       return isNumberDisconnected(config) ? null : config;
     } catch (error) {

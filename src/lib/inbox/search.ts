@@ -32,8 +32,13 @@ const MIN_PHONE_DIGITS = 4;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HEADLINE_OPTIONS = `StartSel=${SNIPPET_START}, StopSel=${SNIPPET_END}, MaxWords=24, MinWords=8, ShortWord=2, MaxFragments=2, FragmentDelimiter=" … "`;
 
+export const INBOX_SEARCH_CHANNELS = ['whatsapp', 'instagram'] as const;
+export type InboxSearchChannel = (typeof INBOX_SEARCH_CHANNELS)[number];
+
 export interface InboxSearchFilters {
   whatsappConfigId?: string;
+  /** The conversation's channel (from the row; Phase 11). */
+  channel?: InboxSearchChannel;
   status?: InboxSearchStatus;
   /** A member's user id, or 'unassigned'. */
   assignee?: string;
@@ -130,6 +135,11 @@ export function parseInboxSearchParams(params: URLSearchParams, userId: string):
     if (!uuid.test(number)) throw new InboxSearchError(t('invalidNumber'));
     filters.whatsappConfigId = number;
   }
+  const channel = params.get('channel');
+  if (channel) {
+    if (!(INBOX_SEARCH_CHANNELS as readonly string[]).includes(channel)) throw new InboxSearchError(t('invalidChannel'));
+    filters.channel = channel as InboxSearchChannel;
+  }
   const status = params.get('status');
   if (status) {
     if (!(INBOX_SEARCH_STATUSES as readonly string[]).includes(status)) throw new InboxSearchError(t('invalidStatus'));
@@ -202,6 +212,7 @@ export async function searchInboxMessages(
   const { filters } = input;
   const conditions: Prisma.Sql[] = [Prisma.sql`m.account_id = ${ctx.accountId}::uuid`, Prisma.sql`m.created_at IS NOT NULL`, match];
   if (filters.whatsappConfigId) conditions.push(Prisma.sql`c.whatsapp_config_id = ${filters.whatsappConfigId}::uuid`);
+  if (filters.channel) conditions.push(Prisma.sql`c.channel = ${filters.channel}`);
   if (filters.status) conditions.push(Prisma.sql`c.status = ${filters.status}`);
   if (filters.assignee === 'unassigned') conditions.push(Prisma.sql`c.assigned_agent_id IS NULL`);
   else if (filters.assignee) conditions.push(Prisma.sql`c.assigned_agent_id = ${filters.assignee}::uuid`);

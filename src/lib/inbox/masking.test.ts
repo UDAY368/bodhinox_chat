@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayPhone, maskPhone, maskPhonesInText, shouldMask } from './masking';
+import { displayPhone, maskHandle, maskPhone, maskPhonesInText, shouldMask } from './masking';
 
 describe('maskPhone', () => {
   it.each([
@@ -52,5 +52,20 @@ describe('maskPhonesInText', () => {
     expect(maskPhonesInText('')).toBe('');
     expect(maskPhonesInText(null)).toBeNull();
     expect(maskPhonesInText(undefined)).toBeUndefined();
+  });
+});
+
+describe('maskHandle', () => {
+  it('keeps the @, first and last character of an Instagram handle', () => {
+    expect(maskHandle('@shop.owner')).toBe('@s••••••••r');
+    expect(maskHandle('shop')).toBe('s••p');
+    expect(maskHandle('@ab')).toBe('@••');
+    expect(maskHandle('  @x ')).toBe('@•');
+  });
+
+  it('returns empty for empty input', () => {
+    expect(maskHandle(null)).toBe('');
+    expect(maskHandle(undefined)).toBe('');
+    expect(maskHandle('@')).toBe('');
   });
 });

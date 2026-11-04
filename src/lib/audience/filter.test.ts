@@ -139,3 +139,33 @@ describe('csvCell', () => {
     expect(csvCell(value)).toBe(`"'${value}"`);
   });
 });
+
+describe('instagram condition (Phase 11)', () => {
+  const compile = (condition: unknown) => compileAudienceFilter(account, parseAudienceFilter({ conditions: [condition] }));
+
+  it('compiles "has an Instagram identity" to a scoped EXISTS over contact_channel_identities', () => {
+    const sql = compile({ field: 'instagram', op: 'has_identity' });
+    expect(sql.sql).toContain('EXISTS(SELECT 1 FROM contact_channel_identities i WHERE i.account_id=');
+    expect(sql.sql).toContain("i.channel='instagram'");
+    expect(sql.sql).not.toContain('NOT EXISTS');
+    expect(sql.values.filter((v) => v === account).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('negates has_no_identity', () => {
+    expect(compile({ field: 'instagram', op: 'has_no_identity' }).sql).toContain('NOT EXISTS(SELECT 1 FROM contact_channel_identities i');
+  });
+
+  it.each<[unknown, string]>([
+    [{ field: 'instagram', op: 'is', value: true }, 'wrong operator'],
+    [{ field: 'instagram', op: 'has_identity', username: 'x' }, 'unknown key'],
+  ])('rejects %j (%s)', (condition) => {
+    expect(() => parseAudienceFilter({ conditions: [condition] })).toThrow(AudienceFilterError);
+  });
+
+  it('needs no entitlement or row lookup', async () => {
+    const queries: string[] = [];
+    const tx = { $queryRaw: async (sql: { sql?: string }) => { queries.push(sql.sql ?? ''); return []; } };
+    await assertFilterReferences(tx as never, account, parseAudienceFilter({ conditions: [{ field: 'instagram', op: 'has_identity' }] }));
+    expect(queries).toEqual([]);
+  });
+});

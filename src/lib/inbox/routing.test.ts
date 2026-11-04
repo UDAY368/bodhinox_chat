@@ -74,6 +74,25 @@ describe('ruleMatches', () => {
   ])('fails on %j', (conditions) => expect(ruleMatches(conditions, context)).toBe(false));
   it('treats a conversation without a number as not matching a number condition', () =>
     expect(ruleMatches({ whatsapp_config_id: NUMBER }, { ...context, whatsappConfigId: null })).toBe(false));
+  it('matches a channel condition only on that channel, and never when the channel is unknown', () => {
+    expect(ruleMatches({ channel: 'instagram' }, { ...context, whatsappConfigId: null, channel: 'instagram' })).toBe(true);
+    expect(ruleMatches({ channel: 'whatsapp' }, { ...context, whatsappConfigId: null, channel: 'instagram' })).toBe(false);
+    expect(ruleMatches({ channel: 'whatsapp' }, { ...context, channel: 'whatsapp' })).toBe(true);
+    expect(ruleMatches({ channel: 'whatsapp' }, context)).toBe(false);
+    expect(ruleMatches({}, { ...context, channel: 'instagram' })).toBe(true);
+  });
+  it('an Instagram conversation never matches a WhatsApp number condition', () =>
+    expect(ruleMatches({ whatsapp_config_id: NUMBER }, { ...context, whatsappConfigId: null, channel: 'instagram' })).toBe(false));
+});
+
+describe('parseConditions channel', () => {
+  it('accepts whatsapp or instagram and rejects anything else', () => {
+    expect(parseConditions({ channel: 'instagram' })).toEqual({ channel: 'instagram' });
+    expect(parseConditions({ channel: 'whatsapp' })).toEqual({ channel: 'whatsapp' });
+    expect(parseConditions({ channel: null })).toEqual({});
+    expect(parseConditions({ channel: 'sms' })).toBeNull();
+    expect(parseConditions({ channel: 1 })).toBeNull();
+  });
 });
 
 describe('pickAssignee', () => {

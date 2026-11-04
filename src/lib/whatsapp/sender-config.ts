@@ -14,7 +14,7 @@
 import activeMessages from '@app-messages';
 import type { DataClient, Row } from '@/lib/data/types';
 import { getT, type TranslateValues } from '@/lib/i18n/translate';
-import { assertNumberConnected, isNumberDisconnected, NoNumberError } from './numbers';
+import { assertNumberConnected, assertWhatsAppConversation, isNumberDisconnected, NoNumberError } from './numbers';
 
 type Db = Pick<DataClient, 'from'>;
 
@@ -151,7 +151,12 @@ export async function loadSenderConfigByPhoneNumberId(
 
 /**
  * The number a conversation replies from: its whatsapp_config_id, or the
- * workspace default for a legacy conversation with none.
+ * workspace default for a legacy conversation with none. A conversation on
+ * another channel (Instagram) is refused with NoNumberError('other_channel'),
+ * never answered from the default number. This is a last line of defence: a
+ * send wrapped in dispatchOnce must refuse a non-WhatsApp conversation before
+ * dispatching (as automations' resolveConversationId does), or this refusal
+ * leaves an 'unknown' outbound intent for a message that was never sent.
  */
 export async function loadConversationSenderConfig(
   db: Db,
@@ -160,12 +165,13 @@ export async function loadConversationSenderConfig(
 ): Promise<SenderConfigRow> {
   const { data } = await db
     .from('conversations')
-    .select('whatsapp_config_id')
+    .select('whatsapp_config_id,channel')
     .eq('id', conversationId)
     .eq('account_id', accountId)
     .maybeSingle();
-  const configId = (data as { whatsapp_config_id?: string | null } | null)?.whatsapp_config_id ?? null;
-  return loadSenderConfig(db, accountId, configId);
+  const row = data as { whatsapp_config_id?: string | null; channel?: string | null } | null;
+  if (row) assertWhatsAppConversation({ channel: row.channel });
+  return loadSenderConfig(db, accountId, row?.whatsapp_config_id ?? null);
 }
 
 /** A template synced from another WABA than the sending number's. */

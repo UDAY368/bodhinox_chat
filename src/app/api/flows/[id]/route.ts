@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { validateFlowForActivation } from '@/lib/flows/validate';
+import { parseChannelScope, validateFlowForActivation } from '@/lib/flows/validate';
 import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
@@ -100,6 +100,8 @@ interface PutBody {
   trigger_config?: Record<string, unknown>;
   entry_node_id?: string | null;
   fallback_policy?: Record<string, unknown>;
+  /** Channels the flow runs on (Phase 11): 'whatsapp' | 'instagram' | 'any'. */
+  channel_scope?: unknown;
   /** Up to 3 numbers a draft runs for; stored as digits. */
   test_numbers?: string[];
   nodes?: Array<{
@@ -140,6 +142,10 @@ export async function PUT(
   }
   if (body.name !== undefined && !body.name.trim()) {
     return NextResponse.json({ error: t('flows.nameEmpty') }, { status: 400 });
+  }
+  const channelScope = parseChannelScope(body.channel_scope);
+  if (channelScope === null) {
+    return NextResponse.json({ error: t('flows.channelScopeInvalid') }, { status: 400 });
   }
   const testNumbers = body.test_numbers === undefined ? undefined : parseTestNumbers(body.test_numbers);
   if (testNumbers === null) {
@@ -190,6 +196,7 @@ export async function PUT(
       trigger_config: body.trigger_config ?? { ...flow.trigger_config },
       entry_node_id: body.entry_node_id !== undefined ? body.entry_node_id : flow.entry_node_id,
       fallback_policy: body.fallback_policy ?? flow.fallback_policy,
+      channel_scope: channelScope ?? flow.channel_scope,
       id,
     }, (existing.data ?? []) as FlowNodeRow[]);
     if (issues.some((issue) => issue.severity === 'error')) {
@@ -228,6 +235,7 @@ export async function PUT(
   if (body.fallback_policy !== undefined)
     flowPatch.fallback_policy = body.fallback_policy;
   if (testNumbers !== undefined) flowPatch.test_numbers = testNumbers;
+  if (channelScope !== undefined) flowPatch.channel_scope = channelScope;
 
   const { error: updErr } = await admin
     .from('flows')

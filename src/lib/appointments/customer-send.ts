@@ -211,6 +211,8 @@ async function plan(spec: CustomerMessageSpec, now: Date): Promise<Plan> {
         (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
           AND m.sender_type='customer') AS last_customer_at
       FROM conversations c WHERE c.account_id=${accountId}::uuid AND c.contact_id=${contact.id}::uuid
+        -- WhatsApp only: an Instagram conversation has no number and is never sent to here.
+        AND c.channel='whatsapp'
       ORDER BY (c.whatsapp_config_id IS NOT NULL AND c.whatsapp_config_id=${preferred}::uuid) DESC,
         last_customer_at DESC NULLS LAST, c.created_at DESC LIMIT 1`;
     let config;

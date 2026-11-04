@@ -3,6 +3,7 @@ import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getFlowTemplate } from '@/lib/flows/templates';
 import { getT } from '@/lib/i18n/translate';
+import { parseChannelScope } from '@/lib/flows/validate';
 
 const t = getT('Api');
 
@@ -91,12 +92,18 @@ export async function POST(request: Request) {
      * provided.
      */
     template_slug?: string;
+    /** Channels the flow runs on (Phase 11); absent is WhatsApp only. */
+    channel_scope?: unknown;
   } | null;
   if (!body) {
     return NextResponse.json(
       { error: t('common.invalidJson') },
       { status: 400 }
     );
+  }
+  const channel_scope = parseChannelScope(body.channel_scope);
+  if (channel_scope === null) {
+    return NextResponse.json({ error: t('flows.channelScopeInvalid') }, { status: 400 });
   }
 
   const admin = db;
@@ -125,6 +132,7 @@ export async function POST(request: Request) {
         trigger_type: template.trigger_type,
         trigger_config: template.trigger_config,
         entry_node_id: template.entry_node_id,
+        ...(channel_scope ? { channel_scope } : {}),
       })
       .select()
       .single();
@@ -173,6 +181,7 @@ export async function POST(request: Request) {
       status: 'draft',
       trigger_type,
       trigger_config: body.trigger_config ?? {},
+      ...(channel_scope ? { channel_scope } : {}),
     })
     .select()
     .single();

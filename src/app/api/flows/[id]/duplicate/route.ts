@@ -73,6 +73,8 @@ export async function POST(
       trigger_config: flow.trigger_config,
       entry_node_id: flow.entry_node_id,
       fallback_policy: flow.fallback_policy,
+      // A copy runs on the same channels as its source (Phase 11).
+      channel_scope: flow.channel_scope ?? 'whatsapp',
       test_numbers: [],
     })
     .select()

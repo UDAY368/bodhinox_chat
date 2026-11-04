@@ -46,6 +46,7 @@ import { useTranslations } from 'next-intl';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { MASK_CHAR } from '@/lib/inbox/masking';
+import { ContactIdentities } from './contact-identities';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -595,6 +596,8 @@ export function ContactDetailView({
                     )}
                     {t('saveChangesBtn')}
                   </Button>
+                  {/* Phase 11: Instagram identities (shown only while Instagram is on). */}
+                  {contact && <ContactIdentities contactId={contact.id} onChanged={onUpdated} />}
                 </div>
               </TabsContent>
 

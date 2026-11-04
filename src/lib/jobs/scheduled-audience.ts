@@ -18,6 +18,8 @@ import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchOnce } from './dispatch';
 import { enqueueJob } from './queue';
 import { pickContactConversationId } from '@/lib/whatsapp/contact-conversation';
+import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
+import { isUniqueViolation } from '@/lib/contacts/dedupe';
 
 type ScheduledAutomation = {
   id: string;
@@ -186,7 +188,7 @@ export async function executeScheduledOccurrence(
   if (contactId) {
     const { data: contact, error: contactError } = await db
       .from('contacts')
-      .select('id')
+      .select('id,phone,wa_user_id')
       .eq('id', contactId)
       .maybeSingle();
     if (contactError || !contact)
@@ -204,21 +206,24 @@ export async function executeScheduledOccurrence(
       )
     ) {
       conversationId = await findContactConversationId(db, accountId, contactId);
-      if (!conversationId) {
+      // A contact with no WhatsApp address (Instagram-only, Phase 11) gets no
+      // WhatsApp conversation: the run goes ahead without one, so its send
+      // steps fail the normal way and leave no empty thread behind.
+      if (!conversationId && resolveContactSendTarget(contact)) {
+        // One WhatsApp conversation per (contact, number); the insert trigger
+        // fills whatsapp_config_id with the workspace default. The key is a
+        // partial unique index (WhatsApp rows only, Phase 11), which ON CONFLICT
+        // cannot name without its predicate, so a racing insert's unique
+        // violation is read as "already there" and re-resolved below.
         const inserted = await db
           .from('conversations')
-          .upsert(
-            {
-              account_id: accountId,
-              user_id: automation.user_id,
-              contact_id: contactId,
-              status: 'open',
-            },
-            // One conversation per (contact, number); the insert trigger
-            // fills whatsapp_config_id with the workspace default.
-            { onConflict: 'account_id,contact_id,whatsapp_config_id', ignoreDuplicates: true }
-          );
-        if (inserted.error)
+          .insert({
+            account_id: accountId,
+            user_id: automation.user_id,
+            contact_id: contactId,
+            status: 'open',
+          });
+        if (inserted.error && !isUniqueViolation(inserted.error))
           throw new Error('Could not create scheduled conversation');
         conversationId = await findContactConversationId(db, accountId, contactId);
         if (!conversationId)

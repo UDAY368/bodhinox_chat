@@ -34,6 +34,7 @@ import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { fillWorkspace, workspaceValuesFor } from '@/lib/workspace/attributes'
 import { getT } from '@/lib/i18n/translate'
 import { ContactConversationLookupError, pickContactConversationId } from '@/lib/whatsapp/contact-conversation'
+import { assertWhatsAppConversation } from '@/lib/whatsapp/numbers'
 
 /** Step errors land in automation_logs and are shown on the logs page. */
 const tErr = getT('LibErrors.engine')
@@ -1053,15 +1054,20 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
     // a caller-supplied id, but a resumed run replays a context that
     // was persisted rows ago, and this is the last point before a
     // service-role write keyed on it (GHSA-m4fx-g6pr-hrw8).
+    // Every caller sends over WhatsApp: an Instagram conversation (an
+    // Instagram-scoped flow's set_tag firing a tag_added automation) is
+    // refused here, before dispatchOnce records an outbound intent, so the
+    // step fails cleanly instead of leaving an "unknown" intent behind.
     const { data, error } = await databaseAdmin()
       .from('conversations')
-      .select('id')
+      .select('id,channel')
       .eq('id', fromCtx)
       .eq('account_id', args.automation.account_id)
       .maybeSingle()
     if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message,
         }))
     if (!data?.id) throw new Error(tErr('conversationNotInAccount'))
+    assertWhatsAppConversation({ channel: (data as { channel?: string | null }).channel })
     return data.id as string
   }
   if (!args.contactId) throw new Error(tErr('noContactForConversation'))

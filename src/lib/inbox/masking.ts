@@ -82,3 +82,17 @@ export function maskPhonesInText(text: string | null | undefined): string | null
   if (typeof text !== 'string' || !/\d/.test(text)) return text;
   return text.replace(PHONE_IN_TEXT, (match) => (ISO_DATE.test(match) ? match : maskPhone(match)));
 }
+
+/**
+ * Mask an Instagram handle (or IGSID) for a masked member, keeping the first
+ * and last character: '@shop.owner' -> '@s••••••••r'. Phase 11: shown where a
+ * phone would be masked. Empty input returns ''.
+ */
+export function maskHandle(handle: string | null | undefined): string {
+  const raw = (handle ?? '').trim();
+  const at = raw.startsWith('@') ? '@' : '';
+  const body = raw.slice(at.length);
+  if (!body) return '';
+  if (body.length <= 2) return at + MASK_CHAR.repeat(body.length);
+  return at + body[0] + MASK_CHAR.repeat(body.length - 2) + body.slice(-1);
+}

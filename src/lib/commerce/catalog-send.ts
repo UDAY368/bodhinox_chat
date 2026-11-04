@@ -203,13 +203,15 @@ interface Prepared {
 async function prepare(tx: TenantTransaction, args: SendCommerceArgs): Promise<Prepared> {
   if (!UUID.test(args.conversationId)) throw new CommerceSendError('conversation_not_found');
   const conversations = await tx.$queryRaw<{ last_customer_message_at: Date | null; phone: string | null; wa_user_id: string | null;
-    blocked_at: Date | null; whatsapp_config_id: string | null }[]>`
+    blocked_at: Date | null; whatsapp_config_id: string | null; channel: string }[]>`
     SELECT (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
         AND m.sender_type='customer') AS last_customer_message_at,
-      ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id
+      ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id,c.channel
     FROM conversations c JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
     WHERE c.account_id=${args.accountId}::uuid AND c.id=${args.conversationId}::uuid`;
   const conversation = conversations[0] ?? null;
+  // Catalogue messages are WhatsApp only: never from the default number on an Instagram conversation.
+  if (conversation?.channel && conversation.channel !== 'whatsapp') throw new CommerceSendError('number_unavailable');
   const refusal = conversationRefusal({ contact: conversation, lastCustomerMessageAt: conversation?.last_customer_message_at ?? null });
   if (refusal) throw new CommerceSendError(refusal);
   const config = await getNumberConfig(tx, args.accountId, conversation!.whatsapp_config_id).catch((error: unknown) => {

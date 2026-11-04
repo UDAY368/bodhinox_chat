@@ -602,6 +602,10 @@ export type FlowTriggerConfig =
 // DB-row shapes (read by the engine via databaseAdmin)
 // ============================================================
 
+/** Which channels a flow runs on (flows.channel_scope, Phase 11). Existing flows are 'whatsapp'. */
+export type FlowChannelScope = "whatsapp" | "instagram" | "any";
+export const FLOW_CHANNEL_SCOPES: readonly FlowChannelScope[] = ["whatsapp", "instagram", "any"];
+
 export interface FlowRow {
   id: string;
   /** Account tenancy (NOT NULL post-017). The engine looks up active
@@ -621,6 +625,8 @@ export interface FlowRow {
   test_numbers?: string[];
   /** The WhatsApp number (whatsapp_config.id) the flow listens on; null listens on every number. */
   whatsapp_config_id?: string | null;
+  /** Channels the flow runs on; absent (rows read before Phase 11) means 'whatsapp'. */
+  channel_scope?: FlowChannelScope;
   execution_count: number;
   last_executed_at: string | null;
   created_at: string;

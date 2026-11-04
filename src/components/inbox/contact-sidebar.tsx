@@ -16,7 +16,8 @@ import {
 } from '@/lib/inbox/contact-details';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { MASK_CHAR } from '@/lib/inbox/masking';
-import type { Contact } from '@/types';
+import type { Contact, ConversationChannel } from '@/types';
+import { ChannelBadge } from '@/components/inbox/channel-badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -25,6 +26,8 @@ interface ContactSidebarProps {
   refreshToken?: string | number;
   onUpdated?: (contact: Contact) => void;
   onCollapse?: () => void;
+  /** The open conversation's channel (from its row); Instagram is marked. */
+  channel?: ConversationChannel;
 }
 
 export function ContactSidebar({
@@ -32,6 +35,7 @@ export function ContactSidebar({
   refreshToken,
   onUpdated,
   onCollapse,
+  channel = 'whatsapp',
 }: ContactSidebarProps) {
   const t = useTranslations('Inbox.sidebar');
   const tThread = useTranslations('Inbox.messageThread');
@@ -152,7 +156,13 @@ export function ContactSidebar({
             <h3 className="mt-2 font-semibold break-words">
               {current.name || handle}
             </h3>
-            {handleMasked ? (
+            {channel === 'instagram' && (
+              <div className="mt-1 flex justify-center">
+                <ChannelBadge channel="instagram" />
+              </div>
+            )}
+            {/* An Instagram-only contact has no phone or WhatsApp handle. */}
+            {!handle ? null : handleMasked ? (
               <span className="text-muted-foreground mt-1 inline-flex max-w-full text-xs break-all">
                 {handle}
               </span>

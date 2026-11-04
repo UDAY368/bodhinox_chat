@@ -655,6 +655,25 @@
       "startedFromAdNoHeadline": "광고에서 시작",
       "startedFromPost": "Facebook 또는 Instagram 게시물에서 시작",
       "viewAd": "광고 보기"
+    },
+    "channel": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "filterLabel": "채널",
+      "all": "모든 채널",
+      "windowOpen": "{time} 후 답장 가능 시간이 끝납니다",
+      "windowHumanAgent": "상담원 답장만 가능({time} 남음)",
+      "windowClosed": "답장할 수 없습니다: 답장 가능 시간이 지났습니다",
+      "storyReply": "회원님의 스토리에 답장함",
+      "share": "게시물을 공유함",
+      "unsupported": "아직 지원되지 않는 Instagram 메시지 유형입니다",
+      "mediaUnavailable": "Instagram에서 더 이상 미디어를 볼 수 없습니다",
+      "accountDisconnected": "Instagram 계정 연결 해제됨",
+      "reconnectNeeded": "Instagram을 다시 연결해야 합니다",
+      "deliveryUncertain": "전송 여부가 불확실합니다. 다시 보내기 전에 Instagram을 확인하세요",
+      "byteCounter": "{used} / {max}바이트",
+      "notOnChannel": "Instagram에서는 사용할 수 없음",
+      "openSettings": "Instagram 설정 열기"
     }
   },
   "Contacts": {
@@ -960,7 +979,8 @@
         "list": "목록",
         "campaign": "캠페인",
         "ad": "광고 클릭",
-        "lead_form": "잠재 고객 양식"
+        "lead_form": "잠재 고객 양식",
+        "instagram": "Instagram 신원"
       },
       "ops": {
         "has_any": "다음 중 하나라도 있음",
@@ -977,7 +997,9 @@
         "clicked_any": "다음에서 채팅 시작",
         "clicked_none": "다음에서 채팅을 시작한 적 없음",
         "submitted_any": "제출함",
-        "submitted_none": "제출한 적 없음"
+        "submitted_none": "제출한 적 없음",
+        "has_identity": "Instagram 신원 있음",
+        "has_no_identity": "Instagram 신원 없음"
       },
       "noLists": "아직 목록이 없습니다",
       "campaignLabel": "캠페인",
@@ -998,6 +1020,29 @@
       "formIdsLabel": "잠재 고객 양식",
       "anyForm": "모든 잠재 고객 양식",
       "formIdsPlaceholder": "모든 양식 또는 쉼표로 구분한 양식 ID"
+    },
+    "identity": {
+      "title": "채널 ID",
+      "instagram": "Instagram",
+      "link": "Instagram ID를 다른 연락처에 연결",
+      "unlink": "연결 해제",
+      "pickContact": "연락처 선택",
+      "note": "메모(선택 사항)",
+      "confirmLink": "{identity}을(를) {contact}에 연결할까요? 두 대화 기록은 모두 유지되며 되돌릴 수 있습니다.",
+      "confirmUnlink": "{identity}을(를) 원래 연락처로 되돌릴까요? 두 대화 기록은 모두 유지됩니다.",
+      "linked": "ID가 연결되었습니다",
+      "unlinked": "ID 연결이 해제되었습니다",
+      "none": "다른 채널 ID가 없습니다",
+      "failed": "신원을 업데이트하지 못했습니다",
+      "linkShort": "연결",
+      "cancel": "취소",
+      "confirm": "연결",
+      "linkHint": "이 Instagram 신원과 대화를 다른 연락처로 옮깁니다. 자동으로 연결되는 항목은 없습니다.",
+      "searchPlaceholder": "이름으로 연락처 검색",
+      "searching": "검색 중…",
+      "typeToSearch": "2자 이상 입력하세요",
+      "noMatches": "일치하는 연락처가 없습니다",
+      "unnamed": "이름 없는 연락처"
     }
   },
   "Pipelines": {
@@ -2438,6 +2483,17 @@
         "events": "이벤트",
         "services": "서비스"
       }
+    },
+    "channel": {
+      "runsOn": "실행 채널",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "any": "둘 다",
+      "unavailableOnChannel": "{node}은(는) Instagram에서 사용할 수 없습니다",
+      "triggerUnavailable": "이 트리거는 WhatsApp에서만 작동합니다",
+      "textOverLimit": "Instagram 메시지는 1000바이트로 제한됩니다",
+      "runsOnHelp": "Instagram 플로우는 Instagram이 지원하는 단계와 트리거만 사용할 수 있습니다. 변경 사항은 바로 저장됩니다.",
+      "scopeSaveFailed": "이 플로우의 실행 채널을 변경하지 못했습니다. 플로우의 문제를 해결한 후 다시 시도하세요."
     }
   },
   "Settings": {
@@ -2925,7 +2981,8 @@
       "notifications": "알림",
       "media": "미디어 라이브러리",
       "ads": "광고",
-      "connections": "회의 및 배송"
+      "connections": "회의 및 배송",
+      "instagram": "Instagram"
     },
     "groups": {
       "account": "계정",
@@ -3287,7 +3344,8 @@
         "appointments": "예약",
         "storefront": "스토어 및 온라인 결제",
         "online_meetings": "온라인 회의(Zoom)",
-        "courier_shipping": "택배 배송(Shiprocket)"
+        "courier_shipping": "택배 배송(Shiprocket)",
+        "instagram": "Instagram 메시지"
       },
       "limits": {
         "seats": "팀원 및 대기 중인 초대",
@@ -3300,7 +3358,8 @@
         "monthly_active_contacts": "이번 달 활성 연락처",
         "storage_bytes": "미디어 저장 공간(바이트)",
         "whatsapp_numbers": "WhatsApp 번호",
-        "appointment_staff": "담당자"
+        "appointment_staff": "담당자",
+        "instagram_accounts": "Instagram 계정"
       },
       "loadFailed": "요금제를 불러오지 못했습니다",
       "retry": "다시 시도",
@@ -3606,7 +3665,11 @@
       "modeTeam": "팀 (순환 배정)",
       "team": "팀",
       "teamSummary": "팀: {team}",
-      "unknownTeam": "삭제된 팀"
+      "unknownTeam": "삭제된 팀",
+      "channel": "채널",
+      "channelAny": "모든 채널",
+      "channelWhatsapp": "WhatsApp",
+      "channelInstagram": "Instagram"
     },
     "teams": {
       "title": "팀",
@@ -3892,6 +3955,98 @@
       "copy": "복사",
       "copyFailed": "복사하지 못했습니다.",
       "adminOnly": "관리자만 Shiprocket 연결을 변경할 수 있습니다."
+    },
+    "instagram": {
+      "title": "Instagram",
+      "description": "Instagram 프로페셔널 계정을 연결하면 받은편지함에서 다이렉트 메시지에 답하고 댓글에 비공개로 답장할 수 있습니다.",
+      "notEnabled": "Instagram: 활성화되지 않음",
+      "reasonFlagOff": "이 배포에서는 아직 Instagram이 켜져 있지 않습니다.",
+      "reasonNotConfigured": "Instagram이 켜져 있지만 이 배포에서 설정이 완료되지 않았습니다.",
+      "loadFailed": "Instagram 계정을 불러오지 못했습니다.",
+      "connect": "Instagram 연결",
+      "connecting": "연결 중...",
+      "reconnect": "다시 연결",
+      "disconnect": "연결 해제",
+      "disconnectConfirm": "@{username} 연결을 해제할까요? 대화는 유지되지만 다시 연결할 때까지 답장할 수 없습니다.",
+      "checkNow": "지금 확인",
+      "statusActive": "연결됨",
+      "statusTokenInvalid": "액세스가 만료되었습니다. 계속 답장하려면 다시 연결하세요.",
+      "statusPermissionMissing": "권한 없음: {feature}에 {scopes} 권한이 필요합니다",
+      "statusDisconnected": "연결 해제됨",
+      "lastWebhook": "마지막 메시지 수신: {date}",
+      "neverReceived": "아직 받은 메시지가 없습니다",
+      "tokenExpires": "액세스는 자동으로 갱신됩니다. 만료: {date}",
+      "commentsAvailable": "댓글 답장: 사용 가능",
+      "commentsNotEnabled": "댓글 답장: 사용 안 함(권한 미부여)",
+      "unsupportedEvents": "{count, plural, other {지원되지 않는 유형의 이벤트 #개를 받았습니다}}",
+      "features": {
+        "dm": "다이렉트 메시지",
+        "comments": "댓글 답장"
+      },
+      "connected": "Instagram 계정이 연결되었습니다",
+      "connectFailed": "Instagram을 연결하지 못했습니다",
+      "commentRules": {
+        "title": "댓글 답장",
+        "help": "게시물에 댓글을 단 사람에게 비공개 메시지를 한 번 보냅니다. 상대가 답장하면 받은편지함에서 대화를 이어갈 수 있습니다.",
+        "add": "규칙 추가",
+        "anyPost": "모든 게시물",
+        "postId": "게시물 ID",
+        "keywords": "키워드(비워 두면 모든 댓글에 적용)",
+        "replyText": "비공개 답장",
+        "active": "사용",
+        "save": "저장",
+        "delete": "삭제",
+        "empty": "아직 댓글 규칙이 없습니다",
+        "saved": "규칙을 저장했습니다",
+        "deleteConfirm": "이 댓글 규칙을 삭제할까요?",
+        "deleted": "규칙을 삭제했습니다",
+        "mediaLabel": "게시물 {id}",
+        "keywordsAny": "모든 댓글",
+        "edit": "편집",
+        "cancel": "취소",
+        "postIdHelp": "비워 두면 모든 게시물에 적용됩니다.",
+        "postIdInvalid": "게시물 ID는 숫자로만 이루어집니다.",
+        "keywordsHelp": "키워드는 쉼표로 구분합니다. 대소문자는 구분하지 않습니다.",
+        "replyBytes": "{count} / {max}바이트",
+        "loadFailed": "댓글 규칙을 불러오지 못했습니다."
+      },
+      "loading": "불러오는 중",
+      "retry": "다시 시도",
+      "noAccounts": "아직 연결된 Instagram 계정이 없습니다.",
+      "memberReadOnly": "관리자만 Instagram 설정을 변경할 수 있습니다.",
+      "includeComments": "댓글에도 답장",
+      "includeCommentsHelp": "댓글 권한을 Instagram에 요청하여 댓글 규칙이 댓글마다 비공개 답장을 한 번 보낼 수 있게 합니다.",
+      "connectAnother": "다른 계정 연결",
+      "badgeReconnect": "재연결 필요",
+      "badgePermission": "권한 없음",
+      "disconnected": "Instagram 계정 연결이 해제되었습니다",
+      "disconnectedHelp": "대화는 보관됩니다. 답장하려면 다시 연결하세요.",
+      "healthChecked": "연결을 확인했습니다",
+      "errors": {
+        "generic": "문제가 발생했습니다. 다시 시도하세요."
+      },
+      "callbackErrors": {
+        "instagram_not_enabled": "이 배포에서는 Instagram이 활성화되지 않았습니다.",
+        "signed_out": "로그아웃되었습니다. 로그인한 후 다시 연결하세요.",
+        "forbidden": "관리자만 Instagram을 연결할 수 있습니다.",
+        "denied": "Instagram 접근 권한이 부여되지 않았습니다.",
+        "state_mismatch": "Instagram 로그인이 만료되었습니다. 다시 연결하세요.",
+        "invalid_request": "Instagram이 잘못된 응답을 보냈습니다. 다시 시도하세요.",
+        "account_in_use": "이 Instagram 계정은 다른 워크스페이스에 연결되어 있습니다.",
+        "limit_reached": "요금제의 Instagram 계정 한도에 도달했습니다.",
+        "feature_unavailable": "요금제에 Instagram이 포함되어 있지 않습니다.",
+        "instagram_token_invalid": "Instagram이 로그인을 받아들이지 않았습니다. 다시 시도하세요.",
+        "meta_error": "Instagram에서 오류가 발생했습니다. 나중에 다시 시도하세요.",
+        "save_failed": "연결을 저장하지 못했습니다. 다시 시도하세요."
+      },
+      "notifications": {
+        "activeTitle": "{name} 계정이 다시 연결되었습니다",
+        "activeBody": "Instagram 메시지를 다시 주고받을 수 있습니다.",
+        "token_invalidTitle": "{name}: Instagram 접근 권한 만료",
+        "token_invalidBody": "계속 답장하려면 설정 → Instagram에서 계정을 다시 연결하세요.",
+        "permission_missingTitle": "{name}: Instagram 권한 없음",
+        "permission_missingBody": "설정 → Instagram에서 계정을 다시 연결하고 메시지 권한을 허용하세요."
+      }
     }
   },
   "SignupPage": {
@@ -4007,7 +4162,8 @@
       "appointment_cancelled": "예약 취소",
       "appointment_rescheduled": "예약 변경",
       "low_stock": "재고 부족",
-      "payment_exception": "결제 검토 필요"
+      "payment_exception": "결제 검토 필요",
+      "instagram_account_health": "Instagram 계정"
     }
   },
   "Agents": {
@@ -5412,7 +5568,8 @@
       "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
       "secretNeedsAdmin": "비밀 작업 공간 값을 쓰는 API 요청 단계는 관리자만 추가하거나 바꿀 수 있습니다.",
       "testNumbersInvalid": "국가 코드를 포함한 전화번호를 최대 {max}개 입력하세요(각 8~15자리).",
-      "copyName": "{name} 사본"
+      "copyName": "{name} 사본",
+      "channelScopeInvalid": "실행 채널은 WhatsApp, Instagram 또는 둘 다여야 합니다."
     },
     "quickReplies": {
       "kindInvalid": "종류는 \"text\" 또는 \"interactive\"여야 합니다",
@@ -5630,7 +5787,8 @@
       "invalidDateRange": "시작 날짜는 종료 날짜보다 앞서야 합니다.",
       "invalidCursor": "페이지 커서가 올바르지 않습니다.",
       "invalidLimit": "개수 제한은 1에서 50 사이의 정수여야 합니다.",
-      "timeout": "검색 시간이 너무 오래 걸렸습니다. 검색어를 늘리거나 필터로 범위를 좁히세요."
+      "timeout": "검색 시간이 너무 오래 걸렸습니다. 검색어를 늘리거나 필터로 범위를 좁히세요.",
+      "invalidChannel": "채널은 whatsapp 또는 instagram이어야 합니다."
     },
     "savedFilters": {
       "nameInvalid": "보기 이름은 1~80자로 입력하세요.",
@@ -5666,6 +5824,26 @@
       "invalidNumber": "이 워크스페이스에 연결된 WhatsApp 번호를 선택하세요",
       "missingScope": "Meta가 이 기능에 필요한 권한을 부여하지 않았습니다",
       "exportTooLarge": "한 번에 내보내기에는 리드가 너무 많습니다. 필터를 좁혀 주세요"
+    },
+    "instagram": {
+      "instagram_not_enabled": "Instagram이 활성화되지 않았습니다",
+      "forbidden": "관리자만 Instagram 설정을 변경할 수 있습니다",
+      "invalid_request": "잘못된 요청입니다",
+      "not_found": "찾을 수 없습니다",
+      "rate_limited": "요청이 너무 많습니다",
+      "account_in_use": "이 Instagram 계정은 다른 워크스페이스에 연결되어 있습니다",
+      "limit_reached": "요금제의 Instagram 계정 한도에 도달했습니다",
+      "instagram_token_invalid": "Instagram 액세스가 만료되었습니다. 계정을 다시 연결하세요",
+      "instagram_permission_missing": "이 기능에 필요한 권한을 Instagram이 부여하지 않았습니다",
+      "instagram_account_disconnected": "이 Instagram 계정은 연결이 해제되었습니다",
+      "instagram_window_closed": "답장할 수 없습니다: Instagram 답장 가능 시간이 지났습니다",
+      "channel_not_supported": "이 채널에서는 사용할 수 없습니다",
+      "contact_blocked": "차단된 연락처입니다",
+      "identity_conflict": "해당 연락처에는 이미 이 Instagram 계정의 대화가 있습니다",
+      "identity_busy": "이 대화에서 플로우가 실행 중입니다. 종료된 후 다시 시도하세요",
+      "state_mismatch": "Instagram 로그인이 만료되었습니다. 다시 연결해 보세요",
+      "meta_error": "Instagram에서 오류를 반환했습니다",
+      "delivery_uncertain": "전송 여부가 불확실합니다. 다시 보내기 전에 Instagram을 확인하세요"
     }
   },
   "PageSearch": {
@@ -6297,7 +6475,8 @@
       "notFound": "해당 WhatsApp 번호는 이 워크스페이스에 연결되어 있지 않습니다.",
       "noDefault": "사용할 WhatsApp 번호를 선택하세요.",
       "templateWrongNumber": "이 템플릿은 발신 번호와 다른 WhatsApp Business 계정에 속해 있습니다. 해당 번호의 계정에 있는 템플릿을 선택하세요.",
-      "disconnected": "이 WhatsApp 번호는 연결이 해제되었습니다. 이 번호로 보내려면 설정에서 다시 연결하세요."
+      "disconnected": "이 WhatsApp 번호는 연결이 해제되었습니다. 이 번호로 보내려면 설정에서 다시 연결하세요.",
+      "otherChannel": "이 대화는 WhatsApp 대화가 아닙니다."
     },
     "defaultBadge": "기본",
     "unnamedNumber": "번호 {phoneNumberId}",
@@ -7965,6 +8144,9 @@
       "open": "결제 페이지 열기",
       "blocked": "브라우저가 결제 탭을 차단했습니다. 이 페이지의 링크를 사용해 계속하세요.",
       "checkoutFallback": "여기에서 결제창을 불러오지 못했습니다. 결제 페이지 링크를 사용해 계속하세요."
+    },
+    "instagram": {
+      "activeContactsNote": "WhatsApp 연락처에 연결된 Instagram 사용자는 활성 연락처에서 한 번만 집계되며, 연결되지 않으면 따로 집계됩니다."
     }
   },
   "AiAgentFoundation": {

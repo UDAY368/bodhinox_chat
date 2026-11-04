@@ -84,6 +84,19 @@ describe.skipIf(!ownerUrl||!workerUrl)('atomic authenticated campaign creation',
     }
   });
 
+  it('never includes a phone-less Instagram-only contact',async()=>{
+    const phoneless=randomUUID();
+    await owner.query("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'Instagram only','')",[phoneless,accountId,userId]);
+    await owner.query("INSERT INTO contact_tags(account_id,contact_id,tag_id) VALUES($1,$2,$3)",[accountId,phoneless,tagId]);
+    try{
+      const result=await createCampaign(scope,{...payload(),audience:{type:'tags',tagIds:[tagId]}});
+      const recipients=(await owner.query('SELECT contact_id FROM broadcast_recipients WHERE broadcast_id=$1',[result.id])).rows;
+      expect(recipients).toEqual([{contact_id:contactId}]);
+    }finally{
+      await owner.query('DELETE FROM contacts WHERE id=$1',[phoneless]);
+    }
+  });
+
   it('rejects viewers and all foreign template, tag and custom-field references before persistence',async()=>{
     const input=payload();
     await expect(createCampaign({...scope,userId:viewerId,role:'viewer'},input)).rejects.toMatchObject({status:403});

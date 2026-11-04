@@ -98,7 +98,11 @@ const agentOf = (senderId: string, at: string, assignee: string) => Prisma.sql`C
 const defaultNumberCte = (accountId: string) => Prisma.sql`dn AS (
   SELECT CASE WHEN bool_or(w.is_default) OR count(*)=1 THEN (array_agg(w.id ORDER BY w.is_default DESC, w.created_at))[1] END AS id
   FROM whatsapp_config w WHERE w.account_id=${accountId}::uuid)`;
-/** A number column with NULL read as the default number (needs the `dn` CTE). */
+/**
+ * A number column with NULL read as the default number (needs the `dn` CTE).
+ * Only for WhatsApp conversations: an Instagram conversation (Phase 11) also has
+ * no number, so every number-scoped match below also requires channel='whatsapp'.
+ */
 const numberOf = (column: string) => Prisma.sql`COALESCE(${Prisma.raw(column)}, (SELECT id FROM dn))`;
 const isReply = (m: string) => Prisma.raw(
   `${m}.sender_type IN ('agent','bot') AND ${m}.status <> 'failed' AND ${m}.content_type NOT IN ('template','system')`);
@@ -176,7 +180,7 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
   const rows = await tx.$queryRaw<{ stats: ConversationStats }[]>(Prisma.sql`
     WITH ${defaultNumberCte(accountId)}, scope AS (
       SELECT c.id, c.contact_id, c.created_at, c.lifecycle_state, c.last_message_at, c.resolved_at,
-        c.reopened_count, c.inbound_created_meta_id IS NOT NULL AS inbound, c.inbound_created_meta_id, c.whatsapp_config_id
+        c.reopened_count, c.inbound_created_meta_id IS NOT NULL AS inbound, c.inbound_created_meta_id, c.whatsapp_config_id, c.channel
       FROM conversations c WHERE c.account_id=${accountId}::uuid ${scopeFilter}
     ), campaign_sends AS MATERIALIZED (
       SELECT r.contact_id, r.sent_at, ${numberOf('b.whatsapp_config_id')} AS number_id
@@ -184,7 +188,7 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
       WHERE r.account_id=${accountId}::uuid AND r.sent_at >= ${from(range)} - ${REPLY_WINDOW} AND r.sent_at < ${to(range)}
         AND r.contact_id IS NOT NULL
     ), started AS (
-      SELECT s.id, s.contact_id, s.created_at, s.inbound, s.inbound_created_meta_id, ${numberOf('s.whatsapp_config_id')} AS number_id
+      SELECT s.id, s.contact_id, s.created_at, s.inbound, s.inbound_created_meta_id, s.channel, ${numberOf('s.whatsapp_config_id')} AS number_id
       FROM scope s WHERE s.created_at >= ${from(range)} AND s.created_at < ${to(range)}
     ), from_ad AS (
       -- The creating message carried an ad referral (a later re-click in the same conversation does not count).
@@ -197,7 +201,7 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
       -- A join, not EXISTS in the select list, so it plans as one hash join.
       -- Only a campaign sent from the number the conversation is on.
       SELECT DISTINCT s.id FROM started s JOIN campaign_sends cs ON cs.contact_id=s.contact_id
-      WHERE s.inbound AND cs.number_id IS NOT DISTINCT FROM s.number_id AND cs.sent_at <= s.created_at AND cs.sent_at >= s.created_at - ${REPLY_WINDOW}
+      WHERE s.inbound AND cs.number_id IS NOT DISTINCT FROM s.number_id AND s.channel='whatsapp' AND cs.sent_at <= s.created_at AND cs.sent_at >= s.created_at - ${REPLY_WINDOW}
     ), active AS (
       SELECT s.lifecycle_state FROM scope s
       WHERE s.created_at < ${to(range)} AND (s.created_at >= ${from(range)} OR ${activeIn(accountId, range, 's')})
@@ -330,7 +334,7 @@ export async function campaignFunnel(tx: TenantTransaction, accountId: string,
         r.contact_id IS NOT NULL AND COALESCE(r.sent_at, r.delivered_at) IS NOT NULL AND EXISTS (
           SELECT 1 FROM conversations c JOIN messages m ON m.account_id=c.account_id AND m.conversation_id=c.id
           WHERE c.account_id=${accountId}::uuid AND c.contact_id=r.contact_id AND m.sender_type='customer'
-            AND ${numberOf('c.whatsapp_config_id')} IS NOT DISTINCT FROM b.number_id
+            AND c.channel='whatsapp' AND ${numberOf('c.whatsapp_config_id')} IS NOT DISTINCT FROM b.number_id
             AND m.created_at >= COALESCE(r.sent_at, r.delivered_at)
             AND m.created_at <= COALESCE(r.delivered_at, r.sent_at) + ${REPLY_WINDOW}) AS replied
       FROM broadcast_recipients r JOIN b ON b.id=r.broadcast_id WHERE r.account_id=${accountId}::uuid
@@ -482,7 +486,7 @@ export async function templateDaily(tx: TenantTransaction, accountId: string, ra
         r.contact_id IS NOT NULL AND EXISTS (
           SELECT 1 FROM conversations c JOIN messages i ON i.account_id=c.account_id AND i.conversation_id=c.id
           WHERE c.account_id=${accountId}::uuid AND c.contact_id=r.contact_id AND i.sender_type='customer'
-            AND ${numberOf('c.whatsapp_config_id')} IS NOT DISTINCT FROM ${numberOf('b.whatsapp_config_id')}
+            AND c.channel='whatsapp' AND ${numberOf('c.whatsapp_config_id')} IS NOT DISTINCT FROM ${numberOf('b.whatsapp_config_id')}
             AND i.created_at >= r.sent_at AND i.created_at <= COALESCE(r.delivered_at, r.sent_at) + ${REPLY_WINDOW}) AS replied
       FROM broadcast_recipients r JOIN broadcasts b ON b.account_id=r.account_id AND b.id=r.broadcast_id
       WHERE r.account_id=${accountId}::uuid AND r.sent_at >= ${from(range)} AND r.sent_at < ${to(range)}

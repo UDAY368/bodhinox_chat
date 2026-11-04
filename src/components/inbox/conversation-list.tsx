@@ -56,6 +56,8 @@ import {
   type InboxFilters,
 } from '@/components/inbox/saved-filters/saved-filters-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ChannelBadge, conversationChannel } from '@/components/inbox/channel-badge';
+import type { ConversationChannel } from '@/types';
 import {
   ConversationNumberBadge,
   inboxFilterNumbers,
@@ -105,6 +107,9 @@ export function ConversationList({
   const { numbers } = useWhatsAppNumbers();
   const multiNumber = numbers.length > 1;
   const [numberFilter, setNumberFilter] = useState<string | null>(null);
+  // Channel filter (Phase 11): offered only once an Instagram conversation is listed.
+  const tc = useTranslations('Inbox.channel');
+  const [channelFilter, setChannelFilter] = useState<ConversationChannel | null>(null);
   // Disconnected numbers are offered only while listed conversations are on
   // them (history), marked "(disconnected)".
   const filterNumbers = useMemo(
@@ -256,6 +261,12 @@ export function ConversationList({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [conversations]);
 
+  const hasInstagram = useMemo(
+    () => conversations.some((c) => conversationChannel(c) === 'instagram'),
+    [conversations]
+  );
+  const activeChannelFilter = hasInstagram ? channelFilter : null;
+
   const tagsById = useMemo(() => {
     const m = new Map<string, Tag>();
     for (const t of tags) m.set(t.id, t);
@@ -268,7 +279,14 @@ export function ConversationList({
     result = result.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined));
 
     if (activeNumberFilter !== null) {
-      result = result.filter((c) => matchesNumberFilter(c, activeNumberFilter));
+      // A number filter is a WhatsApp filter: Instagram conversations have no number.
+      result = result.filter(
+        (c) => conversationChannel(c) === 'whatsapp' && matchesNumberFilter(c, activeNumberFilter)
+      );
+    }
+
+    if (activeChannelFilter !== null) {
+      result = result.filter((c) => conversationChannel(c) === activeChannelFilter);
     }
 
     // Contact-based filters (tags via OR logic, exact company match).
@@ -292,7 +310,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, myTeam]);
+  }, [conversations, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam]);
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>
@@ -323,13 +341,15 @@ export function ConversationList({
     setSelectedCompany(null);
     setSessionFilter('all');
     setNumberFilter(null);
+    setChannelFilter(null);
   }, []);
 
   const hasContactFilters =
     selectedTagIds.length > 0 ||
     selectedCompany !== null ||
     sessionFilter !== 'all' ||
-    activeNumberFilter !== null;
+    activeNumberFilter !== null ||
+    activeChannelFilter !== null;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -533,6 +553,42 @@ export function ConversationList({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {hasInstagram && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={`${tc('filterLabel')}: ${activeChannelFilter ? tc(activeChannelFilter) : tc('all')}`}
+                className={cn(
+                  'hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                  activeChannelFilter === null
+                    ? 'text-muted-foreground hover:text-foreground'
+                    : 'text-primary'
+                )}
+              >
+                <span className="truncate">
+                  {activeChannelFilter ? tc(activeChannelFilter) : tc('all')}
+                </span>
+                <ChevronDown className="h-3 w-3 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="border-border bg-popover w-48">
+                <DropdownMenuRadioGroup
+                  value={activeChannelFilter ?? ''}
+                  onValueChange={(value) =>
+                    setChannelFilter(value === 'whatsapp' || value === 'instagram' ? value : null)
+                  }
+                >
+                  <DropdownMenuRadioItem value="" className="text-sm">
+                    {tc('all')}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="whatsapp" className="text-sm">
+                    {tc('whatsapp')}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="instagram" className="text-sm">
+                    {tc('instagram')}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {multiNumber && (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -642,6 +698,15 @@ export function ConversationList({
                 <X className="h-3 w-3" />
               </button>
             )}
+            {activeChannelFilter !== null && (
+              <button
+                onClick={() => setChannelFilter(null)}
+                className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+              >
+                <span className="max-w-24 truncate">{tc(activeChannelFilter)}</span>
+                <X className="h-3 w-3" />
+              </button>
+            )}
             {activeNumberFilter !== null && (
               <button
                 onClick={() => setNumberFilter(null)}
@@ -699,6 +764,7 @@ export function ConversationList({
                 tl={tl}
                 now={now}
                 numbers={multiNumber ? numbers : NO_NUMBERS}
+                multiChannel={hasInstagram}
               />
             ))}
           </div>
@@ -718,6 +784,8 @@ interface ConversationItemProps {
   now: number;
   /** The workspace's numbers when it has two or more, else empty. */
   numbers: WhatsAppNumberDto[];
+  /** Instagram conversations are listed, so WhatsApp rows are marked too. */
+  multiChannel?: boolean;
 }
 
 const NO_NUMBERS: WhatsAppNumberDto[] = [];
@@ -730,8 +798,10 @@ function ConversationItem({
   tl,
   now,
   numbers,
+  multiChannel = false,
 }: ConversationItemProps) {
   const contact = conversation.contact;
+  const channel = conversationChannel(conversation);
   const lifecycle = lifecycleOf(conversation);
   const sla = firstResponseSla(conversation, now);
   const displayName = contact?.name || contact?.phone || t('unknown');
@@ -803,7 +873,10 @@ function ConversationItem({
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <LifecycleChip state={lifecycle} label={tl(lifecycle)} />
           {sla && <SlaBadge sla={sla} t={t} tl={tl} />}
-          <ConversationNumberBadge conversation={conversation} numbers={numbers} className="min-w-0" />
+          <ChannelBadge channel={channel} showWhatsApp={multiChannel} compact />
+          {channel === 'whatsapp' && (
+            <ConversationNumberBadge conversation={conversation} numbers={numbers} className="min-w-0" />
+          )}
         </div>
       </div>
     </button>

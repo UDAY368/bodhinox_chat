@@ -54,7 +54,7 @@ import {
 import { useTranslations } from "next-intl";
 import { getT } from "@/lib/i18n/translate";
 import { unlinkNodeReferences } from "@/lib/flows/edges";
-import type { FlowNodeRow, FlowRow } from "@/lib/flows/types";
+import type { FlowChannelScope, FlowNodeRow, FlowRow } from "@/lib/flows/types";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 
@@ -138,6 +138,9 @@ export interface FlowEditorContextValue {
    */
   triggerNumber: string | null;
   setTriggerNumber: (next: string | null) => void;
+  /** Which channels the flow runs on (Phase 11). Saved on its own, like the trigger number. */
+  channelScope: FlowChannelScope;
+  setChannelScope: (next: FlowChannelScope) => void;
 }
 
 // ============================================================
@@ -348,6 +351,7 @@ export function FlowEditorProvider({
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
   const [triggerNumber, setTriggerNumber] = useState<string | null>(initialFlow.whatsapp_config_id ?? null);
+  const [channelScope, setChannelScope] = useState<FlowChannelScope>(initialFlow.channel_scope ?? "whatsapp");
   // dirty flips on user edits; status-only updates (after the activate
   // API succeeds) use setStateRaw so they don't falsely re-flag the
   // form as dirty.
@@ -409,11 +413,12 @@ export function FlowEditorProvider({
           trigger_config: state.trigger_config,
           entry_node_id: state.entry_node_id,
           fallback_policy: state.fallback_policy,
+          channel_scope: channelScope,
           id: initialFlow.id,
         },
         state.nodes,
       ),
-    [state, initialFlow.id],
+    [state, channelScope, initialFlow.id],
   );
   const canActivate = useMemo(
     () => issues.every((i) => i.severity !== "error"),
@@ -435,6 +440,7 @@ export function FlowEditorProvider({
           trigger_config: state.trigger_config,
           entry_node_id: state.entry_node_id,
           test_numbers: state.test_numbers,
+          channel_scope: channelScope,
           nodes: state.nodes,
         }),
       });
@@ -450,7 +456,7 @@ export function FlowEditorProvider({
     } finally {
       setSaving(false);
     }
-  }, [initialFlow.id, state, t]);
+  }, [initialFlow.id, state, channelScope, t]);
 
   // ---- Activate / Pause / Archive ----
   const setStatus = useCallback(
@@ -623,6 +629,8 @@ export function FlowEditorProvider({
       requestFlash,
       triggerNumber,
       setTriggerNumber,
+      channelScope,
+      setChannelScope,
     }),
     [
       initialFlow,
@@ -645,6 +653,7 @@ export function FlowEditorProvider({
       flashKey,
       requestFlash,
       triggerNumber,
+      channelScope,
     ],
   );
 

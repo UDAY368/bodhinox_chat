@@ -177,8 +177,15 @@ export interface ContactNote {
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';
 
+/** The channel a conversation is on (Phase 11). Read-only for the browser. */
+export type ConversationChannel = 'whatsapp' | 'instagram';
+
 export interface Conversation {
   bot_paused?: boolean;
+  /** Fixed by the inbound pipeline; send routes derive the channel from the row, never from a client. */
+  channel?: ConversationChannel;
+  /** The Instagram account an Instagram conversation is on; null for WhatsApp. */
+  instagram_account_id?: string | null;
   id: string;
   user_id: string;
   contact_id: string;
@@ -227,6 +234,7 @@ export type ConversationLifecycleState = 'bot' | 'requesting' | 'assigned' | 're
 export const NOTIFICATION_TYPES = [
   'conversation_assigned',
   'whatsapp_number_health',
+  'instagram_account_health',
   'payment_received',
   'assigned_message',
   'mention',
@@ -252,6 +260,8 @@ export interface Notification {
   actor_user_id?: string;
   /** The WhatsApp number a whatsapp_number_health alert is about; null once that number is removed. */
   whatsapp_config_id?: string | null;
+  /** The Instagram account an instagram_account_health alert is about. */
+  instagram_account_id?: string | null;
   /** Server-side idempotency key for an alert (one per recipient per observed change). */
   dedupe_key?: string | null;
   title: string;
@@ -272,9 +282,16 @@ export type ContentType =
   | 'location'
   | 'template'
   /** Customer tapped a reply button or list row on a message we sent. */
-  | 'interactive';
+  | 'interactive'
+  /** Instagram (Phase 11): a reply to the business's story. */
+  | 'story_reply'
+  /** Instagram: a shared post or reel (Meta sends the URL only). */
+  | 'share'
+  /** Instagram: a message type this phase cannot show. */
+  | 'unsupported';
 export type MessageStatus =
-  'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  /** 'unknown': an Instagram send whose provider outcome is uncertain (never retried automatically). */
+  'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'unknown';
 
 export interface Message {
   id: string;

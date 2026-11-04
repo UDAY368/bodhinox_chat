@@ -67,6 +67,10 @@ import { SendPaymentLinkDialog } from "./send-payment-link-dialog";
 import { SendStorefrontLinkDialog } from "./send-storefront-link-dialog";
 import { SendProductDialog } from "@/components/commerce/catalog/send-product-dialog";
 import { MediaPicker, type PickedMedia } from "./media-library/media-picker";
+import type { ConversationChannel } from "@/types";
+import { instagramMediaAllowed } from "@/lib/channels/capabilities";
+import { INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
+import { instagramWindowBanner } from "@/lib/instagram/window";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -109,6 +113,27 @@ interface ReplyDraft {
 // the file picker so unsupported files are rejected before upload rather
 // than failing with a confusing Storage error. Audio has no picker — it's
 // captured via the recorder.
+export type AttachMenuItem = "photo" | "video" | "document" | "voiceNote" | "mediaLibrary";
+
+/**
+ * Attach-menu entries per channel. Instagram gets no voice note (the
+ * recorder only produces Ogg/Opus, which Meta's Instagram API refuses:
+ * audio must be aac/m4a/wav/mp4) and no media library (library files are
+ * not checked against Instagram's formats).
+ */
+export function attachMenuItems(isInstagram: boolean): AttachMenuItem[] {
+  return isInstagram
+    ? ["photo", "video", "document"]
+    : ["photo", "video", "document", "voiceNote", "mediaLibrary"];
+}
+
+/** What Instagram accepts (Phase 11): png/jpeg, video, PDF. */
+const INSTAGRAM_PICKER_ACCEPT: Record<"image" | "video" | "document", string> = {
+  image: "image/png,image/jpeg",
+  video: "video/mp4,video/3gpp",
+  document: "application/pdf",
+};
+
 const PICKER_ACCEPT: Record<"image" | "video" | "document", string> = {
   image: "image/png,image/jpeg,image/webp",
   video: "video/mp4,video/3gpp",
@@ -134,6 +159,27 @@ interface MessageComposerProps {
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
+  /**
+   * The conversation's channel (from the row). On Instagram the composer
+   * offers text, png/jpeg, audio, video and PDF only, counts the 1000-byte
+   * limit and shows the Instagram reply window instead of the 24h template
+   * hint. The server re-checks every send.
+   */
+  channel?: ConversationChannel;
+  /** Instagram: the customer's last message (ISO), for the window banner. */
+  lastCustomerAt?: string | null;
+  /** Instagram: the session clock (ms), so the banner ticks with the thread. */
+  now?: number;
+  /** Instagram: Meta approved the Human Agent feature (staff replies up to 7 days). */
+  humanAgentEnabled?: boolean;
+}
+
+/** Time left in an Instagram reply window: "3d", "5h", "12m". */
+function windowTimeLeft(ms: number): string {
+  const minutes = Math.max(1, Math.ceil(ms / 60_000));
+  if (minutes >= 48 * 60) return `${Math.floor(minutes / (24 * 60))}d`;
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}h`;
+  return `${minutes}m`;
 }
 
 function formatDuration(seconds: number): string {
@@ -156,11 +202,26 @@ export function MessageComposer({
   onOpenTemplates,
   replyTo,
   onClearReply,
+  channel = "whatsapp",
+  lastCustomerAt = null,
+  now,
+  humanAgentEnabled = false,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
   const tGate = useTranslations("GatedButton");
+  const tc = useTranslations("Inbox.channel");
+  const isInstagram = channel === "instagram";
+  // Instagram: 24h standard window, then (only where Meta approved the Human
+  // Agent feature, which the server checks) staff replies up to 7 days.
+  const igBanner = isInstagram
+    ? instagramWindowBanner(lastCustomerAt ? new Date(lastCustomerAt) : null, humanAgentEnabled, new Date(now ?? Date.now()))
+    : null;
+  const windowClosed = igBanner ? igBanner.kind === "closed" : sessionExpired;
 
   const [text, setText] = useState("");
+  // Instagram caps a message at 1000 UTF-8 bytes (checked again on the server).
+  const textBytes = isInstagram ? utf8Bytes(text.trim()) : 0;
+  const overInstagramLimit = isInstagram && textBytes > INSTAGRAM_LIMITS.textBytes;
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -176,6 +237,7 @@ export function MessageComposer({
   const [storefrontLinkOpen, setStorefrontLinkOpen] = useState(false);
   const [sendProductOpen, setSendProductOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const attachItems = attachMenuItems(isInstagram);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
@@ -212,7 +274,7 @@ export function MessageComposer({
   const canSend = useCan("send-messages");
   const readOnly = !canSend;
   // Media (like free-form text) is only allowed inside the 24h window.
-  const inputsDisabled = readOnly || sessionExpired;
+  const inputsDisabled = readOnly || windowClosed;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -244,7 +306,8 @@ export function MessageComposer({
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed || sending || sessionExpired) return;
+    if (!trimmed || sending || windowClosed) return;
+    if (isInstagram && utf8Bytes(trimmed) > INSTAGRAM_LIMITS.textBytes) return;
 
     setSending(true);
     try {
@@ -256,7 +319,7 @@ export function MessageComposer({
     } finally {
       setSending(false);
     }
-  }, [text, sending, sessionExpired, onSend, replyTo?.id]);
+  }, [text, sending, windowClosed, isInstagram, onSend, replyTo?.id]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -382,6 +445,11 @@ export function MessageComposer({
     (qr: QuickReply) => {
       setQuickReplyOpen(false);
       if (qr.kind === "interactive" && qr.interactive_payload) {
+        // Saved replies insert text on Instagram; interactive ones are WhatsApp-only.
+        if (isInstagram) {
+          toast.error(tc("notOnChannel"));
+          return;
+        }
         openInteractiveBuilder(qr.interactive_payload);
         return;
       }
@@ -400,7 +468,7 @@ export function MessageComposer({
         }
       });
     },
-    [openInteractiveBuilder, adjustHeight],
+    [openInteractiveBuilder, adjustHeight, isInstagram, tc],
   );
 
   // Upload a captured file to chat-media and stage it as a draft.
@@ -409,6 +477,10 @@ export function MessageComposer({
       // Per-kind ceiling mirrors Meta's caps (image 5 MB, etc.) so we
       // reject before upload rather than orphaning an object that Meta
       // would then refuse at send.
+      if (isInstagram && !instagramMediaAllowed(file.type, file.size).ok) {
+        toast.error(tc("notOnChannel"));
+        return;
+      }
       const max = MEDIA_MAX_BYTES_BY_KIND[kind];
       if (file.size > max) {
         toast.error(
@@ -432,7 +504,7 @@ export function MessageComposer({
         setBusy(false);
       }
     },
-    [removeStaged, t],
+    [removeStaged, t, isInstagram, tc],
   );
 
   const handlePicked = useCallback(
@@ -473,7 +545,9 @@ export function MessageComposer({
   );
 
   const startRecording = useCallback(async () => {
-    if (inputsDisabled || busy || recording) return;
+    // Instagram refuses the recorder's Ogg/Opus output; the menu hides the
+    // entry, and this keeps any other caller from starting a doomed take.
+    if (isInstagram || inputsDisabled || busy || recording) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === "undefined") {
       toast.error(t("recordingUnsupported"));
       return;
@@ -504,7 +578,7 @@ export function MessageComposer({
       recorderRef.current = null;
       toast.error(t("microphoneDenied"));
     }
-  }, [inputsDisabled, busy, recording, finalizeRecording, t]);
+  }, [isInstagram, inputsDisabled, busy, recording, finalizeRecording, t]);
 
   const stopRecording = useCallback(() => {
     clearTimer();
@@ -586,7 +660,24 @@ export function MessageComposer({
           />
         </div>
       )}
-      {sessionExpired && (
+      {igBanner && (
+        <div
+          data-instagram-window={igBanner.kind}
+          className={cn(
+            "mb-2 rounded-lg px-3 py-2 text-xs",
+            igBanner.kind === "open"
+              ? "bg-muted text-muted-foreground"
+              : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+          )}
+        >
+          {igBanner.kind === "closed"
+            ? tc("windowClosed")
+            : tc(igBanner.kind === "open" ? "windowOpen" : "windowHumanAgent", {
+                time: windowTimeLeft(igBanner.closesAt.getTime() - (now ?? Date.now())),
+              })}
+        </div>
+      )}
+      {!isInstagram && sessionExpired && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">
           <p className="text-xs text-amber-700 dark:text-amber-400">
             {t("sessionExpiredHint")}
@@ -607,7 +698,7 @@ export function MessageComposer({
       <input
         ref={imageInputRef}
         type="file"
-        accept={PICKER_ACCEPT.image}
+        accept={(isInstagram ? INSTAGRAM_PICKER_ACCEPT : PICKER_ACCEPT).image}
         className="hidden"
         onChange={(e) => {
           handlePicked("image", e.target.files?.[0]);
@@ -617,7 +708,7 @@ export function MessageComposer({
       <input
         ref={videoInputRef}
         type="file"
-        accept={PICKER_ACCEPT.video}
+        accept={(isInstagram ? INSTAGRAM_PICKER_ACCEPT : PICKER_ACCEPT).video}
         className="hidden"
         onChange={(e) => {
           handlePicked("video", e.target.files?.[0]);
@@ -627,7 +718,7 @@ export function MessageComposer({
       <input
         ref={documentInputRef}
         type="file"
-        accept={PICKER_ACCEPT.document}
+        accept={(isInstagram ? INSTAGRAM_PICKER_ACCEPT : PICKER_ACCEPT).document}
         className="hidden"
         onChange={(e) => {
           handlePicked("document", e.target.files?.[0]);
@@ -641,6 +732,7 @@ export function MessageComposer({
           busy={busy}
           readOnly={readOnly}
           onCaptionChange={setCaption}
+          allowCaption={!isInstagram}
           onDiscard={discardDraft}
           onSend={sendDraft}
           t={t}
@@ -702,14 +794,18 @@ export function MessageComposer({
                 <FileText className="mr-2 h-4 w-4" />
                 {t("document")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
-                {t("voiceNote")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setMediaLibraryOpen(true)}>
-                <Images className="mr-2 h-4 w-4" />
-                {t("mediaLibrary")}
-              </DropdownMenuItem>
+              {attachItems.includes("voiceNote") && (
+                <DropdownMenuItem onClick={() => void startRecording()}>
+                  <Mic className="mr-2 h-4 w-4" />
+                  {t("voiceNote")}
+                </DropdownMenuItem>
+              )}
+              {attachItems.includes("mediaLibrary") && (
+                <DropdownMenuItem onClick={() => setMediaLibraryOpen(true)}>
+                  <Images className="mr-2 h-4 w-4" />
+                  {t("mediaLibrary")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -730,26 +826,32 @@ export function MessageComposer({
               <Plus className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="border-border bg-popover">
-              <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
-                <MessageSquareDashed className="mr-2 h-4 w-4" />
-                {t("interactiveMessage")}
-              </DropdownMenuItem>
+              {!isInstagram && (
+                <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
+                  <MessageSquareDashed className="mr-2 h-4 w-4" />
+                  {t("interactiveMessage")}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
                 <Zap className="mr-2 h-4 w-4" />
                 {t("quickReplies")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSendFormOpen(true)}>
-                <ClipboardList className="mr-2 h-4 w-4" />
-                {t("sendForm")}
-              </DropdownMenuItem>
+              {!isInstagram && (
+                <DropdownMenuItem onClick={() => setSendFormOpen(true)}>
+                  <ClipboardList className="mr-2 h-4 w-4" />
+                  {t("sendForm")}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setPaymentLinkOpen(true)}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 {t("sendPaymentLink")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSendProductOpen(true)}>
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                {t("sendProducts")}
-              </DropdownMenuItem>
+              {!isInstagram && (
+                <DropdownMenuItem onClick={() => setSendProductOpen(true)}>
+                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  {t("sendProducts")}
+                </DropdownMenuItem>
+              )}
               {canSend && (
                 <DropdownMenuItem onClick={() => setStorefrontLinkOpen(true)}>
                   <Store className="mr-2 h-4 w-4" />
@@ -759,17 +861,19 @@ export function MessageComposer({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={!readOnly}
-            gateReason={tGate("reasons.sendMessages")}
-            title={readOnly ? undefined : t("sendTemplate")}
-            className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-            onClick={onOpenTemplates}
-          >
-            <LayoutTemplate className="h-4 w-4" />
-          </GatedButton>
+          {!isInstagram && (
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={!readOnly}
+              gateReason={tGate("reasons.sendMessages")}
+              title={readOnly ? undefined : t("sendTemplate")}
+              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+              onClick={onOpenTemplates}
+            >
+              <LayoutTemplate className="h-4 w-4" />
+            </GatedButton>
+          )}
 
           <GatedButton
             variant="ghost"
@@ -796,11 +900,13 @@ export function MessageComposer({
             placeholder={
               readOnly
                 ? t("readOnlyPlaceholder")
-                : sessionExpired
-                  ? t("sessionExpiredPlaceholder")
+                : windowClosed
+                  ? isInstagram
+                    ? tc("windowClosed")
+                    : t("sessionExpiredPlaceholder")
                   : t("typeMessagePlaceholder")
             }
-            disabled={sessionExpired || readOnly}
+            disabled={windowClosed || readOnly}
             rows={1}
             // Textarea keeps its own inline title — the GatedButton
             // wrapping pattern doesn't apply to non-button inputs.
@@ -808,7 +914,7 @@ export function MessageComposer({
             title={readOnly ? t("readOnlyTitle") : undefined}
             className={cn(
               "min-w-0 flex-1 resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
-              (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
+              (windowClosed || readOnly) && "cursor-not-allowed opacity-50"
             )}
           />
 
@@ -816,7 +922,7 @@ export function MessageComposer({
             size="sm"
             canAct={!readOnly}
             gateReason={tGate("reasons.sendMessages")}
-            disabled={!text.trim() || sessionExpired || sending}
+            disabled={!text.trim() || windowClosed || sending || overInstagramLimit}
             onClick={handleSend}
             className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
           >
@@ -831,6 +937,14 @@ export function MessageComposer({
       {!draft && !recording && (
         <p className="mt-1 pl-[5.5rem] text-[10px] text-muted-foreground">
           {t("draftHint")}
+          {isInstagram && (
+            <span
+              data-instagram-bytes
+              className={cn("ml-2 tabular-nums", overInstagramLimit && "text-red-600 dark:text-red-400")}
+            >
+              {tc("byteCounter", { used: textBytes, max: INSTAGRAM_LIMITS.textBytes })}
+            </span>
+          )}
         </p>
       )}
 
@@ -899,6 +1013,7 @@ function MediaDraftPreview({
   busy,
   readOnly,
   onCaptionChange,
+  allowCaption = true,
   onDiscard,
   onSend,
   t,
@@ -907,6 +1022,8 @@ function MediaDraftPreview({
   busy: boolean;
   readOnly: boolean;
   onCaptionChange: (caption: string) => void;
+  /** Instagram has no media captions. */
+  allowCaption?: boolean;
   onDiscard: () => void;
   onSend: () => void;
   t: ReturnType<typeof useTranslations>;
@@ -948,7 +1065,7 @@ function MediaDraftPreview({
       </div>
 
       <div className="mt-2 flex items-end gap-2">
-        {draft.kind !== "audio" && (
+        {allowCaption && draft.kind !== "audio" && (
           <input
             value={draft.caption}
             maxLength={MEDIA_CAPTION_MAX}
@@ -971,7 +1088,7 @@ function MediaDraftPreview({
           onClick={onSend}
           className={cn(
             "h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40",
-            draft.kind === "audio" && "ml-auto",
+            (draft.kind === "audio" || !allowCaption) && "ml-auto",
           )}
         >
           <Send className="h-4 w-4" />

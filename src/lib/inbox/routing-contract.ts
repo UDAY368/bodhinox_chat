@@ -18,6 +18,8 @@ export interface RoutingConditions {
   keywords_any?: string[];
   /** Matches conversations on this WhatsApp number (whatsapp_config.id). */
   whatsapp_config_id?: string;
+  /** Matches conversations on this channel (Phase 11); absent matches every channel. */
+  channel?: 'whatsapp' | 'instagram';
   /** true: only inside working hours; false: only outside them. */
   within_working_hours?: boolean;
 }

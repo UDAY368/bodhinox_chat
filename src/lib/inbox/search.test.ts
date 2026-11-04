@@ -58,6 +58,12 @@ describe('parseInboxSearchParams', () => {
     expect(parseInboxSearchParams(params({ q: 'x' }), USER).limit).toBe(20);
   });
 
+  it('parses the channel filter (Phase 11) and leaves it unset by default', () => {
+    expect(parseInboxSearchParams(params({ q: 'x', channel: 'instagram' }), USER).filters.channel).toBe('instagram');
+    expect(parseInboxSearchParams(params({ q: 'x', channel: 'whatsapp' }), USER).filters.channel).toBe('whatsapp');
+    expect(parseInboxSearchParams(params({ q: 'x' }), USER).filters).not.toHaveProperty('channel');
+  });
+
   it.each([
     [{ q: '' }],
     [{ q: '   ...  ' }],
@@ -71,6 +77,8 @@ describe('parseInboxSearchParams', () => {
     [{ q: 'x', limit: '0' }],
     [{ q: 'x', limit: '51' }],
     [{ q: 'x', limit: '2.5' }],
+    [{ q: 'x', channel: 'telegram' }],
+    [{ q: 'x', channel: "instagram' OR 1=1" }],
   ])('rejects %o', (q) => {
     expect(() => parseInboxSearchParams(params(q), USER)).toThrow(InboxSearchError);
   });

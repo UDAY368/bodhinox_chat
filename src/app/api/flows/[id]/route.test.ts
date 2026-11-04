@@ -225,3 +225,32 @@ describe("saves that publish flow behaviour need 'flows.publish'", () => {
     expect(h.permission).not.toHaveBeenCalled();
   });
 });
+
+describe('channel_scope (Phase 11)', () => {
+  const save = (body: unknown) => PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify(body) }), context);
+
+  it('stores a valid scope on a draft and refuses anything else before a write', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Original', status: 'draft', trigger_type: 'manual', trigger_config: {}, entry_node_id: null }];
+    for (const channel_scope of ['facebook', '', 1, null, ['any']]) {
+      expect((await save({ channel_scope })).status).toBe(400);
+    }
+    expect(h.writes).toEqual([]);
+    expect((await save({ channel_scope: 'any' })).status).toBe(200);
+    expect(h.flows[0].channel_scope).toBe('any');
+  });
+
+  it('refuses moving an active flow onto Instagram when it uses a WhatsApp-only step or trigger', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Original', status: 'active', trigger_type: 'manual', trigger_config: {},
+      entry_node_id: 'start', channel_scope: 'whatsapp', fallback_policy: {} }];
+    h.nodes = [
+      { flow_id: 'flow-a', account_id: 'account-a', node_key: 'start', node_type: 'start', config: { next_node_key: 'tpl' } },
+      { flow_id: 'flow-a', account_id: 'account-a', node_key: 'tpl', node_type: 'send_template', config: { template_name: 'promo', language: 'en', next_node_key: 'done' } },
+      { flow_id: 'flow-a', account_id: 'account-a', node_key: 'done', node_type: 'end', config: {} },
+    ];
+    const response = await save({ channel_scope: 'instagram' });
+    expect(response.status).toBe(422);
+    expect((await response.json()).issues).toContainEqual(expect.objectContaining({ scope: 'node', node_key: 'tpl', field: 'node_type' }));
+    expect(h.writes).toEqual([]);
+    expect(h.flows[0].channel_scope).toBe('whatsapp');
+  });
+});

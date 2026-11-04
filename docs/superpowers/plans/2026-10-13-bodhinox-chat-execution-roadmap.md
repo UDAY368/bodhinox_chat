@@ -273,15 +273,17 @@ Completion gate: sample totals reconcile to source records and provider metrics;
 
 Dependencies: Phases 4–6 shared inbox/runtime; Phase 1 eligible account/review results.
 
-- [ ] Select the supported login/API route for the account and approved features; implement OAuth, token handling, webhooks, DMs and status/error handling where exposed.
-- [ ] Add professional-account onboarding, permissions/health indicators, disconnect and reconnection.
-- [ ] Implement supported keyword, welcome, private-reply/comment-to-message and handoff workflows within current restrictions.
-- [ ] Reuse CRM, booking, commerce and dispatch-policy services; use channel-appropriate menus or web links.
-- [ ] Link identities only with verified evidence or audited user decisions. Preserve otherwise separate Instagram and WhatsApp identities.
+- [x] Select the supported login/API route for the account and approved features; implement OAuth, token handling, webhooks, DMs and status/error handling where exposed. Instagram API with Instagram Login (`graph.instagram.com`), provider-gated (off until `INSTAGRAM_ENABLED`, App Review and the live check); unknown send outcomes are kept for reconciliation, never re-sent.
+- [x] Add professional-account onboarding, permissions/health indicators, disconnect and reconnection. Settings → Instagram, provider-gated; daily token sweep and health notifications.
+- [x] Implement supported keyword, welcome, private-reply/comment-to-message and handoff workflows within current restrictions. Flow `channel_scope` with publish-time capability checks; one private reply per comment; unsupported steps take the failure port or hand off. Provider-gated.
+- [x] Reuse CRM, booking, commerce and dispatch-policy services; use channel-appropriate menus or web links. Inbox, routing, flows, storefront and payment links run on Instagram (links as text); broadcasts, automations, AI auto-reply, away message and order/appointment notices stay WhatsApp-only and are refused visibly. Provider-gated.
+- [x] Link identities only with verified evidence or audited user decisions. Preserve otherwise separate Instagram and WhatsApp identities. Admin link/unlink only (`contact_identity_links` + audit); nothing is linked automatically.
 
 Deliverable: eligible Instagram conversations appear in the same operational inbox and launch the shared business services.
 
 Completion gate: authorized live accounts work under the reviewed permissions; unsupported events are visible as unavailable; automation does not exceed permitted messaging behavior.
+
+Status (4 November 2026): built and tested against the local database with Instagram off; the completion gate is still open until App Review is approved and the live check in the [Railway runbook](../../deployment/railway.md) passes.
 
 ### Phase 12 — visual automation editor and reporting expansion
 

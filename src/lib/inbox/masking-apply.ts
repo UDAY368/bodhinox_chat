@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { AccountRole } from '@/lib/auth/roles';
 import { withTenant } from '@/lib/db/tenant';
-import { MASK_CHAR, maskPhone, maskPhonesInText, shouldMask } from './masking';
+import { MASK_CHAR, maskHandle, maskPhone, maskPhonesInText, shouldMask } from './masking';
 
 /**
  * Server-side enforcement of per-member phone masking
@@ -60,6 +60,22 @@ export function maskContactRow<T>(row: T, mask: boolean): T {
   const out: Record<string, unknown> = { ...(row as Record<string, unknown>) };
   for (const field of MASKED_CONTACT_FIELDS)
     if (Object.hasOwn(out, field)) out[field] = maskContactIdentifier(out[field]);
+  return out as T;
+}
+
+/** Instagram identity fields (contact_channel_identities) that identify the person. */
+export const MASKED_IDENTITY_FIELDS = ['username', 'external_id'] as const;
+
+/**
+ * A copy of an Instagram identity row with its handle and IGSID masked (or the
+ * row itself when mask is false). Display names are not masked, as contact
+ * names are not.
+ */
+export function maskIdentityRow<T>(row: T, mask: boolean): T {
+  if (!mask || !row || typeof row !== 'object' || Array.isArray(row)) return row;
+  const out: Record<string, unknown> = { ...(row as Record<string, unknown>) };
+  for (const field of MASKED_IDENTITY_FIELDS)
+    if (typeof out[field] === 'string') out[field] = maskHandle(out[field] as string);
   return out as T;
 }
 

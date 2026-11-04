@@ -27,10 +27,12 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { getT } from '@/lib/i18n/translate';
 import { formatMoney, isCurrencyCode, MAX_MINOR, minorFromDb } from '@/lib/commerce/money';
+import { checkInstagramText, loadInstagramTarget, sendInstagramText, storeInstagramSentMessage, type InstagramSendContext, type InstagramTarget } from '@/lib/channels/sender';
+import { InstagramError } from '@/lib/instagram/errors';
 import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { sendTextMessage } from '@/lib/whatsapp/meta-api';
-import { getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertWhatsAppConversation, getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
 import { isRecipientNotAllowedError, phoneVariants } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { orderWebhookData, paymentLinkWebhookData, type CommerceWebhookEvent } from '@/lib/webhooks/commerce-events';
@@ -964,11 +966,23 @@ export interface SendLinkArgs {
   intentKey: string;
 }
 
+/** An Instagram refusal as the payment link's own fixed codes (decided before any intent). */
+export function paymentLinkErrorFromInstagram(error: unknown): unknown {
+  if (!(error instanceof InstagramError)) return error;
+  if (error.code === 'instagram_window_closed') return new PaymentLinkError('window_closed');
+  if (error.code === 'contact_blocked') return new PaymentLinkError('contact_blocked');
+  if (error.code === 'invalid_request') return new PaymentLinkError('invalid_message');
+  if (error.code === 'not_found') return new PaymentLinkError('no_address');
+  // Off, disconnected, token or permission problems: the channel cannot send now.
+  return new PaymentLinkError('number_unavailable');
+}
+
 /**
- * Sends a created link as a text message from the conversation's own number.
- * Needs an open 24-hour window (a free-form text). Throws PaymentLinkError for
- * a refusal (nothing sent), MetaApiError when Meta rejects it and
- * UncertainDispatchError when the outcome is unknown.
+ * Sends a created link as a text message in the link's conversation: from the
+ * conversation's own number on WhatsApp, or through the Instagram sender on an
+ * Instagram conversation (Phase 11). Needs an open 24-hour window (a free-form
+ * text). Throws PaymentLinkError for a refusal (nothing sent), MetaApiError
+ * when Meta rejects it and UncertainDispatchError when the outcome is unknown.
  */
 export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ whatsappMessageId: string; messageId: string | null }> {
   const message = (args.message ?? '').trim();
@@ -980,17 +994,25 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
     if (!(link.status === 'created' || link.status === 'partially_paid') || !link.short_url) throw new PaymentLinkError('link_not_ready');
     if (!link.conversation_id) throw new PaymentLinkError('conversation_not_found');
     const conversations = await tx.$queryRaw<{ last_customer_message_at: Date | null; phone: string | null; wa_user_id: string | null;
-      blocked_at: Date | null; whatsapp_config_id: string | null }[]>`
+      blocked_at: Date | null; whatsapp_config_id: string | null; channel: string }[]>`
       SELECT
         -- conversations has no such column; the 24-hour window comes from the latest customer message.
         (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
           AND m.sender_type='customer') AS last_customer_message_at,
-        ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id
+        ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id,c.channel
       FROM conversations c JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
       WHERE c.account_id=${args.accountId}::uuid AND c.id=${link.conversation_id}::uuid`;
     const conversation = conversations[0];
     if (!conversation) throw new PaymentLinkError('conversation_not_found');
     if (conversation.blocked_at) throw new PaymentLinkError('contact_blocked');
+    // Instagram: decided below in a worker transaction (only the worker reads the account token).
+    if (conversation.channel === 'instagram')
+      return { channel: 'instagram' as const, conversationId: link.conversation_id, shortUrl: link.short_url };
+    // Anything else must be WhatsApp: a conversation on another channel is never sent to from the default number.
+    try { assertWhatsAppConversation(conversation); } catch (error) {
+      if (error instanceof NoNumberError) throw new PaymentLinkError('number_unavailable');
+      throw error;
+    }
     const target = resolveContactSendTarget(conversation);
     if (!target) throw new PaymentLinkError('no_address');
     const last = conversation.last_customer_message_at ? new Date(conversation.last_customer_message_at).getTime() : NaN;
@@ -1001,11 +1023,21 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
       throw error;
     });
     if (!config.phone_number_id || !config.access_token) throw new PaymentLinkError('number_unavailable');
-    return { conversationId: link.conversation_id, shortUrl: link.short_url, target, phoneNumberId: config.phone_number_id, accessTokenEnc: config.access_token };
+    return { channel: 'whatsapp' as const, conversationId: link.conversation_id, shortUrl: link.short_url, target,
+      phoneNumberId: config.phone_number_id, accessTokenEnc: config.access_token };
   });
 
   const text = paymentLinkMessageText(message, prepared.shortUrl);
+  // A staff payment link is not a composer reply, so it never carries the Human Agent tag.
+  const igContext: InstagramSendContext = { sender: 'automated', now: new Date() };
+  const ig: InstagramTarget | null = prepared.channel !== 'instagram' ? null
+    : await worker(args.accountId, async (tx) => {
+      const target = await loadInstagramTarget(tx, args.accountId, prepared.conversationId);
+      checkInstagramText(target, text, igContext);
+      return target;
+    }).catch((error: unknown) => { throw paymentLinkErrorFromInstagram(error); });
   const { messageId: whatsappMessageId } = await dispatchOnce(args.accountId, args.intentKey, async () => {
+    if (prepared.channel === 'instagram') return sendInstagramText(ig as InstagramTarget, text, igContext);
     const accessToken = decrypt(prepared.accessTokenEnc);
     const variants = prepared.target.isPhone ? phoneVariants(prepared.target.target) : [prepared.target.target];
     let lastError: unknown = null;
@@ -1020,14 +1052,26 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
     throw lastError;
   });
 
-  const messageId = await withTenant(context, async (tx) => {
-    const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_type,content_text,message_id,status)
-      VALUES(${args.accountId}::uuid,${prepared.conversationId}::uuid,'agent',${agentSenderId('agent', args.userId)}::uuid,'text',${text},${whatsappMessageId},'sent')
-      ON CONFLICT(conversation_id,message_id) DO NOTHING RETURNING id`;
+  const pauseBot = (tx: TenantTransaction) =>
     // An agent stepping in pauses the bot, as every inbox send does.
-    await tx.$executeRaw`UPDATE conversations SET last_message_text=${text},last_message_at=NOW(),updated_at=NOW(),bot_paused=true
+    tx.$executeRaw`UPDATE conversations SET last_message_text=${text},last_message_at=NOW(),updated_at=NOW(),bot_paused=true
       WHERE account_id=${args.accountId}::uuid AND id=${prepared.conversationId}::uuid`;
-    return rows[0]?.id ?? null;
-  });
+  // Instagram: the row replaces an is_echo row Meta may already have delivered
+  // for this mid (worker transaction, as the shared helper requires).
+  const messageId = prepared.channel === 'instagram'
+    ? await worker(args.accountId, async (tx) => {
+      const id = await storeInstagramSentMessage(tx, { accountId: args.accountId, conversationId: prepared.conversationId,
+        senderType: 'agent', senderId: agentSenderId('agent', args.userId), contentType: 'text', contentText: text,
+        messageId: whatsappMessageId });
+      await pauseBot(tx);
+      return id;
+    })
+    : await withTenant(context, async (tx) => {
+      const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,content_type,content_text,message_id,status)
+        VALUES(${args.accountId}::uuid,${prepared.conversationId}::uuid,'agent',${agentSenderId('agent', args.userId)}::uuid,'text',${text},${whatsappMessageId},'sent')
+        ON CONFLICT(conversation_id,message_id) DO NOTHING RETURNING id`;
+      await pauseBot(tx);
+      return rows[0]?.id ?? null;
+    });
   return { whatsappMessageId, messageId };
 }

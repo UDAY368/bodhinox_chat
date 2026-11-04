@@ -108,6 +108,7 @@ interface ConversationRow {
   bot_paused: boolean
   ai_autoreply_disabled: boolean
   ai_reply_count: number
+  channel?: string | null
   last_customer_message_at: string | null
 }
 
@@ -141,10 +142,12 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
 
   const readConversation = async (): Promise<ConversationRow | FlowAiUnavailableReason> => {
     const { data, error } = await db.from('conversations')
-      .select('bot_paused, ai_autoreply_disabled, ai_reply_count, last_customer_message_at')
+      .select('bot_paused, ai_autoreply_disabled, ai_reply_count, last_customer_message_at, channel')
       .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
     if (error || !data) return 'conversation_unavailable'
     const row = data as ConversationRow
+    // WhatsApp only: an Instagram conversation is refused before any intent is claimed.
+    if (row.channel != null && row.channel !== 'whatsapp') return 'conversation_unavailable'
     if (row.bot_paused) return 'bot_paused'
     if (row.ai_autoreply_disabled) return 'ai_disabled_for_conversation'
     if (!getSessionWindow(row.last_customer_message_at, Date.now()).active) return 'session_closed'

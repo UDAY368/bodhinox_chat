@@ -45,7 +45,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
-import { assertNumberConnected, NoNumberError } from '@/lib/whatsapp/numbers';
+import { assertNumberConnected, assertWhatsAppConversation, NoNumberError } from '@/lib/whatsapp/numbers';
 import {
   assertTemplateOnNumber,
   loadSenderConfig,
@@ -281,6 +281,16 @@ export async function sendMessageToConversation(
 
   if (convError || !conversation) {
     throw new SendMessageError('not_found', 'Conversation not found', 404);
+  }
+
+  // WhatsApp only: an Instagram conversation (no number) would otherwise send
+  // from the default number to a linked contact's phone. Public API v1 and MCP
+  // reach this core too, so they refuse it as well.
+  try {
+    assertWhatsAppConversation(conversation as { channel: string | null | undefined });
+  } catch (error) {
+    if (error instanceof NoNumberError) throw new SendMessageError('channel_not_supported', numberErrorText(error), 409);
+    throw error;
   }
 
   const contact = conversation.contact;
