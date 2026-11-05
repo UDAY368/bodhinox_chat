@@ -28,9 +28,9 @@ type SessionRow = {
   expires_at: Date;
   created_at: Date;
 };
+// MFA is optional for every role: a user with a verified factor must pass it at sign-in, nobody is forced to enrol.
 async function resolve(
-  request: Request | undefined,
-  allowEnrollment: boolean
+  request: Request | undefined
 ): Promise<AuthContext | null> {
   const cookie = request
     ? readCookie(request, cookieNames().access)
@@ -60,9 +60,7 @@ async function resolve(
     JOIN account_memberships m ON m.user_id=s.user_id AND m.account_id=s.account_id
     WHERE s.id=${claims.sid}::uuid AND s.user_id=${claims.sub}::uuid AND s.account_id=${claims.tenant_id}::uuid
       AND s.revoked_at IS NULL AND s.expires_at>NOW() AND u.disabled_at IS NULL AND u.email_verified_at IS NOT NULL
-      AND (NOT EXISTS(SELECT 1 FROM auth_mfa_factors f WHERE f.user_id=u.id AND f.verified_at IS NOT NULL) OR s.mfa_verified_at IS NOT NULL)
-      AND (${allowEnrollment} OR ${process.env.NODE_ENV !== 'production'} OR m.role NOT IN ('owner','admin')
-        OR EXISTS(SELECT 1 FROM auth_mfa_factors f WHERE f.user_id=u.id AND f.verified_at IS NOT NULL))`;
+      AND (NOT EXISTS(SELECT 1 FROM auth_mfa_factors f WHERE f.user_id=u.id AND f.verified_at IS NOT NULL) OR s.mfa_verified_at IS NOT NULL)`;
   const row = rows[0];
   if (!row || !isAccountRole(row.role)) return null;
   return {
@@ -85,13 +83,13 @@ async function resolve(
 export async function resolveSession(
   request?: Request
 ): Promise<AuthContext | null> {
-  return resolve(request, false);
+  return resolve(request);
 }
 /** Restricted identity for the MFA enrollment endpoints; never use this to authorize CRM data. */
 export async function resolveEnrollmentSession(
   request?: Request
 ): Promise<AuthContext | null> {
-  return resolve(request, true);
+  return resolve(request);
 }
 export async function requireSession(request?: Request): Promise<AuthContext> {
   const context = await resolveSession(request);

@@ -518,15 +518,15 @@ describe.skipIf(!connectionString)(
         (await requireSession(request(refreshed.accessToken))).accountId
       ).toBe(destination);
     }, 30000);
-    it('limits privileged production sessions to MFA enrollment until the factor is verified', async () => {
+    it('lets an owner without MFA use the app in production (MFA is optional)', async () => {
       const issued = await login({ email, password, accountId });
       vi.stubEnv('NODE_ENV', 'production');
       try {
         const incoming = request(issued.accessToken);
-        expect(await resolveSession(incoming)).toBeNull();
+        expect(await resolveSession(incoming)).not.toBeNull();
         expect(await resolveEnrollmentSession(incoming)).not.toBeNull();
         const response = await handleAuthGet(incoming, 'session');
-        expect((await response.json()).session.mfaRequired).toBe(true);
+        expect((await response.json()).session.mfaRequired).toBe(false);
       } finally {
         vi.unstubAllEnvs();
       }

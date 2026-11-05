@@ -164,10 +164,7 @@ export async function handleAuthGet(
     if (action === 'session') {
       const context = await resolveEnrollmentSession(request);
       if (!context) return json({ session: null }, 401);
-      const mfaRequired =
-        process.env.NODE_ENV === 'production' &&
-        ['owner', 'admin'].includes(context.role) &&
-        !(await getMfaStatus(context));
+      const mfaRequired = false; // MFA is optional; kept in the response for older clients.
       // Only while TERMS_VERSION is set: whether this user still has to accept it (a non-blocking banner).
       const terms = currentTermsVersion();
       const termsPending = terms
