@@ -202,7 +202,7 @@ describe('automations/[id] tenancy (GHSA-xvrq-88hg-44q6)', () => {
     const del = (await DELETE(new Request('http://t/'), {
       params,
     })) as unknown as { status: number };
-    expect(del.status).toBe(200); // scoped DELETE is a no-op, not an error
+    expect(del.status).toBe(404); // scoped DELETE deletes nothing and says so (Phase 15)
 
     const dup = (await DUPLICATE(new Request('http://t/', { method: 'POST' }), {
       params,

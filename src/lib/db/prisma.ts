@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { assertLocalTestDatabaseUrl, testDatabaseGuardActive } from "./test-db-guard";
 
 type DatabaseKind = "app" | "auth" | "worker" | "migration" | "platform";
 const state = globalThis as typeof globalThis & { bodhinoxPrisma?: Partial<Record<DatabaseKind, PrismaClient>> };
@@ -15,6 +16,8 @@ function databaseUrl(kind: DatabaseKind): string {
   let url: URL;
   try { url = new URL(value); } catch { throw new Error(`${key} must be a valid PostgreSQL connection URL`); }
   if (!["postgres:", "postgresql:"].includes(url.protocol)) throw new Error(`${key} must use PostgreSQL`);
+  // Test runs only reach a local database unless ALLOW_REMOTE_TEST_DB=1 (npm run test:db / test:all).
+  if (testDatabaseGuardActive()) assertLocalTestDatabaseUrl(key, value);
   const expectedRole = { app: "bodhinox_app", auth: "bodhinox_auth", worker: "bodhinox_worker", platform: "bodhinox_platform" } as const;
   if (process.env.NODE_ENV === "production" && kind !== "migration" && decodeURIComponent(url.username) !== expectedRole[kind]) {
     throw new Error(`${key} must use the constrained ${expectedRole[kind]} role`);

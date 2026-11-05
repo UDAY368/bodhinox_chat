@@ -1,0 +1,21 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes",
+  "note": "More than 24 hours since the customer last replied",
+  "response": {
+    "status": 400,
+    "body": {
+      "error": {
+        "message": "Re-engagement message",
+        "type": "OAuthException",
+        "code": 131047,
+        "error_data": {
+          "messaging_product": "whatsapp",
+          "details": "Message failed to send because more than 24 hours have passed since the customer last replied to this number."
+        },
+        "fbtrace_id": "AFixtureTraceId000001"
+      }
+    }
+  }
+}

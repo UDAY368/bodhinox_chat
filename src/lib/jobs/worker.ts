@@ -1,37 +1,25 @@
-import { withLeaseScope } from './lease'
 import { config } from 'dotenv'
 config({ path: process.env.DATABASE_ENV_FILE || '.env.local', quiet: true })
-import { claimJob, finishJob, heartbeat } from './queue'
 import { getWorkerPrisma } from '@/lib/db/prisma'
+import { runWorkerLoop } from './worker-loop'
+import { createOpsAlerter } from '@/lib/ops/alerts'
 
-let stopping = false
-process.on('SIGTERM', () => { stopping = true })
-process.on('SIGINT', () => { stopping = true })
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+// SIGTERM/SIGINT: stop claiming, let the in-flight job finish within WORKER_DRAIN_MS (default 25 s),
+// otherwise exit and let its lease expire so another worker reclaims it.
+const controller = new AbortController()
+process.on('SIGTERM', () => controller.abort())
+process.on('SIGINT', () => controller.abort())
+
 async function main() {
-  // Load modules that capture provider settings only after dotenv has run.
-  const { handleJob, scheduleWork } = await import('./handlers')
   await getWorkerPrisma().$queryRaw`SELECT 1`
   console.info('[worker] ready')
-  let nextSchedule = 0
-  while (!stopping) {
-    if (Date.now() >= nextSchedule) {
-      try { await scheduleWork() } catch { console.error('[worker] scheduling failed') }
-      nextSchedule = Date.now() + 30_000
-    }
-    const job = await claimJob()
-    if (!job) { await delay(1000); continue }
-    let leaseLost = false
-    const timer = setInterval(() => { void heartbeat(job).then(count => { if (!count) leaseLost = true }).catch(() => { leaseLost = true }) }, 20_000)
-    try {
-      const assertLease = () => { if (leaseLost) throw new Error('Job lease lost') }
-      await withLeaseScope(assertLease, () => handleJob(job, assertLease))
-      await finishJob(job)
-    } catch (error) {
-      console.error('[worker] job failed', { id: job.id, type: job.type, category: error instanceof Error ? error.name : 'Error' })
-      await finishJob(job, error)
-    } finally { clearInterval(timer) }
-  }
+  // Optional OPS_ALERT_WEBHOOK_URL; unset = no-op (no database read either).
+  const alerts = createOpsAlerter()
+  const result = await runWorkerLoop({ signal: controller.signal, afterSchedule: () => alerts.tick() })
+  // A job still running past the drain bound: exit now, before disconnecting. pg-pool's end() waits
+  // for checked-out clients, so awaiting $disconnect() here would hold the process past the bound.
+  // The job's lease expires and another worker reclaims it.
+  if (!result.drained) process.exit(0)
   await getWorkerPrisma().$disconnect()
 }
 main().catch(() => { console.error('[worker] startup failed'); process.exitCode = 1 })

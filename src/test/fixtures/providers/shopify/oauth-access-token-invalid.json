@@ -1,0 +1,12 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant",
+  "response": {
+    "status": 400,
+    "body": {
+      "error": "invalid_request",
+      "error_description": "The authorization code was not found or was already used"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes",
+  "note": "Access token expired or revoked",
+  "response": {
+    "status": 401,
+    "body": {
+      "error": {
+        "message": "Error validating access token: Session has expired",
+        "type": "OAuthException",
+        "code": 190,
+        "error_subcode": 463,
+        "error_data": {
+          "messaging_product": "whatsapp",
+          "details": "Session has expired"
+        },
+        "fbtrace_id": "AFixtureTraceId000001"
+      }
+    }
+  }
+}

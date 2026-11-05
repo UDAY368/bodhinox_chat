@@ -1,0 +1,55 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples",
+  "request": {
+    "method": "POST",
+    "path": "/api/whatsapp/webhook",
+    "headers": {
+      "x-hub-signature-256": "sha256=<computed with the test app secret>"
+    },
+    "body": {
+      "object": "whatsapp_business_account",
+      "entry": [
+        {
+          "id": "102290129340398",
+          "changes": [
+            {
+              "field": "messages",
+              "value": {
+                "messaging_product": "whatsapp",
+                "metadata": {
+                  "display_phone_number": "15550000000",
+                  "phone_number_id": "106540352242922"
+                },
+                "contacts": [
+                  {
+                    "profile": {
+                      "name": "Fixture Customer"
+                    },
+                    "wa_id": "919800000201"
+                  }
+                ],
+                "messages": [
+                  {
+                    "from": "919800000201",
+                    "id": "wamid.HBgMOTE5ODAwMDAwMjAxFQIAEhgSRklYVFVSRUlOQk9VTkQwMDEA",
+                    "timestamp": "1762336800",
+                    "type": "text",
+                    "text": {
+                      "body": "Hi, is the neem soap in stock?"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": null
+  }
+}

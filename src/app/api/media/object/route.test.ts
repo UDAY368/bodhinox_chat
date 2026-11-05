@@ -101,7 +101,7 @@ it('rejects path tricks before the guard runs', async () => {
 
 it('refuses viewers before any lookup', async () => {
   h.role = 'viewer';
-  expect((await remove([`account-${ACCOUNT}/uploads/a.png`])).status).toBe(400);
+  expect((await remove([`account-${ACCOUNT}/uploads/a.png`])).status).toBe(403);
   expect(h.guard).not.toHaveBeenCalled();
   expect(h.removeMedia).not.toHaveBeenCalled();
 });

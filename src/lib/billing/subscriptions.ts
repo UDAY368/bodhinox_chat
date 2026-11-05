@@ -495,18 +495,28 @@ async function resolveEventAccount(event: StoredBillingEvent): Promise<{ account
   return intent[0] ? { accountId: event.accountHint, intentId: intent[0].id } : null;
 }
 
+/** The money a paid charge event carries, for a reconciliation item keyed by the payment. */
+type ChargeRef = Pick<StoredBillingEvent, 'paymentId' | 'invoiceId' | 'amountMinor' | 'currency'>;
+
 /**
  * Marks an event processed. With `item` (a short reason code), the error also
- * opens an event_error reconciliation item in the same transaction.
+ * opens an event_error reconciliation item in the same transaction. With `charge`,
+ * the item is keyed by the payment (`charge:<payment or invoice id>`), not the event:
+ * Razorpay sends subscription.charged and invoice.paid for one charge, and both
+ * events must land on one item (ON CONFLICT (kind, source_ref) DO NOTHING).
  */
-async function markEvent(id: string, accountId: string | null, error: string | null, item: string | null = null): Promise<void> {
+async function markEvent(id: string, accountId: string | null, error: string | null, item: string | null = null,
+  charge: ChargeRef | null = null): Promise<void> {
   await getWorkerPrisma().$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ event_id: string; type: string; subscription_id: string | null; account_id: string | null }[]>`
       UPDATE billing_events SET processed_at=now(), account_id=COALESCE(${accountId}::uuid, account_id), error=${error} WHERE id=${id}::uuid
       RETURNING event_id, type, payload->>'subscriptionId' AS subscription_id, account_id`;
     if (!error || !item || !rows[0]) return;
-    await openReconciliationItem(tx, { accountId: rows[0].account_id, kind: 'event_error', sourceRef: id, detail: {
-      reason: item, event_id: rows[0].event_id, type: rows[0].type, subscription_id: rows[0].subscription_id } });
+    const chargeRef = charge && (charge.paymentId ?? charge.invoiceId);
+    await openReconciliationItem(tx, { accountId: rows[0].account_id, kind: 'event_error', sourceRef: chargeRef ? `charge:${chargeRef}` : id, detail: {
+      reason: item, event_id: rows[0].event_id, type: rows[0].type, subscription_id: rows[0].subscription_id,
+      ...(charge ? { payment_id: charge.paymentId ?? null, invoice_id: charge.invoiceId ?? null, amount_minor: charge.amountMinor ?? null,
+        currency: charge.currency ?? null } : {}) } });
   });
 }
 
@@ -599,6 +609,11 @@ async function applyProviderState(
             ${JSON.stringify({ reason: error.name, payment_id: charge.paymentId, invoice_id: charge.invoiceId, amount_minor: charge.amountMinor, currency: charge.currency })}::jsonb)`;
       }
     }
+    // A paid charge for a subscription this workspace does not (or no longer) run on (cancelled before its
+    // events were processed, or an older subscription): no invoice was issued, so an operator decides.
+    if (charge && !(ours || intentMatched) && !stray && charge.amountMinor && charge.amountMinor > 0 && (charge.paymentId || charge.invoiceId))
+      return { stray, reconcile: 'Paid charge for a subscription that is not the live one of this workspace; no invoice issued. Invoice or refund it', reconcileItem: true,
+        reason: 'charge_unapplied' };
     return { stray, reconcile, reconcileItem };
   });
 }
@@ -609,6 +624,8 @@ interface ProviderStateResult {
   reconcile?: string | null;
   /** false when the producer already opened its own reconciliation item (invoice_unissued). */
   reconcileItem?: boolean;
+  /** The event_error item's reason code; 'unmapped_plan' when unset. */
+  reason?: string;
 }
 
 /**
@@ -645,18 +662,24 @@ export async function handleBillingEventJob(payload: Record<string, unknown>, pr
     await markEvent(id, target.accountId, 'Subscription could not be fetched', 'fetch_rejected');
     return;
   }
-  const { stray, reconcile, reconcileItem } = await applyProviderState(target.accountId, sub.value, { intentId: target.intentId, charge: CHARGE_EVENTS.has(event.type) ? event : null, now });
+  const { stray, reconcile, reconcileItem, reason } = await applyProviderState(target.accountId, sub.value, { intentId: target.intentId, charge: CHARGE_EVENTS.has(event.type) ? event : null, now });
   if (stray) {
     const outcome = await cancelStray(target.accountId, sub.value.id, provider);
     // A lost answer: the job retries (and cancels again) through its own backoff.
     if (outcome === 'unknown') throw new Error('Billing provider unavailable');
-    // A cancelled stray needs nobody; a refused cancel does.
-    await markEvent(id, target.accountId, outcome === 'cancelled'
-      ? 'Superseded checkout: cancelled at the provider'
-      : 'Superseded checkout: the provider refused the cancel; cancel it in the provider dashboard', outcome === 'cancelled' ? null : 'stray_cancel_refused');
+    // A cancelled stray needs nobody, unless the provider took money on it: no invoice was issued, so an
+    // operator invoices or refunds that charge. A refused cancel always needs someone.
+    const paid = CHARGE_EVENTS.has(event.type) && !!event.amountMinor && event.amountMinor > 0 && !!(event.paymentId || event.invoiceId);
+    if (outcome === 'cancelled')
+      await markEvent(id, target.accountId, paid
+        ? 'Superseded checkout: cancelled at the provider, but a paid charge was taken and no invoice issued. Invoice or refund it'
+        : 'Superseded checkout: cancelled at the provider', paid ? 'charge_unapplied' : null, paid ? event : null);
+    else
+      await markEvent(id, target.accountId, 'Superseded checkout: the provider refused the cancel; cancel it in the provider dashboard', 'stray_cancel_refused');
     return;
   }
-  await markEvent(id, target.accountId, reconcile ?? null, reconcile && reconcileItem !== false ? 'unmapped_plan' : null);
+  await markEvent(id, target.accountId, reconcile ?? null, reconcile && reconcileItem !== false ? reason ?? 'unmapped_plan' : null,
+    reason === 'charge_unapplied' ? event : null);
 }
 
 // ---------------------------------------------------------------------------

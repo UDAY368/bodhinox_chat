@@ -139,6 +139,41 @@ export async function throwMetaError(response: Response, fallback: string): Prom
   throw await readMetaError(response, fallback)
 }
 
+/** Meta refused the access token itself: code 190 (expired or revoked) or HTTP 401. */
+export function isTokenError(error: unknown): error is MetaApiError {
+  return error instanceof MetaApiError && (error.code === 190 || error.httpStatus === 401)
+}
+
+type SendTokenErrorReporter = (phoneNumberId: string) => Promise<unknown>
+let sendTokenErrorReporter: SendTokenErrorReporter | null = null
+
+/** Test hook: replace (or with null, restore) what a token error on a send reports to. */
+export function setSendTokenErrorReporter(reporter: SendTokenErrorReporter | null): void {
+  sendTokenErrorReporter = reporter
+}
+
+/**
+ * A send from `phoneNumberId` was refused for its token: mark that number's health
+ * (health_error='token') and alert the workspace's admins now, instead of at the next
+ * six-hourly health sync. Best effort: it never throws, so the send's own error (and
+ * its outbound intent handling) is unchanged. Loaded lazily: health-sync imports this module.
+ */
+export async function reportSendTokenError(phoneNumberId: string): Promise<void> {
+  try {
+    const report = sendTokenErrorReporter ?? (await import('./health-sync')).recordSendTokenError
+    await report(phoneNumberId)
+  } catch {
+    console.warn('[meta-api] token error on send not recorded')
+  }
+}
+
+/** throwMetaError for a send from `phoneNumberId`: a token error also marks that number's health. */
+async function throwSendError(phoneNumberId: string, response: Response, fallback: string): Promise<never> {
+  const error = await readMetaError(response, fallback)
+  if (isTokenError(error)) await reportSendTokenError(phoneNumberId)
+  throw error
+}
+
 // ============================================================
 // Phone number / account
 // ============================================================
@@ -416,7 +451,7 @@ export async function sendTextMessage(
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
+    await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()
   return { messageId: data.messages[0].id }
@@ -442,7 +477,7 @@ export async function sendInteractiveRequest(args: {
     body: JSON.stringify({ messaging_product: 'whatsapp', ...recipientFields(to), type: 'interactive', interactive }),
   })
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
+    await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()
   return { messageId: data.messages[0].id }
@@ -474,7 +509,7 @@ export async function sendLocationMessage(args: {
       ...(contextMessageId ? { context: { message_id: contextMessageId } } : {}),
     }),
   })
-  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  if (!response.ok) await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   const data = await response.json()
   return { messageId: data.messages[0].id }
 }
@@ -537,7 +572,7 @@ export async function sendMediaMessage(
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
+    await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()
   return { messageId: data.messages[0].id }
@@ -654,7 +689,7 @@ export async function sendTemplateMessage(
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
+    await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()
   return { messageId: data.messages[0].id }
@@ -916,7 +951,7 @@ export async function sendReactionMessage(
     }),
   })
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
+    await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()
   return { messageId: data.messages[0].id }
@@ -1106,7 +1141,7 @@ export async function sendInteractiveButtons(
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
+    await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()
   return { messageId: data.messages[0].id }
@@ -1238,7 +1273,7 @@ export async function sendInteractiveList(
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
+    await throwSendError(phoneNumberId, response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()
   return { messageId: data.messages[0].id }
@@ -1545,6 +1580,9 @@ export async function sendFlowMessage(args: SendFlowMessageArgs): Promise<{ what
   const result = await flowRequest(`${META_API_BASE}/${phoneNumberId}/messages`, accessToken, {
     method: 'POST',
     json: { messaging_product: 'whatsapp', ...recipientFields(to), type: 'interactive', interactive },
+  }).catch(async (error: unknown) => {
+    if (isTokenError(error)) await reportSendTokenError(phoneNumberId)
+    throw error
   })
   const messages = result.messages as Array<{ id?: unknown }> | undefined
   const id = messages?.[0]?.id
@@ -1779,7 +1817,7 @@ async function postInteractive(args: CommerceSendBase, interactive: Record<strin
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${args.accessToken}` },
     body: JSON.stringify({ messaging_product: 'whatsapp', ...recipientFields(args.to), type: 'interactive', interactive }),
   })
-  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  if (!response.ok) await throwSendError(args.phoneNumberId, response, `Meta API error: ${response.status}`)
   const data = await response.json()
   return { messageId: data.messages[0].id }
 }

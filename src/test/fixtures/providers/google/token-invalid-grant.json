@@ -1,0 +1,12 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.google.com/identity/protocols/oauth2/web-server#exchange-authorization-code",
+  "response": {
+    "status": 400,
+    "body": {
+      "error": "invalid_grant",
+      "error_description": "Bad Request"
+    }
+  }
+}

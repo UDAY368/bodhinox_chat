@@ -17,7 +17,7 @@ const ACCOUNT = '11111111-1111-4111-8111-111111111111';
 const status = (id: string, extra: Record<string, unknown> = {}) =>
   ({ id, status: 'delivered', timestamp: '1700000100', recipient_id: '15551230000', ...extra });
 const delivery = (statuses: unknown[]) => ({
-  entry: [{ id: 'WABA-1', changes: [{ field: 'messages', value: { metadata: { phone_number_id: 'pn-1' }, statuses } }] }],
+  entry: [{ id: 'WABA-1', changes: [{ field: 'messages', value: { metadata: { phone_number_id: '1000000001' }, statuses } }] }],
 }) as unknown as Parameters<typeof processWebhook>[0];
 
 beforeEach(() => {
@@ -60,6 +60,14 @@ describe('provider statuses awaiting outbound persistence', () => {
     h.applyProviderStatus.mockRejectedValueOnce(new StatusAwaitingPersistenceError());
     h.enqueueJob.mockRejectedValueOnce(new Error('queue down'));
     await expect(processWebhook(delivery([status('wamid.A')]))).rejects.toThrow('queue down');
+  });
+});
+
+describe('unroutable provider ids', () => {
+  it('skips a malformed phone_number_id instead of throwing, so the job ends rather than retrying to the limit', async () => {
+    const body = { entry: [{ id: 'WABA-1', changes: [{ field: 'messages', value: { metadata: { phone_number_id: 'not-digits' }, statuses: [status('wamid.A')] } }] }] } as unknown as Parameters<typeof processWebhook>[0];
+    await expect(processWebhook(body)).resolves.toBeUndefined();
+    expect(h.applyProviderStatus).not.toHaveBeenCalled();
   });
 });
 

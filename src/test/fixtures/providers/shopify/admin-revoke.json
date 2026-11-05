@@ -1,0 +1,13 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://shopify.dev/docs/apps/build/authentication-authorization/app-installation/uninstall-app-api-request",
+  "request": {
+    "method": "DELETE",
+    "path": "https://{shop}/admin/api_permissions/current.json"
+  },
+  "response": {
+    "status": 200,
+    "body": {}
+  }
+}

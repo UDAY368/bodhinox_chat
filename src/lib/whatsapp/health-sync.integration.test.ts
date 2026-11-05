@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { config } from 'dotenv';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { disconnectDatabases, getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
+import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { encrypt } from '@/lib/whatsapp/encryption';
-import { MetaApiError } from './meta-api';
+import { MetaApiError, sendTextMessage } from './meta-api';
 import { healthSyncDedupeKey, HEALTH_SYNC_JOB, syncNumberHealth, type FetchedHealth } from './health-sync';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
@@ -121,6 +122,11 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('WhatsApp number health sync
     let row = (await owner.query('SELECT quality_rating,health_error,health_error_at FROM whatsapp_config WHERE id=$1', [numberA])).rows[0];
     expect(row).toMatchObject({ quality_rating: 'YELLOW', health_error: 'token' });
     expect(row.health_error_at).toBeInstanceOf(Date);
+    // The first token error alerts each owner and admin once; the next cycle's repeat adds nothing.
+    await syncNumberHealth({ accountId: accountA, configId: numberA,
+      fetchHealth: async () => { throw new MetaApiError('Invalid OAuth access token', { code: 190, httpStatus: 401 }); } });
+    const reconnect = (await alerts(accountA)).filter((r) => r.title === 'WhatsApp number needs reconnecting');
+    expect(reconnect.map((r) => r.user_id).sort()).toEqual([ownerA, adminA].sort());
     await syncNumberHealth({ accountId: accountA, configId: numberA, fetchHealth: fetcher({ quality_rating: 'YELLOW' }) });
     row = (await owner.query('SELECT health_error,health_error_at FROM whatsapp_config WHERE id=$1', [numberA])).rows[0];
     expect(row).toEqual({ health_error: null, health_error_at: null });
@@ -140,6 +146,42 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('WhatsApp number health sync
     // Workspace B cannot see A's number at all.
     expect(await syncNumberHealth({ accountId: accountB, configId: numberA, tenant: { accountId: accountB, userId: ownerB, role: 'owner' }, db: getPrisma(), fetchHealth: fetcher({}) }))
       .toEqual({ status: 'not_found' });
+  });
+
+  it('a send refused with Meta 190 marks that number at once and alerts its admins once; the intent fails, never unknown', async () => {
+    const phone = `92${seed}`;
+    const fetchStub = vi.fn(async () => new Response(JSON.stringify({ error: {
+      message: 'Error validating access token: Session has expired.', type: 'OAuthException', code: 190, error_subcode: 463, fbtrace_id: 'AbCdEfTest' } }),
+    { status: 401, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchStub);
+    try {
+      const send = () => sendTextMessage({ phoneNumberId: phone, accessToken: 'test-only-token', to: '919800000201', text: 'hello' });
+      // Through the outbound intent, as every queued send is: a classified rejection, so no blind retry.
+      const key = `health-190:${randomUUID()}`;
+      await expect(dispatchOnce(accountB, key, send)).rejects.toMatchObject({ name: 'MetaApiError', code: 190 });
+      const intent = (await owner.query('SELECT status,last_error FROM outbound_intents WHERE account_id=$1 AND idempotency_key=$2', [accountB, `${accountB}:${key}`])).rows;
+      expect(intent).toEqual([{ status: 'failed', last_error: 'Provider rejected the request' }]);
+      let row = (await owner.query('SELECT health_error,health_error_at FROM whatsapp_config WHERE id=$1', [numberB])).rows[0];
+      expect(row.health_error).toBe('token');
+      expect(row.health_error_at).toBeInstanceOf(Date);
+      let rows = await alerts(accountB);
+      expect(rows).toEqual([{ user_id: ownerB, title: 'WhatsApp number needs reconnecting', whatsapp_config_id: numberB, dedupe_key: expect.stringMatching(/^wa-health:/) }]);
+      // Concurrent sends on the same revoked token, and a later one, alert nobody again.
+      await Promise.all([1, 2, 3].map(() => send().catch(() => undefined)));
+      rows = await alerts(accountB);
+      expect(rows).toHaveLength(1);
+      // Workspace A's number and alerts are untouched.
+      row = (await owner.query('SELECT health_error FROM whatsapp_config WHERE id=$1', [numberA])).rows[0];
+      expect(row.health_error).toBeNull();
+      expect((await alerts(accountA)).filter((r) => r.whatsapp_config_id === numberB)).toEqual([]);
+      // A non-token rejection does not mark the number.
+      fetchStub.mockImplementation(async () => new Response(JSON.stringify({ error: { message: 'Re-engagement message', code: 131047 } }), { status: 400 }));
+      await owner.query('UPDATE whatsapp_config SET health_error=NULL, health_error_at=NULL WHERE id=$1', [numberB]);
+      await expect(send()).rejects.toMatchObject({ code: 131047 });
+      expect((await owner.query('SELECT health_error FROM whatsapp_config WHERE id=$1', [numberB])).rows[0].health_error).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('keeps the alert when its number is deleted', async () => {

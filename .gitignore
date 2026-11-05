@@ -49,3 +49,8 @@ next-env.d.ts
 
 # graphify (generated knowledge graph; rebuilt by the post-commit hook)
 graphify-out/
+
+# Phase 15 restore drill: dump files and drill output never enter the repo
+*.dump
+restore-drill/
+/test-results/

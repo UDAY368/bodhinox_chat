@@ -1,0 +1,376 @@
+{
+  "$comment": "Phase 15 registry: test files per requirement id (docs/product/bodhinox-chat-requirements-v1.0.csv). Existing tests are mapped here (not edited to add tags); new tests also carry [REQ-ID] in describe titles. scripts/release/requirement-map.ts reads this file with the status table in src/lib/release/requirement-status.ts.",
+  "ADS-01": [
+    "src/lib/meta-ads/connection.integration.test.ts"
+  ],
+  "ADS-04": [
+    "src/lib/meta-ads/leads.integration.test.ts",
+    "src/lib/meta-ads/leads.ordering.integration.test.ts"
+  ],
+  "ADS-05": [
+    "e2e/ads.spec.ts",
+    "src/lib/meta-ads/conversation-referral.integration.test.ts",
+    "src/lib/meta-ads/referrals-unicode.integration.test.ts",
+    "src/lib/meta-ads/referrals.integration.test.ts"
+  ],
+  "ADS-06": [
+    "src/lib/meta-ads/capi.integration.test.ts"
+  ],
+  "AI-01": [
+    "src/lib/ai/agents.integration.test.ts"
+  ],
+  "AI-02": [
+    "src/lib/ai/insights/insights.integration.test.ts",
+    "src/lib/ai/knowledge-sources.integration.test.ts"
+  ],
+  "AI-03": [
+    "src/lib/ai/assess/assess.integration.test.ts"
+  ],
+  "APT-01": [
+    "e2e/appointments.spec.ts",
+    "src/lib/appointments/migration.integration.test.ts",
+    "src/lib/appointments/rls.integration.test.ts"
+  ],
+  "APT-02": [
+    "src/lib/appointments/booking-guards.integration.test.ts"
+  ],
+  "APT-03": [
+    "e2e/appointments.spec.ts",
+    "src/app/api/public/booking/public-booking.integration.test.ts",
+    "src/lib/appointments/booking-guards.integration.test.ts",
+    "src/lib/appointments/booking.integration.test.ts",
+    "src/lib/appointments/paid-appointments.integration.test.ts"
+  ],
+  "APT-04": [
+    "src/lib/appointments/messaging.integration.test.ts"
+  ],
+  "APT-05": [
+    "e2e/integrations.spec.ts",
+    "src/lib/meetings/meeting-sync.integration.test.ts",
+    "src/lib/meetings/zoom-webhook.integration.test.ts"
+  ],
+  "ATT-01": [
+    "src/lib/meta-ads/conversation-referral.integration.test.ts",
+    "src/lib/meta-ads/referrals-unicode.integration.test.ts",
+    "src/lib/meta-ads/referrals.integration.test.ts"
+  ],
+  "AUT-01": [
+    "e2e/webhooks.spec.ts",
+    "src/lib/appointments/event-channel.integration.test.ts",
+    "src/lib/automations/loop.integration.test.ts",
+    "src/lib/automations/round-robin.integration.test.ts",
+    "src/lib/flows/appointment-runtime.integration.test.ts",
+    "src/lib/flows/channel-send.integration.test.ts"
+  ],
+  "AUT-02": [
+    "src/lib/flows/engine-hardening.integration.test.ts",
+    "src/lib/flows/multi-number-runs.integration.test.ts",
+    "src/lib/flows/replay.integration.test.ts",
+    "src/lib/flows/resume.concurrency.integration.test.ts",
+    "src/lib/flows/timer.integration.test.ts",
+    "src/lib/jobs/jobs.integration.test.ts",
+    "src/lib/jobs/scheduled-audience.integration.test.ts",
+    "src/lib/jobs/scheduled-campaign-gate.integration.test.ts",
+    "src/lib/whatsapp/broadcast-dispatch.concurrency.integration.test.ts"
+  ],
+  "AUT-03": [
+    "e2e/flow-versions.spec.ts",
+    "src/lib/flows/dry-run.integration.test.ts",
+    "src/lib/flows/versions.integration.test.ts",
+    "src/lib/runtime/dry-run-guard.integration.test.ts"
+  ],
+  "AUT-04": [
+    "e2e/flow-versions.spec.ts",
+    "e2e/flows.spec.ts",
+    "src/lib/flows/versions.integration.test.ts"
+  ],
+  "BIL-01": [
+    "src/lib/billing/downgrade.integration.test.ts",
+    "src/lib/billing/entitlements.integration.test.ts",
+    "src/lib/billing/limits-metering.integration.test.ts",
+    "src/lib/billing/metered-limits.integration.test.ts",
+    "src/lib/billing/storage-reserve.integration.test.ts"
+  ],
+  "BIL-02": [
+    "src/app/api/billing/webhook/route.test.ts",
+    "src/lib/billing/billing-webhook.ordering.integration.test.ts",
+    "src/lib/billing/billing.integration.test.ts",
+    "src/lib/billing/razorpay-billing.contract.test.ts",
+    "src/lib/billing/reconciliation.integration.test.ts",
+    "src/lib/billing/subscriptions.integration.test.ts"
+  ],
+  "BIL-03": [
+    "src/lib/platform/console.integration.test.ts",
+    "src/lib/platform/platform-foundation.integration.test.ts"
+  ],
+  "CAP-01": [
+    "e2e/forms.spec.ts",
+    "src/lib/integrations/shopify/admin-api.contract.test.ts",
+    "src/lib/integrations/shopify/shopify.integration.test.ts",
+    "src/lib/integrations/shopify/webhooks.ordering.integration.test.ts",
+    "src/lib/integrations/woocommerce/webhooks.ordering.integration.test.ts",
+    "src/lib/integrations/woocommerce/woocommerce.integration.test.ts",
+    "src/lib/whatsapp/forms/endpoint.integration.test.ts",
+    "src/lib/whatsapp/forms/forms-number.integration.test.ts",
+    "src/lib/whatsapp/forms/forms.integration.test.ts",
+    "src/lib/whatsapp/forms/keys.integration.test.ts",
+    "src/lib/whatsapp/forms/service.integration.test.ts",
+    "src/lib/whatsapp/forms/service.publish.integration.test.ts",
+    "src/lib/whatsapp/forms/submissions.concurrency.integration.test.ts",
+    "src/lib/whatsapp/forms/submissions.integration.test.ts",
+    "src/lib/whatsapp/forms/template-tokens.integration.test.ts"
+  ],
+  "COM-01": [
+    "e2e/commerce.spec.ts",
+    "src/lib/commerce/catalog.integration.test.ts",
+    "src/lib/commerce/catalogue/catalogue.integration.test.ts",
+    "src/lib/commerce/store-settings.integration.test.ts"
+  ],
+  "COM-02": [
+    "e2e/commerce.spec.ts",
+    "src/app/api/public/shop/shop-routes.integration.test.ts",
+    "src/lib/commerce/checkout-holds.integration.test.ts",
+    "src/lib/commerce/coupons.integration.test.ts"
+  ],
+  "COM-03": [
+    "src/lib/commerce/checkout-holds.integration.test.ts",
+    "src/lib/commerce/stock.integration.test.ts"
+  ],
+  "COM-04": [
+    "src/lib/commerce/commerce.integration.test.ts",
+    "src/lib/commerce/event-attention.integration.test.ts",
+    "src/lib/commerce/order-lifecycle.integration.test.ts",
+    "src/lib/commerce/orders-guard.integration.test.ts",
+    "src/lib/commerce/orders.integration.test.ts",
+    "src/lib/integrations/shopify/shopify.integration.test.ts",
+    "src/lib/integrations/shopify/webhooks.ordering.integration.test.ts",
+    "src/lib/integrations/woocommerce/webhooks.ordering.integration.test.ts",
+    "src/lib/integrations/woocommerce/woocommerce.integration.test.ts"
+  ],
+  "COM-05": [
+    "src/lib/payments/payments-webhook.ordering.integration.test.ts",
+    "src/lib/payments/razorpay.contract.test.ts",
+    "src/lib/payments/refunds.integration.test.ts"
+  ],
+  "COM-06": [
+    "src/lib/commerce/repeat-purchase.integration.test.ts"
+  ],
+  "CRM-01": [
+    "src/lib/repositories/crm.integration.test.ts"
+  ],
+  "CRM-02": [
+    "src/lib/contacts/identity-link.integration.test.ts"
+  ],
+  "CRM-04": [
+    "e2e/lists.spec.ts",
+    "e2e/segments.spec.ts",
+    "src/lib/audience/lists.integration.test.ts",
+    "src/lib/audience/segments.integration.test.ts"
+  ],
+  "CRM-06": [
+    "e2e/segments.spec.ts",
+    "src/lib/audience/segments.integration.test.ts"
+  ],
+  "FUL-01": [
+    "src/lib/fulfilment/shipments.integration.test.ts",
+    "src/lib/fulfilment/tracking.integration.test.ts"
+  ],
+  "FUL-02": [
+    "e2e/integrations.spec.ts",
+    "src/lib/fulfilment/integrations-rls.integration.test.ts"
+  ],
+  "IG-01": [
+    "e2e/instagram.spec.ts",
+    "src/lib/instagram/conversation-channel.integration.test.ts",
+    "src/lib/instagram/ingest.integration.test.ts",
+    "src/lib/instagram/tenancy.integration.test.ts"
+  ],
+  "IG-02": [
+    "src/lib/instagram/private-reply.integration.test.ts"
+  ],
+  "INB-01": [
+    "e2e/inbox-premium.spec.ts",
+    "e2e/whatsapp-inbound.spec.ts",
+    "src/lib/inbox/inbox-premium.integration.test.ts",
+    "src/lib/inbox/notes.integration.test.ts",
+    "src/lib/inbox/saved-filters-store.integration.test.ts",
+    "src/lib/inbox/search.integration.test.ts",
+    "src/lib/inbox/sla.concurrency.integration.test.ts"
+  ],
+  "INB-02": [
+    "src/lib/inbox/inbox-routing.integration.test.ts",
+    "src/lib/inbox/sla-clock.integration.test.ts",
+    "src/lib/inbox/sla.concurrency.integration.test.ts"
+  ],
+  "INB-03": [
+    "src/lib/inbox/media-library.integration.test.ts",
+    "src/lib/inbox/media-object-guard.integration.test.ts",
+    "src/lib/whatsapp/ingest.integration.test.ts",
+    "src/lib/whatsapp/process-webhook.status-retry.integration.test.ts"
+  ],
+  "OPS-01": [
+    "src/app/api/health/route.test.ts",
+    "src/lib/db/migrations-lint.test.ts",
+    "src/lib/db/rls-sweep.integration.test.ts",
+    "src/lib/jobs/heartbeat.integration.test.ts",
+    "src/lib/jobs/heartbeat.test.ts",
+    "src/lib/jobs/jobs.integration.test.ts",
+    "src/lib/jobs/worker-loop.test.ts",
+    "src/lib/jobs/worker-recovery.integration.test.ts",
+    "src/lib/ops/alerts.test.ts",
+    "src/lib/ops/health.integration.test.ts",
+    "src/lib/ops/health.test.ts",
+    "src/lib/ops/restore-drill-args.test.ts",
+    "src/lib/whatsapp/broadcast-dispatch.concurrency.integration.test.ts"
+  ],
+  "OPS-02": [
+    "src/lib/jobs/queue-burst.load.test.ts"
+  ],
+  "OPS-03": [
+    "src/lib/db/migrations-lint.test.ts",
+    "src/lib/db/test-db-guard.test.ts",
+    "src/lib/ops/flags-inventory.test.ts",
+    "src/lib/release/requirement-map.test.ts"
+  ],
+  "PAY-01": [
+    "src/lib/appointments/paid-appointments.integration.test.ts",
+    "src/lib/payments/link-cancel.integration.test.ts",
+    "src/lib/payments/links.concurrency.integration.test.ts",
+    "src/lib/payments/links.integration.test.ts",
+    "src/lib/payments/razorpay.contract.test.ts"
+  ],
+  "PAY-02": [
+    "e2e/payment-journey.spec.ts",
+    "src/app/api/payments/razorpay/webhook/[accountId]/route.test.ts",
+    "src/lib/flows/resume.concurrency.integration.test.ts",
+    "src/lib/payments/payments-webhook.ordering.integration.test.ts",
+    "src/lib/payments/razorpay.contract.test.ts",
+    "src/lib/payments/settle.integration.test.ts"
+  ],
+  "PAY-03": [
+    "src/lib/commerce/documents.integration.test.ts",
+    "src/lib/payments/payments-webhook.ordering.integration.test.ts",
+    "src/lib/payments/refunds.integration.test.ts"
+  ],
+  "REP-01": [
+    "src/lib/analytics/analytics.integration.test.ts",
+    "src/lib/analytics/commerce.integration.test.ts",
+    "src/lib/analytics/compare.integration.test.ts"
+  ],
+  "REP-02": [
+    "src/app/api/analytics/report-routes.integration.test.ts",
+    "src/lib/analytics/reports.integration.test.ts"
+  ],
+  "REP-03": [
+    "src/lib/analytics/campaign-cost.integration.test.ts"
+  ],
+  "SEC-01": [
+    "e2e/privacy.spec.ts",
+    "src/lib/account/privacy.integration.test.ts",
+    "src/lib/auth/account-deletion.integration.test.ts",
+    "src/lib/inbox/masking-apply.integration.test.ts",
+    "src/lib/jobs/workspace-export.test.ts",
+    "src/test/fixtures/providers/scrub.test.ts"
+  ],
+  "SEC-02": [
+    "src/app/api/v1/v1-tenancy.integration.test.ts",
+    "src/lib/auth/api-context.test.ts",
+    "src/lib/auth/auth.integration.test.ts",
+    "src/lib/rate-limit.auth.integration.test.ts",
+    "src/lib/rate-limit.test.ts"
+  ],
+  "SEC-03": [
+    "e2e/second-tenant.spec.ts",
+    "src/app/api/cross-tenant.routes.integration.test.ts",
+    "src/app/api/media/object/route.test.ts",
+    "src/lib/db/postgres.integration.test.ts",
+    "src/lib/db/rls-sweep.integration.test.ts",
+    "src/lib/inbox/media-library.integration.test.ts",
+    "src/lib/inbox/media-object-guard.integration.test.ts",
+    "src/lib/repositories/cross-tenant.contracts.integration.test.ts",
+    "src/lib/storage/policy.test.ts",
+    "src/test/tenancy/boundaries.integration.test.ts",
+    "src/test/tenancy/fixtures.integration.test.ts",
+    "src/test/tenancy/worker-db-routes.integration.test.ts"
+  ],
+  "SEC-04": [
+    "e2e/consent.spec.ts",
+    "src/lib/whatsapp/send-message.window.integration.test.ts"
+  ],
+  "TEN-01": [
+    "e2e/second-tenant.spec.ts",
+    "src/app/api/cross-tenant.routes.integration.test.ts",
+    "src/app/api/v1/v1-tenancy.integration.test.ts",
+    "src/lib/ai/ai-tenancy.integration.test.ts",
+    "src/lib/analytics/report-tenancy.integration.test.ts",
+    "src/lib/appointments/rls.integration.test.ts",
+    "src/lib/billing/separation.integration.test.ts",
+    "src/lib/db/postgres.integration.test.ts",
+    "src/lib/db/rls-sweep.integration.test.ts",
+    "src/lib/fulfilment/integrations-rls.integration.test.ts",
+    "src/lib/instagram/tenancy.integration.test.ts",
+    "src/lib/repositories/crm.integration.test.ts",
+    "src/lib/repositories/cross-tenant.contracts.integration.test.ts",
+    "src/test/tenancy/boundaries.integration.test.ts",
+    "src/test/tenancy/fixtures.integration.test.ts",
+    "src/test/tenancy/worker-db-routes.integration.test.ts"
+  ],
+  "TEN-02": [
+    "e2e/signup-invite.spec.ts",
+    "src/app/api/account/members/[userId]/route.test.ts",
+    "src/lib/repositories/memberships.integration.test.ts",
+    "src/lib/teams/teams-permissions.integration.test.ts"
+  ],
+  "TEN-03": [
+    "e2e/auth.spec.ts",
+    "src/lib/auth/auth.integration.test.ts",
+    "src/lib/auth/google-oidc.contract.test.ts",
+    "src/lib/auth/google-oidc.integration.test.ts"
+  ],
+  "WA-01": [
+    "e2e/whatsapp-inbound.spec.ts",
+    "src/app/api/whatsapp/webhook/receipt.test.ts",
+    "src/lib/repositories/waba-resolve.integration.test.ts",
+    "src/lib/whatsapp/embedded-signup.integration.test.ts",
+    "src/lib/whatsapp/ingest.integration.test.ts",
+    "src/lib/whatsapp/meta-api.contract.test.ts",
+    "src/lib/whatsapp/number-admin.integration.test.ts",
+    "src/lib/whatsapp/number-limit-revive.integration.test.ts",
+    "src/lib/whatsapp/numbers.integration.test.ts",
+    "src/lib/whatsapp/phone-unique.integration.test.ts"
+  ],
+  "WA-03": [
+    "e2e/campaign-schedule.spec.ts",
+    "e2e/consent.spec.ts",
+    "src/app/api/v1/messages/route.test.ts",
+    "src/lib/broadcasts/campaign-number.integration.test.ts",
+    "src/lib/broadcasts/create-campaign.integration.test.ts",
+    "src/lib/broadcasts/retargeting.integration.test.ts",
+    "src/lib/broadcasts/schedule.integration.test.ts",
+    "src/lib/broadcasts/tracking-api.integration.test.ts",
+    "src/lib/jobs/scheduled-audience.integration.test.ts",
+    "src/lib/jobs/scheduled-campaign-gate.integration.test.ts",
+    "src/lib/whatsapp/broadcast-core.integration.test.ts",
+    "src/lib/whatsapp/forms/submissions.concurrency.integration.test.ts",
+    "src/lib/whatsapp/send-message.test.ts",
+    "src/lib/whatsapp/send-message.window.integration.test.ts"
+  ],
+  "WA-04": [
+    "e2e/templates.spec.ts",
+    "src/lib/jobs/worker-recovery.integration.test.ts",
+    "src/lib/whatsapp/broadcast-dispatch.concurrency.integration.test.ts",
+    "src/lib/whatsapp/health-sync.integration.test.ts",
+    "src/lib/whatsapp/meta-api.contract.test.ts",
+    "src/lib/whatsapp/template-events.integration.test.ts",
+    "src/lib/whatsapp/template-studio.integration.test.ts"
+  ],
+  "WFH-01": [
+    "e2e/auth.spec.ts",
+    "e2e/signup-invite.spec.ts",
+    "src/lib/auth/auth.integration.test.ts"
+  ],
+  "WFH-02": [
+    "e2e/signup-invite.spec.ts",
+    "src/lib/notifications/notifications.integration.test.ts"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/api/payments/payment-links/fetch-id/",
+  "request": {
+    "method": "GET",
+    "path": "/v1/payment_links/plink_FixtureLink001"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "plink_FixtureLink001",
+      "entity": "payment_link",
+      "status": "paid",
+      "amount": 49900,
+      "amount_paid": 49900,
+      "currency": "INR",
+      "accept_partial": false,
+      "reference_id": "co_fixturereference00000000000001",
+      "short_url": "https://rzp.io/i/fixture1",
+      "expire_by": 1893456000,
+      "payments": [
+        {
+          "payment_id": "pay_FixturePay0001",
+          "amount": 49900,
+          "status": "captured",
+          "method": "upi",
+          "created_at": 1762336900
+        }
+      ],
+      "notify": {
+        "sms": false,
+        "email": false
+      },
+      "reminder_enable": false,
+      "created_at": 1762336800
+    }
+  }
+}

@@ -119,15 +119,17 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const { db, accountId } = await requireRole('admin')
     const { id } = await params
-    const { error } = await db
+    const { data, error } = await db
       .from('ai_knowledge_documents')
       .delete()
       .eq('account_id', accountId)
       .eq('id', id)
+      .select('id')
     if (error) {
       console.error('[ai/knowledge/[id] DELETE] error:', error)
       return NextResponse.json({ error: t('ai.knowledge.deleteDocFailed') }, { status: 500 })
     }
+    if (!data?.length) return NextResponse.json({ error: t('common.notFound') }, { status: 404 })
     return NextResponse.json({ success: true })
   } catch (err) {
     return toErrorResponse(err)

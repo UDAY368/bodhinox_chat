@@ -1,0 +1,45 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/webhooks/payloads/refunds/",
+  "request": {
+    "method": "POST",
+    "path": "/api/payments/razorpay/webhook/{accountId}",
+    "headers": {
+      "x-razorpay-signature": "<computed with the workspace webhook secret>",
+      "x-razorpay-event-id": "evt_FixtureEvent002"
+    },
+    "body": {
+      "entity": "event",
+      "account_id": "acc_FixtureMerchant1",
+      "event": "refund.processed",
+      "contains": [
+        "refund",
+        "payment"
+      ],
+      "payload": {
+        "refund": {
+          "entity": {
+            "id": "rfnd_FixtureRef0001",
+            "entity": "refund",
+            "amount": 10000,
+            "currency": "INR",
+            "payment_id": "pay_FixturePay0001",
+            "notes": {
+              "bodhinox_refund_id": "22222222-2222-4222-8222-222222222222",
+              "attempt": "1"
+            },
+            "status": "processed"
+          }
+        }
+      },
+      "created_at": 1762337050
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  }
+}

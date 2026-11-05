@@ -162,6 +162,26 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     expect(readJobs).toHaveLength(1);
   });
 
+  it("[INB-03] statuses racing the outbound row's commit, retried as their jobs would be, end at the highest status once",async()=>{
+    // Design 1.3 (P1): Meta can report delivered/read before the sender's row commits, concurrently.
+    const input=await fixture();
+    const event={id:input.metaMessageId,timestamp:String(Math.floor(Date.now()/1000))};
+    const statuses=["delivered","read","sent","delivered","read"];
+    const settled=await Promise.allSettled([
+      ...statuses.map(status=>applyProviderStatus(accountId,{...event,status})),
+      owner.query("INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,message_id,status) VALUES($1,$2,'bot','text','Test outbound',$3,'sent') RETURNING id",[accountId,input.conversationId,input.metaMessageId]),
+    ]);
+    const insert=settled.at(-1)!;
+    if(insert.status!=="fulfilled") throw insert.reason;
+    const messageId=(insert.value as pg.QueryResult<{id:string}>).rows[0].id;
+    // A status that ran before the commit asks to be retried; it never writes or drops anything.
+    const early=statuses.filter((_,i)=>settled[i].status==="rejected");
+    for(const result of settled.slice(0,-1)) if(result.status==="rejected") expect(result.reason).toMatchObject({name:"StatusAwaitingPersistenceError"});
+    await Promise.all(early.map(status=>applyProviderStatus(accountId,{...event,status})));
+    expect((await owner.query("SELECT status FROM messages WHERE id=$1",[messageId])).rows[0].status).toBe("read");
+    expect((await owner.query("SELECT count(*)::int AS count FROM jobs WHERE dedupe_key=$1",[`status:${messageId}:read`])).rows[0].count).toBe(1);
+  });
+
   it("completed inbound stages replay their saved result without invoking the action again",async()=>{
     const input=await fixture();const message=(await ingestInboundMessage(input)).messageId;let calls=0;
     const action=async()=>{calls++;return {consumed:true};};

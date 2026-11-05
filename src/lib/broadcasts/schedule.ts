@@ -7,7 +7,7 @@
 
 import { AuthError } from '@/lib/auth/errors';
 import { getWorkerPrisma } from '@/lib/db/prisma';
-import { withTenant, type TenantContext } from '@/lib/db/tenant';
+import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { parseSchedule } from './create-campaign';
 
 const initialJob = (id: string) => `broadcast:${id}:initial`;
@@ -56,13 +56,26 @@ export async function claimBroadcastStart(accountId: string, broadcastId: string
   return rows.length > 0;
 }
 
-/** Cancel a campaign that has not started. False when it is not (or no longer) scheduled. */
+/** 404 when the campaign is not in this workspace, so a foreign id is answered like an unknown one. */
+async function assertBroadcastInWorkspace(tx: TenantTransaction, accountId: string, broadcastId: string): Promise<void> {
+  const found = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM broadcasts WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid`;
+  if (!found.length) throw new AuthError('Broadcast unavailable', 404, 'not_found');
+}
+
+/**
+ * Cancel a campaign that has not started. False when it is not (or no longer)
+ * scheduled; throws a 404 AuthError when it is not in this workspace.
+ */
 export async function cancelScheduledBroadcast(scope: TenantContext, broadcastId: string): Promise<boolean> {
   return withTenant(scope, async (tx) => {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       UPDATE broadcasts SET status='cancelled', updated_at=now()
       WHERE account_id=${scope.accountId}::uuid AND id=${broadcastId}::uuid AND status='scheduled' RETURNING id`;
-    if (!rows.length) return false;
+    if (!rows.length) {
+      await assertBroadcastInWorkspace(tx, scope.accountId, broadcastId);
+      return false;
+    }
     // Tidy the waiting job; the dispatcher would also skip a cancelled campaign.
     await tx.$executeRaw`UPDATE jobs SET status='done', updated_at=now()
       WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status='pending'`;
@@ -78,7 +91,10 @@ export async function rescheduleBroadcast(scope: TenantContext, broadcastId: str
     const rows = await tx.$queryRaw<{ id: string }[]>`
       UPDATE broadcasts SET scheduled_at=${at}, updated_at=now()
       WHERE account_id=${scope.accountId}::uuid AND id=${broadcastId}::uuid AND status='scheduled' RETURNING id`;
-    if (!rows.length) throw new AuthError('Only scheduled campaigns can be rescheduled', 409, 'conflict');
+    if (!rows.length) {
+      await assertBroadcastInWorkspace(tx, scope.accountId, broadcastId);
+      throw new AuthError('Only scheduled campaigns can be rescheduled', 409, 'conflict');
+    }
     const moved = await tx.$executeRaw`UPDATE jobs SET run_at=${at}, updated_at=now()
       WHERE tenant_id=${scope.accountId}::uuid AND dedupe_key=${initialJob(broadcastId)} AND status='pending'`;
     // The job is already running: the campaign is starting and can no longer move.

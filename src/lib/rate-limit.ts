@@ -191,6 +191,10 @@ export const RATE_LIMITS = {
   aiAssistUser: { limit: 20, windowMs: 60_000 },
   /** AI assistant, per workspace across all members. */
   aiAssistAccount: { limit: 60, windowMs: 60_000 },
+  /** Token-protected deep health check (`/api/health?deep=1`), one shared
+   *  bucket per process. Uptime monitors poll about once a minute; 30/min
+   *  bounds the database work a leaked token can cause. */
+  opsHealth: { limit: 30, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't

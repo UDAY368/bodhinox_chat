@@ -55,6 +55,8 @@ function credentials() {
 function isolatedEnv(values) {
   const env = { ...process.env };
   for (const key of DB_KEYS) delete env[key];
+  // A value left in the shell must never weaken the local-only test-database guard.
+  delete env.ALLOW_REMOTE_TEST_DB;
   return { ...env, ...values, DATABASE_ENV_FILE: ENV_FILE };
 }
 

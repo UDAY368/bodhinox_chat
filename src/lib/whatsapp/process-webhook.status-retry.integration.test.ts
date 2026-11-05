@@ -20,7 +20,7 @@ let conversationId: string;
 
 const now = () => String(Math.floor(Date.now() / 1000));
 const delivery = (statuses: Record<string, unknown>[]) => ({
-  entry: [{ id: "WABA-1", changes: [{ field: "messages", value: { metadata: { phone_number_id: "pn-1" }, statuses } }] }],
+  entry: [{ id: "WABA-1", changes: [{ field: "messages", value: { metadata: { phone_number_id: "1000000001" }, statuses } }] }],
 }) as unknown as Parameters<typeof processWebhook>[0];
 async function outbound(wamid: string) {
   return (await owner.query("INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,message_id,status) VALUES($1,$2,'bot','text','Test outbound',$3,'sent') RETURNING id",

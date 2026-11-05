@@ -89,13 +89,16 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   }
 
-  const { error } = await ctx.db
+  const { data, error } = await ctx.db
     .from('quick_replies')
     .update(update)
     .eq('id', id)
-    .eq('account_id', ctx.accountId);
+    .eq('account_id', ctx.accountId)
+    .select('id');
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data?.length)
+    return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 
@@ -111,12 +114,15 @@ export async function DELETE(
     return toErrorResponse(err);
   }
 
-  const { error } = await ctx.db
+  const { data, error } = await ctx.db
     .from('quick_replies')
     .delete()
     .eq('id', id)
-    .eq('account_id', ctx.accountId);
+    .eq('account_id', ctx.accountId)
+    .select('id');
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data?.length)
+    return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

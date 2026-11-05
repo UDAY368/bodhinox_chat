@@ -755,6 +755,16 @@ model webhook_receipts {
   created_at DateTime @db.Timestamptz(6) @default(now())
 }
 
+/// Worker liveness (20261113090000_worker_heartbeats): one row per worker process, no tenant data.
+model worker_heartbeats {
+  worker_id String @id
+  started_at DateTime @db.Timestamptz(6)
+  beat_at DateTime @db.Timestamptz(6)
+  release String?
+  current_job_type String?
+  schedule_failures Int @default(0)
+}
+
 model outbox_events {
   id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
   account_id String @db.Uuid

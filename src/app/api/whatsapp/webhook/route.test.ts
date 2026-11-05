@@ -434,7 +434,7 @@ function inboundRequest(
           {
             field: 'messages',
             value: {
-              metadata: { phone_number_id: 'pn-1' },
+              metadata: { phone_number_id: '1000000001' },
               contacts,
               messages: [message],
             },
@@ -468,7 +468,7 @@ async function runStatusWebhook(status: Record<string, unknown>) {
           {
             field: 'messages',
             value: {
-              metadata: { phone_number_id: 'pn-1' },
+              metadata: { phone_number_id: '1000000001' },
               statuses: [status],
             },
           },
@@ -1080,7 +1080,7 @@ describe('template-lifecycle webhooks: WABA id is threaded to the handler (#534)
     const body = {
       entry: [
         {
-          id: 'WABA-1',
+          id: '2000000001',
           changes: [{ field: 'message_template_status_update', value }],
         },
       ],
@@ -1098,7 +1098,7 @@ describe('template-lifecycle webhooks: WABA id is threaded to the handler (#534)
     expect(mockHandle.mock.calls[0][0]).toEqual({
       field: 'message_template_status_update',
       value,
-      wabaId: 'WABA-1',
+      wabaId: '2000000001',
     });
     // A template event must not fall through to the messaging branch.
     expect(h.state.upsertCalls).toHaveLength(0);

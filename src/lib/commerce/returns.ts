@@ -293,6 +293,12 @@ export async function listOrderReturns(ctx: TenantContext, orderId: string): Pro
     const rows = await tx.$queryRawUnsafe<ReturnDbRow[]>(
       `SELECT ${RETURN_COLUMNS} FROM order_returns WHERE account_id=$1::uuid AND order_id=$2::uuid ORDER BY created_at`,
       ctx.accountId, orderId);
+    // No returns: answer an unknown or another workspace's order as not found, not as an empty list.
+    if (!rows.length) {
+      const order = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id::text AS id FROM orders WHERE account_id=${ctx.accountId}::uuid AND id=${orderId}::uuid`;
+      if (!order.length) throw new OrderError(404, 'not_found', 'Order not found');
+    }
     return rows.map(toReturn);
   });
 }

@@ -218,6 +218,10 @@ interface CapturedWrites {
   conversation?: Record<string, unknown>;
 }
 
+// The latest customer message the 24-hour window check reads; an hour ago unless a test changes it.
+const customerWindow = { lastAt: null as string | null, reads: 0 };
+const anHourAgo = () => new Date(Date.now() - 3_600_000).toISOString();
+
 /**
  * Supabase fake covering the tables the send path touches. Each table
  * gets a builder that is both chainable and awaitable, so the same
@@ -258,9 +262,16 @@ function sendPathDb(
           if (table === 'conversations') captured.conversation = row;
           return builder;
         },
+        order: () => builder,
+        limit: () => builder,
         maybeSingle: async () => {
           if (table === 'whatsapp_config') {
             return { data: configs.find((c) => c.id === filters.id) ?? null, error: null };
+          }
+          if (table === 'messages' && filters.sender_type === 'customer') {
+            customerWindow.reads++;
+            const lastAt = customerWindow.lastAt === null ? anHourAgo() : customerWindow.lastAt;
+            return { data: lastAt === 'none' ? null : { created_at: lastAt }, error: null };
           }
           return { data: null, error: null };
         },
@@ -561,5 +572,63 @@ describe('sendMessageToConversation — two numbers in one workspace', () => {
     ).catch((e: unknown) => e);
     expect((error as SendMessageError).code).toBe('whatsapp_number_unavailable');
     expect((error as SendMessageError).status).toBe(400);
+  });
+});
+
+describe('sendMessageToConversation — 24-hour customer service window', () => {
+  const closedCases: Array<[string, string]> = [
+    ['no customer message at all', 'none'],
+    ['the last customer message is 25 hours old', new Date(Date.now() - 25 * 3_600_000).toISOString()],
+  ];
+  for (const [label, lastAt] of closedCases) {
+    it(`refuses free-form text with a 409 before pausing the bot or calling Meta when ${label}`, async () => {
+      customerWindow.lastAt = lastAt;
+      const captured: CapturedWrites = {};
+      const { sendTextMessage } = await import('./meta-api');
+      vi.mocked(sendTextMessage).mockClear();
+      const error = await sendMessageToConversation(sendPathDb([], captured), 'acct-1', { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' })
+        .catch((e: unknown) => e);
+      customerWindow.lastAt = null;
+      expect(error).toBeInstanceOf(SendMessageError);
+      expect(error).toMatchObject({ code: 'window_closed', status: 409 });
+      expect(sendTextMessage).not.toHaveBeenCalled();
+      expect(captured.conversation).toBeUndefined();
+      expect(captured.message).toBeUndefined();
+    });
+  }
+
+  it('refuses interactive and media sends outside the window too', async () => {
+    customerWindow.lastAt = 'none';
+    try {
+      for (const params of [
+        { conversationId: 'cv-1', messageType: 'interactive', interactivePayload: { kind: 'buttons' as const, body: 'Pick', buttons: [{ id: 'a', title: 'A' }] } },
+        { conversationId: 'cv-1', messageType: 'image', mediaUrl: 'https://cdn.test/a.jpg' },
+      ]) {
+        await expect(sendMessageToConversation(sendPathDb([], {}), 'acct-1', params)).rejects.toMatchObject({ code: 'window_closed', status: 409 });
+      }
+    } finally { customerWindow.lastAt = null; }
+  });
+
+  it('still sends a template outside the window, without reading it', async () => {
+    customerWindow.lastAt = 'none';
+    customerWindow.reads = 0;
+    try {
+      sendTemplateMessage.mockClear();
+      await sendMessageToConversation(sendPathDb([TEMPLATE_ROW], {}), 'acct-1', {
+        conversationId: 'cv-1', messageType: 'template', templateName: 'order_update', templateParams: ['A1', 'Monday'],
+      });
+      expect(sendTemplateMessage).toHaveBeenCalledTimes(1);
+      expect(customerWindow.reads).toBe(0);
+    } finally { customerWindow.lastAt = null; }
+  });
+
+  it('sends free-form text inside the window (23 hours after the customer wrote)', async () => {
+    customerWindow.lastAt = new Date(Date.now() - 23 * 3_600_000).toISOString();
+    try {
+      const { sendTextMessage } = await import('./meta-api');
+      vi.mocked(sendTextMessage).mockClear();
+      await sendMessageToConversation(sendPathDb([], {}), 'acct-1', { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' });
+      expect(sendTextMessage).toHaveBeenCalledTimes(1);
+    } finally { customerWindow.lastAt = null; }
   });
 });

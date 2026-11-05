@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   role: 'admin', limited: false, disabled: false,
   save: vi.fn(), disconnect: vi.fn(), get: vi.fn(), rotate: vi.fn(), list: vi.fn(),
   request: vi.fn(), cancel: vi.fn(), reassign: vi.fn(), label: vi.fn(), shipment: vi.fn(),
+  orderFound: true,
 }));
 
 vi.mock('@/lib/auth/session', () => ({ requireSession: async () => ({ userId: USER, accountId: ACCOUNT, role: h.role, sessionId: 's' }) }));
@@ -26,7 +27,8 @@ vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: () => ({ success: !h.limited }),
   rateLimitResponse: () => Response.json({}, { status: 429 }),
 }));
-vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_ctx: unknown, fn: (tx: unknown) => unknown) => fn({}) }));
+vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_ctx: unknown, fn: (tx: unknown) => unknown) =>
+  fn({ $queryRaw: async () => (h.orderFound ? [{ id: ORDER }] : []) }) }));
 vi.mock('@/lib/fulfilment/shiprocket-client', () => ({ shiprocketDisabled: () => h.disabled }));
 vi.mock('@/lib/fulfilment/connection', () => ({
   getCourierConnection: h.get, saveCourierConnection: h.save, disconnectCourier: h.disconnect,
@@ -132,6 +134,16 @@ describe('/api/commerce/orders/[id]/shipment', () => {
     h.role = 'viewer';
     expect((await shipmentGet(new Request('http://localhost/x'), params())).status).toBe(403);
     expect((await shipmentGet(new Request('http://localhost/x'), params('nope'))).status).toBe(404);
+  });
+
+  it("answers 404 for an order that is not in the caller's workspace, before reading any shipment", async () => {
+    h.role = 'agent';
+    h.orderFound = false;
+    h.shipment.mockClear();
+    const res = await shipmentGet(new Request('http://localhost/x'), params());
+    h.orderFound = true;
+    expect(res.status).toBe(404);
+    expect(h.shipment).not.toHaveBeenCalled();
   });
 
   it('creates with numeric dimensions only and maps refusals', async () => {

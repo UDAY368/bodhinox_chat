@@ -1,0 +1,17 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/errors/",
+  "response": {
+    "status": 401,
+    "body": {
+      "error": {
+        "code": "BAD_REQUEST_ERROR",
+        "description": "Authentication failed",
+        "source": "NA",
+        "step": "NA",
+        "reason": "NA"
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes",
+  "note": "Temporarily blocked for policy violations",
+  "response": {
+    "status": 400,
+    "body": {
+      "error": {
+        "message": "Temporarily blocked for policies violations",
+        "type": "OAuthException",
+        "code": 368,
+        "error_data": {
+          "messaging_product": "whatsapp",
+          "details": "fixture details"
+        },
+        "fbtrace_id": "AFixtureTraceId000001"
+      }
+    }
+  }
+}

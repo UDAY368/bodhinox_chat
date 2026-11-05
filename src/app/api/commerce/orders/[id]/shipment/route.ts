@@ -29,10 +29,18 @@ export async function GET(_request: Request, context: Context) {
     const { id } = await context.params;
     if (!UUID.test(id)) return shipmentErrorResponse('not_found', 404);
     const ctx = await requireRole('agent');
-    const { connection, shipment } = await withTenant(tenantOf(ctx), async (tx) => ({
-      connection: await getCourierConnection(tx, ctx.accountId),
-      shipment: await getOrderShipment(tx, ctx.accountId, id),
-    }));
+    const loaded = await withTenant(tenantOf(ctx), async (tx) => {
+      // An unknown or another workspace's order is not found, never "no shipment yet".
+      const order = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id::text AS id FROM orders WHERE account_id=${ctx.accountId}::uuid AND id=${id}::uuid`;
+      if (!order.length) return null;
+      return {
+        connection: await getCourierConnection(tx, ctx.accountId),
+        shipment: await getOrderShipment(tx, ctx.accountId, id),
+      };
+    });
+    if (!loaded) return shipmentErrorResponse('not_found', 404);
+    const { connection, shipment } = loaded;
     const connected = connection.connected && connection.status === 'active' && !shiprocketDisabled();
     return NextResponse.json({
       connected,

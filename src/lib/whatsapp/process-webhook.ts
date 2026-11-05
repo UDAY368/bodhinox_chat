@@ -140,9 +140,11 @@ export async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }, a
     for (const change of entry.changes) {
       assertLease();
       const templateEvent = isTemplateWebhookField(change.field);
+      // A malformed provider id is unroutable (skipped), not a retryable error that burns every attempt.
+      const phoneNumberId = change.value.metadata?.phone_number_id;
       const accountId = templateEvent
-        ? await resolveWabaAccount(entry.id)
-        : change.value.metadata?.phone_number_id ? await resolveWhatsAppAccount(change.value.metadata.phone_number_id) : null;
+        ? (PROVIDER_ID.test(String(entry.id ?? '')) ? await resolveWabaAccount(entry.id) : null)
+        : typeof phoneNumberId === 'string' && PROVIDER_ID.test(phoneNumberId) ? await resolveWhatsAppAccount(phoneNumberId) : null;
       if (!accountId) continue;
       await withJobScope({ accountId, role: 'owner' }, async () => {
         if (templateEvent) {
@@ -179,6 +181,8 @@ async function handleStatusUpdate(status: { id: string; status: string; timestam
 
 /** Job that retries one provider status whose outbound row was not committed yet. */
 export const PROVIDER_STATUS_RETRY_JOB = 'whatsapp.status_retry';
+/** Meta phone number and WhatsApp Business Account ids are digits only (same rule as the routing functions). */
+const PROVIDER_ID = /^\d{1,32}$/;
 const PROVIDER_STATUS_RETRY_DELAY_MS = 2_000;
 
 // By name, like UncertainDispatchError in the queue, so module mocks and bundling cannot defeat it.

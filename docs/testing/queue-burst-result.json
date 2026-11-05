@@ -1,5 +1,17 @@
 {
-  "testedAt": "2026-10-25T14:13:12.211Z",
+  "testedAt": "2026-11-05T02:49:06.796Z",
+  "environment": {
+    "database": "local Docker PostgreSQL (scripts/test-db-local.cjs, pgvector/pgvector:pg18)",
+    "postgresVersion": "18.6 (Debian 18.6-1.pgdg12+2)",
+    "hostCpu": "12th Gen Intel(R) Core(TM) i7-12650H",
+    "hostCpuCount": 16,
+    "platform": "win32 10.0.26300",
+    "node": "v24.20.0"
+  },
+  "targets": {
+    "claimAndCompleteP95Ms": 50,
+    "drainJobsPerSecond": 50
+  },
   "scope": "Real queue functions against an isolated copy of the PostgreSQL jobs table and indexes; one sequential consumer; no flow handlers, AI calls, HTTP ingress, or WhatsApp sends",
   "submissions": 110,
   "uniqueJobs": 100,
@@ -8,10 +20,10 @@
   "completed": 100,
   "duplicateClaims": 0,
   "lostJobs": 0,
-  "enqueueBurstMs": 3752,
-  "sequentialDrainMs": 44538,
-  "totalMs": 48509,
-  "claimAndCompleteMedianMs": 441,
-  "claimAndCompleteP95Ms": 460,
-  "drainJobsPerSecond": 2.25
+  "enqueueBurstMs": 93,
+  "sequentialDrainMs": 755,
+  "totalMs": 853,
+  "claimAndCompleteMedianMs": 7,
+  "claimAndCompleteP95Ms": 8,
+  "drainJobsPerSecond": 132.41
 }

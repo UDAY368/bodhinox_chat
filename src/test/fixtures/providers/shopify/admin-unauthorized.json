@@ -1,0 +1,11 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://shopify.dev/docs/api/usage/response-codes",
+  "response": {
+    "status": 401,
+    "body": {
+      "errors": "[API] Invalid API key or access token (unrecognized login or wrong password)"
+    }
+  }
+}

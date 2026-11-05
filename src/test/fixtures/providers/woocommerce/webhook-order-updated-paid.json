@@ -1,0 +1,45 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://woocommerce.github.io/woocommerce-rest-api-docs/#webhooks",
+  "request": {
+    "method": "POST",
+    "path": "/api/integrations/woocommerce/webhook/{storeId}",
+    "headers": {
+      "x-wc-webhook-topic": "order.updated",
+      "x-wc-webhook-delivery-id": "1001",
+      "x-wc-webhook-signature": "<computed with the store secret>",
+      "x-wc-webhook-source": "https://shop.example.com/"
+    },
+    "body": {
+      "id": 7001,
+      "number": "7001",
+      "status": "processing",
+      "currency": "INR",
+      "total": "250.00",
+      "date_paid_gmt": "2026-11-05T04:30:00",
+      "payment_method_title": "UPI",
+      "billing": {
+        "first_name": "Ravi",
+        "last_name": "Test",
+        "phone": "9800000102",
+        "country": "IN",
+        "email": "ravi@example.com"
+      },
+      "line_items": [
+        {
+          "id": 1,
+          "quantity": 2,
+          "name": "Tulsi drops"
+        }
+      ],
+      "meta_data": []
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "status": "recorded"
+    }
+  }
+}

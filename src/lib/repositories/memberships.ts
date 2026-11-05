@@ -192,7 +192,8 @@ export async function executeMembershipRpc(
       context.accountId
     );
     const target = targets[0];
-    if (!target) throw new ContractError('Member not found', '22023');
+    // A user who is not a member of this workspace (including another workspace's member) is a 404.
+    if (!target) throw new ContractError('Member not found', 'P0002', 404);
     const operation =
       name === 'transfer_account_ownership'
         ? 'transfer'

@@ -158,6 +158,9 @@ export async function assertFilterReferences(tx: TenantTransaction, accountId: s
 /** Invalid filter input; the message is safe to show (HTTP 400). */
 export class AudienceFilterError extends Error {}
 
+/** The named segment is not in this workspace (or does not exist); routes answer 404. */
+export class AudienceNotFoundError extends AudienceFilterError {}
+
 export function parseAudienceFilter(input: unknown): AudienceFilter {
   const parsed = audienceFilterSchema.safeParse(input);
   if (!parsed.success) throw new AudienceFilterError(parsed.error.issues[0]?.message ?? 'Invalid audience filter');

@@ -1,22 +1,32 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { config } from 'dotenv';
+import os from 'node:os';
 import pg from 'pg';
 import { expect, it } from 'vitest';
 import { disconnectDatabases, getWorkerPrisma } from '@/lib/db/prisma';
+import { isLocalDatabaseHost } from '@/lib/db/test-db-guard';
 import { claimJob, enqueueJob, finishJob } from './queue';
 
-const env = config({ path: '.env.test', quiet: true }).parsed;
-if (process.env.RUN_QUEUE_LOAD_TEST === '1' && env?.WORKER_DATABASE_URL) {
-  process.env.WORKER_DATABASE_URL = env.WORKER_DATABASE_URL;
+// Opt-in and local-only: RUN_QUEUE_LOAD_TEST=1 node scripts/test-db-local.cjs run queue-burst
+// (or RUN_LOAD_TESTS=1). Uses the local Docker PostgreSQL that script provides; it never loads
+// .env.test, never invokes a job handler and never sends messages.
+const enabled = process.env.RUN_QUEUE_LOAD_TEST === '1' || process.env.RUN_LOAD_TESTS === '1';
+
+// Pilot targets (docs/testing/perf targets): claim+finish p95 < 50 ms, drain >= 50 jobs/s.
+const TARGET_P95_MS = 50;
+const TARGET_JOBS_PER_SECOND = 50;
+
+function requireLocal(name: string, value: string | undefined): string {
+  if (!value) throw new Error(`${name} is required (run through node scripts/test-db-local.cjs run queue-burst)`);
+  if (!isLocalDatabaseHost(new URL(value).hostname)) throw new Error(`${name} must point at the local test database`);
+  return value;
 }
 
-// Opt-in: uses real PostgreSQL, never invokes a job handler or sends messages.
-it.skipIf(process.env.RUN_QUEUE_LOAD_TEST !== '1')(
-  'handles a burst of 100 unique queued jobs with duplicate submissions',
+it.skipIf(!enabled)(
+  '[OPS-02] handles a burst of 100 unique queued jobs with duplicate submissions',
   async () => {
-    const ownerUrl = process.env.TEST_DATABASE_URL || env?.TEST_DATABASE_URL;
-    if (!ownerUrl) throw new Error('TEST_DATABASE_URL is required');
+    const ownerUrl = requireLocal('TEST_DATABASE_URL', process.env.TEST_DATABASE_URL);
+    requireLocal('WORKER_DATABASE_URL', process.env.WORKER_DATABASE_URL);
     const owner = new pg.Client({
       connectionString: ownerUrl,
       connectionTimeoutMillis: 10000,
@@ -101,8 +111,18 @@ it.skipIf(process.env.RUN_QUEUE_LOAD_TEST !== '1')(
       expect(stored.rows).toEqual([{ status: 'done', count: 100 }]);
       expect(seen.size).toBe(100);
       const sorted = [...latencies].sort((a, b) => a - b);
+      const postgres = (await owner.query('SHOW server_version')).rows[0].server_version as string;
       const report = {
         testedAt: new Date().toISOString(),
+        environment: {
+          database: 'local Docker PostgreSQL (scripts/test-db-local.cjs, pgvector/pgvector:pg18)',
+          postgresVersion: postgres,
+          hostCpu: os.cpus()[0]?.model ?? 'unknown',
+          hostCpuCount: os.cpus().length,
+          platform: `${os.platform()} ${os.release()}`,
+          node: process.version,
+        },
+        targets: { claimAndCompleteP95Ms: TARGET_P95_MS, drainJobsPerSecond: TARGET_JOBS_PER_SECOND },
         scope:
           'Real queue functions against an isolated copy of the PostgreSQL jobs table and indexes; one sequential consumer; no flow handlers, AI calls, HTTP ingress, or WhatsApp sends',
         submissions: 110,
@@ -125,6 +145,8 @@ it.skipIf(process.env.RUN_QUEUE_LOAD_TEST !== '1')(
         JSON.stringify(report, null, 2) + '\n'
       );
       console.info(JSON.stringify(report));
+      expect(report.claimAndCompleteP95Ms).toBeLessThan(TARGET_P95_MS);
+      expect(report.drainJobsPerSecond).toBeGreaterThanOrEqual(TARGET_JOBS_PER_SECOND);
     } finally {
       await disconnectDatabases();
       if (isolated && created) {

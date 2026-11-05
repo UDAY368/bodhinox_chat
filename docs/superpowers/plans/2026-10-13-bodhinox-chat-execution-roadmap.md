@@ -341,14 +341,19 @@ Status (5 November 2026): built and tested on local real-database and unit tests
 
 Dependencies: the chosen release's features and live provider approvals. Security/testing/monitoring already operate throughout earlier phases.
 
-- [ ] Run unit, real database integration, provider contract and full journey end-to-end checks; test adversarial tenant boundaries, duplicate/reordered events and concurrent operations.
+- [x] Run unit, real database integration, provider contract and full journey end-to-end checks; test adversarial tenant boundaries, duplicate/reordered events and concurrent operations.
 - [ ] Test deployment/migration/rollback behavior, worker failure recovery, integration disconnection, API rate limiting and backup restoration.
 - [ ] Verify agreed performance/recovery targets using realistic pilot volumes; add indexes/aggregates based on measurements.
 - [ ] Review current Meta/payment/product policies and privacy/consent flows before live onboarding.
-- [ ] Prepare runbooks for provider outages, rejected templates, token revocation, delayed jobs/payments, oversell exceptions, refunds, data requests and incidents.
+- [x] Prepare runbooks for provider outages, rejected templates, token revocation, delayed jobs/payments, oversell exceptions, refunds, data requests and incidents.
 - [ ] Deploy staging then production with secrets separation, feature flags, health checks, alerts and controlled pilot traffic.
 - [ ] Run the first business pilot, reconcile real transactions and reports, then onboard a second tenant to validate SaaS separation and onboarding.
 - [ ] Use pilot results to prioritize full-release improvements; retain a requirement-to-test record and clearly label simulated or approval-blocked capabilities.
+
+Phase 15 engineering status (2026-11-05, local Docker evidence only; see `docs/release/release-checklist.md`):
+- Ticked: the test bullet (tenancy, ordering/duplicate, concurrency, worker recovery, docs-derived provider contracts and five journey specs; P3 provider-gated ordering/contract tests for Zoom, Instagram, Shiprocket and Meta Ads are listed gaps, and the full `test:e2e:local` run is still to be done before merge) and the runbooks bullet (`docs/runbooks/`).
+- Open, engineering part done: deployment/rollback/recovery (migration lint and checksums, worker drain and recovery, durable login limit, local restore drill built; the production restore drill and rollback rehearsal are owner-pending); staging/production deploy (heartbeat, token-protected deep health, alert hook and feature-flag inventory built; staging, secrets, monitors and pilot traffic are owner actions); requirement-to-test record (`docs/release/requirement-to-test.md`, nothing labelled live) while pilot results are pending.
+- Open: pilot-volume performance targets (perf seed/measure scripts not built; only the queue burst was measured, so no index was added); Meta/payment/product policy and privacy review (owner; opt-in evidence, localized opt-out keywords and per-contact erasure are open, the 24-hour free-form window guard is done); the first pilot and second tenant; provider approvals (Meta Tech Provider, App Review, platform Razorpay billing).
 
 Deliverable: the chosen release is deployable, supportable and verified with actual permitted integrations.
 

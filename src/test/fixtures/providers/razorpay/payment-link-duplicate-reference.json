@@ -1,0 +1,18 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/api/payments/payment-links/create-standard/",
+  "note": "A create retried with the same reference_id",
+  "response": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "BAD_REQUEST_ERROR",
+        "description": "payment link with given reference_id already exists",
+        "source": "business",
+        "step": "payment_initiation",
+        "reason": "input_validation_failed"
+      }
+    }
+  }
+}

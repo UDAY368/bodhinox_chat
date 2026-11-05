@@ -43,6 +43,10 @@ function rpcErrorToResponse(err: DataError): NextResponse {
   if (err.code === '42501') {
     return NextResponse.json({ error: err.message }, { status: 403 });
   }
+  // P0002: the target is not a member of this workspace (another workspace's member included).
+  if (err.code === 'P0002') {
+    return NextResponse.json({ error: err.message }, { status: 404 });
+  }
   if (err.code === '22023') {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }

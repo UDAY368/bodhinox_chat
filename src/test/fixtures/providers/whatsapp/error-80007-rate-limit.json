@@ -1,0 +1,21 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes",
+  "note": "WABA rate limit hit",
+  "response": {
+    "status": 429,
+    "body": {
+      "error": {
+        "message": "(#80007) Rate limit issues",
+        "type": "OAuthException",
+        "code": 80007,
+        "error_data": {
+          "messaging_product": "whatsapp",
+          "details": "fixture details"
+        },
+        "fbtrace_id": "AFixtureTraceId000001"
+      }
+    }
+  }
+}

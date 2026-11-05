@@ -105,3 +105,13 @@ it('rejects oversized bodies before verifying', async () => {
   const raw = 'x'.repeat(300 * 1024);
   expect((await call(raw, { 'x-razorpay-signature': sign(raw) })).status).toBe(400);
 });
+
+it('[BIL-02] replays the docs-derived subscription.charged payload signed with a test secret (design 1.4)', async () => {
+  const { fixtureBody, loadProviderFixture } = await import('@/test/fixtures/providers');
+  const raw = JSON.stringify(fixtureBody(loadProviderFixture('razorpay-billing', 'webhook-subscription-charged')));
+  expect((await call(raw, { 'x-razorpay-signature': sign(raw, 'other') })).status).toBe(401);
+  expect((await call(raw, { 'x-razorpay-signature': sign(raw), 'x-razorpay-event-id': 'evt_fixture' })).status).toBe(200);
+  const stored = h.stored.get('evt_fixture') as Record<string, unknown>;
+  expect(stored).toMatchObject({ type: 'subscription.charged', subscriptionId: 'sub_FixtureSub00001', paymentId: 'pay_FixtureBill0001', invoiceId: 'inv_FixtureInv0001', amountMinor: 118000 });
+  expect(JSON.stringify(stored)).not.toMatch(/example\.com|9800000302/);
+});

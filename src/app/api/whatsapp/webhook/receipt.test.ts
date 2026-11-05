@@ -59,3 +59,17 @@ it('verifies GET challenge using a digest rather than plaintext credentials', as
     /^[a-f0-9]{64}$/
   );
 });
+it('[WA-01] replays the docs-derived inbound and status payloads signed with a test secret (design 1.4)', async () => {
+  const { fixtureBody, loadProviderFixture } = await import('@/test/fixtures/providers');
+  for (const name of ['webhook-inbound-text', 'webhook-status-read']) {
+    const raw = JSON.stringify(fixtureBody(loadProviderFixture('whatsapp', name)));
+    const res = await POST(request(raw));
+    expect(res.status).toBe(200);
+    expect(vi.mocked(persistWebhook)).toHaveBeenLastCalledWith(raw, JSON.parse(raw));
+  }
+  // The same payload under another app secret is refused before persistence.
+  vi.mocked(persistWebhook).mockClear();
+  const raw = JSON.stringify(fixtureBody(loadProviderFixture('whatsapp', 'webhook-inbound-text')));
+  expect((await POST(request(raw, false))).status).toBe(401);
+  expect(vi.mocked(persistWebhook)).not.toHaveBeenCalled();
+});

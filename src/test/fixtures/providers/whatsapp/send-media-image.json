@@ -1,0 +1,40 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages",
+  "request": {
+    "method": "POST",
+    "path": "/{version}/{phone-number-id}/messages",
+    "headers": {
+      "authorization": "Bearer <redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "messaging_product": "whatsapp",
+      "recipient_type": "individual",
+      "to": "919800000201",
+      "type": "image",
+      "image": {
+        "link": "https://cdn.example.com/catalog.jpg",
+        "caption": "Catalog"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "messaging_product": "whatsapp",
+      "contacts": [
+        {
+          "input": "919800000201",
+          "wa_id": "919800000201"
+        }
+      ],
+      "messages": [
+        {
+          "id": "wamid.HBgMOTE5ODAwMDAwMjAxFQIAERgSRklYVFVSRU1FRDAwMDAwMQA="
+        }
+      ]
+    }
+  }
+}

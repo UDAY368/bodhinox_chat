@@ -144,3 +144,16 @@ it('ignores payment.* events even when they carry a captured payment', async () 
   expect(h.receipts.size).toBe(0);
   expect(h.jobs).toHaveLength(0);
 });
+
+it('[PAY-02] replays the docs-derived payment_link.paid and refund.processed payloads signed with a test secret (design 1.4)', async () => {
+  const { fixtureBody, loadProviderFixture } = await import('@/test/fixtures/providers');
+  for (const [name, eventId] of [['webhook-payment-link-paid', 'evt_fx1'], ['webhook-refund-processed', 'evt_fx2']] as const) {
+    const raw = JSON.stringify(fixtureBody(loadProviderFixture('razorpay', name)));
+    expect((await call(raw, { 'x-razorpay-signature': sign(raw, 'another-secret'), 'x-razorpay-event-id': eventId })).status).toBe(401);
+    expect((await call(raw, { 'x-razorpay-signature': sign(raw), 'x-razorpay-event-id': eventId })).status).toBe(200);
+  }
+  expect(h.receipts.get(`razorpay:${ACCOUNT}:evt_fx1`)!.payload).toMatchObject({ event: 'payment_link.paid', paymentLinkId: 'plink_FixtureLink001', paymentId: 'pay_FixturePay0001' });
+  expect(h.receipts.get(`razorpay:${ACCOUNT}:evt_fx2`)!.payload).toMatchObject({ event: 'refund.processed', refundId: 'rfnd_FixtureRef0001', amountMinor: 10000 });
+  expect(JSON.stringify([...h.receipts.values()])).not.toMatch(/example\.com|9800000301/);
+  expect(h.jobs).toHaveLength(2);
+});

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import {
   AudienceFilterError,
+  AudienceNotFoundError,
   assertFilterReferences,
   compileAudienceFilter,
   parseAudienceFilter,
@@ -119,7 +120,7 @@ export async function loadSegmentFilter(
 ): Promise<AudienceFilter> {
   const rows = await tx.$queryRaw<{ filter: unknown; archived: boolean }[]>(Prisma.sql`
     SELECT filter, archived_at IS NOT NULL AS archived FROM segments WHERE account_id=${accountId}::uuid AND id=${id}::uuid${options.lock ? Prisma.sql` FOR SHARE` : Prisma.empty}`);
-  if (!rows[0]) throw new AudienceFilterError('Segment is unavailable in this workspace');
+  if (!rows[0]) throw new AudienceNotFoundError('Segment is unavailable in this workspace');
   // A campaign build (lock) cannot use a segment archived by a plan downgrade.
   if (options.lock && rows[0].archived) throw new AudienceFilterError('This segment is archived because of your plan. Upgrade or restore it to use it in a campaign');
   return parseAudienceFilter(rows[0].filter);

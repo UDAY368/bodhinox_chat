@@ -11,6 +11,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // Local-only test database guard (docs/testing/test-database-guard.md).
+    setupFiles: ["./src/lib/db/test-db-guard.setup.ts"],
     // Dummy secrets — encryption.ts / webhook-signature.ts read these
     // at module load. Tests never hit a real Meta/Supabase service, so
     // any 32-byte hex / non-empty string will do; keep them lexically

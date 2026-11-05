@@ -17,6 +17,11 @@
  * Meta failures are recorded as a fixed category on the row (health_error) and
  * the job completes; the next six-hour cycle retries. Tokens, Meta messages and
  * customer content are never logged or stored.
+ *
+ * A token error (Meta 190 / HTTP 401) is also recorded the moment a send gets one
+ * (recordSendTokenError, called from meta-api.ts), not only by this sync. Either way
+ * the first token error after a healthy state alerts each owner and admin once
+ * (number_quality notification), so they can reconnect the number.
  */
 import type { PrismaClient } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
@@ -24,9 +29,10 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { leaseFetch } from '@/lib/jobs/lease';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { decrypt } from './encryption';
-import { getPhoneNumberHealth, MetaApiError } from './meta-api';
+import { getPhoneNumberHealth, isTokenError } from './meta-api';
 import { parseMessagingLimit } from './phone-health';
 import { createNotification } from '@/lib/inbox/notify';
+import { resolveWhatsAppAccount } from '@/lib/repositories/routing';
 
 export const HEALTH_SYNC_JOB = 'whatsapp.health_sync';
 export const HEALTH_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -131,8 +137,62 @@ export function describeChange(change: HealthChange, numberLabel: string): { tit
 
 /** A fixed category for a failed Meta call; the message itself is never kept. */
 export function categorizeHealthError(error: unknown): HealthErrorCategory {
-  if (error instanceof MetaApiError && (error.code === 190 || error.httpStatus === 401)) return 'token';
-  return 'unavailable';
+  return isTokenError(error) ? 'token' : 'unavailable';
+}
+
+/** Stored title/body for a refused token (English, like the other number alerts). No customer content. */
+export function describeTokenError(numberLabel: string): { title: string; body: string } {
+  return {
+    title: 'WhatsApp number needs reconnecting',
+    body: `${numberLabel}: Meta refused this number's access token (expired or revoked). Messages from it fail until you reconnect it in Settings, WhatsApp.`,
+  };
+}
+
+/**
+ * Records health_error='token' on one connected number (by config id or Meta phone number id) and,
+ * when that is a change from a healthy or other state, alerts each owner and admin once. The row is
+ * locked first, so concurrent sends hitting the same revoked token produce one alert. Returns
+ * whether this call alerted. Disconnected numbers are left alone.
+ */
+export async function markNumberTokenInvalid(
+  tx: TenantTransaction,
+  args: { accountId: string; configId?: string; phoneNumberId?: string; now: Date }
+): Promise<boolean> {
+  const { accountId, configId = null, phoneNumberId = null, now } = args;
+  if (!configId && !phoneNumberId) return false;
+  const rows = await tx.$queryRaw<{ id: string; display_name: string | null; health_error: string | null }[]>`
+    SELECT id, display_name, health_error FROM whatsapp_config
+    WHERE account_id=${accountId}::uuid AND status='connected'
+      AND (${configId}::uuid IS NULL OR id=${configId}::uuid) AND (${phoneNumberId}::text IS NULL OR phone_number_id=${phoneNumberId})
+    FOR UPDATE`;
+  const row = rows[0];
+  if (!row) return false;
+  await tx.$executeRaw`UPDATE whatsapp_config SET health_error='token', health_error_at=${now}
+    WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid`;
+  if (row.health_error === 'token') return false;
+  const admins = await tx.$queryRaw<{ user_id: string }[]>`
+    SELECT user_id FROM account_memberships WHERE account_id=${accountId}::uuid AND role IN ('owner','admin') ORDER BY user_id`;
+  const { title, body } = describeTokenError(row.display_name?.trim() || 'Your WhatsApp number');
+  await createNotification(tx, {
+    accountId, userIds: admins.map(({ user_id }) => user_id), event: 'number_quality', title, body,
+    link: '/settings?tab=whatsapp', dedupeKey: `wa-health:${row.id}:token:${now.getTime()}`, whatsappConfigId: row.id,
+  });
+  return true;
+}
+
+/**
+ * A send from `phoneNumberId` got a token error (meta-api.ts reportSendTokenError): find the
+ * workspace holding that connected number through the worker's routing function, as the
+ * inbound webhook does, and mark it. Returns whether admins were alerted.
+ */
+export async function recordSendTokenError(phoneNumberId: string, now: Date = new Date()): Promise<boolean> {
+  const accountId = await resolveWhatsAppAccount(phoneNumberId);
+  if (!accountId) return false;
+  const marked = await withTenant({ accountId, role: 'owner' },
+    (tx) => markNumberTokenInvalid(tx, { accountId, phoneNumberId, now }), getWorkerPrisma());
+  // No ids, token or Meta message in the log.
+  console.warn('[health] token error on send', { alerted: marked });
+  return marked;
 }
 
 /**
@@ -237,9 +297,11 @@ export async function syncNumberHealth(options: SyncOptions): Promise<HealthSync
     fetched = await fetchHealth({ phoneNumberId: config.phone_number_id, accessToken: decrypt(config.access_token) });
   } catch (error) {
     const category = categorizeHealthError(error);
-    await withTenant(tenant, (tx) => tx.$executeRaw`
-      UPDATE whatsapp_config SET health_error=${category}, health_error_at=${options.now ?? new Date()}
-      WHERE account_id=${accountId}::uuid AND id=${configId}::uuid`, db);
+    const now = options.now ?? new Date();
+    await withTenant(tenant, async (tx): Promise<unknown> => category === 'token'
+      ? markNumberTokenInvalid(tx, { accountId, configId, now })
+      : tx.$executeRaw`UPDATE whatsapp_config SET health_error=${category}, health_error_at=${now}
+          WHERE account_id=${accountId}::uuid AND id=${configId}::uuid`, db);
     console.warn('[health-sync] number health unavailable', { configId, category });
     return { status: 'error', error: category };
   }

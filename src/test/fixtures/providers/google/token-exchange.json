@@ -1,0 +1,29 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.google.com/identity/openid-connect/openid-connect#exchangecode",
+  "note": "id_token is signed at test time with an in-process key; the corpus never holds a token",
+  "request": {
+    "method": "POST",
+    "path": "https://oauth2.googleapis.com/token",
+    "headers": {
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    "body": {
+      "grant_type": "authorization_code",
+      "code": "fixture-code",
+      "client_id": "fixture-client.apps.googleusercontent.com",
+      "redirect_uri": "{APP_URL}/api/auth/google/callback"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "access_token": "<redacted>",
+      "expires_in": 3599,
+      "scope": "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+      "token_type": "Bearer",
+      "id_token": "<signed at test time>"
+    }
+  }
+}

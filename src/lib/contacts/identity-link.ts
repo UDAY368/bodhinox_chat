@@ -66,6 +66,12 @@ export async function listContactIdentities(actor: IdentityLinkActor, contactId:
         WHERE h.account_id=i.account_id AND h.identity_id=i.id ORDER BY h.created_at DESC, h.id DESC LIMIT 1) l ON true
       WHERE i.account_id=${actor.accountId}::uuid AND i.contact_id=${contactId}::uuid
       ORDER BY i.created_at, i.id`);
+    // No identities: answer an unknown or another workspace's contact as not found, not as an empty list.
+    if (!rows.length) {
+      const found = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+        SELECT id::text AS id FROM contacts WHERE account_id=${actor.accountId}::uuid AND id=${contactId}::uuid`);
+      if (!found.length) throw new IdentityLinkError('not_found');
+    }
     return rows.map((row) => ({
       id: row.id,
       channel: 'instagram' as const,

@@ -224,7 +224,7 @@ describe.skipIf(!authDatabase)(
             owner
           )
         ).error?.code
-      ).toBe('22023');
+      ).toBe('P0002');
       await getAuthPrisma().$executeRawUnsafe(
         "INSERT INTO account_memberships(account_id,user_id,role) VALUES($1::uuid,$2::uuid,'admin')",
         accounts[0],

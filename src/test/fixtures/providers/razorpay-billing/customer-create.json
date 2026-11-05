@@ -1,0 +1,25 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/api/customers/create/",
+  "request": {
+    "method": "POST",
+    "path": "/v1/customers",
+    "body": {
+      "name": "Fixture Pvt Ltd",
+      "email": "billing@example.com",
+      "fail_existing": "0"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "cust_FixtureCust001",
+      "entity": "customer",
+      "name": "Fixture Pvt Ltd",
+      "email": "billing@example.com",
+      "gstin": null,
+      "created_at": 1762336700
+    }
+  }
+}

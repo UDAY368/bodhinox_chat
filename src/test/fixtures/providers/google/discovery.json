@@ -1,0 +1,37 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.google.com/identity/openid-connect/openid-connect#discovery",
+  "request": {
+    "method": "GET",
+    "path": "https://accounts.google.com/.well-known/openid-configuration"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "issuer": "https://accounts.google.com",
+      "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_endpoint": "https://oauth2.googleapis.com/token",
+      "userinfo_endpoint": "https://openidconnect.googleapis.com/v1/userinfo",
+      "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+      "response_types_supported": [
+        "code"
+      ],
+      "subject_types_supported": [
+        "public"
+      ],
+      "id_token_signing_alg_values_supported": [
+        "RS256"
+      ],
+      "scopes_supported": [
+        "openid",
+        "email",
+        "profile"
+      ],
+      "code_challenge_methods_supported": [
+        "plain",
+        "S256"
+      ]
+    }
+  }
+}

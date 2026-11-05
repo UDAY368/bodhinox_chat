@@ -17,6 +17,13 @@ Object.assign(process.env, test);
 
 const port = process.env.E2E_PORT || '3100';
 process.env.APP_URL = `http://localhost:${port}`;
+// Phase 15 journeys. Mail goes only to the local capture e2e/global-setup starts on
+// 127.0.0.1 (e2e/smtp-capture.ts), and Meta webhooks are signed with a test-only
+// secret the specs share (e2e/journeys.ts). Never a real SMTP server or app secret.
+process.env.SMTP_URL = `smtp://127.0.0.1:${process.env.E2E_SMTP_PORT || '3125'}`;
+process.env.AUTH_EMAIL_FROM = 'e2e@example.invalid';
+process.env.META_APP_SECRET = 'e2e-only-meta-app-secret';
+delete process.env.META_APP_SECRET_PRIMARY;
 for (const key of ['DATABASE_URL', 'AUTH_DATABASE_URL', 'WORKER_DATABASE_URL']) {
   const name = (() => { try { return new URL(process.env[key]).pathname; } catch { return ''; } })();
   if (!/test/i.test(name)) {

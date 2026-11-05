@@ -7,6 +7,7 @@ import pg from 'pg';
 import { FIXTURES_FILE, type Fixtures, type Role, type SeededUser } from './fixtures';
 import { deriveManageToken, manageTokenHash } from '../src/lib/appointments/tokens';
 import { deriveStorefrontToken, storefrontTokenHash } from '../src/lib/commerce/storefront-token';
+import { startSmtpCapture } from './smtp-capture';
 
 /** Owner connection to the isolated test database; refuses anything else. */
 export async function testDatabase(): Promise<pg.Client> {
@@ -25,6 +26,8 @@ export async function testDatabase(): Promise<pg.Client> {
 }
 
 export default async function globalSetup() {
+  // Mail from this run (sign-up verification) lands in the local capture; closed in global-teardown.
+  (globalThis as { e2eSmtp?: import('node:net').Server }).e2eSmtp = await startSmtpCapture();
   const db = await testDatabase();
   const runId = randomBytes(4).toString('hex');
   const newUser = (label: string): SeededUser => ({

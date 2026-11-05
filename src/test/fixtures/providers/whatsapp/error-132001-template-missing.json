@@ -1,0 +1,21 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes",
+  "note": "Template name does not exist in the translation",
+  "response": {
+    "status": 404,
+    "body": {
+      "error": {
+        "message": "(#132001) Template name does not exist in the translation",
+        "type": "OAuthException",
+        "code": 132001,
+        "error_data": {
+          "messaging_product": "whatsapp",
+          "details": "template name (order_update) does not exist in en"
+        },
+        "fbtrace_id": "AFixtureTraceId000001"
+      }
+    }
+  }
+}

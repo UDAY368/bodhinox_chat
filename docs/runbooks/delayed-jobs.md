@@ -1,0 +1,13 @@
+# Delayed jobs
+
+Requirement ids: OPS-01, OPS-02. Env var names only; no secrets, tenant ids or customer content belong in this file or in incident notes.
+
+**Detection**: deep health `queue.oldestDueS` > 300 (degraded), `worker.ok=false` (down), `webhooks.unprocessed15m` > 0 (degraded), `queue.expiredLeases` and `queue.failed1h` (informational); platform console → Health (per-type backlog via `crm_platform_job_backlog`, integration health via `crm_platform_integration_health`).
+**Impact**: inbound messages appear late, automations/broadcasts/reminders delayed.
+
+1. **Worker not beating** (`worker.ok=false`, `worker.ageS` large or null): Railway → worker service → logs. `[worker] startup failed` = crash (check DB reachability, env). `[worker] heartbeat write failed` alone = heartbeat table/grant problem while jobs may still run (check `queue.pendingDue` falls). Restart the worker service. If it crash-loops after a deploy → release-rollback.
+2. **Backlog with a beating worker**: one worker processes one job at a time. Check the console's per-type backlog for one dominating type (e.g. a large broadcast). Let it drain. Run one worker replica (docs/deployment/railway.md): claims are SKIP LOCKED and scheduling is deduped, so a second replica would not double-process jobs, but each replica runs its own alert hook and sends its own alerts. Scale up only as a temporary measure and expect duplicate alerts while it runs. Reminder lag: the scheduler runs every 30 s; due reminders > 60 s late means backlog.
+3. **Stuck lease** (`expiredLeases` > 0): claims reclaim expired leases automatically; a job whose attempts are exhausted becomes `failed` with "Job attempt limit reached after an expired lease". Persistent expired leases with no worker = item 1.
+4. **Failed jobs** (`failed1h`): inspect by type in the console; requeue only through the tested path in release-rollback §4 (`enqueueJob` for allowlisted types, otherwise the same `ON CONFLICT (dedupe_key)` statement it issues). Jobs ending in `unknown` intents are never retried blindly: reconcile.
+5. **Unprocessed webhooks** (`unprocessed15m` > 0 makes the deep check `degraded` and fires the alert hook): receipts are durable before the 200; once the worker runs they are processed. If they stay, check `[worker] job failed` for `whatsapp.webhook`: a job that exhausted its attempts is `failed` and nothing stays due, so this count is the only signal that inbound messages are missing.
+**Verify**: deep check back to `ok`; console backlog falls. **Customer communication**: only if delay > 30 min on inbound or reminders (status note to affected pilot tenants). **Follow-up**: postmortem if SEV2+.

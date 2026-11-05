@@ -1,0 +1,41 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/api/refunds/fetch-multiple-refund-payment/",
+  "request": {
+    "method": "GET",
+    "path": "/v1/payments/pay_FixturePay0001/refunds?count=100"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "entity": "collection",
+      "count": 2,
+      "items": [
+        {
+          "id": "rfnd_FixtureRef0001",
+          "entity": "refund",
+          "amount": 10000,
+          "currency": "INR",
+          "payment_id": "pay_FixturePay0001",
+          "notes": {
+            "bodhinox_refund_id": "22222222-2222-4222-8222-222222222222",
+            "attempt": "1"
+          },
+          "status": "processed",
+          "created_at": 1762337000
+        },
+        {
+          "id": "rfnd_FixtureDash001",
+          "entity": "refund",
+          "amount": 5000,
+          "currency": "INR",
+          "payment_id": "pay_FixturePay0001",
+          "notes": [],
+          "status": "pending",
+          "created_at": 1762337100
+        }
+      ]
+    }
+  }
+}

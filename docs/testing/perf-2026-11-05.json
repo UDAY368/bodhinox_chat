@@ -1,0 +1,198 @@
+{
+  "measuredAt": "2026-11-05T04:18:47.249Z",
+  "profile": "pilot",
+  "runsPerMeasure": 200,
+  "warmups": 20,
+  "environment": {
+    "database": "local Docker PostgreSQL (scripts/test-db-local.cjs container, database bodhinox_perf)",
+    "postgres": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+    "hostCpu": "12th Gen Intel(R) Core(TM) i7-12650H",
+    "hostCpuCount": 16,
+    "memoryGb": 16,
+    "platform": "win32 10.0.26300",
+    "node": "v24.20.0",
+    "sameMachine": "database and measuring process on one laptop; production (Railway) network latency is not included"
+  },
+  "measuredTenant": {
+    "key": "perf-tenant-1",
+    "rows": {
+      "contacts": 5000,
+      "conversations": 5000,
+      "messages": 100210,
+      "appointments": 2000
+    }
+  },
+  "conversationAndContactIndexes": [
+    "contacts_account_created_idx",
+    "contacts_account_id_id_key",
+    "contacts_pkey",
+    "contacts_tenant_idx",
+    "conversations_account_id_id_key",
+    "conversations_first_response_due_idx",
+    "conversations_lifecycle_idx",
+    "conversations_pkey",
+    "conversations_tenant_idx",
+    "idx_contacts_account_phone_normalized",
+    "idx_contacts_account_wa_user_id",
+    "idx_conversations_account_number",
+    "idx_conversations_ig_contact_account",
+    "idx_conversations_wa_contact_number"
+  ],
+  "results": [
+    {
+      "id": "inbox_load",
+      "label": "Inbox load (all conversations, contact + tags embed)",
+      "targetMs": 1500,
+      "how": "loadInboxConversations through executeQuery(browser=true) as bodhinox_app",
+      "explain": {
+        "statement": "SELECT c.*, to_jsonb(ct) AS contact FROM conversations c LEFT JOIN contacts ct ON ct.id = c.contact_id WHERE c.account_id = $1 ORDER BY c.last_message_at DESC NULLS LAST, c.id LIMIT 1000 OFFSET 4000",
+        "planTop": "Limit",
+        "seqScanTables": [
+          "conversations"
+        ],
+        "executionMs": 25.5
+      },
+      "stat": {
+        "runs": 200,
+        "p50Ms": 1000.1,
+        "p95Ms": 1109.6,
+        "maxMs": 1302.7
+      },
+      "pass": true,
+      "seqScans": {
+        "tags": 5847195,
+        "conversations": 1317
+      },
+      "rowsPerRun": 5000
+    },
+    {
+      "id": "contact_search",
+      "label": "Contact search (3 characters)",
+      "targetMs": 300,
+      "how": "contacts page query (or name/phone/email ilike, exact count, 25 rows) through executeQuery(browser=true)",
+      "explain": {
+        "statement": "SELECT * FROM contacts WHERE account_id = $1 AND (name ILIKE '%kum%' OR phone ILIKE '%kum%' OR email ILIKE '%kum%') ORDER BY created_at DESC LIMIT 25",
+        "planTop": "Limit",
+        "seqScanTables": [],
+        "executionMs": 5.9
+      },
+      "stat": {
+        "runs": 200,
+        "p50Ms": 8.3,
+        "p95Ms": 19.7,
+        "maxMs": 35
+      },
+      "pass": true,
+      "seqScans": {
+        "tags": 18665,
+        "conversations": 3
+      },
+      "rowsPerRun": 25
+    },
+    {
+      "id": "crm_contacts_page",
+      "label": "CRM route: contacts list page",
+      "targetMs": 2000,
+      "aimMs": 500,
+      "how": "the /api/crm/[resource] query (contacts, exact count, 25 rows) through executeQuery(browser=true); handler session and HTTP not included",
+      "explain": {
+        "statement": "SELECT * FROM contacts WHERE account_id = $1 ORDER BY created_at DESC LIMIT 25",
+        "planTop": "Limit",
+        "seqScanTables": [],
+        "executionMs": 0
+      },
+      "stat": {
+        "runs": 200,
+        "p50Ms": 4.4,
+        "p95Ms": 18.9,
+        "maxMs": 58.2
+      },
+      "pass": true,
+      "seqScans": {},
+      "rowsPerRun": 25
+    },
+    {
+      "id": "booking_schedule",
+      "label": "Booking route: one week of the schedule",
+      "targetMs": 2000,
+      "aimMs": 500,
+      "how": "listSchedule inside withTenant as bodhinox_app (the GET /api/appointments query); handler session and HTTP not included",
+      "explain": {
+        "statement": "SELECT a.* FROM appointments a WHERE a.account_id = $1 AND a.start_at < $3 AND a.end_at > $2 ORDER BY a.start_at, a.id LIMIT 500",
+        "planTop": "Limit",
+        "seqScanTables": [],
+        "executionMs": 0.6
+      },
+      "stat": {
+        "runs": 200,
+        "p50Ms": 67,
+        "p95Ms": 79.2,
+        "maxMs": 133.8
+      },
+      "pass": true,
+      "seqScans": {},
+      "rowsPerRun": 169
+    },
+    {
+      "id": "analytics_overview_30d",
+      "label": "Analytics 30-day overview",
+      "targetMs": 1500,
+      "how": "runAnalytics (statement timeout, workspace timezone) + conversationStats for the range and the previous one, as bodhinox_app",
+      "explain": null,
+      "stat": {
+        "runs": 200,
+        "p50Ms": 181.2,
+        "p95Ms": 199.1,
+        "maxMs": 220.9
+      },
+      "pass": true,
+      "seqScans": {
+        "conversations": 434
+      },
+      "rowsPerRun": 2
+    },
+    {
+      "id": "inbound_webhook_visible",
+      "label": "Inbound text webhook to visible in the inbox query",
+      "targetMs": 4000,
+      "how": "persistWebhook + the whatsapp.webhook job handler (worker role) + a messages read through executeQuery(browser=true); in process, no HTTP",
+      "note": "Target 5 s with 1 s worker polling: the measured time must stay within 4 s so that with the polling wait it is within 5 s.",
+      "explain": null,
+      "stat": {
+        "runs": 100,
+        "p50Ms": 62.8,
+        "p95Ms": 87.3,
+        "maxMs": 201.4
+      },
+      "pass": true,
+      "seqScans": {
+        "conversations": 6,
+        "whatsapp_config": 190
+      },
+      "rowsPerRun": 1
+    },
+    {
+      "id": "job_claim_finish",
+      "label": "Job claim + finish (single consumer)",
+      "targetMs": 50,
+      "how": "opt-in queue-burst load test, local Docker",
+      "stat": {
+        "runs": 100,
+        "p50Ms": 7,
+        "p95Ms": 8,
+        "maxMs": null
+      },
+      "pass": true,
+      "note": "From docs/testing/queue-burst-result.json (2026-11-05T02:49:06.796Z): drain 132.41 jobs/s (target >= 50)."
+    },
+    {
+      "id": "reminder_lag",
+      "label": "Reminder scheduling lag (due to enqueued)",
+      "targetMs": 60000,
+      "how": "not measured in this pass",
+      "stat": null,
+      "pass": null,
+      "note": "Not measured: needs the scheduler loop with 1k due reminders. The scheduler runs every 30 s by design; recorded as an open measurement."
+    }
+  ]
+}

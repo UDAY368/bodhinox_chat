@@ -100,8 +100,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('scheduled and large campaig
     await rescheduleBroadcast(a, id, later);
     expect((await job(id)).run_at.toISOString()).toBe(new Date(later).toISOString());
     await expect(rescheduleBroadcast(a, id, inMinutes(0))).rejects.toThrow(/at least one minute/);
-    await expect(rescheduleBroadcast(b, id, inMinutes(60))).rejects.toThrow(/Only scheduled/);
-    expect(await cancelScheduledBroadcast(b, id)).toBe(false);
+    // Another workspace's id is answered as not found, never as a state conflict.
+    await expect(rescheduleBroadcast(b, id, inMinutes(60))).rejects.toMatchObject({ status: 404, code: 'not_found' });
+    await expect(cancelScheduledBroadcast(b, id)).rejects.toMatchObject({ status: 404, code: 'not_found' });
 
     expect(await cancelScheduledBroadcast(a, id)).toBe(true);
     expect(await row(id)).toMatchObject({ status: 'cancelled' });

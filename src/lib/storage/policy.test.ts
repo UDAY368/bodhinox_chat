@@ -21,4 +21,11 @@ describe('private tenant media', () => {
     expect(() => authorizeObject('avatars', '00000000-0000-4000-8000-000000000003/avatar.png', { accountId, userId }, 'write')).toThrow();
     expect(() => authorizeObject('private-secrets', `${userId}/a`, { accountId, userId }, 'read')).toThrow();
   });
+  it('answers ownership refusals as 403 (another workspace, another avatar, viewer write) and malformed input as plain errors', () => {
+    const status = (run: () => void) => { try { run(); return 'none'; } catch (error) { return (error as { status?: number }).status ?? 'plain'; } };
+    expect(status(() => authorizeObject('chat-media', 'account-00000000-0000-4000-8000-000000000003/a.png', { accountId, userId }, 'read'))).toBe(403);
+    expect(status(() => authorizeObject('avatars', '00000000-0000-4000-8000-000000000003/avatar.png', { accountId, userId }, 'write'))).toBe(403);
+    expect(status(() => authorizeObject('chat-media', `account-${accountId}/a.png`, { accountId, userId, role: 'viewer' }, 'write'))).toBe(403);
+    expect(status(() => authorizeObject('chat-media', `account-${accountId}/../a.png`, { accountId, userId }, 'read'))).toBe('plain');
+  });
 });

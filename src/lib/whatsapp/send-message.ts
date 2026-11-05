@@ -54,6 +54,7 @@ import {
 } from '@/lib/whatsapp/sender-config';
 import type { MessageTemplate } from '@/types';
 import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
+import { getSessionWindow } from '@/lib/inbox/session';
 import {
   resolveTemplateRow,
   templateBodyParams,
@@ -425,6 +426,30 @@ export async function sendMessageToConversation(
           400
         );
       }
+    }
+  }
+
+  // Anything but a template needs the 24-hour customer service window (the
+  // catalogue, form and payment-link sends apply the same rule). Refused here
+  // with a clear 409, before the bot is paused or Meta is called.
+  if (messageType !== 'template') {
+    const { data: lastInbound, error: windowError } = await db
+      .from('messages')
+      .select('created_at')
+      .eq('account_id', accountId)
+      .eq('conversation_id', conversationId)
+      .eq('sender_type', 'customer')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (windowError) throw new SendMessageError('internal', 'Could not check the customer service window', 503);
+    const lastAt = (lastInbound as { created_at?: string | null } | null)?.created_at ?? null;
+    if (!getSessionWindow(lastAt ? new Date(lastAt).toISOString() : null, Date.now()).active) {
+      throw new SendMessageError(
+        'window_closed',
+        'The 24-hour customer service window is closed. Send an approved template instead.',
+        409
+      );
     }
   }
 

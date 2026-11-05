@@ -106,7 +106,14 @@ export async function verifyAndSettle(accountId: string, linkId: string, hint: {
       providerAccountId: hint.providerAccountId ?? null, amountMinor: payment.amountMinor, currency: payment.currency,
       status, method: payment.method, capturedAt: payment.createdAt ? new Date(payment.createdAt * 1000) : null,
     };
-    outcomes.push(await worker(accountId, (tx) => settlePaymentTx(tx, verified)));
+    const outcome = await worker(accountId, (tx) => settlePaymentTx(tx, verified));
+    outcomes.push(outcome);
+    // A refund delivery that ran before this payment was recorded found no row and changed nothing;
+    // Razorpay's refund list is the truth, so it is applied now (idempotent per provider refund id).
+    if (payment.amountRefundedMinor > 0 && 'paymentId' in outcome && outcome.paymentId) {
+      const { syncProviderRefunds } = await import('./refunds');
+      await syncProviderRefunds(accountId, payment.id);
+    }
   }
   if (!outcomes.length) outcomes.push({ kind: 'not_captured', paymentId: null });
   return outcomes;

@@ -55,6 +55,12 @@ describe('/api/broadcasts/[id]/schedule', () => {
     expect((await del()).status).toBe(409);
   });
 
+  it('DELETE answers 404 for a malformed id without touching the store', async () => {
+    const res = await DELETE(new Request('http://localhost/api/broadcasts/x/schedule', { method: 'DELETE' }), { params: Promise.resolve({ id: 'not-a-uuid' }) });
+    expect(res.status).toBe(404);
+    expect(h.cancelled).toEqual([]);
+  });
+
   it('PATCH requires campaigns.send and reschedules nothing when it is turned off', async () => {
     h.permissionDenied = true;
     expect((await patch()).status).toBe(403);

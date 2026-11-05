@@ -280,6 +280,21 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('subscription lifecycle on P
     expect(audit.map((r) => r.action)).toEqual(expect.arrayContaining(['billing.checkout_superseded', 'billing.stray_subscription_cancel']));
     expect(audit.find((r) => r.action === 'billing.stray_subscription_cancel')?.metadata).toEqual({ outcome: 'cancelled' });
     expect((await owner.query("SELECT status FROM billing_intents WHERE account_id=$1 AND provider_subscription_id=$2", [accountA, oldId])).rows).toEqual([{ status: 'superseded' }]);
+    // A paid charge on that stray is cancelled too, and never silent: it opens a charge_unapplied item.
+    // (The provider still reports it active when the charge event is handled, so the stray branch runs.)
+    const strayCharge = await deliver('subscription.charged', provider.set(oldId, 'active'), { paymentId: `pay_S${tag}`, amountMinor: 118000 }, at(104));
+    expect(provider.subs.get(oldId)?.state).toBe('cancelled');
+    expect(strayCharge).toMatchObject({ account_id: accountA, error: expect.stringMatching(/^Superseded checkout: cancelled at the provider, but a paid charge/) });
+    const items = (await owner.query("SELECT kind, detail->>'reason' AS reason FROM billing_reconciliation_items WHERE account_id=$1 AND detail->>'subscription_id'=$2",
+      [accountA, oldId])).rows;
+    expect(items).toEqual(expect.arrayContaining([{ kind: 'event_error', reason: 'charge_unapplied' }]));
+    // Razorpay also sends invoice.paid for the same charge: still exactly one item for that money,
+    // keyed by the payment and carrying its ids and amount.
+    await deliver('invoice.paid', provider.set(oldId, 'active'), { paymentId: `pay_S${tag}`, invoiceId: `inv_S${tag}`, amountMinor: 118000 }, at(104));
+    const chargeItems = (await owner.query(`SELECT source_ref, detail->>'payment_id' AS payment_id, (detail->>'amount_minor')::int AS amount_minor
+      FROM billing_reconciliation_items WHERE kind='event_error' AND detail->>'reason'='charge_unapplied' AND detail->>'payment_id'=$1`, [`pay_S${tag}`])).rows;
+    expect(chargeItems).toEqual([{ source_ref: `charge:pay_S${tag}`, payment_id: `pay_S${tag}`, amount_minor: 118000 }]);
+    expect((await owner.query('SELECT count(*)::int AS n FROM invoices WHERE account_id=$1 AND provider_payment_id=$2', [accountA, `pay_S${tag}`])).rows[0].n).toBe(0);
     // Its cancellation event changes nothing either.
     expect(await deliver('subscription.cancelled', provider.subs.get(oldId)!, undefined, at(104))).toMatchObject({ error: null });
     expect((await subRow()).provider_subscription_id).toBe(subId);

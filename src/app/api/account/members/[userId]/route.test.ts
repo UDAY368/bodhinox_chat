@@ -77,4 +77,11 @@ describe('PATCH mask_phone_numbers', () => {
     expect((await patch({ role: 'viewer' })).status).toBe(200);
     expect(h.rpc).toHaveBeenCalledWith('set_member_role', { p_user_id: MEMBER, p_new_role: 'viewer' });
   });
+
+  it('answers a user who is not a member of this workspace (P0002) with 404, other refusals unchanged', async () => {
+    h.rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0002', message: 'Member not found' } });
+    expect((await patch({ role: 'viewer' })).status).toBe(404);
+    h.rpc.mockResolvedValueOnce({ data: null, error: { code: '22023', message: 'The owner cannot be removed or demoted' } });
+    expect((await patch({ role: 'viewer' })).status).toBe(400);
+  });
 });

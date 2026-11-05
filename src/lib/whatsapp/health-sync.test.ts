@@ -64,6 +64,10 @@ class FakeTx {
       Object.assign(this.row!, { quality_rating, messaging_limit_tier, name_status, code_verification_status, health_checked_at, health_error: null });
       return 1;
     }
+    if (sql.includes("UPDATE whatsapp_config SET health_error='token'")) {
+      Object.assign(this.row!, { health_error: 'token' });
+      return 1;
+    }
     if (sql.includes('UPDATE whatsapp_config SET health_error')) {
       Object.assign(this.row!, { health_error: values[0] });
       return 1;
@@ -203,6 +207,10 @@ describe('syncNumberHealth', () => {
     expect(result).toEqual({ status: 'error', error: 'token' });
     expect(fetchHealth).toHaveBeenCalledWith({ phoneNumberId: '1555', accessToken: 'plain-token' });
     expect(tx.row).toMatchObject({ health_error: 'token', quality_rating: 'GREEN', health_checked_at: new Date(1) });
+    // The first token error alerts the owner and admin once; a repeat (already 'token') adds nothing.
+    expect([...tx.notifications.values()].map((n) => n.title)).toEqual(['WhatsApp number needs reconnecting', 'WhatsApp number needs reconnecting']);
+    await syncNumberHealth({ accountId: ACCOUNT, configId: CONFIG, fetchHealth, db: {} as never });
+    expect(tx.notifications.size).toBe(2);
     // Logs carry neither the token nor Meta's message.
     expect(JSON.stringify(warn.mock.calls)).not.toMatch(/plain-token|secret details/);
     warn.mockRestore();

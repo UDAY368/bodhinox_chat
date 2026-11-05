@@ -1,0 +1,65 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/webhooks/payloads/payment-links/",
+  "request": {
+    "method": "POST",
+    "path": "/api/payments/razorpay/webhook/{accountId}",
+    "headers": {
+      "x-razorpay-signature": "<computed with the workspace webhook secret>",
+      "x-razorpay-event-id": "evt_FixtureEvent001"
+    },
+    "body": {
+      "entity": "event",
+      "account_id": "acc_FixtureMerchant1",
+      "event": "payment_link.paid",
+      "contains": [
+        "payment_link",
+        "order",
+        "payment"
+      ],
+      "payload": {
+        "payment_link": {
+          "entity": {
+            "id": "plink_FixtureLink001",
+            "entity": "payment_link",
+            "status": "paid",
+            "amount": 49900,
+            "amount_paid": 49900,
+            "currency": "INR",
+            "accept_partial": false,
+            "reference_id": "co_fixturereference00000000000001",
+            "short_url": "https://rzp.io/i/fixture1",
+            "expire_by": 1893456000,
+            "payments": null,
+            "notify": {
+              "sms": false,
+              "email": false
+            },
+            "reminder_enable": false,
+            "created_at": 1762336800
+          }
+        },
+        "payment": {
+          "entity": {
+            "id": "pay_FixturePay0001",
+            "entity": "payment",
+            "amount": 49900,
+            "currency": "INR",
+            "status": "captured",
+            "method": "upi",
+            "email": "buyer@example.com",
+            "contact": "+919800000301"
+          }
+        }
+      },
+      "created_at": 1762336910
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  }
+}

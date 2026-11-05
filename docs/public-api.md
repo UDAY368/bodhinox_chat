@@ -168,7 +168,10 @@ Response (201):
 ```
 
 Domain error codes beyond the table above: `whatsapp_not_configured`
-(400), `meta_error` (502 — the request reached Meta and it rejected the
+(400), `window_closed` (409 — a text, media or interactive message outside
+the 24-hour customer service window, which opens only when the customer
+writes; send an approved template instead; nothing is sent to Meta),
+`meta_error` (502 — the request reached Meta and it rejected the
 send), `template_malformed` (500).
 
 ### `GET /api/v1/contacts`

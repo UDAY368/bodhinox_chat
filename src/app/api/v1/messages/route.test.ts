@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   resolved: [] as unknown[][],
   sent: 0,
   blocked: false,
+  sendError: null as unknown,
 }));
 
 vi.mock('@/lib/auth/api-context', () => ({
@@ -35,9 +36,14 @@ vi.mock('@/lib/whatsapp/resolve-conversation', () => ({
 }));
 vi.mock('@/lib/whatsapp/send-message', async (importOriginal) => ({
   ...await importOriginal<Record<string, unknown>>(),
-  sendMessageToConversation: async () => { h.sent++; return { messageId: 'm-1', whatsappMessageId: 'wamid.1' }; },
+  sendMessageToConversation: async () => {
+    if (h.sendError) throw h.sendError;
+    h.sent++;
+    return { messageId: 'm-1', whatsappMessageId: 'wamid.1' };
+  },
 }));
 
+import { SendMessageError } from '@/lib/whatsapp/send-message';
 import { POST } from './route';
 
 const B = '22222222-2222-4222-8222-22222222222b';
@@ -49,6 +55,7 @@ describe('POST /api/v1/messages phone_number_id', () => {
     h.resolved = [];
     h.sent = 0;
     h.blocked = false;
+    h.sendError = null;
     h.numbers = [
       { id: B, account_id: 'acct', phone_number_id: '2000' },
       { id: 'foreign', account_id: 'other', phone_number_id: '3000' },
@@ -80,6 +87,14 @@ describe('POST /api/v1/messages phone_number_id', () => {
     expect((await send({ to: '+15551234567', text: 'hi', phone_number_id: '3000' })).status).toBe(400);
     expect((await send({ to: '+15551234567', text: 'hi', phone_number_id: 42 })).status).toBe(400);
     expect(h.resolved).toHaveLength(0);
+    expect(h.sent).toBe(0);
+  });
+
+  it('answers 409 window_closed when the 24-hour customer service window is closed', async () => {
+    h.sendError = new SendMessageError('window_closed', 'The 24-hour customer service window is closed. Send an approved template instead.', 409);
+    const res = await send({ to: '+15551234567', text: 'hi' });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: { code: 'window_closed' } });
     expect(h.sent).toBe(0);
   });
 

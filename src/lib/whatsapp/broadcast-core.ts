@@ -467,13 +467,16 @@ export async function deliverBroadcast(
         .eq('id', recipient.recipientRowId);
       if (persisted.error) throw new Error('Broadcast recipient persistence failed');
     } else {
+      // Never downgrade a row another pass already marked sent: a pass that lost the send
+      // intent to it sees the intent mid-flight (uncertain) and would otherwise overwrite it.
       const persisted = await db
         .from('broadcast_recipients')
         .update({
           status: 'failed',
           error_message: lastError || 'Unknown error',
         })
-        .eq('id', recipient.recipientRowId);
+        .eq('id', recipient.recipientRowId)
+        .neq('status', 'sent');
       if (persisted.error) throw new Error('Broadcast recipient persistence failed');
     }
   }

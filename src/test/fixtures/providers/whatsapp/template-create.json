@@ -1,0 +1,38 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://developers.facebook.com/docs/graph-api/reference/whats-app-business-account/message_templates/",
+  "request": {
+    "method": "POST",
+    "path": "/{version}/{waba-id}/message_templates",
+    "headers": {
+      "authorization": "Bearer <redacted>"
+    },
+    "body": {
+      "name": "order_update",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Order {{1}} is confirmed",
+          "example": {
+            "body_text": [
+              [
+                "#1001"
+              ]
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "594425479261596",
+      "status": "PENDING",
+      "category": "UTILITY"
+    }
+  }
+}

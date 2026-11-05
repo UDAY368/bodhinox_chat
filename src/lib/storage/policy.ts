@@ -1,3 +1,4 @@
+import { ForbiddenError } from '@/lib/auth/errors';
 import type { AccountRole } from '@/lib/auth/roles';
 export interface MediaContext { accountId: string; userId?: string; role?: AccountRole }
 const buckets = new Set(['chat-media', 'flow-media', 'avatars']);
@@ -7,9 +8,9 @@ export function authorizeObject(bucket: string, path: string, context: MediaCont
   if (!path || path.length > 1024 || path.includes('%') || path.includes('\\') || path.split('/').some(p => !p || p === '.' || p === '..') || /[\x00-\x1f]/.test(path)) throw new Error('Invalid object path');
   if (bucket === 'avatars') {
     const owner = path.split('/')[0];
-    if (!uuid.test(owner) || (mode === 'write' && owner !== context.userId)) throw new Error('Avatar access denied');
-  } else if (!path.startsWith(`account-${context.accountId}/`)) throw new Error('Media belongs to another workspace');
-  if (mode === 'write' && bucket !== 'avatars' && context.role === 'viewer') throw new Error('Viewer cannot upload media');
+    if (!uuid.test(owner) || (mode === 'write' && owner !== context.userId)) throw new ForbiddenError('Avatar access denied');
+  } else if (!path.startsWith(`account-${context.accountId}/`)) throw new ForbiddenError('Media belongs to another workspace');
+  if (mode === 'write' && bucket !== 'avatars' && context.role === 'viewer') throw new ForbiddenError('Viewer cannot upload media');
 }
 export function storageKey(bucket: string, path: string, context: MediaContext): string {
   authorizeObject(bucket, path, context, 'read');

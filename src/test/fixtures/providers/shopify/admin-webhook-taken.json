@@ -1,0 +1,15 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://shopify.dev/docs/api/admin-rest/2025-10/resources/webhook#post-webhooks",
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": {
+        "address": [
+          "for this topic has already been taken"
+        ]
+      }
+    }
+  }
+}

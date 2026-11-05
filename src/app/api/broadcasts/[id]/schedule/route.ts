@@ -30,7 +30,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const ctx = await requireRole('agent');
     await requirePermission(tenantOf(ctx), 'campaigns.send');
     const { id } = await params;
-    if (UUID.test(id) && (await cancelScheduledBroadcast(tenantOf(ctx), id))) return NextResponse.json({ success: true });
+    if (!UUID.test(id)) return notFound();
+    if (await cancelScheduledBroadcast(tenantOf(ctx), id)) return NextResponse.json({ success: true });
     return NextResponse.json({ error: 'Only scheduled campaigns can be cancelled' }, { status: 409 });
   } catch (error) {
     return toErrorResponse(error);

@@ -1,0 +1,17 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/errors/",
+  "response": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "BAD_REQUEST_ERROR",
+        "description": "The amount must be at least INR 1.00",
+        "source": "NA",
+        "step": "NA",
+        "reason": "NA"
+      }
+    }
+  }
+}

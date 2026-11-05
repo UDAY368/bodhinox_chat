@@ -1,0 +1,17 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://razorpay.com/docs/errors/",
+  "response": {
+    "status": 500,
+    "body": {
+      "error": {
+        "code": "SERVER_ERROR",
+        "description": "We are facing some trouble completing your request at the moment. Please try again shortly.",
+        "source": "NA",
+        "step": "NA",
+        "reason": "NA"
+      }
+    }
+  }
+}

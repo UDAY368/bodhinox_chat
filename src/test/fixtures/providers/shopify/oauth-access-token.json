@@ -1,0 +1,20 @@
+{
+  "source": "docs-derived",
+  "capturedAt": "2026-11-05",
+  "docsUrl": "https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant",
+  "request": {
+    "method": "POST",
+    "path": "https://{shop}/admin/oauth/access_token",
+    "body": {
+      "client_id": "fixture-key",
+      "code": "fixturecode123"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "access_token": "<redacted>",
+      "scope": "read_orders,read_checkouts,read_customers,read_fulfillments"
+    }
+  }
+}
