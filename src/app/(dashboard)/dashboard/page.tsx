@@ -37,6 +37,7 @@ import { PipelineDonut } from '@/components/dashboard/pipeline-donut';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { OperationsPanel } from '@/components/dashboard/operations-panel';
+import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import styles from '@/components/dashboard/dashboard.module.css';
 
 import { useTranslations } from 'next-intl';
@@ -148,6 +149,8 @@ export default function DashboardPage() {
           {t('openInbox')} <ArrowUpRight className="h-4 w-4" aria-hidden />
         </Link>
       </div>
+
+      <OnboardingChecklist />
 
       <div className={styles.introGrid}>
         <section className={`${styles.hero} studio-hero`}>

@@ -123,3 +123,22 @@ it('disconnects for admins only, and is rate limited', async () => {
   expect((await DELETE()).status).toBe(429);
   expect((await put({ key_id: KEY, key_secret: 'one' })).status).toBe(429);
 });
+
+it('refuses the platform SaaS billing key as a commerce key, before calling Razorpay, and only while that key is set', async () => {
+  const saved = process.env.BILLING_RAZORPAY_KEY_ID;
+  try {
+    process.env.BILLING_RAZORPAY_KEY_ID = ` ${KEY} `;
+    const refused = await put({ key_id: KEY, key_secret: 's' });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ code: 'platform_key_reuse' });
+    expect(h.testCredentials).not.toHaveBeenCalled();
+    expect(h.save).not.toHaveBeenCalled();
+    // A different commerce key is unaffected.
+    expect((await put({ key_id: 'rzp_test_Other987654', key_secret: 's' })).status).toBe(200);
+    delete process.env.BILLING_RAZORPAY_KEY_ID;
+    expect((await put({ key_id: KEY, key_secret: 's' })).status).toBe(200);
+  } finally {
+    if (saved === undefined) delete process.env.BILLING_RAZORPAY_KEY_ID;
+    else process.env.BILLING_RAZORPAY_KEY_ID = saved;
+  }
+});

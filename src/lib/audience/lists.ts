@@ -9,7 +9,7 @@ import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { AudienceFilterError, type AudienceFilter } from './filter';
 import { pageContacts, type ContactPage } from './segments';
 import { loadPhoneMask } from '@/lib/inbox/masking-apply';
-import { requireRoomFor } from '@/lib/billing/entitlements';
+import { gateLimit } from '@/lib/billing/limits';
 
 export interface ContactList {
   id: string;
@@ -45,7 +45,7 @@ export function listLists(ctx: TenantContext): Promise<ContactList[]> {
 export async function createList(ctx: TenantContext, input: unknown): Promise<ContactList> {
   const name = parse(nameSchema, (input as { name?: unknown } | null)?.name);
   return withTenant(ctx, async (tx) => {
-    await requireRoomFor(tx, ctx.accountId, 'lists', async () =>
+    await gateLimit(tx, ctx.accountId, 'lists', async () =>
       (await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM contact_lists WHERE account_id=${ctx.accountId}::uuid AND archived_at IS NULL`)[0].n);
     const rows = await tx.$queryRaw<ContactList[]>`
       INSERT INTO contact_lists(account_id,user_id,name) VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,${name})

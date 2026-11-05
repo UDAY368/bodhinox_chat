@@ -22,7 +22,8 @@
  */
 import { randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { PlanLimitError, requireWhatsAppNumberRoom } from '@/lib/billing/entitlements';
+import { PlanLimitError } from '@/lib/billing/entitlements';
+import { requireWhatsAppNumberRoom } from '@/lib/billing/limits';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing';
 import { isNumberDisconnected } from '@/lib/whatsapp/numbers';

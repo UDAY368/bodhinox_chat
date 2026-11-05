@@ -101,7 +101,7 @@ it('reports a provider refusal as 502 with the failed link', async () => {
 it('sends the created link into the conversation once per request id', async () => {
   h.send.mockResolvedValueOnce({ whatsappMessageId: 'wamid.1', messageId: 'm1' });
   const res = await post({ ...valid, conversation_id: CONV, send: true, message: 'Pay here' });
-  expect(h.send).toHaveBeenCalledWith({ accountId: ctx.accountId, userId: ctx.userId, role: 'agent', linkId: link().id, message: 'Pay here', intentKey: `payment-link:${link().id}:send:${REQ}` });
+  expect(h.send).toHaveBeenCalledWith({ accountId: ctx.accountId, userId: ctx.userId, role: 'agent', linkId: link().id, message: 'Pay here', intentKey: `payment-link:${link().id}:send:${REQ}`, manual: true });
   expect(await res.json()).toMatchObject({ send: { status: 'sent', message_id: 'm1' } });
 
   h.send.mockRejectedValueOnce(new UncertainDispatchError());

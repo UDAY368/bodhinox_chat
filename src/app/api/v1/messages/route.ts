@@ -43,6 +43,7 @@ import {
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { loadSenderConfigByPhoneNumberId, numberErrorText } from '@/lib/whatsapp/sender-config';
+import { manualRepliesBlocked } from '@/lib/platform/lifecycle';
 
 export async function POST(request: Request) {
   try {
@@ -98,6 +99,13 @@ export async function POST(request: Request) {
       interactivePayload,
       templateMessageParams,
     });
+
+    // A platform admin may block manual replies for a workspace (abuse); an API key
+    // sends on the workspace's behalf, so it is refused the same way as the inbox,
+    // before any contact or conversation is created.
+    if (await manualRepliesBlocked({ accountId: ctx.accountId, role: 'owner' })) {
+      return fail('workspace_manual_blocked', 'Sending from this workspace is paused by Bodhinox support', 403);
+    }
 
     // The number to send from: the one named by phone_number_id, else
     // the workspace default (resolveConversationByPhone picks it).

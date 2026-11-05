@@ -10,7 +10,9 @@ import { autoReplyThreshold } from '@/lib/ai/auto-reply'
 import { latestUserMessage } from '@/lib/ai/query'
 import { AiError, type ChatMessage } from '@/lib/ai/types'
 import { getT } from '@/lib/i18n/translate'
-import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
+import { newRequestKey } from '@/lib/billing/usage-ledger'
+import { chatTokenEstimate, failAi, reserveAi, settleAi } from '@/lib/ai/budget'
+import { estimateUsage, promptCharsOf } from '@/lib/ai/usage'
 import { aiDeploymentEnabled } from '@/lib/ai/gate'
 
 const t = getT('Api')
@@ -124,9 +126,19 @@ export async function POST(request: Request) {
     })
 
     const generationStartedAt = performance.now()
-    await requireAiMessageRoom(accountId)
-    const { text: rawText, handoff, noAnswer } = await generateReply({ config, systemPrompt, messages })
-    await recordAiMessage(accountId)
+    // One AI message per test turn, held before the call and settled once.
+    const promptChars = promptCharsOf(systemPrompt, messages)
+    const reservation = await reserveAi(accountId, newRequestKey(), { message: true, tokens: chatTokenEstimate(systemPrompt, messages) })
+    let generated: Awaited<ReturnType<typeof generateReply>>
+    try {
+      generated = await generateReply({ config, systemPrompt, messages })
+    } catch (error) {
+      await failAi(reservation, error, promptChars)
+      throw error
+    }
+    const { text: rawText, handoff, noAnswer, usage } = generated
+    // Tokens count against the monthly meters; a test turn writes no ai_usage_log row (as before).
+    await settleAi(reservation, { tokens: (usage ?? estimateUsage({ promptChars, outputChars: rawText.length })).totalTokens })
     const confidence = assessConfidence({
       reply: rawText,
       handoff,

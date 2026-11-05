@@ -4197,6 +4197,30 @@
         "nullable": false,
         "default": "true",
         "reference": null
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "deleted_at timestamptz"
+      },
+      {
+        "name": "terms_version",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "terms_version text CHECK (char_length(terms_version) BETWEEN 1 AND 40)"
+      },
+      {
+        "name": "terms_accepted_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "terms_accepted_at timestamptz"
       }
     ],
     "auth_sessions": [
@@ -15652,6 +15676,428 @@
         "default": null,
         "reference": null,
         "definition": "error_code text CHECK (char_length(error_code) <= 64)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "completed_at timestamptz"
+      }
+    ],
+    "usage_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "metric",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "metric text NOT NULL CHECK (metric IN ('ai_messages','ai_tokens'))"
+      },
+      {
+        "name": "source_key",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "source_key text NOT NULL CHECK (char_length(source_key) BETWEEN 1 AND 200)"
+      },
+      {
+        "name": "period",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "period text NOT NULL CHECK (period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$')"
+      },
+      {
+        "name": "quantity",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "quantity bigint NOT NULL CHECK (quantity > 0)"
+      },
+      {
+        "name": "state",
+        "type": "text",
+        "nullable": false,
+        "default": "'reserved'",
+        "reference": null,
+        "definition": "state text NOT NULL DEFAULT 'reserved' CHECK (state IN ('reserved','settled','released'))"
+      },
+      {
+        "name": "reserved_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "reserved_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "settled_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "settled_at timestamptz"
+      }
+    ],
+    "usage_notices": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "limit_key",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "limit_key text NOT NULL CHECK (limit_key ~ '^[a-z][a-z0-9_]{1,40}$')"
+      },
+      {
+        "name": "period",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "period text NOT NULL CHECK (period ~ '^([0-9]{4}-(0[1-9]|1[0-2])|current)$')"
+      },
+      {
+        "name": "threshold",
+        "type": "smallint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "threshold smallint NOT NULL CHECK (threshold IN (80, 100))"
+      },
+      {
+        "name": "limit_value",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "limit_value bigint NOT NULL CHECK (limit_value >= 0)"
+      },
+      {
+        "name": "used_value",
+        "type": "bigint",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "used_value bigint NOT NULL CHECK (used_value >= 0)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "account_lifecycle": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid PRIMARY KEY DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'active'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','admin_suspended','closing'))"
+      },
+      {
+        "name": "block_manual",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "block_manual boolean NOT NULL DEFAULT false"
+      },
+      {
+        "name": "suspended_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "suspended_at timestamptz"
+      },
+      {
+        "name": "suspend_reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "suspend_reason text CHECK (char_length(suspend_reason) <= 1000)"
+      },
+      {
+        "name": "suspended_by_email",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "suspended_by_email text CHECK (char_length(suspended_by_email) <= 254)"
+      },
+      {
+        "name": "deletion_requested_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "deletion_requested_at timestamptz"
+      },
+      {
+        "name": "deletion_requested_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "deletion_requested_by uuid"
+      },
+      {
+        "name": "purge_after",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "purge_after timestamptz"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "support_grants": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "requested_by_email",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "requested_by_email text NOT NULL CHECK (char_length(requested_by_email) BETWEEN 3 AND 254 AND requested_by_email LIKE '%@%')"
+      },
+      {
+        "name": "reason",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "reason text NOT NULL CHECK (char_length(reason) BETWEEN 10 AND 1000)"
+      },
+      {
+        "name": "scope",
+        "type": "text",
+        "nullable": false,
+        "default": "'diagnostics'",
+        "reference": null,
+        "definition": "scope text NOT NULL DEFAULT 'diagnostics' CHECK (scope IN ('diagnostics'))"
+      },
+      {
+        "name": "requested_minutes",
+        "type": "integer",
+        "nullable": false,
+        "default": "60",
+        "reference": null,
+        "definition": "requested_minutes integer NOT NULL DEFAULT 60 CHECK (requested_minutes BETWEEN 15 AND 1440)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'requested'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','approved','denied','revoked','expired'))"
+      },
+      {
+        "name": "decided_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "decided_by uuid"
+      },
+      {
+        "name": "requested_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "requested_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "decided_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "decided_at timestamptz"
+      },
+      {
+        "name": "expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "expires_at timestamptz"
+      },
+      {
+        "name": "revoked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "revoked_at timestamptz"
+      }
+    ],
+    "workspace_exports": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "requested_by",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "requested_by uuid NOT NULL"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'queued'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','ready','failed','expired'))"
+      },
+      {
+        "name": "storage_key",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "storage_key text CHECK (char_length(storage_key) BETWEEN 1 AND 512)"
+      },
+      {
+        "name": "size_bytes",
+        "type": "bigint",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "size_bytes bigint CHECK (size_bytes >= 0)"
+      },
+      {
+        "name": "expires_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "expires_at timestamptz"
+      },
+      {
+        "name": "error_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "error_code text CHECK (error_code ~ '^[a-z][a-z0-9_]{1,63}$')"
       },
       {
         "name": "created_at",

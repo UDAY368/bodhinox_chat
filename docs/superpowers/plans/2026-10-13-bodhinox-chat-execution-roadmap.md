@@ -324,16 +324,18 @@ Status (5 November 2026): built and off per workspace by default; existing AI ke
 
 Dependencies: Phase 3 entitlement/usage foundations and trustworthy usage events. Can overlap later product modules after the pilot.
 
-- [ ] Implement configurable plans, monthly/annual subscription billing, billing records and subscription webhook reconciliation.
-- [ ] Add contact/integration/user/workflow limits, messaging/AI usage counters, usage display and explicit overage policy.
-- [ ] Prevent retry-driven double metering. Reserve/check quotas where concurrent actions could exceed caps.
-- [ ] Implement upgrades, downgrades, grace periods and expired-subscription behavior; preserve operational/customer data and essential reconciliation.
-- [ ] Build restricted platform administration, support access with audit, integration health and tenant lifecycle controls.
+- [x] Implement configurable plans, monthly/annual subscription billing, billing records and subscription webhook reconciliation.
+- [x] Add contact/integration/user/workflow limits, messaging/AI usage counters, usage display and explicit overage policy.
+- [x] Prevent retry-driven double metering. Reserve/check quotas where concurrent actions could exceed caps.
+- [x] Implement upgrades, downgrades, grace periods and expired-subscription behavior; preserve operational/customer data and essential reconciliation.
+- [x] Build restricted platform administration, support access with audit, integration health and tenant lifecycle controls.
 - [ ] Complete the marketing website, documentation, self-service onboarding, help and account/privacy controls.
 
 Deliverable: unrelated businesses can onboard and pay for isolated workspaces.
 
 Completion gate: customer purchase payments and SaaS billing never cross; tenant plans enforce accurately; billing retries and subscription changes reconcile.
+
+Status (5 November 2026): built and tested on local real-database and unit tests, not yet deployed (the Playwright suite and the production build were not run in this integration step). Delivered: versioned plans with pinned subscriptions and a previewed, audited plan and price console; daily read-only provider reconciliation and a reconciliation queue for failed events, unknown intents, unissued invoices and shared keys; race-free limits for seats, active automations, active flows, contacts (inbound exempt) and integrations; idempotent AI metering with reservations; usage meters, per-limit policies and 80%/100% notices; the restricted platform console (allowlist, MFA step-up, 404 otherwise) with tenants, admin suspension and manual-reply block, consented support diagnostics, integration health and an append-only audit trail; Settings → Privacy & access (export, support access, leave, create, delete workspace, delete account); a landing page, pricing, help and DRAFT legal pages, terms acceptance behind `TERMS_VERSION`, an onboarding checklist. The completion gate's separation of customer payments and SaaS billing is proven by `separation.integration.test.ts`. The last box stays open: the marketing site is a minimal landing and pricing page, help is English only and the privacy and terms text is a DRAFT. Deferred: real platform keys, prices and limits (set later in the console); metered overage charging and enforcing `monthly_active_contacts` / `messages_monthly`; support impersonation or content access; the tenant purge job (listing only); creating new plan ids from the console; final legal text, localized help, full marketing copy and SEO, plan choice at sign-up; IP allowlisting or hardware keys for platform admins.
 
 ### Phase 15 — final release review, pilot rollout and operations
 

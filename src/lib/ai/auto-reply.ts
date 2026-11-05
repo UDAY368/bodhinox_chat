@@ -10,7 +10,8 @@ import { buildHandoffSummary, pauseConversationForStaff, type HandoffGuardReason
 import { logAiEvent } from './log'
 import { classifySensitive, hasUncoveredScript } from './safety/sensitive'
 import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from './assist/guards'
-import { logAiUsage, promptCharsOf } from './usage'
+import { promptCharsOf, usageLog } from './usage'
+import { chatTokenEstimate, failAi, reserveAi, settleAi, type AiReservation } from './budget'
 import { latestUserMessage, recentCustomerText } from './query'
 import { getSessionWindow } from '@/lib/inbox/session'
 import {
@@ -21,7 +22,7 @@ import {
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { PlanLimitError } from '@/lib/billing/entitlements'
-import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
+import { newRequestKey } from '@/lib/billing/usage-ledger'
 import { getWorkerPrisma } from '@/lib/db/prisma'
 import { withTenant } from '@/lib/db/tenant'
 
@@ -197,12 +198,17 @@ export async function dispatchInboundToAiReply(
       return
     }
 
-    // The plan's monthly AI messages: when used up, the inbound waits for a human.
+    // The plan's monthly AI messages and tokens, held for this inbound message
+    // (one meter per message, however often it is replayed): when used up, the
+    // inbound waits for a human. The token hold is the conversation plus the
+    // output cap; it settles to the provider's actual usage.
+    let reservation: AiReservation
     try {
-      await requireAiMessageRoom(accountId, getWorkerPrisma())
+      reservation = await reserveAi(accountId, inboundMessageId ? `inbound:${inboundMessageId}` : newRequestKey(),
+        { message: true, tokens: chatTokenEstimate(config.systemPrompt ?? '', messages) }, getWorkerPrisma())
     } catch (error) {
       if (!(error instanceof PlanLimitError)) throw error
-      console.info('[ai auto-reply] skipped', { reason: 'plan_ai_messages_used' })
+      console.info('[ai auto-reply] skipped', { reason: 'plan_ai_limit' })
       await unavailable()
       return
     }
@@ -237,20 +243,23 @@ export async function dispatchInboundToAiReply(
     })
 
     // Personal data in customer messages is masked before it leaves for the provider.
-    const { text: rawText, handoff, noAnswer, usage } = await generateReply({
-      config,
-      systemPrompt,
-      messages: redactChat(messages).messages,
-    })
-    await recordAiMessage(accountId, getWorkerPrisma())
+    let generated: Awaited<ReturnType<typeof generateReply>>
+    try {
+      generated = await generateReply({
+        config,
+        systemPrompt,
+        messages: redactChat(messages).messages,
+      })
+    } catch (error) {
+      await failAi(reservation, error, promptCharsOf(systemPrompt, messages))
+      throw error
+    }
+    const { text: rawText, handoff, noAnswer, usage } = generated
 
-    // Record token spend on the account's BYO key. Fire-and-forget so it
-    // never adds latency to the customer-facing send: `logAiUsage`
-    // swallows its own errors, so the floating promise can't reject.
-    // Logged regardless of handoff — the provider call happened either
-    // way.
-    void logAiUsage(db, {
-      accountId,
+    // Settle the AI message and the tokens spent on the account's BYO key
+    // (with the ai_usage_log row), whatever happens next: the provider call
+    // happened either way. settleAi never throws.
+    const log = usageLog({
       conversationId,
       mode: 'auto_reply',
       provider: config.provider,
@@ -258,6 +267,7 @@ export async function dispatchInboundToAiReply(
       usage,
       estimate: { promptChars: promptCharsOf(systemPrompt, messages), outputChars: rawText.length },
     })
+    await settleAi(reservation, { tokens: log.totalTokens, log })
 
     if (!await eligible()) return
 

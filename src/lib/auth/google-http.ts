@@ -76,7 +76,7 @@ export async function handleGoogleUnlink(request: Request): Promise<NextResponse
   }
 }
 
-/** GET /api/auth/google/start?next=&invite=: begins sign-in (top-level navigation from /login). */
+/** GET /api/auth/google/start?next=&invite=&terms=: begins sign-in (top-level navigation from /login). */
 export async function handleGoogleSignInStart(request: Request): Promise<NextResponse> {
   const config = googleConfig();
   if (!config) return unavailable();
@@ -84,7 +84,7 @@ export async function handleGoogleSignInStart(request: Request): Promise<NextRes
     await enforceAuthRateLimit('global-google-start', 'application', 1000, 900);
     const params = new URL(request.url).searchParams;
     const flow = await beginGoogleFlow(
-      { mode: 'signin', next: params.get('next'), invite: params.get('invite') },
+      { mode: 'signin', next: params.get('next'), invite: params.get('invite'), termsVersion: params.get('terms') },
       config
     );
     const response = NextResponse.redirect(flow.url, 303);
@@ -145,7 +145,9 @@ export async function handleGoogleCallback(request: Request): Promise<NextRespon
       await linkGoogleIdentity(context, identity);
       return back('linked');
     }
-    const result = await signInWithGoogle(identity, userAgent(request), flow!.invite);
+    const result = await signInWithGoogle(identity, userAgent(request), flow!.invite, {
+      termsVersion: flow!.termsVersion ?? null,
+    });
     if (result.kind === 'mfa') {
       const response = redirect('/login?google=mfa');
       clearCookie(response, names.flow);

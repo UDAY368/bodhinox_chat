@@ -1,3 +1,4 @@
+import { requireIntegrationRoom } from '@/lib/billing/limits';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
@@ -83,6 +84,7 @@ export async function createWooStore(
   const [{ count }] = await tx.$queryRaw<{ count: number }[]>`
     SELECT count(*)::int AS count FROM woocommerce_stores WHERE account_id=${accountId}::uuid`;
   if (count >= MAX_WOO_STORES) throw new WooStoreInputError('store_limit');
+  await requireIntegrationRoom(tx, accountId);
   const webhookSecret = generateWooSecret();
   const rows = await tx.$queryRaw<Row[]>`
     INSERT INTO woocommerce_stores(account_id,store_url,webhook_secret_enc,consent_meta_key)

@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   mutationOk: true,
   writes: [] as unknown[],
   listed: [] as unknown[],
+  audits: [] as unknown[],
+  mfa: 'ok' as 'ok' | 'step_up',
 }));
 
 vi.mock('@/lib/auth/session', () => ({
@@ -17,14 +19,30 @@ vi.mock('@/lib/auth/session', () => ({
     }
   },
 }));
+// The real guard, with the session, MFA state and audit trail faked.
+vi.mock('@/lib/db/prisma', () => ({
+  platformDatabaseConfigured: () => false,
+  getAuthPrisma: () => ({
+    $queryRaw: async () => [{ factor: true, mfa_verified_at: h.mfa === 'ok' ? new Date() : new Date(Date.now() - 13 * 3_600_000) }],
+  }),
+}));
+vi.mock('@/lib/platform/audit', () => ({
+  hashRequestIp: () => null,
+  recordPlatformAudit: async (entry: unknown, via: string) => {
+    h.audits.push({ entry, via });
+    return 'audit-id';
+  },
+}));
 vi.mock('@/lib/analytics/rate-card', async (original) => ({
   ...(await original<typeof import('@/lib/analytics/rate-card')>()),
   listRateCards: async (filter: unknown) => {
     h.listed.push(filter);
     return [{ category: 'marketing', countryCode: 'IN', currency: 'USD', priceMinor: 1.07 }];
   },
-  upsertRateCards: async (cards: unknown[]) => {
+  // The audit entry travels into the upsert's own transaction.
+  upsertRateCards: async (cards: unknown[], audit: unknown) => {
     h.writes.push(...cards);
+    if (audit) h.audits.push({ entry: audit, via: 'same-transaction' });
     return cards.length;
   },
 }));
@@ -39,6 +57,8 @@ beforeEach(() => {
   h.mutationOk = true;
   h.writes = [];
   h.listed = [];
+  h.audits = [];
+  h.mfa = 'ok';
 });
 
 it('lets members read the rate card, filtered', async () => {
@@ -56,6 +76,18 @@ it('lets only platform admins write, after the mutation check', async () => {
   h.mutationOk = false;
   expect((await put({ cards: [{ category: 'marketing', country_code: 'IN', currency: 'USD', price_minor: 1 }] })).status).toBe(401);
   expect(h.writes).toEqual([]);
+});
+
+it('asks a platform admin without a recent MFA check to step up, and audits each write', async () => {
+  h.mfa = 'step_up';
+  const refused = await put({ cards: [{ category: 'marketing', country_code: 'IN', currency: 'USD', price_minor: 1 }] });
+  expect(refused.status).toBe(403);
+  expect((await refused.json()).code).toBe('mfa_step_up_required');
+  expect(h.writes).toEqual([]);
+  h.mfa = 'ok';
+  expect((await put({ cards: [{ category: 'marketing', country_code: 'IN', currency: 'USD', price_minor: 1 }] })).status).toBe(200);
+  expect(h.audits).toEqual([{ via: 'same-transaction', entry: expect.objectContaining({ adminEmail: 'ops@bodhinox.test', action: 'analytics.rate_cards_updated',
+    detail: { rows: 1, removed: 0 } }) }]);
 });
 
 it('validates every row before writing any', async () => {

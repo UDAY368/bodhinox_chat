@@ -24,6 +24,7 @@ import {
   resolveAuditUserId,
   ContactError,
 } from '@/lib/api/v1/contacts';
+import { PlanLimitError } from '@/lib/billing/entitlements';
 
 // PostgREST filter values are comma/paren-delimited; strip anything
 // that could break the `.or()` grammar before interpolating a search
@@ -121,7 +122,9 @@ export async function POST(request: Request) {
         name: typeof body.name === 'string' ? body.name : undefined,
         email: typeof body.email === 'string' ? body.email : undefined,
         company: typeof body.company === 'string' ? body.company : undefined,
-      }
+      },
+      // The plan's contacts limit applies to API creates (never to inbound).
+      { enforceLimit: true }
     );
 
     if (Array.isArray(body.tags)) {
@@ -137,6 +140,7 @@ export async function POST(request: Request) {
     const contact = await getContactById(ctx.db, ctx.accountId, id);
     return ok(contact, created ? 201 : 200);
   } catch (err) {
+    if (err instanceof PlanLimitError) return fail('plan_limit', err.message, 402);
     if (err instanceof ContactError) {
       return fail(
         err.status === 400 ? 'bad_request' : 'internal',

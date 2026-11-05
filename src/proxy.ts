@@ -24,6 +24,9 @@ const protectedPaths = [
   '/notifications',
   '/reports',
   '/settings',
+  // Platform console: signed-out visitors go to login; the console layout itself answers 404 to
+  // everyone who is not an allowlisted, MFA-verified platform admin (or without PLATFORM_DATABASE_URL).
+  '/platform',
 ];
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;

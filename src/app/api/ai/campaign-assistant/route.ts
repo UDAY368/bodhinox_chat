@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { loadAiConfig } from '@/lib/ai/config'
-import { logAiUsage } from '@/lib/ai/usage'
-import { databaseAdmin } from '@/lib/ai/admin-client'
+import { requestMeter, ROUTE_GENERATION_TOKENS } from '@/lib/ai/budget'
 import { AiError } from '@/lib/ai/types'
 import {
   CAMPAIGN_AUDIENCE_MAX,
@@ -13,7 +12,6 @@ import {
   type CampaignTemplate,
 } from '@/lib/ai/campaign-assistant'
 import { getT } from '@/lib/i18n/translate'
-import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
 
 const t = getT('Api')
 
@@ -25,8 +23,8 @@ const TEMPLATE_COLUMNS = 'id,name,language,category,body_text,header_type,header
  * Body: { goal: string, audience?: string, timezone?: IANA zone }
  * Returns { draft, template, issues } — a suggestion only. It never creates,
  * schedules or sends a campaign and never saves a segment; the wizard
- * applies the draft and the user reviews every step. Each model call is
- * billed as one AI message. Goal, prompt and output are never logged.
+ * applies the draft and the user reviews every step. Each request is billed
+ * as one AI message (its retry included). Goal, prompt and output are never logged.
  */
 export async function POST(request: Request) {
   try {
@@ -72,6 +70,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('aiAssist.noApprovedTemplates'), code: 'no_approved_templates' }, { status: 400 })
     }
 
+    // One AI message per request (a corrective retry included), held before the
+    // first model call and settled once with every attempt's tokens.
+    const meter = requestMeter(accountId, ROUTE_GENERATION_TOKENS, { conversationId: null, mode: 'draft', provider: config.provider, model: config.model })
     const { draft, issues } = await suggestCampaign({
       config,
       goal,
@@ -84,26 +85,12 @@ export async function POST(request: Request) {
         now: new Date(),
         timezone: safeTimeZone(body?.timezone),
       },
-      hooks: {
-        beforeAttempt: () => requireAiMessageRoom(accountId),
-        afterAttempt: async (usage, estimate) => {
-          await recordAiMessage(accountId)
-          try {
-            void logAiUsage(databaseAdmin({ accountId, userId, role: 'agent' }), {
-              accountId,
-              conversationId: null,
-              mode: 'draft',
-              provider: config.provider,
-              model: config.model,
-              usage,
-              estimate,
-            })
-          } catch {
-            console.error('[ai/campaign-assistant] usage log skipped')
-          }
-        },
-      },
+      hooks: meter.hooks,
+    }).catch(async (error: unknown) => {
+      await meter.finish(error)
+      throw error
     })
+    await meter.finish()
 
     // The full approved row, so the wizard can select it like a manual pick.
     const { data: template } = await db.from('message_templates').select('*').eq('id', draft.templateId).eq('status', 'APPROVED').maybeSingle()

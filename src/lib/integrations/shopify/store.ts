@@ -1,3 +1,4 @@
+import { requireIntegrationRoom } from '@/lib/billing/limits';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
@@ -76,6 +77,8 @@ export async function saveShopifyStore(
     UPDATE shopify_stores SET access_token_enc=${tokenEnc}, scopes=${scopes}, installed_at=now(), uninstalled_at=NULL
     WHERE account_id=${accountId}::uuid AND shop_domain=${input.shop}`;
   if (updated === 0) {
+    // A new store takes a slot of the plan's integrations; replacing the installed shop frees its own first.
+    await requireIntegrationRoom(tx, accountId);
     await tx.$executeRaw`
       INSERT INTO shopify_stores(account_id,shop_domain,access_token_enc,scopes) VALUES(${accountId}::uuid,${input.shop},${tokenEnc},${scopes})`;
   }

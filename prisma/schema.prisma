@@ -661,6 +661,11 @@ model auth_users {
   disabled_at DateTime? @db.Timestamptz(6)
   created_at DateTime @db.Timestamptz(6) @default(now())
   password_set Boolean @default(true)
+  /// Phase 14 (20261112100500_workspace_privacy): set when the user deleted their account (row anonymised).
+  deleted_at DateTime? @db.Timestamptz(6)
+  /// Stored only while TERMS_VERSION is configured.
+  terms_version String?
+  terms_accepted_at DateTime? @db.Timestamptz(6)
 }
 
 model auth_sessions {
@@ -880,6 +885,8 @@ model plans {
   features Json @db.JsonB @default("{}")
   limits Json @db.JsonB @default("{}")
   sort Int @default(0)
+  /// Phase 14: the plan_versions.version the live row equals.
+  current_version Int @default(1)
 }
 
 model account_subscriptions {
@@ -898,6 +905,8 @@ model account_subscriptions {
   scheduled_plan String?
   grace_ends_at DateTime? @db.Timestamptz(6)
   suspended_at DateTime? @db.Timestamptz(6)
+  /// Phase 14: the plan version this subscription is held to (null = the live plans row).
+  plan_version_id String? @db.Uuid
 }
 
 model assignment_cursors {
@@ -2650,4 +2659,133 @@ model ai_insight_runs {
   @@unique([account_id, id])
   @@index([created_at], map: "ai_insight_runs_created_idx")
   @@index([account_id, created_at(sort: Desc)], map: "ai_insight_runs_account_created_idx")
+}
+
+/// Phase 14 (20261112100100_plan_versions): immutable published plan terms; written only by
+/// crm_platform_publish_plan_version (platform role).
+model plan_versions {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  plan_id String
+  version Int
+  features Json @db.JsonB
+  limits Json @db.JsonB
+  note String?
+  created_by_email String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([plan_id, version])
+}
+
+/// Phase 14 (20261112100000_platform_role_audit): append-only platform trail; no role grants,
+/// written only through crm_platform_audit and the mutating crm_platform_* functions.
+model platform_audit_log {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  admin_email String
+  action String
+  target_account_id String? @db.Uuid
+  target_ref String?
+  reason String?
+  detail Json @db.JsonB @default("{}")
+  ip_hash String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@index([created_at(sort: Desc)], map: "platform_audit_log_created_idx")
+}
+
+/// Phase 14 (20261112100200_usage_ledger): one row per metered source event.
+model usage_events {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  /// 'ai_messages' | 'ai_tokens'
+  metric String
+  source_key String
+  period String
+  quantity BigInt
+  /// 'reserved' | 'settled' | 'released'
+  state String @default("reserved")
+  reserved_at DateTime @db.Timestamptz(6) @default(now())
+  settled_at DateTime? @db.Timestamptz(6)
+  // usage_events_reserved_idx and usage_events_housekeeping_idx are partial and owned by the SQL.
+  @@unique([account_id, metric, source_key])
+}
+
+/// Phase 14 (20261112100200_usage_ledger): 80% / 100% warnings, once per limit, period and threshold.
+model usage_notices {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  limit_key String
+  period String
+  threshold Int @db.SmallInt
+  limit_value BigInt
+  used_value BigInt
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, limit_key, period, threshold])
+}
+
+/// Phase 14 (20261112100300_billing_reconciliation): platform table, worker writes, console reads via definers.
+model billing_reconciliation_items {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String? @db.Uuid
+  /// 'event_error' | 'intent_unknown' | 'invoice_unissued' | 'state_mismatch' | 'shared_razorpay_key'
+  kind String
+  source_ref String
+  detail Json @db.JsonB @default("{}")
+  /// 'open' | 'resolved'
+  status String @default("open")
+  opened_at DateTime @db.Timestamptz(6) @default(now())
+  resolved_at DateTime? @db.Timestamptz(6)
+  resolved_by_email String?
+  resolution_note String?
+  @@unique([kind, source_ref])
+}
+
+/// Phase 14 (20261112100400_tenant_lifecycle_support): no row = 'active'.
+model account_lifecycle {
+  account_id String @db.Uuid @id @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  /// 'active' | 'admin_suspended' | 'closing'
+  status String @default("active")
+  block_manual Boolean @default(false)
+  suspended_at DateTime? @db.Timestamptz(6)
+  suspend_reason String?
+  suspended_by_email String?
+  deletion_requested_at DateTime? @db.Timestamptz(6)
+  deletion_requested_by String? @db.Uuid
+  purge_after DateTime? @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+/// Phase 14 (20261112100400_tenant_lifecycle_support): consented, time-boxed diagnostics access.
+model support_grants {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  requested_by_email String
+  reason String
+  /// 'diagnostics'
+  scope String @default("diagnostics")
+  requested_minutes Int @default(60)
+  /// 'requested' | 'approved' | 'denied' | 'revoked' | 'expired'
+  status String @default("requested")
+  decided_by String? @db.Uuid
+  requested_at DateTime @db.Timestamptz(6) @default(now())
+  decided_at DateTime? @db.Timestamptz(6)
+  expires_at DateTime? @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  // support_grants_one_open (partial unique) is owned by the SQL.
+  @@unique([account_id, id])
+}
+
+/// Phase 14 (20261112100500_workspace_privacy): workspace exports (file in private storage, 7 days).
+model workspace_exports {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  requested_by String @db.Uuid
+  /// 'queued' | 'running' | 'ready' | 'failed' | 'expired'
+  status String @default("queued")
+  storage_key String?
+  size_bytes BigInt?
+  expires_at DateTime? @db.Timestamptz(6)
+  error_code String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  completed_at DateTime? @db.Timestamptz(6)
+  // workspace_exports_one_running and workspace_exports_expiry_idx are partial and owned by the SQL.
+  @@unique([account_id, id])
+  @@index([account_id, created_at(sort: Desc)], map: "workspace_exports_account_idx")
 }

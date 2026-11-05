@@ -41,7 +41,8 @@
         "google_link_required": "Já existe uma conta com este e-mail. Entre com sua senha e depois vincule o Google em Configurações → Login e segurança.",
         "google_no_workspace": "Sua conta não faz parte de nenhum espaço de trabalho.",
         "google_rate_limited": "Muitas tentativas. Tente mais tarde.",
-        "google_invite_unavailable": "Este link de convite não é mais válido. Peça um novo link à sua equipe ou cadastre-se sem ele."
+        "google_invite_unavailable": "Este link de convite não é mais válido. Peça um novo link à sua equipe ou cadastre-se sem ele.",
+        "google_terms_required": "Aceite os termos de serviço na página de cadastro e depois continue com o Google."
       }
     }
   },
@@ -299,6 +300,18 @@
           "RED": "Baixa",
           "UNKNOWN": "Desconhecida"
         }
+      }
+    },
+    "onboarding": {
+      "title": "Primeiros passos",
+      "progress": "{done} de {total} concluídos",
+      "dismiss": "Ocultar lista",
+      "steps": {
+        "whatsapp": "Conecte um número do WhatsApp",
+        "contacts": "Adicione ou importe contatos",
+        "templates": "Crie um modelo de mensagem",
+        "automation": "Crie um fluxo ou uma automação",
+        "team": "Convide um colega"
       }
     }
   },
@@ -3155,7 +3168,8 @@
       "media": "Biblioteca de mídia",
       "ads": "Anúncios",
       "connections": "Reuniões e envios",
-      "instagram": "Instagram"
+      "instagram": "Instagram",
+      "privacy": "Privacidade e acesso"
     },
     "groups": {
       "account": "Conta",
@@ -3533,16 +3547,34 @@
         "whatsapp_numbers": "Números de WhatsApp",
         "appointment_staff": "Profissionais",
         "instagram_accounts": "Contas do Instagram",
-        "ai_tokens_monthly": "Tokens de IA neste mês"
+        "ai_tokens_monthly": "Tokens de IA neste mês",
+        "contacts": "Contatos",
+        "integrations": "Integrações conectadas",
+        "messages_monthly": "Mensagens enviadas este mês"
       },
       "loadFailed": "Não foi possível carregar seu plano",
       "retry": "Tentar novamente",
       "meters": {
         "storage": "Armazenamento de mídia",
         "monthly": "(este mês)",
-        "reached": "Limite atingido. Faça upgrade ou compre um complemento para ter mais."
+        "reached": "Limite atingido. Faça upgrade ou compre um complemento para ter mais.",
+        "howTitle": "Como funcionam os limites",
+        "how": {
+          "hard": "Quando um limite é atingido, novas adições param. Tudo o que você já tem continua funcionando.",
+          "inbound": "Clientes que enviam mensagens são sempre adicionados como contatos, mesmo acima do limite de contatos. Só contam os contatos que você adiciona, importa ou cria pela API.",
+          "monthly": "Os limites mensais são reiniciados no dia 1 de cada mês (horário da Índia). Pacotes adicionais de IA aumentam o limite de respostas de IA.",
+          "warnings": "Proprietários e administradores são avisados quando um limite chega a 80% e 100%. Mensagens enviadas e contatos ativos são informativos e nunca bloqueiam.",
+          "expiry": "Se o seu plano expirar ou for cancelado, listas, segmentos, fluxos e automações extras são arquivados, nunca excluídos."
+        }
       },
-      "upgradeHintBilling": "Escolha ou altere seu plano em Faturamento, abaixo."
+      "upgradeHintBilling": "Escolha ou altere seu plano em Faturamento, abaixo.",
+      "policies": {
+        "hard": "Novas inclusões param no limite",
+        "hard_inbound_exempt": "Inclusões manuais e importadas param no limite; clientes que escrevem são sempre adicionados",
+        "hard_addon": "Para no limite; pacotes adicionais o aumentam",
+        "hard_per_campaign": "Verificado em cada campanha",
+        "soft": "Apenas informativo; nunca bloqueia"
+      }
     },
     "iceBreakers": {
       "title": "Iniciadores de conversa",
@@ -4228,6 +4260,190 @@
         "permission_missingTitle": "{name}: permissão do Instagram ausente",
         "permission_missingBody": "Reconecte a conta em Configurações → Instagram e conceda a permissão de mensagens."
       }
+    },
+    "integrationHealth": {
+      "title": "Saúde das integrações",
+      "description": "O último estado conhecido de cada conexão, a partir do status salvo. Nada é verificado com o provedor ao carregar.",
+      "refresh": "Atualizar",
+      "loading": "Carregando conexões…",
+      "loadFailed": "Não foi possível carregar a saúde das integrações. Tente novamente.",
+      "empty": "Nenhuma integração conectada ainda.",
+      "never": "nunca",
+      "lastSuccess": "Último sucesso {when}",
+      "lastError": "Último erro: {code}",
+      "tokenExpires": "O acesso expira {when}",
+      "fix": "Corrigir",
+      "kinds": {
+        "whatsapp": "Número do WhatsApp",
+        "instagram": "Instagram",
+        "meta_ads": "Meta Ads",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "meetings": "Reuniões",
+        "courier": "Transportadora",
+        "razorpay": "Pagamentos Razorpay"
+      },
+      "states": {
+        "ok": "Saudável",
+        "attention": "Precisa de atenção",
+        "disconnected": "Desconectado"
+      }
+    },
+    "privacy": {
+      "supportAccess": {
+        "title": "Acesso do suporte",
+        "description": "O suporte da Bodhinox pode pedir para ver os diagnósticos deste espaço de trabalho: status das conexões, contagens e códigos de erro. O suporte nunca vê mensagens, contatos ou segredos, e o acesso termina automaticamente.",
+        "loading": "Carregando acesso do suporte…",
+        "empty": "Nenhuma solicitação de suporte.",
+        "requested": "Solicitado {when} por {minutes} minutos",
+        "expires": "O acesso termina {when}",
+        "approve": "Aprovar",
+        "deny": "Recusar",
+        "revoke": "Revogar",
+        "status": {
+          "requested": "Aguardando você",
+          "approved": "Ativo",
+          "denied": "Recusado",
+          "revoked": "Revogado",
+          "expired": "Expirado"
+        },
+        "done": {
+          "approve": "Acesso aprovado.",
+          "deny": "Solicitação recusada.",
+          "revoke": "Acesso revogado.",
+          "granted": "Acesso concedido."
+        },
+        "errors": {
+          "loadFailed": "Não foi possível carregar o acesso do suporte. Tente novamente.",
+          "failed": "Não deu certo. Tente novamente.",
+          "invalid": "Verifique o e-mail, um motivo com pelo menos 10 caracteres e a duração.",
+          "not_found": "Essa solicitação não existe mais.",
+          "not_platform_admin": "Esse e-mail não é um endereço de suporte da Bodhinox.",
+          "grant_open": "Essa pessoa já tem uma solicitação aberta ou um acesso ativo.",
+          "not_pending": "Essa solicitação já foi respondida.",
+          "not_active": "Esse acesso já terminou.",
+          "request_expired": "Essa solicitação tem mais de 7 dias. O suporte pode pedir novamente."
+        },
+        "grant": {
+          "title": "Dar acesso sem solicitação",
+          "help": "Para um caso de suporte que você abriu: informe o e-mail de suporte da Bodhinox com quem está falando.",
+          "email": "E-mail do suporte",
+          "reason": "Motivo",
+          "duration": "Acesso por",
+          "submit": "Dar acesso",
+          "durations": {
+            "60": "1 hora",
+            "240": "4 horas",
+            "1440": "24 horas"
+          }
+        }
+      },
+      "title": "Privacidade e acesso",
+      "description": "Exporte seus dados, controle o acesso do suporte, saia ou exclua um espaço de trabalho e exclua sua conta.",
+      "stepUp": {
+        "password": "Senha atual",
+        "code": "Código do autenticador ou de recuperação",
+        "codePlaceholder": "123456",
+        "googleHint": "Sua conta entra com o Google. Se for solicitado, entre com o Google novamente e volte aqui em poucos minutos."
+      },
+      "errors": {
+        "generic": "Não funcionou. Tente novamente em instantes.",
+        "network": "Não foi possível falar com o servidor. Verifique sua conexão e tente novamente.",
+        "invalid_request": "A solicitação não é válida. Recarregue a página e tente novamente.",
+        "admin_required": "Somente proprietários e administradores podem fazer isso.",
+        "owner_required": "Somente o proprietário do espaço de trabalho pode fazer isso.",
+        "storage_not_configured": "As exportações não estão disponíveis porque o armazenamento de arquivos não está configurado neste servidor.",
+        "export_in_progress": "Uma exportação já está sendo preparada. Aguarde a conclusão.",
+        "export_not_found": "Essa exportação não existe mais.",
+        "export_not_ready": "Essa exportação não está pronta ou expirou.",
+        "workspace_admin_suspended": "Este espaço de trabalho foi suspenso pelo operador do serviço. Fale com o suporte.",
+        "deletion_unavailable": "Não foi possível registrar a solicitação de exclusão. Recarregue a página e tente novamente.",
+        "no_deletion_request": "Não há solicitação de exclusão pendente.",
+        "invalid_name": "Digite um nome de espaço de trabalho com até 100 caracteres.",
+        "email_unverified": "Verifique seu endereço de e-mail primeiro.",
+        "workspace_limit": "Você já é proprietário do número máximo de espaços de trabalho.",
+        "owner_must_transfer": "Transfira a propriedade para outro membro antes de sair deste espaço de trabalho.",
+        "last_workspace": "Este é seu único espaço de trabalho. Exclua sua conta em vez disso.",
+        "mfa_required": "Digite seu código do autenticador ou de recuperação.",
+        "mfa_invalid": "Esse código não é válido ou já foi usado.",
+        "current_password_invalid": "Sua senha atual está incorreta.",
+        "google_reauth_required": "Entre com o Google novamente para confirmar que é você e tente outra vez em poucos minutos.",
+        "owns_shared_workspace": "Primeiro transfira a propriedade dos espaços de trabalho que você compartilha com outras pessoas ou remova os membros deles.",
+        "active_subscription": "Primeiro solicite a exclusão do seu espaço de trabalho com plano pago; isso cancela o plano."
+      },
+      "export": {
+        "title": "Exportar dados do espaço de trabalho",
+        "description": "Baixe um arquivo zip com os contatos, conversas, mensagens, negócios, fluxos, automações, modelos, pedidos, agendamentos, faturas e mais do espaço de trabalho.",
+        "notConfigured": "As exportações não estão disponíveis porque o armazenamento de arquivos não está configurado neste servidor.",
+        "request": "Solicitar exportação",
+        "inProgress": "Preparando exportação...",
+        "download": "Baixar",
+        "note": "O arquivo é preparado em segundo plano e pode ser baixado por 7 dias. Senhas, tokens, chaves e outras credenciais nunca são incluídos. Solicitações e downloads são registrados no log de auditoria.",
+        "status": {
+          "queued": "Na fila",
+          "running": "Preparando",
+          "ready": "Pronta",
+          "failed": "Falhou",
+          "expired": "Expirada"
+        }
+      },
+      "deleteWorkspace": {
+        "title": "Excluir espaço de trabalho",
+        "description": "Pare este espaço de trabalho e agende a exclusão após um período de carência de 30 dias.",
+        "pending": "Exclusão solicitada. Os envios estão parados. Nada é excluído antes de {date}, e o proprietário pode cancelar até lá.",
+        "ownerOnly": "Somente o proprietário do espaço de trabalho pode solicitar a exclusão.",
+        "adminSuspended": "Este espaço de trabalho foi suspenso pelo operador do serviço, então a exclusão não pode ser solicitada aqui. Fale com o suporte.",
+        "start": "Excluir este espaço de trabalho",
+        "effects": {
+          "sending": "Os envios param imediatamente: campanhas, fluxos, automações e respostas de IA ficam pausados. Mensagens recebidas e descadastros continuam funcionando.",
+          "grace": "Nada é excluído por 30 dias, e você pode cancelar a solicitação nesse período.",
+          "billing": "Um plano pago é cancelado no fim do período atual.",
+          "export": "Exporte seus dados antes se quiser guardar uma cópia."
+        },
+        "typeName": "Digite o nome do espaço de trabalho ({name}) para confirmar",
+        "confirm": "Solicitar exclusão",
+        "back": "Voltar",
+        "cancel": "Cancelar a solicitação de exclusão",
+        "cancelled": "A solicitação de exclusão foi cancelada. Os envios podem ser retomados. Se o seu plano pago ia ser cancelado, escolha um plano novamente em Cobrança.",
+        "billing": {
+          "none": "Exclusão solicitada.",
+          "scheduled": "Exclusão solicitada. Seu plano pago será cancelado no fim do período atual.",
+          "pending": "Exclusão solicitada. O cancelamento do seu plano pago ainda está sendo confirmado com o provedor de pagamentos.",
+          "failed": "Exclusão solicitada, mas não foi possível cancelar seu plano pago automaticamente. Cancele-o em Cobrança."
+        }
+      },
+      "leave": {
+        "title": "Sair do espaço de trabalho",
+        "description": "Deixe de ser membro de {name}. Você será levado ao seu outro espaço de trabalho.",
+        "start": "Sair deste espaço de trabalho",
+        "confirm": "Sair agora",
+        "back": "Voltar"
+      },
+      "create": {
+        "title": "Criar outro espaço de trabalho",
+        "description": "Crie um espaço de trabalho separado do qual você é proprietário, por exemplo para outro negócio. Você muda para ele na hora.",
+        "name": "Nome do espaço de trabalho",
+        "submit": "Criar espaço de trabalho"
+      },
+      "deleteAccount": {
+        "title": "Excluir minha conta",
+        "description": "Remova seu acesso, nome e endereço de e-mail e saia de todos os dispositivos.",
+        "start": "Excluir minha conta",
+        "effects": {
+          "ownership": "Você não pode excluir sua conta enquanto for proprietário de um espaço de trabalho com outros membros. Transfira a propriedade primeiro.",
+          "soleWorkspaces": "Os espaços de trabalho em que você é o único membro recebem uma solicitação de exclusão com carência de 30 dias.",
+          "identity": "Seu nome, e-mail, senha e verificação em duas etapas são removidos. O histórico do espaço de trabalho mantém uma referência anônima."
+        },
+        "keyword": "EXCLUIR",
+        "typeKeyword": "Digite {keyword} para confirmar",
+        "confirm": "Excluir minha conta",
+        "back": "Voltar"
+      },
+      "terms": {
+        "banner": "Atualizamos nossos <link>termos de serviço</link>. Revise e aceite-os.",
+        "accept": "Aceitar",
+        "later": "Mais tarde"
+      }
     }
   },
   "SignupPage": {
@@ -4254,7 +4470,11 @@
     "haveAccount": "Já tem uma conta?",
     "signIn": "Entrar",
     "inviteUnavailable": "Este link de convite não é mais válido: já foi usado ou expirou. Peça um novo link à sua equipe.",
-    "signupWithoutInvite": "Cadastrar sem o convite"
+    "signupWithoutInvite": "Cadastrar sem o convite",
+    "terms": {
+      "label": "Aceito os <terms>termos de serviço</terms> e a <privacy>política de privacidade</privacy>.",
+      "required": "Aceite os termos de serviço e a política de privacidade para criar uma conta."
+    }
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "Verifique seu e-mail",
@@ -5527,7 +5747,8 @@
       "no_catalog": "Nenhum catálogo está vinculado ao número do WhatsApp desta conversa.",
       "product_not_found": "Um produto escolhido não está mais no catálogo. Sincronize o catálogo e escolha novamente.",
       "uncertain": "Não conseguimos confirmar se a mensagem foi enviada. Verifique a conversa antes de enviar de novo.",
-      "rejected": "O WhatsApp recusou a mensagem."
+      "rejected": "O WhatsApp recusou a mensagem.",
+      "workspace_manual_blocked": "O suporte da Bodhinox pausou as respostas deste espaço de trabalho. Fale com o suporte da Bodhinox para mais detalhes."
     },
     "commerce": {
       "catalogIdInvalid": "Escolha um catálogo válido.",
@@ -5570,7 +5791,9 @@
       "invalidRequest": "A solicitação não é válida.",
       "sendUncertain": "Não conseguimos confirmar que a mensagem foi entregue. Ela não será reenviada automaticamente; confira a conversa primeiro.",
       "sendRejected": "O WhatsApp recusou a mensagem, então ela não foi enviada.",
-      "link_exists": "Este pedido ou agendamento já tem um link de pagamento aberto. Cancele ou verifique esse link primeiro."
+      "link_exists": "Este pedido ou agendamento já tem um link de pagamento aberto. Cancele ou verifique esse link primeiro.",
+      "platformKeyReuse": "Esta chave do Razorpay pertence à conta de cobrança da própria plataforma. Conecte a conta do Razorpay da sua empresa.",
+      "workspace_manual_blocked": "O suporte da Bodhinox pausou as respostas deste espaço de trabalho. Fale com o suporte da Bodhinox para mais detalhes."
     },
     "commerceEvents": {
       "resolution": "Indique se o cliente recebeu a mensagem.",
@@ -5641,7 +5864,9 @@
         "invalid_selection": "Escolha apenas itens que estão em uso agora.",
         "stale_plan": "A mudança de plano não é mais a mesma. Revise a lista novamente.",
         "too_many": "Você escolheu mais itens do que o plano permite."
-      }
+      },
+      "adminSuspended": "O suporte da Bodhinox pausou os envios deste espaço de trabalho. As mensagens recebidas continuam chegando. Fale com o suporte da Bodhinox para mais detalhes.",
+      "closing": "Este espaço de trabalho está programado para exclusão, por isso os envios estão pausados. O proprietário pode cancelar a exclusão em Configurações."
     },
     "teams": {
       "invalid_name": "Dê à equipe um nome com até 80 caracteres.",
@@ -5904,7 +6129,8 @@
     "send": {
       "idsRequired": "É necessário informar conversation_id ou contact_id, além de message_type",
       "contactNotFound": "Contato não encontrado",
-      "openConversationFailed": "Falha ao abrir uma conversa com este contato"
+      "openConversationFailed": "Falha ao abrir uma conversa com este contato",
+      "manualBlocked": "O suporte da Bodhinox pausou as respostas deste espaço de trabalho. Fale com o suporte da Bodhinox para mais detalhes."
     },
     "templates": {
       "invalidId": "ID de modelo inválido.",
@@ -8415,6 +8641,14 @@
       "checkout_superseded": {
         "title": "Assinatura extra cancelada",
         "body": "Chegou uma autorização de pagamento do plano {plan} para um pagamento que já havia sido substituído ou para uma segunda assinatura. Ela não foi aplicada e foi cancelada no provedor de pagamentos. Seu plano atual não mudou; confira em Faturamento."
+      },
+      "usage_warning": {
+        "title": "80% de um limite do plano usado",
+        "body": "Este espaço de trabalho usou {number} no plano {plan}. Faça upgrade para continuar adicionando."
+      },
+      "usage_reached": {
+        "title": "Limite do plano atingido",
+        "body": "Este espaço de trabalho atingiu {number} no plano {plan}. Novas adições ficam pausadas até você fazer upgrade ou liberar espaço."
       }
     },
     "downgrade": {
@@ -8431,6 +8665,11 @@
     },
     "instagram": {
       "activeContactsNote": "Um usuário do Instagram vinculado a um contato do WhatsApp conta uma vez nos contatos ativos; sem vínculo, contam separadamente."
+    },
+    "expiry": {
+      "ends": "Se a assinatura terminar ou ficar sem pagamento, o espaço de trabalho passa para o plano Free. Nada é excluído: segmentos, listas, fluxos e automações além dos limites do Free são arquivados e voltam quando você assinar novamente.",
+      "inbound": "Mensagens recebidas, descadastros e notificações de pagamento continuam funcionando em todos os planos.",
+      "terms": "Os recursos e limites do seu plano permanecem como eram quando você assinou, inclusive na renovação. Mudanças em um plano só chegam até você se trocar de plano ou se avisarmos sobre uma migração."
     }
   },
   "AiAgentFoundation": {
@@ -8757,7 +8996,12 @@
         "save": "Salvar tarifas",
         "saved": "Tabela de tarifas salva",
         "saveFailed": "Não foi possível salvar a tabela de tarifas",
-        "invalidRow": "Informe um código de país de 2 letras, uma moeda de 3 letras e um preço igual ou maior que 0."
+        "invalidRow": "Informe um código de país de 2 letras, uma moeda de 3 letras e um preço igual ou maior que 0.",
+        "mfaRequired": "Digite seu código de verificação em duas etapas para salvar.",
+        "mfaEnrollRequired": "Configure a verificação em duas etapas em Configurações > Segurança e depois salve.",
+        "stepUpCode": "Código de verificação em duas etapas",
+        "stepUpSubmit": "Verificar e salvar",
+        "stepUpInvalid": "Esse código não funcionou. Confira seu aplicativo autenticador e tente novamente."
       },
       "overLimit": "Este público ultrapassa o limite de {limit} destinatários por campanha. Reduza-o antes de criar a campanha.",
       "noCurrencyRate": "Nenhuma tarifa configurada em {currency}",
@@ -10190,6 +10434,372 @@
       "evidence_dropped": "Evidência desconhecida ignorada",
       "claim": "Afirmação de status ou médica bloqueada",
       "fallback": "IA indisponível, alternativa usada"
+    }
+  },
+  "Platform": {
+    "plans": {
+      "title": "Planos e preços",
+      "intro": "Edite um plano, veja quem é afetado e publique-o como uma nova versão. Os assinantes permanecem na versão deles até você migrá-los.",
+      "loadFailed": "Não foi possível carregar os planos.",
+      "version": "Versão {version}",
+      "subscribers": "{count, plural, one {# assinante} other {# assinantes}}",
+      "pinnedOld": "{count, plural, one {# em uma versão anterior} other {# em versões anteriores}}",
+      "enterpriseLocked": "Enterprise é o plano de todo espaço de trabalho sem assinatura: seus limites continuam ilimitados e seus recursos não podem ser desativados.",
+      "features": "Recursos",
+      "limits": "Limites",
+      "limitsHint": "Deixe um limite vazio para ilimitado.",
+      "unlimited": "Ilimitado",
+      "allUnlimited": "Todos os limites ilimitados",
+      "preview": "Visualizar alterações",
+      "reset": "Redefinir",
+      "showVersions": "Mostrar versões",
+      "hideVersions": "Ocultar versões",
+      "affected": "{count, plural, one {# espaço de trabalho usa os termos atuais deste plano.} other {# espaços de trabalho usam os termos atuais deste plano.}}",
+      "noTightening": "Nenhum limite é reduzido.",
+      "tightened": "{from} → {to}",
+      "over": "({count, plural, one {# espaço já acima} other {# espaços já acima}})",
+      "overSoft": "(não aplicado por espaço de trabalho)",
+      "pinnedStay": "Assinantes fixados em uma versão anterior mantêm seus termos.",
+      "note": "Nota (opcional)",
+      "publish": "Publicar a versão {version}",
+      "published": "Versão {version} publicada.",
+      "moveIntro": "{count, plural, one {# assinante está} other {# assinantes estão}} em uma versão anterior. Migrá-los aplica a versão {version}; o que exceder os limites é arquivado, nunca excluído.",
+      "reason": "Motivo (pelo menos 10 caracteres)",
+      "move": "Migrar assinantes para a versão {version}",
+      "moved": "Migrados {moved}; extras arquivados em {archived}; {failed} precisam de acompanhamento.",
+      "errors": {
+        "invalid_plan_terms": "Verifique os limites: cada um deve estar vazio ou ser um número inteiro.",
+        "plan_locked": "Os limites do Enterprise continuam ilimitados e seus recursos continuam ativos.",
+        "unknown_plan": "Este plano não existe mais.",
+        "invalid_request": "A solicitação não era válida. Visualize novamente.",
+        "reason_required": "Informe um motivo com pelo menos 10 caracteres.",
+        "stale_version": "O plano mudou nesse meio tempo. Recarregue e tente novamente.",
+        "preview_mismatch": "O rascunho ou o plano mudou após a visualização. Visualize novamente antes de publicar.",
+        "failed": "Algo deu errado. Tente novamente."
+      },
+      "prices": {
+        "title": "Preços",
+        "intro": "Os valores incluem GST. Cada plano tem um preço mensal e um anual; um novo plano do provedor desativa a linha anterior, que continua mapeando as assinaturas existentes.",
+        "notConfigured": "As chaves de cobrança não estão configuradas: os preços são salvos, mas nenhum checkout é oferecido.",
+        "empty": "Ainda não há preços.",
+        "plan": "Plano",
+        "interval": "Periodicidade",
+        "intervals": {
+          "month": "Mensal",
+          "year": "Anual"
+        },
+        "amount": "Valor",
+        "amountInr": "Valor em ₹ (GST incluído)",
+        "providerPlan": "ID do plano no Razorpay",
+        "state": "Estado",
+        "updated": "Atualizado",
+        "active": "Ativo",
+        "retired": "Desativado",
+        "activeLabel": "Preço ativo",
+        "save": "Salvar preço",
+        "saved": "Preço salvo.",
+        "history": "As linhas anteriores continuam listadas como desativadas, preservando o histórico de preços.",
+        "errors": {
+          "invalidPrice": "Verifique o valor e o ID do plano no Razorpay (plan_…).",
+          "failed": "O preço não foi salvo. Verifique o valor e o ID do plano no Razorpay."
+        }
+      }
+    },
+    "billing": {
+      "title": "Conciliação de cobrança",
+      "intro": "Itens de cobrança de assinaturas que precisam de uma pessoa. Consultar novamente aplica o estado do provedor pela varredura de cobrança normal; resolver apenas registra sua nota.",
+      "filterLabel": "Mostrar",
+      "filters": {
+        "open": "Abertos",
+        "resolved": "Resolvidos",
+        "all": "Todos"
+      },
+      "loadFailed": "Não foi possível carregar os itens.",
+      "empty": "Nada para conciliar.",
+      "more": "Carregar mais",
+      "status": {
+        "open": "Aberto",
+        "resolved": "Resolvido"
+      },
+      "kinds": {
+        "event_error": "Evento de webhook não aplicado",
+        "intent_unknown": "Chamada ao provedor sem confirmação há um dia",
+        "invoice_unissued": "Fatura não emitida",
+        "state_mismatch": "O estado do provedor difere",
+        "shared_razorpay_key": "Chave da plataforma usada no comércio"
+      },
+      "noWorkspace": "Sem espaço de trabalho",
+      "openedAt": "Aberto {when}",
+      "resolvedBy": "Resolvido por {email} em {when}",
+      "note": "Nota de resolução",
+      "resolve": "Marcar como resolvido",
+      "resolved": "Marcado como resolvido.",
+      "refetch": "Consultar o provedor novamente",
+      "refetchQueued": "Nova consulta na fila.",
+      "errors": {
+        "note_required": "Escreva uma nota com pelo menos 3 caracteres.",
+        "not_found": "Este item já foi resolvido.",
+        "no_provider_subscription": "Este espaço de trabalho não tem assinatura no provedor para consultar.",
+        "billing_not_configured": "As chaves de cobrança não estão configuradas nesta implantação.",
+        "invalid_request": "A solicitação não era válida.",
+        "failed": "Algo deu errado. Tente novamente."
+      }
+    },
+    "title": "Administração da plataforma",
+    "navLabel": "Seções da plataforma",
+    "signedInAs": "Conectado como {email}",
+    "nav": {
+      "overview": "Visão geral",
+      "tenants": "Espaços de trabalho",
+      "plans": "Planos e preços",
+      "billing": "Conciliação de cobrança",
+      "health": "Saúde das integrações",
+      "support": "Acesso do suporte",
+      "audit": "Auditoria da plataforma"
+    },
+    "overview": {
+      "intro": "Cada ação aqui é registrada na auditoria da plataforma e no registro de auditoria do espaço de trabalho afetado.",
+      "tenants": "Encontre um espaço de trabalho, veja o plano e o status, suspenda ou reative.",
+      "plans": "Edite limites e preços dos planos, com uma prévia antes de publicar.",
+      "billing": "Itens de cobrança que precisam de verificação manual.",
+      "health": "Conexões e tarefas em segundo plano que precisam de atenção.",
+      "support": "Suas solicitações de diagnóstico e os acessos concedidos.",
+      "audit": "Tudo o que os administradores da plataforma fizeram."
+    },
+    "gate": {
+      "enrollTitle": "Configure a verificação em duas etapas",
+      "enrollBody": "A administração da plataforma exige verificação em duas etapas na sua conta. Configure em Configurações e volte.",
+      "enrollAction": "Abrir configurações de segurança",
+      "stepUpTitle": "Confirme que é você",
+      "stepUpBody": "Digite um código do seu aplicativo autenticador, ou um código de recuperação, para continuar.",
+      "codeLabel": "Código de verificação",
+      "confirm": "Continuar",
+      "invalidCode": "Esse código não funcionou. Tente um novo."
+    },
+    "tenants": {
+      "title": "Espaços de trabalho",
+      "searchPlaceholder": "Nome, e-mail do proprietário ou id do espaço",
+      "search": "Buscar",
+      "loadFailed": "Não foi possível carregar os espaços de trabalho.",
+      "empty": "Nenhum espaço de trabalho corresponde.",
+      "columns": {
+        "workspace": "Espaço de trabalho",
+        "owner": "Proprietário",
+        "plan": "Plano",
+        "subscription": "Assinatura",
+        "lifecycle": "Status",
+        "members": "Membros",
+        "created": "Criado"
+      },
+      "noSubscription": "Nenhuma",
+      "lifecycle": {
+        "active": "Ativo",
+        "admin_suspended": "Suspenso pelo suporte",
+        "closing": "Encerrando"
+      },
+      "manualBlocked": "Respostas bloqueadas",
+      "purgeDue": "Exclusão pendente",
+      "loadMore": "Carregar mais"
+    },
+    "tenant": {
+      "loading": "Carregando espaço de trabalho…",
+      "notFound": "Esse espaço de trabalho não existe.",
+      "loadFailed": "Não foi possível carregar o espaço de trabalho.",
+      "lifecycle": {
+        "active": "Ativo",
+        "admin_suspended": "Suspenso pelo suporte",
+        "closing": "Encerrando"
+      },
+      "manualBlocked": "Respostas bloqueadas",
+      "auditLink": "Auditoria",
+      "summary": "Resumo",
+      "owner": "Proprietário",
+      "created": "Criado",
+      "plan": "Plano",
+      "subscription": "Assinatura",
+      "noSubscription": "Nenhuma (legado, ilimitado)",
+      "periodEnd": "Fim do período",
+      "members": "Membros",
+      "openReconciliation": "Itens de cobrança abertos",
+      "purgeAfter": "Exclusão após",
+      "usage": "Uso neste mês",
+      "noUsage": "Nenhum uso registrado neste mês.",
+      "lifecycleTitle": "Suspensão",
+      "suspendedBy": "Suspenso por {email} em {when}.",
+      "closingNote": "O proprietário pediu para excluir este espaço de trabalho. Só o proprietário pode cancelar. Suspender aqui o retém: a exclusão continua pendente e o proprietário não pode cancelá-la até você reativar.",
+      "lifecycleHelp": "Suspender interrompe campanhas, fluxos, automações e respostas de IA. Bloquear respostas também interrompe as respostas manuais. Mensagens recebidas, descadastros e pagamentos continuam sempre funcionando. Os proprietários e administradores do espaço são avisados.",
+      "reason": "Motivo (pelo menos 10 caracteres)",
+      "blockManual": "Bloquear respostas manuais",
+      "reactivate": "Reativar",
+      "suspend": "Suspender",
+      "saveManualBlock": "Salvar bloqueio de respostas",
+      "supportTitle": "Acesso do suporte",
+      "supportHelp": "Peça ao espaço de trabalho acesso aos diagnósticos. Os proprietários e administradores decidem; você vê apenas status, contagens e códigos de erro.",
+      "grantStatus": {
+        "requested": "Aguardando",
+        "approved": "Ativo",
+        "denied": "Recusado",
+        "revoked": "Revogado",
+        "expired": "Expirado"
+      },
+      "minutes": "Minutos (de 15 a 1440)",
+      "requestSupport": "Pedir acesso",
+      "lifecycleSaved": "Salvo. O espaço de trabalho foi avisado.",
+      "supportRequested": "Solicitação enviada aos proprietários e administradores do espaço.",
+      "errors": {
+        "failed": "Não deu certo. Tente novamente.",
+        "invalid": "Verifique o motivo e os valores.",
+        "reason_required": "Informe um motivo com pelo menos 10 caracteres.",
+        "unknown_account": "Esse espaço de trabalho não existe.",
+        "lifecycle_closing": "O espaço de trabalho está sendo encerrado a pedido do proprietário e não pode ser alterado aqui.",
+        "invalid_lifecycle_status": "Esse status não pode ser definido aqui.",
+        "invalid_duration": "Escolha entre 15 e 1440 minutos.",
+        "support_request_open": "Você já tem uma solicitação aberta ou um acesso ativo para este espaço de trabalho."
+      }
+    },
+    "support": {
+      "title": "Acesso do suporte",
+      "intro": "Suas solicitações de diagnóstico. Peça acesso na página de um espaço de trabalho; ver diagnósticos é registrado nas duas auditorias.",
+      "loadFailed": "Não foi possível carregar suas solicitações.",
+      "empty": "Você não tem solicitações.",
+      "status": {
+        "requested": "Aguardando",
+        "approved": "Ativo",
+        "denied": "Recusado",
+        "revoked": "Revogado",
+        "expired": "Expirado"
+      },
+      "requestedAt": "Solicitado {when}",
+      "expiresAt": "Termina {when}",
+      "viewDiagnostics": "Ver diagnósticos",
+      "errors": {
+        "failed": "Não foi possível carregar os diagnósticos.",
+        "grant_not_active": "Este acesso não está mais ativo."
+      },
+      "diagnostics": {
+        "title": "Diagnósticos",
+        "subscription": "Assinatura e status",
+        "none": "Nenhum",
+        "manualBlocked": "respostas bloqueadas",
+        "usage": "Uso neste mês",
+        "numbers": "Números do WhatsApp",
+        "token": "token presente",
+        "noToken": "sem token",
+        "healthError": "verificação de saúde falhando",
+        "integrations": "Integrações",
+        "jobs": "Tarefas em segundo plano com falha (7 dias)",
+        "outbound": "Envios de saída (7 dias)",
+        "billingIntents": "Solicitações de cobrança",
+        "exceptions": "Exceções de pagamento abertas: {payments}. Itens de cobrança abertos: {reconciliation}."
+      }
+    },
+    "health": {
+      "title": "Saúde das integrações",
+      "loading": "Carregando…",
+      "loadFailed": "Não foi possível carregar a saúde das integrações.",
+      "sharedKeyOff": "As chaves de cobrança SaaS não estão configuradas, então a verificação da chave compartilhada da Razorpay não foi feita.",
+      "integrations": "Espaços de trabalho com conexões para verificar",
+      "allClear": "Nada precisa de atenção.",
+      "columns": {
+        "workspace": "Espaço de trabalho",
+        "disconnectedNumbers": "Números desconectados",
+        "numberErrors": "Erros de número",
+        "instagram": "Instagram",
+        "metaAds": "Meta Ads",
+        "meetings": "Reuniões",
+        "courier": "Transportadora",
+        "tokensExpiring": "Tokens expirando",
+        "source": "Origem",
+        "type": "Tipo",
+        "status": "Status",
+        "workspaces": "Espaços",
+        "items": "Itens",
+        "oldest": "Mais antigo"
+      },
+      "sharedKey": "Usa a chave Razorpay da plataforma",
+      "backlog": "Tarefas em segundo plano",
+      "sources": {
+        "jobs": "Tarefas",
+        "webhook_receipts": "Webhooks"
+      }
+    },
+    "audit": {
+      "title": "Auditoria da plataforma",
+      "showAll": "Mostrar todos os espaços",
+      "loadFailed": "Não foi possível carregar a auditoria.",
+      "empty": "Nenhum registro.",
+      "columns": {
+        "when": "Quando",
+        "admin": "Administrador",
+        "action": "Ação",
+        "workspace": "Espaço de trabalho",
+        "reason": "Motivo"
+      },
+      "loadMore": "Carregar mais"
+    }
+  },
+  "Marketing": {
+    "nav": {
+      "pricing": "Preços",
+      "help": "Ajuda",
+      "signIn": "Entrar",
+      "getStarted": "Começar",
+      "privacy": "Privacidade",
+      "terms": "Termos"
+    },
+    "landing": {
+      "headline": "Todas as conversas com clientes em um só lugar",
+      "subhead": "O Bodhinox Chat reúne mensagens do WhatsApp e do Instagram, contatos, vendas, automações, agendamentos e sua loja para toda a sua equipe.",
+      "ctaPrimary": "Criar uma conta grátis",
+      "ctaSecondary": "Ver preços",
+      "features": {
+        "inbox": {
+          "title": "Caixa de entrada compartilhada",
+          "body": "Responda ao WhatsApp e ao Instagram em uma só caixa, atribua conversas e passe-as entre colegas."
+        },
+        "flows": {
+          "title": "Fluxos e automações",
+          "body": "Crie conversas guiadas e regras que marcam, atribuem e fazem o acompanhamento por você."
+        },
+        "ai": {
+          "title": "Assistente de IA",
+          "body": "Respostas sugeridas, resumos e avaliação de leads a partir do seu próprio conhecimento aprovado."
+        },
+        "crm": {
+          "title": "Contatos e funil",
+          "body": "Mantenha cada cliente, nota e negócio juntos e veja o que precisa de atenção."
+        },
+        "commerce": {
+          "title": "Loja e pagamentos",
+          "body": "Compartilhe um catálogo, receba pedidos e pagamentos e envie do mesmo espaço de trabalho."
+        },
+        "appointments": {
+          "title": "Agendamentos",
+          "body": "Deixe os clientes agendarem online e receberem lembretes pelo WhatsApp."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Preços",
+      "subtitle": "Planos simples para equipes de todos os tamanhos.",
+      "perMonth": "por mês",
+      "annual": "ou {price} por ano",
+      "cta": "Começar",
+      "gstNote": "Todos os preços incluem o GST.",
+      "contactTitle": "Fale conosco",
+      "contactBody": "Os planos online ainda não estão disponíveis. Crie uma conta para começar e fale conosco sobre um plano para o seu negócio.",
+      "contactCta": "Criar uma conta",
+      "limitsNote": "Leia <link>como funcionam os planos e os limites</link>."
+    },
+    "help": {
+      "title": "Ajuda",
+      "contents": "Conteúdo",
+      "linkLabel": "Ajuda sobre esta página"
+    },
+    "legal": {
+      "draft": "Rascunho: este documento é provisório e ainda não está em vigor.",
+      "privacyTitle": "Política de privacidade",
+      "termsTitle": "Termos de serviço"
     }
   }
 }

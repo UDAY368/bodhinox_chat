@@ -1,4 +1,4 @@
-import { withTenant } from '@/lib/db/tenant';
+import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import {
   ContractError,
@@ -14,6 +14,8 @@ import type {
 } from '@/lib/data/types';
 import { compileMutation, compileSelect, resourceReferences } from './query';
 import { dataError } from '@/lib/data/errors';
+import { PlanLimitError } from '@/lib/billing/entitlements';
+import { requireContactRoom } from '@/lib/billing/limits';
 import { loadPhoneMask, maskMarkers, maskNotificationRow, maskTemplateParams } from '@/lib/inbox/masking-apply';
 
 export interface SqlTransaction {
@@ -262,6 +264,18 @@ export async function executeInTransaction(
   }
   if (spec.operation !== 'select')
     await validateReferences(tx, spec, context, worker);
+  // A member creating contacts (the contact form, a CSV import chunk) is held
+  // to the plan's contacts limit in this transaction; inbound and server paths
+  // never come through the browser transport, so they are never refused.
+  if (browser && spec.resource === 'contacts' && (spec.operation === 'insert' || spec.operation === 'upsert')) {
+    const rows = Array.isArray(spec.values) ? spec.values.length : spec.values ? 1 : 0;
+    try {
+      await requireContactRoom(tx as unknown as TenantTransaction, context.accountId, rows);
+    } catch (error) {
+      if (error instanceof PlanLimitError) throw new ContractError(error.message, 'plan_limit', 402);
+      throw error;
+    }
+  }
   const query =
     spec.operation === 'select'
       ? compileSelect(

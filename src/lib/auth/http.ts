@@ -27,8 +27,10 @@ import {
   enrollMfa,
   getMfaStatus,
   hasOwnPassword,
+  stepUpMfa,
   verifyMfaEnrollment,
 } from './mfa';
+import { deleteMyAccount } from './account-deletion';
 import {
   enforceAuthRateLimit,
   isRecoveryTokenValid,
@@ -38,6 +40,7 @@ import {
   resetPassword,
   revokeSessions,
   rotateRefreshToken,
+  currentTermsVersion,
   signup,
   switchTenant,
   updatePassword,
@@ -165,6 +168,12 @@ export async function handleAuthGet(
         process.env.NODE_ENV === 'production' &&
         ['owner', 'admin'].includes(context.role) &&
         !(await getMfaStatus(context));
+      // Only while TERMS_VERSION is set: whether this user still has to accept it (a non-blocking banner).
+      const terms = currentTermsVersion();
+      const termsPending = terms
+        ? !(await getAuthPrisma().$queryRaw<{ ok: boolean }[]>`
+            SELECT terms_version=${terms} AS ok FROM auth_users WHERE id=${context.userId}::uuid`)[0]?.ok
+        : false;
       return json({
         session: {
           user: context.user,
@@ -172,6 +181,7 @@ export async function handleAuthGet(
           accountId: context.accountId,
           role: context.role,
           mfaRequired,
+          ...(terms ? { termsVersion: terms, termsPending } : {}),
         },
       });
     }
@@ -284,6 +294,8 @@ export async function handleAuthPost(
               next: z.string().max(2048).optional(),
               // Any string: signup() answers a malformed link with the same 410 as a dead one.
               invite: z.string().max(256).optional(),
+              // The terms version accepted on the form; required only while TERMS_VERSION is set.
+              termsVersion: z.string().max(40).optional(),
             })
             .strict()
             .parse(input)
@@ -393,6 +405,30 @@ export async function handleAuthPost(
       );
       return json({ ok: true });
     }
+    if (action === 'terms-accept') {
+      // Existing users accepting the current terms from the banner (only while TERMS_VERSION is set).
+      const parsed = z.object({ termsVersion: z.string().max(40) }).strict().parse(input);
+      const terms = currentTermsVersion();
+      if (!terms || parsed.termsVersion !== terms)
+        throw new AuthError('These terms are not current. Reload the page.', 409, 'terms_outdated');
+      await getAuthPrisma().$executeRaw`UPDATE auth_users SET terms_version=${terms},terms_accepted_at=NOW()
+        WHERE id=${context.userId}::uuid AND disabled_at IS NULL`;
+      return json({ ok: true });
+    }
+    if (action === 'account-delete') {
+      const parsed = z
+        .object({ currentPassword: password.optional(), mfaCode: code })
+        .strict()
+        .parse(input);
+      await enforceAuthRateLimit('account-delete', context.userId, 5, 3600);
+      const result = await deleteMyAccount(context, {
+        password: parsed.currentPassword,
+        mfaCode: parsed.mfaCode,
+      });
+      const response = json({ ok: true, closedWorkspaces: result.closedWorkspaces });
+      clearSessionCookies(response);
+      return response;
+    }
     if (action === 'user') {
       const parsed = z
         .object({ fullName: z.string().min(1).max(200) })
@@ -422,6 +458,15 @@ export async function handleAuthPost(
         return json({
           recoveryCodes: await verifyMfaEnrollment(context, parsed.code),
         });
+      }
+      if (action === 'mfa-step-up') {
+        // Re-confirms the authenticator for this session only (platform administration needs a recent one).
+        const parsed = z
+          .object({ code: z.string().min(1).max(100) })
+          .strict()
+          .parse(input);
+        const verifiedAt = await stepUpMfa(context, parsed.code);
+        return json({ ok: true, mfaVerifiedAt: verifiedAt.toISOString() });
       }
       if (action === 'mfa-disable') {
         const parsed = z

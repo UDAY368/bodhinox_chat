@@ -29,7 +29,9 @@ async function handle(
         ? 403
         : result.error.code === 'DATABASE_ERROR'
           ? 500
-          : 400
+          : result.error.code === 'plan_limit'
+            ? 402
+            : 400
       : 200;
     return Response.json(result, {
       status,

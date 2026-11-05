@@ -3,7 +3,7 @@
 // Credentials are generated once into .env.test.docker (git-ignored); the
 // shared .env.test and any remote test database are never touched.
 //
-//   node scripts/test-db-local.cjs setup   start the container, migrate, set role logins
+//   node scripts/test-db-local.cjs setup   start the container, migrate, set role logins (app, auth, worker, platform)
 //   node scripts/test-db-local.cjs run     setup, then run the database tests against it
 //   node scripts/test-db-local.cjs stop    stop the container (data is thrown away)
 
@@ -16,26 +16,38 @@ const PORT = 55432;
 const DATABASE = 'bodhinox_test';
 const ENV_FILE = '.env.test.docker';
 // Every variable the database tooling or the tests read for connections.
-const DB_KEYS = ['MIGRATION_DATABASE_URL', 'DATABASE_URL', 'AUTH_DATABASE_URL', 'WORKER_DATABASE_URL',
-  'TEST_DATABASE_URL', 'TEST_APP_DATABASE_URL', 'TEST_AUTH_DATABASE_URL', 'TEST_WORKER_DATABASE_URL'];
+const DB_KEYS = ['MIGRATION_DATABASE_URL', 'DATABASE_URL', 'AUTH_DATABASE_URL', 'WORKER_DATABASE_URL', 'PLATFORM_DATABASE_URL',
+  'TEST_DATABASE_URL', 'TEST_APP_DATABASE_URL', 'TEST_AUTH_DATABASE_URL', 'TEST_WORKER_DATABASE_URL', 'TEST_PLATFORM_DATABASE_URL'];
+
+const secret = () => crypto.randomBytes(32).toString('hex');
+const url = (role, password) => `postgresql://${role}:${password}@127.0.0.1:${PORT}/${DATABASE}?sslmode=disable`;
+const write = (values) => fs.writeFileSync(ENV_FILE, Object.entries(values).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join('\n') + '\n');
 
 function credentials() {
   if (fs.existsSync(ENV_FILE)) {
-    return Object.fromEntries(fs.readFileSync(ENV_FILE, 'utf8').split(/\r?\n/).filter(Boolean)
+    const values = Object.fromEntries(fs.readFileSync(ENV_FILE, 'utf8').split(/\r?\n/).filter(Boolean)
       .map((line) => { const i = line.indexOf('='); return [line.slice(0, i), JSON.parse(line.slice(i + 1))]; }));
+    // A file written before the platform console role (Phase 14): add its login once.
+    if (!values.PLATFORM_DATABASE_URL) {
+      values.PLATFORM_DATABASE_URL = url('bodhinox_platform', secret());
+      values.TEST_PLATFORM_DATABASE_URL = values.PLATFORM_DATABASE_URL;
+      write(values);
+    }
+    return values;
   }
-  const secret = () => crypto.randomBytes(32).toString('hex');
-  const url = (role, password) => `postgresql://${role}:${password}@127.0.0.1:${PORT}/${DATABASE}?sslmode=disable`;
   const owner = url('postgres', secret());
   const values = {
     MIGRATION_DATABASE_URL: owner,
     DATABASE_URL: url('bodhinox_app', secret()),
     AUTH_DATABASE_URL: url('bodhinox_auth', secret()),
     WORKER_DATABASE_URL: url('bodhinox_worker', secret()),
+    // Platform console role (Phase 14): EXECUTE on crm_platform_* functions only.
+    PLATFORM_DATABASE_URL: url('bodhinox_platform', secret()),
   };
   Object.assign(values, { TEST_DATABASE_URL: owner, TEST_APP_DATABASE_URL: values.DATABASE_URL,
-    TEST_AUTH_DATABASE_URL: values.AUTH_DATABASE_URL, TEST_WORKER_DATABASE_URL: values.WORKER_DATABASE_URL });
-  fs.writeFileSync(ENV_FILE, Object.entries(values).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join('\n') + '\n');
+    TEST_AUTH_DATABASE_URL: values.AUTH_DATABASE_URL, TEST_WORKER_DATABASE_URL: values.WORKER_DATABASE_URL,
+    TEST_PLATFORM_DATABASE_URL: values.PLATFORM_DATABASE_URL });
+  write(values);
   return values;
 }
 

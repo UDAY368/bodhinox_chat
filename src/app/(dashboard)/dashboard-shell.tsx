@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { AccountAccessAlert } from '@/components/layout/account-access-alert';
+import { TermsBanner } from '@/components/settings/privacy/terms-banner';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { BrowserNotificationsListener } from '@/components/notifications/browser-notifications-listener';
 
@@ -61,6 +62,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           {/* Above every page: writes are being rejected and here's why.
               Renders nothing unless the account/role failed to resolve. */}
           <AccountAccessAlert />
+          {/* Nothing unless TERMS_VERSION is set and this user has not accepted it. */}
+          <TermsBanner />
           {children}
         </main>
       </div>

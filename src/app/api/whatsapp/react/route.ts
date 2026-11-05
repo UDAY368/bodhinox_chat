@@ -11,6 +11,7 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit';
 import { getT } from '@/lib/i18n/translate';
+import { manualRepliesBlocked } from '@/lib/platform/lifecycle';
 
 const t = getT('Api');
 
@@ -29,11 +30,16 @@ export async function POST(request: Request) {
     // reaction to Meta before mirroring it locally — so, as on /send, a
     // missing role check let a read-only viewer put a visible reaction on
     // the customer's message even though RLS blocked the local mirror.
-    const { db, accountId, userId } = await requireRole('agent');
+    const { db, accountId, userId, role } = await requireRole('agent');
 
     const limit = checkRateLimit(`react:${userId}`, RATE_LIMITS.react);
     if (!limit.success) {
       return rateLimitResponse(limit);
+    }
+
+    // A reaction is a manual agent message: refused while a platform admin blocks manual replies.
+    if (await manualRepliesBlocked({ accountId, userId, role })) {
+      return NextResponse.json({ error: t('send.manualBlocked'), code: 'workspace_manual_blocked' }, { status: 403 });
     }
 
     const body = await request.json();

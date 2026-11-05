@@ -9,9 +9,9 @@ import { apiNodeUsesSecrets, canonicalJson } from '@/lib/flows/api-request';
 import { secretAttributeKeys } from '@/lib/workspace/attributes';
 import { tenantOf } from '@/lib/audience/http';
 import { withTenant } from '@/lib/db/tenant';
-import { requireWithinLimit } from '@/lib/billing/entitlements';
+import { gateWithinLimit } from '@/lib/billing/limits';
 import { requirePermission } from '@/lib/auth/permissions';
-import { readPublishState, saveDraft, type DraftPatch, type VersionNode } from '@/lib/flows/versions';
+import { lockAccountPublishing, readPublishState, saveDraft, type DraftPatch, type VersionNode } from '@/lib/flows/versions';
 import { flowVersionErrorResponse } from '@/lib/flows/version-http';
 
 const t = getT('Api');
@@ -220,20 +220,6 @@ export async function PUT(
       return NextResponse.json({ error: t('flows.cannotSaveActive'), issues }, { status: 422 });
     }
   }
-  // A draft that starts testing runs like a live flow, so it takes a slot of the plan's active_flows.
-  // shortcut: checked before the update in another transaction, like the activate route.
-  if (testing && !((current as FlowRow).test_numbers ?? []).length) {
-    try {
-      await withTenant(tenantOf(ctx), async (tx) => {
-        const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM flows
-          WHERE account_id=${accountId}::uuid AND id<>${id}::uuid
-          AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`;
-        await requireWithinLimit(tx, accountId, 'active_flows', n + 1);
-      });
-    } catch (err) {
-      return toErrorResponse(err);
-    }
-  }
 
   // The body may not include `nodes` (a header-only save for editing the
   // trigger config without touching the graph): the node list is then kept.
@@ -247,9 +233,24 @@ export async function PUT(
   if (testNumbers !== undefined) patch.test_numbers = testNumbers;
   if (channelScope !== undefined) patch.channel_scope = channelScope;
 
+  // A draft that starts testing runs like a live flow, so it takes a slot of the plan's active_flows:
+  // counted under the account's publish lock in the transaction that saves it, so a concurrent
+  // publish or test start cannot take the same slot.
+  const startsTesting = !!testNumbers?.length;
   let state;
   try {
     state = await withTenant(tenantOf(ctx), async (tx) => {
+      if (startsTesting) {
+        await lockAccountPublishing(tx, accountId);
+        const [row] = await tx.$queryRaw<{ starts: boolean }[]>`SELECT status='draft' AND cardinality(test_numbers)=0 AS starts
+          FROM flows WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
+        if (row?.starts) {
+          const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM flows
+            WHERE account_id=${accountId}::uuid AND id<>${id}::uuid
+            AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`;
+          await gateWithinLimit(tx, accountId, 'active_flows', n + 1);
+        }
+      }
       await saveDraft(tx, { accountId, flowId: id, patch, nodes: body.nodes as VersionNode[] | undefined });
       return readPublishState(tx, accountId, id);
     });

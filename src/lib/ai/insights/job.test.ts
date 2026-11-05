@@ -56,8 +56,8 @@ vi.mock('./registry', async (original) => ({
 vi.mock('@/lib/ai/config', () => ({
   loadAiConfig: async () => ({ provider: 'openai', model: 'gpt-test', baseUrl: null, apiKey: 'k', systemPrompt: null, isActive: true }),
 }))
-vi.mock('@/lib/ai/budget', () => ({ requireAiBudget: async () => undefined }))
-vi.mock('@/lib/ai/usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: h.logAiUsage }))
+vi.mock('@/lib/ai/budget', () => ({ requireAiBudget: async () => undefined, reserveAi: async () => ({}), settleAi: h.logAiUsage, failAi: async () => {} }))
+vi.mock('@/lib/ai/usage', () => ({ promptCharsOf: () => 0, usageLog: (a: Record<string, unknown>) => ({ ...a, totalTokens: 0 }) }))
 vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: () => ({}) }))
 vi.mock('@/lib/billing/limits', () => ({ recordAiMessage: async () => undefined }))
 

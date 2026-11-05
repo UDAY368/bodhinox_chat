@@ -79,8 +79,9 @@ vi.mock("@/lib/whatsapp/number-admin", async () => {
 });
 vi.mock("@/lib/billing/entitlements", async () => {
   const actual = await vi.importActual<typeof import("@/lib/billing/entitlements")>("@/lib/billing/entitlements");
-  return { PlanLimitError: actual.PlanLimitError, requireWhatsAppNumberRoom: h.numberRoom };
+  return { PlanLimitError: actual.PlanLimitError };
 });
+vi.mock("@/lib/billing/limits", () => ({ requireWhatsAppNumberRoom: h.numberRoom }));
 vi.mock("@/lib/repositories/routing", () => ({ resolveWhatsAppAccount: async () => h.claimed }));
 vi.mock("@/lib/whatsapp/encryption", () => ({ encrypt: (v: string) => `enc:${v}`, decrypt: (v: string) => v.replace(/^enc:/, "") }));
 vi.mock("@/lib/whatsapp/meta-api", () => ({

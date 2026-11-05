@@ -25,6 +25,7 @@ import { InstagramError } from '@/lib/instagram/errors'
 import { instagramErrorResponse, NO_STORE } from '@/lib/instagram/http'
 import { recordSuggestionUse } from '@/lib/ai/assist/suggestions'
 import { logAiEvent } from '@/lib/ai/log'
+import { manualRepliesBlocked } from '@/lib/platform/lifecycle'
 
 const t = getT('Api')
 const tForm = getT('Validation.formSend')
@@ -58,6 +59,15 @@ export async function POST(request: Request) {
     const limit = checkRateLimit(`send:${userId}`, RATE_LIMITS.send)
     if (!limit.success) {
       return rateLimitResponse(limit)
+    }
+
+    // A platform admin may block manual replies for a workspace (abuse). Billing or admin
+    // suspension alone never refuses a manual reply; inbound messages are never affected.
+    if (await manualRepliesBlocked({ accountId, userId, role })) {
+      return NextResponse.json(
+        { error: t('send.manualBlocked'), code: 'workspace_manual_blocked' },
+        { status: 403 }
+      )
     }
 
     const body = await request.json()

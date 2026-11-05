@@ -1,3 +1,4 @@
+import { requireIntegrationRoom } from '@/lib/billing/limits';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
@@ -56,6 +57,8 @@ export async function savePaymentProvider(
   };
   const updated = await tx.payment_providers.updateMany({ where, data });
   if (updated.count === 0) {
+    // A new connection takes a slot of the plan's integrations (replacing keys never checks).
+    await requireIntegrationRoom(tx, accountId);
     await tx.payment_providers.createMany({ data: [{ ...where, ...data }] });
   }
   const row = await getPaymentProvider(tx, accountId);

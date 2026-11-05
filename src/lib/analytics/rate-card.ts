@@ -11,6 +11,7 @@
 
 import type { Prisma } from '@prisma/client';
 import { getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
+import { recordPlatformAuditTx, type PlatformAuditEntry } from '@/lib/platform/audit';
 
 export const RATE_CATEGORIES = ['marketing', 'utility', 'authentication', 'service'] as const;
 export type RateCategory = (typeof RATE_CATEGORIES)[number];
@@ -65,7 +66,7 @@ export async function listRateCards(filter: { category?: RateCategory; currency?
 }
 
 /** Upserts or removes rate cards (worker role). Call only after isPlatformAdmin. */
-export async function upsertRateCards(cards: RateCardInput[]): Promise<number> {
+export async function upsertRateCards(cards: RateCardInput[], audit?: PlatformAuditEntry): Promise<number> {
   if (cards.length > MAX_RATE_CARDS_PER_WRITE) throw new RateCardInputError('Too many rate cards');
   await getWorkerPrisma().$transaction(async (tx) => {
     for (const c of cards) {
@@ -77,6 +78,8 @@ export async function upsertRateCards(cards: RateCardInput[]): Promise<number> {
           VALUES (${c.category}, ${c.countryCode}, ${c.currency}, ${c.priceMinor})
           ON CONFLICT (category, country_code, currency) DO UPDATE SET price_minor = EXCLUDED.price_minor`;
     }
+    // The platform audit row commits with the rate cards or not at all.
+    if (audit) await recordPlatformAuditTx(tx, audit);
   });
   return cards.length;
 }

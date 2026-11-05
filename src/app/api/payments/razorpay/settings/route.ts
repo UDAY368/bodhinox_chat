@@ -66,6 +66,16 @@ export async function GET() {
   }
 }
 
+/**
+ * Whether a commerce key id is the platform's SaaS billing key (BILLING_RAZORPAY_KEY_ID). Read
+ * straight from the environment: commerce code imports nothing from the billing modules. False
+ * while the platform key is unset.
+ */
+function isPlatformBillingKey(keyId: string, env: Record<string, string | undefined> = process.env): boolean {
+  const platform = env.BILLING_RAZORPAY_KEY_ID?.trim();
+  return !!platform && keyId.trim() === platform;
+}
+
 const text = (value: unknown, max: number): string | null =>
   typeof value === 'string' && value.trim() && value.trim().length <= max ? value.trim() : null;
 
@@ -87,6 +97,8 @@ export async function PUT(request: Request) {
     const mode = keyId ? keyMode(keyId) : null;
     if (!keyId || !keySecret || !mode) return NextResponse.json({ error: t('invalidKey'), code: 'invalid_key' }, { status: 400 });
     if (input.mode !== undefined && input.mode !== mode) return NextResponse.json({ error: t('modeMismatch'), code: 'mode_mismatch' }, { status: 400 });
+    // The platform's own subscription account must never double as a workspace's commerce account.
+    if (isPlatformBillingKey(keyId)) return NextResponse.json({ error: t('platformKeyReuse'), code: 'platform_key_reuse' }, { status: 400 });
     let webhookSecret: string | undefined;
     if (input.webhook_secret !== undefined && input.webhook_secret !== null && input.webhook_secret !== '') {
       const value = text(input.webhook_secret, SECRET_MAX);

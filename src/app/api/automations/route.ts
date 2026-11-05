@@ -12,7 +12,6 @@ import {
 } from '@/lib/automations/validate';
 import { automationTemplateIssues } from '@/lib/automations/template-check';
 import { getT } from '@/lib/i18n/translate';
-import { requireActiveAutomationRoom } from '@/lib/billing/activation';
 import { requireScheduledSendingAllowed } from '@/lib/automations/schedule-gate';
 import { hasMinRole } from '@/lib/auth/roles';
 import {
@@ -176,7 +175,7 @@ export async function POST(request: Request) {
     });
     if (published) return published;
     try {
-      await requireActiveAutomationRoom(accountId);
+      // The plan's active-automation cap is checked under the activation lock below.
       await requireScheduledSendingAllowed(
         accountId,
         effectiveTriggerType,
@@ -227,6 +226,8 @@ export async function POST(request: Request) {
         steps: effectiveSteps ?? [],
       });
     } catch (err) {
+      // Refused (the plan's active cap): the new automation is removed, as on a loop.
+      await db.from('automations').delete().eq('id', automation.id).eq('account_id', accountId);
       return toErrorResponse(err);
     }
     if (chain) {

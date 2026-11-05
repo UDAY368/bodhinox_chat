@@ -19,6 +19,7 @@ import {
   Megaphone,
   Truck,
   AtSign,
+  LockKeyhole,
 } from 'lucide-react';
 
 /**
@@ -35,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'security',
   'appearance',
   'notifications',
+  'privacy',
   'whatsapp',
   'instagram',
   'inbox',
@@ -94,6 +96,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: Bell,
     group: 'account',
   },
+  privacy: { id: 'privacy', label: 'Privacy & access', icon: LockKeyhole, group: 'account' },
   whatsapp: {
     id: 'whatsapp',
     label: 'WhatsApp',

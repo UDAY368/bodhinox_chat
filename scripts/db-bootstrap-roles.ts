@@ -7,11 +7,15 @@ const roles = [
   ["AUTH_DATABASE_URL", "bodhinox_auth"],
   ["WORKER_DATABASE_URL", "bodhinox_worker"],
 ] as const;
+// The platform console role (Phase 14) is optional: without PLATFORM_DATABASE_URL it stays NOLOGIN,
+// so an environment that never configures the console has no way to sign in as it.
+const optionalRoles = [["PLATFORM_DATABASE_URL", "bodhinox_platform"]] as const;
 
 async function main() {
   if (!process.env.MIGRATION_DATABASE_URL) throw new Error("MIGRATION_DATABASE_URL is required");
   const owner = new URL(process.env.MIGRATION_DATABASE_URL);
-  const credentials = roles.map(([variable, role]) => {
+  const wanted = [...roles, ...optionalRoles.filter(([variable]) => !!process.env[variable])];
+  const credentials = wanted.map(([variable, role]) => {
     const value = process.env[variable];
     if (!value) throw new Error(`${variable} is required; generate a unique high-entropy role password first`);
     const url = new URL(value);
@@ -35,7 +39,7 @@ async function main() {
       await db.query(statement.rows[0].sql);
     }
     await db.query("COMMIT");
-    console.log("Configured constrained application, identity and worker role logins.");
+    console.log(`Configured constrained application, identity and worker role logins${credentials.length > roles.length ? " and the platform console role" : ""}.`);
   } catch (error) {
     await db.query("ROLLBACK");
     throw error;

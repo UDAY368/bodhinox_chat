@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   queries: [] as { sql: string; values: unknown[] }[],
   answer: (sql: string): unknown => { void sql; return []; },
   tenants: [] as unknown[],
+  room: vi.fn(async () => {}),
 }));
 
 vi.mock('./config', async (original) => ({
@@ -25,6 +26,7 @@ vi.mock('@/lib/db/tenant', () => ({
   },
 }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ ...tx, worker: true }) }));
+vi.mock('@/lib/billing/limits', () => ({ requireIntegrationRoom: h.room }));
 vi.mock('@/lib/whatsapp/encryption', () => ({
   encrypt: (v: string) => `enc:${v}`,
   decrypt: (v: string) => v.replace(/^enc:/, ''),
@@ -110,6 +112,32 @@ describe('startConnection', () => {
     h.answer = (sql) => (/SELECT/.test(sql) && /status<>'disconnected'/.test(sql) ? [row()] : []);
     expect(await code(startConnection(admin, 'code'))).toBe('already_connected');
     expect(graph.exchangeLoginCode).not.toHaveBeenCalled();
+  });
+
+  it('gates from the row re-read in the insert transaction, not the one read before the Meta calls', async () => {
+    // Pending at first read, disconnected by the time of the insert: the new row takes a slot.
+    let reads = 0;
+    h.answer = (sql) => {
+      if (/INSERT INTO meta_ad_connections/.test(sql)) return [row({ status: 'pending', ad_account_id: null })];
+      if (/SELECT/.test(sql) && /status<>'disconnected'/.test(sql)) return reads++ === 0 ? [row({ status: 'pending' })] : [];
+      return [];
+    };
+    await startConnection(admin, 'code');
+    expect(h.room).toHaveBeenCalledTimes(1);
+    // Nothing live at first read, a pending row by the insert: refreshing it takes no slot.
+    h.room.mockClear(); reads = 0;
+    h.answer = (sql) => {
+      if (/INSERT INTO meta_ad_connections/.test(sql)) return [row({ status: 'pending', ad_account_id: null })];
+      if (/SELECT/.test(sql) && /status<>'disconnected'/.test(sql)) return reads++ === 0 ? [] : [row({ status: 'pending' })];
+      return [];
+    };
+    await startConnection(admin, 'code');
+    expect(h.room).not.toHaveBeenCalled();
+    // Active by the insert: refused, nothing written.
+    reads = 0; h.queries = [];
+    h.answer = (sql) => (/SELECT/.test(sql) && /status<>'disconnected'/.test(sql) ? (reads++ === 0 ? [] : [row()]) : []);
+    expect(await code(startConnection(admin, 'code'))).toBe('already_connected');
+    expect(ran(/INSERT INTO meta_ad_connections/)).toBe(false);
   });
 
   it('maps Meta failures to fixed codes', async () => {

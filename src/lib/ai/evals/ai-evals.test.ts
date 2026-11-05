@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   readAiSettings: vi.fn(),
   isAiFeatureAvailable: vi.fn(),
   requireAiBudget: vi.fn(),
+  reserveAi: vi.fn(),
   loadAiConfig: vi.fn(),
   logAiUsage: vi.fn(),
   readConversation: vi.fn(),
@@ -20,9 +21,9 @@ const h = vi.hoisted(() => ({
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }))
 vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_c: unknown, fn: (tx: unknown) => unknown) => fn({}) }))
 vi.mock('../settings', () => ({ readAiSettings: h.readAiSettings, isAiFeatureAvailable: h.isAiFeatureAvailable }))
-vi.mock('../budget', () => ({ requireAiBudget: h.requireAiBudget }))
+vi.mock('../budget', () => ({ requireAiBudget: h.requireAiBudget, reserveAi: h.reserveAi, settleAi: h.logAiUsage, failAi: async () => {} }))
 vi.mock('../config', () => ({ loadAiConfig: h.loadAiConfig }))
-vi.mock('../usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: h.logAiUsage }))
+vi.mock('../usage', () => ({ promptCharsOf: () => 0, usageLog: (a: Record<string, unknown>) => ({ ...a, totalTokens: 0 }) }))
 vi.mock('../admin-client', () => ({ databaseAdmin: () => ({}) }))
 vi.mock('@/lib/billing/limits', () => ({ recordAiMessage: vi.fn() }))
 vi.mock('../assess/repo', async (original) => ({
@@ -119,6 +120,7 @@ beforeEach(() => {
   h.readAiSettings.mockReset().mockResolvedValue({ assessment_enabled: true })
   h.isAiFeatureAvailable.mockReset().mockResolvedValue({ ok: true })
   h.requireAiBudget.mockReset().mockResolvedValue(undefined)
+  h.reserveAi.mockReset().mockResolvedValue({})
   h.loadAiConfig.mockReset().mockResolvedValue(config)
   h.logAiUsage.mockReset().mockResolvedValue(undefined)
   h.readCrmFacts.mockReset().mockResolvedValue({ openDeal: false, customerMessages: 1, lastInboundAt: new Date() })
@@ -148,6 +150,7 @@ describe('gate: no provider call when off', () => {
       h.isAiFeatureAvailable.mockResolvedValue({ ok: true })
       h.loadAiConfig.mockResolvedValue(config)
       h.requireAiBudget.mockResolvedValue(undefined)
+      h.reserveAi.mockResolvedValue({})
     }
     for (const value of ['false', 'FALSE', '0', 'off'])
       await run(`AI_ENABLED=${value}`, 'deployment_off', () => vi.stubEnv('AI_ENABLED', value))
@@ -156,7 +159,7 @@ describe('gate: no provider call when off', () => {
     await run('no_decryptable_config', 'not_configured', () => h.loadAiConfig.mockResolvedValue(null))
     await run('no_permission', 'no_permission', () => h.isAiFeatureAvailable.mockResolvedValue({ ok: false, reason: 'no_permission' }))
     const { PlanLimitError } = await import('@/lib/billing/entitlements')
-    await run('quota_before_call', 'quota', () => h.requireAiBudget.mockRejectedValue(new PlanLimitError('limit')))
+    await run('quota_before_call', 'quota', () => h.reserveAi.mockRejectedValue(new PlanLimitError('limit')))
 
     // The two choke points every provider path goes through.
     vi.stubEnv('AI_ENABLED', 'false')

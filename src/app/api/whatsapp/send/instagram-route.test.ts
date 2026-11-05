@@ -22,6 +22,7 @@ vi.mock('@/lib/rate-limit', async (importOriginal) => {
   return { ...actual, checkRateLimit: () => ({ success: true }) };
 });
 vi.mock('@/lib/inbox/lifecycle', () => ({ claimOnAgentReply: h.claim }));
+vi.mock('@/lib/platform/lifecycle', () => ({ manualRepliesBlocked: async () => false }));
 vi.mock('@/lib/whatsapp/send-message', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/whatsapp/send-message')>();
   return { ...actual, sendMessageToConversation: h.sendWhatsApp };

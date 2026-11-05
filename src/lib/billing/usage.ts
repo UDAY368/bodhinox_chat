@@ -4,6 +4,7 @@
 
 import type { TenantTransaction } from '@/lib/db/tenant';
 import type { LimitKey } from './entitlements';
+import { countIntegrations } from './integration-count';
 
 export type UsageKey = Exclude<LimitKey, 'campaign_recipients'>;
 /** Metered counters kept in usage_counters. */
@@ -36,11 +37,13 @@ export async function incrementUsage(tx: TenantTransaction, metric: UsageMetric,
  * Counted the same way the limits are enforced (archived segments and lists do not count). campaign_recipients is per campaign, so it has no running total.
  * storage_bytes counts member uploads only: inbound customer media the worker mirrors (chat-media, account-<id>/inbound/) is never refused, so it never
  * counts against the plan. whatsapp_numbers counts connected numbers and ones mid-setup; a number an admin removed (token cleared) frees its slot.
+ * contacts counts every contact (inbound-created ones too); integrations counts what countIntegrations counts; messages_monthly is the outbound
+ * messages (agent and bot) this IST month, cached like monthly active contacts. Keep in step with crm_platform_usage_value.
  */
 export async function currentUsage(tx: TenantTransaction, accountId: string): Promise<Record<UsageKey, number>> {
   const period = usagePeriod();
-  const [row] = await tx.$queryRaw<(Omit<Record<UsageKey, number>, 'storage_bytes' | 'ai_messages' | 'monthly_active_contacts' | 'ai_tokens_monthly'>
-    & { storage_bytes: bigint; ai_messages: bigint; ai_tokens_monthly: bigint })[]>`
+  type Counted = Omit<Record<UsageKey, number>, 'storage_bytes' | 'ai_messages' | 'monthly_active_contacts' | 'ai_tokens_monthly' | 'messages_monthly'>;
+  const [row] = await tx.$queryRaw<(Counted & { storage_bytes: bigint; ai_messages: bigint; ai_tokens_monthly: bigint })[]>`
     SELECT
       (SELECT count(*)::int FROM account_memberships m WHERE m.account_id=${accountId}::uuid)
         + (SELECT count(*)::int FROM account_invitations i WHERE i.account_id=${accountId}::uuid AND i.accepted_at IS NULL AND i.expires_at > now()) AS seats,
@@ -57,9 +60,42 @@ export async function currentUsage(tx: TenantTransaction, accountId: string): Pr
         WHERE o.account_id=${accountId}::uuid AND o.deleted_at IS NULL
           AND NOT (o.bucket='chat-media' AND o.object_key LIKE 'account-' || o.account_id::text || '/inbound/%')) AS storage_bytes,
       (SELECT count(*)::int FROM whatsapp_config w WHERE w.account_id=${accountId}::uuid
-        AND NOT (w.status='disconnected' AND w.access_token='')) AS whatsapp_numbers`;
+        AND NOT (w.status='disconnected' AND w.access_token='')) AS whatsapp_numbers,
+      (SELECT count(*)::int FROM appointment_staff st WHERE st.account_id=${accountId}::uuid AND st.archived_at IS NULL) AS appointment_staff,
+      (SELECT count(*)::int FROM instagram_accounts ia WHERE ia.account_id=${accountId}::uuid AND ia.status<>'disconnected') AS instagram_accounts,
+      (SELECT count(*)::int FROM contacts c WHERE c.account_id=${accountId}::uuid) AS contacts`;
   return { ...row, ai_messages: Number(row.ai_messages), storage_bytes: Number(row.storage_bytes), ai_tokens_monthly: Number(row.ai_tokens_monthly),
-    monthly_active_contacts: await monthlyActiveContacts(tx, accountId) };
+    integrations: await countIntegrations(tx, accountId),
+    monthly_active_contacts: await monthlyActiveContacts(tx, accountId),
+    messages_monthly: await outboundMessagesThisMonth(tx, accountId) };
+}
+
+const outboundCache = new Map<string, { value: number; at: Date }>();
+const OUTBOUND_CACHE_MAX = 10_000;
+
+/**
+ * Outbound messages (sent by an agent or a bot) since the IST month began, for
+ * display only (messages_monthly is a soft limit). Counting rows is naturally
+ * idempotent, so send paths need no meter. Uses messages_account_created_idx;
+ * cached per process for ACTIVE_CONTACTS_CACHE_MS like monthly active contacts.
+ */
+export async function outboundMessagesThisMonth(tx: TenantTransaction, accountId: string, now: Date = new Date()): Promise<number> {
+  const key = `${accountId}:${usagePeriod(now)}`;
+  const hit = outboundCache.get(key);
+  if (hit && meterIsFresh(hit.at, now)) return hit.value;
+  const [row] = await tx.$queryRaw<{ n: number }[]>`
+    WITH month AS (SELECT date_trunc('month', now() AT TIME ZONE ${BILLING_TIME_ZONE}) AT TIME ZONE ${BILLING_TIME_ZONE} AS start)
+    SELECT count(*)::int AS n FROM messages m, month
+    WHERE m.account_id=${accountId}::uuid AND m.created_at >= month.start AND m.sender_type IN ('agent','bot')`;
+  const n = row?.n ?? 0;
+  if (outboundCache.size >= OUTBOUND_CACHE_MAX) outboundCache.clear();
+  outboundCache.set(key, { value: n, at: now });
+  return n;
+}
+
+/** Test hook. */
+export function resetOutboundCacheForTests(): void {
+  outboundCache.clear();
 }
 
 /** How long a computed monthly-active-contacts count is reused. */

@@ -41,7 +41,8 @@
         "google_link_required": "이 이메일을 사용하는 계정이 이미 있습니다. 비밀번호로 로그인한 다음 설정 → 로그인 및 보안에서 Google을 연결하세요.",
         "google_no_workspace": "계정이 속한 워크스페이스가 없습니다.",
         "google_rate_limited": "시도 횟수가 너무 많습니다. 나중에 다시 시도하세요.",
-        "google_invite_unavailable": "이 초대 링크는 더 이상 유효하지 않습니다. 팀에 새 링크를 요청하거나 초대 없이 가입하세요."
+        "google_invite_unavailable": "이 초대 링크는 더 이상 유효하지 않습니다. 팀에 새 링크를 요청하거나 초대 없이 가입하세요.",
+        "google_terms_required": "가입 페이지에서 서비스 약관에 동의한 다음 Google로 계속하세요."
       }
     }
   },
@@ -299,6 +300,18 @@
           "RED": "낮음",
           "UNKNOWN": "알 수 없음"
         }
+      }
+    },
+    "onboarding": {
+      "title": "시작하기",
+      "progress": "{total}개 중 {done}개 완료",
+      "dismiss": "체크리스트 숨기기",
+      "steps": {
+        "whatsapp": "WhatsApp 번호 연결",
+        "contacts": "연락처 추가 또는 가져오기",
+        "templates": "메시지 템플릿 만들기",
+        "automation": "플로우 또는 자동화 만들기",
+        "team": "팀원 초대"
       }
     }
   },
@@ -3155,7 +3168,8 @@
       "media": "미디어 라이브러리",
       "ads": "광고",
       "connections": "회의 및 배송",
-      "instagram": "Instagram"
+      "instagram": "Instagram",
+      "privacy": "개인정보 및 접근"
     },
     "groups": {
       "account": "계정",
@@ -3533,16 +3547,34 @@
         "whatsapp_numbers": "WhatsApp 번호",
         "appointment_staff": "담당자",
         "instagram_accounts": "Instagram 계정",
-        "ai_tokens_monthly": "이번 달 AI 토큰"
+        "ai_tokens_monthly": "이번 달 AI 토큰",
+        "contacts": "연락처",
+        "integrations": "연결된 통합",
+        "messages_monthly": "이번 달 보낸 메시지"
       },
       "loadFailed": "요금제를 불러오지 못했습니다",
       "retry": "다시 시도",
       "meters": {
         "storage": "미디어 저장 공간",
         "monthly": "(이번 달)",
-        "reached": "한도에 도달했습니다. 더 사용하려면 업그레이드하거나 추가 기능을 구매하세요."
+        "reached": "한도에 도달했습니다. 더 사용하려면 업그레이드하거나 추가 기능을 구매하세요.",
+        "howTitle": "한도 적용 방식",
+        "how": {
+          "hard": "한도에 도달하면 새 항목을 추가할 수 없습니다. 이미 있는 항목은 모두 계속 작동합니다.",
+          "inbound": "메시지를 보낸 고객은 연락처 한도를 넘더라도 항상 연락처로 추가됩니다. 직접 추가하거나 가져오거나 API로 만든 연락처만 한도에 포함됩니다.",
+          "monthly": "월간 한도는 매월 1일(인도 시간)에 초기화됩니다. AI 추가 팩을 구매하면 AI 답변 한도가 늘어납니다.",
+          "warnings": "한도가 80%와 100%에 도달하면 소유자와 관리자에게 알림이 전송됩니다. 보낸 메시지와 활성 연락처는 참고용이며 사용을 막지 않습니다.",
+          "expiry": "플랜이 만료되거나 취소되면 초과한 목록, 세그먼트, 플로우, 자동화는 삭제되지 않고 보관됩니다."
+        }
       },
-      "upgradeHintBilling": "아래 결제에서 플랜을 선택하거나 변경하세요."
+      "upgradeHintBilling": "아래 결제에서 플랜을 선택하거나 변경하세요.",
+      "policies": {
+        "hard": "한도에 도달하면 새로 추가할 수 없습니다",
+        "hard_inbound_exempt": "수동 추가와 가져오기는 한도에서 멈추며, 먼저 메시지를 보낸 고객은 항상 추가됩니다",
+        "hard_addon": "한도에서 멈추며, 추가 팩으로 늘릴 수 있습니다",
+        "hard_per_campaign": "캠페인마다 확인합니다",
+        "soft": "참고용이며 차단하지 않습니다"
+      }
     },
     "iceBreakers": {
       "title": "대화 시작 문구",
@@ -4228,6 +4260,190 @@
         "permission_missingTitle": "{name}: Instagram 권한 없음",
         "permission_missingBody": "설정 → Instagram에서 계정을 다시 연결하고 메시지 권한을 허용하세요."
       }
+    },
+    "integrationHealth": {
+      "title": "연동 상태",
+      "description": "저장된 상태를 기준으로 한 각 연결의 마지막 상태입니다. 불러올 때 공급자에 확인하지 않습니다.",
+      "refresh": "새로고침",
+      "loading": "연결을 불러오는 중…",
+      "loadFailed": "연동 상태를 불러오지 못했습니다. 다시 시도하세요.",
+      "empty": "아직 연결된 연동이 없습니다.",
+      "never": "없음",
+      "lastSuccess": "마지막 성공 {when}",
+      "lastError": "마지막 오류: {code}",
+      "tokenExpires": "접근 만료 {when}",
+      "fix": "해결",
+      "kinds": {
+        "whatsapp": "WhatsApp 번호",
+        "instagram": "Instagram",
+        "meta_ads": "Meta 광고",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "meetings": "회의",
+        "courier": "배송",
+        "razorpay": "Razorpay 결제"
+      },
+      "states": {
+        "ok": "정상",
+        "attention": "확인 필요",
+        "disconnected": "연결 끊김"
+      }
+    },
+    "privacy": {
+      "supportAccess": {
+        "title": "지원팀 접근",
+        "description": "Bodhinox 지원팀은 이 워크스페이스의 진단 정보(연결 상태, 개수, 오류 코드)를 요청할 수 있습니다. 지원팀은 메시지, 연락처, 비밀 정보를 볼 수 없으며 접근은 자동으로 종료됩니다.",
+        "loading": "지원팀 접근을 불러오는 중…",
+        "empty": "지원 요청이 없습니다.",
+        "requested": "{when}에 {minutes}분 동안 요청됨",
+        "expires": "접근 종료 {when}",
+        "approve": "승인",
+        "deny": "거부",
+        "revoke": "취소",
+        "status": {
+          "requested": "응답 대기",
+          "approved": "활성",
+          "denied": "거부됨",
+          "revoked": "취소됨",
+          "expired": "만료됨"
+        },
+        "done": {
+          "approve": "접근을 승인했습니다.",
+          "deny": "요청을 거부했습니다.",
+          "revoke": "접근을 취소했습니다.",
+          "granted": "접근을 허용했습니다."
+        },
+        "errors": {
+          "loadFailed": "지원팀 접근을 불러오지 못했습니다. 다시 시도하세요.",
+          "failed": "처리하지 못했습니다. 다시 시도하세요.",
+          "invalid": "이메일, 10자 이상의 사유, 기간을 확인하세요.",
+          "not_found": "해당 요청이 더 이상 없습니다.",
+          "not_platform_admin": "해당 이메일은 Bodhinox 지원 주소가 아닙니다.",
+          "grant_open": "해당 사용자에게 이미 열린 요청이나 활성 접근이 있습니다.",
+          "not_pending": "이미 응답한 요청입니다.",
+          "not_active": "이미 종료된 접근입니다.",
+          "request_expired": "7일이 지난 요청입니다. 지원팀이 다시 요청할 수 있습니다."
+        },
+        "grant": {
+          "title": "요청 없이 접근 허용",
+          "help": "직접 연 지원 건의 경우: 함께 일하는 Bodhinox 지원 이메일을 입력하세요.",
+          "email": "지원 이메일",
+          "reason": "사유",
+          "duration": "접근 기간",
+          "submit": "접근 허용",
+          "durations": {
+            "60": "1시간",
+            "240": "4시간",
+            "1440": "24시간"
+          }
+        }
+      },
+      "title": "개인정보 및 접근",
+      "description": "데이터를 내보내고, 지원팀 접근을 관리하고, 워크스페이스에서 나가거나 삭제하고, 계정을 삭제합니다.",
+      "stepUp": {
+        "password": "현재 비밀번호",
+        "code": "인증 앱 코드 또는 복구 코드",
+        "codePlaceholder": "123456",
+        "googleHint": "이 계정은 Google로 로그인합니다. 요청되면 Google로 다시 로그인한 뒤 몇 분 안에 이곳으로 돌아오세요."
+      },
+      "errors": {
+        "generic": "처리하지 못했습니다. 잠시 후 다시 시도하세요.",
+        "network": "서버에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.",
+        "invalid_request": "요청이 올바르지 않습니다. 페이지를 새로고침하고 다시 시도하세요.",
+        "admin_required": "소유자와 관리자만 할 수 있습니다.",
+        "owner_required": "워크스페이스 소유자만 할 수 있습니다.",
+        "storage_not_configured": "이 서버에 파일 저장소가 설정되지 않아 내보내기를 사용할 수 없습니다.",
+        "export_in_progress": "이미 내보내기를 준비하고 있습니다. 완료될 때까지 기다리세요.",
+        "export_not_found": "해당 내보내기가 더 이상 없습니다.",
+        "export_not_ready": "해당 내보내기가 준비되지 않았거나 만료되었습니다.",
+        "workspace_admin_suspended": "서비스 운영자가 이 워크스페이스를 정지했습니다. 지원팀에 문의하세요.",
+        "deletion_unavailable": "삭제 요청을 기록하지 못했습니다. 페이지를 새로고침하고 다시 시도하세요.",
+        "no_deletion_request": "대기 중인 삭제 요청이 없습니다.",
+        "invalid_name": "100자 이내의 워크스페이스 이름을 입력하세요.",
+        "email_unverified": "먼저 이메일 주소를 인증하세요.",
+        "workspace_limit": "소유할 수 있는 워크스페이스 수의 최대치에 도달했습니다.",
+        "owner_must_transfer": "이 워크스페이스에서 나가기 전에 다른 멤버에게 소유권을 이전하세요.",
+        "last_workspace": "유일한 워크스페이스입니다. 대신 계정을 삭제하세요.",
+        "mfa_required": "인증 앱 코드 또는 복구 코드를 입력하세요.",
+        "mfa_invalid": "코드가 올바르지 않거나 이미 사용되었습니다.",
+        "current_password_invalid": "현재 비밀번호가 올바르지 않습니다.",
+        "google_reauth_required": "본인 확인을 위해 Google로 다시 로그인한 뒤 몇 분 안에 다시 시도하세요.",
+        "owns_shared_workspace": "다른 사람과 함께 쓰는 워크스페이스의 소유권을 먼저 이전하거나 멤버를 제거하세요.",
+        "active_subscription": "유료 요금제를 사용하는 워크스페이스의 삭제를 먼저 요청하세요. 그러면 요금제가 해지됩니다."
+      },
+      "export": {
+        "title": "워크스페이스 데이터 내보내기",
+        "description": "워크스페이스의 연락처, 대화, 메시지, 거래, 플로우, 자동화, 템플릿, 주문, 예약, 청구서 등을 담은 zip 파일을 다운로드합니다.",
+        "notConfigured": "이 서버에 파일 저장소가 설정되지 않아 내보내기를 사용할 수 없습니다.",
+        "request": "내보내기 요청",
+        "inProgress": "내보내기 준비 중...",
+        "download": "다운로드",
+        "note": "파일은 백그라운드에서 준비되며 7일 동안 다운로드할 수 있습니다. 비밀번호, 토큰, 키 등 자격 증명은 포함되지 않습니다. 요청과 다운로드는 감사 로그에 기록됩니다.",
+        "status": {
+          "queued": "대기 중",
+          "running": "준비 중",
+          "ready": "준비됨",
+          "failed": "실패",
+          "expired": "만료됨"
+        }
+      },
+      "deleteWorkspace": {
+        "title": "워크스페이스 삭제",
+        "description": "이 워크스페이스를 중지하고 30일의 유예 기간 후 삭제되도록 예약합니다.",
+        "pending": "삭제가 요청되었습니다. 발송이 중지되었습니다. {date} 전에는 아무것도 삭제되지 않으며, 소유자는 그때까지 취소할 수 있습니다.",
+        "ownerOnly": "워크스페이스 소유자만 삭제를 요청할 수 있습니다.",
+        "adminSuspended": "서비스 운영자가 이 워크스페이스를 정지하여 여기서 삭제를 요청할 수 없습니다. 지원팀에 문의하세요.",
+        "start": "이 워크스페이스 삭제",
+        "effects": {
+          "sending": "발송이 즉시 중지됩니다. 캠페인, 플로우, 자동화, AI 답장이 일시 중지됩니다. 수신 메시지와 수신 거부는 계속 처리됩니다.",
+          "grace": "30일 동안은 아무것도 삭제되지 않으며, 그 기간 동안 요청을 취소할 수 있습니다.",
+          "billing": "유료 요금제는 현재 기간이 끝날 때 해지됩니다.",
+          "export": "사본을 보관하려면 먼저 데이터를 내보내세요."
+        },
+        "typeName": "확인을 위해 워크스페이스 이름({name})을 입력하세요",
+        "confirm": "삭제 요청",
+        "back": "뒤로",
+        "cancel": "삭제 요청 취소",
+        "cancelled": "삭제 요청이 취소되었습니다. 발송을 다시 시작할 수 있습니다. 유료 요금제가 해지될 예정이었다면 결제에서 요금제를 다시 선택하세요.",
+        "billing": {
+          "none": "삭제가 요청되었습니다.",
+          "scheduled": "삭제가 요청되었습니다. 유료 요금제는 현재 기간이 끝날 때 해지됩니다.",
+          "pending": "삭제가 요청되었습니다. 유료 요금제 해지를 아직 결제 대행사와 확인하고 있습니다.",
+          "failed": "삭제가 요청되었지만 유료 요금제를 자동으로 해지하지 못했습니다. 결제에서 해지하세요."
+        }
+      },
+      "leave": {
+        "title": "워크스페이스 나가기",
+        "description": "{name}의 멤버에서 빠집니다. 다른 워크스페이스로 이동합니다.",
+        "start": "이 워크스페이스 나가기",
+        "confirm": "지금 나가기",
+        "back": "뒤로"
+      },
+      "create": {
+        "title": "다른 워크스페이스 만들기",
+        "description": "다른 사업 등을 위해 내가 소유하는 별도의 워크스페이스를 만듭니다. 바로 전환됩니다.",
+        "name": "워크스페이스 이름",
+        "submit": "워크스페이스 만들기"
+      },
+      "deleteAccount": {
+        "title": "내 계정 삭제",
+        "description": "로그인 정보, 이름, 이메일 주소를 삭제하고 모든 기기에서 로그아웃합니다.",
+        "start": "내 계정 삭제",
+        "effects": {
+          "ownership": "다른 멤버가 있는 워크스페이스를 소유하고 있으면 계정을 삭제할 수 없습니다. 먼저 소유권을 이전하세요.",
+          "soleWorkspaces": "내가 유일한 멤버인 워크스페이스에는 30일 유예 기간의 삭제 요청이 생성됩니다.",
+          "identity": "이름, 이메일, 비밀번호, 2단계 인증이 삭제됩니다. 워크스페이스 기록에는 익명 참조가 남습니다."
+        },
+        "keyword": "DELETE",
+        "typeKeyword": "확인을 위해 {keyword}를 입력하세요",
+        "confirm": "내 계정 삭제",
+        "back": "뒤로"
+      },
+      "terms": {
+        "banner": "<link>서비스 약관</link>이 업데이트되었습니다. 검토 후 동의해 주세요.",
+        "accept": "동의",
+        "later": "나중에"
+      }
     }
   },
   "SignupPage": {
@@ -4254,7 +4470,11 @@
     "haveAccount": "이미 계정이 있으신가요?",
     "signIn": "로그인",
     "inviteUnavailable": "이 초대 링크는 더 이상 유효하지 않습니다. 이미 사용되었거나 만료되었습니다. 팀에 새 링크를 요청하세요.",
-    "signupWithoutInvite": "초대 없이 가입하기"
+    "signupWithoutInvite": "초대 없이 가입하기",
+    "terms": {
+      "label": "<terms>서비스 약관</terms> 및 <privacy>개인정보 처리방침</privacy>에 동의합니다.",
+      "required": "계정을 만들려면 서비스 약관과 개인정보 처리방침에 동의하세요."
+    }
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "이메일을 확인하세요",
@@ -5527,7 +5747,8 @@
       "no_catalog": "이 대화의 WhatsApp 번호에 연결된 카탈로그가 없습니다.",
       "product_not_found": "선택한 상품이 더 이상 카탈로그에 없습니다. 카탈로그를 동기화한 뒤 다시 고르세요.",
       "uncertain": "메시지가 전송되었는지 확인할 수 없습니다. 다시 보내기 전에 대화를 확인하세요.",
-      "rejected": "WhatsApp이 메시지를 거부했습니다."
+      "rejected": "WhatsApp이 메시지를 거부했습니다.",
+      "workspace_manual_blocked": "Bodhinox 지원팀이 이 워크스페이스의 답장을 일시 중지했습니다. 자세한 내용은 Bodhinox 지원팀에 문의하세요."
     },
     "commerce": {
       "catalogIdInvalid": "올바른 카탈로그를 선택하세요.",
@@ -5570,7 +5791,9 @@
       "invalidRequest": "유효하지 않은 요청입니다.",
       "sendUncertain": "메시지가 전달되었는지 확인하지 못했습니다. 자동으로 다시 보내지 않으니 먼저 대화를 확인하세요.",
       "sendRejected": "WhatsApp이 메시지를 거부하여 보내지 않았습니다.",
-      "link_exists": "이 주문 또는 예약에는 이미 열려 있는 결제 링크가 있습니다. 먼저 해당 링크를 취소하거나 확인하세요."
+      "link_exists": "이 주문 또는 예약에는 이미 열려 있는 결제 링크가 있습니다. 먼저 해당 링크를 취소하거나 확인하세요.",
+      "platformKeyReuse": "이 Razorpay 키는 플랫폼 자체 결제 계정의 키입니다. 대신 비즈니스의 Razorpay 계정을 연결하세요.",
+      "workspace_manual_blocked": "Bodhinox 지원팀이 이 워크스페이스의 답장을 일시 중지했습니다. 자세한 내용은 Bodhinox 지원팀에 문의하세요."
     },
     "commerceEvents": {
       "resolution": "고객이 메시지를 받았는지 선택하세요.",
@@ -5641,7 +5864,9 @@
         "invalid_selection": "현재 사용 중인 항목만 선택하세요.",
         "stale_plan": "요금제 변경 내용이 바뀌었습니다. 목록을 다시 확인하세요.",
         "too_many": "요금제에서 허용하는 것보다 많은 항목을 선택했습니다."
-      }
+      },
+      "adminSuspended": "Bodhinox 지원팀이 이 워크스페이스의 발송을 일시 중지했습니다. 수신 메시지는 계속 받습니다. 자세한 내용은 Bodhinox 지원팀에 문의하세요.",
+      "closing": "이 워크스페이스는 삭제 예정이라 발송이 일시 중지되었습니다. 소유자는 설정에서 삭제를 취소할 수 있습니다."
     },
     "teams": {
       "invalid_name": "팀 이름은 80자 이내로 입력하세요.",
@@ -5904,7 +6129,8 @@
     "send": {
       "idsRequired": "conversation_id 또는 contact_id와 message_type이 필요합니다",
       "contactNotFound": "연락처를 찾을 수 없습니다",
-      "openConversationFailed": "이 연락처와 대화를 열지 못했습니다"
+      "openConversationFailed": "이 연락처와 대화를 열지 못했습니다",
+      "manualBlocked": "Bodhinox 지원팀이 이 워크스페이스의 답장을 일시 중지했습니다. 자세한 내용은 Bodhinox 지원팀에 문의하세요."
     },
     "templates": {
       "invalidId": "잘못된 템플릿 ID입니다.",
@@ -8415,6 +8641,14 @@
       "checkout_superseded": {
         "title": "추가 구독이 취소됨",
         "body": "이미 대체된 결제 또는 두 번째 구독에 대해 {plan} 플랜의 결제 승인이 도착했습니다. 적용되지 않았으며 결제 대행사에서 취소되었습니다. 현재 플랜은 변경되지 않았습니다. 결제에서 확인하세요."
+      },
+      "usage_warning": {
+        "title": "플랜 한도의 80% 사용",
+        "body": "이 워크스페이스는 {plan} 플랜에서 {number}을(를) 사용했습니다. 계속 추가하려면 업그레이드하세요."
+      },
+      "usage_reached": {
+        "title": "플랜 한도 도달",
+        "body": "이 워크스페이스는 {plan} 플랜에서 {number}에 도달했습니다. 업그레이드하거나 공간을 확보할 때까지 새 항목 추가가 중지됩니다."
       }
     },
     "downgrade": {
@@ -8431,6 +8665,11 @@
     },
     "instagram": {
       "activeContactsNote": "WhatsApp 연락처에 연결된 Instagram 사용자는 활성 연락처에서 한 번만 집계되며, 연결되지 않으면 따로 집계됩니다."
+    },
+    "expiry": {
+      "ends": "구독이 종료되거나 결제되지 않으면 워크스페이스는 Free 플랜으로 전환됩니다. 아무것도 삭제되지 않습니다. Free 한도를 넘는 저장된 세그먼트, 목록, 플로우, 자동화는 보관되며 다시 구독하면 복원됩니다.",
+      "inbound": "수신 메시지, 수신 거부, 결제 알림은 모든 플랜에서 계속 작동합니다.",
+      "terms": "플랜의 기능과 한도는 갱신 시에도 구독했을 때와 동일하게 유지됩니다. 플랜 변경 사항은 플랜을 바꾸거나 이전 안내를 받은 경우에만 적용됩니다."
     }
   },
   "AiAgentFoundation": {
@@ -8757,7 +8996,12 @@
         "save": "요금 저장",
         "saved": "요금표를 저장했습니다",
         "saveFailed": "요금표를 저장하지 못했습니다",
-        "invalidRow": "2자리 국가 코드, 3자리 통화, 0 이상의 가격을 입력하세요."
+        "invalidRow": "2자리 국가 코드, 3자리 통화, 0 이상의 가격을 입력하세요.",
+        "mfaRequired": "저장하려면 2단계 인증 코드를 입력하세요.",
+        "mfaEnrollRequired": "설정 > 보안에서 2단계 인증을 설정한 후 저장하세요.",
+        "stepUpCode": "2단계 인증 코드",
+        "stepUpSubmit": "인증 후 저장",
+        "stepUpInvalid": "코드가 올바르지 않습니다. 인증 앱을 확인하고 다시 시도하세요."
       },
       "overLimit": "이 대상은 캠페인당 수신자 한도 {limit}명을 초과합니다. 캠페인을 만들기 전에 대상을 줄이세요.",
       "noCurrencyRate": "{currency} 요금이 설정되지 않았습니다",
@@ -10190,6 +10434,372 @@
       "evidence_dropped": "알 수 없는 근거 무시",
       "claim": "상태 또는 의료 관련 주장 차단",
       "fallback": "AI를 사용할 수 없어 대체 결과 사용"
+    }
+  },
+  "Platform": {
+    "plans": {
+      "title": "플랜 및 가격",
+      "intro": "플랜을 수정하고 영향을 받는 대상을 미리 본 다음 새 버전으로 게시하세요. 구독자는 이전하기 전까지 기존 버전에 머뭅니다.",
+      "loadFailed": "플랜을 불러오지 못했습니다.",
+      "version": "버전 {version}",
+      "subscribers": "구독자 {count}명",
+      "pinnedOld": "이전 버전 {count}명",
+      "enterpriseLocked": "Enterprise는 구독이 없는 모든 워크스페이스의 플랜입니다. 한도는 무제한으로 유지되며 기능을 끌 수 없습니다.",
+      "features": "기능",
+      "limits": "한도",
+      "limitsHint": "무제한으로 하려면 한도를 비워 두세요.",
+      "unlimited": "무제한",
+      "allUnlimited": "모든 한도 무제한",
+      "preview": "변경 사항 미리 보기",
+      "reset": "초기화",
+      "showVersions": "버전 보기",
+      "hideVersions": "버전 숨기기",
+      "affected": "워크스페이스 {count}개가 이 플랜의 현재 조건을 사용합니다.",
+      "noTightening": "낮아지는 한도가 없습니다.",
+      "tightened": "{from} → {to}",
+      "over": "(이미 초과한 워크스페이스 {count}개)",
+      "overSoft": "(워크스페이스별로 적용되지 않음)",
+      "pinnedStay": "이전 버전에 고정된 구독자는 기존 조건을 유지합니다.",
+      "note": "메모(선택)",
+      "publish": "버전 {version} 게시",
+      "published": "버전 {version}이(가) 게시되었습니다.",
+      "moveIntro": "구독자 {count}명이 이전 버전을 사용 중입니다. 이전하면 버전 {version}이(가) 적용되며, 한도를 넘는 항목은 삭제되지 않고 보관됩니다.",
+      "reason": "사유(10자 이상)",
+      "move": "구독자를 버전 {version}(으)로 이전",
+      "moved": "{moved}개 이전, {archived}개에서 초과 항목 보관, {failed}개 후속 조치 필요.",
+      "errors": {
+        "invalid_plan_terms": "한도를 확인하세요. 각 한도는 비어 있거나 정수여야 합니다.",
+        "plan_locked": "Enterprise 한도는 무제한이며 기능은 계속 켜져 있어야 합니다.",
+        "unknown_plan": "이 플랜은 더 이상 존재하지 않습니다.",
+        "invalid_request": "요청이 올바르지 않습니다. 다시 미리 보기하세요.",
+        "reason_required": "10자 이상의 사유를 입력하세요.",
+        "stale_version": "그동안 플랜이 변경되었습니다. 새로고침 후 다시 시도하세요.",
+        "preview_mismatch": "미리 보기 이후 초안 또는 플랜이 변경되었습니다. 게시하기 전에 다시 미리 보기하세요.",
+        "failed": "문제가 발생했습니다. 다시 시도하세요."
+      },
+      "prices": {
+        "title": "가격",
+        "intro": "금액에는 GST가 포함됩니다. 각 플랜에는 월간 및 연간 가격이 있으며, 새 공급자 플랜은 이전 행을 비활성화하고 기존 구독은 계속 그 행에 연결됩니다.",
+        "notConfigured": "결제 키가 설정되지 않았습니다. 가격은 저장되지만 결제는 제공되지 않습니다.",
+        "empty": "아직 가격이 없습니다.",
+        "plan": "플랜",
+        "interval": "주기",
+        "intervals": {
+          "month": "월간",
+          "year": "연간"
+        },
+        "amount": "금액",
+        "amountInr": "금액(₹, GST 포함)",
+        "providerPlan": "Razorpay 플랜 ID",
+        "state": "상태",
+        "updated": "업데이트",
+        "active": "활성",
+        "retired": "중지됨",
+        "activeLabel": "활성 가격",
+        "save": "가격 저장",
+        "saved": "가격이 저장되었습니다.",
+        "history": "이전 행은 중지됨으로 계속 표시되어 가격 기록이 유지됩니다.",
+        "errors": {
+          "invalidPrice": "금액과 Razorpay 플랜 ID(plan_…)를 확인하세요.",
+          "failed": "가격이 저장되지 않았습니다. 금액과 Razorpay 플랜 ID를 확인하세요."
+        }
+      }
+    },
+    "billing": {
+      "title": "결제 대사",
+      "intro": "사람의 확인이 필요한 구독 결제 항목입니다. 다시 조회하면 일반 결제 점검을 통해 공급자 상태가 적용되며, 해결은 메모만 기록합니다.",
+      "filterLabel": "표시",
+      "filters": {
+        "open": "열림",
+        "resolved": "해결됨",
+        "all": "전체"
+      },
+      "loadFailed": "항목을 불러오지 못했습니다.",
+      "empty": "대사할 항목이 없습니다.",
+      "more": "더 보기",
+      "status": {
+        "open": "열림",
+        "resolved": "해결됨"
+      },
+      "kinds": {
+        "event_error": "적용되지 않은 웹훅 이벤트",
+        "intent_unknown": "하루 동안 확인되지 않은 공급자 호출",
+        "invoice_unissued": "발행되지 않은 청구서",
+        "state_mismatch": "공급자 상태 불일치",
+        "shared_razorpay_key": "커머스에 사용된 플랫폼 키"
+      },
+      "noWorkspace": "워크스페이스 없음",
+      "openedAt": "{when} 열림",
+      "resolvedBy": "{email}님이 {when}에 해결",
+      "note": "해결 메모",
+      "resolve": "해결로 표시",
+      "resolved": "해결로 표시했습니다.",
+      "refetch": "공급자에서 다시 조회",
+      "refetchQueued": "다시 조회를 대기열에 추가했습니다.",
+      "errors": {
+        "note_required": "3자 이상의 메모를 입력하세요.",
+        "not_found": "이 항목은 이미 해결되었습니다.",
+        "no_provider_subscription": "이 워크스페이스에는 조회할 공급자 구독이 없습니다.",
+        "billing_not_configured": "이 배포에는 결제 키가 설정되지 않았습니다.",
+        "invalid_request": "요청이 올바르지 않습니다.",
+        "failed": "문제가 발생했습니다. 다시 시도하세요."
+      }
+    },
+    "title": "플랫폼 관리",
+    "navLabel": "플랫폼 섹션",
+    "signedInAs": "{email}(으)로 로그인됨",
+    "nav": {
+      "overview": "개요",
+      "tenants": "워크스페이스",
+      "plans": "요금제 및 가격",
+      "billing": "결제 대사",
+      "health": "연동 상태",
+      "support": "지원팀 접근",
+      "audit": "플랫폼 감사"
+    },
+    "overview": {
+      "intro": "여기서 한 모든 작업은 플랫폼 감사 기록과 해당 워크스페이스의 감사 로그에 기록됩니다.",
+      "tenants": "워크스페이스를 찾고 요금제와 상태를 보며 일시 중지하거나 다시 활성화합니다.",
+      "plans": "게시 전 미리보기로 요금제 한도와 가격을 편집합니다.",
+      "billing": "사람이 확인해야 하는 결제 항목입니다.",
+      "health": "확인이 필요한 연결과 백그라운드 작업입니다.",
+      "support": "내 진단 요청과 워크스페이스가 허용한 접근입니다.",
+      "audit": "플랫폼 관리자가 수행한 모든 작업입니다."
+    },
+    "gate": {
+      "enrollTitle": "2단계 인증 설정",
+      "enrollBody": "플랫폼 관리에는 계정의 2단계 인증이 필요합니다. 설정에서 설정한 후 돌아오세요.",
+      "enrollAction": "보안 설정 열기",
+      "stepUpTitle": "본인 확인",
+      "stepUpBody": "계속하려면 인증 앱의 코드 또는 복구 코드를 입력하세요.",
+      "codeLabel": "인증 코드",
+      "confirm": "계속",
+      "invalidCode": "코드가 맞지 않습니다. 새 코드를 입력하세요."
+    },
+    "tenants": {
+      "title": "워크스페이스",
+      "searchPlaceholder": "이름, 소유자 이메일 또는 워크스페이스 ID",
+      "search": "검색",
+      "loadFailed": "워크스페이스를 불러오지 못했습니다.",
+      "empty": "일치하는 워크스페이스가 없습니다.",
+      "columns": {
+        "workspace": "워크스페이스",
+        "owner": "소유자",
+        "plan": "요금제",
+        "subscription": "구독",
+        "lifecycle": "상태",
+        "members": "멤버",
+        "created": "생성일"
+      },
+      "noSubscription": "없음",
+      "lifecycle": {
+        "active": "활성",
+        "admin_suspended": "지원팀이 일시 중지",
+        "closing": "종료 중"
+      },
+      "manualBlocked": "답장 차단됨",
+      "purgeDue": "삭제 예정일 도래",
+      "loadMore": "더 보기"
+    },
+    "tenant": {
+      "loading": "워크스페이스를 불러오는 중…",
+      "notFound": "해당 워크스페이스가 없습니다.",
+      "loadFailed": "워크스페이스를 불러오지 못했습니다.",
+      "lifecycle": {
+        "active": "활성",
+        "admin_suspended": "지원팀이 일시 중지",
+        "closing": "종료 중"
+      },
+      "manualBlocked": "답장 차단됨",
+      "auditLink": "감사 기록",
+      "summary": "요약",
+      "owner": "소유자",
+      "created": "생성일",
+      "plan": "요금제",
+      "subscription": "구독",
+      "noSubscription": "없음 (기존, 무제한)",
+      "periodEnd": "기간 종료",
+      "members": "멤버",
+      "openReconciliation": "열린 결제 항목",
+      "purgeAfter": "삭제 가능일",
+      "usage": "이번 달 사용량",
+      "noUsage": "이번 달 기록된 사용량이 없습니다.",
+      "lifecycleTitle": "일시 중지",
+      "suspendedBy": "{email}이(가) {when}에 일시 중지했습니다.",
+      "closingNote": "소유자가 이 워크스페이스의 삭제를 요청했습니다. 소유자만 취소할 수 있습니다. 여기서 일시 중지하면 보류됩니다. 삭제는 대기 상태로 유지되며 다시 활성화할 때까지 소유자가 취소할 수 없습니다.",
+      "lifecycleHelp": "일시 중지하면 캠페인, 플로우, 자동화, AI 답장이 멈춥니다. 답장 차단은 수동 답장도 멈춥니다. 수신 메시지, 수신 거부, 결제는 항상 계속 동작합니다. 워크스페이스의 소유자와 관리자에게 알림이 갑니다.",
+      "reason": "사유 (10자 이상)",
+      "blockManual": "수동 답장 차단",
+      "reactivate": "다시 활성화",
+      "suspend": "일시 중지",
+      "saveManualBlock": "답장 차단 저장",
+      "supportTitle": "지원팀 접근",
+      "supportHelp": "워크스페이스에 진단 접근을 요청합니다. 소유자와 관리자가 결정하며, 상태, 개수, 오류 코드만 볼 수 있습니다.",
+      "grantStatus": {
+        "requested": "대기 중",
+        "approved": "활성",
+        "denied": "거부됨",
+        "revoked": "취소됨",
+        "expired": "만료됨"
+      },
+      "minutes": "분 (15~1440)",
+      "requestSupport": "접근 요청",
+      "lifecycleSaved": "저장했습니다. 워크스페이스에 알림을 보냈습니다.",
+      "supportRequested": "워크스페이스의 소유자와 관리자에게 요청을 보냈습니다.",
+      "errors": {
+        "failed": "처리하지 못했습니다. 다시 시도하세요.",
+        "invalid": "사유와 값을 확인하세요.",
+        "reason_required": "10자 이상의 사유를 입력하세요.",
+        "unknown_account": "해당 워크스페이스가 없습니다.",
+        "lifecycle_closing": "소유자 요청으로 종료 중인 워크스페이스라 여기서 변경할 수 없습니다.",
+        "invalid_lifecycle_status": "여기서는 해당 상태를 설정할 수 없습니다.",
+        "invalid_duration": "15분에서 1440분 사이로 선택하세요.",
+        "support_request_open": "이 워크스페이스에 이미 열린 요청이나 활성 접근이 있습니다."
+      }
+    },
+    "support": {
+      "title": "지원팀 접근",
+      "intro": "내 진단 요청입니다. 워크스페이스 페이지에서 접근을 요청하세요. 진단 조회는 두 감사 기록에 모두 남습니다.",
+      "loadFailed": "요청을 불러오지 못했습니다.",
+      "empty": "요청이 없습니다.",
+      "status": {
+        "requested": "대기 중",
+        "approved": "활성",
+        "denied": "거부됨",
+        "revoked": "취소됨",
+        "expired": "만료됨"
+      },
+      "requestedAt": "요청 {when}",
+      "expiresAt": "종료 {when}",
+      "viewDiagnostics": "진단 보기",
+      "errors": {
+        "failed": "진단을 불러오지 못했습니다.",
+        "grant_not_active": "이 접근은 더 이상 활성 상태가 아닙니다."
+      },
+      "diagnostics": {
+        "title": "진단",
+        "subscription": "구독 및 상태",
+        "none": "없음",
+        "manualBlocked": "답장 차단됨",
+        "usage": "이번 달 사용량",
+        "numbers": "WhatsApp 번호",
+        "token": "토큰 있음",
+        "noToken": "토큰 없음",
+        "healthError": "상태 확인 실패 중",
+        "integrations": "연동",
+        "jobs": "실패한 백그라운드 작업 (7일)",
+        "outbound": "발신 (7일)",
+        "billingIntents": "결제 요청",
+        "exceptions": "열린 결제 예외: {payments}. 열린 결제 항목: {reconciliation}."
+      }
+    },
+    "health": {
+      "title": "연동 상태",
+      "loading": "불러오는 중…",
+      "loadFailed": "연동 상태를 불러오지 못했습니다.",
+      "sharedKeyOff": "SaaS 결제 키가 설정되지 않아 공유 Razorpay 키 확인을 하지 않았습니다.",
+      "integrations": "확인할 연결이 있는 워크스페이스",
+      "allClear": "확인할 항목이 없습니다.",
+      "columns": {
+        "workspace": "워크스페이스",
+        "disconnectedNumbers": "연결 끊긴 번호",
+        "numberErrors": "번호 오류",
+        "instagram": "Instagram",
+        "metaAds": "Meta 광고",
+        "meetings": "회의",
+        "courier": "배송",
+        "tokensExpiring": "만료 예정 토큰",
+        "source": "출처",
+        "type": "유형",
+        "status": "상태",
+        "workspaces": "워크스페이스",
+        "items": "항목",
+        "oldest": "가장 오래된 항목"
+      },
+      "sharedKey": "플랫폼 Razorpay 키 사용",
+      "backlog": "백그라운드 작업",
+      "sources": {
+        "jobs": "작업",
+        "webhook_receipts": "웹훅"
+      }
+    },
+    "audit": {
+      "title": "플랫폼 감사",
+      "showAll": "모든 워크스페이스 보기",
+      "loadFailed": "감사 기록을 불러오지 못했습니다.",
+      "empty": "기록이 없습니다.",
+      "columns": {
+        "when": "시간",
+        "admin": "관리자",
+        "action": "작업",
+        "workspace": "워크스페이스",
+        "reason": "사유"
+      },
+      "loadMore": "더 보기"
+    }
+  },
+  "Marketing": {
+    "nav": {
+      "pricing": "요금",
+      "help": "도움말",
+      "signIn": "로그인",
+      "getStarted": "시작하기",
+      "privacy": "개인정보",
+      "terms": "약관"
+    },
+    "landing": {
+      "headline": "모든 고객 대화를 한곳에서",
+      "subhead": "Bodhinox Chat은 WhatsApp과 Instagram 메시지, 연락처, 영업, 자동화, 예약, 스토어를 팀 전체가 함께 쓰도록 모아 줍니다.",
+      "ctaPrimary": "무료 계정 만들기",
+      "ctaSecondary": "요금 보기",
+      "features": {
+        "inbox": {
+          "title": "공유 받은편지함",
+          "body": "하나의 받은편지함에서 WhatsApp과 Instagram에 답장하고, 대화를 배정하고, 팀원 간에 넘깁니다."
+        },
+        "flows": {
+          "title": "플로우와 자동화",
+          "body": "태그 지정, 배정, 후속 조치를 대신하는 안내형 대화와 규칙을 만듭니다."
+        },
+        "ai": {
+          "title": "AI 어시스턴트",
+          "body": "직접 승인한 지식을 바탕으로 답장 제안, 요약, 리드 평가를 제공합니다."
+        },
+        "crm": {
+          "title": "연락처와 파이프라인",
+          "body": "모든 고객, 메모, 거래를 함께 관리하고 주의가 필요한 항목을 확인합니다."
+        },
+        "commerce": {
+          "title": "스토어와 결제",
+          "body": "같은 워크스페이스에서 카탈로그를 공유하고 주문과 결제를 받고 배송합니다."
+        },
+        "appointments": {
+          "title": "예약",
+          "body": "고객이 온라인으로 예약하고 WhatsApp으로 알림을 받게 합니다."
+        }
+      }
+    },
+    "pricing": {
+      "title": "요금",
+      "subtitle": "모든 규모의 팀을 위한 간단한 요금제.",
+      "perMonth": "월",
+      "annual": "또는 연 {price}",
+      "cta": "시작하기",
+      "gstNote": "모든 가격은 GST 포함입니다.",
+      "contactTitle": "문의하기",
+      "contactBody": "온라인 요금제는 아직 제공되지 않습니다. 계정을 만들어 시작하고 비즈니스에 맞는 요금제를 문의하세요.",
+      "contactCta": "계정 만들기",
+      "limitsNote": "<link>요금제와 한도 작동 방식</link>을 읽어 보세요."
+    },
+    "help": {
+      "title": "도움말",
+      "contents": "목차",
+      "linkLabel": "이 페이지 도움말"
+    },
+    "legal": {
+      "draft": "초안: 이 문서는 임시이며 아직 효력이 없습니다.",
+      "privacyTitle": "개인정보 처리방침",
+      "termsTitle": "서비스 약관"
     }
   }
 }

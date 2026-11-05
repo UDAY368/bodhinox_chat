@@ -7,10 +7,9 @@ const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
   loadAiConfig: vi.fn(),
   generateReply: vi.fn(),
-  logAiUsage: vi.fn(),
-  databaseAdmin: vi.fn(),
-  requireAiMessageRoom: vi.fn(),
-  recordAiMessage: vi.fn(),
+  reserveAi: vi.fn(),
+  settleAi: vi.fn(),
+  failAi: vi.fn(),
 }))
 
 class FakeAuthError extends Error {
@@ -37,9 +36,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/generate', () => ({ generateReply: mocks.generateReply }))
-vi.mock('@/lib/ai/usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: mocks.logAiUsage }))
-vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: mocks.databaseAdmin }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: mocks.requireAiMessageRoom, recordAiMessage: mocks.recordAiMessage }))
+vi.mock('@/lib/ai/budget', () => ({ reserveAi: mocks.reserveAi, settleAi: mocks.settleAi, failAi: mocks.failAi, ROUTE_GENERATION_TOKENS: 20_000 }))
 
 import { POST } from './route'
 
@@ -70,8 +67,8 @@ beforeEach(() => {
     isActive: true, autoReplyEnabled: false, autoReplyMaxPerConversation: 3, handoffAgentId: null,
     embeddingsApiKey: null,
   })
-  mocks.databaseAdmin.mockReturnValue({ tag: 'admin' })
-  mocks.logAiUsage.mockResolvedValue(undefined)
+  mocks.reserveAi.mockResolvedValue({ reservation: true })
+  mocks.settleAi.mockResolvedValue(undefined)
 })
 
 afterEach(() => vi.clearAllMocks())
@@ -104,13 +101,13 @@ describe('POST /api/whatsapp/templates/ai-draft', () => {
   })
 
   it('refuses with the plan error when the monthly AI messages are used up', async () => {
-    mocks.requireAiMessageRoom.mockRejectedValueOnce(new FakeAuthError('The Free plan allows up to 100 AI replies this month. Upgrade for more.', 402))
+    mocks.reserveAi.mockRejectedValueOnce(new FakeAuthError('The Free plan allows up to 100 AI replies this month. Upgrade for more.', 402))
     const res = await post(BRIEF)
     expect(res.status).toBe(402)
     expect((await res.json()).error).toMatch(/Upgrade/)
-    expect(mocks.requireAiMessageRoom).toHaveBeenCalledWith('account-1')
+    expect(mocks.reserveAi).toHaveBeenCalledWith('account-1', expect.stringMatching(/^req:/), { message: true, tokens: 20_000 })
     expect(mocks.generateReply).not.toHaveBeenCalled()
-    expect(mocks.recordAiMessage).not.toHaveBeenCalled()
+    expect(mocks.settleAi).not.toHaveBeenCalled()
   })
 
   it('returns 409 when AI is not configured', async () => {
@@ -133,14 +130,11 @@ describe('POST /api/whatsapp/templates/ai-draft', () => {
     })
     expect(JSON.stringify(data)).not.toContain('secret-key')
     expect(mocks.loadAiConfig).toHaveBeenCalledWith({ tag: 'db' }, 'account-1')
-    expect(mocks.logAiUsage).toHaveBeenCalledTimes(1)
-    expect(mocks.logAiUsage).toHaveBeenCalledWith({ tag: 'admin' }, {
-      accountId: 'account-1', conversationId: null, mode: 'draft', provider: 'openai',
-      model: 'gpt-test', usage,
-      // Sizes of the call, so a provider that reports no usage is still metered.
-      estimate: { promptChars: expect.any(Number), outputChars: expect.any(Number) },
+    expect(mocks.settleAi).toHaveBeenCalledTimes(1)
+    expect(mocks.settleAi).toHaveBeenCalledWith({ reservation: true }, {
+      tokens: 12,
+      log: [{ conversationId: null, mode: 'draft', provider: 'openai', model: 'gpt-test', promptTokens: 5, completionTokens: 7, totalTokens: 12 }],
     })
-    expect(mocks.logAiUsage.mock.calls[0][1].estimate.outputChars).toBeGreaterThan(0)
   })
 
   it('returns 422 when the draft is invalid twice, logging both calls', async () => {
@@ -153,6 +147,26 @@ describe('POST /api/whatsapp/templates/ai-draft', () => {
     expect(res.status).toBe(422)
     expect((await res.json()).code).toBe('draft_invalid')
     expect(mocks.generateReply).toHaveBeenCalledTimes(2)
-    expect(mocks.logAiUsage).toHaveBeenCalledTimes(2)
+    // Both calls are logged and their tokens settled once: one AI message per request.
+    expect(mocks.settleAi).toHaveBeenCalledTimes(1)
+    expect(mocks.settleAi.mock.calls[0][1]).toMatchObject({ tokens: 24, log: [expect.any(Object), expect.any(Object)] })
+  })
+
+  it('meters the first (billed) call when the corrective retry throws', async () => {
+    mocks.generateReply
+      .mockResolvedValueOnce({ text: JSON.stringify({ ...VALID, sample_values: { body: [] } }), handoff: false, usage })
+      .mockRejectedValueOnce(new Error('provider down'))
+    const res = await post(BRIEF)
+    expect(res.status).toBe(500)
+    expect(mocks.failAi).not.toHaveBeenCalled()
+    expect(mocks.settleAi).toHaveBeenCalledTimes(1)
+    expect(mocks.settleAi.mock.calls[0][1]).toMatchObject({ tokens: 12, log: [expect.objectContaining({ totalTokens: 12 })] })
+  })
+
+  it('fails the hold when the first call throws before any usage', async () => {
+    mocks.generateReply.mockRejectedValueOnce(new Error('provider down'))
+    await post(BRIEF)
+    expect(mocks.failAi).toHaveBeenCalledTimes(1)
+    expect(mocks.settleAi).not.toHaveBeenCalled()
   })
 })

@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({
     writes: [] as string[],
     // What the locked re-check finds (a loop closed by a concurrent activation), and its calls.
     lockedChain: null as string[] | null,
+    lockError: null as Error | null,
     activations: [] as Array<{ automationId: string }>,
   },
 }));
@@ -46,11 +47,11 @@ vi.mock('@/lib/automations/steps-tree', () => ({
   insertSteps: async () => null,
 }));
 vi.mock('@/lib/automations/template-check', () => ({ automationTemplateIssues: async () => [] }));
-vi.mock('@/lib/billing/activation', () => ({ requireActiveAutomationRoom: async () => {} }));
 vi.mock('@/lib/automations/schedule-gate', () => ({ requireScheduledSendingAllowed: async () => {} }));
 vi.mock('@/lib/automations/activation-lock', () => ({
   activateWithLoopLock: async (_tenant: unknown, _acc: string, automationId: string) => {
     h.state.activations.push({ automationId });
+    if (h.state.lockError) throw h.state.lockError;
     return h.state.lockedChain;
   },
 }));
@@ -123,6 +124,7 @@ beforeEach(() => {
   h.state.storedSteps = [];
   h.state.writes = [];
   h.state.lockedChain = null;
+  h.state.lockError = null;
   h.state.activations = [];
 });
 
@@ -210,6 +212,16 @@ describe('publishing (a save that ends active)', () => {
       name: 'C', trigger_type: 'tag_added', trigger_config: { tag_id: TAG_Y }, is_active: true, steps: [addTag(TAG_X)],
     }) }))) as unknown as Res;
     expect(res.status).toBe(422);
+    expect(h.state.writes).toEqual(['automations:insert:active=false', 'automations:delete']);
+  });
+
+  it('removes a new automation and answers 402 when the plan cap refuses it under the lock', async () => {
+    const { PlanLimitError } = await import('@/lib/billing/entitlements');
+    h.state.lockError = new PlanLimitError('The Free plan allows up to 1 active automations. Upgrade for more.');
+    const res = (await POST(new Request('http://t/', { method: 'POST', body: JSON.stringify({
+      name: 'C', trigger_type: 'tag_added', trigger_config: { tag_id: TAG_Y }, is_active: true, steps: [addTag(TAG_X)],
+    }) }))) as unknown as Res;
+    expect(res.status).toBe(402);
     expect(h.state.writes).toEqual(['automations:insert:active=false', 'automations:delete']);
   });
 });

@@ -8,24 +8,24 @@
 //      the decrypted config (loadAiConfig);
 //   2. redact personal data from every untrusted block, flag injection markers;
 //   3. truncate to the feature budget, delimit as data with a fresh nonce;
-//   4. usage limits checked BEFORE the call (requireAiBudget);
+//   4. usage limits held BEFORE the call (reserveAi, one source event per task);
 //   5. generateReply with the feature's output cap and timeout (the sentinel
 //      stripping and reasoning-leak withholding of parseGeneration apply);
 //   6. strict JSON + zod validation when a schema is given;
 //   7. output guards: medical and status claims, uncovered scripts, URL allowlist;
-//   8. usage logged and tokens counted, one content-free log line.
+//   8. usage settled once and logged (settleAi), one content-free log line.
 // The model gets no tools; context is fetched before the call by fixed
 // read-only providers; output is plain text or validated JSON, never acted on.
 
+import { randomUUID } from 'node:crypto';
 import type { ZodType } from 'zod';
 import type { PrismaClient } from '@prisma/client';
 import type { AccountRole } from '@/lib/auth/roles';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { AuthError } from '@/lib/auth/errors';
-import { recordAiMessage } from '@/lib/billing/limits';
 import { databaseAdmin } from './admin-client';
-import { requireAiBudget } from './budget';
+import { failAi, reserveAi, settleAi, type AiReservation } from './budget';
 import { loadAiConfig } from './config';
 import { featureBudget, maxTokensFor } from './feature-budgets';
 import { aiDeploymentEnabled } from './gate';
@@ -35,7 +35,7 @@ import { checkOutputClaims, failClosedForScript } from './safety/claims';
 import { redactForProvider } from './safety/redact';
 import { delimitUntrusted, detectInjectionMarkers, stripUnlistedUrls } from './safety/untrusted';
 import { isAiFeatureAvailable } from './settings';
-import { countAiTokens, logAiUsage } from './usage';
+import { usageLog } from './usage';
 import {
   AiError, type AiAssistFeature, type AiConfig, type AiFallbackReason, type AiUsage,
   type KnowledgeCitation, type UntrustedBlock,
@@ -76,6 +76,8 @@ export interface RunAiTaskArgs<T> {
   healthWorkspace?: boolean;
   /** Prisma client for the availability and budget checks (default: worker). */
   db?: PrismaClient;
+  /** The source event this call meters (a job passes its task id); default: a fresh `task:<uuid>`. */
+  sourceKey?: string;
 }
 
 export type RunAiTaskResult<T> =
@@ -174,8 +176,12 @@ export async function runAiTask<T>(args: RunAiTaskArgs<T>): Promise<RunAiTaskRes
       args.schema ? 'Reply with one JSON object only, no other text.' : ''].filter(Boolean).join('\n\n');
     const promptChars = systemPrompt.length + delimited.text.length;
 
+    let reservation: AiReservation;
     try {
-      await requireAiBudget(args.accountId, args.feature, maxTokensFor(args.feature, systemPrompt + delimited.text), prisma);
+      reservation = await reserveAi(args.accountId, args.sourceKey ?? `task:${randomUUID()}`, {
+        message: args.feature === 'suggest', tokens: maxTokensFor(args.feature, systemPrompt + delimited.text),
+        workspaceCap: true,
+      }, prisma);
     } catch (error) {
       if (error instanceof AuthError && error.status === 402) return fail('quota');
       throw error;
@@ -190,22 +196,20 @@ export async function runAiTask<T>(args: RunAiTaskArgs<T>): Promise<RunAiTaskRes
     } catch (error) {
       const reason = errorReason(error);
       // A timeout or server error after the request left may still be billed
-      // on the key: count the prompt (characters / 4). A refusal before the
-      // request (deployment off) or a 4xx/auth error counts nothing.
-      if (reason === 'timeout' || (error instanceof AiError && error.code !== 'ai_disabled' && error.status >= 500)) {
-        await countAiTokens(args.accountId, Math.ceil(promptChars / 4));
-      }
+      // on the key: settle the prompt (characters / 4). A refusal before the
+      // request (deployment off) or a 4xx/auth error releases the hold.
+      await failAi(reservation, error, promptChars);
       logAiEvent({ feature: args.feature, reason, accountId: args.accountId, provider: config.provider, model: config.model, error });
       return { ok: false, reason, guardFlags: [...flags] };
     }
 
-    // The provider call happened: record it whatever the guards decide.
-    await logAiUsage(admin, {
-      accountId: args.accountId, conversationId: args.conversationId ?? null, mode: args.feature,
+    // The provider call happened: settle it whatever the guards decide.
+    const log = usageLog({
+      conversationId: args.conversationId ?? null, mode: args.feature,
       provider: config.provider, model: config.model, usage: generated.usage,
       estimate: { promptChars, outputChars: generated.text.length },
     });
-    if (args.feature === 'suggest') await recordAiMessage(args.accountId, prisma);
+    await settleAi(reservation, { tokens: log.totalTokens, log });
 
     if (!generated.text.trim()) return fail('invalid_output');
     let value: unknown = generated.text.trim();

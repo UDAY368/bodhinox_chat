@@ -7,6 +7,12 @@ vi.mock('@/lib/auth/session', () => ({
     role: 'owner', sessionId: 's', user: { id: 'u', email: h.email } }),
   assertMutation: async () => undefined,
 }));
+// The shared PUT runs requirePlatformAdmin: a verified factor and a recent MFA check, then audits.
+vi.mock('@/lib/db/prisma', () => ({
+  platformDatabaseConfigured: () => false,
+  getAuthPrisma: () => ({ $queryRaw: async () => [{ factor: true, mfa_verified_at: new Date() }] }),
+}));
+vi.mock('@/lib/platform/audit', () => ({ hashRequestIp: () => null, recordPlatformAudit: async () => 'audit-id' }));
 vi.mock('@/lib/analytics/rate-card', async (original) => ({
   ...(await original<typeof import('@/lib/analytics/rate-card')>()),
   listRateCards: async () => [{ category: 'marketing', countryCode: 'IN', currency: 'INR', priceMinor: 78.46 }],

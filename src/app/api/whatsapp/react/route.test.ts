@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   conversationNumber: null as string | null,
   numbers: [] as Record<string, unknown>[],
   sent: [] as Record<string, unknown>[],
+  blocked: false,
 }));
 
 function db() {
@@ -32,10 +33,11 @@ function db() {
 }
 
 vi.mock('@/lib/auth/account', () => ({
-  requireRole: async () => ({ db: db(), accountId: 'acct', userId: 'u-1' }),
+  requireRole: async () => ({ db: db(), accountId: 'acct', userId: 'u-1', role: 'agent' }),
   toErrorResponse: () => new Response(null, { status: 500 }),
 }));
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: () => ({ success: true }), rateLimitResponse: () => null, RATE_LIMITS: { react: {} } }));
+vi.mock('@/lib/platform/lifecycle', () => ({ manualRepliesBlocked: async () => h.blocked }));
 vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: (v: string) => `plain:${v}` }));
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendReactionMessage: async (args: Record<string, unknown>) => { h.sent.push(args); return {}; },
@@ -52,7 +54,15 @@ const react = () => POST(new Request('http://localhost/api/whatsapp/react', {
 }));
 
 describe('POST /api/whatsapp/react with two numbers', () => {
-  beforeEach(() => { h.sent = []; h.numbers = NUMBERS; h.conversationNumber = null; });
+  beforeEach(() => { h.sent = []; h.numbers = NUMBERS; h.conversationNumber = null; h.blocked = false; });
+
+  it('refuses a reaction while a platform admin blocks manual replies, before any Meta call', async () => {
+    h.blocked = true;
+    const res = await react();
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe('workspace_manual_blocked');
+    expect(h.sent).toEqual([]);
+  });
 
   it("reacts from the conversation's number", async () => {
     h.conversationNumber = B;

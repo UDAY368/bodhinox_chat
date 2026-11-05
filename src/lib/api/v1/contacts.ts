@@ -8,6 +8,9 @@
 // ============================================================
 
 import type { DataClient } from '@/lib/data/types';
+import { getWorkerPrisma } from '@/lib/db/prisma';
+import { withTenant } from '@/lib/db/tenant';
+import { requireContactRoom } from '@/lib/billing/limits';
 
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
@@ -110,12 +113,19 @@ export interface ContactInput {
  * Returns the contact id and whether it was created. Reuses the shared
  * `findExistingContact` dedupe + unique-violation race backstop so an
  * API-created contact is indistinguishable from a webhook-created one.
+ *
+ * `enforceLimit` (the public API's create): a new contact is checked against
+ * the plan's contacts limit and inserted in the same transaction, so
+ * concurrent creates cannot pass it (PlanLimitError, 402). Finding an
+ * existing contact never checks. Sends to a number keep creating contacts
+ * without the check, like inbound.
  */
 export async function findOrCreateContact(
   db: DataClient,
   accountId: string,
   auditUserId: string,
-  input: ContactInput
+  input: ContactInput,
+  options: { enforceLimit?: boolean } = {}
 ): Promise<{ id: string; created: boolean }> {
   // Raw integrator input: the leading `+` is required so the country
   // code is explicit. A national-format number ("4155551212") would
@@ -131,6 +141,21 @@ export async function findOrCreateContact(
 
   const existing = await findExistingContact(db, accountId, sanitized);
   if (existing) return { id: existing.id, created: false };
+
+  if (options.enforceLimit) {
+    const id = await withTenant({ accountId, role: 'owner' }, async (tx) => {
+      await requireContactRoom(tx, accountId);
+      // A concurrent create of the same number wins the unique index: nothing is inserted here.
+      const [row] = await tx.$queryRaw<{ id: string }[]>`INSERT INTO contacts(account_id, user_id, phone, name, email, company)
+        VALUES (${accountId}::uuid, ${auditUserId}::uuid, ${sanitized}, ${input.name ?? sanitized}, ${input.email ?? null}, ${input.company ?? null})
+        ON CONFLICT DO NOTHING RETURNING id::text AS id`;
+      return row?.id ?? null;
+    }, getWorkerPrisma());
+    if (id) return { id, created: true };
+    const raced = await findExistingContact(db, accountId, sanitized);
+    if (raced) return { id: raced.id, created: false };
+    throw new ContactError('Failed to create contact', 500);
+  }
 
   const { data: created, error } = await db
     .from('contacts')

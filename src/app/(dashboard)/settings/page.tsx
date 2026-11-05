@@ -40,6 +40,9 @@ import { ShiprocketCard } from '@/components/settings/shiprocket-card';
 import { RateCardEditor } from '@/components/settings/rate-card-editor';
 import { AiAssistantSettings } from '@/components/settings/ai-assistant-settings';
 import { AiQuality } from '@/components/settings/ai-quality';
+import { PrivacySection } from '@/components/settings/privacy/privacy-section';
+import { HelpLink } from '@/components/help/help-link';
+import { IntegrationHealthCard } from '@/components/settings/integrations/health-card';
 import {
   resolveSection,
   type SettingsSection,
@@ -108,6 +111,7 @@ function SettingsPageInner() {
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     notifications: <NotificationPreferences key={accountId} />,
+    privacy: <PrivacySection key={accountId} />,
     whatsapp: <WhatsAppConfig />,
     instagram: <InstagramCard key={accountId} />,
     templates: <TemplateManager />,
@@ -141,6 +145,7 @@ function SettingsPageInner() {
     payments: <PaymentsCard />,
     connections: (
       <div key={accountId} className="space-y-10">
+        <IntegrationHealthCard />
         <ZoomCard />
         <ShiprocketCard />
       </div>
@@ -151,6 +156,7 @@ function SettingsPageInner() {
         <PlanPanel />
         <BillingSection key={accountId} />
         <RateCardEditor />
+        <HelpLink section="billing" />
       </div>
     ),
   };

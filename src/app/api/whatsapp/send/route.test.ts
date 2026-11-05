@@ -2,6 +2,8 @@ vi.mock('@/lib/auth/session', () => ({ requireSession: async () => ({ userId: 'u
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const claimOnAgentReply = vi.hoisted(() => vi.fn(async () => true))
 vi.mock('@/lib/inbox/lifecycle', () => ({ claimOnAgentReply }))
+const manualBlock = vi.hoisted(() => ({ blocked: false }))
+vi.mock('@/lib/platform/lifecycle', () => ({ manualRepliesBlocked: async () => manualBlock.blocked }))
 
 // ---------------------------------------------------------------------------
 // Tests for the `contact_id` send path (issue #296): sending an approved
@@ -358,6 +360,21 @@ describe('POST /api/whatsapp/send — role enforcement', () => {
     expect(res.status).toBe(200)
     expect(error).toHaveBeenCalledWith('[send] conversation claim failed')
     error.mockRestore()
+  })
+
+  it('refuses a manual reply with 403 while a platform admin blocks manual replies, before anything is sent', async () => {
+    callerRole = 'agent'
+    manualBlock.blocked = true
+    try {
+      const res = await postContactTemplate()
+      expect(res.status).toBe(403)
+      expect((await res.json()).code).toBe('workspace_manual_blocked')
+      expect(sendTemplateMessage).not.toHaveBeenCalled()
+      expect(conversationInserts).toHaveLength(0)
+      expect(messageInserts).toHaveLength(0)
+    } finally {
+      manualBlock.blocked = false
+    }
   })
 })
 

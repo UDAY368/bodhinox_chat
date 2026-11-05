@@ -136,6 +136,8 @@ export async function handleInsightRunJob(
       system: INSIGHT_SYSTEM_PROMPT,
       untrusted: [{ source: 'crm', label: 'metrics', text: modelInput(key, data, caveats, uncertainty) }],
       audience: 'staff', db: prisma,
+      // A retried run meters its AI use once.
+      sourceKey: `insight:${runId}`,
     });
     for (const f of outcome.guardFlags) flags.add(f);
     if (outcome.ok) {

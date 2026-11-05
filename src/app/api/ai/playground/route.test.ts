@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  reserveAi: vi.fn(async () => ({ reservation: true })),
+  settleAi: vi.fn(async () => {}),
   requireRole: vi.fn(),
   checkRateLimit: vi.fn(),
   loadAiConfig: vi.fn(),
@@ -23,7 +25,7 @@ vi.mock('@/lib/ai/agent-profile', async (original) => ({
   ...(await original<typeof import('@/lib/ai/agent-profile')>()),
   loadAgentProfile: mocks.loadAgentProfile,
 }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: async () => {}, recordAiMessage: async () => {} }))
+vi.mock('@/lib/ai/budget', () => ({ reserveAi: mocks.reserveAi, settleAi: mocks.settleAi, failAi: async () => {}, chatTokenEstimate: () => 10 }))
 
 import { POST } from './route'
 
@@ -69,6 +71,8 @@ describe('Gemini agent playground workflow', () => {
     const payload = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(payload.systemInstruction.parts[0].text).toContain('Our opening hours are 9am to 5pm.')
     expect(payload.contents[0].parts[0].text).toBe('When are you open?')
+    expect(mocks.reserveAi).toHaveBeenCalledWith('account-1', expect.stringMatching(/^req:/), { message: true, tokens: 10 })
+    expect(mocks.settleAi).toHaveBeenCalledWith({ reservation: true }, { tokens: expect.any(Number) })
   })
 
   const gemini = (text: string) => {

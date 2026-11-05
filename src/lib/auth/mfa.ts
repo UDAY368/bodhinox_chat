@@ -118,11 +118,11 @@ async function confirmPassword(
 /** A Google sign-in this recent, on the same session, confirms enrolment for an account without a password. */
 export const GOOGLE_REAUTH_MINUTES = 10;
 /**
- * Enrolment needs the current password. An account created through Google that never set a
+ * Re-authentication for sensitive actions (MFA enrolment, account deletion). Needs the current password. An account created through Google that never set a
  * password cannot give one, so for it (and only it) the current session must come from a Google
  * sign-in in the last GOOGLE_REAUTH_MINUTES minutes instead.
  */
-async function confirmEnrolment(
+export async function confirmIdentity(
   tx: AuthTransaction,
   context: AuthContext,
   password: string | undefined
@@ -157,7 +157,7 @@ export async function enrollMfa(
   const secret = generateSecret(),
     encrypted = encryptMfaSecret(secret);
   await getAuthPrisma().$transaction(async (tx) => {
-    await confirmEnrolment(tx, context, password);
+    await confirmIdentity(tx, context, password);
     const factors = await tx.$queryRaw<
       Factor[]
     >`SELECT * FROM auth_mfa_factors WHERE user_id=${context.userId}::uuid FOR UPDATE`;
@@ -214,4 +214,21 @@ export async function getMfaStatus(context: AuthContext): Promise<boolean> {
     { id: string }[]
   >`SELECT id FROM auth_mfa_factors WHERE user_id=${context.userId}::uuid AND verified_at IS NOT NULL`;
   return !!rows[0];
+}
+/**
+ * MFA step-up (Phase 14): proves the authenticator (TOTP, replay-protected through last_used_step)
+ * or spends a recovery code, then marks the CURRENT session as freshly MFA-verified. Other sessions
+ * are untouched. Platform administration requires this within PLATFORM_ADMIN_MFA_MAX_AGE.
+ */
+export async function stepUpMfa(context: AuthContext, code: string): Promise<Date> {
+  return getAuthPrisma().$transaction(async (tx) => {
+    if (!(await checkMfa(tx, context.userId, code)))
+      throw new AuthError('Two-step verification is not enabled', 400, 'mfa_not_enabled');
+    const rows = await tx.$queryRaw<{ mfa_verified_at: Date }[]>`
+      UPDATE auth_sessions SET mfa_verified_at=NOW()
+      WHERE id=${context.sessionId}::uuid AND user_id=${context.userId}::uuid AND revoked_at IS NULL AND expires_at>NOW()
+      RETURNING mfa_verified_at`;
+    if (!rows[0]) throw new AuthError('Session expired. Sign in again.', 401, 'unauthorized');
+    return rows[0].mfa_verified_at;
+  });
 }

@@ -5,9 +5,10 @@ const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
   loadAiConfig: vi.fn(),
   generateReply: vi.fn(),
-  requireAiMessageRoom: vi.fn(),
-  recordAiMessage: vi.fn(),
-  logAiUsage: vi.fn(),
+  requestMeter: vi.fn(),
+  beforeAttempt: vi.fn(),
+  afterAttempt: vi.fn(),
+  finish: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/account', () => ({
@@ -21,9 +22,13 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/generate', () => ({ generateReply: mocks.generateReply }))
-vi.mock('@/lib/ai/usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: mocks.logAiUsage }))
-vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: () => ({}) }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: mocks.requireAiMessageRoom, recordAiMessage: mocks.recordAiMessage }))
+vi.mock('@/lib/ai/budget', () => ({
+  ROUTE_GENERATION_TOKENS: 20_000,
+  requestMeter: (...args: unknown[]) => {
+    mocks.requestMeter(...args)
+    return { hooks: { beforeAttempt: mocks.beforeAttempt, afterAttempt: mocks.afterAttempt }, finish: mocks.finish }
+  },
+}))
 
 import { POST } from './route'
 
@@ -64,8 +69,8 @@ beforeEach(() => {
   mocks.checkRateLimit.mockReturnValue({ success: true })
   mocks.loadAiConfig.mockResolvedValue({ provider: 'openai', model: 'gpt', apiKey: 'sk-secret', baseUrl: null })
   mocks.generateReply.mockResolvedValue({ text: JSON.stringify(flowJson), handoff: false, usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 } })
-  mocks.requireAiMessageRoom.mockResolvedValue(undefined)
-  mocks.recordAiMessage.mockResolvedValue(undefined)
+  mocks.beforeAttempt.mockResolvedValue(undefined)
+  mocks.finish.mockResolvedValue(undefined)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -83,9 +88,10 @@ describe('POST /api/ai/generate-flow', () => {
     const nodes = db.writes[1].payload as Array<{ node_key: string; position_x: number }>
     expect(nodes.map((n) => n.node_key)).toEqual(['start', 'hello', 'done'])
     expect(nodes.every((n) => n.position_x > 0)).toBe(true)
-    expect(mocks.requireAiMessageRoom).toHaveBeenCalledWith('acc-1')
-    expect(mocks.recordAiMessage).toHaveBeenCalledTimes(1)
-    expect(mocks.logAiUsage).toHaveBeenCalledWith({}, expect.objectContaining({ accountId: 'acc-1', mode: 'draft', conversationId: null }))
+    expect(mocks.requestMeter).toHaveBeenCalledWith('acc-1', 20_000, expect.objectContaining({ mode: 'draft', conversationId: null }))
+    expect(mocks.beforeAttempt).toHaveBeenCalledTimes(1)
+    expect(mocks.afterAttempt).toHaveBeenCalledWith({ promptTokens: 1, completionTokens: 1, totalTokens: 2 }, expect.any(Object))
+    expect(mocks.finish).toHaveBeenCalledWith()
     // The goal and the model output never reach the logs or the response key.
     for (const call of [...log.mock.calls, ...err.mock.calls]) expect(JSON.stringify(call)).not.toContain('Greet people')
     expect(JSON.stringify(body)).not.toContain('sk-secret')
@@ -110,7 +116,7 @@ describe('POST /api/ai/generate-flow', () => {
   })
 
   it('stops on the plan AI message limit without creating anything', async () => {
-    mocks.requireAiMessageRoom.mockRejectedValueOnce(Object.assign(new Error('AI messages used up'), { status: 402 }))
+    mocks.beforeAttempt.mockRejectedValueOnce(Object.assign(new Error('AI messages used up'), { status: 402 }))
     const res = await POST(req({ goal: 'g' }))
     expect(res.status).toBe(402)
     expect(mocks.generateReply).not.toHaveBeenCalled()

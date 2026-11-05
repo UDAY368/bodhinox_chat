@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   numbers: [] as Record<string, unknown>[],
   resolved: [] as unknown[][],
   sent: 0,
+  blocked: false,
 }));
 
 vi.mock('@/lib/auth/api-context', () => ({
@@ -25,6 +26,7 @@ vi.mock('@/lib/auth/api-context', () => ({
     },
   }),
 }));
+vi.mock('@/lib/platform/lifecycle', () => ({ manualRepliesBlocked: async () => h.blocked }));
 vi.mock('@/lib/whatsapp/resolve-conversation', () => ({
   resolveConversationByPhone: async (...args: unknown[]) => {
     h.resolved.push(args);
@@ -46,6 +48,7 @@ describe('POST /api/v1/messages phone_number_id', () => {
   beforeEach(() => {
     h.resolved = [];
     h.sent = 0;
+    h.blocked = false;
     h.numbers = [
       { id: B, account_id: 'acct', phone_number_id: '2000' },
       { id: 'foreign', account_id: 'other', phone_number_id: '3000' },
@@ -56,6 +59,15 @@ describe('POST /api/v1/messages phone_number_id', () => {
     const res = await send({ to: '+15551234567', text: 'hi', phone_number_id: '2000' });
     expect(res.status).toBe(201);
     expect(h.resolved[0][4]).toEqual({ whatsappConfigId: B });
+  });
+
+  it('refuses with 403 before creating anything while a platform admin blocks manual sending', async () => {
+    h.blocked = true;
+    const res = await send({ to: '+15551234567', text: 'hi' });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: { code: 'workspace_manual_blocked' } });
+    expect(h.resolved).toHaveLength(0);
+    expect(h.sent).toBe(0);
   });
 
   it('uses the default number when omitted (unchanged behaviour)', async () => {

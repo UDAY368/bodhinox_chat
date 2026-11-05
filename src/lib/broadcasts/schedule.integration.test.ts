@@ -7,7 +7,7 @@ import type { TenantContext } from '@/lib/db/tenant';
 import { createCampaign, parseSchedule } from './create-campaign';
 import { handleJob } from '@/lib/jobs/handlers';
 import {
-  cancelScheduledBroadcast, claimBroadcastStart, lockBroadcastDelivery, rescheduleBroadcast, unlockBroadcastDelivery,
+  broadcastDispatchable, cancelScheduledBroadcast, claimBroadcastStart, lockBroadcastDelivery, rescheduleBroadcast, unlockBroadcastDelivery,
 } from './schedule';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
@@ -147,6 +147,25 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('scheduled and large campaig
     await expect(dispatch(id)).rejects.toMatchObject({ code: 'whatsapp_not_configured' });
     expect(await row(id)).toMatchObject({ status: 'sent' });
     expect((await owner.query('SELECT delivery_locked_at FROM broadcasts WHERE id=$1', [id])).rows[0].delivery_locked_at).toBeNull();
+  });
+
+  it('holds a due campaign while the workspace is admin-suspended or closing, and lets it go again once active', async () => {
+    const { id } = await createCampaign(a, campaign());
+    const pending = async () => Number((await owner.query("SELECT count(*)::int AS n FROM broadcast_recipients WHERE broadcast_id=$1 AND status='pending'", [id])).rows[0].n);
+    const before = await pending();
+    expect(await broadcastDispatchable(account, id)).toBe(true);
+    await owner.query(`INSERT INTO account_lifecycle(account_id,status,suspended_at,suspend_reason) VALUES($1,'admin_suspended',now(),'abuse review')`, [account]);
+    expect(await broadcastDispatchable(account, id)).toBe(false);
+    // The dispatch job sends nothing for a held campaign (no WhatsApp call, recipients stay pending).
+    await handleJob({ id: randomUUID(), type: 'broadcast.dispatch', tenant_id: account, payload: { broadcastId: id },
+      attempts: 1, max_attempts: 5, lease_token: randomUUID() });
+    expect(await pending()).toBe(before);
+    await owner.query(`UPDATE account_lifecycle SET status='closing', deletion_requested_at=now(), purge_after=now()+interval '30 days' WHERE account_id=$1`, [account]);
+    expect(await broadcastDispatchable(account, id)).toBe(false);
+    expect(await broadcastDispatchable(other, id)).toBe(false);
+    await owner.query(`UPDATE account_lifecycle SET status='active' WHERE account_id=$1`, [account]);
+    expect(await broadcastDispatchable(account, id)).toBe(true);
+    await owner.query('DELETE FROM account_lifecycle WHERE account_id=$1', [account]);
   });
 
   it('refuses to reschedule once the dispatch job has started', async () => {

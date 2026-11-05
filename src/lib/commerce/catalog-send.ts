@@ -19,6 +19,7 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { getT } from '@/lib/i18n/translate';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause';
+import { manualRepliesBlockedIn } from '@/lib/platform/lifecycle';
 import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
@@ -53,7 +54,8 @@ export type CommerceSendRefusal =
   | 'window_closed'
   | 'number_unavailable'
   | 'no_catalog'
-  | 'product_not_found';
+  | 'product_not_found'
+  | 'workspace_manual_blocked';
 
 const REFUSAL_STATUS: Record<CommerceSendRefusal, number> = {
   invalid_message: 400,
@@ -64,6 +66,7 @@ const REFUSAL_STATUS: Record<CommerceSendRefusal, number> = {
   number_unavailable: 409,
   no_catalog: 409,
   product_not_found: 409,
+  workspace_manual_blocked: 403,
 };
 
 /** A refusal before anything was sent (message: Validation.commerceSend.<code>). */
@@ -202,6 +205,8 @@ interface Prepared {
 
 async function prepare(tx: TenantTransaction, args: SendCommerceArgs): Promise<Prepared> {
   if (!UUID.test(args.conversationId)) throw new CommerceSendError('conversation_not_found');
+  // A platform admin may block manual replies (abuse); a bot send is gated by suspension instead.
+  if (args.sender === 'agent' && await manualRepliesBlockedIn(tx, args.accountId)) throw new CommerceSendError('workspace_manual_blocked');
   const conversations = await tx.$queryRaw<{ last_customer_message_at: Date | null; phone: string | null; wa_user_id: string | null;
     blocked_at: Date | null; whatsapp_config_id: string | null; channel: string }[]>`
     SELECT (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id

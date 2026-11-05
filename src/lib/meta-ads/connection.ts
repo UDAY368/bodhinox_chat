@@ -12,6 +12,7 @@
 // token and no click id.
 // shortcut: one live connection per workspace (partial unique index); multiple
 // ad accounts or Pages per workspace are not supported yet.
+import { requireIntegrationRoom } from '@/lib/billing/limits';
 import { Prisma } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
@@ -264,7 +265,13 @@ export async function startConnection(actor: MetaAdsActor, code: string): Promis
   const tokenEnc = encrypt(accessToken);
   // The one-live index includes 'pending': an existing pending row is refreshed,
   // an active or token_invalid one is left alone (no row comes back).
-  const rows = await asWorker(actor, (tx) => tx.$queryRaw<MetaAdConnectionRow[]>`
+  const rows = await asWorker(actor, async (tx) => {
+    // A new connection takes a slot of the plan's integrations; refreshing the pending one does not.
+    // Re-read here: the row read before the Meta calls may have changed meanwhile.
+    const live = await liveRowTx(tx, actor.accountId);
+    if (live && live.status !== 'pending') return [];
+    if (!live) await requireIntegrationRoom(tx, actor.accountId);
+    return tx.$queryRaw<MetaAdConnectionRow[]>`
     INSERT INTO meta_ad_connections(account_id, connected_by, status, user_token_enc, scopes)
     VALUES(${actor.accountId}::uuid, ${actor.userId}::uuid, 'pending', ${tokenEnc}, ${scopes}::text[])
     ON CONFLICT (account_id) WHERE status <> 'disconnected' DO UPDATE SET
@@ -272,7 +279,8 @@ export async function startConnection(actor: MetaAdsActor, code: string): Promis
       page_token_enc='', business_id=NULL, ad_account_id=NULL, ad_account_name=NULL, ad_account_currency=NULL,
       page_id=NULL, page_name=NULL, last_error_code=NULL, updated_at=now()
     WHERE meta_ad_connections.status='pending'
-    RETURNING ${PUBLIC_SELECT}`);
+    RETURNING ${PUBLIC_SELECT}`;
+  });
   if (!rows[0]) throw new MetaAdsError('already_connected');
   return toDto(rows[0]);
 }

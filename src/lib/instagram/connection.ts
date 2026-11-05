@@ -17,7 +17,8 @@
 // Instagram is off (instagramConfig() === null) every function that could call
 // Instagram refuses with instagram_not_enabled before any database write.
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { PlanLimitError, requireFeature, requireRoomFor } from '@/lib/billing/entitlements';
+import { PlanLimitError, requireFeature } from '@/lib/billing/entitlements';
+import { gateLimit } from '@/lib/billing/limits';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
@@ -245,7 +246,7 @@ async function requireRoomUnlessHeld(tx: TenantTransaction, accountId: string, i
   const [held] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM instagram_accounts
     WHERE account_id=${accountId}::uuid AND ig_user_id=${igUserId} AND status<>'disconnected'`;
   if (held) return;
-  await requireRoomFor(tx, accountId, 'instagram_accounts', async () => {
+  await gateLimit(tx, accountId, 'instagram_accounts', async () => {
     const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM instagram_accounts
       WHERE account_id=${accountId}::uuid AND status<>'disconnected' AND ig_user_id<>${igUserId}`;
     return row?.n ?? 0;

@@ -19,6 +19,7 @@
 import type { Prisma } from '@prisma/client';
 import { getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import type { BillingInterval } from './provider';
+import { recordPlatformAuditTx, type PlatformAuditEntry } from '@/lib/platform/audit';
 
 export interface PlanPrice {
   plan: string;
@@ -104,7 +105,7 @@ export async function providerPlanFor(plan: string, interval: BillingInterval): 
  * same provider plan updates its own row. A provider plan already used for a
  * different plan or interval is refused.
  */
-export async function upsertPlanPrices(prices: PlanPriceInput[]): Promise<number> {
+export async function upsertPlanPrices(prices: PlanPriceInput[], audit?: PlatformAuditEntry): Promise<number> {
   const db = getWorkerPrisma();
   await db.$transaction(async (tx) => {
     const known = new Set((await tx.$queryRaw<{ id: string }[]>`SELECT id FROM plans`).map((r) => r.id));
@@ -126,6 +127,8 @@ export async function upsertPlanPrices(prices: PlanPriceInput[]): Promise<number
         RETURNING id`;
       if (!saved[0]) throw new PriceInputError('Provider plan id is already used for another plan or interval');
     }
+    // The platform audit row commits with the prices or not at all.
+    if (audit) await recordPlatformAuditTx(tx, audit);
   });
   return prices.length;
 }

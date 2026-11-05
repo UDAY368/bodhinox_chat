@@ -331,6 +331,27 @@ The assistant helps your team; it never acts on its own. Summaries, suggested re
 ### Data kept
 - Suggested reply text is cleared after 30 days and the records removed after 180; old assessments are removed after 30 days (all after 180), insights after 90 days and AI usage records after 400 days.
 
+## 9h. Plans, usage, privacy and account
+
+### Plan & usage
+- Settings → **Plan & usage** shows each limit of your plan with its meter: contacts, connected integrations, messages sent this month, AI replies and tokens, members, flows, automations and more. Each finite limit says what happens when it is reached; **How limits work** explains it in full. Customers who message you are always added as contacts, even past the limit, and inbound messages, opt-outs and payment notifications always keep working.
+- Owners and admins get one notice (and an email when email is configured) at 80% and at 100% of a limit each month.
+- The subscription card explains what happens if a subscription ends or stays unpaid: the workspace moves to Free and nothing is deleted (extras are archived and come back on resubscribing). A plan's features and limits stay as they were when you subscribed, including at renewal.
+
+### Integration health
+- Settings → **Meetings & shipping** starts with the Integration health card: each connected integration with its state, last success, last error and a link to fix it.
+
+### Privacy & access
+- Settings → **Privacy & access**:
+  - **Export workspace data** (owners and admins): a zip of your workspace's records, ready to download for 7 days. Needs a two-step code if you use two-step sign-in.
+  - **Support access** (owners and admins): approve, shorten, deny or revoke a Bodhinox support request, or give access to a named support email. Support then sees statuses, counts and error codes only, never message text or contact details, and every view is in your audit log.
+  - **Leave workspace** (everyone except the owner), **Create another workspace**, **Delete workspace** (owner; sending stops at once and the workspace is kept for 30 days, during which you can cancel) and **Delete my account**.
+- When new terms of service are published, a banner asks you to accept them; you can choose Later.
+
+### Getting started and help
+- The dashboard shows a **Get started** checklist (connect WhatsApp, add a contact, create a template, a flow or automation, invite a teammate) until every step is done or you dismiss it.
+- Help pages are at `/help`; the **?** link under Plan & usage opens the billing section.
+
 ## 10. Other functionality and where to go next
 
 **Inbox:** use quick replies from Settings, send permitted text/media/templates or interactive choices, assign conversations, mark status/unread, and deliberately pause/resume bot handoff. **Contacts:** edit profile, tags, custom fields and notes. **Settings:** profile, password/security/MFA, appearance, browser notifications, account/team, WhatsApp, templates, quick replies, fields/tags, deals/currency and API keys. **Integrations:** public scoped API keys, outbound signed webhooks and an MCP API client are implemented for later integrations; use minimal scopes and test delivery. **Live updates:** authenticated server-sent events refresh the UI, while a separate worker handles durable jobs.

@@ -56,8 +56,9 @@ const tx = {
 vi.mock('@/lib/db/tenant', () => ({ withTenant: (_t: unknown, op: (t: typeof tx) => unknown) => op(tx) }));
 vi.mock('@/lib/billing/entitlements', async (orig) => {
   const actual = await orig<typeof import('@/lib/billing/entitlements')>();
-  return { PlanLimitError: actual.PlanLimitError, requireWhatsAppNumberRoom: h.numberRoom };
+  return { PlanLimitError: actual.PlanLimitError };
 });
+vi.mock('@/lib/billing/limits', () => ({ requireWhatsAppNumberRoom: h.numberRoom }));
 vi.mock('@/lib/repositories/routing', () => ({ resolveWhatsAppAccount: async () => h.owner }));
 vi.mock('@/lib/whatsapp/encryption', () => ({
   encrypt: (v: string) => `enc(${v})`,

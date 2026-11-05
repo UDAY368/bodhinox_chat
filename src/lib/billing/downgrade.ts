@@ -15,8 +15,8 @@
 import type { PrismaClient } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
-import { getEntitlements } from './entitlements';
-import { ADDON_LIMIT, LIMITS, type AddonKind, type LimitKey } from './entitlements-catalogue';
+import { entitlementsFromTerms, getEntitlements, planTerms } from './entitlements';
+import type { LimitKey } from './entitlements-catalogue';
 
 export const ARCHIVABLE_KINDS = ['segments', 'lists', 'flows', 'automations'] as const;
 export type ArchivableKind = (typeof ARCHIVABLE_KINDS)[number];
@@ -127,33 +127,36 @@ export async function itemsInUse(tx: TenantTransaction, accountId: string, kind:
   return rows.map((r) => ({ id: r.id, name: r.name, lastUsedAt: r.last_used?.toISOString() ?? null, state: r.state }));
 }
 
-/** A plan's limits plus this workspace's active add-ons (null = unlimited). */
-export async function planLimits(tx: TenantTransaction, planId: string): Promise<{ name: string; limits: Record<LimitKey, number | null> }> {
-  const [plan] = await tx.$queryRaw<{ name: string; limits: Record<string, unknown>; addons: Record<string, unknown> }[]>`
-    SELECT p.name, p.limits, (SELECT COALESCE(jsonb_object_agg(a.kind, a.quantity), '{}'::jsonb) FROM billing_addon_totals() a) AS addons
-    FROM plans p WHERE p.id=${planId}`;
-  if (!plan) throw new DowngradeInputError('stale_plan', 409);
-  const extra: Partial<Record<LimitKey, number>> = {};
-  for (const [kind, quantity] of Object.entries(plan.addons ?? {})) {
-    const key = ADDON_LIMIT[kind as AddonKind];
-    if (key && typeof quantity === 'number' && Number.isSafeInteger(quantity)) extra[key] = (extra[key] ?? 0) + quantity;
-  }
-  return {
-    name: plan.name,
-    limits: Object.fromEntries(LIMITS.map((k) => {
-      const value = plan.limits?.[k];
-      return [k, typeof value === 'number' && Number.isFinite(value) ? value + (extra[k] ?? 0) : null];
-    })) as Record<LimitKey, number | null>,
-  };
+/**
+ * A plan's limits plus this workspace's active add-ons (null = unlimited), from
+ * the same terms the gates enforce (planTerms): `versionId` is the version the
+ * workspace is held to, null for the live row (a plan it is moving to is pinned
+ * to its current version, which is the live row).
+ */
+export async function planLimits(tx: TenantTransaction, planId: string, versionId: string | null = null):
+  Promise<{ name: string; limits: Record<LimitKey, number | null> }> {
+  const [known] = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM plans WHERE id=${planId}`;
+  if (!known) throw new DowngradeInputError('stale_plan', 409);
+  const terms = await planTerms(tx, planId, versionId);
+  const [row] = await tx.$queryRaw<{ addons: Record<string, unknown> }[]>`
+    SELECT (SELECT COALESCE(jsonb_object_agg(a.kind, a.quantity), '{}'::jsonb) FROM billing_addon_totals() a) AS addons`;
+  const e = entitlementsFromTerms(terms, row?.addons);
+  return { name: e.planName, limits: e.limits };
 }
 
 /** The plan the workspace is moving to: a scheduled change or cancellation, else its current plan. */
-export async function targetPlan(tx: TenantTransaction, accountId: string): Promise<{ id: string; effectiveAt: Date | null; pending: boolean }> {
-  const [sub] = await tx.$queryRaw<{ scheduled_plan: string | null; cancel_at_period_end: boolean; current_period_end: Date | null }[]>`
-    SELECT scheduled_plan, cancel_at_period_end, current_period_end FROM account_subscriptions WHERE account_id=${accountId}::uuid`;
-  if (sub?.cancel_at_period_end) return { id: 'free', effectiveAt: sub.current_period_end, pending: true };
-  if (sub?.scheduled_plan) return { id: sub.scheduled_plan, effectiveAt: sub.current_period_end, pending: true };
-  return { id: (await getEntitlements(tx, accountId)).planId, effectiveAt: null, pending: false };
+export async function targetPlan(tx: TenantTransaction, accountId: string):
+  Promise<{ id: string; versionId: string | null; effectiveAt: Date | null; pending: boolean }> {
+  const [sub] = await tx.$queryRaw<{ scheduled_plan: string | null; cancel_at_period_end: boolean; current_period_end: Date | null;
+    plan_id: string; status: string; plan_version_id: string | null }[]>`
+    SELECT scheduled_plan, cancel_at_period_end, current_period_end, plan_id, status, plan_version_id
+    FROM account_subscriptions WHERE account_id=${accountId}::uuid`;
+  if (sub?.cancel_at_period_end) return { id: 'free', versionId: null, effectiveAt: sub.current_period_end, pending: true };
+  if (sub?.scheduled_plan) return { id: sub.scheduled_plan, versionId: null, effectiveAt: sub.current_period_end, pending: true };
+  const planId = (await getEntitlements(tx, accountId)).planId;
+  // The pinned version applies while the subscription grants its own plan (as in getEntitlements).
+  const versionId = sub && sub.plan_id === planId && !['suspended', 'cancelled', 'incomplete'].includes(sub.status) ? sub.plan_version_id : null;
+  return { id: planId, versionId, effectiveAt: null, pending: false };
 }
 
 async function readSelection(tx: TenantTransaction, accountId: string): Promise<{ planId: string; keep: KeepSelection } | null> {
@@ -180,7 +183,7 @@ async function archivedItems(tx: TenantTransaction, accountId: string): Promise<
 /** What the target plan's limits would archive, the stored choice and what is archived now. */
 export async function downgradeOverview(tx: TenantTransaction, accountId: string): Promise<DowngradeOverview> {
   const target = await targetPlan(tx, accountId);
-  const { name, limits } = await planLimits(tx, target.id);
+  const { name, limits } = await planLimits(tx, target.id, target.versionId);
   const kinds: KindOverage[] = [];
   for (const kind of ARCHIVABLE_KINDS) {
     const items = await itemsInUse(tx, accountId, kind);
@@ -207,7 +210,7 @@ export async function saveDowngradeSelection(tx: TenantTransaction, accountId: s
   Promise<{ applied: boolean }> {
   const target = await targetPlan(tx, accountId);
   if (target.id !== planId) throw new DowngradeInputError('stale_plan', 409);
-  const { limits } = await planLimits(tx, planId);
+  const { limits } = await planLimits(tx, planId, target.versionId);
   for (const kind of ARCHIVABLE_KINDS) {
     const ids = keep[kind];
     if (!ids) continue;

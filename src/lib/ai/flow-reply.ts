@@ -36,7 +36,8 @@ import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { generateReply } from './generate'
 import { latestUserMessage, recentCustomerText } from './query'
-import { logAiUsage, promptCharsOf } from './usage'
+import { promptCharsOf, usageLog } from './usage'
+import { chatTokenEstimate, failAi, reserveAi, settleAi, type AiReservation } from './budget'
 import { retrieveKnowledgeScored, type ScoredKnowledgeChunk } from './knowledge'
 import {
   buildAgentSystemPrompt,
@@ -59,7 +60,6 @@ import { conversationNumberDisconnected, engineSendText } from '@/lib/flows/meta
 import { dispatchOnce } from '@/lib/jobs/dispatch'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { PlanLimitError } from '@/lib/billing/entitlements'
-import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
 import { getWorkerPrisma } from '@/lib/db/prisma'
 import { withTenant } from '@/lib/db/tenant'
 import { AI_REPLY_LIMITS } from '@/lib/flows/ai-reply-node'
@@ -221,8 +221,11 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
 
       // Shared with the inbox auto-reply: bounds a burst on the account's key.
       if (!checkRateLimit(`ai-autoreply:${accountId}`, RATE_LIMITS.aiAutoReplyAccount).success) return unavailable('rate_limited')
+      // The plan's AI messages and tokens, held for this turn: the turn's
+      // intent key is its source event, so a retried turn never meters twice.
+      let reservation: AiReservation
       try {
-        await requireAiMessageRoom(accountId, getWorkerPrisma())
+        reservation = await reserveAi(accountId, args.intentKey, { message: true, tokens: chatTokenEstimate('', messages) }, getWorkerPrisma())
       } catch (error) {
         if (error instanceof PlanLimitError) return unavailable('plan_limit')
         throw error
@@ -251,13 +254,14 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
             result = await generateReply({ config, systemPrompt, messages: redactChat(messages).messages })
           } catch (error) {
             console.warn('[ai flow reply] generation failed', { error: error instanceof Error ? error.name : 'unknown' })
+            await failAi(reservation, error, promptCharsOf(systemPrompt, messages))
             return { decision: 'unavailable', reason: 'generation_failed' }
           }
-          await recordAiMessage(accountId, getWorkerPrisma())
-          void logAiUsage(db, {
-            accountId, conversationId, mode: 'auto_reply', provider: config.provider, model: config.model, usage: result.usage,
+          const log = usageLog({
+            conversationId, mode: 'auto_reply', provider: config.provider, model: config.model, usage: result.usage,
             estimate: { promptChars: promptCharsOf(systemPrompt, messages), outputChars: result.text.length },
           })
+          await settleAi(reservation, { tokens: log.totalTokens, log })
 
           const confidence = assessConfidence({
             reply: result.text,

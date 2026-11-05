@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
   retrieveKnowledgeScored: vi.fn(),
   generateReply: vi.fn(),
   loadAgentProfile: vi.fn(),
-  requireAiMessageRoom: vi.fn(),
+  reserveAi: vi.fn(),
+  settleAi: vi.fn(),
   health: false,
 }))
 
@@ -26,9 +27,7 @@ vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/context', () => ({ buildConversationContext: mocks.buildConversationContext }))
 vi.mock('@/lib/ai/knowledge', () => ({ retrieveKnowledgeScored: mocks.retrieveKnowledgeScored }))
 vi.mock('@/lib/ai/generate', () => ({ generateReply: mocks.generateReply }))
-vi.mock('@/lib/ai/usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: async () => {} }))
-vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: () => ({}) }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: mocks.requireAiMessageRoom, recordAiMessage: async () => {} }))
+vi.mock('@/lib/ai/budget', () => ({ reserveAi: mocks.reserveAi, settleAi: mocks.settleAi, failAi: async () => {}, chatTokenEstimate: () => 10 }))
 vi.mock('@/lib/db/tenant', () => ({
   withTenant: async (_c: unknown, fn: (tx: unknown) => unknown) => fn({ $queryRaw: async () => [{ has: mocks.health }] }),
 }))
@@ -60,7 +59,8 @@ beforeEach(() => {
   mocks.health = false
   mocks.requireRole.mockResolvedValue({ db, accountId: 'account-1', userId: 'agent-1', role: 'agent' })
   mocks.requirePermission.mockResolvedValue(undefined)
-  mocks.requireAiMessageRoom.mockResolvedValue(undefined)
+  mocks.reserveAi.mockReset().mockResolvedValue({ reservation: true })
+  mocks.settleAi.mockReset().mockResolvedValue(undefined)
   mocks.loadAiConfig.mockResolvedValue({
     provider: 'openai', model: 'gpt-test', apiKey: 'sk-test', baseUrl: null, systemPrompt: 'We sell coffee.',
     isActive: true, autoReplyEnabled: false, autoReplyMaxPerConversation: 3, handoffAgentId: null, embeddingsApiKey: null,
@@ -102,6 +102,20 @@ describe('POST /api/ai/draft', () => {
     expect(prompt()).toBe(legacy)
   })
 
+  it('holds one AI message per request before the call and settles it once with the usage log', async () => {
+    const response = await draft()
+    expect(response.status).toBe(200)
+    expect(mocks.reserveAi).toHaveBeenCalledWith('account-1', expect.stringMatching(/^req:[0-9a-f-]{36}$/), { message: true, tokens: 10 })
+    expect(mocks.settleAi).toHaveBeenCalledWith({ reservation: true }, expect.objectContaining({ log: expect.objectContaining({ mode: 'draft', conversationId: 'conv-1' }) }))
+  })
+
+  it('refuses with 402 before any provider call when the plan has no AI messages left', async () => {
+    const { PlanLimitError } = await import('@/lib/billing/entitlements')
+    mocks.reserveAi.mockRejectedValueOnce(new PlanLimitError('The Free plan allows up to 100 AI replies this month. Upgrade for more.'))
+    expect((await draft()).status).toBe(402)
+    expect(mocks.generateReply).not.toHaveBeenCalled()
+  })
+
   it('retrieves customer-facing knowledge only', async () => {
     await draft()
     expect(mocks.retrieveKnowledgeScored).toHaveBeenCalledWith(db, 'account-1', expect.anything(), 'Do you deliver?', 5, 'customer')
@@ -131,7 +145,7 @@ describe('POST /api/ai/draft', () => {
     expect(body).toMatchObject({ draft: null, code: 'route_to_staff' })
     expect(body.categories).toContain('treatment_or_dosage')
     expect(mocks.generateReply).not.toHaveBeenCalled()
-    expect(mocks.requireAiMessageRoom).not.toHaveBeenCalled()
+    expect(mocks.reserveAi).not.toHaveBeenCalled()
   })
 
   it('routes a burst to staff: a health question followed by a neutral message', async () => {

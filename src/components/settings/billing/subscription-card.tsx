@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ExpiryNote } from './expiry-note';
 import { formatDay, type BillingOverview } from './types';
 
 const WARN = 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200';
@@ -65,6 +66,7 @@ export function SubscriptionCard({ overview, busy, onCancel, onPay }: {
         {pending.map((p, i) => (
           <div key={i}>{banner(WARN, t(`pending.${p.kind}`))}</div>
         ))}
+        {s && <ExpiryNote subscription={s} />}
         {overview.can_manage && s?.managed && !s.cancelAtPeriodEnd && s.status !== 'cancelled' && (
           <div className="pt-1">
             <Button variant="outline" size="sm" onClick={onCancel} disabled={busy !== null}>

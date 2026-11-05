@@ -4,12 +4,12 @@ import { assertMutation, requireSession } from '@/lib/auth/session'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { loadAiConfig } from '@/lib/ai/config'
 import { generateReply } from '@/lib/ai/generate'
-import { logAiUsage, promptCharsOf } from '@/lib/ai/usage'
-import { databaseAdmin } from '@/lib/ai/admin-client'
+import { promptCharsOf, usageLog } from '@/lib/ai/usage'
+import { failAi, reserveAi, ROUTE_GENERATION_TOKENS, settleAi, type AiUsageLog } from '@/lib/ai/budget'
 import { AiError } from '@/lib/ai/types'
 import { draftTemplate, parseTemplateDraftRequest } from '@/lib/whatsapp/template-ai'
 import { getT } from '@/lib/i18n/translate'
-import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits'
+import { newRequestKey } from '@/lib/billing/usage-ledger'
 
 const t = getT('Api')
 
@@ -21,7 +21,7 @@ const t = getT('Api')
  * validateTemplatePayload, for the builder to load and the user to edit.
  *
  * Uses the account's configured provider/key. Never submits to Meta and
- * never saves; the only write is the best-effort ai_usage_log row.
+ * never saves; the only writes are the usage meters and ai_usage_log rows.
  */
 export async function POST(request: Request) {
   try {
@@ -63,35 +63,28 @@ export async function POST(request: Request) {
       )
     }
 
-    await requireAiMessageRoom(accountId)
-    // Prompt/output sizes per call, so a provider that reports no usage is still metered.
-    const estimates: { promptChars: number; outputChars: number }[] = []
-    const result = await draftTemplate(parsed.value, async (systemPrompt, messages) => {
-      const { text, usage } = await generateReply({ config, systemPrompt, messages })
-      estimates.push({ promptChars: promptCharsOf(systemPrompt, messages), outputChars: text.length })
-      return { text, usage }
-    })
-
-    await recordAiMessage(accountId)
-
-    // One row per provider call, fire-and-forget like inbox drafts:
-    // accounting must not fail or delay the response.
+    // One AI message per request (its corrective retry included), held before
+    // the first call and settled once with every call's tokens and log row.
+    const reservation = await reserveAi(accountId, newRequestKey(), { message: true, tokens: ROUTE_GENERATION_TOKENS })
+    // Each completed call is logged as it returns, so a corrective retry that
+    // throws still meters the first (billed) call.
+    const logs: AiUsageLog[] = []
+    let result: Awaited<ReturnType<typeof draftTemplate>>
     try {
-      const admin = databaseAdmin({ accountId, userId, role: 'admin' })
-      for (const [i, usage] of result.usages.entries()) {
-        void logAiUsage(admin, {
-          accountId,
-          conversationId: null,
-          mode: 'draft',
-          provider: config.provider,
-          model: config.model,
-          usage,
-          estimate: estimates[i] ?? { promptChars: 0, outputChars: 0 },
-        })
-      }
-    } catch (logErr) {
-      console.error('[templates/ai-draft] usage log skipped:', logErr)
+      result = await draftTemplate(parsed.value, async (systemPrompt, messages) => {
+        const { text, usage } = await generateReply({ config, systemPrompt, messages })
+        logs.push(usageLog({
+          conversationId: null, mode: 'draft', provider: config.provider, model: config.model, usage,
+          estimate: { promptChars: promptCharsOf(systemPrompt, messages), outputChars: text.length },
+        }))
+        return { text, usage }
+      })
+    } catch (error) {
+      if (logs.length) await settleAi(reservation, { tokens: logs.reduce((n, l) => n + l.totalTokens, 0), log: logs })
+      else await failAi(reservation, error, 0)
+      throw error
     }
+    await settleAi(reservation, { tokens: logs.reduce((n, l) => n + l.totalTokens, 0), log: logs })
 
     if (!result.ok) {
       return NextResponse.json(

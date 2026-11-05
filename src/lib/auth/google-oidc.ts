@@ -27,11 +27,13 @@ import {
 } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { getAuthPrisma } from '@/lib/db/prisma';
+import { assignInitialPlan } from '@/lib/billing/new-workspace-plan';
 import { appOrigin, randomToken } from './csrf';
 import { AuthError } from './errors';
 import { hashPassword, verifyPassword } from './password';
 import { safeNextPath } from './callback';
 import {
+  assertTermsAccepted,
   enforceAuthRateLimit,
   issueSession,
   joinInvitedWorkspace,
@@ -55,7 +57,9 @@ export type GoogleErrorCode =
   | 'google_already_linked'
   | 'google_no_workspace'
   | 'google_invite_unavailable'
-  | 'google_rate_limited';
+  | 'google_rate_limited'
+  /** TERMS_VERSION is set and this new Google sign-up did not accept it. */
+  | 'google_terms_required';
 export class GoogleOidcError extends Error {
   constructor(readonly code: GoogleErrorCode) {
     super(code);
@@ -213,6 +217,8 @@ export interface FlowState extends Record<string, unknown> {
   mode: 'signin' | 'link';
   next: string;
   invite: string | null;
+  /** The terms version accepted on the sign-up page before leaving for Google (TERMS_VERSION). */
+  termsVersion?: string | null;
   userId?: string;
   sessionId?: string;
 }
@@ -224,6 +230,7 @@ export async function beginGoogleFlow(
     mode: 'signin' | 'link';
     next?: string | null;
     invite?: string | null;
+    termsVersion?: string | null;
     userId?: string;
     sessionId?: string;
   },
@@ -238,6 +245,7 @@ export async function beginGoogleFlow(
     mode: input.mode,
     next: safeNextPath(input.next, input.mode === 'link' ? '/settings?tab=security' : undefined),
     invite: input.invite && /^[A-Za-z0-9_-]{1,512}$/.test(input.invite) ? input.invite : null,
+    termsVersion: typeof input.termsVersion === 'string' && input.termsVersion.length <= 40 ? input.termsVersion : null,
     ...(input.mode === 'link' ? { userId: input.userId, sessionId: input.sessionId } : {}),
   };
   const url = new URL(discovery.authorization_endpoint);
@@ -355,7 +363,14 @@ async function hasMfa(userId: string): Promise<boolean> {
     SELECT id FROM auth_mfa_factors WHERE user_id=${userId}::uuid AND verified_at IS NOT NULL`;
   return !!rows[0];
 }
-async function createGoogleUser(identity: GoogleIdentity, invite: string | null): Promise<string> {
+async function createGoogleUser(identity: GoogleIdentity, invite: string | null, termsVersion: string | null = null): Promise<string> {
+  // Only while TERMS_VERSION is set: a new identity must have accepted it on the sign-up page.
+  let terms: string | null;
+  try {
+    terms = assertTermsAccepted(termsVersion);
+  } catch {
+    throw new GoogleOidcError('google_terms_required');
+  }
   // Same policy as email signup: open, but rate limited per address and overall.
   try {
     await enforceAuthRateLimit('global-signup', 'application', 100, 900);
@@ -373,8 +388,8 @@ async function createGoogleUser(identity: GoogleIdentity, invite: string | null)
     accountId = randomUUID();
   const created = await getAuthPrisma().$transaction(async (tx) => {
     const inserted = await tx.$queryRaw<{ id: string }[]>`
-      INSERT INTO auth_users(id,email,full_name,password_hash,email_verified_at,password_set)
-      VALUES(${userId}::uuid,${identity.email},${fullName},${passwordHash},NOW(),false)
+      INSERT INTO auth_users(id,email,full_name,password_hash,email_verified_at,password_set,terms_version,terms_accepted_at)
+      VALUES(${userId}::uuid,${identity.email},${fullName},${passwordHash},NOW(),false,${terms},${terms ? new Date() : null}::timestamptz)
       ON CONFLICT(email) DO NOTHING RETURNING id`;
     if (!inserted[0]) return false;
     if (invite) {
@@ -398,6 +413,8 @@ async function createGoogleUser(identity: GoogleIdentity, invite: string | null)
     await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${accountId}::uuid,${`${fullName}'s workspace`},${userId}::uuid)`;
     await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${userId}::uuid,'owner')`;
     await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${userId}::uuid,${fullName},${identity.email},${accountId}::uuid,'owner')`;
+    // NEW_WORKSPACE_PLAN (unset = no subscription row = enterprise, as before).
+    await assignInitialPlan(tx, accountId);
     const linked = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO auth_identities(user_id,provider,subject,email) VALUES(${userId}::uuid,'google',${identity.subject},${identity.email})
       ON CONFLICT DO NOTHING RETURNING id`;
@@ -418,7 +435,9 @@ export async function signInWithGoogle(
   identity: GoogleIdentity,
   userAgent: string | null,
   /** Invitation link token from the sign-in flow: a new identity joins that workspace. */
-  invite: string | null = null
+  invite: string | null = null,
+  /** From the flow cookie: the terms version accepted before a new sign-up (only checked while TERMS_VERSION is set). */
+  options: { termsVersion?: string | null } = {}
 ): Promise<GoogleSignInResult> {
   try {
     await enforceAuthRateLimit('google-login', identity.subject);
@@ -439,7 +458,7 @@ export async function signInWithGoogle(
       SELECT id FROM auth_users WHERE email=${identity.email}`;
     // Never link on an email match: sign in with the password, then link from settings.
     if (existing[0]) throw new GoogleOidcError('google_link_required');
-    userId = await createGoogleUser(identity, invite);
+    userId = await createGoogleUser(identity, invite, options.termsVersion ?? null);
     created = true;
   }
   if (await hasMfa(userId)) return { kind: 'mfa', userId };

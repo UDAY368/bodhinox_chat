@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   readAiSettings: vi.fn(),
   isAiFeatureAvailable: vi.fn(),
   requireAiBudget: vi.fn(),
+  reserveAi: vi.fn(),
   loadAiConfig: vi.fn(),
   logAiUsage: vi.fn(),
   readConversation: vi.fn(),
@@ -16,9 +17,9 @@ vi.mock('@/lib/db/tenant', () => ({
   withTenant: async (ctx: unknown, fn: (tx: unknown) => unknown) => { h.tenants.push(ctx); return fn({}) },
 }))
 vi.mock('../settings', () => ({ readAiSettings: h.readAiSettings, isAiFeatureAvailable: h.isAiFeatureAvailable }))
-vi.mock('../budget', () => ({ requireAiBudget: h.requireAiBudget }))
+vi.mock('../budget', () => ({ requireAiBudget: h.requireAiBudget, reserveAi: h.reserveAi, settleAi: h.logAiUsage, failAi: async () => {} }))
 vi.mock('../config', () => ({ loadAiConfig: h.loadAiConfig }))
-vi.mock('../usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: h.logAiUsage }))
+vi.mock('../usage', () => ({ promptCharsOf: () => 0, usageLog: (a: Record<string, unknown>) => ({ ...a, totalTokens: 0 }) }))
 vi.mock('../admin-client', () => ({ databaseAdmin: () => ({}) }))
 vi.mock('@/lib/billing/limits', () => ({ recordAiMessage: vi.fn() }))
 vi.mock('./repo', async (original) => ({
@@ -60,6 +61,7 @@ beforeEach(() => {
   h.readAiSettings.mockReset().mockResolvedValue({ assessment_enabled: true })
   h.isAiFeatureAvailable.mockReset().mockResolvedValue({ ok: true })
   h.requireAiBudget.mockReset().mockResolvedValue(undefined)
+  h.reserveAi.mockReset().mockResolvedValue({})
   h.loadAiConfig.mockReset().mockResolvedValue(config)
   h.logAiUsage.mockReset().mockResolvedValue(undefined)
   h.readConversation.mockReset().mockResolvedValue(conversation('How much is the blue mug? I want to buy 2.'))
@@ -144,7 +146,8 @@ describe('model path', () => {
     expect(row.qualification).toMatchObject({ evidence_message_ids: [M2], route_to_staff: false })
     expect(row.qualification.flags).toContain('pii_redacted')
     expect(h.tenants.every((t) => (t as { role?: string }).role === 'owner')).toBe(true)
-    expect(h.logAiUsage).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mode: 'assess', conversationId: CONV }))
+    // settleAi (h.logAiUsage) settles the call with its ai_usage_log row.
+    expect(h.logAiUsage).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ log: expect.objectContaining({ mode: 'assess', conversationId: CONV }) }))
   })
 
   it('drops and flags evidence that is not a transcript message', async () => {

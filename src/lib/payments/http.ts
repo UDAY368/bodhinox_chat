@@ -45,7 +45,7 @@ export async function readJsonObject(request: Request): Promise<Record<string, u
 export async function sendLinkInto(ctx: AccountContext, link: PaymentLinkView, message: string | undefined, intentKey: string): Promise<SendResult> {
   const t = getT('Validation.payments');
   try {
-    const sent = await sendPaymentLinkMessage({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role, linkId: link.id, message, intentKey });
+    const sent = await sendPaymentLinkMessage({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role, linkId: link.id, message, intentKey, manual: true });
     return { status: 'sent', message_id: sent.messageId };
   } catch (error) {
     if (error instanceof PaymentLinkError) return { status: 'refused', code: error.code, error: error.message };

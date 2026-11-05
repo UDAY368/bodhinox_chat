@@ -12,8 +12,9 @@ const h = vi.hoisted(() => ({
   engineSendText: vi.fn(),
   conversationNumberDisconnected: vi.fn(),
   dispatchOnce: vi.fn(),
-  requireAiMessageRoom: vi.fn(),
-  recordAiMessage: vi.fn(),
+  reserveAi: vi.fn(),
+  settleAi: vi.fn(),
+  failAi: vi.fn(),
   recordUnanswered: vi.fn(),
   profile: null as AgentProfile | null,
   intents: [] as Array<{ idempotency_key: string; status: string; result: unknown }>,
@@ -37,7 +38,7 @@ vi.mock('@/lib/db/tenant', () => ({
   withTenant: (_ctx: unknown, fn: (tx: unknown) => unknown) => fn({ $queryRaw: async () => h.intents }),
 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: h.requireAiMessageRoom, recordAiMessage: h.recordAiMessage }))
+vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 50 }))
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,
   conversationNumberDisconnected: h.conversationNumberDisconnected,
@@ -84,8 +85,9 @@ beforeEach(() => {
   h.buildConversationContext.mockResolvedValue([{ role: 'user', content: QUESTION }])
   h.generateOpenAi.mockResolvedValue({ text: 'We open 10:00 to 16:00 on Sundays.', usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } })
   h.conversationNumberDisconnected.mockResolvedValue(false)
-  h.requireAiMessageRoom.mockResolvedValue(undefined)
-  h.recordAiMessage.mockResolvedValue(undefined)
+  h.reserveAi.mockResolvedValue({ reservation: true })
+  h.settleAi.mockResolvedValue(undefined)
+  h.failAi.mockResolvedValue(undefined)
   h.recordUnanswered.mockResolvedValue({ id: 'q-1', occurrences: 1 })
   h.engineSendText.mockResolvedValue({ whatsapp_message_id: 'wamid.ai' })
   h.dispatchOnce.mockImplementation(async (_account: string, _key: string, send: () => Promise<unknown>) => send())
@@ -120,8 +122,10 @@ describe('runFlowAiReply', () => {
       accountId: ACCOUNT, conversationId: 'cv-1', contactId: 'ct-1', aiGenerated: true, text: 'We open 10:00 to 16:00 on Sundays.',
     }))
     expect(h.rpc).toHaveBeenCalledWith('claim_ai_reply_slot', { conversation_id: 'cv-1', max_replies: 5 })
-    expect(h.requireAiMessageRoom).toHaveBeenCalledTimes(1)
-    expect(h.recordAiMessage).toHaveBeenCalledTimes(1)
+    // The turn's intent key is its metering source event: a retried turn never meters twice.
+    expect(h.reserveAi).toHaveBeenCalledWith(ACCOUNT, 'flow:run-1:ask_ai:0:0', { message: true, tokens: 50 }, expect.anything())
+    expect(h.settleAi).toHaveBeenCalledTimes(1)
+    expect(h.settleAi).toHaveBeenCalledWith({ reservation: true }, expect.objectContaining({ tokens: 15, log: expect.objectContaining({ mode: 'auto_reply' }) }))
     // Step instructions sit inside the operator block; knowledge is quoted as untrusted and defused.
     const prompt = systemPrompt()
     expect(prompt).toContain('<operator_instructions>')
@@ -161,7 +165,7 @@ describe('runFlowAiReply', () => {
     h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'I have a fever and a rash, which medicine should I take?' }])
     expect(await runFlowAiReply(args())).toEqual({ kind: 'handoff', reason: 'sensitive_topic', score: 0, citations: [] })
     expect(h.generateOpenAi).not.toHaveBeenCalled()
-    expect(h.requireAiMessageRoom).not.toHaveBeenCalled()
+    expect(h.reserveAi).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
@@ -243,7 +247,7 @@ describe('runFlowAiReply', () => {
     ['number_disconnected', () => h.conversationNumberDisconnected.mockResolvedValue(true)],
     ['reply_cap', () => { h.tables.conversations[0].ai_reply_count = 5 }],
     ['no_question', () => h.buildConversationContext.mockResolvedValue([])],
-    ['plan_limit', () => h.requireAiMessageRoom.mockRejectedValue(new PlanLimitError('used up'))],
+    ['plan_limit', () => h.reserveAi.mockRejectedValue(new PlanLimitError('used up'))],
   ])('is unavailable without calling the model: %s', async (reason, arrange) => {
     arrange()
     expect(await runFlowAiReply(args())).toEqual({ kind: 'unavailable', reason })
@@ -261,6 +265,8 @@ describe('runFlowAiReply', () => {
     const logs = [vi.spyOn(console, 'info'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')].map((s) => s.mockImplementation(() => {}))
     h.generateOpenAi.mockRejectedValueOnce(new Error(`provider echoed: ${QUESTION}`))
     expect(await runFlowAiReply(args())).toEqual({ kind: 'unavailable', reason: 'generation_failed' })
+    expect(h.failAi).toHaveBeenCalledWith({ reservation: true }, expect.any(Error), expect.any(Number))
+    expect(h.settleAi).not.toHaveBeenCalled()
     h.generateOpenAi.mockResolvedValueOnce({ text: NO_ANSWER_SENTINEL, usage: null })
     await runFlowAiReply(args())
     const logged = JSON.stringify(logs.flatMap((s) => s.mock.calls))
@@ -283,8 +289,8 @@ describe('runFlowAiReply', () => {
     const intent = (key: string, status: string, result: unknown = null) => ({ idempotency_key: `${ACCOUNT}:${key}`, status, result })
     const noNewWork = () => {
       expect(h.generateOpenAi).not.toHaveBeenCalled()
-      expect(h.recordAiMessage).not.toHaveBeenCalled()
-      expect(h.requireAiMessageRoom).not.toHaveBeenCalled()
+      expect(h.settleAi).not.toHaveBeenCalled()
+      expect(h.reserveAi).not.toHaveBeenCalled()
       expect(h.rpc).not.toHaveBeenCalledWith('claim_ai_reply_slot', expect.anything())
     }
 
@@ -335,7 +341,7 @@ describe('runFlowAiReply', () => {
         return send()
       })
       expect(await runFlowAiReply(args())).toEqual({ kind: 'unavailable', reason: 'send_uncertain' })
-      expect(h.recordAiMessage).toHaveBeenCalledTimes(1)
+      expect(h.settleAi).toHaveBeenCalledTimes(1)
 
       h.dispatchOnce.mockImplementation(async (_a: string, key: string, send: () => Promise<unknown>) => {
         if (key === KEY) throw Object.assign(new Error('rejected'), { name: 'MetaApiError' })
@@ -366,7 +372,7 @@ describe('runFlowAiReply', () => {
       expect(first).toMatchObject({ kind: 'answered' })
       expect(retry).toEqual(first)
       expect(h.generateOpenAi).toHaveBeenCalledTimes(1)
-      expect(h.recordAiMessage).toHaveBeenCalledTimes(1)
+      expect(h.settleAi).toHaveBeenCalledTimes(1)
       expect(h.rpc.mock.calls.filter(([name]) => name === 'claim_ai_reply_slot')).toHaveLength(1)
       expect(h.engineSendText).toHaveBeenCalledTimes(1)
     })

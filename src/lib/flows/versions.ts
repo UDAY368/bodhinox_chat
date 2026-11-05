@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
-import { requireWithinLimit } from '@/lib/billing/entitlements';
+import { gateWithinLimit } from '@/lib/billing/limits';
 import { loadFlowFormLookup } from '@/lib/whatsapp/forms/flow-lookup';
 import { validateFlowForActivation, type CrossFlowSnapshot, type ValidationIssue } from './validate';
 import type { WorkspaceCapabilities } from './node-registry';
@@ -302,7 +302,7 @@ export async function publishFlow(tx: TenantTransaction, args: PublishArgs): Pro
   const [{ n }] = await tx.$queryRaw<{ n: number }[]>(Prisma.sql`SELECT count(*)::int AS n FROM flows
     WHERE account_id=${accountId}::uuid AND id<>${flowId}::uuid
     AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`);
-  await requireWithinLimit(tx, accountId, 'active_flows', n + 1);
+  await gateWithinLimit(tx, accountId, 'active_flows', n + 1);
 
   const current = flow.published_version_id ? await readVersion(tx, accountId, flow.published_version_id) : null;
   let version: { id: string; version: number };
@@ -412,6 +412,9 @@ export async function archiveFlow(tx: TenantTransaction, args: { accountId: stri
  */
 export async function moveToDraft(tx: TenantTransaction, args: { accountId: string; flowId: string; userId: string }):
   Promise<{ flow: FlowRow; paused: boolean }> {
+  // The account publish lock first (publishFlow's order), so the active-flow count below is
+  // serialised with every publish and test start: two cannot take the same plan slot.
+  await lockAccountPublishing(tx, args.accountId);
   const flow = await lockFlow(tx, args.accountId, args.flowId);
   if (flow.published_version_id) {
     const paused = await pauseFlow(tx, { ...args, cancelActive: false });
@@ -430,7 +433,7 @@ export async function moveToDraft(tx: TenantTransaction, args: { accountId: stri
     const [{ n }] = await tx.$queryRaw<{ n: number }[]>(Prisma.sql`SELECT count(*)::int AS n FROM flows
       WHERE account_id=${args.accountId}::uuid AND id<>${args.flowId}::uuid
       AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`);
-    await requireWithinLimit(tx, args.accountId, 'active_flows', n + 1);
+    await gateWithinLimit(tx, args.accountId, 'active_flows', n + 1);
   }
   const [updated] = await tx.$queryRaw<FlowRow[]>(Prisma.sql`UPDATE flows SET status='draft', updated_at=now()
     WHERE account_id=${args.accountId}::uuid AND id=${args.flowId}::uuid RETURNING *`);

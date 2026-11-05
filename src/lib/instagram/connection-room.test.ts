@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
 vi.mock('./graph', async (original) => ({ ...(await original<typeof import('./graph')>()), ...graph }));
 vi.mock('@/lib/billing/entitlements', async (original) => ({ ...(await original<typeof import('@/lib/billing/entitlements')>()), ...billing }));
 vi.mock('@/lib/payments/ledger', () => ({ auditTx: vi.fn() }));
+vi.mock('@/lib/billing/usage-notices', () => ({ notifyLimitRefused: vi.fn() }));
 vi.mock('@/lib/whatsapp/encryption', () => ({ encrypt: (v: string) => `enc:${v}`, decrypt: (v: string) => v.replace(/^enc:/, '') }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
 vi.mock('@/lib/db/tenant', () => ({

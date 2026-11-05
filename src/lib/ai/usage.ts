@@ -1,14 +1,12 @@
-import type { DataClient } from '@/lib/data/types'
-import { getWorkerPrisma } from '@/lib/db/prisma'
-import { withTenant } from '@/lib/db/tenant'
-import { incrementUsage } from '@/lib/billing/usage'
-import type { AiProvider, AiUsage, AiUsageMode } from './types'
-import { logAiEvent } from './log'
+// Token usage of one provider call, for metering (settleAi in ./budget) and
+// the ai_usage_log row (cost visibility on the account's BYO key). Every path
+// is metered: when the provider reports no usage, characters / 4 is used.
 
-export interface LogAiUsageArgs {
-  accountId: string
-  /** Null for a draft not tied to one thread, or when the row was
-   *  deleted between generation and logging. */
+import type { AiProvider, AiUsage, AiUsageMode } from './types'
+import type { AiUsageLog } from './budget'
+
+export interface UsageLogArgs {
+  /** Null for a draft not tied to one thread; a deleted thread is stored as null. */
   conversationId: string | null
   mode: AiUsageMode
   provider: AiProvider
@@ -32,49 +30,11 @@ export function estimateUsage(estimate: { promptChars: number; outputChars: numb
   return { promptTokens, completionTokens, totalTokens: promptTokens + completionTokens }
 }
 
-/**
- * Adds `tokens` to the workspace's 'ai_tokens' counter for this IST month
- * (usage_counters, atomic billing_increment_usage), on the worker client
- * inside the workspace's tenant scope. Never throws.
- */
-export async function countAiTokens(accountId: string, tokens: number): Promise<void> {
-  if (!Number.isSafeInteger(tokens) || tokens <= 0) return
-  try {
-    await withTenant({ accountId }, (tx) => incrementUsage(tx, 'ai_tokens', tokens), getWorkerPrisma())
-  } catch (error) {
-    logAiEvent({ feature: 'usage', reason: 'token_count_failed', accountId, error })
-  }
-}
-
-/**
- * Best-effort append to `ai_usage_log` — one row per LLM call, for cost
- * visibility on the account's BYO key — then counts the call's tokens
- * against the monthly 'ai_tokens' meter (plan limit ai_tokens_monthly and
- * the workspace cap). NEVER throws: usage accounting must not fail a reply
- * the customer is waiting on, so any DB error is logged as a reason code
- * (never the error object, which can carry row values) and swallowed.
- *
- * Pass the worker-backed admin client from the webhook or a route.
- */
-export async function logAiUsage(
-  db: DataClient,
-  args: LogAiUsageArgs,
-): Promise<void> {
+/** The ai_usage_log row for one call: the provider's usage, else the estimate. */
+export function usageLog(args: UsageLogArgs): AiUsageLog {
   const usage = args.usage ?? estimateUsage(args.estimate)
-  try {
-    const { error } = await db.from('ai_usage_log').insert({
-      account_id: args.accountId,
-      conversation_id: args.conversationId,
-      mode: args.mode,
-      provider: args.provider,
-      model: args.model,
-      prompt_tokens: usage.promptTokens,
-      completion_tokens: usage.completionTokens,
-      total_tokens: usage.totalTokens,
-    })
-    if (error) logAiEvent({ feature: 'usage', reason: 'log_insert_failed', accountId: args.accountId })
-  } catch (error) {
-    logAiEvent({ feature: 'usage', reason: 'log_insert_threw', accountId: args.accountId, error })
+  return {
+    conversationId: args.conversationId, mode: args.mode, provider: args.provider, model: args.model,
+    promptTokens: usage.promptTokens, completionTokens: usage.completionTokens, totalTokens: usage.totalTokens,
   }
-  await countAiTokens(args.accountId, usage.totalTokens)
 }

@@ -28,6 +28,76 @@ export async function peekInvitation(tokenHash: string): Promise<Row> {
     expires_at: invite.expires_at,
   };
 }
+/**
+ * leave_account: a non-owner leaves the current workspace (Phase 14). The owner
+ * must transfer ownership first; a user with no other workspace is refused (they
+ * delete their account instead). In one identity-role transaction: the
+ * membership is deleted, the user's other sessions in that workspace are
+ * revoked, the current session moves to the user's oldest remaining workspace,
+ * and both workspaces get an audit row. Returns the workspace the session moved to.
+ */
+export async function leaveAccount(context: {
+  userId: string;
+  accountId: string;
+  sessionId: string;
+}): Promise<{ nextAccountId: string }> {
+  return getAuthPrisma().$transaction(async (tx) => {
+    const memberships = await tx.$queryRawUnsafe<Row[]>(
+      'SELECT role FROM account_memberships WHERE user_id=$1::uuid AND account_id=$2::uuid FOR UPDATE',
+      context.userId,
+      context.accountId
+    );
+    const membership = memberships[0];
+    if (!membership) throw new ContractError('Membership required', '42501', 403);
+    if (membership.role === 'owner')
+      throw new ContractError('Transfer ownership before leaving this workspace', 'owner_must_transfer', 409);
+    const others = await tx.$queryRawUnsafe<Row[]>(
+      'SELECT account_id FROM account_memberships WHERE user_id=$1::uuid AND account_id<>$2::uuid ORDER BY created_at, id LIMIT 1',
+      context.userId,
+      context.accountId
+    );
+    const next = others[0]?.account_id as string | undefined;
+    if (!next)
+      throw new ContractError('This is your only workspace; delete your account instead', 'last_workspace', 409);
+    await tx.$executeRawUnsafe(
+      'DELETE FROM account_memberships WHERE account_id=$1::uuid AND user_id=$2::uuid',
+      context.accountId,
+      context.userId
+    );
+    // Old JWT sessions must not retain authority in the workspace that was left.
+    await tx.$executeRawUnsafe(
+      'UPDATE auth_sessions SET revoked_at=NOW() WHERE account_id=$1::uuid AND user_id=$2::uuid AND id<>$3::uuid AND revoked_at IS NULL',
+      context.accountId,
+      context.userId,
+      context.sessionId
+    );
+    const moved = await tx.$executeRawUnsafe(
+      'UPDATE auth_sessions SET account_id=$1::uuid WHERE id=$2::uuid AND user_id=$3::uuid AND account_id=$4::uuid AND revoked_at IS NULL',
+      next,
+      context.sessionId,
+      context.userId,
+      context.accountId
+    );
+    if (moved !== 1) throw new ContractError('Authentication required', '42501', 401);
+    await tx.$executeRawUnsafe(
+      'INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata) VALUES($1::uuid,$2::uuid,$3,$4::uuid,$5::jsonb)',
+      context.accountId,
+      context.userId,
+      'membership.leave',
+      context.userId,
+      JSON.stringify({ oldRole: membership.role })
+    );
+    await tx.$executeRawUnsafe(
+      'INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata) VALUES($1::uuid,$2::uuid,$3,$4,$5::jsonb)',
+      next,
+      context.userId,
+      'auth.tenant_switch',
+      context.sessionId,
+      JSON.stringify({ reason: 'left_workspace' })
+    );
+    return { nextAccountId: next };
+  });
+}
 export async function executeMembershipRpc(
   name: string,
   args: Row,
@@ -53,6 +123,13 @@ export async function executeMembershipRpc(
         throw new ContractError('Invitation is unavailable', '22023');
       if (!['admin', 'agent', 'viewer'].includes(invite.role))
         throw new ContractError('Invalid invitation role', '22023');
+      // A workspace whose deletion was requested takes no new members.
+      const closing = await tx.$queryRawUnsafe<{ closing: boolean }[]>(
+        'SELECT auth_workspace_closing($1::uuid) AS closing',
+        invite.account_id
+      );
+      if (closing[0]?.closing)
+        throw new ContractError('Invitation is unavailable', '22023');
       const memberships = await tx.$queryRawUnsafe<Row[]>(
         'SELECT role FROM account_memberships WHERE user_id=$1::uuid AND account_id=$2::uuid FOR UPDATE',
         context.userId,

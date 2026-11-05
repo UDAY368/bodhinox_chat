@@ -13,9 +13,17 @@ const h = vi.hoisted(() => ({
   permission: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
 }));
 vi.mock('@/lib/auth/permissions', () => ({ requirePermission: h.permission }));
-vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_t: unknown, fn: (tx: unknown) => unknown) => fn({ $queryRaw: async () => [{ n: 1 }] }) }));
+// The test-number slot is counted in the save transaction, under the publish lock.
+vi.mock('@/lib/db/tenant', () => ({
+  withTenant: async (_t: unknown, fn: (tx: unknown) => unknown) => fn({
+    $executeRaw: async () => 0,
+    $queryRaw: async (sql: TemplateStringsArray) => sql.join('').includes('AS starts')
+      ? h.flows.map((f) => ({ starts: f.status === 'draft' && !((f.test_numbers as string[] | undefined) ?? []).length }))
+      : [{ n: 1 }],
+  }),
+}));
 vi.mock('@/lib/audience/http', () => ({ tenantOf: () => ({}) }));
-vi.mock('@/lib/billing/entitlements', () => ({ requireWithinLimit: h.limit }));
+vi.mock('@/lib/billing/limits', () => ({ gateWithinLimit: h.limit }));
 vi.mock('@/lib/workspace/attributes', () => ({ secretAttributeKeys: async () => h.secrets }));
 // The draft is saved in one tenant transaction (lib/flows/versions, covered by
 // versions.integration.test.ts); here it applies to the in-memory rows.

@@ -4,26 +4,24 @@ import { PlanLimitError } from '@/lib/billing/entitlements'
 
 const h = vi.hoisted(() => ({
   isAiFeatureAvailable: vi.fn(),
-  requireAiBudget: vi.fn(),
+  reserveAi: vi.fn(),
+  settleAi: vi.fn(),
+  failAi: vi.fn(),
   loadAiConfig: vi.fn(),
-  logAiUsage: vi.fn(),
-  recordAiMessage: vi.fn(),
-  countAiTokens: vi.fn(),
 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }))
 vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_c: unknown, fn: (tx: unknown) => unknown) => fn({}) }))
 vi.mock('./settings', () => ({ isAiFeatureAvailable: h.isAiFeatureAvailable }))
-vi.mock('./budget', () => ({ requireAiBudget: h.requireAiBudget }))
+vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi }))
 vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
-vi.mock('./usage', () => ({ logAiUsage: h.logAiUsage, countAiTokens: h.countAiTokens }))
 vi.mock('./admin-client', () => ({ databaseAdmin: () => ({}) }))
-vi.mock('@/lib/billing/limits', () => ({ recordAiMessage: h.recordAiMessage }))
 
 import { runAiTask, truncateBlocks, type RunAiTaskArgs } from './task'
 import { setAiTransportForTests } from './generate'
 import { createFakeTransport, fakeCalls, resetFakeCalls } from './providers/fake'
 
 const ACCOUNT = '11111111-1111-4111-8111-111111111111'
+const RESERVATION = { held: 'reservation' }
 const USER = '22222222-2222-4222-8222-222222222222'
 const config = {
   provider: 'openai', model: 'gpt-x', baseUrl: null, apiKey: 'sk-test', systemPrompt: null, isActive: true,
@@ -40,11 +38,10 @@ beforeEach(() => {
   resetFakeCalls()
   setAiTransportForTests(createFakeTransport())
   h.isAiFeatureAvailable.mockReset().mockResolvedValue({ ok: true })
-  h.requireAiBudget.mockReset().mockResolvedValue(undefined)
+  h.reserveAi.mockReset().mockResolvedValue(RESERVATION)
+  h.settleAi.mockReset().mockResolvedValue(undefined)
+  h.failAi.mockReset().mockResolvedValue(undefined)
   h.loadAiConfig.mockReset().mockResolvedValue(config)
-  h.logAiUsage.mockReset().mockResolvedValue(undefined)
-  h.recordAiMessage.mockReset().mockResolvedValue(undefined)
-  h.countAiTokens.mockReset().mockResolvedValue(undefined)
   vi.spyOn(console, 'info').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -66,7 +63,7 @@ describe('runAiTask gates: zero provider calls', () => {
     h.isAiFeatureAvailable.mockResolvedValue({ ok: false, reason })
     expect(await runAiTask(base())).toMatchObject({ ok: false, reason })
     expect(fakeCalls()).toHaveLength(0)
-    expect(h.logAiUsage).not.toHaveBeenCalled()
+    expect(h.reserveAi).not.toHaveBeenCalled()
   })
 
   it('no decryptable config', async () => {
@@ -77,18 +74,21 @@ describe('runAiTask gates: zero provider calls', () => {
     expect(fakeCalls()).toHaveLength(0)
   })
 
-  it('usage limits are checked before the call', async () => {
-    h.requireAiBudget.mockRejectedValue(new PlanLimitError('limit'))
+  it('usage limits are held before the call, as one task source event', async () => {
+    h.reserveAi.mockRejectedValue(new PlanLimitError('limit'))
     expect(await runAiTask(base())).toMatchObject({ ok: false, reason: 'quota' })
     expect(fakeCalls()).toHaveLength(0)
-    expect(h.requireAiBudget).toHaveBeenCalledWith(ACCOUNT, 'summary', expect.any(Number), expect.anything())
+    expect(h.reserveAi).toHaveBeenCalledWith(ACCOUNT, expect.stringMatching(/^task:[0-9a-f-]{36}$/),
+      { message: false, tokens: expect.any(Number), workspaceCap: true }, expect.anything())
+    await runAiTask(base({ sourceKey: 'task:job-7' }))
+    expect(h.reserveAi.mock.calls[1][1]).toBe('task:job-7')
   })
 
   it('bounds non-Latin prompts at one token per character in the pre-call check', async () => {
     const latin = 'a'.repeat(4000), hindi = 'क'.repeat(4000)
     await runAiTask(base({ untrusted: [{ source: 'customer', text: latin }] }))
     await runAiTask(base({ untrusted: [{ source: 'customer', text: hindi }] }))
-    const [[, , latinBound], [, , hindiBound]] = h.requireAiBudget.mock.calls
+    const [latinBound, hindiBound] = h.reserveAi.mock.calls.map((c) => c[2].tokens)
     expect(hindiBound - latinBound).toBeGreaterThanOrEqual(4000 - 1000)
   })
 
@@ -112,13 +112,14 @@ describe('runAiTask prompt handling', () => {
     expect(call.systemPrompt).toContain('Never diagnose')
   })
 
-  it('logs usage with an estimate after the call and counts a suggestion as an AI message', async () => {
+  it('settles usage with an estimate after the call; only a suggestion reserves an AI message', async () => {
     await runAiTask(base({ feature: 'suggest', audience: 'customer' }))
-    expect(h.logAiUsage).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mode: 'suggest', estimate: expect.any(Object) }))
-    expect(h.recordAiMessage).toHaveBeenCalledWith(ACCOUNT, expect.anything())
-    h.recordAiMessage.mockClear()
+    expect(h.reserveAi.mock.calls[0][2].message).toBe(true)
+    expect(h.settleAi).toHaveBeenCalledWith(RESERVATION, expect.objectContaining({
+      tokens: expect.any(Number), log: expect.objectContaining({ mode: 'suggest', totalTokens: expect.any(Number) }),
+    }))
     await runAiTask(base({ feature: 'summary' }))
-    expect(h.recordAiMessage).not.toHaveBeenCalled()
+    expect(h.reserveAi.mock.calls[1][2].message).toBe(false)
   })
 
   it('keeps the latest transcript text when truncating', () => {
@@ -136,14 +137,11 @@ describe('runAiTask fallbacks and guards', () => {
     expect(await runAiTask(base({ untrusted: [{ source: 'customer', text: directive }] }))).toMatchObject({ ok: false, reason })
   })
 
-  it('counts the prompt against ai_tokens after a timeout, but not after a 4xx refusal', async () => {
+  it('hands a failed call to failAi with the prompt size (it settles a timeout, releases a 4xx)', async () => {
     await runAiTask(base({ untrusted: [{ source: 'customer', text: '[[fake:timeout]]' }] }))
-    expect(h.countAiTokens).toHaveBeenCalledWith(ACCOUNT, expect.any(Number))
-    expect(h.countAiTokens.mock.calls[0][1]).toBeGreaterThan(0)
-    expect(h.logAiUsage).not.toHaveBeenCalled()
-    h.countAiTokens.mockClear()
-    await runAiTask(base({ untrusted: [{ source: 'customer', text: '[[fake:error_429]]' }] }))
-    expect(h.countAiTokens).not.toHaveBeenCalled()
+    expect(h.failAi).toHaveBeenCalledWith(RESERVATION, expect.objectContaining({ code: 'timeout' }), expect.any(Number))
+    expect(h.failAi.mock.calls[0][2]).toBeGreaterThan(0)
+    expect(h.settleAi).not.toHaveBeenCalled()
   })
 
   it('validates JSON output with the schema', async () => {

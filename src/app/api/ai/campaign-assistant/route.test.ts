@@ -5,8 +5,10 @@ const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
   loadAiConfig: vi.fn(),
   generateReply: vi.fn(),
-  requireAiMessageRoom: vi.fn(),
-  recordAiMessage: vi.fn(),
+  requestMeter: vi.fn(),
+  beforeAttempt: vi.fn(),
+  afterAttempt: vi.fn(),
+  finish: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/account', () => ({
@@ -20,9 +22,13 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('@/lib/ai/config', () => ({ loadAiConfig: mocks.loadAiConfig }))
 vi.mock('@/lib/ai/generate', () => ({ generateReply: mocks.generateReply }))
-vi.mock('@/lib/ai/usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: vi.fn() }))
-vi.mock('@/lib/ai/admin-client', () => ({ databaseAdmin: () => ({}) }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: mocks.requireAiMessageRoom, recordAiMessage: mocks.recordAiMessage }))
+vi.mock('@/lib/ai/budget', () => ({
+  ROUTE_GENERATION_TOKENS: 20_000,
+  requestMeter: (...args: unknown[]) => {
+    mocks.requestMeter(...args)
+    return { hooks: { beforeAttempt: mocks.beforeAttempt, afterAttempt: mocks.afterAttempt }, finish: mocks.finish }
+  },
+}))
 
 import { POST } from './route'
 
@@ -67,8 +73,8 @@ beforeEach(() => {
     handoff: false,
     usage: null,
   })
-  mocks.requireAiMessageRoom.mockResolvedValue(undefined)
-  mocks.recordAiMessage.mockResolvedValue(undefined)
+  mocks.beforeAttempt.mockResolvedValue(undefined)
+  mocks.finish.mockResolvedValue(undefined)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -87,7 +93,9 @@ describe('POST /api/ai/campaign-assistant', () => {
     expect(mocks.requireRole).toHaveBeenCalledWith('agent')
     expect(db.touched).not.toContain('broadcasts')
     expect(db.touched).not.toContain('segments')
-    expect(mocks.recordAiMessage).toHaveBeenCalledWith('acc-1')
+    expect(mocks.requestMeter).toHaveBeenCalledWith('acc-1', 20_000, expect.objectContaining({ mode: 'draft', conversationId: null }))
+    expect(mocks.afterAttempt).toHaveBeenCalledTimes(1)
+    expect(mocks.finish).toHaveBeenCalledTimes(1)
     const system = mocks.generateReply.mock.calls[0][0].systemPrompt as string
     expect(system).toContain('Asia/Kolkata')
     expect(JSON.stringify(body)).not.toContain('sk-secret')
@@ -99,7 +107,7 @@ describe('POST /api/ai/campaign-assistant', () => {
     const res = await POST(req({ goal: 'g' }))
     expect(res.status).toBe(400)
     expect((await res.json()).code).toBe('no_approved_templates')
-    expect(mocks.requireAiMessageRoom).not.toHaveBeenCalled()
+    expect(mocks.beforeAttempt).not.toHaveBeenCalled()
   })
 
   it('validates input and rate limits', async () => {
@@ -115,6 +123,8 @@ describe('POST /api/ai/campaign-assistant', () => {
     const res = await POST(req({ goal: 'g' }))
     expect(res.status).toBe(422)
     expect(mocks.generateReply).toHaveBeenCalledTimes(2)
-    expect(mocks.recordAiMessage).toHaveBeenCalledTimes(2)
+    // Both attempts are collected and settled once: one AI message per request.
+    expect(mocks.afterAttempt).toHaveBeenCalledTimes(2)
+    expect(mocks.finish).toHaveBeenCalledTimes(1)
   })
 })

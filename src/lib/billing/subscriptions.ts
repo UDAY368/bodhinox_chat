@@ -32,6 +32,7 @@ import { InvoiceConfigError, issueInvoice } from './invoices';
 import {
   applySnapshot,
   changeTiming,
+  grantsPlan,
   needsReconcile,
   sweepTransition,
   switchesPlanLimits,
@@ -43,6 +44,7 @@ import {
 import { providerPlanFor } from './prices';
 import type { BillingInterval, BillingProvider, BillingSubscription, BillingWebhookEvent } from './provider';
 import { billingConfig, billingConfigured, getBillingProvider } from './razorpay-billing';
+import { INTENT_UNKNOWN_AFTER_MS, openReconciliationItem } from './reconciliation';
 
 export const BILLING_EVENT_JOB = 'billing.event';
 export const BILLING_SWEEP_JOB = 'billing.lifecycle_sweep';
@@ -121,7 +123,8 @@ async function planForProviderPlan(tx: TenantTransaction, providerPlanId: string
   return rows[0] ?? null;
 }
 
-async function toSnapshot(tx: TenantTransaction, sub: BillingSubscription): Promise<ProviderSnapshot> {
+/** The provider's subscription with its plan mapped to ours (read only). */
+export async function providerSnapshot(tx: TenantTransaction, sub: BillingSubscription): Promise<ProviderSnapshot> {
   const mapped = await planForProviderPlan(tx, sub.planId);
   return {
     subscriptionId: sub.id, customerId: sub.customerId, status: sub.status, planId: mapped?.plan ?? null, interval: mapped?.interval ?? null,
@@ -137,6 +140,23 @@ async function planName(tx: TenantTransaction, planId: string): Promise<string> 
 const isoDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : 'none');
 
 /**
+ * Holds the subscription to the plan version current when it started on its
+ * plan: a new plan or a new provider subscription is pinned to the plan's
+ * current version; a renewal, recovery or status change of the same
+ * subscription keeps its pin. A granting row without a pin gets the current
+ * version (the terms it already resolves to). Non-granting rows resolve to
+ * the live 'free' row whatever their pin says.
+ */
+async function pinPlanVersion(tx: TenantTransaction, accountId: string, prev: SubscriptionRow | null, next: SubscriptionRow): Promise<void> {
+  if (!grantsPlan(next.status)) return;
+  const repin = !prev || prev.planId !== next.planId || prev.providerSubscriptionId !== next.providerSubscriptionId;
+  await tx.$executeRaw`
+    UPDATE account_subscriptions s SET plan_version_id = (SELECT v.id FROM plans p
+      JOIN plan_versions v ON v.plan_id = p.id AND v.version = p.current_version WHERE p.id = s.plan_id)
+    WHERE s.account_id=${accountId}::uuid AND (${repin} OR s.plan_version_id IS NULL)`;
+}
+
+/**
  * Writes a transition and records its notices (deduplicated per subscription and
  * period). When it switches the plan whose limits apply (a scheduled downgrade
  * at renewal, a cancellation ending on Free, an upgrade or a recovery), the
@@ -147,6 +167,7 @@ const isoDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : 'none');
 async function commitTransition(tx: TenantTransaction, accountId: string, t: Transition, now: Date): Promise<void> {
   const prev = await readSubscription(tx, accountId);
   await writeSubscription(tx, accountId, t.next);
+  await pinPlanVersion(tx, accountId, prev, t.next);
   if (switchesPlanLimits(prev, t.next)) await applyPlanLimits(tx, accountId);
   if (!t.notices.length) return;
   const plan = await planName(tx, t.next.planId);
@@ -361,7 +382,7 @@ export async function requestPlanChange(
       if (current) await writeSubscription(tx, input.accountId, { ...current, scheduledPlan: input.plan });
       return { state: 'scheduled' as const };
     }
-    const t = applySnapshot(current, await toSnapshot(tx, result.value), now);
+    const t = applySnapshot(current, await providerSnapshot(tx, result.value), now);
     if (t) await commitTransition(tx, input.accountId, t, now);
     return { state: 'done' as const };
   });
@@ -402,7 +423,7 @@ export async function requestCancel(
       if (current) await writeSubscription(tx, input.accountId, { ...current, cancelAtPeriodEnd: true, scheduledPlan: null });
       return { state: 'scheduled' as const };
     }
-    const t = applySnapshot(current, await toSnapshot(tx, result.value), now);
+    const t = applySnapshot(current, await providerSnapshot(tx, result.value), now);
     if (t) await commitTransition(tx, input.accountId, t, now);
     return { state: 'done' as const };
   });
@@ -474,8 +495,19 @@ async function resolveEventAccount(event: StoredBillingEvent): Promise<{ account
   return intent[0] ? { accountId: event.accountHint, intentId: intent[0].id } : null;
 }
 
-async function markEvent(id: string, accountId: string | null, error: string | null): Promise<void> {
-  await getWorkerPrisma().$executeRaw`UPDATE billing_events SET processed_at=now(), account_id=COALESCE(${accountId}::uuid, account_id), error=${error} WHERE id=${id}::uuid`;
+/**
+ * Marks an event processed. With `item` (a short reason code), the error also
+ * opens an event_error reconciliation item in the same transaction.
+ */
+async function markEvent(id: string, accountId: string | null, error: string | null, item: string | null = null): Promise<void> {
+  await getWorkerPrisma().$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ event_id: string; type: string; subscription_id: string | null; account_id: string | null }[]>`
+      UPDATE billing_events SET processed_at=now(), account_id=COALESCE(${accountId}::uuid, account_id), error=${error} WHERE id=${id}::uuid
+      RETURNING event_id, type, payload->>'subscriptionId' AS subscription_id, account_id`;
+    if (!error || !item || !rows[0]) return;
+    await openReconciliationItem(tx, { accountId: rows[0].account_id, kind: 'event_error', sourceRef: id, detail: {
+      reason: item, event_id: rows[0].event_id, type: rows[0].type, subscription_id: rows[0].subscription_id } });
+  });
 }
 
 /**
@@ -492,7 +524,7 @@ async function applyProviderState(
   return worker(accountId, async (tx) => {
     await lockAccount(tx, accountId);
     const current = await readSubscription(tx, accountId);
-    const snap = await toSnapshot(tx, sub);
+    const snap = await providerSnapshot(tx, sub);
     const ours = current?.providerSubscriptionId === sub.id;
     let intentMatched = false;
     let stray = false;
@@ -537,6 +569,7 @@ async function applyProviderState(
     }
     const charge = opts.charge;
     let reconcile: string | null = null;
+    let reconcileItem = true;
     if (charge && (ours || intentMatched) && charge.amountMinor && charge.amountMinor > 0 && (charge.paymentId || charge.invoiceId)) {
       const row = await readSubscription(tx, accountId);
       // The invoice runs in a savepoint: a configuration or tax-data problem
@@ -556,13 +589,17 @@ async function applyProviderState(
         if (!(error instanceof InvoiceConfigError || error instanceof GstError)) throw error;
         await tx.$executeRaw`ROLLBACK TO SAVEPOINT billing_invoice`;
         reconcile = `Invoice not issued (${error.name}): ${error.message}; issue it after fixing the billing configuration`;
+        reconcileItem = false;
+        await openReconciliationItem(tx, { accountId, kind: 'invoice_unissued', sourceRef: (charge.paymentId ?? charge.invoiceId)!, detail: {
+          reason: error.name, subscription_id: sub.id, payment_id: charge.paymentId, invoice_id: charge.invoiceId,
+          amount_minor: charge.amountMinor, currency: charge.currency } });
         // Ids and the amount only: the reason is our own configuration message, never customer content.
         await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
           VALUES(${accountId}::uuid,NULL,'billing.invoice_unissued',${charge.paymentId ?? charge.invoiceId},
             ${JSON.stringify({ reason: error.name, payment_id: charge.paymentId, invoice_id: charge.invoiceId, amount_minor: charge.amountMinor, currency: charge.currency })}::jsonb)`;
       }
     }
-    return { stray, reconcile };
+    return { stray, reconcile, reconcileItem };
   });
 }
 
@@ -570,6 +607,8 @@ interface ProviderStateResult {
   stray: boolean;
   /** Set when part of the event needs an operator (an unmapped plan, an invoice that could not be issued). */
   reconcile?: string | null;
+  /** false when the producer already opened its own reconciliation item (invoice_unissued). */
+  reconcileItem?: boolean;
 }
 
 /**
@@ -596,27 +635,28 @@ export async function handleBillingEventJob(payload: Record<string, unknown>, pr
   if (!provider) throw new Error('Billing is not configured');
   const target = await resolveEventAccount(event);
   if (!target || !event.subscriptionId) {
-    await markEvent(id, null, 'No workspace matches this subscription');
+    await markEvent(id, null, 'No workspace matches this subscription', 'no_workspace');
     return;
   }
   const sub = await provider.fetchSubscription(event.subscriptionId);
   // A read: safe to retry through the job's own backoff.
   if (sub.outcome === 'unknown') throw new Error('Billing provider unavailable');
   if (sub.outcome === 'rejected') {
-    await markEvent(id, target.accountId, 'Subscription could not be fetched');
+    await markEvent(id, target.accountId, 'Subscription could not be fetched', 'fetch_rejected');
     return;
   }
-  const { stray, reconcile } = await applyProviderState(target.accountId, sub.value, { intentId: target.intentId, charge: CHARGE_EVENTS.has(event.type) ? event : null, now });
+  const { stray, reconcile, reconcileItem } = await applyProviderState(target.accountId, sub.value, { intentId: target.intentId, charge: CHARGE_EVENTS.has(event.type) ? event : null, now });
   if (stray) {
     const outcome = await cancelStray(target.accountId, sub.value.id, provider);
     // A lost answer: the job retries (and cancels again) through its own backoff.
     if (outcome === 'unknown') throw new Error('Billing provider unavailable');
+    // A cancelled stray needs nobody; a refused cancel does.
     await markEvent(id, target.accountId, outcome === 'cancelled'
       ? 'Superseded checkout: cancelled at the provider'
-      : 'Superseded checkout: the provider refused the cancel; cancel it in the provider dashboard');
+      : 'Superseded checkout: the provider refused the cancel; cancel it in the provider dashboard', outcome === 'cancelled' ? null : 'stray_cancel_refused');
     return;
   }
-  await markEvent(id, target.accountId, reconcile ?? null);
+  await markEvent(id, target.accountId, reconcile ?? null, reconcile && reconcileItem !== false ? 'unmapped_plan' : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -680,6 +720,16 @@ async function reconcileIntents(accountId: string, provider: BillingProvider, no
       // Otherwise it stays unknown: the admin may simply cancel again.
     }
   }
+  // Still unknown a day later, after this attempt: an operator looks (the intent itself is left alone).
+  await worker(accountId, async (tx) => {
+    const stale = await tx.$queryRaw<{ id: string; kind: string; plan: string | null; interval: string | null; provider_subscription_id: string | null; created_at: Date }[]>`
+      SELECT id, kind, plan, "interval", provider_subscription_id, created_at FROM billing_intents
+      WHERE account_id=${accountId}::uuid AND status='unknown' AND created_at < ${new Date(now.getTime() - INTENT_UNKNOWN_AFTER_MS)}`;
+    for (const i of stale)
+      await openReconciliationItem(tx, { accountId, kind: 'intent_unknown', sourceRef: i.id, detail: {
+        intent_id: i.id, intent_kind: i.kind, plan: i.plan, interval: i.interval, subscription_id: i.provider_subscription_id,
+        created_at: i.created_at.toISOString() } });
+  });
 }
 
 /** The billing.lifecycle_sweep job for one workspace. */

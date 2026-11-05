@@ -22,6 +22,7 @@ vi.mock('./config', () => ({ zoomConfig: () => ({ clientId: 'cid', clientSecret:
 vi.mock('@/lib/auth/csrf', () => ({ appOrigin: () => 'http://localhost:3000' }));
 vi.mock('@/lib/billing/entitlements', () => ({ getEntitlements: async () => ({ features: { online_meetings: true } }) }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
+vi.mock('@/lib/billing/limits', () => ({ requireIntegrationRoom: async () => {} }));
 vi.mock('@/lib/payments/ledger', () => ({ auditTx: async () => {} }));
 vi.mock('./jobs', () => ({ backfillMeetingSyncTx: async () => 0 }));
 vi.mock('@/lib/whatsapp/encryption', () => ({ encrypt: (v: string) => `enc:${v}`, decrypt: (v: string) => v.replace(/^enc:/, '') }));

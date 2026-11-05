@@ -9,6 +9,7 @@ const CONTACT = '44444444-4444-4444-8444-444444444444'
 const h = vi.hoisted(() => ({
   isAiFeatureAvailable: vi.fn(),
   requireAiBudget: vi.fn(),
+  reserveAi: vi.fn(),
   retrieveKnowledgeScored: vi.fn(),
   recordAiMessage: vi.fn(),
   messages: [] as Array<{ id: string; sender_type: string; content_type: string; content_text: string | null; interactive_payload: unknown; created_at: Date }>,
@@ -53,9 +54,9 @@ vi.mock('@/lib/db/prisma', () => ({ getPrisma: () => ({ app: true }), getWorkerP
 vi.mock('@/lib/data/server', () => ({ createScopedClient: () => ({ scoped: true }) }))
 vi.mock('../admin-client', () => ({ databaseAdmin: () => ({ admin: true }) }))
 vi.mock('../settings', () => ({ isAiFeatureAvailable: h.isAiFeatureAvailable }))
-vi.mock('../budget', () => ({ requireAiBudget: h.requireAiBudget }))
+vi.mock('../budget', () => ({ requireAiBudget: h.requireAiBudget, reserveAi: h.reserveAi, settleAi: h.recordAiMessage, failAi: async () => {} }))
 vi.mock('../config', () => ({ loadAiConfig: async () => CONFIG, loadEmbeddingsKey: async () => ({ key: null, corrupt: false }) }))
-vi.mock('../usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: async () => {} }))
+vi.mock('../usage', () => ({ promptCharsOf: () => 0, usageLog: (a: Record<string, unknown>) => ({ ...a, totalTokens: 0 }) }))
 vi.mock('../knowledge', () => ({ retrieveKnowledgeScored: h.retrieveKnowledgeScored }))
 vi.mock('../agent-profile', async (original) => ({
   ...(await original<typeof import('../agent-profile')>()),
@@ -97,6 +98,7 @@ beforeEach(() => {
   ]
   h.isAiFeatureAvailable.mockReset().mockResolvedValue({ ok: true })
   h.requireAiBudget.mockReset().mockResolvedValue(undefined)
+  h.reserveAi.mockReset().mockResolvedValue({})
   h.recordAiMessage.mockReset().mockResolvedValue(undefined)
   h.retrieveKnowledgeScored.mockReset().mockResolvedValue({
     chunks: [{ id: 'ch-1', content: 'We deliver across India in 3-5 days.', document_id: 'd1', source_id: null, title: 'Shipping', source_url: 'https://beans.example/shipping' }],
@@ -180,6 +182,8 @@ describe('suggestReplies', () => {
     expect(h.inserts.every((i) => i.values.includes('reply'))).toBe(true)
     // Staff-only records never feed a customer-facing reply.
     expect(h.queries.some((q) => q.includes('FROM orders') || q.includes('FROM appointments') || q.includes('FROM deals'))).toBe(false)
+    // One reservation that counts an AI message (a suggestion), settled once (h.recordAiMessage is settleAi).
+    expect(h.reserveAi).toHaveBeenCalledWith(ACCOUNT, expect.stringMatching(/^task:/), expect.objectContaining({ message: true }), expect.anything())
     expect(h.recordAiMessage).toHaveBeenCalledTimes(1)
   })
 

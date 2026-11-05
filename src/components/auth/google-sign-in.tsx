@@ -17,6 +17,7 @@ const ERRORS = [
   'google_no_workspace',
   'google_invite_unavailable',
   'google_rate_limited',
+  'google_terms_required',
 ] as const;
 
 /**
@@ -24,7 +25,10 @@ const ERRORS = [
  * verification (the callback sends them back here with ?google=mfa). Hidden when the server has
  * no Google client configured.
  */
-export function GoogleSignIn() {
+export function GoogleSignIn({ terms }: {
+  /** The sign-up page while TERMS_VERSION is set: Google stays disabled until the terms are accepted. */
+  terms?: { version: string; accepted: boolean };
+} = {}) {
   const t = useTranslations('LoginPage.google');
   const searchParams = useSearchParams();
   const pendingMfa = searchParams.get('google') === 'mfa';
@@ -102,6 +106,7 @@ export function GoogleSignIn() {
   const invite = searchParams.get('invite');
   if (next) start.set('next', next);
   if (invite) start.set('invite', invite);
+  if (terms) start.set('terms', terms.version);
   const query = start.toString();
   return (
     <div className="mb-4 flex flex-col gap-3">
@@ -110,13 +115,19 @@ export function GoogleSignIn() {
           {t(`errors.${knownError}`)}
         </div>
       )}
-      {/* A full navigation, not a fetch: the start route redirects to Google. */}
-      <a
-        href={`/api/auth/google/start${query ? `?${query}` : ''}`}
-        className={cn(buttonVariants({ variant: 'outline' }), 'h-10 w-full')}
-      >
-        {t('continue')}
-      </a>
+      {terms && !terms.accepted ? (
+        <Button type="button" variant="outline" className="h-10 w-full" disabled>
+          {t('continue')}
+        </Button>
+      ) : (
+        /* A full navigation, not a fetch: the start route redirects to Google. */
+        <a
+          href={`/api/auth/google/start${query ? `?${query}` : ''}`}
+          className={cn(buttonVariants({ variant: 'outline' }), 'h-10 w-full')}
+        >
+          {t('continue')}
+        </a>
+      )}
       <div className="text-muted-foreground flex items-center gap-3 text-xs">
         <span className="bg-border h-px flex-1" />
         {t('or')}

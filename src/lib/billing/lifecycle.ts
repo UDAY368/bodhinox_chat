@@ -58,7 +58,7 @@ export interface ProviderSnapshot {
 }
 
 export const BILLING_NOTICES = ['activated', 'payment_failed', 'grace_started', 'grace_ending', 'suspended', 'recovered', 'cancelled', 'invoice_issued',
-  'checkout_superseded'] as const;
+  'checkout_superseded', 'usage_warning', 'usage_reached'] as const;
 export type BillingNotice = (typeof BILLING_NOTICES)[number];
 
 export interface Transition {

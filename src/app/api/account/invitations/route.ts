@@ -35,8 +35,8 @@ import {
 import { getT } from "@/lib/i18n/translate";
 import { tenantOf } from "@/lib/audience/http";
 import { withTenant } from "@/lib/db/tenant";
-import { requireWithinLimit } from "@/lib/billing/entitlements";
-import { currentUsage } from "@/lib/billing/usage";
+import { PlanLimitError } from "@/lib/billing/entitlements";
+import { requireSeatRoom } from "@/lib/billing/limits";
 
 const t = getT("Api");
 
@@ -221,30 +221,28 @@ export async function POST(request: Request) {
       label = trimmed === "" ? null : trimmed;
     }
 
-    // Members plus open invitations count as seats on the plan.
-    // shortcut: checked before the insert in another transaction, so two simultaneous invites can pass one over the cap; lock with requireRoomFor if seats become billed per unit.
-    await withTenant(tenantOf(ctx), async (tx) => {
-      const seats = await currentUsage(tx, ctx.accountId);
-      await requireWithinLimit(tx, ctx.accountId, "seats", seats.seats + 1);
-    });
-
     const { token, hash } = generateInviteToken();
 
-    const { data, error } = await ctx.db
-      .from("account_invitations")
-      .insert({
-        account_id: ctx.accountId,
-        token_hash: hash,
-        role,
-        created_by_user_id: ctx.userId,
-        label,
-        expires_at: expiresAt.toISOString(),
-      })
-      .select("id, role, label, expires_at, created_at")
-      .single();
+    // Members plus open invitations count as seats on the plan: checked and
+    // inserted in one transaction under the seat lock, so two simultaneous
+    // invites cannot both take the last seat (402 when the plan is full).
+    let data: { id: string; role: string; label: string | null; expires_at: Date; created_at: Date } | undefined;
+    try {
+      data = await withTenant(tenantOf(ctx), async (tx) => {
+        await requireSeatRoom(tx, ctx.accountId);
+        const [row] = await tx.$queryRaw<{ id: string; role: string; label: string | null; expires_at: Date; created_at: Date }[]>`
+          INSERT INTO account_invitations(account_id, token_hash, role, created_by_user_id, label, expires_at)
+          VALUES (${ctx.accountId}::uuid, ${hash}, ${role}, ${ctx.userId}::uuid, ${label}, ${expiresAt})
+          RETURNING id::text AS id, role, label, expires_at, created_at`;
+        return row;
+      });
+    } catch (err) {
+      if (err instanceof PlanLimitError) throw err;
+      console.error("[POST /api/account/invitations] insert error:", { error: err instanceof Error ? err.name : "unknown" });
+      data = undefined;
+    }
 
-    if (error || !data) {
-      console.error("[POST /api/account/invitations] insert error:", error);
+    if (!data) {
       return NextResponse.json(
         { error: t('account.invitations.createFailed') },
         { status: 500 },

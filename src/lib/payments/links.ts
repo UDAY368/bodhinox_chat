@@ -29,6 +29,7 @@ import { getT } from '@/lib/i18n/translate';
 import { formatMoney, isCurrencyCode, MAX_MINOR, minorFromDb } from '@/lib/commerce/money';
 import { checkInstagramText, loadInstagramTarget, sendInstagramText, storeInstagramSentMessage, type InstagramSendContext, type InstagramTarget } from '@/lib/channels/sender';
 import { InstagramError } from '@/lib/instagram/errors';
+import { manualRepliesBlockedIn } from '@/lib/platform/lifecycle';
 import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { sendTextMessage } from '@/lib/whatsapp/meta-api';
@@ -90,7 +91,8 @@ export type PaymentLinkErrorCode =
   | 'window_closed'
   | 'number_unavailable'
   | 'link_not_ready'
-  | 'link_exists';
+  | 'link_exists'
+  | 'workspace_manual_blocked';
 
 const ERROR_STATUS: Record<PaymentLinkErrorCode, number> = {
   not_connected: 409,
@@ -114,6 +116,7 @@ const ERROR_STATUS: Record<PaymentLinkErrorCode, number> = {
   number_unavailable: 409,
   link_not_ready: 409,
   link_exists: 409,
+  workspace_manual_blocked: 403,
 };
 
 export class PaymentLinkError extends Error {
@@ -964,6 +967,8 @@ export interface SendLinkArgs {
   message?: string | null;
   /** Unique per send attempt; a replay with the same key never sends twice. */
   intentKey: string;
+  /** A member sent it from the inbox or payments screen (refused while a platform admin blocks manual replies). */
+  manual?: boolean;
 }
 
 /** An Instagram refusal as the payment link's own fixed codes (decided before any intent). */
@@ -989,6 +994,7 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
   if (message.length > MESSAGE_MAX) throw new PaymentLinkError('invalid_message');
   const context: TenantContext = { accountId: args.accountId, userId: args.userId, role: args.role };
   const prepared = await withTenant(context, async (tx) => {
+    if (args.manual && await manualRepliesBlockedIn(tx, args.accountId)) throw new PaymentLinkError('workspace_manual_blocked');
     const link = await selectLink(tx, args.accountId, { id: args.linkId });
     if (!link) throw new PaymentLinkError('not_found');
     if (!(link.status === 'created' || link.status === 'partially_paid') || !link.short_url) throw new PaymentLinkError('link_not_ready');

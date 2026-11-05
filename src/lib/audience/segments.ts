@@ -14,7 +14,7 @@ import {
   parseAudienceFilter,
   type AudienceFilter,
 } from './filter';
-import { requireRoomFor } from '@/lib/billing/entitlements';
+import { gateLimit } from '@/lib/billing/limits';
 import {
   audienceFilterProbesPhone,
   loadPhoneMask,
@@ -63,7 +63,7 @@ export async function createSegment(ctx: TenantContext, input: unknown): Promise
   return withTenant(ctx, async (tx) => {
     await assertFilterAllowed(tx, ctx, filter);
     await assertFilterReferences(tx, ctx.accountId, filter);
-    await requireRoomFor(tx, ctx.accountId, 'segments', async () =>
+    await gateLimit(tx, ctx.accountId, 'segments', async () =>
       (await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM segments WHERE account_id=${ctx.accountId}::uuid AND archived_at IS NULL`)[0].n);
     const rows = await tx.$queryRaw<Segment[]>`
       INSERT INTO segments(account_id,user_id,name,filter)

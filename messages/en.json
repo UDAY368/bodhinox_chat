@@ -41,7 +41,8 @@
         "google_link_required": "An account with this email already exists. Sign in with your password, then link Google in Settings → Login & security.",
         "google_no_workspace": "Your account isn’t a member of any workspace.",
         "google_rate_limited": "Too many attempts. Try again later.",
-        "google_invite_unavailable": "This invitation link is no longer valid. Ask your team for a new link, or sign up without it."
+        "google_invite_unavailable": "This invitation link is no longer valid. Ask your team for a new link, or sign up without it.",
+        "google_terms_required": "Accept the terms of service on the sign-up page, then continue with Google."
       }
     }
   },
@@ -299,6 +300,18 @@
           "RED": "Low",
           "UNKNOWN": "Unknown"
         }
+      }
+    },
+    "onboarding": {
+      "title": "Get started",
+      "progress": "{done} of {total} done",
+      "dismiss": "Hide checklist",
+      "steps": {
+        "whatsapp": "Connect a WhatsApp number",
+        "contacts": "Add or import contacts",
+        "templates": "Create a message template",
+        "automation": "Build a flow or automation",
+        "team": "Invite a teammate"
       }
     }
   },
@@ -3155,7 +3168,8 @@
       "media": "Media library",
       "ads": "Ads",
       "connections": "Meetings & shipping",
-      "instagram": "Instagram"
+      "instagram": "Instagram",
+      "privacy": "Privacy & access"
     },
     "groups": {
       "account": "Account",
@@ -3533,16 +3547,34 @@
         "whatsapp_numbers": "WhatsApp numbers",
         "appointment_staff": "Practitioners",
         "instagram_accounts": "Instagram accounts",
-        "ai_tokens_monthly": "AI tokens this month"
+        "ai_tokens_monthly": "AI tokens this month",
+        "contacts": "Contacts",
+        "integrations": "Connected integrations",
+        "messages_monthly": "Messages sent this month"
       },
       "loadFailed": "Could not load your plan",
       "retry": "Retry",
       "meters": {
         "storage": "Media storage",
         "monthly": "(this month)",
-        "reached": "Limit reached. Upgrade or buy an add-on for more."
+        "reached": "Limit reached. Upgrade or buy an add-on for more.",
+        "howTitle": "How limits work",
+        "how": {
+          "hard": "When a limit is reached, new additions stop. Everything you already have keeps working.",
+          "inbound": "Customers who message you are always added as contacts, even past the contacts limit. Only contacts you add, import or create through the API count against it.",
+          "monthly": "Monthly limits reset on the 1st of each month (India time). AI add-on packs raise the AI reply limit.",
+          "warnings": "Owners and admins are notified when a limit reaches 80% and 100%. Messages sent and active contacts are shown for information and never block.",
+          "expiry": "If your plan expires or is cancelled, extra lists, segments, flows and automations are archived, never deleted."
+        }
       },
-      "upgradeHintBilling": "Choose or change your plan under Billing below."
+      "upgradeHintBilling": "Choose or change your plan under Billing below.",
+      "policies": {
+        "hard": "New additions stop at the limit",
+        "hard_inbound_exempt": "Manual and imported additions stop at the limit; customers who write in are always added",
+        "hard_addon": "Stops at the limit; add-on packs raise it",
+        "hard_per_campaign": "Checked for each campaign",
+        "soft": "For information only; never blocks"
+      }
     },
     "iceBreakers": {
       "title": "Ice breakers",
@@ -4228,6 +4260,190 @@
         "permission_missingTitle": "{name}: Instagram permission missing",
         "permission_missingBody": "Reconnect the account in Settings → Instagram and grant the messaging permission."
       }
+    },
+    "integrationHealth": {
+      "title": "Integration health",
+      "description": "The last known state of each connection, from stored status. Nothing is checked with the provider when this loads.",
+      "refresh": "Refresh",
+      "loading": "Loading connections…",
+      "loadFailed": "Could not load integration health. Try again.",
+      "empty": "No integrations are connected yet.",
+      "never": "never",
+      "lastSuccess": "Last success {when}",
+      "lastError": "Last error: {code}",
+      "tokenExpires": "Access expires {when}",
+      "fix": "Fix",
+      "kinds": {
+        "whatsapp": "WhatsApp number",
+        "instagram": "Instagram",
+        "meta_ads": "Meta Ads",
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "meetings": "Meetings",
+        "courier": "Courier",
+        "razorpay": "Razorpay payments"
+      },
+      "states": {
+        "ok": "Healthy",
+        "attention": "Needs attention",
+        "disconnected": "Disconnected"
+      }
+    },
+    "privacy": {
+      "supportAccess": {
+        "title": "Support access",
+        "description": "Bodhinox support can ask to see this workspace's diagnostics: connection statuses, counts and error codes. Support never sees messages, contacts or secrets, and access ends automatically.",
+        "loading": "Loading support access…",
+        "empty": "No support requests.",
+        "requested": "Requested {when} for {minutes} minutes",
+        "expires": "Access ends {when}",
+        "approve": "Approve",
+        "deny": "Deny",
+        "revoke": "Revoke",
+        "status": {
+          "requested": "Waiting for you",
+          "approved": "Active",
+          "denied": "Denied",
+          "revoked": "Revoked",
+          "expired": "Expired"
+        },
+        "done": {
+          "approve": "Access approved.",
+          "deny": "Request denied.",
+          "revoke": "Access revoked.",
+          "granted": "Access granted."
+        },
+        "errors": {
+          "loadFailed": "Could not load support access. Try again.",
+          "failed": "That did not work. Try again.",
+          "invalid": "Check the email, a reason of at least 10 characters and the duration.",
+          "not_found": "That request no longer exists.",
+          "not_platform_admin": "That email is not a Bodhinox support address.",
+          "grant_open": "That person already has an open request or active access.",
+          "not_pending": "That request was already answered.",
+          "not_active": "That access has already ended.",
+          "request_expired": "That request is more than 7 days old. Support can ask again."
+        },
+        "grant": {
+          "title": "Give access without a request",
+          "help": "For a support case you opened: name the Bodhinox support email you are working with.",
+          "email": "Support email",
+          "reason": "Reason",
+          "duration": "Access for",
+          "submit": "Give access",
+          "durations": {
+            "60": "1 hour",
+            "240": "4 hours",
+            "1440": "24 hours"
+          }
+        }
+      },
+      "title": "Privacy & access",
+      "description": "Export your data, control support access, leave or delete a workspace, and delete your account.",
+      "stepUp": {
+        "password": "Current password",
+        "code": "Authenticator or recovery code",
+        "codePlaceholder": "123456",
+        "googleHint": "Your account signs in with Google. If asked, sign in with Google again, then return here within a few minutes."
+      },
+      "errors": {
+        "generic": "That did not work. Try again in a moment.",
+        "network": "Could not reach the server. Check your connection and try again.",
+        "invalid_request": "The request was not valid. Reload the page and try again.",
+        "admin_required": "Only owners and admins can do this.",
+        "owner_required": "Only the workspace owner can do this.",
+        "storage_not_configured": "Exports are not available because file storage is not set up on this server.",
+        "export_in_progress": "An export is already being prepared. Wait for it to finish.",
+        "export_not_found": "That export no longer exists.",
+        "export_not_ready": "That export is not ready or has expired.",
+        "workspace_admin_suspended": "This workspace is suspended by the service operator. Contact support.",
+        "deletion_unavailable": "The deletion request could not be recorded. Reload the page and try again.",
+        "no_deletion_request": "There is no pending deletion request.",
+        "invalid_name": "Enter a workspace name of up to 100 characters.",
+        "email_unverified": "Verify your email address first.",
+        "workspace_limit": "You already own the maximum number of workspaces.",
+        "owner_must_transfer": "Transfer ownership to another member before leaving this workspace.",
+        "last_workspace": "This is your only workspace. Delete your account instead.",
+        "mfa_required": "Enter your authenticator or recovery code.",
+        "mfa_invalid": "That code is not valid or was already used.",
+        "current_password_invalid": "Your current password is incorrect.",
+        "google_reauth_required": "Sign in with Google again to confirm it is you, then try again within a few minutes.",
+        "owns_shared_workspace": "Transfer ownership of the workspaces you share with others, or remove their members, first.",
+        "active_subscription": "Request deletion of your workspace with a paid plan first; that cancels the plan."
+      },
+      "export": {
+        "title": "Export workspace data",
+        "description": "Download a zip file with the workspace's contacts, conversations, messages, deals, flows, automations, templates, orders, appointments, invoices and more.",
+        "notConfigured": "Exports are not available because file storage is not set up on this server.",
+        "request": "Request export",
+        "inProgress": "Preparing export...",
+        "download": "Download",
+        "note": "The file is prepared in the background and can be downloaded for 7 days. Passwords, tokens, keys and other credentials are never included. Requests and downloads are recorded in the audit log.",
+        "status": {
+          "queued": "Queued",
+          "running": "Preparing",
+          "ready": "Ready",
+          "failed": "Failed",
+          "expired": "Expired"
+        }
+      },
+      "deleteWorkspace": {
+        "title": "Delete workspace",
+        "description": "Stop this workspace and schedule it for deletion after a 30-day grace period.",
+        "pending": "Deletion requested. Sending is stopped. Nothing is deleted before {date}, and the owner can cancel until then.",
+        "ownerOnly": "Only the workspace owner can request deletion.",
+        "adminSuspended": "This workspace is suspended by the service operator, so deletion cannot be requested here. Contact support.",
+        "start": "Delete this workspace",
+        "effects": {
+          "sending": "Sending stops at once: campaigns, flows, automations and AI replies are paused. Incoming messages and opt-outs keep working.",
+          "grace": "Nothing is deleted for 30 days, and you can cancel the request during that time.",
+          "billing": "A paid plan is cancelled at the end of the current period.",
+          "export": "Export your data first if you want to keep a copy."
+        },
+        "typeName": "Type the workspace name ({name}) to confirm",
+        "confirm": "Request deletion",
+        "back": "Back",
+        "cancel": "Cancel deletion request",
+        "cancelled": "The deletion request was cancelled. Sending can resume. If your paid plan was set to cancel, choose a plan again in Billing.",
+        "billing": {
+          "none": "Deletion requested.",
+          "scheduled": "Deletion requested. Your paid plan will be cancelled at the end of the current period.",
+          "pending": "Deletion requested. Cancelling your paid plan is still being confirmed with the payment provider.",
+          "failed": "Deletion requested, but your paid plan could not be cancelled automatically. Cancel it in Billing."
+        }
+      },
+      "leave": {
+        "title": "Leave workspace",
+        "description": "Stop being a member of {name}. You are moved to your other workspace.",
+        "start": "Leave this workspace",
+        "confirm": "Leave now",
+        "back": "Back"
+      },
+      "create": {
+        "title": "Create another workspace",
+        "description": "Start a separate workspace that you own, for example for another business. You switch to it straight away.",
+        "name": "Workspace name",
+        "submit": "Create workspace"
+      },
+      "deleteAccount": {
+        "title": "Delete my account",
+        "description": "Remove your sign-in, name and email address and sign out everywhere.",
+        "start": "Delete my account",
+        "effects": {
+          "ownership": "You cannot delete your account while you own a workspace with other members. Transfer ownership first.",
+          "soleWorkspaces": "Workspaces where you are the only member get a deletion request with a 30-day grace period.",
+          "identity": "Your name, email address, password and two-step verification are removed. Workspace history keeps an anonymous reference."
+        },
+        "keyword": "DELETE",
+        "typeKeyword": "Type {keyword} to confirm",
+        "confirm": "Delete my account",
+        "back": "Back"
+      },
+      "terms": {
+        "banner": "We have updated our <link>terms of service</link>. Please review and accept them.",
+        "accept": "Accept",
+        "later": "Later"
+      }
     }
   },
   "SignupPage": {
@@ -4254,7 +4470,11 @@
     "haveAccount": "Already have an account?",
     "signIn": "Sign in",
     "inviteUnavailable": "This invitation link is no longer valid: it was already used or has expired. Ask your team for a new link.",
-    "signupWithoutInvite": "Sign up without the invitation"
+    "signupWithoutInvite": "Sign up without the invitation",
+    "terms": {
+      "label": "I accept the <terms>terms of service</terms> and the <privacy>privacy policy</privacy>.",
+      "required": "Accept the terms of service and privacy policy to create an account."
+    }
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "Check your email",
@@ -5527,7 +5747,8 @@
       "no_catalog": "No catalogue is linked to the WhatsApp number of this chat.",
       "product_not_found": "A chosen product is no longer in the catalogue. Sync the catalogue and pick again.",
       "uncertain": "We could not confirm whether the message was sent. Check the chat before sending again.",
-      "rejected": "WhatsApp rejected the message."
+      "rejected": "WhatsApp rejected the message.",
+      "workspace_manual_blocked": "Bodhinox support has paused replies from this workspace. Contact Bodhinox support for details."
     },
     "commerce": {
       "catalogIdInvalid": "Choose a valid catalogue.",
@@ -5570,7 +5791,9 @@
       "invalidRequest": "The request is not valid.",
       "sendUncertain": "We could not confirm the message was delivered. It will not be sent again automatically; check the conversation first.",
       "sendRejected": "WhatsApp refused the message, so it was not sent.",
-      "link_exists": "This order or appointment already has an open payment link. Cancel or check that link first."
+      "link_exists": "This order or appointment already has an open payment link. Cancel or check that link first.",
+      "platformKeyReuse": "This Razorpay key belongs to the platform's own billing account. Connect your business's Razorpay account instead.",
+      "workspace_manual_blocked": "Bodhinox support has paused replies from this workspace. Contact Bodhinox support for details."
     },
     "commerceEvents": {
       "resolution": "Choose whether the customer got the message.",
@@ -5641,7 +5864,9 @@
         "invalid_selection": "Choose only items that are in use now.",
         "stale_plan": "Your plan change is different now. Review the list again.",
         "too_many": "You chose more items than the plan allows."
-      }
+      },
+      "adminSuspended": "Bodhinox support has paused sending for this workspace. Incoming messages are still received. Contact Bodhinox support for details.",
+      "closing": "This workspace is scheduled for deletion, so sending is paused. The owner can cancel the deletion in Settings."
     },
     "teams": {
       "invalid_name": "Give the team a name of up to 80 characters.",
@@ -5904,7 +6129,8 @@
     "send": {
       "idsRequired": "Either conversation_id or contact_id, plus message_type, are required",
       "contactNotFound": "Contact not found",
-      "openConversationFailed": "Failed to open a conversation for this contact"
+      "openConversationFailed": "Failed to open a conversation for this contact",
+      "manualBlocked": "Bodhinox support has paused replies from this workspace. Contact Bodhinox support for details."
     },
     "templates": {
       "invalidId": "Invalid template id.",
@@ -8415,6 +8641,14 @@
       "checkout_superseded": {
         "title": "Extra subscription cancelled",
         "body": "A payment authorisation for the {plan} plan arrived for a checkout that had been replaced or for a second subscription. It was not applied and was cancelled with the payment provider. Your current plan is unchanged; check Billing to confirm."
+      },
+      "usage_warning": {
+        "title": "80% of a plan limit used",
+        "body": "This workspace has used {number} on the {plan} plan. Upgrade to keep adding more."
+      },
+      "usage_reached": {
+        "title": "Plan limit reached",
+        "body": "This workspace has reached {number} on the {plan} plan. New additions are paused until you upgrade or free some up."
       }
     },
     "downgrade": {
@@ -8431,6 +8665,11 @@
     },
     "instagram": {
       "activeContactsNote": "An Instagram user linked to a WhatsApp contact counts once in active contacts; unlinked, they count separately."
+    },
+    "expiry": {
+      "ends": "If the subscription ends or stays unpaid, the workspace moves to the Free plan. Nothing is deleted: saved segments, lists, flows and automations beyond the Free limits are archived and come back when you subscribe again.",
+      "inbound": "Incoming messages, opt-outs and payment notifications keep working on every plan.",
+      "terms": "Your plan's features and limits stay as they were when you subscribed, including at renewal. Changes to a plan reach you only when you change plan or we notify you of a move."
     }
   },
   "AiAgentFoundation": {
@@ -8757,7 +8996,12 @@
         "save": "Save rates",
         "saved": "Rate card saved",
         "saveFailed": "Could not save the rate card",
-        "invalidRow": "Enter a 2-letter country code, a 3-letter currency and a price of 0 or more."
+        "invalidRow": "Enter a 2-letter country code, a 3-letter currency and a price of 0 or more.",
+        "mfaRequired": "Enter your two-step verification code to save.",
+        "mfaEnrollRequired": "Set up two-step verification in Settings > Security, then save.",
+        "stepUpCode": "Two-step verification code",
+        "stepUpSubmit": "Verify and save",
+        "stepUpInvalid": "That code did not work. Check your authenticator and try again."
       },
       "overLimit": "This audience is over the {limit} recipient limit for one campaign. Narrow it before creating the campaign.",
       "noCurrencyRate": "No {currency} rate configured",
@@ -10190,6 +10434,372 @@
       "evidence_dropped": "Unknown evidence ignored",
       "claim": "Status or medical claim blocked",
       "fallback": "AI unavailable, fallback used"
+    }
+  },
+  "Platform": {
+    "plans": {
+      "title": "Plans and prices",
+      "intro": "Edit a plan, preview who it affects, then publish it as a new version. Subscribers stay on their version until you move them.",
+      "loadFailed": "Plans could not be loaded.",
+      "version": "Version {version}",
+      "subscribers": "{count, plural, one {# subscriber} other {# subscribers}}",
+      "pinnedOld": "{count, plural, one {# on an older version} other {# on older versions}}",
+      "enterpriseLocked": "Enterprise is the plan of every workspace without a subscription: its limits stay unlimited and its features cannot be turned off.",
+      "features": "Features",
+      "limits": "Limits",
+      "limitsHint": "Leave a limit empty for unlimited.",
+      "unlimited": "Unlimited",
+      "allUnlimited": "All limits unlimited",
+      "preview": "Preview changes",
+      "reset": "Reset",
+      "showVersions": "Show versions",
+      "hideVersions": "Hide versions",
+      "affected": "{count, plural, one {# workspace uses the live terms of this plan.} other {# workspaces use the live terms of this plan.}}",
+      "noTightening": "No limit is lowered.",
+      "tightened": "{from} → {to}",
+      "over": "({count, plural, one {# workspace already over} other {# workspaces already over}})",
+      "overSoft": "(not enforced per workspace)",
+      "pinnedStay": "Subscribers pinned to an earlier version keep their terms.",
+      "note": "Note (optional)",
+      "publish": "Publish version {version}",
+      "published": "Version {version} published.",
+      "moveIntro": "{count, plural, one {# subscriber is} other {# subscribers are}} on an older version. Moving them applies version {version}; anything over its limits is archived, never deleted.",
+      "reason": "Reason (at least 10 characters)",
+      "move": "Move subscribers to version {version}",
+      "moved": "Moved {moved}; extras archived in {archived}; {failed} need a follow-up.",
+      "errors": {
+        "invalid_plan_terms": "Check the limits: each must be empty or a whole number.",
+        "plan_locked": "Enterprise limits stay unlimited and its features stay on.",
+        "unknown_plan": "This plan no longer exists.",
+        "invalid_request": "The request was not valid. Preview again.",
+        "reason_required": "Give a reason of at least 10 characters.",
+        "stale_version": "The plan changed meanwhile. Reload and try again.",
+        "preview_mismatch": "The draft or the plan changed after the preview. Preview again before publishing.",
+        "failed": "Something went wrong. Try again."
+      },
+      "prices": {
+        "title": "Prices",
+        "intro": "Amounts include GST. Each plan has a monthly and a yearly price; a new provider plan retires the old row, which keeps mapping existing subscriptions.",
+        "notConfigured": "Billing keys are not set: prices are saved but no checkout is offered.",
+        "empty": "No prices yet.",
+        "plan": "Plan",
+        "interval": "Interval",
+        "intervals": {
+          "month": "Monthly",
+          "year": "Yearly"
+        },
+        "amount": "Amount",
+        "amountInr": "Amount in ₹ (GST included)",
+        "providerPlan": "Razorpay plan id",
+        "state": "State",
+        "updated": "Updated",
+        "active": "Active",
+        "retired": "Retired",
+        "activeLabel": "Active price",
+        "save": "Save price",
+        "saved": "Price saved.",
+        "history": "Older rows stay listed as retired, so the price history is kept.",
+        "errors": {
+          "invalidPrice": "Check the amount and the Razorpay plan id (plan_…).",
+          "failed": "The price was not saved. Check the amount and the Razorpay plan id."
+        }
+      }
+    },
+    "billing": {
+      "title": "Billing reconciliation",
+      "intro": "Subscription billing items that need a person. Re-fetching applies the provider's state through the normal billing sweep; resolving only records your note.",
+      "filterLabel": "Show",
+      "filters": {
+        "open": "Open",
+        "resolved": "Resolved",
+        "all": "All"
+      },
+      "loadFailed": "Items could not be loaded.",
+      "empty": "Nothing to reconcile.",
+      "more": "Load more",
+      "status": {
+        "open": "Open",
+        "resolved": "Resolved"
+      },
+      "kinds": {
+        "event_error": "Webhook event not applied",
+        "intent_unknown": "Provider call unconfirmed for a day",
+        "invoice_unissued": "Invoice not issued",
+        "state_mismatch": "Provider state differs",
+        "shared_razorpay_key": "Platform key used for commerce"
+      },
+      "noWorkspace": "No workspace",
+      "openedAt": "Opened {when}",
+      "resolvedBy": "Resolved by {email} on {when}",
+      "note": "Resolution note",
+      "resolve": "Mark resolved",
+      "resolved": "Marked resolved.",
+      "refetch": "Re-fetch from provider",
+      "refetchQueued": "Re-fetch queued.",
+      "errors": {
+        "note_required": "Write a note of at least 3 characters.",
+        "not_found": "This item is already resolved.",
+        "no_provider_subscription": "This workspace has no provider subscription to fetch.",
+        "billing_not_configured": "Billing keys are not set on this deployment.",
+        "invalid_request": "The request was not valid.",
+        "failed": "Something went wrong. Try again."
+      }
+    },
+    "title": "Platform administration",
+    "navLabel": "Platform sections",
+    "signedInAs": "Signed in as {email}",
+    "nav": {
+      "overview": "Overview",
+      "tenants": "Workspaces",
+      "plans": "Plans & prices",
+      "billing": "Billing reconciliation",
+      "health": "Integration health",
+      "support": "Support access",
+      "audit": "Platform audit"
+    },
+    "overview": {
+      "intro": "Every action here is recorded in the platform audit trail and in the affected workspace's audit log.",
+      "tenants": "Find a workspace, see its plan and status, suspend or reactivate it.",
+      "plans": "Edit plan limits and prices, with a preview before publishing.",
+      "billing": "Billing items that need a person to check them.",
+      "health": "Connections and background work that need a look.",
+      "support": "Your diagnostics requests and the access workspaces granted.",
+      "audit": "Everything platform admins have done."
+    },
+    "gate": {
+      "enrollTitle": "Set up two-step verification",
+      "enrollBody": "Platform administration needs two-step verification on your account. Set it up in Settings, then come back.",
+      "enrollAction": "Open security settings",
+      "stepUpTitle": "Confirm it's you",
+      "stepUpBody": "Enter a code from your authenticator app, or a recovery code, to continue to platform administration.",
+      "codeLabel": "Verification code",
+      "confirm": "Continue",
+      "invalidCode": "That code did not work. Try a new one."
+    },
+    "tenants": {
+      "title": "Workspaces",
+      "searchPlaceholder": "Name, owner email or workspace id",
+      "search": "Search",
+      "loadFailed": "Could not load workspaces.",
+      "empty": "No workspaces match.",
+      "columns": {
+        "workspace": "Workspace",
+        "owner": "Owner",
+        "plan": "Plan",
+        "subscription": "Subscription",
+        "lifecycle": "Status",
+        "members": "Members",
+        "created": "Created"
+      },
+      "noSubscription": "None",
+      "lifecycle": {
+        "active": "Active",
+        "admin_suspended": "Suspended by support",
+        "closing": "Closing"
+      },
+      "manualBlocked": "Replies blocked",
+      "purgeDue": "Purge due",
+      "loadMore": "Load more"
+    },
+    "tenant": {
+      "loading": "Loading workspace…",
+      "notFound": "That workspace does not exist.",
+      "loadFailed": "Could not load the workspace.",
+      "lifecycle": {
+        "active": "Active",
+        "admin_suspended": "Suspended by support",
+        "closing": "Closing"
+      },
+      "manualBlocked": "Replies blocked",
+      "auditLink": "Audit trail",
+      "summary": "Summary",
+      "owner": "Owner",
+      "created": "Created",
+      "plan": "Plan",
+      "subscription": "Subscription",
+      "noSubscription": "None (legacy, unlimited)",
+      "periodEnd": "Period ends",
+      "members": "Members",
+      "openReconciliation": "Open billing items",
+      "purgeAfter": "Purge after",
+      "usage": "Usage this month",
+      "noUsage": "No usage recorded this month.",
+      "lifecycleTitle": "Suspension",
+      "suspendedBy": "Suspended by {email} on {when}.",
+      "closingNote": "The owner asked to delete this workspace. Only the owner can cancel that. Suspending here holds it: the deletion stays pending and the owner cannot cancel it until you reactivate.",
+      "lifecycleHelp": "Suspending stops campaigns, flows, automations and AI replies. Blocking replies also stops manual replies. Incoming messages, opt-outs and payments always keep working. The workspace's owners and admins are notified.",
+      "reason": "Reason (at least 10 characters)",
+      "blockManual": "Block manual replies",
+      "reactivate": "Reactivate",
+      "suspend": "Suspend",
+      "saveManualBlock": "Save reply block",
+      "supportTitle": "Support access",
+      "supportHelp": "Ask the workspace for diagnostics access. Its owners and admins decide; you see statuses, counts and error codes only.",
+      "grantStatus": {
+        "requested": "Waiting",
+        "approved": "Active",
+        "denied": "Denied",
+        "revoked": "Revoked",
+        "expired": "Expired"
+      },
+      "minutes": "Minutes (15 to 1440)",
+      "requestSupport": "Ask for access",
+      "lifecycleSaved": "Saved. The workspace has been notified.",
+      "supportRequested": "Request sent to the workspace's owners and admins.",
+      "errors": {
+        "failed": "That did not work. Try again.",
+        "invalid": "Check the reason and the values.",
+        "reason_required": "Give a reason of at least 10 characters.",
+        "unknown_account": "That workspace does not exist.",
+        "lifecycle_closing": "The workspace is closing at its owner's request and cannot be changed here.",
+        "invalid_lifecycle_status": "That status cannot be set here.",
+        "invalid_duration": "Choose between 15 and 1440 minutes.",
+        "support_request_open": "You already have an open request or active access for this workspace."
+      }
+    },
+    "support": {
+      "title": "Support access",
+      "intro": "Your diagnostics requests. Ask for access from a workspace's page; viewing diagnostics is recorded in both audit trails.",
+      "loadFailed": "Could not load your requests.",
+      "empty": "You have no requests.",
+      "status": {
+        "requested": "Waiting",
+        "approved": "Active",
+        "denied": "Denied",
+        "revoked": "Revoked",
+        "expired": "Expired"
+      },
+      "requestedAt": "Requested {when}",
+      "expiresAt": "Ends {when}",
+      "viewDiagnostics": "View diagnostics",
+      "errors": {
+        "failed": "Could not load diagnostics.",
+        "grant_not_active": "This access is no longer active."
+      },
+      "diagnostics": {
+        "title": "Diagnostics",
+        "subscription": "Subscription and status",
+        "none": "None",
+        "manualBlocked": "replies blocked",
+        "usage": "Usage this month",
+        "numbers": "WhatsApp numbers",
+        "token": "token present",
+        "noToken": "no token",
+        "healthError": "health check failing",
+        "integrations": "Integrations",
+        "jobs": "Failed background jobs (7 days)",
+        "outbound": "Outbound sends (7 days)",
+        "billingIntents": "Billing requests",
+        "exceptions": "Open payment exceptions: {payments}. Open billing items: {reconciliation}."
+      }
+    },
+    "health": {
+      "title": "Integration health",
+      "loading": "Loading…",
+      "loadFailed": "Could not load integration health.",
+      "sharedKeyOff": "SaaS billing keys are not configured, so the shared Razorpay key check did not run.",
+      "integrations": "Workspaces with connections to check",
+      "allClear": "Nothing needs a look.",
+      "columns": {
+        "workspace": "Workspace",
+        "disconnectedNumbers": "Disconnected numbers",
+        "numberErrors": "Number errors",
+        "instagram": "Instagram",
+        "metaAds": "Meta Ads",
+        "meetings": "Meetings",
+        "courier": "Courier",
+        "tokensExpiring": "Tokens expiring",
+        "source": "Source",
+        "type": "Type",
+        "status": "Status",
+        "workspaces": "Workspaces",
+        "items": "Items",
+        "oldest": "Oldest"
+      },
+      "sharedKey": "Uses the platform Razorpay key",
+      "backlog": "Background work",
+      "sources": {
+        "jobs": "Jobs",
+        "webhook_receipts": "Webhooks"
+      }
+    },
+    "audit": {
+      "title": "Platform audit",
+      "showAll": "Show all workspaces",
+      "loadFailed": "Could not load the audit trail.",
+      "empty": "No entries.",
+      "columns": {
+        "when": "When",
+        "admin": "Admin",
+        "action": "Action",
+        "workspace": "Workspace",
+        "reason": "Reason"
+      },
+      "loadMore": "Load more"
+    }
+  },
+  "Marketing": {
+    "nav": {
+      "pricing": "Pricing",
+      "help": "Help",
+      "signIn": "Sign in",
+      "getStarted": "Get started",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    },
+    "landing": {
+      "headline": "Every customer conversation in one place",
+      "subhead": "Bodhinox Chat brings WhatsApp and Instagram messages, contacts, sales, automations, appointments and your store together for your whole team.",
+      "ctaPrimary": "Create a free account",
+      "ctaSecondary": "See pricing",
+      "features": {
+        "inbox": {
+          "title": "Shared inbox",
+          "body": "Reply to WhatsApp and Instagram from one inbox, assign conversations and hand over between teammates."
+        },
+        "flows": {
+          "title": "Flows and automations",
+          "body": "Build guided conversations and rules that tag, assign and follow up for you."
+        },
+        "ai": {
+          "title": "AI assistant",
+          "body": "Suggested replies, summaries and lead assessment from your own approved knowledge."
+        },
+        "crm": {
+          "title": "Contacts and pipeline",
+          "body": "Keep every customer, note and deal together and see what needs attention."
+        },
+        "commerce": {
+          "title": "Store and payments",
+          "body": "Share a catalogue, take orders and payments, and ship from the same workspace."
+        },
+        "appointments": {
+          "title": "Appointments",
+          "body": "Let customers book online and get reminders on WhatsApp."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Pricing",
+      "subtitle": "Simple plans for teams of every size.",
+      "perMonth": "per month",
+      "annual": "or {price} per year",
+      "cta": "Get started",
+      "gstNote": "All prices are inclusive of GST.",
+      "contactTitle": "Contact us",
+      "contactBody": "Online plans are not available yet. Create an account to get started, and contact us about a plan for your business.",
+      "contactCta": "Create an account",
+      "limitsNote": "Read <link>how plans and limits work</link>."
+    },
+    "help": {
+      "title": "Help",
+      "contents": "Contents",
+      "linkLabel": "Help for this page"
+    },
+    "legal": {
+      "draft": "Draft: this document is a placeholder and is not yet in force.",
+      "privacyTitle": "Privacy policy",
+      "termsTitle": "Terms of service"
     }
   }
 }

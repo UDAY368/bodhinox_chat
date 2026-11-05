@@ -6,7 +6,7 @@
  * routes stay thin.
  */
 import { appOrigin } from '@/lib/auth/csrf';
-import { requireRoomFor } from '@/lib/billing/entitlements';
+import { gateLimit } from '@/lib/billing/limits';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { parseWorkingHours, type TimeRange, type WorkingHours } from '@/lib/inbox/working-hours';
 import { loadSettings } from './availability';
@@ -384,7 +384,7 @@ export async function createStaff(tx: TenantTransaction, accountId: string, user
   const displayName = text(b, 'display_name', 1, 80);
   const linked = has(b, 'user_id') ? optUuid(b, 'user_id') : null;
   const host = has(b, 'meeting_host_email') ? hostEmail(b) : null;
-  await requireRoomFor(tx, accountId, 'appointment_staff', countActiveStaff(tx, accountId));
+  await gateLimit(tx, accountId, 'appointment_staff', countActiveStaff(tx, accountId));
   const [row] = await tx.$queryRawUnsafe<StaffWithHost[]>(`INSERT INTO appointment_staff(display_name,user_id,meeting_host_email)
     VALUES($1,$2::uuid,$3) RETURNING ${STAFF_RETURNING}`, displayName, linked, host).catch((e) => mapDbError(e, 'user_id'));
   await audit(tx, accountId, userId, 'appointments.staff.created', row.id);
@@ -401,7 +401,7 @@ export async function updateStaff(tx: TenantTransaction, accountId: string, user
     WHERE account_id=${accountId}::uuid AND id=${id}::uuid FOR UPDATE`;
   if (!current) throw new AppointmentError('not_found');
   // Restoring a practitioner takes a seat again.
-  if (archive === false && current.archived_at) await requireRoomFor(tx, accountId, 'appointment_staff', countActiveStaff(tx, accountId));
+  if (archive === false && current.archived_at) await gateLimit(tx, accountId, 'appointment_staff', countActiveStaff(tx, accountId));
   const [row] = await tx.$queryRaw<StaffWithHost[]>`UPDATE appointment_staff SET
       display_name=COALESCE(${displayName},display_name),
       user_id=CASE WHEN ${linked === undefined} THEN user_id ELSE ${linked ?? null}::uuid END,

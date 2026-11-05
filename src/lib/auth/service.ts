@@ -16,6 +16,7 @@ import { checkMfa } from './mfa';
 import { safeNextPath } from './callback';
 import { storableUserAgent } from './user-agent';
 import { hashInviteToken, INVITE_TOKEN_PATTERN } from './invitations';
+import { assignInitialPlan } from '@/lib/billing/new-workspace-plan';
 
 export const SESSION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 type AuthDatabase = ReturnType<typeof getAuthPrisma>;
@@ -101,6 +102,21 @@ async function createVerification(
   });
   return token;
 }
+/**
+ * The terms version new sign-ups must accept (TERMS_VERSION), or null when unset: then signup
+ * behaves exactly as before and nothing is stored.
+ */
+export function currentTermsVersion(env: Record<string, string | undefined> = process.env): string | null {
+  const value = env.TERMS_VERSION?.trim();
+  return value ? value.slice(0, 40) : null;
+}
+/** Refuses a signup that did not accept the current terms version (only while TERMS_VERSION is set). */
+export function assertTermsAccepted(accepted: string | null | undefined, env: Record<string, string | undefined> = process.env): string | null {
+  const current = currentTermsVersion(env);
+  if (current && accepted !== current)
+    throw new AuthError('Accept the terms of service to create an account', 400, 'terms_required');
+  return current;
+}
 export const INVITE_ROLES = ['admin', 'agent', 'viewer'] as const;
 export function inviteUnavailable(): AuthError {
   return new AuthError(
@@ -128,9 +144,10 @@ async function lockInvitationByHash(
     SELECT id,account_id,role FROM account_invitations
     WHERE token_hash=${tokenHash} AND accepted_at IS NULL AND expires_at>NOW() FOR UPDATE`;
   const invite = rows[0];
-  return invite && (INVITE_ROLES as readonly string[]).includes(invite.role)
-    ? invite
-    : null;
+  if (!invite || !(INVITE_ROLES as readonly string[]).includes(invite.role)) return null;
+  // A workspace whose deletion was requested takes no new members.
+  const [closing] = await tx.$queryRaw<{ closing: boolean }[]>`SELECT auth_workspace_closing(${invite.account_id}::uuid) AS closing`;
+  return closing?.closing ? null : invite;
 }
 /**
  * Joins an identity to the invited workspace with the invitation's role instead of creating a
@@ -161,6 +178,8 @@ async function createPersonalWorkspace(
   await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${user.id}::uuid,'owner')`;
   await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${user.id}::uuid,${user.fullName},${user.email},${accountId}::uuid,'owner')
     ON CONFLICT(user_id) DO NOTHING`;
+  // NEW_WORKSPACE_PLAN (unset = no subscription row = enterprise, as before).
+  await assignInitialPlan(tx, accountId);
   return accountId;
 }
 export async function signup(input: {
@@ -170,8 +189,11 @@ export async function signup(input: {
   next?: string;
   /** Invitation link token: join that workspace instead of creating one. */
   invite?: string;
+  /** The terms version the person accepted; required to equal TERMS_VERSION while that is set. */
+  termsVersion?: string;
 }): Promise<void> {
   const email = normalizeEmail(input.email);
+  const terms = assertTermsAccepted(input.termsVersion);
   await enforceAuthRateLimit('signup', email, 5, 3600);
   emailTransport(); // Reject before creating an identity when delivery is not configured.
   const passwordHash = await hashPassword(input.password);
@@ -186,7 +208,8 @@ export async function signup(input: {
     // or not the email is registered (no enumeration). It is redeemed only at email verification.
     if (invite) await lockOpenInvitation(tx, invite);
     const inserted = await tx.$queryRaw<{ id: string }[]>`
-      INSERT INTO auth_users(id,email,full_name,password_hash) VALUES(${userId}::uuid,${email},${fullName},${passwordHash})
+      INSERT INTO auth_users(id,email,full_name,password_hash,terms_version,terms_accepted_at)
+      VALUES(${userId}::uuid,${email},${fullName},${passwordHash},${terms},${terms ? new Date() : null}::timestamptz)
       ON CONFLICT(email) DO NOTHING RETURNING id`;
     // A failed delivery must not strand a pending signup. Reissue proof without
     // changing the original password or exposing whether a verified account exists.

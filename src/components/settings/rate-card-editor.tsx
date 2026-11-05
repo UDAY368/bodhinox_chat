@@ -38,6 +38,34 @@ export function rateCardChanges(original: RateCard[], edited: Map<string, { card
   return cards;
 }
 
+export type RateCardSaveOutcome = 'saved' | 'step_up' | 'enroll' | 'invalid_code' | 'failed';
+
+/**
+ * Saves the changes. Platform admins need a recent MFA check: with `mfaCode`
+ * the session steps up first (POST /api/auth/mfa-step-up), then the PUT runs.
+ * 'step_up' asks for a code; 'enroll' means no authenticator is set up yet.
+ */
+export async function saveRateCardChanges(
+  changes: NonNullable<ReturnType<typeof rateCardChanges>>,
+  mfaCode: string | null,
+  fetcher: typeof authFetch = authFetch,
+): Promise<RateCardSaveOutcome> {
+  if (mfaCode !== null) {
+    const stepped = await fetcher('/api/auth/mfa-step-up', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: mfaCode.trim() }),
+    });
+    if (!stepped.ok) return 'invalid_code';
+  }
+  const res = await fetcher(ENDPOINT, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cards: changes }),
+  });
+  if (res.ok) return 'saved';
+  const body = (await res.json().catch(() => ({}))) as { code?: string };
+  if (body.code === 'mfa_step_up_required') return 'step_up';
+  if (body.code === 'mfa_enrollment_required') return 'enroll';
+  return 'failed';
+}
+
 export function RateCardEditor() {
   const t = useTranslations('Analytics.cost.rateCard');
   const [canEdit, setCanEdit] = useState(false);
@@ -46,6 +74,9 @@ export function RateCardEditor() {
   const [category, setCategory] = useState<RateCategory>('marketing');
   const [draft, setDraft] = useState({ countryCode: '', currency: 'INR', price: '' });
   const [saving, setSaving] = useState(false);
+  // Shown after the server asks for a fresh two-step check.
+  const [stepUp, setStepUp] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
 
   const load = useCallback(async () => {
     const res = await authFetch(ENDPOINT, { cache: 'no-store' });
@@ -86,14 +117,22 @@ export function RateCardEditor() {
     if (changes.length === 0) return;
     setSaving(true);
     try {
-      const res = await authFetch(ENDPOINT, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cards: changes }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'save failed');
-      toast.success(t('saved'));
-      await load();
+      const outcome = await saveRateCardChanges(changes, stepUp ? mfaCode : null);
+      if (outcome === 'saved') {
+        setStepUp(false);
+        setMfaCode('');
+        toast.success(t('saved'));
+        await load();
+      } else if (outcome === 'step_up') {
+        setStepUp(true);
+        toast.error(t('mfaRequired'));
+      } else if (outcome === 'enroll') {
+        toast.error(t('mfaEnrollRequired'));
+      } else if (outcome === 'invalid_code') {
+        toast.error(t('stepUpInvalid'));
+      } else {
+        toast.error(t('saveFailed'));
+      }
     } catch {
       toast.error(t('saveFailed'));
     } finally {
@@ -162,10 +201,14 @@ export function RateCardEditor() {
             value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} />
           <Button size="sm" variant="outline" onClick={addDraft}><Plus className="mr-1 h-4 w-4" />{t('add')}</Button>
         </div>
-        <div className="flex justify-end">
-          <Button onClick={save} disabled={saving || edits.size === 0}>
+        <div className="flex flex-wrap items-end justify-end gap-2">
+          {stepUp && (
+            <Input aria-label={t('stepUpCode')} placeholder={t('stepUpCode')} inputMode="numeric" autoComplete="one-time-code"
+              maxLength={10} className="h-9 w-44" value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} />
+          )}
+          <Button onClick={save} disabled={saving || edits.size === 0 || (stepUp && mfaCode.trim().length < 6)}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t('save')}
+            {stepUp ? t('stepUpSubmit') : t('save')}
           </Button>
         </div>
       </CardContent>

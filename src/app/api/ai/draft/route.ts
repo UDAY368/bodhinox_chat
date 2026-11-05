@@ -12,16 +12,16 @@ import { retrieveKnowledgeScored } from '@/lib/ai/knowledge';
 import { generateReply } from '@/lib/ai/generate';
 import { buildAgentSystemPrompt, loadAgentProfile, type AgentProfile } from '@/lib/ai/agent-profile';
 import { latestUserMessage, recentCustomerText } from '@/lib/ai/query';
-import { logAiUsage, promptCharsOf } from '@/lib/ai/usage';
+import { promptCharsOf, usageLog } from '@/lib/ai/usage';
+import { chatTokenEstimate, failAi, reserveAi, settleAi } from '@/lib/ai/budget';
 import { logAiEvent } from '@/lib/ai/log';
 import { aiDeploymentEnabled } from '@/lib/ai/gate';
-import { databaseAdmin } from '@/lib/ai/admin-client';
 import { classifySensitive } from '@/lib/ai/safety/sensitive';
 import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from '@/lib/ai/assist/guards';
 import { AiError } from '@/lib/ai/types';
 import { withTenant } from '@/lib/db/tenant';
 import { getT } from '@/lib/i18n/translate';
-import { recordAiMessage, requireAiMessageRoom } from '@/lib/billing/limits';
+import { newRequestKey } from '@/lib/billing/usage-ledger';
 
 const t = getT('Api');
 
@@ -157,36 +157,29 @@ export async function POST(request: Request) {
     const healthWorkspace = await withTenant({ accountId, userId, role }, (tx) => isHealthWorkspace(tx, accountId, profile))
       .catch(() => true);
 
-    // The plan's monthly AI messages (402 with an upgrade hint when used up).
-    await requireAiMessageRoom(accountId);
+    // The plan's monthly AI messages and tokens, held for this request (402
+    // with an upgrade hint when used up), then settled once with the
+    // ai_usage_log row. settleAi and failAi never throw.
     const redacted = redactChat(messages);
-    const { text, usage } = await generateReply({
-      config,
-      systemPrompt,
-      messages: redacted.messages,
-    });
-    await recordAiMessage(accountId);
-
-    // Record spend on the account's BYO key. Best-effort + via the
-    // service role (the log has no `authenticated` INSERT policy). This
-    // must not fail or delay the draft the agent is waiting on, so:
-    //  - the whole thing is wrapped (constructing the admin client throws
-    //    if the service-role key is unset — that must not 500 the draft);
-    //  - it's fire-and-forget (`void`), not awaited, so the response
-    //    isn't held for a DB round-trip.
+    const promptChars = promptCharsOf(systemPrompt, redacted.messages);
+    const reservation = await reserveAi(accountId, newRequestKey(), { message: true, tokens: chatTokenEstimate(systemPrompt, redacted.messages) });
+    let generated: Awaited<ReturnType<typeof generateReply>>;
     try {
-      void logAiUsage(databaseAdmin({ accountId, userId, role: 'agent' }), {
-        accountId,
-        conversationId,
-        mode: 'draft',
-        provider: config.provider,
-        model: config.model,
-        usage,
-        estimate: { promptChars: promptCharsOf(systemPrompt, redacted.messages), outputChars: text.length },
+      generated = await generateReply({
+        config,
+        systemPrompt,
+        messages: redacted.messages,
       });
-    } catch (logErr) {
-      logAiEvent({ feature: 'draft', reason: 'usage_log_skipped', accountId, error: logErr });
+    } catch (error) {
+      await failAi(reservation, error, promptChars);
+      throw error;
     }
+    const { text, usage } = generated;
+    const log = usageLog({
+      conversationId, mode: 'draft', provider: config.provider, model: config.model, usage,
+      estimate: { promptChars, outputChars: text.length },
+    });
+    await settleAi(reservation, { tokens: log.totalTokens, log });
 
     const guarded = guardCustomerText(text, {
       allow: urlAllowlist({ citations: knowledge.citations, profile, legacyPrompt: config.systemPrompt }),

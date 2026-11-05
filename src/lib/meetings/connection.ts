@@ -11,6 +11,7 @@
 // answer 503 not_configured, except disconnect, which only clears what is
 // stored). A connection whose deployment config disappeared reads as not
 // connected.
+import { requireIntegrationRoom } from '@/lib/billing/limits';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { appOrigin } from '@/lib/auth/csrf';
 import { getEntitlements } from '@/lib/billing/entitlements';
@@ -265,6 +266,8 @@ export async function finishZoomConnect(
         return liveRow(tx, actor.accountId);
       }
       if (current) await retireTx(tx, actor.accountId, current.id);
+      // A first connection takes a slot of the plan's integrations; replacing the live one does not.
+      else await requireIntegrationRoom(tx, actor.accountId);
       const [inserted] = await tx.$queryRaw<{ id: string }[]>`INSERT INTO meeting_connections(account_id, provider, status,
           zoom_account_id, authorized_zoom_user_id, access_token_enc, refresh_token_enc, token_expires_at, refresh_rotated_at,
           scopes, connected_by, connected_at)

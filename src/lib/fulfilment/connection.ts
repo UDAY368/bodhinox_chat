@@ -9,6 +9,7 @@
 // The webhook token is generated here, shown once and stored only as
 // sha256(token): we never need it back, only to compare a push's x-api-key.
 // Every save, disconnect and token rotation writes audit_logs (ids and codes).
+import { requireIntegrationRoom } from '@/lib/billing/limits';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { appOrigin } from '@/lib/auth/csrf';
@@ -202,6 +203,8 @@ export async function saveCourierConnection(ctx: FulfilmentActor, input: Courier
       RETURNING ${PUBLIC_SELECT}`;
     let saved = updated[0];
     if (!saved) {
+      // A new connection takes a slot of the plan's integrations (updating the live one never checks).
+      await requireIntegrationRoom(tx, ctx.accountId);
       const inserted = await tx.$queryRaw<ConnectionRow[]>`INSERT INTO courier_connections(account_id, api_email, api_password_enc,
           token_enc, token_expires_at, pickup_location, default_length_cm, default_breadth_cm, default_height_cm, default_weight_grams, connected_by)
         VALUES(${ctx.accountId}::uuid, ${email}, ${passwordEnc}, ${tokenEnc}, ${expiresAt}, ${pickup}, ${defaults.length_cm ?? null},

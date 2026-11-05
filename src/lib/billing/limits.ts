@@ -1,17 +1,106 @@
-// Gates for the metered limits: AI messages and media storage. Server only.
+// Gates for plan limits at the write paths. Server only.
 //
-//   AI generation:  await requireAiMessageRoom(accountId)   before the provider call
-//                   await recordAiMessage(accountId)        after it returned
+//   Count limits:   gateLimit(tx, accountId, key, count, adding) in the SAME transaction as the
+//                   write (requireRoomFor: unlimited returns at once; else lock, count, check).
+//                   requireSeatRoom, requireActiveAutomationRoom, requireContactRoom,
+//                   requireWhatsAppNumberRoom and requireIntegrationRoom are the named gates;
+//                   gateWithinLimit for a count the caller already took (active_flows).
+//   AI generation:  reserveAi / settleAi / releaseAi (src/lib/ai/budget.ts, usage_events ledger).
 //   Media upload:   reserveStorage(tx, ...) before the object-store put (checks and records the bytes),
 //                   releaseStorage(tx, accountId, reservation) when the put fails
 //
 // Refusals are PlanLimitError (HTTP 402) whose message names the limit and
-// says to upgrade. A workspace without a subscription is unlimited.
+// says to upgrade; a refusal also records the 100% usage notice. A workspace
+// without a subscription is unlimited. Inbound (customers writing in) is never gated.
 
 import type { PrismaClient } from '@prisma/client';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
-import { requireWithinLimit } from './entitlements';
+import { PlanLimitError, requireRoomFor, requireWithinLimit } from './entitlements';
+import type { LimitKey } from './entitlements-catalogue';
+import { countIntegrations } from './integration-count';
 import { incrementUsage, usagePeriod } from './usage';
+import { notifyLimitRefused } from './usage-notices';
+
+/**
+ * requireRoomFor plus the 100% usage notice when it refuses. The check and the
+ * caller's write must be in one transaction (`tx`).
+ */
+export async function gateLimit(tx: TenantTransaction, accountId: string, key: LimitKey, count: () => Promise<number>, adding = 1): Promise<void> {
+  try {
+    await requireRoomFor(tx, accountId, key, count, adding);
+  } catch (error) {
+    if (error instanceof PlanLimitError) await notifyLimitRefused(accountId, key);
+    throw error;
+  }
+}
+
+/**
+ * requireWithinLimit plus the 100% usage notice when it refuses, for count keys
+ * checked against a count the caller already took (active_flows, storage_bytes).
+ * Not for campaign_recipients, which is a per-campaign size, not a usage level.
+ */
+export async function gateWithinLimit(tx: TenantTransaction, accountId: string, key: LimitKey, wanted: number): Promise<void> {
+  try {
+    await requireWithinLimit(tx, accountId, key, wanted);
+  } catch (error) {
+    if (error instanceof PlanLimitError) await notifyLimitRefused(accountId, key);
+    throw error;
+  }
+}
+
+/**
+ * Before this workspace adds ANOTHER WhatsApp number (a new whatsapp_config
+ * row): connected numbers and ones mid-setup count; a number an admin removed
+ * (disconnected, token cleared) frees its slot. Reconnecting or updating a row
+ * the workspace already has never calls this, so existing numbers are never
+ * blocked. Serialised per workspace for the rest of the transaction.
+ */
+export async function requireWhatsAppNumberRoom(tx: TenantTransaction, accountId: string): Promise<void> {
+  await gateLimit(tx, accountId, 'whatsapp_numbers', async () => {
+    const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM whatsapp_config
+      WHERE account_id=${accountId}::uuid AND NOT (status='disconnected' AND access_token='')`;
+    return row?.n ?? 0;
+  });
+}
+
+/** Members plus open (unaccepted, unexpired) invitations: what 'seats' counts. */
+export async function countSeats(tx: TenantTransaction, accountId: string): Promise<number> {
+  const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT (
+      (SELECT count(*) FROM account_memberships m WHERE m.account_id=${accountId}::uuid)
+    + (SELECT count(*) FROM account_invitations i WHERE i.account_id=${accountId}::uuid AND i.accepted_at IS NULL AND i.expires_at > now())
+    )::int AS n`;
+  return row?.n ?? 0;
+}
+
+/** Before creating an invitation, in the transaction that inserts it. */
+export async function requireSeatRoom(tx: TenantTransaction, accountId: string): Promise<void> {
+  await gateLimit(tx, accountId, 'seats', () => countSeats(tx, accountId));
+}
+
+/**
+ * Before turning an automation on, in the transaction that sets is_active.
+ * `automationId` is the one being activated (it never counts twice).
+ */
+export async function requireActiveAutomationRoom(tx: TenantTransaction, accountId: string, automationId: string): Promise<void> {
+  await gateLimit(tx, accountId, 'active_automations', async () => {
+    const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM automations
+      WHERE account_id=${accountId}::uuid AND is_active AND id<>${automationId}::uuid`;
+    return row?.n ?? 0;
+  });
+}
+
+/**
+ * Before a member, an import or the public API creates `adding` contacts, in
+ * the transaction that inserts them. Inbound-created contacts (WhatsApp,
+ * Instagram, storefront, booking, webhooks) never call this: customers who
+ * write in are always added, even over the limit.
+ */
+export async function requireContactRoom(tx: TenantTransaction, accountId: string, adding = 1): Promise<void> {
+  await gateLimit(tx, accountId, 'contacts', async () => {
+    const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM contacts WHERE account_id=${accountId}::uuid`;
+    return row?.n ?? 0;
+  }, adding);
+}
 
 /** AI messages counted this period (IST month). */
 export async function aiMessagesUsed(tx: TenantTransaction, accountId: string, at: Date = new Date()): Promise<number> {
@@ -27,6 +116,17 @@ export async function aiTokensUsed(tx: TenantTransaction, accountId: string, at:
   return Number(row?.value ?? 0);
 }
 
+/**
+ * Before inserting a NEW integration connection row (payment provider, store,
+ * meeting, courier, ads), in the same transaction as the insert. Reconnecting
+ * or updating an existing row never calls this.
+ */
+export async function requireIntegrationRoom(tx: TenantTransaction, accountId: string): Promise<void> {
+  await gateLimit(tx, accountId, 'integrations', () => countIntegrations(tx, accountId));
+}
+
+// AI generations are metered through reserveAi/settleAi (src/lib/ai/budget.ts), once per source
+// event. These two remain for the read-only pre-check (requireAiBudget) and the downgrade test.
 /** Throws PlanLimitError when one more AI generation would exceed the plan's monthly AI messages. */
 export async function requireAiMessageRoom(accountId: string, db?: PrismaClient): Promise<void> {
   await withTenant({ accountId }, async (tx) => {
@@ -68,7 +168,7 @@ export async function storageBytesUsed(tx: TenantTransaction, accountId: string)
 export async function requireStorageRoom(tx: TenantTransaction, accountId: string, addedBytes: number): Promise<void> {
   if (!(addedBytes > 0)) return;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${accountId}:storage_bytes`}))`;
-  await requireWithinLimit(tx, accountId, 'storage_bytes', (await storageBytesUsed(tx, accountId)) + addedBytes);
+  await gateWithinLimit(tx, accountId, 'storage_bytes', (await storageBytesUsed(tx, accountId)) + addedBytes);
 }
 
 export interface StorageReservation {

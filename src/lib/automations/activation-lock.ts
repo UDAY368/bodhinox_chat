@@ -8,9 +8,15 @@
 // check is run again on the active set read in this transaction, and the
 // automation is set active only when no loop closes. Mirrors the flow
 // publish lock (flows/versions.ts lockAccountPublishing).
+//
+// The plan's active_automations cap is checked here too, in the transaction
+// that sets is_active, so two simultaneous activations cannot both take the
+// last slot. An automation that is already active is never refused or turned
+// off by the cap (editing it re-runs this function).
 
 import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
+import { requireActiveAutomationRoom } from '@/lib/billing/limits';
 import { allSteps, findAutomationCycles, type LoopCandidate } from './validate';
 
 type StepRow = { automation_id: string; step_type: string; step_config: Record<string, unknown> };
@@ -18,8 +24,9 @@ type StepRow = { automation_id: string; step_type: string; step_config: Record<s
 /**
  * Sets the automation active when it closes no tag_added loop with the
  * workspace's other active automations, else leaves (or turns) it off and
- * returns the loop as automation names. The caller's tenant (app role, live
- * session) scopes every statement.
+ * returns the loop as automation names. Throws PlanLimitError (402), changing
+ * nothing, when turning it on would exceed the plan's active automations. The
+ * caller's tenant (app role, live session) scopes every statement.
  */
 export async function activateWithLoopLock(
   tenant: TenantContext,
@@ -29,6 +36,9 @@ export async function activateWithLoopLock(
 ): Promise<string[] | null> {
   return withTenant(tenant, async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`automations-publish:${accountId}`}, 0))`);
+    const [current] = await tx.$queryRaw<{ is_active: boolean }[]>(Prisma.sql`SELECT is_active FROM automations
+      WHERE account_id=${accountId}::uuid AND id=${automationId}::uuid`);
+    if (!current?.is_active) await requireActiveAutomationRoom(tx, accountId, automationId);
     let chain: string[] | null = null;
     if (allSteps(candidate.steps).some((s) => s.step_type === 'add_tag')) {
       const others = await tx.$queryRaw<{ id: string; name: string; trigger_type: string; trigger_config: unknown }[]>(Prisma.sql`

@@ -11,8 +11,9 @@ const h = vi.hoisted(() => ({
   loadAccountMetaCredentials: vi.fn(),
   conversationNumberDisconnected: vi.fn(),
   sendTypingIndicator: vi.fn(),
-  requireAiMessageRoom: vi.fn(),
-  recordAiMessage: vi.fn(),
+  reserveAi: vi.fn(),
+  settleAi: vi.fn(),
+  failAi: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
@@ -40,7 +41,7 @@ vi.mock('./knowledge', () => ({
   },
 }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: h.requireAiMessageRoom, recordAiMessage: h.recordAiMessage }))
+vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 100 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,
@@ -103,6 +104,7 @@ vi.mock('./admin-client', () => ({
 
 import { dispatchInboundToAiReply } from './auto-reply'
 
+const RESERVATION = { reservation: true }
 const ARGS = {
   accountId: 'acct-1',
   conversationId: 'conv-1',
@@ -128,6 +130,9 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
 }
 
 beforeEach(() => {
+  h.reserveAi.mockReset().mockResolvedValue(RESERVATION)
+  h.settleAi.mockReset().mockResolvedValue(undefined)
+  h.failAi.mockReset().mockResolvedValue(undefined)
   h.state.conv = {
     id: 'conv-1',
     account_id: 'acct-1',
@@ -174,19 +179,27 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     )
   })
 
-  it('counts one AI message per generation against the workspace plan', async () => {
+  it('meters one AI message per inbound message (its id is the source key) and settles once', async () => {
     await dispatchInboundToAiReply(ARGS)
-    expect(h.requireAiMessageRoom).toHaveBeenCalledWith('acct-1', { worker: true })
-    expect(h.recordAiMessage).toHaveBeenCalledTimes(1)
-    expect(h.recordAiMessage).toHaveBeenCalledWith('acct-1', { worker: true })
+    expect(h.reserveAi).toHaveBeenCalledWith('acct-1', `inbound:${ARGS.inboundMessageId}`, { message: true, tokens: 100 }, { worker: true })
+    expect(h.settleAi).toHaveBeenCalledTimes(1)
+    expect(h.settleAi).toHaveBeenCalledWith(RESERVATION, expect.objectContaining({ log: expect.objectContaining({ mode: 'auto_reply', conversationId: 'conv-1' }) }))
+  })
+
+  it('hands a failed generation to failAi and sends nothing', async () => {
+    h.generateReply.mockRejectedValueOnce(new Error('provider down'))
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.failAi).toHaveBeenCalledWith(RESERVATION, expect.any(Error), expect.any(Number))
+    expect(h.settleAi).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
   it('stands down without calling the model when the plan has no AI messages left', async () => {
     const { PlanLimitError } = await import('@/lib/billing/entitlements')
-    h.requireAiMessageRoom.mockRejectedValueOnce(new PlanLimitError('used up'))
+    h.reserveAi.mockRejectedValueOnce(new PlanLimitError('used up'))
     await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
     expect(h.generateReply).not.toHaveBeenCalled()
-    expect(h.recordAiMessage).not.toHaveBeenCalled()
+    expect(h.settleAi).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.state.updatePayload).toMatchObject({ bot_paused: true })
   })
@@ -521,7 +534,7 @@ describe('dispatchInboundToAiReply — Phase 13 safety guards', () => {
     h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'I have chest pain and fever, what should I take?' }])
     await dispatchInboundToAiReply(ARGS)
     expect(h.generateReply).not.toHaveBeenCalled()
-    expect(h.requireAiMessageRoom).not.toHaveBeenCalled()
+    expect(h.reserveAi).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.state.updatePayload).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true })
     expect(String(h.state.updatePayload?.ai_handoff_summary)).toContain('route to qualified staff')

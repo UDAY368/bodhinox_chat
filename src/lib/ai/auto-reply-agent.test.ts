@@ -22,14 +22,14 @@ vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
 vi.mock('./context', () => ({ buildConversationContext: h.buildConversationContext }))
 vi.mock('./knowledge', () => ({ retrieveKnowledgeScored: h.retrieveKnowledgeScored }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
-vi.mock('./usage', () => ({ countAiTokens: async () => {}, promptCharsOf: () => 0, logAiUsage: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('./usage', () => ({ promptCharsOf: () => 0, usageLog: () => ({ totalTokens: 0 }) }))
+vi.mock('./budget', () => ({ reserveAi: async () => ({}), settleAi: async () => {}, failAi: async () => {}, chatTokenEstimate: () => 1 }))
 vi.mock('./unanswered', () => ({ recordUnanswered: h.recordUnanswered }))
 vi.mock('./agent-profile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./agent-profile')>()),
   loadAgentProfileTx: h.loadAgentProfileTx,
 }))
 vi.mock('@/lib/db/tenant', () => ({ withTenant: h.withTenant }))
-vi.mock('@/lib/billing/limits', () => ({ requireAiMessageRoom: vi.fn(), recordAiMessage: vi.fn() }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,

@@ -105,6 +105,16 @@ export async function scheduleWork() {
   // AI assistant data retention: daily per workspace with something due.
   await import('@/lib/ai/retention').then((m) => m.scheduleAiRetention())
     .catch(() => console.error('[worker] ai retention scheduling failed'));
+  // SaaS billing: daily provider-state comparison per subscribed workspace (opens reconciliation
+  // items, changes nothing); nothing while billing is off.
+  await import('@/lib/billing/reconciliation').then((m) => m.scheduleBillingReconcile())
+    .catch(() => console.error('[worker] billing reconcile scheduling failed'));
+  // Usage ledger housekeeping (settled/released rows older than 13 months); independent of billing keys.
+  await import('@/lib/jobs/usage-housekeeping').then((m) => m.scheduleUsageHousekeeping())
+    .catch(() => console.error('[worker] usage housekeeping scheduling failed'));
+  // Workspace exports: expire ready files after 7 days and fail stuck exports.
+  await import('@/lib/jobs/workspace-export').then((m) => m.scheduleWorkspaceExportSweeps())
+    .catch(() => console.error('[worker] workspace export sweep scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -412,12 +422,21 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await (await import('@/lib/appointments/job-handlers')).handleAppointmentJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else if (job.type === 'ai.assess_conversation')
       // Advisory intent and lead assessment; writes only ai_assessments, never sends.
-      await (await import('@/lib/ai/assess/job')).handleAssessConversationJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+      await (await import('@/lib/ai/assess/job')).handleAssessConversationJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts, jobId: job.id });
     else if (job.type === 'ai.insight_run')
       // One insight run from a fixed reporting query; skipped (not failed) when AI is unavailable.
       await (await import('@/lib/ai/insights/job')).handleInsightRunJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else if (job.type === 'ai.retention_sweep')
       await (await import('@/lib/ai/retention')).runAiRetentionSweep(accountId);
+    else if (job.type === 'billing.reconcile')
+      // Compares the provider's subscription state with the stored row; a difference opens a
+      // state_mismatch reconciliation item. Never writes the subscription, never closes an intent.
+      await (await import('@/lib/billing/reconciliation')).runBillingReconcile(accountId);
+    else if (job.type === 'usage.housekeeping')
+      await (await import('@/lib/jobs/usage-housekeeping')).runUsageHousekeeping(accountId);
+    else if (job.type === 'workspace.export' || job.type === 'workspace.export_sweep')
+      // One streamed workspace export into private storage, or the 7-day expiry sweep.
+      await (await import('@/lib/jobs/workspace-export')).handleWorkspaceExportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
     else if (job.type.startsWith('instagram.'))
       // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
       await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

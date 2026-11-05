@@ -162,9 +162,8 @@ async function store(row: NewAssessment): Promise<void> {
 export async function handleAssessConversationJob(
   accountId: string,
   payload: Record<string, unknown>,
-  meta: { attempts: number; maxAttempts: number } = { attempts: 1, maxAttempts: 1 },
+  meta: { attempts: number; maxAttempts: number; jobId?: string } = { attempts: 1, maxAttempts: 1 },
 ): Promise<void> {
-  void meta;
   const conversationId = typeof payload?.conversationId === 'string' && UUID.test(payload.conversationId) ? payload.conversationId : null;
   if (!conversationId) {
     logAiEvent({ feature: 'assess', reason: 'invalid_payload', accountId });
@@ -206,6 +205,8 @@ export async function handleAssessConversationJob(
     accountId, userId: null, role: 'owner', feature: 'assess', promptVersion: ASSESS_PROMPT_VERSION,
     system: ASSESS_SYSTEM_PROMPT, untrusted: [{ source: 'customer', label: 'transcript', text: transcript.text }],
     schema: AssessOutputSchema, audience: 'staff', conversationId,
+    // A retried job meters its AI use once.
+    ...(meta.jobId ? { sourceKey: `task:${meta.jobId}` } : {}),
   });
   if (!task.ok || typeof task.value === 'string') {
     await store(deterministicRow(base, det, task.ok ? task.guardFlags : [...task.guardFlags, `fallback_${task.reason}`]));
