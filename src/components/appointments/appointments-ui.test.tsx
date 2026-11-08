@@ -21,6 +21,8 @@ import { ScheduleView } from './schedule-view';
 describe('failureKey', () => {
   it('maps plan, field, template and domain refusals to code-only messages', () => {
     expect(failureKey({ ok: false, status: 402 })).toBe('Appointments.errors.feature_unavailable');
+    expect(failureKey({ ok: false, status: 400, code: 'invalid', field: 'timezone', detail: 'invalid' }))
+      .toBe('Appointments.fieldErrors.timezone');
     expect(failureKey({ ok: false, status: 400, code: 'invalid', field: 'reminder_template_name', detail: 'url_button_base' }))
       .toBe('AppointmentSettings.templateErrors.url_button_base');
     expect(failureKey({ ok: false, status: 400, code: 'invalid', field: 'confirm_template_name', detail: 'not_approved' }))

@@ -9863,7 +9863,8 @@
       "pooled_or_staffed": "Escolha uma agenda compartilhada ou profissionais, não ambos.",
       "mode_in_use": "Ainda há agendamentos ativos na configuração atual. Mova ou cancele-os antes de alternar entre uma agenda compartilhada e profissionais.",
       "price_required": "Um serviço pago antecipadamente precisa de um preço acima de zero e de uma moeda.",
-      "payments_not_ready": "Conecte o Razorpay e confirme que seu plano inclui a loja antes de pedir pagamento antecipado."
+      "payments_not_ready": "Conecte o Razorpay e confirme que seu plano inclui a loja antes de pedir pagamento antecipado.",
+      "timezone": "Este fuso horário não é reconhecido. Escolha outro, por exemplo Asia/Kolkata."
     },
     "form": {
       "edit": "Editar"

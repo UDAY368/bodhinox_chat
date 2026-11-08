@@ -9863,7 +9863,8 @@
       "pooled_or_staffed": "Choose either a shared calendar or practitioners, not both.",
       "mode_in_use": "Bookings are still open under the current setup. Move or cancel them before switching between a shared calendar and practitioners.",
       "price_required": "A service paid in advance needs a price above zero and a currency.",
-      "payments_not_ready": "Connect Razorpay and make sure your plan includes the storefront before asking for payment in advance."
+      "payments_not_ready": "Connect Razorpay and make sure your plan includes the storefront before asking for payment in advance.",
+      "timezone": "This time zone isn't recognised. Choose another, for example Asia/Kolkata."
     },
     "form": {
       "edit": "Edit"

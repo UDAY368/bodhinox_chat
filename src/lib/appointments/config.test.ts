@@ -101,6 +101,17 @@ describe('location time zones', () => {
     expect(await resolveLocationTimeZone(tx(['America/New_York']), 'america/new_york')).toBe('America/New_York');
     await expect(resolveLocationTimeZone(tx([]), 'US/Pacific-New')).rejects.toMatchObject({ field: 'timezone' });
   });
+
+  it('saves an old alias the browser reports under its current name when Postgres lacks the alias', async () => {
+    const tx = (known: string[]) => ({
+      $queryRaw: async (_s: TemplateStringsArray, names: string[]) => names.filter((n) => known.includes(n)).map((name) => ({ name })),
+    }) as never;
+    // Chrome on Windows reports Asia/Calcutta; Debian tzdata without the legacy package lists only Asia/Kolkata.
+    expect(timeZoneCandidates('Asia/Calcutta')[0]).toBe('Asia/Kolkata');
+    expect(await resolveLocationTimeZone(tx(['Asia/Kolkata']), 'Asia/Calcutta')).toBe('Asia/Kolkata');
+    expect(await resolveLocationTimeZone(tx(['Asia/Kolkata', 'Asia/Calcutta']), 'Asia/Calcutta')).toBe('Asia/Kolkata');
+    expect(await resolveLocationTimeZone(tx(['Europe/Kyiv']), 'Europe/Kiev')).toBe('Europe/Kyiv');
+  });
 });
 
 describe('createException dates', () => {

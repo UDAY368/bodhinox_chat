@@ -9863,7 +9863,8 @@
       "pooled_or_staffed": "Elige un calendario compartido o profesionales, no ambos.",
       "mode_in_use": "Todavía hay reservas activas con la configuración actual. Muévelas o cancélalas antes de cambiar entre un calendario compartido y profesionales.",
       "price_required": "Un servicio de pago por adelantado necesita un precio mayor que cero y una moneda.",
-      "payments_not_ready": "Conecta Razorpay y asegúrate de que tu plan incluya la tienda antes de pedir el pago por adelantado."
+      "payments_not_ready": "Conecta Razorpay y asegúrate de que tu plan incluya la tienda antes de pedir el pago por adelantado.",
+      "timezone": "No se reconoce esta zona horaria. Elige otra, por ejemplo Asia/Kolkata."
     },
     "form": {
       "edit": "Editar"

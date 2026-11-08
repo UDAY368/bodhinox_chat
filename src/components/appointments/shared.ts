@@ -70,6 +70,7 @@ export function failureKey(failure: ApiFailure): string {
   if (failure.status === 402) return 'Appointments.errors.feature_unavailable';
   if (failure.field && failure.detail && /_template_name$/.test(failure.field) && TEMPLATE_DETAILS.has(failure.detail))
     return `AppointmentSettings.templateErrors.${failure.detail}`;
+  if (failure.field === 'timezone' && failure.detail === 'invalid') return 'Appointments.fieldErrors.timezone';
   if (failure.field && failure.detail && FIELD_DETAILS.has(failure.detail)) return `Appointments.fieldErrors.${failure.detail}`;
   if (failure.code && (APPOINTMENT_ERROR_CODES as readonly string[]).includes(failure.code))
     return `Appointments.errors.${failure.code as AppointmentErrorCode}`;
