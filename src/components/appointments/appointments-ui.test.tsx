@@ -166,3 +166,12 @@ describe('ScheduleView', () => {
     expect(render(true)).toContain('New appointment');
   });
 });
+
+describe('location time zones', () => {
+  it('uses current zone names, so the form never offers Asia/Calcutta', async () => {
+    const { currentZoneName } = await import('@/lib/appointments/time-zone-names');
+    expect(currentZoneName('Asia/Calcutta')).toBe('Asia/Kolkata');
+    expect(currentZoneName('Europe/Kiev')).toBe('Europe/Kyiv');
+    expect(currentZoneName('Asia/Kolkata')).toBe('Asia/Kolkata');
+  });
+});

@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 import { authFetch } from '@/lib/auth/client';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { addDays, zonedWallToUtc } from '@/lib/appointments/time';
+import { currentZoneName } from '@/lib/appointments/time-zone-names';
 import type {
   AppointmentErrorCode, AppointmentStatus, LocationRow, OfferingRow, ServiceRow, StaffRow,
 } from '@/lib/appointments/types';
@@ -178,7 +179,7 @@ export const dayOf = (value: string | Date): string => (typeof value === 'string
 /** The browser's zone, used only when no location exists yet. */
 export function browserZone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    return currentZoneName(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
   } catch {
     return 'UTC';
   }

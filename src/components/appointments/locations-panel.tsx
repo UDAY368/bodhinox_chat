@@ -7,11 +7,14 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { currentZoneName } from '@/lib/appointments/time-zone-names';
 import { apiRequest, browserZone, selectClass, useFailureText, type AppointmentConfig, type LocationDto } from './shared';
 
 function timeZones(): string[] {
   try {
-    return (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.('timeZone') ?? [];
+    const zones = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.('timeZone') ?? [];
+    // Offer the current names (Asia/Kolkata, not Asia/Calcutta), once each.
+    return [...new Set(zones.map(currentZoneName))].sort();
   } catch {
     return [];
   }

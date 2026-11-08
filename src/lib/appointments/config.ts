@@ -10,6 +10,7 @@ import { gateLimit } from '@/lib/billing/limits';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { parseWorkingHours, type TimeRange, type WorkingHours } from '@/lib/inbox/working-hours';
 import { loadSettings } from './availability';
+import { CURRENT_ZONE_NAMES } from './time-zone-names';
 import { paidBookingReady } from './booking';
 import { lockKeys } from './keys';
 import { appointmentTemplateRefusal, type AppointmentCheckedTemplate, type AppointmentTemplateRefusal } from './template-check';
@@ -169,39 +170,6 @@ export function timeZoneCandidates(value: unknown): string[] {
   return [...new Set([...current, value, canonical])];
 }
 
-/** Old IANA alias -> current name, for aliases browsers still report. */
-const CURRENT_ZONE_NAMES: Record<string, string> = {
-  'Asia/Calcutta': 'Asia/Kolkata',
-  'Asia/Katmandu': 'Asia/Kathmandu',
-  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
-  'Asia/Rangoon': 'Asia/Yangon',
-  'Asia/Dacca': 'Asia/Dhaka',
-  'Asia/Thimbu': 'Asia/Thimphu',
-  'Asia/Ulan_Bator': 'Asia/Ulaanbaatar',
-  'Asia/Macao': 'Asia/Macau',
-  'Asia/Ujung_Pandang': 'Asia/Makassar',
-  'Asia/Chongqing': 'Asia/Shanghai',
-  'Asia/Chungking': 'Asia/Shanghai',
-  'Asia/Harbin': 'Asia/Shanghai',
-  'Asia/Tel_Aviv': 'Asia/Jerusalem',
-  'Asia/Istanbul': 'Europe/Istanbul',
-  'Europe/Kiev': 'Europe/Kyiv',
-  'Europe/Uzhgorod': 'Europe/Kyiv',
-  'Europe/Zaporozhye': 'Europe/Kyiv',
-  'Atlantic/Faeroe': 'Atlantic/Faroe',
-  'America/Godthab': 'America/Nuuk',
-  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
-  'America/Catamarca': 'America/Argentina/Catamarca',
-  'America/Cordoba': 'America/Argentina/Cordoba',
-  'America/Jujuy': 'America/Argentina/Jujuy',
-  'America/Mendoza': 'America/Argentina/Mendoza',
-  'America/Indianapolis': 'America/Indiana/Indianapolis',
-  'America/Louisville': 'America/Kentucky/Louisville',
-  'Pacific/Truk': 'Pacific/Chuuk',
-  'Pacific/Ponape': 'Pacific/Pohnpei',
-  'Pacific/Enderbury': 'Pacific/Kanton',
-  'Africa/Asmera': 'Africa/Asmara',
-};
 
 /**
  * The zone name to store: the first candidate Postgres also knows
