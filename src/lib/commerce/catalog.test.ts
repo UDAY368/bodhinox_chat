@@ -4,6 +4,7 @@ import {
   CatalogError,
   catalogSyncOffsetMs,
   isMetaPermissionError,
+  isTransientCommerceFailure,
   likePattern,
   nextCatalogSyncSlot,
   parseConnectInput,
@@ -11,6 +12,19 @@ import {
   parseSettingsInput,
 } from './catalog';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
+
+describe('isTransientCommerceFailure', () => {
+  const meta = (code: number | null, httpStatus: number) => new MetaApiError(`Meta API error: ${httpStatus}`, { code, httpStatus });
+  it('lets connect continue on unknown or temporary Meta errors only', () => {
+    expect(isTransientCommerceFailure(meta(1, 500))).toBe(true);
+    expect(isTransientCommerceFailure(meta(2, 400))).toBe(true);
+    expect(isTransientCommerceFailure(meta(null, 503))).toBe(true);
+    expect(isTransientCommerceFailure(Object.assign(new Error('t'), { name: 'TimeoutError' }))).toBe(true);
+    for (const [code, status] of [[10, 403], [200, 400], [190, 401], [100, 400]] as const)
+      expect(isTransientCommerceFailure(meta(code, status))).toBe(false);
+    expect(isTransientCommerceFailure(new Error('x'))).toBe(false);
+  });
+});
 
 describe('isMetaPermissionError', () => {
   const meta = (code: number | null) => new MetaApiError('Meta API error: 400', { code, httpStatus: 400 });

@@ -278,7 +278,9 @@ function ConnectCatalogDialog({ open, onOpenChange, onConnected }: {
         setError(res.error ?? t("error"));
         return;
       }
-      toast.success(t("connected"));
+      // Meta did not confirm the cart / catalogue button: the link is saved with both off, switch them on from the card.
+      if ((res.data as { settings_applied?: boolean }).settings_applied === false) toast.warning(t("connectedSettingsPending"));
+      else toast.success(t("connected"));
       onConnected(res.data);
     } catch {
       setError(t("error"));

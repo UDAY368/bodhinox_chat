@@ -305,7 +305,19 @@ function isUniqueViolation(error: unknown): boolean {
  * Re-linking the same catalogue moves it to the given number. A number can
  * hold one catalogue; unlink the old one first.
  */
-export async function connectCatalog(ctx: TenantContext, input: ConnectCatalogInput): Promise<CatalogPublic> {
+/**
+ * An unknown or temporary Meta failure (HTTP 5xx, code 1 or 2, a timeout) while switching the cart / catalogue
+ * button: the link itself is fine, so connecting goes on with both switches stored off and the admin turns them on
+ * from the catalogue card. Permission and token refusals still stop the connect (retrying cannot fix them).
+ */
+export function isTransientCommerceFailure(error: unknown): boolean {
+  if (error instanceof Error && error.name === 'TimeoutError') return true;
+  return error instanceof MetaApiError && !isMetaPermissionError(error) && error.code !== 190 && error.httpStatus !== 401
+    && (error.httpStatus >= 500 || error.code === 1 || error.code === 2);
+}
+
+/** `settings_applied` is false when Meta did not confirm the cart / catalogue-button switches (both stored off). */
+export async function connectCatalog(ctx: TenantContext, input: ConnectCatalogInput): Promise<CatalogPublic & { settings_applied: boolean }> {
   assertAdmin(ctx);
   const number = await withTenant(ctx, async (tx) => {
     const number = await loadCatalogNumber(tx, ctx.accountId, input.whatsappConfigId);
@@ -318,16 +330,25 @@ export async function connectCatalog(ctx: TenantContext, input: ConnectCatalogIn
   });
   if (!number.wabaId || !META_ID.test(number.wabaId)) throw new CatalogError('no_waba');
   let name = '';
+  let settingsApplied = true;
   try {
     const accessToken = decrypt(number.accessTokenEnc);
     const owned = (await getWabaCatalogs({ wabaId: number.wabaId, accessToken })).find((c) => c.id === input.catalogId);
     if (!owned) throw new CatalogError('catalog_not_in_waba');
     name = owned.name.slice(0, 200);
-    await setCommerceSettings({ phoneNumberId: number.phoneNumberId, accessToken,
-      isCartEnabled: input.isCartEnabled, isCatalogVisible: input.isCatalogVisible });
+    try {
+      await setCommerceSettings({ phoneNumberId: number.phoneNumberId, accessToken,
+        isCartEnabled: input.isCartEnabled, isCatalogVisible: input.isCatalogVisible });
+    } catch (error) {
+      if (!isTransientCommerceFailure(error)) throw error;
+      if (error instanceof MetaApiError) console.warn('[catalog] commerce settings not applied', error.httpStatus, error.code, error.subcode);
+      settingsApplied = false;
+    }
   } catch (error) {
     metaFailure(error);
   }
+  const isCartEnabled = settingsApplied && input.isCartEnabled;
+  const isCatalogVisible = settingsApplied && input.isCatalogVisible;
   return withTenant(ctx, async (tx) => {
     const other = await tx.whatsapp_catalogs.findFirst({
       where: { account_id: ctx.accountId, whatsapp_config_id: number.id, NOT: { catalog_id: input.catalogId } },
@@ -341,7 +362,7 @@ export async function connectCatalog(ctx: TenantContext, input: ConnectCatalogIn
     try {
       rows = await tx.$queryRaw<{ id: string }[]>`
         INSERT INTO whatsapp_catalogs(account_id,whatsapp_config_id,catalog_id,name,is_cart_enabled,is_catalog_visible)
-        VALUES(${ctx.accountId}::uuid,${number.id}::uuid,${input.catalogId},${name},${input.isCartEnabled},${input.isCatalogVisible})
+        VALUES(${ctx.accountId}::uuid,${number.id}::uuid,${input.catalogId},${name},${isCartEnabled},${isCatalogVisible})
         ON CONFLICT(account_id,catalog_id) DO UPDATE SET whatsapp_config_id=EXCLUDED.whatsapp_config_id,name=EXCLUDED.name,
           is_cart_enabled=EXCLUDED.is_cart_enabled,is_catalog_visible=EXCLUDED.is_catalog_visible
         RETURNING id::text AS id`;
@@ -350,7 +371,7 @@ export async function connectCatalog(ctx: TenantContext, input: ConnectCatalogIn
       throw error;
     }
     await queueCatalogSync(tx, ctx.accountId, rows[0].id, 'manual');
-    return (await catalogRows(tx, ctx.accountId, rows[0].id))[0];
+    return { ...(await catalogRows(tx, ctx.accountId, rows[0].id))[0], settings_applied: settingsApplied };
   });
 }
 

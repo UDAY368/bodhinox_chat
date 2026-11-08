@@ -7169,7 +7169,8 @@
         "cancel": "Cancel",
         "submit": "Connect",
         "connected": "Catalogue connected. Products are syncing.",
-        "error": "The catalogue could not be connected."
+        "error": "The catalogue could not be connected.",
+        "connectedSettingsPending": "Catalogue connected and products are syncing. WhatsApp did not turn on the cart and catalogue button just now: switch them on from the catalogue card in a minute."
       },
       "products": {
         "title": "Products",
