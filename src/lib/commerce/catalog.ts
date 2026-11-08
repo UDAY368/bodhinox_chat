@@ -35,6 +35,8 @@ export type CatalogErrorCode =
   | 'no_waba'
   | 'catalog_not_in_waba'
   | 'number_has_catalog'
+  | 'catalog_permission'
+  | 'token_invalid'
   | 'meta_error';
 
 const STATUS: Record<CatalogErrorCode, number> = {
@@ -44,6 +46,8 @@ const STATUS: Record<CatalogErrorCode, number> = {
   no_waba: 409,
   catalog_not_in_waba: 409,
   number_has_catalog: 409,
+  catalog_permission: 409,
+  token_invalid: 409,
   meta_error: 502,
 };
 
@@ -176,9 +180,20 @@ function assertAdmin(ctx: TenantContext): void {
   if (!ctx.role || !hasMinRole(ctx.role, 'admin')) throw new ForbiddenError('Insufficient workspace role');
 }
 
+/** Meta permission refusals: 10 (permission denied), 3 (capability), 200-299 (a missing permission or asset access). */
+export const isMetaPermissionError = (error: unknown): boolean => error instanceof MetaApiError && error.code !== null
+  && (error.code === 10 || error.code === 3 || (error.code >= 200 && error.code <= 299));
+
 function metaFailure(error: unknown): never {
   if (error instanceof CatalogError) throw error;
-  if (error instanceof MetaApiError || (error instanceof Error && error.name === 'TimeoutError')) throw new CatalogError('meta_error');
+  if (error instanceof MetaApiError) {
+    // Meta's numeric code only (never its text), so a refusal can be told apart in the logs.
+    console.warn('[catalog] Meta refused', error.httpStatus, error.code, error.subcode);
+    if (error.code === 190 || error.httpStatus === 401) throw new CatalogError('token_invalid');
+    if (isMetaPermissionError(error)) throw new CatalogError('catalog_permission');
+    throw new CatalogError('meta_error');
+  }
+  if (error instanceof Error && error.name === 'TimeoutError') throw new CatalogError('meta_error');
   throw error;
 }
 

@@ -3,12 +3,23 @@ import {
   CATALOG_SYNC_INTERVAL_MS,
   CatalogError,
   catalogSyncOffsetMs,
+  isMetaPermissionError,
   likePattern,
   nextCatalogSyncSlot,
   parseConnectInput,
   parseProductQuery,
   parseSettingsInput,
 } from './catalog';
+import { MetaApiError } from '@/lib/whatsapp/meta-api';
+
+describe('isMetaPermissionError', () => {
+  const meta = (code: number | null) => new MetaApiError('Meta API error: 400', { code, httpStatus: 400 });
+  it('treats permission and asset-access refusals as permission errors, not outages', () => {
+    for (const code of [10, 3, 200, 275, 299]) expect(isMetaPermissionError(meta(code))).toBe(true);
+    for (const code of [1, 2, 100, 190, 300, null]) expect(isMetaPermissionError(meta(code))).toBe(false);
+    expect(isMetaPermissionError(new Error('x'))).toBe(false);
+  });
+});
 
 const NUMBER = '11111111-1111-4111-8111-111111111111';
 

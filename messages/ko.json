@@ -5745,7 +5745,9 @@
       "no_waba": "이 번호에는 WhatsApp Business 계정이 없어 카탈로그를 사용할 수 없습니다.",
       "catalog_not_in_waba": "이 카탈로그는 이 번호의 WhatsApp Business 계정에 속하지 않습니다.",
       "number_has_catalog": "이 번호에는 이미 카탈로그가 있습니다. 먼저 연결을 해제하세요.",
-      "meta_error": "WhatsApp이 예상대로 응답하지 않았습니다. 몇 분 후 다시 시도하세요."
+      "meta_error": "WhatsApp이 예상대로 응답하지 않았습니다. 몇 분 후 다시 시도하세요.",
+      "catalog_permission": "WhatsApp이 이 계정의 카탈로그 접근을 거부했습니다. 이 번호에 저장된 액세스 토큰에 catalog_management 권한을 주고, Meta 비즈니스 설정에서 카탈로그를 해당 시스템 사용자에게 할당한 뒤 다시 시도하세요.",
+      "token_invalid": "이 WhatsApp 번호에 저장된 액세스 토큰이 만료되었거나 취소되었습니다. 설정 → WhatsApp에서 업데이트한 뒤 다시 시도하세요."
     },
     "commerceSend": {
       "invalid_message": "메시지를 확인하세요. 상품을 고르고 필수 텍스트를 제한 안에서 입력해야 합니다.",

@@ -5745,7 +5745,9 @@
       "no_waba": "Este número no tiene una cuenta de WhatsApp Business, así que no puede usar un catálogo.",
       "catalog_not_in_waba": "Ese catálogo no pertenece a la cuenta de WhatsApp Business de este número.",
       "number_has_catalog": "Este número ya tiene un catálogo. Desvincúlalo primero.",
-      "meta_error": "WhatsApp no respondió como se esperaba. Inténtalo de nuevo en unos minutos."
+      "meta_error": "WhatsApp no respondió como se esperaba. Inténtalo de nuevo en unos minutos.",
+      "catalog_permission": "WhatsApp rechazó el acceso a los catálogos de esta cuenta. Da al token de acceso guardado para este número el permiso catalog_management y asigna el catálogo a su usuario del sistema en la configuración del negocio de Meta, y vuelve a intentarlo.",
+      "token_invalid": "El token de acceso guardado para este número de WhatsApp caducó o fue revocado. Actualízalo en Configuración → WhatsApp y vuelve a intentarlo."
     },
     "commerceSend": {
       "invalid_message": "Revisa el mensaje: elige productos y completa el texto obligatorio dentro de los límites.",
