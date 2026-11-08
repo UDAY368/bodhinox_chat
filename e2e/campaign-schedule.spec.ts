@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { fixtures, login } from './fixtures';
 
-test('an agent schedules a campaign, sees when it will start and cancels it', async ({ page }) => {
-  const name = `Scheduled ${fixtures().runId}`;
+test('an agent schedules a campaign, sees when it will start and cancels it', async ({ page }, testInfo) => {
+  // A retry gets its own name, so a half-finished first attempt never leaves two rows with one name.
+  const name = `Scheduled ${fixtures().runId}${testInfo.retry ? ` r${testInfo.retry}` : ''}`;
   await login(page, fixtures().users.agent);
   await page.goto('/broadcasts/new');
 
@@ -33,7 +34,8 @@ test('the campaign list filters by status tab and name search', async ({ page })
   await page.goto('/broadcasts');
   await page.getByRole('tab', { name: 'Cancelled' }).click();
   await page.getByLabel('Search campaigns').fill(`Scheduled ${fixtures().runId}`);
-  await expect(page.getByRole('cell', { name: `Scheduled ${fixtures().runId}` })).toBeVisible();
+  // A retried scheduling test can leave an extra matching campaign; any one proves the filter works.
+  await expect(page.getByRole('cell', { name: new RegExp(`^Scheduled ${fixtures().runId}`) }).first()).toBeVisible();
   await page.getByRole('tab', { name: 'Sent' }).click();
   await expect(page.getByText('No campaigns match.')).toBeVisible();
 });
