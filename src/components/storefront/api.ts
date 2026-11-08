@@ -27,7 +27,8 @@ export const SHOP_ERROR_CODES = [
   'not_found', 'too_many', 'forbidden', 'invalid', 'conflict', 'cart_locked', 'session_expired', 'address_required', 'quote_changed',
   'out_of_stock', 'checkout_disabled', 'store_not_configured', 'cart_empty', 'invalid_cart', 'variant_unavailable', 'price_not_configured',
   'tax_not_configured', 'shipping_unavailable', 'coupon_not_found', 'coupon_inactive', 'coupon_not_started', 'coupon_expired',
-  'coupon_min_subtotal', 'coupon_exhausted', 'coupon_limit_reached', 'order_not_open', 'amount_out_of_range', 'too_many_open_orders', 'error',
+  'coupon_min_subtotal', 'coupon_exhausted', 'coupon_limit_reached', 'order_not_open', 'amount_out_of_range', 'too_many_open_orders',
+  'cod_unavailable', 'error',
 ] as const;
 export type ShopErrorCode = (typeof SHOP_ERROR_CODES)[number];
 
@@ -55,6 +56,9 @@ export const shopApi = {
     call<StorefrontView>(`${base(token)}/address`, 'PUT', { expectedVersion, address }),
   coupon: (token: string, expectedVersion: number, code: string | null) =>
     call<StorefrontView>(`${base(token)}/coupon`, 'PUT', { expectedVersion, code }),
+  /** How to pay: 'online' (a payment link) or 'cod' (cash on delivery). */
+  payment: (token: string, expectedVersion: number, paymentMethod: 'online' | 'cod') =>
+    call<StorefrontView>(`${base(token)}/payment`, 'PUT', { expectedVersion, paymentMethod }),
   place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; clientRequestId: string; marketingOptIn: boolean }) =>
     call<{ created: boolean; view: StorefrontView | null }>(`${base(token)}/place`, 'POST', body),
   status: (token: string) => call<{ order: StorefrontOrderView | null }>(`${base(token)}/status`, 'GET'),

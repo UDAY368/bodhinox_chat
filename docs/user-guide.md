@@ -176,6 +176,12 @@ the online checkout switch, the seller details printed on receipts, shipping rat
 The currency cannot change once any variant has a price. If no tax rate applies to an item, or no shipping rate covers an
 address, checkout refuses rather than charging zero.
 
+**Cash on delivery (COD).** Turn on **Offer cash on delivery** in Store settings and, if you like, set a COD fee. Customers
+then see "Pay online now" or "Cash on delivery" at checkout; COD appears only when every product in the cart allows it
+(untick **Cash on delivery available** on a product to keep it prepaid). A COD order is confirmed at once and its stock
+is held; it shows a **COD** badge in Orders. Ship it as usual. When the cash arrives, open the order and press **Record
+cash received**. If the parcel comes back, cancel the order: its stock is returned.
+
 ### Storefront links
 
 In a conversation, open the composer menu and choose **Send storefront link**. Pick whether the link opens the store or the

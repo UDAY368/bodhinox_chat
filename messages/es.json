@@ -5803,7 +5803,8 @@
       "sendRejected": "WhatsApp rechazó el mensaje, así que no se envió.",
       "link_exists": "Este pedido o cita ya tiene un enlace de pago abierto. Cancela o revisa ese enlace primero.",
       "platformKeyReuse": "Esta clave de Razorpay pertenece a la cuenta de facturación de la plataforma. Conecta la cuenta de Razorpay de tu negocio.",
-      "workspace_manual_blocked": "El soporte de Bodhinox ha pausado las respuestas de este espacio de trabajo. Contacta con el soporte de Bodhinox para más detalles."
+      "workspace_manual_blocked": "El soporte de Bodhinox ha pausado las respuestas de este espacio de trabajo. Contacta con el soporte de Bodhinox para más detalles.",
+      "cash_on_delivery": "Es un pedido contra entrega: registra el efectivo en el pedido en lugar de enviar un enlace de pago."
     },
     "commerceEvents": {
       "resolution": "Indica si el cliente recibió el mensaje.",
@@ -7367,7 +7368,8 @@
         "cancelRefundOutsideConfirm": "He devuelto fuera de Bodhinox el dinero que no se pagó con Razorpay",
         "cancelRefundDoneOutside": "Pedido cancelado. Se registró el reembolso hecho fuera de Bodhinox.",
         "courierTracked": "El seguimiento de Shiprocket actualiza este pedido automáticamente. También puedes registrarlo tú.",
-        "shipmentLive": "Cancela el envío con el transportista antes de cancelar este pedido, o usa Devoluciones si ya se recogió."
+        "shipmentLive": "Cancela el envío con el transportista antes de cancelar este pedido, o usa Devoluciones si ya se recogió.",
+        "codFee": "Cargo por pago contra entrega"
       },
       "timeline": {
         "title": "Historial",
@@ -7392,7 +7394,8 @@
           "other": "Evento: {kind}",
           "shipment_created": "Envío con transportista creado",
           "shipment_cancelled": "Envío con transportista cancelado",
-          "shipment_correction_accepted": "Corrección de seguimiento aceptada"
+          "shipment_correction_accepted": "Corrección de seguimiento aceptada",
+          "cod_confirmed": "Pago contra entrega elegido"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -7417,6 +7420,12 @@
           "failed": "Falló",
           "outcome_unknown": "Requiere revisión"
         }
+      },
+      "cod": {
+        "badge": "Contra entrega",
+        "collect": "Pago contra entrega: cobra {amount} al entregar el pedido.",
+        "recordCash": "Registrar efectivo recibido",
+        "recordPayment": "Registrar pago"
       }
     },
     "attention": {
@@ -7589,7 +7598,9 @@
           "weight": "Gramos enteros, hasta 1.000.000."
         },
         "repurchaseDays": "Recordatorio de recompra tras (días)",
-        "repurchaseHint": "Opcional. Días tras la entrega para recordar a los clientes que aceptaron ofertas al pagar. Usa la plantilla de recordatorio de recompra de la configuración de la tienda."
+        "repurchaseHint": "Opcional. Días tras la entrega para recordar a los clientes que aceptaron ofertas al pagar. Usa la plantilla de recordatorio de recompra de la configuración de la tienda.",
+        "codAvailable": "Pago contra entrega disponible",
+        "codAvailableHint": "Si está desactivado, un carrito con este producto solo se puede pagar en línea (el pago contra entrega también debe estar activo en la configuración de la tienda)."
       }
     },
     "inventory": {
@@ -7701,7 +7712,8 @@
         "coupon_expired": "Este cupón caducó.",
         "coupon_min_subtotal": "El carrito no alcanza el mínimo de este cupón.",
         "amount_out_of_range": "El importe es demasiado grande.",
-        "too_many_open_orders": "Este cliente ya tiene el máximo de pedidos sin pagar permitidos. Paga uno o espera a que caduque."
+        "too_many_open_orders": "Este cliente ya tiene el máximo de pedidos abiertos. Primero un pedido sin pagar debe pagarse o caducar, o un pedido contra entrega debe enviarse o cancelarse.",
+        "cod_unavailable": "El pago contra entrega no está disponible para este carrito."
       },
       "title": "Ajustes de la tienda",
       "subtitle": "Moneda, impuestos, pago, datos del vendedor, envío y cupones de tu tienda en línea.",
@@ -7765,7 +7777,14 @@
       "maxRedemptions": "Usos totales",
       "perContactLimit": "Usos por cliente",
       "startsAt": "Empieza",
-      "endsAt": "Termina"
+      "endsAt": "Termina",
+      "cod": {
+        "title": "Pago contra entrega",
+        "enabled": "Ofrecer pago contra entrega",
+        "help": "Los clientes pueden pagar en efectivo cuando reciben el pedido. Solo se ofrece si todos los productos del carrito lo permiten. Registras el efectivo en el pedido con Registrar pago.",
+        "fee": "Cargo por pago contra entrega ({currency})",
+        "feeHelp": "Se suma al total del pedido cuando el cliente elige pago contra entrega y lleva la tasa de impuesto predeterminada. Déjalo vacío para no cobrar cargo."
+      }
     },
     "storefrontLink": {
       "title": "Enviar enlace de la tienda",
@@ -7846,7 +7865,8 @@
         "sgst": "SGST",
         "igst": "IGST",
         "total": "Total",
-        "taxIncluded": "Los precios incluyen impuestos."
+        "taxIncluded": "Los precios incluyen impuestos.",
+        "codFee": "Cargo por pago contra entrega"
       }
     },
     "shipments": {
@@ -8193,7 +8213,8 @@
         "amount_not_due": "El importe debe ser exactamente lo que el pedido aún debe.",
         "currency_mismatch": "El pago debe estar en la moneda del pedido.",
         "link_pending": "Todavía se está creando o verificando un enlace de pago de este pedido. Revísalo primero en la página Pagos.",
-        "link_paid": "El cliente acaba de pagar en línea, así que no se registró nada."
+        "link_paid": "El cliente acaba de pagar en línea, así que no se registró nada.",
+        "shipment_live": "Un envío contra entrega cobrará este pedido. Cancela primero ese envío o registra el efectivo cuando el pedido esté despachado."
       }
     },
     "exceptions": {
@@ -10129,11 +10150,21 @@
       "coupon_limit_reached": "Ya usaste este cupón.",
       "order_not_open": "Este pedido ya no se puede pagar aquí.",
       "amount_out_of_range": "El importe es demasiado grande.",
-      "too_many_open_orders": "Ya tienes pedidos sin pagar reservados. Paga uno o espera a que caduque y vuelve a intentarlo."
+      "too_many_open_orders": "Ya tienes el máximo de pedidos abiertos. Paga un pedido pendiente, espera a que caduque o a que se entregue un pedido contra entrega, y vuelve a intentarlo.",
+      "cod_unavailable": "El pago contra entrega no está disponible para este carrito. Elige pagar en línea."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Envíame recordatorios para volver a pedir y ofertas por WhatsApp. Puedes detenerlos cuando quieras respondiendo STOP."
-    }
+    },
+    "paymentHeading": "Pago",
+    "payOnline": "Pagar en línea ahora",
+    "payCod": "Pago contra entrega",
+    "payCodWithFee": "Pago contra entrega (cargo de {fee})",
+    "codNotForCart": "El pago contra entrega no está disponible para algunos productos de tu carrito.",
+    "placeCod": "Hacer pedido, pagar {amount} al recibir",
+    "codNote": "Tu pedido queda confirmado ahora. Paga en efectivo cuando lo recibas.",
+    "codFee": "Cargo por pago contra entrega",
+    "codDue": "Pago contra entrega: ten listos {amount} cuando llegue tu pedido."
   },
   "OrderNotices": {
     "dispatched": "Tu pedido {ref} ya va en camino.",

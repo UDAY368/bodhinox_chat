@@ -141,3 +141,59 @@ describe('priceCart', () => {
       .toEqual({ ok: false, code: 'amount_out_of_range' });
   });
 });
+
+describe('priceCart cash on delivery', () => {
+  const base = {
+    lines: [{ variantId: 'a', qty: 2 }], variants: [variant('a', 10000)], shippingRates: [rate({ feeMinor: 5000, taxRateBps: 0 })],
+    coupon: null, address,
+  };
+  const cod = (settings: Partial<PricingSettings>, extra: Record<string, unknown> = {}) =>
+    priceCart({ ...base, settings: inr({ codEnabled: true, codFeeMinor: 4000, ...settings }), paymentMethod: 'cod', ...extra });
+
+  it('online by default: no fee, and codAvailable reports whether COD could be chosen', () => {
+    const online = priceCart({ ...base, settings: inr({ codEnabled: true, codFeeMinor: 4000 }) });
+    expect(online.ok && online.quote).toMatchObject({ paymentMethod: 'online', codAvailable: true, codFee: null, codFeeMinor: 0, totalMinor: 25000 });
+    const off = priceCart({ ...base, settings: inr() });
+    expect(off.ok && off.quote.codAvailable).toBe(false);
+  });
+
+  it('adds the fee, taxed like shipping, inclusive and exclusive', () => {
+    const inclusive = cod({});
+    expect(inclusive.ok && inclusive.quote).toMatchObject({
+      paymentMethod: 'cod', codFeeMinor: 4000, codFee: { feeMinor: 4000, taxRateBps: 1800, taxMinor: taxOn(4000, 1800, true) },
+      totalMinor: 20000 + 5000 + 4000,
+    });
+    if (inclusive.ok) expect(inclusive.quote.taxMinor)
+      .toBe(inclusive.quote.lines.reduce((s, l) => s + l.taxMinor, 0) + (inclusive.quote.codFee?.taxMinor ?? 0));
+    const exclusive = cod({ pricesIncludeTax: false });
+    // 20000 goods + 3600 tax, 5000 shipping at 0 %, 4000 fee + 720 tax.
+    expect(exclusive.ok && exclusive.quote).toMatchObject({ taxMinor: 3600 + 720, totalMinor: 20000 + 5000 + 4000 + 3600 + 720 });
+  });
+
+  it('keeps the fee out of the coupon minimum, the discount and the shipping band', () => {
+    const result = cod({}, {
+      coupon: coupon({ kind: 'percent', value: 5000, minSubtotalMinor: 20000 }),
+      shippingRates: [rate({ id: 'small', maxSubtotalMinor: 10000, feeMinor: 0 }), rate({ id: 'big', minSubtotalMinor: 10001, feeMinor: 700, taxRateBps: 0 })],
+    });
+    expect(result.ok && result.quote).toMatchObject({ discountMinor: 10000, shipping: { rateId: 'small' }, codFeeMinor: 4000, totalMinor: 10000 + 0 + 4000 });
+  });
+
+  it('a zero fee needs no tax rate; a positive fee does', () => {
+    expect(cod({ codFeeMinor: 0, defaultTaxRateBps: null }, { variants: [variant('a', 10000, { taxRateBps: 500 })] }))
+      .toMatchObject({ ok: true, quote: { codFeeMinor: 0, codFee: { feeMinor: 0, taxRateBps: 0, taxMinor: 0 } } });
+    expect(cod({ defaultTaxRateBps: null }, { variants: [variant('a', 10000, { taxRateBps: 500 })] }))
+      .toEqual({ ok: false, code: 'tax_not_configured' });
+  });
+
+  it('refuses COD when the store has it off or any product opts out', () => {
+    expect(cod({ codEnabled: false })).toEqual({ ok: false, code: 'cod_unavailable' });
+    const mixed = cod({}, {
+      lines: [{ variantId: 'a', qty: 1 }, { variantId: 'b', qty: 1 }],
+      variants: [variant('a', 10000), variant('b', 10000, { codAvailable: false })],
+    });
+    expect(mixed).toEqual({ ok: false, code: 'cod_unavailable' });
+    const online = priceCart({ ...base, settings: inr({ codEnabled: true }), lines: [{ variantId: 'b', qty: 1 }],
+      variants: [variant('b', 10000, { codAvailable: false })] });
+    expect(online.ok && online.quote).toMatchObject({ codAvailable: false, lines: [{ codAvailable: false }] });
+  });
+});

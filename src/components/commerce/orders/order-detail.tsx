@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Banknote, Loader2, MessageSquare } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { OfflinePaymentDialog } from "@/components/commerce/payments/offline-payment-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,9 +24,24 @@ import { OrderReturnsPanel } from "./order-returns-panel";
 import { OrderStatusBadge } from "./order-status-badge";
 import { OrderTimelinePanel } from "./order-timeline";
 
+/** A cash-on-delivery order whose cash is not recorded yet. */
+export const isUnpaidCodOrder = (order: Pick<OrderDetail, "priced_at"> & Partial<Pick<OrderDetail, "payment_method" | "paid_at">>): boolean =>
+  order.payment_method === "cod" && !order.paid_at && order.priced_at !== null;
+
+/**
+ * Staff may record a payment taken outside the gateway (cash, UPI, ...) while the order still takes payment:
+ * not yet paid, or an unpaid cash-on-delivery order already shipped or delivered.
+ */
+export function canRecordPayment(order: Pick<OrderDetail, "status" | "payment_method" | "paid_at" | "priced_at" | "total_minor" | "subtotal_minor" | "amount_paid_minor">): boolean {
+  const due = (order.total_minor ?? order.subtotal_minor) - order.amount_paid_minor;
+  if (due <= 0) return false;
+  if (["new", "confirmed", "awaiting_payment"].includes(order.status)) return true;
+  return isUnpaidCodOrder(order) && (order.status === "dispatched" || order.status === "fulfilled");
+}
+
 /** Dispatch and delivery have their own actions; a paid order is cancelled only with Cancel and refund. */
-export function selectableStatuses(order: Pick<OrderDetail, "status" | "priced_at">): OrderStatus[] {
-  return nextStatuses(order.status, { priced: order.priced_at !== null })
+export function selectableStatuses(order: Pick<OrderDetail, "status" | "priced_at"> & Partial<Pick<OrderDetail, "payment_method" | "paid_at">>): OrderStatus[] {
+  return nextStatuses(order.status, { priced: order.priced_at !== null, unpaidCod: isUnpaidCodOrder(order) })
     .filter((s) => s !== "dispatched" && s !== "fulfilled" && !(order.status === "paid" && s === "cancelled"));
 }
 
@@ -46,6 +63,7 @@ export function OrderDetailView({ id }: { id: string }) {
   const [busy, setBusy] = useState<"status" | "note" | null>(null);
   const [timeline, setTimeline] = useState<OrderTimeline | null>(null);
   const [returns, setReturns] = useState<OrderReturn[]>([]);
+  const [paying, setPaying] = useState(false);
 
   const loadExtras = useCallback(async () => {
     const [tl, rs] = await Promise.all([getOrderTimeline(id).catch(() => null), listOrderReturns(id).catch(() => [])]);
@@ -93,7 +111,8 @@ export function OrderDetailView({ id }: { id: string }) {
     try {
       const r = await updateOrder(id, patch);
       if (!r.ok) {
-        toast.error(r.code === "conflict" ? t("detail.conflict") : r.code === "bad_transition" ? t("detail.badTransition") : t("detail.saveError"));
+        toast.error(r.code === "conflict" ? t("detail.conflict") : r.code === "bad_transition" ? t("detail.badTransition")
+          : r.code === "shipment_live" ? tLife("shipmentLive") : t("detail.saveError"));
         if (r.code === "conflict") {
           const fresh = await getOrder(id);
           if (fresh.ok) setOrder(fresh.value);
@@ -137,6 +156,7 @@ export function OrderDetailView({ id }: { id: string }) {
     [tLife("subtotal"), order.subtotal_minor],
     ...(order.discount_minor ? [[order.coupon_code ? tLife("discountCode", { code: order.coupon_code }) : tLife("discount"), -order.discount_minor] as [string, number]] : []),
     ...(order.shipping_minor ? [[tLife("shipping"), order.shipping_minor] as [string, number]] : []),
+    ...(order.cod_fee_minor ? [[tLife("codFee"), order.cod_fee_minor] as [string, number]] : []),
     [order.tax_inclusive ? tLife("taxIncluded") : tLife("tax"), order.tax_minor],
   ] : [];
 
@@ -154,7 +174,12 @@ export function OrderDetailView({ id }: { id: string }) {
             {tSource(order.source)} · {format.dateTime(new Date(order.created_at), { dateStyle: "medium", timeStyle: "short" })}
           </p>
         </div>
-        <OrderStatusBadge status={order.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          {order.payment_method === "cod" && (
+            <Badge variant="outline" className="gap-1"><Banknote className="h-3.5 w-3.5" aria-hidden="true" />{t("cod.badge")}</Badge>
+          )}
+          <OrderStatusBadge status={order.status} />
+        </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -196,6 +221,23 @@ export function OrderDetailView({ id }: { id: string }) {
               </TableBody>
             </Table>
           </div>
+          {isUnpaidCodOrder(order) && order.status !== "cancelled" && order.status !== "expired" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4 text-sm">
+              <span>{t("cod.collect", { amount: money(total - order.amount_paid_minor, order.currency) })}</span>
+              {/* While a COD courier shipment of a still-confirmed order is live, the courier collects the cash (server refuses too). */}
+              {canAdmin && canRecordPayment(order) && !(order.status === "confirmed" && order.shipment
+                && order.shipment.create_state !== "failed" && order.shipment.create_state !== "cancelled") && (
+                <Button size="sm" onClick={() => setPaying(true)}>{t("cod.recordCash")}</Button>
+              )}
+            </div>
+          )}
+          {!isUnpaidCodOrder(order) && canAdmin && priced && canRecordPayment(order) && (
+            <div className="flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => setPaying(true)}>{t("cod.recordPayment")}</Button>
+            </div>
+          )}
+          <OfflinePaymentDialog orderId={order.id} currency={order.currency} dueMinor={total - order.amount_paid_minor}
+            open={paying} onOpenChange={setPaying} onRecorded={() => void reload()} />
           {(order.amount_paid_minor > 0 || order.amount_refunded_minor > 0) && (
             <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-border bg-card p-4 text-sm">
               <span>{tLife("paid", { amount: money(order.amount_paid_minor, order.currency) })}</span>

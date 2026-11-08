@@ -1035,6 +1035,8 @@ model orders {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   discount_minor BigInt @default(0)
   shipping_minor BigInt @default(0)
+  payment_method String @default("online")
+  cod_fee_minor BigInt @default(0)
   tax_minor BigInt @default(0)
   tax_inclusive Boolean?
   priced_at DateTime? @db.Timestamptz(6)
@@ -1970,6 +1972,8 @@ model commerce_settings {
   default_tax_rate_bps Int?
   reservation_minutes Int @default(15)
   checkout_enabled Boolean @default(false)
+  cod_enabled Boolean @default(false)
+  cod_fee_minor BigInt @default(0)
   low_stock_default Int @default(5)
   legal_name String?
   gstin String?
@@ -2003,6 +2007,7 @@ model shop_products {
   disclosure String?
   category_id String? @db.Uuid
   status String @default("draft")
+  cod_available Boolean @default(true)
   content_reviewed_by String? @db.Uuid
   content_reviewed_at DateTime? @db.Timestamptz(6)
   follow_up_template String?
@@ -2134,6 +2139,7 @@ model storefront_sessions {
   conversation_id String? @db.Uuid
   whatsapp_config_id String? @db.Uuid
   purpose String
+  payment_method String @default("online")
   expires_at DateTime @db.Timestamptz(6)
   revoked_at DateTime? @db.Timestamptz(6)
   order_id String? @db.Uuid
@@ -2286,6 +2292,7 @@ model commerce_documents {
   subtotal_minor BigInt
   discount_minor BigInt @default(0)
   shipping_minor BigInt @default(0)
+  cod_fee_minor BigInt @default(0)
   tax_minor BigInt @default(0)
   cgst_minor BigInt @default(0)
   sgst_minor BigInt @default(0)

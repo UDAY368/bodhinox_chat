@@ -87,18 +87,23 @@ async function orderEvent(tx: TenantTransaction, accountId: string, orderId: str
 
 /**
  * Every order holds stock and a coupon redemption until it is paid or its
- * reservation expires, with no payment taken. Each WhatsApp cart and shop-link
- * run issues a fresh session, so the per-token place limit cannot stop one
- * contact holding the whole shelf: these caps count every live hold of the
- * contact instead.
+ * reservation expires, with no payment taken; a cash-on-delivery order holds
+ * them with no expiry until the cash is recorded or the order is cancelled.
+ * Each WhatsApp cart and shop-link run issues a fresh session, so the
+ * per-token place limit cannot stop one contact holding the whole shelf:
+ * these caps count every live hold of the contact instead.
  */
 export const CONTACT_HOLD_LIMITS = { openOrders: 3, unitsPerVariant: CART_LIMITS.maxQty } as const;
 
-/** The contact's orders awaiting payment with a live reservation, other than `excludeOrderId`. */
+/**
+ * The contact's open holds other than `excludeOrderId`: orders awaiting payment with a live
+ * reservation, and unpaid COD orders (no expiry) that have not shipped or closed.
+ */
 async function openOrderCountTx(tx: TenantTransaction, accountId: string, contactId: string, excludeOrderId: string | null, now: Date) {
   const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM orders
-    WHERE account_id=${accountId}::uuid AND contact_id=${contactId}::uuid AND status='awaiting_payment'
-      AND reservation_expires_at > ${now} AND id IS DISTINCT FROM ${excludeOrderId}::uuid`;
+    WHERE account_id=${accountId}::uuid AND contact_id=${contactId}::uuid AND id IS DISTINCT FROM ${excludeOrderId}::uuid
+      AND ((status='awaiting_payment' AND reservation_expires_at > ${now})
+        OR (status='confirmed' AND payment_method='cod' AND priced_at IS NOT NULL))`;
   return row?.n ?? 0;
 }
 
@@ -124,7 +129,8 @@ async function assertVariantHoldsTx(tx: TenantTransaction, accountId: string, co
   const held = await tx.$queryRaw<{ variant_id: string; q: number }[]>`
     SELECT r.variant_id::text AS variant_id, sum(r.quantity)::int AS q FROM stock_reservations r
     JOIN orders o ON o.account_id=r.account_id AND o.id=r.order_id
-    WHERE r.account_id=${accountId}::uuid AND o.contact_id=${contactId}::uuid AND r.status='held' AND r.expires_at > ${now}
+    WHERE r.account_id=${accountId}::uuid AND o.contact_id=${contactId}::uuid AND r.status='held'
+      AND (r.expires_at > ${now} OR (r.expires_at IS NULL AND o.payment_method='cod' AND o.status='confirmed'))
       AND r.variant_id = ANY(${[...wanted.keys()]}::uuid[])
     GROUP BY r.variant_id ORDER BY r.variant_id`;
   for (const h of held)
@@ -206,14 +212,16 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
 
     const orderId = existing?.id ?? randomUUID();
     const address = JSON.stringify(session.address);
+    // The repriced quote already refused cod_unavailable; COD is then confirmed with no payment link.
+    const cod = quote.paymentMethod === 'cod';
     if (!existing) {
       await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
           discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,coupon_code,shipping_address,storefront_session_id,status,
-          marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version)
+          marketing_opt_in,marketing_opt_in_at,marketing_opt_in_version,payment_method,cod_fee_minor)
         VALUES(${orderId}::uuid,${accountId}::uuid,'storefront',${session.contact_id}::uuid,${session.conversation_id}::uuid,
           ${session.whatsapp_config_id}::uuid,${quote.currency},${quote.subtotalMinor},${quote.discountMinor},${quote.shippingMinor},
           ${quote.taxMinor},${quote.taxInclusive},${quote.totalMinor},${quote.couponCode},${address}::jsonb,${session.id}::uuid,'new',
-          ${optIn}::boolean,${optInAt}::timestamptz,${optInVersion}::text)`;
+          ${optIn}::boolean,${optInAt}::timestamptz,${optInVersion}::text,${quote.paymentMethod},${quote.codFeeMinor})`;
       for (const line of quote.lines) {
         const options = Object.values(line.optionValues).filter(Boolean).join(' / ');
         const name = (options ? `${line.productName} (${options})` : line.productName).slice(0, 500);
@@ -241,12 +249,14 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
       await tx.$executeRaw`UPDATE orders SET currency=${quote.currency},subtotal_minor=${quote.subtotalMinor},discount_minor=${quote.discountMinor},
           shipping_minor=${quote.shippingMinor},tax_minor=${quote.taxMinor},tax_inclusive=${quote.taxInclusive},total_minor=${quote.totalMinor},
           coupon_code=${quote.couponCode},shipping_address=${address}::jsonb,storefront_session_id=${session.id}::uuid,
-          marketing_opt_in=${optIn}::boolean,marketing_opt_in_at=${optInAt}::timestamptz,marketing_opt_in_version=${optInVersion}::text
+          marketing_opt_in=${optIn}::boolean,marketing_opt_in_at=${optInAt}::timestamptz,marketing_opt_in_version=${optInVersion}::text,
+          payment_method=${quote.paymentMethod},cod_fee_minor=${quote.codFeeMinor}
         WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     }
 
     if (coupon) await redeemCouponTx(tx, accountId, { coupon, orderId, contactId: session.contact_id });
-    const expiresAt = new Date(now.getTime() + settings.reservation_minutes * 60_000);
+    // COD holds stock with no expiry: it is committed when the cash is recorded (creditOrderTx) or released on cancel.
+    const expiresAt = cod ? null : new Date(now.getTime() + settings.reservation_minutes * 60_000);
     try {
       await reserveTx(tx, accountId, orderId, stockLines, expiresAt);
     } catch (error) {
@@ -254,15 +264,19 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
       throw error;
     }
     const attempt = (existing?.checkout_attempt ?? 0) + 1;
-    await tx.$executeRaw`UPDATE orders SET priced_at=${now},status='awaiting_payment',reservation_expires_at=${expiresAt},checkout_attempt=${attempt}
+    const status = cod ? 'confirmed' : 'awaiting_payment';
+    await tx.$executeRaw`UPDATE orders SET priced_at=${now},status=${status},reservation_expires_at=${expiresAt},checkout_attempt=${attempt}
       WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
     await orderEvent(tx, accountId, orderId, 'priced', 'customer');
     await orderEvent(tx, accountId, orderId, 'reserved', 'system');
+    if (cod) await orderEvent(tx, accountId, orderId, 'cod_confirmed', 'customer');
     await tx.$executeRaw`UPDATE storefront_sessions SET order_id=${orderId}::uuid, version=version+1
       WHERE account_id=${accountId}::uuid AND id=${session.id}::uuid`;
-    await enqueue(tx, accountId, CHECKOUT_JOB_TYPES.reservationExpiry, { orderId, attempt }, `resv-exp:${orderId}:${attempt}`,
-      new Date(expiresAt.getTime() + 60_000));
-    await enqueue(tx, accountId, CHECKOUT_JOB_TYPES.createCheckoutLink, { orderId, attempt }, `colink:${orderId}:${attempt}`);
+    if (expiresAt) {
+      await enqueue(tx, accountId, CHECKOUT_JOB_TYPES.reservationExpiry, { orderId, attempt }, `resv-exp:${orderId}:${attempt}`,
+        new Date(expiresAt.getTime() + 60_000));
+      await enqueue(tx, accountId, CHECKOUT_JOB_TYPES.createCheckoutLink, { orderId, attempt }, `colink:${orderId}:${attempt}`);
+    }
     return { orderId, created: true };
   });
 }

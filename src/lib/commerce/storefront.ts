@@ -34,7 +34,9 @@ import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { findCouponTx, normaliseCouponCode, toPricingCoupon, type CouponRow } from './coupons';
 import { minorFromDb } from './money';
 import type { OrderStatus } from './order-format';
-import { CART_LIMITS, normaliseCart, priceCart, type CartLine, type PricingResult, type PricingVariant, type Quote } from './pricing';
+import {
+  CART_LIMITS, isPaymentMethod, normaliseCart, priceCart, type CartLine, type PaymentMethod, type PricingResult, type PricingVariant, type Quote,
+} from './pricing';
 import { deriveStorefrontToken, storefrontTokenHash, storefrontUrl } from './storefront-token';
 import { isUuid, loadPricingSettings, pricingRate, selectRates, StoreError } from './store-settings';
 
@@ -63,12 +65,14 @@ export interface SessionRow {
   cart: unknown;
   address: unknown;
   coupon_code: string | null;
+  /** The customer's payment choice; the quote and the place reprice both read it. */
+  payment_method: PaymentMethod;
   version: number;
 }
 
 const SESSION_COLUMNS = `id::text AS id, token_epoch, contact_id::text AS contact_id, conversation_id::text AS conversation_id,
   whatsapp_config_id::text AS whatsapp_config_id, purpose, expires_at, revoked_at, order_id::text AS order_id, cart, address,
-  coupon_code, version`;
+  coupon_code, payment_method, version`;
 
 export async function loadSession(tx: TenantTransaction, accountId: string, sessionId: string, lock = false): Promise<SessionRow | null> {
   const rows = await tx.$queryRawUnsafe<SessionRow[]>(
@@ -426,10 +430,12 @@ interface OrderRow {
   conversation_id: string | null; whatsapp_config_id: string | null; subtotal_minor: bigint; discount_minor: bigint;
   shipping_minor: bigint; tax_minor: bigint; total_minor: bigint | null; tax_inclusive: boolean | null; amount_paid_minor: bigint;
   reservation_expires_at: Date | null; paid_at: Date | null; checkout_attempt: number; created_at: Date;
+  payment_method: PaymentMethod; cod_fee_minor: bigint;
 }
 const ORDER_COLUMNS = `id::text AS id, source, status, currency, priced_at, contact_id::text AS contact_id,
   conversation_id::text AS conversation_id, whatsapp_config_id::text AS whatsapp_config_id, subtotal_minor, discount_minor, shipping_minor,
-  tax_minor, total_minor, tax_inclusive, amount_paid_minor, reservation_expires_at, paid_at, checkout_attempt, created_at`;
+  tax_minor, total_minor, tax_inclusive, amount_paid_minor, reservation_expires_at, paid_at, checkout_attempt, created_at,
+  payment_method, cod_fee_minor`;
 
 export async function loadOrder(tx: TenantTransaction, accountId: string, orderId: string, lock = false): Promise<OrderRow | null> {
   const rows = await tx.$queryRawUnsafe<OrderRow[]>(
@@ -456,7 +462,7 @@ export async function sessionLines(tx: TenantTransaction, accountId: string, ses
 interface VariantRow {
   id: string; product_id: string; product_name: string; sku: string; option_values: Record<string, string>; price_minor: bigint | null;
   compare_at_minor: bigint | null; tax_rate_bps: number | null; hsn_code: string | null; track_inventory: boolean; sellable: boolean;
-  available: number | null;
+  available: number | null; cod_available: boolean;
 }
 
 /** Variants by id (any status; `sellable` says whether it can be bought now). */
@@ -464,7 +470,7 @@ export async function loadVariants(tx: TenantTransaction, accountId: string, ids
   if (!ids.length) return new Map();
   const rows = await tx.$queryRaw<VariantRow[]>`
     SELECT v.id::text AS id, v.product_id::text AS product_id, p.name AS product_name, v.sku, v.option_values, v.price_minor,
-      v.compare_at_minor, v.tax_rate_bps, v.hsn_code, v.track_inventory,
+      v.compare_at_minor, v.tax_rate_bps, v.hsn_code, v.track_inventory, p.cod_available,
       (p.status='published' AND v.archived_at IS NULL) AS sellable,
       CASE WHEN v.track_inventory THEN COALESCE(l.on_hand - l.reserved, 0) END AS available
     FROM shop_variants v JOIN shop_products p ON p.account_id=v.account_id AND p.id=v.product_id
@@ -473,7 +479,7 @@ export async function loadVariants(tx: TenantTransaction, accountId: string, ids
   return new Map(rows.map((r) => [r.id, {
     id: r.id, productId: r.product_id, productName: r.product_name, sku: r.sku, optionValues: r.option_values ?? {},
     priceMinor: minorFromDb(r.price_minor), taxRateBps: r.tax_rate_bps, hsnCode: r.hsn_code, trackInventory: r.track_inventory,
-    sellable: r.sellable, available: r.available,
+    sellable: r.sellable, available: r.available, codAvailable: r.cod_available,
   }]));
 }
 
@@ -502,12 +508,17 @@ export async function quoteSessionTx(tx: TenantTransaction, accountId: string, s
   const result = priceCart({
     lines, variants, settings, shippingRates: rates,
     coupon: session.coupon_code ? (coupon ? toPricingCoupon(coupon) : 'missing') : null,
-    address: address ? { country: address.country, postalCode: address.postal_code } : null, now: options.now,
+    address: address ? { country: address.country, postalCode: address.postal_code } : null,
+    paymentMethod: session.payment_method, now: options.now,
   });
   return { result, coupon, lines };
 }
 
-async function bump(tx: TenantTransaction, accountId: string, sessionId: string, set: { cart?: CartLine[]; address?: StorefrontAddress | null; coupon?: string | null }) {
+async function bump(tx: TenantTransaction, accountId: string, sessionId: string,
+  set: { cart?: CartLine[]; address?: StorefrontAddress | null; coupon?: string | null; paymentMethod?: PaymentMethod }) {
+  if (set.paymentMethod !== undefined)
+    await tx.$executeRaw`UPDATE storefront_sessions SET payment_method=${set.paymentMethod}, version=version+1
+      WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid`;
   if (set.cart !== undefined)
     await tx.$executeRaw`UPDATE storefront_sessions SET cart=${JSON.stringify(set.cart.map((l) => ({ variant_id: l.variantId, qty: l.qty })))}::jsonb,
       version=version+1 WHERE account_id=${accountId}::uuid AND id=${sessionId}::uuid`;
@@ -557,6 +568,25 @@ export async function setAddressTx(tx: TenantTransaction, accountId: string, ses
   await bump(tx, accountId, sessionId, { address: input.address === null ? null : parseAddress(input.address) });
 }
 
+/**
+ * Choose how to pay: 'online' (a payment link) or 'cod' (cash on delivery). COD is refused
+ * (cod_unavailable) unless the store offers it and every product in the cart allows it; the quote
+ * checks again, since the cart or the settings can change afterwards.
+ */
+export async function setPaymentMethodTx(tx: TenantTransaction, accountId: string, sessionId: string,
+  input: { expectedVersion: number; paymentMethod: unknown }): Promise<void> {
+  if (!isPaymentMethod(input.paymentMethod)) throw new StoreError('invalid', { field: 'payment_method' });
+  const session = await lockForChange(tx, accountId, sessionId, input.expectedVersion);
+  if (input.paymentMethod === 'cod') {
+    const settings = await loadPricingSettings(tx, accountId);
+    if (!settings?.codEnabled) throw new StoreError('cod_unavailable');
+    const { lines, unmatched } = await sessionLines(tx, accountId, session);
+    const variants = await loadVariants(tx, accountId, lines.map((l) => l.variantId));
+    if (unmatched || lines.some((l) => variants.get(l.variantId)?.codAvailable !== true)) throw new StoreError('cod_unavailable');
+  }
+  if (session.payment_method !== input.paymentMethod) await bump(tx, accountId, sessionId, { paymentMethod: input.paymentMethod });
+}
+
 /** Apply (or with null remove) a coupon code. An unknown code is refused here; validity is checked by the quote. */
 export async function applyCouponTx(tx: TenantTransaction, accountId: string, sessionId: string, input: { expectedVersion: number; code: unknown }): Promise<void> {
   await lockForChange(tx, accountId, sessionId, input.expectedVersion);
@@ -589,6 +619,9 @@ export interface StorefrontOrderView {
   subtotalMinor: number;
   discountMinor: number;
   shippingMinor: number;
+  /** 'cod': the customer pays in cash on delivery (no payment link). */
+  paymentMethod: PaymentMethod;
+  codFeeMinor: number;
   taxMinor: number;
   totalMinor: number | null;
   taxInclusive: boolean | null;
@@ -605,8 +638,12 @@ export interface StorefrontOrderView {
 }
 
 export interface StorefrontView {
-  store: { title: string | null; businessName: string; currency: string | null; pricesIncludeTax: boolean; checkoutEnabled: boolean };
+  store: {
+    title: string | null; businessName: string; currency: string | null; pricesIncludeTax: boolean; checkoutEnabled: boolean;
+    codEnabled: boolean; codFeeMinor: number;
+  };
   purpose: StorefrontPurpose;
+  paymentMethod: PaymentMethod;
   version: number;
   expiresAt: string;
   open: boolean;
@@ -639,7 +676,8 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
   return {
     reference: orderReference(order.id), status: order.status, currency: order.currency,
     subtotalMinor: minorFromDb(order.subtotal_minor) ?? 0, discountMinor: minorFromDb(order.discount_minor) ?? 0,
-    shippingMinor: minorFromDb(order.shipping_minor) ?? 0, taxMinor: minorFromDb(order.tax_minor) ?? 0,
+    shippingMinor: minorFromDb(order.shipping_minor) ?? 0, paymentMethod: order.payment_method,
+    codFeeMinor: minorFromDb(order.cod_fee_minor) ?? 0, taxMinor: minorFromDb(order.tax_minor) ?? 0,
     totalMinor: minorFromDb(order.total_minor), taxInclusive: order.tax_inclusive, amountPaidMinor: minorFromDb(order.amount_paid_minor) ?? 0,
     priced: order.priced_at !== null,
     lines: items.map((i) => ({ name: i.name, sku: i.sku ?? i.retailer_id, qty: i.quantity, unitPriceMinor: minorFromDb(i.unit_price_minor) ?? 0,
@@ -695,8 +733,9 @@ export async function loadStorefrontView(tx: TenantTransaction, accountId: strin
     store: {
       title: settings?.storefront_title ?? null, businessName: account?.name ?? '', currency: settings?.currency ?? null,
       pricesIncludeTax: settings?.prices_include_tax ?? true, checkoutEnabled: !!settings?.checkout_enabled,
+      codEnabled: !!settings?.cod_enabled, codFeeMinor: settings?.cod_fee_minor ?? 0,
     },
-    purpose: session.purpose, version: session.version, expiresAt: session.expires_at.toISOString(), open,
+    purpose: session.purpose, paymentMethod: session.payment_method, version: session.version, expiresAt: session.expires_at.toISOString(), open,
     cartLocked: session.purpose !== 'shop' || placed,
     cart: lines, address: placed ? null : asAddress(session.address), couponCode: placed ? null : session.coupon_code,
     products: showCatalogue ? await loadCatalogue(tx, accountId) : [],

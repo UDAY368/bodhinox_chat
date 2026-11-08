@@ -28,7 +28,7 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export type OrderErrorCode = 'invalid' | 'not_found' | 'bad_transition' | 'conflict';
+export type OrderErrorCode = 'invalid' | 'not_found' | 'bad_transition' | 'conflict' | 'shipment_live';
 export class OrderError extends Error {
   constructor(readonly status: number, readonly code: OrderErrorCode, message: string) {
     super(message);
@@ -111,6 +111,8 @@ export interface OrderListItem {
   currency: string;
   subtotal_minor: number;
   total_minor: number | null;
+  /** 'cod': cash on delivery (the cash is recorded with Record offline payment). */
+  payment_method: 'online' | 'cod';
   item_count: number;
   contact: { id: string; name: string | null; phone: string | null } | null;
   conversation_id: string | null;
@@ -127,6 +129,8 @@ export interface OrderDetail extends OrderListItem {
   priced_at: string | null;
   discount_minor: number;
   shipping_minor: number;
+  /** The cash-on-delivery fee inside the total (its tax is inside tax_minor). */
+  cod_fee_minor: number;
   tax_minor: number;
   tax_inclusive: boolean | null;
   coupon_code: string | null;
@@ -215,7 +219,7 @@ const EPOCH_MICROS = Prisma.sql`(extract(epoch from date_trunc('second', created
 
 const listSelect = {
   id: true, source: true, external_id: true, status: true, currency: true, subtotal_minor: true, total_minor: true,
-  contact_id: true, conversation_id: true, created_at: true, updated_at: true,
+  contact_id: true, conversation_id: true, created_at: true, updated_at: true, payment_method: true,
 } as const;
 type ListRow = Prisma.ordersGetPayload<{ select: typeof listSelect }>;
 
@@ -233,7 +237,7 @@ async function decorate(tx: TenantTransaction, accountId: string, rows: ListRow[
     return {
       id: r.id, source: r.source as OrderSource, external_id: r.external_id, status: r.status as OrderStatus,
       currency: r.currency, subtotal_minor: minorFromDb(r.subtotal_minor)!, total_minor: minorFromDb(r.total_minor),
-      item_count: countOf.get(r.id) ?? 0,
+      payment_method: r.payment_method === 'cod' ? 'cod' : 'online', item_count: countOf.get(r.id) ?? 0,
       contact: contact ? { id: contact.id, name: contact.name ?? null, phone: contact.phone || null } : null,
       conversation_id: r.conversation_id, created_at: r.created_at.toISOString(), updated_at: r.updated_at.toISOString(),
     };
@@ -294,7 +298,7 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
     where: { account_id: accountId, id },
     select: {
       ...listSelect, catalog_id: true, whatsapp_config_id: true, note: true, customer_note: true,
-      priced_at: true, discount_minor: true, shipping_minor: true, tax_minor: true, tax_inclusive: true, coupon_code: true,
+      priced_at: true, discount_minor: true, shipping_minor: true, cod_fee_minor: true, tax_minor: true, tax_inclusive: true, coupon_code: true,
       shipping_address: true, reservation_expires_at: true, paid_at: true, amount_paid_minor: true, amount_refunded_minor: true,
       refund_state: true, dispatched_at: true, delivered_at: true, tracking_note: true, feedback_score: true,
     },
@@ -313,7 +317,7 @@ async function readOrder(tx: TenantTransaction, accountId: string, id: string): 
   return {
     ...base, catalog_id: row.catalog_id, whatsapp_config_id: row.whatsapp_config_id, note: row.note, customer_note: row.customer_note,
     priced_at: iso(row.priced_at), discount_minor: minorFromDb(row.discount_minor)!, shipping_minor: minorFromDb(row.shipping_minor)!,
-    tax_minor: minorFromDb(row.tax_minor)!, tax_inclusive: row.tax_inclusive, coupon_code: row.coupon_code,
+    cod_fee_minor: minorFromDb(row.cod_fee_minor) ?? 0, tax_minor: minorFromDb(row.tax_minor)!, tax_inclusive: row.tax_inclusive, coupon_code: row.coupon_code,
     shipping_address: address && typeof address === 'object' && !Array.isArray(address) ? (address as Record<string, unknown>) : null,
     reservation_expires_at: iso(row.reservation_expires_at), paid_at: iso(row.paid_at),
     amount_paid_minor: minorFromDb(row.amount_paid_minor)!, amount_refunded_minor: minorFromDb(row.amount_refunded_minor)!,
@@ -364,7 +368,9 @@ export function parseOrderPatch(body: unknown): OrderPatch {
 export async function updateOrder(ctx: TenantContext, id: string, patch: OrderPatch): Promise<OrderDetail> {
   const current = await withTenant(ctx, (tx) => readOrder(tx, ctx.accountId, id));
   if (patch.status !== undefined && patch.status !== current.status) {
-    if (!canTransition(current.status, patch.status, { priced: current.priced_at !== null }))
+    if (!canTransition(current.status, patch.status, {
+      priced: current.priced_at !== null, unpaidCod: current.payment_method === 'cod' && !current.paid_at && current.priced_at !== null,
+    }))
       throw new OrderError(409, 'bad_transition', `An order cannot move from ${current.status} to ${patch.status}`);
     if (!ctx.userId) throw new OrderError(403, 'invalid', 'A signed-in member is required');
     await transitionOrder({ ...ctx, userId: ctx.userId }, id, { from: current.status, to: patch.status });

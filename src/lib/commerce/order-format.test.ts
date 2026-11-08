@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  asOrderMessagePayload, canTransition, fillOrderPlaceholders, fulfilmentEvidence, orderContentText, orderFlowVars, orderItemsSummary,
+  asOrderMessagePayload, canTransition, fillOrderPlaceholders, fulfilmentEvidence, isUnpaidCod, orderContentText, orderFlowVars, orderItemsSummary,
   nextStatuses, ORDER_STATUSES, ORDER_TRANSITIONS, parseInboundOrder, WORKER_ONLY_STATUSES,
 } from './order-format';
 
@@ -102,6 +102,20 @@ describe('status transitions', () => {
     expect(canTransition('confirmed', 'fulfilled')).toBe(true);
     expect(canTransition('awaiting_payment', 'cancelled', { priced: true })).toBe(true);
     expect(nextStatuses('confirmed', { priced: true })).toEqual(['cancelled']);
+  });
+
+  it('ships an unpaid cash-on-delivery order before payment and cancels a refused parcel (return to origin)', () => {
+    const cod = { priced: true, unpaidCod: true };
+    expect(nextStatuses('confirmed', cod)).toEqual(['dispatched', 'fulfilled', 'cancelled']);
+    expect(nextStatuses('dispatched', cod)).toEqual(['fulfilled', 'cancelled']);
+    // Not for online orders, a paid COD order, or a COD order moved back to awaiting payment.
+    expect(canTransition('confirmed', 'dispatched', { priced: true })).toBe(false);
+    expect(canTransition('dispatched', 'cancelled', { priced: true })).toBe(false);
+    expect(nextStatuses('dispatched', { priced: true })).toEqual(['fulfilled']);
+    expect(canTransition('confirmed', 'awaiting_payment', cod)).toBe(false);
+    expect(isUnpaidCod({ payment_method: 'cod', paid_at: null })).toBe(true);
+    expect(isUnpaidCod({ payment_method: 'cod', paid_at: '2026-11-14T00:00:00Z' })).toBe(false);
+    expect(isUnpaidCod({ payment_method: 'online', paid_at: null })).toBe(false);
   });
 });
 

@@ -12,7 +12,7 @@ type Context = { params: Promise<{ id: string }> };
 
 const LABEL_KEYS: (keyof DocumentLabels)[] = [
   'receipt', 'taxInvoice', 'creditNote', 'number', 'date', 'seller', 'gstin', 'billTo', 'shipTo', 'item', 'hsn', 'qty',
-  'price', 'discount', 'tax', 'amount', 'subtotal', 'shipping', 'cgst', 'sgst', 'igst', 'total', 'taxIncluded',
+  'price', 'discount', 'tax', 'amount', 'subtotal', 'shipping', 'cgst', 'sgst', 'igst', 'total', 'taxIncluded', 'codFee',
 ];
 
 function appLocale(): string {

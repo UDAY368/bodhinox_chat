@@ -5803,7 +5803,8 @@
       "sendRejected": "O WhatsApp recusou a mensagem, então ela não foi enviada.",
       "link_exists": "Este pedido ou agendamento já tem um link de pagamento aberto. Cancele ou verifique esse link primeiro.",
       "platformKeyReuse": "Esta chave do Razorpay pertence à conta de cobrança da própria plataforma. Conecte a conta do Razorpay da sua empresa.",
-      "workspace_manual_blocked": "O suporte da Bodhinox pausou as respostas deste espaço de trabalho. Fale com o suporte da Bodhinox para mais detalhes."
+      "workspace_manual_blocked": "O suporte da Bodhinox pausou as respostas deste espaço de trabalho. Fale com o suporte da Bodhinox para mais detalhes.",
+      "cash_on_delivery": "Este é um pedido com pagamento na entrega: registre o dinheiro no pedido em vez de enviar um link de pagamento."
     },
     "commerceEvents": {
       "resolution": "Indique se o cliente recebeu a mensagem.",
@@ -7367,7 +7368,8 @@
         "cancelRefundOutsideConfirm": "Devolvi fora do Bodhinox o dinheiro que não foi pago pelo Razorpay",
         "cancelRefundDoneOutside": "Pedido cancelado. O reembolso feito fora do Bodhinox foi registrado.",
         "courierTracked": "O rastreamento do Shiprocket atualiza este pedido automaticamente. Você ainda pode registrá-lo manualmente.",
-        "shipmentLive": "Cancele o envio na transportadora antes de cancelar este pedido, ou use Devoluções se já foi coletado."
+        "shipmentLive": "Cancele o envio na transportadora antes de cancelar este pedido, ou use Devoluções se já foi coletado.",
+        "codFee": "Taxa de pagamento na entrega"
       },
       "timeline": {
         "title": "Histórico",
@@ -7392,7 +7394,8 @@
           "other": "Evento: {kind}",
           "shipment_created": "Envio pela transportadora criado",
           "shipment_cancelled": "Envio pela transportadora cancelado",
-          "shipment_correction_accepted": "Correção de rastreamento aceita"
+          "shipment_correction_accepted": "Correção de rastreamento aceita",
+          "cod_confirmed": "Pagamento na entrega escolhido"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -7417,6 +7420,12 @@
           "failed": "Falhou",
           "outcome_unknown": "Precisa de verificação"
         }
+      },
+      "cod": {
+        "badge": "Na entrega",
+        "collect": "Pagamento na entrega: receba {amount} quando o pedido for entregue.",
+        "recordCash": "Registrar dinheiro recebido",
+        "recordPayment": "Registrar pagamento"
       }
     },
     "attention": {
@@ -7589,7 +7598,9 @@
           "weight": "Gramas inteiros, até 1.000.000."
         },
         "repurchaseDays": "Lembrete de recompra após (dias)",
-        "repurchaseHint": "Opcional. Dias após a entrega para lembrar os clientes que aceitaram ofertas no checkout. Usa o modelo de lembrete de recompra das configurações da loja."
+        "repurchaseHint": "Opcional. Dias após a entrega para lembrar os clientes que aceitaram ofertas no checkout. Usa o modelo de lembrete de recompra das configurações da loja.",
+        "codAvailable": "Pagamento na entrega disponível",
+        "codAvailableHint": "Desativado, um carrinho com este produto só pode ser pago online (o pagamento na entrega também precisa estar ativo nas configurações da loja)."
       }
     },
     "inventory": {
@@ -7701,7 +7712,8 @@
         "coupon_expired": "Este cupom expirou.",
         "coupon_min_subtotal": "O carrinho está abaixo do mínimo deste cupom.",
         "amount_out_of_range": "O valor é grande demais.",
-        "too_many_open_orders": "Este cliente já tem o máximo de pedidos não pagos permitidos. Pague um ou espere que expire."
+        "too_many_open_orders": "Este cliente já tem o máximo de pedidos abertos. Antes, um pedido não pago precisa ser pago ou expirar, ou um pedido com pagamento na entrega precisa ser enviado ou cancelado.",
+        "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho."
       },
       "title": "Configurações da loja",
       "subtitle": "Moeda, impostos, checkout, dados do vendedor, frete e cupons da sua loja online.",
@@ -7765,7 +7777,14 @@
       "maxRedemptions": "Usos totais",
       "perContactLimit": "Usos por cliente",
       "startsAt": "Começa",
-      "endsAt": "Termina"
+      "endsAt": "Termina",
+      "cod": {
+        "title": "Pagamento na entrega",
+        "enabled": "Oferecer pagamento na entrega",
+        "help": "Os clientes podem pagar em dinheiro quando o pedido chegar. Só é oferecido quando todos os produtos do carrinho permitem. Você registra o dinheiro no pedido com Registrar pagamento.",
+        "fee": "Taxa de pagamento na entrega ({currency})",
+        "feeHelp": "Somada ao total do pedido quando o cliente escolhe pagamento na entrega, com a alíquota padrão. Deixe vazio para não cobrar taxa."
+      }
     },
     "storefrontLink": {
       "title": "Enviar link da loja",
@@ -7846,7 +7865,8 @@
         "sgst": "SGST",
         "igst": "IGST",
         "total": "Total",
-        "taxIncluded": "Os preços incluem impostos."
+        "taxIncluded": "Os preços incluem impostos.",
+        "codFee": "Taxa de pagamento na entrega"
       }
     },
     "shipments": {
@@ -8193,7 +8213,8 @@
         "amount_not_due": "O valor deve ser exatamente o que o pedido ainda deve.",
         "currency_mismatch": "O pagamento deve estar na moeda do pedido.",
         "link_pending": "Um link de pagamento deste pedido ainda está sendo criado ou verificado. Verifique-o primeiro na página Pagamentos.",
-        "link_paid": "O cliente acabou de pagar online, então nada foi registrado."
+        "link_paid": "O cliente acabou de pagar online, então nada foi registrado.",
+        "shipment_live": "Um envio com pagamento na entrega vai cobrar este pedido. Cancele esse envio primeiro ou registre o dinheiro quando o pedido for despachado."
       }
     },
     "exceptions": {
@@ -10129,11 +10150,21 @@
       "coupon_limit_reached": "Você já usou este cupom.",
       "order_not_open": "Este pedido não pode mais ser pago aqui.",
       "amount_out_of_range": "O valor é grande demais.",
-      "too_many_open_orders": "Você já tem pedidos não pagos reservados. Pague um ou espere que expire e tente novamente."
+      "too_many_open_orders": "Você já tem o máximo de pedidos abertos. Pague um pedido pendente, espere ele expirar ou um pedido com pagamento na entrega ser entregue, e tente de novo.",
+      "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho. Escolha pagar online."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Envie-me lembretes de recompra e ofertas pelo WhatsApp. Você pode interrompê-los a qualquer momento respondendo STOP."
-    }
+    },
+    "paymentHeading": "Pagamento",
+    "payOnline": "Pagar online agora",
+    "payCod": "Pagamento na entrega",
+    "payCodWithFee": "Pagamento na entrega (taxa de {fee})",
+    "codNotForCart": "O pagamento na entrega não está disponível para alguns itens do seu carrinho.",
+    "placeCod": "Fazer pedido, pagar {amount} na entrega",
+    "codNote": "Seu pedido está confirmado agora. Pague em dinheiro quando ele for entregue.",
+    "codFee": "Taxa de pagamento na entrega",
+    "codDue": "Pagamento na entrega: tenha {amount} em mãos quando o pedido chegar."
   },
   "OrderNotices": {
     "dispatched": "Seu pedido {ref} está a caminho.",

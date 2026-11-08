@@ -23,11 +23,11 @@ export const REFERENCE_MAX = 100;
 
 export type OfflinePaymentErrorCode =
   | 'not_found' | 'invalid_amount' | 'invalid_method' | 'invalid_reference' | 'not_payable' | 'amount_not_due'
-  | 'currency_mismatch' | 'link_pending' | 'link_paid';
+  | 'currency_mismatch' | 'link_pending' | 'link_paid' | 'shipment_live';
 
 const ERROR_STATUS: Record<OfflinePaymentErrorCode, number> = {
   not_found: 404, invalid_amount: 400, invalid_method: 400, invalid_reference: 400, not_payable: 409, amount_not_due: 409,
-  currency_mismatch: 409, link_pending: 409, link_paid: 409,
+  currency_mismatch: 409, link_pending: 409, link_paid: 409, shipment_live: 409,
 };
 
 export class OfflinePaymentError extends Error {
@@ -80,6 +80,16 @@ export function refuseLiveLinks(links: readonly LiveLink[]): void {
   if (links.some((l) => l.status === 'paid' && l.unsettled)) throw new OfflinePaymentError('link_paid');
 }
 
+/** A courier shipment of the order that may still leave (as liveShipmentExists in commerce/order-lifecycle). */
+async function liveCodShipment(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_shipments
+    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid
+      AND create_state NOT IN ('failed','cancelled')
+      AND (awb IS NOT NULL OR create_state IN ('creating','unknown') OR awb_state IN ('assigning','unknown'))
+      AND (tracking_rank IS NULL OR tracking_rank < 90)`;
+  return (row?.n ?? 0) > 0;
+}
+
 /** Records an offline payment for an order; returns the customer payment id. */
 export async function recordOfflinePayment(ctx: TenantContext & { userId: string }, orderId: string, input: OfflinePaymentInput): Promise<{ paymentId: string }> {
   await requirePermission(ctx, 'commerce.record_payments');
@@ -106,7 +116,7 @@ export async function recordOfflinePayment(ctx: TenantContext & { userId: string
   if (amountMinor <= 0) throw new OfflinePaymentError('invalid_amount');
   // Refuse a wrong amount or a closed order before touching any link; checked again under the lock below.
   const current = await withTenant(ctx, (tx) => tx.$queryRaw<OrderLockRow[]>`SELECT id::text AS id,status,source,external_id,priced_at,total_minor,subtotal_minor,
-      amount_paid_minor,currency,contact_id::text AS contact_id,conversation_id::text AS conversation_id
+      amount_paid_minor,currency,contact_id::text AS contact_id,conversation_id::text AS conversation_id,payment_method,paid_at
     FROM orders WHERE account_id=${ctx.accountId}::uuid AND id=${orderId}::uuid`, db);
   if (current[0]) planOrThrow(current[0], amountMinor);
 
@@ -127,6 +137,10 @@ export async function recordOfflinePayment(ctx: TenantContext & { userId: string
     const order = await lockOrderTx(tx, ctx.accountId, orderId);
     if (!order) throw new OfflinePaymentError('not_found');
     planOrThrow(order, amountMinor);
+    // A COD courier shipment for this still-confirmed order will collect the total at the door: taking the money now as
+    // well would charge twice. Staff cancel that shipment first (once it has left, the order is dispatched and cash is fine).
+    if (order.payment_method === 'cod' && !order.paid_at && order.status === 'confirmed' && (await liveCodShipment(tx, ctx.accountId, orderId)))
+      throw new OfflinePaymentError('shipment_live');
     // Again under the order lock: a link may have been paid since the check above.
     refuseLiveLinks(await liveLinks(tx, ctx.accountId, orderId));
     await tx.$executeRaw`INSERT INTO customer_payments(id,account_id,source,order_id,amount_minor,currency,status,method,offline_reference,recorded_by,captured_at)

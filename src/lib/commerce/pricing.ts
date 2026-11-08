@@ -11,8 +11,12 @@
  *  3. the discount is split across lines by largest remainder on line_gross
  *  4. taxable = line_gross − line_discount; exclusive tax = round(taxable × bps);
  *     inclusive tax = taxable − round(taxable × 10000 / (10000 + bps))
- *  5. shipping is taxed the same way at its own rate
- *  6. total = subtotal − discount + shipping + (inclusive ? 0 : tax_total)
+ *  5. shipping is taxed the same way at its own rate; a cash-on-delivery (COD)
+ *     fee is taxed like shipping at the store's default rate
+ *  6. total = subtotal − discount + shipping + cod_fee + (inclusive ? 0 : tax_total)
+ *
+ * The COD fee is never discounted and never counts toward a coupon minimum or
+ * a shipping band: those read the merchandise amount only.
  *
  * Refusals are codes, never guesses: an unpriced line, a needed tax rate that
  * is not configured, or no matching shipping rate refuses instead of
@@ -34,7 +38,12 @@ export type PricingRefusal =
   | 'coupon_not_started'
   | 'coupon_expired'
   | 'coupon_min_subtotal'
-  | 'amount_out_of_range';
+  | 'amount_out_of_range'
+  | 'cod_unavailable';
+
+export type PaymentMethod = 'online' | 'cod';
+export const PAYMENT_METHODS: readonly PaymentMethod[] = ['online', 'cod'];
+export const isPaymentMethod = (value: unknown): value is PaymentMethod => value === 'online' || value === 'cod';
 
 export interface PricingVariant {
   id: string;
@@ -48,12 +57,18 @@ export interface PricingVariant {
   trackInventory: boolean;
   /** Published product and not archived. */
   sellable: boolean;
+  /** The product allows cash on delivery (absent = allowed). */
+  codAvailable?: boolean;
 }
 
 export interface PricingSettings {
   currency: string;
   pricesIncludeTax: boolean;
   defaultTaxRateBps: number | null;
+  /** The store offers cash on delivery (absent = off). */
+  codEnabled?: boolean;
+  /** The COD fee in minor units (absent = 0). */
+  codFeeMinor?: number;
 }
 
 export interface PricingShippingRate {
@@ -97,6 +112,8 @@ export interface QuoteLine {
   optionValues: Record<string, string>;
   hsnCode: string | null;
   trackInventory: boolean;
+  /** This line's product allows cash on delivery. */
+  codAvailable: boolean;
   qty: number;
   unitPriceMinor: number;
   grossMinor: number;
@@ -117,7 +134,14 @@ export interface Quote {
   /** null until an address is known (a quote without shipping cannot be placed). */
   shipping: { rateId: string; name: string; feeMinor: number; taxRateBps: number; taxMinor: number } | null;
   shippingMinor: number;
-  /** Line tax plus shipping tax. */
+  /** How the customer pays: online (payment link) or cash on delivery. */
+  paymentMethod: PaymentMethod;
+  /** The store offers COD and every line's product allows it. */
+  codAvailable: boolean;
+  /** The COD fee line, only when paying by COD. */
+  codFee: { feeMinor: number; taxRateBps: number; taxMinor: number } | null;
+  codFeeMinor: number;
+  /** Line tax plus shipping tax plus COD fee tax. */
   taxMinor: number;
   totalMinor: number;
 }
@@ -134,6 +158,8 @@ export interface PriceCartInput {
   /** The coupon the session applied (looked up by code), null for none; `missing` when the code matched nothing. */
   coupon: PricingCoupon | null | 'missing';
   address: PricingAddress | null;
+  /** The customer's choice (absent = online). COD is refused unless the store and every product allow it. */
+  paymentMethod?: PaymentMethod;
   now?: Date;
 }
 
@@ -241,7 +267,7 @@ export function priceCart(input: PriceCartInput): PricingResult {
     return {
       variantId: p.variant.id, productId: p.variant.productId, productName: p.variant.productName, sku: p.variant.sku,
       optionValues: p.variant.optionValues, hsnCode: p.variant.hsnCode, trackInventory: p.variant.trackInventory,
-      qty: p.qty, unitPriceMinor: p.unit, grossMinor: p.gross, discountMinor: shares[i], taxRateBps: p.bps, taxMinor: tax,
+      codAvailable: p.variant.codAvailable !== false, qty: p.qty, unitPriceMinor: p.unit, grossMinor: p.gross, discountMinor: shares[i], taxRateBps: p.bps, taxMinor: tax,
       lineTotalMinor: inclusive ? taxable : taxable + tax,
     };
   });
@@ -260,15 +286,32 @@ export function priceCart(input: PriceCartInput): PricingResult {
     shipping = { rateId: rate.id, name: rate.name, feeMinor: rate.feeMinor, taxRateBps: bps, taxMinor: taxOn(rate.feeMinor, bps, inclusive) };
   }
   const shippingMinor = shipping?.feeMinor ?? 0;
-  const taxMinor = safeAdd(lineTax, shipping?.taxMinor ?? 0);
+
+  const paymentMethod: PaymentMethod = input.paymentMethod ?? 'online';
+  const codAvailable = settings.codEnabled === true && quoteLines.every((l) => l.codAvailable);
+  let codFee: Quote['codFee'] = null;
+  if (paymentMethod === 'cod') {
+    if (!codAvailable) return { ok: false, code: 'cod_unavailable' };
+    const feeMinor = settings.codFeeMinor ?? 0;
+    if (!Number.isSafeInteger(feeMinor) || feeMinor < 0 || feeMinor > MAX_MINOR) return { ok: false, code: 'amount_out_of_range' };
+    let bps = settings.defaultTaxRateBps;
+    if (bps === null) {
+      if (feeMinor > 0) return { ok: false, code: 'tax_not_configured' };
+      bps = 0;
+    }
+    codFee = { feeMinor, taxRateBps: bps, taxMinor: taxOn(feeMinor, bps, inclusive) };
+  }
+  const codFeeMinor = codFee?.feeMinor ?? 0;
+
+  const taxMinor = safeAdd(lineTax, shipping?.taxMinor ?? 0, codFee?.taxMinor ?? 0);
   if (taxMinor === null) return { ok: false, code: 'amount_out_of_range' };
-  const total = safeAdd(subtotal - discount, shippingMinor, inclusive ? 0 : taxMinor);
+  const total = safeAdd(subtotal - discount, shippingMinor, codFeeMinor, inclusive ? 0 : taxMinor);
   if (total === null) return { ok: false, code: 'amount_out_of_range' };
   return {
     ok: true,
     quote: {
       currency: settings.currency, taxInclusive: inclusive, lines: quoteLines, subtotalMinor: subtotal, discountMinor: discount,
-      couponCode, shipping, shippingMinor, taxMinor, totalMinor: total,
+      couponCode, shipping, shippingMinor, paymentMethod, codAvailable, codFee, codFeeMinor, taxMinor, totalMinor: total,
     },
   };
 }

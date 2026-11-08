@@ -134,6 +134,8 @@ export async function createReturn(ctx: StaffContext, orderId: string, input: { 
   return asStaff(ctx, async (tx) => {
     const order = await lockOrder(tx, ctx.accountId, orderId);
     if (!RETURNABLE.has(order.status)) throw new OrderError(409, 'bad_transition', 'Only a dispatched or delivered order can be returned');
+    // Its stock is still only held: a refused COD parcel is cancelled (releasing the hold once), never restocked as a return.
+    if (order.unpaidCod) throw new OrderError(409, 'bad_transition', 'An unpaid cash-on-delivery order that comes back is cancelled, not returned');
     const ordered = await tx.$queryRaw<{ id: string; quantity: number }[]>`SELECT id::text AS id, quantity FROM order_items
       WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid`;
     const taken = await tx.$queryRaw<{ id: string; qty: number }[]>`

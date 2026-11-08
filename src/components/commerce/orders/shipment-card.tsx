@@ -27,8 +27,10 @@ import { shipmentTrackingUrl, type OrderShipmentView } from "@/lib/fulfilment/ty
 
 export interface ShipmentCardProps {
   orderId: string;
-  /** The order status (a shipment can be created only for a paid order). */
+  /** The order status (a shipment can be created only for a paid order, or an unpaid cash-on-delivery order still confirmed). */
   orderStatus: string;
+  /** A cash-on-delivery order whose cash is not recorded: it ships unpaid. */
+  unpaidCod?: boolean;
   /** Called after a create, cancel or assign-again so the panel reloads. */
   onChanged?: () => void;
 }
@@ -55,7 +57,8 @@ async function errorText(res: Response, fallback: string): Promise<string> {
   return typeof json.error === "string" ? json.error : fallback;
 }
 
-export function ShipmentCard({ orderId, orderStatus, onChanged }: ShipmentCardProps) {
+export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, onChanged }: ShipmentCardProps) {
+  const readyToShip = orderStatus === "paid" || (orderStatus === "confirmed" && unpaidCod);
   const t = useTranslations("Commerce.shipments");
   const canManage = useCan("edit-settings");
   const [state, setState] = useState<ShipmentState | null>(null);
@@ -91,7 +94,7 @@ export function ShipmentCard({ orderId, orderStatus, onChanged }: ShipmentCardPr
   const shipment = state.shipment;
   const live = shipment && shipment.create_state !== "failed" && shipment.create_state !== "cancelled";
   const trackUrl = shipmentTrackingUrl(shipment?.awb);
-  const canCreate = state.connected && canManage && orderStatus === "paid" && !live;
+  const canCreate = state.connected && canManage && readyToShip && !live;
 
   const openForm = () => {
     const d = state.defaults;
@@ -243,7 +246,7 @@ export function ShipmentCard({ orderId, orderStatus, onChanged }: ShipmentCardPr
           </div>
         </div>
       )}
-      {state.connected && !canManage && orderStatus === "paid" && !live && (
+      {state.connected && !canManage && readyToShip && !live && (
         <p className="text-xs text-muted-foreground">{t("adminOnly")}</p>
       )}
     </div>

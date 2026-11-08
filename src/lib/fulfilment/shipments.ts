@@ -103,16 +103,23 @@ interface OrderRow {
   total_minor: bigint | number | null;
   shipping_minor: bigint | number;
   discount_minor: bigint | number;
+  /** A cash-on-delivery order whose cash is not recorded: it ships unpaid and the courier collects the total. */
+  unpaid_cod: boolean;
 }
 
 /** Locks the order row first (D16), with what a shipment needs. */
 async function lockOrderRow(tx: TenantTransaction, accountId: string, orderId: string): Promise<OrderRow | null> {
   const [row] = await tx.$queryRaw<OrderRow[]>`SELECT o.id::text AS id, o.status, o.source, o.currency, o.shipping_address,
-      c.email AS contact_email, o.created_at, o.total_minor, o.shipping_minor, o.discount_minor
+      c.email AS contact_email, o.created_at, o.total_minor, o.shipping_minor, o.discount_minor,
+      (o.payment_method='cod' AND o.paid_at IS NULL AND o.priced_at IS NOT NULL) AS unpaid_cod
     FROM orders o LEFT JOIN contacts c ON c.account_id=o.account_id AND c.id=o.contact_id
     WHERE o.account_id=${accountId}::uuid AND o.id=${orderId}::uuid FOR UPDATE OF o`;
   return row ?? null;
 }
+
+/** Ready to hand to the courier: paid, or an unpaid cash-on-delivery order still confirmed. */
+const readyToShip = (order: Pick<OrderRow, 'status' | 'unpaid_cod'>): boolean =>
+  order.status === 'paid' || (order.status === 'confirmed' && order.unpaid_cod);
 
 /** Refunds that will restock the whole order when processed (not a return's), still in flight (as order-lifecycle). */
 async function restockRefundInFlight(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
@@ -219,10 +226,13 @@ async function adhocPayload(tx: TenantTransaction, accountId: string, order: Ord
       tax: i.tax_rate_bps ? i.tax_rate_bps / 100 : 0,
       ...(i.hsn_code && /^[0-9]{4,8}$/.test(i.hsn_code) ? { hsn: i.hsn_code } : {}),
     })),
-    payment_method: 'Prepaid',
+    // The courier collects the order total (COD fee included in sub_total) for an unpaid COD order.
+    payment_method: order.unpaid_cod ? 'COD' : 'Prepaid',
     shipping_charges: rupees(order.shipping_minor),
     total_discount: rupees(order.discount_minor),
-    sub_total: rupees(BigInt(total) - BigInt(order.shipping_minor ?? 0)),
+    // Shiprocket takes total = sub_total + shipping_charges - total_discount, so sub_total is before the discount
+    // (total_minor is after it); for COD that total is what the courier collects.
+    sub_total: rupees(BigInt(total) - BigInt(order.shipping_minor ?? 0) + BigInt(order.discount_minor ?? 0)),
     length: Number(shipment.length_cm),
     breadth: Number(shipment.breadth_cm),
     height: Number(shipment.height_cm),
@@ -335,7 +345,7 @@ export async function requestShipment(ctx: FulfilmentActor, orderId: string, dim
       if (!order) throw new ShipmentError('not_found');
       // Shopify and WooCommerce orders are fulfilled by their own stores (design §11).
       if (order.source === 'shopify' || order.source === 'woocommerce') throw new ShipmentError('invalid');
-      if (order.status !== 'paid') throw new ShipmentError('order_not_paid');
+      if (!readyToShip(order)) throw new ShipmentError('order_not_paid');
       const [live] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM order_shipments
         WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1`;
       if (live) throw new ShipmentError('shipment_exists');
@@ -367,7 +377,7 @@ export async function reassignAwb(ctx: FulfilmentActor, orderId: string): Promis
   await asWorker(ctx.accountId, async (tx) => {
     const order = await lockOrderRow(tx, ctx.accountId, orderId);
     if (!order) throw new ShipmentError('not_found');
-    if (order.status !== 'paid') throw new ShipmentError('order_not_paid');
+    if (!readyToShip(order)) throw new ShipmentError('order_not_paid');
     if (await restockRefundInFlight(tx, ctx.accountId, orderId)) throw new ShipmentError('refund_in_flight');
     const [row] = await tx.$queryRaw<ShipmentRow[]>`SELECT ${SHIPMENT_COLUMNS} FROM order_shipments
       WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1 FOR UPDATE`;
@@ -508,7 +518,7 @@ async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
       }
       // Never sent: safe to refuse without any provider call.
       if (!connected) return fail('create_state', conn && conn.id === row.connection_id ? 'auth' : 'not_connected');
-      if (order.status !== 'paid') return fail('create_state', 'order_not_paid');
+      if (!readyToShip(order)) return fail('create_state', 'order_not_paid');
       if (await restockRefundInFlight(tx, accountId, order.id)) return fail('create_state', 'refund_in_flight');
       const payload = await adhocPayload(tx, accountId, order, row, conn!.pickup ?? '', conn!.email);
       if (!payload || !conn!.pickup) return fail('create_state', 'address_incomplete');
@@ -526,8 +536,9 @@ async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
     }
     // awb_state none (or a claimless 'assigning', which cannot have been sent).
     if (!connected) return { kind: 'done' };
-    // The AWB spends the wallet: only for an order still paid (or already marked dispatched by staff) and not being refunded.
-    if (order.status !== 'paid' && order.status !== 'dispatched') return fail('awb_state', 'order_not_paid');
+    // The AWB spends the wallet: only for an order still paid or an unpaid COD order still confirmed (or already marked
+    // dispatched by staff) and not being refunded.
+    if (!readyToShip(order) && order.status !== 'dispatched') return fail('awb_state', 'order_not_paid');
     if (await restockRefundInFlight(tx, accountId, order.id)) return fail('awb_state', 'refund_in_flight');
     if (!row.sr_shipment_id) return { kind: 'done' };
     return { kind: 'awb', token: await claim(true), srShipmentId: row.sr_shipment_id };

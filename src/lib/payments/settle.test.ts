@@ -3,7 +3,8 @@ import { orderDue, orderSettlementPlan } from './settle';
 import { allowedResolutions } from './exceptions';
 import { stableUuid } from './ledger';
 
-const order = (status: string, extra: Partial<{ total_minor: number | null; subtotal_minor: number; amount_paid_minor: number; currency: string }> = {}) => ({
+const order = (status: string, extra: Partial<{ total_minor: number | null; subtotal_minor: number; amount_paid_minor: number; currency: string;
+  payment_method: string; paid_at: Date | null }> = {}) => ({
   status, currency: 'INR', total_minor: 10_000, subtotal_minor: 10_000, amount_paid_minor: 0, ...extra,
 });
 const pay = (amountMinor = 10_000, currency = 'INR') => ({ amountMinor, currency });
@@ -22,6 +23,15 @@ describe('orderSettlementPlan (design E9)', () => {
     expect(orderSettlementPlan(order('awaiting_payment', { amount_paid_minor: 4_000 }), pay(10_000))).toBe('amount_mismatch');
     expect(orderSettlementPlan(order('awaiting_payment'), pay(9_999))).toBe('amount_mismatch');
     expect(orderSettlementPlan(order('awaiting_payment', { amount_paid_minor: 10_000 }), pay())).toBe('duplicate_payment');
+  });
+
+  it('credits the cash of a cash-on-delivery order once shipped, but never twice', () => {
+    for (const status of ['confirmed', 'dispatched', 'fulfilled'])
+      expect(orderSettlementPlan(order(status, { payment_method: 'cod', paid_at: null }), pay())).toBe('credit');
+    const paidAt = new Date('2026-11-14T00:00:00Z');
+    expect(orderSettlementPlan(order('dispatched', { payment_method: 'cod', paid_at: paidAt, amount_paid_minor: 10_000 }), pay())).toBe('duplicate_payment');
+    expect(orderSettlementPlan(order('dispatched', { payment_method: 'online', paid_at: null }), pay())).toBe('duplicate_payment');
+    expect(orderSettlementPlan(order('dispatched', { payment_method: 'cod', paid_at: null }), pay(9_000))).toBe('amount_mismatch');
   });
 
   it('never credits a closed, paid or foreign-currency order', () => {

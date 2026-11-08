@@ -29,12 +29,14 @@ export function OrderSummary({ order, locale }: { order: StorefrontOrderView; lo
   const t = useTranslations('Storefront');
   const paid = PAID.has(order.status);
   const closed = CLOSED.has(order.status);
-  const Icon = paid ? CheckCircle2 : closed ? XCircle : Clock;
+  // A cash-on-delivery order is confirmed at placing; the customer pays when it arrives.
+  const codDue = order.paymentMethod === 'cod' && order.priced && !closed && !order.paidAt;
+  const Icon = paid || codDue ? CheckCircle2 : closed ? XCircle : Clock;
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Icon className={paid ? 'size-5 text-green-600' : closed ? 'size-5 text-destructive' : 'size-5 text-amber-600'} aria-hidden />
+          <Icon className={paid || codDue ? 'size-5 text-green-600' : closed ? 'size-5 text-destructive' : 'size-5 text-amber-600'} aria-hidden />
           {t(`orderStatus.${order.status}`)}
         </CardTitle>
         <CardDescription>{t('orderReference', { reference: order.reference })}</CardDescription>
@@ -56,6 +58,11 @@ export function OrderSummary({ order, locale }: { order: StorefrontOrderView; lo
           </p>
         )}
         {order.status === 'payment_review' && <p className="text-sm text-muted-foreground">{t('paymentReview')}</p>}
+        {codDue && (
+          <p className="rounded-md bg-muted p-3 text-sm">
+            {t('codDue', { amount: money(order.totalMinor !== null ? order.totalMinor - order.amountPaidMinor : null, order.currency, locale) })}
+          </p>
+        )}
         {order.documentNumber && <p className="text-sm">{t('receiptNumber', { number: order.documentNumber })}</p>}
         <ul className="divide-y text-sm">
           {order.lines.map((line, i) => (
@@ -81,6 +88,7 @@ function Totals({ order, locale }: { order: StorefrontOrderView; locale: string 
       {row(t('subtotal'), money(order.subtotalMinor, order.currency, locale))}
       {order.discountMinor > 0 && row(t('discount'), `−${money(order.discountMinor, order.currency, locale)}`)}
       {row(t('shipping'), money(order.shippingMinor, order.currency, locale))}
+      {order.codFeeMinor > 0 && row(t('codFee'), money(order.codFeeMinor, order.currency, locale))}
       {row(order.taxInclusive ? t('taxIncluded') : t('tax'), money(order.taxMinor, order.currency, locale))}
       {row(t('total'), money(order.totalMinor, order.currency, locale), true)}
     </div>

@@ -12,6 +12,8 @@ const KNOWN_EVENTS = new Set([
   "return_rejected", "return_refund_requested",
   // Courier shipments (Phase 9): created, cancelled, and an admin-accepted tracking correction.
   "shipment_created", "shipment_cancelled", "shipment_correction_accepted",
+  // Cash on delivery chosen at checkout.
+  "cod_confirmed",
 ]);
 
 /** The order's history, its documents and how each customer notice went. */

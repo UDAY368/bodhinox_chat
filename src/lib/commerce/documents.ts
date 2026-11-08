@@ -62,6 +62,8 @@ export interface CommerceDocument {
   subtotal_minor: number;
   discount_minor: number;
   shipping_minor: number;
+  /** The cash-on-delivery fee (its tax is inside tax_minor); 0 when none. */
+  cod_fee_minor: number;
   tax_minor: number;
   cgst_minor: number;
   sgst_minor: number;
@@ -165,12 +167,13 @@ async function nextNumber(tx: TenantTransaction, accountId: string, fy: string):
 interface OrderSnapshot {
   id: string; contact_id: string | null; currency: string; subtotal_minor: bigint; discount_minor: bigint; shipping_minor: bigint;
   tax_minor: bigint; total_minor: bigint | null; tax_inclusive: boolean | null; priced_at: Date | null; shipping_address: unknown;
+  cod_fee_minor: bigint;
 }
 
 async function orderSnapshot(tx: TenantTransaction, accountId: string, orderId: string) {
   const [order] = await tx.$queryRaw<OrderSnapshot[]>`
     SELECT id, contact_id, currency, subtotal_minor, discount_minor, shipping_minor, tax_minor, total_minor, tax_inclusive,
-      priced_at, shipping_address
+      priced_at, shipping_address, cod_fee_minor
     FROM orders WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid`;
   if (!order) return null;
   const items = await tx.$queryRaw<{
@@ -199,6 +202,7 @@ async function orderSnapshot(tx: TenantTransaction, accountId: string, orderId: 
     subtotal_minor: subtotal,
     discount_minor: priced ? minorFromDb(order.discount_minor)! : 0,
     shipping_minor: priced ? minorFromDb(order.shipping_minor)! : 0,
+    cod_fee_minor: priced ? minorFromDb(order.cod_fee_minor) ?? 0 : 0,
     tax_minor: priced ? minorFromDb(order.tax_minor)! : 0,
     total_minor: minorFromDb(order.total_minor) ?? subtotal,
     tax_inclusive: priced ? order.tax_inclusive : null,
@@ -220,6 +224,8 @@ interface Draft {
   address: Record<string, string> | null;
   lines: DocumentLine[];
   subtotal: number; discount: number; shipping: number; tax: number; total: number;
+  /** The COD fee line (absent = 0). */
+  codFee?: number;
 }
 
 async function insertDocument(tx: TenantTransaction, accountId: string, draft: Draft): Promise<string> {
@@ -233,12 +239,12 @@ async function insertDocument(tx: TenantTransaction, accountId: string, draft: D
   const [row] = await tx.$queryRaw<{ id: string }[]>`
     INSERT INTO commerce_documents(account_id, order_id, appointment_id, payment_id, refund_id, kind, number, fy, currency,
       seller, buyer, address, line_items, subtotal_minor, discount_minor, shipping_minor, tax_minor, cgst_minor, sgst_minor,
-      igst_minor, total_minor, issued_at)
+      igst_minor, total_minor, issued_at, cod_fee_minor)
     VALUES(${accountId}::uuid, ${draft.orderId}::uuid, ${draft.appointmentId}::uuid, ${draft.paymentId}::uuid,
       ${draft.refundId}::uuid, ${draft.kind}, ${number}, ${fy}, ${draft.currency}, ${JSON.stringify(sellerJson)}::jsonb,
       ${JSON.stringify({ name: draft.buyer })}::jsonb, ${draft.address ? JSON.stringify(draft.address) : null}::jsonb,
       ${JSON.stringify(draft.lines)}::jsonb, ${draft.subtotal}, ${draft.discount}, ${draft.shipping}, ${draft.tax},
-      ${split.cgst_minor}, ${split.sgst_minor}, ${split.igst_minor}, ${draft.total}, ${now})
+      ${split.cgst_minor}, ${split.sgst_minor}, ${split.igst_minor}, ${draft.total}, ${now}, ${draft.codFee ?? 0})
     RETURNING id::text AS id`;
   if (draft.orderId) {
     await tx.$executeRaw`INSERT INTO order_events(account_id, order_id, kind, actor, detail)
@@ -282,7 +288,7 @@ export async function issueReceiptTx(tx: TenantTransaction, accountId: string, p
       kind: 'receipt', currency: snap.order.currency, orderId: payment.order_id, appointmentId: null, paymentId, refundId: null,
       buyer: await buyerName(tx, accountId, snap.order.contact_id), address: documentAddress(snap.order.shipping_address),
       lines: snap.lines, subtotal: snap.subtotal_minor, discount: snap.discount_minor, shipping: snap.shipping_minor,
-      tax: snap.tax_minor, total: snap.total_minor,
+      codFee: snap.cod_fee_minor, tax: snap.tax_minor, total: snap.total_minor,
     });
   }
   if (payment.appointment_id) {
@@ -383,7 +389,7 @@ interface DocumentDbRow {
   appointment_id: string | null; payment_id: string | null; refund_id: string | null; seller: unknown; buyer: unknown;
   address: unknown; line_items: unknown; subtotal_minor: bigint; discount_minor: bigint; shipping_minor: bigint;
   tax_minor: bigint; cgst_minor: bigint; sgst_minor: bigint; igst_minor: bigint; total_minor: bigint;
-  tax_inclusive: boolean | null; issued_at: Date;
+  tax_inclusive: boolean | null; issued_at: Date; cod_fee_minor: bigint;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -401,7 +407,7 @@ function toDocument(row: DocumentDbRow): CommerceDocument {
     address: row.address ? Object.fromEntries(Object.entries(address).filter(([, v]) => typeof v === 'string')) as Record<string, string> : null,
     line_items: Array.isArray(row.line_items) ? (row.line_items as DocumentLine[]) : [],
     subtotal_minor: minorFromDb(row.subtotal_minor)!, discount_minor: minorFromDb(row.discount_minor)!,
-    shipping_minor: minorFromDb(row.shipping_minor)!, tax_minor: minorFromDb(row.tax_minor)!,
+    shipping_minor: minorFromDb(row.shipping_minor)!, cod_fee_minor: minorFromDb(row.cod_fee_minor) ?? 0, tax_minor: minorFromDb(row.tax_minor)!,
     cgst_minor: minorFromDb(row.cgst_minor)!, sgst_minor: minorFromDb(row.sgst_minor)!, igst_minor: minorFromDb(row.igst_minor)!,
     total_minor: minorFromDb(row.total_minor)!, tax_inclusive: row.tax_inclusive, issued_at: row.issued_at.toISOString(),
   };
@@ -414,7 +420,7 @@ export async function getCommerceDocument(ctx: TenantContext, id: string): Promi
       SELECT d.id::text AS id, d.kind, d.number, d.fy, d.currency, d.order_id::text AS order_id,
         d.appointment_id::text AS appointment_id, d.payment_id::text AS payment_id, d.refund_id::text AS refund_id,
         d.seller, d.buyer, d.address, d.line_items, d.subtotal_minor, d.discount_minor, d.shipping_minor, d.tax_minor,
-        d.cgst_minor, d.sgst_minor, d.igst_minor, d.total_minor, o.tax_inclusive, d.issued_at
+        d.cgst_minor, d.sgst_minor, d.igst_minor, d.total_minor, o.tax_inclusive, d.issued_at, d.cod_fee_minor
       FROM commerce_documents d LEFT JOIN orders o ON o.account_id=d.account_id AND o.id=d.order_id
       WHERE d.account_id=${ctx.accountId}::uuid AND d.id=${id}::uuid`;
     return row ? toDocument(row) : null;
@@ -429,7 +435,7 @@ export interface DocumentLabels {
   receipt: string; taxInvoice: string; creditNote: string; number: string; date: string; seller: string; gstin: string;
   billTo: string; shipTo: string; item: string; hsn: string; qty: string; price: string; discount: string; tax: string;
   amount: string; subtotal: string; shipping: string; cgst: string; sgst: string; igst: string; total: string;
-  taxIncluded: string;
+  taxIncluded: string; codFee: string;
 }
 
 /**
@@ -453,6 +459,7 @@ export function renderCommerceDocumentHtml(doc: CommerceDocument, labels: Docume
     total(labels.subtotal, doc.subtotal_minor),
     doc.discount_minor ? total(labels.discount, doc.discount_minor) : '',
     doc.shipping_minor ? total(labels.shipping, doc.shipping_minor) : '',
+    doc.cod_fee_minor ? total(labels.codFee, doc.cod_fee_minor) : '',
     doc.cgst_minor ? total(labels.cgst, doc.cgst_minor) : '',
     doc.sgst_minor ? total(labels.sgst, doc.sgst_minor) : '',
     doc.igst_minor ? total(labels.igst, doc.igst_minor) : '',

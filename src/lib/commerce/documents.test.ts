@@ -86,9 +86,15 @@ describe('renderCommerceDocumentHtml', () => {
     address: { line1: '"><img src=x onerror=alert(1)>' },
     line_items: [{ name: '<b>Tea</b>', sku: 'T-1', hsn_code: '0902', quantity: 2, unit_price_minor: 10000, discount_minor: 0,
       tax_rate_bps: 500, tax_minor: 952, line_total_minor: 20000 }],
-    subtotal_minor: 20000, discount_minor: 0, shipping_minor: 0, tax_minor: 952, cgst_minor: 476, sgst_minor: 476, igst_minor: 0,
-    total_minor: 20000, tax_inclusive: true, issued_at: '2026-11-03T10:00:00.000Z',
+    subtotal_minor: 20000, discount_minor: 0, shipping_minor: 0, cod_fee_minor: 0, tax_minor: 952, cgst_minor: 476, sgst_minor: 476,
+    igst_minor: 0, total_minor: 20000, tax_inclusive: true, issued_at: '2026-11-03T10:00:00.000Z',
   };
+
+  it('prints the cash-on-delivery fee as its own line only when there is one', () => {
+    expect(renderCommerceDocumentHtml(doc, labels)).not.toContain('codFee');
+    const html = renderCommerceDocumentHtml({ ...doc, cod_fee_minor: 4000, total_minor: 24000 }, labels);
+    expect(html).toMatch(/<td>codFee<\/td><td class="num">[^<]*40[^<]*<\/td>/);
+  });
 
   it('escapes every value and has no script or external resource', () => {
     const html = renderCommerceDocumentHtml(doc, labels);

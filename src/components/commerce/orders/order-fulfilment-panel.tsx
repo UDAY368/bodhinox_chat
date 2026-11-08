@@ -39,8 +39,9 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
   const [outsideConfirmed, setOutsideConfirmed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const priced = order.priced_at !== null;
-  const canDispatch = canTransition(order.status, "dispatched", { priced });
-  const canDeliver = canTransition(order.status, "fulfilled", { priced });
+  const unpaidCod = order.payment_method === "cod" && !order.paid_at && priced;
+  const canDispatch = canTransition(order.status, "dispatched", { priced, unpaidCod });
+  const canDeliver = canTransition(order.status, "fulfilled", { priced, unpaidCod });
   const delivered = order.status === "fulfilled";
   const canCancelRefund = order.status === "paid" && canRefund;
   const shipment = order.shipment ?? null;
@@ -78,7 +79,7 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
           </span>
         )}
       </div>
-      <ShipmentCard orderId={order.id} orderStatus={order.status} onChanged={() => void onChanged()} />
+      <ShipmentCard orderId={order.id} orderStatus={order.status} unpaidCod={unpaidCod} onChanged={() => void onChanged()} />
       {order.tracking_note && (
         <p className="text-xs text-muted-foreground break-words">{t("trackingShown", { note: order.tracking_note })}</p>
       )}

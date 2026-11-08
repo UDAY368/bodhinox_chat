@@ -5803,7 +5803,8 @@
       "sendRejected": "WhatsApp이 메시지를 거부하여 보내지 않았습니다.",
       "link_exists": "이 주문 또는 예약에는 이미 열려 있는 결제 링크가 있습니다. 먼저 해당 링크를 취소하거나 확인하세요.",
       "platformKeyReuse": "이 Razorpay 키는 플랫폼 자체 결제 계정의 키입니다. 대신 비즈니스의 Razorpay 계정을 연결하세요.",
-      "workspace_manual_blocked": "Bodhinox 지원팀이 이 워크스페이스의 답장을 일시 중지했습니다. 자세한 내용은 Bodhinox 지원팀에 문의하세요."
+      "workspace_manual_blocked": "Bodhinox 지원팀이 이 워크스페이스의 답장을 일시 중지했습니다. 자세한 내용은 Bodhinox 지원팀에 문의하세요.",
+      "cash_on_delivery": "착불 주문입니다. 결제 링크 대신 주문에서 현금 결제를 기록하세요."
     },
     "commerceEvents": {
       "resolution": "고객이 메시지를 받았는지 선택하세요.",
@@ -7367,7 +7368,8 @@
         "cancelRefundOutsideConfirm": "Razorpay로 결제되지 않은 금액을 Bodhinox 외부에서 돌려주었습니다",
         "cancelRefundDoneOutside": "주문이 취소되었습니다. Bodhinox 외부에서 처리한 환불이 기록되었습니다.",
         "courierTracked": "Shiprocket 배송 추적이 이 주문을 자동으로 업데이트합니다. 직접 기록할 수도 있습니다.",
-        "shipmentLive": "이 주문을 취소하기 전에 택배 발송을 먼저 취소하거나, 이미 수거되었다면 반품을 이용하세요."
+        "shipmentLive": "이 주문을 취소하기 전에 택배 발송을 먼저 취소하거나, 이미 수거되었다면 반품을 이용하세요.",
+        "codFee": "착불 수수료"
       },
       "timeline": {
         "title": "기록",
@@ -7392,7 +7394,8 @@
           "other": "이벤트: {kind}",
           "shipment_created": "택배 발송 생성됨",
           "shipment_cancelled": "택배 발송 취소됨",
-          "shipment_correction_accepted": "배송 추적 정정 승인됨"
+          "shipment_correction_accepted": "배송 추적 정정 승인됨",
+          "cod_confirmed": "착불 결제 선택"
         },
         "documents": "문서",
         "documentKinds": {
@@ -7417,6 +7420,12 @@
           "failed": "실패",
           "outcome_unknown": "확인 필요"
         }
+      },
+      "cod": {
+        "badge": "착불",
+        "collect": "착불: 배송 시 {amount}을(를) 받으세요.",
+        "recordCash": "받은 현금 기록",
+        "recordPayment": "결제 기록"
       }
     },
     "attention": {
@@ -7589,7 +7598,9 @@
           "weight": "정수 그램, 최대 1,000,000."
         },
         "repurchaseDays": "재주문 알림 시점(일)",
-        "repurchaseHint": "선택 사항. 결제 시 혜택 수신에 동의한 고객에게 배송 후 며칠 뒤 알릴지 정합니다. 스토어 설정의 재주문 알림 템플릿을 사용합니다."
+        "repurchaseHint": "선택 사항. 결제 시 혜택 수신에 동의한 고객에게 배송 후 며칠 뒤 알릴지 정합니다. 스토어 설정의 재주문 알림 템플릿을 사용합니다.",
+        "codAvailable": "착불 결제 가능",
+        "codAvailableHint": "끄면 이 상품이 담긴 장바구니는 온라인 결제만 가능합니다(스토어 설정에서 착불도 켜져 있어야 합니다)."
       }
     },
     "inventory": {
@@ -7701,7 +7712,8 @@
         "coupon_expired": "만료된 쿠폰입니다.",
         "coupon_min_subtotal": "장바구니 금액이 쿠폰 최소 금액보다 적습니다.",
         "amount_out_of_range": "금액이 너무 큽니다.",
-        "too_many_open_orders": "이 고객은 허용된 최대 미결제 주문을 이미 보유하고 있습니다. 먼저 결제하거나 만료될 때까지 기다리세요."
+        "too_many_open_orders": "이 고객은 이미 열린 주문이 최대입니다. 먼저 미결제 주문이 결제되거나 만료되어야 하며, 착불 주문은 발송되거나 취소되어야 합니다.",
+        "cod_unavailable": "이 장바구니는 착불(현장 결제)을 사용할 수 없습니다."
       },
       "title": "스토어 설정",
       "subtitle": "온라인 스토어의 통화, 세금, 결제, 판매자 정보, 배송, 쿠폰입니다.",
@@ -7765,7 +7777,14 @@
       "maxRedemptions": "전체 사용 횟수",
       "perContactLimit": "고객당 사용 횟수",
       "startsAt": "시작",
-      "endsAt": "종료"
+      "endsAt": "종료",
+      "cod": {
+        "title": "착불 결제",
+        "enabled": "착불 결제(COD) 제공",
+        "help": "고객이 주문을 받을 때 현금으로 결제할 수 있습니다. 장바구니의 모든 상품이 허용할 때만 표시됩니다. 현금은 주문에서 결제 기록으로 남깁니다.",
+        "fee": "착불 수수료 ({currency})",
+        "feeHelp": "고객이 착불을 선택하면 주문 합계에 더해지며 기본 세율이 적용됩니다. 수수료가 없으면 비워 두세요."
+      }
     },
     "storefrontLink": {
       "title": "스토어 링크 보내기",
@@ -7846,7 +7865,8 @@
         "sgst": "SGST",
         "igst": "IGST",
         "total": "합계",
-        "taxIncluded": "가격에 세금이 포함되어 있습니다."
+        "taxIncluded": "가격에 세금이 포함되어 있습니다.",
+        "codFee": "착불 수수료"
       }
     },
     "shipments": {
@@ -8193,7 +8213,8 @@
         "amount_not_due": "금액은 주문의 남은 금액과 정확히 같아야 합니다.",
         "currency_mismatch": "결제는 주문 통화여야 합니다.",
         "link_pending": "이 주문의 결제 링크가 아직 생성 또는 확인 중입니다. 먼저 결제 페이지에서 확인하세요.",
-        "link_paid": "고객이 방금 온라인으로 결제하여 아무것도 기록하지 않았습니다."
+        "link_paid": "고객이 방금 온라인으로 결제하여 아무것도 기록하지 않았습니다.",
+        "shipment_live": "착불 택배가 이 주문 금액을 받습니다. 먼저 그 배송을 취소하거나, 주문이 발송된 뒤 현금을 기록하세요."
       }
     },
     "exceptions": {
@@ -10129,11 +10150,21 @@
       "coupon_limit_reached": "이미 사용한 쿠폰입니다.",
       "order_not_open": "이 주문은 더 이상 여기서 결제할 수 없습니다.",
       "amount_out_of_range": "금액이 너무 큽니다.",
-      "too_many_open_orders": "결제하지 않은 주문이 이미 보류 중입니다. 하나를 결제하거나 만료된 후 다시 시도하세요."
+      "too_many_open_orders": "열린 주문이 이미 최대입니다. 미결제 주문을 결제하거나 만료를 기다리거나, 착불 주문이 배송될 때까지 기다린 뒤 다시 시도하세요.",
+      "cod_unavailable": "이 장바구니는 착불을 사용할 수 없습니다. 온라인 결제를 선택하세요."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "WhatsApp으로 재주문 알림과 혜택을 받겠습니다. 언제든지 STOP이라고 답장하면 중단됩니다."
-    }
+    },
+    "paymentHeading": "결제",
+    "payOnline": "지금 온라인 결제",
+    "payCod": "착불 결제",
+    "payCodWithFee": "착불 결제(수수료 {fee})",
+    "codNotForCart": "장바구니의 일부 상품은 착불 결제를 사용할 수 없습니다.",
+    "placeCod": "주문하고 배송 시 {amount} 결제",
+    "codNote": "주문이 지금 확정됩니다. 배송받을 때 현금으로 결제하세요.",
+    "codFee": "착불 수수료",
+    "codDue": "착불: 주문이 도착하면 {amount}을(를) 준비해 주세요."
   },
   "OrderNotices": {
     "dispatched": "주문 {ref}이(가) 발송되었습니다.",

@@ -343,6 +343,8 @@ export interface ShopProduct {
   follow_up_after_days: number | null;
   /** Days after delivery for the repeat-purchase reminder (Phase 9 D13); null = none. */
   repurchase_after_days: number | null;
+  /** Cash on delivery may be chosen for a cart holding this product (when the store offers COD). */
+  cod_available: boolean;
   version: number;
   created_at: string;
   updated_at: string;
@@ -363,7 +365,7 @@ export async function getShopProduct(tx: TenantTransaction, accountId: string, i
   const rows = await tx.$queryRaw<ProductRow[]>`
     SELECT p.id::text AS id, p.name, p.description, p.disclosure, p.category_id::text AS category_id, p.status,
       p.content_reviewed_by::text AS content_reviewed_by, p.content_reviewed_at, p.follow_up_template, p.follow_up_template_language,
-      p.follow_up_after_days, p.repurchase_after_days, p.version, p.created_at, p.updated_at, st.currency
+      p.follow_up_after_days, p.repurchase_after_days, p.cod_available, p.version, p.created_at, p.updated_at, st.currency
     FROM shop_products p LEFT JOIN commerce_settings st ON st.account_id=p.account_id
     WHERE p.account_id=${accountId}::uuid AND p.id=${id}::uuid`;
   const p = rows[0];
@@ -428,6 +430,7 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
       : current?.follow_up_template_language ?? null,
     follow_up_after_days: has(b, 'follow_up_after_days') ? optInt(b, 'follow_up_after_days', 1, 365) : current?.follow_up_after_days ?? null,
     repurchase_after_days: has(b, 'repurchase_after_days') ? optInt(b, 'repurchase_after_days', 1, 365) : current?.repurchase_after_days ?? null,
+    cod_available: has(b, 'cod_available') ? bool(b, 'cod_available') : current?.cod_available ?? true,
   };
   if (next.follow_up_template && !next.follow_up_template_language) throw new CatalogueError('invalid', 'follow_up_template_language');
   if (!next.follow_up_template) { next.follow_up_template_language = null; next.follow_up_after_days = null; }
@@ -440,9 +443,9 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
   if (!current) {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO shop_products(account_id,name,description,disclosure,category_id,follow_up_template,follow_up_template_language,
-        follow_up_after_days,repurchase_after_days,created_by)
+        follow_up_after_days,repurchase_after_days,cod_available,created_by)
       VALUES(${accountId}::uuid,${next.name},${next.description},${next.disclosure},${next.category_id}::uuid,${next.follow_up_template},
-        ${next.follow_up_template_language},${next.follow_up_after_days},${next.repurchase_after_days},${userId}::uuid)
+        ${next.follow_up_template_language},${next.follow_up_after_days},${next.repurchase_after_days},${next.cod_available},${userId}::uuid)
       RETURNING id::text AS id`.catch((e) => mapDbError(e, 'name'));
     productId = rows[0].id;
     await auditCatalogue(tx, accountId, userId, 'commerce.product_created', productId);
@@ -453,7 +456,7 @@ export async function upsertProduct(tx: TenantTransaction, accountId: string, us
       UPDATE shop_products SET name=${next.name}, description=${next.description}, disclosure=${next.disclosure},
         category_id=${next.category_id}::uuid, follow_up_template=${next.follow_up_template},
         follow_up_template_language=${next.follow_up_template_language}, follow_up_after_days=${next.follow_up_after_days},
-        repurchase_after_days=${next.repurchase_after_days},
+        repurchase_after_days=${next.repurchase_after_days}, cod_available=${next.cod_available},
         content_reviewed_by=CASE WHEN ${rereview} THEN ${userId}::uuid ELSE content_reviewed_by END,
         content_reviewed_at=CASE WHEN ${rereview} THEN now() ELSE content_reviewed_at END,
         version=version+1

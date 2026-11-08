@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Loader2, Search, Settings2, ShoppingBag } from "lucide-react";
 
 import { useCan } from "@/hooks/use-can";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -156,7 +157,12 @@ export function OrdersList() {
                   <TableCell className="max-w-[14rem] truncate">
                     {order.contact?.name || order.contact?.phone || t("unknownCustomer")}
                   </TableCell>
-                  <TableCell><OrderStatusBadge status={order.status} /></TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <OrderStatusBadge status={order.status} />
+                      {order.payment_method === "cod" && <Badge variant="outline">{t("cod.badge")}</Badge>}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{order.item_count}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {money(order.total_minor ?? order.subtotal_minor, order.currency)}

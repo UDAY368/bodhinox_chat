@@ -74,6 +74,7 @@ function GeneralForm({ initial, canEdit, onSaved }: { initial: StoreSettings; ca
   const templates = useApprovedTemplates();
   const [s, setS] = useState(initial);
   const [tax, setTax] = useState(bpsToPercent(initial.default_tax_rate_bps));
+  const [codFee, setCodFee] = useState(initial.currency && initial.cod_fee_minor ? minorToDecimalString(initial.cod_fee_minor, initial.currency) : "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof StoreSettings>(key: K) => (value: StoreSettings[K]) => setS((x) => ({ ...x, [key]: value }));
@@ -86,8 +87,18 @@ function GeneralForm({ initial, canEdit, onSaved }: { initial: StoreSettings; ca
   const bps = percentToBps(tax);
   const templateKey = s.checkout_template_name ? `${s.checkout_template_name}|${s.checkout_template_language ?? ""}` : "";
 
+  // The COD fee is typed as a decimal in the store currency; empty means no fee.
+  const codFeeMinor = (() => {
+    if (!codFee.trim()) return 0;
+    try {
+      return s.currency ? parseMoney(codFee.trim(), s.currency.toUpperCase()) : NaN;
+    } catch {
+      return NaN;
+    }
+  })();
+
   async function save() {
-    if (Number.isNaN(bps)) return setError(t("errors.invalid"));
+    if (Number.isNaN(bps) || Number.isNaN(codFeeMinor)) return setError(t("errors.invalid"));
     setSaving(true);
     setError(null);
     const input: StoreSettingsInput = {
@@ -96,6 +107,7 @@ function GeneralForm({ initial, canEdit, onSaved }: { initial: StoreSettings; ca
       legal_name: s.legal_name, gstin: s.gstin, address: s.address, state_code: s.state_code, document_prefix: s.document_prefix,
       storefront_title: s.storefront_title, return_window_days: s.return_window_days,
       checkout_template_name: s.checkout_template_name, checkout_template_language: s.checkout_template_language,
+      cod_enabled: s.cod_enabled, cod_fee_minor: codFeeMinor,
     };
     try {
       const r = await storeApi.saveSettings(input);
@@ -138,6 +150,20 @@ function GeneralForm({ initial, canEdit, onSaved }: { initial: StoreSettings; ca
           <Field id="ss-low" label={t("lowStockDefault")}><Input id="ss-low" min={0} {...num("low_stock_default")} /></Field>
           <Field id="ss-return" label={t("returnWindowDays")}><Input id="ss-return" min={0} max={90} {...num("return_window_days")} /></Field>
           <Field id="ss-title" label={t("storefrontTitle")}><Input id="ss-title" maxLength={120} {...text("storefront_title")} /></Field>
+        </div>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">{t("cod.title")}</h3>
+          <label className="flex items-start gap-3 text-sm">
+            <Switch checked={s.cod_enabled} disabled={!canEdit} onCheckedChange={(v) => set("cod_enabled")(v)} aria-label={t("cod.enabled")} />
+            <span>
+              <span className="block font-medium">{t("cod.enabled")}</span>
+              <span className="block text-xs text-muted-foreground">{t("cod.help")}</span>
+            </span>
+          </label>
+          <Field id="ss-cod-fee" label={t("cod.fee", { currency: s.currency ?? "" })} help={t("cod.feeHelp")}>
+            <Input id="ss-cod-fee" inputMode="decimal" value={codFee} disabled={!canEdit || !s.currency} placeholder="0"
+              onChange={(e) => setCodFee(e.target.value)} aria-invalid={Number.isNaN(codFeeMinor)} />
+          </Field>
         </div>
         <div className="space-y-4">
           <h3 className="text-sm font-semibold">{t("sellerTitle")}</h3>

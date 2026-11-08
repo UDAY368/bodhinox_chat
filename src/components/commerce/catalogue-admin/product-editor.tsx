@@ -141,6 +141,8 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
     follow_up_template_language: product.follow_up_template_language ?? "", follow_up_after_days: product.follow_up_after_days?.toString() ?? "",
     repurchase_after_days: product.repurchase_after_days?.toString() ?? "",
   });
+  // Older responses have no cod_available: treat as allowed (the column defaults to true).
+  const [codAvailable, setCodAvailable] = useState(product.cod_available !== false);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const days = form.follow_up_after_days.trim() ? Number(form.follow_up_after_days) : null;
   const repurchase = form.repurchase_after_days.trim() ? Number(form.repurchase_after_days) : null;
@@ -152,6 +154,7 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
     follow_up_template: form.follow_up_template.trim() || null, follow_up_template_language: form.follow_up_template_language.trim() || null,
     follow_up_after_days: form.follow_up_template.trim() ? days : null,
     repurchase_after_days: repurchase,
+    cod_available: codAvailable,
   });
   const ro = !canManage;
   return (
@@ -203,6 +206,13 @@ function DetailsForm({ product, categories, canManage, busy, onSave }: {
         <Input id="p-rpd" inputMode="numeric" value={form.repurchase_after_days} readOnly={ro} onChange={set("repurchase_after_days")} className="bg-muted" />
         <p className="text-xs text-muted-foreground">{t("repurchaseHint")}</p>
       </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4" checked={codAvailable} disabled={ro} onChange={(e) => setCodAvailable(e.target.checked)} />
+        <span>
+          <span className="block font-medium text-foreground">{t("codAvailable")}</span>
+          <span className="block text-xs text-muted-foreground">{t("codAvailableHint")}</span>
+        </span>
+      </label>
       {product.status === "published" && canManage && <p className="text-xs text-muted-foreground">{t("rereviewHint")}</p>}
       {canManage && <Button type="submit" disabled={busy || !valid}>{t("save")}</Button>}
     </form>

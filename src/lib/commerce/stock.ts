@@ -78,11 +78,13 @@ async function movement(tx: TenantTransaction, accountId: string, m: {
 
 /**
  * Reserve every tracked line for the order (ascending variant_id), held until
- * `expiresAt`. Throws StockError('out_of_stock', ..., variantId) when any line
- * cannot be reserved; the caller's transaction then rolls back as a whole.
+ * `expiresAt`, or with no expiry (null) for a cash-on-delivery order, which is
+ * committed when the cash is recorded or released when it is cancelled.
+ * Throws StockError('out_of_stock', ..., variantId) when any line cannot be
+ * reserved; the caller's transaction then rolls back as a whole.
  */
 export async function reserveTx(
-  tx: TenantTransaction, accountId: string, orderId: string, lines: StockLine[], expiresAt: Date,
+  tx: TenantTransaction, accountId: string, orderId: string, lines: StockLine[], expiresAt: Date | null,
 ): Promise<void> {
   const merged = mergeLines(lines);
   const tracked = await trackedIds(tx, accountId, merged.map((l) => l.variantId));

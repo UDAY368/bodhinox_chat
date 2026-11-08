@@ -122,6 +122,13 @@ export function Storefront({ token }: { token: string }) {
   };
   const saveAddress = () => void run(() => shopApi.address(token, view.version,
     Object.fromEntries(Object.entries(address).map(([k, v]) => [k, v.trim() || null]))));
+  const cod = view.paymentMethod === 'cod';
+  // COD is offered when the store has it on; the quote says whether every product in the cart allows it.
+  const codOffered = view.store.codEnabled && view.store.checkoutEnabled;
+  const codPossible = codOffered && (quote ? quote.codAvailable : quoteError === 'cod_unavailable' ? false : true);
+  const choosePayment = (method: 'online' | 'cod') => {
+    if (method !== view.paymentMethod) void run(() => shopApi.payment(token, view.version, method));
+  };
   const placeOrder = () => {
     if (!quote) return;
     justPlaced.current = true;
@@ -267,6 +274,23 @@ export function Storefront({ token }: { token: string }) {
                       onChange={(e) => setCoupon(e.target.value.toUpperCase())} />
                     <Button type="submit" variant="outline" disabled={busy}>{view.couponCode && !coupon ? t('removeCoupon') : t('applyCoupon')}</Button>
                   </form>
+                  {(codOffered || cod) && (
+                    <fieldset className="space-y-2" disabled={busy}>
+                      <legend className="mb-1 text-sm font-medium">{t('paymentHeading')}</legend>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="radio" name="payment-method" className="size-4" checked={!cod} onChange={() => choosePayment('online')} />
+                        {t('payOnline')}
+                      </label>
+                      <label className={`flex items-center gap-2 text-sm ${codPossible ? '' : 'text-muted-foreground'}`}>
+                        <input type="radio" name="payment-method" className="size-4" checked={cod} disabled={!codPossible && !cod}
+                          onChange={() => choosePayment('cod')} />
+                        {view.store.codFeeMinor > 0
+                          ? t('payCodWithFee', { fee: money(view.store.codFeeMinor, currency, locale) })
+                          : t('payCod')}
+                      </label>
+                      {!codPossible && !cod && <p className="text-xs text-muted-foreground">{t('codNotForCart')}</p>}
+                    </fieldset>
+                  )}
                   {quoteError && <p className="text-sm text-destructive" role="alert">{t(`errors.${(quoteError in ERROR_SET ? quoteError : 'error') as ShopErrorCode}`)}</p>}
                   {quote && <QuoteTotals quote={quote} locale={locale} />}
                   {quote && !quote.shipping && <p className="text-sm text-muted-foreground">{t('addAddressForShipping')}</p>}
@@ -279,9 +303,9 @@ export function Storefront({ token }: { token: string }) {
                   </div>
                   <Button className="w-full" disabled={busy || !quote?.shipping || !view.store.checkoutEnabled} onClick={placeOrder}>
                     {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                    {quote ? t('placeAndPay', { amount: money(quote.totalMinor, quote.currency, locale) }) : t('placeOrder')}
+                    {quote ? t(cod ? 'placeCod' : 'placeAndPay', { amount: money(quote.totalMinor, quote.currency, locale) }) : t('placeOrder')}
                   </Button>
-                  <p className="text-xs text-muted-foreground">{t('paymentNote')}</p>
+                  <p className="text-xs text-muted-foreground">{t(cod ? 'codNote' : 'paymentNote')}</p>
                 </CardContent>
               </Card>
             </>
@@ -295,6 +319,7 @@ export function Storefront({ token }: { token: string }) {
 const ERROR_SET: Record<string, true> = Object.fromEntries([
   'tax_not_configured', 'shipping_unavailable', 'price_not_configured', 'variant_unavailable', 'coupon_not_found', 'coupon_inactive',
   'coupon_not_started', 'coupon_expired', 'coupon_min_subtotal', 'store_not_configured', 'cart_empty', 'invalid_cart', 'amount_out_of_range',
+  'cod_unavailable',
 ].map((c) => [c, true]));
 
 const AUTOCOMPLETE: Record<string, string> = {
@@ -315,6 +340,7 @@ function QuoteTotals({ quote, locale }: { quote: Quote; locale: string }) {
       {row(t('subtotal'), money(quote.subtotalMinor, c, locale))}
       {quote.discountMinor > 0 && row(t('discountWithCode', { code: quote.couponCode ?? '' }), `−${money(quote.discountMinor, c, locale)}`)}
       {quote.shipping && row(t('shippingWith', { name: quote.shipping.name }), money(quote.shippingMinor, c, locale))}
+      {quote.codFee && quote.codFeeMinor > 0 && row(t('codFee'), money(quote.codFeeMinor, c, locale))}
       {row(quote.taxInclusive ? t('taxIncluded') : t('tax'), money(quote.taxMinor, c, locale))}
       {row(t('total'), money(quote.totalMinor, c, locale), true)}
     </div>

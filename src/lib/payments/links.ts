@@ -92,6 +92,7 @@ export type PaymentLinkErrorCode =
   | 'number_unavailable'
   | 'link_not_ready'
   | 'link_exists'
+  | 'cash_on_delivery'
   | 'workspace_manual_blocked';
 
 const ERROR_STATUS: Record<PaymentLinkErrorCode, number> = {
@@ -116,6 +117,7 @@ const ERROR_STATUS: Record<PaymentLinkErrorCode, number> = {
   number_unavailable: 409,
   link_not_ready: 409,
   link_exists: 409,
+  cash_on_delivery: 409,
   workspace_manual_blocked: 403,
 };
 
@@ -407,7 +409,10 @@ export const LIVE_LINK_STATUSES = ['creating', 'created', 'unknown', 'partially_
  */
 async function assertNoLiveLink(tx: TenantTransaction, accountId: string, target: { orderId: string | null; appointmentId: string | null }, referenceId: string): Promise<void> {
   if (target.orderId) {
-    await tx.$queryRaw`SELECT id FROM orders WHERE account_id=${accountId}::uuid AND id=${target.orderId}::uuid FOR UPDATE`;
+    const [order] = await tx.$queryRaw<{ cod: boolean }[]>`SELECT (payment_method='cod' AND paid_at IS NULL) AS cod FROM orders
+      WHERE account_id=${accountId}::uuid AND id=${target.orderId}::uuid FOR UPDATE`;
+    // A cash-on-delivery order is paid to the courier or recorded as cash: an online link could collect twice.
+    if (order?.cod) throw new PaymentLinkError('cash_on_delivery');
   } else if (target.appointmentId) {
     await tx.$queryRaw`SELECT id FROM appointments WHERE account_id=${accountId}::uuid AND id=${target.appointmentId}::uuid FOR UPDATE`;
   } else {

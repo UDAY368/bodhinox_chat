@@ -5803,7 +5803,8 @@
       "sendRejected": "WhatsApp refused the message, so it was not sent.",
       "link_exists": "This order or appointment already has an open payment link. Cancel or check that link first.",
       "platformKeyReuse": "This Razorpay key belongs to the platform's own billing account. Connect your business's Razorpay account instead.",
-      "workspace_manual_blocked": "Bodhinox support has paused replies from this workspace. Contact Bodhinox support for details."
+      "workspace_manual_blocked": "Bodhinox support has paused replies from this workspace. Contact Bodhinox support for details.",
+      "cash_on_delivery": "This is a cash-on-delivery order: record the cash on the order instead of sending a payment link."
     },
     "commerceEvents": {
       "resolution": "Choose whether the customer got the message.",
@@ -7367,7 +7368,8 @@
         "cancelRefundOutsideConfirm": "I have returned the money not paid through Razorpay outside Bodhinox",
         "cancelRefundDoneOutside": "Order cancelled. The refund made outside Bodhinox is recorded.",
         "courierTracked": "Shiprocket tracking updates this order automatically. You can still record it yourself.",
-        "shipmentLive": "Cancel the courier shipment before cancelling this order, or use Returns once it was picked up."
+        "shipmentLive": "Cancel the courier shipment before cancelling this order, or use Returns once it was picked up.",
+        "codFee": "Cash on delivery fee"
       },
       "timeline": {
         "title": "History",
@@ -7392,7 +7394,8 @@
           "other": "Event: {kind}",
           "shipment_created": "Courier shipment created",
           "shipment_cancelled": "Courier shipment cancelled",
-          "shipment_correction_accepted": "Tracking correction accepted"
+          "shipment_correction_accepted": "Tracking correction accepted",
+          "cod_confirmed": "Cash on delivery chosen"
         },
         "documents": "Documents",
         "documentKinds": {
@@ -7417,6 +7420,12 @@
           "failed": "Failed",
           "outcome_unknown": "Needs check"
         }
+      },
+      "cod": {
+        "badge": "COD",
+        "collect": "Cash on delivery: collect {amount} when the order is delivered.",
+        "recordCash": "Record cash received",
+        "recordPayment": "Record payment"
       }
     },
     "attention": {
@@ -7589,7 +7598,9 @@
           "weight": "Whole grams, up to 1,000,000."
         },
         "repurchaseDays": "Reorder reminder after (days)",
-        "repurchaseHint": "Optional. Days after delivery to remind customers who agreed to offers at checkout. Uses the reorder reminder template in Store settings."
+        "repurchaseHint": "Optional. Days after delivery to remind customers who agreed to offers at checkout. Uses the reorder reminder template in Store settings.",
+        "codAvailable": "Cash on delivery available",
+        "codAvailableHint": "When off, a cart holding this product can only be paid online (cash on delivery must also be on in Store settings)."
       }
     },
     "inventory": {
@@ -7701,7 +7712,8 @@
         "coupon_expired": "This coupon has expired.",
         "coupon_min_subtotal": "The cart is below this coupon’s minimum.",
         "amount_out_of_range": "The amount is too large.",
-        "too_many_open_orders": "This customer already has the most unpaid orders allowed. Pay or wait for one to expire first."
+        "too_many_open_orders": "This customer already has the most open orders allowed. An unpaid order must be paid or expire, or a cash-on-delivery order must ship or be cancelled, first.",
+        "cod_unavailable": "Cash on delivery is not available for this cart."
       },
       "title": "Store settings",
       "subtitle": "Currency, tax, checkout, seller details, shipping and coupons for your storefront.",
@@ -7765,7 +7777,14 @@
       "maxRedemptions": "Total uses",
       "perContactLimit": "Uses per customer",
       "startsAt": "Starts",
-      "endsAt": "Ends"
+      "endsAt": "Ends",
+      "cod": {
+        "title": "Cash on delivery",
+        "enabled": "Offer cash on delivery (COD)",
+        "help": "Customers can choose to pay in cash when the order arrives. It is offered only when every product in the cart allows it. You record the cash on the order with Record payment.",
+        "fee": "COD fee ({currency})",
+        "feeHelp": "Added to the order total when the customer picks cash on delivery, taxed at the default rate. Leave empty for no fee."
+      }
     },
     "storefrontLink": {
       "title": "Send storefront link",
@@ -7846,7 +7865,8 @@
         "sgst": "SGST",
         "igst": "IGST",
         "total": "Total",
-        "taxIncluded": "Prices include tax."
+        "taxIncluded": "Prices include tax.",
+        "codFee": "Cash on delivery fee"
       }
     },
     "shipments": {
@@ -8193,7 +8213,8 @@
         "amount_not_due": "The amount must be exactly what the order still owes.",
         "currency_mismatch": "The payment must be in the order’s currency.",
         "link_pending": "A payment link for this order is still being created or checked. Check it on the Payments page first.",
-        "link_paid": "The customer has just paid online, so nothing was recorded."
+        "link_paid": "The customer has just paid online, so nothing was recorded.",
+        "shipment_live": "A cash-on-delivery courier shipment will collect this order. Cancel that shipment first, or record the cash once the order is dispatched."
       }
     },
     "exceptions": {
@@ -10129,11 +10150,21 @@
       "coupon_limit_reached": "You have already used this coupon.",
       "order_not_open": "This order can no longer be paid here.",
       "amount_out_of_range": "The amount is too large.",
-      "too_many_open_orders": "You already have unpaid orders on hold. Pay for one or wait for it to expire, then try again."
+      "too_many_open_orders": "You already have the most open orders allowed. Pay for an unpaid order, wait for it to expire, or wait for a cash-on-delivery order to be delivered, then try again.",
+      "cod_unavailable": "Cash on delivery is not available for this cart. Choose to pay online."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Send me reorder reminders and offers on WhatsApp. You can stop them at any time by replying STOP."
-    }
+    },
+    "paymentHeading": "Payment",
+    "payOnline": "Pay online now",
+    "payCod": "Cash on delivery",
+    "payCodWithFee": "Cash on delivery (+{fee} fee)",
+    "codNotForCart": "Cash on delivery is not available for some items in your cart.",
+    "placeCod": "Place order, pay {amount} on delivery",
+    "codNote": "Your order is confirmed now. Pay in cash when it is delivered.",
+    "codFee": "Cash on delivery fee",
+    "codDue": "Cash on delivery: please keep {amount} ready when your order arrives."
   },
   "OrderNotices": {
     "dispatched": "Your order {ref} is on its way.",

@@ -34,18 +34,23 @@ export const WORKER_ONLY_STATUSES: readonly OrderStatus[] = ['paid', 'payment_re
  */
 export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   new: ['confirmed', 'awaiting_payment', 'cancelled'],
-  confirmed: ['awaiting_payment', 'fulfilled', 'cancelled'],
+  confirmed: ['awaiting_payment', 'dispatched', 'fulfilled', 'cancelled'],
   awaiting_payment: ['cancelled'],
   payment_review: [],
   paid: ['dispatched', 'cancelled'],
-  dispatched: ['fulfilled'],
+  dispatched: ['fulfilled', 'cancelled'],
   fulfilled: [],
   expired: [],
   cancelled: [],
 };
 
 /** Moves allowed only for legacy unpriced orders (a priced order is paid before it is fulfilled). */
-const UNPRICED_ONLY: ReadonlySet<string> = new Set(['new>awaiting_payment', 'confirmed>awaiting_payment', 'confirmed>fulfilled']);
+const UNPRICED_ONLY: ReadonlySet<string> = new Set(['new>awaiting_payment', 'confirmed>awaiting_payment']);
+/**
+ * Moves allowed only for an unpaid cash-on-delivery order: it ships before the cash arrives, and a
+ * parcel the customer refuses (return to origin) is cancelled from dispatched, releasing its stock.
+ */
+const UNPAID_COD_ONLY: ReadonlySet<string> = new Set(['confirmed>dispatched', 'dispatched>cancelled']);
 
 export function isOrderStatus(value: unknown): value is OrderStatus {
   return typeof value === 'string' && (ORDER_STATUSES as readonly string[]).includes(value);
@@ -55,14 +60,26 @@ export function isOrderSource(value: unknown): value is OrderSource {
   return typeof value === 'string' && (ORDER_SOURCES as readonly string[]).includes(value);
 }
 
-/** May staff move an order from `from` to `to`? `priced` = the order has server-priced snapshots (priced_at set). */
-export function canTransition(from: OrderStatus, to: OrderStatus, opts: { priced?: boolean } = {}): boolean {
+/**
+ * May staff move an order from `from` to `to`? `priced` = the order has server-priced snapshots
+ * (priced_at set); `unpaidCod` = a cash-on-delivery order whose cash is not recorded yet.
+ */
+export function canTransition(from: OrderStatus, to: OrderStatus, opts: { priced?: boolean; unpaidCod?: boolean } = {}): boolean {
   if (!ORDER_TRANSITIONS[from].includes(to)) return false;
-  return !(opts.priced && UNPRICED_ONLY.has(`${from}>${to}`));
+  const move = `${from}>${to}`;
+  if (opts.priced && UNPRICED_ONLY.has(move)) return false;
+  if (UNPAID_COD_ONLY.has(move)) return !!opts.unpaidCod;
+  // A priced order is paid before it is delivered, except an unpaid COD order (cash on delivery).
+  if (move === 'confirmed>fulfilled') return !opts.priced || !!opts.unpaidCod;
+  return true;
 }
 
+/** True for a cash-on-delivery order whose cash has not been recorded. */
+export const isUnpaidCod = (order: { payment_method?: string | null; paid_at?: Date | string | null }): boolean =>
+  order.payment_method === 'cod' && !order.paid_at;
+
 /** Statuses staff can pick next for an order (the order detail selector). */
-export function nextStatuses(from: OrderStatus, opts: { priced?: boolean } = {}): OrderStatus[] {
+export function nextStatuses(from: OrderStatus, opts: { priced?: boolean; unpaidCod?: boolean } = {}): OrderStatus[] {
   return ORDER_TRANSITIONS[from].filter((to) => canTransition(from, to, opts));
 }
 

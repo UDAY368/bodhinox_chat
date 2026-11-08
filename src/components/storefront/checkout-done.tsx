@@ -16,7 +16,8 @@ import { OrderSummary } from './order-summary';
 
 const POLL_MS = 4000;
 const MAX_POLLS = 75; // about five minutes
-const SETTLED = new Set(['paid', 'dispatched', 'fulfilled', 'expired', 'cancelled', 'payment_review']);
+// 'confirmed': a cash-on-delivery order is final at placing (nothing to wait for).
+const SETTLED = new Set(['paid', 'confirmed', 'dispatched', 'fulfilled', 'expired', 'cancelled', 'payment_review']);
 
 export function CheckoutDone({ token }: { token: string }) {
   const t = useTranslations('Storefront');

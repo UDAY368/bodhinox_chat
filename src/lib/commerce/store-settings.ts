@@ -26,13 +26,13 @@ export type StoreErrorCode =
   | 'send_failed' | 'send_uncertain' | 'session_expired'
   | 'cart_empty' | 'invalid_cart' | 'variant_unavailable' | 'price_not_configured' | 'tax_not_configured' | 'shipping_unavailable'
   | 'coupon_not_found' | 'coupon_inactive' | 'coupon_not_started' | 'coupon_expired' | 'coupon_min_subtotal' | 'amount_out_of_range'
-  | 'too_many_open_orders';
+  | 'too_many_open_orders' | 'cod_unavailable';
 
 const STATUS: Partial<Record<StoreErrorCode, number>> = {
   not_found: 404, no_order: 404, contact_not_found: 404, conflict: 409, currency_locked: 409, coupon_code_taken: 409,
   quote_changed: 409, out_of_stock: 409, cart_locked: 409, order_not_open: 409, coupon_exhausted: 409, coupon_limit_reached: 409,
   checkout_disabled: 409, store_not_configured: 409, feature_unavailable: 403, contact_blocked: 409, outside_window: 409,
-  number_unavailable: 409, too_many_open_orders: 409, send_failed: 502, send_uncertain: 502, session_expired: 410,
+  number_unavailable: 409, too_many_open_orders: 409, cod_unavailable: 409, send_failed: 502, send_uncertain: 502, session_expired: 410,
 };
 
 export class StoreError extends Error {
@@ -70,6 +70,10 @@ export interface StoreSettings {
   return_window_days: number;
   checkout_template_name: string | null;
   checkout_template_language: string | null;
+  /** Cash on delivery offered at checkout (only for carts whose products all allow it). */
+  cod_enabled: boolean;
+  /** Fixed fee added to a COD order, in the store currency's minor units (0 = none). */
+  cod_fee_minor: number;
   /** True once any variant is priced: the currency can no longer change. */
   currency_locked: boolean;
 }
@@ -78,31 +82,39 @@ const DEFAULTS: Omit<StoreSettings, 'configured' | 'currency_locked'> = {
   currency: null, prices_include_tax: true, default_tax_rate_bps: null, reservation_minutes: 15, checkout_enabled: false,
   low_stock_default: 5, legal_name: null, gstin: null, address: null, state_code: null, document_prefix: 'RCPT',
   storefront_title: null, return_window_days: 7, checkout_template_name: null, checkout_template_language: null,
+  cod_enabled: false, cod_fee_minor: 0,
 };
 
 type SettingsRow = Omit<StoreSettings, 'configured' | 'currency_locked'>;
+type RawSettingsRow = Omit<SettingsRow, 'cod_fee_minor'> & { cod_fee_minor: bigint | number };
 
 export async function loadSettingsRow(tx: TenantTransaction, accountId: string, lock = false): Promise<SettingsRow | null> {
   const rows = lock
-    ? await tx.$queryRaw<SettingsRow[]>`SELECT currency, prices_include_tax, default_tax_rate_bps, reservation_minutes, checkout_enabled,
+    ? await tx.$queryRaw<RawSettingsRow[]>`SELECT currency, prices_include_tax, default_tax_rate_bps, reservation_minutes, checkout_enabled,
         low_stock_default, legal_name, gstin, address, state_code, document_prefix, storefront_title, return_window_days,
-        checkout_template_name, checkout_template_language FROM commerce_settings WHERE account_id=${accountId}::uuid FOR UPDATE`
-    : await tx.$queryRaw<SettingsRow[]>`SELECT currency, prices_include_tax, default_tax_rate_bps, reservation_minutes, checkout_enabled,
+        checkout_template_name, checkout_template_language, cod_enabled, cod_fee_minor
+      FROM commerce_settings WHERE account_id=${accountId}::uuid FOR UPDATE`
+    : await tx.$queryRaw<RawSettingsRow[]>`SELECT currency, prices_include_tax, default_tax_rate_bps, reservation_minutes, checkout_enabled,
         low_stock_default, legal_name, gstin, address, state_code, document_prefix, storefront_title, return_window_days,
-        checkout_template_name, checkout_template_language FROM commerce_settings WHERE account_id=${accountId}::uuid`;
-  return rows[0] ?? null;
+        checkout_template_name, checkout_template_language, cod_enabled, cod_fee_minor
+      FROM commerce_settings WHERE account_id=${accountId}::uuid`;
+  const row = rows[0];
+  return row ? { ...row, cod_fee_minor: minorFromDb(row.cod_fee_minor) ?? 0 } : null;
 }
 
 /** The settings pricing needs, or null when the store has never been configured. */
 export async function loadPricingSettings(tx: TenantTransaction, accountId: string): Promise<(PricingSettings & SettingsRow) | null> {
   const row = await loadSettingsRow(tx, accountId);
   if (!row?.currency) return null;
-  return { ...row, currency: row.currency, pricesIncludeTax: row.prices_include_tax, defaultTaxRateBps: row.default_tax_rate_bps };
+  return {
+    ...row, currency: row.currency, pricesIncludeTax: row.prices_include_tax, defaultTaxRateBps: row.default_tax_rate_bps,
+    codEnabled: row.cod_enabled, codFeeMinor: row.cod_fee_minor,
+  };
 }
 
 /**
  * True once any stored amount is denominated in the store currency: a variant price, a shipping rate (fee and subtotal
- * bands), a fixed-value coupon or a coupon minimum/cap, or a priced order. Changing the currency would silently
+ * bands), a fixed-value coupon or a coupon minimum/cap, a COD fee, or a priced order. Changing the currency would silently
  * re-denominate those minor units (100x between INR and JPY), so the currency is then locked.
  */
 export async function currencyInUse(tx: TenantTransaction, accountId: string): Promise<boolean> {
@@ -111,6 +123,7 @@ export async function currencyInUse(tx: TenantTransaction, accountId: string): P
       OR EXISTS (SELECT 1 FROM shipping_rates WHERE account_id=${accountId}::uuid)
       OR EXISTS (SELECT 1 FROM coupons WHERE account_id=${accountId}::uuid
         AND (kind='fixed' OR min_subtotal_minor > 0 OR max_discount_minor IS NOT NULL))
+      OR EXISTS (SELECT 1 FROM commerce_settings WHERE account_id=${accountId}::uuid AND cod_fee_minor > 0)
       OR EXISTS (SELECT 1 FROM orders WHERE account_id=${accountId}::uuid AND priced_at IS NOT NULL) AS used`;
   return rows[0]?.used === true;
 }
@@ -130,7 +143,9 @@ export async function getStoreSettings(ctx: TenantContext): Promise<StoreSetting
   });
 }
 
-export type StoreSettingsInput = Omit<StoreSettings, 'configured' | 'currency_locked' | 'currency'> & { currency: string };
+/** cod_enabled and cod_fee_minor are optional: a client that does not send them keeps the stored values. */
+export type StoreSettingsInput = Omit<StoreSettings, 'configured' | 'currency_locked' | 'currency' | 'cod_enabled' | 'cod_fee_minor'>
+  & { currency: string; cod_enabled?: boolean; cod_fee_minor?: number };
 
 const optText = (value: unknown, max: number): string | null => {
   if (value === null || value === undefined) return null;
@@ -159,6 +174,8 @@ export function parseStoreSettings(body: unknown): StoreSettingsInput {
   if (!/^[A-Z0-9]{1,8}$/.test(prefix)) throw new StoreError('invalid', { field: 'document_prefix' });
   const templateName = optText(b.checkout_template_name, 512);
   const templateLanguage = templateName ? optText(b.checkout_template_language, 15) : null;
+  if (b.cod_enabled !== undefined && typeof b.cod_enabled !== 'boolean') throw new StoreError('invalid', { field: 'cod_enabled' });
+  const codFee = b.cod_fee_minor === undefined ? undefined : int(b.cod_fee_minor, 0, MAX_MINOR, 'cod_fee_minor');
   return {
     currency: b.currency,
     prices_include_tax: b.prices_include_tax,
@@ -175,6 +192,8 @@ export function parseStoreSettings(body: unknown): StoreSettingsInput {
     return_window_days: int(b.return_window_days, 0, 90, 'return_window_days'),
     checkout_template_name: templateName,
     checkout_template_language: templateLanguage,
+    ...(b.cod_enabled === undefined ? {} : { cod_enabled: b.cod_enabled }),
+    ...(codFee === undefined ? {} : { cod_fee_minor: codFee }),
   };
 }
 
@@ -183,19 +202,25 @@ export async function saveStoreSettings(ctx: TenantContext & { userId: string },
     const current = await loadSettingsRow(tx, ctx.accountId, true);
     const locked = await currencyInUse(tx, ctx.accountId);
     if (locked && current?.currency && current.currency !== input.currency) throw new StoreError('currency_locked');
+    const codEnabled = input.cod_enabled ?? current?.cod_enabled ?? false;
+    const codFeeMinor = input.cod_fee_minor ?? current?.cod_fee_minor ?? 0;
+    // The fee is taxed at the store default rate: without one every COD quote would be refused.
+    if (codEnabled && codFeeMinor > 0 && input.default_tax_rate_bps === null)
+      throw new StoreError('tax_not_configured', { field: 'default_tax_rate_bps' });
     await tx.$executeRaw`INSERT INTO commerce_settings(account_id,currency,prices_include_tax,default_tax_rate_bps,reservation_minutes,
         checkout_enabled,low_stock_default,legal_name,gstin,address,state_code,document_prefix,storefront_title,return_window_days,
-        checkout_template_name,checkout_template_language)
+        checkout_template_name,checkout_template_language,cod_enabled,cod_fee_minor)
       VALUES(${ctx.accountId}::uuid,${input.currency},${input.prices_include_tax},${input.default_tax_rate_bps},${input.reservation_minutes},
         ${input.checkout_enabled},${input.low_stock_default},${input.legal_name},${input.gstin},${input.address},${input.state_code},
         ${input.document_prefix},${input.storefront_title},${input.return_window_days},${input.checkout_template_name},
-        ${input.checkout_template_language})
+        ${input.checkout_template_language},${codEnabled},${codFeeMinor})
       ON CONFLICT (account_id) DO UPDATE SET currency=EXCLUDED.currency,prices_include_tax=EXCLUDED.prices_include_tax,
         default_tax_rate_bps=EXCLUDED.default_tax_rate_bps,reservation_minutes=EXCLUDED.reservation_minutes,
         checkout_enabled=EXCLUDED.checkout_enabled,low_stock_default=EXCLUDED.low_stock_default,legal_name=EXCLUDED.legal_name,
         gstin=EXCLUDED.gstin,address=EXCLUDED.address,state_code=EXCLUDED.state_code,document_prefix=EXCLUDED.document_prefix,
         storefront_title=EXCLUDED.storefront_title,return_window_days=EXCLUDED.return_window_days,
-        checkout_template_name=EXCLUDED.checkout_template_name,checkout_template_language=EXCLUDED.checkout_template_language`;
+        checkout_template_name=EXCLUDED.checkout_template_name,checkout_template_language=EXCLUDED.checkout_template_language,
+        cod_enabled=EXCLUDED.cod_enabled,cod_fee_minor=EXCLUDED.cod_fee_minor`;
     const changed = Object.keys(input).filter((k) => !current || current[k as keyof SettingsRow] !== input[k as keyof StoreSettingsInput]);
     await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
       VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,'commerce.settings_updated',${ctx.accountId},${JSON.stringify({ fields: changed })}::jsonb)`;

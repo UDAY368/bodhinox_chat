@@ -16,6 +16,8 @@ export interface OrderListItem {
   currency: string;
   subtotal_minor: number;
   total_minor: number | null;
+  /** 'cod': cash on delivery; absent from older responses (= online). */
+  payment_method?: 'online' | 'cod';
   item_count: number;
   contact: { id: string; name: string | null; phone: string | null } | null;
   conversation_id: string | null;
@@ -31,6 +33,8 @@ export interface OrderDetail extends OrderListItem {
   priced_at: string | null;
   discount_minor: number;
   shipping_minor: number;
+  /** The cash-on-delivery fee inside the total; absent from older responses. */
+  cod_fee_minor?: number;
   tax_minor: number;
   tax_inclusive: boolean | null;
   coupon_code: string | null;

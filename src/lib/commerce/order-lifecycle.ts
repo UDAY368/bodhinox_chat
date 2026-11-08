@@ -59,6 +59,8 @@ interface LockedOrder {
   id: string;
   status: OrderStatus;
   priced: boolean;
+  /** A cash-on-delivery order whose cash is not recorded yet: it may ship, and still holds its stock and coupon. */
+  unpaidCod: boolean;
 }
 
 function assertStaff(ctx: StaffContext): void {
@@ -71,8 +73,9 @@ export function asStaff<T>(ctx: StaffContext, fn: (tx: TenantTransaction) => Pro
 }
 
 export async function lockOrder(tx: TenantTransaction, accountId: string, orderId: string): Promise<LockedOrder> {
-  const [row] = await tx.$queryRaw<{ id: string; status: OrderStatus; priced: boolean }[]>`
-    SELECT id::text AS id, status, priced_at IS NOT NULL AS priced FROM orders
+  const [row] = await tx.$queryRaw<LockedOrder[]>`
+    SELECT id::text AS id, status, priced_at IS NOT NULL AS priced,
+      (payment_method='cod' AND paid_at IS NULL AND priced_at IS NOT NULL) AS "unpaidCod" FROM orders
     WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid FOR UPDATE`;
   if (!row) throw new OrderError(404, 'not_found', 'Order not found');
   return row;
@@ -108,12 +111,13 @@ async function setStatus(tx: TenantTransaction, accountId: string, order: Locked
 
 /**
  * Close what an order still holds before it is cancelled: its reserved stock
- * and coupon (a priced order awaiting payment) and any open payment link (the
- * cancel job re-reads the link first and never cancels one already paid; a
- * payment that still arrives is recorded as payment_on_closed_order).
+ * and coupon (a priced order awaiting payment, or an unpaid cash-on-delivery
+ * order, also when its parcel comes back from dispatched) and any open payment
+ * link (the cancel job re-reads the link first and never cancels one already
+ * paid; a payment that still arrives is recorded as payment_on_closed_order).
  */
 async function closeOrderTx(tx: TenantTransaction, accountId: string, order: LockedOrder): Promise<void> {
-  if (order.status === 'awaiting_payment' && order.priced) {
+  if ((order.status === 'awaiting_payment' && order.priced) || order.unpaidCod) {
     await releaseTx(tx, accountId, order.id, 'cancelled');
     await tx.$executeRaw`UPDATE coupon_redemptions SET status='released'
       WHERE account_id=${accountId}::uuid AND order_id=${order.id}::uuid AND status='reserved'`;
@@ -139,10 +143,13 @@ export async function transitionOrder(ctx: StaffContext, orderId: string, input:
   await asStaff(ctx, async (tx) => {
     const order = await lockOrder(tx, ctx.accountId, orderId);
     expectStatus(order, input.from);
-    if (!canTransition(order.status, input.to, { priced: order.priced }))
+    if (!canTransition(order.status, input.to, { priced: order.priced, unpaidCod: order.unpaidCod }))
       throw new OrderError(409, 'bad_transition', `An order cannot move from ${order.status} to ${input.to}`);
     if (order.status === 'paid' && input.to === 'cancelled')
       throw new OrderError(409, 'bad_transition', 'A paid order is cancelled with Cancel and refund');
+    // A courier may still collect the parcel (an unpaid COD order ships before payment): cancel the shipment first.
+    if (input.to === 'cancelled' && (await liveShipmentExists(tx, ctx.accountId, orderId)))
+      throw new OrderError(409, 'shipment_live', 'Cancel the courier shipment before cancelling this order');
     if (input.to === 'cancelled') await closeOrderTx(tx, ctx.accountId, order);
     await setStatus(tx, ctx.accountId, order, input.to);
     await auditOrder(tx, ctx, 'order.status_changed', orderId, { from: order.status, to: input.to });
@@ -159,7 +166,7 @@ export async function recordDispatch(
   await asStaff(ctx, async (tx) => {
     const order = await lockOrder(tx, ctx.accountId, orderId);
     expectStatus(order, input.from);
-    if (!canTransition(order.status, 'dispatched', { priced: order.priced }))
+    if (!canTransition(order.status, 'dispatched', { priced: order.priced, unpaidCod: order.unpaidCod }))
       throw new OrderError(409, 'bad_transition', `An order cannot move from ${order.status} to dispatched`);
     // Cancel and refund (or a restocking refund) is under way: shipping now would refund goods that leave.
     if (await restockRefundInFlight(tx, ctx.accountId, orderId))
@@ -179,7 +186,7 @@ export async function recordDelivery(ctx: StaffContext, orderId: string, input: 
   await asStaff(ctx, async (tx) => {
     const order = await lockOrder(tx, ctx.accountId, orderId);
     expectStatus(order, input.from);
-    if (!canTransition(order.status, 'fulfilled', { priced: order.priced }))
+    if (!canTransition(order.status, 'fulfilled', { priced: order.priced, unpaidCod: order.unpaidCod }))
       throw new OrderError(409, 'bad_transition', `An order cannot move from ${order.status} to fulfilled`);
     await setStatus(tx, ctx.accountId, order, 'fulfilled');
     await scheduleDeliveryFollowups(tx, ctx.accountId, orderId);
@@ -235,11 +242,17 @@ async function fullyRefunded(tx: TenantTransaction, accountId: string, orderId: 
   return row?.full === true;
 }
 
-/** The courier picked the parcel up (or later) for a paid order: paid → dispatched, with the dispatched notice. */
+/** A paid order, or an unpaid cash-on-delivery order still confirmed, is ready to leave with the courier. */
+const shippable = (order: LockedOrder): boolean => order.status === 'paid' || (order.status === 'confirmed' && order.unpaidCod);
+
+/**
+ * The courier picked the parcel up (or later) for a paid order, or an unpaid cash-on-delivery
+ * order: → dispatched, with the dispatched notice.
+ */
 export async function systemDispatch(tx: TenantTransaction, accountId: string, orderId: string): Promise<SystemFulfilmentOutcome> {
   const order = await lockOrder(tx, accountId, orderId);
   if (order.status === 'dispatched' || order.status === 'fulfilled') return 'already';
-  if (order.status !== 'paid') return 'conflict';
+  if (!shippable(order)) return 'conflict';
   if ((await fullyRefunded(tx, accountId, orderId)) || (await restockRefundInFlight(tx, accountId, orderId))) return 'conflict';
   await setStatus(tx, accountId, order, 'dispatched');
   await queueNotice(tx, accountId, orderId, 'dispatched');
@@ -256,9 +269,9 @@ export async function systemDispatch(tx: TenantTransaction, accountId: string, o
 export async function systemDeliver(tx: TenantTransaction, accountId: string, orderId: string): Promise<SystemFulfilmentOutcome> {
   let order = await lockOrder(tx, accountId, orderId);
   if (order.status === 'fulfilled') return 'already';
-  if (order.status !== 'paid' && order.status !== 'dispatched') return 'conflict';
+  if (!shippable(order) && order.status !== 'dispatched') return 'conflict';
   if (await fullyRefunded(tx, accountId, orderId)) return 'conflict';
-  if (order.status === 'paid') {
+  if (order.status !== 'dispatched') {
     if (await restockRefundInFlight(tx, accountId, orderId)) return 'conflict';
     await setStatus(tx, accountId, order, 'dispatched');
     order = { ...order, status: 'dispatched' };

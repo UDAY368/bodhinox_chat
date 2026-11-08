@@ -1287,11 +1287,13 @@ async function flowOrderDue(accountId: string, contactId: string, orderVar: unkn
   if (typeof orderVar !== "string" || !UUID_RE.test(orderVar)) return { kind: "refused", reason: "no_order" };
   return withTenant({ accountId, role: "owner" }, async (tx) => {
     const [order] = await tx.$queryRaw<{ status: string; currency: string; subtotal_minor: bigint; total_minor: bigint | null;
-      amount_paid_minor: bigint; priced_at: Date | null }[]>`
-      SELECT status,currency,subtotal_minor,total_minor,amount_paid_minor,priced_at FROM orders
+      amount_paid_minor: bigint; priced_at: Date | null; payment_method: string }[]>`
+      SELECT status,currency,subtotal_minor,total_minor,amount_paid_minor,priced_at,payment_method FROM orders
       WHERE account_id=${accountId}::uuid AND id=${orderVar}::uuid AND contact_id=${contactId}::uuid`;
     if (!order) return { kind: "refused" as const, reason: "no_order" };
     if (!["new", "confirmed", "awaiting_payment"].includes(order.status)) return { kind: "refused" as const, reason: "order_closed" };
+    // A cash-on-delivery order takes no online link: the courier (or staff, as cash) collects it.
+    if (order.payment_method === "cod") return { kind: "refused" as const, reason: "order_closed" };
     if (!order.priced_at) {
       const [settings] = await tx.$queryRaw<{ checkout_enabled: boolean }[]>`
         SELECT checkout_enabled FROM commerce_settings WHERE account_id=${accountId}::uuid`;

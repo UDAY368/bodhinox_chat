@@ -139,13 +139,16 @@ export interface OrderLockRow {
   currency: string;
   contact_id: string | null;
   conversation_id: string | null;
+  /** 'cod' for cash on delivery (absent on older fixtures = online). */
+  payment_method?: string;
+  paid_at?: Date | null;
 }
 
 /** The order row under FOR UPDATE (the caller already holds the payment row lock when there is one). */
 export async function lockOrderTx(tx: TenantTransaction, accountId: string, orderId: string): Promise<OrderLockRow | null> {
   const rows = await tx.$queryRaw<OrderLockRow[]>`
     SELECT id::text AS id,status,source,external_id,priced_at,total_minor,subtotal_minor,amount_paid_minor,currency,
-      contact_id::text AS contact_id,conversation_id::text AS conversation_id
+      contact_id::text AS contact_id,conversation_id::text AS conversation_id,payment_method,paid_at
     FROM orders WHERE account_id=${accountId}::uuid AND id=${orderId}::uuid FOR UPDATE`;
   return rows[0] ?? null;
 }
@@ -159,16 +162,21 @@ export function orderDue(order: Pick<OrderLockRow, 'total_minor' | 'subtotal_min
 /** Order statuses a payment can be credited to directly. 'expired' needs its stock back first. */
 const PAYABLE = new Set(['new', 'confirmed', 'awaiting_payment']);
 const ALREADY_PAID = new Set(['paid', 'dispatched', 'fulfilled', 'payment_review']);
+/** A cash-on-delivery order ships before its cash arrives, so it stays payable once dispatched or delivered. */
+const COD_SHIPPED = new Set(['dispatched', 'fulfilled']);
 
 /**
  * How a payment for this order would settle, before any write (design E9).
  * 'credit' and 'late' credit it; anything else is an exception kind.
  */
-export function orderSettlementPlan(order: Pick<OrderLockRow, 'status' | 'currency' | 'total_minor' | 'subtotal_minor' | 'amount_paid_minor'>,
-  payment: { amountMinor: number; currency: string }): 'credit' | 'late' | ExceptionKind {
+export function orderSettlementPlan(
+  order: Pick<OrderLockRow, 'status' | 'currency' | 'total_minor' | 'subtotal_minor' | 'amount_paid_minor' | 'payment_method' | 'paid_at'>,
+  payment: { amountMinor: number; currency: string },
+): 'credit' | 'late' | ExceptionKind {
   if (order.status === 'cancelled') return 'payment_on_closed_order';
-  if (ALREADY_PAID.has(order.status)) return 'duplicate_payment';
-  if (!PAYABLE.has(order.status) && order.status !== 'expired') return 'payment_on_closed_order';
+  const unpaidCodShipped = order.payment_method === 'cod' && !order.paid_at && COD_SHIPPED.has(order.status);
+  if (ALREADY_PAID.has(order.status) && !unpaidCodShipped) return 'duplicate_payment';
+  if (!PAYABLE.has(order.status) && order.status !== 'expired' && !unpaidCodShipped) return 'payment_on_closed_order';
   if (payment.currency !== order.currency) return 'currency_mismatch';
   const due = orderDue(order);
   if (due <= 0) return 'duplicate_payment';
@@ -201,7 +209,9 @@ export async function creditOrderTx(tx: TenantTransaction, input: {
     UPDATE coupon_redemptions r SET status='committed' FROM (SELECT id, status AS was FROM coupon_redemptions
       WHERE account_id=${accountId}::uuid AND order_id=${order.id}::uuid AND status<>'committed') p
     WHERE r.id=p.id RETURNING r.coupon_id::text AS coupon_id, p.was`;
-  const paid = await tx.$queryRaw<PaidOrderRow[]>`UPDATE orders o SET status='paid', paid_at=COALESCE(o.paid_at, now()),
+  // A cash-on-delivery order paid once dispatched or delivered keeps that status (it never goes back to paid).
+  const paid = await tx.$queryRaw<PaidOrderRow[]>`UPDATE orders o
+    SET status=CASE WHEN o.status IN ('dispatched','fulfilled') THEN o.status ELSE 'paid' END, paid_at=COALESCE(o.paid_at, now()),
       amount_paid_minor=o.amount_paid_minor + ${BigInt(input.amountMinor)}
     WHERE o.account_id=${accountId}::uuid AND o.id=${order.id}::uuid
     RETURNING o.id::text AS id,o.source,o.external_id,o.status,o.total_minor,o.subtotal_minor,o.currency,
