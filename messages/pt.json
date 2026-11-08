@@ -5760,7 +5760,11 @@
       "product_not_found": "Um produto escolhido não está mais no catálogo. Sincronize o catálogo e escolha novamente.",
       "uncertain": "Não conseguimos confirmar se a mensagem foi enviada. Verifique a conversa antes de enviar de novo.",
       "rejected": "O WhatsApp recusou a mensagem.",
-      "workspace_manual_blocked": "O suporte da Bodhinox pausou as respostas deste espaço de trabalho. Fale com o suporte da Bodhinox para mais detalhes."
+      "workspace_manual_blocked": "O suporte da Bodhinox pausou as respostas deste espaço de trabalho. Fale com o suporte da Bodhinox para mais detalhes.",
+      "rejected_window": "O WhatsApp recusou: o cliente escreveu pela última vez há mais de 24 horas. Envie primeiro um modelo aprovado ou espere ele escrever.",
+      "rejected_product": "O WhatsApp não conseguiu enviar este produto. No Commerce Manager, confira se ele está aprovado (não \"Em análise\" nem rejeitado), em estoque e no catálogo conectado a este número, e toque em Sincronizar agora.",
+      "rejected_recipient": "O WhatsApp não conseguiu entregar mensagens de produto a este cliente (versão antiga do WhatsApp ou aparelho sem suporte).",
+      "metaCode": "código do WhatsApp {code}"
     },
     "commerce": {
       "catalogIdInvalid": "Escolha um catálogo válido.",

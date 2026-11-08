@@ -69,6 +69,19 @@ const REFUSAL_STATUS: Record<CommerceSendRefusal, number> = {
   workspace_manual_blocked: 403,
 };
 
+/**
+ * Why WhatsApp refused a product / catalogue message, as a Validation.commerceSend key. Meta codes
+ * (https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes): 131047 the customer's
+ * 24-hour window closed; 131009, 131008 and 100 a product the catalogue cannot serve (not approved yet,
+ * rejected, out of stock or not in the catalogue linked to this number); 131026 the recipient cannot get it.
+ */
+export function commerceRejectionKey(error: { code: number | null }): 'rejected_window' | 'rejected_product' | 'rejected_recipient' | 'rejected' {
+  if (error.code === 131047) return 'rejected_window';
+  if (error.code === 131009 || error.code === 131008 || error.code === 100) return 'rejected_product';
+  if (error.code === 131026) return 'rejected_recipient';
+  return 'rejected';
+}
+
 /** A refusal before anything was sent (message: Validation.commerceSend.<code>). */
 export class CommerceSendError extends Error {
   readonly status: number;

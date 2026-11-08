@@ -3,11 +3,21 @@ import {
   commerceMessageFromNode,
   commerceMessageFromRequest,
   commerceMessageRefusal,
+  commerceRejectionKey,
   commerceMessageText,
   conversationRefusal,
   messageProductRefs,
   type CommerceMessage,
 } from './catalog-send';
+
+describe('commerceRejectionKey', () => {
+  it('names the window, product and recipient refusals and falls back to a plain rejection', () => {
+    expect(commerceRejectionKey({ code: 131047 })).toBe('rejected_window');
+    for (const code of [131009, 131008, 100]) expect(commerceRejectionKey({ code })).toBe('rejected_product');
+    expect(commerceRejectionKey({ code: 131026 })).toBe('rejected_recipient');
+    for (const code of [131000, 190, null]) expect(commerceRejectionKey({ code })).toBe('rejected');
+  });
+});
 
 const P1 = '11111111-1111-4111-8111-111111111111';
 const P2 = '22222222-2222-4222-8222-222222222222';

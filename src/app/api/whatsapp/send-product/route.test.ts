@@ -83,4 +83,14 @@ it('maps refusals, unknown outcomes and Meta rejections', async () => {
   const rejected = await post(product);
   expect(rejected.status).toBe(502);
   expect(JSON.stringify(await rejected.json())).not.toContain('+91');
+
+  // A product WhatsApp cannot serve names the cause and the code; Meta's own text never reaches the browser.
+  h.send.mockRejectedValueOnce(new MetaApiError('Product not found SKU-SECRET', { code: 131009, httpStatus: 400, details: 'retailer id SKU-SECRET' }));
+  const product404 = await post(product);
+  const body = await product404.json();
+  expect(product404.status).toBe(502);
+  expect(body.meta_code).toBe(131009);
+  expect(body.error).toMatch(/Commerce Manager/);
+  expect(body.error).toMatch(/131009/);
+  expect(JSON.stringify(body)).not.toContain('SKU-SECRET');
 });

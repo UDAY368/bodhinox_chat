@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { CommerceSendError, commerceMessageFromRequest, sendCommerceMessage } from '@/lib/commerce/catalog-send';
+import { CommerceSendError, commerceMessageFromRequest, commerceRejectionKey, sendCommerceMessage } from '@/lib/commerce/catalog-send';
 import { getT } from '@/lib/i18n/translate';
 import { UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
@@ -50,7 +50,13 @@ export async function POST(request: Request) {
     } catch (err) {
       if (err instanceof CommerceSendError) return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
       if (err instanceof UncertainDispatchError) return NextResponse.json({ error: t('uncertain') }, { status: 409 });
-      if (err instanceof MetaApiError) return NextResponse.json({ error: t('rejected') }, { status: 502 });
+      if (err instanceof MetaApiError) {
+        // Meta's numbers only (never its text or the message content).
+        console.warn('[send-product] WhatsApp rejected', err.httpStatus, err.code, err.subcode);
+        const reason = t(commerceRejectionKey(err));
+        return NextResponse.json({ error: err.code ? `${reason} (${t('metaCode', { code: err.code })})` : reason, meta_code: err.code },
+          { status: 502 });
+      }
       throw err;
     }
   } catch (error) {
