@@ -57,6 +57,11 @@ vi.mock('@/lib/instagram/comment-rules', () => ({
     return { id: RULE };
   },
   deleteCommentRule: async () => { h.calls.push('delete'); },
+  listRecentPosts: async (actor: { accountId: string }, id: string) => {
+    if (h.fail) throw h.fail;
+    h.calls.push(`posts:${actor.accountId}:${id}`);
+    return [{ id: '17890001', caption: 'Sale', mediaType: 'IMAGE', previewUrl: null, permalink: null, timestamp: null }];
+  },
 }));
 
 import { InstagramError } from '@/lib/instagram/errors';
@@ -68,6 +73,7 @@ import { DELETE as disconnectRoute } from './accounts/[id]/route';
 import { POST as health } from './accounts/[id]/health/route';
 import { GET as listRules, POST as createRule } from './accounts/[id]/comment-rules/route';
 import { DELETE as deleteRule, PATCH as patchRule } from './accounts/[id]/comment-rules/[ruleId]/route';
+import { GET as listPosts } from './accounts/[id]/posts/route';
 
 const req = (path: string, method = 'GET', body?: unknown) =>
   new Request(`https://app.example.test${path}`, { method, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -109,6 +115,7 @@ describe('while Instagram is off', () => {
       await createRule(req(`/api/instagram/accounts/${IG}/comment-rules`, 'POST', { reply_text: 'hi' }), idCtx()),
       await patchRule(req(`/api/instagram/accounts/${IG}/comment-rules/${RULE}`, 'PATCH', { active: false }), ruleCtx()),
       await deleteRule(req(`/api/instagram/accounts/${IG}/comment-rules/${RULE}`, 'DELETE'), ruleCtx()),
+      await listPosts(req(`/api/instagram/accounts/${IG}/posts`), idCtx()),
     ];
     for (const res of responses) {
       expect(res.status).toBe(503);
@@ -219,6 +226,30 @@ describe('when enabled', () => {
     const checked = await health(req(`/api/instagram/accounts/${IG}/health`, 'POST'), idCtx());
     expect(checked.status).toBe(200);
     expect(h.calls).toEqual([`disconnect:${IG}`, 'view', `health:${ACCOUNT}:${IG}`, 'view']);
+  });
+
+  it('posts: admin only, a well-formed id, rate limited, Meta failures as fixed codes', async () => {
+    const posts = (id = IG) => listPosts(req(`/api/instagram/accounts/${id}/posts`), idCtx(id));
+    h.signedIn = false;
+    expect((await posts()).status).toBe(401);
+    h.signedIn = true;
+    h.role = 'agent';
+    expect((await posts()).status).toBe(403);
+    h.role = 'admin';
+    expect((await posts('x')).status).toBe(404);
+    expect(h.calls).toEqual([]);
+    const ok = await posts();
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get('cache-control')).toBe('private, no-store');
+    expect((await ok.json()).posts[0].id).toBe('17890001');
+    expect(h.calls).toEqual([`posts:${ACCOUNT}:${IG}`]);
+    h.fail = new InstagramError('instagram_token_invalid');
+    const failed = await posts();
+    expect(failed.status).toBe(409);
+    expect((await failed.json()).error).toBe('instagram_token_invalid');
+    h.fail = null;
+    for (let i = 0; i < 8; i++) await posts();
+    expect((await posts()).status).toBe(429);
   });
 
   it('comment rules: admin only, strict bodies, mapped fields', async () => {

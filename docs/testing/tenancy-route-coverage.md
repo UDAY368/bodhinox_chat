@@ -56,7 +56,7 @@ The ten route cases that answered a foreign id with 200, 400 or 409 now answer 4
 
 ## Route coverage gap
 
-There are 147 dynamic route files. `CASES` covers 47 routes. The exempt routes, each with its reason, are:
+There are 148 dynamic route files. `CASES` covers 47 routes. The exempt routes, each with its reason, are:
 - auth;
 - invitation tokens;
 - the data gateway and RPC endpoints, which the contract suite covers;
@@ -65,7 +65,7 @@ There are 147 dynamic route files. `CASES` covers 47 routes. The exempt routes, 
 - public share links;
 - `public/*`, `platform/*` and `v1/*`.
 
-The following 64 dynamic routes have no cross-tenant case yet. The coverage test pins this list (`KNOWN_UNMAPPED`), so it can only shrink, and a new dynamic route fails CI until it is mapped or exempted.
+The following 65 dynamic routes have no cross-tenant case yet. The coverage test pins this list (`KNOWN_UNMAPPED`), so it can only shrink, and a new dynamic route fails CI until it is mapped or exempted.
 
 ```
 account/export/[id]/download, account/invitations/[id], account/support-grants/[id],
@@ -85,7 +85,7 @@ contacts/[id]/identities/link, contacts/[id]/identities/unlink, flows/[id]/dry-r
 flows/[id]/runs/[runId], flows/[id]/runs/[runId]/replay, flows/[id]/runs/cancel, flows/[id]/runs/migrate,
 flows/[id]/versions/[versionId], inbox/routing-rules/[id], instagram/accounts/[id],
 instagram/accounts/[id]/comment-rules, instagram/accounts/[id]/comment-rules/[ruleId],
-instagram/accounts/[id]/health, meta-ads/conversions/[id]/resolve, meta-ads/leads/[id],
+instagram/accounts/[id]/health, instagram/accounts/[id]/posts, meta-ads/conversions/[id]/resolve, meta-ads/leads/[id],
 payments/customer-payments/[id]/refund, payments/refunds/[id], whatsapp/forms/[id]/duplicate,
 whatsapp/forms/[id]/publish, whatsapp/forms/[id]/responses/export, whatsapp/media/[mediaId],
 whatsapp/numbers/[id]/profile

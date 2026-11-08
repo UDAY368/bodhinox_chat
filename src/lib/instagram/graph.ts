@@ -202,6 +202,58 @@ export async function unsubscribe(igUserId: string, token: string): Promise<void
   await call<unknown>('DELETE', graph(`${assertId(igUserId)}/subscribed_apps`), token);
 }
 
+// ---------------------------------------------------------------- media
+
+export const MEDIA_PAGE_SIZE = 50;
+
+export interface InstagramMedia {
+  id: string;
+  caption: string | null;
+  mediaType: 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM' | null;
+  /** An https Instagram CDN image for the picker (the video thumbnail for a video), or null. */
+  previewUrl: string | null;
+  /** The post's https://www.instagram.com/... link, or null. */
+  permalink: string | null;
+  timestamp: string | null;
+}
+
+const MEDIA_TYPES = new Set(['IMAGE', 'VIDEO', 'CAROUSEL_ALBUM']);
+const httpsUrl = (value: unknown, host?: RegExp): string | null => {
+  if (typeof value !== 'string' || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && (!host || host.test(url.hostname)) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+};
+
+/** The account's most recent posts, newest first (GET /{ig-user-id}/media). Only checked fields come back. */
+export async function listMedia(igUserId: string, token: string): Promise<InstagramMedia[]> {
+  const result = await call<{ data?: unknown }>('GET', graph(`${assertId(igUserId)}/media`, {
+    fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp', limit: MEDIA_PAGE_SIZE,
+  }), token);
+  const rows = Array.isArray(result.data) ? result.data.slice(0, MEDIA_PAGE_SIZE) : [];
+  const media: InstagramMedia[] = [];
+  for (const raw of rows) {
+    const row = (raw ?? {}) as Record<string, unknown>;
+    const id = igId(row.id);
+    if (!id) continue;
+    const mediaType = typeof row.media_type === 'string' && MEDIA_TYPES.has(row.media_type)
+      ? row.media_type as InstagramMedia['mediaType'] : null;
+    media.push({
+      id,
+      caption: str(row.caption, 300),
+      mediaType,
+      previewUrl: httpsUrl(mediaType === 'VIDEO' ? row.thumbnail_url : row.media_url),
+      permalink: httpsUrl(row.permalink, /^(www\.)?instagram\.com$/),
+      timestamp: typeof row.timestamp === 'string' && !Number.isNaN(Date.parse(row.timestamp))
+        ? new Date(row.timestamp).toISOString() : null,
+    });
+  }
+  return media;
+}
+
 // ---------------------------------------------------------------- messaging
 
 export interface SendOptions {

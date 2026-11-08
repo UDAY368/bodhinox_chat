@@ -9,6 +9,7 @@ import {
   exchangeLongLived,
   getMe,
   isMetaThrottle,
+  listMedia,
   quickRepliesFit,
   refreshToken,
   sendAttachment,
@@ -57,6 +58,39 @@ function call(index = 0) {
   const [url, init] = fetchMock.mock.calls[index] as [string, RequestInit];
   return { url: new URL(url), init, headers: (init.headers ?? {}) as Record<string, string> };
 }
+
+describe('listMedia', () => {
+  it('reads recent posts with the token in the header and keeps only checked fields', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(`{"data":[
+      {"id":17912345678901234567,"caption":"  Diwali sale  ","media_type":"IMAGE","media_url":"https://scontent.cdninstagram.com/a.jpg",
+       "permalink":"https://www.instagram.com/p/ABC/","timestamp":"2026-11-01T10:00:00+0000"},
+      {"id":"222","media_type":"VIDEO","media_url":"https://x.test/v.mp4","thumbnail_url":"https://scontent.cdninstagram.com/t.jpg",
+       "permalink":"https://evil.test/p/1"},
+      {"id":"333","media_type":"STORY","media_url":"http://insecure.test/a.jpg","timestamp":"not a date"},
+      {"id":"abc"}, null]}`, { status: 200 }));
+    const posts = await listMedia('111', TOKEN);
+    const { url, headers } = call();
+    expect(url.pathname).toBe(`/${INSTAGRAM_GRAPH_VERSION}/111/media`);
+    expect(url.searchParams.get('access_token')).toBeNull();
+    expect(url.searchParams.get('limit')).toBe('50');
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
+    expect(posts).toEqual([
+      { id: '17912345678901234567', caption: 'Diwali sale', mediaType: 'IMAGE', previewUrl: 'https://scontent.cdninstagram.com/a.jpg',
+        permalink: 'https://www.instagram.com/p/ABC/', timestamp: '2026-11-01T10:00:00.000Z' },
+      { id: '222', caption: null, mediaType: 'VIDEO', previewUrl: 'https://scontent.cdninstagram.com/t.jpg', permalink: null, timestamp: null },
+      { id: '333', caption: null, mediaType: null, previewUrl: null, permalink: null, timestamp: null },
+    ]);
+  });
+
+  it('refuses a bad account id before any request and keeps Meta’s text out of errors', async () => {
+    await expect(listMedia('me/../x', TOKEN)).rejects.toBeInstanceOf(InstagramGraphInputError);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValueOnce(json({ error: { message: 'secret detail', code: 190 } }, 401));
+    const error = await listMedia('111', TOKEN).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MetaApiError);
+    expect(String((error as Error).message)).not.toContain('secret detail');
+  });
+});
 
 describe('instagram graph client', () => {
   it('sends to graph.instagram.com with the token only in the Authorization header', async () => {

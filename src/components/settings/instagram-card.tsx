@@ -31,6 +31,7 @@ import { authFetch } from '@/lib/auth/client';
 import { hasMinRole } from '@/lib/auth/roles';
 import type { CommentRuleView } from '@/lib/instagram/comment-rules';
 import type { InstagramAccountView } from '@/lib/instagram/connection';
+import type { InstagramMedia } from '@/lib/instagram/graph';
 
 type Status =
   | { enabled: false; reason: 'flag_off' | 'not_configured'; accounts: [] }
@@ -288,7 +289,40 @@ function CommentRules({ accountId }: { accountId: string }) {
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const [draft, setDraft] = useState<RuleDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
+  const [posts, setPosts] = useState<InstagramMedia[] | null>(null);
+  const [postsState, setPostsState] = useState<'idle' | 'loading' | 'failed'>('idle');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const base = `/api/instagram/accounts/${accountId}/comment-rules`;
+
+  const loadPosts = useCallback(async () => {
+    setPostsState('loading');
+    try {
+      const { ok, json } = await call(`/api/instagram/accounts/${accountId}/posts`);
+      if (!ok) {
+        setPostsState('failed');
+        return;
+      }
+      setPosts(Array.isArray(json.posts) ? json.posts as InstagramMedia[] : []);
+      setPostsState('idle');
+    } catch {
+      setPostsState('failed');
+    }
+  }, [accountId]);
+
+  // Rules aimed at one post show its caption, so fetch the posts once when such a rule exists.
+  const needsPosts = !!rules?.some((rule) => rule.mediaId);
+  useEffect(() => {
+    if (needsPosts && posts === null && postsState === 'idle') void loadPosts();
+  }, [needsPosts, posts, postsState, loadPosts]);
+
+  const openPicker = () => {
+    setPickerOpen(true);
+    if (posts === null && postsState !== 'loading') void loadPosts();
+  };
+  const postById = (id: string) => posts?.find((post) => post.id === id) ?? null;
+  const postTitle = (post: InstagramMedia) =>
+    post.caption ?? (post.timestamp ? new Date(post.timestamp).toLocaleDateString() : t('mediaLabel', { id: post.id }));
+  const closeForm = () => { setEditing(null); setDraft(EMPTY_DRAFT); setPickerOpen(false); };
 
   const fail = (json: Record<string, unknown>): void => {
     toast.error(typeof json.message === 'string' ? json.message : tc('errors.generic'));
@@ -326,8 +360,7 @@ function CommentRules({ accountId }: { accountId: string }) {
       setRules((current) => editing === 'new'
         ? [...(current ?? []), rule]
         : (current ?? []).map((r) => (r.id === rule.id ? rule : r)));
-      setEditing(null);
-      setDraft(EMPTY_DRAFT);
+      closeForm();
       toast.success(t('saved'));
     } catch {
       toast.error(tc('errors.generic'));
@@ -364,7 +397,9 @@ function CommentRules({ accountId }: { accountId: string }) {
         <div key={rule.id} className="bg-muted/40 flex flex-wrap items-start gap-3 rounded-md p-3 text-sm">
           <div className="min-w-0 flex-1 space-y-1">
             <p className="text-muted-foreground text-xs">
-              {rule.mediaId ? t('mediaLabel', { id: rule.mediaId }) : t('anyPost')}
+              {rule.mediaId
+                ? (() => { const post = postById(rule.mediaId); return post ? postTitle(post) : t('mediaLabel', { id: rule.mediaId }); })()
+                : t('anyPost')}
               {' · '}
               {rule.keywords.length ? rule.keywords.join(', ') : t('keywordsAny')}
             </p>
@@ -383,10 +418,77 @@ function CommentRules({ accountId }: { accountId: string }) {
 
       {editing !== null && (
         <div className="space-y-3 rounded-md border p-3">
-          <div className="space-y-1">
-            <Label htmlFor={`ig-media-${accountId}`}>{t('postId')}</Label>
-            <Input id={`ig-media-${accountId}`} inputMode="numeric" value={draft.mediaId} maxLength={32}
-              placeholder={t('anyPost')} onChange={(e) => setDraft({ ...draft, mediaId: e.target.value })} />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t('post')}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {(() => {
+                const id = draft.mediaId.trim();
+                const post = id ? postById(id) : null;
+                return (
+                  <span className="text-muted-foreground min-w-0 flex-1 truncate text-sm">
+                    {!id ? t('anyPost') : post ? postTitle(post) : t('mediaLabel', { id })}
+                  </span>
+                );
+              })()}
+              <Button type="button" variant="outline" size="sm" onClick={openPicker}>{t('choosePost')}</Button>
+              {draft.mediaId.trim() && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setDraft({ ...draft, mediaId: '' })}>
+                  {t('useAnyPost')}
+                </Button>
+              )}
+            </div>
+            {pickerOpen && (
+              <div className="space-y-2 rounded-md border p-2">
+                {postsState === 'loading' && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tc('loading')} />}
+                {postsState === 'failed' && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <p className="text-destructive">{t('postsFailed')}</p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void loadPosts()}>{tc('retry')}</Button>
+                  </div>
+                )}
+                {postsState === 'idle' && posts?.length === 0 && <p className="text-muted-foreground text-sm">{t('noPosts')}</p>}
+                {postsState === 'idle' && !!posts?.length && (
+                  <ul className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+                    {posts.map((post) => {
+                      const selected = draft.mediaId.trim() === post.id;
+                      return (
+                        <li key={post.id}>
+                          <button type="button" aria-pressed={selected}
+                            onClick={() => { setDraft({ ...draft, mediaId: post.id }); setPickerOpen(false); }}
+                            className={`hover:bg-muted flex w-full flex-col gap-1 rounded-md border p-1.5 text-left text-xs ${selected ? 'border-primary ring-primary ring-1' : ''}`}>
+                            {post.previewUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={post.previewUrl} alt="" loading="lazy" referrerPolicy="no-referrer"
+                                className="bg-muted aspect-square w-full rounded object-cover" />
+                            ) : (
+                              <span className="bg-muted text-muted-foreground flex aspect-square w-full items-center justify-center rounded">
+                                {post.mediaType === 'VIDEO' ? t('video') : t('noPreview')}
+                              </span>
+                            )}
+                            <span className="line-clamp-2 break-words">{post.caption ?? t('noCaption')}</span>
+                            {post.timestamp && (
+                              <span className="text-muted-foreground">{new Date(post.timestamp).toLocaleDateString()}</span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <div className="flex justify-between gap-2">
+                  <p className="text-muted-foreground text-xs">{t('postsHelp')}</p>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setPickerOpen(false)}>{t('cancel')}</Button>
+                </div>
+              </div>
+            )}
+            <details className="text-xs">
+              <summary className="text-muted-foreground cursor-pointer">{t('enterPostId')}</summary>
+              <div className="mt-2 space-y-1">
+                <Label htmlFor={`ig-media-${accountId}`}>{t('postId')}</Label>
+                <Input id={`ig-media-${accountId}`} inputMode="numeric" value={draft.mediaId} maxLength={32}
+                  placeholder={t('anyPost')} onChange={(e) => setDraft({ ...draft, mediaId: e.target.value })} />
+              </div>
+            </details>
             <p className="text-muted-foreground text-xs">{mediaValid ? t('postIdHelp') : t('postIdInvalid')}</p>
           </div>
           <div className="space-y-1">
@@ -412,8 +514,7 @@ function CommentRules({ accountId }: { accountId: string }) {
               {saving && <Loader2 className="size-3.5 animate-spin" />}
               {t('save')}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => { setEditing(null); setDraft(EMPTY_DRAFT); }}
-              disabled={saving}>
+            <Button type="button" variant="outline" size="sm" onClick={closeForm} disabled={saving}>
               {t('cancel')}
             </Button>
           </div>

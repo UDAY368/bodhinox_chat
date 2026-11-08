@@ -212,6 +212,8 @@ export const KNOWN_UNMAPPED = [
   'instagram/accounts/[id]/comment-rules',
   'instagram/accounts/[id]/comment-rules/[ruleId]',
   'instagram/accounts/[id]/health',
+  // Calls Instagram for the caller's own account (no positive control here); tenancy.integration.test.ts covers B's id -> not_found.
+  'instagram/accounts/[id]/posts',
   'meta-ads/conversions/[id]/resolve',
   'meta-ads/leads/[id]',
   'payments/customer-payments/[id]/refund',

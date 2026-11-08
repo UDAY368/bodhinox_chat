@@ -6,15 +6,18 @@
 // manage them; every read and write runs as the member (app role, RLS
 // admin_write) inside withTenant. A rule needs the plan's instagram feature,
 // a connected account and the comments permission on its grant, otherwise
-// instagram_permission_missing. No Instagram call is made here.
+// instagram_permission_missing. The rules themselves make no Instagram call;
+// listRecentPosts (the rule form's post picker) reads the account's posts with
+// its stored token, server-side, outside any transaction.
 import { requireFeature } from '@/lib/billing/entitlements';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { hasMinRole } from '@/lib/auth/roles';
 import { auditTx } from '@/lib/payments/ledger';
 import { instagramConfig, missingScopes } from './config';
 import { InstagramError } from './errors';
+import { InstagramGraphInputError, isMetaThrottle, isMetaTokenInvalid, listMedia, type InstagramMedia } from './graph';
 import { utf8Bytes } from './graph-limits';
-import type { InstagramActor } from './connection';
+import { asWorker, loadAccountSecretTx, readToken, type InstagramActor } from './connection';
 
 export const MAX_RULES_PER_ACCOUNT = 50;
 export const MAX_KEYWORDS = 20;
@@ -124,6 +127,29 @@ export async function listCommentRules(actor: InstagramActor, instagramAccountId
     await guardTx(tx, actor, instagramAccountId);
     return selectRules(tx, actor.accountId, instagramAccountId);
   });
+}
+
+/**
+ * The account's recent posts for the rule form's picker (admin, same guard as
+ * the rules). Meta failures become fixed codes: token rejected ->
+ * instagram_token_invalid, throttled -> rate_limited, anything else -> meta_error.
+ */
+export async function listRecentPosts(actor: InstagramActor, instagramAccountId: string): Promise<InstagramMedia[]> {
+  precheck(actor, instagramAccountId);
+  // Read as the member first, so another workspace's id is a 404 before the token is loaded.
+  await withTenant(actor, (tx) => guardTx(tx, actor, instagramAccountId));
+  const secret = await asWorker(actor.accountId, (tx) => loadAccountSecretTx(tx, actor.accountId, instagramAccountId));
+  if (!secret || secret.status === 'disconnected') throw new InstagramError('instagram_account_disconnected');
+  const token = readToken(secret);
+  if (!token) throw new InstagramError('instagram_token_invalid');
+  try {
+    return await listMedia(secret.ig_user_id, token);
+  } catch (error) {
+    if (error instanceof InstagramGraphInputError) throw new InstagramError('invalid_request');
+    if (isMetaTokenInvalid(error)) throw new InstagramError('instagram_token_invalid');
+    if (isMetaThrottle(error)) throw new InstagramError('rate_limited');
+    throw new InstagramError('meta_error');
+  }
 }
 
 export async function createCommentRule(actor: InstagramActor, instagramAccountId: string,

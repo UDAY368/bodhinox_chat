@@ -23,13 +23,14 @@ import { MetaApiError } from '@/lib/whatsapp/meta-api';
 
 const graph = vi.hoisted(() => ({
   exchangeCode: vi.fn(), exchangeLongLived: vi.fn(), getMe: vi.fn(), subscribe: vi.fn(), unsubscribe: vi.fn(), refreshToken: vi.fn(),
+  listMedia: vi.fn(),
 }));
 vi.mock('@/lib/instagram/graph', async (original) => ({ ...(await original<typeof import('@/lib/instagram/graph')>()), ...graph }));
 
 import { disconnect, finishConnect, listInstagramAccounts, signInstagramState } from './connection';
 import { checkHealth } from './health';
 import { resetInstagramScheduleForTests, scheduleInstagramSweeps, sweepInstagramTokens } from './token-sweep';
-import { createCommentRule, deleteCommentRule, listCommentRules, updateCommentRule } from './comment-rules';
+import { createCommentRule, deleteCommentRule, listCommentRules, listRecentPosts, updateCommentRule } from './comment-rules';
 import { InstagramError } from './errors';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
@@ -421,9 +422,29 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram tenancy and conne
         VALUES(${igA}::uuid,'x')`))).not.toBeNull();
     });
 
+    it('the post picker reads posts with this workspace’s own token and refuses before any call otherwise', async () => {
+      const post = { id: '17890001', caption: 'Sale', mediaType: 'IMAGE', previewUrl: null, permalink: null, timestamp: null };
+      graph.listMedia.mockResolvedValueOnce([post]);
+      expect(await listRecentPosts(actor('admin'), igA)).toEqual([post]);
+      const [{ ig_user_id: igUserOfA }] = (await owner.query('SELECT ig_user_id FROM instagram_accounts WHERE id=$1', [igA])).rows;
+      expect(graph.listMedia).toHaveBeenCalledExactlyOnceWith(igUserOfA, 'test-only-ig-token');
+      graph.listMedia.mockClear();
+      expect(await codeOf(listRecentPosts(actor('agent'), igA))).toBe('forbidden');
+      expect(await codeOf(listRecentPosts(actor('admin'), igB))).toBe('not_found');
+      expect(await codeOf(listRecentPosts(actor('admin'), igNoComments))).toBe('instagram_permission_missing');
+      expect(graph.listMedia).not.toHaveBeenCalled();
+      graph.listMedia.mockRejectedValueOnce(new MetaApiError('Meta API error: 401', { code: 190, httpStatus: 401 }));
+      expect(await codeOf(listRecentPosts(actor('admin'), igA))).toBe('instagram_token_invalid');
+      graph.listMedia.mockRejectedValueOnce(new MetaApiError('Meta API error: 500', { httpStatus: 500 }));
+      expect(await codeOf(listRecentPosts(actor('admin'), igA))).toBe('meta_error');
+      // Reading posts changes nothing: the account is still active.
+      expect((await owner.query('SELECT status FROM instagram_accounts WHERE id=$1', [igA])).rows[0].status).toBe('active');
+    });
+
     it('refuses everything while Instagram is off', async () => {
       vi.stubEnv('INSTAGRAM_ENABLED', 'false');
       expect(await codeOf(listCommentRules(actor('admin'), igA))).toBe('instagram_not_enabled');
+      expect(await codeOf(listRecentPosts(actor('admin'), igA))).toBe('instagram_not_enabled');
       expect(await codeOf(checkHealth(accountA, igA))).toBe('instagram_not_enabled');
       expect(graph.getMe).not.toHaveBeenCalled();
     });
