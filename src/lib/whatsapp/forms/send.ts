@@ -23,7 +23,7 @@ import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { getNumberConfig, NoNumberError } from '@/lib/whatsapp/numbers';
 import { getT } from '@/lib/i18n/translate';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
-import { normaliseFormDefinition } from './definition';
+import { metaScreenId, normaliseFormDefinition } from './definition';
 import { createFormSession, FORM_SESSION_TTL_HOURS } from './sessions';
 import type { FormStatus } from './types';
 
@@ -225,7 +225,8 @@ async function prepare(tx: TenantTransaction, args: SendFormArgs): Promise<Prepa
   return {
     metaFlowId: forms[0].meta_flow_id!,
     formName: forms[0].name,
-    screen: definition.screens[0].id,
+    // The id WhatsApp knows: the published Flow JSON spells out digits (SCREEN_1 -> SCREEN_ONE).
+    screen: metaScreenId(definition.screens[0].id),
     contactId: conversation!.contact_id,
     target: resolveContactSendTarget(conversation!)!,
     phoneNumberId: config.phone_number_id,

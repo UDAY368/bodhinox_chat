@@ -114,6 +114,13 @@ describe('sendForm', () => {
   const args = { accountId: ACCOUNT, userId: '44444444-4444-4444-8444-444444444444', role: 'agent' as const, sender: 'agent' as const,
     conversationId: CONV, formId: FORM, cta: ' Open ', body: 'Please fill in', intentKey: 'form:inbox:x' };
 
+  it('opens the screen id WhatsApp knows when the stored id has digits (SCREEN_1 -> SCREEN_ONE)', async () => {
+    h.rows['FROM whatsapp_forms'] = [{ name: 'Lead', status: 'published', meta_flow_id: '1234567890',
+      definition: { ...definition, screens: [{ ...definition.screens[0], id: 'SCREEN_1' }] } }];
+    await sendForm(args);
+    expect(h.sendFlow.mock.calls[0][0]).toMatchObject({ screen: 'SCREEN_ONE' });
+  });
+
   it('creates the session inside the intent, sends, then records the message idempotently', async () => {
     const result = await sendForm(args);
     expect(result).toEqual({ whatsappMessageId: 'wamid.form', messageId: 'msg-1' });

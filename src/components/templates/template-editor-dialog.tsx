@@ -43,6 +43,7 @@ import type { MessageTemplate, TemplateButton, TemplateKind } from '@/types';
 import { TemplateLanguageSelect } from './template-language-select';
 import { TemplatePreview } from './template-preview';
 import { usePublishedForms } from '@/components/flows/forms/use-pickers';
+import { metaScreenId } from '@/lib/whatsapp/forms/definition';
 import {
   BUTTON_TYPES_BY_KIND,
   CARD_BUTTON_TYPES,
@@ -840,7 +841,7 @@ function FlowButtonForm({ flowId, onPatch }: { flowId: string; onPatch: (patch: 
         toast.error(t('flowFormUnavailable'));
         return;
       }
-      onPatch({ flow_id: form.meta_flow_id, navigate_screen: form.definition?.screens?.[0]?.id ?? '' });
+      onPatch({ flow_id: form.meta_flow_id, navigate_screen: form.definition?.screens?.[0]?.id ? metaScreenId(form.definition.screens[0].id) : '' });
     } catch {
       toast.error(t('flowFormUnavailable'));
     } finally {
