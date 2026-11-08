@@ -14,7 +14,7 @@
  * Output is deterministic: same definition, same JSON, key order included.
  */
 
-import { isInputField } from './definition';
+import { isInputField, metaScreenId } from './definition';
 import type { FormDefinition, FormField, FormScreen } from './types';
 
 export const FLOW_JSON_VERSION = '6.3';
@@ -143,7 +143,7 @@ export function compileFlowJson(definition: FormDefinition, opts: CompileFlowJso
     } else {
       action = {
         name: 'navigate',
-        next: { type: 'screen', name: screens[index + 1].id },
+        next: { type: 'screen', name: metaScreenId(screens[index + 1].id) },
         payload: { ...dataRefs(carried), ...formRefs(own) },
       };
     }
@@ -153,7 +153,7 @@ export function compileFlowJson(definition: FormDefinition, opts: CompileFlowJso
       : undefined;
     carried.push(...own);
     return {
-      id: screen.id,
+      id: metaScreenId(screen.id),
       title: screen.title,
       ...(last ? { terminal: true as const, success: true as const } : {}),
       ...(data ? { data } : {}),
@@ -166,6 +166,6 @@ export function compileFlowJson(definition: FormDefinition, opts: CompileFlowJso
 
   if (!opts.usesEndpoint) return { version: FLOW_JSON_VERSION, screens: compiled };
   const routing = Object.fromEntries(screens.map((screen, index) =>
-    [screen.id, index < screens.length - 1 ? [screens[index + 1].id] : []]));
+    [metaScreenId(screen.id), index < screens.length - 1 ? [metaScreenId(screens[index + 1].id)] : []]));
   return { version: FLOW_JSON_VERSION, data_api_version: FLOW_DATA_API_VERSION, routing_model: routing, screens: compiled };
 }

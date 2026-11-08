@@ -1,7 +1,7 @@
 // Pure helpers behind the WhatsApp form builder. Kept free of React so the
 // id generation, reordering and error lookup rules are unit-tested directly.
 
-import { FORM_LIMITS, isInputField } from "@/lib/whatsapp/forms/definition";
+import { FORM_LIMITS, isInputField, metaScreenId } from "@/lib/whatsapp/forms/definition";
 import type {
   FormDefinition,
   FormField,
@@ -72,10 +72,10 @@ export function newScreen(
   definition: FormDefinition,
   labels: { title: string; button: string },
 ): FormScreen {
-  const taken = new Set(definition.screens.map((s) => s.id));
+  const taken = new Set(definition.screens.map((s) => metaScreenId(s.id)));
   let n = definition.screens.length + 1;
-  while (taken.has(`SCREEN_${n}`)) n += 1;
-  return { id: `SCREEN_${n}`, title: labels.title, fields: [], button_label: labels.button };
+  while (taken.has(metaScreenId(`SCREEN_${n}`))) n += 1;
+  return { id: metaScreenId(`SCREEN_${n}`), title: labels.title, fields: [], button_label: labels.button };
 }
 
 export function canAddScreen(definition: FormDefinition): boolean {

@@ -181,4 +181,13 @@ describe('validateScreenAnswers', () => {
     expect(validateScreenAnswers(planScreen, { plan: 'basic', topics: ['a', 'a'], agree: 'true' }))
       .toEqual({ ok: true, values: { plan: 'basic', topics: ['a'], agree: true } });
   });
+
+  it('works for an older form whose stored screen ids hold digits (WhatsApp sees them spelled out)', async () => {
+    const legacy: FormDefinition = { ...definition, screens: definition.screens.map((screen, i) => ({ ...screen, id: `SCREEN_${i + 1}` })) };
+    store.session = { ...store.session, definition: legacy };
+    expect(await call({ action: 'INIT' })).toEqual({ status: 200, body: { screen: 'SCREEN_ONE', data: {} } });
+    expect(await call({ action: 'data_exchange', screen: 'SCREEN_ONE', data: about }))
+      .toEqual({ status: 200, body: { screen: 'SCREEN_TWO', data: {} } });
+    expect(await call({ action: 'BACK', screen: 'SCREEN_TWO' })).toEqual({ status: 200, body: { screen: 'SCREEN_ONE', data: {} } });
+  });
 });

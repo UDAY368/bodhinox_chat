@@ -182,3 +182,34 @@ describe('compileFlowJson', () => {
     expect(a).toBe(b);
   });
 });
+
+describe('screen ids sent to WhatsApp', () => {
+  it('spells out digits so older SCREEN_n ids pass Meta (letters and underscores only)', () => {
+    const legacy: FormDefinition = {
+      version: 1,
+      screens: [
+        { id: 'SCREEN_1', title: 'One', button_label: 'Next', fields: [{ id: 'name', type: 'short_text', label: 'Name' }] },
+        { id: 'SCREEN_12', title: 'Two', button_label: 'Send', fields: [{ id: 'city', type: 'short_text', label: 'City' }] },
+      ],
+    };
+    expect(validateFormDefinition(legacy).ok).toBe(true);
+    for (const usesEndpoint of [false, true]) {
+      const json = compileFlowJson(legacy, { usesEndpoint }) as FlowJson & { routing_model?: Record<string, string[]> };
+      expect(json.screens.map((s) => s.id)).toEqual(['SCREEN_ONE', 'SCREEN_ONETWO']);
+      const text = JSON.stringify(json);
+      expect(text).not.toMatch(/SCREEN_\d/);
+      if (usesEndpoint) expect(json.routing_model).toEqual({ SCREEN_ONE: ['SCREEN_ONETWO'], SCREEN_ONETWO: [] });
+    }
+  });
+
+  it('refuses two stored ids that would reach WhatsApp as the same id', () => {
+    const clash: FormDefinition = {
+      version: 1,
+      screens: [
+        { id: 'SCREEN_1', title: 'One', button_label: 'Next', fields: [{ id: 'name', type: 'short_text', label: 'Name' }] },
+        { id: 'SCREEN_ONE', title: 'Two', button_label: 'Send', fields: [{ id: 'city', type: 'short_text', label: 'City' }] },
+      ],
+    };
+    expect(validateFormDefinition(clash).ok).toBe(false);
+  });
+});

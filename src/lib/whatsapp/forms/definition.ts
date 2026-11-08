@@ -144,13 +144,22 @@ export interface EmptyFormLabels {
   button: string;
 }
 
+const DIGIT_WORDS = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
+/**
+ * The screen id sent to WhatsApp. Meta accepts only letters and underscores in screen ids, so
+ * digits in older stored ids (SCREEN_1) are spelled out (SCREEN_ONE); letter-only ids are unchanged.
+ */
+export function metaScreenId(id: string): string {
+  return id.replace(/[0-9]/g, (digit) => DIGIT_WORDS[Number(digit)]);
+}
+
 /** A one-screen, one-question starting point for the builder. */
 export function emptyFormDefinition(labels?: EmptyFormLabels): FormDefinition {
   const l = labels ?? { title: t('defaults.screenTitle'), field: t('defaults.fieldLabel'), button: t('defaults.buttonLabel') };
   return {
     version: 1,
     screens: [{
-      id: 'SCREEN_1',
+      id: 'SCREEN_ONE',
       title: l.title,
       fields: [{ id: 'name', type: 'short_text', label: l.field, required: true }],
       button_label: l.button,
@@ -269,8 +278,8 @@ export function validateFormDefinition(input: unknown): FormDefinitionResult {
   screens.forEach((screen, s) => {
     const path = `screens.${s}`;
     if (!FORM_LIMITS.screenIdRegex.test(screen.id)) errors.push({ path: `${path}.id`, message: t('screenId') });
-    else if (screenIds.has(screen.id)) errors.push({ path: `${path}.id`, message: t('screenIdDuplicate', { id: screen.id }) });
-    screenIds.add(screen.id);
+    else if (screenIds.has(metaScreenId(screen.id))) errors.push({ path: `${path}.id`, message: t('screenIdDuplicate', { id: screen.id }) });
+    screenIds.add(metaScreenId(screen.id));
     if (!screen.title) errors.push({ path: `${path}.title`, message: t('screenTitleRequired') });
     else if (screen.title.length > FORM_LIMITS.screenTitleMax) {
       errors.push({ path: `${path}.title`, message: t('screenTitleTooLong', { max: FORM_LIMITS.screenTitleMax }) });

@@ -16,7 +16,7 @@
 
 import { getT } from '@/lib/i18n/translate';
 
-import { FORM_LIMITS, validateFormDefinition } from './definition';
+import { FORM_LIMITS, metaScreenId, validateFormDefinition } from './definition';
 import { screenInputFields } from './flow-json';
 import type { FormDefinition, FormField, FormScreen } from './types';
 
@@ -132,7 +132,7 @@ export function validateScreenAnswers(screen: FormScreen, data: unknown): Screen
 }
 
 const screenResponse = (screen: FormScreen, data: Record<string, unknown> = {}) =>
-  ({ status: 200 as const, body: { screen: screen.id, data } });
+  ({ status: 200 as const, body: { screen: metaScreenId(screen.id), data } });
 
 /** Handles one decrypted endpoint request. Never logs the request: it carries customer answers. */
 export async function handleFormsExchange(request: Record<string, unknown>, store: FormsSessionStore): Promise<FormsExchangeResult> {
@@ -151,7 +151,7 @@ export async function handleFormsExchange(request: Record<string, unknown>, stor
   if (!parsed.ok) return { status: 500 };
   const definition: FormDefinition = parsed.definition;
   const screens = definition.screens;
-  const index = screens.findIndex((screen) => screen.id === request.screen);
+  const index = screens.findIndex((screen) => metaScreenId(screen.id) === request.screen || screen.id === request.screen);
   const lastScreen = index === screens.length - 1;
 
   // A completed session only accepts a repeat of the final submission (its

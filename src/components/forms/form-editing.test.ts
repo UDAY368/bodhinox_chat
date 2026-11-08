@@ -56,12 +56,14 @@ describe("form editing helpers", () => {
 
   it("numbers new screens and options past existing ids and caps screens at ten", () => {
     let def = emptyFormDefinition(labels);
-    expect(newScreen(def, labels).id).toBe("SCREEN_2");
+    expect(newScreen(def, labels).id).toBe("SCREEN_TWO");
     const option = newOption({ id: "q", type: "radio", label: "Q", options: [{ id: "option_2", title: "x" }] }, "New");
     expect(option).toEqual({ id: "option_3", title: "New" });
     for (let i = 0; i < 9; i += 1) def = { ...def, screens: [...def.screens, newScreen(def, labels)] };
     expect(def.screens).toHaveLength(10);
     expect(new Set(def.screens.map((s) => s.id)).size).toBe(10);
+    // Meta accepts only letters and underscores in screen ids.
+    for (const s of def.screens) expect(s.id).toMatch(/^[A-Z_]+$/);
     expect(canAddScreen(def)).toBe(false);
   });
 
