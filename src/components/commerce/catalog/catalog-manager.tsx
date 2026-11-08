@@ -72,6 +72,19 @@ export function CatalogManager({ canManage, onChanged }: { canManage: boolean; o
     if (catalogs) onChanged(catalogs);
   }, [catalogs, onChanged]);
 
+  // A sync runs in the background: re-read the cards a few times until this catalogue reports a newer sync.
+  const followSync = useCallback((id: string, before: string | null) => {
+    let tries = 0;
+    const tick = async () => {
+      tries += 1;
+      const fresh = await fetchCatalogs().catch(() => null);
+      if (fresh) setCatalogs(fresh);
+      const row = fresh?.find((c) => c.id === id);
+      if ((!row || row.last_synced_at === before || !row.last_synced_at) && tries < 10) setTimeout(() => void tick(), 4000);
+    };
+    setTimeout(() => void tick(), 3000);
+  }, []);
+
   const replace = (row: CatalogPublic) => {
     setCatalogs((prev) => ((prev ?? []).some((c) => c.id === row.id) ? (prev ?? []).map((c) => (c.id === row.id ? row : c)) : [...(prev ?? []), row]));
   };
@@ -96,6 +109,7 @@ export function CatalogManager({ canManage, onChanged }: { canManage: boolean; o
       const res = await syncCatalog(catalog.id);
       if (!res.ok) throw new Error(res.error);
       toast.success(t("syncQueued"));
+      followSync(catalog.id, catalog.last_synced_at);
     } catch (err) {
       toast.error(err instanceof Error && err.message ? err.message : t("syncError"));
     } finally {
@@ -196,7 +210,7 @@ export function CatalogManager({ canManage, onChanged }: { canManage: boolean; o
         </ul>
       )}
 
-      <ConnectCatalogDialog open={connectOpen} onOpenChange={setConnectOpen} onConnected={(row) => { replace(row); setConnectOpen(false); }} />
+      <ConnectCatalogDialog open={connectOpen} onOpenChange={setConnectOpen} onConnected={(row) => { replace(row); setConnectOpen(false); followSync(row.id, row.last_synced_at); }} />
 
       <Dialog open={unlinking !== null} onOpenChange={(open) => !open && setUnlinking(null)}>
         <DialogContent className="sm:max-w-md">

@@ -40,6 +40,8 @@ export function ProductsView() {
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<{ products: ProductPublic[]; total: number } | null>(null);
   const [failed, setFailed] = useState(false);
+  // A connect, unlink, refresh or finished sync changes a catalogue card: reload the products then too.
+  const syncKey = catalogs.map((c) => `${c.id}:${c.last_synced_at ?? ""}:${c.product_count}`).join("|");
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +62,7 @@ export function ProductsView() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [q, availability, catalogId, hidden, offset]);
+  }, [q, availability, catalogId, hidden, offset, syncKey]);
 
   const filterChanged = <V,>(set: (v: V) => void) => (v: V) => {
     set(v);
