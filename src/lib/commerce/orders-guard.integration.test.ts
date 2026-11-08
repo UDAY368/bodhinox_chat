@@ -128,7 +128,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 8 order and payment g
     await expect(db.query(`INSERT INTO orders(account_id,source,currency,subtotal_minor,tax_inclusive,total_minor,priced_at)
       VALUES($1,'storefront','INR',1000,false,1000,now())`, [accountA]).then(() => db.query('SELECT 1'))).resolves.toBeTruthy();
     await expect(db.query(`INSERT INTO orders(account_id,source,currency,subtotal_minor,tax_minor,tax_inclusive,total_minor,priced_at)
-      VALUES($1,'storefront','INR',1000,180,false,1000,now())`, [accountA])).rejects.toThrow(/orders_priced_total_check/);
+      VALUES($1,'storefront','INR',1000,180,false,1000,now())`, [accountA])).rejects.toThrow(/orders_priced_total_cod_check/);
+    // The COD fee is one of the parts.
+    await expect(db.query(`INSERT INTO orders(account_id,source,currency,subtotal_minor,cod_fee_minor,payment_method,tax_inclusive,total_minor,priced_at)
+      VALUES($1,'storefront','INR',1000,40,'cod',true,1000,now())`, [accountA])).rejects.toThrow(/orders_priced_total_cod_check/);
     // Non-price columns still change (the worker records payment progress).
     await worker(asSystem, (tx) => tx.$executeRaw`UPDATE orders SET amount_paid_minor=0, checkout_attempt=1 WHERE id=${pricedOrder}::uuid`);
   });

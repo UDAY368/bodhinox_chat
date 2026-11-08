@@ -191,8 +191,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('cash on delivery on Postgre
     await expect(transitionOrder(staff, orderId, { from: 'awaiting_payment', to: 'confirmed' })).rejects.toMatchObject({ code: 'bad_transition' });
     // Even a direct write cannot move a priced, unpaid online order from confirmed to dispatched; a COD one may.
     const [online, cod] = [randomUUID(), randomUUID()];
-    await db.query(`INSERT INTO orders(id,account_id,source,status,currency,subtotal_minor,total_minor,priced_at,payment_method)
-      VALUES($1,$3,'manual','confirmed','INR',100,100,now(),'online'),($2,$3,'manual','confirmed','INR',100,100,now(),'cod')`,
+    await db.query(`INSERT INTO orders(id,account_id,source,status,currency,subtotal_minor,total_minor,tax_inclusive,priced_at,payment_method)
+      VALUES($1,$3,'manual','confirmed','INR',100,100,true,now(),'online'),($2,$3,'manual','confirmed','INR',100,100,true,now(),'cod')`,
     [online, cod, account]);
     expect(await pgError(db.query(`UPDATE orders SET status='dispatched' WHERE id=$1`, [online]))).toMatch(/order_not_paid/);
     expect(await pgError(db.query(`UPDATE orders SET status='dispatched' WHERE id=$1`, [cod]))).toBeNull();
