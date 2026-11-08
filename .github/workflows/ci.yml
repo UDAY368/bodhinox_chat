@@ -9,8 +9,50 @@ concurrency:
   group: validation-${{ github.ref }}
   # Never cancel a main run: it may be applying production migrations.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# The checks run as parallel jobs (about 7 minutes instead of 20 in one job). Each job that
+# touches a database gets its own disposable Postgres service, so they never share state.
 jobs:
-  validate:
+  checks:
+    name: typecheck, lint and build
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_ENV_FILE: .env.test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/ci-environment.cjs
+      - run: npm run typecheck
+        env:
+          # tsc needs ~2.4 GB, above Node's default heap. Kept off the test jobs: a global
+          # heap flag overrides the file-extract worker's resourceLimits cap that a test checks.
+          NODE_OPTIONS: --max-old-space-size=6144
+      - run: npm run lint
+      - run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+  unit:
+    name: unit tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_ENV_FILE: .env.test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/ci-environment.cjs
+      # No database: these run in parallel across the runner's cores.
+      - run: npm run test:unit
+
+  db:
+    name: database tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -35,30 +77,53 @@ jobs:
       - run: node scripts/ci-environment.cjs
       - run: npm run db:migrate
       - run: npm run db:roles
-      - run: npm run typecheck
+      # One worker: the real-database suites share one database.
+      - run: npx vitest run --maxWorkers=1 integration.test load.test
+
+  e2e:
+    name: browser tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
         env:
-          # tsc needs ~2.4 GB, above Node's default heap. Kept off the test step: a global
-          # heap flag overrides the file-extract worker's resourceLimits cap that a test checks.
-          NODE_OPTIONS: --max-old-space-size=6144
-      - run: npm run lint
-      - run: npm test -- --maxWorkers=1
-      - run: npm run build
-        env:
-          # tsc needs ~2.4 GB, above Node's default heap. Kept off the test step: a global
-          # heap flag overrides the file-extract worker's resourceLimits cap that a test checks.
-          NODE_OPTIONS: --max-old-space-size=6144
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-local-postgres
+          POSTGRES_DB: bodhinox_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bodhinox_test"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_ENV_FILE: .env.test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/ci-environment.cjs
+      - run: npm run db:migrate
+      - run: npm run db:roles
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      # Each shard runs a third of the spec files against its own database and dev server.
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.shard }}
           path: /tmp/bodhinox-e2e
           retention-days: 7
+
   # Railway waits for these checks, so a green push to main migrates the
   # production database before its code deploys.
   migrate:
-    needs: validate
+    needs: [checks, unit, db, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/migrations.yml
     secrets: inherit

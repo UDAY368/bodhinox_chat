@@ -26,7 +26,7 @@ local run. Everything else stays local:
 | --- | --- | --- |
 | `npm run test:all:local`, `npm run test:db:local` | local Docker (`scripts/test-db-local.cjs`) | on |
 | `npm run test:e2e:local` | local Docker | Playwright, guarded by `scripts/e2e-server.cjs` |
-| CI `npm test -- --maxWorkers=1` | CI service database on `127.0.0.1` | on, passes |
+| CI jobs (`test:unit`, `vitest --maxWorkers=1 integration.test load.test`, Playwright shards) | CI service database on `127.0.0.1` | on, passes |
 | `npm run test:db`, `npm run test:all` | remote test database in `.env.test` | off (`ALLOW_REMOTE_TEST_DB=1`) |
 | `npx vitest run <file>` with `.env.test` pointing remote | refused | on |
 
