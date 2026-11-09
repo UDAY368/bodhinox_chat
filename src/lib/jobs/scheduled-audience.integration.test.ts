@@ -42,6 +42,14 @@ async function scheduledJobs(slot = at) {
     )
   ).rows as Job[];
 }
+async function skippedLogs(slot: string) {
+  return (
+    await owner.query(
+      "SELECT error_message FROM automation_logs WHERE automation_id=$1 AND status='failed' AND starts_with(error_message,$2)",
+      [automation, `Scheduled run at ${slot} skipped`]
+    )
+  ).rows.map((row) => row.error_message as string);
+}
 async function setAudience(audience: unknown) {
   await owner.query('UPDATE automations SET trigger_config=$2 WHERE id=$1', [
     automation,
@@ -176,19 +184,19 @@ describe.skipIf(!ownerUrl || !workerUrl)(
         (await scheduledJobs(fieldSlot)).map((row) => row.payload.contactId)
       ).toEqual([contacts[1]]);
       await setAudience({ type: 'tags', tagIds: [foreignTag] });
-      await expect(
-        handleJob(
-          job('automation.schedule', { minute: '2026-10-15T09:03:00.000Z' })
-        )
-      ).rejects.toThrow(/workspace/);
+      const foreignSlot = '2026-10-15T09:03:00.000Z';
+      // Refused and logged (once, even when the tick runs again), not thrown: other automations keep their occurrence.
+      await handleJob(job('automation.schedule', { minute: foreignSlot }));
+      await handleJob(job('automation.schedule', { minute: foreignSlot }));
+      expect(await scheduledJobs(foreignSlot)).toHaveLength(0);
+      expect(await skippedLogs(foreignSlot)).toEqual([expect.stringMatching(/workspace/)]);
     });
     it('rejects legacy contact schedules without recipients, but preserves account-wide webhook-only jobs', async () => {
       await setAudience(undefined);
-      await expect(
-        handleJob(
-          job('automation.schedule', { minute: '2026-10-15T09:04:00.000Z' })
-        )
-      ).rejects.toThrow(/recipients|contacts/);
+      const legacySlot = '2026-10-15T09:04:00.000Z';
+      await handleJob(job('automation.schedule', { minute: legacySlot }));
+      expect(await scheduledJobs(legacySlot)).toHaveLength(0);
+      expect(await skippedLogs(legacySlot)).toEqual([expect.stringMatching(/recipients/)]);
       await owner.query(
         'UPDATE automation_steps SET step_type=\'send_webhook\',step_config=\'{"url":"https://example.com/hook"}\' WHERE automation_id=$1',
         [automation]
@@ -197,6 +205,45 @@ describe.skipIf(!ownerUrl || !workerUrl)(
       await handleJob(job('automation.schedule', { minute: slot }));
       expect(await scheduledJobs(slot)).toHaveLength(1);
       expect((await scheduledJobs(slot))[0].payload.contactId).toBeUndefined();
+    });
+    // Audit #13: audiences past one page are read in pages, and one oversize
+    // automation is logged and skipped without costing the others their occurrence.
+    it('queues every recipient past one page and logs an oversize automation instead of failing the tick', async () => {
+      const big = randomUUID(), bigTag = randomUUID(), tagged = randomUUID(), everyone = randomUUID();
+      const slot = '2026-10-16T09:00:00.000Z';
+      try {
+        await owner.query("INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Paging fixture',$2)", [big, user]);
+        await owner.query("INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'owner')", [big, user]);
+        // 10,001 sendable contacts (over the cap for "all"); 1,050 of them carry the tag (over one page).
+        await owner.query(`INSERT INTO contacts(account_id,user_id,phone,name)
+          SELECT $1,$2,'+1415' || lpad(g::text,7,'0'),'Paged ' || g FROM generate_series(1,10001) g`, [big, user]);
+        await owner.query("INSERT INTO tags(id,account_id,user_id,name) VALUES($1,$2,$3,'Paged')", [bigTag, big, user]);
+        await owner.query(`INSERT INTO contact_tags(account_id,contact_id,tag_id)
+          SELECT $1,id,$2 FROM contacts WHERE account_id=$1 ORDER BY phone LIMIT 1050`, [big, bigTag]);
+        // Eight more tagged contacts that opted out are left out in SQL before the cap.
+        await owner.query(`UPDATE contacts SET opted_out_at=NOW() WHERE id IN (
+          SELECT contact_id FROM contact_tags WHERE account_id=$1 ORDER BY contact_id LIMIT 8)`, [big]);
+        for (const [id, name, audience] of [[everyone, 'Everyone', { type: 'all' }], [tagged, 'Tagged', { type: 'tags', tagIds: [bigTag] }]] as const) {
+          await owner.query("INSERT INTO automations(id,account_id,user_id,name,trigger_type,trigger_config,is_active) VALUES($1,$2,$3,$4,'time_based',$5,true)",
+            [id, big, user, name, JSON.stringify({ schedule: '* * * * *', timezone: 'UTC', audience })]);
+          await owner.query("INSERT INTO automation_steps(account_id,automation_id,step_type,step_config,position) VALUES($1,$2,'add_tag',$3,0)",
+            [big, id, JSON.stringify({ tag_id: bigTag })]);
+        }
+        await handleJob({ ...job('automation.schedule', { minute: slot }), tenant_id: big });
+        const queued = await owner.query(
+          "SELECT payload->>'automationId' AS automation, count(DISTINCT payload->>'contactId')::int AS n FROM jobs WHERE tenant_id=$1 AND type='automation.trigger' AND payload->>'slot'=$2 GROUP BY 1",
+          [big, slot]);
+        expect(queued.rows).toEqual([{ automation: tagged, n: 1042 }]);
+        const logs = await owner.query("SELECT automation_id, error_message FROM automation_logs WHERE account_id=$1 AND status='failed'", [big]);
+        expect(logs.rows).toEqual([{ automation_id: everyone, error_message: expect.stringMatching(/10000-contact limit/) }]);
+        const notices = await owner.query("SELECT user_id FROM notifications WHERE account_id=$1 AND type='automation_notice'", [big]);
+        expect(notices.rows).toEqual([{ user_id: user }]);
+        // Skipped, not turned off: the next occurrence tries again.
+        expect((await owner.query('SELECT is_active FROM automations WHERE id=$1', [everyone])).rows[0].is_active).toBe(true);
+      } finally {
+        await owner.query('DELETE FROM jobs WHERE tenant_id=$1', [big]);
+        await owner.query('DELETE FROM accounts WHERE id=$1', [big]);
+      }
     });
   }
 );

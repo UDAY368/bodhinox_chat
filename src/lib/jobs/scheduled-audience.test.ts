@@ -10,7 +10,7 @@ const run = vi.hoisted(() => ({ trigger: vi.fn<(...args: unknown[]) => Promise<u
 vi.mock('@/lib/automations/engine', () => ({ runAutomationsForTrigger: run.trigger }));
 vi.mock('./dispatch', () => ({ dispatchOnce: async (_a: string, _k: string, work: () => Promise<unknown>) => work() }));
 vi.mock('./queue', () => ({ enqueueJob: vi.fn() }));
-vi.mock('@/lib/broadcast-audience', () => ({ resolveAudienceContacts: vi.fn() }));
+
 
 import { executeScheduledOccurrence } from './scheduled-audience';
 

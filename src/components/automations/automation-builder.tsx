@@ -1222,7 +1222,7 @@ function ScheduledRecipients({
       )}
       <p className="text-muted-foreground text-[11px]">
         Choose recipients for messages, tags, contact updates and deals. Each
-        occurrence supports up to 1,000 contacts; narrow larger selections with
+        occurrence supports up to 10,000 contacts; narrow larger selections with
         a filter.
       </p>
     </div>
