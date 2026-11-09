@@ -31,6 +31,8 @@ const tx = {
   },
 };
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
+const sendRoom = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}));
+vi.mock('@/lib/billing/limits', () => ({ requireCampaignSendRoom: sendRoom }));
 const webhook = vi.hoisted(() => ({ dispatch: vi.fn(async () => {}) }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: webhook.dispatch }));
 vi.mock('@/lib/db/tenant', () => ({
@@ -180,6 +182,8 @@ describe('createBroadcast atomicity (#370)', () => {
     expect(tx.statements[0]).toContain('account_subscriptions');
     expect(tx.statements[1]).toContain('create_broadcast_with_recipients');
     expect(tx.statements[2]).toContain("'broadcast.dispatch'");
+    // The month's message and active-contact allowance is checked in the same transaction (audit finding 41).
+    expect(sendRoom).toHaveBeenCalledWith(tx, 'acc', 1);
     expect(calls.usedDirectInsert).toBe(0);
     expect(plan.broadcastId).toBe('b-1');
     expect(plan.planned).toEqual([

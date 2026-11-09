@@ -11,7 +11,7 @@ Every `*_ENABLED`, `*_DISABLED` and `*_DRY_RUN` variable the application reads m
 | `WHATSAPP_TEMPLATES_DRY_RUN` | `src/app/api/whatsapp/templates/submit/route.ts`, `.../templates/[id]/route.ts` | off (real submission to Meta) | `true`/`1` stores templates without submitting to Meta. Must be unset in production. | owner to confirm (expected unset) | owner | WA templates |
 | `INSTAGRAM_ENABLED` | `src/lib/instagram/config.ts` | off | `true` enables Instagram messaging (needs Meta app review). | owner to confirm (expected unset) | owner | IG-* |
 | `INSTAGRAM_HUMAN_AGENT_ENABLED` | `src/lib/instagram/config.ts` | off | `true` only after Meta approves Human Agent. | owner to confirm (expected unset) | owner | IG-* |
-| `NEW_WORKSPACE_PLAN` | `src/lib/account/workspaces.ts` | no subscription row (= enterprise, no limits) | Plan id for new workspaces. | owner to confirm | owner | BIL-* |
+| `NEW_WORKSPACE_PLAN` | `src/lib/billing/new-workspace-plan.ts` | the lowest plan in the catalogue (`free`); never enterprise (audit finding 41) | Plan id for new workspaces. Existing workspaces are never changed. | owner to confirm | owner | BIL-* |
 | `TERMS_VERSION` | `src/lib/auth/*` | no terms checkbox/banner | Published terms version. | owner to confirm | owner | SEC-04 |
 | `BILLING_RAZORPAY_KEY_ID` / `_KEY_SECRET` / `_WEBHOOK_SECRET` | `src/lib/billing/**` | SaaS billing off | Implicit "configured" gate. | owner to confirm | owner | BIL-02 (provider-gated) |
 | Tenant Razorpay settings | `payments/razorpay/settings` | per workspace | Implicit gate per tenant. | per tenant | tenant admin | PAY-* |

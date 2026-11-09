@@ -3592,7 +3592,7 @@
           "hard": "Quando um limite é atingido, novas adições param. Tudo o que você já tem continua funcionando.",
           "inbound": "Clientes que enviam mensagens são sempre adicionados como contatos, mesmo acima do limite de contatos. Só contam os contatos que você adiciona, importa ou cria pela API.",
           "monthly": "Os limites mensais são reiniciados no dia 1 de cada mês (horário da Índia). Pacotes adicionais de IA aumentam o limite de respostas de IA.",
-          "warnings": "Proprietários e administradores são avisados quando um limite chega a 80% e 100%. Mensagens enviadas e contatos ativos são informativos e nunca bloqueiam.",
+          "warnings": "Proprietários e administradores são avisados quando um limite chega a 80% e 100%. Os limites mensais de mensagens e de contatos ativos interrompem novas campanhas e envios agendados; as respostas aos clientes nunca são bloqueadas.",
           "expiry": "Se o seu plano expirar ou for cancelado, listas, segmentos, fluxos e automações extras são arquivados, nunca excluídos."
         }
       },
@@ -3602,6 +3602,7 @@
         "hard_inbound_exempt": "Inclusões manuais e importadas param no limite; clientes que escrevem são sempre adicionados",
         "hard_addon": "Para no limite; pacotes adicionais o aumentam",
         "hard_per_campaign": "Verificado em cada campanha",
+        "hard_campaign": "Interrompe novas campanhas no limite; as respostas aos clientes nunca são bloqueadas",
         "soft": "Apenas informativo; nunca bloqueia"
       }
     },
@@ -5982,7 +5983,8 @@
         "not_cancellable": "Só é possível interromper um complemento ativo.",
         "notConfigured": "O faturamento ainda não está configurado, então não é possível comprar complementos.",
         "rejected": "O provedor de pagamento recusou esta compra. Nada foi cobrado.",
-        "limit_unlimited": "Este pacote aumenta um limite que seu plano não tem, então não há nada para comprar."
+        "limit_unlimited": "Este pacote aumenta um limite que seu plano não tem, então não há nada para comprar.",
+        "purchase_pending": "Uma compra deste complemento ainda está sendo confirmada com o provedor de pagamento. Aguarde a conclusão antes de comprar novamente."
       },
       "downgrade": {
         "invalid_selection": "Escolha apenas itens que estão em uso agora.",
@@ -7571,7 +7573,7 @@
     },
     "catalogue": {
       "title": "Catálogo",
-      "description": "Os produtos que você vende por links de loja e checkout. Preços, impostos e estoque daqui são o que o cliente paga; o catálogo da Meta continua como cópia somente leitura.",
+      "description": "Os produtos que você vende por links de loja e checkout. Preços, impostos e estoque daqui são o que o cliente paga; o preço e o estoque de cada produto vinculado ao catálogo da Meta (mesmo SKU) são enviados para lá em poucos minutos enquanto o checkout está ativado.",
       "tabs": {
         "products": "Produtos",
         "categories": "Categorias",

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 type Rows = { id: string }[];
 const h = vi.hoisted(() => ({
   sql: [] as string[],
-  rows: { unclearLinks: [] as Rows, paidLinks: [] as Rows, unclearRefunds: [] as Rows, pendingRefunds: [] as Rows },
+  rows: { unclearLinks: [] as Rows, liveLinks: [] as Rows, paidLinks: [] as Rows, unclearRefunds: [] as Rows, pendingRefunds: [] as Rows },
   link: vi.fn<(...args: unknown[]) => Promise<string>>(async () => 'unchanged'),
   refund: vi.fn<(...args: unknown[]) => Promise<string>>(async () => 'unchanged'),
 }));
@@ -14,6 +14,7 @@ function fakeTx() {
       const sql = strings.join('?');
       h.sql.push(sql);
       if (sql.includes("l.status='paid'")) return h.rows.paidLinks;
+      if (sql.includes('UPDATE payment_links')) return h.rows.liveLinks;
       if (sql.includes('FROM payment_links')) return h.rows.unclearLinks;
       if (sql.includes("status='pending'")) return h.rows.pendingRefunds;
       return h.rows.unclearRefunds;
@@ -35,7 +36,7 @@ const ids = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => (
 describe('runReconcileSweep fairness (C11)', () => {
   beforeEach(() => {
     h.sql = []; h.link.mockClear(); h.refund.mockClear();
-    h.rows = { unclearLinks: [], paidLinks: [], unclearRefunds: [], pendingRefunds: [] };
+    h.rows = { unclearLinks: [], liveLinks: [], paidLinks: [], unclearRefunds: [], pendingRefunds: [] };
   });
 
   it('reconciles an unknown refund and a paid link even behind full batches of stuck rows', async () => {
@@ -51,11 +52,26 @@ describe('runReconcileSweep fairness (C11)', () => {
 
   it('queries each class separately, in random order, so unchanged rows do not hold the head of the queue', async () => {
     await runReconcileSweep(ACCOUNT);
-    expect(h.sql).toHaveLength(4);
+    expect(h.sql).toHaveLength(5);
     for (const sql of h.sql) {
       expect(sql).toContain('ORDER BY random()');
       expect(sql).not.toMatch(/ORDER BY (l\.)?updated_at/);
     }
     expect(h.sql.find((s) => s.includes("status='pending'"))).not.toContain("'unknown'");
+  });
+
+  it('re-reads live links (no expiry included) older than 30 minutes with a back-off, stamping the check as it takes them (audit finding 54)', async () => {
+    h.rows.liveLinks = [{ id: 'never-expiring-paid-link' }];
+    const summary = await runReconcileSweep(ACCOUNT);
+    expect(h.link).toHaveBeenCalledWith(ACCOUNT, 'never-expiring-paid-link');
+    expect(summary.links).toBe(1);
+    const live = h.sql.find((s) => s.includes('UPDATE payment_links'))!;
+    expect(live).toContain('SET reconcile_checked_at=now()');
+    expect(live).toContain("l.status IN ('created','partially_paid')");
+    expect(live).toContain('l.expires_at IS NULL OR');
+    expect(live).toMatch(/LEAST\(\(now\(\) - l\.created_at\) \/ 4/);
+    expect(live).toContain('FOR UPDATE SKIP LOCKED');
+    // The expiry-based class still covers links whose expiry passed, so the two never overlap.
+    expect(h.sql.find((s) => s.includes('l.expires_at < now()'))).toBeDefined();
   });
 });

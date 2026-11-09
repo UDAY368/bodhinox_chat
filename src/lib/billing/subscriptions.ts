@@ -759,6 +759,8 @@ async function reconcileIntents(accountId: string, provider: BillingProvider, no
 export async function runLifecycleSweep(accountId: string, provider: BillingProvider | null = getBillingProvider(), now: Date = new Date()): Promise<void> {
   if (!provider) return;
   await reconcileIntents(accountId, provider, now);
+  // Add-on purchases whose provider answer was lost (audit finding 53). Loaded lazily: addons.ts imports reconciliation.ts.
+  await (await import('./addons')).reconcilePendingAddons(accountId, provider, now);
   const before = await worker(accountId, (tx) => readSubscription(tx, accountId));
   if (before?.providerSubscriptionId && needsReconcile(before, now)) {
     const sub = await provider.fetchSubscription(before.providerSubscriptionId);
@@ -779,7 +781,8 @@ export async function scheduleBillingSweeps(now: number = Date.now()): Promise<n
   if (!billingConfigured() || now - lastSweepSchedule < 5 * 60_000) return 0;
   const db = getWorkerPrisma();
   const rows = await db.$queryRaw<{ account_id: string }[]>`
-    SELECT account_id FROM crm_accounts_for_billing_sweep() UNION SELECT account_id FROM crm_accounts_with_open_billing_intents()`;
+    SELECT account_id FROM crm_accounts_for_billing_sweep() UNION SELECT account_id FROM crm_accounts_with_open_billing_intents()
+    UNION SELECT account_id FROM crm_accounts_with_pending_addons()`;
   const window = Math.floor(now / SWEEP_INTERVAL_MS);
   for (const { account_id } of rows)
     await db.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)

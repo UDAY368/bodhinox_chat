@@ -193,7 +193,7 @@ describe.skipIf(!connectionString)('Phase 14 identity: MFA step-up and account d
     expect(none[0].terms_version).toBeNull();
   }, 30000);
 
-  it('gives a new signup workspace NEW_WORKSPACE_PLAN only when it is set', async () => {
+  it('gives a new signup workspace NEW_WORKSPACE_PLAN, or the lowest plan (free) when unset, and never touches an existing workspace', async () => {
     const plan = async (email: string) => {
       const rows = await getAuthPrisma().$queryRaw<{ id: string; account: string }[]>`
         SELECT u.id, a.id AS account FROM auth_users u JOIN accounts a ON a.owner_user_id=u.id WHERE u.email=${email}`;
@@ -203,15 +203,35 @@ describe.skipIf(!connectionString)('Phase 14 identity: MFA step-up and account d
     const unset = `${randomUUID()}@example.invalid`;
     await signup({ email: unset, password, fullName: 'Default plan' });
     const unsetAccount = await plan(unset);
-    process.env.NEW_WORKSPACE_PLAN = 'free';
+    process.env.NEW_WORKSPACE_PLAN = 'basic';
     const set = `${randomUUID()}@example.invalid`;
-    await signup({ email: set, password, fullName: 'Free plan' });
+    await signup({ email: set, password, fullName: 'Basic plan' });
     const setAccount = await plan(set);
     // The auth role cannot read subscriptions; the definer reports whether a row exists by refusing a second one.
     const again = async (account: string) => (await getAuthPrisma().$queryRaw<{ ok: boolean }[]>`
-      SELECT billing_assign_initial_plan(${account}::uuid, 'basic') AS ok`)[0].ok;
+      SELECT billing_assign_initial_plan(${account}::uuid, 'pro') AS ok`)[0].ok;
     expect(await again(setAccount)).toBe(false);
-    expect(await again(unsetAccount)).toBe(true); // had no row until now
+    expect(await again(unsetAccount)).toBe(false); // unset no longer means "no row = enterprise"
+    const owner = new pg.Client({ connectionString: process.env.TEST_DATABASE_URL });
+    await owner.connect();
+    try {
+      const plans = async (account: string) => (await owner.query('SELECT plan_id, status FROM account_subscriptions WHERE account_id=$1', [account])).rows;
+      expect(await plans(unsetAccount)).toEqual([{ plan_id: 'free', status: 'active' }]);
+      expect(await plans(setAccount)).toEqual([{ plan_id: 'basic', status: 'active' }]);
+      // An existing workspace (older than an hour, no subscription row) is never given a plan, so it keeps resolving as before.
+      const old = randomUUID(), oldOwner = randomUUID();
+      await owner.query("INSERT INTO auth_users(id,email,full_name,password_hash) VALUES($1,$2,'Old','test-only-hash')", [oldOwner, `${oldOwner}@example.invalid`]);
+      users.push(oldOwner);
+      await owner.query("INSERT INTO accounts(id,name,owner_user_id,created_at) VALUES($1,'Old workspace',$2,now() - interval '2 days')", [old, oldOwner]);
+      try {
+        expect((await getAuthPrisma().$queryRaw<{ ok: boolean }[]>`SELECT billing_assign_initial_plan(${old}::uuid, NULL) AS ok`)[0].ok).toBe(false);
+        expect(await plans(old)).toEqual([]);
+      } finally {
+        await owner.query('DELETE FROM accounts WHERE id=$1', [old]);
+      }
+    } finally {
+      await owner.end();
+    }
   }, 30000);
 });
 

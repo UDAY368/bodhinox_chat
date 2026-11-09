@@ -61,6 +61,7 @@ class FakeProvider implements BillingProvider {
   async cancelSubscription() { return { outcome: 'unknown' as const }; }
   async changePlan() { return { outcome: 'unknown' as const }; }
   async createAddon() { return { outcome: 'unknown' as const }; }
+  async findAddon() { return { outcome: 'unknown' as const }; }
   async fetchSubscription(id: string): Promise<ProviderResult<BillingSubscription>> {
     this.fetches += 1;
     const sub = this.subs.get(id);

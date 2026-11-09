@@ -1843,6 +1843,51 @@ export async function getCatalogProducts(args: {
   return { products, after }
 }
 
+/** One catalogue item update: absolute values, so sending it twice changes nothing. */
+export interface MetaCatalogItemUpdate {
+  /** The item's retailer_id (our variant SKU). */
+  retailerId: string
+  /** Feed format, e.g. "1234.00 INR". */
+  price?: string
+  availability?: 'in stock' | 'out of stock'
+}
+
+/** Most updates Meta accepts in one items_batch call. */
+export const CATALOG_BATCH_MAX = 1000
+
+/**
+ * Updates price and/or availability of existing catalogue items (Catalog Batch
+ * API, items_batch, PRODUCT_ITEM, method UPDATE). Meta applies the batch
+ * asynchronously and returns batch handles; per-item problems are reported
+ * there, not as an HTTP error. The token needs catalog_management on the
+ * catalogue. Only ids, prices and availability are sent.
+ */
+export async function updateCatalogItems(args: {
+  catalogId: string
+  accessToken: string
+  items: MetaCatalogItemUpdate[]
+}): Promise<{ handles: string[] }> {
+  if (!META_NUMERIC_ID.test(args.catalogId)) throw new Error(tc('catalogIdInvalid'))
+  if (!args.items.length || args.items.length > CATALOG_BATCH_MAX) throw new Error('Invalid catalogue batch size')
+  const requests = args.items.map((item) => ({
+    method: 'UPDATE',
+    data: {
+      id: item.retailerId,
+      ...(item.price ? { price: item.price } : {}),
+      ...(item.availability ? { availability: item.availability } : {}),
+    },
+  }))
+  const response = await fetch(`${META_API_BASE}/${args.catalogId}/items_batch`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(20_000),
+    headers: { Authorization: `Bearer ${args.accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item_type: 'PRODUCT_ITEM', requests }),
+  })
+  if (!response.ok) await throwMetaError(response, `Meta API error: ${response.status}`)
+  const data = (await response.json().catch(() => ({}))) as { handles?: unknown }
+  return { handles: Array.isArray(data.handles) ? data.handles.filter((h): h is string => typeof h === 'string') : [] }
+}
+
 /** The catalogues owned by a WhatsApp Business Account. */
 export async function getWabaCatalogs(args: {
   wabaId: string

@@ -99,8 +99,10 @@ export interface BillingProvider {
   createSubscription(args: CreateSubscriptionArgs): Promise<ProviderResult<BillingSubscription>>;
   cancelSubscription(args: { id: string; atPeriodEnd: boolean }): Promise<ProviderResult<BillingSubscription>>;
   changePlan(args: { id: string; newPlanId: string; at: 'now' | 'period_end' }): Promise<ProviderResult<BillingSubscription>>;
-  /** A charge added to the subscription's next invoice. */
-  createAddon(args: { subscriptionId: string; name: string; amountMinor: number; currency: string; quantity: number }): Promise<ProviderResult<BillingAddon>>;
+  /** A charge added to the subscription's next invoice. `reference` (our add_ons id) is stored on it so findAddon can match it. */
+  createAddon(args: { subscriptionId: string; name: string; amountMinor: number; currency: string; quantity: number; reference: string }): Promise<ProviderResult<BillingAddon>>;
+  /** Reconciliation after an unknown createAddon: the add-on carrying `reference`, created at or after `createdAfter`, or null. */
+  findAddon(args: { reference: string; createdAfter: Date }): Promise<ProviderResult<BillingAddon | null>>;
   fetchSubscription(id: string): Promise<ProviderResult<BillingSubscription>>;
   /** Reconciliation after an unknown create: the subscription for `planId` whose notes carry `intentId`, created at or after `createdAfter`, or null. */
   findSubscription(args: { planId: string; intentId: string; createdAfter: Date }): Promise<ProviderResult<BillingSubscription | null>>;

@@ -54,6 +54,7 @@ import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
 import { PlanLimitError, requireWithinLimit } from '@/lib/billing/entitlements';
+import { requireCampaignSendRoom } from '@/lib/billing/limits';
 import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { notifyCampaignFinished, type FinishedCampaign } from '@/lib/notifications/emit';
 
@@ -249,6 +250,7 @@ export async function createBroadcast(
   try {
     createdRows = await withTenant({ accountId, role: 'owner' }, async (tx) => {
       await requireWithinLimit(tx, accountId, 'campaign_recipients', deduped.length);
+      await requireCampaignSendRoom(tx, accountId, deduped.length);
       const rows = await tx.$queryRaw<{ broadcast_id: string; recipient_id: string; contact_id: string }[]>`
         SELECT broadcast_id::text, recipient_id::text, contact_id::text FROM create_broadcast_with_recipients(
           ${accountId}::uuid, ${auditUserId}::uuid, ${name || `API broadcast (${templateName})`},

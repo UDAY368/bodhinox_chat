@@ -29,6 +29,7 @@ import {
 import { trackedButtonIndex } from './tracking';
 import { PlanLimitError, requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
 import { requireSendingAllowed } from '@/lib/billing/suspension';
+import { requireCampaignSendRoom } from '@/lib/billing/limits';
 
 export const MAX_API_BATCH = 1000;
 const createSchema = z.object({
@@ -158,6 +159,9 @@ export async function addApiCampaignRecipients(
       const [locked] = await tx.$queryRaw<{ total: number | null }[]>`SELECT total_recipients AS total FROM broadcasts WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid FOR UPDATE`;
       // A downgraded workspace keeps its campaign but cannot add to it beyond the plan.
       await requireFeature(tx, accountId, 'api_campaigns');
+      // The month's message and active-contact allowance, before this batch's rows are queued (they would count
+      // as already queued after the insert). Contacts already in the campaign are counted too: at most one batch's size.
+      await requireCampaignSendRoom(tx, accountId, complete.length);
       const count = await tx.$executeRaw`INSERT INTO broadcast_recipients(account_id,broadcast_id,contact_id,status,template_params)
         SELECT ${accountId}::uuid,${broadcastId}::uuid,x.contact_id,'pending',x.params
         FROM jsonb_to_recordset(${JSON.stringify(complete.map((r) => ({ contact_id: r.contactId, params: r.params })))}::jsonb) AS x(contact_id uuid,params jsonb)
