@@ -15,6 +15,7 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
+import { ACCOUNT_UPDATE_FIELD, applyAccountUpdate, parseAccountUpdate } from '@/lib/whatsapp/account-update'
 
 import { createAdminClient } from '@/lib/data/admin';
 import { currentJobScope, withJobScope } from '@/lib/jobs/scope';
@@ -101,6 +102,8 @@ interface MetaStatusError {
 
 interface WhatsAppWebhookEntry {
   id: string
+  /** Unix seconds; sent on account_update entries. */
+  time?: number
   changes: Array<{
     value: {
       messaging_product: string
@@ -139,6 +142,13 @@ export async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }, a
   for (const entry of body.entry) {
     for (const change of entry.changes) {
       assertLease();
+      if (change.field === ACCOUNT_UPDATE_FIELD) {
+        // Partner removed, app uninstalled, account banned or restricted: routed by its WABA.
+        const update = parseAccountUpdate(entry.id, entry.time, change.value as unknown);
+        const owner = update ? await resolveWabaAccount(update.wabaId) : null;
+        if (update && owner) await withJobScope({ accountId: owner, role: 'owner' }, () => applyAccountUpdate(owner, update));
+        continue;
+      }
       const templateEvent = isTemplateWebhookField(change.field);
       // A malformed provider id is unroutable (skipped), not a retryable error that burns every attempt.
       const phoneNumberId = change.value.metadata?.phone_number_id;

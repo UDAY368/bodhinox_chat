@@ -7118,7 +7118,18 @@
         "UNKNOWN": "Unknown"
       },
       "disconnectConfirmHold": "Disconnect {name}? Its access token is removed and nothing can send from it until you connect the same Phone Number ID again. Its conversations, campaigns and flows stay on this number: live flows that trigger only on it go back to draft, and campaigns scheduled or sending from it are held, not cancelled. {isDefault, select, true {The oldest other connected number becomes the default.} other {}}",
-      "removedHint": "Disconnected. Connect this Phone Number ID again to use it; its conversations, campaigns and flows are kept."
+      "removedHint": "Disconnected. Connect this Phone Number ID again to use it; its conversations, campaigns and flows are kept.",
+      "metaIssue": {
+        "PARTNER_REMOVED": "Meta reports that this WhatsApp Business Account is no longer shared with Bodhinox Chat, so the number was disconnected. Share it again and reconnect the number to send.",
+        "PARTNER_APP_UNINSTALLED": "Bodhinox Chat's access to this WhatsApp Business Account was removed in Meta, so the number was disconnected. Reconnect it with Facebook to send.",
+        "ACCOUNT_DELETED": "Meta reports that this WhatsApp Business Account was deleted, so the number was disconnected.",
+        "DISABLED_UPDATE": "Meta disabled or scheduled disabling of this WhatsApp Business Account for a policy reason. Review it in WhatsApp Manager; a disabled number is disconnected until you reconnect it after Meta reinstates the account.",
+        "ACCOUNT_RESTRICTION": "Meta restricted what this WhatsApp Business Account can do. Sends Meta does not allow will fail until the restriction ends.",
+        "ACCOUNT_VIOLATION": "Meta reported a policy violation on this WhatsApp Business Account. Review it in WhatsApp Manager.",
+        "ACCOUNT_OFFBOARDED": "Meta reports this WhatsApp account was offboarded after a device change or re-registration. Sends may fail until it is reconnected.",
+        "detail": "Meta's details: {detail}",
+        "until": "Until {date}"
+      }
     },
     "api": {
       "invalidChange": "Send a display name of up to 200 characters, or is_default set to true.",
@@ -10870,7 +10881,9 @@
       "signIn": "Sign in",
       "getStarted": "Get started",
       "privacy": "Privacy",
-      "terms": "Terms"
+      "terms": "Terms",
+      "contact": "Contact",
+      "dataDeletion": "Data deletion"
     },
     "landing": {
       "headline": "Every customer conversation in one place",
@@ -10922,9 +10935,17 @@
       "linkLabel": "Help for this page"
     },
     "legal": {
-      "draft": "Draft: this document is a placeholder and is not yet in force.",
       "privacyTitle": "Privacy policy",
-      "termsTitle": "Terms of service"
+      "termsTitle": "Terms of service",
+      "dataDeletionTitle": "Data deletion",
+      "contactTitle": "Contact",
+      "statusHeading": "Your deletion request",
+      "statusCompleted": "Request {code}, received {date}: complete. Bodhinox Chat holds no data linked to your Facebook account, and Facebook has withdrawn the access it gave us.",
+      "statusReceived": "Request {code}, received {date}: in progress.",
+      "statusUnknown": "No deletion request has this confirmation code. Check the link Facebook gave you, or contact us.",
+      "contactEmail": "Email for privacy, data deletion and support questions:",
+      "contactResponse": "We acknowledge requests within 3 working days and complete verified requests within 30 days.",
+      "contactUnset": "The contact address has not been published yet. Workspace owners can export or delete their data from Settings → Privacy & access."
     }
   }
 }

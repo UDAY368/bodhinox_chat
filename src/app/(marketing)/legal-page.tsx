@@ -1,15 +1,12 @@
-import { getTranslations } from 'next-intl/server';
+import type { ReactNode } from 'react';
 
 import { Markdown, readContent } from './markdown';
 
-/** A legal document with the DRAFT notice (the text itself also says so). */
-export async function LegalPage({ name }: { name: 'privacy' | 'terms' }) {
-  const t = await getTranslations('Marketing.legal');
+/** A legal document from content/legal/<name>.md, with optional content above it. */
+export function LegalPage({ name, children }: { name: 'privacy' | 'terms' | 'data-deletion'; children?: ReactNode }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <p role="note" className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-        {t('draft')}
-      </p>
+      {children}
       <Markdown source={readContent('legal', name)} />
     </div>
   );

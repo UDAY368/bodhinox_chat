@@ -24,6 +24,7 @@ const ALLOWLIST: Record<string, { reason: string; appAccess: AppAccess }> = {
   billing_events: { reason: "provider billing webhook ledger, worker only (forced RLS, worker policy)", appAccess: "none" },
   billing_reconciliation_items: { reason: "platform/worker reconciliation queue (forced RLS, no app grant)", appAccess: "none" },
   invoice_sequences: { reason: "global invoice numbering, used inside definer functions", appAccess: "none" },
+  meta_data_deletion_requests: { reason: "Meta data deletion callback ledger (hashed Facebook user id), worker only", appAccess: "none" },
   plan_prices: { reason: "public plan catalogue, read-only", appAccess: "select" },
   plan_versions: { reason: "public plan catalogue, read-only", appAccess: "select" },
   plans: { reason: "public plan catalogue, read-only", appAccess: "select" },

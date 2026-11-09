@@ -1,5 +1,4 @@
-// /privacy: the privacy policy from content/legal/privacy.md, marked DRAFT until
-// the operator replaces it. Rendered at build time.
+// /privacy: the privacy policy from content/legal/privacy.md. Rendered at build time.
 
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';

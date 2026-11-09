@@ -1,5 +1,4 @@
-// /terms: the terms of service from content/legal/terms.md, marked DRAFT until
-// the operator replaces them. Rendered at build time.
+// /terms: the terms of service from content/legal/terms.md. Rendered at build time.
 
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
