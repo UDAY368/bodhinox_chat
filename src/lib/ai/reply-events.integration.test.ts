@@ -29,7 +29,7 @@ const agentA: TenantContext = { accountId: accountA, userId: agent, role: 'agent
 const ownerB: TenantContext = { accountId: accountB, userId: ownerBUser, role: 'owner' };
 const phone = `+9198${String(Date.now()).slice(-8)}`;
 let owner: pg.Client;
-let contactA = '', conversationA = '', conversationA2 = '';
+let contactA = '', contactA2 = '', conversationA = '', conversationA2 = '';
 
 const rowsOf = async (account: string) =>
   (await owner.query('SELECT id::text, outcome, reason, customer_text FROM ai_reply_events WHERE account_id=$1 ORDER BY created_at', [account])).rows;
@@ -48,7 +48,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('AI activity log on PostgreS
       [accountA, admin, agent, accountB, ownerBUser]);
     contactA = (await owner.query("INSERT INTO contacts(account_id,user_id,phone,name) VALUES($1,$2,$3,'Asha') RETURNING id", [accountA, admin, phone])).rows[0].id;
     conversationA = (await owner.query('INSERT INTO conversations(account_id,user_id,contact_id) VALUES($1,$2,$3) RETURNING id', [accountA, admin, contactA])).rows[0].id;
-    conversationA2 = (await owner.query('INSERT INTO conversations(account_id,user_id,contact_id) VALUES($1,$2,$3) RETURNING id', [accountA, admin, contactA])).rows[0].id;
+    // One conversation per contact and number (idx_conversations_wa_contact_number), so the second needs its own contact.
+    contactA2 = (await owner.query("INSERT INTO contacts(account_id,user_id,phone,name) VALUES($1,$2,$3,'Ravi') RETURNING id", [accountA, admin, phone.slice(0, -1) + (Number(phone.slice(-1)) + 1) % 10])).rows[0].id;
+    conversationA2 = (await owner.query('INSERT INTO conversations(account_id,user_id,contact_id) VALUES($1,$2,$3) RETURNING id', [accountA, admin, contactA2])).rows[0].id;
   });
   afterAll(async () => {
     if (owner) {
@@ -115,7 +117,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('AI activity log on PostgreS
   });
 
   it('removes the rows with their conversation', async () => {
-    await recordReplyEvent({ accountId: accountA, conversationId: conversationA2, contactId: contactA, outcome: 'skipped', reason: 'stale' });
+    await recordReplyEvent({ accountId: accountA, conversationId: conversationA2, contactId: contactA2, outcome: 'skipped', reason: 'stale' });
     expect((await owner.query('SELECT count(*)::int AS n FROM ai_reply_events WHERE conversation_id=$1', [conversationA2])).rows[0].n).toBe(1);
     await owner.query('DELETE FROM conversations WHERE id=$1', [conversationA2]);
     expect((await owner.query('SELECT count(*)::int AS n FROM ai_reply_events WHERE conversation_id=$1', [conversationA2])).rows[0].n).toBe(0);
