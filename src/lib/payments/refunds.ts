@@ -109,13 +109,20 @@ async function lockPayment(tx: TenantTransaction, accountId: string, paymentId: 
   return rows[0] ?? null;
 }
 
-/** A courier shipment that may still leave (or has left) with the order's goods (as order-lifecycle liveShipmentExists). */
+/**
+ * A courier shipment that may still leave (or has left) with the goods of an
+ * order not yet marked dispatched (as order-lifecycle liveShipmentExists). A
+ * dispatched order's whole-order restock does nothing (orderRestockable), so
+ * it is never refused for this.
+ */
 async function liveShipmentTx(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
-  const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_shipments
-    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid
-      AND create_state NOT IN ('failed','cancelled')
-      AND (awb IS NOT NULL OR create_state IN ('creating','unknown') OR awb_state IN ('assigning','unknown'))
-      AND (tracking_rank IS NULL OR tracking_rank < 90)`;
+  const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_shipments s
+    JOIN orders o ON o.account_id=s.account_id AND o.id=s.order_id
+    WHERE s.account_id=${accountId}::uuid AND s.order_id=${orderId}::uuid
+      AND o.dispatched_at IS NULL AND o.status NOT IN ('dispatched','fulfilled')
+      AND s.create_state NOT IN ('failed','cancelled')
+      AND (s.awb IS NOT NULL OR s.create_state IN ('creating','unknown') OR s.awb_state IN ('assigning','unknown'))
+      AND (s.tracking_rank IS NULL OR s.tracking_rank < 90)`;
   return (row?.n ?? 0) > 0;
 }
 

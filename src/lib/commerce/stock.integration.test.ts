@@ -23,7 +23,7 @@ process.env.ENCRYPTION_KEY ??= 'a'.repeat(64);
 
 const account = randomUUID(), owner = randomUUID();
 const product = randomUUID(), scarce = randomUUID(), left = randomUUID(), right = randomUUID();
-const contacts = Array.from({ length: 24 }, () => randomUUID());
+const contacts = Array.from({ length: 25 }, () => randomUUID());
 let db: pg.Client;
 
 const worker = <T,>(fn: (tx: TenantTransaction) => Promise<T>) => withTenant({ accountId: account, role: 'owner' }, fn, getWorkerPrisma());
@@ -180,7 +180,18 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 8 stock and checkout 
     const expired = await place(t);
     await db.query(`UPDATE orders SET reservation_expires_at=now() - interval '2 minutes' WHERE id=$1`, [expired.orderId]);
     await expireReservation(account, { orderId: expired.orderId, attempt: 1 });
-    expect(await worker((tx) => loadOrderView(tx, account, expired.orderId))).toMatchObject({ status: 'expired', paymentFailed: false });
+    expect(await worker((tx) => loadOrderView(tx, account, expired.orderId))).toMatchObject({ status: 'expired', paymentFailed: false, returnWindowDays: null });
+  });
+
+  // ------------------------------------------------------------------ audit 22: the customer sees the return window
+  it('shows the store return window on an order that has left, and nothing before', async () => {
+    const s = await readySession(contacts[24], [{ variantId: right, qty: 1 }]);
+    const { orderId } = await place(s);
+    expect(await worker((tx) => loadOrderView(tx, account, orderId))).toMatchObject({ returnWindowDays: null });
+    await db.query(`UPDATE commerce_settings SET return_window_days=10 WHERE account_id=$1`, [account]);
+    await db.query(`UPDATE orders SET status='fulfilled', paid_at=now(), dispatched_at=now(), delivered_at=now() WHERE id=$1`, [orderId]);
+    expect(await worker((tx) => loadOrderView(tx, account, orderId))).toMatchObject({ status: 'fulfilled', returnWindowDays: 10 });
+    await db.query(`UPDATE commerce_settings SET return_window_days=7 WHERE account_id=$1`, [account]);
   });
 
   it('refuses online payment while Razorpay is not connected, before anything is held', async () => {

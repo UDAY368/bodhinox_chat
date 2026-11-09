@@ -97,6 +97,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public storefront routes on
     expect(ok.status).toBe(200);
     const body = await ok.json();
     expect(body).toMatchObject({ version: 2, cart: [{ variantId: variant, qty: 2 }] });
+    // A change is answered without the catalogue (audit 19): the page keeps the pages it loaded.
+    expect(body).toMatchObject({ products: [], productsNext: null, categories: [] });
     // The other workspace's session is untouched and sees none of this.
     const theirs = await (await view(req('GET'), params(otherToken))).json();
     expect(theirs.cart).toEqual([]);

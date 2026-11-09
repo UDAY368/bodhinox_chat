@@ -207,6 +207,13 @@ export async function applyTracking(
       await openShipmentException(tx, accountId, target.id, 'contradiction', observed, { once: true });
     if (derived.rto) await openShipmentException(tx, accountId, target.id, 'rto', null, { once: true });
     if (derived.lost) await openShipmentException(tx, accountId, target.id, 'lost_or_damaged', null, { once: true });
+    // Collected after all (scheduled in Shiprocket, or a late pickup): a failed pickup request no longer needs anyone.
+    if (derived.firstDispatchAt) {
+      await tx.$executeRaw`UPDATE order_shipments SET last_error_code=NULL
+        WHERE account_id=${accountId}::uuid AND id=${target.id}::uuid AND last_error_code='pickup_failed'`;
+      await tx.$executeRaw`UPDATE shipment_exceptions SET status='resolved', resolution='dismiss', resolved_at=now()
+        WHERE account_id=${accountId}::uuid AND shipment_id=${target.id}::uuid AND kind='pickup_failed' AND status='open'`;
+    }
 
     let outcome: 'applied' | 'already' | 'conflict' | null = null;
     let claimed: TrackingStatus | null = null;

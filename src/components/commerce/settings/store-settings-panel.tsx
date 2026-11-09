@@ -134,6 +134,9 @@ function GeneralForm({ initial, canEdit, onSaved }: { initial: StoreSettings; ca
           <Switch checked={s.checkout_enabled} disabled={!canEdit} onCheckedChange={(v) => set("checkout_enabled")(v)} aria-label={t("checkoutEnabled")} />
           {t("checkoutEnabled")}
         </label>
+        {s.checkout_enabled && !initial.online_payment_ready && (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300" role="status">{t("razorpayMissing")}</p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="ss-currency" label={t("currency")} help={s.currency_locked ? t("currencyLocked") : t("currencyHelp")}>
             <Input id="ss-currency" maxLength={3} value={s.currency ?? ""} disabled={!canEdit || s.currency_locked}

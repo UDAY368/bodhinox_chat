@@ -44,6 +44,11 @@ export function Storefront({ token }: { token: string }) {
   // change never resets the pages the customer already loaded.
   const [products, setProducts] = useState<StorefrontProduct[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  // From the first view only (change answers carry no catalogue): the category chips and whether to offer search.
+  const [categories, setCategories] = useState<StorefrontView['categories']>([]);
+  const [manyProducts, setManyProducts] = useState(false);
+  // Every product seen on any page or search, so a cart line keeps its name after the list is filtered.
+  const [seen, setSeen] = useState<ReadonlyMap<string, StorefrontProduct>>(new Map());
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [catalogueBusy, setCatalogueBusy] = useState(false);
@@ -52,17 +57,25 @@ export function Storefront({ token }: { token: string }) {
   const filtered = useRef(false);
   const catalogueSeeded = useRef(false);
 
+  const remember = useCallback((list: readonly StorefrontProduct[]) => {
+    if (list.length) setSeen((current) => new Map([...current, ...list.map((p) => [p.id, p] as const)]));
+  }, []);
+
   const accept = useCallback((next: StorefrontView | null) => {
     if (!next) return;
     setView(next);
+    // The first view (GET, with the catalogue) seeds it; answers to changes carry none.
     if (!catalogueSeeded.current) {
       catalogueSeeded.current = true;
       setProducts(next.products);
       setNextCursor(next.productsNext);
+      setCategories(next.categories);
+      setManyProducts(next.productsNext !== null);
+      remember(next.products);
     }
     if (next.address) setAddress({ ...EMPTY_ADDRESS, ...Object.fromEntries(Object.entries(next.address).map(([k, v]) => [k, v ?? ''])) } as Address);
     setCoupon(next.couponCode ?? '');
-  }, []);
+  }, [remember]);
 
   const load = useCallback(async () => {
     try {
@@ -116,13 +129,14 @@ export function Storefront({ token }: { token: string }) {
       const page = await shopApi.products(token, { ...filter, cursor });
       if (ticket !== catalogueTicket.current) return;
       setProducts((current) => (cursor ? [...(current ?? []), ...page.products] : page.products));
+      remember(page.products);
       setNextCursor(page.nextCursor);
     } catch {
       if (ticket === catalogueTicket.current) setCatalogueFailed(true);
     } finally {
       if (ticket === catalogueTicket.current) setCatalogueBusy(false);
     }
-  }, [token]);
+  }, [token, remember]);
 
   // A new search or category starts again from the first page (the search waits for a pause in typing).
   useEffect(() => {
@@ -138,11 +152,11 @@ export function Storefront({ token }: { token: string }) {
 
   const variantInfo = useMemo(() => {
     const map = new Map<string, { productName: string; options: string; priceMinor: number; inStock: boolean }>();
-    for (const p of products ?? [])
+    for (const p of seen.values())
       for (const v of p.variants)
         map.set(v.id, { productName: p.name, options: Object.values(v.options).join(' / '), priceMinor: v.priceMinor, inStock: v.inStock });
     return map;
-  }, [products]);
+  }, [seen]);
 
   if (loadState === 'loading') return <Loader2 className="mx-auto mt-16 size-6 animate-spin text-muted-foreground" aria-label={t('loading')} />;
   if (loadState !== 'ready' || !view) {
@@ -218,16 +232,16 @@ export function Storefront({ token }: { token: string }) {
 
           {view.purpose === 'shop' && (
             <section aria-label={t('productsHeading')} className="space-y-3">
-              {(view.productsNext !== null || view.categories.length > 1 || search || category) && (
+              {(manyProducts || categories.length > 1 || search || category) && (
                 <div className="space-y-2">
                   <div className="relative">
                     <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
                     <Input type="search" value={search} maxLength={80} placeholder={t('searchProducts')} aria-label={t('searchProducts')}
                       className="pl-8" onChange={(e) => changeFilter({ search: e.target.value })} />
                   </div>
-                  {view.categories.length > 1 && (
+                  {categories.length > 1 && (
                     <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label={t('categories')}>
-                      {[{ id: null, name: t('allCategories') }, ...view.categories].map((c) => (
+                      {[{ id: null, name: t('allCategories') }, ...categories].map((c) => (
                         <Button key={c.id ?? 'all'} type="button" size="sm" variant={category === c.id ? 'secondary' : 'ghost'}
                           aria-pressed={category === c.id} className="shrink-0" onClick={() => changeFilter({ category: c.id })}>
                           {c.name}

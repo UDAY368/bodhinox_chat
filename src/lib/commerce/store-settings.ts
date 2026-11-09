@@ -76,16 +76,18 @@ export interface StoreSettings {
   cod_fee_minor: number;
   /** True once any variant is priced: the currency can no longer change. */
   currency_locked: boolean;
+  /** Razorpay is connected, so the storefront can offer online payment (read-only here). */
+  online_payment_ready: boolean;
 }
 
-const DEFAULTS: Omit<StoreSettings, 'configured' | 'currency_locked'> = {
+const DEFAULTS: Omit<StoreSettings, 'configured' | 'currency_locked' | 'online_payment_ready'> = {
   currency: null, prices_include_tax: true, default_tax_rate_bps: null, reservation_minutes: 15, checkout_enabled: false,
   low_stock_default: 5, legal_name: null, gstin: null, address: null, state_code: null, document_prefix: 'RCPT',
   storefront_title: null, return_window_days: 7, checkout_template_name: null, checkout_template_language: null,
   cod_enabled: false, cod_fee_minor: 0,
 };
 
-type SettingsRow = Omit<StoreSettings, 'configured' | 'currency_locked'>;
+type SettingsRow = Omit<StoreSettings, 'configured' | 'currency_locked' | 'online_payment_ready'>;
 type RawSettingsRow = Omit<SettingsRow, 'cod_fee_minor'> & { cod_fee_minor: bigint | number };
 
 export async function loadSettingsRow(tx: TenantTransaction, accountId: string, lock = false): Promise<SettingsRow | null> {
@@ -117,6 +119,13 @@ export async function loadPricingSettings(tx: TenantTransaction, accountId: stri
  * bands), a fixed-value coupon or a coupon minimum/cap, a COD fee, or a priced order. Changing the currency would silently
  * re-denominate those minor units (100x between INR and JPY), so the currency is then locked.
  */
+/** Whether a checkout payment link can be made: the workspace has a Razorpay connection. */
+export async function onlinePaymentReady(tx: TenantTransaction, accountId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT EXISTS(SELECT 1 FROM payment_providers
+    WHERE account_id=${accountId}::uuid AND provider='razorpay') AS ok`;
+  return Boolean(row?.ok);
+}
+
 export async function currencyInUse(tx: TenantTransaction, accountId: string): Promise<boolean> {
   const rows = await tx.$queryRaw<{ used: boolean }[]>`SELECT
       EXISTS (SELECT 1 FROM shop_variants WHERE account_id=${accountId}::uuid AND price_minor IS NOT NULL)
@@ -139,12 +148,13 @@ export async function lockStoreCurrencyShared(tx: TenantTransaction, accountId: 
 export async function getStoreSettings(ctx: TenantContext): Promise<StoreSettings> {
   return withTenant(ctx, async (tx) => {
     const row = await loadSettingsRow(tx, ctx.accountId);
-    return { ...DEFAULTS, ...(row ?? {}), configured: !!row, currency_locked: await currencyInUse(tx, ctx.accountId) };
+    return { ...DEFAULTS, ...(row ?? {}), configured: !!row, currency_locked: await currencyInUse(tx, ctx.accountId),
+      online_payment_ready: await onlinePaymentReady(tx, ctx.accountId) };
   });
 }
 
 /** cod_enabled and cod_fee_minor are optional: a client that does not send them keeps the stored values. */
-export type StoreSettingsInput = Omit<StoreSettings, 'configured' | 'currency_locked' | 'currency' | 'cod_enabled' | 'cod_fee_minor'>
+export type StoreSettingsInput = Omit<StoreSettings, 'configured' | 'currency_locked' | 'online_payment_ready' | 'currency' | 'cod_enabled' | 'cod_fee_minor'>
   & { currency: string; cod_enabled?: boolean; cod_fee_minor?: number };
 
 const optText = (value: unknown, max: number): string | null => {
@@ -225,7 +235,7 @@ export async function saveStoreSettings(ctx: TenantContext & { userId: string },
     await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
       VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,'commerce.settings_updated',${ctx.accountId},${JSON.stringify({ fields: changed })}::jsonb)`;
     const row = await loadSettingsRow(tx, ctx.accountId);
-    return { ...DEFAULTS, ...(row ?? {}), configured: true, currency_locked: locked };
+    return { ...DEFAULTS, ...(row ?? {}), configured: true, currency_locked: locked, online_payment_ready: await onlinePaymentReady(tx, ctx.accountId) };
   });
 }
 

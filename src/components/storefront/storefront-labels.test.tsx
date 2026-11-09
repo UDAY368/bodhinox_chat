@@ -17,7 +17,7 @@ const order = (extra: Partial<StorefrontOrderView>): StorefrontOrderView => ({
   reference: 'AB12CD34', status: 'expired', currency: 'INR', subtotalMinor: 10000, discountMinor: 0, shippingMinor: 0, paymentMethod: 'online',
   codFeeMinor: 0, taxMinor: 0, totalMinor: 10000, taxInclusive: true, amountPaidMinor: 0, priced: true,
   lines: [{ name: 'Tulsi', sku: 'TUL-1', qty: 1, unitPriceMinor: 10000, lineTotalMinor: 10000 }],
-  paymentUrl: null, paymentPending: false, paymentFailed: false, reservationExpiresAt: null, paidAt: null, documentNumber: null, ...extra,
+  paymentUrl: null, paymentPending: false, paymentFailed: false, returnWindowDays: null, reservationExpiresAt: null, paidAt: null, documentNumber: null, ...extra,
 });
 const render = (view: StorefrontOrderView) => renderToStaticMarkup(
   <NextIntlClientProvider locale="en" timeZone="UTC" messages={{ Storefront: en.Storefront as Tree }} onError={() => {}}>
@@ -36,6 +36,15 @@ describe('payment-setup failure on the order page', () => {
     const html = render(order({}));
     expect(html).toContain('Expired: not paid in time');
     expect(html).not.toContain('Payment could not be set up');
+  });
+});
+
+describe('return window on the order page (audit 22)', () => {
+  it('tells the customer the window once the order has left, and says when there are no returns', () => {
+    expect(render(order({ status: 'fulfilled', returnWindowDays: 7 }))).toContain('Returns are accepted within 7 days of delivery.');
+    expect(render(order({ status: 'fulfilled', returnWindowDays: 1 }))).toContain('within 1 day of delivery');
+    expect(render(order({ status: 'dispatched', returnWindowDays: 0 }))).toContain('does not accept returns');
+    expect(render(order({ status: 'paid', returnWindowDays: null }))).not.toContain('Returns are accepted');
   });
 });
 

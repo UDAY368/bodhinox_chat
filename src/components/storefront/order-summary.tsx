@@ -65,6 +65,11 @@ export function OrderSummary({ order, locale }: { order: StorefrontOrderView; lo
           </p>
         )}
         {order.documentNumber && <p className="text-sm">{t('receiptNumber', { number: order.documentNumber })}</p>}
+        {order.returnWindowDays !== null && (
+          <p className="text-xs text-muted-foreground">
+            {order.returnWindowDays > 0 ? t('returnWindow', { days: order.returnWindowDays }) : t('noReturns')}
+          </p>
+        )}
         <ul className="divide-y text-sm">
           {order.lines.map((line, i) => (
             <li key={i} className="flex justify-between gap-4 py-2">

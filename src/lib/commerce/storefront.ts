@@ -38,7 +38,7 @@ import {
   CART_LIMITS, isPaymentMethod, normaliseCart, priceCart, type CartLine, type PaymentMethod, type PricingResult, type PricingVariant, type Quote,
 } from './pricing';
 import { deriveStorefrontToken, storefrontTokenHash, storefrontUrl } from './storefront-token';
-import { isUuid, loadPricingSettings, pricingRate, selectRates, StoreError } from './store-settings';
+import { isUuid, loadPricingSettings, onlinePaymentReady, pricingRate, selectRates, StoreError } from './store-settings';
 
 export type StorefrontPurpose = 'shop' | 'order' | 'status';
 export const STOREFRONT_TTL = { minHours: 1, maxHours: 168, defaultHours: 24 } as const;
@@ -589,12 +589,7 @@ export async function setPaymentMethodTx(tx: TenantTransaction, accountId: strin
   if (session.payment_method !== input.paymentMethod) await bump(tx, accountId, sessionId, { paymentMethod: input.paymentMethod });
 }
 
-/** Whether a checkout payment link can be made: the workspace has a Razorpay connection. */
-export async function onlinePaymentReady(tx: TenantTransaction, accountId: string): Promise<boolean> {
-  const [row] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT EXISTS(SELECT 1 FROM payment_providers
-    WHERE account_id=${accountId}::uuid AND provider='razorpay') AS ok`;
-  return Boolean(row?.ok);
-}
+export { onlinePaymentReady };
 
 /** Apply (or with null remove) a coupon code. An unknown code is refused here; validity is checked by the quote. */
 export async function applyCouponTx(tx: TenantTransaction, accountId: string, sessionId: string, input: { expectedVersion: number; code: unknown }): Promise<void> {
@@ -643,6 +638,8 @@ export interface StorefrontOrderView {
   paymentPending: boolean;
   /** Closed because Razorpay refused to make its payment link (not because the customer did not pay in time). */
   paymentFailed: boolean;
+  /** The store's return window in days after delivery (0 = none), shown once the order has left; null before that. */
+  returnWindowDays: number | null;
   reservationExpiresAt: string | null;
   paidAt: string | null;
   documentNumber: string | null;
@@ -693,6 +690,9 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
   const awaiting = order.status === 'awaiting_payment';
   const [failed] = order.status === 'expired' ? await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_events
     WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='payment_link_failed'` : [];
+  const shipped = order.status === 'dispatched' || order.status === 'fulfilled';
+  const [window] = shipped ? await tx.$queryRaw<{ days: number }[]>`SELECT return_window_days AS days FROM commerce_settings
+    WHERE account_id=${accountId}::uuid` : [];
   return {
     reference: orderReference(order.id), status: order.status, currency: order.currency,
     subtotalMinor: minorFromDb(order.subtotal_minor) ?? 0, discountMinor: minorFromDb(order.discount_minor) ?? 0,
@@ -705,6 +705,8 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
     paymentUrl: awaiting && link?.short_url && (link.status === 'created' || link.status === 'partially_paid') ? link.short_url : null,
     paymentPending: awaiting && !(link?.short_url && (link.status === 'created' || link.status === 'partially_paid')),
     paymentFailed: (failed?.n ?? 0) > 0,
+    // As createReturn: 7 days when the store never saved its settings.
+    returnWindowDays: shipped ? (window?.days ?? 7) : null,
     reservationExpiresAt: order.reservation_expires_at?.toISOString() ?? null, paidAt: order.paid_at?.toISOString() ?? null,
     documentNumber: doc?.number ?? null,
   };
@@ -811,7 +813,14 @@ async function firstCataloguePage(tx: TenantTransaction, accountId: string) {
   return { products: page.products, productsNext: page.nextCursor, categories: await loadCatalogueCategories(tx, accountId) };
 }
 
-export async function loadStorefrontView(tx: TenantTransaction, accountId: string, sessionId: string, now = new Date()): Promise<StorefrontView | null> {
+/**
+ * The customer's view of a storefront session. `catalogue: false` (the answer
+ * to a cart, address, coupon or payment change) leaves the products, their
+ * cursor and the categories empty: the page keeps the catalogue it already
+ * loaded, so a quantity tap does not re-read it.
+ */
+export async function loadStorefrontView(tx: TenantTransaction, accountId: string, sessionId: string, now = new Date(),
+  options: { catalogue?: boolean } = {}): Promise<StorefrontView | null> {
   const session = await loadSession(tx, accountId, sessionId);
   if (!session || session.revoked_at) return null;
   const settings = await loadPricingSettings(tx, accountId);
@@ -819,7 +828,7 @@ export async function loadStorefrontView(tx: TenantTransaction, accountId: strin
   const order = session.order_id ? await loadOrderView(tx, accountId, session.order_id) : null;
   const placed = !!order?.priced || session.purpose === 'status';
   const open = !placed && session.expires_at.getTime() > now.getTime();
-  const showCatalogue = open && session.purpose === 'shop';
+  const showCatalogue = open && session.purpose === 'shop' && options.catalogue !== false;
   const lines = placed ? [] : (await sessionLines(tx, accountId, session)).lines;
   return {
     store: {

@@ -329,6 +329,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Customer refunds on Postgre
     await expect(ask(payment, 10000, { restock: false, reason: 'cancelled' })).resolves.toMatchObject({ refundId: expect.any(String) });
   });
 
+  it('does not refuse a restocking refund once the order is dispatched (its restock does nothing then)', async () => {
+    const { order, payment } = await paidOrder();
+    // One live courier connection per workspace: reuse the one an earlier test made.
+    const connection = ((await one(`SELECT id FROM courier_connections WHERE account_id=$1 AND status<>'disconnected'`, [accountA]))
+      ?? (await one(`INSERT INTO courier_connections(account_id,api_email) VALUES($1,'api@example.invalid') RETURNING id`, [accountA]))).id;
+    await owner.query(`INSERT INTO order_shipments(account_id,order_id,connection_id,reference,create_state,awb_state,awb,length_cm,breadth_cm,height_cm,weight_grams)
+      VALUES($1,$2,$3,$4,'created','assigned',$5,10,10,10,500)`, [accountA, order, connection, `bxd${seed.padStart(11, '0').slice(-11)}`, `AWD${seed}`]);
+    await owner.query(`UPDATE orders SET status='dispatched', dispatched_at=now() WHERE account_id=$1 AND id=$2`, [accountA, order]);
+    await expect(ask(payment, 10000, { restock: true, reason: 'cancelled' })).resolves.toMatchObject({ refundId: expect.any(String) });
+  });
+
   it('never ships a paid order a full restocking refund already put back on the shelf', async () => {
     const { order, payment, providerPaymentId } = await paidOrder();
     const before = await onHand();
