@@ -191,8 +191,15 @@ export async function moveReturn(returnId: string, input: ReturnAction): Promise
   return result(await post(`/api/commerce/returns/${encodeURIComponent(returnId)}`, input), "return");
 }
 
-export async function refundReturn(returnId: string, amountMinor: number, note: string | null): Promise<ApiResult<string>> {
-  return result(await post(`/api/commerce/returns/${encodeURIComponent(returnId)}`, { action: "refund", amount_minor: amountMinor, note }), "refund_id");
+/**
+ * Refund an inspected return. refundedOutside confirms that money Razorpay does
+ * not hold (cash on delivery, a staff-recorded payment) was handed back outside
+ * the app; without it the server answers 409 offline_payment and records nothing.
+ */
+export async function refundReturn(returnId: string, amountMinor: number, note: string | null, refundedOutside = false): Promise<ApiResult<string>> {
+  return result(await post(`/api/commerce/returns/${encodeURIComponent(returnId)}`, {
+    action: "refund", amount_minor: amountMinor, note, ...(refundedOutside ? { refunded_outside: true } : {}),
+  }), "refund_id");
 }
 
 export const documentUrl = (documentId: string) => `/api/commerce/documents/${encodeURIComponent(documentId)}`;

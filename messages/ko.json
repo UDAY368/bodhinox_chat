@@ -6017,7 +6017,8 @@
       "invalid": "포장 크기와 무게를 확인하세요.",
       "throttled": "Shiprocket이 혼잡합니다. 1분 후 다시 시도하세요.",
       "feature_unavailable": "택배 배송은 현재 요금제에 포함되어 있지 않습니다.",
-      "not_implemented": "이 작업은 아직 사용할 수 없습니다."
+      "not_implemented": "이 작업은 아직 사용할 수 없습니다.",
+      "order_refunded": "이 주문은 전액 환불되어 배송할 수 없습니다."
     }
   },
   "Api": {
@@ -7451,7 +7452,8 @@
         "cancelRefundDoneOutside": "주문이 취소되었습니다. Bodhinox 외부에서 처리한 환불이 기록되었습니다.",
         "courierTracked": "Shiprocket 배송 추적이 이 주문을 자동으로 업데이트합니다. 직접 기록할 수도 있습니다.",
         "shipmentLive": "이 주문을 취소하기 전에 택배 발송을 먼저 취소하거나, 이미 수거되었다면 반품을 이용하세요.",
-        "codFee": "착불 수수료"
+        "codFee": "착불 수수료",
+        "refundedInFull": "이 주문은 전액 환불되어 배송할 수 없습니다. 취소 및 환불로 주문을 종료하세요."
       },
       "timeline": {
         "title": "기록",
@@ -7477,7 +7479,10 @@
           "shipment_created": "택배 발송 생성됨",
           "shipment_cancelled": "택배 발송 취소됨",
           "shipment_correction_accepted": "배송 추적 정정 승인됨",
-          "cod_confirmed": "착불 결제 선택"
+          "cod_confirmed": "착불 결제 선택",
+          "payment_link_failed": "결제 링크를 만들 수 없음",
+          "shipment_pickup_requested": "택배 픽업 다시 요청함",
+          "return_refunded_outside": "Bodhinox 외부에서 반품 환불함"
         },
         "documents": "문서",
         "documentKinds": {
@@ -7650,7 +7655,7 @@
         "addImage": "이미지 추가",
         "removeImage": "이미지 삭제",
         "saveImages": "이미지 저장",
-        "imagesHint": "https 이미지 최대 10개가 이 순서로 표시됩니다.",
+        "imagesHint": "미디어 라이브러리에 업로드한 이미지 또는 https 링크로 최대 10개, 이 순서로 표시됩니다.",
         "variants": "옵션",
         "currencyMissing": "가격을 추가하려면 스토어 설정에서 통화를 지정하세요.",
         "variantSaved": "옵션을 저장했습니다",
@@ -7682,7 +7687,9 @@
         "repurchaseDays": "재주문 알림 시점(일)",
         "repurchaseHint": "선택 사항. 결제 시 혜택 수신에 동의한 고객에게 배송 후 며칠 뒤 알릴지 정합니다. 스토어 설정의 재주문 알림 템플릿을 사용합니다.",
         "codAvailable": "착불 결제 가능",
-        "codAvailableHint": "끄면 이 상품이 담긴 장바구니는 온라인 결제만 가능합니다(스토어 설정에서 착불도 켜져 있어야 합니다)."
+        "codAvailableHint": "끄면 이 상품이 담긴 장바구니는 온라인 결제만 가능합니다(스토어 설정에서 착불도 켜져 있어야 합니다).",
+        "uploadImage": "업로드 또는 라이브러리에서 선택",
+        "imageOnly": "이미지 파일을 선택하세요."
       }
     },
     "inventory": {
@@ -7921,7 +7928,12 @@
       "closed": "반품이 종료되었습니다",
       "forbidden": "현재 역할로는 할 수 없습니다.",
       "conflict": "반품 또는 주문이 변경되었습니다. 다시 불러왔습니다.",
-      "error": "반품을 업데이트할 수 없습니다"
+      "error": "반품을 업데이트할 수 없습니다",
+      "windowClosed": "이 주문의 반품 기간이 지났습니다(스토어 설정 → 반품 기간).",
+      "amountExceeds": "이 주문의 어떤 결제도 단독으로 그 금액을 환불할 수 없습니다. 더 적은 금액을 입력하세요.",
+      "refundOutsideNeeded": "이 주문은 현금 또는 팀이 기록한 결제로 지불되어 Razorpay로 환불할 수 없습니다. 결제한 방식으로 돈을 돌려준 뒤 아래에서 확인하여 환불을 기록하세요.",
+      "refundOutsideConfirm": "Bodhinox 외부에서 이 금액을 돌려주었습니다",
+      "refundedOutside": "환불이 기록되었습니다. 대변 전표가 발행됩니다."
     },
     "documents": {
       "print": {
@@ -7973,7 +7985,7 @@
       "awbAssigning": "택배사를 배정하는 중…",
       "awbUnknown": "Shiprocket이 택배사 배정을 확인하지 않았습니다. 자동으로 다시 시도하지 않으니 배송 예외를 확인하세요.",
       "awbFailed": "택배사가 배정되지 않았습니다({code}). 요금은 청구되지 않았습니다.",
-      "pickupFailed": "Shiprocket이 픽업을 예약하지 않았습니다. Shiprocket에서 예약하세요.",
+      "pickupFailed": "Shiprocket이 픽업을 예약하지 않았습니다. 다시 요청하거나 Shiprocket에서 예약하세요.",
       "awb": "AWB",
       "courier": "택배사",
       "status": "배송 추적",
@@ -8002,7 +8014,9 @@
         "lost": "분실 또는 파손",
         "rto_delivered": "반송 완료",
         "cancelled": "취소됨"
-      }
+      },
+      "pickupAgain": "픽업 다시 요청",
+      "pickupRequested": "Shiprocket에 픽업을 요청했습니다."
     },
     "evidence": {
       "provider": "택배사 확인",
@@ -8026,7 +8040,8 @@
         "rto": "발송지로 반송 중",
         "lost_or_damaged": "분실 또는 파손",
         "stale_tracking": "10일 동안 배송 추적 업데이트 없음",
-        "order_conflict": "택배 상태가 주문과 맞지 않음"
+        "order_conflict": "택배 상태가 주문과 맞지 않음",
+        "pickup_failed": "택배 픽업이 예약되지 않음"
       },
       "hints": {
         "contradiction": "Shiprocket에서 발송을 확인하세요. 택배사의 새 상태가 맞을 때만 정정을 승인하세요.",
@@ -8035,7 +8050,8 @@
         "rto": "소포가 돌아오고 있습니다. 도착하면 주문에서 반품을 여세요.",
         "lost_or_damaged": "Shiprocket에 클레임을 제기하고 주문에서 환불하거나 교환하세요.",
         "stale_tracking": "택배사에 발송 상태를 확인하세요.",
-        "order_conflict": "소포가 이동하는 동안 주문이 취소되었거나 환불되었거나 결제되지 않았습니다. 주문과 발송을 확인하세요."
+        "order_conflict": "소포가 이동하는 동안 주문이 취소되었거나 환불되었거나 결제되지 않았습니다. 주문과 발송을 확인하세요.",
+        "pickup_failed": "주문을 열어 픽업 다시 요청을 사용하거나 Shiprocket에서 픽업을 예약하세요. 요청이 성공하면 이 항목이 닫힙니다."
       },
       "resolutions": {
         "accept_correction": "정정 승인",
@@ -8078,6 +8094,15 @@
       "errors": {
         "invalid": "템플릿과 언어를 선택하세요.",
         "template_not_found": "템플릿을 찾을 수 없습니다. 템플릿을 동기화한 뒤 다시 시도하세요."
+      }
+    },
+    "checkoutLinkFailed": {
+      "title": "결제 링크 생성 실패",
+      "body": "Razorpay가 결제 링크를 만들지 못해 주문 {reference}이(가) 종료되었습니다({reason}). 재고와 쿠폰은 해제되었고, 고객에게 결제를 준비할 수 없다고 안내했습니다.",
+      "reasons": {
+        "not_connected": "Razorpay가 연결되어 있지 않음",
+        "provider_auth": "Razorpay가 저장된 키를 거부함",
+        "other": "Razorpay가 요청을 거부함"
       }
     }
   },
@@ -8264,7 +8289,8 @@
         "not_retryable": "Razorpay가 처리하지 않은 환불만 다시 보낼 수 있습니다.",
         "not_reconcilable": "이 환불은 이미 정리되어 확인할 것이 없습니다.",
         "not_connected": "Razorpay가 연결되어 있지 않습니다.",
-        "provider_unreachable": "Razorpay에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
+        "provider_unreachable": "Razorpay에 연결할 수 없습니다. 잠시 후 다시 시도하세요.",
+        "shipment_live": "이 주문에는 택배 배송이 있습니다. 재입고 전에 배송을 취소하거나, 재입고 없이 환불하고 돌아오는 상품은 반품으로 처리하세요."
       }
     },
     "offline": {
@@ -10233,7 +10259,8 @@
       "order_not_open": "이 주문은 더 이상 여기서 결제할 수 없습니다.",
       "amount_out_of_range": "금액이 너무 큽니다.",
       "too_many_open_orders": "열린 주문이 이미 최대입니다. 미결제 주문을 결제하거나 만료를 기다리거나, 착불 주문이 배송될 때까지 기다린 뒤 다시 시도하세요.",
-      "cod_unavailable": "이 장바구니는 착불을 사용할 수 없습니다. 온라인 결제를 선택하세요."
+      "cod_unavailable": "이 장바구니는 착불을 사용할 수 없습니다. 온라인 결제를 선택하세요.",
+      "online_unavailable": "이 스토어에서는 온라인 결제를 사용할 수 없습니다. 착불을 선택하거나 스토어에 문의하세요."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "WhatsApp으로 재주문 알림과 혜택을 받겠습니다. 언제든지 STOP이라고 답장하면 중단됩니다."
@@ -10246,7 +10273,17 @@
     "placeCod": "주문하고 배송 시 {amount} 결제",
     "codNote": "주문이 지금 확정됩니다. 배송받을 때 현금으로 결제하세요.",
     "codFee": "착불 수수료",
-    "codDue": "착불: 주문이 도착하면 {amount}을(를) 준비해 주세요."
+    "codDue": "착불: 주문이 도착하면 {amount}을(를) 준비해 주세요.",
+    "onlineUnavailable": "이 스토어는 아직 온라인 결제를 설정하지 않았습니다.",
+    "paymentFailedTitle": "결제를 준비할 수 없습니다",
+    "paymentFailed": "스토어가 이 주문의 온라인 결제를 준비하지 못해 주문이 접수되지 않았고 결제도 되지 않았습니다. 주문하려면 WhatsApp으로 스토어에 문의하세요.",
+    "stillVerifying": "스토어가 아직 결제를 확인하고 있습니다. 확인되면 WhatsApp으로 안내를 받게 되며, 다시 결제할 필요는 없습니다.",
+    "checkAgain": "다시 확인",
+    "searchProducts": "상품 검색",
+    "categories": "카테고리",
+    "allCategories": "전체",
+    "noMatchingProducts": "검색과 일치하는 상품이 없습니다.",
+    "showMore": "상품 더 보기"
   },
   "OrderNotices": {
     "dispatched": "주문 {ref}이(가) 발송되었습니다.",

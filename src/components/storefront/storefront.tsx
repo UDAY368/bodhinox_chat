@@ -2,7 +2,7 @@
 
 /**
  * The customer's storefront (design §6): a mobile-first product grid with a
- * variant picker, the cart, a delivery address form, the server quote with
+ * name search, category chips and "Show more" paging, a variant picker, the cart, a delivery address form, the server quote with
  * its tax and shipping breakdown, and "Place order and pay". Every change is
  * sent with the session version and answered with the fresh view, so prices
  * and totals always come from the server. After placing, the page waits for
@@ -11,14 +11,16 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { AlertTriangle, Loader2, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Minus, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { MARKETING_OPT_IN_VERSION, shopApi, shopErrorCode, type Quote, type ShopErrorCode, type StorefrontView } from './api';
+import {
+  MARKETING_OPT_IN_VERSION, shopApi, shopErrorCode, type Quote, type ShopErrorCode, type StorefrontProduct, type StorefrontView,
+} from './api';
 import { money, OrderSummary } from './order-summary';
 
 type Address = Record<'name' | 'phone' | 'line1' | 'line2' | 'city' | 'state' | 'state_code' | 'postal_code' | 'country' | 'instructions', string>;
@@ -38,10 +40,26 @@ export function Storefront({ token }: { token: string }) {
   // Repeat-purchase consent (Phase 9 D13): unticked by default, sent with the place request only.
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const justPlaced = useRef(false);
+  // The catalogue is paged and searched on its own (GET …/products): set from the first view only, so a cart
+  // change never resets the pages the customer already loaded.
+  const [products, setProducts] = useState<StorefrontProduct[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
+  const [catalogueBusy, setCatalogueBusy] = useState(false);
+  const [catalogueFailed, setCatalogueFailed] = useState(false);
+  const catalogueTicket = useRef(0);
+  const filtered = useRef(false);
+  const catalogueSeeded = useRef(false);
 
   const accept = useCallback((next: StorefrontView | null) => {
     if (!next) return;
     setView(next);
+    if (!catalogueSeeded.current) {
+      catalogueSeeded.current = true;
+      setProducts(next.products);
+      setNextCursor(next.productsNext);
+    }
     if (next.address) setAddress({ ...EMPTY_ADDRESS, ...Object.fromEntries(Object.entries(next.address).map(([k, v]) => [k, v ?? ''])) } as Address);
     setCoupon(next.couponCode ?? '');
   }, []);
@@ -90,13 +108,41 @@ export function Storefront({ token }: { token: string }) {
     }
   }, [view, accept, load]);
 
+  const fetchProducts = useCallback(async (filter: { q: string; category: string | null }, cursor: string | null) => {
+    const ticket = ++catalogueTicket.current;
+    setCatalogueBusy(true);
+    setCatalogueFailed(false);
+    try {
+      const page = await shopApi.products(token, { ...filter, cursor });
+      if (ticket !== catalogueTicket.current) return;
+      setProducts((current) => (cursor ? [...(current ?? []), ...page.products] : page.products));
+      setNextCursor(page.nextCursor);
+    } catch {
+      if (ticket === catalogueTicket.current) setCatalogueFailed(true);
+    } finally {
+      if (ticket === catalogueTicket.current) setCatalogueBusy(false);
+    }
+  }, [token]);
+
+  // A new search or category starts again from the first page (the search waits for a pause in typing).
+  useEffect(() => {
+    if (!filtered.current) return;
+    const timer = setTimeout(() => void fetchProducts({ q: search, category }, null), 300);
+    return () => clearTimeout(timer);
+  }, [search, category, fetchProducts]);
+  const changeFilter = (next: { search?: string; category?: string | null }) => {
+    filtered.current = true;
+    if (next.search !== undefined) setSearch(next.search);
+    if (next.category !== undefined) setCategory(next.category);
+  };
+
   const variantInfo = useMemo(() => {
     const map = new Map<string, { productName: string; options: string; priceMinor: number; inStock: boolean }>();
-    for (const p of view?.products ?? [])
+    for (const p of products ?? [])
       for (const v of p.variants)
         map.set(v.id, { productName: p.name, options: Object.values(v.options).join(' / '), priceMinor: v.priceMinor, inStock: v.inStock });
     return map;
-  }, [view?.products]);
+  }, [products]);
 
   if (loadState === 'loading') return <Loader2 className="mx-auto mt-16 size-6 animate-spin text-muted-foreground" aria-label={t('loading')} />;
   if (loadState !== 'ready' || !view) {
@@ -126,6 +172,8 @@ export function Storefront({ token }: { token: string }) {
   // COD is offered when the store has it on; the quote says whether every product in the cart allows it.
   const codOffered = view.store.codEnabled && view.store.checkoutEnabled;
   const codPossible = codOffered && (quote ? quote.codAvailable : quoteError === 'cod_unavailable' ? false : true);
+  // No Razorpay connection: online payment cannot be set up, so it is not offered (placing refuses it too).
+  const onlineAvailable = view.store.onlineAvailable;
   const choosePayment = (method: 'online' | 'cod') => {
     if (method !== view.paymentMethod) void run(() => shopApi.payment(token, view.version, method));
   };
@@ -169,9 +217,32 @@ export function Storefront({ token }: { token: string }) {
           {!view.store.checkoutEnabled && <p className="rounded-md bg-muted p-3 text-sm">{t('checkoutClosed')}</p>}
 
           {view.purpose === 'shop' && (
-            <section aria-label={t('productsHeading')} className="grid gap-4 sm:grid-cols-2">
-              {view.products.length === 0 && <p className="text-sm text-muted-foreground">{t('noProducts')}</p>}
-              {view.products.map((p) => {
+            <section aria-label={t('productsHeading')} className="space-y-3">
+              {(view.productsNext !== null || view.categories.length > 1 || search || category) && (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                    <Input type="search" value={search} maxLength={80} placeholder={t('searchProducts')} aria-label={t('searchProducts')}
+                      className="pl-8" onChange={(e) => changeFilter({ search: e.target.value })} />
+                  </div>
+                  {view.categories.length > 1 && (
+                    <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label={t('categories')}>
+                      {[{ id: null, name: t('allCategories') }, ...view.categories].map((c) => (
+                        <Button key={c.id ?? 'all'} type="button" size="sm" variant={category === c.id ? 'secondary' : 'ghost'}
+                          aria-pressed={category === c.id} className="shrink-0" onClick={() => changeFilter({ category: c.id })}>
+                          {c.name}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {catalogueFailed && <p className="text-sm text-destructive" role="alert">{t('errors.error')}</p>}
+              <div className="grid gap-4 sm:grid-cols-2">
+              {(products ?? []).length === 0 && !catalogueBusy && (
+                <p className="text-sm text-muted-foreground">{search || category ? t('noMatchingProducts') : t('noProducts')}</p>
+              )}
+              {(products ?? []).map((p) => {
                 const chosen = p.variants.find((v) => v.id === picked[p.id]) ?? p.variants[0];
                 const inCart = cart.find((l) => l.variantId === chosen.id)?.qty ?? 0;
                 return (
@@ -207,6 +278,13 @@ export function Storefront({ token }: { token: string }) {
                   </Card>
                 );
               })}
+              </div>
+              {catalogueBusy && <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" aria-label={t('loading')} />}
+              {!catalogueBusy && nextCursor && (
+                <Button type="button" variant="outline" className="w-full" onClick={() => void fetchProducts({ q: search, category }, nextCursor)}>
+                  {t('showMore')}
+                </Button>
+              )}
             </section>
           )}
 
@@ -274,13 +352,15 @@ export function Storefront({ token }: { token: string }) {
                       onChange={(e) => setCoupon(e.target.value.toUpperCase())} />
                     <Button type="submit" variant="outline" disabled={busy}>{view.couponCode && !coupon ? t('removeCoupon') : t('applyCoupon')}</Button>
                   </form>
-                  {(codOffered || cod) && (
+                  {(codOffered || cod || !onlineAvailable) && (
                     <fieldset className="space-y-2" disabled={busy}>
                       <legend className="mb-1 text-sm font-medium">{t('paymentHeading')}</legend>
                       <label className="flex items-center gap-2 text-sm">
-                        <input type="radio" name="payment-method" className="size-4" checked={!cod} onChange={() => choosePayment('online')} />
+                        <input type="radio" name="payment-method" className="size-4" checked={!cod} disabled={!onlineAvailable && !cod}
+                          onChange={() => choosePayment('online')} />
                         {t('payOnline')}
                       </label>
+                      {!onlineAvailable && <p className="text-xs text-muted-foreground">{t('onlineUnavailable')}</p>}
                       <label className={`flex items-center gap-2 text-sm ${codPossible ? '' : 'text-muted-foreground'}`}>
                         <input type="radio" name="payment-method" className="size-4" checked={cod} disabled={!codPossible && !cod}
                           onChange={() => choosePayment('cod')} />
@@ -288,7 +368,7 @@ export function Storefront({ token }: { token: string }) {
                           ? t('payCodWithFee', { fee: money(view.store.codFeeMinor, currency, locale) })
                           : t('payCod')}
                       </label>
-                      {!codPossible && !cod && <p className="text-xs text-muted-foreground">{t('codNotForCart')}</p>}
+                      {codOffered && !codPossible && !cod && <p className="text-xs text-muted-foreground">{t('codNotForCart')}</p>}
                     </fieldset>
                   )}
                   {quoteError && <p className="text-sm text-destructive" role="alert">{t(`errors.${(quoteError in ERROR_SET ? quoteError : 'error') as ShopErrorCode}`)}</p>}
@@ -301,7 +381,7 @@ export function Storefront({ token }: { token: string }) {
                       {t(`marketingOptIn.${MARKETING_OPT_IN_VERSION}`)}
                     </Label>
                   </div>
-                  <Button className="w-full" disabled={busy || !quote?.shipping || !view.store.checkoutEnabled} onClick={placeOrder}>
+                  <Button className="w-full" disabled={busy || !quote?.shipping || !view.store.checkoutEnabled || (!cod && !onlineAvailable)} onClick={placeOrder}>
                     {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
                     {quote ? t(cod ? 'placeCod' : 'placeAndPay', { amount: money(quote.totalMinor, quote.currency, locale) }) : t('placeOrder')}
                   </Button>
@@ -319,7 +399,7 @@ export function Storefront({ token }: { token: string }) {
 const ERROR_SET: Record<string, true> = Object.fromEntries([
   'tax_not_configured', 'shipping_unavailable', 'price_not_configured', 'variant_unavailable', 'coupon_not_found', 'coupon_inactive',
   'coupon_not_started', 'coupon_expired', 'coupon_min_subtotal', 'store_not_configured', 'cart_empty', 'invalid_cart', 'amount_out_of_range',
-  'cod_unavailable',
+  'cod_unavailable', 'online_unavailable',
 ].map((c) => [c, true]));
 
 const AUTOCOMPLETE: Record<string, string> = {

@@ -68,6 +68,7 @@ export const CASES: Case[] = [
   { route: 'commerce/orders/[id]/offline-payment', method: 'POST', params: id('orderId'), body: () => ({ amount: '10.00', method: 'cash', client_request_id: randomUUID() }) },
   { route: 'commerce/orders/[id]/returns', method: 'GET', params: id('orderId') },
   { route: 'commerce/orders/[id]/shipment', method: 'GET', params: id('orderId') },
+  { route: 'commerce/orders/[id]/shipment/pickup', method: 'POST', params: id('orderId') },
   { route: 'payments/links/[id]', method: 'GET', params: extra('paymentLink') },
   { route: 'payments/links/[id]', method: 'POST', params: extra('paymentLink'), body: () => ({ action: 'cancel' }) },
   // Appointments

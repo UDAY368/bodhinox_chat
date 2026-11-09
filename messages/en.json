@@ -6017,7 +6017,8 @@
       "invalid": "Check the package size and weight.",
       "throttled": "Shiprocket is busy. Try again in a minute.",
       "feature_unavailable": "Courier shipping is not included in your plan.",
-      "not_implemented": "This action is not available yet."
+      "not_implemented": "This action is not available yet.",
+      "order_refunded": "This order was refunded in full, so it cannot be shipped."
     }
   },
   "Api": {
@@ -7451,7 +7452,8 @@
         "cancelRefundDoneOutside": "Order cancelled. The refund made outside Bodhinox is recorded.",
         "courierTracked": "Shiprocket tracking updates this order automatically. You can still record it yourself.",
         "shipmentLive": "Cancel the courier shipment before cancelling this order, or use Returns once it was picked up.",
-        "codFee": "Cash on delivery fee"
+        "codFee": "Cash on delivery fee",
+        "refundedInFull": "This order was refunded in full, so it cannot be shipped. Use Cancel and refund to close it."
       },
       "timeline": {
         "title": "History",
@@ -7477,7 +7479,10 @@
           "shipment_created": "Courier shipment created",
           "shipment_cancelled": "Courier shipment cancelled",
           "shipment_correction_accepted": "Tracking correction accepted",
-          "cod_confirmed": "Cash on delivery chosen"
+          "cod_confirmed": "Cash on delivery chosen",
+          "payment_link_failed": "Payment link could not be made",
+          "shipment_pickup_requested": "Courier pickup requested again",
+          "return_refunded_outside": "Return refunded outside Bodhinox"
         },
         "documents": "Documents",
         "documentKinds": {
@@ -7650,7 +7655,7 @@
         "addImage": "Add image",
         "removeImage": "Remove image",
         "saveImages": "Save images",
-        "imagesHint": "Up to 10 https images, shown in this order.",
+        "imagesHint": "Up to 10 images, uploaded to your media library or https links, shown in this order.",
         "variants": "Variants",
         "currencyMissing": "Set the store currency in Store settings to add prices.",
         "variantSaved": "Variant saved",
@@ -7682,7 +7687,9 @@
         "repurchaseDays": "Reorder reminder after (days)",
         "repurchaseHint": "Optional. Days after delivery to remind customers who agreed to offers at checkout. Uses the reorder reminder template in Store settings.",
         "codAvailable": "Cash on delivery available",
-        "codAvailableHint": "When off, a cart holding this product can only be paid online (cash on delivery must also be on in Store settings)."
+        "codAvailableHint": "When off, a cart holding this product can only be paid online (cash on delivery must also be on in Store settings).",
+        "uploadImage": "Upload or choose from library",
+        "imageOnly": "Choose an image file."
       }
     },
     "inventory": {
@@ -7921,7 +7928,12 @@
       "closed": "Return closed",
       "forbidden": "Your role can’t do this.",
       "conflict": "This return or order changed. It has been reloaded.",
-      "error": "Couldn’t update the return"
+      "error": "Couldn’t update the return",
+      "windowClosed": "The return window for this order has closed (Store settings → Return window).",
+      "amountExceeds": "No single payment on this order can refund that much. Enter a smaller amount.",
+      "refundOutsideNeeded": "This order was paid in cash or by a payment your team recorded, so Razorpay cannot refund it. Give the money back the way it was paid, then confirm below to record the refund.",
+      "refundOutsideConfirm": "I have returned this amount outside Bodhinox",
+      "refundedOutside": "Refund recorded. A credit note follows."
     },
     "documents": {
       "print": {
@@ -7973,7 +7985,7 @@
       "awbAssigning": "Assigning a courier…",
       "awbUnknown": "Shiprocket has not confirmed the courier assignment. It is never repeated automatically; check the shipment exceptions.",
       "awbFailed": "No courier was assigned ({code}). Nothing was charged.",
-      "pickupFailed": "Shiprocket did not schedule the pickup. Schedule it in Shiprocket.",
+      "pickupFailed": "Shiprocket did not schedule the pickup. Request it again, or schedule it in Shiprocket.",
       "awb": "AWB",
       "courier": "Courier",
       "status": "Tracking",
@@ -8002,7 +8014,9 @@
         "lost": "Lost or damaged",
         "rto_delivered": "Returned to sender",
         "cancelled": "Cancelled"
-      }
+      },
+      "pickupAgain": "Request pickup again",
+      "pickupRequested": "Pickup requested from Shiprocket."
     },
     "evidence": {
       "provider": "Courier confirmed",
@@ -8026,7 +8040,8 @@
         "rto": "Returning to origin",
         "lost_or_damaged": "Lost or damaged",
         "stale_tracking": "No tracking updates for 10 days",
-        "order_conflict": "Courier status disagrees with the order"
+        "order_conflict": "Courier status disagrees with the order",
+        "pickup_failed": "Courier pickup not scheduled"
       },
       "hints": {
         "contradiction": "Check the shipment in Shiprocket. Accept the correction only if the courier’s new status is right.",
@@ -8035,7 +8050,8 @@
         "rto": "The parcel is coming back. Open a return on the order when it arrives.",
         "lost_or_damaged": "Raise a claim with Shiprocket and refund or replace from the order.",
         "stale_tracking": "Check the shipment with the courier.",
-        "order_conflict": "The order was cancelled, refunded or never paid while the parcel moved. Check the order and the shipment."
+        "order_conflict": "The order was cancelled, refunded or never paid while the parcel moved. Check the order and the shipment.",
+        "pickup_failed": "Open the order and use Request pickup again, or schedule the pickup in Shiprocket. A successful request closes this."
       },
       "resolutions": {
         "accept_correction": "Accept correction",
@@ -8078,6 +8094,15 @@
       "errors": {
         "invalid": "Choose a template and its language.",
         "template_not_found": "That template was not found. Sync your templates and try again."
+      }
+    },
+    "checkoutLinkFailed": {
+      "title": "Checkout payment link failed",
+      "body": "Order {reference} was closed because Razorpay could not create its payment link ({reason}). Its stock and coupon were released, and the customer was told payment could not be set up.",
+      "reasons": {
+        "not_connected": "Razorpay is not connected",
+        "provider_auth": "Razorpay did not accept the saved keys",
+        "other": "Razorpay refused the request"
       }
     }
   },
@@ -8264,7 +8289,8 @@
         "not_retryable": "Only a refund Razorpay did not make can be sent again.",
         "not_reconcilable": "This refund has nothing to check: it is already settled.",
         "not_connected": "Razorpay is not connected.",
-        "provider_unreachable": "Razorpay could not be reached. Try again shortly."
+        "provider_unreachable": "Razorpay could not be reached. Try again shortly.",
+        "shipment_live": "This order has a courier shipment. Cancel the shipment before restocking, or refund without restocking and use Returns for goods that come back."
       }
     },
     "offline": {
@@ -10233,7 +10259,8 @@
       "order_not_open": "This order can no longer be paid here.",
       "amount_out_of_range": "The amount is too large.",
       "too_many_open_orders": "You already have the most open orders allowed. Pay for an unpaid order, wait for it to expire, or wait for a cash-on-delivery order to be delivered, then try again.",
-      "cod_unavailable": "Cash on delivery is not available for this cart. Choose to pay online."
+      "cod_unavailable": "Cash on delivery is not available for this cart. Choose to pay online.",
+      "online_unavailable": "Online payment is not available for this store. Choose cash on delivery or contact the store."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Send me reorder reminders and offers on WhatsApp. You can stop them at any time by replying STOP."
@@ -10246,7 +10273,17 @@
     "placeCod": "Place order, pay {amount} on delivery",
     "codNote": "Your order is confirmed now. Pay in cash when it is delivered.",
     "codFee": "Cash on delivery fee",
-    "codDue": "Cash on delivery: please keep {amount} ready when your order arrives."
+    "codDue": "Cash on delivery: please keep {amount} ready when your order arrives.",
+    "onlineUnavailable": "Online payment is not set up for this store yet.",
+    "paymentFailedTitle": "Payment could not be set up",
+    "paymentFailed": "The store could not set up online payment for this order, so it was not placed and nothing was charged. Contact the store on WhatsApp to order.",
+    "stillVerifying": "The store is still verifying your payment. You will get a confirmation on WhatsApp once it is confirmed; you do not need to pay again.",
+    "checkAgain": "Check again",
+    "searchProducts": "Search products",
+    "categories": "Categories",
+    "allCategories": "All",
+    "noMatchingProducts": "No products match your search.",
+    "showMore": "Show more products"
   },
   "OrderNotices": {
     "dispatched": "Your order {ref} is on its way.",

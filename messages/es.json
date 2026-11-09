@@ -6017,7 +6017,8 @@
       "invalid": "Revisa el tamaño y el peso del paquete.",
       "throttled": "Shiprocket está ocupado. Inténtalo de nuevo en un minuto.",
       "feature_unavailable": "Los envíos por mensajería no están incluidos en tu plan.",
-      "not_implemented": "Esta acción aún no está disponible."
+      "not_implemented": "Esta acción aún no está disponible.",
+      "order_refunded": "Este pedido se reembolsó por completo, así que no se puede enviar."
     }
   },
   "Api": {
@@ -7451,7 +7452,8 @@
         "cancelRefundDoneOutside": "Pedido cancelado. Se registró el reembolso hecho fuera de Bodhinox.",
         "courierTracked": "El seguimiento de Shiprocket actualiza este pedido automáticamente. También puedes registrarlo tú.",
         "shipmentLive": "Cancela el envío con el transportista antes de cancelar este pedido, o usa Devoluciones si ya se recogió.",
-        "codFee": "Cargo por pago contra entrega"
+        "codFee": "Cargo por pago contra entrega",
+        "refundedInFull": "Este pedido se reembolsó por completo, así que no se puede enviar. Usa Cancelar y reembolsar para cerrarlo."
       },
       "timeline": {
         "title": "Historial",
@@ -7477,7 +7479,10 @@
           "shipment_created": "Envío con transportista creado",
           "shipment_cancelled": "Envío con transportista cancelado",
           "shipment_correction_accepted": "Corrección de seguimiento aceptada",
-          "cod_confirmed": "Pago contra entrega elegido"
+          "cod_confirmed": "Pago contra entrega elegido",
+          "payment_link_failed": "No se pudo crear el enlace de pago",
+          "shipment_pickup_requested": "Recogida del mensajero solicitada de nuevo",
+          "return_refunded_outside": "Devolución reembolsada fuera de Bodhinox"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -7650,7 +7655,7 @@
         "addImage": "Añadir imagen",
         "removeImage": "Quitar imagen",
         "saveImages": "Guardar imágenes",
-        "imagesHint": "Hasta 10 imágenes https, en este orden.",
+        "imagesHint": "Hasta 10 imágenes, subidas a tu biblioteca de medios o enlaces https, mostradas en este orden.",
         "variants": "Variantes",
         "currencyMissing": "Define la moneda en Ajustes de la tienda para añadir precios.",
         "variantSaved": "Variante guardada",
@@ -7682,7 +7687,9 @@
         "repurchaseDays": "Recordatorio de recompra tras (días)",
         "repurchaseHint": "Opcional. Días tras la entrega para recordar a los clientes que aceptaron ofertas al pagar. Usa la plantilla de recordatorio de recompra de la configuración de la tienda.",
         "codAvailable": "Pago contra entrega disponible",
-        "codAvailableHint": "Si está desactivado, un carrito con este producto solo se puede pagar en línea (el pago contra entrega también debe estar activo en la configuración de la tienda)."
+        "codAvailableHint": "Si está desactivado, un carrito con este producto solo se puede pagar en línea (el pago contra entrega también debe estar activo en la configuración de la tienda).",
+        "uploadImage": "Subir o elegir de la biblioteca",
+        "imageOnly": "Elige un archivo de imagen."
       }
     },
     "inventory": {
@@ -7921,7 +7928,12 @@
       "closed": "Devolución cerrada",
       "forbidden": "Tu rol no puede hacer esto.",
       "conflict": "Esta devolución o pedido cambió. Se ha recargado.",
-      "error": "No se pudo actualizar la devolución"
+      "error": "No se pudo actualizar la devolución",
+      "windowClosed": "El plazo de devolución de este pedido ha terminado (Ajustes de la tienda → Plazo de devolución).",
+      "amountExceeds": "Ningún pago de este pedido puede reembolsar tanto por sí solo. Introduce un importe menor.",
+      "refundOutsideNeeded": "Este pedido se pagó en efectivo o con un pago que registró tu equipo, así que Razorpay no puede reembolsarlo. Devuelve el dinero por el mismo medio y confirma abajo para registrar el reembolso.",
+      "refundOutsideConfirm": "He devuelto este importe fuera de Bodhinox",
+      "refundedOutside": "Reembolso registrado. Se emitirá una nota de crédito."
     },
     "documents": {
       "print": {
@@ -7973,7 +7985,7 @@
       "awbAssigning": "Asignando un mensajero…",
       "awbUnknown": "Shiprocket no ha confirmado la asignación del mensajero. Nunca se repite automáticamente; revisa las incidencias de envío.",
       "awbFailed": "No se asignó ningún mensajero ({code}). No se cobró nada.",
-      "pickupFailed": "Shiprocket no programó la recogida. Prográmala en Shiprocket.",
+      "pickupFailed": "Shiprocket no programó la recogida. Solicítala de nuevo o prográmala en Shiprocket.",
       "awb": "AWB",
       "courier": "Mensajero",
       "status": "Seguimiento",
@@ -8002,7 +8014,9 @@
         "lost": "Perdido o dañado",
         "rto_delivered": "Devuelto al remitente",
         "cancelled": "Cancelado"
-      }
+      },
+      "pickupAgain": "Solicitar recogida de nuevo",
+      "pickupRequested": "Recogida solicitada a Shiprocket."
     },
     "evidence": {
       "provider": "Confirmado por el transportista",
@@ -8026,7 +8040,8 @@
         "rto": "Volviendo al origen",
         "lost_or_damaged": "Perdido o dañado",
         "stale_tracking": "Sin actualizaciones de seguimiento en 10 días",
-        "order_conflict": "El estado del transportista no coincide con el pedido"
+        "order_conflict": "El estado del transportista no coincide con el pedido",
+        "pickup_failed": "Recogida del mensajero no programada"
       },
       "hints": {
         "contradiction": "Revisa el envío en Shiprocket. Acepta la corrección solo si el nuevo estado del transportista es correcto.",
@@ -8035,7 +8050,8 @@
         "rto": "El paquete está volviendo. Abre una devolución en el pedido cuando llegue.",
         "lost_or_damaged": "Presenta una reclamación a Shiprocket y reembolsa o reemplaza desde el pedido.",
         "stale_tracking": "Revisa el envío con el transportista.",
-        "order_conflict": "El pedido se canceló, se reembolsó o nunca se pagó mientras el paquete se movía. Revisa el pedido y el envío."
+        "order_conflict": "El pedido se canceló, se reembolsó o nunca se pagó mientras el paquete se movía. Revisa el pedido y el envío.",
+        "pickup_failed": "Abre el pedido y usa Solicitar recogida de nuevo, o programa la recogida en Shiprocket. Una solicitud correcta cierra esto."
       },
       "resolutions": {
         "accept_correction": "Aceptar corrección",
@@ -8078,6 +8094,15 @@
       "errors": {
         "invalid": "Elige una plantilla y su idioma.",
         "template_not_found": "No se encontró esa plantilla. Sincroniza tus plantillas e inténtalo de nuevo."
+      }
+    },
+    "checkoutLinkFailed": {
+      "title": "Falló el enlace de pago del checkout",
+      "body": "El pedido {reference} se cerró porque Razorpay no pudo crear su enlace de pago ({reason}). Se liberaron su stock y su cupón, y se informó al cliente de que no se pudo preparar el pago.",
+      "reasons": {
+        "not_connected": "Razorpay no está conectado",
+        "provider_auth": "Razorpay no aceptó las claves guardadas",
+        "other": "Razorpay rechazó la solicitud"
       }
     }
   },
@@ -8264,7 +8289,8 @@
         "not_retryable": "Solo se puede reenviar un reembolso que Razorpay no realizó.",
         "not_reconcilable": "No hay nada que verificar en este reembolso: ya está resuelto.",
         "not_connected": "Razorpay no está conectado.",
-        "provider_unreachable": "No se pudo contactar con Razorpay. Inténtalo de nuevo en breve."
+        "provider_unreachable": "No se pudo contactar con Razorpay. Inténtalo de nuevo en breve.",
+        "shipment_live": "Este pedido tiene un envío con mensajero. Cancela el envío antes de reponer el stock, o reembolsa sin reponer y usa Devoluciones para los productos que vuelvan."
       }
     },
     "offline": {
@@ -10233,7 +10259,8 @@
       "order_not_open": "Este pedido ya no se puede pagar aquí.",
       "amount_out_of_range": "El importe es demasiado grande.",
       "too_many_open_orders": "Ya tienes el máximo de pedidos abiertos. Paga un pedido pendiente, espera a que caduque o a que se entregue un pedido contra entrega, y vuelve a intentarlo.",
-      "cod_unavailable": "El pago contra entrega no está disponible para este carrito. Elige pagar en línea."
+      "cod_unavailable": "El pago contra entrega no está disponible para este carrito. Elige pagar en línea.",
+      "online_unavailable": "El pago en línea no está disponible en esta tienda. Elige pago contra entrega o contacta con la tienda."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Envíame recordatorios para volver a pedir y ofertas por WhatsApp. Puedes detenerlos cuando quieras respondiendo STOP."
@@ -10246,7 +10273,17 @@
     "placeCod": "Hacer pedido, pagar {amount} al recibir",
     "codNote": "Tu pedido queda confirmado ahora. Paga en efectivo cuando lo recibas.",
     "codFee": "Cargo por pago contra entrega",
-    "codDue": "Pago contra entrega: ten listos {amount} cuando llegue tu pedido."
+    "codDue": "Pago contra entrega: ten listos {amount} cuando llegue tu pedido.",
+    "onlineUnavailable": "Esta tienda aún no tiene configurado el pago en línea.",
+    "paymentFailedTitle": "No se pudo preparar el pago",
+    "paymentFailed": "La tienda no pudo preparar el pago en línea de este pedido, así que no se realizó y no se cobró nada. Contacta con la tienda por WhatsApp para pedir.",
+    "stillVerifying": "La tienda sigue verificando tu pago. Recibirás una confirmación por WhatsApp cuando se confirme; no tienes que pagar de nuevo.",
+    "checkAgain": "Comprobar de nuevo",
+    "searchProducts": "Buscar productos",
+    "categories": "Categorías",
+    "allCategories": "Todas",
+    "noMatchingProducts": "Ningún producto coincide con tu búsqueda.",
+    "showMore": "Ver más productos"
   },
   "OrderNotices": {
     "dispatched": "Tu pedido {ref} ya va en camino.",

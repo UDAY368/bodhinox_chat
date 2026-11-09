@@ -571,12 +571,14 @@ export async function setAddressTx(tx: TenantTransaction, accountId: string, ses
 /**
  * Choose how to pay: 'online' (a payment link) or 'cod' (cash on delivery). COD is refused
  * (cod_unavailable) unless the store offers it and every product in the cart allows it; the quote
- * checks again, since the cart or the settings can change afterwards.
+ * checks again, since the cart or the settings can change afterwards. Online is refused
+ * (online_unavailable) while Razorpay is not connected; placing checks again.
  */
 export async function setPaymentMethodTx(tx: TenantTransaction, accountId: string, sessionId: string,
   input: { expectedVersion: number; paymentMethod: unknown }): Promise<void> {
   if (!isPaymentMethod(input.paymentMethod)) throw new StoreError('invalid', { field: 'payment_method' });
   const session = await lockForChange(tx, accountId, sessionId, input.expectedVersion);
+  if (input.paymentMethod === 'online' && !(await onlinePaymentReady(tx, accountId))) throw new StoreError('online_unavailable');
   if (input.paymentMethod === 'cod') {
     const settings = await loadPricingSettings(tx, accountId);
     if (!settings?.codEnabled) throw new StoreError('cod_unavailable');
@@ -585,6 +587,13 @@ export async function setPaymentMethodTx(tx: TenantTransaction, accountId: strin
     if (unmatched || lines.some((l) => variants.get(l.variantId)?.codAvailable !== true)) throw new StoreError('cod_unavailable');
   }
   if (session.payment_method !== input.paymentMethod) await bump(tx, accountId, sessionId, { paymentMethod: input.paymentMethod });
+}
+
+/** Whether a checkout payment link can be made: the workspace has a Razorpay connection. */
+export async function onlinePaymentReady(tx: TenantTransaction, accountId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT EXISTS(SELECT 1 FROM payment_providers
+    WHERE account_id=${accountId}::uuid AND provider='razorpay') AS ok`;
+  return Boolean(row?.ok);
 }
 
 /** Apply (or with null remove) a coupon code. An unknown code is refused here; validity is checked by the quote. */
@@ -632,6 +641,8 @@ export interface StorefrontOrderView {
   paymentUrl: string | null;
   /** Awaiting payment while the link is being prepared. */
   paymentPending: boolean;
+  /** Closed because Razorpay refused to make its payment link (not because the customer did not pay in time). */
+  paymentFailed: boolean;
   reservationExpiresAt: string | null;
   paidAt: string | null;
   documentNumber: string | null;
@@ -641,6 +652,8 @@ export interface StorefrontView {
   store: {
     title: string | null; businessName: string; currency: string | null; pricesIncludeTax: boolean; checkoutEnabled: boolean;
     codEnabled: boolean; codFeeMinor: number;
+    /** Razorpay is connected, so online payment can be offered. */
+    onlineAvailable: boolean;
   };
   purpose: StorefrontPurpose;
   paymentMethod: PaymentMethod;
@@ -651,7 +664,12 @@ export interface StorefrontView {
   cart: CartLine[];
   address: StorefrontAddress | null;
   couponCode: string | null;
+  /** The first catalogue page; later pages and searches come from GET …/products (loadCatalogue). */
   products: StorefrontProduct[];
+  /** Cursor of the next catalogue page, or null when the first page holds every product. */
+  productsNext: string | null;
+  /** Categories to filter the catalogue by. */
+  categories: Array<{ id: string; name: string }>;
   quote: { ok: true; quote: Quote } | { ok: false; code: string } | null;
   order: StorefrontOrderView | null;
 }
@@ -673,6 +691,8 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
     SELECT number FROM commerce_documents WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='receipt'
     ORDER BY issued_at DESC LIMIT 1`;
   const awaiting = order.status === 'awaiting_payment';
+  const [failed] = order.status === 'expired' ? await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_events
+    WHERE account_id=${accountId}::uuid AND order_id=${orderId}::uuid AND kind='payment_link_failed'` : [];
   return {
     reference: orderReference(order.id), status: order.status, currency: order.currency,
     subtotalMinor: minorFromDb(order.subtotal_minor) ?? 0, discountMinor: minorFromDb(order.discount_minor) ?? 0,
@@ -684,20 +704,73 @@ export async function loadOrderView(tx: TenantTransaction, accountId: string, or
       lineTotalMinor: minorFromDb(i.line_total_minor) })),
     paymentUrl: awaiting && link?.short_url && (link.status === 'created' || link.status === 'partially_paid') ? link.short_url : null,
     paymentPending: awaiting && !(link?.short_url && (link.status === 'created' || link.status === 'partially_paid')),
+    paymentFailed: (failed?.n ?? 0) > 0,
     reservationExpiresAt: order.reservation_expires_at?.toISOString() ?? null, paidAt: order.paid_at?.toISOString() ?? null,
     documentNumber: doc?.number ?? null,
   };
 }
 
-/** Published products with sellable, priced variants (at most 200 products), images as ids only. */
-export async function loadCatalogue(tx: TenantTransaction, accountId: string): Promise<StorefrontProduct[]> {
-  const products = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null; category: string | null }[]>`
-    SELECT p.id::text AS id, p.name, p.description, p.disclosure, c.name AS category FROM shop_products p
+/** Products per storefront catalogue page. */
+export const CATALOGUE_PAGE_SIZE = 24;
+const LAST_POSITION = 2_147_483_647;
+
+/** Where a catalogue page ends: the sort key (category position, product name, id) of its last product. */
+export interface CatalogueCursor { position: number; name: string; id: string }
+
+export function encodeCatalogueCursor(cursor: CatalogueCursor): string {
+  return Buffer.from(JSON.stringify([cursor.position, cursor.name, cursor.id]), 'utf8').toString('base64url');
+}
+
+/** The cursor a client sent back, or null when it is not one this server made. */
+export function decodeCatalogueCursor(value: unknown): CatalogueCursor | null {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 400) return null;
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    if (!Array.isArray(parsed) || parsed.length !== 3) return null;
+    const [position, name, id] = parsed as unknown[];
+    if (!Number.isInteger(position) || (position as number) < 0 || (position as number) > LAST_POSITION) return null;
+    if (typeof name !== 'string' || name.length > 300 || typeof id !== 'string' || !isUuid(id)) return null;
+    return { position: position as number, name, id };
+  } catch {
+    return null;
+  }
+}
+
+/** A search term as an ILIKE pattern (wildcards escaped), or null for no search. */
+export function catalogueSearchPattern(query: unknown): string | null {
+  if (typeof query !== 'string') return null;
+  const term = query.trim().slice(0, 80);
+  return term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+}
+
+export interface CataloguePage { products: StorefrontProduct[]; nextCursor: string | null }
+export interface CatalogueFilter { query?: unknown; categoryId?: unknown; cursor?: unknown }
+
+/**
+ * One page of published products with sellable, priced variants (images as ids
+ * only), in category order then by name, optionally searched by name or
+ * description and narrowed to one category. Keyset paging: nextCursor is null
+ * on the last page.
+ */
+export async function loadCatalogue(tx: TenantTransaction, accountId: string, filter: CatalogueFilter = {}): Promise<CataloguePage> {
+  const pattern = catalogueSearchPattern(filter.query);
+  const categoryId = typeof filter.categoryId === 'string' && isUuid(filter.categoryId) ? filter.categoryId : null;
+  const after = decodeCatalogueCursor(filter.cursor);
+  const rows = await tx.$queryRaw<{ id: string; name: string; description: string | null; disclosure: string | null; category: string | null;
+    position: number }[]>`
+    SELECT p.id::text AS id, p.name, p.description, p.disclosure, c.name AS category,
+      COALESCE(c.position, ${LAST_POSITION}::int) AS position FROM shop_products p
     LEFT JOIN shop_categories c ON c.account_id=p.account_id AND c.id=p.category_id AND c.archived_at IS NULL
     WHERE p.account_id=${accountId}::uuid AND p.status='published'
       AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL)
-    ORDER BY c.position NULLS LAST, p.name LIMIT 200`;
-  if (!products.length) return [];
+      AND (${pattern}::text IS NULL OR p.name ILIKE ${pattern}::text OR p.description ILIKE ${pattern}::text)
+      AND (${categoryId}::uuid IS NULL OR c.id=${categoryId}::uuid)
+      AND (${after === null} OR (COALESCE(c.position, ${LAST_POSITION}::int), p.name, p.id)
+        > (${after?.position ?? 0}::int, ${after?.name ?? ''}::text, ${after?.id ?? '00000000-0000-0000-0000-000000000000'}::uuid))
+    ORDER BY COALESCE(c.position, ${LAST_POSITION}::int), p.name, p.id LIMIT ${CATALOGUE_PAGE_SIZE + 1}`;
+  const more = rows.length > CATALOGUE_PAGE_SIZE;
+  const products = rows.slice(0, CATALOGUE_PAGE_SIZE);
+  if (!products.length) return { products: [], nextCursor: null };
   const ids = products.map((p) => p.id);
   const variants = await tx.$queryRaw<{ id: string; product_id: string; sku: string; option_values: Record<string, string>; price_minor: bigint;
     compare_at_minor: bigint | null; in_stock: boolean }[]>`
@@ -709,14 +782,33 @@ export async function loadCatalogue(tx: TenantTransaction, accountId: string): P
   const images = await tx.$queryRaw<{ id: string; product_id: string }[]>`
     SELECT id::text AS id, product_id::text AS product_id FROM shop_product_images
     WHERE account_id=${accountId}::uuid AND product_id = ANY(${ids}::uuid[]) ORDER BY position`;
-  return products.map((p) => ({
-    id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryName: p.category,
-    images: images.filter((i) => i.product_id === p.id).map((i) => i.id),
-    variants: variants.filter((v) => v.product_id === p.id).map((v) => ({
-      id: v.id, sku: v.sku, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
-      compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock,
+  const last = products[products.length - 1];
+  return {
+    products: products.map((p) => ({
+      id: p.id, name: p.name, description: p.description, disclosure: p.disclosure, categoryName: p.category,
+      images: images.filter((i) => i.product_id === p.id).map((i) => i.id),
+      variants: variants.filter((v) => v.product_id === p.id).map((v) => ({
+        id: v.id, sku: v.sku, options: v.option_values ?? {}, priceMinor: minorFromDb(v.price_minor) ?? 0,
+        compareAtMinor: minorFromDb(v.compare_at_minor), inStock: v.in_stock,
+      })),
     })),
-  }));
+    nextCursor: more ? encodeCatalogueCursor({ position: last.position, name: last.name, id: last.id }) : null,
+  };
+}
+
+/** The live categories that hold at least one product the catalogue lists, in their order (the storefront's filter chips). */
+export async function loadCatalogueCategories(tx: TenantTransaction, accountId: string): Promise<Array<{ id: string; name: string }>> {
+  return tx.$queryRaw<{ id: string; name: string }[]>`
+    SELECT c.id::text AS id, c.name FROM shop_categories c
+    WHERE c.account_id=${accountId}::uuid AND c.archived_at IS NULL
+      AND EXISTS (SELECT 1 FROM shop_products p WHERE p.account_id=c.account_id AND p.category_id=c.id AND p.status='published'
+        AND EXISTS (SELECT 1 FROM shop_variants v WHERE v.account_id=p.account_id AND v.product_id=p.id AND v.archived_at IS NULL AND v.price_minor IS NOT NULL))
+    ORDER BY c.position, c.name, c.id LIMIT 100`;
+}
+
+async function firstCataloguePage(tx: TenantTransaction, accountId: string) {
+  const page = await loadCatalogue(tx, accountId);
+  return { products: page.products, productsNext: page.nextCursor, categories: await loadCatalogueCategories(tx, accountId) };
 }
 
 export async function loadStorefrontView(tx: TenantTransaction, accountId: string, sessionId: string, now = new Date()): Promise<StorefrontView | null> {
@@ -734,11 +826,12 @@ export async function loadStorefrontView(tx: TenantTransaction, accountId: strin
       title: settings?.storefront_title ?? null, businessName: account?.name ?? '', currency: settings?.currency ?? null,
       pricesIncludeTax: settings?.prices_include_tax ?? true, checkoutEnabled: !!settings?.checkout_enabled,
       codEnabled: !!settings?.cod_enabled, codFeeMinor: settings?.cod_fee_minor ?? 0,
+      onlineAvailable: await onlinePaymentReady(tx, accountId),
     },
     purpose: session.purpose, paymentMethod: session.payment_method, version: session.version, expiresAt: session.expires_at.toISOString(), open,
     cartLocked: session.purpose !== 'shop' || placed,
     cart: lines, address: placed ? null : asAddress(session.address), couponCode: placed ? null : session.coupon_code,
-    products: showCatalogue ? await loadCatalogue(tx, accountId) : [],
+    ...(showCatalogue ? await firstCataloguePage(tx, accountId) : { products: [], productsNext: null, categories: [] }),
     quote: open && lines.length ? (await quoteSessionTx(tx, accountId, session, { now })).result : null,
     order,
   };

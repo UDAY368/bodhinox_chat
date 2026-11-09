@@ -27,7 +27,7 @@ export const TRACKING_EVENT_SOURCES = ['refetch', 'poll', 'create'] as const;
 export type TrackingEventSource = (typeof TRACKING_EVENT_SOURCES)[number];
 
 export const SHIPMENT_EXCEPTION_KINDS = [
-  'contradiction', 'create_unknown', 'awb_unknown', 'rto', 'lost_or_damaged', 'stale_tracking', 'order_conflict',
+  'contradiction', 'create_unknown', 'awb_unknown', 'rto', 'lost_or_damaged', 'stale_tracking', 'order_conflict', 'pickup_failed',
 ] as const;
 export type ShipmentExceptionKind = (typeof SHIPMENT_EXCEPTION_KINDS)[number];
 export const SHIPMENT_EXCEPTION_RESOLUTIONS = ['accept_correction', 'dismiss', 'recreate', 'manual'] as const;
@@ -63,7 +63,7 @@ export interface ShipmentDims {
 /** Code-only refusals; the UI translates them (Validation.shipments.*). */
 export const SHIPMENT_ERROR_CODES = [
   'not_connected', 'not_configured', 'auth', 'provider_unreachable', 'order_not_paid', 'shipment_exists',
-  'refund_in_flight', 'shipment_live', 'address_incomplete', 'wrong_category', 'not_found', 'conflict', 'invalid',
+  'refund_in_flight', 'order_refunded', 'shipment_live', 'address_incomplete', 'wrong_category', 'not_found', 'conflict', 'invalid',
   'throttled', 'feature_unavailable', 'not_implemented',
 ] as const;
 export type ShipmentErrorCode = (typeof SHIPMENT_ERROR_CODES)[number];
@@ -76,6 +76,7 @@ const STATUS: Record<ShipmentErrorCode, number> = {
   order_not_paid: 409,
   shipment_exists: 409,
   refund_in_flight: 409,
+  order_refunded: 409,
   shipment_live: 409,
   address_incomplete: 409,
   wrong_category: 422,

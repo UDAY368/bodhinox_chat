@@ -1,8 +1,10 @@
 // GET  /api/commerce/returns/[id] — one return (agents and above). 200 { return }.
 // POST /api/commerce/returns/[id] — move a return along its lifecycle (agents and above):
 //   { action: 'receive' } | { action: 'reject' } | { action: 'inspect', disposition: { <order_item_id>: 'restock'|'discard' } }
-//   | { action: 'close', restock?: boolean } (admins) | { action: 'refund', amount_minor, note? } (commerce.refunds).
-//   200 { return } (refund: { refund_id }); 400; 403; 404; 409.
+//   | { action: 'close', restock?: boolean } (admins) | { action: 'refund', amount_minor, note?, refunded_outside? } (commerce.refunds).
+//   refunded_outside: true confirms money Razorpay does not hold (cash on delivery, a staff-recorded payment) was handed
+//   back outside the app; it is then recorded as refunded at once (409 offline_payment without it).
+//   200 { return } (refund: { refund_id, refunded_outside }); 400; 403; 404; 409 (return_window_closed on create).
 
 import { NextResponse } from 'next/server';
 
@@ -40,8 +42,10 @@ export async function POST(request: Request, context: Context) {
         return NextResponse.json({ return: await closeReturn(ctx, id, { restock: body.restock === true }) }, { headers: NO_STORE });
       case 'refund': {
         const amount = typeof body.amount_minor === 'number' ? body.amount_minor : NaN;
-        const { refundId } = await refundReturn(ctx, id, { amountMinor: amount, note: body.note });
-        return NextResponse.json({ refund_id: refundId }, { headers: NO_STORE });
+        const { refundId, refundedOutside } = await refundReturn(ctx, id, {
+          amountMinor: amount, note: body.note, refundedOutside: body.refunded_outside === true,
+        });
+        return NextResponse.json({ refund_id: refundId, refunded_outside: refundedOutside }, { headers: NO_STORE });
       }
       default:
         throw new OrderError(400, 'invalid', 'Invalid action');

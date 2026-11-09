@@ -28,7 +28,8 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export type OrderErrorCode = 'invalid' | 'not_found' | 'bad_transition' | 'conflict' | 'shipment_live';
+export type OrderErrorCode = 'invalid' | 'not_found' | 'bad_transition' | 'conflict' | 'shipment_live' | 'order_refunded'
+  | 'return_window_closed';
 export class OrderError extends Error {
   constructor(readonly status: number, readonly code: OrderErrorCode, message: string) {
     super(message);

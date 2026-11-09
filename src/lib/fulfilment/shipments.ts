@@ -105,13 +105,16 @@ interface OrderRow {
   discount_minor: bigint | number;
   /** A cash-on-delivery order whose cash is not recorded: it ships unpaid and the courier collects the total. */
   unpaid_cod: boolean;
+  /** Refunded in full (orders.refund_state='full'): never shipped, the money (and possibly the units) went back. */
+  refunded_full: boolean;
 }
 
 /** Locks the order row first (D16), with what a shipment needs. */
 async function lockOrderRow(tx: TenantTransaction, accountId: string, orderId: string): Promise<OrderRow | null> {
   const [row] = await tx.$queryRaw<OrderRow[]>`SELECT o.id::text AS id, o.status, o.source, o.currency, o.shipping_address,
       c.email AS contact_email, o.created_at, o.total_minor, o.shipping_minor, o.discount_minor,
-      (o.payment_method='cod' AND o.paid_at IS NULL AND o.priced_at IS NOT NULL) AS unpaid_cod
+      (o.payment_method='cod' AND o.paid_at IS NULL AND o.priced_at IS NOT NULL) AS unpaid_cod,
+      COALESCE(o.refund_state = 'full', false) AS refunded_full
     FROM orders o LEFT JOIN contacts c ON c.account_id=o.account_id AND c.id=o.contact_id
     WHERE o.account_id=${accountId}::uuid AND o.id=${orderId}::uuid FOR UPDATE OF o`;
   return row ?? null;
@@ -346,6 +349,7 @@ export async function requestShipment(ctx: FulfilmentActor, orderId: string, dim
       // Shopify and WooCommerce orders are fulfilled by their own stores (design §11).
       if (order.source === 'shopify' || order.source === 'woocommerce') throw new ShipmentError('invalid');
       if (!readyToShip(order)) throw new ShipmentError('order_not_paid');
+      if (order.refunded_full) throw new ShipmentError('order_refunded');
       const [live] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM order_shipments
         WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1`;
       if (live) throw new ShipmentError('shipment_exists');
@@ -378,6 +382,7 @@ export async function reassignAwb(ctx: FulfilmentActor, orderId: string): Promis
     const order = await lockOrderRow(tx, ctx.accountId, orderId);
     if (!order) throw new ShipmentError('not_found');
     if (!readyToShip(order)) throw new ShipmentError('order_not_paid');
+    if (order.refunded_full) throw new ShipmentError('order_refunded');
     if (await restockRefundInFlight(tx, ctx.accountId, orderId)) throw new ShipmentError('refund_in_flight');
     const [row] = await tx.$queryRaw<ShipmentRow[]>`SELECT ${SHIPMENT_COLUMNS} FROM order_shipments
       WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1 FOR UPDATE`;
@@ -519,6 +524,7 @@ async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
       // Never sent: safe to refuse without any provider call.
       if (!connected) return fail('create_state', conn && conn.id === row.connection_id ? 'auth' : 'not_connected');
       if (!readyToShip(order)) return fail('create_state', 'order_not_paid');
+      if (order.refunded_full) return fail('create_state', 'order_refunded');
       if (await restockRefundInFlight(tx, accountId, order.id)) return fail('create_state', 'refund_in_flight');
       const payload = await adhocPayload(tx, accountId, order, row, conn!.pickup ?? '', conn!.email);
       if (!payload || !conn!.pickup) return fail('create_state', 'address_incomplete');
@@ -539,6 +545,7 @@ async function claimStep(accountId: string, shipmentId: string): Promise<Step> {
     // The AWB spends the wallet: only for an order still paid or an unpaid COD order still confirmed (or already marked
     // dispatched by staff) and not being refunded.
     if (!readyToShip(order) && order.status !== 'dispatched') return fail('awb_state', 'order_not_paid');
+    if (order.refunded_full) return fail('awb_state', 'order_refunded');
     if (await restockRefundInFlight(tx, accountId, order.id)) return fail('awb_state', 'refund_in_flight');
     if (!row.sr_shipment_id) return { kind: 'done' };
     return { kind: 'awb', token: await claim(true), srShipmentId: row.sr_shipment_id };
@@ -577,15 +584,64 @@ async function recordAwb(tx: TenantTransaction, accountId: string, shipmentId: s
   return count;
 }
 
-/** Requests the pickup after an AWB; a failure is recorded on the shipment, never fatal. */
+/**
+ * Requests the pickup after an AWB. A failure is recorded on the shipment and
+ * opens a pickup_failed shipment exception, so it reaches the exceptions queue
+ * and the admins and not only the order page; never fatal. Staff ask again
+ * with retryPickup. A pickup request does not charge the wallet.
+ */
 async function requestPickup(accountId: string, shipmentId: string, srShipmentId: string): Promise<void> {
   try {
     await shiprocketCall(accountId, 'POST', '/courier/generate/pickup', { shipment_id: [idValue(srShipmentId)] });
   } catch (error) {
     console.error('[shipments] pickup request failed', { shipmentId, kind: error instanceof ShiprocketError ? error.kind : 'error' });
-    await asWorker(accountId, (tx) => tx.$executeRaw`UPDATE order_shipments SET last_error_code='pickup_failed'
-      WHERE account_id=${accountId}::uuid AND id=${shipmentId}::uuid AND awb_state='assigned'`);
+    await asWorker(accountId, async (tx) => {
+      const count = await tx.$executeRaw`UPDATE order_shipments SET last_error_code='pickup_failed'
+        WHERE account_id=${accountId}::uuid AND id=${shipmentId}::uuid AND awb_state='assigned'`;
+      if (count === 1) await openShipmentException(tx, accountId, shipmentId, 'pickup_failed');
+    });
   }
+}
+
+/**
+ * Staff "Request pickup again" (commerce.shipments) for a live shipment whose
+ * AWB is assigned, whose pickup request failed, and that the courier has not
+ * collected. On success the failure is cleared and the open pickup_failed
+ * exception resolved; a provider failure leaves both and answers its code.
+ * Two clicks at once may both ask Shiprocket: a pickup request charges
+ * nothing, so that is harmless.
+ */
+export async function retryPickup(ctx: FulfilmentActor, orderId: string): Promise<void> {
+  await requireShipper(ctx);
+  await requireAvailable(ctx);
+  const target = await asWorker(ctx.accountId, async (tx) => {
+    const order = await lockOrderRow(tx, ctx.accountId, orderId);
+    if (!order) throw new ShipmentError('not_found');
+    if (order.refunded_full) throw new ShipmentError('order_refunded');
+    const [row] = await tx.$queryRaw<(ShipmentRow & { pickup_failed: boolean })[]>`SELECT ${SHIPMENT_COLUMNS},
+        COALESCE(last_error_code = 'pickup_failed', false) AS pickup_failed
+      FROM order_shipments WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid AND ${LIVE} LIMIT 1 FOR UPDATE`;
+    if (!row) throw new ShipmentError('not_found');
+    if (!row.pickup_failed || row.awb_state !== 'assigned' || !row.sr_shipment_id
+      || (row.tracking_rank ?? 0) >= TRACKING_RANK.picked_up) throw new ShipmentError('conflict');
+    return { id: row.id, srShipmentId: row.sr_shipment_id };
+  }, ctx.userId);
+  try {
+    await shiprocketCall(ctx.accountId, 'POST', '/courier/generate/pickup', { shipment_id: [idValue(target.srShipmentId)] });
+  } catch (error) {
+    if (error instanceof ShipmentError) throw error;
+    return staffProviderFailure(error);
+  }
+  await asWorker(ctx.accountId, async (tx) => {
+    await lockOrderRow(tx, ctx.accountId, orderId);
+    await tx.$executeRaw`UPDATE order_shipments SET last_error_code=NULL
+      WHERE account_id=${ctx.accountId}::uuid AND id=${target.id}::uuid AND last_error_code='pickup_failed'`;
+    await tx.$executeRaw`UPDATE shipment_exceptions SET status='resolved', resolution='manual', resolved_by=${ctx.userId}::uuid,
+        resolved_at=now()
+      WHERE account_id=${ctx.accountId}::uuid AND shipment_id=${target.id}::uuid AND kind='pickup_failed' AND status='open'`;
+    await orderEventTx(tx, ctx.accountId, orderId, 'shipment_pickup_requested', { actorUserId: ctx.userId });
+    await auditTx(tx, ctx.accountId, ctx.userId, 'commerce.shipment_pickup_retry', target.id, { orderId });
+  }, ctx.userId);
 }
 
 /** Not connected / switched off between the claim and the call: no HTTP happened, release the claim. */

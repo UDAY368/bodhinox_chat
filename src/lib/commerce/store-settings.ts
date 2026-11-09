@@ -26,13 +26,13 @@ export type StoreErrorCode =
   | 'send_failed' | 'send_uncertain' | 'session_expired'
   | 'cart_empty' | 'invalid_cart' | 'variant_unavailable' | 'price_not_configured' | 'tax_not_configured' | 'shipping_unavailable'
   | 'coupon_not_found' | 'coupon_inactive' | 'coupon_not_started' | 'coupon_expired' | 'coupon_min_subtotal' | 'amount_out_of_range'
-  | 'too_many_open_orders' | 'cod_unavailable';
+  | 'too_many_open_orders' | 'cod_unavailable' | 'online_unavailable';
 
 const STATUS: Partial<Record<StoreErrorCode, number>> = {
   not_found: 404, no_order: 404, contact_not_found: 404, conflict: 409, currency_locked: 409, coupon_code_taken: 409,
   quote_changed: 409, out_of_stock: 409, cart_locked: 409, order_not_open: 409, coupon_exhausted: 409, coupon_limit_reached: 409,
   checkout_disabled: 409, store_not_configured: 409, feature_unavailable: 403, contact_blocked: 409, outside_window: 409,
-  number_unavailable: 409, too_many_open_orders: 409, cod_unavailable: 409, send_failed: 502, send_uncertain: 502, session_expired: 410,
+  number_unavailable: 409, too_many_open_orders: 409, cod_unavailable: 409, online_unavailable: 409, send_failed: 502, send_uncertain: 502, session_expired: 410,
 };
 
 export class StoreError extends Error {
