@@ -3,10 +3,10 @@
  * no session, no CSRF header (the routes check Origin, which the browser sets
  * on PUT and POST). Errors are code-only.
  */
-import type { StorefrontOrderView, StorefrontView } from '@/lib/commerce/storefront';
+import type { CataloguePage, StorefrontOrderView, StorefrontProduct, StorefrontView } from '@/lib/commerce/storefront';
 import type { Quote } from '@/lib/commerce/pricing';
 
-export type { StorefrontOrderView, StorefrontView, Quote };
+export type { CataloguePage, StorefrontOrderView, StorefrontProduct, StorefrontView, Quote };
 
 /**
  * The wording version of the repeat-purchase consent checkbox: the message key
@@ -28,7 +28,7 @@ export const SHOP_ERROR_CODES = [
   'out_of_stock', 'checkout_disabled', 'store_not_configured', 'cart_empty', 'invalid_cart', 'variant_unavailable', 'price_not_configured',
   'tax_not_configured', 'shipping_unavailable', 'coupon_not_found', 'coupon_inactive', 'coupon_not_started', 'coupon_expired',
   'coupon_min_subtotal', 'coupon_exhausted', 'coupon_limit_reached', 'order_not_open', 'amount_out_of_range', 'too_many_open_orders',
-  'cod_unavailable', 'error',
+  'cod_unavailable', 'online_unavailable', 'error',
 ] as const;
 export type ShopErrorCode = (typeof SHOP_ERROR_CODES)[number];
 
@@ -62,5 +62,14 @@ export const shopApi = {
   place: (token: string, body: { expectedVersion: number; expectedTotalMinor: number; clientRequestId: string; marketingOptIn: boolean }) =>
     call<{ created: boolean; view: StorefrontView | null }>(`${base(token)}/place`, 'POST', body),
   status: (token: string) => call<{ order: StorefrontOrderView | null }>(`${base(token)}/status`, 'GET'),
+  /** One catalogue page: a name/description search, one category, and the cursor of the page before. */
+  products: (token: string, filter: { q?: string; category?: string | null; cursor?: string | null }) => {
+    const params = new URLSearchParams();
+    if (filter.q?.trim()) params.set('q', filter.q.trim().slice(0, 80));
+    if (filter.category) params.set('category', filter.category);
+    if (filter.cursor) params.set('cursor', filter.cursor);
+    const query = params.toString();
+    return call<CataloguePage>(`${base(token)}/products${query ? `?${query}` : ''}`, 'GET');
+  },
   imageUrl: (token: string, imageId: string) => `${base(token)}/images/${encodeURIComponent(imageId)}`,
 };

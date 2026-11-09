@@ -395,4 +395,80 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('order lifecycle on PostgreS
       h.requestRefund.mockImplementation(async () => ({ refundId: '' }));
     }
   });
+
+  // ------------------------------------------------------------------ audit 18, 22, 24, 52
+  it('records a cash-on-delivery return refund made outside the gateway, with refund state, restock and history', async () => {
+    const order = randomUUID(), item = randomUUID();
+    await pricedOrder(order, 'fulfilled');
+    await db.query(`INSERT INTO order_items(id,account_id,order_id,variant_id,sku,name,quantity,unit_price_minor,currency,line_total_minor)
+      VALUES($1,$2,$3,$4,'ASH-60','Ashwagandha',2,49900,'INR',99800)`, [item, accountA, order, variantA]);
+    const cash = await addPayment(order, 'offline', 99800);
+    const returnId = await inspectedReturn(order, item);
+    await expect(refundReturn(asAdmin, returnId, { amountMinor: 49900 })).rejects.toMatchObject({ code: 'offline_payment', status: 409 });
+    expect(await refundsOf(order)).toEqual([]);
+
+    expect(await refundReturn(asAdmin, returnId, { amountMinor: 49900, refundedOutside: true }))
+      .toEqual({ refundId: expect.any(String), refundedOutside: true });
+    expect(h.requestRefund).not.toHaveBeenCalled();
+    expect(await refundsOf(order)).toEqual([{ source: 'external', status: 'processed', amount: 49900, restock: true, failure_code: null }]);
+    expect((await db.query('SELECT refunded_minor::int AS n FROM customer_payments WHERE id=$1', [cash])).rows[0].n).toBe(49900);
+    expect((await db.query('SELECT amount_refunded_minor::int AS n, refund_state, status FROM orders WHERE id=$1', [order])).rows[0])
+      .toEqual({ n: 49900, refund_state: 'partial', status: 'fulfilled' });
+    const ret = (await db.query('SELECT refund_id::text AS refund_id, restocked_at FROM order_returns WHERE id=$1', [returnId])).rows[0];
+    expect(ret.refund_id).toEqual(expect.any(String));
+    expect(ret.restocked_at).not.toBeNull();
+    expect(h.restockTx).toHaveBeenCalledWith(expect.anything(), accountA, { orderId: order, lines: [{ variantId: variantA, quantity: 1 }],
+      kind: 'return_restock', returnId });
+    expect((await db.query(`SELECT count(*)::int AS n FROM jobs WHERE tenant_id=$1 AND type='commerce.issue_credit_note'
+      AND payload->>'refundId'=$2`, [accountA, ret.refund_id])).rows[0].n).toBe(1);
+    const kinds = (await db.query(`SELECT kind FROM order_events WHERE order_id=$1 AND kind IN ('return_refunded_outside','refund_processed')`, [order])).rows
+      .map((r) => r.kind).sort();
+    expect(kinds).toEqual(['refund_processed', 'return_refunded_outside']);
+    // One refund per return: a second attempt is refused.
+    await expect(refundReturn(asAdmin, returnId, { amountMinor: 100, refundedOutside: true })).rejects.toMatchObject({ code: 'conflict' });
+  });
+
+  it('refunds a return from the Razorpay payment when the oldest payment was offline, and refuses what no payment covers', async () => {
+    const order = randomUUID(), item = randomUUID();
+    await pricedOrder(order, 'dispatched');
+    await db.query(`INSERT INTO order_items(id,account_id,order_id,variant_id,sku,name,quantity,unit_price_minor,currency,line_total_minor)
+      VALUES($1,$2,$3,$4,'ASH-60','Ashwagandha',2,49900,'INR',99800)`, [item, accountA, order, variantA]);
+    await addPayment(order, 'offline', 39800);
+    const online = await addPayment(order, 'razorpay', 60000);
+    const returnId = await inspectedReturn(order, item);
+    await expect(refundReturn(asAdmin, returnId, { amountMinor: 70000 })).rejects.toMatchObject({ code: 'amount_exceeds' });
+    h.requestRefund.mockResolvedValueOnce({ refundId: randomUUID() });
+    await refundReturn(asAdmin, returnId, { amountMinor: 49900 });
+    expect(h.requestRefund).toHaveBeenCalledWith(asAdmin, { paymentId: online, amountMinor: 49900, reason: 'return', note: null, restock: true, returnId });
+  });
+
+  it('opens a return only within the return window after delivery', async () => {
+    const order = randomUUID(), item = randomUUID();
+    await pricedOrder(order, 'fulfilled');
+    await db.query(`INSERT INTO order_items(id,account_id,order_id,variant_id,sku,name,quantity,unit_price_minor,currency,line_total_minor)
+      VALUES($1,$2,$3,$4,'ASH-60','Ashwagandha',2,49900,'INR',99800)`, [item, accountA, order, variantA]);
+    await db.query(`UPDATE orders SET delivered_at=now() - interval '8 days' WHERE id=$1`, [order]);
+    // The default window is 7 days.
+    await expect(createReturn(asAgent, order, { items: [{ order_item_id: item, qty: 1 }] })).rejects.toMatchObject({ code: 'return_window_closed', status: 409 });
+    await db.query(`UPDATE orders SET delivered_at=now() - interval '6 days' WHERE id=$1`, [order]);
+    await createReturn(asAgent, order, { items: [{ order_item_id: item, qty: 1 }] });
+    // Not delivered yet (coming back in transit): the window has not started.
+    const inTransit = randomUUID(), transitItem = randomUUID();
+    await pricedOrder(inTransit, 'dispatched');
+    await db.query(`INSERT INTO order_items(id,account_id,order_id,variant_id,sku,name,quantity,unit_price_minor,currency,line_total_minor)
+      VALUES($1,$2,$3,$4,'ASH-60','Ashwagandha',1,49900,'INR',49900)`, [transitItem, accountA, inTransit, variantA]);
+    await db.query(`UPDATE orders SET dispatched_at=now() - interval '30 days' WHERE id=$1`, [inTransit]);
+    await createReturn(asAgent, inTransit, { items: [{ order_item_id: transitItem, qty: 1 }] });
+  });
+
+  it('never dispatches a paid order that was refunded in full', async () => {
+    const order = randomUUID();
+    await pricedOrder(order, 'paid');
+    await db.query(`UPDATE orders SET amount_refunded_minor=99800, refund_state='full' WHERE id=$1`, [order]);
+    await expect(recordDispatch(asAgent, order, { from: 'paid' })).rejects.toMatchObject({ code: 'order_refunded', status: 409 });
+    expect(await statusOf(order)).toBe('paid');
+    // Cancel and refund still closes it (nothing is left to refund).
+    expect(await cancelAndRefund(asAdmin, order)).toEqual({ refundIds: [], refundedOutside: false });
+    expect(await statusOf(order)).toBe('cancelled');
+  });
 });

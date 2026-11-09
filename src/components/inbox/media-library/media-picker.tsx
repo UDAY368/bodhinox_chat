@@ -71,14 +71,16 @@ function Thumb({ item }: { item: LibraryItem }) {
   return <Icon className="size-8 text-muted-foreground" aria-hidden />;
 }
 
-export function MediaLibraryBrowser({ mode, onPick, onUsage }: {
+export function MediaLibraryBrowser({ mode, onPick, onUsage, initialKind = "all" }: {
   mode: "pick" | "manage";
   onPick?: (media: PickedMedia) => void;
   onUsage?: (usage: StorageUsage) => void;
+  /** The kind filter to start on (e.g. "image" when only an image can be used). */
+  initialKind?: MediaKind | "all";
 }) {
   const t = useTranslations("MediaLibrary");
   const formatBytes = useFormatBytes();
-  const [kind, setKind] = useState<MediaKind | "all">("all");
+  const [kind, setKind] = useState<MediaKind | "all">(initialKind);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<LibraryItem[]>([]);
@@ -235,10 +237,11 @@ export function MediaLibraryBrowser({ mode, onPick, onUsage }: {
   );
 }
 
-export function MediaPicker({ open, onOpenChange, onPick }: {
+export function MediaPicker({ open, onOpenChange, onPick, initialKind }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPick: (media: PickedMedia) => void;
+  initialKind?: MediaKind | "all";
 }) {
   const t = useTranslations("MediaLibrary");
   return (
@@ -251,6 +254,7 @@ export function MediaPicker({ open, onOpenChange, onPick }: {
         {open && (
           <MediaLibraryBrowser
             mode="pick"
+            initialKind={initialKind}
             onPick={(media) => { onPick(media); onOpenChange(false); }}
           />
         )}

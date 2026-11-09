@@ -10,6 +10,7 @@ import { PUT as putCart } from './[token]/cart/route';
 import { PUT as putAddress } from './[token]/address/route';
 import { POST as place } from './[token]/place/route';
 import { GET as status } from './[token]/status/route';
+import { GET as products } from './[token]/products/route';
 
 // The anonymous storefront API end to end on PostgreSQL (design §4, E12, E13):
 // token resolution through the definer, Origin checks, version checks, place,
@@ -49,6 +50,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public storefront routes on
       [contact, account, owner, otherContact, other]);
     await db.query(`INSERT INTO commerce_settings(account_id,currency,default_tax_rate_bps,checkout_enabled) VALUES($1,'INR',1800,true),($2,'INR',1800,true)`, [account, other]);
     await db.query(`INSERT INTO shipping_rates(account_id,name,country,fee_minor) VALUES($1,'India','IN',4000)`, [account]);
+    // Online checkout needs a Razorpay connection (a link can be made); the link job never runs here.
+    await db.query(`INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,'razorpay','test','rzp_test_SHOP','enc')`, [account]);
     await db.query(`INSERT INTO shop_products(id,account_id,name,status,content_reviewed_at) VALUES($1,$2,'Brahmi','published',now())`, [product, account]);
     await db.query(`INSERT INTO shop_products(id,account_id,name,status,content_reviewed_at) VALUES($1,$2,'Foreign','published',now())`, [otherProduct, other]);
     await db.query(`INSERT INTO shop_variants(id,account_id,product_id,sku,price_minor) VALUES($1,$3,$4,'BRA-1',15000),($2,$3,$4,'BRA-OLD',100)`,
@@ -94,6 +97,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public storefront routes on
     expect(ok.status).toBe(200);
     const body = await ok.json();
     expect(body).toMatchObject({ version: 2, cart: [{ variantId: variant, qty: 2 }] });
+    // A change is answered without the catalogue (audit 19): the page keeps the pages it loaded.
+    expect(body).toMatchObject({ products: [], productsNext: null, categories: [] });
     // The other workspace's session is untouched and sees none of this.
     const theirs = await (await view(req('GET'), params(otherToken))).json();
     expect(theirs.cart).toEqual([]);
@@ -120,5 +125,48 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('public storefront routes on
     expect((await res.json()).order).toMatchObject({ status: 'awaiting_payment', amountPaidMinor: 0 });
     const after = (await db.query('SELECT status, amount_paid_minor, updated_at FROM orders WHERE storefront_session_id IS NOT NULL AND account_id=$1', [account])).rows;
     expect(after).toEqual(before);
+  });
+
+  // ------------------------------------------------------------------ audit 19: a paged, searchable catalogue
+  it('pages, searches and filters the catalogue of the token’s own workspace only', async () => {
+    const herbs = randomUUID();
+    await db.query(`INSERT INTO shop_categories(id,account_id,name,position) VALUES($1,$2,'Herbs',1)`, [herbs, account]);
+    const many = Array.from({ length: 30 }, () => randomUUID());
+    await db.query(`INSERT INTO shop_products(id,account_id,name,status,content_reviewed_at,category_id)
+      SELECT p, $2, 'Tulsi ' || lpad(n::text, 2, '0'), 'published', now(), $3 FROM unnest($1::uuid[]) WITH ORDINALITY AS t(p, n)`, [many, account, herbs]);
+    await db.query(`INSERT INTO shop_variants(account_id,product_id,sku,price_minor)
+      SELECT $2, p, 'TUL-' || n, 9900 FROM unnest($1::uuid[]) WITH ORDINALITY AS t(p, n)`, [many, account]);
+    const fresh = (await withTenant({ accountId: account, role: 'owner' }, (tx) => issueSessionTx(tx, account, {
+      sessionId: randomUUID(), contactId: contact, conversationId: null, whatsappConfigId: null, purpose: 'shop', orderId: null, ttlHours: 24, createdBy: null,
+    }), getWorkerPrisma())).url.split('/shop/')[1];
+    const list = async (t: string, query: Record<string, string>) => {
+      const res = await products(new Request(`${ORIGIN}/api/public/shop/x/products?${new URLSearchParams(query)}`,
+        { headers: { 'x-forwarded-for': '203.0.113.9' } }), params(t));
+      return { status: res.status, body: await res.json() as { products: { id: string; name: string }[]; nextCursor: string | null } };
+    };
+
+    const first = await (await view(req('GET'), params(fresh))).json();
+    expect(first.products).toHaveLength(24);
+    expect(first.productsNext).toEqual(expect.any(String));
+    expect(first.categories).toEqual([{ id: herbs, name: 'Herbs' }]);
+    // Category order first (Herbs, by name), then uncategorised products.
+    expect(first.products[0].name).toBe('Tulsi 01');
+    const second = await list(fresh, { cursor: first.productsNext });
+    expect(second.status).toBe(200);
+    expect(second.body.nextCursor).toBeNull();
+    const ids = [...first.products.map((p: { id: string }) => p.id), ...second.body.products.map((p) => p.id)];
+    expect(new Set(ids).size).toBe(31);
+    expect(ids.at(-1)).toBe(product);
+
+    expect((await list(fresh, { q: 'brah' })).body.products.map((p) => p.id)).toEqual([product]);
+    expect((await list(fresh, { q: '%' })).body.products).toEqual([]);
+    const inHerbs = await list(fresh, { category: herbs });
+    expect(inHerbs.body.products).toHaveLength(24);
+    expect(inHerbs.body.products.every((p) => p.name.startsWith('Tulsi'))).toBe(true);
+    // A cursor this server did not make is ignored (first page).
+    expect((await list(fresh, { cursor: 'bm90LWEtY3Vyc29y' })).body.products[0].name).toBe('Tulsi 01');
+    // Another workspace's token never sees these products.
+    expect((await list(otherToken, {})).body.products.map((p) => p.name)).toEqual(['Foreign']);
+    expect((await list('A'.repeat(43), {})).status).toBe(404);
   });
 });

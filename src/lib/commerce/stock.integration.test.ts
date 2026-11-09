@@ -4,9 +4,9 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { disconnectDatabases, getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
-import { expireReservation, placeOrder } from './checkout';
+import { expireReservation, failCheckoutLink, placeOrder } from './checkout';
 import { adjustTx, commitTx, StockError } from './stock';
-import { issueSessionTx, loadSession, quoteSessionTx, setAddressTx, updateCartTx } from './storefront';
+import { issueSessionTx, loadOrderView, loadSession, quoteSessionTx, setAddressTx, setPaymentMethodTx, updateCartTx } from './storefront';
 import { StoreError } from './store-settings';
 
 // Phase 8 oversell gate (design E5, E6; test 1) on PostgreSQL: simultaneous
@@ -23,7 +23,7 @@ process.env.ENCRYPTION_KEY ??= 'a'.repeat(64);
 
 const account = randomUUID(), owner = randomUUID();
 const product = randomUUID(), scarce = randomUUID(), left = randomUUID(), right = randomUUID();
-const contacts = Array.from({ length: 24 }, () => randomUUID());
+const contacts = Array.from({ length: 25 }, () => randomUUID());
 let db: pg.Client;
 
 const worker = <T,>(fn: (tx: TenantTransaction) => Promise<T>) => withTenant({ accountId: account, role: 'owner' }, fn, getWorkerPrisma());
@@ -65,6 +65,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 8 stock and checkout 
       SELECT c, $2, $3, 'Buyer', '1415555' || lpad(n::text, 4, '0') FROM unnest($1::uuid[]) WITH ORDINALITY AS t(c, n)`, [contacts, account, owner]);
     await db.query(`INSERT INTO commerce_settings(account_id,currency,prices_include_tax,default_tax_rate_bps,checkout_enabled,reservation_minutes)
       VALUES($1,'INR',true,1800,true,15)`, [account]);
+    // Online checkout needs a Razorpay connection (a link can be made); the link job never runs here.
+    await db.query(`INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,'razorpay','test','rzp_test_SHOP','enc')`, [account]);
     await db.query(`INSERT INTO shipping_rates(account_id,name,country,fee_minor) VALUES($1,'India','IN',5000)`, [account]);
     await db.query(`INSERT INTO shop_products(id,account_id,name,status,content_reviewed_at) VALUES($1,$2,'Ashwagandha','published',now())`, [product, account]);
     await db.query(`INSERT INTO shop_variants(id,account_id,product_id,sku,price_minor) VALUES
@@ -153,5 +155,58 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 8 stock and checkout 
       .rejects.toBeInstanceOf(StockError);
     const ok = await worker((tx) => adjustTx(tx, account, { variantId: left, delta: -(on_hand - reserved), kind: 'write_off', reason: 'damaged', actorUserId: owner }));
     expect(ok).toEqual({ variantId: left, onHand: reserved, reserved });
+  });
+
+  // ------------------------------------------------------------------ audit 17: no spinner while no link can be made
+  it('closes the order at once when Razorpay definitely refuses its checkout link, telling the customer and the admins', async () => {
+    const s = await readySession(contacts[22], [{ variantId: right, qty: 2 }]);
+    const { orderId } = await place(s);
+    const before = await level(right);
+    expect(await failCheckoutLink(account, { orderId, attempt: 1 }, 'provider_auth')).toBe(true);
+    expect((await db.query('SELECT status FROM orders WHERE id=$1', [orderId])).rows[0].status).toBe('expired');
+    expect(await level(right)).toEqual({ on_hand: before.on_hand, reserved: before.reserved - 2 });
+    expect((await db.query(`SELECT detail FROM order_events WHERE order_id=$1 AND kind='payment_link_failed'`, [orderId])).rows)
+      .toEqual([{ detail: 'provider_auth' }]);
+    const notes = (await db.query(`SELECT user_id::text AS user_id, type, link FROM notifications WHERE account_id=$1 AND dedupe_key=$2`,
+      [account, `checkout-link-failed:${orderId}:1`])).rows;
+    expect(notes).toEqual([{ user_id: owner, type: 'payment_exception', link: `/commerce/orders/${orderId}` }]);
+    const view = await worker((tx) => loadOrderView(tx, account, orderId));
+    expect(view).toMatchObject({ status: 'expired', paymentFailed: true, paymentUrl: null, paymentPending: false });
+    // A second report (job replay) changes nothing.
+    expect(await failCheckoutLink(account, { orderId, attempt: 1 }, 'provider_auth')).toBe(false);
+    expect(await level(right)).toEqual({ on_hand: before.on_hand, reserved: before.reserved - 2 });
+    // An order that simply expired is not shown as a payment-setup failure.
+    const t = await readySession(contacts[23], [{ variantId: right, qty: 1 }]);
+    const expired = await place(t);
+    await db.query(`UPDATE orders SET reservation_expires_at=now() - interval '2 minutes' WHERE id=$1`, [expired.orderId]);
+    await expireReservation(account, { orderId: expired.orderId, attempt: 1 });
+    expect(await worker((tx) => loadOrderView(tx, account, expired.orderId))).toMatchObject({ status: 'expired', paymentFailed: false, returnWindowDays: null });
+  });
+
+  // ------------------------------------------------------------------ audit 22: the customer sees the return window
+  it('shows the store return window on an order that has left, and nothing before', async () => {
+    const s = await readySession(contacts[24], [{ variantId: right, qty: 1 }]);
+    const { orderId } = await place(s);
+    expect(await worker((tx) => loadOrderView(tx, account, orderId))).toMatchObject({ returnWindowDays: null });
+    await db.query(`UPDATE commerce_settings SET return_window_days=10 WHERE account_id=$1`, [account]);
+    await db.query(`UPDATE orders SET status='fulfilled', paid_at=now(), dispatched_at=now(), delivered_at=now() WHERE id=$1`, [orderId]);
+    expect(await worker((tx) => loadOrderView(tx, account, orderId))).toMatchObject({ status: 'fulfilled', returnWindowDays: 10 });
+    await db.query(`UPDATE commerce_settings SET return_window_days=7 WHERE account_id=$1`, [account]);
+  });
+
+  it('refuses online payment while Razorpay is not connected, before anything is held', async () => {
+    const provider = (await db.query(`DELETE FROM payment_providers WHERE account_id=$1 RETURNING provider, mode, key_id, key_secret_enc`, [account])).rows[0];
+    try {
+      const s = await readySession(contacts[19], [{ variantId: left, qty: 1 }]);
+      const before = await level(left);
+      await expect(worker((tx) => setPaymentMethodTx(tx, account, s.sessionId, { expectedVersion: s.version, paymentMethod: 'online' })))
+        .rejects.toMatchObject({ code: 'online_unavailable', status: 409 });
+      await expect(place(s)).rejects.toMatchObject({ code: 'online_unavailable' });
+      expect(await level(left)).toEqual(before);
+      expect((await db.query('SELECT count(*)::int AS n FROM orders WHERE storefront_session_id=$1', [s.sessionId])).rows[0].n).toBe(0);
+    } finally {
+      await db.query(`INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,$2,$3,$4,$5)`,
+        [account, provider.provider, provider.mode, provider.key_id, provider.key_secret_enc]);
+    }
   });
 });

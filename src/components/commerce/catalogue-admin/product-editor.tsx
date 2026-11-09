@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Plus, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MediaPicker } from "@/components/inbox/media-library/media-picker";
 import { useCan } from "@/hooks/use-can";
 import { formatMoney } from "@/lib/commerce/money";
 import {
@@ -230,6 +231,7 @@ function ImagesForm({ product, canManage, busy, onSave }: {
   const t = useTranslations("Commerce.catalogue.editor");
   const [images, setImages] = useState<EditImage[]>(product.images.map((i) => (i.media_id ? { media_id: i.media_id, display: i.display_url } : { url: i.url ?? "", display: i.url })));
   const [url, setUrl] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const validUrl = /^https:\/\/\S{3,2040}$/.test(url.trim());
   const changed = JSON.stringify(images.map(withoutDisplay))
     !== JSON.stringify(product.images.map((i) => (i.media_id ? { media_id: i.media_id } : { url: i.url })));
@@ -256,6 +258,11 @@ function ImagesForm({ product, canManage, busy, onSave }: {
       {canManage && (
         <>
           <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" disabled={images.length >= 10} onClick={() => setPickerOpen(true)}>
+              <ImagePlus className="h-4 w-4" />{t("uploadImage")}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" aria-label={t("imageUrl")} className="max-w-md bg-muted" />
             <Button type="button" variant="outline" disabled={!validUrl || images.length >= 10}
               onClick={() => { setImages((list) => [...list, { url: url.trim(), display: url.trim() }]); setUrl(""); }}>
@@ -266,6 +273,12 @@ function ImagesForm({ product, canManage, busy, onSave }: {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">{t("imagesHint")}</p>
+          <MediaPicker open={pickerOpen} onOpenChange={setPickerOpen} initialKind="image" onPick={(media) => {
+            // Only an image can be shown on a product (the server refuses anything else).
+            if (media.kind !== "image") return toast.error(t("imageOnly"));
+            setImages((list) => (list.length >= 10 || list.some((i) => "media_id" in i && i.media_id === media.id)
+              ? list : [...list, { media_id: media.id, display: media.url }]));
+          }} />
         </>
       )}
     </section>

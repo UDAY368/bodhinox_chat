@@ -17,9 +17,11 @@ import {
 const RETURNABLE = new Set(["dispatched", "fulfilled"]);
 
 /**
- * Staff-created returns: open one for chosen lines, then receive, inspect
- * (restock or discard per line), and refund or close. Stock comes back only
- * through a processed refund or an admin closing with restock.
+ * Staff-created returns: open one for chosen lines (within the store's return
+ * window), then receive, inspect (restock or discard per line), and refund or
+ * close. Stock comes back only through a processed refund or an admin closing
+ * with restock. Money Razorpay does not hold (cash on delivery, a payment the
+ * team recorded) is refunded outside the app and confirmed here to record it.
  */
 export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged }: {
   order: OrderDetail;
@@ -36,6 +38,9 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
   const [busy, setBusy] = useState<string | null>(null);
   const [disposition, setDisposition] = useState<Record<string, Record<string, "restock" | "discard">>>({});
   const [amount, setAmount] = useState<Record<string, string>>({});
+  // Returns whose refund needs the outside-refund confirmation, and whether it is ticked.
+  const [outsideNeeded, setOutsideNeeded] = useState<Record<string, boolean>>({});
+  const [outsideConfirmed, setOutsideConfirmed] = useState<Record<string, boolean>>({});
   const nameOf = new Map(order.items.map((i) => [i.id, i.name || i.sku || i.retailer_id || "-"]));
 
   if (!RETURNABLE.has(order.status) && returns.length === 0) return null;
@@ -45,7 +50,10 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
     try {
       const r = await call();
       if (!r.ok) {
-        toast.error(r.status === 403 ? t("forbidden") : r.code === "conflict" || r.code === "bad_transition" ? t("conflict") : t("error"));
+        toast.error(r.status === 403 ? t("forbidden")
+          : r.code === "return_window_closed" ? t("windowClosed")
+            : r.code === "amount_exceeds" ? t("amountExceeds")
+              : r.code === "conflict" || r.code === "bad_transition" ? t("conflict") : t("error"));
         return false;
       }
       toast.success(success);
@@ -83,7 +91,27 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
       throw error;
     }
     if (minor <= 0) return toast.error(t("badAmount"));
-    await run(`${r.id}:refund`, () => refundReturn(r.id, minor, null), t("refundRequested"));
+    const outside = outsideConfirmed[r.id] === true;
+    setBusy(`${r.id}:refund`);
+    try {
+      const res = await refundReturn(r.id, minor, null, outside);
+      if (!res.ok && res.code === "offline_payment") {
+        setOutsideNeeded({ ...outsideNeeded, [r.id]: true });
+        toast.error(t("refundOutsideNeeded"));
+        return;
+      }
+      if (!res.ok) {
+        toast.error(res.status === 403 ? t("forbidden") : res.code === "amount_exceeds" ? t("amountExceeds")
+          : res.code === "conflict" || res.code === "bad_transition" ? t("conflict") : t("error"));
+        return;
+      }
+      toast.success(outside ? t("refundedOutside") : t("refundRequested"));
+      await onChanged();
+    } catch {
+      toast.error(t("error"));
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -168,7 +196,20 @@ export function OrderReturnsPanel({ order, returns, canAct, canAdmin, onChanged 
                   <div className="flex flex-wrap items-center gap-2">
                     <Input className="w-32" inputMode="decimal" aria-label={t("refundAmount")} placeholder={t("refundAmount")}
                       value={amount[r.id] ?? ""} onChange={(e) => setAmount({ ...amount, [r.id]: e.target.value })} lang={locale} />
-                    <Button size="sm" disabled={busy !== null} onClick={() => refund(r)}>{t("refund")}</Button>
+                    <Button size="sm" disabled={busy !== null || (outsideNeeded[r.id] && !outsideConfirmed[r.id])} onClick={() => refund(r)}>
+                      {busy === `${r.id}:refund` && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {t("refund")}
+                    </Button>
+                  </div>
+                )}
+                {!r.refund_id && canAdmin && outsideNeeded[r.id] && (
+                  <div className="space-y-1 rounded-md bg-muted p-2 text-xs">
+                    <p>{t("refundOutsideNeeded")}</p>
+                    <label className="flex items-start gap-2">
+                      <input type="checkbox" className="mt-0.5 size-4" checked={outsideConfirmed[r.id] === true}
+                        onChange={(e) => setOutsideConfirmed({ ...outsideConfirmed, [r.id]: e.target.checked })} />
+                      <span>{t("refundOutsideConfirm")}</span>
+                    </label>
                   </div>
                 )}
                 {canAdmin && (

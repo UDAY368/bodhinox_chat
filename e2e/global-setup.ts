@@ -147,6 +147,9 @@ async function seedCommerce(db: pg.Client, accountId: string, ownerId: string, c
       legal_name,state_code,document_prefix,storefront_title) VALUES($1,'INR',true,1800,true,'E2E Ayurveda Store','29','RCPT','E2E Store')`,
     [accountId]);
   await db.query(`INSERT INTO shipping_rates(account_id,name,country,fee_minor) VALUES($1,'India','IN',5000)`, [accountId]);
+  // Online checkout needs a Razorpay connection; E2E runs no worker, so no link is ever requested with this key.
+  await db.query(`INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,'razorpay','test',$2,'enc')
+    ON CONFLICT DO NOTHING`, [accountId, `rzp_test_E2E${runId}`]);
   await db.query(`INSERT INTO shop_products(id,account_id,name,description,status,content_reviewed_by,content_reviewed_at)
     VALUES($1,$2,$3,'Herbal supplement, 60 tablets.','published',$4,NOW())`, [ids.productId, accountId, productName, ownerId]);
   await db.query(`INSERT INTO shop_variants(id,account_id,product_id,sku,option_values,price_minor,hsn_code)

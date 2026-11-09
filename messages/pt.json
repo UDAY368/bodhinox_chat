@@ -6051,7 +6051,8 @@
       "invalid": "Verifique o tamanho e o peso do pacote.",
       "throttled": "O Shiprocket está ocupado. Tente novamente em um minuto.",
       "feature_unavailable": "Envios por transportadora não estão incluídos no seu plano.",
-      "not_implemented": "Esta ação ainda não está disponível."
+      "not_implemented": "Esta ação ainda não está disponível.",
+      "order_refunded": "Este pedido foi reembolsado integralmente, então não pode ser enviado."
     }
   },
   "Api": {
@@ -7487,7 +7488,8 @@
         "cancelRefundDoneOutside": "Pedido cancelado. O reembolso feito fora do Bodhinox foi registrado.",
         "courierTracked": "O rastreamento do Shiprocket atualiza este pedido automaticamente. Você ainda pode registrá-lo manualmente.",
         "shipmentLive": "Cancele o envio na transportadora antes de cancelar este pedido, ou use Devoluções se já foi coletado.",
-        "codFee": "Taxa de pagamento na entrega"
+        "codFee": "Taxa de pagamento na entrega",
+        "refundedInFull": "Este pedido foi reembolsado integralmente, então não pode ser enviado. Use Cancelar e reembolsar para fechá-lo."
       },
       "timeline": {
         "title": "Histórico",
@@ -7513,7 +7515,10 @@
           "shipment_created": "Envio pela transportadora criado",
           "shipment_cancelled": "Envio pela transportadora cancelado",
           "shipment_correction_accepted": "Correção de rastreamento aceita",
-          "cod_confirmed": "Pagamento na entrega escolhido"
+          "cod_confirmed": "Pagamento na entrega escolhido",
+          "payment_link_failed": "Não foi possível criar o link de pagamento",
+          "shipment_pickup_requested": "Coleta da transportadora solicitada novamente",
+          "return_refunded_outside": "Devolução reembolsada fora do Bodhinox"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -7686,7 +7691,7 @@
         "addImage": "Adicionar imagem",
         "removeImage": "Remover imagem",
         "saveImages": "Salvar imagens",
-        "imagesHint": "Até 10 imagens https, nesta ordem.",
+        "imagesHint": "Até 10 imagens, enviadas para sua biblioteca de mídia ou links https, exibidas nesta ordem.",
         "variants": "Variantes",
         "currencyMissing": "Defina a moeda em Configurações da loja para adicionar preços.",
         "variantSaved": "Variante salva",
@@ -7718,7 +7723,9 @@
         "repurchaseDays": "Lembrete de recompra após (dias)",
         "repurchaseHint": "Opcional. Dias após a entrega para lembrar os clientes que aceitaram ofertas no checkout. Usa o modelo de lembrete de recompra das configurações da loja.",
         "codAvailable": "Pagamento na entrega disponível",
-        "codAvailableHint": "Desativado, um carrinho com este produto só pode ser pago online (o pagamento na entrega também precisa estar ativo nas configurações da loja)."
+        "codAvailableHint": "Desativado, um carrinho com este produto só pode ser pago online (o pagamento na entrega também precisa estar ativo nas configurações da loja).",
+        "uploadImage": "Enviar ou escolher da biblioteca",
+        "imageOnly": "Escolha um arquivo de imagem."
       }
     },
     "inventory": {
@@ -7841,6 +7848,7 @@
       "generalTitle": "Checkout e impostos",
       "generalHelp": "Preços e impostos sempre vêm destas configurações; sem alíquota, o checkout para em vez de cobrar imposto zero.",
       "checkoutEnabled": "Checkout online ativado",
+      "razorpayMissing": "O Razorpay não está conectado, então os clientes não podem pagar online. Só é possível fazer pedidos com pagamento na entrega. Conecte o Razorpay em Configurações → Pagamentos.",
       "currency": "Moeda da loja",
       "currencyLocked": "Bloqueada: já existem variantes com preço nesta moeda.",
       "currencyHelp": "Código de três letras, por exemplo INR.",
@@ -7957,7 +7965,12 @@
       "closed": "Devolução encerrada",
       "forbidden": "Sua função não pode fazer isso.",
       "conflict": "Esta devolução ou pedido mudou. Foi recarregado.",
-      "error": "Não foi possível atualizar a devolução"
+      "error": "Não foi possível atualizar a devolução",
+      "windowClosed": "O prazo de devolução deste pedido terminou (Configurações da loja → Prazo de devolução).",
+      "amountExceeds": "Nenhum pagamento deste pedido sozinho pode reembolsar esse valor. Informe um valor menor.",
+      "refundOutsideNeeded": "Este pedido foi pago em dinheiro ou com um pagamento registrado pela sua equipe, então o Razorpay não pode reembolsá-lo. Devolva o dinheiro pelo mesmo meio e confirme abaixo para registrar o reembolso.",
+      "refundOutsideConfirm": "Devolvi este valor fora do Bodhinox",
+      "refundedOutside": "Reembolso registrado. Uma nota de crédito será emitida."
     },
     "documents": {
       "print": {
@@ -8009,7 +8022,7 @@
       "awbAssigning": "Atribuindo uma transportadora…",
       "awbUnknown": "O Shiprocket não confirmou a atribuição da transportadora. Ela nunca é repetida automaticamente; confira as exceções de envio.",
       "awbFailed": "Nenhuma transportadora foi atribuída ({code}). Nada foi cobrado.",
-      "pickupFailed": "O Shiprocket não agendou a coleta. Agende-a no Shiprocket.",
+      "pickupFailed": "O Shiprocket não agendou a coleta. Solicite novamente ou agende no Shiprocket.",
       "awb": "AWB",
       "courier": "Transportadora",
       "status": "Rastreamento",
@@ -8038,7 +8051,9 @@
         "lost": "Extraviado ou danificado",
         "rto_delivered": "Devolvido ao remetente",
         "cancelled": "Cancelado"
-      }
+      },
+      "pickupAgain": "Solicitar coleta novamente",
+      "pickupRequested": "Coleta solicitada ao Shiprocket."
     },
     "evidence": {
       "provider": "Confirmado pela transportadora",
@@ -8062,7 +8077,8 @@
         "rto": "Voltando à origem",
         "lost_or_damaged": "Extraviado ou danificado",
         "stale_tracking": "Sem atualizações de rastreamento há 10 dias",
-        "order_conflict": "O status da transportadora não confere com o pedido"
+        "order_conflict": "O status da transportadora não confere com o pedido",
+        "pickup_failed": "Coleta da transportadora não agendada"
       },
       "hints": {
         "contradiction": "Confira o envio no Shiprocket. Aceite a correção só se o novo status da transportadora estiver certo.",
@@ -8071,7 +8087,8 @@
         "rto": "O pacote está voltando. Abra uma devolução no pedido quando ele chegar.",
         "lost_or_damaged": "Abra uma reclamação no Shiprocket e reembolse ou substitua pelo pedido.",
         "stale_tracking": "Confira o envio com a transportadora.",
-        "order_conflict": "O pedido foi cancelado, reembolsado ou nunca pago enquanto o pacote se movia. Confira o pedido e o envio."
+        "order_conflict": "O pedido foi cancelado, reembolsado ou nunca pago enquanto o pacote se movia. Confira o pedido e o envio.",
+        "pickup_failed": "Abra o pedido e use Solicitar coleta novamente, ou agende a coleta no Shiprocket. Uma solicitação bem-sucedida encerra isto."
       },
       "resolutions": {
         "accept_correction": "Aceitar correção",
@@ -8114,6 +8131,15 @@
       "errors": {
         "invalid": "Escolha um modelo e o idioma.",
         "template_not_found": "Esse modelo não foi encontrado. Sincronize seus modelos e tente de novo."
+      }
+    },
+    "checkoutLinkFailed": {
+      "title": "Falha no link de pagamento do checkout",
+      "body": "O pedido {reference} foi fechado porque o Razorpay não conseguiu criar o link de pagamento ({reason}). O estoque e o cupom foram liberados, e o cliente foi avisado de que o pagamento não pôde ser preparado.",
+      "reasons": {
+        "not_connected": "O Razorpay não está conectado",
+        "provider_auth": "O Razorpay não aceitou as chaves salvas",
+        "other": "O Razorpay recusou a solicitação"
       }
     }
   },
@@ -8300,7 +8326,8 @@
         "not_retryable": "Só um reembolso que a Razorpay não fez pode ser reenviado.",
         "not_reconcilable": "Não há nada a verificar neste reembolso: ele já está resolvido.",
         "not_connected": "A Razorpay não está conectada.",
-        "provider_unreachable": "Não foi possível contatar a Razorpay. Tente novamente em breve."
+        "provider_unreachable": "Não foi possível contatar a Razorpay. Tente novamente em breve.",
+        "shipment_live": "Este pedido tem um envio com transportadora. Cancele o envio antes de repor o estoque, ou reembolse sem repor e use Devoluções para os produtos que voltarem."
       }
     },
     "offline": {
@@ -10270,7 +10297,8 @@
       "order_not_open": "Este pedido não pode mais ser pago aqui.",
       "amount_out_of_range": "O valor é grande demais.",
       "too_many_open_orders": "Você já tem o máximo de pedidos abertos. Pague um pedido pendente, espere ele expirar ou um pedido com pagamento na entrega ser entregue, e tente de novo.",
-      "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho. Escolha pagar online."
+      "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho. Escolha pagar online.",
+      "online_unavailable": "O pagamento online não está disponível nesta loja. Escolha pagamento na entrega ou fale com a loja."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Envie-me lembretes de recompra e ofertas pelo WhatsApp. Você pode interrompê-los a qualquer momento respondendo STOP."
@@ -10283,7 +10311,19 @@
     "placeCod": "Fazer pedido, pagar {amount} na entrega",
     "codNote": "Seu pedido está confirmado agora. Pague em dinheiro quando ele for entregue.",
     "codFee": "Taxa de pagamento na entrega",
-    "codDue": "Pagamento na entrega: tenha {amount} em mãos quando o pedido chegar."
+    "codDue": "Pagamento na entrega: tenha {amount} em mãos quando o pedido chegar.",
+    "returnWindow": "Aceitamos devoluções em até {days, plural, one {# dia} other {# dias}} após a entrega. Fale com a loja pelo WhatsApp para devolver um item.",
+    "noReturns": "Esta loja não aceita devoluções depois que o pedido é entregue.",
+    "onlineUnavailable": "Esta loja ainda não configurou o pagamento online.",
+    "paymentFailedTitle": "Não foi possível preparar o pagamento",
+    "paymentFailed": "A loja não conseguiu preparar o pagamento online deste pedido, então ele não foi feito e nada foi cobrado. Fale com a loja pelo WhatsApp para fazer o pedido.",
+    "stillVerifying": "A loja ainda está verificando seu pagamento. Você receberá uma confirmação pelo WhatsApp quando for confirmado; não precisa pagar de novo.",
+    "checkAgain": "Verificar novamente",
+    "searchProducts": "Buscar produtos",
+    "categories": "Categorias",
+    "allCategories": "Todas",
+    "noMatchingProducts": "Nenhum produto corresponde à sua busca.",
+    "showMore": "Ver mais produtos"
   },
   "OrderNotices": {
     "dispatched": "Seu pedido {ref} está a caminho.",

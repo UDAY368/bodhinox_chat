@@ -9,11 +9,11 @@ import { documentUrl, type OrderTimeline } from "./order-api";
 
 const KNOWN_EVENTS = new Set([
   "status_changed", "feedback", "document_issued", "return_requested", "return_received", "return_inspected", "return_closed",
-  "return_rejected", "return_refund_requested",
-  // Courier shipments (Phase 9): created, cancelled, and an admin-accepted tracking correction.
-  "shipment_created", "shipment_cancelled", "shipment_correction_accepted",
-  // Cash on delivery chosen at checkout.
-  "cod_confirmed",
+  "return_rejected", "return_refund_requested", "return_refunded_outside",
+  // Courier shipments (Phase 9): created, cancelled, an admin-accepted tracking correction, a pickup asked for again.
+  "shipment_created", "shipment_cancelled", "shipment_correction_accepted", "shipment_pickup_requested",
+  // Cash on delivery chosen at checkout; Razorpay refused the checkout payment link (the order closed).
+  "cod_confirmed", "payment_link_failed",
 ]);
 
 /** The order's history, its documents and how each customer notice went. */

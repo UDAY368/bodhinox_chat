@@ -139,5 +139,7 @@
   "20261116020000_broadcast_retry_reconcile": "ba053ce7d932cea9efd077f63369375da5da68a20575b926b4d6e32b30286c9b",
   "20261116030000_automation_waits_consent_expiry": "e1e11c64ef00dca98b15079e060b11a87a0f073513eed259139bee839db10ecc",
   "20261116030001_automation_pending_contact_open_idx": "26a4a6ff6518b7a9c75f31895c6f044988646d75e1e435afbaee4ac11d7405c9",
-  "20261116060000_conversation_reopened_at": "c2244069e26311ef626c3fbc99ecfda0f7c116e6c807da8214c1ae80e945e473"
+  "20261116060000_conversation_reopened_at": "c2244069e26311ef626c3fbc99ecfda0f7c116e6c807da8214c1ae80e945e473",
+  "20261116070000_shipment_pickup_failed_exception": "e16d4e0d9f5812ab4cd72a3856aec81d4927185e7aec6fc21e07d9282f982fa2",
+  "20261116070100_shipment_pickup_failed_validate": "4be2b37851f5c3b6fed952f45fcec4c894f4dc7c835f6a4aa95a60217b048e75"
 }

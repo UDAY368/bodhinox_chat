@@ -80,6 +80,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 8 per-contact hold ca
     await db.query('INSERT INTO conversations(id,account_id,user_id,contact_id) VALUES($1,$2,$3,$4)', [conversation, account, owner, whatsapp]);
     await db.query(`INSERT INTO commerce_settings(account_id,currency,prices_include_tax,default_tax_rate_bps,checkout_enabled,reservation_minutes)
       VALUES($1,'INR',true,1800,true,15)`, [account]);
+    // Online checkout needs a Razorpay connection (a link can be made); the link job never runs here.
+    await db.query(`INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,'razorpay','test','rzp_test_SHOP','enc')`, [account]);
     await db.query(`INSERT INTO shipping_rates(account_id,name,country,fee_minor) VALUES($1,'India','IN',5000)`, [account]);
     await db.query(`INSERT INTO shop_products(id,account_id,name,status,content_reviewed_at) VALUES($1,$2,'Triphala','published',now())`, [product, account]);
     await db.query(`INSERT INTO shop_variants(id,account_id,product_id,sku,price_minor) VALUES($1,$2,$3,'TRI-100',20000)`, [variant, account, product]);
