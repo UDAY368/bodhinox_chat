@@ -204,9 +204,13 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
             await finalizeBroadcastStatus(db, broadcastId);
             return;
           }
+          // This request's retry generation is already applied: the follow-up pass must not
+          // apply it again after a newer "Retry failed" request has run in the meantime.
+          const { retryId: _applied, ...followUp } = job.payload;
+          void _applied;
           await enqueueJob(
             'broadcast.dispatch',
-            { ...job.payload, scope, throttles: next },
+            { ...followUp, scope, throttles: next },
             {
               tenantId: accountId,
               runAt: new Date(Date.now() + throttleDelayMs(next)),
