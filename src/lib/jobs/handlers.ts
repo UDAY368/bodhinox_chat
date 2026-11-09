@@ -115,6 +115,12 @@ export async function scheduleWork() {
   // Workspace exports: expire ready files after 7 days and fail stuck exports.
   await import('@/lib/jobs/workspace-export').then((m) => m.scheduleWorkspaceExportSweeps())
     .catch(() => console.error('[worker] workspace export sweep scheduling failed'));
+  // Hourly retention: done/failed jobs, processed webhook receipts and old realtime events.
+  await import('@/lib/jobs/data-retention').then((m) => m.scheduleDataRetention())
+    .catch(() => console.error('[worker] data retention scheduling failed'));
+  // Closed workspaces past their grace period: a dry run unless WORKSPACE_PURGE_ENABLED=true.
+  await import('@/lib/privacy/workspace-purge').then((m) => m.scheduleWorkspacePurges())
+    .catch(() => console.error('[worker] workspace purge scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -138,6 +144,13 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   if (job.type === 'instagram.webhook')
     // One verified Instagram webhook delivery; each entry is resolved to its workspace by entry[].id.
     return (await import('@/lib/instagram/jobs')).handleInstagramWebhookJob(job.payload, assertLease);
+  if (job.type === 'data.retention_sweep') {
+    await (await import('@/lib/jobs/data-retention')).runDataRetentionSweep();
+    return;
+  }
+  if (job.type === 'workspace.purge_storage')
+    // Stored files of an already purged workspace (its row, and so its tenant, is gone).
+    return (await import('@/lib/privacy/workspace-purge')).runWorkspacePurgeStorage(job.payload);
   const accountId = uuid(job.tenant_id);
   return withJobScope({ accountId, role: 'owner' }, async () => {
     const db = createAdminClient({ accountId, role: 'owner' });
@@ -437,6 +450,12 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'workspace.export' || job.type === 'workspace.export_sweep')
       // One streamed workspace export into private storage, or the 7-day expiry sweep.
       await (await import('@/lib/jobs/workspace-export')).handleWorkspaceExportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'workspace.purge')
+      // Re-checked under row locks; deletes nothing unless WORKSPACE_PURGE_ENABLED=true.
+      await (await import('@/lib/privacy/workspace-purge')).runWorkspacePurge(accountId);
+    else if (job.type === 'contact.erase')
+      // Per-contact erasure requested by an admin; every step is idempotent.
+      await (await import('@/lib/privacy/contact-erasure')).runContactErasure(accountId, job.payload, job.id);
     else if (job.type.startsWith('instagram.'))
       // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
       await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

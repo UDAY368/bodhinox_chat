@@ -25,7 +25,7 @@ export interface PlatformTenantRow {
   subscriptionStatus: string | null;
   lifecycleStatus: LifecycleStatus;
   blockManual: boolean;
-  /** Set while closing; past it the workspace is listed as "purge due" (no purge job exists). */
+  /** Set while closing; past it the workspace is listed as "purge due" (purged when WORKSPACE_PURGE_ENABLED=true). */
   purgeAfter: string | null;
   memberCount: number;
   /** Stored usage_counters for the current IST month (metric -> value). */

@@ -445,6 +445,18 @@ export default function ContactsPage() {
     setDeleteTarget(null);
   }
 
+  // Admins: full erasure (contact, media it sent, campaign and form data, raw webhook copies), queued server-side.
+  async function handleErase() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const res = await authFetch(`/api/contacts/${deleteTarget.id}/erase`, { method: 'POST' }).catch(() => null);
+    if (res?.ok) toast.success(t('toastEraseQueued'));
+    else toast.error(t('toastEraseFailed'));
+    setDeleting(false);
+    setDeleteConfirmOpen(false);
+    setDeleteTarget(null);
+  }
+
   const allOnPageSelected =
     contacts.length > 0 && contacts.every((c) => selected.has(c.id));
   const someOnPageSelected = contacts.some((c) => selected.has(c.id));
@@ -1119,6 +1131,7 @@ export default function ContactsPage() {
             <DialogDescription className="text-muted-foreground">
               {t('deleteContactDesc', { name: deleteTarget?.name || deleteTarget?.phone || '' })}
             </DialogDescription>
+            {canEditSettings && <p className="text-xs text-muted-foreground">{t('eraseHint')}</p>}
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">
             <Button
@@ -1128,6 +1141,11 @@ export default function ContactsPage() {
             >
               {t('cancel')}
             </Button>
+            {canEditSettings && (
+              <Button variant="outline" onClick={handleErase} disabled={deleting} className="border-destructive text-destructive">
+                {t('eraseBtn')}
+              </Button>
+            )}
             <Button
               variant="destructive"
               onClick={handleDelete}

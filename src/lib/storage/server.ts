@@ -3,6 +3,8 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { withTenant } from '@/lib/db/tenant';
@@ -17,13 +19,13 @@ import { mediaObjectUrl } from './client';
 import { releaseStorage, reserveStorage } from '@/lib/billing/limits';
 
 let client: S3Client | undefined;
+const S3_SETTINGS = ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
+/** Whether private object storage is configured at all (without it nothing was ever stored). */
+export function storageConfigured(env: Record<string, string | undefined> = process.env): boolean {
+  return S3_SETTINGS.every((name) => !!env[name]);
+}
 function s3() {
-  for (const name of [
-    'S3_ENDPOINT',
-    'S3_BUCKET',
-    'S3_ACCESS_KEY_ID',
-    'S3_SECRET_ACCESS_KEY',
-  ])
+  for (const name of S3_SETTINGS)
     if (!process.env[name])
       throw new Error(`Missing required configuration: ${name}`);
   client ??= new S3Client({
@@ -235,4 +237,29 @@ export function createServerStorageFacade(
       };
     },
   };
+}
+
+const ACCOUNT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+/**
+ * Deletes every stored object of one workspace: media, avatars, exports and reports all
+ * live under "<account id>/" (storageKey, exportObjectKey, reportObjectKey). At most
+ * `maxPages` listings of 1000 keys per call; `done` is true once the prefix is empty.
+ * Used only by the closed-workspace purge, after the workspace's rows are gone.
+ */
+export async function deleteWorkspaceObjects(accountId: string, maxPages = 20): Promise<{ deleted: number; done: boolean }> {
+  if (!ACCOUNT_ID.test(accountId)) throw new Error('Invalid workspace identity');
+  const prefix = `${accountId}/`;
+  let deleted = 0;
+  for (let page = 0; page < maxPages; page++) {
+    // Always re-list from the start: the previous page's keys are gone.
+    const listed = await s3().send(new ListObjectsV2Command({ Bucket: process.env.S3_BUCKET, Prefix: prefix, MaxKeys: 1000 }));
+    const keys = (listed.Contents ?? []).map((o) => o.Key).filter((k): k is string => !!k && k.startsWith(prefix));
+    if (!keys.length) return { deleted, done: true };
+    const result = await s3().send(new DeleteObjectsCommand({
+      Bucket: process.env.S3_BUCKET, Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+    }));
+    if (result.Errors?.length) throw new Error('Workspace storage delete failed');
+    deleted += keys.length;
+  }
+  return { deleted, done: false };
 }
