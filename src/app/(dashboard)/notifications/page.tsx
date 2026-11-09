@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Smartphone,
   UserPlus,
+  Webhook,
   Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -45,6 +46,7 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   appointment_cancelled: CalendarX,
   appointment_rescheduled: CalendarClock,
   automation_notice: Zap,
+  webhook_disabled: Webhook,
 };
 
 export default function NotificationsPage() {

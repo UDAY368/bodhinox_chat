@@ -3503,6 +3503,14 @@
       "lastDelivery": "Última entrega {date}",
       "noDelivery": "Nenhuma entrega ainda",
       "failures": "{count} falhas seguidas",
+      "disabledNotice": "Desativado em {date}: as entregas falharam por {hours} horas. Corrija o servidor de destino e ative-o novamente.",
+      "viewLog": "Registro de entregas",
+      "logDesc": "As tentativas de entrega mais recentes para esta URL (até 100, dos últimos 30 dias).",
+      "logEmpty": "Ainda não há tentativas de entrega.",
+      "logLoadFailed": "Não foi possível carregar o registro de entregas.",
+      "logDelivered": "Entregue",
+      "logFailed": "Falhou",
+      "logAttempt": "tentativa {attempt}",
       "pause": "Pausar webhook",
       "resume": "Retomar webhook",
       "delete": "Excluir webhook",
@@ -3523,7 +3531,11 @@
       "copy": "Copiar",
       "copySuccess": "Segredo copiado",
       "copyFailed": "Não foi possível copiar",
-      "done": "Concluído"
+      "done": "Concluído",
+      "notifications": {
+        "disabledTitle": "O webhook para {host} foi desativado",
+        "disabledBody": "As entregas para {host} falharam por {hours} horas, então o Bodhinox parou de enviar eventos para lá. Corrija o destino e ative o webhook novamente em Configurações."
+      }
     },
     "workspaceAttributes": {
       "title": "Atributos do espaço de trabalho",
@@ -4547,6 +4559,21 @@
     "successDesc": "Você está conectado com a nova senha.",
     "continueToDashboard": "Ir para o painel"
   },
+  "VerifyEmailPage": {
+    "title": "Confirme seu e-mail",
+    "desc": "Digite a senha que você escolheu ao se cadastrar para concluir a verificação deste e-mail.",
+    "passwordLabel": "Senha",
+    "submit": "Verificar e-mail",
+    "saving": "Verificando...",
+    "checking": "Verificando seu link...",
+    "expiredTitle": "Este link não é mais válido",
+    "expiredDesc": "Os links de verificação funcionam uma vez e expiram depois de um tempo. Cadastre-se novamente com o mesmo e-mail para receber um novo link.",
+    "backToSignIn": "Voltar para o login",
+    "mismatch": "Essa não é a senha que você escolheu no cadastro.",
+    "rateLimited": "Muitas tentativas. Tente novamente mais tarde.",
+    "failed": "Não foi possível verificar seu e-mail. Tente novamente.",
+    "forgotHint": "Esqueceu? Cadastre-se novamente com este e-mail e use a nova senha com o link que receber."
+  },
   "JoinPage": {
     "fail": {
       "notFoundTitle": "Convite não encontrado",
@@ -4608,7 +4635,8 @@
       "low_stock": "Estoque baixo",
       "payment_exception": "Pagamento para revisar",
       "instagram_account_health": "Conta do Instagram",
-      "automation_notice": "Aviso de automação"
+      "automation_notice": "Aviso de automação",
+      "webhook_disabled": "Webhook desativado"
     }
   },
   "Agents": {
@@ -5448,6 +5476,16 @@
       "webhookRefused": "send_webhook: não foi possível enviar a solicitação para este destino",
       "notifyInvalid": "notify_team precisa de destinatários e de texto"
     }
+  },
+  "ErrorPages": {
+    "errorTitle": "Algo deu errado",
+    "errorDesc": "Esta página encontrou um erro inesperado. Tente novamente; se continuar acontecendo, recarregue a página.",
+    "tryAgain": "Tentar novamente",
+    "reload": "Recarregar página",
+    "goHome": "Ir para o painel",
+    "reference": "Referência: {digest}",
+    "notFoundTitle": "Página não encontrada",
+    "notFoundDesc": "O link pode estar digitado errado ou desatualizado."
   },
   "Validation": {
     "flows": {
@@ -8587,6 +8625,10 @@
     "automation_notice": {
       "label": "Avisos de automações",
       "description": "A etapa Avisar a equipe de uma automação avisa você sobre uma conversa."
+    },
+    "webhook_disabled": {
+      "label": "Webhooks desativados",
+      "description": "As entregas para um webhook falharam durante um dia, então ele foi desativado."
     }
   },
   "Weekdays": {

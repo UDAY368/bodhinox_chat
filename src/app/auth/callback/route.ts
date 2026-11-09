@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import {
   confirmEmailChange,
   isRecoveryTokenValid,
-  verifyEmailToken,
+  isVerifyTokenValid,
 } from '@/lib/auth/service';
-import { clearSessionCookies, setRecoveryCookie } from '@/lib/auth/cookies';
+import {
+  clearSessionCookies,
+  setRecoveryCookie,
+  setVerifyCookie,
+} from '@/lib/auth/cookies';
 import { safeNextPath } from '@/lib/auth/callback';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,10 +33,13 @@ export async function GET(request: Request) {
       setRecoveryCookie(response, token);
       return response;
     }
-    if (purpose === 'verify') {
-      await verifyEmailToken(token);
+    // Verification needs the signup password too (account pre-hijack): keep the token in an
+    // HttpOnly cookie and let /verify-email ask for it. Opening the link changes nothing.
+    if (purpose === 'verify' && (await isVerifyTokenValid(token))) {
       const next = safeNextPath(params.get('next'));
-      return redirect(`/login?verified=1&next=${encodeURIComponent(next)}`);
+      const response = redirect(`/verify-email?next=${encodeURIComponent(next)}`);
+      setVerifyCookie(response, token);
+      return response;
     }
     if (purpose === 'change_email') {
       await confirmEmailChange(token);

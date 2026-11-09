@@ -133,6 +133,24 @@ export const rpcContracts: Record<string, RpcContract> = {
     minRole: 'admin',
     args: { endpoint_id: argument('uuid'), max_failures: argument('integer') },
   },
+  // Worker only (EXECUTE is granted to bodhinox_worker alone): logs one outbound webhook attempt
+  // and disables the endpoint only after sustained failure (20261116090000_webhook_delivery_log).
+  record_webhook_attempt: {
+    slug: 'webhook-attempt',
+    scalar: true,
+    minRole: 'admin',
+    args: {
+      p_endpoint_id: argument('uuid'),
+      p_event: argument('text'),
+      p_delivery_id: argument('text', null),
+      p_attempt: argument('integer'),
+      p_delivered: argument('boolean'),
+      p_http_status: argument('integer', 0),
+      p_error: argument('text', null),
+      p_min_failures: argument('integer'),
+      p_disable_after_minutes: argument('integer'),
+    },
+  },
   recompute_broadcast_counts: {
     slug: 'broadcast-counts',
     returnsVoid: true,

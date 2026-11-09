@@ -13,6 +13,8 @@ export const cookieNames = () => ({
     process.env.NODE_ENV === 'production'
       ? '__Host-bnx_recovery'
       : 'bnx_recovery',
+  verify:
+    process.env.NODE_ENV === 'production' ? '__Host-bnx_verify' : 'bnx_verify',
 });
 export function readCookie(request: Request, name: string): string | undefined {
   const value = request.headers
@@ -71,6 +73,16 @@ export function setRecoveryCookie(response: NextResponse, token: string): void {
     ...options(),
     maxAge: 3600,
   });
+}
+/** The emailed verify link's token, kept out of the URL while /verify-email asks for the password. */
+export function setVerifyCookie(response: NextResponse, token: string): void {
+  response.cookies.set(cookieNames().verify, token, {
+    ...options(),
+    maxAge: 3600,
+  });
+}
+export function clearVerifyCookie(response: NextResponse): void {
+  response.cookies.set(cookieNames().verify, '', { ...options(), maxAge: 0 });
 }
 export function clearSessionCookies(response: NextResponse): void {
   for (const name of Object.values(cookieNames()))

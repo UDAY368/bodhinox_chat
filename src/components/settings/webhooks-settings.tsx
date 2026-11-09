@@ -8,11 +8,13 @@ import { authFetch } from "@/lib/auth/client";
 // them. Any member sees the roster; admin+ can add, pause and delete
 // (RequireRole here, admin-only routes + RLS on the server). The
 // signing secret is revealed once at creation, like an API key.
+// An endpoint switched off after a day of failed deliveries says so,
+// and admins can open its delivery log (the last 100 attempts).
 // ============================================================
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Loader2, Plus, Trash2, Webhook } from 'lucide-react';
+import { AlertTriangle, Copy, History, Loader2, Plus, Trash2, Webhook } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,6 +39,10 @@ import {
   type WebhookEvent,
 } from '@/lib/webhooks/events';
 import type { ApiWebhookEndpoint } from '@/lib/webhooks/endpoints';
+import type { WebhookDelivery } from '@/lib/webhooks/manage';
+
+/** Hours of failure before delivery switches an endpoint off (DISABLE_AFTER_FAILING_MINUTES / 60). */
+const DISABLE_AFTER_HOURS = 24;
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
 
@@ -56,6 +62,7 @@ export function WebhooksSettings() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [logFor, setLogFor] = useState<ApiWebhookEndpoint | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -109,7 +116,9 @@ export function WebhooksSettings() {
       setWebhooks((prev) =>
         prev.map((w) =>
           w.id === hook.id
-            ? { ...w, is_active: isActive, failure_count: isActive ? 0 : w.failure_count }
+            ? isActive
+              ? { ...w, is_active: true, failure_count: 0, disabled_at: null, disabled_reason: null }
+              : { ...w, is_active: false }
             : w
         )
       );
@@ -188,10 +197,19 @@ export function WebhooksSettings() {
                         : t('noDelivery')}
                       {w.failure_count > 0 ? ` · ${t('failures', { count: w.failure_count })}` : ''}
                     </p>
+                    {!w.is_active && w.disabled_at && (
+                      <p role="status" className="mt-1.5 flex items-start gap-1.5 text-xs text-amber-500">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                        {t('disabledNotice', { date: fmtDate(w.disabled_at), hours: DISABLE_AFTER_HOURS })}
+                      </p>
+                    )}
                   </div>
 
                   <RequireRole min="admin">
                     <div className="flex items-center gap-3 self-start sm:self-auto">
+                      <Button variant="outline" size="sm" onClick={() => setLogFor(w)} aria-label={t('viewLog')}>
+                        <History className="size-4" />
+                      </Button>
                       <Switch
                         checked={w.is_active}
                         disabled={busy === w.id}
@@ -218,7 +236,83 @@ export function WebhooksSettings() {
       )}
 
       <CreateWebhookDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} />
+      {logFor && <DeliveryLogDialog key={logFor.id} hook={logFor} onClose={() => setLogFor(null)} />}
     </section>
+  );
+}
+
+// ------------------------------------------------------------
+// Delivery log — the endpoint's latest attempts (admins and owners).
+// ------------------------------------------------------------
+
+// Mounted per endpoint (keyed), so each opening starts from a fresh loading state.
+function DeliveryLogDialog({ hook, onClose }: { hook: ApiWebhookEndpoint; onClose: () => void }) {
+  const t = useTranslations('Settings.webhooks');
+  const [rows, setRows] = useState<WebhookDelivery[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const id = hook.id;
+
+  useEffect(() => {
+    let cancelled = false;
+    authFetch(`/api/account/webhooks/${id}/deliveries`, { cache: 'no-store' })
+      .then(async (res) => {
+        const payload = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) setFailed(true);
+        else setRows((payload as { deliveries: WebhookDelivery[] }).deliveries);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  return (
+    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <DialogContent className="border-border bg-popover sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-popover-foreground">{t('viewLog')}</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            <span className="block truncate font-mono text-xs">{hook.url}</span>
+            {t('logDesc')}
+          </DialogDescription>
+        </DialogHeader>
+        {failed ? (
+          <p className="text-sm text-red-400">{t('logLoadFailed')}</p>
+        ) : rows === null ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="text-primary size-5 animate-spin" />
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="text-muted-foreground text-sm">{t('logEmpty')}</p>
+        ) : (
+          <ul className="divide-border max-h-80 divide-y overflow-y-auto text-xs">
+            {rows.map((row) => (
+              <li key={row.id} className="flex items-center gap-2 py-2">
+                <Badge
+                  className={
+                    row.outcome === 'delivered'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
+                      : 'border-red-500/30 bg-red-500/10 text-red-400'
+                  }
+                >
+                  {row.outcome === 'delivered' ? t('logDelivered') : t('logFailed')}
+                </Badge>
+                <span className="text-foreground font-mono">{row.event}</span>
+                <span className="text-muted-foreground">
+                  {t('logAttempt', { attempt: row.attempt })}
+                  {row.http_status ? ` · HTTP ${row.http_status}` : ''}
+                  {row.error && row.error !== 'http_status' ? ` · ${row.error}` : ''}
+                </span>
+                <span className="text-muted-foreground ml-auto shrink-0">{new Date(row.created_at).toLocaleString()}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

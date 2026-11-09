@@ -33,6 +33,10 @@ async function verify(page: Page, user: SeededUser) {
   const mail = await mailTo(user.email);
   const link = linkIn(mail, `${new URL(page.url()).origin}/auth/callback?`);
   await page.goto(link);
+  // The link alone does not verify (account pre-hijack): the sign-up password confirms it.
+  await expect(page).toHaveURL(/\/verify-email/);
+  await page.locator('#password').fill(user.password);
+  await page.locator('button[type="submit"]').click();
   await expect(page).toHaveURL(/\/login\?verified=1/);
   const id = await withDb(async (db) => (await db.query('SELECT id::text FROM auth_users WHERE email=$1 AND email_verified_at IS NOT NULL', [user.email])).rows[0]?.id as string);
   expect(id).toBeTruthy();
