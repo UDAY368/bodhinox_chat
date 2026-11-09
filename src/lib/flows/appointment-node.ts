@@ -107,6 +107,20 @@ export function bookAppointmentIssues(node: NodeLike, knownKeys: ReadonlySet<str
   return issues;
 }
 
+/**
+ * Paid services cannot be booked from a flow (booking.ts refuses source
+ * 'flow'; payment is collected only on the booking page), so a step that
+ * picks one cannot go live. Checked when the server knows the account's paid
+ * services (publish); the builder already disables them (audit finding 21).
+ */
+export function bookAppointmentPaidIssues(node: NodeLike, paidServices?: ReadonlySet<string>): ValidationIssue[] {
+  if (!paidServices?.size) return [];
+  const paid = appointmentServiceIds(node.config).filter((id) => paidServices.has(id.toLowerCase()));
+  return paid.length
+    ? [{ severity: "error", scope: "node", node_key: node.node_key, field: "service_ids", message: t("appointmentPaidService", { count: paid.length }) }]
+    : [];
+}
+
 /** Outgoing node keys of a book_appointment step (the timeout port is added by the caller). */
 export function bookAppointmentEdges(config: Record<string, unknown>): string[] {
   return BOOK_APPOINTMENT_PORT_FIELDS.map((field) => config[field]).filter((key): key is string => typeof key === "string" && key.length > 0);

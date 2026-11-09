@@ -136,5 +136,7 @@
   "20261116010000_worker_schedule_state": "bc62395b55e6159fd22742b5aad27fec6e8ca1c435a1d387432f7c330f77dffc",
   "20261116010100_platform_job_requeue_policy": "2b5ba4677e209068acf97a3a3473ab14ee08eac5a4b4ccdc1f459d4eceee4e2b",
   "20261116010200_platform_job_requeue": "bb438db4e25779350dbe8e6f9cee575d41c2aef3d571adbc7d297d82baf04c6b",
-  "20261116020000_broadcast_retry_reconcile": "ba053ce7d932cea9efd077f63369375da5da68a20575b926b4d6e32b30286c9b"
+  "20261116020000_broadcast_retry_reconcile": "ba053ce7d932cea9efd077f63369375da5da68a20575b926b4d6e32b30286c9b",
+  "20261116030000_automation_waits_consent_expiry": "e1e11c64ef00dca98b15079e060b11a87a0f073513eed259139bee839db10ecc",
+  "20261116030001_automation_pending_contact_open_idx": "26a4a6ff6518b7a9c75f31895c6f044988646d75e1e435afbaee4ac11d7405c9"
 }

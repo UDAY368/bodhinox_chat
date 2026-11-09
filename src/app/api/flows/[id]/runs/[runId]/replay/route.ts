@@ -19,6 +19,7 @@ const REFUSAL_KEY: Record<ReplayRefusal, string> = {
   needs_reconciliation: 'flows.replay.needsReconciliation',
   already_sent: 'flows.replay.alreadySent',
   conversation_busy: 'flows.replay.conversationBusy',
+  contact_opted_out: 'flows.replay.contactOptedOut',
 };
 
 const refused = (reason: ReplayRefusal) =>

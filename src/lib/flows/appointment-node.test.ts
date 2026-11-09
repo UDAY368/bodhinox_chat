@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BuilderNode } from "@/components/flows/shared";
 import {
-  appointmentDaysAhead, appointmentPortFor, appointmentReplyIds, appointmentServiceIds, bookAppointmentEdges, bookAppointmentIssues,
+  appointmentDaysAhead, appointmentPortFor, appointmentReplyIds, appointmentServiceIds, bookAppointmentEdges, bookAppointmentIssues, bookAppointmentPaidIssues,
   dayLabel, pagedRows, parseAppointmentReply, readAppointmentState, rowTitle, singleListRows, slotDays,
 } from "./appointment-node";
 import { applyEdgeConnection, deriveCanvasEdges, outgoingSlots, unlinkNodeReferences } from "./edges";
@@ -97,6 +97,22 @@ describe("book_appointment in the builder", () => {
       flowNodes.map((n) => ({ node_key: n.node_key, node_type: n.node_type, config: n.config })),
     );
     expect(issues).toEqual([]);
+  });
+
+  it("refuses to publish a step that picks a paid service, which a flow cannot charge for (audit #21)", () => {
+    const PAID = "55555555-5555-4555-8555-555555555555";
+    const withServices = (ids: string[]) => flowNodes.map((n) => ({ node_key: n.node_key, node_type: n.node_type,
+      config: n.node_key === "book" ? { ...n.config, service_ids: ids } : n.config }));
+    const flow = { name: "Booking", trigger_type: "keyword" as const, trigger_config: { keywords: ["book"] }, entry_node_id: "start" };
+    const paidServices = new Set([PAID]);
+    expect(validateFlowForActivation(flow, withServices([SVC]), { paidServices })).toEqual([]);
+    // Every service (none picked): the runtime offers only the free ones, so this stays publishable.
+    expect(validateFlowForActivation(flow, withServices([]), { paidServices })).toEqual([]);
+    const issues = validateFlowForActivation(flow, withServices([SVC, PAID.toUpperCase()]), { paidServices });
+    expect(issues).toEqual([expect.objectContaining({ severity: "error", node_key: "book", field: "service_ids" })]);
+    // The builder has no paid list and checks shape only.
+    expect(validateFlowForActivation(flow, withServices([PAID]))).toEqual([]);
+    expect(bookAppointmentPaidIssues(node({ service_ids: [PAID] }), new Set())).toEqual([]);
   });
 
   it("allows a reply timeout", () => {

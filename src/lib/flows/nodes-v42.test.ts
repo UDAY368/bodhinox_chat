@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   sendTemplate: vi.fn<(args: Record<string, unknown>) => Promise<{ whatsapp_message_id: string }>>(async () => ({ whatsapp_message_id: "wamid.tpl" })),
   fetch: vi.fn(),
   roundRobin: vi.fn(async () => "agent-rr"),
+  canOwn: vi.fn<(account: string, user: string) => Promise<boolean>>(async () => true),
 }));
 
 vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false }));
@@ -20,7 +21,7 @@ vi.mock("@/lib/jobs/dispatch", () => ({
 vi.mock("@/lib/jobs/queue", () => ({ enqueueJob: async () => "job" }));
 vi.mock("@/lib/webhooks/safe-fetch", () => ({ safeFetch: h.fetch }));
 vi.mock("@/lib/automations/meta-send", () => ({ engineSendTemplate: h.sendTemplate }));
-vi.mock("@/lib/automations/round-robin", () => ({ nextRoundRobinAgent: h.roundRobin }));
+vi.mock("@/lib/automations/round-robin", () => ({ nextRoundRobinAgent: h.roundRobin, canOwnConversations: h.canOwn }));
 vi.mock("./admin-client", async () => {
   const { createFakeDb } = await import("./fake-db.test-helper");
   return { databaseAdmin: () => createFakeDb(h.tables as FakeTables) };
@@ -65,6 +66,8 @@ beforeEach(() => {
   h.sendTemplate.mockClear();
   h.fetch.mockReset();
   h.roundRobin.mockClear();
+  h.canOwn.mockReset();
+  h.canOwn.mockResolvedValue(true);
 });
 
 describe("Send template", () => {
@@ -132,6 +135,38 @@ describe("Assign agent", () => {
     expect(h.tables.conversations[0].assigned_agent_id).toBe("agent-rr");
     expect(events("agent_assigned")[0].payload).toEqual({ agent_id: "agent-rr", mode: "round_robin", seq: "0" });
     expect(runOf("flow-1").status).toBe("completed");
+  });
+
+  it("skips a pinned member who was removed or made a viewer, leaving the chat to routing (audit #51)", async () => {
+    h.canOwn.mockResolvedValue(false);
+    setup([start("assign"), { node_key: "assign", node_type: "assign_agent", config: { mode: "specific", agent_id: "agent-gone", next_node_key: "after" } }, say("after", "Done"), done]);
+    await dispatch(hi);
+    expect(h.canOwn).toHaveBeenCalledWith("acct-1", "agent-gone");
+    expect(h.tables.conversations[0].assigned_agent_id).toBeNull();
+    expect(events("error")[0].payload).toMatchObject({ reason: "assign_agent_failed" });
+    expect(runOf("flow-1").status).toBe("completed");
+  });
+});
+
+describe("Handoff pinned to a member (audit #51)", () => {
+  const handoff = (assign_to: string): Node => ({ node_key: "human", node_type: "handoff", config: { assign_to, note: "VIP" } });
+
+  it("assigns an eligible member and pauses the bot", async () => {
+    setup([start("human"), handoff("agent-1")]);
+    await dispatch(hi);
+    expect(h.tables.conversations[0]).toMatchObject({ assigned_agent_id: "agent-1", status: "pending", bot_paused: true, ai_autoreply_disabled: true });
+    expect(events("handoff")[0].payload).toEqual({ note: "VIP", assigned_to: "agent-1" });
+    expect(runOf("flow-1")).toMatchObject({ status: "handed_off" });
+  });
+
+  it("still pauses the bot but leaves the chat unassigned for routing when the member is gone or a viewer", async () => {
+    h.canOwn.mockResolvedValue(false);
+    setup([start("human"), handoff("agent-gone")]);
+    await dispatch(hi);
+    expect(h.tables.conversations[0]).toMatchObject({ assigned_agent_id: null, status: "pending", bot_paused: true, ai_autoreply_disabled: true });
+    expect(events("error")[0].payload).toEqual({ reason: "handoff_assignee_unavailable" });
+    expect(events("handoff")[0].payload).toEqual({ note: "VIP", assigned_to: null });
+    expect(runOf("flow-1")).toMatchObject({ status: "handed_off" });
   });
 });
 

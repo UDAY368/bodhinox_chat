@@ -31,7 +31,7 @@ import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
 import { commerceNodeIssues, isCommerceNodeType } from "./commerce-nodes";
 import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
 import { PAYMENT_LINK_VARS, paymentLinkEdges, paymentLinkIssues } from "./payment-node";
-import { BOOK_APPOINTMENT_VARS, bookAppointmentEdges, bookAppointmentIssues } from "./appointment-node";
+import { BOOK_APPOINTMENT_VARS, bookAppointmentEdges, bookAppointmentIssues, bookAppointmentPaidIssues } from "./appointment-node";
 import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai-reply-node";
 import { conversionEdges, conversionIssues } from "./conversion-node";
 import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
@@ -91,6 +91,11 @@ export interface FlowValidationContext {
    * workspace's AI is not set up, since every run would take its handoff port.
    */
   aiConfigured?: boolean;
+  /**
+   * When given (the server, at publish), the ids of the account's paid
+   * appointment services: a book_appointment step that picks one is an error.
+   */
+  paidServices?: ReadonlySet<string>;
   /**
    * When given (the server, at publish and in a dry run), a node that needs a
    * provider the workspace has not configured is an error (AUT-05 capability
@@ -189,6 +194,7 @@ export function validateFlowForActivation(
     issues.push(...validateNode(n, keys), ...timingIssues(n, keys, runTimeoutHours));
     if (n.node_type === "send_form") issues.push(...sendFormIssues(n, keys, context.forms));
     if (n.node_type === "ai_reply") issues.push(...aiReplyIssues(n, keys, context.aiConfigured));
+    if (n.node_type === "book_appointment") issues.push(...bookAppointmentPaidIssues(n, context.paidServices));
   }
   issues.push(...channelScopeIssues(flow.channel_scope, flow.trigger_type, nodes));
 

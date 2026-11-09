@@ -59,6 +59,27 @@ export async function appointmentServices(accountId: string, config: Record<stri
   });
 }
 
+/**
+ * Whether the step offers nothing only because every service it would offer
+ * is paid (flow bookings cannot take payment): logged as appointment_paid_only
+ * rather than appointment_no_slots, so staff look at payment, not calendars.
+ */
+export async function appointmentPaidOnly(accountId: string, config: Record<string, unknown>): Promise<boolean> {
+  return inTenant(accountId, async (tx) => {
+    const ids = appointmentServiceIds(config);
+    const mode = config.service_mode === "online" || config.service_mode === "offline" ? config.service_mode : null;
+    const location = typeof config.location_id === "string" && config.location_id ? config.location_id : null;
+    const [row] = await tx.$queryRawUnsafe<{ paid: boolean | null; free: boolean | null }[]>(
+      `SELECT bool_or(s.payment_required) AS paid, bool_or(NOT s.payment_required) AS free FROM appointment_services s
+       WHERE s.account_id=$1::uuid AND s.archived_at IS NULL
+         AND (cardinality($2::uuid[]) = 0 OR s.id = ANY($2::uuid[]))
+         AND ($3::text IS NULL OR s.mode = $3::text)
+         AND EXISTS (SELECT 1 ${LIVE_OFFERING} AND o.service_id=s.id AND ($4::uuid IS NULL OR o.location_id=$4::uuid))`,
+      accountId, ids, mode, location);
+    return row?.paid === true && row.free !== true;
+  });
+}
+
 /** The configured location when it offers the service, else the first live one (by name), else null. */
 export async function appointmentLocation(accountId: string, serviceId: string, configured?: string | null): Promise<string | null> {
   return inTenant(accountId, async (tx) => {

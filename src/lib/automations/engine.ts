@@ -22,7 +22,7 @@ import type {
   AssignConversationStepConfig,
 } from '@/types'
 import { databaseAdmin } from './admin-client'
-import { nextRoundRobinAgent } from './round-robin'
+import { canOwnConversations, nextRoundRobinAgent } from './round-robin'
 import { marketingSuppression } from '@/lib/contacts/consent'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
 import { writeContactField } from '@/lib/contacts/field-write'
@@ -211,6 +211,24 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
 }
 
 /**
+ * Why a parked run must not go on for this contact: a blocked contact gets no
+ * automated messages, and STOP ends parked runs as it ends flow runs
+ * (lib/contacts/consent). The contacts trigger expires such rows when the flag
+ * is set; this re-check covers a row already claimed or set before it.
+ */
+async function contactStopsResume(db: ReturnType<typeof databaseAdmin>, accountId: string,
+  contactId: string | null): Promise<string | null> {
+  if (!contactId) return null
+  const { data, error } = await db.from('contacts').select('blocked_at,opted_out_at')
+    .eq('account_id', accountId).eq('id', contactId).maybeSingle()
+  if (error) throw new Error('Contact consent lookup failed')
+  const contact = data as { blocked_at?: string | null; opted_out_at?: string | null } | null
+  if (contact?.blocked_at) return tErr('contactBlockedWhileWaiting')
+  if (contact?.opted_out_at) return tErr('contactOptedOutWhileWaiting')
+  return null
+}
+
+/**
  * Resume a run that was parked at a wait step. Called from the cron
  * endpoint after it grabs a due `automation_pending_executions` row.
  */
@@ -248,6 +266,13 @@ export async function resumePendingExecution(pending: {
   if (!automation.is_active) {
     await markPending(pending.id, 'expired')
     await setLogError(pending.log_id, tErr('pausedWhileWaiting'))
+    return
+  }
+  // A lookup error throws: the automation.resume job retries the still-running row.
+  const stopped = await contactStopsResume(db, pending.account_id, pending.contact_id)
+  if (stopped) {
+    await markPending(pending.id, 'expired')
+    await setLogError(pending.log_id, stopped)
     return
   }
 
@@ -375,6 +400,12 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
       // message go through the normal triggers instead.
       await markPending(pending.id, 'expired')
       await setLogError(pending.log_id, tErr('pausedWhileWaitingForReply'))
+      return false
+    }
+    const stopped = await contactStopsResume(db, input.accountId, pending.contact_id)
+    if (stopped) {
+      await markPending(pending.id, 'expired')
+      await setLogError(pending.log_id, stopped)
       return false
     }
 
@@ -951,9 +982,14 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         agentId = (await nextRoundRobinAgent(args.automation.account_id)) ?? undefined
       }
       if (!agentId) return 'no agent resolved'
-      await inConversationScope(db
+      // A pinned member removed or demoted to viewer is skipped; routing assigns instead (audit #51).
+      if (cfg.mode !== 'round_robin' && !(await canOwnConversations(args.automation.account_id, agentId))) {
+        return `agent ${agentId} can no longer own conversations; left to routing`
+      }
+      const { error } = await inConversationScope(db
         .from('conversations')
         .update({ assigned_agent_id: agentId }), args)
+      if (error) throw new Error(tErr('assignFailed'))
       return `assigned to ${agentId}`
     }
 

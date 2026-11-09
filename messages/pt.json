@@ -2445,6 +2445,7 @@
         "cancelRow": "Cancelar",
         "noServices": "Ainda não há serviços. Adicione-os nas configurações de Agendamentos; até lá, a etapa não oferece nada e segue o caminho Indisponível.",
         "servicesAllHelp": "Escolha até {max}. Sem nenhum escolhido, todos os serviços agendáveis são oferecidos. O cliente escolhe quando há mais de um.",
+        "paidServiceNote": "Pago: agende na página de agendamento",
         "serviceMode": "Tipo de serviço",
         "modeBoth": "Online e presencial",
         "modeOnline": "Somente online",
@@ -2690,7 +2691,8 @@
         "not_replayable_reason": "Este tipo de falha não pode ser repetido com segurança.",
         "needs_reconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa; ela não será reenviada.",
         "already_sent": "A mensagem desta etapa já foi enviada.",
-        "conversation_busy": "Outro fluxo está em execução nesta conversa."
+        "conversation_busy": "Outro fluxo está em execução nesta conversa.",
+        "contact_opted_out": "O contato respondeu STOP depois que esta execução falhou, então ela não será repetida."
       }
     }
   },
@@ -5419,6 +5421,9 @@
       "tagAddedNoConversation": "a automação tag_added não pode enviar: o contato não tem uma conversa existente",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
+      "contactBlockedWhileWaiting": "O contato foi bloqueado enquanto esta execução aguardava, então nada mais foi enviado",
+      "contactOptedOutWhileWaiting": "O contato cancelou a inscrição (STOP) enquanto esta execução aguardava, então nada mais foi enviado",
+      "assignFailed": "assign_conversation: não foi possível atribuir a conversa",
       "scheduleWaitFailed": "Could not schedule the wait: {message}",
       "webhookInvalidBody": "send_webhook: o corpo preenchido não é um JSON válido",
       "webhookInvalidHeader": "send_webhook: um cabeçalho não é permitido ou tem uma quebra de linha",
@@ -5579,6 +5584,7 @@
       "appointmentLocation": "Escolha um local da lista.",
       "appointmentStaffMode": "Escolha como o profissional é definido.",
       "appointmentDays": "Os dias oferecidos devem ser um número inteiro de {min} a {max}.",
+      "appointmentPaidService": "{count, plural, one {Um serviço escolhido exige} other {# serviços escolhidos exigem}} pagamento, que um fluxo ainda não pode cobrar. {count, plural, one {Desmarque-o} other {Desmarque-os}}; os clientes agendam serviços pagos na sua página de agendamento.",
       "paymentInvalidLinkOrder": "“Cobrar o pedido” deve estar ativado ou desativado.",
       "storefrontNeedsMessage": "Escreva a mensagem enviada com o link.",
       "storefrontMessageTooLong": "A mensagem pode ter no máximo {max} caracteres.",
@@ -6177,7 +6183,8 @@
         "notReplayableReason": "Este tipo de falha não pode ser repetido com segurança.",
         "needsReconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa antes de fazer qualquer outra coisa; ela não será enviada de novo automaticamente.",
         "alreadySent": "A mensagem desta etapa já foi enviada; repetir enviaria duas vezes.",
-        "conversationBusy": "Outro fluxo está em execução nesta conversa. Tente novamente quando ele terminar."
+        "conversationBusy": "Outro fluxo está em execução nesta conversa. Tente novamente quando ele terminar.",
+        "contactOptedOut": "O contato cancelou a inscrição (enviou STOP) depois que esta execução falhou, então ela não pode ser repetida."
       }
     },
     "quickReplies": {

@@ -53,7 +53,8 @@ export type ReplayRefusal =
   | 'not_replayable_reason'
   | 'needs_reconciliation'
   | 'already_sent'
-  | 'conversation_busy';
+  | 'conversation_busy'
+  | 'contact_opted_out';
 
 export type Replayable = { ok: true } | { ok: false; reason: ReplayRefusal };
 
@@ -77,6 +78,8 @@ export function replayEligibility(input: {
   failedReason?: string | null;
   nodeIntents: ReadonlyArray<{ status: IntentStatus }>;
   conversationBusy: boolean;
+  /** The contact sent STOP (opted_out_at): STOP ends their flows, so a replay would send after it. */
+  contactOptedOut?: boolean;
   now?: Date;
 }): Replayable {
   const { run } = input;
@@ -85,6 +88,7 @@ export function replayEligibility(input: {
   const ended = run.ended_at ? new Date(run.ended_at).getTime() : NaN;
   if (!Number.isFinite(ended) || now.getTime() - ended > REPLAY_WINDOW_MS) return { ok: false, reason: 'too_old' };
   if (!run.contact_id || !run.conversation_id) return { ok: false, reason: 'no_contact' };
+  if (input.contactOptedOut) return { ok: false, reason: 'contact_opted_out' };
   if (input.flowStatus === 'archived') return { ok: false, reason: 'flow_archived' };
   if (!run.flow_version_id) return { ok: false, reason: 'not_pinned' };
   if (!run.end_reason || !REPLAYABLE_END_REASONS.has(run.end_reason) || !input.failedNode) {
@@ -237,8 +241,11 @@ async function evaluate(tx: TenantTransaction, accountId: string, flowId: string
   const failedNode = failed?.node_key ?? null;
   const nodeIntents = failedNode ? await readNodeIntents(tx, accountId, run.id, failedNode, run.transition_seq) : [];
   const busy = await conversationBusy(tx, accountId, run);
+  const optedOut = run.contact_id ? await tx.$queryRaw<unknown[]>(Prisma.sql`SELECT 1 FROM contacts
+    WHERE account_id=${accountId}::uuid AND id=${run.contact_id}::uuid AND opted_out_at IS NOT NULL`) : [];
   return {
-    replayable: replayEligibility({ run, flowStatus: status, failedNode, failedReason: failed?.reason ?? null, nodeIntents, conversationBusy: busy, now }),
+    replayable: replayEligibility({ run, flowStatus: status, failedNode, failedReason: failed?.reason ?? null, nodeIntents,
+      conversationBusy: busy, contactOptedOut: optedOut.length > 0, now }),
     failedNode,
   };
 }

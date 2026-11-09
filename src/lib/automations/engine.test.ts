@@ -198,6 +198,9 @@ vi.mock("./admin-client", () => {
   };
 });
 
+const rr = vi.hoisted(() => ({ canOwn: vi.fn<(account: string, user: string) => Promise<boolean>>(async () => true), next: vi.fn(async () => "agent-rr") }));
+vi.mock("./round-robin", () => ({ canOwnConversations: rr.canOwn, nextRoundRobinAgent: rr.next }));
+
 vi.mock("./meta-send", () => ({
   engineSendText: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
@@ -357,6 +360,35 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     const filters = h.state.updateCalls[0].filters;
     expect(filters).toContainEqual(["eq", "id", "c1"]);
     expect(filters).toContainEqual(["eq", "account_id", ACCOUNT]);
+  });
+});
+
+describe("assign_conversation pinned to a member (audit #51)", () => {
+  const assignStep = (agent_id: string) => ({ ...updateStep(), step_type: "assign_conversation", step_config: { mode: "specific", agent_id } });
+  const run = () => runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: { conversation_id: "conv1" } });
+  const assigned = () => h.state.updateCalls.filter((u) => u.table === "conversations");
+
+  it("assigns a member who can still own conversations", async () => {
+    rr.canOwn.mockResolvedValueOnce(true);
+    h.state.owned = { id: "c1" };
+    h.state.conversations = [{ id: "conv1", account_id: ACCOUNT, contact_id: "c1" }];
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [assignStep("agent-1")];
+    await run();
+    expect(rr.canOwn).toHaveBeenCalledWith(ACCOUNT, "agent-1");
+    expect(assigned()).toHaveLength(1);
+    expect(assigned()[0].filters).toEqual(expect.arrayContaining([["eq", "account_id", ACCOUNT], ["eq", "id", "conv1"]]));
+  });
+
+  it("leaves the conversation to routing when the member was removed or made a viewer", async () => {
+    rr.canOwn.mockResolvedValueOnce(false);
+    h.state.owned = { id: "c1" };
+    h.state.conversations = [{ id: "conv1", account_id: ACCOUNT, contact_id: "c1" }];
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [assignStep("agent-gone")];
+    await run();
+    expect(assigned()).toHaveLength(0);
+    expect(JSON.stringify(h.state.logUpdates)).toContain("left to routing");
   });
 });
 
@@ -910,6 +942,21 @@ describe("wait_for_reply", () => {
     expect(sentTexts()).toEqual(["crm.stelltech.ai", "Thanks for contacting"]);
   });
 
+  it("expires a reply wait for a contact blocked or opted out since it parked, sending nothing (audit #49)", async () => {
+    for (const flag of ["blocked_at", "opted_out_at"]) {
+      h.state.pending = [];
+      vi.mocked(engineSendText).mockClear();
+      h.state.owned = { id: "c1" };
+      h.state.steps = userMenu();
+      await trigger("Hii");
+      h.state.owned = { id: "c1", [flag]: "2026-11-10T09:00:00Z" } as { id: string };
+      expect(await reply("Website", "web")).toBe(false);
+      expect(sentTexts()).toEqual([]);
+      expect(h.state.pending[0].status).toBe("expired");
+      expect(h.state.logUpdates.at(-1)).toMatchObject({ error_message: expect.stringMatching(flag === "blocked_at" ? /blocked/ : /opted out/) });
+    }
+  });
+
   it("releases a reply when the parked menu was removed", async () => {
     h.state.steps = userMenu();
     await trigger("Hii");
@@ -1107,6 +1154,21 @@ describe("edited delayed automation runs", () => {
     expect(h.state.updateCalls).toHaveLength(1);
     expect(h.state.pending).toHaveLength(1);
     expect(h.state.pending[0].status).toBe("done");
+  });
+  it("expires a delayed run whose contact was blocked or opted out during the wait, running no step (audit #49)", async () => {
+    for (const flag of ["blocked_at", "opted_out_at"]) {
+      h.state.pending = [{ ...parked() }];
+      h.state.updateCalls = [];
+      h.state.owned = { id: "c1", [flag]: "2026-11-10T09:00:00Z" } as { id: string };
+      h.state.steps = [
+        { ...updateStep(), id: "wait1", step_type: "wait", position: 0 },
+        { ...updateStep(), id: "after", position: 1 },
+      ];
+      await resumePendingExecution(parked());
+      expect(h.state.updateCalls).toHaveLength(0);
+      expect(h.state.pending[0].status).toBe("expired");
+      expect(h.state.logUpdates.at(-1)).toMatchObject({ error_message: expect.stringMatching(flag === "blocked_at" ? /blocked/ : /opted out/) });
+    }
   });
   it("expires instead of continuing when the parked step was deleted", async () => {
     h.state.steps = [{ ...updateStep(), position: 1 }];

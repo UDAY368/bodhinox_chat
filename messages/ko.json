@@ -2445,6 +2445,7 @@
         "cancelRow": "취소",
         "noServices": "아직 서비스가 없습니다. 예약 설정에서 추가하세요. 그전까지 이 단계는 아무것도 제공하지 않고 '예약 불가' 경로로 이동합니다.",
         "servicesAllHelp": "최대 {max}개까지 고르세요. 고르지 않으면 예약 가능한 모든 서비스를 제공합니다. 둘 이상이면 고객이 선택합니다.",
+        "paidServiceNote": "유료: 예약 페이지에서 예약",
         "serviceMode": "서비스 유형",
         "modeBoth": "온라인과 방문 모두",
         "modeOnline": "온라인만",
@@ -2690,7 +2691,8 @@
         "not_replayable_reason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
         "needs_reconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 대화를 확인하세요. 다시 보내지 않습니다.",
         "already_sent": "이 단계의 메시지는 이미 전송되었습니다.",
-        "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다."
+        "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다.",
+        "contact_opted_out": "이 실행이 실패한 후 연락처가 STOP으로 응답했으므로 다시 실행하지 않습니다."
       }
     }
   },
@@ -5419,6 +5421,9 @@
       "tagAddedNoConversation": "tag_added 자동화가 전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
+      "contactBlockedWhileWaiting": "이 실행이 대기하는 동안 연락처가 차단되어 더 이상 보내지 않았습니다",
+      "contactOptedOutWhileWaiting": "이 실행이 대기하는 동안 연락처가 수신을 거부(STOP)하여 더 이상 보내지 않았습니다",
+      "assignFailed": "assign_conversation: 대화를 배정할 수 없습니다",
       "scheduleWaitFailed": "Could not schedule the wait: {message}",
       "webhookInvalidBody": "send_webhook: 채워진 본문이 올바른 JSON이 아닙니다",
       "webhookInvalidHeader": "send_webhook: 허용되지 않는 헤더이거나 줄바꿈이 있습니다",
@@ -5579,6 +5584,7 @@
       "appointmentLocation": "목록에서 지점을 고르세요.",
       "appointmentStaffMode": "담당자를 정하는 방법을 고르세요.",
       "appointmentDays": "제공할 일수는 {min}에서 {max} 사이의 정수여야 합니다.",
+      "appointmentPaidService": "선택한 서비스 {count}개는 결제가 필요하지만 플로우에서는 아직 결제를 받을 수 없습니다. 선택을 해제하세요. 유료 서비스는 고객이 예약 페이지에서 예약합니다.",
       "paymentInvalidLinkOrder": "‘주문 결제 요청’은 켜거나 꺼야 합니다.",
       "storefrontNeedsMessage": "링크와 함께 보낼 메시지를 작성하세요.",
       "storefrontMessageTooLong": "메시지는 {max}자 이내로 작성하세요.",
@@ -6177,7 +6183,8 @@
         "notReplayableReason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
         "needsReconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 다른 작업을 하기 전에 대화를 확인하세요. 자동으로 다시 보내지 않습니다.",
         "alreadySent": "이 단계의 메시지는 이미 전송되었습니다. 다시 실행하면 두 번 전송됩니다.",
-        "conversationBusy": "이 대화에서 다른 플로우가 실행 중입니다. 끝난 후 다시 시도하세요."
+        "conversationBusy": "이 대화에서 다른 플로우가 실행 중입니다. 끝난 후 다시 시도하세요.",
+        "contactOptedOut": "이 실행이 실패한 후 연락처가 수신을 거부(STOP)했으므로 다시 실행할 수 없습니다."
       }
     },
     "quickReplies": {

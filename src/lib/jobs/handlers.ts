@@ -14,6 +14,8 @@ import {
 import {
   executeScheduledOccurrence,
   queueScheduledOccurrence,
+  recordSkippedOccurrence,
+  ScheduledAudienceError,
 } from './scheduled-audience';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
 import { handleFlowReplay, handleFlowTimer, staleSince } from '@/lib/flows/engine';
@@ -282,22 +284,30 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         .single();
       if (error) throw new Error('Could not load pending automation');
       if (!pending || !['pending', 'running'].includes(pending.status)) return;
+      // Gated on the status: a row the contacts consent trigger expired since the read stays expired.
       const update = await db
         .from('automation_pending_executions')
         .update({ status: 'running' })
-        .eq('id', id);
+        .eq('id', id)
+        .in('status', ['pending', 'running'])
+        .select('id');
       if (update.error) throw new Error('Could not claim pending automation');
+      if (!update.data?.length) return;
       await resumePendingExecution(pending);
     } else if (job.type === 'automation.schedule') {
       await expireAwaitingReplies();
       const { data: schedules, error: scheduleError } = await db
         .from('automations')
-        .select('id,trigger_config,created_at')
+        .select('id,user_id,name,trigger_config,created_at')
         .eq('trigger_type', 'time_based')
         .eq('is_active', true);
       if (scheduleError) throw new Error('Automation schedule lookup failed');
       // Every minute this pass covers: the payload's minute, plus any the scheduler caught up.
       const { from, to } = payloadRange(job.payload);
+      const current = to.toISOString();
+      // One automation's failure must not cost the others their occurrence,
+      // nor the wait-step resumes and flow sweep below.
+      let retryable: unknown = null;
       for (const automation of schedules ?? []) {
         const config = automation.trigger_config ?? {};
         if (typeof config.schedule !== 'string') continue;
@@ -305,21 +315,25 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         // minute is evaluated as before.
         const created = Date.parse(automation.created_at ?? '');
         const createdMinute = Number.isNaN(created) ? 0 : Math.floor(created / 60_000) * 60_000;
-        const current = to.toISOString();
         const slots = scheduledSlotsBetween(
           config.schedule,
           config.timezone || process.env.AUTOMATION_TIMEZONE || 'UTC',
           from,
           to
         ).filter((slot) => slot === current || Date.parse(slot) >= createdMinute);
-        for (const slot of slots)
-          await queueScheduledOccurrence(
-            db,
-            accountId,
-            automation,
-            slot,
-            assertLease
-          );
+        for (const slot of slots) {
+          try {
+            await queueScheduledOccurrence(db, accountId, automation, slot, assertLease);
+          } catch (error) {
+            if (error instanceof ScheduledAudienceError)
+              await recordSkippedOccurrence(db, accountId, automation, slot, error.message);
+            else {
+              // Transient: the job retries this range; queued triggers dedupe per contact and slot.
+              console.error('[automations] scheduled occurrence failed', { automationId: automation.id });
+              retryable ??= error;
+            }
+          }
+        }
       }
       const { data: due, error } = await db
         .from('automation_pending_executions')
@@ -335,6 +349,7 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           { tenantId: accountId, dedupeKey: `automation:${row.id}` }
         );
       await sweepFlows(db, accountId);
+      if (retryable) throw retryable;
     } else if (job.type === 'flow.sweep') await sweepFlows(db, accountId);
     else if (job.type === 'flow.timer') {
       const { nodeKey, seq, kind } = job.payload;

@@ -268,6 +268,14 @@ export interface PublishResult {
   reused: boolean;
 }
 
+/** The account's paid appointment services, read only when the graph has a booking step. */
+async function paidServicesFor(tx: TenantTransaction, accountId: string, nodes: ReadonlyArray<{ node_type: string }>): Promise<ReadonlySet<string> | undefined> {
+  if (!nodes.some((n) => n.node_type === 'book_appointment')) return undefined;
+  const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id::text AS id FROM appointment_services
+    WHERE account_id=${accountId}::uuid AND payment_required`);
+  return new Set(rows.map((r) => r.id.toLowerCase()));
+}
+
 /**
  * Publishes (or resumes) a flow inside the caller's tenant transaction, which
  * must carry the publisher's live session (app connection, role >= agent):
@@ -286,6 +294,7 @@ export async function publishFlow(tx: TenantTransaction, args: PublishArgs): Pro
     throw new FlowVersionError('draft_changed', 409, { draft_hash: draftHash });
   }
   const forms = nodes.some((n) => n.node_type === 'send_form') ? await loadFlowFormLookup(tx, accountId) : undefined;
+  const paidServices = await paidServicesFor(tx, accountId, nodes);
   const otherFlows = await otherFlowSnapshots(tx, accountId, flowId);
   const issues: ValidationIssue[] = validateFlowForActivation({
     id: flowId,
@@ -295,7 +304,7 @@ export async function publishFlow(tx: TenantTransaction, args: PublishArgs): Pro
     entry_node_id: flow.entry_node_id,
     fallback_policy: flow.fallback_policy ?? {},
     channel_scope: flow.channel_scope,
-  }, nodes, { forms, caps: args.caps, otherFlows });
+  }, nodes, { forms, caps: args.caps, otherFlows, paidServices });
   if (issues.some((i) => i.severity === 'error')) throw new FlowVersionError('invalid', 422, { issues });
 
   // Plan cap on live flows (testing drafts count, they run too); this flow does not count twice.
@@ -425,10 +434,11 @@ export async function moveToDraft(tx: TenantTransaction, args: { accountId: stri
   if (testing) {
     const nodes = await readDraftNodes(tx, args.accountId, args.flowId);
     const forms = nodes.some((n) => n.node_type === 'send_form') ? await loadFlowFormLookup(tx, args.accountId) : undefined;
+    const paidServices = await paidServicesFor(tx, args.accountId, nodes);
     const issues = validateFlowForActivation({
       id: args.flowId, name: flow.name, trigger_type: flow.trigger_type, trigger_config: flow.trigger_config ?? {},
       entry_node_id: flow.entry_node_id, fallback_policy: flow.fallback_policy ?? {}, channel_scope: flow.channel_scope,
-    }, nodes, { forms });
+    }, nodes, { forms, paidServices });
     if (issues.some((i) => i.severity === 'error')) throw new FlowVersionError('invalid', 422, { issues });
     const [{ n }] = await tx.$queryRaw<{ n: number }[]>(Prisma.sql`SELECT count(*)::int AS n FROM flows
       WHERE account_id=${args.accountId}::uuid AND id<>${args.flowId}::uuid

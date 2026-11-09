@@ -270,6 +270,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('flow versions on PostgreSQL
     expect((err as FlowVersionError).detail.issues).toContainEqual(expect.objectContaining({ code: 'capabilityUnavailable', capability: 'payments' }));
   });
 
+  it('refuses to publish a booking step that picks a paid service, and accepts a free one (audit #21)', async () => {
+    const paid = randomUUID(), free = randomUUID();
+    await q(`INSERT INTO appointment_services(id,account_id,name,mode,duration_minutes,price_minor,currency,payment_required)
+      VALUES($1,$3,'Paid consult','offline',30,50000,'INR',true),($2,$3,'Free consult','offline',30,NULL,NULL,false)`, [paid, free, A]);
+    const book = (ids: string[]) => addFlow('Book', `book${ids.length}`, [START('book'),
+      { node_key: 'book', node_type: 'book_appointment', config: { service_ids: ids, success_next: 'done' } }, END]);
+    const err = await rejection(publish(await book([free, paid])));
+    expect((err as FlowVersionError).detail.issues).toContainEqual(expect.objectContaining({ node_key: 'book', field: 'service_ids', severity: 'error' }));
+    await expect(publish(await book([free]))).resolves.toBeTruthy();
+  });
+
   it('still runs an active flow without a version on its draft, unpinned (deploy-window straggler)', async () => {
     const flow = await addFlow('Straggler', 'straggle', [START('thanks'), THANKS('legacy'), END], 'active');
     const c = await contact();

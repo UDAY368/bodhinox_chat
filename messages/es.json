@@ -2445,6 +2445,7 @@
         "cancelRow": "Cancelar",
         "noServices": "Aún no hay servicios. Añádelos en los ajustes de Citas; mientras tanto, el paso no ofrece nada y sigue su camino No disponible.",
         "servicesAllHelp": "Elige hasta {max}. Si no eliges ninguno, se ofrecen todos los servicios reservables. El cliente elige cuando hay más de uno.",
+        "paidServiceNote": "De pago: se reserva en la página de reservas",
         "serviceMode": "Tipo de servicio",
         "modeBoth": "En línea y presencial",
         "modeOnline": "Solo en línea",
@@ -2690,7 +2691,8 @@
         "not_replayable_reason": "Este tipo de fallo no se puede repetir de forma segura.",
         "needs_reconciliation": "Es posible que un mensaje de este paso ya se haya entregado. Revisa la conversación; no se volverá a enviar.",
         "already_sent": "El mensaje de este paso ya se envió.",
-        "conversation_busy": "Otro flujo se está ejecutando en esta conversación."
+        "conversation_busy": "Otro flujo se está ejecutando en esta conversación.",
+        "contact_opted_out": "El contacto respondió STOP después de que fallara esta ejecución, así que no se repetirá."
       }
     }
   },
@@ -5419,6 +5421,9 @@
       "tagAddedNoConversation": "la automatización tag_added no puede enviar: el contacto no tiene una conversación existente",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
+      "contactBlockedWhileWaiting": "El contacto se bloqueó mientras esta ejecución esperaba, así que no se envió nada más",
+      "contactOptedOutWhileWaiting": "El contacto se dio de baja (STOP) mientras esta ejecución esperaba, así que no se envió nada más",
+      "assignFailed": "assign_conversation: no se pudo asignar la conversación",
       "scheduleWaitFailed": "Could not schedule the wait: {message}",
       "webhookInvalidBody": "send_webhook: el cuerpo completado no es JSON válido",
       "webhookInvalidHeader": "send_webhook: un encabezado no está permitido o tiene un salto de línea",
@@ -5579,6 +5584,7 @@
       "appointmentLocation": "Elige una ubicación de la lista.",
       "appointmentStaffMode": "Elige cómo se asigna el profesional.",
       "appointmentDays": "Los días a ofrecer deben ser un número entero de {min} a {max}.",
+      "appointmentPaidService": "{count, plural, one {Un servicio elegido requiere} other {# servicios elegidos requieren}} pago, que un flujo aún no puede cobrar. {count, plural, one {Desmárcalo} other {Desmárcalos}}; los clientes reservan los servicios de pago en tu página de reservas.",
       "paymentInvalidLinkOrder": "«Cobrar el pedido» debe estar activado o desactivado.",
       "storefrontNeedsMessage": "Escribe el mensaje que se envía con el enlace.",
       "storefrontMessageTooLong": "El mensaje no puede superar {max} caracteres.",
@@ -6177,7 +6183,8 @@
         "notReplayableReason": "Este tipo de fallo no se puede repetir de forma segura.",
         "needsReconciliation": "Es posible que un mensaje de este paso ya se haya entregado. Revisa la conversación antes de hacer nada más; no se volverá a enviar automáticamente.",
         "alreadySent": "El mensaje de este paso ya se envió; repetirlo lo enviaría dos veces.",
-        "conversationBusy": "Otro flujo se está ejecutando en esta conversación. Inténtalo de nuevo cuando termine."
+        "conversationBusy": "Otro flujo se está ejecutando en esta conversación. Inténtalo de nuevo cuando termine.",
+        "contactOptedOut": "El contacto se dio de baja (envió STOP) después de que fallara esta ejecución, así que no se puede repetir."
       }
     },
     "quickReplies": {

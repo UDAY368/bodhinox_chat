@@ -2445,6 +2445,7 @@
         "cancelRow": "Cancel",
         "noServices": "No services yet. Add them under Appointments settings; until then the step offers nothing and takes its Unavailable path.",
         "servicesAllHelp": "Pick up to {max}. Pick none to offer every bookable service. Customers choose when more than one is offered.",
+        "paidServiceNote": "Paid: book on the booking page",
         "serviceMode": "Service type",
         "modeBoth": "Online and in person",
         "modeOnline": "Online only",
@@ -2690,7 +2691,8 @@
         "not_replayable_reason": "This kind of failure cannot be replayed safely.",
         "needs_reconciliation": "A message from this step may already have been delivered. Check the conversation; it will not be re-sent.",
         "already_sent": "This step's message was already sent.",
-        "conversation_busy": "Another flow is running in this conversation."
+        "conversation_busy": "Another flow is running in this conversation.",
+        "contact_opted_out": "The contact replied STOP after this run failed, so it will not be replayed."
       }
     }
   },
@@ -5419,6 +5421,9 @@
       "tagAddedNoConversation": "tag_added automation cannot send: contact has no existing conversation",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
+      "contactBlockedWhileWaiting": "The contact was blocked while this run was waiting, so nothing more was sent",
+      "contactOptedOutWhileWaiting": "The contact opted out (STOP) while this run was waiting, so nothing more was sent",
+      "assignFailed": "assign_conversation: the conversation could not be assigned",
       "scheduleWaitFailed": "Could not schedule the wait: {message}",
       "webhookInvalidBody": "send_webhook: the filled-in body is not valid JSON",
       "webhookInvalidHeader": "send_webhook: a header is not allowed or has a line break",
@@ -5579,6 +5584,7 @@
       "appointmentLocation": "Choose a location from the list.",
       "appointmentStaffMode": "Choose how the practitioner is picked.",
       "appointmentDays": "Days to offer must be a whole number from {min} to {max}.",
+      "appointmentPaidService": "{count, plural, one {A picked service takes} other {# picked services take}} payment, which a flow cannot collect yet. Untick {count, plural, one {it} other {them}}; customers book paid services on your booking page.",
       "paymentInvalidLinkOrder": "“Charge the order” must be on or off.",
       "storefrontNeedsMessage": "Write the message sent with the link.",
       "storefrontMessageTooLong": "Keep the message within {max} characters.",
@@ -6177,7 +6183,8 @@
         "notReplayableReason": "This kind of failure cannot be replayed safely.",
         "needsReconciliation": "A message from this step may already have been delivered. Check the conversation before doing anything else; it will not be sent again automatically.",
         "alreadySent": "This step's message was already sent; replaying would send it twice.",
-        "conversationBusy": "Another flow is running in this conversation. Try again when it ends."
+        "conversationBusy": "Another flow is running in this conversation. Try again when it ends.",
+        "contactOptedOut": "The contact opted out (sent STOP) after this run failed, so it cannot be replayed."
       }
     },
     "quickReplies": {

@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   staff: vi.fn(),
   slots: vi.fn(),
   book: vi.fn(),
+  paidOnly: vi.fn(),
 }));
 
 vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false }));
@@ -47,6 +48,7 @@ vi.mock("./appointment-runtime", () => ({
   appointmentStaff: h.staff,
   appointmentSlots: h.slots,
   bookFlowAppointment: h.book,
+  appointmentPaidOnly: h.paidOnly,
 }));
 
 import { dispatchInboundToFlows, handleFlowTimer } from "./engine";
@@ -90,7 +92,8 @@ const TUE = slot("2026-11-10", "09:00", "2026-11-10T03:30:00.000Z");
 beforeEach(() => {
   h.dispatches.clear();
   h.keys.length = 0;
-  for (const fn of [h.sendText, h.sendList, h.services, h.location, h.staff, h.slots, h.book]) fn.mockReset();
+  for (const fn of [h.sendText, h.sendList, h.services, h.location, h.staff, h.slots, h.book, h.paidOnly]) fn.mockReset();
+  h.paidOnly.mockResolvedValue(false);
   h.sendText.mockImplementation(async () => ({ whatsapp_message_id: "wamid.text" }));
   h.sendList.mockImplementation(async () => ({ whatsapp_message_id: "wamid.list" }));
   h.services.mockResolvedValue([{ id: SVC_A, name: "General consultation" }, { id: SVC_B, name: "Dental" }]);
@@ -157,6 +160,17 @@ describe("book_appointment step", () => {
     expect(h.sendList).not.toHaveBeenCalled();
     expect(h.sendText.mock.calls.map(([a]) => a.text)).toEqual(["Sorry"]);
     expect(events("error").map((e) => (e.payload as { reason: string }).reason)).toContain("appointment_no_slots");
+  });
+
+  it("says the services are paid-only rather than out of slots when that is why nothing is offered (audit #21)", async () => {
+    h.services.mockResolvedValue([]);
+    h.paidOnly.mockResolvedValue(true);
+    await start();
+    expect(h.paidOnly).toHaveBeenCalledWith("acct-1", PORTS);
+    expect(h.sendText.mock.calls.map(([a]) => a.text)).toEqual(["Sorry"]);
+    const reasons = events("error").map((e) => (e.payload as { reason: string }).reason);
+    expect(reasons).toContain("appointment_paid_only");
+    expect(reasons).not.toContain("appointment_no_slots");
   });
 
   it("ends the run when the unavailable port is unwired", async () => {

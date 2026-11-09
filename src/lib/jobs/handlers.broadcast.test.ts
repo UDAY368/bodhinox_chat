@@ -17,7 +17,7 @@ vi.mock('./scope', () => ({ withJobScope: (_scope: unknown, fn: () => unknown) =
 vi.mock('./queue', () => ({ enqueueJob: async (...args: unknown[]) => { h.enqueued.push(args); return 'job-2'; } }));
 vi.mock('@/lib/whatsapp/process-webhook', () => ({ processWebhook: vi.fn(), processInboundActions: vi.fn() }));
 vi.mock('@/lib/automations/engine', () => ({ expireAwaitingReplies: vi.fn(), resumePendingExecution: vi.fn() }));
-vi.mock('./scheduled-audience', () => ({ executeScheduledOccurrence: vi.fn(), queueScheduledOccurrence: vi.fn() }));
+vi.mock('./scheduled-audience', () => ({ executeScheduledOccurrence: vi.fn(), queueScheduledOccurrence: vi.fn(), recordSkippedOccurrence: vi.fn(), ScheduledAudienceError: class extends Error {} }));
 vi.mock('@/lib/flows/fallback', () => ({ resolveFallbackPolicy: vi.fn() }));
 vi.mock('@/lib/flows/engine', () => ({ handleFlowTimer: vi.fn(), staleSince: vi.fn() }));
 vi.mock('@/lib/webhooks/deliver', () => ({ deliverQueuedWebhook: vi.fn() }));

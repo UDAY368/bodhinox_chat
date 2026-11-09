@@ -16,6 +16,10 @@ const h = vi.hoisted(() => ({
     updates: [] as { table: string; row: Record<string, unknown> }[],
     insertedRun: null as Record<string, unknown> | null,
     conversation: { channel: "whatsapp" as string, whatsapp_config_id: null as string | null },
+    /** The conversation channel lookup fails once a run is active (audit #48). */
+    channelLookupFails: false,
+    /** Only a newly inserted run's channel lookup fails (a Connect Flow target, audit #48). */
+    newRunChannelLookupFails: false,
   },
   dispatch: vi.fn(async (_account: string, _key: string, send: () => Promise<unknown>) => send()),
   waText: vi.fn(async () => ({ whatsapp_message_id: "wamid.1" })),
@@ -72,7 +76,13 @@ vi.mock("./admin-client", () => {
         if (table === "flow_runs") h.state.insertedRun = { id: "run-1", vars: {}, reprompt_count: 0, transition_seq: 0, ...row };
         return b;
       },
-      maybeSingle: async () => ({ data: table === "flow_runs" ? h.state.insertedRun : (rows(table)[0] ?? null), error: null }),
+      maybeSingle: async () => {
+        if (table === "conversations" && h.state.channelLookupFails && (h.state.insertedRun || h.state.activeRuns.length))
+          return { data: null, error: { message: "connection reset" } };
+        if (table === "conversations" && h.state.newRunChannelLookupFails && h.state.insertedRun)
+          return { data: null, error: { message: "connection reset" } };
+        return { data: table === "flow_runs" ? h.state.insertedRun : (rows(table)[0] ?? null), error: null };
+      },
       single: async () => ({ data: rows(table)[0] ?? null, error: null }),
       then: (resolve: (r: { data: unknown[]; error: null; count: number }) => unknown) => resolve({ data: rows(table), error: null, count: 0 }),
     };
@@ -113,6 +123,8 @@ beforeEach(() => {
   h.state.inserted = [];
   h.state.updates = [];
   h.state.insertedRun = null;
+  h.state.channelLookupFails = false;
+  h.state.newRunChannelLookupFails = false;
   h.state.conversation = { channel: "whatsapp", whatsapp_config_id: null };
   h.lastCustomerAt = new Date();
   for (const fn of [h.dispatch, h.waText, h.waTemplate, h.igText, h.igChoices, h.igStore, h.executeRaw]) fn.mockClear();
@@ -241,5 +253,82 @@ describe("dispatch by channel", () => {
     h.state.flows = [{ ...FLOW, channel_scope: "whatsapp" }];
     expect(await startFlowById(input)).toEqual({ outcome: "unavailable" });
     expect(runs()).toHaveLength(0);
+  });
+});
+
+describe("an error after the run's position committed (audit #48)", () => {
+  const ended = () => h.state.updates.filter((u) => u.table === "flow_runs" && u.row.status === "failed");
+
+  it("a new run that fails mid-advance ends as failed and still consumes the inbound", async () => {
+    h.state.flows = [FLOW];
+    h.state.channelLookupFails = true;
+    const result = await dispatch();
+    expect(runs()).toHaveLength(1);
+    expect(h.waText).not.toHaveBeenCalled();
+    expect(result).toEqual({ consumed: true, flow_run_id: "run-1", outcome: "completed" });
+    expect(ended()).toEqual([expect.objectContaining({ table: "flow_runs", row: expect.objectContaining({ end_reason: "advance_interrupted" }) })]);
+    expect(events()).toContainEqual(expect.objectContaining({ event_type: "error", payload: { reason: "advance_interrupted" } }));
+  });
+
+  it("a claimed reply transition that fails mid-advance ends the run instead of letting automations answer", async () => {
+    h.state.flows = [FLOW];
+    h.state.nodes = [
+      node("start", "start", { next_node_key: "ask" }),
+      node("ask", "send_buttons", { body: "Pick", buttons: [{ reply_id: "b1", title: "One", next_node_key: "greet" }] }),
+      node("greet", "send_message", { text: "Hello", next_node_key: "done" }),
+      node("done", "end", {}),
+    ];
+    h.state.activeRuns = [{ id: "run-7", account_id: "acct-1", user_id: "u-1", flow_id: "flow-1", contact_id: "ct-1",
+      conversation_id: "cv-1", status: "active", current_node_key: "ask", vars: {}, reprompt_count: 0, transition_seq: 2,
+      started_at: new Date().toISOString(), last_advanced_at: new Date().toISOString() }];
+    h.state.channelLookupFails = true;
+    const result = await dispatchInboundToFlows({
+      accountId: "acct-1", userId: "u-1", contactId: "ct-1", conversationId: "cv-1",
+      message: { kind: "interactive_reply", reply_id: "b1", reply_title: "One", meta_message_id: "m2" }, isFirstInboundMessage: false,
+    });
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ current_node_key: "greet", transition_seq: 3 }) });
+    expect(h.waText).not.toHaveBeenCalled();
+    expect(result).toEqual({ consumed: true, flow_run_id: "run-7", outcome: "completed" });
+    expect(ended()).toEqual([expect.objectContaining({ row: expect.objectContaining({ end_reason: "advance_interrupted" }) })]);
+  });
+
+  it("a Connect Flow target that fails mid-advance is the run ended, not the already completed source run", async () => {
+    h.state.flows = [FLOW];
+    h.state.nodes = [
+      node("start", "start", { next_node_key: "ask" }),
+      node("ask", "send_buttons", { body: "Pick", buttons: [{ reply_id: "b1", title: "One", next_node_key: "conn" }] }),
+      node("conn", "connect_flow", { flow_id: "flow-1" }),
+    ];
+    h.state.activeRuns = [{ id: "run-7", account_id: "acct-1", user_id: "u-1", flow_id: "flow-1", contact_id: "ct-1",
+      conversation_id: "cv-1", status: "active", current_node_key: "ask", vars: {}, reprompt_count: 0, transition_seq: 2,
+      started_at: new Date().toISOString(), last_advanced_at: new Date().toISOString() }];
+    h.state.newRunChannelLookupFails = true;
+    const result = await dispatchInboundToFlows({
+      accountId: "acct-1", userId: "u-1", contactId: "ct-1", conversationId: "cv-1",
+      message: { kind: "interactive_reply", reply_id: "b1", reply_title: "One", meta_message_id: "m3" }, isFirstInboundMessage: false,
+    });
+    expect(runs()).toHaveLength(1);
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ status: "completed", end_reason: "connect_flow" }) });
+    // The target run (run-1) is the one left active on a step it never ran, so it is the one ended.
+    expect(result).toEqual({ consumed: true, flow_run_id: "run-1", outcome: "completed" });
+    expect(h.state.inserted).toContainEqual({ table: "flow_run_events",
+      row: expect.objectContaining({ flow_run_id: "run-1", event_type: "error", payload: { reason: "advance_interrupted" } }) });
+    expect(ended()).toEqual([expect.objectContaining({ row: expect.objectContaining({ end_reason: "advance_interrupted" }) })]);
+  });
+
+  it("an error before anything committed still leaves the inbound to automations", async () => {
+    h.state.flows = [FLOW];
+    h.state.activeRuns = [{ id: "run-8", account_id: "acct-1", user_id: "u-1", flow_id: "flow-1", contact_id: "ct-1",
+      conversation_id: "cv-1", status: "active", current_node_key: "ask", vars: {}, reprompt_count: 0, transition_seq: 0,
+      started_at: new Date().toISOString(), last_advanced_at: new Date().toISOString() }];
+    h.state.nodes = [node("start", "start", { next_node_key: "ask" }), node("ask", "send_buttons", { body: "Pick", buttons: [] })];
+    const original = h.state.updates.push.bind(h.state.updates);
+    h.state.updates.push = () => { throw new Error("connection reset"); };
+    try {
+      expect(await dispatch()).toEqual({ consumed: false, outcome: "no_match" });
+    } finally {
+      h.state.updates.push = original;
+    }
+    expect(ended()).toEqual([]);
   });
 });

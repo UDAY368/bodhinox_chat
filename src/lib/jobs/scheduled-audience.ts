@@ -1,11 +1,12 @@
 import { Prisma } from '@prisma/client';
 import type { DataClient } from '@/lib/data/types';
-import { resolveAudienceContacts } from '@/lib/broadcast-audience';
 import {
   MAX_SCHEDULED_CONTACTS,
+  SCHEDULED_PAGE_SIZE,
   parseScheduledAudience,
   scheduleNeedsContact,
   stepsSendMessages,
+  type ScheduledAudience,
   type ScheduledStep,
 } from '@/lib/automations/scheduled-contract';
 import { withTenant } from '@/lib/db/tenant';
@@ -23,6 +24,7 @@ import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { loadSegmentFilter } from '@/lib/audience/segments';
 import { AudienceFilterError, assertFilterReferences, compileAudienceFilter } from '@/lib/audience/filter';
+import { notifyAutomationNotice } from '@/lib/notifications/emit';
 import type { Contact } from '@/types';
 
 type ScheduledAutomation = {
@@ -30,6 +32,12 @@ type ScheduledAutomation = {
   user_id?: string;
   trigger_config: Record<string, unknown>;
 };
+/**
+ * A scheduled occurrence that cannot run as configured (too many recipients,
+ * a foreign or deleted reference, no recipients chosen). Retrying the same
+ * minute cannot fix it, so the tick logs it and goes on with the others.
+ */
+export class ScheduledAudienceError extends Error {}
 async function loadSteps(db: DataClient, id: string): Promise<ScheduledStep[]> {
   const { data, error } = await db
     .from('automation_steps')
@@ -48,8 +56,9 @@ async function requireAudienceReferences(
   ];
   if (tagIds.length) {
     const { data, error } = await db.from('tags').select('id').in('id', tagIds);
-    if (error || data?.length !== tagIds.length)
-      throw new Error('Scheduled recipient tags must belong to this workspace');
+    if (error) throw new Error('Scheduled recipient tag lookup failed');
+    if (data?.length !== tagIds.length)
+      throw new ScheduledAudienceError('Scheduled recipient tags must belong to this workspace');
   }
   if (audience.customField) {
     const { data, error } = await db
@@ -57,8 +66,9 @@ async function requireAudienceReferences(
       .select('id')
       .eq('id', audience.customField.fieldId)
       .maybeSingle();
-    if (error || !data)
-      throw new Error(
+    if (error) throw new Error('Scheduled recipient custom field lookup failed');
+    if (!data)
+      throw new ScheduledAudienceError(
         'Scheduled recipient custom field must belong to this workspace'
       );
   }
@@ -69,34 +79,68 @@ async function requireAudienceReferences(
  * filter names a deleted tag, list, campaign or custom field, is refused (as
  * for campaigns: a has_none on a deleted tag would match everyone); a
  * retargeting condition the plan no longer allows throws PlanLimitError.
- * Opted-out and blocked contacts, and with onlyNewFor the contacts that
- * automation already ran for, are left out in SQL before the
- * MAX_SCHEDULED_CONTACTS cap, so the cap counts real recipients only; more
- * than that is refused, never truncated.
+ * The members are read in pages like every scheduled audience (pagedRecipients).
  */
 export async function segmentRecipients(accountId: string, segmentId: string,
   options: { onlyNewFor?: string } = {}): Promise<Pick<Contact, 'id'>[]> {
-  const rows = await withTenant({ accountId }, async (tx) => {
-    let filter;
+  const condition = await withTenant({ accountId }, async (tx) => {
     try {
-      filter = await loadSegmentFilter(tx, accountId, segmentId, { lock: true });
+      const filter = await loadSegmentFilter(tx, accountId, segmentId, { lock: true });
       await assertFilterReferences(tx, accountId, filter);
+      return compileAudienceFilter(accountId, filter);
     } catch (error) {
       if (!(error instanceof AudienceFilterError)) throw error;
-      throw new Error('Scheduled recipient segment must belong to this workspace and be active');
+      throw new ScheduledAudienceError('Scheduled recipient segment must belong to this workspace and be active');
     }
-    // once_per_contact: served by automation_logs_automation_contact_idx.
-    const notYetRun = options.onlyNewFor
-      ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM automation_logs l WHERE l.account_id=${accountId}::uuid
-          AND l.automation_id=${options.onlyNewFor}::uuid AND l.contact_id=c.id)`
-      : Prisma.empty;
-    return tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT c.id::text AS id FROM contacts c
-      WHERE ${compileAudienceFilter(accountId, filter)} AND c.opted_out_at IS NULL AND c.blocked_at IS NULL ${notYetRun}
-      ORDER BY c.created_at, c.id LIMIT ${MAX_SCHEDULED_CONTACTS + 1}`);
   }, getWorkerPrisma());
-  if (rows.length > MAX_SCHEDULED_CONTACTS)
-    throw new Error(`Scheduled audience exceeds the ${MAX_SCHEDULED_CONTACTS}-row limit; use a narrower recipient filter`);
-  return rows.map((row) => ({ id: String(row.id) }));
+  return pagedRecipients(accountId, condition, options);
+}
+
+const tagged = (accountId: string, tagIds: readonly string[]) =>
+  Prisma.sql`EXISTS(SELECT 1 FROM contact_tags t WHERE t.account_id=${accountId}::uuid AND t.contact_id=c.id
+    AND t.tag_id = ANY(${[...tagIds]}::uuid[]))`;
+
+/** An all / tags / custom-field schedule audience as a condition over `contacts c` (the broadcast-audience matches). */
+export function audienceCondition(accountId: string, audience: ScheduledAudience): Prisma.Sql {
+  const parts: Prisma.Sql[] = [Prisma.sql`c.account_id=${accountId}::uuid`];
+  if (audience.type === 'tags') parts.push(tagged(accountId, audience.tagIds ?? []));
+  if (audience.type === 'custom_field' && audience.customField) {
+    const { fieldId, operator, value } = audience.customField;
+    const match = operator === 'is' ? Prisma.sql`v.value = ${value}`
+      : operator === 'is_not' ? Prisma.sql`v.value <> ${value}`
+        : Prisma.sql`v.value ILIKE ${`%${value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`}`;
+    parts.push(Prisma.sql`EXISTS(SELECT 1 FROM contact_custom_values v WHERE v.account_id=${accountId}::uuid
+      AND v.contact_id=c.id AND v.custom_field_id=${fieldId}::uuid AND ${match})`);
+  }
+  if (audience.excludeTagIds?.length) parts.push(Prisma.sql`NOT ${tagged(accountId, audience.excludeTagIds)}`);
+  return Prisma.join(parts, ' AND ');
+}
+
+/**
+ * The recipients of one occurrence, read in pages of SCHEDULED_PAGE_SIZE
+ * (keyset on id, one short transaction per page). Opted-out and blocked
+ * contacts, and with onlyNewFor the contacts that automation already ran for,
+ * are left out in SQL before the MAX_SCHEDULED_CONTACTS cap, so the cap counts
+ * real recipients only; more than that is refused, never truncated.
+ */
+async function pagedRecipients(accountId: string, condition: Prisma.Sql,
+  options: { onlyNewFor?: string }): Promise<Pick<Contact, 'id'>[]> {
+  // once_per_contact: served by automation_logs_automation_contact_idx.
+  const notYetRun = options.onlyNewFor
+    ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM automation_logs l WHERE l.account_id=${accountId}::uuid
+        AND l.automation_id=${options.onlyNewFor}::uuid AND l.contact_id=c.id)`
+    : Prisma.empty;
+  const ids: string[] = [];
+  for (;;) {
+    const after = ids.length ? Prisma.sql`AND c.id > ${ids[ids.length - 1]}::uuid` : Prisma.empty;
+    const page = await withTenant({ accountId }, (tx) => tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT c.id::text AS id FROM contacts c
+      WHERE ${condition} AND c.opted_out_at IS NULL AND c.blocked_at IS NULL ${notYetRun} ${after}
+      ORDER BY c.id LIMIT ${SCHEDULED_PAGE_SIZE}`), getWorkerPrisma());
+    ids.push(...page.map((row) => String(row.id)));
+    if (ids.length > MAX_SCHEDULED_CONTACTS)
+      throw new ScheduledAudienceError(`Scheduled audience exceeds the ${MAX_SCHEDULED_CONTACTS}-contact limit; use a narrower recipient filter`);
+    if (page.length < SCHEDULED_PAGE_SIZE) return ids.map((id) => ({ id }));
+  }
 }
 
 /** Contacts this automation has already run for (once_per_contact); uses automation_logs_automation_contact_idx. */
@@ -132,6 +176,56 @@ async function pauseForPlan(db: DataClient, accountId: string, automationId: str
   });
   if (log.error) throw new Error('Could not log paused scheduled automation');
 }
+
+/**
+ * One occurrence that could not run as configured (ScheduledAudienceError):
+ * a failed log row and an in-app notice to owners and admins, once per slot
+ * (a retried tick adds neither again). The schedule stays on; the next
+ * occurrence tries again once the recipients are narrowed or fixed.
+ */
+export async function recordSkippedOccurrence(
+  db: DataClient,
+  accountId: string,
+  automation: ScheduledAutomation & { name?: string | null },
+  slot: string,
+  reason: string
+) {
+  const message = `Scheduled run at ${slot} skipped: ${reason}`;
+  const { data: logged, error } = await db
+    .from('automation_logs')
+    .select('id')
+    .eq('automation_id', automation.id)
+    .eq('status', 'failed')
+    .eq('error_message', message)
+    .limit(1);
+  if (error) throw new Error('Could not read scheduled automation logs');
+  if (!logged?.length) {
+    const log = await db.from('automation_logs').insert({
+      automation_id: automation.id,
+      account_id: accountId,
+      user_id: automation.user_id,
+      trigger_event: 'time_based',
+      steps_executed: [],
+      status: 'failed',
+      error_message: message,
+    });
+    if (log.error) throw new Error('Could not log skipped scheduled automation');
+  }
+  const name = typeof automation.name === 'string' && automation.name.trim()
+    ? automation.name.trim().slice(0, 100) : 'A scheduled automation';
+  try {
+    await notifyAutomationNotice({
+      accountId,
+      automationId: automation.id,
+      audience: 'admins',
+      title: `Scheduled automation "${name}" did not run: ${reason}`,
+      dedupeKey: `schedule-skipped:${automation.id}:${slot}`,
+    });
+  } catch {
+    // The log row is the record; a lost notice must not fail the tick.
+    console.error('[automations] skipped-schedule notice failed', { automationId: automation.id });
+  }
+}
 /** Resolve once for this occurrence, then persist a stable tenant/contact/slot dispatch identity. */
 export async function queueScheduledOccurrence(
   db: DataClient,
@@ -143,7 +237,7 @@ export async function queueScheduledOccurrence(
   const config = automation.trigger_config ?? {};
   if (config.audience === undefined) {
     if (scheduleNeedsContact(await loadSteps(db, automation.id)))
-      throw new Error(
+      throw new ScheduledAudienceError(
         'Scheduled contact actions require explicit recipients; choose all contacts or a recipient filter'
       );
     assertLease();
@@ -157,7 +251,12 @@ export async function queueScheduledOccurrence(
     );
     return;
   }
-  const audience = parseScheduledAudience(config.audience);
+  let audience: ScheduledAudience;
+  try {
+    audience = parseScheduledAudience(config.audience);
+  } catch (error) {
+    throw new ScheduledAudienceError(error instanceof Error ? error.message : 'Invalid scheduled recipients');
+  }
   const oncePerContact = config.once_per_contact === true;
   let contacts: Pick<Contact, 'id'>[];
   if (audience.type === 'segment') {
@@ -171,19 +270,8 @@ export async function queueScheduledOccurrence(
     }
   } else {
     await requireAudienceReferences(db, audience);
-    contacts = await resolveAudienceContacts(
-      db,
-      audience,
-      async () => {
-        throw new Error('CSV recipients are unsupported for schedules');
-      },
-      { maxRows: MAX_SCHEDULED_CONTACTS }
-    );
-  }
-  // Segments already left out contacts that ran (in SQL, before the cap).
-  if (oncePerContact && audience.type !== 'segment') {
-    const done = await contactsAlreadyRun(accountId, automation.id, contacts.map((c) => c.id));
-    contacts = contacts.filter((c) => !done.has(c.id));
+    contacts = await pagedRecipients(accountId, audienceCondition(accountId, audience),
+      oncePerContact ? { onlyNewFor: automation.id } : {});
   }
   if (stepsSendMessages(await loadSteps(db, automation.id))) {
     // A schedule that messages contacts is a recurring campaign. The plan can

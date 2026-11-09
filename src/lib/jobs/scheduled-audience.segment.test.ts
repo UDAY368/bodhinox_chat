@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   retargetingOff: false,
   alreadyRun: [] as string[],
   queries: [] as string[],
+  pages: 0,
   enqueue: vi.fn(),
   trigger: vi.fn(async () => undefined),
   dispatchKeys: [] as string[],
@@ -26,7 +27,7 @@ vi.mock('./dispatch', () => ({
   dispatchOnce: async (_a: string, key: string, work: () => Promise<unknown>) => { h.dispatchKeys.push(key); return work(); },
 }));
 vi.mock('./queue', () => ({ enqueueJob: h.enqueue }));
-vi.mock('@/lib/broadcast-audience', () => ({ resolveAudienceContacts: vi.fn(async () => []) }));
+vi.mock('@/lib/notifications/emit', () => ({ notifyAutomationNotice: vi.fn() }));
 vi.mock('@/lib/billing/entitlements', () => {
   class PlanLimitError extends Error {}
   return {
@@ -41,16 +42,20 @@ vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
 vi.mock('@/lib/db/tenant', () => ({
   withTenant: async (_ctx: unknown, op: (tx: unknown) => Promise<unknown>) =>
     op({
-      $queryRaw: async (first: TemplateStringsArray | { sql: string }) => {
+      $queryRaw: async (first: TemplateStringsArray | { sql: string; values: unknown[] }) => {
         const sql = 'sql' in first ? first.sql : first.join('?');
         h.queries.push(sql);
         // Referenced rows that still exist: none (the tag was deleted).
         if (/FROM (tags|contact_lists|custom_fields|broadcasts)\b/.test(sql)) return [];
         if (sql.includes('FROM contacts c')) {
           // What the SQL leaves out: opted-out and blocked contacts, and (with the NOT EXISTS) contacts that already ran.
-          const fresh = (r: Row) => !r.opted_out_at && !r.blocked_at && !(sql.includes('NOT EXISTS') && h.alreadyRun.includes(r.id));
-          // LIMIT MAX_SCHEDULED_CONTACTS + 1 (1000 + 1).
-          return h.segmentRows.filter(fresh).slice(0, 1001).map((r) => ({ id: r.id }));
+          const fresh = h.segmentRows.filter((r: Row) => !r.opted_out_at && !r.blocked_at
+            && !(sql.includes('NOT EXISTS') && h.alreadyRun.includes(r.id)));
+          // Keyset page: rows after the cursor (the last id of the previous page), LIMIT SCHEDULED_PAGE_SIZE.
+          const values: unknown[] = 'sql' in first ? first.values : [];
+          const cursor = sql.includes('c.id >') ? fresh.findIndex((r) => values.includes(r.id)) + 1 : 0;
+          h.pages += 1;
+          return fresh.slice(cursor, cursor + 1000).map((r) => ({ id: r.id }));
         }
         return h.alreadyRun.map((contact_id) => ({ contact_id }));
       },
@@ -67,7 +72,7 @@ vi.mock('@/lib/audience/segments', async () => {
   };
 });
 
-import { executeScheduledOccurrence, queueScheduledOccurrence } from './scheduled-audience';
+import { executeScheduledOccurrence, queueScheduledOccurrence, ScheduledAudienceError } from './scheduled-audience';
 import { MAX_SCHEDULED_CONTACTS } from '@/lib/automations/scheduled-contract';
 
 const ACC = '00000000-0000-4000-8000-0000000000a1';
@@ -113,6 +118,7 @@ beforeEach(() => {
   h.retargetingOff = false;
   h.alreadyRun = [];
   h.queries = [];
+  h.pages = 0;
   h.dispatchKeys = [];
   h.updates = [];
   h.enqueue.mockClear();
@@ -144,7 +150,34 @@ describe('segment audience', () => {
     await expect(queueScheduledOccurrence(db(), ACC, automation(), SLOT, () => {})).rejects.toThrow(/segment/);
     h.segmentMissing = false;
     h.segmentRows = Array.from({ length: MAX_SCHEDULED_CONTACTS + 1 }, (_, i) => ({ id: `c${i}` }));
+    await expect(queueScheduledOccurrence(db(), ACC, automation(), SLOT, () => {})).rejects.toBeInstanceOf(ScheduledAudienceError);
     await expect(queueScheduledOccurrence(db(), ACC, automation(), SLOT, () => {})).rejects.toThrow(/limit/);
+    expect(h.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('reads a segment past one page in keyset pages and queues every member', async () => {
+    h.segmentRows = Array.from({ length: 2500 }, (_, i) => ({ id: `p${String(i).padStart(5, '0')}` }));
+    await queueScheduledOccurrence(db(), ACC, automation(), SLOT, () => {});
+    expect(queued()).toHaveLength(2500);
+    expect(new Set(queued()).size).toBe(2500);
+    expect(h.pages).toBe(3);
+    expect(h.queries.filter((q) => q.includes('FROM contacts c')).slice(1).every((q) => q.includes('c.id >'))).toBe(true);
+  });
+
+  it('pages an "all contacts" schedule too, leaving out opted-out and blocked contacts in SQL', async () => {
+    h.segmentRows = [...Array.from({ length: 1200 }, (_, i) => ({ id: `a${String(i).padStart(5, '0')}` })),
+      { id: 'zz-out', opted_out_at: '2026-11-01T00:00:00Z' }];
+    await queueScheduledOccurrence(db(), ACC, { id: 'auto', trigger_config: { schedule: '0 9 * * *', audience: { type: 'all' } } },
+      SLOT, () => {});
+    expect(queued()).toHaveLength(1200);
+    expect(queued()).not.toContain('zz-out');
+    expect(memberQuery()).toMatch(/c\.opted_out_at IS NULL AND c\.blocked_at IS NULL/);
+  });
+
+  it('refuses a tag audience naming a tag of another workspace as a ScheduledAudienceError', async () => {
+    await expect(queueScheduledOccurrence(db(), ACC,
+      { id: 'auto', trigger_config: { schedule: '0 9 * * *', audience: { type: 'tags', tagIds: [TAG] } } }, SLOT, () => {}))
+      .rejects.toBeInstanceOf(ScheduledAudienceError);
     expect(h.enqueue).not.toHaveBeenCalled();
   });
 

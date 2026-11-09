@@ -175,6 +175,27 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('flow run replay on PostgreS
     expect(await replay(unsent.run)).toMatchObject({ seq: 3 });
   });
 
+  it('refuses to replay for a contact who sent STOP after the failure, and a queued replay sends nothing (audit #47)', async () => {
+    const refused = await failedRun({ intent: 'failed' });
+    await q('UPDATE contacts SET opted_out_at=now() WHERE id=$1', [refused.contact]);
+    expect(await refusal(replay(refused.run))).toBe('contact_opted_out');
+    expect(await runRow(refused.run)).toMatchObject({ status: 'failed', transition_seq: 2 });
+    expect(await jobsFor(refused.run)).toHaveLength(0);
+    expect(await withTenant(admin, (tx) => inspectReplayable(tx, A, flowId, refused.run)))
+      .toEqual({ replayable: { ok: false, reason: 'contact_opted_out' }, failedNode: 'thanks' });
+
+    // STOP between the replay and its job: the job ends the run and makes no provider call.
+    const { run, contact } = await failedRun({ intent: 'failed' });
+    const queued = await replay(run);
+    await q('UPDATE contacts SET opted_out_at=now() WHERE id=$1', [contact]);
+    h.send.mockClear();
+    const [job] = await jobsFor(run);
+    expect(job.payload).toMatchObject({ seq: queued.seq });
+    expect(await withJobScope({ accountId: A, role: 'owner' }, () => handleFlowReplay(job.payload))).toBe('replayed');
+    expect(h.send).not.toHaveBeenCalled();
+    expect(await runRow(run)).toMatchObject({ status: 'cancelled', end_reason: 'contact_opted_out' });
+  });
+
   it('refuses while another run is active on the same conversation, and hides the run from another workspace', async () => {
     const { run, contact, conversation } = await failedRun({ intent: 'failed' });
     await q(`INSERT INTO flow_runs(account_id,flow_id,user_id,contact_id,conversation_id,status,current_node_key)

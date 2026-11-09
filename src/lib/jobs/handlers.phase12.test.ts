@@ -39,7 +39,7 @@ vi.mock('./scope', () => ({ withJobScope: (_scope: unknown, fn: () => unknown) =
 vi.mock('./queue', () => ({ enqueueJob: vi.fn() }));
 vi.mock('@/lib/whatsapp/process-webhook', () => ({ processWebhook: vi.fn(), processInboundActions: vi.fn() }));
 vi.mock('@/lib/automations/engine', () => ({ expireAwaitingReplies: vi.fn(), resumePendingExecution: vi.fn() }));
-vi.mock('./scheduled-audience', () => ({ executeScheduledOccurrence: vi.fn(), queueScheduledOccurrence: vi.fn() }));
+vi.mock('./scheduled-audience', () => ({ executeScheduledOccurrence: vi.fn(), queueScheduledOccurrence: vi.fn(), recordSkippedOccurrence: vi.fn(), ScheduledAudienceError: class extends Error {} }));
 vi.mock('@/lib/flows/fallback', () => ({
   resolveFallbackPolicy: (policy: { on_timeout_hours?: number } | null | undefined) => ({ on_timeout_hours: policy?.on_timeout_hours ?? 24 }),
 }));
