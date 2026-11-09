@@ -31,7 +31,7 @@ const tx = {
   },
 };
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
-const sendRoom = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => {}));
+const sendRoom = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}));
 vi.mock('@/lib/billing/limits', () => ({ requireCampaignSendRoom: sendRoom }));
 const webhook = vi.hoisted(() => ({ dispatch: vi.fn(async () => {}) }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: webhook.dispatch }));

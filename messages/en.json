@@ -3563,7 +3563,7 @@
           "hard": "When a limit is reached, new additions stop. Everything you already have keeps working.",
           "inbound": "Customers who message you are always added as contacts, even past the contacts limit. Only contacts you add, import or create through the API count against it.",
           "monthly": "Monthly limits reset on the 1st of each month (India time). AI add-on packs raise the AI reply limit.",
-          "warnings": "Owners and admins are notified when a limit reaches 80% and 100%. Messages sent and active contacts are shown for information and never block.",
+          "warnings": "Owners and admins are notified when a limit reaches 80% and 100%. The monthly message and active-contact limits stop new campaigns and scheduled sends; replies to customers are never blocked.",
           "expiry": "If your plan expires or is cancelled, extra lists, segments, flows and automations are archived, never deleted."
         }
       },
@@ -3573,6 +3573,7 @@
         "hard_inbound_exempt": "Manual and imported additions stop at the limit; customers who write in are always added",
         "hard_addon": "Stops at the limit; add-on packs raise it",
         "hard_per_campaign": "Checked for each campaign",
+        "hard_campaign": "Stops new campaigns at the limit; replies to customers are never blocked",
         "soft": "For information only; never blocks"
       }
     },
@@ -5948,7 +5949,8 @@
         "not_cancellable": "Only an active add-on can be stopped.",
         "notConfigured": "Billing is not set up yet, so add-ons cannot be bought.",
         "rejected": "The payment provider declined this purchase. Nothing was charged.",
-        "limit_unlimited": "This pack raises a limit your plan does not cap, so there is nothing to buy."
+        "limit_unlimited": "This pack raises a limit your plan does not cap, so there is nothing to buy.",
+        "purchase_pending": "A purchase of this add-on is still being confirmed with the payment provider. Wait for it to finish before buying again."
       },
       "downgrade": {
         "invalid_selection": "Choose only items that are in use now.",
