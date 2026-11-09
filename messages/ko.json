@@ -5410,6 +5410,7 @@
       "parkedStepRemoved": "The step where this run was waiting was removed",
       "contactBlockedWhileWaiting": "이 실행이 대기하는 동안 연락처가 차단되어 더 이상 보내지 않았습니다",
       "contactOptedOutWhileWaiting": "이 실행이 대기하는 동안 연락처가 수신을 거부(STOP)하여 더 이상 보내지 않았습니다",
+      "assignFailed": "assign_conversation: 대화를 배정할 수 없습니다",
       "scheduleWaitFailed": "Could not schedule the wait: {message}",
       "webhookInvalidBody": "send_webhook: 채워진 본문이 올바른 JSON이 아닙니다",
       "webhookInvalidHeader": "send_webhook: 허용되지 않는 헤더이거나 줄바꿈이 있습니다",

@@ -11,7 +11,7 @@ import { conversionValue, isConversionEventName } from './conversion-node';
 import { queueConversionEvent } from '@/lib/meta-ads/capi';
 import { runApiRequest } from './api-request';
 import { engineSendTemplate } from '@/lib/automations/meta-send';
-import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
+import { canOwnConversations, nextRoundRobinAgent } from '@/lib/automations/round-robin';
 import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
 import { isCurrencyCode, minorFromDb, parseMoney } from '@/lib/commerce/money';
@@ -906,6 +906,10 @@ async function executeAssignAgent(db: AdminClient, run: FlowRunRow, node: FlowNo
     const already = (prior as Array<{ payload: { agent_id?: string } }> | null)?.[0]?.payload.agent_id;
     const agentId = already ?? (cfg.mode === "round_robin" ? await nextRoundRobinAgent(run.account_id) : cfg.agent_id ?? null);
     if (!agentId || !run.conversation_id) throw new Error("no agent to assign");
+    // A pinned member removed or demoted to viewer since the flow was built is skipped.
+    if (cfg.mode !== "round_robin" && !(await canOwnConversations(run.account_id, agentId))) {
+      throw new Error("pinned member can no longer own conversations");
+    }
     // The (account_id, assigned_agent_id) membership key rejects anyone outside the workspace.
     const { error } = await db
       .from("conversations")
@@ -984,17 +988,31 @@ async function executeHandoff(
     ai_autoreply_disabled: true,
     updated_at: new Date().toISOString(),
   };
-  if (cfg.assign_to) convUpdate.assigned_agent_id = cfg.assign_to;
+  // A pinned member removed or demoted to viewer is not assigned: the handoff
+  // still pauses the bot and the conversation goes to normal routing (audit #51).
+  let assignee = cfg.assign_to && (await canOwnConversations(run.account_id, cfg.assign_to)) ? cfg.assign_to : null;
+  if (cfg.assign_to && !assignee) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "handoff_assignee_unavailable" });
+    console.warn("[flows] handoff assignee unavailable; left to routing", { runId: run.id });
+  }
   if (run.conversation_id) {
-    await db
+    const update = (row: Record<string, unknown>) => db
       .from("conversations")
-      .update(convUpdate)
+      .update(row)
       .eq("account_id", run.account_id)
-      .eq("id", run.conversation_id);
+      .eq("id", run.conversation_id!);
+    let { error } = await update(assignee ? { ...convUpdate, assigned_agent_id: assignee } : convUpdate);
+    // Removed between the check and the write (the membership key refuses it): hand off unassigned.
+    if (error && assignee) {
+      await logEvent(db, run.id, "error", node.node_key, { reason: "handoff_assignee_unavailable" });
+      assignee = null;
+      ({ error } = await update(convUpdate));
+    }
+    if (error) throw new Error("Handoff conversation update failed");
   }
   await logEvent(db, run.id, "handoff", node.node_key, {
     note: cfg.note ?? null,
-    assigned_to: cfg.assign_to ?? null,
+    assigned_to: assignee,
   });
   await endRun(db, run.id, "handed_off", "handoff_node");
 }

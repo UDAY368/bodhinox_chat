@@ -5410,6 +5410,7 @@
       "parkedStepRemoved": "The step where this run was waiting was removed",
       "contactBlockedWhileWaiting": "O contato foi bloqueado enquanto esta execução aguardava, então nada mais foi enviado",
       "contactOptedOutWhileWaiting": "O contato cancelou a inscrição (STOP) enquanto esta execução aguardava, então nada mais foi enviado",
+      "assignFailed": "assign_conversation: não foi possível atribuir a conversa",
       "scheduleWaitFailed": "Could not schedule the wait: {message}",
       "webhookInvalidBody": "send_webhook: o corpo preenchido não é um JSON válido",
       "webhookInvalidHeader": "send_webhook: um cabeçalho não é permitido ou tem uma quebra de linha",

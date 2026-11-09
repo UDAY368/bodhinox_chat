@@ -198,6 +198,9 @@ vi.mock("./admin-client", () => {
   };
 });
 
+const rr = vi.hoisted(() => ({ canOwn: vi.fn<(account: string, user: string) => Promise<boolean>>(async () => true), next: vi.fn(async () => "agent-rr") }));
+vi.mock("./round-robin", () => ({ canOwnConversations: rr.canOwn, nextRoundRobinAgent: rr.next }));
+
 vi.mock("./meta-send", () => ({
   engineSendText: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
@@ -357,6 +360,35 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     const filters = h.state.updateCalls[0].filters;
     expect(filters).toContainEqual(["eq", "id", "c1"]);
     expect(filters).toContainEqual(["eq", "account_id", ACCOUNT]);
+  });
+});
+
+describe("assign_conversation pinned to a member (audit #51)", () => {
+  const assignStep = (agent_id: string) => ({ ...updateStep(), step_type: "assign_conversation", step_config: { mode: "specific", agent_id } });
+  const run = () => runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: { conversation_id: "conv1" } });
+  const assigned = () => h.state.updateCalls.filter((u) => u.table === "conversations");
+
+  it("assigns a member who can still own conversations", async () => {
+    rr.canOwn.mockResolvedValueOnce(true);
+    h.state.owned = { id: "c1" };
+    h.state.conversations = [{ id: "conv1", account_id: ACCOUNT, contact_id: "c1" }];
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [assignStep("agent-1")];
+    await run();
+    expect(rr.canOwn).toHaveBeenCalledWith(ACCOUNT, "agent-1");
+    expect(assigned()).toHaveLength(1);
+    expect(assigned()[0].filters).toEqual(expect.arrayContaining([["eq", "account_id", ACCOUNT], ["eq", "id", "conv1"]]));
+  });
+
+  it("leaves the conversation to routing when the member was removed or made a viewer", async () => {
+    rr.canOwn.mockResolvedValueOnce(false);
+    h.state.owned = { id: "c1" };
+    h.state.conversations = [{ id: "conv1", account_id: ACCOUNT, contact_id: "c1" }];
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [assignStep("agent-gone")];
+    await run();
+    expect(assigned()).toHaveLength(0);
+    expect(JSON.stringify(h.state.logUpdates)).toContain("left to routing");
   });
 });
 

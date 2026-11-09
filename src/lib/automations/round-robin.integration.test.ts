@@ -3,7 +3,7 @@ import { config } from "dotenv";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { disconnectDatabases, getWorkerPrisma } from "@/lib/db/prisma";
-import { nextRoundRobinAgent, pickNextMember } from "./round-robin";
+import { canOwnConversations, nextRoundRobinAgent, pickNextMember } from "./round-robin";
 
 describe("pickNextMember", () => {
   it("rotates in order and wraps", () => {
@@ -60,5 +60,14 @@ describe.skipIf(!ownerUrl || !workerUrl)("round-robin assignment on PostgreSQL",
     expect([...counts.values()]).toEqual([2, 2, 2]);
     expect(picks).not.toContain(viewer);
     expect(picks).not.toContain(outsider);
+  });
+
+  it("lets only a current owner, admin or agent own a pinned conversation (audit #51)", async () => {
+    expect(await canOwnConversations(accountId, users[1])).toBe(true);
+    expect(await canOwnConversations(accountId, users[2].toUpperCase())).toBe(true);
+    expect(await canOwnConversations(accountId, viewer)).toBe(false);
+    expect(await canOwnConversations(accountId, outsider)).toBe(false);
+    expect(await canOwnConversations(accountId, randomUUID())).toBe(false);
+    expect(await canOwnConversations(accountId, "not-a-uuid")).toBe(false);
   });
 });

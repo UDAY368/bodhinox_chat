@@ -22,7 +22,7 @@ import type {
   AssignConversationStepConfig,
 } from '@/types'
 import { databaseAdmin } from './admin-client'
-import { nextRoundRobinAgent } from './round-robin'
+import { canOwnConversations, nextRoundRobinAgent } from './round-robin'
 import { marketingSuppression } from '@/lib/contacts/consent'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
 import { writeContactField } from '@/lib/contacts/field-write'
@@ -982,9 +982,14 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         agentId = (await nextRoundRobinAgent(args.automation.account_id)) ?? undefined
       }
       if (!agentId) return 'no agent resolved'
-      await inConversationScope(db
+      // A pinned member removed or demoted to viewer is skipped; routing assigns instead (audit #51).
+      if (cfg.mode !== 'round_robin' && !(await canOwnConversations(args.automation.account_id, agentId))) {
+        return `agent ${agentId} can no longer own conversations; left to routing`
+      }
+      const { error } = await inConversationScope(db
         .from('conversations')
         .update({ assigned_agent_id: agentId }), args)
+      if (error) throw new Error(tErr('assignFailed'))
       return `assigned to ${agentId}`
     }
 

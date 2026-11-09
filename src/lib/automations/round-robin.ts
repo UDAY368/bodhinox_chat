@@ -1,5 +1,6 @@
 import { getWorkerPrisma } from '@/lib/db/prisma'
 import { withTenant } from '@/lib/db/tenant'
+import { eligibleMembers } from '@/lib/inbox/routing'
 
 /** The member after `last` in a stable order, wrapping to the start. */
 export function pickNextMember(memberIds: string[], last: string | null): string | null {
@@ -25,4 +26,17 @@ export async function nextRoundRobinAgent(accountId: string): Promise<string | n
     }
     return next
   }, getWorkerPrisma())
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Whether a member pinned in a flow or automation can still own conversations:
+ * a removed member or one demoted to viewer cannot (the same rule as routing
+ * rules), so the caller leaves the conversation to normal routing instead.
+ */
+export async function canOwnConversations(accountId: string, userId: string): Promise<boolean> {
+  if (!UUID.test(userId)) return false
+  const eligible = await withTenant({ accountId, role: 'owner' }, (tx) => eligibleMembers(tx, accountId, [userId]), getWorkerPrisma())
+  return eligible.has(userId.toLowerCase())
 }
