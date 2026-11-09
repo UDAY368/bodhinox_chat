@@ -192,6 +192,15 @@ export function formNumberRefusal(
   return null;
 }
 
+/**
+ * Meta's #131009 "flow_id is invalid" refusal. Meta has refused a published flow of the sending number's own account
+ * this way while every check passed; the send is then retried naming the flow, which Meta resolves by name in that account.
+ */
+export function isFlowIdRefusal(error: unknown): boolean {
+  const e = error as { code?: unknown; details?: unknown; message?: unknown } | null;
+  return e?.code === 131009 && /flow_id/i.test(`${e.details ?? ''} ${e.message ?? ''}`);
+}
+
 async function prepare(tx: TenantTransaction, args: SendFormArgs): Promise<Prepared> {
   const forms = await tx.$queryRaw<{ name: string; status: string; meta_flow_id: string | null; definition: unknown;
     uses_endpoint: boolean; waba_id: string | null }[]>`
@@ -256,10 +265,15 @@ export async function sendForm(args: SendFormArgs): Promise<SendFormResult> {
     const accessToken = decrypt(prepared.accessTokenEnc);
     const variants = prepared.target.isPhone ? phoneVariants(prepared.target.target) : [prepared.target.target];
     let lastError: unknown = null;
+    const send = (to: string, flowName?: string) => sendFlowMessage({ phoneNumberId: prepared.phoneNumberId, accessToken, to,
+      flowId: prepared.metaFlowId, flowName, flowToken, screen: prepared.screen, ...content });
     for (const to of variants) {
       try {
-        return await sendFlowMessage({ phoneNumberId: prepared.phoneNumberId, accessToken, to, flowId: prepared.metaFlowId,
-          flowToken, screen: prepared.screen, ...content });
+        // A refused flow id sends nothing, so naming the flow instead cannot double-send.
+        return await send(to).catch((error: unknown) => {
+          if (!isFlowIdRefusal(error)) throw error;
+          return send(to, prepared.formName);
+        });
       } catch (error) {
         if (!isRecipientNotAllowedError(error instanceof Error ? error.message : String(error))) throw error;
         lastError = error;

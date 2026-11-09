@@ -1174,8 +1174,10 @@ export function paymentPortFor(cfg: Partial<PaymentLinkNodeConfig>, outcome: Pay
  */
 export function errorDetail(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
-  const details = (err as { details?: unknown }).details;
-  return typeof details === "string" && details.trim() ? `${err.message} (${details.trim().slice(0, 300)})` : err.message;
+  const { details, fbtraceId } = err as { details?: unknown; fbtraceId?: unknown };
+  const text = typeof details === "string" && details.trim() ? `${err.message} (${details.trim().slice(0, 300)})` : err.message;
+  // Meta's trace id lets Meta support find the exact refused request.
+  return typeof fbtraceId === "string" && /^[\w-]{1,64}$/.test(fbtraceId) ? `${text} [fbtrace_id ${fbtraceId}]` : text;
 }
 
 function paymentEnd(outcome: PaymentOutcome): { status: "completed" | "failed"; reason: string } {

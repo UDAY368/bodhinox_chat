@@ -1628,6 +1628,8 @@ export interface SendFlowMessageArgs {
   accessToken: string
   to: string
   flowId: string
+  /** Name the flow by its name instead of flowId (Meta resolves it inside the sending number's account). */
+  flowName?: string
   /** Our one-time token; Meta echoes it back with the submission. */
   flowToken: string
   /** CTA button text, at most 30 characters. */
@@ -1645,7 +1647,7 @@ export interface SendFlowMessageArgs {
 
 /** Sends a flow as an interactive message. Only inside the 24-hour window. */
 export async function sendFlowMessage(args: SendFlowMessageArgs): Promise<{ whatsapp_message_id: string }> {
-  const { phoneNumberId, accessToken, to, flowId, flowToken, cta, body, header, footer, screen, data, mode } = args
+  const { phoneNumberId, accessToken, to, flowId, flowName, flowToken, cta, body, header, footer, screen, data, mode } = args
   validateInteractiveBody(body)
   validateInteractiveHeaderFooter(header, footer)
   if (!cta.trim()) throw new Error(tf('ctaRequired'))
@@ -1653,7 +1655,7 @@ export async function sendFlowMessage(args: SendFlowMessageArgs): Promise<{ what
   const parameters: Record<string, unknown> = {
     flow_message_version: '3',
     flow_token: flowToken,
-    flow_id: flowId,
+    ...(flowName ? { flow_name: flowName } : { flow_id: flowId }),
     flow_cta: cta,
     flow_action: 'navigate',
     flow_action_payload: { screen, ...(data && Object.keys(data).length > 0 ? { data } : {}) },

@@ -128,6 +128,17 @@ describe('WhatsApp Flows API', () => {
     })
   })
 
+  it('names the flow instead of its id when flowName is given', async () => {
+    reply = () => new Response(JSON.stringify({ messages: [{ id: 'wamid.F3' }] }), { status: 200 })
+    await sendFlowMessage({
+      phoneNumberId: 'pn-1', accessToken: 'tok', to: '15551234567', flowId: 'f1', flowName: 'Lead form', flowToken: 'tkn',
+      cta: 'Open', body: 'Hi', screen: 'A',
+    })
+    const { parameters } = jsonBody().interactive.action
+    expect(parameters.flow_name).toBe('Lead form')
+    expect(parameters).not.toHaveProperty('flow_id')
+  })
+
   it('sends draft mode and initial data only when asked', async () => {
     reply = () => new Response(JSON.stringify({ messages: [{ id: 'wamid.F2' }] }), { status: 200 })
     await sendFlowMessage({

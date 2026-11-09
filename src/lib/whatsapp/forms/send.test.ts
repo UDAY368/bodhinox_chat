@@ -121,6 +121,17 @@ describe('sendForm', () => {
     expect(h.sendFlow.mock.calls[0][0]).toMatchObject({ screen: 'SCREEN_ONE' });
   });
 
+  it('retries once naming the flow when Meta refuses the flow id, and never for other errors', async () => {
+    const refusal = Object.assign(new Error('(#131009) Parameter value is not valid'), { code: 131009, details: 'Parameter "flow_id" is invalid.' });
+    h.sendFlow.mockRejectedValueOnce(refusal);
+    await sendForm(args);
+    expect(h.sendFlow.mock.calls.map((c) => c[0].flowName)).toEqual([undefined, 'Lead']);
+    h.sendFlow.mockClear();
+    h.sendFlow.mockRejectedValueOnce(Object.assign(new Error('(#131009) Parameter value is not valid'), { code: 131009, details: 'Parameter "to" is invalid.' }));
+    await expect(sendForm({ ...args, intentKey: 'form:inbox:y' })).rejects.toThrow('131009');
+    expect(h.sendFlow).toHaveBeenCalledTimes(1);
+  });
+
   it('creates the session inside the intent, sends, then records the message idempotently', async () => {
     const result = await sendForm(args);
     expect(result).toEqual({ whatsappMessageId: 'wamid.form', messageId: 'msg-1' });
