@@ -20,3 +20,36 @@ export async function loadMessagePage(
   const result = await query;
   return { ...result, data: result.data ? [...result.data].reverse() : null };
 }
+
+export interface ThreadHistory {
+  conversationId: string;
+  before: Pick<Message, 'id' | 'created_at'> | undefined;
+  hasOlder: boolean;
+}
+
+/**
+ * The 'load older' cursor after the newest page was (re)fetched. A resync of
+ * the thread already shown keeps the cursor when the fresh page overlaps the
+ * messages on screen (they stay, and older pages continue from where the agent
+ * scrolled). A first load, another conversation, or a gap (more new messages
+ * than one page) starts again from the fetched page.
+ */
+export function historyAfterNewestPage(
+  previous: ThreadHistory | null,
+  conversationId: string,
+  page: Message[],
+  shownIds: ReadonlySet<string>
+): ThreadHistory {
+  if (previous?.conversationId === conversationId && page.some((m) => shownIds.has(m.id)))
+    return previous;
+  return { conversationId, before: page[0], hasOlder: page.length === MESSAGE_PAGE_SIZE };
+}
+
+/** Within this many pixels of the end, the thread follows new messages. */
+export const STICK_TO_BOTTOM_PX = 80;
+
+export function isNearBottom(
+  el: Pick<HTMLElement, 'scrollHeight' | 'scrollTop' | 'clientHeight'>
+): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= STICK_TO_BOTTOM_PX;
+}

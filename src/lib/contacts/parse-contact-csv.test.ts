@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseContactCsv, parseTagCell } from './parse-contact-csv';
+import { importConsentAt, parseContactCsv, parseTagCell } from './parse-contact-csv';
 
 describe('parseTagCell', () => {
   it('splits comma-separated tags and trims whitespace', () => {
@@ -34,6 +34,7 @@ describe('parseContactCsv', () => {
       hasPhoneColumn: true,
       hasTagsColumn: true,
       hasCompanyColumn: false,
+      phoneColumn: 'phone',
       rows: [
         {
           phone: '+15551234567',
@@ -80,6 +81,7 @@ describe('parseContactCsv', () => {
       hasPhoneColumn: true,
       hasTagsColumn: false,
       hasCompanyColumn: false,
+      phoneColumn: 'phone',
       rows: [
         {
           phone: '+15551234567',
@@ -91,5 +93,68 @@ describe('parseContactCsv', () => {
         },
       ],
     });
+  });
+
+  it('accepts common header names and joins first and last name', () => {
+    const csv = `Mobile No.,First Name,Last Name,E-mail Address,Organisation,Labels
+9876543210,Siobhan,O'Brien,sob@example.com,Acme,"VIP; Lead"`;
+    const result = parseContactCsv(csv);
+    expect(result).toMatchObject({ hasPhoneColumn: true, hasTagsColumn: true, hasCompanyColumn: true, phoneColumn: 'mobile no.' });
+    expect(result.rows[0]).toMatchObject({
+      phone: '9876543210',
+      name: "Siobhan O'Brien",
+      email: 'sob@example.com',
+      company: 'Acme',
+      tagNames: ['VIP', 'Lead'],
+    });
+  });
+
+  it.each(['Phone Number', 'WhatsApp', 'whatsapp_number', 'Cell', 'Contact Number'])('finds the phone column under %j', (header) => {
+    expect(parseContactCsv(`${header},Name\n+15551234567,A`).rows[0].phone).toBe('+15551234567');
+  });
+
+  it('keeps apostrophes in names and companies but drops the export formula guard', () => {
+    const csv = `phone,name,company
+'+15551234567,D'Souza,"Kelly's ""Best"" Cafe"
++15551234568,'=Boss,'-Minus Ltd`;
+    const { rows } = parseContactCsv(csv);
+    expect(rows[0]).toMatchObject({ phone: '+15551234567', name: "D'Souza", company: `Kelly's "Best" Cafe` });
+    expect(rows[1]).toMatchObject({ name: '=Boss', company: '-Minus Ltd' });
+  });
+
+  it('reads a byte-order mark, CRLF, semicolon files and quoted line breaks', () => {
+    const csv = '\uFEFFphone;name;company\r\n+15551234567;Alice;"Line one\r\nLine two"\r\n+15551234568;Bob;Acme\r\n';
+    const { rows } = parseContactCsv(csv);
+    expect(rows.map((r) => [r.phone, r.name, r.company])).toEqual([
+      ['+15551234567', 'Alice', 'Line one\r\nLine two'],
+      ['+15551234568', 'Bob', 'Acme'],
+    ]);
+  });
+
+  it('reports a missing phone column', () => {
+    expect(parseContactCsv('name,email\nA,a@example.com')).toMatchObject({ hasPhoneColumn: false, rows: [] });
+  });
+  it('reads our own export back: opted-out and blocked cells, tags and the phone', () => {
+    const csv = '\uFEFF"Name","Phone","Email","Company","Tags","Opted out at","Blocked at","Created at"\r\n'
+      + '"Asha","+919876543210","","","VIP; Lead","2026-10-01T08:00:00.000Z","","2026-09-01T00:00:00.000Z"\r\n';
+    const [row] = parseContactCsv(csv).rows;
+    expect(row).toMatchObject({ phone: '+919876543210', name: 'Asha', tagNames: ['VIP', 'Lead'], optedOut: '2026-10-01T08:00:00.000Z' });
+    expect(row.blocked).toBeUndefined();
+  });
+});
+
+describe('importConsentAt', () => {
+  const now = new Date('2026-11-10T12:00:00.000Z');
+  it.each([undefined, '', ' ', 'no', 'FALSE', '0', 'n', 'off'])('is not set for %j', (value) => {
+    expect(importConsentAt(value, now)).toBeUndefined();
+  });
+  it('keeps the date from the file, or uses now for a yes or an unreadable value', () => {
+    expect(importConsentAt('2026-10-01T08:00:00.000Z', now)).toBe('2026-10-01T08:00:00.000Z');
+    expect(importConsentAt('2026-10-01', now)).toBe('2026-10-01T00:00:00.000Z');
+    expect(importConsentAt('yes', now)).toBe(now.toISOString());
+    expect(importConsentAt('01/10/2026', now)).toBe(now.toISOString());
+  });
+  it('never dates an opt-out in the future', () => {
+    expect(importConsentAt('2099-01-01', now)).toBe(now.toISOString());
   });
 });

@@ -67,12 +67,12 @@ beforeEach(() => {
 });
 
 describe('CSV', () => {
-  it('starts with a BOM, quotes every cell, uses CRLF and neutralises formulas', () => {
+  it('starts with a BOM, quotes every cell, uses CRLF and neutralises formulas (a plain +digits number is left as is)', () => {
     const text = decode(toCsv([{ header: 'name', value: (r: { v: unknown }) => r.v }],
-      [{ v: '=HYPERLINK("x")' }, { v: '+1' }, { v: '-2' }, { v: '@a' }, { v: 'Café "A"' }, { v: null }, { v: 7 }]));
+      [{ v: '=HYPERLINK("x")' }, { v: '+1+1' }, { v: '+919876543210' }, { v: '-2' }, { v: '@a' }, { v: 'Café "A"' }, { v: null }, { v: 7 }]));
     expect(text.charCodeAt(0)).toBe(0xfeff);
     expect(text.slice(1).split('\r\n')).toEqual([
-      '"name"', `"'=HYPERLINK(""x"")"`, `"'+1"`, `"'-2"`, `"'@a"`, '"Café ""A"""', '""', '"7"', '',
+      '"name"', `"'=HYPERLINK(""x"")"`, `"'+1+1"`, '"+919876543210"', `"'-2"`, `"'@a"`, '"Café ""A"""', '""', '"7"', '',
     ]);
   });
 

@@ -3,20 +3,15 @@
 import { useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
+import { authFetch } from '@/lib/auth/client';
+import { parseImportPhone } from '@/lib/whatsapp/phone-utils';
 import {
-  dedupeByPhone,
-  isUniqueViolation,
-  normalizeKey,
-} from '@/lib/contacts/dedupe';
-import {
+  importConsentAt,
   parseContactCsv,
   type ParsedContactRow,
 } from '@/lib/contacts/parse-contact-csv';
-import {
-  assignImportedContactTags,
-  resolveImportTagIds,
-  type ContactTagAssignment,
-} from '@/lib/contacts/resolve-import-tags';
+import { csvCell } from '@/lib/audience/csv-cell';
+import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -28,6 +23,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Upload,
   FileText,
@@ -36,11 +34,27 @@ import {
   XCircle,
   AlertTriangle,
   Tag,
+  Download,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;
+/** Rows per POST /api/contacts/import request (IMPORT_BATCH_SIZE in lib/contacts/import.ts). */
+const BATCH_SIZE = 200;
+
+/** Save the rows the import refused, with the reason, as a CSV the user can fix and re-import. */
+function downloadRejectedRows(rows: { phone: string; name?: string; reason: string }[]) {
+  const lines = [['phone', 'name', 'reason'], ...rows.map((r) => [r.phone, r.name ?? '', r.reason])]
+    .map((cells) => cells.map(csvCell).join(','));
+  const BOM = String.fromCharCode(0xfeff);
+  const url = URL.createObjectURL(new Blob([`${BOM}${lines.join('\r\n')}\r\n`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'rejected-contacts.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function truncateFilename(name: string, max = 48): string {
   if (name.length <= max) return name;
@@ -138,9 +152,13 @@ export function ImportModal({
   const [tagColorByKey, setTagColorByKey] = useState<Map<string, string>>(
     new Map()
   );
+  const [countryCode, setCountryCode] = useState('');
+  const [updateExisting, setUpdateExisting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<{
     imported: number;
+    updated: number;
     skipped: number;
     invalidPhone: number;
     failed: number;
@@ -155,6 +173,7 @@ export function ImportModal({
     setHasCompanyColumn(false);
     setTagColorByKey(new Map());
     setResult(null);
+    setProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -173,12 +192,13 @@ export function ImportModal({
     const text = await selected.text();
     const {
       rows,
+      hasPhoneColumn,
       hasTagsColumn: csvHasTags,
       hasCompanyColumn: csvHasCompany,
     } = parseContactCsv(text);
 
     if (rows.length === 0) {
-      toast.error(t('toastNoValidRows'));
+      toast.error(t(hasPhoneColumn ? 'toastNoValidRows' : 'toastNoPhoneColumn'));
       setParsedRows([]);
       setHasTagsColumn(false);
       setHasCompanyColumn(false);
@@ -221,164 +241,114 @@ export function ImportModal({
         throw new Error(t('notLinkedToAccount'));
 
       let imported = 0;
+      let updated = 0;
       let skipped = 0;
       let failed = 0;
+      let tagsAssigned = 0;
       const failedDetails: { phone: string; name?: string; reason: string }[] =
         [];
 
-      // 1) De-dupe within the file by normalized phone (keep first).
-      //    Rows with no usable phone at all are counted separately —
-      //    they never duplicated anything, so lumping them into
-      //    `skipped` would misreport them as dupes (see dedupeByPhone).
-      const {
-        unique,
-        duplicates: inFileDupes,
-        invalid: invalidPhone,
-      } = dedupeByPhone(parsedRows);
-      skipped += inFileDupes;
-
-      // 2) Skip numbers already in this account. One read of the
-      //    generated `phone_normalized` column (migration 022) → Set.
-      const { data: existingRows } = await db
-        .from('contacts')
-        .select('phone_normalized')
-        .eq('account_id', accountId);
-      const existing = new Set(
-        (existingRows ?? [])
-          .map(
-            (r) => (r as { phone_normalized: string | null }).phone_normalized
-          )
-          .filter((p): p is string => !!p)
-      );
-
-      const toInsert = unique.filter((row) => {
-        if (existing.has(normalizeKey(row.phone))) {
+      // 1) Normalise numbers (with the chosen default country) and keep the
+      //    first row per number. Rows with no usable number are listed with
+      //    a reason instead of only counted.
+      const seen = new Set<string>();
+      const unique: (ParsedContactRow & { digits: string })[] = [];
+      let invalidPhone = 0;
+      for (const row of parsedRows) {
+        const digits = parseImportPhone(row.phone, countryCode);
+        if (!digits) {
+          invalidPhone++;
+          failedDetails.push({ phone: row.phone || '—', name: row.name, reason: t('invalidPhoneReason') });
+        } else if (seen.has(digits)) {
           skipped++;
-          return false;
+        } else {
+          seen.add(digits);
+          unique.push({ ...row, digits });
         }
-        return true;
-      });
+      }
 
-      // 3) Resolve tag names → ids (admin+ may auto-create missing tags).
+      // 2) Resolve tag names → ids (admin+ may auto-create missing tags).
       //    Skip the round-trip when the import carries no tag names.
-      const allTagNames = toInsert.flatMap((row) => row.tagNames);
+      const allTagNames = unique.flatMap((row) => row.tagNames);
       let tagIdByKey = new Map<string, string>();
       let skippedNames: string[] = [];
       if (allTagNames.length > 0) {
-        ({ tagIdByKey, skippedNames } = await resolveImportTagIds(db, {
-          accountId,
-          userId: user.id,
-          tagNames: allTagNames,
-          canCreateTags: canEditSettings,
-        }));
-      }
-
-      const tagAssignments: ContactTagAssignment[] = [];
-
-      // 4) Batch insert the genuinely-new rows in chunks of 50. The DB
-      //    unique index is the backstop: a 23505 (race, or a format
-      //    that normalizes equal) counts as skipped, not failed.
-      const chunkSize = 50;
-
-      for (let i = 0; i < toInsert.length; i += chunkSize) {
-        const chunk = toInsert.slice(i, i + chunkSize);
-        const rows = chunk.map((row) => ({
-          user_id: user.id,
-          account_id: accountId,
-          phone: row.phone,
-          name: row.name || null,
-          email: row.email || null,
-          company: row.company || null,
-        }));
-
-        const { data, error } = await db
-          .from('contacts')
-          .insert(rows)
-          .select('id');
-
-        if (error) {
-          // Retry individually so one bad/duplicate row doesn't sink
-          // the whole chunk.
-          for (let j = 0; j < rows.length; j++) {
-            const row = rows[j];
-            const source = chunk[j];
-            const { data: singleData, error: singleErr } = await db
-              .from('contacts')
-              .insert(row)
-              .select('id')
-              .single();
-
-            if (!singleErr && singleData) {
-              imported++;
-              if (source.tagNames.length > 0) {
-                tagAssignments.push({
-                  contactId: singleData.id,
-                  tagNames: source.tagNames,
-                });
-              }
-            } else if (isUniqueViolation(singleErr)) {
-              skipped++;
-            } else {
-              failed++;
-              // Keep the actual DB error instead of discarding it —
-              // "N contacts failed" with no reason attached left no
-              // way to tell an RLS/constraint failure from a fluke,
-              // let alone which contact it was.
-              console.error(
-                '[contacts import] insert failed for',
-                row.phone,
-                singleErr
-              );
-              failedDetails.push({
-                phone: row.phone,
-                name: row.name ?? undefined,
-                reason:
-                  (singleErr as { message?: string } | null)?.message ||
-                  t('unknownReason'),
-              });
-            }
-          }
-        } else {
-          const inserted = data ?? [];
-          imported += inserted.length;
-          // inserted[j] ↔ chunk[j] only holds because a single INSERT
-          // preserves RETURNING order. If this path is ever split into
-          // parallel inserts, zip by phone or returned id instead.
-          for (let j = 0; j < inserted.length; j++) {
-            const source = chunk[j];
-            if (!source || source.tagNames.length === 0) continue;
-            tagAssignments.push({
-              contactId: inserted[j].id,
-              tagNames: source.tagNames,
-            });
-          }
+        try {
+          ({ tagIdByKey, skippedNames } = await resolveImportTagIds(db, {
+            accountId,
+            userId: user.id,
+            tagNames: allTagNames,
+            canCreateTags: canEditSettings,
+          }));
+        } catch {
+          toast.warning(t('toastTagsWarning'));
         }
       }
+      const tagIdsOf = (row: ParsedContactRow) => [
+        ...new Set(
+          row.tagNames
+            .map((name) => tagIdByKey.get(name.trim().toLowerCase()))
+            .filter((id): id is string => !!id)
+        ),
+      ].slice(0, 50);
 
-      // 5) Wire tags onto the contacts we just created. Failure here must
-      //    not mask a successful contact import.
-      let tagsAssigned = 0;
-      try {
-        tagsAssigned = await assignImportedContactTags(
-          db,
-          tagAssignments,
-          tagIdByKey
-        );
-      } catch {
-        toast.warning(t('toastTagsWarning'));
+      // 3) Send batches to the server, which inserts with ON CONFLICT on
+      //    the workspace's number index (a duplicate never fails a batch)
+      //    and, when chosen, updates contacts that already exist.
+      setProgress({ done: 0, total: unique.length });
+      for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+        const chunk = unique.slice(i, i + BATCH_SIZE);
+        const res = await authFetch('/api/contacts/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            updateExisting,
+            rows: chunk.map((row) => ({
+              phone: row.digits,
+              name: row.name?.slice(0, 200),
+              email: row.email?.slice(0, 320),
+              company: row.company?.slice(0, 200),
+              tagIds: tagIdsOf(row),
+              optedOutAt: importConsentAt(row.optedOut),
+              blockedAt: importConsentAt(row.blocked),
+            })),
+          }),
+        }).catch(() => null);
+        const payload = (await res?.json().catch(() => null)) as {
+          imported?: number;
+          updated?: number;
+          skipped?: number;
+          tagsAssigned?: number;
+          error?: string;
+        } | null;
+        if (res?.ok && payload) {
+          imported += payload.imported ?? 0;
+          updated += payload.updated ?? 0;
+          skipped += payload.skipped ?? 0;
+          tagsAssigned += payload.tagsAssigned ?? 0;
+        } else {
+          // The plan's contact limit refuses every later batch too, so stop there.
+          const rest = res?.status === 402 ? unique.slice(i) : chunk;
+          const reason = payload?.error || t('unknownReason');
+          failed += rest.length;
+          for (const row of rest) failedDetails.push({ phone: row.phone, name: row.name, reason });
+          if (res?.status === 402) break;
+        }
+        setProgress({ done: Math.min(i + BATCH_SIZE, unique.length), total: unique.length });
       }
 
       setResult({
         imported,
+        updated,
         skipped,
         invalidPhone,
         failed,
         failedDetails,
         tagsAssigned,
       });
+      if (imported > 0 || updated > 0) onImported();
       if (imported > 0) {
         toast.success(t('toastImported', { count: imported }));
-        onImported();
       }
       if (tagsAssigned > 0) {
         toast.success(t('toastTagsAssigned', { count: tagsAssigned }));
@@ -403,6 +373,7 @@ export function ImportModal({
       toast.error(message);
     } finally {
       setImporting(false);
+      setProgress(null);
     }
   }
 
@@ -500,6 +471,39 @@ export function ImportModal({
             onChange={handleFileChange}
             className="hidden"
           />
+
+          {!result && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="import-country-code" className="text-xs text-popover-foreground">
+                  {t('countryCodeLabel')}
+                </Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground">+</span>
+                  <Input
+                    id="import-country-code"
+                    inputMode="numeric"
+                    maxLength={3}
+                    placeholder="91"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                    disabled={importing}
+                    className="h-8 w-20"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">{t('countryCodeHint')}</p>
+              </div>
+              <label className="flex items-start gap-2 text-xs text-popover-foreground">
+                <Checkbox
+                  checked={updateExisting}
+                  onCheckedChange={(checked) => setUpdateExisting(checked === true)}
+                  disabled={importing}
+                  className="mt-0.5"
+                />
+                <span>{t('updateExisting')}</span>
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
@@ -611,6 +615,12 @@ export function ImportModal({
                     {t('resultImported', { count: result.imported })}
                   </div>
                 )}
+                {result.updated > 0 && (
+                  <div className="text-primary flex items-center gap-1.5 text-sm">
+                    <CheckCircle className="size-4 shrink-0" />
+                    {t('resultUpdated', { count: result.updated })}
+                  </div>
+                )}
                 {result.tagsAssigned > 0 && (
                   <div className="flex items-center gap-1.5 text-sm text-cyan-400">
                     <CheckCircle className="size-4 shrink-0" />
@@ -644,9 +654,21 @@ export function ImportModal({
 
               {result.failedDetails.length > 0 && (
                 <div className="mt-3 space-y-1 border-t border-border/80 pt-3">
-                  <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                    {t('failedRowsHeading')}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                      {t('failedRowsHeading')}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => downloadRejectedRows(result.failedDetails)}
+                      className="h-7 text-xs"
+                    >
+                      <Download className="size-3.5" />
+                      {t('downloadRejected')}
+                    </Button>
+                  </div>
                   <ul className="max-h-32 space-y-1 overflow-y-auto text-xs">
                     {result.failedDetails.map((row, i) => (
                       <li
@@ -683,7 +705,9 @@ export function ImportModal({
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {importing && <Loader2 className="size-4 animate-spin" />}
-              {parsedRows.length > 0 ? t('importBtn', { count: parsedRows.length }) : t('importBtn', { count: 0 })}
+              {progress
+                ? t('importProgress', { done: progress.done, total: progress.total })
+                : t('importBtn', { count: parsedRows.length })}
             </Button>
           )}
         </DialogFooter>

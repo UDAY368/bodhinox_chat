@@ -159,6 +159,14 @@ export interface ContactPage {
   maskPhones?: boolean;
 }
 
+/** `AND (name, phone or email contains term)` over `contacts c`; empty for no term. */
+export function contactSearchSql(search: string | undefined, maskPhones: boolean): Prisma.Sql {
+  const term = search?.trim();
+  return term
+    ? Prisma.sql`AND (c.name ILIKE ${`%${term}%`} OR ${maskPhones ? maskedPhoneSearchSql(Prisma.sql`c.phone`, term) : Prisma.sql`c.phone ILIKE ${`%${term}%`}`} OR c.email ILIKE ${`%${term}%`})`
+    : Prisma.empty;
+}
+
 /** One page (newest first) of the contacts matching a filter, with the total match count. */
 export async function pageContacts(
   tx: TenantTransaction,
@@ -166,10 +174,7 @@ export async function pageContacts(
   filter: AudienceFilter,
   page: ContactPage,
 ): Promise<{ contacts: Record<string, unknown>[]; total: number }> {
-  const term = page.search?.trim();
-  const search = term
-    ? Prisma.sql`AND (c.name ILIKE ${`%${term}%`} OR ${page.maskPhones ? maskedPhoneSearchSql(Prisma.sql`c.phone`, term) : Prisma.sql`c.phone ILIKE ${`%${term}%`}`} OR c.email ILIKE ${`%${term}%`})`
-    : Prisma.empty;
+  const search = contactSearchSql(page.search, page.maskPhones === true);
   const rows = await tx.$queryRaw<(Record<string, unknown> & { total_count: number })[]>(Prisma.sql`
     SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count
     FROM contacts c WHERE ${compileAudienceFilter(accountId, filter)} ${search}

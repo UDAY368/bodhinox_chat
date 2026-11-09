@@ -138,6 +138,12 @@ describe('csvCell', () => {
   it.each(['=SUM(A1)', '+1 555', '-2', '@cmd', '\tx'])('neutralises the formula %j', (value) => {
     expect(csvCell(value)).toBe(`"'${value}"`);
   });
+  it('writes a stored E.164 phone without the formula apostrophe', () => {
+    expect(csvCell('+919876543210')).toBe('"+919876543210"');
+  });
+  it.each(['+1+1', '+1*9', '+91 98765', '+'])('still neutralises %j', (value) => {
+    expect(csvCell(value)).toBe(`"'${value}"`);
+  });
 });
 
 describe('instagram condition (Phase 11)', () => {
