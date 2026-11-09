@@ -8560,6 +8560,10 @@
     "automation_notice": {
       "label": "Avisos de automatizaciones",
       "description": "El paso Avisar al equipo de una automatización te avisa sobre una conversación."
+    },
+    "webhook_disabled": {
+      "label": "Webhooks desactivados",
+      "description": "Las entregas a un webhook fallaron durante un día, así que se desactivó."
     }
   },
   "Weekdays": {

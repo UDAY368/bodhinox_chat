@@ -8560,6 +8560,10 @@
     "automation_notice": {
       "label": "자동화 알림",
       "description": "자동화의 팀에 알리기 단계가 대화에 대해 알려 줍니다."
+    },
+    "webhook_disabled": {
+      "label": "웹훅 꺼짐",
+      "description": "웹훅 전송이 하루 동안 계속 실패해 웹훅이 꺼졌습니다."
     }
   },
   "Weekdays": {

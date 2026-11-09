@@ -30,6 +30,7 @@ import type { WebhookEvent } from '@/lib/webhooks/events';
 import { withTenant } from '@/lib/db/tenant';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { getT } from '@/lib/i18n/translate';
+import { createNotification, MAX_NOTIFICATION_RECIPIENTS } from '@/lib/inbox/notify';
 
 /** Per-attempt HTTP timeout. */
 export const DELIVERY_TIMEOUT_MS = 5000;
@@ -201,11 +202,20 @@ async function notifyDisabled(accountId: string, endpoint: EndpointRow): Promise
     const [stamp] = await tx.$queryRaw<{ epoch: string }[]>`
       SELECT floor(extract(epoch FROM disabled_at))::bigint::text AS epoch FROM webhook_endpoints
       WHERE account_id=${accountId}::uuid AND id=${endpoint.id}::uuid`;
-    await tx.$executeRaw`INSERT INTO notifications(account_id,user_id,type,title,body,link,dedupe_key)
-      SELECT ${accountId}::uuid, m.user_id, 'webhook_disabled', ${title}, ${body}, ${SETTINGS_LINK},
-        ${`webhook-disabled:${endpoint.id}:${stamp?.epoch ?? '0'}`}
-      FROM account_memberships m WHERE m.account_id=${accountId}::uuid AND m.role IN ('owner','admin')
-      ON CONFLICT DO NOTHING`;
+    const admins = await tx.$queryRaw<{ user_id: string }[]>`
+      SELECT user_id::text AS user_id FROM account_memberships
+      WHERE account_id=${accountId}::uuid AND role IN ('owner','admin') ORDER BY user_id LIMIT ${MAX_NOTIFICATION_RECIPIENTS}`;
+    // Through createNotification, so each member's webhook_disabled preference decides in-app
+    // and email digest, and the dedupe key (bound to the disable time) sends one notice per disable.
+    await createNotification(tx, {
+      accountId,
+      userIds: admins.map((row) => row.user_id),
+      event: 'webhook_disabled',
+      title,
+      body,
+      link: SETTINGS_LINK,
+      dedupeKey: `webhook-disabled:${endpoint.id}:${stamp?.epoch ?? '0'}`,
+    });
   }, getWorkerPrisma());
 }
 

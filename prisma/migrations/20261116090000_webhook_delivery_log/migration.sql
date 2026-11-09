@@ -15,8 +15,13 @@
 --     webhook_disabled).
 -- record_webhook_failure(uuid,integer) stays for the release still serving.
 --
--- Additive: three nullable columns, a new table, a new function and a superset
--- of the notifications type check (NOT VALID; 20261116090001 validates it).
+-- The notice goes through createNotification as event webhook_disabled, so each
+-- member's preference decides in-app and email digest: the preference and email
+-- queue event checks gain it too.
+--
+-- Additive: three nullable columns, a new table, a new function and supersets
+-- of the notifications type check and the notification_preferences /
+-- notification_email_queue event checks (NOT VALID; 20261116090001 validates them).
 SET LOCAL lock_timeout = '5s';
 
 ALTER TABLE webhook_endpoints ADD COLUMN failing_since timestamptz;
@@ -99,4 +104,17 @@ ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
     'assigned_message', 'mention', 'sla_breach', 'campaign_finished', 'template_rejected', 'billing',
     'appointment_booked', 'appointment_cancelled', 'appointment_rescheduled',
     'low_stock', 'payment_exception', 'instagram_account_health', 'automation_notice',
+    'webhook_disabled')) NOT VALID;
+
+-- Supersets of 20261110101300_phase12_event_checks plus webhook_disabled.
+ALTER TABLE notification_preferences DROP CONSTRAINT notification_preferences_event_check; -- additive-exception: replaced in this statement pair by a superset check, NOT VALID
+ALTER TABLE notification_preferences ADD CONSTRAINT notification_preferences_event_check
+  CHECK (event IN ('assigned_message', 'mention', 'sla_breach', 'campaign_finished', 'template_rejected', 'number_quality',
+    'appointment_booked', 'appointment_cancelled', 'appointment_rescheduled', 'automation_notice',
+    'webhook_disabled')) NOT VALID;
+
+ALTER TABLE notification_email_queue DROP CONSTRAINT notification_email_queue_event_check; -- additive-exception: replaced in this statement pair by a superset check, NOT VALID
+ALTER TABLE notification_email_queue ADD CONSTRAINT notification_email_queue_event_check
+  CHECK (event IN ('assigned_message', 'mention', 'sla_breach', 'campaign_finished', 'template_rejected', 'number_quality',
+    'appointment_booked', 'appointment_cancelled', 'appointment_rescheduled', 'automation_notice',
     'webhook_disabled')) NOT VALID;

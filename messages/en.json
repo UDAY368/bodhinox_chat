@@ -8560,6 +8560,10 @@
     "automation_notice": {
       "label": "Automation notices",
       "description": "An automation's Notify team step tells you about a conversation."
+    },
+    "webhook_disabled": {
+      "label": "Webhooks switched off",
+      "description": "Deliveries to a webhook kept failing for a day, so it was switched off."
     }
   },
   "Weekdays": {

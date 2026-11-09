@@ -26,6 +26,7 @@ export const NOTIFICATION_EVENTS = [
   'appointment_cancelled',
   'appointment_rescheduled',
   'automation_notice',
+  'webhook_disabled',
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -41,6 +42,7 @@ export const NOTIFICATION_TYPE_BY_EVENT: Record<NotificationEvent, string> = {
   appointment_cancelled: 'appointment_cancelled',
   appointment_rescheduled: 'appointment_rescheduled',
   automation_notice: 'automation_notice',
+  webhook_disabled: 'webhook_disabled',
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCE = { in_app: true, email: false } as const;

@@ -394,7 +394,7 @@ increments `failure_count` and any success resets it. The endpoint is
 auto-disabled (`is_active: false`, with `disabled_at` and
 `disabled_reason: "sustained_failure"`) only after at least 15 failed
 attempts in a row spanning 24 hours; workspace owners and admins are
-notified in-app and see a delivery log in Settings. Re-enable it with
+notified (in-app, or by email digest if they opt in) and see a delivery log in Settings. Re-enable it with
 `PATCH` (which resets the counter and clears the reason). Events that
 exhaust their retries are not replayed, so reconcile with the read
 endpoints when it matters.

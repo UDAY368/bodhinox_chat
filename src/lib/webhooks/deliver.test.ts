@@ -17,6 +17,7 @@ const tenant = vi.hoisted(() => ({
   sql: [] as string[],
   params: [] as unknown[][],
   fail: false,
+  recipients: [] as { user_id: string; in_app: boolean; email: boolean }[],
 }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => 'worker-prisma' }));
 vi.mock('@/lib/db/tenant', () => ({
@@ -30,7 +31,11 @@ vi.mock('@/lib/db/tenant', () => ({
     return fn({
       $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
         record(strings, ...values);
-        return [{ epoch: '1762770000' }];
+        const sql = strings.join('?');
+        if (sql.includes('disabled_at')) return [{ epoch: '1762770000' }];
+        if (sql.includes('FROM account_memberships m')) return tenant.recipients;
+        if (sql.includes('FROM account_memberships')) return tenant.recipients.map(({ user_id }) => ({ user_id }));
+        return [];
       },
       $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
         record(strings, ...values);
@@ -113,6 +118,7 @@ beforeEach(() => {
   tenant.sql = [];
   tenant.params = [];
   tenant.fail = false;
+  tenant.recipients = [];
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -203,7 +209,13 @@ describe('deliverQueuedWebhook', () => {
     expect(calls.rpcs[0].args).toMatchObject({ p_delivered: false, p_error: 'blocked_target' });
   });
 
-  it('notifies the owners and admins in-app when this attempt switched the endpoint off', async () => {
+  it('notifies the owners and admins (their webhook_disabled preference decides in-app and email) when this attempt switched the endpoint off', async () => {
+    const OWNER = '33333333-3333-4333-8333-333333333333';
+    const ADMIN = '44444444-4444-4444-8444-444444444444';
+    tenant.recipients = [
+      { user_id: OWNER, in_app: true, email: false },
+      { user_id: ADMIN, in_app: true, email: true },
+    ];
     sf.fetch.mockResolvedValue({ ok: false, error: 'timeout' });
     const calls = emptyCalls();
     await expect(
@@ -218,11 +230,14 @@ describe('deliverQueuedWebhook', () => {
     expect(tenant.contexts).toEqual([
       { ctx: { accountId: '22222222-2222-4222-8222-222222222222', role: 'owner' }, db: 'worker-prisma' },
     ]);
-    const insert = tenant.sql.findIndex((sql) => sql.includes('INSERT INTO notifications'));
-    expect(insert).toBeGreaterThan(-1);
-    expect(tenant.sql[insert]).toMatch(/'webhook_disabled'/);
-    expect(tenant.sql[insert]).toMatch(/m\.role IN \('owner','admin'\)/);
-    const values = tenant.params[insert].map(String);
+    expect(tenant.sql.some((sql) => /FROM account_memberships\s+WHERE [\s\S]*role IN \('owner','admin'\)/.test(sql))).toBe(true);
+    // The preference lookup is for the webhook_disabled event.
+    const lookup = tenant.sql.findIndex((sql) => sql.includes('LEFT JOIN notification_preferences'));
+    expect(tenant.params[lookup]).toContain('webhook_disabled');
+    const inserts = tenant.sql.flatMap((sql, i) => (sql.includes('INSERT INTO notifications(') ? [i] : []));
+    expect(inserts).toHaveLength(2);
+    const values = tenant.params[inserts[0]].map(String);
+    expect(values).toContain('webhook_disabled');
     // The host names the endpoint; the path and query (which may carry a token) never appear.
     expect(values.some((v) => v.includes('hooks.example.test') && v.includes('switched off'))).toBe(true);
     expect(values.some((v) => v.includes('24 hours'))).toBe(true);
@@ -230,6 +245,10 @@ describe('deliverQueuedWebhook', () => {
     expect(values).toContain('/settings?tab=api');
     // One notice per disable: the dedupe key carries the disable time.
     expect(values).toContain('webhook-disabled:d:1762770000');
+    // The admin who opted into email gets a digest entry; the owner does not.
+    const emails = tenant.sql.flatMap((sql, i) => (sql.includes('INSERT INTO notification_email_queue') ? [i] : []));
+    expect(emails).toHaveLength(1);
+    expect(tenant.params[emails[0]]).toEqual(expect.arrayContaining([ADMIN, 'webhook_disabled']));
   });
 
   it('still throws for retry when the notice cannot be written', async () => {

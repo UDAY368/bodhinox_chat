@@ -213,6 +213,10 @@ describe.skipIf(!connectionString)(
       expect(named[0].full_name).toBe('Real owner');
       // Every other pending link died with the verification.
       await expect(verifyEmailToken(squatterLink, 'Attacker1!')).rejects.toMatchObject({ code: 'link_invalid' });
+      // The spent links no longer hold any signup's password hash.
+      const leftover = await getAuthPrisma().$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM auth_verifications WHERE user_id=${id}::uuid AND metadata->>'passwordHash' IS NOT NULL`;
+      expect(leftover[0].n).toBe(0);
     }, 30000);
     it('keeps the inbox owner password when a squatter signs up after them, whichever link they open', async () => {
       const victim = `${randomUUID()}@example.invalid`;
