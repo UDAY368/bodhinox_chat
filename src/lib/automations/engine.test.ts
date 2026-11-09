@@ -910,6 +910,21 @@ describe("wait_for_reply", () => {
     expect(sentTexts()).toEqual(["crm.stelltech.ai", "Thanks for contacting"]);
   });
 
+  it("expires a reply wait for a contact blocked or opted out since it parked, sending nothing (audit #49)", async () => {
+    for (const flag of ["blocked_at", "opted_out_at"]) {
+      h.state.pending = [];
+      vi.mocked(engineSendText).mockClear();
+      h.state.owned = { id: "c1" };
+      h.state.steps = userMenu();
+      await trigger("Hii");
+      h.state.owned = { id: "c1", [flag]: "2026-11-10T09:00:00Z" } as { id: string };
+      expect(await reply("Website", "web")).toBe(false);
+      expect(sentTexts()).toEqual([]);
+      expect(h.state.pending[0].status).toBe("expired");
+      expect(h.state.logUpdates.at(-1)).toMatchObject({ error_message: expect.stringMatching(flag === "blocked_at" ? /blocked/ : /opted out/) });
+    }
+  });
+
   it("releases a reply when the parked menu was removed", async () => {
     h.state.steps = userMenu();
     await trigger("Hii");
@@ -1107,6 +1122,21 @@ describe("edited delayed automation runs", () => {
     expect(h.state.updateCalls).toHaveLength(1);
     expect(h.state.pending).toHaveLength(1);
     expect(h.state.pending[0].status).toBe("done");
+  });
+  it("expires a delayed run whose contact was blocked or opted out during the wait, running no step (audit #49)", async () => {
+    for (const flag of ["blocked_at", "opted_out_at"]) {
+      h.state.pending = [{ ...parked() }];
+      h.state.updateCalls = [];
+      h.state.owned = { id: "c1", [flag]: "2026-11-10T09:00:00Z" } as { id: string };
+      h.state.steps = [
+        { ...updateStep(), id: "wait1", step_type: "wait", position: 0 },
+        { ...updateStep(), id: "after", position: 1 },
+      ];
+      await resumePendingExecution(parked());
+      expect(h.state.updateCalls).toHaveLength(0);
+      expect(h.state.pending[0].status).toBe("expired");
+      expect(h.state.logUpdates.at(-1)).toMatchObject({ error_message: expect.stringMatching(flag === "blocked_at" ? /blocked/ : /opted out/) });
+    }
   });
   it("expires instead of continuing when the parked step was deleted", async () => {
     h.state.steps = [{ ...updateStep(), position: 1 }];
