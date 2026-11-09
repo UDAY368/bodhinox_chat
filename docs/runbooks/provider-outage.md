@@ -22,6 +22,7 @@ Requirement ids: OPS-01, WA-01, PAY-02. Env var names only; no secrets, tenant i
 - **Verification after recovery:**
   - the backlog drains (Job backlog page);
   - `outbound_intents` with `status='unknown'` are reviewed in the conversation one by one;
+  - campaign recipients whose send outcome is uncertain are listed on the campaign page ("sends need checking"); after checking WhatsApp Manager or the customer, an admin marks each as sent or not sent (`POST /api/whatsapp/broadcast/[id]/reconcile`, audited as `campaigns.recipients_reconciled`). "Retry failed" skips them until then, and sends a not-sent one once;
   - Payments → Exceptions is empty or reviewed;
   - the billing reconciliation console has no new `event_error` items.
 - **Customer communication:** for a Meta outage, post a status note in the app; for a payments outage, tell affected customers their link will work once Razorpay recovers, or offer offline payment.

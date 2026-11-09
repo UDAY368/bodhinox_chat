@@ -27,6 +27,13 @@ import type { SenderConfigRow } from '@/lib/whatsapp/sender-config'
 
 const t = getT('Api')
 
+/** Each Meta page request, like the other Graph calls (lib/whatsapp/meta-api.ts). */
+const META_PAGE_TIMEOUT_MS = 15_000
+
+function isTimeout(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+}
+
 /**
  * Sync message templates from Meta → local message_templates table.
  *
@@ -293,6 +300,8 @@ export async function POST() {
         pageCount++
         const metaRes: Response = await fetch(nextUrl, {
           headers: { Authorization: `Bearer ${accessToken}` },
+          // Also bounds reading the body below. Nothing is written before every page loads, so a retry is safe.
+          signal: AbortSignal.timeout(META_PAGE_TIMEOUT_MS),
         })
 
         if (!metaRes.ok) {
@@ -464,6 +473,10 @@ export async function POST() {
       truncated,
     })
   } catch (error) {
+    // Meta did not answer in time: nothing was written, so the user can simply retry.
+    if (isTimeout(error)) {
+      return NextResponse.json({ error: t('templates.metaTimeout') }, { status: 504 })
+    }
     // Auth failures map to 401/403 rather than being folded into the
     // generic 500 below, which surfaces `error.message` as a sync failure.
     if (

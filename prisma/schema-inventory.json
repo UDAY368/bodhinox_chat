@@ -2116,6 +2116,22 @@
         "default": null,
         "reference": null,
         "definition": "clicked_at TIMESTAMPTZ"
+      },
+      {
+        "name": "retry_generation",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "retry_generation INTEGER NOT NULL DEFAULT 0"
+      },
+      {
+        "name": "outcome_uncertain_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "outcome_uncertain_at TIMESTAMPTZ"
       }
     ],
     "automations": [

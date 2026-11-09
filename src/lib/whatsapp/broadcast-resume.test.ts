@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DataClient } from '@/lib/data/types';
 
-import { BroadcastError } from './broadcast-core';
+import { BroadcastError, UNCERTAIN_SEND_MESSAGE } from './broadcast-core';
 import {
   claimBroadcastDelivery,
   planBroadcastResume,
@@ -127,6 +127,10 @@ interface PlanWrites {
   failedIds?: unknown;
   failedIdBatches?: unknown[];
   failedUpdate?: Record<string, unknown>;
+  /** `.is()` filters on the recipient read (uncertain rows are left out). */
+  isFilters?: Record<string, unknown>;
+  /** The update that flags legacy uncertain rows, with its filters. */
+  legacyFlag?: { filters: Record<string, unknown>; is: Record<string, unknown> };
 }
 
 function planDb(fx: PlanFixture, writes: PlanWrites = {}): DataClient {
@@ -134,10 +138,18 @@ function planDb(fx: PlanFixture, writes: PlanWrites = {}): DataClient {
   return {
     from(table: string) {
       const filters: Record<string, unknown> = {};
+      const isFilters: Record<string, unknown> = {};
+      let flagging = false;
       const b: Record<string, unknown> = {
         select: () => b,
         eq: (col: string, val: unknown) => {
           filters[col] = val;
+          return b;
+        },
+        is: (col: string, val: unknown) => {
+          isFilters[col] = val;
+          if (flagging) writes.legacyFlag = { filters, is: isFilters };
+          else if (table === 'broadcast_recipients') writes.isFilters = isFilters;
           return b;
         },
         order: () => b,
@@ -151,7 +163,8 @@ function planDb(fx: PlanFixture, writes: PlanWrites = {}): DataClient {
           return b;
         },
         update: (row: Record<string, unknown>) => {
-          writes.failedUpdate = row;
+          if (Object.keys(row).join() === 'outcome_uncertain_at') flagging = true;
+          else writes.failedUpdate = row;
           return b;
         },
         maybeSingle: async () => ({
@@ -451,6 +464,47 @@ describe('planBroadcastResume', () => {
       'pending',
     );
     expect(plan.templateRow?.language).toBe('en');
+  });
+});
+
+describe('planBroadcastResume: retries and uncertain sends (audit findings 11, 12)', () => {
+  it('leaves uncertain sends out of every pass, and flags legacy ones before a retry', async () => {
+    const writes: PlanWrites = {};
+    await planBroadcastResume(
+      planDb({ broadcast: BROADCAST, config: CONFIG, recipients: [recipient('r1', '+15551234567')] }, writes),
+      'acct-1', 'bc-1', 'failed',
+    );
+    expect(writes.isFilters).toEqual({ outcome_uncertain_at: null });
+    // Rows from before the flag existed carry only the error text.
+    expect(writes.legacyFlag?.filters).toMatchObject({
+      broadcast_id: 'bc-1', status: 'failed', error_message: UNCERTAIN_SEND_MESSAGE,
+    });
+
+    const pending: PlanWrites = {};
+    await planBroadcastResume(
+      planDb({ broadcast: BROADCAST, config: CONFIG, recipients: [recipient('r1', '+15551234567')] }, pending),
+      'acct-1', 'bc-1', 'pending',
+    );
+    expect(pending.isFilters).toEqual({ outcome_uncertain_at: null });
+    expect(pending.legacyFlag).toBeUndefined();
+  });
+
+  it('carries the retry generation and the message id already on the row into the plan', async () => {
+    const { plan } = await planBroadcastResume(
+      planDb({
+        broadcast: BROADCAST,
+        config: CONFIG,
+        recipients: [
+          { ...recipient('r1', '+15551234567'), retry_generation: 2, whatsapp_message_id: null },
+          { ...recipient('r2', '+15559876543'), retry_generation: 0, whatsapp_message_id: 'wamid.OLD' },
+        ],
+      }),
+      'acct-1', 'bc-1', 'failed',
+    );
+    expect(plan.planned[0]).toMatchObject({ recipientRowId: 'r1', retryGeneration: 2 });
+    expect(plan.planned[0]).not.toHaveProperty('previousMessageId');
+    expect(plan.planned[1]).toMatchObject({ recipientRowId: 'r2', previousMessageId: 'wamid.OLD' });
+    expect(plan.planned[1]).not.toHaveProperty('retryGeneration');
   });
 });
 

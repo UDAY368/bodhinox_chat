@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   enqueued: [] as unknown[][],
   permissionDenied: false,
   permissionChecks: [] as unknown[][],
+  recipients: [] as Record<string, unknown>[],
 }));
 
 vi.mock('@/lib/auth/account', () => ({
@@ -17,14 +18,24 @@ vi.mock('@/lib/auth/account', () => ({
     db: {
       from(table: string) {
         const filters: Record<string, unknown> = {};
-        const rows = () => (table === 'broadcasts' ? (h.broadcast ? [h.broadcast] : []) : table === 'whatsapp_config' ? h.numbers : [])
-          .filter((r) => Object.entries(filters).every(([k, v]) => k === 'account_id' || r[k] === v));
+        let update: Record<string, unknown> | null = null;
+        const source = () => table === 'broadcasts' ? (h.broadcast ? [h.broadcast] : []) : table === 'whatsapp_config' ? h.numbers
+          : table === 'broadcast_recipients' ? h.recipients : [];
+        const rows = () => source().filter((r) => Object.entries(filters).every(([k, v]) =>
+          k === 'account_id' || (Array.isArray(v) ? v.includes(r[k]) : v === null ? r[k] == null : r[k] === v)));
         const b: Record<string, unknown> = {
           select: () => b,
+          update: (row: Record<string, unknown>) => { update = row; return b; },
           eq: (field: string, value: unknown) => { filters[field] = value; return b; },
+          in: (field: string, value: unknown[]) => { filters[field] = value; return b; },
+          is: (field: string, value: unknown) => { filters[field] = value; return b; },
           single: async () => ({ data: rows()[0] ?? null, error: rows()[0] ? null : { message: 'none' } }),
           maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
-          then: (resolve: (r: { data: unknown[]; error: null }) => unknown) => resolve({ data: rows(), error: null }),
+          then: (resolve: (r: { data: unknown[]; count: number; error: null }) => unknown) => {
+            const matched = rows();
+            if (update) for (const r of matched) Object.assign(r, update);
+            return resolve({ data: matched, count: matched.length, error: null });
+          },
         };
         return b;
       },
@@ -41,6 +52,8 @@ vi.mock('@/lib/auth/permissions', () => ({
 vi.mock('@/lib/jobs/queue', () => ({ enqueueJob: async (...args: unknown[]) => { h.enqueued.push(args); return 'job-1'; } }));
 
 import { POST } from './route';
+import { UNCERTAIN_SEND_MESSAGE } from '@/lib/whatsapp/broadcast-core';
+import { RESUME_MAX_PER_REQUEST } from '@/lib/whatsapp/broadcast-resume';
 
 const resume = (scope = 'pending') => POST(
   new Request('http://localhost/api/whatsapp/broadcast/b-1/resume', { method: 'POST', body: JSON.stringify({ scope }) }),
@@ -52,7 +65,7 @@ const connected = { id: A, phone_number_id: '1000', access_token: 'enc', status:
 const disconnected = { ...connected, access_token: '', status: 'disconnected', is_default: false };
 
 describe('POST /api/whatsapp/broadcast/[id]/resume for a held campaign', () => {
-  beforeEach(() => { h.enqueued = []; h.numbers = [connected]; h.permissionDenied = false; h.permissionChecks = []; });
+  beforeEach(() => { h.enqueued = []; h.numbers = [connected]; h.permissionDenied = false; h.permissionChecks = []; h.recipients = []; });
 
   it('requires campaigns.send for the caller and queues nothing when it is turned off', async () => {
     h.broadcast = { id: 'b-1', status: 'sending', scheduled_at: null, whatsapp_config_id: A };
@@ -115,5 +128,51 @@ describe('POST /api/whatsapp/broadcast/[id]/resume for a held campaign', () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe('whatsapp_not_configured');
     expect(h.enqueued).toEqual([]);
+  });
+});
+
+describe('POST /api/whatsapp/broadcast/[id]/resume confirmation count (audit findings 11, 12, 15)', () => {
+  beforeEach(() => {
+    h.enqueued = []; h.numbers = [connected]; h.permissionDenied = false; h.permissionChecks = [];
+    h.broadcast = { id: 'b-1', status: 'sent', scheduled_at: null, whatsapp_config_id: A };
+  });
+  const row = (status: string, extra: Record<string, unknown> = {}) =>
+    ({ broadcast_id: 'b-1', status, outcome_uncertain_at: null, error_message: status === 'failed' ? 'boom' : null, ...extra });
+
+  it('answers with the real number of recipients a Resume covers', async () => {
+    h.broadcast = { id: 'b-1', status: 'sending', scheduled_at: null, whatsapp_config_id: A };
+    h.recipients = [row('pending'), row('pending'), row('pending'), row('failed'), row('sent')];
+    const body = await (await resume('pending')).json();
+    expect(body).toMatchObject({ resuming: 3, remaining: 0 });
+  });
+
+  it('counts failed rows for Retry failed, leaving out uncertain sends, including legacy ones by their text', async () => {
+    const legacy = row('failed', { error_message: UNCERTAIN_SEND_MESSAGE });
+    h.recipients = [row('failed'), row('failed'), row('failed', { outcome_uncertain_at: '2026-11-10T00:00:00Z' }), legacy, row('pending')];
+    const res = await resume('failed');
+    expect(res.status).toBe(202);
+    expect(await res.json()).toMatchObject({ resuming: 2, remaining: 0 });
+    // The legacy row now carries the flag, so the worker leaves it out too.
+    expect(legacy.outcome_uncertain_at).toEqual(expect.any(String));
+  });
+
+  it('gives each Retry failed its own retry id, so the worker sends rows Meta failed after accepting them again', async () => {
+    h.recipients = [row('failed', { whatsapp_message_id: 'wamid.1' })];
+    await resume('failed');
+    await resume('failed');
+    const [first, second] = h.enqueued.map((call) => call[1] as { retryId?: string });
+    expect(first.retryId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second.retryId).not.toBe(first.retryId);
+    expect(h.enqueued[0][2]).toMatchObject({ dedupeKey: `broadcast:b-1:retry:${first.retryId}` });
+  });
+
+  it('caps a retry at one pass and reports the rest', async () => {
+    h.recipients = Array.from({ length: RESUME_MAX_PER_REQUEST + 5 }, () => row('failed'));
+    expect(await (await resume('failed')).json()).toMatchObject({ resuming: RESUME_MAX_PER_REQUEST, remaining: 5 });
+  });
+
+  it('answers 0 when nothing is in scope', async () => {
+    h.recipients = [row('sent')];
+    expect(await (await resume('failed')).json()).toMatchObject({ resuming: 0, remaining: 0 });
   });
 });
