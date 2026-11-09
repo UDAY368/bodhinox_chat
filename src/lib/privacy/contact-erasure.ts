@@ -6,9 +6,10 @@
 //   1. deletes the contact's mirrored inbound media files (chat-media, account-<id>/inbound/)
 //      and their media_objects rows; media in the workspace library is left alone;
 //   2. deletes processed raw WhatsApp webhook copies (webhook_receipts) that name the
-//      contact's number on one of this workspace's own phone numbers;
+//      contact's number on a phone number only this workspace has ever held (receipts on a
+//      number that moved between workspaces are left to the 30-day retention sweep);
 //   3. clears finished job payloads of this workspace that mention the contact and
-//      cancels its still-pending outbound webhook deliveries about the contact;
+//      cancels its still-pending outbound webhook deliveries that name the contact's id;
 //   4. in one transaction: blanks campaign parameters and errors, flow run variables,
 //      automation step logs and pending-step context; tombstones ad leads; deletes
 //      unanswered AI questions, WhatsApp form sessions and answers and its notifications;
@@ -68,6 +69,10 @@ export const isErasableInboundMedia = (accountId: string, ref: { bucket: string;
 
 export type ErasureCounts = Record<string, number>;
 
+/** A PostgreSQL regex matching `value` only where no letter or digit adjoins it. */
+export const wholeTokenPattern = (value: string): string =>
+  `(^|[^0-9A-Za-z])${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^0-9A-Za-z])`;
+
 /** The contact.erase job. Returns what was removed (counts only), or null when the contact is already gone. */
 export async function runContactErasure(accountId: string, payload: Record<string, unknown>, jobId?: string): Promise<ErasureCounts | null> {
   const contactId = payload.contactId;
@@ -85,8 +90,10 @@ export async function runContactErasure(accountId: string, payload: Record<strin
       SELECT DISTINCT m.media_url FROM messages m
       JOIN conversations c ON c.account_id=m.account_id AND c.id=m.conversation_id
       WHERE c.account_id=${accountId}::uuid AND c.contact_id=${contactId}::uuid AND m.media_url LIKE '/api/media/object?%'`;
+    // Only numbers no other workspace has a row for: receipts carry no workspace id and a
+    // number can move between workspaces (crm_erasure_phone_number_ids reads the tenant setting).
     const numbers = await tx.$queryRaw<{ phone_number_id: string }[]>`
-      SELECT phone_number_id FROM whatsapp_config WHERE account_id=${accountId}::uuid`;
+      SELECT n AS phone_number_id FROM crm_erasure_phone_number_ids() n`;
     return { contact: contact[0], media: media.map((r) => r.media_url), phoneNumberIds: numbers.map((r) => r.phone_number_id) };
   }, worker);
   if (!found) return null;
@@ -122,13 +129,16 @@ export async function runContactErasure(accountId: string, payload: Record<strin
                WHERE s->>'recipient_id' = ANY(${ids}::text[]))))` : 0;
 
   // 3. Job payloads of this workspace that mention the contact (finished: cleared; pending deliveries: cancelled).
-  const needles = [contactId, ...ids].map((v) => `%${v.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+  // A number matches only as a whole token (never inside a longer number, id or timestamp), and a
+  // pending delivery is cancelled only when it names the contact's id: another contact's outbound
+  // webhook is never dropped.
   const self = jobId && UUID.test(jobId) ? jobId : '00000000-0000-0000-0000-000000000000';
-  const mentions = Prisma.sql`payload::text LIKE ANY(${needles}::text[])`;
+  const byId = Prisma.sql`strpos(payload::text, ${contactId}) > 0`;
+  const mentions = ids.length ? Prisma.sql`(${byId} OR payload::text ~ ANY(${ids.map(wholeTokenPattern)}::text[]))` : byId;
   const jobPayloads = await worker.$executeRaw`UPDATE jobs SET payload='{}'::jsonb
     WHERE tenant_id=${accountId}::uuid AND status IN ('done','failed') AND id<>${self}::uuid AND payload<>'{}'::jsonb AND ${mentions}`;
   const pendingDeliveries = await worker.$executeRaw`DELETE FROM jobs
-    WHERE tenant_id=${accountId}::uuid AND type='webhook.delivery' AND status='pending' AND ${mentions}`;
+    WHERE tenant_id=${accountId}::uuid AND type='webhook.delivery' AND status='pending' AND ${byId}`;
 
   // 4. Rows, in one transaction with the contact delete.
   const counts = await withTenant(scope, async (tx) => {

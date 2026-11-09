@@ -91,6 +91,8 @@ describe('[BIL-03][SEC-01] workspace purge', () => {
     const result = await runWorkspacePurge(A, {});
     expect(result).toEqual({ state: 'dry_run', reason: null, counts: { contacts: 3, messages: 12 } });
     expect(h.sql.some((q) => q.includes('crm_workspace_purge_finish') || q.includes('purged_invoices'))).toBe(false);
+    // The locking check runs last, so the row lock is held only until the commit.
+    expect(h.sql.at(-1)).toContain('crm_workspace_purge_check');
     expect(h.contexts).toEqual([{ accountId: A, role: 'owner' }]);
     expect(h.storage.calls).toBe(0);
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('dry run'), A, 'due', JSON.stringify({ contacts: 3, messages: 12 }));

@@ -95,8 +95,10 @@ export async function runWorkspacePurge(accountId: string, env: Record<string, s
   const scope = { accountId, role: 'owner' as const };
   if (!workspacePurgeEnabled(env)) {
     const result = await withTenant(scope, async (tx) => {
+      // Count first: the check locks the workspace row until commit, so it comes last.
+      const counts = await countWorkspace(tx, accountId);
       const [check] = await tx.$queryRaw<{ reason: string | null }[]>`SELECT crm_workspace_purge_check(${accountId}::uuid) AS reason`;
-      return { reason: check?.reason ?? null, counts: await countWorkspace(tx, accountId) };
+      return { reason: check?.reason ?? null, counts };
     }, getWorkerPrisma());
     console.info('[workspace-purge] dry run (WORKSPACE_PURGE_ENABLED is off)', accountId, result.reason ?? 'due', JSON.stringify(result.counts));
     return { state: 'dry_run', ...result };

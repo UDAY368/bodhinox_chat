@@ -23,7 +23,7 @@ const query = async (s: TemplateStringsArray, ...values: unknown[]) => {
   h.sql.push({ sql: q, values });
   if (/FROM contacts\s+WHERE/.test(q)) return h.contact;
   if (q.includes('FROM messages m')) return h.media;
-  if (q.includes('FROM whatsapp_config')) return h.numbers;
+  if (q.includes('crm_erasure_phone_number_ids()')) return h.numbers;
   if (q.includes('in_library')) return h.library;
   if (q.includes('FROM conversations')) return [{ id: 'conv-1' }];
   return [];
@@ -45,7 +45,9 @@ vi.mock('@/lib/storage/server', () => ({
   },
 }));
 
-import { ContactErasureError, isErasableInboundMedia, parseMediaUrl, requestContactErasure, runContactErasure } from './contact-erasure';
+import { ContactErasureError, isErasableInboundMedia, parseMediaUrl, requestContactErasure, runContactErasure, wholeTokenPattern } from './contact-erasure';
+import type { Prisma } from '@prisma/client';
+type Sql = Prisma.Sql;
 
 beforeEach(() => {
   Object.assign(h, { contact: [{ phone: '919000012345', wa: null }], media: [], library: [], numbers: [{ phone_number_id: 'PN1' }],
@@ -103,6 +105,35 @@ describe('[SEC-01] contact erasure', () => {
     expect(order.at(-1)).toBe('INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)');
     expect(counts).toMatchObject({ mediaFiles: 1, webhookReceipts: 1, contacts: 1 });
     expect(h.contexts.every((c) => (c as { accountId: string }).accountId === A)).toBe(true);
+  });
+
+  it('matches a number only as a whole token, and cancels only pending deliveries naming the contact id', async () => {
+    const re = new RegExp(wholeTokenPattern('919000012345'));
+    expect(re.test('{"phone":"919000012345"}')).toBe(true);
+    expect(re.test('919000012345')).toBe(true);
+    expect(re.test('{"phone":"+919000012345"}')).toBe(true);
+    // Never inside a longer number, id or timestamp.
+    expect(re.test('{"phone":"9190000123456"}')).toBe(false);
+    expect(re.test('{"id":"x919000012345"}')).toBe(false);
+    expect(new RegExp(wholeTokenPattern('a.b+c')).test('aXb+c')).toBe(false);
+
+    await runContactErasure(A, { contactId: CONTACT }, JOB);
+    const jobs = h.sql.filter((s) => s.sql.includes('jobs'));
+    const fragment = (q: { values: unknown[] }) => q.values.find((v): v is Sql => typeof v === 'object' && v !== null && 'strings' in v)!;
+    // Finished payloads: the contact id or the number as a whole token.
+    expect(fragment(jobs[0]).sql).toMatch(/strpos\(payload::text, \?\) > 0 OR payload::text ~ ANY/);
+    expect(fragment(jobs[0]).values).toEqual([CONTACT, [wholeTokenPattern('919000012345')]]);
+    // Pending deliveries: the contact id only.
+    expect(fragment(jobs[1]).sql).toBe('strpos(payload::text, ?) > 0');
+    expect(fragment(jobs[1]).values).toEqual([CONTACT]);
+  });
+
+  it('matches receipts only on numbers the workspace alone holds', async () => {
+    h.numbers = [];
+    await runContactErasure(A, { contactId: CONTACT }, JOB);
+    expect(h.sql.some((s) => s.sql.includes('crm_erasure_phone_number_ids()'))).toBe(true);
+    expect(h.sql.some((s) => s.sql.includes('whatsapp_config'))).toBe(false);
+    expect(h.sql.some((s) => s.sql.includes('webhook_receipts'))).toBe(false);
   });
 
   it('skips receipt matching for a short or missing number and deletes media rows when storage was never configured', async () => {

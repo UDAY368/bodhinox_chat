@@ -37,8 +37,8 @@ If storage is not configured, the request answers `503 storage_not_configured`. 
 - **Erasure:**
   - Use **Erase all data** (contacts page → delete dialog, admins and owners; `POST /api/contacts/{id}/erase`). The request is audited (`contact.erasure_requested`) and queued before it is acknowledged. The worker's `contact.erase` job (`src/lib/privacy/contact-erasure.ts`) then removes:
     - the media files the customer sent (mirrored inbound media; library files stay);
-    - processed raw WhatsApp webhook copies naming the number, on this workspace's own phone numbers only;
-    - mentions in this workspace's finished job payloads, and its pending outbound webhook deliveries about the contact;
+    - processed raw WhatsApp webhook copies naming the number, on phone numbers no other workspace has ever had a row for (receipts carry no workspace id; on a number that moved between workspaces they are left to the 30-day retention sweep);
+    - mentions of the contact's id or number (as a whole token) in this workspace's finished job payloads, and its pending outbound webhook deliveries that name the contact's id;
     - campaign parameters and errors, flow variables, automation logs and pending-step context;
     - ad-lead answers (kept as an `erased` tombstone so Meta cannot re-import them), unanswered AI questions, WhatsApp form sessions and answers, notifications and realtime event copies;
     - finally the contact itself, with its conversations, messages, notes, tags, list memberships and channel identities.

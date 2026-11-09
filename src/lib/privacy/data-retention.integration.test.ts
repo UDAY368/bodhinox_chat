@@ -23,7 +23,7 @@ const ownerA = randomUUID(), ownerB = randomUUID(), ownerC = randomUUID();
 const users = [ownerA, ownerB, ownerC];
 const ON = { WORKSPACE_PURGE_ENABLED: 'true' };
 const PHONE = `9190${randomInt(10_000_000, 99_999_999)}`;
-const pnA = `71${randomInt(1e9, 9e9)}`, pnB = `72${randomInt(1e9, 9e9)}`;
+const pnA = `71${randomInt(1e9, 9e9)}`, pnB = `72${randomInt(1e9, 9e9)}`, pnShared = `73${randomInt(1e9, 9e9)}`;
 let db: pg.Client;
 const q = (sql: string, params: unknown[] = []) => db.query(sql, params);
 const count = async (sql: string, params: unknown[]) => Number((await q(sql, params)).rows[0].n);
@@ -85,6 +85,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('[SEC-01][BIL-03] Data reten
     await workspace(B, ownerB, 'Retention B');
     const a = await seedContact(A, ownerA, pnA);
     const b = await seedContact(B, ownerB, pnB);
+    // A number A once held (row kept, disconnected) and B now holds: its receipts are not A's to erase.
+    await q("INSERT INTO whatsapp_config(account_id,user_id,phone_number_id,access_token,status) VALUES($1,$2,$3,'','disconnected')", [A, ownerA, pnShared]);
+    await q("INSERT INTO whatsapp_config(account_id,user_id,phone_number_id,access_token,status) VALUES($1,$2,$3,'unused','connected')", [B, ownerB, pnShared]);
+    const sharedReceipt = (await q("INSERT INTO webhook_receipts(provider,dedupe_key,payload,status) VALUES('meta',$1,$2::jsonb,'processed') RETURNING id", [randomUUID(),
+      JSON.stringify({ entry: [{ changes: [{ value: { metadata: { phone_number_id: pnShared }, messages: [{ from: PHONE, text: { body: 'B text' } }] } }] }] })])).rows[0].id as string;
+    // Pending deliveries: one about the erased contact (cancelled), one about another number that
+    // contains the erased number's digits (kept: it is sent as queued).
+    const pendingOwn = (await q("INSERT INTO jobs(type,tenant_id,payload) VALUES('webhook.delivery',$1,$2::jsonb) RETURNING id",
+      [A, JSON.stringify({ payload: JSON.stringify({ data: { contact_id: a.contact } }) })])).rows[0].id as string;
+    const pendingOther = (await q("INSERT INTO jobs(type,tenant_id,payload) VALUES('webhook.delivery',$1,$2::jsonb) RETURNING id",
+      [A, JSON.stringify({ payload: JSON.stringify({ data: { phone: `${PHONE}9` } }) })])).rows[0].id as string;
 
     // The app role audits and queues the request; another workspace's contact is not found.
     const actor = { accountId: A, userId: ownerA, role: 'owner' as const };
@@ -95,7 +106,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('[SEC-01][BIL-03] Data reten
     expect(await count("SELECT count(*) AS n FROM audit_logs WHERE account_id=$1 AND action='contact.erasure_requested' AND resource_id=$2", [A, a.contact])).toBe(1);
 
     const counts = await runContactErasure(A, job[0].payload, job[0].id);
-    expect(counts).toMatchObject({ contacts: 1, mediaFiles: 1, webhookReceipts: 1, campaignRecipients: 1, notifications: 1 });
+    expect(counts).toMatchObject({ contacts: 1, mediaFiles: 1, webhookReceipts: 1, jobPayloads: 2, campaignRecipients: 1, notifications: 1 });
     expect(await count('SELECT count(*) AS n FROM contacts WHERE id=$1', [a.contact])).toBe(0);
     expect(await count('SELECT count(*) AS n FROM messages WHERE conversation_id=$1', [a.conversation])).toBe(0);
     expect(await count('SELECT count(*) AS n FROM media_objects WHERE account_id=$1 AND object_key=$2', [A, a.key])).toBe(0);
@@ -106,6 +117,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('[SEC-01][BIL-03] Data reten
     expect((await q('SELECT payload FROM jobs WHERE id=$1', [a.delivery])).rows[0].payload).toEqual({});
     expect(await count(`SELECT count(*) AS n FROM outbox_events WHERE account_id=$1 AND payload::text LIKE '%' || $2 || '%'`, [A, a.contact])).toBe(0);
     expect((await q("SELECT metadata FROM audit_logs WHERE account_id=$1 AND action='contact.erased'", [A])).rows[0].metadata).toMatchObject({ contacts: 1 });
+    expect(await count('SELECT count(*) AS n FROM webhook_receipts WHERE id=$1', [sharedReceipt])).toBe(1);
+    expect(await count('SELECT count(*) AS n FROM jobs WHERE id=$1', [pendingOwn])).toBe(0);
+    expect(await count('SELECT count(*) AS n FROM jobs WHERE id=$1', [pendingOther])).toBe(1);
+    await q('DELETE FROM jobs WHERE id=$1', [pendingOther]);
     // Running again (a retried job) is a no-op.
     expect(await runContactErasure(A, job[0].payload, job[0].id)).toBeNull();
 
