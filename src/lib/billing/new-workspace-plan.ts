@@ -1,21 +1,25 @@
-// The plan a brand-new workspace starts on (Phase 14).
+// The plan a brand-new workspace starts on (Phase 14; audit finding 41).
 //
-// NEW_WORKSPACE_PLAN unset (the default): nothing happens, and a new workspace
-// has no subscription row, so it resolves to 'enterprise' exactly as before.
-// Set to a plan id: every path that creates a workspace (email signup, Google
-// signup, "create another workspace") also gives it that plan, status
-// 'active', no provider ids, pinned to the plan's current version, in the same
-// identity-role transaction, through billing_assign_initial_plan. That
-// function inserts only when the workspace has no subscription row and was
-// created in the last hour, so it can never change an existing workspace.
-// Invite joins create no workspace and are never touched. A later checkout
-// upgrades the provider-less row like any other.
+// Every path that creates a workspace (email signup, Google signup, "create
+// another workspace") gives it an initial plan, status 'active', no provider
+// ids, pinned to the plan's current version, in the same identity-role
+// transaction, through billing_assign_initial_plan:
+//   NEW_WORKSPACE_PLAN set    that plan id (an unknown id fails the signup).
+//   NEW_WORKSPACE_PLAN unset  the lowest plan in the catalogue (smallest sort,
+//                             'free' in the seeded catalogue), never the
+//                             unrestricted 'enterprise' a workspace without a
+//                             subscription row resolves to.
+// The function inserts only when the workspace has no subscription row and
+// was created in the last hour, so it can never change an existing workspace:
+// workspaces created before this rule keep exactly the plan they resolve to
+// today. Invite joins create no workspace and are never touched. A later
+// checkout upgrades the provider-less row like any other.
 
 import type { AuthTransaction } from '@/lib/auth/service';
 
 const PLAN_ID = /^[a-z][a-z0-9_]{0,31}$/;
 
-/** The configured plan id, or null when unset. A malformed value is a configuration error. */
+/** The configured plan id, or null when unset (the lowest plan). A malformed value is a configuration error. */
 export function newWorkspacePlan(env: Record<string, string | undefined> = process.env): string | null {
   const raw = env.NEW_WORKSPACE_PLAN?.trim();
   if (!raw) return null;
@@ -24,13 +28,12 @@ export function newWorkspacePlan(env: Record<string, string | undefined> = proce
 }
 
 /**
- * Gives a workspace created in this transaction its initial plan when NEW_WORKSPACE_PLAN is set.
- * Returns true when a subscription row was created. An unknown plan id fails the transaction, so
- * a misconfigured deployment refuses signups loudly instead of silently handing out 'enterprise'.
+ * Gives a workspace created in this transaction its initial plan: NEW_WORKSPACE_PLAN, or the lowest
+ * plan when unset. Returns true when a subscription row was created. An unknown plan id fails the
+ * transaction, so a misconfigured deployment refuses signups loudly instead of handing out 'enterprise'.
  */
 export async function assignInitialPlan(tx: AuthTransaction, accountId: string, env: Record<string, string | undefined> = process.env): Promise<boolean> {
   const plan = newWorkspacePlan(env);
-  if (!plan) return false;
-  const rows = await tx.$queryRaw<{ assigned: boolean }[]>`SELECT billing_assign_initial_plan(${accountId}::uuid, ${plan}) AS assigned`;
+  const rows = await tx.$queryRaw<{ assigned: boolean }[]>`SELECT billing_assign_initial_plan(${accountId}::uuid, ${plan}::text) AS assigned`;
   return rows[0]?.assigned === true;
 }

@@ -41,6 +41,7 @@ vi.mock('@/lib/billing/entitlements', () => ({
   requireWithinLimit: async () => {},
   PlanLimitError: class extends Error {},
 }));
+vi.mock('@/lib/billing/limits', () => ({ requireCampaignSendRoom: async () => {} }));
 
 import { createCampaign } from './create-campaign';
 import { sendCampaignTest } from './test-send';

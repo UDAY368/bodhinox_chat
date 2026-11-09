@@ -3,7 +3,10 @@
 Plans are edited in the platform console (Plans & prices) and published as numbered
 versions. Every limit is a key in a plan's `limits`; a missing key or JSON `null` means
 unlimited. A workspace with no subscription row resolves to `enterprise`, which is
-unrestricted and cannot be given a finite limit or lose a feature (`plan_locked`). A
+unrestricted and cannot be given a finite limit or lose a feature (`plan_locked`). Only
+workspaces created before every new workspace was given a plan are in that state: a new
+workspace (email or Google sign-up, "create workspace") starts on `NEW_WORKSPACE_PLAN`,
+or on the lowest plan in the catalogue (`free`) when that is unset. A
 suspended, cancelled or incomplete subscription resolves to `free`. A subscription is
 held to the plan version it was pinned to when the plan was applied; renewals keep the
 pin, and moving subscribers to a newer version is a separate, previewed, audited admin
@@ -20,6 +23,7 @@ The source of truth is `LIMIT_POLICY` in `src/lib/billing/entitlements-catalogue
 | `hard_inbound_exempt` | Manual creates, CSV imports and public-API creates are refused; anything customers create by writing in is always accepted (the workspace may go over). |
 | `hard_addon` | Refused before the AI provider is called; add-on packs raise `ai_messages`. Manual agent replies are never affected. |
 | `hard_per_campaign` | Checked per campaign when it is created, not as a running total. |
+| `hard_campaign` | New campaigns, API campaign batches and scheduled-automation occurrences are refused with 402; manual agent replies, bot replies to customers who wrote in, and inbound messages never are. |
 | `soft` | Shown on the usage meters and warned about; never blocks anything. |
 
 ## Limits
@@ -34,8 +38,8 @@ The source of truth is `LIMIT_POLICY` in `src/lib/billing/entitlements-catalogue
 | `active_automations` | hard | Active automations. Already-active automations are never deactivated. |
 | `ai_messages` | hard_addon | AI replies this month (India time). |
 | `ai_tokens_monthly` | hard_addon | AI tokens this month across every AI feature; a workspace's own monthly token cap also applies (the lower one wins). |
-| `monthly_active_contacts` | soft | Distinct contacts with any message this month. |
-| `messages_monthly` | soft | Outbound messages this month (display only). |
+| `monthly_active_contacts` | hard_campaign | Distinct contacts with any message this month. |
+| `messages_monthly` | hard_campaign | Outbound messages (agent and bot) this month, plus campaign recipients still queued. |
 | `storage_bytes` | hard | Member uploads; mirrored inbound customer media never counts. |
 | `whatsapp_numbers` | hard | Connected numbers and numbers mid-setup; a removed number frees its slot. |
 | `instagram_accounts` | hard | Instagram accounts that are not disconnected. |
@@ -63,7 +67,7 @@ finite limit the gate takes a per-workspace advisory lock, counts, and refuses w
 | workspace `monthly_token_cap` | `reserveAi` with `workspaceCap` (assistant tasks only: summaries, suggested replies, assessments, insights) and the `requireAiBudget` pre-check | auto-replies, flow AI replies, Draft, the playground and the generators are counted in `ai_tokens` but never stopped by it |
 | `storage_bytes`, `whatsapp_numbers`, `segments`, `lists`, `appointment_staff`, `instagram_accounts` | unchanged since Phase 8, now through `gateLimit` / `gateWithinLimit` so a refusal records the 100% notice | |
 | `campaign_recipients` | unchanged since Phase 8 | a per-campaign size, so it sends no usage notice |
-| `monthly_active_contacts`, `messages_monthly` | display only (`soft`) | |
+| `messages_monthly`, `monthly_active_contacts` | `requireCampaignSendRoom` (`src/lib/billing/limits.ts`) where recipients are committed: campaign creation (`src/lib/broadcasts/create-campaign.ts`), API campaigns (`src/lib/whatsapp/broadcast-core.ts`, `src/lib/broadcasts/api-campaign.ts`) and each scheduled-automation occurrence that sends (`src/lib/jobs/scheduled-audience.ts`) | `messages_monthly`: sent + queued + this campaign may not pass the limit; `monthly_active_contacts`: refused once the month has reached the limit. A refused scheduled automation is turned off with the reason logged (as for `campaign_recipients`). Manual replies, bot replies and inbound are never gated |
 
 A unit test (`src/lib/billing/limits-policy.test.ts`) fails when a limit that is not
 `soft` has no gate in the server code.
@@ -78,7 +82,8 @@ refusal in `reserveAi` / `requireAiBudget` records the 100% notice (the workspac
 sends none); every count gate sends the 100% notice when it refuses.
 
 `messages_monthly` counts outbound messages (agent and bot) since the 1st of the IST
-month, read live from `messages` and cached for 10 minutes per process. Display only.
+month, read live from `messages` and cached for 10 minutes per process, for the meter.
+The campaign gate counts uncached and adds campaign recipients still queued.
 
 ## Metering
 

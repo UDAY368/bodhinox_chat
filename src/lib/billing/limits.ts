@@ -5,6 +5,9 @@
 //                   requireSeatRoom, requireActiveAutomationRoom, requireContactRoom,
 //                   requireWhatsAppNumberRoom and requireIntegrationRoom are the named gates;
 //                   gateWithinLimit for a count the caller already took (active_flows).
+//   Campaign sends: requireCampaignSendRoom(tx, accountId, recipients) where a campaign or a
+//                   scheduled automation commits its recipients (messages_monthly and
+//                   monthly_active_contacts; manual replies and inbound are never gated).
 //   AI generation:  reserveAi / settleAi / releaseAi (src/lib/ai/budget.ts, usage_events ledger).
 //   Media upload:   reserveStorage(tx, ...) before the object-store put (checks and records the bytes),
 //                   releaseStorage(tx, accountId, reservation) when the put fails
@@ -18,7 +21,7 @@ import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { PlanLimitError, requireRoomFor, requireWithinLimit } from './entitlements';
 import type { LimitKey } from './entitlements-catalogue';
 import { countIntegrations } from './integration-count';
-import { incrementUsage, usagePeriod } from './usage';
+import { BILLING_TIME_ZONE, incrementUsage, monthlyActiveContacts, usagePeriod } from './usage';
 import { notifyLimitRefused } from './usage-notices';
 
 /**
@@ -100,6 +103,40 @@ export async function requireContactRoom(tx: TenantTransaction, accountId: strin
     const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM contacts WHERE account_id=${accountId}::uuid`;
     return row?.n ?? 0;
   }, adding);
+}
+
+/**
+ * Outbound messages this IST month for the messages_monthly gate: messages
+ * already sent by an agent or a bot, plus campaign recipients still waiting to
+ * be sent (queued campaigns use up the allowance before they go out, so two
+ * campaigns created back to back cannot both pass). Uncached, unlike the meter.
+ */
+export async function outboundMessagesCommitted(tx: TenantTransaction, accountId: string): Promise<number> {
+  const [row] = await tx.$queryRaw<{ n: bigint }[]>`
+    WITH month AS (SELECT date_trunc('month', now() AT TIME ZONE ${BILLING_TIME_ZONE}) AT TIME ZONE ${BILLING_TIME_ZONE} AS start)
+    SELECT ((SELECT count(*) FROM messages m, month
+        WHERE m.account_id=${accountId}::uuid AND m.created_at >= month.start AND m.sender_type IN ('agent','bot'))
+      + (SELECT count(*) FROM broadcast_recipients r, month
+        WHERE r.account_id=${accountId}::uuid AND r.status='pending' AND r.created_at >= month.start))::bigint AS n`;
+  return Number(row?.n ?? 0);
+}
+
+/**
+ * Before a campaign (a broadcast, an API campaign batch, or a scheduled
+ * automation's occurrence) commits `recipients` more outbound messages, in the
+ * transaction that creates them. Two monthly limits apply:
+ *   messages_monthly         sent + queued this month + `recipients` may not pass the limit;
+ *   monthly_active_contacts  refused once the month's active contacts have reached the limit
+ *                            (a campaign is how a workspace reaches new contacts).
+ * Manual agent replies, bot replies to customers who wrote in, and inbound
+ * messages never call this, so a customer conversation is never cut off.
+ * Refusals are PlanLimitError (402 'plan_limit') naming the limit, and record
+ * the 100% usage notice. Unlimited limits return at once with no lock or count.
+ */
+export async function requireCampaignSendRoom(tx: TenantTransaction, accountId: string, recipients: number): Promise<void> {
+  if (!(recipients > 0)) return;
+  await gateLimit(tx, accountId, 'messages_monthly', () => outboundMessagesCommitted(tx, accountId), recipients);
+  await gateLimit(tx, accountId, 'monthly_active_contacts', () => monthlyActiveContacts(tx, accountId), 1);
 }
 
 /** AI messages counted this period (IST month). */

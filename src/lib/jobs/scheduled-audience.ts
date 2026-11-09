@@ -15,6 +15,7 @@ import {
   requireFeature,
   requireWithinLimit,
 } from '@/lib/billing/entitlements';
+import { requireCampaignSendRoom } from '@/lib/billing/limits';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchOnce } from './dispatch';
 import { enqueueJob } from './queue';
@@ -195,6 +196,7 @@ export async function queueScheduledOccurrence(
         async (tx) => {
           await requireFeature(tx, accountId, 'campaign_scheduling');
           await requireWithinLimit(tx, accountId, 'campaign_recipients', contacts.length);
+          await requireCampaignSendRoom(tx, accountId, contacts.length);
         },
         getWorkerPrisma()
       );

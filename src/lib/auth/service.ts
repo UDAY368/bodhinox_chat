@@ -178,7 +178,7 @@ async function createPersonalWorkspace(
   await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${user.id}::uuid,'owner')`;
   await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${user.id}::uuid,${user.fullName},${user.email},${accountId}::uuid,'owner')
     ON CONFLICT(user_id) DO NOTHING`;
-  // NEW_WORKSPACE_PLAN (unset = no subscription row = enterprise, as before).
+  // NEW_WORKSPACE_PLAN, or the lowest plan when unset (never the unrestricted default).
   await assignInitialPlan(tx, accountId);
   return accountId;
 }
