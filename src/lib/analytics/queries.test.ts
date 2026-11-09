@@ -52,6 +52,17 @@ describe('analytics SQL shape', () => {
     expect(squash(last().text)).not.toContain('m.conversation_id IN');
   });
 
+  it('times team replies apart from bot replies and resolutions from the start of the resolved cycle', async () => {
+    await conversationStats(tx, ACCOUNT, range);
+    const sql = squash(last().text);
+    expect(sql).toMatch(/'humanFirstResponse', \(SELECT json_build_object\('count', count\(\*\).* FROM human_first\)/);
+    expect(sql).toContain('GREATEST(f.wait_at, CASE WHEN c.ai_handoff_at <= m.created_at THEN c.ai_handoff_at END)');
+    expect(sql).toMatch(/JOIN conversations c ON c\.account_id=\$\d+::uuid AND c\.id=f\.conversation_id/);
+    expect(sql).toContain('extract(epoch FROM (resolved_at - COALESCE(reopened_at, created_at)))');
+    expect(sql).toContain('FILTER (WHERE reopened_count=0 OR reopened_at IS NOT NULL)');
+    expect(sql).not.toContain('FILTER (WHERE reopened_count=0)');
+  });
+
   it('counts ad-started conversations from the creating message referral, scoped and without the click id', async () => {
     await conversationStats(tx, ACCOUNT, range);
     const sql = squash(last().text);
@@ -76,9 +87,12 @@ describe('analytics SQL shape', () => {
   it('scopes the leaderboard, AI, flow and template reports', async () => {
     await agentLeaderboard(tx, ACCOUNT, range);
     expectScoped(last().text, ['account_memberships', 'messages', 'conversations'], ['m.created_at', 'resolved_at']);
-    // Assignee fallback only before the cutoff; first responses from each conversation's first wait.
+    // Assignee fallback only before the cutoff; first responses are the first member reply to
+    // each conversation's first wait, so a bot answering first does not drop the sample.
     expect(squash(last().text)).toMatch(/CASE WHEN m\.created_at < \$\d+::timestamptz THEN c\.assigned_agent_id END/);
-    expect(squash(last().text)).toContain('FROM first_waits r');
+    expect(squash(last().text)).toContain("FROM first_waits f JOIN msgs m ON m.conversation_id=f.conversation_id AND m.sender_type='agent'");
+    expect(squash(last().text)).toContain('FROM human_first h WHERE h.reply_at <');
+    expect(squash(last().text)).not.toContain("r.sender_type='agent'");
     expect(last().values).toContain(AGENT_ATTRIBUTION_CUTOFF);
     await aiStats(tx, ACCOUNT, range);
     expectScoped(last().text, ['messages', 'conversations', 'ai_unanswered_questions'], ['created_at', 'ai_handoff_at']);

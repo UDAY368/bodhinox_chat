@@ -850,6 +850,14 @@
         "definition": "reopened_count INTEGER NOT NULL DEFAULT 0"
       },
       {
+        "name": "reopened_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reopened_at timestamptz"
+      },
+      {
         "name": "channel",
         "type": "text",
         "nullable": false,

@@ -154,6 +154,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
       started: { total: 4, inbound: 1, business: 1, campaignReply: 0, ad: 2 },
       byLifecycle: { bot: 0, requesting: 1, assigned: 2, resolved: 2 },
       firstResponse: { count: 4, unanswered: 1, medianSeconds: 210, p90Seconds: 510 },
+      // Only the member replies in v1 and v4: the AI replies in v2 and v5 do not count.
+      humanFirstResponse: { count: 2, medianSeconds: 450, p90Seconds: 570 },
       resolution: { resolved: 2, count: 2, medianSeconds: 5400, p90Seconds: 6840 },
     });
   });
@@ -225,6 +227,44 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
     // The agent_performance report uses the same attribution.
     const days = await runAnalytics(ctxA, (tx) => agentDayRows(tx, A, later));
     expect(days.map((d) => [d.userId, d.repliesSent, d.firstResponses]).sort()).toEqual([[agentX, 1, 1], [agentY, 1, 0]].sort());
+  });
+
+  it('times the team reply after a bot answered first and resolutions of reopened conversations', async () => {
+    const days = parseRange({ from: '2026-10-16', to: '2026-10-17' }, 'UTC', new Date('2026-11-03T00:00:00Z'));
+    const contact = randomUUID(), botFirst = randomUUID(), reopened = randomUUID(), legacy = randomUUID();
+    await q("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'H','919811118888')", [contact, A, owner]);
+    await q(`INSERT INTO conversations(id,account_id,user_id,contact_id,created_at,last_message_at,assigned_agent_id,status,ai_handoff_at) VALUES
+      ($1,$4,$5,$6,'2026-10-16T09:00:00Z','2026-10-16T09:30:00Z',$7,'open','2026-10-16T09:20:00Z'),
+      ($2,$4,$5,$6,'2026-10-15T08:00:00Z','2026-10-15T08:00:00Z',NULL,'closed',NULL),
+      ($3,$4,$5,$6,'2026-10-16T07:00:00Z','2026-10-16T07:00:00Z',NULL,'closed',NULL)`,
+    [botFirst, reopened, legacy, A, owner, contact, agentY]);
+    // The AI answers in a minute, hands off at 09:20, and agent Y replies at 09:30.
+    await msg(A, botFirst, 'customer', '2026-10-16T09:00:00Z');
+    await msg(A, botFirst, 'bot', '2026-10-16T09:01:00Z', { ai: true });
+    await msg(A, botFirst, 'agent', '2026-10-16T09:30:00Z', { senderId: agentY });
+    // Created on the 15th, reopened (the trigger stamps reopened_at) and resolved again on the 16th.
+    await q("UPDATE conversations SET status='open' WHERE id=$1", [reopened]);
+    expect((await q('SELECT reopened_count, reopened_at FROM conversations WHERE id=$1', [reopened])).rows[0])
+      .toMatchObject({ reopened_count: 1, reopened_at: expect.any(Date) });
+    await q("UPDATE conversations SET status='closed' WHERE id=$1", [reopened]);
+    // Real cycle times (an update of these columns does not fire the lifecycle trigger).
+    await q("UPDATE conversations SET reopened_at='2026-10-16T10:00:00Z', resolved_at='2026-10-16T10:45:00Z' WHERE id=$1", [reopened]);
+    // Reopened before reopened_at existed: counted as resolved, never timed.
+    await q("UPDATE conversations SET reopened_count=2, resolved_at='2026-10-16T12:00:00Z' WHERE id=$1", [legacy]);
+
+    const stats = await runAnalytics(ctxA, (tx) => conversationStats(tx, A, days));
+    expect(stats.firstResponse).toEqual({ count: 1, unanswered: 0, medianSeconds: 60, p90Seconds: 60 });
+    // Timed from the handoff (09:20), not from the customer's first message.
+    expect(stats.humanFirstResponse).toEqual({ count: 1, medianSeconds: 600, p90Seconds: 600 });
+    // 45 minutes from the reopen, not a day from creation.
+    expect(stats.resolution).toEqual({ resolved: 2, count: 1, medianSeconds: 2700, p90Seconds: 2700 });
+
+    // The member who answered after the bot gets the sample on the leaderboard and in the report.
+    const board = await runAnalytics(ctxA, (tx) => agentLeaderboard(tx, A, days));
+    expect(board.find((r) => r.userId === agentY)).toMatchObject({ firstResponseCount: 1, medianFirstResponseSeconds: 600 });
+    const report = await runAnalytics(ctxA, (tx) => agentDayRows(tx, A, days));
+    expect(report.filter((r) => r.userId === agentY).map((r) => [r.day, r.firstResponses, r.medianFirstResponseSeconds]))
+      .toEqual([['2026-10-16', 1, 600]]);
   });
 
   it('counts lifecycle only for conversations with activity inside the range', async () => {

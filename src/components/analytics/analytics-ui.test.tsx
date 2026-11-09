@@ -24,6 +24,7 @@ const stats = (over: Partial<ConversationStats> = {}): ConversationStats => ({
   started: { total: 10, inbound: 5, business: 3, campaignReply: 1, ad: 1 },
   byLifecycle: { bot: 1, requesting: 2, assigned: 3, resolved: 4 },
   firstResponse: { count: 8, unanswered: 2, medianSeconds: 125, p90Seconds: 4000 },
+  humanFirstResponse: { count: 5, medianSeconds: 900, p90Seconds: 7200 },
   resolution: { resolved: 4, count: 3, medianSeconds: 90_000, p90Seconds: null },
   ...over,
 });
@@ -87,12 +88,16 @@ describe('analytics panels', () => {
     expect(html).toContain('scope="row"');
     // Click-to-WhatsApp ad starts are their own source row.
     expect(html).toContain('Analytics.overview.source.ad');
+    // The team's own first reply sits beside the any-reply figure.
+    expect(html).toContain('Analytics.overview.firstResponse');
+    expect(html).toContain('Analytics.overview.humanFirstResponse');
   });
 
   it('shows a retry on error and an empty state without data', () => {
     expect(render(<ConversationCharts data={null} loading={false} error onRetry={noop} />)).toContain('role="alert"');
     const empty = { ...report, current: stats({ started: { total: 0, inbound: 0, business: 0, campaignReply: 0, ad: 0 }, byLifecycle: { bot: 0, requesting: 0, assigned: 0, resolved: 0 },
-      firstResponse: { count: 0, unanswered: 0, medianSeconds: null, p90Seconds: null }, resolution: { resolved: 0, count: 0, medianSeconds: null, p90Seconds: null } }) };
+      firstResponse: { count: 0, unanswered: 0, medianSeconds: null, p90Seconds: null },
+      humanFirstResponse: { count: 0, medianSeconds: null, p90Seconds: null }, resolution: { resolved: 0, count: 0, medianSeconds: null, p90Seconds: null } }) };
     expect(render(<ConversationCharts data={empty} loading={false} error={false} onRetry={noop} />)).toContain('Analytics.emptyTitle');
   });
 

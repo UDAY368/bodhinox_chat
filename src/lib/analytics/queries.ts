@@ -14,11 +14,18 @@
 //   first customer message of the run to the next reply, looking up to
 //   REPLY_LOOKAHEAD past the range end. A run that started before the range is
 //   measured from its first message inside the range.
-// - First response: each conversation's first wait in the range.
-// - Resolution time: resolved_at - created_at for conversations resolved in the
-//   range on their first cycle (reopened_count = 0); a reopened conversation
-//   does not store when its later cycle started, so it is counted in
-//   `resolved` but not timed.
+// - First response: each conversation's first wait in the range, ended by any
+//   reply (bot, flow and AI replies included).
+// - Team first response (humanFirstResponse, and the leaderboard): the first
+//   member (sender_type 'agent') reply after that same first wait, timed from
+//   the wait or, when the AI handed the conversation to staff between the wait
+//   and that reply, from ai_handoff_at. Bot replies never end it, so a
+//   bot-fronted conversation still credits the member who answered.
+// - Resolution time: resolved_at - the start of the cycle that was resolved
+//   (reopened_at, stamped by the lifecycle trigger since 20261116060000, or
+//   created_at for a first cycle). A conversation reopened before reopened_at
+//   existed has no stored cycle start, so it is counted in `resolved` but not
+//   timed.
 // - Conversation source: inbound (created by a customer message), business
 //   (created by an outbound send), or campaign reply (inbound within 72 hours
 //   after a campaign message to that contact), or ad (the inbound message that
@@ -108,6 +115,22 @@ const isReply = (m: string) => Prisma.raw(
   `${m}.sender_type IN ('agent','bot') AND ${m}.status <> 'failed' AND ${m}.content_type NOT IN ('template','system')`);
 
 /**
+ * CTE `human_first`: per conversation, the first member reply (sender_type
+ * 'agent') at or after its first wait in the range, timed from that wait or,
+ * when the AI handed off between the wait and the reply, from ai_handoff_at.
+ * Needs the `msgs` CTE of waitsSql and `first_waits(conversation_id, wait_at)`.
+ */
+export const humanFirstSql = (accountId: string) => Prisma.sql`human_first AS (
+      SELECT DISTINCT ON (f.conversation_id) f.conversation_id, c.assigned_agent_id, m.sender_id, m.created_at AS reply_at,
+        GREATEST(f.wait_at, CASE WHEN c.ai_handoff_at <= m.created_at THEN c.ai_handoff_at END) AS wait_at
+      FROM first_waits f JOIN msgs m ON m.conversation_id=f.conversation_id AND m.sender_type='agent' AND m.created_at >= f.wait_at
+      JOIN conversations c ON c.account_id=${accountId}::uuid AND c.id=f.conversation_id
+      ORDER BY f.conversation_id, m.created_at
+    )`;
+/** Resolved conversations whose cycle start is known: first cycles, and reopened ones since reopened_at. */
+const TIMED_RESOLUTION = Prisma.sql`FILTER (WHERE reopened_count=0 OR reopened_at IS NOT NULL)`;
+
+/**
  * Customer waits in the range and the reply that ended each one. `seg` counts
  * replies so far in a conversation, so a wait in segment n is answered by the
  * reply that opens segment n+1. `conversations` optionally limits the scan.
@@ -165,6 +188,8 @@ export interface ConversationStats {
   /** Current lifecycle state of conversations with activity in the range. */
   byLifecycle: { bot: number; requesting: number; assigned: number; resolved: number };
   firstResponse: DurationStats & { unanswered: number };
+  /** First reply by a team member (bots, flows and AI excluded); see the header. */
+  humanFirstResponse: DurationStats;
   resolution: DurationStats & { resolved: number };
 }
 
@@ -180,7 +205,7 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
   const rows = await tx.$queryRaw<{ stats: ConversationStats }[]>(Prisma.sql`
     WITH ${defaultNumberCte(accountId)}, scope AS (
       SELECT c.id, c.contact_id, c.created_at, c.lifecycle_state, c.last_message_at, c.resolved_at,
-        c.reopened_count, c.inbound_created_meta_id IS NOT NULL AS inbound, c.inbound_created_meta_id, c.whatsapp_config_id, c.channel
+        c.reopened_count, c.reopened_at, c.inbound_created_meta_id IS NOT NULL AS inbound, c.inbound_created_meta_id, c.whatsapp_config_id, c.channel
       FROM conversations c WHERE c.account_id=${accountId}::uuid ${scopeFilter}
     ), campaign_sends AS MATERIALIZED (
       SELECT r.contact_id, r.sent_at, ${numberOf('b.whatsapp_config_id')} AS number_id
@@ -206,12 +231,12 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
       SELECT s.lifecycle_state FROM scope s
       WHERE s.created_at < ${to(range)} AND (s.created_at >= ${from(range)} OR ${activeIn(accountId, range, 's')})
     ), resolved AS (
-      SELECT ${seconds('resolved_at', 'created_at')} AS secs, reopened_count FROM scope
+      SELECT ${seconds('resolved_at', 'COALESCE(reopened_at, created_at)')} AS secs, reopened_count, reopened_at FROM scope
       WHERE resolved_at >= ${from(range)} AND resolved_at < ${to(range)}
     ), ${waitsSql(accountId, range, filtered ? Prisma.sql`AND m.conversation_id IN (SELECT id FROM scope)` : Prisma.empty)},
     first_waits AS (
-      SELECT DISTINCT ON (conversation_id) wait_at, reply_at FROM responses ORDER BY conversation_id, wait_at
-    )
+      SELECT DISTINCT ON (conversation_id) conversation_id, wait_at, reply_at FROM responses ORDER BY conversation_id, wait_at
+    ), ${humanFirstSql(accountId)}
     SELECT json_build_object(
       'started', (SELECT json_build_object('total', count(*),
         'inbound', count(*) FILTER (WHERE inbound AND c.id IS NULL AND a.id IS NULL),
@@ -224,9 +249,12 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
       'firstResponse', (SELECT json_build_object('count', count(reply_at), 'unanswered', count(*) - count(reply_at),
         'medianSeconds', ${pct(0.5, seconds('reply_at', 'wait_at'))},
         'p90Seconds', ${pct(0.9, seconds('reply_at', 'wait_at'))}) FROM first_waits),
-      'resolution', (SELECT json_build_object('resolved', count(*), 'count', count(*) FILTER (WHERE reopened_count=0),
-        'medianSeconds', ${pct(0.5, Prisma.sql`secs`, Prisma.sql`FILTER (WHERE reopened_count=0)`)},
-        'p90Seconds', ${pct(0.9, Prisma.sql`secs`, Prisma.sql`FILTER (WHERE reopened_count=0)`)}) FROM resolved)
+      'humanFirstResponse', (SELECT json_build_object('count', count(*),
+        'medianSeconds', ${pct(0.5, seconds('reply_at', 'wait_at'))},
+        'p90Seconds', ${pct(0.9, seconds('reply_at', 'wait_at'))}) FROM human_first),
+      'resolution', (SELECT json_build_object('resolved', count(*), 'count', count(*) ${TIMED_RESOLUTION},
+        'medianSeconds', ${pct(0.5, Prisma.sql`secs`, TIMED_RESOLUTION)},
+        'p90Seconds', ${pct(0.9, Prisma.sql`secs`, TIMED_RESOLUTION)}) FROM resolved)
     ) AS stats`);
   return rows[0].stats;
 }
@@ -257,12 +285,11 @@ export async function agentLeaderboard(tx: TenantTransaction, accountId: string,
       SELECT agent_id, count(*) AS replies, count(DISTINCT conversation_id) AS handled FROM agent_replies GROUP BY agent_id
     ), first_waits AS (
       -- Each conversation's first wait only, as in conversationStats and the report.
-      SELECT DISTINCT ON (conversation_id) conversation_id, wait_at, reply_at, sender_type, sender_id
-      FROM responses ORDER BY conversation_id, wait_at
-    ), first_responses AS (
-      SELECT ${agentOf('r.sender_id', 'r.reply_at', 'c.assigned_agent_id')} AS agent_id, ${seconds('r.reply_at', 'r.wait_at')} AS secs
-      FROM first_waits r JOIN conversations c ON c.account_id=${accountId}::uuid AND c.id=r.conversation_id
-      WHERE r.sender_type='agent' AND r.reply_at < ${to(range)}
+      SELECT DISTINCT ON (conversation_id) conversation_id, wait_at FROM responses ORDER BY conversation_id, wait_at
+    ), ${humanFirstSql(accountId)}, first_responses AS (
+      -- The first member reply to that wait, even when a bot answered it first.
+      SELECT ${agentOf('h.sender_id', 'h.reply_at', 'h.assigned_agent_id')} AS agent_id, ${seconds('h.reply_at', 'h.wait_at')} AS secs
+      FROM human_first h WHERE h.reply_at < ${to(range)}
     ), response_totals AS (
       SELECT agent_id, count(*) AS n, ${pct(0.5, Prisma.sql`secs`)} AS median
       FROM first_responses WHERE agent_id IS NOT NULL GROUP BY agent_id
