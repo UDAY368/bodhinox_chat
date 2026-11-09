@@ -1,6 +1,7 @@
 import { getWorkerPrisma } from "@/lib/db/prisma";
 import { withTenant } from "@/lib/db/tenant";
-import { UncertainDispatchError } from "@/lib/jobs/dispatch";
+import { NotDispatchedError, UncertainDispatchError } from "@/lib/jobs/dispatch";
+import { LONG_RETRY_ATTEMPTS } from "@/lib/jobs/retry";
 import { formSummaryText, recordFormResponse, type FormAnswers } from "@/lib/whatsapp/forms/responses";
 import type { InboundFormPayload } from "@/lib/whatsapp/inbound-structured";
 import { randomUUID } from "node:crypto";
@@ -117,8 +118,8 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       last_message_text=${input.contentText || `[${input.contentType}]`},last_message_at=NOW(),
       status=CASE WHEN status='closed' THEN 'open' ELSE status END,updated_at=NOW()
       WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid`;
-    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
-      VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`})
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
+      VALUES('inbound.actions',${input.accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`inbound:${inserted[0].id}`},${LONG_RETRY_ATTEMPTS})
       ON CONFLICT(dedupe_key) DO NOTHING`;
     // The assignee's "new message" alert commits with the message (debounced per conversation).
     await notifyAssignedMessage(tx, { accountId: input.accountId, conversationId: input.conversationId,
@@ -204,14 +205,18 @@ export async function applyProviderStatus(accountId: string, event: ProviderStat
     for (const row of updated) {
       const payload: StatusActionsPayload = { kind: "status", messageId: row.id, accountId,
         conversationId: row.conversation_id, metaMessageId: event.id, status: event.status };
-      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
-        VALUES('inbound.actions',${accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`status:${row.id}:${event.status}`})
+      await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
+        VALUES('inbound.actions',${accountId}::uuid,${JSON.stringify(payload)}::jsonb,${`status:${row.id}:${event.status}`},${LONG_RETRY_ATTEMPTS})
         ON CONFLICT(dedupe_key) DO NOTHING`;
     }
   }, getWorkerPrisma());
 }
 
-/** Completed results replay; interrupted stages require reconciliation before another external action. */
+/**
+ * Completed results replay; interrupted stages require reconciliation before another external
+ * action. A stage that throws NotDispatchedError (it failed before anything could be sent) has its
+ * claim released, so the job's normal retry runs it again.
+ */
 export async function runInboundStage<T>(accountId: string, messageId: string, stage: string, action: () => Promise<T>, assertLease: () => void = () => {}): Promise<T> {
   assertLease();
   const claim = await withTenant({ accountId, role: "owner" }, async tx => {
@@ -232,7 +237,15 @@ export async function runInboundStage<T>(accountId: string, messageId: string, s
       WHERE account_id=${accountId}::uuid AND message_id=${messageId}::uuid AND stage=${stage} AND status='dispatching'`, getWorkerPrisma());
     if (completed !== 1) throw new UncertainDispatchError();
     return result;
-  } catch {
+  } catch (error) {
+    if (error instanceof NotDispatchedError) {
+      // Nothing left the system: release this attempt's claim so the job's normal retry runs the
+      // stage again. If the release fails, the checkpoint stays and the stage is treated as uncertain.
+      const released = await withTenant({ accountId, role: "owner" }, tx => tx.$executeRaw`DELETE FROM inbound_action_steps
+        WHERE account_id=${accountId}::uuid AND message_id=${messageId}::uuid AND stage=${stage} AND status='dispatching'`, getWorkerPrisma())
+        .catch(() => 0);
+      if (released === 1) throw error;
+    }
     try {
       await withTenant({ accountId, role: "owner" }, tx => tx.$executeRaw`UPDATE inbound_action_steps SET status='uncertain',
         last_error='Inbound stage interrupted; reconcile before another external action',updated_at=NOW()

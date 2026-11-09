@@ -6,14 +6,16 @@
 // last error code and where to fix it. Never tokens, secrets or key ids.
 //
 // Platform: per-workspace attention counts (crm_platform_integration_health)
-// and the job / webhook backlog (crm_platform_job_backlog). The platform key
+// the job / webhook backlog (crm_platform_job_backlog) and recent failed jobs, each requeueable
+// (crm_platform_requeue_job, audited; never one whose provider outcome is uncertain). The platform key
 // id is passed only while SaaS billing is configured, so the shared-key check
 // is a no-op without BILLING_RAZORPAY_* keys.
 
+import { AuthError } from '@/lib/auth/errors';
 import { billingConfigured } from '@/lib/billing/razorpay-billing';
 import type { TenantTransaction } from '@/lib/db/tenant';
-import type { PlatformIntegrationHealthRow, PlatformJobBacklogRow } from '@/types/platform';
-import { platformIntegrationHealth, platformJobBacklog } from './db';
+import type { PlatformAdmin, PlatformFailedJobRow, PlatformIntegrationHealthRow, PlatformJobBacklogRow } from '@/types/platform';
+import { platformFailedJobs, platformIntegrationHealth, platformJobBacklog, platformRequeueJob } from './db';
 
 export type IntegrationKind = 'whatsapp' | 'instagram' | 'meta_ads' | 'shopify' | 'woocommerce' | 'meetings' | 'courier' | 'razorpay';
 export type HealthState = 'ok' | 'attention' | 'disconnected';
@@ -115,6 +117,8 @@ export async function loadIntegrationHealth(tx: TenantTransaction, accountId: st
 export interface PlatformHealth {
   integrations: PlatformIntegrationHealthRow[];
   backlog: PlatformJobBacklogRow[];
+  /** Failed jobs of the last 7 days, newest first (at most 50), for requeue. */
+  failedJobs: PlatformFailedJobRow[];
   /** False when SaaS billing has no keys: the shared-key check did not run. */
   sharedKeyCheck: boolean;
 }
@@ -122,6 +126,24 @@ export interface PlatformHealth {
 export async function loadPlatformHealth(env: Record<string, string | undefined> = process.env): Promise<PlatformHealth> {
   const configured = billingConfigured(env);
   const keyId = configured ? env.BILLING_RAZORPAY_KEY_ID?.trim() || null : null;
-  const [integrations, backlog] = await Promise.all([platformIntegrationHealth(keyId), platformJobBacklog()]);
-  return { integrations, backlog, sharedKeyCheck: keyId !== null };
+  const [integrations, backlog, failedJobs] = await Promise.all([platformIntegrationHealth(keyId), platformJobBacklog(), platformFailedJobs()]);
+  return { integrations, backlog, failedJobs, sharedKeyCheck: keyId !== null };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Body { reason (3..1000) }: puts one failed job back in the queue with a fresh attempt budget,
+ * audited with the session admin's email. 404 unknown, 409 'not_failed' (already pending, running or
+ * done) or 'needs_reconciliation' (its provider outcome is uncertain: never re-run blindly).
+ */
+export async function requeueFailedJob(admin: PlatformAdmin, id: string, raw: unknown): Promise<void> {
+  if (!UUID.test(id)) throw new AuthError('Not found', 404, 'not_found');
+  const body = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+  if (reason.length < 3 || reason.length > 1000) throw new AuthError('reason_required', 400, 'reason_required');
+  const outcome = await platformRequeueJob(id, admin.email, reason);
+  if (outcome === 'requeued') return;
+  if (outcome === 'not_failed' || outcome === 'needs_reconciliation') throw new AuthError(outcome, 409, outcome);
+  throw new AuthError('Not found', 404, 'not_found');
 }

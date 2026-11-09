@@ -1,4 +1,4 @@
-// GET /api/platform/health (platform admins only) - 200 { integrations, backlog, sharedKeyCheck }:
+// GET /api/platform/health (platform admins only) - 200 { integrations, backlog, failedJobs, sharedKeyCheck }:
 //   per-workspace attention counts from stored status columns, failed/overdue jobs and unprocessed
 //   webhook receipts. Counts and ids only; no provider calls. A workspace whose commerce Razorpay key
 //   equals the platform billing key is flagged (and a reconciliation item opened) only while

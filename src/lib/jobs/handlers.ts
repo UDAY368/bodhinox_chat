@@ -1,4 +1,4 @@
-import { scheduledSlot } from './schedule';
+import { payloadRange, scheduledSlotsBetween, scheduleRange } from './schedule';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { createAdminClient } from '@/lib/data/admin';
 import {
@@ -61,20 +61,31 @@ const positive = (value: unknown): number => {
   return value as number;
 };
 export async function scheduleWork() {
-  const accounts = await getWorkerPrisma().$queryRaw<
+  const prisma = getWorkerPrisma();
+  const accounts = await prisma.$queryRaw<
     { account_id: string }[]
   >`SELECT * FROM crm_accounts_for_scheduling()`;
-  const window = Math.floor(Date.now() / 30_000);
+  const now = Date.now();
+  const window = Math.floor(now / 30_000);
+  // Cron minutes since the last one queued, so a busy, restarting or deploying worker misses none
+  // (bounded; slots are deduplicated, so an overlap never fires twice).
+  // Unreadable (e.g. code running before its migration): the current minute alone, as before.
+  const last = await prisma.$queryRaw<{ last_minute: Date }[]>`
+    SELECT last_minute FROM worker_schedule_state WHERE name='automation.schedule'`
+    .catch(() => { console.error('[worker] schedule state unavailable; scheduling the current minute only'); return null; });
+  const range = scheduleRange(last?.[0]?.last_minute ?? null, now);
+  if (range.missed > 0)
+    console.error('[worker] automation schedule gap longer than the catch-up window', { skippedMinutes: range.missed });
   for (const { account_id } of accounts)
     await enqueueJob(
       'automation.schedule',
-      {
-        minute: new Date(
-          Math.floor(Date.now() / 60_000) * 60_000
-        ).toISOString(),
-      },
+      { minute: range.to.toISOString(), from: range.from.toISOString() },
       { tenantId: account_id, dedupeKey: `schedule:${account_id}:${window}` }
     );
+  // Advanced only after every workspace's job is queued; a failure re-covers the range next time.
+  if (last)
+    await prisma.$executeRaw`INSERT INTO worker_schedule_state(name,last_minute) VALUES('automation.schedule',${range.to})
+      ON CONFLICT(name) DO UPDATE SET last_minute=GREATEST(worker_schedule_state.last_minute,EXCLUDED.last_minute),updated_at=NOW()`;
   // Number health every six hours; its failure must not stop automation scheduling.
   await scheduleHealthSync().catch(() => console.error('[worker] health sync scheduling failed'));
   // Inbox SLA and auto-resolve sweeps; likewise independent.
@@ -273,25 +284,27 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await expireAwaitingReplies();
       const { data: schedules, error: scheduleError } = await db
         .from('automations')
-        .select('id,trigger_config')
+        .select('id,trigger_config,created_at')
         .eq('trigger_type', 'time_based')
         .eq('is_active', true);
       if (scheduleError) throw new Error('Automation schedule lookup failed');
-      const minute =
-        typeof job.payload.minute === 'string'
-          ? new Date(job.payload.minute)
-          : new Date();
+      // Every minute this pass covers: the payload's minute, plus any the scheduler caught up.
+      const { from, to } = payloadRange(job.payload);
       for (const automation of schedules ?? []) {
         const config = automation.trigger_config ?? {};
-        const slot =
-          typeof config.schedule === 'string'
-            ? scheduledSlot(
-                config.schedule,
-                config.timezone || process.env.AUTOMATION_TIMEZONE || 'UTC',
-                minute
-              )
-            : null;
-        if (slot)
+        if (typeof config.schedule !== 'string') continue;
+        // A caught-up minute from before the automation existed never fires it; the payload's own
+        // minute is evaluated as before.
+        const created = Date.parse(automation.created_at ?? '');
+        const createdMinute = Number.isNaN(created) ? 0 : Math.floor(created / 60_000) * 60_000;
+        const current = to.toISOString();
+        const slots = scheduledSlotsBetween(
+          config.schedule,
+          config.timezone || process.env.AUTOMATION_TIMEZONE || 'UTC',
+          from,
+          to
+        ).filter((slot) => slot === current || Date.parse(slot) >= createdMinute);
+        for (const slot of slots)
           await queueScheduledOccurrence(
             db,
             accountId,

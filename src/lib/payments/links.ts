@@ -25,6 +25,7 @@ import type { PrismaClient } from '@prisma/client';
 import { getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { dispatchOnce } from '@/lib/jobs/dispatch';
+import { LONG_RETRY_ATTEMPTS } from '@/lib/jobs/retry';
 import { getT } from '@/lib/i18n/translate';
 import { formatMoney, isCurrencyCode, MAX_MINOR, minorFromDb } from '@/lib/commerce/money';
 import { checkInstagramText, loadInstagramTarget, sendInstagramText, storeInstagramSentMessage, type InstagramSendContext, type InstagramTarget } from '@/lib/channels/sender';
@@ -513,9 +514,9 @@ export async function queueWebhookTx(tx: TenantTransaction, accountId: string, e
   if (!endpoints.length) return;
   const payload = JSON.stringify({ id: randomUUID(), event, occurred_at: new Date().toISOString(), account_id: accountId, data });
   for (const endpoint of endpoints) {
-    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
       VALUES('webhook.delivery',${accountId}::uuid,${JSON.stringify({ endpointId: endpoint.id, event, payload })}::jsonb,
-        ${`outbound-webhook:${event}:${subjectId}:${endpoint.id}`})
+        ${`outbound-webhook:${event}:${subjectId}:${endpoint.id}`},${LONG_RETRY_ATTEMPTS})
       ON CONFLICT(dedupe_key) DO NOTHING`;
   }
 }

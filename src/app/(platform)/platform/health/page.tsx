@@ -2,15 +2,21 @@
 
 // Console: integration health per workspace (stored status columns, counts
 // only) and background work that needs a look (failed or overdue jobs,
-// unprocessed webhook receipts).
+// unprocessed webhook receipts), plus recent failed jobs, each requeueable
+// with a reason (audited; a job with an uncertain send outcome is refused).
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { PlatformHealth } from '@/lib/platform/health';
-import { platformApi } from '../../_components/platform-api';
+import type { PlatformFailedJobRow } from '@/types/platform';
+import { errorCode, platformApi } from '../../_components/platform-api';
+
+const REQUEUE_ERRORS = ['reason_required', 'not_found', 'not_failed', 'needs_reconciliation'] as const;
 
 export default function PlatformHealthPage() {
   const t = useTranslations('Platform.health');
@@ -18,9 +24,8 @@ export default function PlatformHealthPage() {
   const [data, setData] = useState<PlatformHealth | null>(null);
   const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    platformApi<PlatformHealth>('/api/platform/health').then(setData, () => setFailed(true));
-  }, []);
+  const load = useCallback(() => platformApi<PlatformHealth>('/api/platform/health').then(setData, () => setFailed(true)), []);
+  useEffect(() => { void load(); }, [load]);
 
   if (failed) return <p role="status" className="text-sm">{t('loadFailed')}</p>;
   if (!data) return <p className="text-muted-foreground text-sm">{t('loading')}</p>;
@@ -96,6 +101,60 @@ export default function PlatformHealthPage() {
           </div>
         )}
       </section>
+      <section className="flex flex-col gap-2">
+        <h2 className="font-medium">{t('failed.title')}</h2>
+        {data.failedJobs.length === 0 ? <p className="text-muted-foreground text-sm">{t('allClear')}</p> : (
+          <>
+            <p className="text-muted-foreground text-xs">{t('failed.hint')}</p>
+            <ul className="divide-y">
+              {data.failedJobs.map((job) => <FailedJobRow key={job.id} job={job} onDone={load} />)}
+            </ul>
+          </>
+        )}
+      </section>
     </div>
+  );
+}
+
+function FailedJobRow({ job, onDone }: { job: PlatformFailedJobRow; onDone: () => Promise<unknown> }) {
+  const t = useTranslations('Platform.health');
+  const format = useFormatter();
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function requeue() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await platformApi(`/api/platform/health/jobs/${job.id}/requeue`, { body: { reason: reason.trim() } });
+      setMessage(t('failed.requeued'));
+      await onDone();
+    } catch (error) {
+      setMessage(t(`failed.errors.${errorCode(error, REQUEUE_ERRORS)}`));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-2 py-3 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-mono text-xs">{job.type}</span>
+        {job.accountId && <Link href={`/platform/tenants/${job.accountId}`} className="hover:underline">{job.accountName ?? job.accountId}</Link>}
+        <span className="text-muted-foreground text-xs">{t('failed.attempts')}: {job.attempts}/{job.maxAttempts}</span>
+        <span className="text-muted-foreground ml-auto text-xs">{t('failed.failedAt')} {format.relativeTime(new Date(job.failedAt))}</span>
+      </div>
+      {job.needsReconciliation ? <Badge variant="destructive" className="w-fit">{t('failed.reconcile')}</Badge> : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Input aria-label={t('failed.reason')} placeholder={t('failed.reason')} maxLength={1000} value={reason}
+            className="max-w-md" onChange={(e) => setReason(e.target.value)} />
+          <Button type="button" size="sm" disabled={busy || reason.trim().length < 3} onClick={() => void requeue()}>
+            {t('failed.requeue')}
+          </Button>
+        </div>
+      )}
+      {message && <p role="status" className="text-xs">{message}</p>}
+    </li>
   );
 }

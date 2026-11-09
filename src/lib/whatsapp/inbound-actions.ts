@@ -166,9 +166,11 @@ async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Pr
     .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
   if(contactError) throw new Error("Contact consent lookup failed");
   if(keyword||contact?.blocked_at) return;
-  const flow=await stage("flow",async()=>dispatchInboundToFlows({
+  // Read before the stage claims its checkpoint: a failed read sends nothing, so the job retries.
+  const message=await flowMessage(db,input,text);
+  const flow=await stage("flow",()=>dispatchInboundToFlows({
     accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
-    message:await flowMessage(db,input,text),
+    message,
     isFirstInboundMessage:input.isFirstInboundMessage,
   }));
   if(!flow?.consumed) console.info("[inbound-actions] channel_not_supported",{accountId:input.accountId,
@@ -308,9 +310,12 @@ async function repliedTemplate(db:ReturnType<typeof createAdminClient>,input:Mes
 /** Quick-reply actions, flows, automations and the AI fallback, in that order. */
 async function respondAutomatically(db:ReturnType<typeof createAdminClient>,input:MessageInput,text:string,stage:Stage,isForm=false): Promise<void> {
     const explicit=await stage("quick_reply_action",()=>dispatchQuickReplyAction(db,input));
-    const flow=explicit.handled ? {consumed:true,outcome:undefined} : await stage("flow",async()=>dispatchInboundToFlows({
+    // The stored-message reads run before the flow stage claims its checkpoint: a DB blip there
+    // sent nothing, so the job retries instead of ending every later stage as uncertain.
+    const message=explicit.handled ? null : await flowMessage(db,input,text);
+    const flow=!message ? {consumed:true,outcome:undefined} : await stage("flow",()=>dispatchInboundToFlows({
       accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
-      message:await flowMessage(db,input,text),
+      message,
       isFirstInboundMessage:input.isFirstInboundMessage,
     }));
     const replied=flow.consumed ? false : await stage("reply_resume",()=>resumeAwaitingReply({

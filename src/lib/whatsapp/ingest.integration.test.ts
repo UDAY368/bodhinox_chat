@@ -4,7 +4,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { disconnectDatabases, getWorkerPrisma } from "@/lib/db/prisma";
 import { applyProviderStatus, ingestInboundMessage, runInboundStage, STATUS_PERSISTENCE_GRACE_MS, type IngestInboundInput } from "./ingest";
-import { UncertainDispatchError } from "@/lib/jobs/dispatch";
+import { NotDispatchedError, UncertainDispatchError } from "@/lib/jobs/dispatch";
 
 const configured=config({ path: ".env.test", quiet: true }).parsed;
 const workerUrl=process.env.TEST_WORKER_DATABASE_URL||configured?.WORKER_DATABASE_URL;
@@ -200,6 +200,22 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     await expect(runInboundStage(accountId,message,"ai_reply",failed)).rejects.toBeInstanceOf(UncertainDispatchError);
     expect(calls).toBe(1);
     expect((await owner.query("SELECT status FROM inbound_action_steps WHERE message_id=$1 AND stage='ai_reply'",[message])).rows[0].status).toBe("uncertain");
+  });
+
+  it("[audit-57] a stage that failed before sending anything releases its checkpoint and runs again on retry",async()=>{
+    const input=await fixture();const message=(await ingestInboundMessage(input)).messageId;let calls=0;
+    const readFails=async()=>{calls++;throw new NotDispatchedError("Simulated read failure");};
+    const error=await runInboundStage(accountId,message,"quick_reply_action",readFails).catch((e:unknown)=>e);
+    expect(error).toBeInstanceOf(NotDispatchedError);
+    expect(error).not.toBeInstanceOf(UncertainDispatchError);
+    expect((await owner.query("SELECT count(*)::int AS n FROM inbound_action_steps WHERE message_id=$1 AND stage='quick_reply_action'",[message])).rows[0].n).toBe(0);
+    expect(await runInboundStage(accountId,message,"quick_reply_action",async()=>{calls++;return {handled:false};})).toEqual({handled:false});
+    expect(calls).toBe(2);
+    expect((await owner.query("SELECT status FROM inbound_action_steps WHERE message_id=$1 AND stage='quick_reply_action'",[message])).rows[0].status).toBe("completed");
+    // The release only frees this attempt's own 'dispatching' claim: a failure after a possible send stays uncertain.
+    await expect(runInboundStage(accountId,message,"automations",async()=>{throw new Error("Simulated provider timeout");})).rejects.toBeInstanceOf(UncertainDispatchError);
+    await expect(runInboundStage(accountId,message,"automations",readFails)).rejects.toBeInstanceOf(UncertainDispatchError);
+    expect((await owner.query("SELECT status FROM inbound_action_steps WHERE message_id=$1 AND stage='automations'",[message])).rows[0].status).toBe("uncertain");
   });
 
   it("rejects a cross-tenant conversation before any message or job can persist",async()=>{

@@ -10845,6 +10845,23 @@
       "sources": {
         "jobs": "Tareas",
         "webhook_receipts": "Webhooks"
+      },
+      "failed": {
+        "title": "Trabajos fallidos (últimos 7 días)",
+        "hint": "Vuelve a poner en cola un trabajo cuando su causa esté resuelta. Un trabajo cuyo resultado de envío es incierto debe conciliarse.",
+        "attempts": "Intentos",
+        "failedAt": "Falló",
+        "reason": "Motivo",
+        "requeue": "Volver a poner en cola",
+        "requeued": "Trabajo puesto en cola de nuevo.",
+        "reconcile": "Requiere conciliación",
+        "errors": {
+          "reason_required": "Escribe un motivo (3 caracteres como mínimo).",
+          "not_found": "Ese trabajo ya no existe.",
+          "not_failed": "Ese trabajo ya no está fallido.",
+          "needs_reconciliation": "El resultado del envío es incierto: concílialo en lugar de volver a ejecutarlo.",
+          "failed": "No se pudo volver a poner en cola el trabajo."
+        }
       }
     },
     "audit": {

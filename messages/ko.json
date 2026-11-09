@@ -10845,6 +10845,23 @@
       "sources": {
         "jobs": "작업",
         "webhook_receipts": "웹훅"
+      },
+      "failed": {
+        "title": "실패한 작업(최근 7일)",
+        "hint": "원인을 해결한 뒤 작업을 다시 대기열에 넣으세요. 발송 결과가 불확실한 작업은 대신 대조 확인해야 합니다.",
+        "attempts": "시도 횟수",
+        "failedAt": "실패 시각",
+        "reason": "사유",
+        "requeue": "다시 대기열에 넣기",
+        "requeued": "작업을 다시 대기열에 넣었습니다.",
+        "reconcile": "대조 확인 필요",
+        "errors": {
+          "reason_required": "사유를 입력하세요(3자 이상).",
+          "not_found": "해당 작업이 더 이상 없습니다.",
+          "not_failed": "해당 작업은 더 이상 실패 상태가 아닙니다.",
+          "needs_reconciliation": "발송 결과가 불확실합니다. 다시 실행하지 말고 대조 확인하세요.",
+          "failed": "작업을 다시 대기열에 넣지 못했습니다."
+        }
       }
     },
     "audit": {

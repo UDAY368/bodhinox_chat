@@ -7,7 +7,9 @@ import { AuthError } from '@/lib/auth/errors';
 import { getPlatformPrisma } from '@/lib/db/prisma';
 import {
   PLATFORM_DB_ERRORS,
+  type JobRequeueOutcome,
   type LifecycleStatus,
+  type PlatformFailedJobRow,
   type PlanPreview,
   type PlatformAuditRow,
   type PlatformDbErrorCode,
@@ -99,6 +101,23 @@ export async function platformJobBacklog(): Promise<PlatformJobBacklogRow[]> {
     source: r.source as PlatformJobBacklogRow['source'], type: String(r.type), status: String(r.status),
     workspaces: r.workspaces == null ? null : num(r.workspaces), items: num(r.items), oldest: isoOrNull(r.oldest),
   }));
+}
+
+/** Failed jobs of the last 7 days, newest first: ids, types and counts only. */
+export async function platformFailedJobs(limit = 50): Promise<PlatformFailedJobRow[]> {
+  const rows = await call((db) => db.$queryRaw<Record<string, unknown>[]>`SELECT * FROM crm_platform_failed_jobs(${limit}::int)`);
+  return rows.map((r) => ({
+    id: String(r.id), type: String(r.type), accountId: (r.account_id as string | null) ?? null,
+    accountName: (r.account_name as string | null) ?? null, attempts: num(r.attempts), maxAttempts: num(r.max_attempts),
+    needsReconciliation: r.needs_reconciliation === true, failedAt: iso(r.failed_at),
+  }));
+}
+
+/** Requeues one failed job (audited in SQL); the outcome says why nothing changed otherwise. */
+export async function platformRequeueJob(id: string, adminEmail: string, reason: string): Promise<JobRequeueOutcome> {
+  const rows = await call((db) => db.$queryRaw<{ outcome: string }[]>`
+    SELECT crm_platform_requeue_job(${id}::uuid, ${adminEmail}, ${reason}) AS outcome`);
+  return rows[0]?.outcome as JobRequeueOutcome;
 }
 
 // ---------------------------------------------------------------- reconciliation

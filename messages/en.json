@@ -10845,6 +10845,23 @@
       "sources": {
         "jobs": "Jobs",
         "webhook_receipts": "Webhooks"
+      },
+      "failed": {
+        "title": "Failed jobs (last 7 days)",
+        "hint": "Requeue a job once its cause is fixed. A job whose send outcome is uncertain must be reconciled instead.",
+        "attempts": "Attempts",
+        "failedAt": "Failed",
+        "reason": "Reason",
+        "requeue": "Requeue",
+        "requeued": "Job requeued.",
+        "reconcile": "Needs reconciliation",
+        "errors": {
+          "reason_required": "Enter a reason (at least 3 characters).",
+          "not_found": "That job no longer exists.",
+          "not_failed": "That job is no longer failed.",
+          "needs_reconciliation": "Its send outcome is uncertain: reconcile it instead of re-running it.",
+          "failed": "Could not requeue the job."
+        }
       }
     },
     "audit": {

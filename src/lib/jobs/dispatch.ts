@@ -4,6 +4,12 @@ import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { assertLiveEffects } from '@/lib/runtime/dry-run-guard';
 export class UncertainDispatchError extends Error { constructor() { super('Provider outcome needs reconciliation before another send'); this.name = 'UncertainDispatchError'; } }
+/**
+ * Thrown by a checkpointed stage that failed before it could have sent or queued anything (a pure
+ * read failed). The stage's checkpoint is released and the job retries normally, instead of the
+ * failure being treated as an uncertain dispatch. Never throw it after a send may have happened.
+ */
+export class NotDispatchedError extends Error { constructor(message: string) { super(message); this.name = 'NotDispatchedError'; } }
 
 /**
  * Errors that are always raised before any provider call: a number or

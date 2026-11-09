@@ -10845,6 +10845,23 @@
       "sources": {
         "jobs": "Tarefas",
         "webhook_receipts": "Webhooks"
+      },
+      "failed": {
+        "title": "Tarefas com falha (últimos 7 dias)",
+        "hint": "Recoloque uma tarefa na fila depois de corrigir a causa. Uma tarefa com resultado de envio incerto deve ser conciliada.",
+        "attempts": "Tentativas",
+        "failedAt": "Falhou",
+        "reason": "Motivo",
+        "requeue": "Recolocar na fila",
+        "requeued": "Tarefa recolocada na fila.",
+        "reconcile": "Precisa de conciliação",
+        "errors": {
+          "reason_required": "Informe um motivo (pelo menos 3 caracteres).",
+          "not_found": "Essa tarefa não existe mais.",
+          "not_failed": "Essa tarefa não está mais com falha.",
+          "needs_reconciliation": "O resultado do envio é incerto: concilie em vez de executar de novo.",
+          "failed": "Não foi possível recolocar a tarefa na fila."
+        }
       }
     },
     "audit": {

@@ -31,6 +31,7 @@ const ALLOWLIST: Record<string, { reason: string; appAccess: AppAccess }> = {
   rate_cards: { reason: "public price catalogue, read-only", appAccess: "select" },
   webhook_receipts: { reason: "provider webhook dedupe before a tenant is resolved, worker only", appAccess: "none" },
   worker_heartbeats: { reason: "worker liveness (Phase 15), no tenant data, worker policy only", appAccess: "none" },
+  worker_schedule_state: { reason: "last cron minute the scheduler queued, no tenant data, worker policy only", appAccess: "none" },
 };
 
 /**

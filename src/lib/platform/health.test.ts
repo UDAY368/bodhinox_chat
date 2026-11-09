@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const db = vi.hoisted(() => ({ platformIntegrationHealth: vi.fn(async () => []), platformJobBacklog: vi.fn(async () => []) }));
+const db = vi.hoisted(() => ({ platformIntegrationHealth: vi.fn(async () => []), platformJobBacklog: vi.fn(async () => []),
+  platformFailedJobs: vi.fn(async () => []), platformRequeueJob: vi.fn() }));
 vi.mock('./db', () => db);
 
 import { loadIntegrationHealth, loadPlatformHealth } from './health';

@@ -4,6 +4,7 @@ vi.mock('@/lib/automations/engine', () => ({ runAutomationById: h.automation }))
 vi.mock('@/lib/flows/engine', () => ({ startFlowById: h.flow }));
 import { dispatchQuickReplyAction } from './quick-reply-actions';
 import type { DataClient } from '@/lib/data/types';
+import { NotDispatchedError } from '@/lib/jobs/dispatch';
 
 const token = 'qr_00000000-0000-4000-8000-000000000001';
 const targetId = '00000000-0000-4000-8000-000000000002';
@@ -135,4 +136,17 @@ it('preserves a concurrent human state change when restoring a target that becam
   h.automation.mockImplementation(async () => { Object.assign(rows.conversations[0], { bot_paused: false, updated_at: 'later-human-write' }); return { outcome: 'unavailable' }; });
   await dispatchQuickReplyAction(db, input);
   expect(rows.conversations[0].bot_paused).toBe(false); expect(rows.conversations[0].updated_at).toBe('later-human-write');
+});
+
+it.each(['messages', 'automations', 'conversations'])('[audit-57] a failed %s read before any write is NotDispatched, so the stage retries', async (table) => {
+  const { db, updates } = database();
+  const failing = { from(name: string) {
+    if (name !== table) return db.from(name);
+    const b = { select: () => b, eq: () => b, limit: () => b, maybeSingle: async () => ({ data: null, error: { message: 'connection reset' } }) };
+    return b;
+  } } as unknown as DataClient;
+  const error = await dispatchQuickReplyAction(failing, input).catch((e: unknown) => e);
+  expect(error).toBeInstanceOf(NotDispatchedError);
+  expect(h.automation).not.toHaveBeenCalled(); expect(h.flow).not.toHaveBeenCalled();
+  expect(updates).toEqual([]);
 });

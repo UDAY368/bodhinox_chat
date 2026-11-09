@@ -1,6 +1,7 @@
 import type { DataClient } from '@/lib/data/types';
 import { runAutomationById } from '@/lib/automations/engine';
 import { startFlowById } from '@/lib/flows/engine';
+import { NotDispatchedError } from '@/lib/jobs/dispatch';
 
 interface QuickReplyInput {
   accountId: string; conversationId: string; contactId: string; userId: string;
@@ -16,12 +17,12 @@ export async function dispatchQuickReplyAction(db: DataClient, input: QuickReply
   const inbound = await db.from('messages').select('reply_to_message_id,interactive_reply_id,content_text')
     .eq('account_id', input.accountId).eq('conversation_id', input.conversationId)
     .eq('id', input.messageId).eq('sender_type', 'customer').maybeSingle();
-  if (inbound.error) throw new Error('Quick reply inbound lookup failed');
+  if (inbound.error) throw new NotDispatchedError('Quick reply inbound lookup failed');
   if (!inbound.data?.reply_to_message_id || inbound.data.interactive_reply_id !== input.interactiveReplyId) return { handled: false };
   const parent = await db.from('messages').select('sender_type,interactive_payload')
     .eq('account_id', input.accountId).eq('conversation_id', input.conversationId)
     .eq('id', inbound.data.reply_to_message_id).maybeSingle();
-  if (parent.error) throw new Error('Quick reply prompt lookup failed');
+  if (parent.error) throw new NotDispatchedError('Quick reply prompt lookup failed');
   if (!parent.data || !['agent', 'bot'].includes(String(parent.data.sender_type))) return { handled: false };
   const payload = parent.data.interactive_payload as { kind?: string; buttons?: Array<{ id?: string; action?: { type?: string; targetId?: string } }> } | null;
   if (payload?.kind !== 'buttons' || !Array.isArray(payload.buttons)) return { handled: false };
@@ -35,21 +36,21 @@ export async function dispatchQuickReplyAction(db: DataClient, input: QuickReply
   const targetQuery = db.from(action.type === 'automation' ? 'automations' : 'flows').select('id')
     .eq('account_id', input.accountId).eq('id', action.targetId);
   const target = await (action.type === 'automation' ? targetQuery.eq('is_active', true) : targetQuery.eq('status', 'active')).maybeSingle();
-  if (target.error) throw new Error('Quick reply target availability lookup failed');
+  if (target.error) throw new NotDispatchedError('Quick reply target availability lookup failed');
   if (!target.data) return { handled: true, outcome: 'unavailable' };
   if (action.type === 'flow') {
     // A run belongs to one conversation (one per WhatsApp number). Only a run on this
     // conversation conflicts; a run waiting on the contact's other number does not.
     const active = await db.from('flow_runs').select('id').eq('account_id', input.accountId)
       .eq('contact_id', input.contactId).eq('conversation_id', input.conversationId).eq('status', 'active').limit(1);
-    if (active.error) throw new Error('Quick reply active flow lookup failed');
+    if (active.error) throw new NotDispatchedError('Quick reply active flow lookup failed');
     if (active.data?.length) return { handled: true, outcome: 'conflict' };
   }
 
   // A manually sent quick reply pauses bot replies. This explicit, bound tap hands control back.
   const conversation = await db.from('conversations').select('id,bot_paused,updated_at')
     .eq('account_id', input.accountId).eq('id', input.conversationId).eq('contact_id', input.contactId).maybeSingle();
-  if (conversation.error) throw new Error('Quick reply conversation lookup failed');
+  if (conversation.error) throw new NotDispatchedError('Quick reply conversation lookup failed');
   if (!conversation.data) return { handled: true, outcome: 'unavailable' };
   let handoffAt: string | null = null;
   if (conversation.data.bot_paused === true) {

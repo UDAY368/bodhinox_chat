@@ -198,5 +198,14 @@ describe.skipIf(!ownerUrl || !workerUrl)(
       expect(await scheduledJobs(slot)).toHaveLength(1);
       expect((await scheduledJobs(slot))[0].payload.contactId).toBeUndefined();
     });
+    it('[audit-50/56] fires each minute the scheduler missed exactly once, never one from before the automation existed', async () => {
+      await owner.query("UPDATE automations SET created_at='2026-10-15T09:08:30Z' WHERE id=$1", [automation]);
+      await handleJob(job('automation.schedule', { from: '2026-10-15T09:06:00.000Z', minute: '2026-10-15T09:10:00.000Z' }));
+      for (const minute of ['06', '07']) expect(await scheduledJobs(`2026-10-15T09:${minute}:00.000Z`)).toHaveLength(0);
+      for (const minute of ['08', '09', '10']) expect(await scheduledJobs(`2026-10-15T09:${minute}:00.000Z`)).toHaveLength(1);
+      // An overlapping catch-up (a retried pass, or the next tick) never fires a minute twice.
+      await handleJob(job('automation.schedule', { from: '2026-10-15T09:09:00.000Z', minute: '2026-10-15T09:11:00.000Z' }));
+      for (const minute of ['09', '10', '11']) expect(await scheduledJobs(`2026-10-15T09:${minute}:00.000Z`)).toHaveLength(1);
+    });
   }
 );

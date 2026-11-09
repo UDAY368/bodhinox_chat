@@ -152,4 +152,31 @@ describe.skipIf(!ownerUrl || !workerUrl)("real PostgreSQL durable queue and disp
     await enqueueJob("automation.resume",{reset:true},{tenantId:accountId,runAt:new Date(0),dedupeKey:key,requeueCompleted:true});
     expect((await owner.query("SELECT status,attempts,lease_token,payload FROM jobs WHERE id=$1",[id])).rows[0]).toEqual({status:"running",attempts:1,lease_token:second!.lease_token,payload:{manual:true}});
   });
+
+  it("[audit-10/37] the main lane never takes a campaign pass and the bulk lane takes nothing else", async () => {
+    const campaign = await enqueueJob("broadcast.dispatch", { test: true }, { tenantId: accountId, runAt: new Date(0), dedupeKey: randomUUID() });
+    jobs.add(campaign);
+    const inbound = await createJob();
+    const [bulk, main] = await Promise.all([claimJob("bulk"), claimJob("main")]);
+    expect(bulk?.id).toBe(campaign);
+    expect(main?.id).toBe(inbound);
+    expect(await claimJob("bulk")).toBeNull();
+    expect(await claimJob("main")).toBeNull();
+    await finishJob(bulk!); await finishJob(main!);
+  });
+
+  it("[audit-38] backs off a failed attempt for minutes and gives inbound processing the long budget", async () => {
+    const payload = { testId: randomUUID(), entry: [] };
+    const receipt = await persistWebhook(JSON.stringify(payload), payload);
+    receipts.add(receipt);
+    expect((await owner.query("SELECT max_attempts FROM jobs WHERE dedupe_key=$1", [`webhook:${receipt}`])).rows[0].max_attempts).toBe(8);
+    await owner.query("UPDATE jobs SET run_at=to_timestamp(0) WHERE dedupe_key=$1", [`webhook:${receipt}`]);
+    const job = await claimJob();
+    expect(job?.type).toBe("whatsapp.webhook");
+    await finishJob(job!, new Error("storage unavailable"));
+    const row = (await owner.query("SELECT status,EXTRACT(EPOCH FROM run_at-NOW())::int AS wait FROM jobs WHERE id=$1", [job!.id])).rows[0];
+    expect(row.status).toBe("pending");
+    expect(row.wait).toBeGreaterThanOrEqual(8);
+    expect(row.wait).toBeLessThanOrEqual(10);
+  });
 });

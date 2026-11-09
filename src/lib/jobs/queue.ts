@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getWorkerPrisma } from '@/lib/db/prisma';
-import { retryDecision } from './retry';
+import { defaultMaxAttempts, LONG_RETRY_ATTEMPTS, retryDecision } from './retry';
 import { assertLiveEffects } from '@/lib/runtime/dry-run-guard';
 
 export interface Job { id: string; type: string; tenant_id: string | null; payload: Record<string, unknown>; attempts: number; max_attempts: number; lease_token: string }
@@ -16,7 +16,7 @@ export async function enqueueJob(type: string, payload: Record<string, unknown>,
   if (!types.has(type) || JSON.stringify(payload).length > 2 * 1024 * 1024) throw new Error('Invalid job contract');
   const rows = await getWorkerPrisma().$queryRaw<{ id: string }[]>`
     INSERT INTO jobs(type,tenant_id,payload,dedupe_key,run_at,max_attempts)
-    VALUES(${type},${options.tenantId ?? null}::uuid,${JSON.stringify(payload)}::jsonb,${options.dedupeKey ?? null},${options.runAt ?? new Date()},${options.maxAttempts ?? 5})
+    VALUES(${type},${options.tenantId ?? null}::uuid,${JSON.stringify(payload)}::jsonb,${options.dedupeKey ?? null},${options.runAt ?? new Date()},${options.maxAttempts ?? defaultMaxAttempts(type)})
     ON CONFLICT(dedupe_key) DO UPDATE SET
       status=CASE WHEN ${options.requeueCompleted===true} AND jobs.status IN ('done','failed') THEN 'pending' ELSE jobs.status END,
       attempts=CASE WHEN ${options.requeueCompleted===true} AND jobs.status IN ('done','failed') THEN 0 ELSE jobs.attempts END,
@@ -38,12 +38,23 @@ export async function persistWebhook(rawBody: string, payload: Record<string, un
     const receipt = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO webhook_receipts(provider,dedupe_key,payload) VALUES('meta',${dedupeKey},${JSON.stringify(payload)}::jsonb)
       ON CONFLICT(dedupe_key) DO UPDATE SET dedupe_key=EXCLUDED.dedupe_key RETURNING id`;
-    await tx.$executeRaw`INSERT INTO jobs(type,payload,dedupe_key) VALUES('whatsapp.webhook',${JSON.stringify({ receiptId: receipt[0].id })}::jsonb,${'webhook:' + receipt[0].id}) ON CONFLICT(dedupe_key) DO NOTHING`;
+    await tx.$executeRaw`INSERT INTO jobs(type,payload,dedupe_key,max_attempts) VALUES('whatsapp.webhook',${JSON.stringify({ receiptId: receipt[0].id })}::jsonb,${'webhook:' + receipt[0].id},${LONG_RETRY_ATTEMPTS}) ON CONFLICT(dedupe_key) DO NOTHING`;
     return receipt[0].id;
   });
 }
-export async function claimJob(): Promise<Job | null> {
+/**
+ * Long-running job types: a campaign pass (up to 1,000 recipients), a crawl slice, a report or
+ * export build, an insight run, a catalogue sync. The worker claims them in their own lane so they
+ * never hold up inbound messages, flows, automations, AI replies and webhooks of other workspaces.
+ */
+export const BULK_JOB_TYPES = ['broadcast.dispatch', 'ai.crawl_source', 'ai.insight_run', 'analytics.report',
+  'workspace.export', 'commerce.catalog_sync'] as const;
+/** 'all': any due job (one-lane worker and tests); 'main': everything except BULK_JOB_TYPES; 'bulk': only those. */
+export type JobLane = 'all' | 'main' | 'bulk';
+
+export async function claimJob(lane: JobLane = 'all'): Promise<Job | null> {
   const lease = randomUUID();
+  const bulk = [...BULK_JOB_TYPES];
   const rows = await getWorkerPrisma().$queryRaw<Job[]>`
     WITH exhausted AS (
       UPDATE jobs SET status='failed',lease_until=NULL,lease_token=NULL,
@@ -53,6 +64,7 @@ export async function claimJob(): Promise<Job | null> {
     ), candidate AS (
       SELECT id FROM jobs WHERE attempts<max_attempts AND
         ((status='pending' AND run_at<=NOW()) OR (status='running' AND lease_until<NOW()))
+        AND (${lane}::text='all' OR (type=ANY(${bulk}::text[]))=(${lane}::text='bulk'))
       ORDER BY run_at,id FOR UPDATE SKIP LOCKED LIMIT 1
     ) UPDATE jobs j SET status='running',attempts=j.attempts+1,lease_token=${lease}::uuid,lease_until=NOW()+INTERVAL '90 seconds',updated_at=NOW()
       FROM candidate WHERE j.id=candidate.id RETURNING j.*`;

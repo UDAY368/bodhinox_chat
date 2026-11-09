@@ -21,3 +21,4 @@ Every `*_ENABLED`, `*_DISABLED` and `*_DRY_RUN` variable the application reads m
 | `HEALTH_WORKER_DOWN_S` / `HEALTH_OLDEST_DUE_DEGRADED_S` / `HEALTH_UNKNOWN_INTENTS_DEGRADED` | `src/lib/ops/health.ts` | 90 / 300 / 0 | Deep-health thresholds. | not set (defaults) | owner | OPS-01 |
 | `OPS_ALERT_WEBHOOK_URL` | `src/lib/ops/alerts.ts` (worker) | off | https URL for status-change alerts. | not set (new) | owner | OPS-01 |
 | `WORKER_DRAIN_MS` | `src/lib/jobs/worker-loop.ts` | 25 000 | Upper bound for the in-flight job after SIGTERM. Railway draining time for the worker must be at least this. | not set (default) | owner | OPS-01 |
+| `WORKER_CONCURRENCY` | `src/lib/jobs/worker-loop.ts` | 3 | Job slots in the worker: one main slot for short jobs in queue order, the rest for long-running jobs (campaign passes, crawls, reports, exports). 1 is the old single lane. Keep below `DB_POOL_SIZE`. | not set (default) | owner | audit 10/37 |
