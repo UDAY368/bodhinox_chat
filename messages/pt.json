@@ -4672,6 +4672,7 @@
         "reply_cap": "Limite de respostas da conversa atingido",
         "no_messages": "Nada para responder",
         "rate_limited": "Respostas de IA demais ao mesmo tempo",
+        "rate_limited_retry": "Respostas de IA demais ao mesmo tempo; tentará de novo em um minuto",
         "plan_ai_limit": "Mensagens de IA do plano esgotadas",
         "slot_lost": "Outra resposta ocupou a última vaga",
         "claim_failed": "Não foi possível reservar uma vaga de resposta",
@@ -9015,7 +9016,7 @@
       "lowConfidence": "Transferir quando o agente não tiver certeza",
       "lowConfidenceHint": "Perguntas que ele não sabe responder vão para uma pessoa e aparecem em Aprendizados.",
       "threshold": "Confiança necessária para responder: {value}%",
-      "thresholdHint": "Valores mais altos transferem com mais frequência.",
+      "thresholdHint": "Em 50%, decide o próprio julgamento do agente. Valores mais altos também exigem uma correspondência próxima na base de conhecimento e transferem com mais frequência. Quando nada na base de conhecimento corresponde, decide apenas o julgamento do agente.",
       "maxTurns": "Transferir após esta quantidade de respostas da IA",
       "maxTurnsHint": "0 significa sem limite."
     },

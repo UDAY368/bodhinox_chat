@@ -15,7 +15,11 @@ const h = vi.hoisted(() => ({
   settleAi: vi.fn(),
   failAi: vi.fn(),
   recordReplyEvent: vi.fn(),
+  enqueueJob: vi.fn(),
   state: {
+    /** A photo/voice note/location newer than the latest readable message, or null. */
+    newerMediaId: null as string | null,
+    messageTypeFilters: [] as unknown[][],
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
     latestMessageId: 'wamid.inbound-1',
@@ -45,6 +49,7 @@ vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
 vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 100 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
+vi.mock('@/lib/jobs/queue', () => ({ enqueueJob: h.enqueueJob }))
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,
   loadAccountMetaCredentials: h.loadAccountMetaCredentials,
@@ -57,8 +62,11 @@ vi.mock('./admin-client', () => ({
   databaseAdmin: () => ({
     from: (table: string) => {
       if (table === 'messages') {
+        let types: unknown[] | null = null
         const chain = { select: () => chain, eq: () => chain, order: (column: string) => { h.state.messageOrders.push(column); return chain }, limit: () => chain,
-          maybeSingle: async () => ({ data: { message_id: h.state.latestMessageId }, error: null }) }
+          in: (column: string, values: unknown[]) => { if (column === 'content_type') { types = values; h.state.messageTypeFilters.push(values) } return chain },
+          // The newest customer message; a newer media message counts only when the query does not filter it out.
+          maybeSingle: async () => ({ data: { message_id: h.state.newerMediaId && !(types && !types.includes('image')) ? h.state.newerMediaId : h.state.latestMessageId }, error: null }) }
         return chain
       }
       if (table === 'automations') {
@@ -104,7 +112,7 @@ vi.mock('./admin-client', () => ({
   }),
 }))
 
-import { dispatchInboundToAiReply } from './auto-reply'
+import { dispatchInboundToAiReply, handleAutoReplyRetryJob, MAX_RATE_LIMIT_RETRIES } from './auto-reply'
 
 const RESERVATION = { reservation: true }
 const ARGS = {
@@ -149,6 +157,9 @@ beforeEach(() => {
   h.state.autoResponders = []
   h.state.latestMessageId = 'wamid.inbound-1'
   h.state.messageOrders = []
+  h.state.newerMediaId = null
+  h.state.messageTypeFilters = []
+  h.enqueueJob.mockReset().mockResolvedValue('job-1')
   h.state.claim = true
   h.state.afterClaim = null
   h.state.beforeUpdate = null
@@ -477,6 +488,33 @@ it('skips a draft when a newer customer message arrives during generation', asyn
   expect(h.engineSendText).not.toHaveBeenCalled()
 })
 
+it('still answers a text when a photo or voice note arrives during generation (audit 27)', async () => {
+  h.generateReply.mockImplementationOnce(async () => {
+    h.state.newerMediaId = 'wamid.photo'
+    h.state.conv!.last_customer_message_at = new Date(Date.now() + 1000).toISOString()
+    return { text: 'It costs 499.', handoff: false }
+  })
+  await dispatchInboundToAiReply(ARGS)
+  expect(h.state.messageTypeFilters.length).toBeGreaterThan(0)
+  for (const types of h.state.messageTypeFilters) {
+    expect(types).toEqual(expect.arrayContaining(['text', 'interactive']))
+    for (const media of ['image', 'audio', 'video', 'document', 'location']) expect(types).not.toContain(media)
+  }
+  expect(h.engineSendText).toHaveBeenCalledWith(expect.objectContaining({ text: 'It costs 499.' }))
+})
+
+it('reads the knowledge base with the recent customer turns, not only the last one (audit 29)', async () => {
+  h.buildConversationContext.mockResolvedValue([
+    { role: 'user', content: 'Do you deliver to Pune?' },
+    { role: 'assistant', content: 'Yes, we do.' },
+    { role: 'user', content: 'and how much?' },
+  ])
+  await dispatchInboundToAiReply(ARGS)
+  const query = h.retrieveKnowledge.mock.calls[0][3] as string
+  expect(query).toContain('Pune')
+  expect(query).toContain('and how much?')
+})
+
 it('uses the worker routing decision instead of unrelated account automations', async () => {
   h.state.autoResponders = [{ id: 'unrelated-automation' }]
   await dispatchInboundToAiReply({ ...ARGS, routingChecked: true })
@@ -712,12 +750,77 @@ describe('dispatchInboundToAiReply — AI activity log', () => {
     expect(JSON.stringify(row)).not.toContain('provider down')
   })
 
-  it('records skipped / rate_limited once the account throttle is hit', async () => {
+  const quietly = async (run: () => Promise<void>) => {
     const quiet = [vi.spyOn(console, 'info'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')].map((s) => s.mockImplementation(() => {}))
-    for (let i = 0; i < 70; i++) await dispatchInboundToAiReply(ARGS)
-    const reasons = h.recordReplyEvent.mock.calls.map((c) => (c[0] as { reason: string }).reason)
-    expect(reasons).toHaveLength(70)
-    expect(reasons).toContain('rate_limited')
-    quiet.forEach((s) => s.mockRestore())
+    try { await run() } finally { quiet.forEach((s) => s.mockRestore()) }
+  }
+  const fillLimit = async () => { for (let i = 0; i < 30; i++) await dispatchInboundToAiReply(ARGS) ; h.recordReplyEvent.mockClear(); h.engineSendText.mockClear(); h.generateReply.mockClear() }
+
+  it('defers an inbound over the account throttle to a delayed retry job, without calling the model (audit 28)', async () => {
+    await quietly(async () => {
+      await fillLimit()
+      await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
+    })
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'rate_limited_retry' })
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toBeNull() // a deferred inbound is not handed off yet
+    expect(h.enqueueJob).toHaveBeenCalledTimes(1)
+    const [type, payload, options] = h.enqueueJob.mock.calls[0] as [string, Record<string, unknown>, { tenantId: string; runAt: Date; dedupeKey: string }]
+    expect(type).toBe('ai.auto_reply_retry')
+    expect(payload).toEqual({
+      conversationId: 'conv-1', contactId: 'contact-1', configOwnerUserId: 'user-1',
+      inboundMessageId: 'wamid.inbound-1', requireHandoffOnUnavailable: true, attempt: 1,
+    })
+    expect(options.tenantId).toBe('acct-1')
+    expect(options.dedupeKey).toBe('ai-autoreply-retry:wamid.inbound-1:1')
+    expect(options.runAt.getTime()).toBeGreaterThan(Date.now())
+  })
+
+  it('gives up after the last retry and records skipped / rate_limited, handing an opted-in flow to a person', async () => {
+    await quietly(async () => {
+      await fillLimit()
+      await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true, retryAttempt: MAX_RATE_LIMIT_RETRIES })
+    })
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'rate_limited' })
+    expect(h.enqueueJob).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true, bot_paused: true })
+  })
+
+  it('records skipped / rate_limited when the retry cannot be queued', async () => {
+    h.enqueueJob.mockRejectedValue(new Error('db down'))
+    await quietly(async () => {
+      await fillLimit()
+      await dispatchInboundToAiReply(ARGS)
+    })
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'rate_limited' })
+  })
+})
+
+describe('handleAutoReplyRetryJob', () => {
+  const ids = { conversationId: '11111111-1111-4111-8111-111111111111', contactId: '22222222-2222-4222-8222-222222222222', configOwnerUserId: '33333333-3333-4333-8333-333333333333' }
+  beforeEach(async () => {
+    (await import('@/lib/rate-limit')).__resetRateLimitForTests()
+    Object.assign(h.state.conv!, { id: ids.conversationId, contact_id: ids.contactId })
+  })
+
+  it('re-runs the dispatch for the deferred inbound and replies when it is still current', async () => {
+    await handleAutoReplyRetryJob('acct-1', { ...ids, inboundMessageId: 'wamid.inbound-1', attempt: 2 })
+    expect(h.engineSendText).toHaveBeenCalledWith(expect.objectContaining({ conversationId: ids.conversationId, text: 'Hello!' }))
+  })
+
+  it('stands down when a newer customer message superseded it', async () => {
+    h.state.latestMessageId = 'wamid.newer'
+    await handleAutoReplyRetryJob('acct-1', { ...ids, inboundMessageId: 'wamid.inbound-1', attempt: 1 })
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [{ ...ids, inboundMessageId: 'wamid.inbound-1', attempt: 0 }],
+    [{ ...ids, inboundMessageId: '', attempt: 1 }],
+    [{ ...ids, conversationId: 'conv-1', inboundMessageId: 'wamid.inbound-1', attempt: 1 }],
+  ])('rejects a malformed payload', async (payload) => {
+    await expect(handleAutoReplyRetryJob('acct-1', payload)).rejects.toThrow('Invalid AI auto-reply retry payload')
+    expect(h.generateReply).not.toHaveBeenCalled()
   })
 })

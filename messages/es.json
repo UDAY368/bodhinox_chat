@@ -4672,6 +4672,7 @@
         "reply_cap": "Límite de respuestas de la conversación alcanzado",
         "no_messages": "Nada que responder",
         "rate_limited": "Demasiadas respuestas de IA a la vez",
+        "rate_limited_retry": "Demasiadas respuestas de IA a la vez; lo reintentará en un minuto",
         "plan_ai_limit": "Mensajes de IA del plan agotados",
         "slot_lost": "Otra respuesta ocupó el último turno",
         "claim_failed": "No se pudo reservar un turno de respuesta",
@@ -9015,7 +9016,7 @@
       "lowConfidence": "Traspasar cuando el agente no esté seguro",
       "lowConfidenceHint": "Las preguntas que no puede responder pasan a una persona y aparecen en Aprendizajes.",
       "threshold": "Confianza necesaria para responder: {value} %",
-      "thresholdHint": "Con valores más altos se traspasa con más frecuencia.",
+      "thresholdHint": "Al 50 % decide el propio criterio del agente. Los valores más altos exigen además una coincidencia cercana en la base de conocimiento y traspasan con más frecuencia. Si nada de la base de conocimiento coincide, decide solo el criterio del agente.",
       "maxTurns": "Traspasar después de esta cantidad de respuestas de la IA",
       "maxTurnsHint": "0 significa sin límite."
     },
