@@ -32,6 +32,8 @@ interface Choice {
   id: string;
   name: string;
   archived_at?: string | null;
+  /** Services only: paid services cannot be booked from a flow (audit finding 21). */
+  payment_required?: boolean;
 }
 
 /** Live services and locations for the pickers; empty when the plan has no appointments or the load fails. */
@@ -88,14 +90,17 @@ export function BookAppointmentForm({ node, allNodes, onUpdateConfig, t }: { nod
           <div className="space-y-1.5">
             {services.map((s) => {
               const checked = picked.includes(s.id);
+              const paid = s.payment_required === true;
+              // A paid service can be unticked (publishing refuses it) but never newly picked.
               return (
                 <label key={s.id} className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={checked}
-                    disabled={!checked && picked.length >= BOOK_APPOINTMENT_LIMITS.maxServices}
+                    disabled={!checked && (paid || picked.length >= BOOK_APPOINTMENT_LIMITS.maxServices)}
                     onCheckedChange={(on) => toggle(s.id, on === true)}
                   />
                   <span className="truncate">{s.name}</span>
+                  {paid && <span className="shrink-0 text-[10px] text-muted-foreground">{ta("paidServiceNote")}</span>}
                 </label>
               );
             })}

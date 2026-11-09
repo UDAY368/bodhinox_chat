@@ -1561,7 +1561,10 @@ async function startAppointmentStep(
   } catch (err) {
     return unavailable(`appointment_lookup_failed:${err instanceof Error ? err.name : "error"}`);
   }
-  if (!prompt) return unavailable("appointment_no_slots");
+  if (!prompt) {
+    const paidOnly = await appointmentRuntime.appointmentPaidOnly(run.account_id, node.config).catch(() => false);
+    return unavailable(paidOnly ? "appointment_paid_only" : "appointment_no_slots");
+  }
   try {
     await setRunVars(db, run, { [APPOINTMENT_STATE_VAR]: prompt.state });
     await sendAppointmentPrompt(db, run, node, prompt, run.reprompt_count);
