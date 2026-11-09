@@ -265,11 +265,15 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         .single();
       if (error) throw new Error('Could not load pending automation');
       if (!pending || !['pending', 'running'].includes(pending.status)) return;
+      // Gated on the status: a row the contacts consent trigger expired since the read stays expired.
       const update = await db
         .from('automation_pending_executions')
         .update({ status: 'running' })
-        .eq('id', id);
+        .eq('id', id)
+        .in('status', ['pending', 'running'])
+        .select('id');
       if (update.error) throw new Error('Could not claim pending automation');
+      if (!update.data?.length) return;
       await resumePendingExecution(pending);
     } else if (job.type === 'automation.schedule') {
       await expireAwaitingReplies();

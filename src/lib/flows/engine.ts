@@ -2811,6 +2811,9 @@ async function guardCommitted<T>(run: FlowRunRow, work: () => Promise<T>): Promi
   try {
     return await work();
   } catch (err) {
+    // A Connect Flow target interrupted inside this advance is the run left
+    // active; this run already ended (connect_flow), so keep the inner one.
+    if (err instanceof FlowAdvanceInterrupted) throw err;
     if (committedRuns.has(run)) {
       console.error("[flows] advance interrupted:", err instanceof Error ? err.message : err);
       throw new FlowAdvanceInterrupted(run);
