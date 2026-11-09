@@ -154,9 +154,11 @@ describe('shared session issuing', () => {
     expect(mocks.execute).not.toHaveBeenCalled();
   });
   it('gives a verified identity with no membership left a personal workspace instead of refusing it', async () => {
-    mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([]);
+    mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ assigned: true }]);
     await issueSession(user.id, { method: 'password' });
     const owned = mocks.execute.mock.calls.find((c) => sql(c).includes('INSERT INTO accounts'))!;
+    // The new workspace is given its initial plan (the lowest one while NEW_WORKSPACE_PLAN is unset), never left on enterprise.
+    expect(mocks.query.mock.calls.some((c) => sql(c).includes('billing_assign_initial_plan'))).toBe(true);
     const session = mocks.execute.mock.calls.find((c) => sql(c).includes('INSERT INTO auth_sessions'))!;
     expect(owned).toContain(user.id);
     expect(session).toContain(owned[1]);

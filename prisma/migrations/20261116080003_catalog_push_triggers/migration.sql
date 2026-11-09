@@ -48,17 +48,17 @@ BEGIN
 END $$;
 
 CREATE TRIGGER shop_variants_catalog_push AFTER INSERT ON shop_variants
-  FOR EACH ROW EXECUTE FUNCTION queue_catalog_push();
+  FOR EACH ROW EXECUTE FUNCTION queue_catalog_push(); -- additive-exception: catalogue-only metadata change (brief lock, bounded by lock_timeout); queues a job, never blocks or rewrites rows
 CREATE TRIGGER shop_variants_catalog_push_update AFTER UPDATE OF sku, price_minor, archived_at, track_inventory ON shop_variants
   FOR EACH ROW
   WHEN (OLD.sku IS DISTINCT FROM NEW.sku OR OLD.price_minor IS DISTINCT FROM NEW.price_minor
     OR OLD.archived_at IS DISTINCT FROM NEW.archived_at OR OLD.track_inventory IS DISTINCT FROM NEW.track_inventory)
-  EXECUTE FUNCTION queue_catalog_push();
+  EXECUTE FUNCTION queue_catalog_push(); -- additive-exception: catalogue-only metadata change (brief lock, bounded by lock_timeout); queues a job, never blocks or rewrites rows
 CREATE TRIGGER shop_products_catalog_push AFTER UPDATE OF status ON shop_products
   FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)
-  EXECUTE FUNCTION queue_catalog_push();
+  EXECUTE FUNCTION queue_catalog_push(); -- additive-exception: catalogue-only metadata change (brief lock, bounded by lock_timeout); queues a job, never blocks or rewrites rows
 CREATE TRIGGER inventory_levels_catalog_push AFTER INSERT ON inventory_levels
-  FOR EACH ROW EXECUTE FUNCTION queue_catalog_push();
+  FOR EACH ROW EXECUTE FUNCTION queue_catalog_push(); -- additive-exception: catalogue-only metadata change (brief lock, bounded by lock_timeout); queues a job, never blocks or rewrites rows
 CREATE TRIGGER inventory_levels_catalog_push_update AFTER UPDATE OF on_hand, reserved ON inventory_levels
   FOR EACH ROW WHEN ((OLD.on_hand - OLD.reserved > 0) IS DISTINCT FROM (NEW.on_hand - NEW.reserved > 0))
-  EXECUTE FUNCTION queue_catalog_push();
+  EXECUTE FUNCTION queue_catalog_push(); -- additive-exception: catalogue-only metadata change (brief lock, bounded by lock_timeout); queues a job, never blocks or rewrites rows
