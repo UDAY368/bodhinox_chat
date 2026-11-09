@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import type { AgentProfile } from '@/lib/ai/agent-profile';
 import {
   BUSINESS_TYPE_SUGGESTIONS,
+  MIN_CONFIDENCE_THRESHOLD,
   WIZARD_STEPS,
   WIZARD_TONES,
   draftToInput,
@@ -270,7 +271,7 @@ export function AgentSetupWizard({ canEdit, knowledgeSlot, onOpenKnowledge, onOp
             {draft.on_low_confidence && (
               <Field id="wiz-threshold" label={t('handoff.threshold', { value: Math.round(draft.confidence_threshold * 100) })}
                 hint={t('handoff.thresholdHint')}>
-                <input id="wiz-threshold" type="range" min={0} max={1} step={0.05} className="w-full accent-primary"
+                <input id="wiz-threshold" type="range" min={MIN_CONFIDENCE_THRESHOLD} max={1} step={0.05} className="w-full accent-primary"
                   value={draft.confidence_threshold} disabled={disabled}
                   onChange={(e) => update('confidence_threshold', Number(e.target.value))} />
               </Field>
