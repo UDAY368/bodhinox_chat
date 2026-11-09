@@ -12,6 +12,7 @@ import { toErrorResponse } from '@/lib/auth/account';
 import { validateGstin } from '@/lib/billing/gst';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { getT } from '@/lib/i18n/translate';
+import { queueCatalogPush } from './catalog-push';
 import { isCurrencyCode, MAX_MINOR, minorFromDb } from './money';
 import type { PricingSettings, PricingShippingRate } from './pricing';
 
@@ -222,6 +223,10 @@ export async function saveStoreSettings(ctx: TenantContext & { userId: string },
         checkout_template_name=EXCLUDED.checkout_template_name,checkout_template_language=EXCLUDED.checkout_template_language,
         cod_enabled=EXCLUDED.cod_enabled,cod_fee_minor=EXCLUDED.cod_fee_minor`;
     const changed = Object.keys(input).filter((k) => !current || current[k as keyof SettingsRow] !== input[k as keyof StoreSettingsInput]);
+    // Checkout turned on (Bodhinox becomes the seller of record) or the store currency changed: push linked
+    // variants' price and availability to the Meta catalogue (audit finding 20). Same transaction, ids only.
+    if (input.checkout_enabled && (!current?.checkout_enabled || current.currency !== input.currency))
+      await queueCatalogPush(ctx.accountId, tx);
     await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
       VALUES(${ctx.accountId}::uuid,${ctx.userId}::uuid,'commerce.settings_updated',${ctx.accountId},${JSON.stringify({ fields: changed })}::jsonb)`;
     const row = await loadSettingsRow(tx, ctx.accountId);

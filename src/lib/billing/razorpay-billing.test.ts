@@ -107,6 +107,8 @@ describe('RazorpayBilling calls', () => {
     expect(await provider(...full).rp.findAddon({ reference: REF, createdAfter: after })).toEqual({ outcome: 'unknown' });
     // A provider error is unknown too.
     expect(await provider(json(500, {})).rp.findAddon({ reference: REF, createdAfter: after })).toEqual({ outcome: 'unknown' });
+    // A page without an items array is unknown, never "absent" (absent fails the row an hour on).
+    expect(await provider(json(200, { entity: 'collection' })).rp.findAddon({ reference: REF, createdAfter: after })).toEqual({ outcome: 'unknown' });
   });
 });
 

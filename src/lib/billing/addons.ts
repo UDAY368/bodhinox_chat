@@ -21,8 +21,9 @@
 // called, with provider_marker set: the provider call carries the row's id
 // (findAddon matches it). ok -> 'active' (raises the limit); rejected ->
 // 'failed'; unknown -> stays 'pending' and is never retried or granted here.
-// A second purchase of the same kind is refused while one is pending, so a
-// retry cannot charge twice for one grant. The billing lifecycle sweep
+// A second purchase of the same kind is refused while one is pending (for its
+// first day, while the sweep settles it), so a retry cannot charge twice for
+// one grant; after that an operator item is open and buying is allowed again. The billing lifecycle sweep
 // (reconcilePendingAddons, audit finding 53) asks the provider for the add-on
 // by its id: found -> 'active'; the provider has none an hour on -> 'failed'
 // (nothing was charged); still unclear a day on -> a billing reconciliation
@@ -162,9 +163,12 @@ export async function purchaseAddon(provider: BillingProvider, args: PurchaseArg
     if (pack.kind !== 'ai_messages' && !(subscription.periodEnd && subscription.periodEnd.getTime() > Date.now()))
       throw new AddonInputError('needs_subscription', 409);
     // One unconfirmed purchase per kind: a retry while the provider's answer is unclear could charge twice.
+    // Only while the sweep is still settling it automatically: once an operator item is open (a day on, or a
+    // row from before the marker existed) the workspace is not locked out of buying until someone edits the row.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${accountId}:add_on:${pack.kind}`}))`;
     const [pending] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM add_ons
-      WHERE account_id=${accountId}::uuid AND kind=${pack.kind} AND status='pending'`;
+      WHERE account_id=${accountId}::uuid AND kind=${pack.kind} AND status='pending' AND provider_marker
+        AND created_at > ${new Date(Date.now() - ADDON_OPERATOR_AFTER_MS)}`;
     if ((pending?.n ?? 0) > 0) throw new AddonInputError('purchase_pending', 409);
     const unitMinor = await packChargeMinor(tx, accountId, pack, seller);
     const [row] = await tx.$queryRaw<{ id: string }[]>`
@@ -189,7 +193,8 @@ export async function purchaseAddon(provider: BillingProvider, args: PurchaseArg
       await tx.$executeRaw`UPDATE add_ons SET status='failed' WHERE id=${intent.id}::uuid AND status='pending'`;
       return { id: intent.id, status: 'failed' as const };
     }
-    await activateAddon(tx, intent.id, result.value.id, intent.subscription.periodEnd);
+    // Not activated (its period ended while the provider answered): it stays pending for the sweep and an operator.
+    if (!(await activateAddon(tx, intent.id, result.value.id, intent.subscription.periodEnd))) return { id: intent.id, status: 'pending' as const };
     return { id: intent.id, status: 'active' as const };
   }, db);
 }

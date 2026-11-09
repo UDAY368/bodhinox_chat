@@ -270,7 +270,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl || !authUrl)('Privacy & acces
     const row = await q('SELECT a.name, a.owner_user_id, m.role FROM accounts a JOIN account_memberships m ON m.account_id=a.id AND m.user_id=$2 WHERE a.id=$1',
       [created.accountId, loner]);
     expect(row.rows).toEqual([{ name: 'Second business', owner_user_id: loner, role: 'owner' }]);
-    expect((await q('SELECT count(*)::int AS n FROM account_subscriptions WHERE account_id=$1', [created.accountId])).rows[0].n).toBe(0);
+    // NEW_WORKSPACE_PLAN is unset here: the workspace starts on the lowest plan, never the unrestricted default (audit finding 41).
+    expect((await q('SELECT plan_id FROM account_subscriptions WHERE account_id=$1', [created.accountId])).rows).toEqual([{ plan_id: 'free' }]);
     expect((await q("SELECT count(*)::int AS n FROM audit_logs WHERE account_id=$1 AND action='workspace.created'", [created.accountId])).rows[0].n).toBe(1);
 
     const filler = await q(`WITH a AS (INSERT INTO accounts(id,name,owner_user_id) SELECT gen_random_uuid(), 'Filler', $1 FROM generate_series(2, $2) RETURNING id)

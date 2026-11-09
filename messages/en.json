@@ -7532,7 +7532,7 @@
     },
     "catalogue": {
       "title": "Catalogue",
-      "description": "The products you sell through storefront links and checkout. Prices, tax and stock here are what customers are charged; the price and stock of each product linked to the Meta catalogue (same SKU) are sent there within a few minutes.",
+      "description": "The products you sell through storefront links and checkout. Prices, tax and stock here are what customers are charged; the price and stock of each product linked to the Meta catalogue (same SKU) are sent there within a few minutes while checkout is on.",
       "tabs": {
         "products": "Products",
         "categories": "Categories",

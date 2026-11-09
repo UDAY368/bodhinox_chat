@@ -7,9 +7,12 @@ const h = vi.hoisted(() => ({
   numberless: new Set<string>(),
   executed: [] as { sql: string; values: unknown[] }[],
   current: '',
+  checkout: true,
+  storefront: true,
 }));
 
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => 'worker' }));
+vi.mock('@/lib/billing/entitlements', () => ({ getEntitlements: async () => ({ features: { storefront: h.storefront } }) }));
 vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: () => 'plain-token' }));
 vi.mock('./catalog', () => {
   class CatalogError extends Error {}
@@ -25,6 +28,7 @@ vi.mock('@/lib/db/tenant', () => ({
   withTenant: async (_ctx: unknown, fn: (tx: unknown) => unknown) => fn({
     $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
       const sql = strings.join('?');
+      if (sql.includes('FROM commerce_settings')) return [{ checkout_enabled: h.checkout }];
       if (sql.includes('FROM whatsapp_catalogs')) return h.catalogs;
       if (sql.includes('FROM products m')) return h.items.get(values[1] as string) ?? [];
       return [];
@@ -78,6 +82,21 @@ describe('pushCatalogChanges', () => {
     h.items = new Map();
     h.numberless = new Set();
     h.executed = [];
+    h.checkout = true;
+    h.storefront = true;
+  });
+
+  it('pushes nothing while Bodhinox is not the seller of record (checkout off, or no storefront on the plan)', async () => {
+    h.catalogs = [{ id: 'row-1', catalog_id: '111', whatsapp_config_id: 'cfg-1' }];
+    h.items.set('row-1', [row({ sellable: false })]);
+    const update = vi.fn(async () => ({ handles: [] }));
+    h.checkout = false;
+    expect(await pushCatalogChanges(ACCOUNT, update as unknown as CatalogUpdater)).toEqual({ catalogs: 0, pushed: 0, skipped: 0 });
+    h.checkout = true;
+    h.storefront = false;
+    expect(await pushCatalogChanges(ACCOUNT, update as unknown as CatalogUpdater)).toEqual({ catalogs: 0, pushed: 0, skipped: 0 });
+    expect(update).not.toHaveBeenCalled();
+    expect(h.executed).toEqual([]);
   });
 
   it('batches differences per catalogue (1000 per call) and records each accepted batch in the mirror', async () => {

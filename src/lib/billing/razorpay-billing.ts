@@ -236,7 +236,9 @@ export class RazorpayBilling implements BillingProvider {
     return this.run(async () => {
       for (let page = 0; page < FIND_MAX_PAGES; page++) {
         const raw = await this.call(`/addons?from=${from}&count=100&skip=${page * 100}`);
-        const items = Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : [];
+        // A malformed page is unknown, never "absent" (absent fails the row an hour on).
+        if (!Array.isArray(raw.items)) throw new Unknown();
+        const items = raw.items as Record<string, unknown>[];
         const match = items.find((item) => (item?.item as Record<string, unknown> | undefined)?.description === marker);
         if (match) {
           if (typeof match.id !== 'string') throw new Unknown();
@@ -261,7 +263,9 @@ export class RazorpayBilling implements BillingProvider {
     return this.run(async () => {
       for (let page = 0; page < FIND_MAX_PAGES; page++) {
         const raw = await this.call(`/subscriptions?plan_id=${encodeURIComponent(args.planId)}&from=${from}&count=100&skip=${page * 100}`);
-        const items = Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : [];
+        // A malformed page is unknown, never "absent" (absent fails the row an hour on).
+        if (!Array.isArray(raw.items)) throw new Unknown();
+        const items = raw.items as Record<string, unknown>[];
         const match = items.find((item) => notesOf(item?.notes).intent_id === args.intentId);
         if (match) return toSubscription(match);
         if (items.length < 100) return null;

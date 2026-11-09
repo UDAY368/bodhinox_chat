@@ -7532,7 +7532,7 @@
     },
     "catalogue": {
       "title": "Catálogo",
-      "description": "Los productos que vendes con enlaces de tienda y pago. Los precios, impuestos y existencias de aquí son lo que se cobra; el precio y las existencias de cada producto vinculado al catálogo de Meta (mismo SKU) se envían allí en pocos minutos.",
+      "description": "Los productos que vendes con enlaces de tienda y pago. Los precios, impuestos y existencias de aquí son lo que se cobra; el precio y las existencias de cada producto vinculado al catálogo de Meta (mismo SKU) se envían allí en pocos minutos mientras el pago está activado.",
       "tabs": {
         "products": "Productos",
         "categories": "Categorías",

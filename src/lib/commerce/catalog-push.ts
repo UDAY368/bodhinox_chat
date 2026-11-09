@@ -18,11 +18,15 @@
  * differences, as absolute values, so a repeated push is harmless. After Meta
  * accepts a batch the mirror is updated to what was sent; the next six-hour
  * sync reads Meta's own state back, and a difference left there is pushed
- * again. Meta failures throw, so the job retries with backoff and stays
+ * again. Only while Bodhinox is the seller of record: checkout enabled and the
+ * plan's storefront feature (otherwise WhatsApp orders are handled by hand and
+ * the Meta catalogue stays the seller's own; enabling checkout queues a push).
+ * Meta failures throw, so the job retries with backoff and stays
  * visible as failed; the next sync queues a fresh push. Tokens, product names
  * and prices are never logged.
  */
 
+import { getEntitlements } from '@/lib/billing/entitlements';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { decrypt } from '@/lib/whatsapp/encryption';
@@ -89,6 +93,14 @@ export interface CatalogPushResult {
 /** Pushes every linked catalogue's differences. Throws on a Meta failure (the job retries). */
 export async function pushCatalogChanges(accountId: string, update: CatalogUpdater = updateCatalogItems): Promise<CatalogPushResult> {
   const result: CatalogPushResult = { catalogs: 0, pushed: 0, skipped: 0 };
+  // Bodhinox's prices and stock decide only where its checkout sells: a workspace that takes WhatsApp orders by
+  // hand (checkout off, or a plan without the storefront) keeps Meta's catalogue as its own.
+  const sells = await worker(accountId, async (tx) => {
+    const [settings] = await tx.$queryRaw<{ checkout_enabled: boolean }[]>`
+      SELECT checkout_enabled FROM commerce_settings WHERE account_id=${accountId}::uuid`;
+    return !!settings?.checkout_enabled && !!(await getEntitlements(tx, accountId)).features.storefront;
+  });
+  if (!sells) return result;
   const catalogs = await worker(accountId, (tx) => tx.$queryRaw<{ id: string; catalog_id: string; whatsapp_config_id: string | null }[]>`
     SELECT id::text AS id, catalog_id, whatsapp_config_id::text AS whatsapp_config_id FROM whatsapp_catalogs
     WHERE account_id=${accountId}::uuid ORDER BY created_at`);

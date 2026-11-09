@@ -7,6 +7,7 @@ import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import type { MetaCatalogItemUpdate } from '@/lib/whatsapp/meta-api';
 import { pushCatalogChanges, type CatalogUpdater } from './catalog-push';
+import { getStoreSettings, parseStoreSettings, saveStoreSettings } from './store-settings';
 
 // Audit finding 20 on PostgreSQL: price, stock and status changes of a variant linked to a Meta
 // catalogue item queue one push per workspace per minute (database triggers, any role), and the push
@@ -155,5 +156,24 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Meta catalogue push on Post
     const meta = fakeMeta();
     await pushCatalogChanges(accountA, meta.update);
     expect(meta.calls[0].items).toEqual([{ retailerId: 'PUSH-1', availability: 'out of stock' }]);
+  });
+
+  it('leaves the Meta catalogue alone while checkout is off, and queues a push when an admin turns checkout on', async () => {
+    const admin = { accountId: accountA, userId: ownerA, role: 'owner' as const };
+    const save = async (checkout: boolean) => {
+      const current = await getStoreSettings(admin);
+      await saveStoreSettings(admin, parseStoreSettings({ ...current, checkout_enabled: checkout }));
+    };
+    await save(false);
+    await db.query("UPDATE shop_products SET status='published' WHERE id=$1", [productA]);
+    const meta = fakeMeta();
+    // Published and in stock again, but WhatsApp orders are handled by hand: Meta's catalogue is the seller's own.
+    expect(await pushCatalogChanges(accountA, meta.update)).toEqual({ catalogs: 0, pushed: 0, skipped: 0 });
+    expect(meta.calls).toEqual([]);
+    await db.query("DELETE FROM jobs WHERE type='commerce.catalog_push' AND tenant_id=$1", [accountA]);
+    await save(true);
+    expect(await pushJobs(accountA)).toHaveLength(1);
+    await pushCatalogChanges(accountA, meta.update);
+    expect(meta.calls[0].items).toEqual([{ retailerId: 'PUSH-1', availability: 'in stock' }]);
   });
 });
