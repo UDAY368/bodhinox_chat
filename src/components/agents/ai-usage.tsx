@@ -34,7 +34,6 @@ const modeTokens = (byMode: Partial<Record<AiUsageMode, { tokens: number }>>, mo
 
 interface UsageResponse {
   window_days: number;
-  truncated: boolean;
   totals: {
     calls: number;
     prompt_tokens: number;
@@ -220,11 +219,6 @@ export function AiUsageCard() {
               </div>
             )}
 
-            {data.truncated && (
-              <p className="text-xs text-muted-foreground">
-                {t('partialWindow')}
-              </p>
-            )}
           </>
         )}
       </CardContent>

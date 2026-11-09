@@ -4633,7 +4633,6 @@
       "tokensPerDay": "Tokens por dia",
       "byModel": "Por modelo",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# chamada} other {# chamadas}}",
-      "partialWindow": "Exibindo uma janela parcial — o uso é alto o suficiente para que apenas os registros mais recentes sejam resumidos aqui.",
       "assistant": "Assistente"
     },
     "studioEyebrow": "07 / Your intelligent workspace",
@@ -4687,6 +4686,8 @@
         "reply_cap": "Limite de respostas da conversa atingido",
         "no_messages": "Nada para responder",
         "rate_limited": "Respostas de IA demais ao mesmo tempo",
+        "rate_limited_retry": "Respostas de IA demais ao mesmo tempo; tentará de novo em um minuto",
+        "media_only": "Foto, mensagem de voz ou localização que a IA não consegue ler",
         "plan_ai_limit": "Mensagens de IA do plano esgotadas",
         "slot_lost": "Outra resposta ocupou a última vaga",
         "claim_failed": "Não foi possível reservar uma vaga de resposta",
@@ -9036,7 +9037,7 @@
       "lowConfidence": "Transferir quando o agente não tiver certeza",
       "lowConfidenceHint": "Perguntas que ele não sabe responder vão para uma pessoa e aparecem em Aprendizados.",
       "threshold": "Confiança necessária para responder: {value}%",
-      "thresholdHint": "Valores mais altos transferem com mais frequência.",
+      "thresholdHint": "Em 50%, decide o próprio julgamento do agente. Valores mais altos também exigem uma correspondência próxima na base de conhecimento e transferem com mais frequência. Quando nada na base de conhecimento corresponde, decide apenas o julgamento do agente.",
       "maxTurns": "Transferir após esta quantidade de respostas da IA",
       "maxTurnsHint": "0 significa sem limite."
     },

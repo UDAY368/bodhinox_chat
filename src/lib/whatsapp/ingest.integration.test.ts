@@ -138,6 +138,15 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     expect(rows.find(row=>row.id===plain.messageId)?.interactive_payload).toBeNull();
   });
 
+  it("queues a template quick-reply tap with its opt-out check flag, and no flag on other messages",async()=>{
+    const input=await fixture();
+    const tap=await ingestInboundMessage({...input,contentType:"interactive",contentText:"Stop promotions",interactiveReplyId:"STOP_PROMO",templateQuickReply:true});
+    const plain=await ingestInboundMessage({...input,metaMessageId:randomUUID()});
+    const payload=async(id:string)=>(await owner.query("SELECT payload FROM jobs WHERE dedupe_key=$1",[`inbound:${id}`])).rows[0].payload;
+    expect(await payload(tap.messageId)).toMatchObject({templateQuickReply:true,contentText:"Stop promotions",interactiveReplyId:"STOP_PROMO"});
+    expect(await payload(plain.messageId)).not.toHaveProperty("templateQuickReply");
+  });
+
   it("serializes distinct first inbounds so only one actions payload is marked first",async()=>{
     const input=await fixture();
     const results=await Promise.all([ingestInboundMessage(input),ingestInboundMessage({...input,metaMessageId:randomUUID()})]);
@@ -216,6 +225,15 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     await expect(runInboundStage(accountId,message,"automations",async()=>{throw new Error("Simulated provider timeout");})).rejects.toBeInstanceOf(UncertainDispatchError);
     await expect(runInboundStage(accountId,message,"automations",readFails)).rejects.toBeInstanceOf(UncertainDispatchError);
     expect((await owner.query("SELECT status FROM inbound_action_steps WHERE message_id=$1 AND stage='automations'",[message])).rows[0].status).toBe("uncertain");
+  });
+
+  it("a rate-limit retry job leased again after an interrupted attempt stops for reconciliation instead of re-sending",async()=>{
+    const input=await fixture();const message=(await ingestInboundMessage(input)).messageId;
+    await owner.query("INSERT INTO inbound_action_steps(account_id,message_id,stage,status) VALUES($1,$2,'ai_reply_retry:1','dispatching')",[accountId,message]);
+    const { handleAutoReplyRetryJob } = await import("@/lib/ai/auto-reply");
+    await expect(handleAutoReplyRetryJob(accountId,{conversationId:input.conversationId,contactId:input.contactId,configOwnerUserId:input.userId,
+      inboundMessageId:input.metaMessageId,messageId:message,attempt:1})).rejects.toBeInstanceOf(UncertainDispatchError);
+    expect((await owner.query("SELECT status FROM inbound_action_steps WHERE message_id=$1 AND stage='ai_reply_retry:1'",[message])).rows[0].status).toBe("dispatching");
   });
 
   it("rejects a cross-tenant conversation before any message or job can persist",async()=>{

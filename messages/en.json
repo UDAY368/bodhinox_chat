@@ -4633,7 +4633,6 @@
       "tokensPerDay": "Tokens per day",
       "byModel": "By model",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# call} other {# calls}}",
-      "partialWindow": "Showing a partial window — usage is high enough that only the most recent records are summarized here.",
       "assistant": "Assistant"
     },
     "studioEyebrow": "07 / Your intelligent workspace",
@@ -4687,6 +4686,8 @@
         "reply_cap": "Conversation reply limit reached",
         "no_messages": "Nothing to reply to",
         "rate_limited": "Too many AI replies at once",
+        "rate_limited_retry": "Too many AI replies at once; it will try again in a minute",
+        "media_only": "Photo, voice note or location the AI cannot read",
         "plan_ai_limit": "Plan's AI messages used up",
         "slot_lost": "Another reply took the last slot",
         "claim_failed": "Could not reserve a reply slot",
@@ -9036,7 +9037,7 @@
       "lowConfidence": "Hand off when the agent isn't sure",
       "lowConfidenceHint": "Questions it can't answer go to a person and appear in Learnings.",
       "threshold": "Confidence needed to reply: {value}%",
-      "thresholdHint": "Higher values hand off more often.",
+      "thresholdHint": "At 50% the agent's own judgement decides. Higher values also need a close match in the knowledge base and hand off more often. When nothing in the knowledge base matches, only the agent's own judgement decides.",
       "maxTurns": "Hand off after this many AI replies",
       "maxTurnsHint": "0 means no limit."
     },
