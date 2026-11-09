@@ -2767,7 +2767,47 @@ async function claimReplyTransition(
   run.current_node_key = nextNodeKey;
   run.transition_seq = nextSeq;
   run.reprompt_count = 0;
+  committedRuns.add(run);
   return true;
+}
+
+/**
+ * Runs whose position this dispatch has committed (a reply transition or a new
+ * run). An error after that point must not let automations or the AI answer
+ * the same inbound, nor leave the run active on a step it never ran (audit
+ * finding 48): dispatchInboundToFlows ends it as failed instead.
+ */
+const committedRuns = new WeakSet<FlowRunRow>();
+
+class FlowAdvanceInterrupted extends Error {
+  constructor(readonly run: FlowRunRow) {
+    super("Flow advance interrupted after a committed transition");
+    this.name = "FlowAdvanceInterrupted";
+  }
+}
+
+async function guardCommitted<T>(run: FlowRunRow, work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (err) {
+    if (committedRuns.has(run)) {
+      console.error("[flows] advance interrupted:", err instanceof Error ? err.message : err);
+      throw new FlowAdvanceInterrupted(run);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Ends an interrupted run as failed (advance_interrupted) and reports the
+ * inbound as consumed. If even that write fails, the error propagates: the
+ * inbound's flow stage is then left for reconciliation, and still nothing else
+ * answers the message.
+ */
+async function endInterruptedRun(db: AdminClient, run: FlowRunRow): Promise<DispatchInboundResult> {
+  await logEvent(db, run.id, "error", run.current_node_key, { reason: "advance_interrupted" });
+  await endRun(db, run.id, "failed", "advance_interrupted");
+  return { consumed: true, flow_run_id: run.id, outcome: "completed" };
 }
 
 /**
@@ -2891,7 +2931,10 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
   const graph = await startGraph(db, flow);
   if (!graph || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return { outcome: 'unavailable' };
   if (!scopeIncludes(graph.flow.channel_scope, channel)) return { outcome: 'unavailable' };
-  const result = await startNewRun(db, graph.flow, input, graph.nodes);
+  const result = await startNewRun(db, graph.flow, input, graph.nodes).catch((err: unknown) => {
+    if (err instanceof FlowAdvanceInterrupted) return endInterruptedRun(db, err.run);
+    throw err;
+  });
   if (result.outcome === 'duplicate_inbound_ignored') return { outcome: 'conflict' };
   if (result.flow_run_id) {
     const run = await db.from('flow_runs').select('status').eq('account_id', input.accountId).eq('id', result.flow_run_id).maybeSingle();
@@ -2931,7 +2974,7 @@ export async function dispatchInboundToFlows(
         input.message.meta_message_id,
       );
       if (dupe) {
-        const resumed = await resumeInterruptedBooking(db, activeRun, input.message);
+        const resumed = await guardCommitted(activeRun, () => resumeInterruptedBooking(db, activeRun, input.message));
         if (resumed) return resumed;
         return {
           consumed: true,
@@ -2945,7 +2988,7 @@ export async function dispatchInboundToFlows(
       const now = new Date();
       const testContact = runFlow?.status === "draft" && isTestContact(runFlow, await contactDigits());
       const closure = closureForActiveRun({ run: activeRun, flow: runFlow, nodeKeys: nodes, now, testContact });
-      if (!closure) return handleReplyForActiveRun(db, activeRun, runFlow!, input.message, nodes);
+      if (!closure) return await guardCommitted(activeRun, () => handleReplyForActiveRun(db, activeRun, runFlow!, input.message, nodes));
       if (!(await closeActiveRun(db, activeRun, closure, now))) {
         return { consumed: true, flow_run_id: activeRun.id, outcome: "duplicate_inbound_ignored" };
       }
@@ -2964,8 +3007,9 @@ export async function dispatchInboundToFlows(
       return { consumed: false, outcome: "no_match" };
     }
     const nodes = entry.version ? versionNodeMap(entry.version) : await loadAllNodes(db, entry.flow.id);
-    return startNewRun(db, entry.flow, input, nodes, entry.vars);
+    return await startNewRun(db, entry.flow, input, nodes, entry.vars);
   } catch (err) {
+    if (err instanceof FlowAdvanceInterrupted) return endInterruptedRun(db, err.run);
     console.error(
       "[flows] dispatchInboundToFlows threw:",
       err instanceof Error ? err.message : err,
@@ -3438,6 +3482,17 @@ async function startNewRun(
     return { consumed: false, outcome: "no_match" };
   }
   const run = inserted as FlowRunRow;
+  committedRuns.add(run);
+  return guardCommitted(run, () => continueNewRun(db, run, flow, input, nodes));
+}
+
+async function continueNewRun(
+  db: AdminClient,
+  run: FlowRunRow,
+  flow: EffectiveFlow,
+  input: DispatchInboundInput,
+  nodes: Map<string, FlowNodeRow>,
+): Promise<DispatchInboundResult> {
   await logEvent(db, run.id, "started", flow.entry_node_id, {
     flow_id: flow.id,
     ...(flow.version ? { version: flow.version } : {}),
