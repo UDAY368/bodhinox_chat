@@ -36,6 +36,15 @@ describe('parseAccountUpdate', () => {
     expect(parse({ event: 'PARTNER_APP_UNINSTALLED', waba_info: { waba_id: '184943124712545', partner_app_id: '555' } }, PARTNER)).toBeNull();
   });
 
+  it('never disconnects on an uninstall it cannot confirm is ours, and accepts a numeric app id', () => {
+    const value = { event: 'PARTNER_APP_UNINSTALLED', waba_info: { waba_id: '184943124712545', partner_app_id: '555' } };
+    // No app id configured: a named app might be another partner's, so nothing happens.
+    expect(parseAccountUpdate(PARTNER, TIME, value, [])).toBeNull();
+    expect(parseAccountUpdate(PARTNER, TIME, { ...value, waba_info: { waba_id: '184943124712545', partner_app_id: 869361281603019 } }, ['869361281603019']))
+      .toMatchObject({ action: 'remove' });
+    expect(parseAccountUpdate(PARTNER, TIME, { ...value, waba_info: { waba_id: '184943124712545', partner_app_id: 555 } }, ['869361281603019'])).toBeNull();
+  });
+
   it('warns on restrictions, violations, a scheduled ban and offboarding, keeping the latest expiry', () => {
     const restriction = parse({ event: 'ACCOUNT_RESTRICTION', restriction_info: [
       { restriction_type: 'RESTRICTED_BIZ_INITIATED_MESSAGING', expiration: 1641330498 },

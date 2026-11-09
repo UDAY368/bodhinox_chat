@@ -10932,7 +10932,8 @@
     "help": {
       "title": "도움말",
       "contents": "목차",
-      "linkLabel": "이 페이지 도움말"
+      "linkLabel": "이 페이지 도움말(영어)",
+      "englishOnly": "이 페이지는 영어로만 제공됩니다."
     },
     "legal": {
       "privacyTitle": "개인정보 처리방침",

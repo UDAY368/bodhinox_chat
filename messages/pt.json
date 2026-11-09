@@ -10932,7 +10932,8 @@
     "help": {
       "title": "Ajuda",
       "contents": "Conteúdo",
-      "linkLabel": "Ajuda sobre esta página"
+      "linkLabel": "Ajuda sobre esta página (em inglês)",
+      "englishOnly": "Esta página está disponível apenas em inglês."
     },
     "legal": {
       "privacyTitle": "Política de privacidade",

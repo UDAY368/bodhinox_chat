@@ -1,11 +1,14 @@
 // The public legal pages: the contact page shows SUPPORT_EMAIL only when it is a
 // valid address, and /data-deletion shows the Meta deletion request status for a
 // well-formed confirmation code (a malformed one never reaches the database).
+// Outside English, help and legal pages say their text is English only.
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const find = vi.hoisted(() => vi.fn());
+const intl = vi.hoisted(() => ({ locale: 'en' }));
 vi.mock('next-intl/server', () => ({
+  getLocale: async () => intl.locale,
   getTranslations: async (ns: string) => (key: string, values?: Record<string, string>) =>
     `${ns}.${key}${values ? JSON.stringify(values) : ''}`,
 }));
@@ -16,6 +19,9 @@ vi.mock('@/lib/meta/data-deletion', async (importOriginal) => ({
 
 import ContactPage from './contact/page';
 import DataDeletionPage from './data-deletion/page';
+import HelpPage from './help/page';
+import PrivacyPage from './privacy/page';
+import TermsPage from './terms/page';
 import { supportEmail } from './contact-email';
 
 const CODE = 'a'.repeat(48);
@@ -79,5 +85,23 @@ describe('data deletion page', () => {
     find.mockImplementation(async () => { throw new Error('db down'); });
     expect(await render(CODE)).toContain('statusUnknown');
     expect(find).toHaveBeenCalledWith(CODE);
+  });
+});
+
+describe('English-only notice', () => {
+  afterEach(() => { intl.locale = 'en'; });
+
+  it('is absent in English and shown on help, privacy, terms and data deletion elsewhere', async () => {
+    const pages = async () => [
+      renderToStaticMarkup(await HelpPage()),
+      renderToStaticMarkup(await PrivacyPage()),
+      renderToStaticMarkup(await TermsPage()),
+      await render(),
+    ];
+    for (const html of await pages()) expect(html).not.toContain('english-only');
+    for (const locale of ['es', 'pt', 'ko']) {
+      intl.locale = locale;
+      for (const html of await pages()) expect(html).toContain('Marketing.help.englishOnly');
+    }
   });
 });

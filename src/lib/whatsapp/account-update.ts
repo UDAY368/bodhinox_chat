@@ -91,8 +91,11 @@ export function parseAccountUpdate(entryId: unknown, entryTime: unknown, value: 
     }
     case 'PARTNER_APP_UNINSTALLED': {
       // Another partner app on the same WABA being uninstalled is not about us.
-      const appId = typeof wabaInfo.partner_app_id === 'string' ? wabaInfo.partner_app_id : null;
-      if (appId && appIds.length > 0 && !appIds.includes(appId)) return null;
+      // A named app that we cannot confirm is ours (no app id configured) is
+      // ignored too: disconnecting clears the token, so it must not happen on a guess.
+      const rawAppId = wabaInfo.partner_app_id;
+      const appId = typeof rawAppId === 'string' || typeof rawAppId === 'number' ? String(rawAppId).trim() : null;
+      if (appId && !appIds.includes(appId)) return null;
       return { ...base, action: 'remove' };
     }
     case 'ACCOUNT_DELETED':
