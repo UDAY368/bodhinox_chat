@@ -11,6 +11,10 @@ export interface ParsedContactRow {
   company?: string;
   /** Tag names from the optional `tags` column (comma/semicolon separated). */
   tagNames: string[];
+  /** The raw 'Opted out at' cell (our export's column), when present. */
+  optedOut?: string;
+  /** The raw 'Blocked at' cell (our export's column), when present. */
+  blocked?: string;
   /** Every cell by lower-cased header, for campaign variable mapping. */
   cells: Record<string, string>;
 }
@@ -65,7 +69,24 @@ export const HEADER_ALIASES = {
   email: ['email', 'emailaddress', 'mail', 'emailid'],
   company: ['company', 'companyname', 'organization', 'organisation', 'business', 'businessname'],
   tags: ['tags', 'tag', 'labels', 'label'],
+  optedOut: ['optedoutat', 'optedout', 'optout', 'unsubscribed', 'unsubscribedat'],
+  blocked: ['blockedat', 'blocked'],
 } as const;
+
+const NO = new Set(['', 'no', 'n', 'false', '0', 'off']);
+
+/**
+ * When an 'Opted out at' / 'Blocked at' cell says the contact opted out or was
+ * blocked: its own date when it parses (never later than `now`), otherwise
+ * `now`. Undefined for an empty or no/false cell. An import only ever sets
+ * these, it never clears an opt-out or a block.
+ */
+export function importConsentAt(value: string | undefined, now: Date = new Date()): string | undefined {
+  const text = value?.trim() ?? '';
+  if (NO.has(text.toLowerCase())) return undefined;
+  const at = /\d{4}-\d{2}-\d{2}/.test(text) ? Date.parse(text) : Number.NaN;
+  return new Date(Number.isFinite(at) ? Math.min(at, now.getTime()) : now.getTime()).toISOString();
+}
 
 const headerKey = (header: string) => header.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -93,7 +114,7 @@ const EMPTY: ParseContactCsvResult = {
 };
 
 export function parseContactCsv(text: string): ParseContactCsvResult {
-  const records = parseCsv(text.replace(/^﻿/, ''));
+  const records = parseCsv(text.replace(/^\uFEFF/, ''));
   if (records.length < 2) return EMPTY;
 
   const headers = records[0].map((h) => h.trim().toLowerCase());
@@ -108,6 +129,8 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
   const emailIdx = findColumn(keys, HEADER_ALIASES.email);
   const companyIdx = findColumn(keys, HEADER_ALIASES.company);
   const tagsIdx = findColumn(keys, HEADER_ALIASES.tags);
+  const optedOutIdx = findColumn(keys, HEADER_ALIASES.optedOut);
+  const blockedIdx = findColumn(keys, HEADER_ALIASES.blocked);
 
   const cell = (values: string[], idx: number) => (idx >= 0 ? unguard(values[idx]?.trim() ?? '') || undefined : undefined);
   const rows: ParsedContactRow[] = [];
@@ -131,6 +154,8 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
       email: cell(values, emailIdx),
       company: cell(values, companyIdx),
       tagNames: parseTagCell(cell(values, tagsIdx)),
+      optedOut: cell(values, optedOutIdx),
+      blocked: cell(values, blockedIdx),
       cells: Object.fromEntries(
         headers.flatMap((header, idx) => (header ? [[header, values[idx]?.trim() ?? '']] : [])),
       ),

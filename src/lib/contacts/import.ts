@@ -18,6 +18,11 @@ export const IMPORT_BATCH_SIZE = 200;
 const optionalText = (max: number) =>
   z.string().trim().max(max).optional().transform((v) => v || null);
 
+/** An opt-out or block carried over from the file (our export's columns); never in the future. */
+const consentAt = z.string().datetime({ offset: true }).optional()
+  .refine((v) => !v || Date.parse(v) <= Date.now() + 60_000, 'A date in the file is in the future')
+  .transform((v) => v ?? null);
+
 const rowSchema = z.object({
   /** Digits only, country code first (the browser's parseImportPhone result). */
   phone: z.string().regex(/^[1-9]\d{7,14}$/, 'Invalid phone number'),
@@ -25,6 +30,9 @@ const rowSchema = z.object({
   email: optionalText(320),
   company: optionalText(200),
   tagIds: z.array(z.string().uuid()).max(50).default([]),
+  /** Set only: an import never clears an opt-out or a block. */
+  optedOutAt: consentAt,
+  blockedAt: consentAt,
 }).strict();
 
 const batchSchema = z.object({
@@ -37,7 +45,7 @@ export type ImportBatchInput = z.input<typeof batchSchema>;
 export interface ImportBatchResult {
   /** New contacts created. */
   imported: number;
-  /** Existing contacts whose name, email or company changed (updateExisting). */
+  /** Existing contacts whose name, email, company, opt-out or block changed (updateExisting). */
   updated: number;
   /** Rows matching an existing contact (or repeated in the batch) that were left as they are. */
   skipped: number;
@@ -73,9 +81,11 @@ export async function importContactBatch(ctx: TenantContext, input: unknown): Pr
       // A number added since the read above (another import, an inbound
       // message) hits the unique index and is skipped, not an error.
       const inserted = await tx.$queryRaw<{ id: string; phone_normalized: string }[]>`
-        INSERT INTO contacts(account_id,user_id,phone,name,email,company)
-        SELECT ${ctx.accountId}::uuid, ${ctx.userId}::uuid, '+' || x.phone, x.name, x.email, x.company
-        FROM jsonb_to_recordset(${JSON.stringify(fresh)}::jsonb) AS x(phone text, name text, email text, company text)
+        INSERT INTO contacts(account_id,user_id,phone,name,email,company,opted_out_at,opt_out_source,blocked_at)
+        SELECT ${ctx.accountId}::uuid, ${ctx.userId}::uuid, '+' || x.phone, x.name, x.email, x.company,
+          x."optedOutAt", CASE WHEN x."optedOutAt" IS NOT NULL THEN 'import' END, x."blockedAt"
+        FROM jsonb_to_recordset(${JSON.stringify(fresh)}::jsonb)
+          AS x(phone text, name text, email text, company text, "optedOutAt" timestamptz, "blockedAt" timestamptz)
         ON CONFLICT (account_id, phone_normalized) WHERE phone_normalized <> '' DO NOTHING
         RETURNING id::text, phone_normalized`;
       for (const row of inserted) {
@@ -88,16 +98,23 @@ export async function importContactBatch(ctx: TenantContext, input: unknown): Pr
     const others = rows.filter((row) => !created.has(row.phone));
     let updated = 0;
     if (updateExisting) {
-      // Blank cells keep what is stored; only a changed value counts as an update.
-      const changes = others.filter((row) => row.name || row.email || row.company);
+      // Blank cells keep what is stored; only a changed value counts as an
+      // update. An opt-out or block is added when the contact has none; an
+      // import never clears one (SET expressions read the row's old values).
+      const changes = others.filter((row) => row.name || row.email || row.company || row.optedOutAt || row.blockedAt);
       if (changes.length > 0)
         updated = await tx.$executeRaw`
           UPDATE contacts c SET
-            name=COALESCE(x.name, c.name), email=COALESCE(x.email, c.email), company=COALESCE(x.company, c.company), updated_at=now()
-          FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) AS x(phone text, name text, email text, company text)
+            name=COALESCE(x.name, c.name), email=COALESCE(x.email, c.email), company=COALESCE(x.company, c.company),
+            opted_out_at=COALESCE(c.opted_out_at, x."optedOutAt"),
+            opt_out_source=CASE WHEN c.opted_out_at IS NULL AND x."optedOutAt" IS NOT NULL THEN 'import' ELSE c.opt_out_source END,
+            blocked_at=COALESCE(c.blocked_at, x."blockedAt"), updated_at=now()
+          FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb)
+            AS x(phone text, name text, email text, company text, "optedOutAt" timestamptz, "blockedAt" timestamptz)
           WHERE c.account_id=${ctx.accountId}::uuid AND c.phone_normalized=x.phone
             AND (c.name IS DISTINCT FROM COALESCE(x.name, c.name) OR c.email IS DISTINCT FROM COALESCE(x.email, c.email)
-              OR c.company IS DISTINCT FROM COALESCE(x.company, c.company))`;
+              OR c.company IS DISTINCT FROM COALESCE(x.company, c.company)
+              OR (c.opted_out_at IS NULL AND x."optedOutAt" IS NOT NULL) OR (c.blocked_at IS NULL AND x."blockedAt" IS NOT NULL))`;
     }
     skipped += others.length - updated;
 

@@ -464,9 +464,8 @@ function InboxPageInner() {
     setResyncToken((n) => n + 1);
   }, []);
 
-  const handleConversationsLoaded = useCallback(
+  const resolveDeepLink = useCallback(
     (loaded: Conversation[]) => {
-      setConversations(loaded);
       // Resolve a pending deep-link here rather than in an effect — this
       // is an event handler, so the setState calls below are allowed by
       // react-hooks/set-state-in-effect. Runs once per ?c=<id> URL value
@@ -510,13 +509,24 @@ function InboxPageInner() {
     [deepLinkConvId, activeConversation?.id]
   );
 
+  const handleConversationsLoaded = useCallback(
+    (loaded: Conversation[]) => {
+      setConversations(loaded);
+      resolveDeepLink(loaded);
+    },
+    [resolveDeepLink]
+  );
+
   // A resync between full reloads: patch in only the conversations that
   // changed, so the list keeps its rows and the open thread is untouched.
+  // A ?c=<id> link opened since the last sync (a notification click) is
+  // resolved against the changed rows and the list already loaded.
   const handleConversationsChanged = useCallback(
     (changed: Conversation[]) => {
       setConversations((prev) => mergeConversations(prev, changed, activeConversation?.id));
+      resolveDeepLink([...changed, ...conversations]);
     },
-    [activeConversation?.id]
+    [activeConversation?.id, conversations, resolveDeepLink]
   );
 
   const handleSelectConversation = useCallback(

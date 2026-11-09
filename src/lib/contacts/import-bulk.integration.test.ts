@@ -74,6 +74,35 @@ describe.skipIf(!ownerUrl || !appUrl)('contact import batches and bulk actions o
     expect(await importContactBatch(a, { rows: [asha], updateExisting: true })).toEqual({ imported: 0, updated: 0, skipped: 1, tagsAssigned: 0 });
   });
 
+  it('carries an opt-out or block from the file and never clears one', async () => {
+    const at = '2026-10-01T08:00:00.000Z';
+    // A new contact keeps the file's opt-out (source 'import') and block.
+    expect(await importContactBatch(a, { rows: [{ phone: '919876500020', optedOutAt: at, blockedAt: at }] })).toMatchObject({ imported: 1 });
+    const fresh = (await owner.query("SELECT opted_out_at, opt_out_source, blocked_at FROM contacts WHERE account_id=$1 AND phone_normalized='919876500020'", [accountA])).rows[0];
+    expect(fresh).toMatchObject({ opt_out_source: 'import' });
+    expect(fresh.opted_out_at.toISOString()).toBe(at);
+    expect(fresh.blocked_at.toISOString()).toBe(at);
+
+    // An existing subscribed contact is opted out only when updating was chosen.
+    await owner.query("INSERT INTO contacts(account_id,user_id,name,phone) VALUES($1,$2,'Subscribed','+919876500021')", [accountA, agent]);
+    const row = { phone: '919876500021', optedOutAt: at };
+    expect(await importContactBatch(a, { rows: [row] })).toMatchObject({ updated: 0, skipped: 1 });
+    expect(await importContactBatch(a, { rows: [row], updateExisting: true })).toMatchObject({ updated: 1 });
+    const opted = (await owner.query("SELECT opted_out_at, opt_out_source FROM contacts WHERE account_id=$1 AND phone_normalized='919876500021'", [accountA])).rows[0];
+    expect(opted.opt_out_source).toBe('import');
+    expect(opted.opted_out_at.toISOString()).toBe(at);
+
+    // An agent's earlier opt-out keeps its date and source; a row without one clears nothing.
+    await owner.query("UPDATE contacts SET opted_out_at='2026-09-01T00:00:00Z', opt_out_source='agent' WHERE account_id=$1 AND phone_normalized='919876500020'", [accountA]);
+    expect(await importContactBatch(a, { rows: [{ phone: '919876500020', optedOutAt: at }, { phone: '919876500021', name: 'Renamed' }], updateExisting: true }))
+      .toMatchObject({ updated: 1, skipped: 1 });
+    const kept = (await owner.query("SELECT phone_normalized, opted_out_at, opt_out_source FROM contacts WHERE account_id=$1 AND phone_normalized IN ('919876500020','919876500021') ORDER BY 1", [accountA])).rows;
+    expect(kept.map((r) => [r.phone_normalized, r.opt_out_source, r.opted_out_at.toISOString()])).toEqual([
+      ['919876500020', 'agent', '2026-09-01T00:00:00.000Z'],
+      ['919876500021', 'import', at],
+    ]);
+  });
+
   it('keeps workspaces apart and refuses viewers and malformed rows', async () => {
     // The same number in another workspace is that workspace's own contact; A's row is untouched.
     expect(await importContactBatch(b, { rows: [{ phone: '14155550201', name: 'B copy' }] })).toMatchObject({ imported: 1 });

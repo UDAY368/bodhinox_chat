@@ -6,9 +6,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { authFetch } from '@/lib/auth/client';
 import { parseImportPhone } from '@/lib/whatsapp/phone-utils';
 import {
+  importConsentAt,
   parseContactCsv,
   type ParsedContactRow,
 } from '@/lib/contacts/parse-contact-csv';
+import { csvCell } from '@/lib/audience/csv-cell';
 import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -32,6 +34,7 @@ import {
   XCircle,
   AlertTriangle,
   Tag,
+  Download,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -39,6 +42,19 @@ const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;
 /** Rows per POST /api/contacts/import request (IMPORT_BATCH_SIZE in lib/contacts/import.ts). */
 const BATCH_SIZE = 200;
+
+/** Save the rows the import refused, with the reason, as a CSV the user can fix and re-import. */
+function downloadRejectedRows(rows: { phone: string; name?: string; reason: string }[]) {
+  const lines = [['phone', 'name', 'reason'], ...rows.map((r) => [r.phone, r.name ?? '', r.reason])]
+    .map((cells) => cells.map(csvCell).join(','));
+  const BOM = String.fromCharCode(0xfeff);
+  const url = URL.createObjectURL(new Blob([`${BOM}${lines.join('\r\n')}\r\n`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'rejected-contacts.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function truncateFilename(name: string, max = 48): string {
   if (name.length <= max) return name;
@@ -293,6 +309,8 @@ export function ImportModal({
               email: row.email?.slice(0, 320),
               company: row.company?.slice(0, 200),
               tagIds: tagIdsOf(row),
+              optedOutAt: importConsentAt(row.optedOut),
+              blockedAt: importConsentAt(row.blocked),
             })),
           }),
         }).catch(() => null);
@@ -636,9 +654,21 @@ export function ImportModal({
 
               {result.failedDetails.length > 0 && (
                 <div className="mt-3 space-y-1 border-t border-border/80 pt-3">
-                  <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                    {t('failedRowsHeading')}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                      {t('failedRowsHeading')}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => downloadRejectedRows(result.failedDetails)}
+                      className="h-7 text-xs"
+                    >
+                      <Download className="size-3.5" />
+                      {t('downloadRejected')}
+                    </Button>
+                  </div>
                   <ul className="max-h-32 space-y-1 overflow-y-auto text-xs">
                     {result.failedDetails.map((row, i) => (
                       <li

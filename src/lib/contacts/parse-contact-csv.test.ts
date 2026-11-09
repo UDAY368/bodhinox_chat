@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseContactCsv, parseTagCell } from './parse-contact-csv';
+import { importConsentAt, parseContactCsv, parseTagCell } from './parse-contact-csv';
 
 describe('parseTagCell', () => {
   it('splits comma-separated tags and trims whitespace', () => {
@@ -133,5 +133,28 @@ describe('parseContactCsv', () => {
 
   it('reports a missing phone column', () => {
     expect(parseContactCsv('name,email\nA,a@example.com')).toMatchObject({ hasPhoneColumn: false, rows: [] });
+  });
+  it('reads our own export back: opted-out and blocked cells, tags and the phone', () => {
+    const csv = '\uFEFF"Name","Phone","Email","Company","Tags","Opted out at","Blocked at","Created at"\r\n'
+      + '"Asha","+919876543210","","","VIP; Lead","2026-10-01T08:00:00.000Z","","2026-09-01T00:00:00.000Z"\r\n';
+    const [row] = parseContactCsv(csv).rows;
+    expect(row).toMatchObject({ phone: '+919876543210', name: 'Asha', tagNames: ['VIP', 'Lead'], optedOut: '2026-10-01T08:00:00.000Z' });
+    expect(row.blocked).toBeUndefined();
+  });
+});
+
+describe('importConsentAt', () => {
+  const now = new Date('2026-11-10T12:00:00.000Z');
+  it.each([undefined, '', ' ', 'no', 'FALSE', '0', 'n', 'off'])('is not set for %j', (value) => {
+    expect(importConsentAt(value, now)).toBeUndefined();
+  });
+  it('keeps the date from the file, or uses now for a yes or an unreadable value', () => {
+    expect(importConsentAt('2026-10-01T08:00:00.000Z', now)).toBe('2026-10-01T08:00:00.000Z');
+    expect(importConsentAt('2026-10-01', now)).toBe('2026-10-01T00:00:00.000Z');
+    expect(importConsentAt('yes', now)).toBe(now.toISOString());
+    expect(importConsentAt('01/10/2026', now)).toBe(now.toISOString());
+  });
+  it('never dates an opt-out in the future', () => {
+    expect(importConsentAt('2099-01-01', now)).toBe(now.toISOString());
   });
 });

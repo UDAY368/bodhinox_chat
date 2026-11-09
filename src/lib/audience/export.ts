@@ -10,20 +10,12 @@ import { AudienceFilterError, assertFilterReferences, compileAudienceFilter, typ
 import { listFilter } from './lists';
 import { requireFeature } from '@/lib/billing/entitlements';
 import { loadSegmentFilter } from './segments';
+import { csvCell } from './csv-cell';
+
+export { csvCell };
 
 // shortcut: built in memory; switch to a streamed or emailed export if workspaces outgrow this cap.
 export const MAX_EXPORT_ROWS = 50_000;
-
-/**
- * Quote a CSV cell and neutralise spreadsheet formulas (=, +, -, @, tab, CR).
- * A plain international number ('+' then digits only) cannot call a function,
- * so it is written as-is and other tools can read the phone column.
- */
-export function csvCell(value: unknown): string {
-  let text = value === null || value === undefined ? '' : value instanceof Date ? value.toISOString() : String(value);
-  if (/^[=+\-@\t\r]/.test(text) && !/^\+\d+$/.test(text)) text = `'${text}`;
-  return `"${text.replace(/"/g, '""')}"`;
-}
 
 type Row = {
   name: string | null; phone: string; email: string | null; company: string | null;

@@ -897,7 +897,7 @@
       "uploadHint": ".csv up to your browser limit",
       "countryCodeLabel": "Country code for numbers without +",
       "countryCodeHint": "For example 91 for India or 44 for the UK. Leave empty to require + on every number.",
-      "updateExisting": "Update contacts that already exist (name, email, company and tags)",
+      "updateExisting": "Update contacts that already exist (name, email, company, tags, and an opt-out or block from the file)",
       "importProgress": "Importing {done} of {total}…",
       "resultUpdated": "{count} updated",
       "invalidPhoneReason": "Not a valid phone number",
@@ -919,6 +919,7 @@
       "resultFailed": "{count} failed",
       "invalidPhoneHint": "Numbers need + and a country code (e.g. +14155550123), or set the country code above for numbers written without one.",
       "failedRowsHeading": "Failed rows",
+      "downloadRejected": "Download rejected rows",
       "unknownReason": "Unknown error",
       "willBeCreated": "{name} (will be created on import)",
       "columns": {
