@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/data/client";
+import { loadPipelineDeals } from "@/lib/pipelines/deals";
 import type { Pipeline, PipelineStage, Deal } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
@@ -102,12 +103,12 @@ export default function PipelinesPage() {
 
   const loadDeals = useCallback(
     async (pipelineId: string) => {
-      const { data } = await db
-        .from("deals")
-        .select("*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)")
-        .eq("pipeline_id", pipelineId)
-        .order("created_at", { ascending: false });
-      return (data ?? []) as Deal[];
+      try {
+        return await loadPipelineDeals(db, pipelineId);
+      } catch (error) {
+        console.error("Failed to load deals:", error instanceof Error ? error.message : error);
+        return [] as Deal[];
+      }
     },
     [db],
   );

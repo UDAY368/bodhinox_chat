@@ -1,20 +1,12 @@
 import type { DataClient } from '@/lib/data/types'
-import {
-  daysAgoStart,
-  DOW_SHORT_MON_FIRST,
-  lastNDayKeys,
-  localDayKey,
-  mondayIndex,
-  startOfLocalDay,
-} from './date-utils'
+import { authFetch } from '@/lib/auth/client'
+import { daysAgoStart, startOfLocalDay } from './date-utils'
 import type {
   ActivityItem,
-  ConversationsSeriesPoint,
+  DashboardCharts,
   MetricsBundle,
   PipelineDonutData,
   PipelineStageSlice,
-  ResponseTimeBucket,
-  ResponseTimeSummary,
 } from './types'
 import { getT } from '@/lib/i18n/translate'
 
@@ -22,18 +14,28 @@ import { getT } from '@/lib/i18n/translate'
 const BROADCAST_STATUS_KEYS = new Set(['draft', 'scheduled', 'sending', 'sent', 'failed'])
 
 // ------------------------------------------------------------
-// All client-side aggregation. RLS scopes every query to the
-// signed-in user automatically, so we never pass user_id explicitly
-// here. Perf is acceptable for the current scale (low thousands of
-// messages) — if a tenant's dataset outgrows this, we'd migrate the
-// heavy aggregations to SQL RPCs. Noted in the PR.
+// Counts use head-only queries; anything that would read rows past
+// the data API's 1,000-row cap (messages per day, response pairs,
+// open deal totals) comes pre-aggregated from GET /api/dashboard/charts
+// (src/lib/dashboard/charts.ts), grouped in SQL on the workspace
+// timezone's days. RLS scopes every query to the current workspace.
 // ------------------------------------------------------------
 
 type DB = DataClient
 
 // --- 1. Metric cards ---------------------------------------------------
 
-export async function loadMetrics(db: DB): Promise<MetricsBundle> {
+/** Fetches the SQL chart aggregates for a 7, 30 or 90 day range. */
+export async function fetchDashboardCharts(
+  days: number,
+  fetcher: typeof authFetch = authFetch,
+): Promise<DashboardCharts> {
+  const response = await fetcher(`/api/dashboard/charts?days=${days}`, { cache: 'no-store' })
+  if (!response.ok) throw new Error(`Dashboard charts failed (${response.status})`)
+  return (await response.json()) as DashboardCharts
+}
+
+export async function loadMetrics(db: DB, charts: Promise<DashboardCharts>): Promise<MetricsBundle> {
   const todayStart = startOfLocalDay().toISOString()
   const yesterdayStart = daysAgoStart(1).toISOString()
 
@@ -43,7 +45,7 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     newConvYesterday,
     newContactsToday,
     newContactsYesterday,
-    openDeals,
+    chartData,
     messagesToday,
     messagesYesterday,
   ] = await Promise.all([
@@ -65,7 +67,7 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .select('id', { count: 'exact', head: true })
       .gte('created_at', yesterdayStart)
       .lt('created_at', todayStart),
-    db.from('deals').select('value, status').eq('status', 'open'),
+    charts,
     db
       .from('messages')
       .select('id', { count: 'exact', head: true })
@@ -79,8 +81,8 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .lt('created_at', todayStart),
   ])
 
-  const openDealsRows = (openDeals.data ?? []) as { value: number | null }[]
-  const openDealsValue = openDealsRows.reduce((sum, d) => sum + (d.value ?? 0), 0)
+  const openDealsValue = chartData.dealsByStage.reduce((sum, s) => sum + s.value, 0)
+  const openDealsCount = chartData.dealsByStage.reduce((sum, s) => sum + s.count, 0)
 
   return {
     activeConversations: {
@@ -95,7 +97,7 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       previous: newContactsYesterday.count ?? 0,
     },
     openDealsValue,
-    openDealsCount: openDealsRows.length,
+    openDealsCount,
     messagesSentToday: {
       current: messagesToday.count ?? 0,
       previous: messagesYesterday.count ?? 0,
@@ -103,54 +105,21 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
   }
 }
 
-// --- 2. Conversations over time ---------------------------------------
+// --- 2. Pipeline donut -------------------------------------------------
 
-export async function loadConversationsSeries(
+export async function loadPipelineDonut(
   db: DB,
-  rangeDays: number,
-): Promise<ConversationsSeriesPoint[]> {
-  const start = daysAgoStart(rangeDays - 1).toISOString()
-  const { data, error } = await db
-    .from('messages')
-    .select('created_at, sender_type')
-    .gte('created_at', start)
-    .order('created_at', { ascending: true })
-  if (error) throw error
-
-  const keys = lastNDayKeys(rangeDays)
-  const buckets = new Map<string, { incoming: number; outgoing: number }>()
-  for (const k of keys) buckets.set(k, { incoming: 0, outgoing: 0 })
-
-  for (const row of (data ?? []) as { created_at: string; sender_type: string }[]) {
-    const key = localDayKey(row.created_at)
-    const bucket = buckets.get(key)
-    if (!bucket) continue
-    if (row.sender_type === 'customer') bucket.incoming += 1
-    else bucket.outgoing += 1 // agent + bot both count as outgoing
-  }
-
-  return keys.map((day) => ({ day, ...(buckets.get(day) ?? { incoming: 0, outgoing: 0 }) }))
-}
-
-// --- 3. Pipeline donut -------------------------------------------------
-
-export async function loadPipelineDonut(db: DB): Promise<PipelineDonutData> {
-  const [stagesRes, dealsRes] = await Promise.all([
+  charts: Promise<DashboardCharts>,
+): Promise<PipelineDonutData> {
+  const [stagesRes, chartData] = await Promise.all([
     db.from('pipeline_stages').select('id, name, color, pipeline_id, position').order('position'),
-    db.from('deals').select('stage_id, value, status').eq('status', 'open'),
+    charts,
   ])
+  if (stagesRes.error) throw stagesRes.error
 
   const stages =
     (stagesRes.data ?? []) as { id: string; name: string; color: string }[]
-  const deals = (dealsRes.data ?? []) as { stage_id: string; value: number | null }[]
-
-  const byStage = new Map<string, { count: number; total: number }>()
-  for (const d of deals) {
-    const row = byStage.get(d.stage_id) ?? { count: 0, total: 0 }
-    row.count += 1
-    row.total += d.value ?? 0
-    byStage.set(d.stage_id, row)
-  }
+  const byStage = new Map(chartData.dealsByStage.map((s) => [s.stageId, s]))
 
   const slices: PipelineStageSlice[] = stages
     .map((s) => ({
@@ -158,7 +127,7 @@ export async function loadPipelineDonut(db: DB): Promise<PipelineDonutData> {
       name: s.name,
       color: s.color || '#64748b',
       dealCount: byStage.get(s.id)?.count ?? 0,
-      totalValue: byStage.get(s.id)?.total ?? 0,
+      totalValue: byStage.get(s.id)?.value ?? 0,
     }))
     // Hide empty stages from the ring (but we'd still show them in the
     // legend if the user wanted a full breakdown — trimming keeps the
@@ -171,103 +140,7 @@ export async function loadPipelineDonut(db: DB): Promise<PipelineDonutData> {
   }
 }
 
-// --- 4. Response time by day of week ----------------------------------
-
-export async function loadResponseTime(db: DB): Promise<ResponseTimeSummary> {
-  // Pull the last 14 days of messages in one shot, then walk per
-  // conversation to find each "first inbound" → "first subsequent
-  // outbound" pair. 14 days gives us both "this week" + "last week"
-  // with enough overlap if the user opens the dashboard late on a
-  // Monday.
-  const fourteenDaysAgo = daysAgoStart(13).toISOString()
-  const { data, error } = await db
-    .from('messages')
-    .select('conversation_id, sender_type, created_at')
-    .gte('created_at', fourteenDaysAgo)
-    .order('conversation_id', { ascending: true })
-    .order('created_at', { ascending: true })
-  if (error) throw error
-
-  const rows = (data ?? []) as {
-    conversation_id: string
-    sender_type: string
-    created_at: string
-  }[]
-
-  // Group per conversation, pair unreplied customer messages with the
-  // next outbound message from the agent/bot. A single customer message
-  // can only count once (avoids inflating averages if the customer
-  // double-messages while the agent takes time to reply).
-  interface Sample {
-    customerAt: Date
-    responseAt: Date
-  }
-  const samples: Sample[] = []
-
-  let currentConv = ''
-  let pendingCustomer: Date | null = null
-  for (const row of rows) {
-    if (row.conversation_id !== currentConv) {
-      currentConv = row.conversation_id
-      pendingCustomer = null
-    }
-    const ts = new Date(row.created_at)
-    if (row.sender_type === 'customer') {
-      if (!pendingCustomer) pendingCustomer = ts
-    } else if (pendingCustomer) {
-      samples.push({ customerAt: pendingCustomer, responseAt: ts })
-      pendingCustomer = null
-    }
-  }
-
-  const now = new Date()
-  const thisWeekStart = daysAgoStart(mondayIndex(now))
-  const lastWeekStart = daysAgoStart(mondayIndex(now) + 7)
-
-  // Per-day-of-week buckets, averaged over both weeks' worth of data
-  // so each bar has more samples to stand on. If a day has no samples
-  // its avgMinutes stays null and the chart renders the bar muted.
-  const byDow = new Map<number, number[]>()
-  for (let i = 0; i < 7; i++) byDow.set(i, [])
-  const thisWeekMins: number[] = []
-  const lastWeekMins: number[] = []
-
-  for (const s of samples) {
-    const diffMin = (s.responseAt.getTime() - s.customerAt.getTime()) / 60_000
-    if (diffMin < 0) continue
-    const dow = mondayIndex(s.customerAt)
-    byDow.get(dow)!.push(diffMin)
-    if (s.customerAt >= thisWeekStart) {
-      thisWeekMins.push(diffMin)
-    } else if (s.customerAt >= lastWeekStart && s.customerAt < thisWeekStart) {
-      lastWeekMins.push(diffMin)
-    }
-  }
-
-  const avg = (arr: number[]) =>
-    arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length
-
-  const buckets: ResponseTimeBucket[] = Array.from({ length: 7 }, (_, dow) => {
-    const samples = byDow.get(dow) ?? []
-    return {
-      dow,
-      avgMinutes: avg(samples),
-      samples: samples.length,
-    }
-  })
-
-  // Silence unused-label warnings — keep the arrays explicitly named
-  // for readability above.
-  void DOW_SHORT_MON_FIRST
-
-  return {
-    buckets,
-    thisWeekAvg: avg(thisWeekMins),
-    lastWeekAvg: avg(lastWeekMins),
-  }
-}
-
-// --- 5. Activity feed --------------------------------------------------
+// --- 3. Activity feed --------------------------------------------------
 
 export async function loadActivity(db: DB, limit = 20): Promise<ActivityItem[]> {
   // Pull ~10 from each source (plenty of headroom after merge-sort),

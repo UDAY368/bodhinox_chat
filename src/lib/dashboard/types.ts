@@ -65,3 +65,12 @@ export interface ActivityItem {
   /** Optional deep-link for the whole row (not all items have a target). */
   href?: string
 }
+
+/** GET /api/dashboard/charts: SQL aggregates on the workspace timezone's days. */
+export interface DashboardCharts {
+  timezone: string
+  series: ConversationsSeriesPoint[]
+  responseTime: ResponseTimeSummary
+  /** Open deals only. */
+  dealsByStage: { stageId: string; count: number; value: number }[]
+}
