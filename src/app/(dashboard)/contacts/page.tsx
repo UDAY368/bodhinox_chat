@@ -56,6 +56,7 @@ import {
 import { authFetch } from '@/lib/auth/client';
 import { changeListMembers, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
+import { contactSearchFilter } from '@/lib/contacts/search-term';
 import { Label } from '@/components/ui/label';
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
@@ -203,10 +204,7 @@ export default function ContactsPage() {
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
-      }
+      if (term) query = query.or(contactSearchFilter(term));
 
       const { data, count: exactCount, error } = await query;
       if (seq !== fetchSeq.current) return; // superseded by a newer fetch
