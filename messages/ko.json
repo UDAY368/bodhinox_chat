@@ -4673,6 +4673,7 @@
         "no_messages": "응답할 내용 없음",
         "rate_limited": "동시에 너무 많은 AI 응답",
         "rate_limited_retry": "동시에 너무 많은 AI 응답, 1분 후 다시 시도합니다",
+        "media_only": "AI가 읽을 수 없는 사진, 음성 메시지 또는 위치",
         "plan_ai_limit": "요금제의 AI 메시지 소진",
         "slot_lost": "다른 응답이 마지막 슬롯을 사용함",
         "claim_failed": "응답 슬롯을 예약하지 못함",

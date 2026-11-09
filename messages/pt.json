@@ -4673,6 +4673,7 @@
         "no_messages": "Nada para responder",
         "rate_limited": "Respostas de IA demais ao mesmo tempo",
         "rate_limited_retry": "Respostas de IA demais ao mesmo tempo; tentará de novo em um minuto",
+        "media_only": "Foto, mensagem de voz ou localização que a IA não consegue ler",
         "plan_ai_limit": "Mensagens de IA do plano esgotadas",
         "slot_lost": "Outra resposta ocupou a última vaga",
         "claim_failed": "Não foi possível reservar uma vaga de resposta",

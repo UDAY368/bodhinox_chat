@@ -3,7 +3,7 @@ import { withJobScope } from "@/lib/jobs/scope";
 import { resumeAwaitingReply, runAutomationsForTrigger } from "@/lib/automations/engine";
 import { dispatchInboundToFlows } from "@/lib/flows/engine";
 import type { ParsedInbound } from "@/lib/flows/types";
-import { dispatchInboundToAiReply } from "@/lib/ai/auto-reply";
+import { dispatchInboundToAiReply, recordUnreadableInbound } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { dispatchQuickReplyAction } from "./quick-reply-actions";
 import { runInboundStage, type InboundActionsPayload } from "./ingest";
@@ -134,6 +134,8 @@ export async function processInboundActions(input: InboundActionsPayload, assert
 }
 
 type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
+/** Inbound message types the AI auto-reply cannot read. */
+const UNREADABLE_FOR_AI=new Set(["image","audio","video","document","location"]);
 
 /**
  * Typed STOP/START, or a template quick-reply tap ("Stop promotions") whose label
@@ -352,7 +354,12 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
     }
     if((aiFallback||(!consumed&&!automationMatched))&&!input.interactiveReplyId&&input.contentType==="text"&&text.trim()) await stage("ai_reply",()=>dispatchInboundToAiReply({
       accountId:input.accountId,conversationId:input.conversationId,contactId:input.contactId,
-      configOwnerUserId:input.userId,inboundMessageId:input.metaMessageId,
+      configOwnerUserId:input.userId,inboundMessageId:input.metaMessageId,inboundRowId:input.messageId,
       routingChecked:true,requireHandoffOnUnavailable:aiFallback,
+    }));
+    // A photo, voice note or location the AI cannot read: logged in the AI activity log, never answered.
+    else if((aiFallback||(!consumed&&!automationMatched))&&!input.interactiveReplyId&&UNREADABLE_FOR_AI.has(input.contentType)) await stage("ai_media_skip",()=>recordUnreadableInbound({
+      accountId:input.accountId,conversationId:input.conversationId,contactId:input.contactId,
+      configOwnerUserId:input.userId,inboundMessageId:input.metaMessageId,
     }));
 }

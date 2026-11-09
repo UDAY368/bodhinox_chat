@@ -211,6 +211,15 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     expect((await owner.query("SELECT status FROM inbound_action_steps WHERE message_id=$1 AND stage='ai_reply'",[message])).rows[0].status).toBe("uncertain");
   });
 
+  it("a rate-limit retry job leased again after an interrupted attempt stops for reconciliation instead of re-sending",async()=>{
+    const input=await fixture();const message=(await ingestInboundMessage(input)).messageId;
+    await owner.query("INSERT INTO inbound_action_steps(account_id,message_id,stage,status) VALUES($1,$2,'ai_reply_retry:1','dispatching')",[accountId,message]);
+    const { handleAutoReplyRetryJob } = await import("@/lib/ai/auto-reply");
+    await expect(handleAutoReplyRetryJob(accountId,{conversationId:input.conversationId,contactId:input.contactId,configOwnerUserId:input.userId,
+      inboundMessageId:input.metaMessageId,messageId:message,attempt:1})).rejects.toBeInstanceOf(UncertainDispatchError);
+    expect((await owner.query("SELECT status FROM inbound_action_steps WHERE message_id=$1 AND stage='ai_reply_retry:1'",[message])).rows[0].status).toBe("dispatching");
+  });
+
   it("rejects a cross-tenant conversation before any message or job can persist",async()=>{
     const input=await fixture();
     await expect(ingestInboundMessage({...input,accountId:otherAccountId,userId:otherUserId})).rejects.toThrow("Inbound conversation is unavailable");

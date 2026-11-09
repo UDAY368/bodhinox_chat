@@ -28,22 +28,3 @@ export function recentCustomerText(messages: ChatMessage[], window = SENSITIVE_W
   }
   return turns.length ? turns.join('\n') : latestUserMessage(messages)
 }
-
-/** Customer turns the knowledge search reads: the newest few, older context first. */
-export const KNOWLEDGE_QUERY_TURNS = 3
-
-/**
- * The knowledge-base search text for a reply: the newest
- * `KNOWLEDGE_QUERY_TURNS` customer turns (across agent replies), joined by
- * newlines, oldest first. A question split over two messages ("Do you
- * deliver to Pune?", "and how much?") or a follow-up after an answer still
- * carries its topic; the keyword search matches any word, so the extra
- * context only adds matches.
- */
-export function knowledgeQueryText(messages: ChatMessage[], turns = KNOWLEDGE_QUERY_TURNS): string {
-  const picked: string[] = []
-  for (let i = messages.length - 1; i >= 0 && picked.length < turns; i--) {
-    if (messages[i].role === 'user' && messages[i].content.trim()) picked.unshift(messages[i].content)
-  }
-  return picked.length ? picked.join('\n') : latestUserMessage(messages)
-}

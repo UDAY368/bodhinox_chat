@@ -4673,6 +4673,7 @@
         "no_messages": "Nada que responder",
         "rate_limited": "Demasiadas respuestas de IA a la vez",
         "rate_limited_retry": "Demasiadas respuestas de IA a la vez; lo reintentará en un minuto",
+        "media_only": "Foto, nota de voz o ubicación que la IA no puede leer",
         "plan_ai_limit": "Mensajes de IA del plan agotados",
         "slot_lost": "Otra respuesta ocupó el último turno",
         "claim_failed": "No se pudo reservar un turno de respuesta",

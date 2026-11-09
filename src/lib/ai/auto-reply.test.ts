@@ -16,6 +16,9 @@ const h = vi.hoisted(() => ({
   failAi: vi.fn(),
   recordReplyEvent: vi.fn(),
   enqueueJob: vi.fn(),
+  /** Stand-in for the inbound stage checkpoint: a stage runs once, then replays its result. */
+  stages: new Map<string, unknown>(),
+  stageCalls: [] as { accountId: string; messageId: string; stage: string }[],
   state: {
     /** A photo/voice note/location newer than the latest readable message, or null. */
     newerMediaId: null as string | null,
@@ -50,6 +53,15 @@ vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
 vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 100 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
 vi.mock('@/lib/jobs/queue', () => ({ enqueueJob: h.enqueueJob }))
+vi.mock('@/lib/whatsapp/ingest', () => ({
+  runInboundStage: async (accountId: string, messageId: string, stage: string, action: () => Promise<unknown>, assertLease: () => void) => {
+    assertLease()
+    h.stageCalls.push({ accountId, messageId, stage })
+    const key = `${messageId}:${stage}`
+    if (h.stages.has(key)) return h.stages.get(key)
+    const result = await action(); h.stages.set(key, result); return result
+  },
+}))
 vi.mock('@/lib/flows/meta-send', () => ({
   engineSendText: h.engineSendText,
   loadAccountMetaCredentials: h.loadAccountMetaCredentials,
@@ -112,9 +124,10 @@ vi.mock('./admin-client', () => ({
   }),
 }))
 
-import { dispatchInboundToAiReply, handleAutoReplyRetryJob, MAX_RATE_LIMIT_RETRIES } from './auto-reply'
+import { dispatchInboundToAiReply, handleAutoReplyRetryJob, MAX_RATE_LIMIT_RETRIES, recordUnreadableInbound } from './auto-reply'
 
 const RESERVATION = { reservation: true }
+const ROW_ID = '44444444-4444-4444-8444-444444444444'
 const ARGS = {
   accountId: 'acct-1',
   conversationId: 'conv-1',
@@ -160,6 +173,8 @@ beforeEach(() => {
   h.state.newerMediaId = null
   h.state.messageTypeFilters = []
   h.enqueueJob.mockReset().mockResolvedValue('job-1')
+  h.stages.clear()
+  h.stageCalls = []
   h.state.claim = true
   h.state.afterClaim = null
   h.state.beforeUpdate = null
@@ -503,16 +518,16 @@ it('still answers a text when a photo or voice note arrives during generation (a
   expect(h.engineSendText).toHaveBeenCalledWith(expect.objectContaining({ text: 'It costs 499.' }))
 })
 
-it('reads the knowledge base with the recent customer turns, not only the last one (audit 29)', async () => {
+it('reads the knowledge base with every customer turn since the last reply, not only the last one (audit 29)', async () => {
   h.buildConversationContext.mockResolvedValue([
+    { role: 'user', content: 'What are your store hours?' },
+    { role: 'assistant', content: '9 to 6.' },
     { role: 'user', content: 'Do you deliver to Pune?' },
-    { role: 'assistant', content: 'Yes, we do.' },
     { role: 'user', content: 'and how much?' },
   ])
   await dispatchInboundToAiReply(ARGS)
-  const query = h.retrieveKnowledge.mock.calls[0][3] as string
-  expect(query).toContain('Pune')
-  expect(query).toContain('and how much?')
+  // A question already answered is left out, so its matches cannot lift the new question's confidence.
+  expect(h.retrieveKnowledge.mock.calls[0][3]).toBe('Do you deliver to Pune?\nand how much?')
 })
 
 it('uses the worker routing decision instead of unrelated account automations', async () => {
@@ -759,7 +774,7 @@ describe('dispatchInboundToAiReply — AI activity log', () => {
   it('defers an inbound over the account throttle to a delayed retry job, without calling the model (audit 28)', async () => {
     await quietly(async () => {
       await fillLimit()
-      await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true })
+      await dispatchInboundToAiReply({ ...ARGS, inboundRowId: ROW_ID, requireHandoffOnUnavailable: true })
     })
     expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'rate_limited_retry' })
     expect(h.generateReply).not.toHaveBeenCalled()
@@ -769,7 +784,7 @@ describe('dispatchInboundToAiReply — AI activity log', () => {
     expect(type).toBe('ai.auto_reply_retry')
     expect(payload).toEqual({
       conversationId: 'conv-1', contactId: 'contact-1', configOwnerUserId: 'user-1',
-      inboundMessageId: 'wamid.inbound-1', requireHandoffOnUnavailable: true, attempt: 1,
+      inboundMessageId: 'wamid.inbound-1', messageId: ROW_ID, requireHandoffOnUnavailable: true, attempt: 1,
     })
     expect(options.tenantId).toBe('acct-1')
     expect(options.dedupeKey).toBe('ai-autoreply-retry:wamid.inbound-1:1')
@@ -779,7 +794,7 @@ describe('dispatchInboundToAiReply — AI activity log', () => {
   it('gives up after the last retry and records skipped / rate_limited, handing an opted-in flow to a person', async () => {
     await quietly(async () => {
       await fillLimit()
-      await dispatchInboundToAiReply({ ...ARGS, requireHandoffOnUnavailable: true, retryAttempt: MAX_RATE_LIMIT_RETRIES })
+      await dispatchInboundToAiReply({ ...ARGS, inboundRowId: ROW_ID, requireHandoffOnUnavailable: true, retryAttempt: MAX_RATE_LIMIT_RETRIES })
     })
     expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'rate_limited' })
     expect(h.enqueueJob).not.toHaveBeenCalled()
@@ -790,8 +805,17 @@ describe('dispatchInboundToAiReply — AI activity log', () => {
     h.enqueueJob.mockRejectedValue(new Error('db down'))
     await quietly(async () => {
       await fillLimit()
+      await dispatchInboundToAiReply({ ...ARGS, inboundRowId: ROW_ID })
+    })
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'rate_limited' })
+  })
+
+  it('does not defer an inbound without its message row, since the retry could not be checkpointed', async () => {
+    await quietly(async () => {
+      await fillLimit()
       await dispatchInboundToAiReply(ARGS)
     })
+    expect(h.enqueueJob).not.toHaveBeenCalled()
     expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'rate_limited' })
   })
 })
@@ -803,24 +827,68 @@ describe('handleAutoReplyRetryJob', () => {
     Object.assign(h.state.conv!, { id: ids.conversationId, contact_id: ids.contactId })
   })
 
-  it('re-runs the dispatch for the deferred inbound and replies when it is still current', async () => {
-    await handleAutoReplyRetryJob('acct-1', { ...ids, inboundMessageId: 'wamid.inbound-1', attempt: 2 })
+  it('re-runs the dispatch for the deferred inbound under its stage checkpoint and replies when it is still current', async () => {
+    const lease = vi.fn()
+    await handleAutoReplyRetryJob('acct-1', { ...ids, messageId: ROW_ID, inboundMessageId: 'wamid.inbound-1', attempt: 2 }, lease)
     expect(h.engineSendText).toHaveBeenCalledWith(expect.objectContaining({ conversationId: ids.conversationId, text: 'Hello!' }))
+    expect(h.stageCalls).toEqual([{ accountId: 'acct-1', messageId: ROW_ID, stage: 'ai_reply_retry:2' }])
+    expect(lease).toHaveBeenCalled()
+  })
+
+  it('never sends twice when the same retry job is leased again', async () => {
+    const job = { ...ids, messageId: ROW_ID, inboundMessageId: 'wamid.inbound-1', attempt: 1 }
+    await handleAutoReplyRetryJob('acct-1', job)
+    await handleAutoReplyRetryJob('acct-1', job)
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
   })
 
   it('stands down when a newer customer message superseded it', async () => {
     h.state.latestMessageId = 'wamid.newer'
-    await handleAutoReplyRetryJob('acct-1', { ...ids, inboundMessageId: 'wamid.inbound-1', attempt: 1 })
+    await handleAutoReplyRetryJob('acct-1', { ...ids, messageId: ROW_ID, inboundMessageId: 'wamid.inbound-1', attempt: 1 })
     expect(h.generateReply).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
   it.each([
-    [{ ...ids, inboundMessageId: 'wamid.inbound-1', attempt: 0 }],
-    [{ ...ids, inboundMessageId: '', attempt: 1 }],
-    [{ ...ids, conversationId: 'conv-1', inboundMessageId: 'wamid.inbound-1', attempt: 1 }],
+    [{ ...ids, messageId: ROW_ID, inboundMessageId: 'wamid.inbound-1', attempt: 0 }],
+    [{ ...ids, messageId: ROW_ID, inboundMessageId: 'wamid.inbound-1', attempt: MAX_RATE_LIMIT_RETRIES + 1 }],
+    [{ ...ids, messageId: ROW_ID, inboundMessageId: '', attempt: 1 }],
+    [{ ...ids, inboundMessageId: 'wamid.inbound-1', attempt: 1 }],
+    [{ ...ids, messageId: 'row-1', inboundMessageId: 'wamid.inbound-1', attempt: 1 }],
+    [{ ...ids, conversationId: 'conv-1', messageId: ROW_ID, inboundMessageId: 'wamid.inbound-1', attempt: 1 }],
   ])('rejects a malformed payload', async (payload) => {
     await expect(handleAutoReplyRetryJob('acct-1', payload)).rejects.toThrow('Invalid AI auto-reply retry payload')
     expect(h.generateReply).not.toHaveBeenCalled()
+  })
+})
+
+describe('recordUnreadableInbound (audit 27)', () => {
+  const MEDIA = { ...ARGS, inboundMessageId: 'wamid.photo' }
+
+  it('logs skipped / media_only for a photo in a conversation the agent would answer, without sending or handing off', async () => {
+    await recordUnreadableInbound(MEDIA)
+    expect(h.recordReplyEvent).toHaveBeenCalledTimes(1)
+    expect(h.recordReplyEvent.mock.calls[0][0]).toEqual({
+      accountId: 'acct-1', conversationId: 'conv-1', contactId: 'contact-1', inboundMessageId: 'wamid.photo', outcome: 'skipped', reason: 'media_only',
+    })
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toBeNull()
+  })
+
+  it.each([
+    ['auto-reply is off', () => { h.loadAiConfig.mockResolvedValue(aiConfig({ autoReplyEnabled: false })) }],
+    ['a person owns the thread', () => { h.state.conv!.assigned_agent_id = 'agent-1' }],
+    ['the bot is paused', () => { h.state.conv!.bot_paused = true }],
+  ])('logs nothing when %s', async (_label, arrange) => {
+    arrange()
+    await recordUnreadableInbound(MEDIA)
+    expect(h.recordReplyEvent).not.toHaveBeenCalled()
+  })
+
+  it('never throws', async () => {
+    h.loadAiConfig.mockRejectedValue(new Error('db down'))
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try { await expect(recordUnreadableInbound(MEDIA)).resolves.toBeUndefined() } finally { quiet.mockRestore() }
   })
 })

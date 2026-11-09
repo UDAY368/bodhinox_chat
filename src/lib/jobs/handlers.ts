@@ -425,8 +425,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await (await import('@/lib/ai/assess/job')).handleAssessConversationJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts, jobId: job.id });
     else if (job.type === 'ai.auto_reply_retry')
       // An inbound text the account-wide AI rate limit deferred; the dispatch re-checks
-      // that it is still the newest readable message and that no person took over.
-      await (await import('@/lib/ai/auto-reply')).handleAutoReplyRetryJob(accountId, job.payload);
+      // that it is still the newest readable message and that no person took over,
+      // under the inbound's stage checkpoint so a re-leased job never sends twice.
+      await (await import('@/lib/ai/auto-reply')).handleAutoReplyRetryJob(accountId, job.payload, assertLease);
     else if (job.type === 'ai.insight_run')
       // One insight run from a fixed reporting query; skipped (not failed) when AI is unavailable.
       await (await import('@/lib/ai/insights/job')).handleInsightRunJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

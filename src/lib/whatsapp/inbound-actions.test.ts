@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
+const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), mediaSkip: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
   contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], runUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, conversation: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const b = { select: () => b, eq: () => b, in: () => b, is: () => b, gte: () => b, order: () => b, limit: async () => ({ data: table === 'broadcast_recipients' ? h.recipients : [], error: null }),
@@ -10,7 +10,7 @@ vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () 
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: h.explicit }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: h.resume, runAutomationsForTrigger: h.automations }));
 vi.mock('@/lib/flows/engine', () => ({ dispatchInboundToFlows: h.flow }));
-vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai }));
+vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai, recordUnreadableInbound: h.mediaSkip }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: h.webhook }));
 vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: h.lifecycle }));
 vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: h.away }));
@@ -88,6 +88,28 @@ it.each([true, false])('suppresses AI only when an automation matches: %s', asyn
   await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false });
   expect(h.ai).toHaveBeenCalledTimes(matched ? 0 : 1);
   if (!matched) expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ routingChecked: true }));
+});
+
+it('passes the inbound row id so a rate-limited AI reply can be retried under its stage checkpoint', async () => {
+  h.explicit.mockResolvedValue({ handled: false });
+  await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false });
+  expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ inboundMessageId: 'wamid.tap', inboundRowId: id }));
+  expect(h.mediaSkip).not.toHaveBeenCalled();
+});
+
+it.each(['image', 'audio', 'video', 'document', 'location'])('logs an unanswered %s for the AI activity log once, and never dispatches the AI (audit 27)', async contentType => {
+  h.explicit.mockResolvedValue({ handled: false });
+  const media = { ...input, interactiveReplyId: null, contentType, contentText: null, wasContactCreated: false, isFirstInboundMessage: false };
+  await processInboundActions(media); await processInboundActions(media);
+  expect(h.ai).not.toHaveBeenCalled();
+  expect(h.mediaSkip).toHaveBeenCalledOnce();
+  expect(h.mediaSkip).toHaveBeenCalledWith({ accountId: id, conversationId: id, contactId: id, configOwnerUserId: id, inboundMessageId: 'wamid.tap' });
+});
+
+it('logs nothing for a photo a flow or automation already handled', async () => {
+  h.explicit.mockResolvedValue({ handled: false }); h.flow.mockResolvedValue({ consumed: true });
+  await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'image', contentText: null, wasContactCreated: false, isFirstInboundMessage: false });
+  expect(h.mediaSkip).not.toHaveBeenCalled();
 });
 
 it('reserves a legacy menu text question for AI without content triggers', async () => {

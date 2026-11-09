@@ -4673,6 +4673,7 @@
         "no_messages": "Nothing to reply to",
         "rate_limited": "Too many AI replies at once",
         "rate_limited_retry": "Too many AI replies at once; it will try again in a minute",
+        "media_only": "Photo, voice note or location the AI cannot read",
         "plan_ai_limit": "Plan's AI messages used up",
         "slot_lost": "Another reply took the last slot",
         "claim_failed": "Could not reserve a reply slot",

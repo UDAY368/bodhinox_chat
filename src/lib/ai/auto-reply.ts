@@ -12,7 +12,7 @@ import { classifySensitive, hasUncoveredScript } from './safety/sensitive'
 import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from './assist/guards'
 import { promptCharsOf, usageLog } from './usage'
 import { chatTokenEstimate, failAi, reserveAi, settleAi, type AiReservation } from './budget'
-import { knowledgeQueryText, latestUserMessage, recentCustomerText } from './query'
+import { latestUserMessage, recentCustomerText } from './query'
 import { recordReplyEvent, type ReplyEventInput } from './reply-events'
 import type { ConfidenceReason } from './confidence'
 import type { ReplyEventOutcome, ReplyEventReason } from './reply-event-codes'
@@ -56,6 +56,9 @@ interface DispatchArgs {
   requireHandoffOnUnavailable?: boolean
   /** Set by the rate-limit retry job: how many times this inbound was deferred. */
   retryAttempt?: number
+  /** The inbound's messages.id. Required to defer it: the retry job runs under
+   *  that message's inbound stage checkpoint, so it is never sent twice. */
+  inboundRowId?: string
 }
 
 /**
@@ -97,13 +100,7 @@ export async function dispatchInboundToAiReply(
     console.error('[ai auto-reply] client initialization failed', { error: error instanceof Error ? error.name : 'unknown' })
     return
   }
-  const readConversation = async () => {
-    const { data, error } = await db.from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused, last_customer_message_at')
-      .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
-    if (error || !data || data.assigned_agent_id || data.bot_paused || data.ai_autoreply_disabled || !getSessionWindow(data.last_customer_message_at, Date.now()).active) return null
-    return data
-  }
+  const readConversation = () => aiOwnedConversation(db, accountId, conversationId, contactId)
   // Ownership checks are repeated after generation and immediately before send.
   // A newer customer message the agent can read supersedes this one (with an
   // inbound id; otherwise the conversation's customer timestamp decides). A
@@ -278,13 +275,15 @@ export async function dispatchInboundToAiReply(
     }
 
     // Ground the reply in the account's knowledge base (best-effort). The
-    // search reads the customer's recent turns, so a split question or a
-    // follow-up ("and how much?") still finds its page.
+    // search reads every customer turn since the last reply, so a question
+    // split over two messages ("Do you deliver to Pune?", "and how much?")
+    // still finds its page. Turns already answered are left out: their
+    // matches would lift the confidence score of an unrelated new question.
     const { chunks, retrieval, citations } = await retrieveKnowledgeScored(
       db,
       accountId,
       config,
-      knowledgeQueryText(messages),
+      recent,
       5,
       'customer',
     )
@@ -442,14 +441,43 @@ export async function dispatchInboundToAiReply(
   }
 }
 
+/** The conversation when the AI may answer in it: no person owns it, the bot is on and the window is open. */
+async function aiOwnedConversation(db: ReturnType<typeof databaseAdmin>, accountId: string, conversationId: string, contactId: string) {
+  const { data, error } = await db.from('conversations')
+    .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused, last_customer_message_at')
+    .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
+  if (error || !data || data.assigned_agent_id || data.bot_paused || data.ai_autoreply_disabled || !getSessionWindow(data.last_customer_message_at, Date.now()).active) return null
+  return data
+}
+
+/**
+ * A photo, voice note, video, document or location the agent cannot read,
+ * in a conversation it would otherwise answer: one 'skipped / media_only'
+ * activity-log row, so the owner can see why the AI stayed quiet. Nothing is
+ * sent and nothing is handed off (the inbox lifecycle already queues the
+ * conversation for a person). Best-effort: never throws, logs reason codes only.
+ */
+export async function recordUnreadableInbound(args: Pick<DispatchArgs, 'accountId' | 'conversationId' | 'contactId' | 'configOwnerUserId' | 'inboundMessageId'>): Promise<void> {
+  const { accountId, conversationId, contactId, configOwnerUserId, inboundMessageId } = args
+  try {
+    const db = databaseAdmin({ accountId, userId: configOwnerUserId, role: 'owner' })
+    const config = await loadAiConfig(db, accountId)
+    if (!config?.autoReplyEnabled) return
+    if (!await aiOwnedConversation(db, accountId, conversationId, contactId)) return
+    await recordReplyEvent({ accountId, conversationId, contactId, inboundMessageId: inboundMessageId ?? null, outcome: 'skipped', reason: 'media_only' })
+  } catch (error) {
+    logAiEvent({ feature: 'auto_reply', reason: 'media_only_record_failed', accountId, error })
+  }
+}
+
 /**
  * Queue the delayed retry of a rate-limited inbound, run just after the
  * limiter's window resets. True when queued; false when there is nothing to
- * retry against (no inbound id), the retries are used up, or the enqueue
+ * retry against (no inbound ids), the retries are used up, or the enqueue
  * failed (logged as a reason code only).
  */
 async function deferRateLimited(args: DispatchArgs, attempt: number, resetAt: number): Promise<boolean> {
-  if (!args.inboundMessageId || attempt >= MAX_RATE_LIMIT_RETRIES) return false
+  if (!args.inboundMessageId || !args.inboundRowId || attempt >= MAX_RATE_LIMIT_RETRIES) return false
   const next = attempt + 1
   const delayMs = Math.max(5_000, resetAt - Date.now()) + Math.floor(Math.random() * 5_000)
   try {
@@ -458,6 +486,7 @@ async function deferRateLimited(args: DispatchArgs, attempt: number, resetAt: nu
       contactId: args.contactId,
       configOwnerUserId: args.configOwnerUserId,
       inboundMessageId: args.inboundMessageId,
+      messageId: args.inboundRowId,
       requireHandoffOnUnavailable: args.requireHandoffOnUnavailable === true,
       attempt: next,
     }, {
@@ -475,20 +504,28 @@ async function deferRateLimited(args: DispatchArgs, attempt: number, resetAt: nu
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** The 'ai.auto_reply_retry' job: re-run the dispatch for the deferred inbound. */
-export async function handleAutoReplyRetryJob(accountId: string, payload: Record<string, unknown>): Promise<void> {
-  const { conversationId, contactId, configOwnerUserId, inboundMessageId, attempt } = payload
+/**
+ * The 'ai.auto_reply_retry' job: re-run the dispatch for the deferred inbound.
+ * It runs under the inbound's stage checkpoint `ai_reply_retry:<attempt>`, so a
+ * job leased again after a crash or an expired lease mid-send stops for
+ * reconciliation instead of sending the reply a second time.
+ */
+export async function handleAutoReplyRetryJob(accountId: string, payload: Record<string, unknown>, assertLease: () => void = () => {}): Promise<void> {
+  const { conversationId, contactId, configOwnerUserId, inboundMessageId, messageId, attempt } = payload
   if (typeof conversationId !== 'string' || !UUID.test(conversationId)
     || typeof contactId !== 'string' || !UUID.test(contactId)
     || typeof configOwnerUserId !== 'string' || !UUID.test(configOwnerUserId)
+    || typeof messageId !== 'string' || !UUID.test(messageId)
     || typeof inboundMessageId !== 'string' || !inboundMessageId || inboundMessageId.length > 256
-    || typeof attempt !== 'number' || !Number.isInteger(attempt) || attempt < 1) throw new Error('Invalid AI auto-reply retry payload')
-  await dispatchInboundToAiReply({
+    || typeof attempt !== 'number' || !Number.isInteger(attempt) || attempt < 1 || attempt > MAX_RATE_LIMIT_RETRIES) throw new Error('Invalid AI auto-reply retry payload')
+  const { runInboundStage } = await import('@/lib/whatsapp/ingest')
+  await runInboundStage(accountId, messageId, `ai_reply_retry:${attempt}`, () => dispatchInboundToAiReply({
     accountId, conversationId, contactId, configOwnerUserId, inboundMessageId,
+    inboundRowId: messageId,
     routingChecked: true,
     requireHandoffOnUnavailable: payload.requireHandoffOnUnavailable === true,
     retryAttempt: attempt,
-  })
+  }), assertLease)
 }
 
 /** The activity-log reason for a handoff decided by assessConfidence. */
