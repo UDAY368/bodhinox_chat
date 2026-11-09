@@ -103,6 +103,7 @@ export const CASES: Case[] = [
   // Account settings
   { route: 'account/webhooks/[id]', method: 'PATCH', params: id('webhookEndpointId'), body: () => ({ is_active: false }) },
   { route: 'account/webhooks/[id]', method: 'DELETE', params: id('webhookEndpointId') },
+  { route: 'account/webhooks/[id]/deliveries', method: 'GET', params: id('webhookEndpointId') },
   { route: 'account/api-keys/[id]', method: 'DELETE', params: id('apiKeyId') },
   { route: 'account/members/[userId]', method: 'PATCH', params: (b) => ({ userId: b.users.agent.userId }), body: () => ({ role: 'viewer' }) },
   { route: 'account/members/[userId]', method: 'DELETE', params: (b) => ({ userId: b.users.agent.userId }) },

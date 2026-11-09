@@ -165,7 +165,7 @@ limitations decide how it works:
 - **An Apps Script web app answers every POST with a redirect (HTTP 302)**.
   Bodhinox does not follow redirects for security reasons and counts the reply
   as a failed delivery, even though the script has already run. The delivery is
-  then retried, and after 15 failures in a row Bodhinox pauses the webhook.
+  then retried, and after a day of failures in a row Bodhinox pauses the webhook.
 
 Because of the second point, do not point a Bodhinox webhook straight at an Apps
 Script URL. Put a relay in front that checks the signature and then calls the

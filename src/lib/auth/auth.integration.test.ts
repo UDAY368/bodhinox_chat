@@ -153,8 +153,8 @@ describe.skipIf(!connectionString)(
       const token = new URL(
         delivered.text.split(': ')[1].split('\n')[0]
       ).searchParams.get('token')!;
-      await verifyEmailToken(token);
-      await expect(verifyEmailToken(token)).rejects.toThrow();
+      await verifyEmailToken(token, password);
+      await expect(verifyEmailToken(token, password)).rejects.toMatchObject({ code: 'link_invalid' });
       const issued = await login({ email: newEmail, password });
       const context = await requireSession(request(issued.accessToken));
       expect(context.role).toBe('owner');
@@ -180,9 +180,54 @@ describe.skipIf(!connectionString)(
       const delivered = mail.send.mock.calls.at(-1)?.[0] as { text: string };
       const link = new URL(delivered.text.split(': ')[1].split('\n')[0]);
       expect(link.searchParams.get('next')).toBe(next);
-      await verifyEmailToken(link.searchParams.get('token')!);
+      await verifyEmailToken(link.searchParams.get('token')!, validPassword);
       await expect(login({ email: newEmail, password: validPassword })).resolves.toHaveProperty('accessToken');
       await expect(login({ email: newEmail, password: 'Different1!' })).rejects.toMatchObject({ code: 'unauthorized' });
+    }, 30000);
+    // Account pre-hijack (audit #55): a stranger who signs up first with someone else's address
+    // must not keep that password once the inbox owner verifies, in either signup order.
+    function lastVerifyToken(to: string): string {
+      const delivered = mail.send.mock.calls.findLast((call) => (call[0] as { to: string }).to === to)?.[0] as { text: string };
+      return new URL(delivered.text.split(': ')[1].split('\n')[0]).searchParams.get('token')!;
+    }
+    async function pendingIdentity(address: string): Promise<string> {
+      const rows = await getAuthPrisma().$queryRaw<{ id: string }[]>`SELECT id FROM auth_users WHERE email=${address}`;
+      additionalUsers.push(rows[0].id);
+      return rows[0].id;
+    }
+    it('drops a squatter password when the inbox owner signs up later and verifies with their own', async () => {
+      const victim = `${randomUUID()}@example.invalid`;
+      await signup({ email: victim, password: 'Attacker1!', fullName: 'Squatter' });
+      const squatterLink = lastVerifyToken(victim);
+      const id = await pendingIdentity(victim);
+      await signup({ email: victim, password: 'Victim1!x', fullName: 'Real owner' });
+      const ownerLink = lastVerifyToken(victim);
+      // The link alone proves nothing: the squatter's password is refused on the owner's link.
+      await expect(verifyEmailToken(ownerLink, 'Attacker1!')).rejects.toMatchObject({ code: 'password_mismatch' });
+      const still = await getAuthPrisma().$queryRaw<{ verified: boolean }[]>`SELECT email_verified_at IS NOT NULL AS verified FROM auth_users WHERE id=${id}::uuid`;
+      expect(still[0].verified).toBe(false);
+      await verifyEmailToken(ownerLink, 'Victim1!x');
+      await expect(login({ email: victim, password: 'Attacker1!' })).rejects.toMatchObject({ code: 'unauthorized' });
+      await expect(login({ email: victim, password: 'Victim1!x' })).resolves.toHaveProperty('accessToken');
+      const named = await getAuthPrisma().$queryRaw<{ full_name: string }[]>`SELECT full_name FROM auth_users WHERE id=${id}::uuid`;
+      expect(named[0].full_name).toBe('Real owner');
+      // Every other pending link died with the verification.
+      await expect(verifyEmailToken(squatterLink, 'Attacker1!')).rejects.toMatchObject({ code: 'link_invalid' });
+    }, 30000);
+    it('keeps the inbox owner password when a squatter signs up after them, whichever link they open', async () => {
+      const victim = `${randomUUID()}@example.invalid`;
+      await signup({ email: victim, password: 'Victim1!x', fullName: 'Real owner' });
+      const ownerLink = lastVerifyToken(victim);
+      await pendingIdentity(victim);
+      await signup({ email: victim, password: 'Attacker1!', fullName: 'Squatter' });
+      const squatterLink = lastVerifyToken(victim);
+      expect(squatterLink).not.toBe(ownerLink);
+      // The later signup does not void the owner's link, and opening the newer mail still
+      // applies the password the owner types, never the squatter's.
+      await verifyEmailToken(squatterLink, 'Victim1!x');
+      await expect(login({ email: victim, password: 'Attacker1!' })).rejects.toMatchObject({ code: 'unauthorized' });
+      await expect(login({ email: victim, password: 'Victim1!x' })).resolves.toHaveProperty('accessToken');
+      await expect(verifyEmailToken(ownerLink, 'Victim1!x')).rejects.toMatchObject({ code: 'link_invalid' });
     }, 30000);
     async function invitation(
       role: 'admin' | 'agent' | 'viewer',
@@ -218,7 +263,7 @@ describe.skipIf(!connectionString)(
       const pending = await getAuthPrisma().$queryRaw<{ accepted: boolean }[]>`
         SELECT accepted_at IS NOT NULL AS accepted FROM account_invitations WHERE id=${invite.id}::uuid`;
       expect(pending[0].accepted).toBe(false);
-      await verifyEmailToken(invited.link.searchParams.get('token')!);
+      await verifyEmailToken(invited.link.searchParams.get('token')!, password);
       const owned = await getAuthPrisma().$queryRaw<{ id: string }[]>`SELECT id FROM accounts WHERE owner_user_id=${invited.id}::uuid`;
       expect(owned).toHaveLength(0);
       expect(await membershipsOf(invited.id)).toEqual([{ account_id: accountId, role: 'agent' }]);
@@ -249,7 +294,7 @@ describe.skipIf(!connectionString)(
       expect(delivered.to).toBe(newEmail);
       const link = new URL(delivered.text.split(': ')[1].split('\n')[0]);
       expect(link.searchParams.get('next')).toBe('/dashboard');
-      await verifyEmailToken(link.searchParams.get('token')!);
+      await verifyEmailToken(link.searchParams.get('token')!, password);
       expect(await membershipsOf(created[0].id)).toEqual([{ account_id: accountId, role: 'viewer' }]);
       await expect(login({ email: newEmail, password })).resolves.toHaveProperty('accessToken');
     }, 30000);
@@ -270,9 +315,9 @@ describe.skipIf(!connectionString)(
       const invite = await invitation('agent');
       const mistyped = await invitedSignup(invite.token, 'Mistyped address');
       const real = await invitedSignup(invite.token, 'Real invitee');
-      await verifyEmailToken(real.link.searchParams.get('token')!);
+      await verifyEmailToken(real.link.searchParams.get('token')!, password);
       expect(await membershipsOf(real.id)).toEqual([{ account_id: accountId, role: 'agent' }]);
-      await verifyEmailToken(mistyped.link.searchParams.get('token')!);
+      await verifyEmailToken(mistyped.link.searchParams.get('token')!, password);
       expect(await membershipsOf(mistyped.id)).toEqual([]);
       const issued = await login({ email: mistyped.email, password });
       const context = await requireSession(request(issued.accessToken));
@@ -282,7 +327,7 @@ describe.skipIf(!connectionString)(
     it('lets an invite-only member who was removed sign in again and accept a new invitation', async () => {
       const first = await invitation('agent');
       const invited = await invitedSignup(first.token, 'Removed member');
-      await verifyEmailToken(invited.link.searchParams.get('token')!);
+      await verifyEmailToken(invited.link.searchParams.get('token')!, password);
       await getAuthPrisma()
         .$executeRaw`DELETE FROM account_memberships WHERE account_id=${accountId}::uuid AND user_id=${invited.id}::uuid`;
       const issued = await login({ email: invited.email, password });

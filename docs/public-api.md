@@ -388,12 +388,16 @@ best-effort: if it cannot be queued, the flow itself is not affected. `message.s
 covers messages wacrm stores (inbox + API sends), not broadcast-only
 sends, and — because providers re-send and re-order status callbacks —
 the same status may arrive more than once or out of order; **dedupe on
-`id` and don't assume ordering**. Each consecutive failure increments
-`failure_count`; after enough consecutive failures the endpoint is
-auto-disabled (`is_active: false`) — re-enable it with `PATCH` (which
-resets the counter). Durable retry-with-backoff (a delivery queue) is a
-future enhancement; today, treat missed deliveries as possible and
-reconcile with the read endpoints when it matters.
+`id` and don't assume ordering**. A failed delivery is retried with
+backoff (10 attempts over about 13 minutes). Each failed attempt
+increments `failure_count` and any success resets it. The endpoint is
+auto-disabled (`is_active: false`, with `disabled_at` and
+`disabled_reason: "sustained_failure"`) only after at least 15 failed
+attempts in a row spanning 24 hours; workspace owners and admins are
+notified in-app and see a delivery log in Settings. Re-enable it with
+`PATCH` (which resets the counter and clears the reason). Events that
+exhaust their retries are not replayed, so reconcile with the read
+endpoints when it matters.
 
 **Target restrictions (SSRF).** The `url` must be `https://` and must
 resolve to a public address — requests to `localhost`, private/RFC1918

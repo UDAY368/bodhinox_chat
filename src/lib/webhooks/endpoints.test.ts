@@ -29,6 +29,9 @@ describe('serializeWebhookEndpoint', () => {
       last_delivery_at: null,
       failure_count: 0,
       created_at: '2026-01-01T00:00:00Z',
+      disabled_at: '2026-01-02T00:00:00Z',
+      disabled_reason: 'sustained_failure',
+      failing_since: '2026-01-01T00:00:00Z',
     });
     expect(out).not.toHaveProperty('secret');
     expect(out).not.toHaveProperty('account_id');
@@ -40,6 +43,8 @@ describe('serializeWebhookEndpoint', () => {
       last_delivery_at: null,
       failure_count: 0,
       created_at: '2026-01-01T00:00:00Z',
+      disabled_at: '2026-01-02T00:00:00Z',
+      disabled_reason: 'sustained_failure',
     });
   });
 });

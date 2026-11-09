@@ -3474,6 +3474,14 @@
       "lastDelivery": "Última entrega {date}",
       "noDelivery": "Sin entregas todavía",
       "failures": "{count} fallos seguidos",
+      "disabledNotice": "Desactivado el {date}: las entregas fallaron durante {hours} horas. Corrige el servidor receptor y vuelve a activarlo.",
+      "viewLog": "Registro de entregas",
+      "logDesc": "Los últimos intentos de entrega a esta URL (hasta 100, de los últimos 30 días).",
+      "logEmpty": "Aún no hay intentos de entrega.",
+      "logLoadFailed": "No se pudo cargar el registro de entregas.",
+      "logDelivered": "Entregado",
+      "logFailed": "Fallido",
+      "logAttempt": "intento {attempt}",
       "pause": "Pausar webhook",
       "resume": "Reanudar webhook",
       "delete": "Eliminar webhook",
@@ -3494,7 +3502,11 @@
       "copy": "Copiar",
       "copySuccess": "Secreto copiado",
       "copyFailed": "No se pudo copiar",
-      "done": "Listo"
+      "done": "Listo",
+      "notifications": {
+        "disabledTitle": "Se desactivó el webhook a {host}",
+        "disabledBody": "Las entregas a {host} fallaron durante {hours} horas, así que Bodhinox dejó de enviar eventos allí. Corrige el receptor y vuelve a activar el webhook en Configuración."
+      }
     },
     "workspaceAttributes": {
       "title": "Atributos del espacio de trabajo",
@@ -4517,6 +4529,21 @@
     "successDesc": "Has iniciado sesión con tu nueva contraseña.",
     "continueToDashboard": "Ir al panel"
   },
+  "VerifyEmailPage": {
+    "title": "Confirma tu correo",
+    "desc": "Introduce la contraseña que elegiste al registrarte para terminar de verificar este correo.",
+    "passwordLabel": "Contraseña",
+    "submit": "Verificar correo",
+    "saving": "Verificando...",
+    "checking": "Comprobando tu enlace...",
+    "expiredTitle": "Este enlace ya no es válido",
+    "expiredDesc": "Los enlaces de verificación funcionan una sola vez y caducan pasado un tiempo. Vuelve a registrarte con el mismo correo para recibir un enlace nuevo.",
+    "backToSignIn": "Volver a iniciar sesión",
+    "mismatch": "Esa no es la contraseña que elegiste al registrarte.",
+    "rateLimited": "Demasiados intentos. Inténtalo más tarde.",
+    "failed": "No se pudo verificar tu correo. Inténtalo de nuevo.",
+    "forgotHint": "¿La olvidaste? Vuelve a registrarte con este correo y usa la nueva contraseña con el enlace que recibas."
+  },
   "JoinPage": {
     "fail": {
       "notFoundTitle": "Invitación no encontrada",
@@ -4578,7 +4605,8 @@
       "low_stock": "Existencias bajas",
       "payment_exception": "Pago por revisar",
       "instagram_account_health": "Cuenta de Instagram",
-      "automation_notice": "Aviso de automatización"
+      "automation_notice": "Aviso de automatización",
+      "webhook_disabled": "Webhook desactivado"
     }
   },
   "Agents": {
@@ -5414,6 +5442,16 @@
       "webhookRefused": "send_webhook: no se pudo enviar la solicitud a este destino",
       "notifyInvalid": "notify_team necesita destinatarios y texto"
     }
+  },
+  "ErrorPages": {
+    "errorTitle": "Algo salió mal",
+    "errorDesc": "Esta página tuvo un error inesperado. Inténtalo de nuevo; si sigue ocurriendo, recarga la página.",
+    "tryAgain": "Intentar de nuevo",
+    "reload": "Recargar página",
+    "goHome": "Ir al panel",
+    "reference": "Referencia: {digest}",
+    "notFoundTitle": "Página no encontrada",
+    "notFoundDesc": "Es posible que el enlace esté mal escrito o desactualizado."
   },
   "Validation": {
     "flows": {

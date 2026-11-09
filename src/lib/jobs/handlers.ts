@@ -330,7 +330,7 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await handleFlowReplay({ accountId, runId: uuid(job.payload.runId), seq: seq as number | undefined, nodeKey: nodeKey as string | undefined });
     }
     else if (job.type === 'webhook.delivery')
-      await deliverQueuedWebhook(db, accountId, job.payload);
+      await deliverQueuedWebhook(db, accountId, job.payload, job.attempts);
     else if (job.type === HEALTH_SYNC_JOB)
       // Meta failures are recorded on the number and retried next cycle, not thrown.
       await syncNumberHealth({ accountId, configId: uuid(job.payload.configId) });

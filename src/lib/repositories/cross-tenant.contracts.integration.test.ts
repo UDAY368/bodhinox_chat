@@ -144,6 +144,8 @@ describe.skipIf(!databases)('[TEN-01][SEC-03] fixed RPCs reject cross-tenant ids
     match_ai_knowledge_fts_v2: [{ p_account_id: b.accountId, p_query: 'Synthetic', p_match_count: 5, p_audience: 'customer' }, { p_account_id: a.accountId, p_query: 'Synthetic', p_match_count: 50, p_audience: 'customer' }],
     match_ai_knowledge_semantic_v2: [{ p_account_id: b.accountId, p_query_embedding: '[0]', p_match_count: 5, p_audience: 'customer' }],
     record_webhook_failure: [{ endpoint_id: b.webhookEndpointId, max_failures: 1 }],
+    record_webhook_attempt: [{ p_endpoint_id: b.webhookEndpointId, p_event: 'message.received', p_delivery_id: null, p_attempt: 1,
+      p_delivered: false, p_http_status: 0, p_error: 'p15_foreign', p_min_failures: 1, p_disable_after_minutes: 0 }],
     recompute_broadcast_counts: [{ bid: b.broadcastId }],
   });
 

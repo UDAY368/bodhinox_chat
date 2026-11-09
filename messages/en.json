@@ -3474,6 +3474,14 @@
       "lastDelivery": "Last delivery {date}",
       "noDelivery": "No deliveries yet",
       "failures": "{count} failed in a row",
+      "disabledNotice": "Switched off {date}: deliveries kept failing for {hours} hours. Fix the receiving server, then switch it back on.",
+      "viewLog": "Delivery log",
+      "logDesc": "The latest delivery attempts to this URL (up to 100, from the past 30 days).",
+      "logEmpty": "No delivery attempts yet.",
+      "logLoadFailed": "Could not load the delivery log.",
+      "logDelivered": "Delivered",
+      "logFailed": "Failed",
+      "logAttempt": "attempt {attempt}",
       "pause": "Pause webhook",
       "resume": "Resume webhook",
       "delete": "Delete webhook",
@@ -3494,7 +3502,11 @@
       "copy": "Copy",
       "copySuccess": "Secret copied",
       "copyFailed": "Could not copy",
-      "done": "Done"
+      "done": "Done",
+      "notifications": {
+        "disabledTitle": "Webhook to {host} was switched off",
+        "disabledBody": "Deliveries to {host} failed for {hours} hours, so Bodhinox stopped sending events there. Fix the receiver, then switch the webhook back on in Settings."
+      }
     },
     "workspaceAttributes": {
       "title": "Workspace attributes",
@@ -4517,6 +4529,21 @@
     "successDesc": "You’re signed in with your new password.",
     "continueToDashboard": "Continue to dashboard"
   },
+  "VerifyEmailPage": {
+    "title": "Confirm your email",
+    "desc": "Enter the password you chose when you signed up to finish verifying this email.",
+    "passwordLabel": "Password",
+    "submit": "Verify email",
+    "saving": "Verifying...",
+    "checking": "Checking your link...",
+    "expiredTitle": "This link is no longer valid",
+    "expiredDesc": "Verification links work once and expire after a while. Sign up again with the same email to get a new link.",
+    "backToSignIn": "Back to sign in",
+    "mismatch": "That is not the password you chose at sign-up.",
+    "rateLimited": "Too many attempts. Try again later.",
+    "failed": "Could not verify your email. Try again.",
+    "forgotHint": "Forgot it? Sign up again with this email, then use the new password with the link you receive."
+  },
   "JoinPage": {
     "fail": {
       "notFoundTitle": "Invite not found",
@@ -4578,7 +4605,8 @@
       "low_stock": "Low stock",
       "payment_exception": "Payment needs review",
       "instagram_account_health": "Instagram account",
-      "automation_notice": "Automation notice"
+      "automation_notice": "Automation notice",
+      "webhook_disabled": "Webhook switched off"
     }
   },
   "Agents": {
@@ -5414,6 +5442,16 @@
       "webhookRefused": "send_webhook: the request could not be sent to this destination",
       "notifyInvalid": "notify_team needs an audience and text"
     }
+  },
+  "ErrorPages": {
+    "errorTitle": "Something went wrong",
+    "errorDesc": "This page hit an unexpected error. Try again; if it keeps happening, reload the page.",
+    "tryAgain": "Try again",
+    "reload": "Reload page",
+    "goHome": "Go to dashboard",
+    "reference": "Reference: {digest}",
+    "notFoundTitle": "Page not found",
+    "notFoundDesc": "The link may be mistyped or out of date."
   },
   "Validation": {
     "flows": {
