@@ -1584,6 +1584,12 @@ export async function getFlowHealth(args: GetFlowArgs): Promise<MetaFlowHealth> 
   }
 }
 
+/** The Meta app an access token was issued for (GET /app): a flow can only be sent with a token of its own app. */
+export async function getTokenApp(accessToken: string): Promise<{ id: string | null; name: string | null }> {
+  const data = await flowRequest(`${META_API_BASE}/app?fields=id,name`, accessToken, { method: 'GET' })
+  return { id: metaText(data.id), name: metaText(data.name) }
+}
+
 /** The phone number ids of a WhatsApp Business Account (first 100), to check a number really belongs to it. */
 export async function getWabaPhoneNumberIds(args: { wabaId: string; accessToken: string }): Promise<string[]> {
   if (!META_NUMERIC_ID.test(args.wabaId)) throw new Error(tc('wabaIdInvalid'))

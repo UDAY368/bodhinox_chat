@@ -44,3 +44,12 @@ describe('getWabaPhoneNumberIds', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('getTokenApp', () => {
+  it('names the app the access token was issued for', async () => {
+    const { getTokenApp } = await import('./meta-api');
+    fetchMock.mockResolvedValueOnce(json({ id: '968136646348395', name: 'Bodhinox_chat' }));
+    expect(await getTokenApp('t')).toEqual({ id: '968136646348395', name: 'Bodhinox_chat' });
+    expect((fetchMock.mock.calls[0] as [string])[0]).toContain('/app?fields=id,name');
+  });
+});

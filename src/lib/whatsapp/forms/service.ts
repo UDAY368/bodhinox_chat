@@ -33,6 +33,7 @@ import {
   deprecateFlow,
   getFlow,
   getFlowHealth,
+  getTokenApp,
   getWabaPhoneNumberIds,
   publishFlow,
   updateFlowMetadata,
@@ -412,6 +413,12 @@ export interface FormMetaCheck {
   formWabaId: string | null;
   /** True when the sending number is listed in the form's account; false when it is not; null when unknown. */
   numberInWaba: boolean | null;
+  /** The app that owns the flow (health_status APP entity) and the app the number's access token belongs to. */
+  flowAppId: string | null;
+  tokenAppId: string | null;
+  tokenAppName: string | null;
+  /** False when the token is from another app than the flow: Meta then refuses the send (131009 flow_id invalid). */
+  sameApp: boolean | null;
 }
 
 /**
@@ -440,9 +447,13 @@ export async function checkFormOnMeta(ctx: TenantContext, id: string): Promise<F
         .then((ids) => ids.includes(number.phone_number_id!))
         .catch(() => null);
     }
+    const tokenApp = await getTokenApp(accessToken).catch(() => ({ id: null, name: null }));
+    const flowAppId = health.entities.find((e) => e.entityType === 'APP')?.id ?? null;
     return {
       status: health.status, canSendMessage: health.canSendMessage, entities: health.entities,
       flowWabaId: health.wabaId, formWabaId: wabaId ?? null, numberInWaba,
+      flowAppId, tokenAppId: tokenApp.id, tokenAppName: tokenApp.name,
+      sameApp: flowAppId && tokenApp.id ? flowAppId === tokenApp.id : null,
     };
   } catch (err) {
     throw metaFailure(err, 'forms.metaPublishFailed');
