@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/data/client';
 import {
   CONVERSATION_SELECT,
+  mergeConversations,
   normalizeConversation,
 } from '@/lib/inbox/conversations';
 import {
@@ -509,6 +510,15 @@ function InboxPageInner() {
     [deepLinkConvId, activeConversation?.id]
   );
 
+  // A resync between full reloads: patch in only the conversations that
+  // changed, so the list keeps its rows and the open thread is untouched.
+  const handleConversationsChanged = useCallback(
+    (changed: Conversation[]) => {
+      setConversations((prev) => mergeConversations(prev, changed, activeConversation?.id));
+    },
+    [activeConversation?.id]
+  );
+
   const handleSelectConversation = useCallback(
     (conv: Conversation) => {
       // Re-clicking the already-active conversation would clear the
@@ -717,6 +727,7 @@ function InboxPageInner() {
             onSelect={handleSelectConversation}
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
+            onConversationsChanged={handleConversationsChanged}
             resyncToken={resyncToken}
             headerAction={
               <button

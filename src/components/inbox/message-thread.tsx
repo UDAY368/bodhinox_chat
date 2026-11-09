@@ -1,10 +1,14 @@
 'use client';
 import { BotPauseControl } from './bot-pause-control';
 import {
+  historyAfterNewestPage,
+  isNearBottom,
   loadMessagePage,
   MESSAGE_PAGE_SIZE,
+  type ThreadHistory,
 } from '@/lib/inbox/message-history';
 import {
+  isTempMessage,
   newTempMessageId,
   confirmedSendUpdate,
 } from '@/lib/inbox/optimistic-messages';
@@ -224,17 +228,23 @@ export function MessageThread({
   const assist = useAssistAvailability(canSendMessages);
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<{
-    conversationId: string;
-    before: Message | undefined;
-    hasOlder: boolean;
-  } | null>(null);
+  const [history, setHistory] = useState<ThreadHistory | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const historyRequestRef = useRef(0);
   const olderRequestRef = useRef(false);
   const prependScrollRef = useRef<{ height: number; top: number } | null>(null);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Whether the agent is reading the end of the thread (new messages then
+  // scroll into view) and which conversation the view was last positioned
+  // for. Scrolled up into history, a resync or a new message keeps the place.
+  const followBottomRef = useRef(true);
+  const positionedForRef = useRef<string | null>(null);
+  const lastShownIdRef = useRef<string | null>(null);
+  // The conversation whose newest page is on screen; a fetch for the same
+  // one is a silent resync (no spinner, no reset of the history cursor).
+  const loadedForRef = useRef<string | null>(null);
+  const shownIdsRef = useRef<Set<string>>(new Set());
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
@@ -358,16 +368,36 @@ export function MessageThread({
   // arriving while the thread is open don't trigger a full refetch —
   // they only flip hasUnread, which only the reset effect listens to.
   useEffect(() => {
+    shownIdsRef.current = new Set(messages.map((m) => m.id));
+  }, [messages]);
+
+  // Leaving a conversation (or unmounting) invalidates its older-page load in
+  // flight, so those messages can never be prepended to another thread.
+  useEffect(
+    () => () => {
+      ++historyRequestRef.current;
+      loadedForRef.current = null;
+    },
+    [conversationId]
+  );
+
+  useEffect(() => {
     if (!conversationId) return;
 
     const db = createClient();
     let cancelled = false;
-    const generation = ++historyRequestRef.current;
-    olderRequestRef.current = false;
-    setLoadingOlder(false);
+    // A resync of the thread on screen refreshes it in place: an older-page
+    // load in flight stays valid and the spinner never replaces the thread.
+    const silent = loadedForRef.current === conversationId;
+    if (!silent) {
+      loadedForRef.current = null;
+      ++historyRequestRef.current;
+      olderRequestRef.current = false;
+      setLoadingOlder(false);
+    }
 
     (async () => {
-      setLoading(true);
+      if (!silent) setLoading(true);
 
       try {
         const { data, error } = await loadMessagePage(db, conversationId);
@@ -377,23 +407,27 @@ export function MessageThread({
         if (error) {
           console.error('Failed to fetch messages:', error);
         } else {
-          onMessagesLoadedRef.current(data ?? [], conversationId);
-          setHistory({
-            conversationId,
-            before: data?.[0],
-            hasOlder: (data?.length ?? 0) === MESSAGE_PAGE_SIZE,
-          });
+          const page = data ?? [];
+          onMessagesLoadedRef.current(page, conversationId);
+          setHistory((previous) =>
+            historyAfterNewestPage(
+              silent ? previous : null,
+              conversationId,
+              page,
+              shownIdsRef.current
+            )
+          );
+          loadedForRef.current = conversationId;
         }
       } catch (error) {
         if (!cancelled) console.error('Failed to fetch messages:', error);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !silent) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
-      historyRequestRef.current = generation + 1;
     };
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus —
@@ -624,17 +658,28 @@ export function MessageThread({
     });
   }, [conversationId, hasUnread, canSendMessages]);
 
-  // Auto-scroll to bottom on new messages
+  // Keep the view in place when messages change: an older page keeps the
+  // message the agent was reading still; a newly opened thread, or one the
+  // agent is reading at the end, scrolls to the newest message. A resync
+  // while the agent reads history leaves the scroll position alone.
   useEffect(() => {
     if (scrollRef.current) {
       const el = scrollRef.current;
       const anchor = prependScrollRef.current;
-      el.scrollTop = anchor
-        ? anchor.top + el.scrollHeight - anchor.height
-        : el.scrollHeight;
+      const opened = positionedForRef.current !== conversationId;
+      // The agent's own just-sent message always comes into view.
+      const last = messages[messages.length - 1];
+      const ownSend = !!last && isTempMessage(last) && last.id !== lastShownIdRef.current;
+      if (anchor) el.scrollTop = anchor.top + el.scrollHeight - anchor.height;
+      else if (opened || ownSend || followBottomRef.current) el.scrollTop = el.scrollHeight;
+      lastShownIdRef.current = last?.id ?? null;
       prependScrollRef.current = null;
+      if (opened && messages.length > 0) {
+        positionedForRef.current = conversationId ?? null;
+        followBottomRef.current = true;
+      }
     }
-  }, [messages]);
+  }, [messages, conversationId]);
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string, aiSuggestionId?: string) => {
@@ -1362,6 +1407,9 @@ export function MessageThread({
       {/* Messages Area */}
       <div
         ref={scrollRef}
+        onScroll={(e) => {
+          followBottomRef.current = isNearBottom(e.currentTarget);
+        }}
         className="studio-messages flex-1 overflow-y-auto px-4 py-6 sm:px-6"
       >
         {loading ? (

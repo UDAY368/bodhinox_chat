@@ -19,8 +19,10 @@ import {
 } from 'react';
 import { createClient } from '@/lib/data/client';
 import {
+  INBOX_FULL_RELOAD_MS,
   loadInboxConversations,
   matchesContactFilters,
+  nextSyncCursor,
   normalizeConversations,
 } from '@/lib/inbox/conversations';
 import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
@@ -76,6 +78,11 @@ interface ConversationListProps {
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
   /**
+   * Receives only the conversations changed since the last sync (a resync
+   * between full reloads). Without it every resync reloads the whole list.
+   */
+  onConversationsChanged?: (changed: Conversation[]) => void;
+  /**
    * Increment to force the fetch effect below to refire. The parent
    * bumps this on realtime reconnect / tab visibility → visible so the
    * list catches up on any events sent while the WS was disconnected
@@ -97,6 +104,7 @@ export function ConversationList({
   onSelect,
   conversations,
   onConversationsLoaded,
+  onConversationsChanged,
   resyncToken = 0,
   headerAction,
 }: ConversationListProps) {
@@ -198,16 +206,32 @@ export function ConversationList({
   // older value — the very next render updates the ref for any
   // subsequent async completion.
   const onConversationsLoadedRef = useRef(onConversationsLoaded);
+  const onConversationsChangedRef = useRef(onConversationsChanged);
   useEffect(() => {
     onConversationsLoadedRef.current = onConversationsLoaded;
+    onConversationsChangedRef.current = onConversationsChanged;
   });
+  // Incremental sync state: a resync reads only conversations whose
+  // updated_at moved past `cursor`; a full reload (on mount, then at most
+  // every INBOX_FULL_RELOAD_MS) also drops deleted rows and refreshes
+  // contact names and tags, which do not touch the conversation row.
+  const syncRef = useRef<{ cursor: string | null; fullAt: number }>({ cursor: null, fullAt: 0 });
 
   useEffect(() => {
     const db = createClient();
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await loadInboxConversations(db);
+      const sync = syncRef.current;
+      const incremental =
+        !!onConversationsChangedRef.current &&
+        sync.cursor !== null &&
+        Date.now() - sync.fullAt < INBOX_FULL_RELOAD_MS;
+      const startedAt = Date.now();
+      const { data, error } = await loadInboxConversations(
+        db,
+        incremental ? { updatedSince: sync.cursor! } : {}
+      );
 
       if (cancelled) return;
 
@@ -223,7 +247,13 @@ export function ConversationList({
         return;
       }
 
-      onConversationsLoadedRef.current(normalizeConversations(data ?? []));
+      const rows = normalizeConversations(data ?? []);
+      syncRef.current = {
+        cursor: nextSyncCursor(rows, incremental ? sync.cursor : null),
+        fullAt: incremental ? sync.fullAt : startedAt,
+      };
+      if (incremental) onConversationsChangedRef.current?.(rows);
+      else onConversationsLoadedRef.current(rows);
       setLoading(false);
     })();
 
@@ -231,8 +261,9 @@ export function ConversationList({
       cancelled = true;
     };
     // `resyncToken` is included so the parent can force a refetch when
-    // the realtime channel reconnects or the tab regains focus — catches
-    // up on any events sent while the WS was disconnected or throttled.
+    // the realtime channel reconnects, the tab regains focus or the
+    // server's 30-second resync arrives. Between full reloads it reads
+    // only the conversations changed since the last sync.
   }, [resyncToken]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
