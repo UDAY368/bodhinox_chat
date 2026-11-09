@@ -128,7 +128,7 @@ export function EventLine({ ev }: { ev: EventRow }) {
         </code>
       )}
       {Object.keys(ev.payload).length > 0 && (
-        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
+        <span className="min-w-0 break-words text-[10px] text-muted-foreground">
           {summarizePayload(ev.payload)}
         </span>
       )}
@@ -142,7 +142,9 @@ function summarizePayload(payload: Record<string, unknown>): string {
   const keys = ["reply_id", "captured_key", "reason", "advancing_to"];
   for (const k of keys) {
     if (k in payload && payload[k] !== null && payload[k] !== undefined) {
-      return `${k}=${String(payload[k]).slice(0, 80)}`;
+      // An error's detail (e.g. Meta's reason for refusing a send) is what explains it.
+      const detail = k === "reason" && typeof payload.detail === "string" && payload.detail ? ` — ${payload.detail.slice(0, 300)}` : "";
+      return `${k}=${String(payload[k]).slice(0, 80)}${detail}`;
     }
   }
   return "";

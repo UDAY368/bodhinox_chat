@@ -882,7 +882,7 @@ async function executeApiRequest(db: AdminClient, run: FlowRunRow, node: FlowNod
   } catch (err) {
     await logEvent(db, run.id, "error", node.node_key, {
       reason: "api_request_failed",
-      detail: err instanceof Error ? err.message : String(err),
+      detail: errorDetail(err),
     });
     return cfg.fallback_next;
   }
@@ -918,7 +918,7 @@ async function executeAssignAgent(db: AdminClient, run: FlowRunRow, node: FlowNo
     // Non-fatal, like set_tag: the conversation simply stays unassigned.
     await logEvent(db, run.id, "error", node.node_key, {
       reason: "assign_agent_failed",
-      detail: err instanceof Error ? err.message : String(err),
+      detail: errorDetail(err),
     });
   }
 }
@@ -1167,6 +1167,17 @@ export function paymentPortFor(cfg: Partial<PaymentLinkNodeConfig>, outcome: Pay
 }
 
 /** How a run ends when a payment outcome has no port. */
+/**
+ * The text stored with an error event: the message plus, for a Meta refusal, its error_data.details, which names
+ * the exact parameter Meta objected to ("Parameter value is not valid" alone does not). Kept in the run's own
+ * events (workspace staff only), never in server logs.
+ */
+export function errorDetail(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const details = (err as { details?: unknown }).details;
+  return typeof details === "string" && details.trim() ? `${err.message} (${details.trim().slice(0, 300)})` : err.message;
+}
+
 function paymentEnd(outcome: PaymentOutcome): { status: "completed" | "failed"; reason: string } {
   return outcome === "failed" ? { status: "failed", reason: "payment_link_failed" } : { status: "completed", reason: `payment_${outcome}` };
 }
@@ -1535,7 +1546,7 @@ async function startAppointmentStep(
     await setRunVars(db, run, { [APPOINTMENT_STATE_VAR]: prompt.state });
     await sendAppointmentPrompt(db, run, node, prompt, run.reprompt_count);
   } catch (err) {
-    await logEvent(db, run.id, "error", node.node_key, { reason: "book_appointment_failed", detail: err instanceof Error ? err.message : String(err) });
+    await logEvent(db, run.id, "error", node.node_key, { reason: "book_appointment_failed", detail: errorDetail(err) });
     await endRun(db, run.id, "failed", "book_appointment_failed");
     return { kind: "failed" };
   }
@@ -1579,7 +1590,7 @@ async function askNextAppointmentQuestion(
   try {
     await sendAppointmentPrompt(db, run, node, prompt, 0);
   } catch (err) {
-    await logEvent(db, run.id, "error", node.node_key, { reason: "book_appointment_failed", detail: err instanceof Error ? err.message : String(err) });
+    await logEvent(db, run.id, "error", node.node_key, { reason: "book_appointment_failed", detail: errorDetail(err) });
     await endRun(db, run.id, "failed", "book_appointment_failed");
     return { consumed: true, flow_run_id: run.id, outcome: "completed" };
   }
@@ -1618,7 +1629,7 @@ async function retryAppointmentQuestion(
     await sendAppointmentPrompt(db, run, node, prompt, attempt);
   } catch (err) {
     // The customer still has the earlier list and can tap it.
-    await logEvent(db, run.id, "error", node.node_key, { reason: "reprompt_send_failed", detail: err instanceof Error ? err.message : String(err) });
+    await logEvent(db, run.id, "error", node.node_key, { reason: "reprompt_send_failed", detail: errorDetail(err) });
   }
   return { consumed: true, flow_run_id: run.id, outcome: "fallback_fired" };
 }
@@ -1947,7 +1958,7 @@ async function scheduleDelay(
   } catch (err) {
     await logEvent(db, run.id, "error", node.node_key, {
       reason: "delay_schedule_failed",
-      detail: err instanceof Error ? err.message : String(err),
+      detail: errorDetail(err),
     });
     await endRun(db, run.id, "failed", "delay_schedule_failed");
     return "failed";
@@ -1998,7 +2009,7 @@ async function scheduleReplyTimeout(db: AdminClient, run: FlowRunRow, node: Flow
   } catch (err) {
     await logEvent(db, run.id, "error", node.node_key, {
       reason: "timeout_schedule_failed",
-      detail: err instanceof Error ? err.message : String(err),
+      detail: errorDetail(err),
     });
   }
 }
@@ -2214,7 +2225,7 @@ async function advanceFromNodeKey(
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_text_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", "send_text_failed");
         return { outcome: "completed" };
@@ -2246,7 +2257,7 @@ async function advanceFromNodeKey(
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_media_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", "send_media_failed");
         return { outcome: "completed" };
@@ -2301,7 +2312,7 @@ async function advanceFromNodeKey(
         const reason = `${node.node_type}_prompt_failed`;
         await logEvent(db, run.id, "error", node.node_key, {
           reason,
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", reason);
         return { outcome: "completed" };
@@ -2331,7 +2342,7 @@ async function advanceFromNodeKey(
           await setRunVars(db, run, turn.vars);
         } catch (err) {
           // Non-fatal, like set_attribute: the answer already went out.
-          await logEvent(db, run.id, "error", node.node_key, { reason: "ai_reply_var_failed", detail: err instanceof Error ? err.message : String(err) });
+          await logEvent(db, run.id, "error", node.node_key, { reason: "ai_reply_var_failed", detail: errorDetail(err) });
         }
       }
       if (turn.next !== null) {
@@ -2357,7 +2368,7 @@ async function advanceFromNodeKey(
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_form_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", "send_form_failed");
         return { outcome: "completed" };
@@ -2437,7 +2448,7 @@ async function advanceFromNodeKey(
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_template_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", "send_template_failed");
         return { outcome: "completed" };
@@ -2534,7 +2545,7 @@ async function advanceFromNodeKey(
         // Non-fatal, like set_tag: a failed write should not strand the customer.
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "set_attribute_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
       }
       currentKey = cfg.next_node_key;
@@ -2550,7 +2561,7 @@ async function advanceFromNodeKey(
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "condition_evaluation_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", "condition_evaluation_failed");
         return { outcome: "completed" };
@@ -2589,7 +2600,7 @@ async function advanceFromNodeKey(
         // strand the customer mid-flow.
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "set_tag_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
       }
       currentKey = cfg.next_node_key;
@@ -2608,7 +2619,7 @@ async function advanceFromNodeKey(
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_buttons_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", "send_buttons_failed");
         return { outcome: "completed" };
@@ -2635,7 +2646,7 @@ async function advanceFromNodeKey(
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_list_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errorDetail(err),
         });
         await endRun(db, run.id, "failed", "send_list_failed");
         return { outcome: "completed" };
@@ -3181,7 +3192,7 @@ async function handleReplyForActiveRun(
     } catch (err) {
       await logEvent(db, run.id, "error", currentNode.node_key, {
         reason: "reprompt_send_failed",
-        detail: err instanceof Error ? err.message : String(err),
+        detail: errorDetail(err),
       });
     }
     return { consumed: true, flow_run_id: run.id, outcome: "fallback_fired" };
@@ -3219,7 +3230,7 @@ async function sendFallbackMessage(
   } catch (err) {
     await logEvent(db, run.id, "error", node.node_key, {
       reason: "fallback_message_failed",
-      detail: err instanceof Error ? err.message : String(err),
+      detail: errorDetail(err),
     });
   }
 }
@@ -3321,7 +3332,7 @@ async function retryQuestion(
     } catch (err) {
       await logEvent(db, run.id, "error", node.node_key, {
         reason: "reprompt_send_failed",
-        detail: err instanceof Error ? err.message : String(err),
+        detail: errorDetail(err),
       });
     }
     return { consumed: true, flow_run_id: run.id, outcome: "fallback_fired" };
