@@ -25,6 +25,7 @@ import { insertSuggestions, recordSuggestionUse } from './assist/suggestions';
 import { readCurrentAssessment, replaceAssessment, type NewAssessment } from './assess/repo';
 import { handleInsightRunJob } from './insights/job';
 import { AI_RETENTION, runAiRetentionSweep } from './retention';
+import { aiUsageGroups } from './usage-summary';
 
 const ownerUrl = process.env.TEST_DATABASE_URL;
 const appUrl = process.env.TEST_APP_DATABASE_URL;
@@ -292,6 +293,34 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 13 AI tenancy on Post
       // A restricted role is refused without reading anything else.
       await owner.query("INSERT INTO role_permission_restrictions(account_id,role,permission) VALUES($1,'agent','ai.assist')", [accountA]);
       expect(await check('summary')).toEqual({ ok: false, reason: 'no_permission' });
+    });
+
+    it('aggregates usage in SQL per local day, mode and model, for admins of the workspace only', async () => {
+      // Ten days ago (well inside retention), at fixed UTC times of day.
+      const base = new Date(Date.now() - 10 * 86_400_000);
+      const day = (offset: number) => new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + offset)).toISOString().slice(0, 10);
+      const at = (time: string) => new Date(`${time.startsWith('+') ? day(1) : day(0)}T${time.replace('+', '')}:00Z`);
+      const insert = (ctx: TenantContext, mode: string, total: number, created: string) => withTenant(ctx, (tx) => tx.$executeRaw`
+        INSERT INTO ai_usage_log(account_id,mode,provider,model,prompt_tokens,completion_tokens,total_tokens,created_at)
+        VALUES(${ctx.accountId}::uuid,${mode},'grouptest','gpt-g',${total - 1},1,${total},${at(created)})`, getWorkerPrisma());
+      await insert(workerA, 'auto_reply', 10, '23:30');
+      await insert(workerA, 'auto_reply', 20, '23:40');
+      await insert(workerA, 'draft', 5, '23:50');
+      await insert(workerA, 'auto_reply', 7, '+00:10');
+      await insert(ownerB, 'auto_reply', 1000, '23:30');
+      const mine = (rows: Awaited<ReturnType<typeof aiUsageGroups>>) => rows.filter((r) => r.provider === 'grouptest');
+      const since = new Date(`${day(-1)}T00:00:00Z`);
+      expect(mine(await withTenant(adminA, (tx) => aiUsageGroups(tx, accountA, since, 'UTC')))).toEqual([
+        { day: day(0), mode: 'auto_reply', provider: 'grouptest', model: 'gpt-g', calls: 2, prompt_tokens: 28, completion_tokens: 2, total_tokens: 30 },
+        { day: day(0), mode: 'draft', provider: 'grouptest', model: 'gpt-g', calls: 1, prompt_tokens: 4, completion_tokens: 1, total_tokens: 5 },
+        { day: day(1), mode: 'auto_reply', provider: 'grouptest', model: 'gpt-g', calls: 1, prompt_tokens: 6, completion_tokens: 1, total_tokens: 7 },
+      ]);
+      // Days follow the requested zone: 23:30 UTC is already the next day in Kolkata (UTC+5:30).
+      const kolkata = mine(await withTenant(adminA, (tx) => aiUsageGroups(tx, accountA, since, 'Asia/Kolkata')));
+      expect(kolkata.map((r) => [r.day, r.mode, r.calls])).toEqual([[day(1), 'auto_reply', 3], [day(1), 'draft', 1]]);
+      // Another workspace's rows never count, even when its id is passed, and an agent reads nothing.
+      expect(mine(await withTenant(adminA, (tx) => aiUsageGroups(tx, accountB, since, 'UTC')))).toEqual([]);
+      expect(mine(await withTenant(agentA, (tx) => aiUsageGroups(tx, accountA, since, 'UTC')))).toEqual([]);
     });
 
     it('the retention scheduler function runs for the worker only', async () => {

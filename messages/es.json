@@ -4619,7 +4619,6 @@
       "tokensPerDay": "Tokens por día",
       "byModel": "Por modelo",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# llamada} other {# llamadas}}",
-      "partialWindow": "Se muestra una ventana parcial: el uso es tan alto que aquí solo se resumen los registros más recientes.",
       "assistant": "Asistente"
     },
     "studioEyebrow": "07 / Your intelligent workspace",

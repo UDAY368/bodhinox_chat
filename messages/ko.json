@@ -4619,7 +4619,6 @@
       "tokensPerDay": "일별 토큰",
       "byModel": "모델별",
       "modelCalls": "{tokens} 토큰 · 호출 {count}회",
-      "partialWindow": "일부 기간만 표시 중 — 사용량이 많아 최근 기록만 요약되었습니다.",
       "assistant": "어시스턴트"
     },
     "studioEyebrow": "07 / Your intelligent workspace",
