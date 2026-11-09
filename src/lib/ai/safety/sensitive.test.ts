@@ -19,6 +19,14 @@ describe('classifySensitive', () => {
     ['죽고 싶어요', 'emergency_self_harm'],
     ['I am pregnant, is this safe?', 'pregnancy_child_health'],
     ['estou grávida', 'pregnancy_child_health'],
+    ['Can I take this medicine with milk?', 'treatment_or_dosage'],
+    ['Should I take paracetamol or ibuprofen?', 'treatment_or_dosage'],
+    ['¿Puedo tomar ibuprofeno?', 'treatment_or_dosage'],
+    ['Do I have an infection?', 'medical_symptom_or_diagnosis'],
+    ['I found a lump in my breast', 'medical_symptom_or_diagnosis'],
+    ['Is this cake ok if I am allergic to nuts?', 'medical_symptom_or_diagnosis'],
+    ['My newborn has a fever', 'pregnancy_child_health'],
+    ['This oil cures diabetes', 'medicinal_claim'],
   ])('flags %j', (text, category) => {
     const out = classifySensitive(text)
     expect(out.sensitive).toBe(true)
@@ -31,6 +39,21 @@ describe('classifySensitive', () => {
     'Can I book a facial for Saturday?',
     'My order 12345 has not arrived',
     'Is the painting still available?',
+    'Do I have to pay in advance?',
+    'What is your refund policy?',
+    'How much are the delivery charges?',
+    'Can I take this bag as cabin luggage?',
+    'Which size should I take?',
+    'Do you have newborn sizes?',
+    'Do you sell clothes for a recién nacido?',
+    '¿El envío está garantizado?',
+    'A entrega é garantida? O prazo é garantido?',
+    'Can I pay the lump sum now?',
+    'A dose of fun for the whole family!',
+    'The resin cures in 24 hours',
+    '¿Puedo tomar el pedido en la tienda?',
+    'Posso tomar um café enquanto espero?',
+    'Is it guaranteed to arrive by Friday?',
     '',
   ])('does not flag ordinary commerce: %j', (text) => {
     expect(classifySensitive(text)).toEqual({ sensitive: false, categories: [] })
