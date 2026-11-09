@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   register: vi.fn(),
   failUpdateWith: null as null | ((data: Record<string, unknown>) => boolean),
   numberRoom: vi.fn(async () => {}),
+  reupload: vi.fn(async () => 'uploaded'),
 }));
 
 const ACCOUNT = '11111111-1111-4111-8111-111111111111';
@@ -64,6 +65,7 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
   encrypt: (v: string) => `enc(${v})`,
   decrypt: (v: string) => v.replace(/^enc\((.*)\)$/, '$1'),
 }));
+vi.mock('@/lib/whatsapp/forms/keys', () => ({ reuploadFormsKey: h.reupload }));
 vi.mock('@/lib/whatsapp/meta-api', async (orig) => {
   const actual = await orig<typeof import('./meta-api')>();
   return {
@@ -168,6 +170,8 @@ describe('connectEmbeddedSignup', () => {
     expect(h.rows[0]).toMatchObject({ access_token: 'enc(tok)', user_id: USER, account_id: ACCOUNT, quality_rating: 'GREEN' });
     expect(h.rows[0].registered_at).toBeInstanceOf(Date);
     expect(h.rows[0].subscribed_apps_at).toBeInstanceOf(Date);
+    // Registering drops the forms key at Meta, so it is sent again.
+    expect(h.reupload).toHaveBeenCalledWith(tenant, 'cfg-1', { phoneNumberId: '777', accessToken: 'tok' });
     expect(JSON.stringify(result)).not.toContain('tok');
   });
 

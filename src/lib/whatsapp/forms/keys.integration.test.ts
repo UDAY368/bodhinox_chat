@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { disconnectDatabases, getPrisma } from '@/lib/db/prisma';
 import type { TenantContext } from '@/lib/db/tenant';
 import { encrypt } from '@/lib/whatsapp/encryption';
-import { claimFormsKeyRotation, promoteFormsKey, releaseFormsKeyRotation } from './keys';
+import { claimFormsKeyRotation, promoteFormsKey, releaseFormsKeyRotation, reuploadFormsKey } from './keys';
 import { formsPrivateKeys } from './session-store';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
@@ -93,5 +93,26 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('WhatsApp forms key rotation
     expect(await formsPrivateKeys(account)).toEqual(['test-only-number-a', 'test-only-number-b']);
     // A number id from outside the workspace is not found under RLS.
     expect((await claimFormsKeyRotation(asAdmin, randomUUID(), encrypt('test-only-stray'))).kind).toBe('notConnected');
+  });
+
+  it('sends the current key again after a register, skips during a rotation, and clears the upload time on failure', async () => {
+    await owner.query("UPDATE whatsapp_config SET forms_key_rotation_started_at = NULL, forms_pending_private_key_enc = NULL, forms_public_key = 'test-only-public-a', forms_private_key_enc = $2, forms_key_uploaded_at = now() - interval '1 day' WHERE id = $1", [numberA, encrypt('test-only-number-a')]);
+    const sent: string[] = [];
+    const ok = async (a: { publicKeyPem: string }) => { sent.push(a.publicKeyPem); };
+    const args = { phoneNumberId: phone, accessToken: 'test-only-token' };
+    expect(await reuploadFormsKey(asAdmin, numberA, args, ok)).toBe('uploaded');
+    expect(sent).toEqual(['test-only-public-a']);
+    const after = (await owner.query("SELECT forms_key_uploaded_at > now() - interval '1 minute' AS fresh, forms_key_rotation_started_at FROM whatsapp_config WHERE id = $1", [numberA])).rows[0];
+    expect(after).toMatchObject({ fresh: true, forms_key_rotation_started_at: null });
+    // A live rotation uploads its own key, so nothing is sent.
+    expect((await claimFormsKeyRotation(asAdmin, numberA, encrypt('test-only-rotating'))).kind).toBe('claimed');
+    expect(await reuploadFormsKey(asAdmin, numberA, args, ok)).toBe('skipped');
+    await owner.query('UPDATE whatsapp_config SET forms_key_rotation_started_at = NULL, forms_pending_private_key_enc = NULL WHERE id = $1', [numberA]);
+    // Another number id, or no key at all, sends nothing.
+    expect(await reuploadFormsKey(asAdmin, numberA, { ...args, phoneNumberId: phoneB }, ok)).toBe('skipped');
+    expect(sent).toHaveLength(1);
+    expect(await reuploadFormsKey(asAdmin, numberA, args, async () => { throw new Error('meta down'); })).toBe('failed');
+    const failed = (await owner.query('SELECT forms_key_uploaded_at, forms_key_rotation_started_at, forms_public_key FROM whatsapp_config WHERE id = $1', [numberA])).rows[0];
+    expect(failed).toMatchObject({ forms_key_uploaded_at: null, forms_key_rotation_started_at: null, forms_public_key: 'test-only-public-a' });
   });
 });

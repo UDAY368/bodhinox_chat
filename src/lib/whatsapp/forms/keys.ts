@@ -11,6 +11,7 @@
  */
 
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
+import { setBusinessEncryptionKey } from '@/lib/whatsapp/meta-api';
 
 /** Longer than the Meta upload timeout, so a live rotation is never overtaken. */
 export const ROTATION_LEASE_SECONDS = 120;
@@ -63,4 +64,41 @@ export async function promoteFormsKey(tenant: TenantContext, configId: string, a
     WHERE account_id = ${tenant.accountId}::uuid AND id = ${configId}::uuid AND phone_number_id = ${args.phoneNumberId}
       AND forms_pending_private_key_enc = ${args.pendingKeyEnc}`);
   return updated === 1;
+}
+
+/**
+ * Sends the number's current public key to Meta again. Registering a number
+ * (again) makes Meta drop its business encryption key while this row still
+ * holds the pair, and then every form send fails with #131009 "flow_id is
+ * invalid". Called right after a register; best effort, so a connect never
+ * fails because of it. Skipped when the number has no key or a rotation holds
+ * the lease (that rotation uploads its own key). A failed upload clears
+ * forms_key_uploaded_at, so Settings shows the key needs generating.
+ */
+export async function reuploadFormsKey(
+  tenant: TenantContext,
+  configId: string,
+  args: { phoneNumberId: string; accessToken: string },
+  upload: typeof setBusinessEncryptionKey = setBusinessEncryptionKey,
+): Promise<'uploaded' | 'skipped' | 'failed'> {
+  const publicKeyPem = await withTenant(tenant, async (tx) => {
+    const rows = await tx.$queryRaw<{ forms_public_key: string | null; rotating: boolean }[]>`
+      SELECT forms_public_key,
+        COALESCE(forms_key_rotation_started_at > now() - make_interval(secs => ${ROTATION_LEASE_SECONDS}), false) AS rotating
+      FROM whatsapp_config WHERE account_id = ${tenant.accountId}::uuid AND id = ${configId}::uuid
+        AND phone_number_id = ${args.phoneNumberId} AND forms_private_key_enc IS NOT NULL FOR UPDATE`;
+    const row = rows[0];
+    if (!row?.forms_public_key || row.rotating) return null;
+    // Take the lease so a rotation started meanwhile waits for this upload.
+    await tx.$executeRaw`UPDATE whatsapp_config SET forms_key_rotation_started_at = now()
+      WHERE account_id = ${tenant.accountId}::uuid AND id = ${configId}::uuid`;
+    return row.forms_public_key;
+  }).catch(() => null);
+  if (!publicKeyPem) return 'skipped';
+  const ok = await upload({ phoneNumberId: args.phoneNumberId, accessToken: args.accessToken, publicKeyPem }).then(() => true, () => false);
+  await withTenant(tenant, (tx) => tx.$executeRaw`
+    UPDATE whatsapp_config SET forms_key_rotation_started_at = NULL,
+      forms_key_uploaded_at = CASE WHEN ${ok} THEN now() ELSE NULL END
+    WHERE account_id = ${tenant.accountId}::uuid AND id = ${configId}::uuid AND forms_public_key = ${publicKeyPem}`).catch(() => undefined);
+  return ok ? 'uploaded' : 'failed';
 }

@@ -31,6 +31,7 @@ import { resolveVerifyTokenForSave } from '@/lib/whatsapp/verify-token'
 import { getT } from '@/lib/i18n/translate'
 import { DISPLAY_NAME_MAX, disconnectAndReport, disconnectResponse } from '@/lib/whatsapp/number-admin'
 import { getNumberConfig, isNumberDisconnected, listNumbers, NoNumberError, type NumberConfig } from '@/lib/whatsapp/numbers'
+import { reuploadFormsKey } from '@/lib/whatsapp/forms/keys'
 
 const t = getT('Api')
 const tn = getT('whatsappNumbers')
@@ -402,6 +403,7 @@ export async function POST(request: Request) {
     // was supplied (see below). Distinct from registrationError — this
     // is not a failure, just an incomplete-but-valid save.
     let registrationSkipped = false
+    let registeredNow = false
 
     const needsRegistration = !sameNumber || (typeof pin === 'string' && pin.length > 0)
     if (needsRegistration) {
@@ -424,6 +426,7 @@ export async function POST(request: Request) {
             pin,
           })
           registeredAt = new Date().toISOString()
+          registeredNow = true
         } catch (err) {
           const explained = explainMetaError(err, 'register', metaCtx)
           registrationError = explained.summary
@@ -528,6 +531,11 @@ export async function POST(request: Request) {
         { error: t(existing ? 'whatsappConfig.updateFailed' : 'whatsappConfig.saveFailed') },
         { status: 500 }
       )
+    }
+
+    // Registering drops the number's forms key at Meta; send it again so forms keep working.
+    if (registeredNow && numberId) {
+      await reuploadFormsKey(tenantOf(ctx), numberId, { phoneNumberId: phone_number_id, accessToken: access_token })
     }
 
     // The token is read only to tell a disconnected row apart; never returned.

@@ -39,6 +39,7 @@ import {
 } from '@/lib/whatsapp/meta-api';
 import { phoneNumberBelongsToWaba } from '@/lib/whatsapp/waba-pairing';
 import { parseAppSecrets } from '@/lib/whatsapp/webhook-signature';
+import { reuploadFormsKey } from '@/lib/whatsapp/forms/keys';
 import { embeddedSignupPublicConfig, type EmbeddedSignupRequest } from './embedded-signup';
 
 export type EmbeddedSignupStep = 'exchange_code' | MetaConnectStep | 'save';
@@ -298,6 +299,8 @@ async function finishConnection(
       // Meta now holds this PIN; a retry would try a different one, so the admin must keep it.
       return fail(500, 'saveFailed', 'save', pin ? { pin } : {});
     }
+    // Registering drops the number's forms key at Meta; send it again so forms keep working.
+    await reuploadFormsKey(tenant, configId, { phoneNumberId: ids.phone_number_id, accessToken });
   }
 
   // 7. Connected.

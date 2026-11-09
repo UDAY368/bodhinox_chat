@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   subscribeWabaToApp: vi.fn(async () => {}),
   claimed: null as string | null,
   numberRoom: vi.fn(async () => {}),
+  reuploadFormsKey: vi.fn(async () => "uploaded"),
 }));
 
 // Minimal data client: records each statement with its filters.
@@ -91,6 +92,7 @@ vi.mock("@/lib/whatsapp/meta-api", () => ({
   subscribeWabaToApp: h.subscribeWabaToApp,
   getSubscribedApps: async () => [{ id: "app" }],
 }));
+vi.mock("@/lib/whatsapp/forms/keys", () => ({ reuploadFormsKey: h.reuploadFormsKey }));
 vi.mock("@/lib/whatsapp/waba-pairing", async () => {
   const actual = await vi.importActual<typeof import("@/lib/whatsapp/waba-pairing")>("@/lib/whatsapp/waba-pairing");
   return { ...actual, phoneNumberBelongsToWaba: () => true };
@@ -153,6 +155,14 @@ it("updates only that number when the phone_number_id is already connected, keep
   expect(h.ops.some((o) => o.op === "insert")).toBe(false);
   // Saving a number the workspace already has is never limited by the plan.
   expect(h.numberRoom).not.toHaveBeenCalled();
+});
+
+it("sends the forms key to Meta again only when this save registered the number", async () => {
+  h.existing = { id: ID, phone_number_id: "123", registered_at: "2026-10-01", verify_token: "enc:v", display_name: "Support" };
+  await post(save);
+  expect(h.reuploadFormsKey).not.toHaveBeenCalled();
+  await post({ ...save, pin: "123456" });
+  expect(h.reuploadFormsKey).toHaveBeenCalledWith(expect.objectContaining({ accountId: ACCOUNT }), ID, { phoneNumberId: "123", accessToken: "EAAG-secret" });
 });
 
 it("refuses an additional number over the plan before Meta registration or any write", async () => {
