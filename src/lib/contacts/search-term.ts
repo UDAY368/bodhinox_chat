@@ -6,6 +6,11 @@
  * instead of failing the whole query.
  */
 export function contactSearchFilter(term: string): string {
-  const like = `%${term.trim().replace(/[,()]/g, '_')}%`;
+  const like = `%${contactSearchTerm(term)}%`;
   return `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`;
+}
+
+/** The term as the unfiltered contacts page searches it (bulk actions match the same rows). */
+export function contactSearchTerm(term: string): string {
+  return term.trim().replace(/[,()]/g, '_');
 }

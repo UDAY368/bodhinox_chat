@@ -64,7 +64,7 @@ export function parseBroadcastCsv(
   text: string,
   options: { withValues?: boolean; keepDuplicates?: boolean } = {},
 ): ParseBroadcastCsvResult {
-  const { rows, hasPhoneColumn } = parseContactCsv(text);
+  const { rows, hasPhoneColumn, phoneColumn } = parseContactCsv(text);
 
   if (!hasPhoneColumn) return { ok: false, error: 'missing_phone_column' };
 
@@ -82,7 +82,7 @@ export function parseBroadcastCsv(
       if (options.withValues) {
         // Headers longer than the server's 64-character key limit cannot be variables.
         contact.values = Object.fromEntries(
-          Object.entries(cells).filter(([header]) => header !== 'phone' && header.length <= 64).slice(0, MAX_CSV_VALUE_COLUMNS),
+          Object.entries(cells).filter(([header]) => header !== phoneColumn && header.length <= 64).slice(0, MAX_CSV_VALUE_COLUMNS),
         );
       }
       return contact;

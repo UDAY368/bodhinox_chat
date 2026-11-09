@@ -77,6 +77,35 @@ export function parseInternationalPhone(raw: string | null | undefined): string 
 }
 
 /**
+ * Parse a number from an imported file, where the person importing chose a
+ * default country code for numbers written without '+'. Returns digits or null.
+ *
+ * '+' (or the international '00' prefix) wins: the number already names its
+ * country. Without one, and only when `defaultCountryCode` is given, a single
+ * trunk '0' is dropped and the country code is prepended. A number that
+ * already starts with that country code and still has 10+ digits after it
+ * ('919876543210' with default 91) is taken as already international, so a
+ * re-import of an export without '+' is not prefixed twice.
+ *
+ * Without a default country this is exactly `parseInternationalPhone`: a
+ * national number is never guessed into a country (issue #586).
+ */
+export function parseImportPhone(raw: string | null | undefined, defaultCountryCode?: string | null): string | null {
+  if (!raw) return null
+  const compact = raw.trim().replace(/^'+/, '').replace(/[\s().-]/g, '')
+  if (compact.startsWith('+')) return parseInternationalPhone(compact)
+  if (/^00\d/.test(compact)) return parseInternationalPhone(`+${compact.slice(2)}`)
+  const cc = defaultCountryCode?.replace(/\D/g, '') ?? ''
+  if (!/^[1-9]\d{0,2}$/.test(cc) || !/^\d+$/.test(compact)) return null
+  if (compact.startsWith(cc) && compact.length - cc.length >= 10)
+    return isValidE164(compact) ? compact : null
+  const national = compact.replace(/^0/, '')
+  if (!national || national.startsWith('0')) return null
+  const digits = cc + national
+  return isValidE164(digits) ? digits : null
+}
+
+/**
  * Generate plausible phone number variants for retry when Meta's
  * sandbox rejects a number with error #131030 ("not in allowed list").
  *

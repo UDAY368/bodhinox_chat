@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isRecipientNotAllowedError,
   isValidE164,
+  parseImportPhone,
   normalizePhone,
   parseInternationalPhone,
   phoneVariants,
@@ -214,4 +215,35 @@ describe("isRecipientNotAllowedError", () => {
     );
     expect(isRecipientNotAllowedError("")).toBe(false);
   });
+});
+
+describe('parseImportPhone', () => {
+  it('without a default country is parseInternationalPhone', () => {
+    expect(parseImportPhone('+1 (415) 555-1212')).toBe('14155551212');
+    expect(parseImportPhone('4155551212')).toBeNull();
+    expect(parseImportPhone('4155551212', '')).toBeNull();
+  });
+
+  it.each([
+    ['9876543210', '91', '919876543210'],
+    ['09876543210', '91', '919876543210'],
+    ["'9876543210", '91', '919876543210'],
+    ['98765 43210', '+91', '919876543210'],
+    ['919876543210', '91', '919876543210'],
+    ['+447700900123', '91', '447700900123'],
+    ['00447700900123', '91', '447700900123'],
+    ['07700900123', '44', '447700900123'],
+    ['4155551212', '1', '14155551212'],
+    ['14155551212', '1', '14155551212'],
+    ['9198765432', '91', '919198765432'],
+  ])('%s with default %s -> %s', (raw, cc, expected) => {
+    expect(parseImportPhone(raw, cc)).toBe(expected);
+  });
+
+  it.each([['', '91'], ['abc', '91'], ['12345', '91'], ['9876543210', '0'], ['9876543210', '9999'], ['009', '91'], ['0', '91']])(
+    'rejects %j with default %j',
+    (raw, cc) => {
+      expect(parseImportPhone(raw, cc)).toBeNull();
+    },
+  );
 });
