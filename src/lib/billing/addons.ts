@@ -18,15 +18,22 @@
 // It is not renewed automatically; buy again for the next period.
 //
 // Durability: the add-on row is written as 'pending' BEFORE the provider is
-// called. ok -> 'active' (raises the limit); rejected -> 'failed'; unknown ->
-// stays 'pending' and is never retried or granted here: it is shown for
-// reconciliation against the provider dashboard or its webhook.
+// called, with provider_marker set: the provider call carries the row's id
+// (findAddon matches it). ok -> 'active' (raises the limit); rejected ->
+// 'failed'; unknown -> stays 'pending' and is never retried or granted here.
+// A second purchase of the same kind is refused while one is pending, so a
+// retry cannot charge twice for one grant. The billing lifecycle sweep
+// (reconcilePendingAddons, audit finding 53) asks the provider for the add-on
+// by its id: found -> 'active'; the provider has none an hour on -> 'failed'
+// (nothing was charged); still unclear a day on -> a billing reconciliation
+// item for an operator. Nothing is granted without the provider's add-on.
 
 import type { PrismaClient } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { ADDON_KINDS, ADDON_LIMIT, type AddonKind } from './entitlements-catalogue';
 import { getEntitlements } from './entitlements';
+import { openReconciliationItem } from './reconciliation';
 import { computeGst, sellerStateCode } from './gst';
 import { invoiceBuyer } from './invoices';
 import type { BillingProvider } from './provider';
@@ -57,7 +64,7 @@ export interface AddonView {
 
 /** A refusal that is safe to show; `code` picks the message. */
 export class AddonInputError extends Error {
-  constructor(public code: 'unknown_pack' | 'invalid_packs' | 'needs_subscription' | 'not_cancellable' | 'limit_unlimited', public status = 400) {
+  constructor(public code: 'unknown_pack' | 'invalid_packs' | 'needs_subscription' | 'not_cancellable' | 'limit_unlimited' | 'purchase_pending', public status = 400) {
     super(code);
   }
 }
@@ -154,10 +161,15 @@ export async function purchaseAddon(provider: BillingProvider, args: PurchaseArg
     // Seats and numbers last for the billing period they are charged in.
     if (pack.kind !== 'ai_messages' && !(subscription.periodEnd && subscription.periodEnd.getTime() > Date.now()))
       throw new AddonInputError('needs_subscription', 409);
+    // One unconfirmed purchase per kind: a retry while the provider's answer is unclear could charge twice.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${accountId}:add_on:${pack.kind}`}))`;
+    const [pending] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM add_ons
+      WHERE account_id=${accountId}::uuid AND kind=${pack.kind} AND status='pending'`;
+    if ((pending?.n ?? 0) > 0) throw new AddonInputError('purchase_pending', 409);
     const unitMinor = await packChargeMinor(tx, accountId, pack, seller);
     const [row] = await tx.$queryRaw<{ id: string }[]>`
-      INSERT INTO add_ons(account_id, kind, quantity, status, amount_minor, currency, requested_by)
-      VALUES (${accountId}::uuid, ${pack.kind}, ${pack.quantity * packs}, 'pending', ${unitMinor * packs}, ${pack.currency}, ${userId}::uuid)
+      INSERT INTO add_ons(account_id, kind, quantity, status, amount_minor, currency, requested_by, provider_marker)
+      VALUES (${accountId}::uuid, ${pack.kind}, ${pack.quantity * packs}, 'pending', ${unitMinor * packs}, ${pack.currency}, ${userId}::uuid, true)
       RETURNING id::text`;
     return { id: row.id, subscription, unitMinor };
   }, db);
@@ -168,6 +180,7 @@ export async function purchaseAddon(provider: BillingProvider, args: PurchaseArg
     amountMinor: intent.unitMinor,
     currency: pack.currency,
     quantity: packs,
+    reference: intent.id,
   });
   if (result.outcome === 'unknown') return { id: intent.id, status: 'pending' };
 
@@ -176,13 +189,73 @@ export async function purchaseAddon(provider: BillingProvider, args: PurchaseArg
       await tx.$executeRaw`UPDATE add_ons SET status='failed' WHERE id=${intent.id}::uuid AND status='pending'`;
       return { id: intent.id, status: 'failed' as const };
     }
-    // ai_messages: until the next IST month begins; others: until the billing period ends.
-    await tx.$executeRaw`UPDATE add_ons SET status='active', provider_addon_id=${result.value.id}, starts_at=now(),
-      ends_at = CASE WHEN kind='ai_messages'
-        THEN (date_trunc('month', now() AT TIME ZONE 'Asia/Kolkata') + interval '1 month') AT TIME ZONE 'Asia/Kolkata'
-        ELSE ${intent.subscription.periodEnd}::timestamptz END
-      WHERE id=${intent.id}::uuid AND status='pending'`;
+    await activateAddon(tx, intent.id, result.value.id, intent.subscription.periodEnd);
     return { id: intent.id, status: 'active' as const };
+  }, db);
+}
+
+/**
+ * Marks a pending add-on active from the provider's add-on id. ai_messages: until
+ * the IST month it was bought in ends; others: until the billing period ends.
+ * Returns false (nothing changed) when it is no longer pending or that end has passed.
+ */
+async function activateAddon(tx: TenantTransaction, id: string, providerAddonId: string, periodEnd: Date | null): Promise<boolean> {
+  const updated = await tx.$executeRaw`UPDATE add_ons SET status='active', provider_addon_id=${providerAddonId}, starts_at=now(),
+    ends_at = CASE WHEN kind='ai_messages'
+      THEN (date_trunc('month', created_at AT TIME ZONE 'Asia/Kolkata') + interval '1 month') AT TIME ZONE 'Asia/Kolkata'
+      ELSE ${periodEnd}::timestamptz END
+    WHERE id=${id}::uuid AND status='pending'
+      AND CASE WHEN kind='ai_messages'
+        THEN (date_trunc('month', created_at AT TIME ZONE 'Asia/Kolkata') + interval '1 month') AT TIME ZONE 'Asia/Kolkata'
+        ELSE ${periodEnd}::timestamptz END > now()`;
+  return updated > 0;
+}
+
+/** Pending add-ons are first asked about this long after the purchase began (a provider call times out after 15 s). */
+export const ADDON_RECONCILE_AFTER_MS = 2 * 60_000;
+/** The provider showing no add-on this long after the purchase began means it was never created. */
+export const ADDON_ABSENT_AFTER_MS = 60 * 60_000;
+/** Still pending this long after the purchase: an operator looks (billing reconciliation item). */
+export const ADDON_OPERATOR_AFTER_MS = 24 * 3_600_000;
+
+/**
+ * Settles add-ons whose provider answer was lost (part of billing.lifecycle_sweep).
+ * The provider's own add-on, matched by our id, is the only proof that grants one;
+ * an add-on the provider does not have an hour on is failed (nothing was charged).
+ * Anything still pending a day on gets one billing reconciliation item.
+ */
+export async function reconcilePendingAddons(accountId: string, provider: BillingProvider, now: Date = new Date(), db: PrismaClient = getWorkerPrisma()): Promise<void> {
+  const scope = { accountId, role: 'owner' as const };
+  const rows = await withTenant(scope, (tx) => tx.$queryRaw<{ id: string; created_at: Date }[]>`
+    SELECT id::text, created_at FROM add_ons
+    WHERE account_id=${accountId}::uuid AND status='pending' AND provider_marker
+      AND created_at < ${new Date(now.getTime() - ADDON_RECONCILE_AFTER_MS)}
+    ORDER BY created_at LIMIT 20`, db);
+  for (const row of rows) {
+    const found = await provider.findAddon({ reference: row.id, createdAfter: row.created_at });
+    if (found.outcome !== 'ok') continue;
+    const value = found.value;
+    await withTenant(scope, async (tx) => {
+      if (value) {
+        const subscription = await billableSubscription(tx, accountId, provider.name);
+        if (await activateAddon(tx, row.id, value.id, subscription?.periodEnd ?? null)) return;
+        // The provider has it, but the period it was bought for is over (or the subscription is gone): an operator decides.
+        await openReconciliationItem(tx, { accountId, kind: 'intent_unknown', sourceRef: `addon:${row.id}`,
+          detail: { object: 'add_on', add_on_id: row.id, provider_addon_id: value.id, reason: 'period_over', created_at: row.created_at.toISOString() } });
+      } else if (now.getTime() - row.created_at.getTime() > ADDON_ABSENT_AFTER_MS) {
+        await tx.$executeRaw`UPDATE add_ons SET status='failed' WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid AND status='pending'`;
+      }
+    }, db);
+  }
+  await withTenant(scope, async (tx) => {
+    const stale = await tx.$queryRaw<{ id: string; kind: string; quantity: number; amount_minor: bigint | null; currency: string | null; created_at: Date }[]>`
+      SELECT id::text, kind, quantity, amount_minor, currency, created_at FROM add_ons
+      WHERE account_id=${accountId}::uuid AND status='pending' AND created_at < ${new Date(now.getTime() - ADDON_OPERATOR_AFTER_MS)}`;
+    for (const a of stale)
+      await openReconciliationItem(tx, { accountId, kind: 'intent_unknown', sourceRef: `addon:${a.id}`, detail: {
+        object: 'add_on', add_on_id: a.id, add_on_kind: a.kind, quantity: a.quantity,
+        amount_minor: a.amount_minor === null ? null : Number(a.amount_minor), currency: a.currency,
+        created_at: a.created_at.toISOString(), reason: 'unconfirmed' } });
   }, db);
 }
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const db = vi.hoisted(() => ({ profile: null as null | { gstin: string | null; state_code: string | null; country: string }, inserted: [] as unknown[][], updates: [] as string[] }));
+const db = vi.hoisted(() => ({ profile: null as null | { gstin: string | null; state_code: string | null; country: string }, inserted: [] as unknown[][], updates: [] as string[], pending: 0 }));
 vi.mock('@/lib/db/tenant', () => ({
   withTenant: async (_ctx: unknown, fn: (tx: unknown) => unknown) => fn({
     $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
@@ -8,6 +8,7 @@ vi.mock('@/lib/db/tenant', () => ({
       if (sql.includes('FROM account_subscriptions')) return [{ provider_subscription_id: 'sub_1', current_period_end: new Date(Date.now() + 86_400_000) }];
       if (sql.includes('FROM billing_profiles')) return db.profile ? [db.profile] : [];
       if (sql.includes('INSERT INTO add_ons')) { db.inserted.push(values); return [{ id: 'addon-1' }]; }
+      if (sql.includes("status='pending'")) return [{ n: db.pending }];
       return [];
     },
     $executeRaw: async (strings: TemplateStringsArray) => { db.updates.push(strings.join('?')); return 1; },
@@ -75,7 +76,7 @@ describe('purchaseAddon GST', () => {
   };
   afterEach(() => {
     vi.unstubAllEnvs();
-    Object.assign(db, { profile: null, inserted: [], updates: [] });
+    Object.assign(db, { profile: null, inserted: [], updates: [], pending: 0 });
   });
 
   it.each([
@@ -88,9 +89,20 @@ describe('purchaseAddon GST', () => {
     db.profile = profile;
     const { createAddon, p } = provider();
     await expect(purchaseAddon(p, { accountId: ACCOUNT, userId: USER, pack, packs: 3 }, {} as never)).resolves.toEqual({ id: 'addon-1', status: 'active' });
-    expect(createAddon).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: unit, quantity: 3, currency: 'INR' }));
+    // The provider call carries the add-on row's id, so a lost answer can be matched later (audit finding 53).
+    expect(createAddon).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: unit, quantity: 3, currency: 'INR', reference: 'addon-1' }));
     // The recorded amount is what the provider charges, GST included (the invoice splits it back out).
     expect(db.inserted[0]).toContain(unit * 3);
+  });
+
+  it('refuses a second purchase of the same kind while one is still pending, before charging anything (audit finding 53)', async () => {
+    vi.stubEnv('BILLING_SELLER_STATE_CODE', '29');
+    db.pending = 1;
+    const { createAddon, p } = provider();
+    await expect(purchaseAddon(p, { accountId: ACCOUNT, userId: USER, pack, packs: 1 }, {} as never)).rejects.toMatchObject({ code: 'purchase_pending', status: 409 });
+    expect(createAddon).not.toHaveBeenCalled();
+    expect(db.inserted).toEqual([]);
+    expect(db.updates.some((sql) => sql.includes('pg_advisory_xact_lock'))).toBe(true);
   });
 
   it('refuses a pack for a limit the plan leaves unlimited, before charging anything', async () => {

@@ -5,6 +5,7 @@ import { billingConfigured, getBillingProvider, RazorpayBilling } from './razorp
 
 const config = { keyId: 'rzp_test_platform1', keySecret: 'platform-secret', webhookSecret: 'hook-secret' };
 const sub = { id: 'sub_ABC', plan_id: 'plan_P1', customer_id: 'cust_C1', status: 'active', current_start: 1_790_000_000, current_end: 1_792_600_000, notes: { intent_id: 'i1', account_id: 'a' } };
+const REF = '3f2c1b4a-9d8e-4c7b-a6f5-0e1d2c3b4a59';
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 function provider(...responses: (Response | Error)[]) {
@@ -59,7 +60,9 @@ describe('RazorpayBilling calls', () => {
     expect((await rp.fetchSubscription('../customers')).outcome).toBe('rejected');
     expect((await rp.createSubscription({ planId: 'plan_P1', customerId: 'cust_C1', notes: {} })).outcome).toBe('rejected');
     expect((await rp.changePlan({ id: 'sub_ABC', newPlanId: 'bad', at: 'now' })).outcome).toBe('rejected');
-    expect((await rp.createAddon({ subscriptionId: 'sub_ABC', name: 'Seats', amountMinor: 0, currency: 'INR', quantity: 1 })).outcome).toBe('rejected');
+    expect((await rp.createAddon({ subscriptionId: 'sub_ABC', name: 'Seats', amountMinor: 0, currency: 'INR', quantity: 1, reference: REF })).outcome).toBe('rejected');
+    expect((await rp.createAddon({ subscriptionId: 'sub_ABC', name: 'Seats', amountMinor: 100, currency: 'INR', quantity: 1, reference: 'free text' })).outcome).toBe('rejected');
+    expect((await rp.findAddon({ reference: '../x', createdAfter: new Date() })).outcome).toBe('rejected');
     expect((await rp.createCustomer({ name: 'A', email: 'not-an-email' })).outcome).toBe('rejected');
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -68,7 +71,7 @@ describe('RazorpayBilling calls', () => {
     const { rp, fetchMock } = provider(json(200, sub), json(200, { ...sub, has_scheduled_changes: true }), json(200, { id: 'ao_1' }), json(200, { id: 'cust_C1' }));
     await rp.cancelSubscription({ id: 'sub_ABC', atPeriodEnd: true });
     expect(await rp.changePlan({ id: 'sub_ABC', newPlanId: 'plan_P2', at: 'period_end' })).toMatchObject({ value: { hasScheduledChanges: true } });
-    expect(await rp.createAddon({ subscriptionId: 'sub_ABC', name: 'Seats', amountMinor: 50_000, currency: 'INR', quantity: 2 })).toEqual({ outcome: 'ok', value: { id: 'ao_1' } });
+    expect(await rp.createAddon({ subscriptionId: 'sub_ABC', name: 'Seats', amountMinor: 50_000, currency: 'INR', quantity: 2, reference: REF })).toEqual({ outcome: 'ok', value: { id: 'ao_1' } });
     expect(await rp.createCustomer({ name: 'Acme', email: 'billing@acme.example', gstin: '27AAPFU0939F1ZV' })).toEqual({ outcome: 'ok', value: { id: 'cust_C1' } });
     const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
     expect(calls.map(([u, i]) => `${i.method} ${u.replace('https://api.razorpay.com/v1', '')}`)).toEqual([
@@ -76,7 +79,7 @@ describe('RazorpayBilling calls', () => {
     ]);
     expect(JSON.parse(calls[0][1].body as string)).toEqual({ cancel_at_cycle_end: 1 });
     expect(JSON.parse(calls[1][1].body as string)).toMatchObject({ plan_id: 'plan_P2', schedule_change_at: 'cycle_end' });
-    expect(JSON.parse(calls[2][1].body as string)).toEqual({ item: { name: 'Seats', amount: 50_000, currency: 'INR' }, quantity: 2 });
+    expect(JSON.parse(calls[2][1].body as string)).toEqual({ item: { name: 'Seats', amount: 50_000, currency: 'INR', description: `bodhinox_addon:${REF}` }, quantity: 2 });
     expect(JSON.parse(calls[3][1].body as string)).toMatchObject({ fail_existing: '0', gstin: '27AAPFU0939F1ZV' });
   });
 
@@ -87,6 +90,23 @@ describe('RazorpayBilling calls', () => {
     expect((fetchMock.mock.calls[1] as unknown as [string])[0]).toContain('skip=100');
     const none = provider(json(200, { items: [] }));
     expect(await none.rp.findSubscription({ planId: 'plan_P1', intentId: 'i1', createdAfter: new Date() })).toEqual({ outcome: 'ok', value: null });
+  });
+
+  it('finds an add-on by the reference in its item description, paging, and stays unknown past the search window (audit finding 53)', async () => {
+    const addon = (id: string, description: string | null) => ({ id, entity: 'addon', item: { name: 'Seats', amount: 100, currency: 'INR', description }, quantity: 1 });
+    const page = Array.from({ length: 100 }, (_, i) => addon(`ao_X${i}`, i % 2 ? null : `bodhinox_addon:other${i}`));
+    const { rp, fetchMock } = provider(json(200, { items: page }), json(200, { items: [addon('ao_MINE', `bodhinox_addon:${REF}`)] }));
+    const after = new Date('2026-11-10T10:00:00Z');
+    expect(await rp.findAddon({ reference: REF, createdAfter: after })).toEqual({ outcome: 'ok', value: { id: 'ao_MINE' } });
+    const urls = (fetchMock.mock.calls as unknown as [string][]).map(([u]) => u.replace('https://api.razorpay.com/v1', ''));
+    expect(urls).toEqual([`/addons?from=${after.getTime() / 1000 - 300}&count=100&skip=0`, `/addons?from=${after.getTime() / 1000 - 300}&count=100&skip=100`]);
+    // A short page without it: Razorpay has no such add-on.
+    expect(await provider(json(200, { items: [addon('ao_1', null)] })).rp.findAddon({ reference: REF, createdAfter: after })).toEqual({ outcome: 'ok', value: null });
+    // Five full pages without it: too many to be sure, so the outcome stays unknown (never "absent", which would fail the row).
+    const full = Array.from({ length: 5 }, () => json(200, { items: page }));
+    expect(await provider(...full).rp.findAddon({ reference: REF, createdAfter: after })).toEqual({ outcome: 'unknown' });
+    // A provider error is unknown too.
+    expect(await provider(json(500, {})).rp.findAddon({ reference: REF, createdAfter: after })).toEqual({ outcome: 'unknown' });
   });
 });
 

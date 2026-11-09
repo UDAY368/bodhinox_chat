@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadSegmentFilter } from '@/lib/audience/segments';
 import { disconnectDatabases, getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
-import { addonPacks, cancelAddon, listAddons, purchaseAddon } from './addons';
+import { addonPacks, cancelAddon, listAddons, purchaseAddon, reconcilePendingAddons } from './addons';
 import { downgradeOverview, enforcePlanLimits, saveDowngradeSelection } from './downgrade';
 import { getEntitlements, PlanLimitError } from './entitlements';
 import { recordAiMessage, requireAiMessageRoom, requireStorageRoom } from './limits';
@@ -34,18 +34,26 @@ const list = [randomUUID(), randomUUID()];
 const flow = [randomUUID(), randomUUID(), randomUUID()];
 const auto = [randomUUID(), randomUUID()];
 
-function fakeProvider(outcome: 'ok' | 'rejected' | 'unknown'): BillingProvider & { calls: number } {
+function fakeProvider(outcome: 'ok' | 'rejected' | 'unknown', found: ProviderResult<{ id: string } | null> = { outcome: 'unknown' }):
+  BillingProvider & { calls: number; references: string[]; finds: string[] } {
   const p = {
     name: 'razorpay' as const,
     calls: 0,
-    async createAddon(): Promise<ProviderResult<{ id: string }>> {
+    references: [] as string[],
+    finds: [] as string[],
+    async findAddon(args: { reference: string }): Promise<ProviderResult<{ id: string } | null>> {
+      p.finds.push(args.reference);
+      return found;
+    },
+    async createAddon(args: { reference: string }): Promise<ProviderResult<{ id: string }>> {
       p.calls += 1;
+      p.references.push(args.reference);
       if (outcome === 'ok') return { outcome: 'ok', value: { id: `ao_${randomUUID().slice(0, 12)}` } };
       if (outcome === 'rejected') return { outcome: 'rejected', reason: 'invalid_request', httpStatus: 400 };
       return { outcome: 'unknown' };
     },
   };
-  return p as unknown as BillingProvider & { calls: number };
+  return p as unknown as BillingProvider & { calls: number; references: string[]; finds: string[] };
 }
 
 const setPlan = (planId: string, extra = '') =>
@@ -219,7 +227,6 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('usage limits, add-ons and d
 
     it('grants an add-on only after the provider confirmed it', async () => {
       const before = (await withTenant(agent, (tx) => getEntitlements(tx, accountA))).limits.ai_messages;
-      expect(await purchaseAddon(fakeProvider('unknown'), { accountId: accountA, userId: adminA, pack, packs: 2 })).toMatchObject({ status: 'pending' });
       expect(await purchaseAddon(fakeProvider('rejected'), { accountId: accountA, userId: adminA, pack, packs: 1 })).toMatchObject({ status: 'failed' });
       expect((await withTenant(agent, (tx) => getEntitlements(tx, accountA))).limits.ai_messages).toBe(before);
       // No billing profile: the place of supply is the seller's state, so 2 x (9900 + 9% CGST + 9% SGST) is charged and recorded.
@@ -227,6 +234,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('usage limits, add-ons and d
       expect(ok.status).toBe('active');
       expect((await withTenant(agent, (tx) => getEntitlements(tx, accountA))).limits.ai_messages).toBe((before ?? 0) + 100);
       await expect(requireAiMessageRoom(accountA)).resolves.toBeUndefined();
+      // An unclear answer stays pending and grants nothing; the provider was given the row's own id (audit finding 53).
+      const unclear = fakeProvider('unknown');
+      const pending = await purchaseAddon(unclear, { accountId: accountA, userId: adminA, pack, packs: 2 });
+      expect(pending).toMatchObject({ status: 'pending' });
+      expect(unclear.references).toEqual([pending.id]);
+      expect((await owner.query('SELECT provider_marker FROM add_ons WHERE id=$1', [pending.id])).rows[0]).toEqual({ provider_marker: true });
+      expect((await withTenant(agent, (tx) => getEntitlements(tx, accountA))).limits.ai_messages).toBe((before ?? 0) + 100);
+      // While it is pending, the same pack cannot be bought again (a retry could be charged twice for one grant).
+      const retry = fakeProvider('ok');
+      await expect(purchaseAddon(retry, { accountId: accountA, userId: adminA, pack, packs: 2 })).rejects.toMatchObject({ code: 'purchase_pending', status: 409 });
+      expect(retry.calls).toBe(0);
 
       const listed = await withTenant(admin, (tx) => listAddons(tx, accountA));
       expect(listed.map((a) => a.status).sort()).toEqual(['active', 'failed', 'pending']);
@@ -241,6 +259,52 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('usage limits, add-ons and d
       await cancelAddon(accountA, adminA, ok.id);
       expect((await withTenant(agent, (tx) => getEntitlements(tx, accountA))).limits.ai_messages).toBe(before);
       await expect(cancelAddon(accountB, ownerB, ok.id)).rejects.toMatchObject({ code: 'not_cancellable' });
+    });
+
+    it('reconciles a pending add-on only from the provider\'s own add-on, fails one the provider never made, and hands the rest to an operator (audit finding 53)', async () => {
+      const status = async (id: string) => (await owner.query('SELECT status, provider_addon_id FROM add_ons WHERE id=$1', [id])).rows[0];
+      const limit = async () => (await withTenant(agent, (tx) => getEntitlements(tx, accountA))).limits.ai_messages;
+      const soon = new Date(Date.now() + 3 * 60_000);
+      const [{ id: pending }] = (await owner.query("SELECT id::text FROM add_ons WHERE account_id=$1 AND status='pending'", [accountA])).rows;
+      const before = await limit();
+
+      // Too early (the purchase may still be answering): the provider is not asked.
+      const early = fakeProvider('ok', { outcome: 'ok', value: { id: 'ao_found1' } });
+      await reconcilePendingAddons(accountA, early, new Date());
+      expect(early.finds).toEqual([]);
+      // The provider's answer is unclear: nothing changes.
+      await reconcilePendingAddons(accountA, fakeProvider('ok'), soon);
+      expect(await status(pending)).toEqual({ status: 'pending', provider_addon_id: null });
+      // The provider has the add-on carrying our id: granted, with its id recorded.
+      const found = fakeProvider('ok', { outcome: 'ok', value: { id: 'ao_found1' } });
+      await reconcilePendingAddons(accountA, found, soon);
+      expect(found.finds).toEqual([pending]);
+      expect(await status(pending)).toEqual({ status: 'active', provider_addon_id: 'ao_found1' });
+      expect(await limit()).toBe((before ?? 0) + 100);
+      await cancelAddon(accountA, adminA, pending);
+
+      // The provider has none: still pending within the hour, failed after it, never granted.
+      const absent = (await purchaseAddon(fakeProvider('unknown'), { accountId: accountA, userId: adminA, pack, packs: 1 })).id;
+      const none = fakeProvider('ok', { outcome: 'ok', value: null });
+      await reconcilePendingAddons(accountA, none, soon);
+      expect((await status(absent)).status).toBe('pending');
+      await reconcilePendingAddons(accountA, none, new Date(Date.now() + 2 * 3_600_000));
+      expect(await status(absent)).toEqual({ status: 'failed', provider_addon_id: null });
+      expect(await limit()).toBe(before);
+
+      // Still unclear a day later: one operator item, however often the sweep runs.
+      const stuck = (await purchaseAddon(fakeProvider('unknown'), { accountId: accountA, userId: adminA, pack, packs: 1 })).id;
+      await owner.query("UPDATE add_ons SET created_at=now() - interval '2 days' WHERE id=$1", [stuck]);
+      await reconcilePendingAddons(accountA, fakeProvider('ok'), new Date());
+      await reconcilePendingAddons(accountA, fakeProvider('ok'), new Date());
+      const items = (await owner.query("SELECT account_id::text, kind, detail->>'reason' AS reason FROM billing_reconciliation_items WHERE source_ref=$1", [`addon:${stuck}`])).rows;
+      expect(items).toEqual([{ account_id: accountA, kind: 'intent_unknown', reason: 'unconfirmed' }]);
+      expect((await status(stuck)).status).toBe('pending');
+      // The definer the sweep scheduler uses lists this workspace while a marked add-on is pending.
+      const listed = (await owner.query('SELECT account_id::text FROM crm_accounts_with_pending_addons()')).rows.map((r) => r.account_id);
+      expect(listed).toContain(accountA);
+      await owner.query("UPDATE add_ons SET status='failed' WHERE id=$1", [stuck]);
+      await owner.query('DELETE FROM billing_reconciliation_items WHERE source_ref=$1', [`addon:${stuck}`]);
     });
   });
 });

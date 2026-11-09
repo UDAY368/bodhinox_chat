@@ -30,6 +30,10 @@ const PLAN_ID = /^plan_[A-Za-z0-9]{1,40}$/;
 const CUSTOMER_ID = /^cust_[A-Za-z0-9]{1,40}$/;
 /** How far back findSubscription pages (100 per page) before giving up. */
 const FIND_MAX_PAGES = 5;
+/** An add-on's reference is our add_ons id. */
+const ADDON_REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** The marker written to a Razorpay add-on's item description (ids only, never customer content). */
+export const addonMarker = (reference: string) => `bodhinox_addon:${reference}`;
 
 export interface RazorpayBillingConfig {
   keyId: string;
@@ -209,17 +213,39 @@ export class RazorpayBilling implements BillingProvider {
     })));
   }
 
-  createAddon(args: { subscriptionId: string; name: string; amountMinor: number; currency: string; quantity: number }): Promise<ProviderResult<BillingAddon>> {
+  createAddon(args: { subscriptionId: string; name: string; amountMinor: number; currency: string; quantity: number; reference: string }): Promise<ProviderResult<BillingAddon>> {
     if (!SUB_ID.test(args.subscriptionId) || !args.name.trim() || args.name.length > 100 || !Number.isSafeInteger(args.amountMinor) || args.amountMinor <= 0
-      || !/^[A-Z]{3}$/.test(args.currency) || !Number.isInteger(args.quantity) || args.quantity < 1 || args.quantity > 100_000)
+      || !/^[A-Z]{3}$/.test(args.currency) || !Number.isInteger(args.quantity) || args.quantity < 1 || args.quantity > 100_000 || !ADDON_REF.test(args.reference))
       return Promise.resolve(this.invalid());
     return this.run(async () => {
       const raw = await this.call(`/subscriptions/${args.subscriptionId}/addons`, {
         method: 'POST',
-        body: { item: { name: args.name.trim(), amount: args.amountMinor, currency: args.currency }, quantity: args.quantity },
+        // Razorpay add-ons carry no notes: our add-on id goes in the item description so findAddon can match it later.
+        body: { item: { name: args.name.trim(), amount: args.amountMinor, currency: args.currency, description: addonMarker(args.reference) }, quantity: args.quantity },
       });
       if (typeof raw.id !== 'string') throw new Unknown();
       return { id: raw.id };
+    });
+  }
+
+  findAddon(args: { reference: string; createdAfter: Date }): Promise<ProviderResult<BillingAddon | null>> {
+    if (!ADDON_REF.test(args.reference) || Number.isNaN(args.createdAfter.getTime())) return Promise.resolve(this.invalid());
+    const marker = addonMarker(args.reference);
+    // Small clock-skew allowance before the add-on row was written.
+    const from = Math.floor(args.createdAfter.getTime() / 1000) - 300;
+    return this.run(async () => {
+      for (let page = 0; page < FIND_MAX_PAGES; page++) {
+        const raw = await this.call(`/addons?from=${from}&count=100&skip=${page * 100}`);
+        const items = Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : [];
+        const match = items.find((item) => (item?.item as Record<string, unknown> | undefined)?.description === marker);
+        if (match) {
+          if (typeof match.id !== 'string') throw new Unknown();
+          return { id: match.id };
+        }
+        if (items.length < 100) return null;
+      }
+      // Too many to search: the outcome stays unknown rather than "not created".
+      throw new Unknown();
     });
   }
 

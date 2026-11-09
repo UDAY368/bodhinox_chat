@@ -72,6 +72,7 @@ class FakeRazorpay implements BillingProvider {
   async cancelSubscription(args: { id: string }) { return { outcome: 'ok' as const, value: this.set(args.id, 'cancelled') }; }
   async changePlan() { return { outcome: 'unknown' as const }; }
   async createAddon() { return { outcome: 'unknown' as const }; }
+  async findAddon() { return { outcome: 'unknown' as const }; }
   async fetchSubscription(id: string) {
     const sub = this.subs.get(id);
     return sub ? { outcome: 'ok' as const, value: sub } : { outcome: 'rejected' as const, reason: 'not_found' as const, httpStatus: 404 };
