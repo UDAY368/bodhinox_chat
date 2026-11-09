@@ -126,6 +126,7 @@ export function ConversationCharts({
   const timing = stats
     ? [
         { name: t('firstResponse'), median: stats.firstResponse.medianSeconds, p90: stats.firstResponse.p90Seconds, n: stats.firstResponse.count },
+        { name: t('humanFirstResponse'), median: stats.humanFirstResponse.medianSeconds, p90: stats.humanFirstResponse.p90Seconds, n: stats.humanFirstResponse.count },
         { name: t('resolutionTime'), median: stats.resolution.medianSeconds, p90: stats.resolution.p90Seconds, n: stats.resolution.count },
       ]
     : [];

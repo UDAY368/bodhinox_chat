@@ -24,10 +24,11 @@ export interface AdRow {
   name: string | null;
   status: string | null;
   currency: string | null;
-  spend: number;
-  impressions: number;
-  clicks: number;
-  conversationsStarted: number;
+  /** Null when Meta has no stored row for the range (unknown, shown as "-"). */
+  spend: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  conversationsStarted: number | null;
   conversationsInBodhinox: number;
   purchases: number;
 }
@@ -35,7 +36,13 @@ export interface AdRow {
 type Level = 'campaign' | 'ad';
 
 const DAY_MS = 86_400_000;
-const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+/** The local calendar day of an instant (the range is read on the workspace's days). */
+const isoDay = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+/** A Meta figure, or "-" when no insight row is stored for the range. */
+export const formatCount = (value: number | null) => (value == null ? '-' : value.toLocaleString());
 
 /** Amount in the ad account currency when known, else a plain number. */
 export function formatSpend(value: number, currency: string | null): string {
@@ -167,10 +174,10 @@ export function AdsTable({ canManage, canSegment }: AdsTableProps) {
                     <div className="text-xs text-muted-foreground">{row.id}</div>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{row.status ?? '-'}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatSpend(row.spend, row.currency)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.impressions.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.clicks.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.conversationsStarted.toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{row.spend == null ? formatCount(null) : formatSpend(row.spend, row.currency)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatCount(row.impressions)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatCount(row.clicks)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatCount(row.conversationsStarted)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{row.conversationsInBodhinox.toLocaleString()}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{row.purchases.toLocaleString()}</td>
                   {level === 'ad' && canSegment && (

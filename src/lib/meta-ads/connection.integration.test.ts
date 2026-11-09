@@ -144,4 +144,20 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Meta ad connection on Postg
     expect(jobs).toBe(1);
     expect(await queueInsightsSync(asA)).toBe(false);
   });
+
+  it('counts ad chats on the workspace timezone days and lists ads that have chats but no spend row', async () => {
+    await owner.query("INSERT INTO workspace_inbox_settings(account_id,timezone) VALUES($1,'Asia/Kolkata')", [accountA]);
+    const contact = (await owner.query("INSERT INTO contacts(account_id,user_id,name,phone) VALUES($1,$2,'Night lead',$3) RETURNING id", [accountA, adminA, `+9197${seed}`])).rows[0].id;
+    // 20:00 UTC on 10 Jan is 01:30 on 11 Jan in India.
+    await owner.query(`INSERT INTO ad_referrals(account_id,contact_id,wa_message_id,source_id,source_type,ctwa_clid,created_at)
+      VALUES($1,$2,$3,$4,'ad','clid-night','2026-01-10T20:00:00Z')`, [accountA, contact, `wamid.night.${seed}`, `85${seed}`]);
+
+    const day11 = await listAdsWithInsights(viewer, { level: 'ad', from: '2026-01-11', to: '2026-01-11' });
+    expect(day11.rows).toEqual([expect.objectContaining({
+      id: `85${seed}`, spend: null, impressions: null, clicks: null, conversationsStarted: null, conversationsInBodhinox: 1,
+    })]);
+    expect((await listAdsWithInsights(viewer, { level: 'ad', from: '2026-01-10', to: '2026-01-10' })).rows).toEqual([]);
+    // Workspace B never sees workspace A's chats.
+    expect((await listAdsWithInsights(asB, { level: 'ad', from: '2026-01-11', to: '2026-01-11' })).rows).toEqual([]);
+  });
 });

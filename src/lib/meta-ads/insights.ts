@@ -13,6 +13,7 @@
 import { Prisma } from '@prisma/client';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
+import { workspaceTimezone } from '@/lib/analytics/range';
 import { metaAdsConfig, missingScopes } from './config';
 import { loadActiveConnectionTx, type MetaAdsActor } from './connection';
 import { getInsights, isMetaTokenInvalid, listCampaigns, metaErrorCode, type MetaInsightRow } from './graph';
@@ -113,10 +114,11 @@ export interface AdInsightSummary {
   status: string | null;
   objective: string | null;
   currency: string | null;
-  spend: number;
-  impressions: number;
-  clicks: number;
-  conversationsStarted: number;
+  /** Meta's figures; null when no insight row is stored for the range (unknown, not zero). */
+  spend: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  conversationsStarted: number | null;
   /** Conversations Bodhinox saw start from this ad (or this campaign's ads). */
   conversationsInBodhinox: number;
   /** Purchase conversion events attributed to clicks on this ad (or campaign). */
@@ -150,20 +152,29 @@ export function parseAdsQuery(params: URLSearchParams, now: number = Date.now())
 
 interface SummaryRow {
   id: string; campaign_id: string | null; name: string | null; status: string | null; objective: string | null;
-  currency: string | null; spend: Prisma.Decimal | number | string; impressions: bigint | number; clicks: bigint | number;
-  conversations_started: bigint | number; conversations_in_bodhinox: bigint | number; purchases: bigint | number;
+  currency: string | null; spend: Prisma.Decimal | number | string | null; impressions: bigint | number | null; clicks: bigint | number | null;
+  conversations_started: bigint | number | null; conversations_in_bodhinox: bigint | number; purchases: bigint | number;
 }
+
+const orNull = (value: Prisma.Decimal | bigint | number | string | null) => (value == null ? null : Number(value));
 
 /**
  * Stored insights for the range with Bodhinox's own counts. Ad-level rows join
  * referrals by ad id; campaign-level rows by the campaign of each ad (from the
- * stored ad-level rows). App-role read; no Meta call.
+ * stored ad-level rows). Referrals and purchases are counted on the workspace
+ * timezone's days, the closest stand-in for the ad account's reporting days.
+ * An ad (or campaign) with chats or purchases but no stored insight row in the
+ * range is still listed, with Meta's figures null (unknown). App-role read; no
+ * Meta call.
  */
 export async function listAdsWithInsights(actor: MetaAdsActor, query: AdsQuery): Promise<AdsWithInsights> {
   const { accountId } = actor;
   return withTenant({ accountId, userId: actor.userId, role: actor.role }, async (tx) => {
     const from = query.from;
     const to = query.to;
+    const tz = await workspaceTimezone(tx, accountId);
+    const start = Prisma.sql`(${from}::date::timestamp AT TIME ZONE ${tz})`;
+    const end = Prisma.sql`((${to}::date + 1)::timestamp AT TIME ZONE ${tz})`;
     const key = query.level === 'ad' ? Prisma.sql`r.source_id` : Prisma.sql`m.campaign_id`;
     const adMap = query.level === 'ad' ? Prisma.empty : Prisma.sql`
       JOIN (SELECT DISTINCT object_id, campaign_id FROM meta_ad_insights
@@ -180,20 +191,30 @@ export async function listAdsWithInsights(actor: MetaAdsActor, query: AdsQuery):
       ), refs AS (
         SELECT ${key} AS id, count(DISTINCT coalesce(r.conversation_id::text, r.id::text)) AS n
         FROM ad_referrals r ${adMap}
-        WHERE r.account_id=${accountId}::uuid AND r.source_type='ad'
-          AND r.created_at >= ${from}::date AND r.created_at < ${to}::date + 1
+        WHERE r.account_id=${accountId}::uuid AND r.source_type='ad' AND r.source_id IS NOT NULL
+          AND r.created_at >= ${start} AND r.created_at < ${end}
         GROUP BY 1
       ), buys AS (
         SELECT ${key} AS id, count(*) AS n
         FROM capi_events e JOIN ad_referrals r ON r.account_id = e.account_id AND r.id = e.ad_referral_id ${adMap}
         WHERE e.account_id=${accountId}::uuid AND e.event_name='Purchase' AND e.status IN ('queued','sent','unknown')
-          AND e.event_time >= ${from}::date AND e.event_time < ${to}::date + 1
+          AND r.source_id IS NOT NULL AND e.event_time >= ${start} AND e.event_time < ${end}
         GROUP BY 1
+      ), ids AS (
+        SELECT id FROM i UNION SELECT id FROM refs UNION SELECT id FROM buys
       )
-      SELECT i.id, i.campaign_id, i.name, i.status, i.objective, i.currency, i.spend, i.impressions, i.clicks,
-        i.conversations_started, coalesce(refs.n, 0) AS conversations_in_bodhinox, coalesce(buys.n, 0) AS purchases
-      FROM i LEFT JOIN refs ON refs.id = i.id LEFT JOIN buys ON buys.id = i.id
-      ORDER BY i.spend DESC, i.id
+      SELECT ids.id, coalesce(i.campaign_id, latest.campaign_id) AS campaign_id, coalesce(i.name, latest.name) AS name,
+        coalesce(i.status, latest.status) AS status, coalesce(i.objective, latest.objective) AS objective,
+        coalesce(i.currency, latest.currency) AS currency, i.spend, i.impressions, i.clicks, i.conversations_started,
+        coalesce(refs.n, 0) AS conversations_in_bodhinox, coalesce(buys.n, 0) AS purchases
+      FROM ids LEFT JOIN i ON i.id = ids.id LEFT JOIN refs ON refs.id = ids.id LEFT JOIN buys ON buys.id = ids.id
+      LEFT JOIN LATERAL (
+        SELECT x.campaign_id, x.name, x.status, x.objective, x.currency FROM meta_ad_insights x
+        WHERE x.account_id=${accountId}::uuid AND x.level=${query.level} AND x.object_id = ids.id
+        ORDER BY x.day DESC LIMIT 1
+      ) latest ON i.id IS NULL
+      WHERE ids.id IS NOT NULL
+      ORDER BY i.spend DESC NULLS LAST, coalesce(refs.n, 0) DESC, ids.id
       LIMIT ${MAX_ROWS}`;
     const synced = await tx.$queryRaw<{ insights_synced_at: Date | null }[]>`SELECT insights_synced_at FROM meta_ad_connections
       WHERE account_id=${accountId}::uuid AND status<>'disconnected' LIMIT 1`;
@@ -205,10 +226,10 @@ export async function listAdsWithInsights(actor: MetaAdsActor, query: AdsQuery):
         status: r.status,
         objective: r.objective,
         currency: r.currency,
-        spend: Number(r.spend),
-        impressions: Number(r.impressions),
-        clicks: Number(r.clicks),
-        conversationsStarted: Number(r.conversations_started),
+        spend: orNull(r.spend),
+        impressions: orNull(r.impressions),
+        clicks: orNull(r.clicks),
+        conversationsStarted: orNull(r.conversations_started),
         conversationsInBodhinox: Number(r.conversations_in_bodhinox),
         purchases: Number(r.purchases),
       })),

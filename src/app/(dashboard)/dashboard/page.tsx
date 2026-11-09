@@ -15,11 +15,10 @@ import {
 } from 'lucide-react';
 
 import {
+  fetchDashboardCharts,
   loadActivity,
-  loadConversationsSeries,
   loadMetrics,
   loadPipelineDonut,
-  loadResponseTime,
 } from '@/lib/dashboard/queries';
 import type {
   ActivityItem,
@@ -81,25 +80,30 @@ export default function DashboardPage() {
     // Kick everything off in parallel. Each block has its own
     // setState + finally so a slow query doesn't hold up faster
     // sections — each widget shows its own skeleton independently.
-    void loadMetrics(db)
+    // One SQL-aggregated request feeds the series, response time,
+    // open deal totals and the pipeline donut.
+    const charts = fetchDashboardCharts(30);
+
+    void loadMetrics(db, charts)
       .then((m) => setMetrics(m))
       .catch((err) => console.error('[dashboard] metrics failed:', err))
       .finally(() => setMetricsLoading(false));
 
-    void loadConversationsSeries(db, 30)
-      .then((s) => setSeries((prev) => ({ ...prev, 30: s })))
-      .catch((err) => console.error('[dashboard] series failed:', err))
-      .finally(() => setSeriesLoading(false));
+    void charts
+      .then((c) => {
+        setSeries((prev) => ({ ...prev, 30: c.series }));
+        setResponseTime(c.responseTime);
+      })
+      .catch((err) => console.error('[dashboard] charts failed:', err))
+      .finally(() => {
+        setSeriesLoading(false);
+        setResponseTimeLoading(false);
+      });
 
-    void loadPipelineDonut(db)
+    void loadPipelineDonut(db, charts)
       .then((p) => setPipeline(p))
       .catch((err) => console.error('[dashboard] pipeline failed:', err))
       .finally(() => setPipelineLoading(false));
-
-    void loadResponseTime(db)
-      .then((r) => setResponseTime(r))
-      .catch((err) => console.error('[dashboard] response time failed:', err))
-      .finally(() => setResponseTimeLoading(false));
 
     // Fetch up to 50 so the biggest page-size option in the feed
     // (50 rows) is already in memory — switching sizes then becomes
@@ -123,9 +127,8 @@ export default function DashboardPage() {
       setRange(r);
       if (series[r] !== null) return;
       setSeriesLoading(true);
-      const db = createClient();
-      loadConversationsSeries(db, r)
-        .then((s) => setSeries((prev) => ({ ...prev, [r]: s })))
+      fetchDashboardCharts(r)
+        .then((c) => setSeries((prev) => ({ ...prev, [r]: c.series })))
         .catch((err) => console.error('[dashboard] series failed:', err))
         .finally(() => setSeriesLoading(false));
     },
