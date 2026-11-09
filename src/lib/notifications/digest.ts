@@ -17,6 +17,7 @@
  * not configured. Addresses, titles and provider errors are never logged.
  */
 import { authEmailTransport } from '@/lib/auth/email';
+import { getT } from '@/lib/i18n/translate';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { maskPhonesInText } from '@/lib/inbox/masking';
@@ -88,6 +89,7 @@ export function buildDigestEmails(entries: DigestEntry[], options: { origin: str
     byUser.set(entry.user_id, list);
   }
   const emails: DigestEmail[] = [];
+  const t = getT('AuthEmails.digest');
   for (const [userId, list] of byUser) {
     const to = list[0].address?.trim() ?? '';
     if (!ADDRESS.test(to)) continue;
@@ -103,15 +105,15 @@ export function buildDigestEmails(entries: DigestEntry[], options: { origin: str
       userId,
       to,
       entryIds: list.map((entry) => entry.id),
-      subject: total === 1 ? '1 new notification in Bodhinox' : `${total} new notifications in Bodhinox`,
+      subject: t('subject', { count: total }),
       text: [
-        total === 1 ? 'You have a new notification:' : `You have ${total} new notifications:`,
+        t('intro', { count: total }),
         '',
         ...lines,
-        ...(more > 0 ? ['', `...and ${more} earlier ${more === 1 ? 'notification' : 'notifications'}.`] : []),
+        ...(more > 0 ? ['', t('more', { count: more })] : []),
         '',
-        `See them all: ${new URL('/notifications', origin).toString()}`,
-        'You get this email because email digests are on in your notification preferences.',
+        t('seeAll', { link: new URL('/notifications', origin).toString() }),
+        t('footer'),
       ].join('\n'),
     });
   }

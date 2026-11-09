@@ -684,7 +684,9 @@ export function ContactDetailView({
                             {note.note_text}
                           </p>
                           <button
+                            type="button"
                             onClick={() => deleteNote(note.id)}
+                            aria-label={t('deleteNote')}
                             className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
                           >
                             <Trash2 className="size-3.5" />

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import { AuthError, UnauthorizedError } from './errors';
 import { checkAuthEmailTransport, sendAuthEmail } from './email';
+import { deliveryTestEmail } from './email-content';
 import {
   appOrigin,
   assertCsrf,
@@ -366,8 +367,7 @@ export async function handleAuthPost(
       await sendAuthEmail({
         from: process.env.AUTH_EMAIL_FROM,
         to: context.user.email,
-        subject: 'Bodhinox Chat email verification delivery test',
-        text: 'Delivery test for account verification emails. No action is required. Your password and team memberships have not changed.',
+        ...deliveryTestEmail(),
       });
       return json({ ok: true });
     }
