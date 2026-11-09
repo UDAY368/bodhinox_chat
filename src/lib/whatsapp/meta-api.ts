@@ -1534,6 +1534,64 @@ export async function getFlow(args: GetFlowArgs): Promise<MetaFlowInfo> {
   }
 }
 
+/** One entity of a flow's health_status: the flow, its WhatsApp Business Account, a phone number or the app. */
+export interface MetaFlowHealthEntity {
+  entityType: string
+  id: string | null
+  canSendMessage: string
+  errors: Array<{ code: number | null; description: string | null; solution: string | null }>
+}
+
+export interface MetaFlowHealth {
+  status: string
+  /** The WhatsApp Business Account that owns the flow, when Meta returns it. */
+  wabaId: string | null
+  /** AVAILABLE, LIMITED or BLOCKED; null when Meta returned no health status. */
+  canSendMessage: string | null
+  entities: MetaFlowHealthEntity[]
+}
+
+const metaText = (value: unknown): string | null => (typeof value === 'string' && value ? value.slice(0, 500) : null)
+
+/** Whether Meta lets a flow be sent, and why not: GET /{flow-id}?fields=status,health_status,whatsapp_business_account. */
+export async function getFlowHealth(args: GetFlowArgs): Promise<MetaFlowHealth> {
+  const data = await flowRequest(`${META_API_BASE}/${args.flowId}?fields=status,health_status,whatsapp_business_account`,
+    args.accessToken, { method: 'GET' })
+  const health = (data.health_status ?? {}) as { can_send_message?: unknown; entities?: unknown }
+  const waba = data.whatsapp_business_account as { id?: unknown } | undefined
+  const entities = Array.isArray(health.entities) ? health.entities.slice(0, 20) : []
+  return {
+    status: typeof data.status === 'string' ? data.status : 'UNKNOWN',
+    wabaId: metaText(waba?.id),
+    canSendMessage: metaText(health.can_send_message),
+    entities: entities.map((raw) => {
+      const e = (raw ?? {}) as Record<string, unknown>
+      const errors = Array.isArray(e.errors) ? e.errors.slice(0, 10) : []
+      return {
+        entityType: metaText(e.entity_type) ?? 'UNKNOWN',
+        id: metaText(e.id),
+        canSendMessage: metaText(e.can_send_message) ?? 'UNKNOWN',
+        errors: errors.map((x) => {
+          const er = (x ?? {}) as Record<string, unknown>
+          return {
+            code: typeof er.error_code === 'number' ? er.error_code : null,
+            description: metaText(er.error_description),
+            solution: metaText(er.possible_solution),
+          }
+        }),
+      }
+    }),
+  }
+}
+
+/** The phone number ids of a WhatsApp Business Account (first 100), to check a number really belongs to it. */
+export async function getWabaPhoneNumberIds(args: { wabaId: string; accessToken: string }): Promise<string[]> {
+  if (!META_NUMERIC_ID.test(args.wabaId)) throw new Error(tc('wabaIdInvalid'))
+  const data = await flowRequest(`${META_API_BASE}/${args.wabaId}/phone_numbers?fields=id&limit=100`, args.accessToken, { method: 'GET' })
+  const rows = Array.isArray(data.data) ? data.data : []
+  return rows.map((r) => (r as { id?: unknown }).id).filter((id): id is string => typeof id === 'string')
+}
+
 export interface SendFlowMessageArgs {
   phoneNumberId: string
   accessToken: string

@@ -219,6 +219,8 @@ export const KNOWN_UNMAPPED = [
   'payments/customer-payments/[id]/refund',
   'payments/refunds/[id]',
   'whatsapp/forms/[id]/duplicate',
+  // Calls Meta for the caller's own form (no positive control here); findForm answers 404 for another workspace's id.
+  'whatsapp/forms/[id]/meta-check',
   'whatsapp/forms/[id]/publish',
   'whatsapp/forms/[id]/responses/export',
   'whatsapp/media/[mediaId]',

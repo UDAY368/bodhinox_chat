@@ -32,10 +32,13 @@ import {
   deleteFlow,
   deprecateFlow,
   getFlow,
+  getFlowHealth,
+  getWabaPhoneNumberIds,
   publishFlow,
   updateFlowMetadata,
   uploadFlowJson,
   type MetaFlowCategory,
+  type MetaFlowHealthEntity,
   type MetaFlowValidationError,
 } from '@/lib/whatsapp/meta-api';
 import { emptyFormDefinition, validateFormDefinition } from './definition';
@@ -398,6 +401,54 @@ async function metaAccess(tx: TenantTransaction, ctx: TenantContext, form: FormR
 }
 
 /** Meta's own message is safe to show (it carries no token); anything else is generic. */
+export interface FormMetaCheck {
+  /** Meta's status of the form's flow (PUBLISHED, DRAFT, DEPRECATED, BLOCKED, THROTTLED ...). */
+  status: string;
+  /** AVAILABLE, LIMITED or BLOCKED (Meta's health_status), or null when Meta gave none. */
+  canSendMessage: string | null;
+  entities: MetaFlowHealthEntity[];
+  /** The account that owns the flow on Meta, and the one this form and its number are saved under. */
+  flowWabaId: string | null;
+  formWabaId: string | null;
+  /** True when the sending number is listed in the form's account; false when it is not; null when unknown. */
+  numberInWaba: boolean | null;
+}
+
+/**
+ * Admin, read-only: asks Meta whether this form can be sent from its number, and why not (the flow's
+ * health_status, and whether the number is really listed in the form's WhatsApp Business Account).
+ * Nothing is written locally or on Meta.
+ */
+export async function checkFormOnMeta(ctx: TenantContext, id: string): Promise<FormMetaCheck> {
+  assertAdmin(ctx);
+  const { form, number } = await withTenant(ctx, async (tx) => {
+    const form = await findForm(tx, ctx, id);
+    if (!form.meta_flow_id) throw new FormServiceError(409, t('forms.notPublishable'));
+    const number = form.whatsapp_config_id
+      ? await tx.whatsapp_config.findFirst({ where: { account_id: ctx.accountId, id: form.whatsapp_config_id } })
+      : null;
+    return { form, number };
+  });
+  if (!number?.access_token) throw new FormServiceError(409, t('forms.whatsappNotConnected'));
+  const accessToken = decryptToken(number.access_token);
+  try {
+    const health = await getFlowHealth({ flowId: form.meta_flow_id!, accessToken });
+    const wabaId = form.waba_id ?? number.waba_id;
+    let numberInWaba: boolean | null = null;
+    if (wabaId && number.phone_number_id) {
+      numberInWaba = await getWabaPhoneNumberIds({ wabaId, accessToken })
+        .then((ids) => ids.includes(number.phone_number_id!))
+        .catch(() => null);
+    }
+    return {
+      status: health.status, canSendMessage: health.canSendMessage, entities: health.entities,
+      flowWabaId: health.wabaId, formWabaId: wabaId ?? null, numberInWaba,
+    };
+  } catch (err) {
+    throw metaFailure(err, 'forms.metaPublishFailed');
+  }
+}
+
 function metaFailure(err: unknown, fallbackKey: string): FormServiceError {
   const message = err instanceof MetaApiError && err.message ? err.message : t(fallbackKey);
   return new FormServiceError(502, message);
