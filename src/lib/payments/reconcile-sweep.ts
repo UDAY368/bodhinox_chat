@@ -2,8 +2,11 @@
  * payments.reconcile_sweep (design §3, T4): every 10 minutes, per workspace,
  * reconcile unknown and stale creating links, links expired more than five
  * minutes ago, paid links whose payment is not yet settled (a crash between
- * the link update and settlement, or a provider outage), and unknown or stale
- * sending refunds. Never re-sends a refund and never creates a link that
+ * the link update and settlement, or a provider outage), live links older than
+ * 30 minutes whose payment_link.paid webhook may never have arrived (audit
+ * finding 54: a wrong secret, a missing event subscription or a disabled
+ * webhook; links with no expiry included), with a back-off, and unknown or
+ * stale sending refunds. Never re-sends a refund and never creates a link that
  * Razorpay may already hold (reconcile looks it up by reference first).
  */
 import { getWorkerPrisma } from '@/lib/db/prisma';
@@ -18,6 +21,10 @@ export const SWEEP_INTERVAL_MS = 10 * 60_000;
 const BATCH = 50;
 /** Refunds merely still pending at Razorpay (the webhook usually settles them): a smaller share per sweep. */
 const PENDING_BATCH = 20;
+/** Live (created / partially paid) links are first re-read this long after creation. */
+export const LIVE_LINK_MIN_AGE_MS = 30 * 60_000;
+/** A live link is re-read again after a quarter of its age, but at least this often. */
+export const LIVE_LINK_MAX_BACKOFF_MS = 6 * 60 * 60_000;
 
 let lastSchedule = Number.NEGATIVE_INFINITY;
 let missingFunctionLogged = false;
@@ -85,6 +92,22 @@ export async function runReconcileSweep(accountId: string): Promise<SweepSummary
         OR (l.status IN ('created','partially_paid') AND l.expires_at IS NOT NULL AND l.expires_at < now() - interval '5 minutes')
       )
       ORDER BY random() LIMIT ${BATCH}`;
+    // Live links the webhook should have settled if they were paid: re-read at Razorpay with a back-off (a quarter
+    // of the link's age, at most LIVE_LINK_MAX_BACKOFF_MS), so a paid link is noticed without its webhook and a link
+    // with no expiry is still looked at. The check time is stamped as the rows are taken, so a link still open at
+    // Razorpay (reconciled as unchanged) waits for its back-off instead of being re-read every sweep.
+    const liveLinks = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE payment_links SET reconcile_checked_at=now()
+      WHERE account_id=${accountId}::uuid AND id IN (
+        SELECT l.id FROM payment_links l
+        WHERE l.account_id=${accountId}::uuid AND l.status IN ('created','partially_paid')
+          AND l.created_at < now() - (${LIVE_LINK_MIN_AGE_MS}::int * interval '1 millisecond')
+          AND (l.expires_at IS NULL OR l.expires_at >= now() - interval '5 minutes')
+          AND (l.reconcile_checked_at IS NULL OR l.reconcile_checked_at < now()
+            - LEAST((now() - l.created_at) / 4, ${LIVE_LINK_MAX_BACKOFF_MS}::int * interval '1 millisecond'))
+        ORDER BY random() LIMIT ${BATCH}
+        FOR UPDATE SKIP LOCKED)
+      RETURNING id::text AS id`;
     const paidLinks = await tx.$queryRaw<{ id: string }[]>`
       SELECT l.id::text AS id FROM payment_links l
       WHERE l.account_id=${accountId}::uuid AND l.status='paid'
@@ -104,7 +127,7 @@ export async function runReconcileSweep(accountId: string): Promise<SweepSummary
       SELECT id::text AS id FROM customer_refunds
       WHERE account_id=${accountId}::uuid AND status='pending' AND updated_at < now() - interval '1 hour'
       ORDER BY random() LIMIT ${PENDING_BATCH}`;
-    return { links: [...unclearLinks, ...paidLinks], refunds: [...unclearRefunds, ...pendingRefunds] };
+    return { links: [...unclearLinks, ...liveLinks, ...paidLinks], refunds: [...unclearRefunds, ...pendingRefunds] };
   }, getWorkerPrisma());
 
   for (const { id } of links) {
