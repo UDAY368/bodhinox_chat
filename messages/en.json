@@ -1076,6 +1076,7 @@
       "creating": "Creating...",
       "createPipelineBtn": "Create Pipeline",
       "toastFailedLoadPipelines": "Failed to load pipelines",
+      "toastFailedLoadDeals": "Failed to load deals",
       "toastFailedMoveDeal": "Failed to move deal",
       "toastFailedCreatePipeline": "Failed to create pipeline",
       "toastPipelineCreated": "Pipeline created",

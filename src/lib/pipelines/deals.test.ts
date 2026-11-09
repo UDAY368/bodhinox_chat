@@ -37,6 +37,27 @@ describe('loadPipelineDeals', () => {
     expect(calls[0].orders).toEqual(['created_at', 'id'])
   })
 
+  it('keeps a deal once when a new deal shifts it across a page boundary', async () => {
+    let page = 0
+    const db = {
+      from: () => {
+        const builder = {
+          select: () => builder, eq: () => builder, order: () => builder,
+          // Page 2 starts with the last row of page 1 again, as after an insert at the top.
+          range: async (from: number) => {
+            page += 1
+            const ids = page === 1 ? Array.from({ length: 1000 }, (_, i) => `d${i}`) : page === 2 ? ['d999', 'd1000'] : []
+            return { data: ids.map((id) => ({ id })), error: null, from }
+          },
+        }
+        return builder
+      },
+    } as unknown as DataClient
+    const deals = await loadPipelineDeals(db, 'pipe-1')
+    expect(deals).toHaveLength(1001)
+    expect(deals.at(-1)?.id).toBe('d1000')
+  })
+
   it('surfaces a failed page instead of showing a partial board', async () => {
     const db = {
       from: () => {

@@ -231,13 +231,15 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics reports on Postgr
 
   it('times the team reply after a bot answered first and resolutions of reopened conversations', async () => {
     const days = parseRange({ from: '2026-10-16', to: '2026-10-17' }, 'UTC', new Date('2026-11-03T00:00:00Z'));
-    const contact = randomUUID(), botFirst = randomUUID(), reopened = randomUUID(), legacy = randomUUID();
-    await q("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'H','919811118888')", [contact, A, owner]);
+    const [h1, h2, h3] = [randomUUID(), randomUUID(), randomUUID()], botFirst = randomUUID(), reopened = randomUUID(), legacy = randomUUID();
+    // One WhatsApp conversation per contact and number, so each conversation has its own contact.
+    await q(`INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$4,$5,'H1','919811118881'),($2,$4,$5,'H2','919811118882'),
+      ($3,$4,$5,'H3','919811118883')`, [h1, h2, h3, A, owner]);
     await q(`INSERT INTO conversations(id,account_id,user_id,contact_id,created_at,last_message_at,assigned_agent_id,status,ai_handoff_at) VALUES
       ($1,$4,$5,$6,'2026-10-16T09:00:00Z','2026-10-16T09:30:00Z',$7,'open','2026-10-16T09:20:00Z'),
-      ($2,$4,$5,$6,'2026-10-15T08:00:00Z','2026-10-15T08:00:00Z',NULL,'closed',NULL),
-      ($3,$4,$5,$6,'2026-10-16T07:00:00Z','2026-10-16T07:00:00Z',NULL,'closed',NULL)`,
-    [botFirst, reopened, legacy, A, owner, contact, agentY]);
+      ($2,$4,$5,$8,'2026-10-15T08:00:00Z','2026-10-15T08:00:00Z',NULL,'closed',NULL),
+      ($3,$4,$5,$9,'2026-10-16T07:00:00Z','2026-10-16T07:00:00Z',NULL,'closed',NULL)`,
+    [botFirst, reopened, legacy, A, owner, h1, agentY, h2, h3]);
     // The AI answers in a minute, hands off at 09:20, and agent Y replies at 09:30.
     await msg(A, botFirst, 'customer', '2026-10-16T09:00:00Z');
     await msg(A, botFirst, 'bot', '2026-10-16T09:01:00Z', { ai: true });

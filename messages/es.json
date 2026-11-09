@@ -1076,6 +1076,7 @@
       "creating": "Creando...",
       "createPipelineBtn": "Crear pipeline",
       "toastFailedLoadPipelines": "Error al cargar los pipelines",
+      "toastFailedLoadDeals": "Error al cargar los negocios",
       "toastFailedMoveDeal": "Error al mover el negocio",
       "toastFailedCreatePipeline": "Error al crear el pipeline",
       "toastPipelineCreated": "Pipeline creado",

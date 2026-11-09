@@ -106,11 +106,13 @@ export default function PipelinesPage() {
       try {
         return await loadPipelineDeals(db, pipelineId);
       } catch (error) {
+        // An empty board would read as "no deals": say the load failed.
         console.error("Failed to load deals:", error instanceof Error ? error.message : error);
+        toast.error(t("toastFailedLoadDeals"));
         return [] as Deal[];
       }
     },
-    [db],
+    [db, t],
   );
 
   const seedDefaultPipeline = useCallback(async (): Promise<Pipeline | null> => {

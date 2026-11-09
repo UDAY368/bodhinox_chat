@@ -12,7 +12,7 @@ if (appUrl) process.env.DATABASE_URL = appUrl;
 
 const A = randomUUID(), B = randomUUID();
 const ownerA = randomUUID(), ownerB = randomUUID();
-const contactA = randomUUID(), contactB = randomUUID(), busy = randomUUID(), waited = randomUUID(), convB = randomUUID();
+const contactA = randomUUID(), contactA2 = randomUUID(), contactB = randomUUID(), busy = randomUUID(), waited = randomUUID(), convB = randomUUID();
 const pipeline = randomUUID(), stage = randomUUID(), pipelineB = randomUUID(), stageB = randomUUID();
 const seed = `${Date.now()}`.slice(-8);
 let db: pg.Client;
@@ -30,10 +30,11 @@ describe.skipIf(!ownerUrl || !appUrl)('dashboard charts on PostgreSQL', { timeou
     await q("INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Charts A',$2),($3,'Charts B',$4)", [A, ownerA, B, ownerB]);
     await q("INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'owner'),($3,$4,'owner')", [A, ownerA, B, ownerB]);
     await q("INSERT INTO workspace_inbox_settings(account_id,timezone) VALUES($1,'Asia/Kolkata')", [A]);
-    await q("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'A',$4),($5,$6,$7,'B',$8)",
-      [contactA, A, ownerA, `9196${seed}`, contactB, B, ownerB, `9195${seed}`]);
-    await q(`INSERT INTO conversations(id,account_id,user_id,contact_id) VALUES($1,$4,$5,$6),($2,$4,$5,$6),($3,$7,$8,$9)`,
-      [busy, waited, convB, A, ownerA, contactA, B, ownerB, contactB]);
+    // One WhatsApp conversation per contact and number, so each conversation has its own contact.
+    await q("INSERT INTO contacts(id,account_id,user_id,name,phone) VALUES($1,$2,$3,'A',$4),($5,$2,$3,'A2',$6),($7,$8,$9,'B',$10)",
+      [contactA, A, ownerA, `9196${seed}`, contactA2, `9194${seed}`, contactB, B, ownerB, `9195${seed}`]);
+    await q(`INSERT INTO conversations(id,account_id,user_id,contact_id) VALUES($1,$4,$5,$6),($2,$4,$5,$10),($3,$7,$8,$9)`,
+      [busy, waited, convB, A, ownerA, contactA, B, ownerB, contactB, contactA2]);
     // 1,200 messages in the last hour: more than the data API's 1,000-row page.
     await q(`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,status,created_at)
       SELECT $1,$2,CASE WHEN n % 2 = 0 THEN 'customer' ELSE 'bot' END,'text','body','delivered', now() - (n * interval '2 seconds')
