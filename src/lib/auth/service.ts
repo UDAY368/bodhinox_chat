@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { authEmailTransport as emailTransport, sendAuthEmail } from './email';
+import {
+  emailChangeConfirmEmail,
+  emailChangeNoticeEmail,
+  existingAccountEmail,
+  verificationEmail,
+} from './email-content';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import {
   appOrigin,
@@ -68,7 +74,7 @@ export async function enforceAuthRateLimit(
 async function sendVerification(
   email: string,
   token: string,
-  purpose: string,
+  purpose: 'verify' | 'reset',
   next = '/dashboard'
 ) {
   const link = new URL('/auth/callback', appOrigin());
@@ -78,11 +84,7 @@ async function sendVerification(
   await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: email,
-    subject:
-      purpose === 'reset'
-        ? 'Reset your Bodhinox password'
-        : 'Verify your Bodhinox email',
-    text: `${purpose === 'reset' ? 'Reset your password' : 'Verify your email'}: ${link.toString()}\nThis link expires in ${purpose === 'reset' ? 'one hour' : '24 hours'}. If you did not request it, ignore this message.`,
+    ...verificationEmail(purpose, link.toString()),
   });
 }
 async function createVerification(
@@ -235,15 +237,12 @@ export async function signup(input: {
     // the owner of the address still learns why no verification link arrived.
     const signIn = new URL('/login', appOrigin());
     const join = invite
-      ? `\nTo join the workspace you were invited to, sign in and open: ${new URL(`/join/${encodeURIComponent(invite)}`, appOrigin()).toString()}`
-      : '';
+      ? new URL(`/join/${encodeURIComponent(invite)}`, appOrigin()).toString()
+      : undefined;
     await sendAuthEmail({
       from: process.env.AUTH_EMAIL_FROM,
       to: email,
-      subject: 'You already have a Bodhinox account',
-      text: `Someone tried to create a Bodhinox account with this email, but one already exists.
-Sign in: ${signIn.toString()}${join}
-Forgot your password? Use "Forgot password" on the sign-in page. If this wasn't you, ignore this message.`,
+      ...existingAccountEmail(signIn.toString(), join),
     });
   } else if (user)
     await sendVerification(
@@ -538,14 +537,12 @@ export async function requestEmailChange(
   await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: newEmail,
-    subject: 'Confirm your new Bodhinox email',
-    text: `Confirm your new email address: ${link.toString()}\nThis link expires in one hour. Your current email stays active until you confirm.`,
+    ...emailChangeConfirmEmail(link.toString()),
   });
   await emailTransport().sendMail({
     from: process.env.AUTH_EMAIL_FROM,
     to: oldEmail,
-    subject: 'Bodhinox email change requested',
-    text: `A change of your Bodhinox email address to ${newEmail} was requested. If you did not request it, reset your password immediately; this cancels pending email changes.`,
+    ...emailChangeNoticeEmail(newEmail),
   });
 }
 export async function confirmEmailChange(token: string): Promise<void> {

@@ -135,14 +135,14 @@
       "vsYesterday": "어제 대비",
       "openDeals": "진행 중인 딜 {count}건",
       "noChange": "변동 없음 {suffix}",
-      "workspaceLabel": "01 / Workspace overview",
+      "workspaceLabel": "01 / 워크스페이스 개요",
       "heroTitle": "반복 업무는 줄이고.",
       "heroAccent": "대화는 더 풍성하게.",
-      "heroDescription": "Your conversations, relationships and opportunities, in one place.",
+      "heroDescription": "대화, 관계, 기회를 한곳에서.",
       "openInbox": "받은 편지함 열기",
-      "aiLabel": "BODHINOX / INTELLIGENCE",
+      "aiLabel": "BODHINOX / 인텔리전스",
       "aiTitle": "KHAGA를 만나보세요.",
-      "aiDescription": "A little more clarity for every conversation. Explore your AI workspace.",
+      "aiDescription": "모든 대화를 조금 더 명확하게. AI 워크스페이스를 둘러보세요.",
       "openAi": "KHAGA 살펴보기"
     },
     "quickActions": {
@@ -338,11 +338,11 @@
       "noConversations": "대화를 찾을 수 없습니다",
       "noMessagesYet": "아직 메시지가 없습니다",
       "unknown": "알 수 없음",
-      "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered.",
-      "filterWaiting": "Waiting for reply",
-      "filterUnassigned": "Unassigned",
-      "filterExpiringSoon": "Expiring soon",
+      "studioEyebrow": "01 / 대화 스튜디오",
+      "studioTitle": "모든 대화를 세심하게.",
+      "filterWaiting": "답장 대기 중",
+      "filterUnassigned": "미할당",
+      "filterExpiringSoon": "곧 만료",
       "chats": "채팅",
       "lifecycle": "진행 상태",
       "slaDueIn": "{value}{unit, select, m {분} h {시간} other {일}} 내 응답",
@@ -382,9 +382,9 @@
       "networkError": "네트워크 오류",
       "documentFallback": "문서",
       "you": "나",
-      "loadOlder": "Load older messages",
-      "loadingOlder": "Loading older messages…",
-      "historyLoadFailed": "Unable to load older messages",
+      "loadOlder": "이전 메시지 불러오기",
+      "loadingOlder": "이전 메시지 불러오는 중…",
+      "historyLoadFailed": "이전 메시지를 불러올 수 없습니다",
       "notes": "메모",
       "showNotes": "내부 메모 보기",
       "hideNotes": "내부 메모 숨기기",
@@ -782,7 +782,10 @@
         "removed": "목록에서 {count}명을 제거했습니다",
         "changeFailed": "목록을 업데이트할 수 없습니다",
         "exportList": "목록 내보내기"
-      }
+      },
+      "rowActions": "{name} 작업",
+      "previousPage": "이전 페이지",
+      "nextPage": "다음 페이지"
     },
     "form": {
       "addTitle": "연락처 추가",
@@ -892,7 +895,8 @@
         "blockedHint": "자동 메시지, 플로우, AI 답변을 보내지 않습니다."
       },
       "phoneMasked": "이 계정에서는 전화번호가 가려져 있어 번호를 추가하거나 변경할 수 없습니다. 관리자에게 요청하세요.",
-      "phoneMaskedHint": "이 계정에서는 번호가 가려져 있어 여기에서 수정할 수 없습니다."
+      "phoneMaskedHint": "이 계정에서는 번호가 가려져 있어 여기에서 수정할 수 없습니다.",
+      "deleteNote": "메모 삭제"
     },
     "importModal": {
       "title": "연락처 가져오기",
@@ -1182,7 +1186,8 @@
       "toastFailedDeleteStage": "단계를 삭제하지 못했습니다",
       "toastFailedDeletePipeline": "파이프라인을 삭제하지 못했습니다",
       "toastDeleted": "파이프라인이 삭제되었습니다",
-      "pickColor": "{color} 색상 선택"
+      "pickColor": "{color} 색상 선택",
+      "removeStage": "단계 삭제"
     },
     "analytics": {
       "totalDeals": "전체 딜",
@@ -1793,8 +1798,8 @@
         "waitForReply": "계속하기 전에 답장 기다리기",
         "waitForReplyHint": "고객이 버튼을 누르거나 답장할 때까지 여기서 멈춥니다(최대 24시간). 이후 단계(메시지 내용 조건 포함)는 그 답장을 사용합니다.",
         "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다.",
-        "conditionTimezoneLabel": "Timezone",
-        "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
+        "conditionTimezoneLabel": "시간대",
+        "conditionTimezoneHint": "이 시간 범위를 판단할 때 사용하는 비즈니스 시간대입니다.",
         "notifyAudienceLabel": "알림 대상",
         "notifyAssignee": "대화 담당자",
         "notifyAdmins": "워크스페이스 소유자 및 관리자",
@@ -1833,12 +1838,12 @@
   },
   "Flows": {
     "menuFallback": {
-      "label": "When a customer types instead of choosing a menu option",
-      "reprompt": "Repeat the menu",
-      "handoff": "Hand over to a human",
-      "ignore": "Allow other automations",
-      "ai": "Let AI answer business questions",
-      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first.",
+      "label": "고객이 메뉴 옵션을 선택하지 않고 직접 입력할 때",
+      "reprompt": "메뉴 다시 보내기",
+      "handoff": "상담원에게 연결",
+      "ignore": "다른 자동화 허용",
+      "ai": "AI가 비즈니스 질문에 답변",
+      "help": "AI는 메뉴를 열어 둔 채로 답변합니다. 답할 수 없는 질문은 상담원에게 넘어갑니다. 먼저 AI 설정에서 AI 자동 답장을 켜세요.",
       "messageLabel": "기본 대체 메시지(선택)",
       "messageHelp": "답장이 흐름에서 벗어날 때마다 위 동작 전에 보냅니다. 이미지나 동영상을 추가하면 텍스트를 캡션으로 함께 보냅니다.",
       "imageAttached": "이미지 첨부됨",
@@ -1943,7 +1948,7 @@
       "triggerFirstInboundTitle": "고객의 첫 수신 메시지",
       "triggerManualTitle": "수동 전용 (자동 트리거 없음)",
       "keywordsLabel": "키워드",
-      "keywordsPlaceholder": "support, help, hi",
+      "keywordsPlaceholder": "상담, 도움, 안녕하세요",
       "entryNodeTitle": "시작 노드:",
       "entryNodePlaceholder": "첫 노드를 선택하세요…",
       "nodesTitle": "노드 ({count}개)",
@@ -2220,7 +2225,8 @@
         "storefrontTtlHelp": "{min}~{max}시간 사이입니다. 비워 두면 24시간입니다.",
         "storefrontNext": "보낸 후 다음 단계",
         "storefrontFailedNext": "링크를 보낼 수 없을 때",
-        "flowStatusPaused": "일시 중지됨"
+        "flowStatusPaused": "일시 중지됨",
+        "removeButton": "버튼 삭제"
       },
       "categories": {
         "messaging": "메시징",
@@ -3180,7 +3186,8 @@
       "businessProfileEdit": "비즈니스 프로필 편집",
       "businessProfileView": "비즈니스 프로필 보기",
       "numberDisconnectedTitle": "이 번호는 연결이 해제되었습니다",
-      "numberDisconnectedHint": "이 번호에서는 아무것도 발송되지 않습니다. 다시 사용하려면 아래에 새 액세스 토큰을 입력하고 저장하거나(전화번호 ID는 그대로 유지됩니다) 임베디드 가입으로 다시 연결하세요. 대화, 캠페인, 플로우는 그대로 유지됩니다."
+      "numberDisconnectedHint": "이 번호에서는 아무것도 발송되지 않습니다. 다시 사용하려면 아래에 새 액세스 토큰을 입력하고 저장하거나(전화번호 ID는 그대로 유지됩니다) 임베디드 가입으로 다시 연결하세요. 대화, 캠페인, 플로우는 그대로 유지됩니다.",
+      "copyWebhookUrl": "웹훅 URL 복사"
     },
     "sections": {
       "overview": "개요",
@@ -3488,11 +3495,12 @@
       "kindInteractive": "인터랙티브",
       "textPlaceholder": "삽입할 메시지 텍스트",
       "cancel": "취소",
-      "save": "저장"
+      "save": "저장",
+      "delete": "빠른 답장 삭제"
     },
     "rail": {
       "sections": {
-        "inbox": "Inbox"
+        "inbox": "받은 편지함"
       }
     },
     "webhooks": {
@@ -4612,6 +4620,28 @@
     "createAndJoin": "계정 만들고 참여하기",
     "haveAccount": "이미 계정이 있습니다"
   },
+  "AuthEmails": {
+    "verifySubject": "Bodhinox 이메일 인증",
+    "verifyBody": "이메일 인증: {link}\n이 링크는 24시간 후 만료됩니다. 요청하지 않으셨다면 이 메시지를 무시하세요.",
+    "resetSubject": "Bodhinox 비밀번호 재설정",
+    "resetBody": "비밀번호 재설정: {link}\n이 링크는 1시간 후 만료됩니다. 요청하지 않으셨다면 이 메시지를 무시하세요.",
+    "existingSubject": "이미 Bodhinox 계정이 있습니다",
+    "existingBody": "누군가 이 이메일로 Bodhinox 계정을 만들려고 했지만 이미 계정이 있습니다.\n로그인: {signIn}{join}\n비밀번호를 잊으셨나요? 로그인 페이지에서 \"비밀번호 찾기\"를 이용하세요. 본인이 아니라면 이 메시지를 무시하세요.",
+    "existingJoin": "초대받은 워크스페이스에 참여하려면 로그인한 후 다음 링크를 여세요: {link}",
+    "changeConfirmSubject": "새 Bodhinox 이메일 확인",
+    "changeConfirmBody": "새 이메일 주소를 확인하세요: {link}\n이 링크는 1시간 후 만료됩니다. 확인하기 전까지는 현재 이메일이 계속 사용됩니다.",
+    "changeNoticeSubject": "Bodhinox 이메일 변경 요청",
+    "changeNoticeBody": "Bodhinox 이메일 주소를 {newEmail}(으)로 변경하라는 요청이 있었습니다. 요청하지 않으셨다면 즉시 비밀번호를 재설정하세요. 그러면 대기 중인 이메일 변경이 취소됩니다.",
+    "deliveryTestSubject": "Bodhinox Chat 인증 이메일 전송 테스트",
+    "deliveryTestBody": "계정 인증 이메일의 전송 테스트입니다. 별도로 조치할 필요는 없습니다. 비밀번호와 팀 멤버십은 변경되지 않았습니다.",
+    "digest": {
+      "subject": "{count, plural, other {Bodhinox 새 알림 #개}}",
+      "intro": "{count, plural, other {새 알림이 #개 있습니다:}}",
+      "more": "{count, plural, other {...이전 알림 #개가 더 있습니다.}}",
+      "seeAll": "모두 보기: {link}",
+      "footer": "알림 설정에서 이메일 요약을 켜 두셨기 때문에 이 이메일이 발송되었습니다."
+    }
+  },
   "Notifications": {
     "title": "알림",
     "description": "다른 팀원이 나에게 배정한 대화가 여기에 표시됩니다.",
@@ -4684,7 +4714,7 @@
       "modelCalls": "{tokens} 토큰 · 호출 {count}회",
       "assistant": "어시스턴트"
     },
-    "studioEyebrow": "07 / Your intelligent workspace",
+    "studioEyebrow": "07 / 지능형 워크스페이스",
     "studioTitle": "KHAGA를 만나보세요.",
     "studioDescription": "세심한 답변. 나의 지식. 사람의 온기.",
     "tabKnowledge": "지식",
@@ -4822,13 +4852,17 @@
     "urlButtonConstraint": "WhatsApp에서는 링크 버튼을 하나만 사용할 수 있습니다. 다른 버튼을 제거하세요. 링크는 답장 또는 워크플로우와 함께 사용할 수 없습니다.",
     "openLink": "링크 열기",
     "removeButton": "버튼 삭제",
-    "defaultListButton": "메뉴"
+    "defaultListButton": "메뉴",
+    "removeSection": "섹션 삭제",
+    "removeRow": "행 삭제"
   },
   "DashboardShell": {
     "loading": "불러오는 중..."
   },
   "UiPrimitives": {
-    "close": "닫기"
+    "close": "닫기",
+    "scrollLeft": "왼쪽으로 스크롤",
+    "scrollRight": "오른쪽으로 스크롤"
   },
   "GatedButton": {
     "readOnly": "읽기 전용 — 현재 역할로는 {action} 수 없습니다",
@@ -5469,12 +5503,12 @@
       "noContactForConversation": "대화를 확인할 수 없습니다: 연락처 없음",
       "noConversation": "전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
       "tagAddedNoConversation": "tag_added 자동화가 전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
-      "pausedWhileWaiting": "Automation paused while waiting",
-      "parkedStepRemoved": "The step where this run was waiting was removed",
+      "pausedWhileWaiting": "대기 중 자동화가 일시 중지되었습니다",
+      "parkedStepRemoved": "이 실행이 대기하던 단계가 삭제되었습니다",
       "contactBlockedWhileWaiting": "이 실행이 대기하는 동안 연락처가 차단되어 더 이상 보내지 않았습니다",
       "contactOptedOutWhileWaiting": "이 실행이 대기하는 동안 연락처가 수신을 거부(STOP)하여 더 이상 보내지 않았습니다",
       "assignFailed": "assign_conversation: 대화를 배정할 수 없습니다",
-      "scheduleWaitFailed": "Could not schedule the wait: {message}",
+      "scheduleWaitFailed": "대기를 예약할 수 없습니다: {message}",
       "webhookInvalidBody": "send_webhook: 채워진 본문이 올바른 JSON이 아닙니다",
       "webhookInvalidHeader": "send_webhook: 허용되지 않는 헤더이거나 줄바꿈이 있습니다",
       "webhookUncertain": "send_webhook: 대상이 응답하지 않아 요청을 받았는지 알 수 없습니다. 다시 보내지 않습니다",
@@ -5551,7 +5585,7 @@
       "setTagNeedsNext": "연락처 태그 지정 노드는 다음 노드를 가리켜야 합니다.",
       "setTagMissingNext": "연락처 태그 지정 노드가 존재하지 않는 노드 \"{key}\"을(를) 가리킵니다.",
       "unknownNodeType": "알 수 없는 노드 유형 \"{type}\".",
-      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply.",
+      "autoAdvanceCycle": "자동 순환이 감지되었습니다: {keys}. 답장을 기다리는 단계를 추가하세요.",
       "questionNeedsPrompt": "고객에게 보낼 질문을 입력하세요.",
       "questionNeedsVarKey": "답변을 저장할 변수 이름을 입력하세요.",
       "nodeNeedsNext": "이 노드는 다음 노드를 가리켜야 합니다.",
@@ -5679,9 +5713,9 @@
       "scheduleRequired": "일정은 필수입니다",
       "replyIdRequired": "응답 ID가 하나 이상 필요합니다",
       "replyIdsEmpty": "응답 ID는 빈 문자열일 수 없습니다",
-      "conditionValueRequired": "Enter a non-empty comparison value.",
-      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "conditionValueRequired": "비어 있지 않은 비교 값을 입력하세요.",
+      "conditionTimeRangeInvalid": "HH:mm-HH:mm 형식으로 올바른 시간 범위를 입력하세요.",
+      "conditionTimezoneInvalid": "올바른 시간대를 선택하세요.",
       "templateCarousel": "자동화는 캐러셀 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 카드 값은 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
       "templateLimitedTimeOffer": "자동화는 기간 한정 혜택 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 혜택 정보는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
       "templateLocationHeader": "자동화는 위치 헤더가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 위치는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
@@ -6225,7 +6259,7 @@
       "unknownTemplate": "알 수 없는 플로우 템플릿 \"{slug}\"",
       "insertFailed": "플로우를 생성하지 못했습니다",
       "nameRequired": "이름은 필수입니다",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "cannotSaveActive": "유효하지 않은 활성 플로우는 저장할 수 없습니다. 먼저 일시 중지하거나 오류를 해결하세요.",
       "secretNeedsAdmin": "비밀 작업 공간 값을 쓰는 API 요청 단계는 관리자만 추가하거나 바꿀 수 있습니다.",
       "testNumbersInvalid": "국가 코드를 포함한 전화번호를 최대 {max}개 입력하세요(각 8~15자리).",
       "copyName": "{name} 사본",

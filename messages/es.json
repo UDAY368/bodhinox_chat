@@ -135,14 +135,14 @@
       "vsYesterday": "vs. ayer",
       "openDeals": "{count} {count, plural, =1 {negocio abierto} other {negocios abiertos}}",
       "noChange": "Sin cambios {suffix}",
-      "workspaceLabel": "01 / Workspace overview",
+      "workspaceLabel": "01 / Resumen del espacio de trabajo",
       "heroTitle": "Menos tareas repetitivas.",
       "heroAccent": "Mejores conversaciones.",
-      "heroDescription": "Your conversations, relationships and opportunities, in one place.",
+      "heroDescription": "Tus conversaciones, relaciones y oportunidades, en un solo lugar.",
       "openInbox": "Abrir bandeja",
-      "aiLabel": "BODHINOX / INTELLIGENCE",
+      "aiLabel": "BODHINOX / INTELIGENCIA",
       "aiTitle": "Conoce KHAGA.",
-      "aiDescription": "A little more clarity for every conversation. Explore your AI workspace.",
+      "aiDescription": "Un poco más de claridad en cada conversación. Explora tu espacio de IA.",
       "openAi": "Explorar KHAGA"
     },
     "quickActions": {
@@ -338,11 +338,11 @@
       "noConversations": "No se encontraron conversaciones",
       "noMessagesYet": "Aún no hay mensajes",
       "unknown": "Desconocido",
-      "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered.",
-      "filterWaiting": "Waiting for reply",
-      "filterUnassigned": "Unassigned",
-      "filterExpiringSoon": "Expiring soon",
+      "studioEyebrow": "01 / Estudio de conversaciones",
+      "studioTitle": "Cada conversación, con atención.",
+      "filterWaiting": "Esperando respuesta",
+      "filterUnassigned": "Sin asignar",
+      "filterExpiringSoon": "Vencen pronto",
       "chats": "Chats",
       "lifecycle": "Ciclo de vida",
       "slaDueIn": "Responder en {value}{unit, select, m {min} h {h} other {d}}",
@@ -382,9 +382,9 @@
       "networkError": "error de red",
       "documentFallback": "Documento",
       "you": "Tú",
-      "loadOlder": "Load older messages",
-      "loadingOlder": "Loading older messages…",
-      "historyLoadFailed": "Unable to load older messages",
+      "loadOlder": "Cargar mensajes anteriores",
+      "loadingOlder": "Cargando mensajes anteriores…",
+      "historyLoadFailed": "No se pudieron cargar los mensajes anteriores",
       "notes": "Notas",
       "showNotes": "Mostrar notas internas",
       "hideNotes": "Ocultar notas internas",
@@ -782,7 +782,10 @@
         "removed": "{count} quitados de la lista",
         "changeFailed": "No se pudo actualizar la lista",
         "exportList": "Exportar lista"
-      }
+      },
+      "rowActions": "Acciones para {name}",
+      "previousPage": "Página anterior",
+      "nextPage": "Página siguiente"
     },
     "form": {
       "addTitle": "Agregar contacto",
@@ -892,7 +895,8 @@
         "blockedHint": "Sin mensajes automáticos, flujos ni respuestas de IA."
       },
       "phoneMasked": "Los números de teléfono están ocultos para tu cuenta, así que no puedes añadir ni cambiar un número. Pídeselo a un administrador.",
-      "phoneMaskedHint": "El número está oculto para tu cuenta y no se puede editar aquí."
+      "phoneMaskedHint": "El número está oculto para tu cuenta y no se puede editar aquí.",
+      "deleteNote": "Eliminar nota"
     },
     "importModal": {
       "title": "Importar contactos",
@@ -1182,7 +1186,8 @@
       "toastFailedDeleteStage": "Error al eliminar la etapa",
       "toastFailedDeletePipeline": "Error al eliminar el pipeline",
       "toastDeleted": "Pipeline eliminado",
-      "pickColor": "Elegir el color {color}"
+      "pickColor": "Elegir el color {color}",
+      "removeStage": "Quitar etapa"
     },
     "analytics": {
       "totalDeals": "Total de negocios",
@@ -1793,8 +1798,8 @@
         "waitForReply": "Esperar respuesta antes de continuar",
         "waitForReplyHint": "Se detiene aquí hasta que el cliente toque un botón o responda (hasta 24 h). Los pasos siguientes, incluido Si/Si no sobre el contenido del mensaje, usan esa respuesta.",
         "closeConversationHint": "Cambia el estado de la conversación a \"cerrada\". No requiere configuración.",
-        "conditionTimezoneLabel": "Timezone",
-        "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
+        "conditionTimezoneLabel": "Zona horaria",
+        "conditionTimezoneHint": "Zona horaria del negocio usada para evaluar esta franja horaria.",
         "notifyAudienceLabel": "Avisar a",
         "notifyAssignee": "La persona asignada a la conversación",
         "notifyAdmins": "Propietarios y administradores",
@@ -1833,12 +1838,12 @@
   },
   "Flows": {
     "menuFallback": {
-      "label": "When a customer types instead of choosing a menu option",
-      "reprompt": "Repeat the menu",
-      "handoff": "Hand over to a human",
-      "ignore": "Allow other automations",
-      "ai": "Let AI answer business questions",
-      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first.",
+      "label": "Cuando un cliente escribe en lugar de elegir una opción del menú",
+      "reprompt": "Repetir el menú",
+      "handoff": "Pasar a una persona",
+      "ignore": "Permitir otras automatizaciones",
+      "ai": "Dejar que la IA responda preguntas del negocio",
+      "help": "La IA mantiene el menú abierto. Las preguntas que no puede responder pasan a una persona. Activa primero la respuesta automática con IA en los ajustes de IA.",
       "messageLabel": "Mensaje alternativo predeterminado (opcional)",
       "messageHelp": "Se envía cuando una respuesta se sale del guion, antes de la acción de arriba. Añade una imagen o un video para enviarlo con el texto como pie.",
       "imageAttached": "Imagen adjunta",
@@ -2029,7 +2034,7 @@
         "thenAdvanceTo": "Luego avanzar a",
         "mediaTypeLabel": "Tipo de archivo",
         "imageLabel": "Imagen (PNG, JPEG, WebP)",
-        "videoLabel": "Video (MP4, 3GP)",
+        "videoLabel": "Vídeo (MP4, 3GP)",
         "documentLabel": "Documento (PDF, Word, Excel, PowerPoint, TXT)",
         "fileLabel": "Archivo",
         "removeFile": "Quitar archivo",
@@ -2220,7 +2225,8 @@
         "storefrontTtlHelp": "Entre {min} y {max} horas. Déjalo vacío para 24.",
         "storefrontNext": "Paso siguiente tras el envío",
         "storefrontFailedNext": "Si no se puede enviar el enlace",
-        "flowStatusPaused": "en pausa"
+        "flowStatusPaused": "en pausa",
+        "removeButton": "Quitar botón"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -3094,7 +3100,7 @@
       "notLive": "inactivo",
       "apiCredentialsTitle": "Credenciales de la API",
       "apiCredentialsDesc": "Ingresa tus credenciales de la API de WhatsApp Business de Meta.",
-      "phoneNumberId": "Phone Number ID",
+      "phoneNumberId": "ID del número de teléfono",
       "wabaId": "ID de la cuenta de WhatsApp Business",
       "accessToken": "Token de acceso permanente",
       "accessTokenPlaceholder": "Ingresa tu token de acceso",
@@ -3168,7 +3174,7 @@
       "lastSaveFailed": "El último guardado falló",
       "metaErrorStep": "Paso",
       "metaErrorCode": "Código de error de Meta",
-      "metaErrorTrace": "Trace ID",
+      "metaErrorTrace": "ID de rastreo",
       "metaErrorMessage": "Respuesta de Meta",
       "metaErrorDetailsHint": "Cita estos detalles al contactar al soporte de Meta.",
       "phoneNumberIdNotNumeric": "El Phone Number ID debe contener solo dígitos. Copia el id numérico desde Meta → WhatsApp → Configuración de la API, no el número de teléfono en sí.",
@@ -3180,7 +3186,8 @@
       "businessProfileEdit": "Editar perfil de empresa",
       "businessProfileView": "Ver perfil de empresa",
       "numberDisconnectedTitle": "Este número está desconectado",
-      "numberDisconnectedHint": "No se envía nada desde este número. Para volver a usarlo, introduce un nuevo token de acceso abajo y guarda (el ID del número de teléfono no cambia), o vuelve a conectarlo con el registro integrado. Sus conversaciones, campañas y flujos se conservan."
+      "numberDisconnectedHint": "No se envía nada desde este número. Para volver a usarlo, introduce un nuevo token de acceso abajo y guarda (el ID del número de teléfono no cambia), o vuelve a conectarlo con el registro integrado. Sus conversaciones, campañas y flujos se conservan.",
+      "copyWebhookUrl": "Copiar URL del webhook"
     },
     "sections": {
       "overview": "Resumen",
@@ -3488,7 +3495,8 @@
       "kindInteractive": "Interactiva",
       "textPlaceholder": "El texto del mensaje que se insertará",
       "cancel": "Cancelar",
-      "save": "Guardar"
+      "save": "Guardar",
+      "delete": "Eliminar respuesta rápida"
     },
     "rail": {
       "sections": {
@@ -4612,6 +4620,28 @@
     "createAndJoin": "Crear cuenta y unirse",
     "haveAccount": "Ya tengo una cuenta"
   },
+  "AuthEmails": {
+    "verifySubject": "Verifica tu correo de Bodhinox",
+    "verifyBody": "Verifica tu correo: {link}\nEste enlace caduca en 24 horas. Si no lo solicitaste, ignora este mensaje.",
+    "resetSubject": "Restablece tu contraseña de Bodhinox",
+    "resetBody": "Restablece tu contraseña: {link}\nEste enlace caduca en una hora. Si no lo solicitaste, ignora este mensaje.",
+    "existingSubject": "Ya tienes una cuenta de Bodhinox",
+    "existingBody": "Alguien intentó crear una cuenta de Bodhinox con este correo, pero ya existe una.\nInicia sesión: {signIn}{join}\n¿Olvidaste tu contraseña? Usa \"Olvidé mi contraseña\" en la página de inicio de sesión. Si no fuiste tú, ignora este mensaje.",
+    "existingJoin": "Para unirte al espacio de trabajo al que te invitaron, inicia sesión y abre: {link}",
+    "changeConfirmSubject": "Confirma tu nuevo correo de Bodhinox",
+    "changeConfirmBody": "Confirma tu nueva dirección de correo: {link}\nEste enlace caduca en una hora. Tu correo actual sigue activo hasta que confirmes.",
+    "changeNoticeSubject": "Solicitud de cambio de correo en Bodhinox",
+    "changeNoticeBody": "Se solicitó cambiar tu dirección de correo de Bodhinox a {newEmail}. Si no lo solicitaste, restablece tu contraseña de inmediato; esto cancela los cambios de correo pendientes.",
+    "deliveryTestSubject": "Prueba de entrega del correo de verificación de Bodhinox Chat",
+    "deliveryTestBody": "Prueba de entrega de los correos de verificación de cuenta. No necesitas hacer nada. Tu contraseña y tus membresías de equipo no han cambiado.",
+    "digest": {
+      "subject": "{count, plural, one {# notificación nueva en Bodhinox} other {# notificaciones nuevas en Bodhinox}}",
+      "intro": "{count, plural, one {Tienes una notificación nueva:} other {Tienes # notificaciones nuevas:}}",
+      "more": "{count, plural, one {...y # notificación anterior.} other {...y # notificaciones anteriores.}}",
+      "seeAll": "Verlas todas: {link}",
+      "footer": "Recibes este correo porque los resúmenes por correo están activados en tus preferencias de notificación."
+    }
+  },
   "Notifications": {
     "title": "Notificaciones",
     "description": "Las conversaciones que otros compañeros te asignan aparecen aquí.",
@@ -4684,7 +4714,7 @@
       "modelCalls": "{tokens} tok · {count, plural, =1 {# llamada} other {# llamadas}}",
       "assistant": "Asistente"
     },
-    "studioEyebrow": "07 / Your intelligent workspace",
+    "studioEyebrow": "07 / Tu espacio de trabajo inteligente",
     "studioTitle": "Conoce KHAGA.",
     "studioDescription": "Respuestas cuidadas. Tu conocimiento. Un toque humano.",
     "tabKnowledge": "Conocimiento",
@@ -4822,13 +4852,17 @@
     "urlButtonConstraint": "WhatsApp permite exactamente un botón de enlace. Elimina los otros botones; los enlaces no se pueden combinar con respuestas o flujos.",
     "openLink": "Abrir enlace",
     "removeButton": "Eliminar botón",
-    "defaultListButton": "Menú"
+    "defaultListButton": "Menú",
+    "removeSection": "Quitar sección",
+    "removeRow": "Quitar fila"
   },
   "DashboardShell": {
     "loading": "Cargando..."
   },
   "UiPrimitives": {
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "scrollLeft": "Desplazar a la izquierda",
+    "scrollRight": "Desplazar a la derecha"
   },
   "GatedButton": {
     "readOnly": "Solo lectura: tu rol no puede {action}",
@@ -5240,7 +5274,7 @@
       "keywords": "reserva de spa,masaje,tarjeta regalo",
       "text": "¡Date un capricho! Estos son nuestros paquetes más populares.",
       "buttonLabel": "Ver paquetes",
-      "relaxRow": "Relax (60 min)",
+      "relaxRow": "Relajación (60 min)",
       "relaxDesc": "Masaje de cuerpo completo con aceites aromáticos",
       "deepRow": "Masaje profundo (90 min)",
       "deepDesc": "Masaje de presión firme para músculos cansados",
@@ -5469,12 +5503,12 @@
       "noContactForConversation": "no se pudo resolver la conversación: sin contacto",
       "noConversation": "no se puede enviar: el contacto no tiene una conversación existente",
       "tagAddedNoConversation": "la automatización tag_added no puede enviar: el contacto no tiene una conversación existente",
-      "pausedWhileWaiting": "Automation paused while waiting",
-      "parkedStepRemoved": "The step where this run was waiting was removed",
+      "pausedWhileWaiting": "Automatización pausada mientras esperaba",
+      "parkedStepRemoved": "Se eliminó el paso en el que esta ejecución estaba esperando",
       "contactBlockedWhileWaiting": "El contacto se bloqueó mientras esta ejecución esperaba, así que no se envió nada más",
       "contactOptedOutWhileWaiting": "El contacto se dio de baja (STOP) mientras esta ejecución esperaba, así que no se envió nada más",
       "assignFailed": "assign_conversation: no se pudo asignar la conversación",
-      "scheduleWaitFailed": "Could not schedule the wait: {message}",
+      "scheduleWaitFailed": "No se pudo programar la espera: {message}",
       "webhookInvalidBody": "send_webhook: el cuerpo completado no es JSON válido",
       "webhookInvalidHeader": "send_webhook: un encabezado no está permitido o tiene un salto de línea",
       "webhookUncertain": "send_webhook: el destino no respondió, así que puede o no tener la solicitud; no se volverá a enviar",
@@ -5551,7 +5585,7 @@
       "setTagNeedsNext": "El nodo Etiquetar contacto debe apuntar a un nodo siguiente.",
       "setTagMissingNext": "El nodo Etiquetar contacto apunta a un nodo inexistente: \"{key}\".",
       "unknownNodeType": "Tipo de nodo desconocido: \"{type}\".",
-      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply.",
+      "autoAdvanceCycle": "Se detectó un ciclo automático: {keys}. Añade un paso que espere una respuesta.",
       "questionNeedsPrompt": "Escribe la pregunta para el cliente.",
       "questionNeedsVarKey": "Escribe un nombre de variable para guardar la respuesta.",
       "nodeNeedsNext": "Este nodo debe apuntar a un nodo siguiente.",
@@ -5679,9 +5713,9 @@
       "scheduleRequired": "la programación es obligatoria",
       "replyIdRequired": "se requiere al menos un ID de respuesta",
       "replyIdsEmpty": "los IDs de respuesta no pueden estar vacíos",
-      "conditionValueRequired": "Enter a non-empty comparison value.",
-      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "conditionValueRequired": "Introduce un valor de comparación que no esté vacío.",
+      "conditionTimeRangeInvalid": "Introduce un rango horario válido con el formato HH:mm-HH:mm.",
+      "conditionTimezoneInvalid": "Elige una zona horaria válida.",
       "templateCarousel": "Las automatizaciones no pueden enviar plantillas de carrusel: el paso solo rellena valores del cuerpo, no de las tarjetas. Usa un flujo o una campaña.",
       "templateLimitedTimeOffer": "Las automatizaciones no pueden enviar plantillas de oferta por tiempo limitado: el paso solo rellena valores del cuerpo, no los datos de la oferta. Usa un flujo o una campaña.",
       "templateLocationHeader": "Las automatizaciones no pueden enviar plantillas con encabezado de ubicación: el paso solo rellena valores del cuerpo, no una ubicación. Usa un flujo o una campaña.",
@@ -6225,7 +6259,7 @@
       "unknownTemplate": "Plantilla de flujo desconocida \"{slug}\"",
       "insertFailed": "error al crear el flujo",
       "nameRequired": "El nombre es obligatorio",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "cannotSaveActive": "No se puede guardar un flujo activo no válido. Pausa el flujo primero o corrige los errores.",
       "secretNeedsAdmin": "Solo un administrador puede añadir o cambiar un paso de solicitud API que use un valor secreto del espacio de trabajo.",
       "testNumbersInvalid": "Introduce hasta {max} números con código de país (de 8 a 15 dígitos cada uno).",
       "copyName": "Copia de {name}",

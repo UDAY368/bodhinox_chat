@@ -1081,6 +1081,7 @@ export default function ContactsPage() {
                             size="icon-sm"
                             className="text-muted-foreground hover:text-foreground"
                             onClick={(e) => e.stopPropagation()}
+                            aria-label={t('rowActions', { name: contact.name || contact.phone })}
                           />
                         }
                       >
@@ -1137,6 +1138,7 @@ export default function ContactsPage() {
               size="icon-sm"
               disabled={!hasPrev}
               onClick={() => setPage((p) => p - 1)}
+              aria-label={t('previousPage')}
               className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             >
               <ChevronLeft className="size-4" />
@@ -1149,6 +1151,7 @@ export default function ContactsPage() {
               size="icon-sm"
               disabled={!hasNext}
               onClick={() => setPage((p) => p + 1)}
+              aria-label={t('nextPage')}
               className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             >
               <ChevronRight className="size-4" />

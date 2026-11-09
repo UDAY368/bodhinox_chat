@@ -336,6 +336,7 @@ function SendButtonsForm({
                 variant="ghost"
                 size="sm"
                 onClick={() => removeButton(i)}
+                aria-label={t("removeButton")}
                 className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -565,6 +566,7 @@ function SendListForm({
                   variant="ghost"
                   size="sm"
                   onClick={() => removeRow(sIdx, rIdx)}
+                  aria-label={t("removeRow")}
                   className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

@@ -455,6 +455,7 @@ export default function BroadcastDetailPage() {
             variant="outline"
             size="icon"
             onClick={() => router.push('/broadcasts')}
+            aria-label={t('backToBroadcasts')}
             className="border-border"
           >
             <ArrowLeft className="h-4 w-4" />

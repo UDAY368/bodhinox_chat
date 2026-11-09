@@ -534,6 +534,7 @@ export function MembersTab() {
                         variant="outline"
                         size="sm"
                         onClick={() => setRemovingMember(member)}
+                        aria-label={t('removeBtn')}
                         disabled={isBusy}
                         className="border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-200"
                       >
