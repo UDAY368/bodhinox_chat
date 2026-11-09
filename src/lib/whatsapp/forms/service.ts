@@ -35,6 +35,9 @@ import {
   getFlowHealth,
   getTokenApp,
   getWabaPhoneNumberIds,
+  getPhoneNumberState,
+  listWabaFlows,
+  listBusinessWabaIds,
   publishFlow,
   updateFlowMetadata,
   uploadFlowJson,
@@ -419,6 +422,12 @@ export interface FormMetaCheck {
   tokenAppName: string | null;
   /** False when the token is from another app than the flow: Meta then refuses the send (131009 flow_id invalid). */
   sameApp: boolean | null;
+  /** How Meta sees the sending number (account_mode, platform_type, status ...), or null when unreadable. */
+  numberState: Record<string, string | null> | null;
+  /** Whether the flow id is listed in the form's account's flows (null when unreadable). */
+  flowListedInWaba: boolean | null;
+  /** Every account the business owns, with whether the sending number and this flow are listed there. */
+  businessWabas: { id: string; hasNumber: boolean | null; hasFlow: boolean | null }[] | null;
 }
 
 /**
@@ -449,11 +458,23 @@ export async function checkFormOnMeta(ctx: TenantContext, id: string): Promise<F
     }
     const tokenApp = await getTokenApp(accessToken).catch(() => ({ id: null, name: null }));
     const flowAppId = health.entities.find((e) => e.entityType === 'APP')?.id ?? null;
+    const flowId = form.meta_flow_id!;
+    const phoneId = number.phone_number_id;
+    const numberState = phoneId ? await getPhoneNumberState({ phoneNumberId: phoneId, accessToken }).catch(() => null) : null;
+    const hasFlow = (waba: string) => listWabaFlows({ wabaId: waba, accessToken }).then((fs) => fs.some((f) => f.id === flowId)).catch(() => null);
+    const hasNumber = (waba: string) => getWabaPhoneNumberIds({ wabaId: waba, accessToken }).then((ids) => (phoneId ? ids.includes(phoneId) : null)).catch(() => null);
+    const flowListedInWaba = wabaId ? await hasFlow(wabaId) : null;
+    const businessId = health.entities.find((e) => e.entityType === 'BUSINESS')?.id ?? null;
+    const ownedWabas = businessId ? await listBusinessWabaIds({ businessId, accessToken }).catch(() => null) : null;
+    const businessWabas = ownedWabas
+      ? await Promise.all(ownedWabas.slice(0, 10).map(async (w) => ({ id: w, hasNumber: await hasNumber(w), hasFlow: await hasFlow(w) })))
+      : null;
     return {
       status: health.status, canSendMessage: health.canSendMessage, entities: health.entities,
       flowWabaId: health.wabaId, formWabaId: wabaId ?? null, numberInWaba,
       flowAppId, tokenAppId: tokenApp.id, tokenAppName: tokenApp.name,
       sameApp: flowAppId && tokenApp.id ? flowAppId === tokenApp.id : null,
+      numberState, flowListedInWaba, businessWabas,
     };
   } catch (err) {
     throw metaFailure(err, 'forms.metaPublishFailed');

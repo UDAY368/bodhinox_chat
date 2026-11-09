@@ -1590,6 +1590,31 @@ export async function getTokenApp(accessToken: string): Promise<{ id: string | n
   return { id: metaText(data.id), name: metaText(data.name) }
 }
 
+/** How Meta sees a phone number (mode, platform, status): a number outside LIVE Cloud API mode cannot send flows. */
+export async function getPhoneNumberState(args: { phoneNumberId: string; accessToken: string }): Promise<Record<string, string | null>> {
+  if (!META_NUMERIC_ID.test(args.phoneNumberId)) throw new Error(tc('wabaIdInvalid'))
+  const fields = ['account_mode', 'platform_type', 'status', 'code_verification_status', 'name_status', 'display_phone_number']
+  const data = await flowRequest(`${META_API_BASE}/${args.phoneNumberId}?fields=${fields.join(',')}`, args.accessToken, { method: 'GET' })
+  return Object.fromEntries(fields.map((f) => [f, metaText(data[f])]))
+}
+
+/** The flows of a WhatsApp Business Account (first 100): id, name and status only. */
+export async function listWabaFlows(args: { wabaId: string; accessToken: string }): Promise<{ id: string; name: string | null; status: string | null }[]> {
+  if (!META_NUMERIC_ID.test(args.wabaId)) throw new Error(tc('wabaIdInvalid'))
+  const data = await flowRequest(`${META_API_BASE}/${args.wabaId}/flows?fields=id,name,status&limit=100`, args.accessToken, { method: 'GET' })
+  const rows = Array.isArray(data.data) ? data.data : []
+  return rows.map((r) => r as Record<string, unknown>).filter((r) => typeof r.id === 'string')
+    .map((r) => ({ id: r.id as string, name: metaText(r.name), status: metaText(r.status) }))
+}
+
+/** The WhatsApp Business Accounts a business owns (first 100), by id. */
+export async function listBusinessWabaIds(args: { businessId: string; accessToken: string }): Promise<string[]> {
+  if (!META_NUMERIC_ID.test(args.businessId)) throw new Error(tc('wabaIdInvalid'))
+  const data = await flowRequest(`${META_API_BASE}/${args.businessId}/owned_whatsapp_business_accounts?fields=id&limit=100`, args.accessToken, { method: 'GET' })
+  const rows = Array.isArray(data.data) ? data.data : []
+  return rows.map((r) => (r as { id?: unknown }).id).filter((id): id is string => typeof id === 'string')
+}
+
 /** The phone number ids of a WhatsApp Business Account (first 100), to check a number really belongs to it. */
 export async function getWabaPhoneNumberIds(args: { wabaId: string; accessToken: string }): Promise<string[]> {
   if (!META_NUMERIC_ID.test(args.wabaId)) throw new Error(tc('wabaIdInvalid'))

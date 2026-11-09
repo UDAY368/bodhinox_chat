@@ -53,3 +53,21 @@ describe('getTokenApp', () => {
     expect((fetchMock.mock.calls[0] as [string])[0]).toContain('/app?fields=id,name');
   });
 });
+
+describe('number state, account flows and business accounts', () => {
+  it('reads the number mode, lists flows and owned accounts, and refuses non-numeric ids before any request', async () => {
+    const { getPhoneNumberState, listWabaFlows, listBusinessWabaIds } = await import('./meta-api');
+    fetchMock.mockResolvedValueOnce(json({ account_mode: 'LIVE', platform_type: 'CLOUD_API', status: 'CONNECTED', extra: 'x' }));
+    expect(await getPhoneNumberState({ phoneNumberId: '222', accessToken: 't' })).toMatchObject({ account_mode: 'LIVE', platform_type: 'CLOUD_API', status: 'CONNECTED', name_status: null });
+    expect((fetchMock.mock.calls[0] as [string])[0]).toContain('/222?fields=account_mode,platform_type');
+    fetchMock.mockResolvedValueOnce(json({ data: [{ id: '9', name: 'Form', status: 'PUBLISHED' }, { name: 'no id' }] }));
+    expect(await listWabaFlows({ wabaId: '111', accessToken: 't' })).toEqual([{ id: '9', name: 'Form', status: 'PUBLISHED' }]);
+    fetchMock.mockResolvedValueOnce(json({ data: [{ id: '111' }, { id: '112' }] }));
+    expect(await listBusinessWabaIds({ businessId: '5', accessToken: 't' })).toEqual(['111', '112']);
+    expect((fetchMock.mock.calls[2] as [string])[0]).toContain('/5/owned_whatsapp_business_accounts');
+    await expect(getPhoneNumberState({ phoneNumberId: '1/x', accessToken: 't' })).rejects.toThrow();
+    await expect(listWabaFlows({ wabaId: '../x', accessToken: 't' })).rejects.toThrow();
+    await expect(listBusinessWabaIds({ businessId: 'a', accessToken: 't' })).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
