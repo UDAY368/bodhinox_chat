@@ -2847,7 +2847,14 @@ export async function replayRun(args: {
     await closeActiveRun(db, run, closure, now);
     return "replayed";
   }
-  const { data: contact } = await db.from("contacts").select("blocked_at").eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
+  const { data: contact, error: contactError } = await db.from("contacts").select("blocked_at,opted_out_at")
+    .eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
+  if (contactError) throw new Error("Flow replay contact lookup failed");
+  // STOP since the failure: the replay sends nothing, like a STOP during an active run.
+  if ((contact as { opted_out_at?: string | null } | null)?.opted_out_at) {
+    await endRun(db, run.id, "cancelled", "contact_opted_out");
+    return "replayed";
+  }
   if (!run.conversation_id || !contact || (contact as { blocked_at?: string | null }).blocked_at ||
       (await botRepliesPaused(run.account_id, run.conversation_id))) {
     await endRun(db, run.id, "cancelled", "bot_paused_during_wait");

@@ -2678,7 +2678,8 @@
         "not_replayable_reason": "Este tipo de fallo no se puede repetir de forma segura.",
         "needs_reconciliation": "Es posible que un mensaje de este paso ya se haya entregado. Revisa la conversación; no se volverá a enviar.",
         "already_sent": "El mensaje de este paso ya se envió.",
-        "conversation_busy": "Otro flujo se está ejecutando en esta conversación."
+        "conversation_busy": "Otro flujo se está ejecutando en esta conversación.",
+        "contact_opted_out": "El contacto respondió STOP después de que fallara esta ejecución, así que no se repetirá."
       }
     }
   },
@@ -6165,7 +6166,8 @@
         "notReplayableReason": "Este tipo de fallo no se puede repetir de forma segura.",
         "needsReconciliation": "Es posible que un mensaje de este paso ya se haya entregado. Revisa la conversación antes de hacer nada más; no se volverá a enviar automáticamente.",
         "alreadySent": "El mensaje de este paso ya se envió; repetirlo lo enviaría dos veces.",
-        "conversationBusy": "Otro flujo se está ejecutando en esta conversación. Inténtalo de nuevo cuando termine."
+        "conversationBusy": "Otro flujo se está ejecutando en esta conversación. Inténtalo de nuevo cuando termine.",
+        "contactOptedOut": "El contacto se dio de baja (envió STOP) después de que fallara esta ejecución, así que no se puede repetir."
       }
     },
     "quickReplies": {

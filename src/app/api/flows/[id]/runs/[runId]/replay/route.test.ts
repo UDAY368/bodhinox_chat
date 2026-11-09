@@ -60,7 +60,7 @@ it('maps every refusal to 409 with its reason, and a missing run to 404', async 
   expect((await POST(req(), ctx(FLOW, 'nope'))).status).toBe(404);
   h.replay.mockRejectedValueOnce(new ReplayError('not_found'));
   expect((await POST(req(), ctx())).status).toBe(404);
-  for (const reason of ['needs_reconciliation', 'already_sent', 'not_replayable_reason', 'conversation_busy', 'too_old'] as const) {
+  for (const reason of ['needs_reconciliation', 'already_sent', 'not_replayable_reason', 'conversation_busy', 'too_old', 'contact_opted_out'] as const) {
     h.replay.mockRejectedValueOnce(new ReplayError(reason));
     const res = await POST(req(), ctx());
     expect(res.status).toBe(409);

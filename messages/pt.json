@@ -2678,7 +2678,8 @@
         "not_replayable_reason": "Este tipo de falha não pode ser repetido com segurança.",
         "needs_reconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa; ela não será reenviada.",
         "already_sent": "A mensagem desta etapa já foi enviada.",
-        "conversation_busy": "Outro fluxo está em execução nesta conversa."
+        "conversation_busy": "Outro fluxo está em execução nesta conversa.",
+        "contact_opted_out": "O contato respondeu STOP depois que esta execução falhou, então ela não será repetida."
       }
     }
   },
@@ -6165,7 +6166,8 @@
         "notReplayableReason": "Este tipo de falha não pode ser repetido com segurança.",
         "needsReconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa antes de fazer qualquer outra coisa; ela não será enviada de novo automaticamente.",
         "alreadySent": "A mensagem desta etapa já foi enviada; repetir enviaria duas vezes.",
-        "conversationBusy": "Outro fluxo está em execução nesta conversa. Tente novamente quando ele terminar."
+        "conversationBusy": "Outro fluxo está em execução nesta conversa. Tente novamente quando ele terminar.",
+        "contactOptedOut": "O contato cancelou a inscrição (enviou STOP) depois que esta execução falhou, então ela não pode ser repetida."
       }
     },
     "quickReplies": {

@@ -2678,7 +2678,8 @@
         "not_replayable_reason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
         "needs_reconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 대화를 확인하세요. 다시 보내지 않습니다.",
         "already_sent": "이 단계의 메시지는 이미 전송되었습니다.",
-        "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다."
+        "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다.",
+        "contact_opted_out": "이 실행이 실패한 후 연락처가 STOP으로 응답했으므로 다시 실행하지 않습니다."
       }
     }
   },
@@ -6165,7 +6166,8 @@
         "notReplayableReason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
         "needsReconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 다른 작업을 하기 전에 대화를 확인하세요. 자동으로 다시 보내지 않습니다.",
         "alreadySent": "이 단계의 메시지는 이미 전송되었습니다. 다시 실행하면 두 번 전송됩니다.",
-        "conversationBusy": "이 대화에서 다른 플로우가 실행 중입니다. 끝난 후 다시 시도하세요."
+        "conversationBusy": "이 대화에서 다른 플로우가 실행 중입니다. 끝난 후 다시 시도하세요.",
+        "contactOptedOut": "이 실행이 실패한 후 연락처가 수신을 거부(STOP)했으므로 다시 실행할 수 없습니다."
       }
     },
     "quickReplies": {

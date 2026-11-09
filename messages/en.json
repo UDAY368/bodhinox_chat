@@ -2678,7 +2678,8 @@
         "not_replayable_reason": "This kind of failure cannot be replayed safely.",
         "needs_reconciliation": "A message from this step may already have been delivered. Check the conversation; it will not be re-sent.",
         "already_sent": "This step's message was already sent.",
-        "conversation_busy": "Another flow is running in this conversation."
+        "conversation_busy": "Another flow is running in this conversation.",
+        "contact_opted_out": "The contact replied STOP after this run failed, so it will not be replayed."
       }
     }
   },
@@ -6165,7 +6166,8 @@
         "notReplayableReason": "This kind of failure cannot be replayed safely.",
         "needsReconciliation": "A message from this step may already have been delivered. Check the conversation before doing anything else; it will not be sent again automatically.",
         "alreadySent": "This step's message was already sent; replaying would send it twice.",
-        "conversationBusy": "Another flow is running in this conversation. Try again when it ends."
+        "conversationBusy": "Another flow is running in this conversation. Try again when it ends.",
+        "contactOptedOut": "The contact opted out (sent STOP) after this run failed, so it cannot be replayed."
       }
     },
     "quickReplies": {

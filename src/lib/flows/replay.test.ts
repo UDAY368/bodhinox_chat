@@ -52,6 +52,11 @@ describe('replayEligibility', () => {
     expect(check({ run: run({ flow_version_id: null }) })).toEqual({ ok: false, reason: 'not_pinned' });
     expect(check({ conversationBusy: true })).toEqual({ ok: false, reason: 'conversation_busy' });
   });
+
+  it('refuses a contact who sent STOP since the failure (audit #47)', () => {
+    expect(check({ contactOptedOut: true })).toEqual({ ok: false, reason: 'contact_opted_out' });
+    expect(check({ contactOptedOut: false })).toEqual({ ok: true });
+  });
 });
 
 describe('intent keys', () => {
