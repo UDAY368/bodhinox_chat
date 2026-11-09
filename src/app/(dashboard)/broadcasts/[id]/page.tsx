@@ -36,6 +36,7 @@ import {
   PlayCircle,
   RotateCcw,
   MousePointerClick,
+  HelpCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -138,6 +139,13 @@ function toCsv(rows: string[][]): string {
   return rows.map((r) => r.map(escape).join(',')).join('\n');
 }
 
+/** A recipient Meta did not confirm (GET /api/whatsapp/broadcast/[id]/reconcile). */
+interface UncertainRecipient {
+  id: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+}
+
 function downloadBlob(filename: string, content: string) {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -157,6 +165,8 @@ export default function BroadcastDetailPage() {
   const tStatus = useTranslations('Broadcasts.status');
   const tn = useTranslations('whatsappNumbers');
   const canSend = useCan('send-messages');
+  // Reconciling uncertain sends is an admin action (the route checks it too).
+  const canReconcile = useCan('edit-settings');
   // "Send from" only matters when the workspace has more than one number.
   const { numbers } = useWhatsAppNumbers();
   // Set after mount so the server render and the first client render match.
@@ -179,6 +189,12 @@ export default function BroadcastDetailPage() {
   // Exact counts: the table below loads at most the newest 1,000 recipients.
   const [pendingCount, setPendingCount] = useState(0);
   const [retryableCount, setRetryableCount] = useState(0);
+  // Sends Meta never confirmed: left out of "Retry failed" until staff mark them.
+  const [uncertainTotal, setUncertainTotal] = useState(0);
+  const [uncertain, setUncertain] = useState<UncertainRecipient[]>([]);
+  const [selectedUncertain, setSelectedUncertain] = useState<Set<string>>(new Set());
+  const [confirmNotSent, setConfirmNotSent] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [newTime, setNewTime] = useState('');
   const [scheduleBusy, setScheduleBusy] = useState(false);
 
@@ -213,8 +229,21 @@ export default function BroadcastDetailPage() {
         if (countError) throw countError;
         return count ?? 0;
       };
+      // Uncertain rows are failed but not retryable; the endpoint also counts rows
+      // flagged before the column existed. Without access the list is simply empty.
+      let uncertainCount = 0;
+      const unc = await authFetch(`/api/whatsapp/broadcast/${broadcastId}/reconcile`).catch(() => null);
+      if (unc?.ok) {
+        const body = (await unc.json().catch(() => null)) as { total?: number; recipients?: UncertainRecipient[] } | null;
+        uncertainCount = body?.total ?? 0;
+        setUncertain(body?.recipients ?? []);
+      } else {
+        setUncertain([]);
+      }
+      setUncertainTotal(uncertainCount);
+      setSelectedUncertain(new Set());
       setPendingCount(await countStatus('pending'));
-      setRetryableCount(await countStatus('failed'));
+      setRetryableCount(Math.max(0, (await countStatus('failed')) - uncertainCount));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('notFound'));
     } finally {
@@ -260,12 +289,9 @@ export default function BroadcastDetailPage() {
   }
 
   /**
-   * Hand the leftovers to the server (issue #472).
-   *
-   * The wizard's send loop lives in the tab that started the campaign,
-   * so navigating away strands the rest as 'pending' with the broadcast
-   * stuck 'sending'. This is the recovery, and the same call retries
-   * failed recipients.
+   * Queue a worker pass for the pending recipients (Resume) or the failed
+   * ones (Retry failed). The route answers with the recipients this request
+   * covers; uncertain sends are never part of it.
    */
   async function handleResume(scope: 'pending' | 'failed') {
     setResumingScope(scope);
@@ -287,15 +313,17 @@ export default function BroadcastDetailPage() {
       }
 
       toast.success(
-        payload.remaining > 0
+        !payload.resuming
+          ? t('toastResumeNothing')
+          : payload.remaining > 0
           ? t('toastResumeStartedCapped', {
               count: payload.resuming,
               remaining: payload.remaining,
             })
           : t('toastResumeStarted', { count: payload.resuming }),
       );
-      // Delivery runs server-side after the 202, so the counts here are
-      // a snapshot — reload to pick up the first of it.
+      // The worker sends after the 202, so the counts here are a
+      // snapshot; reload to pick up the first of it.
       await fetchData();
     } catch (err) {
       toast.error(
@@ -306,6 +334,39 @@ export default function BroadcastDetailPage() {
     } finally {
       setResumingScope(null);
     }
+  }
+
+  /** Record what Meta did with the selected uncertain sends, after staff checked. */
+  async function handleReconcile(resolution: 'sent' | 'not_sent') {
+    setReconciling(true);
+    try {
+      const res = await authFetch(`/api/whatsapp/broadcast/${broadcastId}/reconcile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution, recipientIds: [...selectedUncertain] }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(t('toastReconcileFailed', { error: payload?.error || `HTTP ${res.status}` }));
+        return;
+      }
+      toast.success(t('toastReconciled', { count: payload.resolved ?? 0 }));
+      setConfirmNotSent(false);
+      await fetchData();
+    } catch (err) {
+      toast.error(t('toastReconcileFailed', { error: err instanceof Error ? err.message : t('unknownError') }));
+    } finally {
+      setReconciling(false);
+    }
+  }
+
+  function toggleUncertain(id: string) {
+    setSelectedUncertain((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   async function changeSchedule(method: 'PATCH' | 'DELETE') {
@@ -542,6 +603,77 @@ export default function BroadcastDetailPage() {
               </Button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Sends Meta never confirmed (audit finding 12): staff check, then mark each one. */}
+      {uncertainTotal > 0 && (
+        <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <div className="flex items-start gap-2 text-sm">
+            <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div>
+              <p className="font-medium text-foreground">{t('uncertainTitle', { count: uncertainTotal })}</p>
+              <p className="mt-0.5 text-muted-foreground">{t('uncertainHint')}</p>
+              {uncertainTotal > uncertain.length && (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t('uncertainShowing', { shown: uncertain.length, total: uncertainTotal })}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {canReconcile && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={uncertain.length > 0 && selectedUncertain.size === uncertain.length}
+                  onChange={(e) => setSelectedUncertain(e.target.checked ? new Set(uncertain.map((r) => r.id)) : new Set())}
+                />
+                {t('uncertainSelectAll')}
+              </label>
+            )}
+            {uncertain.map((r) => (
+              <label key={r.id} className="flex items-center gap-2 text-sm text-foreground">
+                {canReconcile && (
+                  <input
+                    type="checkbox"
+                    checked={selectedUncertain.has(r.id)}
+                    onChange={() => toggleUncertain(r.id)}
+                    aria-label={t('uncertainSelect', { name: r.contact_name ?? r.contact_phone ?? t('unknownContact') })}
+                  />
+                )}
+                <span className="font-medium">{r.contact_name ?? t('unknownContact')}</span>
+                <span className="text-muted-foreground">{r.contact_phone ?? '-'}</span>
+              </label>
+            ))}
+          </div>
+          {canReconcile ? (
+            confirmNotSent ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm">
+                <span className="text-red-300">{t('uncertainNotSentWarning', { count: selectedUncertain.size })}</span>
+                <Button variant="outline" size="sm" disabled={reconciling} onClick={() => setConfirmNotSent(false)}>
+                  {t('cancel')}
+                </Button>
+                <Button size="sm" disabled={reconciling} onClick={() => handleReconcile('not_sent')}
+                  className="bg-red-600 text-white hover:bg-red-700">
+                  {t('confirm')}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" disabled={reconciling || selectedUncertain.size === 0}
+                  onClick={() => handleReconcile('sent')}>
+                  {t('uncertainMarkSent', { count: selectedUncertain.size })}
+                </Button>
+                <Button size="sm" variant="outline" disabled={reconciling || selectedUncertain.size === 0}
+                  onClick={() => setConfirmNotSent(true)}>
+                  {t('uncertainMarkNotSent', { count: selectedUncertain.size })}
+                </Button>
+              </div>
+            )
+          ) : (
+            <p className="text-xs text-muted-foreground">{t('uncertainAdminOnly')}</p>
+          )}
         </div>
       )}
 

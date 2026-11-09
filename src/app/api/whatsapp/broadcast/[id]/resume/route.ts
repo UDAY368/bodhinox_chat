@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/auth/permissions'
 import { enqueueJob } from '@/lib/jobs/queue'
 import { BroadcastError, broadcastNumberError } from '@/lib/whatsapp/broadcast-core'
 import { loadSenderConfig } from '@/lib/whatsapp/sender-config'
+import { flagLegacyUncertain, RESUME_MAX_PER_REQUEST, scopeStatuses } from '@/lib/whatsapp/broadcast-resume'
 import { randomUUID } from 'node:crypto'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -32,7 +33,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     const headerMediaUrl = typeof body.headerMediaUrl === 'string' ? body.headerMediaUrl.trim() : undefined
     if (headerMediaUrl && headerMediaUrl.length > 2048) return NextResponse.json({ error: 'Invalid media URL' }, { status: 400 })
-    const jobId = await enqueueJob('broadcast.dispatch', { broadcastId: id, scope, ...(headerMediaUrl ? { headerMediaUrl } : {}) }, { tenantId: accountId, requeueCompleted: true, dedupeKey: scope === 'pending' ? `broadcast:${id}:initial` : `broadcast:${id}:retry:${randomUUID()}` })
-    return NextResponse.json({ success: true, broadcast_id: id, scope, job_id: jobId, queued: true, resuming: 0, remaining: 0, unsendable: 0 }, { status: 202 })
+    // The recipients this request covers, for the confirmation. Uncertain sends are
+    // left out: they wait for reconciliation on the campaign page.
+    if (scope !== 'pending') await flagLegacyUncertain(db, id)
+    const counted = await db.from('broadcast_recipients').select('id', { count: 'exact', head: true })
+      .eq('broadcast_id', id).in('status', scopeStatuses(scope)).is('outcome_uncertain_at', null)
+    if (counted.error) throw new Error('Broadcast recipient count failed')
+    const inScope = counted.count ?? 0
+    // Pending rows continue pass after pass; failed rows beyond one pass need another retry.
+    const resuming = scope === 'pending' ? inScope : Math.min(inScope, RESUME_MAX_PER_REQUEST)
+    // A retry request id lets the worker give rows Meta failed after accepting them one new send.
+    const retryId = scope === 'pending' ? undefined : randomUUID()
+    const jobId = await enqueueJob('broadcast.dispatch', { broadcastId: id, scope, ...(retryId ? { retryId } : {}), ...(headerMediaUrl ? { headerMediaUrl } : {}) }, { tenantId: accountId, requeueCompleted: true, dedupeKey: retryId ? `broadcast:${id}:retry:${retryId}` : `broadcast:${id}:initial` })
+    return NextResponse.json({ success: true, broadcast_id: id, scope, job_id: jobId, queued: true, resuming, remaining: inScope - resuming, unsendable: 0 }, { status: 202 })
   } catch (error) { return toErrorResponse(error) }
 }

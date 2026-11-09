@@ -1,24 +1,20 @@
 // ============================================================
 // Broadcast resume / retry (issue #472).
 //
-// The dashboard wizard drives its own send loop from the browser tab
-// that started the campaign, so closing the tab abandons the campaign
-// mid-flight: the remaining recipients stay 'pending' and the
-// broadcast sits in 'sending' forever. This module is the recovery —
-// and the same machinery answers the reporter's other two asks,
-// "reprocess pending" and "reprocess failed".
+// Every campaign pass runs in the worker as a `broadcast.dispatch` job;
+// this module plans one pass: the recipients still pending, or the failed
+// ones on "Retry failed", or both. It reuses `deliverBroadcast` rather
+// than growing a second fan-out loop: same phone-variant retry, same
+// per-recipient stamping, same trigger-owned counts.
 //
-// It deliberately reuses `deliverBroadcast` rather than growing a
-// second fan-out loop: same phone-variant retry, same per-recipient
-// stamping, same trigger-owned counts.
-//
-// What it does NOT do is move the *initial* send server-side. The
-// wizard still owns that; this makes an abandoned one recoverable.
+// A failed row whose send outcome is uncertain (outcome_uncertain_at set)
+// is never picked up here: staff reconcile it on the campaign page first
+// (lib/broadcasts/reconcile.ts).
 // ============================================================
 
 import type { DataClient } from '@/lib/data/types';
 
-import { BroadcastError, broadcastNumberError, type BroadcastPlan } from '@/lib/whatsapp/broadcast-core';
+import { BroadcastError, broadcastNumberError, UNCERTAIN_SEND_MESSAGE, type BroadcastPlan } from '@/lib/whatsapp/broadcast-core';
 import { assertTemplateOnNumber, loadSenderConfig, type SenderConfigRow } from '@/lib/whatsapp/sender-config';
 import { assertNumberConnected } from '@/lib/whatsapp/numbers';
 import { chunk } from '@/lib/data/paged-query';
@@ -38,12 +34,10 @@ export const RESUME_SCOPES: readonly ResumeScope[] = [
 ];
 
 /**
- * Recipients delivered per resume request. One pass runs inside
- * `after()`, so it is bounded by the host's function timeout — the cap
- * keeps a 5 000-recipient backlog from being one un-completable unit
- * of work. Whatever is left stays 'pending' and the caller is told how
- * many, so the UI can offer Resume again. Matches the public API's
- * per-request recipient cap.
+ * Recipients delivered per worker pass. The cap keeps a 5 000-recipient
+ * backlog from being one un-completable job; the handler queues the next
+ * pass for pending rows. Failed rows beyond the cap need another "Retry
+ * failed". Matches the public API's per-request recipient cap.
  */
 export const RESUME_MAX_PER_REQUEST = 1000;
 
@@ -55,7 +49,7 @@ export const RESUME_MAX_PER_REQUEST = 1000;
  */
 export const DELIVERY_LOCK_STALE_MS = 30 * 60 * 1000;
 
-function scopeStatuses(scope: ResumeScope): string[] {
+export function scopeStatuses(scope: ResumeScope): string[] {
   if (scope === 'pending') return ['pending'];
   if (scope === 'failed') return ['failed'];
   return ['pending', 'failed'];
@@ -108,6 +102,22 @@ export async function releaseBroadcastDelivery(
   }
 }
 
+/**
+ * Rows marked uncertain before outcome_uncertain_at existed carry only the
+ * error text. Flag them, so they too wait for staff reconciliation instead of
+ * being counted or picked up as ordinary failures.
+ */
+export async function flagLegacyUncertain(db: DataClient, broadcastId: string): Promise<void> {
+  const { error } = await db
+    .from('broadcast_recipients')
+    .update({ outcome_uncertain_at: new Date().toISOString() })
+    .eq('broadcast_id', broadcastId)
+    .eq('status', 'failed')
+    .eq('error_message', UNCERTAIN_SEND_MESSAGE)
+    .is('outcome_uncertain_at', null);
+  if (error) throw new BroadcastError('internal', 'Failed to load recipients', 500);
+}
+
 export interface ResumePlan {
   plan: BroadcastPlan;
   /** In-scope recipients left over after the per-request cap. */
@@ -123,6 +133,8 @@ export interface ResumePlan {
 interface RecipientRow {
   id: string;
   contact_id?: string | null;
+  retry_generation?: number | null;
+  whatsapp_message_id?: string | null;
   template_params: unknown;
   click_token?: string | null;
   contact: RecipientContact | RecipientContact[] | null;
@@ -166,15 +178,18 @@ export async function planBroadcastResume(
   }
 
   const statuses = scopeStatuses(scope);
+  if (scope !== 'pending') await flagLegacyUncertain(db, broadcastId);
   const {
     data: rawRows,
     count: inScopeCount,
     error: recError,
   } = await db
     .from('broadcast_recipients')
-    .select('id, contact_id, template_params, click_token, contact:contacts(phone,opted_out_at,blocked_at)', { count: 'exact' })
+    .select('id, contact_id, template_params, click_token, retry_generation, whatsapp_message_id, contact:contacts(phone,opted_out_at,blocked_at)', { count: 'exact' })
     .eq('broadcast_id', broadcastId)
     .in('status', statuses)
+    // An uncertain send waits for staff to reconcile it; never resent blindly.
+    .is('outcome_uncertain_at', null)
     // Oldest first, so repeated capped passes chew through the backlog
     // in a stable order instead of re-picking the same slice.
     .order('created_at', { ascending: true })
@@ -279,6 +294,8 @@ export async function planBroadcastResume(
         : [],
       clickToken: row.click_token ?? null,
       contactId: row.contact_id ?? undefined,
+      ...(row.retry_generation ? { retryGeneration: row.retry_generation } : {}),
+      ...(row.whatsapp_message_id ? { previousMessageId: row.whatsapp_message_id } : {}),
     })),
     rejected: 0,
   };

@@ -33,6 +33,7 @@ import {
   broadcastDispatchable,
   claimBroadcastStart,
   lockBroadcastDelivery,
+  prepareFailedRetry,
   unlockBroadcastDelivery,
 } from '@/lib/broadcasts/schedule';
 import { NUMBER_DISCONNECTED_REASON } from '@/lib/whatsapp/number-admin';
@@ -170,6 +171,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         return;
       }
       try {
+        // One "Retry failed" request: rows Meta failed after accepting them get a new send.
+        if (scope !== 'pending' && job.payload.retryId !== undefined)
+          await prepareFailedRetry(accountId, broadcastId, uuid(job.payload.retryId));
         const { plan, remaining } = await planBroadcastResume(
           db,
           accountId,

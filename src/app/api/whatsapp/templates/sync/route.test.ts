@@ -189,3 +189,21 @@ describe('POST /api/whatsapp/templates/sync — numbers in two WABAs', () => {
   })
 })
 
+
+describe('POST /api/whatsapp/templates/sync — Meta timeout (audit finding 16)', () => {
+  it('bounds every Meta page request with a timeout signal', async () => {
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({ data: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    expect((await POST()).status).toBe(200)
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('answers 504 with a clear message and writes nothing when Meta does not answer in time', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('The operation was aborted due to timeout', 'TimeoutError') }))
+    const res = await POST()
+    expect(res.status).toBe(504)
+    expect((await res.json()).error).toMatch(/did not answer in time/)
+    expect(state.inserts).toEqual([])
+    expect(state.updates).toEqual([])
+  })
+})

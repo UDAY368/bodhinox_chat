@@ -303,6 +303,7 @@ model broadcasts {
   tracked_url String?
   click_count Int @default(0)
   whatsapp_config_id String? @db.Uuid
+  retry_request_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -322,6 +323,8 @@ model broadcast_recipients {
   click_token String?
   clicked_at DateTime? @db.Timestamptz(6)
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  retry_generation Int @default(0)
+  outcome_uncertain_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
