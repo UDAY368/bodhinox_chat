@@ -21,6 +21,7 @@ vi.mock('@/lib/whatsapp/meta-api', async (orig) => ({
   subscribeWabaToApp: async () => undefined,
   registerPhoneNumber: async () => ({ success: true, alreadyRegistered: true }),
   getSubscribedApps: async () => [],
+  setBusinessEncryptionKey: async () => undefined,
 }));
 
 import { createScopedClient } from '@/lib/data/server';

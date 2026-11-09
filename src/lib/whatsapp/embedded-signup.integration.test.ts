@@ -21,6 +21,7 @@ vi.mock('@/lib/whatsapp/meta-api', async (orig) => ({
   listWabaPhoneNumbers: meta.list,
   subscribeWabaToApp: meta.subscribe,
   registerPhoneNumber: meta.register,
+  setBusinessEncryptionKey: async () => undefined,
 }));
 
 import { connectEmbeddedSignup, retryEmbeddedSignupRegistration } from './embedded-signup-connect';
