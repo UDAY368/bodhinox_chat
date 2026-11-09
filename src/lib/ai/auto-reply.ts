@@ -13,6 +13,9 @@ import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from '
 import { promptCharsOf, usageLog } from './usage'
 import { chatTokenEstimate, failAi, reserveAi, settleAi, type AiReservation } from './budget'
 import { latestUserMessage, recentCustomerText } from './query'
+import { recordReplyEvent, type ReplyEventInput } from './reply-events'
+import type { ConfidenceReason } from './confidence'
+import type { ReplyEventOutcome, ReplyEventReason } from './reply-event-codes'
 import { getSessionWindow } from '@/lib/inbox/session'
 import {
   conversationNumberDisconnected,
@@ -20,6 +23,7 @@ import {
   loadAccountMetaCredentials,
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
+import { BotRepliesPausedError } from '@/lib/whatsapp/bot-pause-error'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { PlanLimitError } from '@/lib/billing/entitlements'
 import { newRequestKey } from '@/lib/billing/usage-ledger'
@@ -115,6 +119,24 @@ export async function dispatchInboundToAiReply(
     if (requireHandoffOnUnavailable) await pauseForHuman('AI agent handed off: AI assistance is unavailable. A human should review the latest customer message.')
   }
 
+  // The AI activity log: exactly one row per dispatch that passed the first
+  // eligibility check, written at its terminal point (best-effort, never throws).
+  const started = Date.now()
+  const event: Omit<ReplyEventInput, 'outcome' | 'reason'> = {
+    accountId, conversationId, contactId, inboundMessageId: inboundMessageId ?? null,
+  }
+  let recorded = false
+  const record = async (outcome: ReplyEventOutcome, reason: ReplyEventReason, extra: Partial<ReplyEventInput> = {}) => {
+    if (recorded) return
+    recorded = true
+    await recordReplyEvent({ ...event, ...extra, outcome, reason, latencyMs: Date.now() - started })
+  }
+  let gatePassed = false
+  // Set when the sender's last ownership check refuses, so the catch below records 'stale'.
+  let staleBeforeSend = false
+  // Set once Meta accepted the reply: a later failure (saving it locally) still means the customer got it.
+  let sentReply: { text: string; reason: ReplyEventReason } | null = null
+
   try {
     const config = await loadAiConfig(db, accountId)
     if (!config || !config.autoReplyEnabled) { await unavailable(); return }
@@ -134,28 +156,35 @@ export async function dispatchInboundToAiReply(
       .eq('is_active', true)
       .in('trigger_type', ['new_message_received', 'keyword_match'])
       .limit(1)
-    if (autoResponders && autoResponders.length > 0) return
+    if (autoResponders && autoResponders.length > 0) {
+      // Logged only for a thread the agent would otherwise have answered.
+      if (await eligible()) await record('skipped', 'automation_active')
+      return
+    }
 
     const conv = await eligible()
     if (!conv) return
+    gatePassed = true
     // The thread's number was disconnected: replies are refused, never sent from
     // another number. Stand down quietly (no handoff, no LLM call); the reason
     // code is logged, never the content.
     if (await conversationNumberDisconnected(db, accountId, conversationId)) {
       console.info('[ai auto-reply] skipped', { reason: 'whatsapp_number_disconnected' })
+      await record('skipped', 'number_disconnected')
       return
     }
     observedCustomerTimestamp = conv.last_customer_message_at
-    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) { await unavailable(); return }
+    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) { await unavailable(); await record('skipped', 'reply_cap'); return }
 
     const messages = await buildConversationContext(db, conversationId)
-    if (messages.length === 0) { await unavailable(); return }
+    if (messages.length === 0) { await unavailable(); await record('skipped', 'no_messages'); return }
 
     // The workspace's agent profile (setup wizard). Missing or unreadable
     // means the defaults: no keywords, no turn limit.
     const profile = await loadProfile(accountId)
     const rules = profile?.handoff_rules
     const question = latestUserMessage(messages)
+    event.customerText = question
     // Routing checks every customer turn since the last reply, so a burst
     // ("<health question>", then "hello??") is still routed to staff.
     const recent = recentCustomerText(messages)
@@ -168,11 +197,13 @@ export async function dispatchInboundToAiReply(
     if (rules && matchHandoffKeyword(recent, rules)) {
       console.info('[ai auto-reply] handed off', { reason: 'handoff_keyword' })
       await handOff()
+      await record('handed_off', 'handoff_keyword')
       return
     }
     if (rules && rules.max_turns_before_handoff > 0 && (conv.ai_reply_count ?? 0) >= rules.max_turns_before_handoff) {
       console.info('[ai auto-reply] handed off', { reason: 'max_turns' })
       await handOff()
+      await record('handed_off', 'max_turns')
       return
     }
     // A health or safety-sensitive question goes to qualified staff, before
@@ -180,6 +211,7 @@ export async function dispatchInboundToAiReply(
     if (classifySensitive(recent).sensitive) {
       logAiEvent({ feature: 'auto_reply', reason: 'sensitive_topic', accountId })
       await handOff('sensitive_topic')
+      await record('handed_off', 'sensitive_topic')
       return
     }
 
@@ -195,6 +227,7 @@ export async function dispatchInboundToAiReply(
     if (!acctLimit.success) {
       logAiEvent({ feature: 'auto_reply', reason: 'rate_limited', accountId })
       await unavailable()
+      await record('skipped', 'rate_limited')
       return
     }
 
@@ -210,6 +243,7 @@ export async function dispatchInboundToAiReply(
       if (!(error instanceof PlanLimitError)) throw error
       console.info('[ai auto-reply] skipped', { reason: 'plan_ai_limit' })
       await unavailable()
+      await record('skipped', 'plan_ai_limit')
       return
     }
 
@@ -243,6 +277,9 @@ export async function dispatchInboundToAiReply(
     })
 
     // Personal data in customer messages is masked before it leaves for the provider.
+    event.provider = config.provider
+    event.model = config.model
+    event.sources = citations ?? []
     let generated: Awaited<ReturnType<typeof generateReply>>
     try {
       generated = await generateReply({
@@ -268,8 +305,9 @@ export async function dispatchInboundToAiReply(
       estimate: { promptChars: promptCharsOf(systemPrompt, messages), outputChars: rawText.length },
     })
     await settleAi(reservation, { tokens: log.totalTokens, log })
+    Object.assign(event, { promptTokens: log.promptTokens, completionTokens: log.completionTokens, totalTokens: log.totalTokens })
 
-    if (!await eligible()) return
+    if (!await eligible()) { await record('skipped', 'stale'); return }
 
     // Both control phrases are stripped (parseGeneration and
     // assessConfidence) before anything can be sent.
@@ -280,6 +318,7 @@ export async function dispatchInboundToAiReply(
       retrieval,
       threshold: autoReplyThreshold(rules?.confidence_threshold ?? 0, retrieval),
     })
+    event.confidence = confidence.score
     let text = confidence.text
     const lowConfidence = confidence.reason === 'low_score' && (rules?.on_low_confidence ?? false)
     const handingOff = !confidence.confident && (confidence.reason !== 'low_score' || lowConfidence)
@@ -300,10 +339,12 @@ export async function dispatchInboundToAiReply(
       if (!guarded.ok) {
         logAiEvent({ feature: 'auto_reply', reason: 'guard_blocked', accountId, flags: guarded.flags })
         await handOff('guard_blocked')
+        await record('handed_off', 'guard_blocked', { guardFlags: guarded.flags })
         return
       }
       text = guarded.text
-      if (!text.trim()) { await handOff('guard_blocked'); return }
+      event.guardFlags = guarded.flags
+      if (!text.trim()) { await handOff('guard_blocked'); await record('handed_off', 'guard_blocked'); return }
     }
 
     if (handingOff) {
@@ -315,6 +356,7 @@ export async function dispatchInboundToAiReply(
       // context. Assigning fires the `on_conversation_assigned` trigger,
       // which notifies the agent.
       await handOff()
+      await record('handed_off', CONFIDENCE_HANDOFF_REASON[confidence.reason])
       return
     }
 
@@ -337,16 +379,21 @@ export async function dispatchInboundToAiReply(
       // silent return makes "auto-reply never fires" undiagnosable.
       console.error('[ai auto-reply] claim_ai_reply_slot failed', { code: (claimErr as { code?: string }).code ?? null })
       await unavailable()
+      await record('skipped', 'claim_failed')
       return
     }
-    if (claimed !== true) { await unavailable(); return }
+    if (claimed !== true) { await unavailable(); await record('skipped', 'slot_lost'); return }
 
-    if (!await eligible()) return
+    if (!await eligible()) { await record('skipped', 'stale'); return }
     // The sender repeats this after credentials/recipient lookup and on retries.
     const beforeSend = async () => {
-      if (!await eligible()) throw new Error('AI conversation eligibility changed before sending')
+      if (!await eligible()) {
+        staleBeforeSend = true
+        throw new Error('AI conversation eligibility changed before sending')
+      }
     }
 
+    const repliedReason: ReplyEventReason = confidence.confident ? 'answered' : 'answered_low_confidence'
     await engineSendText({
       accountId,
       userId: configOwnerUserId,
@@ -355,13 +402,32 @@ export async function dispatchInboundToAiReply(
       text,
       aiGenerated: true,
       beforeSend,
+      onSent: () => { sentReply = { text, reason: repliedReason } },
     })
+    await record('replied', repliedReason, { replyText: text })
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed', { error: err instanceof Error ? err.name : 'unknown' })
     try { await unavailable() } catch (handoffError) {
       console.error('[ai auto-reply] unavailable handoff failed', { error: handoffError instanceof Error ? handoffError.name : 'unknown' })
     }
+    // Never the error message: a reason code only. An agent pausing the bot
+    // during the send is an ownership change, like the sender's last check.
+    const reply = sentReply as { text: string; reason: ReplyEventReason } | null
+    if (!gatePassed) return
+    if (reply) await record('replied', reply.reason, { replyText: reply.text })
+    else if (staleBeforeSend || err instanceof BotRepliesPausedError) await record('skipped', 'stale')
+    else await record('error', 'dispatch_failed')
   }
+}
+
+/** The activity-log reason for a handoff decided by assessConfidence. */
+const CONFIDENCE_HANDOFF_REASON: Record<ConfidenceReason, ReplyEventReason> = {
+  low_score: 'low_confidence',
+  handoff: 'model_handoff',
+  no_answer: 'no_answer',
+  empty: 'empty_reply',
+  // Not reached (an answered turn is never handed off); kept so every reason maps.
+  answered: 'low_confidence',
 }
 
 /**

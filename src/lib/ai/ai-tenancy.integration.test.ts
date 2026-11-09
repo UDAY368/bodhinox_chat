@@ -413,7 +413,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 13 AI tenancy on Post
       for (const [table, id] of [['ai_suggestions', seeded.bSuggestionOld], ['ai_insight_runs', seeded.bInsightOld], ['ai_usage_log', seeded.bUsageOld]])
         expect(await exists(table, id), table).toBe(true);
       // Nothing left to do: a second sweep changes nothing, and A is no longer due while B still is.
-      expect(await runAiRetentionSweep(accountA)).toEqual({ suggestionsDeleted: 0, suggestionsCleared: 0, assessmentsDeleted: 0, insightRunsDeleted: 0, usageLogDeleted: 0 });
+      expect(await runAiRetentionSweep(accountA)).toEqual({ suggestionsDeleted: 0, suggestionsCleared: 0, assessmentsDeleted: 0, insightRunsDeleted: 0, usageLogDeleted: 0, replyEventsDeleted: 0 });
       const due = (await getWorkerPrisma().$queryRaw<{ account_id: string }[]>`SELECT account_id::text FROM crm_accounts_with_ai_retention_due()`).map((r) => r.account_id);
       expect(due).not.toContain(accountA);
       expect(due).toContain(accountB);

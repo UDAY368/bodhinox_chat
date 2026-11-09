@@ -16171,6 +16171,168 @@
         "reference": null,
         "definition": "completed_at timestamptz"
       }
+    ],
+    "ai_reply_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "conversations",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "conversation_id uuid"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "contact_id uuid"
+      },
+      {
+        "name": "inbound_message_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "inbound_message_id text CHECK (char_length(inbound_message_id) <= 256)"
+      },
+      {
+        "name": "outcome",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "outcome text NOT NULL CHECK (outcome IN ('replied','handed_off','skipped','error'))"
+      },
+      {
+        "name": "reason",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "reason text NOT NULL CHECK (char_length(reason) <= 64 AND reason ~ '^[a-z0-9_]+$')"
+      },
+      {
+        "name": "customer_text",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "customer_text text CHECK (char_length(customer_text) <= 2000)"
+      },
+      {
+        "name": "reply_text",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reply_text text CHECK (char_length(reply_text) <= 4096)"
+      },
+      {
+        "name": "sources",
+        "type": "jsonb",
+        "nullable": false,
+        "default": "'[]'::jsonb",
+        "reference": null,
+        "definition": "sources jsonb NOT NULL DEFAULT '[]'::jsonb"
+      },
+      {
+        "name": "confidence",
+        "type": "real",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "confidence real CHECK (confidence BETWEEN 0 AND 1)"
+      },
+      {
+        "name": "guard_flags",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{}'",
+        "reference": null,
+        "definition": "guard_flags text[] NOT NULL DEFAULT '{}' CHECK (cardinality(guard_flags) <= 16)"
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "provider text CHECK (char_length(provider) <= 32)"
+      },
+      {
+        "name": "model",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "model text CHECK (char_length(model) <= 200)"
+      },
+      {
+        "name": "prompt_tokens",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "prompt_tokens integer NOT NULL DEFAULT 0 CHECK (prompt_tokens >= 0)"
+      },
+      {
+        "name": "completion_tokens",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "completion_tokens integer NOT NULL DEFAULT 0 CHECK (completion_tokens >= 0)"
+      },
+      {
+        "name": "total_tokens",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "total_tokens integer NOT NULL DEFAULT 0 CHECK (total_tokens >= 0)"
+      },
+      {
+        "name": "latency_ms",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "latency_ms integer CHECK (latency_ms >= 0)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
     ]
   }
 }

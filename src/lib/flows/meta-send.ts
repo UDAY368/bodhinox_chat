@@ -114,6 +114,8 @@ interface SendTextEngineArgs {
   aiGenerated?: boolean
   /** AI can lose ownership or its service window while credentials load. */
   beforeSend?: () => Promise<void>
+  /** Called once Meta has accepted the message, before it is saved locally (a later throw means sent but not recorded). */
+  onSent?: () => void
   /** Send the text as a share-location request or (Indian numbers only) Meta's address form. */
   request?: 'location' | 'address'
 }
@@ -206,6 +208,7 @@ export async function engineSendText(
     }
   }
   if (lastError) throw lastError
+  args.onSent?.()
 
   if (sendTarget.isPhone && workingPhone !== sanitized) {
     await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)

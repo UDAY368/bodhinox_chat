@@ -4,7 +4,8 @@ import { engineSendInteractive } from '@/lib/automations/meta-send'
 import { sendInteractiveButtons, sendMediaMessage, sendTextMessage } from '@/lib/whatsapp/meta-api'
 
 const h = vi.hoisted(() => ({ rows: [] as Record<string, unknown>[], active: true,
-  numbers: null as Record<string, unknown>[] | null, conversationNumber: null as string | null }))
+  numbers: null as Record<string, unknown>[] | null, conversationNumber: null as string | null,
+  insertError: null as { message: string } | null }))
 vi.mock('@/lib/whatsapp/bot-pause', () => ({ assertBotRepliesEnabled: vi.fn(async () => {}) }))
 vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: (s: string) => s }))
 vi.mock('@/lib/storage/server', () => ({ providerMediaUrl: vi.fn(async (_account: string, url: string) => `signed:${url}`) }))
@@ -17,20 +18,33 @@ vi.mock('@/lib/whatsapp/meta-api', async importOriginal => ({
 }))
 vi.mock('./admin-client', () => ({ databaseAdmin: () => ({ from: (table: string) => {
   const filters: Record<string, unknown> = {}
+  let inserting = false
   const data = table === 'contacts' ? { id: 'contact', phone: '+15551234567' } : table === 'whatsapp_config' ? (h.numbers ?? { phone_number_id: 'phone', access_token: 'token' }) : table === 'flows' ? { id: 'flow', status: h.active ? 'active' : 'draft' } : { id: 'conversation', whatsapp_config_id: h.conversationNumber }
   const one = () => table === 'whatsapp_config' && h.numbers ? h.numbers.find((n) => n.id === filters.id) ?? null : data
   const builder = { select: () => builder, eq: (field: string, value: unknown) => { filters[field] = value; return builder }, update: () => builder,
-    insert: (row: Record<string, unknown>) => { h.rows.push(row); return builder },
+    insert: (row: Record<string, unknown>) => { h.rows.push(row); inserting = true; return builder },
     maybeSingle: async () => ({ data: one(), error: null }), single: async () => ({ data: one(), error: null }),
-    then: (resolve: (value: unknown) => unknown) => resolve({ data, error: null }),
+    then: (resolve: (value: unknown) => unknown) => resolve({ data, error: inserting ? h.insertError : null }),
   }; return builder
 } }) }))
 describe('engine interactive delivery', () => {
   const base = { accountId: 'account', userId: 'user', conversationId: 'conversation', contactId: 'contact' }
-  beforeEach(() => { h.rows = []; h.active = true; h.numbers = null; h.conversationNumber = null; vi.clearAllMocks() })
+  beforeEach(() => { h.rows = []; h.active = true; h.numbers = null; h.conversationNumber = null; h.insertError = null; vi.clearAllMocks() })
   it('rechecks AI ownership immediately before the external text send', async () => {
     await expect(engineSendText({ ...base, text: 'Reply', beforeSend: async () => { throw new Error('Human takeover') } })).rejects.toThrow('Human takeover')
     expect(sendTextMessage).not.toHaveBeenCalled()
+  })
+  it('reports a text as sent before saving it, so a failed save is not mistaken for an undelivered reply', async () => {
+    h.insertError = { message: 'insert refused' }
+    const onSent = vi.fn()
+    await expect(engineSendText({ ...base, text: 'Reply', onSent })).rejects.toThrow()
+    expect(sendTextMessage).toHaveBeenCalledTimes(1)
+    expect(onSent).toHaveBeenCalledTimes(1)
+  })
+  it('does not report a text as sent when the ownership check refuses', async () => {
+    const onSent = vi.fn()
+    await expect(engineSendText({ ...base, text: 'Reply', onSent, beforeSend: async () => { throw new Error('Human takeover') } })).rejects.toThrow()
+    expect(onSent).not.toHaveBeenCalled()
   })
   it('binds workflow actions once and saves the same IDs and original media delivered by a bot', async () => {
     await engineSendInteractiveButtons({ ...base, bodyText: 'Pick', media: { type: 'image', url: 'https://cdn.test/image' }, buttons: [{ id: 'old', title: 'Start', action: { type: 'flow', targetId: '11111111-1111-4111-8111-111111111111' } }] })

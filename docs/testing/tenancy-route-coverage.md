@@ -56,7 +56,7 @@ The ten route cases that answered a foreign id with 200, 400 or 409 now answer 4
 
 ## Route coverage gap
 
-There are 150 dynamic route files. `CASES` covers 47 routes. The exempt routes, each with its reason, are:
+There are 151 dynamic route files. `CASES` covers 47 routes. The exempt routes, each with its reason, are:
 - auth;
 - invitation tokens;
 - the data gateway and RPC endpoints, which the contract suite covers;
@@ -65,10 +65,10 @@ There are 150 dynamic route files. `CASES` covers 47 routes. The exempt routes, 
 - public share links;
 - `public/*`, `platform/*` and `v1/*`.
 
-The following 66 dynamic routes have no cross-tenant case yet. The coverage test pins this list (`KNOWN_UNMAPPED`), so it can only shrink, and a new dynamic route fails CI until it is mapped or exempted.
+The following 67 dynamic routes have no cross-tenant case yet. The coverage test pins this list (`KNOWN_UNMAPPED`), so it can only shrink, and a new dynamic route fails CI until it is mapped or exempted.
 
 ```
-account/export/[id]/download, account/invitations/[id], account/support-grants/[id],
+account/export/[id]/download, account/invitations/[id], account/support-grants/[id], ai/activity/[id],
 ai/assess/conversation/[id], ai/assess/conversation/[id]/refresh, ai/assist/suggestions/[id]/decision,
 ai/autoreply/[conversationId], ai/insights/[id], ai/knowledge/sources/[id], ai/unanswered/[id],
 analytics/reports/[id]/download, analytics/reports/[id]/shares, analytics/reports/[id]/shares/[shareId],

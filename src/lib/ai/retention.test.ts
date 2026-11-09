@@ -91,14 +91,15 @@ describe('runAiRetentionSweep', () => {
   it('applies every rule on the worker in this workspace only, deleting before clearing', async () => {
     h.executeRaw.mockResolvedValue(0)
     const out = await runAiRetentionSweep(A)
-    expect(out).toEqual({ suggestionsDeleted: 0, suggestionsCleared: 0, assessmentsDeleted: 0, insightRunsDeleted: 0, usageLogDeleted: 0 })
+    expect(out).toEqual({ suggestionsDeleted: 0, suggestionsCleared: 0, assessmentsDeleted: 0, insightRunsDeleted: 0, usageLogDeleted: 0, replyEventsDeleted: 0 })
     const sql = h.executeRaw.mock.calls.map(sqlOf)
-    expect(sql).toHaveLength(5)
+    expect(sql).toHaveLength(6)
     expect(sql[0]).toMatch(/^DELETE FROM ai_suggestions/)
     expect(sql[1]).toMatch(/^UPDATE ai_suggestions SET output='\{\}'::jsonb, citations='\[\]'::jsonb/)
     expect(sql[2]).toMatch(/^DELETE FROM ai_assessments/)
     expect(sql[3]).toMatch(/^DELETE FROM ai_insight_runs/)
     expect(sql[4]).toMatch(/^DELETE FROM ai_usage_log/)
+    expect(sql[5]).toMatch(/^DELETE FROM ai_reply_events/)
     for (const call of h.executeRaw.mock.calls) {
       expect(call[1]).toBe(A)
       expect(sqlOf(call)).toContain('account_id=?::uuid')
@@ -110,6 +111,8 @@ describe('runAiRetentionSweep', () => {
     expect(h.executeRaw.mock.calls[3]).toContain(AI_RETENTION.insightRunDays)
     expect(h.executeRaw.mock.calls[4]).toContain(AI_RETENTION.usageLogDays)
     expect(h.executeRaw.mock.calls[4]).toContain(AI_RETENTION.batchSize)
+    expect(h.executeRaw.mock.calls[5]).toContain(AI_RETENTION.replyEventDays)
+    expect(AI_RETENTION.replyEventDays).toBe(90)
     expect(h.contexts.every((c) => JSON.stringify(c) === JSON.stringify({ accountId: A, role: 'owner' }))).toBe(true)
   })
 

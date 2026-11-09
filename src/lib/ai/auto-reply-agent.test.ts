@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   loadAgentProfileTx: vi.fn(),
   recordUnanswered: vi.fn(),
   withTenant: vi.fn(),
+  recordReplyEvent: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     updatePayload: null as Record<string, unknown> | null,
@@ -25,6 +26,7 @@ vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('./usage', () => ({ promptCharsOf: () => 0, usageLog: () => ({ totalTokens: 0 }) }))
 vi.mock('./budget', () => ({ reserveAi: async () => ({}), settleAi: async () => {}, failAi: async () => {}, chatTokenEstimate: () => 1 }))
 vi.mock('./unanswered', () => ({ recordUnanswered: h.recordUnanswered }))
+vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
 vi.mock('./agent-profile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./agent-profile')>()),
   loadAgentProfileTx: h.loadAgentProfileTx,
@@ -163,6 +165,7 @@ describe('auto-reply with the agent profile', () => {
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.state.updatePayload).toMatchObject({ bot_paused: true, ai_autoreply_disabled: true })
     expect(h.recordUnanswered).not.toHaveBeenCalled()
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'handed_off', reason: 'handoff_keyword', customerText: QUESTION }))
     noCustomerContentLogged()
   })
 
@@ -172,6 +175,7 @@ describe('auto-reply with the agent profile', () => {
     await dispatchInboundToAiReply(ARGS)
     expect(h.generateReply).not.toHaveBeenCalled()
     expect(h.state.updatePayload).toMatchObject({ bot_paused: true })
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'handed_off', reason: 'max_turns' }))
   })
 
   it('keeps replying below the max turns, and 0 means no limit', async () => {
@@ -189,6 +193,8 @@ describe('auto-reply with the agent profile', () => {
       accountId: 'acct-1', question: QUESTION, conversationId: 'conv-1', contactId: 'contact-1',
     })
     expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+    expect(h.recordReplyEvent).toHaveBeenCalledTimes(1)
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'handed_off', reason: 'no_answer', confidence: 0 }))
     noCustomerContentLogged()
   })
 
@@ -243,6 +249,7 @@ describe('auto-reply with the agent profile', () => {
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.recordUnanswered).toHaveBeenCalledWith({ tx: true }, expect.objectContaining({ question: QUESTION }))
     expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'handed_off', reason: 'low_confidence' }))
     noCustomerContentLogged()
   })
 
@@ -252,13 +259,22 @@ describe('auto-reply with the agent profile', () => {
     await dispatchInboundToAiReply(ARGS)
     expect(h.engineSendText).toHaveBeenCalled()
     expect(h.recordUnanswered).not.toHaveBeenCalled()
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'replied', reason: 'answered_low_confidence' }))
   })
 
   it('sends a strongly supported answer above a high threshold', async () => {
     h.loadAgentProfileTx.mockResolvedValue(profile({ on_low_confidence: true, confidence_threshold: 0.9 }))
-    h.retrieveKnowledgeScored.mockResolvedValue(scored(['We ship worldwide.'], { semanticDistances: [0.2] }))
+    h.retrieveKnowledgeScored.mockResolvedValue({
+      ...scored(['We ship worldwide.'], { semanticDistances: [0.2] }),
+      citations: [{ chunk_id: 'c0', document_id: 'd0', source_id: null, title: 'Doc 0', source_url: null }],
+    })
     await dispatchInboundToAiReply(ARGS)
     expect(h.engineSendText).toHaveBeenCalledWith(expect.objectContaining({ text: 'We ship worldwide.' }))
+    expect(h.recordReplyEvent).toHaveBeenCalledTimes(1)
+    expect(h.recordReplyEvent).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: 'replied', reason: 'answered', replyText: 'We ship worldwide.', customerText: QUESTION,
+      sources: [expect.objectContaining({ document_id: 'd0', title: 'Doc 0' })], confidence: expect.any(Number),
+    }))
   })
 
   it('never sends either control phrase, even if a caller passes raw model text', async () => {

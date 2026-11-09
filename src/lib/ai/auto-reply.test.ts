@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   reserveAi: vi.fn(),
   settleAi: vi.fn(),
   failAi: vi.fn(),
+  recordReplyEvent: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
@@ -41,6 +42,7 @@ vi.mock('./knowledge', () => ({
   },
 }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
+vi.mock('./reply-events', () => ({ recordReplyEvent: h.recordReplyEvent }))
 vi.mock('./budget', () => ({ reserveAi: h.reserveAi, settleAi: h.settleAi, failAi: h.failAi, chatTokenEstimate: () => 100 }))
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({ worker: true }) }))
 vi.mock('@/lib/flows/meta-send', () => ({
@@ -133,6 +135,7 @@ beforeEach(() => {
   h.reserveAi.mockReset().mockResolvedValue(RESERVATION)
   h.settleAi.mockReset().mockResolvedValue(undefined)
   h.failAi.mockReset().mockResolvedValue(undefined)
+  h.recordReplyEvent.mockReset().mockResolvedValue(undefined)
   h.state.conv = {
     id: 'conv-1',
     account_id: 'acct-1',
@@ -597,5 +600,124 @@ describe('dispatchInboundToAiReply — Phase 13 safety guards', () => {
     expect(logged).not.toContain('acct-1')
     logs.forEach((s) => s.mockRestore())
     __resetRateLimitForTests()
+  })
+})
+
+describe('dispatchInboundToAiReply — AI activity log', () => {
+  beforeEach(async () => (await import('@/lib/rate-limit')).__resetRateLimitForTests())
+
+  /** The one recorded event (fails when there were none or several). */
+  const recorded = () => {
+    expect(h.recordReplyEvent).toHaveBeenCalledTimes(1)
+    return h.recordReplyEvent.mock.calls[0][0] as Record<string, unknown>
+  }
+
+  it('records one replied row with the question, reply, model and timing', async () => {
+    await dispatchInboundToAiReply(ARGS)
+    expect(recorded()).toMatchObject({
+      accountId: 'acct-1', conversationId: 'conv-1', contactId: 'contact-1', inboundMessageId: 'wamid.inbound-1',
+      outcome: 'replied', reason: 'answered', customerText: 'hi', replyText: 'Hello!', provider: 'openai', model: 'gpt-test',
+      latencyMs: expect.any(Number),
+    })
+  })
+
+  it.each([
+    ['AI is off', () => { h.loadAiConfig.mockResolvedValue(null) }],
+    ['auto-reply is disabled for the account', () => { h.loadAiConfig.mockResolvedValue(aiConfig({ autoReplyEnabled: false })) }],
+    ['a human is assigned', () => { h.state.conv!.assigned_agent_id = 'agent-9' }],
+    ['the thread was paused', () => { h.state.conv!.bot_paused = true }],
+    ['an automation is active on a thread a human owns', () => { h.state.autoResponders = [{ id: 'a' }]; h.state.conv!.assigned_agent_id = 'agent-9' }],
+  ])('records nothing when %s', async (_label, arrange) => {
+    arrange()
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.recordReplyEvent).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['automation_active', () => { h.state.autoResponders = [{ id: 'a' }] }],
+    ['number_disconnected', () => { h.conversationNumberDisconnected.mockResolvedValue(true) }],
+    ['reply_cap', () => { h.state.conv!.ai_reply_count = 3 }],
+    ['no_messages', () => { h.buildConversationContext.mockResolvedValue([]) }],
+    ['slot_lost', () => { h.state.claim = false }],
+    ['stale', () => { h.generateReply.mockImplementationOnce(async () => { h.state.latestMessageId = 'wamid.newer'; return { text: 'x', handoff: false } }) }],
+    ['stale', () => { h.state.afterClaim = () => { h.state.conv!.assigned_agent_id = 'human-1' } }],
+  ])('records skipped / %s', async (reason, arrange) => {
+    arrange()
+    await dispatchInboundToAiReply(ARGS)
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason })
+  })
+
+  it('records skipped / plan_ai_limit when the plan has no AI messages left', async () => {
+    const { PlanLimitError } = await import('@/lib/billing/entitlements')
+    h.reserveAi.mockRejectedValueOnce(new PlanLimitError('used up'))
+    await dispatchInboundToAiReply(ARGS)
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'plan_ai_limit', customerText: 'hi' })
+  })
+
+  it("records skipped / stale when ownership changes at the sender's last check", async () => {
+    h.engineSendText.mockImplementationOnce(async (args: { beforeSend: () => Promise<void> }) => {
+      h.state.conv!.assigned_agent_id = 'human-1'
+      await args.beforeSend()
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'stale' })
+  })
+
+  it('records skipped / stale when an agent pauses the bot while the sender runs', async () => {
+    const { BotRepliesPausedError } = await import('@/lib/whatsapp/bot-pause-error')
+    h.engineSendText.mockRejectedValueOnce(new BotRepliesPausedError())
+    await dispatchInboundToAiReply(ARGS)
+    expect(recorded()).toMatchObject({ outcome: 'skipped', reason: 'stale' })
+  })
+
+  it('records replied with the text when Meta accepted the reply but saving it locally failed', async () => {
+    h.engineSendText.mockImplementationOnce(async (args: { onSent?: () => void }) => {
+      args.onSent?.()
+      throw new Error('Failed to save message: insert refused')
+    })
+    await dispatchInboundToAiReply(ARGS)
+    const row = recorded()
+    expect(row).toMatchObject({ outcome: 'replied', reason: 'answered', replyText: 'Hello!' })
+    expect(JSON.stringify(row)).not.toContain('insert refused')
+  })
+
+  it('records handed_off / sensitive_topic before any model call', async () => {
+    h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'I have chest pain and fever, what should I take?' }])
+    await dispatchInboundToAiReply(ARGS)
+    const row = recorded()
+    expect(row).toMatchObject({ outcome: 'handed_off', reason: 'sensitive_topic' })
+    expect(row.provider).toBeUndefined()
+  })
+
+  it('records handed_off / guard_blocked with the guard flags, never the blocked reply', async () => {
+    h.generateReply.mockResolvedValue({ text: 'Your refund has been processed.', handoff: false })
+    await dispatchInboundToAiReply(ARGS)
+    const row = recorded()
+    expect(row).toMatchObject({ outcome: 'handed_off', reason: 'guard_blocked' })
+    expect((row.guardFlags as string[]).length).toBeGreaterThan(0)
+    expect(row.replyText).toBeUndefined()
+  })
+
+  it('records handed_off / model_handoff when the model asks for a human', async () => {
+    h.generateReply.mockResolvedValue({ text: '', handoff: true })
+    await dispatchInboundToAiReply(ARGS)
+    expect(recorded()).toMatchObject({ outcome: 'handed_off', reason: 'model_handoff', confidence: 0 })
+  })
+
+  it('records error / dispatch_failed without the error message', async () => {
+    h.generateReply.mockRejectedValueOnce(new Error('provider down: hi'))
+    await dispatchInboundToAiReply(ARGS)
+    const row = recorded()
+    expect(row).toMatchObject({ outcome: 'error', reason: 'dispatch_failed', provider: 'openai' })
+    expect(JSON.stringify(row)).not.toContain('provider down')
+  })
+
+  it('records skipped / rate_limited once the account throttle is hit', async () => {
+    const quiet = [vi.spyOn(console, 'info'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')].map((s) => s.mockImplementation(() => {}))
+    for (let i = 0; i < 70; i++) await dispatchInboundToAiReply(ARGS)
+    const reasons = h.recordReplyEvent.mock.calls.map((c) => (c[0] as { reason: string }).reason)
+    expect(reasons).toHaveLength(70)
+    expect(reasons).toContain('rate_limited')
+    quiet.forEach((s) => s.mockRestore())
   })
 })

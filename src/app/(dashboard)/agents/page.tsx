@@ -3,26 +3,37 @@ import { authFetch } from "@/lib/auth/client";
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Sparkles, Settings2, BarChart3, BookOpen, GraduationCap } from 'lucide-react';
+import { Sparkles, Settings2, BarChart3, BookOpen, GraduationCap, History } from 'lucide-react';
 import Image from 'next/image';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AiPlayground } from '@/components/agents/ai-playground';
 import { AiUsageCard } from '@/components/agents/ai-usage';
+import { AiActivity } from '@/components/agents/ai-activity';
 import { AiConfig } from '@/components/settings/ai-config';
 import { KnowledgePanel } from '@/components/ai/knowledge';
 import { AgentSetupWizard } from '@/components/ai/setup-wizard';
 import { AgentLearnings } from '@/components/ai/learnings';
 import { useAuth } from '@/hooks/use-auth';
-import { canEditSettings, canSendMessages } from '@/lib/auth/roles';
+import { canEditSettings } from '@/lib/auth/roles';
+import { visibleAgentTabs, type AgentTab } from '@/components/agents/agent-tabs';
 
-type Tab = 'setup' | 'knowledge' | 'learnings' | 'playground' | 'usage';
+type Tab = AgentTab;
+
+const TAB_TRIGGERS = {
+  setup: { icon: Settings2, label: 'tabSetup' },
+  knowledge: { icon: BookOpen, label: 'tabKnowledge' },
+  learnings: { icon: GraduationCap, label: 'tabLearnings' },
+  playground: { icon: Sparkles, label: 'tabPlayground' },
+  usage: { icon: BarChart3, label: 'tabUsage' },
+  activity: { icon: History, label: 'tabActivity' },
+} as const;
 
 export default function AgentsPage() {
   const t = useTranslations('Agents');
   const { accountRole } = useAuth();
-  const canViewUsage = accountRole ? canEditSettings(accountRole) : false;
-  const canEdit = canViewUsage;
-  const canViewLearnings = accountRole ? canSendMessages(accountRole) : false;
+  const canEdit = accountRole ? canEditSettings(accountRole) : false;
+  // One list drives both the triggers and the panels (Usage and Activity are admin-only).
+  const visible = visibleAgentTabs(accountRole);
   const [tab, setTab] = useState<Tab>('playground');
   const [decided, setDecided] = useState(false);
   const [hasEmbeddingsKey, setHasEmbeddingsKey] = useState(false);
@@ -73,25 +84,14 @@ export default function AgentsPage() {
           className="mt-6"
         >
           <TabsList className="max-w-full flex-wrap justify-start gap-1 rounded-xl border border-border bg-card p-1 group-data-horizontal/tabs:h-auto">
-            <TabsTrigger value="setup" className="h-auto px-3 py-2 text-xs">
-              <Settings2 className="mr-1.5 h-4 w-4" /> {t('tabSetup')}
-            </TabsTrigger>
-            <TabsTrigger value="knowledge" className="h-auto px-3 py-2 text-xs">
-              <BookOpen className="mr-1.5 h-4 w-4" /> {t('tabKnowledge')}
-            </TabsTrigger>
-            {canViewLearnings && (
-              <TabsTrigger value="learnings" className="h-auto px-3 py-2 text-xs">
-                <GraduationCap className="mr-1.5 h-4 w-4" /> {t('tabLearnings')}
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="playground" className="h-auto px-3 py-2 text-xs">
-              <Sparkles className="mr-1.5 h-4 w-4" /> {t('tabPlayground')}
-            </TabsTrigger>
-            {canViewUsage && (
-              <TabsTrigger value="usage" className="h-auto px-3 py-2 text-xs">
-                <BarChart3 className="mr-1.5 h-4 w-4" /> {t('tabUsage')}
-              </TabsTrigger>
-            )}
+            {visible.map((value) => {
+              const { icon: Icon, label } = TAB_TRIGGERS[value];
+              return (
+                <TabsTrigger key={value} value={value} className="h-auto px-3 py-2 text-xs">
+                  <Icon className="mr-1.5 h-4 w-4" /> {t(label)}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
           <TabsContent value="playground" className="mt-4">
@@ -118,15 +118,22 @@ export default function AgentsPage() {
             <KnowledgePanel canEdit={canEdit} hasEmbeddingsKey={hasEmbeddingsKey} />
           </TabsContent>
 
-          {canViewLearnings && (
+          {visible.includes('learnings') && (
             <TabsContent value="learnings" className="mt-4">
               <AgentLearnings canPromote={canEdit} />
             </TabsContent>
           )}
 
-          {canViewUsage && (
+          {visible.includes('usage') && (
             <TabsContent value="usage" className="mt-4">
               <AiUsageCard />
+            </TabsContent>
+          )}
+
+          {/* What the auto-reply agent did with each customer message (admins: it holds customer text). */}
+          {visible.includes('activity') && (
+            <TabsContent value="activity" className="mt-4">
+              <AiActivity />
             </TabsContent>
           )}
         </Tabs>

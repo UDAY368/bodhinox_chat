@@ -39,6 +39,8 @@ const FORBIDDEN: Array<{ id: RegExp; why: string }> = [
 /** Tables the assistant may write. Everything else is read-only to it. */
 const WRITABLE_TABLES = new Set([
   'ai_suggestions', 'ai_assessments', 'ai_insight_runs', 'ai_usage_log', 'ai_workspace_settings', 'audit_logs', 'jobs',
+  // Retention deletes the auto-reply activity log (written by the auto-reply agent, not the assistant).
+  'ai_reply_events',
 ]);
 
 const isTest = (file: string) => /\.test\.tsx?$/.test(file);

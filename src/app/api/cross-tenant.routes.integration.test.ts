@@ -160,6 +160,8 @@ export const KNOWN_UNMAPPED = [
   'account/export/[id]/download',
   'account/invitations/[id]',
   'account/support-grants/[id]',
+  // Admin read of the AI activity log; getReplyEvent scopes by account_id and RLS (reply-events.integration.test.ts).
+  'ai/activity/[id]',
   'ai/assess/conversation/[id]',
   'ai/assess/conversation/[id]/refresh',
   'ai/assist/suggestions/[id]/decision',

@@ -16,6 +16,8 @@
 //   ai_assessments   superseded rows deleted after 30 days; every row after 180
 //   ai_insight_runs  deleted after 90 days
 //   ai_usage_log     deleted after 400 days
+//   ai_reply_events  deleted after 90 days (the auto-reply activity log, which
+//                    holds capped customer text and replies)
 // Nothing else is touched: conversations.ai_handoff_summary, messages,
 // knowledge and ai_unanswered_questions are out of scope (deferred).
 
@@ -38,6 +40,8 @@ export const AI_RETENTION = {
   insightRunDays: 90,
   /** ai_usage_log: deleted after this many days. */
   usageLogDays: 400,
+  /** ai_reply_events: deleted after this many days. */
+  replyEventDays: 90,
   batchSize: 1000,
 } as const;
 
@@ -101,6 +105,7 @@ export interface AiRetentionResult {
   assessmentsDeleted: number;
   insightRunsDeleted: number;
   usageLogDeleted: number;
+  replyEventsDeleted: number;
 }
 
 type Rule = (tx: TenantTransaction, accountId: string, limit: number) => Promise<number>;
@@ -130,6 +135,10 @@ const RULES: Record<keyof AiRetentionResult, Rule> = {
       SELECT id FROM ai_usage_log WHERE account_id=${a}::uuid
         AND created_at < now() - make_interval(days => ${AI_RETENTION.usageLogDays}::int)
       ORDER BY created_at LIMIT ${limit}::int)`,
+  replyEventsDeleted: (tx, a, limit) => tx.$executeRaw`DELETE FROM ai_reply_events WHERE id IN (
+      SELECT id FROM ai_reply_events WHERE account_id=${a}::uuid
+        AND created_at < now() - make_interval(days => ${AI_RETENTION.replyEventDays}::int)
+      ORDER BY created_at LIMIT ${limit}::int)`,
 };
 
 /**
@@ -141,7 +150,7 @@ export async function runAiRetentionSweep(accountId: string): Promise<AiRetentio
   const worker = { accountId, role: 'owner' as const };
   const limit = AI_RETENTION.batchSize;
   const result: AiRetentionResult = {
-    suggestionsDeleted: 0, suggestionsCleared: 0, assessmentsDeleted: 0, insightRunsDeleted: 0, usageLogDeleted: 0,
+    suggestionsDeleted: 0, suggestionsCleared: 0, assessmentsDeleted: 0, insightRunsDeleted: 0, usageLogDeleted: 0, replyEventsDeleted: 0,
   };
   for (const key of Object.keys(RULES) as (keyof AiRetentionResult)[]) {
     for (let batch = 0; batch < MAX_BATCHES_PER_RULE; batch++) {
