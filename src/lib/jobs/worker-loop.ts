@@ -166,14 +166,15 @@ export async function runWorkerLoop(options: WorkerLoopOptions): Promise<WorkerL
 
   try {
     const lanes = workerLanes(options.concurrency ?? workerConcurrency());
-    // A scheduling pass is short; after an abort it is awaited only up to the drain bound.
-    const scheduler = schedule();
+    // A scheduling pass in flight shares the same drain bound as the jobs (measured from the abort,
+    // not after the slots), and counts toward `drained`: the caller must not wait on the pool for it.
+    const scheduler = settleWithinDrain(schedule(), signal, drainMs);
     const slots = lanes.map((lane, index) => slot(lane, index).catch((error: unknown) => { stop.abort(); throw error; }));
     const results = await Promise.allSettled(slots);
-    await settleWithinDrain(scheduler, signal, drainMs);
+    const schedulerSettled = await scheduler;
     const failure = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
     if (failure) throw failure.reason;
-    return { processed, drained: results.every((r) => r.status === 'fulfilled' && r.value) };
+    return { processed, drained: schedulerSettled && results.every((r) => r.status === 'fulfilled' && r.value) };
   } finally {
     options.signal.removeEventListener('abort', forward);
     await beat?.stop();

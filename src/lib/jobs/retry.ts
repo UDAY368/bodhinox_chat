@@ -18,7 +18,7 @@ export const DEFAULT_MAX_ATTEMPTS = 5;
  * Each re-checks its own state (receipt status, stage checkpoints, timer seq, per-delivery id).
  */
 export const LONG_RETRY_ATTEMPTS = 8;
-const LONG_RETRY_TYPES = new Set(['whatsapp.webhook', 'inbound.actions', 'flow.timer', 'webhook.delivery']);
+const LONG_RETRY_TYPES = new Set(['whatsapp.webhook', 'instagram.webhook', 'inbound.actions', 'flow.timer', 'webhook.delivery']);
 
 export function defaultMaxAttempts(type: string): number {
   return LONG_RETRY_TYPES.has(type) ? LONG_RETRY_ATTEMPTS : DEFAULT_MAX_ATTEMPTS;

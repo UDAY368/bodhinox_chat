@@ -131,6 +131,17 @@ describe('[audit-10/37] concurrent job slots', () => {
     expect(scheduleWork.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
+  it('bounds a scheduling pass still in flight by the same drain and reports it as not drained', async () => {
+    const controller = new AbortController();
+    let release!: () => void;
+    const scheduleWork = vi.fn(() => { controller.abort(); return new Promise<void>((resolve) => { release = resolve; }); });
+    const started = Date.now();
+    const result = await runWorkerLoop({ signal: controller.signal, heartbeat: false, scheduleWork, idleMs: 5, drainMs: 50, concurrency: 3, handleJob: vi.fn() });
+    expect(result).toEqual({ processed: 0, drained: false });
+    expect(Date.now() - started).toBeLessThan(2000);
+    release();
+  });
+
   it('stops every slot when one cannot finish its job (database unavailable)', async () => {
     const { finishJob } = await import('./queue');
     vi.mocked(finishJob).mockRejectedValueOnce(new Error('database down')).mockRejectedValueOnce(new Error('database down'));

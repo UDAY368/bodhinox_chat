@@ -20,7 +20,7 @@ describe('durable job recovery', () => {
     expect(total(LONG_RETRY_ATTEMPTS)).toBeGreaterThan(7 * 3_600_000);
   });
   it('gives idempotent messaging job types the long attempt budget', () => {
-    for (const type of ['whatsapp.webhook', 'inbound.actions', 'flow.timer', 'webhook.delivery']) expect(defaultMaxAttempts(type)).toBe(8);
+    for (const type of ['whatsapp.webhook', 'instagram.webhook', 'inbound.actions', 'flow.timer', 'webhook.delivery']) expect(defaultMaxAttempts(type)).toBe(8);
     for (const type of ['broadcast.dispatch', 'automation.schedule', 'ai.assess_conversation']) expect(defaultMaxAttempts(type)).toBe(5);
   });
 });
