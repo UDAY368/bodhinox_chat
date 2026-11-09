@@ -667,6 +667,14 @@ describe('inbound webhook: template quick-reply buttons (#478)', () => {
     expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled();
   });
 
+  it('marks a template tap for the opt-out check; other messages carry no flag', async () => {
+    await runWebhook(templateButtonTap);
+    expect(h.ingestInputs[0]).toMatchObject({ templateQuickReply: true });
+    h.ingestInputs.length = 0;
+    await runWebhook({ id: 'wamid.T1', from: '15551230000', timestamp: '1700000000', type: 'text', text: { body: 'Hello' } });
+    expect(h.ingestInputs[0]?.templateQuickReply).toBeUndefined();
+  });
+
   it('falls back to the label when the template button carries no payload', async () => {
     await runWebhook({
       ...templateButtonTap,

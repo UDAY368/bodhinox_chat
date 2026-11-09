@@ -33,6 +33,23 @@ it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword withou
   // STOP also cancels the contact's running flows (A15); START leaves them alone.
   expect(h.runUpdates).toEqual(kind === 'opt_out' ? [expect.objectContaining({ status: 'cancelled', end_reason: 'contact_opted_out' })] : []);
 });
+it.each([['Stop promotions', 'STOP_PROMO'], ['No more offers', 'UNSUBSCRIBE']])('opts out on a template quick-reply tap %j / %j, like typed STOP', async (label, payload) => {
+  await processInboundActions({ ...input, templateQuickReply: true, contentText: label, interactiveReplyId: payload });
+  expect(h.consentUpdates).toEqual([{ opted_out_at: expect.any(String), opt_out_source: 'keyword' }]);
+  expect(h.runUpdates).toEqual([expect.objectContaining({ status: 'cancelled', end_reason: 'contact_opted_out' })]);
+  expect(h.explicit).not.toHaveBeenCalled(); expect(h.flow).not.toHaveBeenCalled(); expect(h.automations).not.toHaveBeenCalled();
+  expect(h.webhook).toHaveBeenCalledWith(expect.anything(), id, 'message.received', expect.anything());
+});
+it('leaves consent alone for a Start template tap and for a Stop tap on a non-template button', async () => {
+  await processInboundActions({ ...input, templateQuickReply: true });
+  h.stages.clear();
+  await processInboundActions({ ...input, contentText: 'Stop', interactiveReplyId: 'stop' });
+  expect(h.consentUpdates).toEqual([]);
+  expect(h.explicit).toHaveBeenCalledTimes(2);
+});
+it('rejects a malformed template tap flag in a queued job', async () => {
+  await expect(processInboundActions({ ...input, templateQuickReply: 'yes' as never })).rejects.toThrow('Invalid message actions contract');
+});
 it('gives a blocked contact no automated response but still emits message.received', async () => {
   h.contact = { blocked_at: '2026-11-01T00:00:00Z' };
   await processInboundActions(text('Hello'));

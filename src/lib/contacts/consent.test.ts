@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { consentKeyword, marketingSuppression } from './consent';
+import { consentKeyword, marketingSuppression, quickReplyOptOut } from './consent';
 
 describe('consentKeyword', () => {
-  it.each(['STOP', 'stop', ' Stop. ', 'Stop!', 'unsubscribe', 'opt out', 'STOP  ALL'])('reads %j as an opt-out', (text) => {
+  it.each(['STOP', 'stop', ' Stop. ', 'Stop!', 'unsubscribe', 'opt out', 'STOP  ALL', 'Stop promotions', 'STOP_PROMOTIONS', 'opt-out'])('reads %j as an opt-out', (text) => {
     expect(consentKeyword(text)).toBe('opt_out');
   });
   it.each(['START', 'start', 'Subscribe', 'unstop', 'opt in'])('reads %j as an opt-in', (text) => {
@@ -10,6 +10,19 @@ describe('consentKeyword', () => {
   });
   it.each(['please stop calling', 'stopped', 'STOP ME', '', 'restart'])('ignores %j', (text) => {
     expect(consentKeyword(text)).toBeNull();
+  });
+});
+
+describe('quickReplyOptOut', () => {
+  it('opts out when the label or the payload of a template tap is an opt-out keyword', () => {
+    expect(quickReplyOptOut('Stop promotions', 'PROMO_STOP_X')).toBe('opt_out');
+    expect(quickReplyOptOut('No thanks', 'UNSUBSCRIBE')).toBe('opt_out');
+    expect(quickReplyOptOut('Stop', null)).toBe('opt_out');
+  });
+  it('never opts in from a tap, and ignores ordinary buttons', () => {
+    expect(quickReplyOptOut('Start', 'START')).toBeNull();
+    expect(quickReplyOptOut('Track my order', 'TRACK')).toBeNull();
+    expect(quickReplyOptOut(null, null)).toBeNull();
   });
 });
 

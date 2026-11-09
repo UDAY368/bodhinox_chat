@@ -138,6 +138,15 @@ describe.skipIf(!ownerUrl||!workerUrl)("durable inbound ingestion and status gua
     expect(rows.find(row=>row.id===plain.messageId)?.interactive_payload).toBeNull();
   });
 
+  it("queues a template quick-reply tap with its opt-out check flag, and no flag on other messages",async()=>{
+    const input=await fixture();
+    const tap=await ingestInboundMessage({...input,contentType:"interactive",contentText:"Stop promotions",interactiveReplyId:"STOP_PROMO",templateQuickReply:true});
+    const plain=await ingestInboundMessage({...input,metaMessageId:randomUUID()});
+    const payload=async(id:string)=>(await owner.query("SELECT payload FROM jobs WHERE dedupe_key=$1",[`inbound:${id}`])).rows[0].payload;
+    expect(await payload(tap.messageId)).toMatchObject({templateQuickReply:true,contentText:"Stop promotions",interactiveReplyId:"STOP_PROMO"});
+    expect(await payload(plain.messageId)).not.toHaveProperty("templateQuickReply");
+  });
+
   it("serializes distinct first inbounds so only one actions payload is marked first",async()=>{
     const input=await fixture();
     const results=await Promise.all([ingestInboundMessage(input),ingestInboundMessage({...input,metaMessageId:randomUUID()})]);

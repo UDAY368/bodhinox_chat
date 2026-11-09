@@ -7,7 +7,7 @@ import { dispatchInboundToAiReply } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { dispatchQuickReplyAction } from "./quick-reply-actions";
 import { runInboundStage, type InboundActionsPayload } from "./ingest";
-import { applyConsentKeyword, consentKeyword } from "@/lib/contacts/consent";
+import { applyConsentKeyword, consentKeyword, quickReplyOptOut } from "@/lib/contacts/consent";
 import { withTenant } from "@/lib/db/tenant";
 import { getWorkerPrisma } from "@/lib/db/prisma";
 import { applyFormSaveTo, loadFormDefinition } from "./forms/responses";
@@ -29,7 +29,8 @@ function validatePayload(input: InboundActionsPayload): void {
   if (input.kind==="message" && (!uuid.test(input.userId) || !uuid.test(input.contactId) ||
     typeof input.contentType!=="string" || (input.contentText!==null && typeof input.contentText!=="string") ||
     (input.interactiveReplyId!==null && typeof input.interactiveReplyId!=="string") ||
-    (input.contextMetaId!==undefined && (typeof input.contextMetaId!=="string" || input.contextMetaId.length>256)))) throw new Error("Invalid message actions contract");
+    (input.contextMetaId!==undefined && (typeof input.contextMetaId!=="string" || input.contextMetaId.length>256)) ||
+    (input.templateQuickReply!==undefined && input.templateQuickReply!==true))) throw new Error("Invalid message actions contract");
   if (input.kind==="message" && input.adReferral!==undefined && !validAdReferral(input.adReferral)) throw new Error("Invalid message actions contract");
   if (input.kind==="status" && !["sent","delivered","read","failed"].includes(input.status)) throw new Error("Invalid status actions contract");
 }
@@ -91,7 +92,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     }
     // A STOP/START message only records consent, and a blocked contact gets
     // no automated response; both still reach the message.received webhook.
-    const keyword=input.contentType==="text"&&!input.interactiveReplyId ? consentKeyword(text) : null;
+    const keyword=inboundConsentKeyword(input,text);
     if(keyword) await applyConsentKeyword(db,input.accountId,input.contactId,keyword);
     // STOP also ends the contact's running flows, so no timer or payment resume sends more.
     if(keyword==="opt_out") await endRunsOnOptOut(db,input);
@@ -133,6 +134,15 @@ export async function processInboundActions(input: InboundActionsPayload, assert
 }
 
 type Stage=<T>(name:string,action:()=>Promise<T>)=>Promise<T>;
+
+/**
+ * Typed STOP/START, or a template quick-reply tap ("Stop promotions") whose label
+ * or payload is an opt-out. List, button-message, form and flow replies never count.
+ */
+function inboundConsentKeyword(input:MessageInput,text:string) {
+  if(input.contentType==="text"&&!input.interactiveReplyId) return consentKeyword(text);
+  return input.templateQuickReply ? quickReplyOptOut(input.contentText,input.interactiveReplyId) : null;
+}
 type MessageInput=Extract<InboundActionsPayload,{kind:"message"}>;
 type Db=ReturnType<typeof createAdminClient>;
 
@@ -159,7 +169,7 @@ async function storedConversation(db:Db,input:MessageInput): Promise<{channel:"i
  */
 async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Promise<void> {
   const text=input.contentText??"";
-  const keyword=input.contentType==="text"&&!input.interactiveReplyId ? consentKeyword(text) : null;
+  const keyword=inboundConsentKeyword(input,text);
   if(keyword) await applyConsentKeyword(db,input.accountId,input.contactId,keyword);
   if(keyword==="opt_out") await endRunsOnOptOut(db,input);
   const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")

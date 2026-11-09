@@ -11,17 +11,27 @@
 import type { DataClient } from '@/lib/data/types';
 
 // shortcut: fixed English keywords; make them a workspace setting when non-English opt-outs matter.
-const OPT_OUT = new Set(['STOP', 'STOP ALL', 'UNSUBSCRIBE', 'OPT OUT', 'OPTOUT']);
+// 'STOP PROMOTIONS' is the label of Meta's marketing opt-out quick-reply button.
+const OPT_OUT = new Set(['STOP', 'STOP ALL', 'STOP PROMOTIONS', 'UNSUBSCRIBE', 'OPT OUT', 'OPTOUT']);
 const OPT_IN = new Set(['START', 'SUBSCRIBE', 'UNSTOP', 'OPT IN', 'OPTIN']);
 
 export type ConsentKeyword = 'opt_out' | 'opt_in';
 
-/** A whole message that is exactly a consent keyword (case and punctuation ignored). */
+/** A whole message that is exactly a consent keyword (case, punctuation, '_' and '-' ignored). */
 export function consentKeyword(text: string): ConsentKeyword | null {
-  const word = text.trim().replace(/[.!\s]+$/, '').replace(/\s+/g, ' ').toUpperCase();
+  const word = text.trim().replace(/[.!\s]+$/, '').replace(/[\s_-]+/g, ' ').trim().toUpperCase();
   if (OPT_OUT.has(word)) return 'opt_out';
   if (OPT_IN.has(word)) return 'opt_in';
   return null;
+}
+
+/**
+ * The consent keyword of a template quick-reply tap: its label or its payload.
+ * Only an opt-out counts; a 'Start' button usually starts a flow, so a tap never
+ * opts in (typing START still does).
+ */
+export function quickReplyOptOut(label: string | null, payload: string | null): ConsentKeyword | null {
+  return [label, payload].some((value) => value && consentKeyword(value) === 'opt_out') ? 'opt_out' : null;
 }
 
 export interface ConsentState {

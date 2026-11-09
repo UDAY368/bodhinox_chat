@@ -423,6 +423,7 @@ async function processMessage(
     metaMessageId:message.id,contentType,contentText,mediaUrl,mediaType,interactiveReplyId,interactivePayload,
     ...(formReply ? { formReply } : {}),
     ...(order ? { order } : {}),
+    ...(message.type === 'button' ? { templateQuickReply: true } : {}),
     replyToMessageId:replyToInternalId,contextMetaId:message.context?.id ?? null,createdAt:new Date(parseInt(message.timestamp,10)*1000),
     wasContactCreated:contactOutcome.wasCreated,wasConversationCreated:convResult.created,whatsappConfigId,
     // Bounded and never throws; null when absent or unusable.

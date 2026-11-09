@@ -20,6 +20,8 @@ export interface IngestInboundInput {
   replyToMessageId: string | null; createdAt: Date;
   /** Meta id of the message this one replies to (a broadcast template, say). */
   contextMetaId?: string | null;
+  /** A quick-reply button tap on a template message (Meta's 'button' type). */
+  templateQuickReply?: boolean;
   /** A submitted WhatsApp form; stored with the message and summarised as its text. */
   formReply?: { flowToken: string | null; answers: FormAnswers };
   /** A WhatsApp cart; the order commits with the message (once per message id). */
@@ -36,6 +38,8 @@ export interface MessageActionsPayload {
   contentType: string; contentText: string | null; interactiveReplyId: string | null;
   /** Absent on jobs queued before it existed. */
   contextMetaId?: string;
+  /** A template quick-reply tap (its label and payload are checked for an opt-out). Absent otherwise. */
+  templateQuickReply?: true;
   /** The number the message arrived on. Absent on jobs queued before multi-number. */
   whatsappConfigId?: string;
   wasContactCreated: boolean; wasConversationCreated: boolean; isFirstInboundMessage: boolean;
@@ -108,6 +112,7 @@ export async function ingestInboundMessage(input: IngestInboundInput): Promise<{
       contactId: input.contactId, conversationId: input.conversationId, metaMessageId: input.metaMessageId,
       contentType: input.contentType, contentText: input.contentText, interactiveReplyId: input.interactiveReplyId,
       ...(input.contextMetaId ? { contextMetaId: input.contextMetaId } : {}),
+      ...(input.templateQuickReply ? { templateQuickReply: true as const } : {}),
       ...(input.whatsappConfigId ? { whatsappConfigId: input.whatsappConfigId } : {}),
       ...(referralId && input.referral ? { adReferral: toAdReferralSummary(referralId, input.referral) } : {}),
       wasContactCreated: input.wasContactCreated, wasConversationCreated: input.wasConversationCreated,
