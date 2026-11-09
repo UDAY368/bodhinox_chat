@@ -3659,6 +3659,7 @@
       "cancelled": "Se canceló el registro con Facebook.",
       "sdkFailed": "No se pudo cargar el inicio de sesión de Facebook. Comprueba que las ventanas emergentes y facebook.com no estén bloqueados.",
       "noNumberPicked": "Facebook no devolvió ningún número. Completa todos los pasos en la ventana de Facebook e inténtalo de nuevo.",
+      "bizAppUnsupported": "Este número se usa en la app WhatsApp Business. Aún no se admite conectar un número de la app WhatsApp Business; usa un número que no esté en la app.",
       "pinTitle": "Guarda tu PIN de dos pasos",
       "pinDescription": "Hemos configurado este PIN de verificación en dos pasos de 6 dígitos en el número. Solo se muestra una vez; guárdalo en un lugar seguro. Lo necesitarás para trasladar el número más adelante.",
       "pinDone": "Ya lo guardé",
@@ -7198,7 +7199,18 @@
         "UNKNOWN": "Desconocida"
       },
       "disconnectConfirmHold": "¿Desconectar {name}? Se elimina su token de acceso y no se podrá enviar nada desde él hasta que vuelvas a conectar el mismo ID de número de teléfono. Sus conversaciones, campañas y flujos se quedan en este número: los flujos activos que solo se activan en él vuelven a borrador, y las campañas programadas o en envío desde él quedan en espera, no se cancelan. {isDefault, select, true {El número conectado más antiguo pasa a ser el predeterminado.} other {}}",
-      "removedHint": "Desconectado. Vuelve a conectar este ID de número de teléfono para usarlo; se conservan sus conversaciones, campañas y flujos."
+      "removedHint": "Desconectado. Vuelve a conectar este ID de número de teléfono para usarlo; se conservan sus conversaciones, campañas y flujos.",
+      "metaIssue": {
+        "PARTNER_REMOVED": "Meta indica que esta cuenta de WhatsApp Business ya no está compartida con Bodhinox Chat, así que el número se desconectó. Vuelve a compartirla y reconecta el número para enviar.",
+        "PARTNER_APP_UNINSTALLED": "Se quitó en Meta el acceso de Bodhinox Chat a esta cuenta de WhatsApp Business, así que el número se desconectó. Reconéctalo con Facebook para enviar.",
+        "ACCOUNT_DELETED": "Meta indica que esta cuenta de WhatsApp Business se eliminó, así que el número se desconectó.",
+        "DISABLED_UPDATE": "Meta deshabilitó o programó deshabilitar esta cuenta de WhatsApp Business por un motivo de políticas. Revísala en WhatsApp Manager; un número deshabilitado queda desconectado hasta que lo reconectes cuando Meta restablezca la cuenta.",
+        "ACCOUNT_RESTRICTION": "Meta restringió lo que puede hacer esta cuenta de WhatsApp Business. Los envíos que Meta no permita fallarán hasta que termine la restricción.",
+        "ACCOUNT_VIOLATION": "Meta informó una infracción de políticas en esta cuenta de WhatsApp Business. Revísala en WhatsApp Manager.",
+        "ACCOUNT_OFFBOARDED": "Meta indica que esta cuenta de WhatsApp se dio de baja tras un cambio de dispositivo o un nuevo registro. Los envíos pueden fallar hasta que se reconecte.",
+        "detail": "Detalles de Meta: {detail}",
+        "until": "Hasta el {date}"
+      }
     },
     "api": {
       "invalidChange": "Envía un nombre visible de hasta 200 caracteres, o is_default con valor true.",
@@ -11011,7 +11023,9 @@
       "signIn": "Iniciar sesión",
       "getStarted": "Empezar",
       "privacy": "Privacidad",
-      "terms": "Términos"
+      "terms": "Términos",
+      "contact": "Contacto",
+      "dataDeletion": "Eliminación de datos"
     },
     "landing": {
       "headline": "Todas las conversaciones con clientes en un solo lugar",
@@ -11060,12 +11074,21 @@
     "help": {
       "title": "Ayuda",
       "contents": "Contenido",
-      "linkLabel": "Ayuda sobre esta página"
+      "linkLabel": "Ayuda sobre esta página (en inglés)",
+      "englishOnly": "Esta página solo está disponible en inglés."
     },
     "legal": {
-      "draft": "Borrador: este documento es provisional y aún no está en vigor.",
       "privacyTitle": "Política de privacidad",
-      "termsTitle": "Términos del servicio"
+      "termsTitle": "Términos del servicio",
+      "dataDeletionTitle": "Eliminación de datos",
+      "contactTitle": "Contacto",
+      "statusHeading": "Tu solicitud de eliminación",
+      "statusCompleted": "Solicitud {code}, recibida el {date}: completada. Bodhinox Chat no guarda datos vinculados a tu cuenta de Facebook, y Facebook ha retirado el acceso que nos dio.",
+      "statusReceived": "Solicitud {code}, recibida el {date}: en curso.",
+      "statusUnknown": "No hay ninguna solicitud de eliminación con este código de confirmación. Revisa el enlace que te dio Facebook o contáctanos.",
+      "contactEmail": "Correo para preguntas de privacidad, eliminación de datos y soporte:",
+      "contactResponse": "Confirmamos las solicitudes en un plazo de 3 días hábiles y completamos las solicitudes verificadas en un plazo de 30 días.",
+      "contactUnset": "La dirección de contacto aún no se ha publicado. Los propietarios de un espacio de trabajo pueden exportar o eliminar sus datos en Configuración → Privacidad y acceso."
     }
   }
 }

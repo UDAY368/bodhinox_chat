@@ -194,6 +194,11 @@ model whatsapp_config {
   code_verification_status String?
   health_error String?
   health_error_at DateTime? @db.Timestamptz(6)
+  /// account_update webhook (20261116110000_meta_account_events): Meta's latest account-level event for this number's WABA.
+  meta_account_event String?
+  meta_account_detail String?
+  meta_account_event_at DateTime? @db.Timestamptz(6)
+  meta_account_until DateTime? @db.Timestamptz(6)
   @@unique([account_id, phone_number_id])
   @@unique([account_id, id])
 }
@@ -781,6 +786,17 @@ model webhook_receipts {
   payload Json @db.JsonB
   status String  @default("pending")
   created_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+/// Meta Data Deletion Request Callback (20261116110000_meta_account_events): worker only, no tenant data.
+model meta_data_deletion_requests {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  confirmation_code String @unique
+  app_user_hash String
+  issued_at BigInt
+  status String @default("completed")
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([app_user_hash, issued_at])
 }
 
 /// Worker liveness (20261113090000_worker_heartbeats): one row per worker process, no tenant data.

@@ -91,9 +91,13 @@ describe('markdown', () => {
 
   it('has a file for every help section and legal page, each starting with a heading', () => {
     for (const id of HELP_SECTIONS) expect(readContent('help', id)).toMatch(/^# \S/);
-    for (const name of ['privacy', 'terms']) {
+    for (const name of ['privacy', 'terms', 'data-deletion']) {
       expect(existsSync(join(process.cwd(), 'content', 'legal', `${name}.md`))).toBe(true);
-      expect(readContent('legal', name)).toContain('DRAFT');
+      const text = readContent('legal', name);
+      expect(text).toMatch(/^# \S/);
+      // Final text: no draft notice or operator placeholders, and a reachable contact.
+      expect(text).not.toMatch(/DRAFT|placeholder|to be completed/i);
+      expect(text).toContain('](/contact)');
     }
     expect(() => readContent('help', '../secrets')).toThrow('Invalid content name');
   });

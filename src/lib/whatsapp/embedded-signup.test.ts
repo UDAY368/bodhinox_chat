@@ -115,6 +115,25 @@ describe('origin and message helpers', () => {
     expect(parseEmbeddedSignupMessage(fb, { type: 'WA_EMBEDDED_SIGNUP', event: 'ERROR', data: { error_message: 'x' } })).toEqual({ kind: 'error', message: 'x' });
   });
 
+  it('parses the v5 session info (messaging_account_ids) and refuses an ambiguous or biz-app finish', () => {
+    const fb = 'https://www.facebook.com';
+    const v5 = (data: Record<string, unknown>, event = 'FINISH') => ({ type: 'WA_EMBEDDED_SIGNUP', event, data });
+    const base = { phone_number_id: '777', is_on_biz_app: false, messaging_account_ids: ['555'], primary_waac_ids: [], business_id: '9' };
+    expect(parseEmbeddedSignupMessage(fb, v5(base))).toEqual({ kind: 'finish', wabaId: '555', phoneNumberId: '777' });
+    // Two shared messaging accounts: which one the number belongs to is unknown.
+    expect(parseEmbeddedSignupMessage(fb, v5({ ...base, messaging_account_ids: ['555', '556'] }))).toBeNull();
+    expect(parseEmbeddedSignupMessage(fb, v5({ ...base, messaging_account_ids: ['5/5'] }))).toBeNull();
+    // WhatsApp Business app (coexistence) numbers must not be registered with a PIN.
+    expect(parseEmbeddedSignupMessage(fb, v5({ ...base, is_on_biz_app: true }, 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'))).toEqual({ kind: 'bizApp' });
+    expect(parseEmbeddedSignupMessage(fb, v5({ ...base, is_on_biz_app: true }))).toEqual({ kind: 'bizApp' });
+  });
+
+  it('asks Meta for Embedded Signup v5 with WhatsApp Business app onboarding off', async () => {
+    const { EMBEDDED_SIGNUP_EXTRAS } = await import('./embedded-signup');
+    expect(EMBEDDED_SIGNUP_EXTRAS).toEqual({ version: 'v5', features: [{ name: 'whatsapp_business_app_onboarding', enabled: false }] });
+    expect(EMBEDDED_SIGNUP_EXTRAS).not.toHaveProperty('sessionInfoVersion');
+  });
+
   it('validates the POST body', () => {
     expect(parseEmbeddedSignupRequest(input)).toEqual(input);
     expect(parseEmbeddedSignupRequest({ ...input, waba_id: 'abc' })).toBeNull();

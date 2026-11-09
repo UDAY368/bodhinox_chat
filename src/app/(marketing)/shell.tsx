@@ -1,5 +1,5 @@
 // The chrome of the public pages (Phase 14): landing (src/app/page.tsx), pricing,
-// help, privacy and terms. Static and localized; no tenant data is read.
+// help, privacy, terms, data deletion and contact. Static and localized; no tenant data is read.
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -38,6 +38,8 @@ export async function MarketingShell({ children }: { children: ReactNode }) {
           <Link href="/help" className="hover:text-foreground">{t('help')}</Link>
           <Link href="/privacy" className="hover:text-foreground">{t('privacy')}</Link>
           <Link href="/terms" className="hover:text-foreground">{t('terms')}</Link>
+          <Link href="/data-deletion" className="hover:text-foreground">{t('dataDeletion')}</Link>
+          <Link href="/contact" className="hover:text-foreground">{t('contact')}</Link>
         </div>
       </footer>
     </div>

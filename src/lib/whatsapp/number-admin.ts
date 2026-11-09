@@ -6,15 +6,18 @@
  */
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { getT } from '@/lib/i18n/translate';
+import type { AccountIssue } from './account-issue';
 import { listNumbers, type WhatsAppNumber } from './numbers';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const DISPLAY_NAME_MAX = 200;
 
 /** A number as the browser receives it: WhatsAppNumber with ISO dates. */
-export type WhatsAppNumberDto = Omit<WhatsAppNumber, 'health_checked_at' | 'connected_at' | 'created_at' | 'removed'> & {
+export type WhatsAppNumberDto = Omit<WhatsAppNumber, 'health_checked_at' | 'connected_at' | 'created_at' | 'removed' | 'account_issue'> & {
   /** Disconnected by an admin: listed for history, cannot send until reconnected. */
   removed: boolean;
+  /** A problem Meta reported for the number's WABA (Meta enum values only). */
+  account_issue?: AccountIssue | null;
   health_checked_at: string | null;
   connected_at: string | null;
   created_at: string | null;
@@ -38,6 +41,7 @@ export function toNumberDto(n: WhatsAppNumber): WhatsAppNumberDto {
     connected_at: iso(n.connected_at),
     created_at: iso(n.created_at),
     removed: n.removed ?? false,
+    account_issue: n.account_issue ?? null,
   };
 }
 

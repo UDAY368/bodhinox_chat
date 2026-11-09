@@ -35,13 +35,36 @@ export function embeddedSignupPublicConfig(): EmbeddedSignupPublicConfig | null 
 
 export type EmbeddedSignupEvent =
   | { kind: 'finish'; wabaId: string; phoneNumberId: string }
+  | { kind: 'bizApp' }
   | { kind: 'cancel'; step: string | null }
   | { kind: 'error'; message: string | null };
 
 /**
+ * The extras the button passes to FB.login. Embedded Signup v5 (v2 and v3 were
+ * retired on 2026-10-15). WhatsApp Business app onboarding (coexistence) is on
+ * by default in v5; it is switched off here because connecting registers the
+ * number with a two-step PIN, which a number still in use on the WhatsApp
+ * Business app must not get. sessionInfoVersion is not an input in v5.
+ */
+export const EMBEDDED_SIGNUP_EXTRAS = {
+  version: 'v5',
+  features: [{ name: 'whatsapp_business_app_onboarding', enabled: false }],
+} as const;
+
+/** The shared WABA (v5: messaging_account_ids, older sessions: waba_id). */
+function sharedWabaId(fields: Record<string, unknown>): unknown {
+  const ids = fields.messaging_account_ids;
+  if (Array.isArray(ids)) return ids.length === 1 ? ids[0] : null;
+  return fields.waba_id;
+}
+
+/**
  * Parse a window message from the signup popup. Returns null for anything that
  * is not a WA_EMBEDDED_SIGNUP event from a Facebook origin. The caller must
- * pass the event origin; data may be a JSON string or an object.
+ * pass the event origin; data may be a JSON string or an object. Accepts the v5
+ * session info (messaging_account_ids, is_on_biz_app) and the older waba_id
+ * shape. A WhatsApp Business app (coexistence) finish is reported as 'bizApp',
+ * never as a number to register.
  */
 export function parseEmbeddedSignupMessage(origin: string, data: unknown): EmbeddedSignupEvent | null {
   if (!isEmbeddedSignupOrigin(origin)) return null;
@@ -58,7 +81,8 @@ export function parseEmbeddedSignupMessage(origin: string, data: unknown): Embed
   if (type !== 'WA_EMBEDDED_SIGNUP') return null;
   const fields = (inner && typeof inner === 'object' ? inner : {}) as Record<string, unknown>;
   if (typeof event === 'string' && event.startsWith('FINISH')) {
-    const wabaId = fields.waba_id;
+    if (event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' || fields.is_on_biz_app === true) return { kind: 'bizApp' };
+    const wabaId = sharedWabaId(fields);
     const phoneNumberId = fields.phone_number_id;
     if (typeof wabaId !== 'string' || typeof phoneNumberId !== 'string') return null;
     if (!META_ID.test(wabaId) || !META_ID.test(phoneNumberId)) return null;
