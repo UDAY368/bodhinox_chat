@@ -7532,7 +7532,7 @@
     },
     "catalogue": {
       "title": "Catálogo",
-      "description": "Os produtos que você vende por links de loja e checkout. Preços, impostos e estoque daqui são o que o cliente paga; o catálogo da Meta continua como cópia somente leitura.",
+      "description": "Os produtos que você vende por links de loja e checkout. Preços, impostos e estoque daqui são o que o cliente paga; o preço e o estoque de cada produto vinculado ao catálogo da Meta (mesmo SKU) são enviados para lá em poucos minutos.",
       "tabs": {
         "products": "Produtos",
         "categories": "Categorias",

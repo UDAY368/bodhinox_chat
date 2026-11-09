@@ -341,6 +341,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // SLA breach alerts, auto-resolve and unanswered-conversation reassignment.
       await handleInboxJob(accountId, job.type, job.payload);
     else if (job.type === 'commerce.catalog_sync') await (await import('@/lib/commerce/catalog-sync')).handleCatalogSyncJob(accountId, job.payload);
+    else if (job.type === 'commerce.catalog_push')
+      // Price and availability of linked variants to the Meta catalogue (queued by stock / price triggers and after each sync).
+      await (await import('@/lib/commerce/catalog-push')).handleCatalogPushJob(accountId);
     else if (job.type === NOTIFICATION_DIGEST_JOB)
       // Entries are claimed before sending; only a provably undelivered email is retried.
       await sendNotificationDigest(accountId);
