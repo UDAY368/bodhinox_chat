@@ -24,21 +24,35 @@ If storage is not configured, the request answers `503 storage_not_configured`. 
 
 **Workspace deletion (self-service).**
 1. The owner calls `POST /api/account/deletion` (`src/lib/account/deletion.ts`). The workspace becomes `closing` for 30 days (`DELETION_GRACE_DAYS`) and sends stop. The owner can cancel with `DELETE /api/account/deletion` during the grace period.
-2. **Not built:** the purge after the grace period. Nothing is deleted automatically today. A request to actually erase a closed workspace is an owner and engineering task until the purge exists. Record it in the request log with the `purge_after` date.
+2. After `purge_after`, the worker's daily `workspace.purge` job (`src/lib/privacy/workspace-purge.ts`) handles the workspace.
+   - **`WORKSPACE_PURGE_ENABLED` unset (default):** dry run. The worker logs `[workspace-purge] dry run` with the workspace id, `due` or the refusal reason, and the row counts it would delete. Nothing changes.
+   - **`WORKSPACE_PURGE_ENABLED=true`:** the job re-checks the workspace under row locks: still `closing`, past `purge_after`, and no live provider subscription (refusal reasons `not_due`, `live_subscription`). A cancel by the owner waits for the lock and wins. It then copies the workspace's Bodhinox tax invoices to `purged_invoices`, writes one `workspace_purges` row (workspace id, `purge_after`, purge time, row counts, invoices kept) and deletes the workspace. Every tenant table goes with it. `audit_logs` and billing records stay with `account_id` cleared.
+   - Stored files under `<workspace id>/` (media, avatars, exports, reports) are deleted right after. If storage fails, the `workspace.purge_storage` job retries daily for 30 days until `workspace_purges.storage_cleared_at` is set.
+   - A purge cannot be undone. Record it in the request log with the `purged_at` date from `workspace_purges`.
 
 **Personal account deletion.** This runs through `src/lib/auth/account-deletion.ts`. It anonymises the login identity, revokes sessions and API keys, and closes sole-member workspaces (30-day grace). `user_id` remains the audit identity, and tenant data is not deleted.
 
 **End-customer requests: interim manual procedure. Built tools are limited.**
 - **Access or export:** a workspace admin can view the contact's record and conversation in the inbox. There is no per-contact export. Prepare the extract manually from the inbox and contact page, and send it through the workspace.
 - **Erasure:**
-  - Deleting the contact (contacts page, or the data gateway `contacts` delete, agent and above) removes the contact row and what cascades from it.
-  - **Gap:** there is no full per-contact erasure across messages, media objects, broadcast recipients, orders and payments. Financial records must be kept anyway.
-  - Until a per-contact erasure tool exists, record what was deleted and what was retained, with the legal reason (for example, tax records for orders and payments).
+  - Use **Erase all data** (contacts page → delete dialog, admins and owners; `POST /api/contacts/{id}/erase`). The request is audited (`contact.erasure_requested`) and queued before it is acknowledged. The worker's `contact.erase` job (`src/lib/privacy/contact-erasure.ts`) then removes:
+    - the media files the customer sent (mirrored inbound media; library files stay);
+    - processed raw WhatsApp webhook copies naming the number, on phone numbers no other workspace has ever had a row for (receipts carry no workspace id; on a number that moved between workspaces they are left to the 30-day retention sweep);
+    - mentions of the contact's id or number (as a whole token) in this workspace's finished job payloads, and its pending outbound webhook deliveries that name the contact's id;
+    - campaign parameters and errors, flow variables, automation logs and pending-step context;
+    - ad-lead answers (kept as an `erased` tombstone so Meta cannot re-import them), unanswered AI questions, WhatsApp form sessions and answers, notifications and realtime event copies;
+    - finally the contact itself, with its conversations, messages, notes, tags, list memberships and channel identities.
+  - The job writes `contact.erased` to the audit log with counts only. Check it before telling the customer the erasure is complete.
+  - **Kept, with the contact link cleared:** orders, payments, payment links, appointments and coupon redemptions (financial and business records). Record these as retained, with the legal reason (for example, tax records).
+  - A plain **Delete** (agents and above, also bulk and the data gateway) removes the contact row and what cascades from it only. Do not use it for an erasure request.
+  - Unprocessed webhook receipts are left alone; processed copies older than 30 days are deleted by the retention sweep anyway.
 - **Opt-out:** this is recorded on `contacts.opted_out_at` when the customer sends an English stop keyword (`src/lib/contacts/consent.ts`). Other languages need a manual opt-out by an agent.
 - **Gap:** there is no opt-in evidence record. "Prove consent" requests cannot be answered from the product. This is listed in the pilot plan under "decide before live onboarding".
+
+**Retention (automatic).** The hourly `data.retention_sweep` job deletes done jobs after 30 days, failed jobs after 90, processed raw webhook receipts after 30 and realtime outbox events after 7 days. Pending jobs and unprocessed receipts are never deleted.
 
 **Customer communication.** Confirm receipt, then confirm completion, stating what was deleted and what was retained and why. Do not include message content in emails.
 
 **Request log.** Use a private sheet the owner keeps, not the repository, with these columns: date received, requester type (workspace or end customer), workspace id, verification method, action taken, data retained and reason, completed date, handled by.
 
-**Follow-up.** Each manual step above is a product backlog item: per-contact export, per-contact erasure, the closed-workspace purge, and opt-in evidence.
+**Follow-up.** Each manual step above is a product backlog item: per-contact export and opt-in evidence.

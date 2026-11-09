@@ -30,7 +30,7 @@ export function parsePageQuery(params: URLSearchParams): PageQuery | null {
 }
 
 export interface TenantListRow extends PlatformTenantRow {
-  /** A closing workspace past its purge date (no purge job exists; this is a listing only). */
+  /** A closing workspace past its purge date (the workspace.purge job deletes it when WORKSPACE_PURGE_ENABLED=true). */
   purgeDue: boolean;
 }
 

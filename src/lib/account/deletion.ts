@@ -5,9 +5,9 @@
 // authenticator or a recovery code when the owner has MFA. The request sets
 // account_lifecycle to 'closing' with purge_after = now() + 30 days; sends stop
 // like a billing suspension (isSuspended reads the lifecycle row), inbound,
-// opt-outs and payment webhooks keep working. Nothing is deleted: there is no
-// purge job in Phase 14, the console lists workspaces past purge_after as
-// "purge due". When platform billing is configured and the workspace has a
+// opt-outs and payment webhooks keep working. The console lists workspaces past
+// purge_after as "purge due"; the worker's workspace.purge job deletes them only
+// when WORKSPACE_PURGE_ENABLED=true (src/lib/privacy/workspace-purge.ts). When platform billing is configured and the workspace has a
 // provider subscription, it is cancelled at period end through the existing
 // requestCancel intent path; its outcome never undoes the request.
 //
@@ -51,7 +51,7 @@ export function accountActionResponse(error: unknown): NextResponse {
   return toErrorResponse(error);
 }
 
-/** Days between a deletion request and the earliest purge (purge itself is not built yet). */
+/** Days between a deletion request and the earliest purge (src/lib/privacy/workspace-purge.ts). */
 export const DELETION_GRACE_DAYS = 30;
 
 /**

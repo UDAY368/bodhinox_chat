@@ -147,5 +147,10 @@
   "20261116080002_initial_plan_default": "6f4114cccf0d04913bcde3b192630927e59b17223b644bc6b10c3ec37720cfab",
   "20261116080003_catalog_push_triggers": "e586eca9a9cedd4e40d5e80fa7752d25fd618290f750cbba3d28e8445dd57b2c",
   "20261116090000_webhook_delivery_log": "774df52c4e5c58c618ea5a3e6aa6f80c21e6108251f98911efaa3e34c08ef431",
-  "20261116090001_webhook_disabled_notice_validate": "06c840dc63d614f8fd5c15fb3db00e824ad251eaed02422dfb10ad4fcbd5be8c"
+  "20261116090001_webhook_disabled_notice_validate": "06c840dc63d614f8fd5c15fb3db00e824ad251eaed02422dfb10ad4fcbd5be8c",
+  "20261116100000_data_retention": "839f113db480a9cb80a357aaceb2c38d0404419a1b4cd3f700d70f0a49d2392f",
+  "20261116100100_workspace_purge_accounts_policy": "ef0bdcadcab315c66269ca42dacf220f08f654aec4012aa18c0a1b2121182b9b",
+  "20261116100200_jobs_finished_updated_idx": "791e0094cd0aaff13341dc9946a5c8094299483649ec6a14b01b9915ff537f92",
+  "20261116100300_webhook_receipts_processed_idx": "4409d9aaa45cd31a7ac0584ace29b606df8ac9bc3108da4053cb1d7086ae4332",
+  "20261116100400_erasure_number_scope": "0b8c2ebb61006fd95ea4a017fbcf83af4f3fe553ccd617d026a8ca5ca3e77d08"
 }
