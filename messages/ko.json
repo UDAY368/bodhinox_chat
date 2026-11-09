@@ -3613,6 +3613,7 @@
       "cancelled": "Facebook 가입이 취소되었습니다.",
       "sdkFailed": "Facebook 로그인을 불러오지 못했습니다. 팝업과 facebook.com이 차단되지 않았는지 확인하세요.",
       "noNumberPicked": "Facebook에서 전화번호를 반환하지 않았습니다. Facebook 창에서 모든 단계를 마친 후 다시 시도하세요.",
+      "bizAppUnsupported": "이 번호는 WhatsApp Business 앱에서 사용 중입니다. WhatsApp Business 앱 번호 연결은 아직 지원되지 않습니다. 앱에서 사용하지 않는 번호를 사용하세요.",
       "pinTitle": "2단계 PIN을 보관하세요",
       "pinDescription": "이 번호에 6자리 2단계 인증 PIN을 설정했습니다. 한 번만 표시되니 안전한 곳에 보관하세요. 나중에 번호를 옮길 때 필요합니다.",
       "pinDone": "보관했습니다",

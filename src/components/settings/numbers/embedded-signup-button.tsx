@@ -4,8 +4,8 @@
  * "Connect with Facebook": Meta's Embedded Signup popup. Hidden unless
  * NEXT_PUBLIC_META_APP_ID and NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID are
  * set. The popup returns a one-time code (FB.login) and, through a
- * WA_EMBEDDED_SIGNUP window message from facebook.com, the WABA and phone
- * number the admin picked; both go to /api/whatsapp/embedded-signup, which
+ * WA_EMBEDDED_SIGNUP window message from facebook.com (Embedded Signup v5),
+ * the WABA and phone number the admin picked; both go to /api/whatsapp/embedded-signup, which
  * exchanges the code server side. Mount it next to "Add number manually".
  *
  * Before the popup the admin may enter the number's existing two-step PIN
@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { authFetch } from "@/lib/auth/client";
-import { embeddedSignupPublicConfig, parseEmbeddedSignupMessage } from "@/lib/whatsapp/embedded-signup";
+import { EMBEDDED_SIGNUP_EXTRAS, embeddedSignupPublicConfig, parseEmbeddedSignupMessage } from "@/lib/whatsapp/embedded-signup";
 
 const SDK_SRC = "https://connect.facebook.net/en_US/sdk.js";
 const GRAPH_VERSION = "v21.0";
@@ -198,6 +198,10 @@ export function EmbeddedSignupButton({
         s.wabaId = parsed.wabaId;
         s.phoneNumberId = parsed.phoneNumberId;
         void submit();
+      } else if (parsed.kind === "bizApp") {
+        session.current = null;
+        setBusy(false);
+        toast.error(t("bizAppUnsupported"));
       } else if (parsed.kind === "cancel") {
         session.current = null;
         setBusy(false);
@@ -261,7 +265,7 @@ export function EmbeddedSignupButton({
         config_id: config.configId,
         response_type: "code",
         override_default_response_type: true,
-        extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
+        extras: EMBEDDED_SIGNUP_EXTRAS,
       }
     );
   };

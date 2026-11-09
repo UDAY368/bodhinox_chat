@@ -3613,6 +3613,7 @@
       "cancelled": "Facebook signup was cancelled.",
       "sdkFailed": "Could not load Facebook login. Check that pop-ups and facebook.com are not blocked.",
       "noNumberPicked": "Facebook did not return a phone number. Finish every step in the Facebook window and try again.",
+      "bizAppUnsupported": "This number is in use on the WhatsApp Business app. Connecting a WhatsApp Business app number is not supported yet; use a number that is not on the app.",
       "pinTitle": "Save your two-step PIN",
       "pinDescription": "We set this 6-digit two-step verification PIN on the number. It is shown only once; keep it somewhere safe. You need it to move the number later.",
       "pinDone": "I have saved it",
