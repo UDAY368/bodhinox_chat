@@ -13,6 +13,8 @@ const t = getT('Api')
 // the UI can say "showing a partial window" rather than under-reporting
 // silently.
 const MAX_ROWS = 10_000
+/** The data layer refuses more rows than this in one query (lib/data/contracts), so the window is read in pages. */
+const PAGE_ROWS = 1000
 const DEFAULT_WINDOW_DAYS = 30
 
 interface UsageRow {
@@ -56,25 +58,34 @@ export async function GET(request: Request) {
     // chart (see lib/dashboard/date-utils).
     const since = daysAgoStart(days - 1)
 
-    const { data, error } = await db
-      .from('ai_usage_log')
-      .select(
-        'created_at, mode, provider, model, prompt_tokens, completion_tokens, total_tokens',
-      )
-      .eq('account_id', accountId)
-      .gte('created_at', since.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(MAX_ROWS + 1)
+    // Oldest first: rows written while we page land after the last page, so no
+    // page shifts under us and nothing is counted twice.
+    // shortcut: past MAX_ROWS the oldest rows are kept, not the newest; aggregate in SQL if accounts get that busy.
+    const all: UsageRow[] = []
+    for (let from = 0; all.length <= MAX_ROWS; from += PAGE_ROWS) {
+      const { data, error } = await db
+        .from('ai_usage_log')
+        .select(
+          'created_at, mode, provider, model, prompt_tokens, completion_tokens, total_tokens',
+        )
+        .eq('account_id', accountId)
+        .gte('created_at', since.toISOString())
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE_ROWS - 1)
 
-    if (error) {
-      logAiEvent({ feature: 'usage', reason: 'load_failed', accountId })
-      return NextResponse.json(
-        { error: t('ai.loadUsageFailed') },
-        { status: 500 },
-      )
+      if (error) {
+        logAiEvent({ feature: 'usage', reason: 'load_failed', accountId })
+        return NextResponse.json(
+          { error: t('ai.loadUsageFailed') },
+          { status: 500 },
+        )
+      }
+      const page = (data ?? []) as UsageRow[]
+      all.push(...page)
+      if (page.length < PAGE_ROWS) break
     }
 
-    const all = (data ?? []) as UsageRow[]
     const truncated = all.length > MAX_ROWS
     const rows = truncated ? all.slice(0, MAX_ROWS) : all
 

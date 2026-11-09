@@ -8,10 +8,14 @@ vi.mock('@/lib/auth/account', () => ({
 
 import { GET } from './route'
 
+// Like the real data layer: at most 1000 rows per query (lib/data/contracts).
 function db() {
   const chain = {
     select: () => chain, eq: () => chain, gte: () => chain, order: () => chain,
-    limit: async () => ({ data: h.rows, error: null }),
+    range: async (from: number, to: number) => {
+      if (to - from + 1 > 1000) return { data: null, error: { message: 'Pagination out of bounds' } }
+      return { data: h.rows.slice(from, to + 1), error: null }
+    },
   }
   return { from: () => chain }
 }
@@ -23,6 +27,17 @@ describe('GET /api/ai/usage', () => {
     h.requireRole.mockRejectedValue(new Error('forbidden'))
     expect((await GET(new Request('https://crm.test/api/ai/usage'))).status).toBe(403)
     expect(h.requireRole).toHaveBeenCalledWith('admin')
+  })
+
+  it('reads a window larger than one 1000-row page, counting every row once', async () => {
+    const now = new Date().toISOString()
+    h.rows = Array.from({ length: 2500 }, () => ({ created_at: now, mode: 'auto_reply', provider: 'openai', model: 'gpt-x', prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }))
+    h.requireRole.mockResolvedValue({ db: db(), accountId: 'account-1' })
+    const response = await GET(new Request('https://crm.test/api/ai/usage?days=30'))
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.totals).toMatchObject({ calls: 2500, total_tokens: 5000 })
+    expect(body.truncated).toBe(false)
   })
 
   it('reports every usage mode, including the phase 13 assistant modes, without throwing', async () => {
