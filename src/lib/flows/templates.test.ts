@@ -4,9 +4,7 @@ import en from '../../../messages/en.json'
 import es from '../../../messages/es.json'
 import ko from '../../../messages/ko.json'
 import pt from '../../../messages/pt.json'
-import { getT } from '@/lib/i18n/translate'
-import { INSTAGRAM_ONLY_NODE_TYPES } from './types'
-import { validateFlowForActivation, type ValidationIssue } from './validate'
+import { validateFlowForActivation } from './validate'
 import { FLOW_TEMPLATE_CATEGORIES, flowTemplateChannels, getFlowTemplate, INSTAGRAM_TEMPLATE_LINKS_TO_BIND, listFlowTemplates,
   type FlowTemplate } from './templates'
 
@@ -30,23 +28,6 @@ function catalogueKeywords(messages: Catalogue): Array<[string, string[]]> {
 /** Steps a template leaves for the author to bind to a workspace record or link (publishing reports them until then). */
 const TO_BIND = new Set(['work_from_home.registered', ...INSTAGRAM_TEMPLATE_LINKS_TO_BIND])
 
-const tValidation = getT('Validation.flows')
-const INSTAGRAM_ONLY = new Set<string>(INSTAGRAM_ONLY_NODE_TYPES)
-
-/**
- * shortcut: the Instagram steps and the follow-gate condition are validated by
- * 2C (validate.ts), built in parallel with this batch. Until it merges, the
- * current validator calls those steps unknown and the `ig_profile` subject
- * missing; those two messages, and only on those nodes, are tolerated. Once
- * 2C lands they no longer appear and every rule 2C adds applies in full.
- */
-function awaitingInstagramValidator(template: FlowTemplate, issue: ValidationIssue): boolean {
-  const node = template.nodes.find(n => n.node_key === issue.node_key)
-  if (!node) return false
-  if (INSTAGRAM_ONLY.has(node.node_type)) return issue.message === tValidation('unknownNodeType', { type: node.node_type })
-  return node.node_type === 'condition' && (node.config as { subject?: string }).subject === 'ig_profile' &&
-    issue.field === 'subject' && issue.message === tValidation('conditionNeedsSubject')
-}
 
 const RESERVED_CONSENT_WORDS = ['stop', 'start', 'subscribe', 'unsubscribe']
 
@@ -109,8 +90,7 @@ describe('flow template gallery', () => {
           entry_node_id: template.entry_node_id, channel_scope: channel },
         template.nodes.map(n => ({ node_key: n.node_key, node_type: n.node_type, config: n.config as Record<string, unknown> })),
       )
-      expect(issues.filter(i => i.severity === 'error' && !TO_BIND.has(`${template.slug}.${i.node_key}`) &&
-        !awaitingInstagramValidator(template, i))).toEqual([])
+      expect(issues.filter(i => i.severity === 'error' && !TO_BIND.has(`${template.slug}.${i.node_key}`) )).toEqual([])
     })
 
   it('offers about 12 Instagram starters, each only on Instagram, including the follow gate and the WhatsApp handover', () => {

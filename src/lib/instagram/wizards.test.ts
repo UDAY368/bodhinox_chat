@@ -4,8 +4,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { deriveCanvasEdges, extraPorts, outgoingSlots } from '@/lib/flows/edges';
-import { getT } from '@/lib/i18n/translate';
-import { INSTAGRAM_ONLY_NODE_TYPES } from '@/lib/flows/types';
 import { validateFlowForActivation, type ValidationIssue } from '@/lib/flows/validate';
 import { getFlowTemplate } from '@/lib/flows/templates';
 import { NODE_META, type BuilderNode } from '@/components/flows/shared';
@@ -43,24 +41,14 @@ function refused(body: unknown): { field: string; problem: string } {
   throw new Error('accepted');
 }
 
-const tValidation = getT('Validation.flows');
-const INSTAGRAM_ONLY = new Set<string>(INSTAGRAM_ONLY_NODE_TYPES);
 
-/** Validation errors, minus the two messages the pre-2C validator gives the Instagram steps (see templates.test.ts). */
+/** Publish (activation) validation errors for a wizard draft. */
 function publishErrors(draft: WizardFlowDraft): ValidationIssue[] {
   const nodes = draft.nodes.map((n) => ({ node_key: n.node_key, node_type: n.node_type, config: n.config as Record<string, unknown> }));
   return validateFlowForActivation({
     name: draft.name, trigger_type: draft.trigger_type, trigger_config: draft.trigger_config as Record<string, unknown>,
     entry_node_id: draft.entry_node_id, channel_scope: 'instagram',
-  }, nodes).filter((issue) => {
-    if (issue.severity !== 'error') return false;
-    const node = nodes.find((n) => n.node_key === issue.node_key);
-    if (node && INSTAGRAM_ONLY.has(node.node_type)) return issue.message !== tValidation('unknownNodeType', { type: node.node_type });
-    if (node?.node_type === 'condition' && node.config.subject === 'ig_profile') {
-      return !(issue.field === 'subject' && issue.message === tValidation('conditionNeedsSubject'));
-    }
-    return true;
-  });
+  }, nodes).filter((issue) => issue.severity === 'error');
 }
 
 describe('parseWizardInput', () => {
