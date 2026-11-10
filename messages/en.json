@@ -11541,7 +11541,191 @@
       "reward": "Reward link",
       "followPrompt": "Message asking to follow",
       "followedButton": "I followed",
-      "emailPrompt": "Question asking for an email"
+      "emailPrompt": "Question asking for an email",
+      "templatesHelp": "Starters made for Instagram. Add your own links before you publish.",
+      "cancel": "Cancel",
+      "publicReply": "Public reply",
+      "publicReplyHelp": "Posted under each matching comment. Leave empty to reply only by DM.",
+      "optInLabel": "Opening DM button",
+      "optInHelp": "People tap it to get your DM, which lets you message them. Up to 20 characters.",
+      "cardTitle": "Link message",
+      "rewardTitle": "Reward message",
+      "rewardButton": "Reward button text",
+      "followedButtonLabel": "Button after following",
+      "followGateNote": "The follow check reads the person's Instagram profile each time they reach it.",
+      "emailError": "Message when the email looks wrong",
+      "thanks": "Thank-you message",
+      "storyKeyword": "Keyword in the reply",
+      "storyKeywordHelp": "Leave empty to answer every story reply.",
+      "reactions": "Also answer emoji reactions to your story",
+      "flowName": "{title}: {keyword}",
+      "noPermission": "Viewers can't create flows. Ask an agent or admin.",
+      "categories": {
+        "instagram_comments": "Comments",
+        "instagram_growth": "Growth",
+        "instagram_stories": "Stories",
+        "instagram_dms": "DMs"
+      },
+      "errors": {
+        "invalid": "Check the form and try again.",
+        "channelDisabled": "Instagram is turned off for this workspace. Turn it on to create Instagram flows.",
+        "planRequired": "Your plan doesn't include Instagram. Upgrade to use quick automations.",
+        "keywords": "Use up to 50 keywords, each up to 100 characters.",
+        "posts": "Choose which posts to listen on.",
+        "text": "Write a message of up to 1000 bytes.",
+        "button": "Use 1 to 20 characters.",
+        "title": "Use 1 to 80 characters.",
+        "url": "Enter a full link that starts with https://.",
+        "publicReply": "Keep the public reply to 2200 characters."
+      },
+      "defaults": {
+        "commentLinks": {
+          "publicReply": "Sent you a DM 📩",
+          "message": "Thanks for your comment! Tap below and I'll send you the link.",
+          "optInLabel": "Send me the link",
+          "cardTitle": "Here's the link you asked for",
+          "linkLabel": "Open link"
+        },
+        "growFollowers": {
+          "publicReply": "Check your DMs 🎁",
+          "message": "Your reward is ready! Tap below to get it.",
+          "optInLabel": "Get it",
+          "followPrompt": "This one is for our followers. Follow us, then tap the button below.",
+          "followedButton": "I followed",
+          "rewardTitle": "Here's your reward 🎁",
+          "rewardButton": "Get the reward"
+        },
+        "storyLeads": {
+          "emailPrompt": "Thanks for replying! What's your email? We'll send you the details.",
+          "emailError": "That doesn't look like an email. Try again, like name@example.com.",
+          "thanks": "Got it, thanks! We'll be in touch soon."
+        }
+      },
+      "flows": {
+        "ig_link_drop": {
+          "name": "Auto-DM a link from comments",
+          "description": "Someone comments LINK: reply under the comment and send the link by DM. Add your link before you publish.",
+          "keywords": "link",
+          "publicReply": "Sent you a DM 📩",
+          "opening": "Thanks for your comment! Tap below and I'll send you the link.",
+          "optIn": "Send me the link",
+          "cardTitle": "Here's the link you asked for",
+          "linkButton": "Open link"
+        },
+        "ig_product_lineup": {
+          "name": "Product lineup from comments",
+          "description": "Someone comments PRICE: send a gallery of your products and pass interested buyers to your team.",
+          "keywords": "price",
+          "publicReply": "Check your DMs 🛍️",
+          "opening": "Hi! Want to see our bestsellers?",
+          "optIn": "Show me",
+          "product1Title": "Bestseller",
+          "product1Subtitle": "Our most-loved product",
+          "product2Title": "New arrival",
+          "product2Subtitle": "Just in this week",
+          "product3Title": "Gift set",
+          "product3Subtitle": "Ready to give",
+          "pickText": "Which one caught your eye?",
+          "handoffNote": "Interested in {product} after commenting on a post."
+        },
+        "ig_giveaway": {
+          "name": "Run a giveaway",
+          "description": "Someone comments GIVEAWAY: check that they follow you, then take their email to enter them.",
+          "keywords": "giveaway",
+          "publicReply": "You're almost in! Check your DMs 🎉",
+          "opening": "Thanks for joining the giveaway! Tap below to enter.",
+          "optIn": "Enter now",
+          "followPrompt": "To enter, follow our account, then tap the button below.",
+          "followedButton": "I followed",
+          "askEmail": "Last step: what's your email? We'll contact the winner there.",
+          "emailError": "That doesn't look like an email. Try again, like name@example.com.",
+          "entered": "You're in! 🎉 We'll announce the winner soon. Good luck!"
+        },
+        "ig_follow_gate": {
+          "name": "Follow first, then freebie",
+          "description": "Someone comments FREEBIE: send the reward once they follow you. Add your reward link before you publish.",
+          "keywords": "freebie",
+          "publicReply": "Sent it to your DMs 🎁",
+          "opening": "Your freebie is ready! Tap below to get it.",
+          "optIn": "Get it",
+          "followPrompt": "This one is for our followers. Follow us, then tap the button below.",
+          "followedButton": "I followed",
+          "rewardTitle": "Here's your freebie 🎁",
+          "rewardButton": "Get the freebie"
+        },
+        "ig_to_whatsapp": {
+          "name": "Instagram to WhatsApp",
+          "description": "Someone DMs WHATSAPP CHAT: offer to continue the chat on your WhatsApp number. Add your wa.me link before you publish.",
+          "keywords": "whatsapp chat",
+          "ask": "Would you like to continue this chat on WhatsApp?",
+          "yesButton": "Yes, WhatsApp",
+          "noButton": "Stay here",
+          "cardTitle": "Continue on WhatsApp",
+          "cardSubtitle": "Tap to open a chat with us.",
+          "openButton": "Open WhatsApp",
+          "stay": "No problem, we'll keep chatting here. Someone from the team will reply soon.",
+          "handoffNote": "Prefers to keep chatting on Instagram."
+        },
+        "ig_email_list": {
+          "name": "Grow your email list",
+          "description": "Someone DMs NEWSLETTER: collect their email for your list.",
+          "keywords": "newsletter",
+          "askEmail": "Want our newsletter? Reply with your email address.",
+          "emailError": "That doesn't look like an email. Try again, like name@example.com.",
+          "thanks": "Thanks! You're on the list. 💌"
+        },
+        "ig_story_leads": {
+          "name": "Leads from story replies",
+          "description": "Ask people who reply to your story for their email.",
+          "askEmail": "Thanks for replying! What's your email? We'll send you the details.",
+          "emailError": "That doesn't look like an email. Try again, like name@example.com.",
+          "thanks": "Got it, thanks! We'll be in touch soon."
+        },
+        "ig_story_coupon": {
+          "name": "Coupons from stories",
+          "description": "Send a discount code to people who reply or react to your story. Change the code to your own.",
+          "text": "Thanks for the love! 💛 Here's 10% off your next order: STORY10"
+        },
+        "ig_story_faq": {
+          "name": "Answer FAQs from story replies",
+          "description": "Offer quick answers when someone replies to your story.",
+          "ask": "Thanks for replying! What would you like to know?",
+          "hoursButton": "Opening hours",
+          "pricesButton": "Prices",
+          "humanButton": "Talk to us",
+          "hoursAnswer": "We're open Monday to Saturday, 9am to 6pm.",
+          "pricesAnswer": "You'll find all our prices on our website.",
+          "handoffNote": "Asked to talk to the team after replying to a story."
+        },
+        "ig_story_mention_thanks": {
+          "name": "Thank story mentions",
+          "description": "Thank people who mention you in their story, at most once a day each.",
+          "text": "Thanks so much for the mention! 🙌 It means a lot."
+        },
+        "ig_quiz_qualifier": {
+          "name": "Qualify with a quiz",
+          "description": "Someone DMs QUIZ: two quick questions send hot leads to your team and a friendly reply to everyone else.",
+          "keywords": "quiz",
+          "budgetQuestion": "What's your budget?",
+          "budgetLow": "Under 500",
+          "budgetHigh": "500 or more",
+          "timelineQuestion": "When would you like to start?",
+          "timelineNow": "This month",
+          "timelineLater": "Later",
+          "hotReply": "Great fit! Someone from our team will message you shortly.",
+          "handoffNote": "Hot lead from the Instagram quiz: budget 500 or more, starting this month.",
+          "nurtureReply": "Thanks! We'll send you a few ideas to get started."
+        },
+        "ig_default_reply": {
+          "name": "Default reply",
+          "description": "Answer DMs that no other flow handles, at most once a day per person.",
+          "text": "Thanks for your message! How can we help?",
+          "infoButton": "Learn more",
+          "humanButton": "Talk to us",
+          "info": "You'll find everything on our website. Message us any time if you'd like a person.",
+          "handoffNote": "Asked for a person from the default reply."
+        }
+      }
     }
   }
 }

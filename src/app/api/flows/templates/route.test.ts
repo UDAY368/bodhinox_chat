@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({ signedIn: true }));
 vi.mock('@/lib/data/server', () => ({
@@ -13,6 +13,21 @@ const cards = async (query = '') => ((await (await GET(new Request(`http://local
 
 beforeEach(() => {
   h.signedIn = true;
+  vi.stubEnv('INSTAGRAM_ENABLED', 'true');
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe('GET /api/flows/templates while Instagram is off', () => {
+  it('lists no Instagram-only starter, so nothing Instagram-only can be picked before launch', async () => {
+    vi.stubEnv('INSTAGRAM_ENABLED', '');
+    const all = await cards();
+    expect(all.some((card) => card.slug.startsWith('ig_'))).toBe(false);
+    expect(all.length).toBe(listFlowTemplates().filter((t) => flowTemplateChannels(t).includes('whatsapp')).length);
+    expect((await cards('?channel=instagram')).every((card) => card.channels.includes('whatsapp'))).toBe(true);
+  });
 });
 
 describe('GET /api/flows/templates (Stage 1 channels)', () => {
@@ -20,15 +35,28 @@ describe('GET /api/flows/templates (Stage 1 channels)', () => {
     const all = await cards();
     expect(all).toHaveLength(listFlowTemplates().length);
     for (const card of all) expect(card.channels).toEqual(flowTemplateChannels(listFlowTemplates().find((t) => t.slug === card.slug)!));
-    // Every starter template runs on WhatsApp today.
-    expect(all.every((card) => card.channels.includes('whatsapp'))).toBe(true);
+    // Every starter runs on WhatsApp except the Instagram starters (Stage 2), which run only on Instagram.
+    for (const card of all) {
+      expect(card.channels).toEqual(card.slug.startsWith('ig_') ? ['instagram'] : expect.arrayContaining(['whatsapp']));
+    }
   });
 
   it('lists only one section when asked, and refuses an unknown channel', async () => {
     const instagram = await cards('?channel=instagram');
     expect(instagram.every((card) => card.channels.includes('instagram'))).toBe(true);
-    expect((await cards('?channel=whatsapp')).length).toBe(listFlowTemplates().length);
+    expect(instagram.filter((card) => card.slug.startsWith('ig_')).length).toBeGreaterThanOrEqual(12);
+    const whatsapp = await cards('?channel=whatsapp');
+    expect(whatsapp.length).toBe(listFlowTemplates().filter((t) => flowTemplateChannels(t).includes('whatsapp')).length);
+    expect(whatsapp.some((card) => card.slug.startsWith('ig_'))).toBe(false);
     expect((await GET(new Request('http://localhost/api/flows/templates?channel=sms'))).status).toBe(400);
+  });
+
+  it('labels the Instagram starter categories, and only those', async () => {
+    const all = (await cards()) as Array<Card & { category: string; category_label?: string }>;
+    const own = all.filter((card) => card.slug.startsWith('ig_'));
+    expect(own.every((card) => card.category.startsWith('instagram_') && !!card.category_label)).toBe(true);
+    expect(new Set(own.map((card) => card.category_label))).toEqual(new Set(['Comments', 'Growth', 'Stories', 'DMs']));
+    expect(all.filter((card) => !card.slug.startsWith('ig_')).every((card) => card.category_label === undefined)).toBe(true);
   });
 
   it('needs a signed-in caller', async () => {
