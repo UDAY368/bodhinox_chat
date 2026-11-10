@@ -356,7 +356,9 @@ export async function sendQuickReplies(igUserId: string, token: string, igsid: s
 /**
  * One private reply to a comment (recipient: { comment_id }). With
  * `quickReplies` (the "Opening DM" button) the message carries them; a tap
- * opens the 24-hour window.
+ * opens the 24-hour window. Needs live capture: a private reply carrying a
+ * quick reply is built against Meta's documented message shape, not yet seen
+ * on an Instagram Login app (callers keep it behind INSTAGRAM_ENABLED).
  */
 export async function sendPrivateReply(igUserId: string, token: string, commentId: string, text: string,
   quickReplies?: readonly QuickReply[]): Promise<SentMessage> {

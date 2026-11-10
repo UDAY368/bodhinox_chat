@@ -64,7 +64,12 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 1 schema on
   });
 
   afterAll(async () => {
-    await owner?.end();
+    if (owner) {
+      // The live Instagram accounts and their placeholder tokens must not reach later suites (token sweep, ingest).
+      await owner.query('DELETE FROM accounts WHERE id=ANY($1::uuid[])', [[accountA, accountB]]);
+      await owner.query('DELETE FROM auth_users WHERE id=ANY($1::uuid[])', [[adminUser, ownerUserB]]);
+      await owner.end();
+    }
     await disconnectDatabases();
   });
 

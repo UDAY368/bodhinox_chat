@@ -172,10 +172,21 @@ const BUILDER_TRIGGER_ORDER = {
 const BUILDER_TRIGGERS = (Object.keys(BUILDER_TRIGGER_ORDER) as FlowTriggerType[])
   .sort((a, b) => BUILDER_TRIGGER_ORDER[a] - BUILDER_TRIGGER_ORDER[b]);
 
+/**
+ * Stage 2 steps whose settings forms (node-config-form.tsx) and engine
+ * support are not built yet (2C/2D). They stay out of the add-step menus, so
+ * nobody places a step with an empty settings panel that publish then
+ * refuses; a flow that already has one still shows it. 2D removes each entry
+ * as its form lands.
+ */
+export const STEPS_WITHOUT_EDITOR: ReadonlySet<NodeType> = new Set<NodeType>([
+  "ig_comment_reply", "ig_private_reply", "send_card", "send_gallery",
+]);
+
 /** The add-step menu for a scope: steps every channel it runs on offers ('any' gets the overlap). */
 export function nodeTypesForScope(scope: FlowChannelScope | null | undefined): NodeType[] {
   const offered = scopeChannels(scope).map((channel) => new Set<string>(flowNodesFor(channel)));
-  return ADD_NODE_TYPES.filter((type) => offered.every((set) => set.has(type as FlowNodeType)));
+  return ADD_NODE_TYPES.filter((type) => !STEPS_WITHOUT_EDITOR.has(type) && offered.every((set) => set.has(type as FlowNodeType)));
 }
 
 /** The trigger picker for a scope: triggers every channel it runs on offers. */

@@ -6,6 +6,7 @@ import {
   defaultSection,
   nodeTypesForScope,
   publishDraft,
+  STEPS_WITHOUT_EDITOR,
   triggerTypesForScope,
   uniqueNodeKey,
 } from "./flow-editor-state";
@@ -229,8 +230,12 @@ describe("channel palettes (Stage 1)", () => {
     const steps = nodeTypesForScope("instagram");
     for (const whatsappOnly of ["send_template", "send_form", "ask_location", "ask_address", "send_catalog"] as const)
       expect(steps).not.toContain(whatsappOnly);
-    expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "ai_reply", "handoff", "end",
-      "ig_private_reply", "ig_comment_reply", "send_card", "send_gallery"]));
+    expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "ai_reply", "handoff", "end"]));
+    // The Instagram-only steps join the menu once their forms land (2D); until then nobody can place an unconfigurable step.
+    for (const pending of INSTAGRAM_ONLY_NODE_TYPES) {
+      expect(STEPS_WITHOUT_EDITOR.has(pending)).toBe(true);
+      expect(steps).not.toContain(pending);
+    }
     expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_story_reply", "ig_story_mention", "first_inbound_message",
       "default_reply", "manual"]);
   });

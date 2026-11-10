@@ -123,7 +123,9 @@ export interface BuilderNode {
 /** The types the add-step menus offer, in menu order (canvas and list views). */
 export const ADD_NODE_TYPES: NodeType[] = [
   'start',
-  // Instagram-only (Stage 2); the per-channel palettes keep them off WhatsApp.
+  // Instagram-only (Stage 2); the per-channel palettes keep them off WhatsApp,
+  // and STEPS_WITHOUT_EDITOR (flow-editor-state.tsx) keeps them out of every
+  // menu until their settings forms land (2D).
   'ig_private_reply',
   'ig_comment_reply',
   'send_card',

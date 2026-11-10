@@ -120,7 +120,12 @@ describe('Stage 2 graph payloads', () => {
     });
     fetchMock.mockReset();
     await expect(sendPrivateReply('111', TOKEN, '333', 'Hi', [])).rejects.toBeInstanceOf(InstagramGraphInputError);
+    // The text limit is 1000 UTF-8 bytes, not characters: 334 three-byte characters are 1002 bytes.
+    await expect(sendPrivateReply('111', TOKEN, '333', '€'.repeat(334))).rejects.toBeInstanceOf(InstagramGraphInputError);
     expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValueOnce(json({ message_id: 'm2' }));
+    await sendPrivateReply('111', TOKEN, '333', '€'.repeat(333) + 'x');
+    expect(call().body.message.text).toHaveLength(334);
   });
 
   it('builds a generic template (card or gallery) with image, link and both button kinds', async () => {
