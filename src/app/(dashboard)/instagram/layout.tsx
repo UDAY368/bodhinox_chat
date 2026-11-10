@@ -5,5 +5,5 @@ import { ChannelGate } from '@/components/channels/channel-gate';
 // Instagram tools): shown while Instagram is enabled and available for the
 // workspace, else an explanation (never a 404).
 export default function InstagramLayout({ children }: { children: ReactNode }) {
-  return <ChannelGate channel="instagram">{children}</ChannelGate>;
+  return <ChannelGate channel="instagram" exceptPath="/instagram/inbox">{children}</ChannelGate>;
 }

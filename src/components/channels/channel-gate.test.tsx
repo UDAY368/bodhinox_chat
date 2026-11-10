@@ -62,6 +62,23 @@ describe('ChannelGate', () => {
     expect(html).not.toContain('ChannelGate.turnOn');
   });
 
+  it('passes through the page that gates itself, even while loading or off', () => {
+    const passthrough = (pathname: string) => {
+      h.pathname = pathname;
+      return renderToStaticMarkup(
+        <NextIntlClientProvider locale="en" messages={{}} onError={() => {}} getMessageFallback={({ namespace, key }) => `${namespace}.${key}`}>
+          <ChannelGate channel="instagram" exceptPath="/instagram/inbox"><main>section page</main></ChannelGate>
+        </NextIntlClientProvider>,
+      );
+    };
+    h.hook = { data: null, loading: true, error: false };
+    expect(passthrough('/instagram/inbox')).toContain('section page');
+    h.hook.data = workspace({ available: false, unavailableReason: 'platform_off', enabled: false, state: 'unavailable' });
+    expect(passthrough('/instagram/inbox')).toContain('section page');
+    // Every other page in the section stays gated.
+    expect(passthrough('/instagram/flows')).not.toContain('section page');
+  });
+
   it('says why an unavailable channel shows nothing (plan or platform)', () => {
     h.hook.data = workspace({ available: false, unavailableReason: 'plan', enabled: false, state: 'unavailable' });
     expect(render()).toContain('ChannelGate.unavailablePlanTitle');

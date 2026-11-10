@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { ChannelGate } from '@/components/channels/channel-gate';
 import { InboxView } from '@/components/inbox/inbox-view';
 import { resolveInboxRedirect } from '@/lib/inbox/channel-inbox';
 
@@ -12,5 +13,6 @@ export default async function WhatsAppInboxPage({
 }) {
   const target = await resolveInboxRedirect('whatsapp', await searchParams);
   if (target) redirect(target);
-  return <InboxView channel="whatsapp" />;
+  // Gated here, not by the section layout, so the redirect above always runs first.
+  return <ChannelGate channel="whatsapp"><InboxView channel="whatsapp" /></ChannelGate>;
 }

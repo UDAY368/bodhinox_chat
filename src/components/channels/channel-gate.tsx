@@ -24,10 +24,15 @@ import type { Channel } from '@/types';
  * This is presentation only: every API enforces role, tenancy and the
  * channel rules itself. If the state cannot be loaded the page still renders.
  */
-export function ChannelGate({ channel, children }: { channel: Channel; children: ReactNode }) {
+/**
+ * `exceptPath`: a page in the section that gates itself (the inbox does, so its server-side
+ * ?c= redirect to the other channel's inbox still runs while this channel is off).
+ */
+export function ChannelGate({ channel, children, exceptPath }: { channel: Channel; children: ReactNode; exceptPath?: string }) {
   const { data, loading, error, refresh } = useWorkspaceChannels();
   const pathname = usePathname() ?? '';
   const t = useTranslations('ChannelGate');
+  if (exceptPath && pathname === exceptPath) return <>{children}</>;
 
   if (!data) {
     if (loading && !error)
