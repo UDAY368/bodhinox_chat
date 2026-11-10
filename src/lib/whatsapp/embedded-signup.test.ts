@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   failUpdateWith: null as null | ((data: Record<string, unknown>) => boolean),
   numberRoom: vi.fn(async () => {}),
   reupload: vi.fn(async () => 'uploaded'),
+  ensureChannel: vi.fn(async () => {}),
 }));
 
 const ACCOUNT = '11111111-1111-4111-8111-111111111111';
@@ -60,6 +61,7 @@ vi.mock('@/lib/billing/entitlements', async (orig) => {
   return { PlanLimitError: actual.PlanLimitError };
 });
 vi.mock('@/lib/billing/limits', () => ({ requireWhatsAppNumberRoom: h.numberRoom }));
+vi.mock('@/lib/channels/workspace', () => ({ ensureChannelEnabled: h.ensureChannel }));
 vi.mock('@/lib/repositories/routing', () => ({ resolveWhatsAppAccount: async () => h.owner }));
 vi.mock('@/lib/whatsapp/encryption', () => ({
   encrypt: (v: string) => `enc(${v})`,
@@ -192,6 +194,22 @@ describe('connectEmbeddedSignup', () => {
     // Registering drops the forms key at Meta, so it is sent again.
     expect(h.reupload).toHaveBeenCalledWith(tenant, 'cfg-1', { phoneNumberId: '777', accessToken: 'tok' });
     expect(JSON.stringify(result)).not.toContain('tok');
+  });
+
+  it('turns the WhatsApp channel on in the checkpoint transaction, for a new and a reconnected number', async () => {
+    await connectEmbeddedSignup(tenant, input);
+    expect(h.ensureChannel).toHaveBeenCalledTimes(1);
+    expect(h.ensureChannel).toHaveBeenCalledWith(tx, ACCOUNT, 'whatsapp', USER);
+    await connectEmbeddedSignup(tenant, input);
+    expect(h.ensureChannel).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails the checkpoint (no Meta change) when the channel cannot be turned on', async () => {
+    h.ensureChannel.mockRejectedValueOnce(new Error('db down'));
+    const result = await connectEmbeddedSignup(tenant, input);
+    expect(result).toMatchObject({ ok: false, code: 'saveFailed', step: 'save' });
+    expect(h.subscribe).not.toHaveBeenCalled();
+    expect(h.register).not.toHaveBeenCalled();
   });
 
   it('is idempotent: a retry after a register failure reuses the row and skips finished steps', async () => {

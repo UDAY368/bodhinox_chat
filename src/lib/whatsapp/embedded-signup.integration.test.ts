@@ -81,9 +81,16 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Embedded Signup on PostgreS
   });
 
   it('checkpoints the first number as default, then finishes on retry without a second row', async () => {
+    // An Instagram-only workspace (WhatsApp turned off): the checkpoint turns WhatsApp on in its transaction.
+    await owner.query("INSERT INTO workspace_channels(account_id,channel,enabled) VALUES($1,'whatsapp',false),($1,'instagram',true)", [accountA]);
+    const channel = async (accountId: string) => (await owner.query(
+      "SELECT enabled, enabled_at, updated_by_user_id FROM workspace_channels WHERE account_id=$1 AND channel='whatsapp'", [accountId])).rows[0];
     meta.register.mockRejectedValueOnce(new MetaApiError('try later', { httpStatus: 500, code: 1 }));
     const first = await connectEmbeddedSignup(asA, { code: 'c1', waba_id: wabaA, phone_number_id: phone1 });
     expect(first).toMatchObject({ ok: false, code: 'registerFailed' });
+    expect(await channel(accountA)).toMatchObject({ enabled: true, updated_by_user_id: adminA });
+    expect((await channel(accountA)).enabled_at).not.toBeNull();
+    expect(await channel(accountB)).toBeUndefined();
     let rows = await rowsOf(accountA);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ phone_number_id: phone1, waba_id: wabaA, status: 'disconnected', is_default: true, display_name: `Biz ${phone1}`, user_id: adminA, registered_at: null });

@@ -8,7 +8,8 @@
 // subscribes the webhook fields, and then, in one worker tenant transaction with
 // no network call inside it, checks the plan room (skipped for an account the
 // workspace already holds live, so a reconnect is never blocked), upserts by
-// (account_id, ig_user_id) and audits. Reconnect = connect again: the row is
+// (account_id, ig_user_id), turns the Instagram channel on (connected implies
+// enabled, src/lib/channels/workspace.ts) and audits. Reconnect = connect again: the row is
 // reused and reactivated. Disconnect unsubscribes (best effort), clears the
 // token and keeps conversations and identities.
 //
@@ -22,6 +23,7 @@ import { gateLimit } from '@/lib/billing/limits';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
+import { ensureChannelEnabled } from '@/lib/channels/workspace';
 import { auditTx } from '@/lib/payments/ledger';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
@@ -332,6 +334,8 @@ export async function finishConnect(actor: InstagramActor,
           webhook_subscribed_at=EXCLUDED.webhook_subscribed_at, last_error_code=NULL,
           connected_by_user_id=EXCLUDED.connected_by_user_id, connected_at=now(), disconnected_at=NULL
         RETURNING id::text AS id`;
+      // Connected implies enabled, in this same transaction: the section shows as soon as the account exists.
+      await ensureChannelEnabled(tx, actor.accountId, 'instagram', actor.userId);
       await auditTx(tx, actor.accountId, actor.userId, 'instagram.connect', row.id, { status, comments: scopes.includes(COMMENTS_SCOPE) });
       return row.id;
     });

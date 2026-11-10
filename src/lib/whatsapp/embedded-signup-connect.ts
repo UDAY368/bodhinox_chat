@@ -8,7 +8,9 @@
  *   2. prove the token reaches the number and the number is in that WABA
  *   3. refuse a number another workspace has connected
  *   4. checkpoint: create or update the row (encrypted token, display_name from
- *      Meta's verified_name), status 'disconnected' until the steps finish
+ *      Meta's verified_name), status 'disconnected' until the steps finish, and
+ *      turn the WhatsApp channel on in the same transaction (connected implies
+ *      enabled, src/lib/channels/workspace.ts)
  *   5. subscribe the app to the WABA            -> subscribed_apps_at
  *   6. register the number -> registered_at. With the admin's existing two-step
  *      PIN when they gave one; otherwise with a fresh 6-digit PIN, which the
@@ -23,6 +25,7 @@
 import { randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PlanLimitError } from '@/lib/billing/entitlements';
+import { ensureChannelEnabled } from '@/lib/channels/workspace';
 import { requireWhatsAppNumberRoom } from '@/lib/billing/limits';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing';
@@ -355,6 +358,7 @@ async function upsertRow(
           updated_at: now,
         },
       });
+      await ensureChannelEnabled(tx, tenant.accountId, 'whatsapp', tenant.userId);
       return {
         id: existing.id,
         registered_at: existing.registered_at,
@@ -377,6 +381,7 @@ async function upsertRow(
       },
       select: { id: true },
     });
+    await ensureChannelEnabled(tx, tenant.accountId, 'whatsapp', tenant.userId);
     return { id: created.id, registered_at: null, subscribed_apps_at: null, created: true };
   });
 }

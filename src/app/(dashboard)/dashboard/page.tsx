@@ -37,6 +37,7 @@ import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { OperationsPanel } from '@/components/dashboard/operations-panel';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
+import { ChannelPickerCard } from '@/components/dashboard/channel-picker-card';
 import styles from '@/components/dashboard/dashboard.module.css';
 
 import { useTranslations } from 'next-intl';
@@ -153,6 +154,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      <ChannelPickerCard />
       <OnboardingChecklist />
 
       <div className={styles.introGrid}>
