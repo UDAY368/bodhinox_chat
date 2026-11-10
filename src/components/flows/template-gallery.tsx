@@ -3,11 +3,13 @@
 import { useId, useMemo, useState, type ComponentType } from "react";
 import { useTranslations } from "next-intl";
 import {
+  AtSign,
   BellRing,
   CalendarCheck,
   CalendarDays,
   ChefHat,
   FileText,
+  Gift,
   GraduationCap,
   HelpCircle,
   Home,
@@ -15,8 +17,12 @@ import {
   Laptop,
   Leaf,
   LifeBuoy,
+  Link,
+  ListChecks,
   Luggage,
+  Mail,
   MapPin,
+  MessageCircle,
   MessageSquare,
   Package,
   PartyPopper,
@@ -26,11 +32,13 @@ import {
   Scissors,
   Search,
   ShieldCheck,
+  ShoppingBag,
   ShoppingCart,
   Signpost,
   Sparkles,
   Star,
   Stethoscope,
+  Ticket,
   UserPlus,
   UtensilsCrossed,
   Video,
@@ -47,14 +55,19 @@ export interface TemplateSummary {
   description: string;
   icon: string;
   category: string;
+  /** Set by the server for categories the gallery has no label of its own for (the Instagram starters). */
+  category_label?: string;
   trigger_type: string;
   node_count: number;
+  /** The channel sections the template can be created in. */
+  channels?: string[];
 }
 
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  BellRing, CalendarCheck, CalendarDays, ChefHat, GraduationCap, HelpCircle, Home, Landmark, Laptop, Leaf, LifeBuoy,
-  Luggage, MapPin, MessageSquare, Package, PartyPopper, Plane, RotateCcw, School, Scissors, ShieldCheck,
-  ShoppingCart, Signpost, Sparkles, Star, Stethoscope, UserPlus, UtensilsCrossed, Video,
+  AtSign, BellRing, CalendarCheck, CalendarDays, ChefHat, Gift, GraduationCap, HelpCircle, Home, Landmark, Laptop, Leaf,
+  LifeBuoy, Link, ListChecks, Luggage, Mail, MapPin, MessageCircle, MessageSquare, Package, PartyPopper, Plane, RotateCcw,
+  School, Scissors, ShieldCheck, ShoppingBag, ShoppingCart, Signpost, Sparkles, Star, Stethoscope, Ticket, UserPlus,
+  UtensilsCrossed, Video,
 };
 
 // Mirrors FLOW_TEMPLATE_CATEGORIES in src/lib/flows/templates.ts (not
@@ -63,6 +76,7 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
 const CATEGORY_ORDER = [
   "general", "journeys", "retail", "food", "health", "education", "real_estate",
   "travel", "finance", "beauty", "events", "services",
+  "instagram_comments", "instagram_growth", "instagram_stories", "instagram_dms",
 ];
 
 export function TemplateGallery({
@@ -96,7 +110,8 @@ export function TemplateGallery({
     );
   }, [templates, query, category]);
 
-  const label = (c: string) => (t.has(`categories.${c}`) ? t(`categories.${c}`) : c);
+  const label = (c: string) =>
+    t.has(`categories.${c}`) ? t(`categories.${c}`) : templates.find((template) => template.category === c)?.category_label ?? c;
   const chip = (value: string | null, text: string) => (
     <button
       key={value ?? "__all"}

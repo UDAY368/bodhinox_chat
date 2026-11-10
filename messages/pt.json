@@ -11497,7 +11497,191 @@
       "reward": "Link da recompensa",
       "followPrompt": "Mensagem pedindo para seguir",
       "followedButton": "Já segui",
-      "emailPrompt": "Pergunta pedindo o e-mail"
+      "emailPrompt": "Pergunta pedindo o e-mail",
+      "templatesHelp": "Modelos feitos para o Instagram. Adicione seus próprios links antes de publicar.",
+      "cancel": "Cancelar",
+      "publicReply": "Resposta pública",
+      "publicReplyHelp": "Publicada sob cada comentário correspondente. Deixe vazio para responder só por DM.",
+      "optInLabel": "Botão da DM de abertura",
+      "optInHelp": "Ao tocar, a pessoa recebe sua DM, e assim você pode escrever para ela. Até 20 caracteres.",
+      "cardTitle": "Mensagem do link",
+      "rewardTitle": "Mensagem da recompensa",
+      "rewardButton": "Texto do botão da recompensa",
+      "followedButtonLabel": "Botão depois de seguir",
+      "followGateNote": "A verificação de seguidor lê o perfil do Instagram da pessoa sempre que ela chega nesse passo.",
+      "emailError": "Mensagem quando o e-mail parece errado",
+      "thanks": "Mensagem de agradecimento",
+      "storyKeyword": "Palavra-chave na resposta",
+      "storyKeywordHelp": "Deixe vazio para responder a todas as respostas ao story.",
+      "reactions": "Responder também às reações com emoji ao seu story",
+      "flowName": "{title}: {keyword}",
+      "noPermission": "Leitores não podem criar fluxos. Peça a um agente ou administrador.",
+      "categories": {
+        "instagram_comments": "Comentários",
+        "instagram_growth": "Crescimento",
+        "instagram_stories": "Stories",
+        "instagram_dms": "DMs"
+      },
+      "errors": {
+        "invalid": "Confira o formulário e tente novamente.",
+        "channelDisabled": "O Instagram está desativado neste espaço de trabalho. Ative-o para criar fluxos do Instagram.",
+        "planRequired": "Seu plano não inclui o Instagram. Faça upgrade para usar as automações rápidas.",
+        "keywords": "Use até 50 palavras-chave, cada uma com até 100 caracteres.",
+        "posts": "Escolha em quais publicações escutar.",
+        "text": "Escreva uma mensagem de até 1000 bytes.",
+        "button": "Use de 1 a 20 caracteres.",
+        "title": "Use de 1 a 80 caracteres.",
+        "url": "Informe um link completo que comece com https://.",
+        "publicReply": "A resposta pública pode ter até 2200 caracteres."
+      },
+      "defaults": {
+        "commentLinks": {
+          "publicReply": "Te enviamos uma DM 📩",
+          "message": "Obrigado pelo comentário! Toque abaixo e eu te envio o link.",
+          "optInLabel": "Me envie o link",
+          "cardTitle": "Aqui está o link que você pediu",
+          "linkLabel": "Abrir link"
+        },
+        "growFollowers": {
+          "publicReply": "Confira suas DMs 🎁",
+          "message": "Sua recompensa está pronta! Toque abaixo para receber.",
+          "optInLabel": "Quero",
+          "followPrompt": "Isto é para nossos seguidores. Siga a gente e depois toque no botão abaixo.",
+          "followedButton": "Já sigo",
+          "rewardTitle": "Aqui está sua recompensa 🎁",
+          "rewardButton": "Pegar recompensa"
+        },
+        "storyLeads": {
+          "emailPrompt": "Obrigado por responder! Qual é o seu e-mail? Vamos te enviar os detalhes.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "thanks": "Recebido, obrigado! Entraremos em contato em breve."
+        }
+      },
+      "flows": {
+        "ig_link_drop": {
+          "name": "Enviar um link por DM a partir de comentários",
+          "description": "Alguém comenta LINK: responda sob o comentário e envie o link por DM. Adicione seu link antes de publicar.",
+          "keywords": "link",
+          "publicReply": "Te enviamos uma DM 📩",
+          "opening": "Obrigado pelo comentário! Toque abaixo e eu te envio o link.",
+          "optIn": "Me envie o link",
+          "cardTitle": "Aqui está o link que você pediu",
+          "linkButton": "Abrir link"
+        },
+        "ig_product_lineup": {
+          "name": "Vitrine de produtos a partir de comentários",
+          "description": "Alguém comenta PREÇO: envie uma galeria dos seus produtos e passe os interessados para sua equipe.",
+          "keywords": "preço",
+          "publicReply": "Confira suas DMs 🛍️",
+          "opening": "Oi! Quer ver nossos mais vendidos?",
+          "optIn": "Quero ver",
+          "product1Title": "Mais vendido",
+          "product1Subtitle": "Nosso produto mais amado",
+          "product2Title": "Novidade",
+          "product2Subtitle": "Acabou de chegar esta semana",
+          "product3Title": "Kit presente",
+          "product3Subtitle": "Pronto para presentear",
+          "pickText": "Qual chamou sua atenção?",
+          "handoffNote": "Interessado em {product} depois de comentar em uma publicação."
+        },
+        "ig_giveaway": {
+          "name": "Fazer um sorteio",
+          "description": "Alguém comenta SORTEIO: confira se a pessoa segue você e peça o e-mail para inscrevê-la.",
+          "keywords": "sorteio",
+          "publicReply": "Você está quase dentro! Confira suas DMs 🎉",
+          "opening": "Obrigado por participar do sorteio! Toque abaixo para se inscrever.",
+          "optIn": "Participar",
+          "followPrompt": "Para participar, siga nossa conta e depois toque no botão abaixo.",
+          "followedButton": "Já sigo",
+          "askEmail": "Último passo: qual é o seu e-mail? É por lá que falaremos com quem ganhar.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "entered": "Você está dentro! 🎉 Anunciaremos quem ganhou em breve. Boa sorte!"
+        },
+        "ig_follow_gate": {
+          "name": "Siga primeiro, depois o brinde",
+          "description": "Alguém comenta BRINDE: envie a recompensa assim que a pessoa seguir você. Adicione o link da recompensa antes de publicar.",
+          "keywords": "brinde",
+          "publicReply": "Enviamos na sua DM 🎁",
+          "opening": "Seu brinde está pronto! Toque abaixo para receber.",
+          "optIn": "Quero",
+          "followPrompt": "Isto é para nossos seguidores. Siga a gente e depois toque no botão abaixo.",
+          "followedButton": "Já sigo",
+          "rewardTitle": "Aqui está seu brinde 🎁",
+          "rewardButton": "Pegar o brinde"
+        },
+        "ig_to_whatsapp": {
+          "name": "Do Instagram para o WhatsApp",
+          "description": "Alguém escreve CONVERSAR NO WHATSAPP por DM: ofereça continuar a conversa no seu número do WhatsApp. Adicione seu link wa.me antes de publicar.",
+          "keywords": "conversar no whatsapp",
+          "ask": "Quer continuar esta conversa no WhatsApp?",
+          "yesButton": "Sim, WhatsApp",
+          "noButton": "Ficar aqui",
+          "cardTitle": "Continue no WhatsApp",
+          "cardSubtitle": "Toque para abrir uma conversa com a gente.",
+          "openButton": "Abrir WhatsApp",
+          "stay": "Sem problema, seguimos conversando aqui. Alguém da equipe vai responder em breve.",
+          "handoffNote": "Prefere continuar conversando pelo Instagram."
+        },
+        "ig_email_list": {
+          "name": "Aumente sua lista de e-mails",
+          "description": "Alguém escreve NEWSLETTER por DM: colete o e-mail para sua lista.",
+          "keywords": "newsletter",
+          "askEmail": "Quer receber nossa newsletter? Responda com seu e-mail.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "thanks": "Obrigado! Você está na lista. 💌"
+        },
+        "ig_story_leads": {
+          "name": "Leads a partir de respostas ao story",
+          "description": "Peça o e-mail de quem responde ao seu story.",
+          "askEmail": "Obrigado por responder! Qual é o seu e-mail? Vamos te enviar os detalhes.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "thanks": "Recebido, obrigado! Entraremos em contato em breve."
+        },
+        "ig_story_coupon": {
+          "name": "Cupons a partir de stories",
+          "description": "Envie um código de desconto para quem responder ou reagir ao seu story. Troque o código pelo seu.",
+          "text": "Obrigado pelo carinho! 💛 Aqui está 10% de desconto no seu próximo pedido: STORY10"
+        },
+        "ig_story_faq": {
+          "name": "Perguntas frequentes a partir de respostas ao story",
+          "description": "Ofereça respostas rápidas quando alguém responder ao seu story.",
+          "ask": "Obrigado por responder! O que você gostaria de saber?",
+          "hoursButton": "Horário",
+          "pricesButton": "Preços",
+          "humanButton": "Falar com a gente",
+          "hoursAnswer": "Abrimos de segunda a sábado, das 9h às 18h.",
+          "pricesAnswer": "Você encontra todos os nossos preços no nosso site.",
+          "handoffNote": "Pediu para falar com a equipe depois de responder a um story."
+        },
+        "ig_story_mention_thanks": {
+          "name": "Agradecer menções em stories",
+          "description": "Agradeça a quem mencionar você no story, no máximo uma vez por dia por pessoa.",
+          "text": "Muito obrigado pela menção! 🙌 Significa muito para nós."
+        },
+        "ig_quiz_qualifier": {
+          "name": "Qualificar com um quiz",
+          "description": "Alguém escreve QUIZ por DM: duas perguntas rápidas mandam os leads quentes para sua equipe e uma resposta simpática para os demais.",
+          "keywords": "quiz",
+          "budgetQuestion": "Qual é o seu orçamento?",
+          "budgetLow": "Menos de 500",
+          "budgetHigh": "500 ou mais",
+          "timelineQuestion": "Quando você gostaria de começar?",
+          "timelineNow": "Este mês",
+          "timelineLater": "Mais tarde",
+          "hotReply": "Ótimo encaixe! Alguém da nossa equipe vai falar com você em breve.",
+          "handoffNote": "Lead quente do quiz do Instagram: orçamento de 500 ou mais, começa este mês.",
+          "nurtureReply": "Obrigado! Vamos te enviar algumas ideias para começar."
+        },
+        "ig_default_reply": {
+          "name": "Resposta padrão",
+          "description": "Responda às DMs que nenhum outro fluxo atende, no máximo uma vez por dia por pessoa.",
+          "text": "Obrigado pela mensagem! Como podemos ajudar?",
+          "infoButton": "Saiba mais",
+          "humanButton": "Falar com a gente",
+          "info": "Você encontra tudo no nosso site. Escreva quando quiser se preferir falar com uma pessoa.",
+          "handoffNote": "Pediu para falar com uma pessoa na resposta padrão."
+        }
+      }
     }
   }
 }
