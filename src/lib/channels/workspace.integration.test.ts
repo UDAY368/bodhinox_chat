@@ -121,6 +121,11 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('workspace channels on Postg
     expect((await withTenant(viewerA, (tx) => getWorkspaceChannels(tx, accountA))).channels.instagram).toMatchObject({ explicit: true, enabled: false });
     expect(await withTenant(ownerOfB, (tx) => tx.$queryRaw<unknown[]>`SELECT 1 FROM workspace_channels WHERE account_id=${accountA}::uuid`)).toEqual([]);
     expect(await withTenant(workerB, (tx) => tx.$queryRaw<unknown[]>`SELECT 1 FROM workspace_channels WHERE account_id=${accountA}::uuid`, getWorkerPrisma())).toEqual([]);
+    // Connected implies enabled on read too: a stale 'off' row never hides A's live number.
+    await owner.query("UPDATE workspace_channels SET enabled=false WHERE account_id=$1 AND channel='whatsapp'", [accountA]);
+    expect((await withTenant(viewerA, (tx) => getWorkspaceChannels(tx, accountA))).channels.whatsapp)
+      .toMatchObject({ explicit: true, enabled: true, state: 'live' });
+    await owner.query("UPDATE workspace_channels SET enabled=true WHERE account_id=$1 AND channel='whatsapp'", [accountA]);
   });
 
   it('keeps one channel on and gates Instagram on the platform flag', async () => {

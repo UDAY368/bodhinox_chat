@@ -104,6 +104,17 @@ describe('effective channel state', () => {
     expect(platform.channels.whatsapp).toMatchObject({ available: true, unavailableReason: null });
   });
 
+  it('keeps a connected channel enabled even when its row says off (connected implies enabled)', () => {
+    for (const connection of ['live', 'attention'] as const) {
+      const state = effectiveChannels(facts({ rows: { whatsapp: false, instagram: false }, connections: { whatsapp: connection, instagram: connection } }));
+      expect(state.enabled).toEqual(['whatsapp', 'instagram']);
+      expect(state.channels.whatsapp).toMatchObject({ enabled: true, explicit: true, state: connection });
+    }
+    // An unavailable channel stays unavailable, connected or not.
+    expect(effectiveChannels(facts({ rows: { instagram: false }, instagramPlan: false, connections: { whatsapp: 'none', instagram: 'live' } }))
+      .channels.instagram).toMatchObject({ enabled: false, state: 'unavailable' });
+  });
+
   it('shows setup, live and attention for an enabled channel', () => {
     for (const [connection, state] of [['none', 'setup'], ['live', 'live'], ['attention', 'attention']] as const)
       expect(effectiveChannels(facts({ connections: { whatsapp: connection, instagram: 'none' } })).channels.whatsapp.state).toBe(state);

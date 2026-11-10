@@ -69,13 +69,19 @@ function configured(channel: Channel, facts: ChannelFacts): boolean {
   return channel === 'whatsapp' ? true : facts.connections.instagram !== 'none';
 }
 
-/** Pure: the effective per-channel state from its facts. */
+/**
+ * Pure: the effective per-channel state from its facts. Connected implies
+ * enabled here too, not only in the connect paths: a channel with a number or
+ * account still attached stays visible even if its row says off (a connect path
+ * that missed ensureChannelEnabled, or a row written before the connection), so
+ * a live channel's inbox never disappears while its messages keep arriving.
+ */
 export function effectiveChannels(facts: ChannelFacts): WorkspaceChannels {
   const channels = Object.fromEntries(CHANNELS.map((channel) => {
     const reason = unavailableReason(channel, facts);
     const available = reason === null;
-    const enabled = available && configured(channel, facts);
     const connection = facts.connections[channel];
+    const enabled = available && (configured(channel, facts) || connection !== 'none');
     const state: ChannelState = !available ? 'unavailable'
       : !enabled ? 'off'
       : connection === 'none' ? 'setup'

@@ -38,7 +38,7 @@ function publish(accountId: string | null, state: WorkspaceChannelsState) {
   for (const listener of listeners) listener();
 }
 
-function load(accountId: string, force = false): Promise<void> {
+export function loadWorkspaceChannels(accountId: string, force = false): Promise<void> {
   if (entry.accountId !== accountId) entry = { accountId, state: EMPTY, inflight: null };
   if (entry.inflight) return entry.inflight;
   if (!force && entry.state.data && !entry.state.error) return Promise.resolve();
@@ -58,7 +58,7 @@ function load(accountId: string, force = false): Promise<void> {
   return inflight;
 }
 
-async function save(accountId: string, changes: ChannelChanges): Promise<WorkspaceChannels> {
+export async function saveWorkspaceChannels(accountId: string, changes: ChannelChanges): Promise<WorkspaceChannels> {
   const res = await authFetch('/api/account/channels', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -86,16 +86,21 @@ export function useWorkspaceChannels(): WorkspaceChannelsState & {
   const state = accountId && snapshot.accountId === accountId ? snapshot.state : EMPTY;
 
   useEffect(() => {
-    if (accountId) void load(accountId);
+    if (accountId) void loadWorkspaceChannels(accountId);
   }, [accountId]);
 
-  const refresh = useCallback(() => (accountId ? load(accountId, true) : Promise.resolve()), [accountId]);
+  const refresh = useCallback(() => (accountId ? loadWorkspaceChannels(accountId, true) : Promise.resolve()), [accountId]);
   const saveChanges = useCallback((changes: ChannelChanges) => {
     if (!accountId) return Promise.reject(new ChannelsSaveError('', null, 401));
-    return save(accountId, changes);
+    return saveWorkspaceChannels(accountId, changes);
   }, [accountId]);
 
   return { ...state, refresh, save: saveChanges };
+}
+
+/** Test seam: the shared copy for a workspace (what the hook returns for it). */
+export function workspaceChannelsSnapshotForTests(accountId: string): WorkspaceChannelsState {
+  return entry.accountId === accountId ? entry.state : EMPTY;
 }
 
 /** Test seam: forget the shared copy. */
