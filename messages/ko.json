@@ -11488,7 +11488,8 @@
       "empty": "아직 대화 시작 문구가 없습니다.",
       "adminOnly": "관리자만 대화 시작 문구를 변경할 수 있습니다.",
       "notConnected": "대화 시작 문구를 추가하려면 Instagram 계정을 연결하세요.",
-      "flowMissing": "연결된 플로우가 삭제되었거나 Instagram 플로우가 아닙니다."
+      "flowMissing": "연결된 플로우가 삭제되었거나 Instagram 플로우가 아닙니다.",
+      "replacesExisting": "저장하면 다른 앱에서 이 계정에 설정한 대화 시작 문구가 대체됩니다."
     },
     "defaultReply": {
       "title": "기본 답장",

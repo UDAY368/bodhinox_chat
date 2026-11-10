@@ -11488,7 +11488,8 @@
       "empty": "No conversation starters yet.",
       "adminOnly": "Only admins can change conversation starters.",
       "notConnected": "Connect an Instagram account to add conversation starters.",
-      "flowMissing": "The linked flow was deleted or isn’t an Instagram flow."
+      "flowMissing": "The linked flow was deleted or isn’t an Instagram flow.",
+      "replacesExisting": "Saving replaces any conversation starters set up in another app for this account."
     },
     "defaultReply": {
       "title": "Default reply",

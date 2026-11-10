@@ -11488,7 +11488,8 @@
       "empty": "Todavía no hay iniciadores de conversación.",
       "adminOnly": "Solo los administradores pueden cambiar los iniciadores de conversación.",
       "notConnected": "Conecta una cuenta de Instagram para añadir iniciadores de conversación.",
-      "flowMissing": "El flujo vinculado se eliminó o no es un flujo de Instagram."
+      "flowMissing": "El flujo vinculado se eliminó o no es un flujo de Instagram.",
+      "replacesExisting": "Al guardar se reemplazan los iniciadores de conversación configurados en otra app para esta cuenta."
     },
     "defaultReply": {
       "title": "Respuesta predeterminada",

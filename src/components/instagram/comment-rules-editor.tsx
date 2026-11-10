@@ -6,9 +6,12 @@
  * Settings › Instagram in Stage 1 with the same data and API:
  * /api/instagram/accounts/{id}/comment-rules (admins) and
  * /api/instagram/accounts/{id}/posts for the post picker. Each rule sends one
- * private reply to a matching comment.
+ * private reply to a matching comment. Stage 2: "Convert to flow" turns a rule
+ * into an equivalent draft Instagram flow and switches the rule off
+ * (POST .../comment-rules/{ruleId}/convert).
  */
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,7 +22,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { announceInstagramFlowsChanged } from '@/components/instagram/use-instagram-flows';
 import { authFetch } from '@/lib/auth/client';
+import { channelPath } from '@/lib/channels/routes';
 import type { CommentRuleView } from '@/lib/instagram/comment-rules';
 import type { InstagramMedia } from '@/lib/instagram/graph';
 
@@ -55,6 +60,10 @@ const toBody = (draft: RuleDraft) => ({
 export function CommentRulesEditor({ accountId }: { accountId: string }) {
   const t = useTranslations('Settings.instagram.commentRules');
   const tc = useTranslations('Settings.instagram');
+  const tConvert = useTranslations('Instagram.comments');
+  const [converting, setConverting] = useState<string | null>(null);
+  /** Rules converted on this page: rule id -> the new flow's id. */
+  const [convertedTo, setConvertedTo] = useState<Record<string, string>>({});
   const [rules, setRules] = useState<CommentRuleView[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
@@ -155,6 +164,27 @@ export function CommentRulesEditor({ accountId }: { accountId: string }) {
     toast.success(t('deleted'));
   };
 
+  const convert = async (rule: CommentRuleView) => {
+    if (converting || !window.confirm(tConvert('convertConfirm'))) return;
+    setConverting(rule.id);
+    try {
+      const { ok, json } = await call(`${base}/${rule.id}/convert`, jsonInit('POST'));
+      if (!ok || typeof json.flow_id !== 'string') {
+        toast.error(typeof json.message === 'string' ? json.message : tConvert('convertFailed'));
+        return;
+      }
+      const flowId = json.flow_id;
+      setRules((current) => (current ?? []).map((r) => (r.id === rule.id ? { ...r, active: false } : r)));
+      setConvertedTo((current) => ({ ...current, [rule.id]: flowId }));
+      announceInstagramFlowsChanged();
+      toast.success(tConvert('converted'));
+    } catch {
+      toast.error(tConvert('convertFailed'));
+    } finally {
+      setConverting(null);
+    }
+  };
+
   return (
     <div className="space-y-3 border-t pt-3">
       <div>
@@ -175,12 +205,25 @@ export function CommentRulesEditor({ accountId }: { accountId: string }) {
               {rule.keywords.length ? rule.keywords.join(', ') : t('keywordsAny')}
             </p>
             <p className="text-foreground break-words whitespace-pre-wrap">{rule.replyText}</p>
+            {convertedTo[rule.id] && (
+              <Link href={channelPath('instagram', 'flows', convertedTo[rule.id])}
+                className="text-primary text-xs font-medium underline-offset-2 hover:underline">
+                {tConvert('openFlow')}
+              </Link>
+            )}
           </div>
           <Switch checked={rule.active} onCheckedChange={(v: boolean) => void toggle(rule, v)} aria-label={t('active')} />
           <Button type="button" variant="outline" size="sm" onClick={() => { setEditing(rule.id); setDraft(toDraft(rule)); }}
             disabled={editing !== null}>
             {t('edit')}
           </Button>
+          {!convertedTo[rule.id] && (
+            <Button type="button" variant="outline" size="sm" onClick={() => void convert(rule)}
+              disabled={editing !== null || converting !== null} title={tConvert('convertHelp')}>
+              {converting === rule.id && <Loader2 className="size-3.5 animate-spin" />}
+              {tConvert('convertToFlow')}
+            </Button>
+          )}
           <Button type="button" variant="ghost" size="sm" onClick={() => void remove(rule)} aria-label={t('delete')}>
             <Trash2 className="size-4" />
           </Button>
