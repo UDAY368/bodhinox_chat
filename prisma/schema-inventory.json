@@ -2246,6 +2246,14 @@
           "onDelete": "CASCADE"
         },
         "definition": "account_id UUID NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid "
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": "'whatsapp'",
+        "reference": null,
+        "definition": "channel text NOT NULL DEFAULT 'whatsapp'"
       }
     ],
     "automation_steps": [
@@ -16470,6 +16478,68 @@
         "default": "now()",
         "reference": null,
         "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "workspace_channels": [
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "channel text NOT NULL CHECK (channel IN ('whatsapp','instagram'))"
+      },
+      {
+        "name": "enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "enabled boolean NOT NULL"
+      },
+      {
+        "name": "enabled_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "enabled_at timestamptz"
+      },
+      {
+        "name": "updated_by_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "updated_by_user_id uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
       }
     ]
   }

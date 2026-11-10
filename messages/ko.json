@@ -84,7 +84,21 @@
     "ads": "광고",
     "appointments": "예약",
     "catalogue": "카탈로그",
-    "storeSettings": "스토어 설정"
+    "storeSettings": "스토어 설정",
+    "groups": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "workspace": "워크스페이스",
+      "needsAttention": "확인 필요"
+    },
+    "allInboxes": "모든 인박스",
+    "templates": "템플릿",
+    "comments": "댓글",
+    "conversationStarters": "대화 시작 문구",
+    "defaultReply": "기본 답장",
+    "quickAutomations": "빠른 자동화",
+    "addInstagram": "Instagram 추가",
+    "upgrade": "업그레이드"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -312,6 +326,11 @@
         "templates": "메시지 템플릿 만들기",
         "automation": "플로우 또는 자동화 만들기",
         "team": "팀원 초대"
+      },
+      "instagram": {
+        "connect": "Instagram 계정 연결",
+        "allowMessages": "Instagram에서 \"메시지 액세스 허용\" 켜기",
+        "firstCommentAutomation": "첫 댓글 자동화 만들기"
       }
     }
   },
@@ -688,6 +707,14 @@
       "byteCounter": "{used} / {max}바이트",
       "notOnChannel": "Instagram에서는 사용할 수 없음",
       "openSettings": "Instagram 설정 열기"
+    },
+    "channelInbox": {
+      "whatsappTitle": "WhatsApp 인박스",
+      "instagramTitle": "Instagram 인박스",
+      "allTitle": "모든 인박스",
+      "emptyWhatsapp": "아직 WhatsApp 대화가 없습니다.",
+      "emptyInstagram": "아직 Instagram 대화가 없습니다.",
+      "openingConversation": "대화를 여는 중…"
     }
   },
   "Contacts": {
@@ -1834,6 +1861,17 @@
         "oncePerContact": "연락처당 한 번만 실행",
         "oncePerContactHint": "이 자동화가 이미 실행된 연락처는 건너뜁니다."
       }
+    },
+    "channelSection": {
+      "whatsappTitle": "WhatsApp 자동화",
+      "instagramTitle": "Instagram 자동화",
+      "whatsappDescription": "WhatsApp에서 일이 생기면 실행되는 규칙입니다.",
+      "instagramDescription": "Instagram에서 일이 생기면 실행되는 규칙입니다.",
+      "runsOn": "{channel}에서 실행",
+      "locked": "자동화는 채널을 바꿀 수 없습니다. 다른 채널에서 사용하려면 복제하세요.",
+      "disabled": "{channel}이(가) 꺼져 있습니다. 이 자동화를 활성화하려면 켜세요.",
+      "instagramWindowHint": "Instagram 자동화는 고객의 마지막 메시지 후 24시간 이내에만 답장할 수 있습니다.",
+      "unavailableOnChannel": "{channel}에서는 사용할 수 없습니다."
     }
   },
   "Flows": {
@@ -2719,6 +2757,21 @@
         "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다.",
         "contact_opted_out": "이 실행이 실패한 후 연락처가 STOP으로 응답했으므로 다시 실행하지 않습니다."
       }
+    },
+    "channelSection": {
+      "whatsappTitle": "WhatsApp 플로우",
+      "instagramTitle": "Instagram 플로우",
+      "whatsappDescription": "WhatsApp 번호에서 실행되는 시각적 플로우입니다.",
+      "instagramDescription": "Instagram 계정에서 실행되는 시각적 플로우입니다.",
+      "chipWhatsapp": "WhatsApp 플로우",
+      "chipInstagram": "Instagram 플로우",
+      "bothChannels": "두 채널 모두",
+      "bothChannelsHelp": "이 플로우는 WhatsApp과 Instagram에서 실행됩니다. 채널별로 편집하려면 나누세요.",
+      "split": "WhatsApp용과 Instagram용 사본으로 나누기",
+      "splitDone": "WhatsApp 사본과 Instagram 사본을 만들었습니다. 준비되면 원본을 보관하세요.",
+      "splitFailed": "이 플로우를 나누지 못했습니다. 다시 시도하세요.",
+      "locked": "게시된 플로우는 채널을 바꿀 수 없습니다. 다른 채널에서 사용하려면 복제하세요.",
+      "disabled": "{channel}이(가) 꺼져 있습니다. 이 플로우를 게시하려면 켜세요."
     }
   },
   "Settings": {
@@ -11125,5 +11178,76 @@
       "contactResponse": "요청은 영업일 기준 3일 이내에 접수 확인하고, 확인된 요청은 30일 이내에 처리합니다.",
       "contactUnset": "문의 주소가 아직 게시되지 않았습니다. 워크스페이스 소유자는 설정 → 개인정보 및 접근에서 데이터를 내보내거나 삭제할 수 있습니다."
     }
+  },
+  "Channels": {
+    "names": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "states": {
+      "off": "꺼짐",
+      "setup": "연결되지 않음",
+      "live": "연결됨",
+      "attention": "확인 필요",
+      "unavailable": "사용할 수 없음"
+    },
+    "picker": {
+      "title": "어떤 채널을 사용하시나요?",
+      "description": "채널마다 인박스, 플로우, 자동화가 따로 있습니다. 나중에 설정에서 바꿀 수 있습니다.",
+      "whatsappTitle": "WhatsApp",
+      "whatsappDescription": "WhatsApp 번호로 채팅, 브로드캐스트, 템플릿, 양식을 사용합니다.",
+      "instagramTitle": "Instagram",
+      "instagramDescription": "Instagram 계정의 다이렉트 메시지, 댓글 답장, 스토리 답장을 사용합니다.",
+      "bothTitle": "둘 다",
+      "bothDescription": "WhatsApp과 Instagram을 각각의 섹션에서 사용하고 연락처 목록은 함께 씁니다.",
+      "choose": "이것으로 사용",
+      "comingSoon": "곧 제공 예정",
+      "upgrade": "업그레이드",
+      "waitingForAdmin": "관리자가 아직 채널을 선택하지 않았습니다.",
+      "saving": "저장 중…"
+    },
+    "settings": {
+      "title": "채널",
+      "description": "워크스페이스에서 사용하는 채널을 켜세요. 채널마다 인박스, 플로우, 자동화가 따로 있습니다.",
+      "turnOn": "{channel} 켜기",
+      "turnOff": "{channel} 끄기",
+      "connect": "연결",
+      "manage": "관리",
+      "disconnectFirst": "메시지를 놓치지 않도록 {channel}을(를) 끄기 전에 연결을 해제하세요.",
+      "lastChannel": "채널을 하나 이상 켜 두세요.",
+      "adminOnly": "관리자만 채널을 변경할 수 있습니다.",
+      "notIncluded": "현재 요금제에는 Instagram이 포함되어 있지 않습니다.",
+      "notAvailableYet": "Instagram은 아직 사용할 수 없습니다.",
+      "saved": "채널이 업데이트되었습니다"
+    },
+    "errors": {
+      "invalid_request": "켜거나 끌 채널을 선택하세요.",
+      "channel_connected": "메시지를 놓치지 않도록 {channel}을(를) 끄기 전에 연결을 해제하세요.",
+      "last_channel": "채널을 하나 이상 켜 두세요.",
+      "plan_required": "현재 요금제에는 {channel}이(가) 포함되어 있지 않습니다. 켜려면 업그레이드하세요.",
+      "platform_off": "{channel}은(는) 아직 사용할 수 없습니다.",
+      "saveFailed": "채널을 저장하지 못했습니다. 다시 시도하세요.",
+      "loadFailed": "채널을 불러오지 못했습니다."
+    }
+  },
+  "ChannelGate": {
+    "loading": "불러오는 중…",
+    "loadFailed": "이 섹션을 불러오지 못했습니다.",
+    "retry": "다시 시도",
+    "offTitle": "이 워크스페이스에서 {channel}이(가) 꺼져 있습니다",
+    "offBodyAdmin": "켜면 인박스, 플로우, 자동화를 사용할 수 있습니다.",
+    "offBodyMember": "관리자에게 켜 달라고 요청하세요.",
+    "turnOn": "{channel} 켜기",
+    "askAdmin": "관리자에게 요청",
+    "unavailablePlatformTitle": "{channel}은(는) 아직 사용할 수 없습니다",
+    "unavailablePlanTitle": "현재 요금제에는 {channel}이(가) 포함되어 있지 않습니다",
+    "seePlans": "요금제 보기",
+    "setupWhatsapp": "메시지를 받으려면 WhatsApp 번호를 연결하세요.",
+    "setupInstagram": "메시지를 받으려면 Instagram 계정을 연결하세요.",
+    "instagramRoutingHint": "Instagram 앱에서 \"메시지 액세스 허용\"을 켜고 Bodhinox를 메시지 기본 앱으로 설정하세요.",
+    "attentionWhatsapp": "WhatsApp 번호에 확인이 필요합니다. 메시지가 전송되거나 수신되지 않을 수 있습니다.",
+    "attentionInstagram": "Instagram 계정을 다시 연결해야 합니다. 메시지가 전송되거나 수신되지 않을 수 있습니다.",
+    "connect": "연결",
+    "fix": "해결하기"
   }
 }

@@ -84,7 +84,21 @@
     "ads": "Anuncios",
     "appointments": "Citas",
     "catalogue": "Catálogo",
-    "storeSettings": "Ajustes de la tienda"
+    "storeSettings": "Ajustes de la tienda",
+    "groups": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "workspace": "Espacio de trabajo",
+      "needsAttention": "Requiere atención"
+    },
+    "allInboxes": "Todas las bandejas",
+    "templates": "Plantillas",
+    "comments": "Comentarios",
+    "conversationStarters": "Iniciadores de conversación",
+    "defaultReply": "Respuesta predeterminada",
+    "quickAutomations": "Automatizaciones rápidas",
+    "addInstagram": "Añadir Instagram",
+    "upgrade": "Mejorar plan"
   },
   "Header": {
     "dashboard": "Panel",
@@ -312,6 +326,11 @@
         "templates": "Crea una plantilla de mensaje",
         "automation": "Crea un flujo o una automatización",
         "team": "Invita a un compañero"
+      },
+      "instagram": {
+        "connect": "Conecta tu cuenta de Instagram",
+        "allowMessages": "Activa \"Permitir acceso a los mensajes\" en Instagram",
+        "firstCommentAutomation": "Crea tu primera automatización de comentarios"
       }
     }
   },
@@ -688,6 +707,14 @@
       "byteCounter": "{used} / {max} bytes",
       "notOnChannel": "No disponible en Instagram",
       "openSettings": "Abrir ajustes de Instagram"
+    },
+    "channelInbox": {
+      "whatsappTitle": "Bandeja de entrada de WhatsApp",
+      "instagramTitle": "Bandeja de entrada de Instagram",
+      "allTitle": "Todas las bandejas",
+      "emptyWhatsapp": "Aún no hay conversaciones de WhatsApp.",
+      "emptyInstagram": "Aún no hay conversaciones de Instagram.",
+      "openingConversation": "Abriendo la conversación…"
     }
   },
   "Contacts": {
@@ -1834,6 +1861,17 @@
         "oncePerContact": "Ejecutar una vez por contacto",
         "oncePerContactHint": "Omite los contactos para los que esta automatización ya se ejecutó."
       }
+    },
+    "channelSection": {
+      "whatsappTitle": "Automatizaciones de WhatsApp",
+      "instagramTitle": "Automatizaciones de Instagram",
+      "whatsappDescription": "Reglas que se ejecutan cuando ocurre algo en WhatsApp.",
+      "instagramDescription": "Reglas que se ejecutan cuando ocurre algo en Instagram.",
+      "runsOn": "Se ejecuta en {channel}",
+      "locked": "Una automatización se queda en su canal. Duplícala para usarla en otro canal.",
+      "disabled": "{channel} está desactivado. Actívalo para activar esta automatización.",
+      "instagramWindowHint": "Las automatizaciones de Instagram solo pueden responder en las 24 horas posteriores al último mensaje del cliente.",
+      "unavailableOnChannel": "Esto no está disponible en {channel}."
     }
   },
   "Flows": {
@@ -2719,6 +2757,21 @@
         "conversation_busy": "Otro flujo se está ejecutando en esta conversación.",
         "contact_opted_out": "El contacto respondió STOP después de que fallara esta ejecución, así que no se repetirá."
       }
+    },
+    "channelSection": {
+      "whatsappTitle": "Flujos de WhatsApp",
+      "instagramTitle": "Flujos de Instagram",
+      "whatsappDescription": "Flujos visuales que se ejecutan en tus números de WhatsApp.",
+      "instagramDescription": "Flujos visuales que se ejecutan en tu cuenta de Instagram.",
+      "chipWhatsapp": "Flujo de WhatsApp",
+      "chipInstagram": "Flujo de Instagram",
+      "bothChannels": "Ambos canales",
+      "bothChannelsHelp": "Este flujo se ejecuta en WhatsApp e Instagram. Divídelo para editar cada canal por separado.",
+      "split": "Dividir en copias de WhatsApp e Instagram",
+      "splitDone": "Se crearon una copia de WhatsApp y otra de Instagram. Archiva el original cuando quieras.",
+      "splitFailed": "No se pudo dividir este flujo. Inténtalo de nuevo.",
+      "locked": "Un flujo publicado se queda en su canal. Duplícalo para usarlo en otro canal.",
+      "disabled": "{channel} está desactivado. Actívalo para publicar este flujo."
     }
   },
   "Settings": {
@@ -11125,5 +11178,76 @@
       "contactResponse": "Confirmamos las solicitudes en un plazo de 3 días hábiles y completamos las solicitudes verificadas en un plazo de 30 días.",
       "contactUnset": "La dirección de contacto aún no se ha publicado. Los propietarios de un espacio de trabajo pueden exportar o eliminar sus datos en Configuración → Privacidad y acceso."
     }
+  },
+  "Channels": {
+    "names": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "states": {
+      "off": "Desactivado",
+      "setup": "Sin conectar",
+      "live": "Conectado",
+      "attention": "Requiere atención",
+      "unavailable": "No disponible"
+    },
+    "picker": {
+      "title": "¿Qué canales usas?",
+      "description": "Cada canal tiene su propia bandeja de entrada, flujos y automatizaciones. Puedes cambiarlo más tarde en Configuración.",
+      "whatsappTitle": "WhatsApp",
+      "whatsappDescription": "Chats, difusiones, plantillas y formularios en tu número de WhatsApp.",
+      "instagramTitle": "Instagram",
+      "instagramDescription": "Mensajes directos, respuestas a comentarios y a historias en tu cuenta de Instagram.",
+      "bothTitle": "Ambos",
+      "bothDescription": "WhatsApp e Instagram, cada uno en su propia sección, con una lista de contactos compartida.",
+      "choose": "Usar esta opción",
+      "comingSoon": "Próximamente",
+      "upgrade": "Mejorar plan",
+      "waitingForAdmin": "Tu administrador aún no ha elegido los canales.",
+      "saving": "Guardando…"
+    },
+    "settings": {
+      "title": "Canales",
+      "description": "Activa los canales que usa tu espacio de trabajo. Cada canal tiene su propia bandeja de entrada, flujos y automatizaciones.",
+      "turnOn": "Activar {channel}",
+      "turnOff": "Desactivar {channel}",
+      "connect": "Conectar",
+      "manage": "Administrar",
+      "disconnectFirst": "Desconecta {channel} antes de desactivarlo para no perder mensajes.",
+      "lastChannel": "Mantén al menos un canal activado.",
+      "adminOnly": "Solo los administradores pueden cambiar los canales.",
+      "notIncluded": "Instagram no está incluido en tu plan.",
+      "notAvailableYet": "Instagram aún no está disponible.",
+      "saved": "Canales actualizados"
+    },
+    "errors": {
+      "invalid_request": "Elige qué canales activar o desactivar.",
+      "channel_connected": "Desconecta {channel} antes de desactivarlo para no perder mensajes.",
+      "last_channel": "Mantén al menos un canal activado.",
+      "plan_required": "Tu plan no incluye {channel}. Mejora tu plan para activarlo.",
+      "platform_off": "{channel} aún no está disponible.",
+      "saveFailed": "No se pudieron guardar los canales. Inténtalo de nuevo.",
+      "loadFailed": "No se pudieron cargar los canales."
+    }
+  },
+  "ChannelGate": {
+    "loading": "Cargando…",
+    "loadFailed": "No se pudo cargar esta sección.",
+    "retry": "Reintentar",
+    "offTitle": "{channel} está desactivado en este espacio de trabajo",
+    "offBodyAdmin": "Actívalo para usar su bandeja de entrada, flujos y automatizaciones.",
+    "offBodyMember": "Pide a un administrador que lo active.",
+    "turnOn": "Activar {channel}",
+    "askAdmin": "Pide a un administrador",
+    "unavailablePlatformTitle": "{channel} aún no está disponible",
+    "unavailablePlanTitle": "{channel} no está incluido en tu plan",
+    "seePlans": "Ver planes",
+    "setupWhatsapp": "Conecta un número de WhatsApp para empezar a recibir mensajes.",
+    "setupInstagram": "Conecta tu cuenta de Instagram para empezar a recibir mensajes.",
+    "instagramRoutingHint": "En la app de Instagram, activa \"Permitir acceso a los mensajes\" y elige Bodhinox como app predeterminada para los mensajes.",
+    "attentionWhatsapp": "Un número de WhatsApp requiere atención. Es posible que no se envíen ni reciban mensajes.",
+    "attentionInstagram": "Tu cuenta de Instagram necesita reconectarse. Es posible que no se envíen ni reciban mensajes.",
+    "connect": "Conectar",
+    "fix": "Solucionar"
   }
 }

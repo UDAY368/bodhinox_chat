@@ -571,6 +571,10 @@ export function validateWrite(
     // pipeline that created it; every send route derives the channel from the row.
     if (browser && name === 'conversations' && ['channel', 'instagram_account_id'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
+    // An automation's channel is chosen once by the automation routes (its section)
+    // and never changes; the engine matches it against the conversation's channel.
+    if (browser && name === 'automations' && field === 'channel')
+      throw new ContractError(`Field ${field} is server-managed`);
     // A conversation keeps the number the customer wrote to; replies, number-scoped
     // routing and away messages follow it. Inserts fall back to the
     // conversations_default_number trigger. Other tables set their number through

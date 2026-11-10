@@ -349,6 +349,9 @@ model automations {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   archived_at DateTime? @db.Timestamptz(6)
+  /// Stage 1 (20261117010100_automation_channel): 'whatsapp' | 'instagram'; existing rows are 'whatsapp'.
+  /// automations_channel_check and idx_automations_account_channel_active_trigger (partial, CONCURRENTLY) are owned by the SQL.
+  channel String @default("whatsapp")
   @@unique([account_id, id])
 }
 
@@ -2879,4 +2882,19 @@ model workspace_exports {
   // workspace_exports_one_running and workspace_exports_expiry_idx are partial and owned by the SQL.
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "workspace_exports_account_idx")
+}
+
+/// Stage 1 (20261117010000_workspace_channels): which channels a workspace uses. A missing row keeps the
+/// default (WhatsApp on; Instagram on only while connected). Read and written only through
+/// /api/account/channels and the connect paths, never the browser resource API.
+model workspace_channels {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  /// 'whatsapp' | 'instagram'
+  channel String
+  enabled Boolean
+  enabled_at DateTime? @db.Timestamptz(6)
+  updated_by_user_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, channel])
 }

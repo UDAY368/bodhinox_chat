@@ -84,7 +84,21 @@
     "ads": "Ads",
     "appointments": "Appointments",
     "catalogue": "Catalogue",
-    "storeSettings": "Store settings"
+    "storeSettings": "Store settings",
+    "groups": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "workspace": "Workspace",
+      "needsAttention": "Needs attention"
+    },
+    "allInboxes": "All inboxes",
+    "templates": "Templates",
+    "comments": "Comments",
+    "conversationStarters": "Conversation starters",
+    "defaultReply": "Default reply",
+    "quickAutomations": "Quick automations",
+    "addInstagram": "Add Instagram",
+    "upgrade": "Upgrade"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -312,6 +326,11 @@
         "templates": "Create a message template",
         "automation": "Build a flow or automation",
         "team": "Invite a teammate"
+      },
+      "instagram": {
+        "connect": "Connect your Instagram account",
+        "allowMessages": "Turn on \"Allow access to messages\" in Instagram",
+        "firstCommentAutomation": "Create your first comment automation"
       }
     }
   },
@@ -688,6 +707,14 @@
       "byteCounter": "{used} / {max} bytes",
       "notOnChannel": "Not available on Instagram",
       "openSettings": "Open Instagram settings"
+    },
+    "channelInbox": {
+      "whatsappTitle": "WhatsApp inbox",
+      "instagramTitle": "Instagram inbox",
+      "allTitle": "All inboxes",
+      "emptyWhatsapp": "No WhatsApp conversations yet.",
+      "emptyInstagram": "No Instagram conversations yet.",
+      "openingConversation": "Opening the conversation…"
     }
   },
   "Contacts": {
@@ -1834,6 +1861,17 @@
         "oncePerContact": "Run once per contact",
         "oncePerContactHint": "Skip contacts this automation has already run for."
       }
+    },
+    "channelSection": {
+      "whatsappTitle": "WhatsApp automations",
+      "instagramTitle": "Instagram automations",
+      "whatsappDescription": "Rules that run when something happens on WhatsApp.",
+      "instagramDescription": "Rules that run when something happens on Instagram.",
+      "runsOn": "Runs on {channel}",
+      "locked": "An automation stays on its channel. Duplicate it to use it on another channel.",
+      "disabled": "{channel} is turned off. Turn it on to activate this automation.",
+      "instagramWindowHint": "Instagram automations can reply only within 24 hours of the customer's last message.",
+      "unavailableOnChannel": "This isn't available on {channel}."
     }
   },
   "Flows": {
@@ -2719,6 +2757,21 @@
         "conversation_busy": "Another flow is running in this conversation.",
         "contact_opted_out": "The contact replied STOP after this run failed, so it will not be replayed."
       }
+    },
+    "channelSection": {
+      "whatsappTitle": "WhatsApp flows",
+      "instagramTitle": "Instagram flows",
+      "whatsappDescription": "Visual flows that run on your WhatsApp numbers.",
+      "instagramDescription": "Visual flows that run on your Instagram account.",
+      "chipWhatsapp": "WhatsApp flow",
+      "chipInstagram": "Instagram flow",
+      "bothChannels": "Both channels",
+      "bothChannelsHelp": "This flow runs on WhatsApp and Instagram. Split it to edit each channel on its own.",
+      "split": "Split into WhatsApp and Instagram copies",
+      "splitDone": "Created a WhatsApp copy and an Instagram copy. Archive the original when you're ready.",
+      "splitFailed": "Couldn't split this flow. Try again.",
+      "locked": "A published flow stays on its channel. Duplicate it to use it on another channel.",
+      "disabled": "{channel} is turned off. Turn it on to publish this flow."
     }
   },
   "Settings": {
@@ -11125,5 +11178,76 @@
       "contactResponse": "We acknowledge requests within 3 working days and complete verified requests within 30 days.",
       "contactUnset": "The contact address has not been published yet. Workspace owners can export or delete their data from Settings → Privacy & access."
     }
+  },
+  "Channels": {
+    "names": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "states": {
+      "off": "Off",
+      "setup": "Not connected",
+      "live": "Connected",
+      "attention": "Needs attention",
+      "unavailable": "Not available"
+    },
+    "picker": {
+      "title": "Which channels do you use?",
+      "description": "Each channel gets its own inbox, flows and automations. You can change this later in Settings.",
+      "whatsappTitle": "WhatsApp",
+      "whatsappDescription": "Chats, broadcasts, templates and forms on your WhatsApp number.",
+      "instagramTitle": "Instagram",
+      "instagramDescription": "Direct messages, comment replies and story replies on your Instagram account.",
+      "bothTitle": "Both",
+      "bothDescription": "WhatsApp and Instagram, each in its own section, with one shared contact list.",
+      "choose": "Use this",
+      "comingSoon": "Coming soon",
+      "upgrade": "Upgrade",
+      "waitingForAdmin": "Your admin hasn't picked channels yet.",
+      "saving": "Saving…"
+    },
+    "settings": {
+      "title": "Channels",
+      "description": "Turn on the channels your workspace uses. Each channel gets its own inbox, flows and automations.",
+      "turnOn": "Turn on {channel}",
+      "turnOff": "Turn off {channel}",
+      "connect": "Connect",
+      "manage": "Manage",
+      "disconnectFirst": "Disconnect {channel} before turning it off, so no messages are missed.",
+      "lastChannel": "Keep at least one channel on.",
+      "adminOnly": "Only admins can change channels.",
+      "notIncluded": "Instagram isn't included in your plan.",
+      "notAvailableYet": "Instagram isn't available yet.",
+      "saved": "Channels updated"
+    },
+    "errors": {
+      "invalid_request": "Choose which channels to turn on or off.",
+      "channel_connected": "Disconnect {channel} before turning it off, so no messages are missed.",
+      "last_channel": "Keep at least one channel on.",
+      "plan_required": "Your plan doesn't include {channel}. Upgrade to turn it on.",
+      "platform_off": "{channel} isn't available yet.",
+      "saveFailed": "Couldn't save your channels. Try again.",
+      "loadFailed": "Couldn't load your channels."
+    }
+  },
+  "ChannelGate": {
+    "loading": "Loading…",
+    "loadFailed": "Couldn't load this section.",
+    "retry": "Try again",
+    "offTitle": "{channel} is turned off for this workspace",
+    "offBodyAdmin": "Turn it on to use its inbox, flows and automations.",
+    "offBodyMember": "Ask an admin to turn it on.",
+    "turnOn": "Turn on {channel}",
+    "askAdmin": "Ask an admin",
+    "unavailablePlatformTitle": "{channel} isn't available yet",
+    "unavailablePlanTitle": "{channel} isn't included in your plan",
+    "seePlans": "See plans",
+    "setupWhatsapp": "Connect a WhatsApp number to start receiving messages.",
+    "setupInstagram": "Connect your Instagram account to start receiving messages.",
+    "instagramRoutingHint": "In the Instagram app, turn on \"Allow access to messages\" and make Bodhinox the default app for messages.",
+    "attentionWhatsapp": "A WhatsApp number needs attention. Messages may not be sent or received.",
+    "attentionInstagram": "Your Instagram account needs reconnecting. Messages may not be sent or received.",
+    "connect": "Connect",
+    "fix": "Fix it"
   }
 }

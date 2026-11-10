@@ -605,6 +605,12 @@ export type FlowTriggerConfig =
 /** Which channels a flow runs on (flows.channel_scope, Phase 11). Existing flows are 'whatsapp'. */
 export type FlowChannelScope = "whatsapp" | "instagram" | "any";
 export const FLOW_CHANNEL_SCOPES: readonly FlowChannelScope[] = ["whatsapp", "instagram", "any"];
+/**
+ * Scopes a new flow may get (Stage 1): each flow belongs to one channel's
+ * section. 'any' stays legal in the database for legacy flows, which keep
+ * running on both channels until the user splits them.
+ */
+export const CREATABLE_CHANNEL_SCOPES: readonly Exclude<FlowChannelScope, "any">[] = ["whatsapp", "instagram"];
 
 export interface FlowRow {
   id: string;

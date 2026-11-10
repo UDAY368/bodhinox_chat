@@ -293,6 +293,18 @@ describe('fixed CRM resource authorization', () => {
       expect.arrayContaining(['source_id', 'content_hash', 'fetched_at', 'source_url'])
     );
   });
+  it('lets a browser read an automation channel but never set it; workspace_channels is not a resource', () => {
+    expect(getResource('automations', true).read).toContain('channel');
+    expect(() => validateQuery('automations', { projection: 'id,channel', filters: [{ field: 'channel', op: 'eq', value: 'instagram' }] }, tenant, true)).not.toThrow();
+    const owner = { ...tenant, role: 'owner' as const };
+    for (const operation of ['insert', 'update'] as const)
+      expect(() => validateWrite('automations', { channel: 'instagram' }, owner, true, operation)).toThrow(/permission|server-managed/);
+    // Trusted automation routes (non-browser) still set the channel on create.
+    expect(() => validateWrite('automations', { name: 'Welcome', trigger_type: 'keyword_match', channel: 'instagram' }, owner)).not.toThrow();
+    expect(() => getResource('workspace_channels', true)).toThrow();
+    expect(() => getResource('workspace_channels')).toThrow();
+    expect(() => resourceBySlug('workspace-channels')).toThrow();
+  });
   it('exposes no Phase 5 inbox table through the generic browser resource API', () => {
     for (const table of [
       'conversation_notes',

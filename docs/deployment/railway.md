@@ -319,6 +319,15 @@ Data retention (audit finding 39): migrations `20261116100000_data_retention` (n
 - **Check after deploy:** as the migration owner, `SELECT count(*) FROM jobs WHERE status='done' AND updated_at < now() - interval '31 days';` falls to 0 within a day; `SELECT * FROM workspace_purges ORDER BY purged_at DESC LIMIT 5;` lists purges (empty while the flag is off).
 - **Rollback:** unset `WORKSPACE_PURGE_ENABLED` to stop purges at once. Redeploying the previous release stops all three jobs; the tables, functions and indexes are inert. Purged workspaces and swept rows cannot be restored except from a backup.
 
+Channel separation (Stage 1 foundation): four additive migrations, applied by the normal CI `migrate` job before the code deploys.
+
+- `20261117010000_workspace_channels` (`SET LOCAL lock_timeout = '5s'`): a new, empty tenant table `workspace_channels` (FORCE RLS; members and the worker read; admins write as themselves; the worker writes from connect paths; no delete grant). No backfill: a workspace without rows keeps today's behaviour (WhatsApp on; Instagram on only while an Instagram account is connected).
+- `20261117010100_automation_channel`: `automations.channel text NOT NULL DEFAULT 'whatsapp'` (a constant default, so no table rewrite; every existing automation becomes WhatsApp) plus `automations_channel_check` added `NOT VALID`.
+- `20261117010200_automation_channel_validate`: validates that CHECK (SHARE UPDATE EXCLUSIVE; automation reads and writes continue).
+- `20261117010300_automations_account_channel_idx`: a single `CREATE INDEX CONCURRENTLY idx_automations_account_channel_active_trigger`. If a deploy is interrupted mid-build, `DROP INDEX CONCURRENTLY idx_automations_account_channel_active_trigger`, mark it rolled back (`prisma migrate resolve --rolled-back 20261117010300_automations_account_channel_idx`) and re-run.
+- **Check after deploy:** as the migration owner, `SELECT count(*) FROM automations WHERE channel <> 'whatsapp';` is 0 until Instagram automations are created; `SELECT convalidated FROM pg_constraint WHERE conname='automations_channel_check';` is true; `GET /api/account/channels` as any member answers 200 with WhatsApp `enabled`.
+- **Rollback:** redeploy the previous release; it ignores the table, the column and the index (leave the migrations in place). No env var is added.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error in the platform console (Health), and requeue one there with a reason once its cause is fixed; a trusted operator database session is no longer needed for that. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

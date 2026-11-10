@@ -177,8 +177,15 @@ export interface ContactNote {
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';
 
+/**
+ * A messaging channel. Each one is its own section of the app (inbox, flows,
+ * automations, tools); src/lib/channels/* holds what each can do and whether a
+ * workspace uses it.
+ */
+export type Channel = 'whatsapp' | 'instagram';
+
 /** The channel a conversation is on (Phase 11). Read-only for the browser. */
-export type ConversationChannel = 'whatsapp' | 'instagram';
+export type ConversationChannel = Channel;
 
 export interface Conversation {
   bot_paused?: boolean;
@@ -782,6 +789,12 @@ export interface Automation {
   description?: string;
   trigger_type: AutomationTriggerType;
   trigger_config: AutomationTriggerConfig;
+  /**
+   * The section the automation belongs to (automations.channel, Stage 1). Set
+   * once on create by the automation routes and never changed; absent on rows
+   * read without it means 'whatsapp', like every automation made before Stage 1.
+   */
+  channel?: Channel;
   is_active: boolean;
   execution_count: number;
   last_executed_at?: string | null;

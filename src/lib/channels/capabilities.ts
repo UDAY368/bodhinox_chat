@@ -1,11 +1,18 @@
-// What each channel can do (Phase 11). Pure: no I/O, safe to import from client
-// components. Flow publish (validate.ts), the runtime engine guard, the flow
-// editor and the Instagram composer all read this one registry.
+// What each channel can do (Phase 11, Stage 1). Pure: no I/O, safe to import
+// from client components. Flow publish (validate.ts), the runtime engine
+// guard, the flow editor, the automation builder and validator and the
+// Instagram composer all read this one registry: the per-channel trigger,
+// node, automation-trigger and automation-step palettes live only here.
 import type { FlowChannelScope, FlowNodeType, FlowTriggerConfig } from '@/lib/flows/types';
+import type { AutomationStepType, AutomationTriggerType, Channel } from '@/types';
 import { INSTAGRAM_LIMITS, quickRepliesFit, utf8Bytes } from '@/lib/instagram/graph-limits';
 
-export type Channel = 'whatsapp' | 'instagram';
+export type { Channel };
 export const CHANNELS: readonly Channel[] = ['whatsapp', 'instagram'];
+
+export function isChannel(value: unknown): value is Channel {
+  return typeof value === 'string' && (CHANNELS as readonly string[]).includes(value);
+}
 
 /** Does a flow with this scope run on this channel? Absent scope (pre-Phase 11 rows) is WhatsApp. */
 export function scopeIncludes(scope: FlowChannelScope | null | undefined, channel: Channel): boolean {
@@ -52,6 +59,53 @@ export const INSTAGRAM_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   end: 'yes',
 };
 
+/**
+ * WhatsApp support per flow node (Stage 1). Every node that exists today runs
+ * on WhatsApp (send_buttons is WhatsApp's reply-button message). Instagram-only
+ * nodes added later (comment reply, private reply, card, gallery) are 'no'
+ * here, so a WhatsApp flow can never place or run them.
+ */
+export const WHATSAPP_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
+  start: 'yes',
+  send_message: 'yes',
+  send_media: 'yes',
+  send_buttons: 'yes',
+  send_list: 'yes',
+  collect_input: 'yes',
+  ask_media: 'yes',
+  ask_location: 'yes',
+  ask_address: 'yes',
+  send_template: 'yes',
+  send_form: 'yes',
+  send_product: 'yes',
+  send_product_list: 'yes',
+  send_catalog: 'yes',
+  send_storefront_link: 'yes',
+  payment_link: 'yes',
+  book_appointment: 'yes',
+  conversion_event: 'yes',
+  ai_reply: 'yes',
+  condition: 'yes',
+  set_tag: 'yes',
+  set_attribute: 'yes',
+  api_request: 'yes',
+  connect_flow: 'yes',
+  assign_agent: 'yes',
+  handoff: 'yes',
+  end: 'yes',
+};
+
+const NODE_SUPPORT: Record<Channel, Record<FlowNodeType, NodeSupport>> = {
+  whatsapp: WHATSAPP_NODE_SUPPORT,
+  instagram: INSTAGRAM_NODE_SUPPORT,
+};
+
+/** The flow nodes a channel's builder offers ('conditional' ones too: their config decides at publish). */
+export function flowNodesFor(channel: Channel): FlowNodeType[] {
+  const support = NODE_SUPPORT[channel];
+  return (Object.keys(support) as FlowNodeType[]).filter((node) => support[node] !== 'no');
+}
+
 export type NodeAvailability = { ok: true; warning?: 'text_over_limit' } | { ok: false; reason: 'unavailable_on_channel' };
 
 /** send_media node types Instagram can carry (a document only as a PDF). */
@@ -70,7 +124,8 @@ const textOf = (config: Record<string, unknown>): string | null => {
  */
 export function nodeAvailableOn(nodeType: FlowNodeType, channel: Channel,
   config: Record<string, unknown> = {}): NodeAvailability {
-  if (channel === 'whatsapp') return { ok: true };
+  if (channel === 'whatsapp')
+    return WHATSAPP_NODE_SUPPORT[nodeType] === 'no' ? { ok: false, reason: 'unavailable_on_channel' } : { ok: true };
   const support = INSTAGRAM_NODE_SUPPORT[nodeType] ?? 'no';
   if (support === 'no') return { ok: false, reason: 'unavailable_on_channel' };
   if (nodeType === 'send_media') {
@@ -102,11 +157,94 @@ export function listFitsQuickReplies(config: Record<string, unknown>): boolean {
 
 type TriggerType = FlowTriggerConfig['trigger_type'];
 
-/** Triggers an Instagram (or 'any') flow may use; the rest are WhatsApp-only. */
-export const INSTAGRAM_TRIGGERS: ReadonlySet<TriggerType> = new Set<TriggerType>(['keyword', 'first_inbound_message', 'manual']);
+/**
+ * The flow triggers each channel offers. A flow with scope 'any' must use a
+ * trigger both channels offer. Stage 2 adds default_reply to both and the
+ * ig_* triggers to Instagram; Stage 3 adds ad_click to Instagram.
+ */
+export const FLOW_TRIGGERS_BY_CHANNEL: Record<Channel, readonly TriggerType[]> = {
+  whatsapp: ['keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click'],
+  instagram: ['keyword', 'first_inbound_message', 'manual'],
+};
+
+export function flowTriggersFor(channel: Channel): readonly TriggerType[] {
+  return FLOW_TRIGGERS_BY_CHANNEL[channel];
+}
 
 export function triggerAvailableOn(triggerType: TriggerType, channel: Channel): boolean {
-  return channel === 'whatsapp' || INSTAGRAM_TRIGGERS.has(triggerType);
+  return FLOW_TRIGGERS_BY_CHANNEL[channel].includes(triggerType);
+}
+
+// Every automation trigger and step type, checked against the unions in
+// src/types/index.ts: adding a type there fails the build until it is placed here.
+const ALL_AUTOMATION_TRIGGERS = Object.keys({
+  new_message_received: true,
+  first_inbound_message: true,
+  keyword_match: true,
+  new_contact_created: true,
+  conversation_assigned: true,
+  tag_added: true,
+  time_based: true,
+  interactive_reply: true,
+  ad_click: true,
+  appointment_booked: true,
+  appointment_cancelled: true,
+  appointment_rescheduled: true,
+  appointment_completed: true,
+  appointment_no_show: true,
+} satisfies Record<AutomationTriggerType, true>) as AutomationTriggerType[];
+
+const ALL_AUTOMATION_STEPS = Object.keys({
+  send_message: true,
+  send_buttons: true,
+  send_list: true,
+  send_template: true,
+  add_tag: true,
+  remove_tag: true,
+  assign_conversation: true,
+  update_contact_field: true,
+  create_deal: true,
+  wait: true,
+  condition: true,
+  send_webhook: true,
+  close_conversation: true,
+  notify_team: true,
+} satisfies Record<AutomationStepType, true>) as AutomationStepType[];
+
+/**
+ * The automation triggers each channel offers. Instagram has no scheduled or
+ * appointment triggers until the 24-hour window rules for them are settled;
+ * comment, story, live and ref events are flow triggers only.
+ */
+export const AUTOMATION_TRIGGERS_BY_CHANNEL: Record<Channel, readonly AutomationTriggerType[]> = {
+  whatsapp: ALL_AUTOMATION_TRIGGERS,
+  instagram: ['new_message_received', 'first_inbound_message', 'keyword_match', 'interactive_reply',
+    'new_contact_created', 'conversation_assigned', 'tag_added'],
+};
+
+/** Steps not available on Instagram: templates are WhatsApp-only and a list message does not fit quick replies. */
+const NOT_ON_INSTAGRAM: ReadonlySet<AutomationStepType> = new Set<AutomationStepType>(['send_template', 'send_list']);
+
+/** The automation steps each channel offers. */
+export const AUTOMATION_STEPS_BY_CHANNEL: Record<Channel, readonly AutomationStepType[]> = {
+  whatsapp: ALL_AUTOMATION_STEPS,
+  instagram: ALL_AUTOMATION_STEPS.filter((step) => !NOT_ON_INSTAGRAM.has(step)),
+};
+
+export function automationTriggersFor(channel: Channel): readonly AutomationTriggerType[] {
+  return AUTOMATION_TRIGGERS_BY_CHANNEL[channel];
+}
+
+export function automationStepsFor(channel: Channel): readonly AutomationStepType[] {
+  return AUTOMATION_STEPS_BY_CHANNEL[channel];
+}
+
+export function automationTriggerAvailableOn(trigger: AutomationTriggerType, channel: Channel): boolean {
+  return AUTOMATION_TRIGGERS_BY_CHANNEL[channel].includes(trigger);
+}
+
+export function automationStepAvailableOn(step: AutomationStepType, channel: Channel): boolean {
+  return AUTOMATION_STEPS_BY_CHANNEL[channel].includes(step);
 }
 
 /** Composer and send-path capabilities that Instagram lacks in Phase 11. */
