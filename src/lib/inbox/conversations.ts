@@ -1,4 +1,4 @@
-import type { Conversation, Contact, Tag } from "@/types";
+import type { Channel, Conversation, Contact, Tag } from "@/types";
 import type { DataClient, QueryResult } from '@/lib/data/types';
 import { fetchAllPages } from '@/lib/data/paged-query';
 
@@ -14,17 +14,21 @@ export const CONVERSATION_SELECT =
 /**
  * The Inbox list, in the server's order. With `updatedSince` only the
  * conversations changed at or after that instant are read, so a periodic
- * resync costs the rows that changed instead of the whole inbox.
+ * resync costs the rows that changed instead of the whole inbox. With
+ * `channel` only that channel's conversations are read (a channel inbox
+ * never loads the other channel's rows); without it every channel is.
  */
 export async function loadInboxConversations(
   db: DataClient,
-  options: { updatedSince?: string } = {},
+  options: { updatedSince?: string; channel?: Channel } = {},
 ): Promise<QueryResult<Conversation[]>> {
   try {
     const data = await fetchAllPages<Conversation>((from, to) => {
       let query = db
         .from('conversations')
         .select<Conversation>(CONVERSATION_SELECT);
+      // conversations.channel is NOT NULL DEFAULT 'whatsapp', so older rows match 'whatsapp'.
+      if (options.channel) query = query.eq('channel', options.channel);
       if (options.updatedSince) query = query.gte('updated_at', options.updatedSince);
       return query
         .order('last_message_at', { ascending: false, nullsFirst: false })

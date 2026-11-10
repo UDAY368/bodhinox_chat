@@ -67,6 +67,22 @@ it('reads only conversations changed since the cursor on an incremental sync', a
   expect(specs[1].filters ?? []).not.toContainEqual(expect.objectContaining({ field: 'updated_at' }));
 });
 
+it('reads only one channel for a channel inbox, on full and incremental loads', async () => {
+  const specs: { filters?: unknown[] }[] = [];
+  const db = { from: (name: string) => buildQuery(name, async spec => {
+    specs.push(spec);
+    return { data: [], error: null };
+  }) } as unknown as DataClient;
+  await loadInboxConversations(db, { channel: 'whatsapp' });
+  expect(specs[0].filters).toContainEqual({ field: 'channel', op: 'eq', value: 'whatsapp' });
+  await loadInboxConversations(db, { channel: 'instagram', updatedSince: '2026-11-10T10:00:00.000Z' });
+  expect(specs[1].filters).toContainEqual({ field: 'channel', op: 'eq', value: 'instagram' });
+  expect(specs[1].filters).toContainEqual({ field: 'updated_at', op: 'gte', value: '2026-11-10T10:00:00.000Z' });
+  // The All view (and API callers without a channel) read every channel.
+  await loadInboxConversations(db);
+  expect(specs[2].filters ?? []).not.toContainEqual(expect.objectContaining({ field: 'channel' }));
+});
+
 describe('incremental inbox sync', () => {
   const conv = (id: string, lastMessageAt: string | undefined, extra: Partial<Conversation> = {}) =>
     ({ ...makeConversation(null), id, last_message_at: lastMessageAt, ...extra });

@@ -23,10 +23,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { authFetch } from '@/lib/auth/client';
+import type { InboxScope } from '@/lib/inbox/inbox-scope';
 import {
+  filtersInScope,
   isDefaultInboxFilters,
   MAX_SAVED_FILTER_NAME,
   sameInboxFilters,
+  viewsForScope,
   type InboxFilters,
   type SavedFilter,
 } from '@/lib/inbox/saved-filters';
@@ -35,10 +38,15 @@ import { cn } from '@/lib/utils';
 export type { InboxFilters } from '@/lib/inbox/saved-filters';
 
 interface SavedFiltersMenuProps {
-  /** The inbox's current filter state, saved as-is by "Save current view". */
+  /** The inbox's current filter state (with its channel), saved as-is by "Save current view". */
   current: InboxFilters;
   /** Called with a saved view's filters when the member picks it. */
   onApply: (filters: InboxFilters) => void;
+  /**
+   * The inbox the menu is in. A channel inbox offers its channel's views and
+   * any-channel views; the All view offers every view.
+   */
+  scope?: InboxScope;
 }
 
 async function errorMessage(res: Response, fallback: string): Promise<string> {
@@ -51,9 +59,10 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
  * save the current filters under a name, or delete views. Views live in
  * /api/inbox/saved-filters and are never shared with other members.
  */
-export function SavedFiltersMenu({ current, onApply }: SavedFiltersMenuProps) {
+export function SavedFiltersMenu({ current, onApply, scope = 'all' }: SavedFiltersMenuProps) {
   const t = useTranslations('Inbox.savedFilters');
-  const [views, setViews] = useState<SavedFilter[]>([]);
+  const [allViews, setViews] = useState<SavedFilter[]>([]);
+  const views = viewsForScope(allViews, scope);
   const [loaded, setLoaded] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
@@ -78,8 +87,9 @@ export function SavedFiltersMenu({ current, onApply }: SavedFiltersMenuProps) {
     };
   }, []);
 
-  const active = views.find((view) => sameInboxFilters(view.filters, current)) ?? null;
-  const canSave = !isDefaultInboxFilters(current) && !active;
+  const active = views.find((view) => sameInboxFilters(filtersInScope(view.filters, scope), current)) ?? null;
+  // A channel inbox's own channel is not a filter the member chose.
+  const canSave = !isDefaultInboxFilters(scope === 'all' ? current : { ...current, channel: null }) && !active;
   const trimmed = name.trim();
 
   const openDialog = useCallback(() => {
@@ -153,7 +163,7 @@ export function SavedFiltersMenu({ current, onApply }: SavedFiltersMenuProps) {
             views.map((view) => (
               <DropdownMenuItem
                 key={view.id}
-                onClick={() => onApply(view.filters)}
+                onClick={() => onApply(filtersInScope(view.filters, scope))}
                 className={cn('text-sm', active?.id === view.id ? 'text-primary' : 'text-popover-foreground')}
               >
                 <span className="truncate">{view.name}</span>
