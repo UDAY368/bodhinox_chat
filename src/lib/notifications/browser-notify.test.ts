@@ -265,6 +265,12 @@ describe("viewedConversationFromLocation", () => {
     expect(viewedConversationFromLocation("/dashboard", "?c=abc")).toBeNull();
     expect(viewedConversationFromLocation("/inbox-archive", "?c=abc")).toBeNull();
   });
+  it("reads ?c= on each channel's inbox too", () => {
+    expect(viewedConversationFromLocation("/whatsapp/inbox", "?c=abc")).toBe("abc");
+    expect(viewedConversationFromLocation("/instagram/inbox/", "?filter=unread&c=abc")).toBe("abc");
+    expect(viewedConversationFromLocation("/whatsapp/flows", "?c=abc")).toBeNull();
+    expect(viewedConversationFromLocation("/sms/inbox", "?c=abc")).toBeNull();
+  });
 });
 
 describe("conversationHref", () => {

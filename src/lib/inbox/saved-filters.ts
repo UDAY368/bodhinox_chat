@@ -2,7 +2,9 @@
 // validation shared by the API and the inbox. Pure (no I/O) so the client
 // bundle can import it; persistence lives in saved-filters-store.ts.
 
+import type { Channel } from '@/types';
 import { parseInboxFilter, type InboxFilter } from './inbox-filters';
+import type { InboxScope } from './inbox-scope';
 import type { SessionFilter } from './session';
 
 /** The inbox conversation list's filter state, as a saved view stores it. */
@@ -19,6 +21,12 @@ export interface InboxFilters {
   numberId: string | null;
   /** Free-text search over the loaded list. */
   search: string;
+  /**
+   * The channel the view belongs to: the inbox it was saved in, or the
+   * channel filter of the All view. Null for any channel (views saved before
+   * the channel inboxes, unless they filter by a WhatsApp number).
+   */
+  channel: Channel | null;
 }
 
 export const DEFAULT_INBOX_FILTERS: InboxFilters = {
@@ -28,6 +36,7 @@ export const DEFAULT_INBOX_FILTERS: InboxFilters = {
   company: null,
   numberId: null,
   search: '',
+  channel: null,
 };
 
 export const MAX_SAVED_FILTERS = 50;
@@ -70,14 +79,44 @@ export function parseInboxFilters(value: unknown): InboxFilters {
     : isUuid(input.numberId)
       ? input.numberId.toLowerCase()
       : null;
+  // A number filter only ever matched WhatsApp conversations, so a view
+  // without a channel that filters by number is a WhatsApp view.
+  const channel: Channel | null = input.channel === 'whatsapp' || input.channel === 'instagram'
+    ? input.channel
+    : numberId !== null ? 'whatsapp' : null;
   return {
     filter: parseInboxFilter(typeof input.filter === 'string' ? input.filter : null),
     session: SESSIONS.includes(input.session as SessionFilter) ? (input.session as SessionFilter) : 'all',
     tagIds,
     company: text(input.company) || null,
-    numberId,
+    // Instagram conversations have no number.
+    numberId: channel === 'instagram' ? null : numberId,
     search: text(input.search),
+    channel,
   };
+}
+
+/**
+ * The channel a view saved from an inbox of `scope` belongs to: a channel
+ * inbox's own channel; in the All view its channel filter, else WhatsApp when
+ * it filters by number (the same rule parseInboxFilters reads back).
+ */
+export function savedViewChannel(scope: InboxScope, channelFilter: Channel | null, numberId: string | null): Channel | null {
+  if (scope !== 'all') return scope;
+  return channelFilter ?? (numberId !== null ? 'whatsapp' : null);
+}
+
+/**
+ * A view as an inbox of `scope` applies it: a channel inbox always shows its
+ * own channel, so a view for any channel takes the inbox's channel there.
+ */
+export function filtersInScope(filters: InboxFilters, scope: InboxScope): InboxFilters {
+  return scope === 'all' ? filters : { ...filters, channel: scope };
+}
+
+/** The views an inbox of `scope` offers: all of them in the All view, else its channel's and any-channel views. */
+export function viewsForScope<T extends { filters: InboxFilters }>(views: T[], scope: InboxScope): T[] {
+  return scope === 'all' ? views : views.filter((view) => view.filters.channel === null || view.filters.channel === scope);
 }
 
 /** A trimmed name of 1..80 characters, or null. */
@@ -100,5 +139,6 @@ export function sameInboxFilters(a: InboxFilters, b: InboxFilters): boolean {
     && tags(a.tagIds) === tags(b.tagIds)
     && (a.company ?? null) === (b.company ?? null)
     && (a.numberId ?? null) === (b.numberId ?? null)
-    && a.search.trim() === b.search.trim();
+    && a.search.trim() === b.search.trim()
+    && (a.channel ?? null) === (b.channel ?? null);
 }

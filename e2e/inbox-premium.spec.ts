@@ -46,8 +46,10 @@ test.beforeAll(async () => {
   }
 });
 
+// Workspace A uses WhatsApp only (Instagram is off in end-to-end runs), so its
+// conversations live in the WhatsApp inbox; old /inbox links redirect there.
 async function openConversation(page: Page) {
-  await page.goto(`/inbox?c=${conversationId}`);
+  await page.goto(`/whatsapp/inbox?c=${conversationId}`);
   await expect(page.getByText(`my order ${needle} has not arrived`)).toBeVisible();
 }
 
@@ -123,12 +125,13 @@ test.describe('inbox premium', () => {
     await login(page, users.admin);
     await page.goto('/notifications');
     await page.getByRole('button', { name: /mentioned you in a note/ }).first().click();
-    await expect(page).toHaveURL(new RegExp(`/inbox\\?c=${conversationId}`));
+    // The notification keeps its /inbox?c= link, which opens in the WhatsApp inbox.
+    await expect(page).toHaveURL(new RegExp(`/whatsapp/inbox\\?c=${conversationId}`));
   });
 
   test('message search finds a message and opens its conversation', async ({ page }) => {
     await login(page, fixtures().users.agent);
-    await page.goto('/inbox');
+    await page.goto('/whatsapp/inbox');
     await page.getByRole('button', { name: label('Search messages', 'InboxSearch.placeholder') }).click();
 
     const dialog = page.getByRole('dialog');
@@ -138,7 +141,7 @@ test.describe('inbox premium', () => {
     await hit.click();
 
     await expect(dialog).toBeHidden();
-    await expect(page).toHaveURL(new RegExp(`c=${conversationId}`));
+    await expect(page).toHaveURL(new RegExp(`/whatsapp/inbox\\?c=${conversationId}`));
     await expect(page.locator('[data-message-id]').filter({ hasText: needle })).toBeVisible();
   });
 
@@ -176,7 +179,7 @@ test.describe('inbox premium', () => {
   test('a member saves the current inbox filters as a view', async ({ page }) => {
     const { users, runId } = fixtures();
     await login(page, users.agent);
-    await page.goto('/inbox?filter=unread');
+    await page.goto('/whatsapp/inbox?filter=unread');
 
     const views = page.getByRole('button', { name: label('Views', 'Inbox.savedFilters.views') });
     await views.click();
@@ -188,10 +191,24 @@ test.describe('inbox premium', () => {
     await expect(dialog.getByText(name)).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // The view survives a reload and re-applies its filter from another one.
+    // The view survives a reload and re-applies its filter from another one,
+    // in the WhatsApp inbox it was saved in (here reached through the old URL).
     await page.goto('/inbox');
+    await expect(page).toHaveURL(/\/whatsapp\/inbox$/);
     await page.getByRole('button', { name: label('Views', 'Inbox.savedFilters.views') }).click();
     await page.getByRole('menuitem', { name }).click();
-    await expect(page).toHaveURL(/filter=unread/);
+    await expect(page).toHaveURL(/\/whatsapp\/inbox\?filter=unread/);
+
+    // The view belongs to WhatsApp, so the stored filters name the channel.
+    const db = await testDatabase();
+    try {
+      const saved = await db.query<{ channel: string | null }>(
+        "SELECT filters->>'channel' AS channel FROM saved_filters WHERE name=$1",
+        [name],
+      );
+      expect(saved.rows.map((row) => row.channel)).toEqual(['whatsapp']);
+    } finally {
+      await db.end();
+    }
   });
 });
