@@ -24,12 +24,15 @@ const MAX_CHARS = INSTAGRAM_LIMITS.iceBreakerQuestionChars;
 
 interface Row { question: string; flowId: string }
 
+/** The question as the server stores it (normaliseStarters in ice-breakers.ts): NFC, trimmed, inner spaces collapsed. */
+export const normaliseQuestion = (question: string): string => question.normalize('NFC').trim().replace(/\s+/g, ' ');
+
 /** The first problem with the rows (a message key), or null when they can be saved. */
 export function startersProblem(rows: readonly Row[], flowIds: ReadonlySet<string>): 'max' | 'tooLong' | 'duplicate' | 'flow' | 'question' | null {
   if (rows.length > MAX) return 'max';
   const seen = new Set<string>();
   for (const row of rows) {
-    const question = row.question.trim();
+    const question = normaliseQuestion(row.question);
     if (!question) return 'question';
     if (charLength(question) > MAX_CHARS) return 'tooLong';
     if (seen.has(question.toLowerCase())) return 'duplicate';
@@ -84,7 +87,7 @@ export function ConversationStartersEditor({ accountId, flows, canEdit }: {
     setSaving(true);
     try {
       const { ok, json } = await instagramCall(base, jsonInit('PUT', {
-        starters: rows.map((row) => ({ question: row.question.trim(), flow_id: row.flowId })),
+        starters: rows.map((row) => ({ question: normaliseQuestion(row.question), flow_id: row.flowId })),
       }));
       if (!ok) {
         toast.error(typeof json.message === 'string' ? json.message : t('saveFailed'));
@@ -124,6 +127,7 @@ export function ConversationStartersEditor({ accountId, flows, canEdit }: {
   return (
     <div className="space-y-3">
       {rows.length === 0 && <p className="text-muted-foreground text-sm">{t('empty')}</p>}
+      {!view.managed && <p className="text-muted-foreground text-xs">{t('replacesExisting')}</p>}
       {flows.length === 0 && <p className="text-muted-foreground text-sm">{t('noFlows')}</p>}
       {rows.map((row, index) => (
         <div key={index} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">

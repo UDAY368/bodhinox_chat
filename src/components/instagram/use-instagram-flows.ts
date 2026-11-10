@@ -18,6 +18,13 @@ export interface InstagramFlowSummary {
   channel_scope: 'whatsapp' | 'instagram' | 'any';
 }
 
+/** Fired on window when a component on the page created an Instagram flow some other way (rule conversion). */
+export const INSTAGRAM_FLOWS_CHANGED = 'bodhinox:instagram-flows-changed';
+
+export function announceInstagramFlowsChanged(): void {
+  window.dispatchEvent(new Event(INSTAGRAM_FLOWS_CHANGED));
+}
+
 export function useInstagramFlows() {
   const { accountId } = useAuth();
   const [flows, setFlows] = useState<InstagramFlowSummary[] | null>(null);
@@ -39,6 +46,9 @@ export function useInstagramFlows() {
     if (!accountId) return;
     setFlows(null);
     void reload();
+    const onChanged = () => { void reload(); };
+    window.addEventListener(INSTAGRAM_FLOWS_CHANGED, onChanged);
+    return () => window.removeEventListener(INSTAGRAM_FLOWS_CHANGED, onChanged);
   }, [accountId, reload]);
 
   return { flows, failed, reload };

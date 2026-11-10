@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { announceInstagramFlowsChanged } from '@/components/instagram/use-instagram-flows';
 import { authFetch } from '@/lib/auth/client';
 import { channelPath } from '@/lib/channels/routes';
 import type { CommentRuleView } from '@/lib/instagram/comment-rules';
@@ -175,6 +176,7 @@ export function CommentRulesEditor({ accountId }: { accountId: string }) {
       const flowId = json.flow_id;
       setRules((current) => (current ?? []).map((r) => (r.id === rule.id ? { ...r, active: false } : r)));
       setConvertedTo((current) => ({ ...current, [rule.id]: flowId }));
+      announceInstagramFlowsChanged();
       toast.success(tConvert('converted'));
     } catch {
       toast.error(tConvert('convertFailed'));
