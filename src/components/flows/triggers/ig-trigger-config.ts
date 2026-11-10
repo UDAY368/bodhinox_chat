@@ -16,7 +16,7 @@ import {
 import { INSTAGRAM_LIMITS } from "@/lib/instagram/graph-limits";
 import { NODE_META, slugify } from "../shared";
 import { defaultConfigFor, uniqueNodeKey, type BuilderState } from "../flow-editor-state";
-import { clipChars, withPrivateReplyEntry } from "../nodes/ig-node-config";
+import { clipChars, firstPrivateReplies, withPrivateReplyEntry } from "../nodes/ig-node-config";
 
 type Config = Record<string, unknown>;
 
@@ -50,7 +50,8 @@ export function defaultTriggerConfig(type: FlowTriggerType): Config {
 /**
  * The state after the author picks `type` in the trigger picker: its
  * starting settings, and for a comment trigger a private reply as the first
- * step (added when the flow has none, made the entry when it has one).
+ * step (added when the flow has none, made the entry when it has one that a
+ * run does not already reach first).
  */
 export function applyTriggerType(state: BuilderState, type: FlowTriggerType): BuilderState {
   const next: BuilderState = { ...state, trigger_type: type, trigger_config: defaultTriggerConfig(type) };
@@ -61,6 +62,8 @@ export function applyTriggerType(state: BuilderState, type: FlowTriggerType): Bu
     key = uniqueNodeKey(slugify(NODE_META.ig_private_reply.slugSeed, "ig_private_reply"), nodes);
     nodes = [...nodes, { node_key: key, node_type: "ig_private_reply", config: defaultConfigFor("ig_private_reply") }];
   }
+  // Already first (for example behind a template's start step): leave the steps as they are.
+  if (firstPrivateReplies(nodes, next.entry_node_id).has(key)) return { ...next, nodes };
   const placed = withPrivateReplyEntry(nodes, next.entry_node_id, key);
   return { ...next, nodes: placed.nodes, entry_node_id: placed.entry };
 }
@@ -118,6 +121,20 @@ export function setPostScope(config: Config, scope: IgPostScope, now: Date = new
   if (scope === "specific") return { ...rest, post_scope: scope, media_ids: strings(mediaIds) };
   if (scope === "next") return { ...rest, post_scope: scope, next_after: now.toISOString() };
   return { ...rest, post_scope: scope };
+}
+
+/**
+ * Sets which Instagram account a trigger listens on (`null`: every connected
+ * account). Posts belong to one account, so moving from one account to
+ * another drops the posts chosen on the first; they would never be
+ * commented on through the second.
+ */
+export function setTriggerAccount(config: Config, accountId: string | null): Config {
+  const { instagram_account_id: previous, ...rest } = config;
+  if (accountId === null) return rest;
+  const next: Config = { ...rest, instagram_account_id: accountId };
+  if (typeof previous === "string" && previous !== accountId && "media_ids" in next) next.media_ids = [];
+  return next;
 }
 
 /** Public replies posted under the comment: at most 3, each within the comment cap; blanks are kept while typing. */

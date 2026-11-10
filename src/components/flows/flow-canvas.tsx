@@ -93,7 +93,7 @@ import {
 } from './shared';
 import { useFlowEditor } from './flow-editor-state';
 import { NodeConfigForm } from './forms/node-config-form';
-import { entryLocked } from './nodes/ig-node-config';
+import { canRouteInto, entryLocked } from './nodes/ig-node-config';
 
 // React-Flow node `data` payload — the bits our custom renderer needs.
 interface NodeData extends Record<string, unknown> {
@@ -145,8 +145,9 @@ function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
   // don't need an incoming Handle. Every other node type accepts
   // incoming edges (including terminal handoff / end — they're the
   // common targets).
-  // A private reply is always a comment flow's first step (Instagram's one reply to the comment), so nothing routes into it either.
-  const hasTarget = node.node_type !== 'start' && node.node_type !== 'ig_private_reply';
+  // A private reply takes incoming edges too, but only from the steps
+  // allowed before it (handleConnect checks canRouteInto).
+  const hasTarget = node.node_type !== 'start';
   // Single-slot nodes get a single source handle floated on the right
   // edge of the card. Multi-slot nodes (condition, send_buttons,
   // send_list) render slot rows inline so each handle visually sits
@@ -545,6 +546,9 @@ function FlowCanvasInner() {
       // node = infinite reprompt). Reject silently — the user can
       // still wire one via the per-node dropdown if they really want.
       if (connection.source === connection.target) return;
+      // Only a step allowed before a private reply may lead into one (Instagram's one reply per comment).
+      const target = builderNodes.find((n) => n.node_key === connection.target);
+      if (target && !canRouteInto(sourceNode.node_type, target)) return;
       const patch = applyEdgeConnection(
         sourceNode,
         connection.sourceHandle,

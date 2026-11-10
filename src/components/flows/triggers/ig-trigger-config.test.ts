@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FLOW_TRIGGER_TYPES } from "@/lib/flows/types";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import type { BuilderState } from "../flow-editor-state";
-import { addIds, addKeywords, applyTriggerType, defaultTriggerConfig, setPostScope, setPublicReplies, toggleMedia } from "./ig-trigger-config";
+import { addIds, addKeywords, applyTriggerType, defaultTriggerConfig, setPostScope, setPublicReplies, setTriggerAccount, toggleMedia } from "./ig-trigger-config";
 
 const state = (patch: Partial<BuilderState> = {}): BuilderState => ({
   name: "f", description: "", trigger_type: "keyword", trigger_config: { keywords: ["hi"] }, entry_node_id: null, status: "draft",
@@ -37,6 +37,19 @@ describe("trigger settings", () => {
     // Switching away and back reuses it instead of adding another.
     const again = applyTriggerType(applyTriggerType(after, "keyword"), "ig_comment");
     expect(again.nodes.filter((n) => n.node_type === "ig_private_reply")).toHaveLength(1);
+  });
+
+  it("keeps a private reply that already comes first behind a start step", () => {
+    const before = state({
+      entry_node_id: "start",
+      nodes: [
+        { node_key: "start", node_type: "start", config: { next_node_key: "pr" } },
+        { node_key: "pr", node_type: "ig_private_reply", config: { text: "Here", next_node_key: "" } },
+      ],
+    });
+    const after = applyTriggerType(before, "ig_comment");
+    expect(after.entry_node_id).toBe("start");
+    expect(after.nodes).toEqual(before.nodes);
   });
 
   it("switching to another trigger leaves the steps alone", () => {
@@ -77,6 +90,16 @@ describe("keyword, post and story lists", () => {
     expect(next).toEqual({ post_scope: "next", next_after: "2026-11-10T10:00:00.000Z", include_keywords: ["a"] });
     expect(setPostScope({ ...next, resolved_media_id: "9" }, "any")).toEqual({ post_scope: "any", include_keywords: ["a"] });
     expect(setPostScope({ post_scope: "any" }, "specific")).toEqual({ post_scope: "specific", media_ids: [] });
+  });
+
+  it("drops posts chosen on one account when the trigger moves to another", () => {
+    const pinned = { post_scope: "specific", media_ids: ["1"], instagram_account_id: "a" };
+    expect(setTriggerAccount(pinned, "b")).toEqual({ post_scope: "specific", media_ids: [], instagram_account_id: "b" });
+    // Same account, or widening to every account, keeps them (they are still that account's posts).
+    expect(setTriggerAccount(pinned, "a")).toEqual(pinned);
+    expect(setTriggerAccount(pinned, null)).toEqual({ post_scope: "specific", media_ids: ["1"] });
+    // Narrowing from every account keeps what was there; a story trigger has no posts to drop.
+    expect(setTriggerAccount({ story_ids: ["5"] }, "a")).toEqual({ story_ids: ["5"], instagram_account_id: "a" });
   });
 
   it("keeps at most 3 public replies within the comment length", () => {

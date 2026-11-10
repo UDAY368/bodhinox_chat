@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { NODE_META, type BuilderNode } from "../shared";
+import { routableTargets } from "../nodes/ig-node-config";
 
 export function TextRow({
   label,
@@ -97,6 +98,7 @@ export function NodeKeySelect({
   onChange,
   placeholder,
   className,
+  entry = false,
 }: {
   value: string | null;
   nodes: BuilderNode[];
@@ -104,9 +106,12 @@ export function NodeKeySelect({
   onChange: (v: string | null) => void;
   placeholder?: string;
   className?: string;
+  /** Picks the flow's first step rather than a step to route to (any step may be first). */
+  entry?: boolean;
 }) {
   const t = useTranslations("Flows.builder.form");
-  const options = nodes.filter((n) => n.node_key !== excludeKey);
+  // A "next step" leads into a private reply only from a step allowed before it (routableTargets).
+  const options = (entry ? nodes : routableTargets(nodes, value, excludeKey)).filter((n) => n.node_key !== excludeKey);
   return (
     <Select
       value={value ?? "__none__"}

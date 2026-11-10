@@ -6,17 +6,20 @@ import {
   addVariant,
   bytesLeft,
   canAddButton,
+  canRouteInto,
   clipBytes,
   clipCard,
   commentStepIssue,
   emptyCard,
   entryLocked,
+  firstPrivateReplies,
   placeableNodeTypes,
   postbackIds,
   readCard,
   removeCard,
   removeVariant,
   replyVariants,
+  routableTargets,
   setButtonType,
   setVariant,
   storeCard,
@@ -55,12 +58,30 @@ describe("where the comment steps can be placed", () => {
 
   it("names why a placed comment step cannot run", () => {
     const pr = node("pr", "ig_private_reply");
-    expect(commentStepIssue(pr, "keyword", "pr")).toBe("onlyCommentFlows");
-    expect(commentStepIssue(node("cr", "ig_comment_reply"), "manual", null)).toBe("onlyCommentFlows");
-    expect(commentStepIssue(pr, "ig_comment", "other")).toBe("firstOnly");
-    expect(commentStepIssue(pr, "ig_comment", "pr")).toBeNull();
-    expect(commentStepIssue(node("cr", "ig_comment_reply"), "ig_comment", "pr")).toBeNull();
-    expect(commentStepIssue(node("m", "send_message"), "keyword", "m")).toBeNull();
+    const other = node("other", "send_message", { text: "hi", next_node_key: "pr" });
+    const nodes = [pr, other];
+    expect(commentStepIssue(pr, "keyword", "pr", nodes)).toBe("onlyCommentFlows");
+    expect(commentStepIssue(node("cr", "ig_comment_reply"), "manual", null, nodes)).toBe("onlyCommentFlows");
+    // A direct message before it spends the one private reply.
+    expect(commentStepIssue(pr, "ig_comment", "other", nodes)).toBe("firstOnly");
+    expect(commentStepIssue(pr, "ig_comment", "pr", nodes)).toBeNull();
+    expect(commentStepIssue(node("cr", "ig_comment_reply"), "ig_comment", "pr", nodes)).toBeNull();
+    expect(commentStepIssue(node("m", "send_message"), "keyword", "m", nodes)).toBeNull();
+  });
+
+  it("counts a private reply as first behind a start, tags or the public reply (as templates build it)", () => {
+    const nodes = [
+      node("start", "start", { next_node_key: "tag" }),
+      node("tag", "set_tag", { mode: "add", tag_id: "t", next_node_key: "cr" }),
+      node("cr", "ig_comment_reply", { replies: ["Thanks"], next_node_key: "pr" }),
+      node("pr", "ig_private_reply", { text: "Here", next_node_key: "" }),
+    ];
+    expect(firstPrivateReplies(nodes, "start")).toEqual(new Set(["pr"]));
+    expect(commentStepIssue(nodes[3], "ig_comment", "start", nodes)).toBeNull();
+    // Not reached at all (nothing leads to it) is not first either.
+    expect(commentStepIssue(nodes[3], "ig_comment", "cr", [...nodes.slice(0, 2), { ...nodes[2], config: { replies: ["x"], next_node_key: "" } }, nodes[3]]))
+      .toBe("firstOnly");
+    expect(firstPrivateReplies(nodes, null).size).toBe(0);
   });
 
   it("locks the entry of a comment flow that starts with its private reply", () => {
@@ -68,6 +89,19 @@ describe("where the comment steps can be placed", () => {
     expect(entryLocked("ig_comment", nodes, "pr")).toBe(true);
     expect(entryLocked("ig_comment", nodes, "m")).toBe(false);
     expect(entryLocked("keyword", nodes, "pr")).toBe(false);
+  });
+
+  it("routes into the private reply only from a step allowed before it", () => {
+    const nodes = [node("start", "start"), node("pr", "ig_private_reply"), node("m", "send_message"), node("end", "end")];
+    expect(routableTargets(nodes, null, "m").map((n) => n.node_key)).toEqual(["start", "m", "end"]);
+    expect(routableTargets(nodes, null).map((n) => n.node_key)).toEqual(["start", "m", "end"]);
+    expect(routableTargets(nodes, null, "start").map((n) => n.node_key)).toEqual(["start", "pr", "m", "end"]);
+    // A stored route into it (from before) stays visible so it can be changed.
+    expect(routableTargets(nodes, "pr", "m").map((n) => n.node_key)).toEqual(["start", "pr", "m", "end"]);
+    expect(canRouteInto("send_message", nodes[1])).toBe(false);
+    expect(canRouteInto("condition", nodes[1])).toBe(true);
+    expect(canRouteInto(undefined, nodes[1])).toBe(false);
+    expect(canRouteInto("send_message", nodes[2])).toBe(true);
   });
 
   it("makes the private reply first, continuing to the old entry once", () => {

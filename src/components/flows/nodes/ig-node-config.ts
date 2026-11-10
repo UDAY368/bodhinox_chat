@@ -7,6 +7,7 @@
  */
 
 import { IG_TRIGGER_LIMITS, type FlowTriggerType, type IgCard, type IgCardButton } from "@/lib/flows/types";
+import { deriveCanvasEdges } from "@/lib/flows/edges";
 import { charLength, INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
 import type { BuilderNode, NodeType } from "../shared";
 
@@ -28,16 +29,66 @@ export function placeableNodeTypes(types: readonly NodeType[], trigger: FlowTrig
 /** Why a placed comment step cannot run where it is, or null when it can. */
 export type CommentStepIssue = "onlyCommentFlows" | "firstOnly";
 
-export function commentStepIssue(node: BuilderNode, trigger: FlowTriggerType, entry: string | null): CommentStepIssue | null {
+/**
+ * Steps a comment flow may run before its private reply: they send nothing
+ * into the DM thread (a start, logic, tags, fields, an agent, an API call,
+ * the public comment reply). The same set as the publish validator's
+ * (src/lib/flows/instagram-validation.ts), so a template's "start, then
+ * private reply" counts as first.
+ */
+export const BEFORE_PRIVATE_REPLY: ReadonlySet<NodeType> = new Set<NodeType>([
+  "start", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "ig_comment_reply",
+]);
+
+/** The private replies a run reaches from `entry` through only the steps allowed before one. */
+export function firstPrivateReplies(nodes: readonly BuilderNode[], entry: string | null): Set<string> {
+  const byKey = new Map(nodes.map((n) => [n.node_key, n]));
+  const successors = new Map<string, string[]>();
+  for (const edge of deriveCanvasEdges([...nodes])) successors.set(edge.source, [...(successors.get(edge.source) ?? []), edge.target]);
+  const first = new Set<string>();
+  const seen = new Set<string>();
+  const pending = entry ? [entry] : [];
+  while (pending.length) {
+    const key = pending.pop()!;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const node = byKey.get(key);
+    if (!node) continue;
+    if (node.node_type === "ig_private_reply") first.add(key);
+    else if (BEFORE_PRIVATE_REPLY.has(node.node_type)) pending.push(...(successors.get(key) ?? []));
+  }
+  return first;
+}
+
+export function commentStepIssue(node: BuilderNode, trigger: FlowTriggerType, entry: string | null,
+  nodes: readonly BuilderNode[]): CommentStepIssue | null {
   if (!COMMENT_ONLY_STEPS.has(node.node_type)) return null;
   if (trigger !== "ig_comment") return "onlyCommentFlows";
-  if (node.node_type === "ig_private_reply" && entry !== node.node_key) return "firstOnly";
+  if (node.node_type === "ig_private_reply" && !firstPrivateReplies(nodes, entry).has(node.node_key)) return "firstOnly";
   return null;
 }
+
+/**
+ * Whether a step of type `source` may route into `target`. Only the steps
+ * allowed before a private reply may lead into one: after anything that
+ * messages the person, Instagram's one private reply per comment is spent.
+ */
+export const canRouteInto = (source: NodeType | undefined, target: BuilderNode): boolean =>
+  target.node_type !== "ig_private_reply" || (source !== undefined && BEFORE_PRIVATE_REPLY.has(source));
 
 /** A comment flow whose entry is its private reply keeps that entry: no other step can be made first. */
 export function entryLocked(trigger: FlowTriggerType, nodes: readonly BuilderNode[], entry: string | null): boolean {
   return trigger === "ig_comment" && nodes.some((n) => n.node_key === entry && n.node_type === "ig_private_reply");
+}
+
+/**
+ * The steps the "next step" picker of `sourceKey` may route to (canRouteInto):
+ * a private reply only from a step allowed before it. One already picked
+ * (`current`) stays listed so the picker still shows it and it can be changed.
+ */
+export function routableTargets(nodes: readonly BuilderNode[], current: string | null, sourceKey?: string): BuilderNode[] {
+  const source = nodes.find((n) => n.node_key === sourceKey)?.node_type;
+  return nodes.filter((n) => n.node_key === current || canRouteInto(source, n));
 }
 
 /**

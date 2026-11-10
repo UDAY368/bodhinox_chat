@@ -491,6 +491,7 @@ function EntryPicker({
       <CornerDownRight className="text-primary h-4 w-4 shrink-0" />
       <span className="text-muted-foreground text-xs">{t('entryNodeTitle')}</span>
       <NodeKeySelect
+        entry
         value={state.entry_node_id}
         nodes={state.nodes}
         onChange={(key) => setState((s) => ({ ...s, entry_node_id: key }))}

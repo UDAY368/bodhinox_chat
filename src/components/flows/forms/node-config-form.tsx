@@ -97,7 +97,7 @@ function NodeFields({
   const { channelScope, state } = useFlowEditor();
   const cfg = node.config;
   // Why a comment step cannot run where it is placed (not a comment flow, or not first).
-  const commentIssue = commentStepIssue(node, state.trigger_type, state.entry_node_id);
+  const commentIssue = commentStepIssue(node, state.trigger_type, state.entry_node_id, state.nodes);
   const commentNotice = commentIssue === "onlyCommentFlows" ? tNodes("igCommentReply.onlyCommentFlows")
     : commentIssue === "firstOnly" ? tNodes("igPrivateReply.firstOnly") : null;
   switch (node.node_type) {

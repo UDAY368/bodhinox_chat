@@ -20,7 +20,7 @@ import { IG_TRIGGER_LIMITS, type IgKeywordMode, type IgPostScope, type TriggerFr
 import { IgKeywordEditor } from "./ig-keyword-editor";
 import { IgPostPicker, useInstagramAccounts, type PickerAccount } from "./ig-post-picker";
 import { IgReplyVariants } from "./ig-reply-variants";
-import { addIds, readStrings, setPostScope, setPublicReplies, toggleMedia } from "./ig-trigger-config";
+import { addIds, readStrings, setPostScope, setPublicReplies, setTriggerAccount, toggleMedia } from "./ig-trigger-config";
 
 type Config = Record<string, unknown>;
 type Props = { config: Config; onChange: (c: Config) => void };
@@ -43,7 +43,7 @@ function AccountSelect({ id, config, onChange, accounts }: Props & { id: string;
   return (
     <div>
       <label htmlFor={id} className={label}>{t("account")}</label>
-      <Select value={value} onValueChange={(v) => onChange(v === ANY ? withoutKey(config, "instagram_account_id") : { ...config, instagram_account_id: v })}>
+      <Select value={value} onValueChange={(v) => onChange(setTriggerAccount(config, v === ANY ? null : v))}>
         <SelectTrigger id={id} className="bg-muted"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ANY}>{t("anyAccount")}</SelectItem>
