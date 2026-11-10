@@ -33,6 +33,8 @@ const h = vi.hoisted(() => ({
   igStore: vi.fn<(tx: unknown, row: Record<string, unknown>) => Promise<string | null>>(async () => "msg-1"),
   lastCustomerAt: new Date() as Date | null,
   executeRaw: vi.fn(async () => 1),
+  /** Published versions by id (Phase 12); empty unless a test publishes one. */
+  versions: new Map<string, Record<string, unknown>>(),
 }));
 
 vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {} }));
@@ -45,6 +47,12 @@ vi.mock("@/lib/webhooks/deliver", () => ({ dispatchWebhookEvent: async () => {} 
 vi.mock("@/lib/db/tenant", () => ({ withTenant: async (_c: unknown, work: (tx: unknown) => unknown) => work({ $executeRaw: h.executeRaw }) }));
 vi.mock("@/lib/db/prisma", () => ({ getWorkerPrisma: () => ({}) }));
 vi.mock("@/lib/automations/meta-send", () => ({ engineSendTemplate: h.waTemplate }));
+vi.mock("./versions", async (original) => ({
+  ...(await original<typeof import("./versions")>()),
+  loadPublishedVersions: async (_account: string, ids: string[]) =>
+    new Map(ids.filter((id) => h.versions.has(id)).map((id) => [id, h.versions.get(id)])),
+  loadVersion: async (_account: string, id: string) => h.versions.get(id) ?? null,
+}));
 vi.mock("./meta-send", () => ({
   engineSendText: h.waText,
   engineSendMedia: vi.fn(async () => ({ whatsapp_message_id: "wamid.2" })),
@@ -72,9 +80,17 @@ vi.mock("./admin-client", () => {
     return [];
   }
   function builder(table: string) {
+    // .in() narrows flows rows as the database would (channel_scope is NOT NULL DEFAULT 'whatsapp').
+    const narrow: ((row: Record<string, unknown>) => boolean)[] = [];
+    const matching = () => table !== "flows" ? rows(table)
+      : (rows(table) as Record<string, unknown>[]).filter((row) => narrow.every((keep) => keep(row)));
     const b: Record<string, unknown> = {
       select: () => b, eq: () => b, neq: () => b, is: () => b, filter: () => b, order: () => b, limit: () => b,
-      in: (column: string, values: unknown[]) => { h.state.inFilters.push({ table, column, values }); return b; },
+      in: (column: string, values: unknown[]) => {
+        h.state.inFilters.push({ table, column, values });
+        narrow.push((row) => values.includes(row[column] ?? (column === "channel_scope" ? "whatsapp" : undefined)));
+        return b;
+      },
       update: (row: Record<string, unknown>) => { h.state.updates.push({ table, row }); return b; },
       insert: (row: Record<string, unknown>) => {
         h.state.inserted.push({ table, row });
@@ -87,10 +103,10 @@ vi.mock("./admin-client", () => {
           return { data: null, error: { message: "connection reset" } };
         if (table === "conversations" && h.state.newRunChannelLookupFails && h.state.insertedRun)
           return { data: null, error: { message: "connection reset" } };
-        return { data: table === "flow_runs" ? h.state.insertedRun : (rows(table)[0] ?? null), error: null };
+        return { data: table === "flow_runs" ? h.state.insertedRun : (matching()[0] ?? null), error: null };
       },
-      single: async () => ({ data: rows(table)[0] ?? null, error: null }),
-      then: (resolve: (r: { data: unknown[]; error: null; count: number }) => unknown) => resolve({ data: rows(table), error: null, count: 0 }),
+      single: async () => ({ data: matching()[0] ?? null, error: null }),
+      then: (resolve: (r: { data: unknown[]; error: null; count: number }) => unknown) => resolve({ data: matching(), error: null, count: 0 }),
     };
     return b;
   }
@@ -133,6 +149,7 @@ beforeEach(() => {
   h.state.newRunChannelLookupFails = false;
   h.state.inFilters = [];
   h.state.conversationLookupFails = false;
+  h.versions.clear();
   h.state.conversation = { channel: "whatsapp", whatsapp_config_id: null };
   h.lastCustomerAt = new Date();
   for (const fn of [h.dispatch, h.waText, h.waTemplate, h.igText, h.igChoices, h.igStore, h.executeRaw]) fn.mockClear();
@@ -161,19 +178,40 @@ describe("flowListensOnConversation", () => {
   });
 });
 
-describe("findEntryFlow reads only the conversation channel's flows (Stage 1)", () => {
+describe("findEntryFlow channel filter (Stage 1)", () => {
   const flowFilters = () => h.state.inFilters.filter((f) => f.table === "flows");
-  it("filters both the live and the testing query to the channel plus legacy 'any' flows", async () => {
+  it("filters the testing-draft query to the channel plus legacy 'any' flows", async () => {
     h.state.flows = [{ ...FLOW, channel_scope: "whatsapp" }];
     await dispatch();
-    expect(flowFilters()).toEqual([
-      { table: "flows", column: "channel_scope", values: ["whatsapp", "any"] },
-      { table: "flows", column: "channel_scope", values: ["whatsapp", "any"] },
-    ]);
+    expect(flowFilters()).toEqual([{ table: "flows", column: "channel_scope", values: ["whatsapp", "any"] }]);
     h.state.inFilters = [];
     h.state.conversation = { channel: "instagram", whatsapp_config_id: null };
     await dispatch();
-    expect(flowFilters().map((f) => f.values)).toEqual([["instagram", "any"], ["instagram", "any"]]);
+    expect(flowFilters().map((f) => f.values)).toEqual([["instagram", "any"]]);
+  });
+
+  // A published flow runs its version's scope. Before Stage 1 locked published
+  // scopes, the builder could move a live flow's draft row to another channel
+  // without republishing: the live WhatsApp version must keep running.
+  const VERSION = {
+    id: "ver-1", account_id: "acct-1", flow_id: "flow-1", version: 1, trigger_type: "keyword",
+    trigger_config: { keywords: ["hi"] }, entry_node_id: "start", fallback_policy: {},
+    nodes: SEND_NODES.map(({ node_key, node_type, config }) => ({ node_key, node_type, config })),
+    published_by: null, published_at: "2026-01-01T00:00:00Z",
+  };
+  it("keeps a live WhatsApp version running when its draft row was moved to Instagram", async () => {
+    h.versions.set("ver-1", { ...VERSION, channel_scope: "whatsapp" });
+    h.state.flows = [{ ...FLOW, channel_scope: "instagram", published_version_id: "ver-1" }];
+    await dispatch();
+    expect(runs()).toHaveLength(1);
+    expect(runs()[0].row.flow_version_id).toBe("ver-1");
+  });
+
+  it("never starts a live Instagram version on WhatsApp, whatever its draft row says", async () => {
+    h.versions.set("ver-1", { ...VERSION, channel_scope: "instagram" });
+    h.state.flows = [{ ...FLOW, channel_scope: "whatsapp", published_version_id: "ver-1" }];
+    expect((await dispatch()).outcome).toBe("no_match");
+    expect(runs()).toHaveLength(0);
   });
 
   it("treats a conversation with no channel as WhatsApp", async () => {

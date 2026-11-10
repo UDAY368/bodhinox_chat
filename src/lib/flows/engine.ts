@@ -602,12 +602,15 @@ async function findEntryFlow(
   };
 
   // Active flows, plus drafts being tested (only those with test numbers
-  // are fetched); both sets are small. Only the conversation channel's flows
-  // and legacy 'any' flows are read (Stage 1); flowListensOnConversation below
-  // stays the backstop on the published version's own scope.
+  // are fetched); both sets are small. A testing draft runs its own row, so
+  // only the conversation channel's drafts and legacy 'any' ones are read
+  // (Stage 1). An active flow runs its published version, whose scope can
+  // differ from the row's (a draft moved before Stage 1 locked published
+  // scopes), so the active query is not narrowed by the row's scope:
+  // flowListensOnConversation below decides on the scope each flow runs on.
   const scopes = [conversation.channel, "any"];
   const [active, drafts] = await Promise.all([
-    db.from("flows").select("*").eq("account_id", accountId).eq("status", "active").in("channel_scope", scopes).order("created_at", { ascending: true }),
+    db.from("flows").select("*").eq("account_id", accountId).eq("status", "active").order("created_at", { ascending: true }),
     db.from("flows").select("*").eq("account_id", accountId).eq("status", "draft").neq("test_numbers", []).in("channel_scope", scopes).order("created_at", { ascending: true }),
   ]);
   if (active.error || drafts.error) return null;
