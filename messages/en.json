@@ -128,7 +128,10 @@
     "appointments": "Appointments",
     "allInboxes": "All inboxes",
     "templates": "Templates",
-    "comments": "Comments"
+    "comments": "Comments",
+    "conversationStarters": "Conversation starters",
+    "defaultReply": "Default reply",
+    "quickAutomations": "Quick automations"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -1947,7 +1950,13 @@
       "creatorTeammate": "a teammate",
       "triggerOrderReceived": "Triggers on: a WhatsApp cart",
       "triggerAdClick": "Triggers on: a click on {count, plural, one {# chosen ad} other {# chosen ads}}",
-      "triggerAdClickAny": "Triggers on: a click on any ad"
+      "triggerAdClickAny": "Triggers on: a click on any ad",
+      "triggerDefaultReply": "Triggers on: a message no other flow answers",
+      "triggerIgCommentAny": "Triggers on: a comment on any post",
+      "triggerIgCommentSpecific": "Triggers on: a comment on {count, plural, one {# chosen post} other {# chosen posts}}",
+      "triggerIgCommentNext": "Triggers on: a comment on your next post",
+      "triggerIgStoryReply": "Triggers on: a reply to your story",
+      "triggerIgStoryMention": "Triggers on: a mention in someone’s story"
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -2383,6 +2392,22 @@
         "send_storefront_link": {
           "label": "Storefront link",
           "blurb": "Sends the contact a secure link to your store or to their latest order"
+        },
+        "ig_comment_reply": {
+          "label": "Reply to comment",
+          "blurb": "Posts a public reply under the comment"
+        },
+        "ig_private_reply": {
+          "label": "Private reply",
+          "blurb": "Sends the first DM to the person who commented"
+        },
+        "send_card": {
+          "label": "Send card",
+          "blurb": "Sends an image card with a title and buttons"
+        },
+        "send_gallery": {
+          "label": "Send gallery",
+          "blurb": "Sends up to 10 cards people can swipe through"
         }
       },
       "ports": {
@@ -2527,7 +2552,11 @@
         "commerce": "Turn on store checkout to use this step.",
         "meetings": "Connect Zoom to use this step.",
         "shipping": "Connect a courier to use this step."
-      }
+      },
+      "triggerDefaultReplyTitle": "A message no other flow answers (default reply)",
+      "triggerIgCommentTitle": "Someone comments on your post",
+      "triggerIgStoryReplyTitle": "Someone replies to your story",
+      "triggerIgStoryMentionTitle": "Someone mentions you in their story"
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -2550,7 +2579,8 @@
       "statusUpdateFailed": "Status update failed",
       "deleteFailedStatus": "Delete failed: {status}",
       "deleteFailed": "Delete failed",
-      "statusPaused": "Paused. New conversations no longer start this flow."
+      "statusPaused": "Paused. New conversations no longer start this flow.",
+      "defaultOptInLabel": "Send me the link"
     },
     "summary": {
       "options": "{count} {count, plural, =1 {option} other {options}}",
@@ -2583,7 +2613,9 @@
       "appointmentServices": "{count, plural, one {# service} other {# services}}",
       "paymentOrder": "Charges the flow’s order",
       "storefrontShop": "Store link",
-      "storefrontStatus": "Order status link"
+      "storefrontStatus": "Order status link",
+      "commentReplies": "{count, plural, one {# reply} other {# replies}}, rotated",
+      "cards": "{count, plural, one {# card} other {# cards}}"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -2783,6 +2815,103 @@
       "templateUnavailable": "This template doesn't work on {channel}.",
       "previewSubtitleInstagram": "What a customer sees in Instagram Direct. Nothing is sent.",
       "moveTo": "Move this draft to"
+    },
+    "triggers": {
+      "frequency": {
+        "label": "How often",
+        "everyTime": "Every time",
+        "oncePer24h": "Once every 24 hours per person"
+      },
+      "needsMessageAccess": "Customers need “Allow access to messages” turned on in Instagram, or these triggers do not run.",
+      "defaultReply": {
+        "help": "Runs when a message starts no other flow and no flow is waiting for a reply.",
+        "oneOnly": "Only one default reply can be live per channel."
+      },
+      "igComment": {
+        "help": "Starts when someone comments on your post. Each person starts it once per post.",
+        "account": "Instagram account",
+        "anyAccount": "All connected accounts",
+        "postScope": "Which posts",
+        "postAny": "Any post",
+        "postSpecific": "Specific posts",
+        "postNext": "Your next post",
+        "postNextHelp": "Starts on the first post you publish after saving.",
+        "choosePosts": "Choose posts",
+        "postsChosen": "{count, plural, one {# post chosen} other {# posts chosen}}",
+        "noPosts": "No posts found. Publish a post on Instagram first.",
+        "postsLoadFailed": "Couldn’t load your posts. Try again.",
+        "includeKeywords": "Only comments with these words",
+        "includeHelp": "Leave empty to start on any comment.",
+        "excludeKeywords": "Skip comments with these words",
+        "modeContains": "Contains",
+        "modeExact": "Is exactly",
+        "publicReplies": "Public replies",
+        "publicRepliesHelp": "Optional. One is picked each time and posted under the comment. Up to {max}.",
+        "addPublicReply": "Add a reply",
+        "publicReplyPlaceholder": "Thanks! Check your DMs",
+        "tooManyKeywords": "Use at most {max} keywords."
+      },
+      "igStoryReply": {
+        "help": "Starts when someone replies to one of your stories.",
+        "anyStory": "Any story",
+        "specificStories": "Specific stories",
+        "storyIds": "Story IDs",
+        "keywords": "Only replies with these words",
+        "keywordsHelp": "Leave empty to start on any reply.",
+        "reactions": "Also start on emoji reactions"
+      },
+      "igStoryMention": {
+        "help": "Starts when someone mentions your account in their story."
+      }
+    },
+    "nodes": {
+      "windowHint": "Instagram messages can be sent only within 24 hours of the customer’s last message.",
+      "igCommentReply": {
+        "help": "Posts one of these replies publicly under the comment that started the flow. Sent once per comment.",
+        "replies": "Replies",
+        "addReply": "Add a reply",
+        "maxReplies": "Up to {max} replies; one is picked each time.",
+        "tooLong": "Keep each reply under {max} characters.",
+        "onlyCommentFlows": "Works only in a flow started by a comment."
+      },
+      "igPrivateReply": {
+        "help": "The first message to someone who commented. Instagram allows one private reply per comment, within 7 days.",
+        "text": "Message",
+        "optIn": "Opening button",
+        "optInHelp": "The flow waits for this tap. It opens the conversation so the next messages can be sent.",
+        "optInPlaceholder": "Send me the link",
+        "firstOnly": "Must be the first step of a comment flow.",
+        "noInput": "A private reply can’t ask a question or wait before sending."
+      },
+      "card": {
+        "title": "Title",
+        "subtitle": "Subtitle",
+        "image": "Image",
+        "imageHelp": "PNG or JPEG from an https link.",
+        "link": "Link when the card is tapped",
+        "buttons": "Buttons",
+        "addButton": "Add button",
+        "buttonTypeUrl": "Open a link",
+        "buttonTypePostback": "Go to a step",
+        "buttonTitle": "Button text",
+        "buttonUrl": "Link",
+        "maxButtons": "Up to {max} buttons.",
+        "titleRequired": "Add a title."
+      },
+      "gallery": {
+        "cards": "Cards",
+        "addCard": "Add card",
+        "removeCard": "Remove card",
+        "maxCards": "Up to {max} cards.",
+        "cardN": "Card {n}"
+      },
+      "buttons": {
+        "linkButtons": "Link buttons",
+        "addLinkButton": "Add link button",
+        "linkButtonsHelp": "Instagram only. A link tap doesn’t continue the flow.",
+        "maxButtons": "Up to {max} buttons in total.",
+        "replyHelp": "A tap continues the flow on that button’s path."
+      }
     }
   },
   "Settings": {
@@ -3509,7 +3638,13 @@
       "openRouterHint": "These choices use free models. Manual model IDs may have a price. Free models have rate and daily limits and may be temporarily unavailable. Your key is encrypted in account settings, never stored in source code.",
       "baseUrl": "Base URL",
       "baseUrlHint": "Base URL for the OpenAI-compatible API, for example https://api.groq.com/openai/v1. /chat/completions is added automatically unless you include that path yourself.",
-      "missingBaseUrl": "Enter the Base URL for the OpenAI-compatible API."
+      "missingBaseUrl": "Enter the Base URL for the OpenAI-compatible API.",
+      "instagram": {
+        "title": "Instagram",
+        "autoReply": "Answer Instagram messages automatically",
+        "autoReplyHelp": "Uses the same AI agent. Replies only within 24 hours of the customer’s last message.",
+        "unavailable": "Connect Instagram to turn this on."
+      }
     },
     "aiKnowledge": {
       "loadFailed": "Failed to load knowledge base",
@@ -3611,6 +3746,14 @@
       "notifications": {
         "disabledTitle": "Webhook to {host} was switched off",
         "disabledBody": "Deliveries to {host} failed for {hours} hours, so Bodhinox stopped sending events there. Fix the receiver, then switch the webhook back on in Settings."
+      },
+      "channels": {
+        "label": "Channels",
+        "help": "Events from these channels are sent to this endpoint.",
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram",
+        "required": "Choose at least one channel.",
+        "instagramNote": "Instagram events carry the channel and Instagram ids, never a phone number."
       }
     },
     "workspaceAttributes": {
@@ -3941,7 +4084,12 @@
       "save": "Save",
       "saved": "Inbox settings saved",
       "saveFailed": "Could not save the inbox settings",
-      "adminsOnly": "Only admins and owners can change these settings."
+      "adminsOnly": "Only admins and owners can change these settings.",
+      "instagramAway": {
+        "label": "Send the away message on Instagram",
+        "help": "Uses the same away message. Sent only within 24 hours of the customer’s message.",
+        "needsMessage": "Write an away message first."
+      }
     },
     "routingRules": {
       "title": "Routing rules",
@@ -11260,5 +11408,96 @@
     "attentionInstagram": "Your Instagram account needs reconnecting. Messages may not be sent or received.",
     "connect": "Connect",
     "fix": "Fix it"
+  },
+  "Instagram": {
+    "comments": {
+      "title": "Comments",
+      "description": "Reply to comments automatically and send a private message to people who comment.",
+      "flowsTitle": "Comment flows",
+      "noFlows": "No comment flows yet.",
+      "newFlow": "New comment flow",
+      "legacyBadge": "Rule",
+      "convertToFlow": "Convert to flow",
+      "convertHelp": "Turns this rule into an Instagram flow you can edit. The rule is turned off.",
+      "convertConfirm": "Convert this rule to a flow? The rule stops running.",
+      "converted": "Rule converted. The new flow stays a draft until you publish it.",
+      "convertFailed": "Couldn’t convert this rule. Try again.",
+      "openFlow": "Open flow"
+    },
+    "starters": {
+      "title": "Conversation starters",
+      "description": "Up to 4 questions people can tap when they open a chat with you. Each one starts a flow.",
+      "account": "Instagram account",
+      "question": "Question",
+      "questionPlaceholder": "What are your opening hours?",
+      "flow": "Flow to start",
+      "chooseFlow": "Choose a flow",
+      "noFlows": "Create an Instagram flow first.",
+      "add": "Add starter",
+      "remove": "Remove",
+      "max": "You can add up to {max} starters.",
+      "save": "Save and publish",
+      "saving": "Saving…",
+      "saved": "Conversation starters updated on Instagram.",
+      "saveFailed": "Couldn’t update Instagram. Try again.",
+      "duplicate": "Each question must be different.",
+      "tooLong": "Keep questions under {max} characters.",
+      "empty": "No conversation starters yet.",
+      "adminOnly": "Only admins can change conversation starters.",
+      "notConnected": "Connect an Instagram account to add conversation starters.",
+      "flowMissing": "The linked flow was deleted or isn’t an Instagram flow."
+    },
+    "defaultReply": {
+      "title": "Default reply",
+      "description": "Answer messages that no other flow handles.",
+      "flow": "Default reply flow",
+      "noFlow": "No default reply yet.",
+      "create": "Create default reply",
+      "edit": "Edit flow",
+      "active": "On",
+      "inactive": "Off",
+      "saved": "Default reply updated.",
+      "saveFailed": "Couldn’t save the default reply. Try again.",
+      "adminOnly": "Only admins can change the default reply."
+    },
+    "quickAutomations": {
+      "title": "Quick automations",
+      "description": "Answer a few questions and get a ready-made flow you can edit.",
+      "wizards": "Guided setups",
+      "templates": "Templates",
+      "useTemplate": "Use template",
+      "start": "Start",
+      "back": "Back",
+      "next": "Next",
+      "finish": "Create flow",
+      "creating": "Creating…",
+      "created": "Draft flow created. Review it and publish when ready.",
+      "createFailed": "Couldn’t create the flow. Try again.",
+      "empty": "No templates yet.",
+      "commentLinks": {
+        "title": "Auto-DM links from comments",
+        "description": "Send a link to everyone who comments a keyword."
+      },
+      "growFollowers": {
+        "title": "Grow followers from comments",
+        "description": "Ask people to follow you before you send the reward."
+      },
+      "storyLeads": {
+        "title": "Leads from story replies",
+        "description": "Collect emails from people who reply to your story."
+      },
+      "keyword": "Keyword",
+      "keywordHelp": "Leave empty to answer every comment.",
+      "post": "Post",
+      "anyPost": "Any post",
+      "nextPost": "Next post",
+      "message": "Message",
+      "link": "Link",
+      "linkLabel": "Button text",
+      "reward": "Reward link",
+      "followPrompt": "Message asking to follow",
+      "followedButton": "I followed",
+      "emailPrompt": "Question asking for an email"
+    }
   }
 }

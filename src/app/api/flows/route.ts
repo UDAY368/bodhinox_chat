@@ -5,6 +5,7 @@ import { flowTemplateChannels, getFlowTemplate } from '@/lib/flows/templates';
 import { getT } from '@/lib/i18n/translate';
 import { parseChannelScope } from '@/lib/flows/validate';
 import { isChannel } from '@/lib/channels/capabilities';
+import type { FlowTriggerType } from '@/lib/flows/types';
 
 const t = getT('Api');
 const tSection = getT('Flows.channelSection');
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     name?: string;
     description?: string | null;
-    trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply' | 'order_received' | 'ad_click';
+    trigger_type?: FlowTriggerType;
     trigger_config?: Record<string, unknown>;
     /**
      * If set, clone the matching template's name + trigger +

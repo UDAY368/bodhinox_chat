@@ -15,7 +15,8 @@ const groups = (enabled: Parameters<typeof buildNavigation>[0]) =>
   Object.fromEntries(buildNavigation(enabled).map((group) => [group.id, group.pages.map((page) => page.href)]));
 
 const WHATSAPP_PAGES = ['/whatsapp/inbox', '/whatsapp/flows', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
-const INSTAGRAM_PAGES = ['/instagram/inbox', '/instagram/flows', '/instagram/automations', '/instagram/comments'];
+const INSTAGRAM_PAGES = ['/instagram/inbox', '/instagram/flows', '/instagram/automations', '/instagram/comments',
+  '/instagram/conversation-starters', '/instagram/default-reply', '/instagram/quick-automations'];
 const WORKSPACE_PAGES = ['/dashboard', '/analytics', '/notifications', '/contacts', '/pipelines', '/appointments', '/agents'];
 
 describe('navigation per channel set', () => {
@@ -90,6 +91,8 @@ describe('page search', () => {
 
   it('filters by channel the same way the sidebar does', () => {
     expect(filterPages('instagram', (key) => key, ['whatsapp'])).toEqual([]);
+    expect(filterPages('starters', (key) => key, ['whatsapp'])).toEqual([]);
+    expect(filterPages('conversationStarters', (key) => key, ['instagram']).map((page) => page.href)).toEqual(['/instagram/conversation-starters']);
     expect(filterPages('broadcasts', (key) => key, ['instagram'])).toEqual([]);
     expect(filterPages('broadcasts', (key) => key, BOTH).map((page) => page.href)).toEqual(['/broadcasts']);
   });
@@ -116,6 +119,9 @@ describe('page titles', () => {
     expect(getPageTitleKey('/instagram/automations/new')).toBe('automations');
     expect(getPageTitleKey('/instagram/inbox')).toBe('inbox');
     expect(getPageTitleKey('/instagram/comments')).toBe('comments');
+    expect(getPageTitleKey('/instagram/conversation-starters')).toBe('conversationStarters');
+    expect(getPageTitleKey('/instagram/default-reply')).toBe('defaultReply');
+    expect(getPageTitleKey('/instagram/quick-automations/new')).toBe('quickAutomations');
     expect(getPageTitleKey('/inbox')).toBe('allInboxes');
     expect(getPageTitleKey('/forms/123')).toBe('forms');
     expect(getPageTitleKey('/analytics')).toBe('analytics');
@@ -131,7 +137,8 @@ describe('page titles', () => {
     expect(getPageGroup('/instagram/flows/abc')).toBe('instagram');
     expect(getPageGroup('/instagram')).toBe('instagram');
     for (const path of ['/broadcasts', '/broadcasts/42', '/forms/1', '/ads']) expect(getPageGroup(path), path).toBe('whatsapp');
-    expect(getPageGroup('/instagram/comments')).toBe('instagram');
+    for (const path of ['/instagram/comments', '/instagram/conversation-starters', '/instagram/default-reply', '/instagram/quick-automations'])
+      expect(getPageGroup(path), path).toBe('instagram');
     for (const path of ['/dashboard', '/inbox', '/contacts/7', '/settings', '/flows/new', '/automations', '/instagramx', '/unknown'])
       expect(getPageGroup(path), path).toBe('workspace');
   });

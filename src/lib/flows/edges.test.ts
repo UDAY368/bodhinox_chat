@@ -11,6 +11,55 @@ function nodes(...ns: BuilderNode[]): BuilderNode[] {
   return ns;
 }
 
+describe("Instagram steps (Stage 2)", () => {
+  const cardA = {
+    title: "A",
+    buttons: [
+      { type: "web_url", title: "Shop", url: "https://x.test" },
+      { type: "postback", title: "More A", reply_id: "more_a", next_node_key: "a" },
+    ],
+  };
+  const gallery: BuilderNode = {
+    node_key: "g",
+    node_type: "send_gallery",
+    config: {
+      next_node_key: "end",
+      cards: [cardA, { title: "B", buttons: [{ type: "postback", title: "More B", reply_id: "more_b", next_node_key: "" }] }],
+    },
+  };
+  const others: BuilderNode[] = ["a", "b", "end"].map((key) => ({ node_key: key, node_type: "end", config: {} }));
+
+  it("gives a gallery a next port plus one port per postback button (link buttons have none)", () => {
+    expect(outgoingSlots(gallery)).toEqual([
+      { id: "next", label: "Next" },
+      { id: "button:more_a", label: "More A" },
+      { id: "button:more_b", label: "More B" },
+    ]);
+    expect(deriveCanvasEdges([gallery, ...others]).map((e) => [e.sourceHandle, e.target])).toEqual([["next", "end"], ["button:more_a", "a"]]);
+  });
+
+  it("connects and unlinks card buttons inside their card", () => {
+    const patch = applyEdgeConnection(gallery, "button:more_b", "b") as { cards: Array<{ buttons: Array<Record<string, unknown>> }> };
+    expect(patch.cards[1].buttons[0].next_node_key).toBe("b");
+    expect(patch.cards[0].buttons[1].next_node_key).toBe("a");
+    expect(applyEdgeConnection(gallery, "button:missing", "b")).toBeNull();
+    const card: BuilderNode = { node_key: "c", node_type: "send_card", config: { card: cardA, next_node_key: "a" } };
+    const [after] = unlinkNodeReferences([card], "a");
+    expect(after.config.next_node_key).toBe("");
+    expect((after.config.card as { buttons: Array<Record<string, unknown>> }).buttons[1].next_node_key).toBe("");
+  });
+
+  it("gives a private reply with an opening button a timeout port, and a comment reply a single next", () => {
+    const waiting: BuilderNode = {
+      node_key: "p", node_type: "ig_private_reply", config: { text: "Hi", opt_in_label: "Send it", next_node_key: "", timeout_minutes: 60 },
+    };
+    expect(outgoingSlots(waiting).map((s) => s.id)).toEqual(["next", "timeout"]);
+    expect(outgoingSlots({ ...waiting, config: { text: "Hi", next_node_key: "", timeout_minutes: 60 } }).map((s) => s.id)).toEqual(["next"]);
+    expect(outgoingSlots({ node_key: "r", node_type: "ig_comment_reply", config: { replies: ["Thanks"], next_node_key: "" } }).map((s) => s.id))
+      .toEqual(["next"]);
+  });
+});
+
 describe("deriveCanvasEdges — single-outgoing node types", () => {
   it("derives a `next` edge from send_message", () => {
     const edges = deriveCanvasEdges(

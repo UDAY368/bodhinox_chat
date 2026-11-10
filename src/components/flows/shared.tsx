@@ -44,6 +44,10 @@ import {
   CalendarCheck,
   Sparkles,
   Target,
+  MessageSquareReply,
+  MessageSquareLock,
+  RectangleHorizontal,
+  GalleryHorizontalEnd,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -82,6 +86,10 @@ export type NodeType =
   | 'api_request'
   | 'assign_agent'
   | 'connect_flow'
+  | 'ig_comment_reply'
+  | 'ig_private_reply'
+  | 'send_card'
+  | 'send_gallery'
   | 'handoff'
   | 'end';
 
@@ -115,6 +123,11 @@ export interface BuilderNode {
 /** The types the add-step menus offer, in menu order (canvas and list views). */
 export const ADD_NODE_TYPES: NodeType[] = [
   'start',
+  // Instagram-only (Stage 2); the per-channel palettes keep them off WhatsApp.
+  'ig_private_reply',
+  'ig_comment_reply',
+  'send_card',
+  'send_gallery',
   'send_buttons',
   'send_list',
   'send_message',
@@ -311,6 +324,30 @@ export const NODE_META: Record<
     color: 'text-emerald-400',
     category: 'flow',
   },
+  ig_comment_reply: {
+    slugSeed: 'Comment reply',
+    icon: MessageSquareReply,
+    color: 'text-rose-400',
+    category: 'messaging',
+  },
+  ig_private_reply: {
+    slugSeed: 'Private reply',
+    icon: MessageSquareLock,
+    color: 'text-rose-400',
+    category: 'messaging',
+  },
+  send_card: {
+    slugSeed: 'Send card',
+    icon: RectangleHorizontal,
+    color: 'text-indigo-400',
+    category: 'messaging',
+  },
+  send_gallery: {
+    slugSeed: 'Send gallery',
+    icon: GalleryHorizontalEnd,
+    color: 'text-indigo-400',
+    category: 'messaging',
+  },
   handoff: {
     slugSeed: 'Handoff to agent',
     icon: UserPlus,
@@ -378,6 +415,10 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   api_request: { l: 0.7, c: 0.15, h: 50 }, // orange — leaves the workspace
   assign_agent: { l: 0.68, c: 0.15, h: 35 }, // warm amber, near handoff
   connect_flow: { l: 0.62, c: 0.13, h: 145 }, // green, like start: it starts a flow
+  ig_comment_reply: { l: 0.64, c: 0.17, h: 0 }, // Instagram rose — answers in public, under the comment
+  ig_private_reply: { l: 0.62, c: 0.18, h: 330 }, // Instagram magenta — the first DM to a commenter
+  send_card: { l: 0.62, c: 0.15, h: 265 }, // indigo-blue — rich messages, near send_list
+  send_gallery: { l: 0.62, c: 0.15, h: 265 },
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
@@ -610,6 +651,27 @@ export function summarizeNode(
     }
     case 'assign_agent':
       return cfg.mode === 'round_robin' ? (t ? t('roundRobin') : 'Round robin') : null;
+    case 'ig_comment_reply': {
+      const replies = (Array.isArray(cfg.replies) ? cfg.replies : []).filter((r): r is string => typeof r === 'string' && r.trim() !== '');
+      if (replies.length === 0) return null;
+      return replies.length > 1
+        ? (t ? t('commentReplies', { count: replies.length }) : `${replies.length} replies, rotated`)
+        : truncate(replies[0]);
+    }
+    case 'ig_private_reply': {
+      const text = typeof cfg.text === 'string' ? cfg.text : '';
+      const label = typeof cfg.opt_in_label === 'string' ? cfg.opt_in_label.trim() : '';
+      if (!text) return null;
+      return label ? `${truncate(text, 50)} · ${truncate(label, 20)}` : truncate(text);
+    }
+    case 'send_card': {
+      const card = cfg.card && typeof cfg.card === 'object' ? (cfg.card as Record<string, unknown>) : {};
+      return typeof card.title === 'string' && card.title ? truncate(card.title) : null;
+    }
+    case 'send_gallery': {
+      const count = Array.isArray(cfg.cards) ? cfg.cards.length : 0;
+      return count ? (t ? t('cards', { count }) : `${count} card${count === 1 ? '' : 's'}`) : null;
+    }
     case 'connect_flow':
       return null;
     case 'set_attribute': {

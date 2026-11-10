@@ -375,7 +375,20 @@ const TRIGGER_TITLE_KEYS: Record<BuilderState['trigger_type'], string> = {
   order_received: 'triggerOrderReceivedTitle',
   ad_click: 'triggerAdClickTitle',
   manual: 'triggerManualTitle',
+  default_reply: 'triggerDefaultReplyTitle',
+  ig_comment: 'triggerIgCommentTitle',
+  ig_story_reply: 'triggerIgStoryReplyTitle',
+  ig_story_mention: 'triggerIgStoryMentionTitle',
 };
+
+/**
+ * Stage 2 triggers whose settings editors are not built yet (2D). They stay
+ * out of the picker, so the WhatsApp picker is unchanged until default_reply
+ * runs; a flow that already has one still shows it.
+ */
+const TRIGGERS_WITHOUT_EDITOR: ReadonlySet<BuilderState['trigger_type']> = new Set([
+  'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention',
+]);
 
 function TriggerPanel({
   state,
@@ -391,7 +404,8 @@ function TriggerPanel({
   triggerIssues: ValidationIssue[];
   t: ReturnType<typeof useTranslations>;
 }) {
-  const offered = triggerTypes.includes(state.trigger_type) ? triggerTypes : [...triggerTypes, state.trigger_type];
+  const ready = triggerTypes.filter((trigger) => !TRIGGERS_WITHOUT_EDITOR.has(trigger));
+  const offered = ready.includes(state.trigger_type) ? ready : [...ready, state.trigger_type];
   return (
     <section className="border-border bg-card rounded-lg border p-4">
       <h2 className="text-foreground mb-3 text-sm font-semibold">{t('triggerTitle')}</h2>

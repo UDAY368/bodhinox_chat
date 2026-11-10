@@ -48,6 +48,13 @@ export interface SendButtonsNodeConfig {
     /** node_key the runner advances to when this button is tapped. */
     next_node_key: string;
   }>;
+  /**
+   * Instagram only (Stage 2): buttons that open a link (button template
+   * `web_url`). They have no route: a link tap does not reach the webhook and
+   * does not open the 24-hour window. `buttons` plus `link_buttons` stay within
+   * 3 (INSTAGRAM_LIMITS.buttons). A WhatsApp flow never carries them.
+   */
+  link_buttons?: Array<{ title: string; url: string }>;
 }
 
 export interface SendListNodeConfig {
@@ -355,7 +362,17 @@ export type ConditionOperator =
   | "lte"
   | "between";
 
-export type ConditionSubject = "var" | "tag" | "contact_field" | "custom_field" | "time" | "date";
+/**
+ * `ig_profile` (Stage 2, Instagram flows only): a fact from the customer's
+ * Instagram profile, re-read when the run reaches the condition (the follow
+ * gate). `subject_key` is one of IG_PROFILE_FACTS; booleans compare with
+ * `equals` "true"/"false" (or present/absent), the follower count numerically.
+ */
+export type ConditionSubject = "var" | "tag" | "contact_field" | "custom_field" | "time" | "date" | "ig_profile";
+
+/** Instagram profile facts a condition can test (contact_channel_identities columns). */
+export const IG_PROFILE_FACTS = ["follows_business", "business_follows", "is_verified", "follower_count"] as const;
+export type IgProfileFact = (typeof IG_PROFILE_FACTS)[number];
 
 /** One test. `time` and `date` read the clock in the node's timezone (HH:MM, YYYY-MM-DD). */
 export interface ConditionRule {
@@ -506,6 +523,69 @@ export interface SendStorefrontLinkNodeConfig {
 
 export const STOREFRONT_LINK_LIMITS = { messageMax: 1024, ttlMinHours: 1, ttlMaxHours: 168, ttlDefaultHours: 24 } as const;
 
+// ------------------------------------------------------------ Instagram nodes (Stage 2)
+// Instagram-only steps. WHATSAPP_NODE_SUPPORT marks them 'no', so a WhatsApp
+// flow can never place or run them. Their sizes are checked against
+// INSTAGRAM_LIMITS (src/lib/instagram/graph-limits.ts) on publish and again by
+// the graph client before any request.
+
+/** A card button: opens a link (no route; it does not open the window) or posts back and routes. */
+export type IgCardButton =
+  | { type: "web_url"; title: string; url: string }
+  | { type: "postback"; title: string; reply_id: string; next_node_key: string };
+
+/** One generic-template element: title (≤ 80), optional subtitle (≤ 80), https image and link, 0–3 buttons. */
+export interface IgCard {
+  title: string;
+  subtitle?: string;
+  image_url?: string;
+  /** Opens when the card itself is tapped. */
+  default_url?: string;
+  buttons?: IgCardButton[];
+}
+
+/**
+ * Public reply to the comment that started the run (POST /{comment-id}/replies).
+ * One of `replies` is picked per comment (rotation); each is at most
+ * INSTAGRAM_LIMITS.commentReplyChars. Sent once per comment (dispatch key
+ * `ig-comment-reply:{commentId}`). Runs only in an ig_comment flow.
+ */
+export interface IgCommentReplyNodeConfig {
+  /** 1–3 variants. */
+  replies: string[];
+  next_node_key: string;
+}
+
+/**
+ * The first message of a comment-started run, sent as a private reply
+ * (recipient: { comment_id }) through the instagram.private_reply job: one
+ * per comment, within 7 days of it. No input, typing delay or second message
+ * may sit in this node (the publish validator refuses them). With
+ * `opt_in_label` the message carries one quick reply (the "Opening DM"
+ * button) and the run waits for that tap, which opens the 24-hour window;
+ * without it the run continues at once. May carry a reply timeout
+ * (`after_timeout` port) like the other waiting steps.
+ */
+export interface IgPrivateReplyNodeConfig {
+  /** ≤ 1000 UTF-8 bytes; may use {{vars.x}}. */
+  text: string;
+  /** Quick-reply title (≤ 20 characters). */
+  opt_in_label?: string;
+  next_node_key: string;
+}
+
+/** One card (generic template), then auto-advance. Postback buttons route like send_buttons. */
+export interface SendCardNodeConfig {
+  card: IgCard;
+  next_node_key: string;
+}
+
+/** A gallery: 1–10 cards in one horizontally scrolling message, then auto-advance. */
+export interface SendGalleryNodeConfig {
+  cards: IgCard[];
+  next_node_key: string;
+}
+
 /**
  * Total union — every concrete node_type the v1 engine understands.
  * Add new node types here and the engine's switch will flag missing
@@ -540,10 +620,17 @@ export type FlowNodeConfig =
   | { node_type: "api_request"; config: ApiRequestNodeConfig }
   | { node_type: "connect_flow"; config: ConnectFlowNodeConfig }
   | { node_type: "assign_agent"; config: AssignAgentNodeConfig }
+  | { node_type: "ig_comment_reply"; config: IgCommentReplyNodeConfig }
+  | { node_type: "ig_private_reply"; config: IgPrivateReplyNodeConfig }
+  | { node_type: "send_card"; config: SendCardNodeConfig }
+  | { node_type: "send_gallery"; config: SendGalleryNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 
 export type FlowNodeType = FlowNodeConfig["node_type"];
+
+/** The Instagram-only node types (Stage 2). */
+export const INSTAGRAM_ONLY_NODE_TYPES = ["ig_comment_reply", "ig_private_reply", "send_card", "send_gallery"] as const satisfies readonly FlowNodeType[];
 
 // ============================================================
 // Triggers (matches `flows.trigger_type` + `trigger_config`)
@@ -590,13 +677,110 @@ export interface AdClickTriggerConfig {
   ad_ids?: string[];
 }
 
+// ------------------------------------------------------------ Stage 2 triggers
+// Instagram triggers (ig_*) run only in Instagram flows; default_reply runs on
+// both channels. FLOW_TRIGGERS_BY_CHANNEL (src/lib/channels/capabilities.ts)
+// places every trigger type in its channel palettes, checked at compile time.
+
+/** How a keyword list matches: anywhere in the text, or the whole text (case-insensitive, trimmed). */
+export type IgKeywordMode = "contains" | "exact";
+
+/** Which posts a comment trigger listens on. */
+export type IgPostScope = "any" | "specific" | "next";
+
+/**
+ * A comment on a post. Fires on a person's first comment per post only.
+ * - `post_scope`: `any` post; `specific` posts (`media_ids`); or the `next`
+ *   post published after `next_after`, resolved on its first comment and kept
+ *   in `resolved_media_id`.
+ * - `include_keywords`: empty or absent matches any comment; `exclude_keywords`
+ *   wins over a match. Each list has its own mode.
+ * - `public_replies`: 0–3 variants; one is posted under the comment (rotated).
+ */
+export interface IgCommentTriggerConfig {
+  /** instagram_accounts.id; absent listens on every connected account of the workspace. */
+  instagram_account_id?: string;
+  post_scope: IgPostScope;
+  /** Instagram media ids (digits), at most IG_TRIGGER_LIMITS.mediaIds; `specific` only. */
+  media_ids?: string[];
+  /** ISO time the "next post" choice was made; `next` only. */
+  next_after?: string;
+  /** The post `next` resolved to (set by the engine on that post's first comment). */
+  resolved_media_id?: string;
+  include_keywords?: string[];
+  include_mode?: IgKeywordMode;
+  exclude_keywords?: string[];
+  exclude_mode?: IgKeywordMode;
+  public_replies?: string[];
+}
+
+/**
+ * A reply to one of the account's stories. `story_ids` empty or absent means
+ * any story. `keywords` empty or absent matches any reply; `reactions`
+ * also starts the flow on an emoji reaction to the story.
+ */
+export interface IgStoryReplyTriggerConfig {
+  instagram_account_id?: string;
+  story_ids?: string[];
+  keywords?: string[];
+  match_mode?: IgKeywordMode;
+  reactions?: boolean;
+}
+
+/** How often a contact may start a once-limited trigger. */
+export type TriggerFrequency = "every_time" | "once_per_24h";
+
+/** A person mentions the account in their story (needs live capture: story_mention payload). */
+export interface IgStoryMentionTriggerConfig {
+  instagram_account_id?: string;
+  frequency: TriggerFrequency;
+}
+
+/**
+ * Runs when an inbound message started no other flow and no run is waiting
+ * (the channel's default reply). One per channel section; `frequency` limits
+ * it per contact.
+ */
+export interface DefaultReplyTriggerConfig {
+  frequency: TriggerFrequency;
+}
+
+/** Sizes the trigger editors and the validator enforce. */
+export const IG_TRIGGER_LIMITS = {
+  mediaIds: 50,
+  storyIds: 50,
+  keywords: 50,
+  keywordChars: 100,
+  publicReplies: 3,
+} as const;
+
 export type FlowTriggerConfig =
   | { trigger_type: "order_received"; config: OrderReceivedTriggerConfig }
   | { trigger_type: "keyword"; config: KeywordTriggerConfig }
   | { trigger_type: "first_inbound_message"; config: FirstInboundTriggerConfig }
   | { trigger_type: "manual"; config: Record<string, never> }
   | { trigger_type: "template_reply"; config: TemplateReplyTriggerConfig }
-  | { trigger_type: "ad_click"; config: AdClickTriggerConfig };
+  | { trigger_type: "ad_click"; config: AdClickTriggerConfig }
+  | { trigger_type: "default_reply"; config: DefaultReplyTriggerConfig }
+  | { trigger_type: "ig_comment"; config: IgCommentTriggerConfig }
+  | { trigger_type: "ig_story_reply"; config: IgStoryReplyTriggerConfig }
+  | { trigger_type: "ig_story_mention"; config: IgStoryMentionTriggerConfig };
+
+export type FlowTriggerType = FlowTriggerConfig["trigger_type"];
+
+/** Every trigger type, in palette order. The record makes adding a type to the union a compile error until it is listed. */
+export const FLOW_TRIGGER_TYPES = Object.keys({
+  keyword: true,
+  first_inbound_message: true,
+  manual: true,
+  template_reply: true,
+  order_received: true,
+  ad_click: true,
+  default_reply: true,
+  ig_comment: true,
+  ig_story_reply: true,
+  ig_story_mention: true,
+} satisfies Record<FlowTriggerType, true>) as FlowTriggerType[];
 
 // ============================================================
 // DB-row shapes (read by the engine via databaseAdmin)
@@ -624,8 +808,10 @@ export interface FlowRow {
   description: string | null;
   /** `paused` (Phase 12): no new enrollments; pinned runs finish on their version. */
   status: "draft" | "active" | "paused" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
-  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | AdClickTriggerConfig | Record<string, unknown>;
+  trigger_type: FlowTriggerType;
+  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | AdClickTriggerConfig
+    | DefaultReplyTriggerConfig | IgCommentTriggerConfig | IgStoryReplyTriggerConfig | IgStoryMentionTriggerConfig
+    | Record<string, unknown>;
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
   /** While the flow is a draft it runs only for these numbers (digits, up to 3). */

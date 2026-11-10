@@ -57,7 +57,7 @@ describe('saved filters collection route', () => {
     expect(res.status).toBe(201);
     expect(h.create).toHaveBeenCalledWith(
       { accountId: ACCOUNT, userId: USER, role: 'agent' },
-      { name: 'Hot leads', filters: { filter: 'unread', session: 'all', tagIds: [], company: null, numberId: null, search: '' } }
+      { name: 'Hot leads', filters: { filter: 'unread', session: 'all', tagIds: [], company: null, numberId: null, search: '', channel: null } }
     );
   });
 

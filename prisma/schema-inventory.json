@@ -2711,7 +2711,7 @@
         "nullable": false,
         "default": null,
         "reference": null,
-        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual'))"
+        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click', 'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention'))"
       },
       {
         "name": "trigger_config",
@@ -3706,6 +3706,14 @@
         "default": null,
         "reference": null,
         "definition": "disabled_reason text"
+      },
+      {
+        "name": "channels",
+        "type": "text[]",
+        "nullable": false,
+        "default": "'{whatsapp}'",
+        "reference": null,
+        "definition": "channels text[] NOT NULL DEFAULT '{whatsapp}' CHECK (cardinality(channels) BETWEEN 1 AND 2 AND channels <@ ARRAY['whatsapp','instagram']::text[])"
       }
     ],
     "ai_configs": [
@@ -3840,6 +3848,14 @@
         "default": null,
         "reference": null,
         "definition": "base_url text"
+      },
+      {
+        "name": "instagram_auto_reply_enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "instagram_auto_reply_enabled boolean NOT NULL DEFAULT false"
       }
     ],
     "ai_knowledge_documents": [
@@ -6702,6 +6718,14 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "instagram_away_message_enabled",
+        "type": "boolean",
+        "nullable": false,
+        "default": "false",
+        "reference": null,
+        "definition": "instagram_away_message_enabled boolean NOT NULL DEFAULT false"
       }
     ],
     "routing_rules": [
@@ -14590,6 +14614,22 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "ice_breakers",
+        "type": "jsonb",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "ice_breakers jsonb CHECK (ice_breakers IS NULL OR (jsonb_typeof(ice_breakers) = 'array' AND jsonb_array_length(ice_breakers) <= 4))"
+      },
+      {
+        "name": "profile_synced_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "profile_synced_at timestamptz"
       }
     ],
     "contact_channel_identities": [
@@ -14684,6 +14724,46 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "follows_business",
+        "type": "boolean",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "follows_business boolean"
+      },
+      {
+        "name": "business_follows",
+        "type": "boolean",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "business_follows boolean"
+      },
+      {
+        "name": "is_verified",
+        "type": "boolean",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "is_verified boolean"
+      },
+      {
+        "name": "ig_follower_count",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "ig_follower_count integer CHECK (ig_follower_count >= 0)"
+      },
+      {
+        "name": "profile_checked_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "profile_checked_at timestamptz"
       }
     ],
     "contact_identity_links": [
@@ -14974,6 +15054,30 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "flow_run_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "flow_run_id uuid"
+      },
+      {
+        "name": "public_reply_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "public_reply_id text CHECK (public_reply_id ~ '^\\d{1,32}$')"
+      },
+      {
+        "name": "opted_in_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "opted_in_at timestamptz"
       }
     ],
     "flow_versions": [
