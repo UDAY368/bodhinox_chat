@@ -217,7 +217,12 @@ export const KNOWN_UNMAPPED = [
   'instagram/accounts/[id]',
   'instagram/accounts/[id]/comment-rules',
   'instagram/accounts/[id]/comment-rules/[ruleId]',
+  // Another workspace's account or rule is not_found: src/lib/instagram/tools.integration.test.ts.
+  'instagram/accounts/[id]/comment-rules/[ruleId]/convert',
   'instagram/accounts/[id]/health',
+  // Another workspace's account is not_found: tools.integration.test.ts (starters), media-picker.integration.test.ts (media).
+  'instagram/accounts/[id]/ice-breakers',
+  'instagram/accounts/[id]/media',
   // Calls Instagram for the caller's own account (no positive control here); tenancy.integration.test.ts covers B's id -> not_found.
   'instagram/accounts/[id]/posts',
   'meta-ads/conversions/[id]/resolve',
