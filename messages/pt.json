@@ -125,7 +125,10 @@
     "products": "Produtos",
     "payments": "Pagamentos",
     "ads": "Anúncios",
-    "appointments": "Agendamentos"
+    "appointments": "Agendamentos",
+    "allInboxes": "Todas as caixas",
+    "templates": "Modelos",
+    "comments": "Comentários"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"

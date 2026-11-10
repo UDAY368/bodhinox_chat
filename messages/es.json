@@ -125,7 +125,10 @@
     "products": "Productos",
     "payments": "Pagos",
     "ads": "Anuncios",
-    "appointments": "Citas"
+    "appointments": "Citas",
+    "allInboxes": "Todas las bandejas",
+    "templates": "Plantillas",
+    "comments": "Comentarios"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"

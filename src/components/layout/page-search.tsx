@@ -13,17 +13,21 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { filterPages } from './page-search-navigation';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
+import { filterPages, type NavPage } from './page-search-navigation';
 
 export function PageSearch() {
   const t = useTranslations('PageSearch');
   const nav = useTranslations('Sidebar');
   const pathname = usePathname();
+  const { data: channels } = useWorkspaceChannels();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const input = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLUListElement>(null);
-  const pages = filterPages(query, (key) => nav(key));
+  // Channel pages carry their channel's name ("Instagram · Inbox"), so two inboxes stay distinguishable.
+  const groupLabel = (group: NavPage['group']) => (group === 'workspace' ? '' : nav(`groups.${group}`));
+  const pages = filterPages(query, (key) => nav(key), channels?.enabled, groupLabel);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -111,7 +115,12 @@ export function PageSearch() {
                 onClick={() => setOpen(false)}
                 className="hover:bg-accent focus-visible:bg-accent flex min-h-11 items-center justify-between rounded-lg px-3 text-sm transition-colors focus-visible:outline-none"
               >
-                {nav(page.labelKey)}
+                <span>
+                  {page.group !== 'workspace' && (
+                    <span className="text-muted-foreground">{groupLabel(page.group)} · </span>
+                  )}
+                  {nav(page.labelKey)}
+                </span>
                 <ArrowUpRight className="text-muted-foreground size-3.5" />
               </Link>
             </li>
