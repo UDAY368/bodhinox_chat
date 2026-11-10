@@ -19,8 +19,8 @@ describe('plan catalogue', () => {
     for (const key of LIMITS) expect(LIMIT_POLICIES, key).toContain(LIMIT_POLICY[key]);
     expect(Object.keys(LIMIT_POLICY).sort()).toEqual([...LIMITS].sort());
     expect(LIMIT_POLICY.contacts).toBe('hard_inbound_exempt');
-    expect(LIMIT_POLICY.messages_monthly).toBe('soft');
-    expect(LIMIT_POLICY.monthly_active_contacts).toBe('soft');
+    expect(LIMIT_POLICY.messages_monthly).toBe('hard_campaign');
+    expect(LIMIT_POLICY.monthly_active_contacts).toBe('hard_campaign');
     for (const key of MONTHLY_LIMITS) expect(LIMITS).toContain(key);
     const doc = readFileSync(resolve('docs/billing-limits.md'), 'utf8');
     for (const key of LIMITS) expect(doc, key).toContain(`\`${key}\``);

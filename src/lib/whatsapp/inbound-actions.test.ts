@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
-  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], runUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, conversation: null as Record<string, unknown> | null, recipients: [] as unknown[] }));
+const h = vi.hoisted(() => ({ lifecycle: vi.fn(), away: vi.fn(), explicit: vi.fn(), flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), mediaSkip: vi.fn(), webhook: vi.fn(), stages: new Map<string, unknown>(),
+  contact: { blocked_at: null as string | null }, consentUpdates: [] as Record<string, unknown>[], runUpdates: [] as Record<string, unknown>[], message: null as Record<string, unknown> | null, conversation: null as Record<string, unknown> | null, recipients: [] as unknown[], messageError: false }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const b = { select: () => b, eq: () => b, in: () => b, is: () => b, gte: () => b, order: () => b, limit: async () => ({ data: table === 'broadcast_recipients' ? h.recipients : [], error: null }),
     update: (row: Record<string, unknown>) => { (table === 'flow_runs' ? h.runUpdates : h.consentUpdates).push(row); return b; },
-    maybeSingle: async () => ({ data: table === 'messages' ? h.message : table === 'conversations' && h.conversation ? h.conversation : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
+    maybeSingle: async () => (table === 'messages' && h.messageError ? { data: null, error: { message: 'connection reset' } }
+      : { data: table === 'messages' ? h.message : table === 'conversations' && h.conversation ? h.conversation : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
 } }) }));
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: h.explicit }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: h.resume, runAutomationsForTrigger: h.automations }));
 vi.mock('@/lib/flows/engine', () => ({ dispatchInboundToFlows: h.flow }));
-vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai }));
+vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai, recordUnreadableInbound: h.mediaSkip }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: h.webhook }));
 vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: h.lifecycle }));
 vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: h.away }));
@@ -22,7 +23,7 @@ import { processInboundActions } from './inbound-actions';
 import type { MessageActionsPayload } from './ingest';
 const id = '00000000-0000-4000-8000-000000000001';
 const input: MessageActionsPayload = { kind: 'message', accountId: id, conversationId: id, contactId: id, userId: id, messageId: id, metaMessageId: 'wamid.tap', interactiveReplyId: 'qr_token', contentType: 'interactive', contentText: 'Start', wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true };
-beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.runUpdates = []; h.message = null; h.conversation = null; h.recipients = []; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }); h.away.mockResolvedValue('sent'); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
+beforeEach(() => { vi.clearAllMocks(); h.stages.clear(); h.contact = { blocked_at: null }; h.consentUpdates = []; h.runUpdates = []; h.message = null; h.conversation = null; h.recipients = []; h.messageError = false; h.explicit.mockResolvedValue({ handled: true, outcome: 'started' }); h.lifecycle.mockResolvedValue({ state: 'requesting', botOwned: false, botReplied: false, routedTo: null, ruleId: null }); h.away.mockResolvedValue('sent'); h.flow.mockResolvedValue({ consumed: false }); h.resume.mockResolvedValue(false); });
 
 const text = (contentText: string) => ({ ...input, interactiveReplyId: null, contentType: 'text', contentText, wasContactCreated: false, isFirstInboundMessage: false });
 it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword without any automated response', async (word, kind) => {
@@ -32,6 +33,23 @@ it.each([['STOP', 'opt_out'], ['start', 'opt_in']])('records a %s keyword withou
   expect(h.webhook).toHaveBeenCalledWith(expect.anything(), id, 'message.received', expect.anything());
   // STOP also cancels the contact's running flows (A15); START leaves them alone.
   expect(h.runUpdates).toEqual(kind === 'opt_out' ? [expect.objectContaining({ status: 'cancelled', end_reason: 'contact_opted_out' })] : []);
+});
+it.each([['Stop promotions', 'STOP_PROMO'], ['No more offers', 'UNSUBSCRIBE']])('opts out on a template quick-reply tap %j / %j, like typed STOP', async (label, payload) => {
+  await processInboundActions({ ...input, templateQuickReply: true, contentText: label, interactiveReplyId: payload });
+  expect(h.consentUpdates).toEqual([{ opted_out_at: expect.any(String), opt_out_source: 'keyword' }]);
+  expect(h.runUpdates).toEqual([expect.objectContaining({ status: 'cancelled', end_reason: 'contact_opted_out' })]);
+  expect(h.explicit).not.toHaveBeenCalled(); expect(h.flow).not.toHaveBeenCalled(); expect(h.automations).not.toHaveBeenCalled();
+  expect(h.webhook).toHaveBeenCalledWith(expect.anything(), id, 'message.received', expect.anything());
+});
+it('leaves consent alone for a Start template tap and for a Stop tap on a non-template button', async () => {
+  await processInboundActions({ ...input, templateQuickReply: true });
+  h.stages.clear();
+  await processInboundActions({ ...input, contentText: 'Stop', interactiveReplyId: 'stop' });
+  expect(h.consentUpdates).toEqual([]);
+  expect(h.explicit).toHaveBeenCalledTimes(2);
+});
+it('rejects a malformed template tap flag in a queued job', async () => {
+  await expect(processInboundActions({ ...input, templateQuickReply: 'yes' as never })).rejects.toThrow('Invalid message actions contract');
 });
 it('gives a blocked contact no automated response but still emits message.received', async () => {
   h.contact = { blocked_at: '2026-11-01T00:00:00Z' };
@@ -73,6 +91,28 @@ it.each([true, false])('suppresses AI only when an automation matches: %s', asyn
   if (!matched) expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ routingChecked: true }));
 });
 
+it('passes the inbound row id so a rate-limited AI reply can be retried under its stage checkpoint', async () => {
+  h.explicit.mockResolvedValue({ handled: false });
+  await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false });
+  expect(h.ai).toHaveBeenCalledWith(expect.objectContaining({ inboundMessageId: 'wamid.tap', inboundRowId: id }));
+  expect(h.mediaSkip).not.toHaveBeenCalled();
+});
+
+it.each(['image', 'audio', 'video', 'document', 'location'])('logs an unanswered %s for the AI activity log once, and never dispatches the AI (audit 27)', async contentType => {
+  h.explicit.mockResolvedValue({ handled: false });
+  const media = { ...input, interactiveReplyId: null, contentType, contentText: null, wasContactCreated: false, isFirstInboundMessage: false };
+  await processInboundActions(media); await processInboundActions(media);
+  expect(h.ai).not.toHaveBeenCalled();
+  expect(h.mediaSkip).toHaveBeenCalledOnce();
+  expect(h.mediaSkip).toHaveBeenCalledWith({ accountId: id, conversationId: id, contactId: id, configOwnerUserId: id, inboundMessageId: 'wamid.tap' });
+});
+
+it('logs nothing for a photo a flow or automation already handled', async () => {
+  h.explicit.mockResolvedValue({ handled: false }); h.flow.mockResolvedValue({ consumed: true });
+  await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'image', contentText: null, wasContactCreated: false, isFirstInboundMessage: false });
+  expect(h.mediaSkip).not.toHaveBeenCalled();
+});
+
 it('reserves a legacy menu text question for AI without content triggers', async () => {
   h.explicit.mockResolvedValue({ handled: false }); h.resume.mockResolvedValue('ai_fallback');
   await processInboundActions({ ...input, interactiveReplyId: null, contentType: 'text', contentText: 'Opening hours?', wasContactCreated: false, isFirstInboundMessage: false });
@@ -107,6 +147,21 @@ it('tells flows which template a button tap answers: a saved template message, o
   h.flow.mockClear(); h.stages.clear();
   await processInboundActions(tap);
   expect(h.flow.mock.calls[0][0].message.context_template).toBeUndefined();
+});
+
+it('[audit-57] reads the replied message before the flow stage claims its checkpoint, so a DB blip retries', async () => {
+  h.explicit.mockResolvedValue({ handled: false });
+  const tap = { ...input, interactiveReplyId: 'Track', contentType: 'interactive', contentText: 'Track', wasContactCreated: false, isFirstInboundMessage: false };
+  h.messageError = true;
+  await expect(processInboundActions(tap)).rejects.toThrow('Inbound message lookup failed');
+  // The flow stage was never entered, so no checkpoint can turn the failure into an uncertain dispatch.
+  expect(h.stages.has('flow')).toBe(false);
+  expect(h.flow).not.toHaveBeenCalled(); expect(h.automations).not.toHaveBeenCalled();
+  // The job's retry runs the flow and every later stage.
+  h.messageError = false; h.message = { reply_to_message_id: null };
+  await processInboundActions(tap);
+  expect(h.flow).toHaveBeenCalledOnce();
+  expect(h.webhook).toHaveBeenCalledWith(expect.anything(), id, 'message.received', expect.anything());
 });
 
 it('rejects a malformed context id in a queued job', async () => {

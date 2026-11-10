@@ -10,7 +10,7 @@ vi.mock('@/lib/db/prisma', () => ({
 }));
 vi.mock('./jwt', () => ({ signAccessToken: mocks.sign }));
 vi.mock('./mfa', () => ({ checkMfa: vi.fn() }));
-import { issueSession, rotateRefreshToken } from './service';
+import { issueSession, MAX_VERIFY_CANDIDATES, pickPendingSignup, rotateRefreshToken } from './service';
 import { hashToken } from './csrf';
 const token = 'a'.repeat(43),
   csrf = 'b'.repeat(43);
@@ -154,9 +154,11 @@ describe('shared session issuing', () => {
     expect(mocks.execute).not.toHaveBeenCalled();
   });
   it('gives a verified identity with no membership left a personal workspace instead of refusing it', async () => {
-    mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([]);
+    mocks.query.mockResolvedValueOnce([user]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ assigned: true }]);
     await issueSession(user.id, { method: 'password' });
     const owned = mocks.execute.mock.calls.find((c) => sql(c).includes('INSERT INTO accounts'))!;
+    // The new workspace is given its initial plan (the lowest one while NEW_WORKSPACE_PLAN is unset), never left on enterprise.
+    expect(mocks.query.mock.calls.some((c) => sql(c).includes('billing_assign_initial_plan'))).toBe(true);
     const session = mocks.execute.mock.calls.find((c) => sql(c).includes('INSERT INTO auth_sessions'))!;
     expect(owned).toContain(user.id);
     expect(session).toContain(owned[1]);
@@ -165,5 +167,30 @@ describe('shared session issuing', () => {
         (c) => sql(c).includes('INSERT INTO account_memberships') && sql(c).includes("'owner'")
       )
     ).toBe(true);
+  });
+});
+describe('pickPendingSignup (account pre-hijack)', () => {
+  const link = (id: string, passwordHash?: string) => ({ id, metadata: passwordHash ? { passwordHash, fullName: id } : {} });
+  it('checks the clicked link first, then the newest others, and returns the matching signup', async () => {
+    const checked: string[] = [];
+    const check = async (hash: string, password: string) => {
+      checked.push(hash);
+      return hash === `h-${password}`;
+    };
+    const pending = [link('newest', 'h-squatter'), link('clicked', 'h-owner'), link('legacy')];
+    expect(await pickPendingSignup('clicked', pending, 'owner', check)).toMatchObject({ fullName: 'clicked' });
+    expect(checked).toEqual(['h-owner']);
+    checked.length = 0;
+    expect(await pickPendingSignup('newest', pending, 'owner', check)).toMatchObject({ fullName: 'clicked' });
+    expect(checked).toEqual(['h-squatter', 'h-owner']);
+    expect(await pickPendingSignup('clicked', pending, 'nobody', check)).toBeNull();
+  });
+  it('hashes at most MAX_VERIFY_CANDIDATES distinct passwords, however many signups are pending', async () => {
+    const check = vi.fn(async () => false);
+    const flood = Array.from({ length: 200 }, (_, n) => link(`l${n}`, `h${n % 150}`));
+    expect(await pickPendingSignup('l199', flood, 'x', check)).toBeNull();
+    expect(check).toHaveBeenCalledTimes(MAX_VERIFY_CANDIDATES);
+    // The clicked link is always among those checked.
+    expect(check.mock.calls[0]).toEqual(['h49', 'x']);
   });
 });

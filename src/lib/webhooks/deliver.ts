@@ -2,21 +2,20 @@ import { enqueueJob } from '@/lib/jobs/queue';
 // ============================================================
 // Outbound webhook delivery.
 //
-// `dispatchWebhookEvent` finds the account's active endpoints
-// subscribed to an event, signs one JSON payload, and POSTs it to
-// each in parallel. It is best-effort and never throws — callers fire
-// it from the inbound webhook's `after()` block, where a failed
-// delivery must not affect the 200 OK returned to Meta.
+// `dispatchWebhookEvent` finds the account's active endpoints subscribed to
+// an event and queues one signed `webhook.delivery` job per endpoint; the
+// worker POSTs it (`deliverQueuedWebhook`) and throws on failure so the job
+// queue retries with exponential backoff (WEBHOOK_DELIVERY_MAX_ATTEMPTS
+// attempts over roughly a quarter of an hour). Delivery is at-least-once:
+// receivers dedupe on the payload `id`.
 //
-// Delivery semantics (documented in docs/public-api.md):
-//   - At-most-once per event, single attempt with a short timeout.
-//   - Each consecutive failure bumps `failure_count`; once it crosses
-//     MAX_CONSECUTIVE_FAILURES the endpoint is auto-disabled
-//     (`is_active = false`) so a dead sink stops being hit. A success
-//     resets the counter and stamps `last_delivery_at`.
-//   - Durable retry-with-backoff would need a queue/worker (a
-//     follow-up); in-process retries inside `after()` would burn the
-//     route's duration budget without a real durability guarantee.
+// Every attempt is logged in webhook_deliveries (bounded: newest 100 per
+// endpoint, 30 days; never the payload) through record_webhook_attempt(),
+// which also keeps the failure streak. An endpoint is switched off only after
+// sustained failure: at least MIN_FAILURES_BEFORE_DISABLE failed attempts in a
+// row over at least DISABLE_AFTER_FAILING_MINUTES. Then disabled_at and
+// disabled_reason say why in Settings, and the owners and admins get an
+// in-app notification (type webhook_disabled).
 // ============================================================
 
 import { randomUUID } from 'node:crypto';
@@ -28,12 +27,27 @@ import { buildSignatureHeader } from '@/lib/webhooks/sign';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import { safeFetch } from '@/lib/webhooks/safe-fetch';
 import type { WebhookEvent } from '@/lib/webhooks/events';
+import { withTenant } from '@/lib/db/tenant';
+import { getWorkerPrisma } from '@/lib/db/prisma';
+import { getT } from '@/lib/i18n/translate';
+import { createNotification, MAX_NOTIFICATION_RECIPIENTS } from '@/lib/inbox/notify';
 
-/** Per-endpoint HTTP timeout. Kept short — this runs in `after()`. */
+/** Per-attempt HTTP timeout. */
 export const DELIVERY_TIMEOUT_MS = 5000;
 
-/** Auto-disable an endpoint after this many consecutive failures. */
-export const MAX_CONSECUTIVE_FAILURES = 15;
+/**
+ * Attempts per event. The queue backs off 2 s, 4 s, ... capped at 5 min, so 10 attempts span
+ * about 13 minutes: a receiver restart or a short outage no longer loses the event.
+ */
+export const WEBHOOK_DELIVERY_MAX_ATTEMPTS = 10;
+
+/** An endpoint is switched off only after this many failed attempts in a row ... */
+export const MIN_FAILURES_BEFORE_DISABLE = 15;
+/** ... spanning at least this long with no successful delivery (24 hours). */
+export const DISABLE_AFTER_FAILING_MINUTES = 24 * 60;
+
+/** Where the disable notice sends admins. */
+const SETTINGS_LINK = '/settings?tab=api';
 
 interface EndpointRow {
   id: string;
@@ -42,8 +56,8 @@ interface EndpointRow {
 }
 
 /**
- * Deliver `event` (+ `data`) to every active endpoint of `accountId`
- * subscribed to it. Never throws.
+ * Queue `event` (+ `data`) for every active endpoint of `accountId`
+ * subscribed to it. Throws when the queue cannot persist the job.
  */
 export async function dispatchWebhookEvent(
   db: DataClient,
@@ -51,69 +65,68 @@ export async function dispatchWebhookEvent(
   event: WebhookEvent,
   data: unknown
 ): Promise<void> {
-  try {
-    const { data: rows, error } = await db
-      .from('webhook_endpoints')
-      .select('id, url, secret')
-      .eq('account_id', accountId)
-      .eq('is_active', true)
-      .contains('events', [event]);
+  const { data: rows, error } = await db
+    .from('webhook_endpoints')
+    .select('id, url, secret')
+    .eq('account_id', accountId)
+    .eq('is_active', true)
+    .contains('events', [event]);
 
-    if (error || !rows || rows.length === 0) return;
+  if (error || !rows || rows.length === 0) return;
 
-    // Sign the exact bytes we send so a receiver can recompute the
-    // HMAC over the raw request body. `id` is a per-delivery uuid the
-    // receiver can dedupe on (deliveries are at-least-once and may
-    // repeat / arrive out of order).
-    const payload = JSON.stringify({
-      id: randomUUID(),
-      event,
-      occurred_at: new Date().toISOString(),
-      account_id: accountId,
-      data,
+  // Sign the exact bytes we send so a receiver can recompute the
+  // HMAC over the raw request body. `id` is a per-delivery uuid the
+  // receiver can dedupe on (deliveries are at-least-once and may
+  // repeat / arrive out of order).
+  const payload = JSON.stringify({
+    id: randomUUID(),
+    event,
+    occurred_at: new Date().toISOString(),
+    account_id: accountId,
+    data,
+  });
+  for (const row of rows as EndpointRow[]) {
+    await enqueueJob('webhook.delivery', { endpointId: row.id, event, payload }, {
+      tenantId: accountId,
+      dedupeKey: `outbound-webhook:${JSON.parse(payload).id}:${row.id}`,
+      maxAttempts: WEBHOOK_DELIVERY_MAX_ATTEMPTS,
     });
-    for (const row of rows as EndpointRow[]) {
-      await enqueueJob('webhook.delivery', { endpointId: row.id, event, payload }, { tenantId: accountId, dedupeKey: `outbound-webhook:${JSON.parse(payload).id}:${row.id}` });
-    }
-  } catch (err) {
-    // Never let a delivery problem bubble into the webhook response.
-    throw err;
   }
 }
 
-async function deliverOne(
-  db: DataClient,
+/** What one attempt produced, for the delivery log (codes only, never the reply body). */
+interface Attempt {
+  delivered: boolean;
+  httpStatus: number | null;
+  error: string | null;
+}
+
+async function attemptOne(
   row: EndpointRow,
   event: WebhookEvent,
   payload: string,
   tsSeconds: number
-): Promise<void> {
+): Promise<Attempt> {
   // SSRF guard: refuse to POST to a host that resolves to a private /
-  // loopback / link-local address. Counts as a failure so a
-  // misconfigured internal URL surfaces and eventually auto-disables.
-  if (!(await isDeliverableUrl(row.url))) {
-    console.warn('[webhooks] refusing non-public delivery target for', row.id);
-    await recordFailure(db, row);
-    throw new Error('Webhook target unavailable');
-  }
+  // loopback / link-local address. Counts as a failure so a misconfigured
+  // internal URL surfaces in the log and eventually disables the endpoint.
+  if (!(await isDeliverableUrl(row.url)))
+    return { delivered: false, httpStatus: null, error: 'blocked_target' };
 
   let secret: string;
   try {
     secret = decrypt(row.secret);
-  } catch (err) {
-    // A row whose secret can't be decrypted can never produce a valid
-    // signature — count it as a failure so it eventually auto-disables.
-    console.error('[webhooks] secret decrypt failed for', row.id, err);
-    await recordFailure(db, row);
-    throw new Error('Webhook target unavailable');
+  } catch {
+    // A row whose secret can't be decrypted can never produce a valid signature.
+    return { delivered: false, httpStatus: null, error: 'secret_unreadable' };
   }
 
+  // safeFetch dials only the address it checked (closing the DNS-rebinding
+  // gap between the check above and the connect), never follows redirects
+  // (a 3xx is a misconfiguration and counts as a failure) and holds the
+  // job lease. Success is judged on the status alone: the reply body is
+  // never read, so a large or slow body cannot fail an accepted delivery.
   try {
-    // safeFetch dials only the address it checked (closing the DNS-rebinding
-    // gap between the check above and the connect), never follows redirects
-    // (a 3xx is a misconfiguration and counts as a failure) and holds the
-    // job lease. Success is judged on the status alone: the reply body is
-    // never read, so a large or slow body cannot fail an accepted delivery.
     const res = await safeFetch(row.url, {
       method: 'POST',
       headers: {
@@ -124,43 +137,118 @@ async function deliverOne(
       },
       body: payload,
     }, { timeoutMs: DELIVERY_TIMEOUT_MS, discardBody: true });
-    if (!res.ok) throw new Error(`endpoint unreachable (${res.error})`);
-    if (res.status < 200 || res.status >= 300) throw new Error(`endpoint responded ${res.status}`);
-
-    // Success: clear the failure streak.
-    await db
-      .from('webhook_endpoints')
-      .update({ failure_count: 0, last_delivery_at: new Date().toISOString() })
-      .eq('id', row.id);
-  } catch (err) {
-    console.warn(
-      `[webhooks] delivery to ${row.id} failed:`,
-      err instanceof Error ? err.message : err
-    );
-    await recordFailure(db, row);
-    throw new Error('Webhook delivery failed');
+    if (!res.ok) return { delivered: false, httpStatus: null, error: errorCode(res.error) };
+    if (res.status < 200 || res.status >= 300)
+      return { delivered: false, httpStatus: validStatus(res.status), error: 'http_status' };
+    return { delivered: true, httpStatus: validStatus(res.status), error: null };
+  } catch {
+    return { delivered: false, httpStatus: null, error: 'request_failed' };
   }
 }
 
-async function recordFailure(db: DataClient, row: EndpointRow): Promise<void> {
-  // Atomic increment (+ auto-disable at the threshold) via a SQL
-  // function — a read-modify-write here would lose increments when two
-  // deliveries to the same endpoint run concurrently (e.g.
-  // conversation.created + message.received for one inbound message),
-  // so a dead endpoint might never reach the disable threshold.
-  const { error } = await db.rpc('record_webhook_failure', {
-    endpoint_id: row.id,
-    max_failures: MAX_CONSECUTIVE_FAILURES,
+function validStatus(status: number): number | null {
+  return Number.isInteger(status) && status >= 100 && status <= 599 ? status : null;
+}
+/** A short [a-z0-9_] code (the log's check constraint), never free text. */
+export function errorCode(error: unknown): string {
+  const code = String(error ?? '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 64);
+  return code || 'unreachable';
+}
+
+/**
+ * Logs the attempt and keeps the failure streak in one atomic call (two deliveries to one
+ * endpoint can run concurrently). Returns true when this attempt switched the endpoint off.
+ */
+async function recordAttempt(
+  db: DataClient,
+  row: EndpointRow,
+  event: WebhookEvent,
+  deliveryId: string | null,
+  attempt: number,
+  result: Attempt
+): Promise<boolean> {
+  const { data, error } = await db.rpc('record_webhook_attempt', {
+    p_endpoint_id: row.id,
+    p_event: event,
+    p_delivery_id: deliveryId,
+    p_attempt: attempt,
+    p_delivered: result.delivered,
+    p_http_status: result.httpStatus ?? 0, // 0 = no HTTP reply; stored as NULL
+    p_error: result.error,
+    p_min_failures: MIN_FAILURES_BEFORE_DISABLE,
+    p_disable_after_minutes: DISABLE_AFTER_FAILING_MINUTES,
   });
   if (error) {
-    console.error('[webhooks] record_webhook_failure failed for', row.id, error);
+    // Ids only: the endpoint URL and payload stay out of logs.
+    console.error('[webhooks] record_webhook_attempt failed for', row.id);
+    return false;
+  }
+  return data === true;
+}
+
+/** In-app notice to the workspace's owners and admins that an endpoint was switched off. */
+async function notifyDisabled(accountId: string, endpoint: EndpointRow): Promise<void> {
+  const t = getT('Settings.webhooks.notifications');
+  let host = 'webhook';
+  try {
+    host = new URL(endpoint.url).host;
+  } catch {
+    // keep the generic name
+  }
+  const hours = Math.round(DISABLE_AFTER_FAILING_MINUTES / 60);
+  const title = t('disabledTitle', { host }).slice(0, 200);
+  const body = t('disabledBody', { host, hours }).slice(0, 1000);
+  await withTenant({ accountId, role: 'owner' }, async (tx) => {
+    const [stamp] = await tx.$queryRaw<{ epoch: string }[]>`
+      SELECT floor(extract(epoch FROM disabled_at))::bigint::text AS epoch FROM webhook_endpoints
+      WHERE account_id=${accountId}::uuid AND id=${endpoint.id}::uuid`;
+    const admins = await tx.$queryRaw<{ user_id: string }[]>`
+      SELECT user_id::text AS user_id FROM account_memberships
+      WHERE account_id=${accountId}::uuid AND role IN ('owner','admin') ORDER BY user_id LIMIT ${MAX_NOTIFICATION_RECIPIENTS}`;
+    // Through createNotification, so each member's webhook_disabled preference decides in-app
+    // and email digest, and the dedupe key (bound to the disable time) sends one notice per disable.
+    await createNotification(tx, {
+      accountId,
+      userIds: admins.map((row) => row.user_id),
+      event: 'webhook_disabled',
+      title,
+      body,
+      link: SETTINGS_LINK,
+      dedupeKey: `webhook-disabled:${endpoint.id}:${stamp?.epoch ?? '0'}`,
+    });
+  }, getWorkerPrisma());
+}
+
+function deliveryIdOf(payload: string): string | null {
+  try {
+    const id = (JSON.parse(payload) as { id?: unknown }).id;
+    return typeof id === 'string' ? id.slice(0, 64) : null;
+  } catch {
+    return null;
   }
 }
 
-export async function deliverQueuedWebhook(db: DataClient, accountId: string, job: Record<string, unknown>) {
+/** One attempt of a queued delivery; `attempt` is the job's attempt number (1-based). */
+export async function deliverQueuedWebhook(db: DataClient, accountId: string, job: Record<string, unknown>, attempt = 1) {
   if (typeof job.endpointId !== 'string' || typeof job.payload !== 'string' || typeof job.event !== 'string') throw new Error('Invalid delivery job');
   const { data, error } = await db.from('webhook_endpoints').select('id,url,secret').eq('id', job.endpointId).eq('account_id', accountId).eq('is_active', true).maybeSingle();
   if (error) throw new Error('Webhook lookup failed');
   if (!data) return;
-  await deliverOne(db, data as EndpointRow, job.event as WebhookEvent, job.payload, Math.floor(Date.now() / 1000));
+  const row = data as EndpointRow;
+  const event = job.event as WebhookEvent;
+  const result = await attemptOne(row, event, job.payload, Math.floor(Date.now() / 1000));
+  const disabledNow = await recordAttempt(db, row, event, deliveryIdOf(job.payload), Math.max(1, attempt), result);
+  if (disabledNow) {
+    try {
+      await notifyDisabled(accountId, row);
+    } catch {
+      console.error('[webhooks] disable notice failed for', row.id);
+    }
+  }
+  if (!result.delivered) {
+    console.warn(`[webhooks] delivery to ${row.id} failed: ${result.error}${result.httpStatus ? ` (${result.httpStatus})` : ''}`);
+    // Throw so the queue retries with backoff; once disabled, the next attempt is a no-op.
+    throw new Error(result.error === 'blocked_target' || result.error === 'secret_unreadable'
+      ? 'Webhook target unavailable' : 'Webhook delivery failed');
+  }
 }

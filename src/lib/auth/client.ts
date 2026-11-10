@@ -300,6 +300,18 @@ const auth = {
   async recoverPassword(password: string, mfaCode?: string) {
     return authRequest('reset', { password, mfaCode });
   },
+  /** Finishes email verification: the emailed link (HttpOnly cookie) plus the signup password. */
+  async confirmEmail(password: string) {
+    return authRequest('verify-email', { password });
+  },
+  async verifyLinkValid(): Promise<boolean> {
+    try {
+      const response = await authFetch('/api/auth/verify-status');
+      return !!(await response.json()).valid;
+    } catch {
+      return false;
+    }
+  },
   async resendVerification(email: string) {
     return authRequest('verify-request', { email });
   },

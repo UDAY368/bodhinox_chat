@@ -12,6 +12,17 @@ export const BUSINESS_TYPE_SUGGESTIONS = [
   'ecommerce', 'restaurant', 'education', 'healthcare', 'real_estate', 'travel', 'salon', 'services', 'other',
 ] as const
 
+/**
+ * The slider's lowest value. An answered reply always scores at least 0.5
+ * (src/lib/ai/confidence.ts), so every threshold at or below 0.5 behaves the
+ * same; the slider runs 0.5..1, where each step changes behaviour.
+ */
+export const MIN_CONFIDENCE_THRESHOLD = 0.5
+
+/** The threshold the slider shows and saves: 0.5..1, NaN as 0.5. */
+export const sliderThreshold = (n: number) =>
+  Number.isFinite(n) ? Math.min(1, Math.max(MIN_CONFIDENCE_THRESHOLD, n)) : MIN_CONFIDENCE_THRESHOLD
+
 export interface WizardDraft {
   website_url: string
   business_name: string
@@ -36,7 +47,7 @@ export function profileToDraft(p: AgentProfile): WizardDraft {
     greeting: p.greeting ?? '',
     keywords: p.handoff_rules.keywords.join(', '),
     on_low_confidence: p.handoff_rules.on_low_confidence,
-    confidence_threshold: p.handoff_rules.confidence_threshold,
+    confidence_threshold: sliderThreshold(p.handoff_rules.confidence_threshold),
     max_turns_before_handoff: p.handoff_rules.max_turns_before_handoff,
   }
 }
@@ -66,7 +77,7 @@ export function draftToInput(d: WizardDraft, step: WizardStep): Record<string, u
       const rules: HandoffRules = {
         keywords: parseKeywords(d.keywords),
         on_low_confidence: d.on_low_confidence,
-        confidence_threshold: Math.min(1, Math.max(0, Number.isFinite(d.confidence_threshold) ? d.confidence_threshold : 0.35)),
+        confidence_threshold: sliderThreshold(d.confidence_threshold),
         max_turns_before_handoff: clampInt(d.max_turns_before_handoff, 0, 50),
       }
       return { handoff_rules: rules }

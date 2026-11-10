@@ -7,9 +7,12 @@
  * Inspection records a disposition per returned line (restock | discard).
  * Stock comes back only two ways, never both:
  *   - a refund linked to the return (refundReturn) restocks the 'restock'
- *     lines when Razorpay reports it processed (lib/payments/refunds, which
- *     also stamps restocked_at);
+ *     lines when Razorpay reports it processed, or at once for a refund
+ *     recorded as made outside Bodhinox (lib/payments/refunds, which also
+ *     stamps restocked_at);
  *   - an admin closing the return without a refund may restock explicitly.
+ * A return is opened only within the store's return window (commerce_settings
+ * .return_window_days, counted from delivery; 0 = no returns once delivered).
  * Every change runs in a worker transaction as the signed-in member, is
  * audited and adds an order_events row; ids and codes only.
  */
@@ -17,9 +20,9 @@ import { requirePermission } from '@/lib/auth/permissions';
 import { ForbiddenError } from '@/lib/auth/errors';
 import { hasMinRole } from '@/lib/auth/roles';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
-import { requestRefund } from '@/lib/payments/refunds';
+import { applyRefundStateTx, RefundError, requestRefund } from '@/lib/payments/refunds';
 import { minorFromDb } from './money';
-import { asStaff, auditOrder, lockOrder, type StaffContext } from './order-lifecycle';
+import { asStaff, auditOrder, lockOrder, lockSettledPayments, viaGateway, type StaffContext } from './order-lifecycle';
 import { OrderError } from './orders';
 import { restockTx } from './stock';
 
@@ -30,6 +33,9 @@ export type Disposition = 'restock' | 'discard';
 /** Orders a return can be opened for: the goods have left the store. */
 const RETURNABLE: ReadonlySet<string> = new Set(['dispatched', 'fulfilled']);
 const NOTE_MAX = 500;
+const DAY_MS = 86_400_000;
+/** commerce_settings.return_window_days when a workspace has no settings row (the column default). */
+const DEFAULT_RETURN_WINDOW_DAYS = 7;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface ReturnLine { order_item_id: string; qty: number }
@@ -123,7 +129,18 @@ async function event(tx: TenantTransaction, ctx: StaffContext, orderId: string, 
 }
 
 /**
- * Open a return on a dispatched or delivered order. A line's quantity may
+ * Whether a return may still be opened: the window runs from delivery, so an
+ * order not delivered yet (in transit, or coming back to the store) is always
+ * open; 0 days means no returns once delivered.
+ */
+export function returnWindowOpen(deliveredAt: Date | null, windowDays: number, now: Date = new Date()): boolean {
+  if (!deliveredAt) return true;
+  if (!Number.isInteger(windowDays) || windowDays <= 0) return false;
+  return now.getTime() <= deliveredAt.getTime() + windowDays * DAY_MS;
+}
+
+/**
+ * Open a return on a dispatched or delivered order, within the return window. A line's quantity may
  * not exceed what was ordered minus what other non-rejected returns already
  * cover (checked under the order lock, so two agents cannot both return it).
  */
@@ -136,6 +153,12 @@ export async function createReturn(ctx: StaffContext, orderId: string, input: { 
     if (!RETURNABLE.has(order.status)) throw new OrderError(409, 'bad_transition', 'Only a dispatched or delivered order can be returned');
     // Its stock is still only held: a refused COD parcel is cancelled (releasing the hold once), never restocked as a return.
     if (order.unpaidCod) throw new OrderError(409, 'bad_transition', 'An unpaid cash-on-delivery order that comes back is cancelled, not returned');
+    const [window] = await tx.$queryRaw<{ delivered_at: Date | null; days: number | null }[]>`
+      SELECT CASE WHEN o.status='fulfilled' THEN COALESCE(o.delivered_at, o.dispatched_at) END AS delivered_at, s.return_window_days AS days
+      FROM orders o LEFT JOIN commerce_settings s ON s.account_id=o.account_id
+      WHERE o.account_id=${ctx.accountId}::uuid AND o.id=${orderId}::uuid`;
+    if (!returnWindowOpen(window?.delivered_at ?? null, window?.days ?? DEFAULT_RETURN_WINDOW_DAYS))
+      throw new OrderError(409, 'return_window_closed', 'The return window for this order has closed');
     const ordered = await tx.$queryRaw<{ id: string; quantity: number }[]>`SELECT id::text AS id, quantity FROM order_items
       WHERE account_id=${ctx.accountId}::uuid AND order_id=${orderId}::uuid`;
     const taken = await tx.$queryRaw<{ id: string; qty: number }[]>`
@@ -239,30 +262,94 @@ export async function closeReturn(ctx: StaffContext, returnId: string, input: { 
   });
 }
 
+export interface ReturnPaymentOption {
+  id: string;
+  source: string;
+  provider_payment_id: string | null;
+  /** What the payment can still refund (captured − refunded − refunds in flight). */
+  refundable: number;
+}
+
+export type ReturnPaymentChoice =
+  | { kind: 'gateway'; paymentId: string }
+  | { kind: 'outside'; paymentId: string }
+  | { kind: 'none' }
+  | { kind: 'exceeds' };
+
 /**
- * Refund an inspected return (commerce.refunds): one refund on the order's
- * settled payment, linked to the return, restocking its 'restock' lines when
- * processed. The amount is the staff's choice, capped by the payment.
+ * Which settled payment of the order a return refund goes to. A return has
+ * exactly one refund (unique per return), so one payment must cover the
+ * amount: a Razorpay payment first (the one with the most left), else money
+ * Razorpay does not hold (cash on delivery or another staff-recorded payment),
+ * refunded outside Bodhinox and recorded. 'exceeds': no single payment covers
+ * it; 'none': nothing is left to refund.
  */
-export async function refundReturn(ctx: StaffContext, returnId: string, input: { amountMinor: number; note?: unknown }): Promise<{ refundId: string }> {
+export function chooseReturnPayment(payments: readonly ReturnPaymentOption[], amountMinor: number): ReturnPaymentChoice {
+  const open = payments.filter((p) => p.refundable > 0);
+  if (!open.length) return { kind: 'none' };
+  const byMost = (a: ReturnPaymentOption, b: ReturnPaymentOption) => b.refundable - a.refundable || a.id.localeCompare(b.id);
+  const covering = open.filter((p) => p.refundable >= amountMinor).sort(byMost);
+  const gateway = covering.find((p) => viaGateway(p));
+  if (gateway) return { kind: 'gateway', paymentId: gateway.id };
+  const outside = covering.find((p) => !viaGateway(p));
+  if (outside) return { kind: 'outside', paymentId: outside.id };
+  return { kind: 'exceeds' };
+}
+
+/**
+ * Refund an inspected return (commerce.refunds): one refund linked to the
+ * return, on the settled payment chooseReturnPayment picks among all of the
+ * order's payments, restocking its 'restock' lines when processed. The amount
+ * is the staff's choice, capped by that payment.
+ *
+ * Through Razorpay it is requested like any refund. Money Razorpay does not
+ * hold needs `refundedOutside`, the staff's confirmation that it was handed
+ * back outside the app (RefundError 'offline_payment' otherwise); it is then
+ * recorded at once as an 'external' refund, processed under the payment lock,
+ * so the refunded amounts, the order's refund state, the restock and the
+ * credit note follow exactly as for a gateway refund.
+ */
+export async function refundReturn(
+  ctx: StaffContext, returnId: string, input: { amountMinor: number; note?: unknown; refundedOutside?: boolean },
+): Promise<{ refundId: string; refundedOutside: boolean }> {
   assertStaff(ctx);
   await requirePermission(ctx, 'commerce.refunds');
   if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) throw new OrderError(400, 'invalid', 'Invalid amount');
   const note = cleanNote(input.note);
-  const { paymentId } = await asStaff(ctx, async (tx) => {
+  const picked = await asStaff(ctx, async (tx) => {
+    const head = await readReturn(tx, ctx.accountId, returnId);
+    // Lock order: payments, then the return (as requestRefund), then the order inside applyRefundStateTx.
+    const settled = await lockSettledPayments(tx, ctx.accountId, head.order_id);
     const current = await lockReturn(tx, ctx.accountId, returnId);
     if (current.status !== 'inspected') throw new OrderError(409, 'bad_transition', 'Inspect the return before refunding it');
     if (current.refund_id) throw new OrderError(409, 'conflict', 'This return already has a refund');
-    const [payment] = await tx.$queryRaw<{ id: string; left: bigint }[]>`
-      SELECT id::text AS id, amount_minor - refunded_minor AS left FROM customer_payments
-      WHERE account_id=${ctx.accountId}::uuid AND order_id=${current.order_id}::uuid AND status='captured' AND settlement='settled'
-      ORDER BY created_at LIMIT 1`;
-    if (!payment || (minorFromDb(payment.left) ?? 0) <= 0) throw new OrderError(409, 'conflict', 'No refundable payment on this order');
-    return { paymentId: payment.id };
+    const choice = chooseReturnPayment(settled.map((p) => ({
+      id: p.id, source: p.source, provider_payment_id: p.provider_payment_id, refundable: minorFromDb(p.refundable) ?? 0,
+    })), input.amountMinor);
+    if (choice.kind === 'none') throw new OrderError(409, 'conflict', 'No refundable payment on this order');
+    if (choice.kind === 'exceeds') throw new RefundError('amount_exceeds');
+    if (choice.kind === 'gateway') return { paymentId: choice.paymentId, refundId: null };
+    if (input.refundedOutside !== true) throw new RefundError('offline_payment');
+    const payment = settled.find((p) => p.id === choice.paymentId)!;
+    const [row] = await tx.$queryRaw<{ id: string }[]>`INSERT INTO customer_refunds(account_id,payment_id,order_id,source,amount_minor,currency,
+        reason_code,note,status,attempt,requested_by,restock,return_id)
+      VALUES(${ctx.accountId}::uuid,${payment.id}::uuid,${current.order_id}::uuid,'external',${BigInt(input.amountMinor)},${payment.currency},
+        'return',${note},'pending',1,${ctx.userId}::uuid,true,${returnId}::uuid)
+      RETURNING id::text AS id`;
+    await tx.$executeRaw`UPDATE order_returns SET refund_id=${row.id}::uuid, updated_at=now()
+      WHERE account_id=${ctx.accountId}::uuid AND id=${returnId}::uuid AND refund_id IS NULL`;
+    await applyRefundStateTx(tx, ctx.accountId, payment, row.id, 'processed', null);
+    await event(tx, ctx, current.order_id, 'return_refunded_outside');
+    await auditOrder(tx, ctx, 'order.return_refunded_outside', returnId, { refund_id: row.id, amount_minor: input.amountMinor });
+    return { paymentId: payment.id, refundId: row.id };
+  }).catch((error: unknown) => {
+    if (isUniqueViolation(error)) throw new OrderError(409, 'conflict', 'This return already has a refund');
+    throw error;
   });
+  if (picked.refundId) return { refundId: picked.refundId, refundedOutside: true };
   // Two refunds at once both pass the check above; the unique index on
   // customer_refunds(account_id, return_id) lets exactly one insert commit.
-  const { refundId } = await requestRefund(ctx, { paymentId, amountMinor: input.amountMinor, reason: 'return', note, restock: true, returnId })
+  const { refundId } = await requestRefund(ctx, { paymentId: picked.paymentId, amountMinor: input.amountMinor, reason: 'return', note, restock: true, returnId })
     .catch((error: unknown) => {
       if (isUniqueViolation(error)) throw new OrderError(409, 'conflict', 'This return already has a refund');
       throw error;
@@ -274,7 +361,7 @@ export async function refundReturn(ctx: StaffContext, returnId: string, input: {
     await event(tx, ctx, current.order_id, 'return_refund_requested');
     await auditOrder(tx, ctx, 'order.return_refund_requested', returnId, { refund_id: refundId });
   });
-  return { refundId };
+  return { refundId, refundedOutside: false };
 }
 
 async function readReturn(tx: TenantTransaction, accountId: string, returnId: string): Promise<OrderReturn> {

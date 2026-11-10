@@ -40,6 +40,8 @@ const eslintConfig = defineConfig([
     ".reference/**",
     ".superpowers/**",
     ".firecrawl/**",
+    // Agent worktrees and local tool state.
+    ".claude/**",
     ".certs/**",
     "mcp-server/dist/**",
     "out/**",

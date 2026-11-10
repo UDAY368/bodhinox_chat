@@ -27,7 +27,9 @@
 // sending), the day it was queued. Agent attribution is messages.sender_id when
 // stamped, else (only for rows before AGENT_ATTRIBUTION_CUTOFF) the
 // conversation's current assignee; later rows without a sender (public API)
-// are not credited to anyone.
+// are not credited to anyone. A member's first response is the first member
+// reply to the conversation's first wait, even when a bot answered first
+// (humanFirstSql in queries.ts, as on the leaderboard).
 
 import { Prisma } from '@prisma/client';
 import { authEmailTransport } from '@/lib/auth/email';
@@ -41,7 +43,7 @@ import { minorToDecimalString } from '@/lib/commerce/money';
 import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { commerceStats, type CommerceDay } from './commerce';
 import { productStats, type ProductStatsRow } from './products';
-import { AGENT_ATTRIBUTION_CUTOFF } from './queries';
+import { AGENT_ATTRIBUTION_CUTOFF, humanFirstSql } from './queries';
 import { parseRange, workspaceTimezone, type AnalyticsRange, type RangeInput } from './range';
 import { PDF_MAX_ROWS, toPdf } from './report-pdf';
 import { deleteReportFile, putReportFile, reportObjectKey } from './report-storage';
@@ -250,7 +252,8 @@ export interface AgentDayRow {
 /**
  * Per agent per local day with any activity: conversations replied in,
  * replies, first responses (each conversation's first customer wait in the
- * range answered by an agent before the range end, counted on the wait's day)
+ * range and the first agent reply to it before the range end, even after a bot
+ * reply, counted on the day the wait (or the AI handoff) started)
  * with their median, and conversations resolved while assigned to the agent.
  */
 export function agentDayRows(tx: TenantTransaction, accountId: string, range: AnalyticsRange): Promise<AgentDayRow[]> {
@@ -265,19 +268,13 @@ export function agentDayRows(tx: TenantTransaction, accountId: string, range: An
     ), waits AS (
       SELECT conversation_id, seg, min(created_at) AS wait_at FROM msgs
       WHERE sender_type='customer' AND created_at < ${to(range)} GROUP BY conversation_id, seg
-    ), answers AS (
-      SELECT DISTINCT ON (conversation_id, seg) conversation_id, seg, created_at AS reply_at, sender_type, sender_id
-      FROM msgs WHERE sender_type <> 'customer' ORDER BY conversation_id, seg, created_at
     ), first_waits AS (
-      SELECT DISTINCT ON (w.conversation_id) w.conversation_id, w.wait_at, a.reply_at, a.sender_type, a.sender_id
-      FROM waits w LEFT JOIN answers a ON a.conversation_id=w.conversation_id AND a.seg=w.seg+1
-      ORDER BY w.conversation_id, w.wait_at
-    ), fr AS (
-      SELECT COALESCE(f.sender_id, CASE WHEN f.reply_at < ${AGENT_ATTRIBUTION_CUTOFF}::timestamptz THEN c.assigned_agent_id END) AS agent_id,
-        ${localDay('f.wait_at', range)} AS day,
-        extract(epoch FROM (f.reply_at - f.wait_at)) AS secs
-      FROM first_waits f JOIN conversations c ON c.account_id=${accountId}::uuid AND c.id=f.conversation_id
-      WHERE f.sender_type='agent' AND f.reply_at < ${to(range)}
+      SELECT DISTINCT ON (w.conversation_id) w.conversation_id, w.wait_at FROM waits w ORDER BY w.conversation_id, w.wait_at
+    ), ${humanFirstSql(accountId)}, fr AS (
+      SELECT COALESCE(h.sender_id, CASE WHEN h.reply_at < ${AGENT_ATTRIBUTION_CUTOFF}::timestamptz THEN h.assigned_agent_id END) AS agent_id,
+        ${localDay('h.wait_at', range)} AS day,
+        extract(epoch FROM (h.reply_at - h.wait_at)) AS secs
+      FROM human_first h WHERE h.reply_at < ${to(range)}
     ), fr_t AS (
       SELECT agent_id, day, count(*)::int AS n,
         round((percentile_cont(0.5) WITHIN GROUP (ORDER BY secs))::numeric)::int AS median

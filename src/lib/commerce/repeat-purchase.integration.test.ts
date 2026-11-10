@@ -101,6 +101,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 9 repeat purchase and
     }
     await db.query(`INSERT INTO commerce_settings(account_id,currency,prices_include_tax,default_tax_rate_bps,checkout_enabled,reservation_minutes)
       VALUES($1,'INR',true,1800,true,15)`, [account]);
+    // Online checkout needs a Razorpay connection (a link can be made); the link job never runs here.
+    await db.query(`INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,'razorpay','test','rzp_test_SHOP','enc')`, [account]);
     await db.query(`INSERT INTO shipping_rates(account_id,name,country,fee_minor) VALUES($1,'India','IN',5000)`, [account]);
     await db.query(`INSERT INTO shop_products(id,account_id,name,status,content_reviewed_at,repurchase_after_days)
       VALUES($1,$2,'Tulsi drops','published',now(),30)`, [product, account]);

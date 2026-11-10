@@ -195,6 +195,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram ingest on Postgre
     ] };
     const receiptId = await persistInstagramWebhook(JSON.stringify(body), body);
     receipts.push(receiptId);
+    // [audit-38] inbound Instagram processing gets the long retry budget, like WhatsApp's.
+    expect((await owner.query('SELECT max_attempts FROM jobs WHERE dedupe_key=$1', [`igwebhook:${receiptId}`])).rows[0].max_attempts).toBe(8);
     // The first attempt loses its lease on the second entry, after counting the first one in memory.
     let calls = 0;
     await expect(processInstagramWebhookJob({ receiptId }, () => { if (++calls === 4) throw new Error('lease lost'); })).rejects.toThrow('lease lost');

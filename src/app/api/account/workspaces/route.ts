@@ -1,7 +1,7 @@
 // POST /api/account/workspaces { name }: creates another workspace owned by the
 // caller (Phase 14) and, for a cookie session, switches the session to it.
-// Signed-in users with a verified email; rate limited and capped per owner. When
-// NEW_WORKSPACE_PLAN is set the workspace starts on that plan (same rule as signup).
+// Signed-in users with a verified email; rate limited and capped per owner. The workspace
+// starts on NEW_WORKSPACE_PLAN, or the lowest plan when unset (same rule as signup).
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';

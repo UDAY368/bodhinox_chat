@@ -531,4 +531,46 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Shiprocket shipments on Pos
     await resolveShipmentException(asAdmin, exception.id, 'recreate');
     await expect(mod.requestShipment(asAdmin, createOrder, DIMS)).resolves.toMatchObject({ shipmentId: expect.any(String) });
   });
+
+  // ------------------------------------------------------------------ audit 26 and 52
+  it('opens a pickup_failed exception when the pickup request fails, and staff request it again', async () => {
+    const order = await paidOrder();
+    const { shipmentId } = await mod.requestShipment(asAdmin, order, DIMS);
+    routes['/courier/generate/pickup'] = [json({ message: 'pickup service down' }, 500)];
+    await mod.handleCreateShipmentJob(accountA, { shipmentId }, META);
+    expect(await shipmentOf(order)).toMatchObject({ create_state: 'created', awb_state: 'assigned', last_error_code: 'pickup_failed' });
+    expect(await one(`SELECT kind, status FROM shipment_exceptions WHERE shipment_id=$1`, [shipmentId])).toEqual({ kind: 'pickup_failed', status: 'open' });
+
+    await expect(mod.retryPickup(asAgent, order)).rejects.toMatchObject({ status: 403 });
+    calls.length = 0;
+    routes['/courier/generate/pickup'] = [json({ message: 'still down' }, 500)];
+    await expect(mod.retryPickup(asAdmin, order)).rejects.toMatchObject({ code: 'provider_unreachable' });
+    expect((await shipmentOf(order)).last_error_code).toBe('pickup_failed');
+
+    await mod.retryPickup(asAdmin, order);
+    expect(pathsCalled('/courier/generate/pickup')).toHaveLength(2);
+    expect((await shipmentOf(order)).last_error_code).toBeNull();
+    expect(await one(`SELECT status, resolution, resolved_by::text AS by FROM shipment_exceptions WHERE shipment_id=$1`, [shipmentId]))
+      .toEqual({ status: 'resolved', resolution: 'manual', by: adminA });
+    expect(await one(`SELECT actor_user_id::text AS actor FROM order_events WHERE order_id=$1 AND kind='shipment_pickup_requested'`, [order]))
+      .toEqual({ actor: adminA });
+    // Nothing failed any more: a second request is refused before any call.
+    calls.length = 0;
+    await expect(mod.retryPickup(asAdmin, order)).rejects.toMatchObject({ code: 'conflict' });
+    expect(calls).toEqual([]);
+  });
+
+  it('never books or advances a shipment for an order refunded in full', async () => {
+    const refunded = await paidOrder();
+    await db.query(`UPDATE orders SET amount_refunded_minor=54800, refund_state='full' WHERE id=$1`, [refunded]);
+    calls.length = 0;
+    await expect(mod.requestShipment(asAdmin, refunded, DIMS)).rejects.toMatchObject({ code: 'order_refunded', status: 409 });
+
+    const later = await paidOrder();
+    const { shipmentId } = await mod.requestShipment(asAdmin, later, DIMS);
+    await db.query(`UPDATE orders SET amount_refunded_minor=54800, refund_state='full' WHERE id=$1`, [later]);
+    await mod.handleCreateShipmentJob(accountA, { shipmentId }, META);
+    expect(calls).toEqual([]);
+    expect(await shipmentOf(later)).toMatchObject({ create_state: 'failed', last_error_code: 'order_refunded' });
+  });
 });

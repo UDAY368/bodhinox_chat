@@ -413,7 +413,7 @@ async function createGoogleUser(identity: GoogleIdentity, invite: string | null,
     await tx.$executeRaw`INSERT INTO accounts(id,name,owner_user_id) VALUES(${accountId}::uuid,${`${fullName}'s workspace`},${userId}::uuid)`;
     await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${userId}::uuid,'owner')`;
     await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${userId}::uuid,${fullName},${identity.email},${accountId}::uuid,'owner')`;
-    // NEW_WORKSPACE_PLAN (unset = no subscription row = enterprise, as before).
+    // NEW_WORKSPACE_PLAN, or the lowest plan when unset (never the unrestricted default).
     await assignInitialPlan(tx, accountId);
     const linked = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO auth_identities(user_id,provider,subject,email) VALUES(${userId}::uuid,'google',${identity.subject},${identity.email})

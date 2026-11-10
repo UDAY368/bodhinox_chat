@@ -31,7 +31,9 @@ export interface ShipmentCardProps {
   orderStatus: string;
   /** A cash-on-delivery order whose cash is not recorded: it ships unpaid. */
   unpaidCod?: boolean;
-  /** Called after a create, cancel or assign-again so the panel reloads. */
+  /** Refunded in full before it left: no shipment may be created. */
+  refundedInFull?: boolean;
+  /** Called after a create, cancel, assign-again or pickup request so the panel reloads. */
   onChanged?: () => void;
 }
 
@@ -57,13 +59,13 @@ async function errorText(res: Response, fallback: string): Promise<string> {
   return typeof json.error === "string" ? json.error : fallback;
 }
 
-export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, onChanged }: ShipmentCardProps) {
-  const readyToShip = orderStatus === "paid" || (orderStatus === "confirmed" && unpaidCod);
+export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, refundedInFull = false, onChanged }: ShipmentCardProps) {
+  const readyToShip = !refundedInFull && (orderStatus === "paid" || (orderStatus === "confirmed" && unpaidCod));
   const t = useTranslations("Commerce.shipments");
   const canManage = useCan("edit-settings");
   const [state, setState] = useState<ShipmentState | null>(null);
   const [form, setForm] = useState<Dims | null>(null);
-  const [busy, setBusy] = useState<"create" | "cancel" | "awb" | "label" | null>(null);
+  const [busy, setBusy] = useState<"create" | "cancel" | "awb" | "pickup" | "label" | null>(null);
   const polls = useRef(0);
   const endpoint = `/api/commerce/orders/${orderId}/shipment`;
 
@@ -102,7 +104,7 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, onChange
     setForm({ length_cm: text(d.length_cm), breadth_cm: text(d.breadth_cm), height_cm: text(d.height_cm), weight_grams: text(d.weight_grams) });
   };
 
-  const act = async (kind: "create" | "cancel" | "awb", request: () => Promise<Response>, done: string, fallback: string) => {
+  const act = async (kind: "create" | "cancel" | "awb" | "pickup", request: () => Promise<Response>, done: string, fallback: string) => {
     setBusy(kind);
     try {
       const res = await request();
@@ -136,6 +138,10 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, onChange
   const assignAgain = () => {
     if (!window.confirm(t("assignConfirm"))) return;
     void act("awb", () => authFetch(`${endpoint}/awb`, { method: "POST" }), t("assignQueued"), t("failed"));
+  };
+
+  const pickupAgain = () => {
+    void act("pickup", () => authFetch(`${endpoint}/pickup`, { method: "POST" }), t("pickupRequested"), t("failed"));
   };
 
   const label = async () => {
@@ -201,6 +207,13 @@ export function ShipmentCard({ orderId, orderStatus, unpaidCod = false, onChange
               <Button size="sm" variant="outline" onClick={() => void label()} disabled={!!busy}>
                 {busy === "label" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileText className="mr-1 h-4 w-4" />}
                 {t("label")}
+              </Button>
+            )}
+            {canManage && live && shipment.awb_state === "assigned" && shipment.last_error_code === "pickup_failed"
+              && (shipment.tracking_rank ?? 0) < PICKED_UP_RANK && state.connected && (
+              <Button size="sm" variant="outline" onClick={pickupAgain} disabled={!!busy}>
+                {busy === "pickup" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
+                {t("pickupAgain")}
               </Button>
             )}
             {canManage && live && shipment.create_state === "created" && shipment.awb_state === "failed" && state.connected && (

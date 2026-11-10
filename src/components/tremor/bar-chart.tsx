@@ -9,6 +9,8 @@
 //      `RiArrowRightSLine` from `@remixicon/react`) are swapped
 //      for `ChevronLeft` / `ChevronRight` from `lucide-react`,
 //      which is already in the project's deps.
+//   3. The slider's scroll buttons take a translated aria-label
+//      (UiPrimitives.scrollLeft / scrollRight).
 //
 // Everything else — the chart logic, accessibility behaviour,
 // tooltip / legend / slider implementation — is unchanged from
@@ -24,6 +26,7 @@
 
 import React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useTranslations } from "next-intl"
 import {
   Bar,
   CartesianGrid,
@@ -161,11 +164,12 @@ const LegendItem = ({
 
 interface ScrollButtonProps {
   icon: React.ElementType
+  label: string
   onClick?: () => void
   disabled?: boolean
 }
 
-const ScrollButton = ({ icon, onClick, disabled }: ScrollButtonProps) => {
+const ScrollButton = ({ icon, label, onClick, disabled }: ScrollButtonProps) => {
   const Icon = icon
   const [isPressed, setIsPressed] = React.useState(false)
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
@@ -191,6 +195,7 @@ const ScrollButton = ({ icon, onClick, disabled }: ScrollButtonProps) => {
   return (
     <button
       type="button"
+      aria-label={label}
       className={cx(
         "group inline-flex size-5 items-center truncate rounded-sm transition",
         disabled
@@ -239,6 +244,7 @@ const Legend = React.forwardRef<HTMLOListElement, LegendProps>((props, ref) => {
     enableLegendSlider = false,
     ...other
   } = props
+  const tUi = useTranslations("UiPrimitives")
   const scrollableRef = React.useRef<HTMLInputElement>(null)
   const scrollButtonsRef = React.useRef<HTMLDivElement>(null)
   const [hasScroll, setHasScroll] = React.useState<HasScrollProps | null>(null)
@@ -363,6 +369,7 @@ const Legend = React.forwardRef<HTMLOListElement, LegendProps>((props, ref) => {
           >
             <ScrollButton
               icon={ChevronLeft}
+              label={tUi("scrollLeft")}
               onClick={() => {
                 setIsKeyDowned(null)
                 scrollToTest("left")
@@ -371,6 +378,7 @@ const Legend = React.forwardRef<HTMLOListElement, LegendProps>((props, ref) => {
             />
             <ScrollButton
               icon={ChevronRight}
+              label={tUi("scrollRight")}
               onClick={() => {
                 setIsKeyDowned(null)
                 scrollToTest("right")

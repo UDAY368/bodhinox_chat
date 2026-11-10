@@ -54,6 +54,7 @@ import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 import { trackedButtonIndex } from '@/lib/broadcasts/tracking';
 import { PlanLimitError, requireWithinLimit } from '@/lib/billing/entitlements';
+import { requireCampaignSendRoom } from '@/lib/billing/limits';
 import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { notifyCampaignFinished, type FinishedCampaign } from '@/lib/notifications/emit';
 
@@ -116,7 +117,23 @@ interface PlannedRecipient {
   clickToken?: string | null;
   /** The recipient's contact; ties a FLOW button's form session to them. */
   contactId?: string | null;
+  /**
+   * Bumped once per "Retry failed" for a row Meta accepted and later failed
+   * (status webhook); a non-zero value gives the send a new intent key, so the
+   * retry is a real new send instead of a replay of the old accepted intent.
+   */
+  retryGeneration?: number;
+  /** The Meta message id already on the row; a send returning it again is a replay, not a new send. */
+  previousMessageId?: string | null;
 }
+
+/** The outbound-intent key of one recipient variant; generation 0 keeps the original key. */
+export function broadcastIntentKey(broadcastId: string, recipientRowId: string, variant: string, generation = 0): string {
+  return `broadcast:${broadcastId}:${recipientRowId}:${variant}${generation > 0 ? `:retry${generation}` : ''}`;
+}
+
+/** Stored on a recipient whose send outcome is unknown; staff resolve it on the campaign page. */
+export const UNCERTAIN_SEND_MESSAGE = 'Send outcome uncertain; reconcile with Meta before retrying';
 
 export interface BroadcastPlan {
   broadcastId: string;
@@ -233,6 +250,7 @@ export async function createBroadcast(
   try {
     createdRows = await withTenant({ accountId, role: 'owner' }, async (tx) => {
       await requireWithinLimit(tx, accountId, 'campaign_recipients', deduped.length);
+      await requireCampaignSendRoom(tx, accountId, deduped.length);
       const rows = await tx.$queryRaw<{ broadcast_id: string; recipient_id: string; contact_id: string }[]>`
         SELECT broadcast_id::text, recipient_id::text, contact_id::text FROM create_broadcast_with_recipients(
           ${accountId}::uuid, ${auditUserId}::uuid, ${name || `API broadcast (${templateName})`},
@@ -392,6 +410,7 @@ export async function deliverBroadcast(
     const variants = phoneVariants(recipient.phone);
     let sentMessageId: string | null = null;
     let lastError: string | null = null;
+    let uncertain = false;
     let throttled = false;
     // A FLOW button gets this recipient's own form session. Its key is the
     // recipient's (not the variant's), so every variant, retry and resumed
@@ -434,13 +453,18 @@ export async function deliverBroadcast(
               } }
             : {}),
         });
-        const result = options ? await dispatchOnce(options.accountId, `broadcast:${plan.broadcastId}:${recipient.recipientRowId}:${variant}`, send, { retryRejected: options.retryRejected }) : await send();
-        sentMessageId = result.messageId;
-        lastError = null;
+        const result = options
+          ? await dispatchOnce(options.accountId, broadcastIntentKey(plan.broadcastId, recipient.recipientRowId, variant, recipient.retryGeneration), send, { retryRejected: options.retryRejected })
+          : await send();
+        // An intent staff reconciled as sent carries no provider result.
+        sentMessageId = result?.messageId ?? null;
+        lastError = sentMessageId ? null : 'Unknown error';
+        uncertain = false;
         break;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        lastError = error instanceof UncertainDispatchError ? 'Send outcome uncertain; reconcile with Meta before retrying' : message;
+        uncertain = error instanceof UncertainDispatchError;
+        lastError = uncertain ? UNCERTAIN_SEND_MESSAGE : message;
         // Meta refused for rate reasons: nothing was sent, so pause and retry the same recipient later.
         if (options && isThrottled(error)) {
           throttled = true;
@@ -454,6 +478,11 @@ export async function deliverBroadcast(
     // The recipient stays pending; the dispatcher schedules the next pass with backoff.
     if (throttled) return { throttled: true, sent };
 
+    // The intent replayed the message already on the row (Meta accepted it and a
+    // status webhook later failed it): nothing new was sent, so the row keeps
+    // Meta's failure instead of being overwritten as sent.
+    if (sentMessageId && recipient.previousMessageId && sentMessageId === recipient.previousMessageId) continue;
+
     if (sentMessageId) {
       sent++;
       const persisted = await db
@@ -463,6 +492,7 @@ export async function deliverBroadcast(
           sent_at: new Date().toISOString(),
           whatsapp_message_id: sentMessageId,
           error_message: null,
+          outcome_uncertain_at: null,
         })
         .eq('id', recipient.recipientRowId);
       if (persisted.error) throw new Error('Broadcast recipient persistence failed');
@@ -474,6 +504,8 @@ export async function deliverBroadcast(
         .update({
           status: 'failed',
           error_message: lastError || 'Unknown error',
+          // Uncertain rows leave "Retry failed" until staff reconcile them on the campaign page.
+          outcome_uncertain_at: uncertain ? new Date().toISOString() : null,
         })
         .eq('id', recipient.recipientRowId)
         .neq('status', 'sent');

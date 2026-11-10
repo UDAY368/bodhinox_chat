@@ -14,7 +14,7 @@ export const REPLY_EVENT_REASONS = {
   ],
   skipped: [
     'automation_active', 'number_disconnected', 'reply_cap', 'no_messages', 'rate_limited',
-    'plan_ai_limit', 'slot_lost', 'claim_failed', 'stale',
+    'plan_ai_limit', 'slot_lost', 'claim_failed', 'stale', 'rate_limited_retry', 'media_only',
   ],
   error: ['dispatch_failed'],
 } as const satisfies Record<ReplyEventOutcome, readonly string[]>

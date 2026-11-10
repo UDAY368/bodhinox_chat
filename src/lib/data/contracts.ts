@@ -555,6 +555,7 @@ export function validateWrite(
         'first_responded_at',
         'resolved_at',
         'reopened_count',
+        'reopened_at',
         // The AI agent's handoff stamp and note are written by auto-reply.ts and
         // /api/ai/autoreply; analytics counts AI resolutions and handoffs from them.
         'ai_handoff_at',

@@ -1,6 +1,6 @@
 // "Create another workspace" (Phase 14). A signed-in user with a verified email
 // (every live session has one) creates a workspace they own: the account, the
-// owner membership and, when NEW_WORKSPACE_PLAN is set, its initial plan, in one
+// owner membership and its initial plan (NEW_WORKSPACE_PLAN, or the lowest plan when unset), in one
 // identity-role transaction with the same SQL as signup's personal workspace.
 // The caller's session then switches to it (switchTenant). Capped per owner so a
 // script cannot mint workspaces without limit; the route also rate limits.
@@ -43,7 +43,7 @@ export async function createWorkspace(context: AuthContext, rawName: unknown): P
     await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${context.userId}::uuid,'owner')`;
     await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${context.userId}::uuid,${user.full_name},${user.email},${accountId}::uuid,'owner')
       ON CONFLICT(user_id) DO NOTHING`;
-    // NEW_WORKSPACE_PLAN (unset = no subscription row = enterprise, as for every workspace today).
+    // NEW_WORKSPACE_PLAN, or the lowest plan when unset (never the unrestricted default).
     await assignInitialPlan(tx, accountId);
     await tx.$executeRaw`INSERT INTO audit_logs(account_id,user_id,action,resource_id,metadata)
       VALUES(${accountId}::uuid,${context.userId}::uuid,'workspace.created',${accountId},${JSON.stringify({ from_account: context.accountId })}::jsonb)`;

@@ -11,7 +11,7 @@ import { conversionValue, isConversionEventName } from './conversion-node';
 import { queueConversionEvent } from '@/lib/meta-ads/capi';
 import { runApiRequest } from './api-request';
 import { engineSendTemplate } from '@/lib/automations/meta-send';
-import { nextRoundRobinAgent } from '@/lib/automations/round-robin';
+import { canOwnConversations, nextRoundRobinAgent } from '@/lib/automations/round-robin';
 import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
 import { isCurrencyCode, minorFromDb, parseMoney } from '@/lib/commerce/money';
@@ -906,6 +906,10 @@ async function executeAssignAgent(db: AdminClient, run: FlowRunRow, node: FlowNo
     const already = (prior as Array<{ payload: { agent_id?: string } }> | null)?.[0]?.payload.agent_id;
     const agentId = already ?? (cfg.mode === "round_robin" ? await nextRoundRobinAgent(run.account_id) : cfg.agent_id ?? null);
     if (!agentId || !run.conversation_id) throw new Error("no agent to assign");
+    // A pinned member removed or demoted to viewer since the flow was built is skipped.
+    if (cfg.mode !== "round_robin" && !(await canOwnConversations(run.account_id, agentId))) {
+      throw new Error("pinned member can no longer own conversations");
+    }
     // The (account_id, assigned_agent_id) membership key rejects anyone outside the workspace.
     const { error } = await db
       .from("conversations")
@@ -984,17 +988,31 @@ async function executeHandoff(
     ai_autoreply_disabled: true,
     updated_at: new Date().toISOString(),
   };
-  if (cfg.assign_to) convUpdate.assigned_agent_id = cfg.assign_to;
+  // A pinned member removed or demoted to viewer is not assigned: the handoff
+  // still pauses the bot and the conversation goes to normal routing (audit #51).
+  let assignee = cfg.assign_to && (await canOwnConversations(run.account_id, cfg.assign_to)) ? cfg.assign_to : null;
+  if (cfg.assign_to && !assignee) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "handoff_assignee_unavailable" });
+    console.warn("[flows] handoff assignee unavailable; left to routing", { runId: run.id });
+  }
   if (run.conversation_id) {
-    await db
+    const update = (row: Record<string, unknown>) => db
       .from("conversations")
-      .update(convUpdate)
+      .update(row)
       .eq("account_id", run.account_id)
-      .eq("id", run.conversation_id);
+      .eq("id", run.conversation_id!);
+    let { error } = await update(assignee ? { ...convUpdate, assigned_agent_id: assignee } : convUpdate);
+    // Removed between the check and the write (the membership key refuses it): hand off unassigned.
+    if (error && assignee) {
+      await logEvent(db, run.id, "error", node.node_key, { reason: "handoff_assignee_unavailable" });
+      assignee = null;
+      ({ error } = await update(convUpdate));
+    }
+    if (error) throw new Error("Handoff conversation update failed");
   }
   await logEvent(db, run.id, "handoff", node.node_key, {
     note: cfg.note ?? null,
-    assigned_to: cfg.assign_to ?? null,
+    assigned_to: assignee,
   });
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
@@ -1543,7 +1561,10 @@ async function startAppointmentStep(
   } catch (err) {
     return unavailable(`appointment_lookup_failed:${err instanceof Error ? err.name : "error"}`);
   }
-  if (!prompt) return unavailable("appointment_no_slots");
+  if (!prompt) {
+    const paidOnly = await appointmentRuntime.appointmentPaidOnly(run.account_id, node.config).catch(() => false);
+    return unavailable(paidOnly ? "appointment_paid_only" : "appointment_no_slots");
+  }
   try {
     await setRunVars(db, run, { [APPOINTMENT_STATE_VAR]: prompt.state });
     await sendAppointmentPrompt(db, run, node, prompt, run.reprompt_count);
@@ -2767,7 +2788,50 @@ async function claimReplyTransition(
   run.current_node_key = nextNodeKey;
   run.transition_seq = nextSeq;
   run.reprompt_count = 0;
+  committedRuns.add(run);
   return true;
+}
+
+/**
+ * Runs whose position this dispatch has committed (a reply transition or a new
+ * run). An error after that point must not let automations or the AI answer
+ * the same inbound, nor leave the run active on a step it never ran (audit
+ * finding 48): dispatchInboundToFlows ends it as failed instead.
+ */
+const committedRuns = new WeakSet<FlowRunRow>();
+
+class FlowAdvanceInterrupted extends Error {
+  constructor(readonly run: FlowRunRow) {
+    super("Flow advance interrupted after a committed transition");
+    this.name = "FlowAdvanceInterrupted";
+  }
+}
+
+async function guardCommitted<T>(run: FlowRunRow, work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (err) {
+    // A Connect Flow target interrupted inside this advance is the run left
+    // active; this run already ended (connect_flow), so keep the inner one.
+    if (err instanceof FlowAdvanceInterrupted) throw err;
+    if (committedRuns.has(run)) {
+      console.error("[flows] advance interrupted:", err instanceof Error ? err.message : err);
+      throw new FlowAdvanceInterrupted(run);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Ends an interrupted run as failed (advance_interrupted) and reports the
+ * inbound as consumed. If even that write fails, the error propagates: the
+ * inbound's flow stage is then left for reconciliation, and still nothing else
+ * answers the message.
+ */
+async function endInterruptedRun(db: AdminClient, run: FlowRunRow): Promise<DispatchInboundResult> {
+  await logEvent(db, run.id, "error", run.current_node_key, { reason: "advance_interrupted" });
+  await endRun(db, run.id, "failed", "advance_interrupted");
+  return { consumed: true, flow_run_id: run.id, outcome: "completed" };
 }
 
 /**
@@ -2847,7 +2911,14 @@ export async function replayRun(args: {
     await closeActiveRun(db, run, closure, now);
     return "replayed";
   }
-  const { data: contact } = await db.from("contacts").select("blocked_at").eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
+  const { data: contact, error: contactError } = await db.from("contacts").select("blocked_at,opted_out_at")
+    .eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
+  if (contactError) throw new Error("Flow replay contact lookup failed");
+  // STOP since the failure: the replay sends nothing, like a STOP during an active run.
+  if ((contact as { opted_out_at?: string | null } | null)?.opted_out_at) {
+    await endRun(db, run.id, "cancelled", "contact_opted_out");
+    return "replayed";
+  }
   if (!run.conversation_id || !contact || (contact as { blocked_at?: string | null }).blocked_at ||
       (await botRepliesPaused(run.account_id, run.conversation_id))) {
     await endRun(db, run.id, "cancelled", "bot_paused_during_wait");
@@ -2884,7 +2955,10 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
   const graph = await startGraph(db, flow);
   if (!graph || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return { outcome: 'unavailable' };
   if (!scopeIncludes(graph.flow.channel_scope, channel)) return { outcome: 'unavailable' };
-  const result = await startNewRun(db, graph.flow, input, graph.nodes);
+  const result = await startNewRun(db, graph.flow, input, graph.nodes).catch((err: unknown) => {
+    if (err instanceof FlowAdvanceInterrupted) return endInterruptedRun(db, err.run);
+    throw err;
+  });
   if (result.outcome === 'duplicate_inbound_ignored') return { outcome: 'conflict' };
   if (result.flow_run_id) {
     const run = await db.from('flow_runs').select('status').eq('account_id', input.accountId).eq('id', result.flow_run_id).maybeSingle();
@@ -2924,7 +2998,7 @@ export async function dispatchInboundToFlows(
         input.message.meta_message_id,
       );
       if (dupe) {
-        const resumed = await resumeInterruptedBooking(db, activeRun, input.message);
+        const resumed = await guardCommitted(activeRun, () => resumeInterruptedBooking(db, activeRun, input.message));
         if (resumed) return resumed;
         return {
           consumed: true,
@@ -2938,7 +3012,7 @@ export async function dispatchInboundToFlows(
       const now = new Date();
       const testContact = runFlow?.status === "draft" && isTestContact(runFlow, await contactDigits());
       const closure = closureForActiveRun({ run: activeRun, flow: runFlow, nodeKeys: nodes, now, testContact });
-      if (!closure) return handleReplyForActiveRun(db, activeRun, runFlow!, input.message, nodes);
+      if (!closure) return await guardCommitted(activeRun, () => handleReplyForActiveRun(db, activeRun, runFlow!, input.message, nodes));
       if (!(await closeActiveRun(db, activeRun, closure, now))) {
         return { consumed: true, flow_run_id: activeRun.id, outcome: "duplicate_inbound_ignored" };
       }
@@ -2957,8 +3031,9 @@ export async function dispatchInboundToFlows(
       return { consumed: false, outcome: "no_match" };
     }
     const nodes = entry.version ? versionNodeMap(entry.version) : await loadAllNodes(db, entry.flow.id);
-    return startNewRun(db, entry.flow, input, nodes, entry.vars);
+    return await startNewRun(db, entry.flow, input, nodes, entry.vars);
   } catch (err) {
+    if (err instanceof FlowAdvanceInterrupted) return endInterruptedRun(db, err.run);
     console.error(
       "[flows] dispatchInboundToFlows threw:",
       err instanceof Error ? err.message : err,
@@ -3431,6 +3506,17 @@ async function startNewRun(
     return { consumed: false, outcome: "no_match" };
   }
   const run = inserted as FlowRunRow;
+  committedRuns.add(run);
+  return guardCommitted(run, () => continueNewRun(db, run, flow, input, nodes));
+}
+
+async function continueNewRun(
+  db: AdminClient,
+  run: FlowRunRow,
+  flow: EffectiveFlow,
+  input: DispatchInboundInput,
+  nodes: Map<string, FlowNodeRow>,
+): Promise<DispatchInboundResult> {
   await logEvent(db, run.id, "started", flow.entry_node_id, {
     flow_id: flow.id,
     ...(flow.version ? { version: flow.version } : {}),

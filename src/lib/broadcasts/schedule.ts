@@ -44,6 +44,31 @@ export async function unlockBroadcastDelivery(accountId: string, broadcastId: st
 }
 
 /**
+ * Start one "Retry failed" request (its retryId), under the delivery lock and
+ * before the pass is planned. Rows Meta accepted and a status webhook later
+ * failed (status 'failed' with a message id) get the next retry generation and
+ * lose the old message id, so the pass sends them again under a new intent key
+ * instead of replaying the old accepted one. The retryId is recorded on the
+ * campaign in the same transaction, so a requeued or retried pass of the same
+ * request never bumps (and so never resends) twice. Uncertain rows are left to
+ * staff reconciliation. Returns the number of rows set up for a new send.
+ */
+export async function prepareFailedRetry(accountId: string, broadcastId: string, retryId: string): Promise<number> {
+  return withTenant({ accountId, role: 'owner' }, async (tx) => {
+    const claimed = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE broadcasts SET retry_request_id=${retryId}::uuid
+      WHERE account_id=${accountId}::uuid AND id=${broadcastId}::uuid
+        AND retry_request_id IS DISTINCT FROM ${retryId}::uuid
+      RETURNING id`;
+    if (!claimed.length) return 0;
+    return tx.$executeRaw`
+      UPDATE broadcast_recipients SET retry_generation=retry_generation+1, whatsapp_message_id=NULL
+      WHERE account_id=${accountId}::uuid AND broadcast_id=${broadcastId}::uuid
+        AND status='failed' AND whatsapp_message_id IS NOT NULL AND outcome_uncertain_at IS NULL`;
+  }, getWorkerPrisma());
+}
+
+/**
  * Move a campaign into `sending` for a dispatch pass. False when it was
  * cancelled, or is scheduled for later; the caller then sends nothing.
  */

@@ -10,7 +10,7 @@ vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () 
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: async () => ({ handled: false }) }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: async () => false, runAutomationsForTrigger: async () => false }));
 vi.mock('@/lib/flows/engine', () => ({ dispatchInboundToFlows: async () => ({ consumed: false }) }));
-vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai }));
+vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai, recordUnreadableInbound: vi.fn(async () => {}) }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: h.webhook }));
 vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: async () => ({ botOwned: false, botReplied: true }) }));
 vi.mock('@/lib/inbox/away-message', () => ({ sendAwayMessage: async () => 'skipped' }));

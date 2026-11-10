@@ -77,7 +77,7 @@ describe.skipIf(!ownerUrl || !workerUrl)('[OPS-01] worker recovery and provider 
     const controller = new AbortController();
     const handled: string[] = [];
     const result = await runWorkerLoop({
-      signal: controller.signal, idleMs: 20, drainMs: 5_000, scheduleWork: null, heartbeat: false,
+      signal: controller.signal, idleMs: 20, drainMs: 5_000, scheduleWork: null, heartbeat: false, concurrency: 1,
       handleJob: async (job) => {
         handled.push(job.id);
         // SIGTERM arrives while the job is running.
@@ -99,7 +99,7 @@ describe.skipIf(!ownerUrl || !workerUrl)('[OPS-01] worker recovery and provider 
     const stuck = new Promise<void>((resolve) => { release = resolve; });
     let claimed: Job | undefined;
     const result = await runWorkerLoop({
-      signal: controller.signal, idleMs: 20, drainMs: 200, scheduleWork: null, heartbeat: false,
+      signal: controller.signal, idleMs: 20, drainMs: 200, scheduleWork: null, heartbeat: false, concurrency: 1,
       handleJob: async (job) => { claimed = job; controller.abort(); await stuck; },
     });
     expect(result.drained).toBe(false);

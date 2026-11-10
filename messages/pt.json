@@ -135,14 +135,14 @@
       "vsYesterday": "vs. ontem",
       "openDeals": "{count} {count, plural, =1 {negócio aberto} other {negócios abertos}}",
       "noChange": "Sem alteração {suffix}",
-      "workspaceLabel": "01 / Workspace overview",
+      "workspaceLabel": "01 / Visão geral do espaço de trabalho",
       "heroTitle": "Menos tarefas repetitivas.",
       "heroAccent": "Melhores conversas.",
-      "heroDescription": "Your conversations, relationships and opportunities, in one place.",
+      "heroDescription": "Suas conversas, relacionamentos e oportunidades, em um só lugar.",
       "openInbox": "Abrir caixa de entrada",
-      "aiLabel": "BODHINOX / INTELLIGENCE",
+      "aiLabel": "BODHINOX / INTELIGÊNCIA",
       "aiTitle": "Conheça KHAGA.",
-      "aiDescription": "A little more clarity for every conversation. Explore your AI workspace.",
+      "aiDescription": "Um pouco mais de clareza em cada conversa. Explore seu espaço de IA.",
       "openAi": "Explorar KHAGA"
     },
     "quickActions": {
@@ -338,11 +338,11 @@
       "noConversations": "Nenhuma conversa encontrada",
       "noMessagesYet": "Nenhuma mensagem ainda",
       "unknown": "Desconhecido",
-      "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered.",
-      "filterWaiting": "Waiting for reply",
-      "filterUnassigned": "Unassigned",
-      "filterExpiringSoon": "Expiring soon",
+      "studioEyebrow": "01 / Estúdio de conversas",
+      "studioTitle": "Cada conversa, com atenção.",
+      "filterWaiting": "Aguardando resposta",
+      "filterUnassigned": "Não atribuídas",
+      "filterExpiringSoon": "Expiram em breve",
       "chats": "Conversas",
       "lifecycle": "Ciclo de vida",
       "slaDueIn": "Responder em {value}{unit, select, m {min} h {h} other {d}}",
@@ -382,9 +382,9 @@
       "networkError": "erro de rede",
       "documentFallback": "Documento",
       "you": "Você",
-      "loadOlder": "Load older messages",
-      "loadingOlder": "Loading older messages…",
-      "historyLoadFailed": "Unable to load older messages",
+      "loadOlder": "Carregar mensagens anteriores",
+      "loadingOlder": "Carregando mensagens anteriores…",
+      "historyLoadFailed": "Não foi possível carregar as mensagens anteriores",
       "notes": "Notas",
       "showNotes": "Mostrar notas internas",
       "hideNotes": "Ocultar notas internas",
@@ -704,6 +704,12 @@
       "clearAll": "Limpar tudo",
       "noTagsYet": "Nenhuma tag ainda.",
       "selectedCount": "{count} selecionados",
+      "selectAllMatching": "Selecionar todos os {count} contatos correspondentes",
+      "allMatchingSelected": "Todos os {count} contatos correspondentes estão selecionados",
+      "addTag": "Adicionar etiqueta",
+      "tagAdded": "Etiqueta adicionada a {count} contatos",
+      "tagFailed": "Não foi possível adicionar a etiqueta",
+      "bulkCountChanged": "Os contatos correspondentes mudaram. Recarregue a página e tente novamente.",
       "clearSelection": "Limpar",
       "deleteSelected": "Excluir selecionados",
       "tableColumns": {
@@ -727,6 +733,10 @@
       "deleteContactDesc": "Tem certeza de que deseja excluir {name}? Esta ação não pode ser desfeita.",
       "cancel": "Cancelar",
       "deleteBtn": "Excluir",
+      "eraseHint": "Administradores podem apagar tudo o que está guardado sobre esta pessoa: mensagens, arquivos que ela enviou, dados de campanhas, respostas de formulários e cópias de webhooks. Pedidos e pagamentos são mantidos como registros financeiros.",
+      "eraseBtn": "Apagar todos os dados",
+      "toastEraseQueued": "Exclusão iniciada. O contato desaparece quando ela terminar.",
+      "toastEraseFailed": "Falha ao iniciar a exclusão",
       "deleteBulkTitle": "Excluir contatos",
       "deleteBulkDesc": "Tem certeza de que deseja excluir os {count} contatos selecionados? Esta ação não pode ser desfeita.",
       "toastFailedLoad": "Falha ao carregar os contatos",
@@ -772,7 +782,10 @@
         "removed": "{count} removidos da lista",
         "changeFailed": "Não foi possível atualizar a lista",
         "exportList": "Exportar lista"
-      }
+      },
+      "rowActions": "Ações para {name}",
+      "previousPage": "Página anterior",
+      "nextPage": "Próxima página"
     },
     "form": {
       "addTitle": "Adicionar contato",
@@ -882,13 +895,21 @@
         "blockedHint": "Sem mensagens automáticas, fluxos ou respostas de IA."
       },
       "phoneMasked": "Os números de telefone estão ocultos para a sua conta, então você não pode adicionar nem alterar um número. Peça a um administrador.",
-      "phoneMaskedHint": "O número está oculto para a sua conta e não pode ser editado aqui."
+      "phoneMaskedHint": "O número está oculto para a sua conta e não pode ser editado aqui.",
+      "deleteNote": "Excluir nota"
     },
     "importModal": {
       "title": "Importar contatos",
       "desc": "Envie um CSV com uma coluna <phoneCode>phone</phoneCode> obrigatória. Opcionais: <nameCode>name</nameCode>, <emailCode>email</emailCode>, <companyCode>company</companyCode>, <tagsCode>tags</tagsCode> (separadas por vírgula; coloque células com várias tags entre aspas).",
       "uploadDropzone": "Clique para escolher um arquivo CSV",
       "uploadHint": ".csv até o limite do seu navegador",
+      "countryCodeLabel": "Código do país para números sem +",
+      "countryCodeHint": "Por exemplo 55 para o Brasil ou 351 para Portugal. Deixe vazio para exigir + em cada número.",
+      "updateExisting": "Atualizar os contatos que já existem (nome, e-mail, empresa, etiquetas e o descadastro ou bloqueio do arquivo)",
+      "importProgress": "Importando {done} de {total}…",
+      "resultUpdated": "{count} atualizados",
+      "invalidPhoneReason": "Não é um número de telefone válido",
+      "toastNoPhoneColumn": "Nenhuma coluna de telefone encontrada. Dê a uma coluna o nome phone, mobile, phone number ou WhatsApp.",
       "rowsReady": "{count} linha pronta",
       "rowsReady_plural": "{count} linhas prontas",
       "preview": "Pré-visualização · primeiras {count}",
@@ -905,8 +926,9 @@
       "resultInvalidPhone_plural": "{count} telefones inválidos",
       "resultFailed": "{count} com falha",
       "failedRowsHeading": "Linhas com falha",
+      "downloadRejected": "Baixar linhas rejeitadas",
       "unknownReason": "Erro desconhecido",
-      "invalidPhoneHint": "Os números de telefone devem começar com + e o código do país (ex.: +5511999990000). Números sem código seriam entregues no país errado.",
+      "invalidPhoneHint": "Os números precisam de + e do código do país (ex.: +5511999990000), ou informe acima o código do país para números escritos sem ele.",
       "willBeCreated": "{name} (será criada na importação)",
       "columns": {
         "phone": "Telefone",
@@ -1076,6 +1098,7 @@
       "creating": "Criando...",
       "createPipelineBtn": "Criar pipeline",
       "toastFailedLoadPipelines": "Falha ao carregar os pipelines",
+      "toastFailedLoadDeals": "Falha ao carregar os negócios",
       "toastFailedMoveDeal": "Falha ao mover o negócio",
       "toastFailedCreatePipeline": "Falha ao criar o pipeline",
       "toastPipelineCreated": "Pipeline criado",
@@ -1163,7 +1186,8 @@
       "toastFailedDeleteStage": "Falha ao excluir a etapa",
       "toastFailedDeletePipeline": "Falha ao excluir o pipeline",
       "toastDeleted": "Pipeline excluído",
-      "pickColor": "Escolher a cor {color}"
+      "pickColor": "Escolher a cor {color}",
+      "removeStage": "Remover etapa"
     },
     "analytics": {
       "totalDeals": "Total de negócios",
@@ -1271,6 +1295,18 @@
       "toastResumeStarted": "Enviando para {count} destinatários em segundo plano.",
       "toastResumeStartedCapped": "Enviando para {count} destinatários em segundo plano. Outros {remaining} precisarão de mais uma execução.",
       "toastResumeFailed": "Não foi possível retomar: {error}",
+      "toastResumeNothing": "Nada para enviar no momento.",
+      "uncertainTitle": "{count, plural, one {# envio precisa de verificação} other {# envios precisam de verificação}}",
+      "uncertainHint": "A Meta não confirmou se essas mensagens foram enviadas (tempo esgotado ou erro da Meta), por isso Tentar novamente as falhas as ignora. Verifique no WhatsApp Manager ou com o cliente e depois marque cada uma.",
+      "uncertainShowing": "Mostrando os {shown} mais antigos de {total}.",
+      "uncertainSelectAll": "Selecionar todos",
+      "uncertainSelect": "Selecionar {name}",
+      "uncertainMarkSent": "Marcar como enviado ({count})",
+      "uncertainMarkNotSent": "Marcar como não enviado ({count})",
+      "uncertainNotSentWarning": "Tentar novamente as falhas enviará estes {count} de novo. Quem já recebeu a mensagem a receberá duas vezes.",
+      "uncertainAdminOnly": "Um administrador pode marcá-los como enviados ou não enviados.",
+      "toastReconciled": "{count} destinatários atualizados",
+      "toastReconcileFailed": "Não foi possível atualizar os destinatários: {error}",
       "unknownError": "Erro desconhecido",
       "unknownContact": "Desconhecido",
       "scheduledFor": "Agendada para {when}",
@@ -1763,7 +1799,7 @@
         "waitForReplyHint": "Pausa aqui até o cliente tocar em um botão ou responder (até 24h). As etapas seguintes, incluindo Se/Senão no conteúdo da mensagem, usam essa resposta.",
         "closeConversationHint": "Define o status da conversa como \"fechada\". Nenhuma configuração necessária.",
         "conditionTimezoneLabel": "Timezone",
-        "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
+        "conditionTimezoneHint": "Fuso horário da empresa usado para avaliar esta janela de horário.",
         "notifyAudienceLabel": "Avisar",
         "notifyAssignee": "O responsável pela conversa",
         "notifyAdmins": "Proprietários e administradores",
@@ -1802,12 +1838,12 @@
   },
   "Flows": {
     "menuFallback": {
-      "label": "When a customer types instead of choosing a menu option",
-      "reprompt": "Repeat the menu",
-      "handoff": "Hand over to a human",
-      "ignore": "Allow other automations",
-      "ai": "Let AI answer business questions",
-      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first.",
+      "label": "Quando um cliente digita em vez de escolher uma opção do menu",
+      "reprompt": "Repetir o menu",
+      "handoff": "Transferir para um atendente",
+      "ignore": "Permitir outras automações",
+      "ai": "Deixar a IA responder perguntas sobre o negócio",
+      "help": "A IA mantém o menu aberto. Perguntas que ela não consegue responder vão para um atendente. Ative primeiro a resposta automática com IA nas configurações de IA.",
       "messageLabel": "Mensagem alternativa padrão (opcional)",
       "messageHelp": "Enviada sempre que uma resposta foge do roteiro, antes da ação acima. Adicione uma imagem ou vídeo para enviá-la com o texto como legenda.",
       "imageAttached": "Imagem anexada",
@@ -2189,7 +2225,8 @@
         "storefrontTtlHelp": "Entre {min} e {max} horas. Deixe vazio para 24.",
         "storefrontNext": "Próxima etapa após o envio",
         "storefrontFailedNext": "Se o link não puder ser enviado",
-        "flowStatusPaused": "pausado"
+        "flowStatusPaused": "pausado",
+        "removeButton": "Remover botão"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -2433,6 +2470,7 @@
         "cancelRow": "Cancelar",
         "noServices": "Ainda não há serviços. Adicione-os nas configurações de Agendamentos; até lá, a etapa não oferece nada e segue o caminho Indisponível.",
         "servicesAllHelp": "Escolha até {max}. Sem nenhum escolhido, todos os serviços agendáveis são oferecidos. O cliente escolhe quando há mais de um.",
+        "paidServiceNote": "Pago: agende na página de agendamento",
         "serviceMode": "Tipo de serviço",
         "modeBoth": "Online e presencial",
         "modeOnline": "Somente online",
@@ -2678,7 +2716,8 @@
         "not_replayable_reason": "Este tipo de falha não pode ser repetido com segurança.",
         "needs_reconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa; ela não será reenviada.",
         "already_sent": "A mensagem desta etapa já foi enviada.",
-        "conversation_busy": "Outro fluxo está em execução nesta conversa."
+        "conversation_busy": "Outro fluxo está em execução nesta conversa.",
+        "contact_opted_out": "O contato respondeu STOP depois que esta execução falhou, então ela não será repetida."
       }
     }
   },
@@ -3061,7 +3100,7 @@
       "notLive": "inativo",
       "apiCredentialsTitle": "Credenciais da API",
       "apiCredentialsDesc": "Informe suas credenciais da API do WhatsApp Business da Meta.",
-      "phoneNumberId": "Phone Number ID",
+      "phoneNumberId": "ID do número de telefone",
       "wabaId": "ID da conta do WhatsApp Business",
       "accessToken": "Token de acesso permanente",
       "accessTokenPlaceholder": "Informe seu token de acesso",
@@ -3135,7 +3174,7 @@
       "lastSaveFailed": "O último salvamento falhou",
       "metaErrorStep": "Etapa",
       "metaErrorCode": "Código de erro da Meta",
-      "metaErrorTrace": "Trace ID",
+      "metaErrorTrace": "ID de rastreamento",
       "metaErrorMessage": "Resposta da Meta",
       "metaErrorDetailsHint": "Cite estes detalhes ao contatar o suporte da Meta.",
       "phoneNumberIdNotNumeric": "O Phone Number ID deve conter apenas dígitos. Copie o id numérico em Meta → WhatsApp → Configuração da API, não o número de telefone em si.",
@@ -3147,7 +3186,8 @@
       "businessProfileEdit": "Editar perfil comercial",
       "businessProfileView": "Ver perfil comercial",
       "numberDisconnectedTitle": "Este número está desconectado",
-      "numberDisconnectedHint": "Nada é enviado deste número. Para usá-lo novamente, insira um novo token de acesso abaixo e salve (o ID do número de telefone continua o mesmo) ou reconecte-o com o cadastro incorporado. Suas conversas, campanhas e fluxos são mantidos."
+      "numberDisconnectedHint": "Nada é enviado deste número. Para usá-lo novamente, insira um novo token de acesso abaixo e salve (o ID do número de telefone continua o mesmo) ou reconecte-o com o cadastro incorporado. Suas conversas, campanhas e fluxos são mantidos.",
+      "copyWebhookUrl": "Copiar URL do webhook"
     },
     "sections": {
       "overview": "Visão geral",
@@ -3455,7 +3495,8 @@
       "kindInteractive": "Interativa",
       "textPlaceholder": "O texto da mensagem a inserir",
       "cancel": "Cancelar",
-      "save": "Salvar"
+      "save": "Salvar",
+      "delete": "Excluir resposta rápida"
     },
     "rail": {
       "sections": {
@@ -3474,6 +3515,14 @@
       "lastDelivery": "Última entrega {date}",
       "noDelivery": "Nenhuma entrega ainda",
       "failures": "{count} falhas seguidas",
+      "disabledNotice": "Desativado em {date}: as entregas falharam por {hours} horas. Corrija o servidor de destino e ative-o novamente.",
+      "viewLog": "Registro de entregas",
+      "logDesc": "As tentativas de entrega mais recentes para esta URL (até 100, dos últimos 30 dias).",
+      "logEmpty": "Ainda não há tentativas de entrega.",
+      "logLoadFailed": "Não foi possível carregar o registro de entregas.",
+      "logDelivered": "Entregue",
+      "logFailed": "Falhou",
+      "logAttempt": "tentativa {attempt}",
       "pause": "Pausar webhook",
       "resume": "Retomar webhook",
       "delete": "Excluir webhook",
@@ -3494,7 +3543,11 @@
       "copy": "Copiar",
       "copySuccess": "Segredo copiado",
       "copyFailed": "Não foi possível copiar",
-      "done": "Concluído"
+      "done": "Concluído",
+      "notifications": {
+        "disabledTitle": "O webhook para {host} foi desativado",
+        "disabledBody": "As entregas para {host} falharam por {hours} horas, então o Bodhinox parou de enviar eventos para lá. Corrija o destino e ative o webhook novamente em Configurações."
+      }
     },
     "workspaceAttributes": {
       "title": "Atributos do espaço de trabalho",
@@ -3563,7 +3616,7 @@
           "hard": "Quando um limite é atingido, novas adições param. Tudo o que você já tem continua funcionando.",
           "inbound": "Clientes que enviam mensagens são sempre adicionados como contatos, mesmo acima do limite de contatos. Só contam os contatos que você adiciona, importa ou cria pela API.",
           "monthly": "Os limites mensais são reiniciados no dia 1 de cada mês (horário da Índia). Pacotes adicionais de IA aumentam o limite de respostas de IA.",
-          "warnings": "Proprietários e administradores são avisados quando um limite chega a 80% e 100%. Mensagens enviadas e contatos ativos são informativos e nunca bloqueiam.",
+          "warnings": "Proprietários e administradores são avisados quando um limite chega a 80% e 100%. Os limites mensais de mensagens e de contatos ativos interrompem novas campanhas e envios agendados; as respostas aos clientes nunca são bloqueadas.",
           "expiry": "Se o seu plano expirar ou for cancelado, listas, segmentos, fluxos e automações extras são arquivados, nunca excluídos."
         }
       },
@@ -3573,6 +3626,7 @@
         "hard_inbound_exempt": "Inclusões manuais e importadas param no limite; clientes que escrevem são sempre adicionados",
         "hard_addon": "Para no limite; pacotes adicionais o aumentam",
         "hard_per_campaign": "Verificado em cada campanha",
+        "hard_campaign": "Interrompe novas campanhas no limite; as respostas aos clientes nunca são bloqueadas",
         "soft": "Apenas informativo; nunca bloqueia"
       }
     },
@@ -3613,6 +3667,7 @@
       "cancelled": "O cadastro com o Facebook foi cancelado.",
       "sdkFailed": "Não foi possível carregar o login do Facebook. Verifique se pop-ups e facebook.com não estão bloqueados.",
       "noNumberPicked": "O Facebook não retornou nenhum número. Conclua todas as etapas na janela do Facebook e tente novamente.",
+      "bizAppUnsupported": "Este número está em uso no app WhatsApp Business. Ainda não é possível conectar um número do app WhatsApp Business; use um número que não esteja no app.",
       "pinTitle": "Guarde seu PIN de duas etapas",
       "pinDescription": "Definimos este PIN de verificação em duas etapas de 6 dígitos no número. Ele aparece só uma vez; guarde-o em um lugar seguro. Você vai precisar dele para migrar o número depois.",
       "pinDone": "Já guardei",
@@ -4517,6 +4572,21 @@
     "successDesc": "Você está conectado com a nova senha.",
     "continueToDashboard": "Ir para o painel"
   },
+  "VerifyEmailPage": {
+    "title": "Confirme seu e-mail",
+    "desc": "Digite a senha que você escolheu ao se cadastrar para concluir a verificação deste e-mail.",
+    "passwordLabel": "Senha",
+    "submit": "Verificar e-mail",
+    "saving": "Verificando...",
+    "checking": "Verificando seu link...",
+    "expiredTitle": "Este link não é mais válido",
+    "expiredDesc": "Os links de verificação funcionam uma vez e expiram depois de um tempo. Cadastre-se novamente com o mesmo e-mail para receber um novo link.",
+    "backToSignIn": "Voltar para o login",
+    "mismatch": "Essa não é a senha que você escolheu no cadastro.",
+    "rateLimited": "Muitas tentativas. Tente novamente mais tarde.",
+    "failed": "Não foi possível verificar seu e-mail. Tente novamente.",
+    "forgotHint": "Esqueceu? Cadastre-se novamente com este e-mail e use a nova senha com o link que receber."
+  },
   "JoinPage": {
     "fail": {
       "notFoundTitle": "Convite não encontrado",
@@ -4550,6 +4620,28 @@
     "createAndJoin": "Criar conta e entrar na equipe",
     "haveAccount": "Já tenho uma conta"
   },
+  "AuthEmails": {
+    "verifySubject": "Verifique seu e-mail do Bodhinox",
+    "verifyBody": "Verifique seu e-mail: {link}\nEste link expira em 24 horas. Se você não solicitou, ignore esta mensagem.",
+    "resetSubject": "Redefina sua senha do Bodhinox",
+    "resetBody": "Redefina sua senha: {link}\nEste link expira em uma hora. Se você não solicitou, ignore esta mensagem.",
+    "existingSubject": "Você já tem uma conta no Bodhinox",
+    "existingBody": "Alguém tentou criar uma conta no Bodhinox com este e-mail, mas já existe uma.\nEntrar: {signIn}{join}\nEsqueceu sua senha? Use \"Esqueci minha senha\" na página de login. Se não foi você, ignore esta mensagem.",
+    "existingJoin": "Para entrar no espaço de trabalho para o qual você foi convidado, faça login e abra: {link}",
+    "changeConfirmSubject": "Confirme seu novo e-mail do Bodhinox",
+    "changeConfirmBody": "Confirme seu novo endereço de e-mail: {link}\nEste link expira em uma hora. Seu e-mail atual continua ativo até você confirmar.",
+    "changeNoticeSubject": "Alteração de e-mail solicitada no Bodhinox",
+    "changeNoticeBody": "Foi solicitada a alteração do seu endereço de e-mail do Bodhinox para {newEmail}. Se você não solicitou, redefina sua senha imediatamente; isso cancela as alterações de e-mail pendentes.",
+    "deliveryTestSubject": "Teste de entrega do e-mail de verificação do Bodhinox Chat",
+    "deliveryTestBody": "Teste de entrega dos e-mails de verificação de conta. Nenhuma ação é necessária. Sua senha e suas participações em equipes não foram alteradas.",
+    "digest": {
+      "subject": "{count, plural, one {# nova notificação no Bodhinox} other {# novas notificações no Bodhinox}}",
+      "intro": "{count, plural, one {Você tem uma nova notificação:} other {Você tem # novas notificações:}}",
+      "more": "{count, plural, one {...e # notificação anterior.} other {...e # notificações anteriores.}}",
+      "seeAll": "Ver todas: {link}",
+      "footer": "Você recebe este e-mail porque os resumos por e-mail estão ativados nas suas preferências de notificação."
+    }
+  },
   "Notifications": {
     "title": "Notificações",
     "description": "As conversas que outros colegas atribuem a você aparecem aqui.",
@@ -4578,7 +4670,8 @@
       "low_stock": "Estoque baixo",
       "payment_exception": "Pagamento para revisar",
       "instagram_account_health": "Conta do Instagram",
-      "automation_notice": "Aviso de automação"
+      "automation_notice": "Aviso de automação",
+      "webhook_disabled": "Webhook desativado"
     }
   },
   "Agents": {
@@ -4619,10 +4712,9 @@
       "tokensPerDay": "Tokens por dia",
       "byModel": "Por modelo",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# chamada} other {# chamadas}}",
-      "partialWindow": "Exibindo uma janela parcial — o uso é alto o suficiente para que apenas os registros mais recentes sejam resumidos aqui.",
       "assistant": "Assistente"
     },
-    "studioEyebrow": "07 / Your intelligent workspace",
+    "studioEyebrow": "07 / Seu espaço de trabalho inteligente",
     "studioTitle": "Conheça KHAGA.",
     "studioDescription": "Respostas cuidadosas. Seu conhecimento. Um toque humano.",
     "tabKnowledge": "Conhecimento",
@@ -4673,6 +4765,8 @@
         "reply_cap": "Limite de respostas da conversa atingido",
         "no_messages": "Nada para responder",
         "rate_limited": "Respostas de IA demais ao mesmo tempo",
+        "rate_limited_retry": "Respostas de IA demais ao mesmo tempo; tentará de novo em um minuto",
+        "media_only": "Foto, mensagem de voz ou localização que a IA não consegue ler",
         "plan_ai_limit": "Mensagens de IA do plano esgotadas",
         "slot_lost": "Outra resposta ocupou a última vaga",
         "claim_failed": "Não foi possível reservar uma vaga de resposta",
@@ -4758,13 +4852,17 @@
     "urlButtonConstraint": "O WhatsApp permite exatamente um botão de link. Remova os outros botões; links não podem ser combinados com respostas ou fluxos.",
     "openLink": "Abrir link",
     "removeButton": "Remover botão",
-    "defaultListButton": "Menu"
+    "defaultListButton": "Menu",
+    "removeSection": "Remover seção",
+    "removeRow": "Remover linha"
   },
   "DashboardShell": {
     "loading": "Carregando..."
   },
   "UiPrimitives": {
-    "close": "Fechar"
+    "close": "Fechar",
+    "scrollLeft": "Rolar para a esquerda",
+    "scrollRight": "Rolar para a direita"
   },
   "GatedButton": {
     "readOnly": "Somente leitura — sua função não pode {action}",
@@ -5405,15 +5503,28 @@
       "noContactForConversation": "não foi possível identificar a conversa: sem contato",
       "noConversation": "não é possível enviar: o contato não tem uma conversa existente",
       "tagAddedNoConversation": "a automação tag_added não pode enviar: o contato não tem uma conversa existente",
-      "pausedWhileWaiting": "Automation paused while waiting",
-      "parkedStepRemoved": "The step where this run was waiting was removed",
-      "scheduleWaitFailed": "Could not schedule the wait: {message}",
+      "pausedWhileWaiting": "Automação pausada durante a espera",
+      "parkedStepRemoved": "A etapa em que esta execução estava aguardando foi removida",
+      "contactBlockedWhileWaiting": "O contato foi bloqueado enquanto esta execução aguardava, então nada mais foi enviado",
+      "contactOptedOutWhileWaiting": "O contato cancelou a inscrição (STOP) enquanto esta execução aguardava, então nada mais foi enviado",
+      "assignFailed": "assign_conversation: não foi possível atribuir a conversa",
+      "scheduleWaitFailed": "Não foi possível agendar a espera: {message}",
       "webhookInvalidBody": "send_webhook: o corpo preenchido não é um JSON válido",
       "webhookInvalidHeader": "send_webhook: um cabeçalho não é permitido ou tem uma quebra de linha",
       "webhookUncertain": "send_webhook: o destino não respondeu, então ele pode ou não ter recebido a solicitação; ela não será enviada de novo",
       "webhookRefused": "send_webhook: não foi possível enviar a solicitação para este destino",
       "notifyInvalid": "notify_team precisa de destinatários e de texto"
     }
+  },
+  "ErrorPages": {
+    "errorTitle": "Algo deu errado",
+    "errorDesc": "Esta página encontrou um erro inesperado. Tente novamente; se continuar acontecendo, recarregue a página.",
+    "tryAgain": "Tentar novamente",
+    "reload": "Recarregar página",
+    "goHome": "Ir para o painel",
+    "reference": "Referência: {digest}",
+    "notFoundTitle": "Página não encontrada",
+    "notFoundDesc": "O link pode estar digitado errado ou desatualizado."
   },
   "Validation": {
     "flows": {
@@ -5474,7 +5585,7 @@
       "setTagNeedsNext": "O nó Marcar contato precisa apontar para um próximo nó.",
       "setTagMissingNext": "O nó Marcar contato aponta para um nó inexistente: \"{key}\".",
       "unknownNodeType": "Tipo de nó desconhecido: \"{type}\".",
-      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply.",
+      "autoAdvanceCycle": "Ciclo automático detectado: {keys}. Adicione uma etapa que aguarde uma resposta.",
       "questionNeedsPrompt": "Digite a pergunta para o cliente.",
       "questionNeedsVarKey": "Digite um nome de variável para guardar a resposta.",
       "nodeNeedsNext": "Este nó deve apontar para um próximo nó.",
@@ -5567,6 +5678,7 @@
       "appointmentLocation": "Escolha um local da lista.",
       "appointmentStaffMode": "Escolha como o profissional é definido.",
       "appointmentDays": "Os dias oferecidos devem ser um número inteiro de {min} a {max}.",
+      "appointmentPaidService": "{count, plural, one {Um serviço escolhido exige} other {# serviços escolhidos exigem}} pagamento, que um fluxo ainda não pode cobrar. {count, plural, one {Desmarque-o} other {Desmarque-os}}; os clientes agendam serviços pagos na sua página de agendamento.",
       "paymentInvalidLinkOrder": "“Cobrar o pedido” deve estar ativado ou desativado.",
       "storefrontNeedsMessage": "Escreva a mensagem enviada com o link.",
       "storefrontMessageTooLong": "A mensagem pode ter no máximo {max} caracteres.",
@@ -5601,9 +5713,9 @@
       "scheduleRequired": "o agendamento é obrigatório",
       "replyIdRequired": "é necessário pelo menos um ID de resposta",
       "replyIdsEmpty": "os IDs de resposta não podem ser vazios",
-      "conditionValueRequired": "Enter a non-empty comparison value.",
-      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "conditionValueRequired": "Informe um valor de comparação não vazio.",
+      "conditionTimeRangeInvalid": "Informe um intervalo de horário válido no formato HH:mm-HH:mm.",
+      "conditionTimezoneInvalid": "Escolha um fuso horário válido.",
       "templateCarousel": "As automações não podem enviar modelos de carrossel: a etapa só preenche valores do corpo, não dos cartões. Use um fluxo ou uma campanha.",
       "templateLimitedTimeOffer": "As automações não podem enviar modelos de oferta por tempo limitado: a etapa só preenche valores do corpo, não os dados da oferta. Use um fluxo ou uma campanha.",
       "templateLocationHeader": "As automações não podem enviar modelos com cabeçalho de localização: a etapa só preenche valores do corpo, não uma localização. Use um fluxo ou uma campanha.",
@@ -5948,7 +6060,8 @@
         "not_cancellable": "Só é possível interromper um complemento ativo.",
         "notConfigured": "O faturamento ainda não está configurado, então não é possível comprar complementos.",
         "rejected": "O provedor de pagamento recusou esta compra. Nada foi cobrado.",
-        "limit_unlimited": "Este pacote aumenta um limite que seu plano não tem, então não há nada para comprar."
+        "limit_unlimited": "Este pacote aumenta um limite que seu plano não tem, então não há nada para comprar.",
+        "purchase_pending": "Uma compra deste complemento ainda está sendo confirmada com o provedor de pagamento. Aguarde a conclusão antes de comprar novamente."
       },
       "downgrade": {
         "invalid_selection": "Escolha apenas itens que estão em uso agora.",
@@ -6017,7 +6130,8 @@
       "invalid": "Verifique o tamanho e o peso do pacote.",
       "throttled": "O Shiprocket está ocupado. Tente novamente em um minuto.",
       "feature_unavailable": "Envios por transportadora não estão incluídos no seu plano.",
-      "not_implemented": "Esta ação ainda não está disponível."
+      "not_implemented": "Esta ação ainda não está disponível.",
+      "order_refunded": "Este pedido foi reembolsado integralmente, então não pode ser enviado."
     }
   },
   "Api": {
@@ -6145,7 +6259,7 @@
       "unknownTemplate": "Modelo de fluxo desconhecido \"{slug}\"",
       "insertFailed": "falha ao criar o fluxo",
       "nameRequired": "O nome é obrigatório",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "cannotSaveActive": "Não é possível salvar um fluxo ativo inválido. Pause-o primeiro ou corrija os erros.",
       "secretNeedsAdmin": "Só um administrador pode adicionar ou alterar uma etapa de requisição de API que use um valor secreto do espaço de trabalho.",
       "testNumbersInvalid": "Informe até {max} números com código do país (8 a 15 dígitos cada).",
       "copyName": "Cópia de {name}",
@@ -6165,7 +6279,8 @@
         "notReplayableReason": "Este tipo de falha não pode ser repetido com segurança.",
         "needsReconciliation": "Uma mensagem desta etapa pode já ter sido entregue. Verifique a conversa antes de fazer qualquer outra coisa; ela não será enviada de novo automaticamente.",
         "alreadySent": "A mensagem desta etapa já foi enviada; repetir enviaria duas vezes.",
-        "conversationBusy": "Outro fluxo está em execução nesta conversa. Tente novamente quando ele terminar."
+        "conversationBusy": "Outro fluxo está em execução nesta conversa. Tente novamente quando ele terminar.",
+        "contactOptedOut": "O contato cancelou a inscrição (enviou STOP) depois que esta execução falhou, então ela não pode ser repetida."
       }
     },
     "quickReplies": {
@@ -6246,6 +6361,7 @@
       "submittedSaveFailed": "Enviado à Meta, mas falhou ao salvar localmente: {message}. Use \"Sincronizar da Meta\" para recuperar.",
       "submitFailed": "Falha ao enviar o modelo.",
       "metaApiStatus": "Erro da API da Meta: {status}",
+      "metaTimeout": "A Meta não respondeu a tempo. Nada foi alterado; tente Sincronizar da Meta novamente.",
       "syncFailed": "Falha ao sincronizar os modelos",
       "authKindRequired": "Modelos de autenticação precisam usar o tipo de modelo de autenticação.",
       "draft": {
@@ -7117,7 +7233,18 @@
         "UNKNOWN": "Desconhecida"
       },
       "disconnectConfirmHold": "Desconectar {name}? O token de acesso é removido e nada pode ser enviado por ele até você conectar o mesmo ID do número de telefone novamente. As conversas, campanhas e fluxos continuam neste número: fluxos ativos que disparam só nele voltam para rascunho, e campanhas agendadas ou em envio por ele ficam em espera, sem serem canceladas. {isDefault, select, true {O número conectado mais antigo passa a ser o padrão.} other {}}",
-      "removedHint": "Desconectado. Conecte este ID do número de telefone novamente para usá-lo; as conversas, campanhas e fluxos são mantidos."
+      "removedHint": "Desconectado. Conecte este ID do número de telefone novamente para usá-lo; as conversas, campanhas e fluxos são mantidos.",
+      "metaIssue": {
+        "PARTNER_REMOVED": "A Meta informa que esta conta do WhatsApp Business não está mais compartilhada com o Bodhinox Chat, então o número foi desconectado. Compartilhe-a novamente e reconecte o número para enviar.",
+        "PARTNER_APP_UNINSTALLED": "O acesso do Bodhinox Chat a esta conta do WhatsApp Business foi removido na Meta, então o número foi desconectado. Reconecte-o com o Facebook para enviar.",
+        "ACCOUNT_DELETED": "A Meta informa que esta conta do WhatsApp Business foi excluída, então o número foi desconectado.",
+        "DISABLED_UPDATE": "A Meta desativou ou agendou a desativação desta conta do WhatsApp Business por um motivo de política. Verifique no WhatsApp Manager; um número desativado fica desconectado até você reconectá-lo depois que a Meta restabelecer a conta.",
+        "ACCOUNT_RESTRICTION": "A Meta restringiu o que esta conta do WhatsApp Business pode fazer. Envios que a Meta não permite falharão até a restrição terminar.",
+        "ACCOUNT_VIOLATION": "A Meta informou uma violação de política nesta conta do WhatsApp Business. Verifique no WhatsApp Manager.",
+        "ACCOUNT_OFFBOARDED": "A Meta informa que esta conta do WhatsApp foi desligada após uma troca de aparelho ou novo registro. Os envios podem falhar até que ela seja reconectada.",
+        "detail": "Detalhes da Meta: {detail}",
+        "until": "Até {date}"
+      }
     },
     "api": {
       "invalidChange": "Envie um nome de exibição de até 200 caracteres, ou is_default como true.",
@@ -7451,7 +7578,8 @@
         "cancelRefundDoneOutside": "Pedido cancelado. O reembolso feito fora do Bodhinox foi registrado.",
         "courierTracked": "O rastreamento do Shiprocket atualiza este pedido automaticamente. Você ainda pode registrá-lo manualmente.",
         "shipmentLive": "Cancele o envio na transportadora antes de cancelar este pedido, ou use Devoluções se já foi coletado.",
-        "codFee": "Taxa de pagamento na entrega"
+        "codFee": "Taxa de pagamento na entrega",
+        "refundedInFull": "Este pedido foi reembolsado integralmente, então não pode ser enviado. Use Cancelar e reembolsar para fechá-lo."
       },
       "timeline": {
         "title": "Histórico",
@@ -7477,7 +7605,10 @@
           "shipment_created": "Envio pela transportadora criado",
           "shipment_cancelled": "Envio pela transportadora cancelado",
           "shipment_correction_accepted": "Correção de rastreamento aceita",
-          "cod_confirmed": "Pagamento na entrega escolhido"
+          "cod_confirmed": "Pagamento na entrega escolhido",
+          "payment_link_failed": "Não foi possível criar o link de pagamento",
+          "shipment_pickup_requested": "Coleta da transportadora solicitada novamente",
+          "return_refunded_outside": "Devolução reembolsada fora do Bodhinox"
         },
         "documents": "Documentos",
         "documentKinds": {
@@ -7530,7 +7661,7 @@
     },
     "catalogue": {
       "title": "Catálogo",
-      "description": "Os produtos que você vende por links de loja e checkout. Preços, impostos e estoque daqui são o que o cliente paga; o catálogo da Meta continua como cópia somente leitura.",
+      "description": "Os produtos que você vende por links de loja e checkout. Preços, impostos e estoque daqui são o que o cliente paga; o preço e o estoque de cada produto vinculado ao catálogo da Meta (mesmo SKU) são enviados para lá em poucos minutos enquanto o checkout está ativado.",
       "tabs": {
         "products": "Produtos",
         "categories": "Categorias",
@@ -7650,7 +7781,7 @@
         "addImage": "Adicionar imagem",
         "removeImage": "Remover imagem",
         "saveImages": "Salvar imagens",
-        "imagesHint": "Até 10 imagens https, nesta ordem.",
+        "imagesHint": "Até 10 imagens, enviadas para sua biblioteca de mídia ou links https, exibidas nesta ordem.",
         "variants": "Variantes",
         "currencyMissing": "Defina a moeda em Configurações da loja para adicionar preços.",
         "variantSaved": "Variante salva",
@@ -7682,7 +7813,9 @@
         "repurchaseDays": "Lembrete de recompra após (dias)",
         "repurchaseHint": "Opcional. Dias após a entrega para lembrar os clientes que aceitaram ofertas no checkout. Usa o modelo de lembrete de recompra das configurações da loja.",
         "codAvailable": "Pagamento na entrega disponível",
-        "codAvailableHint": "Desativado, um carrinho com este produto só pode ser pago online (o pagamento na entrega também precisa estar ativo nas configurações da loja)."
+        "codAvailableHint": "Desativado, um carrinho com este produto só pode ser pago online (o pagamento na entrega também precisa estar ativo nas configurações da loja).",
+        "uploadImage": "Enviar ou escolher da biblioteca",
+        "imageOnly": "Escolha um arquivo de imagem."
       }
     },
     "inventory": {
@@ -7795,7 +7928,8 @@
         "coupon_min_subtotal": "O carrinho está abaixo do mínimo deste cupom.",
         "amount_out_of_range": "O valor é grande demais.",
         "too_many_open_orders": "Este cliente já tem o máximo de pedidos abertos. Antes, um pedido não pago precisa ser pago ou expirar, ou um pedido com pagamento na entrega precisa ser enviado ou cancelado.",
-        "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho."
+        "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho.",
+        "online_unavailable": "O pagamento online não está disponível agora. Escolha pagamento na entrega ou tente mais tarde."
       },
       "title": "Configurações da loja",
       "subtitle": "Moeda, impostos, checkout, dados do vendedor, frete e cupons da sua loja online.",
@@ -7805,6 +7939,7 @@
       "generalTitle": "Checkout e impostos",
       "generalHelp": "Preços e impostos sempre vêm destas configurações; sem alíquota, o checkout para em vez de cobrar imposto zero.",
       "checkoutEnabled": "Checkout online ativado",
+      "razorpayMissing": "O Razorpay não está conectado, então os clientes não podem pagar online. Só é possível fazer pedidos com pagamento na entrega. Conecte o Razorpay em Configurações → Pagamentos.",
       "currency": "Moeda da loja",
       "currencyLocked": "Bloqueada: já existem variantes com preço nesta moeda.",
       "currencyHelp": "Código de três letras, por exemplo INR.",
@@ -7921,7 +8056,12 @@
       "closed": "Devolução encerrada",
       "forbidden": "Sua função não pode fazer isso.",
       "conflict": "Esta devolução ou pedido mudou. Foi recarregado.",
-      "error": "Não foi possível atualizar a devolução"
+      "error": "Não foi possível atualizar a devolução",
+      "windowClosed": "O prazo de devolução deste pedido terminou (Configurações da loja → Prazo de devolução).",
+      "amountExceeds": "Nenhum pagamento deste pedido sozinho pode reembolsar esse valor. Informe um valor menor.",
+      "refundOutsideNeeded": "Este pedido foi pago em dinheiro ou com um pagamento registrado pela sua equipe, então o Razorpay não pode reembolsá-lo. Devolva o dinheiro pelo mesmo meio e confirme abaixo para registrar o reembolso.",
+      "refundOutsideConfirm": "Devolvi este valor fora do Bodhinox",
+      "refundedOutside": "Reembolso registrado. Uma nota de crédito será emitida."
     },
     "documents": {
       "print": {
@@ -7973,7 +8113,7 @@
       "awbAssigning": "Atribuindo uma transportadora…",
       "awbUnknown": "O Shiprocket não confirmou a atribuição da transportadora. Ela nunca é repetida automaticamente; confira as exceções de envio.",
       "awbFailed": "Nenhuma transportadora foi atribuída ({code}). Nada foi cobrado.",
-      "pickupFailed": "O Shiprocket não agendou a coleta. Agende-a no Shiprocket.",
+      "pickupFailed": "O Shiprocket não agendou a coleta. Solicite novamente ou agende no Shiprocket.",
       "awb": "AWB",
       "courier": "Transportadora",
       "status": "Rastreamento",
@@ -8002,7 +8142,9 @@
         "lost": "Extraviado ou danificado",
         "rto_delivered": "Devolvido ao remetente",
         "cancelled": "Cancelado"
-      }
+      },
+      "pickupAgain": "Solicitar coleta novamente",
+      "pickupRequested": "Coleta solicitada ao Shiprocket."
     },
     "evidence": {
       "provider": "Confirmado pela transportadora",
@@ -8026,7 +8168,8 @@
         "rto": "Voltando à origem",
         "lost_or_damaged": "Extraviado ou danificado",
         "stale_tracking": "Sem atualizações de rastreamento há 10 dias",
-        "order_conflict": "O status da transportadora não confere com o pedido"
+        "order_conflict": "O status da transportadora não confere com o pedido",
+        "pickup_failed": "Coleta da transportadora não agendada"
       },
       "hints": {
         "contradiction": "Confira o envio no Shiprocket. Aceite a correção só se o novo status da transportadora estiver certo.",
@@ -8035,7 +8178,8 @@
         "rto": "O pacote está voltando. Abra uma devolução no pedido quando ele chegar.",
         "lost_or_damaged": "Abra uma reclamação no Shiprocket e reembolse ou substitua pelo pedido.",
         "stale_tracking": "Confira o envio com a transportadora.",
-        "order_conflict": "O pedido foi cancelado, reembolsado ou nunca pago enquanto o pacote se movia. Confira o pedido e o envio."
+        "order_conflict": "O pedido foi cancelado, reembolsado ou nunca pago enquanto o pacote se movia. Confira o pedido e o envio.",
+        "pickup_failed": "Abra o pedido e use Solicitar coleta novamente, ou agende a coleta no Shiprocket. Uma solicitação bem-sucedida encerra isto."
       },
       "resolutions": {
         "accept_correction": "Aceitar correção",
@@ -8078,6 +8222,15 @@
       "errors": {
         "invalid": "Escolha um modelo e o idioma.",
         "template_not_found": "Esse modelo não foi encontrado. Sincronize seus modelos e tente de novo."
+      }
+    },
+    "checkoutLinkFailed": {
+      "title": "Falha no link de pagamento do checkout",
+      "body": "O pedido {reference} foi fechado porque o Razorpay não conseguiu criar o link de pagamento ({reason}). O estoque e o cupom foram liberados, e o cliente foi avisado de que o pagamento não pôde ser preparado.",
+      "reasons": {
+        "not_connected": "O Razorpay não está conectado",
+        "provider_auth": "O Razorpay não aceitou as chaves salvas",
+        "other": "O Razorpay recusou a solicitação"
       }
     }
   },
@@ -8264,7 +8417,8 @@
         "not_retryable": "Só um reembolso que a Razorpay não fez pode ser reenviado.",
         "not_reconcilable": "Não há nada a verificar neste reembolso: ele já está resolvido.",
         "not_connected": "A Razorpay não está conectada.",
-        "provider_unreachable": "Não foi possível contatar a Razorpay. Tente novamente em breve."
+        "provider_unreachable": "Não foi possível contatar a Razorpay. Tente novamente em breve.",
+        "shipment_live": "Este pedido tem um envio com transportadora. Cancele o envio antes de repor o estoque, ou reembolse sem repor e use Devoluções para os produtos que voltarem."
       }
     },
     "offline": {
@@ -8522,6 +8676,10 @@
     "automation_notice": {
       "label": "Avisos de automações",
       "description": "A etapa Avisar a equipe de uma automação avisa você sobre uma conversa."
+    },
+    "webhook_disabled": {
+      "label": "Webhooks desativados",
+      "description": "As entregas para um webhook falharam durante um dia, então ele foi desativado."
     }
   },
   "Weekdays": {
@@ -9016,7 +9174,7 @@
       "lowConfidence": "Transferir quando o agente não tiver certeza",
       "lowConfidenceHint": "Perguntas que ele não sabe responder vão para uma pessoa e aparecem em Aprendizados.",
       "threshold": "Confiança necessária para responder: {value}%",
-      "thresholdHint": "Valores mais altos transferem com mais frequência.",
+      "thresholdHint": "Em 50%, decide o próprio julgamento do agente. Valores mais altos também exigem uma correspondência próxima na base de conhecimento e transferem com mais frequência. Quando nada na base de conhecimento corresponde, decide apenas o julgamento do agente.",
       "maxTurns": "Transferir após esta quantidade de respostas da IA",
       "maxTurnsHint": "0 significa sem limite."
     },
@@ -9170,6 +9328,7 @@
       "change": "{change}% em relação ao período anterior",
       "started": "Conversas iniciadas",
       "firstResponse": "Mediana da primeira resposta",
+      "humanFirstResponse": "Mediana da primeira resposta da equipe",
       "resolutionTime": "Mediana do tempo de resolução",
       "resolved": "Conversas resolvidas",
       "count": "Conversas",
@@ -9196,7 +9355,7 @@
       "bySourceDescription": "Quem iniciou cada nova conversa. Uma resposta a campanha é uma mensagem do cliente em até 72 horas após uma campanha; um início por anúncio é uma conversa cuja primeira mensagem veio de um anúncio de clique para o WhatsApp.",
       "sourceColumn": "Origem",
       "timingTitle": "Tempo de resposta e de resolução",
-      "timingDescription": "A primeira resposta conta a primeira espera do cliente em cada conversa. O tempo de resolução inclui conversas resolvidas sem reabertura.",
+      "timingDescription": "A primeira resposta conta a primeira espera do cliente em cada conversa, respondida por qualquer um, incluindo bots, fluxos e o agente de IA. A primeira resposta da equipe conta apenas respostas de um membro da equipe, medidas a partir dessa espera ou da transferência da IA. O tempo de resolução é medido a partir do início do ciclo resolvido, então conversas reabertas contam a partir da reabertura.",
       "metricColumn": "Medida",
       "samples": "Conversas medidas",
       "unanswered": "{count, plural, =1 {# conversa ainda aguarda} other {# conversas ainda aguardam}} uma primeira resposta.",
@@ -10233,7 +10392,8 @@
       "order_not_open": "Este pedido não pode mais ser pago aqui.",
       "amount_out_of_range": "O valor é grande demais.",
       "too_many_open_orders": "Você já tem o máximo de pedidos abertos. Pague um pedido pendente, espere ele expirar ou um pedido com pagamento na entrega ser entregue, e tente de novo.",
-      "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho. Escolha pagar online."
+      "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho. Escolha pagar online.",
+      "online_unavailable": "O pagamento online não está disponível nesta loja. Escolha pagamento na entrega ou fale com a loja."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Envie-me lembretes de recompra e ofertas pelo WhatsApp. Você pode interrompê-los a qualquer momento respondendo STOP."
@@ -10246,7 +10406,19 @@
     "placeCod": "Fazer pedido, pagar {amount} na entrega",
     "codNote": "Seu pedido está confirmado agora. Pague em dinheiro quando ele for entregue.",
     "codFee": "Taxa de pagamento na entrega",
-    "codDue": "Pagamento na entrega: tenha {amount} em mãos quando o pedido chegar."
+    "codDue": "Pagamento na entrega: tenha {amount} em mãos quando o pedido chegar.",
+    "returnWindow": "Aceitamos devoluções em até {days, plural, one {# dia} other {# dias}} após a entrega. Fale com a loja pelo WhatsApp para devolver um item.",
+    "noReturns": "Esta loja não aceita devoluções depois que o pedido é entregue.",
+    "onlineUnavailable": "Esta loja ainda não configurou o pagamento online.",
+    "paymentFailedTitle": "Não foi possível preparar o pagamento",
+    "paymentFailed": "A loja não conseguiu preparar o pagamento online deste pedido, então ele não foi feito e nada foi cobrado. Fale com a loja pelo WhatsApp para fazer o pedido.",
+    "stillVerifying": "A loja ainda está verificando seu pagamento. Você receberá uma confirmação pelo WhatsApp quando for confirmado; não precisa pagar de novo.",
+    "checkAgain": "Verificar novamente",
+    "searchProducts": "Buscar produtos",
+    "categories": "Categorias",
+    "allCategories": "Todas",
+    "noMatchingProducts": "Nenhum produto corresponde à sua busca.",
+    "showMore": "Ver mais produtos"
   },
   "OrderNotices": {
     "dispatched": "Seu pedido {ref} está a caminho.",
@@ -10845,6 +11017,23 @@
       "sources": {
         "jobs": "Tarefas",
         "webhook_receipts": "Webhooks"
+      },
+      "failed": {
+        "title": "Tarefas com falha (últimos 7 dias)",
+        "hint": "Recoloque uma tarefa na fila depois de corrigir a causa. Uma tarefa com resultado de envio incerto deve ser conciliada.",
+        "attempts": "Tentativas",
+        "failedAt": "Falhou",
+        "reason": "Motivo",
+        "requeue": "Recolocar na fila",
+        "requeued": "Tarefa recolocada na fila.",
+        "reconcile": "Precisa de conciliação",
+        "errors": {
+          "reason_required": "Informe um motivo (pelo menos 3 caracteres).",
+          "not_found": "Essa tarefa não existe mais.",
+          "not_failed": "Essa tarefa não está mais com falha.",
+          "needs_reconciliation": "O resultado do envio é incerto: concilie em vez de executar de novo.",
+          "failed": "Não foi possível recolocar a tarefa na fila."
+        }
       }
     },
     "audit": {
@@ -10869,7 +11058,9 @@
       "signIn": "Entrar",
       "getStarted": "Começar",
       "privacy": "Privacidade",
-      "terms": "Termos"
+      "terms": "Termos",
+      "contact": "Contato",
+      "dataDeletion": "Exclusão de dados"
     },
     "landing": {
       "headline": "Todas as conversas com clientes em um só lugar",
@@ -10918,12 +11109,21 @@
     "help": {
       "title": "Ajuda",
       "contents": "Conteúdo",
-      "linkLabel": "Ajuda sobre esta página"
+      "linkLabel": "Ajuda sobre esta página (em inglês)",
+      "englishOnly": "Esta página está disponível apenas em inglês."
     },
     "legal": {
-      "draft": "Rascunho: este documento é provisório e ainda não está em vigor.",
       "privacyTitle": "Política de privacidade",
-      "termsTitle": "Termos de serviço"
+      "termsTitle": "Termos de serviço",
+      "dataDeletionTitle": "Exclusão de dados",
+      "contactTitle": "Contato",
+      "statusHeading": "Sua solicitação de exclusão",
+      "statusCompleted": "Solicitação {code}, recebida em {date}: concluída. O Bodhinox Chat não guarda dados vinculados à sua conta do Facebook, e o Facebook retirou o acesso que nos deu.",
+      "statusReceived": "Solicitação {code}, recebida em {date}: em andamento.",
+      "statusUnknown": "Nenhuma solicitação de exclusão tem este código de confirmação. Verifique o link que o Facebook lhe deu ou fale conosco.",
+      "contactEmail": "E-mail para dúvidas sobre privacidade, exclusão de dados e suporte:",
+      "contactResponse": "Confirmamos as solicitações em até 3 dias úteis e concluímos as solicitações verificadas em até 30 dias.",
+      "contactUnset": "O endereço de contato ainda não foi publicado. Os proprietários de um espaço de trabalho podem exportar ou excluir seus dados em Configurações → Privacidade e acesso."
     }
   }
 }

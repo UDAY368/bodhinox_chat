@@ -182,8 +182,9 @@ export const RATE_LIMITS = {
    *  the whole account across threads, so a burst of inbound from many
    *  customers at once can't run the BYO key past the provider's limit
    *  or the owner's budget. 30/min is generous for organic inbound while
-   *  capping a stampede; excess inbounds simply don't get an auto-reply
-   *  (they still land in the inbox for a human). */
+   *  capping a stampede; an excess inbound is retried by a delayed
+   *  'ai.auto_reply_retry' job after the window (up to 5 times), then left
+   *  in the inbox for a human. */
   aiAutoReplyAccount: { limit: 30, windowMs: 60_000 },
   /** AI assistant (summaries, suggested replies, assessments, insights), per
    *  member. A soft per-instance first line; the durable limit is the monthly

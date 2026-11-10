@@ -1,9 +1,9 @@
-// /terms: the terms of service from content/legal/terms.md, marked DRAFT until
-// the operator replaces them. Rendered at build time.
+// /terms: the terms of service from content/legal/terms.md. Rendered at build time.
 
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 
+import { englishOnlyNote } from '../english-only';
 import { LegalPage } from '../legal-page';
 
 export const dynamic = 'force-static';
@@ -13,6 +13,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('termsTitle') };
 }
 
-export default function TermsPage() {
-  return <LegalPage name="terms" />;
+export default async function TermsPage() {
+  return <LegalPage name="terms" note={await englishOnlyNote()} />;
 }

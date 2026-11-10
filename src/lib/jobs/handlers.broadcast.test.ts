@@ -7,6 +7,8 @@ const h = vi.hoisted(() => ({
   finalized: 0,
   unlocked: 0,
   enqueued: [] as unknown[],
+  steps: [] as string[],
+  throttled: false,
 }));
 
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
@@ -15,7 +17,7 @@ vi.mock('./scope', () => ({ withJobScope: (_scope: unknown, fn: () => unknown) =
 vi.mock('./queue', () => ({ enqueueJob: async (...args: unknown[]) => { h.enqueued.push(args); return 'job-2'; } }));
 vi.mock('@/lib/whatsapp/process-webhook', () => ({ processWebhook: vi.fn(), processInboundActions: vi.fn() }));
 vi.mock('@/lib/automations/engine', () => ({ expireAwaitingReplies: vi.fn(), resumePendingExecution: vi.fn() }));
-vi.mock('./scheduled-audience', () => ({ executeScheduledOccurrence: vi.fn(), queueScheduledOccurrence: vi.fn() }));
+vi.mock('./scheduled-audience', () => ({ executeScheduledOccurrence: vi.fn(), queueScheduledOccurrence: vi.fn(), recordSkippedOccurrence: vi.fn(), ScheduledAudienceError: class extends Error {} }));
 vi.mock('@/lib/flows/fallback', () => ({ resolveFallbackPolicy: vi.fn() }));
 vi.mock('@/lib/flows/engine', () => ({ handleFlowTimer: vi.fn(), staleSince: vi.fn() }));
 vi.mock('@/lib/webhooks/deliver', () => ({ deliverQueuedWebhook: vi.fn() }));
@@ -26,9 +28,10 @@ vi.mock('@/lib/broadcasts/schedule', () => ({
   lockBroadcastDelivery: async () => true,
   unlockBroadcastDelivery: async () => { h.unlocked += 1; },
   claimBroadcastStart: async () => { h.claimed += 1; return true; },
+  prepareFailedRetry: async (_account: string, _broadcast: string, retryId: string) => { h.steps.push(`prepare:${retryId}`); return 1; },
 }));
 vi.mock('@/lib/whatsapp/broadcast-resume', () => ({
-  planBroadcastResume: async () => { if (h.planError) throw h.planError; return { plan: {}, remaining: 0 }; },
+  planBroadcastResume: async () => { h.steps.push('plan'); if (h.planError) throw h.planError; return { plan: {}, remaining: 0 }; },
 }));
 vi.mock('@/lib/whatsapp/broadcast-core', () => {
   class BroadcastError extends Error {
@@ -38,7 +41,7 @@ vi.mock('@/lib/whatsapp/broadcast-core', () => {
     BroadcastError,
     MAX_THROTTLE_RETRIES: 6,
     throttleDelayMs: () => 1000,
-    deliverBroadcast: async () => { h.delivered += 1; return { sent: 1, throttled: false }; },
+    deliverBroadcast: async () => { h.delivered += 1; return h.throttled ? { sent: 0, throttled: true } : { sent: 1, throttled: false }; },
     finalizeBroadcastStatus: async () => { h.finalized += 1; },
   };
 });
@@ -53,7 +56,7 @@ const job = { id: 'job-1', type: 'broadcast.dispatch', tenant_id: ACCOUNT, paylo
 
 describe('broadcast.dispatch on a disconnected number', () => {
   beforeEach(() => {
-    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [] });
+    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false });
   });
 
   it('holds the campaign: completes without retry, status untouched, one reason logged', async () => {
@@ -81,5 +84,33 @@ describe('broadcast.dispatch on a disconnected number', () => {
     await handleJob(job);
     expect(h.claimed).toBe(1);
     expect(h.delivered).toBe(1);
+  });
+});
+
+describe('broadcast.dispatch for one "Retry failed" request (audit finding 11)', () => {
+  const RETRY = '33333333-3333-4333-8333-33333333333c';
+  const retryJob = { ...job, payload: { broadcastId: BROADCAST, scope: 'failed', retryId: RETRY } } as unknown as Job;
+  beforeEach(() => {
+    Object.assign(h, { planError: null, claimed: 0, delivered: 0, finalized: 0, unlocked: 0, enqueued: [], steps: [], throttled: false });
+  });
+
+  it('applies the retry generation before planning the pass', async () => {
+    await handleJob(retryJob);
+    expect(h.steps).toEqual([`prepare:${RETRY}`, 'plan']);
+    expect(h.delivered).toBe(1);
+  });
+
+  it('never applies a retry generation to a Resume of pending recipients', async () => {
+    await handleJob({ ...job, payload: { broadcastId: BROADCAST, scope: 'pending', retryId: RETRY } } as unknown as Job);
+    expect(h.steps).toEqual(['plan']);
+  });
+
+  it('a throttled follow-up pass does not apply the same request again', async () => {
+    h.throttled = true;
+    await handleJob(retryJob);
+    expect(h.enqueued).toHaveLength(1);
+    const [, payload] = h.enqueued[0] as [string, Record<string, unknown>];
+    expect(payload).toMatchObject({ broadcastId: BROADCAST, scope: 'failed', throttles: 1 });
+    expect(payload).not.toHaveProperty('retryId');
   });
 });

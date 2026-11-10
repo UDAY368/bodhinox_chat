@@ -322,6 +322,18 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('courier tracking (FUL-02) o
     expect((await exceptions(s.id)).map((e) => [e.kind, e.observed_status])).toEqual([['order_conflict', 'delivered']]);
   });
 
+  it('a pickup scan closes a failed pickup request: the note clears and its exception resolves (audit 26)', async () => {
+    const o = await order('paid');
+    const s = await shipment(o);
+    await db.query(`UPDATE order_shipments SET last_error_code='pickup_failed' WHERE id=$1`, [s.id]);
+    await db.query(`INSERT INTO shipment_exceptions(account_id,shipment_id,kind) VALUES($1,$2,'pickup_failed')`, [accountA, s.id]);
+    h.scans.set(s.awb, [PICKED(1)]);
+    await track(s);
+    expect(await statusOf(o)).toBe('dispatched');
+    expect((await db.query('SELECT last_error_code FROM order_shipments WHERE id=$1', [s.id])).rows[0].last_error_code).toBeNull();
+    expect((await exceptions(s.id)).map((e) => [e.kind, e.status])).toEqual([['pickup_failed', 'resolved']]);
+  });
+
   it('Cancel and refund is refused while a shipment with an AWB is live', async () => {
     const o = await order('paid');
     await shipment(o);

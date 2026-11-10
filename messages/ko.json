@@ -135,14 +135,14 @@
       "vsYesterday": "어제 대비",
       "openDeals": "진행 중인 딜 {count}건",
       "noChange": "변동 없음 {suffix}",
-      "workspaceLabel": "01 / Workspace overview",
+      "workspaceLabel": "01 / 워크스페이스 개요",
       "heroTitle": "반복 업무는 줄이고.",
       "heroAccent": "대화는 더 풍성하게.",
-      "heroDescription": "Your conversations, relationships and opportunities, in one place.",
+      "heroDescription": "대화, 관계, 기회를 한곳에서.",
       "openInbox": "받은 편지함 열기",
-      "aiLabel": "BODHINOX / INTELLIGENCE",
+      "aiLabel": "BODHINOX / 인텔리전스",
       "aiTitle": "KHAGA를 만나보세요.",
-      "aiDescription": "A little more clarity for every conversation. Explore your AI workspace.",
+      "aiDescription": "모든 대화를 조금 더 명확하게. AI 워크스페이스를 둘러보세요.",
       "openAi": "KHAGA 살펴보기"
     },
     "quickActions": {
@@ -338,11 +338,11 @@
       "noConversations": "대화를 찾을 수 없습니다",
       "noMessagesYet": "아직 메시지가 없습니다",
       "unknown": "알 수 없음",
-      "studioEyebrow": "01 / Conversation studio",
-      "studioTitle": "Every conversation, considered.",
-      "filterWaiting": "Waiting for reply",
-      "filterUnassigned": "Unassigned",
-      "filterExpiringSoon": "Expiring soon",
+      "studioEyebrow": "01 / 대화 스튜디오",
+      "studioTitle": "모든 대화를 세심하게.",
+      "filterWaiting": "답장 대기 중",
+      "filterUnassigned": "미할당",
+      "filterExpiringSoon": "곧 만료",
       "chats": "채팅",
       "lifecycle": "진행 상태",
       "slaDueIn": "{value}{unit, select, m {분} h {시간} other {일}} 내 응답",
@@ -382,9 +382,9 @@
       "networkError": "네트워크 오류",
       "documentFallback": "문서",
       "you": "나",
-      "loadOlder": "Load older messages",
-      "loadingOlder": "Loading older messages…",
-      "historyLoadFailed": "Unable to load older messages",
+      "loadOlder": "이전 메시지 불러오기",
+      "loadingOlder": "이전 메시지 불러오는 중…",
+      "historyLoadFailed": "이전 메시지를 불러올 수 없습니다",
       "notes": "메모",
       "showNotes": "내부 메모 보기",
       "hideNotes": "내부 메모 숨기기",
@@ -704,6 +704,12 @@
       "clearAll": "모두 지우기",
       "noTagsYet": "아직 태그가 없습니다.",
       "selectedCount": "{count}개 선택됨",
+      "selectAllMatching": "일치하는 연락처 {count}개 모두 선택",
+      "allMatchingSelected": "일치하는 연락처 {count}개가 모두 선택됨",
+      "addTag": "태그 추가",
+      "tagAdded": "연락처 {count}개에 태그를 추가했습니다",
+      "tagFailed": "태그를 추가할 수 없습니다",
+      "bulkCountChanged": "일치하는 연락처가 바뀌었습니다. 페이지를 새로고침한 뒤 다시 시도하세요.",
       "clearSelection": "지우기",
       "deleteSelected": "선택 항목 삭제",
       "tableColumns": {
@@ -727,6 +733,10 @@
       "deleteContactDesc": "{name}을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
       "cancel": "취소",
       "deleteBtn": "삭제",
+      "eraseHint": "관리자는 이 사람에 대해 저장된 모든 데이터(메시지, 보낸 미디어, 캠페인 정보, 양식 응답, 웹훅 원본)를 지울 수 있습니다. 주문과 결제는 재무 기록으로 보관됩니다.",
+      "eraseBtn": "모든 데이터 삭제",
+      "toastEraseQueued": "삭제를 시작했습니다. 완료되면 연락처가 사라집니다.",
+      "toastEraseFailed": "삭제를 시작하지 못했습니다",
       "deleteBulkTitle": "연락처 삭제",
       "deleteBulkDesc": "선택한 연락처 {count}개를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
       "toastFailedLoad": "연락처를 불러오지 못했습니다",
@@ -772,7 +782,10 @@
         "removed": "목록에서 {count}명을 제거했습니다",
         "changeFailed": "목록을 업데이트할 수 없습니다",
         "exportList": "목록 내보내기"
-      }
+      },
+      "rowActions": "{name} 작업",
+      "previousPage": "이전 페이지",
+      "nextPage": "다음 페이지"
     },
     "form": {
       "addTitle": "연락처 추가",
@@ -882,13 +895,21 @@
         "blockedHint": "자동 메시지, 플로우, AI 답변을 보내지 않습니다."
       },
       "phoneMasked": "이 계정에서는 전화번호가 가려져 있어 번호를 추가하거나 변경할 수 없습니다. 관리자에게 요청하세요.",
-      "phoneMaskedHint": "이 계정에서는 번호가 가려져 있어 여기에서 수정할 수 없습니다."
+      "phoneMaskedHint": "이 계정에서는 번호가 가려져 있어 여기에서 수정할 수 없습니다.",
+      "deleteNote": "메모 삭제"
     },
     "importModal": {
       "title": "연락처 가져오기",
       "desc": "필수 <phoneCode>phone</phoneCode> 열이 포함된 CSV를 업로드하세요. 선택 항목: <nameCode>name</nameCode>, <emailCode>email</emailCode>, <companyCode>company</companyCode>, <tagsCode>tags</tagsCode> (쉼표로 구분; 여러 태그가 있는 셀은 따옴표로 묶으세요).",
       "uploadDropzone": "클릭하여 CSV 파일 선택",
       "uploadHint": "브라우저 제한까지 .csv 업로드 가능",
+      "countryCodeLabel": "+ 없는 번호에 사용할 국가 코드",
+      "countryCodeHint": "예: 한국은 82, 인도는 91. 비워 두면 모든 번호에 +가 있어야 합니다.",
+      "updateExisting": "이미 있는 연락처 업데이트 (이름, 이메일, 회사, 태그, 파일의 수신 거부 또는 차단)",
+      "importProgress": "{total}개 중 {done}개 가져오는 중…",
+      "resultUpdated": "{count}개 업데이트됨",
+      "invalidPhoneReason": "유효한 전화번호가 아닙니다",
+      "toastNoPhoneColumn": "전화번호 열을 찾을 수 없습니다. 열 이름을 phone, mobile, phone number 또는 WhatsApp으로 지정하세요.",
       "rowsReady": "{count}개 행 준비됨",
       "rowsReady_plural": "{count}개 행 준비됨",
       "preview": "미리보기 · 처음 {count}개",
@@ -904,8 +925,9 @@
       "resultInvalidPhone": "전화번호 오류 {count}개",
       "resultInvalidPhone_plural": "전화번호 오류 {count}개",
       "resultFailed": "{count}개 실패",
-      "invalidPhoneHint": "전화번호는 +와 국가 코드로 시작해야 합니다 (예: +14155550123). 국가 코드가 없는 번호는 다른 국가로 발송될 수 있습니다.",
+      "invalidPhoneHint": "번호에는 +와 국가 코드가 필요합니다 (예: +14155550123). 또는 위에서 국가 코드를 지정하면 + 없이 적힌 번호에 적용됩니다.",
       "failedRowsHeading": "실패한 행",
+      "downloadRejected": "거부된 행 다운로드",
       "unknownReason": "알 수 없는 오류",
       "willBeCreated": "{name} (가져오기 시 생성됨)",
       "columns": {
@@ -1076,6 +1098,7 @@
       "creating": "만드는 중...",
       "createPipelineBtn": "파이프라인 만들기",
       "toastFailedLoadPipelines": "파이프라인을 불러오지 못했습니다",
+      "toastFailedLoadDeals": "딜을 불러오지 못했습니다",
       "toastFailedMoveDeal": "딜을 이동하지 못했습니다",
       "toastFailedCreatePipeline": "파이프라인을 만들지 못했습니다",
       "toastPipelineCreated": "파이프라인이 생성되었습니다",
@@ -1163,7 +1186,8 @@
       "toastFailedDeleteStage": "단계를 삭제하지 못했습니다",
       "toastFailedDeletePipeline": "파이프라인을 삭제하지 못했습니다",
       "toastDeleted": "파이프라인이 삭제되었습니다",
-      "pickColor": "{color} 색상 선택"
+      "pickColor": "{color} 색상 선택",
+      "removeStage": "단계 삭제"
     },
     "analytics": {
       "totalDeals": "전체 딜",
@@ -1271,6 +1295,18 @@
       "toastResumeStarted": "{count}명에게 백그라운드로 발송 중입니다.",
       "toastResumeStartedCapped": "{count}명에게 백그라운드로 발송 중입니다. 나머지 {remaining}명은 한 번 더 실행해야 합니다.",
       "toastResumeFailed": "이어서 발송할 수 없습니다: {error}",
+      "toastResumeNothing": "지금 보낼 항목이 없습니다.",
+      "uncertainTitle": "{count, plural, other {#건의 발송 확인 필요}}",
+      "uncertainHint": "Meta가 이 메시지들이 발송되었는지 확인해 주지 않았습니다(시간 초과 또는 Meta 오류). 그래서 실패 재시도에서 제외됩니다. WhatsApp Manager나 고객에게 확인한 뒤 각각 표시하세요.",
+      "uncertainShowing": "전체 {total}건 중 가장 오래된 {shown}건을 표시합니다.",
+      "uncertainSelectAll": "모두 선택",
+      "uncertainSelect": "{name} 선택",
+      "uncertainMarkSent": "발송됨으로 표시 ({count})",
+      "uncertainMarkNotSent": "미발송으로 표시 ({count})",
+      "uncertainNotSentWarning": "실패 재시도 시 이 {count}건이 다시 발송됩니다. 이미 메시지를 받은 사람은 두 번 받게 됩니다.",
+      "uncertainAdminOnly": "관리자가 발송됨 또는 미발송으로 표시할 수 있습니다.",
+      "toastReconciled": "수신자 {count}명이 업데이트되었습니다",
+      "toastReconcileFailed": "수신자를 업데이트할 수 없습니다: {error}",
       "unknownError": "알 수 없는 오류",
       "unknownContact": "알 수 없음",
       "scheduledFor": "{when}에 예약됨",
@@ -1762,8 +1798,8 @@
         "waitForReply": "계속하기 전에 답장 기다리기",
         "waitForReplyHint": "고객이 버튼을 누르거나 답장할 때까지 여기서 멈춥니다(최대 24시간). 이후 단계(메시지 내용 조건 포함)는 그 답장을 사용합니다.",
         "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다.",
-        "conditionTimezoneLabel": "Timezone",
-        "conditionTimezoneHint": "Business timezone used to evaluate this time window.",
+        "conditionTimezoneLabel": "시간대",
+        "conditionTimezoneHint": "이 시간 범위를 판단할 때 사용하는 비즈니스 시간대입니다.",
         "notifyAudienceLabel": "알림 대상",
         "notifyAssignee": "대화 담당자",
         "notifyAdmins": "워크스페이스 소유자 및 관리자",
@@ -1802,12 +1838,12 @@
   },
   "Flows": {
     "menuFallback": {
-      "label": "When a customer types instead of choosing a menu option",
-      "reprompt": "Repeat the menu",
-      "handoff": "Hand over to a human",
-      "ignore": "Allow other automations",
-      "ai": "Let AI answer business questions",
-      "help": "AI keeps the menu open. Unsupported questions go to a human. Enable AI auto-reply in AI settings first.",
+      "label": "고객이 메뉴 옵션을 선택하지 않고 직접 입력할 때",
+      "reprompt": "메뉴 다시 보내기",
+      "handoff": "상담원에게 연결",
+      "ignore": "다른 자동화 허용",
+      "ai": "AI가 비즈니스 질문에 답변",
+      "help": "AI는 메뉴를 열어 둔 채로 답변합니다. 답할 수 없는 질문은 상담원에게 넘어갑니다. 먼저 AI 설정에서 AI 자동 답장을 켜세요.",
       "messageLabel": "기본 대체 메시지(선택)",
       "messageHelp": "답장이 흐름에서 벗어날 때마다 위 동작 전에 보냅니다. 이미지나 동영상을 추가하면 텍스트를 캡션으로 함께 보냅니다.",
       "imageAttached": "이미지 첨부됨",
@@ -1912,7 +1948,7 @@
       "triggerFirstInboundTitle": "고객의 첫 수신 메시지",
       "triggerManualTitle": "수동 전용 (자동 트리거 없음)",
       "keywordsLabel": "키워드",
-      "keywordsPlaceholder": "support, help, hi",
+      "keywordsPlaceholder": "상담, 도움, 안녕하세요",
       "entryNodeTitle": "시작 노드:",
       "entryNodePlaceholder": "첫 노드를 선택하세요…",
       "nodesTitle": "노드 ({count}개)",
@@ -2189,7 +2225,8 @@
         "storefrontTtlHelp": "{min}~{max}시간 사이입니다. 비워 두면 24시간입니다.",
         "storefrontNext": "보낸 후 다음 단계",
         "storefrontFailedNext": "링크를 보낼 수 없을 때",
-        "flowStatusPaused": "일시 중지됨"
+        "flowStatusPaused": "일시 중지됨",
+        "removeButton": "버튼 삭제"
       },
       "categories": {
         "messaging": "메시징",
@@ -2433,6 +2470,7 @@
         "cancelRow": "취소",
         "noServices": "아직 서비스가 없습니다. 예약 설정에서 추가하세요. 그전까지 이 단계는 아무것도 제공하지 않고 '예약 불가' 경로로 이동합니다.",
         "servicesAllHelp": "최대 {max}개까지 고르세요. 고르지 않으면 예약 가능한 모든 서비스를 제공합니다. 둘 이상이면 고객이 선택합니다.",
+        "paidServiceNote": "유료: 예약 페이지에서 예약",
         "serviceMode": "서비스 유형",
         "modeBoth": "온라인과 방문 모두",
         "modeOnline": "온라인만",
@@ -2678,7 +2716,8 @@
         "not_replayable_reason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
         "needs_reconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 대화를 확인하세요. 다시 보내지 않습니다.",
         "already_sent": "이 단계의 메시지는 이미 전송되었습니다.",
-        "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다."
+        "conversation_busy": "이 대화에서 다른 플로우가 실행 중입니다.",
+        "contact_opted_out": "이 실행이 실패한 후 연락처가 STOP으로 응답했으므로 다시 실행하지 않습니다."
       }
     }
   },
@@ -3147,7 +3186,8 @@
       "businessProfileEdit": "비즈니스 프로필 편집",
       "businessProfileView": "비즈니스 프로필 보기",
       "numberDisconnectedTitle": "이 번호는 연결이 해제되었습니다",
-      "numberDisconnectedHint": "이 번호에서는 아무것도 발송되지 않습니다. 다시 사용하려면 아래에 새 액세스 토큰을 입력하고 저장하거나(전화번호 ID는 그대로 유지됩니다) 임베디드 가입으로 다시 연결하세요. 대화, 캠페인, 플로우는 그대로 유지됩니다."
+      "numberDisconnectedHint": "이 번호에서는 아무것도 발송되지 않습니다. 다시 사용하려면 아래에 새 액세스 토큰을 입력하고 저장하거나(전화번호 ID는 그대로 유지됩니다) 임베디드 가입으로 다시 연결하세요. 대화, 캠페인, 플로우는 그대로 유지됩니다.",
+      "copyWebhookUrl": "웹훅 URL 복사"
     },
     "sections": {
       "overview": "개요",
@@ -3455,11 +3495,12 @@
       "kindInteractive": "인터랙티브",
       "textPlaceholder": "삽입할 메시지 텍스트",
       "cancel": "취소",
-      "save": "저장"
+      "save": "저장",
+      "delete": "빠른 답장 삭제"
     },
     "rail": {
       "sections": {
-        "inbox": "Inbox"
+        "inbox": "받은 편지함"
       }
     },
     "webhooks": {
@@ -3474,6 +3515,14 @@
       "lastDelivery": "마지막 전송 {date}",
       "noDelivery": "아직 전송 없음",
       "failures": "연속 {count}회 실패",
+      "disabledNotice": "{date}에 꺼짐: {hours}시간 동안 전송이 계속 실패했습니다. 수신 서버를 고친 뒤 다시 켜세요.",
+      "viewLog": "전송 기록",
+      "logDesc": "이 URL로 보낸 최근 전송 시도입니다(최근 30일, 최대 100건).",
+      "logEmpty": "아직 전송 시도가 없습니다.",
+      "logLoadFailed": "전송 기록을 불러오지 못했습니다.",
+      "logDelivered": "전송됨",
+      "logFailed": "실패",
+      "logAttempt": "{attempt}번째 시도",
       "pause": "웹훅 일시 중지",
       "resume": "웹훅 재개",
       "delete": "웹훅 삭제",
@@ -3494,7 +3543,11 @@
       "copy": "복사",
       "copySuccess": "비밀 키를 복사했습니다",
       "copyFailed": "복사하지 못했습니다",
-      "done": "완료"
+      "done": "완료",
+      "notifications": {
+        "disabledTitle": "{host}(으)로 가는 웹훅이 꺼졌습니다",
+        "disabledBody": "{host}(으)로의 전송이 {hours}시간 동안 실패해 Bodhinox가 이벤트 전송을 중단했습니다. 수신 서버를 고친 뒤 설정에서 웹훅을 다시 켜세요."
+      }
     },
     "workspaceAttributes": {
       "title": "워크스페이스 속성",
@@ -3563,7 +3616,7 @@
           "hard": "한도에 도달하면 새 항목을 추가할 수 없습니다. 이미 있는 항목은 모두 계속 작동합니다.",
           "inbound": "메시지를 보낸 고객은 연락처 한도를 넘더라도 항상 연락처로 추가됩니다. 직접 추가하거나 가져오거나 API로 만든 연락처만 한도에 포함됩니다.",
           "monthly": "월간 한도는 매월 1일(인도 시간)에 초기화됩니다. AI 추가 팩을 구매하면 AI 답변 한도가 늘어납니다.",
-          "warnings": "한도가 80%와 100%에 도달하면 소유자와 관리자에게 알림이 전송됩니다. 보낸 메시지와 활성 연락처는 참고용이며 사용을 막지 않습니다.",
+          "warnings": "한도가 80%와 100%에 도달하면 소유자와 관리자에게 알림이 전송됩니다. 월간 메시지 및 활성 연락처 한도에 도달하면 새 캠페인과 예약 발송이 중지되며, 고객에게 보내는 답장은 막지 않습니다.",
           "expiry": "플랜이 만료되거나 취소되면 초과한 목록, 세그먼트, 플로우, 자동화는 삭제되지 않고 보관됩니다."
         }
       },
@@ -3573,6 +3626,7 @@
         "hard_inbound_exempt": "수동 추가와 가져오기는 한도에서 멈추며, 먼저 메시지를 보낸 고객은 항상 추가됩니다",
         "hard_addon": "한도에서 멈추며, 추가 팩으로 늘릴 수 있습니다",
         "hard_per_campaign": "캠페인마다 확인합니다",
+        "hard_campaign": "한도에 도달하면 새 캠페인을 중지하며, 고객 답장은 막지 않습니다",
         "soft": "참고용이며 차단하지 않습니다"
       }
     },
@@ -3613,6 +3667,7 @@
       "cancelled": "Facebook 가입이 취소되었습니다.",
       "sdkFailed": "Facebook 로그인을 불러오지 못했습니다. 팝업과 facebook.com이 차단되지 않았는지 확인하세요.",
       "noNumberPicked": "Facebook에서 전화번호를 반환하지 않았습니다. Facebook 창에서 모든 단계를 마친 후 다시 시도하세요.",
+      "bizAppUnsupported": "이 번호는 WhatsApp Business 앱에서 사용 중입니다. WhatsApp Business 앱 번호 연결은 아직 지원되지 않습니다. 앱에서 사용하지 않는 번호를 사용하세요.",
       "pinTitle": "2단계 PIN을 보관하세요",
       "pinDescription": "이 번호에 6자리 2단계 인증 PIN을 설정했습니다. 한 번만 표시되니 안전한 곳에 보관하세요. 나중에 번호를 옮길 때 필요합니다.",
       "pinDone": "보관했습니다",
@@ -4517,6 +4572,21 @@
     "successDesc": "새 비밀번호로 로그인되었습니다.",
     "continueToDashboard": "대시보드로 이동"
   },
+  "VerifyEmailPage": {
+    "title": "이메일 확인",
+    "desc": "가입할 때 정한 비밀번호를 입력하면 이메일 인증이 완료됩니다.",
+    "passwordLabel": "비밀번호",
+    "submit": "이메일 인증",
+    "saving": "인증 중...",
+    "checking": "링크를 확인하는 중...",
+    "expiredTitle": "이 링크는 더 이상 유효하지 않습니다",
+    "expiredDesc": "인증 링크는 한 번만 사용할 수 있으며 일정 시간이 지나면 만료됩니다. 같은 이메일로 다시 가입하면 새 링크를 받을 수 있습니다.",
+    "backToSignIn": "로그인으로 돌아가기",
+    "mismatch": "가입할 때 정한 비밀번호가 아닙니다.",
+    "rateLimited": "시도 횟수가 너무 많습니다. 나중에 다시 시도하세요.",
+    "failed": "이메일을 인증하지 못했습니다. 다시 시도하세요.",
+    "forgotHint": "잊으셨나요? 이 이메일로 다시 가입한 뒤 새로 받은 링크에서 새 비밀번호를 사용하세요."
+  },
   "JoinPage": {
     "fail": {
       "notFoundTitle": "초대를 찾을 수 없습니다",
@@ -4550,6 +4620,28 @@
     "createAndJoin": "계정 만들고 참여하기",
     "haveAccount": "이미 계정이 있습니다"
   },
+  "AuthEmails": {
+    "verifySubject": "Bodhinox 이메일 인증",
+    "verifyBody": "이메일 인증: {link}\n이 링크는 24시간 후 만료됩니다. 요청하지 않으셨다면 이 메시지를 무시하세요.",
+    "resetSubject": "Bodhinox 비밀번호 재설정",
+    "resetBody": "비밀번호 재설정: {link}\n이 링크는 1시간 후 만료됩니다. 요청하지 않으셨다면 이 메시지를 무시하세요.",
+    "existingSubject": "이미 Bodhinox 계정이 있습니다",
+    "existingBody": "누군가 이 이메일로 Bodhinox 계정을 만들려고 했지만 이미 계정이 있습니다.\n로그인: {signIn}{join}\n비밀번호를 잊으셨나요? 로그인 페이지에서 \"비밀번호 찾기\"를 이용하세요. 본인이 아니라면 이 메시지를 무시하세요.",
+    "existingJoin": "초대받은 워크스페이스에 참여하려면 로그인한 후 다음 링크를 여세요: {link}",
+    "changeConfirmSubject": "새 Bodhinox 이메일 확인",
+    "changeConfirmBody": "새 이메일 주소를 확인하세요: {link}\n이 링크는 1시간 후 만료됩니다. 확인하기 전까지는 현재 이메일이 계속 사용됩니다.",
+    "changeNoticeSubject": "Bodhinox 이메일 변경 요청",
+    "changeNoticeBody": "Bodhinox 이메일 주소를 {newEmail}(으)로 변경하라는 요청이 있었습니다. 요청하지 않으셨다면 즉시 비밀번호를 재설정하세요. 그러면 대기 중인 이메일 변경이 취소됩니다.",
+    "deliveryTestSubject": "Bodhinox Chat 인증 이메일 전송 테스트",
+    "deliveryTestBody": "계정 인증 이메일의 전송 테스트입니다. 별도로 조치할 필요는 없습니다. 비밀번호와 팀 멤버십은 변경되지 않았습니다.",
+    "digest": {
+      "subject": "{count, plural, other {Bodhinox 새 알림 #개}}",
+      "intro": "{count, plural, other {새 알림이 #개 있습니다:}}",
+      "more": "{count, plural, other {...이전 알림 #개가 더 있습니다.}}",
+      "seeAll": "모두 보기: {link}",
+      "footer": "알림 설정에서 이메일 요약을 켜 두셨기 때문에 이 이메일이 발송되었습니다."
+    }
+  },
   "Notifications": {
     "title": "알림",
     "description": "다른 팀원이 나에게 배정한 대화가 여기에 표시됩니다.",
@@ -4578,7 +4670,8 @@
       "low_stock": "재고 부족",
       "payment_exception": "결제 검토 필요",
       "instagram_account_health": "Instagram 계정",
-      "automation_notice": "자동화 알림"
+      "automation_notice": "자동화 알림",
+      "webhook_disabled": "웹훅 꺼짐"
     }
   },
   "Agents": {
@@ -4619,10 +4712,9 @@
       "tokensPerDay": "일별 토큰",
       "byModel": "모델별",
       "modelCalls": "{tokens} 토큰 · 호출 {count}회",
-      "partialWindow": "일부 기간만 표시 중 — 사용량이 많아 최근 기록만 요약되었습니다.",
       "assistant": "어시스턴트"
     },
-    "studioEyebrow": "07 / Your intelligent workspace",
+    "studioEyebrow": "07 / 지능형 워크스페이스",
     "studioTitle": "KHAGA를 만나보세요.",
     "studioDescription": "세심한 답변. 나의 지식. 사람의 온기.",
     "tabKnowledge": "지식",
@@ -4673,6 +4765,8 @@
         "reply_cap": "대화별 응답 한도 도달",
         "no_messages": "응답할 내용 없음",
         "rate_limited": "동시에 너무 많은 AI 응답",
+        "rate_limited_retry": "동시에 너무 많은 AI 응답, 1분 후 다시 시도합니다",
+        "media_only": "AI가 읽을 수 없는 사진, 음성 메시지 또는 위치",
         "plan_ai_limit": "요금제의 AI 메시지 소진",
         "slot_lost": "다른 응답이 마지막 슬롯을 사용함",
         "claim_failed": "응답 슬롯을 예약하지 못함",
@@ -4758,13 +4852,17 @@
     "urlButtonConstraint": "WhatsApp에서는 링크 버튼을 하나만 사용할 수 있습니다. 다른 버튼을 제거하세요. 링크는 답장 또는 워크플로우와 함께 사용할 수 없습니다.",
     "openLink": "링크 열기",
     "removeButton": "버튼 삭제",
-    "defaultListButton": "메뉴"
+    "defaultListButton": "메뉴",
+    "removeSection": "섹션 삭제",
+    "removeRow": "행 삭제"
   },
   "DashboardShell": {
     "loading": "불러오는 중..."
   },
   "UiPrimitives": {
-    "close": "닫기"
+    "close": "닫기",
+    "scrollLeft": "왼쪽으로 스크롤",
+    "scrollRight": "오른쪽으로 스크롤"
   },
   "GatedButton": {
     "readOnly": "읽기 전용 — 현재 역할로는 {action} 수 없습니다",
@@ -5405,15 +5503,28 @@
       "noContactForConversation": "대화를 확인할 수 없습니다: 연락처 없음",
       "noConversation": "전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
       "tagAddedNoConversation": "tag_added 자동화가 전송할 수 없습니다: 연락처에 기존 대화가 없습니다",
-      "pausedWhileWaiting": "Automation paused while waiting",
-      "parkedStepRemoved": "The step where this run was waiting was removed",
-      "scheduleWaitFailed": "Could not schedule the wait: {message}",
+      "pausedWhileWaiting": "대기 중 자동화가 일시 중지되었습니다",
+      "parkedStepRemoved": "이 실행이 대기하던 단계가 삭제되었습니다",
+      "contactBlockedWhileWaiting": "이 실행이 대기하는 동안 연락처가 차단되어 더 이상 보내지 않았습니다",
+      "contactOptedOutWhileWaiting": "이 실행이 대기하는 동안 연락처가 수신을 거부(STOP)하여 더 이상 보내지 않았습니다",
+      "assignFailed": "assign_conversation: 대화를 배정할 수 없습니다",
+      "scheduleWaitFailed": "대기를 예약할 수 없습니다: {message}",
       "webhookInvalidBody": "send_webhook: 채워진 본문이 올바른 JSON이 아닙니다",
       "webhookInvalidHeader": "send_webhook: 허용되지 않는 헤더이거나 줄바꿈이 있습니다",
       "webhookUncertain": "send_webhook: 대상이 응답하지 않아 요청을 받았는지 알 수 없습니다. 다시 보내지 않습니다",
       "webhookRefused": "send_webhook: 이 대상으로 요청을 보낼 수 없습니다",
       "notifyInvalid": "notify_team에는 대상과 내용이 필요합니다"
     }
+  },
+  "ErrorPages": {
+    "errorTitle": "문제가 발생했습니다",
+    "errorDesc": "이 페이지에서 예기치 않은 오류가 발생했습니다. 다시 시도하고, 계속 발생하면 페이지를 새로 고치세요.",
+    "tryAgain": "다시 시도",
+    "reload": "페이지 새로 고침",
+    "goHome": "대시보드로 이동",
+    "reference": "참조: {digest}",
+    "notFoundTitle": "페이지를 찾을 수 없습니다",
+    "notFoundDesc": "링크가 잘못 입력되었거나 오래되었을 수 있습니다."
   },
   "Validation": {
     "flows": {
@@ -5474,7 +5585,7 @@
       "setTagNeedsNext": "연락처 태그 지정 노드는 다음 노드를 가리켜야 합니다.",
       "setTagMissingNext": "연락처 태그 지정 노드가 존재하지 않는 노드 \"{key}\"을(를) 가리킵니다.",
       "unknownNodeType": "알 수 없는 노드 유형 \"{type}\".",
-      "autoAdvanceCycle": "Automatic cycle detected: {keys}. Add a step that waits for a reply.",
+      "autoAdvanceCycle": "자동 순환이 감지되었습니다: {keys}. 답장을 기다리는 단계를 추가하세요.",
       "questionNeedsPrompt": "고객에게 보낼 질문을 입력하세요.",
       "questionNeedsVarKey": "답변을 저장할 변수 이름을 입력하세요.",
       "nodeNeedsNext": "이 노드는 다음 노드를 가리켜야 합니다.",
@@ -5567,6 +5678,7 @@
       "appointmentLocation": "목록에서 지점을 고르세요.",
       "appointmentStaffMode": "담당자를 정하는 방법을 고르세요.",
       "appointmentDays": "제공할 일수는 {min}에서 {max} 사이의 정수여야 합니다.",
+      "appointmentPaidService": "선택한 서비스 {count}개는 결제가 필요하지만 플로우에서는 아직 결제를 받을 수 없습니다. 선택을 해제하세요. 유료 서비스는 고객이 예약 페이지에서 예약합니다.",
       "paymentInvalidLinkOrder": "‘주문 결제 요청’은 켜거나 꺼야 합니다.",
       "storefrontNeedsMessage": "링크와 함께 보낼 메시지를 작성하세요.",
       "storefrontMessageTooLong": "메시지는 {max}자 이내로 작성하세요.",
@@ -5601,9 +5713,9 @@
       "scheduleRequired": "일정은 필수입니다",
       "replyIdRequired": "응답 ID가 하나 이상 필요합니다",
       "replyIdsEmpty": "응답 ID는 빈 문자열일 수 없습니다",
-      "conditionValueRequired": "Enter a non-empty comparison value.",
-      "conditionTimeRangeInvalid": "Enter a valid time range in HH:mm-HH:mm format.",
-      "conditionTimezoneInvalid": "Choose a valid timezone.",
+      "conditionValueRequired": "비어 있지 않은 비교 값을 입력하세요.",
+      "conditionTimeRangeInvalid": "HH:mm-HH:mm 형식으로 올바른 시간 범위를 입력하세요.",
+      "conditionTimezoneInvalid": "올바른 시간대를 선택하세요.",
       "templateCarousel": "자동화는 캐러셀 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 카드 값은 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
       "templateLimitedTimeOffer": "자동화는 기간 한정 혜택 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 혜택 정보는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
       "templateLocationHeader": "자동화는 위치 헤더가 있는 템플릿을 보낼 수 없습니다. 이 단계는 본문 값만 채우며 위치는 채우지 않습니다. 플로우나 캠페인을 사용하세요.",
@@ -5948,7 +6060,8 @@
         "not_cancellable": "활성 상태인 추가 기능만 중지할 수 있습니다.",
         "notConfigured": "결제가 아직 설정되지 않아 추가 기능을 구매할 수 없습니다.",
         "rejected": "결제 제공업체가 이 구매를 거절했습니다. 청구된 금액은 없습니다.",
-        "limit_unlimited": "이 팩은 현재 요금제에 제한이 없는 항목을 늘리는 것이므로 구매할 필요가 없습니다."
+        "limit_unlimited": "이 팩은 현재 요금제에 제한이 없는 항목을 늘리는 것이므로 구매할 필요가 없습니다.",
+        "purchase_pending": "이 추가 기능의 구매가 아직 결제 제공업체에서 확인 중입니다. 완료될 때까지 기다린 후 다시 구매하세요."
       },
       "downgrade": {
         "invalid_selection": "현재 사용 중인 항목만 선택하세요.",
@@ -6017,7 +6130,8 @@
       "invalid": "포장 크기와 무게를 확인하세요.",
       "throttled": "Shiprocket이 혼잡합니다. 1분 후 다시 시도하세요.",
       "feature_unavailable": "택배 배송은 현재 요금제에 포함되어 있지 않습니다.",
-      "not_implemented": "이 작업은 아직 사용할 수 없습니다."
+      "not_implemented": "이 작업은 아직 사용할 수 없습니다.",
+      "order_refunded": "이 주문은 전액 환불되어 배송할 수 없습니다."
     }
   },
   "Api": {
@@ -6145,7 +6259,7 @@
       "unknownTemplate": "알 수 없는 플로우 템플릿 \"{slug}\"",
       "insertFailed": "플로우를 생성하지 못했습니다",
       "nameRequired": "이름은 필수입니다",
-      "cannotSaveActive": "Cannot save an invalid active flow. Pause it first or resolve the errors.",
+      "cannotSaveActive": "유효하지 않은 활성 플로우는 저장할 수 없습니다. 먼저 일시 중지하거나 오류를 해결하세요.",
       "secretNeedsAdmin": "비밀 작업 공간 값을 쓰는 API 요청 단계는 관리자만 추가하거나 바꿀 수 있습니다.",
       "testNumbersInvalid": "국가 코드를 포함한 전화번호를 최대 {max}개 입력하세요(각 8~15자리).",
       "copyName": "{name} 사본",
@@ -6165,7 +6279,8 @@
         "notReplayableReason": "이 유형의 실패는 안전하게 다시 실행할 수 없습니다.",
         "needsReconciliation": "이 단계의 메시지가 이미 전달되었을 수 있습니다. 다른 작업을 하기 전에 대화를 확인하세요. 자동으로 다시 보내지 않습니다.",
         "alreadySent": "이 단계의 메시지는 이미 전송되었습니다. 다시 실행하면 두 번 전송됩니다.",
-        "conversationBusy": "이 대화에서 다른 플로우가 실행 중입니다. 끝난 후 다시 시도하세요."
+        "conversationBusy": "이 대화에서 다른 플로우가 실행 중입니다. 끝난 후 다시 시도하세요.",
+        "contactOptedOut": "이 실행이 실패한 후 연락처가 수신을 거부(STOP)했으므로 다시 실행할 수 없습니다."
       }
     },
     "quickReplies": {
@@ -6246,6 +6361,7 @@
       "submittedSaveFailed": "Meta에 제출되었지만 로컬에 저장하지 못했습니다: {message}. 복구하려면 \"Meta에서 동기화\"를 실행하세요.",
       "submitFailed": "템플릿을 제출하지 못했습니다.",
       "metaApiStatus": "Meta API 오류: {status}",
+      "metaTimeout": "Meta가 제때 응답하지 않았습니다. 변경된 내용은 없습니다. Meta에서 동기화를 다시 시도하세요.",
       "syncFailed": "템플릿을 동기화하지 못했습니다",
       "authKindRequired": "인증 템플릿은 인증 템플릿 유형을 사용해야 합니다.",
       "draft": {
@@ -7117,7 +7233,18 @@
         "UNKNOWN": "알 수 없음"
       },
       "disconnectConfirmHold": "{name} 연결을 해제할까요? 액세스 토큰이 삭제되며, 같은 전화번호 ID를 다시 연결할 때까지 이 번호로는 아무것도 보낼 수 없습니다. 대화, 캠페인, 플로우는 이 번호에 그대로 남습니다. 이 번호에서만 실행되는 활성 플로우는 초안으로 돌아가고, 이 번호로 예약되었거나 보내는 중인 캠페인은 취소되지 않고 보류됩니다. {isDefault, select, true {연결된 다른 번호 중 가장 오래된 번호가 기본 번호가 됩니다.} other {}}",
-      "removedHint": "연결 해제됨. 사용하려면 이 전화번호 ID를 다시 연결하세요. 대화, 캠페인, 플로우는 유지됩니다."
+      "removedHint": "연결 해제됨. 사용하려면 이 전화번호 ID를 다시 연결하세요. 대화, 캠페인, 플로우는 유지됩니다.",
+      "metaIssue": {
+        "PARTNER_REMOVED": "Meta에 따르면 이 WhatsApp Business 계정이 더 이상 Bodhinox Chat과 공유되지 않아 번호 연결이 해제되었습니다. 다시 공유한 뒤 번호를 다시 연결해야 보낼 수 있습니다.",
+        "PARTNER_APP_UNINSTALLED": "Meta에서 이 WhatsApp Business 계정에 대한 Bodhinox Chat의 접근 권한이 제거되어 번호 연결이 해제되었습니다. Facebook으로 다시 연결해야 보낼 수 있습니다.",
+        "ACCOUNT_DELETED": "Meta에 따르면 이 WhatsApp Business 계정이 삭제되어 번호 연결이 해제되었습니다.",
+        "DISABLED_UPDATE": "Meta가 정책상의 이유로 이 WhatsApp Business 계정을 비활성화했거나 비활성화를 예정했습니다. WhatsApp Manager에서 확인하세요. 비활성화된 번호는 Meta가 계정을 복구한 뒤 다시 연결할 때까지 연결이 해제된 상태로 남습니다.",
+        "ACCOUNT_RESTRICTION": "Meta가 이 WhatsApp Business 계정의 기능을 제한했습니다. 제한이 끝날 때까지 Meta가 허용하지 않는 발송은 실패합니다.",
+        "ACCOUNT_VIOLATION": "Meta가 이 WhatsApp Business 계정의 정책 위반을 알렸습니다. WhatsApp Manager에서 확인하세요.",
+        "ACCOUNT_OFFBOARDED": "Meta에 따르면 기기 변경 또는 재등록으로 이 WhatsApp 계정의 연결이 해제되었습니다. 다시 연결될 때까지 발송이 실패할 수 있습니다.",
+        "detail": "Meta 세부 정보: {detail}",
+        "until": "{date}까지"
+      }
     },
     "api": {
       "invalidChange": "200자 이하의 표시 이름 또는 true로 설정한 is_default를 보내세요.",
@@ -7451,7 +7578,8 @@
         "cancelRefundDoneOutside": "주문이 취소되었습니다. Bodhinox 외부에서 처리한 환불이 기록되었습니다.",
         "courierTracked": "Shiprocket 배송 추적이 이 주문을 자동으로 업데이트합니다. 직접 기록할 수도 있습니다.",
         "shipmentLive": "이 주문을 취소하기 전에 택배 발송을 먼저 취소하거나, 이미 수거되었다면 반품을 이용하세요.",
-        "codFee": "착불 수수료"
+        "codFee": "착불 수수료",
+        "refundedInFull": "이 주문은 전액 환불되어 배송할 수 없습니다. 취소 및 환불로 주문을 종료하세요."
       },
       "timeline": {
         "title": "기록",
@@ -7477,7 +7605,10 @@
           "shipment_created": "택배 발송 생성됨",
           "shipment_cancelled": "택배 발송 취소됨",
           "shipment_correction_accepted": "배송 추적 정정 승인됨",
-          "cod_confirmed": "착불 결제 선택"
+          "cod_confirmed": "착불 결제 선택",
+          "payment_link_failed": "결제 링크를 만들 수 없음",
+          "shipment_pickup_requested": "택배 픽업 다시 요청함",
+          "return_refunded_outside": "Bodhinox 외부에서 반품 환불함"
         },
         "documents": "문서",
         "documentKinds": {
@@ -7530,7 +7661,7 @@
     },
     "catalogue": {
       "title": "카탈로그",
-      "description": "스토어 링크와 결제로 판매하는 상품입니다. 여기의 가격, 세금, 재고가 고객에게 청구되며 Meta 카탈로그는 읽기 전용 사본으로 유지됩니다.",
+      "description": "스토어 링크와 결제로 판매하는 상품입니다. 여기의 가격, 세금, 재고가 고객에게 청구되며 Meta 카탈로그에 연결된 상품(같은 SKU)의 가격과 재고는 결제가 켜져 있는 동안 몇 분 안에 Meta로 전송됩니다.",
       "tabs": {
         "products": "상품",
         "categories": "카테고리",
@@ -7650,7 +7781,7 @@
         "addImage": "이미지 추가",
         "removeImage": "이미지 삭제",
         "saveImages": "이미지 저장",
-        "imagesHint": "https 이미지 최대 10개가 이 순서로 표시됩니다.",
+        "imagesHint": "미디어 라이브러리에 업로드한 이미지 또는 https 링크로 최대 10개, 이 순서로 표시됩니다.",
         "variants": "옵션",
         "currencyMissing": "가격을 추가하려면 스토어 설정에서 통화를 지정하세요.",
         "variantSaved": "옵션을 저장했습니다",
@@ -7682,7 +7813,9 @@
         "repurchaseDays": "재주문 알림 시점(일)",
         "repurchaseHint": "선택 사항. 결제 시 혜택 수신에 동의한 고객에게 배송 후 며칠 뒤 알릴지 정합니다. 스토어 설정의 재주문 알림 템플릿을 사용합니다.",
         "codAvailable": "착불 결제 가능",
-        "codAvailableHint": "끄면 이 상품이 담긴 장바구니는 온라인 결제만 가능합니다(스토어 설정에서 착불도 켜져 있어야 합니다)."
+        "codAvailableHint": "끄면 이 상품이 담긴 장바구니는 온라인 결제만 가능합니다(스토어 설정에서 착불도 켜져 있어야 합니다).",
+        "uploadImage": "업로드 또는 라이브러리에서 선택",
+        "imageOnly": "이미지 파일을 선택하세요."
       }
     },
     "inventory": {
@@ -7795,7 +7928,8 @@
         "coupon_min_subtotal": "장바구니 금액이 쿠폰 최소 금액보다 적습니다.",
         "amount_out_of_range": "금액이 너무 큽니다.",
         "too_many_open_orders": "이 고객은 이미 열린 주문이 최대입니다. 먼저 미결제 주문이 결제되거나 만료되어야 하며, 착불 주문은 발송되거나 취소되어야 합니다.",
-        "cod_unavailable": "이 장바구니는 착불(현장 결제)을 사용할 수 없습니다."
+        "cod_unavailable": "이 장바구니는 착불(현장 결제)을 사용할 수 없습니다.",
+        "online_unavailable": "지금은 온라인 결제를 사용할 수 없습니다. 착불을 선택하거나 나중에 다시 시도하세요."
       },
       "title": "스토어 설정",
       "subtitle": "온라인 스토어의 통화, 세금, 결제, 판매자 정보, 배송, 쿠폰입니다.",
@@ -7805,6 +7939,7 @@
       "generalTitle": "결제 및 세금",
       "generalHelp": "가격과 세금은 항상 이 설정을 따릅니다. 세율이 없으면 세금 0으로 결제하지 않고 결제를 멈춥니다.",
       "checkoutEnabled": "온라인 결제 사용",
+      "razorpayMissing": "Razorpay가 연결되어 있지 않아 고객이 온라인으로 결제할 수 없습니다. 착불 주문만 가능합니다. 설정 → 결제에서 Razorpay를 연결하세요.",
       "currency": "스토어 통화",
       "currencyLocked": "잠김: 이 통화로 가격이 정해진 옵션이 있습니다.",
       "currencyHelp": "세 글자 코드(예: INR)입니다.",
@@ -7921,7 +8056,12 @@
       "closed": "반품이 종료되었습니다",
       "forbidden": "현재 역할로는 할 수 없습니다.",
       "conflict": "반품 또는 주문이 변경되었습니다. 다시 불러왔습니다.",
-      "error": "반품을 업데이트할 수 없습니다"
+      "error": "반품을 업데이트할 수 없습니다",
+      "windowClosed": "이 주문의 반품 기간이 지났습니다(스토어 설정 → 반품 기간).",
+      "amountExceeds": "이 주문의 어떤 결제도 단독으로 그 금액을 환불할 수 없습니다. 더 적은 금액을 입력하세요.",
+      "refundOutsideNeeded": "이 주문은 현금 또는 팀이 기록한 결제로 지불되어 Razorpay로 환불할 수 없습니다. 결제한 방식으로 돈을 돌려준 뒤 아래에서 확인하여 환불을 기록하세요.",
+      "refundOutsideConfirm": "Bodhinox 외부에서 이 금액을 돌려주었습니다",
+      "refundedOutside": "환불이 기록되었습니다. 대변 전표가 발행됩니다."
     },
     "documents": {
       "print": {
@@ -7973,7 +8113,7 @@
       "awbAssigning": "택배사를 배정하는 중…",
       "awbUnknown": "Shiprocket이 택배사 배정을 확인하지 않았습니다. 자동으로 다시 시도하지 않으니 배송 예외를 확인하세요.",
       "awbFailed": "택배사가 배정되지 않았습니다({code}). 요금은 청구되지 않았습니다.",
-      "pickupFailed": "Shiprocket이 픽업을 예약하지 않았습니다. Shiprocket에서 예약하세요.",
+      "pickupFailed": "Shiprocket이 픽업을 예약하지 않았습니다. 다시 요청하거나 Shiprocket에서 예약하세요.",
       "awb": "AWB",
       "courier": "택배사",
       "status": "배송 추적",
@@ -8002,7 +8142,9 @@
         "lost": "분실 또는 파손",
         "rto_delivered": "반송 완료",
         "cancelled": "취소됨"
-      }
+      },
+      "pickupAgain": "픽업 다시 요청",
+      "pickupRequested": "Shiprocket에 픽업을 요청했습니다."
     },
     "evidence": {
       "provider": "택배사 확인",
@@ -8026,7 +8168,8 @@
         "rto": "발송지로 반송 중",
         "lost_or_damaged": "분실 또는 파손",
         "stale_tracking": "10일 동안 배송 추적 업데이트 없음",
-        "order_conflict": "택배 상태가 주문과 맞지 않음"
+        "order_conflict": "택배 상태가 주문과 맞지 않음",
+        "pickup_failed": "택배 픽업이 예약되지 않음"
       },
       "hints": {
         "contradiction": "Shiprocket에서 발송을 확인하세요. 택배사의 새 상태가 맞을 때만 정정을 승인하세요.",
@@ -8035,7 +8178,8 @@
         "rto": "소포가 돌아오고 있습니다. 도착하면 주문에서 반품을 여세요.",
         "lost_or_damaged": "Shiprocket에 클레임을 제기하고 주문에서 환불하거나 교환하세요.",
         "stale_tracking": "택배사에 발송 상태를 확인하세요.",
-        "order_conflict": "소포가 이동하는 동안 주문이 취소되었거나 환불되었거나 결제되지 않았습니다. 주문과 발송을 확인하세요."
+        "order_conflict": "소포가 이동하는 동안 주문이 취소되었거나 환불되었거나 결제되지 않았습니다. 주문과 발송을 확인하세요.",
+        "pickup_failed": "주문을 열어 픽업 다시 요청을 사용하거나 Shiprocket에서 픽업을 예약하세요. 요청이 성공하면 이 항목이 닫힙니다."
       },
       "resolutions": {
         "accept_correction": "정정 승인",
@@ -8078,6 +8222,15 @@
       "errors": {
         "invalid": "템플릿과 언어를 선택하세요.",
         "template_not_found": "템플릿을 찾을 수 없습니다. 템플릿을 동기화한 뒤 다시 시도하세요."
+      }
+    },
+    "checkoutLinkFailed": {
+      "title": "결제 링크 생성 실패",
+      "body": "Razorpay가 결제 링크를 만들지 못해 주문 {reference}이(가) 종료되었습니다({reason}). 재고와 쿠폰은 해제되었고, 고객에게 결제를 준비할 수 없다고 안내했습니다.",
+      "reasons": {
+        "not_connected": "Razorpay가 연결되어 있지 않음",
+        "provider_auth": "Razorpay가 저장된 키를 거부함",
+        "other": "Razorpay가 요청을 거부함"
       }
     }
   },
@@ -8264,7 +8417,8 @@
         "not_retryable": "Razorpay가 처리하지 않은 환불만 다시 보낼 수 있습니다.",
         "not_reconcilable": "이 환불은 이미 정리되어 확인할 것이 없습니다.",
         "not_connected": "Razorpay가 연결되어 있지 않습니다.",
-        "provider_unreachable": "Razorpay에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
+        "provider_unreachable": "Razorpay에 연결할 수 없습니다. 잠시 후 다시 시도하세요.",
+        "shipment_live": "이 주문에는 택배 배송이 있습니다. 재입고 전에 배송을 취소하거나, 재입고 없이 환불하고 돌아오는 상품은 반품으로 처리하세요."
       }
     },
     "offline": {
@@ -8522,6 +8676,10 @@
     "automation_notice": {
       "label": "자동화 알림",
       "description": "자동화의 팀에 알리기 단계가 대화에 대해 알려 줍니다."
+    },
+    "webhook_disabled": {
+      "label": "웹훅 꺼짐",
+      "description": "웹훅 전송이 하루 동안 계속 실패해 웹훅이 꺼졌습니다."
     }
   },
   "Weekdays": {
@@ -9016,7 +9174,7 @@
       "lowConfidence": "에이전트가 확신하지 못하면 상담원에게 연결",
       "lowConfidenceHint": "답하지 못한 질문은 사람에게 넘어가고 학습 탭에 표시됩니다.",
       "threshold": "답변에 필요한 신뢰도: {value}%",
-      "thresholdHint": "값이 높을수록 더 자주 상담원에게 연결합니다.",
+      "thresholdHint": "50%에서는 에이전트 자체 판단으로 결정합니다. 값이 높을수록 지식 베이스에서 가까운 일치 항목도 필요하며 더 자주 상담원에게 연결합니다. 지식 베이스에 일치하는 항목이 없으면 에이전트 자체 판단으로만 결정합니다.",
       "maxTurns": "AI 답변이 이 횟수에 도달하면 상담원에게 연결",
       "maxTurnsHint": "0은 제한 없음을 뜻합니다."
     },
@@ -9170,6 +9328,7 @@
       "change": "이전 기간 대비 {change}%",
       "started": "시작된 대화",
       "firstResponse": "첫 응답 시간 중앙값",
+      "humanFirstResponse": "팀 첫 응답 시간 중앙값",
       "resolutionTime": "해결 시간 중앙값",
       "resolved": "해결된 대화",
       "count": "대화",
@@ -9196,7 +9355,7 @@
       "bySourceDescription": "새 대화를 누가 시작했는지 보여 줍니다. 캠페인 답장은 캠페인 후 72시간 안에 받은 고객 메시지이고, 광고 시작은 첫 메시지가 WhatsApp 클릭 광고에서 온 대화입니다.",
       "sourceColumn": "유입 경로",
       "timingTitle": "응답 및 해결 시간",
-      "timingDescription": "첫 응답은 대화별 고객의 첫 대기를 기준으로 합니다. 해결 시간은 다시 열리지 않고 해결된 대화만 포함합니다.",
+      "timingDescription": "첫 응답은 대화별 고객의 첫 대기를 기준으로 하며, 봇·플로우·AI 에이전트를 포함해 누구의 답장이든 포함합니다. 팀 첫 응답은 팀원의 답장만 포함하며, 그 대기 또는 AI 이관 시점부터 측정합니다. 해결 시간은 해결된 주기의 시작부터 측정하므로 다시 열린 대화는 다시 열린 시점부터 계산합니다.",
       "metricColumn": "항목",
       "samples": "측정된 대화",
       "unanswered": "{count}개의 대화가 아직 첫 답장을 기다리고 있습니다.",
@@ -10233,7 +10392,8 @@
       "order_not_open": "이 주문은 더 이상 여기서 결제할 수 없습니다.",
       "amount_out_of_range": "금액이 너무 큽니다.",
       "too_many_open_orders": "열린 주문이 이미 최대입니다. 미결제 주문을 결제하거나 만료를 기다리거나, 착불 주문이 배송될 때까지 기다린 뒤 다시 시도하세요.",
-      "cod_unavailable": "이 장바구니는 착불을 사용할 수 없습니다. 온라인 결제를 선택하세요."
+      "cod_unavailable": "이 장바구니는 착불을 사용할 수 없습니다. 온라인 결제를 선택하세요.",
+      "online_unavailable": "이 스토어에서는 온라인 결제를 사용할 수 없습니다. 착불을 선택하거나 스토어에 문의하세요."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "WhatsApp으로 재주문 알림과 혜택을 받겠습니다. 언제든지 STOP이라고 답장하면 중단됩니다."
@@ -10246,7 +10406,19 @@
     "placeCod": "주문하고 배송 시 {amount} 결제",
     "codNote": "주문이 지금 확정됩니다. 배송받을 때 현금으로 결제하세요.",
     "codFee": "착불 수수료",
-    "codDue": "착불: 주문이 도착하면 {amount}을(를) 준비해 주세요."
+    "codDue": "착불: 주문이 도착하면 {amount}을(를) 준비해 주세요.",
+    "returnWindow": "배송 후 {days}일 이내에 반품할 수 있습니다. 반품하려면 WhatsApp으로 스토어에 문의하세요.",
+    "noReturns": "이 스토어는 주문이 배송된 후에는 반품을 받지 않습니다.",
+    "onlineUnavailable": "이 스토어는 아직 온라인 결제를 설정하지 않았습니다.",
+    "paymentFailedTitle": "결제를 준비할 수 없습니다",
+    "paymentFailed": "스토어가 이 주문의 온라인 결제를 준비하지 못해 주문이 접수되지 않았고 결제도 되지 않았습니다. 주문하려면 WhatsApp으로 스토어에 문의하세요.",
+    "stillVerifying": "스토어가 아직 결제를 확인하고 있습니다. 확인되면 WhatsApp으로 안내를 받게 되며, 다시 결제할 필요는 없습니다.",
+    "checkAgain": "다시 확인",
+    "searchProducts": "상품 검색",
+    "categories": "카테고리",
+    "allCategories": "전체",
+    "noMatchingProducts": "검색과 일치하는 상품이 없습니다.",
+    "showMore": "상품 더 보기"
   },
   "OrderNotices": {
     "dispatched": "주문 {ref}이(가) 발송되었습니다.",
@@ -10845,6 +11017,23 @@
       "sources": {
         "jobs": "작업",
         "webhook_receipts": "웹훅"
+      },
+      "failed": {
+        "title": "실패한 작업(최근 7일)",
+        "hint": "원인을 해결한 뒤 작업을 다시 대기열에 넣으세요. 발송 결과가 불확실한 작업은 대신 대조 확인해야 합니다.",
+        "attempts": "시도 횟수",
+        "failedAt": "실패 시각",
+        "reason": "사유",
+        "requeue": "다시 대기열에 넣기",
+        "requeued": "작업을 다시 대기열에 넣었습니다.",
+        "reconcile": "대조 확인 필요",
+        "errors": {
+          "reason_required": "사유를 입력하세요(3자 이상).",
+          "not_found": "해당 작업이 더 이상 없습니다.",
+          "not_failed": "해당 작업은 더 이상 실패 상태가 아닙니다.",
+          "needs_reconciliation": "발송 결과가 불확실합니다. 다시 실행하지 말고 대조 확인하세요.",
+          "failed": "작업을 다시 대기열에 넣지 못했습니다."
+        }
       }
     },
     "audit": {
@@ -10869,7 +11058,9 @@
       "signIn": "로그인",
       "getStarted": "시작하기",
       "privacy": "개인정보",
-      "terms": "약관"
+      "terms": "약관",
+      "contact": "문의",
+      "dataDeletion": "데이터 삭제"
     },
     "landing": {
       "headline": "모든 고객 대화를 한곳에서",
@@ -10918,12 +11109,21 @@
     "help": {
       "title": "도움말",
       "contents": "목차",
-      "linkLabel": "이 페이지 도움말"
+      "linkLabel": "이 페이지 도움말(영어)",
+      "englishOnly": "이 페이지는 영어로만 제공됩니다."
     },
     "legal": {
-      "draft": "초안: 이 문서는 임시이며 아직 효력이 없습니다.",
       "privacyTitle": "개인정보 처리방침",
-      "termsTitle": "서비스 약관"
+      "termsTitle": "서비스 약관",
+      "dataDeletionTitle": "데이터 삭제",
+      "contactTitle": "문의",
+      "statusHeading": "삭제 요청 상태",
+      "statusCompleted": "요청 {code}({date} 접수): 완료되었습니다. Bodhinox Chat은 회원님의 Facebook 계정에 연결된 데이터를 보관하지 않으며, Facebook은 저희에게 부여한 접근 권한을 철회했습니다.",
+      "statusReceived": "요청 {code}({date} 접수): 처리 중입니다.",
+      "statusUnknown": "이 확인 코드에 해당하는 삭제 요청이 없습니다. Facebook에서 받은 링크를 확인하거나 저희에게 문의하세요.",
+      "contactEmail": "개인정보, 데이터 삭제 및 지원 문의 이메일:",
+      "contactResponse": "요청은 영업일 기준 3일 이내에 접수 확인하고, 확인된 요청은 30일 이내에 처리합니다.",
+      "contactUnset": "문의 주소가 아직 게시되지 않았습니다. 워크스페이스 소유자는 설정 → 개인정보 및 접근에서 데이터를 내보내거나 삭제할 수 있습니다."
     }
   }
 }

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
-  verify: vi.fn(),
+  verifyValid: vi.fn(),
   recovery: vi.fn(),
   emailChange: vi.fn(),
 }));
 vi.mock('@/lib/auth/service', () => ({
-  verifyEmailToken: mocks.verify,
+  isVerifyTokenValid: mocks.verifyValid,
   isRecoveryTokenValid: mocks.recovery,
   confirmEmailChange: mocks.emailChange,
 }));
@@ -13,20 +13,32 @@ import { GET } from './route';
 const token = 'a'.repeat(43);
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.verify.mockResolvedValue(undefined);
+  mocks.verifyValid.mockResolvedValue(true);
   mocks.recovery.mockResolvedValue(true);
 });
 describe('one-time email callback', () => {
-  it('verifies an email without issuing a login session', async () => {
+  it('sends a verify link to the password step with the token in an HttpOnly cookie, not a session', async () => {
     const response = await GET(
       new Request(
         `https://crm.test/auth/callback?token=${token}&purpose=verify&next=%2Fjoin%2Finvite`
       )
     );
-    expect(mocks.verify).toHaveBeenCalledWith(token);
+    expect(mocks.verifyValid).toHaveBeenCalledWith(token);
     expect(response.headers.get('location')).toBe(
-      '/login?verified=1&next=%2Fjoin%2Finvite'
+      '/verify-email?next=%2Fjoin%2Finvite'
     );
+    const cookie = response.headers.get('set-cookie') ?? '';
+    expect(cookie).toContain(`bnx_verify=${token}`);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).not.toContain('bnx_access');
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer');
+  });
+  it('refuses a spent or expired verify link without setting a cookie', async () => {
+    mocks.verifyValid.mockResolvedValue(false);
+    const response = await GET(
+      new Request(`https://crm.test/auth/callback?token=${token}&purpose=verify`)
+    );
+    expect(response.headers.get('location')).toBe('/login?error=link_invalid');
     expect(response.headers.get('set-cookie')).toBeNull();
   });
   it('places reset proof in an HttpOnly cookie, then removes the secret from the URL', async () => {
@@ -54,7 +66,7 @@ describe('one-time email callback', () => {
       )
     );
     expect(response.headers.get('location')).toBe(
-      '/login?verified=1&next=%2Fdashboard'
+      '/verify-email?next=%2Fdashboard'
     );
   });
   it('confirms a new email and clears every browser credential', async () => {

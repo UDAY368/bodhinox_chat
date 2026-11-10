@@ -1,4 +1,4 @@
-import { scheduledSlot } from './schedule';
+import { payloadRange, scheduledSlotsBetween, scheduleRange } from './schedule';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { createAdminClient } from '@/lib/data/admin';
 import {
@@ -14,6 +14,8 @@ import {
 import {
   executeScheduledOccurrence,
   queueScheduledOccurrence,
+  recordSkippedOccurrence,
+  ScheduledAudienceError,
 } from './scheduled-audience';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
 import { handleFlowReplay, handleFlowTimer, staleSince } from '@/lib/flows/engine';
@@ -33,6 +35,7 @@ import {
   broadcastDispatchable,
   claimBroadcastStart,
   lockBroadcastDelivery,
+  prepareFailedRetry,
   unlockBroadcastDelivery,
 } from '@/lib/broadcasts/schedule';
 import { NUMBER_DISCONNECTED_REASON } from '@/lib/whatsapp/number-admin';
@@ -61,20 +64,31 @@ const positive = (value: unknown): number => {
   return value as number;
 };
 export async function scheduleWork() {
-  const accounts = await getWorkerPrisma().$queryRaw<
+  const prisma = getWorkerPrisma();
+  const accounts = await prisma.$queryRaw<
     { account_id: string }[]
   >`SELECT * FROM crm_accounts_for_scheduling()`;
-  const window = Math.floor(Date.now() / 30_000);
+  const now = Date.now();
+  const window = Math.floor(now / 30_000);
+  // Cron minutes since the last one queued, so a busy, restarting or deploying worker misses none
+  // (bounded; slots are deduplicated, so an overlap never fires twice).
+  // Unreadable (e.g. code running before its migration): the current minute alone, as before.
+  const last = await prisma.$queryRaw<{ last_minute: Date }[]>`
+    SELECT last_minute FROM worker_schedule_state WHERE name='automation.schedule'`
+    .catch(() => { console.error('[worker] schedule state unavailable; scheduling the current minute only'); return null; });
+  const range = scheduleRange(last?.[0]?.last_minute ?? null, now);
+  if (range.missed > 0)
+    console.error('[worker] automation schedule gap longer than the catch-up window', { skippedMinutes: range.missed });
   for (const { account_id } of accounts)
     await enqueueJob(
       'automation.schedule',
-      {
-        minute: new Date(
-          Math.floor(Date.now() / 60_000) * 60_000
-        ).toISOString(),
-      },
+      { minute: range.to.toISOString(), from: range.from.toISOString() },
       { tenantId: account_id, dedupeKey: `schedule:${account_id}:${window}` }
     );
+  // Advanced only after every workspace's job is queued; a failure re-covers the range next time.
+  if (last)
+    await prisma.$executeRaw`INSERT INTO worker_schedule_state(name,last_minute) VALUES('automation.schedule',${range.to})
+      ON CONFLICT(name) DO UPDATE SET last_minute=GREATEST(worker_schedule_state.last_minute,EXCLUDED.last_minute),updated_at=NOW()`;
   // Number health every six hours; its failure must not stop automation scheduling.
   await scheduleHealthSync().catch(() => console.error('[worker] health sync scheduling failed'));
   // Inbox SLA and auto-resolve sweeps; likewise independent.
@@ -115,6 +129,12 @@ export async function scheduleWork() {
   // Workspace exports: expire ready files after 7 days and fail stuck exports.
   await import('@/lib/jobs/workspace-export').then((m) => m.scheduleWorkspaceExportSweeps())
     .catch(() => console.error('[worker] workspace export sweep scheduling failed'));
+  // Hourly retention: done/failed jobs, processed webhook receipts and old realtime events.
+  await import('@/lib/jobs/data-retention').then((m) => m.scheduleDataRetention())
+    .catch(() => console.error('[worker] data retention scheduling failed'));
+  // Closed workspaces past their grace period: a dry run unless WORKSPACE_PURGE_ENABLED=true.
+  await import('@/lib/privacy/workspace-purge').then((m) => m.scheduleWorkspacePurges())
+    .catch(() => console.error('[worker] workspace purge scheduling failed'));
 }
 export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   assertLease();
@@ -138,6 +158,13 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
   if (job.type === 'instagram.webhook')
     // One verified Instagram webhook delivery; each entry is resolved to its workspace by entry[].id.
     return (await import('@/lib/instagram/jobs')).handleInstagramWebhookJob(job.payload, assertLease);
+  if (job.type === 'data.retention_sweep') {
+    await (await import('@/lib/jobs/data-retention')).runDataRetentionSweep();
+    return;
+  }
+  if (job.type === 'workspace.purge_storage')
+    // Stored files of an already purged workspace (its row, and so its tenant, is gone).
+    return (await import('@/lib/privacy/workspace-purge')).runWorkspacePurgeStorage(job.payload);
   const accountId = uuid(job.tenant_id);
   return withJobScope({ accountId, role: 'owner' }, async () => {
     const db = createAdminClient({ accountId, role: 'owner' });
@@ -170,6 +197,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         return;
       }
       try {
+        // One "Retry failed" request: rows Meta failed after accepting them get a new send.
+        if (scope !== 'pending' && job.payload.retryId !== undefined)
+          await prepareFailedRetry(accountId, broadcastId, uuid(job.payload.retryId));
         const { plan, remaining } = await planBroadcastResume(
           db,
           accountId,
@@ -200,9 +230,13 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
             await finalizeBroadcastStatus(db, broadcastId);
             return;
           }
+          // This request's retry generation is already applied: the follow-up pass must not
+          // apply it again after a newer "Retry failed" request has run in the meantime.
+          const { retryId: _applied, ...followUp } = job.payload;
+          void _applied;
           await enqueueJob(
             'broadcast.dispatch',
-            { ...job.payload, scope, throttles: next },
+            { ...followUp, scope, throttles: next },
             {
               tenantId: accountId,
               runAt: new Date(Date.now() + throttleDelayMs(next)),
@@ -263,42 +297,56 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
         .single();
       if (error) throw new Error('Could not load pending automation');
       if (!pending || !['pending', 'running'].includes(pending.status)) return;
+      // Gated on the status: a row the contacts consent trigger expired since the read stays expired.
       const update = await db
         .from('automation_pending_executions')
         .update({ status: 'running' })
-        .eq('id', id);
+        .eq('id', id)
+        .in('status', ['pending', 'running'])
+        .select('id');
       if (update.error) throw new Error('Could not claim pending automation');
+      if (!update.data?.length) return;
       await resumePendingExecution(pending);
     } else if (job.type === 'automation.schedule') {
       await expireAwaitingReplies();
       const { data: schedules, error: scheduleError } = await db
         .from('automations')
-        .select('id,trigger_config')
+        .select('id,user_id,name,trigger_config,created_at')
         .eq('trigger_type', 'time_based')
         .eq('is_active', true);
       if (scheduleError) throw new Error('Automation schedule lookup failed');
-      const minute =
-        typeof job.payload.minute === 'string'
-          ? new Date(job.payload.minute)
-          : new Date();
+      // Every minute this pass covers: the payload's minute, plus any the scheduler caught up.
+      const { from, to } = payloadRange(job.payload);
+      const current = to.toISOString();
+      // One automation's failure must not cost the others their occurrence,
+      // nor the wait-step resumes and flow sweep below.
+      let retryable: unknown = null;
       for (const automation of schedules ?? []) {
         const config = automation.trigger_config ?? {};
-        const slot =
-          typeof config.schedule === 'string'
-            ? scheduledSlot(
-                config.schedule,
-                config.timezone || process.env.AUTOMATION_TIMEZONE || 'UTC',
-                minute
-              )
-            : null;
-        if (slot)
-          await queueScheduledOccurrence(
-            db,
-            accountId,
-            automation,
-            slot,
-            assertLease
-          );
+        if (typeof config.schedule !== 'string') continue;
+        // A caught-up minute from before the automation existed never fires it; the payload's own
+        // minute is evaluated as before.
+        const created = Date.parse(automation.created_at ?? '');
+        const createdMinute = Number.isNaN(created) ? 0 : Math.floor(created / 60_000) * 60_000;
+        const slots = scheduledSlotsBetween(
+          config.schedule,
+          config.timezone || process.env.AUTOMATION_TIMEZONE || 'UTC',
+          from,
+          to
+        ).filter((slot) => slot === current || Date.parse(slot) >= createdMinute);
+        for (const slot of slots) {
+          try {
+            await queueScheduledOccurrence(db, accountId, automation, slot, assertLease);
+          } catch (error) {
+            if (error instanceof ScheduledAudienceError)
+              await recordSkippedOccurrence(db, accountId, automation, slot, error.message);
+            else {
+              // Transient: the job retries this range; queued triggers dedupe per contact and slot.
+              console.error('[automations] scheduled occurrence failed', { automationId: automation.id });
+              retryable ??= error;
+            }
+          }
+        }
       }
       const { data: due, error } = await db
         .from('automation_pending_executions')
@@ -314,6 +362,7 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
           { tenantId: accountId, dedupeKey: `automation:${row.id}` }
         );
       await sweepFlows(db, accountId);
+      if (retryable) throw retryable;
     } else if (job.type === 'flow.sweep') await sweepFlows(db, accountId);
     else if (job.type === 'flow.timer') {
       const { nodeKey, seq, kind } = job.payload;
@@ -330,7 +379,7 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       await handleFlowReplay({ accountId, runId: uuid(job.payload.runId), seq: seq as number | undefined, nodeKey: nodeKey as string | undefined });
     }
     else if (job.type === 'webhook.delivery')
-      await deliverQueuedWebhook(db, accountId, job.payload);
+      await deliverQueuedWebhook(db, accountId, job.payload, job.attempts);
     else if (job.type === HEALTH_SYNC_JOB)
       // Meta failures are recorded on the number and retried next cycle, not thrown.
       await syncNumberHealth({ accountId, configId: uuid(job.payload.configId) });
@@ -341,6 +390,9 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
       // SLA breach alerts, auto-resolve and unanswered-conversation reassignment.
       await handleInboxJob(accountId, job.type, job.payload);
     else if (job.type === 'commerce.catalog_sync') await (await import('@/lib/commerce/catalog-sync')).handleCatalogSyncJob(accountId, job.payload);
+    else if (job.type === 'commerce.catalog_push')
+      // Price and availability of linked variants to the Meta catalogue (queued by stock / price triggers and after each sync).
+      await (await import('@/lib/commerce/catalog-push')).handleCatalogPushJob(accountId);
     else if (job.type === NOTIFICATION_DIGEST_JOB)
       // Entries are claimed before sending; only a provably undelivered email is retried.
       await sendNotificationDigest(accountId);
@@ -423,6 +475,11 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'ai.assess_conversation')
       // Advisory intent and lead assessment; writes only ai_assessments, never sends.
       await (await import('@/lib/ai/assess/job')).handleAssessConversationJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts, jobId: job.id });
+    else if (job.type === 'ai.auto_reply_retry')
+      // An inbound text the account-wide AI rate limit deferred; the dispatch re-checks
+      // that it is still the newest readable message and that no person took over,
+      // under the inbound's stage checkpoint so a re-leased job never sends twice.
+      await (await import('@/lib/ai/auto-reply')).handleAutoReplyRetryJob(accountId, job.payload, assertLease);
     else if (job.type === 'ai.insight_run')
       // One insight run from a fixed reporting query; skipped (not failed) when AI is unavailable.
       await (await import('@/lib/ai/insights/job')).handleInsightRunJob(accountId, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
@@ -437,6 +494,12 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'workspace.export' || job.type === 'workspace.export_sweep')
       // One streamed workspace export into private storage, or the 7-day expiry sweep.
       await (await import('@/lib/jobs/workspace-export')).handleWorkspaceExportJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });
+    else if (job.type === 'workspace.purge')
+      // Re-checked under row locks; deletes nothing unless WORKSPACE_PURGE_ENABLED=true.
+      await (await import('@/lib/privacy/workspace-purge')).runWorkspacePurge(accountId);
+    else if (job.type === 'contact.erase')
+      // Per-contact erasure requested by an admin; every step is idempotent.
+      await (await import('@/lib/privacy/contact-erasure')).runContactErasure(accountId, job.payload, job.id);
     else if (job.type.startsWith('instagram.'))
       // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
       await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

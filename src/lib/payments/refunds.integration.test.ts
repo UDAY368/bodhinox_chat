@@ -29,6 +29,7 @@ vi.mock('@/lib/payments/razorpay', async (orig) => ({
 }));
 
 import { reserveTx, commitTx } from '@/lib/commerce/stock';
+import { recordDispatch } from '@/lib/commerce/order-lifecycle';
 import { POST as webhook } from '@/app/api/payments/razorpay/webhook/[accountId]/route';
 import { savePaymentProvider } from './providers';
 import { handlePaymentEventJob } from './links';
@@ -314,5 +315,42 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Customer refunds on Postgre
     const order = (await one("INSERT INTO orders(account_id,source,currency,subtotal_minor,status) VALUES($1,'manual','INR',500,'paid') RETURNING id", [accountA])).id;
     const offline = (await one("INSERT INTO customer_payments(account_id,source,order_id,amount_minor,currency,status,settlement) VALUES($1,'offline',$2,500,'INR','captured','settled') RETURNING id", [accountA, order])).id;
     await expect(ask(offline, 500)).rejects.toMatchObject({ code: 'offline_payment' });
+  });
+
+  // ------------------------------------------------------------------ audit 52: no unit counted twice
+  it('refuses a whole-order restocking refund while a courier shipment may still leave with the goods', async () => {
+    const { order, payment } = await paidOrder();
+    const connection = randomUUID();
+    await owner.query(`INSERT INTO courier_connections(id,account_id,api_email) VALUES($1,$2,'api@example.invalid')`, [connection, accountA]);
+    await owner.query(`INSERT INTO order_shipments(account_id,order_id,connection_id,reference,create_state,awb_state,awb,length_cm,breadth_cm,height_cm,weight_grams)
+      VALUES($1,$2,$3,$4,'created','assigned',$5,10,10,10,500)`, [accountA, order, connection, `bx${seed.padStart(12, '0').slice(-12)}`, `AWB${seed}`]);
+    await expect(ask(payment, 10000, { restock: true, reason: 'cancelled' })).rejects.toMatchObject({ code: 'shipment_live', status: 409 });
+    // Without restocking, the money can still go back (the goods come back through a return).
+    await expect(ask(payment, 10000, { restock: false, reason: 'cancelled' })).resolves.toMatchObject({ refundId: expect.any(String) });
+  });
+
+  it('does not refuse a restocking refund once the order is dispatched (its restock does nothing then)', async () => {
+    const { order, payment } = await paidOrder();
+    // One live courier connection per workspace: reuse the one an earlier test made.
+    const connection = ((await one(`SELECT id FROM courier_connections WHERE account_id=$1 AND status<>'disconnected'`, [accountA]))
+      ?? (await one(`INSERT INTO courier_connections(account_id,api_email) VALUES($1,'api@example.invalid') RETURNING id`, [accountA]))).id;
+    await owner.query(`INSERT INTO order_shipments(account_id,order_id,connection_id,reference,create_state,awb_state,awb,length_cm,breadth_cm,height_cm,weight_grams)
+      VALUES($1,$2,$3,$4,'created','assigned',$5,10,10,10,500)`, [accountA, order, connection, `bxd${seed.padStart(11, '0').slice(-11)}`, `AWD${seed}`]);
+    await owner.query(`UPDATE orders SET status='dispatched', dispatched_at=now() WHERE account_id=$1 AND id=$2`, [accountA, order]);
+    await expect(ask(payment, 10000, { restock: true, reason: 'cancelled' })).resolves.toMatchObject({ refundId: expect.any(String) });
+  });
+
+  it('never ships a paid order a full restocking refund already put back on the shelf', async () => {
+    const { order, payment, providerPaymentId } = await paidOrder();
+    const before = await onHand();
+    const { refundId } = await ask(payment, 10000, { restock: true, reason: 'cancelled' });
+    await runRefundJobs();
+    h.refunds.get(providerPaymentId)![0].status = 'processed';
+    await reconcileRefund(accountA, refundId);
+    expect(await orderRow(order)).toEqual({ status: 'paid', refunded: 10000, refund_state: 'full' });
+    expect(await onHand()).toBe(before + 1);
+    await expect(recordDispatch(asAdmin, order, { from: 'paid' })).rejects.toMatchObject({ code: 'order_refunded' });
+    expect(await orderRow(order)).toMatchObject({ status: 'paid' });
+    expect(await onHand()).toBe(before + 1);
   });
 });

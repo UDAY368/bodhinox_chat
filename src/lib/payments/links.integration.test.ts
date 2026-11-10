@@ -73,6 +73,7 @@ import {
   requestPaymentReference,
   sendPaymentLinkMessage,
 } from './links';
+import { runReconcileSweep } from './reconcile-sweep';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
 const ownerUrl = process.env.TEST_DATABASE_URL;
@@ -369,6 +370,36 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     const { link } = await create();
     expect((await cancelPaymentLinkRecord(accountA, link.id)).status).toBe('cancelled');
     await expect(cancelPaymentLinkRecord(accountA, link.id)).rejects.toBeInstanceOf(PaymentLinkError);
+  });
+
+  it('notices a paid link with no expiry whose webhook never came, with a back-off for links still open (audit finding 54)', async () => {
+    const { link } = await create();
+    const unpaid = await create();
+    // Both sent two hours ago with no expiry; no payment_link.paid delivery arrives for either.
+    await owner.query("UPDATE payment_links SET created_at=now() - interval '2 hours', expires_at=NULL WHERE id=ANY($1::uuid[])", [[link.id, unpaid.link.id]]);
+    const row = await linkRow(link.id);
+    h.pay(row);
+    const unpaidRow = await linkRow(unpaid.link.id);
+    h.gateway.set(unpaidRow.provider_link_id, { ...h.link(unpaidRow.reference_id), id: unpaidRow.provider_link_id });
+    h.fetch.mockClear();
+    await runReconcileSweep(accountA);
+    expect(await linkRow(link.id)).toMatchObject({ status: 'paid' });
+    expect((await owner.query("SELECT settlement FROM customer_payments WHERE account_id=$1 AND payment_link_id=$2", [accountA, link.id])).rows)
+      .toEqual([{ settlement: 'unattached' }]); // a plain link: recorded once, credits no order
+    expect(await linkRow(unpaid.link.id)).toMatchObject({ status: 'created' });
+    expect(h.fetch).toHaveBeenCalledWith(expect.objectContaining({ id: unpaidRow.provider_link_id }));
+    // The open link was just checked: the next sweep leaves it until its back-off (a quarter of its age) has passed.
+    h.fetch.mockClear();
+    await runReconcileSweep(accountA);
+    expect(h.fetch).not.toHaveBeenCalledWith(expect.objectContaining({ id: unpaidRow.provider_link_id }));
+    await owner.query("UPDATE payment_links SET reconcile_checked_at=now() - interval '31 minutes' WHERE id=$1", [unpaid.link.id]);
+    await runReconcileSweep(accountA);
+    expect(h.fetch).toHaveBeenCalledWith(expect.objectContaining({ id: unpaidRow.provider_link_id }));
+    // A link younger than 30 minutes is left to its webhook.
+    const fresh = await create();
+    h.fetch.mockClear();
+    await runReconcileSweep(accountA);
+    expect(h.fetch).not.toHaveBeenCalledWith(expect.objectContaining({ id: (await linkRow(fresh.link.id)).provider_link_id }));
   });
 
   it('runs a flow payment step: creates the link once, sends it, and resumes on the paid webhook', async () => {

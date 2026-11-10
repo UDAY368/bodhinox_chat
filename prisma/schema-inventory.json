@@ -850,6 +850,14 @@
         "definition": "reopened_count INTEGER NOT NULL DEFAULT 0"
       },
       {
+        "name": "reopened_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reopened_at timestamptz"
+      },
+      {
         "name": "channel",
         "type": "text",
         "nullable": false,
@@ -2116,6 +2124,22 @@
         "default": null,
         "reference": null,
         "definition": "clicked_at TIMESTAMPTZ"
+      },
+      {
+        "name": "retry_generation",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "retry_generation INTEGER NOT NULL DEFAULT 0"
+      },
+      {
+        "name": "outcome_uncertain_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "outcome_uncertain_at TIMESTAMPTZ"
       }
     ],
     "automations": [
@@ -3650,6 +3674,30 @@
         "default": "now()",
         "reference": null,
         "definition": "created_at       timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "failing_since",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "failing_since timestamptz"
+      },
+      {
+        "name": "disabled_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "disabled_at timestamptz"
+      },
+      {
+        "name": "disabled_reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "disabled_reason text"
       }
     ],
     "ai_configs": [
@@ -16324,6 +16372,96 @@
         "default": null,
         "reference": null,
         "definition": "latency_ms integer CHECK (latency_ms >= 0)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "webhook_deliveries": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "endpoint_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "webhook_endpoints",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "endpoint_id uuid NOT NULL"
+      },
+      {
+        "name": "event",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "event text NOT NULL CHECK (char_length(event) <= 64)"
+      },
+      {
+        "name": "delivery_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "delivery_id text CHECK (char_length(delivery_id) <= 64)"
+      },
+      {
+        "name": "attempt",
+        "type": "integer",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "attempt integer NOT NULL CHECK (attempt >= 1)"
+      },
+      {
+        "name": "outcome",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "outcome text NOT NULL CHECK (outcome IN ('delivered','failed'))"
+      },
+      {
+        "name": "http_status",
+        "type": "integer",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "http_status integer CHECK (http_status BETWEEN 100 AND 599)"
+      },
+      {
+        "name": "error",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "error text CHECK (char_length(error) <= 64 AND error ~ '^[a-z0-9_]+$')"
       },
       {
         "name": "created_at",

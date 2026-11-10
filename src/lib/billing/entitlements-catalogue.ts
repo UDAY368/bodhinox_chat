@@ -5,8 +5,8 @@ export const LIMITS = ['seats', 'segments', 'lists', 'campaign_recipients', 'act
   // Phase 13: AI tokens per IST month across every AI feature (usage_counters metric 'ai_tokens').
   'ai_tokens_monthly',
   // Phase 14. contacts: every contacts row; integrations: connected payment, store, meeting, courier and ads
-  // connections (src/lib/billing/integration-count.ts); messages_monthly: outbound messages this IST month,
-  // shown only. A missing key or JSON null is unlimited, so no plan row needed changing for them.
+  // connections (src/lib/billing/integration-count.ts); messages_monthly: outbound messages this IST month
+  // (campaign sends are gated, see limits.ts). A missing key or JSON null is unlimited, so no plan row needed changing.
   'contacts', 'integrations', 'messages_monthly'] as const;
 export type Feature = (typeof FEATURES)[number];
 export type LimitKey = (typeof LIMITS)[number];
@@ -28,9 +28,11 @@ export const ADDON_LIMIT: Record<AddonKind, LimitKey> = { extra_seats: 'seats', 
  *  - hard_inbound_exempt: manual, import and API creates are refused; inbound (customers writing in) never is.
  *  - hard_addon: refused before the provider call; add-on packs raise the limit.
  *  - hard_per_campaign: checked per campaign, not as a running total.
+ *  - hard_campaign: campaign and scheduled-automation sends are refused (requireCampaignSendRoom);
+ *    manual replies, bot replies to customers and inbound never are.
  *  - soft: shown and warned about, never blocks.
  */
-export const LIMIT_POLICIES = ['hard', 'hard_inbound_exempt', 'hard_addon', 'hard_per_campaign', 'soft'] as const;
+export const LIMIT_POLICIES = ['hard', 'hard_inbound_exempt', 'hard_addon', 'hard_per_campaign', 'hard_campaign', 'soft'] as const;
 export type LimitPolicy = (typeof LIMIT_POLICIES)[number];
 export const LIMIT_POLICY: Record<LimitKey, LimitPolicy> = {
   seats: 'hard',
@@ -40,7 +42,7 @@ export const LIMIT_POLICY: Record<LimitKey, LimitPolicy> = {
   active_flows: 'hard',
   active_automations: 'hard',
   ai_messages: 'hard_addon',
-  monthly_active_contacts: 'soft',
+  monthly_active_contacts: 'hard_campaign',
   storage_bytes: 'hard',
   whatsapp_numbers: 'hard',
   appointment_staff: 'hard',
@@ -48,7 +50,7 @@ export const LIMIT_POLICY: Record<LimitKey, LimitPolicy> = {
   ai_tokens_monthly: 'hard_addon',
   contacts: 'hard_inbound_exempt',
   integrations: 'hard',
-  messages_monthly: 'soft',
+  messages_monthly: 'hard_campaign',
 };
 /** Limits counted per IST calendar month (reset on the 1st, India time). */
 export const MONTHLY_LIMITS: readonly LimitKey[] = ['ai_messages', 'ai_tokens_monthly', 'monthly_active_contacts', 'messages_monthly'];

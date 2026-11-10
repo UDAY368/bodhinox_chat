@@ -12,7 +12,9 @@
  * slot, deduped), so the chain survives a failed pass; deleting the link ends
  * the chain. Meta failures are stored as a fixed category on the catalogue
  * (sync_error) and the job completes. Tokens and product data are never
- * logged.
+ * logged. A complete pass also queues 'commerce.catalog_push' in its final
+ * transaction (catalog-push.ts), the periodic reconcile of Bodhinox prices
+ * and stock against what it just read from Meta.
  */
 
 import { getWorkerPrisma } from '@/lib/db/prisma';
@@ -20,6 +22,7 @@ import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { getCatalogProducts, MetaApiError, type MetaCatalogProduct, type MetaCatalogProductsPage } from '@/lib/whatsapp/meta-api';
 import { CatalogError, loadCatalogNumber, queueCatalogSync, type CatalogSyncError } from './catalog';
+import { queueCatalogPush } from './catalog-push';
 import { currencyExponent, isCurrencyCode, MoneyError, parseMoney } from './money';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -221,6 +224,8 @@ export async function syncCatalog(args: SyncCatalogArgs): Promise<CatalogSyncRes
       WHERE account_id=${accountId}::uuid AND catalog_row_id=${catalogRowId}::uuid AND synced_at<${startedAt} AND NOT is_hidden`;
     await tx.$executeRaw`UPDATE whatsapp_catalogs SET last_synced_at=${startedAt},sync_error=NULL
       WHERE account_id=${accountId}::uuid AND id=${catalogRowId}::uuid`;
+    // Bodhinox prices and stock win for linked variants: push what the pass found different (audit finding 20).
+    await queueCatalogPush(accountId, tx);
     return count;
   });
   return { status: 'synced', upserted, hidden };

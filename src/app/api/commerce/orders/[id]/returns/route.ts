@@ -1,6 +1,7 @@
 // GET  /api/commerce/orders/[id]/returns — the order's returns (agents and above). 200 { returns }.
 // POST /api/commerce/orders/[id]/returns { items: [{ order_item_id, qty }], note? } — open a return
-//   on a dispatched or delivered order (agents and above). 201 { return }; 400; 409.
+//   on a dispatched or delivered order within the store's return window (agents and above).
+//   201 { return }; 400; 409 (return_window_closed once the window after delivery has passed).
 
 import { NextResponse } from 'next/server';
 

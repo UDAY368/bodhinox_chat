@@ -126,6 +126,8 @@ model conversations {
   first_responded_at DateTime? @db.Timestamptz(6)
   resolved_at DateTime? @db.Timestamptz(6)
   reopened_count Int  @default(0)
+  /// Start of the current cycle when the conversation was reopened (lifecycle trigger, 20261116060000).
+  reopened_at DateTime? @db.Timestamptz(6)
   /// Phase 11: 'whatsapp' | 'instagram'. Server-managed; an Instagram row names instagram_account_id and never a number.
   channel String @default("whatsapp")
   instagram_account_id String? @db.Uuid
@@ -192,6 +194,11 @@ model whatsapp_config {
   code_verification_status String?
   health_error String?
   health_error_at DateTime? @db.Timestamptz(6)
+  /// account_update webhook (20261116110000_meta_account_events): Meta's latest account-level event for this number's WABA.
+  meta_account_event String?
+  meta_account_detail String?
+  meta_account_event_at DateTime? @db.Timestamptz(6)
+  meta_account_until DateTime? @db.Timestamptz(6)
   @@unique([account_id, phone_number_id])
   @@unique([account_id, id])
 }
@@ -303,6 +310,7 @@ model broadcasts {
   tracked_url String?
   click_count Int @default(0)
   whatsapp_config_id String? @db.Uuid
+  retry_request_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -322,6 +330,8 @@ model broadcast_recipients {
   click_token String?
   clicked_at DateTime? @db.Timestamptz(6)
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  retry_generation Int @default(0)
+  outcome_uncertain_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
@@ -573,7 +583,30 @@ model webhook_endpoints {
   last_delivery_at DateTime? @db.Timestamptz(6)
   failure_count Int  @default(0)
   created_at DateTime @db.Timestamptz(6) @default(now())
+  /// 20261116090000_webhook_delivery_log: start of the current failure streak; why and when the
+  /// endpoint was switched off ('sustained_failure').
+  failing_since DateTime? @db.Timestamptz(6)
+  disabled_at DateTime? @db.Timestamptz(6)
+  disabled_reason String?
   @@unique([account_id, id])
+}
+
+/// 20261116090000_webhook_delivery_log: one row per outbound webhook attempt (never the payload).
+/// Worker writes through record_webhook_attempt(), admins read; newest 100 per endpoint, 30 days.
+model webhook_deliveries {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  endpoint_id String @db.Uuid
+  event String
+  delivery_id String?
+  attempt Int
+  /// 'delivered' | 'failed'
+  outcome String
+  http_status Int?
+  error String?
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([account_id, id])
+  @@index([account_id, endpoint_id, created_at(sort: Desc)], map: "webhook_deliveries_endpoint_idx")
 }
 
 model ai_configs {
@@ -753,6 +786,17 @@ model webhook_receipts {
   payload Json @db.JsonB
   status String  @default("pending")
   created_at DateTime @db.Timestamptz(6) @default(now())
+}
+
+/// Meta Data Deletion Request Callback (20261116110000_meta_account_events): worker only, no tenant data.
+model meta_data_deletion_requests {
+  id String @db.Uuid @id @default(dbgenerated("gen_random_uuid()"))
+  confirmation_code String @unique
+  app_user_hash String
+  issued_at BigInt
+  status String @default("completed")
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  @@unique([app_user_hash, issued_at])
 }
 
 /// Worker liveness (20261113090000_worker_heartbeats): one row per worker process, no tenant data.

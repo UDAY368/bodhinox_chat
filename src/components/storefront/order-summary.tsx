@@ -37,7 +37,7 @@ export function OrderSummary({ order, locale }: { order: StorefrontOrderView; lo
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Icon className={paid || codDue ? 'size-5 text-green-600' : closed ? 'size-5 text-destructive' : 'size-5 text-amber-600'} aria-hidden />
-          {t(`orderStatus.${order.status}`)}
+          {order.paymentFailed ? t('paymentFailedTitle') : t(`orderStatus.${order.status}`)}
         </CardTitle>
         <CardDescription>{t('orderReference', { reference: order.reference })}</CardDescription>
       </CardHeader>
@@ -58,12 +58,18 @@ export function OrderSummary({ order, locale }: { order: StorefrontOrderView; lo
           </p>
         )}
         {order.status === 'payment_review' && <p className="text-sm text-muted-foreground">{t('paymentReview')}</p>}
+        {order.paymentFailed && <p className="text-sm text-destructive" role="alert">{t('paymentFailed')}</p>}
         {codDue && (
           <p className="rounded-md bg-muted p-3 text-sm">
             {t('codDue', { amount: money(order.totalMinor !== null ? order.totalMinor - order.amountPaidMinor : null, order.currency, locale) })}
           </p>
         )}
         {order.documentNumber && <p className="text-sm">{t('receiptNumber', { number: order.documentNumber })}</p>}
+        {order.returnWindowDays !== null && (
+          <p className="text-xs text-muted-foreground">
+            {order.returnWindowDays > 0 ? t('returnWindow', { days: order.returnWindowDays }) : t('noReturns')}
+          </p>
+        )}
         <ul className="divide-y text-sm">
           {order.lines.map((line, i) => (
             <li key={i} className="flex justify-between gap-4 py-2">

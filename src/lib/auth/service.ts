@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { authEmailTransport as emailTransport, sendAuthEmail } from './email';
+import {
+  emailChangeConfirmEmail,
+  emailChangeNoticeEmail,
+  existingAccountEmail,
+  verificationEmail,
+} from './email-content';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import {
   appOrigin,
@@ -68,7 +74,7 @@ export async function enforceAuthRateLimit(
 async function sendVerification(
   email: string,
   token: string,
-  purpose: string,
+  purpose: 'verify' | 'reset',
   next = '/dashboard'
 ) {
   const link = new URL('/auth/callback', appOrigin());
@@ -78,11 +84,7 @@ async function sendVerification(
   await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: email,
-    subject:
-      purpose === 'reset'
-        ? 'Reset your Bodhinox password'
-        : 'Verify your Bodhinox email',
-    text: `${purpose === 'reset' ? 'Reset your password' : 'Verify your email'}: ${link.toString()}\nThis link expires in ${purpose === 'reset' ? 'one hour' : '24 hours'}. If you did not request it, ignore this message.`,
+    ...verificationEmail(purpose, link.toString()),
   });
 }
 async function createVerification(
@@ -97,7 +99,11 @@ async function createVerification(
   );
   await getAuthPrisma().$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM auth_users WHERE id=${userId}::uuid FOR UPDATE`;
-    await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${userId}::uuid AND purpose=${purpose} AND consumed_at IS NULL`;
+    // Verify links stay valid side by side: each carries the password of the signup that asked
+    // for it, and the inbox owner picks theirs by typing it (verifyEmailToken). Consuming them
+    // here would let a later signup by someone else void the real owner's pending link.
+    if (purpose !== 'verify')
+      await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE user_id=${userId}::uuid AND purpose=${purpose} AND consumed_at IS NULL`;
     await tx.$executeRaw`INSERT INTO auth_verifications(id,user_id,purpose,token_hash,expires_at,metadata) VALUES(${id}::uuid,${userId}::uuid,${purpose},${hashToken(token)},${expires},${JSON.stringify(metadata)}::jsonb)`;
   });
   return token;
@@ -178,7 +184,7 @@ async function createPersonalWorkspace(
   await tx.$executeRaw`INSERT INTO account_memberships(id,account_id,user_id,role) VALUES(${randomUUID()}::uuid,${accountId}::uuid,${user.id}::uuid,'owner')`;
   await tx.$executeRaw`INSERT INTO profiles(id,user_id,full_name,email,account_id,account_role) VALUES(${randomUUID()}::uuid,${user.id}::uuid,${user.fullName},${user.email},${accountId}::uuid,'owner')
     ON CONFLICT(user_id) DO NOTHING`;
-  // NEW_WORKSPACE_PLAN (unset = no subscription row = enterprise, as before).
+  // NEW_WORKSPACE_PLAN, or the lowest plan when unset (never the unrestricted default).
   await assignInitialPlan(tx, accountId);
   return accountId;
 }
@@ -211,8 +217,10 @@ export async function signup(input: {
       INSERT INTO auth_users(id,email,full_name,password_hash,terms_version,terms_accepted_at)
       VALUES(${userId}::uuid,${email},${fullName},${passwordHash},${terms},${terms ? new Date() : null}::timestamptz)
       ON CONFLICT(email) DO NOTHING RETURNING id`;
-    // A failed delivery must not strand a pending signup. Reissue proof without
-    // changing the original password or exposing whether a verified account exists.
+    // A failed delivery must not strand a pending signup. Reissue proof without exposing whether
+    // a verified account exists. The password stays out of auth_users here: it rides on the new
+    // verify link and is applied only when the inbox owner verifies by typing it (account
+    // pre-hijack: an unverified row may have been created by someone else).
     if (!inserted[0]) {
       const existing = await tx.$queryRaw<{ id: string; verified: boolean }[]>`
         SELECT id, email_verified_at IS NOT NULL AS verified
@@ -229,25 +237,24 @@ export async function signup(input: {
     // the owner of the address still learns why no verification link arrived.
     const signIn = new URL('/login', appOrigin());
     const join = invite
-      ? `\nTo join the workspace you were invited to, sign in and open: ${new URL(`/join/${encodeURIComponent(invite)}`, appOrigin()).toString()}`
-      : '';
+      ? new URL(`/join/${encodeURIComponent(invite)}`, appOrigin()).toString()
+      : undefined;
     await sendAuthEmail({
       from: process.env.AUTH_EMAIL_FROM,
       to: email,
-      subject: 'You already have a Bodhinox account',
-      text: `Someone tried to create a Bodhinox account with this email, but one already exists.
-Sign in: ${signIn.toString()}${join}
-Forgot your password? Use "Forgot password" on the sign-in page. If this wasn't you, ignore this message.`,
+      ...existingAccountEmail(signIn.toString(), join),
     });
   } else if (user)
     await sendVerification(
       email,
-      // The verification carries the invitation (hash only) and redeems it once the email is proven.
-      await createVerification(
-        user.id,
-        'verify',
-        invite ? { inviteTokenHash: hashInviteToken(invite) } : {}
-      ),
+      // The verification carries this signup's password hash, name and terms, plus the invitation
+      // (hash only); verifyEmailToken applies them once the email owner proves the password.
+      await createVerification(user.id, 'verify', {
+        passwordHash,
+        fullName,
+        ...(terms ? { termsVersion: terms } : {}),
+        ...(invite ? { inviteTokenHash: hashInviteToken(invite) } : {}),
+      }),
       'verify',
       invite ? '/dashboard' : input.next
     );
@@ -530,14 +537,12 @@ export async function requestEmailChange(
   await sendAuthEmail({
     from: process.env.AUTH_EMAIL_FROM,
     to: newEmail,
-    subject: 'Confirm your new Bodhinox email',
-    text: `Confirm your new email address: ${link.toString()}\nThis link expires in one hour. Your current email stays active until you confirm.`,
+    ...emailChangeConfirmEmail(link.toString()),
   });
   await emailTransport().sendMail({
     from: process.env.AUTH_EMAIL_FROM,
     to: oldEmail,
-    subject: 'Bodhinox email change requested',
-    text: `A change of your Bodhinox email address to ${newEmail} was requested. If you did not request it, reset your password immediately; this cancels pending email changes.`,
+    ...emailChangeNoticeEmail(newEmail),
   });
 }
 export async function confirmEmailChange(token: string): Promise<void> {
@@ -566,7 +571,54 @@ export async function confirmEmailChange(token: string): Promise<void> {
   if (!success)
     throw new AuthError('This link is invalid or expired', 400, 'link_invalid');
 }
-export async function verifyEmailToken(token: string): Promise<void> {
+export type VerifyMetadata = {
+  inviteTokenHash?: unknown;
+  passwordHash?: unknown;
+  fullName?: unknown;
+  termsVersion?: unknown;
+};
+/** Most pending signups whose password one verification attempt checks (each check is a slow hash). */
+export const MAX_VERIFY_CANDIDATES = 10;
+/**
+ * The pending signup whose stored password matches, checking the clicked link first (the inbox
+ * owner usually opens their own mail), then the newest others, at most MAX_VERIFY_CANDIDATES in all,
+ * so a flood of signups for one address cannot make a verification hash hundreds of passwords.
+ */
+export async function pickPendingSignup(
+  clickedId: string,
+  pending: { id: string; metadata: VerifyMetadata }[],
+  password: string,
+  check: (hash: string, password: string) => Promise<boolean> = verifyPassword
+): Promise<VerifyMetadata | null> {
+  const ordered = [
+    ...pending.filter((candidate) => candidate.id === clickedId),
+    ...pending.filter((candidate) => candidate.id !== clickedId),
+  ];
+  const tried = new Set<string>();
+  for (const candidate of ordered) {
+    const hash = candidate.metadata?.passwordHash;
+    if (typeof hash !== 'string' || tried.has(hash)) continue;
+    if (tried.size >= MAX_VERIFY_CANDIDATES) break;
+    tried.add(hash);
+    if (await check(hash, password)) return candidate.metadata;
+  }
+  return null;
+}
+/** Whether an emailed verify link can still be used (the /verify-email form asks for the password). */
+export async function isVerifyTokenValid(token: string): Promise<boolean> {
+  const rows = await getAuthPrisma().$queryRaw<{ id: string }[]>`
+    SELECT v.id FROM auth_verifications v JOIN auth_users u ON u.id=v.user_id WHERE v.token_hash=${hashToken(token)}
+      AND v.purpose='verify' AND v.consumed_at IS NULL AND v.expires_at>NOW() AND u.disabled_at IS NULL AND u.email_verified_at IS NULL`;
+  return !!rows[0];
+}
+/**
+ * Proves the email with the emailed link AND the password of one of the pending signups for that
+ * address. The link proves the inbox; the password picks which signup the inbox owner made, so a
+ * stranger who signed up first with someone else's address (account pre-hijack) never keeps the
+ * password, and a stranger's later signup cannot replace the owner's either. The chosen signup's
+ * password, name and terms become the account's; every other pending link dies with it.
+ */
+export async function verifyEmailToken(token: string, password: string): Promise<void> {
   const result = await getAuthPrisma().$transaction(async (tx) => {
     const rows = await tx.$queryRaw<
       {
@@ -574,18 +626,44 @@ export async function verifyEmailToken(token: string): Promise<void> {
         id: string;
         full_name: string;
         email: string;
-        metadata: { inviteTokenHash?: unknown };
+        password_hash: string;
+        metadata: VerifyMetadata;
       }[]
     >`
-      SELECT v.id,v.user_id,v.metadata,u.full_name,u.email FROM auth_verifications v JOIN auth_users u ON u.id=v.user_id
-      WHERE v.token_hash=${hashToken(token)} AND v.purpose='verify' AND v.consumed_at IS NULL AND v.expires_at>NOW() AND u.disabled_at IS NULL FOR UPDATE OF v,u`;
+      SELECT v.id,v.user_id,v.metadata,u.full_name,u.email,u.password_hash FROM auth_verifications v JOIN auth_users u ON u.id=v.user_id
+      WHERE v.token_hash=${hashToken(token)} AND v.purpose='verify' AND v.consumed_at IS NULL AND v.expires_at>NOW()
+        AND u.disabled_at IS NULL AND u.email_verified_at IS NULL FOR UPDATE OF v,u`;
     const row = rows[0];
-    if (!row) return false;
-    await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=NOW() WHERE id=${row.id}::uuid`;
-    await tx.$executeRaw`UPDATE auth_users SET email_verified_at=COALESCE(email_verified_at,NOW()) WHERE id=${row.user_id}::uuid`;
+    if (!row) return 'invalid' as const;
+    const pending = await tx.$queryRaw<{ id: string; metadata: VerifyMetadata }[]>`
+      SELECT id,metadata FROM auth_verifications WHERE user_id=${row.user_id}::uuid AND purpose='verify'
+        AND consumed_at IS NULL AND expires_at>NOW() ORDER BY expires_at DESC FOR UPDATE`;
+    let chosen = await pickPendingSignup(row.id, pending, password);
+    // Links from before this check (or a plain resend) carry no password: the account's own
+    // password must match, with the clicked link's invitation.
+    if (!chosen && (await verifyPassword(row.password_hash, password)))
+      chosen = { ...row.metadata, passwordHash: undefined };
+    if (!chosen) return 'mismatch' as const;
+    const fullName =
+      typeof chosen.fullName === 'string' && chosen.fullName ? chosen.fullName : row.full_name;
+    const terms = typeof chosen.termsVersion === 'string' ? chosen.termsVersion : null;
+    await tx.$executeRaw`UPDATE auth_users SET email_verified_at=NOW(),full_name=${fullName},
+        password_hash=${typeof chosen.passwordHash === 'string' ? chosen.passwordHash : row.password_hash},password_set=true,
+        terms_version=COALESCE(${terms},terms_version),terms_accepted_at=CASE WHEN ${terms}::text IS NULL THEN terms_accepted_at ELSE NOW() END
+      WHERE id=${row.user_id}::uuid`;
+    await tx.$executeRaw`UPDATE profiles SET full_name=${fullName},updated_at=NOW() WHERE user_id=${row.user_id}::uuid`;
+    // Spend every pending link, and drop the password hashes the links carried: once verified,
+    // the account's own password_hash is the only copy that should exist.
+    await tx.$executeRaw`UPDATE auth_verifications SET consumed_at=COALESCE(consumed_at,NOW()),metadata=metadata-'passwordHash'
+      WHERE user_id=${row.user_id}::uuid AND purpose='verify' AND (consumed_at IS NULL OR metadata->>'passwordHash' IS NOT NULL)`;
+    // Nothing should hold a session, second factor or linked sign-in on a row that was never
+    // verified; clear them defensively so nothing set up by an earlier signer survives.
+    await tx.$executeRaw`UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id=${row.user_id}::uuid`;
+    await tx.$executeRaw`DELETE FROM auth_mfa_factors WHERE user_id=${row.user_id}::uuid`;
+    await tx.$executeRaw`DELETE FROM auth_identities WHERE user_id=${row.user_id}::uuid`;
     // Invited signup: join now that the address is proven. A link used or expired meanwhile is
     // skipped; sign-in then falls back to a personal workspace.
-    const inviteHash = row.metadata?.inviteTokenHash;
+    const inviteHash = chosen.inviteTokenHash;
     const invite =
       typeof inviteHash === 'string'
         ? await lockInvitationByHash(tx, inviteHash)
@@ -593,13 +671,19 @@ export async function verifyEmailToken(token: string): Promise<void> {
     if (invite)
       await joinInvitedWorkspace(tx, invite, {
         id: row.user_id,
-        fullName: row.full_name,
+        fullName,
         email: row.email,
       });
-    return true;
+    return 'verified' as const;
   });
-  if (!result)
+  if (result === 'invalid')
     throw new AuthError('This link is invalid or expired', 400, 'link_invalid');
+  if (result === 'mismatch')
+    throw new AuthError(
+      'Enter the password you chose when you signed up with this email',
+      400,
+      'password_mismatch'
+    );
 }
 export async function isRecoveryTokenValid(token: string): Promise<boolean> {
   const rows = await getAuthPrisma().$queryRaw<{ id: string }[]>`

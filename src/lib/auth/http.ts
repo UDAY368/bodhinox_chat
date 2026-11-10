@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAuthPrisma } from '@/lib/db/prisma';
 import { AuthError, UnauthorizedError } from './errors';
 import { checkAuthEmailTransport, sendAuthEmail } from './email';
+import { deliveryTestEmail } from './email-content';
 import {
   appOrigin,
   assertCsrf,
@@ -12,6 +13,7 @@ import {
 } from './csrf';
 import {
   clearSessionCookies,
+  clearVerifyCookie,
   cookieNames,
   readCookie,
   setAccessCookie,
@@ -34,6 +36,7 @@ import { deleteMyAccount } from './account-deletion';
 import {
   enforceAuthRateLimit,
   isRecoveryTokenValid,
+  isVerifyTokenValid,
   login,
   requestEmail,
   requestEmailChange,
@@ -44,6 +47,7 @@ import {
   signup,
   switchTenant,
   updatePassword,
+  verifyEmailToken,
   type IssuedSession,
 } from './service';
 
@@ -161,6 +165,10 @@ export async function handleAuthGet(
       const token = readCookie(request, cookieNames().recovery);
       return json({ valid: !!token && (await isRecoveryTokenValid(token)) });
     }
+    if (action === 'verify-status') {
+      const token = readCookie(request, cookieNames().verify);
+      return json({ valid: !!token && (await isVerifyTokenValid(token)) });
+    }
     if (action === 'session') {
       const context = await resolveEnrollmentSession(request);
       if (!context) return json({ session: null }, 401);
@@ -244,6 +252,7 @@ export async function handleAuthPost(
         'reset-request',
         'verify-request',
         'reset',
+        'verify-email',
         'refresh',
       ].includes(action)
     ) {
@@ -310,6 +319,18 @@ export async function handleAuthPost(
         });
         return json({ ok: true });
       }
+      if (action === 'verify-email') {
+        const parsed = z.object({ password }).strict().parse(input);
+        const token = readCookie(request, cookieNames().verify);
+        if (!token)
+          throw new AuthError('This link is invalid or expired', 400, 'link_invalid');
+        // Each guess costs a password check; cap them per link like reset links.
+        await enforceAuthRateLimit('verify-token', hashToken(token));
+        await verifyEmailToken(token, parsed.password);
+        const response = json({ ok: true });
+        clearVerifyCookie(response);
+        return response;
+      }
       const parsed = z
         .object({ password, mfaCode: code })
         .strict()
@@ -346,8 +367,7 @@ export async function handleAuthPost(
       await sendAuthEmail({
         from: process.env.AUTH_EMAIL_FROM,
         to: context.user.email,
-        subject: 'Bodhinox Chat email verification delivery test',
-        text: 'Delivery test for account verification emails. No action is required. Your password and team memberships have not changed.',
+        ...deliveryTestEmail(),
       });
       return json({ ok: true });
     }

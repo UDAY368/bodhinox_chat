@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Check, Loader2, Pencil, Plus, Star, Trash2, X } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { cn } from '@/lib/utils';
+import { ACCOUNT_ISSUE_EVENTS } from '@/lib/whatsapp/account-issue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -171,6 +172,15 @@ export function NumbersList({ numbers, selectedId, adding, canEdit, onSelect, on
                   </div>
                 )}
                 {n.removed && <p className="text-muted-foreground text-xs">{t('settings.removedHint')}</p>}
+                {n.account_issue && ACCOUNT_ISSUE_EVENTS.has(n.account_issue.event) && (
+                  <p role="status" data-testid="whatsapp-number-meta-issue" className="text-xs text-red-600 dark:text-red-400">
+                    {t(`settings.metaIssue.${n.account_issue.event}`)}
+                    {n.account_issue.detail ? ` ${t('settings.metaIssue.detail', { detail: n.account_issue.detail })}` : ''}
+                    {n.account_issue.until
+                      ? ` ${t('settings.metaIssue.until', { date: new Date(n.account_issue.until).toLocaleString() })}`
+                      : ''}
+                  </p>
+                )}
                 <p className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-xs">
                   <span>{t('settings.phoneNumberIdLabel', { id: n.phone_number_id })}</span>
                   {n.waba_id && <span>{t('settings.wabaIdLabel', { id: n.waba_id })}</span>}

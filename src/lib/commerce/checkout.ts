@@ -31,8 +31,8 @@ import { minorFromDb } from './money';
 import { CART_LIMITS } from './pricing';
 import { releaseTx, reserveTx, StockError } from './stock';
 import {
-  assertOpen, issueSessionTx, linkMessageText, loadOrder, loadSession, orderReference, OPEN_WINDOW_MS, quoteSessionTx,
-  seededUuid, sendStorefrontText, STOREFRONT_TTL,
+  assertOpen, issueSessionTx, linkMessageText, loadOrder, loadSession, onlinePaymentReady, orderReference, OPEN_WINDOW_MS,
+  quoteSessionTx, seededUuid, sendStorefrontText, STOREFRONT_TTL,
 } from './storefront';
 import { deriveStorefrontToken, storefrontUrl } from './storefront-token';
 import { isUuid, loadPricingSettings, StoreError } from './store-settings';
@@ -214,6 +214,8 @@ export async function placeOrder(accountId: string, sessionId: string, input: Pl
     const address = JSON.stringify(session.address);
     // The repriced quote already refused cod_unavailable; COD is then confirmed with no payment link.
     const cod = quote.paymentMethod === 'cod';
+    // No Razorpay connection, so no payment link can be made: refuse before anything is held.
+    if (!cod && !(await onlinePaymentReady(tx, accountId))) throw new StoreError('online_unavailable');
     if (!existing) {
       await tx.$executeRaw`INSERT INTO orders(id,account_id,source,contact_id,conversation_id,whatsapp_config_id,currency,subtotal_minor,
           discount_minor,shipping_minor,tax_minor,tax_inclusive,total_minor,coupon_code,shipping_address,storefront_session_id,status,
@@ -331,9 +333,11 @@ async function orderSessionToken(tx: TenantTransaction, accountId: string, order
  * now + 16 min)) unless it is no longer awaiting payment or already has a live
  * link. The storefront page opens the link itself (it polls the order), so no
  * WhatsApp message is sent here. A definite refusal (no Razorpay connection,
- * provider refusal) leaves the order awaiting payment until its hold expires;
- * an ambiguous create throws so the job retries, and the retry reconciles the
- * same reference instead of creating a second link.
+ * revoked keys, provider refusal) closes the order at once (failCheckoutLink):
+ * the customer sees that payment could not be set up instead of waiting for
+ * the hold to run out, and the admins are told why. An ambiguous create throws
+ * so the job retries, and the retry reconciles the same reference instead of
+ * creating a second link.
  */
 export async function createCheckoutLinkJob(accountId: string, payload: CheckoutLinkJobPayload): Promise<void> {
   if (!isUuid(payload.orderId) || !Number.isInteger(payload.attempt)) throw new Error('Invalid checkout link job contract');
@@ -362,6 +366,9 @@ export async function createCheckoutLinkJob(accountId: string, payload: Checkout
   } catch (error) {
     if (error instanceof PaymentLinkError && !['provider_unreachable', 'busy'].includes(error.code)) {
       console.error('[checkout] link refused', error.code);
+      // Only a refusal that means no link can be made closes the order; anything else (another live link, a
+      // reference already used) leaves it awaiting payment until its hold expires, as before.
+      if (LINK_IMPOSSIBLE.has(error.code)) await failCheckoutLink(accountId, payload, error.code);
       return;
     }
     throw error;
@@ -370,6 +377,45 @@ export async function createCheckoutLinkJob(accountId: string, payload: Checkout
   await worker(accountId, async (tx) => {
     const order = await loadOrder(tx, accountId, plan.order.id);
     if (order && order.status !== 'awaiting_payment') await cancelLiveLinksTx(tx, accountId, order.id);
+  });
+}
+
+/** Link refusals after which no payment link can be made for the order: Razorpay not connected, keys refused, request refused. */
+const LINK_IMPOSSIBLE: ReadonlySet<string> = new Set(['not_connected', 'provider_auth', 'provider_rejected']);
+
+/**
+ * Razorpay definitely refused to make the checkout link (`code`, a
+ * PaymentLinkError code): the order of this attempt, still awaiting payment
+ * with no settled payment, is closed now as an expired one would be (stock
+ * and coupon released, link cancelled), with an order event
+ * 'payment_link_failed' (detail: the code) that the storefront shows as a
+ * payment-setup failure and staff see in the order history, and one
+ * notification to the owners and admins. Idempotent: anything else is left alone.
+ */
+export async function failCheckoutLink(accountId: string, payload: CheckoutLinkJobPayload, code: string): Promise<boolean> {
+  return worker(accountId, async (tx) => {
+    const order = await loadOrder(tx, accountId, payload.orderId, true);
+    if (!order || order.status !== 'awaiting_payment' || order.checkout_attempt !== payload.attempt) return false;
+    const [settled] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM customer_payments
+      WHERE account_id=${accountId}::uuid AND order_id=${order.id}::uuid AND settlement='settled'`;
+    if ((settled?.n ?? 0) > 0) return false;
+    const reason = /^[a-z0-9_]{1,64}$/.test(code) ? code : 'provider_rejected';
+    await releaseTx(tx, accountId, order.id, 'expired');
+    await releaseCouponTx(tx, accountId, order.id);
+    await tx.$executeRaw`UPDATE orders SET status='expired' WHERE account_id=${accountId}::uuid AND id=${order.id}::uuid`;
+    await orderEvent(tx, accountId, order.id, 'payment_link_failed', 'system', reason);
+    await orderEvent(tx, accountId, order.id, 'released', 'system', 'payment_link_failed');
+    await cancelLiveLinksTx(tx, accountId, order.id);
+    const t = getT('Commerce.checkoutLinkFailed');
+    const title = t('title').slice(0, 200);
+    const body = t('body', { reference: orderReference(order.id), reason: t(`reasons.${reason === 'not_connected' || reason === 'provider_auth' ? reason : 'other'}`) })
+      .slice(0, 1000);
+    await tx.$executeRaw`INSERT INTO notifications(account_id,user_id,type,title,body,link,dedupe_key)
+      SELECT ${accountId}::uuid, m.user_id, 'payment_exception', ${title}, ${body}, ${`/commerce/orders/${order.id}`},
+        ${`checkout-link-failed:${order.id}:${payload.attempt}`}
+      FROM account_memberships m WHERE m.account_id=${accountId}::uuid AND m.role IN ('owner','admin')
+      ON CONFLICT DO NOTHING`;
+    return true;
   });
 }
 

@@ -52,10 +52,12 @@ import {
   Download,
   List,
   X,
+  Tag as TagIcon,
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { changeListMembers, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
 import { groupTagsByCategory } from '@/lib/contacts/tag-groups';
+import { contactSearchFilter } from '@/lib/contacts/search-term';
 import { Label } from '@/components/ui/label';
 import { planAllows, usePlan } from '@/lib/billing/client';
 import { UpgradeBadge } from '@/components/ui/upgrade-badge';
@@ -119,8 +121,10 @@ export default function ContactsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Bulk selection (page-scoped — only the loaded rows are selectable)
+  // Bulk selection: rows ticked on this page, or (allMatching) every
+  // contact matching the current view, acted on server-side by filter.
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allMatching, setAllMatching] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // All tags for display
@@ -154,6 +158,7 @@ export default function ContactsPage() {
     // referred to the old page/search results so the bulk bar can't
     // act on rows the user can no longer see.
     setSelected(new Set());
+    setAllMatching(false);
 
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
@@ -203,10 +208,7 @@ export default function ContactsPage() {
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
-      }
+      if (term) query = query.or(contactSearchFilter(term));
 
       const { data, count: exactCount, error } = await query;
       if (seq !== fetchSeq.current) return; // superseded by a newer fetch
@@ -323,14 +325,48 @@ export default function ContactsPage() {
     loadLists();
   }
 
+  /**
+   * Run a bulk action on every contact matching the current view. Returns
+   * null (after telling the user) when it did not run; the server refuses
+   * with 409 when the match count is no longer the one on screen.
+   */
+  async function runBulk(action: { type: 'add_to_list' | 'remove_from_list'; listId: string } | { type: 'add_tag'; tagId: string } | { type: 'delete' }) {
+    const term = search.trim();
+    const scope = {
+      ...(segmentId ? { segmentId } : listId ? { listId } : selectedTagIds.length ? { tagIds: selectedTagIds } : {}),
+      ...(term ? { search: term.slice(0, 200) } : {}),
+    };
+    const res = await authFetch('/api/contacts/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope, action, expected: totalCount }),
+    }).catch(() => null);
+    const payload = (await res?.json().catch(() => null)) as { changed?: number; matched?: number; error?: string } | null;
+    if (res?.status === 409) {
+      toast.error(t('bulkCountChanged'));
+      fetchContacts();
+      return null;
+    }
+    if (!res?.ok) throw new Error(payload?.error || undefined);
+    return { matched: payload?.matched ?? totalCount, changed: payload?.changed ?? 0 };
+  }
+
   async function changeSelectedMembers(targetListId: string, mode: 'add' | 'remove') {
     const ids = [...selected];
     setListBusy(true);
     try {
-      await changeListMembers(targetListId, { [mode]: ids });
+      let count = ids.length;
+      if (allMatching) {
+        const done = await runBulk({ type: mode === 'add' ? 'add_to_list' : 'remove_from_list', listId: targetListId });
+        if (!done) return;
+        count = done.matched;
+      } else {
+        await changeListMembers(targetListId, { [mode]: ids });
+      }
       const name = lists.find((l) => l.id === targetListId)?.name ?? '';
-      toast.success(mode === 'add' ? t('lists.added', { count: ids.length, name }) : t('lists.removed', { count: ids.length }));
+      toast.success(mode === 'add' ? t('lists.added', { count, name }) : t('lists.removed', { count }));
       setSelected(new Set());
+      setAllMatching(false);
       loadLists();
       if (targetListId === listId) fetchContacts();
     } catch (err) {
@@ -445,11 +481,24 @@ export default function ContactsPage() {
     setDeleteTarget(null);
   }
 
+  // Admins: full erasure (contact, media it sent, campaign and form data, raw webhook copies), queued server-side.
+  async function handleErase() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const res = await authFetch(`/api/contacts/${deleteTarget.id}/erase`, { method: 'POST' }).catch(() => null);
+    if (res?.ok) toast.success(t('toastEraseQueued'));
+    else toast.error(t('toastEraseFailed'));
+    setDeleting(false);
+    setDeleteConfirmOpen(false);
+    setDeleteTarget(null);
+  }
+
   const allOnPageSelected =
     contacts.length > 0 && contacts.every((c) => selected.has(c.id));
   const someOnPageSelected = contacts.some((c) => selected.has(c.id));
 
   function toggleSelectAll() {
+    setAllMatching(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (allOnPageSelected) {
@@ -462,6 +511,7 @@ export default function ContactsPage() {
   }
 
   function toggleSelect(id: string) {
+    setAllMatching(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -475,19 +525,69 @@ export default function ContactsPage() {
     if (ids.length === 0) return;
     setDeleting(true);
 
-    const { error } = await db.from('contacts').delete().in('id', ids);
+    let error: unknown = null;
+    let count = ids.length;
+    if (allMatching) {
+      try {
+        const done = await runBulk({ type: 'delete' });
+        if (!done) {
+          setDeleting(false);
+          setBulkDeleteOpen(false);
+          return;
+        }
+        count = done.changed;
+      } catch (err) {
+        error = err;
+      }
+    } else {
+      ({ error } = await db.from('contacts').delete().in('id', ids));
+    }
 
     if (error) {
       toast.error(t('toastBulkFailedDelete'));
     } else {
-      toast.success(t('toastBulkDeleted', { count: ids.length }));
+      toast.success(t('toastBulkDeleted', { count }));
       setSelected(new Set());
+      setAllMatching(false);
       fetchContacts();
     }
 
     setDeleting(false);
     setBulkDeleteOpen(false);
   }
+
+  /** Bulk tagging, like CSV import, does not run tag_added automations. */
+  async function addTagToSelected(tagId: string) {
+    const ids = [...selected];
+    setListBusy(true);
+    try {
+      let count = ids.length;
+      if (allMatching) {
+        const done = await runBulk({ type: 'add_tag', tagId });
+        if (!done) return;
+        count = done.matched;
+      } else {
+        const { error } = await db
+          .from('contact_tags')
+          .upsert(ids.map((contactId) => ({ contact_id: contactId, tag_id: tagId })), {
+            onConflict: 'contact_id,tag_id',
+            ignoreDuplicates: true,
+          });
+        if (error) throw error;
+      }
+      toast.success(t('tagAdded', { count }));
+      setSelected(new Set());
+      setAllMatching(false);
+      fetchContacts();
+    } catch {
+      toast.error(t('tagFailed'));
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  // The bulk bar acts on this many contacts.
+  const selectionCount = allMatching ? totalCount : selected.size;
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const hasNext = page < totalPages - 1;
@@ -774,19 +874,51 @@ export default function ContactsPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-2">
-          <p className="text-sm text-foreground">
-            {t('selectedCount', { count: selected.size })}
-          </p>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground">
+            <p>
+              {allMatching
+                ? t('allMatchingSelected', { count: totalCount })
+                : t('selectedCount', { count: selected.size })}
+            </p>
+            {!allMatching && allOnPageSelected && totalCount > contacts.length && (
+              <button
+                type="button"
+                onClick={() => setAllMatching(true)}
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                {t('selectAllMatching', { count: totalCount })}
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setSelected(new Set())}
+              onClick={() => {
+                setSelected(new Set());
+                setAllMatching(false);
+              }}
               className="text-muted-foreground hover:text-foreground"
             >
               {t('clearSelection')}
             </Button>
+            {canEdit && allTags.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={listBusy} />}>
+                  <TagIcon className="size-4" />
+                  {t('addTag')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto bg-popover border-border">
+                  {allTags.map((tag) => (
+                    <DropdownMenuItem key={tag.id} onClick={() => addTagToSelected(tag.id)}>
+                      <span className="size-2 rounded-full" style={{ backgroundColor: tag.color }} />
+                      {tag.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {canEdit && listId && (
               <Button variant="outline" size="sm" disabled={listBusy} onClick={() => changeSelectedMembers(listId, 'remove')}>
                 <X className="size-4" />
@@ -949,6 +1081,7 @@ export default function ContactsPage() {
                             size="icon-sm"
                             className="text-muted-foreground hover:text-foreground"
                             onClick={(e) => e.stopPropagation()}
+                            aria-label={t('rowActions', { name: contact.name || contact.phone })}
                           />
                         }
                       >
@@ -1005,6 +1138,7 @@ export default function ContactsPage() {
               size="icon-sm"
               disabled={!hasPrev}
               onClick={() => setPage((p) => p - 1)}
+              aria-label={t('previousPage')}
               className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             >
               <ChevronLeft className="size-4" />
@@ -1017,6 +1151,7 @@ export default function ContactsPage() {
               size="icon-sm"
               disabled={!hasNext}
               onClick={() => setPage((p) => p + 1)}
+              aria-label={t('nextPage')}
               className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             >
               <ChevronRight className="size-4" />
@@ -1119,6 +1254,7 @@ export default function ContactsPage() {
             <DialogDescription className="text-muted-foreground">
               {t('deleteContactDesc', { name: deleteTarget?.name || deleteTarget?.phone || '' })}
             </DialogDescription>
+            {canEditSettings && <p className="text-xs text-muted-foreground">{t('eraseHint')}</p>}
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">
             <Button
@@ -1128,6 +1264,11 @@ export default function ContactsPage() {
             >
               {t('cancel')}
             </Button>
+            {canEditSettings && (
+              <Button variant="outline" onClick={handleErase} disabled={deleting} className="border-destructive text-destructive">
+                {t('eraseBtn')}
+              </Button>
+            )}
             <Button
               variant="destructive"
               onClick={handleDelete}
@@ -1148,7 +1289,7 @@ export default function ContactsPage() {
               {t('deleteBulkTitle')}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {t('deleteBulkDesc', { count: selected.size })}
+              {t('deleteBulkDesc', { count: selectionCount })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">

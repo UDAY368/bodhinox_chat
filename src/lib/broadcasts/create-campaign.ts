@@ -17,6 +17,7 @@ import { loadSegmentFilter } from '@/lib/audience/segments';
 import { trackedButtonIndex, validTrackedUrl } from './tracking';
 import { requireFeature, requireWithinLimit } from '@/lib/billing/entitlements';
 import { requireSendingAllowed } from '@/lib/billing/suspension';
+import { requireCampaignSendRoom } from '@/lib/billing/limits';
 import { campaignNumberId } from './api-campaign';
 
 // Recipients and their frozen parameters are built in SQL, so the cap bounds one insert, not request memory.
@@ -225,6 +226,8 @@ export async function createCampaign(scope:TenantContext,raw:unknown,now=new Dat
     if(!matched)invalid('No contacts match this audience');
     if(matched>CAMPAIGN_LIMITS.recipients)invalid(`Campaigns support at most ${CAMPAIGN_LIMITS.recipients.toLocaleString('en')} recipients`);
     await requireWithinLimit(tx,scope.accountId,'campaign_recipients',matched);
+    // The month's message and active-contact allowance (manual replies and inbound are never gated).
+    await requireCampaignSendRoom(tx,scope.accountId,matched);
     if(matched*keys.length>CAMPAIGN_LIMITS.parameterCells)invalid('This audience is too large for this many template variables; narrow the audience or use fewer variables');
     const {csvContacts:_,...audienceFilter}=input.audience;void _;
     const trackedUrl=tracked>=0?input.trackedUrl!:null;

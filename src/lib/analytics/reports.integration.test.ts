@@ -142,7 +142,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('analytics CSV reports on Po
     const base = { userId: agentX, name: 'Xia', role: 'agent', conversationsHandled: 1, repliesSent: 1 };
     expect(rows).toEqual([
       { ...base, day: '2026-10-02', firstResponses: 1, medianFirstResponseSeconds: 300, resolved: 0 },
-      { ...base, day: '2026-10-03', firstResponses: 0, medianFirstResponseSeconds: null, resolved: 1 },
+      // Audit 31: the AI answered v2 first; Xia's 10:30 reply is the team's first response (09:00 to 10:30).
+      { ...base, day: '2026-10-03', firstResponses: 1, medianFirstResponseSeconds: 5400, resolved: 1 },
       { ...base, day: '2026-10-04', firstResponses: 0, medianFirstResponseSeconds: null, resolved: 0 },
     ]);
   });

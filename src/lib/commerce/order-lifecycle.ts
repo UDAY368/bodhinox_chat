@@ -171,6 +171,9 @@ export async function recordDispatch(
     // Cancel and refund (or a restocking refund) is under way: shipping now would refund goods that leave.
     if (await restockRefundInFlight(tx, ctx.accountId, orderId))
       throw new OrderError(409, 'bad_transition', 'A refund that restocks this order is in progress');
+    // All the money went back (a per-payment refund may also have restocked the units): the goods must not leave.
+    if (await fullyRefunded(tx, ctx.accountId, orderId))
+      throw new OrderError(409, 'order_refunded', 'This order was refunded in full and cannot be dispatched');
     await setStatus(tx, ctx.accountId, order, 'dispatched', input.trackingNote === undefined ? undefined : note || null);
     await queueNotice(tx, ctx.accountId, orderId, 'dispatched');
     await auditOrder(tx, ctx, 'order.dispatched', orderId, { tracking_note: Boolean(note) });
@@ -188,6 +191,9 @@ export async function recordDelivery(ctx: StaffContext, orderId: string, input: 
     expectStatus(order, input.from);
     if (!canTransition(order.status, 'fulfilled', { priced: order.priced, unpaidCod: order.unpaidCod }))
       throw new OrderError(409, 'bad_transition', `An order cannot move from ${order.status} to fulfilled`);
+    // Straight from paid to delivered is a dispatch too: refused once everything was refunded (as recordDispatch).
+    if (order.status !== 'dispatched' && (await fullyRefunded(tx, ctx.accountId, orderId)))
+      throw new OrderError(409, 'order_refunded', 'This order was refunded in full and cannot be delivered');
     await setStatus(tx, ctx.accountId, order, 'fulfilled');
     await scheduleDeliveryFollowups(tx, ctx.accountId, orderId);
     await auditOrder(tx, ctx, 'order.delivered', orderId);
@@ -334,10 +340,10 @@ async function restockRefundInFlight(tx: TenantTransaction, accountId: string, o
 }
 
 type RefundPayment = Parameters<typeof applyRefundStateTx>[2];
-type SettledPayment = RefundPayment & { refundable: bigint | number };
+export type SettledPayment = RefundPayment & { refundable: bigint | number };
 
 /** The order's settled payments, locked (payments before the order, the refunds lock order), with what each can still refund. */
-function lockSettledPayments(tx: TenantTransaction, accountId: string, orderId: string): Promise<SettledPayment[]> {
+export function lockSettledPayments(tx: TenantTransaction, accountId: string, orderId: string): Promise<SettledPayment[]> {
   return tx.$queryRaw<SettledPayment[]>`
     SELECT p.id::text AS id, p.source, p.status, p.settlement, p.provider_payment_id, p.amount_minor, p.refunded_minor, p.currency,
       p.order_id::text AS order_id, p.appointment_id::text AS appointment_id,
@@ -349,7 +355,7 @@ function lockSettledPayments(tx: TenantTransaction, accountId: string, orderId: 
     ORDER BY p.id FOR UPDATE OF p`;
 }
 
-const viaGateway = (p: SettledPayment) => p.source === 'razorpay' && Boolean(p.provider_payment_id);
+export const viaGateway = (p: Pick<SettledPayment, 'source' | 'provider_payment_id'>) => p.source === 'razorpay' && Boolean(p.provider_payment_id);
 
 /**
  * "Cancel and refund" for a paid, not yet dispatched order (permission

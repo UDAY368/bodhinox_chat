@@ -292,4 +292,27 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl || !authUrl || !platformUrl)(
     await expect(getWorkerPrisma().$queryRaw`SELECT 1 FROM platform_audit_log LIMIT 1`).rejects.toThrow();
     await expect(getPrisma().$queryRaw`SELECT * FROM crm_platform_job_backlog()`).rejects.toThrow();
   });
+
+  it('[audit-38] lists failed jobs without payloads and requeues one, audited, but never an uncertain send', async () => {
+    const insert = async (lastError: string) => (await owner.query(
+      "INSERT INTO jobs(type,tenant_id,payload,dedupe_key,status,attempts,max_attempts,last_error) VALUES('inbound.actions',$1,'{\"secret\":\"customer text\"}',$2,'failed',8,8,$3) RETURNING id",
+      [accountA, `p14-requeue-${randomUUID()}`, lastError])).rows[0].id as string;
+    const plain = await insert('Job execution failed; inspect correlated server logs');
+    const uncertain = await insert('Provider send outcome requires reconciliation');
+    const listed = (await platform.query('SELECT * FROM crm_platform_failed_jobs(200)')).rows.filter((r) => [plain, uncertain].includes(r.id));
+    expect(listed).toHaveLength(2);
+    for (const row of listed) expect(Object.keys(row).sort()).toEqual(['account_id', 'account_name', 'attempts', 'failed_at', 'id', 'max_attempts', 'needs_reconciliation', 'type']);
+    expect(listed.find((r) => r.id === uncertain).needs_reconciliation).toBe(true);
+    await expect(platform.query("SELECT crm_platform_requeue_job($1,$2,'')", [plain, admin])).rejects.toThrow(/reason_required/);
+    expect((await platform.query("SELECT crm_platform_requeue_job($1,$2,'Storage is back') AS o", [uncertain, admin])).rows[0].o).toBe('needs_reconciliation');
+    expect((await platform.query("SELECT crm_platform_requeue_job($1,$2,'Storage is back') AS o", [plain, admin])).rows[0].o).toBe('requeued');
+    expect((await owner.query('SELECT status,attempts,last_error,lease_token FROM jobs WHERE id=$1', [plain])).rows[0])
+      .toEqual({ status: 'pending', attempts: 0, last_error: null, lease_token: null });
+    expect((await platform.query("SELECT crm_platform_requeue_job($1,$2,'Storage is back') AS o", [plain, admin])).rows[0].o).toBe('not_failed');
+    expect((await platform.query("SELECT crm_platform_requeue_job($1,$2,'Storage is back') AS o", [randomUUID(), admin])).rows[0].o).toBe('not_found');
+    expect((await owner.query("SELECT count(*)::int AS n FROM platform_audit_log WHERE action='job.requeue' AND target_ref=$1", [plain])).rows[0].n).toBe(1);
+    expect((await owner.query("SELECT count(*)::int AS n FROM audit_logs WHERE account_id=$1 AND action='job.requeue' AND resource_id=$2", [accountA, plain])).rows[0].n).toBe(1);
+    // Only the platform role runs them.
+    for (const c of [app, worker]) await expect(c.query("SELECT crm_platform_requeue_job($1,$2,'Storage is back')", [uncertain, admin])).rejects.toEqual(denied);
+  });
 });

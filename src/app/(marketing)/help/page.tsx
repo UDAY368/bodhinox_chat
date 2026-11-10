@@ -1,5 +1,5 @@
 // /help: the user help, from content/help/*.md (English; other locales show the
-// English text until translations exist). Rendered at build time, so the content
+// English text under an English-only notice, and the in-app "?" label says so). Rendered at build time, so the content
 // folder is not needed at runtime. Each section is an anchor (/help#<section>)
 // that the in-app "?" links (src/components/help/help-link.tsx) point at.
 
@@ -7,6 +7,7 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 
 import { HELP_SECTIONS } from '@/components/help/help-link';
+import { englishOnlyNote } from '../english-only';
 import { Markdown, readContent } from '../markdown';
 
 export const dynamic = 'force-static';
@@ -20,6 +21,7 @@ export default async function HelpPage() {
   const t = await getTranslations('Marketing.help');
   const sections = HELP_SECTIONS.map((id) => ({ id, source: readContent('help', id) }));
   const titleOf = (source: string) => /^#\s+(.*)$/m.exec(source)?.[1] ?? '';
+  const note = await englishOnlyNote();
   return (
     <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 lg:grid-cols-[220px_1fr]">
       <nav aria-label={t('contents')} className="lg:sticky lg:top-6 lg:self-start">
@@ -34,6 +36,7 @@ export default async function HelpPage() {
       </nav>
       <div className="min-w-0 space-y-14">
         <h1 className="text-3xl font-semibold tracking-tight">{t('title')}</h1>
+        {note && <p role="note" data-testid="english-only" className="text-sm text-muted-foreground">{note}</p>}
         {sections.map(({ id, source }) => (
           <section key={id} id={id} className="scroll-mt-6">
             <Markdown source={source} idPrefix={`${id}-`} />

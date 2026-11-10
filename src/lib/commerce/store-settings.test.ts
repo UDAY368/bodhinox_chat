@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // write holds the settings row so it cannot race a currency change.
 const calls: string[] = [];
 let inUse = false;
-let current: { currency: string } | null = { currency: 'INR' };
+let current: { currency: string; checkout_enabled?: boolean } | null = { currency: 'INR' };
 
 const sqlOf = (strings: TemplateStringsArray) => strings.join('?').replace(/\s+/g, ' ');
 const tx = {
@@ -67,5 +67,24 @@ describe('store currency lock', () => {
     const lock = calls.findIndex((s) => /FROM commerce_settings .*FOR SHARE/.test(s));
     expect(lock).toBeGreaterThanOrEqual(0);
     expect(lock).toBeLessThan(calls.findIndex((s) => s.includes('INSERT INTO shipping_rates')));
+  });
+});
+
+describe('Meta catalogue push on checkout changes (audit finding 20)', () => {
+  const pushes = () => calls.filter((s) => s.includes('INSERT INTO jobs')).length;
+
+  it('queues a push in the same transaction when checkout is turned on or the currency changes, and not otherwise', async () => {
+    current = { currency: 'INR', checkout_enabled: false };
+    await saveStoreSettings(ctx, input('INR'));
+    expect(pushes()).toBe(1);
+    calls.length = 0;
+    current = { currency: 'INR', checkout_enabled: true };
+    await saveStoreSettings(ctx, input('INR'));
+    expect(pushes()).toBe(0);
+    await saveStoreSettings(ctx, input('JPY'));
+    expect(pushes()).toBe(1);
+    calls.length = 0;
+    await saveStoreSettings(ctx, parseStoreSettings({ ...settingsRow, checkout_enabled: false }));
+    expect(pushes()).toBe(0);
   });
 });

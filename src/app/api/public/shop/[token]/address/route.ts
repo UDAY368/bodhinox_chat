@@ -10,5 +10,5 @@ export const dynamic = 'force-dynamic';
 export function PUT(request: Request, context: TokenParams) {
   return mutateSession(request, context, 'address',
     (tx, ref, body, expectedVersion) => setAddressTx(tx, ref.accountId, ref.sessionId, { expectedVersion, address: body.address ?? null }),
-    (tx, ref) => loadStorefrontView(tx, ref.accountId, ref.sessionId));
+    (tx, ref) => loadStorefrontView(tx, ref.accountId, ref.sessionId, undefined, { catalogue: false }));
 }

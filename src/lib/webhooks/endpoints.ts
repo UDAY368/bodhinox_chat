@@ -16,7 +16,7 @@ export const WEBHOOK_SECRET_PREFIX = 'whsec_';
  * (encrypted) `secret`, which is only ever surfaced once at creation.
  */
 export const WEBHOOK_PUBLIC_COLUMNS =
-  'id, url, events, is_active, last_delivery_at, failure_count, created_at';
+  'id, url, events, is_active, last_delivery_at, failure_count, created_at, disabled_at, disabled_reason';
 
 export interface ApiWebhookEndpoint {
   id: string;
@@ -26,6 +26,10 @@ export interface ApiWebhookEndpoint {
   last_delivery_at: string | null;
   failure_count: number;
   created_at: string;
+  /** When delivery switched the endpoint off after sustained failure (null if never, or re-enabled). */
+  disabled_at: string | null;
+  /** Why it was switched off ('sustained_failure'), or null. */
+  disabled_reason: string | null;
 }
 
 /** Generate a fresh signing secret (full-entropy, URL/header-safe). */
@@ -45,6 +49,8 @@ export function serializeWebhookEndpoint(
     last_delivery_at: (row.last_delivery_at as string | null) ?? null,
     failure_count: (row.failure_count as number | null) ?? 0,
     created_at: row.created_at as string,
+    disabled_at: (row.disabled_at as string | null) ?? null,
+    disabled_reason: (row.disabled_reason as string | null) ?? null,
   };
 }
 

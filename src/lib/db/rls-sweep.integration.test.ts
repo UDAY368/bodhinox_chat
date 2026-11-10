@@ -24,6 +24,7 @@ const ALLOWLIST: Record<string, { reason: string; appAccess: AppAccess }> = {
   billing_events: { reason: "provider billing webhook ledger, worker only (forced RLS, worker policy)", appAccess: "none" },
   billing_reconciliation_items: { reason: "platform/worker reconciliation queue (forced RLS, no app grant)", appAccess: "none" },
   invoice_sequences: { reason: "global invoice numbering, used inside definer functions", appAccess: "none" },
+  meta_data_deletion_requests: { reason: "Meta data deletion callback ledger (hashed Facebook user id), worker only", appAccess: "none" },
   plan_prices: { reason: "public plan catalogue, read-only", appAccess: "select" },
   plan_versions: { reason: "public plan catalogue, read-only", appAccess: "select" },
   plans: { reason: "public plan catalogue, read-only", appAccess: "select" },
@@ -31,6 +32,7 @@ const ALLOWLIST: Record<string, { reason: string; appAccess: AppAccess }> = {
   rate_cards: { reason: "public price catalogue, read-only", appAccess: "select" },
   webhook_receipts: { reason: "provider webhook dedupe before a tenant is resolved, worker only", appAccess: "none" },
   worker_heartbeats: { reason: "worker liveness (Phase 15), no tenant data, worker policy only", appAccess: "none" },
+  worker_schedule_state: { reason: "last cron minute the scheduler queued, no tenant data, worker policy only", appAccess: "none" },
 };
 
 /**

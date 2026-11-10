@@ -29,6 +29,14 @@ import { PlanLimitError } from '@/lib/billing/entitlements'
 import { newRequestKey } from '@/lib/billing/usage-ledger'
 import { getWorkerPrisma } from '@/lib/db/prisma'
 import { withTenant } from '@/lib/db/tenant'
+import { enqueueJob } from '@/lib/jobs/queue'
+
+/** The delayed retry of an inbound the account-wide AI rate limit deferred. */
+export const AI_AUTO_REPLY_RETRY_JOB = 'ai.auto_reply_retry'
+/** Deferred retries per inbound before it is left for a person, as before. */
+export const MAX_RATE_LIMIT_RETRIES = 5
+/** Customer message types the agent can read; media and locations after a text never supersede it. */
+const AI_READABLE_TYPES = ['text', 'interactive', 'template']
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -46,6 +54,11 @@ interface DispatchArgs {
   routingChecked?: boolean
   /** An opted-in flow needs a human when AI cannot answer. */
   requireHandoffOnUnavailable?: boolean
+  /** Set by the rate-limit retry job: how many times this inbound was deferred. */
+  retryAttempt?: number
+  /** The inbound's messages.id. Required to defer it: the retry job runs under
+   *  that message's inbound stage checkpoint, so it is never sent twice. */
+  inboundRowId?: string
 }
 
 /**
@@ -77,6 +90,7 @@ export async function dispatchInboundToAiReply(
     inboundMessageId,
     routingChecked,
     requireHandoffOnUnavailable,
+    retryAttempt = 0,
   } = args
 
   let db: ReturnType<typeof databaseAdmin>
@@ -86,22 +100,19 @@ export async function dispatchInboundToAiReply(
     console.error('[ai auto-reply] client initialization failed', { error: error instanceof Error ? error.name : 'unknown' })
     return
   }
-  const readConversation = async () => {
-    const { data, error } = await db.from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused, last_customer_message_at')
-      .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
-    if (error || !data || data.assigned_agent_id || data.bot_paused || data.ai_autoreply_disabled || !getSessionWindow(data.last_customer_message_at, Date.now()).active) return null
-    return data
-  }
+  const readConversation = () => aiOwnedConversation(db, accountId, conversationId, contactId)
   // Ownership checks are repeated after generation and immediately before send.
-  // The timestamp also rejects a draft built before a newer customer message.
+  // A newer customer message the agent can read supersedes this one (with an
+  // inbound id; otherwise the conversation's customer timestamp decides). A
+  // photo, voice note or location sent after the text does not: the text
+  // still gets its answer.
   let observedCustomerTimestamp: string | undefined
   const eligible = async () => {
     const conversation = await readConversation()
-    if (!conversation || (observedCustomerTimestamp && conversation.last_customer_message_at !== observedCustomerTimestamp)) return null
+    if (!conversation || (!inboundMessageId && observedCustomerTimestamp && conversation.last_customer_message_at !== observedCustomerTimestamp)) return null
     if (inboundMessageId) {
       const { data: latest, error } = await db.from('messages').select('message_id')
-        .eq('conversation_id', conversationId).eq('sender_type', 'customer')
+        .eq('conversation_id', conversationId).eq('sender_type', 'customer').in('content_type', AI_READABLE_TYPES)
         .order('created_at', { ascending: false }).order('arrival_sequence', { ascending: false }).limit(1).maybeSingle()
       if (error || latest?.message_id !== inboundMessageId) return null
     }
@@ -218,14 +229,20 @@ export async function dispatchInboundToAiReply(
     // Account-wide throttle on the shared BYO key. The per-conversation
     // cap bounds one thread; this bounds a burst across many threads (a
     // marketing blast landing 200 replies at once) so we never run the
-    // owner's key past the provider's rate limit. Over the limit → skip
-    // the auto-reply; the inbound still sits in the inbox for a human.
+    // owner's key past the provider's rate limit. Over the limit → the
+    // inbound is retried by a delayed job after the window (eligible()
+    // drops it then if a newer message or a person took over); after
+    // MAX_RATE_LIMIT_RETRIES it is left for a person, as before.
     const acctLimit = checkRateLimit(
       `ai-autoreply:${accountId}`,
       RATE_LIMITS.aiAutoReplyAccount,
     )
     if (!acctLimit.success) {
       logAiEvent({ feature: 'auto_reply', reason: 'rate_limited', accountId })
+      if (await deferRateLimited(args, retryAttempt, acctLimit.reset)) {
+        await record('skipped', 'rate_limited_retry')
+        return
+      }
       await unavailable()
       await record('skipped', 'rate_limited')
       return
@@ -257,12 +274,16 @@ export async function dispatchInboundToAiReply(
       await showTypingIndicator(db, accountId, conversationId, inboundMessageId)
     }
 
-    // Ground the reply in the account's knowledge base (best-effort).
+    // Ground the reply in the account's knowledge base (best-effort). The
+    // search reads every customer turn since the last reply, so a question
+    // split over two messages ("Do you deliver to Pune?", "and how much?")
+    // still finds its page. Turns already answered are left out: their
+    // matches would lift the confidence score of an unrelated new question.
     const { chunks, retrieval, citations } = await retrieveKnowledgeScored(
       db,
       accountId,
       config,
-      question,
+      recent,
       5,
       'customer',
     )
@@ -418,6 +439,93 @@ export async function dispatchInboundToAiReply(
     else if (staleBeforeSend || err instanceof BotRepliesPausedError) await record('skipped', 'stale')
     else await record('error', 'dispatch_failed')
   }
+}
+
+/** The conversation when the AI may answer in it: no person owns it, the bot is on and the window is open. */
+async function aiOwnedConversation(db: ReturnType<typeof databaseAdmin>, accountId: string, conversationId: string, contactId: string) {
+  const { data, error } = await db.from('conversations')
+    .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused, last_customer_message_at')
+    .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
+  if (error || !data || data.assigned_agent_id || data.bot_paused || data.ai_autoreply_disabled || !getSessionWindow(data.last_customer_message_at, Date.now()).active) return null
+  return data
+}
+
+/**
+ * A photo, voice note, video, document or location the agent cannot read,
+ * in a conversation it would otherwise answer: one 'skipped / media_only'
+ * activity-log row, so the owner can see why the AI stayed quiet. Nothing is
+ * sent and nothing is handed off (the inbox lifecycle already queues the
+ * conversation for a person). Best-effort: never throws, logs reason codes only.
+ */
+export async function recordUnreadableInbound(args: Pick<DispatchArgs, 'accountId' | 'conversationId' | 'contactId' | 'configOwnerUserId' | 'inboundMessageId'>): Promise<void> {
+  const { accountId, conversationId, contactId, configOwnerUserId, inboundMessageId } = args
+  try {
+    const db = databaseAdmin({ accountId, userId: configOwnerUserId, role: 'owner' })
+    const config = await loadAiConfig(db, accountId)
+    if (!config?.autoReplyEnabled) return
+    if (!await aiOwnedConversation(db, accountId, conversationId, contactId)) return
+    await recordReplyEvent({ accountId, conversationId, contactId, inboundMessageId: inboundMessageId ?? null, outcome: 'skipped', reason: 'media_only' })
+  } catch (error) {
+    logAiEvent({ feature: 'auto_reply', reason: 'media_only_record_failed', accountId, error })
+  }
+}
+
+/**
+ * Queue the delayed retry of a rate-limited inbound, run just after the
+ * limiter's window resets. True when queued; false when there is nothing to
+ * retry against (no inbound ids), the retries are used up, or the enqueue
+ * failed (logged as a reason code only).
+ */
+async function deferRateLimited(args: DispatchArgs, attempt: number, resetAt: number): Promise<boolean> {
+  if (!args.inboundMessageId || !args.inboundRowId || attempt >= MAX_RATE_LIMIT_RETRIES) return false
+  const next = attempt + 1
+  const delayMs = Math.max(5_000, resetAt - Date.now()) + Math.floor(Math.random() * 5_000)
+  try {
+    await enqueueJob(AI_AUTO_REPLY_RETRY_JOB, {
+      conversationId: args.conversationId,
+      contactId: args.contactId,
+      configOwnerUserId: args.configOwnerUserId,
+      inboundMessageId: args.inboundMessageId,
+      messageId: args.inboundRowId,
+      requireHandoffOnUnavailable: args.requireHandoffOnUnavailable === true,
+      attempt: next,
+    }, {
+      tenantId: args.accountId,
+      runAt: new Date(Date.now() + delayMs),
+      dedupeKey: `ai-autoreply-retry:${args.inboundMessageId}:${next}`,
+      maxAttempts: 3,
+    })
+    return true
+  } catch (error) {
+    logAiEvent({ feature: 'auto_reply', reason: 'retry_enqueue_failed', accountId: args.accountId, error })
+    return false
+  }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * The 'ai.auto_reply_retry' job: re-run the dispatch for the deferred inbound.
+ * It runs under the inbound's stage checkpoint `ai_reply_retry:<attempt>`, so a
+ * job leased again after a crash or an expired lease mid-send stops for
+ * reconciliation instead of sending the reply a second time.
+ */
+export async function handleAutoReplyRetryJob(accountId: string, payload: Record<string, unknown>, assertLease: () => void = () => {}): Promise<void> {
+  const { conversationId, contactId, configOwnerUserId, inboundMessageId, messageId, attempt } = payload
+  if (typeof conversationId !== 'string' || !UUID.test(conversationId)
+    || typeof contactId !== 'string' || !UUID.test(contactId)
+    || typeof configOwnerUserId !== 'string' || !UUID.test(configOwnerUserId)
+    || typeof messageId !== 'string' || !UUID.test(messageId)
+    || typeof inboundMessageId !== 'string' || !inboundMessageId || inboundMessageId.length > 256
+    || typeof attempt !== 'number' || !Number.isInteger(attempt) || attempt < 1 || attempt > MAX_RATE_LIMIT_RETRIES) throw new Error('Invalid AI auto-reply retry payload')
+  const { runInboundStage } = await import('@/lib/whatsapp/ingest')
+  await runInboundStage(accountId, messageId, `ai_reply_retry:${attempt}`, () => dispatchInboundToAiReply({
+    accountId, conversationId, contactId, configOwnerUserId, inboundMessageId,
+    inboundRowId: messageId,
+    routingChecked: true,
+    requireHandoffOnUnavailable: payload.requireHandoffOnUnavailable === true,
+    retryAttempt: attempt,
+  }), assertLease)
 }
 
 /** The activity-log reason for a handoff decided by assessConfidence. */

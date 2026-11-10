@@ -3,7 +3,7 @@ import { config } from "dotenv";
 import pg from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { disconnectDatabases, getWorkerPrisma } from "@/lib/db/prisma";
-import { claimJob, enqueueJob, finishJob, heartbeat, persistWebhook } from "./queue";
+import { BULK_JOB_TYPES, claimJob, enqueueJob, finishJob, heartbeat, persistWebhook } from "./queue";
 import { dispatchOnce, UncertainDispatchError } from "./dispatch";
 import { MetaApiError } from "@/lib/whatsapp/meta-api";
 
@@ -151,5 +151,39 @@ describe.skipIf(!ownerUrl || !workerUrl)("real PostgreSQL durable queue and disp
     const second=await claimJob();expect(second?.id).toBe(id);
     await enqueueJob("automation.resume",{reset:true},{tenantId:accountId,runAt:new Date(0),dedupeKey:key,requeueCompleted:true});
     expect((await owner.query("SELECT status,attempts,lease_token,payload FROM jobs WHERE id=$1",[id])).rows[0]).toEqual({status:"running",attempts:1,lease_token:second!.lease_token,payload:{manual:true}});
+  });
+
+  it("[audit-10/37] the main lane never takes a campaign pass and the bulk lane takes nothing else", async () => {
+    const campaign = await enqueueJob("broadcast.dispatch", { test: true }, { tenantId: accountId, runAt: new Date(0), dedupeKey: randomUUID() });
+    jobs.add(campaign);
+    const inbound = await createJob();
+    // The shared test database may hold due jobs left by other files: drain each lane and check
+    // what it took, rather than assuming the queue is otherwise empty.
+    const drain = async (lane: "main" | "bulk") => {
+      const taken: Awaited<ReturnType<typeof claimJob>>[] = [];
+      for (let job = await claimJob(lane); job && taken.length < 200; job = await claimJob(lane)) taken.push(job);
+      return taken;
+    };
+    const [bulk, main] = await Promise.all([drain("bulk"), drain("main")]);
+    expect(bulk.map((j) => j!.id)).toContain(campaign);
+    expect(main.map((j) => j!.id)).toContain(inbound);
+    expect(bulk.every((j) => (BULK_JOB_TYPES as readonly string[]).includes(j!.type))).toBe(true);
+    expect(main.some((j) => (BULK_JOB_TYPES as readonly string[]).includes(j!.type))).toBe(false);
+    for (const job of [...bulk, ...main]) await finishJob(job!);
+  });
+
+  it("[audit-38] backs off a failed attempt for minutes and gives inbound processing the long budget", async () => {
+    const payload = { testId: randomUUID(), entry: [] };
+    const receipt = await persistWebhook(JSON.stringify(payload), payload);
+    receipts.add(receipt);
+    expect((await owner.query("SELECT max_attempts FROM jobs WHERE dedupe_key=$1", [`webhook:${receipt}`])).rows[0].max_attempts).toBe(8);
+    await owner.query("UPDATE jobs SET run_at=to_timestamp(0) WHERE dedupe_key=$1", [`webhook:${receipt}`]);
+    const job = await claimJob();
+    expect(job?.type).toBe("whatsapp.webhook");
+    await finishJob(job!, new Error("storage unavailable"));
+    const row = (await owner.query("SELECT status,EXTRACT(EPOCH FROM run_at-NOW())::int AS wait FROM jobs WHERE id=$1", [job!.id])).rows[0];
+    expect(row.status).toBe("pending");
+    expect(row.wait).toBeGreaterThanOrEqual(8);
+    expect(row.wait).toBeLessThanOrEqual(10);
   });
 });

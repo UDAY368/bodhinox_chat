@@ -90,6 +90,7 @@ class FakeProvider implements BillingProvider {
     return this.outcome('change', () => (args.at === 'now' ? this.set(args.id, 'active', { planId: args.newPlanId }) : this.set(args.id, 'active', { hasScheduledChanges: true })));
   }
   async createAddon() { return { outcome: 'unknown' as const }; }
+  async findAddon() { return { outcome: 'unknown' as const }; }
   async fetchSubscription(id: string): Promise<ProviderResult<BillingSubscription>> {
     const sub = this.subs.get(id);
     return sub ? { outcome: 'ok', value: sub } : { outcome: 'rejected', reason: 'not_found', httpStatus: 404 };

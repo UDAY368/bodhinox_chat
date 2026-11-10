@@ -8,6 +8,7 @@ import { UnauthorizedError } from '@/lib/auth/errors';
 const ADMIN = 'ops@bodhinox.test';
 const ACCOUNT = '11111111-1111-4111-8111-111111111111';
 const GRANT = '22222222-2222-4222-8222-222222222222';
+const JOB = '44444444-4444-4444-8444-444444444444';
 
 const h = vi.hoisted(() => ({
   session: null as null | { userId: string; sessionId: string; user: { email: string } },
@@ -19,6 +20,8 @@ const h = vi.hoisted(() => ({
     platformTenant: vi.fn(async () => ({ account_id: '11111111-1111-4111-8111-111111111111' })),
     platformIntegrationHealth: vi.fn(async () => []),
     platformJobBacklog: vi.fn(async () => []),
+    platformFailedJobs: vi.fn(async () => []),
+    platformRequeueJob: vi.fn(async (): Promise<string> => 'requeued'),
     platformAuditList: vi.fn(async () => []),
     platformSupportGrants: vi.fn(async () => []),
     platformSupportRequest: vi.fn(async () => '33333333-3333-4333-8333-333333333333'),
@@ -48,6 +51,7 @@ vi.mock('@/lib/platform/db', () => h.db);
 import { GET as tenantsGET } from './tenants/route';
 import { GET as tenantGET } from './tenants/[id]/route';
 import { GET as healthGET } from './health/route';
+import { POST as requeuePOST } from './health/jobs/[id]/requeue/route';
 import { GET as auditGET } from './audit/route';
 import { POST as lifecyclePOST } from './lifecycle/route';
 import { GET as supportGET, POST as supportPOST } from './support/route';
@@ -62,6 +66,7 @@ const calls: [string, () => Promise<Response>][] = [
   ['tenant', () => tenantGET(req(`/api/platform/tenants/${ACCOUNT}`), params(ACCOUNT))],
   ['health', () => healthGET(req('/api/platform/health'))],
   ['audit', () => auditGET(req('/api/platform/audit'))],
+  ['requeue job', () => requeuePOST(req(`/api/platform/health/jobs/${JOB}/requeue`, { reason: 'Storage outage is over' }), params(JOB))],
   ['lifecycle', () => lifecyclePOST(req('/api/platform/lifecycle', { accountId: ACCOUNT, status: 'admin_suspended', blockManual: true, reason: 'Abuse report filed' }))],
   ['support list', () => supportGET(req('/api/platform/support'))],
   ['support request', () => supportPOST(req('/api/platform/support', { accountId: ACCOUNT, reason: 'Customer reports failures', minutes: 60 }))],
@@ -126,7 +131,22 @@ describe('platform console routes', () => {
     expect(h.db.platformSupportDiagnostics).toHaveBeenCalledWith(GRANT, ADMIN);
   });
 
+  it('[audit-38] requeues a failed job with the session email and refuses what must not re-run', async () => {
+    const res = await requeuePOST(req(`/api/platform/health/jobs/${JOB}/requeue`, { reason: ' Storage outage is over ', adminEmail: 'evil@x.y' }), params(JOB));
+    expect(res.status).toBe(200);
+    expect(h.assertMutation).toHaveBeenCalledTimes(1);
+    expect(h.db.platformRequeueJob).toHaveBeenCalledWith(JOB, ADMIN, 'Storage outage is over');
+    for (const [outcome, status] of [['needs_reconciliation', 409], ['not_failed', 409], ['not_found', 404]] as const) {
+      h.db.platformRequeueJob.mockResolvedValueOnce(outcome);
+      const refused = await requeuePOST(req(`/api/platform/health/jobs/${JOB}/requeue`, { reason: 'Storage outage is over' }), params(JOB));
+      expect(refused.status).toBe(status);
+      expect((await refused.json()).code).toBe(outcome);
+    }
+  });
+
   it('refuses malformed input before the database', async () => {
+    expect((await requeuePOST(req(`/api/platform/health/jobs/${JOB}/requeue`, { reason: 'x' }), params(JOB))).status).toBe(400);
+    expect((await requeuePOST(req('/api/platform/health/jobs/nope/requeue', { reason: 'Storage outage is over' }), params('nope'))).status).toBe(404);
     expect((await tenantsGET(req('/api/platform/tenants?limit=500'))).status).toBe(400);
     expect((await auditGET(req('/api/platform/audit?accountId=nope'))).status).toBe(400);
     expect((await tenantGET(req('/api/platform/tenants/nope'), params('nope'))).status).toBe(404);

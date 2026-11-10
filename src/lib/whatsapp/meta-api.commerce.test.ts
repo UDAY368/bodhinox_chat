@@ -7,6 +7,7 @@ import {
   sendProductListMessage,
   sendProductMessage,
   setCommerceSettings,
+  updateCatalogItems,
 } from './meta-api';
 
 const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body }) as Response;
@@ -37,6 +38,29 @@ it('pages through catalogue products and stops when Meta has no next page', asyn
   expect(new URL((fetch.mock.calls[1] as unknown as [string])[0]).searchParams.get('after')).toBe('CUR');
   expect(second.after).toBeNull();
   await expect(getCatalogProducts({ catalogId: '../me', accessToken: 'T' })).rejects.toThrow();
+});
+
+it('updates catalogue items in one items_batch call with ids, prices and availability only (audit finding 20)', async () => {
+  const fetch = vi.fn(async () => json({ handles: ['H1'] }));
+  vi.stubGlobal('fetch', fetch);
+  expect(await updateCatalogItems({ catalogId: '555', accessToken: 'TOKEN', items: [
+    { retailerId: 'SKU1', price: '1499.00 INR', availability: 'out of stock' },
+    { retailerId: 'SKU2', availability: 'in stock' },
+  ] })).toEqual({ handles: ['H1'] });
+  const [raw, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+  expect(new URL(raw).pathname).toMatch(/\/555\/items_batch$/);
+  expect(raw).not.toContain('TOKEN');
+  expect(init.method).toBe('POST');
+  expect((init.headers as Record<string, string>).Authorization).toBe('Bearer TOKEN');
+  expect(JSON.parse(init.body as string)).toEqual({ item_type: 'PRODUCT_ITEM', requests: [
+    { method: 'UPDATE', data: { id: 'SKU1', price: '1499.00 INR', availability: 'out of stock' } },
+    { method: 'UPDATE', data: { id: 'SKU2', availability: 'in stock' } },
+  ] });
+  await expect(updateCatalogItems({ catalogId: '../x', accessToken: 'T', items: [{ retailerId: 'A' }] })).rejects.toThrow();
+  await expect(updateCatalogItems({ catalogId: '555', accessToken: 'T', items: [] })).rejects.toThrow();
+  vi.stubGlobal('fetch', vi.fn(async () => json({ error: { message: 'no permission', code: 10 } }, 403)));
+  await expect(updateCatalogItems({ catalogId: '555', accessToken: 'T', items: [{ retailerId: 'A', availability: 'in stock' }] }))
+    .rejects.toBeInstanceOf(MetaApiError);
 });
 
 it('lists WABA catalogues and surfaces Meta errors', async () => {

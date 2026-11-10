@@ -6,7 +6,7 @@ import { disconnectDatabases, getPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { setHours, setOfferings } from '@/lib/appointments/config';
 import {
-  appointmentLocation, appointmentServices, appointmentSlots, appointmentStaff, bookFlowAppointment,
+  appointmentLocation, appointmentPaidOnly, appointmentServices, appointmentSlots, appointmentStaff, bookFlowAppointment,
 } from './appointment-runtime';
 
 // The book_appointment flow step's data access on PostgreSQL: which services
@@ -25,7 +25,7 @@ const owner = randomUUID();
 const contact = randomUUID();
 const ids = {
   clinic: randomUUID(), closed: randomUUID(), online: randomUUID(), staffed: randomUUID(), monday: randomUUID(),
-  archived: randomUUID(), orphan: randomUUID(), s1: randomUUID(), s2: randomUUID(),
+  archived: randomUUID(), orphan: randomUUID(), s1: randomUUID(), s2: randomUUID(), paid: randomUUID(),
 };
 const asAdmin: TenantContext = { accountId: account, userId: owner, role: 'admin' };
 let db: pg.Client;
@@ -51,6 +51,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('book_appointment flow data 
       await tx.$executeRaw`INSERT INTO appointment_services(id,name,mode,duration_minutes,allowed_weekdays) VALUES(${ids.monday}::uuid,'Free consult','offline',30,'{1}')`;
       await tx.$executeRaw`INSERT INTO appointment_services(id,name,mode,duration_minutes,archived_at) VALUES(${ids.archived}::uuid,'Archived','offline',30,now())`;
       await tx.$executeRaw`INSERT INTO appointment_services(id,name,mode,duration_minutes) VALUES(${ids.orphan}::uuid,'No offering','offline',30)`;
+      await tx.$executeRaw`INSERT INTO appointment_services(id,name,mode,duration_minutes,price_minor,currency,payment_required)
+        VALUES(${ids.paid}::uuid,'Paid consult','offline',30,50000,'INR',true)`;
       await tx.$executeRaw`INSERT INTO appointment_staff(id,display_name) VALUES(${ids.s1}::uuid,'Dr Zed'),(${ids.s2}::uuid,'Dr Amar')`;
       const allDay = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, [{ start: '09:00', end: '17:00' }]]));
       for (const staff of [ids.s1, ids.s2, null]) await setHours(tx, account, owner, { location_id: ids.clinic, staff_id: staff, hours: allDay });
@@ -58,6 +60,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('book_appointment flow data 
       await setOfferings(tx, account, owner, { service_id: ids.staffed, location_id: ids.clinic, pooled: false, staff_ids: [ids.s1, ids.s2] });
       await setOfferings(tx, account, owner, { service_id: ids.monday, location_id: ids.clinic, pooled: false, staff_ids: [ids.s1] });
       await setOfferings(tx, account, owner, { service_id: ids.archived, location_id: ids.clinic, pooled: true });
+      await setOfferings(tx, account, owner, { service_id: ids.paid, location_id: ids.clinic, pooled: true });
     });
   });
 
@@ -76,6 +79,16 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('book_appointment flow data 
     expect((await appointmentServices(account, { service_ids: [ids.monday, ids.archived, ids.orphan] })).map((s) => s.id)).toEqual([ids.monday]);
     expect(await appointmentServices(account, { location_id: ids.closed })).toEqual([]);
     expect(await appointmentServices(other, {})).toEqual([]);
+  });
+
+  it('tells a paid-only step apart from one with no free service or slots (audit #21)', async () => {
+    expect(await appointmentServices(account, { service_ids: [ids.paid] })).toEqual([]);
+    expect(await appointmentPaidOnly(account, { service_ids: [ids.paid] })).toBe(true);
+    expect(await appointmentPaidOnly(account, { service_ids: [ids.paid, ids.staffed] })).toBe(false);
+    expect(await appointmentPaidOnly(account, {})).toBe(false);
+    expect(await appointmentPaidOnly(account, { service_ids: [ids.paid], service_mode: 'online' })).toBe(false);
+    expect(await appointmentPaidOnly(account, { service_ids: [ids.orphan] })).toBe(false);
+    expect(await appointmentPaidOnly(other, { service_ids: [ids.paid] })).toBe(false);
   });
 
   it('picks a live location and lists practitioners by name (none for a pool)', async () => {

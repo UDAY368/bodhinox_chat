@@ -69,11 +69,13 @@ export interface RefundJobPayload {
 
 export type RefundErrorCode =
   | 'not_found' | 'invalid_amount' | 'invalid_reason' | 'invalid_note' | 'not_refundable' | 'offline_payment'
-  | 'amount_exceeds' | 'return_mismatch' | 'not_retryable' | 'not_reconcilable' | 'not_connected' | 'provider_unreachable';
+  | 'amount_exceeds' | 'return_mismatch' | 'not_retryable' | 'not_reconcilable' | 'not_connected' | 'provider_unreachable'
+  | 'shipment_live';
 
 const ERROR_STATUS: Record<RefundErrorCode, number> = {
   not_found: 404, invalid_amount: 400, invalid_reason: 400, invalid_note: 400, not_refundable: 409, offline_payment: 409,
   amount_exceeds: 409, return_mismatch: 400, not_retryable: 409, not_reconcilable: 409, not_connected: 409, provider_unreachable: 502,
+  shipment_live: 409,
 };
 
 export class RefundError extends Error {
@@ -105,6 +107,23 @@ async function lockPayment(tx: TenantTransaction, accountId: string, paymentId: 
       order_id::text AS order_id, appointment_id::text AS appointment_id
     FROM customer_payments WHERE account_id=${accountId}::uuid AND id=${paymentId}::uuid FOR UPDATE`;
   return rows[0] ?? null;
+}
+
+/**
+ * A courier shipment that may still leave (or has left) with the goods of an
+ * order not yet marked dispatched (as order-lifecycle liveShipmentExists). A
+ * dispatched order's whole-order restock does nothing (orderRestockable), so
+ * it is never refused for this.
+ */
+async function liveShipmentTx(tx: TenantTransaction, accountId: string, orderId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM order_shipments s
+    JOIN orders o ON o.account_id=s.account_id AND o.id=s.order_id
+    WHERE s.account_id=${accountId}::uuid AND s.order_id=${orderId}::uuid
+      AND o.dispatched_at IS NULL AND o.status NOT IN ('dispatched','fulfilled')
+      AND s.create_state NOT IN ('failed','cancelled')
+      AND (s.awb IS NOT NULL OR s.create_state IN ('creating','unknown') OR s.awb_state IN ('assigning','unknown'))
+      AND (s.tracking_rank IS NULL OR s.tracking_rank < 90)`;
+  return (row?.n ?? 0) > 0;
 }
 
 /** What may still be refunded: captured − refunded − refunds already in flight. */
@@ -154,6 +173,10 @@ export async function requestRefund(ctx: TenantContext & { userId: string }, inp
         AND id=${input.returnId}::uuid AND order_id=${payment.order_id}::uuid`;
       if (!ret[0]) throw new RefundError('return_mismatch');
     }
+    // A whole-order restock while a courier shipment may still leave with the goods would count the units twice
+    // (on the shelf and in the parcel): the shipment is cancelled first, or the units come back through a return.
+    if (input.restock === true && !input.returnId && payment.order_id && (await liveShipmentTx(tx, ctx.accountId, payment.order_id)))
+      throw new RefundError('shipment_live');
     const rows = await tx.$queryRaw<{ id: string }[]>`INSERT INTO customer_refunds(id,account_id,payment_id,order_id,appointment_id,source,amount_minor,currency,
         reason_code,note,status,attempt,requested_by,restock,return_id)
       VALUES(COALESCE(${refundId}::uuid, gen_random_uuid()),${ctx.accountId}::uuid,${payment.id}::uuid,${payment.order_id}::uuid,${payment.appointment_id}::uuid,

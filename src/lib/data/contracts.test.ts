@@ -243,6 +243,7 @@ describe('fixed CRM resource authorization', () => {
       ['first_responded_at', '2026-11-02T10:00:00.000Z'],
       ['resolved_at', '2026-11-02T10:00:00.000Z'],
       ['reopened_count', 0],
+      ['reopened_at', '2026-11-02T10:00:00.000Z'],
     ] as const) {
       expect(() => validateWrite('conversations', { [field]: value }, tenant, true)).toThrow(/server-managed/);
       expect(() =>
@@ -264,7 +265,7 @@ describe('fixed CRM resource authorization', () => {
       ).not.toThrow();
     // The lifecycle columns stay readable.
     expect(getResource('conversations', true).read).toEqual(
-      expect.arrayContaining(['lifecycle_state', 'first_response_due_at', 'first_responded_at', 'resolved_at', 'reopened_count'])
+      expect.arrayContaining(['lifecycle_state', 'first_response_due_at', 'first_responded_at', 'resolved_at', 'reopened_count', 'reopened_at'])
     );
   });
   it('lets a browser mark its notifications read but never choose their link or dedupe key', () => {

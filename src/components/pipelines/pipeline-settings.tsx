@@ -414,6 +414,7 @@ function SortableStageRow({
         variant="ghost"
         size="icon-xs"
         onClick={onRemove}
+        aria-label={t("removeStage")}
         className="text-muted-foreground hover:text-red-400"
       >
         <Trash2 className="h-3 w-3" />
@@ -452,6 +453,7 @@ function ColorSwatch({
               <button
                 key={c}
                 type="button"
+                aria-label={t("pickColor", { color: c })}
                 onClick={() => {
                   onChange(c);
                   setOpen(false);

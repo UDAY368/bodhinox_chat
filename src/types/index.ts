@@ -246,6 +246,7 @@ export const NOTIFICATION_TYPES = [
   'appointment_cancelled',
   'appointment_rescheduled',
   'automation_notice',
+  'webhook_disabled',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

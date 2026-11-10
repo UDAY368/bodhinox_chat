@@ -1,31 +1,16 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
-import { daysAgoStart, lastNDayKeys, localDayKey } from '@/lib/dashboard/date-utils'
+import { tenantOf } from '@/lib/audience/http'
+import { withTenant } from '@/lib/db/tenant'
+import { daysAgoStart, lastNDayKeys } from '@/lib/dashboard/date-utils'
 import { getT } from '@/lib/i18n/translate'
 import { AI_USAGE_MODES, type AiUsageMode } from '@/lib/ai/types'
 import { logAiEvent } from '@/lib/ai/log'
+import { aiUsageGroups, serverTimeZone, type UsageGroup } from '@/lib/ai/usage-summary'
 
 const t = getT('Api')
 
-// Rows are aggregated in-process over a bounded window. An active
-// account writes a handful of rows per conversation, so 30 days sits
-// comfortably under this cap; we surface `truncated` when it doesn't so
-// the UI can say "showing a partial window" rather than under-reporting
-// silently.
-const MAX_ROWS = 10_000
-/** The data layer refuses more rows than this in one query (lib/data/contracts), so the window is read in pages. */
-const PAGE_ROWS = 1000
 const DEFAULT_WINDOW_DAYS = 30
-
-interface UsageRow {
-  created_at: string
-  mode: AiUsageMode
-  provider: string
-  model: string
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-}
 
 /**
  * GET /api/ai/usage?days=30  (admin+)
@@ -37,7 +22,7 @@ interface UsageRow {
  */
 export async function GET(request: Request) {
   try {
-    const { db, accountId } = await requireRole('admin')
+    const ctx = await requireRole('admin')
 
     const url = new URL(request.url)
     const rawDays = Number(url.searchParams.get('days'))
@@ -58,36 +43,18 @@ export async function GET(request: Request) {
     // chart (see lib/dashboard/date-utils).
     const since = daysAgoStart(days - 1)
 
-    // Oldest first: rows written while we page land after the last page, so no
-    // page shifts under us and nothing is counted twice.
-    // shortcut: past MAX_ROWS the oldest rows are kept, not the newest; aggregate in SQL if accounts get that busy.
-    const all: UsageRow[] = []
-    for (let from = 0; all.length <= MAX_ROWS; from += PAGE_ROWS) {
-      const { data, error } = await db
-        .from('ai_usage_log')
-        .select(
-          'created_at, mode, provider, model, prompt_tokens, completion_tokens, total_tokens',
-        )
-        .eq('account_id', accountId)
-        .gte('created_at', since.toISOString())
-        .order('created_at', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, from + PAGE_ROWS - 1)
-
-      if (error) {
-        logAiEvent({ feature: 'usage', reason: 'load_failed', accountId })
-        return NextResponse.json(
-          { error: t('ai.loadUsageFailed') },
-          { status: 500 },
-        )
-      }
-      const page = (data ?? []) as UsageRow[]
-      all.push(...page)
-      if (page.length < PAGE_ROWS) break
+    // Aggregated in SQL by local day, mode, provider and model, so every AI
+    // call in the window is counted however busy the workspace is.
+    let groups: UsageGroup[]
+    try {
+      groups = await withTenant(tenantOf(ctx), (tx) => aiUsageGroups(tx, ctx.accountId, since, serverTimeZone()))
+    } catch {
+      logAiEvent({ feature: 'usage', reason: 'load_failed', accountId: ctx.accountId })
+      return NextResponse.json(
+        { error: t('ai.loadUsageFailed') },
+        { status: 500 },
+      )
     }
-
-    const truncated = all.length > MAX_ROWS
-    const rows = truncated ? all.slice(0, MAX_ROWS) : all
 
     // Totals.
     let promptTokens = 0
@@ -111,15 +78,17 @@ export async function GET(request: Request) {
       daily.set(key, { date: key, tokens: 0, calls: 0 })
     }
 
-    for (const r of rows) {
+    let calls = 0
+    for (const r of groups) {
+      calls += r.calls
       promptTokens += r.prompt_tokens
       completionTokens += r.completion_tokens
       totalTokens += r.total_tokens
 
       // `mode` is DB-CHECK-constrained; an unknown value is skipped, never thrown on.
-      const bucketForMode = byMode[r.mode]
+      const bucketForMode = byMode[r.mode as AiUsageMode]
       if (bucketForMode) {
-        bucketForMode.calls += 1
+        bucketForMode.calls += r.calls
         bucketForMode.tokens += r.total_tokens
       }
 
@@ -127,14 +96,14 @@ export async function GET(request: Request) {
       const m =
         modelMap.get(mk) ??
         { model: r.model, provider: r.provider, calls: 0, tokens: 0 }
-      m.calls += 1
+      m.calls += r.calls
       m.tokens += r.total_tokens
       modelMap.set(mk, m)
 
-      const bucket = daily.get(localDayKey(r.created_at))
+      const bucket = daily.get(r.day)
       if (bucket) {
         bucket.tokens += r.total_tokens
-        bucket.calls += 1
+        bucket.calls += r.calls
       }
     }
 
@@ -142,9 +111,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       window_days: days,
-      truncated,
       totals: {
-        calls: rows.length,
+        calls,
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
         total_tokens: totalTokens,

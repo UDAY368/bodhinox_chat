@@ -6,6 +6,7 @@
 // a redelivery of the same bytes reuses the receipt and queues nothing new.
 import { createHash } from 'node:crypto';
 import { getWorkerPrisma } from '@/lib/db/prisma';
+import { LONG_RETRY_ATTEMPTS } from '@/lib/jobs/retry';
 import { INSTAGRAM_WEBHOOK_JOB } from './jobs';
 
 export const INSTAGRAM_WEBHOOK_PROVIDER = 'meta_instagram';
@@ -21,8 +22,8 @@ export async function persistInstagramWebhook(rawBody: string, payload: Record<s
       VALUES(${INSTAGRAM_WEBHOOK_PROVIDER},${dedupeKey},${JSON.stringify(payload)}::jsonb)
       ON CONFLICT(dedupe_key) DO UPDATE SET dedupe_key=EXCLUDED.dedupe_key RETURNING id::text AS id`;
     const id = receipt[0].id;
-    await tx.$executeRaw`INSERT INTO jobs(type,payload,dedupe_key)
-      VALUES(${INSTAGRAM_WEBHOOK_JOB},${JSON.stringify({ receiptId: id })}::jsonb,${`igwebhook:${id}`})
+    await tx.$executeRaw`INSERT INTO jobs(type,payload,dedupe_key,max_attempts)
+      VALUES(${INSTAGRAM_WEBHOOK_JOB},${JSON.stringify({ receiptId: id })}::jsonb,${`igwebhook:${id}`},${LONG_RETRY_ATTEMPTS})
       ON CONFLICT(dedupe_key) DO NOTHING`;
     return id;
   });

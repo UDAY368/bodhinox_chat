@@ -13,6 +13,7 @@ const stats = {
   started: { total: 120, inbound: 80, business: 20, campaignReply: 15, ad: 5 },
   byLifecycle: { bot: 3, requesting: 4, assigned: 10, resolved: 90 },
   firstResponse: { count: 100, unanswered: 20, medianSeconds: 330, p90Seconds: 3600 },
+  humanFirstResponse: { count: 60, medianSeconds: 900, p90Seconds: 7200 },
   resolution: { resolved: 90, count: 80, medianSeconds: 7200, p90Seconds: 86400 },
 }
 const workload = agentWorkloadMetrics([

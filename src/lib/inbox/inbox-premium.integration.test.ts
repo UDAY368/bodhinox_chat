@@ -34,7 +34,7 @@ const worker = <T>(context: TenantContext, op: Parameters<typeof withTenant<T>>[
 
 async function conversation(id: string) {
   return (await owner.query(
-    `SELECT status, lifecycle_state, assigned_agent_id, first_response_due_at, first_responded_at, resolved_at, reopened_count
+    `SELECT status, lifecycle_state, assigned_agent_id, first_response_due_at, first_responded_at, resolved_at, reopened_count, reopened_at
      FROM conversations WHERE id=$1`, [id])).rows[0];
 }
 
@@ -104,7 +104,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox premium tables on Pos
 
       await app(asAgent, (tx) => tx.$executeRaw`UPDATE conversations SET status='closed' WHERE id=${id}::uuid`);
       row = await conversation(id);
-      expect(row).toMatchObject({ lifecycle_state: 'resolved', reopened_count: 0 });
+      expect(row).toMatchObject({ lifecycle_state: 'resolved', reopened_count: 0, reopened_at: null });
       expect(row.resolved_at).not.toBeNull();
 
       // Re-opening (as reopenClosedConversation does) starts a new cycle.
@@ -112,6 +112,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox premium tables on Pos
       row = await conversation(id);
       expect(row).toMatchObject({ lifecycle_state: 'assigned', reopened_count: 1, resolved_at: null, first_responded_at: null });
       expect(row.first_response_due_at).not.toBeNull();
+      // The new cycle's start is stamped, so its resolution can be timed.
+      const reopenedAt: Date = row.reopened_at;
+      expect(reopenedAt).toBeInstanceOf(Date);
 
       // Writing lifecycle_state drives status; unassigning moves to requesting.
       await app(asAgent, (tx) => tx.$executeRaw`UPDATE conversations SET lifecycle_state='resolved' WHERE id=${id}::uuid`);
@@ -119,6 +122,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox premium tables on Pos
       await app(asAgent, (tx) => tx.$executeRaw`UPDATE conversations SET lifecycle_state='requesting', assigned_agent_id=NULL WHERE id=${id}::uuid`);
       row = await conversation(id);
       expect(row).toMatchObject({ status: 'open', lifecycle_state: 'requesting', reopened_count: 2 });
+      expect(row.reopened_at.getTime()).toBeGreaterThanOrEqual(reopenedAt.getTime());
 
       // A bot conversation becomes requesting when the bot is paused.
       await app(asAgent, (tx) => tx.$executeRaw`UPDATE conversations SET lifecycle_state='bot' WHERE id=${id}::uuid`);

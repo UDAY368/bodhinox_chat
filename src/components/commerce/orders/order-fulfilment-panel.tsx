@@ -40,8 +40,10 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
   const [busy, setBusy] = useState<string | null>(null);
   const priced = order.priced_at !== null;
   const unpaidCod = order.payment_method === "cod" && !order.paid_at && priced;
-  const canDispatch = canTransition(order.status, "dispatched", { priced, unpaidCod });
-  const canDeliver = canTransition(order.status, "fulfilled", { priced, unpaidCod });
+  // Refunded in full before it left: the goods must not ship (the refund may also have restocked them).
+  const refundedBeforeDispatch = order.refund_state === "full" && order.status !== "dispatched" && order.status !== "fulfilled";
+  const canDispatch = !refundedBeforeDispatch && canTransition(order.status, "dispatched", { priced, unpaidCod });
+  const canDeliver = !refundedBeforeDispatch && canTransition(order.status, "fulfilled", { priced, unpaidCod });
   const delivered = order.status === "fulfilled";
   const canCancelRefund = order.status === "paid" && canRefund;
   const shipment = order.shipment ?? null;
@@ -54,6 +56,7 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
       const r = await call();
       if (!r.ok) {
         if (r.code === "shipment_live") toast.error(t("shipmentLive"));
+        else if (r.code === "order_refunded") toast.error(t("refundedInFull"));
         else if (r.code === "offline_payment") {
           setOutsideNeeded(true);
           toast.error(t("cancelRefundOutsideNeeded"));
@@ -79,7 +82,9 @@ export function OrderFulfilmentPanel({ order, canAct, canRefund, onChanged }: {
           </span>
         )}
       </div>
-      <ShipmentCard orderId={order.id} orderStatus={order.status} unpaidCod={unpaidCod} onChanged={() => void onChanged()} />
+      <ShipmentCard orderId={order.id} orderStatus={order.status} unpaidCod={unpaidCod} refundedInFull={refundedBeforeDispatch}
+        onChanged={() => void onChanged()} />
+      {refundedBeforeDispatch && order.status === "paid" && <p className="text-xs text-muted-foreground">{t("refundedInFull")}</p>}
       {order.tracking_note && (
         <p className="text-xs text-muted-foreground break-words">{t("trackingShown", { note: order.tracking_note })}</p>
       )}

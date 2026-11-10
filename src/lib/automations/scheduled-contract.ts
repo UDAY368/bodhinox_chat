@@ -1,7 +1,9 @@
 import { CronExpressionParser } from 'cron-parser';
 import type { AudienceConfig } from '@/lib/broadcast-audience';
 
-export const MAX_SCHEDULED_CONTACTS = 1000;
+/** Recipients one scheduled occurrence may queue; read in pages of SCHEDULED_PAGE_SIZE. */
+export const MAX_SCHEDULED_CONTACTS = 10_000;
+export const SCHEDULED_PAGE_SIZE = 1000;
 export type ScheduledAudience = Omit<AudienceConfig, 'type' | 'csvContacts'> & {
   /** 'segment' resolves the saved segment's filter at each occurrence, so membership is dynamic. */
   type: 'all' | 'tags' | 'custom_field' | 'segment';

@@ -10,5 +10,5 @@ export const dynamic = 'force-dynamic';
 export function PUT(request: Request, context: TokenParams) {
   return mutateSession(request, context, 'coupon',
     (tx, ref, body, expectedVersion) => applyCouponTx(tx, ref.accountId, ref.sessionId, { expectedVersion, code: body.code ?? null }),
-    (tx, ref) => loadStorefrontView(tx, ref.accountId, ref.sessionId));
+    (tx, ref) => loadStorefrontView(tx, ref.accountId, ref.sessionId, undefined, { catalogue: false }));
 }

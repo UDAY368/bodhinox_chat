@@ -704,6 +704,12 @@
       "clearAll": "Clear all",
       "noTagsYet": "No tags yet.",
       "selectedCount": "{count} selected",
+      "selectAllMatching": "Select all {count} matching contacts",
+      "allMatchingSelected": "All {count} matching contacts are selected",
+      "addTag": "Add tag",
+      "tagAdded": "Tag added to {count} contacts",
+      "tagFailed": "Could not add the tag",
+      "bulkCountChanged": "The matching contacts changed. Reload the page and try again.",
       "clearSelection": "Clear",
       "deleteSelected": "Delete selected",
       "tableColumns": {
@@ -727,6 +733,10 @@
       "deleteContactDesc": "Are you sure you want to delete {name}? This action cannot be undone.",
       "cancel": "Cancel",
       "deleteBtn": "Delete",
+      "eraseHint": "Admins can instead erase everything stored about this person: messages, media they sent, campaign details, form answers and raw webhook copies. Orders and payments are kept as financial records.",
+      "eraseBtn": "Erase all data",
+      "toastEraseQueued": "Erasure started. The contact disappears once it completes.",
+      "toastEraseFailed": "Failed to start the erasure",
       "deleteBulkTitle": "Delete Contacts",
       "deleteBulkDesc": "Are you sure you want to delete {count} selected contacts? This action cannot be undone.",
       "toastFailedLoad": "Failed to load contacts",
@@ -772,7 +782,10 @@
         "removed": "{count} removed from the list",
         "changeFailed": "Could not update the list",
         "exportList": "Export list"
-      }
+      },
+      "rowActions": "Actions for {name}",
+      "previousPage": "Previous page",
+      "nextPage": "Next page"
     },
     "form": {
       "addTitle": "Add Contact",
@@ -882,13 +895,21 @@
         "blockedHint": "No automated messages, flows or AI replies."
       },
       "phoneMasked": "Phone numbers are hidden for your account, so you can't add or change a number. Ask an admin.",
-      "phoneMaskedHint": "The number is hidden for your account and can't be edited here."
+      "phoneMaskedHint": "The number is hidden for your account and can't be edited here.",
+      "deleteNote": "Delete note"
     },
     "importModal": {
       "title": "Import Contacts",
       "desc": "Upload a CSV with a required <phoneCode>phone</phoneCode> column. Optional: <nameCode>name</nameCode>, <emailCode>email</emailCode>, <companyCode>company</companyCode>, <tagsCode>tags</tagsCode> (comma-separated; quote multi-tag cells).",
       "uploadDropzone": "Click to choose a CSV file",
       "uploadHint": ".csv up to your browser limit",
+      "countryCodeLabel": "Country code for numbers without +",
+      "countryCodeHint": "For example 91 for India or 44 for the UK. Leave empty to require + on every number.",
+      "updateExisting": "Update contacts that already exist (name, email, company, tags, and an opt-out or block from the file)",
+      "importProgress": "Importing {done} of {total}…",
+      "resultUpdated": "{count} updated",
+      "invalidPhoneReason": "Not a valid phone number",
+      "toastNoPhoneColumn": "No phone column found. Name a column phone, mobile, phone number or WhatsApp.",
       "rowsReady": "{count} row ready",
       "rowsReady_plural": "{count} rows ready",
       "preview": "Preview · first {count}",
@@ -904,8 +925,9 @@
       "resultInvalidPhone": "{count} invalid phone",
       "resultInvalidPhone_plural": "{count} invalid phones",
       "resultFailed": "{count} failed",
-      "invalidPhoneHint": "Phone numbers must start with + and a country code (e.g. +14155550123). Numbers without one would be delivered to the wrong country.",
+      "invalidPhoneHint": "Numbers need + and a country code (e.g. +14155550123), or set the country code above for numbers written without one.",
       "failedRowsHeading": "Failed rows",
+      "downloadRejected": "Download rejected rows",
       "unknownReason": "Unknown error",
       "willBeCreated": "{name} (will be created on import)",
       "columns": {
@@ -1076,6 +1098,7 @@
       "creating": "Creating...",
       "createPipelineBtn": "Create Pipeline",
       "toastFailedLoadPipelines": "Failed to load pipelines",
+      "toastFailedLoadDeals": "Failed to load deals",
       "toastFailedMoveDeal": "Failed to move deal",
       "toastFailedCreatePipeline": "Failed to create pipeline",
       "toastPipelineCreated": "Pipeline created",
@@ -1163,7 +1186,8 @@
       "toastFailedDeleteStage": "Failed to delete stage",
       "toastFailedDeletePipeline": "Failed to delete pipeline",
       "toastDeleted": "Pipeline deleted",
-      "pickColor": "Pick color {color}"
+      "pickColor": "Pick color {color}",
+      "removeStage": "Remove stage"
     },
     "analytics": {
       "totalDeals": "Total Deals",
@@ -1271,6 +1295,18 @@
       "toastResumeStarted": "Sending {count} recipients in the background.",
       "toastResumeStartedCapped": "Sending {count} recipients in the background. {remaining} more will need another run.",
       "toastResumeFailed": "Could not resume: {error}",
+      "toastResumeNothing": "Nothing to send right now.",
+      "uncertainTitle": "{count, plural, one {# send needs checking} other {# sends need checking}}",
+      "uncertainHint": "Meta did not confirm whether these messages went out (a timeout or a Meta error), so Retry failed skips them. Check in WhatsApp Manager or with the customer, then mark each one.",
+      "uncertainShowing": "Showing the oldest {shown} of {total}.",
+      "uncertainSelectAll": "Select all",
+      "uncertainSelect": "Select {name}",
+      "uncertainMarkSent": "Mark as sent ({count})",
+      "uncertainMarkNotSent": "Mark as not sent ({count})",
+      "uncertainNotSentWarning": "Retry failed will send these {count} again. Anyone who did receive the message gets it twice.",
+      "uncertainAdminOnly": "An admin can mark these as sent or not sent.",
+      "toastReconciled": "{count} recipients updated",
+      "toastReconcileFailed": "Could not update recipients: {error}",
       "unknownError": "Unknown error",
       "unknownContact": "Unknown",
       "scheduledFor": "Scheduled for {when}",
@@ -2189,7 +2225,8 @@
         "storefrontTtlHelp": "Between {min} and {max} hours. Leave empty for 24.",
         "storefrontNext": "Next step once sent",
         "storefrontFailedNext": "If the link can’t be sent",
-        "flowStatusPaused": "paused"
+        "flowStatusPaused": "paused",
+        "removeButton": "Remove button"
       },
       "categories": {
         "messaging": "Messaging",
@@ -2433,6 +2470,7 @@
         "cancelRow": "Cancel",
         "noServices": "No services yet. Add them under Appointments settings; until then the step offers nothing and takes its Unavailable path.",
         "servicesAllHelp": "Pick up to {max}. Pick none to offer every bookable service. Customers choose when more than one is offered.",
+        "paidServiceNote": "Paid: book on the booking page",
         "serviceMode": "Service type",
         "modeBoth": "Online and in person",
         "modeOnline": "Online only",
@@ -2678,7 +2716,8 @@
         "not_replayable_reason": "This kind of failure cannot be replayed safely.",
         "needs_reconciliation": "A message from this step may already have been delivered. Check the conversation; it will not be re-sent.",
         "already_sent": "This step's message was already sent.",
-        "conversation_busy": "Another flow is running in this conversation."
+        "conversation_busy": "Another flow is running in this conversation.",
+        "contact_opted_out": "The contact replied STOP after this run failed, so it will not be replayed."
       }
     }
   },
@@ -3147,7 +3186,8 @@
       "businessProfileEdit": "Edit business profile",
       "businessProfileView": "View business profile",
       "numberDisconnectedTitle": "This number is disconnected",
-      "numberDisconnectedHint": "Nothing sends from this number. To use it again, enter a new access token below and save (the Phone Number ID stays the same), or reconnect it with Embedded Signup. Its conversations, campaigns and flows are kept."
+      "numberDisconnectedHint": "Nothing sends from this number. To use it again, enter a new access token below and save (the Phone Number ID stays the same), or reconnect it with Embedded Signup. Its conversations, campaigns and flows are kept.",
+      "copyWebhookUrl": "Copy webhook URL"
     },
     "sections": {
       "overview": "Overview",
@@ -3455,7 +3495,8 @@
       "kindInteractive": "Interactive",
       "textPlaceholder": "The message text to insert",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "delete": "Delete quick reply"
     },
     "rail": {
       "sections": {
@@ -3474,6 +3515,14 @@
       "lastDelivery": "Last delivery {date}",
       "noDelivery": "No deliveries yet",
       "failures": "{count} failed in a row",
+      "disabledNotice": "Switched off {date}: deliveries kept failing for {hours} hours. Fix the receiving server, then switch it back on.",
+      "viewLog": "Delivery log",
+      "logDesc": "The latest delivery attempts to this URL (up to 100, from the past 30 days).",
+      "logEmpty": "No delivery attempts yet.",
+      "logLoadFailed": "Could not load the delivery log.",
+      "logDelivered": "Delivered",
+      "logFailed": "Failed",
+      "logAttempt": "attempt {attempt}",
       "pause": "Pause webhook",
       "resume": "Resume webhook",
       "delete": "Delete webhook",
@@ -3494,7 +3543,11 @@
       "copy": "Copy",
       "copySuccess": "Secret copied",
       "copyFailed": "Could not copy",
-      "done": "Done"
+      "done": "Done",
+      "notifications": {
+        "disabledTitle": "Webhook to {host} was switched off",
+        "disabledBody": "Deliveries to {host} failed for {hours} hours, so Bodhinox stopped sending events there. Fix the receiver, then switch the webhook back on in Settings."
+      }
     },
     "workspaceAttributes": {
       "title": "Workspace attributes",
@@ -3563,7 +3616,7 @@
           "hard": "When a limit is reached, new additions stop. Everything you already have keeps working.",
           "inbound": "Customers who message you are always added as contacts, even past the contacts limit. Only contacts you add, import or create through the API count against it.",
           "monthly": "Monthly limits reset on the 1st of each month (India time). AI add-on packs raise the AI reply limit.",
-          "warnings": "Owners and admins are notified when a limit reaches 80% and 100%. Messages sent and active contacts are shown for information and never block.",
+          "warnings": "Owners and admins are notified when a limit reaches 80% and 100%. The monthly message and active-contact limits stop new campaigns and scheduled sends; replies to customers are never blocked.",
           "expiry": "If your plan expires or is cancelled, extra lists, segments, flows and automations are archived, never deleted."
         }
       },
@@ -3573,6 +3626,7 @@
         "hard_inbound_exempt": "Manual and imported additions stop at the limit; customers who write in are always added",
         "hard_addon": "Stops at the limit; add-on packs raise it",
         "hard_per_campaign": "Checked for each campaign",
+        "hard_campaign": "Stops new campaigns at the limit; replies to customers are never blocked",
         "soft": "For information only; never blocks"
       }
     },
@@ -3613,6 +3667,7 @@
       "cancelled": "Facebook signup was cancelled.",
       "sdkFailed": "Could not load Facebook login. Check that pop-ups and facebook.com are not blocked.",
       "noNumberPicked": "Facebook did not return a phone number. Finish every step in the Facebook window and try again.",
+      "bizAppUnsupported": "This number is in use on the WhatsApp Business app. Connecting a WhatsApp Business app number is not supported yet; use a number that is not on the app.",
       "pinTitle": "Save your two-step PIN",
       "pinDescription": "We set this 6-digit two-step verification PIN on the number. It is shown only once; keep it somewhere safe. You need it to move the number later.",
       "pinDone": "I have saved it",
@@ -4517,6 +4572,21 @@
     "successDesc": "You’re signed in with your new password.",
     "continueToDashboard": "Continue to dashboard"
   },
+  "VerifyEmailPage": {
+    "title": "Confirm your email",
+    "desc": "Enter the password you chose when you signed up to finish verifying this email.",
+    "passwordLabel": "Password",
+    "submit": "Verify email",
+    "saving": "Verifying...",
+    "checking": "Checking your link...",
+    "expiredTitle": "This link is no longer valid",
+    "expiredDesc": "Verification links work once and expire after a while. Sign up again with the same email to get a new link.",
+    "backToSignIn": "Back to sign in",
+    "mismatch": "That is not the password you chose at sign-up.",
+    "rateLimited": "Too many attempts. Try again later.",
+    "failed": "Could not verify your email. Try again.",
+    "forgotHint": "Forgot it? Sign up again with this email, then use the new password with the link you receive."
+  },
   "JoinPage": {
     "fail": {
       "notFoundTitle": "Invite not found",
@@ -4550,6 +4620,28 @@
     "createAndJoin": "Create account & join",
     "haveAccount": "I already have an account"
   },
+  "AuthEmails": {
+    "verifySubject": "Verify your Bodhinox email",
+    "verifyBody": "Verify your email: {link}\nThis link expires in 24 hours. If you did not request it, ignore this message.",
+    "resetSubject": "Reset your Bodhinox password",
+    "resetBody": "Reset your password: {link}\nThis link expires in one hour. If you did not request it, ignore this message.",
+    "existingSubject": "You already have a Bodhinox account",
+    "existingBody": "Someone tried to create a Bodhinox account with this email, but one already exists.\nSign in: {signIn}{join}\nForgot your password? Use \"Forgot password\" on the sign-in page. If this was not you, ignore this message.",
+    "existingJoin": "To join the workspace you were invited to, sign in and open: {link}",
+    "changeConfirmSubject": "Confirm your new Bodhinox email",
+    "changeConfirmBody": "Confirm your new email address: {link}\nThis link expires in one hour. Your current email stays active until you confirm.",
+    "changeNoticeSubject": "Bodhinox email change requested",
+    "changeNoticeBody": "A change of your Bodhinox email address to {newEmail} was requested. If you did not request it, reset your password immediately; this cancels pending email changes.",
+    "deliveryTestSubject": "Bodhinox Chat email verification delivery test",
+    "deliveryTestBody": "Delivery test for account verification emails. No action is required. Your password and team memberships have not changed.",
+    "digest": {
+      "subject": "{count, plural, one {# new notification in Bodhinox} other {# new notifications in Bodhinox}}",
+      "intro": "{count, plural, one {You have a new notification:} other {You have # new notifications:}}",
+      "more": "{count, plural, one {...and # earlier notification.} other {...and # earlier notifications.}}",
+      "seeAll": "See them all: {link}",
+      "footer": "You get this email because email digests are on in your notification preferences."
+    }
+  },
   "Notifications": {
     "title": "Notifications",
     "description": "Conversations other teammates assign to you show up here.",
@@ -4578,7 +4670,8 @@
       "low_stock": "Low stock",
       "payment_exception": "Payment needs review",
       "instagram_account_health": "Instagram account",
-      "automation_notice": "Automation notice"
+      "automation_notice": "Automation notice",
+      "webhook_disabled": "Webhook switched off"
     }
   },
   "Agents": {
@@ -4619,7 +4712,6 @@
       "tokensPerDay": "Tokens per day",
       "byModel": "By model",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# call} other {# calls}}",
-      "partialWindow": "Showing a partial window — usage is high enough that only the most recent records are summarized here.",
       "assistant": "Assistant"
     },
     "studioEyebrow": "07 / Your intelligent workspace",
@@ -4673,6 +4765,8 @@
         "reply_cap": "Conversation reply limit reached",
         "no_messages": "Nothing to reply to",
         "rate_limited": "Too many AI replies at once",
+        "rate_limited_retry": "Too many AI replies at once; it will try again in a minute",
+        "media_only": "Photo, voice note or location the AI cannot read",
         "plan_ai_limit": "Plan's AI messages used up",
         "slot_lost": "Another reply took the last slot",
         "claim_failed": "Could not reserve a reply slot",
@@ -4758,13 +4852,17 @@
     "urlButtonConstraint": "WhatsApp allows exactly one link button. Remove the other buttons to use a link; links cannot be combined with replies or workflows.",
     "openLink": "Open link",
     "removeButton": "Remove button",
-    "defaultListButton": "Menu"
+    "defaultListButton": "Menu",
+    "removeSection": "Remove section",
+    "removeRow": "Remove row"
   },
   "DashboardShell": {
     "loading": "Loading..."
   },
   "UiPrimitives": {
-    "close": "Close"
+    "close": "Close",
+    "scrollLeft": "Scroll left",
+    "scrollRight": "Scroll right"
   },
   "GatedButton": {
     "readOnly": "Read-only — your role can't {action}",
@@ -5407,6 +5505,9 @@
       "tagAddedNoConversation": "tag_added automation cannot send: contact has no existing conversation",
       "pausedWhileWaiting": "Automation paused while waiting",
       "parkedStepRemoved": "The step where this run was waiting was removed",
+      "contactBlockedWhileWaiting": "The contact was blocked while this run was waiting, so nothing more was sent",
+      "contactOptedOutWhileWaiting": "The contact opted out (STOP) while this run was waiting, so nothing more was sent",
+      "assignFailed": "assign_conversation: the conversation could not be assigned",
       "scheduleWaitFailed": "Could not schedule the wait: {message}",
       "webhookInvalidBody": "send_webhook: the filled-in body is not valid JSON",
       "webhookInvalidHeader": "send_webhook: a header is not allowed or has a line break",
@@ -5414,6 +5515,16 @@
       "webhookRefused": "send_webhook: the request could not be sent to this destination",
       "notifyInvalid": "notify_team needs an audience and text"
     }
+  },
+  "ErrorPages": {
+    "errorTitle": "Something went wrong",
+    "errorDesc": "This page hit an unexpected error. Try again; if it keeps happening, reload the page.",
+    "tryAgain": "Try again",
+    "reload": "Reload page",
+    "goHome": "Go to dashboard",
+    "reference": "Reference: {digest}",
+    "notFoundTitle": "Page not found",
+    "notFoundDesc": "The link may be mistyped or out of date."
   },
   "Validation": {
     "flows": {
@@ -5567,6 +5678,7 @@
       "appointmentLocation": "Choose a location from the list.",
       "appointmentStaffMode": "Choose how the practitioner is picked.",
       "appointmentDays": "Days to offer must be a whole number from {min} to {max}.",
+      "appointmentPaidService": "{count, plural, one {A picked service takes} other {# picked services take}} payment, which a flow cannot collect yet. Untick {count, plural, one {it} other {them}}; customers book paid services on your booking page.",
       "paymentInvalidLinkOrder": "“Charge the order” must be on or off.",
       "storefrontNeedsMessage": "Write the message sent with the link.",
       "storefrontMessageTooLong": "Keep the message within {max} characters.",
@@ -5948,7 +6060,8 @@
         "not_cancellable": "Only an active add-on can be stopped.",
         "notConfigured": "Billing is not set up yet, so add-ons cannot be bought.",
         "rejected": "The payment provider declined this purchase. Nothing was charged.",
-        "limit_unlimited": "This pack raises a limit your plan does not cap, so there is nothing to buy."
+        "limit_unlimited": "This pack raises a limit your plan does not cap, so there is nothing to buy.",
+        "purchase_pending": "A purchase of this add-on is still being confirmed with the payment provider. Wait for it to finish before buying again."
       },
       "downgrade": {
         "invalid_selection": "Choose only items that are in use now.",
@@ -6017,7 +6130,8 @@
       "invalid": "Check the package size and weight.",
       "throttled": "Shiprocket is busy. Try again in a minute.",
       "feature_unavailable": "Courier shipping is not included in your plan.",
-      "not_implemented": "This action is not available yet."
+      "not_implemented": "This action is not available yet.",
+      "order_refunded": "This order was refunded in full, so it cannot be shipped."
     }
   },
   "Api": {
@@ -6165,7 +6279,8 @@
         "notReplayableReason": "This kind of failure cannot be replayed safely.",
         "needsReconciliation": "A message from this step may already have been delivered. Check the conversation before doing anything else; it will not be sent again automatically.",
         "alreadySent": "This step's message was already sent; replaying would send it twice.",
-        "conversationBusy": "Another flow is running in this conversation. Try again when it ends."
+        "conversationBusy": "Another flow is running in this conversation. Try again when it ends.",
+        "contactOptedOut": "The contact opted out (sent STOP) after this run failed, so it cannot be replayed."
       }
     },
     "quickReplies": {
@@ -6246,6 +6361,7 @@
       "submittedSaveFailed": "Submitted to Meta but failed to save locally: {message}. Run \"Sync from Meta\" to recover.",
       "submitFailed": "Failed to submit template.",
       "metaApiStatus": "Meta API error: {status}",
+      "metaTimeout": "Meta did not answer in time. Nothing was changed; try Sync from Meta again.",
       "syncFailed": "Failed to sync templates",
       "authKindRequired": "Authentication templates must use the authentication template type.",
       "draft": {
@@ -7117,7 +7233,18 @@
         "UNKNOWN": "Unknown"
       },
       "disconnectConfirmHold": "Disconnect {name}? Its access token is removed and nothing can send from it until you connect the same Phone Number ID again. Its conversations, campaigns and flows stay on this number: live flows that trigger only on it go back to draft, and campaigns scheduled or sending from it are held, not cancelled. {isDefault, select, true {The oldest other connected number becomes the default.} other {}}",
-      "removedHint": "Disconnected. Connect this Phone Number ID again to use it; its conversations, campaigns and flows are kept."
+      "removedHint": "Disconnected. Connect this Phone Number ID again to use it; its conversations, campaigns and flows are kept.",
+      "metaIssue": {
+        "PARTNER_REMOVED": "Meta reports that this WhatsApp Business Account is no longer shared with Bodhinox Chat, so the number was disconnected. Share it again and reconnect the number to send.",
+        "PARTNER_APP_UNINSTALLED": "Bodhinox Chat's access to this WhatsApp Business Account was removed in Meta, so the number was disconnected. Reconnect it with Facebook to send.",
+        "ACCOUNT_DELETED": "Meta reports that this WhatsApp Business Account was deleted, so the number was disconnected.",
+        "DISABLED_UPDATE": "Meta disabled or scheduled disabling of this WhatsApp Business Account for a policy reason. Review it in WhatsApp Manager; a disabled number is disconnected until you reconnect it after Meta reinstates the account.",
+        "ACCOUNT_RESTRICTION": "Meta restricted what this WhatsApp Business Account can do. Sends Meta does not allow will fail until the restriction ends.",
+        "ACCOUNT_VIOLATION": "Meta reported a policy violation on this WhatsApp Business Account. Review it in WhatsApp Manager.",
+        "ACCOUNT_OFFBOARDED": "Meta reports this WhatsApp account was offboarded after a device change or re-registration. Sends may fail until it is reconnected.",
+        "detail": "Meta's details: {detail}",
+        "until": "Until {date}"
+      }
     },
     "api": {
       "invalidChange": "Send a display name of up to 200 characters, or is_default set to true.",
@@ -7451,7 +7578,8 @@
         "cancelRefundDoneOutside": "Order cancelled. The refund made outside Bodhinox is recorded.",
         "courierTracked": "Shiprocket tracking updates this order automatically. You can still record it yourself.",
         "shipmentLive": "Cancel the courier shipment before cancelling this order, or use Returns once it was picked up.",
-        "codFee": "Cash on delivery fee"
+        "codFee": "Cash on delivery fee",
+        "refundedInFull": "This order was refunded in full, so it cannot be shipped. Use Cancel and refund to close it."
       },
       "timeline": {
         "title": "History",
@@ -7477,7 +7605,10 @@
           "shipment_created": "Courier shipment created",
           "shipment_cancelled": "Courier shipment cancelled",
           "shipment_correction_accepted": "Tracking correction accepted",
-          "cod_confirmed": "Cash on delivery chosen"
+          "cod_confirmed": "Cash on delivery chosen",
+          "payment_link_failed": "Payment link could not be made",
+          "shipment_pickup_requested": "Courier pickup requested again",
+          "return_refunded_outside": "Return refunded outside Bodhinox"
         },
         "documents": "Documents",
         "documentKinds": {
@@ -7530,7 +7661,7 @@
     },
     "catalogue": {
       "title": "Catalogue",
-      "description": "The products you sell through storefront links and checkout. Prices, tax and stock here are what customers are charged; the Meta catalogue stays a read-only mirror.",
+      "description": "The products you sell through storefront links and checkout. Prices, tax and stock here are what customers are charged; the price and stock of each product linked to the Meta catalogue (same SKU) are sent there within a few minutes while checkout is on.",
       "tabs": {
         "products": "Products",
         "categories": "Categories",
@@ -7650,7 +7781,7 @@
         "addImage": "Add image",
         "removeImage": "Remove image",
         "saveImages": "Save images",
-        "imagesHint": "Up to 10 https images, shown in this order.",
+        "imagesHint": "Up to 10 images, uploaded to your media library or https links, shown in this order.",
         "variants": "Variants",
         "currencyMissing": "Set the store currency in Store settings to add prices.",
         "variantSaved": "Variant saved",
@@ -7682,7 +7813,9 @@
         "repurchaseDays": "Reorder reminder after (days)",
         "repurchaseHint": "Optional. Days after delivery to remind customers who agreed to offers at checkout. Uses the reorder reminder template in Store settings.",
         "codAvailable": "Cash on delivery available",
-        "codAvailableHint": "When off, a cart holding this product can only be paid online (cash on delivery must also be on in Store settings)."
+        "codAvailableHint": "When off, a cart holding this product can only be paid online (cash on delivery must also be on in Store settings).",
+        "uploadImage": "Upload or choose from library",
+        "imageOnly": "Choose an image file."
       }
     },
     "inventory": {
@@ -7795,7 +7928,8 @@
         "coupon_min_subtotal": "The cart is below this coupon’s minimum.",
         "amount_out_of_range": "The amount is too large.",
         "too_many_open_orders": "This customer already has the most open orders allowed. An unpaid order must be paid or expire, or a cash-on-delivery order must ship or be cancelled, first.",
-        "cod_unavailable": "Cash on delivery is not available for this cart."
+        "cod_unavailable": "Cash on delivery is not available for this cart.",
+        "online_unavailable": "Online payment is not available right now. Choose cash on delivery or try again later."
       },
       "title": "Store settings",
       "subtitle": "Currency, tax, checkout, seller details, shipping and coupons for your storefront.",
@@ -7805,6 +7939,7 @@
       "generalTitle": "Checkout and tax",
       "generalHelp": "Prices and tax always come from these settings; a missing tax rate stops checkout instead of charging zero tax.",
       "checkoutEnabled": "Online checkout on",
+      "razorpayMissing": "Razorpay is not connected, so customers cannot pay online. Only cash on delivery can be placed. Connect Razorpay in Settings → Payments.",
       "currency": "Store currency",
       "currencyLocked": "Locked: variants already have prices in this currency.",
       "currencyHelp": "Three-letter code, for example INR.",
@@ -7921,7 +8056,12 @@
       "closed": "Return closed",
       "forbidden": "Your role can’t do this.",
       "conflict": "This return or order changed. It has been reloaded.",
-      "error": "Couldn’t update the return"
+      "error": "Couldn’t update the return",
+      "windowClosed": "The return window for this order has closed (Store settings → Return window).",
+      "amountExceeds": "No single payment on this order can refund that much. Enter a smaller amount.",
+      "refundOutsideNeeded": "This order was paid in cash or by a payment your team recorded, so Razorpay cannot refund it. Give the money back the way it was paid, then confirm below to record the refund.",
+      "refundOutsideConfirm": "I have returned this amount outside Bodhinox",
+      "refundedOutside": "Refund recorded. A credit note follows."
     },
     "documents": {
       "print": {
@@ -7973,7 +8113,7 @@
       "awbAssigning": "Assigning a courier…",
       "awbUnknown": "Shiprocket has not confirmed the courier assignment. It is never repeated automatically; check the shipment exceptions.",
       "awbFailed": "No courier was assigned ({code}). Nothing was charged.",
-      "pickupFailed": "Shiprocket did not schedule the pickup. Schedule it in Shiprocket.",
+      "pickupFailed": "Shiprocket did not schedule the pickup. Request it again, or schedule it in Shiprocket.",
       "awb": "AWB",
       "courier": "Courier",
       "status": "Tracking",
@@ -8002,7 +8142,9 @@
         "lost": "Lost or damaged",
         "rto_delivered": "Returned to sender",
         "cancelled": "Cancelled"
-      }
+      },
+      "pickupAgain": "Request pickup again",
+      "pickupRequested": "Pickup requested from Shiprocket."
     },
     "evidence": {
       "provider": "Courier confirmed",
@@ -8026,7 +8168,8 @@
         "rto": "Returning to origin",
         "lost_or_damaged": "Lost or damaged",
         "stale_tracking": "No tracking updates for 10 days",
-        "order_conflict": "Courier status disagrees with the order"
+        "order_conflict": "Courier status disagrees with the order",
+        "pickup_failed": "Courier pickup not scheduled"
       },
       "hints": {
         "contradiction": "Check the shipment in Shiprocket. Accept the correction only if the courier’s new status is right.",
@@ -8035,7 +8178,8 @@
         "rto": "The parcel is coming back. Open a return on the order when it arrives.",
         "lost_or_damaged": "Raise a claim with Shiprocket and refund or replace from the order.",
         "stale_tracking": "Check the shipment with the courier.",
-        "order_conflict": "The order was cancelled, refunded or never paid while the parcel moved. Check the order and the shipment."
+        "order_conflict": "The order was cancelled, refunded or never paid while the parcel moved. Check the order and the shipment.",
+        "pickup_failed": "Open the order and use Request pickup again, or schedule the pickup in Shiprocket. A successful request closes this."
       },
       "resolutions": {
         "accept_correction": "Accept correction",
@@ -8078,6 +8222,15 @@
       "errors": {
         "invalid": "Choose a template and its language.",
         "template_not_found": "That template was not found. Sync your templates and try again."
+      }
+    },
+    "checkoutLinkFailed": {
+      "title": "Checkout payment link failed",
+      "body": "Order {reference} was closed because Razorpay could not create its payment link ({reason}). Its stock and coupon were released, and the customer was told payment could not be set up.",
+      "reasons": {
+        "not_connected": "Razorpay is not connected",
+        "provider_auth": "Razorpay did not accept the saved keys",
+        "other": "Razorpay refused the request"
       }
     }
   },
@@ -8264,7 +8417,8 @@
         "not_retryable": "Only a refund Razorpay did not make can be sent again.",
         "not_reconcilable": "This refund has nothing to check: it is already settled.",
         "not_connected": "Razorpay is not connected.",
-        "provider_unreachable": "Razorpay could not be reached. Try again shortly."
+        "provider_unreachable": "Razorpay could not be reached. Try again shortly.",
+        "shipment_live": "This order has a courier shipment. Cancel the shipment before restocking, or refund without restocking and use Returns for goods that come back."
       }
     },
     "offline": {
@@ -8522,6 +8676,10 @@
     "automation_notice": {
       "label": "Automation notices",
       "description": "An automation's Notify team step tells you about a conversation."
+    },
+    "webhook_disabled": {
+      "label": "Webhooks switched off",
+      "description": "Deliveries to a webhook kept failing for a day, so it was switched off."
     }
   },
   "Weekdays": {
@@ -9016,7 +9174,7 @@
       "lowConfidence": "Hand off when the agent isn't sure",
       "lowConfidenceHint": "Questions it can't answer go to a person and appear in Learnings.",
       "threshold": "Confidence needed to reply: {value}%",
-      "thresholdHint": "Higher values hand off more often.",
+      "thresholdHint": "At 50% the agent's own judgement decides. Higher values also need a close match in the knowledge base and hand off more often. When nothing in the knowledge base matches, only the agent's own judgement decides.",
       "maxTurns": "Hand off after this many AI replies",
       "maxTurnsHint": "0 means no limit."
     },
@@ -9170,6 +9328,7 @@
       "change": "{change}% vs previous period",
       "started": "Conversations started",
       "firstResponse": "Median first response",
+      "humanFirstResponse": "Median first reply from the team",
       "resolutionTime": "Median resolution time",
       "resolved": "Conversations resolved",
       "count": "Conversations",
@@ -9196,7 +9355,7 @@
       "bySourceDescription": "Who started each new conversation. A campaign reply is a customer message within 72 hours of a campaign; an ad start is a conversation whose first message came from a click-to-WhatsApp ad.",
       "sourceColumn": "Source",
       "timingTitle": "Response and resolution time",
-      "timingDescription": "First response counts the first customer wait per conversation. Resolution time covers conversations resolved without being reopened.",
+      "timingDescription": "First response counts the first customer wait per conversation, answered by anyone, including bots, flows and the AI agent. First reply from the team counts only replies by a team member, timed from that wait or from the AI handoff. Resolution time runs from the start of the resolved cycle, so reopened conversations count from when they reopened.",
       "metricColumn": "Measure",
       "samples": "Conversations measured",
       "unanswered": "{count, plural, =1 {# conversation is} other {# conversations are}} still waiting for a first reply.",
@@ -10233,7 +10392,8 @@
       "order_not_open": "This order can no longer be paid here.",
       "amount_out_of_range": "The amount is too large.",
       "too_many_open_orders": "You already have the most open orders allowed. Pay for an unpaid order, wait for it to expire, or wait for a cash-on-delivery order to be delivered, then try again.",
-      "cod_unavailable": "Cash on delivery is not available for this cart. Choose to pay online."
+      "cod_unavailable": "Cash on delivery is not available for this cart. Choose to pay online.",
+      "online_unavailable": "Online payment is not available for this store. Choose cash on delivery or contact the store."
     },
     "marketingOptIn": {
       "reorder_offers_v1": "Send me reorder reminders and offers on WhatsApp. You can stop them at any time by replying STOP."
@@ -10246,7 +10406,19 @@
     "placeCod": "Place order, pay {amount} on delivery",
     "codNote": "Your order is confirmed now. Pay in cash when it is delivered.",
     "codFee": "Cash on delivery fee",
-    "codDue": "Cash on delivery: please keep {amount} ready when your order arrives."
+    "codDue": "Cash on delivery: please keep {amount} ready when your order arrives.",
+    "returnWindow": "Returns are accepted within {days, plural, one {# day} other {# days}} of delivery. Contact the store on WhatsApp to return an item.",
+    "noReturns": "This store does not accept returns once an order is delivered.",
+    "onlineUnavailable": "Online payment is not set up for this store yet.",
+    "paymentFailedTitle": "Payment could not be set up",
+    "paymentFailed": "The store could not set up online payment for this order, so it was not placed and nothing was charged. Contact the store on WhatsApp to order.",
+    "stillVerifying": "The store is still verifying your payment. You will get a confirmation on WhatsApp once it is confirmed; you do not need to pay again.",
+    "checkAgain": "Check again",
+    "searchProducts": "Search products",
+    "categories": "Categories",
+    "allCategories": "All",
+    "noMatchingProducts": "No products match your search.",
+    "showMore": "Show more products"
   },
   "OrderNotices": {
     "dispatched": "Your order {ref} is on its way.",
@@ -10845,6 +11017,23 @@
       "sources": {
         "jobs": "Jobs",
         "webhook_receipts": "Webhooks"
+      },
+      "failed": {
+        "title": "Failed jobs (last 7 days)",
+        "hint": "Requeue a job once its cause is fixed. A job whose send outcome is uncertain must be reconciled instead.",
+        "attempts": "Attempts",
+        "failedAt": "Failed",
+        "reason": "Reason",
+        "requeue": "Requeue",
+        "requeued": "Job requeued.",
+        "reconcile": "Needs reconciliation",
+        "errors": {
+          "reason_required": "Enter a reason (at least 3 characters).",
+          "not_found": "That job no longer exists.",
+          "not_failed": "That job is no longer failed.",
+          "needs_reconciliation": "Its send outcome is uncertain: reconcile it instead of re-running it.",
+          "failed": "Could not requeue the job."
+        }
       }
     },
     "audit": {
@@ -10869,7 +11058,9 @@
       "signIn": "Sign in",
       "getStarted": "Get started",
       "privacy": "Privacy",
-      "terms": "Terms"
+      "terms": "Terms",
+      "contact": "Contact",
+      "dataDeletion": "Data deletion"
     },
     "landing": {
       "headline": "Every customer conversation in one place",
@@ -10918,12 +11109,21 @@
     "help": {
       "title": "Help",
       "contents": "Contents",
-      "linkLabel": "Help for this page"
+      "linkLabel": "Help for this page",
+      "englishOnly": "This page is in English only."
     },
     "legal": {
-      "draft": "Draft: this document is a placeholder and is not yet in force.",
       "privacyTitle": "Privacy policy",
-      "termsTitle": "Terms of service"
+      "termsTitle": "Terms of service",
+      "dataDeletionTitle": "Data deletion",
+      "contactTitle": "Contact",
+      "statusHeading": "Your deletion request",
+      "statusCompleted": "Request {code}, received {date}: complete. Bodhinox Chat holds no data linked to your Facebook account, and Facebook has withdrawn the access it gave us.",
+      "statusReceived": "Request {code}, received {date}: in progress.",
+      "statusUnknown": "No deletion request has this confirmation code. Check the link Facebook gave you, or contact us.",
+      "contactEmail": "Email for privacy, data deletion and support questions:",
+      "contactResponse": "We acknowledge requests within 3 working days and complete verified requests within 30 days.",
+      "contactUnset": "The contact address has not been published yet. Workspace owners can export or delete their data from Settings → Privacy & access."
     }
   }
 }

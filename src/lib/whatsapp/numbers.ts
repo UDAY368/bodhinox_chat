@@ -23,6 +23,7 @@
  * a browser and never log it.
  */
 import type { whatsapp_config } from '@prisma/client';
+import { accountIssue, type AccountIssue } from './account-issue';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing';
@@ -46,6 +47,8 @@ export interface WhatsAppNumber {
   created_at: Date | null;
   /** Disconnected by an admin: kept for history, cannot send until reconnected. */
   removed?: boolean;
+  /** A problem Meta reported for this number's WABA (account_update webhook), shown in Settings. */
+  account_issue?: AccountIssue | null;
 }
 
 /** 'other_channel': the conversation is not on WhatsApp (Phase 11 Instagram). */
@@ -145,8 +148,25 @@ export async function listNumbers(tx: TenantTransaction, accountId: string): Pro
     select: { id: true },
   });
   const removedIds = new Set(removed.map((row) => row.id));
-  return rows.map((row) => ({ ...row, removed: removedIds.has(row.id) }));
+  // account_update columns are read raw (they carry Meta enum values only, never a token).
+  const events = await tx.$queryRaw<AccountEventRow[]>`SELECT id::text AS id, meta_account_event, meta_account_detail,
+      meta_account_event_at, meta_account_until FROM whatsapp_config
+    WHERE account_id=${accountId}::uuid AND meta_account_event IS NOT NULL`;
+  const eventById = new Map((Array.isArray(events) ? events : []).map((row) => [row.id, row]));
+  return rows.map((row) => {
+    const event = eventById.get(row.id);
+    const issue = event ? accountIssue({ ...event, connected_at: row.connected_at }) : null;
+    return { ...row, removed: removedIds.has(row.id), account_issue: issue };
+  });
 }
+
+type AccountEventRow = {
+  id: string;
+  meta_account_event: string | null;
+  meta_account_detail: string | null;
+  meta_account_event_at: Date | null;
+  meta_account_until: Date | null;
+};
 
 /**
  * The number to use: `configId` when given (it must belong to the workspace;

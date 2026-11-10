@@ -11,7 +11,7 @@ export type UsageKey = Exclude<LimitKey, 'campaign_recipients'>;
 export const USAGE_METRICS = ['ai_messages', 'monthly_active_contacts', 'storage_bytes', 'ai_tokens'] as const;
 export type UsageMetric = (typeof USAGE_METRICS)[number];
 
-const BILLING_TIME_ZONE = 'Asia/Kolkata';
+export const BILLING_TIME_ZONE = 'Asia/Kolkata';
 
 /** The usage period ('YYYY-MM') a moment falls in, in India time. */
 export function usagePeriod(at: Date = new Date()): string {

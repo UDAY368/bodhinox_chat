@@ -25,7 +25,7 @@ export interface PlatformTenantRow {
   subscriptionStatus: string | null;
   lifecycleStatus: LifecycleStatus;
   blockManual: boolean;
-  /** Set while closing; past it the workspace is listed as "purge due" (no purge job exists). */
+  /** Set while closing; past it the workspace is listed as "purge due" (purged when WORKSPACE_PURGE_ENABLED=true). */
   purgeAfter: string | null;
   memberCount: number;
   /** Stored usage_counters for the current IST month (metric -> value). */
@@ -87,6 +87,20 @@ export interface PlatformJobBacklogRow {
   items: number;
   oldest: string | null;
 }
+
+/** A failed job (last 7 days) in the Health console. No payload or error text. */
+export interface PlatformFailedJobRow {
+  id: string;
+  type: string;
+  accountId: string | null;
+  accountName: string | null;
+  attempts: number;
+  maxAttempts: number;
+  /** Its provider outcome is uncertain: reconcile it, never requeue it. */
+  needsReconciliation: boolean;
+  failedAt: string;
+}
+export type JobRequeueOutcome = 'requeued' | 'not_found' | 'not_failed' | 'needs_reconciliation';
 
 export interface PlatformReconciliationItem {
   id: string;
