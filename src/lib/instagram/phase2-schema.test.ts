@@ -73,6 +73,10 @@ describe('Stage 3A migration inventory', () => {
     // Owner decision 2: nothing posts automatically until an admin turns it on.
     expect(text).toMatch(/instagram_ai_comments_auto_approve boolean NOT NULL DEFAULT false/);
     expect(text).toMatch(/instagram_ai_comments_enabled boolean NOT NULL DEFAULT false/);
+    // The guard holds for the worker too: forward-only status, a fixed approved text, and auto-approval only with both switches on.
+    expect(text).toMatch(/CREATE TRIGGER instagram_ai_comment_queue_guard BEFORE INSERT OR UPDATE ON instagram_ai_comment_queue/);
+    expect(text).toMatch(/OLD\.status = 'unknown' AND NEW\.status IN \('sent','failed'\)/);
+    expect(text).toMatch(/instagram_ai_comments_enabled AND c\.instagram_ai_comments_auto_approve/);
   });
 
   it('caps the stored menu at the graph client limit and grants the app the non-secret columns', () => {

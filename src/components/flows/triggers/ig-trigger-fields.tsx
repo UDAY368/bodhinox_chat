@@ -282,7 +282,9 @@ export function IgRefTriggerFields({ config, onChange }: Props) {
     setDraft("");
   };
   const copy = (link: string) => {
-    void navigator.clipboard?.writeText(link).then(() => toast.success(t("copied")), () => toast.error(t("copyFailed")));
+    // No clipboard outside a secure context: say so instead of doing nothing.
+    if (!navigator.clipboard) { toast.error(t("copyFailed")); return; }
+    void navigator.clipboard.writeText(link).then(() => toast.success(t("copied")), () => toast.error(t("copyFailed")));
   };
   return (
     <div className="space-y-3 md:col-span-2">

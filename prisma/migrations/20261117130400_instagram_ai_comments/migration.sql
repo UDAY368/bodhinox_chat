@@ -25,6 +25,13 @@
 --            one public reply); unknown is an ambiguous outcome surfaced for
 --            reconciliation, never retried blindly; pending -> expired (the
 --            worker, once a draft is too old to post).
+-- The guard trigger (instagram_ai_comment_queue_guard) holds these rules for
+-- every role, the worker included: status only moves forward along the arrows
+-- above (unknown -> sent | failed once reconciled; nothing returns to pending or
+-- approved, so a reply is never posted twice); the reply text is fixed once the
+-- row leaves pending (what was approved is what posts); and auto_approved is set
+-- only on the move to approved (or an insert as approved), and only while the
+-- workspace has both instagram_ai_comments_enabled and _auto_approve on.
 -- Members read the queue. Admins decide only pending rows, only as
 -- themselves, only to approved or rejected, and may change only the status,
 -- the reply text and the decision fields (column grant). The worker writes
@@ -85,3 +92,37 @@ GRANT SELECT ON instagram_ai_comment_queue TO bodhinox_app;
 GRANT UPDATE (status, reply_text, decided_by, decided_at) ON instagram_ai_comment_queue TO bodhinox_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON instagram_ai_comment_queue TO bodhinox_worker;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON instagram_ai_comment_queue FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Owner decision 2 and no double posts, enforced for every role (see the header).
+-- SECURITY INVOKER: the ai_configs read runs under the caller's RLS, so it only
+-- ever sees the row's own workspace.
+CREATE FUNCTION instagram_ai_comment_queue_guard() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NOT ((NEW.status = 'pending' AND NOT NEW.auto_approved) OR (NEW.status = 'approved' AND NEW.auto_approved)) THEN
+      RAISE EXCEPTION 'instagram_ai_comment_status_transition' USING ERRCODE = 'check_violation';
+    END IF;
+  ELSE
+    IF NEW.status <> OLD.status AND NOT (
+         (OLD.status = 'pending' AND NEW.status IN ('approved','rejected','expired'))
+      OR (OLD.status = 'approved' AND NEW.status IN ('sent','unknown','failed'))
+      OR (OLD.status = 'unknown' AND NEW.status IN ('sent','failed'))) THEN
+      RAISE EXCEPTION 'instagram_ai_comment_status_transition' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.reply_text IS DISTINCT FROM OLD.reply_text AND OLD.status <> 'pending' THEN
+      RAISE EXCEPTION 'instagram_ai_comment_reply_fixed' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.auto_approved IS DISTINCT FROM OLD.auto_approved AND NOT (OLD.status = 'pending' AND NEW.status = 'approved') THEN
+      RAISE EXCEPTION 'instagram_ai_comment_status_transition' USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  IF NEW.auto_approved AND (TG_OP = 'INSERT' OR NOT OLD.auto_approved) AND NOT EXISTS (
+       SELECT 1 FROM ai_configs c WHERE c.account_id = NEW.account_id
+         AND c.instagram_ai_comments_enabled AND c.instagram_ai_comments_auto_approve) THEN
+    RAISE EXCEPTION 'instagram_ai_comment_auto_approve_off' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION instagram_ai_comment_queue_guard() FROM PUBLIC;
+CREATE TRIGGER instagram_ai_comment_queue_guard BEFORE INSERT OR UPDATE ON instagram_ai_comment_queue
+  FOR EACH ROW EXECUTE FUNCTION instagram_ai_comment_queue_guard();

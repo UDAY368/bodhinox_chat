@@ -31,7 +31,7 @@ const workerB: TenantContext = { accountId: accountB, role: 'owner' };
 const asWorker = <T>(context: TenantContext, op: (tx: TenantTransaction) => Promise<T>) => withTenant(context, op, getWorkerPrisma());
 
 let owner: pg.Client;
-const ids = { igA: '', igB: '', identityA: '', flowA: '', runA: '', runB: '', eventA: '', eventA2: '', eventB: '' };
+const ids = { igA: '', igB: '', identityA: '', flowA: '', runA: '', runB: '', eventA: '', eventA2: '', eventB: '', eventB2: '' };
 const digits = () => `${Date.now()}${Math.floor(Math.random() * 1e6)}`.slice(0, 18);
 
 describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 2 schema on PostgreSQL', { timeout: 120_000 }, () => {
@@ -68,6 +68,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 2 schema on
     ids.eventA = await event(accountA, ids.igA, ids.runA);
     ids.eventA2 = await event(accountA, ids.igA, null);
     ids.eventB = await event(accountB, ids.igB, ids.runB);
+    ids.eventB2 = await event(accountB, ids.igB, null);
   });
 
   afterAll(async () => {
@@ -177,8 +178,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 2 schema on
         decided_by=${agentUser}::uuid, decided_at=now() WHERE id=${queueId.a}::uuid`)).toBe(0);
       await expect(withTenant(adminA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='approved',
         decided_by=${agentUser}::uuid, decided_at=now() WHERE id=${queueId.a}::uuid`)).rejects.toThrow(/row-level security/);
+      // pending -> sent is refused by the status guard (a BEFORE trigger, so it fires ahead of the policy check).
       await expect(withTenant(adminA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='sent',
-        decided_by=${adminUser}::uuid, decided_at=now() WHERE id=${queueId.a}::uuid`)).rejects.toThrow(/row-level security/);
+        decided_by=${adminUser}::uuid, decided_at=now() WHERE id=${queueId.a}::uuid`)).rejects.toThrow(/row-level security|instagram_ai_comment_status_transition/);
       await expect(withTenant(adminA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='approved'
         WHERE id=${queueId.a}::uuid`)).rejects.toThrow(/row-level security/);
       await expect(withTenant(adminA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET public_reply_id='1'
@@ -209,12 +211,51 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 2 schema on
       expect(row).toEqual({ status: 'sent', reply_text: 'Thanks so much!', decided_by: adminUser });
     });
 
-    it('needs a decision time on every decided row and drops the draft with its comment', async () => {
+    it('never moves a reply back, never changes an approved reply, never re-opens an ambiguous post', async () => {
+      // queueId.a is 'sent' (previous test): terminal.
+      for (const status of ['approved', 'pending', 'unknown'])
+        await expect(asWorker(workerA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status=${status}
+          WHERE id=${queueId.a}::uuid`), status).rejects.toThrow(/instagram_ai_comment_status_transition/);
+      await expect(asWorker(workerA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET reply_text='Changed after posting'
+        WHERE id=${queueId.a}::uuid`)).rejects.toThrow(/instagram_ai_comment_reply_fixed/);
+      // B's pending draft: approve, post with an ambiguous outcome, then only reconcile forward.
+      expect(await withTenant(ownerB, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='approved',
+        decided_by=${ownerUserB}::uuid, decided_at=now() WHERE id=${queueId.b}::uuid`)).toBe(1);
+      expect(await asWorker(workerB, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='unknown',
+        error_code='timeout' WHERE id=${queueId.b}::uuid`)).toBe(1);
+      for (const status of ['approved', 'pending'])
+        await expect(asWorker(workerB, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status=${status}
+          WHERE id=${queueId.b}::uuid`), status).rejects.toThrow(/instagram_ai_comment_status_transition/);
+      expect(await asWorker(workerB, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='sent',
+        public_reply_id='17890000000000010' WHERE id=${queueId.b}::uuid`)).toBe(1);
+      // A row is inserted only as a pending draft (or auto-approved, below), never already decided or posted.
+      await expect(asWorker(workerA, (tx) => tx.$executeRaw`INSERT INTO instagram_ai_comment_queue(account_id,instagram_account_id,
+        comment_event_id,comment_id,sentiment,reply_text,status,decided_at,public_reply_id) VALUES(${accountA}::uuid,${ids.igA}::uuid,
+        ${ids.eventA2}::uuid,'1','positive','Hi','sent',now(),'2')`)).rejects.toThrow(/instagram_ai_comment_status_transition/);
+    });
+
+    it('auto-approves only while the workspace has AI comments and auto-approve on (owner decision 2)', async () => {
       const id = (await insert(workerA, accountA, ids.igA, ids.eventA2)).id;
+      // AI comments are on for A (an earlier test), auto-approve is still off: the worker cannot post without an admin.
+      await expect(asWorker(workerA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='approved', auto_approved=true,
+        decided_at=now() WHERE id=${id}::uuid`)).rejects.toThrow(/instagram_ai_comment_auto_approve_off/);
+      await owner.query('UPDATE ai_configs SET instagram_ai_comments_auto_approve=true WHERE account_id=$1', [accountA]);
       await expect(asWorker(workerA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='approved', auto_approved=true
         WHERE id=${id}::uuid`)).rejects.toThrow();
       expect(await asWorker(workerA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='approved', auto_approved=true,
         decided_at=now() WHERE id=${id}::uuid`)).toBe(1);
+      // Turning auto-approve off later does not block recording the post of a reply approved while it was on.
+      await owner.query('UPDATE ai_configs SET instagram_ai_comments_auto_approve=false WHERE account_id=$1', [accountA]);
+      expect(await asWorker(workerA, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='failed',
+        error_code='meta_refused' WHERE id=${id}::uuid`)).toBe(1);
+      // B has no AI settings row at all: nothing is auto-approved there.
+      await expect(asWorker(workerB, (tx) => tx.$executeRaw`INSERT INTO instagram_ai_comment_queue(account_id,instagram_account_id,
+        comment_event_id,comment_id,sentiment,reply_text,status,auto_approved,decided_at) VALUES(${accountB}::uuid,${ids.igB}::uuid,
+        ${ids.eventB2}::uuid,'3','positive','Hi','approved',true,now())`)).rejects.toThrow(/instagram_ai_comment_auto_approve_off/);
+    });
+
+    it('drops the draft with its comment', async () => {
+      const id = (await owner.query<{ id: string }>('SELECT id FROM instagram_ai_comment_queue WHERE comment_event_id=$1', [ids.eventA2])).rows[0].id;
       await owner.query('DELETE FROM instagram_comment_events WHERE id=$1', [ids.eventA2]);
       expect((await owner.query('SELECT count(*)::int AS n FROM instagram_ai_comment_queue WHERE id=$1', [id])).rows[0].n).toBe(0);
     });

@@ -59,7 +59,15 @@ describe('channel capabilities', () => {
     for (const file of ['https://x.test/a.ogg', 'https://x.test/a.opus', 'https://x.test/a.mp3', 'https://x.test/a.webm', 'https://x.test/a'])
       expect(nodeAvailableOn('send_media', 'instagram', { media_type: 'audio', media_url: file }), file)
         .toEqual({ ok: false, reason: 'unavailable_on_channel' });
-    expect(nodeAvailableOn('send_media', 'whatsapp', { media_type: 'audio', media_url: 'https://x.test/a.ogg' })).toEqual({ ok: true });
+    for (const file of ['https://x.test/a.ogg', 'https://x.test/a.mp3', 'https://x.test/a.m4a', 'https://x.test/a.AAC?v=2', 'https://x.test/a.amr'])
+      expect(nodeAvailableOn('send_media', 'whatsapp', { media_type: 'audio', media_url: file }), file).toEqual({ ok: true });
+    // WhatsApp refuses these at send time, which would fail the run; publish refuses them first.
+    for (const file of ['https://x.test/a.wav', 'https://x.test/a.webm', 'https://x.test/a.opus', 'https://x.test/obj/123'])
+      expect(nodeAvailableOn('send_media', 'whatsapp', { media_type: 'audio', media_url: file }), file)
+        .toEqual({ ok: false, reason: 'unavailable_on_channel' });
+    // Existing WhatsApp media steps are unchanged: any image, video or document passes, as before.
+    for (const media_type of ['image', 'video', 'document'])
+      expect(nodeAvailableOn('send_media', 'whatsapp', { media_type, media_url: 'https://x.test/obj/123' }), media_type).toEqual({ ok: true });
     expect(nodeAvailableOn('send_media', 'instagram', { media_type: 'sticker', media_url: 'https://x.test/a.webp' }).ok).toBe(false);
   });
 

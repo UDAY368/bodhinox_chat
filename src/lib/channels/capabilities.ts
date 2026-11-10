@@ -130,6 +130,17 @@ const MEDIA_TYPES_ON_INSTAGRAM = new Set(['image', 'video', 'document', 'audio']
  */
 export const INSTAGRAM_AUDIO_FILE = /\.(aac|m4a|mp4|wav)(?:$|[?#])/i;
 
+/**
+ * Audio files WhatsApp sends, by file extension: AAC, AMR, MP3, M4A/MP4 and
+ * Ogg (Opus). Meta refuses WAV, WebM and bare .opus files at send time, which
+ * would end the run as send_media_failed, so publish refuses them first.
+ */
+export const WHATSAPP_AUDIO_FILE = /\.(aac|amr|mp3|m4a|mp4|ogg)(?:$|[?#])/i;
+
+/** A send_media config's file name and URL, whichever are strings. */
+const mediaNames = (config: Record<string, unknown>): string[] =>
+  [config.filename, config.media_url].filter((v): v is string => typeof v === 'string');
+
 const textOf = (config: Record<string, unknown>): string | null => {
   for (const key of ['text', 'body', 'message']) if (typeof config[key] === 'string') return config[key] as string;
   return null;
@@ -140,18 +151,24 @@ const textOf = (config: Record<string, unknown>): string | null => {
  * config decides: media must be an image, a video, a PDF document or an
  * AAC/M4A/MP4/WAV audio file (the file name or URL shows which); a list must
  * fit Instagram quick replies. Text over 1000 bytes is a warning (variables
- * may shorten it), not a refusal; the send path refuses it.
+ * may shorten it), not a refusal; the send path refuses it. On WhatsApp only
+ * an audio step is checked (WHATSAPP_AUDIO_FILE).
  */
 export function nodeAvailableOn(nodeType: FlowNodeType, channel: Channel,
   config: Record<string, unknown> = {}): NodeAvailability {
-  if (channel === 'whatsapp')
-    return WHATSAPP_NODE_SUPPORT[nodeType] === 'no' ? { ok: false, reason: 'unavailable_on_channel' } : { ok: true };
+  if (channel === 'whatsapp') {
+    if (WHATSAPP_NODE_SUPPORT[nodeType] === 'no') return { ok: false, reason: 'unavailable_on_channel' };
+    // Stage 3 audio: only a format WhatsApp sends. The other media types are unchanged.
+    if (nodeType === 'send_media' && config.media_type === 'audio' && !mediaNames(config).some((name) => WHATSAPP_AUDIO_FILE.test(name)))
+      return { ok: false, reason: 'unavailable_on_channel' };
+    return { ok: true };
+  }
   const support = INSTAGRAM_NODE_SUPPORT[nodeType] ?? 'no';
   if (support === 'no') return { ok: false, reason: 'unavailable_on_channel' };
   if (nodeType === 'send_media') {
     const mediaType = typeof config.media_type === 'string' ? config.media_type : null;
     if (!mediaType || !MEDIA_TYPES_ON_INSTAGRAM.has(mediaType)) return { ok: false, reason: 'unavailable_on_channel' };
-    const names = [config.filename, config.media_url].filter((v): v is string => typeof v === 'string');
+    const names = mediaNames(config);
     if (mediaType === 'document' && !names.some((name) => /\.pdf(?:$|[?#])/i.test(name)))
       return { ok: false, reason: 'unavailable_on_channel' };
     if (mediaType === 'audio' && !names.some((name) => INSTAGRAM_AUDIO_FILE.test(name)))
