@@ -4,6 +4,7 @@ import {
   addChannelPrompt,
   buildNavigation,
   filterPages,
+  getPageGroup,
   getPageTitleKey,
   navigationPages,
 } from './page-search-navigation';
@@ -123,6 +124,16 @@ describe('page titles', () => {
     expect(getPageTitleKey('/commerce/orders/42')).toBe('orders');
     expect(getPageTitleKey('/commerce')).toBe('dashboard');
     expect(getPageTitleKey('/inbox-archive')).toBe('dashboard');
+  });
+
+  it('names the nav group in the breadcrumb: the channel for its sections and tools, else Workspace', () => {
+    expect(getPageGroup('/whatsapp/inbox')).toBe('whatsapp');
+    expect(getPageGroup('/instagram/flows/abc')).toBe('instagram');
+    expect(getPageGroup('/instagram')).toBe('instagram');
+    for (const path of ['/broadcasts', '/broadcasts/42', '/forms/1', '/ads']) expect(getPageGroup(path), path).toBe('whatsapp');
+    expect(getPageGroup('/instagram/comments')).toBe('instagram');
+    for (const path of ['/dashboard', '/inbox', '/contacts/7', '/settings', '/flows/new', '/automations', '/instagramx', '/unknown'])
+      expect(getPageGroup(path), path).toBe('workspace');
   });
 
   it('keeps titles for the old channel-less URLs', () => {

@@ -5,7 +5,7 @@
 // entry on top when both channels are enabled; each enabled channel follows
 // as its own group (its inbox, flows, automations and tools). Every channel
 // link comes from channelPath, so the nav and the redirects agree.
-import { ALL_INBOXES_PATH, channelPath } from '@/lib/channels/routes';
+import { ALL_INBOXES_PATH, channelFromPath, channelPath } from '@/lib/channels/routes';
 import type { WorkspaceChannels } from '@/lib/channels/workspace';
 import type { Channel } from '@/types';
 
@@ -116,12 +116,19 @@ const allPages: NavPage[] = [
   { href: '/automations', labelKey: 'automations', group: 'workspace' },
 ];
 
+const pageForPath = (pathname: string): NavPage | undefined =>
+  allPages.find((page) => pathname === page.href || pathname.startsWith(`${page.href}/`));
+
 export function getPageTitleKey(pathname: string): string {
-  return (
-    allPages.find(
-      (page) => pathname === page.href || pathname.startsWith(`${page.href}/`)
-    )?.labelKey ?? 'dashboard'
-  );
+  return pageForPath(pathname)?.labelKey ?? 'dashboard';
+}
+
+/**
+ * The nav group a page sits in, for the header breadcrumb: the channel for
+ * its section and its tools (WhatsApp › Broadcasts), Workspace otherwise.
+ */
+export function getPageGroup(pathname: string): NavGroupId {
+  return channelFromPath(pathname) ?? pageForPath(pathname)?.group ?? 'workspace';
 }
 
 /**

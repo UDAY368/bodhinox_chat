@@ -20,8 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { PageSearch } from '@/components/layout/page-search';
-import { getPageTitleKey } from '@/components/layout/page-search-navigation';
-import { channelFromPath } from '@/lib/channels/routes';
+import { getPageGroup, getPageTitleKey } from '@/components/layout/page-search-navigation';
 
 interface HeaderProps {
   showMenuToggle?: boolean;
@@ -39,8 +38,9 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const titleKey = getPageTitleKey(pathname);
-  // Inside a channel section the breadcrumb names the channel (WhatsApp › Inbox).
-  const section = channelFromPath(pathname);
+  // The breadcrumb names the page's nav group: its channel for a channel
+  // section or tool (WhatsApp › Inbox, WhatsApp › Broadcasts), else Workspace.
+  const group = getPageGroup(pathname);
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
@@ -61,7 +61,7 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
           <Menu className="h-5 w-5" />
         </button>
         <span className="text-muted-foreground hidden text-[11px] sm:inline">
-          {section ? groups(section) : t('workspace')}
+          {group === 'workspace' ? t('workspace') : groups(group)}
         </span>
         <ChevronRight className="text-muted-foreground/60 hidden size-3 sm:block" />
         <h1 className="text-foreground truncate text-xs font-semibold">

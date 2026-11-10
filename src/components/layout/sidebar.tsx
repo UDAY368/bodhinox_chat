@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { KhagaIcon } from '@/components/agents/khaga-icon';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
@@ -250,9 +250,13 @@ export function Sidebar({ open = false, onClose, compact = false }: SidebarProps
           {groups.map((group, index) => {
             const attention =
               group.id !== 'workspace' && channels?.channels[group.id]?.state === 'attention';
+            // A fragment, not a wrapper: the group header must stay a direct
+            // child of <nav> so the compact sidebar's `nav > p` rule hides it.
             return (
-              <div key={group.id} data-nav-group={group.id}>
+              <Fragment key={group.id}>
                 <p
+                  id={`nav-group-${group.id}`}
+                  data-nav-group={group.id}
                   className={cn(
                     'flex items-center gap-2 px-3 pb-3 text-[9px] font-semibold tracking-[1.8px] text-[#7b7771] uppercase',
                     index === 0 ? 'pt-2' : 'pt-7'
@@ -269,18 +273,20 @@ export function Sidebar({ open = false, onClose, compact = false }: SidebarProps
                     />
                   )}
                 </p>
-                <ul className="flex flex-col gap-1">
+                <ul aria-labelledby={`nav-group-${group.id}`} className="flex flex-col gap-1">
                   {group.pages.map((page) => (
                     <SidebarLink
                       key={page.href}
                       page={page}
+                      // Names the channel on hover, as the compact sidebar hides the group headers.
+                      title={group.id === 'workspace' ? undefined : `${t(`groups.${group.id}`)} · ${t(page.labelKey)}`}
                       active={isActivePath(pathname, page.href)}
                       unread={page.unread ? unread[page.unread] : 0}
                       unreadNotifications={unreadNotifications}
                     />
                   ))}
                 </ul>
-              </div>
+              </Fragment>
             );
           })}
 
@@ -467,11 +473,14 @@ export function Sidebar({ open = false, onClose, compact = false }: SidebarProps
 /** One nav row: icon, label, the Beta chip and its unread badge. */
 function SidebarLink({
   page,
+  title,
   active,
   unread,
   unreadNotifications,
 }: {
   page: NavPage;
+  /** Hover text naming the channel ("WhatsApp · Inbox"); none for Workspace pages. */
+  title?: string;
   active: boolean;
   /** Unread conversations behind this entry: its channel's, or every channel's for All inboxes. */
   unread: number;
@@ -489,6 +498,7 @@ function SidebarLink({
     <li>
       <Link
         href={page.href}
+        title={title}
         aria-current={active ? 'page' : undefined}
         className={cn(
           // Taller on mobile so fingers can hit the row reliably (≥44px).

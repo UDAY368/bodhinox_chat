@@ -124,6 +124,27 @@ describe('Sidebar per channel set', () => {
     expect(html).not.toContain('data-nav-add-channel');
   });
 
+  it('keeps each group header a direct child of the nav, so the compact sidebar can hide it', () => {
+    h.data = workspace({}, {});
+    const html = render();
+    // studio.css hides headers in the compact (flow editor) sidebar with `nav > p`.
+    expect(html).toMatch(/<nav[^>]*><p[^>]*data-nav-group="workspace"/);
+    expect(html).toMatch(/<\/ul><p[^>]*data-nav-group="whatsapp"/);
+    expect(html).toMatch(/<\/ul><p[^>]*data-nav-group="instagram"/);
+    expect(html).not.toMatch(/<div[^>]*data-nav-group/);
+  });
+
+  it('names each list by its group and each channel link by its channel', () => {
+    h.data = workspace({}, {});
+    const html = render();
+    for (const id of ['workspace', 'whatsapp', 'instagram'])
+      expect(html).toContain(`aria-labelledby="nav-group-${id}"`);
+    const titleOf = (href: string) => new RegExp(`<a[^>]*title="([^"]*)"[^>]*href="${href}"`).exec(html)?.[1];
+    expect(titleOf('/instagram/inbox')).toBe('Sidebar.groups.instagram · Sidebar.inbox');
+    expect(titleOf('/whatsapp/inbox')).toBe('Sidebar.groups.whatsapp · Sidebar.inbox');
+    expect(titleOf('/dashboard')).toBeUndefined();
+  });
+
   it('never links to ?tab=whatsapp', () => {
     h.data = workspace({}, {});
     expect(render()).not.toContain('tab=whatsapp');
