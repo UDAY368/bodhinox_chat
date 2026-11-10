@@ -100,9 +100,10 @@ export async function refreshProfileFacts(accountId: string, conversationId: str
   let profile: InstagramProfile;
   try {
     profile = await getProfile(row.external_id, token, { facts: true });
-  } catch (error) {
-    if (error instanceof MetaApiError) return stored;
-    throw error;
+  } catch {
+    // Refused by Meta, or a network failure or timeout: a read changes nothing on
+    // Meta's side, so the run goes on with the stored facts rather than failing.
+    return stored;
   }
   const f = profile.facts;
   if (!f) return stored;

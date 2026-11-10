@@ -3384,8 +3384,17 @@ export async function startCommentFlow(args: { accountId: string; eventId: strin
   }).select("*").maybeSingle();
   if (insErr) {
     const msg = insErr.message ?? "";
-    if (msg.includes("23505") || msg.includes("duplicate key")) return "busy";
-    throw new Error("Comment flow run insert failed");
+    if (!(msg.includes("23505") || msg.includes("duplicate key"))) throw new Error("Comment flow run insert failed");
+    // A job that crashed between inserting its run and linking the comment left
+    // that run active on the conversation: link it now and carry it on, instead
+    // of reporting the conversation busy with this comment's own run.
+    const active = await loadActiveRunForConversation(db, accountId, thread.contactId, thread.conversationId);
+    if (!active || active.vars?.ig_comment_event_id !== eventId) return "busy";
+    const relinked = await tenantRead((tx) => tx.$executeRaw`UPDATE instagram_comment_events SET flow_run_id=${active.id}::uuid
+      WHERE account_id=${accountId}::uuid AND id=${eventId}::uuid AND flow_run_id IS NULL AND private_reply_status='queued'`);
+    if (!relinked) return "taken";
+    await resumeCommentRun(db, accountId, active.id);
+    return "started";
   }
   const run = inserted as FlowRunRow;
   const linked = await tenantRead((tx) => tx.$executeRaw`UPDATE instagram_comment_events SET flow_run_id=${run.id}::uuid

@@ -322,7 +322,7 @@ describe('processInstagramWebhookJob', () => {
   it('offers a first comment to the live comment flows, skipping the rule and keeping it as the fallback (Stage 2)', async () => {
     const accountId = '22222222-2222-4222-8222-222222222222';
     const flowId = '33333333-3333-4333-8333-333333333333';
-    const run = (earlier: boolean, config: Record<string, unknown>) => async (strings: TemplateStringsArray) => {
+    const run = (earlier: boolean, config: Record<string, unknown>, flowTaken = false) => async (strings: TemplateStringsArray) => {
       const sql = strings.join('?');
       if (sql.includes('FROM webhook_receipts'))
         return [{ status: 'received', payload: { object: 'instagram', entry: [{ id: ACCOUNT_IG,
@@ -333,7 +333,7 @@ describe('processInstagramWebhookJob', () => {
       if (sql.includes('INSERT INTO instagram_comment_events')) return [{ id: 'ev-1' }];
       if (sql.includes('FROM instagram_comment_rules')) return [{ id: 'rule-1', media_id: null, keywords: ['price'] }];
       if (sql.includes('FROM flows f JOIN flow_versions')) return [{ id: flowId, created_at: new Date('2026-11-01T00:00:00Z'), trigger_config: config }];
-      if (sql.includes('id<>')) return [{ found: earlier }];
+      if (sql.includes('id<>')) return [{ found: earlier, flow_taken: earlier && flowTaken }];
       if (sql.includes('blocked_at IS NOT NULL')) return [{ blocked: false }];
       throw new Error(`unexpected query: ${sql}`);
     };
@@ -356,6 +356,14 @@ describe('processInstagramWebhookJob', () => {
     h.queryRaw.mockImplementation(run(true, { post_scope: 'any' }));
     await processInstagramWebhookJob({ receiptId: RECEIPT });
     expect(JSON.parse(jobCalls()[0][3] as string)).toEqual({ accountId, eventId: 'ev-1' });
+
+    // A flow already answered this person's earlier comment on the post: no second DM from the rule.
+    h.executeRaw.mockClear();
+    h.queryRaw.mockImplementation(run(true, { post_scope: 'any' }, true));
+    await processInstagramWebhookJob({ receiptId: RECEIPT });
+    expect(jobCalls()).toHaveLength(0);
+    const skipped = h.executeRaw.mock.calls.find((c) => (c[0] as TemplateStringsArray).join('?').includes('UPDATE instagram_comment_events'))!;
+    expect(skipped.slice(1)).toEqual(expect.arrayContaining([null, 'no_rule']));
 
     // A keyword the flow does not want: the rule answers.
     h.executeRaw.mockClear();

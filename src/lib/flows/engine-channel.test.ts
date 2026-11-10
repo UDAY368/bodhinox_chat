@@ -24,6 +24,8 @@ const h = vi.hoisted(() => ({
     inFilters: [] as { table: string; column: string; values: unknown[] }[],
     /** Every conversation lookup fails. */
     conversationLookupFails: false,
+    /** The next flow_runs insert fails with this message (e.g. the one-active-run unique index). */
+    runInsertError: null as string | null,
   },
   dispatch: vi.fn(async (_account: string, _key: string, send: () => Promise<unknown>) => send()),
   waText: vi.fn(async () => ({ whatsapp_message_id: "wamid.1" })),
@@ -117,6 +119,7 @@ vi.mock("./admin-client", () => {
     const narrow: ((row: Record<string, unknown>) => boolean)[] = [];
     const matching = () => table !== "flows" ? rows(table)
       : (rows(table) as Record<string, unknown>[]).filter((row) => narrow.every((keep) => keep(row)));
+    let insertFailed: string | null = null;
     const b: Record<string, unknown> = {
       select: () => b, eq: () => b, neq: () => b, is: () => b, filter: () => b, order: () => b, limit: () => b, gte: () => b,
       in: (column: string, values: unknown[]) => {
@@ -127,10 +130,16 @@ vi.mock("./admin-client", () => {
       update: (row: Record<string, unknown>) => { h.state.updates.push({ table, row }); return b; },
       insert: (row: Record<string, unknown>) => {
         h.state.inserted.push({ table, row });
+        if (table === "flow_runs" && h.state.runInsertError) {
+          insertFailed = h.state.runInsertError;
+          h.state.runInsertError = null;
+          return b;
+        }
         if (table === "flow_runs") h.state.insertedRun = { id: h.runId, vars: {}, reprompt_count: 0, transition_seq: 0, ...row };
         return b;
       },
       maybeSingle: async () => {
+        if (insertFailed) return { data: null, error: { message: insertFailed } };
         if (table === "conversations" && h.state.conversationLookupFails) return { data: null, error: { message: "connection reset" } };
         if (table === "conversations" && h.state.channelLookupFails && (h.state.insertedRun || h.state.activeRuns.length))
           return { data: null, error: { message: "connection reset" } };
@@ -182,6 +191,7 @@ beforeEach(() => {
   h.state.newRunChannelLookupFails = false;
   h.state.inFilters = [];
   h.state.conversationLookupFails = false;
+  h.state.runInsertError = null;
   h.versions.clear();
   h.state.conversation = { channel: "whatsapp", whatsapp_config_id: null };
   h.lastCustomerAt = new Date();
@@ -579,6 +589,33 @@ describe("Instagram Phase 1 engine (Stage 2C)", () => {
     expect(await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" })).toBe("unavailable");
     expect(runs()).toHaveLength(0);
     expect(h.privateReply).not.toHaveBeenCalled();
+  });
+
+  it("a busy conversation starts nothing; a crashed job's own unlinked run is linked and carried on once", async () => {
+    const DUPLICATE = 'duplicate key value violates unique constraint "idx_one_active_run_per_conversation" (23505)';
+    h.state.flows = [igFlow({ trigger_type: "ig_comment", trigger_config: { post_scope: "any" } })];
+    h.state.nodes = COMMENT_NODES;
+    h.rawRow = { comment_id: "18000000001", media_id: "1700", from_igsid: "9001", instagram_account_id: "ig-acct", status: "queued", flow_run_id: null };
+    const linkCalls = () => (h.executeRaw.mock.calls as unknown as string[][][]).filter((c) => c[0].join("?").includes("SET flow_run_id"));
+
+    // Another flow's run holds the conversation: nothing is linked or sent.
+    h.state.activeRuns = activeAt("ask", {});
+    h.state.runInsertError = DUPLICATE;
+    expect(await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" })).toBe("busy");
+    expect(linkCalls()).toHaveLength(0);
+    expect(h.privateReply).not.toHaveBeenCalled();
+    expect(h.publicReply).not.toHaveBeenCalled();
+
+    // The run this comment's earlier attempt inserted (still at its entry, never linked): linked, then carried on.
+    const orphan = { ...activeAt("start", { ig_comment_event_id: EVENT, ig_comment_id: "18000000001" })[0], transition_seq: 0 };
+    h.state.activeRuns = [orphan];
+    h.state.insertedRun = orphan;
+    h.state.runInsertError = DUPLICATE;
+    expect(await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" })).toBe("started");
+    expect(linkCalls()).toHaveLength(1);
+    expect((linkCalls()[0] as unknown[]).slice(1)).toContain(RUN);
+    expect(h.privateReply).toHaveBeenCalledTimes(1);
+    expect(h.privateReply.mock.calls[0][0]).toMatchObject({ eventId: EVENT, runId: RUN });
   });
 
   it("the opening-button tap resumes the run and opens the window; a tap for another run changes nothing", async () => {

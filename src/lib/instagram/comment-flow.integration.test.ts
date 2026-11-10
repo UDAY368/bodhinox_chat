@@ -166,11 +166,23 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram comment flows on 
     expect(calls(fetchMock, '/messages')).toHaveLength(1);
     expect((await owner.query('SELECT count(*)::int AS n FROM flow_runs WHERE flow_id=$1 AND contact_id=$2', [flowA, run.contact_id])).rows[0].n).toBe(1);
 
-    // A second comment by the same person on the same post is not offered to the flow (the rule answers it).
+    // A second comment by the same person on the same post is not offered to the flow, and the rule
+    // does not add a second DM either: the flow already answered this person on this post.
     const again = next('18');
     await deliver(comment(igUserA, { id: again, text: 'price?', media: { id: media }, from: { id: commenter } }));
     const second = (await eventOf(again))!;
-    expect(await jobPayload(second.id)).toEqual({ accountId: accountA, eventId: second.id });
+    expect(second).toMatchObject({ status: 'no_rule', rule_id: null });
+    expect(await jobPayload(second.id)).toBeUndefined();
+
+    // Another person's repeat comment on a post no flow answered them on: the rule answers as before.
+    const other = next('7'), otherMedia = next('17');
+    await owner.query(`INSERT INTO instagram_comment_events(account_id,instagram_account_id,comment_id,media_id,from_igsid,private_reply_status)
+      VALUES($1,$2,$3,$4,$5,'no_rule')`, [accountA, igA, next('18'), otherMedia, other]);
+    const repeat = next('18');
+    await deliver(comment(igUserA, { id: repeat, text: 'price', media: { id: otherMedia }, from: { id: other } }));
+    const ruled = (await eventOf(repeat))!;
+    expect(ruled).toMatchObject({ status: 'queued', rule_id: expect.any(String) });
+    expect(await jobPayload(ruled.id)).toEqual({ accountId: accountA, eventId: ruled.id });
   });
 
   it('the opening-button tap opens the window and resumes the run', async () => {

@@ -470,24 +470,36 @@ async function senderBlocked(tx: TenantTransaction, owner: Owner, igsid: string)
 export interface CommentFlowChoice { flowId: string; check: boolean }
 
 /**
- * The live ig_comment flows a comment may start, best first (comment-matching.ts).
- * Reads the published version of each active Instagram (or legacy both-channel)
- * flow of this workspace only. Empty unless this is the person's first comment
- * on the post: this account's comment events are the record of that.
+ * What the live ig_comment flows make of a comment. `choices`: the flows it may
+ * start, best first (comment-matching.ts). `ruleSkipped`: a flow already took an
+ * earlier comment by this person on this post, so the flow owns that
+ * conversation and the legacy rule must not send a second, different DM.
  */
-async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: ParsedComment, eventId: string): Promise<CommentFlowChoice[]> {
+export interface CommentFlowOffer { choices: CommentFlowChoice[]; ruleSkipped: boolean }
+
+/**
+ * Reads the published version of each active Instagram (or legacy both-channel)
+ * flow of this workspace only. No choices unless this is the person's first
+ * comment on the post: this account's comment events are the record of that.
+ */
+async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: ParsedComment, eventId: string): Promise<CommentFlowOffer> {
   const flows = await tx.$queryRaw<{ id: string; created_at: Date; trigger_config: unknown }[]>`
     SELECT f.id::text AS id, f.created_at, v.trigger_config
     FROM flows f JOIN flow_versions v ON v.account_id=f.account_id AND v.id=f.published_version_id AND v.flow_id=f.id
     WHERE f.account_id=${owner.accountId}::uuid AND f.status='active' AND v.trigger_type='ig_comment'
       AND v.channel_scope IN ('instagram','any')
     ORDER BY f.created_at, f.id LIMIT 100`;
-  if (!flows.length) return [];
+  if (!flows.length) return { choices: [], ruleSkipped: false };
   if (comment.mediaId) {
-    const [earlier] = await tx.$queryRaw<{ found: boolean }[]>`SELECT EXISTS(SELECT 1 FROM instagram_comment_events
-      WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid
-        AND media_id=${comment.mediaId} AND from_igsid=${comment.fromIgsid} AND id<>${eventId}::uuid) AS found`;
-    if (earlier?.found) return [];
+    const [earlier] = await tx.$queryRaw<{ found: boolean; flow_taken: boolean }[]>`SELECT
+      EXISTS(SELECT 1 FROM instagram_comment_events
+        WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid
+          AND media_id=${comment.mediaId} AND from_igsid=${comment.fromIgsid} AND id<>${eventId}::uuid) AS found,
+      EXISTS(SELECT 1 FROM instagram_comment_events
+        WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid
+          AND media_id=${comment.mediaId} AND from_igsid=${comment.fromIgsid} AND id<>${eventId}::uuid
+          AND flow_run_id IS NOT NULL) AS flow_taken`;
+    if (earlier?.found) return { choices: [], ruleSkipped: earlier.flow_taken === true };
   }
   const facts = { instagramAccountId: owner.instagramAccountId, mediaId: comment.mediaId, text: comment.text };
   const candidates: Array<CommentFlowCandidate & { match: PostMatch }> = [];
@@ -506,7 +518,7 @@ async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: 
     const match = commentMatchesTrigger(config, facts, resolvedNext);
     if (match !== 'no') candidates.push({ flowId: flow.id, createdAt: new Date(flow.created_at).toISOString(), config, match });
   }
-  return rankCommentFlows(candidates).map((c) => ({ flowId: c.flowId, check: c.match === 'check' }));
+  return { choices: rankCommentFlows(candidates).map((c) => ({ flowId: c.flowId, check: c.match === 'check' })), ruleSkipped: false };
 }
 
 /**
@@ -514,8 +526,9 @@ async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: 
  * the unique key and the job's dedupe key). A comment a live ig_comment flow
  * may take is queued for the flow, with the matching legacy rule (if any) kept
  * only as the fallback when no flow takes it; otherwise the legacy rule path
- * runs exactly as before. The sender lock serialises two comments by the same
- * person, so only one of them is their first on a post.
+ * runs exactly as before, except that a person a flow already answered on this
+ * post gets no rule DM for a later comment there. The sender lock serialises
+ * two comments by the same person, so only one of them is their first on a post.
  */
 async function recordComment(owner: Owner, comment: ParsedComment): Promise<void> {
   await tenant(owner.accountId, async (tx) => {
@@ -529,8 +542,10 @@ async function recordComment(owner: Owner, comment: ParsedComment): Promise<void
       WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid AND active
       ORDER BY created_at, id LIMIT 200`;
     // A comment without a sender id cannot get a private reply.
-    const rule = comment.fromIgsid ? matchCommentRule(rules, comment) : null;
-    const flows = comment.fromIgsid ? await commentFlowChoices(tx, owner, comment, event.id) : [];
+    const offer = comment.fromIgsid ? await commentFlowChoices(tx, owner, comment, event.id) : { choices: [], ruleSkipped: false };
+    // A flow already answered this person on this post: the rule never adds a second DM.
+    const rule = comment.fromIgsid && !offer.ruleSkipped ? matchCommentRule(rules, comment) : null;
+    const flows = offer.choices;
     const wanted = Boolean(rule) || flows.length > 0;
     // A contact the business blocked gets no automated DM (the private reply job checks again at send time).
     const blocked = wanted ? await senderBlocked(tx, owner, comment.fromIgsid!) : false;

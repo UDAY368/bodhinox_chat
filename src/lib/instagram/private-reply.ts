@@ -308,6 +308,7 @@ export async function runCommentFlowJob(accountId: string, payload: Record<strin
   };
 
   const engine = await import('@/lib/flows/engine');
+  let held = false;
   for (const choice of choices) {
     if (choice.check) {
       const trigger = await liveCommentTrigger(accountId, choice.flowId);
@@ -316,14 +317,17 @@ export async function runCommentFlowJob(accountId: string, payload: Record<strin
     const started = await engine.startCommentFlow({ accountId, eventId, flowId: choice.flowId });
     if (started === 'started' || started === 'taken') return 'flow';
     if (started === 'busy' || started === 'paused') {
-      // The commenter is mid-conversation with a flow or a person: no automated private reply.
-      await settle(accountId, eventId, 'rejected', now);
-      return 'rejected';
+      // The commenter is mid-conversation with a flow or a person: no flow starts
+      // (every other flow would meet the same conversation). The legacy rule still
+      // answers, exactly as it did before comment flows existed.
+      held = true;
+      break;
     }
   }
   if (!fallbackRuleId) {
-    await settle(accountId, eventId, 'no_rule', now);
-    return 'no_rule';
+    const status = held ? 'rejected' : 'no_rule';
+    await settle(accountId, eventId, status, now);
+    return status;
   }
   // No flow took the comment: the rule it matched answers it, exactly as before Stage 2.
   await worker(accountId, (tx) => tx.$executeRaw`UPDATE instagram_comment_events SET rule_id=${fallbackRuleId}::uuid
