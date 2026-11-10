@@ -60,6 +60,7 @@ import { flowNodesFor, scopeChannels, triggerAvailableOn } from "@/lib/channels/
 import { channelPath } from "@/lib/channels/routes";
 import type { Channel } from "@/types";
 import { ADD_NODE_TYPES, NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
+import { placeableNodeTypes, withPrivateReplyEntry } from "./nodes/ig-node-config";
 
 // ============================================================
 // State shape
@@ -172,21 +173,10 @@ const BUILDER_TRIGGER_ORDER = {
 const BUILDER_TRIGGERS = (Object.keys(BUILDER_TRIGGER_ORDER) as FlowTriggerType[])
   .sort((a, b) => BUILDER_TRIGGER_ORDER[a] - BUILDER_TRIGGER_ORDER[b]);
 
-/**
- * Stage 2 steps whose settings forms (node-config-form.tsx) and engine
- * support are not built yet (2C/2D). They stay out of the add-step menus, so
- * nobody places a step with an empty settings panel that publish then
- * refuses; a flow that already has one still shows it. 2D removes each entry
- * as its form lands.
- */
-export const STEPS_WITHOUT_EDITOR: ReadonlySet<NodeType> = new Set<NodeType>([
-  "ig_comment_reply", "ig_private_reply", "send_card", "send_gallery",
-]);
-
 /** The add-step menu for a scope: steps every channel it runs on offers ('any' gets the overlap). */
 export function nodeTypesForScope(scope: FlowChannelScope | null | undefined): NodeType[] {
   const offered = scopeChannels(scope).map((channel) => new Set<string>(flowNodesFor(channel)));
-  return ADD_NODE_TYPES.filter((type) => !STEPS_WITHOUT_EDITOR.has(type) && offered.every((set) => set.has(type as FlowNodeType)));
+  return ADD_NODE_TYPES.filter((type) => offered.every((set) => set.has(type as FlowNodeType)));
 }
 
 /** The trigger picker for a scope: triggers every channel it runs on offers. */
@@ -329,6 +319,11 @@ export function appendNode(
     node_type: type,
     config: defaultConfigFor(type),
   };
+  // A private reply is a comment flow's first step: it becomes the entry, ahead of the old one.
+  if (type === "ig_private_reply") {
+    const placed = withPrivateReplyEntry([...s.nodes, next], s.entry_node_id, node_key);
+    return { ...s, nodes: placed.nodes, entry_node_id: placed.entry };
+  }
   return {
     ...s,
     nodes: [...s.nodes, next],
@@ -467,7 +462,9 @@ export function FlowEditorProvider({
   const [triggerNumber, setTriggerNumber] = useState<string | null>(initialFlow.whatsapp_config_id ?? null);
   const [channelScope, setChannelScope] = useState<FlowChannelScope>(initialFlow.channel_scope ?? "whatsapp");
   const section = sectionProp ?? defaultSection(initialFlow.channel_scope);
-  const nodeTypes = useMemo(() => nodeTypesForScope(channelScope), [channelScope]);
+  // The channel palette, less the comment steps this flow cannot take (ig-node-config.ts).
+  const nodeTypes = useMemo(() => placeableNodeTypes(nodeTypesForScope(channelScope), state.trigger_type, state.nodes),
+    [channelScope, state.trigger_type, state.nodes]);
   const triggerTypes = useMemo(() => triggerTypesForScope(channelScope), [channelScope]);
   // dirty flips on user edits; status-only updates (after the activate
   // API succeeds) use setStateRaw so they don't falsely re-flag the

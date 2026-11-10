@@ -65,9 +65,22 @@ export interface PreviewMessage {
   list?: { button: string; rows: Array<{ id: string; title: string; description?: string }> };
   /** send_template: the template being sent. */
   template?: string;
+  /** Instagram link buttons (send_buttons.link_buttons): shown, never tappable here (a link tap does not continue a flow). */
+  links?: string[];
+  /** Instagram: a public reply under the customer's comment, not a DM (ig_comment_reply). */
+  publicReply?: boolean;
+  /** Instagram send_card / send_gallery: the cards; a postback button carries the reply id it routes by. */
+  cards?: PreviewCard[];
   /** System notes: what happened, plus a short detail (seconds, tag key…). */
   note?: PreviewNote;
   detail?: string;
+}
+
+export interface PreviewCard {
+  title: string;
+  subtitle?: string;
+  hasImage: boolean;
+  buttons: Array<{ label: string; replyId?: string }>;
 }
 
 export interface PreviewOption {
@@ -120,6 +133,9 @@ type Cfg = Record<string, unknown>;
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const rows = (v: unknown): Cfg[] => (Array.isArray(v) ? (v as Cfg[]) : []);
+/** The cards of a send_card / send_gallery step. */
+const cardsOf = (node: BuilderNode): Cfg[] =>
+  node.node_type === "send_card" ? (node.config.card && typeof node.config.card === "object" ? [node.config.card as Cfg] : []) : rows(node.config.cards);
 
 // Mirrors input-validation.ts, which needs node:worker_threads and so cannot load here.
 const YES = new Set(["yes", "y", "true", "1", "si", "sí", "sim", "예", "네", "ha", "haan", "हाँ", "हां"]);
@@ -297,6 +313,9 @@ function nextFor(node: BuilderNode, optionId: string): string {
     case "send_buttons":
     case "send_template":
       return str(rows(cfg.buttons).find((b) => b.reply_id === optionId)?.next_node_key);
+    case "send_card":
+    case "send_gallery":
+      return str(cardsOf(node).flatMap((c) => rows(c.buttons)).find((b) => b.type === "postback" && b.reply_id === optionId)?.next_node_key);
     case "payment_link":
     case "book_appointment":
       return str(cfg[`${optionId}_next`]);
@@ -379,8 +398,45 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
 
       case "send_buttons": {
         const options = rows(cfg.buttons).filter((b) => str(b.reply_id)).map((b) => ({ id: str(b.reply_id), label: fill(str(b.title)) || str(b.reply_id) }));
-        push({ from: "bot", nodeKey, text: fill(str(cfg.text)), header, footer, buttons: options.map((o) => o.label) });
+        const links = rows(cfg.link_buttons).map((b) => fill(str(b.title))).filter(Boolean);
+        push({ from: "bot", nodeKey, text: fill(str(cfg.text)), header, footer, buttons: options.map((o) => o.label), ...(links.length ? { links } : {}) });
         return wait(nodeKey, { kind: "buttons", options }, ports);
+      }
+
+      // Instagram (Stage 2). The public reply goes under the comment, not into the chat.
+      case "ig_comment_reply": {
+        const first = (Array.isArray(cfg.replies) ? cfg.replies : []).find((r): r is string => typeof r === "string" && r.trim() !== "");
+        push({ from: "bot", nodeKey, text: fill(first ?? ""), publicReply: true });
+        key = str(cfg.next_node_key);
+        continue;
+      }
+
+      // The first DM to the commenter; with an opening button the run waits for that tap.
+      case "ig_private_reply": {
+        const optIn = fill(str(cfg.opt_in_label).trim());
+        push({ from: "bot", nodeKey, text: fill(str(cfg.text)), buttons: optIn ? [optIn] : undefined });
+        if (optIn) return wait(nodeKey, { kind: "buttons", options: [{ id: "opt_in", label: optIn }] }, ports);
+        key = str(cfg.next_node_key);
+        continue;
+      }
+
+      // A card or gallery, then on to the next step; a postback button routes when nothing follows.
+      case "send_card":
+      case "send_gallery": {
+        const cards: PreviewCard[] = cardsOf(node).map((c) => ({
+          title: fill(str(c.title)),
+          subtitle: fillOpt(str(c.subtitle) || undefined),
+          hasImage: !!str(c.image_url),
+          buttons: rows(c.buttons).map((b) => ({
+            label: fill(str(b.title)),
+            ...(b.type === "postback" && str(b.reply_id) ? { replyId: str(b.reply_id) } : {}),
+          })),
+        }));
+        push({ from: "bot", nodeKey, cards });
+        const options = cards.flatMap((c) => c.buttons.flatMap((b) => (b.replyId ? [{ id: b.replyId, label: b.label || b.replyId }] : [])));
+        if (!str(cfg.next_node_key) && options.length) return wait(nodeKey, { kind: "buttons", options }, ports);
+        key = str(cfg.next_node_key);
+        continue;
       }
 
       case "send_list": {

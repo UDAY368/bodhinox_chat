@@ -2857,7 +2857,14 @@
         "keywordTooLong": "Cada palavra-chave deve ter menos de {max} caracteres.",
         "tooManyPublicReplies": "Use no máximo {max} respostas públicas.",
         "publicReplyTooLong": "Escreva cada resposta pública com menos de {max} caracteres.",
-        "badAccount": "Escolha uma conta do Instagram conectada."
+        "badAccount": "Escolha uma conta do Instagram conectada.",
+        "chooseAccountFirst": "Escolha uma conta do Instagram para selecionar as publicações dela.",
+        "loadingPosts": "Carregando publicações…",
+        "untitledPost": "Publicação sem legenda",
+        "retry": "Tentar novamente",
+        "replyN": "Resposta pública {n}",
+        "removeReply": "Remover a resposta pública {n}",
+        "matchMode": "Como as palavras correspondem"
       },
       "igStoryReply": {
         "help": "Começa quando alguém responde a um dos seus stories.",
@@ -2868,7 +2875,8 @@
         "keywordsHelp": "Deixe vazio para começar com qualquer resposta.",
         "reactions": "Também começar com reações de emoji",
         "badStoryIds": "Os IDs de story devem ser números, no máximo {max}.",
-        "badKeywords": "Use no máximo {max} palavras-chave, cada uma com menos de {chars} caracteres."
+        "badKeywords": "Use no máximo {max} palavras-chave, cada uma com menos de {chars} caracteres.",
+        "storyIdsHelp": "Cole os IDs dos stories, separados por vírgulas. Até {max}."
       },
       "igStoryMention": {
         "help": "Começa quando alguém menciona sua conta no story.",
@@ -2884,7 +2892,9 @@
         "maxReplies": "Até {max} respostas; uma é escolhida a cada vez.",
         "tooLong": "Cada resposta deve ter menos de {max} caracteres.",
         "onlyCommentFlows": "Só funciona em um fluxo iniciado por um comentário.",
-        "needsReply": "Adicione pelo menos uma resposta."
+        "needsReply": "Adicione pelo menos uma resposta.",
+        "replyN": "Resposta {n}",
+        "removeReply": "Remover a resposta {n}"
       },
       "igPrivateReply": {
         "help": "A primeira mensagem para quem comentou. O Instagram permite uma resposta privada por comentário, em até 7 dias.",
@@ -2898,7 +2908,8 @@
         "textTooLong": "A mensagem deve ter menos de {max} bytes.",
         "optInTooLong": "O texto do botão deve ter menos de {max} caracteres.",
         "onlyOne": "Um comentário recebe uma única resposta privada. Use esta etapa uma vez em cada caminho.",
-        "noDmWithoutOptIn": "O Instagram não deixa passar mais mensagens até a pessoa responder. Adicione um botão de abertura à resposta privada."
+        "noDmWithoutOptIn": "O Instagram não deixa passar mais mensagens até a pessoa responder. Adicione um botão de abertura à resposta privada.",
+        "bytesLeft": "{count, plural, one {Resta # byte} other {Restam # bytes}}"
       },
       "card": {
         "title": "Título",
@@ -2918,7 +2929,9 @@
         "subtitleTooLong": "O subtítulo deve ter menos de {max} caracteres.",
         "badUrl": "Use um link https.",
         "buttonInvalid": "Cada botão precisa de um texto com menos de {max} caracteres e de um link ou uma etapa de destino.",
-        "routesAndNext": "Um cartão com botões “Ir para uma etapa” espera um toque. Remova o link Próximo."
+        "routesAndNext": "Um cartão com botões “Ir para uma etapa” espera um toque. Remova o link Próximo.",
+        "urlInvalid": "Use um link completo começando com https://.",
+        "buttonType": "O que o botão faz"
       },
       "gallery": {
         "cards": "Cartões",

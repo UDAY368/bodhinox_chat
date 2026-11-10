@@ -2857,7 +2857,14 @@
         "keywordTooLong": "Keep each keyword under {max} characters.",
         "tooManyPublicReplies": "Use at most {max} public replies.",
         "publicReplyTooLong": "Write each public reply, under {max} characters.",
-        "badAccount": "Choose a connected Instagram account."
+        "badAccount": "Choose a connected Instagram account.",
+        "chooseAccountFirst": "Choose an Instagram account to pick its posts.",
+        "loadingPosts": "Loading posts…",
+        "untitledPost": "Post without a caption",
+        "retry": "Try again",
+        "replyN": "Public reply {n}",
+        "removeReply": "Remove public reply {n}",
+        "matchMode": "How the words match"
       },
       "igStoryReply": {
         "help": "Starts when someone replies to one of your stories.",
@@ -2868,7 +2875,8 @@
         "keywordsHelp": "Leave empty to start on any reply.",
         "reactions": "Also start on emoji reactions",
         "badStoryIds": "Story IDs must be numbers, at most {max}.",
-        "badKeywords": "Use at most {max} keywords, each under {chars} characters."
+        "badKeywords": "Use at most {max} keywords, each under {chars} characters.",
+        "storyIdsHelp": "Paste story IDs, separated by commas. Up to {max}."
       },
       "igStoryMention": {
         "help": "Starts when someone mentions your account in their story.",
@@ -2884,7 +2892,9 @@
         "maxReplies": "Up to {max} replies; one is picked each time.",
         "tooLong": "Keep each reply under {max} characters.",
         "onlyCommentFlows": "Works only in a flow started by a comment.",
-        "needsReply": "Add at least one reply."
+        "needsReply": "Add at least one reply.",
+        "replyN": "Reply {n}",
+        "removeReply": "Remove reply {n}"
       },
       "igPrivateReply": {
         "help": "The first message to someone who commented. Instagram allows one private reply per comment, within 7 days.",
@@ -2898,7 +2908,8 @@
         "textTooLong": "Keep the message under {max} bytes.",
         "optInTooLong": "Keep the button text under {max} characters.",
         "onlyOne": "A comment gets one private reply. Use this step once on each path.",
-        "noDmWithoutOptIn": "Instagram doesn’t let more messages through until the person answers. Add an opening button to the private reply."
+        "noDmWithoutOptIn": "Instagram doesn’t let more messages through until the person answers. Add an opening button to the private reply.",
+        "bytesLeft": "{count, plural, one {# byte left} other {# bytes left}}"
       },
       "card": {
         "title": "Title",
@@ -2918,7 +2929,9 @@
         "subtitleTooLong": "Keep the subtitle under {max} characters.",
         "badUrl": "Use an https link.",
         "buttonInvalid": "Each button needs text under {max} characters and a link or a step to go to.",
-        "routesAndNext": "A card with “Go to a step” buttons waits for a tap. Remove its Next link."
+        "routesAndNext": "A card with “Go to a step” buttons waits for a tap. Remove its Next link.",
+        "urlInvalid": "Use a full https:// link.",
+        "buttonType": "What the button does"
       },
       "gallery": {
         "cards": "Cards",
