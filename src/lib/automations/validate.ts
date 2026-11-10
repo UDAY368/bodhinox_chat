@@ -1,7 +1,13 @@
 import { isValidTimeWindow, isValidTimeZone } from './time-of-day';
-import type { AutomationTriggerType } from '@/types';
+import type { AutomationStepType, AutomationTriggerType, Channel } from '@/types';
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
 import { getT } from '@/lib/i18n/translate';
+import {
+  AUTOMATION_STEPS_BY_CHANNEL,
+  AUTOMATION_TRIGGERS_BY_CHANNEL,
+  isChannel,
+} from '@/lib/channels/capabilities';
+import { quickRepliesFit } from '@/lib/instagram/graph-limits';
 import {
   parseScheduledAudience,
   scheduleNeedsContact,
@@ -39,7 +45,8 @@ interface StepLike {
 }
 
 export function validateStepsForActivation(
-  steps: StepLike[]
+  steps: StepLike[],
+  channel: Channel = 'whatsapp'
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (!Array.isArray(steps) || steps.length === 0) {
@@ -50,6 +57,7 @@ export function validateStepsForActivation(
     return issues;
   }
   walk(steps, '', issues);
+  issues.push(...stepPaletteIssues(steps, channel));
   return issues;
 }
 
@@ -237,9 +245,10 @@ function validateOne(
 export function validateTriggerForActivation(
   triggerType: AutomationTriggerType | string,
   triggerConfig: unknown,
-  steps: StepLike[] = []
+  steps: StepLike[] = [],
+  channel: Channel = 'whatsapp'
 ): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
+  const issues: ValidationIssue[] = [...triggerPaletteIssues(triggerType, channel)];
   const cfg = (triggerConfig ?? {}) as Record<string, unknown>;
 
   if (triggerType === 'keyword_match') {
@@ -333,6 +342,95 @@ export function validateTriggerForActivation(
   }
 
   return issues;
+}
+
+// ------------------------------------------------------------
+// Channel palettes (Stage 1): an automation belongs to one channel and may
+// use only that channel's triggers and steps (src/lib/channels/capabilities).
+// Only known types are judged here; an unknown one stays the job of the
+// checks above, so the WhatsApp palette (every type) changes nothing.
+// ------------------------------------------------------------
+
+const tChannel = getT('Automations.channelSection');
+const tChannelNames = getT('Channels.names');
+
+const unavailable = (path: string, channel: Channel): ValidationIssue => ({
+  path,
+  message: tChannel('unavailableOnChannel', { channel: tChannelNames(channel) }),
+});
+
+const KNOWN_TRIGGERS: ReadonlySet<string> = new Set(AUTOMATION_TRIGGERS_BY_CHANNEL.whatsapp);
+const KNOWN_STEPS: ReadonlySet<string> = new Set(AUTOMATION_STEPS_BY_CHANNEL.whatsapp);
+
+/** The trigger is a known type the channel does not offer. */
+export function triggerPaletteIssues(triggerType: string, channel: Channel): ValidationIssue[] {
+  if (!KNOWN_TRIGGERS.has(triggerType)) return [];
+  return AUTOMATION_TRIGGERS_BY_CHANNEL[channel].includes(triggerType as AutomationTriggerType)
+    ? []
+    : [unavailable('trigger.type', channel)];
+}
+
+/**
+ * Steps (branches included) of a known type the channel does not offer. With
+ * `payloads` (activation), an Instagram reply-button step must also stay
+ * buttons (not a list) and fit Instagram's quick replies, which is how it is
+ * sent there; a draft may still be incomplete.
+ */
+export function stepPaletteIssues(steps: StepLike[], channel: Channel, payloads = true): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const visit = (list: StepLike[] | undefined, prefix: string) => {
+    (Array.isArray(list) ? list : []).forEach((step, i) => {
+      const path = `${prefix}steps[${i}]`;
+      const type = step?.step_type;
+      if (KNOWN_STEPS.has(type) && !AUTOMATION_STEPS_BY_CHANNEL[channel].includes(type as AutomationStepType)) {
+        issues.push(unavailable(path, channel));
+      } else if (payloads && channel === 'instagram' && type === 'send_buttons' && !fitsInstagramChoices(step.step_config)) {
+        issues.push(unavailable(`${path}.interactive`, channel));
+      }
+      if (type === 'condition' && step.branches) {
+        visit(step.branches.yes, `${path}.yes.`);
+        visit(step.branches.no, `${path}.no.`);
+      }
+    });
+  };
+  visit(steps, '');
+  return issues;
+}
+
+function fitsInstagramChoices(config: Record<string, unknown> | undefined): boolean {
+  const c = config ?? {};
+  if (c.kind !== undefined && c.kind !== 'buttons') return false;
+  const buttons = Array.isArray(c.buttons) ? (c.buttons as { id?: unknown; title?: unknown }[]) : [];
+  return quickRepliesFit(buttons.map((b) => ({
+    title: typeof b?.title === 'string' ? b.title : '',
+    payload: typeof b?.id === 'string' ? b.id : '',
+  })));
+}
+
+/**
+ * Trigger and step types outside the channel's palette. Checked on every save,
+ * draft or active: the builder offers only the palette, so this refuses only a
+ * crafted request (and never a WhatsApp automation, whose palette is every type).
+ */
+export function channelPaletteIssues(channel: Channel, triggerType: unknown, steps: unknown): ValidationIssue[] {
+  return [
+    ...(typeof triggerType === 'string' ? triggerPaletteIssues(triggerType, channel) : []),
+    ...stepPaletteIssues(Array.isArray(steps) ? (steps as StepLike[]) : [], channel, false),
+  ];
+}
+
+/**
+ * The channel a create request names: absent means WhatsApp (API-key and
+ * mcp-server clients made before Stage 1); anything else must be a channel.
+ */
+export function parseAutomationChannel(value: unknown): Channel | null {
+  if (value === undefined || value === null) return 'whatsapp';
+  return isChannel(value) ? value : null;
+}
+
+/** A stored row's channel; a row read without the column is WhatsApp. */
+export function automationChannel(row: { channel?: unknown } | null | undefined): Channel {
+  return row?.channel === 'instagram' ? 'instagram' : 'whatsapp';
 }
 
 function nonEmpty(v: unknown): boolean {

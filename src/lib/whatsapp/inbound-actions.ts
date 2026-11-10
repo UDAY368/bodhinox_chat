@@ -162,12 +162,13 @@ async function storedConversation(db:Db,input:MessageInput): Promise<{channel:"i
 }
 
 /**
- * Instagram inbound (Phase 11): STOP/START consent, then flows only, then
- * lifecycle and routing (channel-neutral). Skipped because they are
- * WhatsApp-only or WhatsApp-shaped: campaign reply credit, WhatsApp forms, cart
- * orders and their confirmation, BOOK codes, automations, AI auto-reply, the
- * away message, and the message.received / conversation.created webhooks (their
- * payload carries whatsapp_message_id). Skips are logged with ids only.
+ * Instagram inbound (Phase 11): STOP/START consent, then flows, then the
+ * Instagram automations (Stage 1), then lifecycle and routing
+ * (channel-neutral). Skipped because they are WhatsApp-only or
+ * WhatsApp-shaped: campaign reply credit, WhatsApp forms, cart orders and their
+ * confirmation, BOOK codes, AI auto-reply, the away message, and the
+ * message.received / conversation.created webhooks (their payload carries
+ * whatsapp_message_id). Skips are logged with ids only.
  */
 async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Promise<void> {
   const text=input.contentText??"";
@@ -185,10 +186,36 @@ async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Pr
     message,
     isFirstInboundMessage:input.isFirstInboundMessage,
   }));
-  if(!flow?.consumed) console.info("[inbound-actions] channel_not_supported",{accountId:input.accountId,
-    conversationId:input.conversationId,skipped:"automations_ai_away"});
+  if(!flow?.consumed) {
+    await respondWithInstagramAutomations(input,text,stage);
+    console.info("[inbound-actions] channel_not_supported",{accountId:input.accountId,
+      conversationId:input.conversationId,skipped:"ai_away"});
+  }
   await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
     contactId:input.contactId,messageId:input.messageId,text});
+}
+
+/**
+ * Instagram automations for a message no flow took: a run parked at an
+ * Instagram menu takes the reply first; otherwise the triggers Instagram
+ * offers fire, in the WhatsApp order, each behind its own stage checkpoint.
+ * Only Instagram automations run (runAutomationsForTrigger filters by
+ * channel), and their sends go through the Instagram window checks.
+ */
+async function respondWithInstagramAutomations(input:MessageInput,text:string,stage:Stage): Promise<void> {
+  const context={message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined};
+  const replied=await stage("reply_resume",()=>resumeAwaitingReply({
+    accountId:input.accountId,contactId:input.contactId,channel:"instagram",context,
+  }));
+  if(replied) return;
+  const triggers:Array<"first_inbound_message"|"new_contact_created"|"new_message_received"|"keyword_match"|"interactive_reply">=[];
+  if(input.isFirstInboundMessage) triggers.push("first_inbound_message");
+  if(input.wasContactCreated) triggers.push("new_contact_created");
+  triggers.push("new_message_received","keyword_match");
+  if(input.interactiveReplyId) triggers.push("interactive_reply");
+  for(const triggerType of triggers) await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
+    accountId:input.accountId,channel:"instagram",triggerType,contactId:input.contactId,context,
+  }));
 }
 
 /** Matches analytics (lib/analytics/queries REPLY_WINDOW): a later message is not a campaign reply. */
@@ -331,7 +358,7 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
       isFirstInboundMessage:input.isFirstInboundMessage,
     }));
     const replied=flow.consumed ? false : await stage("reply_resume",()=>resumeAwaitingReply({
-      accountId:input.accountId,contactId:input.contactId,reserveMenuTextForAi:input.contentType==="text",context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
+      accountId:input.accountId,contactId:input.contactId,channel:"whatsapp",reserveMenuTextForAi:input.contentType==="text",context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
     }));
     const consumed=flow.consumed||replied;
     const triggers: Array<"new_contact_created"|"first_inbound_message"|"new_message_received"|"keyword_match"|"interactive_reply"|"ad_click">=[];
@@ -349,7 +376,7 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
     let automationMatched=false;
     for(const triggerType of triggers) {
       const matched=await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
-      accountId:input.accountId,triggerType,contactId:input.contactId,
+      accountId:input.accountId,channel:"whatsapp",triggerType,contactId:input.contactId,
       context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined,
         ...(triggerType==="ad_click"&&ad ? {ad_id:ad.sourceId??""} : {})},
       }));

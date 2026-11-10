@@ -44,6 +44,7 @@ describe('addContactTagAndDispatch', () => {
     expect(result).toEqual({ added: true, dispatched: true });
     expect(mocks.dispatch).toHaveBeenCalledWith({
       accountId: 'account-1',
+      channel: 'whatsapp',
       triggerType: 'tag_added',
       contactId: 'contact-1',
       context: {

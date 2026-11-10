@@ -1,4 +1,5 @@
 import type { DataClient } from '@/lib/data/types';
+import type { Channel } from '@/types';
 
 import {
   runAutomationsForTrigger,
@@ -21,6 +22,29 @@ export interface AddContactTagResult {
   added: boolean;
   dispatched: boolean;
   reason?: 'duplicate' | 'max_depth';
+}
+
+/**
+ * The channel a tag_added event belongs to: its conversation's (from the row,
+ * scoped to the account), WhatsApp when it names none or the row is a
+ * pre-Phase 11 one. Never throws, like the dispatch it feeds (the tag is
+ * already written): a failed lookup falls back to WhatsApp, and the engine
+ * then refuses the event if the conversation is on another channel.
+ */
+async function tagEventChannel(input: AddContactTagAndDispatchInput): Promise<Channel> {
+  const conversationId = input.context?.conversation_id;
+  if (!conversationId) return 'whatsapp';
+  const { data, error } = await input.db
+    .from('conversations')
+    .select('channel')
+    .eq('account_id', input.accountId)
+    .eq('id', conversationId)
+    .maybeSingle();
+  if (error) {
+    console.error('[automations] tag event channel lookup failed', { accountId: input.accountId, conversationId });
+    return 'whatsapp';
+  }
+  return (data as { channel?: string | null } | null)?.channel === 'instagram' ? 'instagram' : 'whatsapp';
 }
 
 /**
@@ -51,6 +75,7 @@ export async function addContactTagAndDispatch(
 
   await runAutomationsForTrigger({
     accountId: input.accountId,
+    channel: await tagEventChannel(input),
     triggerType: 'tag_added',
     contactId: input.contactId,
     context: {

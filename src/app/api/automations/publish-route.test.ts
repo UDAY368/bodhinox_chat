@@ -48,6 +48,11 @@ vi.mock('@/lib/automations/steps-tree', () => ({
 }));
 vi.mock('@/lib/automations/template-check', () => ({ automationTemplateIssues: async () => [] }));
 vi.mock('@/lib/automations/schedule-gate', () => ({ requireScheduledSendingAllowed: async () => {} }));
+// Stage 1: the automation's channel is on (publishChecks reads it under the caller's tenant).
+vi.mock('@/lib/db/tenant', () => ({ withTenant: async (_tenant: unknown, op: (tx: unknown) => unknown) => op({}) }));
+vi.mock('@/lib/channels/workspace', () => ({
+  getWorkspaceChannels: async () => ({ channels: { whatsapp: { enabled: true }, instagram: { enabled: false } } }),
+}));
 vi.mock('@/lib/automations/activation-lock', () => ({
   activateWithLoopLock: async (_tenant: unknown, _acc: string, automationId: string) => {
     h.state.activations.push({ automationId });

@@ -3,6 +3,7 @@ import type {
   AutomationStepType,
   AutomationTriggerConfig,
   AutomationTriggerType,
+  Channel,
 } from '@/types'
 import { getT } from '@/lib/i18n/translate'
 
@@ -27,7 +28,15 @@ export interface AutomationTemplateDefinition {
   trigger_type: AutomationTriggerType
   trigger_config: AutomationTriggerConfig
   steps: TemplateStepSeed[]
+  /**
+   * The channels the template works on (Stage 1). A template is offered in
+   * these sections and created only with one of them; its triggers and steps
+   * are in each listed channel's palette.
+   */
+  channels: readonly Channel[]
 }
+
+const BOTH: readonly Channel[] = ['whatsapp', 'instagram']
 
 const t = getT('StarterAutomations')
 
@@ -51,6 +60,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
     // manually-imported case.
     trigger_type: 'first_inbound_message',
     trigger_config: {},
+    channels: BOTH,
     steps: [
       {
         step_type: 'send_message',
@@ -70,6 +80,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
     description: t('out_of_office.description'),
     trigger_type: 'new_message_received',
     trigger_config: {},
+    channels: BOTH,
     steps: [
       {
         step_type: 'condition',
@@ -97,6 +108,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
       keywords: keywords('lead_qualifier.keywords'),
       match_type: 'contains',
     },
+    channels: BOTH,
     steps: [
       {
         step_type: 'send_message',
@@ -120,6 +132,8 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
     description: t('follow_up_reminder.description'),
     trigger_type: 'new_message_received',
     trigger_config: {},
+    // WhatsApp only: a day later Instagram's 24-hour reply window has closed.
+    channels: ['whatsapp'],
     steps: [
       {
         step_type: 'wait',
@@ -136,5 +150,10 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
 }
 
 export function getTemplate(slug: string): AutomationTemplateDefinition | null {
-  return AUTOMATION_TEMPLATES[slug as TemplateSlug] ?? null
+  return Object.hasOwn(AUTOMATION_TEMPLATES, slug) ? AUTOMATION_TEMPLATES[slug as TemplateSlug] : null
+}
+
+/** Whether a template can be used in a channel's section. */
+export function templateOnChannel(template: AutomationTemplateDefinition, channel: Channel): boolean {
+  return template.channels.includes(channel)
 }

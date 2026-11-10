@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import type { DataClient } from '@/lib/data/types';
 import { getT } from '@/lib/i18n/translate';
+import { automationChannel } from '@/lib/automations/validate';
 
 const t = getT('Api');
 
@@ -54,6 +55,8 @@ export async function POST(
       description: original.description,
       trigger_type: original.trigger_type,
       trigger_config: original.trigger_config,
+      // The copy stays in the original's section.
+      channel: automationChannel(original),
       is_active: false,
     })
     .select()
