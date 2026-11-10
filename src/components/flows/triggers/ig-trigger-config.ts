@@ -1,19 +1,21 @@
 /**
- * Pure rules behind the trigger editors (Stage 2, 2D): each trigger's
- * starting settings, the keyword / post / story-id lists with their limits,
- * and the switch to a comment trigger, which makes a private reply the
- * flow's first step. No React and no I/O; the publish validator checks the
+ * Pure rules behind the trigger editors (Stage 2, 2D; Stage 3 adds Live
+ * comments and ref links): each trigger's starting settings, the keyword /
+ * post / story-id / ref-key lists with their limits, and the switch to a
+ * comment trigger, which makes a private reply the flow's first step. No React and no I/O; the publish validator checks the
  * same limits again on the server.
  */
 
 import {
   IG_TRIGGER_LIMITS,
+  startsFromComment,
   type FlowTriggerType,
   type IgKeywordMode,
   type IgPostScope,
   type TriggerFrequency,
 } from "@/lib/flows/types";
 import { INSTAGRAM_LIMITS } from "@/lib/instagram/graph-limits";
+import { toRefKey } from "@/lib/instagram/ref-links";
 import { NODE_META, slugify } from "../shared";
 import { defaultConfigFor, uniqueNodeKey, type BuilderState } from "../flow-editor-state";
 import { clipChars, firstPrivateReplies, withPrivateReplyEntry } from "../nodes/ig-node-config";
@@ -39,6 +41,10 @@ export function defaultTriggerConfig(type: FlowTriggerType): Config {
       };
     case "ig_story_reply":
       return { keywords: [], match_mode: "contains" satisfies IgKeywordMode, reactions: false };
+    case "ig_live_comment":
+      return { keywords: [], match_mode: "contains" satisfies IgKeywordMode };
+    case "ig_ref":
+      return { refs: [] };
     case "first_inbound_message":
     case "order_received":
     case "ad_click":
@@ -49,13 +55,13 @@ export function defaultTriggerConfig(type: FlowTriggerType): Config {
 
 /**
  * The state after the author picks `type` in the trigger picker: its
- * starting settings, and for a comment trigger a private reply as the first
- * step (added when the flow has none, made the entry when it has one that a
- * run does not already reach first).
+ * starting settings, and for a comment trigger (post or Live) a private reply
+ * as the first step (added when the flow has none, made the entry when it has
+ * one that a run does not already reach first).
  */
 export function applyTriggerType(state: BuilderState, type: FlowTriggerType): BuilderState {
   const next: BuilderState = { ...state, trigger_type: type, trigger_config: defaultTriggerConfig(type) };
-  if (type !== "ig_comment") return next;
+  if (!startsFromComment(type)) return next;
   let nodes = next.nodes;
   let key = nodes.find((n) => n.node_type === "ig_private_reply")?.node_key;
   if (!key) {
@@ -140,5 +146,22 @@ export function setTriggerAccount(config: Config, accountId: string | null): Con
 /** Public replies posted under the comment: at most 3, each within the comment cap; blanks are kept while typing. */
 export function setPublicReplies(replies: readonly string[]): string[] {
   return replies.slice(0, IG_TRIGGER_LIMITS.publicReplies).map((r) => clipChars(r, INSTAGRAM_LIMITS.commentReplyChars));
+}
+
+/**
+ * Adds comma-separated ref keys (Stage 3, ig_ref): each made link-safe with
+ * toRefKey (spaces become hyphens), without case-insensitive duplicates, at
+ * most IG_TRIGGER_LIMITS.refs in all.
+ */
+export function addRefKeys(existing: readonly string[], text: string): string[] {
+  const seen = new Set(existing.map((k) => k.toLowerCase()));
+  const out = [...existing];
+  for (const raw of text.split(",")) {
+    const key = toRefKey(raw);
+    if (!key || seen.has(key.toLowerCase()) || out.length >= IG_TRIGGER_LIMITS.refs) continue;
+    seen.add(key.toLowerCase());
+    out.push(key);
+  }
+  return out;
 }
 

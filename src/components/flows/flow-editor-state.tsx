@@ -167,8 +167,8 @@ export interface FlowEditorContextValue {
  * type added to FlowTriggerConfig a compile error until it is placed here.
  */
 const BUILDER_TRIGGER_ORDER = {
-  keyword: 1, ig_comment: 2, ig_story_reply: 3, ig_story_mention: 4, template_reply: 5,
-  first_inbound_message: 6, order_received: 7, ad_click: 8, default_reply: 9, manual: 10,
+  keyword: 1, ig_comment: 2, ig_live_comment: 3, ig_story_reply: 4, ig_story_mention: 5, ig_ref: 6, template_reply: 7,
+  first_inbound_message: 8, order_received: 9, ad_click: 10, default_reply: 11, manual: 12,
 } satisfies Record<FlowTriggerType, number>;
 const BUILDER_TRIGGERS = (Object.keys(BUILDER_TRIGGER_ORDER) as FlowTriggerType[])
   .sort((a, b) => BUILDER_TRIGGER_ORDER[a] - BUILDER_TRIGGER_ORDER[b]);

@@ -707,11 +707,16 @@ describe("channel scope (Phase 11)", () => {
   });
 
   it("blocks a WhatsApp-only trigger on Instagram", () => {
-    for (const trigger_type of ["template_reply", "order_received", "ad_click"] as const) {
+    for (const trigger_type of ["template_reply", "order_received"] as const) {
       expect(channelScopeIssues("any", trigger_type, validNodes))
         .toContainEqual(expect.objectContaining({ severity: "error", scope: "trigger", field: "trigger_type" }));
     }
     expect(channelScopeIssues("instagram", "keyword", validNodes)).toEqual([]);
+    // Stage 3: ad_click runs on both channels (click-to-Direct ads on Instagram).
+    expect(channelScopeIssues("instagram", "ad_click", validNodes)).toEqual([]);
+    for (const trigger_type of ["ig_live_comment", "ig_ref"] as const)
+      expect(channelScopeIssues("whatsapp", trigger_type, validNodes))
+        .toContainEqual(expect.objectContaining({ severity: "error", scope: "trigger", field: "trigger_type" }));
   });
 
   it("allows the steps Instagram supports and warns on long text", () => {

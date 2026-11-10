@@ -16,13 +16,14 @@ import { leaseFetch } from '@/lib/jobs/lease';
 import { MetaApiError, readMetaError } from '@/lib/whatsapp/meta-api';
 import { REQUIRED_SCOPES, type InstagramConfig } from './config';
 import {
-  buttonTemplateFits, genericTemplateFits, iceBreakersFit, quickRepliesFit, validCommentReply, validInstagramText,
-  type IceBreaker, type IgGenericCard, type IgTemplateButton, type QuickReply,
+  buttonTemplateFits, genericTemplateFits, iceBreakersFit, persistentMenuFits, quickRepliesFit, validCommentReply, validInstagramText,
+  type IceBreaker, type IgGenericCard, type IgTemplateButton, type PersistentMenuItem, type QuickReply,
 } from './graph-limits';
 
 export {
-  INSTAGRAM_LIMITS, buttonTemplateFits, genericTemplateFits, iceBreakersFit, quickRepliesFit, utf8Bytes, validCommentReply,
-  validInstagramText, type IceBreaker, type IgGenericCard, type IgTemplateButton, type QuickReply,
+  INSTAGRAM_LIMITS, buttonTemplateFits, genericTemplateFits, iceBreakersFit, persistentMenuFits, quickRepliesFit, utf8Bytes,
+  validCommentReply, validInstagramText, type IceBreaker, type IgGenericCard, type IgTemplateButton, type PersistentMenuItem,
+  type QuickReply,
 } from './graph-limits';
 
 /** Pinned for Instagram only (Meta's Send Messages samples, checked 2026-11-04). Not META_API_VERSION. */
@@ -231,7 +232,12 @@ export async function getProfile(igsid: string, token: string, options: { facts?
   return profile;
 }
 
-export type SubscribedField = 'messages' | 'messaging_postbacks' | 'comments';
+/**
+ * Webhook fields this app subscribes to. `live_comments` (Stage 3) delivers
+ * comments on the account's Instagram Live broadcasts, only while live; needs
+ * live capture (its payload is built against Meta's documented shape).
+ */
+export type SubscribedField = 'messages' | 'messaging_postbacks' | 'comments' | 'live_comments';
 
 /** Subscribe this app to the account's webhook fields. */
 export async function subscribe(igUserId: string, token: string, fields: readonly SubscribedField[]): Promise<void> {
@@ -429,6 +435,39 @@ export async function replyToComment(commentId: string, token: string, text: str
   return { replyId };
 }
 
+/**
+ * A comment as Meta has it now (GET /{comment-id}), for the AI comment
+ * approval queue (Stage 3): Bodhinox stores no comment text, so the queue
+ * reads it live, and a hidden or deleted comment (a 4xx) is never answered.
+ * `text` is customer content: callers show it to staff and never log it.
+ */
+export interface InstagramComment {
+  id: string;
+  text: string | null;
+  /** Hidden by the account (null when Meta did not say). */
+  hidden: boolean | null;
+  username: string | null;
+  mediaId: string | null;
+  timestamp: string | null;
+}
+
+export async function getComment(commentId: string, token: string): Promise<InstagramComment> {
+  const row = await call<Record<string, unknown>>('GET',
+    graph(assertId(commentId), { fields: 'id,text,hidden,timestamp,username,media' }), token);
+  const id = igId(row.id);
+  if (!id) throw new MetaApiError('Meta API error: comment', { httpStatus: 502 });
+  const media = (row.media ?? {}) as Record<string, unknown>;
+  return {
+    id,
+    text: typeof row.text === 'string' ? row.text.slice(0, 2200) : null,
+    hidden: bool(row.hidden),
+    username: str(row.username, 64),
+    mediaId: igId(media.id),
+    timestamp: typeof row.timestamp === 'string' && !Number.isNaN(Date.parse(row.timestamp))
+      ? new Date(row.timestamp).toISOString() : null,
+  };
+}
+
 // ---------------------------------------------------------------- messenger profile
 
 /**
@@ -447,6 +486,33 @@ export async function setIceBreakers(igUserId: string, token: string, items: rea
       json: {
         platform: 'instagram',
         ice_breakers: [{ locale: 'default', call_to_actions: items.map((i) => ({ question: i.question.trim(), payload: i.payload })) }],
+      },
+    });
+  if (result.result !== 'success') throw new MetaApiError('Meta API error: messenger profile', { httpStatus: 502 });
+}
+
+/**
+ * Replace the account's persistent menu (Stage 3, at most 20 items: links and
+ * postbacks); an empty list removes it. Postback payloads are our own codes
+ * (`menu:<flow id>`, postback-payloads.ts). Needs live capture: built against
+ * Meta's documented messenger_profile shape ({ platform: 'instagram',
+ * persistent_menu: [{ locale, call_to_actions }] }), not yet seen on an
+ * Instagram Login app. Callers keep it behind INSTAGRAM_ENABLED.
+ */
+export async function setPersistentMenu(igUserId: string, token: string, items: readonly PersistentMenuItem[]): Promise<void> {
+  if (!persistentMenuFits(items)) throw new InstagramGraphInputError('Menu does not fit');
+  const url = graph(`${assertId(igUserId)}/messenger_profile`);
+  const result = items.length === 0
+    ? await call<{ result?: unknown }>('DELETE', url, token, { json: { platform: 'instagram', fields: ['persistent_menu'] } })
+    : await call<{ result?: unknown }>('POST', url, token, {
+      json: {
+        platform: 'instagram',
+        persistent_menu: [{
+          locale: 'default',
+          call_to_actions: items.map((item) => item.type === 'web_url'
+            ? { type: 'web_url', title: item.title.trim(), url: item.url, webview_height_ratio: 'full' }
+            : { type: 'postback', title: item.title.trim(), payload: item.payload }),
+        }],
       },
     });
   if (result.result !== 'success') throw new MetaApiError('Meta API error: messenger profile', { httpStatus: 502 });

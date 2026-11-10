@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ClipboardList, ExternalLink, FileText, Image as ImageIcon, List, MapPin, MessageCircle, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
+import { ClipboardList, ExternalLink, FileText, Image as ImageIcon, List, MapPin, MessageCircle, Music, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -177,7 +177,7 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
       </div>
     );
   }
-  const MediaIcon = m.media?.type === 'video' ? Video : m.media?.type === 'document' ? FileText : ImageIcon;
+  const MediaIcon = m.media?.type === 'video' ? Video : m.media?.type === 'document' ? FileText : m.media?.type === 'audio' ? Music : ImageIcon;
   if (m.cards) return <CardsBubble message={m} active={active} onPickRow={onPickRow} t={t} />;
   const empty = !m.text && !m.media && !m.template;
   return (
@@ -186,7 +186,7 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
         {m.media && (
           <div className="bg-muted text-muted-foreground mb-2 flex items-center gap-2 rounded-md px-3 py-4 text-xs">
             <MediaIcon className="h-5 w-5 shrink-0" />
-            <span className="truncate">{m.media.filename || t(`media.${m.media.type === 'video' || m.media.type === 'document' ? m.media.type : 'image'}`)}</span>
+            <span className="truncate">{m.media.filename || t(`media.${m.media.type === 'video' || m.media.type === 'document' || m.media.type === 'audio' ? m.media.type : 'image'}`)}</span>
           </div>
         )}
         {m.template !== undefined && <p className="text-muted-foreground text-xs italic">{m.template ? t('template', { name: m.template }) : t('templateUnset')}</p>}

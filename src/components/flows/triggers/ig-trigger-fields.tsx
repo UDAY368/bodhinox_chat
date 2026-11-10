@@ -7,20 +7,24 @@
  *   public replies;
  * - a reply to a story (`ig_story_reply`): stories, keywords, reactions;
  * - a story mention (`ig_story_mention`) and the default reply
- *   (`default_reply`): how often per person.
+ *   (`default_reply`): how often per person;
+ * - (Stage 3) a comment on a Live broadcast (`ig_live_comment`): account and
+ *   keywords; a ref link (`ig_ref`): account, ref keys and the links to share.
  * Every list is capped as the author types (ig-trigger-config.ts).
  */
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Copy, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IG_TRIGGER_LIMITS, type IgKeywordMode, type IgPostScope, type TriggerFrequency } from "@/lib/flows/types";
+import { refLinkUrl } from "@/lib/instagram/ref-links";
 import { IgKeywordEditor } from "./ig-keyword-editor";
 import { IgPostPicker, useInstagramAccounts, type PickerAccount } from "./ig-post-picker";
 import { IgReplyVariants } from "./ig-reply-variants";
-import { addIds, readStrings, setPostScope, setPublicReplies, setTriggerAccount, toggleMedia } from "./ig-trigger-config";
+import { addIds, addRefKeys, readStrings, setPostScope, setPublicReplies, setTriggerAccount, toggleMedia } from "./ig-trigger-config";
 
 type Config = Record<string, unknown>;
 type Props = { config: Config; onChange: (c: Config) => void };
@@ -238,6 +242,100 @@ export function IgCommentTriggerFields({ config, onChange }: Props) {
           labels={{ add: t("addPublicReply"), remove: (n) => t("removeReply", { n }), variant: (n) => t("replyN", { n }) }} />
         <p className={help}>{t("publicRepliesHelp", { max: IG_TRIGGER_LIMITS.publicReplies })}</p>
       </div>
+      <MessageAccessNote />
+    </div>
+  );
+}
+
+/** A comment on a Live broadcast: account and keywords (the first message is a private reply, as for post comments). */
+export function IgLiveCommentTriggerFields({ config, onChange }: Props) {
+  const t = useTranslations("Flows.triggers.igLiveComment");
+  const accounts = useInstagramAccounts();
+  return (
+    <div className="space-y-3 md:col-span-2">
+      <p className="text-muted-foreground text-xs">{t("help")}</p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <AccountSelect id="trigger-ig-account" config={config} onChange={onChange} accounts={accounts} />
+      </div>
+      <IgKeywordEditor id="trigger-live-keywords" label={t("keywords")} help={t("keywordsHelp")}
+        keywords={readStrings(config.keywords)} mode={mode(config.match_mode)}
+        onChange={({ keywords, mode: match_mode }) => onChange({ ...config, keywords, match_mode })} />
+      <p className={help}>{t("liveOnly")}</p>
+      <MessageAccessNote />
+    </div>
+  );
+}
+
+/** A ref link: the keys that start the flow, and the ig.me link for each on the chosen (or only) account. */
+export function IgRefTriggerFields({ config, onChange }: Props) {
+  const t = useTranslations("Flows.triggers.igRef");
+  const tb = useTranslations("Flows.builder");
+  const accounts = useInstagramAccounts();
+  const [draft, setDraft] = useState("");
+  const refs = readStrings(config.refs);
+  const full = refs.length >= IG_TRIGGER_LIMITS.refs;
+  const chosen = typeof config.instagram_account_id === "string" ? config.instagram_account_id : null;
+  const account = accounts.find((a) => a.id === chosen) ?? (accounts.length === 1 ? accounts[0] : null);
+  const add = (text = draft) => {
+    const next = addRefKeys(refs, text);
+    if (next.length !== refs.length) onChange({ ...config, refs: next });
+    setDraft("");
+  };
+  const copy = (link: string) => {
+    void navigator.clipboard?.writeText(link).then(() => toast.success(t("copied")), () => toast.error(t("copyFailed")));
+  };
+  return (
+    <div className="space-y-3 md:col-span-2">
+      <p className="text-muted-foreground text-xs">{t("help")}</p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <AccountSelect id="trigger-ig-account" config={config} onChange={onChange} accounts={accounts} />
+      </div>
+      <div>
+        <label htmlFor="trigger-ref-keys" className={label}>{t("keys")}</label>
+        <div className="border-border bg-muted flex flex-wrap items-center gap-1.5 rounded-md border p-1.5">
+          {refs.map((key) => (
+            <span key={key} className="border-border bg-muted inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs">
+              <span className="font-mono">{key}</span>
+              <button type="button" aria-label={tb("removeKeyword", { keyword: key })}
+                onClick={() => onChange({ ...config, refs: refs.filter((k) => k !== key) })}>
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+          <input id="trigger-ref-keys" value={draft} disabled={full} maxLength={80}
+            onChange={(e) => (e.target.value.endsWith(",") ? add(e.target.value) : setDraft(e.target.value))}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+            onBlur={() => add()}
+            placeholder={refs.length ? "" : t("keysPlaceholder")}
+            className="min-w-24 flex-1 bg-transparent px-1 font-mono text-sm outline-none" />
+        </div>
+        <p className={full ? "mt-1 text-[10px] text-amber-500" : help}>
+          {full ? t("tooManyKeys", { max: IG_TRIGGER_LIMITS.refs }) : t("keysHelp", { max: IG_TRIGGER_LIMITS.refs })}
+        </p>
+      </div>
+      {refs.length > 0 && (
+        <div>
+          <span className={label}>{t("links")}</span>
+          {account?.username ? (
+            <ul className="flex flex-col gap-1">
+              {refs.map((key) => {
+                const link = refLinkUrl(account.username ?? "", key);
+                return link ? (
+                  <li key={key} className="flex items-center gap-2 text-xs">
+                    <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1">{link}</code>
+                    <button type="button" aria-label={t("copyLink", { key })} onClick={() => copy(link)}
+                      className="text-muted-foreground hover:text-foreground rounded p-1">
+                      <Copy className="size-3.5" />
+                    </button>
+                  </li>
+                ) : null;
+              })}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-xs">{t("chooseAccountForLinks")}</p>
+          )}
+        </div>
+      )}
       <MessageAccessNote />
     </div>
   );

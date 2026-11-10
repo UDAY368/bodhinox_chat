@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils";
 import type { InstagramMedia } from "@/lib/instagram/graph";
 
 /** A connected Instagram account as the trigger editors list it (from GET /api/instagram/status). */
-export interface PickerAccount { id: string; label: string }
+/** A connected account for the trigger pickers; `username` (without @) builds ref links. */
+export interface PickerAccount { id: string; label: string; username?: string | null }
 
 interface StatusAccount { id: string; username: string | null; name: string | null; igUserId: string; status: string }
 
@@ -31,7 +32,7 @@ export function useInstagramAccounts(): PickerAccount[] {
       .then((json: { enabled?: boolean; accounts?: StatusAccount[] } | null) => {
         if (cancelled || !json?.enabled || !Array.isArray(json.accounts)) return;
         setAccounts(json.accounts.filter((a) => a.status !== "disconnected")
-          .map((a) => ({ id: a.id, label: a.username ? `@${a.username}` : a.name ?? a.igUserId })));
+          .map((a) => ({ id: a.id, label: a.username ? `@${a.username}` : a.name ?? a.igUserId, username: a.username })));
       })
       .catch(() => {});
     return () => {

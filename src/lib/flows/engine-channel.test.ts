@@ -222,8 +222,10 @@ describe("flowListensOnConversation", () => {
     expect(flowListensOnConversation({ trigger_type: "keyword", channel_scope: "any", whatsapp_config_id: "num-2" }, ig)).toBe(true);
   });
   it("never starts a WhatsApp-only trigger on Instagram", () => {
-    for (const trigger_type of ["template_reply", "order_received", "ad_click"] as const)
+    for (const trigger_type of ["template_reply", "order_received"] as const)
       expect(flowListensOnConversation({ trigger_type, channel_scope: "any" }, ig)).toBe(false);
+    // Stage 3: click-to-Direct ads start ad_click flows on Instagram too.
+    expect(flowListensOnConversation({ trigger_type: "ad_click", channel_scope: "instagram" }, ig)).toBe(true);
   });
 });
 

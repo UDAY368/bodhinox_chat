@@ -83,7 +83,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 1 schema on
     const valid = (await owner.query<{ convalidated: boolean }>(
       "SELECT bool_and(convalidated) AS convalidated FROM pg_constraint WHERE conname IN ('flows_trigger_type_check','flow_nodes_node_type_check')")).rows[0];
     expect(valid.convalidated).toBe(true);
-    await expect(owner.query("INSERT INTO flows(account_id,user_id,name,trigger_type) VALUES($1,$2,'Bad','ig_live_comment')", [accountA, adminUser]))
+    // ig_live_comment became a real trigger in Stage 3; an unknown one is still refused.
+    await expect(owner.query("INSERT INTO flows(account_id,user_id,name,trigger_type) VALUES($1,$2,'Bad','ig_not_a_trigger')", [accountA, adminUser]))
       .rejects.toThrow(/flows_trigger_type_check/);
     await owner.query("INSERT INTO flow_nodes(account_id,flow_id,node_key,node_type) VALUES($1,$2,'reply','ig_private_reply'),($1,$2,'card','send_gallery')",
       [accountA, ids.flowA]);

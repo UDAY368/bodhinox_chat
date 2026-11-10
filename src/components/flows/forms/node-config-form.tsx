@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { SendMediaType } from "@/lib/flows/types";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
 import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
@@ -725,7 +726,7 @@ function SetTagForm({
 // ============================================================
 
 interface SendMediaCfg {
-  media_type?: "image" | "video" | "document";
+  media_type?: SendMediaType;
   media_url?: string;
   caption?: string;
   filename?: string;
@@ -741,6 +742,9 @@ export const MEDIA_ACCEPT: Record<NonNullable<SendMediaCfg["media_type"]>, strin
   video: "video/mp4,video/3gpp",
   document:
     "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain",
+  // Stage 3: audio WhatsApp sends (AAC, M4A, MP3, Ogg/Opus). Instagram plays only
+  // AAC/M4A among these; an Instagram flow flags the rest (nodeAvailableOn).
+  audio: "audio/aac,audio/mp4,audio/mpeg,audio/ogg",
 };
 
 export const FLOW_MEDIA_BUCKET = "flow-media";
@@ -827,6 +831,7 @@ function SendMediaForm({
             <SelectItem value="document">
               {t("documentLabel")}
             </SelectItem>
+            <SelectItem value="audio">{t("audioLabel")}</SelectItem>
           </SelectContent>
         </Select>
       </div>

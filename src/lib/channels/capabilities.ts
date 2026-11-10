@@ -120,8 +120,15 @@ export function flowNodesFor(channel: Channel): FlowNodeType[] {
 
 export type NodeAvailability = { ok: true; warning?: 'text_over_limit' } | { ok: false; reason: 'unavailable_on_channel' };
 
-/** send_media node types Instagram can carry (a document only as a PDF). */
-const MEDIA_TYPES_ON_INSTAGRAM = new Set(['image', 'video', 'document']);
+/** send_media node types Instagram can carry (a document only as a PDF, audio only in a format it plays). */
+const MEDIA_TYPES_ON_INSTAGRAM = new Set(['image', 'video', 'document', 'audio']);
+
+/**
+ * Audio files Instagram plays, by file extension: AAC, M4A, MP4 and WAV
+ * (the composer's INSTAGRAM_AUDIO_MIME below). MP3, Ogg/Opus (the WhatsApp
+ * voice note) and WebM are refused.
+ */
+export const INSTAGRAM_AUDIO_FILE = /\.(aac|m4a|mp4|wav)(?:$|[?#])/i;
 
 const textOf = (config: Record<string, unknown>): string | null => {
   for (const key of ['text', 'body', 'message']) if (typeof config[key] === 'string') return config[key] as string;
@@ -130,9 +137,10 @@ const textOf = (config: Record<string, unknown>): string | null => {
 
 /**
  * Whether a node may run on a channel. For a conditional Instagram node the
- * config decides: media must be image/audio/video/pdf (a document must be a
- * PDF); a list must fit Instagram quick replies. Text over 1000 bytes is a
- * warning (variables may shorten it), not a refusal; the send path refuses it.
+ * config decides: media must be an image, a video, a PDF document or an
+ * AAC/M4A/MP4/WAV audio file (the file name or URL shows which); a list must
+ * fit Instagram quick replies. Text over 1000 bytes is a warning (variables
+ * may shorten it), not a refusal; the send path refuses it.
  */
 export function nodeAvailableOn(nodeType: FlowNodeType, channel: Channel,
   config: Record<string, unknown> = {}): NodeAvailability {
@@ -143,10 +151,11 @@ export function nodeAvailableOn(nodeType: FlowNodeType, channel: Channel,
   if (nodeType === 'send_media') {
     const mediaType = typeof config.media_type === 'string' ? config.media_type : null;
     if (!mediaType || !MEDIA_TYPES_ON_INSTAGRAM.has(mediaType)) return { ok: false, reason: 'unavailable_on_channel' };
-    if (mediaType === 'document') {
-      const names = [config.filename, config.media_url].filter((v): v is string => typeof v === 'string');
-      if (!names.some((name) => /\.pdf(?:$|[?#])/i.test(name))) return { ok: false, reason: 'unavailable_on_channel' };
-    }
+    const names = [config.filename, config.media_url].filter((v): v is string => typeof v === 'string');
+    if (mediaType === 'document' && !names.some((name) => /\.pdf(?:$|[?#])/i.test(name)))
+      return { ok: false, reason: 'unavailable_on_channel' };
+    if (mediaType === 'audio' && !names.some((name) => INSTAGRAM_AUDIO_FILE.test(name)))
+      return { ok: false, reason: 'unavailable_on_channel' };
   }
   if (nodeType === 'send_list' && !listFitsQuickReplies(config)) return { ok: false, reason: 'unavailable_on_channel' };
   const text = textOf(config);
@@ -174,7 +183,8 @@ type TriggerType = FlowTriggerConfig['trigger_type'];
  * makes this exhaustive at compile time: a trigger type added to
  * FlowTriggerConfig fails the build until it is placed here, and a key that is
  * not a trigger type fails too. A flow with scope 'any' must use a trigger
- * both channels offer. Stage 3 adds ad_click to Instagram.
+ * both channels offer. Stage 3 opens ad_click on Instagram (click-to-Direct
+ * ads) and adds the Instagram Live comment and ref link triggers.
  */
 const FLOW_TRIGGER_CHANNELS = {
   keyword: ['whatsapp', 'instagram'],
@@ -182,11 +192,13 @@ const FLOW_TRIGGER_CHANNELS = {
   manual: ['whatsapp', 'instagram'],
   template_reply: ['whatsapp'],
   order_received: ['whatsapp'],
-  ad_click: ['whatsapp'],
+  ad_click: ['whatsapp', 'instagram'],
   default_reply: ['whatsapp', 'instagram'],
   ig_comment: ['instagram'],
   ig_story_reply: ['instagram'],
   ig_story_mention: ['instagram'],
+  ig_live_comment: ['instagram'],
+  ig_ref: ['instagram'],
 } as const satisfies Record<TriggerType, readonly Channel[]>;
 
 const triggersOn = (channel: Channel): readonly TriggerType[] =>

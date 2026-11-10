@@ -45,6 +45,20 @@ describe("where the comment steps can be placed", () => {
     expect(placeableNodeTypes(instagram, "ig_comment", [])).toEqual(expect.arrayContaining(["ig_private_reply", "ig_comment_reply"]));
   });
 
+  it("(Stage 3) offers a Live comment flow its private reply but no public comment reply; a ref link flow neither", () => {
+    const live = placeableNodeTypes(instagram, "ig_live_comment", []);
+    expect(live).toContain("ig_private_reply");
+    expect(live).not.toContain("ig_comment_reply");
+    const ref = placeableNodeTypes(instagram, "ig_ref", []);
+    expect(ref).not.toContain("ig_private_reply");
+    expect(ref).not.toContain("ig_comment_reply");
+    const pr = node("pr", "ig_private_reply");
+    expect(commentStepIssue(pr, "ig_live_comment", "pr", [pr])).toBeNull();
+    expect(commentStepIssue(node("cr", "ig_comment_reply"), "ig_live_comment", "pr", [pr])).toBe("onlyCommentFlows");
+    expect(entryLocked("ig_live_comment", [pr], "pr")).toBe(true);
+    expect(entryLocked("ig_ref", [pr], "pr")).toBe(false);
+  });
+
   it("offers each comment step at most once", () => {
     const menu = placeableNodeTypes(instagram, "ig_comment", [node("pr", "ig_private_reply"), node("cr", "ig_comment_reply")]);
     expect(menu).not.toContain("ig_private_reply");

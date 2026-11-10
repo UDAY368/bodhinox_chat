@@ -16,7 +16,9 @@ const groups = (enabled: Parameters<typeof buildNavigation>[0]) =>
 
 const WHATSAPP_PAGES = ['/whatsapp/inbox', '/whatsapp/flows', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
 const INSTAGRAM_PAGES = ['/instagram/inbox', '/instagram/flows', '/instagram/automations', '/instagram/comments',
-  '/instagram/conversation-starters', '/instagram/default-reply', '/instagram/quick-automations'];
+  '/instagram/conversation-starters', '/instagram/default-reply', '/instagram/quick-automations',
+  // Stage 3
+  '/instagram/ref-links', '/instagram/menu', '/instagram/insights'];
 const WORKSPACE_PAGES = ['/dashboard', '/analytics', '/notifications', '/contacts', '/pipelines', '/appointments', '/agents'];
 
 describe('navigation per channel set', () => {
@@ -122,6 +124,11 @@ describe('page titles', () => {
     expect(getPageTitleKey('/instagram/conversation-starters')).toBe('conversationStarters');
     expect(getPageTitleKey('/instagram/default-reply')).toBe('defaultReply');
     expect(getPageTitleKey('/instagram/quick-automations/new')).toBe('quickAutomations');
+    expect(getPageTitleKey('/instagram/ref-links')).toBe('refLinks');
+    expect(getPageTitleKey('/instagram/menu')).toBe('menu');
+    expect(getPageTitleKey('/instagram/insights/flows')).toBe('insights');
+    expect(getPageGroup('/instagram/insights')).toBe('instagram');
+    expect(getPageTitleKey('/instagram/menuX')).toBe('dashboard');
     expect(getPageTitleKey('/inbox')).toBe('allInboxes');
     expect(getPageTitleKey('/forms/123')).toBe('forms');
     expect(getPageTitleKey('/analytics')).toBe('analytics');
