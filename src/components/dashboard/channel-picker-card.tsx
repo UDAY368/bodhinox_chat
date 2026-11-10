@@ -22,6 +22,7 @@ import { useCan } from '@/hooks/use-can';
 import { ChannelsSaveError, useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import type { ChannelChanges, WorkspaceChannels } from '@/lib/channels/workspace';
 import { cn } from '@/lib/utils';
+import type { Channel } from '@/types';
 
 export type ChannelChoice = 'whatsapp' | 'instagram' | 'both';
 
@@ -35,6 +36,15 @@ export const CHOICES: Record<ChannelChoice, ChannelChanges> = {
 export function showChannelPicker(channels: WorkspaceChannels | null): boolean {
   if (!channels || channels.chosen) return false;
   return Object.values(channels.channels).every((channel) => channel.connection === 'none');
+}
+
+/**
+ * The channel a refused choice is about: channel_connected names the channel
+ * the choice turns off (the other one); plan and platform refusals are Instagram's.
+ */
+export function refusedChannel(choice: ChannelChoice, code: string | null): Channel {
+  if (code === 'channel_connected') return choice === 'instagram' ? 'whatsapp' : 'instagram';
+  return 'instagram';
 }
 
 const PLAN_PATH = '/settings?tab=plan';
@@ -59,7 +69,7 @@ export function ChannelPickerCard() {
     } catch (err) {
       const code = err instanceof ChannelsSaveError ? err.code : null;
       toast.error(code && SERVER_CODES.has(code)
-        ? tErrors(code as 'plan_required', { channel: tNames('instagram') })
+        ? tErrors(code as 'plan_required', { channel: tNames(refusedChannel(choice, code)) })
         : tErrors('saveFailed'));
       setSaving(null);
     }

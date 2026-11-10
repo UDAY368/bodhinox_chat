@@ -38,10 +38,10 @@ const empty: DashboardOperations = {
     conversation: false,
   },
 };
-const render = (data: DashboardOperations) =>
+const render = (data: DashboardOperations, whatsapp?: boolean) =>
   renderToStaticMarkup(
     <NextIntlClientProvider locale="en" messages={messages} timeZone="UTC">
-      <OperationsContent data={data} />
+      <OperationsContent data={data} whatsapp={whatsapp} />
     </NextIntlClientProvider>
   );
 
@@ -121,4 +121,15 @@ it('links queues and failures to conversations and shows human and automated met
     expect(html).toContain(text);
   expect(html).not.toContain('<script>');
   expect(html).toContain('&lt;script&gt;');
+});
+
+it('leaves out the WhatsApp setup steps for a workspace that does not use WhatsApp', () => {
+  const withWhatsApp = render(empty);
+  expect(withWhatsApp).toContain('href="/settings?tab=whatsapp"');
+  expect(withWhatsApp).toContain('href="/settings?tab=templates"');
+  const without = render(empty, false);
+  expect(without).not.toContain('href="/settings?tab=whatsapp"');
+  expect(without).not.toContain('href="/settings?tab=templates"');
+  expect(without).toContain('href="/contacts"');
+  expect(without).toContain('href="/settings?tab=members"');
 });

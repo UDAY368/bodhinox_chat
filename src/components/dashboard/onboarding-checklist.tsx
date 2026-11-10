@@ -5,7 +5,7 @@
 // workspace's enabled channels (Stage 1):
 //   WhatsApp:  a connected number, a contact, a message template
 //   Instagram: a connected account, a received Instagram message (proof that
-//              "Allow access to messages" is on), a comment-reply rule
+//              "Allow access to messages" is on), a comment-reply rule (admins)
 //   shared:    a flow or automation, and a second member or pending invitation
 // Hidden once every step is done, or when dismissed; dismissal is per user and
 // workspace in this browser (localStorage, the store the app already uses for
@@ -45,10 +45,16 @@ const STEPS_BY_CHANNEL: Record<Channel, readonly OnboardingStep[]> = {
 const SHARED_STEPS: readonly OnboardingStep[] = ['automation', 'team'];
 const ONBOARDING_ENABLED_FALLBACK: readonly Channel[] = ['whatsapp'];
 
-/** The steps for a workspace's enabled channels: WhatsApp's, then Instagram's, then the shared ones. None enabled counts as WhatsApp. */
-export function onboardingSteps(enabled: readonly Channel[]): OnboardingStep[] {
+/**
+ * The steps for a workspace's enabled channels: WhatsApp's, then Instagram's,
+ * then the shared ones. None enabled counts as WhatsApp. The comment-automation
+ * step is for admins only: comment rules are admin-only on the server, so a
+ * member could neither complete it nor see it done.
+ */
+export function onboardingSteps(enabled: readonly Channel[], admin = true): OnboardingStep[] {
   const channels = CHANNELS.filter((channel) => enabled.includes(channel));
-  return [...(channels.length ? channels : ['whatsapp' as const]).flatMap((c) => STEPS_BY_CHANNEL[c]), ...SHARED_STEPS];
+  return [...(channels.length ? channels : ['whatsapp' as const]).flatMap((c) => STEPS_BY_CHANNEL[c]), ...SHARED_STEPS]
+    .filter((step) => admin || step !== 'instagramCommentAutomation');
 }
 
 /** A WhatsApp workspace's steps (the checklist before Stage 1). */
@@ -129,7 +135,7 @@ export function OnboardingChecklist() {
   const [dismissed, setDismissed] = useState(false);
   // The steps wait for the channel state; if it cannot load, the WhatsApp steps (as before Stage 1).
   const enabled = channels.data?.enabled ?? (channels.error ? ONBOARDING_ENABLED_FALLBACK : null);
-  const stepsKey = enabled ? onboardingSteps(enabled).join(',') : null;
+  const stepsKey = enabled ? onboardingSteps(enabled, canEdit).join(',') : null;
   const instagramConnected = !!channels.data && channels.data.channels.instagram.connection !== 'none';
 
   useEffect(() => {
@@ -153,7 +159,7 @@ export function OnboardingChecklist() {
         needs('templates') ? count('message_templates') : skip,
         // A received Instagram message shows "Allow access to messages" is on.
         needs('instagramAllowMessages') ? count('conversations', ['channel', 'instagram']) : skip,
-        // Comment rules are admin-only on the server; for others the step stays open.
+        // Comment rules are admin-only on the server (members do not get this step).
         needs('instagramCommentAutomation') && canEdit && instagramConnected ? countCommentRules() : skip,
         count('flows'),
         count('automations'),

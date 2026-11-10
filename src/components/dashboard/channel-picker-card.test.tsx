@@ -17,7 +17,7 @@ vi.mock('@/hooks/use-workspace-channels', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 vi.mock('@/lib/billing/entitlements', () => ({ getEntitlements: vi.fn() }));
 
-import { ChannelPickerCard, CHOICES, showChannelPicker } from './channel-picker-card';
+import { ChannelPickerCard, CHOICES, refusedChannel, showChannelPicker } from './channel-picker-card';
 
 const facts = (over: Partial<ChannelFacts> = {}): ChannelFacts => ({
   rows: {}, connections: { whatsapp: 'none', instagram: 'none' }, instagramPlatform: true, instagramPlan: true, ...over,
@@ -49,6 +49,16 @@ describe('showChannelPicker', () => {
     for (const changes of Object.values(CHOICES)) expect(Object.keys(changes).sort()).toEqual(['instagram', 'whatsapp']);
     expect(CHOICES.instagram).toEqual({ whatsapp: false, instagram: true });
     expect(CHOICES.both).toEqual({ whatsapp: true, instagram: true });
+  });
+});
+
+describe('refusedChannel', () => {
+  it('names the channel a refusal is about', () => {
+    // Choosing one channel turns the other off; a connected one refuses (409).
+    expect(refusedChannel('whatsapp', 'channel_connected')).toBe('instagram');
+    expect(refusedChannel('instagram', 'channel_connected')).toBe('whatsapp');
+    expect(refusedChannel('instagram', 'plan_required')).toBe('instagram');
+    expect(refusedChannel('both', 'platform_off')).toBe('instagram');
   });
 });
 

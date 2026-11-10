@@ -34,6 +34,11 @@ describe('steps per channel set (Stage 1)', () => {
     for (const whatsappStep of ['whatsapp', 'contacts', 'templates'] as const) expect(steps).not.toContain(whatsappStep);
   });
 
+  it('members get no comment-automation step: the rules are admin-only', () => {
+    expect(onboardingSteps(['instagram'], false)).toEqual(['instagramConnect', 'instagramAllowMessages', 'automation', 'team']);
+    expect(onboardingSteps(['whatsapp'], false)).toEqual(onboardingSteps(['whatsapp']));
+  });
+
   it('both channels list WhatsApp steps, then Instagram steps, then the shared ones, whatever the order given', () => {
     expect(onboardingSteps(['instagram', 'whatsapp'])).toEqual([
       'whatsapp', 'contacts', 'templates', 'instagramConnect', 'instagramAllowMessages', 'instagramCommentAutomation', 'automation', 'team',

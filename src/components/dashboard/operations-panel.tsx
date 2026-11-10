@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { authFetch } from '@/lib/auth/client';
 import type { DashboardOperations } from '@/lib/dashboard/operations-types';
 import type { PhoneHealth } from '@/lib/whatsapp/phone-health';
@@ -25,6 +26,10 @@ export function OperationsPanel({
   } | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
+  // A workspace without WhatsApp (Stage 1) gets no WhatsApp health strip or
+  // WhatsApp setup steps. Until the channel state loads, WhatsApp shows as before.
+  const { data: channels } = useWorkspaceChannels();
+  const whatsapp = channels ? channels.enabled.includes('whatsapp') : true;
   const data =
     result?.accountId === accountId && result.days === days
       ? result.data
@@ -93,7 +98,7 @@ export function OperationsPanel({
           </select>
         </label>
       </div>
-      <WhatsAppHealth key={accountId} />
+      {whatsapp && <WhatsAppHealth key={accountId} />}
       {error && (
         <div
           role="alert"
@@ -117,7 +122,7 @@ export function OperationsPanel({
           {t('loading')}
         </p>
       )}
-      {data && <OperationsContent data={data} />}
+      {data && <OperationsContent data={data} whatsapp={whatsapp} />}
     </section>
   );
 }
@@ -209,7 +214,14 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function OperationsContent({ data }: { data: DashboardOperations }) {
+/** The WhatsApp-only setup steps, left out when the workspace does not use WhatsApp. */
+const WHATSAPP_SETUP = new Set(['whatsapp', 'template']);
+
+export function OperationsContent({ data, whatsapp = true }: {
+  data: DashboardOperations;
+  /** The workspace uses WhatsApp (default: as before Stage 1). */
+  whatsapp?: boolean;
+}) {
   const t = useTranslations('Dashboard.operations');
   const format = useFormatter();
   const [pipelineId, setPipelineId] = useState('');
@@ -482,7 +494,7 @@ export function OperationsContent({ data }: { data: DashboardOperations }) {
         <Panel title={t('setup')}>
           <p className="text-muted-foreground text-xs">{t('setupHint')}</p>
           <ul className="space-y-3 text-sm">
-            {(Object.keys(setupLinks) as (keyof typeof setupLinks)[]).map(
+            {(Object.keys(setupLinks) as (keyof typeof setupLinks)[]).filter((key) => whatsapp || !WHATSAPP_SETUP.has(key)).map(
               (key) => (
                 <li key={key} className="flex justify-between gap-3">
                   <Link
