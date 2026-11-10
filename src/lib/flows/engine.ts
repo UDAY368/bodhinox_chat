@@ -589,11 +589,29 @@ async function findEntryFlow(
   // by hand worked, which is the tell — same words, different envelope.
   const candidates = entryTriggerTexts(message);
 
+  // The inbound's channel and number are its conversation's (one conversation
+  // per contact and number, or per contact and Instagram account). Always read:
+  // an Instagram conversation must never start a WhatsApp-only flow.
+  const { data, error } = await db.from("conversations").select("channel, whatsapp_config_id")
+    .eq("account_id", accountId).eq("id", conversationId).maybeSingle();
+  if (error) return null;
+  const row = data as { channel?: string | null; whatsapp_config_id?: string | null } | null;
+  const conversation = {
+    channel: (row?.channel === "instagram" ? "instagram" : "whatsapp") as Channel,
+    whatsappConfigId: row?.whatsapp_config_id ?? null,
+  };
+
   // Active flows, plus drafts being tested (only those with test numbers
-  // are fetched); both sets are small.
+  // are fetched); both sets are small. A testing draft runs its own row, so
+  // only the conversation channel's drafts and legacy 'any' ones are read
+  // (Stage 1). An active flow runs its published version, whose scope can
+  // differ from the row's (a draft moved before Stage 1 locked published
+  // scopes), so the active query is not narrowed by the row's scope:
+  // flowListensOnConversation below decides on the scope each flow runs on.
+  const scopes = [conversation.channel, "any"];
   const [active, drafts] = await Promise.all([
     db.from("flows").select("*").eq("account_id", accountId).eq("status", "active").order("created_at", { ascending: true }),
-    db.from("flows").select("*").eq("account_id", accountId).eq("status", "draft").neq("test_numbers", []).order("created_at", { ascending: true }),
+    db.from("flows").select("*").eq("account_id", accountId).eq("status", "draft").neq("test_numbers", []).in("channel_scope", scopes).order("created_at", { ascending: true }),
   ]);
   if (active.error || drafts.error) return null;
   const testing = ((drafts.data ?? []) as FlowRow[]).filter((f) => f.status === "draft" && (f.test_numbers ?? []).length > 0);
@@ -621,17 +639,6 @@ async function findEntryFlow(
     ...testing.filter((f) => isTestContact(f, digits)),
   ];
   if (!candidatesByStatus.length) return null;
-  // The inbound's channel and number are its conversation's (one conversation
-  // per contact and number, or per contact and Instagram account). Always read:
-  // an Instagram conversation must never start a WhatsApp-only flow.
-  const { data, error } = await db.from("conversations").select("channel, whatsapp_config_id")
-    .eq("account_id", accountId).eq("id", conversationId).maybeSingle();
-  if (error) return null;
-  const row = data as { channel?: string | null; whatsapp_config_id?: string | null } | null;
-  const conversation = {
-    channel: (row?.channel === "instagram" ? "instagram" : "whatsapp") as Channel,
-    whatsappConfigId: row?.whatsapp_config_id ?? null,
-  };
   const typed = byPrecedence(candidatesByStatus.filter((f) =>
     flowListensOnConversation(f, conversation)));
   const found = (flow: EffectiveFlow, vars: Record<string, string>) => ({ flow, vars, version: versionOf.get(flow.id) });

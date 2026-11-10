@@ -84,7 +84,6 @@ import {
 } from '@/lib/flows/edges';
 import { autoLayout, shouldAutoLayout } from '@/lib/flows/layout';
 import {
-  ADD_NODE_TYPES,
   NodeIconChip,
   groupNodeTypesByCategory,
   nodeColors,
@@ -913,10 +912,11 @@ function NodeInspector({
 
 function CanvasBlockLibrary({ t, onAdded }: { t: ReturnType<typeof useTranslations>; onAdded: (key: string) => void }) {
   const reactFlow = useReactFlow();
-  const { addNode, updateNodePosition } = useFlowEditor();
+  const { addNode, updateNodePosition, nodeTypes } = useFlowEditor();
   const caps = useWorkspaceCapabilities();
   const [query, setQuery] = useState('');
-  const matching = filterPaletteTypes(ADD_NODE_TYPES.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
+  // Only the steps the flow's channel runs (Stage 1).
+  const matching = filterPaletteTypes(nodeTypes.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
 
   const handleAdd = (type: NodeType) => {
     const key = addNode(type);
@@ -997,9 +997,10 @@ function DropStepPicker({ x, y, onPick, onClose, t }: {
   onClose: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const { nodeTypes } = useFlowEditor();
   const caps = useWorkspaceCapabilities();
   const [query, setQuery] = useState('');
-  const matching = filterPaletteTypes(ADD_NODE_TYPES.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
+  const matching = filterPaletteTypes(nodeTypes.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
   return (
     <>
       <div className="absolute inset-0 z-10" onMouseDown={onClose} aria-hidden="true" />

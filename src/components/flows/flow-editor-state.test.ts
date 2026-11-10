@@ -3,9 +3,13 @@ import {
   appendNode,
   applyNodePositions,
   defaultConfigFor,
+  defaultSection,
+  nodeTypesForScope,
   publishDraft,
+  triggerTypesForScope,
   uniqueNodeKey,
 } from "./flow-editor-state";
+import { ADD_NODE_TYPES } from "./shared";
 import type { BuilderState } from "./flow-editor-state";
 import { aiReplyIssues } from "@/lib/flows/ai-reply-node";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
@@ -208,5 +212,32 @@ describe("publishDraft", () => {
     expect(await publishDraft({ flowId: "f1", draftHash: HASH, fetcher: changed })).toEqual({ kind: "draft_changed", message: "Draft changed" });
     const invalid = vi.fn(async () => respond(422, { error: "Cannot activate" }));
     expect(await publishDraft({ flowId: "f1", draftHash: HASH, fetcher: invalid })).toEqual({ kind: "failed", message: "Cannot activate", status: 422 });
+  });
+});
+
+describe("channel palettes (Stage 1)", () => {
+  it("offers a WhatsApp flow every step and trigger it offered before", () => {
+    expect(nodeTypesForScope("whatsapp")).toEqual(ADD_NODE_TYPES);
+    expect(nodeTypesForScope(undefined)).toEqual(ADD_NODE_TYPES);
+    expect(triggerTypesForScope("whatsapp")).toEqual(["keyword", "template_reply", "first_inbound_message", "order_received", "ad_click", "manual"]);
+  });
+
+  it("offers an Instagram flow only what Instagram runs", () => {
+    const steps = nodeTypesForScope("instagram");
+    for (const whatsappOnly of ["send_template", "send_form", "ask_location", "ask_address", "send_catalog", "ai_reply"] as const)
+      expect(steps).not.toContain(whatsappOnly);
+    expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "handoff", "end"]));
+    expect(triggerTypesForScope("instagram")).toEqual(["keyword", "first_inbound_message", "manual"]);
+  });
+
+  it("offers a legacy flow on both channels only what both run", () => {
+    expect(nodeTypesForScope("any")).toEqual(nodeTypesForScope("instagram"));
+    expect(triggerTypesForScope("any")).toEqual(triggerTypesForScope("instagram"));
+  });
+
+  it("opens a flow in its own section, a legacy one in WhatsApp", () => {
+    expect(defaultSection("instagram")).toBe("instagram");
+    expect(defaultSection("any")).toBe("whatsapp");
+    expect(defaultSection(undefined)).toBe("whatsapp");
   });
 });

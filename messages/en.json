@@ -2774,7 +2774,14 @@
       "splitDone": "Created a WhatsApp copy and an Instagram copy. Archive the original when you're ready.",
       "splitFailed": "Couldn't split this flow. Try again.",
       "locked": "A published flow stays on its channel. Duplicate it to use it on another channel.",
-      "disabled": "{channel} is turned off. Turn it on to publish this flow."
+      "disabled": "{channel} is turned off. Turn it on to publish this flow.",
+      "triggerUnavailable": "This trigger isn't available on {channel}",
+      "nodeUnavailable": "{node} is not available on {channel}",
+      "anyNotAllowed": "A new flow runs on WhatsApp or Instagram. Choose one.",
+      "channelInvalid": "Choose WhatsApp or Instagram.",
+      "templateUnavailable": "This template doesn't work on {channel}.",
+      "previewSubtitleInstagram": "What a customer sees in Instagram Direct. Nothing is sent.",
+      "moveTo": "Move this draft to"
     }
   },
   "Settings": {

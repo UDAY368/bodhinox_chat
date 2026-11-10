@@ -2774,7 +2774,14 @@
       "splitDone": "Foram criadas uma cópia do WhatsApp e outra do Instagram. Arquive o original quando quiser.",
       "splitFailed": "Não foi possível dividir este fluxo. Tente novamente.",
       "locked": "Um fluxo publicado permanece no seu canal. Duplique-o para usá-lo em outro canal.",
-      "disabled": "O {channel} está desativado. Ative-o para publicar este fluxo."
+      "disabled": "O {channel} está desativado. Ative-o para publicar este fluxo.",
+      "triggerUnavailable": "Este gatilho não está disponível no {channel}",
+      "nodeUnavailable": "{node} não está disponível no {channel}",
+      "anyNotAllowed": "Um fluxo novo é executado no WhatsApp ou no Instagram. Escolha um.",
+      "channelInvalid": "Escolha WhatsApp ou Instagram.",
+      "templateUnavailable": "Este modelo não funciona no {channel}.",
+      "previewSubtitleInstagram": "O que um cliente vê no Direct do Instagram. Nada é enviado.",
+      "moveTo": "Mover este rascunho para"
     }
   },
   "Settings": {

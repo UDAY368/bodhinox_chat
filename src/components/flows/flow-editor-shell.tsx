@@ -37,6 +37,7 @@ import { FlowPreview } from "./flow-preview";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from "@/lib/utils";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
+import type { Channel } from "@/types";
 import { useTranslations } from "next-intl";
 
 /**
@@ -59,9 +60,11 @@ interface Props {
   initialFlow: FlowRow;
   initialNodes: FlowNodeRow[];
   initialDraftHash?: string | null;
+  /** The channel section the editor is open in (Stage 1). */
+  section?: Channel;
 }
 
-export function FlowEditorShell({ initialFlow, initialNodes, initialDraftHash = null }: Props) {
+export function FlowEditorShell({ initialFlow, initialNodes, initialDraftHash = null, section }: Props) {
   const t = useTranslations("Flows.builder");
 
   // Read the persisted choice in the useState initializer. Safe even
@@ -98,7 +101,7 @@ export function FlowEditorShell({ initialFlow, initialNodes, initialDraftHash = 
   };
 
   return (
-    <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes} initialDraftHash={initialDraftHash}>
+    <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes} initialDraftHash={initialDraftHash} section={section}>
       <div className="flow-studio flex h-full min-h-0 flex-col">
         <EditorHeader />
         <FlowVersionBar />

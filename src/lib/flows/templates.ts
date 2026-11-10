@@ -37,6 +37,8 @@ import type {
   StartNodeConfig,
 } from "./types";
 import { getT } from "@/lib/i18n/translate";
+import { CHANNELS, nodeAvailableOn, triggerAvailableOn } from "@/lib/channels/capabilities";
+import type { Channel } from "@/types";
 
 export type FlowTemplateNodeType =
   | "start"
@@ -105,6 +107,23 @@ export interface FlowTemplate {
   trigger_config: KeywordTriggerConfig | Record<string, unknown>;
   entry_node_id: string;
   nodes: FlowTemplateNode[];
+  /**
+   * The channel sections this template is offered in (Stage 1), first one the
+   * default when a create names none. Absent: every channel whose palette
+   * holds the trigger and every step (flowTemplateChannels).
+   */
+  channels?: readonly Channel[];
+}
+
+/**
+ * The channels a template can be created on: its own `channels`, else every
+ * channel that offers its trigger and can run each of its steps as written.
+ * A WhatsApp-only step (a list, a booking) keeps a template off Instagram.
+ */
+export function flowTemplateChannels(template: FlowTemplate): Channel[] {
+  if (template.channels) return [...template.channels];
+  return CHANNELS.filter((channel) => triggerAvailableOn(template.trigger_type, channel) &&
+    template.nodes.every((node) => nodeAvailableOn(node.node_type, channel, node.config as Record<string, unknown>).ok));
 }
 
 const t = getT("StarterFlows");
