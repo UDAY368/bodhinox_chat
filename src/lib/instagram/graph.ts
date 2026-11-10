@@ -15,9 +15,15 @@
 import { leaseFetch } from '@/lib/jobs/lease';
 import { MetaApiError, readMetaError } from '@/lib/whatsapp/meta-api';
 import { REQUIRED_SCOPES, type InstagramConfig } from './config';
-import { quickRepliesFit, validInstagramText, type QuickReply } from './graph-limits';
+import {
+  buttonTemplateFits, genericTemplateFits, iceBreakersFit, quickRepliesFit, validCommentReply, validInstagramText,
+  type IceBreaker, type IgGenericCard, type IgTemplateButton, type QuickReply,
+} from './graph-limits';
 
-export { INSTAGRAM_LIMITS, quickRepliesFit, utf8Bytes, validInstagramText, type QuickReply } from './graph-limits';
+export {
+  INSTAGRAM_LIMITS, buttonTemplateFits, genericTemplateFits, iceBreakersFit, quickRepliesFit, utf8Bytes, validCommentReply,
+  validInstagramText, type IceBreaker, type IgGenericCard, type IgTemplateButton, type QuickReply,
+} from './graph-limits';
 
 /** Pinned for Instagram only (Meta's Send Messages samples, checked 2026-11-04). Not META_API_VERSION. */
 export const INSTAGRAM_GRAPH_VERSION = 'v26.0';
@@ -179,12 +185,50 @@ export async function getMe(token: string): Promise<InstagramMe> {
   return { userId, username: str(row.username, 64), name: str(row.name, 500) };
 }
 
-export interface InstagramProfile { name: string | null; username: string | null }
+/**
+ * Profile facts for the follow gate and segments (Stage 2). Each is null when
+ * Meta did not return it. Needs live capture: the field names follow Meta's
+ * Instagram user-profile docs and are not yet seen on an Instagram Login app.
+ */
+export interface InstagramProfileFacts {
+  /** The customer follows the business account (is_user_follow_business). */
+  followsBusiness: boolean | null;
+  /** The business account follows the customer (is_business_follow_user). */
+  businessFollows: boolean | null;
+  /** is_verified_user. */
+  isVerified: boolean | null;
+  followerCount: number | null;
+}
 
-/** A customer's display name and username (needs their consent; a 4xx means no profile). */
-export async function getProfile(igsid: string, token: string): Promise<InstagramProfile> {
-  const row = await call<Record<string, unknown>>('GET', graph(assertId(igsid), { fields: 'name,username' }), token);
-  return { name: str(row.name, 500), username: str(row.username, 64) };
+export interface InstagramProfile {
+  name: string | null;
+  username: string | null;
+  /** Present only when asked for with `facts: true`. */
+  facts?: InstagramProfileFacts;
+}
+
+export const PROFILE_FACT_FIELDS = ['is_user_follow_business', 'is_business_follow_user', 'is_verified_user', 'follower_count'] as const;
+
+const bool = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
+const count = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+
+/**
+ * A customer's display name and username (needs their consent; a 4xx means no
+ * profile). With `facts: true` it also asks for the follow and verified fields;
+ * without it the request is exactly the Phase 11 one.
+ */
+export async function getProfile(igsid: string, token: string, options: { facts?: boolean } = {}): Promise<InstagramProfile> {
+  const fields = ['name', 'username', ...(options.facts ? PROFILE_FACT_FIELDS : [])].join(',');
+  const row = await call<Record<string, unknown>>('GET', graph(assertId(igsid), { fields }), token);
+  const profile: InstagramProfile = { name: str(row.name, 500), username: str(row.username, 64) };
+  if (options.facts) profile.facts = {
+    followsBusiness: bool(row.is_user_follow_business),
+    businessFollows: bool(row.is_business_follow_user),
+    isVerified: bool(row.is_verified_user),
+    followerCount: count(row.follower_count),
+  };
+  return profile;
 }
 
 export type SubscribedField = 'messages' | 'messaging_postbacks' | 'comments';
@@ -309,9 +353,103 @@ export async function sendQuickReplies(igUserId: string, token: string, igsid: s
   });
 }
 
-/** One private reply to a comment (recipient: { comment_id }). */
-export async function sendPrivateReply(igUserId: string, token: string, commentId: string, text: string): Promise<SentMessage> {
-  return postMessage(igUserId, token, { recipient: { comment_id: assertId(commentId) }, message: { text: assertText(text) } });
+/**
+ * One private reply to a comment (recipient: { comment_id }). With
+ * `quickReplies` (the "Opening DM" button) the message carries them; a tap
+ * opens the 24-hour window. Needs live capture: a private reply carrying a
+ * quick reply is built against Meta's documented message shape, not yet seen
+ * on an Instagram Login app (callers keep it behind INSTAGRAM_ENABLED).
+ */
+export async function sendPrivateReply(igUserId: string, token: string, commentId: string, text: string,
+  quickReplies?: readonly QuickReply[]): Promise<SentMessage> {
+  if (quickReplies !== undefined && !quickRepliesFit(quickReplies)) throw new InstagramGraphInputError('Quick replies do not fit');
+  return postMessage(igUserId, token, {
+    recipient: { comment_id: assertId(commentId) },
+    message: {
+      text: assertText(text),
+      ...(quickReplies ? { quick_replies: quickReplies.map((r) => ({ content_type: 'text', title: r.title.trim(), payload: r.payload })) } : {}),
+    },
+  });
+}
+
+const templateButton = (button: IgTemplateButton) => button.type === 'web_url'
+  ? { type: 'web_url', url: button.url, title: button.title.trim() }
+  : { type: 'postback', title: button.title.trim(), payload: button.payload };
+
+/**
+ * A generic template: one card, or a gallery of up to 10 (image, title,
+ * subtitle, link, up to 3 buttons each). Built against Meta's documented
+ * generic-template shape for Instagram.
+ */
+export async function sendGenericTemplate(igUserId: string, token: string, igsid: string, cards: readonly IgGenericCard[],
+  options: SendOptions = {}): Promise<SentMessage> {
+  if (!genericTemplateFits(cards)) throw new InstagramGraphInputError('Cards do not fit');
+  return postMessage(igUserId, token, {
+    recipient: { id: assertId(igsid) }, ...tagFields(options),
+    message: {
+      attachment: {
+        type: 'template',
+        payload: {
+          template_type: 'generic',
+          elements: cards.map((card) => ({
+            title: card.title.trim(),
+            ...(card.subtitle ? { subtitle: card.subtitle.trim() } : {}),
+            ...(card.imageUrl ? { image_url: card.imageUrl } : {}),
+            ...(card.defaultUrl ? { default_action: { type: 'web_url', url: card.defaultUrl } } : {}),
+            ...(card.buttons?.length ? { buttons: card.buttons.map(templateButton) } : {}),
+          })),
+        },
+      },
+    },
+  });
+}
+
+/** A button template: text plus 1-3 real buttons (link or postback), not quick replies. */
+export async function sendButtonTemplate(igUserId: string, token: string, igsid: string, text: string,
+  buttons: readonly IgTemplateButton[], options: SendOptions = {}): Promise<SentMessage> {
+  if (!buttonTemplateFits(text, buttons)) throw new InstagramGraphInputError('Buttons do not fit');
+  return postMessage(igUserId, token, {
+    recipient: { id: assertId(igsid) }, ...tagFields(options),
+    message: { attachment: { type: 'template', payload: { template_type: 'button', text: text.trim(), buttons: buttons.map(templateButton) } } },
+  });
+}
+
+export interface CommentReply { replyId: string }
+
+/**
+ * A public reply under a comment (POST /{comment-id}/replies). Callers send it
+ * once per comment through dispatchOnce with the key `ig-comment-reply:{commentId}`.
+ */
+export async function replyToComment(commentId: string, token: string, text: string): Promise<CommentReply> {
+  if (!validCommentReply(text)) throw new InstagramGraphInputError('Comment reply must be 1-2200 characters');
+  const result = await call<{ id?: unknown }>('POST', graph(`${assertId(commentId)}/replies`), token, { json: { message: text.trim() } });
+  const replyId = igId(result.id);
+  // Accepted without an id: ambiguous, so a 5xx (dispatchOnce records 'unknown').
+  if (!replyId) throw new MetaApiError('Meta API error: comment reply', { httpStatus: 502 });
+  return { replyId };
+}
+
+// ---------------------------------------------------------------- messenger profile
+
+/**
+ * Replace the account's ice breakers (conversation starters, at most 4); an
+ * empty list removes them. Needs live capture: built against Meta's documented
+ * messenger_profile shape for Instagram ({ platform: 'instagram', ice_breakers:
+ * [{ call_to_actions, locale }] }), not yet seen on an Instagram Login app.
+ * Callers keep it behind INSTAGRAM_ENABLED.
+ */
+export async function setIceBreakers(igUserId: string, token: string, items: readonly IceBreaker[]): Promise<void> {
+  if (!iceBreakersFit(items)) throw new InstagramGraphInputError('Ice breakers do not fit');
+  const url = graph(`${assertId(igUserId)}/messenger_profile`);
+  const result = items.length === 0
+    ? await call<{ result?: unknown }>('DELETE', url, token, { json: { platform: 'instagram', fields: ['ice_breakers'] } })
+    : await call<{ result?: unknown }>('POST', url, token, {
+      json: {
+        platform: 'instagram',
+        ice_breakers: [{ locale: 'default', call_to_actions: items.map((i) => ({ question: i.question.trim(), payload: i.payload })) }],
+      },
+    });
+  if (result.result !== 'success') throw new MetaApiError('Meta API error: messenger profile', { httpStatus: 502 });
 }
 
 // Error classification shared with Phase 10 (same MetaApiError shape).

@@ -54,7 +54,7 @@ import {
 import { useTranslations } from "next-intl";
 import { getT } from "@/lib/i18n/translate";
 import { unlinkNodeReferences } from "@/lib/flows/edges";
-import type { FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow } from "@/lib/flows/types";
+import type { FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow, FlowTriggerType } from "@/lib/flows/types";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import { flowNodesFor, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
 import { channelPath } from "@/lib/channels/routes";
@@ -68,7 +68,7 @@ import { ADD_NODE_TYPES, NODE_META, slugify, type BuilderNode, type NodeType } f
 export interface BuilderState {
   name: string;
   description: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
+  trigger_type: FlowTriggerType;
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   status: FlowRow["status"];
@@ -161,15 +161,32 @@ export interface FlowEditorContextValue {
   triggerTypes: BuilderState["trigger_type"][];
 }
 
-/** Every trigger the editor knows, in picker order. */
-const BUILDER_TRIGGERS: BuilderState["trigger_type"][] = [
-  "keyword", "template_reply", "first_inbound_message", "order_received", "ad_click", "manual",
-];
+/**
+ * Every trigger the editor knows, in picker order. The record makes a trigger
+ * type added to FlowTriggerConfig a compile error until it is placed here.
+ */
+const BUILDER_TRIGGER_ORDER = {
+  keyword: 1, ig_comment: 2, ig_story_reply: 3, ig_story_mention: 4, template_reply: 5,
+  first_inbound_message: 6, order_received: 7, ad_click: 8, default_reply: 9, manual: 10,
+} satisfies Record<FlowTriggerType, number>;
+const BUILDER_TRIGGERS = (Object.keys(BUILDER_TRIGGER_ORDER) as FlowTriggerType[])
+  .sort((a, b) => BUILDER_TRIGGER_ORDER[a] - BUILDER_TRIGGER_ORDER[b]);
+
+/**
+ * Stage 2 steps whose settings forms (node-config-form.tsx) and engine
+ * support are not built yet (2C/2D). They stay out of the add-step menus, so
+ * nobody places a step with an empty settings panel that publish then
+ * refuses; a flow that already has one still shows it. 2D removes each entry
+ * as its form lands.
+ */
+export const STEPS_WITHOUT_EDITOR: ReadonlySet<NodeType> = new Set<NodeType>([
+  "ig_comment_reply", "ig_private_reply", "send_card", "send_gallery",
+]);
 
 /** The add-step menu for a scope: steps every channel it runs on offers ('any' gets the overlap). */
 export function nodeTypesForScope(scope: FlowChannelScope | null | undefined): NodeType[] {
   const offered = scopeChannels(scope).map((channel) => new Set<string>(flowNodesFor(channel)));
-  return ADD_NODE_TYPES.filter((type) => offered.every((set) => set.has(type as FlowNodeType)));
+  return ADD_NODE_TYPES.filter((type) => !STEPS_WITHOUT_EDITOR.has(type) && offered.every((set) => set.has(type as FlowNodeType)));
 }
 
 /** The trigger picker for a scope: triggers every channel it runs on offers. */
@@ -281,6 +298,15 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { event_name: "LeadSubmitted", next_node_key: "" };
     case "send_storefront_link":
       return { message: "", ttl_hours: 24, purpose: "shop", next_node_key: "", failed_next: "" };
+    // Instagram-only steps (Stage 2).
+    case "ig_comment_reply":
+      return { replies: [""], next_node_key: "" };
+    case "ig_private_reply":
+      return { text: "", opt_in_label: t("defaultOptInLabel"), next_node_key: "" };
+    case "send_card":
+      return { card: { title: "", subtitle: "", buttons: [] }, next_node_key: "" };
+    case "send_gallery":
+      return { cards: [{ title: "", subtitle: "", buttons: [] }], next_node_key: "" };
     case "handoff":
       return { note: "" };
     case "end":

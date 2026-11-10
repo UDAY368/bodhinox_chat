@@ -39,7 +39,7 @@ import type { AccountMember, Channel } from "@/types";
 import { cn } from "@/lib/utils";
 import { creatorLabel, type CreatorLabel } from "@/lib/flows/creator-label";
 import { channelPath } from "@/lib/channels/routes";
-import type { FlowChannelScope } from "@/lib/flows/types";
+import type { FlowChannelScope, FlowTriggerType } from "@/lib/flows/types";
 import { splitFlow } from "./split-flow";
 
 /**
@@ -60,7 +60,7 @@ interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "paused" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
+  trigger_type: FlowTriggerType;
   trigger_config: { keywords?: string[] } | Record<string, unknown>;
   execution_count: number;
   last_executed_at: string | null;
@@ -623,5 +623,13 @@ function describeTrigger(flow: FlowRow, t: ReturnType<typeof useTranslations>): 
     const ids = Array.isArray(cfg.ad_ids) ? cfg.ad_ids.length : 0;
     return ids ? t("triggerAdClick", { count: ids }) : t("triggerAdClickAny");
   }
+  if (flow.trigger_type === "default_reply") return t("triggerDefaultReply");
+  if (flow.trigger_type === "ig_comment") {
+    if (cfg.post_scope === "next") return t("triggerIgCommentNext");
+    const posts = cfg.post_scope === "specific" && Array.isArray(cfg.media_ids) ? cfg.media_ids.length : 0;
+    return posts ? t("triggerIgCommentSpecific", { count: posts }) : t("triggerIgCommentAny");
+  }
+  if (flow.trigger_type === "ig_story_reply") return t("triggerIgStoryReply");
+  if (flow.trigger_type === "ig_story_mention") return t("triggerIgStoryMention");
   return t("triggerManual");
 }

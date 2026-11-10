@@ -328,6 +328,20 @@ Channel separation (Stage 1 foundation): four additive migrations, applied by th
 - **Check after deploy:** as the migration owner, `SELECT count(*) FROM automations WHERE channel <> 'whatsapp';` is 0 until Instagram automations are created; `SELECT convalidated FROM pg_constraint WHERE conname='automations_channel_check';` is true; `GET /api/account/channels` as any member answers 200 with WhatsApp `enabled`.
 - **Rollback:** redeploy the previous release; it ignores the table, the column and the index (leave the migrations in place). No env var is added.
 
+Instagram Phase 1 foundation (Stage 2, 2A): eight additive migrations, applied by the normal CI `migrate` job before the code deploys. Each non-index file starts with `SET LOCAL lock_timeout = '5s'`.
+
+- `20261117070000_flow_ig_triggers`: re-adds `flows_trigger_type_check` (adds `default_reply`, `ig_comment`, `ig_story_reply`, `ig_story_mention`) and `flow_nodes_node_type_check` (adds `ig_comment_reply`, `ig_private_reply`, `send_card`, `send_gallery`) as supersets, `NOT VALID`.
+- `20261117070100_flow_ig_triggers_validate`: validates both (SHARE UPDATE EXCLUSIVE; flow reads and writes continue).
+- `20261117070200_instagram_comment_flow_links`: nullable `instagram_comment_events.flow_run_id` (FK to `flow_runs (account_id, id)`, `NOT VALID`), `public_reply_id` (digits check, `NOT VALID`) and `opted_in_at`.
+- `20261117070300_contact_ig_profile_facts`: nullable `contact_channel_identities.follows_business`, `business_follows`, `is_verified`, `ig_follower_count` (`>= 0`, `NOT VALID`), `profile_checked_at`.
+- `20261117070400_instagram_account_profile`: nullable `instagram_accounts.ice_breakers` (array of at most 4, `NOT VALID`) and `profile_synced_at`, plus `GRANT SELECT (ice_breakers, profile_synced_at)` to `bodhinox_app`.
+- `20261117070500_channel_reply_switches`: `ai_configs.instagram_auto_reply_enabled` and `workspace_inbox_settings.instagram_away_message_enabled`, both `boolean NOT NULL DEFAULT false` (constant default, no rewrite), and a `NOT VALID` check that the Instagram away switch needs the away text.
+- `20261117070600_webhook_endpoint_channels`: `webhook_endpoints.channels text[] NOT NULL DEFAULT '{whatsapp}'` (every existing endpoint stays WhatsApp-only) with a `NOT VALID` check (1–2 of `whatsapp`, `instagram`).
+- `20261117070700_instagram_phase1_validate`: validates the six constraints above.
+- **Check after deploy:** as the migration owner, `SELECT conname, convalidated FROM pg_constraint WHERE conname IN ('flows_trigger_type_check','flow_nodes_node_type_check','instagram_comment_events_flow_run_fkey','webhook_endpoints_channels_check','instagram_accounts_ice_breakers_check','workspace_inbox_settings_instagram_away_check');` shows every row validated; `SELECT count(*) FROM webhook_endpoints WHERE channels <> '{whatsapp}';` is 0; `SELECT count(*) FROM ai_configs WHERE instagram_auto_reply_enabled;` is 0.
+- **Live capture before shipping** (Instagram stays dark until it matches): the `messenger_profile` ice breaker call, the profile follow fields (`is_user_follow_business`, `is_business_follow_user`, `is_verified_user`, `follower_count`) and `story_mention` webhook payloads, a private reply that carries the Opening DM quick reply, plus the quick-reply cap (11 assumed; Meta has documented 13).
+- **Rollback:** redeploy the previous release; it ignores the new columns and accepts the wider checks (leave the migrations in place). No env var is added.
+
 ## Operations
 
 Inspect failed jobs by ID, type, attempts and sanitized last_error in the platform console (Health), and requeue one there with a reason once its cause is fixed; a trusted operator database session is no longer needed for that. Inspect inbound_action_steps and outbound_intents for interrupted external actions. Do not reset unknown/dispatching intents or stage checkpoints and resend blindly. First reconcile the provider's delivery state and application audit records.

@@ -46,9 +46,14 @@ function channelPages(channel: Channel): NavPage[] {
       { href: channelPath('whatsapp', 'forms'), labelKey: 'forms', group: channel },
       { href: channelPath('whatsapp', 'ads'), labelKey: 'ads', group: channel },
     ];
-  // Stage 1 ships the Comments page only; Stage 2 adds conversation starters,
-  // default reply and quick automations here once their pages exist.
-  return [...common, { href: channelPath('instagram', 'comments'), labelKey: 'comments', group: channel }];
+  // Stage 2 tools. Stage 3 adds ref links, menu and insights.
+  return [
+    ...common,
+    { href: channelPath('instagram', 'comments'), labelKey: 'comments', group: channel },
+    { href: channelPath('instagram', 'conversationStarters'), labelKey: 'conversationStarters', group: channel },
+    { href: channelPath('instagram', 'defaultReply'), labelKey: 'defaultReply', group: channel },
+    { href: channelPath('instagram', 'quickAutomations'), labelKey: 'quickAutomations', group: channel },
+  ];
 }
 
 function workspacePages(channels: readonly Channel[]): NavPage[] {

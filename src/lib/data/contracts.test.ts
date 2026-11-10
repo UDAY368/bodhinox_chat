@@ -293,6 +293,18 @@ describe('fixed CRM resource authorization', () => {
       expect.arrayContaining(['source_id', 'content_hash', 'fetched_at', 'source_url'])
     );
   });
+  it('keeps the Stage 2 Instagram columns out of browser writes', () => {
+    const owner = { ...tenant, role: 'owner' as const };
+    // The Instagram AI switch is readable like the WhatsApp one and written only by /api/ai/config.
+    expect(getResource('ai_configs', true).read).toContain('instagram_auto_reply_enabled');
+    expect(() => validateWrite('ai_configs', { instagram_auto_reply_enabled: true }, owner, true, 'update')).toThrow();
+    // Webhook endpoints (and their channels) are server-only.
+    expect(() => getResource('webhook_endpoints', true)).toThrow();
+    expect(getResource('webhook_endpoints').columns.map((c) => c.name)).toContain('channels');
+    // Instagram accounts, identities and comment events are not generic resources.
+    for (const table of ['instagram_accounts', 'contact_channel_identities', 'instagram_comment_events', 'workspace_inbox_settings'])
+      expect(() => getResource(table, true)).toThrow();
+  });
   it('lets a browser read an automation channel but never set it; workspace_channels is not a resource', () => {
     expect(getResource('automations', true).read).toContain('channel');
     expect(() => validateQuery('automations', { projection: 'id,channel', filters: [{ field: 'channel', op: 'eq', value: 'instagram' }] }, tenant, true)).not.toThrow();

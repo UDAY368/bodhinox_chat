@@ -28,7 +28,7 @@ export function scopeChannels(scope: FlowChannelScope | null | undefined): Chann
 /** 'yes': runs as on WhatsApp; 'conditional': runs only when its config fits; 'no': unavailable. */
 export type NodeSupport = 'yes' | 'conditional' | 'no';
 
-/** Instagram support per flow node (design section 8). Every node runs on WhatsApp. */
+/** Instagram support per flow node (design section 8; Stage 2 adds the Instagram-only steps and opens ai_reply). */
 export const INSTAGRAM_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   start: 'yes',
   send_message: 'yes',
@@ -48,22 +48,29 @@ export const INSTAGRAM_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   payment_link: 'yes',
   book_appointment: 'no',
   conversion_event: 'no',
-  ai_reply: 'no',
+  // Stage 2 (plan item 9): the AI step answers inside the 24-hour window.
+  ai_reply: 'yes',
   condition: 'yes',
   set_tag: 'yes',
   set_attribute: 'yes',
   api_request: 'yes',
   connect_flow: 'yes',
   assign_agent: 'yes',
+  // Stage 2 Instagram-only steps.
+  ig_comment_reply: 'yes',
+  ig_private_reply: 'yes',
+  send_card: 'yes',
+  send_gallery: 'yes',
   handoff: 'yes',
   end: 'yes',
 };
 
 /**
- * WhatsApp support per flow node (Stage 1). Every node that exists today runs
- * on WhatsApp (send_buttons is WhatsApp's reply-button message). Instagram-only
- * nodes added later (comment reply, private reply, card, gallery) are 'no'
- * here, so a WhatsApp flow can never place or run them.
+ * WhatsApp support per flow node. Every node that existed before Stage 2 runs
+ * on WhatsApp (send_buttons is WhatsApp's reply-button message; its
+ * Instagram-only `link_buttons` are for the validator to refuse). The
+ * Instagram-only steps (comment reply, private reply, card, gallery) are 'no',
+ * so a WhatsApp flow can never place or run them.
  */
 export const WHATSAPP_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   start: 'yes',
@@ -91,6 +98,11 @@ export const WHATSAPP_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   api_request: 'yes',
   connect_flow: 'yes',
   assign_agent: 'yes',
+  // Instagram-only: comment replies, private replies and generic-template cards.
+  ig_comment_reply: 'no',
+  ig_private_reply: 'no',
+  send_card: 'no',
+  send_gallery: 'no',
   handoff: 'yes',
   end: 'yes',
 };
@@ -158,13 +170,33 @@ export function listFitsQuickReplies(config: Record<string, unknown>): boolean {
 type TriggerType = FlowTriggerConfig['trigger_type'];
 
 /**
- * The flow triggers each channel offers. A flow with scope 'any' must use a
- * trigger both channels offer. Stage 2 adds default_reply to both and the
- * ig_* triggers to Instagram; Stage 3 adds ad_click to Instagram.
+ * The channels each flow trigger runs on, in palette order. `satisfies`
+ * makes this exhaustive at compile time: a trigger type added to
+ * FlowTriggerConfig fails the build until it is placed here, and a key that is
+ * not a trigger type fails too. A flow with scope 'any' must use a trigger
+ * both channels offer. Stage 3 adds ad_click to Instagram.
  */
+const FLOW_TRIGGER_CHANNELS = {
+  keyword: ['whatsapp', 'instagram'],
+  first_inbound_message: ['whatsapp', 'instagram'],
+  manual: ['whatsapp', 'instagram'],
+  template_reply: ['whatsapp'],
+  order_received: ['whatsapp'],
+  ad_click: ['whatsapp'],
+  default_reply: ['whatsapp', 'instagram'],
+  ig_comment: ['instagram'],
+  ig_story_reply: ['instagram'],
+  ig_story_mention: ['instagram'],
+} as const satisfies Record<TriggerType, readonly Channel[]>;
+
+const triggersOn = (channel: Channel): readonly TriggerType[] =>
+  (Object.keys(FLOW_TRIGGER_CHANNELS) as TriggerType[])
+    .filter((trigger) => (FLOW_TRIGGER_CHANNELS[trigger] as readonly Channel[]).includes(channel));
+
+/** The flow triggers each channel offers (derived from the exhaustive map above). */
 export const FLOW_TRIGGERS_BY_CHANNEL: Record<Channel, readonly TriggerType[]> = {
-  whatsapp: ['keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click'],
-  instagram: ['keyword', 'first_inbound_message', 'manual'],
+  whatsapp: triggersOn('whatsapp'),
+  instagram: triggersOn('instagram'),
 };
 
 export function flowTriggersFor(channel: Channel): readonly TriggerType[] {

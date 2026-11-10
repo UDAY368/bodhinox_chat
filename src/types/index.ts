@@ -187,6 +187,29 @@ export type Channel = 'whatsapp' | 'instagram';
 /** The channel a conversation is on (Phase 11). Read-only for the browser. */
 export type ConversationChannel = Channel;
 
+/**
+ * One conversation starter as stored in instagram_accounts.ice_breakers
+ * (Stage 2, at most 4). The Meta payload for its tap is `ib:<flow_id>`
+ * (src/lib/instagram/postback-payloads.ts); the flow must be an Instagram flow
+ * of the same workspace.
+ */
+export interface InstagramIceBreaker {
+  question: string;
+  flow_id: string;
+}
+
+/** Instagram profile facts on contact_channel_identities (Stage 2). Null means unknown. */
+export interface InstagramProfileFactsRow {
+  follows_business: boolean | null;
+  business_follows: boolean | null;
+  is_verified: boolean | null;
+  ig_follower_count: number | null;
+  profile_checked_at: string | null;
+}
+
+/** The channels an outbound webhook endpoint receives events for (webhook_endpoints.channels; default ['whatsapp']). */
+export type WebhookEndpointChannels = Channel[];
+
 export interface Conversation {
   bot_paused?: boolean;
   /** Fixed by the inbound pipeline; send routes derive the channel from the row, never from a client. */

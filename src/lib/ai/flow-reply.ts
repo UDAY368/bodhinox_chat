@@ -57,6 +57,13 @@ import { buildHandoffSummary, pauseConversationForStaff, type HandoffGuardReason
 import type { DataClient } from '@/lib/data/types'
 import { getSessionWindow } from '@/lib/inbox/session'
 import { conversationNumberDisconnected, engineSendText } from '@/lib/flows/meta-send'
+import {
+  assertInstagramAiReady,
+  instagramRefusalCode,
+  prepareInstagramAiReply,
+  sendInstagramAiReply,
+  type PreparedInstagramAiReply,
+} from './instagram-send'
 import { dispatchOnce } from '@/lib/jobs/dispatch'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { PlanLimitError } from '@/lib/billing/entitlements'
@@ -156,8 +163,8 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
       .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
     if (error || !data) return 'conversation_unavailable'
     const row = data as ConversationRow
-    // WhatsApp only: an Instagram conversation is refused before any intent is claimed.
-    if (row.channel != null && row.channel !== 'whatsapp') return 'conversation_unavailable'
+    // WhatsApp, or (Stage 2) Instagram through the Instagram sender; a legacy null channel is WhatsApp.
+    if (row.channel != null && row.channel !== 'whatsapp' && row.channel !== 'instagram') return 'conversation_unavailable'
     if (row.bot_paused) return 'bot_paused'
     if (row.ai_autoreply_disabled) return 'ai_disabled_for_conversation'
     if (!getSessionWindow(row.last_customer_message_at, Date.now()).active) return 'session_closed'
@@ -197,8 +204,11 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
     } else {
       const conversation = await readConversation()
       if (typeof conversation === 'string') return unavailable(conversation)
-      // A disconnected number refuses replies; never send from another number.
-      if (await conversationNumberDisconnected(db, accountId, conversationId)) return unavailable('number_disconnected')
+      // A disconnected number (or Instagram account) refuses replies; never send from another one.
+      if (conversation.channel === 'instagram') {
+        const refused = await instagramUnavailable(accountId, conversationId)
+        if (refused) return unavailable(refused)
+      } else if (await conversationNumberDisconnected(db, accountId, conversationId)) return unavailable('number_disconnected')
       if ((conversation.ai_reply_count ?? 0) >= config.autoReplyMaxPerConversation) return unavailable('reply_cap')
 
       const messages = await buildConversationContext(db, conversationId)
@@ -326,17 +336,31 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
       if (typeof current === 'string') throw new Error('AI flow reply eligibility changed before sending')
     }
     const { text, score, citations } = decision
+    // Instagram: the window, the account and the 1000-byte limit are checked
+    // before the send intent is claimed, so a refusal is a certain "not sent".
+    let instagramReply: PreparedInstagramAiReply | null = null
+    if (ready.channel === 'instagram') {
+      try {
+        instagramReply = await prepareInstagramAiReply(accountId, conversationId, text)
+      } catch (error) {
+        const code = instagramRefusalCode(error)
+        if (!code) throw error
+        return unavailable(code === 'instagram_window_closed' ? 'session_closed' : code === 'invalid_request' ? 'send_failed' : 'number_disconnected')
+      }
+    }
     try {
       const sent = await dispatchOnce(accountId, args.intentKey, async (): Promise<SentTurn> => ({
-        ...(await engineSendText({
-          accountId,
-          userId: args.userId,
-          conversationId,
-          contactId,
-          text,
-          aiGenerated: true,
-          beforeSend,
-        })),
+        ...(instagramReply
+          ? await sendInstagramAiReply(instagramReply, { beforeSend })
+          : await engineSendText({
+            accountId,
+            userId: args.userId,
+            conversationId,
+            contactId,
+            text,
+            aiGenerated: true,
+            beforeSend,
+          })),
         text,
         score,
         citations,
@@ -349,6 +373,21 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
   } catch (error) {
     console.error('[ai flow reply] failed', { error: error instanceof Error ? error.name : 'unknown' })
     return unavailable('generation_failed')
+  }
+}
+
+/**
+ * Why an Instagram conversation cannot take an AI reply now (account or
+ * window), as the step's unavailable reason; null when it can.
+ */
+async function instagramUnavailable(accountId: string, conversationId: string): Promise<FlowAiUnavailableReason | null> {
+  try {
+    await assertInstagramAiReady(accountId, conversationId)
+    return null
+  } catch (error) {
+    const code = instagramRefusalCode(error)
+    if (!code) throw error
+    return code === 'instagram_window_closed' ? 'session_closed' : 'number_disconnected'
   }
 }
 

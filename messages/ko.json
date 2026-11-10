@@ -128,7 +128,10 @@
     "appointments": "예약",
     "allInboxes": "모든 인박스",
     "templates": "템플릿",
-    "comments": "댓글"
+    "comments": "댓글",
+    "conversationStarters": "대화 시작 문구",
+    "defaultReply": "기본 답장",
+    "quickAutomations": "빠른 자동화"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
@@ -1947,7 +1950,13 @@
       "creatorTeammate": "팀원",
       "triggerOrderReceived": "트리거: WhatsApp 장바구니",
       "triggerAdClick": "트리거: 선택한 광고 {count, plural, other {#개}} 클릭",
-      "triggerAdClickAny": "트리거: 모든 광고 클릭"
+      "triggerAdClickAny": "트리거: 모든 광고 클릭",
+      "triggerDefaultReply": "트리거: 다른 플로우가 답하지 않는 메시지",
+      "triggerIgCommentAny": "트리거: 모든 게시물의 댓글",
+      "triggerIgCommentSpecific": "트리거: 선택한 게시물 {count}개의 댓글",
+      "triggerIgCommentNext": "트리거: 다음 게시물의 댓글",
+      "triggerIgStoryReply": "트리거: 스토리 답장",
+      "triggerIgStoryMention": "트리거: 다른 사람 스토리의 언급"
     },
     "edit": {
       "notFound": "플로우를 찾을 수 없습니다.",
@@ -2383,6 +2392,22 @@
         "send_storefront_link": {
           "label": "스토어 링크",
           "blurb": "연락처에 스토어 또는 최근 주문으로 가는 보안 링크를 보냅니다"
+        },
+        "ig_comment_reply": {
+          "label": "댓글에 답글",
+          "blurb": "댓글 아래에 공개 답글을 게시합니다"
+        },
+        "ig_private_reply": {
+          "label": "비공개 답장",
+          "blurb": "댓글 작성자에게 첫 DM을 보냅니다"
+        },
+        "send_card": {
+          "label": "카드 보내기",
+          "blurb": "이미지, 제목, 버튼이 있는 카드를 보냅니다"
+        },
+        "send_gallery": {
+          "label": "갤러리 보내기",
+          "blurb": "넘겨 볼 수 있는 카드를 최대 10장 보냅니다"
         }
       },
       "ports": {
@@ -2527,7 +2552,11 @@
         "commerce": "이 단계를 사용하려면 스토어 결제를 켜세요.",
         "meetings": "이 단계를 사용하려면 Zoom을 연결하세요.",
         "shipping": "이 단계를 사용하려면 택배사를 연결하세요."
-      }
+      },
+      "triggerDefaultReplyTitle": "다른 플로우가 답하지 않는 메시지(기본 답장)",
+      "triggerIgCommentTitle": "누군가 게시물에 댓글을 남김",
+      "triggerIgStoryReplyTitle": "누군가 스토리에 답장함",
+      "triggerIgStoryMentionTitle": "누군가 스토리에서 나를 언급함"
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -2550,7 +2579,8 @@
       "statusUpdateFailed": "상태 업데이트 실패",
       "deleteFailedStatus": "삭제 실패: {status}",
       "deleteFailed": "삭제 실패",
-      "statusPaused": "일시 중지되었습니다. 새 대화에서 이 플로우가 더 이상 시작되지 않습니다."
+      "statusPaused": "일시 중지되었습니다. 새 대화에서 이 플로우가 더 이상 시작되지 않습니다.",
+      "defaultOptInLabel": "링크 보내 주세요"
     },
     "summary": {
       "options": "옵션 {count}개",
@@ -2583,7 +2613,9 @@
       "appointmentServices": "{count, plural, other {서비스 #개}}",
       "paymentOrder": "플로우의 주문 결제 요청",
       "storefrontShop": "스토어 링크",
-      "storefrontStatus": "주문 상태 링크"
+      "storefrontStatus": "주문 상태 링크",
+      "commentReplies": "답글 {count}개, 번갈아 게시",
+      "cards": "카드 {count}장"
     },
     "header": {
       "backToFlows": "플로우로 돌아가기",
@@ -2783,6 +2815,103 @@
       "templateUnavailable": "이 템플릿은 {channel}에서 작동하지 않습니다.",
       "previewSubtitleInstagram": "고객이 Instagram Direct에서 보는 화면입니다. 아무것도 전송되지 않습니다.",
       "moveTo": "이 초안을 옮길 채널"
+    },
+    "triggers": {
+      "frequency": {
+        "label": "빈도",
+        "everyTime": "매번",
+        "oncePer24h": "사람마다 24시간에 한 번"
+      },
+      "needsMessageAccess": "고객이 Instagram에서 “메시지 액세스 허용”을 켜야 이 트리거가 실행됩니다.",
+      "defaultReply": {
+        "help": "메시지가 다른 플로우를 시작하지 않고 답장을 기다리는 플로우도 없을 때 실행됩니다.",
+        "oneOnly": "채널마다 기본 답장은 하나만 활성화할 수 있습니다."
+      },
+      "igComment": {
+        "help": "누군가 게시물에 댓글을 남기면 시작됩니다. 한 사람은 게시물마다 한 번만 시작합니다.",
+        "account": "Instagram 계정",
+        "anyAccount": "연결된 모든 계정",
+        "postScope": "대상 게시물",
+        "postAny": "모든 게시물",
+        "postSpecific": "특정 게시물",
+        "postNext": "다음 게시물",
+        "postNextHelp": "저장한 뒤 처음 올리는 게시물에서 시작됩니다.",
+        "choosePosts": "게시물 선택",
+        "postsChosen": "게시물 {count}개 선택됨",
+        "noPosts": "게시물이 없습니다. 먼저 Instagram에 게시물을 올리세요.",
+        "postsLoadFailed": "게시물을 불러오지 못했습니다. 다시 시도하세요.",
+        "includeKeywords": "이 단어가 있는 댓글만",
+        "includeHelp": "비워 두면 모든 댓글에서 시작합니다.",
+        "excludeKeywords": "이 단어가 있는 댓글은 건너뛰기",
+        "modeContains": "포함",
+        "modeExact": "정확히 일치",
+        "publicReplies": "공개 답글",
+        "publicRepliesHelp": "선택 사항입니다. 매번 하나를 골라 댓글 아래에 게시합니다. 최대 {max}개.",
+        "addPublicReply": "답글 추가",
+        "publicReplyPlaceholder": "감사합니다! DM을 확인하세요",
+        "tooManyKeywords": "키워드는 최대 {max}개까지 사용할 수 있습니다."
+      },
+      "igStoryReply": {
+        "help": "누군가 내 스토리에 답장하면 시작됩니다.",
+        "anyStory": "모든 스토리",
+        "specificStories": "특정 스토리",
+        "storyIds": "스토리 ID",
+        "keywords": "이 단어가 있는 답장만",
+        "keywordsHelp": "비워 두면 모든 답장에서 시작합니다.",
+        "reactions": "이모지 반응에도 시작"
+      },
+      "igStoryMention": {
+        "help": "누군가 스토리에서 내 계정을 언급하면 시작됩니다."
+      }
+    },
+    "nodes": {
+      "windowHint": "Instagram 메시지는 고객의 마지막 메시지 후 24시간 이내에만 보낼 수 있습니다.",
+      "igCommentReply": {
+        "help": "플로우를 시작한 댓글 아래에 이 답글 중 하나를 공개로 게시합니다. 댓글마다 한 번만 보냅니다.",
+        "replies": "답글",
+        "addReply": "답글 추가",
+        "maxReplies": "최대 {max}개이며 매번 하나를 고릅니다.",
+        "tooLong": "답글은 {max}자 이내로 작성하세요.",
+        "onlyCommentFlows": "댓글로 시작된 플로우에서만 작동합니다."
+      },
+      "igPrivateReply": {
+        "help": "댓글 작성자에게 보내는 첫 메시지입니다. Instagram은 댓글마다 7일 이내에 비공개 답장 하나만 허용합니다.",
+        "text": "메시지",
+        "optIn": "대화 시작 버튼",
+        "optInHelp": "플로우가 이 탭을 기다립니다. 탭하면 대화가 열려 다음 메시지를 보낼 수 있습니다.",
+        "optInPlaceholder": "링크 보내 주세요",
+        "firstOnly": "댓글 플로우의 첫 단계여야 합니다.",
+        "noInput": "비공개 답장은 질문을 하거나 보내기 전에 기다릴 수 없습니다."
+      },
+      "card": {
+        "title": "제목",
+        "subtitle": "부제목",
+        "image": "이미지",
+        "imageHelp": "https 링크의 PNG 또는 JPEG.",
+        "link": "카드를 탭하면 열 링크",
+        "buttons": "버튼",
+        "addButton": "버튼 추가",
+        "buttonTypeUrl": "링크 열기",
+        "buttonTypePostback": "단계로 이동",
+        "buttonTitle": "버튼 문구",
+        "buttonUrl": "링크",
+        "maxButtons": "버튼은 최대 {max}개입니다.",
+        "titleRequired": "제목을 추가하세요."
+      },
+      "gallery": {
+        "cards": "카드",
+        "addCard": "카드 추가",
+        "removeCard": "카드 삭제",
+        "maxCards": "카드는 최대 {max}장입니다.",
+        "cardN": "카드 {n}"
+      },
+      "buttons": {
+        "linkButtons": "링크 버튼",
+        "addLinkButton": "링크 버튼 추가",
+        "linkButtonsHelp": "Instagram 전용입니다. 링크를 탭해도 플로우는 계속되지 않습니다.",
+        "maxButtons": "버튼은 모두 합쳐 최대 {max}개입니다.",
+        "replyHelp": "탭하면 해당 버튼의 경로로 플로우가 계속됩니다."
+      }
     }
   },
   "Settings": {
@@ -3509,7 +3638,13 @@
       "openRouterHint": "이 선택 항목은 무료 모델을 사용합니다. 직접 입력한 모델은 유료일 수 있습니다. 무료 모델은 사용량 제한이 있으며 일시적으로 사용할 수 없을 수 있습니다. 키는 계정 설정에 암호화되어 저장되며 소스 코드에 저장되지 않습니다.",
       "baseUrl": "기본 URL",
       "baseUrlHint": "OpenAI 호환 API의 기본 URL입니다. 예: https://api.groq.com/openai/v1. /chat/completions 경로는 직접 입력하지 않는 경우 자동으로 추가됩니다.",
-      "missingBaseUrl": "OpenAI 호환 API의 기본 URL을 입력하세요."
+      "missingBaseUrl": "OpenAI 호환 API의 기본 URL을 입력하세요.",
+      "instagram": {
+        "title": "Instagram",
+        "autoReply": "Instagram 메시지에 자동으로 답하기",
+        "autoReplyHelp": "같은 AI 에이전트를 사용합니다. 고객의 마지막 메시지 후 24시간 이내에만 답합니다.",
+        "unavailable": "이 기능을 켜려면 Instagram을 연결하세요."
+      }
     },
     "aiKnowledge": {
       "loadFailed": "지식베이스를 불러오지 못했습니다",
@@ -3611,6 +3746,14 @@
       "notifications": {
         "disabledTitle": "{host}(으)로 가는 웹훅이 꺼졌습니다",
         "disabledBody": "{host}(으)로의 전송이 {hours}시간 동안 실패해 Bodhinox가 이벤트 전송을 중단했습니다. 수신 서버를 고친 뒤 설정에서 웹훅을 다시 켜세요."
+      },
+      "channels": {
+        "label": "채널",
+        "help": "이 채널의 이벤트가 이 엔드포인트로 전송됩니다.",
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram",
+        "required": "채널을 하나 이상 선택하세요.",
+        "instagramNote": "Instagram 이벤트에는 채널과 Instagram ID가 담기며 전화번호는 담기지 않습니다."
       }
     },
     "workspaceAttributes": {
@@ -3941,7 +4084,12 @@
       "save": "저장",
       "saved": "받은편지함 설정을 저장했습니다",
       "saveFailed": "받은편지함 설정을 저장하지 못했습니다",
-      "adminsOnly": "관리자와 소유자만 이 설정을 변경할 수 있습니다."
+      "adminsOnly": "관리자와 소유자만 이 설정을 변경할 수 있습니다.",
+      "instagramAway": {
+        "label": "Instagram에서 부재 메시지 보내기",
+        "help": "같은 부재 메시지를 사용합니다. 고객 메시지 후 24시간 이내에만 보냅니다.",
+        "needsMessage": "먼저 부재 메시지를 작성하세요."
+      }
     },
     "routingRules": {
       "title": "배정 규칙",
@@ -11260,5 +11408,96 @@
     "attentionInstagram": "Instagram 계정을 다시 연결해야 합니다. 메시지가 전송되거나 수신되지 않을 수 있습니다.",
     "connect": "연결",
     "fix": "해결하기"
+  },
+  "Instagram": {
+    "comments": {
+      "title": "댓글",
+      "description": "댓글에 자동으로 답하고 댓글 작성자에게 비공개 메시지를 보냅니다.",
+      "flowsTitle": "댓글 플로우",
+      "noFlows": "아직 댓글 플로우가 없습니다.",
+      "newFlow": "새 댓글 플로우",
+      "legacyBadge": "규칙",
+      "convertToFlow": "플로우로 변환",
+      "convertHelp": "이 규칙을 편집할 수 있는 Instagram 플로우로 바꿉니다. 규칙은 꺼집니다.",
+      "convertConfirm": "이 규칙을 플로우로 변환할까요? 규칙은 더 이상 실행되지 않습니다.",
+      "converted": "규칙을 변환했습니다. 새 플로우는 게시할 때까지 초안으로 남습니다.",
+      "convertFailed": "규칙을 변환하지 못했습니다. 다시 시도하세요.",
+      "openFlow": "플로우 열기"
+    },
+    "starters": {
+      "title": "대화 시작 문구",
+      "description": "나와 채팅을 열면 탭할 수 있는 질문을 최대 4개까지 보여 줍니다. 각 질문은 플로우를 시작합니다.",
+      "account": "Instagram 계정",
+      "question": "질문",
+      "questionPlaceholder": "영업시간이 어떻게 되나요?",
+      "flow": "시작할 플로우",
+      "chooseFlow": "플로우 선택",
+      "noFlows": "먼저 Instagram 플로우를 만드세요.",
+      "add": "시작 문구 추가",
+      "remove": "삭제",
+      "max": "시작 문구는 최대 {max}개까지 추가할 수 있습니다.",
+      "save": "저장 후 게시",
+      "saving": "저장 중…",
+      "saved": "Instagram의 대화 시작 문구를 업데이트했습니다.",
+      "saveFailed": "Instagram을 업데이트하지 못했습니다. 다시 시도하세요.",
+      "duplicate": "질문은 서로 달라야 합니다.",
+      "tooLong": "질문은 {max}자 이내로 작성하세요.",
+      "empty": "아직 대화 시작 문구가 없습니다.",
+      "adminOnly": "관리자만 대화 시작 문구를 변경할 수 있습니다.",
+      "notConnected": "대화 시작 문구를 추가하려면 Instagram 계정을 연결하세요.",
+      "flowMissing": "연결된 플로우가 삭제되었거나 Instagram 플로우가 아닙니다."
+    },
+    "defaultReply": {
+      "title": "기본 답장",
+      "description": "다른 플로우가 처리하지 않는 메시지에 답합니다.",
+      "flow": "기본 답장 플로우",
+      "noFlow": "아직 기본 답장이 없습니다.",
+      "create": "기본 답장 만들기",
+      "edit": "플로우 편집",
+      "active": "켜짐",
+      "inactive": "꺼짐",
+      "saved": "기본 답장을 업데이트했습니다.",
+      "saveFailed": "기본 답장을 저장하지 못했습니다. 다시 시도하세요.",
+      "adminOnly": "관리자만 기본 답장을 변경할 수 있습니다."
+    },
+    "quickAutomations": {
+      "title": "빠른 자동화",
+      "description": "몇 가지 질문에 답하면 편집할 수 있는 플로우가 바로 만들어집니다.",
+      "wizards": "안내형 설정",
+      "templates": "템플릿",
+      "useTemplate": "템플릿 사용",
+      "start": "시작",
+      "back": "이전",
+      "next": "다음",
+      "finish": "플로우 만들기",
+      "creating": "만드는 중…",
+      "created": "플로우 초안을 만들었습니다. 검토한 뒤 준비되면 게시하세요.",
+      "createFailed": "플로우를 만들지 못했습니다. 다시 시도하세요.",
+      "empty": "아직 템플릿이 없습니다.",
+      "commentLinks": {
+        "title": "댓글에 자동으로 DM 링크 보내기",
+        "description": "키워드로 댓글을 단 모든 사람에게 링크를 보냅니다."
+      },
+      "growFollowers": {
+        "title": "댓글로 팔로워 늘리기",
+        "description": "보상을 보내기 전에 팔로우를 요청합니다."
+      },
+      "storyLeads": {
+        "title": "스토리 답장으로 리드 모으기",
+        "description": "스토리에 답장한 사람들의 이메일을 모읍니다."
+      },
+      "keyword": "키워드",
+      "keywordHelp": "비워 두면 모든 댓글에 답합니다.",
+      "post": "게시물",
+      "anyPost": "모든 게시물",
+      "nextPost": "다음 게시물",
+      "message": "메시지",
+      "link": "링크",
+      "linkLabel": "버튼 문구",
+      "reward": "보상 링크",
+      "followPrompt": "팔로우를 요청하는 메시지",
+      "followedButton": "팔로우했어요",
+      "emailPrompt": "이메일을 묻는 질문"
+    }
   }
 }

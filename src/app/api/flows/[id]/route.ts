@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { parseChannelScope, validateFlowForActivation } from '@/lib/flows/validate';
-import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
+import type { FlowRow, FlowNodeRow, FlowTriggerType } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { apiNodeUsesSecrets, canonicalJson } from '@/lib/flows/api-request';
@@ -110,7 +110,7 @@ export async function GET(
 interface PutBody {
   name?: string;
   description?: string | null;
-  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply' | 'order_received' | 'ad_click';
+  trigger_type?: FlowTriggerType;
   trigger_config?: Record<string, unknown>;
   entry_node_id?: string | null;
   fallback_policy?: Record<string, unknown>;

@@ -8,7 +8,7 @@
 import type { DataClient } from '@/lib/data/types';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { encrypt } from '@/lib/whatsapp/encryption';
-import { normalizeEvents } from '@/lib/webhooks/events';
+import { normalizeEvents, normalizeWebhookChannels } from '@/lib/webhooks/events';
 import {
   WEBHOOK_PUBLIC_COLUMNS,
   generateWebhookSecret,
@@ -23,6 +23,7 @@ export class WebhookInputError extends Error {}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const URL_INVALID ="'url' must be a valid https:// URL";
 const EVENTS_INVALID = "'events' must be a non-empty array of known event names";
+const CHANNELS_INVALID = "'channels' must be a non-empty array of 'whatsapp' and/or 'instagram'";
 
 function asBody(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input))
@@ -31,7 +32,8 @@ function asBody(input: unknown): Record<string, unknown> {
 }
 
 function storeError(action: string, error: unknown): Error {
-  console.error(`[webhooks] ${action} failed`, error);
+  // A code only: a database error can echo the row (URL, encrypted secret).
+  console.error(`[webhooks] ${action} failed`, { code: (error as { code?: unknown } | null)?.code ?? null });
   return new Error(`Failed to ${action} webhook`);
 }
 
@@ -57,10 +59,13 @@ export async function createWebhook(
   if (!url) throw new WebhookInputError(URL_INVALID);
   const events = normalizeEvents(body.events);
   if (!events) throw new WebhookInputError(EVENTS_INVALID);
+  // Omitted: the column default, WhatsApp only (what every endpoint received before Instagram).
+  const channels = body.channels === undefined ? ['whatsapp'] : normalizeWebhookChannels(body.channels);
+  if (!channels) throw new WebhookInputError(CHANNELS_INVALID);
   const secret = generateWebhookSecret();
   const { data, error } = await db
     .from('webhook_endpoints')
-    .insert({ account_id: accountId, created_by: createdBy, url, secret: encrypt(secret), events })
+    .insert({ account_id: accountId, created_by: createdBy, url, secret: encrypt(secret), events, channels })
     .select(WEBHOOK_PUBLIC_COLUMNS)
     .single();
   if (error || !data) throw storeError('create', error);
@@ -85,6 +90,11 @@ export async function updateWebhook(
     const events = normalizeEvents(body.events);
     if (!events) throw new WebhookInputError(EVENTS_INVALID);
     updates.events = events;
+  }
+  if ('channels' in body) {
+    const channels = normalizeWebhookChannels(body.channels);
+    if (!channels) throw new WebhookInputError(CHANNELS_INVALID);
+    updates.channels = channels;
   }
   if ('is_active' in body) {
     if (typeof body.is_active !== 'boolean') throw new WebhookInputError("'is_active' must be a boolean");

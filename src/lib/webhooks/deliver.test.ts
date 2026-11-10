@@ -342,3 +342,79 @@ describe('dispatchWebhookEvent', () => {
     ).rejects.toThrow('Queue unavailable');
   });
 });
+
+describe('dispatchWebhookEvent channels (Stage 2)', () => {
+  const CONV = '33333333-3333-4333-8333-333333333333';
+  // Endpoints as stored: an existing one (default {whatsapp}), an Instagram-only one and one with both.
+  const endpoints = [
+    { id: 'wa', url: 'https://wa.test', secret: 's', channels: ['whatsapp'] },
+    { id: 'ig', url: 'https://ig.test', secret: 's', channels: ['instagram'] },
+    { id: 'both', url: 'https://both.test', secret: 's', channels: ['whatsapp', 'instagram'] },
+  ];
+  function channelDb(conversation: { channel?: string | null } | null | Error) {
+    const reads: string[] = [];
+    const from = (table: string) => {
+      reads.push(table);
+      const b: Record<string, unknown> = {
+        select: () => b,
+        eq: () => b,
+        contains: () => Promise.resolve({ data: endpoints, error: null }),
+        maybeSingle: () => Promise.resolve(conversation instanceof Error
+          ? { data: null, error: { message: 'down' } }
+          : { data: conversation, error: null }),
+      };
+      return b;
+    };
+    return { db: { from, rpc: vi.fn() } as unknown as DataClient, reads };
+  }
+  const delivered = () => vi.mocked(enqueueJob).mock.calls.map((call) => (call[1] as { endpointId: string }).endpointId);
+  const envelope = () => JSON.parse((vi.mocked(enqueueJob).mock.calls[0][1] as { payload: string }).payload);
+
+  it('never sends an Instagram event to an endpoint that did not opt into Instagram', async () => {
+    const { db, reads } = channelDb(null);
+    await dispatchWebhookEvent(db, 'acct-1', 'message.received', { conversation_id: CONV }, { channel: 'instagram' });
+    expect(delivered()).toEqual(['ig', 'both']);
+    expect(envelope()).toMatchObject({ event: 'message.received', channel: 'instagram' });
+    // The caller named the channel: no conversation lookup.
+    expect(reads).toEqual(['webhook_endpoints']);
+  });
+
+  it('keeps WhatsApp events on WhatsApp endpoints, reading the channel from the conversation', async () => {
+    const { db, reads } = channelDb({ channel: 'whatsapp' });
+    await dispatchWebhookEvent(db, 'acct-1', 'message.status_updated', { conversation_id: CONV, status: 'read' });
+    expect(delivered()).toEqual(['wa', 'both']);
+    expect(envelope().channel).toBe('whatsapp');
+    expect(reads).toEqual(['webhook_endpoints', 'conversations']);
+  });
+
+  it('routes an event about an Instagram conversation (flow.completed) by its stored channel', async () => {
+    const { db } = channelDb({ channel: 'instagram' });
+    await dispatchWebhookEvent(db, 'acct-1', 'flow.completed', { conversation_id: CONV, flow_run_id: 'r' });
+    expect(delivered()).toEqual(['ig', 'both']);
+  });
+
+  it('treats a legacy null channel and an event without a conversation as WhatsApp', async () => {
+    await dispatchWebhookEvent(channelDb({ channel: null }).db, 'acct-1', 'conversation.created', { conversation_id: CONV });
+    expect(delivered()).toEqual(['wa', 'both']);
+    vi.mocked(enqueueJob).mockClear();
+    const { db, reads } = channelDb(null);
+    await dispatchWebhookEvent(db, 'acct-1', 'flow.completed', { conversation_id: null });
+    expect(delivered()).toEqual(['wa', 'both']);
+    expect(reads).toEqual(['webhook_endpoints']);
+  });
+
+  it('sends WhatsApp-only events to WhatsApp endpoints and business events to every endpoint', async () => {
+    await dispatchWebhookEvent(channelDb(null).db, 'acct-1', 'broadcast.completed', { broadcast_id: 'b' }, { channel: 'instagram' });
+    expect(delivered()).toEqual(['wa', 'both']);
+    vi.mocked(enqueueJob).mockClear();
+    await dispatchWebhookEvent(channelDb(null).db, 'acct-1', 'order.paid', { order_id: 'o', conversation_id: CONV });
+    expect(delivered()).toEqual(['wa', 'ig', 'both']);
+    expect(envelope()).not.toHaveProperty('channel');
+  });
+
+  it('fails closed when the conversation channel cannot be read', async () => {
+    await expect(dispatchWebhookEvent(channelDb(new Error('down')).db, 'acct-1', 'message.received', { conversation_id: CONV }))
+      .rejects.toThrow('Webhook channel lookup failed');
+    expect(enqueueJob).not.toHaveBeenCalled();
+  });
+});

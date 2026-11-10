@@ -433,6 +433,8 @@ model flows {
   archived_at DateTime? @db.Timestamptz(6)
   /// Phase 11: 'whatsapp' | 'instagram' | 'any'.
   channel_scope String @default("whatsapp")
+  // 20261117070000_flow_ig_triggers: trigger_type also allows default_reply, ig_comment, ig_story_reply and
+  // ig_story_mention, and flow_nodes.node_type the Instagram steps (checks owned by the SQL).
   /// Phase 12: the live flow_versions row; null until first published. Status adds 'paused'.
   published_version_id String? @db.Uuid
   @@unique([account_id, id])
@@ -591,6 +593,8 @@ model webhook_endpoints {
   failing_since DateTime? @db.Timestamptz(6)
   disabled_at DateTime? @db.Timestamptz(6)
   disabled_reason String?
+  /// 20261117070600: channels whose events the endpoint receives; existing endpoints are {whatsapp}.
+  channels String[] @default(["whatsapp"])
   @@unique([account_id, id])
 }
 
@@ -628,6 +632,8 @@ model ai_configs {
   embeddings_api_key String?
   handoff_agent_id String? @db.Uuid
   base_url String?
+  /// 20261117070500: the Instagram AI auto-reply switch (auto_reply_enabled stays WhatsApp's).
+  instagram_auto_reply_enabled Boolean @default(false)
   @@unique([account_id, id])
 }
 
@@ -1264,6 +1270,8 @@ model workspace_inbox_settings {
   auto_resolve_after_hours Int?
   sla_first_response_minutes Int?
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  /// 20261117070500: the Instagram away-message switch (away_message_enabled stays WhatsApp's; both use away_message).
+  instagram_away_message_enabled Boolean @default(false)
 }
 
 model routing_rules {
@@ -2560,6 +2568,9 @@ model instagram_accounts {
   disconnected_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261117070400: conversation starters last synced to Meta ([{question, flow_id}], at most 4); null = never set by Bodhinox.
+  ice_breakers Json? @db.JsonB
+  profile_synced_at DateTime? @db.Timestamptz(6)
   // 20261109100000_instagram_accounts: the partial unique index instagram_accounts_live_ig_user, the column grants that
   // hide the token from the app role, and the crm_* definer lookups are owned by the SQL.
   @@unique([account_id, id])
@@ -2578,6 +2589,12 @@ model contact_channel_identities {
   display_name String?
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261117070300: Instagram profile facts (null = unknown), written by the worker.
+  follows_business Boolean?
+  business_follows Boolean?
+  is_verified Boolean?
+  ig_follower_count Int?
+  profile_checked_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, instagram_account_id, external_id])
   @@index([account_id, contact_id], map: "contact_channel_identities_contact_idx")
@@ -2629,6 +2646,11 @@ model instagram_comment_events {
   private_reply_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261117070200: the run an ig_comment flow started (FK (account_id, flow_run_id) owned by the SQL),
+  /// the public reply's id and the opt-in tap time.
+  flow_run_id String? @db.Uuid
+  public_reply_id String?
+  opted_in_at DateTime? @db.Timestamptz(6)
   // instagram_comment_events_rate_idx (partial) is owned by the SQL.
   @@unique([account_id, id])
   @@unique([instagram_account_id, comment_id])

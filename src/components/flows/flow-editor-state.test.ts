@@ -6,10 +6,12 @@ import {
   defaultSection,
   nodeTypesForScope,
   publishDraft,
+  STEPS_WITHOUT_EDITOR,
   triggerTypesForScope,
   uniqueNodeKey,
 } from "./flow-editor-state";
 import { ADD_NODE_TYPES } from "./shared";
+import { INSTAGRAM_ONLY_NODE_TYPES } from "@/lib/flows/types";
 import type { BuilderState } from "./flow-editor-state";
 import { aiReplyIssues } from "@/lib/flows/ai-reply-node";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
@@ -217,22 +219,32 @@ describe("publishDraft", () => {
 
 describe("channel palettes (Stage 1)", () => {
   it("offers a WhatsApp flow every step and trigger it offered before", () => {
-    expect(nodeTypesForScope("whatsapp")).toEqual(ADD_NODE_TYPES);
-    expect(nodeTypesForScope(undefined)).toEqual(ADD_NODE_TYPES);
-    expect(triggerTypesForScope("whatsapp")).toEqual(["keyword", "template_reply", "first_inbound_message", "order_received", "ad_click", "manual"]);
+    const whatsappSteps = ADD_NODE_TYPES.filter((type) => !(INSTAGRAM_ONLY_NODE_TYPES as readonly string[]).includes(type));
+    expect(nodeTypesForScope("whatsapp")).toEqual(whatsappSteps);
+    expect(nodeTypesForScope(undefined)).toEqual(whatsappSteps);
+    expect(triggerTypesForScope("whatsapp")).toEqual(["keyword", "template_reply", "first_inbound_message", "order_received", "ad_click",
+      "default_reply", "manual"]);
   });
 
   it("offers an Instagram flow only what Instagram runs", () => {
     const steps = nodeTypesForScope("instagram");
-    for (const whatsappOnly of ["send_template", "send_form", "ask_location", "ask_address", "send_catalog", "ai_reply"] as const)
+    for (const whatsappOnly of ["send_template", "send_form", "ask_location", "ask_address", "send_catalog"] as const)
       expect(steps).not.toContain(whatsappOnly);
-    expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "handoff", "end"]));
-    expect(triggerTypesForScope("instagram")).toEqual(["keyword", "first_inbound_message", "manual"]);
+    expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "ai_reply", "handoff", "end"]));
+    // The Instagram-only steps join the menu once their forms land (2D); until then nobody can place an unconfigurable step.
+    for (const pending of INSTAGRAM_ONLY_NODE_TYPES) {
+      expect(STEPS_WITHOUT_EDITOR.has(pending)).toBe(true);
+      expect(steps).not.toContain(pending);
+    }
+    expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_story_reply", "ig_story_mention", "first_inbound_message",
+      "default_reply", "manual"]);
   });
 
   it("offers a legacy flow on both channels only what both run", () => {
-    expect(nodeTypesForScope("any")).toEqual(nodeTypesForScope("instagram"));
-    expect(triggerTypesForScope("any")).toEqual(triggerTypesForScope("instagram"));
+    const instagram = nodeTypesForScope("instagram");
+    expect(nodeTypesForScope("any")).toEqual(nodeTypesForScope("whatsapp").filter((type) => instagram.includes(type)));
+    for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(nodeTypesForScope("any")).not.toContain(instagramOnly);
+    expect(triggerTypesForScope("any")).toEqual(["keyword", "first_inbound_message", "default_reply", "manual"]);
   });
 
   it("opens a flow in its own section, a legacy one in WhatsApp", () => {
