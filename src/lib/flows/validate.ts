@@ -36,12 +36,14 @@ import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai
 import { conversionEdges, conversionIssues } from "./conversion-node";
 import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
 import { parseDateInput } from "./input-formats";
-import { nodeAvailableOn, scopeIncludes, triggerAvailableOn } from "@/lib/channels/capabilities";
+import { nodeAvailableOn, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
 import { FLOW_CHANNEL_SCOPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type NodeTiming } from "./types";
 import { nodeCapabilityBlock, type WorkspaceCapabilities } from "./node-registry";
 
 const t = getT("Validation.flows");
 const tChannel = getT("Flows.channel");
+const tSection = getT("Flows.channelSection");
+const tNames = getT("Channels.names");
 
 export interface ValidationIssue {
   severity: "error" | "warning";
@@ -441,44 +443,53 @@ export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: str
 // ============================================================
 
 /**
- * A request body's channel_scope: undefined when absent, null when it is not
- * one of 'whatsapp' | 'instagram' | 'any' (the route answers 400).
+ * A request body's channel_scope: undefined when absent, null when the route
+ * must answer 400. Since Stage 1 every new flow belongs to one channel, so
+ * 'any' is accepted only for a legacy flow that already has it (`existing`):
+ * those keep running on both channels until the user splits them.
  */
-export function parseChannelScope(value: unknown): FlowChannelScope | undefined | null {
+export function parseChannelScope(value: unknown, existing?: FlowChannelScope | null): FlowChannelScope | undefined | null {
   if (value === undefined) return undefined;
-  return typeof value === "string" && (FLOW_CHANNEL_SCOPES as readonly string[]).includes(value)
-    ? (value as FlowChannelScope)
-    : null;
+  if (typeof value !== "string" || !(FLOW_CHANNEL_SCOPES as readonly string[]).includes(value)) return null;
+  if (value === "any" && existing !== "any") return null;
+  return value as FlowChannelScope;
 }
 
 /**
- * A flow that runs on Instagram ('instagram' or 'any') may use only the
- * triggers and steps Instagram supports (src/lib/channels/capabilities.ts):
- * anything else blocks publishing, shown on the trigger or the step. A
- * WhatsApp-only flow gets no issue here, so existing flows are unchanged.
+ * A flow may use only the triggers and steps of every channel it runs on
+ * (src/lib/channels/capabilities.ts): anything else blocks publishing, shown
+ * on the trigger or the step. Both directions are checked: an Instagram flow
+ * refuses WhatsApp-only steps and a WhatsApp flow refuses Instagram-only ones.
+ * Every step and trigger that existed before Stage 1 runs on WhatsApp, so
+ * existing WhatsApp flows get no new issue.
  */
 export function channelScopeIssues(
   scope: FlowChannelScope | null | undefined,
   triggerType: FlowInput["trigger_type"],
   nodes: NodeInput[],
 ): ValidationIssue[] {
-  if (!scopeIncludes(scope, "instagram")) return [];
   const issues: ValidationIssue[] = [];
-  if (!triggerAvailableOn(triggerType, "instagram")) {
-    issues.push({ severity: "error", scope: "trigger", field: "trigger_type", message: tChannel("triggerUnavailable") });
-  }
-  for (const node of nodes) {
-    const availability = nodeAvailableOn(node.node_type as FlowNodeType, "instagram", node.config ?? {});
-    if (!availability.ok) {
-      issues.push({
-        severity: "error",
-        scope: "node",
-        node_key: node.node_key,
-        field: "node_type",
-        message: tChannel("unavailableOnChannel", { node: node.node_type }),
-      });
-    } else if (availability.warning === "text_over_limit") {
-      issues.push({ severity: "warning", scope: "node", node_key: node.node_key, message: tChannel("textOverLimit") });
+  for (const channel of scopeChannels(scope)) {
+    const instagram = channel === "instagram";
+    if (!triggerAvailableOn(triggerType, channel)) {
+      issues.push({ severity: "error", scope: "trigger", field: "trigger_type",
+        message: instagram ? tChannel("triggerUnavailable") : tSection("triggerUnavailable", { channel: tNames(channel) }) });
+    }
+    for (const node of nodes) {
+      const availability = nodeAvailableOn(node.node_type as FlowNodeType, channel, node.config ?? {});
+      if (!availability.ok) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "node_type",
+          message: instagram
+            ? tChannel("unavailableOnChannel", { node: node.node_type })
+            : tSection("nodeUnavailable", { node: node.node_type, channel: tNames(channel) }),
+        });
+      } else if (availability.warning === "text_over_limit") {
+        issues.push({ severity: "warning", scope: "node", node_key: node.node_key, message: tChannel("textOverLimit") });
+      }
     }
   }
   return issues;

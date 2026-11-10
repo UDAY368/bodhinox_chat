@@ -11,15 +11,24 @@ const h = vi.hoisted(() => ({
   secrets: new Set<string>(),
   limit: vi.fn(async () => {}),
   permission: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
+  /** A publish that lands between the route's first read and its save transaction. */
+  publishedInTx: null as string | null,
 }));
 vi.mock('@/lib/auth/permissions', () => ({ requirePermission: h.permission }));
 // The test-number slot is counted in the save transaction, under the publish lock.
 vi.mock('@/lib/db/tenant', () => ({
   withTenant: async (_t: unknown, fn: (tx: unknown) => unknown) => fn({
     $executeRaw: async () => 0,
-    $queryRaw: async (sql: TemplateStringsArray) => sql.join('').includes('AS starts')
-      ? h.flows.map((f) => ({ starts: f.status === 'draft' && !((f.test_numbers as string[] | undefined) ?? []).length }))
-      : [{ n: 1 }],
+    $queryRaw: async (sql: TemplateStringsArray | { strings: string[] }) => {
+      const text = 'strings' in sql ? sql.strings.join('') : sql.join('');
+      if (text.includes('AS starts'))
+        return h.flows.map((f) => ({ starts: f.status === 'draft' && !((f.test_numbers as string[] | undefined) ?? []).length }));
+      // The channel lock re-reads the flow under its row lock (lib/flows/channel-section).
+      if (text.includes('FOR UPDATE'))
+        return h.flows.filter((f) => f.id === 'flow-a').map((f) => ({ channel_scope: f.channel_scope ?? 'whatsapp',
+          published_version_id: h.publishedInTx ?? f.published_version_id ?? null }));
+      return [{ n: 1 }];
+    },
   }),
 }));
 vi.mock('@/lib/audience/http', () => ({ tenantOf: () => ({}) }));
@@ -110,6 +119,7 @@ beforeEach(() => {
   h.limit.mockReset();
   h.permission.mockReset();
   h.permission.mockResolvedValue(undefined);
+  h.publishedInTx = null;
 });
 it('retains the request client when updating the graph and deleting the flow', async () => {
   const result = await PUT(
@@ -256,14 +266,52 @@ describe("saves that publish flow behaviour need 'flows.publish'", () => {
 describe('channel_scope (Phase 11)', () => {
   const save = (body: unknown) => PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify(body) }), context);
 
-  it('stores a valid scope on a draft and refuses anything else before a write', async () => {
+  it('moves a never-published draft to the other channel and refuses anything else before a write', async () => {
     h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Original', status: 'draft', trigger_type: 'manual', trigger_config: {}, entry_node_id: null }];
-    for (const channel_scope of ['facebook', '', 1, null, ['any']]) {
+    // Stage 1: a flow belongs to one channel, so nothing takes a new 'any'.
+    for (const channel_scope of ['facebook', '', 1, null, ['any'], 'any']) {
       expect((await save({ channel_scope })).status).toBe(400);
     }
     expect(h.writes).toEqual([]);
-    expect((await save({ channel_scope: 'any' })).status).toBe(200);
-    expect(h.flows[0].channel_scope).toBe('any');
+    expect((await save({ channel_scope: 'instagram' })).status).toBe(200);
+    expect(h.flows[0].channel_scope).toBe('instagram');
+  });
+
+  it('keeps a legacy any flow on both channels when the editor saves it as it is', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Both', status: 'paused', trigger_type: 'manual', trigger_config: {},
+      entry_node_id: null, channel_scope: 'any', published_version_id: 'version-1' }];
+    expect((await save({ channel_scope: 'any', name: 'Both v2' })).status).toBe(200);
+    expect(h.flows[0]).toMatchObject({ channel_scope: 'any', name: 'Both v2' });
+  });
+
+  it('refuses changing the channel of a published flow with 409 channel_locked, writing nothing', async () => {
+    for (const [from, to] of [['whatsapp', 'instagram'], ['instagram', 'whatsapp'], ['any', 'instagram']] as const) {
+      h.writes = [];
+      h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Live', status: 'active', trigger_type: 'manual', trigger_config: {},
+        entry_node_id: null, channel_scope: from, published_version_id: 'version-1' }];
+      const response = await save({ channel_scope: to });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ code: 'channel_locked' });
+      expect(h.writes).toEqual([]);
+      expect(h.flows[0].channel_scope).toBe(from);
+    }
+  });
+
+  it('re-checks the lock in the save transaction, so a publish that lands meanwhile still locks the channel', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Draft', status: 'draft', trigger_type: 'manual', trigger_config: {},
+      entry_node_id: null, channel_scope: 'whatsapp', published_version_id: null }];
+    h.publishedInTx = 'version-1';
+    const response = await save({ channel_scope: 'instagram' });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'channel_locked' });
+    expect(h.flows[0].channel_scope).toBe('whatsapp');
+  });
+
+  it('saves a published flow that sends its own channel unchanged', async () => {
+    h.flows = [{ id: 'flow-a', account_id: 'account-a', name: 'Live', status: 'paused', trigger_type: 'manual', trigger_config: {},
+      entry_node_id: null, channel_scope: 'whatsapp', published_version_id: 'version-1' }];
+    expect((await save({ channel_scope: 'whatsapp', name: 'Renamed' })).status).toBe(200);
+    expect(h.flows[0].name).toBe('Renamed');
   });
 
   it('refuses moving an active flow onto Instagram when it uses a WhatsApp-only step or trigger', async () => {

@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * WhatsApp-style preview of the flow being edited. Plays the live
+ * Chat-style preview of the flow being edited, styled like WhatsApp or, for
+ * an Instagram flow, like Instagram Direct (Stage 1). Plays the live
  * editor state (unsaved edits included) through the pure simulator in
  * `@/lib/flows/preview`: bot bubbles on the left, the customer's taps
  * and answers on the right, grey notes for silent steps.
@@ -23,7 +24,9 @@ import { useFlowEditor } from './flow-editor-state';
 
 export function FlowPreview({ onClose }: { onClose: () => void }) {
   const t = useTranslations('Flows.builder.preview');
-  const { state } = useFlowEditor();
+  const tSection = useTranslations('Flows.channelSection');
+  const { state, channelScope } = useFlowEditor();
+  const instagram = channelScope === 'instagram';
 
   // Restart whenever the flow's content changes — but not on canvas
   // drags, which only move positions.
@@ -58,18 +61,19 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
   const waiting = run.waiting;
 
   return (
-    <aside className="flow-studio-inspector absolute inset-0 z-20 flex min-h-0 flex-col border-l border-border bg-card sm:static sm:w-[340px] sm:shrink-0" aria-label={t('title')}>
+    <aside className="flow-studio-inspector absolute inset-0 z-20 flex min-h-0 flex-col border-l border-border bg-card sm:static sm:w-[340px] sm:shrink-0" aria-label={t('title')}
+      data-preview-channel={instagram ? 'instagram' : 'whatsapp'}>
       <div className="border-border flex items-center gap-3 border-b px-4 py-3">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary"><Smartphone className="h-4 w-4" /></span>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold">{t('title')}</h3>
-          <p className="text-muted-foreground text-xs">{t('subtitle')}</p>
+          <p className="text-muted-foreground text-xs">{instagram ? tSection('previewSubtitleInstagram') : t('subtitle')}</p>
         </div>
         <Button variant="ghost" size="icon-sm" onClick={restart} aria-label={t('restart')} title={t('restart')}><RotateCcw className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}><X className="h-4 w-4" /></Button>
       </div>
 
-      <div className="bg-muted/60 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4" aria-live="polite">
+      <div className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4', instagram ? 'bg-card' : 'bg-muted/60')} aria-live="polite">
         {run.messages.length === 0 && <p className="text-muted-foreground px-4 py-8 text-center text-xs">{t('empty')}</p>}
         {run.messages.map((m) => (
           <Bubble
@@ -84,6 +88,7 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
               if (option) pick(option.id);
             }}
             onPickRow={(id) => pick(id)}
+            instagram={instagram}
             t={t}
           />
         ))}
@@ -140,14 +145,15 @@ export function branchLabel(id: string, label: string, t: T) {
   return label || id;
 }
 
-/** One trace message; reused by the dry-run panel. */
-export function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPickRow, t }: {
+/** One trace message; reused by the dry-run panel. `instagram` draws Direct-style rounded bubbles. */
+export function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPickRow, instagram = false, t }: {
   message: PreviewMessage;
   active: boolean;
   listOpen: boolean;
   onToggleList: () => void;
   onPickButton: (index: number) => void;
   onPickRow: (id: string) => void;
+  instagram?: boolean;
   t: T;
 }) {
   if (m.from === 'system') {
@@ -159,7 +165,8 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
   }
   if (m.from === 'customer') {
     return (
-      <div className="bg-primary-soft-2 text-foreground ml-auto max-w-[80%] whitespace-pre-wrap break-words rounded-lg rounded-tr-none px-3 py-2 text-sm shadow-sm">
+      <div className={cn('ml-auto max-w-[80%] whitespace-pre-wrap break-words px-3 py-2 text-sm shadow-sm',
+        instagram ? 'rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white' : 'bg-primary-soft-2 text-foreground rounded-lg rounded-tr-none')}>
         {m.shared ? (
           <span className="flex items-center gap-1.5 italic">
             {m.shared === 'location' ? <MapPin className="h-4 w-4 shrink-0" /> : m.shared === 'form' ? <ClipboardList className="h-4 w-4 shrink-0" /> : <ImageIcon className="h-4 w-4 shrink-0" />}
@@ -173,7 +180,7 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
   const empty = !m.text && !m.media && !m.template;
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-1">
-      <div className="border-border bg-card text-foreground rounded-lg rounded-tl-none border px-3 py-2 text-sm shadow-sm">
+      <div className={cn('text-foreground px-3 py-2 text-sm', instagram ? 'bg-muted rounded-2xl' : 'border-border bg-card rounded-lg rounded-tl-none border shadow-sm')}>
         {m.media && (
           <div className="bg-muted text-muted-foreground mb-2 flex items-center gap-2 rounded-md px-3 py-4 text-xs">
             <MediaIcon className="h-5 w-5 shrink-0" />

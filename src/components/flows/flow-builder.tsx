@@ -47,13 +47,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { authFetch } from '@/lib/auth/client';
+import { channelPath } from '@/lib/channels/routes';
 import type { ValidationIssue } from '@/lib/flows/validate';
-import { FLOW_CHANNEL_SCOPES, type FlowChannelScope } from '@/lib/flows/types';
+import { CREATABLE_CHANNEL_SCOPES, type FlowChannelScope } from '@/lib/flows/types';
+import type { Channel } from '@/types';
 import {
-  ADD_NODE_TYPES,
   NODE_META,
   NodeIconChip,
   groupNodeTypesByCategory,
@@ -69,6 +71,7 @@ import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
 import { VersionBar } from './version-bar';
+import { splitFlow } from './split-flow';
 import { DryRunPanel } from './dry-run-panel';
 
 // ============================================================
@@ -90,6 +93,10 @@ export function FlowBuilder() {
     issues,
     channelScope,
     setChannelScope,
+    dirty,
+    section,
+    nodeTypes,
+    triggerTypes,
     flashKey,
     addNode: addNodeCtx,
     updateNode,
@@ -167,11 +174,13 @@ export function FlowBuilder() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-7">
-      <ChannelScopePanel flowId={flow.id} scope={channelScope} onSaved={setChannelScope} />
+      <ChannelScopePanel flowId={flow.id} scope={channelScope} published={!!flow.published_version_id}
+        dirty={dirty} section={section} onSaved={setChannelScope} />
 
       <TriggerPanel
         state={state}
         setState={setState}
+        triggerTypes={triggerTypes}
         triggerIssues={issues.filter((i) => i.scope === 'trigger')}
         t={t}
       />
@@ -183,7 +192,7 @@ export function FlowBuilder() {
           <h2 className="text-foreground text-sm font-semibold">
             {t('nodesTitle', { count: state.nodes.length })}
           </h2>
-          <AddNodeButton onAdd={addNode} t={t} />
+          <AddNodeButton types={nodeTypes} onAdd={addNode} t={t} />
         </div>
 
         {state.nodes.length === 0 ? (
@@ -233,60 +242,120 @@ export function FlowVersionBar() {
 }
 
 // ============================================================
-// Channel scope ("Runs on")
+// Channel ("WhatsApp flow" / "Instagram flow")
 // ============================================================
 
-/** Saves `next` through PUT /api/flows/[id]; true when the server took it. */
-export async function persistChannelScope(flowId: string, next: FlowChannelScope): Promise<boolean> {
+/**
+ * Saves `next` through PUT /api/flows/[id]. Resolves null when the server
+ * took it, else the server's message ('' when it gave none). A published
+ * flow's channel is fixed (409 channel_locked).
+ */
+export async function persistChannelScope(flowId: string, next: FlowChannelScope): Promise<string | null> {
   try {
     const res = await authFetch(`/api/flows/${encodeURIComponent(flowId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel_scope: next }),
     });
-    return res.ok;
+    if (res.ok) return null;
+    const json = (await res.json().catch(() => null)) as { error?: unknown } | null;
+    return typeof json?.error === 'string' ? json.error : '';
   } catch {
-    return false;
+    return '';
   }
 }
 
+/**
+ * The flow's channel as a read-only chip: a flow belongs to its section. A
+ * legacy 'any' flow shows "Both channels" with a split action, and while it
+ * was never published it can still be moved to one channel.
+ */
 function ChannelScopePanel({
   flowId,
   scope,
+  published,
+  dirty,
+  section,
   onSaved,
 }: {
   flowId: string;
   scope: FlowChannelScope;
+  published: boolean;
+  /** Unsaved edits: a split copies the saved draft, so it waits for Save. */
+  dirty: boolean;
+  section: Channel;
   onSaved: (scope: FlowChannelScope) => void;
 }) {
-  const t = useTranslations('Flows.channel');
+  const t = useTranslations('Flows.channelSection');
+  const tChannel = useTranslations('Flows.channel');
+  const tHeader = useTranslations('Flows.header');
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const change = async (next: FlowChannelScope) => {
+  if (scope !== 'any') {
+    return (
+      <div className="flex items-center gap-2" data-flow-channel={scope}>
+        <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">
+          {t(scope === 'instagram' ? 'chipInstagram' : 'chipWhatsapp')}
+        </Badge>
+      </div>
+    );
+  }
+  const move = async (next: FlowChannelScope) => {
     if (next === scope) return;
     setSaving(true);
-    const saved = await persistChannelScope(flowId, next);
+    const error = await persistChannelScope(flowId, next);
     setSaving(false);
-    if (saved) onSaved(next);
-    else toast.error(t('scopeSaveFailed'));
+    if (error !== null) {
+      toast.error(error || tChannel('scopeSaveFailed'));
+      return;
+    }
+    // The editor stays open (unsaved edits are kept); the flow lists under its new section from now on.
+    onSaved(next);
+  };
+  const split = async () => {
+    setSaving(true);
+    const ids = await splitFlow(flowId);
+    setSaving(false);
+    if (!ids) {
+      toast.error(t('splitFailed'));
+      return;
+    }
+    toast.success(t('splitDone'));
+    router.push(channelPath(section, 'flows', ids[section]));
   };
   return (
-    <section className="border-border bg-card rounded-lg border p-4">
-      <label htmlFor="flow-channel-scope" className="text-foreground mb-1 block text-sm font-semibold">
-        {t('runsOn')}
-      </label>
-      <Select value={scope} disabled={saving} onValueChange={(v) => void change(v as FlowChannelScope)}>
-        <SelectTrigger id="flow-channel-scope" className="bg-muted md:w-64">
-          <SelectValue>{t(scope)}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {FLOW_CHANNEL_SCOPES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {t(value)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="text-muted-foreground mt-1 text-xs">{t('runsOnHelp')}</p>
+    <section className="border-border bg-card flex flex-col gap-2 rounded-lg border p-4" data-flow-channel="any">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+          {t('bothChannels')}
+        </Badge>
+        <p className="text-muted-foreground text-xs">{t('bothChannelsHelp')}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" disabled={saving || dirty}
+          title={dirty ? tHeader('unsavedHint') : undefined} onClick={() => void split()}>
+          {t('split')}
+        </Button>
+        {!published && (
+          <>
+            <label htmlFor="flow-channel-scope" className="text-muted-foreground text-xs">
+              {t('moveTo')}
+            </label>
+            <Select value={scope} disabled={saving} onValueChange={(v) => void move(v as FlowChannelScope)}>
+              <SelectTrigger id="flow-channel-scope" className="bg-muted md:w-48">
+                <SelectValue>{tChannel(scope)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(['any', ...CREATABLE_CHANNEL_SCOPES] as FlowChannelScope[]).map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {tChannel(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+      </div>
     </section>
   );
 }
@@ -311,14 +380,18 @@ const TRIGGER_TITLE_KEYS: Record<BuilderState['trigger_type'], string> = {
 function TriggerPanel({
   state,
   setState,
+  triggerTypes,
   triggerIssues,
   t,
 }: {
   state: BuilderState;
   setState: React.Dispatch<React.SetStateAction<BuilderState>>;
+  /** The triggers the flow's channel offers; the current one is kept so the picker can show it. */
+  triggerTypes: BuilderState['trigger_type'][];
   triggerIssues: ValidationIssue[];
   t: ReturnType<typeof useTranslations>;
 }) {
+  const offered = triggerTypes.includes(state.trigger_type) ? triggerTypes : [...triggerTypes, state.trigger_type];
   return (
     <section className="border-border bg-card rounded-lg border p-4">
       <h2 className="text-foreground mb-3 text-sm font-semibold">{t('triggerTitle')}</h2>
@@ -342,24 +415,11 @@ function TriggerPanel({
               <SelectValue>{t(TRIGGER_TITLE_KEYS[state.trigger_type])}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="keyword">
-                {t('triggerKeywordTitle')}
-              </SelectItem>
-              <SelectItem value="template_reply">
-                {t('triggerTemplateReplyTitle')}
-              </SelectItem>
-              <SelectItem value="first_inbound_message">
-                {t('triggerFirstInboundTitle')}
-              </SelectItem>
-              <SelectItem value="order_received">
-                {t('triggerOrderReceivedTitle')}
-              </SelectItem>
-              <SelectItem value="ad_click">
-                {t('triggerAdClickTitle')}
-              </SelectItem>
-              <SelectItem value="manual">
-                {t('triggerManualTitle')}
-              </SelectItem>
+              {offered.map((trigger) => (
+                <SelectItem key={trigger} value={trigger}>
+                  {t(TRIGGER_TITLE_KEYS[trigger])}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -627,8 +687,7 @@ function NodeConfigWithAdvanced({
 // Add-node menu
 // ============================================================
 
-function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: ReturnType<typeof useTranslations> }) {
-  const types = ADD_NODE_TYPES;
+function AddNodeButton({ types, onAdd, t }: { types: NodeType[]; onAdd: (type: NodeType) => void; t: ReturnType<typeof useTranslations> }) {
   // Steps whose provider is not set up are shown disabled with the reason,
   // as in the canvas palette; publish validation enforces the same rule.
   const caps = useWorkspaceCapabilities();

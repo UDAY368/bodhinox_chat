@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   pause: vi.fn(),
   archive: vi.fn(),
   draft: vi.fn(),
+  channelOpen: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
 }));
 
 class Forbidden extends Error {
@@ -35,8 +36,13 @@ vi.mock('@/lib/flows/versions', async (importOriginal) => ({
   archiveFlow: h.archive,
   moveToDraft: h.draft,
 }));
+vi.mock('@/lib/flows/channel-section', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/flows/channel-section')>()),
+  assertFlowChannelOpen: h.channelOpen,
+}));
 
 import { FlowVersionError } from '@/lib/flows/versions';
+import { FlowChannelError } from '@/lib/flows/channel-section';
 import { POST } from './route';
 
 const FLOW = '11111111-1111-4111-8111-111111111111';
@@ -46,7 +52,8 @@ const call = (body: unknown, id = FLOW) =>
 
 beforeEach(() => {
   h.role = 'agent';
-  for (const fn of [h.mutation, h.permission, h.caps, h.publish, h.pause, h.archive, h.draft]) fn.mockReset();
+  for (const fn of [h.mutation, h.permission, h.caps, h.publish, h.pause, h.archive, h.draft, h.channelOpen]) fn.mockReset();
+  h.channelOpen.mockResolvedValue(undefined);
   h.permission.mockResolvedValue(undefined);
   h.caps.mockResolvedValue({ payments: false });
   h.publish.mockResolvedValue({ flow: { id: FLOW, status: 'active' }, version: { id: 'v', version: 2 }, reused: false });
@@ -78,6 +85,26 @@ describe('POST /api/flows/[id]/activate', () => {
     expect(h.publish).toHaveBeenCalledWith({}, expect.objectContaining({
       accountId: 'account-a', flowId: FLOW, userId: 'author', expectedDraftHash: HASH, caps: { payments: false },
     }));
+  });
+
+  it('checks the flow channel is on in the publish transaction, before publishing', async () => {
+    await call({ status: 'active' });
+    expect(h.channelOpen).toHaveBeenCalledWith({}, 'account-a', FLOW);
+    expect(h.channelOpen.mock.invocationCallOrder[0]).toBeLessThan(h.publish.mock.invocationCallOrder[0]);
+  });
+
+  it('refuses publishing or resuming a flow whose channel is turned off (409 channel_disabled)', async () => {
+    h.channelOpen.mockRejectedValueOnce(new FlowChannelError('channel_disabled', 'instagram'));
+    const res = await call({ status: 'active' });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: 'channel_disabled', channel: 'instagram', error: expect.stringContaining('Instagram') });
+    expect(h.publish).not.toHaveBeenCalled();
+  });
+
+  it('pauses and archives without the channel check, so a turned-off channel can still be wound down', async () => {
+    expect((await call({ status: 'paused' })).status).toBe(200);
+    expect((await call({ status: 'archived' })).status).toBe(200);
+    expect(h.channelOpen).not.toHaveBeenCalled();
   });
 
   it('refuses publishing when the role lost flows.publish', async () => {

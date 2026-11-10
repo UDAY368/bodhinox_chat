@@ -2771,7 +2771,14 @@
       "splitDone": "WhatsApp 사본과 Instagram 사본을 만들었습니다. 준비되면 원본을 보관하세요.",
       "splitFailed": "이 플로우를 나누지 못했습니다. 다시 시도하세요.",
       "locked": "게시된 플로우는 채널을 바꿀 수 없습니다. 다른 채널에서 사용하려면 복제하세요.",
-      "disabled": "{channel}이(가) 꺼져 있습니다. 이 플로우를 게시하려면 켜세요."
+      "disabled": "{channel}이(가) 꺼져 있습니다. 이 플로우를 게시하려면 켜세요.",
+      "triggerUnavailable": "이 트리거는 {channel}에서 사용할 수 없습니다",
+      "nodeUnavailable": "{node}은(는) {channel}에서 사용할 수 없습니다",
+      "anyNotAllowed": "새 플로우는 WhatsApp 또는 Instagram 중 하나에서 실행됩니다. 하나를 선택하세요.",
+      "channelInvalid": "WhatsApp 또는 Instagram을 선택하세요.",
+      "templateUnavailable": "이 템플릿은 {channel}에서 작동하지 않습니다.",
+      "previewSubtitleInstagram": "고객이 Instagram Direct에서 보는 화면입니다. 아무것도 전송되지 않습니다.",
+      "moveTo": "이 초안을 옮길 채널"
     }
   },
   "Settings": {

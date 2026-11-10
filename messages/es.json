@@ -2771,7 +2771,14 @@
       "splitDone": "Se crearon una copia de WhatsApp y otra de Instagram. Archiva el original cuando quieras.",
       "splitFailed": "No se pudo dividir este flujo. Inténtalo de nuevo.",
       "locked": "Un flujo publicado se queda en su canal. Duplícalo para usarlo en otro canal.",
-      "disabled": "{channel} está desactivado. Actívalo para publicar este flujo."
+      "disabled": "{channel} está desactivado. Actívalo para publicar este flujo.",
+      "triggerUnavailable": "Este disparador no está disponible en {channel}",
+      "nodeUnavailable": "{node} no está disponible en {channel}",
+      "anyNotAllowed": "Un flujo nuevo se ejecuta en WhatsApp o en Instagram. Elige uno.",
+      "channelInvalid": "Elige WhatsApp o Instagram.",
+      "templateUnavailable": "Esta plantilla no funciona en {channel}.",
+      "previewSubtitleInstagram": "Lo que ve un cliente en los mensajes directos de Instagram. No se envía nada.",
+      "moveTo": "Mover este borrador a"
     }
   },
   "Settings": {

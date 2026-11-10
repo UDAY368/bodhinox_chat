@@ -6,6 +6,7 @@ import { getT } from '@/lib/i18n/translate';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { apiNodeUsesSecrets } from '@/lib/flows/api-request';
 import { secretAttributeKeys } from '@/lib/workspace/attributes';
+import { parseChannelScope } from '@/lib/flows/validate';
 
 const t = getT('Api');
 
@@ -13,9 +14,14 @@ const t = getT('Api');
  * POST /api/flows/[id]/duplicate — copy a flow and its node graph into a
  * new draft owned by the caller. Test numbers and run counters are not
  * copied, so the copy never runs until someone tests or activates it.
+ *
+ * Body (optional): { channel_scope?: 'whatsapp' | 'instagram' } — the copy's
+ * channel. Absent, the copy keeps its source's channel; a legacy 'any'
+ * source becomes a WhatsApp copy, since no new flow runs on both. Splitting
+ * a legacy flow is one copy per channel; the source stays until archived.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
@@ -27,6 +33,23 @@ export async function POST(
     ({ role, accountId } = await requireRole('agent'));
   } catch (err) {
     return toErrorResponse(err);
+  }
+
+  const raw = await request.text().catch(() => '');
+  let body: { channel_scope?: unknown } = {};
+  if (raw.trim()) {
+    try {
+      body = JSON.parse(raw) as { channel_scope?: unknown };
+    } catch {
+      return NextResponse.json({ error: t('common.invalidJson') }, { status: 400 });
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: t('common.invalidJson') }, { status: 400 });
+    }
+  }
+  const target = parseChannelScope(body.channel_scope);
+  if (target === null || target === 'any') {
+    return NextResponse.json({ error: getT('Flows.channelSection')('anyNotAllowed') }, { status: 400 });
   }
 
   const db = await createClient();
@@ -73,8 +96,8 @@ export async function POST(
       trigger_config: flow.trigger_config,
       entry_node_id: flow.entry_node_id,
       fallback_policy: flow.fallback_policy,
-      // A copy runs on the same channels as its source (Phase 11).
-      channel_scope: flow.channel_scope ?? 'whatsapp',
+      // The asked-for channel, else the source's; never a new 'any'.
+      channel_scope: target ?? (flow.channel_scope === 'instagram' ? 'instagram' : 'whatsapp'),
       test_numbers: [],
     })
     .select()

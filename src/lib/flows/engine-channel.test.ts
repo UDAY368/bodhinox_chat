@@ -20,6 +20,10 @@ const h = vi.hoisted(() => ({
     channelLookupFails: false,
     /** Only a newly inserted run's channel lookup fails (a Connect Flow target, audit #48). */
     newRunChannelLookupFails: false,
+    /** Every .in() filter a query applied, by table (Stage 1: findEntryFlow reads one channel's flows). */
+    inFilters: [] as { table: string; column: string; values: unknown[] }[],
+    /** Every conversation lookup fails. */
+    conversationLookupFails: false,
   },
   dispatch: vi.fn(async (_account: string, _key: string, send: () => Promise<unknown>) => send()),
   waText: vi.fn(async () => ({ whatsapp_message_id: "wamid.1" })),
@@ -69,7 +73,8 @@ vi.mock("./admin-client", () => {
   }
   function builder(table: string) {
     const b: Record<string, unknown> = {
-      select: () => b, eq: () => b, neq: () => b, is: () => b, in: () => b, filter: () => b, order: () => b, limit: () => b,
+      select: () => b, eq: () => b, neq: () => b, is: () => b, filter: () => b, order: () => b, limit: () => b,
+      in: (column: string, values: unknown[]) => { h.state.inFilters.push({ table, column, values }); return b; },
       update: (row: Record<string, unknown>) => { h.state.updates.push({ table, row }); return b; },
       insert: (row: Record<string, unknown>) => {
         h.state.inserted.push({ table, row });
@@ -77,6 +82,7 @@ vi.mock("./admin-client", () => {
         return b;
       },
       maybeSingle: async () => {
+        if (table === "conversations" && h.state.conversationLookupFails) return { data: null, error: { message: "connection reset" } };
         if (table === "conversations" && h.state.channelLookupFails && (h.state.insertedRun || h.state.activeRuns.length))
           return { data: null, error: { message: "connection reset" } };
         if (table === "conversations" && h.state.newRunChannelLookupFails && h.state.insertedRun)
@@ -125,6 +131,8 @@ beforeEach(() => {
   h.state.insertedRun = null;
   h.state.channelLookupFails = false;
   h.state.newRunChannelLookupFails = false;
+  h.state.inFilters = [];
+  h.state.conversationLookupFails = false;
   h.state.conversation = { channel: "whatsapp", whatsapp_config_id: null };
   h.lastCustomerAt = new Date();
   for (const fn of [h.dispatch, h.waText, h.waTemplate, h.igText, h.igChoices, h.igStore, h.executeRaw]) fn.mockClear();
@@ -150,6 +158,38 @@ describe("flowListensOnConversation", () => {
   it("never starts a WhatsApp-only trigger on Instagram", () => {
     for (const trigger_type of ["template_reply", "order_received", "ad_click"] as const)
       expect(flowListensOnConversation({ trigger_type, channel_scope: "any" }, ig)).toBe(false);
+  });
+});
+
+describe("findEntryFlow reads only the conversation channel's flows (Stage 1)", () => {
+  const flowFilters = () => h.state.inFilters.filter((f) => f.table === "flows");
+  it("filters both the live and the testing query to the channel plus legacy 'any' flows", async () => {
+    h.state.flows = [{ ...FLOW, channel_scope: "whatsapp" }];
+    await dispatch();
+    expect(flowFilters()).toEqual([
+      { table: "flows", column: "channel_scope", values: ["whatsapp", "any"] },
+      { table: "flows", column: "channel_scope", values: ["whatsapp", "any"] },
+    ]);
+    h.state.inFilters = [];
+    h.state.conversation = { channel: "instagram", whatsapp_config_id: null };
+    await dispatch();
+    expect(flowFilters().map((f) => f.values)).toEqual([["instagram", "any"], ["instagram", "any"]]);
+  });
+
+  it("treats a conversation with no channel as WhatsApp", async () => {
+    h.state.conversation = { channel: null as unknown as string, whatsapp_config_id: null };
+    h.state.flows = [{ ...FLOW, channel_scope: "whatsapp" }];
+    await dispatch();
+    expect(flowFilters()[0].values).toEqual(["whatsapp", "any"]);
+    expect(runs()).toHaveLength(1);
+  });
+
+  it("starts nothing and reads no flow when the conversation lookup fails", async () => {
+    h.state.conversationLookupFails = true;
+    h.state.flows = [{ ...FLOW, channel_scope: "whatsapp" }];
+    expect((await dispatch()).outcome).toBe("no_match");
+    expect(flowFilters()).toEqual([]);
+    expect(runs()).toHaveLength(0);
   });
 });
 
