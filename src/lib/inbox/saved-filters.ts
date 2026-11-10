@@ -97,6 +97,16 @@ export function parseInboxFilters(value: unknown): InboxFilters {
 }
 
 /**
+ * The channel a view saved from an inbox of `scope` belongs to: a channel
+ * inbox's own channel; in the All view its channel filter, else WhatsApp when
+ * it filters by number (the same rule parseInboxFilters reads back).
+ */
+export function savedViewChannel(scope: InboxScope, channelFilter: Channel | null, numberId: string | null): Channel | null {
+  if (scope !== 'all') return scope;
+  return channelFilter ?? (numberId !== null ? 'whatsapp' : null);
+}
+
+/**
  * A view as an inbox of `scope` applies it: a channel inbox always shows its
  * own channel, so a view for any channel takes the inbox's channel there.
  */

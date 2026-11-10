@@ -212,11 +212,13 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     hydratingConvIdsRef.current.add(convId);
     try {
       const db = createClient();
-      const { data, error } = await db
+      let query = db
         .from('conversations')
         .select(CONVERSATION_SELECT)
-        .eq('id', convId)
-        .maybeSingle();
+        .eq('id', convId);
+      // A channel inbox never reads another channel's row (the column is NOT NULL).
+      if (scope !== 'all') query = query.eq('channel', scope);
+      const { data, error } = await query.maybeSingle();
       if (error) {
         // Supabase errors have non-enumerable properties — log fields
         // explicitly so the console message isn't just `{}`.
@@ -228,7 +230,15 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
         });
         return;
       }
-      if (!data) return;
+      if (!data) {
+        if (scope !== 'all') {
+          // Not this channel's conversation: remember it, and drop the row a
+          // realtime payload without its channel may have prepended.
+          otherChannelConvIdsRef.current.add(convId);
+          setConversations((prev) => prev.filter((c) => c.id !== convId));
+        }
+        return;
+      }
       const fetched = normalizeConversation(data);
       if (!belongsHere(fetched)) {
         // Prepended from a realtime payload that did not name its channel.
@@ -261,7 +271,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     } finally {
       hydratingConvIdsRef.current.delete(convId);
     }
-  }, [belongsHere]);
+  }, [belongsHere, scope]);
 
   // Check WhatsApp connection status on mount (the WhatsApp inbox's banner only).
   useEffect(() => {

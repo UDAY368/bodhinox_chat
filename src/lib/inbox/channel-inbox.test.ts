@@ -47,6 +47,29 @@ describe('resolveInboxRedirect', () => {
     expect(await resolveInboxRedirect('whatsapp', { c: CONV })).toBe(`/instagram/inbox?c=${CONV}`);
   });
 
+  it('skips the channel state when a channel inbox has nothing to redirect', async () => {
+    // No ?c=: nothing to read, not even the session.
+    expect(await resolveInboxRedirect('whatsapp', { filter: 'unread' })).toBeNull();
+    expect(mocks.session).not.toHaveBeenCalled();
+    // ?c= of its own channel (a conversation click): one lookup, no channel state.
+    mocks.query.mockResolvedValue([{ channel: 'whatsapp' }]);
+    expect(await resolveInboxRedirect('whatsapp', { c: CONV })).toBeNull();
+    expect(mocks.query).toHaveBeenCalledTimes(1);
+    expect(mocks.channels).not.toHaveBeenCalled();
+    // ?c= not in this workspace: renders as asked.
+    mocks.query.mockResolvedValue([]);
+    expect(await resolveInboxRedirect('instagram', { c: CONV })).toBeNull();
+    expect(mocks.channels).not.toHaveBeenCalled();
+  });
+
+  it('sends another channel\'s conversation to the All view while that channel is off', async () => {
+    mocks.channels.mockResolvedValue({ enabled: ['whatsapp'] });
+    mocks.query.mockResolvedValue([{ channel: 'instagram' }]);
+    expect(await resolveInboxRedirect('whatsapp', { c: CONV })).toBe(`/inbox?c=${CONV}`);
+    // ...where the All view stays put, so there is no loop.
+    expect(await resolveInboxRedirect('all', { c: CONV })).toBeNull();
+  });
+
   it('counts a conversation with no channel as WhatsApp', async () => {
     mocks.channels.mockResolvedValue({ enabled: ['whatsapp', 'instagram'] });
     mocks.query.mockResolvedValue([{ channel: null }]);

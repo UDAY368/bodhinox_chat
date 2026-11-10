@@ -4,6 +4,7 @@ import './inbox.css';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { inboxPath, inScope, type InboxScope } from '@/lib/inbox/inbox-scope';
+import { savedViewChannel } from '@/lib/inbox/saved-filters';
 import {
   matchesInboxFilter,
   parseInboxFilter,
@@ -418,10 +419,9 @@ export function ConversationList({
       company: selectedCompany,
       numberId: scope === 'instagram' ? null : numberFilter,
       search,
-      // A channel inbox's views belong to its channel; the All view's to its channel filter.
-      channel: allChannels ? activeChannelFilter : scope,
+      channel: savedViewChannel(scope, activeChannelFilter, numberFilter),
     }),
-    [filter, sessionFilter, selectedTagIds, selectedCompany, numberFilter, search, scope, allChannels, activeChannelFilter]
+    [filter, sessionFilter, selectedTagIds, selectedCompany, numberFilter, search, scope, activeChannelFilter]
   );
   const applySavedFilters = (next: InboxFilters) => {
     setSessionFilter(next.session);

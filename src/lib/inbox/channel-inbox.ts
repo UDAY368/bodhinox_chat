@@ -28,16 +28,21 @@ export async function conversationChannelById(tx: TenantTransaction, accountId: 
 export async function resolveInboxRedirect(scope: InboxScope,
   params: Record<string, string | string[] | undefined>): Promise<string | null> {
   try {
-    const session = await resolveSession();
-    if (!session) return null;
     const search = toSearchParams(params);
     const conversationId = search.get('c');
+    // A channel inbox redirects only a ?c= of another channel's conversation.
+    // Selecting a conversation rewrites ?c= and re-runs this page, so that
+    // common case reads one row and skips the channel state.
+    if (scope !== 'all' && !conversationId) return null;
+    const session = await resolveSession();
+    if (!session) return null;
     const tenant = { accountId: session.accountId, userId: session.userId, role: session.role };
-    const { enabled, conversationChannel } = await withTenant(tenant, async (tx) => ({
-      enabled: (await getWorkspaceChannels(tx, session.accountId)).enabled,
-      conversationChannel: conversationId ? await conversationChannelById(tx, session.accountId, conversationId) : null,
-    }));
-    return inboxRedirectTarget({ scope, enabled, conversationChannel, search });
+    return await withTenant(tenant, async (tx) => {
+      const conversationChannel = conversationId ? await conversationChannelById(tx, session.accountId, conversationId) : null;
+      if (scope !== 'all' && (!conversationChannel || conversationChannel === scope)) return null;
+      const { enabled } = await getWorkspaceChannels(tx, session.accountId);
+      return inboxRedirectTarget({ scope, enabled, conversationChannel, search });
+    });
   } catch {
     // The page still renders; its data loads through the tenant-checked data API.
     return null;

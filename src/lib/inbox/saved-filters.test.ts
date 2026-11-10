@@ -7,6 +7,7 @@ import {
   parseInboxFilters,
   parseSavedFilterName,
   sameInboxFilters,
+  savedViewChannel,
   viewsForScope,
 } from './saved-filters';
 
@@ -100,5 +101,20 @@ describe('views per inbox', () => {
     expect(filtersInScope(any, 'all')).toBe(any);
     expect(filtersInScope(any, 'instagram').channel).toBe('instagram');
     expect(sameInboxFilters(filtersInScope(any, 'whatsapp'), { ...any, channel: 'whatsapp' })).toBe(true);
+  });
+});
+
+describe('savedViewChannel', () => {
+  it('names the channel a view is saved under, as parseInboxFilters reads it back', () => {
+    expect(savedViewChannel('whatsapp', null, null)).toBe('whatsapp');
+    expect(savedViewChannel('instagram', null, null)).toBe('instagram');
+    expect(savedViewChannel('all', null, null)).toBeNull();
+    expect(savedViewChannel('all', 'instagram', null)).toBe('instagram');
+    // A number filter in the All view: the view is WhatsApp's, so a saved
+    // view still matches the inbox state it was saved from (no duplicate Save).
+    const current = { ...DEFAULT_INBOX_FILTERS, numberId: TAG2, channel: savedViewChannel('all', null, TAG2) };
+    expect(current.channel).toBe('whatsapp');
+    expect(sameInboxFilters(parseInboxFilters(JSON.parse(JSON.stringify(current))), current)).toBe(true);
+    expect(sameInboxFilters(parseInboxFilters({ ...current, channel: null }), current)).toBe(true);
   });
 });
