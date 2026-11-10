@@ -9,7 +9,7 @@ vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: () => 'token' }));
 vi.mock('./config', () => ({ instagramConfig: () => ({}) }));
 vi.mock('./graph', () => ({ getProfile: h.getProfile }));
 
-import { handleProfileFetchJob } from './profile';
+import { handleProfileFetchJob, refreshProfileFacts } from './profile';
 
 const ACCOUNT = '22222222-2222-4222-8222-222222222222';
 const IDENTITY = '33333333-3333-4333-8333-333333333333';
@@ -39,5 +39,39 @@ describe('handleProfileFetchJob', () => {
     const written = JSON.stringify(h.executeRaw.mock.calls.flatMap((c) => c.slice(1)));
     expect(written).not.toContain('@janedoe');
     expect(written).not.toContain('9001');
+  });
+});
+
+describe('refreshProfileFacts (the follow gate)', () => {
+  const CONVERSATION = '44444444-4444-4444-8444-444444444444';
+  const storedRow = { identity_id: IDENTITY, external_id: '9001', access_token_enc: 'enc', status: 'active',
+    follows_business: false, business_follows: null, is_verified: null, ig_follower_count: 12 };
+
+  it('reads the facts live and stores them on the identity', async () => {
+    h.queryRaw.mockResolvedValue([storedRow]);
+    h.getProfile.mockResolvedValue({ name: null, username: null,
+      facts: { followsBusiness: true, businessFollows: false, isVerified: false, followerCount: 40 } });
+    await expect(refreshProfileFacts(ACCOUNT, CONVERSATION)).resolves.toEqual(
+      { followsBusiness: true, businessFollows: false, isVerified: false, followerCount: 40 });
+    const update = h.executeRaw.mock.calls.find((c) => sqlOf(c).includes('UPDATE contact_channel_identities'))!;
+    expect(sqlOf(update)).toContain('profile_checked_at=now()');
+    expect(update.slice(1)).toEqual(expect.arrayContaining([true, false, 40, ACCOUNT, IDENTITY]));
+  });
+
+  it('falls back to the stored facts when Meta refuses or the network fails, and writes nothing', async () => {
+    h.queryRaw.mockResolvedValue([storedRow]);
+    for (const failure of [Object.assign(new Error('refused'), { name: 'MetaApiError' }), new TypeError('fetch failed')]) {
+      h.getProfile.mockRejectedValueOnce(failure);
+      await expect(refreshProfileFacts(ACCOUNT, CONVERSATION)).resolves.toEqual(
+        { followsBusiness: false, businessFollows: null, isVerified: null, followerCount: 12 });
+    }
+    expect(h.executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('is null for a conversation that is not an Instagram one of this workspace', async () => {
+    h.queryRaw.mockResolvedValue([]);
+    await expect(refreshProfileFacts(ACCOUNT, CONVERSATION)).resolves.toBeNull();
+    await expect(refreshProfileFacts(ACCOUNT, 'not-a-uuid')).resolves.toBeNull();
+    expect(h.getProfile).not.toHaveBeenCalled();
   });
 });

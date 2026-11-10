@@ -6,8 +6,14 @@
 //   2. stores customer messages and postbacks through the shared inbound ingest
 //      (ingestInboundMessage, with no WhatsApp-only inputs), and echoes of sends
 //      made in the Instagram app as agent messages (never opening the window);
-//   3. records comments (only with the comments scope), matches a comment rule
-//      and queues instagram.private_reply;
+//   3. records comments (only with the comments scope). A person's first
+//      comment on a post is offered to the live ig_comment flows first
+//      (comment-matching.ts); when one may match, instagram.private_reply is
+//      queued to start it and the legacy comment rule is skipped (it stays the
+//      fallback when no flow takes the comment). Otherwise a comment rule
+//      matches and queues instagram.private_reply as before. Either path queues
+//      one job per comment (dedupe igpr:<event id>) and sends at most one
+//      private reply (intent ig_private_reply:<comment id>);
 //   4. counts every other event type as "unsupported" on the account.
 // Identity (CRM-02): a sender is found ONLY by (instagram_account_id, IGSID). A
 // new IGSID always gets a new phone-less contact; no phone, name, username,
@@ -29,6 +35,8 @@ import { instagramConfig, missingScopes } from './config';
 import { INSTAGRAM_PRIVATE_REPLY_JOB, INSTAGRAM_PROFILE_FETCH_JOB } from './jobs';
 import { lockInstagramSender } from '@/lib/contacts/identity-link';
 import { INSTAGRAM_WEBHOOK_PROVIDER } from './webhook';
+import { commentMatchesTrigger, rankCommentFlows, type CommentFlowCandidate, type PostMatch } from './comment-matching';
+import type { IgCommentTriggerConfig } from '@/lib/flows/types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const IG_ID = /^\d{1,32}$/;
@@ -74,6 +82,15 @@ const httpsUrl = (value: unknown): string | null =>
 const mid = (value: unknown): string | null =>
   typeof value === 'string' && value.length >= 1 && value.length <= 240 && /^[\x21-\x7e]+$/.test(value) ? value : null;
 
+/** Text made only of emoji (a story reaction): at least one pictograph, no letters or digits, short. */
+export function isEmojiOnly(text: string | null): boolean {
+  if (!text) return false;
+  const trimmed = text.trim();
+  return trimmed.length > 0 && trimmed.length <= 32 && /\p{Extended_Pictographic}/u.test(trimmed) &&
+    !/[\p{L}\p{N}]/u.test(trimmed.replace(/\p{Extended_Pictographic}/gu, '')) &&
+    /^[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\u200d\ufe0f\s]+$/u.test(trimmed);
+}
+
 function eventDate(value: unknown, now: Date): Date {
   const ms = typeof value === 'number' ? value : typeof value === 'string' && /^\d{1,15}$/.test(value) ? Number(value) : NaN;
   // Meta sends milliseconds; anything implausible (or in the future) is "now".
@@ -110,8 +127,11 @@ function messageItems(message: Record<string, unknown>, baseMid: string): IgItem
   const story = obj(replyTo?.story);
   if (story) {
     const url = httpsUrl(story.url);
+    const storyId = igId(story.id);
+    // (needs live capture) a quick emoji reaction to a story arrives as a story reply whose text is only the emoji.
+    const reaction = isEmojiOnly(text);
     return [{ messageId: baseMid, contentType: 'story_reply', text, mediaUrl: null, interactiveReplyId: null,
-      ig: withExtra({ story: true, ...(url ? { url } : {}) }) }];
+      ig: withExtra({ story: true, ...(url ? { url } : {}), ...(storyId ? { story_id: storyId } : {}), ...(reaction ? { reaction: true } : {}) }) }];
   }
   const quick = obj(message.quick_reply);
   const quickPayload = str(quick?.payload, MAX_REPLY_ID);
@@ -127,6 +147,11 @@ function messageItems(message: Record<string, unknown>, baseMid: string): IgItem
       const mapped = ATTACHMENT_TYPES[type];
       const messageId = index === 0 ? baseMid : `${baseMid}#${index}`;
       const caption = index === 0 ? text : null;
+      // (needs live capture) a mention of the account in the customer's story: Meta's
+      // documented shape is an attachment of type story_mention with the story's CDN url.
+      if (type === 'story_mention')
+        return { messageId, contentType: 'share' as const, text: caption, mediaUrl: null, interactiveReplyId: null,
+          ig: withExtra({ story_mention: true, ...(url ? { url } : {}) }) };
       if (!mapped || !url)
         return { messageId, contentType: 'unsupported' as const, text: caption, mediaUrl: null, interactiveReplyId: null,
           ig: withExtra({ type: /^[a-z_]{1,32}$/.test(type) ? type : 'unknown' }) };
@@ -441,9 +466,73 @@ async function senderBlocked(tx: TenantTransaction, owner: Owner, igsid: string)
   return row?.blocked === true;
 }
 
-/** Records a comment once, matches a rule and queues its private reply (one per comment, enforced by the unique key). */
+/** A live ig_comment flow the comment fits; `check`: only if its post is the account's next post (the job decides). */
+export interface CommentFlowChoice { flowId: string; check: boolean }
+
+/**
+ * What the live ig_comment flows make of a comment. `choices`: the flows it may
+ * start, best first (comment-matching.ts). `ruleSkipped`: a flow already took an
+ * earlier comment by this person on this post, so the flow owns that
+ * conversation and the legacy rule must not send a second, different DM.
+ */
+export interface CommentFlowOffer { choices: CommentFlowChoice[]; ruleSkipped: boolean }
+
+/**
+ * Reads the published version of each active Instagram (or legacy both-channel)
+ * flow of this workspace only. No choices unless this is the person's first
+ * comment on the post: this account's comment events are the record of that.
+ */
+async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: ParsedComment, eventId: string): Promise<CommentFlowOffer> {
+  const flows = await tx.$queryRaw<{ id: string; created_at: Date; trigger_config: unknown }[]>`
+    SELECT f.id::text AS id, f.created_at, v.trigger_config
+    FROM flows f JOIN flow_versions v ON v.account_id=f.account_id AND v.id=f.published_version_id AND v.flow_id=f.id
+    WHERE f.account_id=${owner.accountId}::uuid AND f.status='active' AND v.trigger_type='ig_comment'
+      AND v.channel_scope IN ('instagram','any')
+    ORDER BY f.created_at, f.id LIMIT 100`;
+  if (!flows.length) return { choices: [], ruleSkipped: false };
+  if (comment.mediaId) {
+    const [earlier] = await tx.$queryRaw<{ found: boolean; flow_taken: boolean }[]>`SELECT
+      EXISTS(SELECT 1 FROM instagram_comment_events
+        WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid
+          AND media_id=${comment.mediaId} AND from_igsid=${comment.fromIgsid} AND id<>${eventId}::uuid) AS found,
+      EXISTS(SELECT 1 FROM instagram_comment_events
+        WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid
+          AND media_id=${comment.mediaId} AND from_igsid=${comment.fromIgsid} AND id<>${eventId}::uuid
+          AND flow_run_id IS NOT NULL) AS flow_taken`;
+    if (earlier?.found) return { choices: [], ruleSkipped: earlier.flow_taken === true };
+  }
+  const facts = { instagramAccountId: owner.instagramAccountId, mediaId: comment.mediaId, text: comment.text };
+  const candidates: Array<CommentFlowCandidate & { match: PostMatch }> = [];
+  for (const flow of flows) {
+    const config = (flow.trigger_config && typeof flow.trigger_config === 'object' ? flow.trigger_config : {}) as IgCommentTriggerConfig;
+    let resolvedNext: string | null = null;
+    if (config.post_scope === 'next' && !config.resolved_media_id && typeof config.next_after === 'string'
+      && Number.isFinite(Date.parse(config.next_after))) {
+      // The next post is the one the flow's first comment run started on (that run carries the media id).
+      const [first] = await tx.$queryRaw<{ media_id: string | null }[]>`SELECT vars->>'ig_media_id' AS media_id
+        FROM flow_runs WHERE account_id=${owner.accountId}::uuid AND flow_id=${flow.id}::uuid
+          AND started_at >= ${new Date(config.next_after)} AND vars->>'ig_media_id' IS NOT NULL
+        ORDER BY started_at, id LIMIT 1`;
+      resolvedNext = first?.media_id ?? null;
+    }
+    const match = commentMatchesTrigger(config, facts, resolvedNext);
+    if (match !== 'no') candidates.push({ flowId: flow.id, createdAt: new Date(flow.created_at).toISOString(), config, match });
+  }
+  return { choices: rankCommentFlows(candidates).map((c) => ({ flowId: c.flowId, check: c.match === 'check' })), ruleSkipped: false };
+}
+
+/**
+ * Records a comment once and queues its private reply job (one per comment:
+ * the unique key and the job's dedupe key). A comment a live ig_comment flow
+ * may take is queued for the flow, with the matching legacy rule (if any) kept
+ * only as the fallback when no flow takes it; otherwise the legacy rule path
+ * runs exactly as before, except that a person a flow already answered on this
+ * post gets no rule DM for a later comment there. The sender lock serialises
+ * two comments by the same person, so only one of them is their first on a post.
+ */
 async function recordComment(owner: Owner, comment: ParsedComment): Promise<void> {
   await tenant(owner.accountId, async (tx) => {
+    if (comment.fromIgsid) await lockInstagramSender(tx, owner.instagramAccountId, comment.fromIgsid);
     const [event] = await tx.$queryRaw<{ id: string }[]>`
       INSERT INTO instagram_comment_events(account_id,instagram_account_id,comment_id,media_id,from_igsid)
       VALUES(${owner.accountId}::uuid,${owner.instagramAccountId}::uuid,${comment.commentId},${comment.mediaId},${comment.fromIgsid})
@@ -453,14 +542,44 @@ async function recordComment(owner: Owner, comment: ParsedComment): Promise<void
       WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid AND active
       ORDER BY created_at, id LIMIT 200`;
     // A comment without a sender id cannot get a private reply.
-    const rule = comment.fromIgsid ? matchCommentRule(rules, comment) : null;
+    const offer = comment.fromIgsid ? await commentFlowChoices(tx, owner, comment, event.id) : { choices: [], ruleSkipped: false };
+    // A flow already answered this person on this post: the rule never adds a second DM.
+    const rule = comment.fromIgsid && !offer.ruleSkipped ? matchCommentRule(rules, comment) : null;
+    const flows = offer.choices;
+    const wanted = Boolean(rule) || flows.length > 0;
     // A contact the business blocked gets no automated DM (the private reply job checks again at send time).
-    const blocked = rule ? await senderBlocked(tx, owner, comment.fromIgsid!) : false;
-    await tx.$executeRaw`UPDATE instagram_comment_events SET rule_id=${rule?.id ?? null}::uuid,
-      private_reply_status=${rule ? (blocked ? 'rejected' : 'queued') : 'no_rule'}
+    const blocked = wanted ? await senderBlocked(tx, owner, comment.fromIgsid!) : false;
+    await tx.$executeRaw`UPDATE instagram_comment_events SET rule_id=${flows.length ? null : rule?.id ?? null}::uuid,
+      private_reply_status=${wanted ? (blocked ? 'rejected' : 'queued') : 'no_rule'}
       WHERE account_id=${owner.accountId}::uuid AND id=${event.id}::uuid`;
-    if (rule && !blocked) await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
-      VALUES(${INSTAGRAM_PRIVATE_REPLY_JOB},${owner.accountId}::uuid,${JSON.stringify({ accountId: owner.accountId, eventId: event.id })}::jsonb,
+    if (!wanted || blocked) return;
+    // Ids only: the comment text never leaves this transaction.
+    const payload = flows.length
+      ? { accountId: owner.accountId, eventId: event.id, flows, fallbackRuleId: rule?.id ?? null }
+      : { accountId: owner.accountId, eventId: event.id };
+    await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key)
+      VALUES(${INSTAGRAM_PRIVATE_REPLY_JOB},${owner.accountId}::uuid,${JSON.stringify(payload)}::jsonb,
         ${`igpr:${event.id}`}) ON CONFLICT(dedupe_key) DO NOTHING`;
   });
+}
+
+/**
+ * The commenter's contact and Instagram conversation, created on their first
+ * contact with the account under the same identity rules as a DM (found only
+ * by (instagram account, IGSID), never matched by anything else). The comment
+ * flow job calls it before it starts the run.
+ */
+export async function resolveCommentThread(accountId: string, instagramAccountId: string, igsid: string):
+  Promise<{ contactId: string; conversationId: string; auditUserId: string }> {
+  if (!IG_ID.test(igsid)) throw new Error('Invalid Instagram sender');
+  const auditUserId = await tenant(accountId, async (tx) => {
+    const [row] = await tx.$queryRaw<{ audit_user_id: string | null }[]>`
+      SELECT COALESCE(a.connected_by_user_id, acc.owner_user_id)::text AS audit_user_id
+      FROM instagram_accounts a JOIN accounts acc ON acc.id=a.account_id
+      WHERE a.account_id=${accountId}::uuid AND a.id=${instagramAccountId}::uuid`;
+    return row?.audit_user_id ?? null;
+  });
+  if (!auditUserId) throw new Error('Instagram audit user could not be resolved');
+  const thread = await resolveThread({ accountId, instagramAccountId }, auditUserId, igsid);
+  return { contactId: thread.contactId, conversationId: thread.conversationId, auditUserId };
 }

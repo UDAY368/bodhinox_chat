@@ -1,6 +1,8 @@
 // Instagram channel sender (Phase 11). WhatsApp sending stays where it is; this
 // module is the one place an Instagram send is prepared and made, for the
-// composer (T3), flows (T4) and shared services (T5).
+// composer (T3), flows (T4) and shared services (T5). Stage 2 adds cards and
+// galleries (generic template), button templates and the automated-window
+// check flows run before each customer-facing step.
 //
 // Use:
 //   1. inside a WORKER tenant transaction (the app role cannot read the token):
@@ -20,11 +22,17 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { instagramConfig, missingScopes } from '@/lib/instagram/config';
 import { InstagramError } from '@/lib/instagram/errors';
 import {
+  buttonTemplateFits,
+  genericTemplateFits,
   quickRepliesFit,
   sendAttachment,
+  sendButtonTemplate,
+  sendGenericTemplate,
   sendQuickReplies,
   sendText,
   validInstagramText,
+  type IgGenericCard,
+  type IgTemplateButton,
   type InstagramAttachmentType,
   type QuickReply,
   type SentMessage,
@@ -181,6 +189,50 @@ export async function sendInstagramChoices(target: InstagramTarget, text: string
   ctx: InstagramSendContext): Promise<SentMessage> {
   const { humanAgentTag } = checkInstagramChoices(target, text, choices, ctx);
   return sendQuickReplies(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, text, choices, { humanAgentTag });
+}
+
+/** A card or a gallery (generic template, 1–10 cards) within the limits graph.ts enforces. */
+export function checkInstagramCards(target: InstagramTarget, cards: readonly IgGenericCard[],
+  ctx: InstagramSendContext): { humanAgentTag: boolean } {
+  const window = checkWindow(target, ctx);
+  if (!genericTemplateFits(cards)) throw new InstagramError('invalid_request');
+  return window;
+}
+
+export async function sendInstagramCards(target: InstagramTarget, cards: readonly IgGenericCard[],
+  ctx: InstagramSendContext): Promise<SentMessage> {
+  const { humanAgentTag } = checkInstagramCards(target, cards, ctx);
+  return sendGenericTemplate(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, cards, { humanAgentTag });
+}
+
+/** Text with 1–3 real buttons (links or postbacks): a button template. */
+export function checkInstagramButtonTemplate(target: InstagramTarget, text: string, buttons: readonly IgTemplateButton[],
+  ctx: InstagramSendContext): { humanAgentTag: boolean } {
+  const window = checkWindow(target, ctx);
+  if (!buttonTemplateFits(text, buttons)) throw new InstagramError('invalid_request');
+  return window;
+}
+
+export async function sendInstagramButtonTemplate(target: InstagramTarget, text: string, buttons: readonly IgTemplateButton[],
+  ctx: InstagramSendContext): Promise<SentMessage> {
+  const { humanAgentTag } = checkInstagramButtonTemplate(target, text, buttons, ctx);
+  return sendButtonTemplate(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, text, buttons, { humanAgentTag });
+}
+
+/**
+ * Whether an automated message may go to this Instagram conversation now: the
+ * customer wrote (or tapped a reply or postback) within 24 hours. Flows check it
+ * before every customer-facing step, so a run that resumes past the window ends
+ * with `window_closed` instead of failing a send. `tx` must be a tenant
+ * transaction of `accountId`.
+ */
+export async function instagramAutomatedWindowOpen(tx: TenantTransaction, accountId: string, conversationId: string,
+  now: Date = new Date()): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ last_customer_at: Date | null }[]>(Prisma.sql`
+    SELECT max(m.created_at) AS last_customer_at FROM messages m
+    WHERE m.account_id=${accountId}::uuid AND m.conversation_id=${conversationId}::uuid AND m.sender_type='customer'`);
+  const last = row?.last_customer_at ? new Date(row.last_customer_at) : null;
+  return instagramWindow({ lastCustomerAt: last, sender: 'automated', humanAgentEnabled: false, now }).allowed;
 }
 
 export interface InstagramSentRow {

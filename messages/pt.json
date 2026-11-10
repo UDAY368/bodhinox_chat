@@ -2849,7 +2849,15 @@
         "publicRepliesHelp": "Opcional. A cada vez, uma é escolhida e publicada abaixo do comentário. Até {max}.",
         "addPublicReply": "Adicionar resposta",
         "publicReplyPlaceholder": "Obrigado! Confira sua DM",
-        "tooManyKeywords": "Use no máximo {max} palavras-chave."
+        "tooManyKeywords": "Use no máximo {max} palavras-chave.",
+        "badPostScope": "Escolha em quais publicações este fluxo escuta.",
+        "needsPosts": "Escolha pelo menos uma publicação.",
+        "badPostIds": "Escolha no máximo {max} publicações da sua conta.",
+        "needsNextAfter": "Escolha “Sua próxima publicação” de novo para o fluxo saber qual é a próxima.",
+        "keywordTooLong": "Cada palavra-chave deve ter menos de {max} caracteres.",
+        "tooManyPublicReplies": "Use no máximo {max} respostas públicas.",
+        "publicReplyTooLong": "Escreva cada resposta pública com menos de {max} caracteres.",
+        "badAccount": "Escolha uma conta do Instagram conectada."
       },
       "igStoryReply": {
         "help": "Começa quando alguém responde a um dos seus stories.",
@@ -2858,10 +2866,13 @@
         "storyIds": "IDs dos stories",
         "keywords": "Somente respostas com estas palavras",
         "keywordsHelp": "Deixe vazio para começar com qualquer resposta.",
-        "reactions": "Também começar com reações de emoji"
+        "reactions": "Também começar com reações de emoji",
+        "badStoryIds": "Os IDs de story devem ser números, no máximo {max}.",
+        "badKeywords": "Use no máximo {max} palavras-chave, cada uma com menos de {chars} caracteres."
       },
       "igStoryMention": {
-        "help": "Começa quando alguém menciona sua conta no story."
+        "help": "Começa quando alguém menciona sua conta no story.",
+        "badFrequency": "Escolha com que frequência este fluxo roda para cada pessoa."
       }
     },
     "nodes": {
@@ -2872,7 +2883,8 @@
         "addReply": "Adicionar resposta",
         "maxReplies": "Até {max} respostas; uma é escolhida a cada vez.",
         "tooLong": "Cada resposta deve ter menos de {max} caracteres.",
-        "onlyCommentFlows": "Só funciona em um fluxo iniciado por um comentário."
+        "onlyCommentFlows": "Só funciona em um fluxo iniciado por um comentário.",
+        "needsReply": "Adicione pelo menos uma resposta."
       },
       "igPrivateReply": {
         "help": "A primeira mensagem para quem comentou. O Instagram permite uma resposta privada por comentário, em até 7 dias.",
@@ -2881,7 +2893,12 @@
         "optInHelp": "O fluxo aguarda este toque. Ele abre a conversa para que as próximas mensagens possam ser enviadas.",
         "optInPlaceholder": "Me envie o link",
         "firstOnly": "Deve ser a primeira etapa de um fluxo de comentários.",
-        "noInput": "Uma resposta privada não pode fazer perguntas nem esperar antes do envio."
+        "noInput": "Uma resposta privada não pode fazer perguntas nem esperar antes do envio.",
+        "textRequired": "Escreva a mensagem.",
+        "textTooLong": "A mensagem deve ter menos de {max} bytes.",
+        "optInTooLong": "O texto do botão deve ter menos de {max} caracteres.",
+        "onlyOne": "Um comentário recebe uma única resposta privada. Use esta etapa uma vez em cada caminho.",
+        "noDmWithoutOptIn": "O Instagram não deixa passar mais mensagens até a pessoa responder. Adicione um botão de abertura à resposta privada."
       },
       "card": {
         "title": "Título",
@@ -2896,21 +2913,34 @@
         "buttonTitle": "Texto do botão",
         "buttonUrl": "Link",
         "maxButtons": "Até {max} botões.",
-        "titleRequired": "Adicione um título."
+        "titleRequired": "Adicione um título.",
+        "titleTooLong": "O título deve ter menos de {max} caracteres.",
+        "subtitleTooLong": "O subtítulo deve ter menos de {max} caracteres.",
+        "badUrl": "Use um link https.",
+        "buttonInvalid": "Cada botão precisa de um texto com menos de {max} caracteres e de um link ou uma etapa de destino.",
+        "routesAndNext": "Um cartão com botões “Ir para uma etapa” espera um toque. Remova o link Próximo."
       },
       "gallery": {
         "cards": "Cartões",
         "addCard": "Adicionar cartão",
         "removeCard": "Remover cartão",
         "maxCards": "Até {max} cartões.",
-        "cardN": "Cartão {n}"
+        "cardN": "Cartão {n}",
+        "needsCard": "Adicione pelo menos um cartão."
       },
       "buttons": {
         "linkButtons": "Botões de link",
         "addLinkButton": "Adicionar botão de link",
         "linkButtonsHelp": "Só no Instagram. Tocar em um link não continua o fluxo.",
         "maxButtons": "Até {max} botões no total.",
-        "replyHelp": "Um toque continua o fluxo pelo caminho desse botão."
+        "replyHelp": "Um toque continua o fluxo pelo caminho desse botão.",
+        "badLink": "Cada botão de link precisa de um texto com menos de {max} caracteres e de um link https.",
+        "textTooLong": "Com botões de link, a mensagem deve ter menos de {max} caracteres.",
+        "linkOnlyInstagram": "Os botões de link funcionam só no Instagram."
+      },
+      "igProfile": {
+        "onlyInstagram": "As verificações do perfil do Instagram só funcionam em fluxos do Instagram.",
+        "badFact": "Escolha um dado do perfil do Instagram para verificar."
       }
     }
   },

@@ -6,7 +6,17 @@ import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
-import { adClickMatch, byPrecedence, isTestContact, keywordTriggerMatches, orderReceivedMatch, phoneDigits, templateReplyMatch } from './triggers';
+import {
+  adClickMatch, byPrecedence, defaultReplyApplies, instagramFactsFrom, isTestContact, keywordTriggerMatches, orderReceivedMatch, phoneDigits,
+  storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
+} from './triggers';
+import { decodePostback, encodePostback } from '@/lib/instagram/postback-payloads';
+import { PRIVATE_REPLY_RETRY_MS, postCommentPublicReply, recordCommentOptIn, sendCommentPrivateReply } from '@/lib/instagram/private-reply';
+import { pickPublicReply } from '@/lib/instagram/comment-matching';
+import { validCommentReply, type IgGenericCard, type IgTemplateButton, type QuickReply } from '@/lib/instagram/graph-limits';
+import { refreshProfileFacts, type ProfileFacts } from '@/lib/instagram/profile';
+import { instagramAutomatedWindowOpen } from '@/lib/channels/sender';
+import { needsMessagingWindow } from './instagram-validation';
 import { conversionValue, isConversionEventName } from './conversion-node';
 import { queueConversionEvent } from '@/lib/meta-ads/capi';
 import { runApiRequest } from './api-request';
@@ -16,7 +26,7 @@ import { sendForm, templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { CommerceSendError, commerceMessageFromNode, isCommerceNodeType, sendCommerceMessage } from '@/lib/commerce/catalog-send';
 import { isCurrencyCode, minorFromDb, parseMoney } from '@/lib/commerce/money';
 import { getWorkerPrisma } from '@/lib/db/prisma';
-import { withTenant } from '@/lib/db/tenant';
+import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { runStorefrontLinkNode, type StorefrontNodeResult } from './storefront-node';
 import { createPaymentLinkRecord, findLinkByReference, flowOutcomeFor, flowPaymentReference, paymentLinkMessageText, PaymentLinkError } from '@/lib/payments/links';
 import { flowAiTurnStarted, runFlowAiReply } from '@/lib/ai/flow-reply';
@@ -69,6 +79,16 @@ import {
  * another conversation of the same contact (another number) is left
  * alone — it is not answered, closed or re-routed — so replies always
  * go out from the number the customer wrote to.
+ *
+ * Instagram (Stage 2): story replies and mentions start ig_story_* flows
+ * (read from the stored message), a conversation starter tap (`ib:<flow>`)
+ * starts its listed flow, and default_reply flows answer what nothing else
+ * matched (both channels). Comments start ig_comment flows through
+ * startCommentFlow (private-reply.ts's job), never from a message: the first
+ * step is the comment's one private reply, and the run waits for the opening
+ * button (`optin:<run>:<step>`). Every Instagram step that messages the
+ * customer re-checks the 24-hour window first and ends the run with
+ * `window_closed` when it has passed. Each channel runs only its own steps.
  */
 
 import { databaseAdmin } from "./admin-client";
@@ -113,6 +133,14 @@ import {
   type KeywordTriggerConfig,
   type TemplateReplyTriggerConfig,
   type AdClickTriggerConfig,
+  type DefaultReplyTriggerConfig,
+  type IgCard,
+  type IgCommentReplyNodeConfig,
+  type IgCommentTriggerConfig,
+  type IgPrivateReplyNodeConfig,
+  type IgStoryMentionTriggerConfig,
+  type IgStoryReplyTriggerConfig,
+  type TriggerFrequency,
 } from "./types";
 
 // ============================================================
@@ -148,8 +176,34 @@ export function matchReplyId(
     const hit = buttons.find((b) => b.reply_id === reply_id) ?? buttons.find((b) => b.title === reply_id);
     return hit?.next_node_key ?? null;
   }
+  if (node.node_type === "send_card" || node.node_type === "send_gallery") {
+    return cardPostbackRoutes(node).find((b) => b.reply_id === reply_id)?.next_node_key ?? null;
+  }
   return null;
 }
+
+/** The cards of a send_card / send_gallery node. */
+export function nodeCards(node: { node_type: string; config: Record<string, unknown> }): IgCard[] {
+  const cfg = node.config;
+  if (node.node_type === "send_card") return cfg.card && typeof cfg.card === "object" ? [cfg.card as IgCard] : [];
+  if (node.node_type === "send_gallery") return Array.isArray(cfg.cards) ? (cfg.cards as IgCard[]).filter((c) => c && typeof c === "object") : [];
+  return [];
+}
+
+/** A card node's postback buttons that lead somewhere (a link button has no route: its tap never reaches us). */
+export function cardPostbackRoutes(node: { node_type: string; config: Record<string, unknown> }): Array<{ reply_id: string; next_node_key: string }> {
+  return nodeCards(node).flatMap((card) => (Array.isArray(card.buttons) ? card.buttons : []))
+    .filter((b): b is Extract<NonNullable<IgCard["buttons"]>[number], { type: "postback" }> =>
+      Boolean(b) && b.type === "postback" && typeof b.reply_id === "string" && b.reply_id !== "" &&
+      typeof b.next_node_key === "string" && b.next_node_key !== "")
+    .map((b) => ({ reply_id: b.reply_id, next_node_key: b.next_node_key }));
+}
+
+/** A card or gallery with routed postback buttons waits for the tap; without them it moves on to `next_node_key`. */
+export function cardWaits(node: { node_type: string; config: Record<string, unknown> }): boolean {
+  return cardPostbackRoutes(node).length > 0;
+}
+
 
 /**
  * The strings an inbound message offers to a flow's *entry* trigger.
@@ -571,10 +625,33 @@ export function flowListensOnConversation(
   return flowListensOnNumber(flow, conversation.whatsappConfigId);
 }
 
+/** What the stored Instagram message is (a story reply or mention); an unreadable row is an ordinary message. */
+async function storedInstagramFacts(db: AdminClient, accountId: string, conversationId: string, metaMessageId: string): Promise<InstagramInboundFacts> {
+  const { data, error } = await db.from("messages").select("interactive_payload")
+    .eq("account_id", accountId).eq("conversation_id", conversationId).eq("message_id", metaMessageId).maybeSingle();
+  if (error || !data) return {};
+  return instagramFactsFrom((data as { interactive_payload?: unknown }).interactive_payload);
+}
+
+/**
+ * Whether a once-limited trigger may start this flow for the contact again:
+ * `once_per_24h` allows one run per contact in any 24 hours. A failed lookup
+ * says no, so a database hiccup never repeats a message.
+ */
+async function frequencyAllows(db: AdminClient, accountId: string, flowId: string, contactId: string,
+  frequency: TriggerFrequency | undefined): Promise<boolean> {
+  if (frequency !== "once_per_24h") return true;
+  const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
+  const { count, error } = await db.from("flow_runs").select("id", { count: "exact", head: true })
+    .eq("account_id", accountId).eq("flow_id", flowId).eq("contact_id", contactId).gte("started_at", since);
+  return !error && (count ?? 0) === 0;
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
   conversationId: string,
+  contactId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
   contactDigits: () => Promise<string>,
@@ -587,7 +664,6 @@ async function findEntryFlow(
   // *automation* sends the buttons, the customer taps one, and the flow
   // whose keyword matches that button never starts. Retyping the label
   // by hand worked, which is the tell — same words, different envelope.
-  const candidates = entryTriggerTexts(message);
 
   // The inbound's channel and number are its conversation's (one conversation
   // per contact and number, or per contact and Instagram account). Always read:
@@ -600,6 +676,15 @@ async function findEntryFlow(
     channel: (row?.channel === "instagram" ? "instagram" : "whatsapp") as Channel,
     whatsappConfigId: row?.whatsapp_config_id ?? null,
   };
+
+  // Instagram: one of our own postback codes (a conversation starter, opt-in
+  // or follow-check tap that found no run to answer) offers only its title;
+  // the code itself is not something the customer said. WhatsApp is unchanged.
+  const ourPostback = conversation.channel === "instagram" && message.kind === "interactive_reply"
+    && decodePostback(message.reply_id) !== null;
+  const candidates = ourPostback && message.kind === "interactive_reply"
+    ? [message.reply_title].filter((v) => Boolean(v && v.trim()))
+    : entryTriggerTexts(message);
 
   // Active flows, plus drafts being tested (only those with test numbers
   // are fetched); both sets are small. A testing draft runs its own row, so
@@ -642,8 +727,23 @@ async function findEntryFlow(
   const typed = byPrecedence(candidatesByStatus.filter((f) =>
     flowListensOnConversation(f, conversation)));
   const found = (flow: EffectiveFlow, vars: Record<string, string>) => ({ flow, vars, version: versionOf.get(flow.id) });
+  // Story replies and mentions are read from the stored message (Instagram only).
+  const needsFacts = conversation.channel === "instagram" &&
+    typed.some((f) => f.trigger_type === "ig_story_reply" || f.trigger_type === "ig_story_mention" || f.trigger_type === "default_reply");
+  const igFacts: InstagramInboundFacts = needsFacts ? await storedInstagramFacts(db, accountId, conversationId, message.meta_message_id) : {};
   for (const flow of typed) {
-    if (flow.trigger_type === "order_received") {
+    if (flow.trigger_type === "ig_story_reply") {
+      if (storyReplyMatches(igFacts, messageText(message), flow.trigger_config as IgStoryReplyTriggerConfig)) return found(flow, {});
+    } else if (flow.trigger_type === "ig_story_mention") {
+      const cfg = flow.trigger_config as IgStoryMentionTriggerConfig;
+      if (igFacts.storyMention && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) return found(flow, {});
+    } else if (flow.trigger_type === "default_reply") {
+      // Lowest tier (triggers.ts): reached only when no other flow matched.
+      const cfg = flow.trigger_config as DefaultReplyTriggerConfig;
+      if (defaultReplyApplies(message, igFacts, ourPostback) && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) {
+        return found(flow, {});
+      }
+    } else if (flow.trigger_type === "order_received") {
       const vars = orderReceivedMatch(message);
       if (vars) return found(flow, vars);
     } else if (flow.trigger_type === "ad_click") {
@@ -693,7 +793,24 @@ async function sendButtonsAndSuspend(
   // Meta's 20-char cap; meta-api's validator throws a descriptive error
   // and the caller logs it — we never truncate silently.
   const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cfg));
-  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "buttons", args: {
+  const intentKey = `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`;
+  // Instagram with link buttons: a button template (real buttons; a link tap does not continue the run).
+  const links = Array.isArray(cfg.link_buttons) ? cfg.link_buttons : [];
+  if (links.length && (await runChannel(run)) === "instagram") {
+    const text = [cfg.header_text, cfg.text, cfg.footer_text].map((part) => (part ? interpolateVars(part, run.vars, ws).trim() : ""))
+      .filter(Boolean).join("\n\n");
+    const buttons: IgTemplateButton[] = [
+      ...cfg.buttons.map((b) => ({ type: "postback" as const, title: interpolateVars(b.title, run.vars, ws), payload: b.reply_id })),
+      ...links.map((b) => ({ type: "web_url" as const, title: interpolateVars(b.title, run.vars, ws), url: b.url })),
+    ];
+    const sent = await flowSend(run, intentKey, { kind: "button_template", args: {
+      accountId: run.account_id, conversationId: run.conversation_id!, text, buttons,
+    } });
+    await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "send_buttons", whatsapp_message_id: sent.whatsapp_message_id });
+    await rememberPrompt(db, run, sent.whatsapp_message_id);
+    return { outcome: "advanced", node_key: node.node_key };
+  }
+  const { whatsapp_message_id } = await flowSend(run, intentKey, { kind: "buttons", args: {
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
@@ -769,6 +886,106 @@ async function sendListAndSuspend(
     })
     .eq("id", run.id);
   return { outcome: "advanced", node_key: node.node_key };
+}
+
+/** Stashes the prompt's message row on the run so the inbox can quote what the customer answers. */
+async function rememberPrompt(db: AdminClient, run: FlowRunRow, providerMessageId: string): Promise<void> {
+  const { data: msg } = await db.from("messages").select("id").eq("message_id", providerMessageId).maybeSingle();
+  await db.from("flow_runs").update({ last_prompt_message_id: (msg as { id: string } | null)?.id ?? null }).eq("id", run.id);
+}
+
+/**
+ * A node's cards as Graph cards. Visible text is interpolated like every other
+ * step; links and postback ids go out exactly as authored (a postback carries
+ * its reply_id, which routes the tap).
+ */
+function graphCards(cards: IgCard[], vars: Record<string, unknown>, ws: Record<string, string>): IgGenericCard[] {
+  return cards.map((card) => ({
+    title: interpolateVars(card.title, vars, ws),
+    ...(card.subtitle ? { subtitle: interpolateVars(card.subtitle, vars, ws) } : {}),
+    ...(card.image_url ? { imageUrl: card.image_url } : {}),
+    ...(card.default_url ? { defaultUrl: card.default_url } : {}),
+    ...(card.buttons?.length ? {
+      buttons: card.buttons.map((b): IgTemplateButton => (b.type === "web_url"
+        ? { type: "web_url", title: interpolateVars(b.title, vars, ws), url: b.url }
+        : { type: "postback", title: interpolateVars(b.title, vars, ws), payload: b.reply_id })),
+    } : {}),
+  }));
+}
+
+/** Sends a send_card / send_gallery step (Instagram only) under the step's intent key. */
+async function sendCards(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<string> {
+  const cards = nodeCards(node);
+  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cards));
+  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, {
+    kind: "cards", args: { accountId: run.account_id, conversationId: run.conversation_id!, cards: graphCards(cards, run.vars, ws) },
+  });
+  await logEvent(db, run.id, "message_sent", node.node_key, { node_type: node.node_type, cards: cards.length, whatsapp_message_id });
+  if (cardWaits(node)) await rememberPrompt(db, run, whatsapp_message_id);
+  return whatsapp_message_id;
+}
+
+/**
+ * An ig_private_reply step: the first message to the commenter, sent as the
+ * comment's one private reply (private-reply.ts: 7-day window, hourly guard,
+ * intent ig_private_reply:<comment id>). With an opt-in label the message
+ * carries one quick reply whose payload names this run and step, and the run
+ * waits for it (handleReplyForActiveRun); without one it moves on at once.
+ * Held back by the hourly guard or a Meta throttle, the step waits
+ * PRIVATE_REPLY_RETRY_MS and runs again (the intent key makes that safe). Any
+ * other outcome ends the run with a reason; nothing here logs text.
+ */
+async function runPrivateReplyStep(db: AdminClient, run: FlowRunRow, node: FlowNodeRow):
+  Promise<{ next: string; outcome?: undefined } | { next: null; outcome: "advanced" | "completed" }> {
+  const cfg = node.config as unknown as IgPrivateReplyNodeConfig;
+  const eventId = commentEventOf(run);
+  const fail = async (reason: string) => {
+    await logEvent(db, run.id, "error", node.node_key, { reason });
+    await endRun(db, run.id, "failed", reason);
+    return { next: null, outcome: "completed" as const };
+  };
+  if (!eventId) return fail("private_reply_without_comment");
+  const ws = await workspaceValuesFor(run.account_id, JSON.stringify([cfg.text, cfg.opt_in_label ?? ""]));
+  const label = cfg.opt_in_label?.trim() ? interpolateVars(cfg.opt_in_label, run.vars, ws).trim() : "";
+  let quickReplies: QuickReply[] | undefined;
+  try {
+    quickReplies = label ? [{ title: label, payload: encodePostback({ kind: "opt_in", runId: run.id, nodeKey: node.node_key }) }] : undefined;
+  } catch {
+    return fail("private_reply_invalid");
+  }
+  let outcome: string;
+  try {
+    outcome = await sendCommentPrivateReply({ accountId: run.account_id, eventId, runId: run.id, text: interpolateVars(cfg.text, run.vars, ws), quickReplies });
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "private_reply_failed", detail: errorDetail(err) });
+    await endRun(db, run.id, "failed", "private_reply_failed");
+    return { next: null, outcome: "completed" };
+  }
+  if (outcome === "rate_limited" || outcome === "throttled") {
+    await logEvent(db, run.id, "error", node.node_key, { reason: `private_reply_${outcome}` });
+    const scheduled = await scheduleDelay(db, run, node, Math.round(PRIVATE_REPLY_RETRY_MS / 1000));
+    return { next: null, outcome: scheduled === "failed" ? "completed" : "advanced" };
+  }
+  if (outcome !== "sent" && outcome !== "unknown") return fail(`private_reply_${outcome}`);
+  // 'unknown' may have reached the commenter: never re-sent, and the run carries on as if it had.
+  await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "ig_private_reply", outcome });
+  if (!label) {
+    if (cfg.next_node_key) return { next: cfg.next_node_key };
+    await endRun(db, run.id, "completed", "end_node");
+    return { next: null, outcome: "completed" };
+  }
+  if (!(await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key))) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
+  } else {
+    await scheduleReplyTimeout(db, run, node);
+  }
+  return { next: null, outcome: "advanced" };
+}
+
+/** The comment event a comment-started run answers (set by startCommentFlow), or null. */
+function commentEventOf(run: Pick<FlowRunRow, "vars">): string | null {
+  const id = run.vars?.ig_comment_event_id;
+  return typeof id === "string" && UUID_RE.test(id) ? id : null;
 }
 
 /**
@@ -1051,12 +1268,42 @@ async function evaluateConditionNode(
   return cfg.match !== "any";
 }
 
+/** One live profile read per loaded run object: a condition with several profile rules reads Meta once. */
+const profileReads = new WeakMap<object, Promise<ProfileFacts | null>>();
+
+/**
+ * An `ig_profile` rule's subject (the follow gate): read from Meta when the run
+ * reaches the condition, so "I followed" is re-checked rather than cached.
+ * Booleans are "true"/"false"; the follower count is a number; unknown is
+ * absent. Not an Instagram run: absent.
+ */
+export function igProfileValue(facts: ProfileFacts | null, key: string): string | undefined {
+  if (!facts) return undefined;
+  const value = key === "follows_business" ? facts.followsBusiness
+    : key === "business_follows" ? facts.businessFollows
+      : key === "is_verified" ? facts.isVerified
+        : key === "follower_count" ? facts.followerCount : null;
+  return value === null || value === undefined ? undefined : String(value);
+}
+
+async function igProfileSubject(run: FlowRunRow, key: string): Promise<string | undefined> {
+  if (!run.conversation_id || (await runChannel(run)) !== "instagram") return undefined;
+  let read = profileReads.get(run);
+  if (!read) {
+    read = refreshProfileFacts(run.account_id, run.conversation_id);
+    profileReads.set(run, read);
+    read.catch(() => profileReads.delete(run));
+  }
+  return igProfileValue(await read, key);
+}
+
 async function conditionSubject(
   db: AdminClient,
   run: FlowRunRow,
   rule: ConditionRule,
 ): Promise<string | undefined> {
   if (rule.subject === "time" || rule.subject === "date") return undefined;
+  if (rule.subject === "ig_profile") return igProfileSubject(run, rule.subject_key);
   if (rule.subject === "var") {
     const v = run.vars[rule.subject_key];
     return typeof v === "string" ? v : v === undefined || v === null ? undefined : String(v);
@@ -2222,8 +2469,9 @@ async function advanceFromNodeKey(
       node_type: node.node_type,
     });
 
-    if (node.node_type !== "start" && (await runChannel(run)) === "instagram"
-      && !nodeAvailableOn(node.node_type, "instagram", node.config).ok) {
+    const channel = node.node_type === "start" ? null : await runChannel(run);
+    // Each channel runs only its own steps (Stage 2: the Instagram-only steps never run on WhatsApp).
+    if (channel && !nodeAvailableOn(node.node_type, channel, node.config).ok) {
       await logEvent(db, run.id, "error", node.node_key, { reason: "unavailable_on_channel", node_type: node.node_type });
       const failure = channelFailurePort(node.config);
       if (failure) {
@@ -2231,6 +2479,18 @@ async function advanceFromNodeKey(
         continue;
       }
       return handOffUnavailable(db, run, node);
+    }
+    // Instagram's 24-hour window, re-checked before every step that messages the
+    // customer: a run that resumes (after a delay, a timeout or a late tap)
+    // past the window ends here with window_closed instead of failing a send.
+    if (channel === "instagram" && needsMessagingWindow(node.node_type) && run.conversation_id) {
+      const open = await withTenant({ accountId: run.account_id, role: "owner" },
+        (tx) => instagramAutomatedWindowOpen(tx, run.account_id, run.conversation_id!), getWorkerPrisma());
+      if (!open) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "window_closed", node_type: node.node_type });
+        await endRun(db, run.id, "cancelled", "window_closed");
+        return { outcome: "completed" };
+      }
     }
 
     if (node.node_type === "start") {
@@ -2696,6 +2956,60 @@ async function advanceFromNodeKey(
       }
       return { outcome: "advanced" };
     }
+    if (node.node_type === "ig_comment_reply") {
+      // A public reply under the comment that started the run; never interpolated
+      // (it is public, so no run variable may leak into it). Non-fatal.
+      const cfg = node.config as unknown as IgCommentReplyNodeConfig;
+      const eventId = commentEventOf(run);
+      const commentId = typeof run.vars.ig_comment_id === "string" ? run.vars.ig_comment_id : "";
+      const text = eventId && commentId ? pickPublicReply(cfg.replies, commentId, validCommentReply) : null;
+      let outcome = "unavailable";
+      if (eventId && text) {
+        try {
+          outcome = await postCommentPublicReply(run.account_id, eventId, text);
+        } catch {
+          outcome = "failed";
+        }
+      }
+      if (outcome === "posted") await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "ig_comment_reply" });
+      else await logEvent(db, run.id, "error", node.node_key, { reason: `comment_reply_${outcome}` });
+      currentKey = cfg.next_node_key || null;
+      if (!currentKey) {
+        await endRun(db, run.id, "completed", "end_node");
+        return { outcome: "completed" };
+      }
+      continue;
+    }
+    if (node.node_type === "ig_private_reply") {
+      const result = await runPrivateReplyStep(db, run, node);
+      if (result.next === null) return { outcome: result.outcome };
+      currentKey = result.next;
+      continue;
+    }
+    if (node.node_type === "send_card" || node.node_type === "send_gallery") {
+      try {
+        await sendCards(db, run, node);
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: `${node.node_type}_failed`, detail: errorDetail(err) });
+        await endRun(db, run.id, "failed", `${node.node_type}_failed`);
+        return { outcome: "completed" };
+      }
+      if (!cardWaits(node)) {
+        currentKey = typeof node.config.next_node_key === "string" && node.config.next_node_key ? node.config.next_node_key : null;
+        if (!currentKey) {
+          await endRun(db, run.id, "completed", "end_node");
+          return { outcome: "completed" };
+        }
+        continue;
+      }
+      const advanced = await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key);
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
+      }
+      return { outcome: "advanced" };
+    }
     if (node.node_type === "handoff") {
       await executeHandoff(db, run, node);
       return { outcome: "handed_off" };
@@ -2975,6 +3289,164 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
   return { outcome: result.consumed && result.outcome !== 'no_match' ? 'started' : 'unavailable' };
 }
 
+/**
+ * A conversation starter (ice breaker) tap with no run waiting: starts the
+ * flow its payload names (`ib:<flow id>`), whatever that flow's trigger. The
+ * payload is only a claim, so the flow must still be listed among the starters
+ * of this conversation's own Instagram account, be live in this workspace and
+ * run on Instagram. Null when the message is not such a tap or the flow is
+ * gone; the message then goes through the ordinary triggers.
+ */
+async function startIceBreakerFlow(db: AdminClient, input: DispatchInboundInput): Promise<DispatchInboundResult | null> {
+  if (input.message.kind !== "interactive_reply") return null;
+  const code = decodePostback(input.message.reply_id);
+  if (!code || code.kind !== "ice_breaker") return null;
+  const listed = await withTenant({ accountId: input.accountId, role: "owner" }, async (tx) => {
+    const [row] = await tx.$queryRaw<{ listed: boolean }[]>`SELECT EXISTS(SELECT 1 FROM conversations c
+        JOIN instagram_accounts a ON a.account_id=c.account_id AND a.id=c.instagram_account_id
+        WHERE c.account_id=${input.accountId}::uuid AND c.id=${input.conversationId}::uuid AND c.contact_id=${input.contactId}::uuid
+          AND c.channel='instagram' AND jsonb_typeof(a.ice_breakers)='array'
+          AND a.ice_breakers @> jsonb_build_array(jsonb_build_object('flow_id', ${code.flowId}::text))) AS listed`;
+    return row?.listed === true;
+  }, getWorkerPrisma());
+  if (!listed) return null;
+  const { data, error } = await db.from("flows").select("*").eq("account_id", input.accountId).eq("id", code.flowId)
+    .eq("status", "active").maybeSingle();
+  if (error || !data) return null;
+  const graph = await startGraph(db, data as FlowRow);
+  if (!graph || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return null;
+  if (!scopeIncludes(graph.flow.channel_scope, "instagram")) return null;
+  return startNewRun(db, graph.flow, input, graph.nodes);
+}
+
+/** What startCommentFlow did with a comment. */
+export type CommentFlowStart =
+  /** A run started (or one this comment already started was carried on). */
+  | "started"
+  /** Another job's run already answers this comment. */
+  | "taken"
+  /** A run is already active on the commenter's conversation: one run per conversation. */
+  | "busy"
+  /** The bot is paused on the conversation (a person took over). */
+  | "paused"
+  /** The flow is no longer live, not a comment flow, not on Instagram or not for this account. */
+  | "unavailable";
+
+/**
+ * Starts an ig_comment flow for one recorded comment (private-reply.ts's
+ * comment-flow job). The commenter's contact and conversation are resolved
+ * (created on first contact), a run starts on the flow's published version
+ * with the comment's ids as variables, and the comment event is linked to it
+ * (compare-and-set, so a comment starts at most one run). The trigger's
+ * rotated public reply is posted once per comment before the run advances;
+ * the first step is the private reply. A retried job whose run started but
+ * never advanced carries it on from its entry.
+ */
+export async function startCommentFlow(args: { accountId: string; eventId: string; flowId: string }): Promise<CommentFlowStart> {
+  const { accountId, eventId, flowId } = args;
+  const db = databaseAdmin({ accountId, role: "owner" });
+  const tenantRead = <T,>(work: (tx: TenantTransaction) => Promise<T>) =>
+    withTenant({ accountId, role: "owner" }, work, getWorkerPrisma());
+  const [event] = await tenantRead((tx) => tx.$queryRaw<{ comment_id: string; media_id: string | null; from_igsid: string | null;
+    instagram_account_id: string; status: string; flow_run_id: string | null }[]>`
+    SELECT comment_id, media_id, from_igsid, instagram_account_id::text AS instagram_account_id,
+      private_reply_status AS status, flow_run_id::text AS flow_run_id
+    FROM instagram_comment_events WHERE account_id=${accountId}::uuid AND id=${eventId}::uuid`);
+  if (!event) return "unavailable";
+  if (event.flow_run_id) return (await resumeCommentRun(db, accountId, event.flow_run_id)) ? "started" : "taken";
+  if (event.status !== "queued" || !event.from_igsid) return "unavailable";
+
+  const { data, error } = await db.from("flows").select("*").eq("account_id", accountId).eq("id", flowId).eq("status", "active").maybeSingle();
+  if (error) throw new Error("Comment flow lookup failed");
+  if (!data) return "unavailable";
+  const graph = await startGraph(db, data as FlowRow);
+  if (!graph || graph.flow.trigger_type !== "ig_comment" || !scopeIncludes(graph.flow.channel_scope, "instagram")
+    || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return "unavailable";
+  const trigger = (graph.flow.trigger_config ?? {}) as IgCommentTriggerConfig;
+  if (trigger.instagram_account_id && trigger.instagram_account_id !== event.instagram_account_id) return "unavailable";
+
+  const { resolveCommentThread } = await import("@/lib/instagram/process-webhook");
+  const thread = await resolveCommentThread(accountId, event.instagram_account_id, event.from_igsid);
+  if (await botRepliesPaused(accountId, thread.conversationId)) return "paused";
+
+  const flow = graph.flow;
+  const { data: inserted, error: insErr } = await db.from("flow_runs").insert({
+    flow_id: flow.id,
+    account_id: flow.account_id,
+    user_id: flow.user_id,
+    contact_id: thread.contactId,
+    conversation_id: thread.conversationId,
+    status: "active",
+    current_node_key: flow.entry_node_id,
+    // Ids only (no comment text): the private reply and comment reply steps answer this comment.
+    vars: { ig_comment_event_id: eventId, ig_comment_id: event.comment_id, ...(event.media_id ? { ig_media_id: event.media_id } : {}) },
+    ...(flow.version_id ? { flow_version_id: flow.version_id } : {}),
+  }).select("*").maybeSingle();
+  if (insErr) {
+    const msg = insErr.message ?? "";
+    if (!(msg.includes("23505") || msg.includes("duplicate key"))) throw new Error("Comment flow run insert failed");
+    // A job that crashed between inserting its run and linking the comment left
+    // that run active on the conversation: link it now and carry it on, instead
+    // of reporting the conversation busy with this comment's own run.
+    const active = await loadActiveRunForConversation(db, accountId, thread.contactId, thread.conversationId);
+    if (!active || active.vars?.ig_comment_event_id !== eventId) return "busy";
+    const relinked = await tenantRead((tx) => tx.$executeRaw`UPDATE instagram_comment_events SET flow_run_id=${active.id}::uuid
+      WHERE account_id=${accountId}::uuid AND id=${eventId}::uuid AND flow_run_id IS NULL AND private_reply_status='queued'`);
+    if (!relinked) return "taken";
+    await resumeCommentRun(db, accountId, active.id);
+    return "started";
+  }
+  const run = inserted as FlowRunRow;
+  const linked = await tenantRead((tx) => tx.$executeRaw`UPDATE instagram_comment_events SET flow_run_id=${run.id}::uuid
+    WHERE account_id=${accountId}::uuid AND id=${eventId}::uuid AND flow_run_id IS NULL AND private_reply_status='queued'`);
+  if (!linked) {
+    await endRun(db, run.id, "cancelled", "comment_already_taken");
+    return "taken";
+  }
+  committedRuns.add(run);
+  // The trigger's public reply (0-3 variants, one picked per comment); a failure never stops the DM.
+  const reply = pickPublicReply(trigger.public_replies, event.comment_id, validCommentReply);
+  const input: DispatchInboundInput = {
+    accountId, userId: flow.user_id, contactId: thread.contactId, conversationId: thread.conversationId,
+    message: { kind: "text", text: "", meta_message_id: `igc:${event.comment_id}` },
+  };
+  try {
+    await guardCommitted(run, async () => {
+      if (reply) {
+        const posted = await postCommentPublicReply(accountId, eventId, reply).catch(() => "failed");
+        if (posted !== "posted") await logEvent(db, run.id, "error", flow.entry_node_id, { reason: `comment_reply_${posted}` });
+      }
+      return continueNewRun(db, run, flow, input, graph.nodes);
+    });
+  } catch (err) {
+    if (err instanceof FlowAdvanceInterrupted) await endInterruptedRun(db, err.run);
+    else throw err;
+  }
+  return "started";
+}
+
+/**
+ * A comment run a crashed job inserted and linked but never moved past its
+ * entry: carry it on (every send in it is keyed, so nothing goes twice).
+ * False when the run is gone, ended or already under way.
+ */
+async function resumeCommentRun(db: AdminClient, accountId: string, runId: string): Promise<boolean> {
+  const { data, error } = await db.from("flow_runs").select("*").eq("account_id", accountId).eq("id", runId).maybeSingle();
+  if (error) throw new Error("Comment run lookup failed");
+  const run = data as FlowRunRow | null;
+  if (!run || run.status !== "active" || (run.transition_seq ?? 0) !== 0 || run.delay_until || !run.current_node_key) return false;
+  const { flow, nodes } = await loadRunGraph(db, run);
+  if (!flow || run.current_node_key !== flow.entry_node_id) return false;
+  committedRuns.add(run);
+  try {
+    await guardCommitted(run, () => advanceFromNodeKey(db, run, run.current_node_key!, nodes));
+  } catch (err) {
+    if (err instanceof FlowAdvanceInterrupted) await endInterruptedRun(db, err.run);
+    else throw err;
+  }
+  return true;
+}
+
 export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {
@@ -3025,11 +3497,16 @@ export async function dispatchInboundToFlows(
       }
     }
 
+    // No active run: a conversation starter tap starts its own flow.
+    const starter = await startIceBreakerFlow(db, input);
+    if (starter) return starter;
+
     // No active run → look for a flow whose entry trigger matches.
     const entry = await findEntryFlow(
       db,
       input.accountId,
       input.conversationId,
+      input.contactId,
       input.message,
       input.isFirstInboundMessage,
       contactDigits,
@@ -3103,6 +3580,35 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
   }
 
+  // Instagram postback codes (postback-payloads.ts) are claims about this run:
+  // they act only when they name this run and the step it is on.
+  // WhatsApp runs never read them, so a WhatsApp reply id is routed exactly as before.
+  const decoded = message.kind === "interactive_reply" ? decodePostback(message.reply_id) : null;
+  const code = decoded && (await runChannel(run)) === "instagram" ? decoded : null;
+  if (currentNode.node_type === "ig_private_reply") {
+    // Waiting for the commenter to open the conversation: the "Opening DM" tap,
+    // or anything they type (which opens the 24-hour window just the same).
+    const cfg = currentNode.config as unknown as IgPrivateReplyNodeConfig;
+    const tapped = code?.kind === "opt_in" && code.runId === run.id && code.nodeKey === currentNode.node_key;
+    const typed = message.kind === "text" && message.text.trim() !== "";
+    if (!(tapped || typed) || !cfg.next_node_key) return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+    if (!(await claimReplyTransition(db, run, cfg.next_node_key))) return lostReplyRace(db, run, currentNode.node_key);
+    const eventId = commentEventOf(run);
+    if (eventId) await recordCommentOptIn(run.account_id, eventId, run.id).catch(() => console.error("[flows] opt-in record failed", { runId: run.id }));
+    await logEvent(db, run.id, "node_entered", currentNode.node_key, { opted_in: tapped ? "tap" : "reply" });
+    const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
+    return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+  }
+  if (code?.kind === "opt_in") return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+  if (code?.kind === "follow_check") {
+    // "I followed": re-run the follow gate's condition (it re-reads the profile).
+    const target = code.runId === run.id ? nodes.get(code.nodeKey) : undefined;
+    if (!target || target.node_type !== "condition") return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+    if (!(await claimReplyTransition(db, run, target.node_key))) return lostReplyRace(db, run, currentNode.node_key);
+    const outcome = await advanceFromNodeKey(db, run, target.node_key, nodes);
+    return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+  }
+
   // Two ways a reply can advance:
   //   1. Interactive button/list tap on a send_buttons/send_list node.
   //   2. An answer on a question node — captured into vars.
@@ -3166,7 +3672,9 @@ async function handleReplyForActiveRun(
     message.kind === "interactive_reply" &&
     (currentNode.node_type === "send_buttons" ||
       currentNode.node_type === "send_list" ||
-      currentNode.node_type === "send_template")
+      currentNode.node_type === "send_template" ||
+      currentNode.node_type === "send_card" ||
+      currentNode.node_type === "send_gallery")
   ) {
     // A template is never re-sent as a reprompt (it costs money), so an
     // unknown reply below only counts towards the flow's exhaust policy.
@@ -3262,6 +3770,8 @@ async function handleReplyForActiveRun(
         await sendButtonsAndSuspend(db, run, currentNode);
       } else if (currentNode.node_type === "send_list") {
         await sendListAndSuspend(db, run, currentNode);
+      } else if (currentNode.node_type === "send_card" || currentNode.node_type === "send_gallery") {
+        await sendCards(db, run, currentNode);
       } else if (isAskNode(currentNode.node_type)) {
         // The customer sent something we couldn't accept. Re-send the
         // prompt so they try again.

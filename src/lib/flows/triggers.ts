@@ -8,14 +8,25 @@
 //   1. template_reply   a tap on a sent template's quick-reply button
 //   2. keyword          exact, contains or regex
 //   3. first_inbound_message
+//   (Instagram, Stage 2) ig_story_mention and ig_story_reply sit just above
+//   keyword: a story reply that also contains a keyword starts the story flow.
+//   4. default_reply  only when nothing above matched (lowest tier)
+// ig_comment flows never start from a message: comments start them
+// (process-webhook.ts and private-reply.ts).
 // Within a tier a draft being tested wins for its testers, then the oldest
 // flow. `manual` flows never start here. A draft starts only for one of
 // its test numbers.
 
 import { regexMatches } from "./input-validation";
-import type { AdClickTriggerConfig, FlowRow, KeywordTriggerConfig, ParsedInbound, TemplateReplyTriggerConfig } from "./types";
+import { hasKeywords, keywordListMatches } from "@/lib/instagram/comment-matching";
+import type {
+  AdClickTriggerConfig, FlowRow, IgStoryReplyTriggerConfig, KeywordTriggerConfig, ParsedInbound, TemplateReplyTriggerConfig,
+} from "./types";
 
-const TIER: Record<string, number> = { order_received: -1, ad_click: -0.5, template_reply: 0, keyword: 1, first_inbound_message: 2 };
+const TIER: Record<string, number> = {
+  order_received: -1, ad_click: -0.5, template_reply: 0, ig_story_mention: 0.5, ig_story_reply: 0.6, keyword: 1,
+  first_inbound_message: 2, default_reply: 3,
+};
 
 /** Digits only, the form contacts.phone_normalized and flows.test_numbers use. */
 export function phoneDigits(phone: string | null | undefined): string {
@@ -83,4 +94,51 @@ export function adClickMatch(message: ParsedInbound, cfg: AdClickTriggerConfig |
   const wanted = Array.isArray(cfg?.ad_ids) ? cfg.ad_ids.filter((id) => typeof id === "string" && id) : [];
   if (wanted.length && (!referral.source_id || !wanted.includes(referral.source_id))) return null;
   return { ad_id: referral.source_id ?? "", ad_headline: referral.headline ?? "", ad_source_url: referral.source_url ?? "" };
+}
+
+/** What an Instagram message is, from its stored row (process-webhook.ts writes interactive_payload.ig). */
+export interface InstagramInboundFacts {
+  /** A reply to one of the account's stories. */
+  storyReply?: { storyId: string | null; reaction: boolean };
+  /** A mention of the account in the customer's story. */
+  storyMention?: boolean;
+}
+
+/** The facts a stored message's interactive_payload carries (fixed keys only; anything else is ignored). */
+export function instagramFactsFrom(payload: unknown): InstagramInboundFacts {
+  const ig = payload && typeof payload === "object" ? (payload as { ig?: unknown }).ig : null;
+  if (!ig || typeof ig !== "object") return {};
+  const row = ig as Record<string, unknown>;
+  if (row.story_mention === true) return { storyMention: true };
+  if (row.story === true) {
+    const storyId = typeof row.story_id === "string" && /^\d{1,32}$/.test(row.story_id) ? row.story_id : null;
+    return { storyReply: { storyId, reaction: row.reaction === true } };
+  }
+  return {};
+}
+
+/**
+ * Whether a story reply starts an ig_story_reply flow: the story is one of
+ * `story_ids` (or any story when none are listed); an emoji reaction starts it
+ * only with `reactions`; a text reply matches `keywords` (any reply when none).
+ */
+export function storyReplyMatches(facts: InstagramInboundFacts, text: string, cfg: IgStoryReplyTriggerConfig | null | undefined): boolean {
+  const reply = facts.storyReply;
+  if (!reply) return false;
+  const ids = Array.isArray(cfg?.story_ids) ? cfg.story_ids.filter((id) => typeof id === "string" && id) : [];
+  if (ids.length && (!reply.storyId || !ids.includes(reply.storyId))) return false;
+  if (reply.reaction) return cfg?.reactions === true;
+  if (!hasKeywords(cfg?.keywords)) return true;
+  return keywordListMatches(text, cfg?.keywords, cfg?.match_mode);
+}
+
+/**
+ * Whether a message may start a default_reply flow: an ordinary message (not
+ * a form, a cart or a story mention) that nothing else matched. Our own
+ * postback codes (conversation starters, opt-in and follow-check taps) never
+ * fall through to it.
+ */
+export function defaultReplyApplies(message: ParsedInbound, facts: InstagramInboundFacts, isOurPostback: boolean): boolean {
+  if (message.kind === "form" || message.kind === "order") return false;
+  return !facts.storyMention && !isOurPostback;
 }

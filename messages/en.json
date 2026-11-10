@@ -2849,7 +2849,15 @@
         "publicRepliesHelp": "Optional. One is picked each time and posted under the comment. Up to {max}.",
         "addPublicReply": "Add a reply",
         "publicReplyPlaceholder": "Thanks! Check your DMs",
-        "tooManyKeywords": "Use at most {max} keywords."
+        "tooManyKeywords": "Use at most {max} keywords.",
+        "badPostScope": "Choose which posts this flow listens to.",
+        "needsPosts": "Choose at least one post.",
+        "badPostIds": "Choose at most {max} posts from your account.",
+        "needsNextAfter": "Choose “Your next post” again so the flow knows which post comes next.",
+        "keywordTooLong": "Keep each keyword under {max} characters.",
+        "tooManyPublicReplies": "Use at most {max} public replies.",
+        "publicReplyTooLong": "Write each public reply, under {max} characters.",
+        "badAccount": "Choose a connected Instagram account."
       },
       "igStoryReply": {
         "help": "Starts when someone replies to one of your stories.",
@@ -2858,10 +2866,13 @@
         "storyIds": "Story IDs",
         "keywords": "Only replies with these words",
         "keywordsHelp": "Leave empty to start on any reply.",
-        "reactions": "Also start on emoji reactions"
+        "reactions": "Also start on emoji reactions",
+        "badStoryIds": "Story IDs must be numbers, at most {max}.",
+        "badKeywords": "Use at most {max} keywords, each under {chars} characters."
       },
       "igStoryMention": {
-        "help": "Starts when someone mentions your account in their story."
+        "help": "Starts when someone mentions your account in their story.",
+        "badFrequency": "Choose how often this flow runs for each person."
       }
     },
     "nodes": {
@@ -2872,7 +2883,8 @@
         "addReply": "Add a reply",
         "maxReplies": "Up to {max} replies; one is picked each time.",
         "tooLong": "Keep each reply under {max} characters.",
-        "onlyCommentFlows": "Works only in a flow started by a comment."
+        "onlyCommentFlows": "Works only in a flow started by a comment.",
+        "needsReply": "Add at least one reply."
       },
       "igPrivateReply": {
         "help": "The first message to someone who commented. Instagram allows one private reply per comment, within 7 days.",
@@ -2881,7 +2893,12 @@
         "optInHelp": "The flow waits for this tap. It opens the conversation so the next messages can be sent.",
         "optInPlaceholder": "Send me the link",
         "firstOnly": "Must be the first step of a comment flow.",
-        "noInput": "A private reply can’t ask a question or wait before sending."
+        "noInput": "A private reply can’t ask a question or wait before sending.",
+        "textRequired": "Write the message.",
+        "textTooLong": "Keep the message under {max} bytes.",
+        "optInTooLong": "Keep the button text under {max} characters.",
+        "onlyOne": "A comment gets one private reply. Use this step once on each path.",
+        "noDmWithoutOptIn": "Instagram doesn’t let more messages through until the person answers. Add an opening button to the private reply."
       },
       "card": {
         "title": "Title",
@@ -2896,21 +2913,34 @@
         "buttonTitle": "Button text",
         "buttonUrl": "Link",
         "maxButtons": "Up to {max} buttons.",
-        "titleRequired": "Add a title."
+        "titleRequired": "Add a title.",
+        "titleTooLong": "Keep the title under {max} characters.",
+        "subtitleTooLong": "Keep the subtitle under {max} characters.",
+        "badUrl": "Use an https link.",
+        "buttonInvalid": "Each button needs text under {max} characters and a link or a step to go to.",
+        "routesAndNext": "A card with “Go to a step” buttons waits for a tap. Remove its Next link."
       },
       "gallery": {
         "cards": "Cards",
         "addCard": "Add card",
         "removeCard": "Remove card",
         "maxCards": "Up to {max} cards.",
-        "cardN": "Card {n}"
+        "cardN": "Card {n}",
+        "needsCard": "Add at least one card."
       },
       "buttons": {
         "linkButtons": "Link buttons",
         "addLinkButton": "Add link button",
         "linkButtonsHelp": "Instagram only. A link tap doesn’t continue the flow.",
         "maxButtons": "Up to {max} buttons in total.",
-        "replyHelp": "A tap continues the flow on that button’s path."
+        "replyHelp": "A tap continues the flow on that button’s path.",
+        "badLink": "Each link button needs text under {max} characters and an https link.",
+        "textTooLong": "With link buttons, keep the message under {max} characters.",
+        "linkOnlyInstagram": "Link buttons work on Instagram only."
+      },
+      "igProfile": {
+        "onlyInstagram": "Instagram profile checks work only in Instagram flows.",
+        "badFact": "Choose an Instagram profile detail to check."
       }
     }
   },
