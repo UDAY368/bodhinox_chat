@@ -21,6 +21,7 @@ import {
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { PageSearch } from '@/components/layout/page-search';
 import { getPageTitleKey } from '@/components/layout/page-search-navigation';
+import { channelFromPath } from '@/lib/channels/routes';
 
 interface HeaderProps {
   showMenuToggle?: boolean;
@@ -34,9 +35,12 @@ import { useTranslations } from 'next-intl';
 
 export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: HeaderProps) {
   const t = useTranslations('Header');
+  const groups = useTranslations('Sidebar.groups');
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const titleKey = getPageTitleKey(pathname);
+  // Inside a channel section the breadcrumb names the channel (WhatsApp › Inbox).
+  const section = channelFromPath(pathname);
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
@@ -57,7 +61,7 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
           <Menu className="h-5 w-5" />
         </button>
         <span className="text-muted-foreground hidden text-[11px] sm:inline">
-          {t('workspace')}
+          {section ? groups(section) : t('workspace')}
         </span>
         <ChevronRight className="text-muted-foreground/60 hidden size-3 sm:block" />
         <h1 className="text-foreground truncate text-xs font-semibold">
@@ -117,7 +121,7 @@ export function Header({ onOpenSidebar, showMenuToggle = false, menuExpanded }: 
             <DropdownMenuItem
               render={
                 <Link
-                  href="/settings?tab=whatsapp"
+                  href="/settings"
                   className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                 />
               }

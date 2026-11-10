@@ -125,7 +125,10 @@
     "products": "상품",
     "payments": "결제",
     "ads": "광고",
-    "appointments": "예약"
+    "appointments": "예약",
+    "allInboxes": "모든 인박스",
+    "templates": "템플릿",
+    "comments": "댓글"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"

@@ -125,7 +125,10 @@
     "products": "Products",
     "payments": "Payments",
     "ads": "Ads",
-    "appointments": "Appointments"
+    "appointments": "Appointments",
+    "allInboxes": "All inboxes",
+    "templates": "Templates",
+    "comments": "Comments"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"

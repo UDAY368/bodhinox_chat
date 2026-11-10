@@ -67,6 +67,18 @@ describe('proxy cookie protections', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('/login');
   });
+  it('protects the /whatsapp and /instagram channel sections and their nested pages', async () => {
+    for (const path of ['/whatsapp', '/whatsapp/inbox?c=abc', '/whatsapp/flows/abc', '/instagram', '/instagram/inbox', '/instagram/comments', '/instagram/automations/new']) {
+      const response = await proxy(new NextRequest(`https://crm.test${path}`));
+      expect(response.status, path).toBe(307);
+      const location = new URL(response.headers.get('location')!);
+      expect(location.pathname, path).toBe('/login');
+    }
+  });
+  it('does not protect a look-alike of a channel section', async () => {
+    const response = await proxy(new NextRequest('https://crm.test/instagramx'));
+    expect(response.status).toBe(200);
+  });
   it('sends a signed-out visitor of a shared report to sign-in and back', async () => {
     const id = '11111111-2222-4333-8444-555555555555';
     const response = await proxy(new NextRequest(`https://crm.test/reports/shared/${id}`));
