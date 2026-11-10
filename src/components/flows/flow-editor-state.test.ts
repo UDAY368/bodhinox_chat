@@ -6,7 +6,6 @@ import {
   defaultSection,
   nodeTypesForScope,
   publishDraft,
-  STEPS_WITHOUT_EDITOR,
   triggerTypesForScope,
   uniqueNodeKey,
 } from "./flow-editor-state";
@@ -231,11 +230,8 @@ describe("channel palettes (Stage 1)", () => {
     for (const whatsappOnly of ["send_template", "send_form", "ask_location", "ask_address", "send_catalog"] as const)
       expect(steps).not.toContain(whatsappOnly);
     expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "ai_reply", "handoff", "end"]));
-    // The Instagram-only steps join the menu once their forms land (2D); until then nobody can place an unconfigurable step.
-    for (const pending of INSTAGRAM_ONLY_NODE_TYPES) {
-      expect(STEPS_WITHOUT_EDITOR.has(pending)).toBe(true);
-      expect(steps).not.toContain(pending);
-    }
+    // Stage 2 (2D): the Instagram-only steps have their forms, so the Instagram palette offers them.
+    for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(steps).toContain(instagramOnly);
     expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_story_reply", "ig_story_mention", "first_inbound_message",
       "default_reply", "manual"]);
   });
@@ -245,6 +241,19 @@ describe("channel palettes (Stage 1)", () => {
     expect(nodeTypesForScope("any")).toEqual(nodeTypesForScope("whatsapp").filter((type) => instagram.includes(type)));
     for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(nodeTypesForScope("any")).not.toContain(instagramOnly);
     expect(triggerTypesForScope("any")).toEqual(["keyword", "first_inbound_message", "default_reply", "manual"]);
+  });
+
+  it("makes an added private reply the first step, continuing to the old entry", () => {
+    const base: BuilderState = {
+      name: "f", description: "", trigger_type: "ig_comment", trigger_config: {}, entry_node_id: "hello", status: "draft",
+      fallback_policy: resolveFallbackPolicy(undefined), test_numbers: [],
+      nodes: [{ node_key: "hello", node_type: "send_message", config: { text: "hi", next_node_key: "" } }],
+    };
+    const next = appendNode(base, "ig_private_reply", "private_reply");
+    expect(next.entry_node_id).toBe("private_reply");
+    expect(next.nodes.find((n) => n.node_key === "private_reply")?.config.next_node_key).toBe("hello");
+    // Any other step keeps the entry as it was.
+    expect(appendNode(base, "send_card", "card").entry_node_id).toBe("hello");
   });
 
   it("opens a flow in its own section, a legacy one in WhatsApp", () => {

@@ -2849,7 +2849,14 @@
         "publicRepliesHelp": "Optional. One is picked each time and posted under the comment. Up to {max}.",
         "addPublicReply": "Add a reply",
         "publicReplyPlaceholder": "Thanks! Check your DMs",
-        "tooManyKeywords": "Use at most {max} keywords."
+        "tooManyKeywords": "Use at most {max} keywords.",
+        "chooseAccountFirst": "Choose an Instagram account to pick its posts.",
+        "loadingPosts": "Loading posts…",
+        "untitledPost": "Post without a caption",
+        "retry": "Try again",
+        "replyN": "Public reply {n}",
+        "removeReply": "Remove public reply {n}",
+        "matchMode": "How the words match"
       },
       "igStoryReply": {
         "help": "Starts when someone replies to one of your stories.",
@@ -2858,7 +2865,8 @@
         "storyIds": "Story IDs",
         "keywords": "Only replies with these words",
         "keywordsHelp": "Leave empty to start on any reply.",
-        "reactions": "Also start on emoji reactions"
+        "reactions": "Also start on emoji reactions",
+        "storyIdsHelp": "Paste story IDs, separated by commas. Up to {max}."
       },
       "igStoryMention": {
         "help": "Starts when someone mentions your account in their story."
@@ -2872,7 +2880,9 @@
         "addReply": "Add a reply",
         "maxReplies": "Up to {max} replies; one is picked each time.",
         "tooLong": "Keep each reply under {max} characters.",
-        "onlyCommentFlows": "Works only in a flow started by a comment."
+        "onlyCommentFlows": "Works only in a flow started by a comment.",
+        "replyN": "Reply {n}",
+        "removeReply": "Remove reply {n}"
       },
       "igPrivateReply": {
         "help": "The first message to someone who commented. Instagram allows one private reply per comment, within 7 days.",
@@ -2881,7 +2891,8 @@
         "optInHelp": "The flow waits for this tap. It opens the conversation so the next messages can be sent.",
         "optInPlaceholder": "Send me the link",
         "firstOnly": "Must be the first step of a comment flow.",
-        "noInput": "A private reply can’t ask a question or wait before sending."
+        "noInput": "A private reply can’t ask a question or wait before sending.",
+        "bytesLeft": "{count, plural, one {# byte left} other {# bytes left}}"
       },
       "card": {
         "title": "Title",
@@ -2896,7 +2907,9 @@
         "buttonTitle": "Button text",
         "buttonUrl": "Link",
         "maxButtons": "Up to {max} buttons.",
-        "titleRequired": "Add a title."
+        "titleRequired": "Add a title.",
+        "urlInvalid": "Use a full https:// link.",
+        "buttonType": "What the button does"
       },
       "gallery": {
         "cards": "Cards",

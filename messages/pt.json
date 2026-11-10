@@ -2849,7 +2849,14 @@
         "publicRepliesHelp": "Opcional. A cada vez, uma é escolhida e publicada abaixo do comentário. Até {max}.",
         "addPublicReply": "Adicionar resposta",
         "publicReplyPlaceholder": "Obrigado! Confira sua DM",
-        "tooManyKeywords": "Use no máximo {max} palavras-chave."
+        "tooManyKeywords": "Use no máximo {max} palavras-chave.",
+        "chooseAccountFirst": "Escolha uma conta do Instagram para selecionar as publicações dela.",
+        "loadingPosts": "Carregando publicações…",
+        "untitledPost": "Publicação sem legenda",
+        "retry": "Tentar novamente",
+        "replyN": "Resposta pública {n}",
+        "removeReply": "Remover a resposta pública {n}",
+        "matchMode": "Como as palavras correspondem"
       },
       "igStoryReply": {
         "help": "Começa quando alguém responde a um dos seus stories.",
@@ -2858,7 +2865,8 @@
         "storyIds": "IDs dos stories",
         "keywords": "Somente respostas com estas palavras",
         "keywordsHelp": "Deixe vazio para começar com qualquer resposta.",
-        "reactions": "Também começar com reações de emoji"
+        "reactions": "Também começar com reações de emoji",
+        "storyIdsHelp": "Cole os IDs dos stories, separados por vírgulas. Até {max}."
       },
       "igStoryMention": {
         "help": "Começa quando alguém menciona sua conta no story."
@@ -2872,7 +2880,9 @@
         "addReply": "Adicionar resposta",
         "maxReplies": "Até {max} respostas; uma é escolhida a cada vez.",
         "tooLong": "Cada resposta deve ter menos de {max} caracteres.",
-        "onlyCommentFlows": "Só funciona em um fluxo iniciado por um comentário."
+        "onlyCommentFlows": "Só funciona em um fluxo iniciado por um comentário.",
+        "replyN": "Resposta {n}",
+        "removeReply": "Remover a resposta {n}"
       },
       "igPrivateReply": {
         "help": "A primeira mensagem para quem comentou. O Instagram permite uma resposta privada por comentário, em até 7 dias.",
@@ -2881,7 +2891,8 @@
         "optInHelp": "O fluxo aguarda este toque. Ele abre a conversa para que as próximas mensagens possam ser enviadas.",
         "optInPlaceholder": "Me envie o link",
         "firstOnly": "Deve ser a primeira etapa de um fluxo de comentários.",
-        "noInput": "Uma resposta privada não pode fazer perguntas nem esperar antes do envio."
+        "noInput": "Uma resposta privada não pode fazer perguntas nem esperar antes do envio.",
+        "bytesLeft": "{count, plural, one {Resta # byte} other {Restam # bytes}}"
       },
       "card": {
         "title": "Título",
@@ -2896,7 +2907,9 @@
         "buttonTitle": "Texto do botão",
         "buttonUrl": "Link",
         "maxButtons": "Até {max} botões.",
-        "titleRequired": "Adicione um título."
+        "titleRequired": "Adicione um título.",
+        "urlInvalid": "Use um link completo começando com https://.",
+        "buttonType": "O que o botão faz"
       },
       "gallery": {
         "cards": "Cartões",

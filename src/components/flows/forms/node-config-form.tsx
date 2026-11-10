@@ -59,6 +59,12 @@ import { AiReplyForm } from "./ai-reply-form";
 import { ConversionEventForm } from "./conversion-event-form";
 import { StorefrontLinkForm } from "./storefront-link-form";
 import { CommerceStepForm } from "./commerce-forms";
+import { useFlowEditor } from "../flow-editor-state";
+import { commentStepIssue } from "../nodes/ig-node-config";
+import { IgCommentReplyForm } from "../nodes/ig-comment-reply-form";
+import { IgPrivateReplyForm } from "../nodes/ig-private-reply-form";
+import { IgCardForm } from "../nodes/ig-card-form";
+import { IgLinkButtons } from "../nodes/ig-link-buttons";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -72,7 +78,10 @@ export function NodeConfigForm(props: NodeConfigFormProps) {
   return (
     <>
       <NodeFields {...props} />
-      <TimingFields node={props.node} allNodes={props.allNodes} onUpdateConfig={props.onUpdateConfig} t={t} />
+      {/* A private reply takes no typing delay; its form has its own reply timeout. */}
+      {props.node.node_type !== "ig_private_reply" && (
+        <TimingFields node={props.node} allNodes={props.allNodes} onUpdateConfig={props.onUpdateConfig} t={t} />
+      )}
     </>
   );
 }
@@ -84,7 +93,13 @@ function NodeFields({
   onUpdateConfig,
 }: NodeConfigFormProps) {
   const t = useTranslations("Flows.builder.form");
+  const tNodes = useTranslations("Flows.nodes");
+  const { channelScope, state } = useFlowEditor();
   const cfg = node.config;
+  // Why a comment step cannot run where it is placed (not a comment flow, or not first).
+  const commentIssue = commentStepIssue(node, state.trigger_type, state.entry_node_id);
+  const commentNotice = commentIssue === "onlyCommentFlows" ? tNodes("igCommentReply.onlyCommentFlows")
+    : commentIssue === "firstOnly" ? tNodes("igPrivateReply.firstOnly") : null;
   switch (node.node_type) {
     case "start":
       return (
@@ -124,6 +139,7 @@ function NodeFields({
           currentKey={node.node_key}
           onUpdateConfig={onUpdateConfig}
           showAdvanced={showAdvanced}
+          instagram={channelScope === "instagram"}
           t={t}
         />
       );
@@ -209,6 +225,16 @@ function NodeFields({
         />
       );
 
+    case "ig_comment_reply":
+      return <IgCommentReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} notice={commentNotice} t={t} />;
+
+    case "ig_private_reply":
+      return <IgPrivateReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} notice={commentNotice} t={t} />;
+
+    case "send_card":
+    case "send_gallery":
+      return <IgCardForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+
     case "handoff":
       return (
         <TextRow
@@ -236,6 +262,8 @@ interface SendButtonsCfg {
   text?: string;
   footer_text?: string;
   buttons?: Array<{ reply_id: string; title: string; next_node_key: string }>;
+  /** Instagram flows only: buttons that open a link (they share the 3-button limit). */
+  link_buttons?: unknown;
 }
 
 function SendButtonsForm({
@@ -244,6 +272,7 @@ function SendButtonsForm({
   currentKey,
   onUpdateConfig,
   showAdvanced,
+  instagram,
   t,
 }: {
   cfg: SendButtonsCfg;
@@ -251,9 +280,12 @@ function SendButtonsForm({
   currentKey: string;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   showAdvanced: boolean;
+  /** An Instagram flow: link buttons are offered and share the 3-button limit. */
+  instagram: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   const buttons = cfg.buttons ?? [];
+  const linkCount = instagram && Array.isArray(cfg.link_buttons) ? cfg.link_buttons.length : 0;
   const updateButton = (
     idx: number,
     patch: Partial<NonNullable<SendButtonsCfg["buttons"]>[number]>,
@@ -344,7 +376,7 @@ function SendButtonsForm({
             </div>
           ))}
         </div>
-        {buttons.length < 3 && (
+        {buttons.length + linkCount < 3 && (
           <Button
             variant="ghost"
             size="sm"
@@ -356,6 +388,10 @@ function SendButtonsForm({
           </Button>
         )}
       </div>
+      {instagram && (
+        <IgLinkButtons value={cfg.link_buttons} replyButtons={buttons.length} removeLabel={t("removeButton")}
+          onChange={(link_buttons) => onUpdateConfig({ link_buttons })} />
+      )}
     </>
   );
 }

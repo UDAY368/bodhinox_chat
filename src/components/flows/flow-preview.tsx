@@ -2,7 +2,8 @@
 
 /**
  * Chat-style preview of the flow being edited, styled like WhatsApp or, for
- * an Instagram flow, like Instagram Direct (Stage 1). Plays the live
+ * an Instagram flow, like Instagram Direct (Stage 1; Stage 2 adds the
+ * comment reply, private reply, cards and link buttons). Plays the live
  * editor state (unsaved edits included) through the pure simulator in
  * `@/lib/flows/preview`: bot bubbles on the left, the customer's taps
  * and answers on the right, grey notes for silent steps.
@@ -14,7 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ClipboardList, FileText, Image as ImageIcon, List, MapPin, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
+import { ClipboardList, ExternalLink, FileText, Image as ImageIcon, List, MapPin, MessageCircle, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -177,6 +178,7 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
     );
   }
   const MediaIcon = m.media?.type === 'video' ? Video : m.media?.type === 'document' ? FileText : ImageIcon;
+  if (m.cards) return <CardsBubble message={m} active={active} onPickRow={onPickRow} t={t} />;
   const empty = !m.text && !m.media && !m.template;
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-1">
@@ -189,6 +191,7 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
         )}
         {m.template !== undefined && <p className="text-muted-foreground text-xs italic">{m.template ? t('template', { name: m.template }) : t('templateUnset')}</p>}
         {m.header && <p className="mb-1 whitespace-pre-wrap break-words font-semibold">{m.header}</p>}
+        {m.publicReply && <PublicReplyLabel />}
         {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
         {empty && <p className="text-muted-foreground italic">{t('emptyMessage')}</p>}
         {m.footer && <p className="text-muted-foreground mt-1 whitespace-pre-wrap break-words text-xs">{m.footer}</p>}
@@ -227,6 +230,53 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
         >
           {label}
         </button>
+      ))}
+      {m.links?.map((label, i) => <LinkChip key={`link-${i}`} label={label} />)}
+    </div>
+  );
+}
+
+/** Marks a bot bubble as the public reply under the customer's comment. */
+function PublicReplyLabel() {
+  const tNodes = useTranslations('Flows.builder.nodes');
+  return (
+    <p className="text-muted-foreground mb-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider">
+      <MessageCircle className="h-3 w-3" />{tNodes('ig_comment_reply.label')}
+    </p>
+  );
+}
+
+/** A link button: shown as Instagram draws it, never tappable here (a link tap does not continue the flow). */
+function LinkChip({ label }: { label: string }) {
+  return (
+    <span className="border-border bg-card text-primary flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium opacity-80 shadow-sm">
+      <ExternalLink className="h-3.5 w-3.5" />{label}
+    </span>
+  );
+}
+
+/** Instagram cards (a gallery scrolls sideways); postback buttons answer the wait like reply buttons. */
+function CardsBubble({ message: m, active, onPickRow, t }: { message: PreviewMessage; active: boolean; onPickRow: (id: string) => void; t: T }) {
+  return (
+    <div className="mr-auto flex max-w-[90%] gap-2 overflow-x-auto pb-1">
+      {(m.cards ?? []).map((card, i) => (
+        <div key={i} className="border-border bg-card w-52 shrink-0 overflow-hidden rounded-2xl border shadow-sm">
+          {card.hasImage && <div className="bg-muted text-muted-foreground flex h-24 items-center justify-center"><ImageIcon className="h-6 w-6" /></div>}
+          <div className="px-3 py-2">
+            <p className="text-sm font-semibold break-words">{card.title || <span className="text-muted-foreground italic">{t('emptyMessage')}</span>}</p>
+            {card.subtitle && <p className="text-muted-foreground text-xs break-words">{card.subtitle}</p>}
+          </div>
+          {card.buttons.map((b, j) => (b.replyId ? (
+            <button key={j} type="button" disabled={!active} onClick={() => onPickRow(b.replyId!)}
+              className={cn('border-border text-primary block w-full border-t px-3 py-1.5 text-center text-sm font-medium', active ? 'hover:bg-primary-soft' : 'opacity-60')}>
+              {b.label}
+            </button>
+          ) : (
+            <span key={j} className="border-border text-primary flex w-full items-center justify-center gap-1.5 border-t px-3 py-1.5 text-sm font-medium opacity-80">
+              <ExternalLink className="h-3.5 w-3.5" />{b.label}
+            </span>
+          )))}
+        </div>
       ))}
     </div>
   );

@@ -93,6 +93,7 @@ import {
 } from './shared';
 import { useFlowEditor } from './flow-editor-state';
 import { NodeConfigForm } from './forms/node-config-form';
+import { entryLocked } from './nodes/ig-node-config';
 
 // React-Flow node `data` payload — the bits our custom renderer needs.
 interface NodeData extends Record<string, unknown> {
@@ -144,7 +145,8 @@ function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
   // don't need an incoming Handle. Every other node type accepts
   // incoming edges (including terminal handoff / end — they're the
   // common targets).
-  const hasTarget = node.node_type !== 'start';
+  // A private reply is always a comment flow's first step (Instagram's one reply to the comment), so nothing routes into it either.
+  const hasTarget = node.node_type !== 'start' && node.node_type !== 'ig_private_reply';
   // Single-slot nodes get a single source handle floated on the right
   // edge of the card. Multi-slot nodes (condition, send_buttons,
   // send_list) render slot rows inline so each handle visually sits
@@ -801,7 +803,7 @@ function FlowCanvasInner() {
         onClose={() => setSelectedNodeKey(null)}
         onUpdateConfig={onSelectedUpdateConfig}
         onDelete={locked ? undefined : handleDeleteSelected}
-        onSetEntry={handleSetEntry}
+        onSetEntry={entryLocked(state.trigger_type, state.nodes, entryNodeId) ? undefined : handleSetEntry}
         readOnly={locked}
         t={t}
       />}
@@ -834,7 +836,8 @@ function NodeInspector({
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   /** Omitted while the canvas is locked. */
   onDelete?: () => void;
-  onSetEntry: () => void;
+  /** Absent while the entry is locked (a comment flow starts with its private reply). */
+  onSetEntry?: () => void;
   /** Canvas locked: show the settings but block every edit. */
   readOnly: boolean;
   t: ReturnType<typeof useTranslations>;
@@ -879,7 +882,7 @@ function NodeInspector({
         </div>
 
         <div className="border-border flex items-center justify-between gap-1 border-t px-3 py-3">
-          {!isEntry && !readOnly ? (
+          {!isEntry && !readOnly && onSetEntry ? (
             <Button variant="ghost" size="sm" onClick={onSetEntry}>
               {t('setAsEntry')}
             </Button>
@@ -1000,7 +1003,9 @@ function DropStepPicker({ x, y, onPick, onClose, t }: {
   const { nodeTypes } = useFlowEditor();
   const caps = useWorkspaceCapabilities();
   const [query, setQuery] = useState('');
-  const matching = filterPaletteTypes(nodeTypes.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
+  // A step dropped here follows another one, so the first-only private reply is not offered.
+  const matching = filterPaletteTypes(nodeTypes.filter(type => type !== 'ig_private_reply')
+    .map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
   return (
     <>
       <div className="absolute inset-0 z-10" onMouseDown={onClose} aria-hidden="true" />

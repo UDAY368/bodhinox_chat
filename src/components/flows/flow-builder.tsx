@@ -67,6 +67,14 @@ import {
 } from './shared';
 import { NodeConfigForm } from './forms/node-config-form';
 import { AdClickTriggerFields, KeywordTriggerFields, OrderReceivedTriggerFields, TemplateReplyTriggerFields } from './trigger-fields';
+import {
+  DefaultReplyTriggerFields,
+  IgCommentTriggerFields,
+  IgStoryMentionTriggerFields,
+  IgStoryReplyTriggerFields,
+} from './triggers/ig-trigger-fields';
+import { applyTriggerType } from './triggers/ig-trigger-config';
+import { entryLocked } from './nodes/ig-node-config';
 import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
@@ -216,7 +224,7 @@ export function FlowBuilder() {
               onUpdate={(patch) => updateNode(node.node_key, patch)}
               onUpdateConfig={(patch) => updateNodeConfig(node.node_key, patch)}
               onRemove={() => removeNode(node.node_key)}
-              onSetEntry={() =>
+              onSetEntry={entryLocked(state.trigger_type, state.nodes, state.entry_node_id) ? undefined : () =>
                 setState((s) => ({ ...s, entry_node_id: node.node_key }))
               }
               t={t}
@@ -381,15 +389,6 @@ const TRIGGER_TITLE_KEYS: Record<BuilderState['trigger_type'], string> = {
   ig_story_mention: 'triggerIgStoryMentionTitle',
 };
 
-/**
- * Stage 2 triggers whose settings editors are not built yet (2D). They stay
- * out of the picker, so the WhatsApp picker is unchanged until default_reply
- * runs; a flow that already has one still shows it.
- */
-const TRIGGERS_WITHOUT_EDITOR: ReadonlySet<BuilderState['trigger_type']> = new Set([
-  'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention',
-]);
-
 function TriggerPanel({
   state,
   setState,
@@ -404,8 +403,8 @@ function TriggerPanel({
   triggerIssues: ValidationIssue[];
   t: ReturnType<typeof useTranslations>;
 }) {
-  const ready = triggerTypes.filter((trigger) => !TRIGGERS_WITHOUT_EDITOR.has(trigger));
-  const offered = ready.includes(state.trigger_type) ? ready : [...ready, state.trigger_type];
+  const offered = triggerTypes.includes(state.trigger_type) ? triggerTypes : [...triggerTypes, state.trigger_type];
+  const setConfig = (trigger_config: Record<string, unknown>) => setState((s) => ({ ...s, trigger_config }));
   return (
     <section className="border-border bg-card rounded-lg border p-4">
       <h2 className="text-foreground mb-3 text-sm font-semibold">{t('triggerTitle')}</h2>
@@ -416,14 +415,8 @@ function TriggerPanel({
           </label>
           <Select
             value={state.trigger_type}
-            onValueChange={(v) =>
-              setState((s) => ({
-                ...s,
-                trigger_type: v as BuilderState['trigger_type'],
-                trigger_config:
-                  v === 'keyword' ? { keywords: [] } : v === 'template_reply' ? { template_name: '', buttons: [] } : {},
-              }))
-            }
+            // A comment trigger also makes a private reply the first step (applyTriggerType).
+            onValueChange={(v) => setState((s) => applyTriggerType(s, v as BuilderState['trigger_type']))}
           >
             <SelectTrigger className="bg-muted">
               <SelectValue>{t(TRIGGER_TITLE_KEYS[state.trigger_type])}</SelectValue>
@@ -450,6 +443,10 @@ function TriggerPanel({
           <AdClickTriggerFields config={state.trigger_config} t={t}
             onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
         )}
+        {state.trigger_type === 'default_reply' && <DefaultReplyTriggerFields config={state.trigger_config} onChange={setConfig} />}
+        {state.trigger_type === 'ig_comment' && <IgCommentTriggerFields config={state.trigger_config} onChange={setConfig} />}
+        {state.trigger_type === 'ig_story_reply' && <IgStoryReplyTriggerFields config={state.trigger_config} onChange={setConfig} />}
+        {state.trigger_type === 'ig_story_mention' && <IgStoryMentionTriggerFields config={state.trigger_config} onChange={setConfig} />}
       </div>
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">
@@ -475,7 +472,20 @@ function EntryPicker({
   setState: React.Dispatch<React.SetStateAction<BuilderState>>;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const tNodes = useTranslations('Flows.nodes.igPrivateReply');
   if (state.nodes.length === 0) return null;
+  const entry = state.nodes.find((n) => n.node_key === state.entry_node_id);
+  // A comment flow starts with its private reply (Instagram's one reply to the comment); the entry stays locked to it.
+  if (state.trigger_type === 'ig_comment' && entry?.node_type === 'ig_private_reply') {
+    return (
+      <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3" data-entry-locked="">
+        <CornerDownRight className="text-primary h-4 w-4 shrink-0" />
+        <span className="text-muted-foreground text-xs">{t('entryNodeTitle')}</span>
+        <span className="font-mono text-xs">{entry.node_key}</span>
+        <span className="text-muted-foreground text-[10px]">{tNodes('firstOnly')}</span>
+      </section>
+    );
+  }
   return (
     <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3">
       <CornerDownRight className="text-primary h-4 w-4 shrink-0" />
@@ -521,7 +531,8 @@ function NodeCard({
   onUpdate: (patch: Partial<BuilderNode>) => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   onRemove: () => void;
-  onSetEntry: () => void;
+  /** Absent while the entry is locked (a comment flow starts with its private reply). */
+  onSetEntry?: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   const meta = NODE_META[node.node_type];
@@ -599,7 +610,7 @@ function NodeCard({
           />
           <div className="border-border mt-4 flex items-center justify-between border-t pt-3">
             <div className="flex items-center gap-2">
-              {!isEntry && (
+              {!isEntry && onSetEntry && (
                 <Button variant="ghost" size="sm" onClick={onSetEntry}>
                   {t('setAsEntry')}
                 </Button>

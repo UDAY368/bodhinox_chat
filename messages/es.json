@@ -2849,7 +2849,14 @@
         "publicRepliesHelp": "Opcional. Cada vez se elige una y se publica debajo del comentario. Hasta {max}.",
         "addPublicReply": "Añadir respuesta",
         "publicReplyPlaceholder": "¡Gracias! Revisa tus mensajes directos",
-        "tooManyKeywords": "Usa como máximo {max} palabras clave."
+        "tooManyKeywords": "Usa como máximo {max} palabras clave.",
+        "chooseAccountFirst": "Elige una cuenta de Instagram para escoger sus publicaciones.",
+        "loadingPosts": "Cargando publicaciones…",
+        "untitledPost": "Publicación sin texto",
+        "retry": "Reintentar",
+        "replyN": "Respuesta pública {n}",
+        "removeReply": "Quitar la respuesta pública {n}",
+        "matchMode": "Cómo coinciden las palabras"
       },
       "igStoryReply": {
         "help": "Se inicia cuando alguien responde a una de tus historias.",
@@ -2858,7 +2865,8 @@
         "storyIds": "ID de historias",
         "keywords": "Solo respuestas con estas palabras",
         "keywordsHelp": "Déjalo vacío para iniciar con cualquier respuesta.",
-        "reactions": "Iniciar también con reacciones de emoji"
+        "reactions": "Iniciar también con reacciones de emoji",
+        "storyIdsHelp": "Pega los ID de las historias, separados por comas. Hasta {max}."
       },
       "igStoryMention": {
         "help": "Se inicia cuando alguien menciona tu cuenta en su historia."
@@ -2872,7 +2880,9 @@
         "addReply": "Añadir respuesta",
         "maxReplies": "Hasta {max} respuestas; cada vez se elige una.",
         "tooLong": "Cada respuesta debe tener menos de {max} caracteres.",
-        "onlyCommentFlows": "Solo funciona en un flujo iniciado por un comentario."
+        "onlyCommentFlows": "Solo funciona en un flujo iniciado por un comentario.",
+        "replyN": "Respuesta {n}",
+        "removeReply": "Quitar la respuesta {n}"
       },
       "igPrivateReply": {
         "help": "El primer mensaje para quien comentó. Instagram permite una respuesta privada por comentario, dentro de 7 días.",
@@ -2881,7 +2891,8 @@
         "optInHelp": "El flujo espera este toque. Abre la conversación para poder enviar los siguientes mensajes.",
         "optInPlaceholder": "Envíame el enlace",
         "firstOnly": "Debe ser el primer paso de un flujo de comentarios.",
-        "noInput": "Una respuesta privada no puede hacer preguntas ni esperar antes de enviarse."
+        "noInput": "Una respuesta privada no puede hacer preguntas ni esperar antes de enviarse.",
+        "bytesLeft": "{count, plural, one {Queda # byte} other {Quedan # bytes}}"
       },
       "card": {
         "title": "Título",
@@ -2896,7 +2907,9 @@
         "buttonTitle": "Texto del botón",
         "buttonUrl": "Enlace",
         "maxButtons": "Hasta {max} botones.",
-        "titleRequired": "Añade un título."
+        "titleRequired": "Añade un título.",
+        "urlInvalid": "Usa un enlace completo que empiece por https://.",
+        "buttonType": "Qué hace el botón"
       },
       "gallery": {
         "cards": "Tarjetas",
