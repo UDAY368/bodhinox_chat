@@ -96,7 +96,8 @@ export interface WizardFlowDraft {
   nodes: FlowTemplateNode[];
 }
 
-const FIELDS: Record<InstagramWizard, readonly string[]> = {
+/** The fields each wizard body may carry (anything else is refused). */
+export const WIZARD_FIELDS: Record<InstagramWizard, readonly string[]> = {
   comment_links: ['wizard', 'post_scope', 'media_ids', 'keywords', 'public_replies', 'message', 'opt_in_label', 'card_title', 'link_label', 'link_url'],
   grow_followers: ['wizard', 'post_scope', 'media_ids', 'keywords', 'public_replies', 'message', 'opt_in_label', 'follow_prompt',
     'followed_label', 'reward_title', 'reward_label', 'reward_url'],
@@ -187,7 +188,7 @@ export function parseWizardInput(body: unknown): WizardInput {
   const input = body as Record<string, unknown>;
   if (!isWizard(input.wizard)) throw new WizardInputError('wizard', 'invalid');
   const wizard = input.wizard;
-  const unknown = Object.keys(input).find((key) => !FIELDS[wizard].includes(key));
+  const unknown = Object.keys(input).find((key) => !WIZARD_FIELDS[wizard].includes(key));
   if (unknown) throw new WizardInputError(unknown, 'invalid');
 
   if (wizard === 'comment_links') {

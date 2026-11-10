@@ -24,9 +24,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { authFetch } from '@/lib/auth/client';
 import { channelPath } from '@/lib/channels/routes';
+import { formFieldFor, type WizardId as Wizard } from '@/lib/instagram/wizard-form';
 import { cn } from '@/lib/utils';
 
-type Wizard = 'comment_links' | 'grow_followers' | 'story_leads';
 type FieldProblem = 'invalid' | 'keywords' | 'posts' | 'text' | 'button' | 'title' | 'url' | 'publicReply';
 
 const WIZARDS: Array<{ id: Wizard; key: 'commentLinks' | 'growFollowers' | 'storyLeads'; icon: typeof MessageCircle }> = [
@@ -130,8 +130,10 @@ export default function InstagramQuickAutomationsPage() {
         flow?: { id: string }; error?: string; message?: string; field?: string; problem?: FieldProblem;
       };
       if (res.status === 400 && json.field) {
-        // public_replies is one box here.
-        setFieldError({ field: json.field === 'public_replies' ? 'public_reply' : json.field, problem: json.problem ?? 'invalid' });
+        // Shown under its box; a field the form has no box for (the body, the post choice) becomes a toast.
+        const box = formFieldFor(wizard, json.field);
+        if (box) setFieldError({ field: box, problem: json.problem ?? 'invalid' });
+        else toast.error(json.error ?? t('errors.invalid'));
         return;
       }
       if (!res.ok || !json.flow) throw new Error(json.message ?? json.error);
