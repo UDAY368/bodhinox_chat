@@ -7928,7 +7928,8 @@
         "coupon_min_subtotal": "O carrinho está abaixo do mínimo deste cupom.",
         "amount_out_of_range": "O valor é grande demais.",
         "too_many_open_orders": "Este cliente já tem o máximo de pedidos abertos. Antes, um pedido não pago precisa ser pago ou expirar, ou um pedido com pagamento na entrega precisa ser enviado ou cancelado.",
-        "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho."
+        "cod_unavailable": "O pagamento na entrega não está disponível para este carrinho.",
+        "online_unavailable": "O pagamento online não está disponível agora. Escolha pagamento na entrega ou tente mais tarde."
       },
       "title": "Configurações da loja",
       "subtitle": "Moeda, impostos, checkout, dados do vendedor, frete e cupons da sua loja online.",

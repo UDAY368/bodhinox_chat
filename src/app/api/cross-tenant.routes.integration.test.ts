@@ -53,6 +53,7 @@ export const CASES: Case[] = [
   { route: 'contacts/[id]/tags', method: 'DELETE', params: id('contactId'), body: (_a, b) => ({ tag_id: b.ids.tags }) },
   // While Instagram is off the list answers { enabled:false } with no query for any id, so the case runs with it on.
   { route: 'contacts/[id]/identities', method: 'GET', params: id('contactId'), env: INSTAGRAM_ON },
+  { route: 'contacts/[id]/erase', method: 'POST', params: id('contactId') },
   { route: 'conversations/[id]/notes', method: 'GET', params: id('conversationId') },
   { route: 'conversations/[id]/notes', method: 'POST', params: id('conversationId'), body: () => ({ body: 'p15 cross-tenant note' }) },
   { route: 'conversations/[id]/notes/[noteId]', method: 'PATCH', params: (b) => ({ id: b.conversationId, noteId: b.extra.note }), body: () => ({ body: 'p15 edit' }) },
@@ -80,6 +81,7 @@ export const CASES: Case[] = [
   { route: 'broadcasts/[id]/schedule', method: 'PATCH', params: id('broadcastId'), body: () => ({ scheduledAt: new Date(Date.now() + 86400000).toISOString() }) },
   { route: 'broadcasts/[id]/schedule', method: 'DELETE', params: id('broadcastId') },
   { route: 'whatsapp/broadcast/[id]/resume', method: 'POST', params: id('broadcastId'), body: () => ({}) },
+  { route: 'whatsapp/broadcast/[id]/reconcile', method: 'GET', params: id('broadcastId') },
   // Flows and automations
   { route: 'flows/[id]', method: 'GET', params: rid('flows') },
   { route: 'flows/[id]', method: 'PUT', params: rid('flows'), body: () => ({ name: 'p15 tamper' }) },

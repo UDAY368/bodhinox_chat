@@ -223,9 +223,9 @@ describe.skipIf(!ownerUrl || !workerUrl)(
       try {
         await owner.query("INSERT INTO accounts(id,name,owner_user_id) VALUES($1,'Paging fixture',$2)", [big, user]);
         await owner.query("INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'owner')", [big, user]);
-        // 10,001 sendable contacts (over the cap for "all"); 1,050 of them carry the tag (over one page).
+        // 10,009 contacts, 8 of which opt out below: 10,001 sendable (over the cap for "all"); 1,050 carry the tag (over one page).
         await owner.query(`INSERT INTO contacts(account_id,user_id,phone,name)
-          SELECT $1,$2,'+1415' || lpad(g::text,7,'0'),'Paged ' || g FROM generate_series(1,10001) g`, [big, user]);
+          SELECT $1,$2,'+1415' || lpad(g::text,7,'0'),'Paged ' || g FROM generate_series(1,10009) g`, [big, user]);
         await owner.query("INSERT INTO tags(id,account_id,user_id,name) VALUES($1,$2,$3,'Paged')", [bigTag, big, user]);
         await owner.query(`INSERT INTO contact_tags(account_id,contact_id,tag_id)
           SELECT $1,id,$2 FROM contacts WHERE account_id=$1 ORDER BY phone LIMIT 1050`, [big, bigTag]);

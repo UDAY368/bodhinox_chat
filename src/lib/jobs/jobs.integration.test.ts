@@ -3,7 +3,7 @@ import { config } from "dotenv";
 import pg from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { disconnectDatabases, getWorkerPrisma } from "@/lib/db/prisma";
-import { claimJob, enqueueJob, finishJob, heartbeat, persistWebhook } from "./queue";
+import { BULK_JOB_TYPES, claimJob, enqueueJob, finishJob, heartbeat, persistWebhook } from "./queue";
 import { dispatchOnce, UncertainDispatchError } from "./dispatch";
 import { MetaApiError } from "@/lib/whatsapp/meta-api";
 
@@ -157,12 +157,19 @@ describe.skipIf(!ownerUrl || !workerUrl)("real PostgreSQL durable queue and disp
     const campaign = await enqueueJob("broadcast.dispatch", { test: true }, { tenantId: accountId, runAt: new Date(0), dedupeKey: randomUUID() });
     jobs.add(campaign);
     const inbound = await createJob();
-    const [bulk, main] = await Promise.all([claimJob("bulk"), claimJob("main")]);
-    expect(bulk?.id).toBe(campaign);
-    expect(main?.id).toBe(inbound);
-    expect(await claimJob("bulk")).toBeNull();
-    expect(await claimJob("main")).toBeNull();
-    await finishJob(bulk!); await finishJob(main!);
+    // The shared test database may hold due jobs left by other files: drain each lane and check
+    // what it took, rather than assuming the queue is otherwise empty.
+    const drain = async (lane: "main" | "bulk") => {
+      const taken: Awaited<ReturnType<typeof claimJob>>[] = [];
+      for (let job = await claimJob(lane); job && taken.length < 200; job = await claimJob(lane)) taken.push(job);
+      return taken;
+    };
+    const [bulk, main] = await Promise.all([drain("bulk"), drain("main")]);
+    expect(bulk.map((j) => j!.id)).toContain(campaign);
+    expect(main.map((j) => j!.id)).toContain(inbound);
+    expect(bulk.every((j) => (BULK_JOB_TYPES as readonly string[]).includes(j!.type))).toBe(true);
+    expect(main.some((j) => (BULK_JOB_TYPES as readonly string[]).includes(j!.type))).toBe(false);
+    for (const job of [...bulk, ...main]) await finishJob(job!);
   });
 
   it("[audit-38] backs off a failed attempt for minutes and gives inbound processing the long budget", async () => {

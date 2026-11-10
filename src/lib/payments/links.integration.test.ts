@@ -385,7 +385,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Razorpay payment links on P
     await runReconcileSweep(accountA);
     expect(await linkRow(link.id)).toMatchObject({ status: 'paid' });
     expect((await owner.query("SELECT settlement FROM customer_payments WHERE account_id=$1 AND payment_link_id=$2", [accountA, link.id])).rows)
-      .toEqual([{ settlement: 'settled' }]);
+      .toEqual([{ settlement: 'unattached' }]); // a plain link: recorded once, credits no order
     expect(await linkRow(unpaid.link.id)).toMatchObject({ status: 'created' });
     expect(h.fetch).toHaveBeenCalledWith(expect.objectContaining({ id: unpaidRow.provider_link_id }));
     // The open link was just checked: the next sweep leaves it until its back-off (a quarter of its age) has passed.

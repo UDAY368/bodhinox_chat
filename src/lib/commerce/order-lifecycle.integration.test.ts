@@ -437,7 +437,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('order lifecycle on PostgreS
     const online = await addPayment(order, 'razorpay', 60000);
     const returnId = await inspectedReturn(order, item);
     await expect(refundReturn(asAdmin, returnId, { amountMinor: 70000 })).rejects.toMatchObject({ code: 'amount_exceeds' });
-    h.requestRefund.mockResolvedValueOnce({ refundId: randomUUID() });
+    // The return row keeps a foreign key to the refund, so the stand-in refund must exist.
+    h.requestRefund.mockImplementationOnce(async () => {
+      const refundId = randomUUID();
+      await db.query(`INSERT INTO customer_refunds(id,account_id,payment_id,order_id,source,amount_minor,currency,reason_code,status)
+        VALUES($1,$2,$3,$4,'bodhinox',49900,'INR','return','requested')`, [refundId, accountA, online, order]);
+      return { refundId };
+    });
     await refundReturn(asAdmin, returnId, { amountMinor: 49900 });
     expect(h.requestRefund).toHaveBeenCalledWith(asAdmin, { paymentId: online, amountMinor: 49900, reason: 'return', note: null, restock: true, returnId });
   });
@@ -464,6 +470,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('order lifecycle on PostgreS
   it('never dispatches a paid order that was refunded in full', async () => {
     const order = randomUUID();
     await pricedOrder(order, 'paid');
+    // Paid through Razorpay and refunded in full through the per-payment refund.
+    const payment = await addPayment(order, 'razorpay', 99800);
+    await db.query('UPDATE customer_payments SET refunded_minor=99800 WHERE id=$1', [payment]);
     await db.query(`UPDATE orders SET amount_refunded_minor=99800, refund_state='full' WHERE id=$1`, [order]);
     await expect(recordDispatch(asAgent, order, { from: 'paid' })).rejects.toMatchObject({ code: 'order_refunded', status: 409 });
     expect(await statusOf(order)).toBe('paid');

@@ -202,8 +202,9 @@ describe.skipIf(!connectionString)(
       const id = await pendingIdentity(victim);
       await signup({ email: victim, password: 'Victim1!x', fullName: 'Real owner' });
       const ownerLink = lastVerifyToken(victim);
-      // The link alone proves nothing: the squatter's password is refused on the owner's link.
-      await expect(verifyEmailToken(ownerLink, 'Attacker1!')).rejects.toMatchObject({ code: 'password_mismatch' });
+      // The link alone proves nothing: a password that matches no pending signup is refused. (Only the
+      // inbox owner receives links, so the password they type decides which signup applies.)
+      await expect(verifyEmailToken(ownerLink, 'Unknown1!x')).rejects.toMatchObject({ code: 'password_mismatch' });
       const still = await getAuthPrisma().$queryRaw<{ verified: boolean }[]>`SELECT email_verified_at IS NOT NULL AS verified FROM auth_users WHERE id=${id}::uuid`;
       expect(still[0].verified).toBe(false);
       await verifyEmailToken(ownerLink, 'Victim1!x');

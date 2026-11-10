@@ -189,7 +189,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('phase 8 stock and checkout 
     const { orderId } = await place(s);
     expect(await worker((tx) => loadOrderView(tx, account, orderId))).toMatchObject({ returnWindowDays: null });
     await db.query(`UPDATE commerce_settings SET return_window_days=10 WHERE account_id=$1`, [account]);
-    await db.query(`UPDATE orders SET status='fulfilled', paid_at=now(), dispatched_at=now(), delivered_at=now() WHERE id=$1`, [orderId]);
+    // The status guard only lets a paid order leave: pay it first, then fulfil it.
+    await db.query(`UPDATE orders SET status='paid', paid_at=now() WHERE id=$1`, [orderId]);
+    await db.query(`UPDATE orders SET status='fulfilled', dispatched_at=now(), delivered_at=now() WHERE id=$1`, [orderId]);
     expect(await worker((tx) => loadOrderView(tx, account, orderId))).toMatchObject({ status: 'fulfilled', returnWindowDays: 10 });
     await db.query(`UPDATE commerce_settings SET return_window_days=7 WHERE account_id=$1`, [account]);
   });

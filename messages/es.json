@@ -7928,7 +7928,8 @@
         "coupon_min_subtotal": "El carrito no alcanza el mínimo de este cupón.",
         "amount_out_of_range": "El importe es demasiado grande.",
         "too_many_open_orders": "Este cliente ya tiene el máximo de pedidos abiertos. Primero un pedido sin pagar debe pagarse o caducar, o un pedido contra entrega debe enviarse o cancelarse.",
-        "cod_unavailable": "El pago contra entrega no está disponible para este carrito."
+        "cod_unavailable": "El pago contra entrega no está disponible para este carrito.",
+        "online_unavailable": "El pago en línea no está disponible ahora. Elige pago contra entrega o inténtalo más tarde."
       },
       "title": "Ajustes de la tienda",
       "subtitle": "Moneda, impuestos, pago, datos del vendedor, envío y cupones de tu tienda en línea.",
