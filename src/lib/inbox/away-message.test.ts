@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   dispatch: vi.fn(),
   send: vi.fn(),
   claims: [] as unknown[],
+  conversation: { whatsapp_config_id: 'cfg' } as Record<string, unknown>,
 }));
 
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => 'worker' }));
@@ -16,9 +17,12 @@ vi.mock('@/lib/db/tenant', () => ({
   withTenant: async (_context: unknown, op: (tx: unknown) => unknown) => op({
     $queryRaw: async () => (h.receivedAt ? [{ created_at: h.receivedAt }] : []),
     $executeRaw: async (...args: unknown[]) => { h.claims.push(args.slice(1)); return h.claimed; },
-    conversations: { findFirst: async () => ({ whatsapp_config_id: 'cfg' }) },
+    conversations: { findFirst: async () => h.conversation },
   }),
 }));
+const ig = vi.hoisted(() => ({ load: vi.fn(), check: vi.fn(), flowSend: vi.fn() }));
+vi.mock('@/lib/channels/sender', () => ({ loadInstagramTarget: ig.load, checkInstagramText: ig.check }));
+vi.mock('@/lib/flows/channel-send', () => ({ flowSend: ig.flowSend }));
 vi.mock('./inbox-settings', () => ({ readInboxSettings: async () => h.settings }));
 vi.mock('@/lib/whatsapp/numbers', async (original) => {
   const actual = await original<typeof import('@/lib/whatsapp/numbers')>();
@@ -31,6 +35,7 @@ vi.mock('@/lib/whatsapp/bot-pause', () => ({ botRepliesPaused: async () => h.pau
 vi.mock('@/lib/jobs/dispatch', () => ({ dispatchOnce: h.dispatch }));
 vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.send }));
 
+import { InstagramError } from '@/lib/instagram/errors';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { NoNumberError } from '@/lib/whatsapp/numbers';
 import { awayMessageKey, sendAwayMessage } from './away-message';
@@ -49,6 +54,8 @@ beforeEach(() => {
   h.paused = false;
   h.claimed = 1;
   h.claims = [];
+  h.conversation = { whatsapp_config_id: 'cfg' };
+  ig.load.mockImplementation(async (_tx: unknown, _account: string, conversationId: string) => ({ conversationId }));
   h.dispatch.mockImplementation(async (_account: string, _key: string, send: () => Promise<unknown>) => send());
   h.send.mockResolvedValue({ whatsapp_message_id: 'wamid.away' });
 });
@@ -83,6 +90,70 @@ describe('sendAwayMessage', () => {
     expect(await sendAwayMessage(input, now)).toBe('provider_rejected');
     const uncertain = Object.assign(new Error('uncertain'), { name: 'UncertainDispatchError' });
     h.dispatch.mockRejectedValueOnce(uncertain);
+    await expect(sendAwayMessage(input, now)).rejects.toBe(uncertain);
+  });
+});
+
+describe('sendAwayMessage on Instagram (Stage 2)', () => {
+  beforeEach(() => {
+    h.conversation = { whatsapp_config_id: null, channel: 'instagram' };
+    h.settings = { ...h.settings, instagram_away_message_enabled: true };
+    ig.check.mockImplementation(() => ({ humanAgentTag: false }));
+    ig.flowSend.mockResolvedValue({ whatsapp_message_id: 'mid.away' });
+  });
+
+  it('sends the same text once per window through the Instagram sender under the window intent key', async () => {
+    expect(await sendAwayMessage(input, now)).toBe('sent');
+    expect(h.claims).toEqual([[ID, ID, 'open:2026-11-03T09:00']]);
+    // Checked before the claim as an automated sender at the job's instant (never the Human Agent tag).
+    expect(ig.check).toHaveBeenCalledWith(expect.objectContaining({ conversationId: ID }), 'Back at 9', { sender: 'automated', now });
+    expect(ig.flowSend).toHaveBeenCalledWith({ account_id: ID, conversation_id: ID }, awayMessageKey(ID, 'open:2026-11-03T09:00'),
+      { kind: 'text', args: { accountId: ID, userId: ID, conversationId: ID, contactId: ID, text: 'Back at 9' } });
+    // Never the WhatsApp number or sender.
+    expect(h.dispatch).not.toHaveBeenCalled();
+    expect(h.send).not.toHaveBeenCalled();
+  });
+
+  it('follows the Instagram switch, not the WhatsApp one', async () => {
+    h.settings = { ...h.settings, away_message_enabled: true, instagram_away_message_enabled: false };
+    expect(await sendAwayMessage(input, now)).toBe('off');
+    h.settings = { ...h.settings, away_message_enabled: false, instagram_away_message_enabled: true };
+    expect(await sendAwayMessage(input, now)).toBe('sent');
+  });
+
+  it('keeps a WhatsApp thread on the WhatsApp switch when only the Instagram one is on', async () => {
+    h.conversation = { whatsapp_config_id: 'cfg', channel: 'whatsapp' };
+    h.settings = { ...h.settings, away_message_enabled: false, instagram_away_message_enabled: true };
+    expect(await sendAwayMessage(input, now)).toBe('off');
+    expect(ig.flowSend).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['window_closed', 'instagram_window_closed'],
+    ['account_unavailable', 'instagram_account_disconnected'],
+    ['account_unavailable', 'instagram_token_invalid'],
+    ['account_unavailable', 'instagram_not_enabled'],
+    ['invalid_for_channel', 'invalid_request'],
+  ] as const)('skips with %s when the Instagram check refuses (%s), before anything is claimed', async (outcome, code) => {
+    ig.check.mockImplementation(() => { throw new InstagramError(code); });
+    expect(await sendAwayMessage(input, now)).toBe(outcome);
+    expect(h.claims).toHaveLength(0);
+    expect(ig.flowSend).not.toHaveBeenCalled();
+  });
+
+  it('skips a message older than the 24-hour window without loading the account', async () => {
+    h.receivedAt = new Date('2026-11-01T19:00:00Z');
+    expect(await sendAwayMessage(input, now)).toBe('window_closed');
+    expect(ig.load).not.toHaveBeenCalled();
+  });
+
+  it('maps a refusal at send time to its reason, and lets an uncertain outcome propagate for reconciliation', async () => {
+    ig.flowSend.mockRejectedValueOnce(new InstagramError('instagram_window_closed'));
+    expect(await sendAwayMessage(input, now)).toBe('window_closed');
+    ig.flowSend.mockRejectedValueOnce(new MetaApiError('bad', { httpStatus: 400 }));
+    expect(await sendAwayMessage(input, now)).toBe('provider_rejected');
+    const uncertain = Object.assign(new Error('uncertain'), { name: 'UncertainDispatchError' });
+    ig.flowSend.mockRejectedValueOnce(uncertain);
     await expect(sendAwayMessage(input, now)).rejects.toBe(uncertain);
   });
 });

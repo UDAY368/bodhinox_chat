@@ -45,7 +45,14 @@ describe('serializeWebhookEndpoint', () => {
       created_at: '2026-01-01T00:00:00Z',
       disabled_at: '2026-01-02T00:00:00Z',
       disabled_reason: 'sustained_failure',
+      // A row read without the column (older select) is the column default.
+      channels: ['whatsapp'],
     });
+  });
+
+  it('returns the channels the endpoint opted into, dropping unknown values', () => {
+    expect(serializeWebhookEndpoint({ id: 'w2', channels: ['whatsapp', 'instagram'] }).channels).toEqual(['whatsapp', 'instagram']);
+    expect(serializeWebhookEndpoint({ id: 'w3', channels: ['instagram', 'sms'] }).channels).toEqual(['instagram']);
   });
 });
 

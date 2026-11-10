@@ -319,8 +319,18 @@ webhooks**. Through the API, all under scope `webhooks:manage`:
 - `POST /api/v1/webhooks` — register `{ "url": "https://…", "events": ["message.received"] }`. `url` must be `https://`. **The response includes `secret` exactly once** — store it to verify signatures; wacrm keeps only an encrypted copy.
 - `GET /api/v1/webhooks` — list your endpoints (never returns the secret).
 - `GET /api/v1/webhooks/{id}` — read one.
-- `PATCH /api/v1/webhooks/{id}` — update `url`, `events`, or `is_active` (re-enabling clears the failure counter).
+- `PATCH /api/v1/webhooks/{id}` — update `url`, `events`, `channels`, or `is_active` (re-enabling clears the failure counter).
 - `DELETE /api/v1/webhooks/{id}` — remove one.
+
+**Channels.** Each endpoint lists the channels whose events it receives:
+`"channels": ["whatsapp"]` (the default, and the value of every endpoint
+created before Instagram), `["instagram"]`, or both. Conversation events
+(`message.received`, `message.status_updated`, `conversation.created`,
+`flow.completed`) go only to endpoints that opted into the conversation's
+channel, so an existing endpoint never receives an Instagram event.
+`broadcast.completed` and `template.status_updated` are WhatsApp events.
+Order, payment-link and appointment events are workspace events and go to
+every subscribed endpoint.
 
 ```bash
 curl -X POST https://your-crm.example.com/api/v1/webhooks \
@@ -341,17 +351,25 @@ delivery uuid you can dedupe on, and `data` varies by `event`:
   "event": "message.received",
   "occurred_at": "2026-07-01T12:00:00.000Z",
   "account_id": "…",
+  "channel": "whatsapp",
   "data": { /* per-event, see below */ }
 }
 ```
+
+`channel` (`whatsapp` or `instagram`) is present on channel events and
+absent on workspace events.
 
 `data` by event:
 
 ```jsonc
 // message.received
-{ "conversation_id": "…", "contact_id": "…", "whatsapp_message_id": "wamid.…", "content_type": "text", "text": "Hi 👋" }
+{ "conversation_id": "…", "contact_id": "…", "whatsapp_message_id": "wamid.…", "content_type": "text", "content_text": "Hi 👋" }
+// message.received on Instagram: Instagram ids, never a phone number or WhatsApp id
+{ "conversation_id": "…", "contact_id": "…", "channel": "instagram", "instagram_message_id": "aWdf…", "content_type": "text", "content_text": "Hi 👋" }
 // conversation.created
 { "conversation_id": "…", "contact_id": "…" }
+// conversation.created on Instagram
+{ "conversation_id": "…", "contact_id": "…", "channel": "instagram" }
 // message.status_updated
 { "whatsapp_message_id": "wamid.…", "conversation_id": "…", "status": "delivered" }
 // broadcast.completed (fires again if a resume or retry pass finishes it again)

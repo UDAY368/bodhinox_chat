@@ -79,8 +79,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox lifecycle and routing
       auto_resolve_after_hours: 24, sla_first_response_minutes: 10,
     };
     await expect(saveInboxSettings(asAgent, settings)).rejects.toThrow();
-    expect(await saveInboxSettings(asAdmin, settings)).toEqual(settings);
-    expect(await loadInboxSettings(asViewer)).toEqual(settings);
+    // Stage 2 adds the Instagram away switch, off unless an admin turns it on.
+    const stored = { ...settings, instagram_away_message_enabled: false };
+    expect(await saveInboxSettings(asAdmin, settings)).toEqual(stored);
+    expect(await loadInboxSettings(asViewer)).toEqual(stored);
     expect((await loadInboxSettings(asB)).sla_first_response_minutes).toBeNull();
   });
 

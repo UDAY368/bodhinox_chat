@@ -26,7 +26,7 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { buildSignatureHeader } from '@/lib/webhooks/sign';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import { safeFetch } from '@/lib/webhooks/safe-fetch';
-import type { WebhookEvent } from '@/lib/webhooks/events';
+import { endpointChannels, WEBHOOK_EVENT_SCOPE, type WebhookChannel, type WebhookEvent } from '@/lib/webhooks/events';
 import { withTenant } from '@/lib/db/tenant';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { getT } from '@/lib/i18n/translate';
@@ -55,24 +55,60 @@ interface EndpointRow {
   secret: string;
 }
 
+export interface DispatchWebhookOptions {
+  /**
+   * The channel of a conversation event, when the caller already read it from
+   * the conversation row. Without it, delivery reads the channel of
+   * `data.conversation_id` (no id: WhatsApp, the pre-Instagram default).
+   */
+  channel?: WebhookChannel;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The channel an event belongs to, or null for a workspace event every subscriber receives. */
+async function eventChannel(db: DataClient, accountId: string, event: WebhookEvent, data: unknown,
+  given: WebhookChannel | undefined): Promise<WebhookChannel | null> {
+  const scope = WEBHOOK_EVENT_SCOPE[event];
+  if (scope === 'workspace') return null;
+  if (scope === 'whatsapp') return 'whatsapp';
+  if (given) return given;
+  const conversationId = (data as { conversation_id?: unknown } | null)?.conversation_id;
+  if (typeof conversationId !== 'string' || !UUID.test(conversationId)) return 'whatsapp';
+  const { data: row, error } = await db.from('conversations').select('channel')
+    .eq('account_id', accountId).eq('id', conversationId).maybeSingle();
+  // Fail closed: never guess a channel and send an Instagram event to a WhatsApp-only endpoint.
+  if (error) throw new Error('Webhook channel lookup failed');
+  return (row as { channel?: string | null } | null)?.channel === 'instagram' ? 'instagram' : 'whatsapp';
+}
+
 /**
  * Queue `event` (+ `data`) for every active endpoint of `accountId`
- * subscribed to it. Throws when the queue cannot persist the job.
+ * subscribed to it and, for a channel event, opted into that channel
+ * (webhook_endpoints.channels; existing endpoints are WhatsApp-only). A
+ * channel event's envelope carries `channel`. Throws when the queue cannot
+ * persist the job or a conversation's channel cannot be read.
  */
 export async function dispatchWebhookEvent(
   db: DataClient,
   accountId: string,
   event: WebhookEvent,
-  data: unknown
+  data: unknown,
+  options: DispatchWebhookOptions = {}
 ): Promise<void> {
-  const { data: rows, error } = await db
+  const { data: subscribed, error } = await db
     .from('webhook_endpoints')
-    .select('id, url, secret')
+    .select('id, url, secret, channels')
     .eq('account_id', accountId)
     .eq('is_active', true)
     .contains('events', [event]);
 
-  if (error || !rows || rows.length === 0) return;
+  if (error || !subscribed || subscribed.length === 0) return;
+
+  const channel = await eventChannel(db, accountId, event, data, options.channel);
+  const rows = (subscribed as (EndpointRow & { channels?: unknown })[])
+    .filter((row) => channel === null || endpointChannels(row.channels).includes(channel));
+  if (rows.length === 0) return;
 
   // Sign the exact bytes we send so a receiver can recompute the
   // HMAC over the raw request body. `id` is a per-delivery uuid the
@@ -83,9 +119,10 @@ export async function dispatchWebhookEvent(
     event,
     occurred_at: new Date().toISOString(),
     account_id: accountId,
+    ...(channel ? { channel } : {}),
     data,
   });
-  for (const row of rows as EndpointRow[]) {
+  for (const row of rows) {
     await enqueueJob('webhook.delivery', { endpointId: row.id, event, payload }, {
       tenantId: accountId,
       dedupeKey: `outbound-webhook:${JSON.parse(payload).id}:${row.id}`,

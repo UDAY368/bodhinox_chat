@@ -65,4 +65,16 @@ describe('PUT /api/inbox/settings', () => {
     expect(res.status).toBe(200);
     expect(h.save).toHaveBeenCalledWith({ accountId: ACCOUNT, userId: USER, role: 'admin' }, { ...settings, sla_first_response_minutes: 15 });
   });
+  it('saves the Instagram away switch only with an away text, and refuses agents', async () => {
+    const res = await put({ ...settings, instagram_away_message_enabled: true });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: 'invalid_away_message' });
+    const body = { ...settings, away_message: 'Closed now', instagram_away_message_enabled: true };
+    expect((await put(body)).status).toBe(200);
+    expect(h.save).toHaveBeenCalledWith({ accountId: ACCOUNT, userId: USER, role: 'admin' }, body);
+    h.save.mockClear();
+    h.role = 'agent';
+    expect((await put(body)).status).toBe(403);
+    expect(h.save).not.toHaveBeenCalled();
+  });
 });

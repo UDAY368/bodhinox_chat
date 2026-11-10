@@ -33,9 +33,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RequireRole } from '@/components/auth/require-role';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import {
+  WEBHOOK_CHANNELS,
   WEBHOOK_EVENTS,
   WEBHOOK_EVENT_DESCRIPTIONS,
+  type WebhookChannel,
   type WebhookEvent,
 } from '@/lib/webhooks/events';
 import type { ApiWebhookEndpoint } from '@/lib/webhooks/endpoints';
@@ -63,6 +66,10 @@ export function WebhooksSettings() {
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [logFor, setLogFor] = useState<ApiWebhookEndpoint | null>(null);
+  // Channel choices appear once the workspace uses Instagram (or an endpoint already opted in).
+  const { data: workspaceChannels } = useWorkspaceChannels();
+  const showChannels = Boolean(workspaceChannels?.channels.instagram.enabled)
+    || webhooks.some((w) => w.channels.includes('instagram'));
 
   const load = useCallback(async () => {
     try {
@@ -122,6 +129,19 @@ export function WebhooksSettings() {
             : w
         )
       );
+  }
+
+  async function setChannels(hook: ApiWebhookEndpoint, channels: WebhookChannel[]) {
+    const ok = await mutate(
+      hook.id,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels }),
+      },
+      t('updateFailed')
+    );
+    if (ok) setWebhooks((prev) => prev.map((w) => (w.id === hook.id ? { ...w, channels } : w)));
   }
 
   async function remove(hook: ApiWebhookEndpoint) {
@@ -189,6 +209,14 @@ export function WebhooksSettings() {
                         </Badge>
                       ))}
                     </div>
+                    {showChannels && (
+                      <ChannelChecks
+                        idPrefix={`webhook-${w.id}`}
+                        value={w.channels}
+                        disabled={!canEditSettings || busy === w.id}
+                        onChange={(channels) => setChannels(w, channels)}
+                      />
+                    )}
                     <p className="text-muted-foreground mt-1.5 text-xs">
                       {t('created', { date: fmtDate(w.created_at) })}
                       {' · '}
@@ -235,7 +263,7 @@ export function WebhooksSettings() {
         </Card>
       )}
 
-      <CreateWebhookDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} />
+      <CreateWebhookDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} showChannels={showChannels} />
       {logFor && <DeliveryLogDialog key={logFor.id} hook={logFor} onClose={() => setLogFor(null)} />}
     </section>
   );
@@ -320,24 +348,73 @@ function DeliveryLogDialog({ hook, onClose }: { hook: ApiWebhookEndpoint; onClos
 // Create dialog — form → one-time secret reveal.
 // ------------------------------------------------------------
 
+/**
+ * The channels an endpoint receives events from. The last checked channel
+ * cannot be unchecked: an endpoint always receives at least one.
+ */
+function ChannelChecks({
+  idPrefix,
+  value,
+  disabled,
+  onChange,
+}: {
+  idPrefix: string;
+  value: WebhookChannel[];
+  disabled: boolean;
+  onChange: (channels: WebhookChannel[]) => void;
+}) {
+  const t = useTranslations('Settings.webhooks.channels');
+  return (
+    <fieldset className="mt-1.5 space-y-1">
+      <legend className="text-muted-foreground text-xs">{t('label')}</legend>
+      <div className="flex flex-wrap gap-3">
+        {WEBHOOK_CHANNELS.map((channel) => {
+          const checked = value.includes(channel);
+          const id = `${idPrefix}-${channel}`;
+          return (
+            <label key={channel} htmlFor={id} className="flex cursor-pointer items-center gap-1.5 text-xs text-foreground">
+              <Checkbox
+                id={id}
+                checked={checked}
+                disabled={disabled || (checked && value.length === 1)}
+                onCheckedChange={(next) =>
+                  onChange(WEBHOOK_CHANNELS.filter((c) => (c === channel ? next === true : value.includes(c))))
+                }
+              />
+              {t(channel)}
+            </label>
+          );
+        })}
+      </div>
+      <p className="text-muted-foreground text-xs">
+        {value.includes('instagram') ? t('instagramNote') : t('help')}
+      </p>
+    </fieldset>
+  );
+}
+
 function CreateWebhookDialog({
   open,
   onOpenChange,
   onCreated,
+  showChannels,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  showChannels: boolean;
 }) {
   const t = useTranslations('Settings.webhooks');
   const [url, setUrl] = useState('');
   const [events, setEvents] = useState<WebhookEvent[]>([]);
+  const [channels, setChannels] = useState<WebhookChannel[]>(['whatsapp']);
   const [submitting, setSubmitting] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
 
   function close() {
     setUrl('');
     setEvents([]);
+    setChannels(['whatsapp']);
     setSubmitting(false);
     setSecret(null);
     onOpenChange(false);
@@ -349,7 +426,7 @@ function CreateWebhookDialog({
       const res = await authFetch('/api/account/webhooks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), events }),
+        body: JSON.stringify({ url: url.trim(), events, channels }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -439,6 +516,9 @@ function CreateWebhookDialog({
                   ))}
                 </div>
               </div>
+              {showChannels && (
+                <ChannelChecks idPrefix="webhook-new" value={channels} disabled={submitting} onChange={setChannels} />
+              )}
             </div>
             <DialogFooter>
               <Button

@@ -39,4 +39,21 @@ describe('parseInboxSettingsInput', () => {
     [{ ...base, auto_resolve_after_hours: '24' }, 'invalid_auto_resolve'],
     [{ ...base, sla_first_response_minutes: 0 }, 'invalid_sla'],
   ])('rejects %j with %s', (body, expected) => expect(code(body)).toBe(expected));
+
+  describe('the Instagram away switch (Stage 2)', () => {
+    it('is left out when the body omits it, so older clients keep the stored value', () => {
+      expect(parseInboxSettingsInput(base)).not.toHaveProperty('instagram_away_message_enabled');
+    });
+    it('passes a boolean through, independent of the WhatsApp switch', () => {
+      expect(parseInboxSettingsInput({ ...base, away_message_enabled: false, instagram_away_message_enabled: true }))
+        .toMatchObject({ away_message_enabled: false, instagram_away_message_enabled: true });
+      expect(parseInboxSettingsInput({ ...base, instagram_away_message_enabled: false }))
+        .toMatchObject({ instagram_away_message_enabled: false });
+    });
+    it.each([
+      [{ ...base, instagram_away_message_enabled: 'yes' }],
+      [{ ...base, away_message_enabled: false, away_message: '', instagram_away_message_enabled: true }],
+      [{ ...base, away_message_enabled: false, away_message: null, instagram_away_message_enabled: true }],
+    ])('refuses %j (it needs a boolean and the away text)', (body) => expect(code(body)).toBe('invalid_away_message'));
+  });
 });

@@ -123,3 +123,50 @@ describe('deployment kill switch (phase 13)', () => {
     expect(mocks.validateAiCredentials).not.toHaveBeenCalled()
   })
 })
+
+describe('the Instagram auto-reply switch (Stage 2)', () => {
+  const existingDb = () => {
+    mocks.existing = { id: 'config-1', provider: 'openai', model: 'gpt-x', base_url: null, api_key: encrypt('stored-key') }
+    const update = vi.fn<(row: Record<string, unknown>) => { eq: () => Promise<{ error: null }> }>(() => ({ eq: async () => ({ error: null }) }))
+    const db = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mocks.existing, error: null }) }) }), update }) }
+    mocks.requireRole.mockResolvedValue({ db, accountId: 'account-1', userId: 'admin-1' })
+    return update
+  }
+  const post = (body: Record<string, unknown>) => POST(new Request('https://crm.test/api/ai/config', {
+    method: 'POST', body: JSON.stringify({ provider: 'openai', model: 'gpt-x', ...body }),
+  }))
+
+  it('saves the Instagram switch apart from the WhatsApp one', async () => {
+    const update = existingDb()
+    expect((await post({ auto_reply_enabled: false, instagram_auto_reply_enabled: true })).status).toBe(200)
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ auto_reply_enabled: false, instagram_auto_reply_enabled: true }))
+  })
+
+  it('leaves it unchanged when an older client does not send it', async () => {
+    const update = existingDb()
+    expect((await post({ auto_reply_enabled: true })).status).toBe(200)
+    expect(update.mock.calls[0][0]).not.toHaveProperty('instagram_auto_reply_enabled')
+  })
+
+  it('refuses a value that is not a boolean, writing nothing', async () => {
+    const update = existingDb()
+    expect((await post({ instagram_auto_reply_enabled: 'yes' })).status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('returns the switch to members reading the config, never the key', async () => {
+    mocks.existing = { provider: 'openai', model: 'gpt-x', api_key: 'enc', embeddings_api_key: null, is_active: true,
+      auto_reply_enabled: false, instagram_auto_reply_enabled: true }
+    const body = await (await GET()).json()
+    expect(body).toMatchObject({ auto_reply_enabled: false, instagram_auto_reply_enabled: true })
+    expect(body.api_key).toBeUndefined()
+  })
+
+  it('stays admin-only: a refused role writes nothing', async () => {
+    const update = existingDb()
+    mocks.requireRole.mockRejectedValueOnce(new Error('Forbidden'))
+    expect((await post({ instagram_auto_reply_enabled: true })).status).toBe(500)
+    expect(mocks.requireRole).toHaveBeenCalledWith('admin')
+    expect(update).not.toHaveBeenCalled()
+  })
+})
