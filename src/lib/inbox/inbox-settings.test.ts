@@ -54,6 +54,8 @@ describe('parseInboxSettingsInput', () => {
       [{ ...base, instagram_away_message_enabled: 'yes' }],
       [{ ...base, away_message_enabled: false, away_message: '', instagram_away_message_enabled: true }],
       [{ ...base, away_message_enabled: false, away_message: null, instagram_away_message_enabled: true }],
+      // 400 Korean characters fit the shared 1024-character limit but not Instagram's 1000 bytes.
+      [{ ...base, away_message: '한'.repeat(400), instagram_away_message_enabled: true }],
     ])('refuses %j (it needs a boolean and the away text)', (body) => expect(code(body)).toBe('invalid_away_message'));
   });
 });

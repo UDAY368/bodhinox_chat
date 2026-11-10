@@ -1,4 +1,5 @@
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
+import { validInstagramText } from '@/lib/instagram/graph-limits';
 import {
   DEFAULT_INBOX_SETTINGS,
   isValidTimeZone,
@@ -94,6 +95,9 @@ export function parseInboxSettingsInput(body: unknown): InboxSettingsInput {
   if (instagramAway !== undefined && typeof instagramAway !== 'boolean') throw new InboxSettingsError('invalid_away_message');
   // The Instagram switch sends the same text, so it needs one too (the table's check agrees).
   if (instagramAway === true && !awayMessage) throw new InboxSettingsError('invalid_away_message');
+  // Instagram carries at most 1000 UTF-8 bytes per message, fewer characters than the shared
+  // limit in many scripts: a longer text would be skipped on every send, so it is refused here.
+  if (instagramAway === true && !validInstagramText(awayMessage)) throw new InboxSettingsError('invalid_away_message');
   return {
     timezone: input.timezone,
     working_hours: workingHours,

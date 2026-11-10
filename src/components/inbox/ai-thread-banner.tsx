@@ -20,27 +20,41 @@ import { useAuth } from "@/hooks/use-auth";
 // cache, so it retries on the next thread open rather than hiding the
 // banner for the whole session.
 // ------------------------------------------------------------
-interface AiAccountStatus {
+export interface AiAccountStatus {
+  /** The WhatsApp inbox switch (ai_configs.auto_reply_enabled). */
   autoReplyOn: boolean;
+  /** The Instagram inbox switch (Stage 2, ai_configs.instagram_auto_reply_enabled). */
+  instagramAutoReplyOn: boolean;
 }
 const statusCache = new Map<string, AiAccountStatus>();
+const OFF: AiAccountStatus = { autoReplyOn: false, instagramAutoReplyOn: false };
+
+/**
+ * AI auto-reply is "live" on a channel only when the assistant is configured,
+ * the master switch is on, and that channel's inbox switch is on.
+ */
+export function aiAccountStatus(config: unknown): AiAccountStatus {
+  const j = (config ?? {}) as Record<string, unknown>;
+  const live = j.configured === true && j.is_active === true;
+  return { autoReplyOn: live && j.auto_reply_enabled === true, instagramAutoReplyOn: live && j.instagram_auto_reply_enabled === true };
+}
+
+/** The switch that applies to a conversation (legacy rows without a channel are WhatsApp). */
+export function autoReplyOnFor(status: AiAccountStatus, channel: string | null | undefined): boolean {
+  return channel === "instagram" ? status.instagramAutoReplyOn : status.autoReplyOn;
+}
 
 async function fetchAiAccountStatus(accountId: string): Promise<AiAccountStatus> {
   const cached = statusCache.get(accountId);
   if (cached) return cached;
   try {
     const res = await authFetch("/api/ai/config", { cache: "no-store" });
-    if (!res.ok) return { autoReplyOn: false }; // don't cache a transient failure
-    const j = await res.json();
-    const status = {
-      // AI auto-reply is "live" only when configured, the master switch
-      // is on, and the inbound bot is enabled.
-      autoReplyOn: !!(j?.configured && j?.is_active && j?.auto_reply_enabled),
-    };
+    if (!res.ok) return OFF; // don't cache a transient failure
+    const status = aiAccountStatus(await res.json());
     statusCache.set(accountId, status);
     return status;
   } catch {
-    return { autoReplyOn: false }; // don't cache
+    return OFF; // don't cache
   }
 }
 
@@ -48,6 +62,8 @@ interface AiThreadBannerProps {
   conversationId: string;
   /** `conversations.ai_autoreply_disabled` — bot paused on this thread. */
   disabled: boolean;
+  /** The conversation's channel: each channel has its own auto-reply switch. */
+  channel?: string | null;
   /** `conversations.ai_handoff_summary` — note the bot left on handoff. */
   handoffSummary?: string | null;
   /** Current assignee; when a human owns the thread the bot won't run,
@@ -76,6 +92,7 @@ interface AiThreadBannerProps {
 export function AiThreadBanner({
   conversationId,
   disabled,
+  channel,
   handoffSummary,
   assignedAgentId,
   currentUserId,
@@ -83,7 +100,8 @@ export function AiThreadBanner({
 }: AiThreadBannerProps) {
   const t = useTranslations("Inbox.aiBanner");
   const { accountId } = useAuth();
-  const [autoReplyOn, setAutoReplyOn] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<AiAccountStatus | null>(null);
+  const autoReplyOn = status ? autoReplyOnFor(status, channel) : false;
   const [busy, setBusy] = useState(false);
   // Optimistic local mirror of the pause flag so the banner flips
   // instantly on click; re-seeds whenever the thread (or its server
@@ -94,7 +112,7 @@ export function AiThreadBanner({
   useEffect(() => {
     if (!accountId) return;
     let alive = true;
-    fetchAiAccountStatus(accountId).then((s) => alive && setAutoReplyOn(s.autoReplyOn));
+    fetchAiAccountStatus(accountId).then((s) => alive && setStatus(s));
     return () => {
       alive = false;
     };
