@@ -34,17 +34,20 @@ export interface AddContactTagResult {
 async function tagEventChannel(input: AddContactTagAndDispatchInput): Promise<Channel> {
   const conversationId = input.context?.conversation_id;
   if (!conversationId) return 'whatsapp';
-  const { data, error } = await input.db
-    .from('conversations')
-    .select('channel')
-    .eq('account_id', input.accountId)
-    .eq('id', conversationId)
-    .maybeSingle();
-  if (error) {
+  try {
+    const { data, error } = await input.db
+      .from('conversations')
+      .select('channel')
+      .eq('account_id', input.accountId)
+      .eq('id', conversationId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { channel?: string | null } | null)?.channel === 'instagram' ? 'instagram' : 'whatsapp';
+  } catch {
+    // Ids only: never the error text, which can carry query values.
     console.error('[automations] tag event channel lookup failed', { accountId: input.accountId, conversationId });
     return 'whatsapp';
   }
-  return (data as { channel?: string | null } | null)?.channel === 'instagram' ? 'instagram' : 'whatsapp';
 }
 
 /**

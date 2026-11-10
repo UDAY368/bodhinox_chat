@@ -9,7 +9,7 @@ import { resolveSession } from '@/lib/auth/session';
 import { getWorkspaceChannels } from '@/lib/channels/workspace';
 import { channelPath, firstEnabledChannel } from '@/lib/channels/routes';
 import { withTenant } from '@/lib/db/tenant';
-import { getTemplate } from './templates';
+import { getTemplate, templateOnChannel } from './templates';
 import type { Channel } from '@/types';
 
 export type LegacyAutomationTarget =
@@ -23,7 +23,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Pure: the section URL for a legacy target. The list and a new automation go
  * to the first enabled channel (WhatsApp first); an automation goes to its own
  * channel's section, or the first enabled one when it was not found (that
- * page then reports it missing). A template slug is kept only when it is one.
+ * page then reports it missing). A template slug is kept only when it is one
+ * an enabled channel offers, and opens in that channel.
  */
 export function legacyAutomationPath(target: LegacyAutomationTarget, enabled: readonly Channel[],
   automationChannel: Channel | null = null): string {
@@ -32,9 +33,14 @@ export function legacyAutomationPath(target: LegacyAutomationTarget, enabled: re
     case 'list':
       return channelPath(first, 'automations');
     case 'new': {
-      const path = channelPath(first, 'automationNew');
       const slug = target.template;
-      return slug && getTemplate(slug) ? `${path}?template=${encodeURIComponent(slug)}` : path;
+      const template = slug ? getTemplate(slug) : null;
+      // A starter template opens in the first enabled channel it is made for;
+      // one no enabled channel offers is dropped rather than opening blank.
+      const channel = template ? [first, ...enabled].find((c) => templateOnChannel(template, c)) : undefined;
+      return slug && channel
+        ? `${channelPath(channel, 'automationNew')}?template=${encodeURIComponent(slug)}`
+        : channelPath(first, 'automationNew');
     }
     case 'edit':
       return channelPath(automationChannel ?? first, 'automations', target.id);

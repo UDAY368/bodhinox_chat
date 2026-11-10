@@ -1283,14 +1283,22 @@ describe("contact conversations on two numbers", () => {
     automation("close_conversation", {});
     await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a", conversation_id: "conv-b" } });
     const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
-    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "id", "conv-b"]]);
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "channel", "whatsapp"], ["eq", "id", "conv-b"]]);
   });
 
-  it("closes all of the contact's conversations without one, as before", async () => {
+  it("closes all of the contact's WhatsApp conversations without one, never an Instagram thread", async () => {
     automation("close_conversation", {});
     await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
     const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
-    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"]]);
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "channel", "whatsapp"]]);
+  });
+
+  it("closes only the contact's Instagram conversations from an Instagram automation", async () => {
+    automation("close_conversation", {});
+    h.state.automations = h.state.automations.map((row) => ({ ...row, channel: "instagram" }));
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
+    const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "channel", "instagram"]]);
   });
 });
 

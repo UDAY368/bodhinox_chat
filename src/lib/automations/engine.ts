@@ -1229,10 +1229,14 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 /**
  * The conversations an assign/close step changes: the triggering one when the
  * run has it (a contact has one conversation per number), else all of the
- * contact's, as before multi-number.
+ * contact's, as before multi-number. Only conversations on the automation's
+ * channel: a WhatsApp automation never assigns or closes an Instagram thread,
+ * or the reverse (conversations.channel is NOT NULL, so a WhatsApp-only
+ * workspace matches exactly the rows it did before).
  */
 function inConversationScope<Q extends { eq(field: string, value: unknown): Q }>(query: Q, args: ExecuteArgs): Q {
   const scoped = query.eq('account_id', args.automation.account_id).eq('contact_id', args.contactId)
+    .eq('channel', automationChannel(args.automation))
   const fromCtx = args.context.conversation_id
   return typeof fromCtx === 'string' && fromCtx ? scoped.eq('id', fromCtx) : scoped
 }

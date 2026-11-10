@@ -47,6 +47,16 @@ describe('legacyAutomationPath', () => {
     expect(legacyAutomationPath({ kind: 'new', template: 'x"><script>' }, ['whatsapp'])).toBe('/whatsapp/automations/new');
   });
 
+  it('opens a template in the first enabled channel it is made for', () => {
+    // follow_up_reminder is WhatsApp-only; welcome_message works on both.
+    expect(legacyAutomationPath({ kind: 'new', template: 'welcome_message' }, ['instagram']))
+      .toBe('/instagram/automations/new?template=welcome_message');
+    expect(legacyAutomationPath({ kind: 'new', template: 'follow_up_reminder' }, ['whatsapp', 'instagram']))
+      .toBe('/whatsapp/automations/new?template=follow_up_reminder');
+    expect(legacyAutomationPath({ kind: 'new', template: 'follow_up_reminder' }, ['instagram']))
+      .toBe('/instagram/automations/new');
+  });
+
   it('sends an automation to its own channel', () => {
     expect(legacyAutomationPath({ kind: 'edit', id: ID }, ['whatsapp', 'instagram'], 'instagram')).toBe(`/instagram/automations/${ID}/edit`);
     expect(legacyAutomationPath({ kind: 'logs', id: ID }, ['whatsapp'], 'whatsapp')).toBe(`/whatsapp/automations/${ID}/logs`);
