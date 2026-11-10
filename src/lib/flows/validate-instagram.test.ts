@@ -1,0 +1,143 @@
+// Stage 2C publish checks for the Instagram triggers and steps
+// (instagram-validation.ts through validateFlowForActivation).
+import { describe, expect, it } from "vitest";
+import { validateFlowForActivation } from "./validate";
+import type { FlowChannelScope, FlowTriggerType } from "./types";
+
+type N = { node_key: string; node_type: string; config: Record<string, unknown> };
+const start = (next: string): N => ({ node_key: "start", node_type: "start", config: { next_node_key: next } });
+const end: N = { node_key: "done", node_type: "end", config: {} };
+const commentFlow = {
+  name: "Comments", trigger_type: "ig_comment" as FlowTriggerType, trigger_config: { post_scope: "any" } as Record<string, unknown>,
+  entry_node_id: "start", channel_scope: "instagram" as FlowChannelScope,
+};
+const privateReply = (over: Record<string, unknown> = {}): N =>
+  ({ node_key: "pr", node_type: "ig_private_reply", config: { text: "Here is the link", opt_in_label: "Send it", next_node_key: "link", ...over } });
+const link: N = { node_key: "link", node_type: "send_message", config: { text: "https://shop.example/x", next_node_key: "done" } };
+const errors = (nodes: N[], f: Partial<typeof commentFlow> = {}) =>
+  validateFlowForActivation({ ...commentFlow, ...f }, nodes).filter((i) => i.severity === "error");
+
+describe("comment flows: the private reply comes first", () => {
+  it("accepts tags and a public reply before the private reply, and DMs after its opening button", () => {
+    const nodes: N[] = [
+      start("reply"),
+      { node_key: "reply", node_type: "ig_comment_reply", config: { replies: ["Check your DMs!", "Sent!"], next_node_key: "pr" } },
+      privateReply(), link, end,
+    ];
+    expect(errors(nodes)).toEqual([]);
+  });
+
+  it("refuses a flow whose first message is not a private reply", () => {
+    const issues = errors([start("link"), link, end]);
+    expect(issues).toContainEqual(expect.objectContaining({ node_key: "link", field: "node_type" }));
+  });
+
+  it("refuses a question, a typing delay or a second private reply", () => {
+    const ask: N = { node_key: "ask", node_type: "collect_input", config: { prompt_text: "Email?", var_key: "email", next_node_key: "pr" } };
+    expect(errors([start("ask"), ask, privateReply(), link, end])).toContainEqual(expect.objectContaining({ node_key: "ask" }));
+    expect(errors([start("pr"), privateReply({ delay_seconds: 3 }), link, end]))
+      .toContainEqual(expect.objectContaining({ node_key: "pr", field: "delay_seconds" }));
+    const second: N = { node_key: "pr2", node_type: "ig_private_reply", config: { text: "Again", next_node_key: "done" } };
+    expect(errors([start("pr"), privateReply({ next_node_key: "pr2" }), second, end]))
+      .toContainEqual(expect.objectContaining({ node_key: "pr2", field: "node_type" }));
+  });
+
+  it("refuses a DM after a private reply without an opening button", () => {
+    const issues = errors([start("pr"), privateReply({ opt_in_label: "" }), link, end]);
+    expect(issues).toContainEqual(expect.objectContaining({ node_key: "pr", field: "opt_in_label" }));
+    // Tags and the end are fine without one.
+    const tag: N = { node_key: "tag", node_type: "set_tag", config: { mode: "add", tag_id: "11111111-1111-4111-8111-111111111111", next_node_key: "done" } };
+    expect(errors([start("pr"), privateReply({ opt_in_label: "", next_node_key: "tag" }), tag, end])).toEqual([]);
+  });
+
+  it("checks the private reply's sizes and its next step", () => {
+    const issues = errors([start("pr"), privateReply({ text: "x".repeat(1001), opt_in_label: "This label is far too long", next_node_key: "" }), end]);
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ node_key: "pr", field: "text" }),
+      expect.objectContaining({ node_key: "pr", field: "opt_in_label" }),
+      expect.objectContaining({ node_key: "pr", field: "next_node_key" }),
+    ]));
+  });
+
+  it("keeps the comment steps out of every other flow", () => {
+    const nodes: N[] = [start("pr"), privateReply({ opt_in_label: "", next_node_key: "done" }), end];
+    expect(errors(nodes, { trigger_type: "keyword", trigger_config: { keywords: ["hi"] } }))
+      .toContainEqual(expect.objectContaining({ node_key: "pr", field: "node_type" }));
+    const reply: N = { node_key: "r", node_type: "ig_comment_reply", config: { replies: ["Hi"], next_node_key: "done" } };
+    expect(errors([start("r"), reply, end], { trigger_type: "keyword", trigger_config: { keywords: ["hi"] } }))
+      .toContainEqual(expect.objectContaining({ node_key: "r", field: "node_type" }));
+  });
+});
+
+describe("Instagram triggers", () => {
+  const nodes: N[] = [start("pr"), privateReply({ opt_in_label: "", next_node_key: "done" }), end];
+  it("ig_comment: post scope, posts, next-post time, keywords and public replies", () => {
+    const fields = (config: Record<string, unknown>) => errors(nodes, { trigger_config: config }).map((i) => i.field);
+    expect(fields({ post_scope: "some" })).toContain("trigger_config.post_scope");
+    expect(fields({ post_scope: "specific" })).toContain("trigger_config.media_ids");
+    expect(fields({ post_scope: "specific", media_ids: ["abc"] })).toContain("trigger_config.media_ids");
+    expect(fields({ post_scope: "next" })).toContain("trigger_config.next_after");
+    expect(fields({ post_scope: "any", include_keywords: Array.from({ length: 51 }, (_, i) => `k${i}`) })).toContain("trigger_config.include_keywords");
+    expect(fields({ post_scope: "any", exclude_keywords: ["x".repeat(101)] })).toContain("trigger_config.exclude_keywords");
+    expect(fields({ post_scope: "any", public_replies: ["a", "b", "c", "d"] })).toContain("trigger_config.public_replies");
+    expect(fields({ post_scope: "any", public_replies: [""] })).toContain("trigger_config.public_replies");
+    expect(fields({ post_scope: "next", next_after: "2026-11-10T00:00:00Z", include_keywords: ["price"], public_replies: ["DM sent!"] })).toEqual([]);
+  });
+
+  const dm: N[] = [start("hi"), { node_key: "hi", node_type: "send_message", config: { text: "Hi", next_node_key: "done" } }, end];
+  it("ig_story_reply, ig_story_mention and default_reply", () => {
+    const fields = (trigger_type: FlowTriggerType, config: Record<string, unknown>) =>
+      errors(dm, { trigger_type, trigger_config: config }).map((i) => i.field);
+    expect(fields("ig_story_reply", {})).toEqual([]);
+    expect(fields("ig_story_reply", { story_ids: ["x"] })).toContain("trigger_config.story_ids");
+    expect(fields("ig_story_mention", {})).toContain("trigger_config.frequency");
+    expect(fields("ig_story_mention", { frequency: "once_per_24h" })).toEqual([]);
+    expect(fields("default_reply", { frequency: "hourly" })).toContain("trigger_config.frequency");
+    expect(fields("default_reply", {})).toEqual([]);
+    // A story trigger cannot be published on WhatsApp.
+    expect(errors(dm, { trigger_type: "ig_story_reply", trigger_config: {}, channel_scope: "whatsapp" }))
+      .toContainEqual(expect.objectContaining({ field: "trigger_type" }));
+  });
+});
+
+describe("cards, galleries, link buttons and profile conditions", () => {
+  const flow = { trigger_type: "keyword" as FlowTriggerType, trigger_config: { keywords: ["hi"] } };
+  it("accepts a gallery whose postback buttons route, and refuses a routed card that also links Next", () => {
+    const gallery: N = { node_key: "g", node_type: "send_gallery", config: { cards: [
+      { title: "Shoes", subtitle: "New", image_url: "https://cdn.example/a.png",
+        buttons: [{ type: "web_url", title: "Shop", url: "https://shop.example" }, { type: "postback", title: "More", reply_id: "more", next_node_key: "done" }] },
+    ] } };
+    expect(errors([start("g"), gallery, end], flow)).toEqual([]);
+    const routedWithNext = { ...gallery, config: { ...gallery.config, next_node_key: "done" } };
+    expect(errors([start("g"), routedWithNext, end], flow)).toContainEqual(expect.objectContaining({ node_key: "g", field: "next_node_key" }));
+  });
+
+  it("refuses cards over Meta's limits", () => {
+    const tooMany: N = { node_key: "g", node_type: "send_gallery", config: { cards: Array.from({ length: 11 }, () => ({ title: "x" })), next_node_key: "done" } };
+    expect(errors([start("g"), tooMany, end], flow)).toContainEqual(expect.objectContaining({ field: "cards" }));
+    const bad: N = { node_key: "c", node_type: "send_card", config: { card: { title: "x".repeat(81), image_url: "http://insecure.example/a.png",
+      buttons: [{ type: "web_url", title: "Go", url: "https://a" }, { type: "web_url", title: "Go", url: "https://a" },
+        { type: "web_url", title: "Go", url: "https://a" }, { type: "web_url", title: "Go", url: "https://a" }] }, next_node_key: "done" } };
+    expect(errors([start("c"), bad, end], flow).map((i) => i.field)).toEqual(expect.arrayContaining(["card.title", "card.image_url", "card.buttons"]));
+  });
+
+  it("allows link buttons on Instagram only, within 3 buttons in total", () => {
+    const buttons: N = { node_key: "b", node_type: "send_buttons", config: { text: "Pick",
+      buttons: [{ reply_id: "y", title: "Yes", next_node_key: "done" }], link_buttons: [{ title: "Site", url: "https://shop.example" }] } };
+    expect(errors([start("b"), buttons, end], { ...flow, channel_scope: "whatsapp" })).toContainEqual(expect.objectContaining({ field: "link_buttons" }));
+    expect(errors([start("b"), buttons, end], { ...flow, channel_scope: "any" })).toContainEqual(expect.objectContaining({ field: "link_buttons" }));
+    expect(errors([start("b"), buttons, end], { ...flow, channel_scope: "instagram" })).toEqual([]);
+    const crowded = { ...buttons, config: { ...buttons.config, link_buttons: [1, 2, 3].map(() => ({ title: "Site", url: "https://shop.example" })) } };
+    expect(errors([start("b"), crowded, end], { ...flow, channel_scope: "instagram" })).toContainEqual(expect.objectContaining({ field: "link_buttons" }));
+  });
+
+  it("allows the follow gate condition in Instagram flows only", () => {
+    const gate: N = { node_key: "c", node_type: "condition", config: {
+      rules: [{ subject: "ig_profile", subject_key: "follows_business", operator: "equals", value: "true" }], true_next: "done", false_next: "done" } };
+    expect(errors([start("c"), gate, end], { ...flow, channel_scope: "instagram" })).toEqual([]);
+    expect(errors([start("c"), gate, end], { ...flow, channel_scope: "whatsapp" })).toContainEqual(expect.objectContaining({ field: "rules.0.subject" }));
+    const unknownFact = { ...gate, config: { ...gate.config, rules: [{ subject: "ig_profile", subject_key: "age", operator: "present" }] } };
+    expect(errors([start("c"), unknownFact, end], { ...flow, channel_scope: "instagram" }))
+      .toContainEqual(expect.objectContaining({ field: "rules.0.subject_key" }));
+  });
+});

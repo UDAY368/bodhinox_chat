@@ -2849,7 +2849,15 @@
         "publicRepliesHelp": "선택 사항입니다. 매번 하나를 골라 댓글 아래에 게시합니다. 최대 {max}개.",
         "addPublicReply": "답글 추가",
         "publicReplyPlaceholder": "감사합니다! DM을 확인하세요",
-        "tooManyKeywords": "키워드는 최대 {max}개까지 사용할 수 있습니다."
+        "tooManyKeywords": "키워드는 최대 {max}개까지 사용할 수 있습니다.",
+        "badPostScope": "이 플로우가 반응할 게시물을 선택하세요.",
+        "needsPosts": "게시물을 하나 이상 선택하세요.",
+        "badPostIds": "계정의 게시물을 최대 {max}개까지 선택하세요.",
+        "needsNextAfter": "다음 게시물을 알 수 있도록 “다음 게시물”을 다시 선택하세요.",
+        "keywordTooLong": "각 키워드는 {max}자 이내로 입력하세요.",
+        "tooManyPublicReplies": "공개 답글은 최대 {max}개까지 사용할 수 있습니다.",
+        "publicReplyTooLong": "각 공개 답글을 {max}자 이내로 작성하세요.",
+        "badAccount": "연결된 Instagram 계정을 선택하세요."
       },
       "igStoryReply": {
         "help": "누군가 내 스토리에 답장하면 시작됩니다.",
@@ -2858,10 +2866,13 @@
         "storyIds": "스토리 ID",
         "keywords": "이 단어가 있는 답장만",
         "keywordsHelp": "비워 두면 모든 답장에서 시작합니다.",
-        "reactions": "이모지 반응에도 시작"
+        "reactions": "이모지 반응에도 시작",
+        "badStoryIds": "스토리 ID는 숫자여야 하며 최대 {max}개까지 입력할 수 있습니다.",
+        "badKeywords": "키워드는 최대 {max}개, 각각 {chars}자 이내로 입력하세요."
       },
       "igStoryMention": {
-        "help": "누군가 스토리에서 내 계정을 언급하면 시작됩니다."
+        "help": "누군가 스토리에서 내 계정을 언급하면 시작됩니다.",
+        "badFrequency": "사람마다 이 플로우가 실행되는 빈도를 선택하세요."
       }
     },
     "nodes": {
@@ -2872,7 +2883,8 @@
         "addReply": "답글 추가",
         "maxReplies": "최대 {max}개이며 매번 하나를 고릅니다.",
         "tooLong": "답글은 {max}자 이내로 작성하세요.",
-        "onlyCommentFlows": "댓글로 시작된 플로우에서만 작동합니다."
+        "onlyCommentFlows": "댓글로 시작된 플로우에서만 작동합니다.",
+        "needsReply": "답글을 하나 이상 추가하세요."
       },
       "igPrivateReply": {
         "help": "댓글 작성자에게 보내는 첫 메시지입니다. Instagram은 댓글마다 7일 이내에 비공개 답장 하나만 허용합니다.",
@@ -2881,7 +2893,12 @@
         "optInHelp": "플로우가 이 탭을 기다립니다. 탭하면 대화가 열려 다음 메시지를 보낼 수 있습니다.",
         "optInPlaceholder": "링크 보내 주세요",
         "firstOnly": "댓글 플로우의 첫 단계여야 합니다.",
-        "noInput": "비공개 답장은 질문을 하거나 보내기 전에 기다릴 수 없습니다."
+        "noInput": "비공개 답장은 질문을 하거나 보내기 전에 기다릴 수 없습니다.",
+        "textRequired": "메시지를 입력하세요.",
+        "textTooLong": "메시지는 {max}바이트 이내로 작성하세요.",
+        "optInTooLong": "버튼 텍스트는 {max}자 이내로 입력하세요.",
+        "onlyOne": "댓글에는 비공개 답장을 한 번만 보낼 수 있습니다. 경로마다 이 단계를 한 번만 사용하세요.",
+        "noDmWithoutOptIn": "상대가 답할 때까지 Instagram은 추가 메시지를 보내지 않습니다. 비공개 답장에 시작 버튼을 추가하세요."
       },
       "card": {
         "title": "제목",
@@ -2896,21 +2913,34 @@
         "buttonTitle": "버튼 문구",
         "buttonUrl": "링크",
         "maxButtons": "버튼은 최대 {max}개입니다.",
-        "titleRequired": "제목을 추가하세요."
+        "titleRequired": "제목을 추가하세요.",
+        "titleTooLong": "제목은 {max}자 이내로 입력하세요.",
+        "subtitleTooLong": "부제목은 {max}자 이내로 입력하세요.",
+        "badUrl": "https 링크를 사용하세요.",
+        "buttonInvalid": "각 버튼에는 {max}자 이내의 텍스트와 링크 또는 이동할 단계가 필요합니다.",
+        "routesAndNext": "“단계로 이동” 버튼이 있는 카드는 탭을 기다립니다. 다음 연결을 제거하세요."
       },
       "gallery": {
         "cards": "카드",
         "addCard": "카드 추가",
         "removeCard": "카드 삭제",
         "maxCards": "카드는 최대 {max}장입니다.",
-        "cardN": "카드 {n}"
+        "cardN": "카드 {n}",
+        "needsCard": "카드를 하나 이상 추가하세요."
       },
       "buttons": {
         "linkButtons": "링크 버튼",
         "addLinkButton": "링크 버튼 추가",
         "linkButtonsHelp": "Instagram 전용입니다. 링크를 탭해도 플로우는 계속되지 않습니다.",
         "maxButtons": "버튼은 모두 합쳐 최대 {max}개입니다.",
-        "replyHelp": "탭하면 해당 버튼의 경로로 플로우가 계속됩니다."
+        "replyHelp": "탭하면 해당 버튼의 경로로 플로우가 계속됩니다.",
+        "badLink": "각 링크 버튼에는 {max}자 이내의 텍스트와 https 링크가 필요합니다.",
+        "textTooLong": "링크 버튼을 쓰면 메시지를 {max}자 이내로 작성하세요.",
+        "linkOnlyInstagram": "링크 버튼은 Instagram에서만 작동합니다."
+      },
+      "igProfile": {
+        "onlyInstagram": "Instagram 프로필 확인은 Instagram 플로우에서만 작동합니다.",
+        "badFact": "확인할 Instagram 프로필 항목을 선택하세요."
       }
     }
   },

@@ -35,6 +35,32 @@ const h = vi.hoisted(() => ({
   executeRaw: vi.fn(async () => 1),
   /** Published versions by id (Phase 12); empty unless a test publishes one. */
   versions: new Map<string, Record<string, unknown>>(),
+  // Stage 2 (Instagram Phase 1).
+  /** Stored messages (the story reply / mention facts are read from interactive_payload). */
+  messages: [] as unknown[],
+  /** The id the next inserted run gets. */
+  runId: "run-1",
+  /** One raw row answering every tenant query a test makes (window, starter listing, comment event). */
+  rawRow: {} as Record<string, unknown>,
+  igCards: vi.fn(async () => ({ messageId: "mid.3", recipientId: "9001" })),
+  igButtonTemplate: vi.fn(async () => ({ messageId: "mid.4", recipientId: "9001" })),
+  privateReply: vi.fn<(args: Record<string, unknown>) => Promise<string>>(async () => "sent"),
+  publicReply: vi.fn<(accountId: string, eventId: string, text: string) => Promise<string>>(async () => "posted"),
+  optIn: vi.fn(async () => {}),
+  profile: vi.fn<() => Promise<Record<string, unknown> | null>>(async () => null),
+  enqueue: vi.fn(async () => ({})),
+}));
+
+vi.mock("@/lib/instagram/private-reply", () => ({
+  PRIVATE_REPLY_RETRY_MS: 600_000,
+  sendCommentPrivateReply: h.privateReply,
+  postCommentPublicReply: h.publicReply,
+  recordCommentOptIn: h.optIn,
+}));
+vi.mock("@/lib/instagram/profile", () => ({ refreshProfileFacts: h.profile }));
+vi.mock("@/lib/jobs/queue", () => ({ enqueueJob: h.enqueue }));
+vi.mock("@/lib/instagram/process-webhook", () => ({
+  resolveCommentThread: async () => ({ contactId: "ct-1", conversationId: "cv-1", auditUserId: "u-1" }),
 }));
 
 vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {} }));
@@ -44,7 +70,11 @@ vi.mock("@/lib/workspace/attributes", async (original) => ({
   workspaceValuesFor: async () => ({}),
 }));
 vi.mock("@/lib/webhooks/deliver", () => ({ dispatchWebhookEvent: async () => {} }));
-vi.mock("@/lib/db/tenant", () => ({ withTenant: async (_c: unknown, work: (tx: unknown) => unknown) => work({ $executeRaw: h.executeRaw }) }));
+vi.mock("@/lib/db/tenant", () => ({ withTenant: async (_c: unknown, work: (tx: unknown) => unknown) => work({
+  $executeRaw: h.executeRaw,
+  // The 24-hour window check reads the last customer message (Stage 2).
+  $queryRaw: async () => [{ last_customer_at: h.lastCustomerAt, ...h.rawRow }],
+}) }));
 vi.mock("@/lib/db/prisma", () => ({ getWorkerPrisma: () => ({}) }));
 vi.mock("@/lib/automations/meta-send", () => ({ engineSendTemplate: h.waTemplate }));
 vi.mock("./versions", async (original) => ({
@@ -67,6 +97,8 @@ vi.mock("@/lib/channels/sender", async (original) => ({
   }),
   sendInstagramText: h.igText,
   sendInstagramChoices: h.igChoices,
+  sendInstagramCards: h.igCards,
+  sendInstagramButtonTemplate: h.igButtonTemplate,
   storeInstagramSentMessage: h.igStore,
 }));
 
@@ -77,6 +109,7 @@ vi.mock("./admin-client", () => {
     if (table === "flow_nodes") return h.state.nodes;
     if (table === "conversations") return [{ id: "cv-1", account_id: "acct-1", contact_id: "ct-1", ...h.state.conversation }];
     if (table === "contacts") return [{ id: "ct-1", account_id: "acct-1" }];
+    if (table === "messages") return h.messages;
     return [];
   }
   function builder(table: string) {
@@ -85,7 +118,7 @@ vi.mock("./admin-client", () => {
     const matching = () => table !== "flows" ? rows(table)
       : (rows(table) as Record<string, unknown>[]).filter((row) => narrow.every((keep) => keep(row)));
     const b: Record<string, unknown> = {
-      select: () => b, eq: () => b, neq: () => b, is: () => b, filter: () => b, order: () => b, limit: () => b,
+      select: () => b, eq: () => b, neq: () => b, is: () => b, filter: () => b, order: () => b, limit: () => b, gte: () => b,
       in: (column: string, values: unknown[]) => {
         h.state.inFilters.push({ table, column, values });
         narrow.push((row) => values.includes(row[column] ?? (column === "channel_scope" ? "whatsapp" : undefined)));
@@ -94,7 +127,7 @@ vi.mock("./admin-client", () => {
       update: (row: Record<string, unknown>) => { h.state.updates.push({ table, row }); return b; },
       insert: (row: Record<string, unknown>) => {
         h.state.inserted.push({ table, row });
-        if (table === "flow_runs") h.state.insertedRun = { id: "run-1", vars: {}, reprompt_count: 0, transition_seq: 0, ...row };
+        if (table === "flow_runs") h.state.insertedRun = { id: h.runId, vars: {}, reprompt_count: 0, transition_seq: 0, ...row };
         return b;
       },
       maybeSingle: async () => {
@@ -113,7 +146,7 @@ vi.mock("./admin-client", () => {
   return { databaseAdmin: () => ({ from: (t: string) => builder(t), rpc: () => Promise.resolve({ error: null }) }) };
 });
 
-import { dispatchInboundToFlows, flowListensOnConversation, startFlowById } from "./engine";
+import { dispatchInboundToFlows, flowListensOnConversation, igProfileValue, matchReplyId, startCommentFlow, startFlowById } from "./engine";
 
 const FLOW = {
   id: "flow-1", account_id: "acct-1", user_id: "u-1", status: "active", trigger_type: "keyword",
@@ -152,7 +185,13 @@ beforeEach(() => {
   h.versions.clear();
   h.state.conversation = { channel: "whatsapp", whatsapp_config_id: null };
   h.lastCustomerAt = new Date();
-  for (const fn of [h.dispatch, h.waText, h.waTemplate, h.igText, h.igChoices, h.igStore, h.executeRaw]) fn.mockClear();
+  for (const fn of [h.dispatch, h.waText, h.waTemplate, h.igText, h.igChoices, h.igStore, h.executeRaw, h.igCards, h.igButtonTemplate,
+    h.privateReply, h.publicReply, h.optIn, h.profile, h.enqueue]) fn.mockClear();
+  h.messages = [];
+  h.runId = "run-1";
+  h.rawRow = {};
+  h.privateReply.mockResolvedValue("sent");
+  h.profile.mockResolvedValue(null);
   for (const [k, v] of Object.entries(ENV)) vi.stubEnv(k, v);
 });
 
@@ -264,7 +303,7 @@ describe("dispatch by channel", () => {
     expect(h.igStore.mock.calls[0][1]).toMatchObject({ senderType: "bot", senderId: null, contentType: "text", contentText: "Hello", messageId: "mid.1" });
   });
 
-  it("a closed window refuses before any outbound intent and fails the step visibly", async () => {
+  it("a closed window ends the run with window_closed before any outbound intent (Stage 2)", async () => {
     h.state.conversation = { channel: "instagram", whatsapp_config_id: null };
     h.state.flows = [{ ...FLOW, channel_scope: "any" }];
     h.lastCustomerAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
@@ -272,8 +311,17 @@ describe("dispatch by channel", () => {
     expect(h.dispatch).not.toHaveBeenCalled();
     expect(h.igText).not.toHaveBeenCalled();
     expect(events()).toContainEqual(expect.objectContaining({
-      event_type: "error", payload: expect.objectContaining({ reason: "send_text_failed", detail: expect.stringContaining("instagram_window_closed") }),
+      event_type: "error", payload: expect.objectContaining({ reason: "window_closed", node_type: "send_message" }),
     }));
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ status: "cancelled", end_reason: "window_closed" }) });
+  });
+
+  it("a WhatsApp run never checks the Instagram window", async () => {
+    h.state.flows = [FLOW];
+    h.lastCustomerAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    await dispatch();
+    expect(h.waText).toHaveBeenCalledTimes(1);
+    expect(events()).not.toContainEqual(expect.objectContaining({ payload: expect.objectContaining({ reason: "window_closed" }) }));
   });
 
   it("Instagram off: refuses before any intent and calls nothing", async () => {
@@ -408,5 +456,236 @@ describe("an error after the run's position committed (audit #48)", () => {
       h.state.updates.push = original;
     }
     expect(ended()).toEqual([]);
+  });
+});
+
+describe("Instagram Phase 1 engine (Stage 2C)", () => {
+  const RUN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const EVENT = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const STARTER_FLOW = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const igFlow = (over: Record<string, unknown>) => ({ ...FLOW, channel_scope: "instagram", ...over });
+  const inbound = (message: Record<string, unknown>) => dispatchInboundToFlows({
+    accountId: "acct-1", userId: "u-1", contactId: "ct-1", conversationId: "cv-1",
+    message: { meta_message_id: "m-ig", ...message } as never, isFirstInboundMessage: false,
+  });
+  const COMMENT_NODES = [
+    node("start", "start", { next_node_key: "reply" }),
+    node("reply", "ig_comment_reply", { replies: ["Check your DMs!"], next_node_key: "pr" }),
+    node("pr", "ig_private_reply", { text: "Want the link?", opt_in_label: "Send it", next_node_key: "link" }),
+    node("link", "send_message", { text: "https://shop.example/x", next_node_key: "done" }),
+    node("done", "end", {}),
+  ];
+  const activeAt = (current: string, vars: Record<string, unknown> = {}) => [{ id: RUN, account_id: "acct-1", user_id: "u-1",
+    flow_id: "flow-1", contact_id: "ct-1", conversation_id: "cv-1", status: "active", current_node_key: current, vars,
+    reprompt_count: 0, transition_seq: 1, started_at: new Date().toISOString(), last_advanced_at: new Date().toISOString() }];
+
+  beforeEach(() => {
+    h.state.conversation = { channel: "instagram", whatsapp_config_id: null };
+  });
+
+  it("a story reply starts the story flow (any story, any reply); plain text does not", async () => {
+    h.state.flows = [igFlow({ trigger_type: "ig_story_reply", trigger_config: {} })];
+    await inbound({ kind: "text", text: "love this" });
+    expect(runs()).toHaveLength(0);
+    h.messages = [{ interactive_payload: { ig: { story: true, story_id: "18011" } } }];
+    await inbound({ kind: "text", text: "love this" });
+    expect(runs()).toHaveLength(1);
+    expect(h.igText).toHaveBeenCalledTimes(1);
+  });
+
+  it("an emoji reaction to a story starts the flow only when reactions are on; story ids narrow it", async () => {
+    h.messages = [{ interactive_payload: { ig: { story: true, story_id: "18011", reaction: true } } }];
+    h.state.flows = [igFlow({ trigger_type: "ig_story_reply", trigger_config: { keywords: ["price"] } })];
+    await inbound({ kind: "text", text: "\u{1F525}" });
+    expect(runs()).toHaveLength(0);
+    h.state.flows = [igFlow({ trigger_type: "ig_story_reply", trigger_config: { reactions: true, story_ids: ["999"] } })];
+    await inbound({ kind: "text", text: "\u{1F525}" });
+    expect(runs()).toHaveLength(0);
+    h.state.flows = [igFlow({ trigger_type: "ig_story_reply", trigger_config: { reactions: true, story_ids: ["18011"] } })];
+    await inbound({ kind: "text", text: "\u{1F525}" });
+    expect(runs()).toHaveLength(1);
+  });
+
+  it("a story mention starts the mention flow, and never the default reply", async () => {
+    h.messages = [{ interactive_payload: { ig: { story_mention: true } } }];
+    h.state.flows = [igFlow({ id: "flow-d", trigger_type: "default_reply", trigger_config: { frequency: "every_time" } })];
+    await inbound({ kind: "text", text: "" });
+    expect(runs()).toHaveLength(0);
+    h.state.flows = [igFlow({ trigger_type: "ig_story_mention", trigger_config: { frequency: "every_time" } })];
+    await inbound({ kind: "text", text: "" });
+    expect(runs()).toHaveLength(1);
+  });
+
+  it("the default reply runs only when no other flow matched, on WhatsApp too", async () => {
+    h.state.flows = [
+      igFlow({ id: "flow-d", trigger_type: "default_reply", trigger_config: {}, created_at: "2025-01-01T00:00:00Z" }),
+      igFlow({ id: "flow-k", trigger_type: "keyword", trigger_config: { keywords: ["price"] } }),
+    ];
+    await inbound({ kind: "text", text: "price?" });
+    expect(runs()[0].row.flow_id).toBe("flow-k");
+    h.state.inserted = [];
+    h.state.insertedRun = null;
+    await inbound({ kind: "text", text: "hello" });
+    expect(runs()[0].row.flow_id).toBe("flow-d");
+    h.state.inserted = [];
+    h.state.insertedRun = null;
+    h.state.conversation = { channel: "whatsapp", whatsapp_config_id: null };
+    h.state.flows = [{ ...FLOW, id: "flow-w", trigger_type: "default_reply", trigger_config: {} }];
+    await dispatch();
+    expect(runs()[0].row.flow_id).toBe("flow-w");
+    expect(h.waText).toHaveBeenCalledTimes(1);
+  });
+
+  it("a conversation starter tap starts its listed flow; an unlisted one starts nothing", async () => {
+    h.state.flows = [igFlow({ id: STARTER_FLOW, trigger_type: "manual", trigger_config: {} })];
+    h.rawRow = { listed: false };
+    await inbound({ kind: "interactive_reply", reply_id: `ib:${STARTER_FLOW}`, reply_title: "Opening hours?" });
+    expect(runs()).toHaveLength(0);
+    h.rawRow = { listed: true };
+    const result = await inbound({ kind: "interactive_reply", reply_id: `ib:${STARTER_FLOW}`, reply_title: "Opening hours?" });
+    expect(result.consumed).toBe(true);
+    expect(runs()).toHaveLength(1);
+    expect(runs()[0].row.flow_id).toBe(STARTER_FLOW);
+  });
+
+  it("a comment starts its flow: public reply once, then the private reply with an opening button, then waits", async () => {
+    h.runId = RUN;
+    h.state.flows = [igFlow({ trigger_type: "ig_comment", trigger_config: { post_scope: "any", public_replies: ["Sent you a DM"] } })];
+    h.state.nodes = COMMENT_NODES;
+    h.rawRow = { comment_id: "18000000001", media_id: "1700", from_igsid: "9001", instagram_account_id: "ig-acct", status: "queued", flow_run_id: null };
+    expect(await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" })).toBe("started");
+    expect(runs()).toHaveLength(1);
+    expect(runs()[0].row.vars).toEqual({ ig_comment_event_id: EVENT, ig_comment_id: "18000000001", ig_media_id: "1700" });
+    // The event is linked to the run (compare-and-set) before anything is sent.
+    expect((h.executeRaw.mock.calls as unknown as string[][][]).some((c) => c[0].join("?").includes("SET flow_run_id"))).toBe(true);
+    // Trigger reply and the step reply share one per-comment key in private-reply.ts.
+    expect(h.publicReply).toHaveBeenCalledWith("acct-1", EVENT, "Sent you a DM");
+    expect(h.publicReply).toHaveBeenCalledWith("acct-1", EVENT, "Check your DMs!");
+    expect(h.privateReply).toHaveBeenCalledTimes(1);
+    expect(h.privateReply.mock.calls[0][0]).toMatchObject({ eventId: EVENT, runId: RUN, text: "Want the link?",
+      quickReplies: [{ title: "Send it", payload: `optin:${RUN}:pr` }] });
+    // Nothing else goes out until the tap.
+    expect(h.igText).not.toHaveBeenCalled();
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ current_node_key: "pr" }) });
+  });
+
+  it("a comment already taken or a busy conversation starts nothing", async () => {
+    h.state.flows = [igFlow({ trigger_type: "ig_comment", trigger_config: { post_scope: "any" } })];
+    h.state.nodes = COMMENT_NODES;
+    h.rawRow = { comment_id: "1", media_id: null, from_igsid: "9001", instagram_account_id: "ig-acct", status: "sent", flow_run_id: null };
+    expect(await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" })).toBe("unavailable");
+    h.rawRow = { comment_id: "1", media_id: null, from_igsid: "9001", instagram_account_id: "ig-acct", status: "queued", flow_run_id: null };
+    h.state.flows = [igFlow({ trigger_type: "keyword", trigger_config: { keywords: ["x"] } })];
+    expect(await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" })).toBe("unavailable");
+    expect(runs()).toHaveLength(0);
+    expect(h.privateReply).not.toHaveBeenCalled();
+  });
+
+  it("the opening-button tap resumes the run and opens the window; a tap for another run changes nothing", async () => {
+    h.state.flows = [igFlow({ trigger_type: "ig_comment", trigger_config: { post_scope: "any" } })];
+    h.state.nodes = COMMENT_NODES;
+    h.state.activeRuns = activeAt("pr", { ig_comment_event_id: EVENT, ig_comment_id: "18000000001" });
+    const stale = await inbound({ kind: "interactive_reply", reply_id: `optin:${STARTER_FLOW}:pr`, reply_title: "Send it" });
+    expect(stale).toMatchObject({ consumed: true, outcome: "waiting" });
+    expect(h.igText).not.toHaveBeenCalled();
+    const tapped = await inbound({ kind: "interactive_reply", reply_id: `optin:${RUN}:pr`, reply_title: "Send it", meta_message_id: "m-tap" });
+    expect(tapped.consumed).toBe(true);
+    expect(h.optIn).toHaveBeenCalledWith("acct-1", EVENT, RUN);
+    expect(h.igText).toHaveBeenCalledTimes(1);
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ current_node_key: "link" }) });
+  });
+
+  it("a run that resumes past the 24-hour window ends with window_closed instead of sending", async () => {
+    h.state.flows = [igFlow({ trigger_type: "ig_comment", trigger_config: { post_scope: "any" } })];
+    h.state.nodes = COMMENT_NODES;
+    h.state.activeRuns = activeAt("pr", { ig_comment_event_id: EVENT, ig_comment_id: "1" });
+    h.lastCustomerAt = new Date(Date.now() - 25 * 3_600_000);
+    await inbound({ kind: "interactive_reply", reply_id: `optin:${RUN}:pr`, reply_title: "Send it" });
+    expect(h.igText).not.toHaveBeenCalled();
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ status: "cancelled", end_reason: "window_closed" }) });
+  });
+
+  it("a private reply held by the hourly guard waits and retries; a refusal ends the run", async () => {
+    h.runId = RUN;
+    h.state.flows = [igFlow({ trigger_type: "ig_comment", trigger_config: { post_scope: "any" } })];
+    h.state.nodes = COMMENT_NODES;
+    h.rawRow = { comment_id: "1", media_id: null, from_igsid: "9001", instagram_account_id: "ig-acct", status: "queued", flow_run_id: null };
+    h.privateReply.mockResolvedValue("rate_limited");
+    await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" });
+    expect(h.enqueue).toHaveBeenCalledWith("flow.timer", expect.objectContaining({ runId: RUN, nodeKey: "pr", kind: "delay" }), expect.anything());
+    h.state.inserted = [];
+    h.state.updates = [];
+    h.state.insertedRun = null;
+    h.privateReply.mockResolvedValue("expired");
+    await startCommentFlow({ accountId: "acct-1", eventId: EVENT, flowId: "flow-1" });
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ status: "failed", end_reason: "private_reply_expired" }) });
+  });
+
+  it("a private reply step in a run no comment started fails without sending", async () => {
+    h.state.flows = [igFlow({})];
+    h.state.nodes = [node("start", "start", { next_node_key: "pr" }), ...COMMENT_NODES.slice(2)];
+    await inbound({ kind: "text", text: "hi" });
+    expect(h.privateReply).not.toHaveBeenCalled();
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ end_reason: "private_reply_without_comment" }) });
+  });
+
+  it("cards go out as a generic template; a routed card waits and its postback routes", async () => {
+    h.state.flows = [igFlow({})];
+    h.state.nodes = [
+      node("start", "start", { next_node_key: "card" }),
+      node("card", "send_card", { card: { title: "Shoes", image_url: "https://cdn.example/a.png",
+        buttons: [{ type: "web_url", title: "Shop", url: "https://shop.example" }, { type: "postback", title: "More", reply_id: "more", next_node_key: "greet" }] } }),
+      node("greet", "send_message", { text: "Hello", next_node_key: "done" }),
+      node("done", "end", {}),
+    ];
+    await inbound({ kind: "text", text: "hi" });
+    expect(h.igCards).toHaveBeenCalledTimes(1);
+    expect((h.igCards.mock.calls[0] as unknown[])[1]).toEqual([{ title: "Shoes", imageUrl: "https://cdn.example/a.png",
+      buttons: [{ type: "web_url", title: "Shop", url: "https://shop.example" }, { type: "postback", title: "More", payload: "more" }] }]);
+    expect(h.igText).not.toHaveBeenCalled();
+    expect(matchReplyId(h.state.nodes[1] as never, "more")).toBe("greet");
+  });
+
+  it("buttons with link buttons go out as a button template on Instagram", async () => {
+    h.state.flows = [igFlow({})];
+    h.state.nodes = [
+      node("start", "start", { next_node_key: "ask" }),
+      node("ask", "send_buttons", { text: "Pick", buttons: [{ reply_id: "yes", title: "Yes", next_node_key: "done" }],
+        link_buttons: [{ title: "Site", url: "https://shop.example" }] }),
+      node("done", "end", {}),
+    ];
+    await inbound({ kind: "text", text: "hi" });
+    expect(h.igChoices).not.toHaveBeenCalled();
+    expect((h.igButtonTemplate.mock.calls[0] as unknown[]).slice(1, 3)).toEqual(["Pick",
+      [{ type: "postback", title: "Yes", payload: "yes" }, { type: "web_url", title: "Site", url: "https://shop.example" }]]);
+  });
+
+  it("the follow gate reads the profile when the run reaches it", async () => {
+    h.state.flows = [igFlow({})];
+    h.state.nodes = [
+      node("start", "start", { next_node_key: "gate" }),
+      node("gate", "condition", { rules: [{ subject: "ig_profile", subject_key: "follows_business", operator: "equals", value: "true" }],
+        true_next: "reward", false_next: "ask" }),
+      node("reward", "send_message", { text: "Here you go", next_node_key: "done" }),
+      node("ask", "send_message", { text: "Follow us first", next_node_key: "done" }),
+      node("done", "end", {}),
+    ];
+    h.profile.mockResolvedValue({ followsBusiness: false, businessFollows: null, isVerified: null, followerCount: 12 });
+    await inbound({ kind: "text", text: "hi" });
+    expect(h.profile).toHaveBeenCalledWith("acct-1", "cv-1");
+    expect((h.igText.mock.calls[0] as unknown[])[1]).toBe("Follow us first");
+    expect(igProfileValue({ followsBusiness: true, businessFollows: null, isVerified: false, followerCount: 3 }, "follows_business")).toBe("true");
+    expect(igProfileValue({ followsBusiness: true, businessFollows: null, isVerified: false, followerCount: 3 }, "business_follows")).toBeUndefined();
+    expect(igProfileValue({ followsBusiness: true, businessFollows: null, isVerified: false, followerCount: 3 }, "follower_count")).toBe("3");
+  });
+
+  it("the Instagram-only steps never run on WhatsApp", async () => {
+    h.state.conversation = { channel: "whatsapp", whatsapp_config_id: null };
+    h.state.flows = [{ ...FLOW, channel_scope: "any" }];
+    h.state.nodes = [node("start", "start", { next_node_key: "card" }), node("card", "send_card", { card: { title: "x" }, next_node_key: "done" }), node("done", "end", {})];
+    const result = await dispatch();
+    expect(h.igCards).not.toHaveBeenCalled();
+    expect(h.dispatch).not.toHaveBeenCalled();
+    expect(result.outcome).toBe("handed_off");
   });
 });

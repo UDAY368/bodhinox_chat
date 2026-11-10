@@ -22,6 +22,7 @@ vi.mock('@/lib/whatsapp/ingest', () => ({ ingestInboundMessage: h.ingest }));
 vi.mock('@/lib/contacts/dedupe', () => ({ findExistingContact: h.findExistingContact, pickBestPhoneMatch: h.pickBestPhoneMatch }));
 
 import {
+  isEmojiOnly,
   matchCommentRule,
   parseCommentChange,
   parseMessagingEvent,
@@ -298,6 +299,8 @@ describe('processInstagramWebhookJob', () => {
       if (sql.includes('INSERT INTO instagram_comment_events')) return [{ id: 'ev-1' }];
       if (sql.includes('FROM instagram_comment_rules')) return [{ id: 'rule-1', media_id: null, keywords: ['price'] }];
       if (sql.includes('blocked_at IS NOT NULL')) return [{ blocked }];
+      // No live comment flows (Stage 2): the legacy rule path runs as before.
+      if (sql.includes('FROM flows f JOIN flow_versions')) return [];
       throw new Error(`unexpected query: ${sql}`);
     };
     const jobs = () => h.executeRaw.mock.calls.filter((c) => (c[0] as TemplateStringsArray).join('?').includes('INSERT INTO jobs'));
@@ -314,5 +317,84 @@ describe('processInstagramWebhookJob', () => {
     await processInstagramWebhookJob({ receiptId: RECEIPT });
     expect(jobs()).toHaveLength(1);
     expect(status()).toContain('queued');
+  });
+
+  it('offers a first comment to the live comment flows, skipping the rule and keeping it as the fallback (Stage 2)', async () => {
+    const accountId = '22222222-2222-4222-8222-222222222222';
+    const flowId = '33333333-3333-4333-8333-333333333333';
+    const run = (earlier: boolean, config: Record<string, unknown>) => async (strings: TemplateStringsArray) => {
+      const sql = strings.join('?');
+      if (sql.includes('FROM webhook_receipts'))
+        return [{ status: 'received', payload: { object: 'instagram', entry: [{ id: ACCOUNT_IG,
+          changes: [{ field: 'comments', value: { id: '555', text: 'PRICE please', media: { id: '777' }, from: { id: '9001' } } }] }] } }];
+      if (sql.includes('crm_resolve_instagram_account')) return [{ account_id: accountId, instagram_account_id: 'ig' }];
+      if (sql.includes('FROM instagram_accounts a JOIN accounts'))
+        return [{ scopes: ['instagram_business_basic', 'instagram_business_manage_comments'], connected_by_user_id: 'u', owner_user_id: 'u' }];
+      if (sql.includes('INSERT INTO instagram_comment_events')) return [{ id: 'ev-1' }];
+      if (sql.includes('FROM instagram_comment_rules')) return [{ id: 'rule-1', media_id: null, keywords: ['price'] }];
+      if (sql.includes('FROM flows f JOIN flow_versions')) return [{ id: flowId, created_at: new Date('2026-11-01T00:00:00Z'), trigger_config: config }];
+      if (sql.includes('id<>')) return [{ found: earlier }];
+      if (sql.includes('blocked_at IS NOT NULL')) return [{ blocked: false }];
+      throw new Error(`unexpected query: ${sql}`);
+    };
+    const jobCalls = () => h.executeRaw.mock.calls.filter((c) => (c[0] as TemplateStringsArray).join('?').includes('INSERT INTO jobs'));
+    h.executeRaw.mockResolvedValue(1);
+
+    h.queryRaw.mockImplementation(run(false, { post_scope: 'any', include_keywords: ['price'] }));
+    await processInstagramWebhookJob({ receiptId: RECEIPT });
+    expect(jobCalls()).toHaveLength(1);
+    const payload = JSON.parse(jobCalls()[0][3] as string);
+    expect(payload).toEqual({ accountId, eventId: 'ev-1', flows: [{ flowId, check: false }], fallbackRuleId: 'rule-1' });
+    // Ids only: the comment text never reaches the job.
+    expect(jobCalls()[0][3]).not.toContain('PRICE');
+    // The sender lock is taken before the event is recorded, so only one comment is a person's first.
+    const first = h.executeRaw.mock.calls.findIndex((c) => (c[0] as TemplateStringsArray).join('?').includes('pg_advisory_xact_lock'));
+    expect(first).toBeGreaterThanOrEqual(0);
+
+    // Not the person's first comment on the post: the rule answers as before.
+    h.executeRaw.mockClear();
+    h.queryRaw.mockImplementation(run(true, { post_scope: 'any' }));
+    await processInstagramWebhookJob({ receiptId: RECEIPT });
+    expect(JSON.parse(jobCalls()[0][3] as string)).toEqual({ accountId, eventId: 'ev-1' });
+
+    // A keyword the flow does not want: the rule answers.
+    h.executeRaw.mockClear();
+    h.queryRaw.mockImplementation(run(false, { post_scope: 'any', include_keywords: ['link'] }));
+    await processInstagramWebhookJob({ receiptId: RECEIPT });
+    expect(JSON.parse(jobCalls()[0][3] as string)).toEqual({ accountId, eventId: 'ev-1' });
+
+    // An unresolved "next post" flow is offered for the job to check against Graph.
+    h.executeRaw.mockClear();
+    h.queryRaw.mockImplementation(async (strings: TemplateStringsArray, ...values: unknown[]) =>
+      strings.join('?').includes("vars->>'ig_media_id'") ? [] : run(false, { post_scope: 'next', next_after: '2026-11-01T00:00:00Z' })(strings, ...(values as [])));
+    await processInstagramWebhookJob({ receiptId: RECEIPT });
+    expect(JSON.parse(jobCalls()[0][3] as string).flows).toEqual([{ flowId, check: true }]);
+  });
+});
+
+describe('Stage 2 story parsing (needs live capture: built against documented shapes)', () => {
+  it('keeps the story id and marks an emoji-only reply as a reaction', () => {
+    const reply = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 's1', text: 'so good', reply_to: { story: { id: '18011', url: 'https://cdn.example/s' } } }), NOW);
+    expect(reply).toMatchObject({ items: [{ contentType: 'story_reply', ig: { story: true, story_id: '18011' } }] });
+    expect((reply as { items: Array<{ ig: Record<string, unknown> }> }).items[0].ig.reaction).toBeUndefined();
+    const reaction = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 's2', text: '\u{1F525}\u{1F525}', reply_to: { story: { id: '18011' } } }), NOW);
+    expect(reaction).toMatchObject({ items: [{ contentType: 'story_reply', ig: { story: true, story_id: '18011', reaction: true } }] });
+    const badId = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 's3', text: 'hi', reply_to: { story: { id: '../x' } } }), NOW);
+    expect((badId as { items: Array<{ ig: Record<string, unknown> }> }).items[0].ig.story_id).toBeUndefined();
+  });
+
+  it('stores a story mention as a share with the mention flag', () => {
+    const mention = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 's4', attachments: [{ type: 'story_mention', payload: { url: 'https://cdn.example/m' } }] }), NOW);
+    expect(mention).toMatchObject({ kind: 'message', items: [{ contentType: 'share', mediaUrl: null, ig: { story_mention: true, url: 'https://cdn.example/m' } }] });
+  });
+
+  it('tells emoji-only text from words and numbers', () => {
+    expect(isEmojiOnly('\u{1F60D}')).toBe(true);
+    expect(isEmojiOnly('\u{1F44D}\u{1F3FD}')).toBe(true);
+    expect(isEmojiOnly(String.fromCodePoint(0x2764, 0xfe0f))).toBe(true);
+    expect(isEmojiOnly('love it \u{1F60D}')).toBe(false);
+    expect(isEmojiOnly('123')).toBe(false);
+    expect(isEmojiOnly('')).toBe(false);
+    expect(isEmojiOnly(null)).toBe(false);
   });
 });
