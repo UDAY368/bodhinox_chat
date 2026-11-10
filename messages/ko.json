@@ -1874,7 +1874,8 @@
       "locked": "자동화는 채널을 바꿀 수 없습니다. 다른 채널에서 사용하려면 복제하세요.",
       "disabled": "{channel}이(가) 꺼져 있습니다. 이 자동화를 활성화하려면 켜세요.",
       "instagramWindowHint": "Instagram 자동화는 고객의 마지막 메시지 후 24시간 이내에만 답장할 수 있습니다.",
-      "unavailableOnChannel": "{channel}에서는 사용할 수 없습니다."
+      "unavailableOnChannel": "{channel}에서는 사용할 수 없습니다.",
+      "invalidChannel": "WhatsApp 또는 Instagram을 선택하세요."
     }
   },
   "Flows": {

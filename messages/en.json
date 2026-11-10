@@ -1874,7 +1874,8 @@
       "locked": "An automation stays on its channel. Duplicate it to use it on another channel.",
       "disabled": "{channel} is turned off. Turn it on to activate this automation.",
       "instagramWindowHint": "Instagram automations can reply only within 24 hours of the customer's last message.",
-      "unavailableOnChannel": "This isn't available on {channel}."
+      "unavailableOnChannel": "This isn't available on {channel}.",
+      "invalidChannel": "Choose WhatsApp or Instagram."
     }
   },
   "Flows": {

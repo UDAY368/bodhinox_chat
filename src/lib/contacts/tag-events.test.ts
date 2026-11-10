@@ -44,6 +44,7 @@ describe('addContactTagAndDispatch', () => {
     expect(result).toEqual({ added: true, dispatched: true });
     expect(mocks.dispatch).toHaveBeenCalledWith({
       accountId: 'account-1',
+      channel: 'whatsapp',
       triggerType: 'tag_added',
       contactId: 'contact-1',
       context: {
@@ -95,6 +96,47 @@ describe('addContactTagAndDispatch', () => {
 
     expect(mocks.dispatch).toHaveBeenCalledTimes(MAX_TAG_CHAIN_DEPTH);
     expect(mocks.add).toHaveBeenCalledTimes(MAX_TAG_CHAIN_DEPTH + 1);
+  });
+});
+
+describe('tag_added channel', () => {
+  // A data client whose conversations read returns `result` (or throws it).
+  const dbFor = (result: unknown, filters: unknown[][] = [], throws = false) => {
+    const query = {
+      select: () => query,
+      eq: (field: string, value: unknown) => { filters.push([field, value]); return query; },
+      maybeSingle: async () => { if (throws) throw result; return result; },
+    };
+    return { from: (table: string) => { filters.push(['table', table]); return query; } } as never;
+  };
+  const tagOn = (db: never) => addContactTagAndDispatch({
+    ...base, db, context: { conversation_id: 'conv-1' },
+  });
+
+  beforeEach(() => {
+    mocks.add.mockResolvedValue(true);
+  });
+
+  it("dispatches on an Instagram conversation's channel, read inside the account", async () => {
+    const filters: unknown[][] = [];
+    await tagOn(dbFor({ data: { channel: 'instagram' }, error: null }, filters));
+    expect(mocks.dispatch).toHaveBeenCalledWith(expect.objectContaining({ channel: 'instagram' }));
+    expect(filters).toEqual([['table', 'conversations'], ['account_id', 'account-1'], ['id', 'conv-1']]);
+  });
+
+  it('treats a WhatsApp or pre-channel conversation as WhatsApp', async () => {
+    await tagOn(dbFor({ data: { channel: null }, error: null }));
+    expect(mocks.dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ channel: 'whatsapp' }));
+  });
+
+  it('falls back to WhatsApp, never throwing, when the lookup fails', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(tagOn(dbFor({ data: null, error: { message: 'boom' } }))).resolves.toEqual({ added: true, dispatched: true });
+    await expect(tagOn(dbFor(new Error('connection reset'), [], true))).resolves.toEqual({ added: true, dispatched: true });
+    expect(mocks.dispatch.mock.calls.map((call) => call[0].channel)).toEqual(['whatsapp', 'whatsapp']);
+    // Ids only in the log, never the error text.
+    expect(JSON.stringify(error.mock.calls)).not.toContain('connection reset');
+    error.mockRestore();
   });
 });
 

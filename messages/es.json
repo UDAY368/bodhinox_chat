@@ -1874,7 +1874,8 @@
       "locked": "Una automatización se queda en su canal. Duplícala para usarla en otro canal.",
       "disabled": "{channel} está desactivado. Actívalo para activar esta automatización.",
       "instagramWindowHint": "Las automatizaciones de Instagram solo pueden responder en las 24 horas posteriores al último mensaje del cliente.",
-      "unavailableOnChannel": "Esto no está disponible en {channel}."
+      "unavailableOnChannel": "Esto no está disponible en {channel}.",
+      "invalidChannel": "Elige WhatsApp o Instagram."
     }
   },
   "Flows": {

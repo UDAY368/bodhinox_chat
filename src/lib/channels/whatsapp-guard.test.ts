@@ -138,11 +138,17 @@ describe('inbound actions on an Instagram conversation', () => {
     messageId: ID, metaMessageId: 'mid.1', interactiveReplyId: null, contentType: 'text', contentText: text,
     wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true });
 
-  it('runs flows and lifecycle only: no automations, AI, away message, booking codes, campaign credit or WhatsApp webhooks', async () => {
+  it('runs flows, Instagram automations and lifecycle only: no AI, away message, booking codes, campaign credit or WhatsApp webhooks', async () => {
     await processInboundActions(input('BOOK ABC123'));
     expect(h.flow).toHaveBeenCalledTimes(1);
     expect(h.lifecycle).toHaveBeenCalledTimes(1);
-    for (const fn of [h.automations, h.resume, h.ai, h.webhook, h.explicit, h.booking, h.dispatch, h.send]) expect(fn).not.toHaveBeenCalled();
+    // Stage 1: only Instagram automations, which send through the Instagram window checks.
+    expect(h.resume).toHaveBeenCalledWith(expect.objectContaining({ channel: 'instagram' }));
+    expect(h.automations.mock.calls.map((call) => [call[0].channel, call[0].triggerType])).toEqual([
+      ['instagram', 'first_inbound_message'], ['instagram', 'new_contact_created'],
+      ['instagram', 'new_message_received'], ['instagram', 'keyword_match'],
+    ]);
+    for (const fn of [h.ai, h.webhook, h.explicit, h.booking, h.dispatch, h.send]) expect(fn).not.toHaveBeenCalled();
     // No broadcast-reply or number lookups.
     expect(h.tables).not.toContain('broadcast_recipients');
     expect(h.tables).not.toContain('whatsapp_config');
