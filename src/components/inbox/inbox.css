@@ -102,20 +102,9 @@ html[data-mode='dark'] .studio-inbox {
   container-type: inline-size;
 }
 
-/* A contact panel can leave less room than the overall window suggests; below 640px the
-   name and its chips get their own line, so they are never squeezed under the buttons. */
-@container (max-width: 640px) {
-  .studio-inbox .studio-thread-header {
-    flex-wrap: wrap;
-  }
-
-  .studio-inbox .studio-thread-header > div:first-child {
-    flex: 1 1 100%;
-  }
-
-  .studio-inbox .studio-thread-header > div:last-child {
-    margin-left: auto;
-  }
+/* A long link or code in a message breaks inside its bubble instead of widening it. */
+.studio-inbox .studio-messages p {
+  overflow-wrap: anywhere;
 }
 
 .studio-inbox .studio-thread-empty {

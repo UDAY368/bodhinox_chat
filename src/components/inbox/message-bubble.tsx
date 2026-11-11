@@ -507,7 +507,7 @@ export function MessageBubble({
     // and Sent / Seen under the newest outgoing message instead of ticks.
     const state = isAgent && receipt ? instagramReceipt(message.status) : null;
     return (
-      <div className={cn('flex max-w-[75%] flex-col sm:max-w-[60%]', isAgent ? 'ml-auto items-end' : 'mr-auto items-start')}>
+      <div className={cn('flex max-w-[85%] flex-col @xl:max-w-[min(65%,40rem)]', isAgent ? 'ml-auto items-end' : 'mr-auto items-start')}>
         <div
           title={time}
           className={cn('ig-message relative px-3 py-2 leading-snug', isAgent ? 'ig-message-outgoing' : 'ig-message-incoming')}

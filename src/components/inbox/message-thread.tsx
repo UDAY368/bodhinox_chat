@@ -51,6 +51,7 @@ import {
   StickyNote,
   CheckCircle2,
   RotateCcw,
+  MoreHorizontal,
 } from 'lucide-react';
 import { NotesPanel } from './notes/notes-panel';
 import {
@@ -67,7 +68,9 @@ import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -1175,192 +1178,108 @@ export function MessageThread({
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
     <div className={cn('flex min-w-0 flex-1 flex-col', THREAD_BG_CLASSES)} data-thread-channel={threadChannel}>
-      <div className="studio-thread-header border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-5">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          {/* Back-to-list button — mobile only. Hidden on lg+ where the
-              conversation list is always visible next to the thread. */}
+      {/* One-line header. The thread is a size container, so what shows depends on
+          the room the thread actually has (the list and contact panel take their
+          share), not on the window: the name and Resolve / assignee / ⋯ always fit;
+          the handle row's extras appear as space allows. */}
+      <div className="studio-thread-header border-border bg-card flex items-center gap-2 border-b px-2 py-2 @md:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2 @md:gap-3">
+          {/* Back to the list — below lg, where the list and thread take turns. */}
           {onBack && (
             <button
               type="button"
               onClick={onBack}
               aria-label={t('backToConversations')}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md lg:hidden"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-md lg:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
+          <div className="bg-muted text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-medium">
             {displayName.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <h2 className="text-foreground truncate text-sm font-semibold">
-              {displayName}
-            </h2>
-            <p className="text-muted-foreground truncate text-xs">
-              {contactHandle(contact)}
-            </p>
+          <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <ChannelBadge channel={threadChannel} />
+              <h2 className="text-foreground truncate text-sm font-semibold">{displayName}</h2>
+              <span className="shrink-0">
+                <ChannelBadge channel={threadChannel} />
+              </span>
               {!isInstagram && (
-                <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
+                <span className="hidden shrink-0 @2xl:inline-flex">
+                  <ConversationNumberBadge conversation={conversation} numbers={whatsappNumbers} />
+                </span>
               )}
             </div>
-            {!isInstagram && <AdReferralBadge conversationId={conversation.id} />}
-          </div>
-          {/* Session timer badge — hidden on the narrowest phones so
-              the name + back arrow keep their room. */}
-          <Badge
-            variant="outline"
-            className={cn(
-              'border-border ml-1 hidden gap-1 text-[10px] sm:ml-2 sm:inline-flex',
-              isInstagram && 'sm:hidden',
-              sessionInfo.expired ? 'text-red-400' : 'text-primary'
-            )}
-          >
-            <Clock className="h-3 w-3" />
-            {sessionInfo.remaining}
-          </Badge>
-          <div className="hidden items-center gap-1.5 md:flex">
-            <LifecycleChip state={lifecycle} label={tLifecycle(lifecycle)} />
-            {sla && <SlaBadge sla={sla} t={tList} tl={tLifecycle} />}
+            <div className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
+              <span className="truncate">{contactHandle(contact)}</span>
+              {!isInstagram && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'border-border hidden h-4 shrink-0 gap-1 px-1.5 text-[10px] @md:inline-flex',
+                    sessionInfo.expired ? 'text-red-400' : 'text-primary'
+                  )}
+                >
+                  <Clock className="h-3 w-3" />
+                  {sessionInfo.remaining}
+                </Badge>
+              )}
+              <span className="hidden shrink-0 items-center gap-1.5 @3xl:flex">
+                <LifecycleChip state={lifecycle} label={tLifecycle(lifecycle)} />
+                {sla && <SlaBadge sla={sla} t={tList} tl={tLifecycle} />}
+              </span>
+              {!isInstagram && (
+                <span className="hidden shrink-0 @3xl:inline-flex">
+                  <AdReferralBadge conversationId={conversation.id} />
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Contact-panel toggle — desktop only. The contact sidebar
-              eats a chunk of horizontal width that crowds the thread on
-              smaller laptops; this lets agents reclaim it when they just
-              want to read and reply. Hidden on mobile, where the sidebar
-              never renders as a permanent panel anyway. Issue #258. */}
-          {onToggleContactPanel && (
-            <button
-              type="button"
-              onClick={onToggleContactPanel}
-              aria-label={
-                contactPanelOpen ? t('hideContactPanel') : t('showContactPanel')
-              }
-              title={contactPanelOpen ? t('hideContact') : t('showContact')}
-              aria-pressed={contactPanelOpen}
-              className={cn(
-                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors lg:inline-flex',
-                contactPanelOpen ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              {contactPanelOpen ? (
-                <PanelRightClose className="h-4 w-4" />
-              ) : (
-                <PanelRightOpen className="h-4 w-4" />
-              )}
-            </button>
-          )}
-
-          {/* Manual refresh — forces a refetch of the messages + the
-              conversation list (the parent bumps its resyncToken). Useful
-              when realtime missed an event or the agent just wants to be
-              sure nothing's stale. Only rendered when the parent wires
-              up `onRefresh`. */}
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={handleRefreshClick}
-              disabled={isRefreshing}
-              aria-label={t('refreshConversation')}
-              title={t('refresh')}
-              className={cn(
-                'text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-60'
-              )}
-            >
-              <RefreshCw
-                className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
-              />
-            </button>
-          )}
-
-          {/* Internal notes — never sent to the customer. */}
-          <button
-            type="button"
-            onClick={() => setNotesOpen((open) => !open)}
-            aria-pressed={notesOpen}
-            aria-label={notesOpen ? t('hideNotes') : t('showNotes')}
-            title={notesOpen ? t('hideNotes') : t('showNotes')}
-            className={cn(
-              'hover:bg-muted hover:text-foreground inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs transition-colors',
-              notesOpen ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            <StickyNote className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">{t('notes')}</span>
-          </button>
-
+        <div className="flex shrink-0 items-center gap-1">
           {canSendMessages && (
             <button
               type="button"
               onClick={() => void handleResolveToggle()}
               disabled={resolving}
+              aria-label={isResolved ? t('reopen') : t('resolve')}
+              title={isResolved ? t('reopen') : t('resolve')}
               className={cn(
-                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs transition-colors disabled:opacity-60',
+                'hover:bg-muted inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-60',
                 isResolved ? 'text-muted-foreground' : 'text-primary'
               )}
             >
-              {isResolved ? (
-                <RotateCcw className="h-3.5 w-3.5" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-              <span className="hidden sm:inline">
-                {isResolved ? t('reopen') : t('resolve')}
-              </span>
+              {isResolved ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+              <span className="hidden @xl:inline">{isResolved ? t('reopen') : t('resolve')}</span>
             </button>
           )}
 
-          {/* Status dropdown */}
+          {/* Assignee: their initial, and their name once there is room; it never wraps. */}
           <DropdownMenu>
             <DropdownMenuTrigger
+              aria-label={assignLabel}
+              title={assignLabel}
+              data-assignee
               className={cn(
-                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                currentStatus?.color ?? 'text-muted-foreground'
+                'hover:bg-muted inline-flex h-8 max-w-[11rem] items-center gap-1.5 rounded-md px-1.5 text-xs whitespace-nowrap',
+                assignedAgentId ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
-              {currentStatus ? t(`status${currentStatus.label}`) : t('status')}
-              <ChevronDown className="h-3 w-3" />
+              <span
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                  assignedAgentId ? 'bg-primary/15 text-primary' : 'bg-muted'
+                )}
+              >
+                {assignedAgentId ? assignLabel.charAt(0).toUpperCase() : <UserPlus className="h-3.5 w-3.5" />}
+              </span>
+              <span className="hidden min-w-0 truncate @2xl:inline">{assignLabel}</span>
+              <ChevronDown className="h-3 w-3 shrink-0" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="border-border bg-popover"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => handleStatusChange(opt.value)}
-                  className={cn('text-sm', opt.color)}
-                >
-                  {t(`status${opt.label}`)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Assign dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                assignedAgentId ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              <UserPlus className="h-3 w-3" />
-              <span className="hidden sm:inline">{assignLabel}</span>
-              <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="border-border bg-popover"
-            >
+            <DropdownMenuContent align="end" className="border-border bg-popover">
               {profiles.length === 0 ? (
-                <DropdownMenuItem
-                  disabled
-                  className="text-muted-foreground text-sm"
-                >
+                <DropdownMenuItem disabled className="text-muted-foreground text-sm">
                   {t('noTeammates')}
                 </DropdownMenuItem>
               ) : (
@@ -1371,18 +1290,11 @@ export function MessageThread({
                     <DropdownMenuItem
                       key={p.id}
                       onClick={() => handleAssignChange(p.user_id)}
-                      className={cn(
-                        'text-sm',
-                        isSelected ? 'text-primary' : 'text-popover-foreground'
-                      )}
+                      className={cn('text-sm', isSelected ? 'text-primary' : 'text-popover-foreground')}
                     >
                       <PresenceDot
                         status={presence}
-                        label={presenceLabel(
-                          presence,
-                          getRow(p.user_id)?.last_seen_at ?? null,
-                          now
-                        )}
+                        label={presenceLabel(presence, getRow(p.user_id)?.last_seen_at ?? null, now)}
                         className="mr-2"
                       />
                       <span className="flex-1">
@@ -1407,6 +1319,57 @@ export function MessageThread({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Everything else: status, internal notes, the contact panel, refresh. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={t('moreActions')}
+              title={t('moreActions')}
+              data-thread-more
+              className={cn(
+                'hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md',
+                notesOpen ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="border-border bg-popover min-w-52">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-muted-foreground text-xs">{t('status')}</DropdownMenuLabel>
+                {STATUS_OPTIONS.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.value}
+                    onClick={() => handleStatusChange(opt.value)}
+                    className={cn('text-sm', opt.color)}
+                  >
+                    <span className="flex-1">{t(`status${opt.label}`)}</span>
+                    {currentStatus?.value === opt.value && <Check className="ml-2 h-3 w-3" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem onClick={() => setNotesOpen((open) => !open)} className="text-sm">
+                <StickyNote className="mr-2 h-4 w-4" />
+                {notesOpen ? t('hideNotes') : t('showNotes')}
+              </DropdownMenuItem>
+              {onToggleContactPanel && (
+                <DropdownMenuItem onClick={onToggleContactPanel} className="text-sm">
+                  {contactPanelOpen ? (
+                    <PanelRightClose className="mr-2 h-4 w-4" />
+                  ) : (
+                    <PanelRightOpen className="mr-2 h-4 w-4" />
+                  )}
+                  {contactPanelOpen ? t('hideContact') : t('showContact')}
+                </DropdownMenuItem>
+              )}
+              {onRefresh && (
+                <DropdownMenuItem onClick={handleRefreshClick} disabled={isRefreshing} className="text-sm">
+                  <RefreshCw className={cn('mr-2 h-4 w-4', isRefreshing && 'animate-spin')} />
+                  {t('refresh')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -1423,7 +1386,7 @@ export function MessageThread({
         onScroll={(e) => {
           followBottomRef.current = isNearBottom(e.currentTarget);
         }}
-        className="studio-messages flex-1 overflow-y-auto px-4 py-6 sm:px-6"
+        className="studio-messages flex-1 overflow-y-auto px-3 py-4 @2xl:px-6"
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -1540,11 +1503,6 @@ export function MessageThread({
       {/* AI auto-reply banner — take over an active bot, or resume it
           after a handoff. Renders nothing unless the account has
           auto-reply configured. */}
-      <BotPauseControl
-        key={`${conversation.id}:${conversation.updated_at}:${conversation.bot_paused}`}
-        conversationId={conversation.id}
-        paused={conversation.bot_paused ?? false}
-      />
       <AiThreadBanner
         conversationId={conversation.id}
         disabled={conversation.ai_autoreply_disabled ?? false}
@@ -1577,6 +1535,13 @@ export function MessageThread({
         now={sessionNow}
         humanAgentEnabled={instagramHumanAgent}
         assistSuggest={canSendMessages && (assist?.suggest.ok ?? false)}
+        toolbarExtra={
+          <BotPauseControl
+            key={`${conversation.id}:${conversation.updated_at}:${conversation.bot_paused}`}
+            conversationId={conversation.id}
+            paused={conversation.bot_paused ?? false}
+          />
+        }
       />
       </div>
       {notesOpen && (

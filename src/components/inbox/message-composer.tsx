@@ -192,6 +192,8 @@ interface MessageComposerProps {
    * opens up to three options to review instead of the single AI draft.
    */
   assistSuggest?: boolean;
+  /** Extra tools for the toolbar row beside Remind / Schedule (pause automations). */
+  toolbarExtra?: React.ReactNode;
 }
 
 /** Time left in an Instagram reply window: "3d", "5h", "12m". */
@@ -227,6 +229,7 @@ export function MessageComposer({
   now,
   humanAgentEnabled = false,
   assistSuggest = false,
+  toolbarExtra,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
   const tAssist = useTranslations("AiAssist");
@@ -339,8 +342,8 @@ export function MessageComposer({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    // Max 4 lines (~96px)
-    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
+    // Grows from 1 to 6 lines (20px line + 16px padding), then scrolls.
+    el.style.height = `${Math.min(el.scrollHeight, 6 * 20 + 16)}px`;
   }, []);
 
   const handleSend = useCallback(async () => {
@@ -725,7 +728,7 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="studio-composer border-t border-border bg-card p-3 sm:p-4">
+    <div className="studio-composer group/composer border-t border-border bg-card px-2 py-2 @md:px-3">
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -764,6 +767,23 @@ export function MessageComposer({
             setAiSuggestionId(null);
             if (textareaRef.current) textareaRef.current.style.height = "auto";
           }}
+          trailing={
+            <>
+              {toolbarExtra}
+              {/* Shown only while the agent is typing, so the toolbar stays one quiet row. */}
+              <span className="ml-auto hidden shrink-0 text-[10px] text-muted-foreground @xl:group-focus-within/composer:inline">
+                {t("newLineHint")}
+              </span>
+              {isInstagram && text && (
+                <span
+                  data-instagram-bytes
+                  className={cn("shrink-0 pl-2 text-[10px] tabular-nums text-muted-foreground", overInstagramLimit && "text-red-600 dark:text-red-400")}
+                >
+                  {tc("byteCounter", { used: textBytes, max: INSTAGRAM_LIMITS.textBytes })}
+                </span>
+              )}
+            </>
+          }
         />
       )}
       {!isInstagram && sessionExpired && (
@@ -956,39 +976,60 @@ export function MessageComposer({
                   {t("sendStorefrontLink")}
                 </DropdownMenuItem>
               )}
+              {/* Phones: the template and AI buttons live here so the text box keeps its width. */}
+              {!isInstagram && !readOnly && (
+                <DropdownMenuItem className="md:hidden" onClick={onOpenTemplates}>
+                  <LayoutTemplate className="mr-2 h-4 w-4" />
+                  {t("sendTemplate")}
+                </DropdownMenuItem>
+              )}
+              {!readOnly && (
+                <DropdownMenuItem
+                  className="md:hidden"
+                  disabled={drafting}
+                  onClick={() => void (assistSuggest ? handleSuggest() : handleDraft())}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {assistSuggest ? tAssist("suggestReplies") : t("draftWithAI")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {!isInstagram && (
+          {/* From 768px; phones reach both through the + menu. */}
+          <div className="hidden shrink-0 items-end gap-2 md:flex">
+            {!isInstagram && (
+              <GatedButton
+                variant="ghost"
+                size="sm"
+                canAct={!readOnly}
+                gateReason={tGate("reasons.sendMessages")}
+                title={readOnly ? undefined : t("sendTemplate")}
+                className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                onClick={onOpenTemplates}
+              >
+                <LayoutTemplate className="h-4 w-4" />
+              </GatedButton>
+            )}
+
             <GatedButton
               variant="ghost"
               size="sm"
               canAct={!readOnly}
               gateReason={tGate("reasons.sendMessages")}
-              title={readOnly ? undefined : t("sendTemplate")}
-              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-              onClick={onOpenTemplates}
+              disabled={drafting}
+              title={readOnly ? undefined : assistSuggest ? tAssist("suggestReplies") : t("draftHint")}
+              aria-label={assistSuggest ? tAssist("suggestReplies") : t("draftWithAI")}
+              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-primary"
+              onClick={assistSuggest ? handleSuggest : handleDraft}
             >
-              <LayoutTemplate className="h-4 w-4" />
+              {drafting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
             </GatedButton>
-          )}
-
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={!readOnly}
-            gateReason={tGate("reasons.sendMessages")}
-            disabled={drafting}
-            title={readOnly ? undefined : assistSuggest ? tAssist("suggestReplies") : t("draftWithAI")}
-            className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-primary"
-            onClick={assistSuggest ? handleSuggest : handleDraft}
-          >
-            {drafting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-          </GatedButton>
+          </div>
 
           <textarea
             ref={textareaRef}
@@ -1011,7 +1052,7 @@ export function MessageComposer({
             // The placeholder text also surfaces the read-only state.
             title={readOnly ? t("readOnlyTitle") : undefined}
             className={cn(
-              "min-w-0 flex-1 resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
+              "block max-h-[136px] min-h-9 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-background px-3 py-2 text-sm leading-5 text-foreground placeholder-muted-foreground outline-none transition-colors placeholder:truncate focus:border-primary/50",
               (windowClosed || readOnly) && "cursor-not-allowed opacity-50"
             )}
           />
@@ -1029,22 +1070,6 @@ export function MessageComposer({
         </div>
       )}
 
-      {/* Hint sits outside the flex row so its height doesn't push
-          `items-end` buttons below the textarea. Indented to line up
-          under the textarea left edge. */}
-      {!draft && !recording && (
-        <p className="mt-1 pl-[5.5rem] text-[10px] text-muted-foreground">
-          {t("draftHint")}
-          {isInstagram && (
-            <span
-              data-instagram-bytes
-              className={cn("ml-2 tabular-nums", overInstagramLimit && "text-red-600 dark:text-red-400")}
-            >
-              {tc("byteCounter", { used: textBytes, max: INSTAGRAM_LIMITS.textBytes })}
-            </span>
-          )}
-        </p>
-      )}
 
       {/* Interactive-message builder dialog. */}
       <Dialog open={interactiveOpen} onOpenChange={setInteractiveOpen}>

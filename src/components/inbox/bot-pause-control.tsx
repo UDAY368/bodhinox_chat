@@ -3,6 +3,7 @@
 // Paused: who paused, until when, and Resume. Not paused: a small "Pause
 // automations" menu with the pause lengths, for this conversation or all of
 // the contact's conversations. Writes go through POST /api/inbox/pause.
+// It sits in the composer's toolbar row, beside Remind me and Schedule send.
 import { useEffect, useState } from 'react'
 import { useFormatter, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -101,7 +102,6 @@ export function BotPauseControl({ conversationId, paused: initial }: { conversat
   if (!state.paused) {
     if (!canSendMessages) return null
     return (
-      <div className="flex items-center justify-end border-t px-4 py-1.5 text-sm">
         <DropdownMenu>
           <DropdownMenuTrigger
             disabled={busy}
@@ -124,7 +124,6 @@ export function BotPauseControl({ conversationId, paused: initial }: { conversat
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
     )
   }
 
@@ -133,15 +132,13 @@ export function BotPauseControl({ conversationId, paused: initial }: { conversat
     ? t('until', { time: format.dateTime(new Date(state.until), { dateStyle: 'medium', timeStyle: 'short' }) })
     : t('untilResumed')
   return (
-    <div className="flex items-center justify-between gap-3 border-t px-4 py-2 text-sm" role="status">
-      <span className="flex min-w-0 items-center gap-2">
-        <PauseCircle className="text-muted-foreground size-4 shrink-0" aria-hidden />
+      <span className="flex min-w-0 items-center gap-1 text-xs text-amber-700 dark:text-amber-400" role="status" title={`${who} · ${when}`}>
+        <PauseCircle className="size-3.5 shrink-0" aria-hidden />
         <span className="truncate">{who} · {when}</span>
+        <Button variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" disabled={busy || !canSendMessages}
+          onClick={() => submit({ action: 'resume', scope: wholeContact ? 'contact' : 'conversation' })}>
+          {t('resume')}
+        </Button>
       </span>
-      <Button variant="outline" size="sm" disabled={busy || !canSendMessages}
-        onClick={() => submit({ action: 'resume', scope: wholeContact ? 'contact' : 'conversation' })}>
-        {t('resume')}
-      </Button>
-    </div>
   )
 }

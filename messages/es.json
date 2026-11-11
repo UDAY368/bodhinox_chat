@@ -445,7 +445,8 @@
       "senderAi": "Asistente de IA",
       "senderAutomation": "Automatización",
       "senderTeam": "Tu equipo",
-      "senderFormerMember": "Antiguo miembro"
+      "senderFormerMember": "Antiguo miembro",
+      "moreActions": "Más acciones"
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -459,7 +460,7 @@
       "templates": "Plantillas",
       "readOnlyPlaceholder": "Solo lectura: los observadores pueden navegar, pero no responder",
       "sessionExpiredPlaceholder": "Sesión expirada - usa una plantilla",
-      "typeMessagePlaceholder": "Escribe un mensaje... (Shift+Enter para nueva línea)",
+      "typeMessagePlaceholder": "Escribe un mensaje",
       "readOnlyTitle": "Solo lectura: tu rol no puede enviar mensajes",
       "recording": "Grabando… {current} / {max}",
       "cancel": "Cancelar",
@@ -501,7 +502,8 @@
       "sendProducts": "Enviar productos",
       "sendPaymentLink": "Enviar enlace de pago",
       "mediaLibrary": "Biblioteca de medios",
-      "sendStorefrontLink": "Enviar enlace de la tienda"
+      "sendStorefrontLink": "Enviar enlace de la tienda",
+      "newLineHint": "Shift+Enter para una nueva línea"
     },
     "bubble": {
       "photo": "Foto",
