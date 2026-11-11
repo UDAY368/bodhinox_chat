@@ -63,6 +63,8 @@ export interface InstagramTarget {
   scopes: string[];
   /** The customer's last message; echoes are 'agent' and never count. */
   lastCustomerAt: Date | null;
+  /** The customer's latest message from a click-to-Direct ad (referral source ADS), or null. Used only with INSTAGRAM_CTD_WINDOW_ENABLED. */
+  adReferralAt: Date | null;
 }
 
 export interface InstagramSendContext {
@@ -84,6 +86,7 @@ interface TargetRow {
   igsid: string | null;
   blocked_at: Date | null;
   last_customer_at: Date | null;
+  ad_referral_at: Date | null;
 }
 
 /**
@@ -103,7 +106,9 @@ export async function loadInstagramTarget(tx: TenantTransaction, accountId: stri
         WHERE i.account_id=c.account_id AND i.contact_id=c.contact_id AND i.instagram_account_id=c.instagram_account_id
         ORDER BY i.created_at, i.id LIMIT 1) AS igsid,
       (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
-        AND m.sender_type='customer') AS last_customer_at
+        AND m.sender_type='customer') AS last_customer_at,
+      (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
+        AND m.sender_type='customer' AND upper(m.interactive_payload #>> '{ig,referral,source}')='ADS') AS ad_referral_at
     FROM conversations c
     JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
     LEFT JOIN instagram_accounts a ON a.account_id=c.account_id AND a.id=c.instagram_account_id
@@ -129,6 +134,7 @@ export async function loadInstagramTarget(tx: TenantTransaction, accountId: stri
     accessTokenEnc: row.access_token_enc,
     scopes,
     lastCustomerAt: row.last_customer_at ? new Date(row.last_customer_at) : null,
+    adReferralAt: row.ad_referral_at ? new Date(row.ad_referral_at) : null,
   };
 }
 
@@ -140,6 +146,8 @@ function checkWindow(target: InstagramTarget, ctx: InstagramSendContext): { huma
     lastCustomerAt: target.lastCustomerAt,
     sender: ctx.sender,
     humanAgentEnabled: config.humanAgentEnabled,
+    adReferralAt: target.adReferralAt,
+    ctdEnabled: config.ctdWindowEnabled,
     now: ctx.now,
   });
   if (!decision.allowed) throw new InstagramError('instagram_window_closed');
@@ -228,11 +236,15 @@ export async function sendInstagramButtonTemplate(target: InstagramTarget, text:
  */
 export async function instagramAutomatedWindowOpen(tx: TenantTransaction, accountId: string, conversationId: string,
   now: Date = new Date()): Promise<boolean> {
-  const [row] = await tx.$queryRaw<{ last_customer_at: Date | null }[]>(Prisma.sql`
-    SELECT max(m.created_at) AS last_customer_at FROM messages m
+  const [row] = await tx.$queryRaw<{ last_customer_at: Date | null; ad_referral_at: Date | null }[]>(Prisma.sql`
+    SELECT max(m.created_at) AS last_customer_at,
+      max(m.created_at) FILTER (WHERE upper(m.interactive_payload #>> '{ig,referral,source}')='ADS') AS ad_referral_at
+    FROM messages m
     WHERE m.account_id=${accountId}::uuid AND m.conversation_id=${conversationId}::uuid AND m.sender_type='customer'`);
   const last = row?.last_customer_at ? new Date(row.last_customer_at) : null;
-  return instagramWindow({ lastCustomerAt: last, sender: 'automated', humanAgentEnabled: false, now }).allowed;
+  const ad = row?.ad_referral_at ? new Date(row.ad_referral_at) : null;
+  return instagramWindow({ lastCustomerAt: last, sender: 'automated', humanAgentEnabled: false, adReferralAt: ad,
+    ctdEnabled: instagramConfig()?.ctdWindowEnabled === true, now }).allowed;
 }
 
 export interface InstagramSentRow {

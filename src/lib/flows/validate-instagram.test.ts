@@ -141,3 +141,74 @@ describe("cards, galleries, link buttons and profile conditions", () => {
       .toContainEqual(expect.objectContaining({ field: "rules.0.subject_key" }));
   });
 });
+
+describe("Live comment flows (ig_live_comment, Stage 3)", () => {
+  const live = { name: "Live", trigger_type: "ig_live_comment" as FlowTriggerType, trigger_config: { keywords: ["link"] } as Record<string, unknown>,
+    entry_node_id: "start", channel_scope: "instagram" as FlowChannelScope };
+
+  it("takes the same private-reply shape as a post comment flow", () => {
+    expect(errors([start("pr"), privateReply(), link, end], live)).toEqual([]);
+    expect(errors([start("link"), link, end], live)).toContainEqual(expect.objectContaining({ node_key: "link", field: "node_type" }));
+    expect(errors([start("pr"), privateReply({ opt_in_label: "" }), link, end], live))
+      .toContainEqual(expect.objectContaining({ node_key: "pr", field: "opt_in_label" }));
+  });
+
+  it("refuses the public comment reply step: a Live comment gets none", () => {
+    const reply: N = { node_key: "reply", node_type: "ig_comment_reply", config: { replies: ["Check your DMs!"], next_node_key: "pr" } };
+    expect(errors([start("reply"), reply, privateReply(), link, end], live))
+      .toContainEqual(expect.objectContaining({ node_key: "reply", field: "node_type" }));
+  });
+
+  it("checks the keywords, the match mode and the account, and refuses WhatsApp", () => {
+    const tooMany = { keywords: Array.from({ length: 51 }, (_, i) => `w${i}`) };
+    expect(errors([start("pr"), privateReply(), link, end], { ...live, trigger_config: tooMany }))
+      .toContainEqual(expect.objectContaining({ field: "trigger_config.keywords" }));
+    expect(errors([start("pr"), privateReply(), link, end], { ...live, trigger_config: { match_mode: "regex" } }))
+      .toContainEqual(expect.objectContaining({ field: "trigger_config.match_mode" }));
+    expect(errors([start("pr"), privateReply(), link, end], { ...live, trigger_config: { instagram_account_id: "nope" } }))
+      .toContainEqual(expect.objectContaining({ field: "trigger_config.instagram_account_id" }));
+    expect(errors([start("pr"), privateReply(), link, end], { ...live, trigger_config: {} })).toEqual([]);
+    expect(errors([start("pr"), privateReply(), link, end], { ...live, channel_scope: "whatsapp" }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("ref link flows (ig_ref, Stage 3)", () => {
+  const ref = { name: "Ref", trigger_type: "ig_ref" as FlowTriggerType, trigger_config: { refs: ["summer-sale"] } as Record<string, unknown>,
+    entry_node_id: "start", channel_scope: "instagram" as FlowChannelScope };
+  const hello: N = { node_key: "hello", node_type: "send_message", config: { text: "Welcome!", next_node_key: "done" } };
+
+  it("accepts a flow with valid keys and ordinary steps", () => {
+    expect(errors([start("hello"), hello, end], ref)).toEqual([]);
+  });
+
+  it("needs at least one key, at most 20, each URL-safe and unique without case", () => {
+    const refsError = (refs: unknown) => errors([start("hello"), hello, end], { ...ref, trigger_config: { refs } })
+      .filter((i) => i.field === "trigger_config.refs");
+    expect(refsError([])).toHaveLength(1);
+    expect(refsError(undefined)).toHaveLength(1);
+    expect(refsError(Array.from({ length: 21 }, (_, i) => `k${i}`))).toHaveLength(1);
+    expect(refsError(["has space"])).toHaveLength(1);
+    expect(refsError(["x".repeat(65)])).toHaveLength(1);
+    expect(refsError(["Sale", "sale"])).toHaveLength(1);
+    expect(refsError(["a", "b_2", "C-3"])).toHaveLength(0);
+  });
+
+  it("refuses the comment steps and a bad account, and WhatsApp", () => {
+    expect(errors([start("pr"), privateReply({ opt_in_label: "", next_node_key: "done" }), end], ref))
+      .toContainEqual(expect.objectContaining({ node_key: "pr", field: "node_type" }));
+    expect(errors([start("hello"), hello, end], { ...ref, trigger_config: { refs: ["a"], instagram_account_id: "x" } }))
+      .toContainEqual(expect.objectContaining({ field: "trigger_config.instagram_account_id" }));
+    expect(errors([start("hello"), hello, end], { ...ref, channel_scope: "whatsapp" }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("ad_click on Instagram (Stage 3)", () => {
+  it("publishes on Instagram, still checks the ad ids, and stays valid on WhatsApp", () => {
+    const hello: N = { node_key: "hello", node_type: "send_message", config: { text: "Thanks for clicking", next_node_key: "done" } };
+    const ad = { name: "Ad", trigger_type: "ad_click" as FlowTriggerType, trigger_config: { ad_ids: ["123"] } as Record<string, unknown>,
+      entry_node_id: "start", channel_scope: "instagram" as FlowChannelScope };
+    expect(errors([start("hello"), hello, end], ad)).toEqual([]);
+    expect(errors([start("hello"), hello, end], { ...ad, trigger_config: { ad_ids: ["not-digits"] } }).length).toBeGreaterThan(0);
+    expect(errors([start("hello"), hello, end], { ...ad, channel_scope: "whatsapp" })).toEqual([]);
+  });
+});

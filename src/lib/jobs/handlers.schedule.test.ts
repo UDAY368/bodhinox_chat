@@ -41,6 +41,7 @@ vi.mock('@/lib/meta-ads/schedule', () => ({ scheduleMetaAds: vi.fn(async () => {
 vi.mock('@/lib/payments/reconcile-sweep', () => ({ scheduleReconcileSweeps: vi.fn(async () => {}) }));
 vi.mock('@/lib/fulfilment/sweep', () => ({ scheduleFulfilmentSweeps: vi.fn(async () => {}) }));
 vi.mock('@/lib/instagram/token-sweep', () => ({ scheduleInstagramSweeps: vi.fn(async () => {}) }));
+vi.mock('@/lib/instagram/resubscribe', () => ({ scheduleInstagramResubscribe: vi.fn(async () => {}) }));
 vi.mock('@/lib/ai/retention', () => ({ scheduleAiRetention: vi.fn(async () => {}) }));
 vi.mock('@/lib/billing/reconciliation', () => ({ scheduleBillingReconcile: vi.fn(async () => {}) }));
 vi.mock('@/lib/jobs/usage-housekeeping', () => ({ scheduleUsageHousekeeping: vi.fn(async () => {}) }));

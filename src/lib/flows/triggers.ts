@@ -4,27 +4,31 @@
 // any of this, and the AI auto-reply only gets what no flow or automation
 // took):
 //   0. order_received   a cart sent from the catalogue
-//   0b. ad_click        a message from a click-to-WhatsApp ad
+//   0b. ad_click        a message from a click-to-WhatsApp ad (Stage 3: or a
+//                       click-to-Instagram-Direct ad)
+//   0c. ig_ref          (Stage 3, Instagram) a chat opened from a ref link
 //   1. template_reply   a tap on a sent template's quick-reply button
 //   2. keyword          exact, contains or regex
 //   3. first_inbound_message
 //   (Instagram, Stage 2) ig_story_mention and ig_story_reply sit just above
 //   keyword: a story reply that also contains a keyword starts the story flow.
 //   4. default_reply  only when nothing above matched (lowest tier)
-// ig_comment flows never start from a message: comments start them
-// (process-webhook.ts and private-reply.ts).
+// ig_comment and ig_live_comment flows never start from a message: comments
+// start them (process-webhook.ts and private-reply.ts).
 // Within a tier a draft being tested wins for its testers, then the oldest
 // flow. `manual` flows never start here. A draft starts only for one of
 // its test numbers.
 
 import { regexMatches } from "./input-validation";
 import { hasKeywords, keywordListMatches } from "@/lib/instagram/comment-matching";
+import { normalizeInboundRef, refKeyMatches } from "@/lib/instagram/ref-links";
 import type {
-  AdClickTriggerConfig, FlowRow, IgStoryReplyTriggerConfig, KeywordTriggerConfig, ParsedInbound, TemplateReplyTriggerConfig,
+  AdClickTriggerConfig, FlowRow, IgLiveCommentTriggerConfig, IgRefTriggerConfig, IgStoryReplyTriggerConfig, KeywordTriggerConfig,
+  ParsedInbound, TemplateReplyTriggerConfig,
 } from "./types";
 
 const TIER: Record<string, number> = {
-  order_received: -1, ad_click: -0.5, template_reply: 0, ig_story_mention: 0.5, ig_story_reply: 0.6, keyword: 1,
+  order_received: -1, ad_click: -0.5, ig_ref: -0.4, template_reply: 0, ig_story_mention: 0.5, ig_story_reply: 0.6, keyword: 1,
   first_inbound_message: 2, default_reply: 3,
 };
 
@@ -102,6 +106,13 @@ export interface InstagramInboundFacts {
   storyReply?: { storyId: string | null; reaction: boolean };
   /** A mention of the account in the customer's story. */
   storyMention?: boolean;
+  /**
+   * The ref link or ad the chat was opened from (Stage 3). `ref` is already
+   * checked against what we store (normalizeInboundRef); `fromAd` is a
+   * click-to-Direct ad (Meta's referral source ADS). Needs live capture: built
+   * against Meta's documented referral shape.
+   */
+  referral?: { ref: string | null; fromAd: boolean; adId: string | null; adTitle: string | null };
 }
 
 /** The facts a stored message's interactive_payload carries (fixed keys only; anything else is ignored). */
@@ -109,12 +120,60 @@ export function instagramFactsFrom(payload: unknown): InstagramInboundFacts {
   const ig = payload && typeof payload === "object" ? (payload as { ig?: unknown }).ig : null;
   if (!ig || typeof ig !== "object") return {};
   const row = ig as Record<string, unknown>;
-  if (row.story_mention === true) return { storyMention: true };
+  const facts: InstagramInboundFacts = {};
+  const referral = row.referral && typeof row.referral === "object" ? row.referral as Record<string, unknown> : null;
+  if (referral) {
+    const ref = normalizeInboundRef(referral.ref);
+    const fromAd = typeof referral.source === "string" && referral.source.toUpperCase() === "ADS";
+    const adId = typeof referral.ad_id === "string" && /^\d{1,32}$/.test(referral.ad_id) ? referral.ad_id : null;
+    const adTitle = typeof referral.ad_title === "string" ? referral.ad_title.slice(0, 256) : null;
+    if (ref || fromAd) facts.referral = { ref, fromAd, adId, adTitle };
+  }
+  if (row.story_mention === true) return { ...facts, storyMention: true };
   if (row.story === true) {
     const storyId = typeof row.story_id === "string" && /^\d{1,32}$/.test(row.story_id) ? row.story_id : null;
-    return { storyReply: { storyId, reaction: row.reaction === true } };
+    return { ...facts, storyReply: { storyId, reaction: row.reaction === true } };
   }
-  return {};
+  return facts;
+}
+
+/**
+ * The variables an ig_ref start sets, or null when the chat was not opened
+ * from one of the trigger's ref keys (compared without case) or the trigger is
+ * tied to another Instagram account. The ref is a label, never a secret.
+ */
+export function refTriggerMatch(facts: InstagramInboundFacts, cfg: IgRefTriggerConfig | null | undefined,
+  instagramAccountId: string | null): Record<string, string> | null {
+  const ref = facts.referral?.ref;
+  if (!ref || !Array.isArray(cfg?.refs)) return null;
+  if (cfg.instagram_account_id && cfg.instagram_account_id !== instagramAccountId) return null;
+  return refKeyMatches(cfg.refs, ref) ? { ig_ref: ref } : null;
+}
+
+/**
+ * The variables an ad_click start sets for an Instagram conversation, or null
+ * when the message did not come from a click-to-Direct ad (or from another ad
+ * than the listed ones). Mirrors adClickMatch; the click id is never kept.
+ */
+export function igAdClickMatch(facts: InstagramInboundFacts, cfg: AdClickTriggerConfig | null | undefined): Record<string, string> | null {
+  const referral = facts.referral;
+  if (!referral?.fromAd) return null;
+  const wanted = Array.isArray(cfg?.ad_ids) ? cfg.ad_ids.filter((id) => typeof id === "string" && id) : [];
+  if (wanted.length && (!referral.adId || !wanted.includes(referral.adId))) return null;
+  return { ad_id: referral.adId ?? "", ad_headline: referral.adTitle ?? "", ad_source_url: "" };
+}
+
+/**
+ * Whether a Live comment starts an ig_live_comment flow: the trigger is for
+ * this account (or any), and the comment holds one of its keywords (any
+ * comment when none are set). Live comments are matched only against
+ * ig_live_comment flows, post comments only against ig_comment flows.
+ */
+export function liveCommentMatches(cfg: IgLiveCommentTriggerConfig | null | undefined,
+  comment: { instagramAccountId: string; text: string }): boolean {
+  if (cfg?.instagram_account_id && cfg.instagram_account_id !== comment.instagramAccountId) return false;
+  if (!hasKeywords(cfg?.keywords)) return true;
+  return keywordListMatches(comment.text, cfg?.keywords, cfg?.match_mode);
 }
 
 /**
