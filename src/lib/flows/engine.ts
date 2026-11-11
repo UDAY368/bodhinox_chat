@@ -1483,13 +1483,17 @@ async function setRunVars(db: AdminClient, run: FlowRunRow, patch: Record<string
 async function sendPaymentLinkText(run: FlowRunRow, node: FlowNodeRow, url: string, attempt: number): Promise<string> {
   const cfg = node.config as unknown as PaymentLinkNodeConfig;
   const ws = await workspaceValuesFor(run.account_id, cfg.message ?? "");
-  const text = paymentLinkMessageText(interpolateVars(cfg.message ?? "", run.vars, ws), url);
-  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, { kind: "text", args: {
+  const message = interpolateVars(cfg.message ?? "", run.vars, ws);
+  const text = paymentLinkMessageText(message, url);
+  // On Instagram this goes out as a card with a "Pay now" button (payment-card.ts); on WhatsApp it is the text.
+  const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${attempt}`, { kind: "payment_link", args: {
     accountId: run.account_id,
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
     text,
+    message,
+    url,
   } });
   return whatsapp_message_id;
 }
@@ -3316,13 +3320,16 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
 async function startIceBreakerFlow(db: AdminClient, input: DispatchInboundInput): Promise<DispatchInboundResult | null> {
   if (input.message.kind !== "interactive_reply") return null;
   const code = decodePostback(input.message.reply_id);
-  if (!code || code.kind !== "ice_breaker") return null;
+  // A persistent menu item (`menu:<flow id>`, Stage 3) starts its flow the same way, listed in persistent_menu instead.
+  if (!code || (code.kind !== "ice_breaker" && code.kind !== "menu")) return null;
   const listed = await withTenant({ accountId: input.accountId, role: "owner" }, async (tx) => {
     const [row] = await tx.$queryRaw<{ listed: boolean }[]>`SELECT EXISTS(SELECT 1 FROM conversations c
         JOIN instagram_accounts a ON a.account_id=c.account_id AND a.id=c.instagram_account_id
         WHERE c.account_id=${input.accountId}::uuid AND c.id=${input.conversationId}::uuid AND c.contact_id=${input.contactId}::uuid
-          AND c.channel='instagram' AND jsonb_typeof(a.ice_breakers)='array'
-          AND a.ice_breakers @> jsonb_build_array(jsonb_build_object('flow_id', ${code.flowId}::text))) AS listed`;
+          AND c.channel='instagram' AND ((${code.kind}::text='ice_breaker' AND jsonb_typeof(a.ice_breakers)='array'
+            AND a.ice_breakers @> jsonb_build_array(jsonb_build_object('flow_id', ${code.flowId}::text)))
+          OR (${code.kind}::text='menu' AND jsonb_typeof(a.persistent_menu)='array'
+            AND a.persistent_menu @> jsonb_build_array(jsonb_build_object('type', 'postback', 'flow_id', ${code.flowId}::text))))) AS listed`;
     return row?.listed === true;
   }, getWorkerPrisma());
   if (!listed) return null;

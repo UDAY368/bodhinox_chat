@@ -11829,6 +11829,7 @@
       "duplicate": "Each item needs a different title.",
       "needsFlow": "Choose a flow for each item.",
       "badUrl": "Use a link that starts with https://",
+      "tooLarge": "The links are too long in total. Shorten some links or remove items.",
       "adminOnly": "Only admins can change the menu.",
       "notSynced": "Not published yet.",
       "lastSynced": "Published {time}"

@@ -11829,6 +11829,7 @@
       "duplicate": "Cada opción necesita un título distinto.",
       "needsFlow": "Elige un flujo para cada opción.",
       "badUrl": "Usa un enlace que empiece por https://",
+      "tooLarge": "Los enlaces son demasiado largos en total. Acorta algunos enlaces o quita elementos.",
       "adminOnly": "Solo los administradores pueden cambiar el menú.",
       "notSynced": "Aún no publicado.",
       "lastSynced": "Publicado {time}"

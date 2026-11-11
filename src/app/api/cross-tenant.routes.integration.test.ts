@@ -223,6 +223,8 @@ export const KNOWN_UNMAPPED = [
   // Another workspace's account is not_found: tools.integration.test.ts (starters), media-picker.integration.test.ts (media).
   'instagram/accounts/[id]/ice-breakers',
   'instagram/accounts/[id]/media',
+  // Persistent menu: another workspace's account id answers not_found, proved by persistent-menu.integration.test.ts.
+  'instagram/accounts/[id]/persistent-menu',
   // Calls Instagram for the caller's own account (no positive control here); tenancy.integration.test.ts covers B's id -> not_found.
   'instagram/accounts/[id]/posts',
   // Decides a draft of the caller's own workspace; ai-comments.integration.test.ts covers workspace B's session -> not_found and the agent -> forbidden.
