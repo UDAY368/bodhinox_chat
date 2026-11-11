@@ -108,6 +108,11 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('flow link tracking on Postg
     const stats = await withTenant(ctxA, (tx) => flowLinkStats(tx, A, [flowA, flowB]));
     expect(stats.get(flowA)).toEqual({ sent: 2, clicked: 1 });
     expect(clickThroughRate(stats.get(flowA))).toBe(50);
+    // An Insights range counts only links sent inside it.
+    const past = await withTenant(ctxA, (tx) => flowLinkStats(tx, A, [flowA], new Date('2020-01-01'), new Date('2020-01-02')));
+    expect(past.has(flowA)).toBe(false);
+    const open = await withTenant(ctxA, (tx) => flowLinkStats(tx, A, [flowA], new Date('2020-01-01'), new Date(Date.now() + 60_000)));
+    expect(open.get(flowA)).toEqual({ sent: 2, clicked: 1 });
     // Another workspace's flow is invisible from this workspace.
     expect(stats.has(flowB)).toBe(false);
   });

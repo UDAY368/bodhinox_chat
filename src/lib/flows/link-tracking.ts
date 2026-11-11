@@ -139,14 +139,16 @@ export function clickThroughRate(stats: FlowLinkStats | null | undefined): numbe
 }
 
 /**
- * Link stats per flow (all time, or from `since`), inside the caller's tenant
- * transaction. Flows without a tracked link are absent from the map.
+ * Link stats per flow (all time, or links sent from `since` and before
+ * `until`), inside the caller's tenant transaction. Flows without a tracked
+ * link are absent from the map.
  */
 export async function flowLinkStats(tx: TenantTransaction, accountId: string, flowIds: readonly string[],
-  since?: Date): Promise<Map<string, FlowLinkStats>> {
+  since?: Date, until?: Date): Promise<Map<string, FlowLinkStats>> {
   const ids = flowIds.filter((id) => UUID.test(id));
   if (!UUID.test(accountId) || ids.length === 0) return new Map();
-  const after = since ? Prisma.sql`AND created_at >= ${since.toISOString()}::timestamptz` : Prisma.empty;
+  const after = Prisma.sql`${since ? Prisma.sql`AND created_at >= ${since.toISOString()}::timestamptz` : Prisma.empty}
+    ${until ? Prisma.sql`AND created_at < ${until.toISOString()}::timestamptz` : Prisma.empty}`;
   const rows = await tx.$queryRaw<{ flow_id: string; sent: number; clicked: number }[]>(Prisma.sql`
     SELECT flow_id::text, count(DISTINCT flow_run_id)::int AS sent,
       count(DISTINCT flow_run_id) FILTER (WHERE first_clicked_at IS NOT NULL)::int AS clicked

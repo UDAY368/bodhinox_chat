@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     const ctr: Record<string, number | null> = {};
     if (by === 'flow') {
       const ids = funnel.rows.map((row) => row.id).filter((id): id is string => !!id);
-      const stats = await flowLinkStats(tx, accountId, ids, range.from);
+      const stats = await flowLinkStats(tx, accountId, ids, range.from, range.to);
       for (const id of ids) ctr[id] = clickThroughRate(stats.get(id));
     }
     const contacts = await instagramContactSeries(tx, accountId, range);

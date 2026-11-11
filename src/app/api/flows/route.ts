@@ -68,13 +68,17 @@ export async function GET(request: Request) {
   // Stage 5 (5F): each flow's tracked-link stats and CTR for the list row
   // (null CTR: the flow never sent a tracked link). Best effort: the list
   // still loads if the stats query fails.
+  // A caller without a browser session (API key) gets no stats (null CTR),
+  // without a log line on every call.
   let stats = new Map<string, FlowLinkStats>();
-  try {
-    const session = await requireSession(request);
-    stats = await withTenant({ accountId: session.accountId, userId: session.userId, role: session.role },
-      (tx) => flowLinkStats(tx, session.accountId, flows.map((f) => f.id)));
-  } catch {
-    console.error('[flows] link stats unavailable');
+  const session = await requireSession(request).catch(() => null);
+  if (session && flows.length) {
+    try {
+      stats = await withTenant({ accountId: session.accountId, userId: session.userId, role: session.role },
+        (tx) => flowLinkStats(tx, session.accountId, flows.map((f) => f.id)));
+    } catch {
+      console.error('[flows] link stats unavailable');
+    }
   }
   return NextResponse.json({
     flows: flows.map((flow) => {

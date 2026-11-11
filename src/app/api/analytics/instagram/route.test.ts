@@ -4,6 +4,7 @@ const ACCOUNT = '11111111-1111-4111-8111-111111111111';
 const h = vi.hoisted(() => ({
   role: 'viewer' as string, signedIn: true, limited: false, tenants: [] as unknown[], calls: [] as unknown[][],
   revenue: [] as unknown[], conversions: [] as unknown[][], flowRows: [] as Array<{ id: string | null }>,
+  ctrWindows: [] as unknown[][],
 }));
 
 vi.mock('@/lib/auth/session', () => ({
@@ -53,7 +54,10 @@ vi.mock('@/lib/analytics/conversion-log', async (original) => ({
 }));
 vi.mock('@/lib/flows/link-tracking', async (original) => ({
   ...(await original<typeof import('@/lib/flows/link-tracking')>()),
-  flowLinkStats: async (_tx: unknown, _account: string, ids: string[]) => new Map(ids.map((id) => [id, { sent: 4, clicked: 1 }])),
+  flowLinkStats: async (_tx: unknown, _account: string, ids: string[], since?: Date, until?: Date) => {
+    h.ctrWindows.push([since, until]);
+    return new Map(ids.map((id) => [id, { sent: 4, clicked: 1 }]));
+  },
 }));
 
 import { GET } from './route';
@@ -62,7 +66,7 @@ const get = (query = '') => GET(new Request(`http://x/api/analytics/instagram?${
 
 beforeEach(() => {
   h.role = 'viewer'; h.signedIn = true; h.limited = false; h.tenants = []; h.calls = [];
-  h.revenue = []; h.conversions = []; h.flowRows = [];
+  h.revenue = []; h.conversions = []; h.flowRows = []; h.ctrWindows = [];
 });
 
 describe('GET /api/analytics/instagram', () => {
@@ -98,6 +102,11 @@ describe('GET /api/analytics/instagram', () => {
     expect(h.conversions[0][0]).toBe(ACCOUNT);
     expect(h.conversions[0][2]).toBe('instagram');
     expect(body.ctr).toEqual({ f1: 25 });
+    // CTR counts only links sent inside the chosen range.
+    const [since, until] = h.ctrWindows[0] as [Date, Date];
+    expect(since).toBeInstanceOf(Date);
+    expect(until).toBeInstanceOf(Date);
+    expect(until.getTime()).toBeGreaterThan(since.getTime());
     // By post there is no per-flow CTR.
     expect((await (await get()).json()).ctr).toEqual({});
   });
