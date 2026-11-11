@@ -7,6 +7,7 @@
  */
 
 import {
+  FLOW_TRIGGER_LIMITS,
   IG_TRIGGER_LIMITS,
   startsFromComment,
   type FlowTriggerType,
@@ -63,6 +64,15 @@ export function defaultTriggerConfig(type: FlowTriggerType): Config {
 export function applyTriggerType(state: BuilderState, type: FlowTriggerType): BuilderState {
   const next: BuilderState = { ...state, trigger_type: type, trigger_config: defaultTriggerConfig(type) };
   if (!startsFromComment(type)) return next;
+  return placePrivateReply(next);
+}
+
+/**
+ * Makes a private reply the flow's first step (added when the flow has none),
+ * as a comment trigger needs. Stage 5 also calls it when a comment trigger is
+ * added beside the primary one.
+ */
+export function placePrivateReply(next: BuilderState): BuilderState {
   let nodes = next.nodes;
   let key = nodes.find((n) => n.node_type === "ig_private_reply")?.node_key;
   if (!key) {
@@ -73,6 +83,28 @@ export function applyTriggerType(state: BuilderState, type: FlowTriggerType): Bu
   if (firstPrivateReplies(nodes, next.entry_node_id).has(key)) return { ...next, nodes };
   const placed = withPrivateReplyEntry(nodes, next.entry_node_id, key);
   return { ...next, nodes: placed.nodes, entry_node_id: placed.entry };
+}
+
+// ------------------------------------------------------------ reply delay (Stage 5)
+
+export type ReplyDelayUnit = "seconds" | "minutes";
+
+/** Seconds shown in the unit that divides them evenly (minutes when it can). */
+export function replyDelayParts(value: unknown): { amount: number; unit: ReplyDelayUnit } {
+  const seconds = typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  return seconds > 0 && seconds % 60 === 0 ? { amount: seconds / 60, unit: "minutes" } : { amount: seconds, unit: "seconds" };
+}
+
+/**
+ * Stores "wait before replying" on a comment trigger: whole seconds, at most
+ * FLOW_TRIGGER_LIMITS.replyDelaySecondsMax; nothing (or 0) removes the wait.
+ */
+export function setReplyDelay(config: Config, amount: number | null, unit: ReplyDelayUnit): Config {
+  const next = { ...config };
+  const seconds = amount === null || !Number.isFinite(amount) ? 0 : Math.trunc(amount) * (unit === "minutes" ? 60 : 1);
+  if (seconds <= 0) delete next.reply_delay_seconds;
+  else next.reply_delay_seconds = Math.min(seconds, FLOW_TRIGGER_LIMITS.replyDelaySecondsMax);
+  return next;
 }
 
 // ------------------------------------------------------------ lists

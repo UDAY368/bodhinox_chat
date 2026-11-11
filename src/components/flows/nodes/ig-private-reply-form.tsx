@@ -9,12 +9,14 @@
  * them too).
  */
 
+import { useRef } from "react";
 import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { INSTAGRAM_LIMITS } from "@/lib/instagram/graph-limits";
 import { NextNodeRow } from "../forms/fields";
+import { insertAtCursor, VariablePicker } from "../forms/variable-picker";
 import type { BuilderNode } from "../shared";
 import { bytesLeft, clipBytes, clipChars } from "./ig-node-config";
 
@@ -31,6 +33,7 @@ export function IgPrivateReplyForm({ node, allNodes, onUpdateConfig, notice, t }
   t: ReturnType<typeof useTranslations>;
 }) {
   const tn = useTranslations("Flows.nodes.igPrivateReply");
+  const textRef = useRef<HTMLTextAreaElement>(null);
   const cfg = node.config;
   const key = node.node_key;
   const text = typeof cfg.text === "string" ? cfg.text : "";
@@ -43,8 +46,17 @@ export function IgPrivateReplyForm({ node, allNodes, onUpdateConfig, notice, t }
       <p className="text-muted-foreground text-xs">{tn("help")}</p>
       {notice && <p role="note" className="text-xs text-amber-500">{notice}</p>}
       <div>
-        <label htmlFor={`private-text-${key}`} className={label}>{tn("text")}</label>
-        <Textarea id={`private-text-${key}`} rows={3} value={text} className="bg-muted"
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <label htmlFor={`private-text-${key}`} className="block text-xs text-muted-foreground">{tn("text")}</label>
+          {/* Stage 5: insert a placeholder at the cursor. */}
+          <VariablePicker id={`private-text-${key}-vars`} nodes={allNodes} currentKey={key} onInsert={(token) => {
+            const el = textRef.current;
+            const next = insertAtCursor(text, el?.selectionStart, el?.selectionEnd, token);
+            onUpdateConfig({ text: clipBytes(next.value) });
+            requestAnimationFrame(() => { textRef.current?.focus(); textRef.current?.setSelectionRange(next.caret, next.caret); });
+          }} />
+        </div>
+        <Textarea ref={textRef} id={`private-text-${key}`} rows={3} value={text} className="bg-muted"
           onChange={(e) => onUpdateConfig({ text: clipBytes(e.target.value) })} />
         <p className={left < 50 ? "mt-1 text-[10px] text-amber-500" : help}>{tn("bytesLeft", { count: Math.max(left, 0) })}</p>
       </div>

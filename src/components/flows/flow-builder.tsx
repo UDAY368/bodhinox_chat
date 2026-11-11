@@ -66,22 +66,14 @@ import {
   type NodeType,
 } from './shared';
 import { NodeConfigForm } from './forms/node-config-form';
-import { AdClickTriggerFields, KeywordTriggerFields, OrderReceivedTriggerFields, TemplateReplyTriggerFields } from './trigger-fields';
-import {
-  DefaultReplyTriggerFields,
-  IgCommentTriggerFields,
-  IgLiveCommentTriggerFields,
-  IgRefTriggerFields,
-  IgShareToStoryTriggerFields,
-  IgStoryMentionTriggerFields,
-  IgStoryReplyTriggerFields,
-} from './triggers/ig-trigger-fields';
+import { TRIGGER_TITLE_KEYS, TriggerForm } from './triggers/trigger-form';
+import { addExtraTrigger, addTriggerBlock, MAX_TRIGGERS, removeTrigger, setTriggerConfig, stackTriggers, TriggerPickerDialog } from './triggers/trigger-stack';
 import { useShareToStoryEnabled } from './triggers/ig-post-picker';
 import { applyTriggerType } from './triggers/ig-trigger-config';
 import { entryLocked } from './nodes/ig-node-config';
 import { NodeKeySelect } from './forms/fields';
 import { IssueLine } from './validation-panel';
-import { useFlowEditor, type BuilderState } from './flow-editor-state';
+import { commentTriggerOf, useFlowEditor, type BuilderState } from './flow-editor-state';
 import { VersionBar } from './version-bar';
 import { splitFlow } from './split-flow';
 import { DryRunPanel } from './dry-run-panel';
@@ -229,7 +221,7 @@ export function FlowBuilder() {
               onUpdate={(patch) => updateNode(node.node_key, patch)}
               onUpdateConfig={(patch) => updateNodeConfig(node.node_key, patch)}
               onRemove={() => removeNode(node.node_key)}
-              onSetEntry={entryLocked(state.trigger_type, state.nodes, state.entry_node_id) ? undefined : () =>
+              onSetEntry={entryLocked(commentTriggerOf(state), state.nodes, state.entry_node_id) ? undefined : () =>
                 setState((s) => ({ ...s, entry_node_id: node.node_key }))
               }
               t={t}
@@ -381,22 +373,6 @@ function ChannelScopePanel({
 // Trigger panel
 // ============================================================
 
-const TRIGGER_TITLE_KEYS: Record<BuilderState['trigger_type'], string> = {
-  keyword: 'triggerKeywordTitle',
-  template_reply: 'triggerTemplateReplyTitle',
-  first_inbound_message: 'triggerFirstInboundTitle',
-  order_received: 'triggerOrderReceivedTitle',
-  ad_click: 'triggerAdClickTitle',
-  manual: 'triggerManualTitle',
-  default_reply: 'triggerDefaultReplyTitle',
-  ig_comment: 'triggerIgCommentTitle',
-  ig_story_reply: 'triggerIgStoryReplyTitle',
-  ig_story_mention: 'triggerIgStoryMentionTitle',
-  ig_live_comment: 'triggerIgLiveCommentTitle',
-  ig_ref: 'triggerIgRefTitle',
-  ig_share_to_story: 'triggerIgShareToStoryTitle',
-};
-
 function TriggerPanel({
   state,
   setState,
@@ -444,29 +420,11 @@ function TriggerPanel({
             </SelectContent>
           </Select>
         </div>
-        {state.trigger_type === 'keyword' && (
-          <KeywordTriggerFields config={state.trigger_config} t={t}
-            onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
-        )}
-        {state.trigger_type === 'template_reply' && (
-          <TemplateReplyTriggerFields config={state.trigger_config} t={t}
-            onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
-        )}
-        {state.trigger_type === 'order_received' && <OrderReceivedTriggerFields t={t} />}
-        {state.trigger_type === 'ad_click' && (
-          <AdClickTriggerFields config={state.trigger_config} t={t} instagram={instagramOnly}
-            onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
-        )}
-        {state.trigger_type === 'default_reply' && <DefaultReplyTriggerFields config={state.trigger_config} onChange={setConfig} />}
-        {state.trigger_type === 'ig_comment' && <IgCommentTriggerFields config={state.trigger_config} onChange={setConfig} />}
-        {state.trigger_type === 'ig_story_reply' && <IgStoryReplyTriggerFields config={state.trigger_config} onChange={setConfig} />}
-        {state.trigger_type === 'ig_story_mention' && <IgStoryMentionTriggerFields config={state.trigger_config} onChange={setConfig} />}
-        {state.trigger_type === 'ig_live_comment' && <IgLiveCommentTriggerFields config={state.trigger_config} onChange={setConfig} />}
-        {state.trigger_type === 'ig_ref' && <IgRefTriggerFields config={state.trigger_config} onChange={setConfig} />}
-        {state.trigger_type === 'ig_share_to_story' && (
-          <IgShareToStoryTriggerFields config={state.trigger_config} onChange={setConfig} enabled={shareToStoryOn} />
-        )}
+        <TriggerForm type={state.trigger_type} config={state.trigger_config} onChange={setConfig}
+          instagramOnly={instagramOnly} shareToStoryOn={shareToStoryOn} />
       </div>
+      <ExtraTriggersList state={state} setState={setState} triggerTypes={offered} scope={instagramOnly ? 'instagram' : 'whatsapp'}
+        instagramOnly={instagramOnly} shareToStoryOn={shareToStoryOn} />
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">
           {triggerIssues.map((i, ix) => (
@@ -475,6 +433,66 @@ function TriggerPanel({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Stage 5: the flow's further triggers under the primary one (Instagram
+ * flows). One is open at a time, so the trigger forms' field ids stay unique.
+ */
+function ExtraTriggersList({ state, setState, triggerTypes, scope, instagramOnly, shareToStoryOn }: {
+  state: BuilderState;
+  setState: (updater: (prev: BuilderState) => BuilderState) => void;
+  triggerTypes: BuilderState['trigger_type'][];
+  scope: FlowChannelScope;
+  instagramOnly: boolean;
+  shareToStoryOn: boolean;
+}) {
+  const t = useTranslations('Flows.builder');
+  const tm = useTranslations('Flows.multiTrigger');
+  const [open, setOpen] = useState<number | null>(null);
+  const [picking, setPicking] = useState(false);
+  const triggers = stackTriggers(state);
+  const extras = triggers.slice(1);
+  const block = addTriggerBlock(scope, state.trigger_type, extras.length);
+  if (block === 'onlyInstagram' && !extras.length) return null;
+  return (
+    <div className="mt-4 flex flex-col gap-2 border-t border-border pt-3">
+      {extras.map((trigger, i) => {
+        const index = i + 1;
+        return (
+          <div key={index} className="rounded-md border border-border">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <button type="button" className="flex-1 text-left text-xs font-medium" aria-expanded={open === index}
+                onClick={() => setOpen(open === index ? null : index)}>
+                {t(TRIGGER_TITLE_KEYS[trigger.trigger_type])}
+              </button>
+              <Button type="button" variant="ghost" size="sm" aria-label={tm('removeTrigger')}
+                onClick={() => { setOpen(null); setState((s) => removeTrigger(s, index)); }}
+                className="text-red-400 hover:bg-red-500/10 hover:text-red-300">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {open === index && (
+              <div className="grid grid-cols-1 gap-3 border-t border-border p-3 md:grid-cols-2">
+                <TriggerForm type={trigger.trigger_type} config={trigger.config} instagramOnly={instagramOnly} shareToStoryOn={shareToStoryOn}
+                  onChange={(config) => setState((s) => setTriggerConfig(s, index, config))} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {block !== 'onlyInstagram' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={block !== null} onClick={() => setPicking(true)}>
+            <Plus className="h-3.5 w-3.5" />{tm('addTrigger')}
+          </Button>
+          {block && <span className="text-[11px] text-muted-foreground">{tm(block === 'limitReached' ? 'limitReached' : 'notCombinable', { max: MAX_TRIGGERS })}</span>}
+        </div>
+      )}
+      <TriggerPickerDialog open={picking} onOpenChange={setPicking} offered={triggerTypes}
+        onPick={(type) => { setState((s) => addExtraTrigger(s, type)); setOpen(extras.length + 1); }} />
+    </div>
   );
 }
 
@@ -495,7 +513,7 @@ function EntryPicker({
   if (state.nodes.length === 0) return null;
   const entry = state.nodes.find((n) => n.node_key === state.entry_node_id);
   // A comment flow starts with its private reply (Instagram's one reply to the comment); the entry stays locked to it.
-  if (entry && entryLocked(state.trigger_type, state.nodes, state.entry_node_id)) {
+  if (entry && entryLocked(commentTriggerOf(state), state.nodes, state.entry_node_id)) {
     return (
       <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3" data-entry-locked="">
         <CornerDownRight className="text-primary h-4 w-4 shrink-0" />

@@ -32,7 +32,7 @@ test('a flow is published as v1, edited, dry-run without a run, and published as
 
   await publish(page, flowId);
   await page.reload();
-  await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'List' }).click();
+  await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'Simple builder' }).click();
   const bar = page.getByTestId('flow-version-bar');
   await expect(bar.getByText('Live v1')).toBeVisible();
 
@@ -52,7 +52,7 @@ test('a flow is published as v1, edited, dry-run without a run, and published as
   });
   expect(saved.status(), await saved.text()).toBe(200);
   await page.reload();
-  await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'List' }).click();
+  await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'Simple builder' }).click();
   await expect(bar.getByText('Unpublished changes')).toBeVisible();
 
   // Dry run: walks the saved draft and shows what would be sent; nothing runs.
@@ -69,7 +69,7 @@ test('a flow is published as v1, edited, dry-run without a run, and published as
   const versions = await (await page.request.get(`/api/flows/${flowId}/versions`)).json();
   expect(versions.versions).toHaveLength(2);
   await page.reload();
-  await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'List' }).click();
+  await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'Simple builder' }).click();
   await expect(bar.getByText('Live v2')).toBeVisible();
   await expect(bar.getByRole('button', { name: 'Versions (2)' })).toBeVisible();
 });

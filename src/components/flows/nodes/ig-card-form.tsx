@@ -10,6 +10,7 @@
  */
 
 import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { IgCard, IgCardButton } from "@/lib/flows/types";
 import { INSTAGRAM_LIMITS, validHttpsUrl } from "@/lib/instagram/graph-limits";
+import { isCurrencyCode, MoneyError, minorToDecimalString, parseMoney } from "@/lib/commerce/money";
+import { useWorkspaceCapabilities } from "../palette";
 import { NextNodeRow, NodeKeySelect } from "../forms/fields";
 import type { BuilderNode } from "../shared";
 import { addCard, addCardButton, MAX_BUTTONS, MAX_CARDS, postbackIds, readCard, removeCard, setButtonType, storeCard } from "./ig-node-config";
@@ -49,7 +52,11 @@ function CardFields({ id, card, used, allNodes, currentKey, onChange, t }: {
   t: T;
 }) {
   const tc = useTranslations("Flows.nodes.card");
+  const tb = useTranslations("Flows.buyButton");
+  const caps = useWorkspaceCapabilities();
   const buttons = card.buttons ?? [];
+  // Stage 5: a buy button needs a payment provider; one already placed stays editable.
+  const canBuy = !!caps?.payments;
   const set = (patch: Partial<IgCard>) => onChange({ ...card, ...patch });
   const setButton = (i: number, next: IgCardButton) => set({ buttons: buttons.map((b, j) => (j === i ? next : b)) });
   return (
@@ -86,6 +93,7 @@ function CardFields({ id, card, used, allNodes, currentKey, onChange, t }: {
                 <SelectContent>
                   <SelectItem value="postback">{tc("buttonTypePostback")}</SelectItem>
                   <SelectItem value="web_url">{tc("buttonTypeUrl")}</SelectItem>
+                  {(canBuy || b.type === "buy") && <SelectItem value="buy">{tb("label")}</SelectItem>}
                 </SelectContent>
               </Select>
               <Input value={b.title} aria-label={tc("buttonTitle")} placeholder={tc("buttonTitle")} className="bg-muted"
@@ -95,7 +103,10 @@ function CardFields({ id, card, used, allNodes, currentKey, onChange, t }: {
               ) : b.type === "postback" ? (
                 <NodeKeySelect value={b.next_node_key || null} nodes={allNodes} excludeKey={currentKey}
                   onChange={(v) => setButton(i, { ...b, next_node_key: v ?? "" })} placeholder={t("nextNodePlaceholder")} />
-              ) : null}
+              ) : (
+                <BuyButtonFields id={`${id}-button-${i}`} amountMinor={b.amount_minor} currency={b.currency}
+                  onChange={(amount_minor, currency) => setButton(i, { ...b, amount_minor, currency })} />
+              )}
               <Button type="button" variant="ghost" size="sm" aria-label={t("removeButton")}
                 onClick={() => set({ buttons: buttons.filter((_, j) => j !== i) })}
                 className="text-red-400 hover:bg-red-500/10 hover:text-red-300">
@@ -104,6 +115,7 @@ function CardFields({ id, card, used, allNodes, currentKey, onChange, t }: {
             </div>
           ))}
         </div>
+        {buttons.some((b) => b.type === "buy") && <p className={help}>{canBuy || !caps ? tb("help") : tb("needsPayments")}</p>}
         {buttons.length < MAX_BUTTONS ? (
           <Button type="button" variant="outline" size="sm" className="mt-2"
             onClick={() => onChange(addCardButton(card, "postback", used, t("defaultOptionTitle")))}>
@@ -113,6 +125,43 @@ function CardFields({ id, card, used, allNodes, currentKey, onChange, t }: {
           <p className={help}>{tc("maxButtons", { max: MAX_BUTTONS })}</p>
         )}
       </fieldset>
+    </div>
+  );
+}
+
+/**
+ * Stage 5 buy button: an amount (typed in major units, stored in minor units)
+ * and an ISO currency. The engine (5G) turns it into a checkout link.
+ */
+export function BuyButtonFields({ id, amountMinor, currency, onChange }: {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  onChange: (amountMinor: number, currency: string) => void;
+}) {
+  const tb = useTranslations("Flows.buyButton");
+  const validCurrency = isCurrencyCode(currency);
+  const shown = validCurrency && amountMinor > 0 ? minorToDecimalString(amountMinor, currency) : "";
+  const [draft, setDraft] = useState(shown);
+  const [bad, setBad] = useState(false);
+  const commit = (raw: string, code: string) => {
+    setDraft(raw);
+    if (!raw.trim() || !isCurrencyCode(code)) { setBad(false); onChange(0, code); return; }
+    try {
+      onChange(parseMoney(raw, code), code);
+      setBad(false);
+    } catch (err) {
+      if (!(err instanceof MoneyError)) throw err;
+      setBad(true);
+    }
+  };
+  return (
+    <div className="grid grid-cols-[1fr_5rem] gap-2">
+      <Input id={`${id}-amount`} inputMode="decimal" value={draft} aria-label={tb("amount")} placeholder={tb("amount")}
+        aria-invalid={bad || undefined} onChange={(e) => commit(e.target.value, currency)} className="bg-muted" />
+      <Input id={`${id}-currency`} value={currency} maxLength={3} aria-label={tb("currency")} placeholder="USD"
+        aria-invalid={!validCurrency || undefined}
+        onChange={(e) => commit(draft, e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} className="bg-muted uppercase" />
     </div>
   );
 }

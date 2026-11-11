@@ -18,6 +18,7 @@
  * (introduced in this PR) mount the exact same form components.
  */
 
+import { useId, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -31,23 +32,48 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { NODE_META, type BuilderNode } from "../shared";
 import { routableTargets } from "../nodes/ig-node-config";
+import { insertAtCursor, VariablePicker } from "./variable-picker";
 
 export function TextRow({
   label,
   value,
   onChange,
   rows = 1,
+  variables,
+  id: idProp,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
+  /** Stage 5: the field takes placeholders; the variable picker lists these steps' variables. */
+  variables?: { nodes: readonly BuilderNode[]; currentKey?: string };
+  id?: string;
 }) {
+  const autoId = useId();
+  const id = idProp ?? `text-${autoId}`;
+  const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  // Inserts at the cursor (the field keeps its selection while the picker is open).
+  const insert = (token: string) => {
+    const el = ref.current;
+    const next = insertAtCursor(value, el?.selectionStart, el?.selectionEnd, token);
+    onChange(next.value);
+    requestAnimationFrame(() => {
+      if (!ref.current) return;
+      ref.current.focus();
+      ref.current.setSelectionRange(next.caret, next.caret);
+    });
+  };
   return (
     <div>
-      <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <label htmlFor={id} className="block text-xs text-muted-foreground">{label}</label>
+        {variables && <VariablePicker id={`${id}-vars`} nodes={variables.nodes} currentKey={variables.currentKey} onInsert={insert} />}
+      </div>
       {rows > 1 ? (
         <Textarea
+          id={id}
+          ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={rows}
@@ -55,6 +81,8 @@ export function TextRow({
         />
       ) : (
         <Input
+          id={id}
+          ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="bg-muted"
