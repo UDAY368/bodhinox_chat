@@ -46,8 +46,9 @@ function channelPages(channel: Channel): NavPage[] {
       { href: channelPath('whatsapp', 'forms'), labelKey: 'forms', group: channel },
       { href: channelPath('whatsapp', 'ads'), labelKey: 'ads', group: channel },
     ];
-  // Stage 2 tools, then Stage 3's ref links, menu and insights.
+  // Stage 5's home first; then Stage 2 tools, then Stage 3's ref links, menu and insights.
   return [
+    { href: channelPath('instagram', 'home'), labelKey: 'home', group: channel },
     ...common,
     { href: channelPath('instagram', 'comments'), labelKey: 'comments', group: channel },
     { href: channelPath('instagram', 'conversationStarters'), labelKey: 'conversationStarters', group: channel },
@@ -120,6 +121,10 @@ export function filterPages(
  */
 const allPages: NavPage[] = [
   ...navigationPages(['whatsapp', 'instagram']).filter((page) => !page.href.includes('?')),
+  // Stage 5 Instagram pages reached from the automation area and the home page, not the sidebar.
+  { href: channelPath('instagram', 'basics'), labelKey: 'basics', group: 'instagram' },
+  { href: channelPath('instagram', 'sequences'), labelKey: 'sequences', group: 'instagram' },
+  { href: channelPath('instagram', 'subscription'), labelKey: 'subscription', group: 'instagram' },
   { href: '/flows', labelKey: 'flows', group: 'workspace' },
   { href: '/automations', labelKey: 'automations', group: 'workspace' },
 ];

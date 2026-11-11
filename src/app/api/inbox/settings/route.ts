@@ -4,8 +4,12 @@
 //   (defaults when never saved).
 // PUT /api/inbox/settings (admins and owners) — replaces them with the same shape;
 //   instagram_away_message_enabled is optional (absent keeps it; it needs the away text).
+//   Stage 5: agent_reply_pause_minutes (1-10080 or null = until resumed), auto_assign_mode
+//   (off | basic | rules) and agent_visibility (all | assigned_or_team) are optional too
+//   (absent keeps the stored value). CSRF/mutation origin is enforced by src/proxy.ts.
 //   200 { settings }; 400 { error, code } with code invalid_timezone | invalid_working_hours |
-//   invalid_away_message | invalid_auto_resolve | invalid_sla.
+//   invalid_away_message | invalid_auto_resolve | invalid_sla | invalid_pause |
+//   invalid_assignment | invalid_visibility.
 
 import { NextResponse } from 'next/server';
 

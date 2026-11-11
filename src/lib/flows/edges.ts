@@ -47,6 +47,16 @@ function cardPostbacks(node: BuilderNode): Array<{ replyId: string; title: strin
     }));
 }
 
+/** A randomizer's paths with a string id. Handles are `path:<id>` (Stage 5). */
+function randomizerPaths(node: BuilderNode): Array<{ id: string; weight: number; next: string | null }> {
+  const paths = Array.isArray(node.config.paths) ? (node.config.paths as Array<Record<string, unknown>>) : [];
+  return paths.filter((p) => p && typeof p.id === "string" && p.id).map((p) => ({
+    id: p.id as string,
+    weight: typeof p.weight === "number" ? p.weight : 0,
+    next: typeof p.next_node_key === "string" ? p.next_node_key : null,
+  }));
+}
+
 /** Rewrites each card's postback buttons; null when nothing changed. */
 function patchCards(node: BuilderNode, edit: (button: Record<string, unknown>) => Record<string, unknown> | null): Record<string, unknown> | null {
   let changed = false;
@@ -93,6 +103,14 @@ export function extraPorts(node: BuilderNode): Array<{ handle: string; field: st
   // An AI reply always offers its handoff outcome (low confidence, no answer, AI unavailable).
   if (node.node_type === "ai_reply") {
     ports.push({ handle: "handoff", field: "handoff_next", label: "Handoff" });
+  }
+  // An AI reply with goals (Stage 5) leaves through "Goals finished" once they are done.
+  if (node.node_type === "ai_reply" && Array.isArray(cfg.goals) && cfg.goals.length > 0) {
+    ports.push({ handle: "finish", field: "finish_next", label: "Goals finished" });
+  }
+  // A Google Sheets step always offers its failure outcome (Stage 5; an unwired one ends the run).
+  if (node.node_type === "google_sheets") {
+    ports.push({ handle: "failed", field: "failure_next", label: "Failed" });
   }
   // A template waits only when it has quick-reply buttons.
   const waits = (WAITING_TYPES.has(node.node_type) && (node.node_type !== "send_template" || (Array.isArray(cfg.buttons) && cfg.buttons.length > 0))) ||
@@ -163,7 +181,10 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
     case "send_storefront_link":
     case "set_attribute":
     case "ig_comment_reply":
-    case "ig_private_reply": {
+    case "ig_private_reply":
+    case "actions":
+    case "smart_delay":
+    case "google_sheets": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         if (next && knownKeys.has(next)) {
           edges.push({
@@ -310,6 +331,13 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         break;
       }
 
+      case "randomizer":
+        for (const path of randomizerPaths(node)) {
+          if (!path.next || !knownKeys.has(path.next)) continue;
+          edges.push({ id: `${node.node_key}--path:${path.id}--${path.next}`, source: node.node_key, target: path.next, sourceHandle: `path:${path.id}`, label: `${path.id} · ${path.weight}%` });
+        }
+        break;
+
       case "connect_flow":
     case "handoff":
       case "end":
@@ -369,6 +397,9 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "set_attribute":
     case "ig_comment_reply":
     case "ig_private_reply":
+    case "actions":
+    case "smart_delay":
+    case "google_sheets":
       return [{ id: "next", label: "Next" }];
 
     case "send_card":
@@ -438,6 +469,9 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
       return slots;
     }
 
+    case "randomizer":
+      return randomizerPaths(node).map((p) => ({ id: `path:${p.id}`, label: `${p.id} · ${p.weight}%` }));
+
     case "connect_flow":
     case "handoff":
     case "end":
@@ -481,6 +515,9 @@ export function applyEdgeConnection(
     case "set_attribute":
     case "ig_comment_reply":
     case "ig_private_reply":
+    case "actions":
+    case "smart_delay":
+    case "google_sheets":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
 
@@ -565,6 +602,14 @@ export function applyEdgeConnection(
       return matched ? { sections: next } : null;
     }
 
+    case "randomizer": {
+      if (!sourceHandle.startsWith("path:")) return null;
+      const id = sourceHandle.slice("path:".length);
+      const list = (Array.isArray(node.config.paths) ? node.config.paths : []) as Array<Record<string, unknown>>;
+      if (!list.some((p) => p.id === id)) return null;
+      return { paths: list.map((p) => (p.id === id ? { ...p, next_node_key: targetKey } : p)) };
+    }
+
     case "connect_flow":
     case "handoff":
     case "end":
@@ -589,7 +634,7 @@ export function unlinkNodeReferences(
   return nodes.map((n) => {
     const patched = patchedConfigWithoutKey(n, deletedKey);
     // Optional ports (skip / attempts used up / timeout) are cleared on any node type.
-    const ports = ["skip_next", "exhausted_next", "after_timeout", "expired_next", "failed_next", "handoff_next", "unavailable_next", "cancelled_next"].filter((field) => n.config[field] === deletedKey);
+    const ports = ["skip_next", "exhausted_next", "after_timeout", "expired_next", "failed_next", "handoff_next", "unavailable_next", "cancelled_next", "finish_next", "failure_next"].filter((field) => n.config[field] === deletedKey);
     if (!patched && !ports.length) return n;
     return { ...n, config: { ...(patched ?? n.config), ...Object.fromEntries(ports.map((field) => [field, ""])) } };
   });
@@ -618,7 +663,10 @@ function patchedConfigWithoutKey(
     case "send_storefront_link":
     case "set_attribute":
     case "ig_comment_reply":
-    case "ig_private_reply": {
+    case "ig_private_reply":
+    case "actions":
+    case "smart_delay":
+    case "google_sheets": {
       const next = (cfg as { next_node_key?: string }).next_node_key;
       if (next !== deletedKey) return null;
       return { ...cfg, next_node_key: "" };
@@ -700,6 +748,12 @@ function patchedConfigWithoutKey(
         };
       });
       return dirty ? { ...cfg, sections: next } : null;
+    }
+
+    case "randomizer": {
+      const list = (Array.isArray(cfg.paths) ? cfg.paths : []) as Array<Record<string, unknown>>;
+      if (!list.some((p) => p.next_node_key === deletedKey)) return null;
+      return { ...cfg, paths: list.map((p) => (p.next_node_key === deletedKey ? { ...p, next_node_key: "" } : p)) };
     }
 
     case "connect_flow":

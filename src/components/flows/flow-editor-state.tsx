@@ -297,6 +297,15 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { card: { title: "", subtitle: "", buttons: [] }, next_node_key: "" };
     case "send_gallery":
       return { cards: [{ title: "", subtitle: "", buttons: [] }], next_node_key: "" };
+    // Stage 5 steps (5A defaults; 5C's forms edit them).
+    case "actions":
+      return { actions: [], next_node_key: "" };
+    case "randomizer":
+      return { paths: [{ id: "A", weight: 50, next_node_key: "" }, { id: "B", weight: 50, next_node_key: "" }], sticky: false };
+    case "smart_delay":
+      return { mode: "duration", amount: 1, unit: "hours", next_node_key: "" };
+    case "google_sheets":
+      return { op: "insert_row", spreadsheet_id: "", sheet: "", columns: [], next_node_key: "", failure_next: "" };
     case "handoff":
       return { note: "" };
     case "end":

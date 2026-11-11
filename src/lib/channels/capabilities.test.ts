@@ -117,18 +117,45 @@ describe('channel capabilities', () => {
   });
 
   it('limits Instagram automations to message, contact and conversation triggers', () => {
-    expect([...automationTriggersFor('instagram')].sort()).toEqual(['conversation_assigned', 'first_inbound_message', 'interactive_reply',
-      'keyword_match', 'new_contact_created', 'new_message_received', 'tag_added']);
+    expect([...automationTriggersFor('instagram')].sort()).toEqual(['conversation_assigned', 'field_changed', 'first_inbound_message',
+      'interactive_reply', 'keyword_match', 'new_contact_created', 'new_message_received', 'tag_added', 'tag_removed']);
     for (const trigger of ['time_based', 'ad_click', 'appointment_booked', 'appointment_cancelled', 'appointment_rescheduled',
       'appointment_completed', 'appointment_no_show'] as const) {
       expect(automationTriggerAvailableOn(trigger, 'instagram')).toBe(false);
       expect(automationTriggerAvailableOn(trigger, 'whatsapp')).toBe(true);
     }
-    expect(automationTriggersFor('whatsapp')).toHaveLength(14);
+    expect(automationTriggersFor('whatsapp')).toHaveLength(16);
+  });
+
+  it('Stage 5: offers the contact-event triggers on both channels and Instagram schedules only behind their flag', () => {
+    for (const trigger of ['tag_removed', 'field_changed'] as const)
+      for (const channel of CHANNELS) expect(automationTriggerAvailableOn(trigger, channel), `${trigger} ${channel}`).toBe(true);
+    // time_based on Instagram: off by default (INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED), on when the caller says the flag is on.
+    expect(automationTriggerAvailableOn('time_based', 'instagram')).toBe(false);
+    expect(automationTriggerAvailableOn('time_based', 'instagram', { instagramScheduled: true })).toBe(true);
+    expect(automationTriggersFor('instagram', { instagramScheduled: true })).toContain('time_based');
+    // Appointment triggers stay WhatsApp-only whatever the flag.
+    expect(automationTriggerAvailableOn('appointment_booked', 'instagram', { instagramScheduled: true })).toBe(false);
+    // WhatsApp is unchanged by the flag.
+    expect(automationTriggersFor('whatsapp', { instagramScheduled: true })).toEqual(automationTriggersFor('whatsapp'));
+    for (const channel of CHANNELS) expect(automationStepAvailableOn('start_flow', channel)).toBe(true);
+  });
+
+  it('Stage 5: runs the four new steps on both channels, Google Sheets behind the sheets capability', () => {
+    for (const node of ['actions', 'randomizer', 'smart_delay', 'google_sheets'] as const) {
+      expect(WHATSAPP_NODE_SUPPORT[node], node).toBe('yes');
+      expect(INSTAGRAM_NODE_SUPPORT[node], node).toBe('yes');
+      for (const channel of CHANNELS) {
+        expect(nodeAvailableOn(node, channel)).toEqual({ ok: true });
+        expect(flowNodesFor(channel)).toContain(node);
+      }
+    }
+    expect(NODE_REGISTRY.google_sheets).toEqual({ category: 'logic', capability: 'sheets' });
+    for (const node of ['actions', 'randomizer', 'smart_delay'] as const) expect(NODE_REGISTRY[node]).toEqual({ category: 'logic' });
   });
 
   it('keeps templates and list messages out of Instagram automation steps', () => {
-    expect(automationStepsFor('whatsapp')).toHaveLength(14);
+    expect(automationStepsFor('whatsapp')).toHaveLength(15);
     expect(automationStepAvailableOn('send_template', 'instagram')).toBe(false);
     expect(automationStepAvailableOn('send_list', 'instagram')).toBe(false);
     for (const step of ['send_message', 'send_buttons', 'add_tag', 'remove_tag', 'assign_conversation', 'update_contact_field',
@@ -136,7 +163,7 @@ describe('channel capabilities', () => {
       expect(automationStepAvailableOn(step, 'instagram')).toBe(true);
       expect(automationStepAvailableOn(step, 'whatsapp')).toBe(true);
     }
-    expect(automationStepsFor('instagram')).toHaveLength(12);
+    expect(automationStepsFor('instagram')).toHaveLength(13);
   });
 
   it('recognises only known channels', () => {

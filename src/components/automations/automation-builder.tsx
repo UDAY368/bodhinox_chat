@@ -169,6 +169,12 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     icon: Webhook,
     border: 'border-l-primary',
   },
+  // Stage 5 (5D adds it to ADDABLE_STEPS with its editor).
+  start_flow: {
+    label: 'start_flow',
+    icon: Zap,
+    border: 'border-l-primary',
+  },
   close_conversation: {
     label: 'close_conversation',
     icon: CircleSlash,

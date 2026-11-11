@@ -32,6 +32,12 @@ describe('channel routes', () => {
     expect(channelPath('instagram', 'conversationStarters')).toBe('/instagram/conversation-starters');
     expect(channelPath('instagram', 'defaultReply')).toBe('/instagram/default-reply');
     expect(channelPath('instagram', 'quickAutomations')).toBe('/instagram/quick-automations');
+    // Stage 5
+    expect(channelPath('instagram', 'home')).toBe('/instagram/home');
+    expect(channelPath('instagram', 'subscription')).toBe('/instagram/subscription');
+    expect(channelPath('instagram', 'basics')).toBe('/instagram/basics');
+    expect(channelPath('instagram', 'sequences')).toBe('/instagram/sequences');
+    expect(() => (channelPath as (c: string, s: string) => string)('whatsapp', 'home')).toThrow();
     // A tool asked for on the wrong channel is a programming error, not a broken link.
     expect(() => (channelPath as (c: string, s: string) => string)('instagram', 'broadcasts')).toThrow();
     expect(() => (channelPath as (c: string, s: string) => string)('whatsapp', 'comments')).toThrow();

@@ -92,10 +92,10 @@ function CardFields({ id, card, used, allNodes, currentKey, onChange, t }: {
                 onChange={(e) => setButton(i, { ...b, title: e.target.value })} />
               {b.type === "web_url" ? (
                 <div><UrlInput id={`${id}-button-${i}-url`} value={b.url} onChange={(url) => setButton(i, { ...b, url })} /></div>
-              ) : (
+              ) : b.type === "postback" ? (
                 <NodeKeySelect value={b.next_node_key || null} nodes={allNodes} excludeKey={currentKey}
                   onChange={(v) => setButton(i, { ...b, next_node_key: v ?? "" })} placeholder={t("nextNodePlaceholder")} />
-              )}
+              ) : null}
               <Button type="button" variant="ghost" size="sm" aria-label={t("removeButton")}
                 onClick={() => set({ buttons: buttons.filter((_, j) => j !== i) })}
                 className="text-red-400 hover:bg-red-500/10 hover:text-red-300">

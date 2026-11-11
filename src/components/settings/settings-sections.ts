@@ -21,6 +21,7 @@ import {
   AtSign,
   LockKeyhole,
   Layers,
+  Target,
 } from 'lucide-react';
 import type { Channel } from '@/types';
 
@@ -47,6 +48,8 @@ export const SETTINGS_SECTIONS = [
   'templates',
   'quick-replies',
   'fields',
+  // Stage 5: named conversion events for flows (5F builds the panel).
+  'conversion-events',
   'deals',
   'members',
   'payments',
@@ -128,6 +131,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: Tags,
     group: 'workspace',
   },
+  'conversion-events': { id: 'conversion-events', label: 'Conversion events', icon: Target, group: 'workspace' },
   deals: {
     id: 'deals',
     label: 'Deals & currency',

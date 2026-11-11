@@ -16,6 +16,7 @@ export const CAPABILITY_SETUP_HREF: Record<NodeCapability, string> = {
   commerce: '/commerce',
   meetings: '/settings?tab=connections',
   shipping: '/settings?tab=connections',
+  sheets: '/settings?tab=connections',
 }
 
 /**

@@ -571,6 +571,14 @@ export function validateWrite(
     // pipeline that created it; every send route derives the channel from the row.
     if (browser && name === 'conversations' && ['channel', 'instagram_account_id'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
+    // Stage 5: a timed pause (until, by whom) is set only through the pause
+    // route and the flow engine (src/lib/inbox/automation-pause.ts), and the
+    // Instagram subscription only through the consent paths
+    // (src/lib/contacts/channel-consent.ts), which keep their audit and rules.
+    if (browser && name === 'conversations' && ['bot_paused_until', 'bot_paused_by'].includes(field))
+      throw new ContractError(`Field ${field} is server-managed`);
+    if (browser && name === 'contacts' && ['instagram_opted_out_at', 'instagram_opted_in_at'].includes(field))
+      throw new ContractError(`Field ${field} is server-managed`);
     // An automation's channel is chosen once by the automation routes (its section)
     // and never changes; the engine matches it against the conversation's channel.
     if (browser && name === 'automations' && field === 'channel')

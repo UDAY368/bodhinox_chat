@@ -101,7 +101,11 @@
     "upgrade": "Mejorar plan",
     "refLinks": "Enlaces ref",
     "menu": "Menú",
-    "insights": "Estadísticas"
+    "insights": "Estadísticas",
+    "home": "Inicio",
+    "basics": "Básicos",
+    "sequences": "Secuencias",
+    "subscription": "Suscripción"
   },
   "Header": {
     "dashboard": "Panel",
@@ -137,7 +141,11 @@
     "quickAutomations": "Automatizaciones rápidas",
     "refLinks": "Enlaces ref",
     "menu": "Menú",
-    "insights": "Estadísticas"
+    "insights": "Estadísticas",
+    "home": "Inicio",
+    "basics": "Básicos",
+    "sequences": "Secuencias",
+    "subscription": "Suscripción"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -344,6 +352,17 @@
         "allowMessages": "Activa \"Permitir acceso a los mensajes\" en Instagram",
         "firstCommentAutomation": "Crea tu primera automatización de comentarios"
       }
+    },
+    "nextMoves": {
+      "title": "Próximos pasos",
+      "progress": "{done} de {total} hechos",
+      "conversationStarters": "Añadir iniciadores de conversación",
+      "menu": "Configurar el menú del chat",
+      "defaultReply": "Activar una respuesta predeterminada",
+      "refLink": "Crear un enlace ref",
+      "aiComments": "Responder comentarios con IA",
+      "leadCapture": "Captar contactos con una automatización",
+      "open": "Abrir"
     }
   },
   "Inbox": {
@@ -812,6 +831,48 @@
         "failed": "No se pudo programar la respuesta. Inténtalo de nuevo.",
         "forbidden": "Tu rol no puede programar respuestas."
       }
+    },
+    "pause": {
+      "pause": "Pausar automatizaciones",
+      "resume": "Reanudar",
+      "pausedBy": "Pausado por {name}",
+      "pausedByAutomation": "Pausado por una automatización",
+      "until": "hasta {time}",
+      "untilResumed": "hasta reanudar",
+      "choices": {
+        "30": "30 minutos",
+        "60": "1 hora",
+        "180": "3 horas",
+        "360": "6 horas",
+        "720": "12 horas",
+        "1440": "1 día",
+        "forever": "Hasta que lo reanude"
+      },
+      "allConversations": "Todas las conversaciones de este contacto",
+      "failed": "No se pudo cambiar la pausa. Inténtalo de nuevo."
+    },
+    "labels": {
+      "title": "Etiquetas",
+      "add": "Añadir etiqueta",
+      "manage": "Gestionar etiquetas",
+      "name": "Nombre de la etiqueta",
+      "color": "Color",
+      "remove": "Quitar etiqueta",
+      "limit": "Hasta 20 etiquetas por espacio de trabajo.",
+      "nameTaken": "Ya existe una etiqueta con este nombre.",
+      "empty": "Aún no hay etiquetas."
+    },
+    "favourites": {
+      "add": "Añadir a favoritos",
+      "remove": "Quitar de favoritos"
+    },
+    "folders": {
+      "all": "Todas",
+      "mine": "Mías",
+      "unassigned": "Sin asignar",
+      "favourites": "Favoritas",
+      "reminders": "Recordatorios",
+      "labels": "Etiquetas"
     }
   },
   "Contacts": {
@@ -1221,6 +1282,44 @@
       "typeToSearch": "Escribe al menos 2 caracteres",
       "noMatches": "No hay contactos que coincidan",
       "unnamed": "Contacto sin nombre"
+    },
+    "channelStatus": {
+      "instagram": "Instagram",
+      "subscribed": "Suscrito",
+      "unsubscribed": "Sin suscripción",
+      "none": "—"
+    },
+    "filters": {
+      "channel": "Canal",
+      "hasWhatsApp": "Tiene WhatsApp",
+      "hasInstagram": "Tiene Instagram",
+      "subscribedOnly": "Solo suscritos",
+      "matchAll": "Cumplir todas las condiciones",
+      "matchAny": "Cumplir alguna condición"
+    },
+    "bulk": {
+      "removeTag": "Quitar etiqueta",
+      "unsubscribeInstagram": "Cancelar suscripción en Instagram",
+      "pauseAutomations": "Pausar automatizaciones",
+      "setField": "Definir un campo personalizado",
+      "confirm": "¿Aplicar a {count, plural, =1 {# contacto} other {# contactos}}?",
+      "queued": "En proceso. Puede tardar unos minutos."
+    },
+    "instagramFacts": {
+      "title": "Instagram",
+      "username": "Usuario",
+      "followsYou": "Te sigue",
+      "youFollow": "Lo sigues",
+      "verified": "Verificado",
+      "followers": "Seguidores",
+      "subscription": "Suscripción",
+      "lastInteraction": "Última interacción",
+      "window": "Ventana de mensajes",
+      "windowOpen": "Abierta hasta {time}",
+      "windowClosed": "Cerrada",
+      "yes": "Sí",
+      "no": "No",
+      "unknown": "Aún no se sabe"
     }
   },
   "Pipelines": {
@@ -1766,7 +1865,8 @@
         "condition": "Condición (Si/Si no)",
         "send_webhook": "Enviar webhook",
         "close_conversation": "Cerrar conversación",
-        "notify_team": "Avisar al equipo"
+        "notify_team": "Avisar al equipo",
+        "start_flow": "Iniciar un flujo"
       },
       "triggers": {
         "new_message_received": {
@@ -1824,6 +1924,14 @@
         "appointment_no_show": {
           "label": "Cita no presentada",
           "hint": "El equipo marca que el cliente no se presentó"
+        },
+        "tag_removed": {
+          "label": "Etiqueta quitada",
+          "hint": "Cuando se quita una etiqueta a un contacto"
+        },
+        "field_changed": {
+          "label": "Campo cambiado",
+          "hint": "Cuando cambia un campo del contacto"
         }
       },
       "trigger": "Disparador",
@@ -1988,6 +2096,32 @@
       "instagramWindowHint": "Las automatizaciones de Instagram solo pueden responder en las 24 horas posteriores al último mensaje del cliente.",
       "unavailableOnChannel": "Esto no está disponible en {channel}.",
       "invalidChannel": "Elige WhatsApp o Instagram."
+    },
+    "triggers": {
+      "tagRemoved": {
+        "label": "Etiqueta quitada",
+        "tag": "Etiqueta",
+        "help": "Se ejecuta una vez cada vez que se quita esta etiqueta a un contacto."
+      },
+      "fieldChanged": {
+        "label": "Campo cambiado",
+        "field": "Campo",
+        "help": "Se ejecuta una vez cada vez que este campo recibe un valor nuevo, se define o se borra."
+      }
+    },
+    "steps": {
+      "startFlow": {
+        "label": "Iniciar un flujo",
+        "flow": "Flujo",
+        "help": "Inicia un flujo activo de este canal para el contacto.",
+        "none": "Elige un flujo"
+      }
+    },
+    "hub": {
+      "myAutomations": "Mis automatizaciones",
+      "basics": "Básicos",
+      "sequences": "Secuencias",
+      "templates": "Plantillas"
     }
   },
   "Flows": {
@@ -2522,6 +2656,22 @@
         "send_gallery": {
           "label": "Enviar galería",
           "blurb": "Envía hasta 10 tarjetas que se pueden deslizar"
+        },
+        "actions": {
+          "label": "Acciones",
+          "blurb": "Etiquetas, campos, suscripciones y otros cambios, sin enviar un mensaje"
+        },
+        "randomizer": {
+          "label": "Aleatorizador",
+          "blurb": "Reparte los contactos entre caminos por porcentaje, para pruebas A/B"
+        },
+        "smart_delay": {
+          "label": "Espera inteligente",
+          "blurb": "Espera un tiempo, una fecha o tu horario de envío y luego continúa"
+        },
+        "google_sheets": {
+          "label": "Google Sheets",
+          "blurb": "Añade, busca o actualiza una fila en una hoja de cálculo"
         }
       },
       "ports": {
@@ -2734,7 +2884,21 @@
       "storefrontShop": "Enlace de la tienda",
       "storefrontStatus": "Enlace al estado del pedido",
       "commentReplies": "{count, plural, one {# respuesta} other {# respuestas}}, rotativas",
-      "cards": "{count, plural, one {# tarjeta} other {# tarjetas}}"
+      "cards": "{count, plural, one {# tarjeta} other {# tarjetas}}",
+      "actionsNone": "Aún no hay acciones",
+      "actionsCount": "{count, plural, =1 {# acción} other {# acciones}}",
+      "randomizerSticky": "{split} · mismo camino para cada contacto",
+      "delayUntil": "Hasta {date}",
+      "delayUntilField": "Hasta una fecha de un campo del contacto",
+      "delayField": "Espera un número de un campo del contacto",
+      "delayFor": "Esperar {amount} {unit}",
+      "unit_seconds": "segundos",
+      "unit_minutes": "minutos",
+      "unit_hours": "horas",
+      "unit_days": "días",
+      "sheets_insert_row": "Añadir una fila",
+      "sheets_get_row": "Buscar una fila",
+      "sheets_update_row": "Actualizar una fila"
     },
     "header": {
       "backToFlows": "Volver a flujos",
@@ -3024,6 +3188,23 @@
         "copyFailed": "No se pudo copiar el enlace. Selecciónalo y cópialo.",
         "chooseAccountForLinks": "Elige una cuenta de Instagram con nombre de usuario para ver sus enlaces.",
         "badAccount": "Elige una cuenta de Instagram conectada."
+      },
+      "replyDelay": {
+        "label": "Esperar antes de responder",
+        "help": "Responde un poco más tarde para que parezca menos inmediato. Hasta 10 minutos.",
+        "none": "Responder de inmediato",
+        "seconds": "segundos",
+        "minutes": "minutos",
+        "invalid": "Elige una espera de hasta 10 minutos."
+      },
+      "intent": {
+        "mode": "Coincidir por significado",
+        "modeKeywords": "Coincidir por palabras",
+        "label": "Si el mensaje trata de",
+        "placeholder": "Por ejemplo: la persona quiere saber el precio",
+        "help": "La IA comprueba si cada mensaje significa esto, después de tus otros disparadores. Usa tu cupo de IA.",
+        "needsAi": "Activa la IA en este espacio de trabajo para coincidir por significado.",
+        "tooLong": "Usa hasta 300 caracteres."
       }
     },
     "nodes": {
@@ -3097,7 +3278,281 @@
       "igProfile": {
         "onlyInstagram": "Las comprobaciones del perfil de Instagram solo funcionan en flujos de Instagram.",
         "badFact": "Elige un dato del perfil de Instagram para comprobar."
+      },
+      "actions": {
+        "title": "Realizar estas acciones",
+        "add": "Acción",
+        "empty": "Añade al menos una acción.",
+        "limit": "Hasta {max} acciones en un paso.",
+        "moveUp": "Subir",
+        "moveDown": "Bajar",
+        "remove": "Quitar acción",
+        "pickerTitle": "Elige una acción",
+        "groups": {
+          "contact": "Datos del contacto",
+          "automation": "Automatización",
+          "inbox": "Bandeja de entrada",
+          "ads": "Anuncios"
+        },
+        "types": {
+          "add_tag": "Añadir etiqueta",
+          "remove_tag": "Quitar etiqueta",
+          "set_field": "Definir campo del contacto",
+          "set_workspace_field": "Definir campo del espacio de trabajo",
+          "set_channel_consent": "Suscribir o cancelar suscripción en Instagram",
+          "subscribe_sequence": "Suscribir a una secuencia",
+          "unsubscribe_sequence": "Cancelar suscripción a una secuencia",
+          "start_flow": "Iniciar otra automatización",
+          "stop_flow": "Detener otra automatización",
+          "pause_automations": "Pausar automatizaciones",
+          "resume_automations": "Reanudar automatizaciones",
+          "log_conversion": "Registrar evento de conversión",
+          "set_conversation_status": "Marcar conversación abierta o cerrada",
+          "notify_team": "Avisar al equipo"
+        },
+        "increment": "Sumar al número",
+        "set": "Definir como",
+        "opened": "Abierta",
+        "closed": "Cerrada",
+        "optIn": "Suscribir",
+        "optOut": "Cancelar suscripción",
+        "assignee": "El agente asignado",
+        "admins": "Administradores",
+        "note": "Nota para el equipo",
+        "selfFlow": "Una automatización no puede iniciarse ni detenerse a sí misma."
+      },
+      "randomizer": {
+        "title": "Repartir el tráfico",
+        "sticky": "Mismo camino para el mismo contacto",
+        "stickyHelp": "Desactivado: cada ejecución elige un camino al azar.",
+        "addPath": "Nueva variante",
+        "path": "Camino {id}",
+        "weight": "Porcentaje de contactos",
+        "total": "Asignado: {total}%",
+        "totalInvalid": "Los porcentajes deben sumar 100%.",
+        "limit": "Usa entre 2 y 6 caminos."
+      },
+      "smartDelay": {
+        "title": "Esperar",
+        "duration": "Duración",
+        "untilDate": "Fecha",
+        "waitFor": "Esperar",
+        "fromField": "Usar un número de un campo del contacto",
+        "specificDate": "Fecha concreta",
+        "dynamicDate": "Fecha de un campo del contacto",
+        "offset": "Más o menos (minutos)",
+        "pastDate": "Si la fecha ya pasó, la automatización se detiene aquí.",
+        "sendWindow": "Continuar solo en este horario",
+        "from": "Desde",
+        "to": "Hasta",
+        "weekdays": "Días",
+        "timezone": "Zona horaria",
+        "max": "Espera como máximo 365 días.",
+        "instagramWarning": "Instagram solo permite mensajes automáticos dentro de las 24 horas posteriores al último mensaje de la persona. Una espera más larga suele terminar con la ventana cerrada y entonces el mensaje no se envía."
+      },
+      "googleSheets": {
+        "title": "Google Sheets",
+        "op_insert_row": "Añadir una fila",
+        "op_get_row": "Buscar una fila",
+        "op_update_row": "Actualizar una fila",
+        "spreadsheet": "Hoja de cálculo",
+        "sheet": "Pestaña",
+        "matchColumn": "Buscar la fila donde la columna",
+        "matchValue": "es igual a",
+        "columns": "Columnas",
+        "addColumn": "Añadir columna",
+        "varMap": "Guardar columnas en variables",
+        "failure": "Si falla",
+        "notConnected": "Conecta Google Sheets en Configuración para usar este paso.",
+        "outcomeNote": "Si Google no confirma el cambio, el paso toma su camino de fallo y no se reintenta."
       }
+    },
+    "history": {
+      "undo": "Deshacer",
+      "redo": "Rehacer",
+      "undoShortcut": "Deshacer (Ctrl+Z)",
+      "redoShortcut": "Rehacer (Ctrl+Mayús+Z)",
+      "nothingToUndo": "Nada que deshacer",
+      "nothingToRedo": "Nada que rehacer"
+    },
+    "autosave": {
+      "saving": "Guardando…",
+      "saved": "Guardado",
+      "notSaved": "Sin guardar",
+      "notSavedReason": "Sin guardar: {reason}",
+      "saveNow": "Guardar ahora",
+      "offline": "no tienes conexión",
+      "failed": "el último guardado falló",
+      "conflictTitle": "Este borrador cambió en otro lugar",
+      "conflictBody": "Alguien guardó una versión más reciente de este borrador. Recarga para verla o sobrescríbela con tus cambios.",
+      "reload": "Recargar",
+      "overwrite": "Sobrescribir",
+      "leaveWarning": "Tus últimos cambios aún se están guardando. ¿Salir de todos modos?"
+    },
+    "multiTrigger": {
+      "when": "Cuando…",
+      "then": "Entonces",
+      "addTrigger": "Nuevo disparador",
+      "removeTrigger": "Quitar disparador",
+      "primary": "Primer disparador",
+      "limitReached": "Un flujo puede tener hasta {max} disparadores.",
+      "onlyInstagram": "Solo los flujos de Instagram pueden tener más de un disparador.",
+      "notCombinable": "Este disparador funciona solo y no se puede combinar con otros.",
+      "pickerTitle": "Iniciar esta automatización cuando…",
+      "search": "Buscar disparadores"
+    },
+    "conditions": {
+      "question": "¿El contacto cumple {match} estas condiciones?",
+      "all": "todas",
+      "any": "alguna de",
+      "add": "Condición",
+      "search": "Buscar campos",
+      "otherwise": "En otro caso",
+      "groups": {
+        "recommended": "Recomendados",
+        "general": "Filtros generales",
+        "system": "Campos del sistema"
+      },
+      "subjects": {
+        "tag": "Etiqueta",
+        "contact_field": "Campo del contacto",
+        "custom_field": "Campo personalizado",
+        "var": "Variable del flujo",
+        "time": "Hora actual",
+        "date": "Fecha actual",
+        "ig_profile": "Perfil de Instagram",
+        "system": "Campo del sistema",
+        "segment": "Segmento",
+        "link_click": "Clic en enlace",
+        "workspace_field": "Campo del espacio de trabajo",
+        "sequence": "Suscripción a secuencia"
+      },
+      "systemFacts": {
+        "ig_username": "Usuario de Instagram",
+        "last_interaction_at": "Última interacción",
+        "window_open_until": "Ventana de mensajes abierta hasta",
+        "subscribed": "Suscrito en este canal",
+        "contact_id": "ID del contacto"
+      },
+      "inSegment": "está en el segmento",
+      "notInSegment": "no está en el segmento",
+      "clicked": "hizo clic en un enlace de este paso",
+      "notClicked": "no hizo clic en un enlace de este paso",
+      "subscribed": "está suscrito",
+      "notSubscribed": "no está suscrito"
+    },
+    "variables": {
+      "insert": "Insertar una variable",
+      "search": "Buscar variables",
+      "contactFields": "Contacto",
+      "customFields": "Campos personalizados",
+      "workspaceFields": "Espacio de trabajo",
+      "flowVariables": "De pasos anteriores",
+      "fallback": "Si está vacío, usar",
+      "fallbackHelp": "Se muestra cuando falta el valor.",
+      "empty": "Aún no hay variables."
+    },
+    "saveTo": {
+      "label": "Guardar respuesta en",
+      "none": "No guardar",
+      "contactField": "Campo del contacto",
+      "customField": "Campo personalizado",
+      "conflictNote": "Si otro contacto ya tiene este teléfono o correo, la respuesta se guarda solo en el flujo."
+    },
+    "testUsernames": {
+      "label": "Usuarios de prueba",
+      "help": "Mientras el flujo es un borrador, solo se ejecuta para estas cuentas de Instagram (hasta 3).",
+      "placeholder": "usuario",
+      "invalid": "Usa el usuario sin @: letras, números, puntos y guiones bajos.",
+      "limit": "Hasta 3 usuarios de prueba."
+    },
+    "nodeStats": {
+      "waiting": "Esperando",
+      "passed": "Pasaron",
+      "loading": "Cargando cifras…"
+    },
+    "aiGoals": {
+      "title": "Objetivos",
+      "add": "Añadir objetivo",
+      "limit": "Hasta 3 objetivos, en orden.",
+      "types": {
+        "share_link": "Compartir un enlace",
+        "grow_followers": "Ganar seguidores",
+        "capture_lead": "Captar un contacto"
+      },
+      "url": "Enlace para compartir",
+      "fields": "Datos que recopilar",
+      "onRefusal": "Si la persona no quiere",
+      "refusalHandoff": "Pasar a una persona",
+      "refusalContinue": "Continuar el flujo",
+      "finish": "Cuando se cumplan los objetivos",
+      "goalText": "Dile a la IA qué hacer",
+      "goalPlaceholder": "Por ejemplo: ayudar a elegir el plan adecuado y conseguir su correo",
+      "generate": "Crear tareas",
+      "tasks": "Tareas",
+      "addTask": "Nueva tarea",
+      "context": "Dale contexto a la IA",
+      "saveReply": "Guardar la respuesta como",
+      "preview": "Probar",
+      "previewEmpty": "Corrige los errores del paso para probarlo."
+    },
+    "buyButton": {
+      "label": "Botón de compra",
+      "amount": "Importe",
+      "currency": "Moneda",
+      "help": "Abre una página de pago por este importe. El pago se hace en la web, no en el chat.",
+      "needsPayments": "Conecta un proveedor de pagos para añadir un botón de compra."
+    },
+    "folders": {
+      "all": "Todas las automatizaciones",
+      "new": "Nueva carpeta",
+      "rename": "Renombrar carpeta",
+      "delete": "Eliminar carpeta",
+      "deleteConfirm": "¿Eliminar la carpeta \"{name}\"? Sus automatizaciones pasan al nivel superior.",
+      "moveTo": "Mover a carpeta",
+      "noFolder": "Sin carpeta",
+      "name": "Nombre de la carpeta",
+      "nameInvalid": "Usa entre 1 y 60 caracteres.",
+      "nameTaken": "Ya existe una carpeta con este nombre."
+    },
+    "listRow": {
+      "runs": "Ejecuciones",
+      "ctr": "CTR",
+      "noCtr": "—",
+      "ctrHelp": "Porcentaje de ejecuciones con al menos un clic, sobre las ejecuciones que recibieron un enlace con seguimiento.",
+      "modified": "Editado {time}",
+      "status": {
+        "draft": "Borrador",
+        "live": "Activa",
+        "stopped": "Detenida",
+        "archived": "Archivada"
+      },
+      "noTrigger": "Aún sin disparador"
+    },
+    "canvas": {
+      "addStep": "Añadir paso",
+      "addNote": "Nota",
+      "noteNew": "Escribe una nota",
+      "arrange": "Ordenar pasos",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar",
+      "fit": "Ajustar a la pantalla",
+      "simpleBuilder": "Editor simple",
+      "canvasBuilder": "Lienzo",
+      "setLive": "Activar",
+      "preview": "Vista previa",
+      "more": "Más acciones",
+      "tapToEdit": "Selecciona un paso para editarlo",
+      "groups": {
+        "start": "Paso inicial",
+        "content": "Contenido",
+        "ai": "IA",
+        "logic": "Lógica",
+        "extras": "Extras"
+      },
+      "sendMode": "Enviar",
+      "sendInWindow": "Dentro de la ventana de mensajes",
+      "sendPrivateReply": "Como respuesta privada"
     }
   },
   "Settings": {
@@ -3588,7 +4043,8 @@
       "ads": "Anuncios",
       "connections": "Reuniones y envíos",
       "instagram": "Instagram",
-      "privacy": "Privacidad y acceso"
+      "privacy": "Privacidad y acceso",
+      "conversion-events": "Eventos de conversión"
     },
     "groups": {
       "account": "Cuenta",
@@ -4907,6 +5363,21 @@
         "accept": "Aceptar",
         "later": "Más tarde"
       }
+    },
+    "conversionEvents": {
+      "title": "Eventos de conversión",
+      "description": "Nombra los resultados que te importan, como una llamada reservada o un registro, y cuéntalos desde tus flujos.",
+      "add": "Añadir evento",
+      "name": "Nombre del evento",
+      "namePlaceholder": "Por ejemplo: Reservó una llamada",
+      "nameInvalid": "Usa entre 1 y 60 caracteres.",
+      "nameTaken": "Ya existe un evento con este nombre.",
+      "archive": "Archivar",
+      "restore": "Restaurar",
+      "archived": "Archivado",
+      "empty": "Aún no hay eventos. Añade uno y regístralo desde un paso de Acciones en un flujo.",
+      "readOnly": "Solo los administradores pueden cambiar los eventos de conversión.",
+      "count": "{count, plural, =1 {# vez} other {# veces}}"
     }
   },
   "SignupPage": {
@@ -5826,6 +6297,37 @@
       "payDescription": "Visita de quiropráctica",
       "consent": "Gracias. Antes de tu visita, comparte solo el mínimo de información de salud que necesitamos, como dónde te duele y desde cuándo. Nuestro equipo se encargará a partir de aquí.",
       "handoffNote": "Visita de quiropráctica: reserva terminada; haz seguimiento con el paciente."
+    },
+    "instagram5": {
+      "galleryTitle": "Más automatizaciones de Instagram",
+      "byGoal": "Por objetivo",
+      "byTrigger": "Por disparador",
+      "recommended": "Recomendadas",
+      "goals": {
+        "grow_followers": "Ganar seguidores",
+        "engage_audience": "Interactuar con tu audiencia",
+        "drive_traffic": "Generar tráfico"
+      },
+      "triggers": {
+        "post_comment": "Comentario en publicación o reel",
+        "dm": "Mensaje directo",
+        "story_reply": "Respuesta a historia",
+        "live_comment": "Comentario en directo"
+      },
+      "kinds": {
+        "quick": "Rápida",
+        "flow": "Flujo"
+      },
+      "levels": {
+        "beginner": "Principiante",
+        "advanced": "Avanzado"
+      },
+      "usesAi": "Usa IA",
+      "needsPayments": "Requiere pagos",
+      "businessValue": "Por qué ayuda",
+      "howItWorks": "Cómo funciona",
+      "install": "Usar plantilla",
+      "noTrigger": "Añade un disparador después de instalarla"
     }
   },
   "LibErrors": {
@@ -6084,7 +6586,8 @@
       "storefrontInvalidPurpose": "Elige si el enlace abre la tienda o el último pedido del contacto.",
       "storefrontNeedsNext": "Conecta el paso que sigue cuando se envía el enlace.",
       "capabilityUnavailable": "El paso \"{key}\" necesita {capability}, que este espacio de trabajo aún no ha configurado.",
-      "crossFlowLoop": "Los pasos Conectar flujo forman un bucle sin respuesta del cliente: {flows}."
+      "crossFlowLoop": "Los pasos Conectar flujo forman un bucle sin respuesta del cliente: {flows}.",
+      "stage5Pending": "Este paso o ajuste aún no está disponible. Quítalo para publicar el flujo."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",
@@ -6129,7 +6632,8 @@
       "webhookBodyInvalid": "El cuerpo del webhook debe ser JSON válido. Pon los marcadores dentro de cadenas entre comillas.",
       "webhookUrlNotAllowed": "La URL del webhook apunta a una dirección privada o reservada. Usa una dirección pública.",
       "oncePerContactInvalid": "Una vez por contacto debe estar activado o desactivado.",
-      "segmentUnavailable": "El segmento elegido no está disponible en este espacio de trabajo."
+      "segmentUnavailable": "El segmento elegido no está disponible en este espacio de trabajo.",
+      "stage5Pending": "Este disparador o paso aún no está disponible. Elige otro para activar la automatización."
     },
     "templates": {
       "nameRequired": "El nombre de la plantilla es obligatorio.",
@@ -6405,7 +6909,10 @@
       "invalid_working_hours": "Revisa el horario: cada franja debe empezar antes de terminar y las franjas de un día no deben solaparse.",
       "invalid_away_message": "Escribe un mensaje de ausencia de hasta 1024 caracteres o desactívalo.",
       "invalid_auto_resolve": "La resolución automática debe ser un número entero de horas entre 1 y 720.",
-      "invalid_sla": "El objetivo de primera respuesta debe ser un número entero de minutos entre 1 y 10080."
+      "invalid_sla": "El objetivo de primera respuesta debe ser un número entero de minutos entre 1 y 10080.",
+      "invalid_pause": "La pausa tras la respuesta de un agente debe ser un número entero de minutos entre 1 y 10080, o hasta reanudarla.",
+      "invalid_assignment": "Elige cómo se asignan las conversaciones nuevas: desactivado, de forma equitativa o según tus reglas.",
+      "invalid_visibility": "Elige qué conversaciones pueden ver los agentes."
     },
     "routingRules": {
       "invalid_name": "Ponle a la regla un nombre de hasta 120 caracteres.",
@@ -6956,6 +7463,15 @@
       "state_mismatch": "El inicio de sesión de Instagram caducó; intenta conectar de nuevo",
       "meta_error": "Instagram devolvió un error",
       "delivery_uncertain": "Entrega incierta; revisa Instagram antes de reenviar"
+    },
+    "v1": {
+      "instagram": {
+        "windowClosed": "La ventana de mensajes de Instagram de esta conversación está cerrada.",
+        "conversationNotFound": "Conversación no encontrada.",
+        "contactNotFound": "Contacto no encontrado.",
+        "flowNotActive": "El flujo no está activo.",
+        "idempotencyMismatch": "Esta Idempotency-Key ya se usó para otra solicitud."
+      }
     }
   },
   "PageSearch": {
@@ -6978,7 +7494,32 @@
     "readOnly": "Solo los administradores pueden cambiar este ajuste.",
     "saving": "Guardando…",
     "save": "Guardar objetivo",
-    "saved": "Objetivo guardado."
+    "saved": "Objetivo guardado.",
+    "pause": {
+      "title": "Automatizaciones tras la respuesta de un agente",
+      "description": "Cuando alguien de tu equipo responde, las respuestas automáticas se pausan para no hablar a la vez.",
+      "label": "Reanudar automatizaciones",
+      "never": "Solo cuando alguien las reanude",
+      "after": "Después de {duration}",
+      "save": "Guardar"
+    },
+    "assignment": {
+      "title": "Asignación automática",
+      "description": "Cómo se reparten las conversaciones nuevas en tu equipo.",
+      "off": "Desactivada: dejar sin asignar las conversaciones nuevas",
+      "basic": "Equitativa: repartir las conversaciones nuevas entre los agentes conectados",
+      "rules": "Por reglas: usar tus reglas de enrutamiento",
+      "capacity": "Máximo de conversaciones abiertas por agente",
+      "capacityHelp": "Un agente en este límite se omite. Déjalo vacío para no poner límite.",
+      "save": "Guardar"
+    },
+    "visibility": {
+      "title": "Qué pueden ver los agentes",
+      "description": "Los administradores y propietarios siempre ven todas las conversaciones.",
+      "all": "Todas las conversaciones",
+      "assignedOrTeam": "Solo las suyas, las de su equipo y las sin asignar",
+      "save": "Guardar"
+    }
   },
   "Plan": {
     "upgrade": "Mejorar",
@@ -9021,6 +9562,17 @@
         "delay_invalid": "El retraso debe estar entre 0 y 10080 minutos (7 días).",
         "variables_invalid": "Asigna cada variable a un campo del pedido."
       }
+    },
+    "googleSheets": {
+      "title": "Google Sheets",
+      "description": "Envía contactos y respuestas de tus automatizaciones a una hoja de cálculo.",
+      "connect": "Conectar Google",
+      "disconnect": "Desconectar",
+      "disconnectConfirm": "¿Desconectar Google Sheets? Los pasos que lo usan tomarán su camino de fallo.",
+      "connectedAs": "Conectado como {email}",
+      "notEnabled": "Google Sheets aún no está disponible en este servidor.",
+      "error": "La conexión necesita atención. Vuelve a conectar.",
+      "readOnly": "Solo los administradores pueden conectar Google Sheets."
     }
   },
   "InboxLifecycle": {
@@ -10848,7 +11400,14 @@
     "monthlyTokenCap": "Límite mensual de tokens de IA",
     "monthlyTokenCapHint": "Se aplica a resúmenes, respuestas sugeridas, evaluaciones e informes. Déjalo vacío para usar solo el límite de tu plan.",
     "staffReviewNote": "Nada de lo que escriben estas funciones se envía a un cliente hasta que un miembro del equipo lo revisa y pulsa Enviar.",
-    "autonomousNote": "La respuesta automática y el paso de respuesta con IA de los flujos envían sin revisión humana."
+    "autonomousNote": "La respuesta automática y el paso de respuesta con IA de los flujos envían sin revisión humana.",
+    "instagramGoals": {
+      "title": "Objetivos para las respuestas de Instagram",
+      "description": "Da a las respuestas de IA hasta 3 objetivos, en orden.",
+      "add": "Añadir objetivo",
+      "empty": "Sin objetivos: la IA solo responde preguntas.",
+      "save": "Guardar"
+    }
   },
   "AiFallback": {
     "deployment_off": "La IA está desactivada en esta implementación.",
@@ -12014,7 +12573,32 @@
       "openPost": "Abrir publicación",
       "empty": "No hay comentarios en este periodo.",
       "loadFailed": "No se pudieron cargar las estadísticas. Inténtalo de nuevo.",
-      "clicksNote": "Los clics solo cuentan los enlaces con seguimiento."
+      "clicksNote": "Los clics solo cuentan los enlaces con seguimiento.",
+      "contacts": {
+        "title": "Contactos",
+        "active": "Activos",
+        "inactive": "Inactivos",
+        "total": "Total",
+        "activeHelp": "Los contactos activos te enviaron al menos un mensaje de Instagram ese día.",
+        "empty": "No hay contactos en este periodo."
+      },
+      "revenue": {
+        "title": "Ingresos",
+        "earned": "Ingresado",
+        "sales": "Ventas",
+        "buyers": "Compradores",
+        "perBuyer": "Media por comprador",
+        "perContact": "Media por contacto",
+        "chart": "Ganancias",
+        "perFlow": "Ingresos por automatización",
+        "empty": "No hay enlaces de pago pagados desde automatizaciones en este periodo."
+      },
+      "conversions": {
+        "title": "Eventos de conversión",
+        "event": "Evento",
+        "count": "Cantidad",
+        "empty": "No se registraron eventos de conversión en este periodo."
+      }
     },
     "shareToStory": {
       "help": "Se inicia cuando alguien comparte una de tus publicaciones o reels en su historia. Cada persona puede iniciarlo siempre o una vez al día.",
@@ -12044,6 +12628,79 @@
         "alreadyConnected": "Esta cuenta de Instagram ya está conectada a otro espacio de trabajo.",
         "planLimit": "Tu plan no admite otra cuenta de Instagram."
       }
+    },
+    "home": {
+      "title": "Inicio de Instagram",
+      "description": "Tus automatizaciones, resultados y próximos pasos en un solo lugar.",
+      "startHere": "Empieza aquí",
+      "last7Days": "Tus últimos 7 días",
+      "topFlows": "Automatizaciones destacadas",
+      "topPosts": "Publicaciones destacadas",
+      "leads": "Contactos captados",
+      "topLeadFlow": "Mejor captadora de contactos",
+      "timeSaved": "Tiempo ahorrado",
+      "timeSavedNote": "Estimado en 30 segundos por mensaje automático.",
+      "defaults": "Opciones de la cuenta",
+      "on": "Activado",
+      "off": "Desactivado",
+      "open": "Abrir",
+      "empty": "Aún no hay actividad en los últimos 7 días."
+    },
+    "basics": {
+      "title": "Básicos",
+      "description": "Respuestas siempre activas para tu cuenta de Instagram.",
+      "setUp": "Configurar",
+      "edit": "Editar",
+      "defaultReply": "Respuesta predeterminada",
+      "defaultReplyBody": "Responde a cualquier mensaje que ninguna otra automatización atienda.",
+      "conversationStarters": "Iniciadores de conversación",
+      "conversationStartersBody": "Preguntas que la gente puede tocar al escribirte por primera vez.",
+      "storyMention": "Respuesta a menciones en historias",
+      "storyMentionBody": "Da las gracias cuando alguien te menciona en su historia.",
+      "mainMenu": "Menú principal",
+      "mainMenuBody": "Un menú en el chat con enlaces y respuestas rápidas.",
+      "keywords": "Palabras para suscribirse y cancelar",
+      "keywordsBody": "Palabras que la gente envía para iniciar o detener tus mensajes automáticos.",
+      "newFollowers": "Saludar a nuevos seguidores",
+      "newFollowersBody": "No disponible: Instagram no permite que las apps escriban automáticamente a nuevos seguidores."
+    },
+    "sequences": {
+      "title": "Secuencias",
+      "description": "Una serie de mensajes enviados con el tiempo a contactos suscritos.",
+      "new": "Nueva secuencia",
+      "name": "Nombre",
+      "subscribers": "Suscriptores",
+      "messages": "Mensajes",
+      "openRate": "Tasa de apertura",
+      "ctr": "CTR",
+      "empty": "Aún no hay secuencias.",
+      "addMessage": "Mensaje",
+      "createNew": "Crear nuevo",
+      "selectExisting": "Elegir existente",
+      "after": "Después de {amount} {unit}",
+      "immediately": "De inmediato",
+      "active": "Activo",
+      "sent": "Enviados",
+      "clicks": "Clics",
+      "openMessage": "Abrir mensaje",
+      "windowWarning": "Instagram solo permite mensajes automáticos dentro de las 24 horas posteriores al último mensaje de la persona. Un mensaje que toque más tarde se omite.",
+      "notPromotional": "Haz que el primer mensaje sea útil, no promocional."
+    },
+    "subscription": {
+      "title": "Suscribirse y cancelar",
+      "description": "Permite que la gente detenga o reanude tus mensajes automáticos de Instagram con una palabra. Tu equipo puede seguir respondiendo a mano.",
+      "optOutKeywords": "Palabras para cancelar",
+      "optInKeywords": "Palabras para suscribirse",
+      "builtIn": "Siempre incluidas: {words}",
+      "keywordsHelp": "Hasta 20 palabras o frases cortas, en cualquier idioma. El mensaje debe coincidir exactamente, sin importar mayúsculas.",
+      "optOutReply": "Confirmación al cancelar",
+      "optInReply": "Confirmación al suscribirse",
+      "optOutFlow": "Automatización tras cancelar",
+      "optInFlow": "Automatización tras suscribirse",
+      "noFlow": "Ninguna",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "invalid": "Revisa las palabras: de 1 a 50 caracteres cada una, hasta 20."
     }
   }
 }

@@ -101,7 +101,11 @@
     "upgrade": "Upgrade",
     "refLinks": "Ref links",
     "menu": "Menu",
-    "insights": "Insights"
+    "insights": "Insights",
+    "home": "Home",
+    "basics": "Basics",
+    "sequences": "Sequences",
+    "subscription": "Subscription"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -137,7 +141,11 @@
     "quickAutomations": "Quick automations",
     "refLinks": "Ref links",
     "menu": "Menu",
-    "insights": "Insights"
+    "insights": "Insights",
+    "home": "Home",
+    "basics": "Basics",
+    "sequences": "Sequences",
+    "subscription": "Subscription"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -344,6 +352,17 @@
         "allowMessages": "Turn on \"Allow access to messages\" in Instagram",
         "firstCommentAutomation": "Create your first comment automation"
       }
+    },
+    "nextMoves": {
+      "title": "Next moves",
+      "progress": "{done} of {total} done",
+      "conversationStarters": "Add conversation starters",
+      "menu": "Set up the chat menu",
+      "defaultReply": "Turn on a default reply",
+      "refLink": "Create a ref link",
+      "aiComments": "Reply to comments with AI",
+      "leadCapture": "Collect leads with an automation",
+      "open": "Open"
     }
   },
   "Inbox": {
@@ -812,6 +831,48 @@
         "failed": "Could not schedule the reply. Try again.",
         "forbidden": "Your role cannot schedule replies."
       }
+    },
+    "pause": {
+      "pause": "Pause automations",
+      "resume": "Resume",
+      "pausedBy": "Paused by {name}",
+      "pausedByAutomation": "Paused by an automation",
+      "until": "until {time}",
+      "untilResumed": "until resumed",
+      "choices": {
+        "30": "30 minutes",
+        "60": "1 hour",
+        "180": "3 hours",
+        "360": "6 hours",
+        "720": "12 hours",
+        "1440": "1 day",
+        "forever": "Until I resume"
+      },
+      "allConversations": "All of this contact's conversations",
+      "failed": "Could not change the pause. Try again."
+    },
+    "labels": {
+      "title": "Labels",
+      "add": "Add label",
+      "manage": "Manage labels",
+      "name": "Label name",
+      "color": "Colour",
+      "remove": "Remove label",
+      "limit": "Up to 20 labels per workspace.",
+      "nameTaken": "A label with this name already exists.",
+      "empty": "No labels yet."
+    },
+    "favourites": {
+      "add": "Add to favourites",
+      "remove": "Remove from favourites"
+    },
+    "folders": {
+      "all": "All",
+      "mine": "Mine",
+      "unassigned": "Unassigned",
+      "favourites": "Favourites",
+      "reminders": "Reminders",
+      "labels": "Labels"
     }
   },
   "Contacts": {
@@ -1221,6 +1282,44 @@
       "typeToSearch": "Type at least 2 characters",
       "noMatches": "No matching contacts",
       "unnamed": "Unnamed contact"
+    },
+    "channelStatus": {
+      "instagram": "Instagram",
+      "subscribed": "Subscribed",
+      "unsubscribed": "Unsubscribed",
+      "none": "—"
+    },
+    "filters": {
+      "channel": "Channel",
+      "hasWhatsApp": "Has WhatsApp",
+      "hasInstagram": "Has Instagram",
+      "subscribedOnly": "Subscribed only",
+      "matchAll": "Match all conditions",
+      "matchAny": "Match any condition"
+    },
+    "bulk": {
+      "removeTag": "Remove tag",
+      "unsubscribeInstagram": "Unsubscribe from Instagram",
+      "pauseAutomations": "Pause automations",
+      "setField": "Set a custom field",
+      "confirm": "Apply to {count, plural, =1 {# contact} other {# contacts}}?",
+      "queued": "Working on it. This can take a few minutes."
+    },
+    "instagramFacts": {
+      "title": "Instagram",
+      "username": "Username",
+      "followsYou": "Follows you",
+      "youFollow": "You follow them",
+      "verified": "Verified",
+      "followers": "Followers",
+      "subscription": "Subscription",
+      "lastInteraction": "Last interaction",
+      "window": "Messaging window",
+      "windowOpen": "Open until {time}",
+      "windowClosed": "Closed",
+      "yes": "Yes",
+      "no": "No",
+      "unknown": "Not known yet"
     }
   },
   "Pipelines": {
@@ -1766,7 +1865,8 @@
         "condition": "Condition (If/Else)",
         "send_webhook": "Send Webhook",
         "close_conversation": "Close Conversation",
-        "notify_team": "Notify Team"
+        "notify_team": "Notify Team",
+        "start_flow": "Start a Flow"
       },
       "triggers": {
         "new_message_received": {
@@ -1824,6 +1924,14 @@
         "appointment_no_show": {
           "label": "Appointment No-show",
           "hint": "Staff mark an appointment as a no-show"
+        },
+        "tag_removed": {
+          "label": "Tag Removed",
+          "hint": "When a tag is removed from a contact"
+        },
+        "field_changed": {
+          "label": "Field Changed",
+          "hint": "When a contact field changes"
         }
       },
       "trigger": "Trigger",
@@ -1988,6 +2096,32 @@
       "instagramWindowHint": "Instagram automations can reply only within 24 hours of the customer's last message.",
       "unavailableOnChannel": "This isn't available on {channel}.",
       "invalidChannel": "Choose WhatsApp or Instagram."
+    },
+    "triggers": {
+      "tagRemoved": {
+        "label": "Tag removed",
+        "tag": "Tag",
+        "help": "Runs once each time this tag is removed from a contact."
+      },
+      "fieldChanged": {
+        "label": "Field changed",
+        "field": "Field",
+        "help": "Runs once each time this field gets a new value, is set or is cleared."
+      }
+    },
+    "steps": {
+      "startFlow": {
+        "label": "Start a flow",
+        "flow": "Flow",
+        "help": "Starts an active flow of this channel for the contact.",
+        "none": "Choose a flow"
+      }
+    },
+    "hub": {
+      "myAutomations": "My automations",
+      "basics": "Basics",
+      "sequences": "Sequences",
+      "templates": "Templates"
     }
   },
   "Flows": {
@@ -2522,6 +2656,22 @@
         "send_gallery": {
           "label": "Send gallery",
           "blurb": "Sends up to 10 cards people can swipe through"
+        },
+        "actions": {
+          "label": "Actions",
+          "blurb": "Tags, fields, subscriptions and other changes, without sending a message"
+        },
+        "randomizer": {
+          "label": "Randomizer",
+          "blurb": "Splits contacts between paths by percentage, for A/B tests"
+        },
+        "smart_delay": {
+          "label": "Smart delay",
+          "blurb": "Waits for a time, a date or within your send hours, then continues"
+        },
+        "google_sheets": {
+          "label": "Google Sheets",
+          "blurb": "Adds, finds or updates a row in a spreadsheet"
         }
       },
       "ports": {
@@ -2734,7 +2884,21 @@
       "storefrontShop": "Store link",
       "storefrontStatus": "Order status link",
       "commentReplies": "{count, plural, one {# reply} other {# replies}}, rotated",
-      "cards": "{count, plural, one {# card} other {# cards}}"
+      "cards": "{count, plural, one {# card} other {# cards}}",
+      "actionsNone": "No actions yet",
+      "actionsCount": "{count, plural, =1 {# action} other {# actions}}",
+      "randomizerSticky": "{split} · same path for each contact",
+      "delayUntil": "Until {date}",
+      "delayUntilField": "Until a date from a contact field",
+      "delayField": "Waits for a number from a contact field",
+      "delayFor": "Wait {amount} {unit}",
+      "unit_seconds": "seconds",
+      "unit_minutes": "minutes",
+      "unit_hours": "hours",
+      "unit_days": "days",
+      "sheets_insert_row": "Add a row",
+      "sheets_get_row": "Find a row",
+      "sheets_update_row": "Update a row"
     },
     "header": {
       "backToFlows": "Back to Flows",
@@ -3024,6 +3188,23 @@
         "copyFailed": "Couldn’t copy the link. Select it and copy it instead.",
         "chooseAccountForLinks": "Choose an Instagram account with a username to see its links.",
         "badAccount": "Choose a connected Instagram account."
+      },
+      "replyDelay": {
+        "label": "Wait before replying",
+        "help": "Replies a little later so it feels less instant. Up to 10 minutes.",
+        "none": "Reply right away",
+        "seconds": "seconds",
+        "minutes": "minutes",
+        "invalid": "Choose a wait of up to 10 minutes."
+      },
+      "intent": {
+        "mode": "Match meaning",
+        "modeKeywords": "Match words",
+        "label": "If the message is about",
+        "placeholder": "For example: the person wants to know the price",
+        "help": "AI checks whether each message means this, after your other triggers. Uses your AI allowance.",
+        "needsAi": "Turn on AI for this workspace to match by meaning.",
+        "tooLong": "Use up to 300 characters."
       }
     },
     "nodes": {
@@ -3097,7 +3278,281 @@
       "igProfile": {
         "onlyInstagram": "Instagram profile checks work only in Instagram flows.",
         "badFact": "Choose an Instagram profile detail to check."
+      },
+      "actions": {
+        "title": "Perform these actions",
+        "add": "Action",
+        "empty": "Add at least one action.",
+        "limit": "Up to {max} actions in one step.",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "remove": "Remove action",
+        "pickerTitle": "Choose an action",
+        "groups": {
+          "contact": "Contact data",
+          "automation": "Automation",
+          "inbox": "Inbox",
+          "ads": "Ads"
+        },
+        "types": {
+          "add_tag": "Add tag",
+          "remove_tag": "Remove tag",
+          "set_field": "Set contact field",
+          "set_workspace_field": "Set workspace field",
+          "set_channel_consent": "Subscribe or unsubscribe on Instagram",
+          "subscribe_sequence": "Subscribe to sequence",
+          "unsubscribe_sequence": "Unsubscribe from sequence",
+          "start_flow": "Start another automation",
+          "stop_flow": "Stop another automation",
+          "pause_automations": "Pause automations",
+          "resume_automations": "Resume automations",
+          "log_conversion": "Log conversion event",
+          "set_conversation_status": "Mark conversation open or closed",
+          "notify_team": "Notify the team"
+        },
+        "increment": "Add to the number",
+        "set": "Set to",
+        "opened": "Open",
+        "closed": "Closed",
+        "optIn": "Subscribe",
+        "optOut": "Unsubscribe",
+        "assignee": "The assigned agent",
+        "admins": "Admins",
+        "note": "Note for the team",
+        "selfFlow": "An automation cannot start or stop itself."
+      },
+      "randomizer": {
+        "title": "Split the traffic",
+        "sticky": "Same path for the same contact",
+        "stickyHelp": "Off: each run picks a path at random.",
+        "addPath": "New variation",
+        "path": "Path {id}",
+        "weight": "Share of contacts",
+        "total": "Assigned: {total}%",
+        "totalInvalid": "The shares must add up to 100%.",
+        "limit": "Use 2 to 6 paths."
+      },
+      "smartDelay": {
+        "title": "Wait",
+        "duration": "Duration",
+        "untilDate": "Date",
+        "waitFor": "Wait for",
+        "fromField": "Use a number from a contact field",
+        "specificDate": "Specific date",
+        "dynamicDate": "Date from a contact field",
+        "offset": "Plus or minus (minutes)",
+        "pastDate": "If the date has passed, the automation stops here.",
+        "sendWindow": "Only continue within these hours",
+        "from": "From",
+        "to": "To",
+        "weekdays": "Days",
+        "timezone": "Time zone",
+        "max": "Wait at most 365 days.",
+        "instagramWarning": "Instagram allows automated messages only within 24 hours of the person's last message. A longer wait usually ends with the window closed, and the message is then not sent."
+      },
+      "googleSheets": {
+        "title": "Google Sheets",
+        "op_insert_row": "Add a row",
+        "op_get_row": "Find a row",
+        "op_update_row": "Update a row",
+        "spreadsheet": "Spreadsheet",
+        "sheet": "Sheet",
+        "matchColumn": "Find the row where column",
+        "matchValue": "equals",
+        "columns": "Columns",
+        "addColumn": "Add column",
+        "varMap": "Save columns to variables",
+        "failure": "If it fails",
+        "notConnected": "Connect Google Sheets in Settings to use this step.",
+        "outcomeNote": "If Google does not confirm the change, the step takes its failure path and is not retried."
       }
+    },
+    "history": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "undoShortcut": "Undo (Ctrl+Z)",
+      "redoShortcut": "Redo (Ctrl+Shift+Z)",
+      "nothingToUndo": "Nothing to undo",
+      "nothingToRedo": "Nothing to redo"
+    },
+    "autosave": {
+      "saving": "Saving…",
+      "saved": "Saved",
+      "notSaved": "Not saved",
+      "notSavedReason": "Not saved: {reason}",
+      "saveNow": "Save now",
+      "offline": "you are offline",
+      "failed": "the last save failed",
+      "conflictTitle": "This draft changed somewhere else",
+      "conflictBody": "Someone saved a newer version of this draft. Reload to see it, or overwrite it with your changes.",
+      "reload": "Reload",
+      "overwrite": "Overwrite",
+      "leaveWarning": "Your latest changes are still saving. Leave anyway?"
+    },
+    "multiTrigger": {
+      "when": "When…",
+      "then": "Then",
+      "addTrigger": "New trigger",
+      "removeTrigger": "Remove trigger",
+      "primary": "First trigger",
+      "limitReached": "A flow can have up to {max} triggers.",
+      "onlyInstagram": "Only Instagram flows can have more than one trigger.",
+      "notCombinable": "This trigger works on its own and cannot be combined with others.",
+      "pickerTitle": "Start this automation when…",
+      "search": "Search triggers"
+    },
+    "conditions": {
+      "question": "Does the contact match {match} of these conditions?",
+      "all": "all",
+      "any": "any",
+      "add": "Condition",
+      "search": "Search fields",
+      "otherwise": "Otherwise",
+      "groups": {
+        "recommended": "Recommended",
+        "general": "General filters",
+        "system": "System fields"
+      },
+      "subjects": {
+        "tag": "Tag",
+        "contact_field": "Contact field",
+        "custom_field": "Custom field",
+        "var": "Flow variable",
+        "time": "Current time",
+        "date": "Current date",
+        "ig_profile": "Instagram profile",
+        "system": "System field",
+        "segment": "Segment",
+        "link_click": "Link clicked",
+        "workspace_field": "Workspace field",
+        "sequence": "Sequence subscription"
+      },
+      "systemFacts": {
+        "ig_username": "Instagram username",
+        "last_interaction_at": "Last interaction",
+        "window_open_until": "Messaging window open until",
+        "subscribed": "Subscribed on this channel",
+        "contact_id": "Contact ID"
+      },
+      "inSegment": "is in the segment",
+      "notInSegment": "is not in the segment",
+      "clicked": "clicked a link in this step",
+      "notClicked": "did not click a link in this step",
+      "subscribed": "is subscribed",
+      "notSubscribed": "is not subscribed"
+    },
+    "variables": {
+      "insert": "Insert a variable",
+      "search": "Search variables",
+      "contactFields": "Contact",
+      "customFields": "Custom fields",
+      "workspaceFields": "Workspace",
+      "flowVariables": "From earlier steps",
+      "fallback": "If empty, use",
+      "fallbackHelp": "Shown when the value is missing.",
+      "empty": "No variables yet."
+    },
+    "saveTo": {
+      "label": "Save answer to",
+      "none": "Don't save",
+      "contactField": "Contact field",
+      "customField": "Custom field",
+      "conflictNote": "If another contact already has this phone or email, the answer is kept in the flow only."
+    },
+    "testUsernames": {
+      "label": "Test usernames",
+      "help": "While the flow is a draft it runs only for these Instagram accounts (up to 3).",
+      "placeholder": "username",
+      "invalid": "Use the username without @: letters, numbers, dots and underscores.",
+      "limit": "Up to 3 test usernames."
+    },
+    "nodeStats": {
+      "waiting": "Waiting",
+      "passed": "Passed",
+      "loading": "Loading counts…"
+    },
+    "aiGoals": {
+      "title": "Goals",
+      "add": "Add goal",
+      "limit": "Up to 3 goals, worked through in order.",
+      "types": {
+        "share_link": "Share a link",
+        "grow_followers": "Grow followers",
+        "capture_lead": "Capture a lead"
+      },
+      "url": "Link to share",
+      "fields": "Details to collect",
+      "onRefusal": "If the person declines",
+      "refusalHandoff": "Hand over to a person",
+      "refusalContinue": "Continue the flow",
+      "finish": "When the goals are done",
+      "goalText": "Tell AI what to do",
+      "goalPlaceholder": "For example: help people pick the right plan and get their email",
+      "generate": "Create tasks",
+      "tasks": "Tasks",
+      "addTask": "New task",
+      "context": "Give AI context",
+      "saveReply": "Save the reply as",
+      "preview": "Try it",
+      "previewEmpty": "Fix the step's errors to try it."
+    },
+    "buyButton": {
+      "label": "Buy button",
+      "amount": "Amount",
+      "currency": "Currency",
+      "help": "Opens a checkout page for this amount. Payment happens on the web, not in the chat.",
+      "needsPayments": "Connect a payment provider to add a buy button."
+    },
+    "folders": {
+      "all": "All automations",
+      "new": "New folder",
+      "rename": "Rename folder",
+      "delete": "Delete folder",
+      "deleteConfirm": "Delete the folder \"{name}\"? Its automations move to the top level.",
+      "moveTo": "Move to folder",
+      "noFolder": "No folder",
+      "name": "Folder name",
+      "nameInvalid": "Use 1 to 60 characters.",
+      "nameTaken": "A folder with this name already exists."
+    },
+    "listRow": {
+      "runs": "Runs",
+      "ctr": "CTR",
+      "noCtr": "—",
+      "ctrHelp": "Share of runs with at least one link click, out of runs that were sent a tracked link.",
+      "modified": "Edited {time}",
+      "status": {
+        "draft": "Draft",
+        "live": "Live",
+        "stopped": "Stopped",
+        "archived": "Archived"
+      },
+      "noTrigger": "No trigger yet"
+    },
+    "canvas": {
+      "addStep": "Add step",
+      "addNote": "Note",
+      "noteNew": "Write a note",
+      "arrange": "Arrange steps",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Fit to screen",
+      "simpleBuilder": "Simple builder",
+      "canvasBuilder": "Canvas",
+      "setLive": "Set live",
+      "preview": "Preview",
+      "more": "More actions",
+      "tapToEdit": "Select a step to edit it",
+      "groups": {
+        "start": "Starting step",
+        "content": "Content",
+        "ai": "AI",
+        "logic": "Logic",
+        "extras": "Extras"
+      },
+      "sendMode": "Send",
+      "sendInWindow": "Within the messaging window",
+      "sendPrivateReply": "As a private reply"
     }
   },
   "Settings": {
@@ -3588,7 +4043,8 @@
       "ads": "Ads",
       "connections": "Meetings & shipping",
       "instagram": "Instagram",
-      "privacy": "Privacy & access"
+      "privacy": "Privacy & access",
+      "conversion-events": "Conversion events"
     },
     "groups": {
       "account": "Account",
@@ -4907,6 +5363,21 @@
         "accept": "Accept",
         "later": "Later"
       }
+    },
+    "conversionEvents": {
+      "title": "Conversion events",
+      "description": "Name the results that matter to you, such as a booked call or a sign-up, and count them from your flows.",
+      "add": "Add event",
+      "name": "Event name",
+      "namePlaceholder": "For example: Booked a call",
+      "nameInvalid": "Use 1 to 60 characters.",
+      "nameTaken": "An event with this name already exists.",
+      "archive": "Archive",
+      "restore": "Restore",
+      "archived": "Archived",
+      "empty": "No events yet. Add one, then log it from an Actions step in a flow.",
+      "readOnly": "Only admins can change conversion events.",
+      "count": "{count, plural, =1 {# time} other {# times}}"
     }
   },
   "SignupPage": {
@@ -5826,6 +6297,37 @@
       "payDescription": "Chiropractic visit",
       "consent": "Thank you. Before your visit, please share only the minimum health detail we need, such as where it hurts and since when. Our team will take it from here.",
       "handoffNote": "Chiropractic visit: booking finished; follow up with the patient."
+    },
+    "instagram5": {
+      "galleryTitle": "More Instagram automations",
+      "byGoal": "By goal",
+      "byTrigger": "By trigger",
+      "recommended": "Recommended",
+      "goals": {
+        "grow_followers": "Grow followers",
+        "engage_audience": "Engage your audience",
+        "drive_traffic": "Drive traffic"
+      },
+      "triggers": {
+        "post_comment": "Post or reel comment",
+        "dm": "Direct message",
+        "story_reply": "Story reply",
+        "live_comment": "Live comment"
+      },
+      "kinds": {
+        "quick": "Quick",
+        "flow": "Flow"
+      },
+      "levels": {
+        "beginner": "Beginner",
+        "advanced": "Advanced"
+      },
+      "usesAi": "Uses AI",
+      "needsPayments": "Needs payments",
+      "businessValue": "Why it helps",
+      "howItWorks": "How it works",
+      "install": "Use template",
+      "noTrigger": "Add a trigger after installing"
     }
   },
   "LibErrors": {
@@ -6084,7 +6586,8 @@
       "storefrontInvalidPurpose": "Choose whether the link opens the store or the contact’s latest order.",
       "storefrontNeedsNext": "Connect the step that follows once the link is sent.",
       "capabilityUnavailable": "Step \"{key}\" needs {capability}, which this workspace has not set up yet.",
-      "crossFlowLoop": "Connect Flow steps form a loop with no customer reply in between: {flows}."
+      "crossFlowLoop": "Connect Flow steps form a loop with no customer reply in between: {flows}.",
+      "stage5Pending": "This step or setting is not available yet. Remove it to publish the flow."
     },
     "automations": {
       "needsStep": "active automations need at least one step",
@@ -6129,7 +6632,8 @@
       "webhookBodyInvalid": "The webhook body must be valid JSON. Put placeholders inside quoted strings.",
       "webhookUrlNotAllowed": "The webhook URL points to a private or reserved address. Use a public address.",
       "oncePerContactInvalid": "Once per contact must be on or off.",
-      "segmentUnavailable": "The chosen segment is not available in this workspace."
+      "segmentUnavailable": "The chosen segment is not available in this workspace.",
+      "stage5Pending": "This trigger or step is not available yet. Choose another one to turn the automation on."
     },
     "templates": {
       "nameRequired": "Template name is required.",
@@ -6405,7 +6909,10 @@
       "invalid_working_hours": "Check the working hours: each range must start before it ends and ranges on a day must not overlap.",
       "invalid_away_message": "Write an away message of up to 1024 characters, or turn it off.",
       "invalid_auto_resolve": "Auto-resolve must be a whole number of hours between 1 and 720.",
-      "invalid_sla": "The first reply target must be a whole number of minutes between 1 and 10080."
+      "invalid_sla": "The first reply target must be a whole number of minutes between 1 and 10080.",
+      "invalid_pause": "The pause after an agent reply must be a whole number of minutes between 1 and 10080, or until resumed.",
+      "invalid_assignment": "Choose how new conversations are assigned: off, evenly or by your rules.",
+      "invalid_visibility": "Choose which conversations agents can see."
     },
     "routingRules": {
       "invalid_name": "Give the rule a name of up to 120 characters.",
@@ -6956,6 +7463,15 @@
       "state_mismatch": "The Instagram sign-in expired; try connecting again",
       "meta_error": "Instagram returned an error",
       "delivery_uncertain": "Delivery uncertain; check Instagram before resending"
+    },
+    "v1": {
+      "instagram": {
+        "windowClosed": "The Instagram messaging window for this conversation is closed.",
+        "conversationNotFound": "Conversation not found.",
+        "contactNotFound": "Contact not found.",
+        "flowNotActive": "The flow is not active.",
+        "idempotencyMismatch": "This Idempotency-Key was already used for a different request."
+      }
     }
   },
   "PageSearch": {
@@ -6978,7 +7494,32 @@
     "readOnly": "Only workspace administrators can change this setting.",
     "saving": "Saving…",
     "save": "Save target",
-    "saved": "Reply target saved."
+    "saved": "Reply target saved.",
+    "pause": {
+      "title": "Automations after an agent replies",
+      "description": "When someone on your team replies, automated replies pause so they do not talk over each other.",
+      "label": "Resume automations",
+      "never": "Only when someone resumes them",
+      "after": "After {duration}",
+      "save": "Save"
+    },
+    "assignment": {
+      "title": "Automatic assignment",
+      "description": "How new conversations are given to your team.",
+      "off": "Off: leave new conversations unassigned",
+      "basic": "Evenly: spread new conversations across online agents",
+      "rules": "By rules: use your routing rules",
+      "capacity": "Most open conversations per agent",
+      "capacityHelp": "An agent at this limit is skipped. Leave empty for no limit.",
+      "save": "Save"
+    },
+    "visibility": {
+      "title": "What agents can see",
+      "description": "Admins and owners always see every conversation.",
+      "all": "Every conversation",
+      "assignedOrTeam": "Only their own, their team's and unassigned conversations",
+      "save": "Save"
+    }
   },
   "Plan": {
     "upgrade": "Upgrade",
@@ -9021,6 +9562,17 @@
         "delay_invalid": "The delay must be between 0 and 10080 minutes (7 days).",
         "variables_invalid": "Map each variable to an order field."
       }
+    },
+    "googleSheets": {
+      "title": "Google Sheets",
+      "description": "Send leads and answers from your automations to a spreadsheet.",
+      "connect": "Connect Google",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect Google Sheets? Steps that use it will take their failure path.",
+      "connectedAs": "Connected as {email}",
+      "notEnabled": "Google Sheets is not available on this server yet.",
+      "error": "The connection needs attention. Connect again.",
+      "readOnly": "Only admins can connect Google Sheets."
     }
   },
   "InboxLifecycle": {
@@ -10848,7 +11400,14 @@
     "monthlyTokenCap": "Monthly AI token cap",
     "monthlyTokenCapHint": "Applies to summaries, suggested replies, assessments and insights. Leave empty to use only your plan's limit.",
     "staffReviewNote": "Nothing these features write is sent to a customer until a team member reviews it and presses Send.",
-    "autonomousNote": "Auto-reply and the flow AI reply step send without human review."
+    "autonomousNote": "Auto-reply and the flow AI reply step send without human review.",
+    "instagramGoals": {
+      "title": "Goals for Instagram replies",
+      "description": "Give AI replies up to 3 goals, worked through in order.",
+      "add": "Add goal",
+      "empty": "No goals: AI answers questions only.",
+      "save": "Save"
+    }
   },
   "AiFallback": {
     "deployment_off": "AI is turned off on this deployment.",
@@ -12014,7 +12573,32 @@
       "openPost": "Open post",
       "empty": "No comments in this period.",
       "loadFailed": "Couldn’t load insights. Try again.",
-      "clicksNote": "Link clicks count tracked links only."
+      "clicksNote": "Link clicks count tracked links only.",
+      "contacts": {
+        "title": "Contacts",
+        "active": "Active",
+        "inactive": "Inactive",
+        "total": "Total",
+        "activeHelp": "Active contacts sent you at least one Instagram message that day.",
+        "empty": "No contacts in this period."
+      },
+      "revenue": {
+        "title": "Revenue",
+        "earned": "Earned",
+        "sales": "Sales",
+        "buyers": "Buyers",
+        "perBuyer": "Average per buyer",
+        "perContact": "Average per contact",
+        "chart": "Earnings",
+        "perFlow": "Revenue by automation",
+        "empty": "No paid payment links from automations in this period."
+      },
+      "conversions": {
+        "title": "Conversion events",
+        "event": "Event",
+        "count": "Count",
+        "empty": "No conversion events logged in this period."
+      }
     },
     "shareToStory": {
       "help": "Starts when someone shares one of your posts or reels to their story. Each person can start it every time or once a day.",
@@ -12044,6 +12628,79 @@
         "alreadyConnected": "This Instagram account is already connected to another workspace.",
         "planLimit": "Your plan has no room for another Instagram account."
       }
+    },
+    "home": {
+      "title": "Instagram home",
+      "description": "Your automations, results and next steps in one place.",
+      "startHere": "Start here",
+      "last7Days": "Your last 7 days",
+      "topFlows": "Top automations",
+      "topPosts": "Top posts",
+      "leads": "Leads collected",
+      "topLeadFlow": "Top lead collector",
+      "timeSaved": "Time saved",
+      "timeSavedNote": "Estimated at 30 seconds per automated message.",
+      "defaults": "Account defaults",
+      "on": "On",
+      "off": "Off",
+      "open": "Open",
+      "empty": "No activity in the last 7 days yet."
+    },
+    "basics": {
+      "title": "Basics",
+      "description": "Always-on replies for your Instagram account.",
+      "setUp": "Set up",
+      "edit": "Edit",
+      "defaultReply": "Default reply",
+      "defaultReplyBody": "Answers any message that no other automation handles.",
+      "conversationStarters": "Conversation starters",
+      "conversationStartersBody": "Questions people can tap when they message you for the first time.",
+      "storyMention": "Story mention reply",
+      "storyMentionBody": "Thanks people when they mention you in their story.",
+      "mainMenu": "Main menu",
+      "mainMenuBody": "A menu in the chat with links and quick answers.",
+      "keywords": "Subscribe and unsubscribe keywords",
+      "keywordsBody": "Words people send to start or stop your automated messages.",
+      "newFollowers": "Say hi to new followers",
+      "newFollowersBody": "Not available: Instagram does not let apps message new followers automatically."
+    },
+    "sequences": {
+      "title": "Sequences",
+      "description": "A series of messages sent over time to subscribed contacts.",
+      "new": "New sequence",
+      "name": "Name",
+      "subscribers": "Subscribers",
+      "messages": "Messages",
+      "openRate": "Open rate",
+      "ctr": "CTR",
+      "empty": "No sequences yet.",
+      "addMessage": "Message",
+      "createNew": "Create new",
+      "selectExisting": "Select existing",
+      "after": "After {amount} {unit}",
+      "immediately": "Immediately",
+      "active": "Active",
+      "sent": "Sent",
+      "clicks": "Clicks",
+      "openMessage": "Open message",
+      "windowWarning": "Instagram allows automated messages only within 24 hours of the person's last message. A message due later is skipped.",
+      "notPromotional": "Keep the first message helpful, not promotional."
+    },
+    "subscription": {
+      "title": "Subscribe and unsubscribe",
+      "description": "Let people stop or restart your automated Instagram messages with a word. Your team can still reply by hand.",
+      "optOutKeywords": "Unsubscribe keywords",
+      "optInKeywords": "Subscribe keywords",
+      "builtIn": "Always included: {words}",
+      "keywordsHelp": "Up to 20 words or short phrases, in any language. A message must match exactly, ignoring case.",
+      "optOutReply": "Confirmation after unsubscribing",
+      "optInReply": "Confirmation after subscribing",
+      "optOutFlow": "Automation to run after unsubscribing",
+      "optInFlow": "Automation to run after subscribing",
+      "noFlow": "None",
+      "save": "Save",
+      "saved": "Saved",
+      "invalid": "Check the keywords: 1 to 50 characters each, up to 20."
     }
   }
 }

@@ -22,6 +22,11 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { InboxSettings } from '@/components/settings/inbox-settings';
 import { WorkingHoursCard } from '@/components/settings/inbox/working-hours-card';
 import { RoutingRulesCard } from '@/components/settings/inbox/routing-rules-card';
+import { AutomationPauseCard } from '@/components/settings/inbox/automation-pause-card';
+import { AssignmentModeCard } from '@/components/settings/inbox/assignment-mode-card';
+import { VisibilityCard } from '@/components/settings/inbox/visibility-card';
+import { ConversionEventsSettings } from '@/components/settings/conversion-events-settings';
+import { GoogleSheetsCard } from '@/components/settings/integrations/google-sheets-card';
 import { MediaLibraryCard } from '@/components/settings/media-library-card';
 import { NotificationPreferences } from '@/components/settings/notification-preferences';
 import { MembersTab } from '@/components/settings/members-tab';
@@ -136,8 +141,13 @@ function SettingsPageInner() {
         <InboxSettings />
         <WorkingHoursCard canEdit={canEditSettings} />
         <RoutingRulesCard canEdit={canEditSettings} />
+        {/* Stage 5: automation pause (5D), assignment mode and agent visibility (5E). */}
+        <AutomationPauseCard canEdit={canEditSettings} />
+        <AssignmentModeCard canEdit={canEditSettings} />
+        <VisibilityCard canEdit={canEditSettings} />
       </div>
     ),
+    'conversion-events': <ConversionEventsSettings key={accountId} canEdit={canEditSettings} />,
     media: <MediaLibraryCard key={accountId} />,
     members: (
       <div key={accountId} className="space-y-10">
@@ -161,6 +171,8 @@ function SettingsPageInner() {
         <IntegrationHealthCard />
         <ZoomCard />
         <ShiprocketCard />
+        {/* Stage 5 (5G): Google Sheets, behind GOOGLE_SHEETS_ENABLED. */}
+        <GoogleSheetsCard canEdit={canEditSettings} />
       </div>
     ),
     ads: <MetaAdsCard key={accountId} />,

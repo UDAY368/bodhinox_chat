@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
 import { useWorkspaceChannels } from "@/hooks/use-workspace-channels";
-import type { WorkspaceInboxSettings } from "@/lib/inbox/inbox-settings";
+import { DEFAULT_INBOX_BEHAVIOUR, type WorkspaceInboxSettings } from "@/lib/inbox/inbox-settings";
 import {
   DEFAULT_INBOX_SETTINGS,
   MAX_RANGES_PER_DAY,
@@ -48,7 +48,7 @@ function timeZones(): string[] {
 export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations("Settings.workingHours");
   const tDay = useTranslations("Weekdays");
-  const [settings, setSettings] = useState<WorkspaceInboxSettings>({ ...DEFAULT_INBOX_SETTINGS, instagram_away_message_enabled: false });
+  const [settings, setSettings] = useState<WorkspaceInboxSettings>({ ...DEFAULT_INBOX_SETTINGS, instagram_away_message_enabled: false, ...DEFAULT_INBOX_BEHAVIOUR });
   // The Instagram away switch shows only when the workspace uses Instagram (or it is already on).
   const { data: channels } = useWorkspaceChannels();
   const showInstagram = Boolean(channels?.channels.instagram.enabled) || settings.instagram_away_message_enabled;

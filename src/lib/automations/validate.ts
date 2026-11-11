@@ -1,5 +1,5 @@
 import { isValidTimeWindow, isValidTimeZone } from './time-of-day';
-import type { AutomationStepType, AutomationTriggerType, Channel } from '@/types';
+import { STAGE5_AUTOMATION_TRIGGERS, type AutomationStepType, type AutomationTriggerType, type Channel } from '@/types';
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
 import { getT } from '@/lib/i18n/translate';
 import {
@@ -234,6 +234,10 @@ function validateOne(
         issues.push({ path: `${path}.text`, message: t('notifyPlaceholderInvalid') });
       }
       break;
+    case 'start_flow':
+      // Stage 5: runs from 5D (5A stub).
+      issues.push({ path, message: t('stage5Pending') });
+      break;
     default:
       issues.push({
         path,
@@ -249,6 +253,8 @@ export function validateTriggerForActivation(
   channel: Channel = 'whatsapp'
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [...triggerPaletteIssues(triggerType, channel)];
+  // Stage 5 contact events: stored, not dispatched until 5D (5A stub).
+  if ((STAGE5_AUTOMATION_TRIGGERS as readonly string[]).includes(triggerType)) issues.push({ path: 'trigger.type', message: t('stage5Pending') });
   const cfg = (triggerConfig ?? {}) as Record<string, unknown>;
 
   if (triggerType === 'keyword_match') {

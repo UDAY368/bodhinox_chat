@@ -149,6 +149,7 @@ import {
   type IgRefTriggerConfig,
   type IgLiveCommentTriggerConfig,
   startsFromComment,
+  STAGE5_NODE_TYPES,
   type IgStoryReplyTriggerConfig,
   type TriggerFrequency,
 } from "./types";
@@ -932,7 +933,8 @@ function graphCards(cards: IgCard[], vars: Record<string, unknown>, ws: Record<s
     ...(card.image_url ? { imageUrl: card.image_url } : {}),
     ...(card.default_url ? { defaultUrl: card.default_url } : {}),
     ...(card.buttons?.length ? {
-      buttons: card.buttons.map((b): IgTemplateButton => (b.type === "web_url"
+      // A buy button (Stage 5) needs its checkout link (5B, lib/flows/buy-button.ts); until then it is dropped.
+      buttons: card.buttons.filter((b) => b.type !== "buy").map((b): IgTemplateButton => (b.type === "web_url"
         ? { type: "web_url", title: interpolateVars(b.title, vars, ws), url: b.url }
         : { type: "postback", title: interpolateVars(b.title, vars, ws), payload: b.reply_id })),
     } : {}),
@@ -2479,6 +2481,13 @@ async function advanceFromNodeKey(
     await logEvent(db, run.id, "node_entered", node.node_key, {
       node_type: node.node_type,
     });
+    // Stage 5 steps (5A registers them, 5B runs them). The publish validator
+    // refuses them until then; a run that still reaches one ends here, sending nothing.
+    if ((STAGE5_NODE_TYPES as readonly string[]).includes(node.node_type)) {
+      await logEvent(db, run.id, "error", node.node_key, { reason: "not_implemented", node_type: node.node_type });
+      await endRun(db, run.id, "failed", "not_implemented");
+      return { outcome: "completed" };
+    }
 
     const channel = node.node_type === "start" ? null : await runChannel(run);
     // Each channel runs only its own steps (Stage 2: the Instagram-only steps never run on WhatsApp).

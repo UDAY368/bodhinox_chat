@@ -63,6 +63,11 @@ export const INSTAGRAM_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   ig_private_reply: 'yes',
   send_card: 'yes',
   send_gallery: 'yes',
+  // Stage 5 logic steps: they send nothing themselves; a send after a smart delay re-checks the window.
+  actions: 'yes',
+  randomizer: 'yes',
+  smart_delay: 'yes',
+  google_sheets: 'yes',
   handoff: 'yes',
   end: 'yes',
 };
@@ -105,6 +110,11 @@ export const WHATSAPP_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   ig_private_reply: 'no',
   send_card: 'no',
   send_gallery: 'no',
+  // Stage 5 logic steps run on both channels.
+  actions: 'yes',
+  randomizer: 'yes',
+  smart_delay: 'yes',
+  google_sheets: 'yes',
   handoff: 'yes',
   end: 'yes',
 };
@@ -257,6 +267,8 @@ const ALL_AUTOMATION_TRIGGERS = Object.keys({
   appointment_rescheduled: true,
   appointment_completed: true,
   appointment_no_show: true,
+  tag_removed: true,
+  field_changed: true,
 } satisfies Record<AutomationTriggerType, true>) as AutomationTriggerType[];
 
 const ALL_AUTOMATION_STEPS = Object.keys({
@@ -274,17 +286,30 @@ const ALL_AUTOMATION_STEPS = Object.keys({
   send_webhook: true,
   close_conversation: true,
   notify_team: true,
+  start_flow: true,
 } satisfies Record<AutomationStepType, true>) as AutomationStepType[];
 
+/** Instagram's automation triggers. Comment, story, live and ref events are flow triggers only. */
+const INSTAGRAM_AUTOMATION_TRIGGERS: readonly AutomationTriggerType[] = ['new_message_received', 'first_inbound_message',
+  'keyword_match', 'interactive_reply', 'new_contact_created', 'conversation_assigned', 'tag_added',
+  // Stage 5 contact events.
+  'tag_removed', 'field_changed'];
+
 /**
- * The automation triggers each channel offers. Instagram has no scheduled or
- * appointment triggers until the 24-hour window rules for them are settled;
- * comment, story, live and ref events are flow triggers only.
+ * The automation triggers each channel offers. Instagram has no appointment
+ * triggers; `time_based` (Stage 5) only while INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED
+ * is on, because every scheduled send must re-check the 24-hour window. Pure:
+ * the flag is passed in (instagramScheduledAutomationsEnabled() on the server,
+ * the page's prop in the browser); the constant below is the flag-off palette.
  */
+export function automationTriggersFor(channel: Channel, opts: { instagramScheduled?: boolean } = {}): readonly AutomationTriggerType[] {
+  if (channel === 'whatsapp') return ALL_AUTOMATION_TRIGGERS;
+  return opts.instagramScheduled ? [...INSTAGRAM_AUTOMATION_TRIGGERS, 'time_based'] : INSTAGRAM_AUTOMATION_TRIGGERS;
+}
+
 export const AUTOMATION_TRIGGERS_BY_CHANNEL: Record<Channel, readonly AutomationTriggerType[]> = {
   whatsapp: ALL_AUTOMATION_TRIGGERS,
-  instagram: ['new_message_received', 'first_inbound_message', 'keyword_match', 'interactive_reply',
-    'new_contact_created', 'conversation_assigned', 'tag_added'],
+  instagram: INSTAGRAM_AUTOMATION_TRIGGERS,
 };
 
 /** Steps not available on Instagram: templates are WhatsApp-only and a list message does not fit quick replies. */
@@ -296,16 +321,13 @@ export const AUTOMATION_STEPS_BY_CHANNEL: Record<Channel, readonly AutomationSte
   instagram: ALL_AUTOMATION_STEPS.filter((step) => !NOT_ON_INSTAGRAM.has(step)),
 };
 
-export function automationTriggersFor(channel: Channel): readonly AutomationTriggerType[] {
-  return AUTOMATION_TRIGGERS_BY_CHANNEL[channel];
-}
-
 export function automationStepsFor(channel: Channel): readonly AutomationStepType[] {
   return AUTOMATION_STEPS_BY_CHANNEL[channel];
 }
 
-export function automationTriggerAvailableOn(trigger: AutomationTriggerType, channel: Channel): boolean {
-  return AUTOMATION_TRIGGERS_BY_CHANNEL[channel].includes(trigger);
+export function automationTriggerAvailableOn(trigger: AutomationTriggerType, channel: Channel,
+  opts: { instagramScheduled?: boolean } = {}): boolean {
+  return automationTriggersFor(channel, opts).includes(trigger);
 }
 
 export function automationStepAvailableOn(step: AutomationStepType, channel: Channel): boolean {

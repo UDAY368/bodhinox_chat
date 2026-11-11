@@ -101,7 +101,11 @@
     "upgrade": "업그레이드",
     "refLinks": "추적 링크",
     "menu": "메뉴",
-    "insights": "인사이트"
+    "insights": "인사이트",
+    "home": "홈",
+    "basics": "기본",
+    "sequences": "시퀀스",
+    "subscription": "구독"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -137,7 +141,11 @@
     "quickAutomations": "빠른 자동화",
     "refLinks": "추적 링크",
     "menu": "메뉴",
-    "insights": "인사이트"
+    "insights": "인사이트",
+    "home": "홈",
+    "basics": "기본",
+    "sequences": "시퀀스",
+    "subscription": "구독"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
@@ -344,6 +352,17 @@
         "allowMessages": "Instagram에서 \"메시지 액세스 허용\" 켜기",
         "firstCommentAutomation": "첫 댓글 자동화 만들기"
       }
+    },
+    "nextMoves": {
+      "title": "다음 할 일",
+      "progress": "{total}개 중 {done}개 완료",
+      "conversationStarters": "대화 시작 질문 추가",
+      "menu": "채팅 메뉴 설정",
+      "defaultReply": "기본 답장 켜기",
+      "refLink": "ref 링크 만들기",
+      "aiComments": "AI로 댓글에 답장하기",
+      "leadCapture": "자동화로 리드 수집하기",
+      "open": "열기"
     }
   },
   "Inbox": {
@@ -812,6 +831,48 @@
         "failed": "답장을 예약하지 못했습니다. 다시 시도하세요.",
         "forbidden": "현재 역할로는 답장을 예약할 수 없습니다."
       }
+    },
+    "pause": {
+      "pause": "자동화 일시 중지",
+      "resume": "다시 시작",
+      "pausedBy": "{name}님이 일시 중지함",
+      "pausedByAutomation": "자동화가 일시 중지함",
+      "until": "{time}까지",
+      "untilResumed": "다시 시작할 때까지",
+      "choices": {
+        "30": "30분",
+        "60": "1시간",
+        "180": "3시간",
+        "360": "6시간",
+        "720": "12시간",
+        "1440": "1일",
+        "forever": "직접 다시 시작할 때까지"
+      },
+      "allConversations": "이 연락처의 모든 대화",
+      "failed": "일시 중지를 변경하지 못했습니다. 다시 시도하세요."
+    },
+    "labels": {
+      "title": "라벨",
+      "add": "라벨 추가",
+      "manage": "라벨 관리",
+      "name": "라벨 이름",
+      "color": "색상",
+      "remove": "라벨 제거",
+      "limit": "워크스페이스당 라벨은 최대 20개입니다.",
+      "nameTaken": "같은 이름의 라벨이 이미 있습니다.",
+      "empty": "아직 라벨이 없습니다."
+    },
+    "favourites": {
+      "add": "즐겨찾기에 추가",
+      "remove": "즐겨찾기에서 제거"
+    },
+    "folders": {
+      "all": "전체",
+      "mine": "내 대화",
+      "unassigned": "미배정",
+      "favourites": "즐겨찾기",
+      "reminders": "리마인더",
+      "labels": "라벨"
     }
   },
   "Contacts": {
@@ -1221,6 +1282,44 @@
       "typeToSearch": "2자 이상 입력하세요",
       "noMatches": "일치하는 연락처가 없습니다",
       "unnamed": "이름 없는 연락처"
+    },
+    "channelStatus": {
+      "instagram": "Instagram",
+      "subscribed": "구독 중",
+      "unsubscribed": "구독 취소",
+      "none": "—"
+    },
+    "filters": {
+      "channel": "채널",
+      "hasWhatsApp": "WhatsApp 있음",
+      "hasInstagram": "Instagram 있음",
+      "subscribedOnly": "구독자만",
+      "matchAll": "모든 조건 충족",
+      "matchAny": "하나 이상 충족"
+    },
+    "bulk": {
+      "removeTag": "태그 제거",
+      "unsubscribeInstagram": "Instagram 구독 취소",
+      "pauseAutomations": "자동화 일시 중지",
+      "setField": "사용자 지정 필드 설정",
+      "confirm": "{count, plural, other {연락처 #명}}에게 적용할까요?",
+      "queued": "처리 중입니다. 몇 분 정도 걸릴 수 있습니다."
+    },
+    "instagramFacts": {
+      "title": "Instagram",
+      "username": "사용자 이름",
+      "followsYou": "나를 팔로우함",
+      "youFollow": "내가 팔로우함",
+      "verified": "인증됨",
+      "followers": "팔로워",
+      "subscription": "구독",
+      "lastInteraction": "마지막 상호작용",
+      "window": "메시지 창",
+      "windowOpen": "{time}까지 열림",
+      "windowClosed": "닫힘",
+      "yes": "예",
+      "no": "아니요",
+      "unknown": "아직 알 수 없음"
     }
   },
   "Pipelines": {
@@ -1766,7 +1865,8 @@
         "condition": "조건 (If/Else)",
         "send_webhook": "웹훅 보내기",
         "close_conversation": "대화 닫기",
-        "notify_team": "팀에 알림"
+        "notify_team": "팀에 알림",
+        "start_flow": "플로 시작"
       },
       "triggers": {
         "new_message_received": {
@@ -1824,6 +1924,14 @@
         "appointment_no_show": {
           "label": "예약 노쇼",
           "hint": "직원이 예약을 노쇼로 표시할 때"
+        },
+        "tag_removed": {
+          "label": "태그 제거됨",
+          "hint": "연락처에서 태그가 제거될 때"
+        },
+        "field_changed": {
+          "label": "필드 변경됨",
+          "hint": "연락처 필드가 변경될 때"
         }
       },
       "trigger": "트리거",
@@ -1988,6 +2096,32 @@
       "instagramWindowHint": "Instagram 자동화는 고객의 마지막 메시지 후 24시간 이내에만 답장할 수 있습니다.",
       "unavailableOnChannel": "{channel}에서는 사용할 수 없습니다.",
       "invalidChannel": "WhatsApp 또는 Instagram을 선택하세요."
+    },
+    "triggers": {
+      "tagRemoved": {
+        "label": "태그 제거됨",
+        "tag": "태그",
+        "help": "연락처에서 이 태그가 제거될 때마다 한 번 실행됩니다."
+      },
+      "fieldChanged": {
+        "label": "필드 변경됨",
+        "field": "필드",
+        "help": "이 필드에 새 값이 들어오거나 설정되거나 지워질 때마다 한 번 실행됩니다."
+      }
+    },
+    "steps": {
+      "startFlow": {
+        "label": "플로 시작",
+        "flow": "플로",
+        "help": "이 채널의 활성 플로를 연락처에 대해 시작합니다.",
+        "none": "플로 선택"
+      }
+    },
+    "hub": {
+      "myAutomations": "내 자동화",
+      "basics": "기본",
+      "sequences": "시퀀스",
+      "templates": "템플릿"
     }
   },
   "Flows": {
@@ -2522,6 +2656,22 @@
         "send_gallery": {
           "label": "갤러리 보내기",
           "blurb": "넘겨 볼 수 있는 카드를 최대 10장 보냅니다"
+        },
+        "actions": {
+          "label": "작업",
+          "blurb": "메시지를 보내지 않고 태그, 필드, 구독 등을 변경합니다"
+        },
+        "randomizer": {
+          "label": "랜덤 분배",
+          "blurb": "A/B 테스트를 위해 연락처를 비율대로 경로에 나눕니다"
+        },
+        "smart_delay": {
+          "label": "스마트 대기",
+          "blurb": "일정 시간, 날짜 또는 발송 가능 시간까지 기다린 뒤 계속합니다"
+        },
+        "google_sheets": {
+          "label": "Google Sheets",
+          "blurb": "스프레드시트에 행을 추가하거나 찾거나 업데이트합니다"
         }
       },
       "ports": {
@@ -2734,7 +2884,21 @@
       "storefrontShop": "스토어 링크",
       "storefrontStatus": "주문 상태 링크",
       "commentReplies": "답글 {count}개, 번갈아 게시",
-      "cards": "카드 {count}장"
+      "cards": "카드 {count}장",
+      "actionsNone": "아직 작업이 없습니다",
+      "actionsCount": "{count, plural, other {작업 #개}}",
+      "randomizerSticky": "{split} · 연락처마다 같은 경로",
+      "delayUntil": "{date}까지",
+      "delayUntilField": "연락처 필드의 날짜까지",
+      "delayField": "연락처 필드의 숫자만큼 대기",
+      "delayFor": "{amount} {unit} 대기",
+      "unit_seconds": "초",
+      "unit_minutes": "분",
+      "unit_hours": "시간",
+      "unit_days": "일",
+      "sheets_insert_row": "행 추가",
+      "sheets_get_row": "행 찾기",
+      "sheets_update_row": "행 업데이트"
     },
     "header": {
       "backToFlows": "플로우로 돌아가기",
@@ -3024,6 +3188,23 @@
         "copyFailed": "링크를 복사하지 못했습니다. 직접 선택해서 복사하세요.",
         "chooseAccountForLinks": "링크를 보려면 사용자 이름이 있는 Instagram 계정을 선택하세요.",
         "badAccount": "연결된 Instagram 계정을 선택하세요."
+      },
+      "replyDelay": {
+        "label": "답장 전 대기",
+        "help": "조금 뒤에 답장해서 덜 기계적으로 느껴지게 합니다. 최대 10분입니다.",
+        "none": "바로 답장",
+        "seconds": "초",
+        "minutes": "분",
+        "invalid": "최대 10분까지 선택하세요."
+      },
+      "intent": {
+        "mode": "의미로 일치",
+        "modeKeywords": "단어로 일치",
+        "label": "메시지 내용이 다음과 같으면",
+        "placeholder": "예: 가격을 알고 싶어 함",
+        "help": "다른 트리거를 확인한 뒤 AI가 각 메시지가 이 뜻인지 판단합니다. AI 사용량이 차감됩니다.",
+        "needsAi": "의미로 일치시키려면 이 워크스페이스에서 AI를 켜세요.",
+        "tooLong": "300자 이내로 입력하세요."
       }
     },
     "nodes": {
@@ -3097,7 +3278,281 @@
       "igProfile": {
         "onlyInstagram": "Instagram 프로필 확인은 Instagram 플로우에서만 작동합니다.",
         "badFact": "확인할 Instagram 프로필 항목을 선택하세요."
+      },
+      "actions": {
+        "title": "다음 작업 실행",
+        "add": "작업",
+        "empty": "작업을 하나 이상 추가하세요.",
+        "limit": "한 단계에 작업은 최대 {max}개입니다.",
+        "moveUp": "위로 이동",
+        "moveDown": "아래로 이동",
+        "remove": "작업 삭제",
+        "pickerTitle": "작업 선택",
+        "groups": {
+          "contact": "연락처 데이터",
+          "automation": "자동화",
+          "inbox": "받은편지함",
+          "ads": "광고"
+        },
+        "types": {
+          "add_tag": "태그 추가",
+          "remove_tag": "태그 제거",
+          "set_field": "연락처 필드 설정",
+          "set_workspace_field": "워크스페이스 필드 설정",
+          "set_channel_consent": "Instagram 구독 또는 구독 취소",
+          "subscribe_sequence": "시퀀스 구독",
+          "unsubscribe_sequence": "시퀀스 구독 취소",
+          "start_flow": "다른 자동화 시작",
+          "stop_flow": "다른 자동화 중지",
+          "pause_automations": "자동화 일시 중지",
+          "resume_automations": "자동화 다시 시작",
+          "log_conversion": "전환 이벤트 기록",
+          "set_conversation_status": "대화를 열림 또는 닫힘으로 표시",
+          "notify_team": "팀에 알림"
+        },
+        "increment": "숫자에 더하기",
+        "set": "다음으로 설정",
+        "opened": "열림",
+        "closed": "닫힘",
+        "optIn": "구독",
+        "optOut": "구독 취소",
+        "assignee": "배정된 상담원",
+        "admins": "관리자",
+        "note": "팀을 위한 메모",
+        "selfFlow": "자동화는 자기 자신을 시작하거나 중지할 수 없습니다."
+      },
+      "randomizer": {
+        "title": "트래픽 나누기",
+        "sticky": "같은 연락처에는 같은 경로",
+        "stickyHelp": "꺼짐: 실행할 때마다 경로를 무작위로 고릅니다.",
+        "addPath": "새 변형",
+        "path": "경로 {id}",
+        "weight": "연락처 비율",
+        "total": "배정됨: {total}%",
+        "totalInvalid": "비율의 합은 100%여야 합니다.",
+        "limit": "경로는 2~6개를 사용하세요."
+      },
+      "smartDelay": {
+        "title": "대기",
+        "duration": "기간",
+        "untilDate": "날짜",
+        "waitFor": "대기 시간",
+        "fromField": "연락처 필드의 숫자 사용",
+        "specificDate": "특정 날짜",
+        "dynamicDate": "연락처 필드의 날짜",
+        "offset": "더하거나 빼기(분)",
+        "pastDate": "날짜가 이미 지났다면 자동화는 여기서 멈춥니다.",
+        "sendWindow": "이 시간대에만 계속",
+        "from": "시작",
+        "to": "종료",
+        "weekdays": "요일",
+        "timezone": "시간대",
+        "max": "최대 365일까지 기다릴 수 있습니다.",
+        "instagramWarning": "Instagram은 상대의 마지막 메시지 후 24시간 이내에만 자동 메시지를 허용합니다. 더 오래 기다리면 대개 창이 닫혀 메시지가 전송되지 않습니다."
+      },
+      "googleSheets": {
+        "title": "Google Sheets",
+        "op_insert_row": "행 추가",
+        "op_get_row": "행 찾기",
+        "op_update_row": "행 업데이트",
+        "spreadsheet": "스프레드시트",
+        "sheet": "시트",
+        "matchColumn": "다음 열이",
+        "matchValue": "다음과 같은 행 찾기",
+        "columns": "열",
+        "addColumn": "열 추가",
+        "varMap": "열을 변수에 저장",
+        "failure": "실패하면",
+        "notConnected": "이 단계를 사용하려면 설정에서 Google Sheets를 연결하세요.",
+        "outcomeNote": "Google이 변경을 확인하지 않으면 이 단계는 실패 경로로 이동하며 다시 시도하지 않습니다."
       }
+    },
+    "history": {
+      "undo": "실행 취소",
+      "redo": "다시 실행",
+      "undoShortcut": "실행 취소 (Ctrl+Z)",
+      "redoShortcut": "다시 실행 (Ctrl+Shift+Z)",
+      "nothingToUndo": "실행 취소할 항목이 없습니다",
+      "nothingToRedo": "다시 실행할 항목이 없습니다"
+    },
+    "autosave": {
+      "saving": "저장 중…",
+      "saved": "저장됨",
+      "notSaved": "저장되지 않음",
+      "notSavedReason": "저장되지 않음: {reason}",
+      "saveNow": "지금 저장",
+      "offline": "오프라인 상태입니다",
+      "failed": "마지막 저장에 실패했습니다",
+      "conflictTitle": "이 초안이 다른 곳에서 변경되었습니다",
+      "conflictBody": "누군가 이 초안의 최신 버전을 저장했습니다. 새로고침해서 확인하거나 내 변경 사항으로 덮어쓰세요.",
+      "reload": "새로고침",
+      "overwrite": "덮어쓰기",
+      "leaveWarning": "최근 변경 사항을 아직 저장 중입니다. 그래도 나가시겠습니까?"
+    },
+    "multiTrigger": {
+      "when": "다음의 경우…",
+      "then": "그러면",
+      "addTrigger": "새 트리거",
+      "removeTrigger": "트리거 삭제",
+      "primary": "첫 번째 트리거",
+      "limitReached": "플로에는 트리거를 최대 {max}개까지 둘 수 있습니다.",
+      "onlyInstagram": "Instagram 플로만 트리거를 두 개 이상 가질 수 있습니다.",
+      "notCombinable": "이 트리거는 단독으로만 작동하며 다른 트리거와 함께 쓸 수 없습니다.",
+      "pickerTitle": "다음의 경우 이 자동화를 시작합니다…",
+      "search": "트리거 검색"
+    },
+    "conditions": {
+      "question": "연락처가 다음 조건을 {match} 충족하나요?",
+      "all": "모두",
+      "any": "하나라도",
+      "add": "조건",
+      "search": "필드 검색",
+      "otherwise": "그 외",
+      "groups": {
+        "recommended": "추천",
+        "general": "일반 필터",
+        "system": "시스템 필드"
+      },
+      "subjects": {
+        "tag": "태그",
+        "contact_field": "연락처 필드",
+        "custom_field": "사용자 지정 필드",
+        "var": "플로 변수",
+        "time": "현재 시간",
+        "date": "현재 날짜",
+        "ig_profile": "Instagram 프로필",
+        "system": "시스템 필드",
+        "segment": "세그먼트",
+        "link_click": "링크 클릭",
+        "workspace_field": "워크스페이스 필드",
+        "sequence": "시퀀스 구독"
+      },
+      "systemFacts": {
+        "ig_username": "Instagram 사용자 이름",
+        "last_interaction_at": "마지막 상호작용",
+        "window_open_until": "메시지 창이 열려 있는 시간",
+        "subscribed": "이 채널 구독 중",
+        "contact_id": "연락처 ID"
+      },
+      "inSegment": "세그먼트에 속함",
+      "notInSegment": "세그먼트에 속하지 않음",
+      "clicked": "이 단계의 링크를 클릭함",
+      "notClicked": "이 단계의 링크를 클릭하지 않음",
+      "subscribed": "구독 중",
+      "notSubscribed": "구독하지 않음"
+    },
+    "variables": {
+      "insert": "변수 삽입",
+      "search": "변수 검색",
+      "contactFields": "연락처",
+      "customFields": "사용자 지정 필드",
+      "workspaceFields": "워크스페이스",
+      "flowVariables": "이전 단계",
+      "fallback": "비어 있으면 사용할 값",
+      "fallbackHelp": "값이 없을 때 표시됩니다.",
+      "empty": "아직 변수가 없습니다."
+    },
+    "saveTo": {
+      "label": "답변 저장 위치",
+      "none": "저장 안 함",
+      "contactField": "연락처 필드",
+      "customField": "사용자 지정 필드",
+      "conflictNote": "다른 연락처에 이미 이 전화번호나 이메일이 있으면 답변은 플로에만 저장됩니다."
+    },
+    "testUsernames": {
+      "label": "테스트 사용자 이름",
+      "help": "플로가 초안인 동안에는 이 Instagram 계정(최대 3개)에만 실행됩니다.",
+      "placeholder": "username",
+      "invalid": "@ 없이 사용자 이름을 입력하세요: 영문자, 숫자, 마침표, 밑줄.",
+      "limit": "테스트 사용자 이름은 최대 3개입니다."
+    },
+    "nodeStats": {
+      "waiting": "대기 중",
+      "passed": "통과",
+      "loading": "집계를 불러오는 중…"
+    },
+    "aiGoals": {
+      "title": "목표",
+      "add": "목표 추가",
+      "limit": "목표는 최대 3개이며 순서대로 진행됩니다.",
+      "types": {
+        "share_link": "링크 공유",
+        "grow_followers": "팔로워 늘리기",
+        "capture_lead": "리드 수집"
+      },
+      "url": "공유할 링크",
+      "fields": "수집할 정보",
+      "onRefusal": "상대가 거절하면",
+      "refusalHandoff": "사람에게 넘기기",
+      "refusalContinue": "플로 계속",
+      "finish": "목표를 마치면",
+      "goalText": "AI에게 할 일 알려주기",
+      "goalPlaceholder": "예: 알맞은 요금제 선택을 돕고 이메일 받기",
+      "generate": "할 일 만들기",
+      "tasks": "할 일",
+      "addTask": "새 할 일",
+      "context": "AI에게 배경 정보 제공",
+      "saveReply": "답변을 다음으로 저장",
+      "preview": "사용해 보기",
+      "previewEmpty": "사용해 보려면 단계의 오류를 고치세요."
+    },
+    "buyButton": {
+      "label": "구매 버튼",
+      "amount": "금액",
+      "currency": "통화",
+      "help": "이 금액의 결제 페이지를 엽니다. 결제는 채팅이 아닌 웹에서 이루어집니다.",
+      "needsPayments": "구매 버튼을 추가하려면 결제 서비스를 연결하세요."
+    },
+    "folders": {
+      "all": "모든 자동화",
+      "new": "새 폴더",
+      "rename": "폴더 이름 변경",
+      "delete": "폴더 삭제",
+      "deleteConfirm": "\"{name}\" 폴더를 삭제할까요? 폴더 안의 자동화는 최상위로 이동합니다.",
+      "moveTo": "폴더로 이동",
+      "noFolder": "폴더 없음",
+      "name": "폴더 이름",
+      "nameInvalid": "1~60자를 사용하세요.",
+      "nameTaken": "같은 이름의 폴더가 이미 있습니다."
+    },
+    "listRow": {
+      "runs": "실행",
+      "ctr": "CTR",
+      "noCtr": "—",
+      "ctrHelp": "추적 링크를 받은 실행 중 링크를 한 번 이상 클릭한 실행의 비율입니다.",
+      "modified": "{time} 수정",
+      "status": {
+        "draft": "초안",
+        "live": "운영 중",
+        "stopped": "중지됨",
+        "archived": "보관됨"
+      },
+      "noTrigger": "아직 트리거 없음"
+    },
+    "canvas": {
+      "addStep": "단계 추가",
+      "addNote": "메모",
+      "noteNew": "메모를 작성하세요",
+      "arrange": "단계 정렬",
+      "zoomIn": "확대",
+      "zoomOut": "축소",
+      "fit": "화면에 맞추기",
+      "simpleBuilder": "간단한 편집기",
+      "canvasBuilder": "캔버스",
+      "setLive": "운영 시작",
+      "preview": "미리보기",
+      "more": "더 보기",
+      "tapToEdit": "편집할 단계를 선택하세요",
+      "groups": {
+        "start": "시작 단계",
+        "content": "콘텐츠",
+        "ai": "AI",
+        "logic": "로직",
+        "extras": "기타"
+      },
+      "sendMode": "보내기",
+      "sendInWindow": "메시지 창 안에서",
+      "sendPrivateReply": "비공개 답장으로"
     }
   },
   "Settings": {
@@ -3588,7 +4043,8 @@
       "ads": "광고",
       "connections": "회의 및 배송",
       "instagram": "Instagram",
-      "privacy": "개인정보 및 접근"
+      "privacy": "개인정보 및 접근",
+      "conversion-events": "전환 이벤트"
     },
     "groups": {
       "account": "계정",
@@ -4907,6 +5363,21 @@
         "accept": "동의",
         "later": "나중에"
       }
+    },
+    "conversionEvents": {
+      "title": "전환 이벤트",
+      "description": "예약된 통화나 가입처럼 중요한 결과에 이름을 붙이고 플로에서 집계하세요.",
+      "add": "이벤트 추가",
+      "name": "이벤트 이름",
+      "namePlaceholder": "예: 통화 예약",
+      "nameInvalid": "1~60자를 사용하세요.",
+      "nameTaken": "같은 이름의 이벤트가 이미 있습니다.",
+      "archive": "보관",
+      "restore": "복원",
+      "archived": "보관됨",
+      "empty": "아직 이벤트가 없습니다. 하나를 추가한 뒤 플로의 작업 단계에서 기록하세요.",
+      "readOnly": "관리자만 전환 이벤트를 변경할 수 있습니다.",
+      "count": "{count, plural, other {#회}}"
     }
   },
   "SignupPage": {
@@ -5826,6 +6297,37 @@
       "payDescription": "카이로프랙틱 방문",
       "consent": "감사합니다. 방문 전에 어디가 언제부터 아픈지 등 꼭 필요한 최소한의 건강 정보만 알려 주세요. 이후는 저희 팀이 안내해 드리겠습니다.",
       "handoffNote": "카이로프랙틱 방문: 예약 완료, 환자에게 후속 연락하세요."
+    },
+    "instagram5": {
+      "galleryTitle": "더 많은 Instagram 자동화",
+      "byGoal": "목표별",
+      "byTrigger": "트리거별",
+      "recommended": "추천",
+      "goals": {
+        "grow_followers": "팔로워 늘리기",
+        "engage_audience": "팔로워와 소통하기",
+        "drive_traffic": "방문 유도하기"
+      },
+      "triggers": {
+        "post_comment": "게시물 또는 릴스 댓글",
+        "dm": "다이렉트 메시지",
+        "story_reply": "스토리 답장",
+        "live_comment": "라이브 댓글"
+      },
+      "kinds": {
+        "quick": "빠른 설정",
+        "flow": "플로"
+      },
+      "levels": {
+        "beginner": "초급",
+        "advanced": "고급"
+      },
+      "usesAi": "AI 사용",
+      "needsPayments": "결제 필요",
+      "businessValue": "도움이 되는 이유",
+      "howItWorks": "작동 방식",
+      "install": "템플릿 사용",
+      "noTrigger": "설치한 뒤 트리거를 추가하세요"
     }
   },
   "LibErrors": {
@@ -6084,7 +6586,8 @@
       "storefrontInvalidPurpose": "링크가 스토어를 열지, 연락처의 최근 주문을 열지 선택하세요.",
       "storefrontNeedsNext": "링크를 보낸 후 이어질 단계를 연결하세요.",
       "capabilityUnavailable": "\"{key}\" 단계에는 아직 이 워크스페이스에 설정되지 않은 {capability}이(가) 필요합니다.",
-      "crossFlowLoop": "고객 응답 없이 플로우 연결 단계가 순환합니다: {flows}."
+      "crossFlowLoop": "고객 응답 없이 플로우 연결 단계가 순환합니다: {flows}.",
+      "stage5Pending": "이 단계나 설정은 아직 사용할 수 없습니다. 플로를 게시하려면 제거하세요."
     },
     "automations": {
       "needsStep": "활성 자동화에는 단계가 하나 이상 필요합니다",
@@ -6129,7 +6632,8 @@
       "webhookBodyInvalid": "웹훅 본문은 올바른 JSON이어야 합니다. 자리표시자는 따옴표로 묶은 문자열 안에 넣으세요.",
       "webhookUrlNotAllowed": "웹훅 URL이 사설 또는 예약된 주소를 가리킵니다. 공개 주소를 사용하세요.",
       "oncePerContactInvalid": "연락처당 한 번은 켜거나 꺼야 합니다.",
-      "segmentUnavailable": "선택한 세그먼트를 이 워크스페이스에서 사용할 수 없습니다."
+      "segmentUnavailable": "선택한 세그먼트를 이 워크스페이스에서 사용할 수 없습니다.",
+      "stage5Pending": "이 트리거나 단계는 아직 사용할 수 없습니다. 자동화를 켜려면 다른 항목을 선택하세요."
     },
     "templates": {
       "nameRequired": "템플릿 이름은 필수입니다.",
@@ -6405,7 +6909,10 @@
       "invalid_working_hours": "운영 시간을 확인하세요. 각 시간대는 시작이 종료보다 빨라야 하며 같은 요일의 시간대가 겹치면 안 됩니다.",
       "invalid_away_message": "부재 메시지를 1024자 이내로 입력하거나 끄세요.",
       "invalid_auto_resolve": "자동 해결 시간은 1~720 사이의 정수(시간)여야 합니다.",
-      "invalid_sla": "첫 답장 목표는 1~10080 사이의 정수(분)여야 합니다."
+      "invalid_sla": "첫 답장 목표는 1~10080 사이의 정수(분)여야 합니다.",
+      "invalid_pause": "상담원 답장 후 일시 중지 시간은 1~10080분 사이의 정수이거나 다시 시작할 때까지여야 합니다.",
+      "invalid_assignment": "새 대화를 배정하는 방식을 선택하세요: 끄기, 균등 배분 또는 규칙 사용.",
+      "invalid_visibility": "상담원이 볼 수 있는 대화를 선택하세요."
     },
     "routingRules": {
       "invalid_name": "규칙 이름을 120자 이내로 입력하세요.",
@@ -6956,6 +7463,15 @@
       "state_mismatch": "Instagram 로그인이 만료되었습니다. 다시 연결해 보세요",
       "meta_error": "Instagram에서 오류를 반환했습니다",
       "delivery_uncertain": "전송 여부가 불확실합니다. 다시 보내기 전에 Instagram을 확인하세요"
+    },
+    "v1": {
+      "instagram": {
+        "windowClosed": "이 대화의 Instagram 메시지 창이 닫혀 있습니다.",
+        "conversationNotFound": "대화를 찾을 수 없습니다.",
+        "contactNotFound": "연락처를 찾을 수 없습니다.",
+        "flowNotActive": "플로가 활성 상태가 아닙니다.",
+        "idempotencyMismatch": "이 Idempotency-Key는 이미 다른 요청에 사용되었습니다."
+      }
     }
   },
   "PageSearch": {
@@ -6978,7 +7494,32 @@
     "readOnly": "작업 공간 관리자만 이 설정을 변경할 수 있습니다.",
     "saving": "저장 중…",
     "save": "목표 저장",
-    "saved": "응답 목표가 저장되었습니다."
+    "saved": "응답 목표가 저장되었습니다.",
+    "pause": {
+      "title": "상담원 답장 후 자동화",
+      "description": "팀원이 답장하면 서로 겹치지 않도록 자동 답장이 일시 중지됩니다.",
+      "label": "자동화 다시 시작",
+      "never": "누군가 다시 시작할 때만",
+      "after": "{duration} 후",
+      "save": "저장"
+    },
+    "assignment": {
+      "title": "자동 배정",
+      "description": "새 대화를 팀에 배정하는 방식입니다.",
+      "off": "끄기: 새 대화를 배정하지 않음",
+      "basic": "균등 배분: 온라인 상담원에게 고르게 나눔",
+      "rules": "규칙 사용: 라우팅 규칙을 따름",
+      "capacity": "상담원당 최대 진행 중 대화 수",
+      "capacityHelp": "이 한도에 도달한 상담원은 건너뜁니다. 한도를 두지 않으려면 비워 두세요.",
+      "save": "저장"
+    },
+    "visibility": {
+      "title": "상담원이 볼 수 있는 대화",
+      "description": "관리자와 소유자는 항상 모든 대화를 봅니다.",
+      "all": "모든 대화",
+      "assignedOrTeam": "본인, 소속 팀, 미배정 대화만",
+      "save": "저장"
+    }
   },
   "Plan": {
     "upgrade": "업그레이드",
@@ -9021,6 +9562,17 @@
         "delay_invalid": "지연 시간은 0~10080분(7일) 사이여야 합니다.",
         "variables_invalid": "각 변수를 주문 필드에 연결하세요."
       }
+    },
+    "googleSheets": {
+      "title": "Google Sheets",
+      "description": "자동화에서 받은 리드와 답변을 스프레드시트로 보냅니다.",
+      "connect": "Google 연결",
+      "disconnect": "연결 해제",
+      "disconnectConfirm": "Google Sheets 연결을 해제할까요? 이를 사용하는 단계는 실패 경로로 이동합니다.",
+      "connectedAs": "{email}(으)로 연결됨",
+      "notEnabled": "이 서버에서는 아직 Google Sheets를 사용할 수 없습니다.",
+      "error": "연결을 확인해야 합니다. 다시 연결하세요.",
+      "readOnly": "관리자만 Google Sheets를 연결할 수 있습니다."
     }
   },
   "InboxLifecycle": {
@@ -10848,7 +11400,14 @@
     "monthlyTokenCap": "월간 AI 토큰 한도",
     "monthlyTokenCapHint": "요약, 추천 답장, 평가, 인사이트에 적용됩니다. 비워 두면 요금제 한도만 적용됩니다.",
     "staffReviewNote": "이 기능들이 작성한 내용은 팀원이 검토하고 보내기를 누르기 전까지 고객에게 전송되지 않습니다.",
-    "autonomousNote": "자동 답장과 플로우의 AI 답장 단계는 사람의 검토 없이 전송됩니다."
+    "autonomousNote": "자동 답장과 플로우의 AI 답장 단계는 사람의 검토 없이 전송됩니다.",
+    "instagramGoals": {
+      "title": "Instagram 답장 목표",
+      "description": "AI 답장에 최대 3개의 목표를 순서대로 지정하세요.",
+      "add": "목표 추가",
+      "empty": "목표 없음: AI는 질문에만 답합니다.",
+      "save": "저장"
+    }
   },
   "AiFallback": {
     "deployment_off": "이 배포에서 AI가 꺼져 있습니다.",
@@ -12014,7 +12573,32 @@
       "openPost": "게시물 열기",
       "empty": "이 기간에는 댓글이 없습니다.",
       "loadFailed": "인사이트를 불러오지 못했습니다. 다시 시도하세요.",
-      "clicksNote": "링크 클릭은 추적 링크만 집계합니다."
+      "clicksNote": "링크 클릭은 추적 링크만 집계합니다.",
+      "contacts": {
+        "title": "연락처",
+        "active": "활성",
+        "inactive": "비활성",
+        "total": "전체",
+        "activeHelp": "활성 연락처는 해당 날짜에 Instagram 메시지를 한 번 이상 보낸 연락처입니다.",
+        "empty": "이 기간에 연락처가 없습니다."
+      },
+      "revenue": {
+        "title": "매출",
+        "earned": "수익",
+        "sales": "판매",
+        "buyers": "구매자",
+        "perBuyer": "구매자당 평균",
+        "perContact": "연락처당 평균",
+        "chart": "수익 추이",
+        "perFlow": "자동화별 매출",
+        "empty": "이 기간에 자동화에서 결제된 결제 링크가 없습니다."
+      },
+      "conversions": {
+        "title": "전환 이벤트",
+        "event": "이벤트",
+        "count": "횟수",
+        "empty": "이 기간에 기록된 전환 이벤트가 없습니다."
+      }
     },
     "shareToStory": {
       "help": "누군가 내 게시물이나 릴스를 스토리에 공유하면 시작됩니다. 한 사람이 매번 또는 하루에 한 번 시작할 수 있습니다.",
@@ -12044,6 +12628,79 @@
         "alreadyConnected": "이 Instagram 계정은 이미 다른 워크스페이스에 연결되어 있습니다.",
         "planLimit": "현재 요금제에서는 Instagram 계정을 더 연결할 수 없습니다."
       }
+    },
+    "home": {
+      "title": "Instagram 홈",
+      "description": "자동화, 성과, 다음 할 일을 한곳에서 확인하세요.",
+      "startHere": "여기서 시작",
+      "last7Days": "최근 7일",
+      "topFlows": "인기 자동화",
+      "topPosts": "인기 게시물",
+      "leads": "수집한 리드",
+      "topLeadFlow": "리드를 가장 많이 모은 자동화",
+      "timeSaved": "절약한 시간",
+      "timeSavedNote": "자동 메시지 1건당 30초로 추정한 값입니다.",
+      "defaults": "계정 기본 설정",
+      "on": "켜짐",
+      "off": "꺼짐",
+      "open": "열기",
+      "empty": "최근 7일 동안 활동이 아직 없습니다."
+    },
+    "basics": {
+      "title": "기본",
+      "description": "Instagram 계정에서 항상 작동하는 답장입니다.",
+      "setUp": "설정",
+      "edit": "편집",
+      "defaultReply": "기본 답장",
+      "defaultReplyBody": "다른 자동화가 처리하지 않는 모든 메시지에 답합니다.",
+      "conversationStarters": "대화 시작 질문",
+      "conversationStartersBody": "처음 메시지를 보내는 사람이 누를 수 있는 질문입니다.",
+      "storyMention": "스토리 언급 답장",
+      "storyMentionBody": "누군가 스토리에서 나를 언급하면 감사 인사를 보냅니다.",
+      "mainMenu": "기본 메뉴",
+      "mainMenuBody": "링크와 빠른 답변이 있는 채팅 메뉴입니다.",
+      "keywords": "구독 및 구독 취소 키워드",
+      "keywordsBody": "자동 메시지를 시작하거나 멈추려고 보내는 단어입니다.",
+      "newFollowers": "새 팔로워에게 인사하기",
+      "newFollowersBody": "사용할 수 없음: Instagram은 앱이 새 팔로워에게 자동으로 메시지를 보내는 것을 허용하지 않습니다."
+    },
+    "sequences": {
+      "title": "시퀀스",
+      "description": "구독한 연락처에게 시간 간격을 두고 보내는 메시지 묶음입니다.",
+      "new": "새 시퀀스",
+      "name": "이름",
+      "subscribers": "구독자",
+      "messages": "메시지",
+      "openRate": "열람률",
+      "ctr": "CTR",
+      "empty": "아직 시퀀스가 없습니다.",
+      "addMessage": "메시지",
+      "createNew": "새로 만들기",
+      "selectExisting": "기존 항목 선택",
+      "after": "{amount} {unit} 후",
+      "immediately": "즉시",
+      "active": "활성",
+      "sent": "발송",
+      "clicks": "클릭",
+      "openMessage": "메시지 열기",
+      "windowWarning": "Instagram은 상대의 마지막 메시지 후 24시간 이내에만 자동 메시지를 허용합니다. 그 이후 예정된 메시지는 건너뜁니다.",
+      "notPromotional": "첫 메시지는 홍보보다는 도움이 되는 내용으로 작성하세요."
+    },
+    "subscription": {
+      "title": "구독 및 구독 취소",
+      "description": "단어 하나로 Instagram 자동 메시지를 멈추거나 다시 받을 수 있게 하세요. 팀은 계속 직접 답장할 수 있습니다.",
+      "optOutKeywords": "구독 취소 키워드",
+      "optInKeywords": "구독 키워드",
+      "builtIn": "항상 포함: {words}",
+      "keywordsHelp": "어떤 언어든 단어나 짧은 문구 최대 20개. 대소문자를 구분하지 않고 메시지가 정확히 일치해야 합니다.",
+      "optOutReply": "구독 취소 후 확인 메시지",
+      "optInReply": "구독 후 확인 메시지",
+      "optOutFlow": "구독 취소 후 실행할 자동화",
+      "optInFlow": "구독 후 실행할 자동화",
+      "noFlow": "없음",
+      "save": "저장",
+      "saved": "저장됨",
+      "invalid": "키워드를 확인하세요: 각각 1~50자, 최대 20개."
     }
   }
 }

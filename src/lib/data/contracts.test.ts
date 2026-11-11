@@ -236,6 +236,20 @@ describe('fixed CRM resource authorization', () => {
       validateWrite('broadcasts', { template_name: 'promo_x', scheduled_at: '2026-11-05T18:00:00.000Z', status: 'scheduled' }, tenant, false, 'update')
     ).not.toThrow();
   });
+  it('keeps the Stage 5 timed pause and Instagram subscription out of browser writes', () => {
+    for (const operation of ['insert', 'update'] as const) {
+      for (const [field, value] of [['bot_paused_until', '2026-11-20T10:00:00.000Z'], ['bot_paused_by', tenant.userId]] as const)
+        expect(() => validateWrite('conversations', { [field]: value }, tenant, true, operation)).toThrow(/server-managed/);
+      for (const field of ['instagram_opted_out_at', 'instagram_opted_in_at'])
+        expect(() => validateWrite('contacts', { [field]: '2026-11-20T10:00:00.000Z' }, tenant, true, operation)).toThrow(/server-managed/);
+    }
+    // The server (routes and the flow engine) may still write them inside withTenant.
+    expect(() => validateWrite('conversations', { bot_paused_until: '2026-11-20T10:00:00.000Z' }, tenant, false, 'update')).not.toThrow();
+    expect(() => validateWrite('contacts', { instagram_opted_out_at: null }, tenant, false, 'update')).not.toThrow();
+    // Browsers still read them (the inbox shows who paused and until when).
+    expect(getResource('conversations', true).read).toEqual(expect.arrayContaining(['bot_paused_until', 'bot_paused_by']));
+    expect(getResource('contacts', true).read).toEqual(expect.arrayContaining(['instagram_opted_out_at', 'instagram_opted_in_at']));
+  });
   it('keeps conversation lifecycle and SLA stamps out of browser writes while status stays writable', () => {
     for (const [field, value] of [
       ['lifecycle_state', 'resolved'],

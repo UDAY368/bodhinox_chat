@@ -12,8 +12,16 @@ import type { Channel } from '@/types';
 export type ChannelSection = 'inbox' | 'flows' | 'automations' | 'automationNew' | 'automationLogs';
 /** WhatsApp-only tools (their URLs predate the channel sections and do not change). */
 export type WhatsAppTool = 'broadcasts' | 'templates' | 'forms' | 'ads';
-/** Instagram-only tools (Stage 2: comments to quick automations; Stage 3: ref links, menu, insights). */
+/**
+ * Instagram-only tools (Stage 2: comments to quick automations; Stage 3: ref
+ * links, menu, insights; Stage 5: the home page, the subscription keywords page
+ * and the Basics and Sequences tabs of the automation area).
+ */
 export type InstagramTool =
+  | 'home'
+  | 'subscription'
+  | 'basics'
+  | 'sequences'
   | 'comments'
   | 'conversationStarters'
   | 'defaultReply'
@@ -35,6 +43,11 @@ const WHATSAPP_TOOLS: Record<WhatsAppTool, string> = {
 };
 
 const INSTAGRAM_TOOLS: Record<InstagramTool, string> = {
+  // Stage 5 pages: home and Basics (5F), subscription (5D), sequences (5H).
+  home: '/instagram/home',
+  subscription: '/instagram/subscription',
+  basics: '/instagram/basics',
+  sequences: '/instagram/sequences',
   comments: '/instagram/comments',
   conversationStarters: '/instagram/conversation-starters',
   defaultReply: '/instagram/default-reply',

@@ -37,7 +37,7 @@ import { conversionEdges, conversionIssues } from "./conversion-node";
 import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
 import { parseDateInput } from "./input-formats";
 import { nodeAvailableOn, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
-import { FLOW_CHANNEL_SCOPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type FlowTriggerType, type NodeTiming } from "./types";
+import { FLOW_CHANNEL_SCOPES, STAGE5_NODE_TYPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type FlowTriggerType, type NodeTiming } from "./types";
 import { nodeCapabilityBlock, type WorkspaceCapabilities } from "./node-registry";
 import { cardRouteTargets, igFlowIssues, igNodeIssues, igTriggerIssues, privateReplyWaits } from "./instagram-validation";
 
@@ -55,7 +55,7 @@ export interface ValidationIssue {
   field?: string;
   message: string;
   /** A machine-readable reason for the Phase 12 publish checks. */
-  code?: "capabilityUnavailable" | "crossFlowLoop";
+  code?: "capabilityUnavailable" | "crossFlowLoop" | "stage5Pending";
   /** With code 'capabilityUnavailable': the workspace capability the node needs. */
   capability?: string;
 }
@@ -71,6 +71,40 @@ interface FlowInput {
   fallback_policy?: unknown;
   /** Channels the flow runs on (Phase 11); absent is WhatsApp only. */
   channel_scope?: FlowChannelScope | null;
+  /** Stage 5: further triggers (flows.extra_triggers). */
+  extra_triggers?: unknown;
+}
+
+/**
+ * Stage 5 features that are stored but not run yet (5A stub; 5B replaces it
+ * with the real rules). Each is an error, so a flow using one cannot be
+ * published: the new steps, extra triggers, buy buttons, the intent keyword
+ * match, a comment reply delay, AI goals and Ask Question's "save answer to".
+ */
+export function stage5PendingIssues(flow: Pick<FlowInput, "trigger_config" | "extra_triggers">, nodes: ReadonlyArray<NodeInput>): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const pending = (fields: Omit<ValidationIssue, "severity" | "code" | "message">): void => {
+    issues.push({ severity: "error", code: "stage5Pending", message: t("stage5Pending"), ...fields });
+  };
+  if (Array.isArray(flow.extra_triggers) && flow.extra_triggers.length > 0) pending({ scope: "flow", field: "extra_triggers" });
+  const trigger = (flow.trigger_config ?? {}) as Record<string, unknown>;
+  if (trigger.match_type === "intent") pending({ scope: "flow", field: "trigger_config.match_type" });
+  if (typeof trigger.reply_delay_seconds === "number" && trigger.reply_delay_seconds > 0) pending({ scope: "flow", field: "trigger_config.reply_delay_seconds" });
+  for (const node of nodes) {
+    const cfg = node.config ?? {};
+    if ((STAGE5_NODE_TYPES as readonly string[]).includes(node.node_type)) {
+      pending({ scope: "node", node_key: node.node_key, field: "node_type" });
+      continue;
+    }
+    if (Array.isArray(cfg.goals) && cfg.goals.length > 0) pending({ scope: "node", node_key: node.node_key, field: "goals" });
+    if (cfg.save_to !== undefined && cfg.save_to !== null) pending({ scope: "node", node_key: node.node_key, field: "save_to" });
+    if (Array.isArray(cfg.on_success_actions) && cfg.on_success_actions.length > 0) pending({ scope: "node", node_key: node.node_key, field: "on_success_actions" });
+    const cards = node.node_type === "send_card" ? [cfg.card] : node.node_type === "send_gallery" && Array.isArray(cfg.cards) ? cfg.cards : [];
+    const buy = cards.some((card) => Array.isArray((card as { buttons?: unknown } | null)?.buttons)
+      && ((card as { buttons: Array<{ type?: unknown }> }).buttons).some((b) => b?.type === "buy"));
+    if (buy) pending({ scope: "node", node_key: node.node_key, field: "card.buttons" });
+  }
+  return issues;
 }
 
 interface NodeInput {
@@ -201,6 +235,7 @@ export function validateFlowForActivation(
   }
   issues.push(...channelScopeIssues(flow.channel_scope, flow.trigger_type, nodes));
   issues.push(...igFlowIssues(flow, nodes, outgoingEdges));
+  issues.push(...stage5PendingIssues(flow, nodes));
 
   // Warn rather than block: explicit starts may supply variables externally.
   if (flow.entry_node_id && keys.has(flow.entry_node_id)) {
@@ -1301,6 +1336,13 @@ function validateNode(
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
       // beyond their existence.
+      break;
+
+    case "actions":
+    case "randomizer":
+    case "smart_delay":
+    case "google_sheets":
+      // Stage 5 steps: refused by stage5PendingIssues until 5B implements them.
       break;
 
     default:
