@@ -102,8 +102,9 @@ html[data-mode='dark'] .studio-inbox {
   container-type: inline-size;
 }
 
-/* A contact panel can leave less room than the overall window suggests. */
-@container (max-width: 480px) {
+/* A contact panel can leave less room than the overall window suggests; below 640px the
+   name and its chips get their own line, so they are never squeezed under the buttons. */
+@container (max-width: 640px) {
   .studio-inbox .studio-thread-header {
     flex-wrap: wrap;
   }
@@ -144,5 +145,104 @@ html[data-mode='dark'] .studio-inbox {
 
 .studio-inbox .studio-composer textarea {
   border-radius: 8px;
+  background: var(--card);
+}
+
+/*
+ * Instagram's own look, for the Instagram inbox and for an Instagram chat
+ * opened anywhere (the All view marks the thread). Instagram's stock DM
+ * palette: plain white or black, grey received bubbles, the purple-to-blue
+ * gradient on sent bubbles, Instagram blue for actions. WhatsApp keeps the
+ * palette above.
+ */
+.studio-inbox[data-inbox-scope='instagram'],
+.studio-inbox [data-thread-channel='instagram'] {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --card-2: #fafafa;
+  --muted: #efefef;
+  --muted-foreground: #737373;
+  --secondary: #efefef;
+  --secondary-foreground: #000000;
+  --accent: #efefef;
+  --accent-foreground: #000000;
+  --border: #dbdbdb;
+  --input: #dbdbdb;
+  --primary: #0095f6;
+  --primary-foreground: #ffffff;
+  --primary-hover: #1877f2;
+  --primary-soft: #e0f1ff;
+  --primary-soft-2: #cce6ff;
+  --ring: #0095f6;
+  --inbox-header: #ffffff;
+  --inbox-selected: #efefef;
+  --inbox-icon: #efefef;
+  --ig-incoming: #efefef;
+  --ig-outgoing: linear-gradient(180deg, #a033ff 0%, #6f42f5 50%, #3797f0 100%);
+}
+
+html[data-mode='dark'] .studio-inbox[data-inbox-scope='instagram'],
+html[data-mode='dark'] .studio-inbox [data-thread-channel='instagram'] {
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --card: #000000;
+  --card-foreground: #f5f5f5;
+  --card-2: #121212;
+  --muted: #262626;
+  --muted-foreground: #a8a8a8;
+  --secondary: #262626;
+  --secondary-foreground: #f5f5f5;
+  --accent: #262626;
+  --accent-foreground: #f5f5f5;
+  --border: #262626;
+  --input: #363636;
+  --primary-soft: #0b2a44;
+  --primary-soft-2: #0f3a5e;
+  --inbox-header: #000000;
+  --inbox-selected: #262626;
+  --inbox-icon: #262626;
+  --ig-incoming: #262626;
+}
+
+/* Instagram marks the open chat by its background alone, without a side bar. */
+.studio-inbox[data-inbox-scope='instagram'] .studio-conversation[aria-current='true'] {
+  box-shadow: none;
+}
+
+.studio-inbox .ig-message {
+  border-radius: 22px;
+  background: var(--ig-incoming);
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+/* Fixed to the window, so the gradient moves from purple at the top to blue at the bottom, as in Instagram. */
+.studio-inbox .ig-message-outgoing {
+  --muted-foreground: rgb(255 255 255 / 0.8);
+  background: var(--ig-outgoing);
+  background-attachment: fixed;
+  color: #ffffff;
+}
+
+.studio-inbox .ig-message-outgoing a {
+  color: inherit;
+}
+
+.studio-inbox .ig-message-badge {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* Day stamps are plain grey text in Instagram, not chips. */
+.studio-inbox [data-thread-channel='instagram'] .studio-date {
+  background: transparent;
+  font-size: 11px;
+}
+
+.studio-inbox [data-thread-channel='instagram'] .studio-composer textarea {
+  border-radius: 22px;
+  border-color: var(--border);
   background: var(--card);
 }

@@ -517,7 +517,12 @@
       "downloadFailed": "Não foi possível baixar o anexo",
       "viewImage": "Ver imagem",
       "expandVideo": "Expandir vídeo",
-      "imageAlt": "Imagem compartilhada"
+      "imageAlt": "Imagem compartilhada",
+      "igReceipt": {
+        "sending": "Enviando…",
+        "sent": "Enviada",
+        "seen": "Vista"
+      }
     },
     "mediaViewer": {
       "counter": "{index} de {total}",

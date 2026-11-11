@@ -1136,6 +1136,10 @@ export function MessageThread({
 
   const displayName = contact.name || contactHandle(contact);
   const messageGroups = groupMessagesByDate(messages);
+  // Instagram shows its Sent / Seen line under the newest message the business sent only.
+  const lastOutgoingId = isInstagram
+    ? [...messages].reverse().find((m) => m.sender_type === 'agent' || m.sender_type === 'bot')?.id
+    : undefined;
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
   );
@@ -1161,7 +1165,7 @@ export function MessageThread({
     // clipped and the hover toolbar overlaps the Tags panel. Letting the
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
-    <div className={cn('flex min-w-0 flex-1 flex-col', THREAD_BG_CLASSES)}>
+    <div className={cn('flex min-w-0 flex-1 flex-col', THREAD_BG_CLASSES)} data-thread-channel={threadChannel}>
       <div className="studio-thread-header border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {/* Back-to-list button — mobile only. Hidden on lg+ where the
@@ -1442,7 +1446,7 @@ export function MessageThread({
               <div key={group.date}>
                 {/* Date separator */}
                 <div className="mb-4 flex items-center justify-center">
-                  <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
+                  <span className="studio-date bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
                     {formatDateSeparator(group.date, t)}
                   </span>
                 </div>
@@ -1484,6 +1488,7 @@ export function MessageThread({
                           reply={reply}
                           onOpenMedia={handleMediaChange}
                           channel={threadChannel}
+                          receipt={msg.id === lastOutgoingId}
                         />
                       ) : (
                       <MessageActions

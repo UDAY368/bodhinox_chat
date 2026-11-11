@@ -48,6 +48,17 @@ interface MessageBubbleProps {
   onOpenMedia?: (messageId: string) => void;
   /** The conversation's channel; Instagram media comes from Meta's CDN and can expire. */
   channel?: ConversationChannel;
+  /** Instagram: this is the newest message the business sent, so it carries the Sent / Seen line. */
+  receipt?: boolean;
+}
+
+/** Instagram's words for a sent message's state (it shows no ticks); null where it shows nothing. */
+export function instagramReceipt(status: Message['status']): 'sending' | 'sent' | 'seen' | null {
+  if (status === 'sending') return 'sending';
+  if (status === 'sent' || status === 'delivered') return 'sent';
+  if (status === 'read') return 'seen';
+  // failed and unknown have their own lines under the bubble.
+  return null;
 }
 
 /**
@@ -481,6 +492,7 @@ export function MessageBubble({
   onToggleReaction,
   onOpenMedia,
   channel,
+  receipt,
 }: MessageBubbleProps) {
   const t = useTranslations('Inbox.bubble');
   const tc = useTranslations('Inbox.channel');
@@ -489,6 +501,45 @@ export function MessageBubble({
     message.sender_type === 'agent' || message.sender_type === 'bot';
   const time = format(new Date(message.created_at), 'HH:mm');
   const failure = isAgent ? failureReason(message) : null;
+
+  if (channel === 'instagram') {
+    // Instagram's own look: round bubbles, the time on hover (and for screen readers),
+    // and Sent / Seen under the newest outgoing message instead of ticks.
+    const state = isAgent && receipt ? instagramReceipt(message.status) : null;
+    return (
+      <div className={cn('flex max-w-[75%] flex-col sm:max-w-[60%]', isAgent ? 'ml-auto items-end' : 'mr-auto items-start')}>
+        <div
+          title={time}
+          className={cn('ig-message relative px-3 py-2 leading-snug', isAgent ? 'ig-message-outgoing' : 'ig-message-incoming')}
+        >
+          {reply && <ReplyQuote authorLabel={reply.authorLabel} preview={reply.preview} />}
+          <MessageContent message={message} template={template} t={t} tc={tc} isAgent={isAgent} onOpenMedia={onOpenMedia} channel={channel} />
+          <span className="sr-only">{time}</span>
+        </div>
+        {(message.ai_generated || state) && (
+          <div className="mt-0.5 flex items-center gap-1 px-2">
+            {message.ai_generated && (
+              <span className="ig-message-badge inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[9px] leading-none font-semibold tracking-wide uppercase"
+                title={t('aiBadgeTitle')}>
+                <Sparkles className="h-2.5 w-2.5" />
+                {t('aiBadge')}
+              </span>
+            )}
+            {state && <span className="text-muted-foreground text-[11px]" data-receipt={state}>{t(`igReceipt.${state}`)}</span>}
+          </div>
+        )}
+        {failure && (
+          <p className="text-muted-foreground mt-0.5 px-2 text-[10px] leading-tight" title={failure}>{t('notDelivered')}: {failure}</p>
+        )}
+        {isAgent && message.status === 'unknown' && (
+          <p data-delivery-uncertain className="mt-0.5 px-2 text-[10px] leading-tight text-amber-700 dark:text-amber-400">{tc('deliveryUncertain')}</p>
+        )}
+        {reactions && reactions.length > 0 && onToggleReaction && (
+          <MessageReactions reactions={reactions} currentUserId={currentUserId} onToggle={onToggleReaction} />
+        )}
+      </div>
+    );
+  }
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
