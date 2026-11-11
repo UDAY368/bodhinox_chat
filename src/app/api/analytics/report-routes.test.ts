@@ -36,7 +36,8 @@ vi.mock('@/lib/analytics/queries', async (original) => {
       return operation(tx, 'Asia/Kolkata');
     },
     conversationStats: async (...args: unknown[]) => {
-      const filters = args[3] as { whatsappConfigId?: string | null };
+      const filters = args[3] as { whatsappConfigId?: string | null; channel?: string | null };
+      if (filters?.channel && !['whatsapp', 'instagram'].includes(filters.channel)) throw new actual.AnalyticsInputError('Invalid channel');
       if (filters?.whatsappConfigId && filters.whatsappConfigId.length !== 36) throw new actual.AnalyticsInputError('Invalid number');
       h.calls.push({ name: 'conversationStats', args: args.slice(1) });
       return { started: { total: 1 } };
@@ -106,6 +107,17 @@ describe('analytics report routes', () => {
     const numberSql = h.sql.find((s) => s.includes('whatsapp_config'))!;
     expect(numberSql).toMatch(/SELECT id, display_name AS label, is_default/);
     expect(numberSql).not.toMatch(/phone|token/);
+  });
+
+  it('passes the channel filter to the overview and refuses unknown channels', async () => {
+    await get(overview, 'overview?preset=7d&channel=instagram');
+    const stats = h.calls.filter((c) => c.name === 'conversationStats');
+    expect(stats).toHaveLength(2);
+    expect(stats.every((c) => (c.args[2] as { channel: string }).channel === 'instagram')).toBe(true);
+    h.calls = [];
+    await get(overview, 'overview?preset=7d');
+    expect(h.calls.every((c) => (c.args[2] as { channel: unknown }).channel === null)).toBe(true);
+    expect((await get(overview, 'overview?channel=telegram')).status).toBe(400);
   });
 
   it('rejects bad ranges and filters with 400', async () => {

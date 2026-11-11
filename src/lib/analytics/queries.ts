@@ -175,6 +175,12 @@ const pct = (p: number, expr: Prisma.Sql, filter: Prisma.Sql = Prisma.empty) =>
 export interface ConversationFilters {
   whatsappConfigId?: string | null;
   teamId?: string | null;
+  /**
+   * Only conversations on this channel (a legacy null channel is WhatsApp).
+   * Campaign and template figures are WhatsApp by definition and stay pinned to
+   * channel='whatsapp' regardless of this filter.
+   */
+  channel?: 'whatsapp' | 'instagram' | null;
 }
 
 export interface DurationStats {
@@ -197,8 +203,11 @@ export async function conversationStats(tx: TenantTransaction, accountId: string
   filters: ConversationFilters = {}): Promise<ConversationStats> {
   assertUuid(filters.whatsappConfigId, 'number');
   assertUuid(filters.teamId, 'team');
-  const filtered = Boolean(filters.whatsappConfigId || filters.teamId);
+  if (filters.channel != null && filters.channel !== 'whatsapp' && filters.channel !== 'instagram')
+    throw new AnalyticsInputError('Invalid channel');
+  const filtered = Boolean(filters.whatsappConfigId || filters.teamId || filters.channel);
   const scopeFilter = Prisma.sql`
+    ${filters.channel ? Prisma.sql`AND COALESCE(c.channel, 'whatsapp')=${filters.channel}` : Prisma.empty}
     ${filters.whatsappConfigId ? Prisma.sql`AND c.whatsapp_config_id=${filters.whatsappConfigId}::uuid` : Prisma.empty}
     ${filters.teamId ? Prisma.sql`AND c.assigned_agent_id IN (
       SELECT tm.user_id FROM team_members tm WHERE tm.account_id=${accountId}::uuid AND tm.team_id=${filters.teamId}::uuid)` : Prisma.empty}`;
