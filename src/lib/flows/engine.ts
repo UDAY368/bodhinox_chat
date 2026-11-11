@@ -742,7 +742,10 @@ async function findEntryFlow(
   const needsFacts = conversation.channel === "instagram" &&
     typed.some((f) => f.trigger_type === "ig_story_reply" || f.trigger_type === "ig_story_mention" || f.trigger_type === "default_reply"
       || f.trigger_type === "ig_ref" || f.trigger_type === "ad_click" || f.trigger_type === "ig_share_to_story");
-  const igFacts: InstagramInboundFacts = needsFacts ? await storedInstagramFacts(db, accountId, conversationId, message.meta_message_id) : {};
+  const storedFacts: InstagramInboundFacts = needsFacts ? await storedInstagramFacts(db, accountId, conversationId, message.meta_message_id) : {};
+  // Flag off: a share to story is treated as any other unrecognised attachment (the default reply still applies), exactly as before Stage 4.
+  const igFacts: InstagramInboundFacts = storedFacts.shareToStory && !instagramConfig()?.shareToStoryEnabled
+    ? { ...storedFacts, shareToStory: undefined } : storedFacts;
   for (const flow of typed) {
     if (flow.trigger_type === "ig_story_reply") {
       if (storyReplyMatches(igFacts, messageText(message), flow.trigger_config as IgStoryReplyTriggerConfig)) return found(flow, {});

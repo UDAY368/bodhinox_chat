@@ -545,7 +545,10 @@ describe("Instagram Phase 1 engine (Stage 2C)", () => {
       igFlow({ id: "flow-s", trigger_type: "ig_share_to_story", trigger_config: { frequency: "every_time" } }),
     ];
     await inbound({ kind: "text", text: "" });
-    expect(runs()).toHaveLength(0);
+    // Flag off: the share flow stays dark and the default reply behaves as before Stage 4.
+    expect(runs().map((r) => r.row.flow_id)).toEqual(["flow-d"]);
+    h.state.activeRuns = [];
+    h.state.inserted = [];
     h.shareFlag = true;
     h.state.flows = [igFlow({ id: "flow-s", trigger_type: "ig_share_to_story", trigger_config: { frequency: "every_time", instagram_account_id: "00000000-0000-4000-8000-0000000000ff" } })];
     await inbound({ kind: "text", text: "" });
