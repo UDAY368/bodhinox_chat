@@ -71,6 +71,8 @@ describe("variable picker", () => {
     expect(placeholderToken("contact", "name")).toBe("{{contact.name}}");
     expect(placeholderToken("custom", "f1", "  there ")).toBe("{{custom.f1|there}}");
     expect(placeholderToken("vars", "x", "a}}{{b|c")).toBe("{{vars.x|abc}}");
+    // The engine fills {{workspace.key}} without a fallback form: one would reach the customer as typed.
+    expect(placeholderToken("workspace", "store_name", "our shop")).toBe("{{workspace.store_name}}");
     expect(cleanFallback("x".repeat(200))).toHaveLength(100);
   });
 

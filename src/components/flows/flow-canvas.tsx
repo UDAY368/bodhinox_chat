@@ -939,7 +939,8 @@ function FlowCanvasInner() {
           t={t}
         />
       ) : selectedTrigger !== null && triggers[selectedTrigger] ? (
-        <TriggerInspector index={selectedTrigger} onClose={() => setSelectedTrigger(null)} onRemove={removeTriggerAt}
+        // Keyed by trigger, so opening another trigger starts on its summary, not the last one's form.
+        <TriggerInspector key={selectedTrigger} index={selectedTrigger} onClose={() => setSelectedTrigger(null)} onRemove={removeTriggerAt}
           triggerTypes={triggerTypes} readOnly={locked} />
       ) : libraryOpen ? (
         <CanvasBlockLibrary t={t} onAdded={selectNode} />

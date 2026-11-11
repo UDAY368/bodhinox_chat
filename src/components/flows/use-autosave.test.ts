@@ -25,6 +25,8 @@ function harness(outcomes: SaveOutcome[] = []) {
     save,
     statuses,
     edit() { seq += 1; controller.changed(); },
+    /** A save made outside the controller (the Overwrite PUT). */
+    markSaved() { savedSeq = seq; },
     hold() { hold = true; },
     release() { hold = false; release?.(); },
   };
@@ -86,6 +88,18 @@ describe("AutosaveController", () => {
     h.edit();
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
     expect(h.save).toHaveBeenCalledTimes(2);
+  });
+
+  it("after a successful Overwrite, resume leaves the conflict state for Saved", async () => {
+    const h = harness([{ ok: false, conflict: true }]);
+    h.edit();
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
+    expect(h.statuses.at(-1)).toBe("conflict");
+    h.markSaved();
+    h.controller.resume();
+    expect(h.statuses.at(-1)).toBe("saved");
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 2);
+    expect(h.save).toHaveBeenCalledTimes(1);
   });
 
   it("a failed save reports why and waits for the next edit", async () => {

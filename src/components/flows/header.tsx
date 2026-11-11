@@ -109,7 +109,13 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
     conflict,
     reloadDraft,
     overwriteDraft,
+    flush,
   } = useFlowEditor();
+  // Runs is another page: save what is pending first, and ask only when that save failed.
+  const openRuns = async () => {
+    const saved = !dirty || (await flush());
+    if (saved || window.confirm(tAuto("leaveWarning"))) router.push(`/flows/${flow.id}/runs`);
+  };
   const saveView = saveStateView(saveStatus, dirty);
   const backHref = channelPath(section, "flows");
 
@@ -211,7 +217,7 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-48">
-              <DropdownMenuItem onClick={() => { if (!dirty || window.confirm(tAuto("leaveWarning"))) router.push(`/flows/${flow.id}/runs`); }}>
+              <DropdownMenuItem onClick={() => void openRuns()}>
                 <History className="h-4 w-4" />{t("runs")}
                 <span className="ml-auto font-mono text-[11px] text-muted-foreground">{flow.execution_count}</span>
               </DropdownMenuItem>

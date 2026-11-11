@@ -37,9 +37,16 @@ export function cleanFallback(fallback: string): string {
   return fallback.replace(/[{}|]/g, "").trim().slice(0, 100);
 }
 
-/** `{{source.key}}`, or `{{source.key|fallback}}` with a fallback. */
+/** Sources whose placeholder takes a `|fallback` (the engine fills workspace values without one). */
+export const FALLBACK_SOURCES: ReadonlySet<VariableSource> = new Set(["contact", "custom", "vars"]);
+
+/**
+ * `{{source.key}}`, or `{{source.key|fallback}}` with a fallback. Workspace
+ * fields never take one: `{{workspace.key|x}}` is not a placeholder the
+ * engine fills, so it would reach the customer as typed.
+ */
 export function placeholderToken(source: VariableSource, key: string, fallback = ""): string {
-  const clean = cleanFallback(fallback);
+  const clean = FALLBACK_SOURCES.has(source) ? cleanFallback(fallback) : "";
   return `{{${source}.${key}${clean ? `|${clean}` : ""}}}`;
 }
 

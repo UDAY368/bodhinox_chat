@@ -718,8 +718,11 @@ export function FlowEditorProvider({
     return ok;
   }, [controller, t]);
 
+  // Set when the editor itself leaves (Reload): the leave guard must not ask.
+  const leavingRef = useRef(false);
   const reloadDraft = useCallback(() => {
     savedSeqRef.current = seqRef.current;
+    leavingRef.current = true;
     controller.dispose();
     window.location.reload();
   }, [controller]);
@@ -742,6 +745,8 @@ export function FlowEditorProvider({
   useEffect(() => {
     if (!unsaved) return;
     const beforeUnload = (e: BeforeUnloadEvent) => {
+      // The author chose Reload (dropping this session's edits): no second prompt.
+      if (leavingRef.current) return;
       e.preventDefault();
       // Modern browsers ignore the return value but require something
       // truthy to actually show the native prompt.

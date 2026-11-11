@@ -88,9 +88,15 @@ export class AutosaveController {
     return outcome.ok && !this.opts.isDirty();
   }
 
-  /** The author chose Overwrite (or reloaded): saving may resume. */
+  /**
+   * The author chose Overwrite and that save succeeded: saving resumes and
+   * the header leaves the conflict state (Saved, or Saving… for edits since).
+   */
   resume(): void {
     this.stopped = false;
+    if (this.disposed) return;
+    if (this.opts.isDirty()) this.changed();
+    else this.opts.onStatus({ kind: "saved" });
   }
 
   /** Stops timers (the editor unmounted, or is leaving). */
