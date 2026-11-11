@@ -6,6 +6,11 @@
 // returns 404 (never 403 — don't reveal it exists elsewhere).
 // PATCH updates only the fields present in the body; pass `tags` (an
 // array of tag names) to replace the contact's tags.
+//
+// Stage 5 (5G): both answer `custom_fields`, an object keyed by custom
+// field name. PATCH accepts the same object (a string sets, null clears; a
+// key may also be the field id); an unknown or ambiguous key is a 400 and
+// nothing is written.
 // ============================================================
 
 import { requireApiKey } from '@/lib/auth/api-context';
@@ -16,6 +21,12 @@ import {
   resolveAuditUserId,
   ContactError,
 } from '@/lib/api/v1/contacts';
+import {
+  applyCustomFieldPatch,
+  CustomFieldInputError,
+  prepareCustomFieldPatch,
+  readContactCustomFields,
+} from '@/lib/api/v1/custom-fields';
 
 export async function GET(
   request: Request,
@@ -26,7 +37,7 @@ export async function GET(
     const { id } = await params;
     const contact = await getContactById(ctx.db, ctx.accountId, id);
     if (!contact) return fail('not_found', 'Contact not found', 404);
-    return ok(contact);
+    return ok({ ...contact, custom_fields: await readContactCustomFields(ctx.db, ctx.accountId, id) });
   } catch (err) {
     return toApiErrorResponse(err);
   }
@@ -67,6 +78,11 @@ export async function PATCH(
       }
     }
 
+    // Custom fields are resolved before anything is written, so a bad key changes nothing.
+    const customFields = 'custom_fields' in body
+      ? await prepareCustomFieldPatch(ctx.db, ctx.accountId, body.custom_fields)
+      : null;
+
     if (Object.keys(updates).length > 0) {
       updates.updated_at = new Date().toISOString();
       const { error } = await ctx.db
@@ -91,9 +107,12 @@ export async function PATCH(
       );
     }
 
+    if (customFields) await applyCustomFieldPatch(ctx.db, ctx.accountId, id, customFields);
+
     const contact = await getContactById(ctx.db, ctx.accountId, id);
-    return ok(contact);
+    return ok(contact ? { ...contact, custom_fields: await readContactCustomFields(ctx.db, ctx.accountId, id) } : contact);
   } catch (err) {
+    if (err instanceof CustomFieldInputError) return fail('bad_request', err.message, 400);
     if (err instanceof ContactError) {
       return fail(err.status === 400 ? 'bad_request' : 'internal', err.message, err.status);
     }

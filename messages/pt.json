@@ -3553,7 +3553,21 @@
       "saveReply": "Salvar a resposta como",
       "preview": "Testar",
       "previewEmpty": "Corrija os erros da etapa para testá-la.",
-      "invalid": "Conclua cada objetivo e tarefa dentro dos limites indicados."
+      "invalid": "Conclua cada objetivo e tarefa dentro dos limites indicados.",
+      "errors": {
+        "not_list": "Os objetivos devem ser uma lista.",
+        "too_many": "Use no máximo {max} objetivos.",
+        "type": "Escolha um tipo de objetivo.",
+        "url": "Informe um link que comece com http:// ou https://.",
+        "fields": "Escolha de 1 a {fields} dados diferentes para coletar.",
+        "refusal": "Escolha o que acontece se a pessoa recusar.",
+        "duplicate": "Cada tipo de objetivo pode ser usado uma vez.",
+        "needsFinish": "Conecte “Quando os objetivos forem concluídos” a uma etapa.",
+        "tooLong": "Use menos de {max} caracteres.",
+        "tasks": "Use no máximo {max} tarefas.",
+        "taskText": "Cada tarefa precisa de um texto de até {max} caracteres.",
+        "saveTo": "Escolha um campo para salvar a resposta."
+      }
     },
     "buyButton": {
       "label": "Botão de compra",
@@ -9931,7 +9945,28 @@
       "connectedAs": "Conectado como {email}",
       "notEnabled": "O Google Sheets ainda não está disponível neste servidor.",
       "error": "A conexão precisa de atenção. Conecte novamente.",
-      "readOnly": "Somente administradores podem conectar o Google Sheets."
+      "readOnly": "Somente administradores podem conectar o Google Sheets.",
+      "connected": "O Google Sheets está conectado.",
+      "disconnected": "O Google Sheets foi desconectado.",
+      "statusConnected": "Conectado",
+      "statusAttention": "Precisa de atenção",
+      "loadFailed": "Não foi possível carregar a conexão com o Google Sheets.",
+      "retry": "Tentar novamente",
+      "loading": "Carregando",
+      "errors": {
+        "generic": "Algo deu errado. Tente novamente.",
+        "denied": "A solicitação de permissão do Google foi recusada.",
+        "signed_out": "Sua sessão terminou. Entre e conecte novamente.",
+        "forbidden": "Somente administradores podem conectar o Google Sheets.",
+        "save_failed": "Não foi possível salvar a conexão. Tente novamente.",
+        "not_enabled": "O Google Sheets não está disponível neste servidor.",
+        "invalid_state": "A solicitação de conexão expirou ou não confere. Comece de novo.",
+        "auth": "O Google não aceitou a autorização. Comece de novo.",
+        "missing_scopes": "Permita o acesso às suas planilhas para conectar.",
+        "no_refresh_token": "O Google não concedeu acesso contínuo. Remova o app na sua conta Google e conecte novamente.",
+        "no_email": "O Google não compartilhou um e-mail verificado desta conta.",
+        "provider_unreachable": "Não foi possível falar com o Google. Tente daqui a pouco."
+      }
     }
   },
   "InboxLifecycle": {
@@ -11765,7 +11800,38 @@
       "description": "Dê às respostas de IA até 3 objetivos, em ordem.",
       "add": "Adicionar objetivo",
       "empty": "Sem objetivos: a IA só responde perguntas.",
-      "save": "Salvar"
+      "save": "Salvar",
+      "onlyInstagram": "Estes objetivos valem para as respostas de IA em conversas do Instagram.",
+      "goalLabel": "Objetivo {n}",
+      "type": "Tipo de objetivo",
+      "types": {
+        "share_link": "Compartilhar um link",
+        "grow_followers": "Ganhar seguidores",
+        "capture_lead": "Captar um lead"
+      },
+      "typeHelp": {
+        "share_link": "A IA compartilha seu link quando a pessoa demonstra interesse.",
+        "grow_followers": "A IA convida a pessoa a seguir sua conta, até que ela siga.",
+        "capture_lead": "A IA pede os dados que você escolher e os salva no contato."
+      },
+      "url": "Link",
+      "linkLabel": "O que é o link (opcional)",
+      "fields": "Dados para coletar",
+      "fieldNames": {
+        "name": "Nome",
+        "email": "E-mail",
+        "phone": "Telefone",
+        "company": "Empresa"
+      },
+      "onRefusal": "Se a pessoa recusar",
+      "refusalHandoff": "Passar para uma pessoa",
+      "refusalContinue": "Continuar a conversa sem isso",
+      "moveUp": "Mover objetivo para cima",
+      "moveDown": "Mover objetivo para baixo",
+      "remove": "Remover objetivo",
+      "invalid": "Revise os objetivos: cada um precisa dos campos preenchidos.",
+      "saved": "Objetivos salvos.",
+      "saveFailed": "Não foi possível salvar os objetivos."
     }
   },
   "AiFallback": {

@@ -11,7 +11,7 @@ import { logAiEvent } from './log'
 import { classifySensitive, hasUncoveredScript } from './safety/sensitive'
 import { guardCustomerText, isHealthWorkspace, redactChat, urlAllowlist } from './assist/guards'
 import { promptCharsOf, usageLog } from './usage'
-import { chatTokenEstimate, failAi, reserveAi, settleAi, type AiReservation } from './budget'
+import { chatTokenEstimate, failAi, releaseAi, reserveAi, settleAi, type AiReservation } from './budget'
 import { latestUserMessage, recentCustomerText } from './query'
 import { recordReplyEvent, type ReplyEventInput } from './reply-events'
 import type { ConfidenceReason } from './confidence'
@@ -297,6 +297,24 @@ export async function dispatchInboundToAiReply(
       await showTypingIndicator(db, accountId, conversationId, inboundMessageId)
     }
 
+    // Stage 5 (5G): the workspace's Instagram goals. With none set (the
+    // default) nothing changes. Lead details in this message are captured
+    // first; a declined lead goal set to hand off goes to a person.
+    let goalGuidance: { instructions: string; allowedUrls: string[] } | null = null
+    if (instagram) {
+      const { instagramAutoReplyGoals } = await import('./goals')
+      const goals = await instagramAutoReplyGoals({
+        accountId, conversationId, contactId, inboundMessageId: inboundMessageId ?? null, latestText: question,
+      })
+      if (goals.kind === 'handoff') {
+        await releaseAi(reservation)
+        await handOff()
+        await record('handed_off', 'model_handoff')
+        return
+      }
+      if (goals.kind === 'instructions') goalGuidance = goals
+    }
+
     // Ground the reply in the account's knowledge base (best-effort). The
     // search reads every customer turn since the last reply, so a question
     // split over two messages ("Do you deliver to Pune?", "and how much?")
@@ -314,10 +332,15 @@ export async function dispatchInboundToAiReply(
 
     // Platform rules first, then the operator's profile, then knowledge
     // quoted as untrusted reference material (see agent-profile.ts).
-    const systemPrompt = buildAgentSystemPrompt(profile, {
+    // A goal's guidance joins the operator instructions (never customer text).
+    const goalText = goalGuidance?.instructions ?? null
+    const promptProfile = profile && goalText
+      ? { ...profile, instructions: [profile.instructions?.trim() || config.systemPrompt?.trim() || '', goalText].filter(Boolean).join('\n\n') }
+      : profile
+    const systemPrompt = buildAgentSystemPrompt(promptProfile, {
       mode: 'auto_reply',
       knowledge,
-      legacyPrompt: config.systemPrompt,
+      legacyPrompt: goalText && !profile ? [config.systemPrompt?.trim(), goalText].filter(Boolean).join('\n\n') : config.systemPrompt,
     })
 
     // Personal data in customer messages is masked before it leaves for the provider.
@@ -376,8 +399,9 @@ export async function dispatchInboundToAiReply(
       // health-type workspace, and only allowed links. A blocked answer is
       // never sent; the conversation goes to a human instead.
       const health = hasUncoveredScript(text) ? await healthWorkspace(accountId, profile) : false
+      const allow = urlAllowlist({ citations, profile, legacyPrompt: config.systemPrompt })
       const guarded = guardCustomerText(text, {
-        allow: urlAllowlist({ citations, profile, legacyPrompt: config.systemPrompt }),
+        allow: goalGuidance?.allowedUrls.length ? { ...allow, urls: [...allow.urls, ...goalGuidance.allowedUrls] } : allow,
         healthWorkspace: health,
       })
       if (!guarded.ok) {

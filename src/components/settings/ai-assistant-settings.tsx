@@ -7,11 +7,15 @@
  * only (GET/PUT /api/ai/settings). Every feature is off until turned on
  * here, and still needs the deployment switch and a configured key, which
  * the status line explains. Saving a switch calls no AI provider.
+ *
+ * Stage 5 (5G): when the workspace uses Instagram, the "Goals for Instagram
+ * replies" editor sets up to 3 ordered goals for the Instagram AI auto-reply
+ * (share a link, grow followers, capture a lead). Saved with the same PUT.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUp, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -21,12 +25,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { authFetch } from '@/lib/auth/client';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
+import { AUTO_REPLY_LEAD_FIELDS, autoReplyGoalsProblem } from '@/lib/ai/goal-rules';
+import { AI_GOAL_LIMITS, AI_GOAL_TYPES, type AiGoal, type AiGoalType } from '@/lib/flows/types';
 
 export type AiToggle = 'summaries_enabled' | 'suggestions_enabled' | 'assessment_enabled' | 'insights_enabled';
 
 export interface AiSettingsView {
-  settings: Record<AiToggle, boolean> & { monthly_token_cap: number | null; updated_at: string | null };
+  settings: Record<AiToggle, boolean> & { monthly_token_cap: number | null; updated_at: string | null; instagram_goals?: AiGoal[] };
   deployment_enabled: boolean;
   configured: boolean;
 }
@@ -55,6 +63,150 @@ export function aiStatus(view: Pick<AiSettingsView, 'deployment_enabled' | 'conf
   return 'ready';
 }
 
+/** A new goal of the given type with empty fields (the form fills them in). */
+export function blankGoal(type: AiGoalType): AiGoal {
+  if (type === 'share_link') return { type, url: '' };
+  if (type === 'grow_followers') return { type };
+  return { type, fields: ['email'], on_refusal: 'continue' };
+}
+
+/** The goal types not used yet (each type once). */
+export function unusedGoalTypes(goals: readonly AiGoal[]): AiGoalType[] {
+  return AI_GOAL_TYPES.filter((type) => !goals.some((g) => g.type === type));
+}
+
+/** Moves the goal at `from` by `delta` places; an out-of-range move returns the list unchanged. */
+export function moveGoal(goals: readonly AiGoal[], from: number, delta: -1 | 1): AiGoal[] {
+  const to = from + delta;
+  if (from < 0 || from >= goals.length || to < 0 || to >= goals.length) return [...goals];
+  const next = [...goals];
+  [next[from], next[to]] = [next[to], next[from]];
+  return next;
+}
+
+const NO_GOALS: AiGoal[] = [];
+const fieldClass = 'border-input bg-background h-9 w-full rounded-md border px-2 text-sm';
+
+/** The Instagram goals editor (Settings -> AI assistant). */
+function InstagramGoalsEditor({ initial, busy, onSave }: {
+  initial: AiGoal[]; busy: boolean; onSave: (goals: AiGoal[]) => Promise<boolean>;
+}) {
+  const tg = useTranslations('AiSettings.instagramGoals');
+  const [goals, setGoals] = useState<AiGoal[]>(initial);
+  // Reset the draft only when the saved goals change, not on every other settings save.
+  const initialJson = JSON.stringify(initial);
+  const [syncedJson, setSyncedJson] = useState(initialJson);
+  if (syncedJson !== initialJson) {
+    setSyncedJson(initialJson);
+    setGoals(initial);
+  }
+  const update = (index: number, goal: AiGoal) => setGoals((list) => list.map((g, i) => (i === index ? goal : g)));
+  const unused = unusedGoalTypes(goals);
+  const dirty = JSON.stringify(goals) !== initialJson;
+
+  const save = async () => {
+    const cleaned = goals.map((g): AiGoal => g.type === 'share_link'
+      ? { type: 'share_link', url: g.url.trim(), ...(g.label?.trim() ? { label: g.label.trim() } : {}) }
+      : g);
+    if (autoReplyGoalsProblem(cleaned) !== null) {
+      toast.error(tg('invalid'));
+      return;
+    }
+    if (await onSave(cleaned)) toast.success(tg('saved'));
+  };
+
+  return (
+    <section className="space-y-3 rounded-lg border p-3" aria-labelledby="ai-instagram-goals-title">
+      <div>
+        <h3 id="ai-instagram-goals-title" className="text-sm font-medium">{tg('title')}</h3>
+        <p className="text-muted-foreground text-xs">{tg('description')} {tg('onlyInstagram')}</p>
+      </div>
+      {goals.length === 0 && <p className="text-muted-foreground text-sm">{tg('empty')}</p>}
+      <ol className="space-y-3">
+        {goals.map((goal, index) => {
+          const id = `ai-goal-${index}`;
+          return (
+            <li key={goal.type} className="bg-muted/30 space-y-2 rounded-md border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{tg('goalLabel', { n: index + 1 })}</span>
+                <label className="sr-only" htmlFor={`${id}-type`}>{tg('type')}</label>
+                <select id={`${id}-type`} className={`${fieldClass} w-auto`} value={goal.type} disabled={busy}
+                  onChange={(e) => update(index, blankGoal(e.target.value as AiGoalType))}>
+                  {[goal.type, ...unused].map((type) => <option key={type} value={type}>{tg(`types.${type}`)}</option>)}
+                </select>
+                <span className="ml-auto flex gap-1">
+                  <Button type="button" size="icon" variant="ghost" aria-label={tg('moveUp')} disabled={busy || index === 0}
+                    onClick={() => setGoals((list) => moveGoal(list, index, -1))}><ArrowUp className="size-4" aria-hidden="true" /></Button>
+                  <Button type="button" size="icon" variant="ghost" aria-label={tg('moveDown')} disabled={busy || index === goals.length - 1}
+                    onClick={() => setGoals((list) => moveGoal(list, index, 1))}><ArrowDown className="size-4" aria-hidden="true" /></Button>
+                  <Button type="button" size="icon" variant="ghost" aria-label={tg('remove')} disabled={busy}
+                    onClick={() => setGoals((list) => list.filter((_, i) => i !== index))}><Trash2 className="size-4" aria-hidden="true" /></Button>
+                </span>
+              </div>
+              <p className="text-muted-foreground text-xs">{tg(`typeHelp.${goal.type}`)}</p>
+              {goal.type === 'share_link' && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor={`${id}-url`}>{tg('url')}</Label>
+                    <Input id={`${id}-url`} type="url" inputMode="url" value={goal.url} maxLength={2048} disabled={busy}
+                      placeholder="https://" onChange={(e) => update(index, { ...goal, url: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`${id}-label`}>{tg('linkLabel')}</Label>
+                    <Input id={`${id}-label`} value={goal.label ?? ''} maxLength={80} disabled={busy}
+                      onChange={(e) => update(index, { ...goal, label: e.target.value })} />
+                  </div>
+                </div>
+              )}
+              {goal.type === 'capture_lead' && (
+                <div className="space-y-2">
+                  <fieldset className="space-y-1">
+                    <legend className="text-sm">{tg('fields')}</legend>
+                    <div className="flex flex-wrap gap-3">
+                      {AUTO_REPLY_LEAD_FIELDS.map((field) => (
+                        <label key={field} className="flex items-center gap-2 text-sm">
+                          <Checkbox checked={goal.fields.includes(field)} disabled={busy}
+                            onCheckedChange={(checked: boolean) => update(index, {
+                              ...goal,
+                              fields: checked
+                                ? [...goal.fields.filter((f) => f !== field), field].slice(0, AI_GOAL_LIMITS.leadFields)
+                                : goal.fields.filter((f) => f !== field),
+                            })} />
+                          {tg(`fieldNames.${field}`)}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <div className="max-w-xs space-y-1">
+                    <Label htmlFor={`${id}-refusal`}>{tg('onRefusal')}</Label>
+                    <select id={`${id}-refusal`} className={fieldClass} value={goal.on_refusal} disabled={busy}
+                      onChange={(e) => update(index, { ...goal, on_refusal: e.target.value === 'handoff' ? 'handoff' : 'continue' })}>
+                      <option value="continue">{tg('refusalContinue')}</option>
+                      <option value="handoff">{tg('refusalHandoff')}</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex flex-wrap gap-2">
+        {goals.length < AI_GOAL_LIMITS.goals && unused.length > 0 && (
+          <Button type="button" variant="outline" size="sm" disabled={busy}
+            onClick={() => setGoals((list) => [...list, blankGoal(unused[0])])}>
+            <Plus className="size-3.5" aria-hidden="true" /> {tg('add')}
+          </Button>
+        )}
+        <Button type="button" size="sm" disabled={busy || !dirty} onClick={() => void save()}>
+          {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+          {tg('save')}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export function AiAssistantSettings() {
   const t = useTranslations('AiAssistantSettings');
   const ts = useTranslations('AiSettings');
@@ -62,6 +214,8 @@ export function AiAssistantSettings() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cap, setCap] = useState('');
+  const channels = useWorkspaceChannels();
+  const instagram = channels.data?.enabled.includes('instagram') === true;
 
   const apply = useCallback((next: AiSettingsView) => {
     setView(next);
@@ -81,7 +235,8 @@ export function AiAssistantSettings() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const save = async (patch: Partial<Record<AiToggle, boolean>> & { monthly_token_cap?: number | null }) => {
+  const save = async (patch: Partial<Record<AiToggle, boolean>> & { monthly_token_cap?: number | null; instagram_goals?: AiGoal[] },
+    quiet = false): Promise<boolean> => {
     setBusy(true);
     try {
       const res = await authFetch('/api/ai/settings', {
@@ -91,9 +246,11 @@ export function AiAssistantSettings() {
       });
       if (!res.ok) throw new Error();
       apply(await res.json());
-      toast.success(t('saved'));
+      if (!quiet) toast.success(t('saved'));
+      return true;
     } catch {
       toast.error(t('saveFailed'));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -178,6 +335,11 @@ export function AiAssistantSettings() {
               </div>
               <p className="text-muted-foreground text-xs">{ts('monthlyTokenCapHint')}</p>
             </div>
+
+            {instagram && (
+              <InstagramGoalsEditor initial={view.settings.instagram_goals ?? NO_GOALS} busy={busy}
+                onSave={(goals) => save({ instagram_goals: goals }, true)} />
+            )}
 
             <p className="text-muted-foreground text-xs">
               {ts('autonomousNote')}{' '}
