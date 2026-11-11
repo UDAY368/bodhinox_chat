@@ -13,6 +13,17 @@ const h = vi.hoisted(() => ({
   permission: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
   /** A publish that lands between the route's first read and its save transaction. */
   publishedInTx: null as string | null,
+  /** The Origin/CSRF check (lib/auth/session assertMutation). */
+  mutation: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
+  /** Stage 5 autosave: the stored draft's updated_at the save compares base_updated_at with. */
+  storedUpdatedAt: null as string | null,
+  baseSeen: [] as Array<string | undefined>,
+}));
+class CsrfRejected extends Error {}
+vi.mock('@/lib/auth/session', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth/session')>()),
+  requireSession: async () => ({ userId: 'author', accountId: 'account-a', sessionId: 's' }),
+  assertMutation: h.mutation,
 }));
 vi.mock('@/lib/auth/permissions', () => ({ requirePermission: h.permission }));
 // The test-number slot is counted in the save transaction, under the publish lock.
@@ -38,7 +49,13 @@ vi.mock('@/lib/workspace/attributes', () => ({ secretAttributeKeys: async () => 
 // versions.integration.test.ts); here it applies to the in-memory rows.
 vi.mock('@/lib/flows/versions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/flows/versions')>()),
-  saveDraft: async (_tx: unknown, args: { accountId: string; flowId: string; patch: Row; nodes?: Row[] }) => {
+  saveDraft: async (_tx: unknown, args: { accountId: string; flowId: string; patch: Row; nodes?: Row[]; baseUpdatedAt?: string }) => {
+    h.baseSeen.push(args.baseUpdatedAt);
+    // The real check runs under the row lock in SQL (versions.integration.test.ts); here it compares the in-memory time.
+    if (args.baseUpdatedAt && h.storedUpdatedAt && Date.parse(h.storedUpdatedAt) > Date.parse(args.baseUpdatedAt)) {
+      const { FlowVersionError } = await import('@/lib/flows/versions');
+      throw new FlowVersionError('draft_changed', 409, { stale_draft: true, updated_at: h.storedUpdatedAt });
+    }
     h.writes.push({ operation: 'update', resource: 'flows', filters: [], values: args.patch } as unknown as QuerySpec);
     for (const row of h.flows) if (row.id === args.flowId && row.account_id === args.accountId) Object.assign(row, args.patch);
     if (args.nodes) {
@@ -65,7 +82,7 @@ vi.mock('@/lib/auth/account', () => ({
     userId: 'author',
     role: 'agent',
   }),
-  toErrorResponse: () => Response.json({ error: 'Forbidden' }, { status: 403 }),
+  toErrorResponse: (err: unknown) => Response.json({ error: 'Forbidden' }, { status: err instanceof CsrfRejected ? 401 : 403 }),
 }));
 
 function db() {
@@ -120,6 +137,10 @@ beforeEach(() => {
   h.permission.mockReset();
   h.permission.mockResolvedValue(undefined);
   h.publishedInTx = null;
+  h.mutation.mockReset();
+  h.mutation.mockResolvedValue(undefined);
+  h.storedUpdatedAt = null;
+  h.baseSeen = [];
 });
 it('retains the request client when updating the graph and deleting the flow', async () => {
   const result = await PUT(
@@ -370,5 +391,77 @@ describe('Phase 12: published flows', () => {
     h.runs = [];
     expect((await del()).status).toBe(200);
     expect(h.flows).toEqual([]);
+  });
+});
+
+describe('Stage 5 (5B): CSRF, test usernames, extra triggers and the autosave contract', () => {
+  const put = (body: unknown) => PUT(new Request('http://localhost/', { method: 'PUT', body: JSON.stringify(body) }), context);
+  const igDraft = (extra: Row = {}) => ({ id: 'flow-a', account_id: 'account-a', name: 'Draft', status: 'draft', trigger_type: 'manual',
+    trigger_config: {}, entry_node_id: 'start', channel_scope: 'instagram', test_numbers: [], test_usernames: [], ...extra });
+  beforeEach(() => {
+    h.nodes = [
+      { flow_id: 'flow-a', account_id: 'account-a', node_key: 'start', node_type: 'start', config: { next_node_key: 'done' } },
+      { flow_id: 'flow-a', account_id: 'account-a', node_key: 'done', node_type: 'end', config: {} },
+    ];
+  });
+
+  it('refuses a save or delete that fails the Origin/CSRF check before any read or write', async () => {
+    h.mutation.mockRejectedValue(new CsrfRejected('csrf'));
+    expect((await put({ name: 'x' })).status).toBe(401);
+    expect((await DELETE(new Request('http://localhost/'), context)).status).toBe(401);
+    expect(h.writes).toEqual([]);
+    expect(h.flows).toHaveLength(1);
+  });
+
+  it('stores test usernames lowercase without @, and refuses bad ones, more than three, or a WhatsApp flow', async () => {
+    h.flows = [igDraft()];
+    expect((await put({ test_usernames: ['@Shop.Owner', 'shop.owner', 'b_2'] })).status).toBe(200);
+    expect(h.flows[0].test_usernames).toEqual(['shop.owner', 'b_2']);
+    h.writes = [];
+    for (const test_usernames of [['a', 'b', 'c', 'd'], ['has space'], ['x'.repeat(31)], 'shop', [1]]) {
+      expect((await put({ test_usernames })).status).toBe(400);
+    }
+    h.flows = [igDraft({ channel_scope: 'whatsapp' })];
+    expect((await put({ test_usernames: ['shop'] })).status).toBe(400);
+    expect(h.writes).toEqual([]);
+  });
+
+  it("treats new test usernames like test numbers: 'flows.publish', a plan slot and a valid draft", async () => {
+    h.flows = [igDraft()];
+    h.permission.mockRejectedValueOnce(new Error('This feature is turned off for your role'));
+    expect((await put({ test_usernames: ['tester'] })).status).toBe(403);
+    expect(h.writes).toEqual([]);
+    expect((await put({ test_usernames: ['tester'] })).status).toBe(200);
+    expect(h.limit).toHaveBeenCalledWith(expect.anything(), 'account-a', 'active_flows', 2);
+    h.flows = [igDraft({ trigger_type: 'keyword', trigger_config: { keywords: [] } })];
+    h.writes = [];
+    expect((await put({ test_usernames: ['other'] })).status).toBe(422);
+    expect(h.writes).toEqual([]);
+  });
+
+  it('stores well-formed extra triggers and refuses a malformed list before a write', async () => {
+    h.flows = [igDraft()];
+    const extra = [{ trigger_type: 'ig_comment', config: { post_scope: 'any' } }];
+    expect((await put({ extra_triggers: extra })).status).toBe(200);
+    expect(h.flows[0].extra_triggers).toEqual(extra);
+    h.writes = [];
+    for (const extra_triggers of [{}, [1], [{ trigger_type: 'keyword' }], Array.from({ length: 5 }, () => extra[0])]) {
+      expect((await put({ extra_triggers })).status).toBe(400);
+    }
+    expect(h.writes).toEqual([]);
+  });
+
+  it('refuses a stale autosave with 409 draft_changed and writes nothing; a save without base_updated_at goes through', async () => {
+    h.flows = [igDraft()];
+    h.storedUpdatedAt = '2026-11-11T10:00:05.000Z';
+    const stale = await put({ name: 'Mine', base_updated_at: '2026-11-11T10:00:00.000Z' });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toMatchObject({ code: 'draft_changed', updated_at: '2026-11-11T10:00:05.000Z' });
+    expect(h.writes).toEqual([]);
+    expect(h.flows[0].name).toBe('Draft');
+    expect((await put({ name: 'Mine', base_updated_at: '2026-11-11T10:00:05.000Z' })).status).toBe(200);
+    expect((await put({ name: 'API client' })).status).toBe(200);
+    expect(h.baseSeen).toEqual(['2026-11-11T10:00:00.000Z', '2026-11-11T10:00:05.000Z', undefined]);
+    expect((await put({ name: 'x', base_updated_at: 'yesterday' })).status).toBe(400);
   });
 });

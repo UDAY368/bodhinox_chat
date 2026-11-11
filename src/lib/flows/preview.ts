@@ -45,7 +45,12 @@ export type PreviewNote =
   /** Dry run only: a condition evaluated for the sample contact ("true"/"false"). */
   | "condition_result"
   /** Dry run only: the API port the author picked up front. */
-  | "api_port";
+  | "api_port"
+  // Stage 5 logic steps (they send nothing).
+  | "actions"
+  | "randomizer"
+  | "smart_delay"
+  | "google_sheets";
 
 export interface PreviewMessage {
   id: number;
@@ -320,7 +325,12 @@ function nextFor(node: BuilderNode, optionId: string): string {
     case "book_appointment":
       return str(cfg[`${optionId}_next`]);
     case "ai_reply":
+      if (optionId === "finish") return str(cfg.finish_next);
       return str(optionId === "handoff" ? cfg.handoff_next : cfg.next_node_key);
+    case "randomizer":
+      return str(rows(cfg.paths).find((p) => `path:${str(p.id)}` === optionId)?.next_node_key);
+    case "google_sheets":
+      return str(optionId === "failed" ? cfg.failure_next : cfg.next_node_key);
     case "send_list":
       for (const section of rows(cfg.sections)) {
         const row = rows(section.rows).find((r) => r.reply_id === optionId);
@@ -480,7 +490,9 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
         // author picks whether it answered or handed off. With more than one turn,
         // "answered" stands for the last answer the step sends.
         push({ from: "system", nodeKey, note: "ai_reply", detail: str(cfg.var_key) || undefined });
-        return wait(nodeKey, { kind: "branch", options: [{ id: "answered", label: "answered" }, { id: "handoff", label: "handoff" }] }, ports);
+        // Stage 5: a step with goals also leaves through "finish" once they are done.
+        return wait(nodeKey, { kind: "branch", options: [{ id: "answered", label: "answered" }, { id: "handoff", label: "handoff" },
+          ...(Array.isArray(cfg.goals) && cfg.goals.length ? [{ id: "finish", label: "finish" }] : [])] }, ports);
 
       case "send_form":
         // The form opens from its button; typed replies are off-script, as in the engine.
@@ -537,6 +549,32 @@ function walk(start: PreviewState, firstKey: string): PreviewState {
         push({ from: "system", nodeKey, note: "conversion_event", detail: str(cfg.event_name) || undefined });
         key = str(cfg.next_node_key);
         continue;
+
+      // ---- Stage 5 logic steps: nothing is run, saved or fetched here ----
+      case "actions":
+        push({ from: "system", nodeKey, note: "actions", detail: String(rows(cfg.actions).length) });
+        // The last step of a flow may be an Actions step: the run ends after it.
+        if (!str(cfg.next_node_key)) return stop("end", undefined, nodeKey);
+        key = str(cfg.next_node_key);
+        continue;
+
+      case "randomizer": {
+        // The engine draws (or keeps the contact's sticky path); here the author picks the path.
+        push({ from: "system", nodeKey, note: "randomizer" });
+        const paths = rows(cfg.paths).filter((p) => str(p.id)).map((p) => ({ id: `path:${str(p.id)}`, label: `${str(p.id)} · ${Number(p.weight) || 0}%` }));
+        return wait(nodeKey, { kind: "branch", options: paths });
+      }
+
+      case "smart_delay":
+        // No real wait in a preview: the walk carries on at once.
+        push({ from: "system", nodeKey, note: "smart_delay", detail: str(cfg.mode) || undefined });
+        key = str(cfg.next_node_key);
+        continue;
+
+      case "google_sheets":
+        // Never calls Google: the author picks whether the step succeeded or failed.
+        push({ from: "system", nodeKey, note: "google_sheets", detail: str(cfg.op) || undefined });
+        return wait(nodeKey, { kind: "branch", options: [{ id: "next", label: "next" }, { id: "failed", label: "failed" }] });
 
       case "connect_flow":
       case "handoff":

@@ -4,8 +4,8 @@
 // and the node key, so it is the same in every run and on every server. A
 // non-sticky pick is random, and the engine writes it to the run (RUN_VAR)
 // before advancing, so a retried or resumed step follows the path it already
-// took instead of drawing again. Pure: no I/O.
-import { createHash } from "node:crypto";
+// took instead of drawing again. Pure and client-safe (no I/O, no Node APIs),
+// so the publish validator can use the same path parsing.
 import { FLOW_STEP_LIMITS, type RandomizerNodeConfig, type RandomizerPath } from "../types";
 
 /** A path id: A to Z style labels or short slugs (stored in run vars and edge handles). */
@@ -44,10 +44,19 @@ export function pathForBucket(paths: readonly RandomizerPath[], bucket: number):
   return [...paths].reverse().find((p) => p.weight > 0) ?? null;
 }
 
-/** 0–99 from a hash of the contact and the step, the same on every run. */
+/**
+ * 0–99 from a hash of the contact and the step, the same on every run and
+ * server (32-bit FNV-1a over the UTF-16 code units; not a security hash, only
+ * an even, stable split).
+ */
 export function stickyBucket(contactId: string, nodeKey: string): number {
-  const digest = createHash("sha256").update(`${contactId}\u0000${nodeKey}`).digest();
-  return digest.readUInt32BE(0) % 100;
+  const input = `${contactId.toLowerCase()}\u0000${nodeKey}`;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash % 100;
 }
 
 /** 0–99 from a random number in [0, 1). */

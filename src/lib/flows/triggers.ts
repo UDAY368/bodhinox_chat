@@ -18,11 +18,16 @@
 // start them (process-webhook.ts and private-reply.ts).
 // Within a tier a draft being tested wins for its testers, then the oldest
 // flow. `manual` flows never start here. A draft starts only for one of
-// its test numbers.
+// its test numbers (Instagram, Stage 5: or one of its test usernames).
+// Stage 5: a flow may listen on extra triggers (flow-triggers.ts); each is
+// ranked by its own tier. A keyword trigger with match_type "intent" is asked
+// (one AI call for all of them) only after every exact trigger failed, just
+// before default_reply.
 
 import { regexMatches } from "./input-validation";
 import { hasKeywords, keywordListMatches } from "@/lib/instagram/comment-matching";
 import { normalizeInboundRef, refKeyMatches } from "@/lib/instagram/ref-links";
+import { IG_TEST_USERNAME } from "./types";
 import type {
   AdClickTriggerConfig, FlowRow, IgLiveCommentTriggerConfig, IgRefTriggerConfig, IgShareToStoryTriggerConfig, IgStoryReplyTriggerConfig, KeywordTriggerConfig,
   ParsedInbound, TemplateReplyTriggerConfig,
@@ -43,6 +48,21 @@ export function isTestContact(flow: Pick<FlowRow, "status" | "test_numbers">, co
   return flow.status === "draft" && Boolean(contactDigits) && (flow.test_numbers ?? []).includes(contactDigits);
 }
 
+/** An Instagram username as flows.test_usernames stores it: trimmed, no leading @, lowercase. */
+export function normalizeTestUsername(username: string | null | undefined): string {
+  return (username ?? "").trim().replace(/^@/, "").toLowerCase();
+}
+
+/**
+ * Whether this draft Instagram flow may run for the contact (Stage 5): the
+ * contact's stored Instagram username is one of the flow's test usernames.
+ * WhatsApp test numbers (isTestContact) are unchanged.
+ */
+export function isTestUsername(flow: Pick<FlowRow, "status" | "test_usernames">, username: string | null | undefined): boolean {
+  const name = normalizeTestUsername(username);
+  return flow.status === "draft" && IG_TEST_USERNAME.test(name) && (flow.test_usernames ?? []).includes(name);
+}
+
 /**
  * Flows ordered by trigger precedence; within a tier a draft being tested
  * comes first (its tester should see it, not the live flow it replaces),
@@ -61,6 +81,8 @@ export function byPrecedence<T extends Pick<FlowRow, "trigger_type" | "created_a
  */
 export async function keywordTriggerMatches(text: string, cfg: KeywordTriggerConfig): Promise<boolean> {
   if (!text) return false;
+  // Matched by meaning (Stage 5) in engine.ts through lib/ai/intent-match.ts, never by words.
+  if (cfg.match_type === "intent") return false;
   if (cfg.match_type === "regex") {
     return typeof cfg.pattern === "string" && cfg.pattern.length > 0 &&
       regexMatches(cfg.pattern, text, { caseSensitive: Boolean(cfg.case_sensitive) });

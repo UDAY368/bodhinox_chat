@@ -367,7 +367,7 @@ describe('processInstagramWebhookJob', () => {
         return [{ scopes: ['instagram_business_basic', 'instagram_business_manage_comments'], connected_by_user_id: 'u', owner_user_id: 'u' }];
       if (sql.includes('INSERT INTO instagram_comment_events')) return [{ id: 'ev-1' }];
       if (sql.includes('FROM instagram_comment_rules')) return [{ id: 'rule-1', media_id: null, keywords: ['price'] }];
-      if (sql.includes('FROM flows f JOIN flow_versions')) return [{ id: flowId, created_at: new Date('2026-11-01T00:00:00Z'), trigger_config: config }];
+      if (sql.includes('FROM flows f JOIN flow_versions')) return [{ id: flowId, created_at: new Date('2026-11-01T00:00:00Z'), status: 'active', trigger_type: 'ig_comment', trigger_config: config, extra_triggers: [] }];
       if (sql.includes('id<>')) return [{ found: earlier, flow_taken: earlier && flowTaken }];
       if (sql.includes('blocked_at IS NOT NULL')) return [{ blocked: false }];
       throw new Error(`unexpected query: ${sql}`);

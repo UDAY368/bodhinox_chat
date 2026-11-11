@@ -37,11 +37,14 @@ import { conversionEdges, conversionIssues } from "./conversion-node";
 import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
 import { parseDateInput } from "./input-formats";
 import { nodeAvailableOn, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
-import { FLOW_CHANNEL_SCOPES, STAGE5_NODE_TYPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type FlowTriggerType, type NodeTiming } from "./types";
+import { FLOW_CHANNEL_SCOPES, FLOW_TRIGGER_LIMITS, FLOW_TRIGGER_TYPES, STAGE5_CONDITION_SUBJECTS, isCombinableTrigger, type ConditionRule, type FlowChannelScope, type FlowNodeType, type FlowTriggerType, type NodeTiming } from "./types";
+import { buyButtonIssues, stage5NodeIssues, stage5SubjectProblem } from "./stage5-validation";
 import { nodeCapabilityBlock, type WorkspaceCapabilities } from "./node-registry";
 import { cardRouteTargets, igFlowIssues, igNodeIssues, igTriggerIssues, privateReplyWaits } from "./instagram-validation";
 
 const t = getT("Validation.flows");
+const tMulti = getT("Flows.multiTrigger");
+const tIntent = getT("Flows.triggers.intent");
 const tChannel = getT("Flows.channel");
 const tSection = getT("Flows.channelSection");
 const tNames = getT("Channels.names");
@@ -55,7 +58,7 @@ export interface ValidationIssue {
   field?: string;
   message: string;
   /** A machine-readable reason for the Phase 12 publish checks. */
-  code?: "capabilityUnavailable" | "crossFlowLoop" | "stage5Pending";
+  code?: "capabilityUnavailable" | "crossFlowLoop";
   /** With code 'capabilityUnavailable': the workspace capability the node needs. */
   capability?: string;
 }
@@ -73,38 +76,6 @@ interface FlowInput {
   channel_scope?: FlowChannelScope | null;
   /** Stage 5: further triggers (flows.extra_triggers). */
   extra_triggers?: unknown;
-}
-
-/**
- * Stage 5 features that are stored but not run yet (5A stub; 5B replaces it
- * with the real rules). Each is an error, so a flow using one cannot be
- * published: the new steps, extra triggers, buy buttons, the intent keyword
- * match, a comment reply delay, AI goals and Ask Question's "save answer to".
- */
-export function stage5PendingIssues(flow: Pick<FlowInput, "trigger_config" | "extra_triggers">, nodes: ReadonlyArray<NodeInput>): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  const pending = (fields: Omit<ValidationIssue, "severity" | "code" | "message">): void => {
-    issues.push({ severity: "error", code: "stage5Pending", message: t("stage5Pending"), ...fields });
-  };
-  if (Array.isArray(flow.extra_triggers) && flow.extra_triggers.length > 0) pending({ scope: "flow", field: "extra_triggers" });
-  const trigger = (flow.trigger_config ?? {}) as Record<string, unknown>;
-  if (trigger.match_type === "intent") pending({ scope: "flow", field: "trigger_config.match_type" });
-  if (typeof trigger.reply_delay_seconds === "number" && trigger.reply_delay_seconds > 0) pending({ scope: "flow", field: "trigger_config.reply_delay_seconds" });
-  for (const node of nodes) {
-    const cfg = node.config ?? {};
-    if ((STAGE5_NODE_TYPES as readonly string[]).includes(node.node_type)) {
-      pending({ scope: "node", node_key: node.node_key, field: "node_type" });
-      continue;
-    }
-    if (Array.isArray(cfg.goals) && cfg.goals.length > 0) pending({ scope: "node", node_key: node.node_key, field: "goals" });
-    if (cfg.save_to !== undefined && cfg.save_to !== null) pending({ scope: "node", node_key: node.node_key, field: "save_to" });
-    if (Array.isArray(cfg.on_success_actions) && cfg.on_success_actions.length > 0) pending({ scope: "node", node_key: node.node_key, field: "on_success_actions" });
-    const cards = node.node_type === "send_card" ? [cfg.card] : node.node_type === "send_gallery" && Array.isArray(cfg.cards) ? cfg.cards : [];
-    const buy = cards.some((card) => Array.isArray((card as { buttons?: unknown } | null)?.buttons)
-      && ((card as { buttons: Array<{ type?: unknown }> }).buttons).some((b) => b?.type === "buy"));
-    if (buy) pending({ scope: "node", node_key: node.node_key, field: "card.buttons" });
-  }
-  return issues;
 }
 
 interface NodeInput {
@@ -174,7 +145,8 @@ export function validateFlowForActivation(
   }
 
   // ---- trigger ----
-  issues.push(...validateTrigger(flow.trigger_type, flow.trigger_config), ...igTriggerIssues(flow.trigger_type, flow.trigger_config ?? {}));
+  issues.push(...validateTrigger(flow.trigger_type, flow.trigger_config, context.aiConfigured), ...igTriggerIssues(flow.trigger_type, flow.trigger_config ?? {}));
+  issues.push(...extraTriggerIssues(flow, context.aiConfigured));
 
   // ---- graph integrity ----
   if (!flow.entry_node_id) {
@@ -229,13 +201,15 @@ export function validateFlowForActivation(
   const runTimeoutHours = flow.fallback_policy === undefined ? undefined : resolveFallbackPolicy(flow.fallback_policy).on_timeout_hours;
   for (const n of nodes) {
     issues.push(...validateNode(n, keys), ...timingIssues(n, keys, runTimeoutHours), ...igNodeIssues(n, keys));
+    // Stage 5 steps and settings (stage5-validation.ts).
+    issues.push(...stage5NodeIssues(n, keys, { flowId: flow.id, channelScope: flow.channel_scope }),
+      ...buyButtonIssues(n, context.caps ? context.caps.payments === true : undefined));
     if (n.node_type === "send_form") issues.push(...sendFormIssues(n, keys, context.forms));
     if (n.node_type === "ai_reply") issues.push(...aiReplyIssues(n, keys, context.aiConfigured));
     if (n.node_type === "book_appointment") issues.push(...bookAppointmentPaidIssues(n, context.paidServices));
   }
   issues.push(...channelScopeIssues(flow.channel_scope, flow.trigger_type, nodes));
   issues.push(...igFlowIssues(flow, nodes, outgoingEdges));
-  issues.push(...stage5PendingIssues(flow, nodes));
 
   // Warn rather than block: explicit starts may supply variables externally.
   if (flow.entry_node_id && keys.has(flow.entry_node_id)) {
@@ -354,7 +328,9 @@ function isAutoNode(n: NodeInput): boolean {
   const autoIg = n.node_type === "ig_comment_reply" ||
     (["ig_private_reply", "send_card", "send_gallery"].includes(n.node_type) && !waitsForReply(n));
   return timesOut || autoTemplate || autoAiReply || autoIg ||
-    ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event", "send_storefront_link"].includes(n.node_type) ||
+    ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event", "send_storefront_link",
+      // Stage 5 logic steps move on by themselves (a smart delay too: a loop of waits would message forever).
+      "actions", "randomizer", "smart_delay", "google_sheets"].includes(n.node_type) ||
     isCommerceNodeType(n.node_type);
 }
 
@@ -384,6 +360,12 @@ export function autoConnectTargets(nodes: ReadonlyArray<NodeInput>, entry: strin
     if (node.node_type === "connect_flow") {
       if (typeof node.config.flow_id === "string" && node.config.flow_id) targets.add(node.config.flow_id);
       continue;
+    }
+    // Stage 5: an Actions step's start_flow starts that flow when this run ends, with no customer input.
+    if (node.node_type === "actions" && Array.isArray(node.config.actions)) {
+      for (const a of node.config.actions as Array<Record<string, unknown>>) {
+        if (a?.type === "start_flow" && typeof a.flow_id === "string" && a.flow_id) targets.add(a.flow_id);
+      }
     }
     if (!isAutoNode(node)) continue;
     pending.push(...autoSuccessors(node));
@@ -539,15 +521,62 @@ export function channelScopeIssues(
 // Trigger
 // ============================================================
 
+/**
+ * Stage 5 multi-trigger rules: only an Instagram flow may add triggers, only
+ * COMBINABLE_TRIGGERS combine (the primary included), at most
+ * FLOW_TRIGGER_LIMITS.extraTriggers more, and each extra trigger passes the
+ * same checks as a primary one. A flow without extra triggers gets none.
+ */
+export function extraTriggerIssues(flow: Pick<FlowInput, "trigger_type" | "extra_triggers" | "channel_scope">, aiConfigured?: boolean): ValidationIssue[] {
+  const raw = flow.extra_triggers;
+  if (raw === undefined || raw === null || (Array.isArray(raw) && raw.length === 0)) return [];
+  const issues: ValidationIssue[] = [];
+  const at = (field: string, message: string) => issues.push({ severity: "error", scope: "trigger", field, message });
+  if (!Array.isArray(raw)) {
+    at("extra_triggers", tMulti("notCombinable"));
+    return issues;
+  }
+  if (flow.channel_scope !== "instagram") at("extra_triggers", tMulti("onlyInstagram"));
+  if (!isCombinableTrigger(flow.trigger_type)) at("trigger_type", tMulti("notCombinable"));
+  if (raw.length > FLOW_TRIGGER_LIMITS.extraTriggers) at("extra_triggers", tMulti("limitReached", { max: FLOW_TRIGGER_LIMITS.extraTriggers + 1 }));
+  raw.slice(0, FLOW_TRIGGER_LIMITS.extraTriggers).forEach((entry, i) => {
+    const item = (entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {}) as Record<string, unknown>;
+    const type = item.trigger_type;
+    const config = item.config && typeof item.config === "object" && !Array.isArray(item.config) ? item.config as Record<string, unknown> : null;
+    if (!(FLOW_TRIGGER_TYPES as readonly unknown[]).includes(type) || !isCombinableTrigger(type) || !config
+      || !triggerAvailableOn(type as FlowTriggerType, "instagram")) {
+      at(`extra_triggers.${i}.trigger_type`, tMulti("notCombinable"));
+      return;
+    }
+    const base = `extra_triggers.${i}.config`;
+    issues.push(...validateTrigger(type as FlowTriggerType, config, aiConfigured, base));
+    issues.push(...igTriggerIssues(type as FlowTriggerType, config).map((issue) => ({
+      ...issue, field: issue.field?.replace(/^trigger_config/, base),
+    })));
+  });
+  return issues;
+}
+
 function validateTrigger(
   trigger_type: FlowInput["trigger_type"],
-  trigger_config: Record<string, unknown>,
+  rawConfig: Record<string, unknown> | null | undefined,
+  aiConfigured?: boolean,
+  /** Where the trigger is stored: "trigger_config" (the primary) or "extra_triggers.<i>.config". */
+  base = "trigger_config",
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  const trigger_config = rawConfig ?? {};
   const at = (field: string, key: string, severity: "error" | "warning" = "error") =>
-    issues.push({ severity, scope: "trigger", field, message: t(key) });
+    issues.push({ severity, scope: "trigger", field: field.replace(/^trigger_config/, base), message: t(key) });
 
-  if (trigger_type === "keyword" && trigger_config.match_type === "regex") {
+  if (trigger_type === "keyword" && trigger_config.match_type === "intent") {
+    // Stage 5: matched by meaning (lib/ai/intent-match.ts) after every exact trigger, before default_reply.
+    const intent = typeof trigger_config.intent === "string" ? trigger_config.intent.trim() : "";
+    if (!intent) issues.push({ severity: "error", scope: "trigger", field: `${base}.intent`, message: tIntent("required") });
+    else if (intent.length > FLOW_TRIGGER_LIMITS.intentChars) issues.push({ severity: "error", scope: "trigger", field: `${base}.intent`, message: tIntent("tooLong") });
+    // Without AI nothing matches (the default reply still applies): say so, but do not block.
+    if (aiConfigured === false) issues.push({ severity: "warning", scope: "trigger", field: `${base}.match_type`, message: tIntent("needsAi") });
+  } else if (trigger_type === "keyword" && trigger_config.match_type === "regex") {
     const pattern = trigger_config.pattern;
     let valid = typeof pattern === "string" && pattern.length > 0 && pattern.length <= 256;
     if (valid) { try { new RegExp(pattern as string, "u"); } catch { valid = false; } }
@@ -557,7 +586,7 @@ function validateTrigger(
     const ids = trigger_config.ad_ids;
     if (ids !== undefined && (!Array.isArray(ids) || ids.length > 50
       || ids.some((id) => typeof id !== "string" || !/^\d{1,32}$/.test(id)))) {
-      issues.push({ severity: "error", scope: "trigger", field: "trigger_config.ad_ids", message: t("adClickIds", { max: 50 }) });
+      issues.push({ severity: "error", scope: "trigger", field: `${base}.ad_ids`, message: t("adClickIds", { max: 50 }) });
     }
   } else if (trigger_type === "template_reply") {
     if (typeof trigger_config.template_name !== "string" || !trigger_config.template_name.trim()) {
@@ -575,7 +604,7 @@ function validateTrigger(
       issues.push({
         severity: "error",
         scope: "trigger",
-        field: "trigger_config.keywords",
+        field: `${base}.keywords`,
         message: t("keywordsRequired"),
       });
     } else {
@@ -589,7 +618,7 @@ function validateTrigger(
         issues.push({
           severity: "warning",
           scope: "trigger",
-          field: "trigger_config.keywords",
+          field: `${base}.keywords`,
           message: t("blankKeywords", { count: blanks }),
         });
       }
@@ -1112,7 +1141,7 @@ function validateNode(
       const rules: Array<[Record<string, unknown>, string]> = grouped
         ? (Array.isArray(cfg.rules) ? cfg.rules : []).map((rule, i) => [rule && typeof rule === 'object' ? rule as Record<string, unknown> : {}, `rules.${i}.`])
         : [[cfg, ""]];
-      for (const [rule, prefix] of rules) issues.push(...ruleIssues(node.node_key, rule, prefix));
+      for (const [rule, prefix] of rules) issues.push(...ruleIssues(node.node_key, rule, prefix, knownKeys));
       if (rules.some(([rule]) => rule.subject === "time" || rule.subject === "date") &&
           cfg.timezone !== undefined && !isValidTimeZone(cfg.timezone)) {
         issues.push({ severity: 'error', scope: 'node', node_key: node.node_key, field: 'timezone', message: t('conditionBadTimezone') });
@@ -1342,7 +1371,7 @@ function validateNode(
     case "randomizer":
     case "smart_delay":
     case "google_sheets":
-      // Stage 5 steps: refused by stage5PendingIssues until 5B implements them.
+      // Stage 5 steps: checked by stage5NodeIssues (stage5-validation.ts).
       break;
 
     default:
@@ -1388,7 +1417,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 const INPUT_FORMATS: string[] = ["any", "email", "phone", "regex", "number", "date", "boolean"];
 const MEDIA_REPLY_TYPES: unknown[] = ["image", "video", "document", "audio"];
-const CONDITION_SUBJECTS: unknown[] = ["var", "tag", "contact_field", "custom_field", "time", "date", "ig_profile"];
+const CONDITION_SUBJECTS: unknown[] = ["var", "tag", "contact_field", "custom_field", "time", "date", "ig_profile", ...STAGE5_CONDITION_SUBJECTS];
+/** Stage 5 subjects that hold or not ("true"/"false"), so only these operators make sense. */
+const YES_NO_SUBJECTS: unknown[] = ["segment", "link_click", "sequence"];
 const CONDITION_OPERATORS: unknown[] = ["equals", "not_equals", "contains", "present", "absent", "gt", "gte", "lt", "lte", "between"];
 const MAX_CONDITION_RULES = 10;
 const SET_ATTRIBUTE_MAX = 1000;
@@ -1437,7 +1468,7 @@ function waitsForReply(node: NodeInput): boolean {
   return WAITING_TYPES.includes(node.node_type);
 }
 /** Config keys that hold routing or patterns rather than customer-visible text. */
-const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target", "paid_next", "expired_next", "failed_next", "success_next", "unavailable_next", "cancelled_next", "service_ids", "location_id", "currency", "handoff_next", "instructions"];
+const NOT_TEXT_FIELDS = ["regex", "media_url", "reply_id", "next_node_key", "true_next", "false_next", "after_timeout", "exhausted_next", "skip_next", "key", "target", "paid_next", "expired_next", "failed_next", "success_next", "unavailable_next", "cancelled_next", "service_ids", "location_id", "currency", "handoff_next", "instructions", "finish_next", "failure_next", "flow_id", "tag_id", "sequence_id", "event_type_id", "spreadsheet_id", "date"];
 
 /** Variables a node stores for the nodes after it. */
 function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
@@ -1448,6 +1479,9 @@ function producedVars(node: NodeInput, forms?: FlowFormLookup): string[] {
   }
   if (node.node_type === "payment_link") return [...PAYMENT_LINK_VARS];
   if (node.node_type === "book_appointment") return [...BOOK_APPOINTMENT_VARS];
+  if (node.node_type === "google_sheets") {
+    return Array.isArray(cfg.var_map) ? (cfg.var_map as Array<{ var_key?: unknown }>).map((m) => m?.var_key).filter((k): k is string => typeof k === "string") : [];
+  }
   if (node.node_type === "ai_reply") return typeof cfg.var_key === "string" && cfg.var_key ? [cfg.var_key] : [];
   const key = typeof cfg.var_key === "string" ? cfg.var_key : null;
   if (!key) return [];
@@ -1500,7 +1534,7 @@ function timingIssues(node: NodeInput, knownKeys: Set<string>, runTimeoutHours?:
 }
 
 /** One condition rule; `prefix` locates it ("" for a single-test node, "rules.N." in a group). */
-function ruleIssues(nodeKey: string, rule: Record<string, unknown>, prefix: string): ValidationIssue[] {
+function ruleIssues(nodeKey: string, rule: Record<string, unknown>, prefix: string, knownKeys: ReadonlySet<string> = new Set()): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const at = (field: string, message: string, severity: "error" | "warning" = "error") =>
     issues.push({ severity, scope: "node", node_key: nodeKey, field: prefix + field, message });
@@ -1508,6 +1542,14 @@ function ruleIssues(nodeKey: string, rule: Record<string, unknown>, prefix: stri
   const clock = subject === "time" || subject === "date";
   if (!CONDITION_SUBJECTS.includes(subject)) at("subject", t("conditionNeedsSubject"));
   if (!clock && !(typeof rule.subject_key === "string" && rule.subject_key.trim())) at("subject_key", t("conditionNeedsSubjectKey"));
+  else {
+    const problem = stage5SubjectProblem(rule, knownKeys);
+    if (problem) at("subject_key", problem);
+  }
+  if (YES_NO_SUBJECTS.includes(subject) && operator !== "equals" && operator !== "not_equals") {
+    at("operator", t("conditionNeedsOperator"));
+    return issues;
+  }
   if (!CONDITION_OPERATORS.includes(operator) || (clock && (operator === "present" || operator === "absent"))) {
     at("operator", t("conditionNeedsOperator"));
     return issues;
@@ -1544,7 +1586,16 @@ function outgoingEdges(node: NodeInput): string[] {
     case "send_product":
     case "send_product_list":
     case "send_catalog":
+    case "actions":
+    case "smart_delay":
       add(cfg.next_node_key);
+      break;
+    case "google_sheets":
+      add(cfg.next_node_key);
+      add(cfg.failure_next);
+      break;
+    case "randomizer":
+      for (const p of (Array.isArray(cfg.paths) ? cfg.paths : []) as Array<{ next_node_key?: unknown }>) add(p?.next_node_key);
       break;
     case "send_template": {
       const buttons = Array.isArray(cfg.buttons) ? (cfg.buttons as Array<{ next_node_key?: unknown }>) : [];
@@ -1567,6 +1618,8 @@ function outgoingEdges(node: NodeInput): string[] {
       break;
     case "ai_reply":
       aiReplyEdges(cfg).forEach(add);
+      // Stage 5: a step with goals leaves through "Goals finished" too.
+      if (Array.isArray(cfg.goals) && cfg.goals.length) add(cfg.finish_next);
       break;
     case "conversion_event":
       conversionEdges(cfg).forEach(add);

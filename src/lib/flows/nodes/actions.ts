@@ -77,18 +77,49 @@ export async function writeContactValue(db: DataClient, input: {
     return (await writeContactField(db, input.accountId, input.contactId, `custom:${input.key}`, input.value)) ? 'written' : 'not_writable';
   }
   if (!(SAVE_CONTACT_FIELDS as readonly string[]).includes(input.key)) return 'not_writable';
-  if (input.key === 'email' || input.key === 'phone') {
+  if (input.key === 'phone') return fillContactPhone(input.accountId, input.contactId, input.value);
+  if (input.key === 'email') {
     const owner = await withTenant({ accountId: input.accountId, role: 'owner' }, async (tx) => {
       const rows = input.key === 'email'
         ? await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id::text FROM contacts WHERE account_id=${input.accountId}::uuid
             AND id<>${input.contactId}::uuid AND lower(email)=lower(${input.value}) LIMIT 1`)
-        : await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id::text FROM contacts WHERE account_id=${input.accountId}::uuid
-            AND id<>${input.contactId}::uuid AND phone_normalized=regexp_replace(${input.value}, '\\D', '', 'g') LIMIT 1`);
+        : [];
       return rows[0]?.id ?? null;
     }, getWorkerPrisma());
     if (owner) return 'conflict';
   }
   return (await writeContactField(db, input.accountId, input.contactId, input.key, input.value)) ? 'written' : 'not_writable';
+}
+
+/** A phone number a flow may store: 8 to 15 digits, an optional leading +, spaces, dots, dashes and brackets ignored. */
+export function flowPhoneDigits(value: string): string | null {
+  const compact = value.trim().replace(/[\s().-]/g, '');
+  return /^\+?[1-9]\d{7,14}$/.test(compact) ? compact.replace(/^\+/, '') : null;
+}
+
+/**
+ * Fills the phone of a contact that has none (an Instagram contact). A
+ * contact's existing number is its WhatsApp identity and is never replaced;
+ * a number another contact of the workspace has is a conflict (nothing is
+ * written, contacts are never merged). Runs on the worker connection.
+ */
+async function fillContactPhone(accountId: string, contactId: string, value: string): Promise<ContactWriteResult> {
+  const digits = flowPhoneDigits(value);
+  if (!digits) return 'not_writable';
+  return withTenant({ accountId, role: 'owner' }, async (tx) => {
+    const [owner] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id::text FROM contacts WHERE account_id=${accountId}::uuid
+      AND id<>${contactId}::uuid AND phone_normalized=${digits} LIMIT 1`);
+    if (owner) return 'conflict' as const;
+    const [current] = await tx.$queryRaw<{ phone_normalized: string | null }[]>(Prisma.sql`SELECT phone_normalized FROM contacts
+      WHERE account_id=${accountId}::uuid AND id=${contactId}::uuid FOR UPDATE`);
+    if (!current) return 'not_writable' as const;
+    if (current.phone_normalized) return current.phone_normalized === digits ? 'written' as const : 'not_writable' as const;
+    // The unique (account, phone) index is the final guard against a concurrent writer.
+    const updated = await tx.$executeRaw(Prisma.sql`UPDATE contacts SET phone=${digits}, updated_at=now()
+      WHERE account_id=${accountId}::uuid AND id=${contactId}::uuid AND COALESCE(phone, '')=''
+        AND NOT EXISTS (SELECT 1 FROM contacts o WHERE o.account_id=${accountId}::uuid AND o.id<>${contactId}::uuid AND o.phone_normalized=${digits})`);
+    return updated > 0 ? 'written' as const : 'conflict' as const;
+  }, getWorkerPrisma());
 }
 
 export interface ActionsContext {
@@ -262,6 +293,8 @@ async function runOne(ctx: ActionsContext, action: FlowAction, index: number): P
       });
       return notified.length ? ok : skip('nobody_to_notify');
     }
+    default:
+      return skip('action_unknown');
   }
 }
 
@@ -279,12 +312,15 @@ async function subscribeSequence(accountId: string, contactId: string, sequenceI
         OR (${channel}='instagram' AND instagram_opted_out_at IS NOT NULL)) AS out
       FROM contacts WHERE account_id=${accountId}::uuid AND id=${contactId}::uuid`);
     if (!optedOut || optedOut.out) return skip('contact_unsubscribed');
+    // A subscription in progress is left alone; one that ended (completed or unsubscribed) starts over.
     await tx.$executeRaw(Prisma.sql`INSERT INTO sequence_subscriptions(account_id, sequence_id, contact_id, next_position, next_due_at)
       SELECT ${accountId}::uuid, ${sequenceId}::uuid, ${contactId}::uuid, 0,
         now() + COALESCE((SELECT make_interval(mins => m.delay_amount * CASE m.delay_unit WHEN 'minutes' THEN 1 WHEN 'hours' THEN 60 ELSE 1440 END)
           FROM sequence_messages m WHERE m.account_id=${accountId}::uuid AND m.sequence_id=${sequenceId}::uuid AND m.active
           ORDER BY m.position LIMIT 1), interval '0')
-      ON CONFLICT (account_id, sequence_id, contact_id) DO NOTHING`);
+      ON CONFLICT (account_id, sequence_id, contact_id) DO UPDATE
+        SET status='active', next_position=0, next_due_at=EXCLUDED.next_due_at, claimed_at=NULL, ended_at=NULL, subscribed_at=now()
+        WHERE sequence_subscriptions.status IN ('completed','unsubscribed')`);
     return ok;
   });
 }

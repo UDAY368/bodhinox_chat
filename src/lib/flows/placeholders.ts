@@ -1,5 +1,6 @@
-// Placeholders in flow text (Stage 5). Pure and client-safe, so the engine,
-// the dry run and the builder's preview fill text the same way.
+// Placeholders in flow text (Stage 5). Pure and client-safe (no server
+// imports), so the engine, the dry run and the builder's preview fill text
+// the same way.
 //
 //   {{workspace.key}}             a non-secret workspace value (filled first)
 //   {{vars.key}}                  a run variable (an answer or an API value)
@@ -15,7 +16,10 @@
 // never expanded again, so captured customer input cannot pull in workspace
 // values, other variables or contact data. Workspace values are expanded
 // first, as before Stage 5 (an admin wrote them).
-import { fillWorkspace } from "@/lib/workspace/attributes";
+/** {{workspace.key}}, exactly as lib/workspace/attributes.ts fillWorkspace (server-only there): unknown keys render empty. */
+function fillWorkspace(text: string, values: Record<string, string>): string {
+  return text.replace(/\{\{\s*workspace\.([a-z][a-z0-9_]*)\s*\}\}/g, (_, key: string) => (Object.hasOwn(values, key) ? values[key] : ""));
+}
 
 export const CONTACT_PLACEHOLDER_FIELDS = ["name", "email", "phone", "company", "username"] as const;
 export type ContactPlaceholderField = (typeof CONTACT_PLACEHOLDER_FIELDS)[number];

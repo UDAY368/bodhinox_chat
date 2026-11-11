@@ -18,7 +18,7 @@ import { gateWithinLimit } from '@/lib/billing/limits';
 import { loadFlowFormLookup } from '@/lib/whatsapp/forms/flow-lookup';
 import { validateFlowForActivation, type CrossFlowSnapshot, type ValidationIssue } from './validate';
 import type { WorkspaceCapabilities } from './node-registry';
-import type { FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow } from './types';
+import type { FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow, FlowTriggerConfig } from './types';
 
 /** One node as a version stores it; positions are kept for the read-only canvas. */
 export interface VersionNode {
@@ -36,6 +36,8 @@ export interface FlowVersionRow {
   version: number;
   trigger_type: FlowRow['trigger_type'];
   trigger_config: Record<string, unknown>;
+  /** Stage 5: the further triggers published with this version (empty: the primary only). Absent on rows read before Stage 5. */
+  extra_triggers?: FlowTriggerConfig[];
   entry_node_id: string | null;
   fallback_policy: Record<string, unknown>;
   channel_scope: FlowChannelScope;
@@ -48,6 +50,8 @@ export interface FlowVersionRow {
 export interface DefinitionInput {
   trigger_type: string;
   trigger_config: unknown;
+  /** Stage 5: counted only when non-empty, so every definition without extra triggers hashes exactly as before. */
+  extra_triggers?: unknown;
   entry_node_id: string | null;
   fallback_policy: unknown;
   channel_scope?: string | null;
@@ -102,6 +106,7 @@ export function canonicalDefinition(def: DefinitionInput): string {
     fallback_policy: def.fallback_policy ?? {},
     channel_scope: def.channel_scope ?? 'whatsapp',
     nodes,
+    ...(Array.isArray(def.extra_triggers) && def.extra_triggers.length ? { extra_triggers: def.extra_triggers } : {}),
   });
 }
 
@@ -120,6 +125,8 @@ export function effectiveFlow(flow: FlowRow, version: FlowVersionRow): Effective
     ...flow,
     trigger_type: version.trigger_type,
     trigger_config: version.trigger_config,
+    // Stage 5: matching reads the published extra triggers, never the draft's.
+    extra_triggers: Array.isArray(version.extra_triggers) ? version.extra_triggers : [],
     entry_node_id: version.entry_node_id,
     fallback_policy: version.fallback_policy as unknown as FlowRow['fallback_policy'],
     channel_scope: version.channel_scope,
@@ -153,7 +160,7 @@ export function versionNodeMap(version: FlowVersionRow): Map<string, FlowNodeRow
 
 type VersionDbRow = Omit<FlowVersionRow, 'published_at'> & { published_at: Date | string };
 
-const VERSION_COLUMNS = Prisma.sql`id::text, account_id::text, flow_id::text, version, trigger_type, trigger_config,
+const VERSION_COLUMNS = Prisma.sql`id::text, account_id::text, flow_id::text, version, trigger_type, trigger_config, extra_triggers,
   entry_node_id, fallback_policy, channel_scope, nodes, published_by::text, published_at`;
 
 function toVersion(row: VersionDbRow): FlowVersionRow {
@@ -194,6 +201,7 @@ interface FlowLockRow {
   status: FlowRow['status'];
   trigger_type: FlowRow['trigger_type'];
   trigger_config: Record<string, unknown> | null;
+  extra_triggers: FlowTriggerConfig[] | null;
   entry_node_id: string | null;
   fallback_policy: Record<string, unknown> | null;
   channel_scope: FlowChannelScope | null;
@@ -202,7 +210,7 @@ interface FlowLockRow {
 
 async function lockFlow(tx: TenantTransaction, accountId: string, flowId: string): Promise<FlowLockRow> {
   if (!isUuid(flowId)) throw new FlowVersionError('not_found', 404);
-  const rows = await tx.$queryRaw<FlowLockRow[]>(Prisma.sql`SELECT id::text, name, status, trigger_type, trigger_config,
+  const rows = await tx.$queryRaw<FlowLockRow[]>(Prisma.sql`SELECT id::text, name, status, trigger_type, trigger_config, extra_triggers,
       entry_node_id, fallback_policy, channel_scope, published_version_id::text
     FROM flows WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid FOR UPDATE`);
   if (!rows[0]) throw new FlowVersionError('not_found', 404);
@@ -218,6 +226,7 @@ function draftDefinition(flow: FlowLockRow, nodes: VersionNode[]): DefinitionInp
   return {
     trigger_type: flow.trigger_type,
     trigger_config: flow.trigger_config ?? {},
+    extra_triggers: flow.extra_triggers ?? [],
     entry_node_id: flow.entry_node_id,
     fallback_policy: flow.fallback_policy ?? {},
     channel_scope: flow.channel_scope ?? 'whatsapp',
@@ -301,6 +310,7 @@ export async function publishFlow(tx: TenantTransaction, args: PublishArgs): Pro
     name: flow.name,
     trigger_type: flow.trigger_type,
     trigger_config: flow.trigger_config ?? {},
+    extra_triggers: flow.extra_triggers ?? [],
     entry_node_id: flow.entry_node_id,
     fallback_policy: flow.fallback_policy ?? {},
     channel_scope: flow.channel_scope,
@@ -310,7 +320,7 @@ export async function publishFlow(tx: TenantTransaction, args: PublishArgs): Pro
   // Plan cap on live flows (testing drafts count, they run too); this flow does not count twice.
   const [{ n }] = await tx.$queryRaw<{ n: number }[]>(Prisma.sql`SELECT count(*)::int AS n FROM flows
     WHERE account_id=${accountId}::uuid AND id<>${flowId}::uuid
-    AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`);
+    AND (status='active' OR (status='draft' AND (cardinality(test_numbers)>0 OR cardinality(test_usernames)>0)))`);
   await gateWithinLimit(tx, accountId, 'active_flows', n + 1);
 
   const current = flow.published_version_id ? await readVersion(tx, accountId, flow.published_version_id) : null;
@@ -323,10 +333,11 @@ export async function publishFlow(tx: TenantTransaction, args: PublishArgs): Pro
     const snapshot = nodes.map((node) => ({ node_key: node.node_key, node_type: node.node_type, config: node.config ?? {},
       position_x: Number(node.position_x ?? 0), position_y: Number(node.position_y ?? 0) }));
     const [row] = await tx.$queryRaw<{ id: string; version: number }[]>(Prisma.sql`INSERT INTO flow_versions(account_id, flow_id,
-        version, trigger_type, trigger_config, entry_node_id, fallback_policy, channel_scope, nodes, published_by)
+        version, trigger_type, trigger_config, extra_triggers, entry_node_id, fallback_policy, channel_scope, nodes, published_by)
       VALUES (${accountId}::uuid, ${flowId}::uuid,
         (SELECT COALESCE(max(version),0)+1 FROM flow_versions WHERE account_id=${accountId}::uuid AND flow_id=${flowId}::uuid),
-        ${flow.trigger_type}, ${JSON.stringify(flow.trigger_config ?? {})}::jsonb, ${flow.entry_node_id},
+        ${flow.trigger_type}, ${JSON.stringify(flow.trigger_config ?? {})}::jsonb, ${JSON.stringify(flow.extra_triggers ?? [])}::jsonb,
+        ${flow.entry_node_id},
         ${JSON.stringify(flow.fallback_policy ?? {})}::jsonb, ${flow.channel_scope ?? 'whatsapp'}, ${JSON.stringify(snapshot)}::jsonb,
         ${userId}::uuid)
       RETURNING id::text, version`);
@@ -336,7 +347,7 @@ export async function publishFlow(tx: TenantTransaction, args: PublishArgs): Pro
   // member's choice, so billing restore() must not treat a later user archive
   // as plan-archived (and revive it). See clearPlanArchive.
   const [updated] = await tx.$queryRaw<FlowRow[]>(Prisma.sql`UPDATE flows SET status='active', published_version_id=${version.id}::uuid,
-      test_numbers='{}', archived_at=NULL, updated_at=now()
+      test_numbers='{}', test_usernames='{}', archived_at=NULL, updated_at=now()
     WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid RETURNING *`);
   await clearPlanArchive(tx, accountId, flowId);
   // Draft test-number runs (and deploy-window stragglers) are unpinned and
@@ -429,7 +440,7 @@ export async function moveToDraft(tx: TenantTransaction, args: { accountId: stri
     const paused = await pauseFlow(tx, { ...args, cancelActive: false });
     return { flow: paused.flow, paused: true };
   }
-  const [{ testing }] = await tx.$queryRaw<{ testing: boolean }[]>(Prisma.sql`SELECT cardinality(test_numbers)>0 AS testing
+  const [{ testing }] = await tx.$queryRaw<{ testing: boolean }[]>(Prisma.sql`SELECT (cardinality(test_numbers)>0 OR cardinality(test_usernames)>0) AS testing
     FROM flows WHERE account_id=${args.accountId}::uuid AND id=${args.flowId}::uuid`);
   if (testing) {
     const nodes = await readDraftNodes(tx, args.accountId, args.flowId);
@@ -437,12 +448,12 @@ export async function moveToDraft(tx: TenantTransaction, args: { accountId: stri
     const paidServices = await paidServicesFor(tx, args.accountId, nodes);
     const issues = validateFlowForActivation({
       id: args.flowId, name: flow.name, trigger_type: flow.trigger_type, trigger_config: flow.trigger_config ?? {},
-      entry_node_id: flow.entry_node_id, fallback_policy: flow.fallback_policy ?? {}, channel_scope: flow.channel_scope,
+      extra_triggers: flow.extra_triggers ?? [], entry_node_id: flow.entry_node_id, fallback_policy: flow.fallback_policy ?? {}, channel_scope: flow.channel_scope,
     }, nodes, { forms, paidServices });
     if (issues.some((i) => i.severity === 'error')) throw new FlowVersionError('invalid', 422, { issues });
     const [{ n }] = await tx.$queryRaw<{ n: number }[]>(Prisma.sql`SELECT count(*)::int AS n FROM flows
       WHERE account_id=${args.accountId}::uuid AND id<>${args.flowId}::uuid
-      AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`);
+      AND (status='active' OR (status='draft' AND (cardinality(test_numbers)>0 OR cardinality(test_usernames)>0)))`);
     await gateWithinLimit(tx, args.accountId, 'active_flows', n + 1);
   }
   const [updated] = await tx.$queryRaw<FlowRow[]>(Prisma.sql`UPDATE flows SET status='draft', updated_at=now()
@@ -582,6 +593,10 @@ export interface DraftPatch {
   fallback_policy?: Record<string, unknown>;
   test_numbers?: string[];
   channel_scope?: FlowChannelScope;
+  /** Stage 5: further triggers (Instagram flows; validated on publish). */
+  extra_triggers?: FlowTriggerConfig[];
+  /** Stage 5: Instagram usernames a draft runs for (lowercase, no @). */
+  test_usernames?: string[];
 }
 
 /**
@@ -590,9 +605,28 @@ export interface DraftPatch {
  * save), then the whole node list replaced. Nothing here touches a published
  * version. Throws not_found when the flow is not the caller's.
  */
-export async function saveDraft(tx: TenantTransaction, args: { accountId: string; flowId: string; patch: DraftPatch; nodes?: VersionNode[] }): Promise<void> {
+export async function saveDraft(tx: TenantTransaction, args: {
+  accountId: string; flowId: string; patch: DraftPatch; nodes?: VersionNode[];
+  /**
+   * Stage 5 autosave: the draft's updated_at the editor last saw (ISO). When
+   * the stored draft is newer (compared at millisecond precision, the
+   * precision the browser has), nothing is written and draft_changed (409,
+   * detail.stale_draft) is thrown. Absent: saved as before.
+   */
+  baseUpdatedAt?: string;
+}): Promise<void> {
   const { accountId, flowId, patch } = args;
   if (!isUuid(flowId)) throw new FlowVersionError('not_found', 404);
+  if (args.baseUpdatedAt !== undefined) {
+    // Under the row lock, so two saves from two tabs cannot both pass the check.
+    const [row] = await tx.$queryRaw<{ newer: boolean; updated_at: Date | null }[]>(Prisma.sql`SELECT
+        date_trunc('milliseconds', updated_at) > ${args.baseUpdatedAt}::timestamptz AS newer, updated_at
+      FROM flows WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid FOR UPDATE`);
+    if (!row) throw new FlowVersionError('not_found', 404);
+    if (row.newer) {
+      throw new FlowVersionError('draft_changed', 409, { stale_draft: true, updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null });
+    }
+  }
   const sets: Prisma.Sql[] = [Prisma.sql`updated_at=now()`];
   if (patch.name !== undefined) sets.push(Prisma.sql`name=${patch.name}`);
   if (patch.description !== undefined) sets.push(Prisma.sql`description=${patch.description}`);
@@ -602,6 +636,8 @@ export async function saveDraft(tx: TenantTransaction, args: { accountId: string
   if (patch.fallback_policy !== undefined) sets.push(Prisma.sql`fallback_policy=${JSON.stringify(patch.fallback_policy)}::jsonb`);
   if (patch.test_numbers !== undefined) sets.push(Prisma.sql`test_numbers=${patch.test_numbers}::text[]`);
   if (patch.channel_scope !== undefined) sets.push(Prisma.sql`channel_scope=${patch.channel_scope}`);
+  if (patch.extra_triggers !== undefined) sets.push(Prisma.sql`extra_triggers=${JSON.stringify(patch.extra_triggers)}::jsonb`);
+  if (patch.test_usernames !== undefined) sets.push(Prisma.sql`test_usernames=${patch.test_usernames}::text[]`);
   const updated = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`UPDATE flows SET ${Prisma.join(sets, ', ')}
     WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid RETURNING id::text`);
   if (!updated.length) throw new FlowVersionError('not_found', 404);
@@ -643,6 +679,43 @@ export async function listVersions(tx: TenantTransaction, accountId: string, flo
   return rows.map((r) => ({ ...r, published_at: r.published_at.toISOString() }));
 }
 
+/** Per-step counts for the builder (Stage 5): runs waiting at a step now, and runs that went past it. */
+export interface NodeStat {
+  waiting: number;
+  passed: number;
+}
+
+/**
+ * Waiting and passed counts per node_key of one flow, from run state: waiting
+ * is the flow's active runs whose current step it is (a smart delay, a
+ * question), passed is the runs that entered the step minus those still
+ * waiting there. Null when the flow is not this workspace's. Counts only.
+ */
+export async function readNodeStats(tx: TenantTransaction, accountId: string, flowId: string): Promise<Record<string, NodeStat> | null> {
+  if (!isUuid(flowId)) return null;
+  const [flow] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id::text FROM flows
+    WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid`);
+  if (!flow) return null;
+  const rows = await tx.$queryRaw<{ node_key: string; waiting: number; entered: number }[]>(Prisma.sql`
+    WITH waiting AS (
+      SELECT current_node_key AS node_key, count(*)::int AS n FROM flow_runs
+      WHERE account_id=${accountId}::uuid AND flow_id=${flowId}::uuid AND status='active' AND current_node_key IS NOT NULL
+      GROUP BY current_node_key
+    ), entered AS (
+      SELECT e.node_key, count(DISTINCT e.flow_run_id)::int AS n FROM flow_run_events e
+      JOIN flow_runs r ON r.account_id=e.account_id AND r.id=e.flow_run_id
+      WHERE r.account_id=${accountId}::uuid AND r.flow_id=${flowId}::uuid AND e.account_id=${accountId}::uuid
+        AND e.event_type='node_entered' AND e.node_key IS NOT NULL
+      GROUP BY e.node_key
+    )
+    SELECT COALESCE(w.node_key, x.node_key) AS node_key, COALESCE(w.n, 0) AS waiting, COALESCE(x.n, 0) AS entered
+    FROM waiting w FULL JOIN entered x ON x.node_key=w.node_key
+    LIMIT 500`);
+  const stats: Record<string, NodeStat> = {};
+  for (const row of rows) stats[row.node_key] = { waiting: row.waiting, passed: Math.max(0, row.entered - row.waiting) };
+  return stats;
+}
+
 export interface PublishState {
   published_version: { id: string; version: number } | null;
   draft_hash: string;
@@ -652,7 +725,7 @@ export interface PublishState {
 /** What the builder shows next to the draft: the live version and whether the draft differs from it. */
 export async function readPublishState(tx: TenantTransaction, accountId: string, flowId: string): Promise<PublishState | null> {
   if (!isUuid(flowId)) return null;
-  const flows = await tx.$queryRaw<FlowLockRow[]>(Prisma.sql`SELECT id::text, name, status, trigger_type, trigger_config,
+  const flows = await tx.$queryRaw<FlowLockRow[]>(Prisma.sql`SELECT id::text, name, status, trigger_type, trigger_config, extra_triggers,
       entry_node_id, fallback_policy, channel_scope, published_version_id::text
     FROM flows WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid`);
   const flow = flows[0];

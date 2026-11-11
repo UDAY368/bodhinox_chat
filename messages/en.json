@@ -2754,7 +2754,11 @@
           "book_appointment": "Offers free times and books the one the customer picks (simulated; nothing is booked)",
           "condition_true": "The condition is true for this contact",
           "condition_false": "The condition is false for this contact",
-          "api_port": "The API result you picked: {port}"
+          "api_port": "The API result you picked: {port}",
+          "actions": "Runs the actions of this step",
+          "randomizer": "Picks one path at random",
+          "smart_delay": "Waits, then continues",
+          "google_sheets": "Works with a Google Sheets row"
         },
         "simulate": {
           "shareMedia": "Simulate: customer sends media",
@@ -3205,7 +3209,8 @@
         "placeholder": "For example: the person wants to know the price",
         "help": "AI checks whether each message means this, after your other triggers. Uses your AI allowance.",
         "needsAi": "Turn on AI for this workspace to match by meaning.",
-        "tooLong": "Use up to 300 characters."
+        "tooLong": "Use up to 300 characters.",
+        "required": "Describe the meaning to match."
       }
     },
     "nodes": {
@@ -3320,7 +3325,8 @@
         "assignee": "The assigned agent",
         "admins": "Admins",
         "note": "Note for the team",
-        "selfFlow": "An automation cannot start or stop itself."
+        "selfFlow": "An automation cannot start or stop itself.",
+        "invalid": "Complete the settings of this action."
       },
       "randomizer": {
         "title": "Split the traffic",
@@ -3349,7 +3355,8 @@
         "weekdays": "Days",
         "timezone": "Time zone",
         "max": "Wait at most 365 days.",
-        "instagramWarning": "Instagram allows automated messages only within 24 hours of the person's last message. A longer wait usually ends with the window closed, and the message is then not sent."
+        "instagramWarning": "Instagram allows automated messages only within 24 hours of the person's last message. A longer wait usually ends with the window closed, and the message is then not sent.",
+        "invalid": "Set how long to wait, or the date to wait until."
       },
       "googleSheets": {
         "title": "Google Sheets",
@@ -3365,7 +3372,8 @@
         "varMap": "Save columns to variables",
         "failure": "If it fails",
         "notConnected": "Connect Google Sheets in Settings to use this step.",
-        "outcomeNote": "If Google does not confirm the change, the step takes its failure path and is not retried."
+        "outcomeNote": "If Google does not confirm the change, the step takes its failure path and is not retried.",
+        "invalid": "Choose the spreadsheet, the sheet and the columns."
       }
     },
     "history": {
@@ -3495,7 +3503,8 @@
       "context": "Give AI context",
       "saveReply": "Save the reply as",
       "preview": "Try it",
-      "previewEmpty": "Fix the step's errors to try it."
+      "previewEmpty": "Fix the step's errors to try it.",
+      "invalid": "Complete each goal and task, within the limits shown."
     },
     "buyButton": {
       "label": "Buy button",

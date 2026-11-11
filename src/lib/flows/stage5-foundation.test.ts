@@ -1,10 +1,10 @@
-// Stage 5 (5A) foundation: the new steps and settings are registered but not
-// run yet, so the publish validator refuses them (code stage5Pending) and the
-// automation validator refuses the new trigger and step types; the canvas
+// Stage 5 (5A) foundation: the new steps and settings are registered (5B now
+// runs and validates the flow steps; the automation validator still refuses
+// the new trigger and step types until 5D); the canvas
 // knows their ports; the contract modules are safe no-ops. Flows that use none
 // of them (every flow before Stage 5) validate exactly as before.
 import { describe, expect, it } from 'vitest';
-import { stage5PendingIssues, validateFlowForActivation } from './validate';
+import { validateFlowForActivation } from './validate';
 import { applyEdgeConnection, deriveCanvasEdges, outgoingSlots, unlinkNodeReferences } from './edges';
 import { STAGE5_NODE_TYPES, FLOW_ACTION_TYPES, FLOW_ACTION_GROUPS, CONDITION_SUBJECTS, IG_TEST_USERNAME } from './types';
 import { validateStepsForActivation, validateTriggerForActivation } from '@/lib/automations/validate';
@@ -24,44 +24,23 @@ const nodes = [
   { node_key: 'msg', node_type: 'send_message', config: { text: 'Hello', next_node_key: 'end' } },
   { node_key: 'end', node_type: 'end', config: {} },
 ];
-const pending = (issues: ReturnType<typeof validateFlowForActivation>) => issues.filter((i) => i.code === 'stage5Pending');
 
-describe('Stage 5 publish stub (5A; 5B replaces it)', () => {
+describe('Stage 5 publish rules (5B replaced the 5A stub; validate.stage5.test.ts covers them)', () => {
   it('leaves a flow without Stage 5 features exactly as before', () => {
     expect(validateFlowForActivation(flow, nodes)).toEqual([]);
     expect(validateFlowForActivation({ ...flow, extra_triggers: [] }, nodes)).toEqual([]);
   });
 
-  it.each(STAGE5_NODE_TYPES)('refuses to publish a %s step', (type) => {
+  it.each(STAGE5_NODE_TYPES)('checks a %s step instead of refusing it outright', (type) => {
     const withStep = [
       { node_key: 'start', node_type: 'start', config: { next_node_key: 'x' } },
       { node_key: 'x', node_type: type, config: { next_node_key: 'end', failure_next: 'end', paths: [], actions: [] } },
       { node_key: 'end', node_type: 'end', config: {} },
     ];
-    const issues = pending(validateFlowForActivation(flow, withStep));
-    expect(issues).toEqual([expect.objectContaining({ severity: 'error', scope: 'node', node_key: 'x', field: 'node_type' })]);
-  });
-
-  it('refuses extra triggers, intent matching, a reply delay, AI goals, save-to, success actions and buy buttons', () => {
-    expect(stage5PendingIssues({ trigger_config: {}, extra_triggers: [{ trigger_type: 'keyword', config: {} }] }, []))
-      .toEqual([expect.objectContaining({ scope: 'flow', field: 'extra_triggers' })]);
-    expect(stage5PendingIssues({ trigger_config: { match_type: 'intent', intent: 'price' } }, []))
-      .toEqual([expect.objectContaining({ field: 'trigger_config.match_type' })]);
-    expect(stage5PendingIssues({ trigger_config: { post_scope: 'any', reply_delay_seconds: 30 } }, []))
-      .toEqual([expect.objectContaining({ field: 'trigger_config.reply_delay_seconds' })]);
-    // A zero delay is the same as none.
-    expect(stage5PendingIssues({ trigger_config: { reply_delay_seconds: 0 } }, [])).toEqual([]);
-    const fields = (config: Record<string, unknown>, node_type = 'ai_reply') =>
-      stage5PendingIssues({ trigger_config: {} }, [{ node_key: 'n', node_type, config }]).map((i) => i.field);
-    expect(fields({ goals: [{ type: 'grow_followers' }] })).toEqual(['goals']);
-    expect(fields({ goals: [] })).toEqual([]);
-    expect(fields({ save_to: { target: 'contact_field', key: 'email' } }, 'collect_input')).toEqual(['save_to']);
-    expect(fields({ on_success_actions: [{ type: 'add_tag', tag_id: 't' }] }, 'collect_input')).toEqual(['on_success_actions']);
-    expect(fields({ card: { title: 'x', buttons: [{ type: 'buy', title: 'Buy', amount_minor: 100, currency: 'INR' }] } }, 'send_card'))
-      .toEqual(['card.buttons']);
-    expect(fields({ cards: [{ title: 'x', buttons: [{ type: 'web_url', title: 'Go', url: 'https://x.test' }] }] }, 'send_gallery')).toEqual([]);
-    expect(fields({ cards: [{ title: 'x', buttons: [{ type: 'buy', title: 'Buy', amount_minor: 1, currency: 'INR' }] }] }, 'send_gallery'))
-      .toEqual(['card.buttons']);
+    // An empty step is incomplete (an error on the step itself), never a blanket "not available yet".
+    const issues = validateFlowForActivation(flow, withStep).filter((i) => i.node_key === 'x' && i.severity === 'error');
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues.every((i) => i.field !== 'node_type')).toBe(true);
   });
 });
 

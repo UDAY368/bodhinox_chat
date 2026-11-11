@@ -2754,7 +2754,11 @@
           "book_appointment": "빈 시간을 보여 주고 고객이 고른 시간을 예약합니다 (시뮬레이션이며 실제로 예약되지 않음)",
           "condition_true": "이 연락처에 대해 조건이 참입니다",
           "condition_false": "이 연락처에 대해 조건이 거짓입니다",
-          "api_port": "선택한 API 결과: {port}"
+          "api_port": "선택한 API 결과: {port}",
+          "actions": "이 단계의 작업을 실행합니다",
+          "randomizer": "경로 하나를 무작위로 고릅니다",
+          "smart_delay": "기다린 다음 계속합니다",
+          "google_sheets": "Google Sheets 행을 처리합니다"
         },
         "simulate": {
           "shareMedia": "시뮬레이션: 고객이 파일 전송",
@@ -3205,7 +3209,8 @@
         "placeholder": "예: 가격을 알고 싶어 함",
         "help": "다른 트리거를 확인한 뒤 AI가 각 메시지가 이 뜻인지 판단합니다. AI 사용량이 차감됩니다.",
         "needsAi": "의미로 일치시키려면 이 워크스페이스에서 AI를 켜세요.",
-        "tooLong": "300자 이내로 입력하세요."
+        "tooLong": "300자 이내로 입력하세요.",
+        "required": "인식할 의미를 입력하세요."
       }
     },
     "nodes": {
@@ -3320,7 +3325,8 @@
         "assignee": "배정된 상담원",
         "admins": "관리자",
         "note": "팀을 위한 메모",
-        "selfFlow": "자동화는 자기 자신을 시작하거나 중지할 수 없습니다."
+        "selfFlow": "자동화는 자기 자신을 시작하거나 중지할 수 없습니다.",
+        "invalid": "이 작업의 설정을 완료하세요."
       },
       "randomizer": {
         "title": "트래픽 나누기",
@@ -3349,7 +3355,8 @@
         "weekdays": "요일",
         "timezone": "시간대",
         "max": "최대 365일까지 기다릴 수 있습니다.",
-        "instagramWarning": "Instagram은 상대의 마지막 메시지 후 24시간 이내에만 자동 메시지를 허용합니다. 더 오래 기다리면 대개 창이 닫혀 메시지가 전송되지 않습니다."
+        "instagramWarning": "Instagram은 상대의 마지막 메시지 후 24시간 이내에만 자동 메시지를 허용합니다. 더 오래 기다리면 대개 창이 닫혀 메시지가 전송되지 않습니다.",
+        "invalid": "기다릴 시간 또는 날짜를 설정하세요."
       },
       "googleSheets": {
         "title": "Google Sheets",
@@ -3365,7 +3372,8 @@
         "varMap": "열을 변수에 저장",
         "failure": "실패하면",
         "notConnected": "이 단계를 사용하려면 설정에서 Google Sheets를 연결하세요.",
-        "outcomeNote": "Google이 변경을 확인하지 않으면 이 단계는 실패 경로로 이동하며 다시 시도하지 않습니다."
+        "outcomeNote": "Google이 변경을 확인하지 않으면 이 단계는 실패 경로로 이동하며 다시 시도하지 않습니다.",
+        "invalid": "스프레드시트, 시트, 열을 선택하세요."
       }
     },
     "history": {
@@ -3495,7 +3503,8 @@
       "context": "AI에게 배경 정보 제공",
       "saveReply": "답변을 다음으로 저장",
       "preview": "사용해 보기",
-      "previewEmpty": "사용해 보려면 단계의 오류를 고치세요."
+      "previewEmpty": "사용해 보려면 단계의 오류를 고치세요.",
+      "invalid": "표시된 한도 안에서 각 목표와 작업을 완성하세요."
     },
     "buyButton": {
       "label": "구매 버튼",

@@ -2754,7 +2754,11 @@
           "book_appointment": "Ofrece horarios libres y reserva el que elija el cliente (simulado; no se reserva nada)",
           "condition_true": "La condición es verdadera para este contacto",
           "condition_false": "La condición es falsa para este contacto",
-          "api_port": "El resultado de API que elegiste: {port}"
+          "api_port": "El resultado de API que elegiste: {port}",
+          "actions": "Ejecuta las acciones de este paso",
+          "randomizer": "Elige un camino al azar",
+          "smart_delay": "Espera y luego continúa",
+          "google_sheets": "Trabaja con una fila de Google Sheets"
         },
         "simulate": {
           "shareMedia": "Simular: el cliente envía un archivo",
@@ -3205,7 +3209,8 @@
         "placeholder": "Por ejemplo: la persona quiere saber el precio",
         "help": "La IA comprueba si cada mensaje significa esto, después de tus otros disparadores. Usa tu cupo de IA.",
         "needsAi": "Activa la IA en este espacio de trabajo para coincidir por significado.",
-        "tooLong": "Usa hasta 300 caracteres."
+        "tooLong": "Usa hasta 300 caracteres.",
+        "required": "Describe el significado que debe reconocer."
       }
     },
     "nodes": {
@@ -3320,7 +3325,8 @@
         "assignee": "El agente asignado",
         "admins": "Administradores",
         "note": "Nota para el equipo",
-        "selfFlow": "Una automatización no puede iniciarse ni detenerse a sí misma."
+        "selfFlow": "Una automatización no puede iniciarse ni detenerse a sí misma.",
+        "invalid": "Completa la configuración de esta acción."
       },
       "randomizer": {
         "title": "Repartir el tráfico",
@@ -3349,7 +3355,8 @@
         "weekdays": "Días",
         "timezone": "Zona horaria",
         "max": "Espera como máximo 365 días.",
-        "instagramWarning": "Instagram solo permite mensajes automáticos dentro de las 24 horas posteriores al último mensaje de la persona. Una espera más larga suele terminar con la ventana cerrada y entonces el mensaje no se envía."
+        "instagramWarning": "Instagram solo permite mensajes automáticos dentro de las 24 horas posteriores al último mensaje de la persona. Una espera más larga suele terminar con la ventana cerrada y entonces el mensaje no se envía.",
+        "invalid": "Indica cuánto esperar o hasta qué fecha."
       },
       "googleSheets": {
         "title": "Google Sheets",
@@ -3365,7 +3372,8 @@
         "varMap": "Guardar columnas en variables",
         "failure": "Si falla",
         "notConnected": "Conecta Google Sheets en Configuración para usar este paso.",
-        "outcomeNote": "Si Google no confirma el cambio, el paso toma su camino de fallo y no se reintenta."
+        "outcomeNote": "Si Google no confirma el cambio, el paso toma su camino de fallo y no se reintenta.",
+        "invalid": "Elige la hoja de cálculo, la pestaña y las columnas."
       }
     },
     "history": {
@@ -3495,7 +3503,8 @@
       "context": "Dale contexto a la IA",
       "saveReply": "Guardar la respuesta como",
       "preview": "Probar",
-      "previewEmpty": "Corrige los errores del paso para probarlo."
+      "previewEmpty": "Corrige los errores del paso para probarlo.",
+      "invalid": "Completa cada objetivo y tarea dentro de los límites indicados."
     },
     "buyButton": {
       "label": "Botón de compra",

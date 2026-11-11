@@ -7,8 +7,8 @@ import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
 import {
-  adClickMatch, byPrecedence, defaultReplyApplies, igAdClickMatch, instagramFactsFrom, isTestContact, keywordTriggerMatches,
-  orderReceivedMatch, phoneDigits, refTriggerMatch, shareToStoryMatches, storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
+  adClickMatch, byPrecedence, defaultReplyApplies, igAdClickMatch, instagramFactsFrom, isTestContact, isTestUsername, keywordTriggerMatches,
+  normalizeTestUsername, orderReceivedMatch, phoneDigits, refTriggerMatch, shareToStoryMatches, storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
 } from './triggers';
 import { instagramConfig } from '@/lib/instagram/config';
 import { decodePostback, encodePostback } from '@/lib/instagram/postback-payloads';
@@ -164,9 +164,8 @@ import {
   type IgRefTriggerConfig,
   type IgLiveCommentTriggerConfig,
   startsFromComment,
-  IG_TEST_USERNAME,
   type ActionsNodeConfig,
-  type FlowTriggerConfig,
+  FLOW_TRIGGER_LIMITS,
   type SmartDelayNodeConfig,
   type IgStoryReplyTriggerConfig,
   type TriggerFrequency,
@@ -658,21 +657,6 @@ export function flowListensOnConversation(
   return flowListensOnNumber(flow, conversation.whatsappConfigId);
 }
 
-/**
- * Whether a draft Instagram flow may run for this contact (Stage 5): the
- * contact's stored Instagram username (lowercase, no @) is one of the flow's
- * test usernames. WhatsApp test numbers are isTestContact, unchanged.
- */
-export function isTestUsername(flow: Pick<FlowRow, "status" | "test_usernames">, username: string): boolean {
-  const name = username.trim().replace(/^@/, "").toLowerCase();
-  return flow.status === "draft" && IG_TEST_USERNAME.test(name) && (flow.test_usernames ?? []).includes(name);
-}
-
-/** A draft's test contact by number (WhatsApp) or by Instagram username (Stage 5). */
-function isTestRunContact(flow: Pick<FlowRow, "status" | "test_numbers" | "test_usernames">, digits: string, username: string): boolean {
-  return isTestContact(flow, digits) || isTestUsername(flow, username);
-}
-
 /** The contact's stored Instagram username on the conversation's Instagram account, lowercase; "" when none. */
 async function storedInstagramUsername(accountId: string, contactId: string, conversationId: string): Promise<string> {
   const rows = await withTenant({ accountId, role: "owner" }, (tx) => tx.$queryRaw<{ username: string | null }[]>`
@@ -680,7 +664,7 @@ async function storedInstagramUsername(accountId: string, contactId: string, con
       AND i.contact_id=v.contact_id AND i.instagram_account_id=v.instagram_account_id AND i.channel='instagram'
     WHERE v.account_id=${accountId}::uuid AND v.id=${conversationId}::uuid AND v.contact_id=${contactId}::uuid AND v.channel='instagram'
     LIMIT 1`, getWorkerPrisma());
-  return (rows[0]?.username ?? "").trim().replace(/^@/, "").toLowerCase();
+  return normalizeTestUsername(rows[0]?.username);
 }
 
 /** What the stored Instagram message is (a story reply or mention); an unreadable row is an ordinary message. */
@@ -1146,6 +1130,14 @@ async function sendPrivateReplyAsMessage(db: AdminClient, run: FlowRunRow, node:
   const cfg = node.config as unknown as IgPrivateReplyNodeConfig;
   const key = `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`;
   const base = { accountId: run.account_id, userId: run.user_id, conversationId: run.conversation_id!, contactId: run.contact_id! };
+  // An ordinary DM needs the 24-hour window (the advance loop does not check it for this step type).
+  const open = run.conversation_id ? await withTenant({ accountId: run.account_id, role: "owner" },
+    (tx) => instagramAutomatedWindowOpen(tx, run.account_id, run.conversation_id!), getWorkerPrisma()) : false;
+  if (!open) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "window_closed", node_type: node.node_type });
+    await endRun(db, run.id, "cancelled", "window_closed");
+    return { next: null, outcome: "completed" };
+  }
   try {
     const payload = label ? encodePostback({ kind: "opt_in", runId: run.id, nodeKey: node.node_key }) : "";
     const sent = label
@@ -1825,7 +1817,9 @@ export async function resumePaymentLinkRun(args: {
   if (claimedEarlier && (!next || run.current_node_key !== next)) return "stale";
   const now = new Date();
   const { data: contact } = await db.from("contacts").select("blocked_at,phone").eq("account_id", run.account_id).eq("id", run.contact_id!).maybeSingle();
-  const testContact = Boolean(flow) && isTestContact(flow!, phoneDigits((contact as { phone?: string | null } | null)?.phone));
+  const testContact = Boolean(flow) && (isTestContact(flow!, phoneDigits((contact as { phone?: string | null } | null)?.phone))
+    || ((flow!.test_usernames ?? []).length > 0 && Boolean(run.conversation_id)
+      && isTestUsername(flow!, await storedInstagramUsername(run.account_id, run.contact_id!, run.conversation_id!))));
   const closure = closureForActiveRun({ run, flow, nodeKeys: nodes, now, testContact });
   if (closure) {
     await closeActiveRun(db, run, closure, now);
@@ -2421,6 +2415,14 @@ async function endRun(
   return true;
 }
 
+/** How many start_flow hops led to a run (run variable), and the most a chain may take. */
+const START_DEPTH_VAR = "_start_depth";
+const START_FLOW_MAX_CHAIN = 5;
+function startChainDepth(vars: Readonly<Record<string, unknown>>): number {
+  const raw = vars[START_DEPTH_VAR];
+  return typeof raw === "number" && Number.isInteger(raw) && raw > 0 ? raw : 0;
+}
+
 /**
  * The flows an Actions step queued with start_flow (Stage 5). A conversation
  * has one active run, so they start once this run has ended, in order, each
@@ -2431,11 +2433,17 @@ async function startQueuedFlows(row: Record<string, unknown>): Promise<void> {
   const vars = row.vars && typeof row.vars === "object" ? row.vars as Record<string, unknown> : {};
   const flowIds = queuedFlowStarts(vars).filter((id) => id !== row.flow_id);
   if (!flowIds.length || typeof row.contact_id !== "string" || typeof row.conversation_id !== "string") return;
+  // Flows that start each other in a ring stop after START_FLOW_MAX_CHAIN hops (the validator flags such rings too).
+  const depth = startChainDepth(vars) + 1;
+  if (depth > START_FLOW_MAX_CHAIN) {
+    console.warn("[flows] start_flow chain limit reached", { runId: row.id });
+    return;
+  }
   for (const flowId of flowIds) {
     try {
       const started = await startFlowById({
         accountId: row.account_id as string, userId: row.user_id as string, contactId: row.contact_id,
-        conversationId: row.conversation_id, flowId,
+        conversationId: row.conversation_id, flowId, vars: { [START_DEPTH_VAR]: depth },
         message: { kind: "text", text: "", meta_message_id: `start-flow:${row.id as string}:${flowId}` },
       });
       if (started.outcome === "started") break;
@@ -2577,7 +2585,9 @@ export async function handleFlowTimer(payload: {
     .eq("account_id", run.account_id)
     .eq("id", run.contact_id!)
     .maybeSingle();
-  const testContact = Boolean(flow) && isTestContact(flow!, phoneDigits((contact as { phone?: string | null } | null)?.phone));
+  const testContact = Boolean(flow) && (isTestContact(flow!, phoneDigits((contact as { phone?: string | null } | null)?.phone))
+    || ((flow!.test_usernames ?? []).length > 0 && Boolean(run.conversation_id)
+      && isTestUsername(flow!, await storedInstagramUsername(run.account_id, run.contact_id!, run.conversation_id!))));
   const closure = closureForActiveRun({ run, flow, nodeKeys: nodes, now, testContact });
   if (closure) {
     await closeActiveRun(db, run, closure, now);
@@ -2587,6 +2597,12 @@ export async function handleFlowTimer(payload: {
   if (!run.conversation_id || !contact || (contact as { blocked_at?: string | null }).blocked_at ||
       (await botRepliesPaused(run.account_id, run.conversation_id))) {
     await endRun(db, run.id, "cancelled", "bot_paused_during_wait");
+    return "fired";
+  }
+  // Stage 5: unsubscribed on Instagram while the run waited (a smart delay, a reply delay): nothing more is sent.
+  if (scopeIncludes(flow?.channel_scope, "instagram") && (await runChannel(run)) === "instagram" && run.contact_id
+    && !(await instagramAutomationAllowed(run.account_id, run.contact_id))) {
+    await endRun(db, run.id, "cancelled", "contact_opted_out");
     return "fired";
   }
   if (payload.kind === "delay") {
@@ -3661,7 +3677,11 @@ export async function handleFlowReplay(payload: { accountId: string; runId: stri
 }
 
 /** Start only the selected active flow; never hijack an existing contact run. */
-export async function startFlowById(input: DispatchInboundInput & { flowId: string }): Promise<{ outcome: 'started' | 'unavailable' | 'conflict' }> {
+export async function startFlowById(input: DispatchInboundInput & {
+  flowId: string;
+  /** Stage 5: variables the new run starts with (a start_flow action passes its chain depth only). */
+  vars?: Record<string, unknown>;
+}): Promise<{ outcome: 'started' | 'unavailable' | 'conflict' }> {
   const db = databaseAdmin();
   const contact = await db.from('contacts').select('id').eq('account_id', input.accountId).eq('id', input.contactId).maybeSingle();
   const conversation = await db.from('conversations').select('id, channel').eq('account_id', input.accountId)
@@ -3682,7 +3702,7 @@ export async function startFlowById(input: DispatchInboundInput & { flowId: stri
   const graph = await startGraph(db, flow);
   if (!graph || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return { outcome: 'unavailable' };
   if (!scopeIncludes(graph.flow.channel_scope, channel)) return { outcome: 'unavailable' };
-  const result = await startNewRun(db, graph.flow, input, graph.nodes).catch((err: unknown) => {
+  const result = await startNewRun(db, graph.flow, input, graph.nodes, input.vars ?? {}).catch((err: unknown) => {
     if (err instanceof FlowAdvanceInterrupted) return endInterruptedRun(db, err.run);
     throw err;
   });
@@ -3741,7 +3761,9 @@ export type CommentFlowStart =
   /** The bot is paused on the conversation (a person took over). */
   | "paused"
   /** The flow is no longer live, not a comment flow, not on Instagram or not for this account. */
-  | "unavailable";
+  | "unavailable"
+  /** Stage 5: the commenter unsubscribed on Instagram; no automated DM goes out (no rule either). */
+  | "opted_out";
 
 /**
  * Starts an ig_comment flow for one recorded comment (private-reply.ts's
@@ -3753,7 +3775,11 @@ export type CommentFlowStart =
  * the first step is the private reply. A retried job whose run started but
  * never advanced carries it on from its entry.
  */
-export async function startCommentFlow(args: { accountId: string; eventId: string; flowId: string }): Promise<CommentFlowStart> {
+export async function startCommentFlow(args: {
+  accountId: string; eventId: string; flowId: string;
+  /** Stage 5: the matched trigger's index in effectiveTriggers order (0, the primary, when absent). */
+  trigger?: number;
+}): Promise<CommentFlowStart> {
   const { accountId, eventId, flowId } = args;
   const db = databaseAdmin({ accountId, role: "owner" });
   const tenantRead = <T,>(work: (tx: TenantTransaction) => Promise<T>) =>
@@ -3767,19 +3793,33 @@ export async function startCommentFlow(args: { accountId: string; eventId: strin
   if (event.flow_run_id) return (await resumeCommentRun(db, accountId, event.flow_run_id)) ? "started" : "taken";
   if (event.status !== "queued" || !event.from_igsid) return "unavailable";
 
-  const { data, error } = await db.from("flows").select("*").eq("account_id", accountId).eq("id", flowId).eq("status", "active").maybeSingle();
+  // An active flow, or (Stage 5) a draft being tested by its test usernames.
+  const { data, error } = await db.from("flows").select("*").eq("account_id", accountId).eq("id", flowId)
+    .in("status", ["active", "draft"]).maybeSingle();
   if (error) throw new Error("Comment flow lookup failed");
-  if (!data) return "unavailable";
-  const graph = await startGraph(db, data as FlowRow);
-  if (!graph || !startsFromComment(graph.flow.trigger_type) || !scopeIncludes(graph.flow.channel_scope, "instagram")
+  const row = data as FlowRow | null;
+  if (!row || (row.status === "draft" && !(row.test_usernames ?? []).length)) return "unavailable";
+  const graph = await startGraph(db, row);
+  if (!graph || !scopeIncludes(graph.flow.channel_scope, "instagram")
     || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return "unavailable";
+  // The comment trigger that matched: the primary or (Stage 5) one of the flow's extra triggers.
+  const matched = effectiveTriggers(graph.flow)[args.trigger ?? 0];
+  if (!matched || !startsFromComment(matched.trigger_type)) return "unavailable";
   // ig_comment and ig_live_comment (Stage 3) share the run: a Live comment has no public reply.
-  const trigger = (graph.flow.trigger_config ?? {}) as IgCommentTriggerConfig | IgLiveCommentTriggerConfig;
+  const trigger = (matched.config ?? {}) as IgCommentTriggerConfig | IgLiveCommentTriggerConfig;
   if (trigger.instagram_account_id && trigger.instagram_account_id !== event.instagram_account_id) return "unavailable";
 
   const { resolveCommentThread } = await import("@/lib/instagram/process-webhook");
   const thread = await resolveCommentThread(accountId, event.instagram_account_id, event.from_igsid);
+  // Stage 5: unsubscribed on Instagram (5D consent): no flow, and the job sends no rule DM either.
+  if (!(await instagramAutomationAllowed(accountId, thread.contactId))) return "opted_out";
+  // A draft runs only for its testers' stored usernames.
+  if (row.status === "draft" && !isTestUsername(row, await storedInstagramUsername(accountId, thread.contactId, thread.conversationId))) {
+    return "unavailable";
+  }
   if (await botRepliesPaused(accountId, thread.conversationId)) return "paused";
+  // Stage 5: "wait before replying" holds the first step on a durable flow.timer (queued before this job is done).
+  const replyDelay = commentReplyDelaySeconds(trigger);
 
   const flow = graph.flow;
   const { data: inserted, error: insErr } = await db.from("flow_runs").insert({
@@ -3791,7 +3831,8 @@ export async function startCommentFlow(args: { accountId: string; eventId: strin
     status: "active",
     current_node_key: flow.entry_node_id,
     // Ids only (no comment text): the private reply and comment reply steps answer this comment.
-    vars: { ig_comment_event_id: eventId, ig_comment_id: event.comment_id, ...(event.media_id ? { ig_media_id: event.media_id } : {}) },
+    vars: { ig_comment_event_id: eventId, ig_comment_id: event.comment_id, ...(event.media_id ? { ig_media_id: event.media_id } : {}),
+      ...(replyDelay ? { [COMMENT_DELAY_VAR]: replyDelay } : {}) },
     ...(flow.version_id ? { flow_version_id: flow.version_id } : {}),
   }).select("*").maybeSingle();
   if (insErr) {
@@ -3817,7 +3858,7 @@ export async function startCommentFlow(args: { accountId: string; eventId: strin
   }
   committedRuns.add(run);
   // The trigger's public reply (0-3 variants, one picked per comment); a failure never stops the DM.
-  const reply = graph.flow.trigger_type === "ig_comment"
+  const reply = matched.trigger_type === "ig_comment"
     ? pickPublicReply((trigger as IgCommentTriggerConfig).public_replies, event.comment_id, validCommentReply) : null;
   const input: DispatchInboundInput = {
     accountId, userId: flow.user_id, contactId: thread.contactId, conversationId: thread.conversationId,
@@ -3829,13 +3870,36 @@ export async function startCommentFlow(args: { accountId: string; eventId: strin
         const posted = await postCommentPublicReply(accountId, eventId, reply).catch(() => "failed");
         if (posted !== "posted") await logEvent(db, run.id, "error", flow.entry_node_id, { reason: `comment_reply_${posted}` });
       }
-      return continueNewRun(db, run, flow, input, graph.nodes);
+      return continueNewRun(db, run, flow, input, graph.nodes, replyDelay > 0);
     });
   } catch (err) {
     if (err instanceof FlowAdvanceInterrupted) await endInterruptedRun(db, err.run);
     else throw err;
   }
   return "started";
+}
+
+/** The run variable a delayed comment run carries its trigger's reply delay in (seconds). */
+const COMMENT_DELAY_VAR = "ig_reply_delay";
+
+/** A comment trigger's "wait before replying", in whole seconds (0 when none or out of range). */
+export function commentReplyDelaySeconds(trigger: { reply_delay_seconds?: unknown }): number {
+  const raw = trigger.reply_delay_seconds;
+  return typeof raw === "number" && Number.isInteger(raw) && raw > 0 && raw <= FLOW_TRIGGER_LIMITS.replyDelaySecondsMax ? raw : 0;
+}
+
+/**
+ * Parks a new comment run on its entry for the trigger's reply delay (Stage 5):
+ * the flow.timer job is queued before the run moves (scheduleDelay), so the
+ * comment job finishes only once the wait is durable; the timer then runs the
+ * entry as a delay that has elapsed. A run already past its entry is left alone.
+ */
+async function holdCommentRun(db: AdminClient, run: FlowRunRow, nodes: Map<string, FlowNodeRow>): Promise<DispatchInboundResult> {
+  const seconds = typeof run.vars?.[COMMENT_DELAY_VAR] === "number" ? (run.vars[COMMENT_DELAY_VAR] as number) : 0;
+  const entry = run.current_node_key ? nodes.get(run.current_node_key) : undefined;
+  if (!entry || seconds <= 0) return { consumed: true, flow_run_id: run.id, outcome: "started" };
+  const scheduled = await scheduleDelay(db, run, entry, seconds);
+  return { consumed: true, flow_run_id: run.id, outcome: scheduled === "failed" ? "completed" : "started" };
 }
 
 /**
@@ -3852,7 +3916,9 @@ async function resumeCommentRun(db: AdminClient, accountId: string, runId: strin
   if (!flow || run.current_node_key !== flow.entry_node_id) return false;
   committedRuns.add(run);
   try {
-    await guardCommitted(run, () => advanceFromNodeKey(db, run, run.current_node_key!, nodes));
+    // Stage 5: a run with a reply delay is parked on its timer, never advanced early.
+    if (typeof run.vars?.[COMMENT_DELAY_VAR] === "number") await guardCommitted(run, () => holdCommentRun(db, run, nodes));
+    else await guardCommitted(run, () => advanceFromNodeKey(db, run, run.current_node_key!, nodes));
   } catch (err) {
     if (err instanceof FlowAdvanceInterrupted) await endInterruptedRun(db, err.run);
     else throw err;
@@ -3909,7 +3975,9 @@ export async function dispatchInboundToFlows(
         || ((runFlow.test_usernames ?? []).length > 0 && isTestUsername(runFlow, await contactUsername())));
       const closure = closureForActiveRun({ run: activeRun, flow: runFlow, nodeKeys: nodes, now, testContact });
       // Stage 5: unsubscribed on Instagram, the run sends nothing more (agents can still answer by hand).
-      if (!closure && (await runChannel(activeRun)) === "instagram" && !(await instagramAutomationAllowed(input.accountId, input.contactId))) {
+      // A WhatsApp-only flow never asks (its runs are exactly as before Stage 5).
+      if (!closure && scopeIncludes(runFlow?.channel_scope, "instagram") && (await runChannel(activeRun)) === "instagram"
+        && !(await instagramAutomationAllowed(input.accountId, input.contactId))) {
         await endRun(db, activeRun.id, "cancelled", "contact_opted_out");
         return { consumed: false, outcome: "no_match" };
       }
@@ -4510,6 +4578,8 @@ async function continueNewRun(
   flow: EffectiveFlow,
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
+  /** Stage 5: a comment run with a reply delay is parked on its timer instead of advancing now. */
+  hold = false,
 ): Promise<DispatchInboundResult> {
   await logEvent(db, run.id, "started", flow.entry_node_id, {
     flow_id: flow.id,
@@ -4537,6 +4607,7 @@ async function continueNewRun(
     console.error("[flows] execution_count rpc error:", incErr.message);
   }
 
+  if (hold) return holdCommentRun(db, run, nodes);
   // Run the advance loop starting from the entry node.
   const outcome = await advanceFromNodeKey(db, run, flow.entry_node_id!, nodes);
   return {

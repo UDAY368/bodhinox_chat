@@ -2754,7 +2754,11 @@
           "book_appointment": "Oferece horários livres e agenda o que o cliente escolher (simulado; nada é agendado)",
           "condition_true": "A condição é verdadeira para este contato",
           "condition_false": "A condição é falsa para este contato",
-          "api_port": "O resultado de API que você escolheu: {port}"
+          "api_port": "O resultado de API que você escolheu: {port}",
+          "actions": "Executa as ações desta etapa",
+          "randomizer": "Escolhe um caminho ao acaso",
+          "smart_delay": "Espera e depois continua",
+          "google_sheets": "Trabalha com uma linha do Google Sheets"
         },
         "simulate": {
           "shareMedia": "Simular: cliente envia um arquivo",
@@ -3205,7 +3209,8 @@
         "placeholder": "Por exemplo: a pessoa quer saber o preço",
         "help": "A IA verifica se cada mensagem quer dizer isso, depois dos seus outros gatilhos. Usa a sua cota de IA.",
         "needsAi": "Ative a IA neste espaço de trabalho para corresponder pelo sentido.",
-        "tooLong": "Use até 300 caracteres."
+        "tooLong": "Use até 300 caracteres.",
+        "required": "Descreva o significado a reconhecer."
       }
     },
     "nodes": {
@@ -3320,7 +3325,8 @@
         "assignee": "O agente atribuído",
         "admins": "Administradores",
         "note": "Nota para a equipe",
-        "selfFlow": "Uma automação não pode iniciar nem parar a si mesma."
+        "selfFlow": "Uma automação não pode iniciar nem parar a si mesma.",
+        "invalid": "Conclua as configurações desta ação."
       },
       "randomizer": {
         "title": "Dividir o tráfego",
@@ -3349,7 +3355,8 @@
         "weekdays": "Dias",
         "timezone": "Fuso horário",
         "max": "Espere no máximo 365 dias.",
-        "instagramWarning": "O Instagram só permite mensagens automáticas até 24 horas após a última mensagem da pessoa. Uma espera maior costuma terminar com a janela fechada, e então a mensagem não é enviada."
+        "instagramWarning": "O Instagram só permite mensagens automáticas até 24 horas após a última mensagem da pessoa. Uma espera maior costuma terminar com a janela fechada, e então a mensagem não é enviada.",
+        "invalid": "Defina quanto tempo esperar ou até que data."
       },
       "googleSheets": {
         "title": "Google Sheets",
@@ -3365,7 +3372,8 @@
         "varMap": "Salvar colunas em variáveis",
         "failure": "Se falhar",
         "notConnected": "Conecte o Google Sheets em Configurações para usar esta etapa.",
-        "outcomeNote": "Se o Google não confirmar a mudança, a etapa segue o caminho de falha e não é repetida."
+        "outcomeNote": "Se o Google não confirmar a mudança, a etapa segue o caminho de falha e não é repetida.",
+        "invalid": "Escolha a planilha, a aba e as colunas."
       }
     },
     "history": {
@@ -3495,7 +3503,8 @@
       "context": "Dê contexto à IA",
       "saveReply": "Salvar a resposta como",
       "preview": "Testar",
-      "previewEmpty": "Corrija os erros da etapa para testá-la."
+      "previewEmpty": "Corrija os erros da etapa para testá-la.",
+      "invalid": "Conclua cada objetivo e tarefa dentro dos limites indicados."
     },
     "buyButton": {
       "label": "Botão de compra",
