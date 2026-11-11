@@ -727,6 +727,91 @@
       "emptyWhatsapp": "Ainda não há conversas do WhatsApp.",
       "emptyInstagram": "Ainda não há conversas do Instagram.",
       "openingConversation": "Abrindo a conversa…"
+    },
+    "reminders": {
+      "title": "Lembretes",
+      "add": "Lembrar-me",
+      "save": "Criar lembrete",
+      "remindAt": "Lembrar-me em",
+      "note": "Nota (opcional)",
+      "notePlaceholder": "O que acompanhar",
+      "noteTooLong": "Mantenha a nota abaixo de {max} caracteres.",
+      "presets": {
+        "oneHour": "Em 1 hora",
+        "threeHours": "Em 3 horas",
+        "tomorrow": "Amanhã de manhã",
+        "nextWeek": "Na próxima semana",
+        "custom": "Escolher um horário"
+      },
+      "snooze": "Adiar",
+      "snoozeHelp": "Oculta esta conversa da sua lista aberta até o horário escolhido.",
+      "snoozedUntil": "Adiada até {when}",
+      "wake": "Reativar agora",
+      "reminderAt": "Lembrete {when}",
+      "due": "Vence agora",
+      "dismiss": "Dispensar",
+      "cancel": "Cancelar lembrete",
+      "folder": "Lembretes",
+      "empty": "Nenhum lembrete. Crie um em qualquer conversa.",
+      "notification": {
+        "title": "Lembrete",
+        "body": "Hora de retomar uma conversa."
+      },
+      "errors": {
+        "past": "Escolha um horário futuro.",
+        "tooFar": "Um lembrete pode ser definido com até um ano de antecedência.",
+        "notFound": "Este lembrete não existe mais.",
+        "failed": "Não foi possível salvar o lembrete. Tente novamente.",
+        "forbidden": "Sua função não pode criar lembretes."
+      }
+    },
+    "scheduled": {
+      "title": "Respostas agendadas",
+      "schedule": "Agendar envio",
+      "sendAt": "Enviar em",
+      "confirm": "Agendar",
+      "scheduledFor": "Agendado para {when}",
+      "change": "Alterar o horário",
+      "cancel": "Cancelar agendamento",
+      "empty": "Nenhuma resposta agendada nesta conversa.",
+      "hintWhatsapp": "Enviada somente se a janela de 24 horas ainda estiver aberta nesse horário. Se tiver fechado, a mensagem é ignorada e você pode enviar um modelo.",
+      "hintInstagram": "As respostas do Instagram podem ser agendadas com até 7 dias de antecedência, e somente se o horário estiver dentro da janela de mensagens. Se a janela tiver fechado, a mensagem é ignorada.",
+      "status": {
+        "pending": "Agendado",
+        "sending": "Enviando",
+        "sent": "Enviado",
+        "failed": "Falhou",
+        "unknown": "Requer verificação",
+        "cancelled": "Cancelado",
+        "skipped": "Ignorado"
+      },
+      "reason": {
+        "window_closed": "A janela de mensagens estava fechada.",
+        "conversation_closed": "A conversa estava encerrada.",
+        "channel_off": "O canal estava desativado.",
+        "human_agent_off": "Respostas após 24 horas não estão disponíveis.",
+        "send_failed": "Não foi possível enviar a mensagem."
+      },
+      "reconcile": {
+        "title": "Verifique esta mensagem",
+        "body": "Não foi possível confirmar se esta mensagem foi enviada. Verifique a conversa antes de enviar algo novamente.",
+        "markSent": "Foi enviada",
+        "markFailed": "Não foi enviada"
+      },
+      "errors": {
+        "past": "Escolha um horário futuro.",
+        "tooFarWhatsapp": "As respostas podem ser agendadas com até 30 dias de antecedência.",
+        "tooFarInstagram": "As respostas do Instagram podem ser agendadas com até 7 dias de antecedência.",
+        "windowClosed": "A janela de mensagens do Instagram estará fechada nesse horário.",
+        "humanAgentOff": "Respostas do Instagram após 24 horas ainda não estão disponíveis.",
+        "empty": "Escreva uma mensagem para agendar.",
+        "tooLongInstagram": "As mensagens do Instagram podem ter no máximo 1000 bytes.",
+        "tooLong": "Essa mensagem é muito longa.",
+        "notFound": "Esta resposta agendada não existe mais.",
+        "notPending": "Já foi enviada ou cancelada.",
+        "failed": "Não foi possível agendar a resposta. Tente novamente.",
+        "forbidden": "Sua função não pode agendar respostas."
+      }
     }
   },
   "Contacts": {
@@ -1983,7 +2068,8 @@
       "triggerIgStoryMention": "Dispara com: uma menção no story de alguém",
       "triggerIgLiveComment": "Dispara com: um comentário na sua live",
       "triggerIgRef": "Dispara com: link ref {refs}",
-      "triggerIgRefNone": "Dispara com: um link ref (ainda sem chaves)"
+      "triggerIgRefNone": "Dispara com: um link ref (ainda sem chaves)",
+      "triggerIgShareToStory": "Dispara com: uma publicação compartilhada no story de alguém"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -2588,7 +2674,8 @@
       "triggerIgStoryMentionTitle": "Alguém menciona você no story",
       "triggerIgLiveCommentTitle": "Alguém comenta na sua live",
       "triggerIgRefTitle": "Alguém abre uma conversa pelo seu link ref",
-      "adClickTriggerHelpInstagram": "Começa quando alguém envia uma mensagem a partir de um anúncio que abre o Instagram Direct, antes de qualquer fluxo por palavra-chave. Um fluxo ativo na conversa continua."
+      "adClickTriggerHelpInstagram": "Começa quando alguém envia uma mensagem a partir de um anúncio que abre o Instagram Direct, antes de qualquer fluxo por palavra-chave. Um fluxo ativo na conversa continua.",
+      "triggerIgShareToStoryTitle": "Alguém compartilha sua publicação no story"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -11928,6 +12015,35 @@
       "empty": "Nenhum comentário neste período.",
       "loadFailed": "Não foi possível carregar os insights. Tente novamente.",
       "clicksNote": "Os cliques contam apenas links rastreados."
+    },
+    "shareToStory": {
+      "help": "Começa quando alguém compartilha uma de suas publicações ou reels no story. Cada pessoa pode iniciar sempre ou uma vez por dia.",
+      "notAvailable": "Compartilhar no story ainda não está disponível: o Instagram não confirmou que envia esse evento. O fluxo é salvo, mas não será iniciado até ser ativado."
+    },
+    "pageLogin": {
+      "title": "Conectar por uma Página do Facebook",
+      "description": "Para agências e equipes de anúncios: conecte uma conta do Instagram vinculada a uma Página do Facebook que você administra. Use se precisar de anúncios ou acompanhamento de conversões com suas mensagens.",
+      "button": "Continuar com o Facebook",
+      "unavailable": "Conectar por uma Página do Facebook não está ativado neste espaço de trabalho.",
+      "adminOnly": "Peça a um administrador para conectar por uma Página do Facebook.",
+      "kindLabel": "Conectada com",
+      "kindInstagramLogin": "Login do Instagram",
+      "kindFacebookPage": "Página do Facebook: {page}",
+      "selectTitle": "Escolha uma conta do Instagram",
+      "selectHelp": "Estas são as Páginas do Facebook que você administra e que têm uma conta profissional do Instagram vinculada.",
+      "pageOption": "{username} por meio de {page}",
+      "noPages": "Nenhuma das suas Páginas do Facebook tem uma conta profissional do Instagram vinculada. Vincule uma no Facebook e tente novamente.",
+      "connect": "Conectar esta conta",
+      "connected": "Conta do Instagram conectada pelo Facebook.",
+      "tokenNote": "Seu acesso do Facebook é armazenado criptografado e nunca é exibido.",
+      "errors": {
+        "cancelled": "O login do Facebook foi cancelado.",
+        "expired": "Este link de login expirou. Comece novamente.",
+        "failed": "Não foi possível conectar pelo Facebook. Tente novamente.",
+        "permissionMissing": "O Facebook não concedeu todas as permissões necessárias. Comece novamente e aceite todas.",
+        "alreadyConnected": "Esta conta do Instagram já está conectada a outro espaço de trabalho.",
+        "planLimit": "Seu plano não comporta outra conta do Instagram."
+      }
     }
   }
 }

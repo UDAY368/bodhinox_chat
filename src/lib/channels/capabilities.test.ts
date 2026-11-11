@@ -34,10 +34,10 @@ describe('channel capabilities', () => {
       expect(nodeAvailableOn(node, 'whatsapp')).toEqual((INSTAGRAM_ONLY_NODE_TYPES as readonly string[]).includes(node)
         ? { ok: false, reason: 'unavailable_on_channel' } : { ok: true });
     for (const node of ['send_template', 'send_form', 'send_product', 'send_product_list', 'send_catalog', 'ask_location',
-      'ask_address', 'book_appointment', 'conversion_event'] as const)
+      'ask_address', 'book_appointment'] as const)
       expect(nodeAvailableOn(node, 'instagram')).toEqual({ ok: false, reason: 'unavailable_on_channel' });
     for (const node of ['send_message', 'send_buttons', 'collect_input', 'ask_media', 'condition', 'set_tag', 'set_attribute', 'ai_reply',
-      'handoff', 'payment_link', 'send_storefront_link', ...INSTAGRAM_ONLY_NODE_TYPES] as const)
+      'handoff', 'payment_link', 'send_storefront_link', 'conversion_event', ...INSTAGRAM_ONLY_NODE_TYPES] as const)
       expect(nodeAvailableOn(node, 'instagram', { text: 'hi' }).ok).toBe(true);
   });
 
@@ -89,9 +89,9 @@ describe('channel capabilities', () => {
   it('builds each channel flow palette from one exhaustive map', () => {
     expect(flowTriggersFor('whatsapp')).toEqual(['keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click',
       'default_reply']);
-    // Stage 3: click-to-Direct ads (ad_click), Live comments and ref links on Instagram.
+    // Stage 3: click-to-Direct ads (ad_click), Live comments and ref links; Stage 4: Share-to-Story (conversion_event also opens on Instagram).
     expect(flowTriggersFor('instagram')).toEqual(['keyword', 'first_inbound_message', 'manual', 'ad_click', 'default_reply', 'ig_comment',
-      'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref']);
+      'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story']);
     for (const channel of CHANNELS)
       for (const trigger of FLOW_TRIGGERS_BY_CHANNEL[channel]) expect(triggerAvailableOn(trigger, channel)).toBe(true);
     // Every trigger type is offered by at least one channel.

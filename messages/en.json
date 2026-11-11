@@ -727,6 +727,91 @@
       "emptyWhatsapp": "No WhatsApp conversations yet.",
       "emptyInstagram": "No Instagram conversations yet.",
       "openingConversation": "Opening the conversation…"
+    },
+    "reminders": {
+      "title": "Reminders",
+      "add": "Remind me",
+      "save": "Set reminder",
+      "remindAt": "Remind me at",
+      "note": "Note (optional)",
+      "notePlaceholder": "What to follow up on",
+      "noteTooLong": "Keep the note under {max} characters.",
+      "presets": {
+        "oneHour": "In 1 hour",
+        "threeHours": "In 3 hours",
+        "tomorrow": "Tomorrow morning",
+        "nextWeek": "Next week",
+        "custom": "Pick a time"
+      },
+      "snooze": "Snooze",
+      "snoozeHelp": "Hides this conversation from your open list until the time you pick.",
+      "snoozedUntil": "Snoozed until {when}",
+      "wake": "Wake now",
+      "reminderAt": "Reminder {when}",
+      "due": "Due now",
+      "dismiss": "Dismiss",
+      "cancel": "Cancel reminder",
+      "folder": "Reminders",
+      "empty": "No reminders. Set one from any conversation.",
+      "notification": {
+        "title": "Reminder",
+        "body": "Time to follow up on a conversation."
+      },
+      "errors": {
+        "past": "Pick a time in the future.",
+        "tooFar": "A reminder can be set up to a year ahead.",
+        "notFound": "This reminder no longer exists.",
+        "failed": "Could not save the reminder. Try again.",
+        "forbidden": "Your role cannot set reminders."
+      }
+    },
+    "scheduled": {
+      "title": "Scheduled replies",
+      "schedule": "Schedule send",
+      "sendAt": "Send at",
+      "confirm": "Schedule",
+      "scheduledFor": "Scheduled for {when}",
+      "change": "Change time",
+      "cancel": "Cancel schedule",
+      "empty": "No scheduled replies in this conversation.",
+      "hintWhatsapp": "Sent only if the 24-hour window is still open at that time. If it has closed the message is skipped, and you can send a template instead.",
+      "hintInstagram": "Instagram replies can be scheduled up to 7 days ahead, and only while the time falls inside the messaging window. If the window has closed by then the message is skipped.",
+      "status": {
+        "pending": "Scheduled",
+        "sending": "Sending",
+        "sent": "Sent",
+        "failed": "Failed",
+        "unknown": "Needs a check",
+        "cancelled": "Cancelled",
+        "skipped": "Skipped"
+      },
+      "reason": {
+        "window_closed": "The messaging window had closed.",
+        "conversation_closed": "The conversation was closed.",
+        "channel_off": "The channel was turned off.",
+        "human_agent_off": "Replies after 24 hours are not available.",
+        "send_failed": "The message could not be sent."
+      },
+      "reconcile": {
+        "title": "Check this message",
+        "body": "We could not confirm whether this message was sent. Check the conversation before sending anything again.",
+        "markSent": "It was sent",
+        "markFailed": "It was not sent"
+      },
+      "errors": {
+        "past": "Pick a time in the future.",
+        "tooFarWhatsapp": "Replies can be scheduled up to 30 days ahead.",
+        "tooFarInstagram": "Instagram replies can be scheduled up to 7 days ahead.",
+        "windowClosed": "The Instagram messaging window will be closed at that time.",
+        "humanAgentOff": "Instagram replies after 24 hours are not available yet.",
+        "empty": "Write a message to schedule.",
+        "tooLongInstagram": "Instagram messages can be at most 1000 bytes.",
+        "tooLong": "That message is too long.",
+        "notFound": "This scheduled reply no longer exists.",
+        "notPending": "It has already been sent or cancelled.",
+        "failed": "Could not schedule the reply. Try again.",
+        "forbidden": "Your role cannot schedule replies."
+      }
     }
   },
   "Contacts": {
@@ -1983,7 +2068,8 @@
       "triggerIgStoryMention": "Triggers on: a mention in someone’s story",
       "triggerIgLiveComment": "Triggers on: a comment on your Live",
       "triggerIgRef": "Triggers on: ref link {refs}",
-      "triggerIgRefNone": "Triggers on: a ref link (no keys yet)"
+      "triggerIgRefNone": "Triggers on: a ref link (no keys yet)",
+      "triggerIgShareToStory": "Triggers on: a post shared to someone’s story"
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -2588,7 +2674,8 @@
       "triggerIgStoryMentionTitle": "Someone mentions you in their story",
       "triggerIgLiveCommentTitle": "Someone comments on your Live",
       "triggerIgRefTitle": "Someone opens a chat from your ref link",
-      "adClickTriggerHelpInstagram": "Starts when someone messages you from an ad that opens Instagram Direct, before any keyword flow. An active conversation flow keeps running."
+      "adClickTriggerHelpInstagram": "Starts when someone messages you from an ad that opens Instagram Direct, before any keyword flow. An active conversation flow keeps running.",
+      "triggerIgShareToStoryTitle": "Someone shares your post to their story"
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -11928,6 +12015,35 @@
       "empty": "No comments in this period.",
       "loadFailed": "Couldn’t load insights. Try again.",
       "clicksNote": "Link clicks count tracked links only."
+    },
+    "shareToStory": {
+      "help": "Starts when someone shares one of your posts or reels to their story. Each person can start it every time or once a day.",
+      "notAvailable": "Share-to-Story is not available yet: Instagram has not confirmed it sends this event. The flow is saved but will not start until it is turned on."
+    },
+    "pageLogin": {
+      "title": "Connect through a Facebook Page",
+      "description": "For agencies and ad teams: connect an Instagram account that is linked to a Facebook Page you manage. Use this if you need ads or conversion tracking with your messages.",
+      "button": "Continue with Facebook",
+      "unavailable": "Connecting through a Facebook Page is not turned on for this workspace.",
+      "adminOnly": "Ask an admin to connect through a Facebook Page.",
+      "kindLabel": "Connected with",
+      "kindInstagramLogin": "Instagram login",
+      "kindFacebookPage": "Facebook Page: {page}",
+      "selectTitle": "Choose an Instagram account",
+      "selectHelp": "These are the Facebook Pages you manage that have an Instagram professional account linked.",
+      "pageOption": "{username} via {page}",
+      "noPages": "None of your Facebook Pages has an Instagram professional account linked. Link one in Facebook, then try again.",
+      "connect": "Connect this account",
+      "connected": "Instagram account connected through Facebook.",
+      "tokenNote": "Your Facebook access is stored encrypted and is never shown.",
+      "errors": {
+        "cancelled": "Facebook sign-in was cancelled.",
+        "expired": "This sign-in link expired. Start again.",
+        "failed": "Could not connect through Facebook. Try again.",
+        "permissionMissing": "Facebook did not grant every permission needed. Start again and accept all of them.",
+        "alreadyConnected": "This Instagram account is already connected to another workspace.",
+        "planLimit": "Your plan has no room for another Instagram account."
+      }
     }
   }
 }

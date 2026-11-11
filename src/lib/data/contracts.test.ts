@@ -317,6 +317,16 @@ describe('fixed CRM resource authorization', () => {
     expect(() => getResource('instagram_ai_comment_queue')).toThrow();
     expect(() => resourceBySlug('instagram-ai-comment-queue')).toThrow();
   });
+  it('keeps the Stage 4 reminders, scheduled replies and Page connection off the generic API', () => {
+    // Reminders and scheduled replies are written through /api/inbox routes (role, CSRF, queue before acknowledgement,
+    // outbound intent); the connection kind and Page id belong to instagram_accounts, which is not a resource either.
+    for (const table of ['conversation_reminders', 'scheduled_replies', 'instagram_accounts']) {
+      expect(() => getResource(table, true), table).toThrow();
+      expect(() => getResource(table), table).toThrow();
+    }
+    expect(() => resourceBySlug('conversation-reminders')).toThrow();
+    expect(() => resourceBySlug('scheduled-replies')).toThrow();
+  });
   it('lets a browser read an automation channel but never set it; workspace_channels is not a resource', () => {
     expect(getResource('automations', true).read).toContain('channel');
     expect(() => validateQuery('automations', { projection: 'id,channel', filters: [{ field: 'channel', op: 'eq', value: 'instagram' }] }, tenant, true)).not.toThrow();

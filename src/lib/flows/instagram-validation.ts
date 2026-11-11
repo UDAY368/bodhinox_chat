@@ -125,6 +125,10 @@ export function igTriggerIssues(triggerType: FlowTriggerType, config: Record<str
     else if (new Set(refs.map((r) => r.toLowerCase())).size !== refs.length) at("refs", tTriggers("igRef.badKeys", { max: IG_TRIGGER_LIMITS.refs }));
   } else if (triggerType === "ig_story_mention") {
     if (!FREQUENCIES.includes(config.frequency as string)) at("frequency", tTriggers("igStoryMention.badFrequency"));
+  } else if (triggerType === "ig_share_to_story") {
+    if (config.instagram_account_id !== undefined && (typeof config.instagram_account_id !== "string" || !UUID.test(config.instagram_account_id)))
+      at("instagram_account_id", tTriggers("igComment.badAccount"));
+    if (!FREQUENCIES.includes(config.frequency as string)) at("frequency", tTriggers("igStoryMention.badFrequency"));
   } else if (triggerType === "default_reply") {
     if (config.frequency !== undefined && !FREQUENCIES.includes(config.frequency as string)) at("frequency", tTriggers("igStoryMention.badFrequency"));
   }

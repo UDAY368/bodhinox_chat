@@ -42,6 +42,28 @@ export function useInstagramAccounts(): PickerAccount[] {
   return accounts;
 }
 
+/**
+ * Whether the Share-to-Story trigger is on for this deployment (INSTAGRAM_SHARE_TO_STORY_ENABLED, from
+ * GET /api/instagram/status). False while loading and on failure, so the picker never offers a trigger
+ * that cannot fire; a flow that already has it keeps showing it.
+ */
+export function useShareToStoryEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    authFetch("/api/instagram/status", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { enabled?: boolean; shareToStoryEnabled?: boolean } | null) => {
+        if (!cancelled) setEnabled(json?.enabled === true && json.shareToStoryEnabled === true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return enabled;
+}
+
 type Load = { state: "loading" } | { state: "failed" } | { state: "ready"; posts: InstagramMedia[] };
 
 export async function loadPosts(accountId: string, fetcher: typeof authFetch = authFetch): Promise<InstagramMedia[] | null> {

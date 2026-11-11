@@ -104,6 +104,26 @@ export function IgStoryMentionTriggerFields({ config, onChange }: Props) {
   );
 }
 
+/**
+ * Share-to-Story (Stage 4): someone shares one of the account's posts to their story. Meta may not deliver the
+ * event, so while INSTAGRAM_SHARE_TO_STORY_ENABLED is off the editor says it cannot start yet.
+ */
+export function IgShareToStoryTriggerFields({ config, onChange, enabled }: Props & { enabled: boolean }) {
+  const t = useTranslations("Instagram.shareToStory");
+  const accounts = useInstagramAccounts();
+  return (
+    <div className="space-y-3 md:col-span-2">
+      <p className="text-muted-foreground text-xs">{t("help")}</p>
+      {!enabled && <p className="text-xs text-amber-600 dark:text-amber-400" role="status">{t("notAvailable")}</p>}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <AccountSelect id="trigger-ig-account" config={config} onChange={onChange} accounts={accounts} />
+        <FrequencyField id="trigger-frequency" config={config} onChange={onChange} />
+      </div>
+      <MessageAccessNote />
+    </div>
+  );
+}
+
 /** Instagram ids as chips (stories have no picker: Meta lists only live stories). */
 function IdChips({ id, ids, max, onChange, placeholder }: {
   id: string; ids: string[]; max: number; onChange: (ids: string[]) => void; placeholder: string;

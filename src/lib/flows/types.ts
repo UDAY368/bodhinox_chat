@@ -784,6 +784,21 @@ export interface IgRefTriggerConfig {
   refs: string[];
 }
 
+// ------------------------------------------------------------ Stage 4 triggers
+
+/**
+ * Someone shares one of the account's posts or reels to their story (Stage 4).
+ * Starts the flow like a story mention: `frequency` limits how often one
+ * person starts it. Meta may not deliver this event to Instagram Login apps, so
+ * the trigger exists only while INSTAGRAM_SHARE_TO_STORY_ENABLED is on (and
+ * INSTAGRAM_ENABLED); it is built against a documented fixture and needs live
+ * capture before the flag is turned on.
+ */
+export interface IgShareToStoryTriggerConfig {
+  instagram_account_id?: string;
+  frequency: TriggerFrequency;
+}
+
 /** Sizes the trigger editors and the validator enforce. */
 export const IG_TRIGGER_LIMITS = {
   mediaIds: 50,
@@ -807,7 +822,8 @@ export type FlowTriggerConfig =
   | { trigger_type: "ig_story_reply"; config: IgStoryReplyTriggerConfig }
   | { trigger_type: "ig_story_mention"; config: IgStoryMentionTriggerConfig }
   | { trigger_type: "ig_live_comment"; config: IgLiveCommentTriggerConfig }
-  | { trigger_type: "ig_ref"; config: IgRefTriggerConfig };
+  | { trigger_type: "ig_ref"; config: IgRefTriggerConfig }
+  | { trigger_type: "ig_share_to_story"; config: IgShareToStoryTriggerConfig };
 
 export type FlowTriggerType = FlowTriggerConfig["trigger_type"];
 
@@ -825,6 +841,7 @@ export const FLOW_TRIGGER_TYPES = Object.keys({
   ig_story_mention: true,
   ig_live_comment: true,
   ig_ref: true,
+  ig_share_to_story: true,
 } satisfies Record<FlowTriggerType, true>) as FlowTriggerType[];
 
 /**

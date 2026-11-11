@@ -2581,6 +2581,10 @@ model instagram_accounts {
   /// {type: web_url, title, url}); null = never set by Bodhinox.
   persistent_menu Json? @db.JsonB
   persistent_menu_synced_at DateTime? @db.Timestamptz(6)
+  /// 20261117190200: 'instagram_login' (default) or 'facebook_page' (optional Page / Business Login; access_token_enc is then the Page token).
+  connection_kind String @default("instagram_login")
+  /// 20261117190200: the Facebook Page the account is reached through; set only for facebook_page.
+  facebook_page_id String?
   // 20261109100000_instagram_accounts: the partial unique index instagram_accounts_live_ig_user, the column grants that
   // hide the token from the app role, and the crm_* definer lookups are owned by the SQL.
   @@unique([account_id, id])
@@ -2701,6 +2705,56 @@ model instagram_ai_comment_queue {
   @@unique([account_id, comment_event_id])
   @@index([account_id, status, created_at(sort: Desc)], map: "instagram_ai_comment_queue_status_idx")
   @@index([account_id, created_at], map: "instagram_ai_comment_queue_created_idx")
+}
+
+/// Stage 4 (20261117190000_conversation_reminders): a personal reminder or snooze on a conversation, both channels.
+/// Staff text only (note). Members read; an agent or above writes their own rows (remind_at, note, status); the worker fires them.
+model conversation_reminders {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  user_id String @db.Uuid
+  /// 'reminder' | 'snooze'
+  kind String @default("reminder")
+  remind_at DateTime @db.Timestamptz(6)
+  note String?
+  /// 'pending' | 'fired' | 'dismissed' | 'cancelled'
+  status String @default("pending")
+  fired_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, user_id, status, remind_at], map: "conversation_reminders_owner_idx")
+  @@index([account_id, conversation_id], map: "conversation_reminders_conversation_idx")
+  // 20261117190000 also owns the partial indexes conversation_reminders_due_idx and conversation_reminders_one_snooze,
+  // the status guard trigger and crm_due_conversation_reminder_accounts().
+}
+
+/// Stage 4 (20261117190100_scheduled_replies): a staff reply queued to go out later, both channels. The row exists
+/// before the composer is told it is scheduled; the worker sends it once through dispatchOnce (scheduled-reply:<id>).
+/// content is staff-written text and is never logged.
+model scheduled_replies {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  /// 'whatsapp' | 'instagram'
+  channel String
+  created_by_user_id String? @db.Uuid
+  content String
+  send_at DateTime @db.Timestamptz(6)
+  /// 'pending' | 'sending' | 'sent' | 'failed' | 'unknown' | 'cancelled' | 'skipped'
+  status String @default("pending")
+  claimed_at DateTime? @db.Timestamptz(6)
+  attempts Int @default(0)
+  message_id String? @db.Uuid
+  sent_at DateTime? @db.Timestamptz(6)
+  reason_code String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, conversation_id, status], map: "scheduled_replies_conversation_idx")
+  // 20261117190100 also owns the partial index scheduled_replies_due_idx, the status guard trigger and
+  // crm_due_scheduled_reply_accounts().
 }
 
 /// Phase 13 (20261111100000_ai_workspace_settings): per-workspace AI assistant switches; a missing row means all off.

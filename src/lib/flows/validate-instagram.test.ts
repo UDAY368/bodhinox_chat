@@ -98,6 +98,19 @@ describe("Instagram triggers", () => {
     expect(errors(dm, { trigger_type: "ig_story_reply", trigger_config: {}, channel_scope: "whatsapp" }))
       .toContainEqual(expect.objectContaining({ field: "trigger_type" }));
   });
+
+  it("ig_share_to_story (Stage 4): a frequency and a valid account, Instagram only", () => {
+    const fields = (config: Record<string, unknown>, channel_scope: FlowChannelScope = "instagram") =>
+      errors(dm, { trigger_type: "ig_share_to_story", trigger_config: config, channel_scope }).map((i) => i.field);
+    expect(fields({ frequency: "every_time" })).toEqual([]);
+    expect(fields({ frequency: "once_per_24h", instagram_account_id: "3f1c2a4e-9b7d-4c1a-8e2f-0a1b2c3d4e5f" })).toEqual([]);
+    expect(fields({})).toContain("trigger_config.frequency");
+    expect(fields({ frequency: "hourly" })).toContain("trigger_config.frequency");
+    expect(fields({ frequency: "every_time", instagram_account_id: "not-a-uuid" })).toContain("trigger_config.instagram_account_id");
+    // Neither WhatsApp nor a legacy both-channels flow can carry it.
+    expect(fields({ frequency: "every_time" }, "whatsapp")).toContain("trigger_type");
+    expect(fields({ frequency: "every_time" }, "any")).toContain("trigger_type");
+  });
 });
 
 describe("cards, galleries, link buttons and profile conditions", () => {

@@ -727,6 +727,91 @@
       "emptyWhatsapp": "Aún no hay conversaciones de WhatsApp.",
       "emptyInstagram": "Aún no hay conversaciones de Instagram.",
       "openingConversation": "Abriendo la conversación…"
+    },
+    "reminders": {
+      "title": "Recordatorios",
+      "add": "Recordármelo",
+      "save": "Crear recordatorio",
+      "remindAt": "Recordarme a las",
+      "note": "Nota (opcional)",
+      "notePlaceholder": "Qué debes retomar",
+      "noteTooLong": "Mantén la nota por debajo de {max} caracteres.",
+      "presets": {
+        "oneHour": "En 1 hora",
+        "threeHours": "En 3 horas",
+        "tomorrow": "Mañana por la mañana",
+        "nextWeek": "La próxima semana",
+        "custom": "Elegir una hora"
+      },
+      "snooze": "Posponer",
+      "snoozeHelp": "Oculta esta conversación de tu lista abierta hasta la hora que elijas.",
+      "snoozedUntil": "Pospuesta hasta {when}",
+      "wake": "Reactivar ahora",
+      "reminderAt": "Recordatorio {when}",
+      "due": "Vence ahora",
+      "dismiss": "Descartar",
+      "cancel": "Cancelar recordatorio",
+      "folder": "Recordatorios",
+      "empty": "No hay recordatorios. Crea uno desde cualquier conversación.",
+      "notification": {
+        "title": "Recordatorio",
+        "body": "Es hora de retomar una conversación."
+      },
+      "errors": {
+        "past": "Elige una hora futura.",
+        "tooFar": "Un recordatorio puede programarse hasta con un año de antelación.",
+        "notFound": "Este recordatorio ya no existe.",
+        "failed": "No se pudo guardar el recordatorio. Inténtalo de nuevo.",
+        "forbidden": "Tu rol no puede crear recordatorios."
+      }
+    },
+    "scheduled": {
+      "title": "Respuestas programadas",
+      "schedule": "Programar envío",
+      "sendAt": "Enviar a las",
+      "confirm": "Programar",
+      "scheduledFor": "Programado para {when}",
+      "change": "Cambiar la hora",
+      "cancel": "Cancelar programación",
+      "empty": "No hay respuestas programadas en esta conversación.",
+      "hintWhatsapp": "Se envía solo si la ventana de 24 horas sigue abierta a esa hora. Si se cerró, el mensaje se omite y puedes enviar una plantilla.",
+      "hintInstagram": "Las respuestas de Instagram se pueden programar con hasta 7 días de antelación, y solo si la hora cae dentro de la ventana de mensajes. Si la ventana se cerró, el mensaje se omite.",
+      "status": {
+        "pending": "Programado",
+        "sending": "Enviando",
+        "sent": "Enviado",
+        "failed": "Fallido",
+        "unknown": "Requiere revisión",
+        "cancelled": "Cancelado",
+        "skipped": "Omitido"
+      },
+      "reason": {
+        "window_closed": "La ventana de mensajes estaba cerrada.",
+        "conversation_closed": "La conversación estaba cerrada.",
+        "channel_off": "El canal estaba desactivado.",
+        "human_agent_off": "Las respuestas pasadas 24 horas no están disponibles.",
+        "send_failed": "No se pudo enviar el mensaje."
+      },
+      "reconcile": {
+        "title": "Revisa este mensaje",
+        "body": "No pudimos confirmar si este mensaje se envió. Revisa la conversación antes de enviar algo de nuevo.",
+        "markSent": "Se envió",
+        "markFailed": "No se envió"
+      },
+      "errors": {
+        "past": "Elige una hora futura.",
+        "tooFarWhatsapp": "Las respuestas se pueden programar con hasta 30 días de antelación.",
+        "tooFarInstagram": "Las respuestas de Instagram se pueden programar con hasta 7 días de antelación.",
+        "windowClosed": "La ventana de mensajes de Instagram estará cerrada a esa hora.",
+        "humanAgentOff": "Las respuestas de Instagram pasadas 24 horas aún no están disponibles.",
+        "empty": "Escribe un mensaje para programar.",
+        "tooLongInstagram": "Los mensajes de Instagram pueden tener como máximo 1000 bytes.",
+        "tooLong": "Ese mensaje es demasiado largo.",
+        "notFound": "Esta respuesta programada ya no existe.",
+        "notPending": "Ya se envió o se canceló.",
+        "failed": "No se pudo programar la respuesta. Inténtalo de nuevo.",
+        "forbidden": "Tu rol no puede programar respuestas."
+      }
     }
   },
   "Contacts": {
@@ -1983,7 +2068,8 @@
       "triggerIgStoryMention": "Se activa con: una mención en la historia de alguien",
       "triggerIgLiveComment": "Se activa con: un comentario en tu directo",
       "triggerIgRef": "Se activa con: enlace ref {refs}",
-      "triggerIgRefNone": "Se activa con: un enlace ref (todavía sin claves)"
+      "triggerIgRefNone": "Se activa con: un enlace ref (todavía sin claves)",
+      "triggerIgShareToStory": "Se activa con: una publicación compartida en la historia de alguien"
     },
     "edit": {
       "notFound": "Flujo no encontrado.",
@@ -2588,7 +2674,8 @@
       "triggerIgStoryMentionTitle": "Alguien te menciona en su historia",
       "triggerIgLiveCommentTitle": "Alguien comenta en tu directo",
       "triggerIgRefTitle": "Alguien abre un chat desde tu enlace ref",
-      "adClickTriggerHelpInstagram": "Empieza cuando alguien te escribe desde un anuncio que abre Instagram Direct, antes de cualquier flujo por palabra clave. Un flujo activo en la conversación sigue en marcha."
+      "adClickTriggerHelpInstagram": "Empieza cuando alguien te escribe desde un anuncio que abre Instagram Direct, antes de cualquier flujo por palabra clave. Un flujo activo en la conversación sigue en marcha.",
+      "triggerIgShareToStoryTitle": "Alguien comparte tu publicación en su historia"
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -11928,6 +12015,35 @@
       "empty": "No hay comentarios en este periodo.",
       "loadFailed": "No se pudieron cargar las estadísticas. Inténtalo de nuevo.",
       "clicksNote": "Los clics solo cuentan los enlaces con seguimiento."
+    },
+    "shareToStory": {
+      "help": "Se inicia cuando alguien comparte una de tus publicaciones o reels en su historia. Cada persona puede iniciarlo siempre o una vez al día.",
+      "notAvailable": "Compartir en historia aún no está disponible: Instagram no ha confirmado que envíe este evento. El flujo se guarda pero no se iniciará hasta que se active."
+    },
+    "pageLogin": {
+      "title": "Conectar con una página de Facebook",
+      "description": "Para agencias y equipos de anuncios: conecta una cuenta de Instagram vinculada a una página de Facebook que administras. Úsalo si necesitas anuncios o seguimiento de conversiones con tus mensajes.",
+      "button": "Continuar con Facebook",
+      "unavailable": "Conectar con una página de Facebook no está activado en este espacio de trabajo.",
+      "adminOnly": "Pide a un administrador que conecte con una página de Facebook.",
+      "kindLabel": "Conectada con",
+      "kindInstagramLogin": "Inicio de sesión de Instagram",
+      "kindFacebookPage": "Página de Facebook: {page}",
+      "selectTitle": "Elige una cuenta de Instagram",
+      "selectHelp": "Estas son las páginas de Facebook que administras y que tienen una cuenta profesional de Instagram vinculada.",
+      "pageOption": "{username} mediante {page}",
+      "noPages": "Ninguna de tus páginas de Facebook tiene una cuenta profesional de Instagram vinculada. Vincula una en Facebook e inténtalo de nuevo.",
+      "connect": "Conectar esta cuenta",
+      "connected": "Cuenta de Instagram conectada con Facebook.",
+      "tokenNote": "Tu acceso de Facebook se guarda cifrado y nunca se muestra.",
+      "errors": {
+        "cancelled": "Se canceló el inicio de sesión de Facebook.",
+        "expired": "Este enlace de inicio de sesión caducó. Empieza de nuevo.",
+        "failed": "No se pudo conectar con Facebook. Inténtalo de nuevo.",
+        "permissionMissing": "Facebook no concedió todos los permisos necesarios. Empieza de nuevo y acéptalos todos.",
+        "alreadyConnected": "Esta cuenta de Instagram ya está conectada a otro espacio de trabajo.",
+        "planLimit": "Tu plan no admite otra cuenta de Instagram."
+      }
     }
   }
 }

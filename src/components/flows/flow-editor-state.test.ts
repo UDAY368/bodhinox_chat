@@ -234,7 +234,7 @@ describe("channel palettes (Stage 1)", () => {
     for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(steps).toContain(instagramOnly);
     // Stage 3: Live comments, ref links and click-to-Direct ads (ad_click).
     expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_live_comment", "ig_story_reply", "ig_story_mention",
-      "ig_ref", "first_inbound_message", "ad_click", "default_reply", "manual"]);
+      "ig_ref", "first_inbound_message", "ad_click", "default_reply", "manual", "ig_share_to_story"]);
   });
 
   it("offers a legacy flow on both channels only what both run", () => {

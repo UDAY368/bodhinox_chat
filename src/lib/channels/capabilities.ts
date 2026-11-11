@@ -47,7 +47,9 @@ export const INSTAGRAM_NODE_SUPPORT: Record<FlowNodeType, NodeSupport> = {
   send_storefront_link: 'yes',
   payment_link: 'yes',
   book_appointment: 'no',
-  conversion_event: 'no',
+  // Stage 4: Conversions API events from Instagram flows. The step sends no message (needsMessagingWindow
+  // already skips it) and queues the event for the contact's latest attributable click-to-Direct ad.
+  conversion_event: 'yes',
   // Stage 2 (plan item 9): the AI step answers inside the 24-hour window.
   ai_reply: 'yes',
   condition: 'yes',
@@ -216,6 +218,8 @@ const FLOW_TRIGGER_CHANNELS = {
   ig_story_mention: ['instagram'],
   ig_live_comment: ['instagram'],
   ig_ref: ['instagram'],
+  // Stage 4: only while INSTAGRAM_SHARE_TO_STORY_ENABLED is on (publish and the webhook check the flag; this map is pure).
+  ig_share_to_story: ['instagram'],
 } as const satisfies Record<TriggerType, readonly Channel[]>;
 
 const triggersOn = (channel: Channel): readonly TriggerType[] =>
