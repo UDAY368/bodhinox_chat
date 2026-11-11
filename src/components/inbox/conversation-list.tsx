@@ -8,15 +8,18 @@ import { savedViewChannel } from '@/lib/inbox/saved-filters';
 import {
   labelFilter,
   labelOfFilter,
+  matchesAgentFilter,
   matchesInboxFilter,
   parseInboxFilter,
   type InboxFilter,
 } from '@/lib/inbox/inbox-filters';
 import { useMyTeamMembers } from '@/components/inbox/use-my-team';
+import { useAgentFilter } from '@/components/inbox/use-agent-filter';
 import type { InboxFolders } from '@/components/inbox/use-inbox-folders';
 import { LabelDot } from '@/components/inbox/label-picker';
 import type { ConversationLabel } from '@/lib/inbox/labels';
 import {
+  Fragment,
   useState,
   useEffect,
   useCallback,
@@ -164,6 +167,9 @@ export function ConversationList({
 
   // Members of the caller's teams; null when the caller is in no team.
   const myTeam = useMyTeamMembers();
+  const ta = useTranslations('Inbox.agentFilter');
+  const agentFilter = useAgentFilter(resyncToken);
+  const agentName = (id: string) => agentFilter.members.find((m) => m.id === id)?.name || ta('anyAgent');
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () => [
       { label: t('filterAll'), value: 'all' },
@@ -361,6 +367,10 @@ export function ConversationList({
       result = result.filter((c) => conversationChannel(c) === activeChannelFilter);
     }
 
+    if (agentFilter.agent) {
+      result = result.filter((c) => matchesAgentFilter(c, agentFilter.agent, agentFilter.handledIds));
+    }
+
     // Contact-based filters (tags via OR logic, exact company match).
     if (selectedTagIds.length > 0 || selectedCompany !== null) {
       result = result.filter((c) =>
@@ -382,7 +392,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext]);
+  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext, agentFilter.agent, agentFilter.handledIds]);
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>
@@ -573,6 +583,55 @@ export function ConversationList({
             onApply={applySavedFilters}
             scope={scope}
           />
+
+          {agentFilter.members.length > 1 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                data-agent-filter
+                className={cn(
+                  'hover:bg-muted inline-flex h-7 max-w-44 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                  agentFilter.agent ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <span className="truncate">
+                  {agentFilter.agent
+                    ? ta(agentFilter.agent.mode === 'handled' ? 'handledBy' : 'assignedTo', { name: agentName(agentFilter.agent.memberId) })
+                    : ta('agent')}
+                </span>
+                <ChevronDown className="h-3 w-3 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="border-border bg-popover max-h-80 w-64 overflow-y-auto">
+                <DropdownMenuItem
+                  onClick={() => agentFilter.setAgent(null)}
+                  className={cn('text-sm', agentFilter.agent === null ? 'text-primary' : 'text-popover-foreground')}
+                >
+                  {ta('anyAgent')}
+                </DropdownMenuItem>
+                {(['assigned', 'handled'] as const).map((mode) => (
+                  <Fragment key={mode}>
+                    <DropdownMenuSeparator className="bg-border" />
+                    <DropdownMenuGroup>
+                    <DropdownMenuLabel title={mode === 'handled' ? ta('handledHelp') : undefined}>
+                      {ta(mode === 'handled' ? 'sectionHandled' : 'sectionAssigned')}
+                    </DropdownMenuLabel>
+                    {agentFilter.members.map((m) => {
+                      const on = agentFilter.agent?.memberId === m.id && agentFilter.agent.mode === mode;
+                      return (
+                        <DropdownMenuItem
+                          key={`${mode}-${m.id}`}
+                          onClick={() => agentFilter.setAgent({ memberId: m.id, mode })}
+                          className={cn('text-sm', on ? 'text-primary' : 'text-popover-foreground')}
+                        >
+                          <span className="truncate">{ta(mode === 'handled' ? 'handledBy' : 'assignedTo', { name: m.name || ta('anyAgent') })}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    </DropdownMenuGroup>
+                  </Fragment>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {tags.length > 0 && (
             <DropdownMenu>

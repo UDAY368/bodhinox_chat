@@ -100,3 +100,25 @@ export function matchesInboxFilter(
     return `lifecycle-${lifecycleOf(c)}` === filter;
   return filter === 'all' || c.status === filter;
 }
+
+/**
+ * The inbox's Agent filter (team management): one member, either the chats
+ * assigned to them now, or every chat they handled (assigned now, or listed by
+ * GET /api/inbox/handled-by: assigned at any time, resolved, or a message they
+ * sent). Null shows every agent's chats.
+ */
+export interface AgentFilter {
+  memberId: string;
+  mode: 'assigned' | 'handled';
+}
+
+export function matchesAgentFilter(
+  c: { id?: string; assigned_agent_id?: string | null },
+  agent: AgentFilter | null,
+  /** The ids handled-by returned; while loading, only the current assignee matches. */
+  handledIds?: ReadonlySet<string> | null
+): boolean {
+  if (!agent) return true;
+  if (c.assigned_agent_id === agent.memberId) return true;
+  return agent.mode === 'handled' && !!c.id && !!handledIds?.has(c.id);
+}

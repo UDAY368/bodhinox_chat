@@ -577,6 +577,10 @@ export function validateWrite(
     // (src/lib/contacts/channel-consent.ts), which keep their audit and rules.
     if (browser && name === 'conversations' && ['bot_paused_until', 'bot_paused_by'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
+    // Who resolved a conversation is set by the database when it resolves
+    // (20261119000000, conversation_resolved_by); the trigger also ignores direct writes.
+    if (browser && name === 'conversations' && field === 'resolved_by')
+      throw new ContractError(`Field ${field} is server-managed`);
     if (browser && name === 'contacts' && ['instagram_opted_out_at', 'instagram_opted_in_at'].includes(field))
       throw new ContractError(`Field ${field} is server-managed`);
     // An automation's channel is chosen once by the automation routes (its section)

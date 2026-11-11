@@ -1136,6 +1136,15 @@ export function MessageThread({
 
   const displayName = contact.name || contactHandle(contact);
   const messageGroups = groupMessagesByDate(messages);
+  const memberNames = new Map(profiles.map((p) => [p.user_id, p.full_name?.trim() || '']));
+  // Who sent an outgoing message: the member (by sender_id), automation, or the team when
+  // the send predates sender attribution. Null for the customer's own messages.
+  const senderLabel = (m: Message): string | null => {
+    if (m.sender_type === 'bot') return t(m.ai_generated ? 'senderAi' : 'senderAutomation');
+    if (m.sender_type !== 'agent') return null;
+    if (!m.sender_id) return t('senderTeam');
+    return memberNames.get(m.sender_id) || t('senderFormerMember');
+  };
   // Instagram shows its Sent / Seen line under the newest message the business sent only.
   const lastOutgoingId = isInstagram
     ? [...messages].reverse().find((m) => m.sender_type === 'agent' || m.sender_type === 'bot')?.id
@@ -1452,7 +1461,11 @@ export function MessageThread({
                 </div>
                 {/* Messages */}
                 <div className="space-y-2">
-                  {group.messages.map((msg) => {
+                  {group.messages.map((msg, index) => {
+                    // Named once per run of messages from the same sender.
+                    const label = senderLabel(msg);
+                    const previous = index > 0 ? group.messages[index - 1] : null;
+                    const showSender = label !== null && (!previous || senderLabel(previous) !== label);
                     const parent = msg.reply_to_message_id
                       ? messagesById.get(msg.reply_to_message_id)
                       : null;
@@ -1482,6 +1495,11 @@ export function MessageThread({
                         key={msg.id}
                         {...{ [MESSAGE_ID_ATTRIBUTE]: msg.id }}
                       >
+                      {showSender && (
+                        <p className="studio-sender text-muted-foreground mb-0.5 truncate pr-2 text-right text-[11px] font-medium" data-sender={msg.sender_id ?? msg.sender_type}>
+                          {label}
+                        </p>
+                      )}
                       {isInstagram ? (
                         <MessageBubble
                           message={msg}

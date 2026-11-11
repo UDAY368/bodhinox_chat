@@ -259,6 +259,8 @@ export const KNOWN_UNMAPPED = [
   'sequences/[id]/messages',
   'sequences/[id]/messages/[messageId]',
   'sequences/[id]/subscribers',
+  // Who handled a chat: another workspace's or a hidden chat answers 404 (handling-history.integration.test.ts).
+  'conversations/[id]/handling',
 ];
 
 function dynamicRoutes(): string[] {
