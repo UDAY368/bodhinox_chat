@@ -12,7 +12,7 @@ import { disconnectDatabases, getPrisma } from '@/lib/db/prisma';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 
-const graph = vi.hoisted(() => ({ listMedia: vi.fn() }));
+const graph = vi.hoisted(() => ({ listMediaPage: vi.fn() }));
 vi.mock('@/lib/instagram/graph', async (original) => ({ ...(await original<typeof import('@/lib/instagram/graph')>()), ...graph }));
 
 import { listPickerMedia } from './media-picker';
@@ -37,7 +37,7 @@ let igA = '', igGone = '', igB = '';
 const actor = (role: 'owner' | 'agent' | 'viewer', userId = role === 'agent' ? agentA : role === 'viewer' ? viewerA : ownerA) =>
   ({ accountId: accountA, userId, role });
 const codeOf = (p: Promise<unknown>) => p.then(() => 'ok', (e: unknown) => (e instanceof InstagramError ? e.code : String(e)));
-const post = { id: '17890001', caption: 'Sale', mediaType: 'IMAGE', previewUrl: null, permalink: null, timestamp: null };
+const post = { id: '17890001', caption: 'Sale', mediaType: 'IMAGE', previewUrl: null, permalink: null, timestamp: null, isReel: false };
 
 function enable() {
   vi.stubEnv('INSTAGRAM_ENABLED', 'true');
@@ -72,7 +72,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram post picker on Po
   beforeEach(() => {
     vi.unstubAllEnvs();
     enable();
-    graph.listMedia.mockReset();
+    graph.listMediaPage.mockReset();
   });
   afterAll(async () => {
     vi.unstubAllEnvs();
@@ -85,9 +85,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram post picker on Po
   });
 
   it('an agent reads its own account’s posts with that account’s own token', async () => {
-    graph.listMedia.mockResolvedValueOnce([post]);
-    expect(await listPickerMedia(actor('agent'), igA)).toEqual([post]);
-    expect(graph.listMedia).toHaveBeenCalledExactlyOnceWith(`91${seed}`, 'test-only-token-a');
+    graph.listMediaPage.mockResolvedValueOnce({ media: [post], next: 'QVFIUnext' });
+    expect(await listPickerMedia(actor('agent'), igA)).toEqual({ media: [post], next: 'QVFIUnext' });
+    expect(graph.listMediaPage).toHaveBeenCalledExactlyOnceWith(`91${seed}`, 'test-only-token-a', undefined);
+    // The next page is read with the same account's token and the cursor.
+    graph.listMediaPage.mockResolvedValueOnce({ media: [], next: null });
+    await listPickerMedia(actor('agent'), igA, 'QVFIUnext');
+    expect(graph.listMediaPage).toHaveBeenLastCalledWith(`91${seed}`, 'test-only-token-a', 'QVFIUnext');
   });
 
   it('refuses another workspace’s account, a viewer and a disconnected account before any Instagram call', async () => {
@@ -96,13 +100,13 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram post picker on Po
     expect(await codeOf(listPickerMedia(actor('agent'), 'not-a-uuid'))).toBe('not_found');
     expect(await codeOf(listPickerMedia(actor('viewer'), igA))).toBe('forbidden');
     expect(await codeOf(listPickerMedia(actor('agent'), igGone))).toBe('instagram_account_disconnected');
-    expect(graph.listMedia).not.toHaveBeenCalled();
+    expect(graph.listMediaPage).not.toHaveBeenCalled();
   });
 
   it('turns Meta failures into fixed codes and writes nothing', async () => {
-    graph.listMedia.mockRejectedValueOnce(new MetaApiError('Meta API error: 401', { code: 190, httpStatus: 401 }));
+    graph.listMediaPage.mockRejectedValueOnce(new MetaApiError('Meta API error: 401', { code: 190, httpStatus: 401 }));
     expect(await codeOf(listPickerMedia(actor('agent'), igA))).toBe('instagram_token_invalid');
-    graph.listMedia.mockRejectedValueOnce(new MetaApiError('Meta API error: 500', { httpStatus: 500 }));
+    graph.listMediaPage.mockRejectedValueOnce(new MetaApiError('Meta API error: 500', { httpStatus: 500 }));
     expect(await codeOf(listPickerMedia(actor('agent'), igA))).toBe('meta_error');
     const row = (await owner.query('SELECT status, last_error_code FROM instagram_accounts WHERE id=$1', [igA])).rows[0];
     expect(row).toEqual({ status: 'active', last_error_code: null });
@@ -111,6 +115,6 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram post picker on Po
   it('refuses everything while Instagram is off', async () => {
     vi.stubEnv('INSTAGRAM_ENABLED', 'false');
     expect(await codeOf(listPickerMedia(actor('agent'), igA))).toBe('instagram_not_enabled');
-    expect(graph.listMedia).not.toHaveBeenCalled();
+    expect(graph.listMediaPage).not.toHaveBeenCalled();
   });
 });

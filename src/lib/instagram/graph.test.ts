@@ -10,6 +10,7 @@ import {
   getMe,
   isMetaThrottle,
   listMedia,
+  listMediaPage,
   quickRepliesFit,
   refreshToken,
   sendAttachment,
@@ -76,10 +77,29 @@ describe('listMedia', () => {
     expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
     expect(posts).toEqual([
       { id: '17912345678901234567', caption: 'Diwali sale', mediaType: 'IMAGE', previewUrl: 'https://scontent.cdninstagram.com/a.jpg',
-        permalink: 'https://www.instagram.com/p/ABC/', timestamp: '2026-11-01T10:00:00.000Z' },
-      { id: '222', caption: null, mediaType: 'VIDEO', previewUrl: 'https://scontent.cdninstagram.com/t.jpg', permalink: null, timestamp: null },
-      { id: '333', caption: null, mediaType: null, previewUrl: null, permalink: null, timestamp: null },
+        permalink: 'https://www.instagram.com/p/ABC/', timestamp: '2026-11-01T10:00:00.000Z', isReel: false },
+      { id: '222', caption: null, mediaType: 'VIDEO', previewUrl: 'https://scontent.cdninstagram.com/t.jpg', permalink: null, timestamp: null, isReel: false },
+      { id: '333', caption: null, mediaType: null, previewUrl: null, permalink: null, timestamp: null, isReel: false },
     ]);
+  });
+
+  it('marks reels, and pages with a checked cursor only while Meta reports a next page', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      data: [{ id: '501', media_type: 'VIDEO', media_product_type: 'REELS', thumbnail_url: 'https://scontent.cdninstagram.com/r.jpg' },
+        { id: '502', media_type: 'IMAGE', media_product_type: 'FEED' }],
+      paging: { cursors: { after: 'QVFIUabc' }, next: 'https://graph.instagram.com/next' },
+    }), { status: 200 }));
+    const page = await listMediaPage('111', TOKEN);
+    expect(call().url.searchParams.get('fields')).toContain('media_product_type');
+    expect(page.media.map((m) => [m.id, m.isReel])).toEqual([['501', true], ['502', false]]);
+    expect(page.next).toBe('QVFIUabc');
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ data: [], paging: { cursors: { after: 'QVFIUend' } } }), { status: 200 }));
+    expect((await listMediaPage('111', TOKEN, 'QVFIUabc')).next).toBeNull();
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('after')).toBe('QVFIUabc');
+
+    await expect(listMediaPage('111', TOKEN, 'x&fields=access_token')).rejects.toBeInstanceOf(InstagramGraphInputError);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('refuses a bad account id before any request and keeps Meta’s text out of errors', async () => {

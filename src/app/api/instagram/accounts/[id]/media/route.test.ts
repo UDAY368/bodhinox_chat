@@ -20,10 +20,11 @@ vi.mock('@/lib/auth/session', () => ({
   assertMutation: async () => {},
 }));
 vi.mock('@/lib/instagram/media-picker', () => ({
-  listPickerMedia: async (actor: { accountId: string; userId: string; role: string }, id: string) => {
+  listPickerMedia: async (actor: { accountId: string; userId: string; role: string }, id: string, after?: string) => {
     if (h.fail) throw h.fail;
-    h.calls.push(`media:${actor.accountId}:${actor.role}:${id}`);
-    return [{ id: '17890001', caption: 'Sale', mediaType: 'IMAGE', previewUrl: null, permalink: null, timestamp: null }];
+    h.calls.push(`media:${actor.accountId}:${actor.role}:${id}${after ? `:${after}` : ''}`);
+    return { media: [{ id: '17890001', caption: 'Sale', mediaType: 'IMAGE', previewUrl: null, permalink: null, timestamp: null, isReel: false }],
+      next: after ? null : 'QVFIUmore' };
   },
 }));
 
@@ -31,7 +32,8 @@ import { InstagramError } from '@/lib/instagram/errors';
 import { __resetRateLimitForTests } from '@/lib/rate-limit';
 import { GET } from './route';
 
-const media = (id = IG) => GET(new Request(`https://app.example.test/api/instagram/accounts/${id}/media`), { params: Promise.resolve({ id }) });
+const media = (id = IG, query = '') =>
+  GET(new Request(`https://app.example.test/api/instagram/accounts/${id}/media${query}`), { params: Promise.resolve({ id }) });
 
 function enable() {
   vi.stubEnv('INSTAGRAM_ENABLED', 'true');
@@ -84,6 +86,16 @@ describe('GET /api/instagram/accounts/{id}/media', () => {
     const bad = await media('../../whatsapp');
     expect(bad.status).toBe(404);
     expect(h.calls).toHaveLength(1);
+  });
+
+  it('returns the next-page cursor and passes ?after= to the service for the following page', async () => {
+    enable();
+    const first = await (await media()).json();
+    expect(first.next).toBe('QVFIUmore');
+    expect(first.posts[0].isReel).toBe(false);
+    const second = await (await media(IG, '?after=QVFIUmore')).json();
+    expect(second.next).toBeNull();
+    expect(h.calls).toEqual([`media:${ACCOUNT}:agent:${IG}`, `media:${ACCOUNT}:agent:${IG}:QVFIUmore`]);
   });
 
   it('answers a foreign or missing account and Meta failures with fixed codes', async () => {

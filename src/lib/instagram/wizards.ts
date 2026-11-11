@@ -60,6 +60,12 @@ export interface CommentLinksInput extends PostChoice {
   card_title: string;
   link_label: string;
   link_url: string;
+  /** Up to 2 more links on the same card (3 buttons per card in all). */
+  more_links: { label: string; url: string }[];
+  /** Ask for an email before the link (saved on the contact). */
+  email: { prompt: string; error: string } | null;
+  /** Ask the person to follow before the link. */
+  follow: { prompt: string; followed_label: string } | null;
 }
 
 export interface GrowFollowersInput extends PostChoice {
@@ -98,7 +104,8 @@ export interface WizardFlowDraft {
 
 /** The fields each wizard body may carry (anything else is refused). */
 export const WIZARD_FIELDS: Record<InstagramWizard, readonly string[]> = {
-  comment_links: ['wizard', 'post_scope', 'media_ids', 'keywords', 'public_replies', 'message', 'opt_in_label', 'card_title', 'link_label', 'link_url'],
+  comment_links: ['wizard', 'post_scope', 'media_ids', 'keywords', 'public_replies', 'message', 'opt_in_label', 'card_title', 'link_label', 'link_url',
+    'more_links', 'ask_email', 'email_prompt', 'email_error', 'ask_follow', 'follow_prompt', 'followed_label'],
   grow_followers: ['wizard', 'post_scope', 'media_ids', 'keywords', 'public_replies', 'message', 'opt_in_label', 'follow_prompt',
     'followed_label', 'reward_title', 'reward_label', 'reward_url'],
   story_leads: ['wizard', 'keywords', 'reactions', 'email_prompt', 'email_error', 'thanks'],
@@ -164,6 +171,36 @@ function publicReplies(body: Record<string, unknown>): string[] {
   return out;
 }
 
+/** 0–2 extra links ({ label, url }) for the link card; rows with neither field are dropped. */
+function moreLinks(body: Record<string, unknown>): { label: string; url: string }[] {
+  const raw = body.more_links;
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > INSTAGRAM_LIMITS.buttons - 1) throw new WizardInputError('more_links', 'url');
+  const out: { label: string; url: string }[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) throw new WizardInputError('more_links', 'url');
+    const row = item as Record<string, unknown>;
+    if (Object.keys(row).some((k) => k !== 'label' && k !== 'url')) throw new WizardInputError('more_links', 'invalid');
+    const blank = (value: unknown) => value === undefined || (typeof value === 'string' && !value.trim());
+    if (blank(row.label) && blank(row.url)) continue;
+    try {
+      out.push({ label: buttonTitle(row, 'label'), url: link(row, 'url') });
+    } catch (err) {
+      // Reported against the list, which is the field the form shows.
+      if (err instanceof WizardInputError) throw new WizardInputError('more_links', err.problem);
+      throw err;
+    }
+  }
+  return out;
+}
+
+/** An optional switch: absent is off; anything but a boolean is refused. */
+function flag(body: Record<string, unknown>, field: string): boolean {
+  const value = body[field] ?? false;
+  if (typeof value !== 'boolean') throw new WizardInputError(field, 'invalid');
+  return value;
+}
+
 /** Which posts the comment trigger listens on: any, the next one, or 1–50 specific media ids. */
 function postChoice(body: Record<string, unknown>): PostChoice {
   const scope = body.post_scope ?? 'any';
@@ -203,6 +240,13 @@ export function parseWizardInput(body: unknown): WizardInput {
       card_title: cardTitle(input, 'card_title', d('cardTitle')),
       link_label: buttonTitle(input, 'link_label', d('linkLabel')),
       link_url: link(input, 'link_url'),
+      more_links: moreLinks(input),
+      email: flag(input, 'ask_email')
+        ? { prompt: message(input, 'email_prompt', d('emailPrompt')), error: message(input, 'email_error', d('emailError')) }
+        : null,
+      follow: flag(input, 'ask_follow')
+        ? { prompt: message(input, 'follow_prompt', d('followPrompt')), followed_label: buttonTitle(input, 'followed_label', d('followedButton')) }
+        : null,
     };
   }
   if (wizard === 'grow_followers') {
@@ -272,6 +316,9 @@ export function buildWizardFlow(input: WizardInput, now: Date = new Date()): Wiz
         nodes: commentLinkNodes({
           opening: input.message, optInLabel: input.opt_in_label, cardTitle: input.card_title,
           buttonLabel: input.link_label, url: input.link_url,
+          ...(input.more_links.length ? { moreLinks: input.more_links } : {}),
+          ...(input.email ? { email: input.email } : {}),
+          ...(input.follow ? { follow: { prompt: input.follow.prompt, followedLabel: input.follow.followed_label } } : {}),
         }),
       };
     case 'grow_followers':
