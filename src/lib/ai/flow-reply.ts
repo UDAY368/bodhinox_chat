@@ -119,6 +119,11 @@ export interface RunFlowAiReplyArgs {
   config: Partial<AiReplyNodeConfig>
   /** Outbound intent key: one send per run, step and turn. */
   intentKey: string
+  /**
+   * Stage 5 (5G): links the answer may contain besides the knowledge and
+   * profile ones (an AI goal's share_link url, set by the flow author).
+   */
+  allowedUrls?: readonly string[]
 }
 
 interface ConversationRow {
@@ -290,11 +295,12 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
           // attendance, shipment or delivery happened, no unreadable script for
           // a health-type workspace, and only allowed links. Withheld, never sent.
           const health = hasUncoveredScript(confidence.text) ? await healthWorkspace(accountId, profile) : false
+          const allow = urlAllowlist({
+            citations: knowledge.citations.map((c) => ({ chunk_id: '', document_id: c.document_id, source_id: null, title: c.title, source_url: c.url })),
+            profile, legacyPrompt: config.systemPrompt,
+          })
           const guarded = guardCustomerText(confidence.text, {
-            allow: urlAllowlist({
-              citations: knowledge.citations.map((c) => ({ chunk_id: '', document_id: c.document_id, source_id: null, title: c.title, source_url: c.url })),
-              profile, legacyPrompt: config.systemPrompt,
-            }),
+            allow: { ...allow, urls: [...allow.urls, ...(args.allowedUrls ?? []).filter((u) => /^https?:\/\//i.test(u))] },
             healthWorkspace: health,
           })
           if (!guarded.ok || !guarded.text.trim()) {

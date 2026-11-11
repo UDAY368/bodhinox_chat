@@ -6,9 +6,13 @@
  */
 
 import { getT } from "@/lib/i18n/translate";
+import { goalsProblem } from "@/lib/ai/goal-rules";
+import { AI_GOAL_LIMITS } from "./types";
 import type { ValidationIssue } from "./validate";
 
 const t = getT("Validation.flows");
+const tg = getT("Flows.aiGoals");
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const AI_REPLY_LIMITS = {
   instructions: 2000,
@@ -83,6 +87,53 @@ export function aiReplyIssues(node: NodeLike, knownKeys: ReadonlySet<string>, ai
   };
   port("next_node_key", "nodeNeedsNext");
   port("handoff_next", "aiReplyNeedsHandoffNext");
+  issues.push(...aiGoalIssues(node, knownKeys));
   if (aiConfigured === false) issues.push({ severity: "warning", scope: "node", node_key: node.node_key, message: t("aiReplyNotConfigured") });
+  return issues;
+}
+
+/**
+ * Stage 5 (5G): the AI step's goals, "Goals finished" port and editor fields
+ * (goal sentence, task list with "save the reply as", context).
+ */
+export function aiGoalIssues(node: NodeLike, knownKeys: ReadonlySet<string>): ValidationIssue[] {
+  const cfg = node.config;
+  const issues: ValidationIssue[] = [];
+  const at = (field: string, message: string) => issues.push({ severity: "error", scope: "node", node_key: node.node_key, field, message });
+  const hasGoals = Array.isArray(cfg.goals) && cfg.goals.length > 0;
+  if (cfg.goals !== undefined && cfg.goals !== null) {
+    const problem = goalsProblem(cfg.goals);
+    if (problem) at("goals", tg(`errors.${problem}`, { max: AI_GOAL_LIMITS.goals, fields: AI_GOAL_LIMITS.leadFields }));
+  }
+  const finish = cfg.finish_next;
+  if (hasGoals) {
+    if (finish === undefined || finish === null || finish === "") at("finish_next", tg("errors.needsFinish"));
+    else if (typeof finish !== "string" || !knownKeys.has(finish)) at("finish_next", t("nodeMissingNext", { key: String(finish) }));
+  }
+  const text = (field: string, max: number) => {
+    const v = cfg[field];
+    if (v !== undefined && v !== null && (typeof v !== "string" || v.length > max)) at(field, tg("errors.tooLong", { max }));
+  };
+  text("goal_text", AI_GOAL_LIMITS.goalTextChars);
+  text("context", AI_GOAL_LIMITS.contextChars);
+  const tasks = cfg.tasks;
+  if (tasks !== undefined && tasks !== null) {
+    if (!Array.isArray(tasks) || tasks.length > AI_GOAL_LIMITS.tasks) {
+      at("tasks", tg("errors.tasks", { max: AI_GOAL_LIMITS.tasks }));
+    } else {
+      tasks.forEach((task, i) => {
+        const item = task as { text?: unknown; save_to?: { target?: unknown; key?: unknown } } | null;
+        if (!item || typeof item.text !== "string" || !item.text.trim() || item.text.length > AI_GOAL_LIMITS.taskChars) {
+          at(`tasks.${i}.text`, tg("errors.taskText", { max: AI_GOAL_LIMITS.taskChars }));
+        }
+        const save = item?.save_to;
+        if (save !== undefined && save !== null && !(
+          (save.target === "contact_field" && typeof save.key === "string" && ["name", "email", "phone", "company"].includes(save.key)) ||
+          (save.target === "custom_field" && typeof save.key === "string" && UUID.test(save.key)))) {
+          at(`tasks.${i}.save_to`, tg("errors.saveTo"));
+        }
+      });
+    }
+  }
   return issues;
 }
