@@ -97,13 +97,20 @@ describe('the stale-profile re-check (Stage 3)', () => {
     expect(h.executeRaw.mock.calls.some((c) => sqlOf(c).includes('UPDATE contacts'))).toBe(false);
   });
 
-  it('a facts job keeps the stored facts and writes nothing when Meta refuses or the account is not usable', async () => {
+  it('a facts job keeps the stored facts and stamps only profile_checked_at when Meta refuses', async () => {
     h.queryRaw.mockResolvedValue([row]);
     h.getProfile.mockRejectedValueOnce(new TypeError('fetch failed'));
     await handleProfileFetchJob(ACCOUNT, { identityId: IDENTITY, facts: true });
+    expect(h.executeRaw).toHaveBeenCalledTimes(1);
+    const update = h.executeRaw.mock.calls[0];
+    expect(sqlOf(update)).toContain('profile_checked_at=now()');
+    expect(sqlOf(update)).not.toContain('follows_business');
+  });
+
+  it('a facts job makes no call and writes nothing when the account is not usable', async () => {
     h.queryRaw.mockResolvedValue([{ ...row, status: 'token_invalid' }]);
     await handleProfileFetchJob(ACCOUNT, { identityId: IDENTITY, facts: true });
-    expect(h.getProfile).toHaveBeenCalledTimes(1);
+    expect(h.getProfile).not.toHaveBeenCalled();
     expect(h.executeRaw).not.toHaveBeenCalled();
   });
 

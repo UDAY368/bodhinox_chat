@@ -111,29 +111,36 @@ export async function refreshIdentityFacts(accountId: string, identityId: string
       WHERE i.account_id=${accountId}::uuid AND i.id=${identityId}::uuid AND i.channel='instagram' LIMIT 1`;
     return found ?? null;
   });
-  return row ? readAndStoreFacts(accountId, run, row) : null;
+  return row ? readAndStoreFacts(accountId, run, row, true) : null;
 }
 
 interface FactsRow { identity_id: string; external_id: string; access_token_enc: string | null; status: string;
   follows_business: boolean | null; business_follows: boolean | null; is_verified: boolean | null; ig_follower_count: number | null }
 
 async function readAndStoreFacts(accountId: string, run: <T>(work: (tx: TenantTransaction) => Promise<T>) => Promise<T>,
-  row: FactsRow): Promise<ProfileFacts> {
+  row: FactsRow, stampOnRefusal = false): Promise<ProfileFacts> {
+  // The re-check stamps profile_checked_at when Meta did not answer, keeping the stored facts: an identity Meta keeps
+  // refusing is retried after PROFILE_STALE_MS, not queued again every day ahead of the others (oldest-first, capped).
+  const unanswered = async () => {
+    if (stampOnRefusal) await run((tx) => tx.$executeRaw`UPDATE contact_channel_identities SET profile_checked_at=now()
+      WHERE account_id=${accountId}::uuid AND id=${row.identity_id}::uuid`);
+    return stored;
+  };
   const stored: ProfileFacts = { followsBusiness: row.follows_business, businessFollows: row.business_follows,
     isVerified: row.is_verified, followerCount: row.ig_follower_count };
   if (row.status !== 'active' || !row.access_token_enc) return stored;
   let token: string;
-  try { token = decrypt(row.access_token_enc); } catch { return stored; }
+  try { token = decrypt(row.access_token_enc); } catch { return unanswered(); }
   let profile: InstagramProfile;
   try {
     profile = await getProfile(row.external_id, token, { facts: true });
   } catch {
     // Refused by Meta, or a network failure or timeout: a read changes nothing on
     // Meta's side, so the run goes on with the stored facts rather than failing.
-    return stored;
+    return unanswered();
   }
   const f = profile.facts;
-  if (!f) return stored;
+  if (!f) return unanswered();
   await run((tx) => tx.$executeRaw`UPDATE contact_channel_identities SET follows_business=${f.followsBusiness},
     business_follows=${f.businessFollows}, is_verified=${f.isVerified}, ig_follower_count=${f.followerCount}, profile_checked_at=now()
     WHERE account_id=${accountId}::uuid AND id=${row.identity_id}::uuid`);
