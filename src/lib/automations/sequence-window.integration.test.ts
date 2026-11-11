@@ -39,7 +39,7 @@ async function sequence(steps: { type: string; config: Record<string, unknown> }
 
 const customerMessageAt = (account: string, conversation: string, hoursAgo: number) => owner.query(
   `INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,status,created_at)
-   VALUES($1,$2,'customer','text','hi','received',now() - make_interval(hours => $3))`, [account, conversation, hoursAgo]);
+   VALUES($1,$2,'customer','text','hi','delivered',now() - make_interval(hours => $3))`, [account, conversation, hoursAgo]);
 
 const run = (conversationId: string) => withJobScope({ accountId: accountA, role: 'owner' }, () => runAutomationsForTrigger({
   accountId: accountA, channel: 'instagram', triggerType: 'new_message_received', contactId: contactA,
