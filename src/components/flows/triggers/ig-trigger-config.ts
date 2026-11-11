@@ -31,6 +31,7 @@ export function defaultTriggerConfig(type: FlowTriggerType): Config {
       return { template_name: "", buttons: [] };
     case "default_reply":
     case "ig_story_mention":
+    case "ig_share_to_story":
       return { frequency: "every_time" satisfies TriggerFrequency };
     case "ig_comment":
       return {

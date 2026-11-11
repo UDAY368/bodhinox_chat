@@ -2711,7 +2711,7 @@
         "nullable": false,
         "default": null,
         "reference": null,
-        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click', 'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref'))"
+        "definition": "trigger_type TEXT NOT NULL\n    CHECK (trigger_type IN ('keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click', 'default_reply', 'ig_comment', 'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref', 'ig_share_to_story'))"
       },
       {
         "name": "trigger_config",
@@ -14670,6 +14670,22 @@
         "default": null,
         "reference": null,
         "definition": "persistent_menu_synced_at timestamptz"
+      },
+      {
+        "name": "connection_kind",
+        "type": "text",
+        "nullable": false,
+        "default": "'instagram_login'",
+        "reference": null,
+        "definition": "connection_kind text NOT NULL DEFAULT 'instagram_login'"
+      },
+      {
+        "name": "facebook_page_id",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "facebook_page_id text"
       }
     ],
     "contact_channel_identities": [
@@ -16862,6 +16878,234 @@
         "default": null,
         "reference": null,
         "definition": "error_code text CHECK (error_code ~ '^[a-z0-9_]{1,64}$')"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "conversation_reminders": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "conversation_id uuid NOT NULL"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "auth_users",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "user_id uuid NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": "'reminder'",
+        "reference": null,
+        "definition": "kind text NOT NULL DEFAULT 'reminder' CHECK (kind IN ('reminder','snooze'))"
+      },
+      {
+        "name": "remind_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "remind_at timestamptz NOT NULL"
+      },
+      {
+        "name": "note",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "note text CHECK (note IS NULL OR char_length(note) <= 500)"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'pending'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','fired','dismissed','cancelled'))"
+      },
+      {
+        "name": "fired_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "fired_at timestamptz"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "scheduled_replies": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid ",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "conversation_id uuid NOT NULL"
+      },
+      {
+        "name": "channel",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "channel text NOT NULL CHECK (channel IN ('whatsapp','instagram'))"
+      },
+      {
+        "name": "created_by_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": {
+          "table": "auth_users",
+          "column": "id",
+          "onDelete": "SET NULL"
+        },
+        "definition": "created_by_user_id uuid REFERENCES auth_users(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "content",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "content text NOT NULL CHECK (char_length(btrim(content)) BETWEEN 1 AND 4096)"
+      },
+      {
+        "name": "send_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "send_at timestamptz NOT NULL"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'pending'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sending','sent','failed','unknown','cancelled','skipped'))"
+      },
+      {
+        "name": "claimed_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "claimed_at timestamptz"
+      },
+      {
+        "name": "attempts",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0)"
+      },
+      {
+        "name": "message_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "message_id uuid"
+      },
+      {
+        "name": "sent_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "sent_at timestamptz"
+      },
+      {
+        "name": "reason_code",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reason_code text CHECK (reason_code ~ '^[a-z0-9_]{1,64}$')"
       },
       {
         "name": "created_at",

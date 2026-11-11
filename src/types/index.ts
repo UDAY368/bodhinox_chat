@@ -267,6 +267,80 @@ export interface InstagramAiCommentSettings {
 /** The channels an outbound webhook endpoint receives events for (webhook_endpoints.channels; default ['whatsapp']). */
 export type WebhookEndpointChannels = Channel[];
 
+// ------------------------------------------------------------ Stage 4 (Instagram Phase 3)
+
+/**
+ * How an Instagram account was connected (instagram_accounts.connection_kind):
+ * Instagram API with Instagram Login (graph.instagram.com, the default), or the
+ * optional Facebook Page / Business Login (graph.facebook.com, the stored token
+ * is then the Page token and instagram_accounts.facebook_page_id is set).
+ */
+export const INSTAGRAM_CONNECTION_KINDS = ['instagram_login', 'facebook_page'] as const;
+export type InstagramConnectionKind = (typeof INSTAGRAM_CONNECTION_KINDS)[number];
+
+/** A reminder tells its owner to look at a conversation again; a snooze also hides it until then. */
+export const CONVERSATION_REMINDER_KINDS = ['reminder', 'snooze'] as const;
+export type ConversationReminderKind = (typeof CONVERSATION_REMINDER_KINDS)[number];
+
+/** conversation_reminders.status: pending -> fired (the worker) | dismissed | cancelled (the owner); fired -> dismissed. */
+export const CONVERSATION_REMINDER_STATUSES = ['pending', 'fired', 'dismissed', 'cancelled'] as const;
+export type ConversationReminderStatus = (typeof CONVERSATION_REMINDER_STATUSES)[number];
+
+/** The longest note on a reminder (characters) and how far ahead one may be set (days); the table checks both. */
+export const CONVERSATION_REMINDER_LIMITS = { noteChars: 500, maxDaysAhead: 366 } as const;
+
+/** A conversation_reminders row. Staff text only; the note is never logged. */
+export interface ConversationReminder {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  kind: ConversationReminderKind;
+  remind_at: string;
+  note: string | null;
+  status: ConversationReminderStatus;
+  fired_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * scheduled_replies.status: pending -> sending (the worker's claim) | cancelled
+ * | skipped (window closed, conversation closed, channel off). sending -> sent
+ * | failed | unknown (ambiguous outcome: reconcile, never re-send). unknown ->
+ * sent | failed once staff reconcile it.
+ */
+export const SCHEDULED_REPLY_STATUSES = ['pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled', 'skipped'] as const;
+export type ScheduledReplyStatus = (typeof SCHEDULED_REPLY_STATUSES)[number];
+
+/**
+ * Limits on a scheduled reply (the table checks the same): 4096 characters, at
+ * most 30 days ahead on WhatsApp and 7 days (the Human Agent ceiling) on
+ * Instagram. Whether a time is inside the Instagram window is decided by
+ * src/lib/instagram/window.ts at schedule time and again at send time.
+ */
+export const SCHEDULED_REPLY_LIMITS = { contentChars: 4096, maxDaysAhead: { whatsapp: 30, instagram: 7 } } as const;
+
+/** Machine reasons a scheduled reply ends as skipped or failed (scheduled_replies.reason_code). */
+export const SCHEDULED_REPLY_REASONS = ['window_closed', 'conversation_closed', 'channel_off', 'human_agent_off', 'send_failed'] as const;
+export type ScheduledReplyReason = (typeof SCHEDULED_REPLY_REASONS)[number];
+
+/** A scheduled_replies row as members read it. The content is staff text and is never logged. */
+export interface ScheduledReply {
+  id: string;
+  conversation_id: string;
+  channel: Channel;
+  created_by_user_id: string | null;
+  content: string;
+  send_at: string;
+  status: ScheduledReplyStatus;
+  attempts: number;
+  message_id: string | null;
+  sent_at: string | null;
+  reason_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Conversation {
   bot_paused?: boolean;
   /** Fixed by the inbound pipeline; send routes derive the channel from the row, never from a client. */

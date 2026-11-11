@@ -27,13 +27,38 @@ export interface InstagramConfig {
    * account confirms Meta's rule (INSTAGRAM_CTD_WINDOW_ENABLED=true).
    */
   ctdWindowEnabled: boolean;
+  /**
+   * The Share-to-Story trigger is live (Stage 4). Off until a live capture
+   * shows Meta delivers the event to Instagram Login apps
+   * (INSTAGRAM_SHARE_TO_STORY_ENABLED=true).
+   */
+  shareToStoryEnabled: boolean;
 }
 
 export type InstagramDisabledReason = 'flag_off' | 'not_configured';
 
 export type InstagramStatus =
-  | { enabled: true; appId: string; humanAgentEnabled: boolean }
+  | { enabled: true; appId: string; humanAgentEnabled: boolean; shareToStoryEnabled: boolean; pageLoginAvailable: boolean }
   | { enabled: false; reason: InstagramDisabledReason };
+
+/**
+ * Optional Facebook Page / Business Login (Stage 4): a second way to connect an
+ * Instagram account, for agencies, ads and the Conversions API. It uses the
+ * Facebook app (META_APP_ID / META_APP_SECRET), not the Instagram app, and
+ * stays off until INSTAGRAM_PAGE_LOGIN_ENABLED=true.
+ */
+export interface PageLoginConfig {
+  /** The Facebook app id (OAuth client_id). */
+  appId: string;
+  appSecret: string;
+  redirectUri: string;
+}
+
+/** Permissions the Page login asks for: list Pages, message through a Page, read the linked Instagram account. */
+export const PAGE_LOGIN_SCOPES = [
+  'pages_show_list', 'pages_messaging', 'pages_manage_metadata',
+  'instagram_basic', 'instagram_manage_messages', 'instagram_manage_comments',
+] as const;
 
 export const BASIC_SCOPE = 'instagram_business_basic';
 export const MESSAGES_SCOPE = 'instagram_business_manage_messages';
@@ -76,7 +101,25 @@ export function instagramConfig(env: Env = process.env): InstagramConfig | null 
     redirectUri,
     humanAgentEnabled: env.INSTAGRAM_HUMAN_AGENT_ENABLED?.trim() === 'true',
     ctdWindowEnabled: env.INSTAGRAM_CTD_WINDOW_ENABLED?.trim() === 'true',
+    shareToStoryEnabled: env.INSTAGRAM_SHARE_TO_STORY_ENABLED?.trim() === 'true',
   };
+}
+
+/**
+ * The Page login config, or null unless Instagram itself is configured, the
+ * flag is on, and the Facebook app id and secret are set. A redirect URI that is
+ * not http(s) is refused.
+ */
+export function pageLoginConfig(env: Env = process.env): PageLoginConfig | null {
+  if (!instagramConfig(env) || env.INSTAGRAM_PAGE_LOGIN_ENABLED?.trim() !== 'true') return null;
+  const appId = trimmed(env.META_APP_ID) ?? trimmed(env.NEXT_PUBLIC_META_APP_ID);
+  const appSecret = trimmed(env.META_APP_SECRET);
+  if (!appId || !/^\d{1,32}$/.test(appId) || !appSecret) return null;
+  const appUrl = trimmed(env.APP_URL);
+  const redirectUri = trimmed(env.INSTAGRAM_PAGE_LOGIN_REDIRECT_URI)
+    ?? (appUrl ? `${appUrl.replace(/\/+$/, '')}/api/instagram/page-login/callback` : null);
+  if (!redirectUri || !/^https?:\/\//.test(redirectUri)) return null;
+  return { appId, appSecret, redirectUri };
 }
 
 /** What the browser may know: never a secret or the verify token. */
@@ -84,7 +127,10 @@ export function instagramStatus(env: Env = process.env): InstagramStatus {
   if (!instagramEnabled(env)) return { enabled: false, reason: 'flag_off' };
   const config = instagramConfig(env);
   if (!config) return { enabled: false, reason: 'not_configured' };
-  return { enabled: true, appId: config.appId, humanAgentEnabled: config.humanAgentEnabled };
+  return {
+    enabled: true, appId: config.appId, humanAgentEnabled: config.humanAgentEnabled,
+    shareToStoryEnabled: config.shareToStoryEnabled, pageLoginAvailable: pageLoginConfig(env) !== null,
+  };
 }
 
 /** The scopes a feature needs that the grant lacks (empty when the feature may run). */

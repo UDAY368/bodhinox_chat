@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { instagramConfig, instagramEnabled, instagramStatus, missingScopes } from './config';
+import { instagramConfig, instagramEnabled, instagramStatus, missingScopes, pageLoginConfig } from './config';
 
 const FULL = {
   INSTAGRAM_ENABLED: 'true',
@@ -43,9 +43,48 @@ describe('instagram config gate', () => {
 
   it('never exposes a secret or the verify token in the status', () => {
     const status = instagramStatus(FULL);
-    expect(status).toEqual({ enabled: true, appId: '1234567890', humanAgentEnabled: false });
+    expect(status).toEqual({ enabled: true, appId: '1234567890', humanAgentEnabled: false, shareToStoryEnabled: false, pageLoginAvailable: false });
     const text = JSON.stringify(status);
     for (const secret of ['test-only-ig-secret', 'test-only-meta-secret', 'test-only-verify']) expect(text).not.toContain(secret);
+  });
+
+  it('keeps Share-to-Story off unless its own flag is exactly "true" (Stage 4)', () => {
+    expect(instagramConfig(FULL)!.shareToStoryEnabled).toBe(false);
+    expect(instagramConfig({ ...FULL, INSTAGRAM_SHARE_TO_STORY_ENABLED: '1' })!.shareToStoryEnabled).toBe(false);
+    expect(instagramConfig({ ...FULL, INSTAGRAM_SHARE_TO_STORY_ENABLED: 'true' })!.shareToStoryEnabled).toBe(true);
+    // The flag alone never turns Instagram on.
+    expect(instagramConfig({ INSTAGRAM_SHARE_TO_STORY_ENABLED: 'true' })).toBeNull();
+  });
+
+  describe('optional Facebook Page login (Stage 4)', () => {
+    const PAGE = { ...FULL, INSTAGRAM_PAGE_LOGIN_ENABLED: 'true', META_APP_ID: '9876543210' };
+
+    it('is off unless the flag, Instagram, the Facebook app id and its secret are all set', () => {
+      expect(pageLoginConfig(FULL)).toBeNull();
+      expect(pageLoginConfig({ ...PAGE, INSTAGRAM_PAGE_LOGIN_ENABLED: 'yes' })).toBeNull();
+      expect(pageLoginConfig({ ...PAGE, META_APP_ID: '' })).toBeNull();
+      expect(pageLoginConfig({ ...PAGE, META_APP_ID: 'abc' })).toBeNull();
+      expect(pageLoginConfig({ ...PAGE, META_APP_SECRET: '' })).toBeNull();
+      expect(pageLoginConfig({ ...PAGE, INSTAGRAM_ENABLED: 'false' })).toBeNull();
+      expect(pageLoginConfig({ ...PAGE, INSTAGRAM_APP_ID: '' })).toBeNull();
+    });
+
+    it('builds the redirect URI from APP_URL or an override, and takes the public app id as a fallback', () => {
+      expect(pageLoginConfig(PAGE)).toEqual({
+        appId: '9876543210', appSecret: 'test-only-meta-secret',
+        redirectUri: 'https://app.example.test/api/instagram/page-login/callback',
+      });
+      expect(pageLoginConfig({ ...PAGE, INSTAGRAM_PAGE_LOGIN_REDIRECT_URI: 'https://other.example.test/cb' })!.redirectUri)
+        .toBe('https://other.example.test/cb');
+      expect(pageLoginConfig({ ...PAGE, META_APP_ID: '', NEXT_PUBLIC_META_APP_ID: '55' })!.appId).toBe('55');
+      expect(pageLoginConfig({ ...PAGE, INSTAGRAM_PAGE_LOGIN_REDIRECT_URI: 'javascript:1' })).toBeNull();
+    });
+
+    it('tells the browser whether it is available, never a secret', () => {
+      const status = instagramStatus(PAGE);
+      expect(status).toMatchObject({ enabled: true, pageLoginAvailable: true });
+      expect(JSON.stringify(status)).not.toContain('test-only-meta-secret');
+    });
   });
 
   it('lists the scopes a feature lacks', () => {

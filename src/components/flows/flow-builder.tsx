@@ -72,9 +72,11 @@ import {
   IgCommentTriggerFields,
   IgLiveCommentTriggerFields,
   IgRefTriggerFields,
+  IgShareToStoryTriggerFields,
   IgStoryMentionTriggerFields,
   IgStoryReplyTriggerFields,
 } from './triggers/ig-trigger-fields';
+import { useShareToStoryEnabled } from './triggers/ig-post-picker';
 import { applyTriggerType } from './triggers/ig-trigger-config';
 import { entryLocked } from './nodes/ig-node-config';
 import { NodeKeySelect } from './forms/fields';
@@ -392,6 +394,7 @@ const TRIGGER_TITLE_KEYS: Record<BuilderState['trigger_type'], string> = {
   ig_story_mention: 'triggerIgStoryMentionTitle',
   ig_live_comment: 'triggerIgLiveCommentTitle',
   ig_ref: 'triggerIgRefTitle',
+  ig_share_to_story: 'triggerIgShareToStoryTitle',
 };
 
 function TriggerPanel({
@@ -411,7 +414,10 @@ function TriggerPanel({
   instagramOnly: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const offered = triggerTypes.includes(state.trigger_type) ? triggerTypes : [...triggerTypes, state.trigger_type];
+  const shareToStoryOn = useShareToStoryEnabled();
+  // Share-to-Story is offered only while its flag is on; a flow that already has it keeps showing it.
+  const offered = (triggerTypes.includes(state.trigger_type) ? triggerTypes : [...triggerTypes, state.trigger_type])
+    .filter((trigger) => trigger !== 'ig_share_to_story' || shareToStoryOn || trigger === state.trigger_type);
   const setConfig = (trigger_config: Record<string, unknown>) => setState((s) => ({ ...s, trigger_config }));
   return (
     <section className="border-border bg-card rounded-lg border p-4">
@@ -457,6 +463,9 @@ function TriggerPanel({
         {state.trigger_type === 'ig_story_mention' && <IgStoryMentionTriggerFields config={state.trigger_config} onChange={setConfig} />}
         {state.trigger_type === 'ig_live_comment' && <IgLiveCommentTriggerFields config={state.trigger_config} onChange={setConfig} />}
         {state.trigger_type === 'ig_ref' && <IgRefTriggerFields config={state.trigger_config} onChange={setConfig} />}
+        {state.trigger_type === 'ig_share_to_story' && (
+          <IgShareToStoryTriggerFields config={state.trigger_config} onChange={setConfig} enabled={shareToStoryOn} />
+        )}
       </div>
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">

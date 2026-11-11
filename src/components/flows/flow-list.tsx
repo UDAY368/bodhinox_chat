@@ -632,6 +632,7 @@ function describeTrigger(flow: FlowRow, t: ReturnType<typeof useTranslations>): 
   if (flow.trigger_type === "ig_story_reply") return t("triggerIgStoryReply");
   if (flow.trigger_type === "ig_story_mention") return t("triggerIgStoryMention");
   if (flow.trigger_type === "ig_live_comment") return t("triggerIgLiveComment");
+  if (flow.trigger_type === "ig_share_to_story") return t("triggerIgShareToStory");
   if (flow.trigger_type === "ig_ref") {
     const refs = Array.isArray(cfg.refs) ? cfg.refs.filter((r): r is string => typeof r === "string") : [];
     return refs.length ? t("triggerIgRef", { refs: refs.join(", ") }) : t("triggerIgRefNone");
