@@ -91,7 +91,8 @@ export async function assertInstagramAiReady(accountId: string, conversationId: 
   const target = await withTenant({ accountId, role: 'owner' },
     (tx) => loadInstagramTarget(tx, accountId, conversationId), getWorkerPrisma());
   if (!instagramConfig()) throw new InstagramError('instagram_not_enabled');
-  const decision = instagramWindow({ lastCustomerAt: target.lastCustomerAt, sender: 'automated', humanAgentEnabled: false, now });
+  const decision = instagramWindow({ lastCustomerAt: target.lastCustomerAt, sender: 'automated', humanAgentEnabled: false,
+    adReferralAt: target.adReferralAt, ctdEnabled: instagramConfig()?.ctdWindowEnabled === true, now });
   if (!decision.allowed) throw new InstagramError('instagram_window_closed');
 }
 

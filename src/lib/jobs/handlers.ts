@@ -116,6 +116,9 @@ export async function scheduleWork() {
   // Instagram token refresh and health, daily per workspace with a live account; nothing while INSTAGRAM_ENABLED is off.
   await import('@/lib/instagram/token-sweep').then((m) => m.scheduleInstagramSweeps())
     .catch(() => console.error('[worker] instagram sweep scheduling failed'));
+  // Stage 3: subscribe accounts connected earlier to live_comments, once per workspace; nothing while the flag is off.
+  await import('@/lib/instagram/resubscribe').then((m) => m.scheduleInstagramResubscribe())
+    .catch(() => console.error('[worker] instagram resubscribe scheduling failed'));
   // AI assistant data retention: daily per workspace with something due.
   await import('@/lib/ai/retention').then((m) => m.scheduleAiRetention())
     .catch(() => console.error('[worker] ai retention scheduling failed'));

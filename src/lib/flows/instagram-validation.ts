@@ -4,7 +4,7 @@
 // src/lib/instagram/graph-limits.ts (what graph.ts enforces before a request)
 // and IG_TRIGGER_LIMITS, so publish and send never disagree.
 //
-// Comment flows (ig_comment): every path from the entry reaches exactly one
+// Comment flows (ig_comment, and from Stage 3 ig_live_comment): every path from the entry reaches exactly one
 // ig_private_reply before any other step that messages the customer (Meta
 // allows one private reply per comment, and nothing else until the person
 // answers). Only tags, fields, conditions, agent assignment, API calls and the
@@ -13,7 +13,8 @@
 import { getT } from "@/lib/i18n/translate";
 import { INSTAGRAM_LIMITS, charLength, utf8Bytes, validCommentReply, validHttpsUrl } from "@/lib/instagram/graph-limits";
 import { scopeIncludes } from "@/lib/channels/capabilities";
-import { IG_PROFILE_FACTS, IG_TRIGGER_LIMITS, type FlowChannelScope, type FlowTriggerType } from "./types";
+import { isRefKey } from "@/lib/instagram/ref-links";
+import { IG_PROFILE_FACTS, IG_TRIGGER_LIMITS, startsFromComment, type FlowChannelScope, type FlowTriggerType } from "./types";
 
 const tTriggers = getT("Flows.triggers");
 const tNodes = getT("Flows.nodes");
@@ -107,6 +108,21 @@ export function igTriggerIssues(triggerType: FlowTriggerType, config: Record<str
     if (config.match_mode !== undefined && !MODES.includes(config.match_mode as string))
       at("match_mode", tTriggers("igStoryReply.badKeywords", { max: IG_TRIGGER_LIMITS.keywords, chars: IG_TRIGGER_LIMITS.keywordChars }));
     if (config.reactions !== undefined && typeof config.reactions !== "boolean") at("reactions", tTriggers("igStoryReply.badStoryIds", { max: IG_TRIGGER_LIMITS.storyIds }));
+  } else if (triggerType === "ig_live_comment") {
+    if (config.instagram_account_id !== undefined && (typeof config.instagram_account_id !== "string" || !UUID.test(config.instagram_account_id)))
+      at("instagram_account_id", tTriggers("igLiveComment.badAccount"));
+    if (!keywordsFit(config.keywords))
+      at("keywords", tTriggers("igLiveComment.badKeywords", { max: IG_TRIGGER_LIMITS.keywords, chars: IG_TRIGGER_LIMITS.keywordChars }));
+    if (config.match_mode !== undefined && !MODES.includes(config.match_mode as string))
+      at("match_mode", tTriggers("igLiveComment.badKeywords", { max: IG_TRIGGER_LIMITS.keywords, chars: IG_TRIGGER_LIMITS.keywordChars }));
+  } else if (triggerType === "ig_ref") {
+    if (config.instagram_account_id !== undefined && (typeof config.instagram_account_id !== "string" || !UUID.test(config.instagram_account_id)))
+      at("instagram_account_id", tTriggers("igRef.badAccount"));
+    const refs = config.refs;
+    if (!Array.isArray(refs) || refs.length === 0) at("refs", tTriggers("igRef.needsKeys"));
+    else if (refs.length > IG_TRIGGER_LIMITS.refs) at("refs", tTriggers("igRef.tooManyKeys", { max: IG_TRIGGER_LIMITS.refs }));
+    else if (!refs.every(isRefKey)) at("refs", tTriggers("igRef.badKeys", { max: IG_TRIGGER_LIMITS.refs }));
+    else if (new Set(refs.map((r) => r.toLowerCase())).size !== refs.length) at("refs", tTriggers("igRef.badKeys", { max: IG_TRIGGER_LIMITS.refs }));
   } else if (triggerType === "ig_story_mention") {
     if (!FREQUENCIES.includes(config.frequency as string)) at("frequency", tTriggers("igStoryMention.badFrequency"));
   } else if (triggerType === "default_reply") {
@@ -260,7 +276,7 @@ export function igFlowIssues(
 ): IgIssue[] {
   const issues: IgIssue[] = [];
   const onWhatsApp = scopeIncludes(flow.channel_scope, "whatsapp");
-  const comment = flow.trigger_type === "ig_comment";
+  const comment = startsFromComment(flow.trigger_type);
   for (const node of nodes) {
     const at = (field: string, message: string) => issues.push({ severity: "error", scope: "node", node_key: node.node_key, field, message });
     if (onWhatsApp && node.node_type === "send_buttons" && Array.isArray(node.config.link_buttons) && node.config.link_buttons.length)
@@ -274,8 +290,9 @@ export function igFlowIssues(
         if (!(IG_PROFILE_FACTS as readonly unknown[]).includes(rule.subject_key)) at(field.replace(/subject$/, "subject_key"), tNodes("igProfile.badFact"));
       });
     }
-    if (!comment && (node.node_type === "ig_comment_reply" || node.node_type === "ig_private_reply"))
-      at("node_type", tNodes(node.node_type === "ig_comment_reply" ? "igCommentReply.onlyCommentFlows" : "igPrivateReply.firstOnly"));
+    // A Live comment gets no public reply (Stage 3): that step stays in post-comment flows.
+    if (node.node_type === "ig_comment_reply" && flow.trigger_type !== "ig_comment") at("node_type", tNodes("igCommentReply.onlyCommentFlows"));
+    else if (!comment && node.node_type === "ig_private_reply") at("node_type", tNodes("igPrivateReply.firstOnly"));
   }
   if (!comment || !flow.entry_node_id) return issues;
 

@@ -20,6 +20,7 @@ const target = (hoursAgo: number | null): InstagramTarget => ({
   accountId: 'a', conversationId: 'c', contactId: 'k', instagramAccountId: 'i', igUserId: '111', igsid: '222',
   accessTokenEnc: encrypt('test-only-ig-token'), scopes: ['instagram_business_basic', 'instagram_business_manage_messages'],
   lastCustomerAt: hoursAgo === null ? null : new Date(now.getTime() - hoursAgo * 3_600_000),
+  adReferralAt: null,
 });
 const fetchMock = vi.fn();
 
@@ -51,6 +52,15 @@ describe('instagram sender checks', () => {
     vi.stubEnv('INSTAGRAM_HUMAN_AGENT_ENABLED', 'true');
     expect(checkInstagramText(target(48), 'hi', { sender: 'staff', now })).toEqual({ humanAgentTag: true });
     expect(() => checkInstagramText(target(48), 'hi', { sender: 'automated', now })).toThrow(expect.objectContaining({ code: 'instagram_window_closed' }));
+  });
+
+  it('lets an automated send through for 7 days after a click-to-Direct ad message, only with the flag', () => {
+    const adTarget = { ...target(72), adReferralAt: new Date(now.getTime() - 72 * 3_600_000) };
+    expect(() => checkInstagramText(adTarget, 'hi', { sender: 'automated', now })).toThrow(expect.objectContaining({ code: 'instagram_window_closed' }));
+    vi.stubEnv('INSTAGRAM_CTD_WINDOW_ENABLED', 'true');
+    expect(checkInstagramText(adTarget, 'hi', { sender: 'automated', now })).toEqual({ humanAgentTag: false });
+    const old = { ...adTarget, adReferralAt: new Date(now.getTime() - 8 * 24 * 3_600_000) };
+    expect(() => checkInstagramText(old, 'hi', { sender: 'automated', now })).toThrow(expect.objectContaining({ code: 'instagram_window_closed' }));
   });
 
   it('refuses media and choices Instagram cannot carry', () => {

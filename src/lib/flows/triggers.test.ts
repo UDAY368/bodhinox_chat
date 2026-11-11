@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { adClickMatch, byPrecedence, isTestContact, keywordTriggerMatches, phoneDigits, templateReplyMatch } from "./triggers";
+import {
+  adClickMatch, byPrecedence, igAdClickMatch, instagramFactsFrom, isTestContact, keywordTriggerMatches, liveCommentMatches, phoneDigits,
+  refTriggerMatch, templateReplyMatch,
+} from "./triggers";
 import type { FlowRow, ParsedInbound, ParsedInboundReferral } from "./types";
 
 const tap = (patch: Partial<Extract<ParsedInbound, { kind: "interactive_reply" }>> = {}): ParsedInbound =>
@@ -86,5 +89,57 @@ describe("adClickMatch", () => {
       { id: "order", trigger_type: "order_received", created_at: "2026-06-01", status: "active" },
     ];
     expect(byPrecedence(flows).map((f) => f.id)).toEqual(["order", "ad", "tpl", "kw"]);
+  });
+});
+
+describe("Instagram ref links, click-to-Direct ads and Live comments (Stage 3)", () => {
+  const stored = (referral: Record<string, string>, extra: Record<string, unknown> = {}) => ({ ig: { referral, ...extra } });
+
+  it("reads the ref and the ad from the stored message, and drops a ref it would not store", () => {
+    expect(instagramFactsFrom(stored({ ref: "summer-sale", source: "SHORTLINK", type: "OPEN_THREAD" })).referral)
+      .toEqual({ ref: "summer-sale", fromAd: false, adId: null, adTitle: null });
+    expect(instagramFactsFrom(stored({ ref: "x", source: "ads", ad_id: "123", ad_title: "Sale" })).referral)
+      .toEqual({ ref: "x", fromAd: true, adId: "123", adTitle: "Sale" });
+    expect(instagramFactsFrom(stored({ ref: "bad ref!", source: "SHORTLINK" })).referral).toBeUndefined();
+    expect(instagramFactsFrom(stored({ ref: "ok" }, { story: true, story_id: "55" }))).toMatchObject({
+      referral: { ref: "ok" }, storyReply: { storyId: "55" } });
+    expect(instagramFactsFrom({ ig: { story_mention: true } })).toEqual({ storyMention: true });
+    expect(instagramFactsFrom(null)).toEqual({});
+  });
+
+  it("starts an ig_ref flow only for one of its keys (any case) on its account, and sets the ref variable", () => {
+    const facts = instagramFactsFrom(stored({ ref: "Summer-Sale", source: "SHORTLINK" }));
+    expect(refTriggerMatch(facts, { refs: ["summer-sale"] }, "acc")).toEqual({ ig_ref: "Summer-Sale" });
+    expect(refTriggerMatch(facts, { refs: ["other"] }, "acc")).toBeNull();
+    expect(refTriggerMatch(facts, { refs: [] }, "acc")).toBeNull();
+    expect(refTriggerMatch(facts, { refs: ["summer-sale"], instagram_account_id: "acc" }, "acc")).not.toBeNull();
+    expect(refTriggerMatch(facts, { refs: ["summer-sale"], instagram_account_id: "other" }, "acc")).toBeNull();
+    expect(refTriggerMatch({}, { refs: ["summer-sale"] }, "acc")).toBeNull();
+    expect(refTriggerMatch(facts, undefined, "acc")).toBeNull();
+  });
+
+  it("starts an Instagram ad_click flow only from an ad message, optionally from listed ads", () => {
+    const ad = instagramFactsFrom(stored({ source: "ADS", ad_id: "900", ad_title: "Launch" }));
+    expect(igAdClickMatch(ad, {})).toEqual({ ad_id: "900", ad_headline: "Launch", ad_source_url: "" });
+    expect(igAdClickMatch(ad, { ad_ids: ["900", "901"] })).not.toBeNull();
+    expect(igAdClickMatch(ad, { ad_ids: ["901"] })).toBeNull();
+    expect(igAdClickMatch(instagramFactsFrom(stored({ ref: "x", source: "SHORTLINK" })), {})).toBeNull();
+    expect(igAdClickMatch({}, {})).toBeNull();
+  });
+
+  it("matches a Live comment by account and keyword, and any comment when no keyword is set", () => {
+    expect(liveCommentMatches({}, { instagramAccountId: "a", text: "hello" })).toBe(true);
+    expect(liveCommentMatches({ keywords: [] }, { instagramAccountId: "a", text: "hello" })).toBe(true);
+    expect(liveCommentMatches({ keywords: ["price"] }, { instagramAccountId: "a", text: "PRICE?" })).toBe(true);
+    expect(liveCommentMatches({ keywords: ["price"] }, { instagramAccountId: "a", text: "hello" })).toBe(false);
+    expect(liveCommentMatches({ keywords: ["price"], match_mode: "exact" }, { instagramAccountId: "a", text: "price?" })).toBe(false);
+    expect(liveCommentMatches({ instagram_account_id: "b" }, { instagramAccountId: "a", text: "hello" })).toBe(false);
+    expect(liveCommentMatches(undefined, { instagramAccountId: "a", text: "" })).toBe(true);
+  });
+
+  it("ranks an ig_ref flow above template replies and keywords, below ad clicks", () => {
+    const f = (id: string, trigger_type: FlowRow["trigger_type"]) => ({ id, trigger_type, created_at: "2026-01-01", status: "active" as const });
+    expect(byPrecedence([f("kw", "keyword"), f("ref", "ig_ref"), f("tr", "template_reply"), f("ad", "ad_click")]).map((x) => x.id))
+      .toEqual(["ad", "ref", "tr", "kw"]);
   });
 });

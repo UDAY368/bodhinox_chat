@@ -14,6 +14,16 @@
 //      matches and queues instagram.private_reply as before. Either path queues
 //      one job per comment (dedupe igpr:<event id>) and sends at most one
 //      private reply (intent ig_private_reply:<comment id>);
+//   3b. Stage 3: a comment on the account's Instagram Live (the live_comments
+//      field, sent only while live) is recorded the same way and offered to
+//      the live ig_live_comment flows only (a person's first matching comment
+//      per broadcast). No legacy rule applies to a Live comment, and an
+//      ig_comment flow never takes one;
+//   3c. Stage 3: a referral (a chat opened from an ig.me ref link or a
+//      click-to-Direct ad) is kept with its message (the flow engine starts
+//      ig_ref and ad_click flows from it) and its ref is saved on the
+//      contact's Instagram identity (last_ref); a referral that arrives alone,
+//      with no message, only updates an identity that already exists;
 //   4. counts every other event type as "unsupported" on the account.
 // Identity (CRM-02): a sender is found ONLY by (instagram_account_id, IGSID). A
 // new IGSID always gets a new phone-less contact; no phone, name, username,
@@ -36,7 +46,9 @@ import { INSTAGRAM_PRIVATE_REPLY_JOB, INSTAGRAM_PROFILE_FETCH_JOB } from './jobs
 import { lockInstagramSender } from '@/lib/contacts/identity-link';
 import { INSTAGRAM_WEBHOOK_PROVIDER } from './webhook';
 import { commentMatchesTrigger, rankCommentFlows, type CommentFlowCandidate, type PostMatch } from './comment-matching';
-import type { IgCommentTriggerConfig } from '@/lib/flows/types';
+import { liveCommentMatches } from '@/lib/flows/triggers';
+import { normalizeInboundRef } from './ref-links';
+import type { IgCommentTriggerConfig, IgLiveCommentTriggerConfig } from '@/lib/flows/types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const IG_ID = /^\d{1,32}$/;
@@ -64,10 +76,19 @@ export interface IgItem {
 export type ParsedEvent =
   | { kind: 'message'; igsid: string; createdAt: Date; replyToMid: string | null; items: IgItem[] }
   | { kind: 'echo'; igsid: string; createdAt: Date; items: IgItem[] }
+  /** A referral with no message (Stage 3): the chat was opened from a ref link or ad. */
+  | { kind: 'referral'; igsid: string; createdAt: Date; referral: Record<string, string> }
   | { kind: 'unsupported' }
   | { kind: 'ignored' };
 
-export interface ParsedComment { commentId: string; mediaId: string | null; fromIgsid: string | null; text: string }
+export interface ParsedComment {
+  commentId: string;
+  mediaId: string | null;
+  fromIgsid: string | null;
+  text: string;
+  /** A comment on a Live broadcast (the live_comments field, Stage 3); `mediaId` is then the broadcast's media id. */
+  live?: boolean;
+}
 
 const obj = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -111,6 +132,11 @@ function referralOf(value: unknown): Record<string, string> | null {
     const v = str(r[key], 256);
     if (v) out[key] = v;
   }
+  // Click-to-Direct ads (Stage 3; needs live capture): the ad id and title. Never the click id or customer content.
+  const adId = igId(r.ad_id);
+  if (adId) out.ad_id = adId;
+  const adTitle = str(obj(r.ads_context_data)?.ad_title, 256);
+  if (adTitle) out.ad_title = adTitle;
   return Object.keys(out).length ? out : null;
 }
 
@@ -183,7 +209,11 @@ export function parseMessagingEvent(accountIgId: string, raw: unknown, now: Date
     }
     if (!sender) return { kind: 'ignored' };
     const replyToMid = mid(obj(message.reply_to)?.mid);
-    return { kind: 'message', igsid: sender, createdAt, replyToMid, items: messageItems(message, id) };
+    const items = messageItems(message, id);
+    // A referral beside the message (Stage 3; the other place Meta may put it) rides on the message's first item.
+    const beside = referralOf(ev.referral);
+    if (beside && !items[0].ig?.referral) items[0] = { ...items[0], ig: { ...(items[0].ig ?? {}), referral: beside } };
+    return { kind: 'message', igsid: sender, createdAt, replyToMid, items };
   }
   const postback = obj(ev.postback);
   if (postback) {
@@ -193,22 +223,30 @@ export function parseMessagingEvent(accountIgId: string, raw: unknown, now: Date
     if (!payload && !title) return { kind: 'ignored' };
     // Postbacks carry a mid; a synthetic, deterministic id keeps a redelivery deduplicated if one ever does not.
     const id = mid(postback.mid) ?? `igpb:${createHash('sha256').update(`${sender}:${String(ev.timestamp)}:${payload ?? ''}:${title ?? ''}`).digest('hex').slice(0, 48)}`;
-    const referral = referralOf(postback.referral);
+    const referral = referralOf(postback.referral) ?? referralOf(ev.referral);
     return {
       kind: 'message', igsid: sender, createdAt, replyToMid: null,
       items: [{ messageId: id, contentType: 'interactive', text: title ?? payload, mediaUrl: null,
         interactiveReplyId: payload ?? title, ig: { postback: { title }, ...(referral ? { referral } : {}) } }],
     };
   }
-  // message_reactions, messaging_seen (read), messaging_referral alone, optins, handover and unknown keys.
+  // A referral on its own (Stage 3: the chat of someone already known was opened from a ref link or ad).
+  const referral = referralOf(ev.referral);
+  if (referral && sender && sender !== accountIgId) return { kind: 'referral', igsid: sender, createdAt, referral };
+  // message_reactions, messaging_seen (read), optins, handover and unknown keys.
   return { kind: 'unsupported' };
 }
 
-/** A comments change, or null when it is not one this phase processes. */
+/**
+ * A comments or live_comments change, or null when it is not one this phase
+ * processes. The live_comments payload (Stage 3) is built against Meta's
+ * documented shape, the same as a comment with the broadcast as its media;
+ * needs live capture.
+ */
 export function parseCommentChange(raw: unknown): ParsedComment | 'unsupported' | null {
   const change = obj(raw);
   if (!change) return null;
-  if (change.field !== 'comments') return 'unsupported';
+  if (change.field !== 'comments' && change.field !== 'live_comments') return 'unsupported';
   const value = obj(change.value);
   const commentId = igId(value?.id);
   if (!value || !commentId) return null;
@@ -217,6 +255,7 @@ export function parseCommentChange(raw: unknown): ParsedComment | 'unsupported' 
     mediaId: igId(obj(value.media)?.id),
     fromIgsid: igId(obj(value.from)?.id),
     text: typeof value.text === 'string' ? value.text.slice(0, MAX_TEXT) : '',
+    ...(change.field === 'live_comments' ? { live: true } : {}),
   };
 }
 
@@ -335,6 +374,7 @@ async function processEntry(owner: Owner, accountIgId: string, entry: Record<str
     if (event.kind === 'unsupported') unsupported++;
     else if (event.kind === 'message') await storeCustomerMessage(owner, state.auditUserId, event);
     else if (event.kind === 'echo') await storeEcho(owner, event);
+    else if (event.kind === 'referral') await storeReferralOnly(owner, event);
   }
   // standby (handover protocol) is not used in this phase.
   if (Array.isArray(entry.standby)) unsupported += Math.min(entry.standby.length, MAX_ITEMS);
@@ -403,9 +443,36 @@ async function resolveThread(owner: Owner, auditUserId: string, igsid: string): 
   });
 }
 
+/** The ref a referral carries, if it fits what we store (a label only). */
+const refOf = (referral: Record<string, unknown> | null | undefined): string | null => normalizeInboundRef(referral?.ref);
+
+/**
+ * Saves the ref on the sender's identity (the contact's last ref link), never
+ * moving it back to an older event. Worker role inside the workspace; the app
+ * role cannot write these columns.
+ */
+async function saveLastRef(tx: TenantTransaction, owner: Owner, igsid: string, ref: string, at: Date): Promise<void> {
+  await tx.$executeRaw`UPDATE contact_channel_identities SET last_ref=${ref}, last_ref_at=${at}
+    WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid AND external_id=${igsid}
+      AND (last_ref_at IS NULL OR last_ref_at <= ${at})`;
+}
+
+/** A referral with no message: only an identity that already exists is updated; nothing is created or started. */
+async function storeReferralOnly(owner: Owner, event: Extract<ParsedEvent, { kind: 'referral' }>): Promise<void> {
+  const ref = refOf(event.referral);
+  if (!ref) return;
+  await tenant(owner.accountId, async (tx) => {
+    await lockInstagramSender(tx, owner.instagramAccountId, event.igsid);
+    await saveLastRef(tx, owner, event.igsid, ref, event.createdAt);
+  });
+}
+
 async function storeCustomerMessage(owner: Owner, auditUserId: string,
   event: Extract<ParsedEvent, { kind: 'message' }>): Promise<void> {
   const thread = await resolveThread(owner, auditUserId, event.igsid);
+  // The ref is saved before the message is stored, so the flow it starts already finds it on the contact.
+  const ref = event.items.map((item) => refOf(item.ig?.referral as Record<string, unknown> | undefined)).find((r) => r !== null) ?? null;
+  if (ref) await tenant(owner.accountId, (tx) => saveLastRef(tx, owner, event.igsid, ref, event.createdAt));
   const replyToMessageId = event.replyToMid ? await tenant(owner.accountId, async (tx) => {
     const [row] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM messages
       WHERE account_id=${owner.accountId}::uuid AND conversation_id=${thread.conversationId}::uuid AND message_id=${event.replyToMid} LIMIT 1`;
@@ -522,6 +589,37 @@ async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: 
 }
 
 /**
+ * What the live ig_live_comment flows make of a Live comment: the flows it may
+ * start, oldest first. A person's first *matching* comment per broadcast only:
+ * once an earlier comment of theirs on this broadcast has been taken (a flow
+ * run, or a private reply queued or sent), later ones start nothing, while
+ * comments nobody took do not use the person's one start up. Reads the
+ * published version of this workspace's flows only. No legacy rule applies.
+ */
+async function liveCommentFlowChoices(tx: TenantTransaction, owner: Owner, comment: ParsedComment, eventId: string): Promise<CommentFlowOffer> {
+  const flows = await tx.$queryRaw<{ id: string; created_at: Date; trigger_config: unknown }[]>`
+    SELECT f.id::text AS id, f.created_at, v.trigger_config
+    FROM flows f JOIN flow_versions v ON v.account_id=f.account_id AND v.id=f.published_version_id AND v.flow_id=f.id
+    WHERE f.account_id=${owner.accountId}::uuid AND f.status='active' AND v.trigger_type='ig_live_comment'
+      AND v.channel_scope='instagram'
+    ORDER BY f.created_at, f.id LIMIT 100`;
+  if (!flows.length) return { choices: [], ruleSkipped: false };
+  const matching = flows.filter((flow) => {
+    const config = (flow.trigger_config && typeof flow.trigger_config === 'object' ? flow.trigger_config : {}) as IgLiveCommentTriggerConfig;
+    return liveCommentMatches(config, { instagramAccountId: owner.instagramAccountId, text: comment.text });
+  });
+  if (!matching.length) return { choices: [], ruleSkipped: false };
+  if (comment.mediaId) {
+    const [earlier] = await tx.$queryRaw<{ taken: boolean }[]>`SELECT EXISTS(SELECT 1 FROM instagram_comment_events
+      WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid
+        AND media_id=${comment.mediaId} AND from_igsid=${comment.fromIgsid} AND id<>${eventId}::uuid
+        AND (flow_run_id IS NOT NULL OR private_reply_status IN ('queued','sent','unknown'))) AS taken`;
+    if (earlier?.taken) return { choices: [], ruleSkipped: false };
+  }
+  return { choices: matching.map((flow) => ({ flowId: flow.id, check: false })), ruleSkipped: false };
+}
+
+/**
  * Records a comment once and queues its private reply job (one per comment:
  * the unique key and the job's dedupe key). A comment a live ig_comment flow
  * may take is queued for the flow, with the matching legacy rule (if any) kept
@@ -538,11 +636,14 @@ async function recordComment(owner: Owner, comment: ParsedComment): Promise<void
       VALUES(${owner.accountId}::uuid,${owner.instagramAccountId}::uuid,${comment.commentId},${comment.mediaId},${comment.fromIgsid})
       ON CONFLICT DO NOTHING RETURNING id::text AS id`;
     if (!event) return;
-    const rules = await tx.$queryRaw<CommentRule[]>`SELECT id::text AS id, media_id, keywords FROM instagram_comment_rules
+    // Legacy comment rules are for posts: a Live comment never matches one.
+    const rules = comment.live ? [] : await tx.$queryRaw<CommentRule[]>`SELECT id::text AS id, media_id, keywords FROM instagram_comment_rules
       WHERE account_id=${owner.accountId}::uuid AND instagram_account_id=${owner.instagramAccountId}::uuid AND active
       ORDER BY created_at, id LIMIT 200`;
     // A comment without a sender id cannot get a private reply.
-    const offer = comment.fromIgsid ? await commentFlowChoices(tx, owner, comment, event.id) : { choices: [], ruleSkipped: false };
+    const noFlows: CommentFlowOffer = { choices: [], ruleSkipped: false };
+    const offer = !comment.fromIgsid ? noFlows
+      : comment.live ? await liveCommentFlowChoices(tx, owner, comment, event.id) : await commentFlowChoices(tx, owner, comment, event.id);
     // A flow already answered this person on this post: the rule never adds a second DM.
     const rule = comment.fromIgsid && !offer.ruleSkipped ? matchCommentRule(rules, comment) : null;
     const flows = offer.choices;

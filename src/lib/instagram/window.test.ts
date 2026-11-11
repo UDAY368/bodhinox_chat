@@ -41,3 +41,40 @@ describe('instagram messaging window', () => {
     expect(instagramWindowBanner(ago(2 * D), false, now)).toEqual({ kind: 'closed' });
   });
 });
+
+describe('click-to-Direct 7-day window', () => {
+  const base = { sender: 'automated' as const, humanAgentEnabled: false, now };
+  const closed = { allowed: false, reason: 'instagram_window_closed' };
+
+  it('lets an automated send through for 7 days after an ad message, untagged', () => {
+    const decision = instagramWindow({ ...base, lastCustomerAt: ago(5 * D), adReferralAt: ago(5 * D), ctdEnabled: true });
+    expect(decision).toEqual({ allowed: true, humanAgentTag: false, closesAt: new Date(ago(5 * D).getTime() + 7 * D) });
+  });
+
+  it('closes at exactly 7 days from the ad message', () => {
+    expect(instagramWindow({ ...base, lastCustomerAt: ago(7 * D - M), adReferralAt: ago(7 * D - M), ctdEnabled: true }).allowed).toBe(true);
+    expect(instagramWindow({ ...base, lastCustomerAt: ago(7 * D), adReferralAt: ago(7 * D), ctdEnabled: true })).toEqual(closed);
+  });
+
+  it('is ignored without the flag, and without an ad message', () => {
+    expect(instagramWindow({ ...base, lastCustomerAt: ago(5 * D), adReferralAt: ago(5 * D), ctdEnabled: false })).toEqual(closed);
+    expect(instagramWindow({ ...base, lastCustomerAt: ago(5 * D), adReferralAt: ago(5 * D) })).toEqual(closed);
+    expect(instagramWindow({ ...base, lastCustomerAt: ago(5 * D), adReferralAt: null, ctdEnabled: true })).toEqual(closed);
+  });
+
+  it('keeps the later close when a newer message outlasts the ad window', () => {
+    // Ad message 6.5 days ago, a reply 1 hour ago: the 24 h window (to +23 h) outlasts the ad window (to +12 h).
+    const decision = instagramWindow({ ...base, lastCustomerAt: ago(H), adReferralAt: ago(6.5 * D), ctdEnabled: true });
+    expect(decision).toMatchObject({ allowed: true, closesAt: new Date(ago(H).getTime() + D) });
+  });
+
+  it('does not trust an ad time from the future', () => {
+    expect(instagramWindow({ ...base, lastCustomerAt: ago(2 * D), adReferralAt: new Date(now.getTime() + 5 * M), ctdEnabled: true })).toEqual(closed);
+  });
+
+  it('never tags a send for the ad window, and leaves the 24 h rules alone', () => {
+    expect(instagramWindow({ lastCustomerAt: ago(3 * D), adReferralAt: ago(3 * D), ctdEnabled: true, sender: 'staff', humanAgentEnabled: true, now }))
+      .toMatchObject({ allowed: true, humanAgentTag: false });
+    expect(instagramWindow({ ...base, lastCustomerAt: ago(H), adReferralAt: null, ctdEnabled: true })).toMatchObject({ allowed: true });
+  });
+});

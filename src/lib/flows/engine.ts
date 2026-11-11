@@ -7,8 +7,8 @@ import { enqueueJob } from '@/lib/jobs/queue';
 import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
 import {
-  adClickMatch, byPrecedence, defaultReplyApplies, instagramFactsFrom, isTestContact, keywordTriggerMatches, orderReceivedMatch, phoneDigits,
-  storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
+  adClickMatch, byPrecedence, defaultReplyApplies, igAdClickMatch, instagramFactsFrom, isTestContact, keywordTriggerMatches,
+  orderReceivedMatch, phoneDigits, refTriggerMatch, storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
 } from './triggers';
 import { decodePostback, encodePostback } from '@/lib/instagram/postback-payloads';
 import { PRIVATE_REPLY_RETRY_MS, postCommentPublicReply, recordCommentOptIn, sendCommentPrivateReply } from '@/lib/instagram/private-reply';
@@ -80,6 +80,11 @@ import {
  * alone — it is not answered, closed or re-routed — so replies always
  * go out from the number the customer wrote to.
  *
+ * Instagram (Stage 3): a chat opened from a ref link starts an ig_ref flow and one
+ * opened from a click-to-Direct ad an ad_click flow (both read from the stored
+ * message's referral); a Live comment starts an ig_live_comment flow through
+ * the same comment-flow job as a post comment.
+ *
  * Instagram (Stage 2): story replies and mentions start ig_story_* flows
  * (read from the stored message), a conversation starter tap (`ib:<flow>`)
  * starts its listed flow, and default_reply flows answer what nothing else
@@ -139,6 +144,9 @@ import {
   type IgCommentTriggerConfig,
   type IgPrivateReplyNodeConfig,
   type IgStoryMentionTriggerConfig,
+  type IgRefTriggerConfig,
+  type IgLiveCommentTriggerConfig,
+  startsFromComment,
   type IgStoryReplyTriggerConfig,
   type TriggerFrequency,
 } from "./types";
@@ -668,14 +676,15 @@ async function findEntryFlow(
   // The inbound's channel and number are its conversation's (one conversation
   // per contact and number, or per contact and Instagram account). Always read:
   // an Instagram conversation must never start a WhatsApp-only flow.
-  const { data, error } = await db.from("conversations").select("channel, whatsapp_config_id")
+  const { data, error } = await db.from("conversations").select("channel, whatsapp_config_id, instagram_account_id")
     .eq("account_id", accountId).eq("id", conversationId).maybeSingle();
   if (error) return null;
-  const row = data as { channel?: string | null; whatsapp_config_id?: string | null } | null;
+  const row = data as { channel?: string | null; whatsapp_config_id?: string | null; instagram_account_id?: string | null } | null;
   const conversation = {
     channel: (row?.channel === "instagram" ? "instagram" : "whatsapp") as Channel,
     whatsappConfigId: row?.whatsapp_config_id ?? null,
   };
+  const instagramAccountId = row?.instagram_account_id ?? null;
 
   // Instagram: one of our own postback codes (a conversation starter, opt-in
   // or follow-check tap that found no run to answer) offers only its title;
@@ -727,9 +736,10 @@ async function findEntryFlow(
   const typed = byPrecedence(candidatesByStatus.filter((f) =>
     flowListensOnConversation(f, conversation)));
   const found = (flow: EffectiveFlow, vars: Record<string, string>) => ({ flow, vars, version: versionOf.get(flow.id) });
-  // Story replies and mentions are read from the stored message (Instagram only).
+  // Story replies and mentions, and (Stage 3) the ref link or ad a chat was opened from, are read from the stored message (Instagram only).
   const needsFacts = conversation.channel === "instagram" &&
-    typed.some((f) => f.trigger_type === "ig_story_reply" || f.trigger_type === "ig_story_mention" || f.trigger_type === "default_reply");
+    typed.some((f) => f.trigger_type === "ig_story_reply" || f.trigger_type === "ig_story_mention" || f.trigger_type === "default_reply"
+      || f.trigger_type === "ig_ref" || f.trigger_type === "ad_click");
   const igFacts: InstagramInboundFacts = needsFacts ? await storedInstagramFacts(db, accountId, conversationId, message.meta_message_id) : {};
   for (const flow of typed) {
     if (flow.trigger_type === "ig_story_reply") {
@@ -746,10 +756,16 @@ async function findEntryFlow(
     } else if (flow.trigger_type === "order_received") {
       const vars = orderReceivedMatch(message);
       if (vars) return found(flow, vars);
+    } else if (flow.trigger_type === "ig_ref") {
+      // A chat opened from a ref link (Instagram only: flowListensOnConversation keeps it off WhatsApp).
+      const vars = refTriggerMatch(igFacts, flow.trigger_config as IgRefTriggerConfig, instagramAccountId);
+      if (vars) return found(flow, vars);
     } else if (flow.trigger_type === "ad_click") {
-      // Only a click-to-WhatsApp ad (not a boosted post); an active run
-      // already took the message before this point (no preemption).
-      const vars = adClickMatch(message, flow.trigger_config as AdClickTriggerConfig);
+      // Only a click-to-WhatsApp ad (not a boosted post), or on Instagram a
+      // click-to-Direct ad; an active run already took the message before
+      // this point (no preemption).
+      const cfg = flow.trigger_config as AdClickTriggerConfig;
+      const vars = conversation.channel === "instagram" ? igAdClickMatch(igFacts, cfg) : adClickMatch(message, cfg);
       if (vars) return found(flow, vars);
     } else if (flow.trigger_type === "template_reply") {
       const vars = templateReplyMatch(message, flow.trigger_config as TemplateReplyTriggerConfig);
@@ -3360,9 +3376,10 @@ export async function startCommentFlow(args: { accountId: string; eventId: strin
   if (error) throw new Error("Comment flow lookup failed");
   if (!data) return "unavailable";
   const graph = await startGraph(db, data as FlowRow);
-  if (!graph || graph.flow.trigger_type !== "ig_comment" || !scopeIncludes(graph.flow.channel_scope, "instagram")
+  if (!graph || !startsFromComment(graph.flow.trigger_type) || !scopeIncludes(graph.flow.channel_scope, "instagram")
     || !graph.flow.entry_node_id || !graph.nodes.has(graph.flow.entry_node_id)) return "unavailable";
-  const trigger = (graph.flow.trigger_config ?? {}) as IgCommentTriggerConfig;
+  // ig_comment and ig_live_comment (Stage 3) share the run: a Live comment has no public reply.
+  const trigger = (graph.flow.trigger_config ?? {}) as IgCommentTriggerConfig | IgLiveCommentTriggerConfig;
   if (trigger.instagram_account_id && trigger.instagram_account_id !== event.instagram_account_id) return "unavailable";
 
   const { resolveCommentThread } = await import("@/lib/instagram/process-webhook");
@@ -3405,7 +3422,8 @@ export async function startCommentFlow(args: { accountId: string; eventId: strin
   }
   committedRuns.add(run);
   // The trigger's public reply (0-3 variants, one picked per comment); a failure never stops the DM.
-  const reply = pickPublicReply(trigger.public_replies, event.comment_id, validCommentReply);
+  const reply = graph.flow.trigger_type === "ig_comment"
+    ? pickPublicReply((trigger as IgCommentTriggerConfig).public_replies, event.comment_id, validCommentReply) : null;
   const input: DispatchInboundInput = {
     accountId, userId: flow.user_id, contactId: thread.contactId, conversationId: thread.conversationId,
     message: { kind: "text", text: "", meta_message_id: `igc:${event.comment_id}` },

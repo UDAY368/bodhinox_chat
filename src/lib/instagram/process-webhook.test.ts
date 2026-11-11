@@ -104,7 +104,6 @@ describe('parseMessagingEvent', () => {
     const base = { sender: { id: '9001' }, recipient: { id: ACCOUNT_IG }, timestamp: 1 };
     expect(parseMessagingEvent(ACCOUNT_IG, { ...base, reaction: { mid: 'm1', action: 'react', reaction: 'love' } }).kind).toBe('unsupported');
     expect(parseMessagingEvent(ACCOUNT_IG, { ...base, read: { mid: 'm1' } }).kind).toBe('unsupported');
-    expect(parseMessagingEvent(ACCOUNT_IG, { ...base, referral: { ref: 'x' } }).kind).toBe('unsupported');
     expect(parseMessagingEvent(ACCOUNT_IG, { ...base, message: { mid: 'm1', is_deleted: true } }).kind).toBe('unsupported');
   });
 
@@ -121,13 +120,49 @@ describe('parseMessagingEvent', () => {
   });
 });
 
+describe('referrals (ref links and click-to-Direct ads, Stage 3)', () => {
+  const base = { sender: { id: '9001' }, recipient: { id: ACCOUNT_IG }, timestamp: NOW.getTime() - 1000 };
+
+  it('keeps the referral of a message, with the ad id and title for an ad', () => {
+    const event = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 'r1', text: 'hi', referral: { ref: 'summer', source: 'SHORTLINK', type: 'OPEN_THREAD' } }), NOW);
+    expect(event).toMatchObject({ kind: 'message', items: [{ ig: { referral: { ref: 'summer', source: 'SHORTLINK', type: 'OPEN_THREAD' } } }] });
+    const ad = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 'r2', text: 'hi', referral: { source: 'ADS', type: 'OPEN_THREAD', ad_id: '12345',
+      ads_context_data: { ad_title: 'Sale', photo_url: 'https://cdn.example/x.jpg' } } }), NOW);
+    expect(ad).toMatchObject({ items: [{ ig: { referral: { source: 'ADS', ad_id: '12345', ad_title: 'Sale' } } }] });
+    // Nothing else of the ad payload (urls, click ids) is kept.
+    expect(JSON.stringify(ad)).not.toContain('cdn.example');
+  });
+
+  it('attaches a referral that sits beside the message, and one on a postback', () => {
+    const beside = parseMessagingEvent(ACCOUNT_IG, { ...base, message: { mid: 'r3', text: 'hi' }, referral: { ref: 'bio', source: 'SHORTLINK' } }, NOW);
+    expect(beside).toMatchObject({ kind: 'message', items: [{ ig: { referral: { ref: 'bio' } } }] });
+    const postback = parseMessagingEvent(ACCOUNT_IG, { ...base, postback: { mid: 'r4', payload: 'p', title: 'Go' }, referral: { ref: 'bio' } }, NOW);
+    expect(postback).toMatchObject({ kind: 'message', items: [{ ig: { referral: { ref: 'bio' } } }] });
+  });
+
+  it('turns a referral with no message into a referral event, and ignores one from the account itself', () => {
+    expect(parseMessagingEvent(ACCOUNT_IG, { ...base, referral: { ref: 'x', source: 'SHORTLINK' } }, NOW))
+      .toMatchObject({ kind: 'referral', igsid: '9001', referral: { ref: 'x', source: 'SHORTLINK' } });
+    expect(parseMessagingEvent(ACCOUNT_IG, { ...base, sender: { id: ACCOUNT_IG }, referral: { ref: 'x' } }, NOW).kind).toBe('unsupported');
+    expect(parseMessagingEvent(ACCOUNT_IG, { ...base, referral: {} }, NOW).kind).toBe('unsupported');
+  });
+});
+
 describe('comments', () => {
   it('parses a comments change and counts other fields as unsupported', () => {
     expect(parseCommentChange({ field: 'comments', value: { id: '555', text: 'Price?', media: { id: '777' }, from: { id: '9001', username: 'u' } } }))
       .toEqual({ commentId: '555', mediaId: '777', fromIgsid: '9001', text: 'Price?' });
     expect(parseCommentChange({ field: 'mentions', value: {} })).toBe('unsupported');
-    expect(parseCommentChange({ field: 'live_comments', value: {} })).toBe('unsupported');
+    expect(parseCommentChange({ field: 'story_insights', value: {} })).toBe('unsupported');
     expect(parseCommentChange({ field: 'comments', value: { id: 'x' } })).toBeNull();
+    expect(parseCommentChange({ field: 'live_comments', value: { id: 'x' } })).toBeNull();
+  });
+
+  it('parses a Live comment (live_comments, Stage 3) like a comment, marked live', () => {
+    expect(parseCommentChange({ field: 'live_comments', value: { id: '556', text: 'Link?', media: { id: '888', media_product_type: 'LIVE' }, from: { id: '9002', username: 'u' } } }))
+      .toEqual({ commentId: '556', mediaId: '888', fromIgsid: '9002', text: 'Link?', live: true });
+    expect(parseCommentChange({ field: 'comments', value: { id: '557', text: 'x', media: { id: '1' }, from: { id: '9' } } }))
+      .not.toHaveProperty('live');
   });
 
   it('matches a post rule before an any-post rule, by lower-cased keyword', () => {

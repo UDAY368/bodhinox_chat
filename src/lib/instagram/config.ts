@@ -22,6 +22,11 @@ export interface InstagramConfig {
   redirectUri: string;
   /** Meta approved the Human Agent feature (staff replies up to 7 days). */
   humanAgentEnabled: boolean;
+  /**
+   * The Click-to-Direct 7-day window applies (Stage 3). Off until a live
+   * account confirms Meta's rule (INSTAGRAM_CTD_WINDOW_ENABLED=true).
+   */
+  ctdWindowEnabled: boolean;
 }
 
 export type InstagramDisabledReason = 'flag_off' | 'not_configured';
@@ -70,6 +75,7 @@ export function instagramConfig(env: Env = process.env): InstagramConfig | null 
     webhookVerifyToken,
     redirectUri,
     humanAgentEnabled: env.INSTAGRAM_HUMAN_AGENT_ENABLED?.trim() === 'true',
+    ctdWindowEnabled: env.INSTAGRAM_CTD_WINDOW_ENABLED?.trim() === 'true',
   };
 }
 

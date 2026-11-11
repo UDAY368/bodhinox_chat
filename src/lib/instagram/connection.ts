@@ -61,6 +61,18 @@ export interface InstagramAccountView {
   disconnectedAt: string | null;
 }
 
+/**
+ * The webhook fields an account is subscribed to for its granted scopes. The
+ * comments scope adds comments and (Stage 3) live_comments; subscribe replaces
+ * the whole list, so a resubscribe always sends all of them
+ * (resubscribe.ts brings accounts connected before Stage 3 up to date).
+ */
+export function webhookFieldsFor(scopes: readonly string[]): SubscribedField[] {
+  const fields: SubscribedField[] = ['messages', 'messaging_postbacks'];
+  if (scopes.includes(COMMENTS_SCOPE)) fields.push('comments', 'live_comments');
+  return fields;
+}
+
 export interface ConnectStart {
   /** The Instagram authorize URL to redirect to. */
   url: string;
@@ -306,10 +318,8 @@ export async function finishConnect(actor: InstagramActor,
   const status: InstagramAccountStatus = dmReady ? 'active' : 'permission_missing';
   let subscribed = false;
   if (dmReady) {
-    const fields: SubscribedField[] = ['messages', 'messaging_postbacks'];
-    if (scopes.includes(COMMENTS_SCOPE)) fields.push('comments');
     try {
-      await subscribe(me.userId, token, fields);
+      await subscribe(me.userId, token, webhookFieldsFor(scopes));
       subscribed = true;
     } catch (error) {
       throw metaFailure(error);
