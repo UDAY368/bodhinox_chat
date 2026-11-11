@@ -441,7 +441,11 @@
       "hideNotes": "내부 메모 숨기기",
       "resolve": "해결",
       "reopen": "다시 열기",
-      "resolveFailed": "대화를 업데이트할 수 없습니다. 다시 시도해 주세요."
+      "resolveFailed": "대화를 업데이트할 수 없습니다. 다시 시도해 주세요.",
+      "senderAi": "AI 어시스턴트",
+      "senderAutomation": "자동화",
+      "senderTeam": "우리 팀",
+      "senderFormerMember": "이전 멤버"
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -894,6 +898,34 @@
       "favourites": "즐겨찾기",
       "reminders": "리마인더",
       "labels": "라벨"
+    },
+    "history": {
+      "title": "채팅 기록",
+      "loading": "불러오는 중…",
+      "loadFailed": "채팅 기록을 불러오지 못했어요.",
+      "empty": "아직 배정 기록이 없어요.",
+      "formerMember": "이전 멤버",
+      "tookIt": "{to}님이 이 채팅을 맡았어요",
+      "assignedBy": "{by}님이 {to}님에게 배정",
+      "assignedAuto": "{to}님에게 자동 배정",
+      "unassignedBy": "{by}님이 {from}님의 배정을 해제",
+      "unassignedAuto": "{from}님의 배정이 자동으로 해제됨",
+      "resolvedBy": "{by}님이 해결",
+      "resolvedAuto": "자동으로 해결됨",
+      "reopenedBy": "{by}님이 다시 열었어요",
+      "reopenedAuto": "고객이 메시지를 보내 다시 열렸어요",
+      "showAll": "{count}개 모두 보기",
+      "showLess": "접기",
+      "notFound": "이 채팅이 없거나 볼 수 있는 권한이 없어요."
+    },
+    "agentFilter": {
+      "agent": "상담원",
+      "anyAgent": "모든 상담원",
+      "assignedTo": "{name}님에게 배정됨",
+      "handledBy": "{name}님이 처리함",
+      "handledHelp": "한 번이라도 배정되었거나 직접 메시지를 보낸 채팅",
+      "sectionAssigned": "현재 배정된 상담원",
+      "sectionHandled": "처리한 적 있는 상담원"
     }
   },
   "Contacts": {

@@ -250,6 +250,11 @@ describe('fixed CRM resource authorization', () => {
     expect(getResource('conversations', true).read).toEqual(expect.arrayContaining(['bot_paused_until', 'bot_paused_by']));
     expect(getResource('contacts', true).read).toEqual(expect.arrayContaining(['instagram_opted_out_at', 'instagram_opted_in_at']));
   });
+  it('lets no browser claim or move who resolved a conversation, but shows it', () => {
+    for (const operation of ['insert', 'update'] as const)
+      expect(() => validateWrite('conversations', { resolved_by: tenant.userId }, tenant, true, operation)).toThrow(/server-managed/);
+    expect(getResource('conversations', true).read).toContain('resolved_by');
+  });
   it('keeps conversation lifecycle and SLA stamps out of browser writes while status stays writable', () => {
     for (const [field, value] of [
       ['lifecycle_state', 'resolved'],

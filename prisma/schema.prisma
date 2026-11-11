@@ -139,7 +139,25 @@ model conversations {
   /// Stage 5 (20261118000300): NULL with bot_paused pauses until resumed; a time ends the pause then.
   bot_paused_until DateTime? @db.Timestamptz(6)
   bot_paused_by String? @db.Uuid
+  /// The member who resolved it (20261119000000); set by the database, NULL when it resolved automatically.
+  resolved_by String? @db.Uuid
   @@unique([account_id, id])
+}
+
+/// Who handled which chat (20261119000000): assignments, resolves and reopens, written only by a trigger.
+model conversation_handling_events {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid
+  conversation_id String @db.Uuid
+  /// 'assigned' | 'unassigned' | 'resolved' | 'reopened'
+  kind String
+  from_user_id String? @db.Uuid
+  to_user_id String? @db.Uuid
+  /// NULL: automatic (routing, the worker)
+  actor_user_id String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, conversation_id, created_at], map: "conversation_handling_events_conversation_idx")
 }
 
 model messages {

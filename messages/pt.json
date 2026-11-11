@@ -441,7 +441,11 @@
       "hideNotes": "Ocultar notas internas",
       "resolve": "Resolver",
       "reopen": "Reabrir",
-      "resolveFailed": "Não foi possível atualizar a conversa. Tente novamente."
+      "resolveFailed": "Não foi possível atualizar a conversa. Tente novamente.",
+      "senderAi": "Assistente de IA",
+      "senderAutomation": "Automação",
+      "senderTeam": "Sua equipe",
+      "senderFormerMember": "Ex-membro"
     },
     "sessionTimer": {
       "expired": "Expirada",
@@ -894,6 +898,34 @@
       "favourites": "Favoritas",
       "reminders": "Lembretes",
       "labels": "Etiquetas"
+    },
+    "history": {
+      "title": "Histórico do chat",
+      "loading": "Carregando…",
+      "loadFailed": "Não foi possível carregar o histórico do chat.",
+      "empty": "Ainda não há atribuições.",
+      "formerMember": "um ex-membro",
+      "tookIt": "{to} assumiu este chat",
+      "assignedBy": "Atribuído a {to} por {by}",
+      "assignedAuto": "Atribuído a {to} automaticamente",
+      "unassignedBy": "{by} removeu a atribuição de {from}",
+      "unassignedAuto": "A atribuição de {from} foi removida automaticamente",
+      "resolvedBy": "Resolvido por {by}",
+      "resolvedAuto": "Resolvido automaticamente",
+      "reopenedBy": "Reaberto por {by}",
+      "reopenedAuto": "Reaberto quando o cliente escreveu",
+      "showAll": "Ver todos os {count}",
+      "showLess": "Ver menos",
+      "notFound": "Este chat não existe mais ou não está visível para você."
+    },
+    "agentFilter": {
+      "agent": "Agente",
+      "anyAgent": "Qualquer agente",
+      "assignedTo": "Atribuídos a {name}",
+      "handledBy": "Atendidos por {name}",
+      "handledHelp": "Atribuídos a essa pessoa em algum momento, ou com uma mensagem dela",
+      "sectionAssigned": "Atribuídos agora a",
+      "sectionHandled": "Atendidos alguma vez por"
     }
   },
   "Contacts": {

@@ -908,6 +908,14 @@
         "default": null,
         "reference": null,
         "definition": "bot_paused_by uuid"
+      },
+      {
+        "name": "resolved_by",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "resolved_by uuid"
       }
     ],
     "messages": [
@@ -18244,6 +18252,76 @@
         "default": "now()",
         "reference": null,
         "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "conversation_handling_events": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "conversation_id uuid NOT NULL"
+      },
+      {
+        "name": "kind",
+        "type": "text",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "kind text NOT NULL CHECK (kind IN ('assigned', 'unassigned', 'resolved', 'reopened'))"
+      },
+      {
+        "name": "from_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "from_user_id uuid"
+      },
+      {
+        "name": "to_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "to_user_id uuid"
+      },
+      {
+        "name": "actor_user_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "actor_user_id uuid"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
       }
     ]
   }

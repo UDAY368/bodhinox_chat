@@ -915,6 +915,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
               folders={folders}
               onCollapse={handleToggleContactPanel}
               refreshToken={`${resyncToken}:${messages.length}`}
+              handlingKey={`${activeConversation?.assigned_agent_id ?? ''}:${activeConversation?.status ?? ''}`}
               onUpdated={(updated) => {
                 setActiveContact((previous) =>
                   previous?.id === updated.id ? updated : previous

@@ -21,6 +21,7 @@ import { ChannelBadge } from '@/components/inbox/channel-badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AssessmentPanel } from '@/components/inbox/ai-assessment/assessment-panel';
+import { HandlingHistory } from '@/components/inbox/handling-history';
 import { LabelPicker } from '@/components/inbox/label-picker';
 import type { InboxFolders } from '@/components/inbox/use-inbox-folders';
 import { InstagramFacts } from '@/components/contacts/instagram-facts';
@@ -28,6 +29,8 @@ import { InstagramFacts } from '@/components/contacts/instagram-facts';
 interface ContactSidebarProps {
   contact: Contact | null;
   refreshToken?: string | number;
+  /** Changes when the open conversation's assignee or status changes, so its history reloads. */
+  handlingKey?: string;
   onUpdated?: (contact: Contact) => void;
   onCollapse?: () => void;
   /** The open conversation's channel (from its row); Instagram is marked. */
@@ -41,6 +44,7 @@ interface ContactSidebarProps {
 export function ContactSidebar({
   contact,
   refreshToken,
+  handlingKey,
   onUpdated,
   onCollapse,
   channel = 'whatsapp',
@@ -219,6 +223,9 @@ export function ContactSidebar({
               <AssessmentPanel conversationId={conversationId} refreshToken={refreshToken} />
               {conversationId && folders && (
                 <LabelPicker conversationId={conversationId} folders={folders} canEdit={canSendMessages} />
+              )}
+              {conversationId && (
+                <HandlingHistory conversationId={conversationId} refreshToken={`${refreshToken ?? ''}|${handlingKey ?? ''}`} className={sectionClass} />
               )}
               {channel === 'instagram' && (
                 <InstagramFacts contactId={contact.id} refreshToken={refreshToken} className={sectionClass} />
