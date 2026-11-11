@@ -51,16 +51,36 @@ describe('channel capabilities', () => {
     expect(nodeAvailableOn('send_message', 'instagram', { text: 'é'.repeat(501) })).toEqual({ ok: true, warning: 'text_over_limit' });
   });
 
+  it('sends audio on Instagram only in a format it plays (Stage 3 audio fix), and any audio on WhatsApp', () => {
+    for (const file of ['https://x.test/a.m4a', 'https://x.test/a.aac?v=1', 'https://x.test/a.mp4', 'https://x.test/a.WAV'])
+      expect(nodeAvailableOn('send_media', 'instagram', { media_type: 'audio', media_url: file }), file).toEqual({ ok: true });
+    // The file name decides when the URL has no extension.
+    expect(nodeAvailableOn('send_media', 'instagram', { media_type: 'audio', media_url: 'https://x.test/obj/123', filename: 'jingle.m4a' }).ok).toBe(true);
+    for (const file of ['https://x.test/a.ogg', 'https://x.test/a.opus', 'https://x.test/a.mp3', 'https://x.test/a.webm', 'https://x.test/a'])
+      expect(nodeAvailableOn('send_media', 'instagram', { media_type: 'audio', media_url: file }), file)
+        .toEqual({ ok: false, reason: 'unavailable_on_channel' });
+    for (const file of ['https://x.test/a.ogg', 'https://x.test/a.mp3', 'https://x.test/a.m4a', 'https://x.test/a.AAC?v=2', 'https://x.test/a.amr'])
+      expect(nodeAvailableOn('send_media', 'whatsapp', { media_type: 'audio', media_url: file }), file).toEqual({ ok: true });
+    // WhatsApp refuses these at send time, which would fail the run; publish refuses them first.
+    for (const file of ['https://x.test/a.wav', 'https://x.test/a.webm', 'https://x.test/a.opus', 'https://x.test/obj/123'])
+      expect(nodeAvailableOn('send_media', 'whatsapp', { media_type: 'audio', media_url: file }), file)
+        .toEqual({ ok: false, reason: 'unavailable_on_channel' });
+    // Existing WhatsApp media steps are unchanged: any image, video or document passes, as before.
+    for (const media_type of ['image', 'video', 'document'])
+      expect(nodeAvailableOn('send_media', 'whatsapp', { media_type, media_url: 'https://x.test/obj/123' }), media_type).toEqual({ ok: true });
+    expect(nodeAvailableOn('send_media', 'instagram', { media_type: 'sticker', media_url: 'https://x.test/a.webp' }).ok).toBe(false);
+  });
+
   it('keeps WhatsApp-only triggers off Instagram and Instagram triggers off WhatsApp', () => {
-    for (const trigger of ['keyword', 'first_inbound_message', 'manual', 'default_reply'] as const) {
+    for (const trigger of ['keyword', 'first_inbound_message', 'manual', 'default_reply', 'ad_click'] as const) {
       expect(triggerAvailableOn(trigger, 'instagram')).toBe(true);
       expect(triggerAvailableOn(trigger, 'whatsapp')).toBe(true);
     }
-    for (const trigger of ['template_reply', 'order_received', 'ad_click'] as const) {
+    for (const trigger of ['template_reply', 'order_received'] as const) {
       expect(triggerAvailableOn(trigger, 'instagram')).toBe(false);
       expect(triggerAvailableOn(trigger, 'whatsapp')).toBe(true);
     }
-    for (const trigger of ['ig_comment', 'ig_story_reply', 'ig_story_mention'] as const) {
+    for (const trigger of ['ig_comment', 'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref'] as const) {
       expect(triggerAvailableOn(trigger, 'instagram')).toBe(true);
       expect(triggerAvailableOn(trigger, 'whatsapp')).toBe(false);
     }
@@ -69,8 +89,9 @@ describe('channel capabilities', () => {
   it('builds each channel flow palette from one exhaustive map', () => {
     expect(flowTriggersFor('whatsapp')).toEqual(['keyword', 'first_inbound_message', 'manual', 'template_reply', 'order_received', 'ad_click',
       'default_reply']);
-    expect(flowTriggersFor('instagram')).toEqual(['keyword', 'first_inbound_message', 'manual', 'default_reply', 'ig_comment', 'ig_story_reply',
-      'ig_story_mention']);
+    // Stage 3: click-to-Direct ads (ad_click), Live comments and ref links on Instagram.
+    expect(flowTriggersFor('instagram')).toEqual(['keyword', 'first_inbound_message', 'manual', 'ad_click', 'default_reply', 'ig_comment',
+      'ig_story_reply', 'ig_story_mention', 'ig_live_comment', 'ig_ref']);
     for (const channel of CHANNELS)
       for (const trigger of FLOW_TRIGGERS_BY_CHANNEL[channel]) expect(triggerAvailableOn(trigger, channel)).toBe(true);
     // Every trigger type is offered by at least one channel.

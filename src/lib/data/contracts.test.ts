@@ -305,6 +305,18 @@ describe('fixed CRM resource authorization', () => {
     for (const table of ['instagram_accounts', 'contact_channel_identities', 'instagram_comment_events', 'workspace_inbox_settings'])
       expect(() => getResource(table, true)).toThrow();
   });
+  it('keeps the Stage 3 AI comment settings browser read-only and the approval queue off the generic API', () => {
+    const owner = { ...tenant, role: 'owner' as const };
+    // The switches are readable like the other AI settings; auto-approve is set only through a server route.
+    for (const column of ['instagram_ai_comments_enabled', 'instagram_ai_comments_auto_approve', 'instagram_ai_comments_daily_cap']) {
+      expect(getResource('ai_configs', true).read).toContain(column);
+      expect(() => validateWrite('ai_configs', { [column]: true }, owner, true, 'update')).toThrow();
+    }
+    // Approvals go through the AI comment routes (role, CSRF, outbound intent), never the generic resource API.
+    expect(() => getResource('instagram_ai_comment_queue', true)).toThrow();
+    expect(() => getResource('instagram_ai_comment_queue')).toThrow();
+    expect(() => resourceBySlug('instagram-ai-comment-queue')).toThrow();
+  });
   it('lets a browser read an automation channel but never set it; workspace_channels is not a resource', () => {
     expect(getResource('automations', true).read).toContain('channel');
     expect(() => validateQuery('automations', { projection: 'id,channel', filters: [{ field: 'channel', op: 'eq', value: 'instagram' }] }, tenant, true)).not.toThrow();

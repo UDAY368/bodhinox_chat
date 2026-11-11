@@ -232,15 +232,16 @@ describe("channel palettes (Stage 1)", () => {
     expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "ai_reply", "handoff", "end"]));
     // Stage 2 (2D): the Instagram-only steps have their forms, so the Instagram palette offers them.
     for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(steps).toContain(instagramOnly);
-    expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_story_reply", "ig_story_mention", "first_inbound_message",
-      "default_reply", "manual"]);
+    // Stage 3: Live comments, ref links and click-to-Direct ads (ad_click).
+    expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_live_comment", "ig_story_reply", "ig_story_mention",
+      "ig_ref", "first_inbound_message", "ad_click", "default_reply", "manual"]);
   });
 
   it("offers a legacy flow on both channels only what both run", () => {
     const instagram = nodeTypesForScope("instagram");
     expect(nodeTypesForScope("any")).toEqual(nodeTypesForScope("whatsapp").filter((type) => instagram.includes(type)));
     for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(nodeTypesForScope("any")).not.toContain(instagramOnly);
-    expect(triggerTypesForScope("any")).toEqual(["keyword", "first_inbound_message", "default_reply", "manual"]);
+    expect(triggerTypesForScope("any")).toEqual(["keyword", "first_inbound_message", "ad_click", "default_reply", "manual"]);
   });
 
   it("makes an added private reply the first step, continuing to the old entry", () => {

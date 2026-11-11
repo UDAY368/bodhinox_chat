@@ -6,7 +6,7 @@
  * (src/lib/flows/validate.ts) checks the same rules again on the server.
  */
 
-import { IG_TRIGGER_LIMITS, type FlowTriggerType, type IgCard, type IgCardButton } from "@/lib/flows/types";
+import { IG_TRIGGER_LIMITS, startsFromComment, type FlowTriggerType, type IgCard, type IgCardButton } from "@/lib/flows/types";
 import { deriveCanvasEdges } from "@/lib/flows/edges";
 import { charLength, INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
 import type { BuilderNode, NodeType } from "../shared";
@@ -15,15 +15,26 @@ import type { BuilderNode, NodeType } from "../shared";
 export const COMMENT_ONLY_STEPS: ReadonlySet<NodeType> = new Set<NodeType>(["ig_private_reply", "ig_comment_reply"]);
 
 /**
+ * Whether a comment step may sit in a flow with this trigger: the private
+ * reply in any comment flow (a post or a Live comment, PRIVATE_REPLY_TRIGGERS),
+ * the public comment reply only under a post comment.
+ */
+export function commentStepAllowed(type: NodeType, trigger: FlowTriggerType): boolean {
+  if (type === "ig_comment_reply") return trigger === "ig_comment";
+  return type === "ig_private_reply" ? startsFromComment(trigger) : true;
+}
+
+/**
  * The add-step menu for a flow, given the channel palette (`types`), its
  * trigger and its steps. The private reply and the public comment reply are
- * offered only in a comment flow, and each at most once (Instagram allows
- * one private reply per comment, and the public reply is sent once per
- * comment), so an invalid combination cannot be placed from the menus.
+ * offered only in a comment flow (commentStepAllowed), and each at most once
+ * (Instagram allows one private reply per comment, and the public reply is
+ * sent once per comment), so an invalid combination cannot be placed from
+ * the menus.
  */
 export function placeableNodeTypes(types: readonly NodeType[], trigger: FlowTriggerType, nodes: readonly BuilderNode[]): NodeType[] {
   return types.filter((type) => !COMMENT_ONLY_STEPS.has(type) ||
-    (trigger === "ig_comment" && !nodes.some((node) => node.node_type === type)));
+    (commentStepAllowed(type, trigger) && !nodes.some((node) => node.node_type === type)));
 }
 
 /** Why a placed comment step cannot run where it is, or null when it can. */
@@ -63,7 +74,7 @@ export function firstPrivateReplies(nodes: readonly BuilderNode[], entry: string
 export function commentStepIssue(node: BuilderNode, trigger: FlowTriggerType, entry: string | null,
   nodes: readonly BuilderNode[]): CommentStepIssue | null {
   if (!COMMENT_ONLY_STEPS.has(node.node_type)) return null;
-  if (trigger !== "ig_comment") return "onlyCommentFlows";
+  if (!commentStepAllowed(node.node_type, trigger)) return "onlyCommentFlows";
   if (node.node_type === "ig_private_reply" && !firstPrivateReplies(nodes, entry).has(node.node_key)) return "firstOnly";
   return null;
 }
@@ -78,7 +89,7 @@ export const canRouteInto = (source: NodeType | undefined, target: BuilderNode):
 
 /** A comment flow whose entry is its private reply keeps that entry: no other step can be made first. */
 export function entryLocked(trigger: FlowTriggerType, nodes: readonly BuilderNode[], entry: string | null): boolean {
-  return trigger === "ig_comment" && nodes.some((n) => n.node_key === entry && n.node_type === "ig_private_reply");
+  return startsFromComment(trigger) && nodes.some((n) => n.node_key === entry && n.node_type === "ig_private_reply");
 }
 
 /**

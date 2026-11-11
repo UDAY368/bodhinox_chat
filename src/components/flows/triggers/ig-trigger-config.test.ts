@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { FLOW_TRIGGER_TYPES } from "@/lib/flows/types";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import type { BuilderState } from "../flow-editor-state";
-import { addIds, addKeywords, applyTriggerType, defaultTriggerConfig, setPostScope, setPublicReplies, setTriggerAccount, toggleMedia } from "./ig-trigger-config";
+import {
+  addIds, addKeywords, addRefKeys, applyTriggerType, defaultTriggerConfig, setPostScope, setPublicReplies, setTriggerAccount, toggleMedia,
+} from "./ig-trigger-config";
 
 const state = (patch: Partial<BuilderState> = {}): BuilderState => ({
   name: "f", description: "", trigger_type: "keyword", trigger_config: { keywords: ["hi"] }, entry_node_id: null, status: "draft",
@@ -39,6 +41,19 @@ describe("trigger settings", () => {
     expect(again.nodes.filter((n) => n.node_type === "ig_private_reply")).toHaveLength(1);
   });
 
+  it("(Stage 3) starts Live comment and ref link triggers with their settings; a Live comment flow opens with a private reply", () => {
+    expect(defaultTriggerConfig("ig_live_comment")).toEqual({ keywords: [], match_mode: "contains" });
+    expect(defaultTriggerConfig("ig_ref")).toEqual({ refs: [] });
+    const before = state({ entry_node_id: "hello", nodes: [{ node_key: "hello", node_type: "send_message", config: { text: "hi", next_node_key: "" } }] });
+    const live = applyTriggerType(before, "ig_live_comment");
+    const reply = live.nodes.find((n) => n.node_type === "ig_private_reply");
+    expect(live.entry_node_id).toBe(reply?.node_key);
+    // A ref link opens the chat itself, so no private reply is added.
+    const ref = applyTriggerType(before, "ig_ref");
+    expect(ref.nodes).toBe(before.nodes);
+    expect(ref.entry_node_id).toBe("hello");
+  });
+
   it("keeps a private reply that already comes first behind a start step", () => {
     const before = state({
       entry_node_id: "start",
@@ -68,6 +83,14 @@ describe("keyword, post and story lists", () => {
     const many = addKeywords([], Array.from({ length: 70 }, (_, i) => `k${i}`).join(","));
     expect(many).toHaveLength(50);
     expect(addKeywords(many, "one-more")).toHaveLength(50);
+  });
+
+  it("adds ref keys made link-safe, de-duplicated case-insensitively, at most 20", () => {
+    expect(addRefKeys([], " Summer sale , bio, BIO, !!! ")).toEqual(["Summer-sale", "bio"]);
+    expect(addRefKeys(["bio"], "Bio")).toEqual(["bio"]);
+    const full = Array.from({ length: 20 }, (_, i) => `k${i}`);
+    expect(addRefKeys(full, "one-more")).toEqual(full);
+    expect(addRefKeys([], "x".repeat(80))[0]).toHaveLength(64);
   });
 
   it("adds only numeric ids, without duplicates, up to the cap", () => {

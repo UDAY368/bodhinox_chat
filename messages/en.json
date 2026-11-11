@@ -98,7 +98,10 @@
     "defaultReply": "Default reply",
     "quickAutomations": "Quick automations",
     "addInstagram": "Add Instagram",
-    "upgrade": "Upgrade"
+    "upgrade": "Upgrade",
+    "refLinks": "Ref links",
+    "menu": "Menu",
+    "insights": "Insights"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -131,7 +134,10 @@
     "comments": "Comments",
     "conversationStarters": "Conversation starters",
     "defaultReply": "Default reply",
-    "quickAutomations": "Quick automations"
+    "quickAutomations": "Quick automations",
+    "refLinks": "Ref links",
+    "menu": "Menu",
+    "insights": "Insights"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"
@@ -1956,7 +1962,10 @@
       "triggerIgCommentSpecific": "Triggers on: a comment on {count, plural, one {# chosen post} other {# chosen posts}}",
       "triggerIgCommentNext": "Triggers on: a comment on your next post",
       "triggerIgStoryReply": "Triggers on: a reply to your story",
-      "triggerIgStoryMention": "Triggers on: a mention in someone’s story"
+      "triggerIgStoryMention": "Triggers on: a mention in someone’s story",
+      "triggerIgLiveComment": "Triggers on: a comment on your Live",
+      "triggerIgRef": "Triggers on: ref link {refs}",
+      "triggerIgRefNone": "Triggers on: a ref link (no keys yet)"
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -2277,7 +2286,8 @@
         "storefrontNext": "Next step once sent",
         "storefrontFailedNext": "If the link can’t be sent",
         "flowStatusPaused": "paused",
-        "removeButton": "Remove button"
+        "removeButton": "Remove button",
+        "audioLabel": "Audio (AAC, M4A; MP3 and OGG on WhatsApp only)"
       },
       "categories": {
         "messaging": "Messaging",
@@ -2464,7 +2474,8 @@
         "media": {
           "image": "Photo",
           "video": "Video",
-          "document": "Document"
+          "document": "Document",
+          "audio": "Audio"
         },
         "notes": {
           "delay": "Waits {seconds, plural, one {# second} other {# seconds}}",
@@ -2556,7 +2567,10 @@
       "triggerDefaultReplyTitle": "A message no other flow answers (default reply)",
       "triggerIgCommentTitle": "Someone comments on your post",
       "triggerIgStoryReplyTitle": "Someone replies to your story",
-      "triggerIgStoryMentionTitle": "Someone mentions you in their story"
+      "triggerIgStoryMentionTitle": "Someone mentions you in their story",
+      "triggerIgLiveCommentTitle": "Someone comments on your Live",
+      "triggerIgRefTitle": "Someone opens a chat from your ref link",
+      "adClickTriggerHelpInstagram": "Starts when someone messages you from an ad that opens Instagram Direct, before any keyword flow. An active conversation flow keeps running."
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -2881,6 +2895,30 @@
       "igStoryMention": {
         "help": "Starts when someone mentions your account in their story.",
         "badFrequency": "Choose how often this flow runs for each person."
+      },
+      "igLiveComment": {
+        "help": "Starts when someone comments on your Instagram Live while you are live. Each person starts it once per broadcast. The first message is a private reply to the comment.",
+        "keywords": "Only comments with these words",
+        "keywordsHelp": "Leave empty to start on any comment.",
+        "liveOnly": "Instagram sends Live comments only while the broadcast is on.",
+        "badKeywords": "Use at most {max} keywords, each under {chars} characters.",
+        "badAccount": "Choose a connected Instagram account."
+      },
+      "igRef": {
+        "help": "Starts when someone opens a chat with you from one of your ref links. Share the link in your bio, a story or anywhere online.",
+        "keys": "Ref keys",
+        "keysPlaceholder": "summer-sale",
+        "keysHelp": "Letters, numbers, hyphens and underscores. Up to {max} keys.",
+        "tooManyKeys": "Use at most {max} keys.",
+        "needsKeys": "Add at least one ref key.",
+        "badKeys": "Use at most {max} keys made of letters, numbers, hyphens and underscores, each under 64 characters.",
+        "keyTaken": "Another live flow already uses the key “{key}”.",
+        "links": "Links to share",
+        "copyLink": "Copy the link for {key}",
+        "copied": "Link copied.",
+        "copyFailed": "Couldn’t copy the link. Select it and copy it instead.",
+        "chooseAccountForLinks": "Choose an Instagram account with a username to see its links.",
+        "badAccount": "Choose a connected Instagram account."
       }
     },
     "nodes": {
@@ -9926,6 +9964,13 @@
         "net": "Net",
         "hint": "Paid orders in the period. Order discounts and refunds are shared across lines by value, so totals can differ by rounding."
       }
+    },
+    "channel": {
+      "label": "Channel",
+      "all": "All channels",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "whatsappOnlyNote": "Campaign and template figures are WhatsApp only."
     }
   },
   "Ads": {
@@ -11726,6 +11771,144 @@
           "handoffNote": "Asked for a person from the default reply."
         }
       }
+    },
+    "live": {
+      "title": "Live comments",
+      "description": "Reply privately to people who comment while you are live on Instagram.",
+      "newFlow": "New Live comment flow",
+      "noFlows": "No Live comment flows yet.",
+      "reconnectNeeded": "Reconnect your Instagram account to receive Live comments.",
+      "subscribed": "Live comments are on for this account."
+    },
+    "refLinks": {
+      "title": "Ref links",
+      "description": "Links that open a chat with you and start a flow. Use a different link for each place you share it to see what works.",
+      "newLink": "New ref link",
+      "empty": "No ref links yet. Create a flow that starts from a ref link.",
+      "account": "Instagram account",
+      "flow": "Flow",
+      "key": "Key",
+      "link": "Link",
+      "copy": "Copy link",
+      "copied": "Link copied.",
+      "copyFailed": "Couldn’t copy the link. Select it and copy it instead.",
+      "noUsername": "This account has no username yet, so it has no link.",
+      "openFlow": "Open flow",
+      "draft": "Draft: publish the flow to use this link",
+      "lastRef": "Last ref link",
+      "loadFailed": "Couldn’t load your ref links. Try again."
+    },
+    "menu": {
+      "title": "Menu",
+      "description": "The menu people see in a chat with you. Each item starts a flow or opens a link.",
+      "account": "Instagram account",
+      "item": "Item {n}",
+      "itemTitle": "Title",
+      "itemTitlePlaceholder": "Book a call",
+      "type": "When tapped",
+      "typeFlow": "Start a flow",
+      "typeLink": "Open a link",
+      "flow": "Flow",
+      "chooseFlow": "Choose a flow",
+      "noFlows": "Create an Instagram flow first.",
+      "url": "Link",
+      "urlPlaceholder": "https://example.com",
+      "add": "Add item",
+      "remove": "Remove item {n}",
+      "max": "You can add up to {max} items.",
+      "save": "Save and publish",
+      "saving": "Saving…",
+      "saved": "Menu updated on Instagram.",
+      "saveFailed": "Couldn’t update Instagram. Try again.",
+      "clear": "Remove menu",
+      "clearConfirm": "Remove the menu from Instagram?",
+      "cleared": "Menu removed from Instagram.",
+      "empty": "No menu yet.",
+      "needsTitle": "Give each item a title.",
+      "titleTooLong": "Keep each title under {max} characters.",
+      "duplicate": "Each item needs a different title.",
+      "needsFlow": "Choose a flow for each item.",
+      "badUrl": "Use a link that starts with https://",
+      "adminOnly": "Only admins can change the menu.",
+      "notSynced": "Not published yet.",
+      "lastSynced": "Published {time}"
+    },
+    "aiComments": {
+      "tab": "AI replies",
+      "title": "AI replies to comments",
+      "description": "AI reads new comments and drafts a public reply in your brand voice. Nothing is posted until an admin approves it, unless you turn on auto-approve.",
+      "enabled": "Draft replies to comments with AI",
+      "autoApprove": "Post replies without approval",
+      "autoApproveHelp": "Replies to positive comments go out as soon as they are drafted.",
+      "autoApproveWarning": "AI replies will be posted in public without anyone checking them first.",
+      "dailyCap": "Replies per day",
+      "dailyCapHelp": "Between 1 and {max}. Comments past the limit are skipped until tomorrow.",
+      "needsAi": "Set up an AI provider in Settings › AI first.",
+      "settingsSaved": "AI reply settings saved.",
+      "settingsFailed": "Couldn’t save the settings. Try again.",
+      "adminOnly": "Only admins can change these settings or approve replies.",
+      "queue": "Waiting for approval",
+      "history": "History",
+      "empty": "No replies waiting for approval.",
+      "comment": "Comment",
+      "reply": "Reply",
+      "edit": "Edit",
+      "approve": "Approve and post",
+      "reject": "Reject",
+      "approved": "Reply approved. It will be posted shortly.",
+      "rejected": "Reply rejected.",
+      "decideFailed": "Couldn’t save your decision. Try again.",
+      "alreadyDecided": "Someone already decided on this reply.",
+      "commentUnavailable": "This comment was hidden or deleted, so it can’t be answered.",
+      "loadFailed": "Couldn’t load the comments. Try again.",
+      "replyEmpty": "Write a reply first.",
+      "replyTooLong": "Keep the reply under {max} characters.",
+      "autoApprovedBadge": "Auto-approved",
+      "reconcile": "We couldn’t confirm this reply was posted. Check the comment on Instagram before trying again.",
+      "sentiment": {
+        "positive": "Positive",
+        "neutral": "Neutral",
+        "negative": "Negative"
+      },
+      "intent": {
+        "praise": "Praise",
+        "question": "Question",
+        "purchase_intent": "Wants to buy",
+        "complaint": "Complaint",
+        "spam": "Spam",
+        "other": "Other"
+      },
+      "status": {
+        "pending": "Waiting",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "sent": "Posted",
+        "unknown": "Not confirmed",
+        "failed": "Failed",
+        "expired": "Expired"
+      }
+    },
+    "insights": {
+      "title": "Insights",
+      "description": "See how your comment flows turn comments into conversations, leads and followers.",
+      "byPost": "By post",
+      "byFlow": "By flow",
+      "range": "Period",
+      "comments": "Comments",
+      "dms": "DMs sent",
+      "optIns": "Opened DM",
+      "clicks": "Link clicks",
+      "leads": "Leads",
+      "follows": "New followers",
+      "optInRate": "Opt-in rate",
+      "post": "Post",
+      "flow": "Flow",
+      "untitledPost": "Post without a caption",
+      "deletedFlow": "Deleted flow",
+      "openPost": "Open post",
+      "empty": "No comments in this period.",
+      "loadFailed": "Couldn’t load insights. Try again.",
+      "clicksNote": "Link clicks count tracked links only."
     }
   }
 }

@@ -98,7 +98,10 @@
     "defaultReply": "Respuesta predeterminada",
     "quickAutomations": "Automatizaciones rápidas",
     "addInstagram": "Añadir Instagram",
-    "upgrade": "Mejorar plan"
+    "upgrade": "Mejorar plan",
+    "refLinks": "Enlaces ref",
+    "menu": "Menú",
+    "insights": "Estadísticas"
   },
   "Header": {
     "dashboard": "Panel",
@@ -131,7 +134,10 @@
     "comments": "Comentarios",
     "conversationStarters": "Iniciadores de conversación",
     "defaultReply": "Respuesta predeterminada",
-    "quickAutomations": "Automatizaciones rápidas"
+    "quickAutomations": "Automatizaciones rápidas",
+    "refLinks": "Enlaces ref",
+    "menu": "Menú",
+    "insights": "Estadísticas"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -1956,7 +1962,10 @@
       "triggerIgCommentSpecific": "Se activa con: un comentario en {count, plural, one {# publicación elegida} other {# publicaciones elegidas}}",
       "triggerIgCommentNext": "Se activa con: un comentario en tu próxima publicación",
       "triggerIgStoryReply": "Se activa con: una respuesta a tu historia",
-      "triggerIgStoryMention": "Se activa con: una mención en la historia de alguien"
+      "triggerIgStoryMention": "Se activa con: una mención en la historia de alguien",
+      "triggerIgLiveComment": "Se activa con: un comentario en tu directo",
+      "triggerIgRef": "Se activa con: enlace ref {refs}",
+      "triggerIgRefNone": "Se activa con: un enlace ref (todavía sin claves)"
     },
     "edit": {
       "notFound": "Flujo no encontrado.",
@@ -2277,7 +2286,8 @@
         "storefrontNext": "Paso siguiente tras el envío",
         "storefrontFailedNext": "Si no se puede enviar el enlace",
         "flowStatusPaused": "en pausa",
-        "removeButton": "Quitar botón"
+        "removeButton": "Quitar botón",
+        "audioLabel": "Audio (AAC, M4A; MP3 y OGG solo en WhatsApp)"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -2464,7 +2474,8 @@
         "media": {
           "image": "Foto",
           "video": "Vídeo",
-          "document": "Documento"
+          "document": "Documento",
+          "audio": "Audio"
         },
         "notes": {
           "delay": "Espera {seconds, plural, one {# segundo} other {# segundos}}",
@@ -2556,7 +2567,10 @@
       "triggerDefaultReplyTitle": "Un mensaje que ningún otro flujo responde (respuesta predeterminada)",
       "triggerIgCommentTitle": "Alguien comenta tu publicación",
       "triggerIgStoryReplyTitle": "Alguien responde a tu historia",
-      "triggerIgStoryMentionTitle": "Alguien te menciona en su historia"
+      "triggerIgStoryMentionTitle": "Alguien te menciona en su historia",
+      "triggerIgLiveCommentTitle": "Alguien comenta en tu directo",
+      "triggerIgRefTitle": "Alguien abre un chat desde tu enlace ref",
+      "adClickTriggerHelpInstagram": "Empieza cuando alguien te escribe desde un anuncio que abre Instagram Direct, antes de cualquier flujo por palabra clave. Un flujo activo en la conversación sigue en marcha."
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -2881,6 +2895,30 @@
       "igStoryMention": {
         "help": "Se inicia cuando alguien menciona tu cuenta en su historia.",
         "badFrequency": "Elige con qué frecuencia se ejecuta este flujo para cada persona."
+      },
+      "igLiveComment": {
+        "help": "Se inicia cuando alguien comenta en tu directo de Instagram mientras estás en vivo. Cada persona lo inicia una vez por emisión. El primer mensaje es una respuesta privada al comentario.",
+        "keywords": "Solo comentarios con estas palabras",
+        "keywordsHelp": "Déjalo vacío para iniciar con cualquier comentario.",
+        "liveOnly": "Instagram envía los comentarios del directo solo mientras la emisión está activa.",
+        "badKeywords": "Usa como máximo {max} palabras clave, cada una de menos de {chars} caracteres.",
+        "badAccount": "Elige una cuenta de Instagram conectada."
+      },
+      "igRef": {
+        "help": "Se inicia cuando alguien abre un chat contigo desde uno de tus enlaces ref. Comparte el enlace en tu biografía, en una historia o en cualquier sitio web.",
+        "keys": "Claves ref",
+        "keysPlaceholder": "rebajas-verano",
+        "keysHelp": "Letras, números, guiones y guiones bajos. Hasta {max} claves.",
+        "tooManyKeys": "Usa como máximo {max} claves.",
+        "needsKeys": "Añade al menos una clave ref.",
+        "badKeys": "Usa como máximo {max} claves con letras, números, guiones y guiones bajos, cada una de menos de 64 caracteres.",
+        "keyTaken": "Otro flujo activo ya usa la clave «{key}».",
+        "links": "Enlaces para compartir",
+        "copyLink": "Copiar el enlace de {key}",
+        "copied": "Enlace copiado.",
+        "copyFailed": "No se pudo copiar el enlace. Selecciónalo y cópialo.",
+        "chooseAccountForLinks": "Elige una cuenta de Instagram con nombre de usuario para ver sus enlaces.",
+        "badAccount": "Elige una cuenta de Instagram conectada."
       }
     },
     "nodes": {
@@ -9926,6 +9964,13 @@
         "net": "Neto",
         "hint": "Pedidos pagados en el periodo. Los descuentos y reembolsos del pedido se reparten entre las líneas según su valor, por lo que los totales pueden variar por redondeo."
       }
+    },
+    "channel": {
+      "label": "Canal",
+      "all": "Todos los canales",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "whatsappOnlyNote": "Las cifras de campañas y plantillas son solo de WhatsApp."
     }
   },
   "Ads": {
@@ -11726,6 +11771,144 @@
           "handoffNote": "Pidió hablar con una persona desde la respuesta predeterminada."
         }
       }
+    },
+    "live": {
+      "title": "Comentarios en directo",
+      "description": "Responde en privado a quienes comentan mientras estás en directo en Instagram.",
+      "newFlow": "Nuevo flujo de comentarios en directo",
+      "noFlows": "Todavía no hay flujos de comentarios en directo.",
+      "reconnectNeeded": "Vuelve a conectar tu cuenta de Instagram para recibir comentarios en directo.",
+      "subscribed": "Los comentarios en directo están activados para esta cuenta."
+    },
+    "refLinks": {
+      "title": "Enlaces ref",
+      "description": "Enlaces que abren un chat contigo e inician un flujo. Usa un enlace distinto para cada lugar donde lo compartas y descubre qué funciona.",
+      "newLink": "Nuevo enlace ref",
+      "empty": "Todavía no hay enlaces ref. Crea un flujo que empiece desde un enlace ref.",
+      "account": "Cuenta de Instagram",
+      "flow": "Flujo",
+      "key": "Clave",
+      "link": "Enlace",
+      "copy": "Copiar enlace",
+      "copied": "Enlace copiado.",
+      "copyFailed": "No se pudo copiar el enlace. Selecciónalo y cópialo.",
+      "noUsername": "Esta cuenta aún no tiene nombre de usuario, así que no tiene enlace.",
+      "openFlow": "Abrir flujo",
+      "draft": "Borrador: publica el flujo para usar este enlace",
+      "lastRef": "Último enlace ref",
+      "loadFailed": "No se pudieron cargar tus enlaces ref. Inténtalo de nuevo."
+    },
+    "menu": {
+      "title": "Menú",
+      "description": "El menú que la gente ve en un chat contigo. Cada opción inicia un flujo o abre un enlace.",
+      "account": "Cuenta de Instagram",
+      "item": "Opción {n}",
+      "itemTitle": "Título",
+      "itemTitlePlaceholder": "Reservar una llamada",
+      "type": "Al tocarla",
+      "typeFlow": "Iniciar un flujo",
+      "typeLink": "Abrir un enlace",
+      "flow": "Flujo",
+      "chooseFlow": "Elige un flujo",
+      "noFlows": "Primero crea un flujo de Instagram.",
+      "url": "Enlace",
+      "urlPlaceholder": "https://ejemplo.com",
+      "add": "Añadir opción",
+      "remove": "Quitar la opción {n}",
+      "max": "Puedes añadir hasta {max} opciones.",
+      "save": "Guardar y publicar",
+      "saving": "Guardando…",
+      "saved": "Menú actualizado en Instagram.",
+      "saveFailed": "No se pudo actualizar Instagram. Inténtalo de nuevo.",
+      "clear": "Quitar el menú",
+      "clearConfirm": "¿Quitar el menú de Instagram?",
+      "cleared": "Menú quitado de Instagram.",
+      "empty": "Todavía no hay menú.",
+      "needsTitle": "Pon un título a cada opción.",
+      "titleTooLong": "Cada título debe tener menos de {max} caracteres.",
+      "duplicate": "Cada opción necesita un título distinto.",
+      "needsFlow": "Elige un flujo para cada opción.",
+      "badUrl": "Usa un enlace que empiece por https://",
+      "adminOnly": "Solo los administradores pueden cambiar el menú.",
+      "notSynced": "Aún no publicado.",
+      "lastSynced": "Publicado {time}"
+    },
+    "aiComments": {
+      "tab": "Respuestas con IA",
+      "title": "Respuestas con IA a comentarios",
+      "description": "La IA lee los comentarios nuevos y redacta una respuesta pública con el tono de tu marca. No se publica nada hasta que un administrador la aprueba, salvo que actives la aprobación automática.",
+      "enabled": "Redactar respuestas a comentarios con IA",
+      "autoApprove": "Publicar respuestas sin aprobación",
+      "autoApproveHelp": "Las respuestas a comentarios positivos se publican en cuanto se redactan.",
+      "autoApproveWarning": "Las respuestas de la IA se publicarán sin que nadie las revise antes.",
+      "dailyCap": "Respuestas por día",
+      "dailyCapHelp": "Entre 1 y {max}. Los comentarios que superen el límite se omiten hasta mañana.",
+      "needsAi": "Primero configura un proveedor de IA en Ajustes › IA.",
+      "settingsSaved": "Ajustes de respuestas con IA guardados.",
+      "settingsFailed": "No se pudieron guardar los ajustes. Inténtalo de nuevo.",
+      "adminOnly": "Solo los administradores pueden cambiar estos ajustes o aprobar respuestas.",
+      "queue": "Pendientes de aprobación",
+      "history": "Historial",
+      "empty": "No hay respuestas pendientes de aprobación.",
+      "comment": "Comentario",
+      "reply": "Respuesta",
+      "edit": "Editar",
+      "approve": "Aprobar y publicar",
+      "reject": "Rechazar",
+      "approved": "Respuesta aprobada. Se publicará en breve.",
+      "rejected": "Respuesta rechazada.",
+      "decideFailed": "No se pudo guardar tu decisión. Inténtalo de nuevo.",
+      "alreadyDecided": "Alguien ya decidió sobre esta respuesta.",
+      "commentUnavailable": "Este comentario se ocultó o se eliminó, así que no se puede responder.",
+      "loadFailed": "No se pudieron cargar los comentarios. Inténtalo de nuevo.",
+      "replyEmpty": "Primero escribe una respuesta.",
+      "replyTooLong": "La respuesta debe tener menos de {max} caracteres.",
+      "autoApprovedBadge": "Aprobada automáticamente",
+      "reconcile": "No pudimos confirmar que esta respuesta se publicara. Revisa el comentario en Instagram antes de volver a intentarlo.",
+      "sentiment": {
+        "positive": "Positivo",
+        "neutral": "Neutral",
+        "negative": "Negativo"
+      },
+      "intent": {
+        "praise": "Elogio",
+        "question": "Pregunta",
+        "purchase_intent": "Quiere comprar",
+        "complaint": "Queja",
+        "spam": "Spam",
+        "other": "Otro"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "approved": "Aprobada",
+        "rejected": "Rechazada",
+        "sent": "Publicada",
+        "unknown": "Sin confirmar",
+        "failed": "Fallida",
+        "expired": "Caducada"
+      }
+    },
+    "insights": {
+      "title": "Estadísticas",
+      "description": "Mira cómo tus flujos de comentarios convierten comentarios en conversaciones, contactos y seguidores.",
+      "byPost": "Por publicación",
+      "byFlow": "Por flujo",
+      "range": "Periodo",
+      "comments": "Comentarios",
+      "dms": "Mensajes enviados",
+      "optIns": "Abrieron el mensaje",
+      "clicks": "Clics en enlaces",
+      "leads": "Contactos",
+      "follows": "Nuevos seguidores",
+      "optInRate": "Tasa de apertura",
+      "post": "Publicación",
+      "flow": "Flujo",
+      "untitledPost": "Publicación sin texto",
+      "deletedFlow": "Flujo eliminado",
+      "openPost": "Abrir publicación",
+      "empty": "No hay comentarios en este periodo.",
+      "loadFailed": "No se pudieron cargar las estadísticas. Inténtalo de nuevo.",
+      "clicksNote": "Los clics solo cuentan los enlaces con seguimiento."
     }
   }
 }

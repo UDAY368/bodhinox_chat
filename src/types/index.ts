@@ -207,6 +207,63 @@ export interface InstagramProfileFactsRow {
   profile_checked_at: string | null;
 }
 
+/**
+ * One persistent menu item as stored in instagram_accounts.persistent_menu
+ * (Stage 3, at most 20). A postback item starts its flow (Meta payload
+ * `menu:<flow_id>`, src/lib/instagram/postback-payloads.ts; the flow must be an
+ * Instagram flow of the same workspace); a link item opens its https URL.
+ */
+export type InstagramMenuItem =
+  | { type: 'postback'; title: string; flow_id: string }
+  | { type: 'web_url'; title: string; url: string };
+
+/** The ref link a person last opened a chat from (contact_channel_identities, Stage 3). Null means none. */
+export interface InstagramRefRow {
+  last_ref: string | null;
+  last_ref_at: string | null;
+}
+
+/** AI comment replies (Stage 3): the comment's classified tone and what it asks for. */
+export const INSTAGRAM_AI_COMMENT_SENTIMENTS = ['positive', 'neutral', 'negative'] as const;
+export type InstagramAiCommentSentiment = (typeof INSTAGRAM_AI_COMMENT_SENTIMENTS)[number];
+export const INSTAGRAM_AI_COMMENT_INTENTS = ['praise', 'question', 'purchase_intent', 'complaint', 'spam', 'other'] as const;
+export type InstagramAiCommentIntent = (typeof INSTAGRAM_AI_COMMENT_INTENTS)[number];
+
+/**
+ * Where an AI-drafted comment reply is (instagram_ai_comment_queue.status):
+ * pending (waits for an admin), approved, rejected, sent, unknown (posted with
+ * an ambiguous outcome: reconcile, never re-send), failed, expired.
+ */
+export const INSTAGRAM_AI_COMMENT_STATUSES = ['pending', 'approved', 'rejected', 'sent', 'unknown', 'failed', 'expired'] as const;
+export type InstagramAiCommentStatus = (typeof INSTAGRAM_AI_COMMENT_STATUSES)[number];
+
+/** An instagram_ai_comment_queue row as members read it. No comment text is stored. */
+export interface InstagramAiCommentQueueRow {
+  id: string;
+  instagram_account_id: string;
+  comment_event_id: string;
+  comment_id: string;
+  media_id: string | null;
+  sentiment: InstagramAiCommentSentiment;
+  intent: InstagramAiCommentIntent | null;
+  reply_text: string;
+  status: InstagramAiCommentStatus;
+  auto_approved: boolean;
+  decided_by: string | null;
+  decided_at: string | null;
+  public_reply_id: string | null;
+  error_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The workspace's AI comment switches (ai_configs, Stage 3). All off by default; the cap defaults to 50 a day. */
+export interface InstagramAiCommentSettings {
+  instagram_ai_comments_enabled: boolean;
+  instagram_ai_comments_auto_approve: boolean;
+  instagram_ai_comments_daily_cap: number;
+}
+
 /** The channels an outbound webhook endpoint receives events for (webhook_endpoints.channels; default ['whatsapp']). */
 export type WebhookEndpointChannels = Channel[];
 

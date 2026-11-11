@@ -98,7 +98,10 @@
     "defaultReply": "Resposta padrão",
     "quickAutomations": "Automações rápidas",
     "addInstagram": "Adicionar Instagram",
-    "upgrade": "Fazer upgrade"
+    "upgrade": "Fazer upgrade",
+    "refLinks": "Links ref",
+    "menu": "Menu",
+    "insights": "Insights"
   },
   "Header": {
     "dashboard": "Painel",
@@ -131,7 +134,10 @@
     "comments": "Comentários",
     "conversationStarters": "Iniciadores de conversa",
     "defaultReply": "Resposta padrão",
-    "quickAutomations": "Automações rápidas"
+    "quickAutomations": "Automações rápidas",
+    "refLinks": "Links ref",
+    "menu": "Menu",
+    "insights": "Insights"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
@@ -1956,7 +1962,10 @@
       "triggerIgCommentSpecific": "Dispara com: um comentário em {count, plural, one {# publicação escolhida} other {# publicações escolhidas}}",
       "triggerIgCommentNext": "Dispara com: um comentário na sua próxima publicação",
       "triggerIgStoryReply": "Dispara com: uma resposta ao seu story",
-      "triggerIgStoryMention": "Dispara com: uma menção no story de alguém"
+      "triggerIgStoryMention": "Dispara com: uma menção no story de alguém",
+      "triggerIgLiveComment": "Dispara com: um comentário na sua live",
+      "triggerIgRef": "Dispara com: link ref {refs}",
+      "triggerIgRefNone": "Dispara com: um link ref (ainda sem chaves)"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -2277,7 +2286,8 @@
         "storefrontNext": "Próxima etapa após o envio",
         "storefrontFailedNext": "Se o link não puder ser enviado",
         "flowStatusPaused": "pausado",
-        "removeButton": "Remover botão"
+        "removeButton": "Remover botão",
+        "audioLabel": "Áudio (AAC, M4A; MP3 e OGG só no WhatsApp)"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -2464,7 +2474,8 @@
         "media": {
           "image": "Foto",
           "video": "Vídeo",
-          "document": "Documento"
+          "document": "Documento",
+          "audio": "Áudio"
         },
         "notes": {
           "delay": "Aguarda {seconds, plural, one {# segundo} other {# segundos}}",
@@ -2556,7 +2567,10 @@
       "triggerDefaultReplyTitle": "Uma mensagem que nenhum outro fluxo responde (resposta padrão)",
       "triggerIgCommentTitle": "Alguém comenta sua publicação",
       "triggerIgStoryReplyTitle": "Alguém responde ao seu story",
-      "triggerIgStoryMentionTitle": "Alguém menciona você no story"
+      "triggerIgStoryMentionTitle": "Alguém menciona você no story",
+      "triggerIgLiveCommentTitle": "Alguém comenta na sua live",
+      "triggerIgRefTitle": "Alguém abre uma conversa pelo seu link ref",
+      "adClickTriggerHelpInstagram": "Começa quando alguém envia uma mensagem a partir de um anúncio que abre o Instagram Direct, antes de qualquer fluxo por palavra-chave. Um fluxo ativo na conversa continua."
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -2881,6 +2895,30 @@
       "igStoryMention": {
         "help": "Começa quando alguém menciona sua conta no story.",
         "badFrequency": "Escolha com que frequência este fluxo roda para cada pessoa."
+      },
+      "igLiveComment": {
+        "help": "Começa quando alguém comenta na sua live do Instagram enquanto você está ao vivo. Cada pessoa o inicia uma vez por transmissão. A primeira mensagem é uma resposta privada ao comentário.",
+        "keywords": "Só comentários com estas palavras",
+        "keywordsHelp": "Deixe vazio para começar com qualquer comentário.",
+        "liveOnly": "O Instagram envia comentários da live só enquanto a transmissão está no ar.",
+        "badKeywords": "Use no máximo {max} palavras-chave, cada uma com menos de {chars} caracteres.",
+        "badAccount": "Escolha uma conta do Instagram conectada."
+      },
+      "igRef": {
+        "help": "Começa quando alguém abre uma conversa com você por um dos seus links ref. Compartilhe o link na bio, em um story ou em qualquer lugar.",
+        "keys": "Chaves ref",
+        "keysPlaceholder": "promo-verao",
+        "keysHelp": "Letras, números, hifens e sublinhados. Até {max} chaves.",
+        "tooManyKeys": "Use no máximo {max} chaves.",
+        "needsKeys": "Adicione pelo menos uma chave ref.",
+        "badKeys": "Use no máximo {max} chaves com letras, números, hifens e sublinhados, cada uma com menos de 64 caracteres.",
+        "keyTaken": "Outro fluxo ativo já usa a chave “{key}”.",
+        "links": "Links para compartilhar",
+        "copyLink": "Copiar o link de {key}",
+        "copied": "Link copiado.",
+        "copyFailed": "Não foi possível copiar o link. Selecione e copie.",
+        "chooseAccountForLinks": "Escolha uma conta do Instagram com nome de usuário para ver os links.",
+        "badAccount": "Escolha uma conta do Instagram conectada."
       }
     },
     "nodes": {
@@ -9926,6 +9964,13 @@
         "net": "Líquido",
         "hint": "Pedidos pagos no período. Descontos e reembolsos do pedido são divididos entre as linhas pelo valor, então os totais podem diferir por arredondamento."
       }
+    },
+    "channel": {
+      "label": "Canal",
+      "all": "Todos os canais",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "whatsappOnlyNote": "Os números de campanhas e modelos são só do WhatsApp."
     }
   },
   "Ads": {
@@ -11726,6 +11771,144 @@
           "handoffNote": "Pediu para falar com uma pessoa na resposta padrão."
         }
       }
+    },
+    "live": {
+      "title": "Comentários na live",
+      "description": "Responda em particular a quem comenta enquanto você está ao vivo no Instagram.",
+      "newFlow": "Novo fluxo de comentários na live",
+      "noFlows": "Ainda não há fluxos de comentários na live.",
+      "reconnectNeeded": "Reconecte sua conta do Instagram para receber comentários da live.",
+      "subscribed": "Os comentários da live estão ativados para esta conta."
+    },
+    "refLinks": {
+      "title": "Links ref",
+      "description": "Links que abrem uma conversa com você e iniciam um fluxo. Use um link diferente para cada lugar onde compartilhar e veja o que funciona.",
+      "newLink": "Novo link ref",
+      "empty": "Ainda não há links ref. Crie um fluxo que comece por um link ref.",
+      "account": "Conta do Instagram",
+      "flow": "Fluxo",
+      "key": "Chave",
+      "link": "Link",
+      "copy": "Copiar link",
+      "copied": "Link copiado.",
+      "copyFailed": "Não foi possível copiar o link. Selecione e copie.",
+      "noUsername": "Esta conta ainda não tem nome de usuário, então não tem link.",
+      "openFlow": "Abrir fluxo",
+      "draft": "Rascunho: publique o fluxo para usar este link",
+      "lastRef": "Último link ref",
+      "loadFailed": "Não foi possível carregar seus links ref. Tente novamente."
+    },
+    "menu": {
+      "title": "Menu",
+      "description": "O menu que as pessoas veem em uma conversa com você. Cada item inicia um fluxo ou abre um link.",
+      "account": "Conta do Instagram",
+      "item": "Item {n}",
+      "itemTitle": "Título",
+      "itemTitlePlaceholder": "Agendar uma ligação",
+      "type": "Ao tocar",
+      "typeFlow": "Iniciar um fluxo",
+      "typeLink": "Abrir um link",
+      "flow": "Fluxo",
+      "chooseFlow": "Escolha um fluxo",
+      "noFlows": "Crie um fluxo do Instagram primeiro.",
+      "url": "Link",
+      "urlPlaceholder": "https://exemplo.com",
+      "add": "Adicionar item",
+      "remove": "Remover o item {n}",
+      "max": "Você pode adicionar até {max} itens.",
+      "save": "Salvar e publicar",
+      "saving": "Salvando…",
+      "saved": "Menu atualizado no Instagram.",
+      "saveFailed": "Não foi possível atualizar o Instagram. Tente novamente.",
+      "clear": "Remover menu",
+      "clearConfirm": "Remover o menu do Instagram?",
+      "cleared": "Menu removido do Instagram.",
+      "empty": "Ainda não há menu.",
+      "needsTitle": "Dê um título a cada item.",
+      "titleTooLong": "Cada título deve ter menos de {max} caracteres.",
+      "duplicate": "Cada item precisa de um título diferente.",
+      "needsFlow": "Escolha um fluxo para cada item.",
+      "badUrl": "Use um link que comece com https://",
+      "adminOnly": "Só administradores podem alterar o menu.",
+      "notSynced": "Ainda não publicado.",
+      "lastSynced": "Publicado {time}"
+    },
+    "aiComments": {
+      "tab": "Respostas com IA",
+      "title": "Respostas com IA a comentários",
+      "description": "A IA lê os novos comentários e escreve uma resposta pública no tom da sua marca. Nada é publicado até um administrador aprovar, a menos que você ative a aprovação automática.",
+      "enabled": "Escrever respostas a comentários com IA",
+      "autoApprove": "Publicar respostas sem aprovação",
+      "autoApproveHelp": "Respostas a comentários positivos são publicadas assim que escritas.",
+      "autoApproveWarning": "As respostas da IA serão publicadas sem que ninguém as revise antes.",
+      "dailyCap": "Respostas por dia",
+      "dailyCapHelp": "Entre 1 e {max}. Comentários além do limite são ignorados até amanhã.",
+      "needsAi": "Configure primeiro um provedor de IA em Configurações › IA.",
+      "settingsSaved": "Configurações de respostas com IA salvas.",
+      "settingsFailed": "Não foi possível salvar as configurações. Tente novamente.",
+      "adminOnly": "Só administradores podem alterar estas configurações ou aprovar respostas.",
+      "queue": "Aguardando aprovação",
+      "history": "Histórico",
+      "empty": "Nenhuma resposta aguardando aprovação.",
+      "comment": "Comentário",
+      "reply": "Resposta",
+      "edit": "Editar",
+      "approve": "Aprovar e publicar",
+      "reject": "Rejeitar",
+      "approved": "Resposta aprovada. Ela será publicada em instantes.",
+      "rejected": "Resposta rejeitada.",
+      "decideFailed": "Não foi possível salvar sua decisão. Tente novamente.",
+      "alreadyDecided": "Alguém já decidiu sobre esta resposta.",
+      "commentUnavailable": "Este comentário foi ocultado ou excluído, então não pode ser respondido.",
+      "loadFailed": "Não foi possível carregar os comentários. Tente novamente.",
+      "replyEmpty": "Escreva uma resposta primeiro.",
+      "replyTooLong": "A resposta deve ter menos de {max} caracteres.",
+      "autoApprovedBadge": "Aprovada automaticamente",
+      "reconcile": "Não conseguimos confirmar que esta resposta foi publicada. Verifique o comentário no Instagram antes de tentar de novo.",
+      "sentiment": {
+        "positive": "Positivo",
+        "neutral": "Neutro",
+        "negative": "Negativo"
+      },
+      "intent": {
+        "praise": "Elogio",
+        "question": "Pergunta",
+        "purchase_intent": "Quer comprar",
+        "complaint": "Reclamação",
+        "spam": "Spam",
+        "other": "Outro"
+      },
+      "status": {
+        "pending": "Aguardando",
+        "approved": "Aprovada",
+        "rejected": "Rejeitada",
+        "sent": "Publicada",
+        "unknown": "Não confirmada",
+        "failed": "Falhou",
+        "expired": "Expirada"
+      }
+    },
+    "insights": {
+      "title": "Insights",
+      "description": "Veja como seus fluxos de comentários transformam comentários em conversas, leads e seguidores.",
+      "byPost": "Por publicação",
+      "byFlow": "Por fluxo",
+      "range": "Período",
+      "comments": "Comentários",
+      "dms": "Mensagens enviadas",
+      "optIns": "Abriram a mensagem",
+      "clicks": "Cliques em links",
+      "leads": "Leads",
+      "follows": "Novos seguidores",
+      "optInRate": "Taxa de abertura",
+      "post": "Publicação",
+      "flow": "Fluxo",
+      "untitledPost": "Publicação sem legenda",
+      "deletedFlow": "Fluxo excluído",
+      "openPost": "Abrir publicação",
+      "empty": "Nenhum comentário neste período.",
+      "loadFailed": "Não foi possível carregar os insights. Tente novamente.",
+      "clicksNote": "Os cliques contam apenas links rastreados."
     }
   }
 }

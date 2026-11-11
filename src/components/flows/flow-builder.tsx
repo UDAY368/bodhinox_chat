@@ -70,6 +70,8 @@ import { AdClickTriggerFields, KeywordTriggerFields, OrderReceivedTriggerFields,
 import {
   DefaultReplyTriggerFields,
   IgCommentTriggerFields,
+  IgLiveCommentTriggerFields,
+  IgRefTriggerFields,
   IgStoryMentionTriggerFields,
   IgStoryReplyTriggerFields,
 } from './triggers/ig-trigger-fields';
@@ -190,6 +192,7 @@ export function FlowBuilder() {
         setState={setState}
         triggerTypes={triggerTypes}
         triggerIssues={issues.filter((i) => i.scope === 'trigger')}
+        instagramOnly={channelScope === 'instagram'}
         t={t}
       />
 
@@ -387,6 +390,8 @@ const TRIGGER_TITLE_KEYS: Record<BuilderState['trigger_type'], string> = {
   ig_comment: 'triggerIgCommentTitle',
   ig_story_reply: 'triggerIgStoryReplyTitle',
   ig_story_mention: 'triggerIgStoryMentionTitle',
+  ig_live_comment: 'triggerIgLiveCommentTitle',
+  ig_ref: 'triggerIgRefTitle',
 };
 
 function TriggerPanel({
@@ -394,6 +399,7 @@ function TriggerPanel({
   setState,
   triggerTypes,
   triggerIssues,
+  instagramOnly,
   t,
 }: {
   state: BuilderState;
@@ -401,6 +407,8 @@ function TriggerPanel({
   /** The triggers the flow's channel offers; the current one is kept so the picker can show it. */
   triggerTypes: BuilderState['trigger_type'][];
   triggerIssues: ValidationIssue[];
+  /** The flow runs on Instagram only: the ad trigger describes click-to-Direct ads. */
+  instagramOnly: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   const offered = triggerTypes.includes(state.trigger_type) ? triggerTypes : [...triggerTypes, state.trigger_type];
@@ -440,13 +448,15 @@ function TriggerPanel({
         )}
         {state.trigger_type === 'order_received' && <OrderReceivedTriggerFields t={t} />}
         {state.trigger_type === 'ad_click' && (
-          <AdClickTriggerFields config={state.trigger_config} t={t}
+          <AdClickTriggerFields config={state.trigger_config} t={t} instagram={instagramOnly}
             onChange={(trigger_config) => setState((s) => ({ ...s, trigger_config }))} />
         )}
         {state.trigger_type === 'default_reply' && <DefaultReplyTriggerFields config={state.trigger_config} onChange={setConfig} />}
         {state.trigger_type === 'ig_comment' && <IgCommentTriggerFields config={state.trigger_config} onChange={setConfig} />}
         {state.trigger_type === 'ig_story_reply' && <IgStoryReplyTriggerFields config={state.trigger_config} onChange={setConfig} />}
         {state.trigger_type === 'ig_story_mention' && <IgStoryMentionTriggerFields config={state.trigger_config} onChange={setConfig} />}
+        {state.trigger_type === 'ig_live_comment' && <IgLiveCommentTriggerFields config={state.trigger_config} onChange={setConfig} />}
+        {state.trigger_type === 'ig_ref' && <IgRefTriggerFields config={state.trigger_config} onChange={setConfig} />}
       </div>
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">
@@ -476,7 +486,7 @@ function EntryPicker({
   if (state.nodes.length === 0) return null;
   const entry = state.nodes.find((n) => n.node_key === state.entry_node_id);
   // A comment flow starts with its private reply (Instagram's one reply to the comment); the entry stays locked to it.
-  if (state.trigger_type === 'ig_comment' && entry?.node_type === 'ig_private_reply') {
+  if (entry && entryLocked(state.trigger_type, state.nodes, state.entry_node_id)) {
     return (
       <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3" data-entry-locked="">
         <CornerDownRight className="text-primary h-4 w-4 shrink-0" />

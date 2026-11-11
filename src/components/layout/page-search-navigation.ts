@@ -46,13 +46,16 @@ function channelPages(channel: Channel): NavPage[] {
       { href: channelPath('whatsapp', 'forms'), labelKey: 'forms', group: channel },
       { href: channelPath('whatsapp', 'ads'), labelKey: 'ads', group: channel },
     ];
-  // Stage 2 tools. Stage 3 adds ref links, menu and insights.
+  // Stage 2 tools, then Stage 3's ref links, menu and insights.
   return [
     ...common,
     { href: channelPath('instagram', 'comments'), labelKey: 'comments', group: channel },
     { href: channelPath('instagram', 'conversationStarters'), labelKey: 'conversationStarters', group: channel },
     { href: channelPath('instagram', 'defaultReply'), labelKey: 'defaultReply', group: channel },
     { href: channelPath('instagram', 'quickAutomations'), labelKey: 'quickAutomations', group: channel },
+    { href: channelPath('instagram', 'refLinks'), labelKey: 'refLinks', group: channel },
+    { href: channelPath('instagram', 'menu'), labelKey: 'menu', group: channel },
+    { href: channelPath('instagram', 'insights'), labelKey: 'insights', group: channel },
   ];
 }
 

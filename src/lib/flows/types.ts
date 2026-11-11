@@ -76,7 +76,7 @@ export interface SendListNodeConfig {
 }
 
 /**
- * Sends a single image / video / document via WhatsApp, then
+ * Sends a single image / video / document / audio file, then
  * auto-advances. The media file is uploaded to the `flow-media`
  * Supabase Storage bucket by the builder; `media_url` is the public
  * URL Meta fetches at send time.
@@ -88,8 +88,17 @@ export interface SendListNodeConfig {
  * the builder forms, engine cases, and add-menu entries for no
  * meaningful behavioural difference.
  */
+/** The file kinds a send_media node sends (`audio` from Stage 3). */
+export const SEND_MEDIA_TYPES = ["image", "video", "document", "audio"] as const;
+export type SendMediaType = (typeof SEND_MEDIA_TYPES)[number];
+
 export interface SendMediaNodeConfig {
-  media_type: "image" | "video" | "document";
+  /**
+   * `audio` (Stage 3): on Instagram only AAC, M4A, MP4 and WAV files play
+   * (nodeAvailableOn checks the file name); WhatsApp takes AAC, M4A, MP3 and
+   * Ogg/Opus.
+   */
+  media_type: SendMediaType;
   /** Public URL Meta will fetch. Uploaded via the builder's file picker. */
   media_url: string;
   /** Optional caption shown under the media (Meta caps at 1024 chars). */
@@ -745,6 +754,36 @@ export interface DefaultReplyTriggerConfig {
   frequency: TriggerFrequency;
 }
 
+// ------------------------------------------------------------ Stage 3 triggers
+
+/**
+ * A comment on the account's Instagram Live broadcast (the `live_comments`
+ * webhook, which Meta sends only while the broadcast is live). Fires on a
+ * person's first matching comment per broadcast. `keywords` empty or absent
+ * matches any comment. As with ig_comment, the run's first message is a
+ * private reply to the comment (ig_private_reply) and Meta allows nothing
+ * else until the person answers. Needs live capture: built against Meta's
+ * documented live_comments payload.
+ */
+export interface IgLiveCommentTriggerConfig {
+  /** instagram_accounts.id; absent listens on every connected account of the workspace. */
+  instagram_account_id?: string;
+  keywords?: string[];
+  match_mode?: IgKeywordMode;
+}
+
+/**
+ * Someone opens a chat from a ref link (`https://ig.me/m/<username>?ref=<key>`,
+ * src/lib/instagram/ref-links.ts). `refs` lists the keys that start this flow:
+ * 1 to IG_TRIGGER_LIMITS.refs, each matching IG_REF_KEY, compared without
+ * case. The key is also kept on the contact's Instagram identity (last_ref).
+ * Needs live capture: the referral payload on an Instagram Login app.
+ */
+export interface IgRefTriggerConfig {
+  instagram_account_id?: string;
+  refs: string[];
+}
+
 /** Sizes the trigger editors and the validator enforce. */
 export const IG_TRIGGER_LIMITS = {
   mediaIds: 50,
@@ -752,6 +791,8 @@ export const IG_TRIGGER_LIMITS = {
   keywords: 50,
   keywordChars: 100,
   publicReplies: 3,
+  /** Ref keys per ig_ref trigger (Stage 3). */
+  refs: 20,
 } as const;
 
 export type FlowTriggerConfig =
@@ -764,7 +805,9 @@ export type FlowTriggerConfig =
   | { trigger_type: "default_reply"; config: DefaultReplyTriggerConfig }
   | { trigger_type: "ig_comment"; config: IgCommentTriggerConfig }
   | { trigger_type: "ig_story_reply"; config: IgStoryReplyTriggerConfig }
-  | { trigger_type: "ig_story_mention"; config: IgStoryMentionTriggerConfig };
+  | { trigger_type: "ig_story_mention"; config: IgStoryMentionTriggerConfig }
+  | { trigger_type: "ig_live_comment"; config: IgLiveCommentTriggerConfig }
+  | { trigger_type: "ig_ref"; config: IgRefTriggerConfig };
 
 export type FlowTriggerType = FlowTriggerConfig["trigger_type"];
 
@@ -780,7 +823,22 @@ export const FLOW_TRIGGER_TYPES = Object.keys({
   ig_comment: true,
   ig_story_reply: true,
   ig_story_mention: true,
+  ig_live_comment: true,
+  ig_ref: true,
 } satisfies Record<FlowTriggerType, true>) as FlowTriggerType[];
+
+/**
+ * Triggers started by a comment (on a post, or on a Live broadcast, Stage 3):
+ * the run's first message is a private reply to that comment (ig_private_reply,
+ * one per comment) and nothing may message the person before it. The public
+ * comment reply step (ig_comment_reply) stays ig_comment only: Live comments
+ * get no public reply. The builder and the publish validator read this list.
+ */
+export const PRIVATE_REPLY_TRIGGERS = ["ig_comment", "ig_live_comment"] as const satisfies readonly FlowTriggerType[];
+
+export function startsFromComment(trigger: FlowTriggerType | string | null | undefined): boolean {
+  return (PRIVATE_REPLY_TRIGGERS as readonly string[]).includes(trigger ?? "");
+}
 
 // ============================================================
 // DB-row shapes (read by the engine via databaseAdmin)
@@ -811,7 +869,7 @@ export interface FlowRow {
   trigger_type: FlowTriggerType;
   trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | TemplateReplyTriggerConfig | AdClickTriggerConfig
     | DefaultReplyTriggerConfig | IgCommentTriggerConfig | IgStoryReplyTriggerConfig | IgStoryMentionTriggerConfig
-    | Record<string, unknown>;
+    | IgLiveCommentTriggerConfig | IgRefTriggerConfig | Record<string, unknown>;
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
   /** While the flow is a draft it runs only for these numbers (digits, up to 3). */
@@ -912,14 +970,22 @@ export const DEFAULT_FALLBACK_POLICY: FlowFallbackPolicy = {
 // ============================================================
 
 /**
- * The click-to-WhatsApp ad summary carried with an inbound message (from
- * ad_referrals, via the inbound-actions job payload). Never the click id.
+ * The ad or link summary carried with an inbound message: a click-to-WhatsApp
+ * ad (from ad_referrals, via the inbound-actions job payload) and, from Stage
+ * 3, an Instagram click-to-Direct ad or ref link. Never the click id.
  */
 export interface ParsedInboundReferral {
   source_id: string | null;
-  source_type: "ad" | "post" | "unknown";
+  /** `link` (Stage 3): an ig.me ref link, not an ad. */
+  source_type: "ad" | "post" | "link" | "unknown";
   headline: string | null;
   source_url: string | null;
+  /**
+   * The ref key the chat was opened with (Stage 3: Instagram ref links, and
+   * ads that carry one), already passed through normalizeInboundRef
+   * (src/lib/instagram/ref-links.ts). Absent when there was none.
+   */
+  ref?: string;
 }
 
 /**

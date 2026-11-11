@@ -434,7 +434,8 @@ model flows {
   /// Phase 11: 'whatsapp' | 'instagram' | 'any'.
   channel_scope String @default("whatsapp")
   // 20261117070000_flow_ig_triggers: trigger_type also allows default_reply, ig_comment, ig_story_reply and
-  // ig_story_mention, and flow_nodes.node_type the Instagram steps (checks owned by the SQL).
+  // ig_story_mention, and flow_nodes.node_type the Instagram steps (checks owned by the SQL);
+  // 20261117130000_flow_ig_phase2_triggers adds ig_live_comment and ig_ref.
   /// Phase 12: the live flow_versions row; null until first published. Status adds 'paused'.
   published_version_id String? @db.Uuid
   @@unique([account_id, id])
@@ -634,6 +635,11 @@ model ai_configs {
   base_url String?
   /// 20261117070500: the Instagram AI auto-reply switch (auto_reply_enabled stays WhatsApp's).
   instagram_auto_reply_enabled Boolean @default(false)
+  /// 20261117130400: AI replies to Instagram comments (all off by default; drafts wait for an admin unless
+  /// auto-approve is on; at most daily_cap drafts a day, 1-500).
+  instagram_ai_comments_enabled Boolean @default(false)
+  instagram_ai_comments_auto_approve Boolean @default(false)
+  instagram_ai_comments_daily_cap Int @default(50)
   @@unique([account_id, id])
 }
 
@@ -2571,6 +2577,10 @@ model instagram_accounts {
   /// 20261117070400: conversation starters last synced to Meta ([{question, flow_id}], at most 4); null = never set by Bodhinox.
   ice_breakers Json? @db.JsonB
   profile_synced_at DateTime? @db.Timestamptz(6)
+  /// 20261117130200: the persistent menu last synced to Meta (at most 20 items: {type: postback, title, flow_id} or
+  /// {type: web_url, title, url}); null = never set by Bodhinox.
+  persistent_menu Json? @db.JsonB
+  persistent_menu_synced_at DateTime? @db.Timestamptz(6)
   // 20261109100000_instagram_accounts: the partial unique index instagram_accounts_live_ig_user, the column grants that
   // hide the token from the app role, and the crm_* definer lookups are owned by the SQL.
   @@unique([account_id, id])
@@ -2595,6 +2605,9 @@ model contact_channel_identities {
   is_verified Boolean?
   ig_follower_count Int?
   profile_checked_at DateTime? @db.Timestamptz(6)
+  /// 20261117130300: the ref link key the person last opened a chat from, and when (worker writes).
+  last_ref String?
+  last_ref_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, instagram_account_id, external_id])
   @@index([account_id, contact_id], map: "contact_channel_identities_contact_idx")
@@ -2651,9 +2664,43 @@ model instagram_comment_events {
   flow_run_id String? @db.Uuid
   public_reply_id String?
   opted_in_at DateTime? @db.Timestamptz(6)
-  // instagram_comment_events_rate_idx (partial) is owned by the SQL.
+  /// 20261117130500: the comment funnel's later steps, each the first time it happened in the run (worker writes).
+  link_clicked_at DateTime? @db.Timestamptz(6)
+  lead_captured_at DateTime? @db.Timestamptz(6)
+  followed_at DateTime? @db.Timestamptz(6)
+  // instagram_comment_events_rate_idx (partial), _first_idx, _run_idx (partial) and _received_idx are owned by the SQL.
   @@unique([account_id, id])
   @@unique([instagram_account_id, comment_id])
+}
+
+/// Stage 3 (20261117130400_instagram_ai_comments): AI-drafted public replies to Instagram comments, one per
+/// comment. Nothing is posted until an admin approves (or auto-approve is on). No comment text is stored.
+/// Members read; admins decide pending rows (status, reply_text, decided_by, decided_at); the worker writes the rest.
+model instagram_ai_comment_queue {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  instagram_account_id String @db.Uuid
+  comment_event_id String @db.Uuid
+  comment_id String
+  media_id String?
+  /// 'positive' | 'neutral' | 'negative'
+  sentiment String
+  /// 'praise' | 'question' | 'purchase_intent' | 'complaint' | 'spam' | 'other'
+  intent String?
+  reply_text String
+  /// 'pending' | 'approved' | 'rejected' | 'sent' | 'unknown' | 'failed' | 'expired'
+  status String @default("pending")
+  auto_approved Boolean @default(false)
+  decided_by String? @db.Uuid
+  decided_at DateTime? @db.Timestamptz(6)
+  public_reply_id String?
+  error_code String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, comment_event_id])
+  @@index([account_id, status, created_at(sort: Desc)], map: "instagram_ai_comment_queue_status_idx")
+  @@index([account_id, created_at], map: "instagram_ai_comment_queue_created_idx")
 }
 
 /// Phase 13 (20261111100000_ai_workspace_settings): per-workspace AI assistant switches; a missing row means all off.

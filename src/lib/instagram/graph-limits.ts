@@ -30,6 +30,10 @@ export const INSTAGRAM_LIMITS = {
   iceBreakerQuestionChars: 80,
   /** (unconfirmed) public comment reply length (an Instagram comment's cap). */
   commentReplyChars: 2200,
+  /** (unconfirmed) persistent menu items per account (Messenger's documented top-level cap; Stage 3). */
+  persistentMenuItems: 20,
+  /** (unconfirmed) persistent menu item title length. */
+  persistentMenuTitleChars: 30,
   urlChars: 2048,
   imageBytes: 8 * 1024 * 1024,
   audioBytes: 25 * 1024 * 1024,
@@ -120,6 +124,25 @@ export function iceBreakersFit(items: readonly IceBreaker[]): boolean {
   return questions.size === items.length && items.every((i) =>
     nonEmpty(i.question, INSTAGRAM_LIMITS.iceBreakerQuestionChars) &&
     typeof i.payload === 'string' && i.payload.length > 0 && i.payload.length <= INSTAGRAM_LIMITS.postbackPayloadChars);
+}
+
+/**
+ * One persistent menu item (Stage 3): a link or a postback, like a template
+ * button but with the menu's longer title.
+ */
+export type PersistentMenuItem = IgTemplateButton;
+
+/** 0–20 menu items (an empty list removes the menu), titles distinct. */
+export function persistentMenuFits(items: readonly PersistentMenuItem[]): boolean {
+  if (items.length > INSTAGRAM_LIMITS.persistentMenuItems) return false;
+  const titles = new Set(items.map((i) => (typeof i?.title === 'string' ? i.title.trim().toLowerCase() : '')));
+  return titles.size === items.length && items.every((item) => {
+    if (!item || !nonEmpty(item.title, INSTAGRAM_LIMITS.persistentMenuTitleChars)) return false;
+    if (item.type === 'web_url') return validHttpsUrl(item.url);
+    if (item.type === 'postback')
+      return typeof item.payload === 'string' && item.payload.length > 0 && item.payload.length <= INSTAGRAM_LIMITS.postbackPayloadChars;
+    return false;
+  });
 }
 
 /** A public comment reply: non-empty, at most 2200 characters. */
