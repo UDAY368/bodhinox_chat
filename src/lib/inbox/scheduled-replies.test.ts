@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   config: null as null | Record<string, unknown>,
   igCheck: vi.fn(),
   igSend: vi.fn(),
+  ownRow: null as null | Record<string, unknown>,
+  manualBlocked: false,
 }));
 
 const textOf = (strings: unknown) => (Array.isArray(strings) ? (strings as string[]) : ((strings as { strings: string[] }).strings)).join('?');
@@ -23,6 +25,8 @@ const tx = {
     const sql = textOf(strings);
     h.queried.push(sql);
     if (sql.includes('FOR UPDATE OF s SKIP LOCKED')) { const next = h.due.shift(); return next ? [next] : []; }
+    if (sql.includes('FROM account_lifecycle')) return [{ block_manual: h.manualBlocked }];
+    if (sql.includes('send_at, created_at FROM scheduled_replies')) return h.ownRow ? [h.ownRow] : [];
     if (sql.includes('INSERT INTO messages')) return [{ id: 'message-row' }];
     if (sql.includes('FROM outbound_intents')) return h.intentRows;
     if (sql.includes('FROM conversations WHERE')) return h.channelRows;
@@ -67,6 +71,7 @@ import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { InstagramError } from '@/lib/instagram/errors';
 import {
   createScheduledReply,
+  updateScheduledReply,
   parseScheduledReplyPatch,
   parseScheduleCreate,
   runScheduledReplies,
@@ -95,7 +100,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.due = []; h.executed = []; h.queried = []; h.intentRows = [];
   h.channelRows = [{ channel: 'whatsapp' }];
-  h.numberDisconnected = false;
+  h.numberDisconnected = false; h.manualBlocked = false; h.ownRow = null;
   h.credentials.mockResolvedValue({ phoneNumberId: 'pn', accessToken: 'tok' });
   h.dispatch.mockImplementation(async (_a: string, _k: string, send: () => Promise<unknown>) => send());
   h.sendText.mockResolvedValue({ messageId: 'wamid.1' });
@@ -208,6 +213,21 @@ describe('runScheduledReplies', () => {
     await runScheduledReplies(ACCOUNT, NOW);
     expect(h.dispatch).not.toHaveBeenCalled();
     expect(h.executed.find((e) => e.sql.includes("status='skipped'"))?.values).toContain(reason);
+  });
+
+  it('skips a reply written before the platform blocked manual replies for the workspace', async () => {
+    h.manualBlocked = true;
+    h.due = [dueRow()];
+    await runScheduledReplies(ACCOUNT, NOW);
+    expect(h.dispatch).not.toHaveBeenCalled();
+    expect(h.executed.find((e) => e.sql.includes("status='skipped'"))?.values).toContain('channel_off');
+  });
+
+  it('refuses an edit that moves the time past the table cap measured from created_at', async () => {
+    // Created 20 days ago: 11 days from now is 31 days after creation, over the 30-day cap.
+    h.ownRow = { status: 'pending', channel: 'whatsapp', conversation_id: CONV, content: 'hi', send_at: inHours(1), created_at: new Date(NOW.getTime() - 20 * 86_400_000) };
+    expect(await codeOf(updateScheduledReply(me, 'a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0', { kind: 'edit', sendAt: new Date(NOW.getTime() + 11 * 86_400_000) }, NOW))).toBe('tooFarWhatsapp');
+    expect(await codeOf(updateScheduledReply(me, 'a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0', { kind: 'edit', sendAt: new Date(NOW.getTime() + 5 * 86_400_000) }, NOW))).toBe(null);
   });
 
   it('skips when the number was disconnected', async () => {

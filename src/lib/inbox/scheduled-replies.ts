@@ -41,6 +41,7 @@ import {
   type InstagramSendContext,
   type InstagramTarget,
 } from '@/lib/channels/sender';
+import { manualRepliesBlockedIn } from '@/lib/platform/lifecycle';
 import { instagramConfig } from '@/lib/instagram/config';
 import { InstagramError } from '@/lib/instagram/errors';
 import { INSTAGRAM_LIMITS, utf8Bytes } from '@/lib/instagram/graph-limits';
@@ -168,8 +169,9 @@ const workerTenant = <T>(accountId: string, work: (tx: TenantTransaction) => Pro
  * (or an InstagramError for a channel that cannot send at all); nothing is stored
  * by a refusal. `target` is the Instagram send target (read by the worker role).
  */
-function assertSchedulable(channel: Channel, content: string, sendAt: Date, now: Date, target: InstagramTarget | null): void {
-  const ahead = sendAt.getTime() - now.getTime();
+function assertSchedulable(channel: Channel, content: string, sendAt: Date, now: Date, target: InstagramTarget | null, createdAt: Date = now): void {
+  // The table caps send_at against the row's created_at, which an edit does not move.
+  const ahead = sendAt.getTime() - Math.min(createdAt.getTime(), now.getTime());
   // The table allows 30 / 7 days from its own clock; stay a minute inside it.
   if (channel === 'whatsapp') {
     if (ahead > SCHEDULED_REPLY_LIMITS.maxDaysAhead.whatsapp * DAY_MS - 60_000) throw new ScheduledReplyError('tooFarWhatsapp', 400);
@@ -233,9 +235,9 @@ export async function listScheduledReplies(ctx: TenantContext, conversationId: s
   return rows.map(toDto);
 }
 
-async function loadOwnRow(me: Member, id: string): Promise<{ status: string; channel: Channel; conversation_id: string; content: string; send_at: Date }> {
-  const rows = await withTenant(me, (tx) => tx.$queryRaw<{ status: string; channel: Channel; conversation_id: string; content: string; send_at: Date }[]>`
-    SELECT status, channel, conversation_id::text AS conversation_id, content, send_at FROM scheduled_replies
+async function loadOwnRow(me: Member, id: string): Promise<{ status: string; channel: Channel; conversation_id: string; content: string; send_at: Date; created_at?: Date }> {
+  const rows = await withTenant(me, (tx) => tx.$queryRaw<{ status: string; channel: Channel; conversation_id: string; content: string; send_at: Date; created_at?: Date }[]>`
+    SELECT status, channel, conversation_id::text AS conversation_id, content, send_at, created_at FROM scheduled_replies
     WHERE account_id=${me.accountId}::uuid AND id=${id}::uuid`);
   if (!rows.length) throw new ScheduledReplyError('notFound', 404);
   return rows[0];
@@ -252,7 +254,7 @@ export async function updateScheduledReply(ctx: TenantContext, id: string, patch
     const content = patch.content ?? current.content;
     const sendAt = patch.sendAt ?? current.send_at;
     const target = current.channel === 'instagram' ? await instagramTargetFor(me.accountId, current.conversation_id) : null;
-    assertSchedulable(current.channel, content, sendAt, now, target);
+    assertSchedulable(current.channel, content, sendAt, now, target, current.created_at instanceof Date ? current.created_at : now);
   }
   const rows = await withTenant(me, (tx) => tx.$queryRaw<Row[]>(Prisma.sql`
     UPDATE scheduled_replies SET
@@ -371,6 +373,8 @@ async function claimNext(accountId: string, now: Date): Promise<Claim> {
     if (row.status === 'pending') {
       if (row.conv_status === 'closed') return skip(tx, accountId, row.id, 'conversation_closed');
       if (row.blocked_at) return skip(tx, accountId, row.id, 'channel_off');
+      // A platform admin's block on manual replies (abuse) also covers a reply written earlier and sent later.
+      if (await manualRepliesBlockedIn(tx, accountId)) return skip(tx, accountId, row.id, 'channel_off');
       if (channel === 'whatsapp') {
         if (await conversationNumberDisconnected(databaseAdmin(), accountId, row.conversation_id).catch(() => true))
           return skip(tx, accountId, row.id, 'channel_off');

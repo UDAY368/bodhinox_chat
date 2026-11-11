@@ -118,6 +118,16 @@ describe('member operations', () => {
   });
 });
 
+describe('updateReminder time cap', () => {
+  const me = { accountId: ACCOUNT, userId: USER, role: 'agent' as const };
+  it('refuses an edit past 366 days from the row’s own creation (the table cap), as tooFar', async () => {
+    const created = new Date(NOW.getTime() - 100 * 86_400_000);
+    h.rows = [{ remind_at: NOW, fired_at: null, created_at: created, updated_at: NOW }];
+    await expect(updateReminder(me, CONV, { remindAt: new Date(created.getTime() + 367 * 86_400_000) })).rejects.toMatchObject({ code: 'tooFar' });
+    await expect(updateReminder(me, CONV, { remindAt: new Date(created.getTime() + 300 * 86_400_000) })).resolves.toBeTruthy();
+  });
+});
+
 describe('runDueReminders', () => {
   it('fires due reminders and notifies their owners in the same transaction, with a dedupe key', async () => {
     h.rows = [{ id: 'r1', user_id: USER, conversation_id: CONV }];

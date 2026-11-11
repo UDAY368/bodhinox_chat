@@ -168,6 +168,13 @@ export async function updateReminder(ctx: TenantContext, id: string, patch: Remi
   const me = member(ctx);
   if (!UUID.test(id)) throw new ReminderError('notFound', 404);
   return withTenant(me, async (tx) => {
+    // The table caps remind_at against the row's own created_at, which an edit does not move.
+    if (patch.remindAt) {
+      const own = await tx.$queryRaw<{ created_at: Date }[]>`SELECT created_at FROM conversation_reminders
+        WHERE account_id=${me.accountId}::uuid AND user_id=${me.userId}::uuid AND id=${id}::uuid`;
+      if (own[0] && patch.remindAt.getTime() > own[0].created_at.getTime() + CONVERSATION_REMINDER_LIMITS.maxDaysAhead * DAY_MS - 60_000)
+        throw new ReminderError('tooFar', 400);
+    }
     // dismissed: pending or fired; cancelled and edits: pending only (the guard trigger holds the same rules).
     const allowed = patch.status === 'dismissed' ? ['pending', 'fired'] : ['pending'];
     const rows = await tx.$queryRaw<Row[]>(Prisma.sql`
