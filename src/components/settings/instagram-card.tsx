@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import { instagramCall, jsonInit } from '@/components/instagram/comment-rules-editor';
+import { InstagramPageLogin } from '@/components/settings/instagram-page-login';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +34,7 @@ import type { InstagramAccountView } from '@/lib/instagram/connection';
 
 type Status =
   | { enabled: false; reason: 'flag_off' | 'not_configured'; accounts: [] }
-  | { enabled: true; appId: string; humanAgentEnabled: boolean; accounts: InstagramAccountView[] };
+  | { enabled: true; appId: string; humanAgentEnabled: boolean; pageLoginAvailable?: boolean; accounts: InstagramAccountView[] };
 
 /** ?code= values the callback can send (kept in step with CALLBACK_ERROR_CODES). */
 const CALLBACK_CODES = new Set([
@@ -181,6 +182,7 @@ export function InstagramCard() {
                 </Button>
               </div>
             )}
+            {status.pageLoginAvailable && <InstagramPageLogin canEdit={canEdit} onConnected={() => void load()} />}
           </>
         )}
       </CardContent>
@@ -198,6 +200,7 @@ function AccountRow({ account, canEdit, busy, onReconnect, onDisconnect, onCheck
 }) {
   const t = useTranslations('Settings.instagram');
   const tChannels = useTranslations('Channels.settings');
+  const tPage = useTranslations('Instagram.pageLogin');
   const handle = account.username ? `@${account.username}` : account.name ?? account.igUserId;
   const disconnected = account.status === 'disconnected';
   const commentsReady = !disconnected && account.missingScopes.comments.length === 0;
@@ -246,7 +249,10 @@ function AccountRow({ account, canEdit, busy, onReconnect, onDisconnect, onCheck
         {!disconnected && (
           <li>{account.lastWebhookAt ? t('lastWebhook', { date: date(account.lastWebhookAt) }) : t('neverReceived')}</li>
         )}
-        {!disconnected && account.accessExpiresAt && <li>{t('tokenExpires', { date: date(account.accessExpiresAt) })}</li>}
+        {!disconnected && account.connectionKind === 'facebook_page' && (
+          <li>{tPage('kindLabel')}: {tPage('kindFacebookPage', { page: account.facebookPageId ?? '' })}</li>
+        )}
+        {!disconnected && account.connectionKind !== 'facebook_page' && account.accessExpiresAt && <li>{t('tokenExpires', { date: date(account.accessExpiresAt) })}</li>}
         {!disconnected && (
           <li>
             {commentsReady ? t('commentsAvailable') : t('commentsNotEnabled')}
