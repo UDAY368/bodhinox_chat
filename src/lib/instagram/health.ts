@@ -14,6 +14,7 @@ import { instagramConfig, missingScopes } from './config';
 import { asWorker, errorCodeOf, loadAccountSecretTx, readToken, type InstagramAccountStatus } from './connection';
 import { InstagramError } from './errors';
 import { getMe, isMetaThrottle, isMetaTokenInvalid } from './graph';
+import { probePageLink } from './page-login';
 
 export type { InstagramAccountStatus } from './connection';
 
@@ -74,8 +75,11 @@ export async function checkHealth(accountId: string, instagramAccountId: string)
   let next: InstagramAccountStatus;
   let errorCode: string | null = null;
   try {
-    const me = await getMe(token);
-    next = me.userId !== row.ig_user_id ? 'token_invalid'
+    // A Facebook Page connection (Stage 4) is probed through its Page: Instagram Login's /me does not apply to a Page token.
+    const linkedId = row.connection_kind === 'facebook_page' && row.facebook_page_id
+      ? await probePageLink(row.facebook_page_id, token)
+      : (await getMe(token)).userId;
+    next = linkedId !== row.ig_user_id ? 'token_invalid'
       : missingScopes(row.scopes, 'dm').length ? 'permission_missing' : 'active';
   } catch (error) {
     if (!isMetaTokenInvalid(error)) {

@@ -66,7 +66,7 @@ export async function runResubscribe(accountId: string): Promise<ResubscribeSumm
   if (!instagramConfig()) return summary;
   const rows = await asWorker(accountId, (tx) => tx.$queryRaw<(Row & { ig_user_id: string })[]>`
     SELECT id::text AS id, ig_user_id, access_token_enc, scopes FROM instagram_accounts
-    WHERE account_id=${accountId}::uuid AND status='active' ORDER BY id LIMIT 50`);
+    WHERE account_id=${accountId}::uuid AND status='active' AND connection_kind='instagram_login' ORDER BY id LIMIT 50`);
   let throttled = false;
   for (const row of rows) {
     const fields = webhookFieldsFor(row.scopes ?? []);

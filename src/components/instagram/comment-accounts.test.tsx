@@ -18,7 +18,7 @@ import { InstagramCommentAccounts, type InstagramStatus } from './comment-accoun
 const account = (over: Partial<InstagramAccountView> = {}): InstagramAccountView => ({
   id: 'acc-1', igUserId: '1784', username: 'shop', name: 'Shop', status: 'active', scopes: [],
   missingScopes: { dm: [], comments: [] }, accessExpiresAt: null, lastWebhookAt: null, lastErrorCode: null,
-  unsupportedEventCount: 0, unsupportedEventLastAt: null, connectedAt: null, disconnectedAt: null, ...over,
+  unsupportedEventCount: 0, unsupportedEventLastAt: null, connectedAt: null, disconnectedAt: null, connectionKind: 'instagram_login', facebookPageId: null, ...over,
 });
 
 const render = (status: InstagramStatus | null, canEdit: boolean, failed = false) =>
