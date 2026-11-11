@@ -44,7 +44,7 @@ vi.mock('@/lib/flows/admin-client', () => ({
 }));
 vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: (value: string) => `plain:${value}` }));
 const meta = vi.hoisted(() => ({ send: vi.fn<(...args: unknown[]) => Promise<{ messageId: string }>>(async () => ({ messageId: 'wamid' })) }));
-vi.mock('@/lib/whatsapp/meta-api', () => ({ sendTemplateMessage: meta.send }));
+vi.mock('@/lib/whatsapp/meta-api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/whatsapp/meta-api')>()), sendTemplateMessage: meta.send }));
 vi.mock('@/lib/storage/server', () => ({ providerMediaUrl: vi.fn() }));
 
 import { sendCampaignTest } from './test-send';
