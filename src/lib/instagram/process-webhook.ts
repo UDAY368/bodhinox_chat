@@ -124,6 +124,9 @@ const ATTACHMENT_TYPES: Record<string, IgContentType> = {
   share: 'share', ig_reel: 'share', reel: 'share', ig_post: 'share',
 };
 
+/** Attachment types that mean "shared one of the account's posts to their story" (needs live capture). */
+const SHARE_TO_STORY_TYPES = new Set(['story_share', 'share_to_story']);
+
 function referralOf(value: unknown): Record<string, string> | null {
   const r = obj(value);
   if (!r) return null;
@@ -175,6 +178,12 @@ function messageItems(message: Record<string, unknown>, baseMid: string): IgItem
       const caption = index === 0 ? text : null;
       // (needs live capture) a mention of the account in the customer's story: Meta's
       // documented shape is an attachment of type story_mention with the story's CDN url.
+      // Share-to-Story (Stage 4; needs live capture, Meta may not deliver it to Instagram Login apps):
+      // built against a documented fixture, an attachment of type story_share with the shared post's url.
+      // Only the engine acts on it, and only while INSTAGRAM_SHARE_TO_STORY_ENABLED is on.
+      if (SHARE_TO_STORY_TYPES.has(type))
+        return { messageId, contentType: 'share' as const, text: caption, mediaUrl: null, interactiveReplyId: null,
+          ig: withExtra({ share_to_story: true, ...(url ? { url } : {}) }) };
       if (type === 'story_mention')
         return { messageId, contentType: 'share' as const, text: caption, mediaUrl: null, interactiveReplyId: null,
           ig: withExtra({ story_mention: true, ...(url ? { url } : {}) }) };

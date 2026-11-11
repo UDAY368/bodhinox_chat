@@ -8,8 +8,9 @@ import { writeContactField } from '@/lib/contacts/field-write';
 import { clockTimezone, conditionRules, predicateHolds, ruleHolds } from './conditions';
 import {
   adClickMatch, byPrecedence, defaultReplyApplies, igAdClickMatch, instagramFactsFrom, isTestContact, keywordTriggerMatches,
-  orderReceivedMatch, phoneDigits, refTriggerMatch, storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
+  orderReceivedMatch, phoneDigits, refTriggerMatch, shareToStoryMatches, storyReplyMatches, templateReplyMatch, type InstagramInboundFacts,
 } from './triggers';
+import { instagramConfig } from '@/lib/instagram/config';
 import { decodePostback, encodePostback } from '@/lib/instagram/postback-payloads';
 import { PRIVATE_REPLY_RETRY_MS, postCommentPublicReply, recordCommentOptIn, sendCommentPrivateReply } from '@/lib/instagram/private-reply';
 import { pickPublicReply } from '@/lib/instagram/comment-matching';
@@ -143,6 +144,7 @@ import {
   type IgCommentReplyNodeConfig,
   type IgCommentTriggerConfig,
   type IgPrivateReplyNodeConfig,
+  type IgShareToStoryTriggerConfig,
   type IgStoryMentionTriggerConfig,
   type IgRefTriggerConfig,
   type IgLiveCommentTriggerConfig,
@@ -739,14 +741,22 @@ async function findEntryFlow(
   // Story replies and mentions, and (Stage 3) the ref link or ad a chat was opened from, are read from the stored message (Instagram only).
   const needsFacts = conversation.channel === "instagram" &&
     typed.some((f) => f.trigger_type === "ig_story_reply" || f.trigger_type === "ig_story_mention" || f.trigger_type === "default_reply"
-      || f.trigger_type === "ig_ref" || f.trigger_type === "ad_click");
-  const igFacts: InstagramInboundFacts = needsFacts ? await storedInstagramFacts(db, accountId, conversationId, message.meta_message_id) : {};
+      || f.trigger_type === "ig_ref" || f.trigger_type === "ad_click" || f.trigger_type === "ig_share_to_story");
+  const storedFacts: InstagramInboundFacts = needsFacts ? await storedInstagramFacts(db, accountId, conversationId, message.meta_message_id) : {};
+  // Flag off: a share to story is treated as any other unrecognised attachment (the default reply still applies), exactly as before Stage 4.
+  const igFacts: InstagramInboundFacts = storedFacts.shareToStory && !instagramConfig()?.shareToStoryEnabled
+    ? { ...storedFacts, shareToStory: undefined } : storedFacts;
   for (const flow of typed) {
     if (flow.trigger_type === "ig_story_reply") {
       if (storyReplyMatches(igFacts, messageText(message), flow.trigger_config as IgStoryReplyTriggerConfig)) return found(flow, {});
     } else if (flow.trigger_type === "ig_story_mention") {
       const cfg = flow.trigger_config as IgStoryMentionTriggerConfig;
       if (igFacts.storyMention && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) return found(flow, {});
+    } else if (flow.trigger_type === "ig_share_to_story") {
+      // Stage 4: dark until a live capture shows Meta delivers the event (the flag; a flow stored while it is off never fires).
+      const cfg = flow.trigger_config as IgShareToStoryTriggerConfig;
+      if (instagramConfig()?.shareToStoryEnabled && shareToStoryMatches(igFacts, cfg, instagramAccountId)
+        && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) return found(flow, {});
     } else if (flow.trigger_type === "default_reply") {
       // Lowest tier (triggers.ts): reached only when no other flow matched.
       const cfg = flow.trigger_config as DefaultReplyTriggerConfig;

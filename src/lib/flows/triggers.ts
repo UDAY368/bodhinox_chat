@@ -13,6 +13,7 @@
 //   (Instagram, Stage 2) ig_story_mention and ig_story_reply sit just above
 //   keyword: a story reply that also contains a keyword starts the story flow.
 //   4. default_reply  only when nothing above matched (lowest tier)
+//   (Instagram, Stage 4) ig_share_to_story sits between the two, behind its flag.
 // ig_comment and ig_live_comment flows never start from a message: comments
 // start them (process-webhook.ts and private-reply.ts).
 // Within a tier a draft being tested wins for its testers, then the oldest
@@ -23,12 +24,12 @@ import { regexMatches } from "./input-validation";
 import { hasKeywords, keywordListMatches } from "@/lib/instagram/comment-matching";
 import { normalizeInboundRef, refKeyMatches } from "@/lib/instagram/ref-links";
 import type {
-  AdClickTriggerConfig, FlowRow, IgLiveCommentTriggerConfig, IgRefTriggerConfig, IgStoryReplyTriggerConfig, KeywordTriggerConfig,
+  AdClickTriggerConfig, FlowRow, IgLiveCommentTriggerConfig, IgRefTriggerConfig, IgShareToStoryTriggerConfig, IgStoryReplyTriggerConfig, KeywordTriggerConfig,
   ParsedInbound, TemplateReplyTriggerConfig,
 } from "./types";
 
 const TIER: Record<string, number> = {
-  order_received: -1, ad_click: -0.5, ig_ref: -0.4, template_reply: 0, ig_story_mention: 0.5, ig_story_reply: 0.6, keyword: 1,
+  order_received: -1, ad_click: -0.5, ig_ref: -0.4, template_reply: 0, ig_story_mention: 0.5, ig_share_to_story: 0.55, ig_story_reply: 0.6, keyword: 1,
   first_inbound_message: 2, default_reply: 3,
 };
 
@@ -107,6 +108,12 @@ export interface InstagramInboundFacts {
   /** A mention of the account in the customer's story. */
   storyMention?: boolean;
   /**
+   * The customer shared one of the account's posts or reels to their story
+   * (Stage 4). Needs live capture: built against a documented fixture, and only
+   * acted on while INSTAGRAM_SHARE_TO_STORY_ENABLED is on.
+   */
+  shareToStory?: boolean;
+  /**
    * The ref link or ad the chat was opened from (Stage 3). `ref` is already
    * checked against what we store (normalizeInboundRef); `fromAd` is a
    * click-to-Direct ad (Meta's referral source ADS). Needs live capture: built
@@ -129,6 +136,7 @@ export function instagramFactsFrom(payload: unknown): InstagramInboundFacts {
     const adTitle = typeof referral.ad_title === "string" ? referral.ad_title.slice(0, 256) : null;
     if (ref || fromAd) facts.referral = { ref, fromAd, adId, adTitle };
   }
+  if (row.share_to_story === true) return { ...facts, shareToStory: true };
   if (row.story_mention === true) return { ...facts, storyMention: true };
   if (row.story === true) {
     const storyId = typeof row.story_id === "string" && /^\d{1,32}$/.test(row.story_id) ? row.story_id : null;
@@ -177,6 +185,17 @@ export function liveCommentMatches(cfg: IgLiveCommentTriggerConfig | null | unde
 }
 
 /**
+ * Whether a shared-to-story post starts an ig_share_to_story flow: the message
+ * is a share to story and the trigger is for this account (or any). The caller
+ * checks the INSTAGRAM_SHARE_TO_STORY_ENABLED flag and the frequency.
+ */
+export function shareToStoryMatches(facts: InstagramInboundFacts, cfg: IgShareToStoryTriggerConfig | null | undefined,
+  instagramAccountId: string | null): boolean {
+  if (!facts.shareToStory) return false;
+  return !cfg?.instagram_account_id || cfg.instagram_account_id === instagramAccountId;
+}
+
+/**
  * Whether a story reply starts an ig_story_reply flow: the story is one of
  * `story_ids` (or any story when none are listed); an emoji reaction starts it
  * only with `reactions`; a text reply matches `keywords` (any reply when none).
@@ -199,5 +218,5 @@ export function storyReplyMatches(facts: InstagramInboundFacts, text: string, cf
  */
 export function defaultReplyApplies(message: ParsedInbound, facts: InstagramInboundFacts, isOurPostback: boolean): boolean {
   if (message.kind === "form" || message.kind === "order") return false;
-  return !facts.storyMention && !isOurPostback;
+  return !facts.storyMention && !facts.shareToStory && !isOurPostback;
 }
