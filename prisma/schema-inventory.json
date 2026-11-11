@@ -2878,6 +2878,14 @@
         "definition": "canvas_notes jsonb NOT NULL DEFAULT '[]'::jsonb"
       },
       {
+        "name": "draft_saved_at",
+        "type": "timestamptz",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "draft_saved_at timestamptz"
+      },
+      {
         "name": "folder_id",
         "type": "uuid",
         "nullable": true,
@@ -18102,6 +18110,132 @@
         "default": null,
         "reference": null,
         "definition": "ended_at timestamptz"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "updated_at timestamptz NOT NULL DEFAULT now()"
+      }
+    ],
+    "sequence_message_sends": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "gen_random_uuid()",
+        "reference": null,
+        "definition": "id uuid PRIMARY KEY DEFAULT gen_random_uuid()"
+      },
+      {
+        "name": "account_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": "NULLIF(current_setting('app.account_id', true),'')::uuid",
+        "reference": {
+          "table": "accounts",
+          "column": "id",
+          "onDelete": "CASCADE"
+        },
+        "definition": "account_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.account_id', true),'')::uuid REFERENCES accounts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "subscription_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "subscription_id uuid NOT NULL"
+      },
+      {
+        "name": "round_started_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "round_started_at timestamptz NOT NULL"
+      },
+      {
+        "name": "sequence_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "sequence_id uuid NOT NULL"
+      },
+      {
+        "name": "sequence_message_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "sequence_message_id uuid NOT NULL"
+      },
+      {
+        "name": "contact_id",
+        "type": "uuid",
+        "nullable": false,
+        "default": null,
+        "reference": null,
+        "definition": "contact_id uuid NOT NULL"
+      },
+      {
+        "name": "conversation_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "conversation_id uuid"
+      },
+      {
+        "name": "flow_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "flow_id uuid"
+      },
+      {
+        "name": "flow_run_id",
+        "type": "uuid",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "flow_run_id uuid"
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false,
+        "default": "'starting'",
+        "reference": null,
+        "definition": "status text NOT NULL DEFAULT 'starting' CHECK (status IN ('starting','sent','skipped','failed'))"
+      },
+      {
+        "name": "reason",
+        "type": "text",
+        "nullable": true,
+        "default": null,
+        "reference": null,
+        "definition": "reason text CHECK (reason IS NULL OR reason IN ('window_closed','flow_not_live','inactive','no_conversation' 'unavailable','channel_off','start_failed'))"
+      },
+      {
+        "name": "attempts",
+        "type": "integer",
+        "nullable": false,
+        "default": "0",
+        "reference": null,
+        "definition": "attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 100)"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamptz",
+        "nullable": false,
+        "default": "now()",
+        "reference": null,
+        "definition": "created_at timestamptz NOT NULL DEFAULT now()"
       },
       {
         "name": "updated_at",

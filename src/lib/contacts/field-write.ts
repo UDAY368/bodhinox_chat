@@ -6,8 +6,8 @@ import { withTenant } from '@/lib/db/tenant'
 import { getWorkerPrisma } from '@/lib/db/prisma'
 import { queueContactEvent } from './tag-write'
 
-/** Built-in contact columns a bot may overwrite. */
-export const WRITABLE_CONTACT_FIELDS = ['name', 'email', 'company'] as const
+import { WRITABLE_CONTACT_FIELDS } from './writable-fields'
+export { WRITABLE_CONTACT_FIELDS }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const present = (value: string | null | undefined): boolean => typeof value === 'string' && value.trim() !== ''

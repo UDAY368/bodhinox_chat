@@ -464,4 +464,22 @@ describe('Stage 5 (5B): CSRF, test usernames, extra triggers and the autosave co
     expect(h.baseSeen).toEqual(['2026-11-11T10:00:00.000Z', '2026-11-11T10:00:05.000Z', undefined]);
     expect((await put({ name: 'x', base_updated_at: 'yesterday' })).status).toBe(400);
   });
+
+  it('stores canvas notes with whole-number positions and refuses a malformed or oversized list', async () => {
+    h.flows = [igDraft()];
+    const ok = await put({ canvas_notes: [{ id: 'n1', text: 'Ask for the size first', x: 10.4, y: -20.6 }] });
+    expect(ok.status).toBe(200);
+    expect(h.flows[0].canvas_notes).toEqual([{ id: 'n1', text: 'Ask for the size first', x: 10, y: -21 }]);
+    h.writes = [];
+    const bad = [
+      [{ id: 'n1', text: 'a', x: 0, y: 0 }, { id: 'n1', text: 'b', x: 0, y: 0 }], // duplicate ids
+      [{ id: 'n1', text: 'x'.repeat(1001), x: 0, y: 0 }],
+      [{ id: 'n 1', text: 'a', x: 0, y: 0 }],
+      [{ id: 'n1', text: 'a', x: Number.NaN, y: 0 }],
+      Array.from({ length: 31 }, (_, i) => ({ id: `n${i}`, text: '', x: 0, y: 0 })),
+      'notes',
+    ];
+    for (const canvas_notes of bad) expect((await put({ canvas_notes })).status).toBe(400);
+    expect(h.writes).toEqual([]);
+  });
 });

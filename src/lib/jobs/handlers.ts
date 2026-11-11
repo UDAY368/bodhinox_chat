@@ -125,6 +125,9 @@ export async function scheduleWork() {
   // Instagram AI comment replies: every 5 minutes per workspace with AI comment work; nothing while Instagram or AI is off.
   await import('@/lib/instagram/ai-comments').then((m) => m.scheduleAiCommentSweeps())
     .catch(() => console.error('[worker] instagram ai comment scheduling failed'));
+  // Sequences (Stage 5): every 30 seconds, one job per workspace with a due message; nothing while Instagram is off.
+  await import('@/lib/sequences/jobs').then((m) => m.scheduleSequenceSweeps())
+    .catch(() => console.error('[worker] sequence scheduling failed'));
   // AI assistant data retention: daily per workspace with something due.
   await import('@/lib/ai/retention').then((m) => m.scheduleAiRetention())
     .catch(() => console.error('[worker] ai retention scheduling failed'));
@@ -509,6 +512,12 @@ export async function handleJob(job: Job, assertLease: () => void = () => {}) {
     else if (job.type === 'contact.erase')
       // Per-contact erasure requested by an admin; every step is idempotent.
       await (await import('@/lib/privacy/contact-erasure')).runContactErasure(accountId, job.payload, job.id);
+    else if (job.type === 'api.start_flow')
+      // Public API start-flow request (Stage 5): ids re-checked in the tenant; the request id makes a retry a duplicate, never a second run.
+      await (await import('@/lib/api/v1/start-flow')).handleApiStartFlowJob(accountId, job.payload);
+    else if (job.type === 'sequences.due')
+      // Due sequence messages (Stage 5): claimed per subscription, 24-hour window re-checked before each send.
+      await (await import('@/lib/sequences/jobs')).handleSequenceJob(accountId);
     else if (job.type.startsWith('instagram.'))
       // Token sweep, profile fetch and comment private replies; each returns early while Instagram is off.
       await (await import('@/lib/instagram/jobs')).handleInstagramJob(accountId, job.type, job.payload, { attempts: job.attempts, maxAttempts: job.max_attempts });

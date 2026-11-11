@@ -27,7 +27,7 @@ import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/interactive-limits";
 import { getT } from "@/lib/i18n/translate";
 import { flowTemplateExtrasIssues, type FlowTemplateExtras } from "@/lib/whatsapp/template-send-params";
 import { isValidTimeZone } from "@/lib/automations/time-of-day";
-import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/field-write";
+import { WRITABLE_CONTACT_FIELDS } from "@/lib/contacts/writable-fields";
 import { commerceNodeIssues, isCommerceNodeType } from "./commerce-nodes";
 import { FALLBACK_MESSAGE_MAX, resolveFallbackMessage, resolveFallbackPolicy } from "./fallback";
 import { PAYMENT_LINK_VARS, paymentLinkEdges, paymentLinkIssues } from "./payment-node";

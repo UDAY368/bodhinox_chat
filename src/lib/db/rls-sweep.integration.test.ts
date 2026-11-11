@@ -201,7 +201,7 @@ describe.skipIf(!connectionString)("[TEN-01][SEC-03] row-level security catalogu
   it("[TEN-01] covers every Stage 5 table: forced RLS, a tenant policy, and no token readable by the app role", async () => {
     const stage5 = ["flow_folders", "flow_tracked_links", "instagram_consent_settings", "conversation_labels", "conversation_label_links",
       "conversation_favourites", "conversion_event_types", "conversion_event_log", "google_sheets_connections", "sequences",
-      "sequence_messages", "sequence_subscriptions"];
+      "sequence_messages", "sequence_subscriptions", "sequence_message_sends"];
     const { rows } = await pool.query<{ table: string; rls: boolean; forced: boolean; policies: number }>(`
       SELECT c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced,
         (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid

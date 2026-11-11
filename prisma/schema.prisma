@@ -448,6 +448,8 @@ model flows {
   extra_triggers Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
   test_usernames String[] @default([])
   canvas_notes Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
+  /// Stage 5 close: set by draft saves only; the autosave conflict check compares with it.
+  draft_saved_at DateTime? @db.Timestamptz(6)
   /// Stage 5 (20261118000100): flow_folders row; ON DELETE SET NULL (composite FK owned by the SQL).
   folder_id String? @db.Uuid
   @@unique([account_id, id])
@@ -3214,4 +3216,27 @@ model sequence_subscriptions {
   @@unique([account_id, id])
   @@unique([account_id, sequence_id, contact_id])
   @@index([account_id, contact_id], map: "sequence_subscriptions_contact_idx")
+}
+
+/// Stage 5 (5H): delivery log of sequence messages; one row per subscription round and message. Worker writes, members read.
+model sequence_message_sends {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid"))
+  subscription_id String @db.Uuid
+  round_started_at DateTime @db.Timestamptz(6)
+  sequence_id String @db.Uuid
+  sequence_message_id String @db.Uuid
+  contact_id String @db.Uuid
+  conversation_id String? @db.Uuid
+  flow_id String? @db.Uuid
+  flow_run_id String? @db.Uuid
+  /// 'starting' | 'sent' | 'skipped' | 'failed'
+  status String @default("starting")
+  reason String?
+  attempts Int @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, subscription_id, round_started_at, sequence_message_id])
+  @@index([account_id, sequence_id, sequence_message_id], map: "sequence_message_sends_stats_idx")
 }

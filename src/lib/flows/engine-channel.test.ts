@@ -75,6 +75,11 @@ vi.mock("@/lib/instagram/process-webhook", () => ({
 }));
 
 vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {} }));
+// Stage 5 consent gate reads the contact through its own query; these contacts never opted out.
+vi.mock("@/lib/contacts/channel-consent", async (original) => ({
+  ...(await original<typeof import("@/lib/contacts/channel-consent")>()),
+  instagramAutomationAllowed: async () => true,
+}));
 vi.mock("@/lib/jobs/dispatch", () => ({ dispatchOnce: h.dispatch, UncertainDispatchError: class extends Error {} }));
 vi.mock("@/lib/workspace/attributes", async (original) => ({
   ...(await original<typeof import("@/lib/workspace/attributes")>()),

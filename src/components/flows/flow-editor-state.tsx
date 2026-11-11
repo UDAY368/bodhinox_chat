@@ -221,6 +221,15 @@ export function commentTriggerOf(state: Pick<BuilderState, "trigger_type" | "ext
 }
 
 /** The PUT /api/flows/[id] body for a draft (Stage 5 adds triggers, usernames, notes and the autosave base). */
+/**
+ * The draft marker autosave sends back as base_updated_at: draft_saved_at (moved only by draft saves),
+ * else updated_at for a flow not saved since that column existed. Null when the server sent neither.
+ */
+export function draftMarker(flow: { draft_saved_at?: unknown; updated_at?: unknown } | null | undefined): string | null {
+  if (typeof flow?.draft_saved_at === "string") return flow.draft_saved_at;
+  return typeof flow?.updated_at === "string" ? flow.updated_at : null;
+}
+
 export function draftPayload(state: BuilderState, channelScope: FlowChannelScope, baseUpdatedAt: string | null): Record<string, unknown> {
   return {
     name: state.name,
@@ -480,7 +489,7 @@ interface ProviderProps {
 }
 
 export type PublishOutcome =
-  /** `updatedAt`: the flow row's new updated_at, the base the next autosave sends (absent when the server sent none). */
+  /** `updatedAt`: the flow's draft marker (draftMarker), the base the next autosave sends (absent when the server sent none). */
   | { kind: "published"; status: BuilderState["status"]; updatedAt?: string }
   | { kind: "save_failed" }
   | { kind: "draft_changed"; message: string | null }
@@ -508,11 +517,11 @@ export async function publishDraft(args: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(hash ? { status: "active", draft_hash: hash } : { status: "active" }),
   });
-  const json = (await res.json().catch(() => ({}))) as { error?: unknown; draft_hash?: unknown; flow?: { status?: BuilderState["status"]; updated_at?: unknown } };
+  const json = (await res.json().catch(() => ({}))) as { error?: unknown; draft_hash?: unknown; flow?: { status?: BuilderState["status"]; updated_at?: unknown; draft_saved_at?: unknown } };
   const message = typeof json.error === "string" ? json.error : null;
   if (res.status === 409 && json.draft_hash !== undefined) return { kind: "draft_changed", message };
   if (!res.ok) return { kind: "failed", message, status: res.status };
-  const updatedAt = json.flow?.updated_at;
+  const updatedAt = draftMarker(json.flow);
   return { kind: "published", status: json.flow?.status ?? "active", ...(typeof updatedAt === "string" ? { updatedAt } : {}) };
 }
 
@@ -666,9 +675,9 @@ export function FlowEditorProvider({
     stateRef.current = state;
     scopeRef.current = channelScope;
   }, [state, channelScope]);
-  // updated_at of the draft this editor last loaded or saved: the PUT sends it
+  // The draft marker (draftMarker) this editor last loaded or saved: the PUT sends it
   // so a newer draft saved elsewhere is refused (409 draft_changed), not overwritten.
-  const baseUpdatedAtRef = useRef<string | null>(initialFlow.updated_at ?? null);
+  const baseUpdatedAtRef = useRef<string | null>(draftMarker(initialFlow));
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
 
@@ -682,7 +691,7 @@ export function FlowEditorProvider({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draftPayload(stateRef.current, scopeRef.current, overwrite ? null : baseUpdatedAtRef.current)),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: unknown; draft_hash?: unknown; flow?: { updated_at?: unknown } };
+      const json = (await res.json().catch(() => ({}))) as { error?: unknown; draft_hash?: unknown; flow?: { updated_at?: unknown; draft_saved_at?: unknown } };
       if (isDraftConflict(res.status, json)) {
         setConflict(true);
         return { ok: false, conflict: true };
@@ -691,7 +700,7 @@ export function FlowEditorProvider({
         return { ok: false, reason: "server", message: typeof json.error === "string" ? json.error : t("saveFailedStatus", { status: res.status }) };
       }
       if (typeof json.draft_hash === "string") setDraftHash(json.draft_hash);
-      if (typeof json.flow?.updated_at === "string") baseUpdatedAtRef.current = json.flow.updated_at;
+      if (draftMarker(json.flow)) baseUpdatedAtRef.current = draftMarker(json.flow);
       savedSeqRef.current = startSeq;
       setSavedSeq(startSeq);
       setConflict(false);
@@ -838,7 +847,7 @@ export function FlowEditorProvider({
         // The server decides the resulting status: asking a published flow
         // for "draft" pauses it, so trust the response over `next`.
         const applied: BuilderState["status"] = json.flow?.status ?? next;
-        if (typeof json.flow?.updated_at === "string") baseUpdatedAtRef.current = json.flow.updated_at;
+        if (draftMarker(json.flow)) baseUpdatedAtRef.current = draftMarker(json.flow);
         replace((s) => ({ ...s, status: applied }));
         toast.success(
           applied === "active"

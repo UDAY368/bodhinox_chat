@@ -1268,6 +1268,8 @@ export interface FlowRow {
   folder_id?: string | null;
   /** Stage 5: sticky notes on the canvas (never run). */
   canvas_notes?: CanvasNote[];
+  /** Stage 5: set only by a draft save; the autosave conflict check compares with it (else updated_at). */
+  draft_saved_at?: string | null;
   execution_count: number;
   last_executed_at: string | null;
   created_at: string;

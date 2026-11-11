@@ -475,6 +475,20 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Stage 5 flow engine on Post
       await withTenant(memberB, (tx) => saveDraft(tx, { accountId: B, flowId: flow, patch: { name: 'Mine' }, baseUpdatedAt: new Date(stored).toISOString() }));
       expect((await q('SELECT name FROM flows WHERE id=$1', [flow])).rows[0].name).toBe('Mine');
 
+      // A run counted while the editor is open moves updated_at, not the draft marker: the next autosave still passes.
+      const [{ draft_saved_at: marker }] = (await q('SELECT draft_saved_at FROM flows WHERE id=$1', [flow])).rows;
+      expect(marker).not.toBeNull();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await q('UPDATE flows SET execution_count=execution_count+1 WHERE id=$1', [flow]);
+      const notes = [{ id: 'n1', text: 'Size first', x: 1, y: 2 }];
+      await withTenant(memberB, (tx) => saveDraft(tx, { accountId: B, flowId: flow, patch: { canvas_notes: notes },
+        baseUpdatedAt: new Date(marker).toISOString() }));
+      expect((await q('SELECT canvas_notes FROM flows WHERE id=$1', [flow])).rows[0].canvas_notes).toEqual(notes);
+      // That save moved the marker, so the base from before it is now stale.
+      const second = await withTenant(memberB, (tx) => saveDraft(tx, { accountId: B, flowId: flow, patch: { name: 'Other tab' },
+        baseUpdatedAt: new Date(marker).toISOString() })).then(() => null, (e: unknown) => e);
+      expect((second as FlowVersionError).code).toBe('draft_changed');
+
       await withTenant(memberB, (tx) => publishFlow(tx, { accountId: B, flowId: flow, userId: ownerB, caps: ALL_CAPABILITIES }));
       const row = (await q(`SELECT f.test_usernames, v.extra_triggers FROM flows f JOIN flow_versions v ON v.id=f.published_version_id WHERE f.id=$1`, [flow])).rows[0];
       expect(row).toEqual({ test_usernames: [], extra_triggers: [{ trigger_type: 'ig_story_reply', config: {} }] });

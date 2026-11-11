@@ -211,6 +211,31 @@ Read or update one contact. Scopes: `contacts:read` / `contacts:write`.
 pass `tags` (an array of tag names) to replace the contact's tags. A
 contact in another account returns `404`.
 
+Both also carry `custom_fields`, an object keyed by custom field name.
+`PATCH` accepts the same object: a string sets a value, `null` clears it,
+and a key may also be the field's id. An unknown or ambiguous key is a
+`400` and nothing is written.
+
+### `POST /api/v1/contacts/{id}/flows`
+
+Start an active flow for a contact. Scope: `messages:send` (the flow
+sends messages). Body: `{ "flow_id": "<uuid>" }`. The flow runs on the
+contact's most recent conversation on a channel the flow covers. The
+start is queued before the `202`; the flow's own steps then apply every
+channel rule (on Instagram the 24-hour window is checked before each
+send, and a contact who unsubscribed from Instagram automation gets
+nothing there).
+
+Optional `Idempotency-Key` header (1-200 printable characters): a
+repeated request with the same key queues once. Errors: `404` for a
+contact or flow outside your account, `409 flow_not_active` (draft,
+paused or archived), `409 no_conversation`, `409 idempotency_mismatch`
+(the same key with another contact or flow).
+
+```json
+{ "data": { "status": "queued", "contact_id": "…", "flow_id": "…", "conversation_id": "…", "channel": "instagram" } }
+```
+
 ### `GET /api/v1/conversations`
 
 List conversations, newest first. Scope: `conversations:read`.
@@ -229,6 +254,20 @@ Paginated. Each message includes its `direction` (`inbound` /
 `outbound`), `status` (delivery state), `whatsapp_message_id`, and
 `content_*`. The conversation is verified to belong to your account
 first (`404` otherwise).
+
+### `POST /api/v1/conversations/{id}/messages`
+
+Send text to a conversation on its own channel, WhatsApp or Instagram.
+Scope: `messages:send`. Body: `{ "text": "…" }`. Optional
+`Idempotency-Key` header: a repeated request sends once and returns the
+same result. On Instagram, outside the 24-hour messaging window the
+answer is `409 window_closed` and nothing is sent. `404` for a
+conversation in another account. `POST /api/v1/messages` (by phone
+number) is unchanged.
+
+```json
+{ "data": { "message_id": "…", "provider_message_id": "…", "conversation_id": "…", "channel": "whatsapp" } }
+```
 
 ### `POST /api/v1/broadcasts`
 

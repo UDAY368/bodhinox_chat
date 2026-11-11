@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { parseChannelScope, validateFlowForActivation } from '@/lib/flows/validate';
-import { FLOW_TRIGGER_LIMITS, IG_TEST_USERNAME, type FlowRow, type FlowNodeRow, type FlowTriggerConfig, type FlowTriggerType } from '@/lib/flows/types';
+import { CANVAS_NOTE_LIMITS, FLOW_TRIGGER_LIMITS, IG_TEST_USERNAME, type CanvasNote, type FlowRow, type FlowNodeRow, type FlowTriggerConfig, type FlowTriggerType } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { apiNodeUsesSecrets, canonicalJson } from '@/lib/flows/api-request';
@@ -43,6 +43,23 @@ function parseExtraTriggers(raw: unknown): FlowTriggerConfig[] | null {
     && !Array.isArray((entry as Record<string, unknown>).config));
   if (!ok || JSON.stringify(raw).length > 65_536) return null;
   return raw.map((entry) => ({ trigger_type: (entry as FlowTriggerConfig).trigger_type, config: (entry as FlowTriggerConfig).config }) as FlowTriggerConfig);
+}
+
+/**
+ * Stage 5: canvas notes ({ id, text, x, y }; at most 30, text up to 1000 characters, ids unique),
+ * or null when the list is invalid. Notes never run, so only their shape is checked.
+ */
+function parseCanvasNotes(raw: unknown): CanvasNote[] | null {
+  if (!Array.isArray(raw) || raw.length > CANVAS_NOTE_LIMITS.notes) return null;
+  const notes: CanvasNote[] = [];
+  for (const entry of raw) {
+    const n = entry as Partial<CanvasNote> | null;
+    if (!n || typeof n !== 'object' || typeof n.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(n.id)
+      || typeof n.text !== 'string' || n.text.length > CANVAS_NOTE_LIMITS.chars
+      || typeof n.x !== 'number' || !Number.isFinite(n.x) || typeof n.y !== 'number' || !Number.isFinite(n.y)) return null;
+    notes.push({ id: n.id, text: n.text, x: Math.round(n.x), y: Math.round(n.y) });
+  }
+  return new Set(notes.map((n) => n.id)).size === notes.length && JSON.stringify(notes).length <= 65_536 ? notes : null;
 }
 
 /** An ISO time the editor last loaded or saved the draft at, or null when malformed. */
@@ -165,7 +182,9 @@ interface PutBody {
   test_usernames?: unknown;
   /** Stage 5: further triggers (Instagram flows). */
   extra_triggers?: unknown;
-  /** Stage 5 autosave: flows.updated_at as the editor last saw it. */
+  /** Stage 5: sticky notes on the canvas. */
+  canvas_notes?: unknown;
+  /** Stage 5 autosave: the draft marker (draft_saved_at, else updated_at) as the editor last saw it. */
   base_updated_at?: unknown;
   nodes?: Array<{
     node_key: string;
@@ -219,6 +238,8 @@ export async function PUT(
   if (extraTriggers === null) {
     return NextResponse.json({ error: getT('Flows.multiTrigger')('limitReached', { max: FLOW_TRIGGER_LIMITS.extraTriggers + 1 }) }, { status: 400 });
   }
+  const canvasNotes = body.canvas_notes === undefined ? undefined : parseCanvasNotes(body.canvas_notes);
+  if (canvasNotes === null) return NextResponse.json({ error: t('common.invalidJson') }, { status: 400 });
   const baseUpdatedAt = body.base_updated_at === undefined || body.base_updated_at === null ? undefined : parseBaseUpdatedAt(body.base_updated_at);
   if (baseUpdatedAt === null) return NextResponse.json({ error: t('common.invalidJson') }, { status: 400 });
 
@@ -308,6 +329,7 @@ export async function PUT(
   if (channelScope !== undefined) patch.channel_scope = channelScope;
   if (testUsernames !== undefined) patch.test_usernames = testUsernames;
   if (extraTriggers !== undefined) patch.extra_triggers = extraTriggers;
+  if (canvasNotes !== undefined) patch.canvas_notes = canvasNotes;
 
   // A draft that starts testing runs like a live flow, so it takes a slot of the plan's active_flows:
   // counted under the account's publish lock in the transaction that saves it, so a concurrent

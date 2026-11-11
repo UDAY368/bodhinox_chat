@@ -4,10 +4,10 @@ import en from '../../../messages/en.json'
 import es from '../../../messages/es.json'
 import ko from '../../../messages/ko.json'
 import pt from '../../../messages/pt.json'
-import { validateFlowForActivation, type ValidationIssue } from './validate'
+import { validateFlowForActivation } from './validate'
 import { FLOW_TEMPLATE_CATEGORIES, flowTemplateChannels, getFlowTemplate, INSTAGRAM_TEMPLATE_LINKS_TO_BIND, listFlowTemplates,
   TEMPLATE_TAGS_TO_BIND, type FlowTemplate } from './templates'
-import { STAGE5_CONDITION_SUBJECTS, startsFromComment } from './types'
+import { startsFromComment } from './types'
 
 const templates = listFlowTemplates()
 
@@ -36,21 +36,6 @@ const TO_BIND = new Set(['work_from_home.registered', ...INSTAGRAM_TEMPLATE_LINK
 
 
 const RESERVED_CONSENT_WORDS = ['stop', 'start', 'subscribe', 'unsubscribe']
-
-/**
- * Issues that only mean "a Stage 5 feature the 5A validator stub does not
- * accept yet" (5B owns validate.ts and replaces the stub): the stage5Pending
- * code, a Stage 5 condition subject, and the keyword list of an intent match
- * (recognised by meaning, so it has none). Once 5B lands these no longer occur.
- */
-function stage5Pending(template: FlowTemplate, issue: ValidationIssue): boolean {
-  if (issue.code === 'stage5Pending') return true
-  const cfg = template.trigger_config as { match_type?: string }
-  if (cfg.match_type === 'intent' && issue.field === 'trigger_config.keywords') return true
-  const node = template.nodes.find(n => n.node_key === issue.node_key)
-  const subject = (node?.config as { subject?: string } | undefined)?.subject
-  return node?.node_type === 'condition' && issue.field === 'subject' && (STAGE5_CONDITION_SUBJECTS as readonly string[]).includes(subject ?? '')
-}
 
 describe.each([['en', en], ['es', es], ['pt', pt], ['ko', ko]] as const)('%s starter keywords', (_locale, messages) => {
   const lists = catalogueKeywords(messages)
@@ -113,7 +98,7 @@ describe('flow template gallery', () => {
           entry_node_id: template.entry_node_id, channel_scope: channel },
         template.nodes.map(n => ({ node_key: n.node_key, node_type: n.node_type, config: n.config as Record<string, unknown> })),
       )
-      expect(issues.filter(i => i.severity === 'error' && !TO_BIND.has(`${template.slug}.${i.node_key}`) && !stage5Pending(template, i))).toEqual([])
+      expect(issues.filter(i => i.severity === 'error' && !TO_BIND.has(`${template.slug}.${i.node_key}`))).toEqual([])
     })
 
   it('offers about 12 Instagram starters, each only on Instagram, including the follow gate and the WhatsApp handover', () => {
@@ -297,9 +282,9 @@ describe('Instagram starters (Stage 5, template parity)', () => {
     const template = getFlowTemplate(slug)!
     const flow = { name: template.name, trigger_type: template.trigger_type, channel_scope: 'instagram' as const,
       trigger_config: template.trigger_config as Record<string, unknown>, entry_node_id: template.entry_node_id }
-    // Stage 5 steps and the intent match wait for 5B (code stage5Pending); a workspace capability (AI) is the workspace's.
+    // A workspace capability (AI) is the workspace's own setting.
     const errors = validateFlowForActivation(flow, filled(template))
-      .filter(i => i.severity === 'error' && !stage5Pending(template, i) && i.code !== 'capabilityUnavailable')
+      .filter(i => i.severity === 'error' && i.code !== 'capabilityUnavailable')
     expect(errors).toEqual([])
   })
 

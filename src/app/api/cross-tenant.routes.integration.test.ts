@@ -243,29 +243,18 @@ export const KNOWN_UNMAPPED = [
   'whatsapp/forms/[id]/responses/export',
   'whatsapp/media/[mediaId]',
   'whatsapp/numbers/[id]/profile',
-];
-
-/**
- * Stage 5 dynamic routes named in the Stage 5 spec, listed by 5A before the parallel batches
- * build them (this file has one owner per stage). Each needs its own dedicated tenancy test in
- * the batch that builds it (named in the comment); a listed route that does not exist yet is
- * allowed until the stage close, which moves each one into CASES or KNOWN_UNMAPPED and removes
- * this allowance. Static Stage 5 routes (inbox/pause, inbox/favourites, instagram/home,
- * instagram/consent-settings, integrations/google-sheets/*) need no entry here, and v1/ routes are
- * covered by v1-tenancy.integration.test.ts (EXEMPT_PREFIXES).
- */
-export const STAGE5_ROUTES = [
-  // 5B: per-node waiting/passed counts; another workspace's flow id is 404 (5B node-stats integration test).
+  // Stage 5 (ManyChat parity). Each has a dedicated cross-workspace test:
+  // node stats: stage5-engine.integration.test.ts (another workspace's flow reads as null).
   'flows/[id]/node-stats',
-  // 5E: labels and member capacity; labels.integration.test.ts and capacity route tests.
+  // Labels and member capacity: inbox-organisation.integration.test.ts.
   'inbox/labels/[id]',
   'inbox/labels/[id]/conversations/[conversationId]',
   'account/members/[id]/capacity',
-  // 5F: folders and conversion event types; folders.integration.test.ts, conversion-events.integration.test.ts.
+  // Folders: folders.integration.test.ts; conversion event types: conversion-events.integration.test.ts.
   'flows/folders/[id]',
   'flows/[id]/folder',
   'account/conversion-events/[id]',
-  // 5H: sequences, their messages and subscribers; sequences tenancy integration test.
+  // Sequences, their messages and subscribers: sequences.integration.test.ts.
   'sequences/[id]',
   'sequences/[id]/messages',
   'sequences/[id]/messages/[messageId]',
@@ -285,10 +274,8 @@ describe('[TEN-01][SEC-03] cross-tenant route coverage', () => {
     const unmapped = dynamicRoutes().filter((route) => !mapped.has(route) && !Object.hasOwn(EXEMPT, route)
       && !EXEMPT_PREFIXES.some((prefix) => route.startsWith(prefix)));
     // New dynamic routes must be covered; a newly mapped route must leave KNOWN_UNMAPPED.
-    expect(unmapped.filter((route) => !KNOWN_UNMAPPED.includes(route) && !STAGE5_ROUTES.includes(route))).toEqual([]);
+    expect(unmapped.filter((route) => !KNOWN_UNMAPPED.includes(route))).toEqual([]);
     expect(KNOWN_UNMAPPED.filter((route) => !unmapped.includes(route))).toEqual([]);
-    // A Stage 5 route that gets a CASES entry must leave STAGE5_ROUTES.
-    expect(STAGE5_ROUTES.filter((route) => mapped.has(route) || KNOWN_UNMAPPED.includes(route))).toEqual([]);
   });
 
   it('every case points at a real route file and method', async () => {

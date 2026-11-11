@@ -18,7 +18,7 @@ import { gateWithinLimit } from '@/lib/billing/limits';
 import { loadFlowFormLookup } from '@/lib/whatsapp/forms/flow-lookup';
 import { validateFlowForActivation, type CrossFlowSnapshot, type ValidationIssue } from './validate';
 import type { WorkspaceCapabilities } from './node-registry';
-import type { FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow, FlowTriggerConfig } from './types';
+import type { CanvasNote, FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow, FlowTriggerConfig } from './types';
 
 /** One node as a version stores it; positions are kept for the read-only canvas. */
 export interface VersionNode {
@@ -597,6 +597,8 @@ export interface DraftPatch {
   extra_triggers?: FlowTriggerConfig[];
   /** Stage 5: Instagram usernames a draft runs for (lowercase, no @). */
   test_usernames?: string[];
+  /** Stage 5: sticky notes on the canvas (never run; at most 30, checked by the database too). */
+  canvas_notes?: CanvasNote[];
 }
 
 /**
@@ -619,15 +621,18 @@ export async function saveDraft(tx: TenantTransaction, args: {
   if (!isUuid(flowId)) throw new FlowVersionError('not_found', 404);
   if (args.baseUpdatedAt !== undefined) {
     // Under the row lock, so two saves from two tabs cannot both pass the check.
+    // draft_saved_at moves only on a draft save; updated_at also moves on run counts, number
+    // changes and folder moves, so it is only the fallback for flows not saved since it existed.
     const [row] = await tx.$queryRaw<{ newer: boolean; updated_at: Date | null }[]>(Prisma.sql`SELECT
-        date_trunc('milliseconds', updated_at) > ${args.baseUpdatedAt}::timestamptz AS newer, updated_at
+        date_trunc('milliseconds', COALESCE(draft_saved_at, updated_at)) > ${args.baseUpdatedAt}::timestamptz AS newer,
+        COALESCE(draft_saved_at, updated_at) AS updated_at
       FROM flows WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid FOR UPDATE`);
     if (!row) throw new FlowVersionError('not_found', 404);
     if (row.newer) {
       throw new FlowVersionError('draft_changed', 409, { stale_draft: true, updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null });
     }
   }
-  const sets: Prisma.Sql[] = [Prisma.sql`updated_at=now()`];
+  const sets: Prisma.Sql[] = [Prisma.sql`updated_at=now()`, Prisma.sql`draft_saved_at=now()`];
   if (patch.name !== undefined) sets.push(Prisma.sql`name=${patch.name}`);
   if (patch.description !== undefined) sets.push(Prisma.sql`description=${patch.description}`);
   if (patch.trigger_type !== undefined) sets.push(Prisma.sql`trigger_type=${patch.trigger_type}`);
@@ -638,6 +643,7 @@ export async function saveDraft(tx: TenantTransaction, args: {
   if (patch.channel_scope !== undefined) sets.push(Prisma.sql`channel_scope=${patch.channel_scope}`);
   if (patch.extra_triggers !== undefined) sets.push(Prisma.sql`extra_triggers=${JSON.stringify(patch.extra_triggers)}::jsonb`);
   if (patch.test_usernames !== undefined) sets.push(Prisma.sql`test_usernames=${patch.test_usernames}::text[]`);
+  if (patch.canvas_notes !== undefined) sets.push(Prisma.sql`canvas_notes=${JSON.stringify(patch.canvas_notes)}::jsonb`);
   const updated = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`UPDATE flows SET ${Prisma.join(sets, ', ')}
     WHERE account_id=${accountId}::uuid AND id=${flowId}::uuid RETURNING id::text`);
   if (!updated.length) throw new FlowVersionError('not_found', 404);

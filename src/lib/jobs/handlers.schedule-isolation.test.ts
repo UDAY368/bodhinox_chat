@@ -60,6 +60,8 @@ vi.mock('./scheduled-audience', () => {
   };
 });
 vi.mock('@/lib/flows/engine', () => ({ handleFlowTimer: vi.fn(), handleFlowReplay: vi.fn(), staleSince: vi.fn() }));
+vi.mock('@/lib/api/v1/start-flow', () => ({ handleApiStartFlowJob: vi.fn() }));
+vi.mock('@/lib/sequences/jobs', () => ({ handleSequenceJob: vi.fn() }));
 vi.mock('@/lib/webhooks/deliver', () => ({ deliverQueuedWebhook: vi.fn() }));
 vi.mock('@/lib/whatsapp/health-sync', () => ({ HEALTH_SYNC_JOB: 'whatsapp.health_sync', scheduleHealthSync: vi.fn(), syncNumberHealth: vi.fn() }));
 vi.mock('@/lib/whatsapp/number-admin', () => ({ NUMBER_DISCONNECTED_REASON: 'whatsapp_number_disconnected' }));
@@ -68,6 +70,8 @@ import { handleJob } from './handlers';
 import { resumePendingExecution } from '@/lib/automations/engine';
 import { ScheduledAudienceError } from './scheduled-audience';
 import type { Job } from './queue';
+import { handleApiStartFlowJob } from '@/lib/api/v1/start-flow';
+import { handleSequenceJob } from '@/lib/sequences/jobs';
 
 const ACCOUNT = '11111111-1111-4111-8111-11111111111a';
 const MINUTE = '2026-11-10T09:00:00.000Z';
@@ -130,5 +134,21 @@ describe('automation.resume claim', () => {
     h.claimMatches = false;
     await handleJob(resume());
     expect(resumePendingExecution).not.toHaveBeenCalled();
+  });
+});
+
+describe('Stage 5 job dispatch', () => {
+  const job = (type: string, payload: Record<string, unknown> = {}) =>
+    ({ id: 'job-5', type, tenant_id: ACCOUNT, payload, attempts: 1, max_attempts: 5 }) as unknown as Job;
+
+  it('runs a queued public API flow start in its own workspace', async () => {
+    const payload = { flowId: 'f' };
+    await handleJob(job('api.start_flow', payload));
+    expect(handleApiStartFlowJob).toHaveBeenCalledWith(ACCOUNT, payload);
+  });
+
+  it('runs due sequence messages in the job workspace', async () => {
+    await handleJob(job('sequences.due'));
+    expect(handleSequenceJob).toHaveBeenCalledWith(ACCOUNT);
   });
 });

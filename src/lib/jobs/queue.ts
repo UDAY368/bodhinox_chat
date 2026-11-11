@@ -12,7 +12,9 @@ const types = new Set(['whatsapp.webhook', 'inbound.actions', 'automation.trigge
   // Phase 13: AI assessment (debounced per conversation), insight runs and daily AI data retention.
   'ai.assess_conversation', 'ai.insight_run', 'ai.retention_sweep',
   // An inbound AI auto-reply deferred by the account-wide rate limit.
-  'ai.auto_reply_retry']);
+  'ai.auto_reply_retry',
+  // Stage 5: public API flow starts and due sequence messages (both also inserted directly with their own dedupe keys).
+  'api.start_flow', 'sequences.due']);
 export async function enqueueJob(type: string, payload: Record<string, unknown>, options: JobOptions = {}): Promise<string> {
   assertLiveEffects('job');
   if (!types.has(type) || JSON.stringify(payload).length > 2 * 1024 * 1024) throw new Error('Invalid job contract');

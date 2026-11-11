@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { ALL_CAPABILITIES } from "@/lib/flows/node-registry";
 import { CANVAS_NOTE_LIMITS } from "@/lib/flows/types";
 import { addNote, addStepGroups, isNoteNodeId, noteNodeId, parseNodeStats, readNotes, removeNote, updateNote } from "./canvas-extras";
-import { commentTriggerOf, draftPayload, isDraftConflict, nodeTypesForScope, type BuilderState } from "./flow-editor-state";
+import { commentTriggerOf, draftMarker, draftPayload, isDraftConflict, nodeTypesForScope, type BuilderState } from "./flow-editor-state";
 import { saveStateView } from "./header";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 
@@ -106,5 +106,14 @@ describe("draft body (autosave contract)", () => {
   it("judges comment steps by a comment trigger among the extras too", () => {
     expect(commentTriggerOf({ trigger_type: "keyword", extra_triggers: [{ trigger_type: "ig_comment", config: {} }] })).toBe("ig_comment");
     expect(commentTriggerOf({ trigger_type: "keyword" })).toBe("keyword");
+  });
+});
+
+describe("autosave draft marker", () => {
+  it("prefers draft_saved_at, which run counts and status changes do not move, over updated_at", () => {
+    expect(draftMarker({ draft_saved_at: "2026-11-11T10:00:00.000Z", updated_at: "2026-11-11T10:05:00.000Z" })).toBe("2026-11-11T10:00:00.000Z");
+    expect(draftMarker({ draft_saved_at: null, updated_at: "2026-11-11T10:05:00.000Z" })).toBe("2026-11-11T10:05:00.000Z");
+    expect(draftMarker({})).toBeNull();
+    expect(draftMarker(undefined)).toBeNull();
   });
 });
