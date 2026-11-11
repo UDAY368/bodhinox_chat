@@ -27,6 +27,8 @@ const h = vi.hoisted(() => ({
     /** The next flow_runs insert fails with this message (e.g. the one-active-run unique index). */
     runInsertError: null as string | null,
   },
+  /** INSTAGRAM_SHARE_TO_STORY_ENABLED as instagramConfig() would report it. */
+  shareFlag: false,
   dispatch: vi.fn(async (_account: string, _key: string, send: () => Promise<unknown>) => send()),
   waText: vi.fn(async () => ({ whatsapp_message_id: "wamid.1" })),
   waTemplate: vi.fn(async () => ({ whatsapp_message_id: "wamid.t" })),
@@ -60,6 +62,13 @@ vi.mock("@/lib/instagram/private-reply", () => ({
   recordCommentOptIn: h.optIn,
 }));
 vi.mock("@/lib/instagram/profile", () => ({ refreshProfileFacts: h.profile }));
+vi.mock("@/lib/instagram/config", async (original) => {
+  const real = await original<typeof import("@/lib/instagram/config")>();
+  return {
+    ...real,
+    instagramConfig: (env?: Parameters<typeof real.instagramConfig>[0]) => (h.shareFlag ? { shareToStoryEnabled: true } as never : real.instagramConfig(env)),
+  };
+});
 vi.mock("@/lib/jobs/queue", () => ({ enqueueJob: h.enqueue }));
 vi.mock("@/lib/instagram/process-webhook", () => ({
   resolveCommentThread: async () => ({ contactId: "ct-1", conversationId: "cv-1", auditUserId: "u-1" }),
@@ -181,6 +190,7 @@ const ENV = {
 };
 
 beforeEach(() => {
+  h.shareFlag = false;
   h.state.activeRuns = [];
   h.state.flows = [];
   h.state.nodes = SEND_NODES;
@@ -526,6 +536,24 @@ describe("Instagram Phase 1 engine (Stage 2C)", () => {
     h.state.flows = [igFlow({ trigger_type: "ig_story_mention", trigger_config: { frequency: "every_time" } })];
     await inbound({ kind: "text", text: "" });
     expect(runs()).toHaveLength(1);
+  });
+
+  it("a share to story starts its flow only while the flag is on, never the default reply, and not for another account", async () => {
+    h.messages = [{ interactive_payload: { ig: { share_to_story: true, url: "https://cdn.example/p" } } }];
+    h.state.flows = [
+      igFlow({ id: "flow-d", trigger_type: "default_reply", trigger_config: { frequency: "every_time" } }),
+      igFlow({ id: "flow-s", trigger_type: "ig_share_to_story", trigger_config: { frequency: "every_time" } }),
+    ];
+    await inbound({ kind: "text", text: "" });
+    expect(runs()).toHaveLength(0);
+    h.shareFlag = true;
+    h.state.flows = [igFlow({ id: "flow-s", trigger_type: "ig_share_to_story", trigger_config: { frequency: "every_time", instagram_account_id: "00000000-0000-4000-8000-0000000000ff" } })];
+    await inbound({ kind: "text", text: "" });
+    expect(runs()).toHaveLength(0);
+    h.state.flows = [igFlow({ id: "flow-s", trigger_type: "ig_share_to_story", trigger_config: { frequency: "every_time" } })];
+    await inbound({ kind: "text", text: "" });
+    expect(runs()).toHaveLength(1);
+    expect(runs()[0].row.flow_id).toBe("flow-s");
   });
 
   it("the default reply runs only when no other flow matched, on WhatsApp too", async () => {

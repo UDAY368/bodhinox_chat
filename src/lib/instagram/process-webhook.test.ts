@@ -431,6 +431,15 @@ describe('Stage 2 story parsing (needs live capture: built against documented sh
     expect(mention).toMatchObject({ kind: 'message', items: [{ contentType: 'share', mediaUrl: null, ig: { story_mention: true, url: 'https://cdn.example/m' } }] });
   });
 
+  it('stores a share to story (documented fixture, needs live capture) with its own flag, not the mention flag', () => {
+    const share = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 's5', attachments: [{ type: 'story_share', payload: { url: 'https://cdn.example/p' } }] }), NOW);
+    expect(share).toMatchObject({ kind: 'message', items: [{ contentType: 'share', mediaUrl: null, ig: { share_to_story: true, url: 'https://cdn.example/p' } }] });
+    const ig = (share as { items: Array<{ ig: Record<string, unknown> }> }).items[0].ig;
+    expect(ig.story_mention).toBeUndefined();
+    const noUrl = parseMessagingEvent(ACCOUNT_IG, msg({ mid: 's6', attachments: [{ type: 'share_to_story' }] }), NOW);
+    expect(noUrl).toMatchObject({ items: [{ ig: { share_to_story: true } }] });
+  });
+
   it('tells emoji-only text from words and numbers', () => {
     expect(isEmojiOnly('\u{1F60D}')).toBe(true);
     expect(isEmojiOnly('\u{1F44D}\u{1F3FD}')).toBe(true);

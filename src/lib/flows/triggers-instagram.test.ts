@@ -1,6 +1,6 @@
 // Stage 2C: the story and default-reply trigger rules (pure).
 import { describe, expect, it } from "vitest";
-import { byPrecedence, defaultReplyApplies, instagramFactsFrom, storyReplyMatches } from "./triggers";
+import { byPrecedence, defaultReplyApplies, instagramFactsFrom, shareToStoryMatches, storyReplyMatches } from "./triggers";
 
 const text = (t: string) => ({ kind: "text" as const, text: t, meta_message_id: "m" });
 
@@ -47,5 +47,25 @@ describe("default reply", () => {
     const order = byPrecedence([flow("default_reply", "2020-01-01"), flow("keyword"), flow("first_inbound_message"), flow("ig_story_reply")])
       .map((f: { trigger_type: string }) => f.trigger_type);
     expect(order).toEqual(["ig_story_reply", "keyword", "first_inbound_message", "default_reply"]);
+  });
+});
+
+// Stage 4B: Share-to-Story (documented fixture; needs live capture, dark behind INSTAGRAM_SHARE_TO_STORY_ENABLED).
+describe("share to story", () => {
+  it("reads the fixed flag only, and ranks between story mentions and story replies", () => {
+    expect(instagramFactsFrom({ ig: { share_to_story: true, url: "https://cdn.example/p" } })).toEqual({ shareToStory: true });
+    expect(instagramFactsFrom({ ig: { share_to_story: "true" } })).toEqual({});
+    const flow = (trigger_type: string) => ({ trigger_type, created_at: "2026-01-01", status: "active" }) as never;
+    const order = byPrecedence([flow("keyword"), flow("ig_story_reply"), flow("ig_share_to_story"), flow("ig_story_mention")])
+      .map((f: { trigger_type: string }) => f.trigger_type);
+    expect(order).toEqual(["ig_story_mention", "ig_share_to_story", "ig_story_reply", "keyword"]);
+  });
+  it("matches only a share, on the trigger's account (or any), and the default reply ignores it", () => {
+    const every = "every_time" as const;
+    expect(shareToStoryMatches({ shareToStory: true }, { frequency: every }, "acct-1")).toBe(true);
+    expect(shareToStoryMatches({ shareToStory: true }, { frequency: every, instagram_account_id: "acct-2" }, "acct-1")).toBe(false);
+    expect(shareToStoryMatches({ shareToStory: true }, { frequency: every, instagram_account_id: "acct-1" }, "acct-1")).toBe(true);
+    expect(shareToStoryMatches({ storyMention: true }, { frequency: every }, "acct-1")).toBe(false);
+    expect(defaultReplyApplies(text("hi"), { shareToStory: true }, false)).toBe(false);
   });
 });
