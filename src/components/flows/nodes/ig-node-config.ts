@@ -180,7 +180,9 @@ function isCardButton(value: unknown): value is IgCardButton {
   const b = value as Record<string, unknown> | null;
   return !!b && typeof b === "object" && typeof b.title === "string" &&
     ((b.type === "web_url" && typeof b.url === "string") ||
-      (b.type === "postback" && typeof b.reply_id === "string" && typeof b.next_node_key === "string"));
+      (b.type === "postback" && typeof b.reply_id === "string" && typeof b.next_node_key === "string") ||
+      // Stage 5 buy button (5G makes the checkout link).
+      (b.type === "buy" && typeof b.amount_minor === "number" && typeof b.currency === "string"));
 }
 
 export const emptyCard = (): IgCard => ({ title: "", subtitle: "", buttons: [] });
@@ -216,9 +218,10 @@ export function addCardButton(card: IgCard, type: IgCardButton["type"], used: re
   return { ...card, buttons: [...buttons, button] };
 }
 
-/** Switches a button between a link and a step route, keeping its title. */
-export function setButtonType(button: IgCardButton, type: IgCardButton["type"], used: readonly string[]): IgCardButton {
+/** Switches a button between a link, a step route and (Stage 5) a buy button, keeping its title. */
+export function setButtonType(button: IgCardButton, type: IgCardButton["type"], used: readonly string[], currency = "USD"): IgCardButton {
   if (button.type === type) return button;
+  if (type === "buy") return { type: "buy", title: button.title, amount_minor: 0, currency };
   return type === "web_url"
     ? { type: "web_url", title: button.title, url: "" }
     : { type: "postback", title: button.title, reply_id: freshReplyId(used), next_node_key: "" };

@@ -2913,7 +2913,16 @@
       "fixIssues": "활성화하기 전에 아래 문제를 해결하세요",
       "save": "저장",
       "descriptionPlaceholder": "짧은 설명을 추가하세요 (내부용 — 고객에게는 보이지 않습니다)",
-      "descriptionLabel": "플로우 설명"
+      "descriptionLabel": "플로우 설명",
+      "automations": "자동화",
+      "breadcrumb": "현재 위치",
+      "archive": "보관",
+      "status": {
+        "draft": "초안",
+        "live": "운영 중",
+        "stopped": "중지됨",
+        "archived": "보관됨"
+      }
     },
     "gallery": {
       "searchLabel": "템플릿 검색",
@@ -3320,7 +3329,8 @@
         "assignee": "배정된 상담원",
         "admins": "관리자",
         "note": "팀을 위한 메모",
-        "selfFlow": "자동화는 자기 자신을 시작하거나 중지할 수 없습니다."
+        "selfFlow": "자동화는 자기 자신을 시작하거나 중지할 수 없습니다.",
+        "onSuccess": "올바른 답변 후 이 작업도 실행"
       },
       "randomizer": {
         "title": "트래픽 나누기",
@@ -3400,7 +3410,9 @@
       "onlyInstagram": "Instagram 플로만 트리거를 두 개 이상 가질 수 있습니다.",
       "notCombinable": "이 트리거는 단독으로만 작동하며 다른 트리거와 함께 쓸 수 없습니다.",
       "pickerTitle": "다음의 경우 이 자동화를 시작합니다…",
-      "search": "트리거 검색"
+      "search": "트리거 검색",
+      "edit": "편집",
+      "triggerType": "시작 조건"
     },
     "conditions": {
       "question": "연락처가 다음 조건을 {match} 충족하나요?",
@@ -3440,7 +3452,16 @@
       "clicked": "이 단계의 링크를 클릭함",
       "notClicked": "이 단계의 링크를 클릭하지 않음",
       "subscribed": "구독 중",
-      "notSubscribed": "구독하지 않음"
+      "notSubscribed": "구독하지 않음",
+      "yes": "예",
+      "no": "아니요",
+      "igFacts": {
+        "follows_business": "내 계정을 팔로우함",
+        "business_follows": "내가 팔로우함",
+        "is_verified": "인증된 계정",
+        "follower_count": "팔로워 수",
+        "in_window": "메시지 창 열림"
+      }
     },
     "variables": {
       "insert": "변수 삽입",
@@ -3553,7 +3574,9 @@
       },
       "sendMode": "보내기",
       "sendInWindow": "메시지 창 안에서",
-      "sendPrivateReply": "비공개 답장으로"
+      "sendPrivateReply": "비공개 답장으로",
+      "deleteNote": "메모 삭제",
+      "tools": "캔버스 도구"
     }
   },
   "Settings": {

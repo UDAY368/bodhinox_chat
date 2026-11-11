@@ -18,7 +18,7 @@
  * unit-tested with fake timers; useAutosave wires it to React.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export const AUTOSAVE_DELAY_MS = 1500;
 
@@ -51,8 +51,13 @@ export class AutosaveController {
   private disposed = false;
   private readonly delay: number;
 
-  constructor(private readonly opts: AutosaveOptions) {
+  constructor(private opts: AutosaveOptions) {
     this.delay = opts.delayMs ?? AUTOSAVE_DELAY_MS;
+  }
+
+  /** Swaps in the latest save / isDirty callbacks (the editor re-renders with new closures). */
+  setCallbacks(callbacks: Pick<AutosaveOptions, "save" | "isDirty">): void {
+    this.opts = { ...this.opts, ...callbacks };
   }
 
   /** True after a `draft_changed` answer: nothing saves until the author decides. */
@@ -88,10 +93,15 @@ export class AutosaveController {
     this.stopped = false;
   }
 
-  /** Stops timers (the editor unmounted). */
+  /** Stops timers (the editor unmounted, or is leaving). */
   dispose(): void {
     this.disposed = true;
     this.cancelTimer();
+  }
+
+  /** Mounted again (React may unmount and remount an effect in development): saving may continue. */
+  revive(): void {
+    this.disposed = false;
   }
 
   /** Whether a save is waiting or running (the leave guard reads it). */
@@ -138,19 +148,23 @@ export function useAutosave(opts: Omit<AutosaveOptions, "onStatus"> & { seq: num
   controller: AutosaveController;
 } {
   const [status, setStatus] = useState<AutosaveStatus>({ kind: "idle" });
-  const latest = useRef(opts);
-  useEffect(() => {
-    latest.current = opts;
-  });
   const [controller] = useState(() => new AutosaveController({
-    save: () => latest.current.save(),
-    isDirty: () => latest.current.isDirty(),
+    save: opts.save,
+    isDirty: opts.isDirty,
     onStatus: (next) => setStatus(next),
     delayMs: opts.delayMs,
   }));
+  // The controller always calls this render's save / isDirty.
+  const { save, isDirty } = opts;
+  useEffect(() => {
+    controller.setCallbacks({ save, isDirty });
+  }, [controller, save, isDirty]);
   useEffect(() => {
     if (opts.enabled) controller.changed();
   }, [controller, opts.seq, opts.enabled]);
-  useEffect(() => () => controller.dispose(), [controller]);
+  useEffect(() => {
+    controller.revive();
+    return () => controller.dispose();
+  }, [controller]);
   return { status, controller };
 }

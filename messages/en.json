@@ -2913,7 +2913,16 @@
       "fixIssues": "Fix the issues below before activating",
       "save": "Save",
       "descriptionPlaceholder": "Add a short description (internal — customers don't see this)",
-      "descriptionLabel": "Flow description"
+      "descriptionLabel": "Flow description",
+      "automations": "Automations",
+      "breadcrumb": "Where you are",
+      "archive": "Archive",
+      "status": {
+        "draft": "Draft",
+        "live": "Live",
+        "stopped": "Stopped",
+        "archived": "Archived"
+      }
     },
     "gallery": {
       "searchLabel": "Search templates",
@@ -3320,7 +3329,8 @@
         "assignee": "The assigned agent",
         "admins": "Admins",
         "note": "Note for the team",
-        "selfFlow": "An automation cannot start or stop itself."
+        "selfFlow": "An automation cannot start or stop itself.",
+        "onSuccess": "After a valid answer, also do this"
       },
       "randomizer": {
         "title": "Split the traffic",
@@ -3400,7 +3410,9 @@
       "onlyInstagram": "Only Instagram flows can have more than one trigger.",
       "notCombinable": "This trigger works on its own and cannot be combined with others.",
       "pickerTitle": "Start this automation when…",
-      "search": "Search triggers"
+      "search": "Search triggers",
+      "edit": "Edit",
+      "triggerType": "Starts when"
     },
     "conditions": {
       "question": "Does the contact match {match} of these conditions?",
@@ -3440,7 +3452,16 @@
       "clicked": "clicked a link in this step",
       "notClicked": "did not click a link in this step",
       "subscribed": "is subscribed",
-      "notSubscribed": "is not subscribed"
+      "notSubscribed": "is not subscribed",
+      "yes": "yes",
+      "no": "no",
+      "igFacts": {
+        "follows_business": "Follows your account",
+        "business_follows": "You follow them",
+        "is_verified": "Verified account",
+        "follower_count": "Follower count",
+        "in_window": "Messaging window open"
+      }
     },
     "variables": {
       "insert": "Insert a variable",
@@ -3553,7 +3574,9 @@
       },
       "sendMode": "Send",
       "sendInWindow": "Within the messaging window",
-      "sendPrivateReply": "As a private reply"
+      "sendPrivateReply": "As a private reply",
+      "deleteNote": "Delete note",
+      "tools": "Canvas tools"
     }
   },
   "Settings": {

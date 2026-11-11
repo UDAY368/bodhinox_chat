@@ -36,7 +36,7 @@ export function delaySeconds(cfg: Record<string, unknown>): number | null {
   if (cfg.mode === "until_date") return null;
   if (typeof cfg.amount_field_id === "string" && cfg.amount_field_id) return null;
   const amount = typeof cfg.amount === "number" && Number.isFinite(cfg.amount) ? cfg.amount : 0;
-  const unit = (UNITS as string[]).includes(cfg.unit as string) ? (cfg.unit as SmartDelayUnit) : "minutes";
+  const unit = (UNITS as string[]).includes(cfg.unit as string) ? (cfg.unit as SmartDelayUnit) : "hours";
   return amount * UNIT_SECONDS[unit];
 }
 

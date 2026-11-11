@@ -181,7 +181,7 @@ function NodeFields({
     case "ask_media":
     case "ask_location":
     case "ask_address":
-      return <QuestionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+      return <QuestionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} instagram={channelScope === "instagram"} />;
 
     case "send_product":
     case "send_product_list":
@@ -198,7 +198,7 @@ function NodeFields({
       return <BookAppointmentForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "ai_reply":
-      return <AiReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+      return <AiReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} instagram={channelScope === "instagram"} />;
 
     case "conversion_event":
       return <ConversionEventForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
@@ -222,7 +222,7 @@ function NodeFields({
       return <ConnectFlowForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "condition":
-      return <ConditionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+      return <ConditionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} scope={channelScope} />;
 
     case "set_tag":
       return (

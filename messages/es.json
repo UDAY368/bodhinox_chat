@@ -2913,7 +2913,16 @@
       "fixIssues": "Corrige los problemas de abajo antes de activar",
       "save": "Guardar",
       "descriptionPlaceholder": "Agrega una breve descripción (interna; los clientes no la ven)",
-      "descriptionLabel": "Descripción del flujo"
+      "descriptionLabel": "Descripción del flujo",
+      "automations": "Automatizaciones",
+      "breadcrumb": "Dónde estás",
+      "archive": "Archivar",
+      "status": {
+        "draft": "Borrador",
+        "live": "Activa",
+        "stopped": "Detenida",
+        "archived": "Archivada"
+      }
     },
     "gallery": {
       "searchLabel": "Buscar plantillas",
@@ -3320,7 +3329,8 @@
         "assignee": "El agente asignado",
         "admins": "Administradores",
         "note": "Nota para el equipo",
-        "selfFlow": "Una automatización no puede iniciarse ni detenerse a sí misma."
+        "selfFlow": "Una automatización no puede iniciarse ni detenerse a sí misma.",
+        "onSuccess": "Tras una respuesta válida, haz también esto"
       },
       "randomizer": {
         "title": "Repartir el tráfico",
@@ -3400,7 +3410,9 @@
       "onlyInstagram": "Solo los flujos de Instagram pueden tener más de un disparador.",
       "notCombinable": "Este disparador funciona solo y no se puede combinar con otros.",
       "pickerTitle": "Iniciar esta automatización cuando…",
-      "search": "Buscar disparadores"
+      "search": "Buscar disparadores",
+      "edit": "Editar",
+      "triggerType": "Empieza cuando"
     },
     "conditions": {
       "question": "¿El contacto cumple {match} estas condiciones?",
@@ -3440,7 +3452,16 @@
       "clicked": "hizo clic en un enlace de este paso",
       "notClicked": "no hizo clic en un enlace de este paso",
       "subscribed": "está suscrito",
-      "notSubscribed": "no está suscrito"
+      "notSubscribed": "no está suscrito",
+      "yes": "sí",
+      "no": "no",
+      "igFacts": {
+        "follows_business": "Sigue tu cuenta",
+        "business_follows": "Tú lo sigues",
+        "is_verified": "Cuenta verificada",
+        "follower_count": "Número de seguidores",
+        "in_window": "Ventana de mensajes abierta"
+      }
     },
     "variables": {
       "insert": "Insertar una variable",
@@ -3553,7 +3574,9 @@
       },
       "sendMode": "Enviar",
       "sendInWindow": "Dentro de la ventana de mensajes",
-      "sendPrivateReply": "Como respuesta privada"
+      "sendPrivateReply": "Como respuesta privada",
+      "deleteNote": "Eliminar nota",
+      "tools": "Herramientas del lienzo"
     }
   },
   "Settings": {

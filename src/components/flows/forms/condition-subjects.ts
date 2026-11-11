@@ -91,10 +91,14 @@ export function linkSteps<T extends { node_key: string; node_type: string; confi
     (n.node_type === "send_buttons" && Array.isArray(n.config.link_buttons) && n.config.link_buttons.length > 0));
 }
 
-/** The rule after picking a subject: its first allowed operator, and "true" for a yes/no subject. */
+/**
+ * The rule after picking a subject: the first fact for a fixed list, the
+ * first allowed operator (a time window for `time`, `equals` for a variable),
+ * and "true" for a yes/no subject.
+ */
 export function ruleForSubject(subject: ConditionSubject): { subject: ConditionSubject; subject_key: string; operator: ConditionOperator; value: string } {
   const keys = subjectKeys(subject);
   const key = keys ? keys[0] : "";
-  const operator = subject === "time" ? "between" : operatorsFor(subject, key)[0] === "present" && subject !== "var" ? operatorsFor(subject, key)[0] : subject === "var" ? "equals" : operatorsFor(subject, key)[0];
+  const operator: ConditionOperator = subject === "time" ? "between" : subject === "var" ? "equals" : operatorsFor(subject, key)[0];
   return { subject, subject_key: key, operator, value: isYesNoSubject(subject, key) ? "true" : "" };
 }

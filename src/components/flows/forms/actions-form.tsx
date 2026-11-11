@@ -94,12 +94,14 @@ export function readActions(value: unknown): FlowAction[] {
 }
 
 /** The ordered action list with its picker. `idBase` keeps field ids unique per step. */
-export function ActionsEditor({ idBase, actions, onChange, allNodes, currentKey }: {
+export function ActionsEditor({ idBase, actions, onChange, allNodes, currentKey, allowEmpty = false }: {
   idBase: string;
   actions: FlowAction[];
   onChange: (actions: FlowAction[]) => void;
   allNodes: BuilderNode[];
   currentKey: string;
+  /** An optional list (an Ask Question's actions on a valid answer): no "add at least one" warning. */
+  allowEmpty?: boolean;
 }) {
   const t = useTranslations("Flows.nodes.actions");
   const { channelScope } = useFlowEditor();
@@ -128,7 +130,7 @@ export function ActionsEditor({ idBase, actions, onChange, allNodes, currentKey 
           </li>
         ))}
       </ol>
-      {actions.length === 0 && <p className="text-xs text-amber-500">{t("empty")}</p>}
+      {actions.length === 0 && !allowEmpty && <p className="text-xs text-amber-500">{t("empty")}</p>}
       <Button type="button" variant="outline" size="sm" disabled={full} onClick={() => setPicking(true)}>
         <Plus className="size-3.5" />{t("add")}
       </Button>
@@ -176,7 +178,7 @@ function ActionFields({ id, action, onChange, allNodes, currentKey }: {
   const { flow } = useFlowEditor();
   const picker = (value: string, options: Array<{ id: string; name: string }>, onPick: (v: string) => void, placeholder: string) => (
     <Select value={value} onValueChange={(v) => onPick(v ?? "")}>
-      <SelectTrigger id={`${id}-pick`} aria-label={placeholder} className="bg-muted"><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectTrigger id={`${id}-pick`} aria-label={placeholder} className="bg-muted"><SelectValue placeholder={placeholder}>{(v: string) => (v ? options.find((o) => o.id === v)?.name ?? v : placeholder)}</SelectValue></SelectTrigger>
       <SelectContent>
         {options.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
         {value && !options.some((o) => o.id === value) && <SelectItem value={value}>{value}</SelectItem>}

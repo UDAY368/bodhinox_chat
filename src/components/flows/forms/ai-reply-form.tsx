@@ -18,6 +18,7 @@ import { AI_REPLY_LIMITS, aiReplyMaxTurns } from "@/lib/flows/ai-reply-node";
 import type { AiReplyNodeConfig, NodeTiming } from "@/lib/flows/types";
 import type { BuilderNode } from "../shared";
 import { NextNodeRow } from "./fields";
+import { AiGoalsEditor } from "./ai-goals-editor";
 
 type T = ReturnType<typeof useTranslations>;
 type Patch = (patch: Record<string, unknown>) => void;
@@ -32,7 +33,14 @@ function numberOrUndefined(raw: string, parse: (n: number) => number): number | 
   return Number.isFinite(n) ? parse(n) : undefined;
 }
 
-export function AiReplyForm({ node, allNodes, onUpdateConfig, t }: { node: BuilderNode; allNodes: BuilderNode[]; onUpdateConfig: Patch; t: T }) {
+export function AiReplyForm({ node, allNodes, onUpdateConfig, t, instagram = false }: {
+  node: BuilderNode;
+  allNodes: BuilderNode[];
+  onUpdateConfig: Patch;
+  t: T;
+  /** Instagram flows (Stage 5): tasks, context, goals and the "Goals finished" port. */
+  instagram?: boolean;
+}) {
   const cfg = node.config as unknown as Partial<AiReplyNodeConfig> & NodeTiming;
   const id = (field: string) => `ai-reply-${node.node_key}-${field}`;
   const waits = aiReplyMaxTurns(node.config) > 1;
@@ -152,6 +160,7 @@ export function AiReplyForm({ node, allNodes, onUpdateConfig, t }: { node: Build
         </>
       )}
       <p className={help}>{t("aiReplyWindowHelp")}</p>
+      {instagram && <AiGoalsEditor node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} />}
     </>
   );
 }

@@ -2913,7 +2913,16 @@
       "fixIssues": "Corrija os problemas abaixo antes de ativar",
       "save": "Salvar",
       "descriptionPlaceholder": "Adicione uma breve descrição (interna — os clientes não a veem)",
-      "descriptionLabel": "Descrição do fluxo"
+      "descriptionLabel": "Descrição do fluxo",
+      "automations": "Automações",
+      "breadcrumb": "Onde você está",
+      "archive": "Arquivar",
+      "status": {
+        "draft": "Rascunho",
+        "live": "Ativa",
+        "stopped": "Parada",
+        "archived": "Arquivada"
+      }
     },
     "gallery": {
       "searchLabel": "Buscar modelos",
@@ -3320,7 +3329,8 @@
         "assignee": "O agente atribuído",
         "admins": "Administradores",
         "note": "Nota para a equipe",
-        "selfFlow": "Uma automação não pode iniciar nem parar a si mesma."
+        "selfFlow": "Uma automação não pode iniciar nem parar a si mesma.",
+        "onSuccess": "Depois de uma resposta válida, faça também isto"
       },
       "randomizer": {
         "title": "Dividir o tráfego",
@@ -3400,7 +3410,9 @@
       "onlyInstagram": "Somente fluxos do Instagram podem ter mais de um gatilho.",
       "notCombinable": "Este gatilho funciona sozinho e não pode ser combinado com outros.",
       "pickerTitle": "Iniciar esta automação quando…",
-      "search": "Buscar gatilhos"
+      "search": "Buscar gatilhos",
+      "edit": "Editar",
+      "triggerType": "Começa quando"
     },
     "conditions": {
       "question": "O contato atende {match} estas condições?",
@@ -3440,7 +3452,16 @@
       "clicked": "clicou em um link desta etapa",
       "notClicked": "não clicou em um link desta etapa",
       "subscribed": "está inscrito",
-      "notSubscribed": "não está inscrito"
+      "notSubscribed": "não está inscrito",
+      "yes": "sim",
+      "no": "não",
+      "igFacts": {
+        "follows_business": "Segue sua conta",
+        "business_follows": "Você segue a pessoa",
+        "is_verified": "Conta verificada",
+        "follower_count": "Número de seguidores",
+        "in_window": "Janela de mensagens aberta"
+      }
     },
     "variables": {
       "insert": "Inserir uma variável",
@@ -3553,7 +3574,9 @@
       },
       "sendMode": "Enviar",
       "sendInWindow": "Dentro da janela de mensagens",
-      "sendPrivateReply": "Como resposta privada"
+      "sendPrivateReply": "Como resposta privada",
+      "deleteNote": "Excluir nota",
+      "tools": "Ferramentas da tela"
     }
   },
   "Settings": {

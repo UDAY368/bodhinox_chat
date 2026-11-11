@@ -58,7 +58,7 @@ import { useTranslations } from "next-intl";
 import { getT } from "@/lib/i18n/translate";
 import { unlinkNodeReferences } from "@/lib/flows/edges";
 import { startsFromComment, type CanvasNote, type FlowChannelScope, type FlowNodeRow, type FlowNodeType, type FlowRow, type FlowTriggerType } from "@/lib/flows/types";
-import { focusedFieldKey, useHistory } from "./use-history";
+import { focusedFieldKey, historyShortcut, isTextEditingTarget, useHistory } from "./use-history";
 import { useAutosave, type AutosaveStatus, type SaveOutcome } from "./use-autosave";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
 import { flowNodesFor, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
@@ -258,11 +258,16 @@ const BUILDER_TRIGGER_ORDER = {
 const BUILDER_TRIGGERS = (Object.keys(BUILDER_TRIGGER_ORDER) as FlowTriggerType[])
   .sort((a, b) => BUILDER_TRIGGER_ORDER[a] - BUILDER_TRIGGER_ORDER[b]);
 
-/** The add-step menu for a scope: steps every channel it runs on offers ('any' gets the overlap). */
+/**
+ * The add-step menu for a scope: steps every channel it runs on offers ('any'
+ * gets the overlap). The Stage 5 steps (Actions, Randomizer, Smart delay,
+ * Google Sheets) join Instagram flows' menus; WhatsApp builder menus stay as
+ * they were (capabilities.ts still decides per channel what can run).
+ */
 export function nodeTypesForScope(scope: FlowChannelScope | null | undefined): NodeType[] {
   const offered = scopeChannels(scope).map((channel) => new Set<string>(flowNodesFor(channel)));
-  // Stage 5 steps join the menus with their forms (5C); capabilities.ts decides per channel.
-  return [...ADD_NODE_TYPES, ...STAGE5_ADD_NODE_TYPES].filter((type) => offered.every((set) => set.has(type as FlowNodeType)));
+  const types = scope === "instagram" ? [...ADD_NODE_TYPES, ...STAGE5_ADD_NODE_TYPES] : ADD_NODE_TYPES;
+  return types.filter((type) => offered.every((set) => set.has(type as FlowNodeType)));
 }
 
 /** The trigger picker for a scope: triggers every channel it runs on offers. */
@@ -475,7 +480,8 @@ interface ProviderProps {
 }
 
 export type PublishOutcome =
-  | { kind: "published"; status: BuilderState["status"] }
+  /** `updatedAt`: the flow row's new updated_at, the base the next autosave sends (absent when the server sent none). */
+  | { kind: "published"; status: BuilderState["status"]; updatedAt?: string }
   | { kind: "save_failed" }
   | { kind: "draft_changed"; message: string | null }
   | { kind: "failed"; message: string | null; status: number };
@@ -502,11 +508,12 @@ export async function publishDraft(args: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(hash ? { status: "active", draft_hash: hash } : { status: "active" }),
   });
-  const json = (await res.json().catch(() => ({}))) as { error?: unknown; draft_hash?: unknown; flow?: { status?: BuilderState["status"] } };
+  const json = (await res.json().catch(() => ({}))) as { error?: unknown; draft_hash?: unknown; flow?: { status?: BuilderState["status"]; updated_at?: unknown } };
   const message = typeof json.error === "string" ? json.error : null;
   if (res.status === 409 && json.draft_hash !== undefined) return { kind: "draft_changed", message };
   if (!res.ok) return { kind: "failed", message, status: res.status };
-  return { kind: "published", status: json.flow?.status ?? "active" };
+  const updatedAt = json.flow?.updated_at;
+  return { kind: "published", status: json.flow?.status ?? "active", ...(typeof updatedAt === "string" ? { updatedAt } : {}) };
 }
 
 /** True when a click on `event` follows an in-app link the leave guard should confirm. */
@@ -759,6 +766,8 @@ export function FlowEditorProvider({
   // retried: the page reloads so the author sees what is saved now.
   const finishPublish = useCallback((outcome: PublishOutcome): boolean => {
     if (outcome.kind === "published") {
+      // A status change moves the row's updated_at; the next autosave must not read it as someone else's save.
+      if (outcome.updatedAt) baseUpdatedAtRef.current = outcome.updatedAt;
       replace((s) => ({ ...s, status: outcome.status }));
       toast.success(t("statusActivated"));
       return true;
@@ -824,6 +833,7 @@ export function FlowEditorProvider({
         // The server decides the resulting status: asking a published flow
         // for "draft" pauses it, so trust the response over `next`.
         const applied: BuilderState["status"] = json.flow?.status ?? next;
+        if (typeof json.flow?.updated_at === "string") baseUpdatedAtRef.current = json.flow.updated_at;
         replace((s) => ({ ...s, status: applied }));
         toast.success(
           applied === "active"
@@ -964,6 +974,21 @@ export function FlowEditorProvider({
     () => ({ undo: history.undo, redo: history.redo, canUndo: history.canUndo, canRedo: history.canRedo }),
     [history.undo, history.redo, history.canUndo, history.canRedo],
   );
+
+  // Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z and Ctrl+Y redo, in both views. While
+  // focus is in a text field the browser's own undo applies to its text.
+  const { undo: undoEdit, redo: redoEdit } = history;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const command = historyShortcut(e);
+      if (!command || e.defaultPrevented || isTextEditingTarget(e.target)) return;
+      e.preventDefault();
+      if (command === "undo") undoEdit();
+      else redoEdit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undoEdit, redoEdit]);
 
   const value = useMemo<FlowEditorContextValue>(
     () => ({
