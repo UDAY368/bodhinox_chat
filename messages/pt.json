@@ -1055,7 +1055,10 @@
         "campaign": "Campanha",
         "ad": "Clicou em um anúncio",
         "lead_form": "Formulário de cadastro",
-        "instagram": "Identidade do Instagram"
+        "instagram": "Identidade do Instagram",
+        "instagram_profile": "Perfil do Instagram",
+        "instagram_followers": "Seguidores no Instagram",
+        "instagram_window": "Janela de 24 horas do Instagram"
       },
       "ops": {
         "has_any": "tem alguma de",
@@ -1074,7 +1077,14 @@
         "submitted_any": "enviou",
         "submitted_none": "nunca enviou",
         "has_identity": "tem uma identidade do Instagram",
-        "has_no_identity": "não tem identidade do Instagram"
+        "has_no_identity": "não tem identidade do Instagram",
+        "is_true": "é sim",
+        "is_false": "é não",
+        "is_unknown": "ainda não se sabe",
+        "at_least": "pelo menos",
+        "at_most": "no máximo",
+        "open": "está aberta (escreveu nas últimas 24 horas)",
+        "closed": "foi encerrada"
       },
       "noLists": "Ainda não há listas",
       "campaignLabel": "Campanha",
@@ -1094,7 +1104,15 @@
       "anyAd": "qualquer anúncio",
       "formIdsLabel": "Formulários de cadastro",
       "anyForm": "qualquer formulário",
-      "formIdsPlaceholder": "Qualquer formulário, ou IDs de formulários separados por vírgulas"
+      "formIdsPlaceholder": "Qualquer formulário, ou IDs de formulários separados por vírgulas",
+      "igFactLabel": "Detalhe do Instagram",
+      "igFacts": {
+        "follows_business": "Segue você",
+        "business_follows": "Você segue a pessoa",
+        "is_verified": "É verificado"
+      },
+      "followersLabel": "Seguidores",
+      "igFreshness": "Os dados do Instagram são atualizados em segundo plano cerca de uma vez por semana, então podem estar um pouco desatualizados."
     },
     "identity": {
       "title": "Identidades de canal",

@@ -1055,7 +1055,10 @@
         "campaign": "캠페인",
         "ad": "광고 클릭",
         "lead_form": "잠재 고객 양식",
-        "instagram": "Instagram 신원"
+        "instagram": "Instagram 신원",
+        "instagram_profile": "인스타그램 프로필",
+        "instagram_followers": "인스타그램 팔로워",
+        "instagram_window": "인스타그램 24시간 창"
       },
       "ops": {
         "has_any": "다음 중 하나라도 있음",
@@ -1074,7 +1077,14 @@
         "submitted_any": "제출함",
         "submitted_none": "제출한 적 없음",
         "has_identity": "Instagram 신원 있음",
-        "has_no_identity": "Instagram 신원 없음"
+        "has_no_identity": "Instagram 신원 없음",
+        "is_true": "예",
+        "is_false": "아니요",
+        "is_unknown": "아직 알 수 없음",
+        "at_least": "최소",
+        "at_most": "최대",
+        "open": "열려 있음(최근 24시간 이내에 메시지를 보냄)",
+        "closed": "닫힘"
       },
       "noLists": "아직 목록이 없습니다",
       "campaignLabel": "캠페인",
@@ -1094,7 +1104,15 @@
       "anyAd": "모든 광고",
       "formIdsLabel": "잠재 고객 양식",
       "anyForm": "모든 잠재 고객 양식",
-      "formIdsPlaceholder": "모든 양식 또는 쉼표로 구분한 양식 ID"
+      "formIdsPlaceholder": "모든 양식 또는 쉼표로 구분한 양식 ID",
+      "igFactLabel": "인스타그램 정보",
+      "igFacts": {
+        "follows_business": "나를 팔로우함",
+        "business_follows": "내가 팔로우함",
+        "is_verified": "인증됨"
+      },
+      "followersLabel": "팔로워 수",
+      "igFreshness": "인스타그램 정보는 약 일주일에 한 번 백그라운드에서 새로 고쳐지므로 조금 오래된 내용일 수 있습니다."
     },
     "identity": {
       "title": "채널 ID",

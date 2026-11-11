@@ -10,6 +10,15 @@ import { z } from 'zod';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { CAMPAIGN_OUTCOMES, OUTCOME_STATUSES } from './outcomes';
 import { requireFeature } from '@/lib/billing/entitlements';
+import { STANDARD_WINDOW_MS } from '@/lib/instagram/window';
+
+/** Boolean profile facts a segment can test; each maps to a fixed contact_channel_identities column. */
+export const IG_SEGMENT_FACTS = ['follows_business', 'business_follows', 'is_verified'] as const;
+const IG_FACT_COLUMNS = {
+  follows_business: Prisma.sql`i.follows_business`,
+  business_follows: Prisma.sql`i.business_follows`,
+  is_verified: Prisma.sql`i.is_verified`,
+};
 
 const uuid = z.string().uuid();
 const text = z.string().trim().max(1024);
@@ -40,6 +49,11 @@ const condition = z.discriminatedUnion('field', [
   z.object({ field: z.literal('lead_form'), op: z.enum(['submitted_any', 'submitted_none']), formIds: z.array(metaId).max(50) }).strict(),
   // Phase 11: contacts with (or without) an Instagram identity. Never a broadcast channel: campaigns still need a phone.
   z.object({ field: z.literal('instagram'), op: z.enum(['has_identity', 'has_no_identity']) }).strict(),
+  // Stage 3: the Instagram profile facts stored on the identity (a contact with no Instagram identity matches none of these).
+  z.object({ field: z.literal('instagram_profile'), fact: z.enum(IG_SEGMENT_FACTS), op: z.enum(['is_true', 'is_false', 'is_unknown']) }).strict(),
+  z.object({ field: z.literal('instagram_followers'), op: z.enum(['at_least', 'at_most']), value: z.number().int().min(0).max(2_000_000_000) }).strict(),
+  // In the 24-hour window: an Instagram conversation where the customer wrote within 24 hours. closed: has one, none in window.
+  z.object({ field: z.literal('instagram_window'), op: z.enum(['open', 'closed']) }).strict(),
 ]).superRefine((c, ctx) => {
   const needsValue = ['is', 'is_not', 'contains'].includes(c.op) && c.field !== 'opted_out' && c.field !== 'blocked';
   if (needsValue && !('value' in c && typeof c.value === 'string' && c.value.length > 0))
@@ -116,6 +130,21 @@ function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
       const identity = Prisma.sql`EXISTS(SELECT 1 FROM contact_channel_identities i WHERE i.account_id=${accountId}::uuid AND i.contact_id=c.id
         AND i.channel='instagram')`;
       return c.op === 'has_identity' ? identity : Prisma.sql`NOT ${identity}`;
+    }
+    case 'instagram_profile': {
+      const test = c.op === 'is_true' ? Prisma.sql`${IG_FACT_COLUMNS[c.fact]} IS TRUE`
+        : c.op === 'is_false' ? Prisma.sql`${IG_FACT_COLUMNS[c.fact]} IS FALSE` : Prisma.sql`${IG_FACT_COLUMNS[c.fact]} IS NULL`;
+      return Prisma.sql`EXISTS(SELECT 1 FROM contact_channel_identities i WHERE i.account_id=${accountId}::uuid AND i.contact_id=c.id
+        AND i.channel='instagram' AND ${test})`;
+    }
+    case 'instagram_followers':
+      return Prisma.sql`EXISTS(SELECT 1 FROM contact_channel_identities i WHERE i.account_id=${accountId}::uuid AND i.contact_id=c.id
+        AND i.channel='instagram' AND i.ig_follower_count ${c.op === 'at_least' ? Prisma.sql`>=` : Prisma.sql`<=`} ${c.value})`;
+    case 'instagram_window': {
+      const conversation = Prisma.sql`SELECT 1 FROM conversations v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.channel='instagram'`;
+      const open = Prisma.sql`EXISTS(${conversation} AND EXISTS(SELECT 1 FROM messages m WHERE m.account_id=v.account_id AND m.conversation_id=v.id
+        AND m.sender_type='customer' AND m.created_at > now() - make_interval(secs => ${STANDARD_WINDOW_MS / 1000})))`;
+      return c.op === 'open' ? open : Prisma.sql`(EXISTS(${conversation}) AND NOT ${open})`;
     }
   }
 }

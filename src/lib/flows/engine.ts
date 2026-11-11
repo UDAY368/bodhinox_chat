@@ -14,7 +14,7 @@ import { decodePostback, encodePostback } from '@/lib/instagram/postback-payload
 import { PRIVATE_REPLY_RETRY_MS, postCommentPublicReply, recordCommentOptIn, sendCommentPrivateReply } from '@/lib/instagram/private-reply';
 import { pickPublicReply } from '@/lib/instagram/comment-matching';
 import { validCommentReply, type IgGenericCard, type IgTemplateButton, type QuickReply } from '@/lib/instagram/graph-limits';
-import { refreshProfileFacts, type ProfileFacts } from '@/lib/instagram/profile';
+import { igProfileSubject as igProfileSubjectOf, igProfileValue } from './conditions/ig-profile';
 import { instagramAutomatedWindowOpen } from '@/lib/channels/sender';
 import { needsMessagingWindow } from './instagram-validation';
 import { conversionValue, isConversionEventName } from './conversion-node';
@@ -1268,33 +1268,11 @@ async function evaluateConditionNode(
   return cfg.match !== "any";
 }
 
-/** One live profile read per loaded run object: a condition with several profile rules reads Meta once. */
-const profileReads = new WeakMap<object, Promise<ProfileFacts | null>>();
-
-/**
- * An `ig_profile` rule's subject (the follow gate): read from Meta when the run
- * reaches the condition, so "I followed" is re-checked rather than cached.
- * Booleans are "true"/"false"; the follower count is a number; unknown is
- * absent. Not an Instagram run: absent.
- */
-export function igProfileValue(facts: ProfileFacts | null, key: string): string | undefined {
-  if (!facts) return undefined;
-  const value = key === "follows_business" ? facts.followsBusiness
-    : key === "business_follows" ? facts.businessFollows
-      : key === "is_verified" ? facts.isVerified
-        : key === "follower_count" ? facts.followerCount : null;
-  return value === null || value === undefined ? undefined : String(value);
-}
+/** The `ig_profile` subjects (follow gate, verified, in window) are resolved in ./conditions/ig-profile. */
+export { igProfileValue };
 
 async function igProfileSubject(run: FlowRunRow, key: string): Promise<string | undefined> {
-  if (!run.conversation_id || (await runChannel(run)) !== "instagram") return undefined;
-  let read = profileReads.get(run);
-  if (!read) {
-    read = refreshProfileFacts(run.account_id, run.conversation_id);
-    profileReads.set(run, read);
-    read.catch(() => profileReads.delete(run));
-  }
-  return igProfileValue(await read, key);
+  return igProfileSubjectOf(run, key, (await runChannel(run)) === "instagram");
 }
 
 async function conditionSubject(

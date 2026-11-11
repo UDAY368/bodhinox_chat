@@ -16,6 +16,7 @@ import {
   type AudienceFilter,
 } from './filter';
 import { gateLimit } from '@/lib/billing/limits';
+import { queueStaleProfileRechecks } from '@/lib/instagram/profile';
 import {
   audienceFilterProbesPhone,
   loadPhoneMask,
@@ -140,6 +141,9 @@ export async function previewAudience(
     const resolved = filter ?? (await loadSegmentFilter(tx, ctx.accountId, (source as { segmentId: string }).segmentId));
     // A saved segment's tags, lists or campaigns may have been deleted since it was saved.
     await assertFilterReferences(tx, ctx.accountId, resolved);
+    // The profile facts a segment reads are stored; counting by them queues a re-read of the stale ones.
+    if (resolved.conditions.some((c) => c.field === 'instagram_profile' || c.field === 'instagram_followers'))
+      await queueStaleProfileRechecks(tx, ctx.accountId);
     const [row] = await tx.$queryRaw<{ total: number; sendable: number }[]>(Prisma.sql`
       SELECT count(*)::int AS total,
         count(*) FILTER (WHERE c.opted_out_at IS NULL AND c.blocked_at IS NULL)::int AS sendable
