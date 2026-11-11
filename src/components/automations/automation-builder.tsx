@@ -169,6 +169,12 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     icon: Webhook,
     border: 'border-l-primary',
   },
+  // Stage 5: starts a canvas flow for the contact.
+  start_flow: {
+    label: 'start_flow',
+    icon: Zap,
+    border: 'border-l-primary',
+  },
   close_conversation: {
     label: 'close_conversation',
     icon: CircleSlash,
@@ -193,6 +199,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   'send_webhook',
   'close_conversation',
   'notify_team',
+  'start_flow',
 ];
 
 /** Every trigger the builder knows, in menu order; each channel offers its palette's subset. */
@@ -205,6 +212,8 @@ const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: 'new_contact_created' },
   { value: 'conversation_assigned' },
   { value: 'tag_added' },
+  { value: 'tag_removed' },
+  { value: 'field_changed' },
   { value: 'time_based' },
   { value: 'appointment_booked' },
   { value: 'appointment_cancelled' },
@@ -222,12 +231,15 @@ export function addableStepsFor(channel: Channel): AutomationStepType[] {
 /**
  * The triggers a channel's builder offers, in menu order. A stored trigger
  * outside the palette stays listed so an old automation still shows its own.
+ * `instagramScheduled`: INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED as the server
+ * reports it (Stage 5); off, Instagram offers no schedule.
  */
 export function triggerOptionsFor(
   channel: Channel,
-  current?: AutomationTriggerType
+  current?: AutomationTriggerType,
+  instagramScheduled = false
 ): AutomationTriggerType[] {
-  const palette = automationTriggersFor(channel);
+  const palette = automationTriggersFor(channel, { instagramScheduled });
   return TRIGGER_OPTIONS.map((o) => o.value).filter(
     (value) => palette.includes(value) || value === current
   );
@@ -288,6 +300,8 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return {};
     case 'notify_team':
       return { audience: 'assignee', text: '' };
+    case 'start_flow':
+      return { flow_id: '' };
     default:
       return {};
   }
@@ -308,6 +322,13 @@ interface SegmentOption {
   name: string;
 }
 
+/** A canvas flow the start_flow step can start (GET /api/flows?channel=). */
+interface FlowOption {
+  id: string;
+  name: string;
+  status: string;
+}
+
 interface AutomationResources {
   segments: SegmentOption[];
   tags: TagRecord[];
@@ -316,6 +337,10 @@ interface AutomationResources {
   customFields: CustomField[];
   pipelines: PipelineOption[];
   stages: PipelineStageOption[];
+  /** The channel's flows that are not archived (Stage 5, start_flow). */
+  flows: FlowOption[];
+  /** Whether the server offers schedules on Instagram (INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED). */
+  instagramScheduled: boolean;
 }
 
 interface PipelineOption {
@@ -338,6 +363,8 @@ const ResourcesContext = createContext<AutomationResources>({
   customFields: [],
   pipelines: [],
   stages: [],
+  flows: [],
+  instagramScheduled: false,
 });
 
 function useResources(): AutomationResources {
@@ -352,6 +379,39 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
   const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [stages, setStages] = useState<PipelineStageOption[]>([]);
   const [segments, setSegments] = useState<SegmentOption[]>([]);
+  const [flows, setFlows] = useState<FlowOption[]>([]);
+  const [instagramScheduled, setInstagramScheduled] = useState(false);
+  const channel = useContext(BuilderChannelContext);
+
+  // Stage 5: the channel's flows for start_flow, and on Instagram whether schedules are offered.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await authFetch(`/api/flows?channel=${channel}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = (await res.json()) as { flows?: FlowOption[] };
+        if (!cancelled) setFlows((json.flows ?? []).filter((f) => f.status !== 'archived'));
+      } catch {
+        // No flows listed: the step shows its empty choice.
+      }
+    })();
+    if (channel === 'instagram') {
+      void (async () => {
+        try {
+          const res = await authFetch('/api/instagram/consent-settings', { cache: 'no-store' });
+          if (!res.ok) return;
+          const json = (await res.json()) as { features?: { scheduled_automations?: boolean } };
+          if (!cancelled) setInstagramScheduled(json.features?.scheduled_automations === true);
+        } catch {
+          // Unknown: no schedule offered, as with the flag off.
+        }
+      })();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [channel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -428,7 +488,7 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
 
   return (
     <ResourcesContext.Provider
-      value={{ segments, tags, members, templates, customFields, pipelines, stages }}
+      value={{ segments, tags, members, templates, customFields, pipelines, stages, flows, instagramScheduled }}
     >
       {children}
     </ResourcesContext.Provider>
@@ -494,10 +554,12 @@ function TagSelect({
  *  that's since been deleted is preserved as a labelled option so editing an
  *  existing automation doesn't silently drop it. */
 function ContactFieldSelect({
+  id,
   value,
   onChange,
   t,
 }: {
+  id?: string;
   value: string;
   onChange: (v: string) => void;
   t: ReturnType<typeof useTranslations>;
@@ -508,6 +570,7 @@ function ContactFieldSelect({
     customValue && customFields.some((f) => `custom:${f.id}` === customValue);
   return (
     <select
+      id={id}
       value={value || 'name'}
       onChange={(e) => onChange(e.target.value)}
       className={SELECT_CLASS}
@@ -978,6 +1041,12 @@ function TriggerCard({
 }) {
   const [open, setOpen] = useState(false);
   const channel = useContext(BuilderChannelContext);
+  const { instagramScheduled } = useResources();
+  const tEvents = useTranslations('Automations.triggers');
+  // A field_changed trigger always names a field: the picker's first choice until one is picked.
+  useEffect(() => {
+    if (type === 'field_changed' && typeof config.field !== 'string') onConfigChange({ ...config, field: 'name' });
+  }, [type, config, onConfigChange]);
   return (
     // Card width: full on mobile, fixed 320px on sm+. The canvas wrapper
     // (max-w-2xl + px-4) keeps this tidy on tablet/desktop.
@@ -1019,7 +1088,7 @@ function TriggerCard({
                 }
                 className="border-border bg-muted text-foreground focus:border-primary w-full rounded-md border px-2 py-1.5 text-sm focus:outline-none"
               >
-                {triggerOptionsFor(channel, type).map((value) => (
+                {triggerOptionsFor(channel, type, instagramScheduled).map((value) => (
                   <option key={value} value={value}>
                     {t(`triggers.${value}.label`)}
                   </option>
@@ -1050,7 +1119,7 @@ function TriggerCard({
                 t={t}
               />
             )}
-            {type === 'tag_added' && (
+            {(type === 'tag_added' || type === 'tag_removed') && (
               <div>
                 <label className="text-muted-foreground mb-1 block text-xs font-medium">
                   {t('config.tagLabel')}
@@ -1060,6 +1129,23 @@ function TriggerCard({
                   onChange={(v) => onConfigChange({ ...config, tag_id: v })}
                   t={t}
                 />
+                {type === 'tag_removed' && (
+                  <p className="text-muted-foreground mt-1 text-[11px]">{tEvents('tagRemoved.help')}</p>
+                )}
+              </div>
+            )}
+            {type === 'field_changed' && (
+              <div>
+                <label htmlFor="trigger-field" className="text-muted-foreground mb-1 block text-xs font-medium">
+                  {tEvents('fieldChanged.field')}
+                </label>
+                <ContactFieldSelect
+                  id="trigger-field"
+                  value={(config.field as string) ?? 'name'}
+                  onChange={(v) => onConfigChange({ ...config, field: v })}
+                  t={t}
+                />
+                <p className="text-muted-foreground mt-1 text-[11px]">{tEvents('fieldChanged.help')}</p>
               </div>
             )}
             {type === 'time_based' && (
@@ -2066,6 +2152,13 @@ function StepEditor({
           </FieldBlock>
         </>
       );
+    case 'start_flow':
+      return (
+        <StartFlowField
+          value={(cfg.flow_id as string) ?? ''}
+          onChange={(flowId) => set({ flow_id: flowId })}
+        />
+      );
     case 'close_conversation':
       return (
         <p className="text-muted-foreground text-xs">
@@ -2078,6 +2171,31 @@ function StepEditor({
     default:
       return null;
   }
+}
+
+/**
+ * The flow a start_flow step starts: the channel's live flows (and the stored
+ * choice, whatever its state now, so an edit never loses it). The engine starts
+ * it only while it is live, on the contact's conversation of this channel.
+ */
+function StartFlowField({ value, onChange }: { value: string; onChange: (flowId: string) => void }) {
+  const tStart = useTranslations('Automations.steps.startFlow');
+  const { flows } = useResources();
+  const choices = flows.filter((f) => f.status === 'active' || f.id === value);
+  return (
+    <div className="mb-2 last:mb-0">
+      <label htmlFor="start-flow-id" className="text-muted-foreground mb-1 block text-xs font-medium">
+        {tStart('flow')}
+      </label>
+      <select id="start-flow-id" value={value} onChange={(e) => onChange(e.target.value)} className={SELECT_CLASS}>
+        <option value="">{tStart('none')}</option>
+        {choices.map((flow) => (
+          <option key={flow.id} value={flow.id}>{flow.name}</option>
+        ))}
+      </select>
+      <p className="text-muted-foreground mt-1 text-[11px]">{tStart('help')}</p>
+    </div>
+  );
 }
 
 function FieldBlock({

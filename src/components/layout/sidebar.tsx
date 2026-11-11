@@ -26,6 +26,7 @@ import {
   Crown,
   FileText,
   GitBranch,
+  House,
   Inbox,
   LayoutDashboard,
   Link2,
@@ -108,6 +109,7 @@ interface NavItem {
 // Icons for the Workspace and channel entries built by buildNavigation.
 const NAV_ICONS: Record<string, typeof LayoutDashboard> = {
   allInboxes: Inbox,
+  home: House,
   dashboard: LayoutDashboard,
   analytics: BarChart3,
   inbox: MessageSquare,

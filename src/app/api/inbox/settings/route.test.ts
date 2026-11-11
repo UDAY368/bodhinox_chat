@@ -77,4 +77,25 @@ describe('PUT /api/inbox/settings', () => {
     expect((await put(body)).status).toBe(403);
     expect(h.save).not.toHaveBeenCalled();
   });
+  it('saves the Stage 5 pause, assignment and visibility settings for admins only', async () => {
+    const body = { ...settings, agent_reply_pause_minutes: 180, auto_assign_mode: 'basic', agent_visibility: 'assigned_or_team' };
+    expect((await put(body)).status).toBe(200);
+    expect(h.save).toHaveBeenCalledWith({ accountId: ACCOUNT, userId: USER, role: 'admin' }, body);
+    h.save.mockClear();
+    for (const role of ['agent', 'viewer']) {
+      h.role = role;
+      expect((await put(body)).status).toBe(403);
+    }
+    expect(h.save).not.toHaveBeenCalled();
+  });
+  it.each([
+    [{ agent_reply_pause_minutes: 0 }, 'invalid_pause'],
+    [{ auto_assign_mode: 'everyone' }, 'invalid_assignment'],
+    [{ agent_visibility: 'mine' }, 'invalid_visibility'],
+  ])('rejects %j with %s and saves nothing', async (extra, code) => {
+    const res = await put({ ...settings, ...extra });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code });
+    expect(h.save).not.toHaveBeenCalled();
+  });
 });

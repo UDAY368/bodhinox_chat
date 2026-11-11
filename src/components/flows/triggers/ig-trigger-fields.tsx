@@ -24,7 +24,9 @@ import { refLinkUrl } from "@/lib/instagram/ref-links";
 import { IgKeywordEditor } from "./ig-keyword-editor";
 import { IgPostPicker, useInstagramAccounts, type PickerAccount } from "./ig-post-picker";
 import { IgReplyVariants } from "./ig-reply-variants";
-import { addIds, addRefKeys, readStrings, setPostScope, setPublicReplies, setTriggerAccount, toggleMedia } from "./ig-trigger-config";
+import { addIds, addRefKeys, readStrings, replyDelayParts, setPostScope, setPublicReplies, setReplyDelay, setTriggerAccount, toggleMedia, type ReplyDelayUnit } from "./ig-trigger-config";
+import { Input } from "@/components/ui/input";
+import { FLOW_TRIGGER_LIMITS } from "@/lib/flows/types";
 
 type Config = Record<string, unknown>;
 type Props = { config: Config; onChange: (c: Config) => void };
@@ -262,7 +264,44 @@ export function IgCommentTriggerFields({ config, onChange }: Props) {
           labels={{ add: t("addPublicReply"), remove: (n) => t("removeReply", { n }), variant: (n) => t("replyN", { n }) }} />
         <p className={help}>{t("publicRepliesHelp", { max: IG_TRIGGER_LIMITS.publicReplies })}</p>
       </div>
+      <ReplyDelayField id="trigger-reply-delay" config={config} onChange={onChange} />
       <MessageAccessNote />
+    </div>
+  );
+}
+
+/**
+ * Stage 5: "Wait before replying" on a comment trigger, in seconds or
+ * minutes, up to 10 minutes. Empty or 0 replies right away.
+ */
+export function ReplyDelayField({ id, config, onChange }: Props & { id: string }) {
+  const t = useTranslations("Flows.triggers.replyDelay");
+  const stored = replyDelayParts(config.reply_delay_seconds);
+  const [unit, setUnit] = useState<ReplyDelayUnit>(stored.unit);
+  const seconds = stored.unit === "minutes" ? stored.amount * 60 : stored.amount;
+  const shown = unit === "minutes" ? seconds / 60 : seconds;
+  const max = unit === "minutes" ? FLOW_TRIGGER_LIMITS.replyDelaySecondsMax / 60 : FLOW_TRIGGER_LIMITS.replyDelaySecondsMax;
+  return (
+    <div>
+      <label htmlFor={id} className={label}>{t("label")}</label>
+      <div className="flex gap-2">
+        <Input id={id} type="number" inputMode="numeric" min={0} max={max} placeholder="0" className="bg-muted"
+          value={seconds > 0 ? String(Math.round(shown * 100) / 100) : ""}
+          onChange={(e) => onChange(setReplyDelay(config, e.target.value === "" ? null : Number(e.target.value), unit))} />
+        <Select value={unit} onValueChange={(next) => {
+          const nextUnit = next as ReplyDelayUnit;
+          setUnit(nextUnit);
+          // Keep the same wait in the new unit (whole minutes round up).
+          if (seconds > 0) onChange(setReplyDelay(config, nextUnit === "minutes" ? Math.max(1, Math.round(seconds / 60)) : seconds, nextUnit));
+        }}>
+          <SelectTrigger className="w-32 bg-muted" aria-label={t("label")}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="seconds">{t("seconds")}</SelectItem>
+            <SelectItem value="minutes">{t("minutes")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <p className={help}>{seconds > 0 ? t("help") : t("none")}</p>
     </div>
   );
 }
@@ -281,6 +320,7 @@ export function IgLiveCommentTriggerFields({ config, onChange }: Props) {
         keywords={readStrings(config.keywords)} mode={mode(config.match_mode)}
         onChange={({ keywords, mode: match_mode }) => onChange({ ...config, keywords, match_mode })} />
       <p className={help}>{t("liveOnly")}</p>
+      <ReplyDelayField id="trigger-live-reply-delay" config={config} onChange={onChange} />
       <MessageAccessNote />
     </div>
   );

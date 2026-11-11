@@ -6,27 +6,33 @@ import ko from '../../../messages/ko.json'
 import pt from '../../../messages/pt.json'
 import { validateFlowForActivation } from './validate'
 import { FLOW_TEMPLATE_CATEGORIES, flowTemplateChannels, getFlowTemplate, INSTAGRAM_TEMPLATE_LINKS_TO_BIND, listFlowTemplates,
-  type FlowTemplate } from './templates'
+  TEMPLATE_TAGS_TO_BIND, type FlowTemplate } from './templates'
+import { startsFromComment } from './types'
 
 const templates = listFlowTemplates()
 
 type Catalogue = { StarterFlows: Record<string, unknown>; Instagram: { quickAutomations: { flows: Record<string, unknown> } } }
 
+/** The Stage 5 Instagram starters' copy (StarterFlows.instagram5.templates). */
+const stage5Copy = (messages: Catalogue) =>
+  ((messages.StarterFlows.instagram5 as { templates?: Record<string, Record<string, string>> } | undefined)?.templates ?? {})
+
 /**
  * Keyword lists per template slug, read straight from each locale's
  * catalogue: the WhatsApp-era starters (StarterFlows) and the Instagram
- * starters (Instagram.quickAutomations.flows), which can sit in one Instagram
+ * starters (Instagram.quickAutomations.flows and, from Stage 5,
+ * StarterFlows.instagram5.templates), which can sit in one Instagram
  * section together.
  */
 function catalogueKeywords(messages: Catalogue): Array<[string, string[]]> {
-  return Object.entries({ ...messages.StarterFlows, ...messages.Instagram.quickAutomations.flows }).flatMap(([slug, entry]) => {
+  return Object.entries({ ...messages.StarterFlows, ...messages.Instagram.quickAutomations.flows, ...stage5Copy(messages) }).flatMap(([slug, entry]) => {
     const raw = (entry as { keywords?: unknown }).keywords
     return typeof raw === 'string' ? [[slug, raw.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)] as [string, string[]]] : []
   })
 }
 
 /** Steps a template leaves for the author to bind to a workspace record or link (publishing reports them until then). */
-const TO_BIND = new Set(['work_from_home.registered', ...INSTAGRAM_TEMPLATE_LINKS_TO_BIND])
+const TO_BIND = new Set(['work_from_home.registered', ...INSTAGRAM_TEMPLATE_LINKS_TO_BIND, ...TEMPLATE_TAGS_TO_BIND])
 
 
 const RESERVED_CONSENT_WORDS = ['stop', 'start', 'subscribe', 'unsubscribe']
@@ -35,7 +41,9 @@ describe.each([['en', en], ['es', es], ['pt', pt], ['ko', ko]] as const)('%s sta
   const lists = catalogueKeywords(messages)
 
   it('has keyword lists for every keyword-triggered template and every Instagram comment template', () => {
-    for (const t of templates.filter(t => t.trigger_type === 'keyword' || t.trigger_type === 'ig_comment')) {
+    // An intent match (Stage 5, AI) is recognised by meaning and has no keywords.
+    const intent = (t: FlowTemplate) => (t.trigger_config as { match_type?: string }).match_type === 'intent'
+    for (const t of templates.filter(t => (t.trigger_type === 'keyword' && !intent(t)) || t.trigger_type === 'ig_comment')) {
       expect(lists.map(([slug]) => slug)).toContain(t.slug)
     }
   })
@@ -90,7 +98,7 @@ describe('flow template gallery', () => {
           entry_node_id: template.entry_node_id, channel_scope: channel },
         template.nodes.map(n => ({ node_key: n.node_key, node_type: n.node_type, config: n.config as Record<string, unknown> })),
       )
-      expect(issues.filter(i => i.severity === 'error' && !TO_BIND.has(`${template.slug}.${i.node_key}`) )).toEqual([])
+      expect(issues.filter(i => i.severity === 'error' && !TO_BIND.has(`${template.slug}.${i.node_key}`))).toEqual([])
     })
 
   it('offers about 12 Instagram starters, each only on Instagram, including the follow gate and the WhatsApp handover', () => {
@@ -101,8 +109,9 @@ describe('flow template gallery', () => {
       expect(t.category.startsWith('instagram_')).toBe(true)
     }
     expect(instagram.map(t => t.slug)).toEqual(expect.arrayContaining(['ig_follow_gate', 'ig_to_whatsapp', 'ig_link_drop', 'ig_story_leads']))
-    // Every Instagram trigger has a starter.
-    expect(new Set(instagram.map(t => t.trigger_type))).toEqual(new Set(['ig_comment', 'ig_story_reply', 'ig_story_mention', 'keyword', 'default_reply']))
+    // Every Instagram trigger has a starter (Stage 5 adds Live comments and starters without a trigger).
+    expect(new Set(instagram.map(t => t.trigger_type))).toEqual(new Set(['ig_comment', 'ig_story_reply', 'ig_story_mention', 'keyword', 'default_reply',
+      'ig_live_comment', 'manual']))
   })
 
   it('needs no workspace-specific node types, apart from the tags an author binds', () => {
@@ -173,7 +182,7 @@ describe('Instagram starters (Stage 2)', () => {
     })
 
   it('runs no private reply outside a comment flow', () => {
-    for (const t of instagram.filter(t => t.trigger_type !== 'ig_comment')) {
+    for (const t of instagram.filter(t => !startsFromComment(t.trigger_type))) {
       expect(t.nodes.some(n => n.node_type === 'ig_private_reply'), t.slug).toBe(false)
     }
   })
@@ -192,7 +201,8 @@ describe('Instagram starters (Stage 2)', () => {
   it('leaves every link for the author to add, and holds no placeholder URL', () => {
     for (const t of instagram) {
       for (const n of t.nodes.filter(n => n.node_type === 'send_card')) {
-        const urls = ((n.config as { card: { buttons: Array<{ url?: string }> } }).card.buttons ?? []).map(b => b.url)
+        const urls = ((n.config as { card: { buttons: Array<{ type: string; url?: string }> } }).card.buttons ?? [])
+          .filter(b => b.type === 'web_url').map(b => b.url)
         expect(urls.every(u => u === ''), `${t.slug}.${n.node_key}`).toBe(true)
         expect(INSTAGRAM_TEMPLATE_LINKS_TO_BIND.has(`${t.slug}.${n.node_key}`)).toBe(true)
       }
@@ -211,14 +221,17 @@ describe('Instagram starters (Stage 2)', () => {
 
   // Instagram's limits (graph-limits.ts): button and quick-reply titles 20, card titles and subtitles 80, text 1000 bytes.
   const BUTTON_KEYS = /^(optIn|.*Button|budgetLow|budgetHigh|timelineNow|timelineLater|product\dTitle|optInLabel|linkLabel|followedButton|rewardButton)$/
-  const TITLE_KEYS = /^(cardTitle|cardSubtitle|rewardTitle|product\dSubtitle)$/
+  const TITLE_KEYS = /^(cardTitle|cardSubtitle|rewardTitle|product\dSubtitle|prize[A-C]Title|rulesTitle|winnerTitle|reminderTitle|answer)$/
+  // Gallery and canvas text (never sent to Instagram).
+  const NOT_SENT = /^(keywords|name|description|handoffNote|businessValue|howItWorks|note\d+|intent|instructions)$/
   describe.each([['en', en], ['es', es], ['pt', pt], ['ko', ko]] as const)('%s copy', (_locale, messages) => {
     const qa = messages.Instagram.quickAutomations as unknown as { flows: Record<string, Record<string, string>>; defaults: Record<string, Record<string, string>> }
-    const entries = [...Object.values(qa.flows), ...Object.values(qa.defaults)].flatMap(group => Object.entries(group))
+    const entries = [...Object.values(qa.flows), ...Object.values(qa.defaults), ...Object.values(stage5Copy(messages as unknown as Catalogue))]
+      .flatMap(group => Object.entries(group))
 
     it('fits Instagram button, card and message limits', () => {
       for (const [key, value] of entries) {
-        if (key === 'keywords' || key === 'name' || key === 'description' || key === 'handoffNote') continue
+        if (NOT_SENT.test(key)) continue
         if (BUTTON_KEYS.test(key)) expect([...value].length, `${key}: ${value}`).toBeLessThanOrEqual(20)
         else if (TITLE_KEYS.test(key)) expect([...value].length, `${key}: ${value}`).toBeLessThanOrEqual(80)
         else expect(new TextEncoder().encode(value).length, `${key}: ${value}`).toBeLessThanOrEqual(1000)
@@ -226,10 +239,125 @@ describe('Instagram starters (Stage 2)', () => {
     })
 
     it('has copy for every Instagram starter', () => {
+      const copy = { ...qa.flows, ...stage5Copy(messages as unknown as Catalogue) }
       for (const t of instagram) {
-        expect(qa.flows[t.slug]?.name, t.slug).toBeTruthy()
-        expect(qa.flows[t.slug]?.description, t.slug).toBeTruthy()
+        expect(copy[t.slug]?.name, t.slug).toBeTruthy()
+        expect(copy[t.slug]?.description, t.slug).toBeTruthy()
       }
     })
+  })
+})
+
+describe('Instagram starters (Stage 5, template parity)', () => {
+  const STAGE5 = ['ig_giveaway_draw', 'ig_video_channel', 'ig_comment_rsvp', 'ig_reel_product', 'ig_live_prizes', 'ig_live_offer',
+    'ig_live_link', 'ig_story_collab', 'ig_sms_list', 'ig_dm_link', 'ig_ab_opening', 'ig_ai_question', 'ig_ai_conversation',
+    'ig_link_follow_up', 'ig_solo_dm', 'ig_opening_dm']
+  const stage5 = STAGE5.map(slug => getFlowTemplate(slug)!)
+  const instagram = templates.filter(t => t.channels?.length === 1 && t.channels[0] === 'instagram')
+  const UUID = '00000000-0000-4000-8000-000000000001'
+
+  /** Fills what the author is asked to fill in: links, tags. */
+  function filled(template: FlowTemplate) {
+    return template.nodes.map(n => {
+      const config = JSON.parse(JSON.stringify(n.config)) as Record<string, unknown>
+      const cards = n.node_type === 'send_card' ? [config.card] : n.node_type === 'send_gallery' ? (config.cards as unknown[]) : []
+      for (const card of cards as Array<{ buttons?: Array<{ type: string; url?: string }> }>)
+        for (const b of card.buttons ?? []) if (b.type === 'web_url') b.url = 'https://shop.example/page'
+      if (n.node_type === 'condition' && config.subject === 'tag') config.subject_key = UUID
+      if (n.node_type === 'actions')
+        config.actions = (config.actions as Array<Record<string, unknown>>).map(a => (a.type === 'add_tag' ? { ...a, tag_id: UUID } : a))
+      return { node_key: n.node_key, node_type: n.node_type, config }
+    })
+  }
+
+  it('adds the sixteen Stage 5 starters, each Instagram-only and in an Instagram category', () => {
+    expect(stage5.every(Boolean)).toBe(true)
+    for (const t of stage5) {
+      expect(flowTemplateChannels(t), t.slug).toEqual(['instagram'])
+      expect(t.category.startsWith('instagram_'), t.slug).toBe(true)
+    }
+  })
+
+  it.each(STAGE5)('%s passes the publish validator once its links and tags are filled in', (slug) => {
+    const template = getFlowTemplate(slug)!
+    const flow = { name: template.name, trigger_type: template.trigger_type, channel_scope: 'instagram' as const,
+      trigger_config: template.trigger_config as Record<string, unknown>, entry_node_id: template.entry_node_id }
+    // A workspace capability (AI) is the workspace's own setting.
+    const errors = validateFlowForActivation(flow, filled(template))
+      .filter(i => i.severity === 'error' && i.code !== 'capabilityUnavailable')
+    expect(errors).toEqual([])
+  })
+
+  it('reports every link and tag the author must fill in before publishing', () => {
+    for (const t of stage5) {
+      // Any error on the step counts (an Actions step is refused as a whole until 5B validates its tag).
+      const errorNodes = new Set(validateFlowForActivation({ name: t.name, trigger_type: t.trigger_type, channel_scope: 'instagram',
+        trigger_config: t.trigger_config as Record<string, unknown>, entry_node_id: t.entry_node_id },
+      t.nodes.map(n => ({ node_key: n.node_key, node_type: n.node_type, config: n.config as Record<string, unknown> })))
+        .filter(i => i.severity === 'error').map(i => `${t.slug}.${i.node_key}`))
+      for (const key of [...INSTAGRAM_TEMPLATE_LINKS_TO_BIND, ...TEMPLATE_TAGS_TO_BIND].filter(k => k.startsWith(`${t.slug}.`)))
+        expect(errorNodes.has(key), key).toBe(true)
+    }
+  })
+
+  it('gives every Instagram starter gallery metadata, notes on the new ones, and covers every goal and trigger filter', () => {
+    for (const t of instagram) expect(t.meta, t.slug).toBeDefined()
+    for (const t of stage5) {
+      expect(t.canvas_notes?.length, t.slug).toBeGreaterThan(0)
+      expect(t.business_value && t.how_it_works, t.slug).toBeTruthy()
+      for (const note of t.canvas_notes!) expect(note.text.length).toBeLessThanOrEqual(1000)
+    }
+    for (const goal of ['grow_followers', 'engage_audience', 'drive_traffic'])
+      expect(instagram.some(t => t.meta!.goals.includes(goal as never)), goal).toBe(true)
+    for (const trigger of ['post_comment', 'dm', 'story_reply', 'live_comment'])
+      expect(instagram.some(t => t.meta!.trigger === trigger), trigger).toBe(true)
+    expect(instagram.filter(t => t.meta!.recommended).length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('ships three starters without a trigger, marked as such for the gallery', () => {
+    const triggerless = stage5.filter(t => t.trigger_type === 'manual')
+    expect(triggerless.map(t => t.slug).sort()).toEqual(['ig_link_follow_up', 'ig_opening_dm', 'ig_solo_dm'])
+    for (const t of triggerless) expect(t.meta!.trigger).toBeNull()
+  })
+
+  it('opens every comment-started starter with exactly one private reply', () => {
+    for (const t of stage5.filter(t => startsFromComment(t.trigger_type))) {
+      const start = t.nodes.find(n => n.node_key === 'start')!
+      const first = t.nodes.find(n => n.node_key === (start.config as { next_node_key: string }).next_node_key)!
+      expect(first.node_type, t.slug).toBe('ig_private_reply')
+      expect(t.nodes.filter(n => n.node_type === 'ig_private_reply'), t.slug).toHaveLength(1)
+    }
+  })
+
+  it('keeps every wait under 24 hours and checks a tracked link before reminding', () => {
+    for (const t of stage5) {
+      for (const n of t.nodes.filter(n => n.node_type === 'smart_delay')) {
+        const cfg = n.config as { mode: string; amount: number; unit: string }
+        expect(cfg.mode).toBe('duration')
+        expect(cfg.unit === 'hours' ? cfg.amount : Infinity, `${t.slug}.${n.node_key}`).toBeLessThan(24)
+      }
+      for (const n of t.nodes.filter(n => n.node_type === 'condition' && (n.config as { subject?: string }).subject === 'link_click')) {
+        const target = t.nodes.find(x => x.node_key === (n.config as { subject_key: string }).subject_key)!
+        expect((target.config as { track_clicks?: boolean }).track_clicks, `${t.slug}.${n.node_key}`).toBe(true)
+      }
+    }
+  })
+
+  it('splits every randomizer into paths that total 100, sticky for the giveaway draw only where it matters', () => {
+    for (const t of stage5) {
+      for (const n of t.nodes.filter(n => n.node_type === 'randomizer')) {
+        const cfg = n.config as { paths: Array<{ weight: number; next_node_key: string }>; sticky: boolean }
+        expect(cfg.paths.reduce((sum, p) => sum + p.weight, 0), `${t.slug}.${n.node_key}`).toBe(100)
+        for (const p of cfg.paths) expect(t.nodes.some(x => x.node_key === p.next_node_key)).toBe(true)
+      }
+    }
+    expect((getFlowTemplate('ig_giveaway_draw')!.nodes.find(n => n.node_key === 'draw')!.config as { sticky: boolean }).sticky).toBe(true)
+    expect((getFlowTemplate('ig_live_prizes')!.nodes.find(n => n.node_key === 'spin')!.config as { sticky: boolean }).sticky).toBe(false)
+  })
+
+  it('marks the AI starters as needing AI', () => {
+    expect(getFlowTemplate('ig_ai_question')!.meta!.uses_ai).toBe(true)
+    expect(getFlowTemplate('ig_ai_question')!.trigger_config).toMatchObject({ match_type: 'intent' })
+    expect(getFlowTemplate('ig_ai_conversation')!.meta!.uses_ai).toBe(true)
   })
 })

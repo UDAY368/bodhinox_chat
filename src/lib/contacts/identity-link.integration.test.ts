@@ -229,7 +229,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Identity linking and Instag
       await processInboundActions({ kind: 'message', accountId: accountA, userId: ownerA, contactId: stale.contact,
         conversationId: stale.conversation, messageId: message.id, metaMessageId: message.message_id, interactiveReplyId: null,
         contentType: 'text', contentText: 'STOP', wasContactCreated: false, wasConversationCreated: false, isFirstInboundMessage: false });
-      const optedOut = async (id: string) => (await owner.query('SELECT opted_out_at FROM contacts WHERE id=$1', [id])).rows[0].opted_out_at;
+      // An Instagram STOP is Instagram-only (Stage 5): instagram_opted_out_at, not the contact-wide opted_out_at.
+      const optedOut = async (id: string) => (await owner.query('SELECT instagram_opted_out_at FROM contacts WHERE id=$1', [id])).rows[0].instagram_opted_out_at;
       expect(await optedOut(target)).not.toBeNull();
       expect(await optedOut(stale.contact)).toBeNull();
       expect((await owner.query('SELECT count(*)::int AS n FROM flow_runs WHERE conversation_id=$1 AND contact_id=$2',

@@ -5,6 +5,7 @@
 // ids, actions and URLs of media are never included. Every line is untrusted
 // customer data: runAiTask delimits and redacts it before any model call.
 
+import { conversationVisible } from '@/lib/inbox/visibility-sql';
 import type { TenantTransaction } from '@/lib/db/tenant';
 import type { UntrustedBlock } from '../types';
 import { SENSITIVE_WINDOW } from '../assess/classify';
@@ -64,7 +65,8 @@ export async function readTranscript(
   maxMessages: number,
 ): Promise<Transcript | null> {
   const [conversation] = await tx.$queryRaw<{ id: string; contact_id: string; channel: string | null }[]>`
-    SELECT id, contact_id, channel FROM conversations WHERE account_id=${accountId}::uuid AND id=${conversationId}::uuid`;
+    SELECT id, contact_id, channel FROM conversations WHERE account_id=${accountId}::uuid AND id=${conversationId}::uuid
+      AND ${conversationVisible('conversations')}`;
   if (!conversation) return null;
   const limit = Math.max(1, Math.min(MAX_MESSAGES, Math.floor(maxMessages) || 1));
   const rows = await tx.$queryRaw<MessageRow[]>`

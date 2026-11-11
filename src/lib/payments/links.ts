@@ -20,6 +20,7 @@
  * WhatsApp) and never logged.
  */
 
+import { conversationVisible } from '@/lib/inbox/visibility-sql';
 import { createHash, randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
 import { getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
@@ -1014,7 +1015,7 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
           AND m.sender_type='customer') AS last_customer_message_at,
         ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id,c.channel
       FROM conversations c JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
-      WHERE c.account_id=${args.accountId}::uuid AND c.id=${link.conversation_id}::uuid`;
+      WHERE c.account_id=${args.accountId}::uuid AND c.id=${link.conversation_id}::uuid AND ${conversationVisible('c')}`;
     const conversation = conversations[0];
     if (!conversation) throw new PaymentLinkError('conversation_not_found');
     if (conversation.blocked_at) throw new PaymentLinkError('contact_blocked');

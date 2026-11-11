@@ -53,6 +53,13 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
   appointment_no_show: {
     pillClass: 'border-orange-500/30 bg-orange-500/10 text-orange-300',
   },
+  // Stage 5 contact events (5D).
+  tag_removed: {
+    pillClass: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+  },
+  field_changed: {
+    pillClass: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+  },
 }
 
 export function isKnownTrigger(t: string): t is AutomationTriggerType {

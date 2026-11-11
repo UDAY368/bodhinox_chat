@@ -39,22 +39,22 @@ test.describe('ads with META_ADS_ENABLED unset', () => {
     await dialog.getByRole('button', { name: 'Use this: Welcome menu', exact: true }).click();
     await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
     // The trigger panel lives in the list view; the editor opens on the canvas.
-    await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'List' }).click();
+    await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'Simple builder' }).click();
 
     await page.getByRole('combobox').filter({ hasText: 'A message contains a keyword' }).click();
     await page.getByRole('option', { name: 'A customer messages you from an ad' }).click();
     await page.getByLabel('Ad IDs (optional)').fill('1234567890');
     await page.getByLabel('Ad IDs (optional)').press('Enter');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
     await expect(page.getByText('Saved.').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Activate' }).click();
+    await page.getByRole('button', { name: 'Set live' }).click();
     // Activating publishes v1; the header and the version bar both offer Pause.
     const versionBar = page.getByTestId('flow-version-bar');
     await expect(versionBar.getByText('Live v1')).toBeVisible();
     await expect(versionBar.getByRole('button', { name: 'Pause' })).toBeVisible();
 
     await page.reload();
-    await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'List' }).click();
+    await page.getByRole('group', { name: 'Editor view' }).getByRole('button', { name: 'Simple builder' }).click();
     await expect(page.getByRole('combobox').filter({ hasText: 'A customer messages you from an ad' })).toBeVisible();
     await expect(page.getByText('1234567890', { exact: true })).toBeVisible();
   });

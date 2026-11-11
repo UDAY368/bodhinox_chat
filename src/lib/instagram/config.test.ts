@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { instagramConfig, instagramEnabled, instagramStatus, missingScopes, pageLoginConfig } from './config';
+import { instagramConfig, instagramEnabled, instagramScheduledAutomationsEnabled, instagramStatus, missingScopes, pageLoginConfig } from './config';
 
 const FULL = {
   INSTAGRAM_ENABLED: 'true',
@@ -92,5 +92,14 @@ describe('instagram config gate', () => {
     expect(missingScopes(['instagram_business_basic', 'instagram_business_manage_messages'], 'comments'))
       .toEqual(['instagram_business_manage_comments']);
     expect(missingScopes([], 'dm')).toEqual(['instagram_business_basic', 'instagram_business_manage_messages']);
+  });
+});
+
+describe('scheduled Instagram automations (Stage 5)', () => {
+  it('stays off unless both INSTAGRAM_ENABLED and INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED are "true"', () => {
+    expect(instagramScheduledAutomationsEnabled({})).toBe(false);
+    expect(instagramScheduledAutomationsEnabled({ INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED: 'true' })).toBe(false);
+    expect(instagramScheduledAutomationsEnabled({ INSTAGRAM_ENABLED: 'true', INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED: '1' })).toBe(false);
+    expect(instagramScheduledAutomationsEnabled({ INSTAGRAM_ENABLED: 'true', INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED: ' true ' })).toBe(true);
   });
 });

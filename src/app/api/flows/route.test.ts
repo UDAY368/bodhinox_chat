@@ -12,6 +12,32 @@ const h = vi.hoisted(() => ({
   nodes: [] as Row[],
   writes: [] as QuerySpec[],
   signedIn: true,
+  // Stage 5 CTR: a browser session (null for an API-key caller) and the tenant each stats read ran as.
+  session: true,
+  tenants: [] as unknown[],
+  statsIds: [] as string[][],
+}));
+
+vi.mock('@/lib/auth/session', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth/session')>()),
+  requireSession: async () => {
+    if (!h.session) throw new Error('no session');
+    return { accountId: h.accountId, userId: 'author', role: h.role, sessionId: 's' };
+  },
+}));
+vi.mock('@/lib/db/tenant', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/db/tenant')>()),
+  withTenant: async (context: unknown, operation: (tx: unknown) => Promise<unknown>) => {
+    h.tenants.push(context);
+    return operation({});
+  },
+}));
+vi.mock('@/lib/flows/link-tracking', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/flows/link-tracking')>()),
+  flowLinkStats: async (_tx: unknown, _accountId: string, ids: string[]) => {
+    h.statsIds.push(ids);
+    return new Map([['wa', { sent: 4, clicked: 1 }]]);
+  },
 }));
 
 class Forbidden extends Error {
@@ -60,6 +86,9 @@ beforeEach(() => {
   h.accountId = 'account-a';
   h.role = 'agent';
   h.signedIn = true;
+  h.session = true;
+  h.tenants = [];
+  h.statsIds = [];
   h.writes = [];
   h.nodes = [];
   h.flows = [flow('wa', 'whatsapp'), flow('ig', 'instagram'), flow('both', 'any'), flow('other', 'whatsapp', 'account-b')];
@@ -83,6 +112,25 @@ describe('GET /api/flows', () => {
     expect((await list('?channel=any')).status).toBe(400);
     h.signedIn = false;
     expect((await list('?channel=whatsapp')).status).toBe(401);
+  });
+
+  it("adds each listed flow's CTR, read as the caller's own workspace (a dash without a tracked link)", async () => {
+    const body = await (await list('?channel=whatsapp')).json();
+    expect(h.tenants).toEqual([expect.objectContaining({ accountId: 'account-a', role: 'agent' })]);
+    expect(h.statsIds[0].sort()).toEqual(['both', 'wa']);
+    const byId = new Map(body.flows.map((f: Row) => [f.id, f]));
+    expect(byId.get('wa')).toMatchObject({ ctr: 25, link_stats: { sent: 4, clicked: 1 } });
+    expect(byId.get('both')).toMatchObject({ ctr: null, link_stats: { sent: 0, clicked: 0 } });
+  });
+
+  it('still lists flows, without stats or a log line, for a caller with no browser session (API key)', async () => {
+    h.session = false;
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const body = await (await list()).json();
+    expect(body.flows.map((f: Row) => f.ctr)).toEqual([null, null, null]);
+    expect(h.tenants).toEqual([]);
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 });
 

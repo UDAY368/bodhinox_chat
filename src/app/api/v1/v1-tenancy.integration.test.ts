@@ -62,8 +62,9 @@ describe.skipIf(!databases)('[TEN-01][SEC-02] public v1 API tenancy', () => {
     await disconnectDatabases();
   }, 60000);
 
-  it('covers all 12 v1 route files', () => {
-    expect(Object.keys(routes)).toHaveLength(12);
+  it('covers all 13 v1 route files', () => {
+    // Stage 5 (5G) added contacts/[id]/flows.
+    expect(Object.keys(routes)).toHaveLength(13);
   });
 
   it("tenant A's key gets 404 for every tenant B id and B is unchanged", async () => {
@@ -73,6 +74,9 @@ describe.skipIf(!databases)('[TEN-01][SEC-02] public v1 API tenancy', () => {
       ['contacts/[id]', 'PATCH', { id: b.contactId }, { name: 'p15 tamper' }],
       ['conversations/[id]', 'GET', { id: b.conversationId }],
       ['conversations/[id]/messages', 'GET', { id: b.conversationId }],
+      // Stage 5 (5G): sending into, and starting a flow for, another workspace's ids.
+      ['conversations/[id]/messages', 'POST', { id: b.conversationId }, { text: 'p15 foreign send' }],
+      ['contacts/[id]/flows', 'POST', { id: b.contactId }, { flow_id: b.ids.flows }],
       ['broadcasts/[id]', 'GET', { id: b.broadcastId }],
       ['broadcasts/[id]/recipients', 'POST', { id: b.broadcastId }, { recipients: [{ phone: '910000000002' }] }],
       ['webhooks/[id]', 'GET', { id: b.webhookEndpointId }],
@@ -90,6 +94,26 @@ describe.skipIf(!databases)('[TEN-01][SEC-02] public v1 API tenancy', () => {
     expect(await rows(b.accountId)).toEqual(before);
     expect(fetchSpy).not.toHaveBeenCalled();
   }, 120000);
+
+  it("tenant A's key cannot start tenant B's flow for its own contact (404, nothing queued)", async () => {
+    const beforeA = await rows(a.accountId), beforeB = await rows(b.accountId);
+    const response = await call('contacts/[id]/flows', 'POST', a.apiKey, { id: a.contactId }, { flow_id: b.ids.flows });
+    expect(response.status).toBe(404);
+    expect(await response.text()).not.toContain(b.ids.flows);
+    expect(await rows(a.accountId)).toEqual(beforeA);
+    expect(await rows(b.accountId)).toEqual(beforeB);
+  }, 60000);
+
+  it("custom fields by key never resolve another workspace's field", async () => {
+    const bField = (await fixtureOwnerPool().query('SELECT field_name FROM custom_fields WHERE id=$1', [b.ids.custom_fields])).rows[0].field_name;
+    const before = await rows(b.accountId);
+    const byName = await call('contacts/[id]', 'PATCH', a.apiKey, { id: a.contactId }, { custom_fields: { [bField]: 'p15 tamper' } });
+    const byId = await call('contacts/[id]', 'PATCH', a.apiKey, { id: a.contactId }, { custom_fields: { [b.ids.custom_fields]: 'p15 tamper' } });
+    expect([byName.status, byId.status]).toEqual([400, 400]);
+    expect(await rows(b.accountId)).toEqual(before);
+    const values = await fixtureOwnerPool().query('SELECT count(*)::int AS n FROM contact_custom_values WHERE value=$1', ['p15 tamper']);
+    expect(values.rows[0].n).toBe(0);
+  }, 60000);
 
   it('positive control: the same id routes answer 200 for tenant A ids', async () => {
     for (const [route, id] of [['contacts/[id]', a.contactId], ['conversations/[id]', a.conversationId], ['broadcasts/[id]', a.broadcastId],
@@ -122,6 +146,8 @@ describe.skipIf(!databases)('[TEN-01][SEC-02] public v1 API tenancy', () => {
     expect((await call('contacts', 'POST', readOnly, {}, { phone: '+910000000003', name: 'p15 scope' })).status).toBe(403);
     expect((await call('contacts/[id]', 'PATCH', readOnly, { id: a.contactId }, { name: 'p15 scope' })).status).toBe(403);
     expect((await call('messages', 'POST', readOnly, {}, { to: '+910000000003', text: 'hi' })).status).toBe(403);
+    expect((await call('conversations/[id]/messages', 'POST', readOnly, { id: a.conversationId }, { text: 'hi' })).status).toBe(403);
+    expect((await call('contacts/[id]/flows', 'POST', readOnly, { id: a.contactId }, { flow_id: a.ids.flows })).status).toBe(403);
     expect((await call('webhooks', 'GET', readOnly)).status).toBe(403);
     expect((await call('conversations', 'GET', readOnly)).status).toBe(403);
     expect((await call('broadcasts', 'POST', readOnly, {}, { template_name: 'x', recipients: [] })).status).toBe(403);

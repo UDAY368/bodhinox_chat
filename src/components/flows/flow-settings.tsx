@@ -6,6 +6,7 @@
  * numbers a draft runs for and, when the workspace has several WhatsApp
  * numbers, which one the flow triggers on (saved at once through
  * PUT /api/flows/[id]/number, separately from the editor's Save).
+ * Instagram flows (Stage 5) take test usernames in place of test numbers.
  */
 
 import { useState } from "react";
@@ -54,8 +55,26 @@ export async function persistTriggerNumber(
   return false;
 }
 
+/** Instagram usernames: letters, digits, dots and underscores, up to 30. */
+const USERNAME = /^[a-z0-9._]{1,30}$/;
+export const MAX_TEST_USERNAMES = 3;
+
+/**
+ * Reads the "Test usernames" field: lowercase, no @, de-duplicated, at most
+ * three. `invalid` lists the entries that are not usernames (they are dropped).
+ */
+export function parseTestUsernames(raw: string): { list: string[]; invalid: string[]; tooMany: boolean } {
+  const entries = raw.split(/[,\s]+/).map((u) => u.trim().replace(/^@+/, "").toLowerCase()).filter(Boolean);
+  const valid = [...new Set(entries.filter((u) => USERNAME.test(u)))];
+  return { list: valid.slice(0, MAX_TEST_USERNAMES), invalid: entries.filter((u) => !USERNAME.test(u)), tooMany: valid.length > MAX_TEST_USERNAMES };
+}
+
 export function FlowSettings() {
-  const { state, setState, flow, triggerNumber, setTriggerNumber } = useFlowEditor();
+  const { state, setState, flow, triggerNumber, setTriggerNumber, channelScope } = useFlowEditor();
+  const tUsers = useTranslations("Flows.testUsernames");
+  const [usernames, setUsernames] = useState((state.test_usernames ?? []).join(", "));
+  const [usernameIssue, setUsernameIssue] = useState<"invalid" | "limit" | null>(null);
+  const instagram = channelScope === "instagram";
   const t = useTranslations("Flows.menuFallback");
   const tn = useTranslations("whatsappNumbers");
   const tLive = useTranslations("Flows.liveTest");
@@ -98,6 +117,13 @@ export function FlowSettings() {
     const list = numbers.split(/[,\n]/).map((n) => n.replace(/\D/g, "")).filter(Boolean).slice(0, 3);
     setNumbers(list.join(", "));
     setState((s) => ({ ...s, test_numbers: list }));
+  };
+
+  const commitUsernames = () => {
+    const { list, invalid, tooMany } = parseTestUsernames(usernames);
+    setUsernameIssue(invalid.length ? "invalid" : tooMany ? "limit" : null);
+    setUsernames(list.join(", "));
+    setState((s) => ({ ...s, test_usernames: list }));
   };
 
   return (
@@ -154,7 +180,26 @@ export function FlowSettings() {
         <p className={help}>{t("messageHelp")}</p>
       </div>
 
-      {state.status === "draft" && (
+      {state.status === "draft" && instagram && (
+        <div>
+          <label htmlFor="test-usernames" className={label}>{tUsers("label")}</label>
+          <Input id="test-usernames" value={usernames} placeholder={tUsers("placeholder")}
+            aria-invalid={usernameIssue ? true : undefined} aria-describedby="test-usernames-help"
+            onChange={(e) => setUsernames(e.target.value)} onBlur={commitUsernames}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitUsernames(); } }}
+            className="bg-muted font-mono text-xs" />
+          <p id="test-usernames-help" className={help}>{tUsers("help")}</p>
+          {usernameIssue && <p className="mt-1 text-[10px] text-amber-500">{tUsers(usernameIssue)}</p>}
+          {(state.test_usernames ?? []).length > 0 && (
+            <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 px-2 text-xs"
+              onClick={() => { setUsernames(""); setUsernameIssue(null); setState((s) => ({ ...s, test_usernames: [] })); }}>
+              {t("stopTesting")}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {state.status === "draft" && !instagram && (
         <div>
           {/* A live test: these numbers get real messages. It is not the dry run, which sends nothing. */}
           <label htmlFor="test-numbers" className={label}>{tLive("label")}</label>

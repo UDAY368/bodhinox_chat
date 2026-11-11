@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { parseChannelScope, validateFlowForActivation } from '@/lib/flows/validate';
-import type { FlowRow, FlowNodeRow, FlowTriggerType } from '@/lib/flows/types';
+import { CANVAS_NOTE_LIMITS, FLOW_TRIGGER_LIMITS, IG_TEST_USERNAME, type CanvasNote, type FlowRow, type FlowNodeRow, type FlowTriggerConfig, type FlowTriggerType } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { apiNodeUsesSecrets, canonicalJson } from '@/lib/flows/api-request';
@@ -11,13 +11,61 @@ import { tenantOf } from '@/lib/audience/http';
 import { withTenant } from '@/lib/db/tenant';
 import { gateWithinLimit } from '@/lib/billing/limits';
 import { requirePermission } from '@/lib/auth/permissions';
-import { lockAccountPublishing, readPublishState, saveDraft, type DraftPatch, type VersionNode } from '@/lib/flows/versions';
-import { flowVersionErrorResponse } from '@/lib/flows/version-http';
+import { FlowVersionError, lockAccountPublishing, readPublishState, saveDraft, type DraftPatch, type VersionNode } from '@/lib/flows/versions';
+import { flowVersionErrorResponse, requireFlowMutation } from '@/lib/flows/version-http';
+import { normalizeTestUsername } from '@/lib/flows/triggers';
 import { assertScopeChangeAllowed, FlowChannelError, flowChannelErrorResponse, scopeChangeAllowed } from '@/lib/flows/channel-section';
 
 const t = getT('Api');
 
 const MAX_TEST_NUMBERS = 3;
+
+/**
+ * Stage 5: Instagram test usernames, stored lowercase without @ (1–30 of
+ * [a-z0-9._], up to 3, de-duplicated), or null when the list is invalid.
+ */
+function parseTestUsernames(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || raw.some((n) => typeof n !== 'string')) return null;
+  const names = [...new Set((raw as string[]).map((n) => normalizeTestUsername(n)))];
+  return names.length <= FLOW_TRIGGER_LIMITS.testUsernames && names.every((n) => IG_TEST_USERNAME.test(n)) ? names : null;
+}
+
+/**
+ * Stage 5: the stored shape of extra triggers (array of { trigger_type, config },
+ * at most FLOW_TRIGGER_LIMITS.extraTriggers, 64 KB). Which triggers may combine
+ * is a publish rule (validate.ts), so a draft can hold work in progress.
+ */
+function parseExtraTriggers(raw: unknown): FlowTriggerConfig[] | null {
+  if (!Array.isArray(raw) || raw.length > FLOW_TRIGGER_LIMITS.extraTriggers) return null;
+  const ok = raw.every((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
+    && typeof (entry as Record<string, unknown>).trigger_type === 'string'
+    && (entry as Record<string, unknown>).config !== null && typeof (entry as Record<string, unknown>).config === 'object'
+    && !Array.isArray((entry as Record<string, unknown>).config));
+  if (!ok || JSON.stringify(raw).length > 65_536) return null;
+  return raw.map((entry) => ({ trigger_type: (entry as FlowTriggerConfig).trigger_type, config: (entry as FlowTriggerConfig).config }) as FlowTriggerConfig);
+}
+
+/**
+ * Stage 5: canvas notes ({ id, text, x, y }; at most 30, text up to 1000 characters, ids unique),
+ * or null when the list is invalid. Notes never run, so only their shape is checked.
+ */
+function parseCanvasNotes(raw: unknown): CanvasNote[] | null {
+  if (!Array.isArray(raw) || raw.length > CANVAS_NOTE_LIMITS.notes) return null;
+  const notes: CanvasNote[] = [];
+  for (const entry of raw) {
+    const n = entry as Partial<CanvasNote> | null;
+    if (!n || typeof n !== 'object' || typeof n.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(n.id)
+      || typeof n.text !== 'string' || n.text.length > CANVAS_NOTE_LIMITS.chars
+      || typeof n.x !== 'number' || !Number.isFinite(n.x) || typeof n.y !== 'number' || !Number.isFinite(n.y)) return null;
+    notes.push({ id: n.id, text: n.text, x: Math.round(n.x), y: Math.round(n.y) });
+  }
+  return new Set(notes.map((n) => n.id)).size === notes.length && JSON.stringify(notes).length <= 65_536 ? notes : null;
+}
+
+/** An ISO time the editor last loaded or saved the draft at, or null when malformed. */
+function parseBaseUpdatedAt(raw: unknown): string | null {
+  return typeof raw === 'string' && raw.length <= 40 && Number.isFinite(Date.parse(raw)) ? new Date(raw).toISOString() : null;
+}
 
 /** Digits-only, de-duplicated test numbers (8–15 digits each), or null when the list is invalid. */
 function parseTestNumbers(raw: unknown): string[] | null {
@@ -40,6 +88,14 @@ function parseTestNumbers(raw: unknown): string[] | null {
  *                          versions, runs, events). A flow that was ever
  *                          published must be archived first, with no runs
  *                          in progress (409 useArchive).
+ *
+ * PUT and DELETE also pass the Origin/CSRF check (requireFlowMutation).
+ * Stage 5: PUT takes `extra_triggers` (Instagram flows; checked on publish),
+ * `test_usernames` (Instagram drafts; like test numbers they start the draft
+ * running, so they need 'flows.publish', a plan slot and a valid draft) and
+ * `base_updated_at` (the draft the editor last saw: when the stored draft is
+ * newer the save is refused with 409 draft_changed and nothing is written;
+ * omitted, the save goes through as before).
  *
  * All three require a signed-in caller who owns the flow. Flows is in
  * soft-GA — the beta gate that previously 404'd non-beta accounts is
@@ -122,6 +178,14 @@ interface PutBody {
   channel_scope?: unknown;
   /** Up to 3 numbers a draft runs for; stored as digits. */
   test_numbers?: string[];
+  /** Stage 5: up to 3 Instagram usernames a draft runs for. */
+  test_usernames?: unknown;
+  /** Stage 5: further triggers (Instagram flows). */
+  extra_triggers?: unknown;
+  /** Stage 5: sticky notes on the canvas. */
+  canvas_notes?: unknown;
+  /** Stage 5 autosave: the draft marker (draft_saved_at, else updated_at) as the editor last saw it. */
+  base_updated_at?: unknown;
   nodes?: Array<{
     node_key: string;
     node_type: string;
@@ -142,7 +206,8 @@ export async function PUT(
   let role: AccountRole;
   let accountId: string;
   try {
-    ctx = await requireRole('agent');
+    // A live session, the Origin/CSRF check and role >= agent.
+    ctx = await requireFlowMutation(request);
     ({ role, accountId } = ctx);
   } catch (err) {
     return toErrorResponse(err);
@@ -165,6 +230,18 @@ export async function PUT(
   if (testNumbers === null) {
     return NextResponse.json({ error: t('flows.testNumbersInvalid', { max: MAX_TEST_NUMBERS }) }, { status: 400 });
   }
+  const testUsernames = body.test_usernames === undefined ? undefined : parseTestUsernames(body.test_usernames);
+  if (testUsernames === null) {
+    return NextResponse.json({ error: getT('Flows.testUsernames')('invalid') }, { status: 400 });
+  }
+  const extraTriggers = body.extra_triggers === undefined ? undefined : parseExtraTriggers(body.extra_triggers);
+  if (extraTriggers === null) {
+    return NextResponse.json({ error: getT('Flows.multiTrigger')('limitReached', { max: FLOW_TRIGGER_LIMITS.extraTriggers + 1 }) }, { status: 400 });
+  }
+  const canvasNotes = body.canvas_notes === undefined ? undefined : parseCanvasNotes(body.canvas_notes);
+  if (canvasNotes === null) return NextResponse.json({ error: t('common.invalidJson') }, { status: 400 });
+  const baseUpdatedAt = body.base_updated_at === undefined || body.base_updated_at === null ? undefined : parseBaseUpdatedAt(body.base_updated_at);
+  if (baseUpdatedAt === null) return NextResponse.json({ error: t('common.invalidJson') }, { status: 400 });
 
   const admin = guard.db;
   // Secret workspace values are admin-only. A non-admin may keep an admin's
@@ -192,6 +269,10 @@ export async function PUT(
   if (channelScope !== undefined && !scopeChangeAllowed(currentScope, channelScope, (current as FlowRow | null)?.published_version_id)) {
     return flowChannelErrorResponse(new FlowChannelError('channel_locked', currentScope === 'any' ? null : currentScope))!;
   }
+  // Test usernames are Instagram's (WhatsApp drafts keep test numbers).
+  if (testUsernames?.length && (channelScope ?? currentScope) !== 'instagram') {
+    return NextResponse.json({ error: getT('Flows.testUsernames')('invalid') }, { status: 400 });
+  }
   // A published flow (Phase 12) runs its version, so editing its draft changes nothing live:
   // validation and 'flows.publish' apply when it is published. An active flow not yet
   // versioned (deploy-window straggler) still runs its draft, so it keeps the old rules.
@@ -199,8 +280,11 @@ export async function PUT(
   // New test numbers start a draft running on real phones: that publishes flow behaviour
   // too, so it needs 'flows.publish' like /activate.
   const storedNumbers = (current as FlowRow | null)?.test_numbers ?? [];
-  const startsOrChangesTesting = !!testNumbers?.length &&
-    (testNumbers.length !== storedNumbers.length || testNumbers.some((n) => !storedNumbers.includes(n)));
+  const storedUsernames = (current as FlowRow | null)?.test_usernames ?? [];
+  const changes = (next: string[] | undefined, stored: string[]) => !!next?.length &&
+    (next.length !== stored.length || next.some((n) => !stored.includes(n)));
+  // Stage 5: test usernames start an Instagram draft running for real accounts, like test numbers.
+  const startsOrChangesTesting = changes(testNumbers, storedNumbers) || changes(testUsernames, storedUsernames);
   if (draftIsLive || startsOrChangesTesting) {
     try {
       await requirePermission(tenantOf(ctx), 'flows.publish');
@@ -210,7 +294,7 @@ export async function PUT(
   }
   // A draft with test numbers runs for real customers' phones too, so it must be as valid as a live flow.
   const testing = (current as FlowRow | null)?.status === 'draft' &&
-    (testNumbers ?? (current as FlowRow | null)?.test_numbers ?? []).length > 0;
+    ((testNumbers ?? storedNumbers).length > 0 || (testUsernames ?? storedUsernames).length > 0);
   if (draftIsLive || testing) {
     const existing = body.nodes === undefined
       ? await admin.from('flow_nodes').select('*').eq('flow_id', id)
@@ -221,6 +305,7 @@ export async function PUT(
       name: body.name !== undefined ? body.name.trim() : flow.name,
       trigger_type: body.trigger_type ?? flow.trigger_type,
       trigger_config: body.trigger_config ?? { ...flow.trigger_config },
+      extra_triggers: extraTriggers ?? flow.extra_triggers ?? [],
       entry_node_id: body.entry_node_id !== undefined ? body.entry_node_id : flow.entry_node_id,
       fallback_policy: body.fallback_policy ?? flow.fallback_policy,
       channel_scope: channelScope ?? flow.channel_scope,
@@ -242,30 +327,38 @@ export async function PUT(
   if (body.fallback_policy !== undefined) patch.fallback_policy = body.fallback_policy;
   if (testNumbers !== undefined) patch.test_numbers = testNumbers;
   if (channelScope !== undefined) patch.channel_scope = channelScope;
+  if (testUsernames !== undefined) patch.test_usernames = testUsernames;
+  if (extraTriggers !== undefined) patch.extra_triggers = extraTriggers;
+  if (canvasNotes !== undefined) patch.canvas_notes = canvasNotes;
 
   // A draft that starts testing runs like a live flow, so it takes a slot of the plan's active_flows:
   // counted under the account's publish lock in the transaction that saves it, so a concurrent
   // publish or test start cannot take the same slot.
-  const startsTesting = !!testNumbers?.length;
+  const startsTesting = !!testNumbers?.length || !!testUsernames?.length;
   let state;
   try {
     state = await withTenant(tenantOf(ctx), async (tx) => {
       if (startsTesting) {
         await lockAccountPublishing(tx, accountId);
-        const [row] = await tx.$queryRaw<{ starts: boolean }[]>`SELECT status='draft' AND cardinality(test_numbers)=0 AS starts
+        const [row] = await tx.$queryRaw<{ starts: boolean }[]>`SELECT status='draft' AND cardinality(test_numbers)=0
+            AND cardinality(test_usernames)=0 AS starts
           FROM flows WHERE account_id=${accountId}::uuid AND id=${id}::uuid`;
         if (row?.starts) {
           const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM flows
             WHERE account_id=${accountId}::uuid AND id<>${id}::uuid
-            AND (status='active' OR (status='draft' AND cardinality(test_numbers)>0))`;
+            AND (status='active' OR (status='draft' AND (cardinality(test_numbers)>0 OR cardinality(test_usernames)>0)))`;
           await gateWithinLimit(tx, accountId, 'active_flows', n + 1);
         }
       }
       if (channelScope !== undefined) await assertScopeChangeAllowed(tx, accountId, id, channelScope);
-      await saveDraft(tx, { accountId, flowId: id, patch, nodes: body.nodes as VersionNode[] | undefined });
+      await saveDraft(tx, { accountId, flowId: id, patch, nodes: body.nodes as VersionNode[] | undefined, baseUpdatedAt });
       return readPublishState(tx, accountId, id);
     });
   } catch (err) {
+    // Stage 5 autosave: a newer draft is never overwritten silently (the editor offers Reload or Overwrite).
+    if (err instanceof FlowVersionError && err.code === 'draft_changed' && err.detail.stale_draft) {
+      return NextResponse.json({ error: t('flows.draftChanged'), code: 'draft_changed', updated_at: err.detail.updated_at }, { status: 409 });
+    }
     return flowChannelErrorResponse(err) ?? flowVersionErrorResponse(err);
   }
 
@@ -288,9 +381,9 @@ export async function DELETE(
 ) {
   const { id } = await context.params;
 
-  // Use the authenticated tenant client; role and RLS both apply.
+  // Use the authenticated tenant client; role, the Origin/CSRF check and RLS all apply.
   try {
-    await requireRole('agent');
+    await requireFlowMutation(_request);
   } catch (err) {
     return toErrorResponse(err);
   }

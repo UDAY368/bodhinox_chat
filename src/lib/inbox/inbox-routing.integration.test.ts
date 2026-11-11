@@ -80,7 +80,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox lifecycle and routing
     };
     await expect(saveInboxSettings(asAgent, settings)).rejects.toThrow();
     // Stage 2 adds the Instagram away switch, off unless an admin turns it on.
-    const stored = { ...settings, instagram_away_message_enabled: false };
+    // Stage 5 adds the agent-reply pause, assignment mode and visibility, each at today's behaviour.
+    const stored = { ...settings, instagram_away_message_enabled: false, agent_reply_pause_minutes: null, auto_assign_mode: 'rules', agent_visibility: 'all' };
     expect(await saveInboxSettings(asAdmin, settings)).toEqual(stored);
     expect(await loadInboxSettings(asViewer)).toEqual(stored);
     expect((await loadInboxSettings(asB)).sla_first_response_minutes).toBeNull();

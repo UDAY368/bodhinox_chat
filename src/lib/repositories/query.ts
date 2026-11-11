@@ -16,6 +16,7 @@ import {
   PHONE_MASKED_MESSAGE,
   phoneSuffixPattern,
 } from '@/lib/inbox/masking-apply';
+import { conversationIdVisibleSql, conversationVisibleSql, visibilityRestricted } from '@/lib/inbox/inbox-scope';
 
 export interface CompiledQuery {
   text: string;
@@ -191,7 +192,15 @@ class Compiler {
     if (resource.table === 'profiles')
       return `EXISTS (SELECT 1 FROM account_memberships membership WHERE membership.user_id = ${alias}.user_id AND membership.account_id = ${this.parameter(this.context.accountId, { name: 'account_id', type: 'UUID' })})`;
     columnFor(resource, 'account_id');
-    return `${alias}."account_id" = ${this.parameter(this.context.accountId, { name: 'account_id', type: 'UUID' })}`;
+    const tenant = `${alias}."account_id" = ${this.parameter(this.context.accountId, { name: 'account_id', type: 'UUID' })}`;
+    // Stage 5 agent visibility (src/lib/inbox/inbox-scope.ts): an agent or viewer
+    // under 'assigned_or_team' reads and changes only the conversations (and their
+    // messages) they may see. Other roles get exactly the query they always had.
+    if (visibilityRestricted(this.context.role)) {
+      if (resource.table === 'conversations') return `${tenant} AND ${conversationVisibleSql(alias)}`;
+      if (resource.table === 'messages') return `${tenant} AND ${conversationIdVisibleSql(`${alias}.conversation_id`)}`;
+    }
+    return tenant;
   }
   field(resource: Resource, alias: string, name: string): string {
     columnFor(resource, name);

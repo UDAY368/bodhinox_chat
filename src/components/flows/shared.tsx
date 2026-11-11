@@ -48,6 +48,10 @@ import {
   MessageSquareLock,
   RectangleHorizontal,
   GalleryHorizontalEnd,
+  Zap,
+  Split,
+  Timer,
+  Sheet,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -90,6 +94,10 @@ export type NodeType =
   | 'ig_private_reply'
   | 'send_card'
   | 'send_gallery'
+  | 'actions'
+  | 'randomizer'
+  | 'smart_delay'
+  | 'google_sheets'
   | 'handoff'
   | 'end';
 
@@ -158,7 +166,23 @@ export const ADD_NODE_TYPES: NodeType[] = [
   'end',
 ];
 
+/**
+ * Stage 5 steps (registered in 5A). They join the add-step menus when their
+ * settings forms land (5C), which splices them into its menu list; until then
+ * ADD_NODE_TYPES leaves them out so no one can add a step they cannot edit.
+ * google_sheets also needs the `sheets` capability.
+ */
+export const STAGE5_ADD_NODE_TYPES: NodeType[] = ['actions', 'randomizer', 'smart_delay', 'google_sheets'];
+
 export type NodeCategory = 'messaging' | 'logic' | 'flow';
+
+/**
+ * Stage 5 add-step menu groups (owner amendment 1): Content, AI, Logic, plus
+ * the starting step. Canvas notes are not nodes (flows.canvas_notes). Each
+ * group gets one header colour in the builder (5C).
+ */
+export type StepGroup = 'start' | 'content' | 'ai' | 'logic';
+export const STEP_GROUPS: StepGroup[] = ['start', 'content', 'ai', 'logic'];
 
 /** The order categories render in the add-step menu. */
 export const NODE_CATEGORIES: NodeCategory[] = ['messaging', 'logic', 'flow'];
@@ -350,6 +374,30 @@ export const NODE_META: Record<
     color: 'text-indigo-400',
     category: 'messaging',
   },
+  actions: {
+    slugSeed: 'Actions',
+    icon: Zap,
+    color: 'text-yellow-400',
+    category: 'logic',
+  },
+  randomizer: {
+    slugSeed: 'Randomizer',
+    icon: Split,
+    color: 'text-purple-400',
+    category: 'logic',
+  },
+  smart_delay: {
+    slugSeed: 'Smart delay',
+    icon: Timer,
+    color: 'text-orange-400',
+    category: 'logic',
+  },
+  google_sheets: {
+    slugSeed: 'Google Sheets',
+    icon: Sheet,
+    color: 'text-green-400',
+    category: 'logic',
+  },
   handoff: {
     slugSeed: 'Handoff to agent',
     icon: UserPlus,
@@ -362,6 +410,45 @@ export const NODE_META: Record<
     color: 'text-muted-foreground',
     category: 'flow',
   },
+};
+
+/** The Stage 5 menu group of each node type. */
+export const STEP_GROUP: Record<NodeType, StepGroup> = {
+  start: 'start',
+  send_message: 'content',
+  send_buttons: 'content',
+  send_list: 'content',
+  send_media: 'content',
+  collect_input: 'content',
+  ask_media: 'content',
+  ask_location: 'content',
+  ask_address: 'content',
+  send_form: 'content',
+  payment_link: 'content',
+  book_appointment: 'content',
+  send_storefront_link: 'content',
+  send_product: 'content',
+  send_product_list: 'content',
+  send_catalog: 'content',
+  send_template: 'content',
+  ig_comment_reply: 'content',
+  ig_private_reply: 'content',
+  send_card: 'content',
+  send_gallery: 'content',
+  connect_flow: 'content',
+  ai_reply: 'ai',
+  actions: 'logic',
+  condition: 'logic',
+  randomizer: 'logic',
+  smart_delay: 'logic',
+  set_tag: 'logic',
+  set_attribute: 'logic',
+  conversion_event: 'logic',
+  api_request: 'logic',
+  google_sheets: 'logic',
+  assign_agent: 'logic',
+  handoff: 'logic',
+  end: 'logic',
 };
 
 /**
@@ -421,6 +508,10 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   ig_private_reply: { l: 0.62, c: 0.18, h: 330 }, // Instagram magenta — the first DM to a commenter
   send_card: { l: 0.62, c: 0.15, h: 265 }, // indigo-blue — rich messages, near send_list
   send_gallery: { l: 0.62, c: 0.15, h: 265 },
+  actions: { l: 0.78, c: 0.15, h: 95 }, // yellow — does things, sends nothing
+  randomizer: { l: 0.6, c: 0.17, h: 300 }, // purple — splits the path
+  smart_delay: { l: 0.68, c: 0.15, h: 30 }, // coral — waits
+  google_sheets: { l: 0.62, c: 0.14, h: 150 }, // green — a spreadsheet row
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
@@ -733,6 +824,33 @@ export function summarizeNode(
     case 'handoff': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';
       return note.length > 0 ? truncate(note) : null;
+    }
+    case 'actions': {
+      const count = Array.isArray(cfg.actions) ? cfg.actions.length : 0;
+      if (count === 0) return t ? t('actionsNone') : 'No actions yet';
+      return t ? t('actionsCount', { count }) : `${count} action${count === 1 ? '' : 's'}`;
+    }
+    case 'randomizer': {
+      const paths = Array.isArray(cfg.paths) ? (cfg.paths as Array<Record<string, unknown>>) : [];
+      if (paths.length === 0) return null;
+      const split = paths.map((p) => `${typeof p.weight === 'number' ? p.weight : 0}%`).join(' / ');
+      return cfg.sticky === true ? (t ? t('randomizerSticky', { split }) : `${split} · same path per contact`) : split;
+    }
+    case 'smart_delay': {
+      if (cfg.mode === 'until_date') {
+        const date = typeof cfg.date === 'string' ? cfg.date.slice(0, 16).replace('T', ' ') : '';
+        return date ? (t ? t('delayUntil', { date }) : `Until ${date}`) : (t ? t('delayUntilField') : 'Until a date field');
+      }
+      const amount = typeof cfg.amount === 'number' ? cfg.amount : 0;
+      const unit = typeof cfg.unit === 'string' ? cfg.unit : 'minutes';
+      if (!amount) return typeof cfg.amount_field_id === 'string' && cfg.amount_field_id ? (t ? t('delayField') : 'Waits for a field value') : null;
+      return t ? t('delayFor', { amount, unit: t(`unit_${unit}`) }) : `Wait ${amount} ${unit}`;
+    }
+    case 'google_sheets': {
+      const op = typeof cfg.op === 'string' ? cfg.op : 'insert_row';
+      const sheet = typeof cfg.sheet === 'string' ? cfg.sheet : '';
+      const label = t ? t(`sheets_${op}`) : op.replace('_', ' ');
+      return sheet ? `${label} · ${truncate(sheet, 40)}` : label;
     }
   }
 }

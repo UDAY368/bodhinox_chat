@@ -24,7 +24,9 @@ const categoryLabel = (category: string): string | undefined =>
  * `?channel=whatsapp|instagram` lists only one section's templates. The
  * Instagram starters (Stage 2) also carry `category_label`, since their
  * categories are newer than the gallery's own labels. They are listed only
- * while INSTAGRAM_ENABLED is on.
+ * while INSTAGRAM_ENABLED is on. From Stage 5 they also carry `meta` (goals,
+ * trigger, kind, level, AI, payments, recommended), the detail view's
+ * `business_value` and `how_it_works`, and `note_count` (canvas notes).
  *
  * Available to any signed-in user. Flows is in soft-GA.
  */
@@ -60,6 +62,11 @@ export async function GET(request: Request) {
     trigger_type: t.trigger_type,
     node_count: t.nodes.length,
     channels,
+    // Stage 5 (5F): what the gallery's filters, Recommended row and detail view show.
+    ...(t.meta ? { meta: t.meta } : {}),
+    ...(t.business_value ? { business_value: t.business_value } : {}),
+    ...(t.how_it_works ? { how_it_works: t.how_it_works } : {}),
+    note_count: t.canvas_notes?.length ?? 0,
   }));
   return NextResponse.json({ templates });
 }

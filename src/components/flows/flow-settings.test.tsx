@@ -18,12 +18,13 @@ vi.mock('./forms/node-config-form', () => ({ FLOW_MEDIA_BUCKET: 'flow-media', ME
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 
-import { FlowSettings, persistTriggerNumber } from './flow-settings'
+import { FlowSettings, parseTestUsernames, persistTriggerNumber } from './flow-settings'
 
-const editor = (triggerNumber: string | null) => ({
+const editor = (triggerNumber: string | null, channelScope = 'whatsapp', status = 'active') => ({
   // The loaded row still says "every number"; the editor holds what was saved since.
   flow: { id: 'flow-1', whatsapp_config_id: null },
-  state: { fallback_policy: { on_unknown_reply: 'reprompt' }, test_numbers: [] },
+  channelScope,
+  state: { fallback_policy: { on_unknown_reply: 'reprompt' }, test_numbers: [], test_usernames: ['shop.owner'], status },
   setState: vi.fn(),
   triggerNumber,
   setTriggerNumber: vi.fn(),
@@ -64,5 +65,31 @@ describe('flow trigger number', () => {
     h.fetch.mockRejectedValueOnce(new Error('offline'))
     expect(await persistTriggerNumber('flow-1', 'num-a', null, set)).toBe(false)
     expect(set.mock.calls).toEqual([['num-b'], ['num-a'], [null], ['num-a']])
+  })
+})
+
+describe('test usernames (Stage 5)', () => {
+  it('reads lowercase usernames without @, de-duplicated, at most three', () => {
+    expect(parseTestUsernames('@Shop.Owner, shop.owner  second_one\nthird, fourth')).toEqual({
+      list: ['shop.owner', 'second_one', 'third'], invalid: [], tooMany: true,
+    })
+    expect(parseTestUsernames('good, not-valid!, @')).toEqual({ list: ['good'], invalid: ['not-valid!'], tooMany: false })
+  })
+
+  it('an Instagram draft shows test usernames in place of test numbers', () => {
+    h.numbers = []
+    h.editor = editor(null, 'instagram', 'draft')
+    const html = renderToStaticMarkup(<FlowSettings />)
+    expect(html).toContain('id="test-usernames"')
+    expect(html).toContain('value="shop.owner"')
+    expect(html).not.toContain('id="test-numbers"')
+  })
+
+  it('a WhatsApp draft keeps its test numbers', () => {
+    h.numbers = []
+    h.editor = editor(null, 'whatsapp', 'draft')
+    const html = renderToStaticMarkup(<FlowSettings />)
+    expect(html).toContain('id="test-numbers"')
+    expect(html).not.toContain('id="test-usernames"')
   })
 })

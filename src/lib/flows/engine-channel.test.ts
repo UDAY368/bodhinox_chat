@@ -75,6 +75,11 @@ vi.mock("@/lib/instagram/process-webhook", () => ({
 }));
 
 vi.mock("@/lib/whatsapp/bot-pause", () => ({ botRepliesPaused: async () => false, assertBotRepliesEnabled: async () => {} }));
+// Stage 5 consent gate reads the contact through its own query; these contacts never opted out.
+vi.mock("@/lib/contacts/channel-consent", async (original) => ({
+  ...(await original<typeof import("@/lib/contacts/channel-consent")>()),
+  instagramAutomationAllowed: async () => true,
+}));
 vi.mock("@/lib/jobs/dispatch", () => ({ dispatchOnce: h.dispatch, UncertainDispatchError: class extends Error {} }));
 vi.mock("@/lib/workspace/attributes", async (original) => ({
   ...(await original<typeof import("@/lib/workspace/attributes")>()),
@@ -248,7 +253,8 @@ describe("findEntryFlow channel filter (Stage 1)", () => {
     h.state.inFilters = [];
     h.state.conversation = { channel: "instagram", whatsapp_config_id: null };
     await dispatch();
-    expect(flowFilters().map((f) => f.values)).toEqual([["instagram", "any"]]);
+    // Stage 5: Instagram also reads the drafts tested by username, narrowed the same way.
+    expect(flowFilters().map((f) => f.values)).toEqual([["instagram", "any"], ["instagram", "any"]]);
   });
 
   // A published flow runs its version's scope. Before Stage 1 locked published
@@ -691,12 +697,25 @@ describe("Instagram Phase 1 engine (Stage 2C)", () => {
     expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ status: "failed", end_reason: "private_reply_expired" }) });
   });
 
-  it("a private reply step in a run no comment started fails without sending", async () => {
+  it("a private reply step in a run no comment started goes out as an ordinary message (Stage 5)", async () => {
+    h.runId = RUN;
     h.state.flows = [igFlow({})];
     h.state.nodes = [node("start", "start", { next_node_key: "pr" }), ...COMMENT_NODES.slice(2)];
     await inbound({ kind: "text", text: "hi" });
+    // Never the comment private-reply API: the message goes through the Instagram sender, inside the window.
     expect(h.privateReply).not.toHaveBeenCalled();
-    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ end_reason: "private_reply_without_comment" }) });
+    expect(h.igText.mock.calls.length + h.igChoices.mock.calls.length).toBe(1);
+    expect(events()).toContainEqual(expect.objectContaining({ event_type: "message_sent", payload: expect.objectContaining({ as_message: true }) }));
+  });
+
+  it("a message-started private reply outside the 24-hour window ends with window_closed and sends nothing (Stage 5)", async () => {
+    h.state.flows = [igFlow({})];
+    h.state.nodes = [node("start", "start", { next_node_key: "pr" }), ...COMMENT_NODES.slice(2)];
+    h.lastCustomerAt = new Date(Date.now() - 25 * 3_600_000);
+    await inbound({ kind: "text", text: "hi" });
+    expect(h.igText).not.toHaveBeenCalled();
+    expect(h.igChoices).not.toHaveBeenCalled();
+    expect(h.state.updates).toContainEqual({ table: "flow_runs", row: expect.objectContaining({ status: "cancelled", end_reason: "window_closed" }) });
   });
 
   it("cards go out as a generic template; a routed card waits and its postback routes", async () => {

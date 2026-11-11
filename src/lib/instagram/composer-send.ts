@@ -15,6 +15,7 @@
 import type { TenantTransaction } from '@/lib/db/tenant';
 import { withTenant } from '@/lib/db/tenant';
 import { getWorkerPrisma } from '@/lib/db/prisma';
+import { pauseForAgentReply } from '@/lib/inbox/automation-pause';
 import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { providerMediaUrl } from '@/lib/storage/server';
@@ -147,8 +148,8 @@ export async function sendInstagramFromComposer(input: InstagramComposerInput): 
     if (sendable.kind === 'text') checkInstagramText(target, sendable.text, ctx);
     else checkInstagramMedia(target, sendable.media, ctx);
     // The agent stepping in: automated replies pause before the send, as on WhatsApp.
-    await tx.$executeRaw`UPDATE conversations SET bot_paused=true, updated_at=now()
-      WHERE account_id=${input.accountId}::uuid AND id=${input.conversationId}::uuid`;
+    // Stage 5: for the workspace's agent_reply_pause_minutes, or until resumed when unset.
+    await pauseForAgentReply(tx, input.accountId, input.conversationId, input.userId);
     const contentType = prepared.kind === 'text' ? 'text' : (input.messageType as string);
     const [row] = await tx.$queryRaw<{ id: string }[]>`INSERT INTO messages(account_id,conversation_id,sender_type,sender_id,
         content_type,content_text,media_url,status)

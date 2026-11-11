@@ -60,12 +60,17 @@ import { AiReplyForm } from "./ai-reply-form";
 import { ConversionEventForm } from "./conversion-event-form";
 import { StorefrontLinkForm } from "./storefront-link-form";
 import { CommerceStepForm } from "./commerce-forms";
-import { useFlowEditor } from "../flow-editor-state";
+import { commentTriggerOf, useFlowEditor } from "../flow-editor-state";
 import { commentStepIssue } from "../nodes/ig-node-config";
 import { IgCommentReplyForm } from "../nodes/ig-comment-reply-form";
 import { IgPrivateReplyForm } from "../nodes/ig-private-reply-form";
 import { IgCardForm } from "../nodes/ig-card-form";
 import { IgLinkButtons } from "../nodes/ig-link-buttons";
+import { startsFromComment } from "@/lib/flows/types";
+import { ActionsForm } from "./actions-form";
+import { RandomizerForm } from "./randomizer-form";
+import { SmartDelayForm } from "./smart-delay-form";
+import { GoogleSheetsForm } from "./google-sheets-form";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -79,8 +84,8 @@ export function NodeConfigForm(props: NodeConfigFormProps) {
   return (
     <>
       <NodeFields {...props} />
-      {/* A private reply takes no typing delay; its form has its own reply timeout. */}
-      {props.node.node_type !== "ig_private_reply" && (
+      {/* A private reply takes no typing delay (its form has its own reply timeout); a smart delay is the wait itself. */}
+      {props.node.node_type !== "ig_private_reply" && props.node.node_type !== "smart_delay" && (
         <TimingFields node={props.node} allNodes={props.allNodes} onUpdateConfig={props.onUpdateConfig} t={t} />
       )}
     </>
@@ -97,8 +102,10 @@ function NodeFields({
   const tNodes = useTranslations("Flows.nodes");
   const { channelScope, state } = useFlowEditor();
   const cfg = node.config;
+  // Stage 5: a flow that starts from a comment picks "private reply" as a send mode of the message step.
+  const commentTrigger = channelScope === "instagram" && startsFromComment(commentTriggerOf(state));
   // Why a comment step cannot run where it is placed (not a comment flow, or not first).
-  const commentIssue = commentStepIssue(node, state.trigger_type, state.entry_node_id, state.nodes);
+  const commentIssue = commentStepIssue(node, commentTriggerOf(state), state.entry_node_id, state.nodes);
   const commentNotice = commentIssue === "onlyCommentFlows" ? tNodes("igCommentReply.onlyCommentFlows")
     : commentIssue === "firstOnly" ? tNodes("igPrivateReply.firstOnly") : null;
   switch (node.node_type) {
@@ -116,11 +123,13 @@ function NodeFields({
     case "send_message":
       return (
         <>
+          {commentTrigger && <SendModeSwitch node={node} />}
           <TextRow
             label={t("textToCustomer")}
             value={(cfg as { text?: string }).text ?? ""}
             onChange={(v) => onUpdateConfig({ text: v })}
             rows={3}
+            variables={{ nodes: allNodes, currentKey: node.node_key }}
           />
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
@@ -172,7 +181,7 @@ function NodeFields({
     case "ask_media":
     case "ask_location":
     case "ask_address":
-      return <QuestionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+      return <QuestionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} instagram={channelScope === "instagram"} />;
 
     case "send_product":
     case "send_product_list":
@@ -189,7 +198,7 @@ function NodeFields({
       return <BookAppointmentForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "ai_reply":
-      return <AiReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+      return <AiReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} instagram={channelScope === "instagram"} />;
 
     case "conversion_event":
       return <ConversionEventForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
@@ -213,7 +222,7 @@ function NodeFields({
       return <ConnectFlowForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
 
     case "condition":
-      return <ConditionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} />;
+      return <ConditionForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} t={t} scope={channelScope} />;
 
     case "set_tag":
       return (
@@ -230,7 +239,24 @@ function NodeFields({
       return <IgCommentReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} notice={commentNotice} t={t} />;
 
     case "ig_private_reply":
-      return <IgPrivateReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} notice={commentNotice} t={t} />;
+      return (
+        <>
+          {commentTrigger && <SendModeSwitch node={node} />}
+          <IgPrivateReplyForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} notice={commentNotice} t={t} />
+        </>
+      );
+
+    case "actions":
+      return <ActionsForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} />;
+
+    case "randomizer":
+      return <RandomizerForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} />;
+
+    case "smart_delay":
+      return <SmartDelayForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} instagram={channelScope === "instagram"} />;
+
+    case "google_sheets":
+      return <GoogleSheetsForm node={node} allNodes={allNodes} onUpdateConfig={onUpdateConfig} />;
 
     case "send_card":
     case "send_gallery":
@@ -253,6 +279,51 @@ function NodeFields({
         </p>
       );
   }
+}
+
+// ============================================================
+// Send mode (Stage 5): "Within the messaging window" or "As a private reply"
+// ============================================================
+
+/**
+ * The message step of a comment-started flow picks how it is sent instead of
+ * the author picking a separate step type: a private reply is the
+ * `ig_private_reply` step, a message in the window is `send_message`. The
+ * text and next step carry over. Only one private reply per flow.
+ */
+export function switchSendMode(node: BuilderNode, mode: "window" | "private_reply", optInLabel: string): Partial<BuilderNode> | null {
+  const text = typeof node.config.text === "string" ? node.config.text : "";
+  const next = typeof node.config.next_node_key === "string" ? node.config.next_node_key : "";
+  if (mode === "private_reply" && node.node_type === "send_message") {
+    return { node_type: "ig_private_reply", config: { text, opt_in_label: optInLabel, next_node_key: next } };
+  }
+  if (mode === "window" && node.node_type === "ig_private_reply") {
+    return { node_type: "send_message", config: { text, next_node_key: next } };
+  }
+  return null;
+}
+
+function SendModeSwitch({ node }: { node: BuilderNode }) {
+  const tc = useTranslations("Flows.canvas");
+  const tState = useTranslations("Flows.editorState");
+  const { state, updateNode } = useFlowEditor();
+  const mode = node.node_type === "ig_private_reply" ? "private_reply" : "window";
+  const otherReply = state.nodes.some((n) => n.node_type === "ig_private_reply" && n.node_key !== node.node_key);
+  return (
+    <div>
+      <label htmlFor={`send-mode-${node.node_key}`} className="mb-1 block text-xs text-muted-foreground">{tc("sendMode")}</label>
+      <Select value={mode} onValueChange={(value) => {
+        const patch = switchSendMode(node, value as "window" | "private_reply", tState("defaultOptInLabel"));
+        if (patch) updateNode(node.node_key, patch);
+      }}>
+        <SelectTrigger id={`send-mode-${node.node_key}`} className="bg-muted"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="window">{tc("sendInWindow")}</SelectItem>
+          <SelectItem value="private_reply" disabled={otherReply && mode !== "private_reply"}>{tc("sendPrivateReply")}</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 // ============================================================
@@ -316,6 +387,7 @@ function SendButtonsForm({
         value={cfg.text ?? ""}
         onChange={(v) => onUpdateConfig({ text: v })}
         rows={3}
+        variables={{ nodes: allNodes, currentKey }}
       />
       <TextRow
         label={t("footerText")}
@@ -512,6 +584,7 @@ function SendListForm({
         value={cfg.text ?? ""}
         onChange={(v) => onUpdateConfig({ text: v })}
         rows={3}
+        variables={{ nodes: allNodes, currentKey }}
       />
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextRow
@@ -899,6 +972,7 @@ function SendMediaForm({
         value={cfg.caption ?? ""}
         onChange={(v) => onUpdateConfig({ caption: v })}
         rows={2}
+        variables={{ nodes: allNodes, currentKey }}
       />
 
       {isDocument && (

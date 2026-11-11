@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
 import { useWorkspaceChannels } from "@/hooks/use-workspace-channels";
 import type { WorkspaceInboxSettings } from "@/lib/inbox/inbox-settings";
+import { DEFAULT_INBOX_BEHAVIOUR, INBOX_BEHAVIOUR_KEYS } from "@/types";
 import {
   DEFAULT_INBOX_SETTINGS,
   MAX_RANGES_PER_DAY,
@@ -37,6 +38,18 @@ const DEFAULT_RANGE: TimeRange = { start: "09:00", end: "18:00" };
 const toLimit = (value: string): number | null => (value.trim() === "" ? null : Number(value));
 const fromLimit = (value: number | null): string => (value === null ? "" : String(value));
 
+/**
+ * The settings this card saves. The Stage 5 pause, assignment and visibility
+ * settings belong to their own cards; leaving them out of this PUT keeps the
+ * stored values, so saving working hours never reverts a change made in
+ * another card after this one loaded.
+ */
+export function workingHoursBody(settings: WorkspaceInboxSettings): Omit<WorkspaceInboxSettings, (typeof INBOX_BEHAVIOUR_KEYS)[number]> {
+  const body: Partial<WorkspaceInboxSettings> = { ...settings };
+  for (const key of INBOX_BEHAVIOUR_KEYS) delete body[key];
+  return body as Omit<WorkspaceInboxSettings, (typeof INBOX_BEHAVIOUR_KEYS)[number]>;
+}
+
 function timeZones(): string[] {
   try {
     return (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? [];
@@ -48,7 +61,7 @@ function timeZones(): string[] {
 export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations("Settings.workingHours");
   const tDay = useTranslations("Weekdays");
-  const [settings, setSettings] = useState<WorkspaceInboxSettings>({ ...DEFAULT_INBOX_SETTINGS, instagram_away_message_enabled: false });
+  const [settings, setSettings] = useState<WorkspaceInboxSettings>({ ...DEFAULT_INBOX_SETTINGS, instagram_away_message_enabled: false, ...DEFAULT_INBOX_BEHAVIOUR });
   // The Instagram away switch shows only when the workspace uses Instagram (or it is already on).
   const { data: channels } = useWorkspaceChannels();
   const showInstagram = Boolean(channels?.channels.instagram.enabled) || settings.instagram_away_message_enabled;
@@ -86,7 +99,7 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          ...settings,
+          ...workingHoursBody(settings),
           working_hours: Object.fromEntries(WEEKDAYS.map((d) => [d, settings.working_hours[d] ?? []])),
           auto_resolve_after_hours: toLimit(autoResolve),
           sla_first_response_minutes: toLimit(sla),

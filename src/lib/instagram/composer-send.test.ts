@@ -63,13 +63,19 @@ beforeEach(() => {
   h.providerUrl.mockImplementation(async (_account: string, url: string) => url);
 });
 
+/** The INSERT of the outgoing row (the agent-reply pause runs its own queries first, Stage 5). */
+const insertCall = () => h.queryRaw.mock.calls.find((call) =>
+  (call[0] as TemplateStringsArray).join('?').includes('INSERT INTO messages'))!;
+
 describe('sendInstagramFromComposer', () => {
   it('stores the row as sending, dispatches once by row id, then marks it sent with the mid', async () => {
     const result = await sendInstagramFromComposer(input({}));
     expect(result).toEqual({ messageId: ROW, providerMessageId: 'mid-1' });
     expect(h.checkText).toHaveBeenCalledWith(TARGET, 'hello', expect.objectContaining({ sender: 'staff' }));
     expect(h.dispatch).toHaveBeenCalledWith(ACCOUNT, `ig_send:${ROW}`, expect.any(Function));
-    expect((h.queryRaw.mock.calls[0][0] as TemplateStringsArray).join('?')).toContain("'sending'");
+    expect((insertCall()[0] as TemplateStringsArray).join('?')).toContain("'sending'");
+    // The agent stepping in pauses automated replies first, in the same transaction.
+    expect(sqlOf(h.executeRaw).some((s) => s.includes('UPDATE conversations c SET bot_paused=true'))).toBe(true);
     expect(sqlOf(h.executeRaw).some((s) => s.includes("SET status='sent'"))).toBe(true);
   });
 
@@ -143,8 +149,8 @@ describe('sendInstagramFromComposer', () => {
     const signed = { type: 'image', url: 'https://s3.example.test/signed/photo.jpg?X-Amz-Signature=abc' };
     expect(h.checkMedia).toHaveBeenCalledWith(TARGET, signed, expect.anything());
     expect(h.sendMedia).toHaveBeenCalledWith(TARGET, signed, expect.anything());
-    expect(h.queryRaw.mock.calls[0]).toContain(appLink);
-    expect(h.queryRaw.mock.calls[0]).not.toContain(signed.url);
+    expect(insertCall()).toContain(appLink);
+    expect(insertCall()).not.toContain(signed.url);
   });
 
   it('refuses media outside this workspace before anything is stored', async () => {

@@ -83,6 +83,16 @@ export function instagramEnabled(env: Env = process.env): boolean {
   return env.INSTAGRAM_ENABLED?.trim() === 'true';
 }
 
+/**
+ * Stage 5: scheduled (`time_based`) automations on Instagram. Off by default:
+ * each scheduled send must re-check the 24-hour window and a closed window is
+ * dropped and logged (`window_closed`), so the trigger stays hidden and refused
+ * until INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED=true (and INSTAGRAM_ENABLED).
+ */
+export function instagramScheduledAutomationsEnabled(env: Env = process.env): boolean {
+  return instagramEnabled(env) && env.INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED?.trim() === 'true';
+}
+
 /** The full config, or null unless the flag is on and every required value is set. */
 export function instagramConfig(env: Env = process.env): InstagramConfig | null {
   if (!instagramEnabled(env)) return null;

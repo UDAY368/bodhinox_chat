@@ -108,8 +108,8 @@ export const CASES: Case[] = [
   { route: 'account/webhooks/[id]', method: 'DELETE', params: id('webhookEndpointId') },
   { route: 'account/webhooks/[id]/deliveries', method: 'GET', params: id('webhookEndpointId') },
   { route: 'account/api-keys/[id]', method: 'DELETE', params: id('apiKeyId') },
-  { route: 'account/members/[userId]', method: 'PATCH', params: (b) => ({ userId: b.users.agent.userId }), body: () => ({ role: 'viewer' }) },
-  { route: 'account/members/[userId]', method: 'DELETE', params: (b) => ({ userId: b.users.agent.userId }) },
+  { route: 'account/members/[id]', method: 'PATCH', params: (b) => ({ id: b.users.agent.userId }), body: () => ({ role: 'viewer' }) },
+  { route: 'account/members/[id]', method: 'DELETE', params: (b) => ({ id: b.users.agent.userId }) },
   { route: 'workspace-attributes/[key]', method: 'DELETE', params: (b) => ({ key: b.extra.attribute }) },
   { route: 'teams/[id]', method: 'PUT', params: extra('team'), body: () => ({ name: 'p15 tamper' }) },
   { route: 'teams/[id]', method: 'DELETE', params: extra('team') },
@@ -243,6 +243,22 @@ export const KNOWN_UNMAPPED = [
   'whatsapp/forms/[id]/responses/export',
   'whatsapp/media/[mediaId]',
   'whatsapp/numbers/[id]/profile',
+  // Stage 5 (ManyChat parity). Each has a dedicated cross-workspace test:
+  // node stats: stage5-engine.integration.test.ts (another workspace's flow reads as null).
+  'flows/[id]/node-stats',
+  // Labels and member capacity: inbox-organisation.integration.test.ts.
+  'inbox/labels/[id]',
+  'inbox/labels/[id]/conversations/[conversationId]',
+  'account/members/[id]/capacity',
+  // Folders: folders.integration.test.ts; conversion event types: conversion-events.integration.test.ts.
+  'flows/folders/[id]',
+  'flows/[id]/folder',
+  'account/conversion-events/[id]',
+  // Sequences, their messages and subscribers: sequences.integration.test.ts.
+  'sequences/[id]',
+  'sequences/[id]/messages',
+  'sequences/[id]/messages/[messageId]',
+  'sequences/[id]/subscribers',
 ];
 
 function dynamicRoutes(): string[] {
@@ -446,7 +462,7 @@ describe.skipIf(!databases)('[TEN-01][SEC-03] cross-tenant id routes', () => {
     { route: 'account/api-keys/[id]', method: 'DELETE', as: 'agent', params: id('apiKeyId'), target: id('apiKeyId') },
     { route: 'teams/[id]', method: 'DELETE', as: 'agent', params: extra('team'), target: extra('team') },
     { route: 'workspace-attributes/[key]', method: 'DELETE', as: 'agent', params: (t) => ({ key: t.extra.attribute }), target: (t) => ({ key: t.extra.attribute }) },
-    { route: 'account/members/[userId]', method: 'PATCH', as: 'agent', params: (t) => ({ userId: t.users.viewer.userId }), body: () => ({ role: 'agent' }), target: (t) => ({ userId: t.users.viewer.userId }) },
+    { route: 'account/members/[id]', method: 'PATCH', as: 'agent', params: (t) => ({ id: t.users.viewer.userId }), body: () => ({ role: 'agent' }), target: (t) => ({ id: t.users.viewer.userId }) },
     { route: 'quick-replies/[id]', method: 'DELETE', as: 'viewer', params: rid('quick_replies'), target: rid('quick_replies') },
     { route: 'flows/[id]', method: 'DELETE', as: 'viewer', params: rid('flows'), target: rid('flows') },
     { route: 'flows/[id]/activate', method: 'POST', as: 'viewer', permission: 'flows.publish', params: rid('flows'), body: () => ({ status: 'active' }), target: rid('flows') },

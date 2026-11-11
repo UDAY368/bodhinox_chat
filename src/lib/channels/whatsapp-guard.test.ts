@@ -21,7 +21,14 @@ const h = vi.hoisted(() => ({
   orderConfirmation: vi.fn(),
   booking: vi.fn(),
   consent: [] as unknown[],
+  igConsent: vi.fn(),
 }));
+
+// Stage 5: Instagram STOP is per channel (src/lib/contacts/channel-consent.ts).
+vi.mock('@/lib/contacts/channel-consent', async (original) => {
+  const actual = await original<typeof import('@/lib/contacts/channel-consent')>();
+  return { ...actual, applyInstagramConsent: h.igConsent, workerConsentSettings: async () => ({ ...actual.DEFAULT_CONSENT_SETTINGS }) };
+});
 
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => 'worker' }));
 vi.mock('@/lib/db/tenant', () => ({
@@ -164,7 +171,8 @@ describe('inbound actions on an Instagram conversation', () => {
 
   it('still applies STOP, with no automated response', async () => {
     await processInboundActions(input('STOP'));
-    expect(h.consent).toEqual(expect.arrayContaining([expect.objectContaining({ opt_out_source: 'keyword' })]));
+    // Stage 5: on Instagram, STOP unsubscribes from Instagram only.
+    expect(h.igConsent).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'opted_out');
     expect(h.flow).not.toHaveBeenCalled();
     expect(h.lifecycle).not.toHaveBeenCalled();
   });

@@ -15,6 +15,8 @@ import { aiTokensUsed } from '@/lib/billing/limits';
 import { aiDeploymentEnabled } from './gate';
 import { geminiApiKey } from './gemini-key';
 import type { AiAssistFeature, AiFallbackReason } from './types';
+import type { AiGoal } from '@/lib/flows/types';
+import { autoReplyGoalsProblem, parseGoals } from './goal-rules';
 
 export interface AiWorkspaceSettings {
   summaries_enabled: boolean;
@@ -23,6 +25,8 @@ export interface AiWorkspaceSettings {
   insights_enabled: boolean;
   /** Optional cap on AI tokens per IST month; null = only the plan limit applies. */
   monthly_token_cap: number | null;
+  /** Stage 5 (5G): up to 3 ordered goals for the Instagram AI auto-reply; [] is today's behaviour. */
+  instagram_goals: AiGoal[];
   updated_at: string | null;
 }
 
@@ -35,6 +39,7 @@ export const DEFAULT_AI_SETTINGS: AiWorkspaceSettings = {
   assessment_enabled: false,
   insights_enabled: false,
   monthly_token_cap: null,
+  instagram_goals: [],
   updated_at: null,
 };
 
@@ -63,6 +68,7 @@ interface SettingsRow {
   assessment_enabled: boolean;
   insights_enabled: boolean;
   monthly_token_cap: bigint | null;
+  instagram_goals: unknown;
   updated_at: Date | null;
 }
 
@@ -73,18 +79,19 @@ const toSettings = (row: SettingsRow | undefined): AiWorkspaceSettings => row
     assessment_enabled: row.assessment_enabled,
     insights_enabled: row.insights_enabled,
     monthly_token_cap: row.monthly_token_cap === null ? null : Number(row.monthly_token_cap),
+    instagram_goals: parseGoals(row.instagram_goals),
     updated_at: row.updated_at ? row.updated_at.toISOString() : null,
   }
-  : { ...DEFAULT_AI_SETTINGS };
+  : { ...DEFAULT_AI_SETTINGS, instagram_goals: [] };
 
 /** The workspace's switches (all off when there is no row). Inside the caller's tenant transaction. */
 export async function readAiSettings(tx: TenantTransaction, accountId: string): Promise<AiWorkspaceSettings> {
   const rows = await tx.$queryRaw<SettingsRow[]>`SELECT summaries_enabled, suggestions_enabled, assessment_enabled, insights_enabled,
-    monthly_token_cap, updated_at FROM ai_workspace_settings WHERE account_id=${accountId}::uuid`;
+    monthly_token_cap, instagram_goals, updated_at FROM ai_workspace_settings WHERE account_id=${accountId}::uuid`;
   return toSettings(rows[0]);
 }
 
-export type AiSettingsPatch = Partial<Pick<AiWorkspaceSettings, AiToggleKey | 'monthly_token_cap'>>;
+export type AiSettingsPatch = Partial<Pick<AiWorkspaceSettings, AiToggleKey | 'monthly_token_cap' | 'instagram_goals'>>;
 
 /**
  * Upserts the given switches as `ctx.userId` and audits 'ai.settings_updated'
@@ -100,13 +107,17 @@ export async function writeAiSettings(
   const next = { ...current, ...patch };
   const cap = next.monthly_token_cap === null ? null : BigInt(next.monthly_token_cap);
   await tx.$executeRaw`INSERT INTO ai_workspace_settings(account_id, summaries_enabled, suggestions_enabled, assessment_enabled,
-      insights_enabled, monthly_token_cap, updated_by)
+      insights_enabled, monthly_token_cap, instagram_goals, updated_by)
     VALUES(${ctx.accountId}::uuid, ${next.summaries_enabled}, ${next.suggestions_enabled}, ${next.assessment_enabled},
-      ${next.insights_enabled}, ${cap}::bigint, ${ctx.userId}::uuid)
+      ${next.insights_enabled}, ${cap}::bigint, ${JSON.stringify(next.instagram_goals)}::jsonb, ${ctx.userId}::uuid)
     ON CONFLICT (account_id) DO UPDATE SET summaries_enabled=EXCLUDED.summaries_enabled,
       suggestions_enabled=EXCLUDED.suggestions_enabled, assessment_enabled=EXCLUDED.assessment_enabled,
-      insights_enabled=EXCLUDED.insights_enabled, monthly_token_cap=EXCLUDED.monthly_token_cap, updated_by=EXCLUDED.updated_by`;
-  const changed = Object.fromEntries(Object.entries(patch).filter(([k, v]) => current[k as keyof AiWorkspaceSettings] !== v));
+      insights_enabled=EXCLUDED.insights_enabled, monthly_token_cap=EXCLUDED.monthly_token_cap,
+      instagram_goals=EXCLUDED.instagram_goals, updated_by=EXCLUDED.updated_by`;
+  // Audited by key and value; goals by their types only (a link is the author's, but kept out of the log).
+  const changed = Object.fromEntries(Object.entries(patch)
+    .filter(([k, v]) => JSON.stringify(current[k as keyof AiWorkspaceSettings]) !== JSON.stringify(v))
+    .map(([k, v]) => [k, k === 'instagram_goals' ? (v as AiGoal[]).map((g) => g.type) : v]));
   if (Object.keys(changed).length)
     await tx.$executeRaw`INSERT INTO audit_logs(account_id, user_id, action, resource_id, metadata)
       VALUES(${ctx.accountId}::uuid, ${ctx.userId}::uuid, 'ai.settings_updated', ${ctx.accountId}, ${JSON.stringify(changed)}::jsonb)`;
@@ -128,6 +139,13 @@ export function parseSettingsPatch(body: unknown): AiSettingsPatch | null {
     if (cap === null) patch.monthly_token_cap = null;
     else if (typeof cap === 'number' && Number.isSafeInteger(cap) && cap > 0 && cap <= MAX_MONTHLY_TOKEN_CAP) patch.monthly_token_cap = cap;
     else return null;
+  }
+  if ('instagram_goals' in input) {
+    if (autoReplyGoalsProblem(input.instagram_goals) !== null) return null;
+    // Only the known fields of each goal are kept.
+    patch.instagram_goals = (input.instagram_goals as AiGoal[]).map((g): AiGoal => g.type === 'share_link'
+      ? { type: 'share_link', url: g.url, ...(g.label ? { label: g.label } : {}) }
+      : g.type === 'grow_followers' ? { type: 'grow_followers' } : { type: 'capture_lead', fields: [...g.fields], on_refusal: g.on_refusal });
   }
   return Object.keys(patch).length ? patch : null;
 }

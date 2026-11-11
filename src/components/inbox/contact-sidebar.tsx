@@ -21,6 +21,9 @@ import { ChannelBadge } from '@/components/inbox/channel-badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AssessmentPanel } from '@/components/inbox/ai-assessment/assessment-panel';
+import { LabelPicker } from '@/components/inbox/label-picker';
+import type { InboxFolders } from '@/components/inbox/use-inbox-folders';
+import { InstagramFacts } from '@/components/contacts/instagram-facts';
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -31,6 +34,8 @@ interface ContactSidebarProps {
   channel?: ConversationChannel;
   /** The open conversation, for its advisory AI assessment (hidden without it). */
   conversationId?: string | null;
+  /** Stage 5: labels and favourites of the open conversation (hidden without them). */
+  folders?: InboxFolders;
 }
 
 export function ContactSidebar({
@@ -40,6 +45,7 @@ export function ContactSidebar({
   onCollapse,
   channel = 'whatsapp',
   conversationId,
+  folders,
 }: ContactSidebarProps) {
   const t = useTranslations('Inbox.sidebar');
   const tThread = useTranslations('Inbox.messageThread');
@@ -211,6 +217,12 @@ export function ContactSidebar({
           {data && (
             <>
               <AssessmentPanel conversationId={conversationId} refreshToken={refreshToken} />
+              {conversationId && folders && (
+                <LabelPicker conversationId={conversationId} folders={folders} canEdit={canSendMessages} />
+              )}
+              {channel === 'instagram' && (
+                <InstagramFacts contactId={contact.id} refreshToken={refreshToken} className={sectionClass} />
+              )}
               <section className={sectionClass}>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-xs font-semibold uppercase">

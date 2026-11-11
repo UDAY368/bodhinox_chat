@@ -20,6 +20,13 @@
  */
 
 import type {
+  ActionsNodeConfig,
+  AiReplyNodeConfig,
+  CanvasNote,
+  FlowTemplateMeta,
+  IgLiveCommentTriggerConfig,
+  RandomizerNodeConfig,
+  SmartDelayNodeConfig,
   BookAppointmentNodeConfig,
   AskAddressNodeConfig,
   AskLocationNodeConfig,
@@ -68,7 +75,12 @@ export type FlowTemplateNodeType =
   // Instagram-only steps (Stage 2): the Instagram starters use them.
   | "ig_private_reply"
   | "send_card"
-  | "send_gallery";
+  | "send_gallery"
+  // Stage 5 (5F): the newer Instagram starters use these.
+  | "ai_reply"
+  | "actions"
+  | "randomizer"
+  | "smart_delay";
 
 export interface FlowTemplateNode {
   node_key: string;
@@ -91,6 +103,10 @@ export interface FlowTemplateNode {
     | IgPrivateReplyNodeConfig
     | SendCardNodeConfig
     | SendGalleryNodeConfig
+    | AiReplyNodeConfig
+    | ActionsNodeConfig
+    | RandomizerNodeConfig
+    | SmartDelayNodeConfig
     | Record<string, unknown>;
 }
 
@@ -139,6 +155,13 @@ export interface FlowTemplate {
    * holds the trigger and every step (flowTemplateChannels).
    */
   channels?: readonly Channel[];
+  /** Stage 5: what the gallery's filters and detail view show (Instagram starters). */
+  meta?: FlowTemplateMeta;
+  /** Stage 5: the detail view's "Why it helps" and "How it works" paragraphs. */
+  business_value?: string;
+  how_it_works?: string;
+  /** Stage 5: sticky notes copied onto the new flow's canvas (never run). */
+  canvas_notes?: CanvasNote[];
 }
 
 /**
@@ -1367,6 +1390,25 @@ export const INSTAGRAM_TEMPLATE_LINKS_TO_BIND: ReadonlySet<string> = new Set([
   "ig_link_drop.link",
   "ig_follow_gate.reward",
   "ig_to_whatsapp.wa_link",
+  // Stage 5 starters.
+  "ig_giveaway_draw.rules",
+  "ig_giveaway_draw.winner",
+  "ig_video_channel.channel",
+  "ig_comment_rsvp.details",
+  "ig_reel_product.product",
+  "ig_live_prizes.prize_a",
+  "ig_live_prizes.prize_b",
+  "ig_live_prizes.prize_c",
+  "ig_live_offer.offer",
+  "ig_live_link.link",
+  "ig_story_collab.kit",
+  "ig_dm_link.link",
+  "ig_ab_opening.link",
+  "ig_ai_question.answer",
+  "ig_link_follow_up.link",
+  "ig_link_follow_up.reminder",
+  "ig_solo_dm.link",
+  "ig_opening_dm.link",
 ]);
 
 // ---- comments ----
@@ -1525,6 +1567,344 @@ function igDefaultReply(): FlowTemplate {
 }
 
 // ============================================================
+// Instagram starters (Stage 5, 5F: template parity)
+//
+// More Instagram starters built from the Stage 5 steps (Actions, Randomizer,
+// Smart delay, the link-click condition) and the older ones. Copy, notes and
+// the gallery's detail text live in StarterFlows.instagram5.templates.<slug>.
+// The same rules as the Stage 2 starters hold: a comment-started run opens
+// with one private reply whose button opens the 24-hour window; links, tags
+// and the prize are left for the author to fill in, so publishing reports
+// them until then (INSTAGRAM_TEMPLATE_LINKS_TO_BIND, TEMPLATE_TAGS_TO_BIND).
+// Waits stay under 24 hours, and the engine re-checks the window before every
+// automated send. Three starters ship without a trigger: the author attaches
+// one in the builder.
+// ============================================================
+
+const t5 = getT("StarterFlows.instagram5.templates");
+const s5 = (slug: string) => (key: string, values?: Record<string, string>) => t5(`${slug}.${key}`, values);
+const keywords5 = (slug: string): string[] => t5(`${slug}.keywords`).split(",").map((k) => k.trim()).filter(Boolean);
+
+/** A two-button card: a link (filled in by the author) and a reply that continues. */
+const linkAndReplyCard = (key: string, card: { title: string; link: string; reply: string }, next: string) =>
+  node(key, "send_card", {
+    card: {
+      title: card.title,
+      buttons: [
+        { type: "web_url", title: card.link, url: "" },
+        { type: "postback", title: card.reply, reply_id: "done", next_node_key: next },
+      ],
+    },
+    // A card with a reply button waits for the tap, so it has no Next link of its own.
+    next_node_key: "",
+  } as SendCardNodeConfig);
+/** A tracked link card: clicks are counted for CTR and the "link clicked" condition. */
+const trackedLinkCard = (key: string, card: { title: string; subtitle?: string; button: string }, next: string) => {
+  const built = linkCard(key, { ...card, url: "" }, next);
+  return { ...built, config: { ...(built.config as SendCardNodeConfig), track_clicks: true } };
+};
+const actions = (key: string, list: ActionsNodeConfig["actions"], next: string) =>
+  node(key, "actions", { actions: list, next_node_key: next } as ActionsNodeConfig);
+const randomizer = (key: string, paths: Array<[id: string, weight: number, next: string]>, sticky: boolean) =>
+  node(key, "randomizer", {
+    paths: paths.map(([id, weight, next_node_key]) => ({ id, weight, next_node_key })),
+    sticky,
+  } as RandomizerNodeConfig);
+/** A wait of `hours` (under 24, so the send after it can still be inside the window). */
+const waitHours = (key: string, hours: number, next: string) =>
+  node(key, "smart_delay", { mode: "duration", amount: hours, unit: "hours", next_node_key: next } as SmartDelayNodeConfig);
+const notes = (slug: string, count: number): CanvasNote[] =>
+  Array.from({ length: count }, (_, i) => ({ id: `note_${i + 1}`, text: t5(`${slug}.note${i + 1}`), x: 360, y: 40 + i * 220 }));
+
+function ig5Template(
+  slug: string,
+  category: FlowTemplateCategory,
+  icon: string,
+  trigger_type: FlowTriggerType,
+  trigger_config: FlowTemplate["trigger_config"],
+  nodes: FlowTemplateNode[],
+  meta: FlowTemplateMeta,
+  noteCount: number,
+): FlowTemplate {
+  const s = s5(slug);
+  return {
+    slug,
+    name: s("name"),
+    description: s("description"),
+    category,
+    icon,
+    trigger_type,
+    trigger_config,
+    entry_node_id: "start",
+    nodes,
+    channels: ["instagram"],
+    meta,
+    business_value: s("businessValue"),
+    how_it_works: s("howItWorks"),
+    canvas_notes: notes(slug, noteCount),
+  };
+}
+
+const flowMeta = (goals: FlowTemplateMeta["goals"], trigger: FlowTemplateMeta["trigger"],
+  extra: Partial<FlowTemplateMeta> = {}): FlowTemplateMeta =>
+  ({ goals, trigger, kind: "flow", level: "beginner", uses_ai: false, needs_payments: false, ...extra });
+
+/** A comment trigger on any post with the template's keywords and public reply. */
+const comment5 = (slug: string): IgCommentTriggerConfig => commentTrigger(keywords5(slug), s5(slug)("publicReply"));
+const live5 = (slug: string): IgLiveCommentTriggerConfig => ({ keywords: keywords5(slug), match_mode: "contains" });
+
+/** Tags a template leaves for the author to pick (the step and the condition that reads it). */
+export const TEMPLATE_TAGS_TO_BIND: ReadonlySet<string> = new Set([
+  "ig_giveaway_draw.check_entered",
+  "ig_giveaway_draw.enter",
+]);
+
+// ---- comments ----
+
+/** Comment to enter; a tag stops a second entry; one in twenty entrants (same person, same result) wins. */
+function igGiveawayDraw(): FlowTemplate {
+  const s = s5("ig_giveaway_draw");
+  return ig5Template("ig_giveaway_draw", "instagram_growth", "Gift", "ig_comment", comment5("ig_giveaway_draw"), [
+    startAt("opening"),
+    privateReply("opening", s("opening"), s("optIn"), "check_entered"),
+    node("check_entered", "condition", { subject: "tag", subject_key: "", operator: "present", true_next: "already", false_next: "rules" } as ConditionNodeConfig),
+    say("already", s("already"), "end"),
+    linkCard("rules", { title: s("rulesTitle"), button: s("rulesButton"), url: "" }, "enter"),
+    actions("enter", [{ type: "add_tag", tag_id: "" }], "draw"),
+    randomizer("draw", [["A", 95, "entered"], ["B", 5, "winner"]], true),
+    say("entered", s("entered"), "end"),
+    linkCard("winner", { title: s("winnerTitle"), button: s("winnerButton"), url: "" }, "end"),
+    END,
+  ], flowMeta(["grow_followers", "engage_audience"], "post_comment", { level: "advanced", recommended: true }), 3);
+}
+
+/** Comment on a video post, get the channel link, and say thanks after subscribing. */
+function igVideoChannel(): FlowTemplate {
+  const s = s5("ig_video_channel");
+  return ig5Template("ig_video_channel", "instagram_growth", "Video", "ig_comment", comment5("ig_video_channel"), [
+    startAt("opening"),
+    privateReply("opening", s("opening"), s("optIn"), "channel"),
+    linkAndReplyCard("channel", { title: s("cardTitle"), link: s("linkButton"), reply: s("doneButton") }, "thanks"),
+    say("thanks", s("thanks"), "end"),
+    END,
+  ], flowMeta(["engage_audience", "drive_traffic"], "post_comment"), 2);
+}
+
+/** Comment to register: phone (optional), email, then the event details. */
+function igCommentRsvp(): FlowTemplate {
+  const s = s5("ig_comment_rsvp");
+  return ig5Template("ig_comment_rsvp", "instagram_comments", "CalendarCheck", "ig_comment", comment5("ig_comment_rsvp"), [
+    startAt("opening"),
+    privateReply("opening", s("opening"), s("optIn"), "ask_phone"),
+    ask("ask_phone", s("askPhone"), "phone", "ask_email", {
+      validation: "phone", max_attempts: 3, error_text: s("phoneError"), skip_label: s("skipButton"), skip_next: "ask_email",
+    }),
+    ask("ask_email", s("askEmail"), "email", "save_email", { validation: "email", max_attempts: 3, error_text: s("emailError") }),
+    setContact("save_email", "email", v("email"), "details"),
+    linkCard("details", { title: s("cardTitle"), button: s("detailsButton"), url: "" }, "end"),
+    END,
+  ], flowMeta(["drive_traffic"], "post_comment"), 3);
+}
+
+/** Comment on a reel, get the product link, and a reminder 22 hours later if it was not opened. */
+function igReelProduct(): FlowTemplate {
+  const s = s5("ig_reel_product");
+  return ig5Template("ig_reel_product", "instagram_comments", "ShoppingBag", "ig_comment", comment5("ig_reel_product"), [
+    startAt("opening"),
+    privateReply("opening", s("opening"), s("optIn"), "product"),
+    trackedLinkCard("product", { title: s("cardTitle"), subtitle: s("cardSubtitle"), button: s("linkButton") }, "wait"),
+    waitHours("wait", 22, "clicked"),
+    node("clicked", "condition", { subject: "link_click", subject_key: "product", operator: "equals", value: "true", true_next: "end", false_next: "reminder" } as ConditionNodeConfig),
+    say("reminder", s("reminder"), "end"),
+    END,
+  ], flowMeta(["drive_traffic"], "post_comment", { recommended: true }), 3);
+}
+
+// ---- live ----
+
+/** A Live comment gets one of three prizes, drawn fresh every time. */
+function igLivePrizes(): FlowTemplate {
+  const s = s5("ig_live_prizes");
+  return ig5Template("ig_live_prizes", "instagram_comments", "PartyPopper", "ig_live_comment", live5("ig_live_prizes"), [
+    startAt("opening"),
+    privateReply("opening", s("opening"), s("optIn"), "spin"),
+    randomizer("spin", [["A", 33, "prize_a"], ["B", 33, "prize_b"], ["C", 34, "prize_c"]], false),
+    linkCard("prize_a", { title: s("prizeATitle"), button: s("claimButton"), url: "" }, "end"),
+    linkCard("prize_b", { title: s("prizeBTitle"), button: s("claimButton"), url: "" }, "end"),
+    linkCard("prize_c", { title: s("prizeCTitle"), button: s("claimButton"), url: "" }, "end"),
+    END,
+  ], flowMeta(["engage_audience"], "live_comment"), 3);
+}
+
+/** A Live comment with the offer word gets the offer in DMs. */
+function igLiveOffer(): FlowTemplate {
+  const s = s5("ig_live_offer");
+  return ig5Template("ig_live_offer", "instagram_comments", "Ticket", "ig_live_comment", live5("ig_live_offer"), [
+    startAt("opening"),
+    privateReply("opening", s("opening"), s("optIn"), "offer"),
+    linkCard("offer", { title: s("cardTitle"), subtitle: s("cardSubtitle"), button: s("offerButton"), url: "" }, "end"),
+    END,
+  ], flowMeta(["drive_traffic"], "live_comment"), 2);
+}
+
+/** A Live comment gets the link, then an optional email for updates. */
+function igLiveLink(): FlowTemplate {
+  const s = s5("ig_live_link");
+  return ig5Template("ig_live_link", "instagram_comments", "Link", "ig_live_comment", live5("ig_live_link"), [
+    startAt("opening"),
+    privateReply("opening", s("opening"), s("optIn"), "link"),
+    linkCard("link", { title: s("cardTitle"), button: s("linkButton"), url: "" }, "ask_email"),
+    ask("ask_email", s("askEmail"), "email", "save_email", {
+      validation: "email", max_attempts: 3, error_text: s("emailError"), skip_label: s("skipButton"), skip_next: "end",
+    }),
+    setContact("save_email", "email", v("email"), "thanks"),
+    say("thanks", s("thanks"), "end"),
+    END,
+  ], flowMeta(["drive_traffic"], "live_comment"), 2);
+}
+
+// ---- stories ----
+
+/** A story reply about working together: the media kit for a known email, otherwise ask for one first. */
+function igStoryCollab(): FlowTemplate {
+  const s = s5("ig_story_collab");
+  return ig5Template("ig_story_collab", "instagram_stories", "Star", "ig_story_reply",
+    { keywords: keywords5("ig_story_collab"), match_mode: "contains", reactions: false } satisfies IgStoryReplyTriggerConfig, [
+      startAt("known"),
+      node("known", "condition", { subject: "contact_field", subject_key: "email", operator: "present", true_next: "kit", false_next: "ask_email" } as ConditionNodeConfig),
+      ask("ask_email", s("askEmail"), "email", "save_email", { validation: "email", max_attempts: 3, error_text: s("emailError") }),
+      setContact("save_email", "email", v("email"), "kit"),
+      linkCard("kit", { title: s("cardTitle"), button: s("kitButton"), url: "" }, "end"),
+      END,
+    ], flowMeta(["engage_audience", "drive_traffic"], "story_reply"), 3);
+}
+
+// ---- DMs ----
+
+/** A keyword DM joins the VIP text list: a checked phone number, saved to the contact. */
+function igSmsList(): FlowTemplate {
+  const s = s5("ig_sms_list");
+  return ig5Template("ig_sms_list", "instagram_dms", "BellRing", "keyword",
+    { keywords: keywords5("ig_sms_list"), match_type: "contains" }, [
+      startAt("ask_phone"),
+      ask("ask_phone", s("askPhone"), "phone", "joined", {
+        validation: "phone", max_attempts: 3, error_text: s("phoneError"), skip_label: s("skipButton"), skip_next: "later",
+        save_to: { target: "contact_field", key: "phone" },
+      }),
+      say("joined", s("joined"), "end"),
+      say("later", s("later"), "end"),
+      END,
+    ], flowMeta(["drive_traffic"], "dm"), 2);
+}
+
+/** A keyword DM gets a short intro with a button, then the link. */
+function igDmLink(): FlowTemplate {
+  const s = s5("ig_dm_link");
+  return ig5Template("ig_dm_link", "instagram_dms", "Link", "keyword",
+    { keywords: keywords5("ig_dm_link"), match_type: "contains" }, [
+      startAt("intro"),
+      buttons("intro", s("intro"), [["send", s("sendButton"), "link"]]),
+      trackedLinkCard("link", { title: s("cardTitle"), button: s("linkButton") }, "end"),
+      END,
+    ], flowMeta(["engage_audience", "drive_traffic"], "dm"), 2);
+}
+
+/** Half the people get opening A, half get B (same person, same opening): compare in Insights. */
+function igAbOpening(): FlowTemplate {
+  const s = s5("ig_ab_opening");
+  return ig5Template("ig_ab_opening", "instagram_dms", "Split", "keyword",
+    { keywords: keywords5("ig_ab_opening"), match_type: "contains" }, [
+      startAt("split"),
+      randomizer("split", [["A", 50, "opening_a"], ["B", 50, "opening_b"]], true),
+      buttons("opening_a", s("openingA"), [["more", s("moreButton"), "link"]]),
+      buttons("opening_b", s("openingB"), [["more", s("moreButton"), "link"]]),
+      trackedLinkCard("link", { title: s("cardTitle"), button: s("linkButton") }, "end"),
+      END,
+    ], flowMeta(["engage_audience"], "dm", { level: "advanced" }), 2);
+}
+
+/** Recognises a question by meaning (AI) and answers it. */
+function igAiQuestion(): FlowTemplate {
+  const s = s5("ig_ai_question");
+  return ig5Template("ig_ai_question", "instagram_dms", "Sparkles", "keyword",
+    { keywords: [], match_type: "intent", intent: s("intent") }, [
+      startAt("answer"),
+      trackedLinkCard("answer", { title: s("answer"), button: s("linkButton") }, "end"),
+      END,
+    ], flowMeta(["engage_audience", "drive_traffic"], "dm", { uses_ai: true, recommended: true }), 2);
+}
+
+/** A keyword DM starts a short AI conversation grounded in the knowledge base, with a hand-off to the team. */
+function igAiConversation(): FlowTemplate {
+  const s = s5("ig_ai_conversation");
+  return ig5Template("ig_ai_conversation", "instagram_dms", "MessageCircle", "keyword",
+    { keywords: keywords5("ig_ai_conversation"), match_type: "contains" }, [
+      startAt("chat"),
+      node("chat", "ai_reply", {
+        instructions: s("instructions"), use_knowledge: true, max_turns: 5, next_node_key: "wrap_up", handoff_next: "agent",
+      } as AiReplyNodeConfig),
+      say("wrap_up", s("wrapUp"), "end"),
+      handoff("agent", s("handoffNote")),
+      END,
+    ], flowMeta(["engage_audience"], "dm", { uses_ai: true }), 2);
+}
+
+// ---- no trigger (the author attaches one) ----
+
+/** The link, then a reminder 22 hours later only if it was not opened. */
+function igLinkFollowUp(): FlowTemplate {
+  const s = s5("ig_link_follow_up");
+  return ig5Template("ig_link_follow_up", "instagram_dms", "RotateCcw", "manual", {}, [
+    startAt("link"),
+    trackedLinkCard("link", { title: s("cardTitle"), button: s("linkButton") }, "wait"),
+    waitHours("wait", 22, "clicked"),
+    node("clicked", "condition", { subject: "link_click", subject_key: "link", operator: "equals", value: "true", true_next: "end", false_next: "reminder" } as ConditionNodeConfig),
+    linkCard("reminder", { title: s("reminderTitle"), button: s("linkButton"), url: "" }, "end"),
+    END,
+  ], flowMeta(["drive_traffic"], null), 3);
+}
+
+/** One DM with the link, nothing else. */
+function igSoloDm(): FlowTemplate {
+  const s = s5("ig_solo_dm");
+  return ig5Template("ig_solo_dm", "instagram_dms", "Mail", "manual", {}, [
+    startAt("link"),
+    trackedLinkCard("link", { title: s("cardTitle"), button: s("linkButton") }, "end"),
+    END,
+  ], flowMeta(["drive_traffic"], null), 1);
+}
+
+/** Starts the conversation first and sends the link once they tap. */
+function igOpeningDm(): FlowTemplate {
+  const s = s5("ig_opening_dm");
+  return ig5Template("ig_opening_dm", "instagram_dms", "MessageSquare", "manual", {}, [
+    startAt("opening"),
+    buttons("opening", s("opening"), [["yes", s("yesButton"), "link"]]),
+    trackedLinkCard("link", { title: s("cardTitle"), button: s("linkButton") }, "end"),
+    END,
+  ], flowMeta(["engage_audience", "drive_traffic"], null), 1);
+}
+
+/** Gallery metadata of the Stage 2 starters (the Stage 5 ones carry their own). */
+const STAGE2_META: Record<string, FlowTemplateMeta> = {
+  ig_link_drop: flowMeta(["drive_traffic"], "post_comment", { kind: "quick", recommended: true }),
+  ig_product_lineup: flowMeta(["drive_traffic", "engage_audience"], "post_comment"),
+  ig_giveaway: flowMeta(["grow_followers", "engage_audience"], "post_comment"),
+  ig_follow_gate: flowMeta(["grow_followers"], "post_comment", { kind: "quick" }),
+  ig_to_whatsapp: flowMeta(["drive_traffic"], "dm"),
+  ig_email_list: flowMeta(["drive_traffic"], "dm"),
+  ig_story_leads: flowMeta(["drive_traffic"], "story_reply", { kind: "quick" }),
+  ig_story_coupon: flowMeta(["drive_traffic"], "story_reply"),
+  ig_story_faq: flowMeta(["engage_audience", "drive_traffic"], "story_reply"),
+  ig_story_mention_thanks: flowMeta(["engage_audience"], null),
+  ig_quiz_qualifier: flowMeta(["engage_audience", "drive_traffic"], "dm", { level: "advanced" }),
+  ig_default_reply: flowMeta(["engage_audience"], "dm", { kind: "quick" }),
+};
+
+const withStage2Meta = (template: FlowTemplate): FlowTemplate =>
+  Object.hasOwn(STAGE2_META, template.slug) ? { ...template, meta: STAGE2_META[template.slug] } : template;
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -1561,19 +1941,38 @@ const TEMPLATES: Record<string, FlowTemplate> = Object.fromEntries(
     webinarRegistration(),
     supportTriage(),
     feedbackNps(),
-    // Instagram starters (Stage 2).
-    igLinkDrop(),
-    igProductLineup(),
-    igGiveaway(),
-    igFollowGate(),
-    igToWhatsApp(),
-    igEmailList(),
-    igStoryLeads(),
-    igStoryCoupon(),
-    igStoryFaq(),
-    igStoryMentionThanks(),
-    igQuizQualifier(),
-    igDefaultReply(),
+    // Instagram starters (Stage 2), with their Stage 5 gallery metadata.
+    ...[
+      igLinkDrop(),
+      igProductLineup(),
+      igGiveaway(),
+      igFollowGate(),
+      igToWhatsApp(),
+      igEmailList(),
+      igStoryLeads(),
+      igStoryCoupon(),
+      igStoryFaq(),
+      igStoryMentionThanks(),
+      igQuizQualifier(),
+      igDefaultReply(),
+    ].map(withStage2Meta),
+    // Instagram starters (Stage 5).
+    igGiveawayDraw(),
+    igVideoChannel(),
+    igCommentRsvp(),
+    igReelProduct(),
+    igLivePrizes(),
+    igLiveOffer(),
+    igLiveLink(),
+    igStoryCollab(),
+    igSmsList(),
+    igDmLink(),
+    igAbOpening(),
+    igAiQuestion(),
+    igAiConversation(),
+    igLinkFollowUp(),
+    igSoloDm(),
+    igOpeningDm(),
   ].map((template) => [template.slug, template]),
 );
 

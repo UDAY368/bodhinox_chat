@@ -1,5 +1,5 @@
 // ============================================================
-// /api/account/members/[userId]
+// /api/account/members/[id] (the segment is [id] so capacity/ can sit beside it; it names the member's user id)
 //
 //   PATCH  — change a member's role and/or phone masking.   Admin+.
 //            Body { role?, mask_phone_numbers? }; at least one.
@@ -59,7 +59,7 @@ function rpcErrorToResponse(err: DataError): NextResponse {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ userId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await requireRole('admin');
@@ -70,7 +70,7 @@ export async function PATCH(
     );
     if (!limit.success) return rateLimitResponse(limit);
 
-    const { userId } = await params;
+    const { id: userId } = await params;
 
     const body = (await request.json().catch(() => null)) as {
       role?: unknown;
@@ -157,7 +157,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ userId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await requireRole('admin');
@@ -168,7 +168,7 @@ export async function DELETE(
     );
     if (!limit.success) return rateLimitResponse(limit);
 
-    const { userId } = await params;
+    const { id: userId } = await params;
 
     const { data, error } = await ctx.db.rpc('remove_account_member', {
       p_user_id: userId,

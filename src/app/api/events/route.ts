@@ -1,5 +1,7 @@
 import { requireSession, resolveSession } from '@/lib/auth/session';
+import { Prisma } from '@prisma/client';
 import { withTenant } from '@/lib/db/tenant';
+import { conversationIdVisibleSql, visibilityRestricted } from '@/lib/inbox/inbox-scope';
 import { projectRealtimePayload } from '@/lib/realtime/projection';
 import { loadPhoneMask, maskRealtimePayload } from '@/lib/inbox/masking-apply';
 import {
@@ -7,6 +9,16 @@ import {
   encodeEventCursor,
   type EventCursor,
 } from '@/lib/realtime/cursor';
+/**
+ * Conversation, message and note events of a conversation hidden from the
+ * member by agent visibility are left out (src/lib/inbox/inbox-scope.ts);
+ * every other event passes. A conversation event names the conversation by
+ * `id`, the others by `conversation_id`.
+ */
+const conversationEventVisible = Prisma.raw(`(split_part(event_type,'.',1) NOT IN ('conversations','messages','conversation_notes')
+  OR ${conversationIdVisibleSql(`(CASE WHEN split_part(event_type,'.',1) = 'conversations'
+      THEN COALESCE(payload->'new'->>'id', payload->'old'->>'id')
+      ELSE COALESCE(payload->'new'->>'conversation_id', payload->'old'->>'conversation_id') END)::uuid`)})`);
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const tables = new Set([
@@ -92,6 +104,8 @@ export async function GET(request: Request) {
           }
           // Re-read every tick so an admin's masking change applies to open streams.
           let mask = false;
+          // Stage 5: a restricted agent's stream carries no event of a conversation they may not see.
+          const restricted = visibilityRestricted(current.role);
           const rows = await withTenant(
             current,
             async (tx) => {
@@ -104,6 +118,7 @@ export async function GET(request: Request) {
               AND (created_at>${cursor.at}::timestamptz OR (created_at=${cursor.at}::timestamptz AND id>${cursor.id}::uuid))
               AND (recipient_user_id IS NULL OR recipient_user_id=${current.userId}::uuid)
               AND split_part(event_type,'.',1)=ANY(${requested}::text[])
+              ${restricted ? Prisma.sql`AND ${conversationEventVisible}` : Prisma.empty}
             ORDER BY created_at,id LIMIT 200`;
             }
           );

@@ -15,7 +15,10 @@ const groups = (enabled: Parameters<typeof buildNavigation>[0]) =>
   Object.fromEntries(buildNavigation(enabled).map((group) => [group.id, group.pages.map((page) => page.href)]));
 
 const WHATSAPP_PAGES = ['/whatsapp/inbox', '/whatsapp/flows', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
-const INSTAGRAM_PAGES = ['/instagram/inbox', '/instagram/flows', '/instagram/automations', '/instagram/comments',
+const INSTAGRAM_PAGES = [
+  // Stage 5: Instagram opens on its home page.
+  '/instagram/home',
+  '/instagram/inbox', '/instagram/flows', '/instagram/automations', '/instagram/comments',
   '/instagram/conversation-starters', '/instagram/default-reply', '/instagram/quick-automations',
   // Stage 3
   '/instagram/ref-links', '/instagram/menu', '/instagram/insights'];
@@ -71,6 +74,9 @@ describe('navigation per channel set', () => {
       }
       for (const group of buildNavigation(BOTH))
         expect(groupsMessages[group.id], `${locale} Sidebar.groups.${group.id}`).toBeTypeOf('string');
+      // Stage 5 pages reached outside the sidebar still need a title.
+      for (const key of ['basics', 'sequences', 'subscription'])
+        expect(messages.Header[key], `${locale} Header.${key}`).toBeTypeOf('string');
       for (const key of ['needsAttention', 'addInstagram', 'upgrade'])
         expect(key === 'needsAttention' ? groupsMessages[key] : messages.Sidebar[key], `${locale} ${key}`).toBeTypeOf('string');
     }
@@ -129,6 +135,13 @@ describe('page titles', () => {
     expect(getPageTitleKey('/instagram/insights/flows')).toBe('insights');
     expect(getPageGroup('/instagram/insights')).toBe('instagram');
     expect(getPageTitleKey('/instagram/menuX')).toBe('dashboard');
+    // Stage 5
+    expect(getPageTitleKey('/instagram/home')).toBe('home');
+    expect(getPageTitleKey('/instagram/basics')).toBe('basics');
+    expect(getPageTitleKey('/instagram/sequences/abc')).toBe('sequences');
+    expect(getPageTitleKey('/instagram/subscription')).toBe('subscription');
+    for (const path of ['/instagram/home', '/instagram/basics', '/instagram/sequences', '/instagram/subscription'])
+      expect(getPageGroup(path), path).toBe('instagram');
     expect(getPageTitleKey('/inbox')).toBe('allInboxes');
     expect(getPageTitleKey('/forms/123')).toBe('forms');
     expect(getPageTitleKey('/analytics')).toBe('analytics');

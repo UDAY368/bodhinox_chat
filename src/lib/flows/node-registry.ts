@@ -8,7 +8,8 @@
 // catalogue is deferred (design §9).
 import type { FlowNodeType } from './types';
 
-export const NODE_CAPABILITIES = ['payments', 'appointments', 'ai', 'capi', 'commerce', 'meetings', 'shipping'] as const;
+// `sheets` (Stage 5): GOOGLE_SHEETS_ENABLED and an active Google Sheets connection.
+export const NODE_CAPABILITIES = ['payments', 'appointments', 'ai', 'capi', 'commerce', 'meetings', 'shipping', 'sheets'] as const;
 export type NodeCapability = (typeof NODE_CAPABILITIES)[number];
 /** Which provider-gated capabilities a workspace has configured. */
 export type WorkspaceCapabilities = Record<NodeCapability, boolean>;
@@ -57,6 +58,12 @@ export const NODE_REGISTRY = {
   ig_private_reply: { category: 'messaging' },
   send_card: { category: 'messaging' },
   send_gallery: { category: 'messaging' },
+  // Stage 5 logic steps (the engine runs them from 5B).
+  actions: { category: 'logic' },
+  randomizer: { category: 'logic' },
+  smart_delay: { category: 'logic' },
+  // Google Sheets needs GOOGLE_SHEETS_ENABLED and a connected Google account.
+  google_sheets: { category: 'logic', capability: 'sheets' },
   assign_agent: { category: 'flow' },
   connect_flow: { category: 'flow' },
   handoff: { category: 'flow' },

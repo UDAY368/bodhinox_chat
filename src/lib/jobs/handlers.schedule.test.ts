@@ -46,8 +46,10 @@ vi.mock('@/lib/ai/retention', () => ({ scheduleAiRetention: vi.fn(async () => {}
 vi.mock('@/lib/billing/reconciliation', () => ({ scheduleBillingReconcile: vi.fn(async () => {}) }));
 vi.mock('@/lib/jobs/usage-housekeeping', () => ({ scheduleUsageHousekeeping: vi.fn(async () => {}) }));
 vi.mock('@/lib/jobs/workspace-export', () => ({ scheduleWorkspaceExportSweeps: vi.fn(async () => {}) }));
+vi.mock('@/lib/sequences/jobs', () => ({ SEQUENCES_DUE_JOB: 'sequences.due', scheduleSequenceSweeps: vi.fn(async () => 0), handleSequenceJob: vi.fn() }));
 
 import { scheduleWork } from './handlers';
+import { scheduleSequenceSweeps } from '@/lib/sequences/jobs';
 
 const NOW = new Date('2026-10-15T09:10:20.000Z');
 const A = '11111111-1111-4111-8111-111111111111';
@@ -75,6 +77,11 @@ describe('[audit-50/56] scheduleWork catch-up', () => {
     ]);
     expect(h.enqueued.map((e) => e.options.tenantId)).toEqual([A, B]);
     expect(h.writes).toEqual([[new Date('2026-10-15T09:10:00.000Z')]]);
+  });
+
+  it('offers due sequence messages on every pass (Stage 5)', async () => {
+    await scheduleWork();
+    expect(scheduleSequenceSweeps).toHaveBeenCalled();
   });
 
   it('starts from the current minute with no stored state', async () => {

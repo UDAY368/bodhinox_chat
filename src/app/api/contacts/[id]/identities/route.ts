@@ -3,11 +3,14 @@
 //   token) and whether each can be unlinked. `enabled` says whether Instagram is
 //   on, so the contact page offers link/unlink only then. While off it lists
 //   nothing and makes no query. Members whose phone numbers are masked get the
-//   Instagram handle masked too.
+//   Instagram handle masked too. Stage 5: `facts` carries the stored Instagram facts
+//   (follows, verified, followers, subscription, last interaction, window) read from the
+//   database only (src/lib/contacts/instagram-facts.ts).
 import { NextResponse } from 'next/server';
 import { hasMinRole } from '@/lib/auth/roles';
 import { requireSession } from '@/lib/auth/session';
 import { listContactIdentities } from '@/lib/contacts/identity-link';
+import { loadInstagramFacts } from '@/lib/contacts/instagram-facts';
 import { instagramConfig } from '@/lib/instagram/config';
 import { NO_STORE } from '@/lib/instagram/http';
 import { maskIdentityRow, resolvePhoneMask } from '@/lib/inbox/masking-apply';
@@ -18,10 +21,13 @@ export async function GET(request: Request, context: IdentityRouteContext) {
     const { id } = await context.params;
     const ctx = await requireSession(request);
     if (!instagramConfig()) return NextResponse.json({ enabled: false, identities: [] }, { headers: NO_STORE });
+    const tenant = { accountId: ctx.accountId, userId: ctx.userId, role: ctx.role };
     const [identities, mask] = await Promise.all([
-      listContactIdentities({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role }, id),
-      resolvePhoneMask({ accountId: ctx.accountId, userId: ctx.userId, role: ctx.role }),
+      listContactIdentities(tenant, id),
+      resolvePhoneMask(tenant),
     ]);
+    // After the identity lookup, which answers an unknown or another workspace's contact 404.
+    const facts = await loadInstagramFacts(tenant, id);
     return NextResponse.json({
       enabled: true,
       can_link: hasMinRole(ctx.role, 'admin'),
@@ -34,6 +40,7 @@ export async function GET(request: Request, context: IdentityRouteContext) {
         created_at: identity.createdAt.toISOString(),
         can_unlink: identity.canUnlink,
       }, mask)),
+      facts,
     }, { headers: NO_STORE });
   } catch (error) {
     return identityRouteError(error);

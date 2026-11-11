@@ -324,6 +324,81 @@ export const SCHEDULED_REPLY_LIMITS = { contentChars: 4096, maxDaysAhead: { what
 export const SCHEDULED_REPLY_REASONS = ['window_closed', 'conversation_closed', 'channel_off', 'human_agent_off', 'send_failed'] as const;
 export type ScheduledReplyReason = (typeof SCHEDULED_REPLY_REASONS)[number];
 
+// ------------------------------------------------------------ Stage 5 (ManyChat parity)
+// Values here are mirrored by CHECK constraints in the 20261118* migrations;
+// src/lib/db/stage5-schema.test.ts keeps the two in step.
+
+/** workspace_inbox_settings.auto_assign_mode: `rules` is the routing that existed before Stage 5. */
+export const AUTO_ASSIGN_MODES = ['off', 'basic', 'rules'] as const;
+export type AutoAssignMode = (typeof AUTO_ASSIGN_MODES)[number];
+
+/** workspace_inbox_settings.agent_visibility: `all` is the behaviour before Stage 5. */
+export const AGENT_VISIBILITY_MODES = ['all', 'assigned_or_team'] as const;
+export type AgentVisibility = (typeof AGENT_VISIBILITY_MODES)[number];
+
+/** workspace_inbox_settings.agent_reply_pause_minutes bounds; NULL pauses until resumed (before Stage 5). */
+export const AGENT_REPLY_PAUSE_LIMITS = { minMinutes: 1, maxMinutes: 10080 } as const;
+
+/**
+ * Stage 5 inbox settings (workspace_inbox_settings). The defaults are the
+ * behaviour before Stage 5: an agent reply pauses automations until someone
+ * resumes them (NULL), routing rules assign conversations ('rules') and every
+ * agent sees every conversation ('all'). Kept here, not in
+ * src/lib/inbox/inbox-settings.ts, so client components can import the
+ * defaults without pulling the database layer into the browser bundle.
+ */
+export interface InboxBehaviourSettings {
+  agent_reply_pause_minutes: number | null;
+  auto_assign_mode: AutoAssignMode;
+  agent_visibility: AgentVisibility;
+}
+
+export const DEFAULT_INBOX_BEHAVIOUR: InboxBehaviourSettings = {
+  agent_reply_pause_minutes: null,
+  auto_assign_mode: 'rules',
+  agent_visibility: 'all',
+};
+
+/** The Stage 5 inbox setting keys; a PUT that leaves one out keeps the stored value. */
+export const INBOX_BEHAVIOUR_KEYS = ['agent_reply_pause_minutes', 'auto_assign_mode', 'agent_visibility'] as const satisfies
+  readonly (keyof InboxBehaviourSettings)[];
+
+/** Sizes the Stage 5 tables check. */
+export const STAGE5_LIMITS = {
+  folderNameChars: 60,
+  labelNameChars: 40,
+  labelsPerWorkspace: 20,
+  consentKeywords: 20,
+  consentKeywordChars: 50,
+  consentReplyChars: 1000,
+  conversionEventNameChars: 60,
+  trackedUrlChars: 2048,
+  sequenceNameChars: 100,
+  sequenceMessages: 50,
+  sequenceDelayMaxDays: 365,
+  googleEmailChars: 320,
+} as const;
+
+/** conversation_labels.color: a fixed palette (token names, not hex), so labels follow the theme. */
+export const LABEL_COLORS = ['gray', 'red', 'orange', 'amber', 'green', 'teal', 'blue', 'violet', 'pink'] as const;
+export type LabelColor = (typeof LABEL_COLORS)[number];
+
+/** google_sheets_connections.status. */
+export const GOOGLE_SHEETS_STATUSES = ['active', 'revoked', 'error'] as const;
+export type GoogleSheetsStatus = (typeof GOOGLE_SHEETS_STATUSES)[number];
+
+/** sequences.status: `active` sends due messages; `paused` holds subscriptions; `archived` stops them. */
+export const SEQUENCE_STATUSES = ['draft', 'active', 'paused', 'archived'] as const;
+export type SequenceStatus = (typeof SEQUENCE_STATUSES)[number];
+
+/** sequence_messages.delay_unit. */
+export const SEQUENCE_DELAY_UNITS = ['minutes', 'hours', 'days'] as const;
+export type SequenceDelayUnit = (typeof SEQUENCE_DELAY_UNITS)[number];
+
+/** sequence_subscriptions.status: active -> sending (the worker's claim) -> active | completed; any -> unsubscribed. */
+export const SEQUENCE_SUBSCRIPTION_STATUSES = ['active', 'sending', 'completed', 'unsubscribed'] as const;
+export type SequenceSubscriptionStatus = (typeof SEQUENCE_SUBSCRIPTION_STATUSES)[number];
+
 /** A scheduled_replies row as members read it. The content is staff text and is never logged. */
 export interface ScheduledReply {
   id: string;
@@ -769,7 +844,11 @@ export type AutomationTriggerType =
   | 'appointment_cancelled'
   | 'appointment_rescheduled'
   | 'appointment_completed'
-  | 'appointment_no_show';
+  | 'appointment_no_show'
+  /** Stage 5 (5D): a tag was removed from the contact; trigger_config.tag_id as tag_added. */
+  | 'tag_removed'
+  /** Stage 5 (5D): a contact field changed; trigger_config.field as UpdateContactFieldStepConfig.field. */
+  | 'field_changed';
 
 export type AutomationStepType =
   | 'send_message'
@@ -786,7 +865,23 @@ export type AutomationStepType =
   | 'send_webhook'
   | 'close_conversation'
   /** Phase 12: an in-app notice to the assignee or the admins (no message content). */
-  | 'notify_team';
+  | 'notify_team'
+  /** Stage 5 (5D): starts an active canvas flow for the contact (startFlowById). */
+  | 'start_flow';
+
+/** The automation trigger and step types added in Stage 5 (activation refused until 5D implements them). */
+export const STAGE5_AUTOMATION_TRIGGERS = ['tag_removed', 'field_changed'] as const;
+export const STAGE5_AUTOMATION_STEPS = ['start_flow'] as const;
+
+/** `field_changed`: which field, as UpdateContactFieldStepConfig.field (`email`, `custom:<id>`, …). */
+export interface FieldChangedTriggerConfig {
+  field: string;
+}
+
+/** `start_flow`: the canvas flow to start (an active flow of the automation's channel). */
+export interface StartFlowStepConfig {
+  flow_id: string;
+}
 
 export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 
@@ -833,6 +928,7 @@ export type AutomationTriggerConfig =
   | TimeBasedTriggerConfig
   | InteractiveReplyTriggerConfig
   | AdClickAutomationTriggerConfig
+  | FieldChangedTriggerConfig
   | Record<string, unknown>;
 
 export interface SendMessageStepConfig {
@@ -927,6 +1023,7 @@ export type AutomationStepConfig =
   | WaitStepConfig
   | ConditionStepConfig
   | SendWebhookStepConfig
+  | StartFlowStepConfig
   | Record<string, never>
   | Record<string, unknown>;
 

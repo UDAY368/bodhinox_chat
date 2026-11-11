@@ -7,6 +7,11 @@ vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: s
     maybeSingle: async () => (table === 'messages' && h.messageError ? { data: null, error: { message: 'connection reset' } }
       : { data: table === 'messages' ? h.message : table === 'conversations' && h.conversation ? h.conversation : h.contact, error: null }), then: (resolve: (r: { error: null }) => unknown) => resolve({ error: null }) }; return b;
 } }) }));
+// Stage 5: Instagram consent reads the workspace's own keywords (none here) and records STOP per channel.
+vi.mock('@/lib/contacts/channel-consent', async (original) => {
+  const actual = await original<typeof import('@/lib/contacts/channel-consent')>();
+  return { ...actual, applyInstagramConsent: vi.fn(), workerConsentSettings: async () => ({ ...actual.DEFAULT_CONSENT_SETTINGS }) };
+});
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: h.explicit }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: h.resume, runAutomationsForTrigger: h.automations }));

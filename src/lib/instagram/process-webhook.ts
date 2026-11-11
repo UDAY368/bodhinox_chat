@@ -47,8 +47,9 @@ import { lockInstagramSender } from '@/lib/contacts/identity-link';
 import { INSTAGRAM_WEBHOOK_PROVIDER } from './webhook';
 import { commentMatchesTrigger, rankCommentFlows, type CommentFlowCandidate, type PostMatch } from './comment-matching';
 import { liveCommentMatches } from '@/lib/flows/triggers';
+import { effectiveTriggers } from '@/lib/flows/flow-triggers';
 import { normalizeInboundRef } from './ref-links';
-import type { IgCommentTriggerConfig, IgLiveCommentTriggerConfig } from '@/lib/flows/types';
+import type { FlowRow, IgCommentTriggerConfig, IgLiveCommentTriggerConfig } from '@/lib/flows/types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const IG_ID = /^\d{1,32}$/;
@@ -542,8 +543,56 @@ async function senderBlocked(tx: TenantTransaction, owner: Owner, igsid: string)
   return row?.blocked === true;
 }
 
-/** A live ig_comment flow the comment fits; `check`: only if its post is the account's next post (the job decides). */
-export interface CommentFlowChoice { flowId: string; check: boolean }
+/**
+ * A live ig_comment flow the comment fits; `check`: only if its post is the
+ * account's next post (the job decides). `trigger` (Stage 5): the index, in
+ * effectiveTriggers order, of the flow's comment trigger that matched (a flow
+ * may also listen on extra triggers); absent on jobs queued before Stage 5,
+ * which mean the primary trigger.
+ */
+export interface CommentFlowChoice { flowId: string; check: boolean; trigger?: number }
+
+/** A flow that may take a comment: the active flows' published triggers, and drafts tested by this commenter (Stage 5). */
+interface CommentFlowRow {
+  id: string;
+  created_at: Date;
+  status: FlowRow['status'];
+  trigger_type: string;
+  trigger_config: unknown;
+  extra_triggers: unknown;
+}
+
+/**
+ * The flows that listen on `triggerType`: each active flow on its published
+ * version (primary trigger or one of its extra triggers, Stage 5), plus the
+ * drafts whose test usernames include this commenter's stored username on
+ * this account (drafts first, as for messages). This workspace only.
+ */
+async function commentFlowRows(tx: TenantTransaction, owner: Owner, triggerType: 'ig_comment' | 'ig_live_comment',
+  scopes: readonly string[], igsid: string): Promise<CommentFlowRow[]> {
+  const extra = JSON.stringify([{ trigger_type: triggerType }]);
+  return tx.$queryRaw<CommentFlowRow[]>`
+    SELECT f.id::text AS id, f.created_at, f.status, v.trigger_type, v.trigger_config, v.extra_triggers
+    FROM flows f JOIN flow_versions v ON v.account_id=f.account_id AND v.id=f.published_version_id AND v.flow_id=f.id
+    WHERE f.account_id=${owner.accountId}::uuid AND f.status='active'
+      AND (v.trigger_type=${triggerType} OR v.extra_triggers @> ${extra}::jsonb)
+      AND v.channel_scope = ANY(${[...scopes]}::text[])
+    UNION ALL
+    SELECT f.id::text AS id, f.created_at, f.status, f.trigger_type, f.trigger_config, f.extra_triggers
+    FROM flows f JOIN contact_channel_identities i ON i.account_id=f.account_id
+      AND i.instagram_account_id=${owner.instagramAccountId}::uuid AND i.external_id=${igsid}
+    WHERE f.account_id=${owner.accountId}::uuid AND f.status='draft' AND f.channel_scope='instagram'
+      AND cardinality(f.test_usernames)>0 AND ltrim(lower(btrim(i.username)), '@') = ANY(f.test_usernames)
+      AND (f.trigger_type=${triggerType} OR f.extra_triggers @> ${extra}::jsonb)
+    -- status DESC: 'draft' sorts before 'active', so a tester's draft comes first.
+    ORDER BY 3 DESC, 2, 1 LIMIT 120`;
+}
+
+/** The flow's triggers of one kind, with their index in effectiveTriggers order. */
+function triggersOfType<T>(flow: CommentFlowRow, triggerType: string): Array<{ index: number; config: T }> {
+  return effectiveTriggers(flow).flatMap((trigger, index) => (trigger.trigger_type === triggerType
+    ? [{ index, config: trigger.config as unknown as T }] : []));
+}
 
 /**
  * What the live ig_comment flows make of a comment. `choices`: the flows it may
@@ -559,12 +608,7 @@ export interface CommentFlowOffer { choices: CommentFlowChoice[]; ruleSkipped: b
  * comment on the post: this account's comment events are the record of that.
  */
 async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: ParsedComment, eventId: string): Promise<CommentFlowOffer> {
-  const flows = await tx.$queryRaw<{ id: string; created_at: Date; trigger_config: unknown }[]>`
-    SELECT f.id::text AS id, f.created_at, v.trigger_config
-    FROM flows f JOIN flow_versions v ON v.account_id=f.account_id AND v.id=f.published_version_id AND v.flow_id=f.id
-    WHERE f.account_id=${owner.accountId}::uuid AND f.status='active' AND v.trigger_type='ig_comment'
-      AND v.channel_scope IN ('instagram','any')
-    ORDER BY f.created_at, f.id LIMIT 100`;
+  const flows = await commentFlowRows(tx, owner, 'ig_comment', ['instagram', 'any'], comment.fromIgsid!);
   if (!flows.length) return { choices: [], ruleSkipped: false };
   if (comment.mediaId) {
     const [earlier] = await tx.$queryRaw<{ found: boolean; flow_taken: boolean }[]>`SELECT
@@ -578,23 +622,31 @@ async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: 
     if (earlier?.found) return { choices: [], ruleSkipped: earlier.flow_taken === true };
   }
   const facts = { instagramAccountId: owner.instagramAccountId, mediaId: comment.mediaId, text: comment.text };
-  const candidates: Array<CommentFlowCandidate & { match: PostMatch }> = [];
+  const candidates: Array<CommentFlowCandidate & { match: PostMatch; trigger: number; draft: boolean }> = [];
   for (const flow of flows) {
-    const config = (flow.trigger_config && typeof flow.trigger_config === 'object' ? flow.trigger_config : {}) as IgCommentTriggerConfig;
-    let resolvedNext: string | null = null;
-    if (config.post_scope === 'next' && !config.resolved_media_id && typeof config.next_after === 'string'
-      && Number.isFinite(Date.parse(config.next_after))) {
-      // The next post is the one the flow's first comment run started on (that run carries the media id).
-      const [first] = await tx.$queryRaw<{ media_id: string | null }[]>`SELECT vars->>'ig_media_id' AS media_id
-        FROM flow_runs WHERE account_id=${owner.accountId}::uuid AND flow_id=${flow.id}::uuid
-          AND started_at >= ${new Date(config.next_after)} AND vars->>'ig_media_id' IS NOT NULL
-        ORDER BY started_at, id LIMIT 1`;
-      resolvedNext = first?.media_id ?? null;
+    // Stage 5: each of the flow's ig_comment triggers (primary or extra); the best match speaks for the flow.
+    let best: (CommentFlowCandidate & { match: PostMatch; trigger: number; draft: boolean }) | null = null;
+    for (const { index, config } of triggersOfType<IgCommentTriggerConfig>(flow, 'ig_comment')) {
+      let resolvedNext: string | null = null;
+      if (config.post_scope === 'next' && !config.resolved_media_id && typeof config.next_after === 'string'
+        && Number.isFinite(Date.parse(config.next_after))) {
+        // The next post is the one the flow's first comment run started on (that run carries the media id).
+        const [first] = await tx.$queryRaw<{ media_id: string | null }[]>`SELECT vars->>'ig_media_id' AS media_id
+          FROM flow_runs WHERE account_id=${owner.accountId}::uuid AND flow_id=${flow.id}::uuid
+            AND started_at >= ${new Date(config.next_after)} AND vars->>'ig_media_id' IS NOT NULL
+          ORDER BY started_at, id LIMIT 1`;
+        resolvedNext = first?.media_id ?? null;
+      }
+      const match = commentMatchesTrigger(config, facts, resolvedNext);
+      if (match === 'no' || (best && (best.match === 'yes' || match === 'check'))) continue;
+      best = { flowId: flow.id, createdAt: new Date(flow.created_at).toISOString(), config, match, trigger: index, draft: flow.status === 'draft' };
     }
-    const match = commentMatchesTrigger(config, facts, resolvedNext);
-    if (match !== 'no') candidates.push({ flowId: flow.id, createdAt: new Date(flow.created_at).toISOString(), config, match });
+    if (best) candidates.push(best);
   }
-  return { choices: rankCommentFlows(candidates).map((c) => ({ flowId: c.flowId, check: c.match === 'check' })), ruleSkipped: false };
+  // A draft being tested comes first for its tester (as with messages, triggers.ts byPrecedence).
+  const ranked = rankCommentFlows(candidates);
+  const ordered = [...ranked.filter((c) => c.draft), ...ranked.filter((c) => !c.draft)];
+  return { choices: ordered.map((c) => ({ flowId: c.flowId, check: c.match === 'check', ...(c.trigger ? { trigger: c.trigger } : {}) })), ruleSkipped: false };
 }
 
 /**
@@ -606,16 +658,13 @@ async function commentFlowChoices(tx: TenantTransaction, owner: Owner, comment: 
  * published version of this workspace's flows only. No legacy rule applies.
  */
 async function liveCommentFlowChoices(tx: TenantTransaction, owner: Owner, comment: ParsedComment, eventId: string): Promise<CommentFlowOffer> {
-  const flows = await tx.$queryRaw<{ id: string; created_at: Date; trigger_config: unknown }[]>`
-    SELECT f.id::text AS id, f.created_at, v.trigger_config
-    FROM flows f JOIN flow_versions v ON v.account_id=f.account_id AND v.id=f.published_version_id AND v.flow_id=f.id
-    WHERE f.account_id=${owner.accountId}::uuid AND f.status='active' AND v.trigger_type='ig_live_comment'
-      AND v.channel_scope='instagram'
-    ORDER BY f.created_at, f.id LIMIT 100`;
+  const flows = await commentFlowRows(tx, owner, 'ig_live_comment', ['instagram'], comment.fromIgsid!);
   if (!flows.length) return { choices: [], ruleSkipped: false };
-  const matching = flows.filter((flow) => {
-    const config = (flow.trigger_config && typeof flow.trigger_config === 'object' ? flow.trigger_config : {}) as IgLiveCommentTriggerConfig;
-    return liveCommentMatches(config, { instagramAccountId: owner.instagramAccountId, text: comment.text });
+  // Stage 5: the first of the flow's ig_live_comment triggers (primary or extra) that the comment fits.
+  const matching = flows.flatMap((flow) => {
+    const hit = triggersOfType<IgLiveCommentTriggerConfig>(flow, 'ig_live_comment')
+      .find(({ config }) => liveCommentMatches(config, { instagramAccountId: owner.instagramAccountId, text: comment.text }));
+    return hit ? [{ id: flow.id, trigger: hit.index }] : [];
   });
   if (!matching.length) return { choices: [], ruleSkipped: false };
   if (comment.mediaId) {
@@ -625,7 +674,7 @@ async function liveCommentFlowChoices(tx: TenantTransaction, owner: Owner, comme
         AND (flow_run_id IS NOT NULL OR private_reply_status IN ('queued','sent','unknown'))) AS taken`;
     if (earlier?.taken) return { choices: [], ruleSkipped: false };
   }
-  return { choices: matching.map((flow) => ({ flowId: flow.id, check: false })), ruleSkipped: false };
+  return { choices: matching.map((flow) => ({ flowId: flow.id, check: false, ...(flow.trigger ? { trigger: flow.trigger } : {}) })), ruleSkipped: false };
 }
 
 /**

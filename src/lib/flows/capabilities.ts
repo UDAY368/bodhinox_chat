@@ -7,6 +7,7 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { shiprocketDisabled } from '@/lib/fulfilment/shiprocket-client';
 import { zoomEnabled } from '@/lib/meetings/config';
+import { googleSheetsEnabled } from '@/lib/integrations/google-sheets/config';
 import type { WorkspaceCapabilities } from './node-registry';
 
 interface CapabilityRow {
@@ -17,6 +18,7 @@ interface CapabilityRow {
   commerce: boolean;
   meetings: boolean;
   shipping: boolean;
+  sheets: boolean;
 }
 
 /**
@@ -35,7 +37,8 @@ export async function readWorkspaceCapabilities(tx: TenantTransaction, accountId
       AND capi_enabled AND capi_dataset_id IS NOT NULL) AS capi,
     EXISTS (SELECT 1 FROM commerce_settings WHERE account_id=${accountId}::uuid AND checkout_enabled) AS commerce,
     EXISTS (SELECT 1 FROM meeting_connections WHERE account_id=${accountId}::uuid AND status='active') AS meetings,
-    EXISTS (SELECT 1 FROM courier_connections WHERE account_id=${accountId}::uuid AND status='active') AS shipping`);
+    EXISTS (SELECT 1 FROM courier_connections WHERE account_id=${accountId}::uuid AND status='active') AS shipping,
+    EXISTS (SELECT 1 FROM google_sheets_connections WHERE account_id=${accountId}::uuid AND status='active') AS sheets`);
   return {
     payments: row?.payments === true,
     appointments: row?.appointments === true,
@@ -44,6 +47,8 @@ export async function readWorkspaceCapabilities(tx: TenantTransaction, accountId
     commerce: row?.commerce === true,
     meetings: zoomEnabled(env) && row?.meetings === true,
     shipping: !shiprocketDisabled(env) && row?.shipping === true,
+    // Stage 5: the flag and an active Google connection (5G connects it).
+    sheets: googleSheetsEnabled(env) && row?.sheets === true,
   };
 }
 

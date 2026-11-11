@@ -14,7 +14,8 @@ import { getT } from "@/lib/i18n/translate";
 import { INSTAGRAM_LIMITS, charLength, utf8Bytes, validCommentReply, validHttpsUrl } from "@/lib/instagram/graph-limits";
 import { scopeIncludes } from "@/lib/channels/capabilities";
 import { isRefKey } from "@/lib/instagram/ref-links";
-import { IG_PROFILE_FACTS, IG_TRIGGER_LIMITS, startsFromComment, type FlowChannelScope, type FlowTriggerType } from "./types";
+import { FLOW_TRIGGER_LIMITS, IG_PROFILE_FACTS, IG_TRIGGER_LIMITS, startsFromComment, type FlowChannelScope, type FlowTriggerType } from "./types";
+import { effectiveTriggerTypes } from "./flow-triggers";
 
 const tTriggers = getT("Flows.triggers");
 const tNodes = getT("Flows.nodes");
@@ -43,6 +44,8 @@ interface NodeInput {
 const NO_DM_STEPS: ReadonlySet<string> = new Set([
   "start", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "connect_flow", "conversion_event",
   "handoff", "end", "ig_comment_reply", "ig_private_reply",
+  // Stage 5 logic steps send nothing themselves (the step after a smart delay is checked when it runs).
+  "actions", "randomizer", "smart_delay", "google_sheets",
 ]);
 export function needsMessagingWindow(nodeType: string): boolean {
   return !NO_DM_STEPS.has(nodeType);
@@ -51,6 +54,8 @@ export function needsMessagingWindow(nodeType: string): boolean {
 /** Steps a comment flow may run before its private reply. */
 const BEFORE_PRIVATE_REPLY: ReadonlySet<string> = new Set([
   "start", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "ig_comment_reply",
+  // Stage 5: logic that sends nothing (a smart delay is not one of them: use the trigger's reply delay).
+  "actions", "randomizer", "google_sheets",
 ]);
 
 const IG_ID = /^\d{1,32}$/;
@@ -68,6 +73,12 @@ const keywordsFit = (value: unknown): boolean => value === undefined || (stringL
 export function igTriggerIssues(triggerType: FlowTriggerType, config: Record<string, unknown>): IgIssue[] {
   const issues: IgIssue[] = [];
   const at = (field: string, message: string) => issues.push({ severity: "error", scope: "trigger", field: `trigger_config.${field}`, message });
+  // Stage 5: "wait before replying" on comment triggers, 0 to 10 minutes (whole seconds).
+  if ((triggerType === "ig_comment" || triggerType === "ig_live_comment") && config.reply_delay_seconds !== undefined) {
+    const delay = config.reply_delay_seconds;
+    if (typeof delay !== "number" || !Number.isInteger(delay) || delay < 0 || delay > FLOW_TRIGGER_LIMITS.replyDelaySecondsMax)
+      at("reply_delay_seconds", tTriggers("replyDelay.invalid"));
+  }
   if (triggerType === "ig_comment") {
     if (config.instagram_account_id !== undefined && (typeof config.instagram_account_id !== "string" || !UUID.test(config.instagram_account_id)))
       at("instagram_account_id", tTriggers("igComment.badAccount"));
@@ -194,6 +205,11 @@ function cardIssues(node: NodeInput, knownKeys: ReadonlySet<string>): IgIssue[] 
       const titled = typeof b.title === "string" && b.title.trim() !== "" && charLength(b.title) <= INSTAGRAM_LIMITS.buttonTitleChars;
       if (b.type === "web_url") {
         if (!titled || !validHttpsUrl(b.url)) at(field, tNodes("card.buttonInvalid", { max: INSTAGRAM_LIMITS.buttonTitleChars }));
+      } else if (b.type === "buy") {
+        // Stage 5: a checkout link for this amount (lib/flows/buy-button.ts); the payments capability is checked on publish.
+        if (!titled || typeof b.amount_minor !== "number" || !Number.isInteger(b.amount_minor) || b.amount_minor <= 0
+          || b.amount_minor > 100_000_000 || typeof b.currency !== "string" || !/^[A-Z]{3}$/.test(b.currency))
+          at(field, tNodes("card.buttonInvalid", { max: INSTAGRAM_LIMITS.buttonTitleChars }));
       } else if (b.type === "postback") {
         const id = typeof b.reply_id === "string" ? b.reply_id : "";
         if (!titled || !id.trim() || id.length > INSTAGRAM_LIMITS.postbackPayloadChars) at(field, tNodes("card.buttonInvalid", { max: INSTAGRAM_LIMITS.buttonTitleChars }));
@@ -274,13 +290,18 @@ type Successors = (node: NodeInput) => string[];
  * flows; and the comment-flow private-reply shape described at the top.
  */
 export function igFlowIssues(
-  flow: { trigger_type: FlowTriggerType; entry_node_id: string | null; channel_scope?: FlowChannelScope | null },
+  flow: { trigger_type: FlowTriggerType; trigger_config?: unknown; extra_triggers?: unknown; entry_node_id: string | null; channel_scope?: FlowChannelScope | null },
   nodes: readonly NodeInput[],
   successors: Successors,
 ): IgIssue[] {
   const issues: IgIssue[] = [];
   const onWhatsApp = scopeIncludes(flow.channel_scope, "whatsapp");
-  const comment = startsFromComment(flow.trigger_type);
+  // Stage 5: a flow may also start from extra triggers. Any comment trigger makes it a comment flow
+  // (its comment runs still open with the private reply); a run that starts from a message instead
+  // sends the private reply as an ordinary message and skips the public comment reply (engine.ts).
+  const types = effectiveTriggerTypes({ trigger_type: flow.trigger_type, trigger_config: flow.trigger_config ?? {}, extra_triggers: flow.extra_triggers });
+  const comment = types.some((type) => startsFromComment(type));
+  const postComment = types.includes("ig_comment");
   for (const node of nodes) {
     const at = (field: string, message: string) => issues.push({ severity: "error", scope: "node", node_key: node.node_key, field, message });
     if (onWhatsApp && node.node_type === "send_buttons" && Array.isArray(node.config.link_buttons) && node.config.link_buttons.length)
@@ -295,7 +316,7 @@ export function igFlowIssues(
       });
     }
     // A Live comment gets no public reply (Stage 3): that step stays in post-comment flows.
-    if (node.node_type === "ig_comment_reply" && flow.trigger_type !== "ig_comment") at("node_type", tNodes("igCommentReply.onlyCommentFlows"));
+    if (node.node_type === "ig_comment_reply" && !postComment) at("node_type", tNodes("igCommentReply.onlyCommentFlows"));
     else if (!comment && node.node_type === "ig_private_reply") at("node_type", tNodes("igPrivateReply.firstOnly"));
   }
   if (!comment || !flow.entry_node_id) return issues;

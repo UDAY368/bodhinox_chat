@@ -41,8 +41,9 @@ test('an agent starts from a gallery template, previews it, duplicates it and fi
   await page.goto('/flows');
   await page.getByPlaceholder('Search flows').fill('Welcome menu');
   // The search also matches Journey menu flows (their description says "welcome menu"), so duplicate the card named Welcome menu.
-  const welcome = page.locator('div').filter({ has: page.getByRole('heading', { name: 'Welcome menu', exact: true }) }).filter({ has: page.getByRole('button', { name: 'Duplicate' }) }).last();
-  await welcome.getByRole('button', { name: 'Duplicate' }).click();
+  // Each row's actions are in its "More actions" menu (Stage 5 list rows).
+  await page.getByRole('button', { name: 'More actions: Welcome menu', exact: true }).last().click();
+  await page.getByRole('menuitem', { name: 'Duplicate' }).click();
   await expect(page).toHaveURL(/\/flows\/[0-9a-f-]{36}/);
   await page.goto('/flows');
   await page.getByPlaceholder('Search flows').fill('Copy of Welcome menu');

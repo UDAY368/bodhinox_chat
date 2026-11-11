@@ -156,6 +156,54 @@ export function useAssignableMembers(): FlowMember[] {
   return useLoaded(loadMembers);
 }
 
+/** A named item (segment, conversion event type, sequence) loaded from an API list. */
+export interface NamedItem {
+  id: string;
+  name: string;
+}
+
+/** Reads `[{id, name}]` from the first array under one of `keys` in a JSON body. */
+export function namedItems(json: unknown, keys: readonly string[]): NamedItem[] {
+  const body = json && typeof json === "object" ? (json as Record<string, unknown>) : {};
+  const list = keys.map((k) => body[k]).find(Array.isArray) as unknown[] | undefined;
+  return (list ?? []).filter((item): item is NamedItem => {
+    const i = item as Record<string, unknown> | null;
+    return !!i && typeof i.id === "string" && typeof i.name === "string";
+  }).map(({ id, name }) => ({ id, name }));
+}
+
+function loadNamed(url: string, keys: readonly string[]) {
+  return async (): Promise<NamedItem[]> => {
+    try {
+      const res = await authFetch(url, { cache: "no-store" });
+      return res.ok ? namedItems(await res.json(), keys) : [];
+    } catch {
+      return [];
+    }
+  };
+}
+
+const loadSegments = loadNamed("/api/segments", ["segments"]);
+// Stage 5 lists owned by 5F (conversion event types) and 5H (sequences); empty until those routes exist.
+const loadConversionEventTypes = async () =>
+  (await loadNamed("/api/account/conversion-events", ["event_types", "conversion_events", "types"])()).filter(Boolean);
+const loadSequences = loadNamed("/api/sequences", ["sequences"]);
+
+/** Saved segments (tenant-scoped by the segments route). */
+export function useSegments(): NamedItem[] {
+  return useLoaded(loadSegments);
+}
+
+/** The workspace's conversion event types (Settings › Conversion events). */
+export function useConversionEventTypes(): NamedItem[] {
+  return useLoaded(loadConversionEventTypes);
+}
+
+/** The workspace's sequences (Instagram). */
+export function useSequences(): NamedItem[] {
+  return useLoaded(loadSequences);
+}
+
 export interface PublishedForm {
   id: string;
   name: string;

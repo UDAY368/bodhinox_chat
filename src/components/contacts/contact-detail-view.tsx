@@ -47,6 +47,7 @@ import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { MASK_CHAR } from '@/lib/inbox/masking';
 import { ContactIdentities } from './contact-identities';
+import { InstagramFacts } from './instagram-facts';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -598,6 +599,7 @@ export function ContactDetailView({
                   </Button>
                   {/* Phase 11: Instagram identities (shown only while Instagram is on). */}
                   {contact && <ContactIdentities contactId={contact.id} onChanged={onUpdated} />}
+                  {contact && <InstagramFacts contactId={contact.id} className="border-t border-border pt-3" />}
                 </div>
               </TabsContent>
 

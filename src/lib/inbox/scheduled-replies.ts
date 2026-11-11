@@ -25,6 +25,7 @@
 //   staff-written message. WhatsApp: text, only inside the 24-hour window when
 //   it goes out (otherwise skipped; a template is sent by hand).
 // The text is staff-written and is never logged.
+import { conversationVisible } from '@/lib/inbox/visibility-sql';
 import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { toErrorResponse } from '@/lib/auth/account';
@@ -58,6 +59,7 @@ import {
 } from '@/types';
 
 import { SCHEDULED_REPLIES_JOB } from './follow-up-jobs';
+import { pauseForAgentReply } from './automation-pause';
 export { SCHEDULED_REPLIES_JOB };
 export const SCHEDULED_REPLY_WRITE_LIMIT = { limit: 30, windowMs: 60_000 };
 /** A claimed reply whose worker vanished is taken again after this long (the intent still prevents a second send). */
@@ -197,7 +199,8 @@ function assertSchedulable(channel: Channel, content: string, sendAt: Date, now:
 /** The conversation's channel as this member sees it (RLS), or not-found. */
 async function conversationChannel(me: Member, conversationId: string): Promise<Channel> {
   const rows = await withTenant(me, (tx) => tx.$queryRaw<{ channel: string }[]>`
-    SELECT channel FROM conversations WHERE account_id=${me.accountId}::uuid AND id=${conversationId}::uuid`);
+    SELECT channel FROM conversations WHERE account_id=${me.accountId}::uuid AND id=${conversationId}::uuid
+      AND ${conversationVisible('conversations')}`);
   if (!rows.length) throw new ScheduledReplyError('notFound', 404);
   return rows[0].channel === 'instagram' ? 'instagram' : 'whatsapp';
 }
@@ -406,8 +409,8 @@ async function claimNext(accountId: string, now: Date): Promise<Claim> {
     await tx.$executeRaw`UPDATE scheduled_replies SET status='sending', claimed_at=${now}, attempts=attempts+1, message_id=${messageRowId}::uuid
       WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid AND status IN ('pending','sending')`;
     // The staff member stepping in: automated replies pause before the send, as on the composer.
-    await tx.$executeRaw`UPDATE conversations SET bot_paused=true, updated_at=now()
-      WHERE account_id=${accountId}::uuid AND id=${row.conversation_id}::uuid`;
+    // Stage 5: for the workspace's agent_reply_pause_minutes, or until resumed when unset.
+    await pauseForAgentReply(tx, accountId, row.conversation_id, row.created_by_user_id);
     return {
       kind: 'send',
       claimed: {

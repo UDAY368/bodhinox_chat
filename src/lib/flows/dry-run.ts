@@ -23,7 +23,7 @@ import { Prisma } from '@prisma/client';
 import { withTenant, type TenantContext } from '@/lib/db/tenant';
 import { withDryRun } from '@/lib/runtime/dry-run-guard';
 import { loadPhoneMask, maskContactRow } from '@/lib/inbox/masking-apply';
-import { fillWorkspace } from '@/lib/workspace/attributes';
+import { fillPlaceholders } from './placeholders';
 import type { BuilderNode } from '@/components/flows/shared';
 import { loadWorkspaceCapabilities } from './capabilities';
 import { clockTimezone, conditionRules, ruleHolds } from './conditions';
@@ -105,6 +105,8 @@ export interface DryRunGraph {
     name: string;
     trigger_type: FlowRow['trigger_type'];
     trigger_config: Record<string, unknown>;
+    /** Stage 5: further triggers (checked by the validator; the walk starts at the entry either way). */
+    extra_triggers?: unknown;
     entry_node_id: string | null;
     fallback_policy: unknown;
     channel_scope: FlowChannelScope;
@@ -178,11 +180,16 @@ export const SECRET_PLACEHOLDER = '[secret]';
  * {{vars.*}}, which are customer input and never expand placeholders), except
  * that a secret attribute shows "[secret]" instead of its (never resolved) value.
  */
-export function dryRunInterpolate(text: string, vars: Readonly<Record<string, string>>, workspace: DryRunWorkspace): string {
+export function dryRunInterpolate(text: string, vars: Readonly<Record<string, string>>, workspace: DryRunWorkspace,
+  /** Stage 5: the sample contact, for {{contact.*}} and {{custom.<id>}} (masked as shown to the member). */
+  contact: DryRunContact | null = null): string {
   const withSecrets = text.replace(/\{\{\s*workspace\.([a-z][a-z0-9_]*)\s*\}\}/g, (match, key: string) =>
     (workspace.secretKeys.has(key) ? SECRET_PLACEHOLDER : match));
-  return fillWorkspace(withSecrets, workspace.values).replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key: string) =>
-    (Object.hasOwn(vars, key) ? vars[key] : ''));
+  // The engine's one-pass fill (placeholders.ts): captured values never expand placeholders.
+  return fillPlaceholders(withSecrets, vars, workspace.values, contact ? {
+    fields: { name: contact.name, email: contact.email, phone: contact.phone, company: contact.company },
+    custom: Object.fromEntries(contact.fields),
+  } : {});
 }
 
 const CONTACT_FIELDS = new Set(['name', 'email', 'phone', 'company']);
@@ -305,7 +312,7 @@ export interface SimulateContext {
 /** Walks the graph through the inputs. Pure: no I/O. */
 export function simulateDryRun(graph: DryRunGraph, request: Pick<DryRunRequest, 'inputs' | 'apiPorts'>, ctx: SimulateContext): DryRunResult {
   const options: PreviewOptions = {
-    interpolate: (text, vars) => dryRunInterpolate(text, vars, ctx.workspace),
+    interpolate: (text, vars) => dryRunInterpolate(text, vars, ctx.workspace, ctx.contact),
     apiPort: (nodeKey) => (Object.hasOwn(request.apiPorts, nodeKey) ? request.apiPorts[nodeKey] : undefined),
     condition: (node, vars) => dryRunCondition(node, vars, ctx.contact, ctx.now),
   };
@@ -329,6 +336,7 @@ export function simulateDryRun(graph: DryRunGraph, request: Pick<DryRunRequest, 
   }
   const issues = validateFlowForActivation(
     { id: graph.flow.id, name: graph.flow.name, trigger_type: graph.flow.trigger_type, trigger_config: graph.flow.trigger_config,
+      extra_triggers: graph.flow.extra_triggers ?? [],
       entry_node_id: graph.flow.entry_node_id, fallback_policy: graph.flow.fallback_policy, channel_scope: graph.flow.channel_scope },
     graph.nodes,
     { caps: ctx.caps },
@@ -363,6 +371,7 @@ interface FlowDbRow {
   name: string;
   trigger_type: FlowRow['trigger_type'];
   trigger_config: Record<string, unknown> | null;
+  extra_triggers: unknown;
   entry_node_id: string | null;
   fallback_policy: unknown;
   channel_scope: FlowChannelScope | null;
@@ -377,7 +386,7 @@ interface Loaded {
 
 async function loadDryRun(ctx: TenantContext, flowId: string, request: DryRunRequest): Promise<Loaded> {
   return withTenant(ctx, async (tx) => {
-    const flows = await tx.$queryRaw<FlowDbRow[]>(Prisma.sql`SELECT id::text, name, trigger_type, trigger_config, entry_node_id,
+    const flows = await tx.$queryRaw<FlowDbRow[]>(Prisma.sql`SELECT id::text, name, trigger_type, trigger_config, extra_triggers, entry_node_id,
         fallback_policy, channel_scope, published_version_id::text
       FROM flows WHERE account_id=${ctx.accountId}::uuid AND id=${flowId}::uuid`);
     const flow = flows[0];
@@ -389,7 +398,8 @@ async function loadDryRun(ctx: TenantContext, flowId: string, request: DryRunReq
       const nodes = await tx.$queryRaw<BuilderNode[]>(Prisma.sql`SELECT node_key, node_type, config, position_x, position_y
         FROM flow_nodes WHERE account_id=${ctx.accountId}::uuid AND flow_id=${flowId}::uuid ORDER BY node_key`);
       graph = {
-        flow: { ...base, trigger_type: flow.trigger_type, trigger_config: flow.trigger_config ?? {}, entry_node_id: flow.entry_node_id,
+        flow: { ...base, trigger_type: flow.trigger_type, trigger_config: flow.trigger_config ?? {}, extra_triggers: flow.extra_triggers ?? [],
+          entry_node_id: flow.entry_node_id,
           fallback_policy: flow.fallback_policy, channel_scope: flow.channel_scope ?? 'whatsapp' },
         nodes,
         version: null,
@@ -401,7 +411,8 @@ async function loadDryRun(ctx: TenantContext, flowId: string, request: DryRunReq
       // A version of another flow is as missing as one of another workspace.
       if (!version || version.flow_id !== flow.id) throw new DryRunError('not_found');
       graph = {
-        flow: { ...base, trigger_type: version.trigger_type, trigger_config: version.trigger_config ?? {}, entry_node_id: version.entry_node_id,
+        flow: { ...base, trigger_type: version.trigger_type, trigger_config: version.trigger_config ?? {}, extra_triggers: version.extra_triggers ?? [],
+          entry_node_id: version.entry_node_id,
           fallback_policy: version.fallback_policy, channel_scope: version.channel_scope },
         nodes: version.nodes as BuilderNode[],
         version: version.version,

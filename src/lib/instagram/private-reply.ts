@@ -30,7 +30,8 @@ import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { dispatchOnce, UncertainDispatchError } from '@/lib/jobs/dispatch';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
-import type { IgCommentTriggerConfig } from '@/lib/flows/types';
+import { FLOW_TRIGGER_LIMITS, type IgCommentTriggerConfig } from '@/lib/flows/types';
+import { effectiveTriggers } from '@/lib/flows/flow-triggers';
 import { instagramConfig, missingScopes } from './config';
 import { recordHealthTx } from './health';
 import {
@@ -67,6 +68,8 @@ interface EventRow {
   scopes: string[] | null;
   access_token_enc: string | null;
   contact_blocked: boolean;
+  /** Stage 5: the commenter unsubscribed on Instagram (5D consent); null before Stage 5 rows load the column. */
+  contact_opted_out?: boolean | null;
 }
 
 interface SendPlan { commentId: string; igUserId: string; instagramAccountId: string; tokenEnc: string; text: string; quickReplies?: QuickReply[] }
@@ -99,7 +102,8 @@ async function lockEvent(tx: TenantTransaction, accountId: string, eventId: stri
   const [row] = await tx.$queryRaw<EventRow[]>(Prisma.sql`
     SELECT e.comment_id, e.received_at, e.private_reply_status AS status, e.instagram_account_id::text AS instagram_account_id,
       e.flow_run_id::text AS flow_run_id, r.reply_text, r.active AS rule_active, a.ig_user_id, a.status AS account_status,
-      a.scopes, a.access_token_enc, (ct.blocked_at IS NOT NULL) AS contact_blocked
+      a.scopes, a.access_token_enc, (ct.blocked_at IS NOT NULL) AS contact_blocked,
+      (ct.instagram_opted_out_at IS NOT NULL) AS contact_opted_out
     FROM instagram_comment_events e
     JOIN instagram_accounts a ON a.account_id=e.account_id AND a.id=e.instagram_account_id
     LEFT JOIN instagram_comment_rules r ON r.account_id=e.account_id AND r.id=e.rule_id
@@ -129,6 +133,8 @@ async function planReply(tx: TenantTransaction, accountId: string, eventId: stri
   if (content.quickReplies && !quickRepliesFit(content.quickReplies)) return mark('rejected');
   // Like every other Instagram send path: a contact the business blocked (even after the comment was queued) gets no DM.
   if (row.contact_blocked) return mark('rejected');
+  // Stage 5: a commenter who unsubscribed on Instagram gets no automated DM, a legacy rule's included.
+  if (row.contact_opted_out === true) return mark('rejected');
   if (row.account_status !== 'active' || !row.access_token_enc || missingScopes(row.scopes ?? [], 'comments').length)
     return mark('rejected');
   const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM instagram_comment_events
@@ -238,7 +244,8 @@ export async function sendCommentPrivateReply(args: {
 
 // ---------------------------------------------------------------- comment flows
 
-interface FlowChoice { flowId: string; check: boolean }
+/** `trigger` (Stage 5): which of the flow's triggers matched, in effectiveTriggers order; absent means the primary. */
+interface FlowChoice { flowId: string; check: boolean; trigger?: number }
 
 function parseChoices(value: unknown): FlowChoice[] {
   if (!Array.isArray(value) || value.length > MAX_FLOW_CHOICES) throw new Error('Invalid private reply job');
@@ -246,7 +253,10 @@ function parseChoices(value: unknown): FlowChoice[] {
     const choice = raw as Record<string, unknown> | null;
     if (!choice || typeof choice.flowId !== 'string' || !UUID.test(choice.flowId) || typeof choice.check !== 'boolean')
       throw new Error('Invalid private reply job');
-    return { flowId: choice.flowId, check: choice.check };
+    const trigger = choice.trigger;
+    if (trigger !== undefined && (typeof trigger !== 'number' || !Number.isInteger(trigger) || trigger < 0 || trigger > FLOW_TRIGGER_LIMITS.extraTriggers))
+      throw new Error('Invalid private reply job');
+    return { flowId: choice.flowId, check: choice.check, ...(trigger ? { trigger } : {}) };
   });
 }
 
@@ -311,11 +321,17 @@ export async function runCommentFlowJob(accountId: string, payload: Record<strin
   let held = false;
   for (const choice of choices) {
     if (choice.check) {
-      const trigger = await liveCommentTrigger(accountId, choice.flowId);
+      const trigger = await liveCommentTrigger(accountId, choice.flowId, choice.trigger ?? 0);
       if (!trigger || !isNextPost(event.media_id, await recentMedia(), trigger.next_after)) continue;
     }
-    const started = await engine.startCommentFlow({ accountId, eventId, flowId: choice.flowId });
+    const started = await engine.startCommentFlow({ accountId, eventId, flowId: choice.flowId, trigger: choice.trigger ?? 0 });
     if (started === 'started' || started === 'taken') return 'flow';
+    if (started === 'opted_out') {
+      // Stage 5: the commenter unsubscribed on Instagram. No automated DM at all: no
+      // other flow and no legacy rule (agents can still answer by hand).
+      await settle(accountId, eventId, 'rejected', now);
+      return 'rejected';
+    }
     if (started === 'busy' || started === 'paused') {
       // The commenter is mid-conversation with a flow or a person: no flow starts
       // (every other flow would meet the same conversation). The legacy rule still
@@ -335,15 +351,22 @@ export async function runCommentFlowJob(accountId: string, payload: Record<strin
   return runPrivateReply(accountId, { eventId }, now);
 }
 
-/** The published ig_comment trigger of an active flow of this workspace, or null. */
-async function liveCommentTrigger(accountId: string, flowId: string): Promise<IgCommentTriggerConfig | null> {
+/**
+ * The ig_comment trigger at `index` (effectiveTriggers order: 0 is the
+ * primary, Stage 5 extra triggers follow) of an active flow's published
+ * version, or of a draft being tested, in this workspace; null otherwise.
+ */
+async function liveCommentTrigger(accountId: string, flowId: string, index: number): Promise<IgCommentTriggerConfig | null> {
   return worker(accountId, async (tx) => {
-    const [row] = await tx.$queryRaw<{ trigger_config: unknown }[]>(Prisma.sql`
-      SELECT v.trigger_config FROM flows f
+    const [row] = await tx.$queryRaw<{ trigger_type: string; trigger_config: unknown; extra_triggers: unknown }[]>(Prisma.sql`
+      SELECT v.trigger_type, v.trigger_config, v.extra_triggers FROM flows f
       JOIN flow_versions v ON v.account_id=f.account_id AND v.id=f.published_version_id AND v.flow_id=f.id
-      WHERE f.account_id=${accountId}::uuid AND f.id=${flowId}::uuid AND f.status='active' AND v.trigger_type='ig_comment'`);
-    const config = row?.trigger_config;
-    return config && typeof config === 'object' ? (config as IgCommentTriggerConfig) : null;
+      WHERE f.account_id=${accountId}::uuid AND f.id=${flowId}::uuid AND f.status='active'
+      UNION ALL
+      SELECT f.trigger_type, f.trigger_config, f.extra_triggers FROM flows f
+      WHERE f.account_id=${accountId}::uuid AND f.id=${flowId}::uuid AND f.status='draft' AND cardinality(f.test_usernames)>0`);
+    const trigger = row ? effectiveTriggers(row)[index] : undefined;
+    return trigger?.trigger_type === 'ig_comment' ? (trigger.config as unknown as IgCommentTriggerConfig) : null;
   });
 }
 

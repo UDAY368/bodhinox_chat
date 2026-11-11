@@ -58,4 +58,28 @@ describe('parseInboxSettingsInput', () => {
       [{ ...base, away_message: '한'.repeat(400), instagram_away_message_enabled: true }],
     ])('refuses %j (it needs a boolean and the away text)', (body) => expect(code(body)).toBe('invalid_away_message'));
   });
+
+  describe('Stage 5 pause, assignment and visibility settings', () => {
+    it('leaves each one out when the body omits it, so older clients keep the stored values', () => {
+      const parsed = parseInboxSettingsInput(base);
+      for (const key of ['agent_reply_pause_minutes', 'auto_assign_mode', 'agent_visibility']) expect(parsed).not.toHaveProperty(key);
+    });
+    it('passes valid values through, with null meaning "until resumed"', () => {
+      expect(parseInboxSettingsInput({ ...base, agent_reply_pause_minutes: 60, auto_assign_mode: 'basic', agent_visibility: 'assigned_or_team' }))
+        .toMatchObject({ agent_reply_pause_minutes: 60, auto_assign_mode: 'basic', agent_visibility: 'assigned_or_team' });
+      expect(parseInboxSettingsInput({ ...base, agent_reply_pause_minutes: null, auto_assign_mode: 'off', agent_visibility: 'all' }))
+        .toMatchObject({ agent_reply_pause_minutes: null, auto_assign_mode: 'off', agent_visibility: 'all' });
+      expect(parseInboxSettingsInput({ ...base, agent_reply_pause_minutes: 10080 })).toMatchObject({ agent_reply_pause_minutes: 10080 });
+    });
+    it.each([
+      [{ ...base, agent_reply_pause_minutes: 0 }, 'invalid_pause'],
+      [{ ...base, agent_reply_pause_minutes: 10081 }, 'invalid_pause'],
+      [{ ...base, agent_reply_pause_minutes: 1.5 }, 'invalid_pause'],
+      [{ ...base, agent_reply_pause_minutes: '60' }, 'invalid_pause'],
+      [{ ...base, auto_assign_mode: 'smart' }, 'invalid_assignment'],
+      [{ ...base, auto_assign_mode: null }, 'invalid_assignment'],
+      [{ ...base, agent_visibility: 'team' }, 'invalid_visibility'],
+      [{ ...base, agent_visibility: '' }, 'invalid_visibility'],
+    ])('rejects %j with %s', (body, expected) => expect(code(body)).toBe(expected));
+  });
 });

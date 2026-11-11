@@ -25,7 +25,7 @@ vi.mock('@/lib/db/tenant', () => ({
       const sql = sqlOf(query);
       if (sql.includes('count(*)::int AS n')) return [{ n: 0 }];
       if (sql.includes('FROM instagram_comment_events e')) return [h.event];
-      if (sql.includes('SELECT v.trigger_config')) return [{ trigger_config: { post_scope: 'next', next_after: '2026-11-01T00:00:00Z' } }];
+      if (sql.includes('v.trigger_config')) return [{ trigger_type: 'ig_comment', extra_triggers: [], trigger_config: { post_scope: 'next', next_after: '2026-11-01T00:00:00Z' } }];
       return [];
     },
   }),
@@ -108,5 +108,34 @@ describe('runCommentFlowJob', () => {
     await expect(runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [{ flowId: FLOW, check: true }], fallbackRuleId: RULE }))
       .resolves.toBe('flow');
     expect(h.sendPrivateReply).not.toHaveBeenCalled();
+  });
+
+  it('a commenter unsubscribed on Instagram gets no flow, no other flow and no rule DM (Stage 5)', async () => {
+    h.startCommentFlow.mockResolvedValue('opted_out');
+    await expect(runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [{ flowId: FLOW, check: false }, { flowId: RULE, check: false }],
+      fallbackRuleId: RULE })).resolves.toBe('rejected');
+    expect(h.startCommentFlow).toHaveBeenCalledTimes(1);
+    expect(h.sendPrivateReply).not.toHaveBeenCalled();
+    expect(statusWrites()).toEqual(['rejected']);
+  });
+
+  it('the legacy rule sends no DM to a commenter unsubscribed on Instagram, with no flow offered (Stage 5)', async () => {
+    h.event.contact_opted_out = true;
+    await expect(runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [], fallbackRuleId: RULE })).resolves.toBe('rejected');
+    expect(h.sendPrivateReply).not.toHaveBeenCalled();
+    expect(statusWrites()).toEqual(['rejected']);
+  });
+
+  it('passes the matched extra trigger to the engine and refuses a malformed one (Stage 5)', async () => {
+    h.startCommentFlow.mockResolvedValue('started');
+    await runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [{ flowId: FLOW, check: false, trigger: 2 }], fallbackRuleId: null });
+    expect(h.startCommentFlow).toHaveBeenCalledWith({ accountId: ACCOUNT, eventId: EVENT, flowId: FLOW, trigger: 2 });
+    // A job queued before Stage 5 means the primary trigger.
+    await runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [{ flowId: FLOW, check: false }], fallbackRuleId: null });
+    expect(h.startCommentFlow).toHaveBeenLastCalledWith({ accountId: ACCOUNT, eventId: EVENT, flowId: FLOW, trigger: 0 });
+    for (const trigger of [-1, 1.5, 9, 'x']) {
+      await expect(runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [{ flowId: FLOW, check: false, trigger }], fallbackRuleId: null }))
+        .rejects.toThrow('Invalid private reply job');
+    }
   });
 });

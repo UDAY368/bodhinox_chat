@@ -110,7 +110,12 @@ jobs:
       - run: node scripts/ci-environment.cjs
       - run: npm run db:migrate
       - run: npm run db:roles
-      - run: npx playwright install --with-deps chromium
+      # The OS packages (mostly fonts) come from Ubuntu's mirrors, which are sometimes unreachable;
+      # retry once, then install only the browser (the runner image already has Chromium's libraries).
+      - run: |
+          npx playwright install --with-deps chromium \
+            || { sleep 30; npx playwright install --with-deps chromium; } \
+            || { echo "::warning::OS packages unavailable; installing Chromium only"; npx playwright install chromium; }
       # Each shard runs a third of the spec files against its own database and dev server.
       - run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
       - if: failure()

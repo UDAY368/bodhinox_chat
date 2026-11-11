@@ -35,7 +35,7 @@ vi.mock('@/lib/db/tenant', () => ({
 import { PATCH } from './route';
 
 const patch = (body: unknown, id = MEMBER) =>
-  PATCH(new Request('http://localhost/x', { method: 'PATCH', body: JSON.stringify(body) }), { params: Promise.resolve({ userId: id }) });
+  PATCH(new Request('http://localhost/x', { method: 'PATCH', body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
 
 beforeEach(() => {
   h.role = 'admin';

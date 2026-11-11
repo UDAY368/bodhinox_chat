@@ -55,6 +55,8 @@ export interface SendButtonsNodeConfig {
    * 3 (INSTAGRAM_LIMITS.buttons). A WhatsApp flow never carries them.
    */
   link_buttons?: Array<{ title: string; url: string }>;
+  /** Stage 5: link buttons go through a tracked /r/<token> link (lib/flows/link-tracking.ts). */
+  track_clicks?: boolean;
 }
 
 export interface SendListNodeConfig {
@@ -181,6 +183,20 @@ export interface CollectInputNodeConfig extends AskRetry {
   skip_next?: string;
   /** Node to advance to after capture. */
   next_node_key: string;
+  /**
+   * Stage 5: also write a valid answer to the contact (src/lib/contacts/field-write.ts).
+   * `contact_field` keys are name/email/phone/company; `custom_field` keys are custom field ids.
+   * A phone or email owned by another contact is not written (event `save_conflict`).
+   */
+  save_to?: FlowSaveTo;
+  /** Stage 5: actions run once after a valid answer (same rules as the Actions step). */
+  on_success_actions?: FlowAction[];
+}
+
+/** Where an Ask Question answer is also stored (Stage 5). */
+export interface FlowSaveTo {
+  target: "contact_field" | "custom_field";
+  key: string;
 }
 
 export type MediaReplyType = "image" | "video" | "document" | "audio";
@@ -377,11 +393,56 @@ export type ConditionOperator =
  * gate). `subject_key` is one of IG_PROFILE_FACTS; booleans compare with
  * `equals` "true"/"false" (or present/absent), the follower count numerically.
  */
-export type ConditionSubject = "var" | "tag" | "contact_field" | "custom_field" | "time" | "date" | "ig_profile";
+export type ConditionSubject =
+  | "var"
+  | "tag"
+  | "contact_field"
+  | "custom_field"
+  | "time"
+  | "date"
+  | "ig_profile"
+  // Stage 5 (engine: 5B; until then the publish validator refuses them).
+  /** One of SYSTEM_FACTS, in `subject_key`. */
+  | "system"
+  /** A saved segment id; `equals` "true" is in the segment, "false" is not. */
+  | "segment"
+  /** A node_key of this flow; `equals` "true" when the contact clicked a tracked link sent by that step. */
+  | "link_click"
+  /** A non-secret workspace attribute key. */
+  | "workspace_field"
+  /** A sequence id; `equals` "true" when the contact has an active subscription (5H). */
+  | "sequence";
+
+/** Every condition subject, in picker order. */
+export const CONDITION_SUBJECTS = Object.keys({
+  tag: true,
+  contact_field: true,
+  custom_field: true,
+  var: true,
+  time: true,
+  date: true,
+  ig_profile: true,
+  system: true,
+  segment: true,
+  link_click: true,
+  workspace_field: true,
+  sequence: true,
+} satisfies Record<ConditionSubject, true>) as ConditionSubject[];
+
+/** The condition subjects added in Stage 5. */
+export const STAGE5_CONDITION_SUBJECTS = ["system", "segment", "link_click", "workspace_field", "sequence"] as const satisfies readonly ConditionSubject[];
 
 /** Instagram profile facts a condition can test (contact_channel_identities columns). */
 export const IG_PROFILE_FACTS = ["follows_business", "business_follows", "is_verified", "follower_count", "in_window"] as const;
 export type IgProfileFact = (typeof IG_PROFILE_FACTS)[number];
+
+/**
+ * System facts a `system` condition can test (Stage 5): the stored Instagram
+ * username, the last inbound time, when the messaging window closes, whether the
+ * contact is subscribed on the run's channel, and the contact id.
+ */
+export const SYSTEM_FACTS = ["ig_username", "last_interaction_at", "window_open_until", "subscribed", "contact_id"] as const;
+export type SystemFact = (typeof SYSTEM_FACTS)[number];
 
 /** One test. `time` and `date` read the clock in the node's timezone (HH:MM, YYYY-MM-DD). */
 export interface ConditionRule {
@@ -482,7 +543,44 @@ export interface AiReplyNodeConfig {
   next_node_key: string;
   /** "Handoff" port. */
   handoff_next: string;
+  /**
+   * Stage 5 (5G): up to AI_GOAL_LIMITS.goals ordered goals the step works
+   * through (lib/ai/goals.ts runGoalTurn). With goals the step follows
+   * `finish_next` once every goal is met or given up.
+   */
+  goals?: AiGoal[];
+  /** Stage 5: "Goals finished" port; required when `goals` is set. */
+  finish_next?: string;
+  /** Stage 5 AI-step editor: the goal sentence the task list was drafted from (≤ 500 chars). */
+  goal_text?: string;
+  /** Stage 5 AI-step editor: the ordered task list (≤ AI_GOAL_LIMITS.tasks). */
+  tasks?: AiTask[];
+  /** Stage 5 AI-step editor: background the AI may use (≤ 2000 chars). Not interpolated. */
+  context?: string;
 }
+
+/** Stage 5 AI goals. */
+export const AI_GOAL_TYPES = ["share_link", "grow_followers", "capture_lead"] as const;
+export type AiGoalType = (typeof AI_GOAL_TYPES)[number];
+
+/** Contact fields a capture_lead goal may ask for; custom fields use `custom:<id>`. */
+export const AI_LEAD_FIELDS = ["name", "email", "phone", "company"] as const;
+
+export type AiGoal =
+  /** Share a link once the person shows interest; `url` is http(s). */
+  | { type: "share_link"; url: string; label?: string }
+  /** Ask the person to follow the account; met when the stored follow fact is true. */
+  | { type: "grow_followers" }
+  /** Collect these fields; on refusal hand off to a person or continue the flow. */
+  | { type: "capture_lead"; fields: string[]; on_refusal: "handoff" | "continue" };
+
+/** One task of the AI step's task list; `save_to` stores the person's answer. */
+export interface AiTask {
+  text: string;
+  save_to?: FlowSaveTo;
+}
+
+export const AI_GOAL_LIMITS = { goals: 3, tasks: 10, taskChars: 300, goalTextChars: 500, contextChars: 2000, leadFields: 5 } as const;
 
 /** The Conversions API events a flow can report for a click-to-WhatsApp ad contact. */
 export const CONVERSION_EVENT_NAMES = [
@@ -541,7 +639,13 @@ export const STOREFRONT_LINK_LIMITS = { messageMax: 1024, ttlMinHours: 1, ttlMax
 /** A card button: opens a link (no route; it does not open the window) or posts back and routes. */
 export type IgCardButton =
   | { type: "web_url"; title: string; url: string }
-  | { type: "postback"; title: string; reply_id: string; next_node_key: string };
+  | { type: "postback"; title: string; reply_id: string; next_node_key: string }
+  /**
+   * Stage 5 (5G): opens a checkout link for this amount (lib/flows/buy-button.ts,
+   * one payment link per run, step and button slot). Needs the `payments`
+   * capability; when no link can be made the button is dropped.
+   */
+  | { type: "buy"; title: string; amount_minor: number; currency: string };
 
 /** One generic-template element: title (≤ 80), optional subtitle (≤ 80), https image and link, 0–3 buttons. */
 export interface IgCard {
@@ -587,13 +691,192 @@ export interface IgPrivateReplyNodeConfig {
 export interface SendCardNodeConfig {
   card: IgCard;
   next_node_key: string;
+  /** Stage 5: link buttons go through a tracked /r/<token> link (lib/flows/link-tracking.ts). */
+  track_clicks?: boolean;
 }
 
 /** A gallery: 1–10 cards in one horizontally scrolling message, then auto-advance. */
 export interface SendGalleryNodeConfig {
   cards: IgCard[];
   next_node_key: string;
+  /** Stage 5: as on send_card. */
+  track_clicks?: boolean;
 }
+
+// ------------------------------------------------------------ Stage 5 steps
+// Registered in 5A; the engine runs them from 5B. Until then a run reaching
+// one ends with reason `not_implemented` and the publish validator refuses them.
+
+/** Every action an Actions step can run (Stage 5). */
+export const FLOW_ACTION_TYPES = [
+  "add_tag",
+  "remove_tag",
+  "set_field",
+  "set_workspace_field",
+  "set_channel_consent",
+  "subscribe_sequence",
+  "unsubscribe_sequence",
+  "start_flow",
+  "stop_flow",
+  "pause_automations",
+  "resume_automations",
+  "log_conversion",
+  "set_conversation_status",
+  "notify_team",
+] as const;
+export type FlowActionType = (typeof FLOW_ACTION_TYPES)[number];
+
+/** The picker group of each action (the "+ Action" menu). */
+export const FLOW_ACTION_GROUPS = {
+  add_tag: "contact",
+  remove_tag: "contact",
+  set_field: "contact",
+  set_channel_consent: "contact",
+  set_workspace_field: "automation",
+  subscribe_sequence: "automation",
+  unsubscribe_sequence: "automation",
+  start_flow: "automation",
+  stop_flow: "automation",
+  pause_automations: "automation",
+  resume_automations: "automation",
+  set_conversation_status: "inbox",
+  notify_team: "inbox",
+  log_conversion: "ads",
+} as const satisfies Record<FlowActionType, "contact" | "automation" | "inbox" | "ads">;
+export type FlowActionGroup = (typeof FLOW_ACTION_GROUPS)[FlowActionType];
+
+/**
+ * One action. Each is idempotent per run, node and position (the engine keeps a
+ * cursor in the run so a retry resumes at the failed action).
+ */
+export type FlowAction =
+  | { type: "add_tag"; tag_id: string }
+  | { type: "remove_tag"; tag_id: string }
+  /** `contact_field` keys: name/email/phone/company; `custom_field` keys: custom field ids. Value may use placeholders. */
+  | { type: "set_field"; target: "contact_field" | "custom_field"; key: string; value: string }
+  /** A non-secret workspace attribute; `increment` adds a number in one atomic UPDATE. */
+  | { type: "set_workspace_field"; key: string; mode: "set" | "increment"; value: string }
+  | { type: "set_channel_consent"; channel: "instagram"; state: "opted_in" | "opted_out" }
+  | { type: "subscribe_sequence"; sequence_id: string }
+  | { type: "unsubscribe_sequence"; sequence_id: string }
+  /** Queues another active flow for the contact; this run carries on. Never this flow. */
+  | { type: "start_flow"; flow_id: string }
+  /** Ends the contact's waiting runs of that flow (reason `stopped_by_flow`). Never this flow. */
+  | { type: "stop_flow"; flow_id: string }
+  /** `minutes` null pauses until resumed. */
+  | { type: "pause_automations"; minutes: number | null }
+  | { type: "resume_automations" }
+  | { type: "log_conversion"; event_type_id: string }
+  | { type: "set_conversation_status"; status: "open" | "closed" }
+  /** An in-app notice: fixed text plus the author's note, never the customer's message. */
+  | { type: "notify_team"; target: "assignee" | "admins"; note?: string };
+
+/** Pause lengths an action or the inbox may choose, in minutes (null = until resumed). */
+export const PAUSE_MINUTES_CHOICES = [30, 60, 180, 360, 720, 1440, null] as const;
+
+/** Runs `actions` in order and continues; sends no message. */
+export interface ActionsNodeConfig {
+  actions: FlowAction[];
+  next_node_key: string;
+}
+
+/** One randomizer path: `weight` percent of contacts go to `next_node_key`. */
+export interface RandomizerPath {
+  /** Stable id (A, B, …); the pick is stored by id. */
+  id: string;
+  weight: number;
+  next_node_key: string;
+}
+
+/**
+ * Splits traffic over 2–6 paths whose weights total 100. `sticky` keeps a
+ * contact on the same path (hash of contact id and node key); otherwise the
+ * pick is written to the run before advancing so a replay follows it.
+ */
+export interface RandomizerNodeConfig {
+  paths: RandomizerPath[];
+  sticky: boolean;
+}
+
+export type SmartDelayUnit = "seconds" | "minutes" | "hours" | "days";
+
+/** Allowed send hours (HH:MM, `to` may be before `from` to cross midnight) and weekdays (0 = Sunday). */
+export interface SendWindow {
+  from: string;
+  to: string;
+  weekdays: number[];
+}
+
+/**
+ * Waits, then continues (durable `flow.timer`). `duration`: `amount` `unit`
+ * (or the number in custom field `amount_field_id`), at most
+ * FLOW_STEP_LIMITS.smartDelayMaxDays. `until_date`: a fixed `date` (ISO) or the
+ * date in custom field `date_field_id`, plus `offset_minutes`; the run stops
+ * there when that date has already passed. `send_window` moves the wake time to
+ * the next allowed hour and weekday in `timezone` (default: the workspace's).
+ * On Instagram the send after the wait still needs an open window.
+ */
+export interface SmartDelayNodeConfig {
+  mode: "duration" | "until_date";
+  amount?: number;
+  unit?: SmartDelayUnit;
+  amount_field_id?: string;
+  date?: string;
+  date_field_id?: string;
+  offset_minutes?: number;
+  send_window?: SendWindow;
+  timezone?: string;
+  next_node_key: string;
+}
+
+/** A column and the value (may use placeholders) written to it. */
+export interface SheetColumnValue {
+  column: string;
+  value: string;
+}
+
+/**
+ * Google Sheets (5G, behind GOOGLE_SHEETS_ENABLED and the `sheets`
+ * capability): insert a row, get the row whose `match.column` equals
+ * `match.value` (mapping columns to run variables with `var_map`), or update
+ * that row. An unknown outcome is never retried: it follows `failure_next`.
+ */
+export interface GoogleSheetsNodeConfig {
+  op: "insert_row" | "get_row" | "update_row";
+  spreadsheet_id: string;
+  sheet: string;
+  match?: SheetColumnValue;
+  columns: SheetColumnValue[];
+  var_map?: Array<{ column: string; var_key: string }>;
+  next_node_key: string;
+  failure_next: string;
+}
+
+export const FLOW_STEP_LIMITS = {
+  actionsMin: 1,
+  actionsMax: 10,
+  notifyNoteChars: 500,
+  randomizerPathsMin: 2,
+  randomizerPathsMax: 6,
+  smartDelayMaxDays: 365,
+  sheetColumns: 26,
+} as const;
+
+/** The node types added in Stage 5. */
+export const STAGE5_NODE_TYPES = ["actions", "randomizer", "smart_delay", "google_sheets"] as const;
+
+/**
+ * A sticky note on the canvas (Stage 5): free text, no ports, never run.
+ * Stored in flows.canvas_notes; templates may ship with notes.
+ */
+export interface CanvasNote {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+}
+
+export const CANVAS_NOTE_LIMITS = { notes: 30, chars: 1000 } as const;
 
 /**
  * Total union — every concrete node_type the v1 engine understands.
@@ -633,6 +916,10 @@ export type FlowNodeConfig =
   | { node_type: "ig_private_reply"; config: IgPrivateReplyNodeConfig }
   | { node_type: "send_card"; config: SendCardNodeConfig }
   | { node_type: "send_gallery"; config: SendGalleryNodeConfig }
+  | { node_type: "actions"; config: ActionsNodeConfig }
+  | { node_type: "randomizer"; config: RandomizerNodeConfig }
+  | { node_type: "smart_delay"; config: SmartDelayNodeConfig }
+  | { node_type: "google_sheets"; config: GoogleSheetsNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 
@@ -648,8 +935,15 @@ export const INSTAGRAM_ONLY_NODE_TYPES = ["ig_comment_reply", "ig_private_reply"
 export interface KeywordTriggerConfig {
   /** One or more keywords. Match is case-insensitive by default. */
   keywords: string[];
-  /** `regex` tests `pattern` against the message instead of the keywords. */
-  match_type?: "exact" | "contains" | "regex";
+  /**
+   * `regex` tests `pattern` against the message instead of the keywords.
+   * `intent` (Stage 5, needs AI) asks lib/ai/intent-match.ts whether the
+   * message means `intent`; it is tried only after every exact trigger failed
+   * and before default_reply.
+   */
+  match_type?: "exact" | "contains" | "regex" | "intent";
+  /** The meaning to recognise for `match_type: "intent"` (≤ FLOW_TRIGGER_LIMITS.intentChars). */
+  intent?: string;
   case_sensitive?: boolean;
   /** Regular expression for `match_type: "regex"` (searched, not anchored). */
   pattern?: string;
@@ -721,6 +1015,8 @@ export interface IgCommentTriggerConfig {
   exclude_keywords?: string[];
   exclude_mode?: IgKeywordMode;
   public_replies?: string[];
+  /** Stage 5: hold the first step this long (0 – FLOW_TRIGGER_LIMITS.replyDelaySecondsMax), via flow.timer. */
+  reply_delay_seconds?: number;
 }
 
 /**
@@ -770,6 +1066,8 @@ export interface IgLiveCommentTriggerConfig {
   instagram_account_id?: string;
   keywords?: string[];
   match_mode?: IgKeywordMode;
+  /** Stage 5: as on ig_comment. */
+  reply_delay_seconds?: number;
 }
 
 /**
@@ -857,6 +1155,67 @@ export function startsFromComment(trigger: FlowTriggerType | string | null | und
   return (PRIVATE_REPLY_TRIGGERS as readonly string[]).includes(trigger ?? "");
 }
 
+// ------------------------------------------------------------ Stage 5 triggers
+
+/** Sizes for Stage 5 trigger features. */
+export const FLOW_TRIGGER_LIMITS = {
+  /** `flows.extra_triggers` entries (so at most 5 triggers in total). */
+  extraTriggers: 4,
+  /** `flows.test_usernames` entries. */
+  testUsernames: 3,
+  /** ig_comment / ig_live_comment `reply_delay_seconds`. */
+  replyDelaySecondsMax: 600,
+  /** Keyword trigger `intent` sentence. */
+  intentChars: 300,
+} as const;
+
+/**
+ * Triggers that may be combined on one flow (Stage 5): an Instagram flow may
+ * add up to FLOW_TRIGGER_LIMITS.extraTriggers of these to its primary trigger,
+ * which must be one of them too. default_reply, manual and WhatsApp or `any`
+ * scope flows keep exactly one trigger.
+ */
+export const COMBINABLE_TRIGGERS = [
+  "keyword",
+  "ig_comment",
+  "ig_live_comment",
+  "ig_story_reply",
+  "ig_story_mention",
+  "ig_ref",
+  "ad_click",
+] as const satisfies readonly FlowTriggerType[];
+export type CombinableTriggerType = (typeof COMBINABLE_TRIGGERS)[number];
+
+export function isCombinableTrigger(trigger: unknown): trigger is CombinableTriggerType {
+  return typeof trigger === "string" && (COMBINABLE_TRIGGERS as readonly string[]).includes(trigger);
+}
+
+/** An Instagram username as stored for test runs: lowercase, no `@`, 1–30 of [a-z0-9._]. */
+export const IG_TEST_USERNAME = /^[a-z0-9._]{1,30}$/;
+
+// ------------------------------------------------------------ Template metadata (Stage 5, amendment 4)
+
+/** Gallery filters "By goal". */
+export const TEMPLATE_GOALS = ["grow_followers", "engage_audience", "drive_traffic"] as const;
+export type TemplateGoal = (typeof TEMPLATE_GOALS)[number];
+
+/** Gallery filters "By trigger"; null for a template that ships without a trigger. */
+export const TEMPLATE_TRIGGERS = ["post_comment", "dm", "story_reply", "live_comment"] as const;
+export type TemplateTrigger = (typeof TEMPLATE_TRIGGERS)[number];
+
+/** What the gallery shows about a template before install. */
+export interface FlowTemplateMeta {
+  goals: TemplateGoal[];
+  trigger: TemplateTrigger | null;
+  /** `quick`: a form-page quick automation; `flow`: opens on the canvas. */
+  kind: "quick" | "flow";
+  level: "beginner" | "advanced";
+  uses_ai: boolean;
+  needs_payments: boolean;
+  /** Shown in the Recommended row. */
+  recommended?: boolean;
+}
+
 // ============================================================
 // DB-row shapes (read by the engine via databaseAdmin)
 // ============================================================
@@ -897,6 +1256,20 @@ export interface FlowRow {
   channel_scope?: FlowChannelScope;
   /** The live flow_versions row (Phase 12); null until first published. Absent on rows read before Phase 12. */
   published_version_id?: string | null;
+  /**
+   * Stage 5: further triggers that also start the flow (COMBINABLE_TRIGGERS,
+   * Instagram flows only, at most FLOW_TRIGGER_LIMITS.extraTriggers). Absent or
+   * empty: the primary trigger only, as before. Read through effectiveTriggers().
+   */
+  extra_triggers?: FlowTriggerConfig[];
+  /** Stage 5: while an Instagram flow is a draft it runs only for these usernames (lowercase, no @, up to 3). */
+  test_usernames?: string[];
+  /** Stage 5: the flow_folders row the flow is filed in; null is the top level. */
+  folder_id?: string | null;
+  /** Stage 5: sticky notes on the canvas (never run). */
+  canvas_notes?: CanvasNote[];
+  /** Stage 5: set only by a draft save; the autosave conflict check compares with it (else updated_at). */
+  draft_saved_at?: string | null;
   execution_count: number;
   last_executed_at: string | null;
   created_at: string;

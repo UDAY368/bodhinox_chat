@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consentKeyword, marketingSuppression, quickReplyOptOut } from './consent';
+import { consentKeyword, marketingSuppression, normalizeConsentKeyword, quickReplyOptOut } from './consent';
 
 describe('consentKeyword', () => {
   it.each(['STOP', 'stop', ' Stop. ', 'Stop!', 'unsubscribe', 'opt out', 'STOP  ALL', 'Stop promotions', 'STOP_PROMOTIONS', 'opt-out'])('reads %j as an opt-out', (text) => {
@@ -10,6 +10,31 @@ describe('consentKeyword', () => {
   });
   it.each(['please stop calling', 'stopped', 'STOP ME', '', 'restart'])('ignores %j', (text) => {
     expect(consentKeyword(text)).toBeNull();
+  });
+});
+
+describe("consentKeyword with a workspace's own words (Stage 5)", () => {
+  const custom = { optOut: ['basta', 'no más', '그만'], optIn: ['volver', 'sim'] };
+  it.each(['basta', ' BASTA ', 'No  más', '그만'])('reads %j as an opt-out', (text) => {
+    expect(consentKeyword(text, custom)).toBe('opt_out');
+  });
+  it.each(['volver', 'SIM', ' Sim '])('reads %j as an opt-in', (text) => {
+    expect(consentKeyword(text, custom)).toBe('opt_in');
+  });
+  it("keeps the built-in words alongside the workspace's own", () => {
+    expect(consentKeyword('STOP', custom)).toBe('opt_out');
+    expect(consentKeyword('start', custom)).toBe('opt_in');
+  });
+  it.each(['basta ya', 'bastante', 'volver!', ''])('matches exactly after trimming and case folding, so %j is ignored', (text) => {
+    expect(consentKeyword(text, custom)).toBeNull();
+  });
+  it('lets an opt-out word win over an opt-in word, and leaves the built-in set alone without custom words', () => {
+    expect(consentKeyword('start', { optOut: ['start'], optIn: [] })).toBe('opt_out');
+    expect(consentKeyword('basta')).toBeNull();
+    expect(consentKeyword('basta', null)).toBeNull();
+  });
+  it('normalizes stored words the way messages are compared', () => {
+    expect(normalizeConsentKeyword('  No   MÁS ')).toBe('no más');
   });
 });
 

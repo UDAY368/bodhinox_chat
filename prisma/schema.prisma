@@ -45,6 +45,9 @@ model contacts {
   opted_out_at DateTime? @db.Timestamptz(6)
   opt_out_source String?
   blocked_at DateTime? @db.Timestamptz(6)
+  /// Stage 5 (20261118000400): Instagram-only subscription; opted_out_at stays the contact-wide WhatsApp STOP.
+  instagram_opted_out_at DateTime? @db.Timestamptz(6)
+  instagram_opted_in_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
 }
 
@@ -133,6 +136,9 @@ model conversations {
   instagram_account_id String? @db.Uuid
   // 20261109101100/101200: partial unique indexes idx_conversations_wa_contact_number (WhatsApp, NULLS NOT DISTINCT)
   // and idx_conversations_ig_contact_account (Instagram) are built CONCURRENTLY by the SQL; conversations_channel_sender_check is owned by the SQL.
+  /// Stage 5 (20261118000300): NULL with bot_paused pauses until resumed; a time ends the pause then.
+  bot_paused_until DateTime? @db.Timestamptz(6)
+  bot_paused_by String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -438,6 +444,14 @@ model flows {
   // 20261117130000_flow_ig_phase2_triggers adds ig_live_comment and ig_ref.
   /// Phase 12: the live flow_versions row; null until first published. Status adds 'paused'.
   published_version_id String? @db.Uuid
+  /// Stage 5 (20261118000000): [{trigger_type, config}] further triggers (at most 4); test usernames; canvas notes.
+  extra_triggers Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
+  test_usernames String[] @default([])
+  canvas_notes Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
+  /// Stage 5 close: set by draft saves only; the autosave conflict check compares with it.
+  draft_saved_at DateTime? @db.Timestamptz(6)
+  /// Stage 5 (20261118000100): flow_folders row; ON DELETE SET NULL (composite FK owned by the SQL).
+  folder_id String? @db.Uuid
   @@unique([account_id, id])
 }
 
@@ -496,6 +510,8 @@ model flow_versions {
   nodes Json @db.JsonB
   published_by String? @db.Uuid
   published_at DateTime @db.Timestamptz(6) @default(now())
+  /// Stage 5 (20261118000000): the published extra triggers.
+  extra_triggers Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
   @@unique([account_id, id])
   @@unique([account_id, flow_id, id])
   @@unique([account_id, flow_id, version])
@@ -757,6 +773,8 @@ model account_memberships {
   role String
   created_at DateTime @db.Timestamptz(6) @default(now())
   mask_phone_numbers Boolean  @default(false)
+  /// Stage 5 (20261118000600): automatic assignment skips an agent at this many open conversations; NULL is no limit.
+  max_open_conversations Int?
   @@unique([account_id, user_id])
   @@unique([account_id, id])
 }
@@ -1278,6 +1296,12 @@ model workspace_inbox_settings {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   /// 20261117070500: the Instagram away-message switch (away_message_enabled stays WhatsApp's; both use away_message).
   instagram_away_message_enabled Boolean @default(false)
+  /// Stage 5 (20261118000300): minutes an agent reply pauses automations; NULL until resumed (before Stage 5).
+  agent_reply_pause_minutes Int?
+  /// Stage 5 (20261118000600): 'off' | 'basic' | 'rules' (before Stage 5).
+  auto_assign_mode String @default("rules")
+  /// Stage 5 (20261118000600): 'all' (before Stage 5) | 'assigned_or_team'.
+  agent_visibility String @default("all")
 }
 
 model routing_rules {
@@ -2770,6 +2794,8 @@ model ai_workspace_settings {
   monthly_token_cap BigInt?
   updated_by String? @db.Uuid
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  /// Stage 5 (20261118000800): at most 3 goals for the Instagram AI auto-reply.
+  instagram_goals Json @db.JsonB @default(dbgenerated("'[]'::jsonb"))
 }
 
 /// Phase 13 (20261111100100_ai_suggestions): staff-reviewed summaries and suggested replies; never sent by the system.
@@ -3023,4 +3049,194 @@ model workspace_channels {
   created_at DateTime @db.Timestamptz(6) @default(now())
   updated_at DateTime @db.Timestamptz(6) @default(now())
   @@id([account_id, channel])
+}
+
+// ============================================================ Stage 5 (ManyChat parity, 20261118*)
+
+/// Stage 5 (20261118000100): automation-list folders per channel section. Unique (account_id, channel, lower(name)) is an
+/// expression index owned by the SQL.
+model flow_folders {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  /// 'whatsapp' | 'instagram'
+  channel String
+  name String
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+/// Stage 5 (20261118000200): tracked flow button links; one per run, step and slot. The token is never readable by the
+/// app role; resolve_flow_link_token() (worker only) serves the public redirect.
+model flow_tracked_links {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  token String @unique @db.Char(32)
+  flow_id String @db.Uuid
+  flow_run_id String @db.Uuid
+  node_key String
+  slot String
+  contact_id String? @db.Uuid
+  conversation_id String? @db.Uuid
+  url String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  first_clicked_at DateTime? @db.Timestamptz(6)
+  click_count Int @default(0)
+  @@unique([account_id, id])
+  @@unique([account_id, flow_run_id, node_key, slot])
+  @@index([account_id, flow_id, node_key], map: "flow_tracked_links_flow_idx")
+}
+
+/// Stage 5 (20261118000400): custom Instagram opt-out/opt-in keywords, replies and flows (admin-managed).
+model instagram_consent_settings {
+  account_id String @id @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  opt_out_keywords String[] @default([])
+  opt_in_keywords String[] @default([])
+  opt_out_reply String?
+  opt_in_reply String?
+  opt_out_flow_id String? @db.Uuid
+  opt_in_flow_id String? @db.Uuid
+  updated_by String? @db.Uuid
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// Stage 5 (20261118000500): inbox labels (at most 20 per workspace; guard trigger owned by the SQL).
+model conversation_labels {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  color String @default("gray")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model conversation_label_links {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  label_id String @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, conversation_id, label_id])
+  @@index([account_id, label_id], map: "conversation_label_links_label_idx")
+}
+
+/// Per member: RLS limits each user to their own rows.
+model conversation_favourites {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  user_id String @db.Uuid
+  conversation_id String @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@id([account_id, user_id, conversation_id])
+}
+
+/// Stage 5 (20261118000700): admin-named internal conversion events; archived, never deleted.
+model conversion_event_types {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  name String
+  archived_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+/// One row per run, step and type; written by the worker.
+model conversion_event_log {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  event_type_id String @db.Uuid
+  contact_id String? @db.Uuid
+  flow_id String? @db.Uuid
+  flow_run_id String? @db.Uuid
+  node_key String?
+  /// 'whatsapp' | 'instagram'
+  channel String
+  occurred_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, flow_run_id, node_key, event_type_id])
+  @@index([account_id, event_type_id, occurred_at], map: "conversion_event_log_type_time_idx")
+}
+
+/// Stage 5 (20261118000900): Google Sheets connection. refresh_token_encrypted is readable by the worker role only.
+model google_sheets_connections {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  google_email String
+  refresh_token_encrypted String
+  /// 'active' | 'revoked' | 'error'
+  status String @default("active")
+  connected_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+/// Stage 5 (20261118001000): sequences (owner amendment 2). crm_due_sequence_accounts() is owned by the SQL.
+model sequences {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  /// 'whatsapp' | 'instagram'
+  channel String
+  name String
+  /// 'draft' | 'active' | 'paused' | 'archived'
+  status String @default("draft")
+  created_by String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, channel, status], map: "sequences_account_channel_idx")
+}
+
+/// Position is unique per sequence, checked at commit (DEFERRABLE, owned by the SQL).
+model sequence_messages {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  sequence_id String @db.Uuid
+  position Int
+  delay_amount Int
+  /// 'minutes' | 'hours' | 'days'
+  delay_unit String
+  active Boolean @default(true)
+  flow_id String? @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+}
+
+model sequence_subscriptions {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  sequence_id String @db.Uuid
+  contact_id String @db.Uuid
+  subscribed_at DateTime @default(now()) @db.Timestamptz(6)
+  next_position Int @default(0)
+  next_due_at DateTime? @db.Timestamptz(6)
+  /// 'active' | 'sending' | 'completed' | 'unsubscribed'
+  status String @default("active")
+  claimed_at DateTime? @db.Timestamptz(6)
+  ended_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, sequence_id, contact_id])
+  @@index([account_id, contact_id], map: "sequence_subscriptions_contact_idx")
+}
+
+/// Stage 5 (5H): delivery log of sequence messages; one row per subscription round and message. Worker writes, members read.
+model sequence_message_sends {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid"))
+  subscription_id String @db.Uuid
+  round_started_at DateTime @db.Timestamptz(6)
+  sequence_id String @db.Uuid
+  sequence_message_id String @db.Uuid
+  contact_id String @db.Uuid
+  conversation_id String? @db.Uuid
+  flow_id String? @db.Uuid
+  flow_run_id String? @db.Uuid
+  /// 'starting' | 'sent' | 'skipped' | 'failed'
+  status String @default("starting")
+  reason String?
+  attempts Int @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, subscription_id, round_started_at, sequence_message_id])
+  @@index([account_id, sequence_id, sequence_message_id], map: "sequence_message_sends_stats_idx")
 }
