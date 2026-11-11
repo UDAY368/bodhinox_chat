@@ -91,7 +91,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('dry-run guard on PostgreSQL
   it('reads workspace capabilities as booleans, inside a dry run too', async () => {
     const read = () => withTenant(ctx, (tx) => readWorkspaceCapabilities(tx, A, {}), getWorkerPrisma());
     expect(await read()).toEqual({
-      payments: false, appointments: false, ai: false, capi: false, commerce: false, meetings: false, shipping: false,
+      payments: false, appointments: false, ai: false, capi: false, commerce: false, meetings: false, shipping: false, sheets: false,
     });
     await q("INSERT INTO payment_providers(account_id,provider,mode,key_id,key_secret_enc) VALUES($1,'razorpay','test','rzp_test_x','enc')", [A]);
     await q("INSERT INTO ai_configs(account_id,provider,model,api_key,is_active) VALUES($1,'openai','m','enc',true)", [A]);

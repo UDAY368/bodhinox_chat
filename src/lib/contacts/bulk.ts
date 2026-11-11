@@ -22,6 +22,7 @@ import { AudienceFilterError, AudienceNotFoundError, assertFilterReferences, com
 import { listFilter } from '@/lib/audience/lists';
 import { contactSearchSql, loadSegmentFilter } from '@/lib/audience/segments';
 import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
+import { markExplicitPause } from '@/lib/inbox/automation-pause';
 import { conversationVisibleSql } from '@/lib/inbox/inbox-scope';
 import { loadPhoneMask, maskContactRow } from '@/lib/inbox/masking-apply';
 import { contactSearchTerm } from './search-term';
@@ -262,6 +263,8 @@ export async function bulkContactAction(ctx: TenantContext, input: unknown): Pro
       case 'pause_automations': {
         // The contacts' conversations the member may see (agent visibility), with who
         // paused and until when (the columns automation-pause.ts and bot-pause.ts read).
+        // Without the explicit-pause mark, conversations_pause_reset clears the until and author.
+        await markExplicitPause(tx);
         const until = action.minutes === null ? Prisma.sql`NULL::timestamptz` : Prisma.sql`now() + make_interval(mins => ${action.minutes}::int)`;
         changed = await tx.$executeRaw(Prisma.sql`
           UPDATE conversations v SET bot_paused=true, bot_paused_until=${until}, bot_paused_by=${ctx.userId || null}::uuid

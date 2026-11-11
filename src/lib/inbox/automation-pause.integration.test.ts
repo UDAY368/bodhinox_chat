@@ -23,6 +23,7 @@ import {
   resumeAutomations,
 } from './automation-pause';
 import { botRepliesPaused } from '@/lib/whatsapp/bot-pause';
+import { encrypt } from '@/lib/whatsapp/encryption';
 
 const configured = config({ path: '.env.test', quiet: true }).parsed;
 const ownerUrl = process.env.TEST_DATABASE_URL;
@@ -91,7 +92,12 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('timed pause of automated re
 
   it('pauses all of a contact’s conversations, and resumes them with time and author cleared', async () => {
     const c = await conversation(A, ownerA);
-    const second = (await q('INSERT INTO conversations(account_id,user_id,contact_id) VALUES($1,$2,$3) RETURNING id', [A, ownerA, c.contact])).rows[0].id;
+    // The same contact on Instagram: one WhatsApp conversation per contact and number is allowed.
+    const ig = (await q(`INSERT INTO instagram_accounts(account_id,ig_user_id,username,access_token_enc,scopes,connected_by_user_id)
+      VALUES($1,$2,'pause_shop',$3,$4,$5) RETURNING id`,
+      [A, `84${seed}`, encrypt('test-only-ig-token'), ['instagram_business_basic', 'instagram_business_manage_messages'], ownerA])).rows[0].id;
+    const second = (await q(`INSERT INTO conversations(account_id,user_id,contact_id,channel,instagram_account_id)
+      VALUES($1,$2,$3,'instagram',$4) RETURNING id`, [A, ownerA, c.contact, ig])).rows[0].id;
     expect(await pauseAutomations(A, { contactId: c.contact, minutes: null, byUserId: ownerA })).toBe(2);
     for (const id of [c.id, second]) expect(await state(id)).toEqual({ bot_paused: true, bot_paused_until: null, bot_paused_by: ownerA });
     expect(await resumeAutomations(A, { contactId: c.contact, byUserId: ownerA })).toBe(2);
