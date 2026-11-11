@@ -19,7 +19,7 @@ import {
   type SequenceStatus,
   type SequenceSubscriptionStatus,
 } from '@/types';
-import { dueAt, parseDelay, ratePercent, reorderPositions, type SequenceDelay } from './schedule';
+import { delayMs, dueAt, parseDelay, ratePercent, reorderPositions, type SequenceDelay } from './schedule';
 import { subscribeInTx, unsubscribeInTx } from './subscriptions';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -347,11 +347,14 @@ export async function addMessage(ctx: TenantContext, id: string, input: MessageC
   });
 }
 
-async function lockMessage(tx: TenantTransaction, accountId: string, id: string, messageId: string): Promise<{ position: number }> {
+interface LockedMessage { position: number; delay_amount: number; delay_unit: SequenceDelayUnit }
+
+async function lockMessage(tx: TenantTransaction, accountId: string, id: string, messageId: string): Promise<LockedMessage> {
   assertId(messageId);
   await lockSequence(tx, accountId, id);
-  const rows = await tx.$queryRaw<{ position: number }[]>`
-    SELECT position FROM sequence_messages WHERE account_id = ${accountId}::uuid AND sequence_id = ${id}::uuid AND id = ${messageId}::uuid`;
+  const rows = await tx.$queryRaw<LockedMessage[]>`
+    SELECT position, delay_amount, delay_unit FROM sequence_messages
+    WHERE account_id = ${accountId}::uuid AND sequence_id = ${id}::uuid AND id = ${messageId}::uuid`;
   if (!rows.length) throw notFound();
   return rows[0];
 }
@@ -359,7 +362,7 @@ async function lockMessage(tx: TenantTransaction, accountId: string, id: string,
 export async function updateMessage(ctx: TenantContext, id: string, messageId: string, patch: MessagePatch): Promise<SequenceDetail> {
   assertId(id);
   return withTenant(ctx, async (tx) => {
-    await lockMessage(tx, ctx.accountId, id, messageId);
+    const current = await lockMessage(tx, ctx.accountId, id, messageId);
     if (patch.flowId) await assertMessageFlow(tx, ctx.accountId, patch.flowId);
     await tx.$executeRaw`UPDATE sequence_messages SET
         delay_amount = COALESCE(${patch.delay?.amount ?? null}::int, delay_amount),
@@ -367,6 +370,15 @@ export async function updateMessage(ctx: TenantContext, id: string, messageId: s
         active = COALESCE(${patch.active ?? null}::boolean, active),
         flow_id = COALESCE(${patch.flowId ?? null}::uuid, flow_id)
       WHERE account_id = ${ctx.accountId}::uuid AND id = ${messageId}::uuid`;
+    // Subscribers waiting for this message move by the change, so a new delay applies to them too (the worker
+    // re-checks the 24-hour window when it falls due). A due time in the past is simply due now.
+    const shiftMs = patch.delay
+      ? delayMs(patch.delay) - delayMs({ amount: current.delay_amount, unit: current.delay_unit })
+      : 0;
+    if (shiftMs !== 0)
+      await tx.$executeRaw`UPDATE sequence_subscriptions SET next_due_at = next_due_at + ${shiftMs / 1000}::double precision * interval '1 second'
+        WHERE account_id = ${ctx.accountId}::uuid AND sequence_id = ${id}::uuid AND status = 'active'
+          AND next_position = ${current.position} AND next_due_at IS NOT NULL`;
     return loadDetail(tx, ctx.accountId, id);
   });
 }

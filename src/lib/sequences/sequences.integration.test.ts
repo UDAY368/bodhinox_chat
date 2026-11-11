@@ -244,6 +244,21 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('sequences on PostgreSQL', {
       expect((await subscription(seq.id, t.contact)).next_due_at).not.toBeNull();
     });
 
+    it('moves waiting subscribers when the delay of their next message changes', async () => {
+      const seq = await sequenceWith([ids.liveFlow, ids.liveFlow]);
+      const t = await thread(accountA, adminUser, ids.igA, `80${seed}`, '1 minute');
+      await sequenceSubscriptions.subscribe(accountA, t.contact, seq.id);
+      await runDueSequences(accountA);
+      const before = new Date((await subscription(seq.id, t.contact)).next_due_at).getTime();
+      // Message 2 waits 1 hour; changed to 3 hours, the subscriber's due time moves 2 hours later.
+      await updateMessage(agentA, seq.id, seq.messages[1], { delay: { amount: 3, unit: 'hours' } });
+      expect(new Date((await subscription(seq.id, t.contact)).next_due_at).getTime() - before).toBe(2 * 3_600_000);
+      // Changing another message's delay leaves it alone; Active alone changes no due time.
+      await updateMessage(agentA, seq.id, seq.messages[0], { delay: { amount: 2, unit: 'days' } });
+      await updateMessage(agentA, seq.id, seq.messages[1], { active: false });
+      expect(new Date((await subscription(seq.id, t.contact)).next_due_at).getTime() - before).toBe(2 * 3_600_000);
+    });
+
     it('stops at once on unsubscribe mid-sequence and on Instagram opt-out', async () => {
       const seq = await sequenceWith([ids.liveFlow, ids.liveFlow, ids.liveFlow]);
       const quits = await thread(accountA, adminUser, ids.igA, `75${seed}`, '1 minute');
