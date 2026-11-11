@@ -209,6 +209,21 @@ vi.mock("./round-robin", () => ({ canOwnConversations: rr.canOwn, nextRoundRobin
 const channelSend = vi.hoisted(() => ({ flowSend: vi.fn<(...args: unknown[]) => Promise<{ whatsapp_message_id: string }>>(async () => ({ whatsapp_message_id: "mid.ig" })) }));
 vi.mock("@/lib/flows/channel-send", () => ({ flowSend: channelSend.flowSend }));
 
+// Stage 4C: an Instagram sequence checks the 24-hour window before each customer message (the rule itself is tested with the sender).
+const windowGate = vi.hoisted(() => ({ open: vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true) }));
+vi.mock("@/lib/channels/sender", async (original) => ({
+  ...(await original<typeof import("@/lib/channels/sender")>()),
+  instagramAutomatedWindowOpen: windowGate.open,
+}));
+vi.mock("@/lib/db/tenant", async (original) => ({
+  ...(await original<typeof import("@/lib/db/tenant")>()),
+  withTenant: async (_ctx: unknown, work: (tx: unknown) => unknown) => work({}),
+}));
+vi.mock("@/lib/db/prisma", async (original) => ({
+  ...(await original<typeof import("@/lib/db/prisma")>()),
+  getWorkerPrisma: () => ({}),
+}));
+
 vi.mock("./meta-send", () => ({
   engineSendText: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
@@ -1483,6 +1498,7 @@ describe("channels (Stage 1)", () => {
     h.state.conversations = [waConv, igConv];
     h.state.automations = [waAutomation, igAutomation];
     h.state.steps = [sendStep("wa1"), sendStep("ig1")];
+    windowGate.open.mockResolvedValue(true);
   });
 
   it("runs only the dispatch channel's automations (rows from before channels are WhatsApp)", async () => {
@@ -1528,6 +1544,77 @@ describe("channels (Stage 1)", () => {
     expect(channelSend.flowSend.mock.calls[0][2]).toMatchObject({ kind: "buttons",
       args: { bodyText: "Pick one", buttons: [{ id: "b1", title: "One" }], conversationId: "ig-conv" } });
     expect(engineSendInteractive).not.toHaveBeenCalled();
+  });
+
+  describe("sequences stay inside the 24-hour window (Stage 4C)", () => {
+    const waitStep = { id: "s-wait", automation_id: "ig1", step_type: "wait", position: 0, parent_step_id: null, branch: null, step_config: { amount: 2, unit: "days" } };
+    const after = { ...sendStep("ig1"), id: "s-after", position: 1 };
+    const park = { id: "p1", automation_id: "ig1", user_id: "u1", account_id: ACCOUNT, contact_id: "c1", log_id: "log1", parent_step_id: null,
+      branch: null, next_step_position: 1, parked_step_id: "s-wait", context: { conversation_id: "ig-conv" } };
+
+    beforeEach(() => {
+      windowGate.open.mockClear();
+      windowGate.open.mockResolvedValue(true);
+      h.state.steps = [waitStep, after];
+    });
+
+    it("parks an Instagram wait like any other and sends nothing yet", async () => {
+      await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+        context: { conversation_id: "ig-conv" } });
+      expect(h.state.pending).toHaveLength(1);
+      expect(channelSend.flowSend).not.toHaveBeenCalled();
+    });
+
+    it("sends the step after a wait when the window is still open", async () => {
+      await resumePendingExecution(park);
+      expect(windowGate.open).toHaveBeenCalledTimes(1);
+      expect(windowGate.open.mock.calls[0][1]).toBe(ACCOUNT);
+      expect(windowGate.open.mock.calls[0][2]).toBe("ig-conv");
+      expect(channelSend.flowSend).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops a message past the window with window_closed: nothing is sent and no intent exists", async () => {
+      windowGate.open.mockResolvedValue(false);
+      await resumePendingExecution(park);
+      expect(channelSend.flowSend).not.toHaveBeenCalled();
+      expect(dispatch.once).not.toHaveBeenCalled();
+      const update = h.state.logUpdates.at(-1) as { status: string; error_message: string; steps_executed: { status: string; detail: string }[] };
+      expect(update).toMatchObject({ status: "partial", error_message: "window_closed" });
+      expect(update.steps_executed.at(-1)).toMatchObject({ status: "skipped", detail: "window_closed" });
+    });
+
+    it("still runs the steps that do not message the customer, and checks the window only for messages", async () => {
+      windowGate.open.mockResolvedValue(false);
+      h.state.owned = { id: "c1" };
+      h.state.steps = [waitStep, { ...after, step_type: "add_tag", step_config: { tag: "later" } }];
+      await resumePendingExecution(park);
+      expect(windowGate.open).not.toHaveBeenCalled();
+      expect(JSON.stringify(h.state.logUpdates)).not.toContain("window_closed");
+    });
+
+    it("never checks the Instagram window for a WhatsApp automation", async () => {
+      windowGate.open.mockResolvedValue(false);
+      h.state.steps = [{ ...waitStep, automation_id: "wa1" }, { ...sendStep("wa1"), id: "s-wa-after", position: 1 }];
+      await resumePendingExecution({ ...park, automation_id: "wa1", context: { conversation_id: "wa-conv" } });
+      expect(windowGate.open).not.toHaveBeenCalled();
+      expect(vi.mocked(engineSendText)).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops the rest of the run when a branch's message is past the window", async () => {
+      windowGate.open.mockResolvedValue(false);
+      h.state.steps = [
+        waitStep,
+        { id: "s-cond", automation_id: "ig1", step_type: "condition", position: 1, parent_step_id: null, branch: null,
+          step_config: { subject: "message_content", operand: "contains", value: "" } },
+        { id: "s-yes", automation_id: "ig1", step_type: "send_message", position: 0, parent_step_id: "s-cond", branch: "yes", step_config: { text: "branch" } },
+        { id: "s-no", automation_id: "ig1", step_type: "send_message", position: 0, parent_step_id: "s-cond", branch: "no", step_config: { text: "branch" } },
+        { ...sendStep("ig1"), id: "s-last", position: 2 },
+      ];
+      await resumePendingExecution(park);
+      expect(channelSend.flowSend).not.toHaveBeenCalled();
+      expect(windowGate.open).toHaveBeenCalledTimes(1);
+      expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "partial" });
+    });
   });
 
   it("refuses a template step in an Instagram automation", async () => {

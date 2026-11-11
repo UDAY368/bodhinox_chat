@@ -38,7 +38,7 @@ vi.mock('./graph', async (orig) => ({ ...(await orig<typeof import('./graph')>()
 
 import { UncertainDispatchError } from '@/lib/jobs/dispatch';
 import {
-  CAPI_THROTTLE_DELAYS_MS, capiValue, cleanValue, conversionEventId, handleCapiEventJob, parseListFilter, parseResolution, queueConversionEvent, queueConversionEventTx,
+  type ConversionEventInput, CAPI_THROTTLE_DELAYS_MS, capiValue, cleanValue, conversionEventId, handleCapiEventJob, parseListFilter, parseResolution, queueConversionEvent, queueConversionEventTx,
 } from './capi';
 
 const ENV = { META_ADS_ENABLED: 'true', META_APP_ID: '123', META_APP_SECRET_PRIMARY: 'test-only', META_ADS_LOGIN_CONFIG_ID: '456' };
@@ -327,5 +327,122 @@ describe('request parsing', () => {
     expect(parseListFilter('review')).toBe('review');
     expect(parseListFilter('unknown')).toBe('unknown');
     expect(parseListFilter('drop table')).toBeUndefined();
+  });
+});
+
+describe('Instagram conversion events (Stage 4C)', () => {
+  const CONV = '55555555-5555-4555-8555-555555555555';
+  const AD_MESSAGE = '66666666-6666-4666-8666-666666666666';
+  const IG_ENV = {
+    INSTAGRAM_ENABLED: 'true', INSTAGRAM_APP_ID: '123456', INSTAGRAM_APP_SECRET: 'test-only-secret',
+    INSTAGRAM_WEBHOOK_VERIFY_TOKEN: 'test-only-verify', APP_URL: 'https://app.example.test', INSTAGRAM_CAPI_ENABLED: 'true',
+  };
+  const flow = { accountId: ACCOUNT, eventName: 'QualifiedLead' as const, source: 'flow' as const, sourceId: 'run1:node1', contactId: CONTACT, channel: 'instagram' as const, conversationId: CONV as string | null };
+  const connectionRow = { id: 'c1', capi_enabled: true, capi_dataset_id: '777', capi_waba_id: null, capi_whatsapp_config_id: null, capi_auto_purchase: true, capi_auto_lead: false };
+
+  beforeEach(() => { Object.assign(process.env, IG_ENV); });
+
+  it('runs no SQL while INSTAGRAM_CAPI_ENABLED is off, even with Instagram and Meta Ads on', async () => {
+    process.env.INSTAGRAM_CAPI_ENABLED = 'false';
+    expect(await queueConversionEventTx(fakeTx as never, flow)).toBe(false);
+    expect(fakeTx.$queryRaw).not.toHaveBeenCalled();
+    expect(fakeTx.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('refuses an Instagram event that is not a flow event, a Purchase, or has no conversation', async () => {
+    const bad: Partial<ConversionEventInput>[] = [
+      { source: 'order' }, { eventName: 'Purchase' }, { conversationId: null }, { conversationId: 'not-a-uuid' },
+    ];
+    for (const change of bad) {
+      expect(await queueConversionEventTx(fakeTx as never, { ...flow, ...change })).toBe(false);
+    }
+    expect(fakeTx.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('queues no row without a click-to-Direct ad message in that conversation', async () => {
+    h.respond = (sql) => (sql.includes('FROM meta_ad_connections') ? [connectionRow] : []);
+    expect(await queueConversionEventTx(fakeTx as never, flow)).toBe(false);
+    const lookup = h.queried.find((s) => s.includes('FROM messages m'))!;
+    // Scoped to the workspace, the conversation and the contact; only the customer's own ad message counts.
+    expect(lookup).toContain('m.account_id=');
+    expect(lookup).toContain("c.channel='instagram'");
+    expect(lookup).toContain("m.sender_type='customer'");
+    expect(h.queried.some((s) => s.includes('INSERT INTO capi_events'))).toBe(false);
+    expect(h.executed.some((s) => s.includes('INSERT INTO jobs'))).toBe(false);
+  });
+
+  it('needs the dataset but not a WhatsApp account', async () => {
+    h.respond = (sql) => (sql.includes('FROM meta_ad_connections') ? [{ ...connectionRow, capi_dataset_id: null }] : []);
+    expect(await queueConversionEventTx(fakeTx as never, flow)).toBe(false);
+    expect(h.queried.some((s) => s.includes('FROM messages m'))).toBe(false);
+    expect(h.queried.some((s) => s.includes('FROM whatsapp_config'))).toBe(false);
+  });
+
+  it('inserts an Instagram row keyed by the run and node, with its job, once', async () => {
+    h.respond = (sql) => {
+      if (sql.includes('FROM meta_ad_connections')) return [connectionRow];
+      if (sql.includes('FROM messages m')) return [{ id: AD_MESSAGE }];
+      if (sql.includes('INSERT INTO capi_events')) return [{ id: EVENT }];
+      return [];
+    };
+    expect(await queueConversionEventTx(fakeTx as never, flow)).toBe(true);
+    const insert = fakeTx.$queryRaw.mock.calls.find((c) => c[0].join('?').includes('INSERT INTO capi_events'))!;
+    expect(insert[0].join('?')).toContain("'instagram'");
+    expect(insert).toContain('flow:run1:node1:QualifiedLead');
+    expect(insert).toContain(AD_MESSAGE);
+    const job = fakeTx.$executeRaw.mock.calls.find((c) => c[0].join('?').includes('INSERT INTO jobs'))!;
+    expect(job).toContain(`capi:${ACCOUNT}:flow:run1:node1:QualifiedLead`);
+    expect(job[0].join('?')).toContain('ON CONFLICT(dedupe_key) DO NOTHING');
+    // A replay hits the unique event id: nothing is inserted, so no second job.
+    h.respond = (sql) => {
+      if (sql.includes('FROM meta_ad_connections')) return [connectionRow];
+      if (sql.includes('FROM messages m')) return [{ id: AD_MESSAGE }];
+      return [];
+    };
+    fakeTx.$executeRaw.mockClear();
+    expect(await queueConversionEventTx(fakeTx as never, flow)).toBe(false);
+    expect(fakeTx.$executeRaw.mock.calls.some((c) => c[0].join('?').includes('INSERT INTO jobs'))).toBe(false);
+  });
+
+  const igQueued = { ...queued, event_id: 'flow:run1:node1:QualifiedLead', event_name: 'QualifiedLead', ad_referral_id: null, channel: 'instagram', message_id: AD_MESSAGE };
+  const igState = (over: Partial<Record<'event' | 'who', unknown[]>> = {}): Responder => (sql) => {
+    if (sql.includes('FROM capi_events')) return over.event ?? [igQueued];
+    if (sql.includes('FROM outbound_intents')) return [];
+    if (sql.includes('FROM messages m')) return over.who ?? [{ ig_user_id: '17841400000000000', external_id: '990011' }];
+    return [];
+  };
+
+  it('sends the Instagram payload through an outbound intent and marks it sent', async () => {
+    const graph = await import('./graph');
+    h.respond = igState();
+    h.dispatch.mockImplementation(async (_a: string, key: string, send: () => Promise<unknown>) => {
+      expect(key).toBe('capi:flow:run1:node1:QualifiedLead');
+      return send();
+    });
+    await handleCapiEventJob(ACCOUNT, { capiEventId: EVENT });
+    const [, , events] = vi.mocked(graph.postCapiEvents).mock.calls.at(-1)!;
+    expect(events[0]).toMatchObject({ messaging_channel: 'instagram', user_data: { ig_account_id: '17841400000000000', ig_sid: '990011' } });
+    expect(fakeTx.$executeRaw.mock.calls.at(-1)).toContain('sent');
+    // The person is read through the ad message's own conversation, in this workspace.
+    expect(h.queried.find((s) => s.includes('FROM messages m'))).toContain('m.account_id=');
+  });
+
+  it('skips (never sends) while the Instagram flag is off, without an identity, or without the ad message', async () => {
+    const cases: [() => void, string | null][] = [
+      [() => { process.env.INSTAGRAM_CAPI_ENABLED = 'false'; h.respond = igState(); }, 'disabled'],
+      [() => { h.respond = igState({ who: [] }); }, null],
+      [() => { h.respond = igState({ event: [{ ...igQueued, message_id: null }] }); }, null],
+    ];
+    for (const [setup, expected] of cases) {
+      Object.assign(process.env, IG_ENV);
+      h.dispatch.mockReset();
+      fakeTx.$executeRaw.mockClear();
+      setup();
+      await handleCapiEventJob(ACCOUNT, { capiEventId: EVENT });
+      expect(h.dispatch).not.toHaveBeenCalled();
+      const update = fakeTx.$executeRaw.mock.calls.at(-1)!;
+      expect(update).toContain('skipped');
+      if (expected) expect(update).toContain(expected);
+    }
   });
 });

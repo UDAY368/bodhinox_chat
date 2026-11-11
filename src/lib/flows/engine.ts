@@ -2387,11 +2387,14 @@ async function runConversionEvent(run: FlowRunRow, node: FlowNodeRow): Promise<{
   const value = conversionValue(run.vars, cfg.value_var);
   const currency = isCurrencyCode(cfg.currency) ? cfg.currency : undefined;
   try {
+    // Stage 4C: on an Instagram conversation the event is an Instagram one (attributed by its ad message).
+    const instagram = (await runChannel(run)) === "instagram";
     const queued = await queueConversionEvent(run.account_id, {
       eventName: cfg.event_name,
       source: "flow",
       sourceId: `${run.id}:${node.node_key}`,
       contactId: run.contact_id,
+      ...(instagram ? { channel: "instagram" as const, conversationId: run.conversation_id } : {}),
       ...(value !== undefined && currency ? { value, currency } : {}),
     });
     return { queued };

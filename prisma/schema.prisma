@@ -1800,6 +1800,9 @@ model capi_events {
   resolved_by String? @db.Uuid
   resolved_at DateTime? @db.Timestamptz(6)
   created_at DateTime @db.Timestamptz(6) @default(now())
+  /// 20261117210000: 'whatsapp' (default) or 'instagram'; an Instagram event is attributed by its click-to-Direct ad message, not an ad_referrals row.
+  channel String @default("whatsapp")
+  message_id String? @db.Uuid
   // 20261104104000_meta_capi_events: the app role may insert a queued event and resolve an 'unknown' one (policies app_enqueue, app_resolve).
   @@unique([account_id, event_id])
   @@unique([account_id, id])

@@ -650,7 +650,40 @@ interface ExecuteArgs {
  * parked the run: every enclosing scope must stop too, or the steps
  * after a condition would run before the branch's own remaining steps.
  */
-type ScopeOutcome = 'completed' | 'suspended' | 'failed'
+type ScopeOutcome = 'completed' | 'suspended' | 'failed' | 'dropped'
+
+/** The steps that message the customer: on Instagram each one needs the 24-hour window open at that moment. */
+const MESSAGING_STEPS: ReadonlySet<string> = new Set(['send_message', 'send_buttons', 'send_list'])
+
+/** Logged on the step and the run when a sequence reaches a customer message after the window closed. */
+export const WINDOW_CLOSED = 'window_closed'
+
+/**
+ * Whether an Instagram automation's customer message can no longer go out: the
+ * customer's last message (or ad click) is outside the automated window. A
+ * sequence that waited past it ends here instead of failing a send. Any other
+ * step, any WhatsApp automation and an unresolvable conversation (the step
+ * fails on its own, as before) are never "closed". Read-only, in the tenant.
+ */
+async function instagramWindowClosed(step: AutomationStep, args: ExecuteArgs): Promise<boolean> {
+  if (automationChannel(args.automation) !== 'instagram' || !MESSAGING_STEPS.has(step.step_type)) return false
+  let conversationId: string
+  try {
+    conversationId = await resolveConversationId(args)
+  } catch {
+    return false
+  }
+  const accountId = args.automation.account_id
+  // Loaded only for Instagram, so the WhatsApp path's module graph is unchanged.
+  const [{ withTenant }, { getWorkerPrisma }, { instagramAutomatedWindowOpen }] = await Promise.all([
+    import('@/lib/db/tenant'),
+    import('@/lib/db/prisma'),
+    import('@/lib/channels/sender'),
+  ])
+  const open = await withTenant({ accountId, role: 'owner' },
+    (tx) => instagramAutomatedWindowOpen(tx, accountId, conversationId), getWorkerPrisma())
+  return !open
+}
 
 async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
   const db = databaseAdmin()
@@ -683,6 +716,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
   const results: AutomationLogStepResult[] = []
   let status: 'success' | 'partial' | 'failed' = 'success'
   let errorMessage: string | null = null
+  let dropped = false
 
   for (const step of steps as AutomationStep[]) {
     // `wait` is the suspension point: enqueue and stop processing this
@@ -754,7 +788,24 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
           status = 'failed'
           break
         }
+        if (branchOutcome === 'dropped') {
+          // The branch's own message found the window closed: nothing after it runs either.
+          status = 'partial'
+          errorMessage = WINDOW_CLOSED
+          dropped = true
+          break
+        }
         continue
+      }
+
+      // Sequences stay inside Instagram's 24-hour window: a message reached after it
+      // closed (a long wait, a late resume) is dropped and logged, never attempted.
+      if (await instagramWindowClosed(step, args)) {
+        results.push({ step_id: step.id, step_type: step.step_type, status: 'skipped', detail: WINDOW_CLOSED })
+        status = 'partial'
+        errorMessage = WINDOW_CLOSED
+        dropped = true
+        break
       }
 
       const detail = await runStep(step, args)
@@ -794,6 +845,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
     // Nested branch — just append results; parent scope decides final status.
     await appendResults(args.logId, results, null, errorMessage)
   }
+  if (dropped) return 'dropped'
   return status === 'failed' ? 'failed' : 'completed'
 }
 
@@ -851,6 +903,9 @@ async function runResumed(args: ExecuteArgs): Promise<void> {
   // has to be promoted here or the log stays `partial` forever.
   if (outcome === 'failed' && owner !== null) {
     await setLogStatus(args.logId, 'failed')
+  }
+  if (outcome === 'dropped' && owner !== null) {
+    await setLogStatus(args.logId, 'partial')
   }
 }
 
