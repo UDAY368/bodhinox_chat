@@ -175,8 +175,9 @@ export function WhenCard({ data, isConnectable }: NodeProps) {
   const d = data as WhenData;
   const c = groupColors('start');
   return (
-    <div className="flow-studio-card bg-card relative w-[260px] overflow-hidden rounded-2xl border border-border text-left shadow-sm" data-testid="when-card">
-      <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: c.soft }}>
+    <div className="flow-studio-card bg-card relative w-[260px] rounded-2xl border border-border text-left shadow-sm" data-testid="when-card">
+      {/* No overflow-hidden: it clipped half of the Then handle, which sits on the right edge. */}
+      <div className="flex items-center gap-2 rounded-t-2xl px-4 py-2.5" style={{ background: c.soft }}>
         <Zap className="size-4" style={{ color: c.solid }} />
         <span className="text-sm font-semibold" style={{ color: c.text }}>{tm('when')}</span>
       </div>
