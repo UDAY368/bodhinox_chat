@@ -93,6 +93,9 @@ export async function scheduleWork() {
   await scheduleHealthSync().catch(() => console.error('[worker] health sync scheduling failed'));
   // Inbox SLA and auto-resolve sweeps; likewise independent.
   await scheduleInboxSweeps().catch(() => console.error('[worker] inbox sweep scheduling failed'));
+  // Due reminders and scheduled replies (Stage 4): one job per workspace with something due.
+  await import('@/lib/inbox/follow-up-jobs').then((m) => m.scheduleFollowUpSweeps())
+    .catch(() => console.error('[worker] inbox follow-up scheduling failed'));
   // Notification email digests every 30 minutes per workspace; nothing while SMTP is not configured.
   await scheduleNotificationDigests().catch(() => console.error('[worker] notification digest scheduling failed'));
   // Billing grace expiry, trial ends, scheduled changes and unconfirmed provider calls; nothing while billing is off.

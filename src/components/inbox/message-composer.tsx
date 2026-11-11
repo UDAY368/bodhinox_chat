@@ -72,6 +72,7 @@ import { instagramMediaAllowed } from "@/lib/channels/capabilities";
 import { INSTAGRAM_LIMITS, utf8Bytes } from "@/lib/instagram/graph-limits";
 import { instagramWindowBanner } from "@/lib/instagram/window";
 import { AiReplySuggestions, type ReplyOptionView } from "./ai-assist/ai-reply-suggestions";
+import { FollowUpBar } from "./follow-up-bar";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -750,6 +751,20 @@ export function MessageComposer({
                 time: windowTimeLeft(igBanner.closesAt.getTime() - (now ?? Date.now())),
               })}
         </div>
+      )}
+      {!draft && !recording && (
+        <FollowUpBar
+          conversationId={conversationId}
+          channel={isInstagram ? "instagram" : "whatsapp"}
+          draftText={text}
+          readOnly={readOnly}
+          scheduleDisabled={windowClosed || overInstagramLimit}
+          onScheduled={() => {
+            setText("");
+            setAiSuggestionId(null);
+            if (textareaRef.current) textareaRef.current.style.height = "auto";
+          }}
+        />
       )}
       {!isInstagram && sessionExpired && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">

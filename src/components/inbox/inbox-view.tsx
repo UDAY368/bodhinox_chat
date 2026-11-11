@@ -5,7 +5,7 @@
 // view, while both channels are enabled). A channel inbox loads only its
 // channel's conversations; realtime stays one subscription, filtered here by
 // channel. Each channel's connection banners show only in its own inbox.
-import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/data/client';
@@ -46,6 +46,7 @@ import { conversationChannel } from '@/components/inbox/channel-badge';
 import { authFetch } from '@/lib/auth/client';
 import Link from 'next/link';
 import { InboxSearch } from '@/components/inbox/search/inbox-search';
+import { SNOOZES_CHANGED_EVENT } from '@/components/inbox/follow-up-bar';
 import {
   jumpRequestFor,
   type JumpRequest,
@@ -338,6 +339,40 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
       cancelled = true;
     };
   }, [scope]);
+
+  // The member's own pending snoozes: a snoozed conversation leaves their list until the time passes
+  // (or they wake it) and comes back by itself. Personal; nobody else's list changes.
+  const [snoozes, setSnoozes] = useState<{ conversation_id: string; remind_at: string }[]>([]);
+  const [snoozeClock, setSnoozeClock] = useState(() => Date.now());
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await authFetch('/api/inbox/reminders?kind=snooze&status=pending');
+        if (!res.ok) return;
+        const body = (await res.json().catch(() => null)) as { reminders?: { conversation_id: string; remind_at: string }[] } | null;
+        if (!cancelled && Array.isArray(body?.reminders)) setSnoozes(body.reminders);
+      } catch {
+        // Snooze is a convenience; without it every conversation simply stays listed.
+      }
+      if (!cancelled) setSnoozeClock(Date.now());
+    };
+    void load();
+    const timer = setInterval(() => void load(), 60_000);
+    window.addEventListener(SNOOZES_CHANGED_EVENT, load);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener(SNOOZES_CHANGED_EVENT, load);
+    };
+  }, [resyncToken]);
+  const listedConversations = useMemo(() => {
+    const hidden = new Set(
+      snoozes.filter((s) => Date.parse(s.remind_at) > snoozeClock).map((s) => s.conversation_id)
+    );
+    // An open conversation stays visible even if it was just snoozed.
+    return hidden.size === 0 ? conversations : conversations.filter((c) => !hidden.has(c.id) || c.id === activeConversation?.id);
+  }, [snoozes, snoozeClock, conversations, activeConversation?.id]);
 
   // Handle realtime message events
   const handleMessageEvent = useCallback(
@@ -822,7 +857,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
           <ConversationList
             activeConversationId={activeConversation?.id ?? null}
             onSelect={handleSelectConversation}
-            conversations={conversations}
+            conversations={listedConversations}
             onConversationsLoaded={handleConversationsLoaded}
             onConversationsChanged={handleConversationsChanged}
             resyncToken={resyncToken}

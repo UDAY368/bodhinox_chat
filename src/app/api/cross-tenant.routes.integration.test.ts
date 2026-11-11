@@ -213,7 +213,10 @@ export const KNOWN_UNMAPPED = [
   'flows/[id]/runs/cancel',
   'flows/[id]/runs/migrate',
   'flows/[id]/versions/[versionId]',
+  'inbox/reminders/[id]',
   'inbox/routing-rules/[id]',
+  // Reminder and scheduled-reply ids: a row of another member or workspace is notFound; proved by src/lib/inbox/follow-ups.integration.test.ts.
+  'inbox/scheduled-replies/[id]',
   'instagram/accounts/[id]',
   'instagram/accounts/[id]/comment-rules',
   'instagram/accounts/[id]/comment-rules/[ruleId]',
