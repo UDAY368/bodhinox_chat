@@ -6,7 +6,7 @@
  */
 
 import { getT } from "@/lib/i18n/translate";
-import { goalsProblem } from "@/lib/ai/goal-rules";
+import { goalsProblem, taskLeadFields } from "@/lib/ai/goal-rules";
 import { AI_GOAL_LIMITS } from "./types";
 import type { ValidationIssue } from "./validate";
 
@@ -45,7 +45,9 @@ export function aiReplyWaits(config: Record<string, unknown>): boolean {
 
 /** Outgoing node keys of an ai_reply step (the timeout port is added by the caller). */
 export function aiReplyEdges(config: Record<string, unknown>): string[] {
-  return AI_REPLY_PORT_FIELDS.map((field) => config[field]).filter((key): key is string => typeof key === "string" && key.length > 0);
+  // Stage 5 (5G): the "Goals finished" port joins the graph when it is set.
+  return [...AI_REPLY_PORT_FIELDS, "finish_next" as const].map((field) => config[field])
+    .filter((key): key is string => typeof key === "string" && key.length > 0);
 }
 
 /**
@@ -100,7 +102,8 @@ export function aiGoalIssues(node: NodeLike, knownKeys: ReadonlySet<string>): Va
   const cfg = node.config;
   const issues: ValidationIssue[] = [];
   const at = (field: string, message: string) => issues.push({ severity: "error", scope: "node", node_key: node.node_key, field, message });
-  const hasGoals = Array.isArray(cfg.goals) && cfg.goals.length > 0;
+  // Tasks that save replies to fields work like a lead goal, so they need the finish port too.
+  const hasGoals = (Array.isArray(cfg.goals) && cfg.goals.length > 0) || taskLeadFields(cfg.tasks).length > 0;
   if (cfg.goals !== undefined && cfg.goals !== null) {
     const problem = goalsProblem(cfg.goals);
     if (problem) at("goals", tg(`errors.${problem}`, { max: AI_GOAL_LIMITS.goals, fields: AI_GOAL_LIMITS.leadFields }));

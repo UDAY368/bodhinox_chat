@@ -3495,7 +3495,21 @@
       "context": "Dale contexto a la IA",
       "saveReply": "Guardar la respuesta como",
       "preview": "Probar",
-      "previewEmpty": "Corrige los errores del paso para probarlo."
+      "previewEmpty": "Corrige los errores del paso para probarlo.",
+      "errors": {
+        "not_list": "Los objetivos deben ser una lista.",
+        "too_many": "Usa como máximo {max} objetivos.",
+        "type": "Elige un tipo de objetivo.",
+        "url": "Escribe un enlace que empiece por http:// o https://.",
+        "fields": "Elige de 1 a {fields} datos distintos para recopilar.",
+        "refusal": "Elige qué pasa si la persona se niega.",
+        "duplicate": "Cada tipo de objetivo se puede usar una vez.",
+        "needsFinish": "Conecta «Cuando se cumplan los objetivos» a un paso.",
+        "tooLong": "Usa menos de {max} caracteres.",
+        "tasks": "Usa como máximo {max} tareas.",
+        "taskText": "Cada tarea necesita un texto de hasta {max} caracteres.",
+        "saveTo": "Elige un campo donde guardar la respuesta."
+      }
     },
     "buyButton": {
       "label": "Botón de compra",
@@ -9573,7 +9587,28 @@
       "connectedAs": "Conectado como {email}",
       "notEnabled": "Google Sheets aún no está disponible en este servidor.",
       "error": "La conexión necesita atención. Vuelve a conectar.",
-      "readOnly": "Solo los administradores pueden conectar Google Sheets."
+      "readOnly": "Solo los administradores pueden conectar Google Sheets.",
+      "connected": "Google Sheets está conectado.",
+      "disconnected": "Google Sheets está desconectado.",
+      "statusConnected": "Conectado",
+      "statusAttention": "Requiere atención",
+      "loadFailed": "No se pudo cargar la conexión con Google Sheets.",
+      "retry": "Reintentar",
+      "loading": "Cargando",
+      "errors": {
+        "generic": "Algo salió mal. Inténtalo de nuevo.",
+        "denied": "Se rechazó la solicitud de permiso de Google.",
+        "signed_out": "Tu sesión terminó. Inicia sesión y vuelve a conectar.",
+        "forbidden": "Solo los administradores pueden conectar Google Sheets.",
+        "save_failed": "No se pudo guardar la conexión. Inténtalo de nuevo.",
+        "not_enabled": "Google Sheets no está disponible en este servidor.",
+        "invalid_state": "La solicitud de conexión caducó o no coincide. Empieza de nuevo.",
+        "auth": "Google no aceptó la autorización. Empieza de nuevo.",
+        "missing_scopes": "Permite el acceso a tus hojas de cálculo para conectar.",
+        "no_refresh_token": "Google no concedió acceso permanente. Quita la app en tu cuenta de Google y vuelve a conectar.",
+        "no_email": "Google no compartió un correo verificado para esta cuenta.",
+        "provider_unreachable": "No se pudo contactar con Google. Inténtalo en un momento."
+      }
     }
   },
   "InboxLifecycle": {
@@ -11407,7 +11442,38 @@
       "description": "Da a las respuestas de IA hasta 3 objetivos, en orden.",
       "add": "Añadir objetivo",
       "empty": "Sin objetivos: la IA solo responde preguntas.",
-      "save": "Guardar"
+      "save": "Guardar",
+      "onlyInstagram": "Estos objetivos se aplican a las respuestas de IA en conversaciones de Instagram.",
+      "goalLabel": "Objetivo {n}",
+      "type": "Tipo de objetivo",
+      "types": {
+        "share_link": "Compartir un enlace",
+        "grow_followers": "Ganar seguidores",
+        "capture_lead": "Captar un contacto"
+      },
+      "typeHelp": {
+        "share_link": "La IA comparte tu enlace cuando la persona muestra interés.",
+        "grow_followers": "La IA invita a la persona a seguir tu cuenta hasta que lo haga.",
+        "capture_lead": "La IA pide los datos que elijas y los guarda en el contacto."
+      },
+      "url": "Enlace",
+      "linkLabel": "Qué es el enlace (opcional)",
+      "fields": "Datos que recopilar",
+      "fieldNames": {
+        "name": "Nombre",
+        "email": "Correo",
+        "phone": "Teléfono",
+        "company": "Empresa"
+      },
+      "onRefusal": "Si la persona se niega",
+      "refusalHandoff": "Pasar a una persona",
+      "refusalContinue": "Seguir conversando sin ello",
+      "moveUp": "Subir objetivo",
+      "moveDown": "Bajar objetivo",
+      "remove": "Quitar objetivo",
+      "invalid": "Revisa los objetivos: cada uno necesita sus campos completos.",
+      "saved": "Objetivos guardados.",
+      "saveFailed": "No se pudieron guardar los objetivos."
     }
   },
   "AiFallback": {

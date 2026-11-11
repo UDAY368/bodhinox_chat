@@ -39,7 +39,7 @@ import { normalizeCollectedInput } from '@/lib/flows/input-validation';
 import { writeContactField } from '@/lib/contacts/field-write';
 import type { AiGoal, AiReplyNodeConfig, FlowNodeRow, FlowRunRow, ParsedInbound } from '@/lib/flows/types';
 import {
-  advanceGoals, autoReplyGoalInstructions, customFieldId, GOAL_MAX_TURNS, goalInstructions, goalStateVars, leadVar, missingLeadFields, parseGoals,
+  advanceGoals, autoReplyGoalInstructions, customFieldId, effectiveGoals, GOAL_MAX_TURNS, goalInstructions, goalStateVars, leadVar, missingLeadFields, parseGoals,
   readGoalState, type GoalFacts,
 } from './goal-rules';
 
@@ -213,7 +213,7 @@ async function fieldLabels(accountId: string, fields: readonly string[]): Promis
   if (!ids.length) return labels;
   try {
     const rows = await withTenant({ accountId, role: 'owner' }, (tx) => tx.$queryRaw<{ id: string; name: string }[]>`
-      SELECT id::text AS id, name FROM custom_fields WHERE account_id=${accountId}::uuid AND id = ANY(${ids}::uuid[])`, getWorkerPrisma());
+      SELECT id::text AS id, field_name AS name FROM custom_fields WHERE account_id=${accountId}::uuid AND id = ANY(${ids}::uuid[])`, getWorkerPrisma());
     for (const row of rows) labels[`custom:${row.id}`] = row.name.replace(/[\r\n]+/g, ' ').slice(0, 60);
   } catch {
     // Unknown labels fall back to the key.
@@ -258,9 +258,9 @@ function messageIdOf(message: ParsedInbound | null): string | null {
 export async function runGoalTurn(run: FlowRunRow, node: FlowNodeRow, message: ParsedInbound | null): Promise<GoalTurnResult> {
   try {
     const cfg = node.config as unknown as Partial<AiReplyNodeConfig>;
-    const goals = parseGoals(cfg.goals);
-    if (!goals.length) return { outcome: 'finished' };
     if (!run.conversation_id || !run.contact_id || !UUID.test(run.account_id)) return { outcome: 'unavailable' };
+    const goals = effectiveGoals(cfg);
+    if (!goals.length) return { outcome: 'finished' };
 
     const vars: Record<string, unknown> = { ...run.vars };
     const out: Record<string, string> = {};
@@ -300,16 +300,15 @@ export async function runGoalTurn(run: FlowRunRow, node: FlowNodeRow, message: P
 
     const goal = goals[state.step];
     const labels = goal.type === 'capture_lead' ? await fieldLabels(run.account_id, goal.fields) : {};
-    const instructions = [cfg.instructions?.trim(), cfg.context?.trim() && `Background:\n${cfg.context.trim()}`,
-      goalInstructions(goal, goal.type === 'capture_lead' ? missingLeadFields(goal, vars) : [], labels)]
-      .filter(Boolean).join('\n\n');
+    const guidance = goalInstructions(goal, goal.type === 'capture_lead' ? missingLeadFields(goal, vars) : [], labels);
     const intentKey = `flow-ai-goal:${run.id}:${node.node_key}:${messageId ?? `entry:${run.transition_seq ?? 0}`}`;
     const outcome: FlowAiOutcome = await runFlowAiReply({
       accountId: run.account_id,
       userId: run.user_id,
       conversationId: run.conversation_id,
       contactId: run.contact_id,
-      config: { ...cfg, instructions },
+      config: cfg,
+      goalGuidance: guidance,
       intentKey,
       allowedUrls: goal.type === 'share_link' ? [goal.url] : [],
     });

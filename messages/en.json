@@ -3495,7 +3495,21 @@
       "context": "Give AI context",
       "saveReply": "Save the reply as",
       "preview": "Try it",
-      "previewEmpty": "Fix the step's errors to try it."
+      "previewEmpty": "Fix the step's errors to try it.",
+      "errors": {
+        "not_list": "Goals must be a list.",
+        "too_many": "Use at most {max} goals.",
+        "type": "Choose a goal type.",
+        "url": "Enter a link that starts with http:// or https://.",
+        "fields": "Pick 1 to {fields} different details to collect.",
+        "refusal": "Choose what happens if the person declines.",
+        "duplicate": "Each goal type can be used once.",
+        "needsFinish": "Connect “When the goals are done” to a step.",
+        "tooLong": "Keep this under {max} characters.",
+        "tasks": "Use at most {max} tasks.",
+        "taskText": "Each task needs text of up to {max} characters.",
+        "saveTo": "Choose a field to save the reply to."
+      }
     },
     "buyButton": {
       "label": "Buy button",
@@ -9573,7 +9587,28 @@
       "connectedAs": "Connected as {email}",
       "notEnabled": "Google Sheets is not available on this server yet.",
       "error": "The connection needs attention. Connect again.",
-      "readOnly": "Only admins can connect Google Sheets."
+      "readOnly": "Only admins can connect Google Sheets.",
+      "connected": "Google Sheets is connected.",
+      "disconnected": "Google Sheets is disconnected.",
+      "statusConnected": "Connected",
+      "statusAttention": "Needs attention",
+      "loadFailed": "Could not load the Google Sheets connection.",
+      "retry": "Try again",
+      "loading": "Loading",
+      "errors": {
+        "generic": "Something went wrong. Try again.",
+        "denied": "The Google permission request was declined.",
+        "signed_out": "Your session ended. Sign in and connect again.",
+        "forbidden": "Only admins can connect Google Sheets.",
+        "save_failed": "The connection could not be saved. Try again.",
+        "not_enabled": "Google Sheets is not available on this server.",
+        "invalid_state": "The connection request expired or did not match. Start again.",
+        "auth": "Google did not accept the authorization. Start again.",
+        "missing_scopes": "Allow access to your spreadsheets to connect.",
+        "no_refresh_token": "Google did not grant lasting access. Remove the app in your Google account and connect again.",
+        "no_email": "Google did not share a verified email for this account.",
+        "provider_unreachable": "Google could not be reached. Try again shortly."
+      }
     }
   },
   "InboxLifecycle": {
@@ -11407,7 +11442,38 @@
       "description": "Give AI replies up to 3 goals, worked through in order.",
       "add": "Add goal",
       "empty": "No goals: AI answers questions only.",
-      "save": "Save"
+      "save": "Save",
+      "onlyInstagram": "These goals apply to AI replies in Instagram conversations.",
+      "goalLabel": "Goal {n}",
+      "type": "Goal type",
+      "types": {
+        "share_link": "Share a link",
+        "grow_followers": "Grow followers",
+        "capture_lead": "Capture a lead"
+      },
+      "typeHelp": {
+        "share_link": "AI shares your link when the person shows interest.",
+        "grow_followers": "AI invites the person to follow your account, until they do.",
+        "capture_lead": "AI asks for the details you pick and saves them to the contact."
+      },
+      "url": "Link",
+      "linkLabel": "What the link is (optional)",
+      "fields": "Details to collect",
+      "fieldNames": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "company": "Company"
+      },
+      "onRefusal": "If the person declines",
+      "refusalHandoff": "Hand over to a person",
+      "refusalContinue": "Keep chatting without it",
+      "moveUp": "Move goal up",
+      "moveDown": "Move goal down",
+      "remove": "Remove goal",
+      "invalid": "Check the goals: each needs its fields filled in.",
+      "saved": "Goals saved.",
+      "saveFailed": "Could not save the goals."
     }
   },
   "AiFallback": {

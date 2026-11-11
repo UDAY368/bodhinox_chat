@@ -12,7 +12,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import type { DataClient } from '@/lib/data/types';
-import { enqueueJob } from '@/lib/jobs/queue';
+import { assertLiveEffects } from '@/lib/runtime/dry-run-guard';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import { instagramAutomationAllowed } from '@/lib/contacts/channel-consent';
@@ -23,7 +23,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A printable Idempotency-Key header of 1-200 characters. */
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{1,200}$/;
 
-export type StartFlowRefusal = 'contact_not_found' | 'flow_not_active' | 'no_conversation' | 'bad_request';
+export type StartFlowRefusal = 'contact_not_found' | 'flow_not_found' | 'flow_not_active' | 'no_conversation' | 'bad_request';
 
 export type StartFlowPrepared =
   | { ok: true; conversationId: string; channel: 'whatsapp' | 'instagram' }
@@ -59,7 +59,9 @@ export async function prepareStartFlow(db: DataClient, accountId: string, contac
   const flow = await db.from('flows').select('id, status, channel_scope').eq('id', flowId).eq('account_id', accountId).maybeSingle();
   if (flow.error) throw new Error('Flow lookup failed');
   const row = flow.data as { status?: string; channel_scope?: string | null } | null;
-  if (!row || row.status !== 'active') return { ok: false, reason: 'flow_not_active' };
+  // Another workspace's flow reads as missing (never revealed); an own flow that is not live is a conflict.
+  if (!row) return { ok: false, reason: 'flow_not_found' };
+  if (row.status !== 'active') return { ok: false, reason: 'flow_not_active' };
   const channels = scopeChannels(row.channel_scope ?? 'whatsapp');
   const conversations = await db.from('conversations').select('id, channel, last_message_at')
     .eq('account_id', accountId).eq('contact_id', contactId)
@@ -72,14 +74,31 @@ export async function prepareStartFlow(db: DataClient, accountId: string, contac
   return { ok: false, reason: 'no_conversation' };
 }
 
-/** Queues the start (before the 202). One job per key id and Idempotency-Key; a fresh one without the header. */
+/**
+ * Queues the start (before the 202). One job per key id and Idempotency-Key; a
+ * fresh one without the header. Inserted directly (like the other durable
+ * job writers) because enqueueJob only knows the core job types; the worker
+ * runs it through handleApiStartFlowJob. Returns the job id.
+ */
 export async function queueStartFlow(args: { accountId: string; keyId: string; idempotencyKey: string | null; contactId: string;
   conversationId: string; flowId: string }): Promise<string> {
+  assertLiveEffects('job');
   const request = args.idempotencyKey ? digest(`${args.keyId}:${args.idempotencyKey}`) : randomUUID().replace(/-/g, '');
-  return enqueueJob(API_START_FLOW_JOB, {
+  const payload = JSON.stringify({
     contactId: args.contactId, conversationId: args.conversationId, flowId: args.flowId, request,
     fingerprint: digest(`${args.contactId}:${args.flowId}`),
-  }, { tenantId: args.accountId, dedupeKey: `api-flow:${args.accountId}:${request}` });
+  });
+  const dedupeKey = `api-flow:${args.accountId}:${request}`;
+  const prisma = getWorkerPrisma();
+  const inserted = await prisma.$queryRaw<{ id: string }[]>`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
+    VALUES(${API_START_FLOW_JOB},${args.accountId}::uuid,${payload}::jsonb,${dedupeKey},5)
+    ON CONFLICT(dedupe_key) DO NOTHING RETURNING id::text AS id`;
+  if (inserted[0]) return inserted[0].id;
+  // A repeated request: the job queued the first time (same workspace and type only).
+  const existing = await prisma.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM jobs
+    WHERE dedupe_key=${dedupeKey} AND type=${API_START_FLOW_JOB} AND tenant_id=${args.accountId}::uuid`;
+  if (!existing[0]) throw new Error('Job dedupe identity mismatch');
+  return existing[0].id;
 }
 
 /** The fingerprint of a queued job's request, to tell a repeated key from a reused one. */

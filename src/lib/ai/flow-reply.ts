@@ -32,6 +32,7 @@
 // ============================================================
 
 import { databaseAdmin } from './admin-client'
+import { aiStepGuidance, STEP_GUIDANCE_MAX } from './goal-rules'
 import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { generateReply } from './generate'
@@ -124,6 +125,12 @@ export interface RunFlowAiReplyArgs {
    * profile ones (an AI goal's share_link url, set by the flow author).
    */
   allowedUrls?: readonly string[]
+  /**
+   * Stage 5 (5G): the current goal's fixed guidance (lib/ai/goal-rules.ts).
+   * Joined with the step's goal sentence, task list and context below the
+   * step's own instructions.
+   */
+  goalGuidance?: string
 }
 
 interface ConversationRow {
@@ -252,7 +259,7 @@ export async function runFlowAiReply(args: RunFlowAiReplyArgs): Promise<FlowAiOu
         : { excerpts: [], retrieval: null, citations: [] as FlowAiCitation[] }
       const lowScoreHandsOff = typeof args.config.confidence_threshold === 'number' || rules.on_low_confidence
 
-      const systemPrompt = buildAgentSystemPrompt(withStepInstructions(profile, config, args.config.instructions), {
+      const systemPrompt = buildAgentSystemPrompt(withStepInstructions(profile, config, args.config.instructions, aiStepGuidance(args.config, args.goalGuidance)), {
         mode: 'auto_reply',
         knowledge: knowledge.excerpts,
         noAnswerRule: lowScoreHandsOff,
@@ -485,10 +492,13 @@ export function withStepInstructions(
   profile: AgentProfile | null,
   config: Pick<AiConfig, 'systemPrompt'>,
   stepInstructions: string | undefined,
+  /** Stage 5 (5G): goal guidance, goal sentence, tasks and context (aiStepGuidance). */
+  stepGuidance = '',
 ): AgentProfile {
   const base = profile ?? emptyAgentProfile()
   const general = base.instructions?.trim() || config.systemPrompt?.trim() || ''
-  const step = typeof stepInstructions === 'string' ? stepInstructions.trim().slice(0, AI_REPLY_LIMITS.instructions) : ''
+  const own = typeof stepInstructions === 'string' ? stepInstructions.trim().slice(0, AI_REPLY_LIMITS.instructions) : ''
+  const step = [own, stepGuidance.trim().slice(0, STEP_GUIDANCE_MAX)].filter(Boolean).join('\n\n')
   const instructions = [general, step && `For this step of the conversation:\n${step}`].filter(Boolean).join('\n\n')
   return { ...base, instructions: instructions || null }
 }

@@ -136,6 +136,68 @@ export function goalInstructions(goal: AiGoal, missing: readonly string[], label
 }
 
 // ---------------------------------------------------------------------------
+// The AI step's editor fields (goal sentence, task list, context)
+
+/** Cap of the Stage 5 step guidance added below the step's own instructions. */
+export const STEP_GUIDANCE_MAX = 5_000;
+
+interface StepFields {
+  goal_text?: unknown;
+  tasks?: unknown;
+  context?: unknown;
+}
+
+/**
+ * The Stage 5 guidance of an AI step, in this order: the current goal's
+ * fixed guidance, the author's goal sentence, the task list and the
+ * background. All of it is the flow author's text (never customer text) and
+ * none of it is interpolated. Empty when the step has none of these.
+ */
+export function aiStepGuidance(cfg: StepFields, goalGuidance?: string | null): string {
+  const oneLine = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/[\r\n]+/g, ' ').trim().slice(0, max) : '');
+  const parts: string[] = [];
+  if (goalGuidance?.trim()) parts.push(goalGuidance.trim());
+  const goal = oneLine(cfg.goal_text, AI_GOAL_LIMITS.goalTextChars);
+  if (goal) parts.push(`Conversation goal: ${goal}`);
+  const tasks = Array.isArray(cfg.tasks)
+    ? cfg.tasks.slice(0, AI_GOAL_LIMITS.tasks).map((t) => oneLine((t as { text?: unknown } | null)?.text, AI_GOAL_LIMITS.taskChars)).filter(Boolean)
+    : [];
+  if (tasks.length) parts.push(`Work through these tasks in order, one at a time:\n${tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')}`);
+  const context = typeof cfg.context === 'string' ? cfg.context.trim().slice(0, AI_GOAL_LIMITS.contextChars) : '';
+  if (context) parts.push(`Background you may use:\n${context}`);
+  return parts.join('\n\n').slice(0, STEP_GUIDANCE_MAX);
+}
+
+/**
+ * Lead fields the step's tasks save to ("save the reply as"): contact fields
+ * by name and custom fields as `custom:<id>`, in task order, without repeats.
+ */
+export function taskLeadFields(tasks: unknown): string[] {
+  if (!Array.isArray(tasks)) return [];
+  const out: string[] = [];
+  for (const task of tasks.slice(0, AI_GOAL_LIMITS.tasks)) {
+    const save = (task as { save_to?: { target?: unknown; key?: unknown } } | null)?.save_to;
+    if (!save || typeof save.key !== 'string') continue;
+    const field = save.target === 'custom_field' ? `custom:${save.key}` : save.target === 'contact_field' ? save.key : '';
+    if (isLeadField(field) && !out.includes(field)) out.push(field);
+  }
+  return out;
+}
+
+/**
+ * The goals a step works through: its own goals, then (when its tasks save
+ * replies to fields that no capture_lead goal already collects) one implicit
+ * capture_lead goal for those fields that continues the flow on refusal.
+ * 5B runs runGoalTurn when this list is not empty.
+ */
+export function effectiveGoals(cfg: { goals?: unknown; tasks?: unknown }): AiGoal[] {
+  const goals = parseGoals(cfg.goals);
+  const collected = new Set(goals.flatMap((g) => (g.type === 'capture_lead' ? g.fields : [])));
+  const extra = taskLeadFields(cfg.tasks).filter((f) => !collected.has(f)).slice(0, AI_GOAL_LIMITS.leadFields);
+  return extra.length ? [...goals, { type: 'capture_lead', fields: extra, on_refusal: 'continue' }] : goals;
+}
+
+// ---------------------------------------------------------------------------
 // The workspace's Instagram AI auto-reply goals (ai_workspace_settings.instagram_goals)
 
 /**

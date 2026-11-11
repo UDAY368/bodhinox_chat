@@ -4,9 +4,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/auth/client', () => ({ authFetch: vi.fn(() => new Promise(() => {})) }));
+vi.mock('@/lib/auth/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth/client')>()),
+  authFetch: vi.fn(() => new Promise(() => {})),
+}));
 
-import { AI_TOGGLES, AiAssistantSettings, aiStatus, parseCapInput } from './ai-assistant-settings';
+import { AI_TOGGLES, AiAssistantSettings, aiStatus, blankGoal, moveGoal, parseCapInput, unusedGoalTypes } from './ai-assistant-settings';
+import { goalsProblem } from '@/lib/ai/goal-rules';
+import { AI_GOAL_TYPES, AI_LEAD_FIELDS } from '@/lib/flows/types';
 import { AiQuality, editShare, flagLabelKey, KNOWN_FLAGS, pct } from './ai-quality';
 
 // AiSettings is in messages/en.json; AiAssistantSettings and AiQuality stay in
@@ -42,6 +47,31 @@ describe('aiStatus', () => {
     expect(aiStatus({ deployment_enabled: false, configured: true })).toBe('deploymentOff');
     expect(aiStatus({ deployment_enabled: true, configured: false })).toBe('notConfigured');
     expect(aiStatus({ deployment_enabled: true, configured: true })).toBe('ready');
+  });
+});
+
+describe('Instagram goals editor helpers (5G)', () => {
+  it('adds each goal type once, in order, and a blank goal is not saveable until filled in', () => {
+    expect(unusedGoalTypes([])).toEqual([...AI_GOAL_TYPES]);
+    expect(unusedGoalTypes([{ type: 'grow_followers' }])).toEqual(['share_link', 'capture_lead']);
+    expect(goalsProblem([blankGoal('share_link')])).toBe('url');
+    expect(goalsProblem([blankGoal('grow_followers'), blankGoal('capture_lead')])).toBeNull();
+  });
+  it('moves goals within bounds only', () => {
+    const goals = [blankGoal('grow_followers'), blankGoal('capture_lead')];
+    expect(moveGoal(goals, 1, -1).map((g) => g.type)).toEqual(['capture_lead', 'grow_followers']);
+    expect(moveGoal(goals, 0, -1).map((g) => g.type)).toEqual(['grow_followers', 'capture_lead']);
+    expect(moveGoal(goals, 1, 1).map((g) => g.type)).toEqual(['grow_followers', 'capture_lead']);
+  });
+  it('has every editor string in all four locales', () => {
+    const keys = ['title', 'description', 'onlyInstagram', 'empty', 'add', 'save', 'goalLabel', 'type', 'url', 'linkLabel', 'fields',
+      'onRefusal', 'refusalHandoff', 'refusalContinue', 'moveUp', 'moveDown', 'remove', 'invalid', 'saved', 'saveFailed',
+      ...AI_GOAL_TYPES.flatMap((type) => [`types.${type}`, `typeHelp.${type}`]), ...AI_LEAD_FIELDS.map((f) => `fieldNames.${f}`)];
+    for (const locale of ['en', 'es', 'pt', 'ko']) {
+      const ns = (JSON.parse(readFileSync(`${process.cwd()}/messages/${locale}.json`, 'utf8')) as Catalogue).AiSettings.instagramGoals;
+      const missing = keys.filter((key) => typeof key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], ns) !== 'string');
+      expect(missing, locale).toEqual([]);
+    }
   });
 });
 
