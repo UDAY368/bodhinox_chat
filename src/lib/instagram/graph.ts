@@ -284,7 +284,18 @@ export interface InstagramMedia {
   /** The post's https://www.instagram.com/... link, or null. */
   permalink: string | null;
   timestamp: string | null;
+  /** A reel (media_product_type REELS) rather than a feed post. */
+  isReel: boolean;
 }
+
+/** One page of media and the cursor of the next page (null on the last page). */
+export interface InstagramMediaPage {
+  media: InstagramMedia[];
+  next: string | null;
+}
+
+/** A Graph paging cursor as Meta issues it (opaque, URL-safe base64), checked before it reaches a URL. */
+export const MEDIA_CURSOR = /^[A-Za-z0-9_\-=%]{1,512}$/;
 
 const MEDIA_TYPES = new Set(['IMAGE', 'VIDEO', 'CAROUSEL_ALBUM']);
 const httpsUrl = (value: unknown, host?: RegExp): string | null => {
@@ -299,10 +310,27 @@ const httpsUrl = (value: unknown, host?: RegExp): string | null => {
 
 /** The account's most recent posts, newest first (GET /{ig-user-id}/media). Only checked fields come back. */
 export async function listMedia(igUserId: string, token: string): Promise<InstagramMedia[]> {
-  const result = await call<{ data?: unknown }>('GET', graph(`${assertId(igUserId)}/media`, {
-    fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp', limit: MEDIA_PAGE_SIZE,
+  return (await listMediaPage(igUserId, token)).media;
+}
+
+/**
+ * One page of the account's posts and reels, newest first, starting after
+ * `after` (a cursor from an earlier page). The cursor is checked before it is
+ * put in the URL; `next` is the cursor of the following page, or null.
+ */
+export async function listMediaPage(igUserId: string, token: string, after?: string): Promise<InstagramMediaPage> {
+  if (after !== undefined && !MEDIA_CURSOR.test(after)) throw new InstagramGraphInputError('Invalid media cursor');
+  const result = await call<{ data?: unknown; paging?: { cursors?: { after?: unknown }; next?: unknown } }>('GET', graph(`${assertId(igUserId)}/media`, {
+    fields: 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp', limit: MEDIA_PAGE_SIZE, after,
   }), token);
-  const rows = Array.isArray(result.data) ? result.data.slice(0, MEDIA_PAGE_SIZE) : [];
+  const cursor = result.paging?.cursors?.after;
+  // Meta sends a next link only when another page exists; the cursor alone is also present on the last page.
+  const next = typeof result.paging?.next === 'string' && typeof cursor === 'string' && MEDIA_CURSOR.test(cursor) ? cursor : null;
+  return { media: mediaRows(result.data), next };
+}
+
+function mediaRows(data: unknown): InstagramMedia[] {
+  const rows = Array.isArray(data) ? data.slice(0, MEDIA_PAGE_SIZE) : [];
   const media: InstagramMedia[] = [];
   for (const raw of rows) {
     const row = (raw ?? {}) as Record<string, unknown>;
@@ -318,6 +346,7 @@ export async function listMedia(igUserId: string, token: string): Promise<Instag
       permalink: httpsUrl(row.permalink, /^(www\.)?instagram\.com$/),
       timestamp: typeof row.timestamp === 'string' && !Number.isNaN(Date.parse(row.timestamp))
         ? new Date(row.timestamp).toISOString() : null,
+      isReel: row.media_product_type === 'REELS',
     });
   }
   return media;

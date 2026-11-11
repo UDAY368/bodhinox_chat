@@ -1,6 +1,7 @@
 // GET /api/instagram/accounts/{id}/media — agent and up (anyone who may edit
 // flows). The account's recent posts for the flow builder's comment-trigger
-// picker: { posts: [{ id, caption, mediaType, previewUrl, permalink, timestamp }] }.
+// picker: { posts: [{ id, caption, mediaType, previewUrl, permalink, timestamp, isReel }], next }.
+// ?after=<next> reads the following page (next is null on the last one).
 // Read-only: the token stays server-side and nothing is written here or on
 // Instagram. 403 below agent; 404 not_found (also another workspace's id);
 // 409 token or disconnected; 429 rate limited; 502 meta_error; 503 while off.
@@ -28,7 +29,9 @@ export async function GET(request: Request, context: Context) {
     if (!isUuid(id)) return instagramErrorResponse('not_found');
     const limited = checkRateLimit(`instagram:media:${session.userId}`, MEDIA_LIMIT);
     if (!limited.success) return rateLimitResponse(limited);
-    return NextResponse.json({ posts: await listPickerMedia(actorOf(session), id) }, { headers: NO_STORE });
+    const after = new URL(request.url).searchParams.get('after') ?? undefined;
+    const page = await listPickerMedia(actorOf(session), id, after);
+    return NextResponse.json({ posts: page.media, next: page.next }, { headers: NO_STORE });
   } catch (error) {
     return routeError(error);
   }

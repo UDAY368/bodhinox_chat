@@ -12,18 +12,19 @@ import { withTenant } from '@/lib/db/tenant';
 import { instagramConfig } from './config';
 import { asWorker, loadAccountSecretTx, readToken, type InstagramActor } from './connection';
 import { InstagramError } from './errors';
-import { InstagramGraphInputError, isMetaThrottle, isMetaTokenInvalid, listMedia, type InstagramMedia } from './graph';
+import { InstagramGraphInputError, isMetaThrottle, isMetaTokenInvalid, listMediaPage, type InstagramMediaPage } from './graph';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The account's most recent posts, newest first. Refusals: instagram_not_enabled
+ * One page of the account's posts and reels, newest first, after the cursor
+ * `after` from an earlier page. Refusals: instagram_not_enabled
  * while off; forbidden below agent; not_found for a malformed or another
  * workspace's id; instagram_account_disconnected; the plan's PlanLimitError.
  * Meta failures become fixed codes (instagram_token_invalid, rate_limited,
- * meta_error), never Meta's text.
+ * meta_error), never Meta's text; a malformed cursor is invalid_request.
  */
-export async function listPickerMedia(actor: InstagramActor, instagramAccountId: string): Promise<InstagramMedia[]> {
+export async function listPickerMedia(actor: InstagramActor, instagramAccountId: string, after?: string): Promise<InstagramMediaPage> {
   if (!instagramConfig()) throw new InstagramError('instagram_not_enabled');
   if (!hasMinRole(actor.role, 'agent')) throw new InstagramError('forbidden');
   if (!UUID.test(instagramAccountId)) throw new InstagramError('not_found');
@@ -39,7 +40,7 @@ export async function listPickerMedia(actor: InstagramActor, instagramAccountId:
   const token = readToken(secret);
   if (!token) throw new InstagramError('instagram_token_invalid');
   try {
-    return await listMedia(secret.ig_user_id, token);
+    return await listMediaPage(secret.ig_user_id, token, after);
   } catch (error) {
     if (error instanceof InstagramGraphInputError) throw new InstagramError('invalid_request');
     if (isMetaTokenInvalid(error)) throw new InstagramError('instagram_token_invalid');

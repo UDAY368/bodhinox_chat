@@ -18,6 +18,16 @@ const commentLinks = {
   message: 'Thanks! Tap below for the link.',
   link_url: 'https://shop.example.com/guide',
 };
+/** The link setup with every option on: a chosen reel, rotating replies, email, follow and 3 links. */
+const commentLinksFull = {
+  ...commentLinks,
+  post_scope: 'specific',
+  media_ids: ['17890001'],
+  public_replies: ['Sent!', 'Check your DMs'],
+  ask_email: true,
+  ask_follow: true,
+  more_links: [{ label: 'Pricing', url: 'https://shop.example.com/pricing' }, { label: 'Book a call', url: 'https://shop.example.com/call' }],
+};
 const growFollowers = {
   wizard: 'grow_followers',
   post_scope: 'next',
@@ -98,11 +108,38 @@ describe('parseWizardInput', () => {
   });
 });
 
+describe('parseWizardInput: link setup options', () => {
+  it('fills the email and follow copy from the defaults, and only while switched on', () => {
+    const on = parseWizardInput({ ...commentLinks, ask_email: true, ask_follow: true });
+    expect(on).toMatchObject({ email: { prompt: expect.any(String), error: expect.any(String) }, follow: { prompt: expect.any(String), followed_label: 'I followed' } });
+    const off = parseWizardInput({ ...commentLinks, email_prompt: 'ignored' });
+    expect(off).toMatchObject({ email: null, follow: null, more_links: [] });
+  });
+
+  it('takes up to 2 more links, drops blank rows and checks each one', () => {
+    expect(parseWizardInput({ ...commentLinks, more_links: [{ label: ' ', url: '' }, { label: 'Pricing', url: 'https://x.example/p' }] }))
+      .toMatchObject({ more_links: [{ label: 'Pricing', url: 'https://x.example/p' }] });
+    const row = { label: 'A', url: 'https://x.example/a' };
+    expect(refused({ ...commentLinks, more_links: [row, row, row] })).toEqual({ field: 'more_links', problem: 'url' });
+    expect(refused({ ...commentLinks, more_links: [{ label: 'A', url: 'http://x.example' }] })).toEqual({ field: 'more_links', problem: 'url' });
+    expect(refused({ ...commentLinks, more_links: [{ label: 'x'.repeat(21), url: 'https://x.example' }] })).toEqual({ field: 'more_links', problem: 'button' });
+    expect(refused({ ...commentLinks, more_links: [{ label: 'A', url: 'https://x.example', extra: 1 }] })).toEqual({ field: 'more_links', problem: 'invalid' });
+    expect(refused({ ...commentLinks, more_links: 'https://x.example' })).toEqual({ field: 'more_links', problem: 'url' });
+  });
+
+  it('refuses a switch that is not true or false, and these options on the other wizards', () => {
+    expect(refused({ ...commentLinks, ask_email: 'yes' })).toEqual({ field: 'ask_email', problem: 'invalid' });
+    expect(refused({ ...growFollowers, ask_email: true })).toEqual({ field: 'ask_email', problem: 'invalid' });
+    expect(refused({ ...storyLeads, more_links: [] })).toEqual({ field: 'more_links', problem: 'invalid' });
+  });
+});
+
 describe('buildWizardFlow', () => {
   const drafts = [
     ['comment_links', buildWizardFlow(parseWizardInput(commentLinks), NOW)],
     ['grow_followers', buildWizardFlow(parseWizardInput(growFollowers), NOW)],
     ['story_leads', buildWizardFlow(parseWizardInput({ ...storyLeads, keywords: ['info'], reactions: true }), NOW)],
+    ['comment_links with email, follow and 3 links', buildWizardFlow(parseWizardInput(commentLinksFull), NOW)],
   ] as const;
 
   it.each(drafts)('%s is an ordinary editable flow: known steps, every step connected, nothing dangling', (_wizard, draft) => {
@@ -167,6 +204,36 @@ describe('buildWizardFlow', () => {
     expect(draft.nodes.find((n) => n.node_key === 'ask_email')).toMatchObject({ node_type: 'collect_input', config: { validation: 'email', var_key: 'email' } });
     expect(draft.nodes.find((n) => n.node_key === 'save_email')).toMatchObject({ node_type: 'set_attribute', config: { target: 'contact_field', key: 'email' } });
     expect(buildWizardFlow(parseWizardInput(storyLeads), NOW).trigger_config).toEqual({ reactions: false });
+  });
+
+  it('asks for the email, then the follow, then sends one card with every link', () => {
+    const draft = drafts[3][1];
+    expect(draft.trigger_config).toMatchObject({ post_scope: 'specific', media_ids: ['17890001'], public_replies: ['Sent!', 'Check your DMs'] });
+    expect(draft.nodes.map((n) => [n.node_key, n.node_type])).toEqual([
+      ['start', 'start'], ['opening', 'ig_private_reply'], ['ask_email', 'collect_input'], ['save_email', 'set_attribute'],
+      ['check_follow', 'condition'], ['ask_follow', 'send_buttons'], ['link', 'send_card'], ['end', 'end'],
+    ]);
+    const byKey = Object.fromEntries(draft.nodes.map((n) => [n.node_key, n.config as Record<string, unknown>]));
+    expect(byKey.opening.next_node_key).toBe('ask_email');
+    expect(byKey.ask_email).toMatchObject({ validation: 'email', var_key: 'email', next_node_key: 'save_email' });
+    expect(byKey.save_email).toMatchObject({ target: 'contact_field', key: 'email', next_node_key: 'check_follow' });
+    expect(byKey.check_follow).toMatchObject({ subject: 'ig_profile', subject_key: 'follows_business', true_next: 'link', false_next: 'ask_follow' });
+    expect((byKey.link.card as { buttons: unknown[] }).buttons).toEqual([
+      { type: 'web_url', title: 'Open link', url: 'https://shop.example.com/guide' },
+      { type: 'web_url', title: 'Pricing', url: 'https://shop.example.com/pricing' },
+      { type: 'web_url', title: 'Book a call', url: 'https://shop.example.com/call' },
+    ]);
+  });
+
+  it('wires a single optional step straight to the link', () => {
+    const emailOnly = buildWizardFlow(parseWizardInput({ ...commentLinks, ask_email: true }), NOW);
+    expect(emailOnly.nodes.find((n) => n.node_key === 'save_email')!.config).toMatchObject({ next_node_key: 'link' });
+    expect(emailOnly.nodes.some((n) => n.node_key === 'check_follow')).toBe(false);
+    const followOnly = buildWizardFlow(parseWizardInput({ ...commentLinks, ask_follow: true, follow_prompt: 'Follow first!' }), NOW);
+    expect(followOnly.nodes.find((n) => n.node_key === 'opening')!.config).toMatchObject({ next_node_key: 'check_follow' });
+    expect(followOnly.nodes.find((n) => n.node_key === 'ask_follow')!.config).toMatchObject({ text: 'Follow first!' });
+    expect(followOnly.nodes.some((n) => n.node_key === 'ask_email')).toBe(false);
+    for (const draft of [emailOnly, followOnly]) expect(publishErrors(draft)).toEqual([]);
   });
 
   it('omits the public replies and keywords when none are given (every comment, DM only)', () => {

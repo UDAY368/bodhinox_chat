@@ -1301,14 +1301,41 @@ export interface CommentLinkCopy {
   cardTitle: string;
   buttonLabel: string;
   url: string;
+  /** More link buttons on the same card (Instagram allows 3 buttons per card in all). */
+  moreLinks?: { label: string; url: string }[];
+  /** Ask for an email before the link; it is saved on the contact. */
+  email?: { prompt: string; error: string };
+  /** Ask the person to follow before the link; the profile is re-read on each "I followed" tap. */
+  follow?: { prompt: string; followedLabel: string };
 }
 
-/** Comment → private reply with an opening-DM button → the link card. */
+/**
+ * Comment → private reply with an opening-DM button → (email) → (follow gate)
+ * → the link card. The opening button opens the messaging window, so the
+ * optional steps run inside it.
+ */
 export function commentLinkNodes(copy: CommentLinkCopy): FlowTemplateNode[] {
+  const afterEmail = copy.follow ? "check_follow" : "link";
+  const first = copy.email ? "ask_email" : afterEmail;
   return [
     startAt("opening"),
-    privateReply("opening", copy.opening, copy.optInLabel, "link"),
-    linkCard("link", { title: copy.cardTitle, button: copy.buttonLabel, url: copy.url }, "end"),
+    privateReply("opening", copy.opening, copy.optInLabel, first),
+    ...(copy.email ? [
+      ask("ask_email", copy.email.prompt, "email", "save_email", { validation: "email", max_attempts: 3, error_text: copy.email.error }),
+      setContact("save_email", "email", v("email"), afterEmail),
+    ] : []),
+    ...(copy.follow ? [
+      followCheck("check_follow", "link", "ask_follow"),
+      buttons("ask_follow", copy.follow.prompt, [["followed", copy.follow.followedLabel, "check_follow"]]),
+    ] : []),
+    node("link", "send_card", {
+      card: {
+        title: copy.cardTitle,
+        buttons: [{ label: copy.buttonLabel, url: copy.url }, ...(copy.moreLinks ?? [])]
+          .map((b) => ({ type: "web_url", title: b.label, url: b.url })),
+      },
+      next_node_key: "end",
+    } as SendCardNodeConfig),
     END,
   ];
 }
