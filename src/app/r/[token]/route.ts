@@ -1,12 +1,16 @@
-// GET /r/<token> — public campaign link: record the click, then 302 to the
-// campaign's stored HTTPS destination. Unknown tokens get a plain 404.
+// GET /r/<token> — public tracked link: record the click, then 302 to the
+// stored destination. Campaign tokens are looked up first (unchanged), then
+// flow button tokens (Stage 5, src/lib/flows/link-tracking.ts). Only a stored
+// destination is ever returned, never a URL from the request. Unknown tokens
+// get a plain 404. Nothing about the token, the URL or the visitor is logged.
 
 import { NextResponse } from 'next/server';
 import { clickDestination, recordClick } from '@/lib/broadcasts/clicks';
+import { flowClickDestination, recordFlowClick } from '@/lib/flows/link-tracking';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { TEST_CLICK_TOKEN } from '@/lib/broadcasts/tracking';
 
 const CLICK_RECORD_LIMIT = { limit: 5, windowMs: 60_000 };
-import { TEST_CLICK_TOKEN } from '@/lib/broadcasts/tracking';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +22,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   try {
     // Repeated hits still redirect, but only a bounded number are recorded.
     const record = checkRateLimit(`click:${token}:${ip ?? 'unknown'}`, CLICK_RECORD_LIMIT).success;
-    const destination = record ? await recordClick(token, ip) : await clickDestination(token);
+    const destination = (record ? await recordClick(token, ip) : await clickDestination(token))
+      ?? (record ? await recordFlowClick(token) : await flowClickDestination(token));
     if (!destination) return new NextResponse('Link not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
     return NextResponse.redirect(destination, { status: 302, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
   } catch {

@@ -6,6 +6,9 @@ import { getT } from '@/lib/i18n/translate';
 import { parseChannelScope } from '@/lib/flows/validate';
 import { isChannel } from '@/lib/channels/capabilities';
 import type { FlowTriggerType } from '@/lib/flows/types';
+import { requireSession } from '@/lib/auth/session';
+import { withTenant } from '@/lib/db/tenant';
+import { clickThroughRate, flowLinkStats, type FlowLinkStats } from '@/lib/flows/link-tracking';
 
 const t = getT('Api');
 const tSection = getT('Flows.channelSection');
@@ -61,7 +64,24 @@ export async function GET(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ flows: data ?? [] });
+  const flows = (data ?? []) as Array<Record<string, unknown> & { id: string }>;
+  // Stage 5 (5F): each flow's tracked-link stats and CTR for the list row
+  // (null CTR: the flow never sent a tracked link). Best effort: the list
+  // still loads if the stats query fails.
+  let stats = new Map<string, FlowLinkStats>();
+  try {
+    const session = await requireSession(request);
+    stats = await withTenant({ accountId: session.accountId, userId: session.userId, role: session.role },
+      (tx) => flowLinkStats(tx, session.accountId, flows.map((f) => f.id)));
+  } catch {
+    console.error('[flows] link stats unavailable');
+  }
+  return NextResponse.json({
+    flows: flows.map((flow) => {
+      const link = stats.get(flow.id) ?? { sent: 0, clicked: 0 };
+      return { ...flow, link_stats: link, ctr: clickThroughRate(link) };
+    }),
+  });
 }
 
 export async function POST(request: Request) {
@@ -155,6 +175,8 @@ export async function POST(request: Request) {
         trigger_config: template.trigger_config,
         entry_node_id: template.entry_node_id,
         channel_scope: scope,
+        // Stage 5: templates may ship with sticky notes explaining each step.
+        ...(template.canvas_notes?.length ? { canvas_notes: template.canvas_notes } : {}),
       })
       .select()
       .single();
