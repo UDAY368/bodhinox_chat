@@ -46,7 +46,8 @@ import { conversationChannel } from '@/components/inbox/channel-badge';
 import { authFetch } from '@/lib/auth/client';
 import Link from 'next/link';
 import { InboxSearch } from '@/components/inbox/search/inbox-search';
-import { SNOOZES_CHANGED_EVENT } from '@/components/inbox/follow-up-bar';
+import { useInboxFolders } from '@/components/inbox/use-inbox-folders';
+import { parseInboxFilter } from '@/lib/inbox/inbox-filters';
 import {
   jumpRequestFor,
   type JumpRequest,
@@ -340,39 +341,27 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
     };
   }, [scope]);
 
+  // Stage 5 folders (labels, favourites, the member's pending reminders and snoozes).
+  const folders = useInboxFolders(scope, resyncToken);
+  const folderFilter = parseInboxFilter(searchParams.get('filter'));
   // The member's own pending snoozes: a snoozed conversation leaves their list until the time passes
-  // (or they wake it) and comes back by itself. Personal; nobody else's list changes.
-  const [snoozes, setSnoozes] = useState<{ conversation_id: string; remind_at: string }[]>([]);
+  // (or they wake it) and comes back by itself. Personal; nobody else's list changes. The Reminders
+  // folder lists snoozed conversations too.
   const [snoozeClock, setSnoozeClock] = useState(() => Date.now());
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await authFetch('/api/inbox/reminders?kind=snooze&status=pending');
-        if (!res.ok) return;
-        const body = (await res.json().catch(() => null)) as { reminders?: { conversation_id: string; remind_at: string }[] } | null;
-        if (!cancelled && Array.isArray(body?.reminders)) setSnoozes(body.reminders);
-      } catch {
-        // Snooze is a convenience; without it every conversation simply stays listed.
-      }
-      if (!cancelled) setSnoozeClock(Date.now());
-    };
-    void load();
-    const timer = setInterval(() => void load(), 60_000);
-    window.addEventListener(SNOOZES_CHANGED_EVENT, load);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-      window.removeEventListener(SNOOZES_CHANGED_EVENT, load);
-    };
-  }, [resyncToken]);
+    const timer = setInterval(() => setSnoozeClock(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const listedConversations = useMemo(() => {
+    if (folderFilter === 'reminders') return conversations;
     const hidden = new Set(
-      snoozes.filter((s) => Date.parse(s.remind_at) > snoozeClock).map((s) => s.conversation_id)
+      folders.reminders
+        .filter((s) => s.kind === 'snooze' && Date.parse(s.remind_at) > snoozeClock)
+        .map((s) => s.conversation_id)
     );
     // An open conversation stays visible even if it was just snoozed.
     return hidden.size === 0 ? conversations : conversations.filter((c) => !hidden.has(c.id) || c.id === activeConversation?.id);
-  }, [snoozes, snoozeClock, conversations, activeConversation?.id]);
+  }, [folderFilter, folders.reminders, snoozeClock, conversations, activeConversation?.id]);
 
   // Handle realtime message events
   const handleMessageEvent = useCallback(
@@ -862,6 +851,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
             onConversationsChanged={handleConversationsChanged}
             resyncToken={resyncToken}
             channel={scope}
+            folders={folders}
             headerAction={
               <button
                 type="button"
@@ -922,6 +912,7 @@ function InboxViewInner({ scope }: { scope: InboxScope }) {
               contact={activeContact}
               conversationId={activeConversation?.id}
               channel={conversationChannel(activeConversation)}
+              folders={folders}
               onCollapse={handleToggleContactPanel}
               refreshToken={`${resyncToken}:${messages.length}`}
               onUpdated={(updated) => {

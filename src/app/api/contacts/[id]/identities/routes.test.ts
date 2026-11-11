@@ -51,6 +51,14 @@ vi.mock('@/lib/contacts/identity-link', async (original) => ({
     return { linkId: 'link-2', contactId: TARGET };
   },
 }));
+vi.mock('@/lib/contacts/instagram-facts', async (original) => ({
+  ...(await original<typeof import('@/lib/contacts/instagram-facts')>()),
+  loadInstagramFacts: async (actor: { accountId: string }, contactId: string) => {
+    h.calls.push(`facts:${actor.accountId}:${contactId}`);
+    return { subscription: null, last_interaction_at: null, window_open_until: null,
+      identities: [{ id: IDENTITY, follows_business: true, business_follows: null, is_verified: false, follower_count: 12, profile_checked_at: null }] };
+  },
+}));
 
 import { IdentityLinkError } from '@/lib/contacts/identity-link';
 import { __resetRateLimitForTests } from '@/lib/rate-limit';
@@ -100,7 +108,9 @@ describe('GET /api/contacts/{id}/identities', () => {
     expect(body.identities[0]).toEqual({ id: IDENTITY, channel: 'instagram', instagram_account_id: 'ig', username: 'shop_fan',
       display_name: 'Fan', created_at: '2026-11-01T00:00:00.000Z', can_unlink: true });
     expect(JSON.stringify(body)).not.toMatch(/external_id|token/);
-    expect(h.calls).toEqual([`list:${ACCOUNT}:${CONTACT}`]);
+    // Stage 5: the stored Instagram facts ride along, read for the session workspace only.
+    expect(body.facts.identities[0]).toMatchObject({ id: IDENTITY, follows_business: true, follower_count: 12 });
+    expect(h.calls).toEqual([`list:${ACCOUNT}:${CONTACT}`, `facts:${ACCOUNT}:${CONTACT}`]);
   });
 
   it('masks the Instagram handle for a member whose phone numbers are masked', async () => {

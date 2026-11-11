@@ -5,6 +5,7 @@ import { getT } from '@/lib/i18n/translate';
 import { displayPhone, shouldMask } from './masking';
 import { MAX_MESSAGE_SEARCH_LENGTH, messageSearchVector, normalizeMessageSearch } from './message-search';
 import { containsSnippet, SNIPPET_END, SNIPPET_START } from './search-snippet';
+import { conversationVisibleSql, visibilityRestricted } from './inbox-scope';
 
 /**
  * Inbox message search (GET /api/inbox/search). Three modes:
@@ -218,6 +219,8 @@ export async function searchInboxMessages(
   else if (filters.assignee) conditions.push(Prisma.sql`c.assigned_agent_id = ${filters.assignee}::uuid`);
   if (filters.from) conditions.push(Prisma.sql`m.created_at >= ${filters.from}`);
   if (filters.to) conditions.push(Prisma.sql`m.created_at < ${filters.to}`);
+  // Stage 5: a restricted agent finds only messages of conversations they may see.
+  if (visibilityRestricted(ctx.role)) conditions.push(Prisma.raw(conversationVisibleSql('c')));
   if (input.cursor) conditions.push(Prisma.sql`(m.created_at, m.id) < (${input.cursor.createdAt}::timestamptz, ${input.cursor.id}::uuid)`);
 
   const snippet = mode === 'fulltext'

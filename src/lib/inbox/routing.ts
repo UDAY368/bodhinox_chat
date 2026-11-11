@@ -1,6 +1,7 @@
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { teamExists, teamMemberIds } from '@/lib/teams/teams';
+import { AUTO_ASSIGN_MODES, type AutoAssignMode } from '@/types';
 
 /**
  * Routing rules (routing_rules): when a customer message leaves a conversation
@@ -9,6 +10,12 @@ import { teamExists, teamMemberIds } from '@/lib/teams/teams';
  * list. A rule with reassign_after_minutes hands a still-unanswered
  * conversation to the next member on its list after that long (the
  * inbox.reassign job, see src/lib/inbox/jobs.ts).
+ *
+ * Stage 5: workspace_inbox_settings.auto_assign_mode picks how: 'rules' (the
+ * default, everything above), 'basic' (an even spread over online agents) or
+ * 'off' (nothing is assigned). In every mode a member at their
+ * account_memberships.max_open_conversations is skipped; when everyone is full
+ * the conversation stays unassigned.
  *
  * Admins manage rules through /api/inbox/routing-rules as themselves (RLS
  * admin write). The worker only reads rules and advances the round-robin
@@ -25,7 +32,7 @@ export * from './routing-contract';
 
 export type RoutingErrorCode =
   | 'invalid_name' | 'invalid_conditions' | 'invalid_assignee' | 'invalid_reassign' | 'invalid_order'
-  | 'unknown_tag' | 'unknown_member' | 'unknown_number' | 'unknown_team' | 'limit' | 'not_found';
+  | 'unknown_tag' | 'unknown_member' | 'unknown_number' | 'unknown_team' | 'limit' | 'not_found' | 'invalid_capacity';
 
 export class RoutingRuleError extends Error {
   constructor(readonly code: RoutingErrorCode, readonly status: 400 | 404 | 409 = 400) {
@@ -304,10 +311,81 @@ export async function reorderRoutingRules(tenant: TenantContext, ids: string[]):
 
 // ---------------------------------------------------------------- worker routing
 
-export interface RouteResult {
-  ruleId: string;
-  assignee: string;
-  reassignAfterMinutes: number | null;
+/**
+ * Who `pickRoutingRule` chose: by a routing rule (mode 'rules', the behaviour
+ * before Stage 5), or by the even spread over online agents (mode 'basic'),
+ * which has no rule and never reassigns.
+ */
+export type RouteResult =
+  | { ruleId: string; assignee: string; reassignAfterMinutes: number | null }
+  | { ruleId: null; assignee: string; reassignAfterMinutes: null };
+
+// ---------------------------------------------------------------- Stage 5: assignment mode and capacity
+
+/** member_presence rows older than this read as offline (src/lib/presence.ts OFFLINE_AFTER_MS). */
+const ONLINE_WITHIN_SECONDS = 75;
+
+/** Whether a member with `open` open conversations may take another under `max` (null: no limit). */
+export function hasCapacity(open: number, max: number | null): boolean {
+  return max === null || open < max;
+}
+
+/**
+ * The next member after `last` in `ordered` (a stable order, wrapping) who is
+ * in `eligible`, or null when none is. The 'basic' mode's even spread.
+ */
+export function nextInRotation(ordered: readonly string[], eligible: ReadonlySet<string>, last: string | null): string | null {
+  const list = ordered.filter((id) => eligible.has(id));
+  if (!list.length) return null;
+  return (last ? list.find((id) => id > last.toLowerCase()) : undefined) ?? list[0];
+}
+
+/** The workspace's automatic assignment mode; a workspace without settings uses 'rules'. */
+export async function readAssignMode(tx: TenantTransaction, accountId: string): Promise<AutoAssignMode> {
+  const rows = await tx.$queryRaw<{ mode: string }[]>`SELECT auto_assign_mode AS mode FROM workspace_inbox_settings
+    WHERE account_id=${accountId}::uuid`;
+  const mode = rows[0]?.mode;
+  return (AUTO_ASSIGN_MODES as readonly string[]).includes(mode ?? '') ? (mode as AutoAssignMode) : 'rules';
+}
+
+/**
+ * `members` without those at their max_open_conversations (open: any status
+ * but closed). Members without a limit always stay.
+ */
+export async function withinCapacity(tx: TenantTransaction, accountId: string, members: ReadonlySet<string>): Promise<Set<string>> {
+  const ids = [...members];
+  if (!ids.length) return new Set();
+  const rows = await tx.$queryRaw<{ user_id: string; open: number; max: number | null }[]>`
+    SELECT m.user_id::text AS user_id, m.max_open_conversations AS max,
+      CASE WHEN m.max_open_conversations IS NULL THEN 0 ELSE (SELECT count(*)::int FROM conversations c
+        WHERE c.account_id=m.account_id AND c.assigned_agent_id=m.user_id AND c.status <> 'closed') END AS open
+    FROM account_memberships m
+    WHERE m.account_id=${accountId}::uuid AND m.user_id=ANY(${ids}::uuid[])`;
+  const room = new Set(rows.filter((row) => hasCapacity(row.open, row.max)).map((row) => row.user_id.toLowerCase()));
+  return new Set(ids.filter((id) => room.has(id.toLowerCase())));
+}
+
+/**
+ * 'basic' mode: the next online owner, admin or agent with room, in a stable
+ * rotation kept in the workspace's round-robin cursor (assignment_cursors, the
+ * one round-robin automations use). Locks the cursor so concurrent inbounds
+ * advance it one step each.
+ */
+async function pickBasicAssignee(tx: TenantTransaction, accountId: string): Promise<string | null> {
+  await tx.$executeRaw`INSERT INTO assignment_cursors(account_id) VALUES (${accountId}::uuid) ON CONFLICT (account_id) DO NOTHING`;
+  const [cursor] = await tx.$queryRaw<{ last_user_id: string | null }[]>`
+    SELECT last_user_id::text AS last_user_id FROM assignment_cursors WHERE account_id=${accountId}::uuid FOR UPDATE`;
+  const online = await tx.$queryRaw<{ user_id: string }[]>`
+    SELECT m.user_id::text AS user_id FROM account_memberships m
+    JOIN member_presence p ON p.account_id=m.account_id AND p.user_id=m.user_id
+    WHERE m.account_id=${accountId}::uuid AND m.role IN ('owner','admin','agent')
+      AND p.status='online' AND p.last_seen_at > now() - make_interval(secs => ${ONLINE_WITHIN_SECONDS})
+    ORDER BY m.user_id::text`;
+  const ordered = online.map((row) => row.user_id.toLowerCase());
+  const next = nextInRotation(ordered, await withinCapacity(tx, accountId, new Set(ordered)), cursor?.last_user_id ?? null);
+  if (next)
+    await tx.$executeRaw`UPDATE assignment_cursors SET last_user_id=${next}::uuid WHERE account_id=${accountId}::uuid`;
+  return next;
 }
 
 /**
@@ -321,6 +399,13 @@ export async function pickRoutingRule(
   accountId: string,
   context: RoutingContext,
 ): Promise<RouteResult | null> {
+  // Stage 5: 'off' assigns nothing; 'basic' spreads over online agents; 'rules' (the default) is below.
+  const mode = await readAssignMode(tx, accountId);
+  if (mode === 'off') return null;
+  if (mode === 'basic') {
+    const assignee = await pickBasicAssignee(tx, accountId);
+    return assignee ? { ruleId: null, assignee, reassignAfterMinutes: null } : null;
+  }
   const rules = await tx.$queryRaw<{ id: string; conditions: unknown; assign_to: unknown; reassign_after_minutes: number | null }[]>`
     SELECT id::text AS id,conditions,assign_to,reassign_after_minutes FROM routing_rules
     WHERE account_id=${accountId}::uuid AND enabled ORDER BY position,created_at,id LIMIT ${MAX_ROUTING_RULES}`;
@@ -331,7 +416,8 @@ export async function pickRoutingRule(
       WHERE account_id=${accountId}::uuid AND id=${rule.id}::uuid AND enabled FOR UPDATE`;
     if (!locked.length) continue;
     const assignTo = await resolveAssignTo(tx, accountId, parsed.assignTo);
-    const eligible = await eligibleMembers(tx, accountId, ruleMembers(assignTo));
+    // An agent at their max_open_conversations is skipped; if all are full the rule falls through.
+    const eligible = await withinCapacity(tx, accountId, await eligibleMembers(tx, accountId, ruleMembers(assignTo)));
     const assignee = pickAssignee(assignTo, eligible, locked[0].last);
     // A matching rule whose members all left (or whose team is empty or gone) falls through to the next rule.
     if (!assignee) continue;
@@ -416,8 +502,10 @@ export async function runReassign(accountId: string, raw: Record<string, unknown
     const rule = rules[0];
     const parsed = rule ? readRule(rule) : null;
     if (!rule || !parsed || !rule.enabled || !rule.reassign_after_minutes) return 'rule_off';
+    // Rules hand conversations on only while the workspace assigns by rules.
+    if ((await readAssignMode(tx, accountId)) !== 'rules') return 'rule_off';
     const assignTo = await resolveAssignTo(tx, accountId, parsed.assignTo);
-    const eligible = await eligibleMembers(tx, accountId, ruleMembers(assignTo));
+    const eligible = await withinCapacity(tx, accountId, await eligibleMembers(tx, accountId, ruleMembers(assignTo)));
     const next = nextReassignee(assignTo, eligible, job.assignee);
     if (!next) return 'no_member';
     const assigned = await tx.$queryRaw<{ at: Date }[]>`UPDATE conversations SET assigned_agent_id=${next}::uuid
@@ -430,4 +518,49 @@ export async function runReassign(accountId: string, raw: Record<string, unknown
       });
     return 'reassigned';
   }, getWorkerPrisma());
+}
+
+// ---------------------------------------------------------------- Stage 5: agent capacity (admin)
+
+/** account_memberships.max_open_conversations upper bound (the column's check); null is no limit. */
+export const MAX_OPEN_CONVERSATIONS_LIMIT = 1000;
+
+export interface MemberCapacity {
+  user_id: string;
+  max_open_conversations: number | null;
+  open_conversations: number;
+}
+
+/** Validates `{ max_open_conversations: 1..1000 | null }`; throws RoutingRuleError('invalid_capacity'). */
+export function parseCapacityInput(body: unknown): number | null {
+  if (!isObject(body) || !Object.hasOwn(body, 'max_open_conversations')) throw new RoutingRuleError('invalid_capacity');
+  const value = body.max_open_conversations;
+  if (value === null) return null;
+  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > MAX_OPEN_CONVERSATIONS_LIMIT)
+    throw new RoutingRuleError('invalid_capacity');
+  return value as number;
+}
+
+/** One member's limit and current open conversations; another workspace's member is 404. */
+export async function getMemberCapacity(tenant: TenantContext, userId: string): Promise<MemberCapacity> {
+  if (!isUuid(userId)) throw new RoutingRuleError('not_found', 404);
+  const rows = await withTenant(tenant, (tx) => tx.$queryRaw<MemberCapacity[]>`
+    SELECT m.user_id::text AS user_id, m.max_open_conversations,
+      (SELECT count(*)::int FROM conversations c WHERE c.account_id=m.account_id AND c.assigned_agent_id=m.user_id
+        AND c.status <> 'closed') AS open_conversations
+    FROM account_memberships m WHERE m.account_id=${tenant.accountId}::uuid AND m.user_id=${userId}::uuid`);
+  if (!rows[0]) throw new RoutingRuleError('not_found', 404);
+  return rows[0];
+}
+
+/**
+ * Sets a member's limit (admins, as themselves: the column grant and the
+ * admin update policy on account_memberships). Another workspace's member is 404.
+ */
+export async function setMemberCapacity(tenant: TenantContext, userId: string, max: number | null): Promise<MemberCapacity> {
+  if (!isUuid(userId)) throw new RoutingRuleError('not_found', 404);
+  const updated = await withTenant(tenant, (tx) => tx.$executeRaw`UPDATE account_memberships SET max_open_conversations=${max}::integer
+    WHERE account_id=${tenant.accountId}::uuid AND user_id=${userId}::uuid`);
+  if (!updated) throw new RoutingRuleError('not_found', 404);
+  return getMemberCapacity(tenant, userId);
 }
