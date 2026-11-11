@@ -19,6 +19,8 @@ import { instagramCall } from '@/components/instagram/comment-rules-editor';
 import { createInstagramFlow, useInstagramFlows } from '@/components/instagram/use-instagram-flows';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AiCommentsPanel } from '@/components/instagram/ai-comments-panel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
@@ -26,6 +28,7 @@ import { channelPath } from '@/lib/channels/routes';
 
 export default function InstagramCommentsPage() {
   const t = useTranslations('Instagram.comments');
+  const tAi = useTranslations('Instagram.aiComments');
   const tRules = useTranslations('Settings.instagram.commentRules');
   const tSettings = useTranslations('Settings.instagram');
   const tStatus = useTranslations('Instagram.defaultReply');
@@ -80,49 +83,60 @@ export default function InstagramCommentsPage() {
         <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle className="text-base">{t('flowsTitle')}</CardTitle>
-          {canCreateFlow && (
-            <Button type="button" size="sm" onClick={() => void newFlow()} disabled={creating}>
-              {creating ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-              {t('newFlow')}
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {flowsFailed && (
-            <div className="flex items-center gap-3 text-sm">
-              <p className="text-destructive">{tSettings('loadFailed')}</p>
-              <Button type="button" variant="outline" size="sm" onClick={() => void reloadFlows()}>{tSettings('retry')}</Button>
-            </div>
-          )}
-          {!commentFlows && !flowsFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tSettings('loading')} />}
-          {commentFlows?.length === 0 && <p className="text-muted-foreground text-sm">{t('noFlows')}</p>}
-          {!!commentFlows?.length && (
-            <ul className="divide-y">
-              {commentFlows.map((flow) => (
-                <li key={flow.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <Link href={channelPath('instagram', 'flows', flow.id)} className="text-foreground min-w-0 truncate font-medium hover:underline">
-                    {flow.name}
-                  </Link>
-                  <Badge variant={flow.status === 'active' ? 'default' : 'secondary'}>
-                    {flow.status === 'active' ? tStatus('active') : tStatus('inactive')}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="flows">
+        <TabsList>
+          <TabsTrigger value="flows">{t('title')}</TabsTrigger>
+          <TabsTrigger value="ai">{tAi('tab')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="flows" className="mt-4 space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+              <CardTitle className="text-base">{t('flowsTitle')}</CardTitle>
+              {canCreateFlow && (
+                <Button type="button" size="sm" onClick={() => void newFlow()} disabled={creating}>
+                  {creating ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                  {t('newFlow')}
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {flowsFailed && (
+                <div className="flex items-center gap-3 text-sm">
+                  <p className="text-destructive">{tSettings('loadFailed')}</p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void reloadFlows()}>{tSettings('retry')}</Button>
+                </div>
+              )}
+              {!commentFlows && !flowsFailed && <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tSettings('loading')} />}
+              {commentFlows?.length === 0 && <p className="text-muted-foreground text-sm">{t('noFlows')}</p>}
+              {!!commentFlows?.length && (
+                <ul className="divide-y">
+                  {commentFlows.map((flow) => (
+                    <li key={flow.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                      <Link href={channelPath('instagram', 'flows', flow.id)} className="text-foreground min-w-0 truncate font-medium hover:underline">
+                        {flow.name}
+                      </Link>
+                      <Badge variant={flow.status === 'active' ? 'default' : 'secondary'}>
+                        {flow.status === 'active' ? tStatus('active') : tStatus('inactive')}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
 
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-foreground text-lg font-semibold">{tRules('title')}</h2>
-          <p className="text-muted-foreground mt-1 text-sm">{tRules('help')}</p>
-        </div>
-        <InstagramCommentAccounts status={status} failed={failed} canEdit={canEdit} onRetry={() => void load()} />
-      </div>
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-foreground text-lg font-semibold">{tRules('title')}</h2>
+              <p className="text-muted-foreground mt-1 text-sm">{tRules('help')}</p>
+            </div>
+            <InstagramCommentAccounts status={status} failed={failed} canEdit={canEdit} onRetry={() => void load()} />
+          </div>
+        </TabsContent>
+        <TabsContent value="ai" className="mt-4">
+          <AiCommentsPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

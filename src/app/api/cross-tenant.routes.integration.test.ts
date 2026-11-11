@@ -220,6 +220,8 @@ export const KNOWN_UNMAPPED = [
   'instagram/accounts/[id]/health',
   // Calls Instagram for the caller's own account (no positive control here); tenancy.integration.test.ts covers B's id -> not_found.
   'instagram/accounts/[id]/posts',
+  // Decides a draft of the caller's own workspace; ai-comments.integration.test.ts covers workspace B's session -> not_found and the agent -> forbidden.
+  'instagram/ai-comments/[id]',
   'meta-ads/conversions/[id]/resolve',
   'meta-ads/leads/[id]',
   'payments/customer-payments/[id]/refund',
