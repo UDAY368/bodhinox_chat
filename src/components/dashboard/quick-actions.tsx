@@ -1,11 +1,12 @@
 "use client"
 
 import Link from 'next/link'
-import { UserPlus, Briefcase, Radio, Zap, ArrowUpRight } from 'lucide-react'
+import { UserPlus, Briefcase, Radio, Zap, ArrowUpRight, House } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 import { useTranslations } from 'next-intl'
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels'
+import { channelPath } from '@/lib/channels/routes'
 
 // Quick-action shortcuts. Each navigates to the page that owns the
 // relevant "create" flow. We deliberately don't try to auto-open any
@@ -25,15 +26,22 @@ const ACTIONS: Action[] = [
   { labelKey: 'newAutomation', href: '/automations/new', icon: Zap, tint: 'text-primary' },
 ]
 
+// Stage 5: the Instagram home page, for workspaces that use Instagram.
+const INSTAGRAM_HOME: Action = { labelKey: 'instagramHome', href: channelPath('instagram', 'home'), icon: House, tint: 'text-primary' }
+
 export function QuickActions() {
   const t = useTranslations('Dashboard.quickActions')
   // Broadcasts are WhatsApp-only: no shortcut once the channel state says WhatsApp is not used.
   const { data: channels } = useWorkspaceChannels()
   const whatsapp = channels ? channels.enabled.includes('whatsapp') : true
-  const actions = whatsapp ? ACTIONS : ACTIONS.filter((a) => a.labelKey !== 'newBroadcast')
+  const instagram = !!channels?.enabled.includes('instagram')
+  const actions = [
+    ...(whatsapp ? ACTIONS : ACTIONS.filter((a) => a.labelKey !== 'newBroadcast')),
+    ...(instagram ? [INSTAGRAM_HOME] : []),
+  ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${actions.length > 4 ? 'lg:grid-cols-5' : ''}`}>
       {actions.map((a) => {
         const Icon = a.icon
         return (

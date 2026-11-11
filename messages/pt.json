@@ -183,7 +183,8 @@
       "newContact": "Novo contato",
       "newDeal": "Novo negócio",
       "newBroadcast": "Novo disparo",
-      "newAutomation": "Nova automação"
+      "newAutomation": "Nova automação",
+      "instagramHome": "Início do Instagram"
     },
     "activityFeed": {
       "title": "Atividade recente",
@@ -3571,7 +3572,17 @@
       "noFolder": "Sem pasta",
       "name": "Nome da pasta",
       "nameInvalid": "Use de 1 a 60 caracteres.",
-      "nameTaken": "Já existe uma pasta com este nome."
+      "nameTaken": "Já existe uma pasta com este nome.",
+      "limitReached": "Você atingiu o limite de pastas desta seção.",
+      "notFound": "Essa pasta ou automação não existe mais.",
+      "wrongChannel": "Escolha uma pasta do canal desta automação.",
+      "filterLabel": "Pastas",
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "moved": "Movida para {name}.",
+      "movedTop": "Movida para o nível principal.",
+      "saveFailed": "Não foi possível salvar a pasta. Tente de novo.",
+      "count": "{count, plural, =1 {# automação} other {# automações}}"
     },
     "listRow": {
       "runs": "Execuções",
@@ -3585,7 +3596,41 @@
         "stopped": "Parada",
         "archived": "Arquivada"
       },
-      "noTrigger": "Ainda sem gatilho"
+      "noTrigger": "Ainda sem gatilho",
+      "triggerFilter": "Gatilho",
+      "anyTrigger": "Qualquer gatilho",
+      "stateFilter": "Estado",
+      "anyState": "Qualquer estado",
+      "moreTriggers": "+{count} mais",
+      "deleteTitle": "Excluir esta automação?",
+      "deleteTriggers": "Estes gatilhos param junto com ela:",
+      "deleteArchiveHint": "Uma automação que já esteve ativa é arquivada, e você pode restaurá-la pelo estado Arquivada.",
+      "confirmDelete": "Excluir",
+      "cancel": "Cancelar",
+      "ctrValue": "{value}%",
+      "folder": "Pasta",
+      "nameColumn": "Nome",
+      "modifiedColumn": "Modificada",
+      "actions": "Mais ações",
+      "restore": "Restaurar",
+      "restored": "Restaurada. Abra-a para ativá-la de novo.",
+      "archivedDone": "Arquivada. Você pode restaurá-la a partir do estado Arquivada.",
+      "deletePermanent": "Isto exclui a automação para sempre. Não pode ser desfeito.",
+      "triggerTypes": {
+        "keyword": "Palavra-chave",
+        "first_inbound_message": "Primeira mensagem",
+        "manual": "Sem gatilho",
+        "template_reply": "Resposta a modelo",
+        "order_received": "Pedido recebido",
+        "ad_click": "Clique no anúncio",
+        "default_reply": "Resposta padrão",
+        "ig_comment": "Comentário em post ou reel",
+        "ig_story_reply": "Resposta ao story",
+        "ig_story_mention": "Menção no story",
+        "ig_live_comment": "Comentário na live",
+        "ig_ref": "Link ref",
+        "ig_share_to_story": "Compartilhar no story"
+      }
     },
     "canvas": {
       "addStep": "Adicionar etapa",
@@ -5437,7 +5482,14 @@
       "archived": "Arquivado",
       "empty": "Ainda não há eventos. Adicione um e registre-o em uma etapa de Ações de um fluxo.",
       "readOnly": "Somente administradores podem alterar os eventos de conversão.",
-      "count": "{count, plural, =1 {# vez} other {# vezes}}"
+      "count": "{count, plural, =1 {# vez} other {# vezes}}",
+      "limitReached": "Você pode ter até 50 eventos ativos. Arquive um primeiro.",
+      "notFound": "Esse evento não existe mais.",
+      "rename": "Renomear",
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "recent": "Últimos 30 dias",
+      "loadFailed": "Não foi possível carregar os eventos de conversão."
     }
   },
   "SignupPage": {
@@ -6387,7 +6439,245 @@
       "businessValue": "Por que ajuda",
       "howItWorks": "Como funciona",
       "install": "Usar modelo",
-      "noTrigger": "Adicione um gatilho depois de instalar"
+      "noTrigger": "Adicione um gatilho depois de instalar",
+      "templates": {
+        "ig_giveaway_draw": {
+          "name": "Sorteio com prêmio",
+          "description": "As pessoas comentam para participar, recebem o regulamento por DM e algumas ganham ao acaso.",
+          "businessValue": "Transforma um post em um concurso que traz comentários e novas conversas, sem escolher ganhadores à mão.",
+          "howItWorks": "Um comentário com sua palavra abre uma DM. Após o toque, a pessoa recebe o regulamento e é marcada como participante. Um em cada vinte ganha; a mesma pessoa sempre tem o mesmo resultado e ninguém participa duas vezes.",
+          "note1": "Escolha a etiqueta que marca alguém como participante, na verificação e na etapa de Ações.",
+          "note2": "Adicione o link do regulamento e o link para resgatar o prêmio.",
+          "note3": "Mude a divisão da etapa de sorteio para definir quantos ganham.",
+          "keywords": "quero participar",
+          "publicReply": "Você está participando! Confira sua DM 🎉",
+          "opening": "Obrigado por entrar no sorteio! Toque abaixo e eu envio o regulamento.",
+          "optIn": "Ver o regulamento",
+          "already": "Você já está participando. Boa sorte, vamos entrar em contato!",
+          "rulesTitle": "Regulamento do sorteio",
+          "rulesButton": "Ler o regulamento",
+          "entered": "Você está participando! Em breve anunciamos os ganhadores. Obrigado!",
+          "winnerTitle": "Você ganhou! Resgate seu prêmio aqui",
+          "winnerButton": "Resgatar prêmio"
+        },
+        "ig_video_channel": {
+          "name": "Cresça seu canal de vídeo",
+          "description": "Envie o link do seu canal para quem comenta e agradeça quando seguirem.",
+          "businessValue": "Leva seu público do Instagram para seu canal de vídeo no momento de maior interesse.",
+          "howItWorks": "Um comentário abre uma DM. Após o toque, a pessoa recebe um cartão com o link do canal e um botão para dizer que seguiu, que envia um agradecimento.",
+          "note1": "Adicione o link do seu canal ao cartão.",
+          "note2": "Edite o agradecimento para indicar seu vídeo mais recente.",
+          "keywords": "canal de vídeo",
+          "publicReply": "Mandei o link do canal na DM 🎬",
+          "opening": "Que bom que você gostou! Toque abaixo para receber o link do canal.",
+          "optIn": "Enviar o link",
+          "cardTitle": "Vídeos novos toda semana no meu canal",
+          "linkButton": "Abrir o canal",
+          "doneButton": "Já segui",
+          "thanks": "Obrigado por seguir! Até o próximo vídeo."
+        },
+        "ig_comment_rsvp": {
+          "name": "Inscrições pelos comentários",
+          "description": "As pessoas comentam para garantir a vaga, passam seus contatos e recebem a página do evento.",
+          "businessValue": "Reúne inscrições direto do seu post, com um email para acompanhar depois.",
+          "howItWorks": "Um comentário abre uma DM. Após o toque, a pessoa pode informar um telefone (ou pular) e depois um email, salvo no contato. Em seguida recebe a página do evento.",
+          "note1": "Mude a palavra do comentário de acordo com seu post.",
+          "note2": "O telefone é opcional; o email é salvo no contato.",
+          "note3": "Adicione o link da página do evento no último cartão.",
+          "keywords": "garantir vaga",
+          "publicReply": "Sua vaga está esperando. Confira sua DM!",
+          "opening": "Obrigado pelo interesse! Toque abaixo para garantir sua vaga.",
+          "optIn": "Garantir vaga",
+          "askPhone": "Em qual telefone podemos falar com você? Você pode pular.",
+          "phoneError": "Isso não parece um telefone. Inclua o código do país.",
+          "skipButton": "Pular",
+          "askEmail": "E seu email, para enviarmos os detalhes?",
+          "emailError": "Isso não parece um email. Tente de novo.",
+          "cardTitle": "Você está na lista! Veja os detalhes do evento",
+          "detailsButton": "Ver detalhes"
+        },
+        "ig_reel_product": {
+          "name": "Venda pelos comentários do reel",
+          "description": "Envie o link do produto para quem comenta e um lembrete se não abrirem.",
+          "businessValue": "Transforma o interesse em um reel em visitas ao produto e recupera quem esqueceu de olhar.",
+          "howItWorks": "Um comentário abre uma DM. Após o toque, a pessoa recebe o cartão do produto. Se 22 horas depois o link não foi aberto, recebe um único lembrete enquanto a conversa ainda está aberta.",
+          "note1": "Adicione o link do produto ao cartão. Os cliques são contados.",
+          "note2": "A espera é de 22 horas para o lembrete ficar dentro da janela de 24 horas do Instagram.",
+          "note3": "Quem já abriu o link não recebe o lembrete.",
+          "keywords": "onde comprar",
+          "publicReply": "Mandei o link na DM 🛍️",
+          "opening": "Obrigado por perguntar! Toque abaixo e eu envio o link do produto.",
+          "optIn": "Enviar o link",
+          "cardTitle": "O produto do reel",
+          "cardSubtitle": "Detalhes, tamanhos e preços",
+          "linkButton": "Ver o produto",
+          "reminder": "Ainda pensando? O link acima está pronto quando você quiser."
+        },
+        "ig_live_prizes": {
+          "name": "Sorteio de prêmios na live",
+          "description": "Comente durante sua live para ganhar um de três prêmios, sorteado a cada comentário.",
+          "businessValue": "Mantém as pessoas assistindo e comentando durante a live.",
+          "howItWorks": "Um comentário na live com sua palavra abre uma DM. Após o toque, um sorteio escolhe um de três prêmios ao acaso e envia o link dele.",
+          "note1": "Mude os três prêmios e adicione um link para cada um.",
+          "note2": "O sorteio é novo a cada comentário; ative “mesmo caminho para o mesmo contato” para evitar repetições.",
+          "note3": "Diga na live qual palavra comentar.",
+          "keywords": "roleta",
+          "opening": "Obrigado por participar da live! Toque abaixo para ver seu prêmio.",
+          "optIn": "Ver meu prêmio",
+          "prizeATitle": "Você ganhou um cupom de desconto!",
+          "prizeBTitle": "Você ganhou frete grátis!",
+          "prizeCTitle": "Você ganhou um presente surpresa!",
+          "claimButton": "Resgatar"
+        },
+        "ig_live_offer": {
+          "name": "Oferta da live na DM",
+          "description": "Envie uma oferta especial para quem comenta sua palavra durante uma live.",
+          "businessValue": "Transforma quem assiste à live em cliente enquanto a oferta está fresca.",
+          "howItWorks": "Um comentário na live com sua palavra abre uma DM. Após o toque, a pessoa recebe o cartão da oferta com seu link.",
+          "note1": "Adicione o link da oferta ao cartão.",
+          "note2": "Fale a palavra na live para saberem o que comentar.",
+          "keywords": "oferta ao vivo",
+          "opening": "Aqui está a oferta da live! Toque abaixo para pegar.",
+          "optIn": "Quero a oferta",
+          "cardTitle": "Sua oferta exclusiva da live",
+          "cardSubtitle": "Disponível por pouco tempo",
+          "offerButton": "Ver a oferta"
+        },
+        "ig_live_link": {
+          "name": "Link da live",
+          "description": "Envie o link que você cita na live e ofereça novidades por email.",
+          "businessValue": "Entrega seu link sem precisar ditar e aumenta sua lista de emails.",
+          "howItWorks": "Um comentário na live com sua palavra abre uma DM. Após o toque, a pessoa recebe o link e pode deixar o email para novidades (ou pular).",
+          "note1": "Adicione o link de que você fala na live.",
+          "note2": "O email é salvo no contato; dá para pular.",
+          "keywords": "material da live",
+          "opening": "Aqui está o que falamos na live! Toque abaixo para o link.",
+          "optIn": "Enviar o link",
+          "cardTitle": "Tudo da live",
+          "linkButton": "Abrir o link",
+          "askEmail": "Quer novidades antes da próxima live? Deixe seu email.",
+          "emailError": "Isso não parece um email. Tente de novo.",
+          "skipButton": "Não, obrigado",
+          "thanks": "Obrigado! Avisaremos antes da próxima live."
+        },
+        "ig_story_collab": {
+          "name": "Parcerias pelos stories",
+          "description": "Responda com seu mídia kit a quem responde um story propondo parceria.",
+          "businessValue": "Atende pedidos de parceria sozinho e reúne o contato de que você precisa.",
+          "howItWorks": "Uma resposta ao story com suas palavras abre uma DM. Se você já tem o email da pessoa, ela recebe o mídia kit na hora; se não, ele é pedido antes.",
+          "note1": "Mude as palavras que indicam um pedido de parceria.",
+          "note2": "O email é salvo no contato para você responder depois.",
+          "note3": "Adicione o link do seu mídia kit ao cartão.",
+          "keywords": "parceria, collab",
+          "askEmail": "Obrigado pelo contato! Qual email usamos para conversar sobre isso?",
+          "emailError": "Isso não parece um email. Tente de novo.",
+          "cardTitle": "Nosso mídia kit e formatos de parceria",
+          "kitButton": "Abrir mídia kit"
+        },
+        "ig_sms_list": {
+          "name": "Lista VIP por SMS",
+          "description": "As pessoas mandam uma palavra para entrar na sua lista VIP com o telefone.",
+          "businessValue": "Cria uma lista de telefones de pessoas que pediram para receber notícias.",
+          "howItWorks": "Uma DM com sua palavra pede um telefone, confere e salva no contato. Dá para pular.",
+          "note1": "O telefone é conferido e salvo no contato.",
+          "note2": "Só envie mensagens a quem aceitou e siga as regras do seu país.",
+          "keywords": "lista vip",
+          "askPhone": "Bem-vindo à lista VIP! Qual é seu celular, com o código do país?",
+          "phoneError": "Isso não parece um telefone. Inclua o código do país.",
+          "skipButton": "Agora não",
+          "joined": "Você está na lista VIP! Fique de olho em acessos antecipados e ofertas.",
+          "later": "Tudo bem. Mande a palavra de novo quando quiser entrar."
+        },
+        "ig_dm_link": {
+          "name": "Link por palavra na DM",
+          "description": "Alguém manda sua palavra e recebe uma breve apresentação com seu link.",
+          "businessValue": "Compartilha seu link quando pedem e conta quem abre.",
+          "howItWorks": "Uma DM com sua palavra recebe uma mensagem curta com um botão. O toque envia o cartão com o link; os cliques entram na taxa de cliques.",
+          "note1": "Mude a palavra e a mensagem de apresentação.",
+          "note2": "Adicione seu link ao cartão. Os cliques são contados.",
+          "keywords": "site oficial",
+          "intro": "Será um prazer ajudar! Toque abaixo e eu envio a página.",
+          "sendButton": "Enviar a página",
+          "cardTitle": "Aqui está a página que você pediu",
+          "linkButton": "Abrir a página"
+        },
+        "ig_ab_opening": {
+          "name": "Mensagem inicial A/B",
+          "description": "Teste duas mensagens iniciais, metade cada, e veja qual tem mais cliques.",
+          "businessValue": "Mostra qual texto funciona melhor, medido em conversas reais.",
+          "howItWorks": "Uma DM com sua palavra vai para o início A ou B, metade cada. A mesma pessoa sempre vê o mesmo início. Os dois levam ao mesmo link rastreado para comparar cliques.",
+          "note1": "Escreva dois inícios diferentes para comparar.",
+          "note2": "Adicione seu link ao cartão e compare os cliques em Insights.",
+          "keywords": "me conta mais",
+          "openingA": "Ótima pergunta! Quer todos os detalhes?",
+          "openingB": "Você vai adorar. Posso mandar tudo?",
+          "moreButton": "Sim, por favor",
+          "cardTitle": "Todos os detalhes em um só lugar",
+          "linkButton": "Ver os detalhes"
+        },
+        "ig_ai_question": {
+          "name": "Responda uma pergunta com IA",
+          "description": "Reconhece o que a pessoa quer dizer, não só as palavras, e responde com seu link.",
+          "businessValue": "Responde a uma pergunta frequente, seja qual for a forma de perguntar.",
+          "howItWorks": "Quando nenhuma outra automação corresponde a uma DM, a IA verifica se ela se refere à sua pergunta. Se sim, a pessoa recebe sua resposta e seu link. Exige a IA ativada.",
+          "note1": "Descreva a pergunta com palavras simples. A IA só verifica quando as correspondências exatas falham.",
+          "note2": "Escreva sua resposta e adicione o link.",
+          "intent": "A pessoa pede o site ou onde encontrar mais informações",
+          "answer": "Você encontra tudo no nosso site",
+          "linkButton": "Visitar o site"
+        },
+        "ig_ai_conversation": {
+          "name": "Converse com IA",
+          "description": "Uma conversa curta com IA que responde pela sua base de conhecimento e transfere quando preciso.",
+          "businessValue": "Responde a qualquer hora e só chama sua equipe quando necessário.",
+          "howItWorks": "Uma DM com sua palavra inicia até cinco respostas de IA baseadas na sua base de conhecimento. Quando a IA não tem certeza, a conversa vai para sua equipe. Exige a IA ativada.",
+          "note1": "Adicione instruções sobre o tom e os assuntos.",
+          "note2": "Respostas incertas vão para sua equipe com uma nota.",
+          "keywords": "falar com assistente",
+          "instructions": "Seja simpático e breve. Responda perguntas sobre nossos produtos e serviços com a base de conhecimento. Se não tiver certeza, ofereça chamar a equipe.",
+          "wrapUp": "Espero ter ajudado! Mande uma mensagem quando quiser se tiver mais dúvidas.",
+          "handoffNote": "O assistente de IA transferiu esta conversa do Instagram para a equipe."
+        },
+        "ig_link_follow_up": {
+          "name": "Link com lembrete",
+          "description": "Envie um link e um lembrete 22 horas depois só para quem não abriu.",
+          "businessValue": "Recupera quem queria olhar mas esqueceu, sem escrever para quem já clicou.",
+          "howItWorks": "A pessoa recebe um cartão com link rastreado. Após 22 horas o fluxo verifica se ela abriu; se não, envia um lembrete enquanto a conversa ainda está aberta. Adicione um gatilho depois de instalar.",
+          "note1": "Adicione um gatilho: este modelo vem sem nenhum.",
+          "note2": "Adicione o mesmo link aos dois cartões. Os cliques são contados.",
+          "note3": "A espera é de 22 horas para ficar dentro da janela de 24 horas do Instagram.",
+          "cardTitle": "Aqui está o link que você pediu",
+          "linkButton": "Abrir o link",
+          "reminderTitle": "Um lembrete rápido: seu link continua aqui"
+        },
+        "ig_solo_dm": {
+          "name": "DM com um link",
+          "description": "Uma mensagem com seu link, nada mais.",
+          "businessValue": "A forma mais rápida de compartilhar um link a partir de qualquer gatilho.",
+          "howItWorks": "A pessoa recebe um cartão com seu link rastreado. Adicione um gatilho depois de instalar.",
+          "note1": "Adicione um gatilho e seu link. Este modelo vem sem gatilho.",
+          "cardTitle": "Aqui está seu link",
+          "linkButton": "Abrir o link"
+        },
+        "ig_opening_dm": {
+          "name": "Comece com uma pergunta",
+          "description": "Comece a conversa e envie o link quando tocarem no botão.",
+          "businessValue": "Um toque antes do link deixa a conversa mais pessoal e mantém o chat aberto.",
+          "howItWorks": "A pessoa recebe uma pergunta curta com um botão. Ao tocar, recebe seu link rastreado. Adicione um gatilho depois de instalar.",
+          "note1": "Adicione um gatilho e seu link. Este modelo vem sem gatilho.",
+          "opening": "Oi! Quer que eu envie o link?",
+          "yesButton": "Sim, envie",
+          "cardTitle": "Aqui está",
+          "linkButton": "Abrir o link"
+        }
+      },
+      "back": "Voltar aos modelos",
+      "startFromScratch": "Começar do zero",
+      "allTemplates": "Todos os modelos",
+      "searchPlaceholder": "Buscar modelos do Instagram",
+      "steps": "{count, plural, =1 {# etapa} other {# etapas}}",
+      "notes": "{count, plural, =1 {# nota} other {# notas}} no quadro explicam o que editar.",
+      "more": "Mais modelos"
     }
   },
   "LibErrors": {
@@ -12503,6 +12793,20 @@
           "info": "Você encontra tudo no nosso site. Escreva quando quiser se preferir falar com uma pessoa.",
           "handoffNote": "Pediu para falar com uma pessoa na resposta padrão."
         }
+      },
+      "preview": {
+        "title": "Prévia",
+        "post": "Post",
+        "comments": "Comentários",
+        "dm": "DM",
+        "yourPost": "Seu post ou reel",
+        "follower": "seguidor",
+        "you": "você",
+        "anyWord": "Qualquer comentário",
+        "storyReply": "Uma resposta ao seu story",
+        "sampleEmail": "nome@exemplo.com",
+        "cardPlaceholder": "Título do cartão",
+        "remaining": "{count, plural, =1 {Resta # caractere} other {Restam # caracteres}}"
       }
     },
     "live": {
@@ -12667,7 +12971,8 @@
         "event": "Evento",
         "count": "Quantidade",
         "empty": "Nenhum evento de conversão registrado neste período."
-      }
+      },
+      "ctr": "CTR"
     },
     "shareToStory": {
       "help": "Começa quando alguém compartilha uma de suas publicações ou reels no story. Cada pessoa pode iniciar sempre ou uma vez por dia.",
@@ -12713,7 +13018,17 @@
       "on": "Ativado",
       "off": "Desativado",
       "open": "Abrir",
-      "empty": "Ainda não há atividade nos últimos 7 dias."
+      "empty": "Ainda não há atividade nos últimos 7 dias.",
+      "automatedMessages": "Mensagens automáticas",
+      "timeSavedValue": "≈ {hours} h {minutes} min",
+      "runs": "{count, plural, =1 {# execução} other {# execuções}}",
+      "commentsCount": "{count, plural, =1 {# comentário} other {# comentários}}",
+      "leadsCount": "{count, plural, =1 {# lead} other {# leads}}",
+      "noLeadFlow": "Ainda não há leads",
+      "setUp": "Configurar",
+      "seeAll": "Ver tudo",
+      "loadFailed": "Não foi possível carregar seu resumo do Instagram.",
+      "post": "Post …{id}"
     },
     "basics": {
       "title": "Básicos",
@@ -12731,7 +13046,9 @@
       "keywords": "Palavras para inscrever e cancelar",
       "keywordsBody": "Palavras que as pessoas enviam para iniciar ou parar suas mensagens automáticas.",
       "newFollowers": "Dar boas-vindas a novos seguidores",
-      "newFollowersBody": "Indisponível: o Instagram não permite que apps enviem mensagens automáticas a novos seguidores."
+      "newFollowersBody": "Indisponível: o Instagram não permite que apps enviem mensagens automáticas a novos seguidores.",
+      "unavailable": "Indisponível",
+      "loadFailed": "Não foi possível carregar o básico do seu Instagram."
     },
     "sequences": {
       "title": "Sequências",

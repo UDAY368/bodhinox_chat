@@ -7,12 +7,18 @@
 // published. The Instagram section layout already explains a channel that is
 // off or not available. Creating flows needs an agent or above (the server
 // enforces it too).
+//
+// Stage 5 (5F): a guided setup is a two-pane page in the dialog: the form on
+// the left and a live phone preview on the right with Post, Comments and DM
+// tabs (the tab follows the field being edited); message fields count down the
+// 1,000-byte limit. `?wizard=comment_links|grow_followers|story_leads` opens a
+// setup directly (the Instagram home page's "Start here" cards).
 
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { MessageCircle, Sparkles, UserPlus } from 'lucide-react';
+import { Heart, Image as ImageIcon, MessageCircle, Sparkles, UserPlus } from 'lucide-react';
 
 import { TemplateGallery, type TemplateSummary } from '@/components/flows/template-gallery';
 import { Button } from '@/components/ui/button';
@@ -40,6 +46,15 @@ type Values = Record<string, string>;
 /** "a, b ,c" → ["a","b","c"] */
 const keywordList = (value: string): string[] => value.split(',').map((k) => k.trim()).filter(Boolean);
 
+/** Instagram's text limit (graph-limits.ts): 1,000 bytes. */
+const MESSAGE_BYTES = 1000;
+const byteLength = (value: string) => new TextEncoder().encode(value).length;
+
+type PreviewTab = 'post' | 'comments' | 'dm';
+/** The preview tab that shows a field. */
+const FIELD_TAB: Record<string, PreviewTab> = { keywords: 'comments', public_reply: 'comments' };
+const isWizard = (value: string | null): value is Wizard => WIZARDS.some((w) => w.id === value);
+
 export default function InstagramQuickAutomationsPage() {
   const t = useTranslations('Instagram.quickAutomations');
   const router = useRouter();
@@ -52,6 +67,8 @@ export default function InstagramQuickAutomationsPage() {
   const [postScope, setPostScope] = useState<'any' | 'next'>('any');
   const [reactions, setReactions] = useState(false);
   const [fieldError, setFieldError] = useState<{ field: string; problem: FieldProblem } | null>(null);
+  const [previewTab, setPreviewTab] = useState<PreviewTab>('dm');
+  const deepLinked = useRef(false);
 
   useEffect(() => {
     if (!accountId) return;
@@ -72,6 +89,17 @@ export default function InstagramQuickAutomationsPage() {
     };
   }, [accountId]);
 
+  // ?wizard= opens a setup once (the home page's Start here cards), for anyone who may create flows.
+  useEffect(() => {
+    if (deepLinked.current || !canCreate) return;
+    const requested = new URLSearchParams(window.location.search).get('wizard');
+    if (!isWizard(requested)) return;
+    deepLinked.current = true;
+    openWizard(requested);
+    // openWizard only reads the translations, which are stable for the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canCreate]);
+
   function openWizard(id: Wizard) {
     const key = WIZARDS.find((w) => w.id === id)!.key;
     const d = (name: string) => t(`defaults.${key}.${name}`);
@@ -91,6 +119,7 @@ export default function InstagramQuickAutomationsPage() {
     setPostScope('any');
     setReactions(false);
     setFieldError(null);
+    setPreviewTab(id === 'story_leads' ? 'dm' : 'comments');
     setWizard(id);
   }
 
@@ -210,7 +239,7 @@ export default function InstagramQuickAutomationsPage() {
       </section>
 
       <Dialog open={wizard !== null} onOpenChange={(open) => { if (!open && !creating) setWizard(null); }}>
-        <DialogContent className="bg-popover text-popover-foreground max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="bg-popover text-popover-foreground max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           {active && (
             <form
               className="space-y-4"
@@ -223,16 +252,24 @@ export default function InstagramQuickAutomationsPage() {
                 <DialogTitle>{t(`${active.key}.title`)}</DialogTitle>
                 <DialogDescription className="text-muted-foreground">{t(`${active.key}.description`)}</DialogDescription>
               </DialogHeader>
-              <WizardFields
-                wizard={active.id}
-                values={values}
-                onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))}
-                postScope={postScope}
-                onPostScope={setPostScope}
-                reactions={reactions}
-                onReactions={setReactions}
-                error={fieldError}
-              />
+              <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_17rem]">
+                <div onFocusCapture={(event) => {
+                  const name = (event.target as HTMLElement).dataset.field;
+                  if (name) setPreviewTab(FIELD_TAB[name] ?? 'dm');
+                }}>
+                  <WizardFields
+                    wizard={active.id}
+                    values={values}
+                    onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))}
+                    postScope={postScope}
+                    onPostScope={setPostScope}
+                    reactions={reactions}
+                    onReactions={setReactions}
+                    error={fieldError}
+                  />
+                </div>
+                <WizardPreview wizard={active.id} values={values} tab={previewTab} onTab={setPreviewTab} />
+              </div>
               <DialogFooter>
                 <Button type="button" variant="outline" disabled={creating} onClick={() => setWizard(null)}>{t('cancel')}</Button>
                 <Button type="submit" disabled={creating}>{creating ? t('creating') : t('finish')}</Button>
@@ -269,13 +306,17 @@ function WizardFields({
       {(id, describedBy) => {
         const shared = {
           id,
+          'data-field': name,
           value: values[name] ?? '',
           required: options.required,
           'aria-invalid': error?.field === name || undefined,
           'aria-describedby': describedBy,
         };
         return options.long ? (
-          <Textarea {...shared} rows={3} onChange={(e) => onChange(name, e.target.value)} />
+          <>
+            <Textarea {...shared} rows={3} onChange={(e) => onChange(name, e.target.value)} />
+            <CharactersLeft value={values[name] ?? ''} />
+          </>
         ) : (
           <Input {...shared} type={options.type ?? 'text'} onChange={(e) => onChange(name, e.target.value)} />
         );
@@ -366,5 +407,103 @@ function Field({ name, label, help, error, children }: {
       {help && <p id={helpId} className="text-muted-foreground text-xs">{help}</p>}
       {error && <p id={errorId} className="text-destructive text-xs" role="alert">{error}</p>}
     </div>
+  );
+}
+
+/** Bytes left of Instagram's 1,000-byte message limit, counted down as the author types. */
+function CharactersLeft({ value }: { value: string }) {
+  const t = useTranslations('Instagram.quickAutomations.preview');
+  const left = MESSAGE_BYTES - byteLength(value);
+  return (
+    <p className={cn('text-right text-[11px] tabular-nums', left < 0 ? 'text-destructive' : 'text-muted-foreground')} aria-live="polite">
+      {t('remaining', { count: left })}
+    </p>
+  );
+}
+
+/** A live phone preview of what the setup sends: the post, the comment thread and the DMs. */
+function WizardPreview({ wizard, values, tab, onTab }: {
+  wizard: Wizard; values: Values; tab: PreviewTab; onTab: (tab: PreviewTab) => void;
+}) {
+  const t = useTranslations('Instagram.quickAutomations.preview');
+  const v = (name: string) => values[name] ?? '';
+  const keyword = keywordList(v('keywords'))[0] ?? t('anyWord');
+  const tabs: PreviewTab[] = ['post', 'comments', 'dm'];
+  const bubble = (text: string, mine: boolean, key?: string) => text.trim() ? (
+    <div key={key} className={cn('max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-xs',
+      mine ? 'ml-auto rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm bg-muted text-foreground')}>
+      {text}
+    </div>
+  ) : null;
+  const button = (label: string, key?: string) => label.trim() ? (
+    <div key={key} className="ml-auto w-[85%] rounded-lg border border-primary/40 py-1.5 text-center text-xs font-medium text-primary">{label}</div>
+  ) : null;
+  const card = (title: string, label: string) => (
+    <div className="ml-auto w-[85%] overflow-hidden rounded-xl border border-border bg-background">
+      <div className="flex h-16 items-center justify-center bg-muted"><ImageIcon className="h-5 w-5 text-muted-foreground" aria-hidden /></div>
+      <p className="px-3 py-2 text-xs font-semibold text-foreground">{title || t('cardPlaceholder')}</p>
+      {label.trim() && <p className="border-t border-border py-1.5 text-center text-xs font-medium text-primary">{label}</p>}
+    </div>
+  );
+
+  let body: ReactNode;
+  if (tab === 'post') {
+    body = (
+      <div className="space-y-2">
+        <div className="flex aspect-square items-center justify-center rounded-lg bg-muted">
+          <ImageIcon className="h-8 w-8 text-muted-foreground" aria-hidden />
+        </div>
+        <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><Heart className="h-3 w-3" aria-hidden />{t('yourPost')}</p>
+      </div>
+    );
+  } else if (tab === 'comments') {
+    body = wizard === 'story_leads' ? (
+      <div className="space-y-2">{bubble(keyword, false)}<p className="text-[11px] text-muted-foreground">{t('storyReply')}</p></div>
+    ) : (
+      <div className="space-y-3 text-xs">
+        <p><span className="font-semibold text-foreground">{t('follower')}</span> <span className="text-foreground">{keyword}</span></p>
+        {v('public_reply').trim() && (
+          <p className="pl-4"><span className="font-semibold text-foreground">{t('you')}</span> <span className="text-foreground">{v('public_reply')}</span></p>
+        )}
+      </div>
+    );
+  } else if (wizard === 'story_leads') {
+    body = <div className="space-y-2">{bubble(keyword, false)}{bubble(v('email_prompt'), true)}{bubble(t('sampleEmail'), false)}{bubble(v('thanks'), true)}</div>;
+  } else if (wizard === 'comment_links') {
+    body = (
+      <div className="space-y-2">
+        {bubble(v('message'), true)}
+        {button(v('opt_in_label'))}
+        {card(v('card_title'), v('link_label'))}
+      </div>
+    );
+  } else {
+    body = (
+      <div className="space-y-2">
+        {bubble(v('message'), true)}
+        {button(v('opt_in_label'))}
+        {bubble(v('follow_prompt'), true)}
+        {button(v('followed_label'))}
+        {card(v('reward_title'), v('reward_label'))}
+      </div>
+    );
+  }
+
+  return (
+    <aside aria-label={t('title')} className="space-y-2">
+      <div role="tablist" aria-label={t('title')} className="flex gap-1">
+        {tabs.map((name) => (
+          <button key={name} type="button" role="tab" aria-selected={tab === name} onClick={() => onTab(name)}
+            className={cn('flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+              tab === name ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+            {t(name)}
+          </button>
+        ))}
+      </div>
+      <div className="rounded-[1.75rem] border-4 border-border bg-background p-3 shadow-sm">
+        <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-border" aria-hidden />
+        <div className="min-h-72 space-y-2" role="tabpanel">{body}</div>
+      </div>
+    </aside>
   );
 }

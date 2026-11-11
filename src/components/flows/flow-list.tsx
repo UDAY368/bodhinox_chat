@@ -1,7 +1,8 @@
 "use client";
 import { authFetch } from "@/lib/auth/client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -10,16 +11,17 @@ import {
   Trash2,
   Pencil,
   Loader2,
-  MessageSquare,
-  PlayCircle,
-  PauseCircle,
-  Archive,
   Copy,
   Search,
   Split,
+  Folder,
+  FolderInput,
+  FolderPlus,
+  MoreHorizontal,
+  RotateCcw,
 } from "lucide-react";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useCan } from "@/hooks/use-can";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -31,7 +33,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { TemplateGallery, type TemplateSummary } from "@/components/flows/template-gallery";
 import { AiGenerateFlowButton } from "@/components/flows/ai-generate-dialog";
@@ -39,18 +49,26 @@ import type { AccountMember, Channel } from "@/types";
 import { cn } from "@/lib/utils";
 import { creatorLabel, type CreatorLabel } from "@/lib/flows/creator-label";
 import { channelPath } from "@/lib/channels/routes";
-import type { FlowChannelScope, FlowTriggerType } from "@/lib/flows/types";
+import { effectiveTriggers } from "@/lib/flows/flow-triggers";
+import type { FlowChannelScope, FlowTriggerConfig, FlowTriggerType } from "@/lib/flows/types";
 import { splitFlow } from "./split-flow";
 
 /**
- * One channel's flows (Stage 1): /whatsapp/flows and /instagram/flows.
+ * One channel's automations (Stage 1, Stage 5): /whatsapp/flows and
+ * /instagram/flows.
  *
  * Lists the channel's own flows plus legacy 'any' flows, which run on both
- * channels and show a "Both channels" badge with a split action. A flow
- * created here (blank, from a template or as a duplicate) belongs to this
- * channel. Open to every authenticated user; the APIs enforce role,
- * tenancy and the channel rules. Flows is in soft-GA: the "Beta" chip in
- * the header is the only remaining signal that the surface is new.
+ * channels and show a "Both channels" badge with a split action. Each row
+ * shows its status, name, every trigger, runs, click-through rate (a dash for
+ * a flow that never sent a tracked link) and when it was last edited; folders
+ * (per channel) group them. A flow created here (blank, from a template or as
+ * a duplicate) belongs to this channel. On Instagram a rail links the three
+ * automation tabs: My automations, Basics and Sequences.
+ *
+ * Deleting a flow that was ever live archives it (restorable from the
+ * Archived state); a draft that never went live, or an archived flow, is
+ * deleted. Open to every authenticated user; the APIs enforce role, CSRF,
+ * tenancy and the channel rules.
  */
 
 interface FlowRow {
@@ -62,43 +80,65 @@ interface FlowRow {
   status: "draft" | "active" | "paused" | "archived";
   trigger_type: FlowTriggerType;
   trigger_config: { keywords?: string[] } | Record<string, unknown>;
+  extra_triggers?: unknown;
   execution_count: number;
   last_executed_at: string | null;
   test_numbers?: string[];
+  test_usernames?: string[];
   /** Absent on rows read before Phase 11: WhatsApp. */
   channel_scope?: FlowChannelScope;
   published_version_id?: string | null;
+  folder_id?: string | null;
+  /** Stage 5: whole-percent click-through rate; null when no tracked link was sent. */
+  ctr?: number | null;
   created_at: string;
   updated_at: string;
 }
 
-const STATUS_LABELS = (t: ReturnType<typeof useTranslations>): Record<FlowRow["status"], string> => ({
-  draft: t("statusDraft"),
-  active: t("statusActive"),
-  paused: t("statusPaused"),
-  archived: t("statusArchived"),
-});
+interface FolderRow {
+  id: string;
+  name: string;
+  flow_count: number;
+}
 
-const STATUS_COLORS: Record<FlowRow["status"], string> = {
-  draft: "border-border bg-muted text-muted-foreground",
-  active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
-  paused: "border-sky-600/40 bg-sky-500/10 text-sky-300",
-  archived: "border-border bg-muted/50 text-muted-foreground",
-};
-
-/** "testing" is a draft with test numbers — the same split the status badge shows. */
+/** "testing" is a draft with test numbers or usernames — the same split the status badge shows. */
 type StatusFilter = "all" | "active" | "paused" | "draft" | "testing" | "archived";
 const STATUS_FILTERS: StatusFilter[] = ["all", "active", "paused", "draft", "testing", "archived"];
 
-function displayStatus(flow: FlowRow): Exclude<StatusFilter, "all"> {
-  return flow.status === "draft" && (flow.test_numbers ?? []).length > 0 ? "testing" : flow.status;
+/** The row's status chip: Draft, Live, Stopped (paused) or Archived. */
+const CHIP: Record<FlowRow["status"], { key: "draft" | "live" | "stopped" | "archived"; className: string }> = {
+  draft: { key: "draft", className: "border-border bg-muted text-muted-foreground" },
+  active: { key: "live", className: "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  paused: { key: "stopped", className: "border-border bg-transparent text-muted-foreground" },
+  archived: { key: "archived", className: "border-border bg-muted/50 text-muted-foreground" },
+};
+
+/** Folder filter: every flow, the top level only, or one folder. */
+type FolderFilter = "all" | "none" | string;
+
+export function displayStatus(flow: Pick<FlowRow, "status" | "test_numbers" | "test_usernames">): Exclude<StatusFilter, "all"> {
+  const testers = (flow.test_numbers ?? []).length + (flow.test_usernames ?? []).length;
+  return flow.status === "draft" && testers > 0 ? "testing" : flow.status;
 }
 
-/** Name, description and trigger keywords/template, lower-cased for the search box. */
+/** Name, description and every trigger's keywords/template/refs, lower-cased for the search box. */
 function searchText(flow: FlowRow): string {
-  const cfg = flow.trigger_config as Record<string, unknown>;
-  const keywords = Array.isArray(cfg.keywords) ? (cfg.keywords as unknown[]).map(String) : [];
-  return [flow.name, flow.description ?? "", ...keywords, String(cfg.template_name ?? "")].join(" ").toLowerCase();
+  const words = effectiveTriggers(flow).flatMap(({ config }) => {
+    const cfg = config as Record<string, unknown>;
+    const list = (value: unknown) => (Array.isArray(value) ? value.map(String) : []);
+    return [...list(cfg.keywords), ...list(cfg.refs), String(cfg.template_name ?? "")];
+  });
+  return [flow.name, flow.description ?? "", ...words].join(" ").toLowerCase();
+}
+
+/** Whether a flow passes the list's filters (status, trigger type, folder, search). */
+export function flowMatches(flow: FlowRow, filters: { status: StatusFilter; trigger: FlowTriggerType | "all"; folder: FolderFilter; query: string }): boolean {
+  if (filters.status !== "all" && displayStatus(flow) !== filters.status) return false;
+  if (filters.trigger !== "all" && !effectiveTriggers(flow).some((t) => t.trigger_type === filters.trigger)) return false;
+  if (filters.folder === "none" && flow.folder_id) return false;
+  if (filters.folder !== "all" && filters.folder !== "none" && flow.folder_id !== filters.folder) return false;
+  const needle = filters.query.trim().toLowerCase();
+  return !needle || searchText(flow).includes(needle);
 }
 
 // Best-effort, like the flow builder's member picker. Returns null when the
@@ -117,13 +157,48 @@ async function loadMemberNames(): Promise<Map<string, string> | null> {
   }
 }
 
+async function errorText(res: Response, fallback: string): Promise<string> {
+  const json = (await res.json().catch(() => null)) as { error?: string } | null;
+  return json?.error ?? fallback;
+}
+
+/** The Instagram automation area's tabs (Stage 5): My automations, Basics, Sequences. */
+export function AutomationHubRail({ active }: { active: "flows" | "basics" | "sequences" }) {
+  const t = useTranslations("Automations.hub");
+  const tabs = [
+    { key: "flows", href: channelPath("instagram", "flows"), label: t("myAutomations") },
+    { key: "basics", href: channelPath("instagram", "basics"), label: t("basics") },
+    { key: "sequences", href: channelPath("instagram", "sequences"), label: t("sequences") },
+  ] as const;
+  return (
+    <nav aria-label={t("myAutomations")} className="flex gap-1 overflow-x-auto border-b border-border md:w-44 md:shrink-0 md:flex-col md:border-b-0 md:border-r md:pr-3">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.key}
+          href={tab.href}
+          aria-current={active === tab.key ? "page" : undefined}
+          className={cn(
+            "whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors",
+            active === tab.key ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 export function FlowList({ channel }: { channel: Channel }) {
   const router = useRouter();
   const canCreate = useCan("send-messages");
   const t = useTranslations("Flows.list");
+  const tRow = useTranslations("Flows.listRow");
+  const tFolders = useTranslations("Flows.folders");
   const tSection = useTranslations("Flows.channelSection");
   const tGate = useTranslations("GatedButton");
   const [flows, setFlows] = useState<FlowRow[]>([]);
+  const [folders, setFolders] = useState<FolderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -132,16 +207,34 @@ export function FlowList({ channel }: { channel: Channel }) {
   const [memberNames, setMemberNames] = useState<Map<string, string> | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
-  const [splittingId, setSplittingId] = useState<string | null>(null);
+  const [triggerFilter, setTriggerFilter] = useState<FlowTriggerType | "all">("all");
+  const [folderFilter, setFolderFilter] = useState<FolderFilter>("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<FlowRow | null>(null);
+  const [moving, setMoving] = useState<FlowRow | null>(null);
+  const [folderDialog, setFolderDialog] = useState<{ mode: "create" } | { mode: "rename"; folder: FolderRow } | null>(null);
   const editorPath = (id: string) => channelPath(channel, "flows", id);
 
-  const visibleFlows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return flows.filter((flow) =>
-      (statusFilter === "all" || displayStatus(flow) === statusFilter) &&
-      (!needle || searchText(flow).includes(needle)));
-  }, [flows, query, statusFilter]);
+  const visibleFlows = useMemo(
+    () => flows.filter((flow) => flowMatches(flow, { status: statusFilter, trigger: triggerFilter, folder: folderFilter, query })),
+    [flows, query, statusFilter, triggerFilter, folderFilter],
+  );
+  const triggerTypes = useMemo(
+    () => [...new Set(flows.flatMap((flow) => effectiveTriggers(flow).map((trigger) => trigger.trigger_type)))].sort(),
+    [flows],
+  );
+  const folderName = useMemo(() => new Map(folders.map((folder) => [folder.id, folder.name])), [folders]);
+
+  const loadFolders = useCallback(async () => {
+    try {
+      const res = await authFetch(`/api/flows/folders?channel=${channel}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const json = (await res.json()) as { folders?: FolderRow[] };
+      setFolders(json.folders ?? []);
+    } catch {
+      // Folders are an aid: the list still works without them.
+    }
+  }, [channel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +244,7 @@ export function FlowList({ channel }: { channel: Channel }) {
           authFetch(`/api/flows?channel=${channel}`),
           authFetch(`/api/flows/templates?channel=${channel}`),
           loadMemberNames(),
+          loadFolders(),
         ]);
         if (!cancelled) setMemberNames(names);
         if (!flowsRes.ok) {
@@ -233,7 +327,7 @@ export function FlowList({ channel }: { channel: Channel }) {
   }
 
   async function handleDuplicate(flow: FlowRow) {
-    setDuplicatingId(flow.id);
+    setBusyId(flow.id);
     try {
       // The copy belongs to this section (a legacy 'any' flow's copy too).
       const res = await authFetch(`/api/flows/${flow.id}/duplicate`, {
@@ -248,12 +342,12 @@ export function FlowList({ channel }: { channel: Channel }) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("duplicateError"));
     } finally {
-      setDuplicatingId(null);
+      setBusyId(null);
     }
   }
 
   async function handleSplit(flow: FlowRow) {
-    setSplittingId(flow.id);
+    setBusyId(flow.id);
     try {
       const ids = await splitFlow(flow.id);
       if (!ids) {
@@ -263,28 +357,109 @@ export function FlowList({ channel }: { channel: Channel }) {
       toast.success(tSection("splitDone"));
       router.push(editorPath(ids[channel]));
     } finally {
-      setSplittingId(null);
+      setBusyId(null);
     }
   }
 
-  async function handleDelete(flow: FlowRow) {
-    const yes = window.confirm(t("deleteConfirm", { name: flow.name }));
-    if (!yes) return;
+  async function setStatus(flow: FlowRow, status: "archived" | "draft"): Promise<boolean> {
+    const res = await authFetch(`/api/flows/${flow.id}/activate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      toast.error(await errorText(res, t("deleteError")));
+      return false;
+    }
+    // The server decides the resulting state: a restored flow that was ever live comes back stopped (paused).
+    const json = (await res.json().catch(() => null)) as { flow?: Partial<FlowRow> } | null;
+    const next = json?.flow?.status ?? status;
+    setFlows((prev) => prev.map((f) => (f.id === flow.id ? { ...f, status: next } : f)));
+    return true;
+  }
+
+  /** A flow that was ever live is archived (restorable); a draft or an archived flow is deleted. */
+  async function confirmDelete(flow: FlowRow) {
+    setBusyId(flow.id);
     try {
-      const res = await authFetch(`/api/flows/${flow.id}`, { method: "DELETE" });
-      if (res.status === 409) {
-        // A published flow is archived (with no runs in progress) before it can be deleted.
-        const json = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(json?.error ?? t("deleteError"));
+      if (flow.published_version_id && flow.status !== "archived") {
+        if (await setStatus(flow, "archived")) toast.success(tRow("archivedDone"));
         return;
       }
-      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      const res = await authFetch(`/api/flows/${flow.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error(await errorText(res, t("deleteError")));
+        return;
+      }
       setFlows((prev) => prev.filter((f) => f.id !== flow.id));
       toast.success(t("deleteSuccess"));
+      void loadFolders();
     } catch (err) {
       console.error(err);
       toast.error(t("deleteError"));
+    } finally {
+      setBusyId(null);
+      setDeleting(null);
     }
+  }
+
+  async function handleRestore(flow: FlowRow) {
+    setBusyId(flow.id);
+    try {
+      if (await setStatus(flow, "draft")) toast.success(tRow("restored"));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function moveFlow(flow: FlowRow, folderId: string | null) {
+    const res = await authFetch(`/api/flows/${flow.id}/folder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder_id: folderId }),
+    });
+    if (!res.ok) {
+      toast.error(await errorText(res, tFolders("saveFailed")));
+      return;
+    }
+    setFlows((prev) => prev.map((f) => (f.id === flow.id ? { ...f, folder_id: folderId } : f)));
+    toast.success(folderId ? tFolders("moved", { name: folderName.get(folderId) ?? "" }) : tFolders("movedTop"));
+    setMoving(null);
+    void loadFolders();
+  }
+
+  async function saveFolder(name: string) {
+    if (!folderDialog) return;
+    const res = folderDialog.mode === "create"
+      ? await authFetch("/api/flows/folders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channel, name }),
+        })
+      : await authFetch(`/api/flows/folders/${folderDialog.folder.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+    if (!res.ok) {
+      toast.error(await errorText(res, tFolders("saveFailed")));
+      return;
+    }
+    setFolderDialog(null);
+    await loadFolders();
+  }
+
+  async function deleteFolder(folder: FolderRow) {
+    if (!window.confirm(tFolders("deleteConfirm", { name: folder.name }))) return;
+    const res = await authFetch(`/api/flows/folders/${folder.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error(await errorText(res, tFolders("saveFailed")));
+      return;
+    }
+    // Its flows move to the top level (the database sets folder_id to NULL).
+    setFlows((prev) => prev.map((f) => (f.folder_id === folder.id ? { ...f, folder_id: null } : f)));
+    if (folderFilter === folder.id) setFolderFilter("all");
+    await loadFolders();
   }
 
   if (loading) {
@@ -295,13 +470,13 @@ export function FlowList({ channel }: { channel: Channel }) {
     );
   }
 
-  return (
-    <div className="space-y-6 p-6">
+  const list = (
+    <div className="min-w-0 flex-1 space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold text-foreground">{tSection(channel === "instagram" ? "instagramTitle" : "whatsappTitle")}</h1>
-            <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+            <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
               {t("beta")}
             </span>
           </div>
@@ -319,7 +494,7 @@ export function FlowList({ channel }: { channel: Channel }) {
         </GatedButton>
       </header>
 
-      {flows.length === 0 ? (
+      {flows.length === 0 && folders.length === 0 ? (
         <EmptyState
           onCreate={() => setCreateOpen(true)}
           canCreate={canCreate}
@@ -327,6 +502,47 @@ export function FlowList({ channel }: { channel: Channel }) {
         />
       ) : (
         <>
+          <div role="group" aria-label={tFolders("filterLabel")} className="flex flex-wrap items-center gap-1.5">
+            <FolderChip active={folderFilter === "all"} onClick={() => setFolderFilter("all")} label={tFolders("all")} />
+            {folders.length > 0 && (
+              <FolderChip active={folderFilter === "none"} onClick={() => setFolderFilter("none")} label={tFolders("noFolder")} />
+            )}
+            {folders.map((folder) => (
+              <span key={folder.id} className="inline-flex items-center">
+                <FolderChip
+                  active={folderFilter === folder.id}
+                  onClick={() => setFolderFilter(folder.id)}
+                  label={folder.name}
+                  count={folder.flow_count}
+                  icon
+                />
+                {canCreate && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" aria-label={`${tRow("actions")}: ${folder.name}`}>
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setFolderDialog({ mode: "rename", folder })}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        {tFolders("rename")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem variant="destructive" onClick={() => void deleteFolder(folder)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {tFolders("delete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </span>
+            ))}
+            {canCreate && (
+              <Button variant="ghost" size="sm" onClick={() => setFolderDialog({ mode: "create" })}>
+                <FolderPlus className="h-3.5 w-3.5" />
+                {tFolders("new")}
+              </Button>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative w-full sm:max-w-xs">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -338,6 +554,17 @@ export function FlowList({ channel }: { channel: Channel }) {
                 className="bg-muted pl-8"
               />
             </div>
+            <select
+              aria-label={tRow("triggerFilter")}
+              value={triggerFilter}
+              onChange={(e) => setTriggerFilter(e.target.value as FlowTriggerType | "all")}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            >
+              <option value="all">{tRow("anyTrigger")}</option>
+              {triggerTypes.map((type) => (
+                <option key={type} value={type}>{triggerTypeLabel(type, tRow)}</option>
+              ))}
+            </select>
             <div className="flex flex-wrap gap-1" role="group" aria-label={t("statusFilterLabel")}>
               {STATUS_FILTERS.map((status) => (
                 <Button
@@ -347,7 +574,7 @@ export function FlowList({ channel }: { channel: Channel }) {
                   aria-pressed={statusFilter === status}
                   onClick={() => setStatusFilter(status)}
                 >
-                  {status === "all" ? t("filterAll") : status === "testing" ? t("statusTesting") : STATUS_LABELS(t)[status]}
+                  {status === "all" ? t("filterAll") : status === "testing" ? t("statusTesting") : tRow(`status.${CHIP[status].key}`)}
                 </Button>
               ))}
             </div>
@@ -357,22 +584,32 @@ export function FlowList({ channel }: { channel: Channel }) {
               {t("noMatches")}
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleFlows.map((flow) => (
-                <FlowCard
-                  key={flow.id}
-                  flow={flow}
-                  creator={creatorLabel(memberNames, flow.user_id)}
-                  canCreate={canCreate}
-                  duplicating={duplicatingId === flow.id}
-                  splitting={splittingId === flow.id}
-                  onEdit={() => router.push(editorPath(flow.id))}
-                  onDuplicate={() => handleDuplicate(flow)}
-                  onSplit={() => handleSplit(flow)}
-                  onDelete={() => handleDelete(flow)}
-                  t={t}
-                />
-              ))}
+            <div className="overflow-hidden rounded-lg border border-border">
+              <div className="hidden grid-cols-[minmax(0,1fr)_5rem_5rem_9rem_2.5rem] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:grid">
+                <span>{tRow("nameColumn")}</span>
+                <span className="text-right">{tRow("runs")}</span>
+                <span className="text-right" title={tRow("ctrHelp")}>{tRow("ctr")}</span>
+                <span>{tRow("modifiedColumn")}</span>
+                <span className="sr-only">{tRow("actions")}</span>
+              </div>
+              <ul className="divide-y divide-border">
+                {visibleFlows.map((flow) => (
+                  <FlowListRow
+                    key={flow.id}
+                    flow={flow}
+                    folder={flow.folder_id ? folderName.get(flow.folder_id) ?? null : null}
+                    creator={creatorLabel(memberNames, flow.user_id)}
+                    canCreate={canCreate}
+                    busy={busyId === flow.id}
+                    onEdit={() => router.push(editorPath(flow.id))}
+                    onDuplicate={() => handleDuplicate(flow)}
+                    onSplit={() => handleSplit(flow)}
+                    onDelete={() => setDeleting(flow)}
+                    onRestore={() => handleRestore(flow)}
+                    onMove={() => setMoving(flow)}
+                  />
+                ))}
+              </ul>
             </div>
           )}
         </>
@@ -383,7 +620,7 @@ export function FlowList({ channel }: { channel: Channel }) {
             `sm:max-w-sm` baked into its default classes. Without the
             sm: prefix our override applies at base only and the
             sm-scoped 384px wins at every real desktop breakpoint. */}
-        <DialogContent className="sm:max-w-4xl bg-popover text-popover-foreground">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle>{t("createTitle")}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -391,29 +628,36 @@ export function FlowList({ channel }: { channel: Channel }) {
             </DialogDescription>
           </DialogHeader>
 
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              {t("startBlank")}
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder={t("placeholderName")}
+                aria-label={t("placeholderName")}
+                className="bg-muted"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreate();
+                }}
+              />
+              <Button onClick={handleCreate} disabled={!newName.trim() || creating}>
+                {creating && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t("createBlank")}
+              </Button>
+            </div>
+          </div>
+
           {templates.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3 border-t border-border pt-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 {t("startTemplate")}
               </p>
               <TemplateGallery templates={templates} creating={creating} onUse={handleUseTemplate} />
             </div>
           )}
-
-          <div className="space-y-2 border-t border-border pt-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {t("startBlank")}
-            </p>
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={t("placeholderName")}
-              className="bg-muted"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreate();
-              }}
-            />
-          </div>
 
           <DialogFooter>
             {/* The AI builder makes WhatsApp flows, so it is offered only in the WhatsApp section. */}
@@ -427,14 +671,44 @@ export function FlowList({ channel }: { channel: Channel }) {
             >
               {t("cancel")}
             </Button>
-            <Button onClick={handleCreate} disabled={!newName.trim() || creating}>
-              {creating && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t("createBlank")}
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteDialog flow={deleting} busy={!!deleting && busyId === deleting.id} onCancel={() => setDeleting(null)}
+        onConfirm={(flow) => void confirmDelete(flow)} />
+      <MoveDialog flow={moving} folders={folders} onCancel={() => setMoving(null)} onMove={(flow, id) => void moveFlow(flow, id)} />
+      <FolderNameDialog state={folderDialog} onCancel={() => setFolderDialog(null)} onSave={(name) => void saveFolder(name)} />
     </div>
+  );
+
+  return channel === "instagram" ? (
+    <div className="flex flex-col gap-6 p-6 md:flex-row">
+      <AutomationHubRail active="flows" />
+      {list}
+    </div>
+  ) : (
+    <div className="p-6">{list}</div>
+  );
+}
+
+function FolderChip({ active, onClick, label, count, icon = false }: {
+  active: boolean; onClick: () => void; label: string; count?: number; icon?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {icon && <Folder className="h-3 w-3" aria-hidden />}
+      {label}
+      {count !== undefined && <span className="tabular-nums opacity-70">{count}</span>}
+    </button>
   );
 }
 
@@ -472,168 +746,297 @@ function EmptyState({
   );
 }
 
-function FlowCard({
-  flow,
-  creator,
-  canCreate,
-  duplicating,
-  splitting,
-  onEdit,
-  onDuplicate,
-  onSplit,
-  onDelete,
-  t,
+function FlowListRow({
+  flow, folder, creator, canCreate, busy, onEdit, onDuplicate, onSplit, onDelete, onRestore, onMove,
 }: {
   flow: FlowRow;
+  folder: string | null;
   creator: CreatorLabel | null;
   canCreate: boolean;
-  duplicating: boolean;
-  splitting: boolean;
+  busy: boolean;
   onEdit: () => void;
   onDuplicate: () => void;
   onSplit: () => void;
   onDelete: () => void;
-  t: ReturnType<typeof useTranslations>;
+  onRestore: () => void;
+  onMove: () => void;
 }) {
-  const tGate = useTranslations("GatedButton");
+  const t = useTranslations("Flows.list");
+  const tRow = useTranslations("Flows.listRow");
+  const tFolders = useTranslations("Flows.folders");
   const tSection = useTranslations("Flows.channelSection");
+  const format = useFormatter();
   const both = flow.channel_scope === "any";
-  const triggerSummary = describeTrigger(flow, t);
-  const StatusIcon =
-    flow.status === "active"
-      ? PlayCircle
-      : flow.status === "archived"
-        ? Archive
-        : PauseCircle;
+  const triggers = effectiveTriggers(flow);
+  const chip = CHIP[flow.status];
+  const ctr = flow.ctr ?? null;
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-border">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Workflow className="h-4 w-4 shrink-0 text-primary" />
-          <h3 className="truncate text-sm font-semibold text-foreground">
+    <li className="grid grid-cols-1 gap-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_5rem_5rem_9rem_2.5rem] md:items-center md:gap-3" data-flow-row={flow.id}>
+      <div className="min-w-0 space-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Badge variant="outline" className={cn("shrink-0 text-[10px] uppercase", chip.className)}>
+            {displayStatus(flow) === "testing" ? t("statusTesting") : tRow(`status.${chip.key}`)}
+          </Badge>
+          <button type="button" onClick={onEdit} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:text-primary hover:underline">
             {flow.name}
-          </h3>
-        </div>
-        <Badge
-          variant="outline"
-          className={cn(
-            "shrink-0 gap-1 text-[10px]",
-            STATUS_COLORS[flow.status],
+          </button>
+          {both && (
+            <Badge
+              variant="outline"
+              title={tSection("bothChannelsHelp")}
+              data-flow-channel="any"
+              className="w-fit border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300"
+            >
+              {tSection("bothChannels")}
+            </Badge>
           )}
-        >
-          <StatusIcon className="h-3 w-3" />
-          {displayStatus(flow) === "testing" ? t("statusTesting") : STATUS_LABELS(t)[flow.status]}
-        </Badge>
-      </div>
-
-      {both && (
-        <Badge
-          variant="outline"
-          title={tSection("bothChannelsHelp")}
-          data-flow-channel="any"
-          className="mt-2 w-fit border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300"
-        >
-          {tSection("bothChannels")}
-        </Badge>
-      )}
-
-      <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-        {flow.description || triggerSummary}
-      </p>
-
-      <div className="mt-4 flex items-center gap-3 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <MessageSquare className="h-3 w-3" />
-          {t("runCount", { count: flow.execution_count })}
-        </span>
+          {folder && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Folder className="h-3 w-3" aria-hidden />
+              {folder}
+            </span>
+          )}
+        </div>
+        <ul className="space-y-0.5" aria-label={tRow("triggerFilter")}>
+          {triggers.length === 0 ? (
+            <li className="text-xs text-muted-foreground">{tRow("noTrigger")}</li>
+          ) : (
+            triggers.map((trigger, index) => (
+              <li key={index} className="truncate text-xs text-muted-foreground">{describeTrigger(trigger, t)}</li>
+            ))
+          )}
+        </ul>
+        {flow.description && <p className="line-clamp-1 text-xs text-muted-foreground/80">{flow.description}</p>}
         {creator && (
-          <span className="min-w-0 truncate">
+          <p className="truncate text-[11px] text-muted-foreground/80">
             {t("createdBy", {
-              name:
-                creator.kind === "name"
-                  ? creator.name
-                  : creator.kind === "teammate"
-                    ? t("creatorTeammate")
-                    : t("creatorUnknown"),
+              name: creator.kind === "name" ? creator.name : creator.kind === "teammate" ? t("creatorTeammate") : t("creatorUnknown"),
             })}
-          </span>
+          </p>
         )}
       </div>
-
-      <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-3">
-        <Button variant="ghost" size="sm" onClick={onEdit}>
-          <Pencil className="h-3.5 w-3.5" />
-          {t("edit")}
-        </Button>
-        <GatedButton
-          variant="ghost"
-          size="sm"
-          canAct={canCreate}
-          gateReason={tGate("reasons.createFlows")}
-          disabled={duplicating}
-          onClick={onDuplicate}
-        >
-          {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
-          {t("duplicate")}
-        </GatedButton>
-        {both && (
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={canCreate}
-            gateReason={tGate("reasons.createFlows")}
-            disabled={splitting}
-            onClick={onSplit}
-            title={tSection("split")}
-            aria-label={tSection("split")}
-          >
-            {splitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Split className="h-3.5 w-3.5" />}
-          </GatedButton>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t("delete")}
-        </Button>
+      <div className="flex gap-4 text-xs text-muted-foreground md:contents">
+        <span className="tabular-nums md:text-right">
+          <span className="md:sr-only">{tRow("runs")}: </span>
+          {format.number(flow.execution_count)}
+        </span>
+        <span className="tabular-nums md:text-right" title={tRow("ctrHelp")} data-flow-ctr={ctr ?? ""}>
+          <span className="md:sr-only">{tRow("ctr")}: </span>
+          {ctr === null ? tRow("noCtr") : tRow("ctrValue", { value: ctr })}
+        </span>
+        <span>{tRow("modified", { time: format.relativeTime(new Date(flow.updated_at)) })}</span>
       </div>
-    </div>
+      <div className="flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" aria-label={`${tRow("actions")}: ${flow.name}`} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="h-3.5 w-3.5" />
+              {t("edit")}
+            </DropdownMenuItem>
+            {canCreate && (
+              <>
+                <DropdownMenuItem onClick={onDuplicate}>
+                  <Copy className="h-3.5 w-3.5" />
+                  {t("duplicate")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onMove}>
+                  <FolderInput className="h-3.5 w-3.5" />
+                  {tFolders("moveTo")}
+                </DropdownMenuItem>
+                {both && (
+                  <DropdownMenuItem onClick={onSplit}>
+                    <Split className="h-3.5 w-3.5" />
+                    {tSection("split")}
+                  </DropdownMenuItem>
+                )}
+                {flow.status === "archived" && (
+                  <DropdownMenuItem onClick={onRestore}>
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {tRow("restore")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t("delete")}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </li>
   );
 }
 
-function describeTrigger(flow: FlowRow, t: ReturnType<typeof useTranslations>): string {
-  const cfg = flow.trigger_config as Record<string, unknown>;
-  if (flow.trigger_type === "keyword") {
+function DeleteDialog({ flow, busy, onCancel, onConfirm }: {
+  flow: FlowRow | null; busy: boolean; onCancel: () => void; onConfirm: (flow: FlowRow) => void;
+}) {
+  const t = useTranslations("Flows.list");
+  const tRow = useTranslations("Flows.listRow");
+  const archives = !!flow?.published_version_id && flow.status !== "archived";
+  return (
+    <Dialog open={!!flow} onOpenChange={(open) => { if (!open && !busy) onCancel(); }}>
+      <DialogContent className="bg-popover text-popover-foreground sm:max-w-md">
+        {flow && (
+          <>
+            <DialogHeader>
+              <DialogTitle>{tRow("deleteTitle")}</DialogTitle>
+              <DialogDescription className="text-muted-foreground">{flow.name}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              <p className="text-foreground">{tRow("deleteTriggers")}</p>
+              <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
+                {effectiveTriggers(flow).map((trigger, index) => <li key={index}>{describeTrigger(trigger, t)}</li>)}
+              </ul>
+              <p className="text-xs text-muted-foreground">{archives ? tRow("deleteArchiveHint") : tRow("deletePermanent")}</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" disabled={busy} onClick={onCancel}>{tRow("cancel")}</Button>
+              <Button variant="destructive" disabled={busy} onClick={() => onConfirm(flow)}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                {tRow("confirmDelete")}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MoveDialog({ flow, folders, onCancel, onMove }: {
+  flow: FlowRow | null; folders: FolderRow[]; onCancel: () => void; onMove: (flow: FlowRow, folderId: string | null) => void;
+}) {
+  return (
+    <Dialog open={!!flow} onOpenChange={(open) => { if (!open) onCancel(); }}>
+      <DialogContent className="bg-popover text-popover-foreground sm:max-w-sm">
+        {flow && <MoveForm key={flow.id} flow={flow} folders={folders} onCancel={onCancel} onMove={onMove} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MoveForm({ flow, folders, onCancel, onMove }: {
+  flow: FlowRow; folders: FolderRow[]; onCancel: () => void; onMove: (flow: FlowRow, folderId: string | null) => void;
+}) {
+  const t = useTranslations("Flows.folders");
+  const [target, setTarget] = useState<string>(flow.folder_id ?? "");
+  return (
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onMove(flow, target || null);
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{t("moveTo")}</DialogTitle>
+              <DialogDescription className="text-muted-foreground">{flow.name}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <Label htmlFor="flow-move-folder">{t("filterLabel")}</Label>
+              <select
+                id="flow-move-folder"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground"
+              >
+                <option value="">{t("noFolder")}</option>
+                {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+              </select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onCancel}>{t("cancel")}</Button>
+              <Button type="submit">{t("save")}</Button>
+            </DialogFooter>
+          </form>
+  );
+}
+
+function FolderNameDialog({ state, onCancel, onSave }: {
+  state: { mode: "create" } | { mode: "rename"; folder: FolderRow } | null; onCancel: () => void; onSave: (name: string) => void;
+}) {
+  return (
+    <Dialog open={!!state} onOpenChange={(open) => { if (!open) onCancel(); }}>
+      <DialogContent className="bg-popover text-popover-foreground sm:max-w-sm">
+        {state && <FolderNameForm key={state.mode === "rename" ? state.folder.id : "new"} state={state} onCancel={onCancel} onSave={onSave} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FolderNameForm({ state, onCancel, onSave }: {
+  state: { mode: "create" } | { mode: "rename"; folder: FolderRow }; onCancel: () => void; onSave: (name: string) => void;
+}) {
+  const t = useTranslations("Flows.folders");
+  const [name, setName] = useState(state.mode === "rename" ? state.folder.name : "");
+  const valid = name.trim().length >= 1 && name.trim().length <= 60;
+  return (
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (valid) onSave(name.trim());
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{state.mode === "create" ? t("new") : t("rename")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <Label htmlFor="flow-folder-name">{t("name")}</Label>
+              <Input id="flow-folder-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} autoFocus />
+              {!valid && name.length > 0 && <p className="text-xs text-destructive">{t("nameInvalid")}</p>}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onCancel}>{t("cancel")}</Button>
+              <Button type="submit" disabled={!valid}>{t("save")}</Button>
+            </DialogFooter>
+          </form>
+  );
+}
+
+/** A trigger type's short name for the trigger filter. */
+function triggerTypeLabel(type: FlowTriggerType, tRow: ReturnType<typeof useTranslations>): string {
+  return tRow.has(`triggerTypes.${type}`) ? tRow(`triggerTypes.${type}`) : type;
+}
+
+/** One trigger in plain words, as the row and the delete dialog list it. */
+export function describeTrigger(trigger: FlowTriggerConfig | { trigger_type: string; config: Record<string, unknown> },
+  t: ReturnType<typeof useTranslations>): string {
+  const cfg = trigger.config as Record<string, unknown>;
+  const type = trigger.trigger_type;
+  if (type === "keyword") {
     if (cfg.match_type === "regex") return t("triggerRegex");
     const keywords = Array.isArray(cfg.keywords) ? (cfg.keywords as string[]) : [];
     if (keywords.length === 0) return t("triggerKeywordNone");
     return t("triggerKeyword", { keywords: keywords.join(", ") });
   }
-  if (flow.trigger_type === "template_reply") {
+  if (type === "template_reply") {
     return t("triggerTemplateReply", { template: String(cfg.template_name ?? "") });
   }
-  if (flow.trigger_type === "first_inbound_message") {
+  if (type === "first_inbound_message") {
     return t("triggerFirstInbound");
   }
-  if (flow.trigger_type === "order_received") return t("triggerOrderReceived");
-  if (flow.trigger_type === "ad_click") {
+  if (type === "order_received") return t("triggerOrderReceived");
+  if (type === "ad_click") {
     const ids = Array.isArray(cfg.ad_ids) ? cfg.ad_ids.length : 0;
     return ids ? t("triggerAdClick", { count: ids }) : t("triggerAdClickAny");
   }
-  if (flow.trigger_type === "default_reply") return t("triggerDefaultReply");
-  if (flow.trigger_type === "ig_comment") {
+  if (type === "default_reply") return t("triggerDefaultReply");
+  if (type === "ig_comment") {
     if (cfg.post_scope === "next") return t("triggerIgCommentNext");
     const posts = cfg.post_scope === "specific" && Array.isArray(cfg.media_ids) ? cfg.media_ids.length : 0;
     return posts ? t("triggerIgCommentSpecific", { count: posts }) : t("triggerIgCommentAny");
   }
-  if (flow.trigger_type === "ig_story_reply") return t("triggerIgStoryReply");
-  if (flow.trigger_type === "ig_story_mention") return t("triggerIgStoryMention");
-  if (flow.trigger_type === "ig_live_comment") return t("triggerIgLiveComment");
-  if (flow.trigger_type === "ig_share_to_story") return t("triggerIgShareToStory");
-  if (flow.trigger_type === "ig_ref") {
+  if (type === "ig_story_reply") return t("triggerIgStoryReply");
+  if (type === "ig_story_mention") return t("triggerIgStoryMention");
+  if (type === "ig_live_comment") return t("triggerIgLiveComment");
+  if (type === "ig_share_to_story") return t("triggerIgShareToStory");
+  if (type === "ig_ref") {
     const refs = Array.isArray(cfg.refs) ? cfg.refs.filter((r): r is string => typeof r === "string") : [];
     return refs.length ? t("triggerIgRef", { refs: refs.join(", ") }) : t("triggerIgRefNone");
   }
