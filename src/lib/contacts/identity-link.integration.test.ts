@@ -356,7 +356,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Identity linking and Instag
       expect(String(fetchMock.mock.calls[0][0])).toContain(`/81${seed}/messages`);
       const row = (await owner.query('SELECT sender_type,content_text,message_id FROM messages WHERE id=$1', [result.messageId])).rows[0];
       expect(row).toMatchObject({ sender_type: 'agent', message_id: result.whatsappMessageId });
-      expect(row.content_text).toContain('https://rzp.io/i/t5');
+      // The link rides as the card's URL button (Stage 3), so the stored text is the caption and Meta got the URL.
+      expect(row.content_text).toContain('Pay here');
+      expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('https://rzp.io/i/t5');
 
       // Outside the window the link is refused before any intent.
       vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Meta must not be called'); }));

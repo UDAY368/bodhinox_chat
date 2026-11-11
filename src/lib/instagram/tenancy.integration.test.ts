@@ -199,7 +199,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram tenancy and conne
       expect(await channelRow(accountA)).toMatchObject({ enabled: true, updated_by_user_id: adminA });
       expect((await channelRow(accountA)).enabled_at).not.toBeNull();
       expect(await channelRow(accountB)).toBeUndefined();
-      expect(graph.subscribe).toHaveBeenCalledWith(igUserNew, 'test-only-long', ['messages', 'messaging_postbacks', 'comments']);
+      expect(graph.subscribe).toHaveBeenCalledWith(igUserNew, 'test-only-long', ['messages', 'messaging_postbacks', 'comments', 'live_comments']);
       const row = await accountRow(first.instagramAccountId);
       expect(row.status).toBe('active');
       expect(decrypt(row.access_token_enc)).toBe('test-only-long');
