@@ -1,13 +1,17 @@
 import { createAdminClient } from "@/lib/data/admin";
 import { withJobScope } from "@/lib/jobs/scope";
 import { resumeAwaitingReply, runAutomationsForTrigger } from "@/lib/automations/engine";
-import { dispatchInboundToFlows } from "@/lib/flows/engine";
+import { dispatchInboundToFlows, startFlowById } from "@/lib/flows/engine";
+import { flowSend } from "@/lib/flows/channel-send";
 import type { ParsedInbound } from "@/lib/flows/types";
+import { InstagramError } from "@/lib/instagram/errors";
+import { applyInstagramConsent, customKeywords, workerConsentSettings, type InstagramConsentSettings } from "@/lib/contacts/channel-consent";
+import { clearExpiredPause } from "@/lib/inbox/automation-pause";
 import { dispatchInboundToAiReply, recordUnreadableInbound } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { dispatchQuickReplyAction } from "./quick-reply-actions";
 import { runInboundStage, type InboundActionsPayload } from "./ingest";
-import { applyConsentKeyword, consentKeyword, quickReplyOptOut } from "@/lib/contacts/consent";
+import { applyConsentKeyword, consentKeyword, quickReplyOptOut, type ConsentKeyword, type CustomConsentKeywords } from "@/lib/contacts/consent";
 import { withTenant } from "@/lib/db/tenant";
 import { getWorkerPrisma } from "@/lib/db/prisma";
 import { applyFormSaveTo, loadFormDefinition } from "./forms/responses";
@@ -68,6 +72,9 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     }
     // The channel comes from the stored conversation, never from the job payload.
     const stored=await storedConversation(db,input);
+    // Stage 5: a timed pause that has run out is cleared before anything reads
+    // bot_paused, so this message reaches flows and automations again. Local and idempotent.
+    await clearExpiredPause(input.accountId,input.conversationId);
     if(stored.channel==="instagram") {
       // A link/unlink can move the conversation to another contact after this job
       // was queued: act for the contact that owns the conversation now, never the
@@ -142,8 +149,8 @@ const UNREADABLE_FOR_AI=new Set(["image","audio","video","document","location"])
  * Typed STOP/START, or a template quick-reply tap ("Stop promotions") whose label
  * or payload is an opt-out. List, button-message, form and flow replies never count.
  */
-function inboundConsentKeyword(input:MessageInput,text:string) {
-  if(input.contentType==="text"&&!input.interactiveReplyId) return consentKeyword(text);
+function inboundConsentKeyword(input:MessageInput,text:string,custom?:CustomConsentKeywords) {
+  if(input.contentType==="text"&&!input.interactiveReplyId) return consentKeyword(text,custom);
   return input.templateQuickReply ? quickReplyOptOut(input.contentText,input.interactiveReplyId) : null;
 }
 type MessageInput=Extract<InboundActionsPayload,{kind:"message"}>;
@@ -180,15 +187,26 @@ async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Pr
     conversation_id:input.conversationId,contact_id:input.contactId,channel:"instagram",
   },{channel:"instagram"}));
   const text=input.contentText??"";
-  const keyword=inboundConsentKeyword(input,text);
-  if(keyword) await applyConsentKeyword(db,input.accountId,input.contactId,keyword);
-  if(keyword==="opt_out") await endRunsOnOptOut(db,input);
-  const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")
+  // Stage 5: Instagram consent is per channel. STOP (built-in or the workspace's
+  // own words) sets instagram_opted_out_at only and ends the contact's Instagram
+  // runs; START clears it. The contact-wide WhatsApp opt-out is not touched.
+  const consent=await workerConsentSettings(input.accountId);
+  const keyword=inboundConsentKeyword(input,text,customKeywords(consent));
+  if(keyword) await respondToInstagramConsent(input,keyword,consent,stage);
+  const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at,instagram_opted_out_at")
     .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
   if(contactError) throw new Error("Contact consent lookup failed");
-  // A STOP/START message only records consent, and a blocked contact gets no
-  // automated response; both still reach the message.received webhook.
-  if(!keyword&&!contact?.blocked_at) {
+  // A STOP/START message only records consent, a blocked contact gets no
+  // automated response, and an Instagram-unsubscribed contact gets no flow,
+  // automation, AI or away reply (agents still answer by hand). The gate sits
+  // after the keyword check, so START always works. All still reach the
+  // message.received webhook.
+  const unsubscribed=Boolean((contact as {instagram_opted_out_at?:string|null}|null)?.instagram_opted_out_at);
+  if(!keyword&&!contact?.blocked_at&&unsubscribed) {
+    // Lifecycle and routing still run, so a person sees and answers the message.
+    await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
+      contactId:input.contactId,messageId:input.messageId,text});
+  } else if(!keyword&&!contact?.blocked_at) {
     // Read before the stage claims its checkpoint: a failed read sends nothing, so the job retries.
     const message=await flowMessage(db,input,text);
     const flow=await stage("flow",()=>dispatchInboundToFlows({
@@ -218,6 +236,40 @@ async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Pr
     conversation_id:input.conversationId,contact_id:input.contactId,channel:"instagram",instagram_message_id:input.metaMessageId,
     content_type:input.contentType,content_text:input.contentText,
   },{channel:"instagram"}));
+}
+
+/**
+ * An Instagram STOP or START: record it (ending Instagram runs on STOP), then
+ * the workspace's confirmation and attached flow, each at most once per
+ * inbound message. The confirmation is one text through the Instagram sender
+ * (flowSend: window and account re-checked, outbound intent keyed by the
+ * message), answering inside the window the keyword just opened; a webhook
+ * redelivery or retried job finds the stage checkpoint and the intent and
+ * sends nothing more. A refusal (closed window, unusable account) is a skip:
+ * consent is already recorded. The attached opt-out flow may run that one time.
+ */
+async function respondToInstagramConsent(input:MessageInput,keyword:ConsentKeyword,consent:InstagramConsentSettings,stage:Stage): Promise<void> {
+  const state=keyword==="opt_out" ? "opted_out" as const : "opted_in" as const;
+  await applyInstagramConsent(input.accountId,input.contactId,state);
+  const reply=keyword==="opt_out" ? consent.opt_out_reply : consent.opt_in_reply;
+  if(reply) await stage(`consent_reply:${keyword}`,async()=>{
+    try {
+      await flowSend({account_id:input.accountId,conversation_id:input.conversationId},`consent:${input.messageId}:${keyword}`,
+        {kind:"text",args:{accountId:input.accountId,userId:input.userId,conversationId:input.conversationId,contactId:input.contactId,text:reply}});
+      return "sent";
+    } catch(error) {
+      // UncertainDispatchError propagates: the checkpoint records it for reconciliation, never a resend.
+      if(error instanceof InstagramError) {
+        console.info("[inbound-actions] consent_reply_skipped",{accountId:input.accountId,conversationId:input.conversationId,code:error.code});
+        return "skipped";
+      }
+      throw error;
+    }
+  });
+  const flowId=keyword==="opt_out" ? consent.opt_out_flow_id : consent.opt_in_flow_id;
+  if(flowId) await stage(`consent_flow:${keyword}`,()=>startFlowById({accountId:input.accountId,flowId,userId:input.userId,
+    contactId:input.contactId,conversationId:input.conversationId,
+    message:{kind:"text",text:input.contentText??"",meta_message_id:input.metaMessageId}}));
 }
 
 /**

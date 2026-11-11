@@ -55,6 +55,7 @@ import {
 import type { MessageTemplate } from '@/types';
 import { templateFlowTokens } from '@/lib/whatsapp/forms/send';
 import { getSessionWindow } from '@/lib/inbox/session';
+import { pauseForAgentReplyNow } from '@/lib/inbox/automation-pause';
 import {
   resolveTemplateRow,
   templateBodyParams,
@@ -453,8 +454,13 @@ export async function sendMessageToConversation(
     }
   }
 
-  const pause = await db.from('conversations').update({ bot_paused: true, updated_at: new Date().toISOString() }).eq('id', conversationId).eq('account_id', accountId);
-  if (pause.error) throw new SendMessageError('internal', 'Could not pause bot replies before sending', 503);
+  // The agent stepping in: automated replies pause (for the workspace's
+  // agent_reply_pause_minutes, or until resumed when unset) before the send.
+  try {
+    await pauseForAgentReplyNow(accountId, conversationId, senderId ?? null);
+  } catch {
+    throw new SendMessageError('internal', 'Could not pause bot replies before sending', 503);
+  }
 
   const interactiveDelivery = messageType === 'interactive' ? createInteractiveDelivery({
     db, accountId, conversationId, senderType: 'agent', senderId, phoneNumberId: config.phone_number_id,

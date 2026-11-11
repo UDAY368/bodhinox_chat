@@ -10,17 +10,44 @@
 
 import type { DataClient } from '@/lib/data/types';
 
-// shortcut: fixed English keywords; make them a workspace setting when non-English opt-outs matter.
+// Built-in English keywords on every channel. Instagram workspaces can add their
+// own words in any language (instagram_consent_settings, Stage 5); WhatsApp keeps this set.
 // 'STOP PROMOTIONS' is the label of Meta's marketing opt-out quick-reply button.
 const OPT_OUT = new Set(['STOP', 'STOP ALL', 'STOP PROMOTIONS', 'UNSUBSCRIBE', 'OPT OUT', 'OPTOUT']);
 const OPT_IN = new Set(['START', 'SUBSCRIBE', 'UNSTOP', 'OPT IN', 'OPTIN']);
 
+/** The built-in keywords, for display next to a workspace's own. */
+export const BUILT_IN_OPT_OUT = [...OPT_OUT];
+export const BUILT_IN_OPT_IN = [...OPT_IN];
+
 export type ConsentKeyword = 'opt_out' | 'opt_in';
 
-/** A whole message that is exactly a consent keyword (case, punctuation, '_' and '-' ignored). */
-export function consentKeyword(text: string): ConsentKeyword | null {
+/** A workspace's own keywords (stored trimmed and lowercased, 1-50 characters, up to 20 each). */
+export interface CustomConsentKeywords {
+  optOut: readonly string[];
+  optIn: readonly string[];
+}
+
+/** How a workspace keyword is stored and compared: trimmed, inner spaces collapsed, case folded. */
+export function normalizeConsentKeyword(text: string): string {
+  return text.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
+ * A whole message that is exactly a consent keyword: a built-in one (case,
+ * punctuation, '_' and '-' ignored), or one of the workspace's own (exact match
+ * after trimming and case folding). An opt-out word wins over an opt-in word.
+ */
+export function consentKeyword(text: string, custom?: CustomConsentKeywords | null): ConsentKeyword | null {
   const word = text.trim().replace(/[.!\s]+$/, '').replace(/[\s_-]+/g, ' ').trim().toUpperCase();
   if (OPT_OUT.has(word)) return 'opt_out';
+  if (custom) {
+    const own = normalizeConsentKeyword(text);
+    if (own && custom.optOut.includes(own)) return 'opt_out';
+    if (OPT_IN.has(word)) return 'opt_in';
+    if (own && custom.optIn.includes(own)) return 'opt_in';
+    return null;
+  }
   if (OPT_IN.has(word)) return 'opt_in';
   return null;
 }
