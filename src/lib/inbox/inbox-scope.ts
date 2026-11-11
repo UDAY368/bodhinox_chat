@@ -97,6 +97,54 @@ export function channelStatusBanners(
   return state.state === 'attention' && !shown.instagramBannersShown ? [state] : [];
 }
 
+// ---------------------------------------------------------------- agent visibility (Stage 5)
+//
+// With workspace_inbox_settings.agent_visibility = 'assigned_or_team' an agent
+// (or viewer) sees and acts on only the conversations assigned to them, to a
+// member of one of their teams, or to nobody. Owners and admins see every
+// conversation, and the default 'all' changes nothing. Tenancy stays in RLS;
+// this per-member rule is applied in application queries, always through
+// conversationVisibleSql below, by the CRM resource reads (list, thread, the
+// send route's lookup), message search, the event stream, labels and
+// favourites. The predicate reads the role and member from the tenant
+// transaction's own settings (withTenant sets app.account_role and
+// app.user_id from the live session), so it takes no parameters.
+
+/** Roles the visibility setting can restrict; owners and admins always see everything. */
+export const VISIBILITY_RESTRICTED_ROLES = ['agent', 'viewer'] as const;
+
+/** Whether a member of this role may be limited by agent_visibility. */
+export function visibilityRestricted(role: string | null | undefined): boolean {
+  return (VISIBILITY_RESTRICTED_ROLES as readonly string[]).includes(role ?? '');
+}
+
+/**
+ * SQL boolean: the conversation row aliased `alias` is visible to the member
+ * of the current tenant transaction. Pure text over fixed identifiers; `alias`
+ * must be a trusted SQL alias (letters, digits, underscore).
+ */
+export function conversationVisibleSql(alias: string): string {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(alias)) throw new Error('Invalid SQL alias');
+  return `(COALESCE(NULLIF(current_setting('app.account_role', true), ''), 'owner') NOT IN ('agent','viewer')
+    OR ${alias}.assigned_agent_id IS NULL
+    OR ${alias}.assigned_agent_id = app_user_id()
+    OR NOT EXISTS (SELECT 1 FROM workspace_inbox_settings vis
+      WHERE vis.account_id = app_account_id() AND vis.agent_visibility = 'assigned_or_team')
+    OR EXISTS (SELECT 1 FROM team_members mine
+      JOIN team_members theirs ON theirs.account_id = mine.account_id AND theirs.team_id = mine.team_id
+      WHERE mine.account_id = app_account_id() AND mine.user_id = app_user_id()
+        AND theirs.user_id = ${alias}.assigned_agent_id))`;
+}
+
+/**
+ * SQL boolean: the conversation `idSql` (an expression of its id, in the
+ * current workspace) exists and is visible to the member.
+ */
+export function conversationIdVisibleSql(idSql: string): string {
+  return `EXISTS (SELECT 1 FROM conversations vis_c WHERE vis_c.account_id = app_account_id() AND vis_c.id = ${idSql}
+    AND ${conversationVisibleSql('vis_c')})`;
+}
+
 /** Next's page searchParams as URLSearchParams (repeated keys kept in order). */
 export function toSearchParams(params: Record<string, string | string[] | undefined>): URLSearchParams {
   const search = new URLSearchParams();

@@ -54,14 +54,26 @@ const condition = z.discriminatedUnion('field', [
   z.object({ field: z.literal('instagram_followers'), op: z.enum(['at_least', 'at_most']), value: z.number().int().min(0).max(2_000_000_000) }).strict(),
   // In the 24-hour window: an Instagram conversation where the customer wrote within 24 hours. closed: has one, none in window.
   z.object({ field: z.literal('instagram_window'), op: z.enum(['open', 'closed']) }).strict(),
+  // Stage 5: reachable on WhatsApp (the contact has a number; Instagram-only contacts have none).
+  z.object({ field: z.literal('whatsapp'), op: z.enum(['has_number', 'has_no_number']) }).strict(),
+  // Stage 5: the Instagram subscription. subscribed: an Instagram identity and no Instagram opt-out;
+  // unsubscribed: opted out on Instagram (contacts.instagram_opted_out_at).
+  z.object({ field: z.literal('instagram_subscription'), op: z.enum(['subscribed', 'unsubscribed']) }).strict(),
 ]).superRefine((c, ctx) => {
   const needsValue = ['is', 'is_not', 'contains'].includes(c.op) && c.field !== 'opted_out' && c.field !== 'blocked';
   if (needsValue && !('value' in c && typeof c.value === 'string' && c.value.length > 0))
     ctx.addIssue({ code: 'custom', message: 'This condition needs a value' });
 });
 
-/** All conditions must match (AND). */
-export const audienceFilterSchema = z.object({ conditions: z.array(condition).min(1).max(20) }).strict();
+/** How the conditions combine: every one (the default, and every filter saved before Stage 5) or any one. */
+export const AUDIENCE_MATCH_MODES = ['all', 'any'] as const;
+export type AudienceMatch = (typeof AUDIENCE_MATCH_MODES)[number];
+
+/** The conditions must all match (AND), or with `match: 'any'` at least one (OR). */
+export const audienceFilterSchema = z.object({
+  conditions: z.array(condition).min(1).max(20),
+  match: z.enum(AUDIENCE_MATCH_MODES).optional(),
+}).strict();
 export type AudienceFilter = z.infer<typeof audienceFilterSchema>;
 export type AudienceCondition = AudienceFilter['conditions'][number];
 
@@ -146,15 +158,27 @@ function compileCondition(accountId: string, c: AudienceCondition): Prisma.Sql {
         AND m.sender_type='customer' AND m.created_at > now() - make_interval(secs => ${STANDARD_WINDOW_MS / 1000})))`;
       return c.op === 'open' ? open : Prisma.sql`(EXISTS(${conversation}) AND NOT ${open})`;
     }
+    case 'whatsapp':
+      return c.op === 'has_number' ? Prisma.sql`COALESCE(c.phone,'') <> ''` : Prisma.sql`COALESCE(c.phone,'') = ''`;
+    case 'instagram_subscription': {
+      if (c.op === 'unsubscribed') return Prisma.sql`c.instagram_opted_out_at IS NOT NULL`;
+      return Prisma.sql`(c.instagram_opted_out_at IS NULL AND EXISTS(SELECT 1 FROM contact_channel_identities i
+        WHERE i.account_id=${accountId}::uuid AND i.contact_id=c.id AND i.channel='instagram'))`;
+    }
   }
 }
 
-/** A WHERE condition over `contacts c`, always scoped to the account. */
+/**
+ * A WHERE condition over `contacts c`, always scoped to the account. With
+ * `match: 'any'` the conditions are one parenthesised OR group, still inside
+ * the account scope; a filter without conditions matches every contact.
+ */
 export function compileAudienceFilter(accountId: string, filter: AudienceFilter): Prisma.Sql {
-  return Prisma.join(
-    [Prisma.sql`c.account_id=${accountId}::uuid`, ...filter.conditions.map((c) => compileCondition(accountId, c))],
-    ' AND ',
-  );
+  const scope = Prisma.sql`c.account_id=${accountId}::uuid`;
+  const conditions = filter.conditions.map((c) => compileCondition(accountId, c));
+  if (filter.match === 'any' && conditions.length > 1)
+    return Prisma.sql`${scope} AND (${Prisma.join(conditions.map((c) => Prisma.sql`(${c})`), ' OR ')})`;
+  return Prisma.join([scope, ...conditions], ' AND ');
 }
 
 /** Tags, lists, campaigns and custom fields named by the filter must belong to the account. */

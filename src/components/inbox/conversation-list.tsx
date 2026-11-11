@@ -6,11 +6,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { inboxPath, inScope, type InboxScope } from '@/lib/inbox/inbox-scope';
 import { savedViewChannel } from '@/lib/inbox/saved-filters';
 import {
+  labelFilter,
+  labelOfFilter,
   matchesInboxFilter,
   parseInboxFilter,
   type InboxFilter,
 } from '@/lib/inbox/inbox-filters';
 import { useMyTeamMembers } from '@/components/inbox/use-my-team';
+import type { InboxFolders } from '@/components/inbox/use-inbox-folders';
+import { LabelDot } from '@/components/inbox/label-picker';
+import type { ConversationLabel } from '@/lib/inbox/labels';
 import {
   useState,
   useEffect,
@@ -31,7 +36,7 @@ import { matchesSessionFilter, type SessionFilter } from '@/lib/inbox/session';
 import { useSessionClock } from '@/hooks/use-session-clock';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus, Tag } from '@/types';
-import { Search, ChevronDown, X, Bot, Clock, AlertTriangle } from 'lucide-react';
+import { Search, ChevronDown, X, Bot, Clock, AlertTriangle, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
@@ -99,6 +104,11 @@ interface ConversationListProps {
    * channel and offers the channel filter. The number filter is WhatsApp's.
    */
   channel?: InboxScope;
+  /**
+   * Stage 5 folders: Mine, Favourites, Reminders and one per label, with the
+   * data they read. Without it the folders are not offered.
+   */
+  folders?: InboxFolders;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -116,8 +126,10 @@ export function ConversationList({
   resyncToken = 0,
   headerAction,
   channel: scope = 'all',
+  folders,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
+  const tFolders = useTranslations('Inbox.folders');
   const tl = useTranslations('InboxLifecycle');
   const tn = useTranslations('whatsappNumbers');
   const tci = useTranslations('Inbox.channelInbox');
@@ -166,6 +178,24 @@ export function ConversationList({
     ],
     [t, myTeam]
   );
+  // Stage 5 folders, offered once the folder data is wired in.
+  const FOLDER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
+    () =>
+      folders
+        ? [
+            { label: tFolders('mine'), value: 'mine' },
+            { label: tFolders('favourites'), value: 'favourites' },
+            { label: tFolders('reminders'), value: 'reminders' },
+          ]
+        : [],
+    [tFolders, folders]
+  );
+  const labels = folders?.labels;
+  const LABEL_OPTIONS: { label: string; value: InboxFilter; labelInfo: ConversationLabel }[] = useMemo(
+    () => (labels ?? []).map((label) => ({ label: label.name, value: labelFilter(label.id), labelInfo: label })),
+    [labels]
+  );
+  const labelsById = useMemo(() => new Map((labels ?? []).map((label) => [label.id, label])), [labels]);
   const LIFECYCLE_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () =>
       LIFECYCLE_STATES.map((state) => ({
@@ -313,11 +343,12 @@ export function ConversationList({
     return m;
   }, [tags]);
 
+  const folderContext = folders?.context;
   const baseFiltered = useMemo(() => {
     // A channel inbox shows only its channel, whatever reached the list.
     let result = allChannels ? conversations : conversations.filter((c) => inScope(scope, c));
 
-    result = result.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined));
+    result = result.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined, folderContext));
 
     if (activeNumberFilter !== null) {
       // A number filter is a WhatsApp filter: Instagram conversations have no number.
@@ -351,7 +382,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam]);
+  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam, folderContext]);
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>
@@ -408,7 +439,10 @@ export function ConversationList({
 
   const activeFilter =
     FILTER_OPTIONS.find((o) => o.value === filter) ??
-    LIFECYCLE_OPTIONS.find((o) => o.value === filter);
+    FOLDER_OPTIONS.find((o) => o.value === filter) ??
+    LABEL_OPTIONS.find((o) => o.value === filter) ??
+    LIFECYCLE_OPTIONS.find((o) => o.value === filter) ??
+    (labelOfFilter(filter) ? { label: tFolders('labels'), value: filter } : undefined);
 
   // The member's private saved views capture exactly these controls.
   const currentFilters: InboxFilters = useMemo(
@@ -481,6 +515,38 @@ export function ConversationList({
                   {opt.label}
                 </DropdownMenuItem>
               ))}
+              {FOLDER_OPTIONS.length > 0 && (
+                <>
+                  <DropdownMenuSeparator className="bg-border" />
+                  {FOLDER_OPTIONS.map((opt) => (
+                    <DropdownMenuItem
+                      key={opt.value}
+                      onClick={() => selectFilter(opt.value)}
+                      className={cn('text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
+                    >
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+              {LABEL_OPTIONS.length > 0 && (
+                <>
+                  <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>{tFolders('labels')}</DropdownMenuLabel>
+                    {LABEL_OPTIONS.map((opt) => (
+                      <DropdownMenuItem
+                        key={opt.value}
+                        onClick={() => selectFilter(opt.value)}
+                        className={cn('gap-2 text-sm', filter === opt.value ? 'text-primary' : 'text-popover-foreground')}
+                      >
+                        <LabelDot color={opt.labelInfo.color} />
+                        <span className="truncate">{opt.label}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </>
+              )}
               <DropdownMenuSeparator className="bg-border" />
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{t('lifecycle')}</DropdownMenuLabel>
@@ -812,6 +878,9 @@ export function ConversationList({
                 now={now}
                 numbers={multiNumber ? numbers : NO_NUMBERS}
                 multiChannel={allChannels}
+                favourite={folderContext?.favouriteIds?.has(conv.id) ?? false}
+                labels={labelsFor(folderContext?.labelsByConversation?.get(conv.id), labelsById)}
+                favouriteLabel={tFolders('favourites')}
               />
             ))}
           </div>
@@ -833,9 +902,21 @@ interface ConversationItemProps {
   numbers: WhatsAppNumberDto[];
   /** The All view: every row names its channel. A channel inbox marks none. */
   multiChannel?: boolean;
+  /** Stage 5: the member marked it a favourite. */
+  favourite?: boolean;
+  /** Stage 5: its labels, in name order. */
+  labels?: ConversationLabel[];
+  favouriteLabel?: string;
 }
 
 const NO_NUMBERS: WhatsAppNumberDto[] = [];
+const NO_LABELS: ConversationLabel[] = [];
+
+/** The labels of one conversation, in the workspace's label order. */
+function labelsFor(ids: ReadonlySet<string> | undefined, byId: ReadonlyMap<string, ConversationLabel>): ConversationLabel[] {
+  if (!ids?.size) return NO_LABELS;
+  return [...byId.values()].filter((label) => ids.has(label.id));
+}
 
 function ConversationItem({
   conversation,
@@ -846,6 +927,9 @@ function ConversationItem({
   now,
   numbers,
   multiChannel = false,
+  favourite = false,
+  labels = NO_LABELS,
+  favouriteLabel,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const channel = conversationChannel(conversation);
@@ -891,8 +975,11 @@ function ConversationItem({
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-foreground truncate text-sm font-medium">
-            {displayName}
+          <span className="text-foreground flex min-w-0 items-center gap-1 truncate text-sm font-medium">
+            <span className="truncate">{displayName}</span>
+            {favourite && (
+              <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-500" aria-label={favouriteLabel} />
+            )}
           </span>
           <span className="text-muted-foreground shrink-0 text-[10px]">
             {timeAgo}
@@ -924,6 +1011,12 @@ function ConversationItem({
           {channel === 'whatsapp' && (
             <ConversationNumberBadge conversation={conversation} numbers={numbers} className="min-w-0" />
           )}
+          {labels.map((label) => (
+            <span key={label.id} className="text-muted-foreground inline-flex min-w-0 items-center gap-1 text-[10px]">
+              <LabelDot color={label.color} className="h-1.5 w-1.5" />
+              <span className="max-w-20 truncate">{label.name}</span>
+            </span>
+          ))}
         </div>
       </div>
     </button>

@@ -1,3 +1,4 @@
+import { conversationVisible } from '@/lib/inbox/visibility-sql';
 import type { TenantContext, TenantTransaction } from '@/lib/db/tenant';
 import { createNotification } from './notify';
 
@@ -91,7 +92,7 @@ async function visibleConversation(tx: TenantTransaction, accountId: string, con
   if (!isUuid(conversationId)) throw new NoteError('not_found', 404);
   const rows = await tx.$queryRaw<{ id: string; contact_id: string | null }[]>`
     SELECT id::text AS id, contact_id::text AS contact_id FROM conversations
-    WHERE id=${conversationId}::uuid AND account_id=${accountId}::uuid`;
+    WHERE id=${conversationId}::uuid AND account_id=${accountId}::uuid AND ${conversationVisible('conversations')}`;
   if (!rows[0]) throw new NoteError('not_found', 404);
   return rows[0];
 }

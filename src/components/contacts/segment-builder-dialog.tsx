@@ -2,8 +2,9 @@
 
 // ============================================================
 // SegmentBuilderDialog — create or edit a saved segment: a name and
-// a list of conditions that must all match (lib/audience/filter),
-// with a live count of matching and marketable contacts.
+// a list of conditions that must all match, or (Stage 5) any one of
+// them (lib/audience/filter), with a live count of matching and
+// marketable contacts.
 // ============================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -24,12 +25,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authFetch } from '@/lib/auth/client';
 import { previewSegment, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
-import type { AudienceCondition } from '@/lib/audience/filter';
+import type { AudienceCondition, AudienceFilter, AudienceMatch } from '@/lib/audience/filter';
 import { CAMPAIGN_OUTCOMES } from '@/lib/audience/outcomes';
 import type { CustomField, Tag } from '@/types';
 
 type Field = AudienceCondition['field'];
-const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked', 'instagram', 'instagram_profile', 'instagram_followers', 'instagram_window'];
+const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked', 'instagram', 'instagram_profile', 'instagram_followers', 'instagram_window', 'whatsapp', 'instagram_subscription'];
+/** Stage 5 fields, labelled from the Contacts.filters namespace. */
+const STAGE5_FIELD_LABELS: Partial<Record<Field, string>> = { whatsapp: 'whatsappField', instagram_subscription: 'instagramSubscriptionField' };
 /** Same list as IG_SEGMENT_FACTS in lib/audience/filter (a server module, so not imported here). */
 const IG_SEGMENT_FACTS = ['follows_business', 'business_follows', 'is_verified'] as const;
 const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
@@ -49,6 +52,8 @@ function blank(field: Field): AudienceCondition {
     case 'instagram_profile': return { field, fact: 'follows_business', op: 'is_true' };
     case 'instagram_followers': return { field, op: 'at_least', value: 1000 };
     case 'instagram_window': return { field, op: 'open' };
+    case 'whatsapp': return { field, op: 'has_number' };
+    case 'instagram_subscription': return { field, op: 'subscribed' };
     default: return { field, op: 'contains', value: '' };
   }
 }
@@ -103,8 +108,11 @@ export function SegmentBuilderDialog({
   initialConditions?: AudienceCondition[];
 }) {
   const t = useTranslations('Contacts.segments');
+  const tf = useTranslations('Contacts.filters');
+  const ts = useTranslations('Contacts.channelStatus');
   const [name, setName] = useState('');
   const [conditions, setConditions] = useState<AudienceCondition[]>([]);
+  const [match, setMatch] = useState<AudienceMatch>('all');
   const [count, setCount] = useState<{ total: number; sendable: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -115,17 +123,23 @@ export function SegmentBuilderDialog({
     const prefill = JSON.parse(initialKey) as AudienceCondition[] | null;
     setName(segment?.name ?? '');
     setConditions(segment?.filter.conditions ?? (prefill?.length ? prefill.slice(0, 20) : [blank('tags')]));
+    setMatch(segment?.filter.match ?? 'all');
     setCount(null);
   }, [open, segment, initialKey]);
 
   const ready = conditions.length > 0 && conditions.every(complete);
-  const filterKey = useMemo(() => JSON.stringify(conditions), [conditions]);
+  // 'all' is sent as no `match` key, exactly the filter every earlier segment saved.
+  const filter: AudienceFilter = useMemo(
+    () => (match === 'any' ? { conditions, match } : { conditions }),
+    [conditions, match],
+  );
+  const filterKey = useMemo(() => JSON.stringify(filter), [filter]);
 
   // Live count, debounced so typing does not fire a request per key.
   useEffect(() => {
     if (!open || !ready) return setCount(null);
     const timer = setTimeout(() => {
-      previewSegment({ filter: { conditions } }).then(setCount).catch(() => setCount(null));
+      previewSegment({ filter }).then(setCount).catch(() => setCount(null));
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,7 +155,7 @@ export function SegmentBuilderDialog({
       const res = await authFetch(segment ? `/api/segments/${segment.id}` : '/api/segments', {
         method: segment ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), filter: { conditions } }),
+        body: JSON.stringify({ name: name.trim(), filter }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -173,7 +187,18 @@ export function SegmentBuilderDialog({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-muted-foreground">{t('conditionsLabel')}</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label className="text-muted-foreground">{t('conditionsLabel')}</Label>
+              <div role="radiogroup" aria-label={tf('matchLabel')} className="border-border inline-flex rounded-md border p-0.5">
+                {(['all', 'any'] as const).map((mode) => (
+                  <button key={mode} type="button" role="radio" aria-checked={match === mode}
+                    onClick={() => setMatch(mode)}
+                    className={`focus-visible:ring-ring rounded px-2 py-0.5 text-xs outline-none focus-visible:ring-2 ${match === mode ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}>
+                    {mode === 'all' ? tf('matchAll') : tf('matchAny')}
+                  </button>
+                ))}
+              </div>
+            </div>
             {conditions.map((c, index) => (
               <div key={index} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2" data-testid="segment-condition">
                 <select
@@ -182,7 +207,10 @@ export function SegmentBuilderDialog({
                   value={c.field}
                   onChange={(e) => update(index, blank(e.target.value as Field))}
                 >
-                  {FIELDS.map((f) => <option key={f} value={f}>{t(`fields.${f}`)}</option>)}
+                  {FIELDS.map((f) => {
+                    const stage5 = STAGE5_FIELD_LABELS[f];
+                    return <option key={f} value={f}>{stage5 ? tf(stage5) : t(`fields.${f}`)}</option>;
+                  })}
                 </select>
 
                 {c.field === 'tags' && (
@@ -359,6 +387,22 @@ export function SegmentBuilderDialog({
                   </select>
                 )}
 
+                {c.field === 'whatsapp' && (
+                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                    <option value="has_number">{tf('hasWhatsApp')}</option>
+                    <option value="has_no_number">{tf('hasNoWhatsApp')}</option>
+                  </select>
+                )}
+
+                {c.field === 'instagram_subscription' && (
+                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                    <option value="subscribed">{ts('subscribed')}</option>
+                    <option value="unsubscribed">{ts('unsubscribed')}</option>
+                  </select>
+                )}
+
                 {(c.field === 'opted_out' || c.field === 'blocked') && (
                   <select aria-label={t('valueLabel')} className={selectClass} value={String(c.value)}
                     onChange={(e) => update(index, { ...c, value: e.target.value === 'true' })}>
@@ -379,7 +423,7 @@ export function SegmentBuilderDialog({
               <Plus className="size-4" />
               {t('addCondition')}
             </Button>
-            <p className="text-xs text-muted-foreground">{t('allMustMatch')}</p>
+            <p className="text-xs text-muted-foreground">{match === 'any' ? tf('anyMustMatch') : t('allMustMatch')}</p>
           </div>
 
           <p className="text-sm text-foreground" data-testid="segment-count" aria-live="polite">

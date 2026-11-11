@@ -9,6 +9,7 @@
 // reminders fired and creates the in-app notification in the SAME transaction,
 // so a reminder is either fired and notified or neither (the dedupe key also
 // makes a repeat harmless). The note is staff text: stored, never logged.
+import { conversationVisible } from '@/lib/inbox/visibility-sql';
 import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { toErrorResponse } from '@/lib/auth/account';
@@ -148,7 +149,7 @@ export async function createReminder(ctx: TenantContext, input: ReminderCreate):
   return withTenant(me, async (tx) => {
     // The conversation must be one this member can read (RLS), in this workspace.
     const seen = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM conversations
-      WHERE account_id=${me.accountId}::uuid AND id=${input.conversationId}::uuid`;
+      WHERE account_id=${me.accountId}::uuid AND id=${input.conversationId}::uuid AND ${conversationVisible('conversations')}`;
     if (!seen.length) throw new ReminderError('notFound', 404);
     // One pending snooze per conversation and person: a new one replaces the old.
     if (input.kind === 'snooze')

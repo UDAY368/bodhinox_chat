@@ -861,7 +861,21 @@
       "remove": "Remover etiqueta",
       "limit": "Até 20 etiquetas por espaço de trabalho.",
       "nameTaken": "Já existe uma etiqueta com este nome.",
-      "empty": "Ainda não há etiquetas."
+      "empty": "Ainda não há etiquetas.",
+      "failed": "Não foi possível atualizar as etiquetas. Tente novamente.",
+      "confirmDelete": "Excluir a etiqueta \"{name}\"? Ela será removida de todas as conversas.",
+      "deleteLabel": "Excluir a etiqueta {name}",
+      "colors": {
+        "gray": "Cinza",
+        "red": "Vermelho",
+        "orange": "Laranja",
+        "amber": "Âmbar",
+        "green": "Verde",
+        "teal": "Verde-azulado",
+        "blue": "Azul",
+        "violet": "Violeta",
+        "pink": "Rosa"
+      }
     },
     "favourites": {
       "add": "Adicionar aos favoritos",
@@ -1296,7 +1310,13 @@
       "hasInstagram": "Tem Instagram",
       "subscribedOnly": "Somente inscritos",
       "matchAll": "Atender todas as condições",
-      "matchAny": "Atender alguma condição"
+      "matchAny": "Atender alguma condição",
+      "allChannels": "Todos os canais",
+      "whatsappField": "Número de WhatsApp",
+      "instagramSubscriptionField": "Inscrição no Instagram",
+      "hasNoWhatsApp": "Sem número de WhatsApp",
+      "matchLabel": "Como as condições se combinam",
+      "anyMustMatch": "Um contato corresponde quando pelo menos uma condição é verdadeira."
     },
     "bulk": {
       "removeTag": "Remover tag",
@@ -1304,7 +1324,13 @@
       "pauseAutomations": "Pausar automações",
       "setField": "Definir um campo personalizado",
       "confirm": "Aplicar a {count, plural, =1 {# contato} other {# contatos}}?",
-      "queued": "Em andamento. Isso pode levar alguns minutos."
+      "queued": "Em andamento. Isso pode levar alguns minutos.",
+      "done": "{count, plural, =1 {Feito para # contato.} other {Feito para # contatos.}}",
+      "failed": "Não foi possível aplicar aos contatos. Tente novamente.",
+      "field": "Campo personalizado",
+      "chooseField": "Escolha um campo",
+      "value": "Valor",
+      "apply": "Aplicar"
     },
     "instagramFacts": {
       "title": "Instagram",
@@ -7546,14 +7572,22 @@
       "rules": "Por regras: usar suas regras de roteamento",
       "capacity": "Máximo de conversas abertas por agente",
       "capacityHelp": "Um agente nesse limite é pulado. Deixe vazio para não ter limite.",
-      "save": "Salvar"
+      "save": "Salvar",
+      "saved": "Configurações de atribuição salvas.",
+      "saveFailed": "Não foi possível salvar. Tente novamente.",
+      "loadFailed": "Não foi possível carregar as configurações de atribuição.",
+      "openNow": "{count, plural, =1 {# aberta agora} other {# abertas agora}}",
+      "noLimit": "Sem limite"
     },
     "visibility": {
       "title": "O que os agentes podem ver",
       "description": "Administradores e proprietários sempre veem todas as conversas.",
       "all": "Todas as conversas",
       "assignedOrTeam": "Só as próprias, as da equipe e as não atribuídas",
-      "save": "Salvar"
+      "save": "Salvar",
+      "saved": "Visibilidade salva.",
+      "saveFailed": "Não foi possível salvar. Tente novamente.",
+      "loadFailed": "Não foi possível carregar a configuração de visibilidade."
     }
   },
   "Plan": {
