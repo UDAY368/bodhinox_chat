@@ -42,7 +42,7 @@ const queue = (conversationId: string | null, sourceId = `${randomUUID()}:n1`) =
 
 async function message(account: string, conversation: string, daysAgo: number, source: string | null) {
   await owner.query(`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,status,interactive_payload,created_at)
-    VALUES($1,$2,'customer','text','hi','received',$3,now() - make_interval(days => $4))`,
+    VALUES($1,$2,'customer','text','hi','delivered',$3,now() - make_interval(days => $4))`,
   [account, conversation, source ? { ig: { referral: { source, ad_id: '120000000009' } } } : null, daysAgo]);
 }
 

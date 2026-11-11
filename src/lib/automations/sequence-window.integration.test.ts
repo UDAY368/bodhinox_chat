@@ -61,7 +61,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram sequences and the
     await owner.query("INSERT INTO account_memberships(account_id,user_id,role) VALUES($1,$2,'owner'),($3,$4,'owner')", [accountA, ownerA, accountB, ownerB]);
     const ig = async (account: string, user: string, tag: string) => (await owner.query(
       `INSERT INTO instagram_accounts(account_id,ig_user_id,username,access_token_enc,connected_by_user_id) VALUES($1,$2,$3,'enc-test-token',$4) RETURNING id`,
-      [account, `95${tag}${seed}`, `seq_${tag}`, user])).rows[0].id as string;
+      [account, `95${tag === 'a' ? 1 : 2}${seed}`, `seq_${tag}`, user])).rows[0].id as string;
     const igA = await ig(accountA, ownerA, 'a'), igB = await ig(accountB, ownerB, 'b');
     contactA = (await owner.query('INSERT INTO contacts(account_id,user_id,phone,name) VALUES($1,$2,$3,$4) RETURNING id',
       [accountA, ownerA, `+1429${seed.slice(-7)}`, 'Sequence contact'])).rows[0].id;

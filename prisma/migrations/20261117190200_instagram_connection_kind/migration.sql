@@ -21,6 +21,6 @@ ALTER TABLE instagram_accounts ADD COLUMN facebook_page_id text;
 ALTER TABLE instagram_accounts ADD CONSTRAINT instagram_accounts_connection_kind_check
   CHECK (connection_kind IN ('instagram_login','facebook_page')) NOT VALID;
 ALTER TABLE instagram_accounts ADD CONSTRAINT instagram_accounts_facebook_page_check
-  CHECK ((connection_kind = 'facebook_page' AND facebook_page_id ~ '^\d{1,32}$')
+  CHECK ((connection_kind = 'facebook_page' AND COALESCE(facebook_page_id ~ '^\d{1,32}$', false))
     OR (connection_kind = 'instagram_login' AND facebook_page_id IS NULL)) NOT VALID;
 GRANT SELECT (connection_kind, facebook_page_id) ON instagram_accounts TO bodhinox_app;
