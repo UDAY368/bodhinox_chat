@@ -29,10 +29,17 @@ ALTER TABLE flow_versions ADD COLUMN extra_triggers jsonb NOT NULL DEFAULT '[]':
 ALTER TABLE flows ADD CONSTRAINT flows_extra_triggers_check
   CHECK (jsonb_typeof(extra_triggers) = 'array' AND jsonb_array_length(extra_triggers) <= 4
     AND octet_length(extra_triggers::text) <= 65536) NOT VALID;
--- Lowercase Instagram usernames without '@' (letters, digits, '.', '_', 1-30 each); '' is the empty list.
+-- Lowercase Instagram usernames without '@' (letters, digits, '.', '_', 1-30 each).
+-- NULL-safe: array_to_string skips NULL elements, so a NULL element is refused
+-- explicitly; '' fails the 1-30 pattern; the comma count must equal the element
+-- count minus one, so no single element can smuggle a comma-separated pair.
 ALTER TABLE flows ADD CONSTRAINT flows_test_usernames_check
   CHECK (cardinality(test_usernames) <= 3
-    AND array_to_string(test_usernames, ',') ~ '^([a-z0-9._]{1,30}(,|$))*$') NOT VALID;
+    AND array_position(test_usernames, NULL) IS NULL
+    AND (cardinality(test_usernames) = 0
+      OR (array_to_string(test_usernames, ',') ~ '^[a-z0-9._]{1,30}(,[a-z0-9._]{1,30})*$'
+        AND char_length(array_to_string(test_usernames, ',')) - char_length(replace(array_to_string(test_usernames, ','), ',', ''))
+          = cardinality(test_usernames) - 1))) NOT VALID;
 ALTER TABLE flows ADD CONSTRAINT flows_canvas_notes_check
   CHECK (jsonb_typeof(canvas_notes) = 'array' AND jsonb_array_length(canvas_notes) <= 30
     AND octet_length(canvas_notes::text) <= 65536) NOT VALID;

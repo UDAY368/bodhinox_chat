@@ -339,6 +339,30 @@ export type AgentVisibility = (typeof AGENT_VISIBILITY_MODES)[number];
 /** workspace_inbox_settings.agent_reply_pause_minutes bounds; NULL pauses until resumed (before Stage 5). */
 export const AGENT_REPLY_PAUSE_LIMITS = { minMinutes: 1, maxMinutes: 10080 } as const;
 
+/**
+ * Stage 5 inbox settings (workspace_inbox_settings). The defaults are the
+ * behaviour before Stage 5: an agent reply pauses automations until someone
+ * resumes them (NULL), routing rules assign conversations ('rules') and every
+ * agent sees every conversation ('all'). Kept here, not in
+ * src/lib/inbox/inbox-settings.ts, so client components can import the
+ * defaults without pulling the database layer into the browser bundle.
+ */
+export interface InboxBehaviourSettings {
+  agent_reply_pause_minutes: number | null;
+  auto_assign_mode: AutoAssignMode;
+  agent_visibility: AgentVisibility;
+}
+
+export const DEFAULT_INBOX_BEHAVIOUR: InboxBehaviourSettings = {
+  agent_reply_pause_minutes: null,
+  auto_assign_mode: 'rules',
+  agent_visibility: 'all',
+};
+
+/** The Stage 5 inbox setting keys; a PUT that leaves one out keeps the stored value. */
+export const INBOX_BEHAVIOUR_KEYS = ['agent_reply_pause_minutes', 'auto_assign_mode', 'agent_visibility'] as const satisfies
+  readonly (keyof InboxBehaviourSettings)[];
+
 /** Sizes the Stage 5 tables check. */
 export const STAGE5_LIMITS = {
   folderNameChars: 60,

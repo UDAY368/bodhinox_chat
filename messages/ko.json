@@ -2686,7 +2686,8 @@
         "handoff": "상담원 연결",
         "success": "예약됨",
         "unavailable": "예약 불가",
-        "cancelled": "취소됨"
+        "cancelled": "취소됨",
+        "finish": "목표 완료"
       },
       "triggerTemplateReplyTitle": "템플릿 버튼 응답",
       "matchTypeLabel": "일치 방식",

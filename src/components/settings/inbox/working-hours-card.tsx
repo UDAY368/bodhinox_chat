@@ -21,7 +21,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
 import { useWorkspaceChannels } from "@/hooks/use-workspace-channels";
-import { DEFAULT_INBOX_BEHAVIOUR, type WorkspaceInboxSettings } from "@/lib/inbox/inbox-settings";
+import type { WorkspaceInboxSettings } from "@/lib/inbox/inbox-settings";
+import { DEFAULT_INBOX_BEHAVIOUR, INBOX_BEHAVIOUR_KEYS } from "@/types";
 import {
   DEFAULT_INBOX_SETTINGS,
   MAX_RANGES_PER_DAY,
@@ -36,6 +37,18 @@ const DEFAULT_RANGE: TimeRange = { start: "09:00", end: "18:00" };
 /** "" for off; otherwise the whole number typed. */
 const toLimit = (value: string): number | null => (value.trim() === "" ? null : Number(value));
 const fromLimit = (value: number | null): string => (value === null ? "" : String(value));
+
+/**
+ * The settings this card saves. The Stage 5 pause, assignment and visibility
+ * settings belong to their own cards; leaving them out of this PUT keeps the
+ * stored values, so saving working hours never reverts a change made in
+ * another card after this one loaded.
+ */
+export function workingHoursBody(settings: WorkspaceInboxSettings): Omit<WorkspaceInboxSettings, (typeof INBOX_BEHAVIOUR_KEYS)[number]> {
+  const body: Partial<WorkspaceInboxSettings> = { ...settings };
+  for (const key of INBOX_BEHAVIOUR_KEYS) delete body[key];
+  return body as Omit<WorkspaceInboxSettings, (typeof INBOX_BEHAVIOUR_KEYS)[number]>;
+}
 
 function timeZones(): string[] {
   try {
@@ -86,7 +99,7 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          ...settings,
+          ...workingHoursBody(settings),
           working_hours: Object.fromEntries(WEEKDAYS.map((d) => [d, settings.working_hours[d] ?? []])),
           auto_resolve_after_hours: toLimit(autoResolve),
           sla_first_response_minutes: toLimit(sla),

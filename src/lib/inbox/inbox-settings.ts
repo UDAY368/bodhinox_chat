@@ -1,7 +1,8 @@
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
 import { validInstagramText } from '@/lib/instagram/graph-limits';
 import {
-  AGENT_REPLY_PAUSE_LIMITS, AGENT_VISIBILITY_MODES, AUTO_ASSIGN_MODES, type AgentVisibility, type AutoAssignMode,
+  AGENT_REPLY_PAUSE_LIMITS, AGENT_VISIBILITY_MODES, AUTO_ASSIGN_MODES, DEFAULT_INBOX_BEHAVIOUR,
+  type AgentVisibility, type AutoAssignMode, type InboxBehaviourSettings,
 } from '@/types';
 import {
   DEFAULT_INBOX_SETTINGS,
@@ -43,23 +44,9 @@ export interface WorkspaceInboxSettings extends InboxSettings, InboxBehaviourSet
   instagram_away_message_enabled: boolean;
 }
 
-/**
- * Stage 5 settings. The defaults are the behaviour before Stage 5: an agent
- * reply pauses automations until someone resumes them (NULL), routing rules
- * assign conversations ('rules') and every agent sees every conversation ('all').
- * 5D and 5E implement what each one does.
- */
-export interface InboxBehaviourSettings {
-  agent_reply_pause_minutes: number | null;
-  auto_assign_mode: AutoAssignMode;
-  agent_visibility: AgentVisibility;
-}
-
-export const DEFAULT_INBOX_BEHAVIOUR: InboxBehaviourSettings = {
-  agent_reply_pause_minutes: null,
-  auto_assign_mode: 'rules',
-  agent_visibility: 'all',
-};
+// Stage 5 settings and their defaults live in @/types (client-safe); 5D and 5E
+// implement what each one does.
+export { DEFAULT_INBOX_BEHAVIOUR, type InboxBehaviourSettings };
 
 /**
  * A validated PUT body. The Instagram switch and the Stage 5 settings are

@@ -2686,7 +2686,8 @@
         "handoff": "Derivar a una persona",
         "success": "Reservada",
         "unavailable": "No disponible",
-        "cancelled": "Cancelada"
+        "cancelled": "Cancelada",
+        "finish": "Objetivos cumplidos"
       },
       "triggerTemplateReplyTitle": "Respuesta a un botón de plantilla",
       "matchTypeLabel": "Coincidencia",

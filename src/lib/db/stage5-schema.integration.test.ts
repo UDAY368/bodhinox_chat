@@ -91,6 +91,10 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Stage 5A schema on PostgreS
       await bad("UPDATE flows SET test_usernames='{@shop}' WHERE id=$1", [ids.flowA]);
       await bad("UPDATE flows SET test_usernames='{a,b,c,d}' WHERE id=$1", [ids.flowA]);
       await bad("UPDATE flows SET test_usernames=ARRAY[NULL]::text[] WHERE id=$1", [ids.flowA]);
+      await bad("UPDATE flows SET test_usernames=ARRAY['shop',NULL]::text[] WHERE id=$1", [ids.flowA]);
+      await bad("UPDATE flows SET test_usernames=ARRAY['']::text[] WHERE id=$1", [ids.flowA]);
+      await bad("UPDATE flows SET test_usernames=ARRAY['a,b']::text[] WHERE id=$1", [ids.flowA]);
+      await bad("UPDATE flows SET test_usernames=ARRAY['Shop']::text[] WHERE id=$1", [ids.flowA]);
       await bad("UPDATE flows SET extra_triggers='[1,2,3,4,5]' WHERE id=$1", [ids.flowA]);
       await bad("UPDATE flows SET extra_triggers='{}' WHERE id=$1", [ids.flowA]);
       await bad("UPDATE workspace_inbox_settings SET auto_assign_mode='smart' WHERE account_id=$1", [accountA]);

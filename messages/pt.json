@@ -2686,7 +2686,8 @@
         "handoff": "Transferir para uma pessoa",
         "success": "Agendado",
         "unavailable": "Indisponível",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "finish": "Objetivos concluídos"
       },
       "triggerTemplateReplyTitle": "Resposta a um botão de modelo",
       "matchTypeLabel": "Correspondência",

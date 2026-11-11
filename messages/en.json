@@ -2686,7 +2686,8 @@
         "handoff": "Handoff",
         "success": "Booked",
         "unavailable": "Unavailable",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "finish": "Goals finished"
       },
       "triggerTemplateReplyTitle": "Reply to a template button",
       "matchTypeLabel": "Match",
