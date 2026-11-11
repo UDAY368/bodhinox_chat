@@ -368,13 +368,11 @@ export async function withinCapacity(tx: TenantTransaction, accountId: string, m
 /**
  * 'basic' mode: the next online owner, admin or agent with room, in a stable
  * rotation kept in the workspace's round-robin cursor (assignment_cursors, the
- * one round-robin automations use). Locks the cursor so concurrent inbounds
- * advance it one step each.
+ * one round-robin automations use). Runs in the inbound's worker transaction
+ * (applyInboundLifecycle; the cursor is worker-only by RLS and grants), and
+ * locks the cursor so concurrent inbounds advance it one step each.
  */
 async function pickBasicAssignee(tx: TenantTransaction, accountId: string): Promise<string | null> {
-  await tx.$executeRaw`INSERT INTO assignment_cursors(account_id) VALUES (${accountId}::uuid) ON CONFLICT (account_id) DO NOTHING`;
-  const [cursor] = await tx.$queryRaw<{ last_user_id: string | null }[]>`
-    SELECT last_user_id::text AS last_user_id FROM assignment_cursors WHERE account_id=${accountId}::uuid FOR UPDATE`;
   const online = await tx.$queryRaw<{ user_id: string }[]>`
     SELECT m.user_id::text AS user_id FROM account_memberships m
     JOIN member_presence p ON p.account_id=m.account_id AND p.user_id=m.user_id
@@ -382,7 +380,12 @@ async function pickBasicAssignee(tx: TenantTransaction, accountId: string): Prom
       AND p.status='online' AND p.last_seen_at > now() - make_interval(secs => ${ONLINE_WITHIN_SECONDS})
     ORDER BY m.user_id::text`;
   const ordered = online.map((row) => row.user_id.toLowerCase());
-  const next = nextInRotation(ordered, await withinCapacity(tx, accountId, new Set(ordered)), cursor?.last_user_id ?? null);
+  const eligible = await withinCapacity(tx, accountId, new Set(ordered));
+  if (!eligible.size) return null;
+  await tx.$executeRaw`INSERT INTO assignment_cursors(account_id) VALUES (${accountId}::uuid) ON CONFLICT (account_id) DO NOTHING`;
+  const [cursor] = await tx.$queryRaw<{ last_user_id: string | null }[]>`
+    SELECT last_user_id::text AS last_user_id FROM assignment_cursors WHERE account_id=${accountId}::uuid FOR UPDATE`;
+  const next = nextInRotation(ordered, eligible, cursor?.last_user_id ?? null);
   if (next)
     await tx.$executeRaw`UPDATE assignment_cursors SET last_user_id=${next}::uuid WHERE account_id=${accountId}::uuid`;
   return next;

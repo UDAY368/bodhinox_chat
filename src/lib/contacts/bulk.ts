@@ -5,6 +5,14 @@
 // count it showed; the action runs only if the match count is still that
 // number, so nobody deletes or tags more than they were shown. Runs in the
 // caller's tenant transaction on the app role (RLS: agent and above).
+//
+// Stage 5 (5E): the view may also be narrowed by channel (has a WhatsApp
+// number, has an Instagram identity) and to contacts subscribed on Instagram,
+// and four more actions run on it: remove a tag, unsubscribe from Instagram,
+// pause automations (on the contacts' conversations the member may see) and
+// set a custom field. Like the bulk tag, none of them starts an automation
+// (no tag_removed or field_changed event): one click must not start
+// automations for thousands of contacts. Values are never logged.
 // ============================================================
 
 import { Prisma } from '@prisma/client';
@@ -13,32 +21,60 @@ import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db
 import { AudienceFilterError, AudienceNotFoundError, assertFilterReferences, compileAudienceFilter, type AudienceFilter } from '@/lib/audience/filter';
 import { listFilter } from '@/lib/audience/lists';
 import { contactSearchSql, loadSegmentFilter } from '@/lib/audience/segments';
-import { loadPhoneMask } from '@/lib/inbox/masking-apply';
+import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
+import { conversationVisibleSql } from '@/lib/inbox/inbox-scope';
+import { loadPhoneMask, maskContactRow } from '@/lib/inbox/masking-apply';
 import { contactSearchTerm } from './search-term';
 
 /** One statement per action; past this, narrow the filter first. */
 export const MAX_BULK_CONTACTS = 50_000;
 
+/** Longest custom field value a bulk action writes. */
+export const MAX_BULK_FIELD_VALUE = 1000;
+
 const uuid = z.string().uuid();
 
+/** The contacts page's channel filter (Stage 5). */
+export const CONTACT_CHANNEL_FILTERS = ['whatsapp', 'instagram'] as const;
+export type ContactChannelFilter = (typeof CONTACT_CHANNEL_FILTERS)[number];
+
+export const bulkScopeSchema = z.object({
+  segmentId: uuid.optional(),
+  listId: uuid.optional(),
+  tagIds: z.array(uuid).min(1).max(50).optional(),
+  search: z.string().max(200).optional(),
+  /** Stage 5: the rows ticked on the page (one page, at most 100), for the Stage 5 actions. */
+  contactIds: z.array(uuid).min(1).max(100).optional(),
+  /** Stage 5: only contacts reachable on this channel. */
+  channel: z.enum(CONTACT_CHANNEL_FILTERS).optional(),
+  /** Stage 5: only contacts subscribed on Instagram (an identity and no Instagram opt-out). */
+  subscribedOnly: z.boolean().optional(),
+}).strict().refine((s) => [s.segmentId, s.listId, s.tagIds, s.contactIds].filter(Boolean).length <= 1, 'Choose one view');
+export type BulkScope = z.infer<typeof bulkScopeSchema>;
+
+const pauseMinutes = z.number().int().nullable()
+  .refine((m) => (PAUSE_MINUTES_CHOICES as readonly (number | null)[]).includes(m), 'Choose a pause length');
+
 const bulkSchema = z.object({
-  scope: z.object({
-    segmentId: uuid.optional(),
-    listId: uuid.optional(),
-    tagIds: z.array(uuid).min(1).max(50).optional(),
-    search: z.string().max(200).optional(),
-  }).strict().refine((s) => [s.segmentId, s.listId, s.tagIds].filter(Boolean).length <= 1, 'Choose one view'),
+  scope: bulkScopeSchema,
   action: z.discriminatedUnion('type', [
     z.object({ type: z.literal('add_to_list'), listId: uuid }).strict(),
     z.object({ type: z.literal('remove_from_list'), listId: uuid }).strict(),
     z.object({ type: z.literal('add_tag'), tagId: uuid }).strict(),
     z.object({ type: z.literal('delete') }).strict(),
+    // Stage 5 actions.
+    z.object({ type: z.literal('remove_tag'), tagId: uuid }).strict(),
+    z.object({ type: z.literal('unsubscribe_instagram') }).strict(),
+    /** minutes: one of PAUSE_MINUTES_CHOICES; null pauses until someone resumes. */
+    z.object({ type: z.literal('pause_automations'), minutes: pauseMinutes }).strict(),
+    z.object({ type: z.literal('set_field'), fieldId: uuid, value: z.string().trim().min(1).max(MAX_BULK_FIELD_VALUE) }).strict(),
   ]),
   /** The match count the user was shown. */
   expected: z.number().int().min(1),
 }).strict();
 
 export type BulkContactInput = z.input<typeof bulkSchema>;
+export type BulkAction = z.infer<typeof bulkSchema>['action'];
 
 /** The matching contacts changed since the page was loaded. */
 export class BulkCountChangedError extends AudienceFilterError {
@@ -47,8 +83,38 @@ export class BulkCountChangedError extends AudienceFilterError {
   }
 }
 
+/** A scope from a query string (`tagIds` comma-separated, `subscribed=1`); bulkScopeSchema validates it. */
+export function scopeFromQuery(query: URLSearchParams): Record<string, unknown> {
+  const scope: Record<string, unknown> = {};
+  const segmentId = query.get('segmentId');
+  const listId = query.get('listId');
+  const tagIds = query.get('tagIds');
+  const search = query.get('search');
+  const channel = query.get('channel');
+  if (segmentId) scope.segmentId = segmentId;
+  if (listId) scope.listId = listId;
+  if (tagIds) scope.tagIds = tagIds.split(',').filter(Boolean);
+  if (search?.trim()) scope.search = search.slice(0, 200);
+  if (channel) scope.channel = channel;
+  if (query.get('subscribed') === '1') scope.subscribedOnly = true;
+  return scope;
+}
+
+/**
+ * The Stage 5 channel narrowing as audience conditions, ANDed with the view
+ * (kept apart from it, so a segment matching any of its conditions stays one
+ * OR group). Empty when the scope has neither.
+ */
+export function channelFilter(scope: Pick<BulkScope, 'channel' | 'subscribedOnly'>): AudienceFilter {
+  const conditions: AudienceFilter['conditions'] = [];
+  if (scope.channel === 'whatsapp') conditions.push({ field: 'whatsapp', op: 'has_number' });
+  if (scope.channel === 'instagram') conditions.push({ field: 'instagram', op: 'has_identity' });
+  if (scope.subscribedOnly) conditions.push({ field: 'instagram_subscription', op: 'subscribed' });
+  return { conditions };
+}
+
 /** The view as an audience filter, the same rows the page lists. */
-async function viewFilter(tx: TenantTransaction, accountId: string, scope: z.infer<typeof bulkSchema>['scope']): Promise<AudienceFilter> {
+async function viewFilter(tx: TenantTransaction, accountId: string, scope: BulkScope): Promise<AudienceFilter> {
   if (scope.segmentId) {
     const filter = await loadSegmentFilter(tx, accountId, scope.segmentId);
     await assertFilterReferences(tx, accountId, filter);
@@ -63,17 +129,79 @@ async function viewFilter(tx: TenantTransaction, accountId: string, scope: z.inf
   return { conditions: [] };
 }
 
+/** The WHERE over `contacts c` of a scope: the view, the channel narrowing and the search box. */
+async function scopeWhere(tx: TenantTransaction, ctx: TenantContext, scope: BulkScope, maskPhones: boolean): Promise<Prisma.Sql> {
+  const filter = await viewFilter(tx, ctx.accountId, scope);
+  // The unfiltered page searches with ',' and brackets as wildcards (search-term.ts).
+  const plain = !scope.segmentId && !scope.listId && !scope.tagIds;
+  const search = scope.search ? (plain ? contactSearchTerm(scope.search) : scope.search) : undefined;
+  const channel = channelFilter(scope);
+  const narrowed = channel.conditions.length ? Prisma.sql`AND ${compileAudienceFilter(ctx.accountId, channel)}` : Prisma.empty;
+  const picked = scope.contactIds ? Prisma.sql`AND c.id = ANY(${scope.contactIds}::uuid[])` : Prisma.empty;
+  return Prisma.sql`${compileAudienceFilter(ctx.accountId, filter)} ${picked} ${narrowed} ${contactSearchSql(search, maskPhones)}`;
+}
+
+const CONTACT_COLUMNS = Prisma.sql`c.id::text, c.user_id::text, c.account_id::text, c.phone, c.name, c.email, c.company,
+  c.avatar_url, c.created_at, c.updated_at, c.wa_user_id, c.wa_username, c.opted_out_at, c.opt_out_source, c.blocked_at`;
+
+/**
+ * One page (newest first) of the contacts a bulk action on `scope` would
+ * reach, with the total: the contacts page lists through this while a channel
+ * filter is on, so the count it shows is the count the action checks.
+ */
+export async function scopeContacts(ctx: TenantContext, rawScope: unknown, page: { offset: number; limit: number }):
+  Promise<{ contacts: Record<string, unknown>[]; total: number }> {
+  const parsed = bulkScopeSchema.safeParse(rawScope);
+  if (!parsed.success) throw new AudienceFilterError(parsed.error.issues[0]?.message ?? 'Invalid request');
+  return withTenant(ctx, async (tx) => {
+    const maskPhones = await loadPhoneMask(tx, ctx);
+    const where = await scopeWhere(tx, ctx, parsed.data, maskPhones);
+    const rows = await tx.$queryRaw<(Record<string, unknown> & { total_count: number })[]>(Prisma.sql`
+      SELECT ${CONTACT_COLUMNS}, count(*) OVER()::int AS total_count
+      FROM contacts c WHERE ${where}
+      ORDER BY c.created_at DESC, c.id LIMIT ${page.limit} OFFSET ${page.offset}`);
+    const total = rows[0]?.total_count ?? 0;
+    return {
+      contacts: rows.map((row) => {
+        const contact: Record<string, unknown> = { ...row };
+        delete contact.total_count;
+        return maskContactRow(contact, maskPhones);
+      }),
+      total,
+    };
+  });
+}
+
+export type InstagramContactStatus = 'subscribed' | 'unsubscribed' | 'none';
+
+/** Subscribed: an Instagram identity and no Instagram opt-out; unsubscribed: opted out; none: never on Instagram. */
+export function instagramContactStatus(hasIdentity: boolean, optedOut: boolean): InstagramContactStatus {
+  if (optedOut) return 'unsubscribed';
+  return hasIdentity ? 'subscribed' : 'none';
+}
+
+/** Most contacts one status request covers (four pages of the contacts table). */
+export const MAX_STATUS_IDS = 100;
+
+/** The contacts page's Instagram status column for contacts of the caller's workspace (others are left out). */
+export async function contactChannelStatus(ctx: TenantContext, ids: string[]): Promise<Record<string, InstagramContactStatus>> {
+  const wanted = [...new Set(ids.map((id) => id.toLowerCase()))].filter((id) => uuid.safeParse(id).success).slice(0, MAX_STATUS_IDS);
+  if (!wanted.length) return {};
+  const rows = await withTenant(ctx, (tx) => tx.$queryRaw<{ id: string; has_identity: boolean; opted_out: boolean }[]>(Prisma.sql`
+    SELECT c.id::text AS id, c.instagram_opted_out_at IS NOT NULL AS opted_out,
+      EXISTS (SELECT 1 FROM contact_channel_identities i
+        WHERE i.account_id=c.account_id AND i.contact_id=c.id AND i.channel='instagram') AS has_identity
+    FROM contacts c WHERE c.account_id=${ctx.accountId}::uuid AND c.id = ANY(${wanted}::uuid[])`));
+  return Object.fromEntries(rows.map((row) => [row.id, instagramContactStatus(row.has_identity, row.opted_out)]));
+}
+
 export async function bulkContactAction(ctx: TenantContext, input: unknown): Promise<{ matched: number; changed: number }> {
   const parsed = bulkSchema.safeParse(input);
   if (!parsed.success) throw new AudienceFilterError(parsed.error.issues[0]?.message ?? 'Invalid request');
   const { scope, action, expected } = parsed.data;
 
   return withTenant(ctx, async (tx) => {
-    const filter = await viewFilter(tx, ctx.accountId, scope);
-    // The unfiltered page searches with ',' and brackets as wildcards (search-term.ts).
-    const plain = !scope.segmentId && !scope.listId && !scope.tagIds;
-    const search = scope.search ? (plain ? contactSearchTerm(scope.search) : scope.search) : undefined;
-    const where = Prisma.sql`${compileAudienceFilter(ctx.accountId, filter)} ${contactSearchSql(search, await loadPhoneMask(tx, ctx))}`;
+    const where = await scopeWhere(tx, ctx, scope, await loadPhoneMask(tx, ctx));
 
     // Lock the matching rows so the count and the action see the same set.
     const ids = (await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
@@ -116,6 +244,40 @@ export async function bulkContactAction(ctx: TenantContext, input: unknown): Pro
         changed = await tx.$executeRaw(Prisma.sql`
           DELETE FROM contacts WHERE account_id=${ctx.accountId}::uuid AND id IN (${matching})`);
         break;
+      case 'remove_tag': {
+        const tag = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM tags WHERE account_id=${ctx.accountId}::uuid AND id=${action.tagId}::uuid`;
+        if (!tag[0]) throw new AudienceNotFoundError('Tag not found');
+        changed = await tx.$executeRaw(Prisma.sql`
+          DELETE FROM contact_tags WHERE account_id=${ctx.accountId}::uuid AND tag_id=${action.tagId}::uuid
+            AND contact_id IN (${matching})`);
+        break;
+      }
+      case 'unsubscribe_instagram':
+        // Instagram only, like an Instagram STOP (channel-consent.ts): the contact-wide
+        // opted_out_at (WhatsApp) is untouched. Already unsubscribed contacts keep their time.
+        changed = await tx.$executeRaw(Prisma.sql`
+          UPDATE contacts SET instagram_opted_out_at=now(), updated_at=now()
+          WHERE account_id=${ctx.accountId}::uuid AND instagram_opted_out_at IS NULL AND id IN (${matching})`);
+        break;
+      case 'pause_automations': {
+        // The contacts' conversations the member may see (agent visibility), with who
+        // paused and until when (the columns automation-pause.ts and bot-pause.ts read).
+        const until = action.minutes === null ? Prisma.sql`NULL::timestamptz` : Prisma.sql`now() + make_interval(mins => ${action.minutes}::int)`;
+        changed = await tx.$executeRaw(Prisma.sql`
+          UPDATE conversations v SET bot_paused=true, bot_paused_until=${until}, bot_paused_by=${ctx.userId || null}::uuid
+          WHERE v.account_id=${ctx.accountId}::uuid AND v.contact_id IN (${matching})
+            AND ${Prisma.raw(conversationVisibleSql('v'))}`);
+        break;
+      }
+      case 'set_field': {
+        const field = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM custom_fields WHERE account_id=${ctx.accountId}::uuid AND id=${action.fieldId}::uuid`;
+        if (!field[0]) throw new AudienceNotFoundError('Custom field not found');
+        changed = await tx.$executeRaw(Prisma.sql`
+          INSERT INTO contact_custom_values(account_id,contact_id,custom_field_id,value)
+          SELECT ${ctx.accountId}::uuid, id, ${action.fieldId}::uuid, ${action.value} FROM (${matching}) m(id)
+          ON CONFLICT (contact_id, custom_field_id) DO UPDATE SET value=EXCLUDED.value`);
+        break;
+      }
     }
     return { matched: ids.length, changed };
   });

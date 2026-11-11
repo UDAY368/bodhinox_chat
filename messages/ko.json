@@ -860,7 +860,21 @@
       "remove": "라벨 제거",
       "limit": "워크스페이스당 라벨은 최대 20개입니다.",
       "nameTaken": "같은 이름의 라벨이 이미 있습니다.",
-      "empty": "아직 라벨이 없습니다."
+      "empty": "아직 라벨이 없습니다.",
+      "failed": "라벨을 업데이트하지 못했습니다. 다시 시도해 주세요.",
+      "confirmDelete": "\"{name}\" 라벨을 삭제할까요? 모든 대화에서 제거됩니다.",
+      "deleteLabel": "{name} 라벨 삭제",
+      "colors": {
+        "gray": "회색",
+        "red": "빨강",
+        "orange": "주황",
+        "amber": "호박색",
+        "green": "초록",
+        "teal": "청록",
+        "blue": "파랑",
+        "violet": "보라",
+        "pink": "분홍"
+      }
     },
     "favourites": {
       "add": "즐겨찾기에 추가",
@@ -1295,7 +1309,13 @@
       "hasInstagram": "Instagram 있음",
       "subscribedOnly": "구독자만",
       "matchAll": "모든 조건 충족",
-      "matchAny": "하나 이상 충족"
+      "matchAny": "하나 이상 충족",
+      "allChannels": "모든 채널",
+      "whatsappField": "WhatsApp 번호",
+      "instagramSubscriptionField": "Instagram 구독",
+      "hasNoWhatsApp": "WhatsApp 번호 없음",
+      "matchLabel": "조건 결합 방식",
+      "anyMustMatch": "조건 중 하나라도 맞으면 해당 연락처가 포함됩니다."
     },
     "bulk": {
       "removeTag": "태그 제거",
@@ -1303,7 +1323,13 @@
       "pauseAutomations": "자동화 일시 중지",
       "setField": "사용자 지정 필드 설정",
       "confirm": "{count, plural, other {연락처 #명}}에게 적용할까요?",
-      "queued": "처리 중입니다. 몇 분 정도 걸릴 수 있습니다."
+      "queued": "처리 중입니다. 몇 분 정도 걸릴 수 있습니다.",
+      "done": "{count, plural, other {연락처 #명에 적용했습니다.}}",
+      "failed": "연락처에 적용하지 못했습니다. 다시 시도해 주세요.",
+      "field": "사용자 지정 필드",
+      "chooseField": "필드 선택",
+      "value": "값",
+      "apply": "적용"
     },
     "instagramFacts": {
       "title": "Instagram",
@@ -7512,14 +7538,22 @@
       "rules": "규칙 사용: 라우팅 규칙을 따름",
       "capacity": "상담원당 최대 진행 중 대화 수",
       "capacityHelp": "이 한도에 도달한 상담원은 건너뜁니다. 한도를 두지 않으려면 비워 두세요.",
-      "save": "저장"
+      "save": "저장",
+      "saved": "배정 설정을 저장했습니다.",
+      "saveFailed": "저장하지 못했습니다. 다시 시도해 주세요.",
+      "loadFailed": "배정 설정을 불러오지 못했습니다.",
+      "openNow": "{count, plural, other {현재 #건 진행 중}}",
+      "noLimit": "제한 없음"
     },
     "visibility": {
       "title": "상담원이 볼 수 있는 대화",
       "description": "관리자와 소유자는 항상 모든 대화를 봅니다.",
       "all": "모든 대화",
       "assignedOrTeam": "본인, 소속 팀, 미배정 대화만",
-      "save": "저장"
+      "save": "저장",
+      "saved": "공개 범위를 저장했습니다.",
+      "saveFailed": "저장하지 못했습니다. 다시 시도해 주세요.",
+      "loadFailed": "공개 범위 설정을 불러오지 못했습니다."
     }
   },
   "Plan": {

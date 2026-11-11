@@ -53,6 +53,8 @@ import {
   List,
   X,
   Tag as TagIcon,
+  PauseCircle,
+  BellOff,
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth/client';
 import { changeListMembers, fetchLists, fetchSegments, type ListSummary, type SegmentSummary } from '@/lib/audience/client';
@@ -68,14 +70,28 @@ import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { LeadScoreCell, useLeadScores } from '@/components/contacts/lead-score-cell';
 import { useCan } from '@/hooks/use-can';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { GatedButton } from '@/components/ui/gated-button';
+import { Switch } from '@/components/ui/switch';
 import { useTranslations } from 'next-intl';
+import { PAUSE_MINUTES_CHOICES } from '@/lib/flows/types';
 
 const PAGE_SIZE = 25;
 
 interface ContactWithTags extends Contact {
   tags?: Tag[];
 }
+
+/** Stage 5: the contacts page's channel filter ('' is every contact). */
+type ChannelView = '' | 'whatsapp' | 'instagram';
+type InstagramStatus = 'subscribed' | 'unsubscribed' | 'none';
+
+/** The Stage 5 bulk actions (POST /api/contacts/bulk, src/lib/contacts/bulk.ts). */
+type Stage5BulkAction =
+  | { type: 'remove_tag'; tagId: string }
+  | { type: 'unsubscribe_instagram' }
+  | { type: 'pause_automations'; minutes: number | null }
+  | { type: 'set_field'; fieldId: string; value: string };
 
 export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
@@ -127,6 +143,21 @@ export default function ContactsPage() {
   const [allMatching, setAllMatching] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
+  // Stage 5: channel filter, "subscribed only" and the Instagram status column, offered
+  // only while Instagram is on (a WhatsApp-only workspace sees the page it had).
+  const tc = useTranslations('Contacts.filters');
+  const tcs = useTranslations('Contacts.channelStatus');
+  const tb = useTranslations('Contacts.bulk');
+  const tPause = useTranslations('Inbox.pause');
+  const { data: channels } = useWorkspaceChannels();
+  const instagramOn = channels?.enabled.includes('instagram') ?? false;
+  const [channelView, setChannelView] = useState<ChannelView>('');
+  const [subscribedOnly, setSubscribedOnly] = useState(false);
+  const [igStatus, setIgStatus] = useState<Record<string, InstagramStatus>>({});
+  const [setFieldOpen, setSetFieldOpen] = useState(false);
+  const [bulkFieldId, setBulkFieldId] = useState('');
+  const [bulkFieldValue, setBulkFieldValue] = useState('');
+
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
 
@@ -167,7 +198,27 @@ export default function ContactsPage() {
     let contactRows: Contact[];
     let count: number;
 
-    if (segmentId || listId) {
+    if (channelView || subscribedOnly) {
+      // Stage 5: the channel filter lists exactly what a bulk action on this view reaches.
+      const query = new URLSearchParams({ offset: String(from), limit: String(PAGE_SIZE) });
+      if (segmentId) query.set('segmentId', segmentId);
+      else if (listId) query.set('listId', listId);
+      else if (selectedTagIds.length) query.set('tagIds', selectedTagIds.join(','));
+      if (term) query.set('search', term.slice(0, 200));
+      if (channelView) query.set('channel', channelView);
+      if (subscribedOnly) query.set('subscribed', '1');
+      const res = await authFetch(`/api/contacts/bulk/view?${query}`, { cache: 'no-store' }).catch(() => null);
+      if (seq !== fetchSeq.current) return;
+      if (!res?.ok) {
+        toast.error(t('toastFailedLoad'));
+        setLoading(false);
+        return;
+      }
+      const payload = (await res.json()) as { contacts: Contact[]; total: number };
+      if (seq !== fetchSeq.current) return;
+      contactRows = payload.contacts;
+      count = payload.total;
+    } else if (segmentId || listId) {
       const query = new URLSearchParams({ offset: String(from), limit: String(PAGE_SIZE), search: term });
       const path = segmentId ? `/api/segments/${segmentId}/contacts` : `/api/lists/${listId}/contacts`;
       const res = await authFetch(`${path}?${query}`, { cache: 'no-store' }).catch(() => null);
@@ -252,7 +303,25 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [db, page, search, selectedTagIds, segmentId, listId, tagsMap, t]);
+  }, [db, page, search, selectedTagIds, segmentId, listId, tagsMap, t, channelView, subscribedOnly]);
+
+  // Stage 5: the Instagram status of the rows on screen, read from stored state.
+  const contactIdsKey = contacts.map((c) => c.id).join(',');
+  useEffect(() => {
+    if (!instagramOn || !contactIdsKey) return;
+    let live = true;
+    authFetch(`/api/contacts/bulk/status?ids=${encodeURIComponent(contactIdsKey)}`, { cache: 'no-store' })
+      .then(async (res) => {
+        const body = res.ok ? ((await res.json()) as { statuses: Record<string, InstagramStatus> }) : null;
+        if (live && body) setIgStatus(body.statuses);
+      })
+      .catch(() => {
+        // The column is informational; it shows a dash without it.
+      });
+    return () => {
+      live = false;
+    };
+  }, [instagramOn, contactIdsKey]);
 
   const loadSegments = useCallback(async () => {
     try {
@@ -330,16 +399,24 @@ export default function ContactsPage() {
    * null (after telling the user) when it did not run; the server refuses
    * with 409 when the match count is no longer the one on screen.
    */
-  async function runBulk(action: { type: 'add_to_list' | 'remove_from_list'; listId: string } | { type: 'add_tag'; tagId: string } | { type: 'delete' }) {
+  async function runBulk(
+    action: { type: 'add_to_list' | 'remove_from_list'; listId: string } | { type: 'add_tag'; tagId: string } | { type: 'delete' } | Stage5BulkAction,
+    /** Stage 5: act on these ticked rows instead of the whole view. */
+    contactIds?: string[],
+  ) {
     const term = search.trim();
-    const scope = {
-      ...(segmentId ? { segmentId } : listId ? { listId } : selectedTagIds.length ? { tagIds: selectedTagIds } : {}),
-      ...(term ? { search: term.slice(0, 200) } : {}),
-    };
+    const scope = contactIds
+      ? { contactIds }
+      : {
+          ...(segmentId ? { segmentId } : listId ? { listId } : selectedTagIds.length ? { tagIds: selectedTagIds } : {}),
+          ...(term ? { search: term.slice(0, 200) } : {}),
+          ...(channelView ? { channel: channelView } : {}),
+          ...(subscribedOnly ? { subscribedOnly: true } : {}),
+        };
     const res = await authFetch('/api/contacts/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scope, action, expected: totalCount }),
+      body: JSON.stringify({ scope, action, expected: contactIds ? contactIds.length : totalCount }),
     }).catch(() => null);
     const payload = (await res?.json().catch(() => null)) as { changed?: number; matched?: number; error?: string } | null;
     if (res?.status === 409) {
@@ -589,6 +666,40 @@ export default function ContactsPage() {
   // The bulk bar acts on this many contacts.
   const selectionCount = allMatching ? totalCount : selected.size;
 
+  /**
+   * Stage 5 bulk actions (remove a tag, unsubscribe from Instagram, pause
+   * automations, set a custom field): every matching contact, or the ticked
+   * rows. Always server-side, with the same count check as the others.
+   */
+  async function runStage5Bulk(action: Stage5BulkAction, confirmed = false): Promise<boolean> {
+    if (!confirmed && !window.confirm(tb('confirm', { count: selectionCount }))) return false;
+    setListBusy(true);
+    try {
+      const done = await runBulk(action, allMatching ? undefined : [...selected]);
+      if (!done) return false;
+      toast.success(tb('done', { count: done.matched }));
+      setSelected(new Set());
+      setAllMatching(false);
+      fetchContacts();
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : tb('failed'));
+      return false;
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  async function openSetField() {
+    if (customFields.length === 0) {
+      const { data } = await db.from('custom_fields').select('*').order('field_name');
+      setCustomFields(data ?? []);
+    }
+    setBulkFieldId('');
+    setBulkFieldValue('');
+    setSetFieldOpen(true);
+  }
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
@@ -599,7 +710,9 @@ export default function ContactsPage() {
     a.name.localeCompare(b.name)
   );
   const tagGroups = groupTagsByCategory(allTags);
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || segmentId !== '' || listId !== '';
+  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || segmentId !== '' || listId !== ''
+    || channelView !== '' || subscribedOnly;
+  const showChannelFilters = instagramOn || channelView !== '' || subscribedOnly;
   const selectedSegment = segments.find((s) => s.id === segmentId) ?? null;
 
   function toggleTagFilter(tagId: string) {
@@ -834,6 +947,37 @@ export default function ContactsPage() {
               )}
             </PopoverContent>
           </Popover>
+
+          {showChannelFilters && (
+            <>
+              <select
+                aria-label={tc('channel')}
+                value={channelView}
+                onChange={(e) => {
+                  setChannelView(e.target.value as ChannelView);
+                  setPage(0);
+                }}
+                className="h-9 shrink-0 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+              >
+                <option value="">{tc('allChannels')}</option>
+                <option value="whatsapp">{tc('hasWhatsApp')}</option>
+                <option value="instagram">{tc('hasInstagram')}</option>
+              </select>
+              <div className="flex shrink-0 items-center gap-2">
+                <Switch
+                  id="contacts-subscribed-only"
+                  checked={subscribedOnly}
+                  onCheckedChange={(checked) => {
+                    setSubscribedOnly(checked === true);
+                    setPage(0);
+                  }}
+                />
+                <Label htmlFor="contacts-subscribed-only" className="text-sm text-muted-foreground">
+                  {tc('subscribedOnly')}
+                </Label>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Active tag-filter chips */}
@@ -919,6 +1063,49 @@ export default function ContactsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            {canEdit && allTags.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={listBusy} />}>
+                  <TagIcon className="size-4" />
+                  {tb('removeTag')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto bg-popover border-border">
+                  {allTags.map((tag) => (
+                    <DropdownMenuItem key={tag.id} onClick={() => void runStage5Bulk({ type: 'remove_tag', tagId: tag.id })}>
+                      <span className="size-2 rounded-full" style={{ backgroundColor: tag.color }} />
+                      {tag.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {canEdit && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={listBusy} />}>
+                  <PauseCircle className="size-4" />
+                  {tb('pauseAutomations')}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover border-border">
+                  {PAUSE_MINUTES_CHOICES.map((minutes) => (
+                    <DropdownMenuItem key={String(minutes)} onClick={() => void runStage5Bulk({ type: 'pause_automations', minutes })}>
+                      {tPause(`choices.${minutes === null ? 'forever' : String(minutes)}`)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {canEdit && (
+              <Button variant="outline" size="sm" disabled={listBusy} onClick={() => void openSetField()}>
+                <SlidersHorizontal className="size-4" />
+                {tb('setField')}
+              </Button>
+            )}
+            {canEdit && instagramOn && (
+              <Button variant="outline" size="sm" disabled={listBusy} onClick={() => void runStage5Bulk({ type: 'unsubscribe_instagram' })}>
+                <BellOff className="size-4" />
+                {tb('unsubscribeInstagram')}
+              </Button>
+            )}
             {canEdit && listId && (
               <Button variant="outline" size="sm" disabled={listBusy} onClick={() => changeSelectedMembers(listId, 'remove')}>
                 <X className="size-4" />
@@ -972,6 +1159,9 @@ export default function ContactsPage() {
               <TableHead className="text-muted-foreground">{t('tableColumns.phone')}</TableHead>
               <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.email')}</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.company')}</TableHead>
+              {instagramOn && (
+                <TableHead className="text-muted-foreground hidden md:table-cell">{tcs('instagram')}</TableHead>
+              )}
               <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.tags')}</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.createdAt')}</TableHead>
               <TableHead className="text-muted-foreground w-12" />
@@ -980,7 +1170,7 @@ export default function ContactsPage() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={instagramOn ? 9 : 8} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">{t('loading')}</p>
@@ -989,7 +1179,7 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={instagramOn ? 9 : 8} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="size-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
@@ -1040,6 +1230,17 @@ export default function ContactsPage() {
                   <TableCell className="text-muted-foreground hidden lg:table-cell text-sm">
                     {contact.company || <span className="text-muted-foreground">-</span>}
                   </TableCell>
+                  {instagramOn && (
+                    <TableCell className="hidden md:table-cell text-xs" data-testid="contact-instagram-status">
+                      {igStatus[contact.id] === 'subscribed' ? (
+                        <span className="text-foreground">{tcs('subscribed')}</span>
+                      ) : igStatus[contact.id] === 'unsubscribed' ? (
+                        <span className="text-muted-foreground">{tcs('unsubscribed')}</span>
+                      ) : (
+                        <span className="text-muted-foreground">{tcs('none')}</span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {contact.tags && contact.tags.length > 0 ? (
@@ -1276,6 +1477,62 @@ export default function ContactsPage() {
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               {t('deleteBtn')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stage 5: set a custom field on the selection */}
+      <Dialog open={setFieldOpen} onOpenChange={setSetFieldOpen}>
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">{tb('setField')}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {tb('confirm', { count: selectionCount })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-field" className="text-muted-foreground">{tb('field')}</Label>
+              <select
+                id="bulk-field"
+                value={bulkFieldId}
+                onChange={(e) => setBulkFieldId(e.target.value)}
+                className="h-9 w-full rounded-md border border-border bg-card px-2 text-sm text-foreground"
+              >
+                <option value="">{tb('chooseField')}</option>
+                {customFields.map((f) => (
+                  <option key={f.id} value={f.id}>{f.field_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-field-value" className="text-muted-foreground">{tb('value')}</Label>
+              <Input
+                id="bulk-field-value"
+                value={bulkFieldValue}
+                maxLength={1000}
+                onChange={(e) => setBulkFieldValue(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setSetFieldOpen(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              {t('cancel')}
+            </Button>
+            <Button
+              disabled={listBusy || !bulkFieldId || !bulkFieldValue.trim()}
+              onClick={async () => {
+                const ok = await runStage5Bulk({ type: 'set_field', fieldId: bulkFieldId, value: bulkFieldValue.trim() }, true);
+                if (ok) setSetFieldOpen(false);
+              }}
+            >
+              {listBusy && <Loader2 className="size-4 animate-spin" />}
+              {tb('apply')}
             </Button>
           </DialogFooter>
         </DialogContent>

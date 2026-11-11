@@ -317,7 +317,7 @@
   ],
   "TEN-02": [
     "e2e/signup-invite.spec.ts",
-    "src/app/api/account/members/[userId]/route.test.ts",
+    "src/app/api/account/members/[id]/route.test.ts",
     "src/lib/repositories/memberships.integration.test.ts",
     "src/lib/teams/teams-permissions.integration.test.ts"
   ],

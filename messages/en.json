@@ -860,7 +860,21 @@
       "remove": "Remove label",
       "limit": "Up to 20 labels per workspace.",
       "nameTaken": "A label with this name already exists.",
-      "empty": "No labels yet."
+      "empty": "No labels yet.",
+      "failed": "Could not update labels. Try again.",
+      "confirmDelete": "Delete the label \"{name}\"? It is removed from every conversation.",
+      "deleteLabel": "Delete label {name}",
+      "colors": {
+        "gray": "Grey",
+        "red": "Red",
+        "orange": "Orange",
+        "amber": "Amber",
+        "green": "Green",
+        "teal": "Teal",
+        "blue": "Blue",
+        "violet": "Violet",
+        "pink": "Pink"
+      }
     },
     "favourites": {
       "add": "Add to favourites",
@@ -1295,7 +1309,13 @@
       "hasInstagram": "Has Instagram",
       "subscribedOnly": "Subscribed only",
       "matchAll": "Match all conditions",
-      "matchAny": "Match any condition"
+      "matchAny": "Match any condition",
+      "allChannels": "All channels",
+      "whatsappField": "WhatsApp number",
+      "instagramSubscriptionField": "Instagram subscription",
+      "hasNoWhatsApp": "Has no WhatsApp number",
+      "matchLabel": "How conditions combine",
+      "anyMustMatch": "A contact matches when at least one condition is true."
     },
     "bulk": {
       "removeTag": "Remove tag",
@@ -1303,7 +1323,13 @@
       "pauseAutomations": "Pause automations",
       "setField": "Set a custom field",
       "confirm": "Apply to {count, plural, =1 {# contact} other {# contacts}}?",
-      "queued": "Working on it. This can take a few minutes."
+      "queued": "Working on it. This can take a few minutes.",
+      "done": "{count, plural, =1 {Done for # contact.} other {Done for # contacts.}}",
+      "failed": "Could not apply this to the contacts. Try again.",
+      "field": "Custom field",
+      "chooseField": "Choose a field",
+      "value": "Value",
+      "apply": "Apply"
     },
     "instagramFacts": {
       "title": "Instagram",
@@ -7512,14 +7538,22 @@
       "rules": "By rules: use your routing rules",
       "capacity": "Most open conversations per agent",
       "capacityHelp": "An agent at this limit is skipped. Leave empty for no limit.",
-      "save": "Save"
+      "save": "Save",
+      "saved": "Assignment settings saved.",
+      "saveFailed": "Could not save. Try again.",
+      "loadFailed": "Could not load the assignment settings.",
+      "openNow": "{count, plural, =1 {# open now} other {# open now}}",
+      "noLimit": "No limit"
     },
     "visibility": {
       "title": "What agents can see",
       "description": "Admins and owners always see every conversation.",
       "all": "Every conversation",
       "assignedOrTeam": "Only their own, their team's and unassigned conversations",
-      "save": "Save"
+      "save": "Save",
+      "saved": "Visibility saved.",
+      "saveFailed": "Could not save. Try again.",
+      "loadFailed": "Could not load the visibility setting."
     }
   },
   "Plan": {
