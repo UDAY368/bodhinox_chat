@@ -8,6 +8,7 @@ import { hasMinRole } from '@/lib/auth/roles';
 import type { AgentLeaderboardRow, AiStats, CampaignFunnel as Funnel, FlowStats } from '@/lib/analytics/queries';
 import { AgentLeaderboard } from '@/components/analytics/agent-leaderboard';
 import { AiSection } from '@/components/analytics/ai-section';
+import { ChannelFilter, type ChannelFilterValue } from '@/components/analytics/channel-filter';
 import { CampaignFunnel } from '@/components/analytics/campaign-funnel';
 import { CommerceCard } from '@/components/analytics/commerce-card';
 import { CompareSection } from '@/components/analytics/compare-section';
@@ -20,13 +21,17 @@ import { AiInsightsPanel } from '@/components/analytics/ai-insights';
 
 export default function AnalyticsPage() {
   const t = useTranslations('Analytics.page');
+  const tChannel = useTranslations('Analytics.channel');
   const { accountRole } = useAuth();
   const [range, setRange] = useState<RangeValue>({ preset: '30d' });
   const [number, setNumber] = useState('');
   const [flowId, setFlowId] = useState('');
+  const [channel, setChannel] = useState<ChannelFilterValue>('');
+  // Campaign, template, product and number figures are WhatsApp by definition.
+  const whatsappOnlyHidden = channel === 'instagram';
 
   const rangeQuery = reportQuery(rangeParams(range));
-  const overview = useReport<OverviewReport>('overview', reportQuery({ ...rangeParams(range), number }));
+  const overview = useReport<OverviewReport>('overview', reportQuery({ ...rangeParams(range), number: whatsappOnlyHidden ? '' : number, channel }));
   const agents = useReport<{ agents: AgentLeaderboardRow[] }>('agents', rangeQuery);
   const campaigns = useReport<{ funnel: Funnel }>('campaigns', rangeQuery);
   const flows = useReport<{ stats: FlowStats; flows: { id: string; name: string }[] }>(
@@ -47,7 +52,8 @@ export default function AnalyticsPage() {
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <RangePicker value={range} onChange={setRange} today={range.preset === 'custom' ? undefined : shown?.endDay} />
-          <NumberFilter numbers={overview.data?.numbers ?? []} value={number} onChange={setNumber} />
+          <ChannelFilter value={channel} onChange={setChannel} />
+          {!whatsappOnlyHidden && <NumberFilter numbers={overview.data?.numbers ?? []} value={number} onChange={setNumber} />}
         </div>
       </div>
 
@@ -61,7 +67,8 @@ export default function AnalyticsPage() {
       <ConversationCharts data={overview.data} loading={overview.loading} error={overview.error} onRetry={overview.retry} />
 
       <AgentLeaderboard agents={agents.data?.agents ?? null} loading={agents.loading} error={agents.error} onRetry={agents.retry} />
-      <CampaignFunnel funnel={campaigns.data?.funnel ?? null} loading={campaigns.loading} error={campaigns.error} onRetry={campaigns.retry} />
+      {whatsappOnlyHidden && <p className="text-xs text-muted-foreground">{tChannel('whatsappOnlyNote')}</p>}
+      {!whatsappOnlyHidden && <CampaignFunnel funnel={campaigns.data?.funnel ?? null} loading={campaigns.loading} error={campaigns.error} onRetry={campaigns.retry} />}
       <FlowDropOff
         stats={flows.data?.stats ?? null}
         flows={flows.data?.flows ?? []}
@@ -71,11 +78,11 @@ export default function AnalyticsPage() {
         error={flows.error}
         onRetry={flows.retry}
       />
-      <CompareSection query={rangeQuery} campaigns={campaigns.data?.funnel.broadcasts ?? []} showProducts={canSeeAi} />
-      {canSeeAi && <CommerceCard query={rangeQuery} />}
+      {!whatsappOnlyHidden && <CompareSection query={rangeQuery} campaigns={campaigns.data?.funnel.broadcasts ?? []} showProducts={canSeeAi} />}
+      {canSeeAi && !whatsappOnlyHidden && <CommerceCard query={rangeQuery} />}
       {canSeeAi && <AiSection stats={ai.data?.stats ?? null} loading={ai.loading} error={ai.error} onRetry={ai.retry} />}
       {canSeeAi && <AiInsightsPanel range={range} />}
-      {number && <p className="text-xs text-muted-foreground">{t('numberScope')}</p>}
+      {number && !whatsappOnlyHidden && <p className="text-xs text-muted-foreground">{t('numberScope')}</p>}
       {accountRole && hasMinRole(accountRole, 'admin') && <ReportsTab canManage />}
     </div>
   );

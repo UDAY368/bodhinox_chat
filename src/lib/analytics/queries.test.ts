@@ -84,6 +84,18 @@ describe('analytics SQL shape', () => {
     await expect(templateDaily(tx, ACCOUNT, range, '')).rejects.toBeInstanceOf(AnalyticsInputError);
   });
 
+  it('filters conversations by channel (legacy null is WhatsApp) and refuses other values', async () => {
+    await conversationStats(tx, ACCOUNT, range, { channel: 'instagram' });
+    expect(squash(last().text)).toContain("AND COALESCE(c.channel, 'whatsapp')=$");
+    expect(last().values).toContain('instagram');
+    expect(squash(last().text)).toContain('m.conversation_id IN (SELECT id FROM scope)');
+    // Campaign replies stay WhatsApp whatever the filter.
+    expect(squash(last().text)).toContain("s.channel='whatsapp'");
+    await conversationStats(tx, ACCOUNT, range);
+    expect(squash(last().text)).not.toContain('COALESCE(c.channel');
+    await expect(conversationStats(tx, ACCOUNT, range, { channel: "x' OR 1=1" as never })).rejects.toBeInstanceOf(AnalyticsInputError);
+  });
+
   it('scopes the leaderboard, AI, flow and template reports', async () => {
     await agentLeaderboard(tx, ACCOUNT, range);
     expectScoped(last().text, ['account_memberships', 'messages', 'conversations'], ['m.created_at', 'resolved_at']);
