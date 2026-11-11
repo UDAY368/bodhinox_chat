@@ -1055,7 +1055,10 @@
         "campaign": "Campaign",
         "ad": "Clicked an ad",
         "lead_form": "Lead form",
-        "instagram": "Instagram identity"
+        "instagram": "Instagram identity",
+        "instagram_profile": "Instagram profile",
+        "instagram_followers": "Instagram followers",
+        "instagram_window": "Instagram 24-hour window"
       },
       "ops": {
         "has_any": "has any of",
@@ -1074,7 +1077,14 @@
         "submitted_any": "submitted",
         "submitted_none": "never submitted",
         "has_identity": "has an Instagram identity",
-        "has_no_identity": "has no Instagram identity"
+        "has_no_identity": "has no Instagram identity",
+        "is_true": "is yes",
+        "is_false": "is no",
+        "is_unknown": "is not known yet",
+        "at_least": "at least",
+        "at_most": "at most",
+        "open": "is open (they wrote in the last 24 hours)",
+        "closed": "has closed"
       },
       "noLists": "No lists yet",
       "campaignLabel": "Campaign",
@@ -1094,7 +1104,15 @@
       "anyAd": "any ad",
       "formIdsLabel": "Lead forms",
       "anyForm": "any lead form",
-      "formIdsPlaceholder": "Any form, or form IDs separated by commas"
+      "formIdsPlaceholder": "Any form, or form IDs separated by commas",
+      "igFactLabel": "Instagram detail",
+      "igFacts": {
+        "follows_business": "Follows you",
+        "business_follows": "You follow them",
+        "is_verified": "Is verified"
+      },
+      "followersLabel": "Followers",
+      "igFreshness": "Instagram details are refreshed in the background about once a week, so they can be a little out of date."
     },
     "identity": {
       "title": "Channel identities",

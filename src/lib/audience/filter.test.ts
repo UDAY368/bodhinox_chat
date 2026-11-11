@@ -175,3 +175,66 @@ describe('instagram condition (Phase 11)', () => {
     expect(queries).toEqual([]);
   });
 });
+
+describe('instagram profile conditions (Stage 3)', () => {
+  const compile = (condition: unknown) => compileAudienceFilter(account, parseAudienceFilter({ conditions: [condition] }));
+
+  it.each([
+    ['follows_business', 'is_true', 'i.follows_business IS TRUE'],
+    ['business_follows', 'is_false', 'i.business_follows IS FALSE'],
+    ['is_verified', 'is_unknown', 'i.is_verified IS NULL'],
+  ])('compiles %s %s to a tenant-scoped EXISTS over the Instagram identity', (fact, op, test) => {
+    const sql = compile({ field: 'instagram_profile', fact, op });
+    expect(sql.sql).toContain(test);
+    expect(sql.sql).toContain("EXISTS(SELECT 1 FROM contact_channel_identities i WHERE i.account_id=");
+    expect(sql.sql).toContain("i.contact_id=c.id");
+    expect(sql.sql).toContain("i.channel='instagram'");
+    expect(sql.values.filter((v) => v === account).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('never puts a fact name into SQL as a value: only the fixed columns', () => {
+    expect(() => compile({ field: 'instagram_profile', fact: 'i.id; DROP TABLE contacts', op: 'is_true' })).toThrow(AudienceFilterError);
+    expect(() => compile({ field: 'instagram_profile', fact: 'follower_count', op: 'is_true' })).toThrow(AudienceFilterError);
+  });
+
+  it('compiles follower bounds with a bound integer', () => {
+    const atLeast = compile({ field: 'instagram_followers', op: 'at_least', value: 1000 });
+    expect(atLeast.sql).toContain('i.ig_follower_count >=');
+    expect(atLeast.values).toContain(1000);
+    expect(compile({ field: 'instagram_followers', op: 'at_most', value: 50 }).sql).toContain('i.ig_follower_count <=');
+  });
+
+  it.each([-1, 1.5, '10', 3_000_000_000, null])('rejects the follower value %j', (value) => {
+    expect(() => compile({ field: 'instagram_followers', op: 'at_least', value })).toThrow(AudienceFilterError);
+  });
+
+  it('scopes the window conditions to the account and the 24-hour customer window', () => {
+    const open = compile({ field: 'instagram_window', op: 'open' });
+    expect(open.sql).toContain("v.account_id=");
+    expect(open.sql).toContain("v.channel='instagram'");
+    expect(open.sql).toContain("m.sender_type='customer'");
+    expect(open.sql).toContain('make_interval(secs =>');
+    expect(open.values).toContain(86_400);
+    expect(open.values.filter((v) => v === account).length).toBeGreaterThanOrEqual(2);
+    // closed means an Instagram conversation exists and none is in the window, not "no Instagram contact".
+    const closed = compile({ field: 'instagram_window', op: 'closed' });
+    expect(closed.sql).toMatch(/\(EXISTS\(SELECT 1 FROM conversations v[\s\S]*\) AND NOT EXISTS\(/);
+  });
+
+  it.each<unknown>([
+    { field: 'instagram_profile', fact: 'is_verified', op: 'is_true', extra: 1 },
+    { field: 'instagram_profile', fact: 'is_verified', op: 'yes' },
+    { field: 'instagram_window', op: 'open', value: true },
+    { field: 'instagram_followers', op: 'is', value: 3 },
+  ])('rejects %j', (condition) => {
+    expect(() => parseAudienceFilter({ conditions: [condition] })).toThrow(AudienceFilterError);
+  });
+
+  it('needs no entitlement or row lookup', async () => {
+    const queries: string[] = [];
+    const tx = { $queryRaw: async (sql: { sql?: string }) => { queries.push(sql.sql ?? ''); return []; } };
+    await assertFilterReferences(tx as never, account, parseAudienceFilter({ conditions: [
+      { field: 'instagram_profile', fact: 'follows_business', op: 'is_true' }, { field: 'instagram_window', op: 'open' }] }));
+    expect(queries).toEqual([]);
+  });
+});

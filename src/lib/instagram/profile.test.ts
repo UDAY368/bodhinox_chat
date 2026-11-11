@@ -9,7 +9,7 @@ vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: () => 'token' }));
 vi.mock('./config', () => ({ instagramConfig: () => ({}) }));
 vi.mock('./graph', () => ({ getProfile: h.getProfile }));
 
-import { handleProfileFetchJob, refreshProfileFacts } from './profile';
+import { handleProfileFetchJob, PROFILE_RECHECK_BATCH, PROFILE_STALE_MS, queueStaleProfileRechecks, refreshProfileFacts } from './profile';
 
 const ACCOUNT = '22222222-2222-4222-8222-222222222222';
 const IDENTITY = '33333333-3333-4333-8333-333333333333';
@@ -73,5 +73,76 @@ describe('refreshProfileFacts (the follow gate)', () => {
     await expect(refreshProfileFacts(ACCOUNT, CONVERSATION)).resolves.toBeNull();
     await expect(refreshProfileFacts(ACCOUNT, 'not-a-uuid')).resolves.toBeNull();
     expect(h.getProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe('the stale-profile re-check (Stage 3)', () => {
+  const row = { identity_id: IDENTITY, external_id: '9001', access_token_enc: 'enc', status: 'active',
+    follows_business: false, business_follows: null, is_verified: null, ig_follower_count: 12 };
+
+  it('a facts job re-reads one identity of the job tenant, stores the facts and stamps profile_checked_at', async () => {
+    h.queryRaw.mockResolvedValue([row]);
+    h.getProfile.mockResolvedValue({ name: 'X', username: 'x', facts: { followsBusiness: true, businessFollows: true, isVerified: true, followerCount: 900 } });
+    await handleProfileFetchJob(ACCOUNT, { identityId: IDENTITY, facts: true });
+    const find = h.queryRaw.mock.calls[0];
+    expect(sqlOf(find)).toContain('i.account_id=');
+    expect(sqlOf(find)).toContain("i.channel='instagram'");
+    expect(find.slice(1)).toEqual([ACCOUNT, IDENTITY]);
+    expect(h.getProfile).toHaveBeenCalledWith('9001', 'token', { facts: true });
+    const update = h.executeRaw.mock.calls.find((c) => sqlOf(c).includes('UPDATE contact_channel_identities'))!;
+    expect(sqlOf(update)).toContain('profile_checked_at=now()');
+    expect(sqlOf(update)).toContain('account_id=');
+    expect(update.slice(1)).toEqual(expect.arrayContaining([true, 900, ACCOUNT, IDENTITY]));
+    // It never touches the contact's name (the display-name fetch is a different job shape).
+    expect(h.executeRaw.mock.calls.some((c) => sqlOf(c).includes('UPDATE contacts'))).toBe(false);
+  });
+
+  it('a facts job keeps the stored facts and stamps only profile_checked_at when Meta refuses', async () => {
+    h.queryRaw.mockResolvedValue([row]);
+    h.getProfile.mockRejectedValueOnce(new TypeError('fetch failed'));
+    await handleProfileFetchJob(ACCOUNT, { identityId: IDENTITY, facts: true });
+    expect(h.executeRaw).toHaveBeenCalledTimes(1);
+    const update = h.executeRaw.mock.calls[0];
+    expect(sqlOf(update)).toContain('profile_checked_at=now()');
+    expect(sqlOf(update)).not.toContain('follows_business');
+  });
+
+  it('a facts job makes no call and writes nothing when the account is not usable', async () => {
+    h.queryRaw.mockResolvedValue([{ ...row, status: 'token_invalid' }]);
+    await handleProfileFetchJob(ACCOUNT, { identityId: IDENTITY, facts: true });
+    expect(h.getProfile).not.toHaveBeenCalled();
+    expect(h.executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('a facts job for an identity that is not in this workspace does nothing', async () => {
+    h.queryRaw.mockResolvedValue([]);
+    await handleProfileFetchJob(ACCOUNT, { identityId: IDENTITY, facts: true });
+    expect(h.getProfile).not.toHaveBeenCalled();
+  });
+
+  it('queues one deduplicated facts job per stale identity of the tenant, oldest first, capped', async () => {
+    h.executeRaw.mockResolvedValue(3);
+    const now = new Date('2026-11-20T10:00:00Z');
+    await expect(queueStaleProfileRechecks({ $executeRaw: h.executeRaw } as never, ACCOUNT, now)).resolves.toBe(3);
+    const call = h.executeRaw.mock.calls[0];
+    const sql = sqlOf(call);
+    expect(sql).toContain('INSERT INTO jobs');
+    expect(sql).toContain("a.status='active'");
+    expect(sql).toContain('i.profile_checked_at IS NULL OR i.profile_checked_at <');
+    expect(sql).toContain('ORDER BY i.profile_checked_at NULLS FIRST');
+    expect(sql).toContain('ON CONFLICT(dedupe_key) DO NOTHING');
+    expect(sql).toContain("'igfacts:'");
+    const values = call.slice(1);
+    expect(values).toContain(ACCOUNT);
+    expect(values).toContain('2026-11-20');
+    expect(values).toContain(PROFILE_RECHECK_BATCH);
+    expect(values).toContainEqual(new Date(now.getTime() - PROFILE_STALE_MS));
+    // No customer content in the job: ids and a flag.
+    expect(sql).not.toMatch(/username|display_name|external_id/);
+  });
+
+  it('queues nothing for a malformed account', async () => {
+    await expect(queueStaleProfileRechecks({ $executeRaw: h.executeRaw } as never, 'nope')).resolves.toBe(0);
+    expect(h.executeRaw).not.toHaveBeenCalled();
   });
 });

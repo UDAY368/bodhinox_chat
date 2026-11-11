@@ -29,7 +29,9 @@ import { CAMPAIGN_OUTCOMES } from '@/lib/audience/outcomes';
 import type { CustomField, Tag } from '@/types';
 
 type Field = AudienceCondition['field'];
-const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked', 'instagram'];
+const FIELDS: Field[] = ['tags', 'list', 'campaign', 'ad', 'lead_form', 'custom_field', 'name', 'phone', 'email', 'company', 'created_at', 'opted_out', 'blocked', 'instagram', 'instagram_profile', 'instagram_followers', 'instagram_window'];
+/** Same list as IG_SEGMENT_FACTS in lib/audience/filter (a server module, so not imported here). */
+const IG_SEGMENT_FACTS = ['follows_business', 'business_follows', 'is_verified'] as const;
 const selectClass = 'h-8 rounded-md border border-border bg-muted px-2 text-sm text-foreground';
 
 function blank(field: Field): AudienceCondition {
@@ -44,6 +46,9 @@ function blank(field: Field): AudienceCondition {
     case 'ad': return { field, op: 'clicked_any', adIds: [] };
     case 'lead_form': return { field, op: 'submitted_any', formIds: [] };
     case 'instagram': return { field, op: 'has_identity' };
+    case 'instagram_profile': return { field, fact: 'follows_business', op: 'is_true' };
+    case 'instagram_followers': return { field, op: 'at_least', value: 1000 };
+    case 'instagram_window': return { field, op: 'open' };
     default: return { field, op: 'contains', value: '' };
   }
 }
@@ -316,6 +321,41 @@ export function SegmentBuilderDialog({
                     onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
                     <option value="has_identity">{t('ops.has_identity')}</option>
                     <option value="has_no_identity">{t('ops.has_no_identity')}</option>
+                  </select>
+                )}
+
+                {c.field === 'instagram_profile' && (
+                  <>
+                    <select aria-label={t('igFactLabel')} className={selectClass} value={c.fact}
+                      onChange={(e) => update(index, { ...c, fact: e.target.value as typeof c.fact })}>
+                      {IG_SEGMENT_FACTS.map((fact) => <option key={fact} value={fact}>{t(`igFacts.${fact}`)}</option>)}
+                    </select>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                      {(['is_true', 'is_false', 'is_unknown'] as const).map((op) => <option key={op} value={op}>{t(`ops.${op}`)}</option>)}
+                    </select>
+                    <span className="text-xs text-muted-foreground">{t('igFreshness')}</span>
+                  </>
+                )}
+
+                {c.field === 'instagram_followers' && (
+                  <>
+                    <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                      onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                      <option value="at_least">{t('ops.at_least')}</option>
+                      <option value="at_most">{t('ops.at_most')}</option>
+                    </select>
+                    <Input aria-label={t('followersLabel')} type="number" min={0} className="h-8 w-32" value={c.value}
+                      onChange={(e) => update(index, { ...c, value: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
+                    <span className="text-xs text-muted-foreground">{t('igFreshness')}</span>
+                  </>
+                )}
+
+                {c.field === 'instagram_window' && (
+                  <select aria-label={t('operatorLabel')} className={selectClass} value={c.op}
+                    onChange={(e) => update(index, { ...c, op: e.target.value as typeof c.op })}>
+                    <option value="open">{t('ops.open')}</option>
+                    <option value="closed">{t('ops.closed')}</option>
                   </select>
                 )}
 

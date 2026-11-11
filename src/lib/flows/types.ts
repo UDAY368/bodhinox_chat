@@ -380,7 +380,7 @@ export type ConditionOperator =
 export type ConditionSubject = "var" | "tag" | "contact_field" | "custom_field" | "time" | "date" | "ig_profile";
 
 /** Instagram profile facts a condition can test (contact_channel_identities columns). */
-export const IG_PROFILE_FACTS = ["follows_business", "business_follows", "is_verified", "follower_count"] as const;
+export const IG_PROFILE_FACTS = ["follows_business", "business_follows", "is_verified", "follower_count", "in_window"] as const;
 export type IgProfileFact = (typeof IG_PROFILE_FACTS)[number];
 
 /** One test. `time` and `date` read the clock in the node's timezone (HH:MM, YYYY-MM-DD). */
