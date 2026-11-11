@@ -20,7 +20,8 @@ import {
 const MIGRATIONS = join(process.cwd(), 'prisma', 'migrations');
 const migrations = readdirSync(MIGRATIONS).filter((name) => /^\d{14}_/.test(name)).sort();
 const sql = (name: string) => readFileSync(join(MIGRATIONS, name, 'migration.sql'), 'utf8').replace(/\r\n/g, '\n').replace(/--[^\n]*/g, '');
-const stage5 = migrations.filter((name) => name.startsWith('20261118'));
+// 5A's own prefix; 5B-5H add migrations under 20261118[1-7]xxxxx.
+const stage5 = migrations.filter((name) => name.startsWith('2026111800'));
 const all = stage5.map(sql).join('\n');
 
 const columns = (table: string): string[] => {

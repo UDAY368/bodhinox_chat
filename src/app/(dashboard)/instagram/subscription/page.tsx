@@ -81,7 +81,6 @@ function KeywordEditor({ id, label, words, builtIn, disabled, onChange }: {
 
 export default function InstagramSubscriptionPage() {
   const t = useTranslations('Instagram.subscription');
-  const tSettings = useTranslations('Settings.instagram');
   const canEdit = useCan('edit-settings');
   const { flows } = useInstagramFlows();
   const [settings, setSettings] = useState<ConsentSettings>(EMPTY);
@@ -157,11 +156,11 @@ export default function InstagramSubscriptionPage() {
         <p className="text-muted-foreground mt-1 text-sm">{t('description')}</p>
       </div>
       {loading ? (
-        <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={tSettings('loading')} />
+        <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label={t('loading')} />
       ) : failed ? (
         <div className="flex items-center gap-3 text-sm">
-          <p className="text-destructive">{tSettings('loadFailed')}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{tSettings('retry')}</Button>
+          <p className="text-destructive">{t('loadFailed')}</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>{t('retry')}</Button>
         </div>
       ) : (
         <>
@@ -169,7 +168,7 @@ export default function InstagramSubscriptionPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t('optOutKeywords')}</CardTitle>
-                <CardDescription>{t('optOutReply')}</CardDescription>
+                <CardDescription>{t('unsubscribedNote')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <KeywordEditor id="opt-out-words" label={t('optOutKeywords')} words={settings.opt_out_keywords}
@@ -184,7 +183,6 @@ export default function InstagramSubscriptionPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t('optInKeywords')}</CardTitle>
-                <CardDescription>{t('optInReply')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <KeywordEditor id="opt-in-words" label={t('optInKeywords')} words={settings.opt_in_keywords}
@@ -203,7 +201,7 @@ export default function InstagramSubscriptionPage() {
               {t('save')}
             </Button>
           ) : (
-            <p className="text-muted-foreground text-xs">{tSettings('adminOnly')}</p>
+            <p className="text-muted-foreground text-xs">{t('adminOnly')}</p>
           )}
         </>
       )}

@@ -849,7 +849,8 @@
         "forever": "Hasta que lo reanude"
       },
       "allConversations": "Todas las conversaciones de este contacto",
-      "failed": "No se pudo cambiar la pausa. Inténtalo de nuevo."
+      "failed": "No se pudo cambiar la pausa. Inténtalo de nuevo.",
+      "paused": "Automatizaciones en pausa"
     },
     "labels": {
       "title": "Etiquetas",
@@ -7502,7 +7503,8 @@
       "label": "Reanudar automatizaciones",
       "never": "Solo cuando alguien las reanude",
       "after": "Después de {duration}",
-      "save": "Guardar"
+      "save": "Guardar",
+      "saved": "Guardado"
     },
     "assignment": {
       "title": "Asignación automática",
@@ -12701,7 +12703,12 @@
       "noFlow": "Ninguna",
       "save": "Guardar",
       "saved": "Guardado",
-      "invalid": "Revisa las palabras: de 1 a 50 caracteres cada una, hasta 20."
+      "invalid": "Revisa las palabras: de 1 a 50 caracteres cada una, hasta 20.",
+      "adminOnly": "Solo los administradores del espacio de trabajo pueden cambiar esta configuración.",
+      "unsubscribedNote": "Mientras alguien esté dado de baja, los flujos, las automatizaciones, la respuesta predeterminada y la IA no le escriben por Instagram. Tu equipo aún puede responder manualmente.",
+      "loadFailed": "No se pudo cargar esta configuración.",
+      "retry": "Reintentar",
+      "loading": "Cargando"
     }
   }
 }

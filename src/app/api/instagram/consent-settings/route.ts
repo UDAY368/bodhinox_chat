@@ -1,7 +1,9 @@
 // GET /api/instagram/consent-settings (any member) — the workspace's Instagram
 //   subscribe / unsubscribe settings: 200 { settings: { opt_out_keywords, opt_in_keywords,
 //   opt_out_reply, opt_in_reply, opt_out_flow_id, opt_in_flow_id }, built_in: { opt_out, opt_in } }
-//   (defaults when never saved). Read as the member, under RLS.
+//   (defaults when never saved), features: { scheduled_automations } (whether
+//   INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED is on, so the automation builder offers
+//   schedules on Instagram). Read as the member, under RLS.
 // PUT (admins and owners) — replaces them with the same shape. Keywords: up to 20 each,
 //   1-50 characters, stored trimmed and lowercased; a word cannot be in both lists.
 //   Replies: one Instagram message each (up to 1,000 characters). Flows: Instagram or
@@ -19,7 +21,7 @@ import {
   parseConsentSettingsInput,
   saveConsentSettings,
 } from '@/lib/contacts/channel-consent';
-import { instagramEnabled } from '@/lib/instagram/config';
+import { instagramEnabled, instagramScheduledAutomationsEnabled } from '@/lib/instagram/config';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
 
 const headers = { 'Cache-Control': 'private, no-store' };
@@ -30,7 +32,11 @@ export async function GET() {
   try {
     if (!instagramEnabled()) return off();
     const ctx = await requireRole('viewer');
-    return NextResponse.json({ settings: await loadConsentSettings(tenantOf(ctx)), built_in: builtIn }, { headers });
+    return NextResponse.json({
+      settings: await loadConsentSettings(tenantOf(ctx)),
+      built_in: builtIn,
+      features: { scheduled_automations: instagramScheduledAutomationsEnabled() },
+    }, { headers });
   } catch (error) {
     return toErrorResponse(error);
   }

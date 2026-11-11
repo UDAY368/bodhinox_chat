@@ -5,8 +5,10 @@ import { getT } from '@/lib/i18n/translate';
 import {
   AUTOMATION_STEPS_BY_CHANNEL,
   AUTOMATION_TRIGGERS_BY_CHANNEL,
+  automationTriggerAvailableOn,
   isChannel,
 } from '@/lib/channels/capabilities';
+import { instagramScheduledAutomationsEnabled } from '@/lib/instagram/config';
 import { quickRepliesFit } from '@/lib/instagram/graph-limits';
 import {
   parseScheduledAudience,
@@ -389,10 +391,15 @@ const unavailable = (path: string, channel: Channel): ValidationIssue => ({
 const KNOWN_TRIGGERS: ReadonlySet<string> = new Set(AUTOMATION_TRIGGERS_BY_CHANNEL.whatsapp);
 const KNOWN_STEPS: ReadonlySet<string> = new Set(AUTOMATION_STEPS_BY_CHANNEL.whatsapp);
 
-/** The trigger is a known type the channel does not offer. */
-export function triggerPaletteIssues(triggerType: string, channel: Channel): ValidationIssue[] {
+/**
+ * The trigger is a known type the channel does not offer. Stage 5: a schedule
+ * (`time_based`) on Instagram is offered only while
+ * INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED is on (read on the server).
+ */
+export function triggerPaletteIssues(triggerType: string, channel: Channel,
+  instagramScheduled: boolean = instagramScheduledAutomationsEnabled()): ValidationIssue[] {
   if (!KNOWN_TRIGGERS.has(triggerType)) return [];
-  return AUTOMATION_TRIGGERS_BY_CHANNEL[channel].includes(triggerType as AutomationTriggerType)
+  return automationTriggerAvailableOn(triggerType as AutomationTriggerType, channel, { instagramScheduled })
     ? []
     : [unavailable('trigger.type', channel)];
 }

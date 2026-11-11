@@ -10,8 +10,12 @@ const h = vi.hoisted(() => ({
   calls: [] as string[],
   flow: vi.fn(), resume: vi.fn(), automations: vi.fn(), ai: vi.fn(), mediaSkip: vi.fn(), lifecycle: vi.fn(), away: vi.fn(), webhook: vi.fn(),
   stages: new Map<string, unknown>(),
-  contact: { blocked_at: null as string | null },
+  contact: { blocked_at: null as string | null, instagram_opted_out_at: null as string | null },
   consent: [] as Record<string, unknown>[],
+  igConsent: vi.fn(),
+  flowSend: vi.fn(),
+  startFlow: vi.fn(),
+  settings: null as null | Record<string, unknown>,
 }));
 vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const b: Record<string, unknown> = {};
@@ -23,10 +27,18 @@ vi.mock('@/lib/data/admin', () => ({ createAdminClient: () => ({ from: (table: s
   });
   return b;
 } }) }));
+// Stage 5: Instagram consent is per channel (src/lib/contacts/channel-consent.ts; SQL in
+// channel-consent.integration.test.ts). The workspace has no own keywords here.
+vi.mock('@/lib/contacts/channel-consent', async (original) => {
+  const actual = await original<typeof import('@/lib/contacts/channel-consent')>();
+  return { ...actual, applyInstagramConsent: h.igConsent,
+    workerConsentSettings: async () => ({ ...actual.DEFAULT_CONSENT_SETTINGS, ...(h.settings ?? {}) }) };
+});
+vi.mock('@/lib/flows/channel-send', () => ({ flowSend: h.flowSend }));
 vi.mock('@/lib/jobs/scope', () => ({ withJobScope: (_scope: unknown, action: () => unknown) => action() }));
 vi.mock('./quick-reply-actions', () => ({ dispatchQuickReplyAction: vi.fn() }));
 vi.mock('@/lib/automations/engine', () => ({ resumeAwaitingReply: h.resume, runAutomationsForTrigger: h.automations }));
-vi.mock('@/lib/flows/engine', () => ({ dispatchInboundToFlows: h.flow }));
+vi.mock('@/lib/flows/engine', () => ({ dispatchInboundToFlows: h.flow, startFlowById: h.startFlow }));
 vi.mock('@/lib/ai/auto-reply', () => ({ dispatchInboundToAiReply: h.ai, recordUnreadableInbound: h.mediaSkip }));
 vi.mock('@/lib/webhooks/deliver', () => ({ dispatchWebhookEvent: h.webhook }));
 vi.mock('@/lib/inbox/lifecycle', () => ({ applyInboundLifecycle: h.lifecycle }));
@@ -53,7 +65,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.calls = [];
   h.stages.clear();
-  h.contact = { blocked_at: null };
+  h.contact = { blocked_at: null, instagram_opted_out_at: null };
+  h.settings = null;
+  h.flowSend.mockResolvedValue({ whatsapp_message_id: 'mid.out' });
+  h.startFlow.mockResolvedValue({ outcome: 'started' });
   h.consent = [];
   h.flow.mockResolvedValue({ consumed: false });
   h.resume.mockResolvedValue(false);
@@ -124,9 +139,11 @@ describe('Instagram inbound pipeline', () => {
 
   it('gives STOP and a blocked contact no automated response but still emits message.received', async () => {
     await processInboundActions(message({ contentText: 'STOP' }));
-    expect(h.consent).toEqual(expect.arrayContaining([expect.objectContaining({ opt_out_source: 'keyword' })]));
+    // Stage 5: an Instagram STOP unsubscribes from Instagram only; the contact-wide opt-out is untouched.
+    expect(h.igConsent).toHaveBeenCalledWith(ID, ID, 'opted_out');
+    expect(h.consent).toEqual([]);
     h.stages.clear();
-    h.contact = { blocked_at: '2026-11-01T00:00:00Z' };
+    h.contact = { blocked_at: '2026-11-01T00:00:00Z', instagram_opted_out_at: null };
     await processInboundActions(message({ contentText: 'hello' }));
     for (const fn of [h.flow, h.automations, h.ai, h.lifecycle, h.away]) expect(fn).not.toHaveBeenCalled();
     expect(h.webhook.mock.calls.filter((call) => call[2] === 'message.received')).toHaveLength(2);
@@ -145,5 +162,44 @@ describe('Instagram inbound pipeline', () => {
     await processInboundActions(message({ contactId: '00000000-0000-4000-8000-000000000009' }));
     expect(JSON.stringify(spies.flatMap((spy) => spy.mock.calls))).not.toContain('4111');
     for (const spy of spies) spy.mockRestore();
+  });
+
+  // Stage 5 (5D): per-channel Instagram consent.
+  it('gives a contact unsubscribed on Instagram no flow, automation, AI or away reply, but still routes it to the team', async () => {
+    h.contact = { blocked_at: null, instagram_opted_out_at: '2026-11-10T00:00:00Z' };
+    await processInboundActions(message({ contentText: 'hello again' }));
+    for (const fn of [h.flow, h.automations, h.ai, h.away]) expect(fn).not.toHaveBeenCalled();
+    expect(h.lifecycle).toHaveBeenCalledTimes(1);
+    expect(h.webhook.mock.calls.filter((call) => call[2] === 'message.received')).toHaveLength(1);
+  });
+
+  it('lets START through for an unsubscribed contact (the gate sits after the keyword check)', async () => {
+    h.contact = { blocked_at: null, instagram_opted_out_at: '2026-11-10T00:00:00Z' };
+    await processInboundActions(message({ contentText: 'START' }));
+    expect(h.igConsent).toHaveBeenCalledWith(ID, ID, 'opted_in');
+    expect(h.flow).not.toHaveBeenCalled();
+  });
+
+  it("reads the workspace's own words, confirms once inside the window and runs the attached flow once, even on redelivery", async () => {
+    const FLOW = '00000000-0000-4000-8000-0000000000f1';
+    h.settings = { opt_out_keywords: ['basta'], opt_out_reply: 'You will not get automated messages here.', opt_out_flow_id: FLOW };
+    await processInboundActions(message({ contentText: ' Basta ' }));
+    await processInboundActions(message({ contentText: ' Basta ' }));
+    expect(h.igConsent).toHaveBeenCalledWith(ID, ID, 'opted_out');
+    expect(h.flowSend).toHaveBeenCalledTimes(1);
+    expect(h.flowSend).toHaveBeenCalledWith({ account_id: ID, conversation_id: ID }, `consent:${ID}:opt_out`,
+      { kind: 'text', args: expect.objectContaining({ conversationId: ID, contactId: ID, text: 'You will not get automated messages here.' }) });
+    expect(h.startFlow).toHaveBeenCalledTimes(1);
+    expect(h.startFlow).toHaveBeenCalledWith(expect.objectContaining({ accountId: ID, flowId: FLOW, contactId: ID, conversationId: ID }));
+    for (const fn of [h.flow, h.automations, h.ai]) expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('records the keyword and skips the confirmation when Instagram refuses it (window closed)', async () => {
+    const { InstagramError } = await import('@/lib/instagram/errors');
+    h.settings = { opt_in_reply: 'Welcome back.' };
+    h.flowSend.mockRejectedValueOnce(new InstagramError('instagram_window_closed'));
+    await expect(processInboundActions(message({ contentText: 'start' }))).resolves.not.toThrow();
+    expect(h.igConsent).toHaveBeenCalledWith(ID, ID, 'opted_in');
+    expect(h.stages.get('consent_reply:opt_in')).toBe('skipped');
   });
 });

@@ -6,7 +6,7 @@ import { flowSend } from "@/lib/flows/channel-send";
 import type { ParsedInbound } from "@/lib/flows/types";
 import { InstagramError } from "@/lib/instagram/errors";
 import { applyInstagramConsent, customKeywords, workerConsentSettings, type InstagramConsentSettings } from "@/lib/contacts/channel-consent";
-import { clearExpiredPause } from "@/lib/inbox/automation-pause";
+import { clearExpiredPause, pauseActive } from "@/lib/inbox/automation-pause";
 import { dispatchInboundToAiReply, recordUnreadableInbound } from "@/lib/ai/auto-reply";
 import { dispatchWebhookEvent } from "@/lib/webhooks/deliver";
 import { dispatchQuickReplyAction } from "./quick-reply-actions";
@@ -73,8 +73,9 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     // The channel comes from the stored conversation, never from the job payload.
     const stored=await storedConversation(db,input);
     // Stage 5: a timed pause that has run out is cleared before anything reads
-    // bot_paused, so this message reaches flows and automations again. Local and idempotent.
-    await clearExpiredPause(input.accountId,input.conversationId);
+    // bot_paused, so this message reaches flows and automations again. Idempotent;
+    // a conversation that is not paused, or paused until resumed, writes nothing.
+    if(stored.pauseExpired) await clearExpiredPause(input.accountId,input.conversationId);
     if(stored.channel==="instagram") {
       // A link/unlink can move the conversation to another contact after this job
       // was queued: act for the contact that owns the conversation now, never the
@@ -161,12 +162,13 @@ type Db=ReturnType<typeof createAdminClient>;
  * Instagram conversation (Phase 11) takes the Instagram path; every other row
  * keeps the WhatsApp path.
  */
-async function storedConversation(db:Db,input:MessageInput): Promise<{channel:"instagram"|"whatsapp";contactId:string|null}> {
-  const {data,error}=await db.from("conversations").select("channel,contact_id")
+async function storedConversation(db:Db,input:MessageInput): Promise<{channel:"instagram"|"whatsapp";contactId:string|null;pauseExpired:boolean}> {
+  const {data,error}=await db.from("conversations").select("channel,contact_id,bot_paused,bot_paused_until")
     .eq("account_id",input.accountId).eq("id",input.conversationId).maybeSingle();
   if(error) throw new Error("Conversation channel lookup failed");
-  const row=data as {channel?:string|null;contact_id?:string|null}|null;
-  return {channel:row?.channel==="instagram" ? "instagram" : "whatsapp",contactId:row?.contact_id??null};
+  const row=data as {channel?:string|null;contact_id?:string|null;bot_paused?:boolean|null;bot_paused_until?:string|null}|null;
+  return {channel:row?.channel==="instagram" ? "instagram" : "whatsapp",contactId:row?.contact_id??null,
+    pauseExpired:Boolean(row?.bot_paused)&&!pauseActive(row)};
 }
 
 /**

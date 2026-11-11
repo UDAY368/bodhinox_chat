@@ -59,7 +59,7 @@ export function AutomationPauseCard({ canEdit }: { canEdit: boolean }) {
     const preset = (PAUSE_MINUTES_CHOICES as readonly (number | null)[]).includes(value);
     return t('after', { duration: preset ? tChoice(String(value)) : `${value} min` });
   };
-  const options: (number | null)[] = [null, ...PAUSE_MINUTES_CHOICES.filter((m): m is number => m !== null)];
+  const options: (number | null)[] = [null, ...(PAUSE_MINUTES_CHOICES as readonly (number | null)[]).filter((m) => m !== null)];
   if (minutes !== null && !options.includes(minutes)) options.push(minutes);
 
   const save = async () => {

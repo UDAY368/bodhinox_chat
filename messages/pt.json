@@ -849,7 +849,8 @@
         "forever": "Até eu retomar"
       },
       "allConversations": "Todas as conversas deste contato",
-      "failed": "Não foi possível alterar a pausa. Tente novamente."
+      "failed": "Não foi possível alterar a pausa. Tente novamente.",
+      "paused": "Automações pausadas"
     },
     "labels": {
       "title": "Etiquetas",
@@ -7502,7 +7503,8 @@
       "label": "Retomar automações",
       "never": "Só quando alguém retomar",
       "after": "Após {duration}",
-      "save": "Salvar"
+      "save": "Salvar",
+      "saved": "Salvo"
     },
     "assignment": {
       "title": "Atribuição automática",
@@ -12701,7 +12703,12 @@
       "noFlow": "Nenhuma",
       "save": "Salvar",
       "saved": "Salvo",
-      "invalid": "Verifique as palavras: de 1 a 50 caracteres cada, até 20."
+      "invalid": "Verifique as palavras: de 1 a 50 caracteres cada, até 20.",
+      "adminOnly": "Somente administradores do espaço de trabalho podem alterar estas configurações.",
+      "unsubscribedNote": "Enquanto alguém estiver descadastrado, fluxos, automações, a resposta padrão e a IA não enviam mensagens a essa pessoa no Instagram. Sua equipe ainda pode responder manualmente.",
+      "loadFailed": "Não foi possível carregar estas configurações.",
+      "retry": "Tentar novamente",
+      "loading": "Carregando"
     }
   }
 }

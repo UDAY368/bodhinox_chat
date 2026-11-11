@@ -34,7 +34,25 @@ type ScheduledAutomation = {
   id: string;
   user_id?: string;
   trigger_config: Record<string, unknown>;
+  /** The automation's channel when the caller read it; otherwise it is looked up. */
+  channel?: string | null;
 };
+
+/** Whether a schedule belongs to the Instagram section (Stage 5); anything else is WhatsApp, as before. */
+async function scheduleOnInstagram(db: DataClient, automation: ScheduledAutomation): Promise<boolean> {
+  if (automation.channel !== undefined) return automation.channel === 'instagram';
+  const { data, error } = await db.from('automations').select('channel').eq('id', automation.id).maybeSingle();
+  if (error) throw new Error('Could not load scheduled automation channel');
+  return (data as { channel?: string | null } | null)?.channel === 'instagram';
+}
+
+/**
+ * Stage 5: an Instagram schedule reaches only contacts with an Instagram
+ * conversation who have not unsubscribed on Instagram (the engine re-checks
+ * both, and the 24-hour window before every send).
+ */
+const instagramRecipients = (accountId: string) => Prisma.sql`c.instagram_opted_out_at IS NULL
+  AND EXISTS(SELECT 1 FROM conversations v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.channel='instagram')`;
 /**
  * A scheduled occurrence that cannot run as configured (too many recipients,
  * a foreign or deleted reference, no recipients chosen). Retrying the same
@@ -238,6 +256,9 @@ export async function queueScheduledOccurrence(
   assertLease: () => void
 ) {
   const config = automation.trigger_config ?? {};
+  // Stage 5: a schedule on Instagram runs only while INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED is on.
+  const instagram = await scheduleOnInstagram(db, automation);
+  if (instagram && !instagramScheduledAutomationsEnabled()) return;
   if (config.audience === undefined) {
     if (scheduleNeedsContact(await loadSteps(db, automation.id)))
       throw new ScheduledAudienceError(
@@ -273,7 +294,9 @@ export async function queueScheduledOccurrence(
     }
   } else {
     await requireAudienceReferences(db, audience);
-    contacts = await pagedRecipients(accountId, audienceCondition(accountId, audience),
+    const condition = audienceCondition(accountId, audience);
+    contacts = await pagedRecipients(accountId,
+      instagram ? Prisma.sql`${condition} AND ${instagramRecipients(accountId)}` : condition,
       oncePerContact ? { onlyNewFor: automation.id } : {});
   }
   if (stepsSendMessages(await loadSteps(db, automation.id))) {
