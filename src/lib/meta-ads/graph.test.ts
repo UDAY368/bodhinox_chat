@@ -113,6 +113,22 @@ describe('graph client requests', () => {
   });
 });
 
+describe('Instagram CAPI payload (Stage 4C)', () => {
+  it('keys an Instagram event by the account and the person, with no WhatsApp fields', () => {
+    const event = capiEvent({ eventName: 'QualifiedLead', eventTime: new Date('2026-11-03T10:00:00Z'), eventId: 'flow:r:n:QualifiedLead',
+      instagram: { accountId: '17841400000000000', igsid: '990011' }, value: 10, currency: 'USD' });
+    expect(event).toEqual({
+      event_name: 'QualifiedLead', event_time: 1793700000, event_id: 'flow:r:n:QualifiedLead', action_source: 'business_messaging',
+      messaging_channel: 'instagram', user_data: { ig_account_id: '17841400000000000', ig_sid: '990011' }, custom_data: { value: 10, currency: 'USD' },
+    });
+  });
+
+  it('refuses an id that is not a Meta numeric id', () => {
+    expect(() => capiEvent({ eventName: 'LeadSubmitted', eventTime: new Date(), eventId: 'e', instagram: { accountId: '1', igsid: 'x/../y' } }))
+      .toThrow(MetaGraphInputError);
+  });
+});
+
 describe('graph client errors', () => {
   it('throws a MetaApiError with code, subcode and trace but without Meta\'s message', async () => {
     fetchMock.mockResolvedValueOnce(json({ error: { message: `Invalid token ${TOKEN} for user +919999999999`, code: 190, error_subcode: 463, fbtrace_id: 'TRACE', error_data: { details: 'secret details' } } }, 400));
