@@ -17,7 +17,9 @@ import {
   requireWithinLimit,
 } from '@/lib/billing/entitlements';
 import { requireCampaignSendRoom } from '@/lib/billing/limits';
-import { runAutomationsForTrigger } from '@/lib/automations/engine';
+import { runAutomationsForTrigger, runContactEventAutomation } from '@/lib/automations/engine';
+import { CONTACT_EVENT_SLOT } from '@/lib/contacts/tag-write';
+import { instagramScheduledAutomationsEnabled } from '@/lib/instagram/config';
 import { dispatchOnce } from './dispatch';
 import { enqueueJob } from './queue';
 import { pickContactConversationId } from '@/lib/whatsapp/contact-conversation';
@@ -32,7 +34,25 @@ type ScheduledAutomation = {
   id: string;
   user_id?: string;
   trigger_config: Record<string, unknown>;
+  /** The automation's channel when the caller read it; otherwise it is looked up. */
+  channel?: string | null;
 };
+
+/** Whether a schedule belongs to the Instagram section (Stage 5); anything else is WhatsApp, as before. */
+async function scheduleOnInstagram(db: DataClient, automation: ScheduledAutomation): Promise<boolean> {
+  if (automation.channel !== undefined) return automation.channel === 'instagram';
+  const { data, error } = await db.from('automations').select('channel').eq('id', automation.id).maybeSingle();
+  if (error) throw new Error('Could not load scheduled automation channel');
+  return (data as { channel?: string | null } | null)?.channel === 'instagram';
+}
+
+/**
+ * Stage 5: an Instagram schedule reaches only contacts with an Instagram
+ * conversation who have not unsubscribed on Instagram (the engine re-checks
+ * both, and the 24-hour window before every send).
+ */
+const instagramRecipients = (accountId: string) => Prisma.sql`c.instagram_opted_out_at IS NULL
+  AND EXISTS(SELECT 1 FROM conversations v WHERE v.account_id=${accountId}::uuid AND v.contact_id=c.id AND v.channel='instagram')`;
 /**
  * A scheduled occurrence that cannot run as configured (too many recipients,
  * a foreign or deleted reference, no recipients chosen). Retrying the same
@@ -83,7 +103,7 @@ async function requireAudienceReferences(
  * The members are read in pages like every scheduled audience (pagedRecipients).
  */
 export async function segmentRecipients(accountId: string, segmentId: string,
-  options: { onlyNewFor?: string } = {}): Promise<Pick<Contact, 'id'>[]> {
+  options: { onlyNewFor?: string; where?: Prisma.Sql } = {}): Promise<Pick<Contact, 'id'>[]> {
   const condition = await withTenant({ accountId }, async (tx) => {
     try {
       const filter = await loadSegmentFilter(tx, accountId, segmentId, { lock: true });
@@ -94,7 +114,7 @@ export async function segmentRecipients(accountId: string, segmentId: string,
       throw new ScheduledAudienceError('Scheduled recipient segment must belong to this workspace and be active');
     }
   }, getWorkerPrisma());
-  return pagedRecipients(accountId, condition, options);
+  return pagedRecipients(accountId, options.where ? Prisma.sql`${condition} AND ${options.where}` : condition, options);
 }
 
 const tagged = (accountId: string, tagIds: readonly string[]) =>
@@ -236,6 +256,9 @@ export async function queueScheduledOccurrence(
   assertLease: () => void
 ) {
   const config = automation.trigger_config ?? {};
+  // Stage 5: a schedule on Instagram runs only while INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED is on.
+  const instagram = await scheduleOnInstagram(db, automation);
+  if (instagram && !instagramScheduledAutomationsEnabled()) return;
   if (config.audience === undefined) {
     if (scheduleNeedsContact(await loadSteps(db, automation.id)))
       throw new ScheduledAudienceError(
@@ -262,7 +285,11 @@ export async function queueScheduledOccurrence(
   let contacts: Pick<Contact, 'id'>[];
   if (audience.type === 'segment') {
     try {
-      contacts = await segmentRecipients(accountId, audience.segmentId!, oncePerContact ? { onlyNewFor: automation.id } : {});
+      contacts = await segmentRecipients(accountId, audience.segmentId!, {
+        ...(oncePerContact ? { onlyNewFor: automation.id } : {}),
+        // Stage 5: an Instagram schedule's segment is narrowed like the other audiences.
+        ...(instagram ? { where: instagramRecipients(accountId) } : {}),
+      });
     } catch (error) {
       // A retargeting segment after a downgrade: turn the schedule off once, not fail every slot.
       if (!(error instanceof PlanLimitError)) throw error;
@@ -271,7 +298,9 @@ export async function queueScheduledOccurrence(
     }
   } else {
     await requireAudienceReferences(db, audience);
-    contacts = await pagedRecipients(accountId, audienceCondition(accountId, audience),
+    const condition = audienceCondition(accountId, audience);
+    contacts = await pagedRecipients(accountId,
+      instagram ? Prisma.sql`${condition} AND ${instagramRecipients(accountId)}` : condition,
       oncePerContact ? { onlyNewFor: automation.id } : {});
   }
   if (stepsSendMessages(await loadSteps(db, automation.id))) {
@@ -316,6 +345,31 @@ async function findContactConversationId(db: DataClient, accountId: string, cont
   }
 }
 
+/**
+ * One Instagram schedule occurrence (Stage 5). Instagram has no business-
+ * initiated messages, so it never creates a conversation: the run uses the
+ * contact's latest Instagram conversation (the engine resolves it), and each
+ * customer send re-checks the 24-hour window, ending the run as window_closed
+ * when it has closed. A contact unsubscribed on Instagram is skipped by the
+ * engine. Fenced like the WhatsApp occurrences: one run per slot and contact.
+ */
+async function runInstagramOccurrence(accountId: string, automationId: string, key: string, slot: string,
+  contactId: string | undefined, assertLease: () => void) {
+  assertLease();
+  await dispatchOnce(accountId, key, async () => {
+    assertLease();
+    await runAutomationsForTrigger({
+      accountId,
+      channel: 'instagram',
+      automationId,
+      triggerType: 'time_based',
+      contactId,
+      context: { vars: { scheduled_at: slot } },
+    });
+    return { completed: true };
+  });
+}
+
 /** Entire executions are fenced too: retry cannot mint a fresh log and resend completed steps. */
 export async function executeScheduledOccurrence(
   db: DataClient,
@@ -325,11 +379,20 @@ export async function executeScheduledOccurrence(
   contactId: string | undefined,
   assertLease: () => void
 ) {
+  // Stage 5: a contact event (tag_removed, field_changed) rides the same job
+  // type with the slot `event:<event id>` (src/lib/contacts/tag-write.ts).
+  const contactEvent = CONTACT_EVENT_SLOT.exec(slot);
+  if (contactEvent) {
+    if (!contactId) throw new Error('Invalid contact event occurrence');
+    assertLease();
+    await runContactEventAutomation({ accountId, automationId, contactId, eventId: contactEvent[1].toLowerCase() });
+    return;
+  }
   if (!Number.isFinite(Date.parse(slot)))
     throw new Error('Invalid scheduled occurrence');
   const { data: automation, error } = await db
     .from('automations')
-    .select('id,user_id,is_active,trigger_type,trigger_config')
+    .select('id,user_id,is_active,trigger_type,trigger_config,channel')
     .eq('id', automationId)
     .maybeSingle();
   if (error) throw new Error('Could not load scheduled automation');
@@ -339,10 +402,23 @@ export async function executeScheduledOccurrence(
     automation.trigger_type !== 'time_based'
   )
     return;
+  // Stage 5: a schedule on Instagram runs only while
+  // INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED is on; each of its customer sends
+  // re-checks the 24-hour window in the engine and a closed window is skipped
+  // and logged window_closed. Nothing is sent outside it.
+  const instagram = (automation as { channel?: string | null }).channel === 'instagram';
+  if (instagram && !instagramScheduledAutomationsEnabled()) return;
   // once_per_contact: an earlier occurrence may have run for this contact since this one was queued.
-  if (contactId && (automation.trigger_config as Record<string, unknown> | null)?.once_per_contact === true &&
-    (await contactsAlreadyRun(accountId, automationId, [contactId])).size)
+  const oncePerContactRun = contactId !== undefined
+    && (automation.trigger_config as Record<string, unknown> | null)?.once_per_contact === true;
+  if (oncePerContactRun && (await contactsAlreadyRun(accountId, automationId, [contactId!])).size)
     return;
+  if (instagram) {
+    await runInstagramOccurrence(accountId, automationId,
+      oncePerContactRun ? `scheduled-once:${automationId}:${contactId}` : `scheduled:${automationId}:${slot}:${contactId ?? 'account'}`,
+      slot, contactId, assertLease);
+    return;
+  }
   const steps = await loadSteps(db, automationId);
   if (!contactId && scheduleNeedsContact(steps))
     throw new Error('Scheduled contact actions require explicit recipients');

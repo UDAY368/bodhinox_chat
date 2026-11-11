@@ -58,6 +58,7 @@ import {
 } from '@/types';
 
 import { SCHEDULED_REPLIES_JOB } from './follow-up-jobs';
+import { pauseForAgentReply } from './automation-pause';
 export { SCHEDULED_REPLIES_JOB };
 export const SCHEDULED_REPLY_WRITE_LIMIT = { limit: 30, windowMs: 60_000 };
 /** A claimed reply whose worker vanished is taken again after this long (the intent still prevents a second send). */
@@ -406,8 +407,8 @@ async function claimNext(accountId: string, now: Date): Promise<Claim> {
     await tx.$executeRaw`UPDATE scheduled_replies SET status='sending', claimed_at=${now}, attempts=attempts+1, message_id=${messageRowId}::uuid
       WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid AND status IN ('pending','sending')`;
     // The staff member stepping in: automated replies pause before the send, as on the composer.
-    await tx.$executeRaw`UPDATE conversations SET bot_paused=true, updated_at=now()
-      WHERE account_id=${accountId}::uuid AND id=${row.conversation_id}::uuid`;
+    // Stage 5: for the workspace's agent_reply_pause_minutes, or until resumed when unset.
+    await pauseForAgentReply(tx, accountId, row.conversation_id, row.created_by_user_id);
     return {
       kind: 'send',
       claimed: {

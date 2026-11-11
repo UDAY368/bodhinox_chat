@@ -1,12 +1,14 @@
 import { isValidTimeWindow, isValidTimeZone } from './time-of-day';
-import { STAGE5_AUTOMATION_TRIGGERS, type AutomationStepType, type AutomationTriggerType, type Channel } from '@/types';
+import type { AutomationStepType, AutomationTriggerType, Channel } from '@/types';
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
 import { getT } from '@/lib/i18n/translate';
 import {
   AUTOMATION_STEPS_BY_CHANNEL,
   AUTOMATION_TRIGGERS_BY_CHANNEL,
+  automationTriggerAvailableOn,
   isChannel,
 } from '@/lib/channels/capabilities';
+import { instagramScheduledAutomationsEnabled } from '@/lib/instagram/config';
 import { quickRepliesFit } from '@/lib/instagram/graph-limits';
 import {
   parseScheduledAudience,
@@ -16,7 +18,21 @@ import {
 } from './scheduled-contract';
 
 const t = getT('Validation.automations');
+const tStartFlow = getT('Automations.steps.startFlow');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
+
+/**
+ * Stage 5: the fields a field_changed trigger can listen to, the ones the
+ * contact field writer emits the event for (src/lib/contacts/field-write.ts):
+ * name, email, company or `custom:<custom field id>`.
+ */
+export const CONTACT_EVENT_FIELDS = ['name', 'email', 'company'] as const;
+export function isContactEventField(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  if ((CONTACT_EVENT_FIELDS as readonly string[]).includes(value)) return true;
+  return value.startsWith('custom:') && isUuid(value.slice('custom:'.length));
+}
 
 // ------------------------------------------------------------
 // Pre-flight config validation for automations about to be activated.
@@ -235,8 +251,12 @@ function validateOne(
       }
       break;
     case 'start_flow':
-      // Stage 5: runs from 5D (5A stub).
-      issues.push({ path, message: t('stage5Pending') });
+      // Stage 5: an active flow of this workspace and channel; the engine
+      // re-checks both when it runs (startFlowById), so a foreign or paused
+      // flow simply does not start.
+      if (!isUuid(c.flow_id)) {
+        issues.push({ path: `${path}.flow_id`, message: tStartFlow('none') });
+      }
       break;
     default:
       issues.push({
@@ -253,8 +273,6 @@ export function validateTriggerForActivation(
   channel: Channel = 'whatsapp'
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [...triggerPaletteIssues(triggerType, channel)];
-  // Stage 5 contact events: stored, not dispatched until 5D (5A stub).
-  if ((STAGE5_AUTOMATION_TRIGGERS as readonly string[]).includes(triggerType)) issues.push({ path: 'trigger.type', message: t('stage5Pending') });
   const cfg = (triggerConfig ?? {}) as Record<string, unknown>;
 
   if (triggerType === 'keyword_match') {
@@ -314,9 +332,14 @@ export function validateTriggerForActivation(
         });
       }
     }
-  } else if (triggerType === 'tag_added') {
+  } else if (triggerType === 'tag_added' || triggerType === 'tag_removed') {
     if (!nonEmpty(cfg.tag_id)) {
       issues.push({ path: 'trigger.tag_id', message: t('tagRequired') });
+    }
+  } else if (triggerType === 'field_changed') {
+    // Stage 5: a field the contact writers emit field_changed for.
+    if (!isContactEventField(cfg.field)) {
+      issues.push({ path: 'trigger.field', message: t('fieldNameRequired') });
     }
   } else if (triggerType === 'interactive_reply') {
     const ids = cfg.reply_ids;
@@ -368,10 +391,15 @@ const unavailable = (path: string, channel: Channel): ValidationIssue => ({
 const KNOWN_TRIGGERS: ReadonlySet<string> = new Set(AUTOMATION_TRIGGERS_BY_CHANNEL.whatsapp);
 const KNOWN_STEPS: ReadonlySet<string> = new Set(AUTOMATION_STEPS_BY_CHANNEL.whatsapp);
 
-/** The trigger is a known type the channel does not offer. */
-export function triggerPaletteIssues(triggerType: string, channel: Channel): ValidationIssue[] {
+/**
+ * The trigger is a known type the channel does not offer. Stage 5: a schedule
+ * (`time_based`) on Instagram is offered only while
+ * INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED is on (read on the server).
+ */
+export function triggerPaletteIssues(triggerType: string, channel: Channel,
+  instagramScheduled: boolean = instagramScheduledAutomationsEnabled()): ValidationIssue[] {
   if (!KNOWN_TRIGGERS.has(triggerType)) return [];
-  return AUTOMATION_TRIGGERS_BY_CHANNEL[channel].includes(triggerType as AutomationTriggerType)
+  return automationTriggerAvailableOn(triggerType as AutomationTriggerType, channel, { instagramScheduled })
     ? []
     : [unavailable('trigger.type', channel)];
 }

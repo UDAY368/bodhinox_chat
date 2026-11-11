@@ -849,7 +849,8 @@
         "forever": "Until I resume"
       },
       "allConversations": "All of this contact's conversations",
-      "failed": "Could not change the pause. Try again."
+      "failed": "Could not change the pause. Try again.",
+      "paused": "Automations paused"
     },
     "labels": {
       "title": "Labels",
@@ -7534,7 +7535,8 @@
       "label": "Resume automations",
       "never": "Only when someone resumes them",
       "after": "After {duration}",
-      "save": "Save"
+      "save": "Save",
+      "saved": "Saved"
     },
     "assignment": {
       "title": "Automatic assignment",
@@ -12733,7 +12735,12 @@
       "noFlow": "None",
       "save": "Save",
       "saved": "Saved",
-      "invalid": "Check the keywords: 1 to 50 characters each, up to 20."
+      "invalid": "Check the keywords: 1 to 50 characters each, up to 20.",
+      "adminOnly": "Only workspace administrators can change these settings.",
+      "unsubscribedNote": "While someone is unsubscribed, flows, automations, the default reply and the AI do not message them on Instagram. Your team can still reply by hand.",
+      "loadFailed": "Could not load these settings.",
+      "retry": "Try again",
+      "loading": "Loading"
     }
   }
 }

@@ -21,11 +21,14 @@ import type {
   CreateDealStepConfig,
   AssignConversationStepConfig,
   Channel,
+  FieldChangedTriggerConfig,
+  StartFlowStepConfig,
 } from '@/types'
 import { databaseAdmin } from './admin-client'
 import { canOwnConversations, nextRoundRobinAgent } from './round-robin'
 import { marketingSuppression } from '@/lib/contacts/consent'
-import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
+import { addContactTagIfAbsent, ContactTagWriteError, removeContactTag } from '@/lib/contacts/tag-write'
+import { INSTAGRAM_OPT_OUT_WHILE_WAITING } from '@/lib/contacts/channel-consent'
 import { writeContactField } from '@/lib/contacts/field-write'
 import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
 import { engineSendText, engineSendTemplate, engineSendInteractive,
@@ -67,8 +70,10 @@ export interface AutomationContext {
   conversation_id?: string
   /** Arbitrary variables accumulated during execution. */
   vars?: Record<string, unknown>
-  /** The tag id that was added, for tag_added trigger. */
+  /** The tag id that was added (tag_added) or removed (tag_removed, Stage 5). */
   tag_id?: string
+  /** Stage 5: the field that changed, for field_changed (`email`, `custom:<id>`, …). */
+  field?: string
   /** Agent the conversation was assigned to, for conversation_assigned. */
   agent_id?: string
   /** Button / list-row id the customer tapped, for interactive_reply. */
@@ -152,7 +157,7 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
     if (input.contactId) {
       const { data: owned, error: ownErr } = await db
         .from('contacts')
-        .select('id,blocked_at')
+        .select('id,blocked_at,instagram_opted_out_at')
         .eq('id', input.contactId)
         .eq('account_id', input.accountId)
         .maybeSingle()
@@ -166,6 +171,8 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
       }
       // A blocked contact gets no automated messages (lib/contacts/consent).
       if (owned.blocked_at) return true
+      // Stage 5: a contact unsubscribed on Instagram gets no Instagram automation (WhatsApp unchanged).
+      if (input.channel === 'instagram' && owned.instagram_opted_out_at) return true
     }
 
     // Same argument for `context.conversation_id` (GHSA-m4fx-g6pr-hrw8).
@@ -241,14 +248,16 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
  * is set; this re-check covers a row already claimed or set before it.
  */
 async function contactStopsResume(db: ReturnType<typeof databaseAdmin>, accountId: string,
-  contactId: string | null): Promise<string | null> {
+  contactId: string | null, channel: Channel = 'whatsapp'): Promise<string | null> {
   if (!contactId) return null
-  const { data, error } = await db.from('contacts').select('blocked_at,opted_out_at')
+  const { data, error } = await db.from('contacts').select('blocked_at,opted_out_at,instagram_opted_out_at')
     .eq('account_id', accountId).eq('id', contactId).maybeSingle()
   if (error) throw new Error('Contact consent lookup failed')
-  const contact = data as { blocked_at?: string | null; opted_out_at?: string | null } | null
+  const contact = data as { blocked_at?: string | null; opted_out_at?: string | null; instagram_opted_out_at?: string | null } | null
   if (contact?.blocked_at) return tErr('contactBlockedWhileWaiting')
   if (contact?.opted_out_at) return tErr('contactOptedOutWhileWaiting')
+  // Stage 5: an Instagram STOP ends parked Instagram runs only.
+  if (channel === 'instagram' && contact?.instagram_opted_out_at) return INSTAGRAM_OPT_OUT_WHILE_WAITING
   return null
 }
 
@@ -293,7 +302,7 @@ export async function resumePendingExecution(pending: {
     return
   }
   // A lookup error throws: the automation.resume job retries the still-running row.
-  const stopped = await contactStopsResume(db, pending.account_id, pending.contact_id)
+  const stopped = await contactStopsResume(db, pending.account_id, pending.contact_id, automationChannel(automation as Automation))
   if (stopped) {
     await markPending(pending.id, 'expired')
     await setLogError(pending.log_id, stopped)
@@ -430,7 +439,7 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
       await setLogError(pending.log_id, tErr('pausedWhileWaitingForReply'))
       return false
     }
-    const stopped = await contactStopsResume(db, input.accountId, pending.contact_id)
+    const stopped = await contactStopsResume(db, input.accountId, pending.contact_id, automationChannel(automation as Automation))
     if (stopped) {
       await markPending(pending.id, 'expired')
       await setLogError(pending.log_id, stopped)
@@ -1096,16 +1105,40 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     }
 
     case 'remove_tag': {
-      // See add_tag: tenant scoping relies on the runAutomationsForTrigger
-      // ownership guard, since contact_tags carries no account_id.
+      // Stage 5: through the one tag writer, which checks the contact and tag
+      // are this account's and queues tag_removed with the removal. The run's
+      // own event id goes with it, so this automation cannot start itself again.
       const cfg = step.step_config as TagStepConfig
       if (!args.contactId || !cfg.tag_id) throw new Error(tErr('needsContactAndTag', { step: 'remove_tag' }))
-      await db
-        .from('contact_tags')
-        .delete()
-        .eq('contact_id', args.contactId)
-        .eq('tag_id', cfg.tag_id)
-      return `tag ${cfg.tag_id} removed`
+      try {
+        const removed = await removeContactTag(db, { accountId: args.automation.account_id, contactId: args.contactId,
+          tagId: cfg.tag_id, eventId: contactEventIdOf(args.context) })
+        return removed ? `tag ${cfg.tag_id} removed` : `tag ${cfg.tag_id} not present`
+      } catch (error) {
+        if (error instanceof ContactTagWriteError && error.status === 404) return `tag ${cfg.tag_id} not found`
+        throw error
+      }
+    }
+
+    case 'start_flow': {
+      // Stage 5: starts an active canvas flow of the automation's channel for the
+      // contact, on its conversation. The step's own id is the start's inbound
+      // id, so a retried step finds the run it started instead of starting another.
+      const cfg = step.step_config as StartFlowStepConfig
+      if (!args.contactId) throw new Error(tErr('needsContact', { step: 'start_flow' }))
+      if (!cfg.flow_id) return 'no flow chosen'
+      const conversationId = await resolveConversationId(args)
+      // Loaded on use: the flow engine imports this module through the tag writer.
+      const { startFlowById } = await import('@/lib/flows/engine')
+      const result = await startFlowById({
+        accountId: args.automation.account_id,
+        flowId: cfg.flow_id,
+        userId: args.automation.user_id,
+        contactId: args.contactId,
+        conversationId,
+        message: { kind: 'text', text: String(args.context.message_text ?? ''), meta_message_id: `automation:${args.logId}:${step.id}` },
+      })
+      return `flow ${cfg.flow_id} ${result.outcome}`
     }
 
     case 'assign_conversation': {
@@ -1136,7 +1169,8 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 
       // Custom fields are encoded as `custom:<custom_field_id>`; anything else
       // is a built-in contact column. Both writes are scoped to the account.
-      if (!(await writeContactField(db, args.automation.account_id, args.contactId, cfg.field, value))) {
+      if (!(await writeContactField(db, args.automation.account_id, args.contactId, cfg.field, value,
+        { eventId: contactEventIdOf(args.context) }))) {
         return `field ${cfg.field} not writable from automations`
       }
       return cfg.field.startsWith('custom:') ? 'custom field updated' : `${cfg.field} updated`
@@ -1490,13 +1524,69 @@ export function triggerMatches(automation: Automation, ctx: AutomationContext | 
     return !Array.isArray(ids) || ids.length === 0 || ids.includes(serviceId)
   }
 
-  if (automation.trigger_type === 'tag_added') {
+  if (automation.trigger_type === 'tag_added' || automation.trigger_type === 'tag_removed') {
     const cfg = automation.trigger_config as TagTriggerConfig
     const tagId = ctx?.tag_id
     return Boolean(tagId && cfg?.tag_id && cfg.tag_id === tagId)
   }
 
+  // Stage 5: the field the automation listens to (as UpdateContactFieldStepConfig.field).
+  if (automation.trigger_type === 'field_changed') {
+    const cfg = automation.trigger_config as FieldChangedTriggerConfig | null
+    const field = ctx?.field
+    return Boolean(field && cfg?.field && cfg.field === field)
+  }
+
   return true
+}
+
+/** The contact event id a run carries (Stage 5 loop guard), if it was started by one. */
+function contactEventIdOf(ctx: AutomationContext): string | undefined {
+  const id = ctx.vars?._contact_event_id
+  return typeof id === 'string' ? id : undefined
+}
+
+/** Stage 5 contact-event triggers, queued by the tag and field writers (src/lib/contacts/tag-write.ts). */
+export const CONTACT_EVENT_TRIGGERS: readonly AutomationTriggerType[] = ['tag_removed', 'field_changed']
+
+/**
+ * Runs one automation for one queued contact event (an automation.trigger job
+ * whose slot is `event:<event id>`). At most one run per automation, contact
+ * and event id: the job is deduplicated on that key, and the run itself goes
+ * through an outbound intent under the same key, so a retried or duplicated
+ * job never runs it twice. The run carries the event id, and the tag and
+ * field writes of its steps pass it on, so an automation cannot re-trigger
+ * itself through its own write. Not active any more, or no longer a contact
+ * event automation: nothing runs.
+ */
+export async function runContactEventAutomation(input: {
+  accountId: string
+  automationId: string
+  contactId: string
+  eventId: string
+}): Promise<void> {
+  const db = databaseAdmin()
+  const { data, error } = await db.from('automations').select('*').eq('account_id', input.accountId)
+    .eq('id', input.automationId).maybeSingle()
+  if (error) throw new Error('Contact event automation lookup failed')
+  const automation = data as Automation | null
+  if (!automation || !automation.is_active || !CONTACT_EVENT_TRIGGERS.includes(automation.trigger_type)) return
+  const cfg = (automation.trigger_config ?? {}) as { tag_id?: unknown; field?: unknown }
+  await dispatchOnce(input.accountId, `contact-event:${input.automationId}:${input.contactId}:${input.eventId}`, async () => {
+    await runAutomationsForTrigger({
+      accountId: input.accountId,
+      channel: automationChannel(automation),
+      automationId: input.automationId,
+      triggerType: automation.trigger_type,
+      contactId: input.contactId,
+      context: {
+        ...(automation.trigger_type === 'tag_removed' && typeof cfg.tag_id === 'string' ? { tag_id: cfg.tag_id } : {}),
+        ...(automation.trigger_type === 'field_changed' && typeof cfg.field === 'string' ? { field: cfg.field } : {}),
+        vars: { _contact_event_id: input.eventId },
+      },
+    })
+    return { completed: true }
+  })
 }
 
 async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): Promise<boolean> {

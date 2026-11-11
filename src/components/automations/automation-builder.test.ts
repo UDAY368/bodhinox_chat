@@ -44,8 +44,13 @@ it('offers each channel only its palette, in menu order', () => {
   expect(triggerOptionsFor('whatsapp')).toContain('time_based');
   expect(triggerOptionsFor('instagram')).toEqual([
     'new_message_received', 'first_inbound_message', 'keyword_match', 'interactive_reply',
-    'new_contact_created', 'conversation_assigned', 'tag_added',
+    'new_contact_created', 'conversation_assigned', 'tag_added', 'tag_removed', 'field_changed',
   ]);
+  expect(triggerOptionsFor('whatsapp')).toEqual(expect.arrayContaining(['tag_removed', 'field_changed']));
+  // Stage 5: a schedule on Instagram only while the server's flag is on.
+  expect(triggerOptionsFor('instagram', undefined, true)).toContain('time_based');
+  expect(addableStepsFor('whatsapp')).toContain('start_flow');
+  expect(addableStepsFor('instagram')).toContain('start_flow');
   // A stored trigger outside the palette still shows as itself.
   expect(triggerOptionsFor('instagram', 'time_based')).toContain('time_based');
 });

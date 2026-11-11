@@ -175,6 +175,12 @@ describe('sendMessageToConversation — enriched interactive persistence', () =>
     expect(sendInteractiveButtons).toHaveBeenLastCalledWith(expect.objectContaining({ media: { type: 'image', url: 'signed:https://cdn.test/image.jpg' }, buttons: payload.buttons }));
     expect(captured.message?.interactive_payload).toEqual(payload);
   });
+
+  it('pauses automated replies for this conversation before the send (Stage 5: the workspace setting decides how long)', async () => {
+    agentPause.calls.length = 0;
+    await sendMessageToConversation(sendPathDb([], {}), 'acct-1', { conversationId: 'cv-1', messageType: 'text', contentText: 'Hi' });
+    expect(agentPause.calls).toEqual([['acct-1', 'cv-1', null]]);
+  });
 });
 
 // Stub only the senders — the module also exports INTERACTIVE_LIMITS,
@@ -187,6 +193,13 @@ vi.mock('@/lib/whatsapp/meta-api', async (importOriginal) => ({
   sendMediaMessage: vi.fn(async () => ({ messageId: 'wamid.media' })),
   sendInteractiveButtons: vi.fn(async () => ({ messageId: 'wamid.btn' })),
   sendInteractiveList: vi.fn(async () => ({ messageId: 'wamid.list' })),
+}));
+
+// Stage 5: the agent-reply pause runs in its own worker transaction (src/lib/inbox/automation-pause.ts).
+const agentPause = vi.hoisted(() => ({ calls: [] as unknown[][] }));
+vi.mock('@/lib/inbox/automation-pause', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/inbox/automation-pause')>()),
+  pauseForAgentReplyNow: vi.fn(async (...args: unknown[]) => { agentPause.calls.push(args); }),
 }));
 
 vi.mock('@/lib/whatsapp/encryption', () => ({

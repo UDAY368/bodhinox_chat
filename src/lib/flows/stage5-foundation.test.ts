@@ -8,7 +8,7 @@ import { validateFlowForActivation } from './validate';
 import { applyEdgeConnection, deriveCanvasEdges, outgoingSlots, unlinkNodeReferences } from './edges';
 import { STAGE5_NODE_TYPES, FLOW_ACTION_TYPES, FLOW_ACTION_GROUPS, CONDITION_SUBJECTS, IG_TEST_USERNAME } from './types';
 import { validateStepsForActivation, validateTriggerForActivation } from '@/lib/automations/validate';
-import { channelConsent, instagramAutomationAllowed } from '@/lib/contacts/channel-consent';
+import { channelConsent } from '@/lib/contacts/channel-consent';
 import { linkClicked, trackedUrl } from './link-tracking';
 import { buyButtonUrl } from './buy-button';
 import { runGoalTurn } from '@/lib/ai/goals';
@@ -44,20 +44,30 @@ describe('Stage 5 publish rules (5B replaced the 5A stub; validate.stage5.test.t
   });
 });
 
-describe('Stage 5 automation stub (5A; 5D replaces it)', () => {
-  it('refuses the new trigger types and the start_flow step on both channels', () => {
+describe('Stage 5 automation contact events and start_flow (5D)', () => {
+  const TAG = '11111111-1111-4111-8111-111111111111';
+  const FLOW = '22222222-2222-4222-8222-222222222222';
+  it('accepts the new trigger types and the start_flow step on both channels when configured', () => {
     for (const channel of ['whatsapp', 'instagram'] as const) {
-      expect(validateTriggerForActivation('tag_removed', { tag_id: 't' }, [], channel))
-        .toEqual(expect.arrayContaining([expect.objectContaining({ path: 'trigger.type' })]));
-      expect(validateTriggerForActivation('field_changed', { field: 'email' }, [], channel))
-        .toEqual(expect.arrayContaining([expect.objectContaining({ path: 'trigger.type' })]));
-      expect(validateStepsForActivation([{ step_type: 'start_flow', step_config: { flow_id: 'f' } }], channel))
-        .toEqual(expect.arrayContaining([expect.objectContaining({ path: 'steps[0]' })]));
+      expect(validateTriggerForActivation('tag_removed', { tag_id: TAG }, [], channel)).toEqual([]);
+      expect(validateTriggerForActivation('field_changed', { field: 'email' }, [], channel)).toEqual([]);
+      expect(validateTriggerForActivation('field_changed', { field: `custom:${TAG}` }, [], channel)).toEqual([]);
+      expect(validateStepsForActivation([{ step_type: 'start_flow', step_config: { flow_id: FLOW } }], channel)).toEqual([]);
     }
   });
 
+  it('refuses them unconfigured', () => {
+    expect(validateTriggerForActivation('tag_removed', {}, [], 'whatsapp'))
+      .toEqual(expect.arrayContaining([expect.objectContaining({ path: 'trigger.tag_id' })]));
+    for (const field of [undefined, 'phone', 'custom:', 'custom:not-a-uuid'])
+      expect(validateTriggerForActivation('field_changed', { field }, [], 'instagram'), String(field))
+        .toEqual(expect.arrayContaining([expect.objectContaining({ path: 'trigger.field' })]));
+    expect(validateStepsForActivation([{ step_type: 'start_flow', step_config: { flow_id: 'f' } }], 'whatsapp'))
+      .toEqual(expect.arrayContaining([expect.objectContaining({ path: 'steps[0].flow_id' })]));
+  });
+
   it('leaves the existing triggers alone', () => {
-    expect(validateTriggerForActivation('tag_added', { tag_id: '11111111-1111-4111-8111-111111111111' }, [], 'whatsapp')).toEqual([]);
+    expect(validateTriggerForActivation('tag_added', { tag_id: TAG }, [], 'whatsapp')).toEqual([]);
   });
 });
 
@@ -130,7 +140,6 @@ describe('Stage 5 contract modules are safe no-ops until their batch lands', () 
   it('keeps behaviour as before Stage 5', async () => {
     expect(await trackedUrl(run, 'n', 'button:0', 'https://example.test/x')).toBe('https://example.test/x');
     expect(await linkClicked('a', 'r', 'n')).toBe(false);
-    expect(await instagramAutomationAllowed('a', 'c')).toBe(true);
     expect(await buyButtonUrl(run, 'n', 'card:0:button:0', { type: 'buy', title: 'Buy', amount_minor: 100, currency: 'INR' })).toBeNull();
     expect(await runGoalTurn(run, node, null)).toEqual({ outcome: 'unavailable' });
     expect(await intentMatches('a', 'm', 'how much?', [{ flowId: 'f', intent: 'price' }])).toBeNull();

@@ -15,6 +15,12 @@ vi.mock('@/lib/whatsapp/meta-api', async (importOriginal) => ({
     return { messageId: 'wamid.1' };
   }),
 }));
+// Stage 5: the agent-reply pause runs in its own worker transaction (src/lib/inbox/automation-pause.ts).
+vi.mock('@/lib/inbox/automation-pause', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/inbox/automation-pause')>()),
+  pauseForAgentReplyNow: vi.fn(async () => {}),
+}));
+
 vi.mock('@/lib/whatsapp/encryption', () => ({
   decrypt: (v: string) => v,
   encrypt: (v: string) => v,

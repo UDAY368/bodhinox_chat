@@ -224,6 +224,40 @@ vi.mock("@/lib/db/prisma", async (original) => ({
   getWorkerPrisma: () => ({}),
 }));
 
+// Stage 5: the real writer runs its own tenant transaction (and queues field_changed with
+// the write; covered by src/lib/contacts/contact-events.integration.test.ts). Here a
+// fake writes through the engine's admin client, so these tests keep observing what the
+// engine asked for: which account, contact, field and value, and the run's event id.
+const fieldWrites = vi.hoisted(() => ({ calls: [] as { accountId: string; contactId: string; field: string; eventId?: string }[] }));
+vi.mock("@/lib/contacts/field-write", async (original) => ({
+  ...(await original<typeof import("@/lib/contacts/field-write")>()),
+  writeContactField: async (db: import("@/lib/data/types").DataClient, accountId: string, contactId: string, field: string,
+    value: string, options: { eventId?: string } = {}) => {
+    fieldWrites.calls.push({ accountId, contactId, field, eventId: options.eventId });
+    if (field.startsWith("custom:")) {
+      const id = field.slice("custom:".length);
+      const { data } = await db.from("custom_fields").select("id").eq("id", id).eq("account_id", accountId).maybeSingle();
+      if (!data) return false;
+      await db.from("contact_custom_values").upsert({ contact_id: contactId, custom_field_id: id, value }, { onConflict: "contact_id,custom_field_id" });
+      return true;
+    }
+    if (!["name", "email", "company"].includes(field)) return false;
+    await db.from("contacts").update({ [field]: value, updated_at: new Date().toISOString() }).eq("id", contactId).eq("account_id", accountId);
+    return true;
+  },
+}));
+
+// Stage 5: remove_tag goes through the one tag writer, start_flow through the flow engine.
+const stage5 = vi.hoisted(() => ({
+  removeTag: vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true),
+  startFlow: vi.fn<(...args: unknown[]) => Promise<{ outcome: string }>>(async () => ({ outcome: "started" })),
+}));
+vi.mock("@/lib/contacts/tag-write", async (original) => ({
+  ...(await original<typeof import("@/lib/contacts/tag-write")>()),
+  removeContactTag: stage5.removeTag,
+}));
+vi.mock("@/lib/flows/engine", () => ({ startFlowById: stage5.startFlow }));
+
 vi.mock("./meta-send", () => ({
   engineSendText: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
@@ -236,6 +270,7 @@ import {
   resumeAwaitingReply,
   runAutomationsForTrigger,
   runAutomationById,
+  runContactEventAutomation,
   triggerMatches,
 } from "./engine";
 import { engineSendInteractive, engineSendTemplate, engineSendText } from "./meta-send";
@@ -1673,5 +1708,89 @@ describe("channels (Stage 1)", () => {
     expect(status("old-wa")).toBe("superseded");
     expect(status("old-ig")).toBe("awaiting_reply");
     expect(h.state.pending.filter((row) => row.status === "awaiting_reply").map((row) => row.automation_id)).toEqual(["ig1", "wa1"]);
+  });
+});
+
+describe("Stage 5 contact events, start_flow and Instagram consent (5D)", () => {
+  const EVENT = "99999999-9999-4999-8999-999999999999";
+  const igConv = { id: "ig-conv", account_id: ACCOUNT, contact_id: "c1", channel: "instagram", whatsapp_config_id: null };
+  const waConv = { id: "wa-conv", account_id: ACCOUNT, contact_id: "c1", channel: "whatsapp", whatsapp_config_id: null };
+  const base = { account_id: ACCOUNT, user_id: "u1", name: "ev", is_active: true };
+  const step = (automation_id: string, step_type: string, step_config: Record<string, unknown>) =>
+    ({ id: `s-${automation_id}`, automation_id, step_type, position: 0, parent_step_id: null, step_config });
+
+  beforeEach(() => {
+    h.state.owned = { id: "c1" };
+    h.state.conversations = [waConv, igConv];
+    fieldWrites.calls.length = 0;
+    stage5.removeTag.mockClear();
+    stage5.startFlow.mockClear();
+    windowGate.open.mockResolvedValue(true);
+  });
+
+  it("matches tag_removed on its tag and field_changed on its field only", () => {
+    const tagRemoved = { ...base, id: "a", trigger_type: "tag_removed", trigger_config: { tag_id: "t1" } } as unknown as Automation;
+    const fieldChanged = { ...base, id: "b", trigger_type: "field_changed", trigger_config: { field: "email" } } as unknown as Automation;
+    expect(triggerMatches(tagRemoved, { tag_id: "t1" })).toBe(true);
+    expect(triggerMatches(tagRemoved, { tag_id: "t2" })).toBe(false);
+    expect(triggerMatches(tagRemoved, {})).toBe(false);
+    expect(triggerMatches(fieldChanged, { field: "email" })).toBe(true);
+    expect(triggerMatches(fieldChanged, { field: "name" })).toBe(false);
+    expect(triggerMatches(fieldChanged, {})).toBe(false);
+  });
+
+  it("runs a queued contact event once under its own intent key and passes the event id to its own writes", async () => {
+    h.state.automations = [{ ...base, id: "fc", trigger_type: "field_changed", trigger_config: { field: "email" } }];
+    h.state.steps = [step("fc", "update_contact_field", { field: "email", value: "x@example.invalid" })];
+    await runContactEventAutomation({ accountId: ACCOUNT, automationId: "fc", contactId: "c1", eventId: EVENT });
+    expect(dispatch.once).toHaveBeenCalledWith(ACCOUNT, `contact-event:fc:c1:${EVENT}`, expect.any(Function));
+    // The loop guard: the automation's own write carries the event that started it.
+    expect(fieldWrites.calls).toEqual([{ accountId: ACCOUNT, contactId: "c1", field: "email", eventId: EVENT }]);
+    expect(h.state.logInserts).toHaveLength(1);
+  });
+
+  it("passes the event id on through remove_tag too", async () => {
+    h.state.automations = [{ ...base, id: "tr", trigger_type: "tag_removed", trigger_config: { tag_id: "t1" } }];
+    h.state.steps = [step("tr", "remove_tag", { tag_id: "t1" })];
+    await runContactEventAutomation({ accountId: ACCOUNT, automationId: "tr", contactId: "c1", eventId: EVENT });
+    expect(stage5.removeTag).toHaveBeenCalledWith(expect.anything(), { accountId: ACCOUNT, contactId: "c1", tagId: "t1", eventId: EVENT });
+  });
+
+  it("runs nothing for a paused automation or one that is no longer a contact-event automation", async () => {
+    h.state.automations = [{ ...base, id: "off", trigger_type: "tag_removed", trigger_config: { tag_id: "t1" }, is_active: false },
+      { ...base, id: "other", trigger_type: "new_message_received", trigger_config: {} }];
+    await runContactEventAutomation({ accountId: ACCOUNT, automationId: "off", contactId: "c1", eventId: EVENT });
+    await runContactEventAutomation({ accountId: ACCOUNT, automationId: "other", contactId: "c1", eventId: EVENT });
+    expect(dispatch.once).not.toHaveBeenCalled();
+    expect(h.state.logInserts).toHaveLength(0);
+  });
+
+  it("starts a canvas flow on the contact's conversation of the automation's channel, keyed by the step", async () => {
+    const FLOW = "88888888-8888-4888-8888-888888888888";
+    h.state.automations = [{ ...base, id: "ig-start", trigger_type: "new_message_received", trigger_config: {}, channel: "instagram" }];
+    h.state.steps = [step("ig-start", "start_flow", { flow_id: FLOW })];
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "ig-conv" } });
+    expect(stage5.startFlow).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: ACCOUNT, flowId: FLOW, contactId: "c1", conversationId: "ig-conv",
+      message: expect.objectContaining({ meta_message_id: "automation:log1:s-ig-start" }),
+    }));
+    expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "success" });
+  });
+
+  it("gives a contact unsubscribed on Instagram no Instagram automation, and leaves WhatsApp alone", async () => {
+    h.state.owned = { id: "c1", instagram_opted_out_at: "2026-11-10T09:00:00Z" } as { id: string };
+    h.state.automations = [
+      { ...base, id: "ig", trigger_type: "new_message_received", trigger_config: {}, channel: "instagram" },
+      { ...base, id: "wa", trigger_type: "new_message_received", trigger_config: {} },
+    ];
+    h.state.steps = [step("ig", "send_message", { text: "hi" }), step("wa", "send_message", { text: "hi" })];
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "ig-conv" } });
+    expect(h.state.logInserts).toHaveLength(0);
+    expect(channelSend.flowSend).not.toHaveBeenCalled();
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "wa-conv" } });
+    expect(h.state.logInserts.map((row) => row.automation_id)).toEqual(["wa"]);
   });
 });
