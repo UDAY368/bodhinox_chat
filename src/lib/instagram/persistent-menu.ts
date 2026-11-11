@@ -33,6 +33,13 @@ import { encodePostback } from './postback-payloads';
 
 export const MAX_MENU_ITEMS = INSTAGRAM_LIMITS.persistentMenuItems;
 export const MAX_MENU_TITLE_CHARS = INSTAGRAM_LIMITS.persistentMenuTitleChars;
+/**
+ * The stored menu must stay under the column check (pg_column_size <= 16384,
+ * migration 20261117130200). Twenty links of 2048 characters would not, and the
+ * insert would fail after Meta already has the menu, so a list over this many
+ * bytes of JSON is refused up front.
+ */
+export const MAX_MENU_BYTES = 12000;
 
 export type MenuItem =
   | { type: 'postback'; title: string; flowId: string }
@@ -64,7 +71,7 @@ const clean = (raw: unknown): string => String(raw ?? '').normalize('NFC').trim(
 export function normaliseMenu(input: readonly { type: string; title: string; flowId?: string; url?: string }[]): MenuItem[] {
   if (!Array.isArray(input) || input.length > MAX_MENU_ITEMS) throw new InstagramError('invalid_request');
   const seen = new Set<string>();
-  return input.map((raw) => {
+  const items: MenuItem[] = input.map((raw): MenuItem => {
     const title = clean(raw?.title);
     if (!title || charLength(title) > MAX_MENU_TITLE_CHARS) throw new InstagramError('invalid_request');
     const key = title.toLowerCase();
@@ -82,6 +89,8 @@ export function normaliseMenu(input: readonly { type: string; title: string; flo
     }
     throw new InstagramError('invalid_request');
   });
+  if (Buffer.byteLength(JSON.stringify(toStored(items))) > MAX_MENU_BYTES) throw new InstagramError('invalid_request');
+  return items;
 }
 
 /** The stored jsonb list, read leniently (anything malformed is skipped, never trusted). */

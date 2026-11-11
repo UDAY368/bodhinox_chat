@@ -11829,6 +11829,7 @@
       "duplicate": "Cada item precisa de um título diferente.",
       "needsFlow": "Escolha um fluxo para cada item.",
       "badUrl": "Use um link que comece com https://",
+      "tooLarge": "Os links somam um tamanho grande demais. Encurte alguns links ou remova itens.",
       "adminOnly": "Só administradores podem alterar o menu.",
       "notSynced": "Ainda não publicado.",
       "lastSynced": "Publicado {time}"

@@ -48,6 +48,14 @@ describe('normaliseMenu', () => {
   });
 });
 
+describe('normaliseMenu size', () => {
+  const longUrl = (n: number) => `https://example.com/${'a'.repeat(2048 - 21 - n)}`;
+  it('refuses a list too large for the stored column (20 links of 2048 characters)', () => {
+    expect(codeOf(() => normaliseMenu(Array.from({ length: 20 }, (_, i) => link(`T${i}`, longUrl(0)))))).toBe('invalid_request');
+    expect(codeOf(() => normaliseMenu(Array.from({ length: 5 }, (_, i) => link(`T${i}`, longUrl(0)))))).toBe('ok');
+  });
+});
+
 describe('storedMenu', () => {
   it('reads the stored list and skips anything malformed', () => {
     expect(storedMenu([

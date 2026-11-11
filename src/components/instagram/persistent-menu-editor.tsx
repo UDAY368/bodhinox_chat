@@ -29,7 +29,7 @@ export const normaliseTitle = (title: string): string => title.normalize('NFC').
 
 /** The first problem with the rows (a message key), or null when they can be saved. */
 export function menuProblem(rows: readonly MenuRow[], flowIds: ReadonlySet<string>):
-  'max' | 'title' | 'tooLong' | 'duplicate' | 'flow' | 'url' | null {
+  'max' | 'title' | 'tooLong' | 'duplicate' | 'flow' | 'url' | 'size' | null {
   if (rows.length > MAX) return 'max';
   const seen = new Set<string>();
   for (const row of rows) {
@@ -41,7 +41,9 @@ export function menuProblem(rows: readonly MenuRow[], flowIds: ReadonlySet<strin
     if (row.type === 'postback' && !flowIds.has(row.flowId)) return 'flow';
     if (row.type === 'web_url' && !validHttpsUrl(row.url.trim())) return 'url';
   }
-  return null;
+  // The server refuses a list whose JSON is over MAX_MENU_BYTES (persistent-menu.ts); 4 bytes per character covers any title.
+  const bytes = rows.reduce((sum, row) => sum + 60 + normaliseTitle(row.title).length * 4 + (row.type === 'web_url' ? new TextEncoder().encode(row.url.trim()).length : 36), 0);
+  return bytes > 12000 ? 'size' : null;
 }
 
 export function PersistentMenuEditor({ accountId, flows, canEdit }: {
@@ -183,6 +185,7 @@ export function PersistentMenuEditor({ accountId, flows, canEdit }: {
       {problem === 'tooLong' && <p className="text-destructive text-xs">{t('titleTooLong', { max: MAX_CHARS })}</p>}
       {problem === 'duplicate' && <p className="text-destructive text-xs">{t('duplicate')}</p>}
       {problem === 'flow' && <p className="text-destructive text-xs">{t('needsFlow')}</p>}
+      {problem === 'size' && <p className="text-destructive text-xs">{t('tooLarge')}</p>}
       {problem === 'url' && <p className="text-destructive text-xs">{t('badUrl')}</p>}
       {rows.length >= MAX && <p className="text-muted-foreground text-xs">{t('max', { max: MAX })}</p>}
       <div className="flex flex-wrap gap-2">
