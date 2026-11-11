@@ -36,6 +36,21 @@ import { PAYMENT_LINK_LIMITS } from './payment-node';
 import { getT } from '@/lib/i18n/translate';
 import { effectiveFlow, loadPublishedVersions, loadVersion, versionNodeMap, type EffectiveFlow, type FlowVersionRow } from './versions';
 import * as appointmentRuntime from './appointment-runtime';
+import { customPlaceholderIds, fillPlaceholders, usesContactPlaceholders, type PlaceholderContact } from './placeholders';
+import { effectiveTriggers } from './flow-triggers';
+import { actionList, queuedFlowStarts, runActions, writeContactValue, type ActionsResult } from './nodes/actions';
+import { chooseRandomizerPath, pickVar } from './nodes/randomizer';
+import { planSmartDelay } from './nodes/smart-delay';
+import { systemSubject } from './conditions/system';
+import { segmentSubject } from './conditions/segment';
+import { workspaceFieldSubject } from './conditions/workspace-field';
+import { linkClicked, trackedUrl } from './link-tracking';
+import { buyButtonUrl } from './buy-button';
+import { runGoalTurn } from '@/lib/ai/goals';
+import { intentMatches, type IntentCandidate } from '@/lib/ai/intent-match';
+import { executeSheetsNode } from '@/lib/integrations/google-sheets/node';
+import { instagramAutomationAllowed } from '@/lib/contacts/channel-consent';
+import { workspaceTimezone } from '@/lib/analytics/range';
 import {
   APPOINTMENT_STATE_VAR, BOOK_APPOINTMENT_LIMITS, appointmentDaysAhead, appointmentPortFor, appointmentReplyIds, dayLabel,
   pagedRows, parseAppointmentReply, readAppointmentState, rowTitle, singleListRows, slotDays,
@@ -106,7 +121,7 @@ import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { marketingSuppression } from "@/lib/contacts/consent";
-import { fillWorkspace, workspaceValuesFor } from "@/lib/workspace/attributes";
+import { workspaceValuesFor } from "@/lib/workspace/attributes";
 import { flowTemplateSendExtras } from "@/lib/whatsapp/template-send-params";
 import {
   type ApiRequestNodeConfig,
@@ -149,7 +164,10 @@ import {
   type IgRefTriggerConfig,
   type IgLiveCommentTriggerConfig,
   startsFromComment,
-  STAGE5_NODE_TYPES,
+  IG_TEST_USERNAME,
+  type ActionsNodeConfig,
+  type FlowTriggerConfig,
+  type SmartDelayNodeConfig,
   type IgStoryReplyTriggerConfig,
   type TriggerFrequency,
 } from "./types";
@@ -276,7 +294,11 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "set_attribute" ||
     node_type === "api_request" ||
     node_type === "assign_agent" ||
-    node_type === "conversion_event"
+    node_type === "conversion_event" ||
+    // Stage 5 logic steps that never wait for the customer.
+    node_type === "actions" ||
+    node_type === "randomizer" ||
+    node_type === "google_sheets"
   );
 }
 
@@ -636,6 +658,31 @@ export function flowListensOnConversation(
   return flowListensOnNumber(flow, conversation.whatsappConfigId);
 }
 
+/**
+ * Whether a draft Instagram flow may run for this contact (Stage 5): the
+ * contact's stored Instagram username (lowercase, no @) is one of the flow's
+ * test usernames. WhatsApp test numbers are isTestContact, unchanged.
+ */
+export function isTestUsername(flow: Pick<FlowRow, "status" | "test_usernames">, username: string): boolean {
+  const name = username.trim().replace(/^@/, "").toLowerCase();
+  return flow.status === "draft" && IG_TEST_USERNAME.test(name) && (flow.test_usernames ?? []).includes(name);
+}
+
+/** A draft's test contact by number (WhatsApp) or by Instagram username (Stage 5). */
+function isTestRunContact(flow: Pick<FlowRow, "status" | "test_numbers" | "test_usernames">, digits: string, username: string): boolean {
+  return isTestContact(flow, digits) || isTestUsername(flow, username);
+}
+
+/** The contact's stored Instagram username on the conversation's Instagram account, lowercase; "" when none. */
+async function storedInstagramUsername(accountId: string, contactId: string, conversationId: string): Promise<string> {
+  const rows = await withTenant({ accountId, role: "owner" }, (tx) => tx.$queryRaw<{ username: string | null }[]>`
+    SELECT i.username FROM conversations v JOIN contact_channel_identities i ON i.account_id=v.account_id
+      AND i.contact_id=v.contact_id AND i.instagram_account_id=v.instagram_account_id AND i.channel='instagram'
+    WHERE v.account_id=${accountId}::uuid AND v.id=${conversationId}::uuid AND v.contact_id=${contactId}::uuid AND v.channel='instagram'
+    LIMIT 1`, getWorkerPrisma());
+  return (rows[0]?.username ?? "").trim().replace(/^@/, "").toLowerCase();
+}
+
 /** What the stored Instagram message is (a story reply or mention); an unreadable row is an ordinary message. */
 async function storedInstagramFacts(db: AdminClient, accountId: string, conversationId: string, metaMessageId: string): Promise<InstagramInboundFacts> {
   const { data, error } = await db.from("messages").select("interactive_payload")
@@ -666,6 +713,8 @@ async function findEntryFlow(
   message: ParsedInbound,
   isFirstInbound: boolean,
   contactDigits: () => Promise<string>,
+  /** Stage 5: the contact's stored Instagram username on this conversation (lowercase), for test-username drafts. */
+  contactUsername: () => Promise<string> = async () => "",
 ): Promise<{ flow: EffectiveFlow; vars: Record<string, string>; version?: FlowVersionRow } | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
@@ -688,6 +737,8 @@ async function findEntryFlow(
     whatsappConfigId: row?.whatsapp_config_id ?? null,
   };
   const instagramAccountId = row?.instagram_account_id ?? null;
+  // Stage 5: a contact unsubscribed on Instagram starts no flow there (5D's consent; the START keyword runs before this).
+  if (conversation.channel === "instagram" && !(await instagramAutomationAllowed(accountId, contactId))) return null;
 
   // Instagram: one of our own postback codes (a conversation starter, opt-in
   // or follow-check tap that found no run to answer) offers only its title;
@@ -698,21 +749,31 @@ async function findEntryFlow(
     ? [message.reply_title].filter((v) => Boolean(v && v.trim()))
     : entryTriggerTexts(message);
 
-  // Active flows, plus drafts being tested (only those with test numbers
-  // are fetched); both sets are small. A testing draft runs its own row, so
-  // only the conversation channel's drafts and legacy 'any' ones are read
-  // (Stage 1). An active flow runs its published version, whose scope can
-  // differ from the row's (a draft moved before Stage 1 locked published
-  // scopes), so the active query is not narrowed by the row's scope:
-  // flowListensOnConversation below decides on the scope each flow runs on.
+  // Active flows, plus drafts being tested (only those with test numbers, or
+  // on Instagram test usernames, are fetched); both sets are small. A testing
+  // draft runs its own row, so only the conversation channel's drafts and
+  // legacy 'any' ones are read (Stage 1). An active flow runs its published
+  // version, whose scope can differ from the row's (a draft moved before
+  // Stage 1 locked published scopes), so the active query is not narrowed by
+  // the row's scope: flowListensOnConversation below decides on the scope each
+  // flow runs on.
   const scopes = [conversation.channel, "any"];
-  const [active, drafts] = await Promise.all([
+  const instagram = conversation.channel === "instagram";
+  const [active, drafts, usernameDrafts] = await Promise.all([
     db.from("flows").select("*").eq("account_id", accountId).eq("status", "active").order("created_at", { ascending: true }),
     db.from("flows").select("*").eq("account_id", accountId).eq("status", "draft").neq("test_numbers", []).in("channel_scope", scopes).order("created_at", { ascending: true }),
+    // Stage 5: an Instagram draft runs for its test usernames.
+    instagram
+      ? db.from("flows").select("*").eq("account_id", accountId).eq("status", "draft").neq("test_usernames", []).in("channel_scope", scopes).order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] as FlowRow[], error: null }),
   ]);
-  if (active.error || drafts.error) return null;
-  const testing = ((drafts.data ?? []) as FlowRow[]).filter((f) => f.status === "draft" && (f.test_numbers ?? []).length > 0);
-  const digits = testing.length ? await contactDigits() : "";
+  if (active.error || drafts.error || usernameDrafts.error) return null;
+  const draftRows = new Map<string, FlowRow>();
+  for (const f of [...((drafts.data ?? []) as FlowRow[]), ...((usernameDrafts.data ?? []) as FlowRow[])]) draftRows.set(f.id, f);
+  const testing = [...draftRows.values()].filter((f) => f.status === "draft"
+    && ((f.test_numbers ?? []).length > 0 || (instagram && (f.test_usernames ?? []).length > 0)));
+  const digits = testing.some((f) => (f.test_numbers ?? []).length > 0) ? await contactDigits() : "";
+  const username = instagram && testing.some((f) => (f.test_usernames ?? []).length > 0) ? await contactUsername() : "";
   // An active flow matches on its published version (Phase 12); one not yet
   // versioned (deploy-window straggler) matches on its draft, as before.
   const live = ((active.data ?? []) as FlowRow[]).filter((f) => f.status === "active");
@@ -733,60 +794,93 @@ async function findEntryFlow(
   }
   const candidatesByStatus: EffectiveFlow[] = [
     ...liveFlows,
-    ...testing.filter((f) => isTestContact(f, digits)),
+    ...testing.filter((f) => isTestContact(f, digits) || isTestUsername(f, username)),
   ];
   if (!candidatesByStatus.length) return null;
-  const typed = byPrecedence(candidatesByStatus.filter((f) =>
-    flowListensOnConversation(f, conversation)));
+  // Stage 5: a flow listens on its primary trigger and each of its extra
+  // triggers (effectiveTriggers; Instagram flows only). Every trigger is
+  // ordered by its own tier, so a flow's story-reply trigger still outranks
+  // another flow's keyword. Without extra triggers this is exactly the
+  // per-flow order of byPrecedence, as before.
+  const typed = byPrecedence(candidatesByStatus.filter((f) => flowListensOnConversation(f, conversation)).flatMap((flow) =>
+    effectiveTriggers(flow)
+      .filter((trigger, i) => i === 0 || triggerAvailableOn(trigger.trigger_type, conversation.channel))
+      .map((trigger) => ({ flow, trigger, trigger_type: trigger.trigger_type, created_at: flow.created_at, status: flow.status }))));
   const found = (flow: EffectiveFlow, vars: Record<string, string>) => ({ flow, vars, version: versionOf.get(flow.id) });
   // Story replies and mentions, and (Stage 3) the ref link or ad a chat was opened from, are read from the stored message (Instagram only).
-  const needsFacts = conversation.channel === "instagram" &&
-    typed.some((f) => f.trigger_type === "ig_story_reply" || f.trigger_type === "ig_story_mention" || f.trigger_type === "default_reply"
-      || f.trigger_type === "ig_ref" || f.trigger_type === "ad_click" || f.trigger_type === "ig_share_to_story");
+  const needsFacts = instagram &&
+    typed.some((p) => p.trigger_type === "ig_story_reply" || p.trigger_type === "ig_story_mention" || p.trigger_type === "default_reply"
+      || p.trigger_type === "ig_ref" || p.trigger_type === "ad_click" || p.trigger_type === "ig_share_to_story");
   const storedFacts: InstagramInboundFacts = needsFacts ? await storedInstagramFacts(db, accountId, conversationId, message.meta_message_id) : {};
   // Flag off: a share to story is treated as any other unrecognised attachment (the default reply still applies), exactly as before Stage 4.
   const igFacts: InstagramInboundFacts = storedFacts.shareToStory && !instagramConfig()?.shareToStoryEnabled
     ? { ...storedFacts, shareToStory: undefined } : storedFacts;
-  for (const flow of typed) {
-    if (flow.trigger_type === "ig_story_reply") {
-      if (storyReplyMatches(igFacts, messageText(message), flow.trigger_config as IgStoryReplyTriggerConfig)) return found(flow, {});
-    } else if (flow.trigger_type === "ig_story_mention") {
-      const cfg = flow.trigger_config as IgStoryMentionTriggerConfig;
+  // Stage 5: keyword triggers matched by meaning wait until every exact trigger
+  // failed, and are asked once (one AI call for all of them) before default_reply.
+  const intents: Array<{ flow: EffectiveFlow; candidate: IntentCandidate }> = [];
+  let intentsAsked = false;
+  const askIntents = async (): Promise<{ flow: EffectiveFlow; vars: Record<string, string>; version?: FlowVersionRow } | null> => {
+    if (intentsAsked || !intents.length) return null;
+    intentsAsked = true;
+    const text = message.kind === "text" && !ourPostback ? message.text.trim() : "";
+    if (!text) return null;
+    let flowId: string | null = null;
+    try {
+      flowId = await intentMatches(accountId, message.meta_message_id, text, intents.map((i) => i.candidate));
+    } catch {
+      // No match on any failure: the default reply still applies. Never the text.
+      console.error("[flows] intent match failed", { accountId });
+    }
+    const hit = flowId ? intents.find((i) => i.flow.id === flowId) : undefined;
+    return hit ? found(hit.flow, {}) : null;
+  };
+  for (const { flow, trigger } of typed) {
+    const config = trigger.config as unknown;
+    if (trigger.trigger_type === "ig_story_reply") {
+      if (storyReplyMatches(igFacts, messageText(message), config as IgStoryReplyTriggerConfig)) return found(flow, {});
+    } else if (trigger.trigger_type === "ig_story_mention") {
+      const cfg = config as IgStoryMentionTriggerConfig;
       if (igFacts.storyMention && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) return found(flow, {});
-    } else if (flow.trigger_type === "ig_share_to_story") {
+    } else if (trigger.trigger_type === "ig_share_to_story") {
       // Stage 4: dark until a live capture shows Meta delivers the event (the flag; a flow stored while it is off never fires).
-      const cfg = flow.trigger_config as IgShareToStoryTriggerConfig;
+      const cfg = config as IgShareToStoryTriggerConfig;
       if (instagramConfig()?.shareToStoryEnabled && shareToStoryMatches(igFacts, cfg, instagramAccountId)
         && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) return found(flow, {});
-    } else if (flow.trigger_type === "default_reply") {
-      // Lowest tier (triggers.ts): reached only when no other flow matched.
-      const cfg = flow.trigger_config as DefaultReplyTriggerConfig;
+    } else if (trigger.trigger_type === "default_reply") {
+      // Lowest tier (triggers.ts): reached only when no other flow matched (and no intent).
+      const meant = await askIntents();
+      if (meant) return meant;
+      const cfg = config as DefaultReplyTriggerConfig;
       if (defaultReplyApplies(message, igFacts, ourPostback) && await frequencyAllows(db, accountId, flow.id, contactId, cfg?.frequency)) {
         return found(flow, {});
       }
-    } else if (flow.trigger_type === "order_received") {
+    } else if (trigger.trigger_type === "order_received") {
       const vars = orderReceivedMatch(message);
       if (vars) return found(flow, vars);
-    } else if (flow.trigger_type === "ig_ref") {
+    } else if (trigger.trigger_type === "ig_ref") {
       // A chat opened from a ref link (Instagram only: flowListensOnConversation keeps it off WhatsApp).
-      const vars = refTriggerMatch(igFacts, flow.trigger_config as IgRefTriggerConfig, instagramAccountId);
+      const vars = refTriggerMatch(igFacts, config as IgRefTriggerConfig, instagramAccountId);
       if (vars) return found(flow, vars);
-    } else if (flow.trigger_type === "ad_click") {
+    } else if (trigger.trigger_type === "ad_click") {
       // Only a click-to-WhatsApp ad (not a boosted post), or on Instagram a
       // click-to-Direct ad; an active run already took the message before
       // this point (no preemption).
-      const cfg = flow.trigger_config as AdClickTriggerConfig;
-      const vars = conversation.channel === "instagram" ? igAdClickMatch(igFacts, cfg) : adClickMatch(message, cfg);
+      const cfg = config as AdClickTriggerConfig;
+      const vars = instagram ? igAdClickMatch(igFacts, cfg) : adClickMatch(message, cfg);
       if (vars) return found(flow, vars);
-    } else if (flow.trigger_type === "template_reply") {
-      const vars = templateReplyMatch(message, flow.trigger_config as TemplateReplyTriggerConfig);
+    } else if (trigger.trigger_type === "template_reply") {
+      const vars = templateReplyMatch(message, config as TemplateReplyTriggerConfig);
       if (vars) return found(flow, vars);
-    } else if (flow.trigger_type === "keyword") {
-      const cfg = flow.trigger_config as KeywordTriggerConfig;
+    } else if (trigger.trigger_type === "keyword") {
+      const cfg = config as KeywordTriggerConfig;
+      if (cfg?.match_type === "intent") {
+        if (typeof cfg.intent === "string" && cfg.intent.trim()) intents.push({ flow, candidate: { flowId: flow.id, intent: cfg.intent.trim() } });
+        continue;
+      }
       for (const text of candidates) {
         if (await keywordTriggerMatches(text, cfg)) return found(flow, {});
       }
-    } else if (flow.trigger_type === "first_inbound_message" && isFirstInbound) {
+    } else if (trigger.trigger_type === "first_inbound_message" && isFirstInbound) {
       // Also reachable by a tap now: a broadcast template with a
       // quick-reply button can genuinely be what prompts a contact's
       // first-ever inbound. The automations dispatcher has always
@@ -795,9 +889,9 @@ async function findEntryFlow(
       // the inconsistent half.
       return found(flow, {});
     }
-    // 'manual' triggers do not auto-start from inbound messages.
+    // 'manual' triggers do not auto-start from inbound messages; comment triggers start from comments.
   }
-  return null;
+  return askIntents();
 }
 
 // ============================================================
@@ -819,16 +913,18 @@ async function sendButtonsAndSuspend(
   // Meta byte-for-byte as authored. Interpolation can push a title past
   // Meta's 20-char cap; meta-api's validator throws a descriptive error
   // and the caller logs it — we never truncate silently.
-  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cfg));
+  const ws = await textValues(run, JSON.stringify(cfg));
   const intentKey = `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`;
   // Instagram with link buttons: a button template (real buttons; a link tap does not continue the run).
   const links = Array.isArray(cfg.link_buttons) ? cfg.link_buttons : [];
   if (links.length && (await runChannel(run)) === "instagram") {
     const text = [cfg.header_text, cfg.text, cfg.footer_text].map((part) => (part ? interpolateVars(part, run.vars, ws).trim() : ""))
       .filter(Boolean).join("\n\n");
+    // Stage 5: with track_clicks, each link goes out as its own /r/<token> (one per run, step and slot).
+    const urls = await Promise.all(links.map((b, i) => (cfg.track_clicks ? trackedUrl(run, node.node_key, `link:${i}`, b.url) : b.url)));
     const buttons: IgTemplateButton[] = [
       ...cfg.buttons.map((b) => ({ type: "postback" as const, title: interpolateVars(b.title, run.vars, ws), payload: b.reply_id })),
-      ...links.map((b) => ({ type: "web_url" as const, title: interpolateVars(b.title, run.vars, ws), url: b.url })),
+      ...links.map((b, i) => ({ type: "web_url" as const, title: interpolateVars(b.title, run.vars, ws), url: urls[i] })),
     ];
     const sent = await flowSend(run, intentKey, { kind: "button_template", args: {
       accountId: run.account_id, conversationId: run.conversation_id!, text, buttons,
@@ -878,7 +974,7 @@ async function sendListAndSuspend(
   const cfg = node.config as unknown as SendListNodeConfig;
   // See sendButtonsAndSuspend — interpolate every visible string,
   // never the row `reply_id`.
-  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cfg));
+  const ws = await textValues(run, JSON.stringify(cfg));
   const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "list", args: {
     accountId: run.account_id,
     userId: run.user_id,
@@ -926,27 +1022,57 @@ async function rememberPrompt(db: AdminClient, run: FlowRunRow, providerMessageI
  * step; links and postback ids go out exactly as authored (a postback carries
  * its reply_id, which routes the tap).
  */
-function graphCards(cards: IgCard[], vars: Record<string, unknown>, ws: Record<string, string>): IgGenericCard[] {
-  return cards.map((card) => ({
+function graphCards(cards: IgCard[], vars: Record<string, unknown>, ws: Record<string, string>,
+  /** The URL each link or buy button goes out with, by `<card>:<button>`; null drops the button. Absent: as authored. */
+  urls: ReadonlyMap<string, string | null> = new Map()): IgGenericCard[] {
+  return cards.map((card, ci) => ({
     title: interpolateVars(card.title, vars, ws),
     ...(card.subtitle ? { subtitle: interpolateVars(card.subtitle, vars, ws) } : {}),
     ...(card.image_url ? { imageUrl: card.image_url } : {}),
     ...(card.default_url ? { defaultUrl: card.default_url } : {}),
     ...(card.buttons?.length ? {
-      // A buy button (Stage 5) needs its checkout link (5B, lib/flows/buy-button.ts); until then it is dropped.
-      buttons: card.buttons.filter((b) => b.type !== "buy").map((b): IgTemplateButton => (b.type === "web_url"
-        ? { type: "web_url", title: interpolateVars(b.title, vars, ws), url: b.url }
-        : { type: "postback", title: interpolateVars(b.title, vars, ws), payload: b.reply_id })),
+      buttons: card.buttons.flatMap((b, bi): IgTemplateButton[] => {
+        const url = urls.get(`${ci}:${bi}`);
+        if (b.type === "buy") return url ? [{ type: "web_url", title: interpolateVars(b.title, vars, ws), url }] : [];
+        if (b.type === "web_url") return url === null ? [] : [{ type: "web_url", title: interpolateVars(b.title, vars, ws), url: url ?? b.url }];
+        return [{ type: "postback", title: interpolateVars(b.title, vars, ws), payload: b.reply_id }];
+      }),
     } : {}),
   }));
+}
+
+/**
+ * The URL each card button goes out with (Stage 5): a buy button gets its
+ * checkout link (lib/flows/buy-button.ts; none: the button is dropped and an
+ * event logged), and with track_clicks a link button gets its /r/<token>
+ * (lib/flows/link-tracking.ts). Slots are `card:<i>:button:<j>`, stable per
+ * run and step, so a re-send reuses the same link.
+ */
+async function cardButtonUrls(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, cards: IgCard[]): Promise<Map<string, string | null>> {
+  const urls = new Map<string, string | null>();
+  const track = node.config.track_clicks === true;
+  for (const [ci, card] of cards.entries()) {
+    for (const [bi, button] of (card.buttons ?? []).entries()) {
+      const slot = `card:${ci}:button:${bi}`;
+      if (button.type === "buy") {
+        const url = await buyButtonUrl(run, node.node_key, slot, button);
+        if (!url) await logEvent(db, run.id, "error", node.node_key, { reason: "buy_button_unavailable", slot });
+        urls.set(`${ci}:${bi}`, url);
+      } else if (button.type === "web_url" && track) {
+        urls.set(`${ci}:${bi}`, await trackedUrl(run, node.node_key, slot, button.url));
+      }
+    }
+  }
+  return urls;
 }
 
 /** Sends a send_card / send_gallery step (Instagram only) under the step's intent key. */
 async function sendCards(db: AdminClient, run: FlowRunRow, node: FlowNodeRow): Promise<string> {
   const cards = nodeCards(node);
-  const ws = await workspaceValuesFor(run.account_id, JSON.stringify(cards));
+  const ws = await textValues(run, JSON.stringify(cards));
+  const urls = await cardButtonUrls(db, run, node, cards);
   const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, {
-    kind: "cards", args: { accountId: run.account_id, conversationId: run.conversation_id!, cards: graphCards(cards, run.vars, ws) },
+    kind: "cards", args: { accountId: run.account_id, conversationId: run.conversation_id!, cards: graphCards(cards, run.vars, ws, urls) },
   });
   await logEvent(db, run.id, "message_sent", node.node_key, { node_type: node.node_type, cards: cards.length, whatsapp_message_id });
   if (cardWaits(node)) await rememberPrompt(db, run, whatsapp_message_id);
@@ -972,9 +1098,13 @@ async function runPrivateReplyStep(db: AdminClient, run: FlowRunRow, node: FlowN
     await endRun(db, run.id, "failed", reason);
     return { next: null, outcome: "completed" as const };
   };
-  if (!eventId) return fail("private_reply_without_comment");
-  const ws = await workspaceValuesFor(run.account_id, JSON.stringify([cfg.text, cfg.opt_in_label ?? ""]));
+  const ws = await textValues(run, JSON.stringify([cfg.text, cfg.opt_in_label ?? ""]));
   const label = cfg.opt_in_label?.trim() ? interpolateVars(cfg.opt_in_label, run.vars, ws).trim() : "";
+  // Stage 5: a flow that also starts from a message (a keyword next to a comment
+  // trigger) reaches this step without a comment. It then goes out as an
+  // ordinary message through flowSend (the 24-hour window is re-checked there),
+  // with the opening button as a quick reply, and waits for it the same way.
+  if (!eventId) return sendPrivateReplyAsMessage(db, run, node, interpolateVars(cfg.text, run.vars, ws), label);
   let quickReplies: QuickReply[] | undefined;
   try {
     quickReplies = label ? [{ title: label, payload: encodePostback({ kind: "opt_in", runId: run.id, nodeKey: node.node_key }) }] : undefined;
@@ -997,6 +1127,36 @@ async function runPrivateReplyStep(db: AdminClient, run: FlowRunRow, node: FlowN
   if (outcome !== "sent" && outcome !== "unknown") return fail(`private_reply_${outcome}`);
   // 'unknown' may have reached the commenter: never re-sent, and the run carries on as if it had.
   await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "ig_private_reply", outcome });
+  if (!label) {
+    if (cfg.next_node_key) return { next: cfg.next_node_key };
+    await endRun(db, run.id, "completed", "end_node");
+    return { next: null, outcome: "completed" };
+  }
+  if (!(await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key))) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
+  } else {
+    await scheduleReplyTimeout(db, run, node);
+  }
+  return { next: null, outcome: "advanced" };
+}
+
+/** An ig_private_reply step in a run that did not start from a comment (Stage 5): an ordinary message. */
+async function sendPrivateReplyAsMessage(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, text: string, label: string):
+  Promise<{ next: string; outcome?: undefined } | { next: null; outcome: "advanced" | "completed" }> {
+  const cfg = node.config as unknown as IgPrivateReplyNodeConfig;
+  const key = `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`;
+  const base = { accountId: run.account_id, userId: run.user_id, conversationId: run.conversation_id!, contactId: run.contact_id! };
+  try {
+    const payload = label ? encodePostback({ kind: "opt_in", runId: run.id, nodeKey: node.node_key }) : "";
+    const sent = label
+      ? await flowSend(run, key, { kind: "buttons", args: { ...base, bodyText: text, buttons: [{ id: payload, title: label }] } })
+      : await flowSend(run, key, { kind: "text", args: { ...base, text } });
+    await logEvent(db, run.id, "message_sent", node.node_key, { node_type: "ig_private_reply", as_message: true, whatsapp_message_id: sent.whatsapp_message_id });
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "private_reply_message_failed", detail: errorDetail(err) });
+    await endRun(db, run.id, "failed", "private_reply_message_failed");
+    return { next: null, outcome: "completed" };
+  }
   if (!label) {
     if (cfg.next_node_key) return { next: cfg.next_node_key };
     await endRun(db, run.id, "completed", "end_node");
@@ -1035,7 +1195,7 @@ async function sendTemplateNode(db: AdminClient, run: FlowRunRow, node: FlowNode
   await assertWhatsAppRun(run);
   const cfg = node.config as unknown as SendTemplateNodeConfig;
   const raw = cfg.body_params ?? [];
-  const ws = await workspaceValuesFor(run.account_id, JSON.stringify([raw, cfg.card_params ?? [], cfg.coupon_code ?? ""]));
+  const ws = await textValues(run, JSON.stringify([raw, cfg.card_params ?? [], cfg.coupon_code ?? ""]));
   const params = raw.map((p) => interpolateVars(p, run.vars, ws).trim() || "-");
   const buttonParams = Object.fromEntries((cfg.buttons ?? []).map((b) => [b.index, b.reply_id]));
   const { whatsapp_message_id } = await dispatchOnce(run.account_id, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, async () => engineSendTemplate({
@@ -1310,6 +1470,22 @@ async function conditionSubject(
 ): Promise<string | undefined> {
   if (rule.subject === "time" || rule.subject === "date") return undefined;
   if (rule.subject === "ig_profile") return igProfileSubject(run, rule.subject_key);
+  // Stage 5 subjects; each read is scoped to the run's workspace.
+  if (rule.subject === "system") return systemSubject(run, rule.subject_key, await runChannel(run));
+  if (rule.subject === "segment") return segmentSubject(run, rule.subject_key);
+  if (rule.subject === "workspace_field") return workspaceFieldSubject(run.account_id, rule.subject_key);
+  if (rule.subject === "link_click") {
+    // A step of this run sent a tracked link and the contact opened it.
+    return typeof rule.subject_key === "string" && rule.subject_key
+      ? String(await linkClicked(run.account_id, run.id, rule.subject_key)) : undefined;
+  }
+  if (rule.subject === "sequence") {
+    if (!run.contact_id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rule.subject_key)) return undefined;
+    const [row] = await withTenant({ accountId: run.account_id, role: "owner" }, (tx) => tx.$queryRaw<{ subscribed: boolean }[]>`
+      SELECT EXISTS(SELECT 1 FROM sequence_subscriptions WHERE account_id=${run.account_id}::uuid AND contact_id=${run.contact_id}::uuid
+        AND sequence_id=${rule.subject_key}::uuid AND status IN ('active','sending')) AS subscribed`, getWorkerPrisma());
+    return String(row?.subscribed === true);
+  }
   if (rule.subject === "var") {
     const v = run.vars[rule.subject_key];
     return typeof v === "string" ? v : v === undefined || v === null ? undefined : String(v);
@@ -1364,7 +1540,7 @@ async function sendAskPrompt(
 ): Promise<string> {
   const cfg = node.config as unknown as CollectInputNodeConfig & AskMediaNodeConfig;
   const body = text ?? cfg.prompt_text;
-  const ws = await workspaceValuesFor(run.account_id, `${body} ${cfg.skip_label ?? ""}`);
+  const ws = await textValues(run, `${body} ${cfg.skip_label ?? ""}`);
   const base = {
     accountId: run.account_id,
     userId: run.user_id,
@@ -1398,7 +1574,7 @@ async function sendAskPrompt(
  */
 async function sendFormForNode(run: FlowRunRow, node: FlowNodeRow, attempt: number): Promise<string> {
   const cfg = node.config as unknown as SendFormNodeConfig;
-  const ws = await workspaceValuesFor(run.account_id, `${cfg.body} ${cfg.header ?? ""} ${cfg.footer ?? ""} ${cfg.cta}`);
+  const ws = await textValues(run, `${cfg.body} ${cfg.header ?? ""} ${cfg.footer ?? ""} ${cfg.cta}`);
   const { whatsappMessageId } = await sendForm({
     accountId: run.account_id,
     userId: run.user_id,
@@ -1472,7 +1648,7 @@ async function setRunVars(db: AdminClient, run: FlowRunRow, patch: Record<string
 /** Sends the step's message with the link under it. `attempt` keeps a re-send a distinct outbound intent. */
 async function sendPaymentLinkText(run: FlowRunRow, node: FlowNodeRow, url: string, attempt: number): Promise<string> {
   const cfg = node.config as unknown as PaymentLinkNodeConfig;
-  const ws = await workspaceValuesFor(run.account_id, cfg.message ?? "");
+  const ws = await textValues(run, cfg.message ?? "");
   const message = interpolateVars(cfg.message ?? "", run.vars, ws);
   const text = paymentLinkMessageText(message, url);
   // On Instagram this goes out as a card with a "Pay now" button (payment-card.ts); on WhatsApp it is the text.
@@ -1506,7 +1682,7 @@ async function startPaymentLinkNode(
     return { kind: "next" as const, outcome: "failed" as const, key: paymentPortFor(cfg, "failed") };
   };
   if (!run.conversation_id || !run.contact_id) return fail("payment_link_no_conversation");
-  const ws = await workspaceValuesFor(run.account_id, `${cfg.amount ?? ""} ${cfg.description ?? ""}`);
+  const ws = await textValues(run, `${cfg.amount ?? ""} ${cfg.description ?? ""}`);
   let amountMinor: number;
   let currency = cfg.currency;
   let orderId: string | null = null;
@@ -2048,11 +2224,45 @@ async function resumeInterruptedBooking(
  */
 function interpolateVars(template: string, vars: Record<string, unknown>, workspace: Record<string, string> = {}): string {
   if (!template) return "";
-  // Workspace first: captured vars are customer input and must not expand placeholders.
-  return fillWorkspace(template, workspace).replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
-    const v = vars[key];
-    return v === undefined || v === null ? "" : String(v);
-  });
+  // Workspace first: captured vars are customer input and must not expand placeholders
+  // (one pass in fillPlaceholders). Stage 5 adds {{contact.*}}, {{custom.<id>}} and fallbacks;
+  // the contact's values ride on the workspace record (textValues), so callers are unchanged.
+  return fillPlaceholders(template, vars, workspace, (workspace as WithContact)[CONTACT_VALUES] ?? {});
+}
+
+const CONTACT_VALUES = Symbol("contactPlaceholders");
+type WithContact = Record<string, string> & { [CONTACT_VALUES]?: PlaceholderContact };
+
+/**
+ * The values a step's text may use: workspace values (only queried when the
+ * text has a workspace placeholder) and, when it uses {{contact.*}} or
+ * {{custom.<id>}}, the run's contact. Read fresh for each step.
+ */
+async function textValues(run: Pick<FlowRunRow, "account_id" | "contact_id" | "conversation_id">, text: string): Promise<Record<string, string>> {
+  const ws = await workspaceValuesFor(run.account_id, text);
+  if (!run.contact_id || !usesContactPlaceholders(text)) return ws;
+  const contact = await loadPlaceholderContact(run.account_id, run.contact_id, run.conversation_id, customPlaceholderIds(text));
+  return Object.assign({ ...ws }, { [CONTACT_VALUES]: contact }) as WithContact;
+}
+
+/** The contact's own fields, Instagram username (this conversation's account) and the named custom fields. */
+async function loadPlaceholderContact(accountId: string, contactId: string, conversationId: string | null, customIds: string[]): Promise<PlaceholderContact> {
+  return withTenant({ accountId, role: "owner" }, async (tx) => {
+    const [row] = await tx.$queryRaw<{ name: string | null; email: string | null; phone: string | null; company: string | null; username: string | null }[]>`
+      SELECT c.name, c.email, c.phone, c.company,
+        (SELECT i.username FROM conversations v JOIN contact_channel_identities i ON i.account_id=v.account_id
+            AND i.contact_id=v.contact_id AND i.instagram_account_id=v.instagram_account_id AND i.channel='instagram'
+          WHERE v.account_id=c.account_id AND v.id=${conversationId}::uuid AND v.contact_id=c.id LIMIT 1) AS username
+      FROM contacts c WHERE c.account_id=${accountId}::uuid AND c.id=${contactId}::uuid`;
+    const ids = customIds.filter((id) => /^[0-9a-f-]{36}$/.test(id));
+    const custom = ids.length ? await tx.$queryRaw<{ id: string; value: string | null }[]>`
+      SELECT custom_field_id::text AS id, value FROM contact_custom_values
+      WHERE account_id=${accountId}::uuid AND contact_id=${contactId}::uuid AND custom_field_id = ANY(${ids}::uuid[])` : [];
+    return {
+      fields: row ? { name: row.name, email: row.email, phone: row.phone, company: row.company, username: row.username } : {},
+      custom: Object.fromEntries(custom.map((c) => [c.id, c.value])),
+    };
+  }, getWorkerPrisma());
 }
 
 /**
@@ -2192,10 +2402,11 @@ async function endRun(
     })
     .eq("id", runId)
     .eq("status", "active")
-    .select("id,account_id,flow_id,contact_id,conversation_id,vars");
+    .select("id,account_id,flow_id,contact_id,conversation_id,vars,user_id");
   if (error) throw new Error("Flow run end failed");
   const row = (data as Record<string, unknown>[] | null)?.[0];
   if (!row) return false;
+  await startQueuedFlows(row);
   if (status !== "completed") return true;
   // Best-effort: the run already ended and its messages went out, so a
   // failed enqueue must not mark the inbound stage uncertain.
@@ -2208,6 +2419,31 @@ async function endRun(
     end_reason: reason,
   }).catch(() => console.error("[flows] flow.completed webhook enqueue failed", { runId }));
   return true;
+}
+
+/**
+ * The flows an Actions step queued with start_flow (Stage 5). A conversation
+ * has one active run, so they start once this run has ended, in order, each
+ * through startFlowById (live flow of this workspace, on this channel, bot not
+ * paused). Ids only are logged; a failure never undoes the run's ending.
+ */
+async function startQueuedFlows(row: Record<string, unknown>): Promise<void> {
+  const vars = row.vars && typeof row.vars === "object" ? row.vars as Record<string, unknown> : {};
+  const flowIds = queuedFlowStarts(vars).filter((id) => id !== row.flow_id);
+  if (!flowIds.length || typeof row.contact_id !== "string" || typeof row.conversation_id !== "string") return;
+  for (const flowId of flowIds) {
+    try {
+      const started = await startFlowById({
+        accountId: row.account_id as string, userId: row.user_id as string, contactId: row.contact_id,
+        conversationId: row.conversation_id, flowId,
+        message: { kind: "text", text: "", meta_message_id: `start-flow:${row.id as string}:${flowId}` },
+      });
+      if (started.outcome === "started") break;
+      console.warn("[flows] queued flow not started", { runId: row.id, flowId, outcome: started.outcome });
+    } catch {
+      console.error("[flows] queued flow start failed", { runId: row.id, flowId });
+    }
+  }
 }
 
 // ============================================================
@@ -2422,6 +2658,67 @@ async function runConversionEvent(run: FlowRunRow, node: FlowNodeRow): Promise<{
 // new current_node_key before returning.
 // ============================================================
 
+/**
+ * Runs an Actions list of a step (Stage 5, nodes/actions.ts) from its cursor:
+ * the Actions step itself (suffix '') or a question's actions on a valid
+ * answer (':ok'). Skipped actions are logged with a reason code, the ones that
+ * ran with their types only (never a value).
+ */
+async function runActionsNode(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, raw: unknown, suffix: "" | ":ok"): Promise<ActionsResult> {
+  const actions = actionList(raw);
+  const flowName = actions.some((a) => a.type === "notify_team") ? (await loadFlow(db, run.flow_id))?.name ?? "" : "";
+  const result = await runActions({
+    db, run, nodeKey: node.node_key, channel: await runChannel(run), flowName, cursorSuffix: suffix,
+    interpolate: async (text) => interpolateVars(text, run.vars, await textValues(run, text)),
+  }, actions);
+  for (const s of result.skipped) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: `action_${s.reason}`, action: s.type, index: s.index });
+  }
+  if (result.ran.length) await logEvent(db, run.id, "attribute_set", node.node_key, { actions: result.ran, ...(suffix ? { on: "answer" } : {}) });
+  return result;
+}
+
+/** A smart delay's plan for this run: the step's (or workspace's) time zone and, when it reads one, the custom field's value. */
+async function planSmartDelayFor(db: AdminClient, run: FlowRunRow, cfg: SmartDelayNodeConfig): Promise<ReturnType<typeof planSmartDelay>> {
+  const fieldId = cfg.mode === "duration" ? cfg.amount_field_id : cfg.date_field_id;
+  const [timezone, fieldValue] = await withTenant({ accountId: run.account_id, role: "owner" }, async (tx) => {
+    const zone = await workspaceTimezone(tx, run.account_id);
+    if (!fieldId || !run.contact_id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fieldId)) return [zone, null] as const;
+    const [row] = await tx.$queryRaw<{ value: string | null }[]>`SELECT value FROM contact_custom_values
+      WHERE account_id=${run.account_id}::uuid AND contact_id=${run.contact_id}::uuid AND custom_field_id=${fieldId}::uuid`;
+    return [zone, row?.value ?? null] as const;
+  }, getWorkerPrisma());
+  return planSmartDelay(cfg, { now: new Date(), timezone, fieldValue });
+}
+
+/**
+ * One turn of an ai_reply step with goals (Stage 5, lib/ai/goals.ts). Returns
+ * the port to follow, or null to wait for the person's next message. The AI
+ * sends through its own gate, budget, safety checks and outbound intent.
+ */
+async function goalTurn(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, message: ParsedInbound | null): Promise<{ next: string | null; vars?: Record<string, string> }> {
+  const cfg = node.config as unknown as Partial<AiReplyNodeConfig>;
+  let result: Awaited<ReturnType<typeof runGoalTurn>>;
+  try {
+    result = await runGoalTurn(run, node, message);
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "ai_goal_failed", detail: errorDetail(err) });
+    return { next: cfg.handoff_next ?? "" };
+  }
+  switch (result.outcome) {
+    case "continue":
+      await logEvent(db, run.id, "ai_replied", node.node_key, { goals: true });
+      return { next: null, vars: result.vars };
+    case "finished":
+      await logEvent(db, run.id, "ai_replied", node.node_key, { goals: true, finished: true });
+      return { next: cfg.finish_next ?? "", vars: result.vars };
+    case "handoff":
+    case "unavailable":
+      await logEvent(db, run.id, "ai_handoff", node.node_key, { goals: true, reason: result.outcome });
+      return { next: cfg.handoff_next ?? "" };
+  }
+}
+
 /** The failure-style port a step offers, taken when the step cannot run on the conversation's channel. */
 function channelFailurePort(config: Record<string, unknown>): string | null {
   for (const key of ["failed_next", "unavailable_next", "handoff_next"]) {
@@ -2472,7 +2769,8 @@ async function advanceFromNodeKey(
       await endRun(db, run.id, "failed", "node_not_found");
       return { outcome: "completed" };
     }
-    const delay = node.node_type === "start" || node.node_key === delayDoneFor ? 0 : nodeDelaySeconds(node.config);
+    const waited = node.node_key === delayDoneFor;
+    const delay = node.node_type === "start" || waited ? 0 : nodeDelaySeconds(node.config);
     delayDoneFor = undefined;
     if (delay) {
       const scheduled = await scheduleDelay(db, run, node, delay);
@@ -2481,13 +2779,6 @@ async function advanceFromNodeKey(
     await logEvent(db, run.id, "node_entered", node.node_key, {
       node_type: node.node_type,
     });
-    // Stage 5 steps (5A registers them, 5B runs them). The publish validator
-    // refuses them until then; a run that still reaches one ends here, sending nothing.
-    if ((STAGE5_NODE_TYPES as readonly string[]).includes(node.node_type)) {
-      await logEvent(db, run.id, "error", node.node_key, { reason: "not_implemented", node_type: node.node_type });
-      await endRun(db, run.id, "failed", "not_implemented");
-      return { outcome: "completed" };
-    }
 
     const channel = node.node_type === "start" ? null : await runChannel(run);
     // Each channel runs only its own steps (Stage 2: the Instagram-only steps never run on WhatsApp).
@@ -2517,10 +2808,88 @@ async function advanceFromNodeKey(
       currentKey = (node.config as unknown as StartNodeConfig).next_node_key;
       continue;
     }
+    // ---- Stage 5 logic steps (send nothing themselves) ----
+    if (node.node_type === "actions") {
+      const result = await runActionsNode(db, run, node, (node.config as unknown as ActionsNodeConfig).actions, "");
+      if (result.paused) {
+        // The step paused automations on this conversation: this run sends nothing more.
+        await endRun(db, run.id, "completed", "automations_paused");
+        return { outcome: "completed" };
+      }
+      currentKey = typeof node.config.next_node_key === "string" ? node.config.next_node_key : null;
+      if (!currentKey) {
+        await endRun(db, run.id, "completed", "end_node");
+        return { outcome: "completed" };
+      }
+      continue;
+    }
+    if (node.node_type === "randomizer") {
+      const choice = chooseRandomizerPath({ config: node.config, nodeKey: node.node_key, contactId: run.contact_id, vars: run.vars });
+      if (!choice || !choice.path.next_node_key) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "randomizer_no_path" });
+        await endRun(db, run.id, "failed", "randomizer_no_path");
+        return { outcome: "completed" };
+      }
+      // Written before advancing, so a retry or replay of this run follows the same path.
+      if (choice.store) await setRunVars(db, run, { [pickVar(node.node_key)]: choice.path.id });
+      await logEvent(db, run.id, "node_entered", node.node_key, { randomizer_path: choice.path.id, advancing_to: choice.path.next_node_key });
+      currentKey = choice.path.next_node_key;
+      continue;
+    }
+    if (node.node_type === "smart_delay") {
+      const cfg = node.config as unknown as SmartDelayNodeConfig;
+      const next = cfg.next_node_key || null;
+      if (!waited) {
+        const plan = await planSmartDelayFor(db, run, cfg);
+        if (plan.kind === "invalid" || plan.kind === "date_passed") {
+          const reason = plan.kind === "invalid" ? plan.reason : "smart_delay_date_passed";
+          await logEvent(db, run.id, "error", node.node_key, { reason });
+          await endRun(db, run.id, plan.kind === "invalid" ? "failed" : "completed", reason);
+          return { outcome: "completed" };
+        }
+        if (plan.kind === "wait") {
+          const seconds = Math.max(1, Math.ceil((plan.until.getTime() - Date.now()) / 1000));
+          const scheduled = await scheduleDelay(db, run, node, seconds);
+          return { outcome: scheduled === "failed" ? "completed" : "advanced" };
+        }
+      }
+      // The wait is over (or there was none). On Instagram the next step that
+      // messages re-checks the 24-hour window before sending (below).
+      if (!next) {
+        await endRun(db, run.id, "completed", "end_node");
+        return { outcome: "completed" };
+      }
+      currentKey = next;
+      continue;
+    }
+    if (node.node_type === "google_sheets") {
+      let result: Awaited<ReturnType<typeof executeSheetsNode>>;
+      try {
+        result = await executeSheetsNode(run, node);
+      } catch {
+        // Never the error text: it could carry a cell value. The outcome is not retried.
+        result = { port: "failure", vars: {}, reason: "sheets_outcome_unknown" };
+      }
+      if (Object.keys(result.vars).length) {
+        try {
+          await setRunVars(db, run, result.vars);
+        } catch (err) {
+          await logEvent(db, run.id, "error", node.node_key, { reason: "sheets_var_failed", detail: errorDetail(err) });
+        }
+      }
+      if (result.port === "failure") await logEvent(db, run.id, "error", node.node_key, { reason: result.reason ?? "sheets_failed" });
+      else await logEvent(db, run.id, "api_request", node.node_key, { node_type: "google_sheets", mapped: Object.keys(result.vars) });
+      currentKey = (result.port === "next" ? node.config.next_node_key : node.config.failure_next) as string | null;
+      if (!currentKey) {
+        await endRun(db, run.id, result.port === "next" ? "completed" : "failed", result.port === "next" ? "end_node" : (result.reason ?? "sheets_failed"));
+        return { outcome: "completed" };
+      }
+      continue;
+    }
     if (node.node_type === "send_message") {
       const cfg = node.config as unknown as SendMessageNodeConfig;
       try {
-        const ws = await workspaceValuesFor(run.account_id, cfg.text);
+        const ws = await textValues(run, cfg.text);
         const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "text", args: {
           accountId: run.account_id,
     userId: run.user_id,
@@ -2546,7 +2915,7 @@ async function advanceFromNodeKey(
     if (node.node_type === "send_media") {
       const cfg = node.config as unknown as SendMediaNodeConfig;
       try {
-        const ws = await workspaceValuesFor(run.account_id, cfg.caption ?? '');
+        const ws = await textValues(run, cfg.caption ?? '');
         const { whatsapp_message_id } = await flowSend(run, `flow:${run.id}:${node.node_key}:${run.transition_seq ?? 0}:${run.reprompt_count}`, { kind: "media", args: {
           accountId: run.account_id,
     userId: run.user_id,
@@ -2580,7 +2949,7 @@ async function advanceFromNodeKey(
       const cfg = node.config as unknown as Record<string, unknown>;
       try {
         const texts = ["header_text", "body_text", "footer_text"].map((k) => (typeof cfg[k] === "string" ? cfg[k] : "")).join("\n");
-        const ws = await workspaceValuesFor(run.account_id, texts);
+        const ws = await textValues(run, texts);
         const { whatsappMessageId } = await sendCommerceMessage({
           accountId: run.account_id, role: "owner", sender: "bot", conversationId: run.conversation_id!,
           message: commerceMessageFromNode(node.node_type, cfg, (text) => interpolateVars(text, run.vars, ws)),
@@ -2637,6 +3006,21 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+      } else {
+        await scheduleReplyTimeout(db, run, node);
+      }
+      return { outcome: "advanced" };
+    }
+    if (node.node_type === "ai_reply" && Array.isArray(node.config.goals) && node.config.goals.length > 0) {
+      // Stage 5: a goal-driven step works through its goals over several messages.
+      const turn = await goalTurn(db, run, node, null);
+      if (turn.vars && Object.keys(turn.vars).length) await setRunVars(db, run, turn.vars).catch(() => undefined);
+      if (turn.next !== null) {
+        currentKey = turn.next;
+        continue;
+      }
+      if (!(await advanceCurrentNodeKey(db, run, run.current_node_key, node.node_key))) {
+        await logEvent(db, run.id, "error", node.node_key, { reason: "lost_race_during_advance" });
       } else {
         await scheduleReplyTimeout(db, run, node);
       }
@@ -2835,7 +3219,7 @@ async function advanceFromNodeKey(
     if (node.node_type === "set_attribute") {
       const cfg = node.config as unknown as SetAttributeNodeConfig;
       try {
-        const ws = await workspaceValuesFor(run.account_id, cfg.value ?? "");
+        const ws = await textValues(run, cfg.value ?? "");
         const value = interpolateVars(cfg.value ?? "", run.vars, ws);
         if (cfg.target === "var") {
           const vars = { ...run.vars, [cfg.key]: value };
@@ -2983,7 +3367,9 @@ async function advanceFromNodeKey(
       const eventId = commentEventOf(run);
       const commentId = typeof run.vars.ig_comment_id === "string" ? run.vars.ig_comment_id : "";
       const text = eventId && commentId ? pickPublicReply(cfg.replies, commentId, validCommentReply) : null;
-      let outcome = "unavailable";
+      // Stage 5: a run that started from a message (a flow with a keyword next to its
+      // comment trigger) has no comment to answer: the step is skipped with an event.
+      let outcome = eventId ? "unavailable" : "skipped_not_comment";
       if (eventId && text) {
         try {
           outcome = await postCommentPublicReply(run.account_id, eventId, text);
@@ -3322,6 +3708,8 @@ async function startIceBreakerFlow(db: AdminClient, input: DispatchInboundInput)
   const code = decodePostback(input.message.reply_id);
   // A persistent menu item (`menu:<flow id>`, Stage 3) starts its flow the same way, listed in persistent_menu instead.
   if (!code || (code.kind !== "ice_breaker" && code.kind !== "menu")) return null;
+  // Stage 5: no automated start for a contact unsubscribed on Instagram.
+  if (!(await instagramAutomationAllowed(input.accountId, input.contactId))) return null;
   const listed = await withTenant({ accountId: input.accountId, role: "owner" }, async (tx) => {
     const [row] = await tx.$queryRaw<{ listed: boolean }[]>`SELECT EXISTS(SELECT 1 FROM conversations c
         JOIN instagram_accounts a ON a.account_id=c.account_id AND a.id=c.instagram_account_id
@@ -3482,6 +3870,9 @@ export async function dispatchInboundToFlows(
     const { data } = await db.from("contacts").select("phone").eq("account_id", input.accountId).eq("id", input.contactId).maybeSingle();
     return phoneDigits((data as { phone?: string | null } | null)?.phone);
   })());
+  // Stage 5: the Instagram username, for drafts tested by username; read at most once.
+  let username: Promise<string> | undefined;
+  const contactUsername = () => (username ??= storedInstagramUsername(input.accountId, input.contactId, input.conversationId));
   try {
     if (await botRepliesPaused(input.accountId, input.conversationId)) return { consumed: true, outcome: 'no_match' };
     const activeRun = await loadActiveRunForConversation(
@@ -3514,8 +3905,14 @@ export async function dispatchInboundToFlows(
       // in-memory. See loadAllNodes.
       const { flow: runFlow, nodes } = await loadRunGraph(db, activeRun);
       const now = new Date();
-      const testContact = runFlow?.status === "draft" && isTestContact(runFlow, await contactDigits());
+      const testContact = runFlow?.status === "draft" && (isTestContact(runFlow, await contactDigits())
+        || ((runFlow.test_usernames ?? []).length > 0 && isTestUsername(runFlow, await contactUsername())));
       const closure = closureForActiveRun({ run: activeRun, flow: runFlow, nodeKeys: nodes, now, testContact });
+      // Stage 5: unsubscribed on Instagram, the run sends nothing more (agents can still answer by hand).
+      if (!closure && (await runChannel(activeRun)) === "instagram" && !(await instagramAutomationAllowed(input.accountId, input.contactId))) {
+        await endRun(db, activeRun.id, "cancelled", "contact_opted_out");
+        return { consumed: false, outcome: "no_match" };
+      }
       if (!closure) return await guardCommitted(activeRun, () => handleReplyForActiveRun(db, activeRun, runFlow!, input.message, nodes));
       if (!(await closeActiveRun(db, activeRun, closure, now))) {
         return { consumed: true, flow_run_id: activeRun.id, outcome: "duplicate_inbound_ignored" };
@@ -3535,6 +3932,7 @@ export async function dispatchInboundToFlows(
       input.message,
       input.isFirstInboundMessage,
       contactDigits,
+      contactUsername,
     );
     if (!entry || !entry.flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };
@@ -3676,6 +4074,29 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
   }
 
+  // Stage 5: a goal-driven AI step takes the person's next message as its next turn.
+  if (currentNode.node_type === "ai_reply" && Array.isArray(currentNode.config.goals) && currentNode.config.goals.length > 0) {
+    if (message.kind !== "text" || !message.text.trim()) return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+    // The turn is claimed first (transition_seq moves on), so two messages cannot both answer it.
+    const seq = (run.transition_seq ?? 0) + 1;
+    let claim = db.from("flow_runs").update({ transition_seq: seq, last_advanced_at: new Date().toISOString() })
+      .eq("id", run.id).eq("status", "active").eq("current_node_key", currentNode.node_key).eq("transition_seq", run.transition_seq ?? 0);
+    if (run.flow_version_id) claim = claim.eq("flow_version_id", run.flow_version_id);
+    const claimed = await claim.select("id");
+    if (claimed.error || !Array.isArray(claimed.data) || claimed.data.length !== 1) return lostReplyRace(db, run, currentNode.node_key);
+    run.transition_seq = seq;
+    const turn = await goalTurn(db, run, currentNode, message);
+    if (turn.next === null) {
+      if (turn.vars) await mergeWaitingRunVars(db, run, turn.vars);
+      await scheduleReplyTimeout(db, run, currentNode);
+      return { consumed: true, flow_run_id: run.id, outcome: "waiting" };
+    }
+    const vars = turn.vars && Object.keys(turn.vars).length ? { ...run.vars, ...turn.vars } : null;
+    if (!(await claimReplyTransition(db, run, turn.next, vars ? { vars } : {}))) return lostReplyRace(db, run, currentNode.node_key);
+    if (vars) run.vars = vars;
+    const outcome = await advanceFromNodeKey(db, run, turn.next, nodes);
+    return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+  }
   // A typed follow-up on a waiting AI reply step is answered by the AI.
   if (currentNode.node_type === "ai_reply" && message.kind === "text" && message.text.trim()) {
     return continueAiReplyNode(db, run, currentNode, nodes, message.meta_message_id);
@@ -3725,6 +4146,18 @@ async function handleReplyForActiveRun(
         captured_key: cfg.var_key,
         captured_length: captured[cfg.var_key].length,
       });
+      if (currentNode.node_type === "collect_input") {
+        // Stage 5: "save answer to" a contact or custom field, then the actions on a valid answer.
+        await saveAnswer(db, run, currentNode, captured[cfg.var_key]);
+        const onSuccess = (currentNode.config as unknown as CollectInputNodeConfig).on_success_actions;
+        if (Array.isArray(onSuccess) && onSuccess.length) {
+          const result = await runActionsNode(db, run, currentNode, onSuccess, ":ok");
+          if (result.paused) {
+            await endRun(db, run.id, "completed", "automations_paused");
+            return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+          }
+        }
+      }
       const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
       return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
     }
@@ -3838,7 +4271,7 @@ async function sendFallbackMessage(
   const message = policy.fallback_message;
   if (!message) return;
   try {
-    const ws = await workspaceValuesFor(run.account_id, message.text);
+    const ws = await textValues(run, message.text);
     const text = interpolateVars(message.text, run.vars, ws);
     const base = { accountId: run.account_id, userId: run.user_id, conversationId: run.conversation_id!, contactId: run.contact_id! };
     const { whatsapp_message_id } = await flowSend(run, `flow-fallback:${run.id}:${inboundMessageId}`,
@@ -3912,6 +4345,25 @@ async function captureAnswer(node: FlowNodeRow, message: ParsedInbound): Promise
     }
     default:
       return null;
+  }
+}
+
+/**
+ * "Save answer to" on an Ask Question step (Stage 5): a valid answer is also
+ * written to a contact field or custom field (nodes/actions.ts
+ * writeContactValue). A phone or email another contact already has is not
+ * written and never merges contacts: the answer stays in the run variable and
+ * a `save_conflict` event is logged, without the value. Non-fatal.
+ */
+async function saveAnswer(db: AdminClient, run: FlowRunRow, node: FlowNodeRow, value: string): Promise<void> {
+  const saveTo = (node.config as unknown as CollectInputNodeConfig).save_to;
+  if (!saveTo || !run.contact_id || (saveTo.target !== "contact_field" && saveTo.target !== "custom_field") || typeof saveTo.key !== "string") return;
+  try {
+    const written = await writeContactValue(db, { accountId: run.account_id, contactId: run.contact_id, target: saveTo.target, key: saveTo.key, value: value.slice(0, 1000) });
+    if (written === "written") await logEvent(db, run.id, "attribute_set", node.node_key, { target: saveTo.target, key: saveTo.key, length: value.length });
+    else await logEvent(db, run.id, "error", node.node_key, { reason: written === "conflict" ? "save_conflict" : "save_not_writable", target: saveTo.target, key: saveTo.key });
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, { reason: "save_failed", detail: errorDetail(err) });
   }
 }
 
