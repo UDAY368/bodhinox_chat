@@ -183,7 +183,8 @@
       "newContact": "Nuevo contacto",
       "newDeal": "Nuevo negocio",
       "newBroadcast": "Nueva difusión",
-      "newAutomation": "Nueva automatización"
+      "newAutomation": "Nueva automatización",
+      "instagramHome": "Inicio de Instagram"
     },
     "activityFeed": {
       "title": "Actividad reciente",
@@ -3550,7 +3551,29 @@
       "confirmDelete": "Eliminar",
       "cancel": "Cancelar",
       "ctrValue": "{value} %",
-      "folder": "Carpeta"
+      "folder": "Carpeta",
+      "nameColumn": "Nombre",
+      "modifiedColumn": "Modificada",
+      "actions": "Más acciones",
+      "restore": "Restaurar",
+      "restored": "Restaurada. Ábrela para activarla de nuevo.",
+      "archivedDone": "Archivada. Puedes restaurarla desde el estado Archivada.",
+      "deletePermanent": "Esto elimina la automatización para siempre. No se puede deshacer.",
+      "triggerTypes": {
+        "keyword": "Palabra clave",
+        "first_inbound_message": "Primer mensaje",
+        "manual": "Sin disparador",
+        "template_reply": "Respuesta a plantilla",
+        "order_received": "Pedido recibido",
+        "ad_click": "Clic en anuncio",
+        "default_reply": "Respuesta predeterminada",
+        "ig_comment": "Comentario en publicación o reel",
+        "ig_story_reply": "Respuesta a historia",
+        "ig_story_mention": "Mención en historia",
+        "ig_live_comment": "Comentario en directo",
+        "ig_ref": "Enlace ref",
+        "ig_share_to_story": "Compartir en historia"
+      }
     },
     "canvas": {
       "addStep": "Añadir paso",
@@ -12702,6 +12725,20 @@
           "info": "Encontrarás todo en nuestra web. Escríbenos cuando quieras si prefieres hablar con una persona.",
           "handoffNote": "Pidió hablar con una persona desde la respuesta predeterminada."
         }
+      },
+      "preview": {
+        "title": "Vista previa",
+        "post": "Publicación",
+        "comments": "Comentarios",
+        "dm": "MD",
+        "yourPost": "Tu publicación o reel",
+        "follower": "seguidor",
+        "you": "tú",
+        "anyWord": "Cualquier comentario",
+        "storyReply": "Una respuesta a tu historia",
+        "sampleEmail": "nombre@ejemplo.com",
+        "cardPlaceholder": "Título de la tarjeta",
+        "remaining": "{count, plural, =1 {Queda # carácter} other {Quedan # caracteres}}"
       }
     },
     "live": {

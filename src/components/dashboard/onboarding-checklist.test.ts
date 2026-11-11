@@ -7,7 +7,7 @@ vi.mock('@/lib/auth/client', () => ({ authFetch: vi.fn() }));
 vi.mock('@/lib/data/client', () => ({ createClient: vi.fn() }));
 vi.mock('@/hooks/use-auth', () => ({ useAuth: () => ({}) }));
 
-import { completedSteps, ONBOARDING_STEPS, onboardingSteps, STEP_HREF, teamCount } from './onboarding-checklist';
+import { completedSteps, ONBOARDING_STEPS, onboardingSteps, showNextMoves, STEP_HREF, teamCount } from './onboarding-checklist';
 
 describe('team step', () => {
   it('counts open invitations with members', () => {
@@ -55,5 +55,33 @@ describe('steps per channel set (Stage 1)', () => {
     expect(STEP_HREF.instagramConnect).toBe('/settings?tab=instagram');
     expect(STEP_HREF.instagramCommentAutomation).toBe('/instagram/comments');
     expect(STEP_HREF.whatsapp).toBe('/settings?tab=whatsapp');
+  });
+});
+
+
+describe('next moves (Stage 5)', () => {
+  const move = (key: 'menu' | 'refLink', done: boolean) => ({ key, done, href: `/instagram/${key}` });
+  const instagram = onboardingSteps(['instagram']);
+  const allInstagramDone = completedSteps({ instagramConnect: 1, instagramAllowMessages: 1, instagramCommentAutomation: 1 }, instagram);
+
+  it('appears once the Instagram steps are done and a move is still open', () => {
+    expect(showNextMoves(instagram, allInstagramDone, [move('menu', true), move('refLink', false)])).toBe(true);
+  });
+
+  it('stays hidden while an Instagram step is open, when every move is done, or when moves could not load', () => {
+    const partly = completedSteps({ instagramConnect: 1, instagramAllowMessages: 1 }, instagram);
+    expect(showNextMoves(instagram, partly, [move('menu', false)])).toBe(false);
+    expect(showNextMoves(instagram, allInstagramDone, [move('menu', true), move('refLink', true)])).toBe(false);
+    expect(showNextMoves(instagram, allInstagramDone, null)).toBe(false);
+  });
+
+  it('never appears for a WhatsApp-only workspace', () => {
+    const steps = onboardingSteps(['whatsapp']);
+    expect(showNextMoves(steps, completedSteps({ whatsapp: 1, contacts: 1, templates: 1 }, steps), [move('menu', false)])).toBe(false);
+  });
+
+  it('counts a member (who has no comment-rule step) as done after the two steps they have', () => {
+    const steps = onboardingSteps(['instagram'], false);
+    expect(showNextMoves(steps, completedSteps({ instagramConnect: 1, instagramAllowMessages: 1 }, steps), [move('menu', false)])).toBe(true);
   });
 });

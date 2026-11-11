@@ -29,17 +29,22 @@ const optionalId = (value: string | null) => (value != null && UUID.test(value) 
 
 /**
  * Records a conversion. Writes nothing for an unknown or archived event type,
- * another workspace's type (RLS hides it), or malformed ids. Returns whether a
- * row was written (false for a replay of the same run, step and type).
+ * another workspace's type (RLS hides it), or malformed ids, and nothing
+ * without a run and step: the unique key (account, run, step, type) is what
+ * makes a replay count once, and PostgreSQL treats NULLs in it as distinct.
+ * Returns whether a row was written (false for a replay of the same run, step
+ * and type).
  */
 export async function logConversion(accountId: string, input: ConversionLogInput): Promise<boolean> {
   if (!UUID.test(accountId) || !UUID.test(input.eventTypeId)) return false;
+  if (input.runId == null || !UUID.test(input.runId)) return false;
   if (input.channel !== 'whatsapp' && input.channel !== 'instagram') return false;
   const nodeKey = typeof input.nodeKey === 'string' && input.nodeKey.length >= 1 && input.nodeKey.length <= 200 ? input.nodeKey : null;
+  if (nodeKey === null) return false;
   const written = await withTenant({ accountId, role: 'owner' }, (tx) => tx.$executeRaw`
     INSERT INTO conversion_event_log(account_id,event_type_id,contact_id,flow_id,flow_run_id,node_key,channel)
     SELECT ${accountId}::uuid, t.id, ${optionalId(input.contactId)}::uuid, ${optionalId(input.flowId)}::uuid,
-      ${optionalId(input.runId)}::uuid, ${nodeKey}, ${input.channel}
+      ${input.runId}::uuid, ${nodeKey}, ${input.channel}
     FROM conversion_event_types t
     WHERE t.account_id=${accountId}::uuid AND t.id=${input.eventTypeId}::uuid AND t.archived_at IS NULL
     ON CONFLICT (account_id, flow_run_id, node_key, event_type_id) DO NOTHING`, getWorkerPrisma());

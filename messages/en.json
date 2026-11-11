@@ -183,7 +183,8 @@
       "newContact": "New Contact",
       "newDeal": "New Deal",
       "newBroadcast": "New Broadcast",
-      "newAutomation": "New Automation"
+      "newAutomation": "New Automation",
+      "instagramHome": "Instagram home"
     },
     "activityFeed": {
       "title": "Recent Activity",
@@ -3550,7 +3551,29 @@
       "confirmDelete": "Delete",
       "cancel": "Cancel",
       "ctrValue": "{value}%",
-      "folder": "Folder"
+      "folder": "Folder",
+      "nameColumn": "Name",
+      "modifiedColumn": "Modified",
+      "actions": "More actions",
+      "restore": "Restore",
+      "restored": "Restored. Open it to set it live again.",
+      "archivedDone": "Archived. You can restore it from the Archived state.",
+      "deletePermanent": "This deletes the automation for good. It cannot be undone.",
+      "triggerTypes": {
+        "keyword": "Keyword",
+        "first_inbound_message": "First message",
+        "manual": "No trigger",
+        "template_reply": "Template reply",
+        "order_received": "Order received",
+        "ad_click": "Ad click",
+        "default_reply": "Default reply",
+        "ig_comment": "Post or reel comment",
+        "ig_story_reply": "Story reply",
+        "ig_story_mention": "Story mention",
+        "ig_live_comment": "Live comment",
+        "ig_ref": "Ref link",
+        "ig_share_to_story": "Share to story"
+      }
     },
     "canvas": {
       "addStep": "Add step",
@@ -12702,6 +12725,20 @@
           "info": "You'll find everything on our website. Message us any time if you'd like a person.",
           "handoffNote": "Asked for a person from the default reply."
         }
+      },
+      "preview": {
+        "title": "Preview",
+        "post": "Post",
+        "comments": "Comments",
+        "dm": "DM",
+        "yourPost": "Your post or reel",
+        "follower": "follower",
+        "you": "you",
+        "anyWord": "Any comment",
+        "storyReply": "A reply to your story",
+        "sampleEmail": "name@example.com",
+        "cardPlaceholder": "Card title",
+        "remaining": "{count, plural, =1 {# character left} other {# characters left}}"
       }
     },
     "live": {

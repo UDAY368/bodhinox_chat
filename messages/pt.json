@@ -183,7 +183,8 @@
       "newContact": "Novo contato",
       "newDeal": "Novo negócio",
       "newBroadcast": "Novo disparo",
-      "newAutomation": "Nova automação"
+      "newAutomation": "Nova automação",
+      "instagramHome": "Início do Instagram"
     },
     "activityFeed": {
       "title": "Atividade recente",
@@ -3550,7 +3551,29 @@
       "confirmDelete": "Excluir",
       "cancel": "Cancelar",
       "ctrValue": "{value}%",
-      "folder": "Pasta"
+      "folder": "Pasta",
+      "nameColumn": "Nome",
+      "modifiedColumn": "Modificada",
+      "actions": "Mais ações",
+      "restore": "Restaurar",
+      "restored": "Restaurada. Abra-a para ativá-la de novo.",
+      "archivedDone": "Arquivada. Você pode restaurá-la a partir do estado Arquivada.",
+      "deletePermanent": "Isto exclui a automação para sempre. Não pode ser desfeito.",
+      "triggerTypes": {
+        "keyword": "Palavra-chave",
+        "first_inbound_message": "Primeira mensagem",
+        "manual": "Sem gatilho",
+        "template_reply": "Resposta a modelo",
+        "order_received": "Pedido recebido",
+        "ad_click": "Clique no anúncio",
+        "default_reply": "Resposta padrão",
+        "ig_comment": "Comentário em post ou reel",
+        "ig_story_reply": "Resposta ao story",
+        "ig_story_mention": "Menção no story",
+        "ig_live_comment": "Comentário na live",
+        "ig_ref": "Link ref",
+        "ig_share_to_story": "Compartilhar no story"
+      }
     },
     "canvas": {
       "addStep": "Adicionar etapa",
@@ -12702,6 +12725,20 @@
           "info": "Você encontra tudo no nosso site. Escreva quando quiser se preferir falar com uma pessoa.",
           "handoffNote": "Pediu para falar com uma pessoa na resposta padrão."
         }
+      },
+      "preview": {
+        "title": "Prévia",
+        "post": "Post",
+        "comments": "Comentários",
+        "dm": "DM",
+        "yourPost": "Seu post ou reel",
+        "follower": "seguidor",
+        "you": "você",
+        "anyWord": "Qualquer comentário",
+        "storyReply": "Uma resposta ao seu story",
+        "sampleEmail": "nome@exemplo.com",
+        "cardPlaceholder": "Título do cartão",
+        "remaining": "{count, plural, =1 {Resta # caractere} other {Restam # caracteres}}"
       }
     },
     "live": {

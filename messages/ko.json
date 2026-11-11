@@ -183,7 +183,8 @@
       "newContact": "새 연락처",
       "newDeal": "새 딜",
       "newBroadcast": "새 브로드캐스트",
-      "newAutomation": "새 자동화"
+      "newAutomation": "새 자동화",
+      "instagramHome": "Instagram 홈"
     },
     "activityFeed": {
       "title": "최근 활동",
@@ -3550,7 +3551,29 @@
       "confirmDelete": "삭제",
       "cancel": "취소",
       "ctrValue": "{value}%",
-      "folder": "폴더"
+      "folder": "폴더",
+      "nameColumn": "이름",
+      "modifiedColumn": "수정됨",
+      "actions": "추가 작업",
+      "restore": "복원",
+      "restored": "복원했습니다. 다시 활성화하려면 자동화를 여세요.",
+      "archivedDone": "보관했습니다. 보관됨 상태에서 복원할 수 있습니다.",
+      "deletePermanent": "이 자동화를 영구적으로 삭제합니다. 되돌릴 수 없습니다.",
+      "triggerTypes": {
+        "keyword": "키워드",
+        "first_inbound_message": "첫 메시지",
+        "manual": "트리거 없음",
+        "template_reply": "템플릿 답장",
+        "order_received": "주문 접수",
+        "ad_click": "광고 클릭",
+        "default_reply": "기본 답장",
+        "ig_comment": "게시물 또는 릴스 댓글",
+        "ig_story_reply": "스토리 답장",
+        "ig_story_mention": "스토리 멘션",
+        "ig_live_comment": "라이브 댓글",
+        "ig_ref": "Ref 링크",
+        "ig_share_to_story": "스토리에 공유"
+      }
     },
     "canvas": {
       "addStep": "단계 추가",
@@ -12702,6 +12725,20 @@
           "info": "자세한 내용은 웹사이트에서 확인하세요. 상담원이 필요하면 언제든 메시지를 보내 주세요.",
           "handoffNote": "기본 답장에서 상담원 연결을 요청함."
         }
+      },
+      "preview": {
+        "title": "미리보기",
+        "post": "게시물",
+        "comments": "댓글",
+        "dm": "DM",
+        "yourPost": "내 게시물 또는 릴스",
+        "follower": "팔로워",
+        "you": "나",
+        "anyWord": "모든 댓글",
+        "storyReply": "내 스토리에 대한 답장",
+        "sampleEmail": "name@example.com",
+        "cardPlaceholder": "카드 제목",
+        "remaining": "{count}자 남음"
       }
     },
     "live": {

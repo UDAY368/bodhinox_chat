@@ -10,6 +10,13 @@
 // Hidden once every step is done, or when dismissed; dismissal is per user and
 // workspace in this browser (localStorage, the store the app already uses for
 // per-user display preferences).
+//
+// Stage 5 (5F): once the three Instagram steps are done the card does not just
+// disappear: it shows "Next moves" (conversation starters, menu, default reply,
+// a ref link, AI comment replies, lead capture), each ticked from real state
+// read by GET /api/instagram/home, with progress, until all are done or the
+// card is dismissed (its own dismissal, so an earlier dismissal of the setup
+// steps does not hide it).
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -26,6 +33,7 @@ import { CHANNELS } from '@/lib/channels/capabilities';
 import { channelPath, channelSettingsPath } from '@/lib/channels/routes';
 import { createClient } from '@/lib/data/client';
 import type { InstagramAccountView } from '@/lib/instagram/connection';
+import type { InstagramHomeSummary } from '@/lib/instagram/home-summary';
 import type { Channel } from '@/types';
 
 export type OnboardingStep =
@@ -84,6 +92,51 @@ export const STEP_HREF: Record<OnboardingStep, string> = {
 };
 
 export const dismissKey = (accountId: string, userId: string) => `bodhinox:onboarding-dismissed:${accountId}:${userId}`;
+export const nextMovesDismissKey = (accountId: string, userId: string) => `bodhinox:next-moves-dismissed:${accountId}:${userId}`;
+
+/** The Instagram setup steps whose completion opens the next moves. */
+export const INSTAGRAM_SETUP_STEPS: readonly OnboardingStep[] = STEPS_BY_CHANNEL.instagram;
+
+type NextMoves = InstagramHomeSummary['nextMoves'];
+
+/**
+ * Whether to show the next moves: the workspace has the Instagram steps, every
+ * one it has is done, and at least one move is still open.
+ */
+export function showNextMoves(steps: readonly OnboardingStep[], done: ReadonlySet<OnboardingStep>, moves: NextMoves | null): boolean {
+  const instagram = steps.filter((step) => INSTAGRAM_SETUP_STEPS.includes(step));
+  return instagram.length > 0 && instagram.every((step) => done.has(step)) && !!moves && moves.some((move) => !move.done);
+}
+
+async function loadNextMoves(): Promise<NextMoves | null> {
+  try {
+    const res = await authFetch('/api/instagram/home', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { summary?: InstagramHomeSummary };
+    return Array.isArray(json.summary?.nextMoves) ? json.summary.nextMoves : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The next-moves checklist (the dashboard card and the Instagram home page). */
+export function NextMovesList({ moves }: { moves: NextMoves }) {
+  const t = useTranslations('Dashboard.nextMoves');
+  return (
+    <ul className="space-y-2">
+      {moves.map((move) => (
+        <li key={move.key} className="flex items-center gap-2 text-sm" data-next-move={move.key}>
+          {move.done ? <CheckCircle2 className="size-4 text-emerald-500" aria-hidden /> : <Circle className="size-4 text-muted-foreground" aria-hidden />}
+          {move.done ? (
+            <span className="text-muted-foreground line-through">{t(move.key)}</span>
+          ) : (
+            <Link href={move.href} className="text-foreground hover:text-primary hover:underline">{t(move.key)}</Link>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** The team step's count: members plus open invitations (an invitation means someone was invited). */
 export function teamCount(members: number | null, invitations: number | null): number | null {
@@ -128,11 +181,14 @@ async function countCommentRules(): Promise<number | null> {
 
 export function OnboardingChecklist() {
   const t = useTranslations('Dashboard.onboarding');
+  const tMoves = useTranslations('Dashboard.nextMoves');
   const { user, accountId } = useAuth();
   const canEdit = useCan('edit-settings');
   const channels = useWorkspaceChannels();
   const [done, setDone] = useState<Set<OnboardingStep> | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [moves, setMoves] = useState<NextMoves | null>(null);
+  const [movesDismissed, setMovesDismissed] = useState(false);
   // The steps wait for the channel state; if it cannot load, the WhatsApp steps (as before Stage 1).
   const enabled = channels.data?.enabled ?? (channels.error ? ONBOARDING_ENABLED_FALLBACK : null);
   const stepsKey = enabled ? onboardingSteps(enabled, canEdit).join(',') : null;
@@ -140,9 +196,11 @@ export function OnboardingChecklist() {
 
   useEffect(() => {
     if (!user?.id || !accountId || !stepsKey) return;
-    // Read after mount (never during render) so server and client markup match.
-    if (readDismissed(dismissKey(accountId, user.id))) return;
     const steps = stepsKey.split(',') as OnboardingStep[];
+    // Read after mount (never during render) so server and client markup match.
+    const setupDismissed = readDismissed(dismissKey(accountId, user.id));
+    const wantsMoves = steps.some((step) => INSTAGRAM_SETUP_STEPS.includes(step)) && !readDismissed(nextMovesDismissKey(accountId, user.id));
+    if (setupDismissed && !wantsMoves) return;
     const needs = (step: OnboardingStep) => steps.includes(step);
     let live = true;
     const db = createClient();
@@ -153,7 +211,7 @@ export function OnboardingChecklist() {
     };
     const skip = Promise.resolve(null);
     (async () => {
-      const [whatsapp, contacts, templates, instagramMessages, commentRules, flows, automations, members, invitations] = await Promise.all([
+      const [whatsapp, contacts, templates, instagramMessages, commentRules, flows, automations, members, invitations, nextMoves] = await Promise.all([
         needs('whatsapp') ? count('whatsapp_config') : skip,
         needs('contacts') ? count('contacts') : skip,
         needs('templates') ? count('message_templates') : skip,
@@ -172,8 +230,12 @@ export function OnboardingChecklist() {
           .then((r) => (r.ok ? r.json() : null))
           .then((b: { invitations?: unknown[] } | null) => (Array.isArray(b?.invitations) ? b.invitations.length : null))
           .catch(() => null),
+        wantsMoves ? loadNextMoves() : Promise.resolve(null),
       ]);
       if (!live) return;
+      setDismissed(setupDismissed);
+      setMovesDismissed(!wantsMoves);
+      setMoves(nextMoves);
       setDone(completedSteps({
         whatsapp,
         contacts,
@@ -191,7 +253,38 @@ export function OnboardingChecklist() {
   }, [user?.id, accountId, stepsKey, canEdit, instagramConnected]);
 
   const steps = stepsKey ? (stepsKey.split(',') as OnboardingStep[]) : [];
-  if (dismissed || !done || !steps.length || steps.every((step) => done.has(step)) || !user?.id || !accountId) return null;
+  if (!done || !steps.length || !user?.id || !accountId) return null;
+  const setupOpen = !dismissed && !steps.every((step) => done.has(step));
+  const movesOpen = !movesDismissed && showNextMoves(steps, done, moves);
+  if (!setupOpen && !movesOpen) return null;
+
+  const dismissMoves = () => {
+    try {
+      window.localStorage.setItem(nextMovesDismissKey(accountId, user.id), '1');
+    } catch {
+      // Storage unavailable: hide for this visit only.
+    }
+    setMovesDismissed(true);
+  };
+  const movesCard = movesOpen && moves ? (
+    <Card data-testid="next-moves">
+      <CardHeader className="flex flex-row items-start justify-between gap-2">
+        <div>
+          <CardTitle className="text-foreground">{tMoves('title')}</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {tMoves('progress', { done: moves.filter((move) => move.done).length, total: moves.length })}
+          </p>
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={dismissMoves} aria-label={t('dismiss')} title={t('dismiss')}>
+          <X className="size-4" />
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <NextMovesList moves={moves} />
+      </CardContent>
+    </Card>
+  ) : null;
+  if (!setupOpen) return movesCard;
 
   const dismiss = () => {
     try {
@@ -202,7 +295,7 @@ export function OnboardingChecklist() {
     setDismissed(true);
   };
 
-  return (
+  const setupCard = (
     <Card data-testid="onboarding-checklist">
       <CardHeader className="flex flex-row items-start justify-between gap-2">
         <div>
@@ -234,4 +327,5 @@ export function OnboardingChecklist() {
       </CardContent>
     </Card>
   );
+  return movesCard ? <div className="space-y-4">{setupCard}{movesCard}</div> : setupCard;
 }
