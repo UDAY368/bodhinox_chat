@@ -115,10 +115,14 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram consent per chann
     expect((await q('SELECT status FROM automation_pending_executions WHERE id=$1', [waWait.pending])).rows[0].status).toBe('pending');
     expect(await runRow(otherRun)).toEqual({ status: 'active', end_reason: null });
     expect(await instagramAutomationAllowed(A, a.contact)).toBe(false);
-    // A repeated STOP (a redelivered webhook) changes nothing, and keeps the first time.
+    // A repeated STOP (a redelivered webhook or retried job) changes nothing, keeps the
+    // first time, and leaves alone the run the attached opt-out flow started after it.
     const first = row.instagram_opted_out_at;
+    const optOutFlowRun = await run(A, igFlowA, ownerA, a, a.ig);
     expect(await applyInstagramConsent(A, a.contact, 'opted_out')).toBe(false);
     expect((await contactRow(a.contact)).instagram_opted_out_at).toEqual(first);
+    expect(await runRow(optOutFlowRun)).toEqual({ status: 'active', end_reason: null });
+    await q("UPDATE flow_runs SET status='cancelled', ended_at=now(), end_reason='contact_opted_out' WHERE id=$1", [optOutFlowRun]);
   });
 
   it('resubscribes on START, once', async () => {

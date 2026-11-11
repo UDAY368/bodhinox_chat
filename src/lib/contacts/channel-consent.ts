@@ -57,7 +57,10 @@ export async function setChannelConsent(tx: TenantTransaction, accountId: string
 export async function applyInstagramConsent(accountId: string, contactId: string, state: ConsentState): Promise<boolean> {
   return withTenant({ accountId, role: 'owner' }, async (tx) => {
     const changed = await setChannelConsent(tx, accountId, contactId, 'instagram', state);
-    if (state === 'opted_out') {
+    // Only the STOP that unsubscribes ends runs. A repeated STOP, or the same
+    // STOP replayed by a retried job (the change and the cleanup commit
+    // together), leaves alone the opt-out flow the first one started.
+    if (changed && state === 'opted_out') {
       await tx.$executeRaw`UPDATE flow_runs r SET status='cancelled', ended_at=now(), end_reason='contact_opted_out', wait_until=NULL
         WHERE r.account_id=${accountId}::uuid AND r.contact_id=${contactId}::uuid AND r.status='active'
           AND (EXISTS (SELECT 1 FROM conversations v WHERE v.account_id=r.account_id AND v.id=r.conversation_id AND v.channel='instagram')

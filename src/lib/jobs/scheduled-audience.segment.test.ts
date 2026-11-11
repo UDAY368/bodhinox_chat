@@ -22,7 +22,10 @@ const h = vi.hoisted(() => ({
   updates: [] as Array<{ table: string; values: unknown }>,
 }));
 
-vi.mock('@/lib/automations/engine', () => ({ runAutomationsForTrigger: h.trigger }));
+vi.mock('@/lib/automations/engine', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/automations/engine')>()),
+  runAutomationsForTrigger: h.trigger,
+}));
 vi.mock('./dispatch', () => ({
   dispatchOnce: async (_a: string, key: string, work: () => Promise<unknown>) => { h.dispatchKeys.push(key); return work(); },
 }));
@@ -210,6 +213,37 @@ describe('segment audience', () => {
     h.alreadyRun = h.segmentRows.slice(0, 1040).map((r) => r.id);
     await queueScheduledOccurrence(db(), ACC, automation({ once_per_contact: true }), SLOT, () => {});
     expect(queued()).toHaveLength(10);
+  });
+});
+
+describe('segment audience on Instagram (Stage 5)', () => {
+  const igAutomation = { id: 'auto', channel: 'instagram',
+    trigger_config: { schedule: '0 9 * * *', audience: { type: 'segment', segmentId: SEG } } };
+
+  it('narrows the segment to contacts with an Instagram conversation who have not unsubscribed there', async () => {
+    vi.stubEnv('INSTAGRAM_ENABLED', 'true');
+    vi.stubEnv('INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED', 'true');
+    try {
+      await queueScheduledOccurrence(db(), ACC, igAutomation, SLOT, () => {});
+      expect(memberQuery()).toMatch(/c\.instagram_opted_out_at IS NULL/);
+      expect(memberQuery()).toMatch(/v\.channel='instagram'/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('queues nothing while INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED is off, and leaves WhatsApp segments as they were', async () => {
+    vi.stubEnv('INSTAGRAM_ENABLED', 'true');
+    vi.stubEnv('INSTAGRAM_SCHEDULED_AUTOMATIONS_ENABLED', 'false');
+    try {
+      await queueScheduledOccurrence(db(), ACC, igAutomation, SLOT, () => {});
+      expect(h.enqueue).not.toHaveBeenCalled();
+      await queueScheduledOccurrence(db(), ACC, { ...igAutomation, channel: 'whatsapp' }, SLOT, () => {});
+      expect(memberQuery()).not.toMatch(/instagram/);
+      expect(queued()).toEqual(['c1', 'c4']);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

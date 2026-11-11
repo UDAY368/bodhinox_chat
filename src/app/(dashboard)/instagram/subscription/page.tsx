@@ -89,7 +89,10 @@ export default function InstagramSubscriptionPage() {
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const editable = canEdit && !saving;
-  const choices = (flows ?? []).filter((f) => f.status !== 'archived');
+  // Only a live flow runs on a keyword (startFlowById), so only live flows are offered;
+  // a stored choice stays listed whatever its state now, so a save never drops it.
+  const choices = (flows ?? []).filter((f) => f.status === 'active'
+    || f.id === settings.opt_out_flow_id || f.id === settings.opt_in_flow_id);
 
   const load = async () => {
     setFailed(false);

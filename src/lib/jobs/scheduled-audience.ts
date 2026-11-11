@@ -103,7 +103,7 @@ async function requireAudienceReferences(
  * The members are read in pages like every scheduled audience (pagedRecipients).
  */
 export async function segmentRecipients(accountId: string, segmentId: string,
-  options: { onlyNewFor?: string } = {}): Promise<Pick<Contact, 'id'>[]> {
+  options: { onlyNewFor?: string; where?: Prisma.Sql } = {}): Promise<Pick<Contact, 'id'>[]> {
   const condition = await withTenant({ accountId }, async (tx) => {
     try {
       const filter = await loadSegmentFilter(tx, accountId, segmentId, { lock: true });
@@ -114,7 +114,7 @@ export async function segmentRecipients(accountId: string, segmentId: string,
       throw new ScheduledAudienceError('Scheduled recipient segment must belong to this workspace and be active');
     }
   }, getWorkerPrisma());
-  return pagedRecipients(accountId, condition, options);
+  return pagedRecipients(accountId, options.where ? Prisma.sql`${condition} AND ${options.where}` : condition, options);
 }
 
 const tagged = (accountId: string, tagIds: readonly string[]) =>
@@ -285,7 +285,11 @@ export async function queueScheduledOccurrence(
   let contacts: Pick<Contact, 'id'>[];
   if (audience.type === 'segment') {
     try {
-      contacts = await segmentRecipients(accountId, audience.segmentId!, oncePerContact ? { onlyNewFor: automation.id } : {});
+      contacts = await segmentRecipients(accountId, audience.segmentId!, {
+        ...(oncePerContact ? { onlyNewFor: automation.id } : {}),
+        // Stage 5: an Instagram schedule's segment is narrowed like the other audiences.
+        ...(instagram ? { where: instagramRecipients(accountId) } : {}),
+      });
     } catch (error) {
       // A retargeting segment after a downgrade: turn the schedule off once, not fail every slot.
       if (!(error instanceof PlanLimitError)) throw error;
