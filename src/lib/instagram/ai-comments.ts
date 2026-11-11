@@ -277,7 +277,8 @@ async function draftOne(accountId: string, c: Candidate, settings: SettingsRow, 
   const draft = parseDraft(generated.text);
   if (!draft) {
     logAiEvent({ feature: 'instagram_comment', reason: 'invalid_output', accountId });
-    return 'failed';
+    // Recorded as skipped: an unparseable answer would otherwise be asked for again every run until the comment is a day old.
+    return skip('reply_invalid');
   }
   if (draft.intent === 'spam') return skip('spam', draft.sentiment, 'spam');
   if (!draft.reply) return skip('no_reply', draft.sentiment, draft.intent);
@@ -358,11 +359,20 @@ async function draftComments(accountId: string, settings: SettingsRow, now: Date
   }
 }
 
-interface ApprovedRow { id: string; comment_event_id: string; reply_text: string }
+interface ApprovedRow { id: string; comment_event_id: string; comment_id: string; reply_text: string }
+
+/** An in-flight send younger than this belongs to another job of the same workspace (the sweep and an approval can overlap). */
+const IN_FLIGHT_MS = 5 * 60_000;
+
+async function sendInFlight(accountId: string, commentId: string): Promise<boolean> {
+  const [intent] = await worker(accountId, (tx) => tx.$queryRaw<{ in_flight: boolean }[]>`SELECT (status='dispatching' AND updated_at > now() - make_interval(secs => ${IN_FLIGHT_MS / 1000})) AS in_flight
+    FROM outbound_intents WHERE account_id=${accountId}::uuid AND idempotency_key=${`${accountId}:ig-comment-reply:${commentId}`}`);
+  return intent?.in_flight === true;
+}
 
 /** Posts approved replies, one public reply per comment (the shared outbound intent). */
 async function postApproved(accountId: string, summary: AiCommentRunSummary): Promise<void> {
-  const rows = await worker(accountId, (tx) => tx.$queryRaw<ApprovedRow[]>`SELECT id::text AS id, comment_event_id::text AS comment_event_id, reply_text
+  const rows = await worker(accountId, (tx) => tx.$queryRaw<ApprovedRow[]>`SELECT id::text AS id, comment_event_id::text AS comment_event_id, comment_id, reply_text
     FROM instagram_ai_comment_queue WHERE account_id=${accountId}::uuid AND status='approved' ORDER BY updated_at, id LIMIT ${POSTS_PER_RUN}`);
   for (const row of rows) {
     let outcome: Awaited<ReturnType<typeof postCommentPublicReply>>;
@@ -376,7 +386,7 @@ async function postApproved(accountId: string, summary: AiCommentRunSummary): Pr
     if (outcome === 'disabled') return;
     const settle = async (status: 'sent' | 'unknown' | 'failed', errorCode: string | null, replyId: string | null = null) => {
       await worker(accountId, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status=${status}, error_code=${errorCode}, public_reply_id=${replyId}
-        WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid AND status='approved'`);
+        WHERE account_id=${accountId}::uuid AND id=${row.id}::uuid AND status IN ('approved','unknown')`);
     };
     if (outcome === 'posted') {
       const [event] = await worker(accountId, (tx) => tx.$queryRaw<{ public_reply_id: string | null }[]>`SELECT public_reply_id FROM instagram_comment_events
@@ -390,6 +400,8 @@ async function postApproved(accountId: string, summary: AiCommentRunSummary): Pr
         summary.unknown++;
       }
     } else if (outcome === 'unknown') {
+      // Another job of this workspace may be sending this very reply: leave the row approved, the next run settles it.
+      if (await sendInFlight(accountId, row.comment_id)) continue;
       await settle('unknown', 'outcome_unknown');
       summary.unknown++;
     } else {
@@ -402,7 +414,7 @@ async function postApproved(accountId: string, summary: AiCommentRunSummary): Pr
 /** The instagram.ai_comments job (jobs.ts). */
 export async function runAiCommentJob(accountId: string, now: Date = new Date()): Promise<AiCommentRunSummary> {
   const summary: AiCommentRunSummary = { expired: 0, drafted: 0, autoApproved: 0, skipped: 0, posted: 0, unknown: 0, failed: 0 };
-  if (!instagramConfig() || !aiDeploymentEnabled()) return summary;
+  if (!instagramConfig()) return summary;
   if (!UUID.test(accountId)) throw new Error('Invalid AI comment job');
 
   summary.expired = await worker(accountId, (tx) => tx.$executeRaw`UPDATE instagram_ai_comment_queue SET status='expired'
@@ -411,7 +423,7 @@ export async function runAiCommentJob(accountId: string, now: Date = new Date())
   const [settings] = await worker(accountId, (tx) => tx.$queryRaw<SettingsRow[]>`SELECT instagram_ai_comments_enabled AS enabled,
     instagram_ai_comments_auto_approve AS auto_approve, instagram_ai_comments_daily_cap AS daily_cap, is_active
     FROM ai_configs WHERE account_id=${accountId}::uuid`);
-  if (settings?.enabled && settings.is_active) await draftComments(accountId, settings, now, summary);
+  if (settings?.enabled && settings.is_active && aiDeploymentEnabled()) await draftComments(accountId, settings, now, summary);
   // Approved replies are posted even after the switch is turned off: an admin already said yes.
   await postApproved(accountId, summary);
   return summary;

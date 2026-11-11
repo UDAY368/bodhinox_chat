@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   used: 0,
   approved: [] as Array<Record<string, unknown>>,
   publicReplyId: '17900000000000001' as string | null,
+  inFlight: false,
   writes: [] as Array<{ sql: string; values: unknown[] }>,
   getComment: vi.fn(),
   generate: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock('@/lib/db/tenant', () => ({
       if (sql.includes('FROM instagram_comment_events e')) return h.candidates;
       if (sql.includes("status='approved' ORDER BY")) return h.approved;
       if (sql.includes('SELECT public_reply_id FROM instagram_comment_events')) return [{ public_reply_id: h.publicReplyId }];
+      if (sql.includes('FROM outbound_intents')) return [{ in_flight: h.inFlight }];
       if (sql.includes('appointment_services')) return [{ has: false }];
       return [];
     },
@@ -95,6 +97,7 @@ beforeEach(() => {
   h.used = 0;
   h.approved = [];
   h.publicReplyId = '17900000000000001';
+  h.inFlight = false;
   h.writes = [];
   h.logs = [];
   h.getComment.mockResolvedValue({ id: '18000000001', text: COMMENT_TEXT, hidden: false, username: 'someone', mediaId: '1700', timestamp: null });
@@ -197,8 +200,16 @@ describe('drafting (owner decision 2: approval by default)', () => {
     expect(inserts().every((w) => w.sql.includes("'pending'"))).toBe(true);
   });
 
-  it('leaves a comment for the next run when the model answers badly, and gives up the run after repeated failures', async () => {
+  it('records an unparseable model answer as skipped so it is never asked again', async () => {
     h.generate.mockResolvedValue({ text: 'sorry, no JSON', usage: null, handoff: false, noAnswer: false });
+    const summary = await runAiCommentJob(ACCOUNT);
+    expect(summary.skipped).toBe(1);
+    expect(h.writes.filter((w) => w.sql.includes("SET status='expired'") && w.values.includes('reply_invalid'))).toHaveLength(1);
+  });
+
+  it('leaves a comment for the next run when the provider fails, and gives up the run after repeated failures', async () => {
+    h.generate.mockRejectedValue(new Error('provider down'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     h.candidates = Array.from({ length: 6 }, (_, i) => ({ ...h.candidates[0], event_id: EVENT.replace('2222', `22${i}2`), comment_id: `1800000000${i}` }));
     const summary = await runAiCommentJob(ACCOUNT);
     expect(summary.drafted).toBe(0);
@@ -231,7 +242,7 @@ describe('drafting (owner decision 2: approval by default)', () => {
 
 describe('posting approved replies', () => {
   const row = { id: '44444444-4444-4444-8444-444444444444', comment_event_id: EVENT, reply_text: 'Thanks!' };
-  const settled = () => h.writes.filter((w) => w.sql.includes('SET status=') && w.sql.includes("AND status='approved'"));
+  const settled = () => h.writes.filter((w) => w.sql.includes('SET status=') && w.sql.includes("AND status IN ('approved','unknown')"));
 
   beforeEach(() => { h.candidates = []; h.approved = [row]; });
 
@@ -250,6 +261,24 @@ describe('posting approved replies', () => {
     expect(summary.unknown).toBe(1);
     expect(settled()[0].values).toContain('unknown');
     expect(h.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the row approved while another job of the workspace is sending the same reply', async () => {
+    h.post.mockResolvedValue('unknown');
+    h.inFlight = true;
+    const summary = await runAiCommentJob(ACCOUNT);
+    expect(summary.unknown).toBe(0);
+    expect(settled()).toHaveLength(0);
+  });
+
+  it('posts approved replies while the AI deployment is switched off', async () => {
+    const gate = await import('@/lib/ai/gate');
+    const spy = vi.spyOn(gate, 'aiDeploymentEnabled').mockReturnValue(false);
+    h.candidates = [{ ...h.candidates[0] }];
+    await runAiCommentJob(ACCOUNT);
+    expect(h.post).toHaveBeenCalledTimes(1);
+    expect(h.generate).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it('marks a refused reply failed, and a reply without an id unknown', async () => {
