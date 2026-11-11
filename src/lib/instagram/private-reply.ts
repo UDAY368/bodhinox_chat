@@ -68,6 +68,8 @@ interface EventRow {
   scopes: string[] | null;
   access_token_enc: string | null;
   contact_blocked: boolean;
+  /** Stage 5: the commenter unsubscribed on Instagram (5D consent); null before Stage 5 rows load the column. */
+  contact_opted_out?: boolean | null;
 }
 
 interface SendPlan { commentId: string; igUserId: string; instagramAccountId: string; tokenEnc: string; text: string; quickReplies?: QuickReply[] }
@@ -100,7 +102,8 @@ async function lockEvent(tx: TenantTransaction, accountId: string, eventId: stri
   const [row] = await tx.$queryRaw<EventRow[]>(Prisma.sql`
     SELECT e.comment_id, e.received_at, e.private_reply_status AS status, e.instagram_account_id::text AS instagram_account_id,
       e.flow_run_id::text AS flow_run_id, r.reply_text, r.active AS rule_active, a.ig_user_id, a.status AS account_status,
-      a.scopes, a.access_token_enc, (ct.blocked_at IS NOT NULL) AS contact_blocked
+      a.scopes, a.access_token_enc, (ct.blocked_at IS NOT NULL) AS contact_blocked,
+      (ct.instagram_opted_out_at IS NOT NULL) AS contact_opted_out
     FROM instagram_comment_events e
     JOIN instagram_accounts a ON a.account_id=e.account_id AND a.id=e.instagram_account_id
     LEFT JOIN instagram_comment_rules r ON r.account_id=e.account_id AND r.id=e.rule_id
@@ -130,6 +133,8 @@ async function planReply(tx: TenantTransaction, accountId: string, eventId: stri
   if (content.quickReplies && !quickRepliesFit(content.quickReplies)) return mark('rejected');
   // Like every other Instagram send path: a contact the business blocked (even after the comment was queued) gets no DM.
   if (row.contact_blocked) return mark('rejected');
+  // Stage 5: a commenter who unsubscribed on Instagram gets no automated DM, a legacy rule's included.
+  if (row.contact_opted_out === true) return mark('rejected');
   if (row.account_status !== 'active' || !row.access_token_enc || missingScopes(row.scopes ?? [], 'comments').length)
     return mark('rejected');
   const [{ n }] = await tx.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM instagram_comment_events

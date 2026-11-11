@@ -2400,7 +2400,10 @@ async function endRun(
   if (error) throw new Error("Flow run end failed");
   const row = (data as Record<string, unknown>[] | null)?.[0];
   if (!row) return false;
-  await startQueuedFlows(row);
+  // Queued start_flow starts follow only a run that finished normally: never one
+  // cancelled (opted out, window closed, stopped), failed, handed off, timed out
+  // or ended because its own Actions step paused automations.
+  if (status === "completed" && reason !== "automations_paused") await startQueuedFlows(row);
   if (status !== "completed") return true;
   // Best-effort: the run already ended and its messages went out, so a
   // failed enqueue must not mark the inbound stage uncertain.
@@ -2439,10 +2442,19 @@ async function startQueuedFlows(row: Record<string, unknown>): Promise<void> {
     console.warn("[flows] start_flow chain limit reached", { runId: row.id });
     return;
   }
+  // Unsubscribed on Instagram (5D consent): no further automated flow starts there.
+  const accountId = row.account_id as string;
+  const { data: conv } = await databaseAdmin().from("conversations").select("channel")
+    .eq("account_id", accountId).eq("id", row.conversation_id).maybeSingle();
+  if ((conv as { channel?: string | null } | null)?.channel === "instagram"
+    && !(await instagramAutomationAllowed(accountId, row.contact_id))) {
+    console.warn("[flows] queued flow not started", { runId: row.id, outcome: "contact_opted_out" });
+    return;
+  }
   for (const flowId of flowIds) {
     try {
       const started = await startFlowById({
-        accountId: row.account_id as string, userId: row.user_id as string, contactId: row.contact_id,
+        accountId, userId: row.user_id as string, contactId: row.contact_id,
         conversationId: row.conversation_id, flowId, vars: { [START_DEPTH_VAR]: depth },
         message: { kind: "text", text: "", meta_message_id: `start-flow:${row.id as string}:${flowId}` },
       });

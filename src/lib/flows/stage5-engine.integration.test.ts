@@ -362,6 +362,53 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Stage 5 flow engine on Post
       expect((await q('SELECT vars FROM flow_runs WHERE id=$1', [runId])).rows[0].vars['_act:act']).toBeUndefined();
     });
 
+    it('start_flow starts the queued flow once the run completes, and never after the run was cancelled', async () => {
+      const queued = await waFlow(A, ownerA, 'queued5', [
+        { node_key: 'start', node_type: 'start', config: { next_node_key: 'hi' } },
+        { node_key: 'hi', node_type: 'send_message', config: { text: 'From the queued flow', next_node_key: 'end' } },
+        { node_key: 'end', node_type: 'end', config: {} },
+      ]);
+      await withTenant(member, (tx) => publishFlow(tx, { accountId: A, flowId: queued, userId: ownerA, caps: ALL_CAPABILITIES }));
+      const act = { node_key: 'act', node_type: 'actions', config: { actions: [{ type: 'start_flow', flow_id: queued }], next_node_key: 'bye' } };
+      const chain = await waFlow(A, ownerA, 'chain5', [
+        { node_key: 'start', node_type: 'start', config: { next_node_key: 'act' } }, act,
+        { node_key: 'bye', node_type: 'send_message', config: { text: 'Bye', next_node_key: 'end' } },
+        { node_key: 'end', node_type: 'end', config: {} },
+      ]);
+      await withTenant(member, (tx) => publishFlow(tx, { accountId: A, flowId: chain, userId: ownerA, caps: ALL_CAPABILITIES }));
+      const waiting = await waFlow(A, ownerA, 'later5', [
+        { node_key: 'start', node_type: 'start', config: { next_node_key: 'act' } }, { ...act, config: { ...act.config, next_node_key: 'd' } },
+        { node_key: 'd', node_type: 'smart_delay', config: { mode: 'duration', amount: 1, unit: 'hours', next_node_key: 'bye' } },
+        { node_key: 'bye', node_type: 'send_message', config: { text: 'Bye', next_node_key: 'end' } },
+        { node_key: 'end', node_type: 'end', config: {} },
+      ]);
+      await withTenant(member, (tx) => publishFlow(tx, { accountId: A, flowId: waiting, userId: ownerA, caps: ALL_CAPABILITIES }));
+      const say = (c: { contact: string; conversation: string }, text: string) => withJobScope({ accountId: A, role: 'owner' }, () => dispatchInboundToFlows({
+        accountId: A, userId: ownerA, contactId: c.contact, conversationId: c.conversation,
+        message: { kind: 'text', text, meta_message_id: `wamid.in.${randomUUID()}` }, isFirstInboundMessage: false,
+      }));
+
+      // Completed: the queued flow starts after it, one hop deep.
+      const done = await waContact();
+      await say(done, 'chain5');
+      expect(h.waSend.mock.calls.map((call) => call[0].text)).toEqual(['Bye', 'From the queued flow']);
+      const started = (await q('SELECT status, vars FROM flow_runs WHERE flow_id=$1 AND contact_id=$2', [queued, done.contact])).rows;
+      expect(started).toHaveLength(1);
+      expect(started[0]).toMatchObject({ status: 'completed', vars: { _start_depth: 1 } });
+
+      // Cancelled while waiting (the contact was blocked): nothing more starts for them.
+      h.waSend.mockClear();
+      const blocked = await waContact();
+      await say(blocked, 'later5');
+      const run = (await q('SELECT id FROM flow_runs WHERE flow_id=$1 AND contact_id=$2', [waiting, blocked.contact])).rows[0];
+      const [timer] = (await q("SELECT payload FROM jobs WHERE type='flow.timer' AND payload->>'runId'=$1", [run.id])).rows;
+      await q('UPDATE contacts SET blocked_at=now() WHERE id=$1', [blocked.contact]);
+      await withJobScope({ accountId: A, role: 'owner' }, () => handleFlowTimer({ accountId: A, ...timer.payload }));
+      expect(await runOf(run.id)).toMatchObject({ status: 'cancelled' });
+      expect((await q('SELECT count(*)::int AS n FROM flow_runs WHERE flow_id=$1 AND contact_id=$2', [queued, blocked.contact])).rows[0].n).toBe(0);
+      expect(h.waSend).not.toHaveBeenCalled();
+    });
+
     it('never writes a secret workspace field, even through the worker connection directly', async () => {
       await q("INSERT INTO workspace_attributes(account_id,key,value_encrypted,is_secret) VALUES($1,'s5_secret','enc','true')", [A]);
       const result = await withTenant({ accountId: A, role: 'owner' }, (tx) =>

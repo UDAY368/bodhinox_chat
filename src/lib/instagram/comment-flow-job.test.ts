@@ -119,6 +119,13 @@ describe('runCommentFlowJob', () => {
     expect(statusWrites()).toEqual(['rejected']);
   });
 
+  it('the legacy rule sends no DM to a commenter unsubscribed on Instagram, with no flow offered (Stage 5)', async () => {
+    h.event.contact_opted_out = true;
+    await expect(runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [], fallbackRuleId: RULE })).resolves.toBe('rejected');
+    expect(h.sendPrivateReply).not.toHaveBeenCalled();
+    expect(statusWrites()).toEqual(['rejected']);
+  });
+
   it('passes the matched extra trigger to the engine and refuses a malformed one (Stage 5)', async () => {
     h.startCommentFlow.mockResolvedValue('started');
     await runCommentFlowJob(ACCOUNT, { eventId: EVENT, flows: [{ flowId: FLOW, check: false, trigger: 2 }], fallbackRuleId: null });
