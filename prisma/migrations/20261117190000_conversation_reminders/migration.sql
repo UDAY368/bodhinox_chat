@@ -59,7 +59,9 @@ CREATE POLICY own_update ON conversation_reminders FOR UPDATE TO bodhinox_app
     AND status IN ('pending','dismissed','cancelled'));
 CREATE POLICY worker_write ON conversation_reminders FOR ALL TO bodhinox_worker
   USING (account_id = app_account_id()) WITH CHECK (account_id = app_account_id());
-GRANT SELECT, INSERT ON conversation_reminders TO bodhinox_app;
+GRANT SELECT ON conversation_reminders TO bodhinox_app;
+-- Column grants: created_at, fired_at and updated_at are never the app's to set (created_at anchors the 366-day cap).
+GRANT INSERT (account_id, conversation_id, user_id, kind, remind_at, note) ON conversation_reminders TO bodhinox_app;
 GRANT UPDATE (remind_at, note, status) ON conversation_reminders TO bodhinox_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON conversation_reminders TO bodhinox_worker;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON conversation_reminders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -79,6 +79,9 @@ describe('Stage 4A migration inventory', () => {
     // The app role writes only its own rows and only three columns; it never deletes.
     expect(text).toMatch(/GRANT UPDATE \(remind_at, note, status\) ON conversation_reminders TO bodhinox_app;/);
     expect(text).not.toMatch(/GRANT[^;]*DELETE[^;]*conversation_reminders TO bodhinox_app/);
+    // Inserts are column grants: created_at (the year cap's anchor), fired_at and updated_at are never the app's.
+    expect(text).toMatch(/GRANT INSERT \(account_id, conversation_id, user_id, kind, remind_at, note\) ON conversation_reminders TO bodhinox_app;/);
+    expect(text).not.toMatch(/GRANT[^;]*INSERT ON conversation_reminders/);
     expect(text).toMatch(/user_id = app_user_id\(\)/);
     expect(text).toMatch(/CREATE UNIQUE INDEX conversation_reminders_one_snooze[\s\S]*WHERE kind = 'snooze' AND status = 'pending'/);
     expect(text).toMatch(/GRANT EXECUTE ON FUNCTION crm_due_conversation_reminder_accounts\(\) TO bodhinox_worker/);
@@ -94,6 +97,10 @@ describe('Stage 4A migration inventory', () => {
     expect(text).toMatch(/ENABLE ROW LEVEL SECURITY[\s\S]*FORCE ROW LEVEL SECURITY/);
     expect(text).toMatch(/GRANT UPDATE \(content, send_at, status\) ON scheduled_replies TO bodhinox_app;/);
     expect(text).not.toMatch(/GRANT[^;]*DELETE[^;]*scheduled_replies TO bodhinox_app/);
+    // Inserts are column grants (created_at anchors the 7 and 30 day caps) and the channel is the conversation's.
+    expect(text).toMatch(/GRANT INSERT \(account_id, conversation_id, channel, created_by_user_id, content, send_at\) ON scheduled_replies TO bodhinox_app;/);
+    expect(text).not.toMatch(/GRANT[^;]*INSERT ON scheduled_replies/);
+    expect(text).toMatch(/CREATE TRIGGER scheduled_replies_channel_guard BEFORE INSERT ON scheduled_replies/);
     // Forward-only status for every role: the worker cannot move a sent or unknown row back to pending.
     expect(text).toMatch(/CREATE TRIGGER scheduled_replies_guard BEFORE UPDATE ON scheduled_replies/);
     expect(text).toMatch(/OLD\.status = 'unknown' AND NEW\.status IN \('sent','failed'\)/);

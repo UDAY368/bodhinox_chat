@@ -218,7 +218,7 @@ const FLOW_TRIGGER_CHANNELS = {
   ig_story_mention: ['instagram'],
   ig_live_comment: ['instagram'],
   ig_ref: ['instagram'],
-  // Stage 4: only while INSTAGRAM_SHARE_TO_STORY_ENABLED is on (publish and the webhook check the flag; this map is pure).
+  // Stage 4: only while INSTAGRAM_SHARE_TO_STORY_ENABLED is on (the picker hides it and the webhook path ignores it while off; this map is pure and a flag-off flow is stored but never fires).
   ig_share_to_story: ['instagram'],
 } as const satisfies Record<TriggerType, readonly Channel[]>;
 

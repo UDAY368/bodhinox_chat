@@ -64,6 +64,8 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 3 schema on
       VALUES($1,$2,'phase3','enc-test-only-token',$3) RETURNING id`, [account, digits(), user]).then((r) => r.rows[0].id);
     ids.igA = await ig(accountA, adminUser);
     ids.igB = await ig(accountB, ownerUserB);
+    // convA2 is an Instagram conversation (scheduled replies take their channel from it).
+    await owner.query("UPDATE conversations SET channel='instagram', instagram_account_id=$1 WHERE id=$2", [ids.igA, ids.convA2]);
   });
 
   afterAll(async () => {
@@ -77,11 +79,18 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 3 schema on
   });
 
   describe('conversation reminders', () => {
-    const insert = (context: TenantContext, over: { conv?: string; user?: string; at?: string; kind?: string; note?: string | null; status?: string } = {}) =>
-      withTenant(context, (tx) => tx.$queryRaw<{ id: string }[]>`
-        INSERT INTO conversation_reminders(account_id,conversation_id,user_id,kind,remind_at,note,status)
-        VALUES(${context.accountId}::uuid,${over.conv ?? ids.convA}::uuid,${over.user ?? context.userId}::uuid,${over.kind ?? 'reminder'},
-          ${over.at ?? hours(2)}::timestamptz,${over.note ?? null},${over.status ?? 'pending'}) RETURNING id`).then((rows) => rows[0].id);
+    // Columns the app role may not set (status, created_at, fired_at) are added only when a test names them.
+    const insert = (context: TenantContext, over: { conv?: string; user?: string; at?: string; kind?: string; note?: string | null; status?: string; extra?: Record<string, string> } = {}) => {
+      const cols: Record<string, unknown> = {
+        account_id: context.accountId, conversation_id: over.conv ?? ids.convA, user_id: over.user ?? context.userId,
+        kind: over.kind ?? 'reminder', remind_at: over.at ?? hours(2), note: over.note ?? null,
+        ...(over.status ? { status: over.status } : {}), ...over.extra,
+      };
+      const names = Object.keys(cols);
+      return withTenant(context, (tx) => tx.$queryRawUnsafe<{ id: string }[]>(
+        `INSERT INTO conversation_reminders(${names.join(',')}) VALUES(${names.map((n, i) => `$${i + 1}${n === 'remind_at' || n === 'created_at' ? '::timestamptz' : n.endsWith('_id') ? '::uuid' : ''}`).join(',')}) RETURNING id`,
+        ...Object.values(cols))).then((rows) => rows[0].id);
+    };
     const reminder = { agent: '', snooze: '', b: '' };
 
     it('lets an agent create a reminder as themselves, with defaults', async () => {
@@ -94,7 +103,9 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 3 schema on
     it('refuses viewers, another person’s name, a pre-set status, bad kinds, long notes and times over a year ahead', async () => {
       await expect(insert(viewerA)).rejects.toThrow(/row-level security|permission denied/);
       await expect(insert(agentA, { user: agent2User })).rejects.toThrow(/row-level security/);
-      await expect(insert(agentA, { status: 'fired' })).rejects.toThrow(/row-level security|check/);
+      await expect(insert(agentA, { status: 'fired' })).rejects.toThrow(/permission denied/);
+      // created_at anchors the year cap, so the app cannot set it to push the cap out.
+      await expect(insert(agentA, { at: days(400), extra: { created_at: days(200) } })).rejects.toThrow(/permission denied/);
       await expect(insert(agentA, { kind: 'alarm' })).rejects.toThrow(/check/);
       await expect(insert(agentA, { note: 'x'.repeat(501) })).rejects.toThrow(/check/);
       await expect(insert(agentA, { at: days(367) })).rejects.toThrow(/check/);
@@ -174,12 +185,17 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 3 schema on
   });
 
   describe('scheduled replies', () => {
-    const insert = (context: TenantContext, over: { conv?: string; channel?: string; at?: string; content?: string; status?: string; by?: string } = {}) =>
-      withTenant(context, (tx) => tx.$queryRaw<{ id: string }[]>`
-        INSERT INTO scheduled_replies(account_id,conversation_id,channel,created_by_user_id,content,send_at,status)
-        VALUES(${context.accountId}::uuid,${over.conv ?? ids.convA}::uuid,${over.channel ?? 'whatsapp'},${over.by ?? context.userId}::uuid,
-          ${over.content ?? 'Following up on your order'},${over.at ?? hours(3)}::timestamptz,${over.status ?? 'pending'}) RETURNING id`)
-        .then((rows) => rows[0].id);
+    const insert = (context: TenantContext, over: { conv?: string; channel?: string; at?: string; content?: string; status?: string; by?: string; extra?: Record<string, string> } = {}) => {
+      const cols: Record<string, unknown> = {
+        account_id: context.accountId, conversation_id: over.conv ?? ids.convA, channel: over.channel ?? 'whatsapp',
+        created_by_user_id: over.by ?? context.userId, content: over.content ?? 'Following up on your order', send_at: over.at ?? hours(3),
+        ...(over.status ? { status: over.status } : {}), ...over.extra,
+      };
+      const names = Object.keys(cols);
+      return withTenant(context, (tx) => tx.$queryRawUnsafe<{ id: string }[]>(
+        `INSERT INTO scheduled_replies(${names.join(',')}) VALUES(${names.map((n, i) => `$${i + 1}${n === 'send_at' || n === 'created_at' ? '::timestamptz' : n.endsWith('_id') ? '::uuid' : ''}`).join(',')}) RETURNING id`,
+        ...Object.values(cols))).then((rows) => rows[0].id);
+    };
     const reply = { a: '', ig: '', b: '' };
     const status = async (id: string) => (await owner.query<{ status: string }>('SELECT status FROM scheduled_replies WHERE id=$1', [id])).rows[0].status;
 
@@ -194,13 +210,19 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram Phase 3 schema on
     it('refuses viewers, another person’s name, a pre-set status, empty or long text and times beyond the channel limit', async () => {
       await expect(insert(viewerA)).rejects.toThrow(/row-level security|permission denied/);
       await expect(insert(agentA, { by: agent2User })).rejects.toThrow(/row-level security/);
-      await expect(insert(agentA, { status: 'sent' })).rejects.toThrow(/row-level security|check/);
+      await expect(insert(agentA, { status: 'sent' })).rejects.toThrow(/permission denied/);
+      // created_at anchors the 7 and 30 day caps, so the app cannot set it; nor the worker's columns.
+      await expect(insert(agentA, { channel: 'instagram', conv: ids.convA2, at: days(20), extra: { created_at: days(15) } })).rejects.toThrow(/permission denied/);
+      await expect(insert(agentA, { extra: { reason_code: 'window_closed' } })).rejects.toThrow(/permission denied/);
       await expect(insert(agentA, { content: '   ' })).rejects.toThrow(/check/);
       await expect(insert(agentA, { content: 'x'.repeat(4097) })).rejects.toThrow(/check/);
       await expect(insert(agentA, { channel: 'sms' })).rejects.toThrow(/check/);
       await expect(insert(agentA, { at: days(31) })).rejects.toThrow(/check/);
       // Instagram: the 7-day Human Agent ceiling.
-      await expect(insert(agentA, { channel: 'instagram', at: days(8) })).rejects.toThrow(/check/);
+      await expect(insert(agentA, { channel: 'instagram', conv: ids.convA2, at: days(8) })).rejects.toThrow(/check/);
+      // The channel is the conversation's: neither side can claim the other's cap.
+      await expect(insert(agentA, { channel: 'whatsapp', conv: ids.convA2, at: days(20) })).rejects.toThrow(/scheduled_reply_channel_mismatch/);
+      await expect(insert(agentA, { channel: 'instagram', at: hours(3) })).rejects.toThrow(/scheduled_reply_channel_mismatch/);
       await expect(insert(agentA, { conv: ids.convB })).rejects.toThrow(/foreign key/);
     });
 

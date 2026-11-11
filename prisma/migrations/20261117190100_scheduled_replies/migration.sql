@@ -73,7 +73,9 @@ CREATE POLICY creator_update ON scheduled_replies FOR UPDATE TO bodhinox_app
     AND (created_by_user_id = app_user_id() OR app_write_allowed('admin')));
 CREATE POLICY worker_write ON scheduled_replies FOR ALL TO bodhinox_worker
   USING (account_id = app_account_id()) WITH CHECK (account_id = app_account_id());
-GRANT SELECT, INSERT ON scheduled_replies TO bodhinox_app;
+GRANT SELECT ON scheduled_replies TO bodhinox_app;
+-- Column grants: created_at anchors the 7 and 30 day caps, and the claim, result and reason columns belong to the worker.
+GRANT INSERT (account_id, conversation_id, channel, created_by_user_id, content, send_at) ON scheduled_replies TO bodhinox_app;
 GRANT UPDATE (content, send_at, status) ON scheduled_replies TO bodhinox_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON scheduled_replies TO bodhinox_worker;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON scheduled_replies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -96,6 +98,18 @@ END $$;
 REVOKE ALL ON FUNCTION scheduled_replies_guard() FROM PUBLIC;
 CREATE TRIGGER scheduled_replies_guard BEFORE UPDATE ON scheduled_replies
   FOR EACH ROW EXECUTE FUNCTION scheduled_replies_guard();
+
+-- The channel is the conversation's, never the caller's (it picks the 7 or 30 day cap).
+CREATE FUNCTION scheduled_replies_channel_guard() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
+BEGIN
+  IF NEW.channel IS DISTINCT FROM (SELECT c.channel FROM conversations c WHERE c.account_id = NEW.account_id AND c.id = NEW.conversation_id) THEN
+    RAISE EXCEPTION 'scheduled_reply_channel_mismatch' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION scheduled_replies_channel_guard() FROM PUBLIC;
+CREATE TRIGGER scheduled_replies_channel_guard BEFORE INSERT ON scheduled_replies
+  FOR EACH ROW EXECUTE FUNCTION scheduled_replies_channel_guard();
 
 CREATE FUNCTION crm_due_scheduled_reply_accounts()
 RETURNS TABLE(account_id uuid)
