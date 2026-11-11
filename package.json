@@ -1,6 +1,6 @@
 {
   "name": "bodhinox-chat",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Bodhinox Chat: WhatsApp CRM and automation with JWT, Prisma and Railway PostgreSQL",
   "license": "MIT",
