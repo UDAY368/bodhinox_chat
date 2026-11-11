@@ -517,7 +517,12 @@
       "downloadFailed": "첨부파일을 다운로드할 수 없습니다",
       "viewImage": "이미지 보기",
       "expandVideo": "동영상 확대",
-      "imageAlt": "공유된 이미지"
+      "imageAlt": "공유된 이미지",
+      "igReceipt": {
+        "sending": "보내는 중…",
+        "sent": "보냄",
+        "seen": "읽음"
+      }
     },
     "mediaViewer": {
       "counter": "{total}개 중 {index}번째",
