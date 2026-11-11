@@ -12728,7 +12728,7 @@
       "removeMessage": "Quitar el mensaje {number}",
       "activeLabel": "Enviar el mensaje {number}",
       "notLive": "Esta automatización aún no está activa. Actívala para que el mensaje se pueda enviar.",
-      "missing": "Se eliminó la automatización de este mensaje. Elige otra.",
+      "missing": "Se eliminó la automatización de este mensaje. Quita este mensaje y añade otro.",
       "openRateHint": "Se cuenta como abierto si la persona responde dentro del día siguiente al mensaje. Instagram no informa a Bodhinox cuándo se lee un mensaje.",
       "newMessageName": "Nombre de la nueva automatización",
       "newMessageDefault": "{sequence}: mensaje {number}",

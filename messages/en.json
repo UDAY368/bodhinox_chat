@@ -12728,7 +12728,7 @@
       "removeMessage": "Remove message {number}",
       "activeLabel": "Send message {number}",
       "notLive": "This automation is not live yet. Set it live so the message can be sent.",
-      "missing": "The automation for this message was deleted. Choose another one.",
+      "missing": "The automation for this message was deleted. Remove this message and add another.",
       "openRateHint": "Opened counts a reply within a day of the message. Instagram does not tell Bodhinox when a message is read.",
       "newMessageName": "Name of the new automation",
       "newMessageDefault": "{sequence}: message {number}",

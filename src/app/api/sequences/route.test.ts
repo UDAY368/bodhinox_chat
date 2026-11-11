@@ -12,8 +12,12 @@ const h = vi.hoisted(() => ({
   updateMessage: vi.fn(), deleteMessage: vi.fn(), subscribers: vi.fn(), change: vi.fn(),
 }));
 
-vi.mock('@/lib/auth/session', () => ({ requireSession: async () => ({ userId: USER, accountId: ACCOUNT, role: h.role, sessionId: 's' }) }));
-vi.mock('@/lib/data/server', () => ({
+vi.mock('@/lib/auth/session', async (original) => ({
+  ...(await original<typeof import('@/lib/auth/session')>()),
+  requireSession: async () => ({ userId: USER, accountId: ACCOUNT, role: h.role, sessionId: 's' }),
+}));
+vi.mock('@/lib/data/server', async (original) => ({
+  ...(await original<typeof import('@/lib/data/server')>()),
   createClient: async () => ({
     from: () => {
       const b: Record<string, unknown> = {};
@@ -24,7 +28,8 @@ vi.mock('@/lib/data/server', () => ({
     },
   }),
 }));
-vi.mock('@/lib/rate-limit', () => ({
+vi.mock('@/lib/rate-limit', async (original) => ({
+  ...(await original<typeof import('@/lib/rate-limit')>()),
   checkRateLimit: () => ({ success: !h.limited }),
   rateLimitResponse: () => Response.json({}, { status: 429 }),
 }));

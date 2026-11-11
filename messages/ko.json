@@ -12728,7 +12728,7 @@
       "removeMessage": "메시지 {number} 삭제",
       "activeLabel": "메시지 {number} 보내기",
       "notLive": "이 자동화는 아직 활성화되지 않았습니다. 메시지를 보낼 수 있도록 활성화하세요.",
-      "missing": "이 메시지의 자동화가 삭제되었습니다. 다른 자동화를 선택하세요.",
+      "missing": "이 메시지의 자동화가 삭제되었습니다. 이 메시지를 삭제하고 다른 메시지를 추가하세요.",
       "openRateHint": "메시지 후 하루 안에 답장하면 열람으로 계산합니다. Instagram은 메시지를 읽었는지 Bodhinox에 알려 주지 않습니다.",
       "newMessageName": "새 자동화 이름",
       "newMessageDefault": "{sequence}: 메시지 {number}",

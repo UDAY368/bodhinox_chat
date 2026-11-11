@@ -12728,7 +12728,7 @@
       "removeMessage": "Remover a mensagem {number}",
       "activeLabel": "Enviar a mensagem {number}",
       "notLive": "Esta automação ainda não está ativa. Ative-a para que a mensagem possa ser enviada.",
-      "missing": "A automação desta mensagem foi excluída. Escolha outra.",
+      "missing": "A automação desta mensagem foi excluída. Remova esta mensagem e adicione outra.",
       "openRateHint": "Conta como aberta quando a pessoa responde até um dia depois da mensagem. O Instagram não informa ao Bodhinox quando uma mensagem é lida.",
       "newMessageName": "Nome da nova automação",
       "newMessageDefault": "{sequence}: mensagem {number}",
