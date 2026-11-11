@@ -119,6 +119,9 @@ export async function scheduleWork() {
   // Stage 3: subscribe accounts connected earlier to live_comments, once per workspace; nothing while the flag is off.
   await import('@/lib/instagram/resubscribe').then((m) => m.scheduleInstagramResubscribe())
     .catch(() => console.error('[worker] instagram resubscribe scheduling failed'));
+  // Instagram AI comment replies: every 5 minutes per workspace with AI comment work; nothing while Instagram or AI is off.
+  await import('@/lib/instagram/ai-comments').then((m) => m.scheduleAiCommentSweeps())
+    .catch(() => console.error('[worker] instagram ai comment scheduling failed'));
   // AI assistant data retention: daily per workspace with something due.
   await import('@/lib/ai/retention').then((m) => m.scheduleAiRetention())
     .catch(() => console.error('[worker] ai retention scheduling failed'));
