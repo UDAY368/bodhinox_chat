@@ -1,6 +1,6 @@
 // GET /api/analytics/overview?preset=&from=&to=&number=
 // Conversation report for the range and the same-length period before it,
-// optionally for one WhatsApp number. Any member who can read conversations
+// optionally for one WhatsApp number or one channel (?channel=whatsapp|instagram). Any member who can read conversations
 // (viewer and above). `numbers` lists the workspace's numbers for the filter by
 // id and display name only: no phone number is returned, so masked members get
 // none either.
@@ -12,7 +12,7 @@ import { conversationStats } from '@/lib/analytics/queries';
 
 export async function GET(request: Request) {
   return analyticsReport(request, 'viewer', async ({ tx, accountId, range, params }) => {
-    const filters = { whatsappConfigId: params.get('number') || null };
+    const filters = { whatsappConfigId: params.get('number') || null, channel: (params.get('channel') || null) as 'whatsapp' | 'instagram' | null };
     const previous = previousRange(range);
     const current = await conversationStats(tx, accountId, range, filters);
     const before = await conversationStats(tx, accountId, previous, filters);

@@ -3,9 +3,14 @@ import {
   appendNode,
   applyNodePositions,
   defaultConfigFor,
+  defaultSection,
+  nodeTypesForScope,
   publishDraft,
+  triggerTypesForScope,
   uniqueNodeKey,
 } from "./flow-editor-state";
+import { ADD_NODE_TYPES } from "./shared";
+import { INSTAGRAM_ONLY_NODE_TYPES } from "@/lib/flows/types";
 import type { BuilderState } from "./flow-editor-state";
 import { aiReplyIssues } from "@/lib/flows/ai-reply-node";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
@@ -208,5 +213,53 @@ describe("publishDraft", () => {
     expect(await publishDraft({ flowId: "f1", draftHash: HASH, fetcher: changed })).toEqual({ kind: "draft_changed", message: "Draft changed" });
     const invalid = vi.fn(async () => respond(422, { error: "Cannot activate" }));
     expect(await publishDraft({ flowId: "f1", draftHash: HASH, fetcher: invalid })).toEqual({ kind: "failed", message: "Cannot activate", status: 422 });
+  });
+});
+
+describe("channel palettes (Stage 1)", () => {
+  it("offers a WhatsApp flow every step and trigger it offered before", () => {
+    const whatsappSteps = ADD_NODE_TYPES.filter((type) => !(INSTAGRAM_ONLY_NODE_TYPES as readonly string[]).includes(type));
+    expect(nodeTypesForScope("whatsapp")).toEqual(whatsappSteps);
+    expect(nodeTypesForScope(undefined)).toEqual(whatsappSteps);
+    expect(triggerTypesForScope("whatsapp")).toEqual(["keyword", "template_reply", "first_inbound_message", "order_received", "ad_click",
+      "default_reply", "manual"]);
+  });
+
+  it("offers an Instagram flow only what Instagram runs", () => {
+    const steps = nodeTypesForScope("instagram");
+    for (const whatsappOnly of ["send_template", "send_form", "ask_location", "ask_address", "send_catalog"] as const)
+      expect(steps).not.toContain(whatsappOnly);
+    expect(steps).toEqual(expect.arrayContaining(["send_message", "send_buttons", "condition", "ai_reply", "handoff", "end"]));
+    // Stage 2 (2D): the Instagram-only steps have their forms, so the Instagram palette offers them.
+    for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(steps).toContain(instagramOnly);
+    // Stage 3: Live comments, ref links and click-to-Direct ads (ad_click).
+    expect(triggerTypesForScope("instagram")).toEqual(["keyword", "ig_comment", "ig_live_comment", "ig_story_reply", "ig_story_mention",
+      "ig_ref", "first_inbound_message", "ad_click", "default_reply", "manual", "ig_share_to_story"]);
+  });
+
+  it("offers a legacy flow on both channels only what both run", () => {
+    const instagram = nodeTypesForScope("instagram");
+    expect(nodeTypesForScope("any")).toEqual(nodeTypesForScope("whatsapp").filter((type) => instagram.includes(type)));
+    for (const instagramOnly of INSTAGRAM_ONLY_NODE_TYPES) expect(nodeTypesForScope("any")).not.toContain(instagramOnly);
+    expect(triggerTypesForScope("any")).toEqual(["keyword", "first_inbound_message", "ad_click", "default_reply", "manual"]);
+  });
+
+  it("makes an added private reply the first step, continuing to the old entry", () => {
+    const base: BuilderState = {
+      name: "f", description: "", trigger_type: "ig_comment", trigger_config: {}, entry_node_id: "hello", status: "draft",
+      fallback_policy: resolveFallbackPolicy(undefined), test_numbers: [],
+      nodes: [{ node_key: "hello", node_type: "send_message", config: { text: "hi", next_node_key: "" } }],
+    };
+    const next = appendNode(base, "ig_private_reply", "private_reply");
+    expect(next.entry_node_id).toBe("private_reply");
+    expect(next.nodes.find((n) => n.node_key === "private_reply")?.config.next_node_key).toBe("hello");
+    // Any other step keeps the entry as it was.
+    expect(appendNode(base, "send_card", "card").entry_node_id).toBe("hello");
+  });
+
+  it("opens a flow in its own section, a legacy one in WhatsApp", () => {
+    expect(defaultSection("instagram")).toBe("instagram");
+    expect(defaultSection("any")).toBe("whatsapp");
+    expect(defaultSection(undefined)).toBe("whatsapp");
   });
 });

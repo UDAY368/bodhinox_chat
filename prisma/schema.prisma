@@ -349,6 +349,9 @@ model automations {
   updated_at DateTime @db.Timestamptz(6) @default(now())
   account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
   archived_at DateTime? @db.Timestamptz(6)
+  /// Stage 1 (20261117010100_automation_channel): 'whatsapp' | 'instagram'; existing rows are 'whatsapp'.
+  /// automations_channel_check and idx_automations_account_channel_active_trigger (partial, CONCURRENTLY) are owned by the SQL.
+  channel String @default("whatsapp")
   @@unique([account_id, id])
 }
 
@@ -430,6 +433,9 @@ model flows {
   archived_at DateTime? @db.Timestamptz(6)
   /// Phase 11: 'whatsapp' | 'instagram' | 'any'.
   channel_scope String @default("whatsapp")
+  // 20261117070000_flow_ig_triggers: trigger_type also allows default_reply, ig_comment, ig_story_reply and
+  // ig_story_mention, and flow_nodes.node_type the Instagram steps (checks owned by the SQL);
+  // 20261117130000_flow_ig_phase2_triggers adds ig_live_comment and ig_ref.
   /// Phase 12: the live flow_versions row; null until first published. Status adds 'paused'.
   published_version_id String? @db.Uuid
   @@unique([account_id, id])
@@ -588,6 +594,8 @@ model webhook_endpoints {
   failing_since DateTime? @db.Timestamptz(6)
   disabled_at DateTime? @db.Timestamptz(6)
   disabled_reason String?
+  /// 20261117070600: channels whose events the endpoint receives; existing endpoints are {whatsapp}.
+  channels String[] @default(["whatsapp"])
   @@unique([account_id, id])
 }
 
@@ -625,6 +633,13 @@ model ai_configs {
   embeddings_api_key String?
   handoff_agent_id String? @db.Uuid
   base_url String?
+  /// 20261117070500: the Instagram AI auto-reply switch (auto_reply_enabled stays WhatsApp's).
+  instagram_auto_reply_enabled Boolean @default(false)
+  /// 20261117130400: AI replies to Instagram comments (all off by default; drafts wait for an admin unless
+  /// auto-approve is on; at most daily_cap drafts a day, 1-500).
+  instagram_ai_comments_enabled Boolean @default(false)
+  instagram_ai_comments_auto_approve Boolean @default(false)
+  instagram_ai_comments_daily_cap Int @default(50)
   @@unique([account_id, id])
 }
 
@@ -1261,6 +1276,8 @@ model workspace_inbox_settings {
   auto_resolve_after_hours Int?
   sla_first_response_minutes Int?
   updated_at DateTime @db.Timestamptz(6) @default(now())
+  /// 20261117070500: the Instagram away-message switch (away_message_enabled stays WhatsApp's; both use away_message).
+  instagram_away_message_enabled Boolean @default(false)
 }
 
 model routing_rules {
@@ -1783,6 +1800,9 @@ model capi_events {
   resolved_by String? @db.Uuid
   resolved_at DateTime? @db.Timestamptz(6)
   created_at DateTime @db.Timestamptz(6) @default(now())
+  /// 20261117210000: 'whatsapp' (default) or 'instagram'; an Instagram event is attributed by its click-to-Direct ad message, not an ad_referrals row.
+  channel String @default("whatsapp")
+  message_id String? @db.Uuid
   // 20261104104000_meta_capi_events: the app role may insert a queued event and resolve an 'unknown' one (policies app_enqueue, app_resolve).
   @@unique([account_id, event_id])
   @@unique([account_id, id])
@@ -2557,6 +2577,17 @@ model instagram_accounts {
   disconnected_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261117070400: conversation starters last synced to Meta ([{question, flow_id}], at most 4); null = never set by Bodhinox.
+  ice_breakers Json? @db.JsonB
+  profile_synced_at DateTime? @db.Timestamptz(6)
+  /// 20261117130200: the persistent menu last synced to Meta (at most 20 items: {type: postback, title, flow_id} or
+  /// {type: web_url, title, url}); null = never set by Bodhinox.
+  persistent_menu Json? @db.JsonB
+  persistent_menu_synced_at DateTime? @db.Timestamptz(6)
+  /// 20261117190200: 'instagram_login' (default) or 'facebook_page' (optional Page / Business Login; access_token_enc is then the Page token).
+  connection_kind String @default("instagram_login")
+  /// 20261117190200: the Facebook Page the account is reached through; set only for facebook_page.
+  facebook_page_id String?
   // 20261109100000_instagram_accounts: the partial unique index instagram_accounts_live_ig_user, the column grants that
   // hide the token from the app role, and the crm_* definer lookups are owned by the SQL.
   @@unique([account_id, id])
@@ -2575,6 +2606,15 @@ model contact_channel_identities {
   display_name String?
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+  /// 20261117070300: Instagram profile facts (null = unknown), written by the worker.
+  follows_business Boolean?
+  business_follows Boolean?
+  is_verified Boolean?
+  ig_follower_count Int?
+  profile_checked_at DateTime? @db.Timestamptz(6)
+  /// 20261117130300: the ref link key the person last opened a chat from, and when (worker writes).
+  last_ref String?
+  last_ref_at DateTime? @db.Timestamptz(6)
   @@unique([account_id, id])
   @@unique([account_id, instagram_account_id, external_id])
   @@index([account_id, contact_id], map: "contact_channel_identities_contact_idx")
@@ -2626,9 +2666,98 @@ model instagram_comment_events {
   private_reply_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
-  // instagram_comment_events_rate_idx (partial) is owned by the SQL.
+  /// 20261117070200: the run an ig_comment flow started (FK (account_id, flow_run_id) owned by the SQL),
+  /// the public reply's id and the opt-in tap time.
+  flow_run_id String? @db.Uuid
+  public_reply_id String?
+  opted_in_at DateTime? @db.Timestamptz(6)
+  /// 20261117130500: the comment funnel's later steps, each the first time it happened in the run (worker writes).
+  link_clicked_at DateTime? @db.Timestamptz(6)
+  lead_captured_at DateTime? @db.Timestamptz(6)
+  followed_at DateTime? @db.Timestamptz(6)
+  // instagram_comment_events_rate_idx (partial), _first_idx, _run_idx (partial) and _received_idx are owned by the SQL.
   @@unique([account_id, id])
   @@unique([instagram_account_id, comment_id])
+}
+
+/// Stage 3 (20261117130400_instagram_ai_comments): AI-drafted public replies to Instagram comments, one per
+/// comment. Nothing is posted until an admin approves (or auto-approve is on). No comment text is stored.
+/// Members read; admins decide pending rows (status, reply_text, decided_by, decided_at); the worker writes the rest.
+model instagram_ai_comment_queue {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  instagram_account_id String @db.Uuid
+  comment_event_id String @db.Uuid
+  comment_id String
+  media_id String?
+  /// 'positive' | 'neutral' | 'negative'
+  sentiment String
+  /// 'praise' | 'question' | 'purchase_intent' | 'complaint' | 'spam' | 'other'
+  intent String?
+  reply_text String
+  /// 'pending' | 'approved' | 'rejected' | 'sent' | 'unknown' | 'failed' | 'expired'
+  status String @default("pending")
+  auto_approved Boolean @default(false)
+  decided_by String? @db.Uuid
+  decided_at DateTime? @db.Timestamptz(6)
+  public_reply_id String?
+  error_code String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@unique([account_id, comment_event_id])
+  @@index([account_id, status, created_at(sort: Desc)], map: "instagram_ai_comment_queue_status_idx")
+  @@index([account_id, created_at], map: "instagram_ai_comment_queue_created_idx")
+}
+
+/// Stage 4 (20261117190000_conversation_reminders): a personal reminder or snooze on a conversation, both channels.
+/// Staff text only (note). Members read; an agent or above writes their own rows (remind_at, note, status); the worker fires them.
+model conversation_reminders {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  user_id String @db.Uuid
+  /// 'reminder' | 'snooze'
+  kind String @default("reminder")
+  remind_at DateTime @db.Timestamptz(6)
+  note String?
+  /// 'pending' | 'fired' | 'dismissed' | 'cancelled'
+  status String @default("pending")
+  fired_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, user_id, status, remind_at], map: "conversation_reminders_owner_idx")
+  @@index([account_id, conversation_id], map: "conversation_reminders_conversation_idx")
+  // 20261117190000 also owns the partial indexes conversation_reminders_due_idx and conversation_reminders_one_snooze,
+  // the status guard trigger and crm_due_conversation_reminder_accounts().
+}
+
+/// Stage 4 (20261117190100_scheduled_replies): a staff reply queued to go out later, both channels. The row exists
+/// before the composer is told it is scheduled; the worker sends it once through dispatchOnce (scheduled-reply:<id>).
+/// content is staff-written text and is never logged.
+model scheduled_replies {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  conversation_id String @db.Uuid
+  /// 'whatsapp' | 'instagram'
+  channel String
+  created_by_user_id String? @db.Uuid
+  content String
+  send_at DateTime @db.Timestamptz(6)
+  /// 'pending' | 'sending' | 'sent' | 'failed' | 'unknown' | 'cancelled' | 'skipped'
+  status String @default("pending")
+  claimed_at DateTime? @db.Timestamptz(6)
+  attempts Int @default(0)
+  message_id String? @db.Uuid
+  sent_at DateTime? @db.Timestamptz(6)
+  reason_code String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([account_id, id])
+  @@index([account_id, conversation_id, status], map: "scheduled_replies_conversation_idx")
+  // 20261117190100 also owns the partial index scheduled_replies_due_idx, the status guard trigger and
+  // crm_due_scheduled_reply_accounts().
 }
 
 /// Phase 13 (20261111100000_ai_workspace_settings): per-workspace AI assistant switches; a missing row means all off.
@@ -2879,4 +3008,19 @@ model workspace_exports {
   // workspace_exports_one_running and workspace_exports_expiry_idx are partial and owned by the SQL.
   @@unique([account_id, id])
   @@index([account_id, created_at(sort: Desc)], map: "workspace_exports_account_idx")
+}
+
+/// Stage 1 (20261117010000_workspace_channels): which channels a workspace uses. A missing row keeps the
+/// default (WhatsApp on; Instagram on only while connected). Read and written only through
+/// /api/account/channels and the connect paths, never the browser resource API.
+model workspace_channels {
+  account_id String @db.Uuid @default(dbgenerated("NULLIF(current_setting('app.account_id', true),'')::uuid "))
+  /// 'whatsapp' | 'instagram'
+  channel String
+  enabled Boolean
+  enabled_at DateTime? @db.Timestamptz(6)
+  updated_by_user_id String? @db.Uuid
+  created_at DateTime @db.Timestamptz(6) @default(now())
+  updated_at DateTime @db.Timestamptz(6) @default(now())
+  @@id([account_id, channel])
 }

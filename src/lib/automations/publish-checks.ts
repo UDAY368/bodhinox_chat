@@ -14,6 +14,8 @@ import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import { loadSegmentFilter } from '@/lib/audience/segments';
 import { AudienceFilterError } from '@/lib/audience/filter';
 import { getT } from '@/lib/i18n/translate';
+import { getWorkspaceChannels } from '@/lib/channels/workspace';
+import type { Channel } from '@/types';
 import {
   allSteps,
   findAutomationCycles,
@@ -118,6 +120,37 @@ export async function segmentAudienceIssues(
 }
 
 const tApi = getT('Api');
+const tChannel = getT('Automations.channelSection');
+const tChannelNames = getT('Channels.names');
+
+/** 409 channel_locked: an automation stays on the channel it was created in (duplicate it instead). */
+export function channelLockedRefusal(): NextResponse {
+  return NextResponse.json({ error: tChannel('locked'), code: 'channel_locked' }, { status: 409 });
+}
+
+/** 400 invalid_channel: a create or list request named something other than WhatsApp or Instagram. */
+export function invalidChannelRefusal(): NextResponse {
+  return NextResponse.json({ error: tChannel('invalidChannel'), code: 'invalid_channel' }, { status: 400 });
+}
+
+/** 400 unavailable_on_channel: a trigger or step outside the automation's channel palette. */
+export function channelPaletteRefusal(issues: readonly ValidationIssue[]): NextResponse {
+  return NextResponse.json({ error: issues[0].message, code: 'unavailable_on_channel', issues }, { status: 400 });
+}
+
+/**
+ * 409 channel_disabled when the workspace has turned the automation's channel
+ * off (or it is not available): nothing there can be activated. Read under
+ * the caller's tenant.
+ */
+export async function channelDisabledRefusal(ctx: AccountContext, channel: Channel): Promise<NextResponse | null> {
+  const state = await withTenant(tenantOf(ctx), (tx) => getWorkspaceChannels(tx, ctx.accountId));
+  if (state.channels[channel].enabled) return null;
+  return NextResponse.json(
+    { error: tChannel('disabled', { channel: tChannelNames(channel) }), code: 'channel_disabled', channel },
+    { status: 409 }
+  );
+}
 
 /** The 422 for a save that would close a tag_added loop. */
 export function loopRefusal(chain: readonly string[]): NextResponse {
@@ -127,17 +160,20 @@ export function loopRefusal(chain: readonly string[]): NextResponse {
 
 /**
  * Checks for a save that leaves the automation active (create and PATCH):
- * the automations.publish permission, deliverable webhook destinations, a
- * segment audience of this workspace, and no tag_added loop with the other
- * active automations. Returns the refusal (403, 400 or 422), or null.
+ * the automations.publish permission, its channel turned on for the
+ * workspace, deliverable webhook destinations, a segment audience of this
+ * workspace, and no tag_added loop with the other active automations.
+ * Returns the refusal (403, 409, 400 or 422), or null.
  */
 export async function publishChecks(
   ctx: AccountContext,
   accountId: string,
-  candidate: LoopCandidate & { steps: readonly CheckedStep[] }
+  candidate: LoopCandidate & { steps: readonly CheckedStep[]; channel: Channel }
 ): Promise<NextResponse | null> {
   try {
     await requirePermission(tenantOf(ctx), 'automations.publish');
+    const disabled = await channelDisabledRefusal(ctx, candidate.channel);
+    if (disabled) return disabled;
     const issues = [
       ...(await webhookDestinationIssues(candidate.steps)),
       ...(await segmentAudienceIssues(tenantOf(ctx), candidate.trigger_type, candidate.trigger_config)),

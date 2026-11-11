@@ -20,6 +20,7 @@ import type {
   WaitStepConfig,
   CreateDealStepConfig,
   AssignConversationStepConfig,
+  Channel,
 } from '@/types'
 import { databaseAdmin } from './admin-client'
 import { canOwnConversations, nextRoundRobinAgent } from './round-robin'
@@ -34,11 +35,11 @@ import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { fillWorkspace, workspaceValuesFor } from '@/lib/workspace/attributes'
 import { getT } from '@/lib/i18n/translate'
 import { ContactConversationLookupError, pickContactConversationId } from '@/lib/whatsapp/contact-conversation'
-import { assertWhatsAppConversation } from '@/lib/whatsapp/numbers'
+import type { FlowSend } from '@/lib/flows/channel-send'
 import { safeFetch } from '@/lib/webhooks/safe-fetch'
 import { jsonEscape } from '@/lib/flows/api-request'
 import { notifyAutomationNotice } from '@/lib/notifications/emit'
-import { NOTIFY_TEXT_MAX, webhookHeaderProblem } from './validate'
+import { NOTIFY_TEXT_MAX, automationChannel, webhookHeaderProblem } from './validate'
 
 /** notify_team step config (Phase 12). */
 interface NotifyTeamStepConfig {
@@ -85,11 +86,21 @@ export interface DispatchInput {
    *  field; the per-automation user_id is read off each row when
    *  needed (sender identity for outbound messages, log audit). */
   accountId: string
+  /**
+   * The channel the event happened on (Stage 1): only automations of this
+   * channel run, and a conversation_id in the context must be on it. Callers
+   * take it from the conversation row, WhatsApp when there is none.
+   */
+  channel: Channel
   triggerType: AutomationTriggerType
   automationId?: string
   contactId?: string | null
   context?: AutomationContext
 }
+
+/** The conversation's channel from its row; a pre-Phase 11 row (null) is WhatsApp. */
+const rowChannel = (row: { channel?: string | null } | null | undefined): Channel =>
+  row?.channel === 'instagram' ? 'instagram' : 'whatsapp'
 
 /** Explicit persisted CTA: run this active definition, independent of its entry trigger. */
 export async function runAutomationById(input: {
@@ -101,7 +112,7 @@ export async function runAutomationById(input: {
   const db = databaseAdmin()
   const contact = await db.from('contacts').select('id').eq('account_id', input.accountId).eq('id', input.contactId).maybeSingle()
   if (contact.error) throw new Error('Explicit automation contact lookup failed')
-  const conversation = await db.from('conversations').select('id').eq('account_id', input.accountId)
+  const conversation = await db.from('conversations').select('id,channel').eq('account_id', input.accountId)
     .eq('id', input.context.conversation_id).eq('contact_id', input.contactId).maybeSingle()
   if (conversation.error) throw new Error('Explicit automation conversation lookup failed')
   if (!contact.data || !conversation.data) return { outcome: 'unavailable' }
@@ -110,7 +121,10 @@ export async function runAutomationById(input: {
   if (target.error) throw new Error('Explicit automation target lookup failed')
   const automation = target.data as Automation | null
   if (!automation || automation.account_id !== input.accountId || !automation.is_active) return { outcome: 'unavailable' }
-  const started = await executeAutomation(automation, { ...input, triggerType: automation.trigger_type,
+  // An automation runs only on its own channel's conversations.
+  const channel = rowChannel(conversation.data as { channel?: string | null })
+  if (automationChannel(automation) !== channel) return { outcome: 'unavailable' }
+  const started = await executeAutomation(automation, { ...input, channel, triggerType: automation.trigger_type,
   })
   return { outcome: started ? 'started' : 'unavailable' }
 }
@@ -163,7 +177,7 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
     if (input.context?.conversation_id) {
       const { data: conv, error: convErr } = await db
         .from('conversations')
-        .select('id')
+        .select('id,channel')
         .eq('id', input.context.conversation_id)
         .eq('account_id', input.accountId)
         .maybeSingle()
@@ -178,12 +192,20 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
         )
         return true
       }
+      // A conversation on another channel never reaches this channel's
+      // automations (a WhatsApp automation never resolves to an Instagram
+      // conversation). Ids only in the log.
+      if (rowChannel(conv as { channel?: string | null }) !== input.channel) {
+        console.warn('[automations] conversation on another channel, refusing dispatch', input.context.conversation_id)
+        return false
+      }
     }
 
     const { data: automations, error } = await db
       .from('automations')
       .select('*')
       .eq('account_id', input.accountId)
+      .eq('channel', input.channel)
       .eq('trigger_type', input.triggerType)
       .eq('is_active', true)
 
@@ -195,6 +217,8 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<bo
     if (input.automationId) automations.splice(0, automations.length, ...automations.filter((row: { id: string }) => row.id === input.automationId))
 
     for (const automation of automations as Automation[]) {
+      // Backstop for the query filter: the row's own channel decides.
+      if (automationChannel(automation) !== input.channel) continue
       if (!triggerMatches(automation, input.context)) continue
       matched = true
       try {
@@ -304,6 +328,8 @@ export const REPLY_WAIT_MS = 24 * 60 * 60 * 1000
 export interface AwaitingReplyInput {
   accountId: string
   contactId: string
+  /** The inbound's channel: only a run parked by an automation of this channel takes the reply. */
+  channel: Channel
   /** Worker routing only: reserve questions at a verified menu for AI. */
   reserveMenuTextForAi?: boolean
   /** The inbound that may be the reply. Overwrites the parked run's
@@ -338,12 +364,14 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
       .eq('status', 'awaiting_reply')
       .gt('run_at', new Date().toISOString())
       .order('created_at', { ascending: false })
-      .limit(1)
+      .limit(PARKED_LOOKUP_LIMIT)
     if (error) {
       console.error('[automations] awaiting-reply lookup failed:', error)
       return false
     }
-    const pending = rows?.[0] as PendingRow | undefined
+    // The newest run parked on this channel: a contact may wait on a WhatsApp
+    // menu and an Instagram menu at once, and each reply belongs to its own.
+    const pending = (await parkedOnChannel(db, input.accountId, (rows ?? []) as PendingRow[], input.channel))[0]
     if (!pending) return false
 
     if (input.reserveMenuTextForAi && !input.context.interactive_reply_id && input.context.message_text?.trim()) {
@@ -442,6 +470,30 @@ export async function resumeAwaitingReply(input: AwaitingReplyInput): Promise<bo
     }
     return false
   }
+}
+
+/** How many of a contact's parked runs a reply looks through (normally there is one per channel). */
+const PARKED_LOOKUP_LIMIT = 10
+
+/**
+ * Of these parked rows (kept in order), those whose automation runs on
+ * `channel`. A row whose automation is gone counts, so the resume path
+ * expires it as before.
+ */
+async function parkedOnChannel<R extends { automation_id: string }>(
+  db: ReturnType<typeof databaseAdmin>,
+  accountId: string,
+  rows: R[],
+  channel: Channel
+): Promise<R[]> {
+  if (!rows.length) return rows
+  const ids = [...new Set(rows.map((row) => row.automation_id))]
+  const { data, error } = await db.from('automations').select('id,channel')
+    .eq('account_id', accountId).in('id', ids)
+  if (error) throw new Error('Parked run channel lookup failed')
+  const channels = new Map(((data ?? []) as { id: string; channel?: string | null }[])
+    .map((row) => [row.id, automationChannel(row)] as const))
+  return rows.filter((row) => (channels.get(row.automation_id) ?? channel) === channel)
 }
 
 /**
@@ -598,7 +650,40 @@ interface ExecuteArgs {
  * parked the run: every enclosing scope must stop too, or the steps
  * after a condition would run before the branch's own remaining steps.
  */
-type ScopeOutcome = 'completed' | 'suspended' | 'failed'
+type ScopeOutcome = 'completed' | 'suspended' | 'failed' | 'dropped'
+
+/** The steps that message the customer: on Instagram each one needs the 24-hour window open at that moment. */
+const MESSAGING_STEPS: ReadonlySet<string> = new Set(['send_message', 'send_buttons', 'send_list'])
+
+/** Logged on the step and the run when a sequence reaches a customer message after the window closed. */
+export const WINDOW_CLOSED = 'window_closed'
+
+/**
+ * Whether an Instagram automation's customer message can no longer go out: the
+ * customer's last message (or ad click) is outside the automated window. A
+ * sequence that waited past it ends here instead of failing a send. Any other
+ * step, any WhatsApp automation and an unresolvable conversation (the step
+ * fails on its own, as before) are never "closed". Read-only, in the tenant.
+ */
+async function instagramWindowClosed(step: AutomationStep, args: ExecuteArgs): Promise<boolean> {
+  if (automationChannel(args.automation) !== 'instagram' || !MESSAGING_STEPS.has(step.step_type)) return false
+  let conversationId: string
+  try {
+    conversationId = await resolveConversationId(args)
+  } catch {
+    return false
+  }
+  const accountId = args.automation.account_id
+  // Loaded only for Instagram, so the WhatsApp path's module graph is unchanged.
+  const [{ withTenant }, { getWorkerPrisma }, { instagramAutomatedWindowOpen }] = await Promise.all([
+    import('@/lib/db/tenant'),
+    import('@/lib/db/prisma'),
+    import('@/lib/channels/sender'),
+  ])
+  const open = await withTenant({ accountId, role: 'owner' },
+    (tx) => instagramAutomatedWindowOpen(tx, accountId, conversationId), getWorkerPrisma())
+  return !open
+}
 
 async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
   const db = databaseAdmin()
@@ -631,6 +716,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
   const results: AutomationLogStepResult[] = []
   let status: 'success' | 'partial' | 'failed' = 'success'
   let errorMessage: string | null = null
+  let dropped = false
 
   for (const step of steps as AutomationStep[]) {
     // `wait` is the suspension point: enqueue and stop processing this
@@ -702,7 +788,24 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
           status = 'failed'
           break
         }
+        if (branchOutcome === 'dropped') {
+          // The branch's own message found the window closed: nothing after it runs either.
+          status = 'partial'
+          errorMessage = WINDOW_CLOSED
+          dropped = true
+          break
+        }
         continue
+      }
+
+      // Sequences stay inside Instagram's 24-hour window: a message reached after it
+      // closed (a long wait, a late resume) is dropped and logged, never attempted.
+      if (await instagramWindowClosed(step, args)) {
+        results.push({ step_id: step.id, step_type: step.step_type, status: 'skipped', detail: WINDOW_CLOSED })
+        status = 'partial'
+        errorMessage = WINDOW_CLOSED
+        dropped = true
+        break
       }
 
       const detail = await runStep(step, args)
@@ -742,6 +845,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
     // Nested branch — just append results; parent scope decides final status.
     await appendResults(args.logId, results, null, errorMessage)
   }
+  if (dropped) return 'dropped'
   return status === 'failed' ? 'failed' : 'completed'
 }
 
@@ -800,6 +904,9 @@ async function runResumed(args: ExecuteArgs): Promise<void> {
   if (outcome === 'failed' && owner !== null) {
     await setLogStatus(args.logId, 'failed')
   }
+  if (outcome === 'dropped' && owner !== null) {
+    await setLogStatus(args.logId, 'partial')
+  }
 }
 
 function waitsForReply(step: AutomationStep): boolean {
@@ -814,12 +921,32 @@ function waitsForReply(step: AutomationStep): boolean {
  */
 async function parkForReply(step: AutomationStep, args: ExecuteArgs): Promise<void> {
   const db = databaseAdmin()
-  await db
+  // Only this channel's waits: a menu on the contact's other channel keeps waiting for its own reply.
+  const { data: waiting, error: waitingError } = await db
     .from('automation_pending_executions')
-    .update({ status: 'superseded' })
+    .select('id,automation_id')
     .eq('account_id', args.automation.account_id)
     .eq('contact_id', args.contactId)
     .eq('status', 'awaiting_reply')
+  const superseded = waitingError ? null
+    : await parkedOnChannel(db, args.automation.account_id, (waiting ?? []) as { id: string; automation_id: string }[],
+      automationChannel(args.automation)).catch(() => null)
+  if (superseded === null) {
+    // Lookup failed: supersede every wait of the contact, as before channels.
+    await db
+      .from('automation_pending_executions')
+      .update({ status: 'superseded' })
+      .eq('account_id', args.automation.account_id)
+      .eq('contact_id', args.contactId)
+      .eq('status', 'awaiting_reply')
+  } else if (superseded.length) {
+    await db
+      .from('automation_pending_executions')
+      .update({ status: 'superseded' })
+      .eq('account_id', args.automation.account_id)
+      .in('id', superseded.map((row) => row.id))
+      .eq('status', 'awaiting_reply')
+  }
   const { error } = await db.from('automation_pending_executions').insert({
     automation_id: args.automation.id,
     account_id: args.automation.account_id,
@@ -848,13 +975,15 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       const text = interpolate(cfg.text, args, await workspaceValuesFor(args.automation.account_id, cfg.text))
       if (!text.trim()) throw new Error(tErr('emptyText'))
       const conversationId = await resolveConversationId(args)
-      const { whatsapp_message_id } = await dispatchOnce(args.automation.account_id, `automation:${args.logId}:${step.id}`, () => engineSendText({
+      const sendArgs = {
         accountId: args.automation.account_id,
         userId: args.automation.user_id,
         conversationId,
         contactId: args.contactId!,
         text,
-      }))
+      }
+      const { whatsapp_message_id } = await sendOnChannel(args, step, conversationId,
+        { kind: 'text', args: sendArgs }, () => engineSendText(sendArgs))
       return `sent via Meta (${whatsapp_message_id})`
     }
 
@@ -868,19 +997,22 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       const check = validateInteractivePayload(payload)
       if (!check.ok) throw new Error(check.error)
       const conversationId = await resolveConversationId(args)
-      const { whatsapp_message_id } = await dispatchOnce(args.automation.account_id, `automation:${args.logId}:${step.id}`, () => engineSendInteractive({
+      const common = {
         accountId: args.automation.account_id,
         userId: args.automation.user_id,
         conversationId,
         contactId: args.contactId!,
-        payload,
-      }))
+      }
+      const { whatsapp_message_id } = await sendOnChannel(args, step, conversationId,
+        interactiveFlowSend(common, payload), () => engineSendInteractive({ ...common, payload }))
       return `interactive sent via Meta (${whatsapp_message_id})`
     }
 
     case 'send_template': {
       const cfg = step.step_config as SendTemplateStepConfig
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'send_template' }))
+      // Templates are WhatsApp messages; an Instagram automation cannot send one.
+      if (automationChannel(args.automation) !== 'whatsapp') throw new Error(unavailableOn(automationChannel(args.automation)))
       if (!cfg.template_name) throw new Error(tErr('needsTemplateName'))
       // Templates are business-initiated, so an opted-out contact is skipped.
       const { data: consent, error: consentError } = await db
@@ -947,6 +1079,8 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 
       await runAutomationsForTrigger({
         accountId: args.automation.account_id,
+        // The tag was added on this automation's channel (its conversation's).
+        channel: automationChannel(args.automation),
         triggerType: 'tag_added',
         contactId: args.contactId!,
         context: {
@@ -1150,10 +1284,14 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 /**
  * The conversations an assign/close step changes: the triggering one when the
  * run has it (a contact has one conversation per number), else all of the
- * contact's, as before multi-number.
+ * contact's, as before multi-number. Only conversations on the automation's
+ * channel: a WhatsApp automation never assigns or closes an Instagram thread,
+ * or the reverse (conversations.channel is NOT NULL, so a WhatsApp-only
+ * workspace matches exactly the rows it did before).
  */
 function inConversationScope<Q extends { eq(field: string, value: unknown): Q }>(query: Q, args: ExecuteArgs): Q {
   const scoped = query.eq('account_id', args.automation.account_id).eq('contact_id', args.contactId)
+    .eq('channel', automationChannel(args.automation))
   const fromCtx = args.context.conversation_id
   return typeof fromCtx === 'string' && fromCtx ? scoped.eq('id', fromCtx) : scoped
 }
@@ -1172,9 +1310,9 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
     // a caller-supplied id, but a resumed run replays a context that
     // was persisted rows ago, and this is the last point before a
     // service-role write keyed on it (GHSA-m4fx-g6pr-hrw8).
-    // Every caller sends over WhatsApp: an Instagram conversation (an
-    // Instagram-scoped flow's set_tag firing a tag_added automation) is
-    // refused here, before dispatchOnce records an outbound intent, so the
+    // The conversation must be on the automation's channel: a WhatsApp
+    // automation never sends into an Instagram conversation, or the reverse.
+    // It is refused here, before any outbound intent is recorded, so the
     // step fails cleanly instead of leaving an "unknown" intent behind.
     const { data, error } = await databaseAdmin()
       .from('conversations')
@@ -1185,10 +1323,26 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
     if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message,
         }))
     if (!data?.id) throw new Error(tErr('conversationNotInAccount'))
-    assertWhatsAppConversation({ channel: (data as { channel?: string | null }).channel })
+    const channel = automationChannel(args.automation)
+    if (rowChannel(data as { channel?: string | null }) !== channel) throw new Error(unavailableOn(channel))
     return data.id as string
   }
   if (!args.contactId) throw new Error(tErr('noContactForConversation'))
+  if (automationChannel(args.automation) === 'instagram') {
+    // The contact's most recently active Instagram conversation.
+    const { data, error } = await databaseAdmin()
+      .from('conversations')
+      .select('id')
+      .eq('account_id', args.automation.account_id)
+      .eq('contact_id', args.contactId)
+      .eq('channel', 'instagram')
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+    if (error) throw new Error(getT('LibErrors.send')('conversationLookupFailed', { message: error.message }))
+    const id = ((Array.isArray(data) ? data[0] : data) as { id?: string } | null)?.id
+    if (!id) throw new Error(tErr(args.triggerEvent === 'tag_added' ? 'tagAddedNoConversation' : 'noConversation'))
+    return id
+  }
   // One conversation per (contact, number): the default number's thread.
   let conversationId: string | undefined
   try {
@@ -1204,6 +1358,50 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
     )
   }
   return conversationId
+}
+
+const tChannel = getT('Automations.channelSection')
+const tChannelNames = getT('Channels.names')
+/** A step or conversation the automation's channel cannot use (the fixed, translated text only). */
+function unavailableOn(channel: Channel): string {
+  return tChannel('unavailableOnChannel', { channel: tChannelNames(channel) })
+}
+
+/**
+ * A customer send on the automation's channel under the step's intent key.
+ * WhatsApp: exactly as before (dispatchOnce around the WhatsApp sender).
+ * Instagram: channel-send, which refuses before any intent exists when the
+ * 24-hour window is closed, the account cannot send or the message does not
+ * fit, and records the Graph call under the same key. Automated: never the
+ * Human Agent tag.
+ */
+async function sendOnChannel(
+  args: ExecuteArgs,
+  step: AutomationStep,
+  conversationId: string,
+  instagram: FlowSend,
+  whatsapp: () => Promise<{ whatsapp_message_id: string }>
+): Promise<{ whatsapp_message_id: string }> {
+  const key = `automation:${args.logId}:${step.id}`
+  if (automationChannel(args.automation) === 'instagram') {
+    // Loaded only for Instagram, so the WhatsApp path's module graph is unchanged.
+    const { flowSend } = await import('@/lib/flows/channel-send')
+    return flowSend({ account_id: args.automation.account_id, conversation_id: conversationId }, key, instagram)
+  }
+  return dispatchOnce(args.automation.account_id, key, whatsapp)
+}
+
+/** An interactive step as a channel send (sent on Instagram as quick replies). */
+function interactiveFlowSend(
+  common: { accountId: string; userId: string; conversationId: string; contactId: string },
+  payload: SendButtonsStepConfig | SendListStepConfig
+): FlowSend {
+  if (payload.kind === 'buttons') {
+    return { kind: 'buttons', args: { ...common, bodyText: payload.body, headerText: payload.header,
+      footerText: payload.footer, buttons: payload.buttons } }
+  }
+  return { kind: 'list', args: { ...common, bodyText: payload.body, buttonLabel: payload.button_label,
+    headerText: payload.header, footerText: payload.footer, sections: payload.sections } }
 }
 
 /** Letter, digit or underscore in any script — the "inside a word" test. */

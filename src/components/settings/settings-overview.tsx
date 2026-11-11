@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { THEMES } from '@/lib/themes';
 import { CURRENCIES } from '@/lib/currency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -34,8 +35,11 @@ interface WhatsAppStatus {
 
 export function SettingsOverview({
   onSelect,
+  hidden,
 }: {
   onSelect: (section: SettingsSection) => void;
+  /** Sections the rail hides (a channel the workspace does not use): their tiles are hidden too. */
+  hidden?: ReadonlySet<SettingsSection>;
 }) {
   const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers } =
     useAuth();
@@ -43,6 +47,9 @@ export function SettingsOverview({
   const t = useTranslations('Settings.overview');
   const tRoles = useTranslations('Settings.roles');
   const tSections = useTranslations('Settings.sections');
+  // The Instagram tile reads the shared channel state (no extra request).
+  const { data: channels, loading: channelsLoading } = useWorkspaceChannels();
+  const instagram = channels?.channels.instagram ?? null;
 
   const [counts, setCounts] = useState<OverviewCounts | null>(null);
   const [countsLoading, setCountsLoading] = useState(true);
@@ -179,6 +186,21 @@ export function SettingsOverview({
       ),
     },
     {
+      section: 'instagram',
+      loading: !instagram && channelsLoading,
+      subtitle: instagram?.state === 'live' ? (
+        <>
+          <StatusDot tone="ok" /> {t('connected')}
+        </>
+      ) : instagram?.state === 'attention' ? (
+        <>
+          <StatusDot tone="muted" /> {t('needsReconnecting')}
+        </>
+      ) : (
+        t('notSetup')
+      ),
+    },
+    {
       section: 'members',
       loading: countsLoading,
       subtitle:
@@ -256,7 +278,9 @@ export function SettingsOverview({
 
       {/* Status tiles */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {tiles.map(({ section, loading, subtitle }) => {
+        {tiles.filter(({ section }) => !hidden?.has(section)
+          // Instagram's tile shows once its channel state says it is in use.
+          && (section !== 'instagram' || instagram?.enabled === true)).map(({ section, loading, subtitle }) => {
           const meta = SECTION_META[section];
           const Icon = meta.icon;
           return (

@@ -8,7 +8,7 @@
 // ============================================================
 
 export const WEBHOOK_EVENTS = [
-  'message.received', // an inbound WhatsApp message landed
+  'message.received', // an inbound message landed (WhatsApp, or Instagram for endpoints that opted in)
   'message.status_updated', // a sent message advanced (sent/delivered/read)
   'conversation.created', // a new conversation was opened for a contact
   'broadcast.completed', // a broadcast finished (no recipient left pending)
@@ -67,4 +67,60 @@ export function normalizeEvents(input: unknown): WebhookEvent[] | null {
     if (!out.includes(entry)) out.push(entry);
   }
   return out;
+}
+
+// ------------------------------------------------------------
+// Channels (Stage 2). An endpoint lists the channels whose events it
+// receives (webhook_endpoints.channels, default {whatsapp}), so an
+// existing endpoint never receives Instagram events it did not opt into.
+// ------------------------------------------------------------
+
+/** The channels an endpoint can opt into, WhatsApp first. */
+export const WEBHOOK_CHANNELS = ['whatsapp', 'instagram'] as const;
+export type WebhookChannel = (typeof WEBHOOK_CHANNELS)[number];
+
+/**
+ * Which channel an event belongs to:
+ * - `conversation`: the channel of the conversation it is about (the caller
+ *   passes it, or delivery reads it from `data.conversation_id`);
+ * - `whatsapp`: a WhatsApp-only event (campaigns, templates);
+ * - `workspace`: not tied to a channel (orders, payments, appointments);
+ *   every subscribed endpoint receives it, whatever its channels.
+ */
+export type WebhookEventScope = 'conversation' | 'whatsapp' | 'workspace';
+
+export const WEBHOOK_EVENT_SCOPE: Record<WebhookEvent, WebhookEventScope> = {
+  'message.received': 'conversation',
+  'message.status_updated': 'conversation',
+  'conversation.created': 'conversation',
+  'broadcast.completed': 'whatsapp',
+  'template.status_updated': 'whatsapp',
+  'flow.completed': 'conversation',
+  'order.created': 'workspace',
+  'order.paid': 'workspace',
+  'payment_link.paid': 'workspace',
+  'appointment.booked': 'workspace',
+  'appointment.cancelled': 'workspace',
+  'appointment.rescheduled': 'workspace',
+  'appointment.completed': 'workspace',
+  'appointment.no_show': 'workspace',
+};
+
+export function isWebhookChannel(value: unknown): value is WebhookChannel {
+  return typeof value === 'string' && (WEBHOOK_CHANNELS as readonly string[]).includes(value);
+}
+
+/**
+ * Validate + de-duplicate a caller-supplied channel list, in canonical
+ * order. Returns null for anything that is not a non-empty array of known
+ * channels (callers turn that into a 400).
+ */
+export function normalizeWebhookChannels(input: unknown): WebhookChannel[] | null {
+  if (!Array.isArray(input) || input.length === 0 || !input.every(isWebhookChannel)) return null;
+  return WEBHOOK_CHANNELS.filter((channel) => input.includes(channel));
+}
+
+/** An endpoint row's channels; a missing value reads as the column default. */
+export function endpointChannels(value: unknown): WebhookChannel[] {
+  return Array.isArray(value) ? value.filter(isWebhookChannel) : ['whatsapp'];
 }

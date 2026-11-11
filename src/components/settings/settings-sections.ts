@@ -20,7 +20,9 @@ import {
   Truck,
   AtSign,
   LockKeyhole,
+  Layers,
 } from 'lucide-react';
+import type { Channel } from '@/types';
 
 /**
  * Settings information architecture for the redesigned page.
@@ -37,6 +39,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'notifications',
   'privacy',
+  'channels',
   'whatsapp',
   'instagram',
   'inbox',
@@ -97,6 +100,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     group: 'account',
   },
   privacy: { id: 'privacy', label: 'Privacy & access', icon: LockKeyhole, group: 'account' },
+  channels: { id: 'channels', label: 'Channels', icon: Layers, group: 'workspace' },
   whatsapp: {
     id: 'whatsapp',
     label: 'WhatsApp',
@@ -166,4 +170,39 @@ export function resolveSection(raw: string | null): SettingsSection {
   if (raw === 'tags' || raw === 'custom-fields') return 'fields';
   if (isSection(raw)) return raw;
   return DEFAULT_SECTION;
+}
+
+/**
+ * Settings tabs that belong to one channel (Stage 1 channel separation): a
+ * channel's connection tab, and WhatsApp's message templates. They are hidden
+ * while that channel is not enabled for the workspace; Settings › Channels is
+ * where it is turned on.
+ */
+export const CHANNEL_SECTIONS: Record<Channel, readonly SettingsSection[]> = {
+  whatsapp: ['whatsapp', 'templates'],
+  instagram: ['instagram'],
+};
+
+/**
+ * The tabs to hide for the workspace's enabled channels. `null` (channel state
+ * not loaded, or failed to load) hides nothing, so the page never loses a tab
+ * it showed before Stage 1.
+ */
+export function hiddenSections(enabled: readonly Channel[] | null): ReadonlySet<SettingsSection> {
+  if (!enabled) return new Set();
+  return new Set(
+    (Object.keys(CHANNEL_SECTIONS) as Channel[])
+      .filter((channel) => !enabled.includes(channel))
+      .flatMap((channel) => CHANNEL_SECTIONS[channel]),
+  );
+}
+
+/**
+ * The section to render for a `?tab=`: a hidden channel tab (an old link to
+ * `?tab=instagram` while Instagram is off) opens Settings › Channels, where the
+ * channel can be turned on, instead of a page for a channel the workspace
+ * does not use.
+ */
+export function visibleSection(section: SettingsSection, hidden: ReadonlySet<SettingsSection>): SettingsSection {
+  return hidden.has(section) ? 'channels' : section;
 }

@@ -8,7 +8,8 @@
 // subscribes the webhook fields, and then, in one worker tenant transaction with
 // no network call inside it, checks the plan room (skipped for an account the
 // workspace already holds live, so a reconnect is never blocked), upserts by
-// (account_id, ig_user_id) and audits. Reconnect = connect again: the row is
+// (account_id, ig_user_id), turns the Instagram channel on (connected implies
+// enabled, src/lib/channels/workspace.ts) and audits. Reconnect = connect again: the row is
 // reused and reactivated. Disconnect unsubscribes (best effort), clears the
 // token and keeps conversations and identities.
 //
@@ -22,6 +23,7 @@ import { gateLimit } from '@/lib/billing/limits';
 import { getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantTransaction } from '@/lib/db/tenant';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
+import { ensureChannelEnabled } from '@/lib/channels/workspace';
 import { auditTx } from '@/lib/payments/ledger';
 import { MetaApiError } from '@/lib/whatsapp/meta-api';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
@@ -29,8 +31,9 @@ import { COMMENTS_SCOPE, instagramConfig, missingScopes, REQUIRED_SCOPES, type I
 import { InstagramError } from './errors';
 import {
   buildAuthorizeUrl, exchangeCode, exchangeLongLived, getMe, InstagramGraphInputError, isMetaTokenInvalid, metaErrorCode,
-  subscribe, unsubscribe, type SubscribedField,
+  onConnection, subscribe, unsubscribe, unsubscribePage, type SubscribedField,
 } from './graph';
+import type { InstagramConnectionKind } from '@/types';
 
 export interface InstagramActor {
   accountId: string;
@@ -57,6 +60,22 @@ export interface InstagramAccountView {
   unsupportedEventLastAt: string | null;
   connectedAt: string | null;
   disconnectedAt: string | null;
+  /** How the account was connected (Stage 4); never a token. */
+  connectionKind: InstagramConnectionKind;
+  /** The Facebook Page behind a facebook_page connection, else null. */
+  facebookPageId: string | null;
+}
+
+/**
+ * The webhook fields an account is subscribed to for its granted scopes. The
+ * comments scope adds comments and (Stage 3) live_comments; subscribe replaces
+ * the whole list, so a resubscribe always sends all of them
+ * (resubscribe.ts brings accounts connected before Stage 3 up to date).
+ */
+export function webhookFieldsFor(scopes: readonly string[]): SubscribedField[] {
+  const fields: SubscribedField[] = ['messages', 'messaging_postbacks'];
+  if (scopes.includes(COMMENTS_SCOPE)) fields.push('comments', 'live_comments');
+  return fields;
 }
 
 export interface ConnectStart {
@@ -81,7 +100,7 @@ function requireConfig(): InstagramConfig {
   return config;
 }
 
-function requireAdmin(actor: InstagramActor): void {
+export function requireAdmin(actor: InstagramActor): void {
   if (!hasMinRole(actor.role, 'admin')) throw new InstagramError('forbidden');
 }
 
@@ -90,7 +109,7 @@ export function asWorker<T>(accountId: string, work: (tx: TenantTransaction) => 
   return withTenant({ accountId, role: 'owner' }, work, getWorkerPrisma());
 }
 
-function isUniqueViolation(error: unknown): boolean {
+export function isUniqueViolation(error: unknown): boolean {
   const failure = error as { code?: string; meta?: { code?: string; driverAdapterError?: { cause?: { originalCode?: string } } } } | null;
   if (!failure || typeof failure !== 'object') return false;
   return failure.code === '23505' || failure.code === 'P2002' || failure.meta?.code === '23505'
@@ -98,12 +117,12 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /** The plan includes Instagram (PlanLimitError otherwise: the route answers it with the plan's message). */
-async function requireEntitled(accountId: string): Promise<void> {
+export async function requireEntitled(accountId: string): Promise<void> {
   await asWorker(accountId, (tx) => requireFeature(tx, accountId, 'instagram'));
 }
 
 /** Meta failure -> fixed code (never Meta's text). */
-function metaFailure(error: unknown): InstagramError {
+export function metaFailure(error: unknown): InstagramError {
   if (error instanceof InstagramError) return error;
   if (error instanceof InstagramGraphInputError) return new InstagramError('invalid_request');
   if (isMetaTokenInvalid(error)) return new InstagramError('instagram_token_invalid');
@@ -126,6 +145,8 @@ interface AccountRow {
   unsupported_event_last_at: Date | null;
   connected_at: Date | null;
   disconnected_at: Date | null;
+  connection_kind?: InstagramConnectionKind | null;
+  facebook_page_id?: string | null;
 }
 
 const iso = (value: Date | null) => (value ? value.toISOString() : null);
@@ -147,6 +168,8 @@ export function toView(row: AccountRow): InstagramAccountView {
     unsupportedEventLastAt: iso(row.unsupported_event_last_at),
     connectedAt: iso(row.connected_at),
     disconnectedAt: iso(row.disconnected_at),
+    connectionKind: row.connection_kind === 'facebook_page' ? 'facebook_page' : 'instagram_login',
+    facebookPageId: row.connection_kind === 'facebook_page' ? (row.facebook_page_id ?? null) : null,
   };
 }
 
@@ -154,7 +177,7 @@ export function toView(row: AccountRow): InstagramAccountView {
 async function selectViews(tx: TenantTransaction, accountId: string, id: string | null = null): Promise<InstagramAccountView[]> {
   const rows = await tx.$queryRaw<AccountRow[]>`
     SELECT id::text AS id, ig_user_id, username, name, status, scopes, token_expires_at, last_webhook_at, last_error_code,
-      unsupported_event_count, unsupported_event_last_at, connected_at, disconnected_at
+      unsupported_event_count, unsupported_event_last_at, connected_at, disconnected_at, connection_kind, facebook_page_id
     FROM instagram_accounts
     WHERE account_id=${accountId}::uuid AND (${id}::uuid IS NULL OR id=${id}::uuid)
     ORDER BY (status='disconnected'), connected_at DESC
@@ -242,7 +265,7 @@ export async function startConnect(actor: InstagramActor, options: { comments?: 
  * numbers). A new or previously disconnected account counts against the limit.
  * requireRoomFor takes the per-workspace limit lock before counting.
  */
-async function requireRoomUnlessHeld(tx: TenantTransaction, accountId: string, igUserId: string): Promise<void> {
+export async function requireRoomUnlessHeld(tx: TenantTransaction, accountId: string, igUserId: string): Promise<void> {
   const [held] = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM instagram_accounts
     WHERE account_id=${accountId}::uuid AND ig_user_id=${igUserId} AND status<>'disconnected'`;
   if (held) return;
@@ -253,7 +276,7 @@ async function requireRoomUnlessHeld(tx: TenantTransaction, accountId: string, i
   });
 }
 
-async function ownerOf(accountId: string, igUserId: string): Promise<string | null> {
+export async function ownerOf(accountId: string, igUserId: string): Promise<string | null> {
   const rows = await asWorker(accountId, (tx) => tx.$queryRaw<{ owner: string | null }[]>`
     SELECT crm_instagram_owner_account(${igUserId})::text AS owner`);
   return rows[0]?.owner ?? null;
@@ -304,45 +327,76 @@ export async function finishConnect(actor: InstagramActor,
   const status: InstagramAccountStatus = dmReady ? 'active' : 'permission_missing';
   let subscribed = false;
   if (dmReady) {
-    const fields: SubscribedField[] = ['messages', 'messaging_postbacks'];
-    if (scopes.includes(COMMENTS_SCOPE)) fields.push('comments');
     try {
-      await subscribe(me.userId, token, fields);
+      await subscribe(me.userId, token, webhookFieldsFor(scopes));
       subscribed = true;
     } catch (error) {
       throw metaFailure(error);
     }
   }
 
-  const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+  const id = await saveConnection(actor, {
+    me, token, scopes, status, subscribed, kind: 'instagram_login', facebookPageId: null,
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
+    release: () => unsubscribe(me.userId, token),
+  });
+  return { instagramAccountId: id };
+}
+
+export interface SaveConnectionInput {
+  me: { userId: string; username: string | null; name: string | null };
+  /** The Instagram User token, or for facebook_page the Page token. Stored only encrypted. */
+  token: string;
+  expiresAt: Date;
+  scopes: string[];
+  status: InstagramAccountStatus;
+  subscribed: boolean;
+  kind: InstagramConnectionKind;
+  facebookPageId: string | null;
+  /** Undo the webhook subscription (called only when no workspace holds the account live). */
+  release: () => Promise<void>;
+}
+
+/**
+ * One worker transaction, no network call inside: plan room under the workspace lock, upsert (the connection
+ * kind and Page are set explicitly, so reconnecting through the other method switches the row consistently),
+ * channel on, audit. Shared by the Instagram Login callback and the Facebook Page login (page-login.ts).
+ */
+export async function saveConnection(actor: InstagramActor, input: SaveConnectionInput): Promise<string> {
+  const { me, token, scopes, status, subscribed, kind } = input;
+  const pageId = kind === 'facebook_page' ? input.facebookPageId : null;
   try {
-    const id = await asWorker(actor.accountId, async (tx) => {
+    return await asWorker(actor.accountId, async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`ig-conn:${actor.accountId}`}, 0))`;
       // After the workspace lock, so the held-or-room decision is consistent with the upsert.
       await requireRoomUnlessHeld(tx, actor.accountId, me.userId);
       const [row] = await tx.$queryRaw<{ id: string }[]>`
         INSERT INTO instagram_accounts(account_id, ig_user_id, username, name, access_token_enc, token_expires_at,
           token_refreshed_at, scopes, status, webhook_subscribed_at, last_error_code, connected_by_user_id, connected_at,
-          disconnected_at)
-        VALUES(${actor.accountId}::uuid, ${me.userId}, ${me.username}, ${me.name}, ${encrypt(token)}, ${expiresAt}, now(),
-          ${scopes}::text[], ${status}, ${subscribed ? new Date() : null}, NULL, ${actor.userId}::uuid, now(), NULL)
+          disconnected_at, connection_kind, facebook_page_id)
+        VALUES(${actor.accountId}::uuid, ${me.userId}, ${me.username}, ${me.name}, ${encrypt(token)}, ${input.expiresAt}, now(),
+          ${scopes}::text[], ${status}, ${subscribed ? new Date() : null}, NULL, ${actor.userId}::uuid, now(), NULL,
+          ${kind}, ${pageId})
         ON CONFLICT (account_id, ig_user_id) DO UPDATE SET username=EXCLUDED.username, name=EXCLUDED.name,
           access_token_enc=EXCLUDED.access_token_enc, token_expires_at=EXCLUDED.token_expires_at,
           token_refreshed_at=EXCLUDED.token_refreshed_at, scopes=EXCLUDED.scopes, status=EXCLUDED.status,
           webhook_subscribed_at=EXCLUDED.webhook_subscribed_at, last_error_code=NULL,
-          connected_by_user_id=EXCLUDED.connected_by_user_id, connected_at=now(), disconnected_at=NULL
+          connected_by_user_id=EXCLUDED.connected_by_user_id, connected_at=now(), disconnected_at=NULL,
+          connection_kind=EXCLUDED.connection_kind, facebook_page_id=EXCLUDED.facebook_page_id
         RETURNING id::text AS id`;
-      await auditTx(tx, actor.accountId, actor.userId, 'instagram.connect', row.id, { status, comments: scopes.includes(COMMENTS_SCOPE) });
+      // Connected implies enabled, in this same transaction: the section shows as soon as the account exists.
+      await ensureChannelEnabled(tx, actor.accountId, 'instagram', actor.userId);
+      await auditTx(tx, actor.accountId, actor.userId, 'instagram.connect', row.id,
+        { status, comments: scopes.includes(COMMENTS_SCOPE), kind });
       return row.id;
     });
-    return { instagramAccountId: id };
   } catch (error) {
     if (error instanceof PlanLimitError) {
       // The subscription is one per app and Instagram account: drop it only when, checked again now, no workspace
       // (another one, or this one through a concurrent connect) holds the account live. When unsure, keep it.
       if (subscribed) {
         const holder = await ownerOf(actor.accountId, me.userId).catch(() => 'unknown');
-        if (holder === null) await unsubscribe(me.userId, token).catch(() => undefined);
+        if (holder === null) await input.release().catch(() => undefined);
       }
       throw new InstagramError('limit_reached');
     }
@@ -354,15 +408,22 @@ export async function finishConnect(actor: InstagramActor,
 
 // ---------------------------------------------------------------- disconnect
 
-interface SecretRow { id: string; ig_user_id: string; status: InstagramAccountStatus; access_token_enc: string | null }
+interface SecretRow {
+  id: string;
+  ig_user_id: string;
+  status: InstagramAccountStatus;
+  access_token_enc: string | null;
+  connection_kind: InstagramConnectionKind | null;
+  facebook_page_id: string | null;
+}
 
 /** Worker transactions only: the account with its encrypted token. */
 export async function loadAccountSecretTx(tx: TenantTransaction, accountId: string, instagramAccountId: string,
   lock = false): Promise<SecretRow | null> {
   const rows = lock
-    ? await tx.$queryRaw<SecretRow[]>`SELECT id::text AS id, ig_user_id, status, access_token_enc FROM instagram_accounts
+    ? await tx.$queryRaw<SecretRow[]>`SELECT id::text AS id, ig_user_id, status, access_token_enc, connection_kind, facebook_page_id FROM instagram_accounts
         WHERE account_id=${accountId}::uuid AND id=${instagramAccountId}::uuid FOR UPDATE`
-    : await tx.$queryRaw<SecretRow[]>`SELECT id::text AS id, ig_user_id, status, access_token_enc FROM instagram_accounts
+    : await tx.$queryRaw<SecretRow[]>`SELECT id::text AS id, ig_user_id, status, access_token_enc, connection_kind, facebook_page_id FROM instagram_accounts
         WHERE account_id=${accountId}::uuid AND id=${instagramAccountId}::uuid`;
   return rows[0] ?? null;
 }
@@ -388,7 +449,12 @@ export async function disconnect(actor: InstagramActor, instagramAccountId: stri
   if (!row) throw new InstagramError('not_found');
   if (row.status !== 'disconnected') {
     const token = readToken(row);
-    if (token) await unsubscribe(row.ig_user_id, token).catch(() => undefined);
+    if (token) {
+      const undo = row.connection_kind === 'facebook_page' && row.facebook_page_id
+        ? onConnection('facebook_page', () => unsubscribePage(row.facebook_page_id!, token))
+        : unsubscribe(row.ig_user_id, token);
+      await undo.catch(() => undefined);
+    }
     await asWorker(actor.accountId, async (tx) => {
       const changed = await tx.$executeRaw`UPDATE instagram_accounts SET status='disconnected', access_token_enc=NULL,
           token_expires_at=NULL, token_refreshed_at=NULL, webhook_subscribed_at=NULL, disconnected_at=now()

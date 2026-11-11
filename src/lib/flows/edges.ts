@@ -29,6 +29,41 @@ import { aiReplyWaits } from "./ai-reply-node";
 
 const WAITING_TYPES = new Set(["send_buttons", "send_list", "send_template", "collect_input", "ask_media", "ask_location", "ask_address", "send_form", "payment_link", "book_appointment"]);
 
+/** The cards of a send_card / send_gallery node. */
+function cardsOf(node: BuilderNode): Array<Record<string, unknown>> {
+  const cfg = node.config;
+  if (node.node_type === "send_card") return cfg.card && typeof cfg.card === "object" ? [cfg.card as Record<string, unknown>] : [];
+  return Array.isArray(cfg.cards) ? (cfg.cards as Array<Record<string, unknown>>).filter((c) => c && typeof c === "object") : [];
+}
+
+/** A card's postback buttons (link buttons have no route). Handles are `button:<reply_id>`, unique per node. */
+function cardPostbacks(node: BuilderNode): Array<{ replyId: string; title: string | null; next: string | null }> {
+  return cardsOf(node).flatMap((card) => (Array.isArray(card.buttons) ? (card.buttons as Array<Record<string, unknown>>) : []))
+    .filter((b) => b && b.type === "postback" && typeof b.reply_id === "string" && b.reply_id)
+    .map((b) => ({
+      replyId: b.reply_id as string,
+      title: typeof b.title === "string" ? b.title : null,
+      next: typeof b.next_node_key === "string" ? b.next_node_key : null,
+    }));
+}
+
+/** Rewrites each card's postback buttons; null when nothing changed. */
+function patchCards(node: BuilderNode, edit: (button: Record<string, unknown>) => Record<string, unknown> | null): Record<string, unknown> | null {
+  let changed = false;
+  const cards = cardsOf(node).map((card) => ({
+    ...card,
+    buttons: (Array.isArray(card.buttons) ? (card.buttons as Array<Record<string, unknown>>) : []).map((b) => {
+      if (!b || b.type !== "postback") return b;
+      const next = edit(b);
+      if (!next) return b;
+      changed = true;
+      return next;
+    }),
+  }));
+  if (!changed) return null;
+  return node.node_type === "send_card" ? { ...node.config, card: cards[0] } : { ...node.config, cards };
+}
+
 /**
  * Optional ports a node shows once its setting is on: Skip (a skip
  * button), "Attempts used up" (max_attempts) and Timeout (timeout_minutes).
@@ -62,7 +97,9 @@ export function extraPorts(node: BuilderNode): Array<{ handle: string; field: st
   // A template waits only when it has quick-reply buttons.
   const waits = (WAITING_TYPES.has(node.node_type) && (node.node_type !== "send_template" || (Array.isArray(cfg.buttons) && cfg.buttons.length > 0))) ||
     // An AI reply waits for follow-ups only when it answers more than once.
-    (node.node_type === "ai_reply" && aiReplyWaits(cfg));
+    (node.node_type === "ai_reply" && aiReplyWaits(cfg)) ||
+    // A private reply with an "Opening DM" button waits for that tap.
+    (node.node_type === "ig_private_reply" && typeof cfg.opt_in_label === "string" && cfg.opt_in_label.trim() !== "");
   if (waits && cfg.timeout_minutes !== undefined && cfg.timeout_minutes !== null) {
     ports.push({ handle: "timeout", field: "after_timeout", label: "Timeout" });
   }
@@ -124,7 +161,9 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "assign_agent":
     case "conversion_event":
     case "send_storefront_link":
-    case "set_attribute": {
+    case "set_attribute":
+    case "ig_comment_reply":
+    case "ig_private_reply": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         if (next && knownKeys.has(next)) {
           edges.push({
@@ -252,6 +291,25 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         break;
       }
 
+      case "send_card":
+      case "send_gallery": {
+        const next = (cfg as { next_node_key?: string }).next_node_key;
+        if (next && knownKeys.has(next)) {
+          edges.push({ id: `${node.node_key}--next--${next}`, source: node.node_key, target: next, sourceHandle: "next" });
+        }
+        for (const button of cardPostbacks(node)) {
+          if (!button.next || !knownKeys.has(button.next)) continue;
+          edges.push({
+            id: `${node.node_key}--button:${button.replyId}--${button.next}`,
+            source: node.node_key,
+            target: button.next,
+            sourceHandle: `button:${button.replyId}`,
+            label: button.title ?? button.replyId,
+          });
+        }
+        break;
+      }
+
       case "connect_flow":
     case "handoff":
       case "end":
@@ -309,7 +367,16 @@ function baseSlots(node: BuilderNode): OutgoingSlot[] {
     case "conversion_event":
     case "send_storefront_link":
     case "set_attribute":
+    case "ig_comment_reply":
+    case "ig_private_reply":
       return [{ id: "next", label: "Next" }];
+
+    case "send_card":
+    case "send_gallery":
+      return [
+        { id: "next", label: "Next" },
+        ...cardPostbacks(node).map((b) => ({ id: `button:${b.replyId}`, label: b.title ?? b.replyId })),
+      ];
 
     case "payment_link":
       return [{ id: "paid", label: "Paid" }];
@@ -412,8 +479,20 @@ export function applyEdgeConnection(
     case "conversion_event":
     case "send_storefront_link":
     case "set_attribute":
+    case "ig_comment_reply":
+    case "ig_private_reply":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
+
+    case "send_card":
+    case "send_gallery": {
+      if (sourceHandle === "next") return { next_node_key: targetKey };
+      if (!sourceHandle.startsWith("button:")) return null;
+      const replyId = sourceHandle.slice("button:".length);
+      const patched = patchCards(node, (b) => (b.reply_id === replyId ? { ...b, next_node_key: targetKey } : null));
+      if (!patched) return null;
+      return node.node_type === "send_card" ? { card: patched.card } : { cards: patched.cards };
+    }
 
     case "payment_link":
       return sourceHandle === "paid" ? { paid_next: targetKey } : null;
@@ -537,10 +616,19 @@ function patchedConfigWithoutKey(
     case "assign_agent":
     case "conversion_event":
     case "send_storefront_link":
-    case "set_attribute": {
+    case "set_attribute":
+    case "ig_comment_reply":
+    case "ig_private_reply": {
       const next = (cfg as { next_node_key?: string }).next_node_key;
       if (next !== deletedKey) return null;
       return { ...cfg, next_node_key: "" };
+    }
+
+    case "send_card":
+    case "send_gallery": {
+      const patched = patchCards(node, (b) => (b.next_node_key === deletedKey ? { ...b, next_node_key: "" } : null));
+      if (cfg.next_node_key !== deletedKey) return patched;
+      return { ...(patched ?? cfg), next_node_key: "" };
     }
 
     case "payment_link":

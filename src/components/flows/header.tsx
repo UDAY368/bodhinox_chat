@@ -18,7 +18,7 @@
  *
  * Reads everything from the editor context (`useFlowEditor`) so it
  * stays in sync with whichever view is mutating state, and routes
- * router navigation locally (back to /flows, View runs to
+ * router navigation locally (back to the channel's flows, View runs to
  * /flows/[id]/runs) — those don't belong in the hook.
  */
 
@@ -38,6 +38,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { channelPath } from "@/lib/channels/routes";
 import {
   useFlowEditor,
   type BuilderState,
@@ -57,6 +58,7 @@ export function EditorHeader() {
     save,
     setStatus,
     deleteFlow,
+    section,
   } = useFlowEditor();
 
   return (
@@ -65,7 +67,7 @@ export function EditorHeader() {
         {/* ---- left: back · icon · name · status · edited ---- */}
         <button
           type="button"
-          onClick={() => router.push("/flows")}
+          onClick={() => router.push(channelPath(section, "flows"))}
           title={t("backToFlows")}
           aria-label={t("backToFlows")}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

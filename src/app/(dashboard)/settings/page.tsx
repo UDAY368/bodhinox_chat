@@ -1,12 +1,14 @@
 'use client';
 
-import { Suspense, useMemo, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Sparkles } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
+import { ChannelsCard } from '@/components/settings/channels-card';
 import { SettingsRail, type RailExtraItem } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { ProfileForm } from '@/components/settings/profile-form';
@@ -44,7 +46,9 @@ import { PrivacySection } from '@/components/settings/privacy/privacy-section';
 import { HelpLink } from '@/components/help/help-link';
 import { IntegrationHealthCard } from '@/components/settings/integrations/health-card';
 import {
+  hiddenSections,
   resolveSection,
+  visibleSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
 
@@ -83,7 +87,15 @@ function SettingsPageInner() {
   // the shared section list.
   const rawTab = searchParams.get('tab');
   const showAi = rawTab === AI_SECTION && canEditSettings;
-  const section = resolveSection(rawTab);
+  // A channel the workspace does not use has no tabs here (its connection,
+  // and WhatsApp's templates); an old link to one opens Settings › Channels,
+  // where it is turned on. Until the channel state loads nothing is hidden.
+  const { data: channels, refresh: refreshChannels } = useWorkspaceChannels();
+  const hidden = useMemo(() => hiddenSections(channels?.enabled ?? null), [channels?.enabled]);
+  const section = visibleSection(resolveSection(rawTab), hidden);
+  // Connecting or removing a number or account here changes a channel's
+  // state; reload it when leaving a section so the nav and banners agree.
+  useEffect(() => () => { void refreshChannels(); }, [section, refreshChannels]);
   const aiItems: RailExtraItem[] = canEditSettings
     ? [{ id: AI_SECTION, label: tAi('railLabel'), icon: Sparkles, group: 'workspace' }]
     : [];
@@ -106,12 +118,13 @@ function SettingsPageInner() {
   );
 
   const panel: Record<SettingsSection, ReactNode> = {
-    overview: <SettingsOverview onSelect={go} />,
+    overview: <SettingsOverview onSelect={go} hidden={hidden} />,
     profile: <ProfileForm />,
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     notifications: <NotificationPreferences key={accountId} />,
     privacy: <PrivacySection key={accountId} />,
+    channels: <ChannelsCard key={accountId} />,
     whatsapp: <WhatsAppConfig />,
     instagram: <InstagramCard key={accountId} />,
     templates: <TemplateManager />,
@@ -172,7 +185,7 @@ function SettingsPageInner() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
         <SettingsRail active={showAi ? AI_SECTION : section} onSelect={go} hints={hints}
-          extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} />
+          extraItems={aiItems} onSelectExtra={() => go(AI_SECTION)} hidden={hidden} />
         <div className="min-w-0">
           {showAi ? (
             <div key={accountId} className="space-y-10">

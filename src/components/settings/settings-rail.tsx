@@ -41,14 +41,18 @@ export function SettingsRail({
   hints,
   extraItems = [],
   onSelectExtra,
+  hidden,
 }: {
   active: SettingsSection | string;
   onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
   extraItems?: readonly RailExtraItem[];
   onSelectExtra?: (id: string) => void;
+  /** Sections not shown, e.g. the tabs of a channel the workspace does not use (hiddenSections). */
+  hidden?: ReadonlySet<SettingsSection>;
 }) {
   const t = useTranslations('Settings');
+  const tChannels = useTranslations('Channels.settings');
   const activeRef = useRef<HTMLButtonElement>(null);
 
   // When horizontal (mobile), keep the active chip in view. On desktop
@@ -74,7 +78,7 @@ export function SettingsRail({
     >
       {RAIL_GROUPS.map(({ label, group }) => {
         const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group,
+          (s) => SECTION_META[s].group === group && !hidden?.has(s),
         );
         return (
           <div
@@ -106,7 +110,7 @@ export function SettingsRail({
                   )}
                 >
                   <Icon className="size-4 shrink-0" />
-                  <span className="flex-1">{t(`sections.${s}`)}</span>
+                  <span className="flex-1">{s === 'channels' ? tChannels('title') : t(`sections.${s}`)}</span>
                   {hints?.[s] != null ? (
                     <span
                       className={cn(

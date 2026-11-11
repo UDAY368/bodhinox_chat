@@ -1,7 +1,9 @@
 'use client';
 
 /**
- * WhatsApp-style preview of the flow being edited. Plays the live
+ * Chat-style preview of the flow being edited, styled like WhatsApp or, for
+ * an Instagram flow, like Instagram Direct (Stage 1; Stage 2 adds the
+ * comment reply, private reply, cards and link buttons). Plays the live
  * editor state (unsaved edits included) through the pure simulator in
  * `@/lib/flows/preview`: bot bubbles on the left, the customer's taps
  * and answers on the right, grey notes for silent steps.
@@ -13,7 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ClipboardList, FileText, Image as ImageIcon, List, MapPin, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
+import { ClipboardList, ExternalLink, FileText, Image as ImageIcon, List, MapPin, MessageCircle, Music, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -23,7 +25,9 @@ import { useFlowEditor } from './flow-editor-state';
 
 export function FlowPreview({ onClose }: { onClose: () => void }) {
   const t = useTranslations('Flows.builder.preview');
-  const { state } = useFlowEditor();
+  const tSection = useTranslations('Flows.channelSection');
+  const { state, channelScope } = useFlowEditor();
+  const instagram = channelScope === 'instagram';
 
   // Restart whenever the flow's content changes — but not on canvas
   // drags, which only move positions.
@@ -58,18 +62,19 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
   const waiting = run.waiting;
 
   return (
-    <aside className="flow-studio-inspector absolute inset-0 z-20 flex min-h-0 flex-col border-l border-border bg-card sm:static sm:w-[340px] sm:shrink-0" aria-label={t('title')}>
+    <aside className="flow-studio-inspector absolute inset-0 z-20 flex min-h-0 flex-col border-l border-border bg-card sm:static sm:w-[340px] sm:shrink-0" aria-label={t('title')}
+      data-preview-channel={instagram ? 'instagram' : 'whatsapp'}>
       <div className="border-border flex items-center gap-3 border-b px-4 py-3">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary"><Smartphone className="h-4 w-4" /></span>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold">{t('title')}</h3>
-          <p className="text-muted-foreground text-xs">{t('subtitle')}</p>
+          <p className="text-muted-foreground text-xs">{instagram ? tSection('previewSubtitleInstagram') : t('subtitle')}</p>
         </div>
         <Button variant="ghost" size="icon-sm" onClick={restart} aria-label={t('restart')} title={t('restart')}><RotateCcw className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}><X className="h-4 w-4" /></Button>
       </div>
 
-      <div className="bg-muted/60 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4" aria-live="polite">
+      <div className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4', instagram ? 'bg-card' : 'bg-muted/60')} aria-live="polite">
         {run.messages.length === 0 && <p className="text-muted-foreground px-4 py-8 text-center text-xs">{t('empty')}</p>}
         {run.messages.map((m) => (
           <Bubble
@@ -84,6 +89,7 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
               if (option) pick(option.id);
             }}
             onPickRow={(id) => pick(id)}
+            instagram={instagram}
             t={t}
           />
         ))}
@@ -140,14 +146,15 @@ export function branchLabel(id: string, label: string, t: T) {
   return label || id;
 }
 
-/** One trace message; reused by the dry-run panel. */
-export function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPickRow, t }: {
+/** One trace message; reused by the dry-run panel. `instagram` draws Direct-style rounded bubbles. */
+export function Bubble({ message: m, active, listOpen, onToggleList, onPickButton, onPickRow, instagram = false, t }: {
   message: PreviewMessage;
   active: boolean;
   listOpen: boolean;
   onToggleList: () => void;
   onPickButton: (index: number) => void;
   onPickRow: (id: string) => void;
+  instagram?: boolean;
   t: T;
 }) {
   if (m.from === 'system') {
@@ -159,7 +166,8 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
   }
   if (m.from === 'customer') {
     return (
-      <div className="bg-primary-soft-2 text-foreground ml-auto max-w-[80%] whitespace-pre-wrap break-words rounded-lg rounded-tr-none px-3 py-2 text-sm shadow-sm">
+      <div className={cn('ml-auto max-w-[80%] whitespace-pre-wrap break-words px-3 py-2 text-sm shadow-sm',
+        instagram ? 'rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white' : 'bg-primary-soft-2 text-foreground rounded-lg rounded-tr-none')}>
         {m.shared ? (
           <span className="flex items-center gap-1.5 italic">
             {m.shared === 'location' ? <MapPin className="h-4 w-4 shrink-0" /> : m.shared === 'form' ? <ClipboardList className="h-4 w-4 shrink-0" /> : <ImageIcon className="h-4 w-4 shrink-0" />}
@@ -169,19 +177,21 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
       </div>
     );
   }
-  const MediaIcon = m.media?.type === 'video' ? Video : m.media?.type === 'document' ? FileText : ImageIcon;
+  const MediaIcon = m.media?.type === 'video' ? Video : m.media?.type === 'document' ? FileText : m.media?.type === 'audio' ? Music : ImageIcon;
+  if (m.cards) return <CardsBubble message={m} active={active} onPickRow={onPickRow} t={t} />;
   const empty = !m.text && !m.media && !m.template;
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-1">
-      <div className="border-border bg-card text-foreground rounded-lg rounded-tl-none border px-3 py-2 text-sm shadow-sm">
+      <div className={cn('text-foreground px-3 py-2 text-sm', instagram ? 'bg-muted rounded-2xl' : 'border-border bg-card rounded-lg rounded-tl-none border shadow-sm')}>
         {m.media && (
           <div className="bg-muted text-muted-foreground mb-2 flex items-center gap-2 rounded-md px-3 py-4 text-xs">
             <MediaIcon className="h-5 w-5 shrink-0" />
-            <span className="truncate">{m.media.filename || t(`media.${m.media.type === 'video' || m.media.type === 'document' ? m.media.type : 'image'}`)}</span>
+            <span className="truncate">{m.media.filename || t(`media.${m.media.type === 'video' || m.media.type === 'document' || m.media.type === 'audio' ? m.media.type : 'image'}`)}</span>
           </div>
         )}
         {m.template !== undefined && <p className="text-muted-foreground text-xs italic">{m.template ? t('template', { name: m.template }) : t('templateUnset')}</p>}
         {m.header && <p className="mb-1 whitespace-pre-wrap break-words font-semibold">{m.header}</p>}
+        {m.publicReply && <PublicReplyLabel />}
         {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
         {empty && <p className="text-muted-foreground italic">{t('emptyMessage')}</p>}
         {m.footer && <p className="text-muted-foreground mt-1 whitespace-pre-wrap break-words text-xs">{m.footer}</p>}
@@ -220,6 +230,53 @@ export function Bubble({ message: m, active, listOpen, onToggleList, onPickButto
         >
           {label}
         </button>
+      ))}
+      {m.links?.map((label, i) => <LinkChip key={`link-${i}`} label={label} />)}
+    </div>
+  );
+}
+
+/** Marks a bot bubble as the public reply under the customer's comment. */
+function PublicReplyLabel() {
+  const tNodes = useTranslations('Flows.builder.nodes');
+  return (
+    <p className="text-muted-foreground mb-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider">
+      <MessageCircle className="h-3 w-3" />{tNodes('ig_comment_reply.label')}
+    </p>
+  );
+}
+
+/** A link button: shown as Instagram draws it, never tappable here (a link tap does not continue the flow). */
+function LinkChip({ label }: { label: string }) {
+  return (
+    <span className="border-border bg-card text-primary flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium opacity-80 shadow-sm">
+      <ExternalLink className="h-3.5 w-3.5" />{label}
+    </span>
+  );
+}
+
+/** Instagram cards (a gallery scrolls sideways); postback buttons answer the wait like reply buttons. */
+function CardsBubble({ message: m, active, onPickRow, t }: { message: PreviewMessage; active: boolean; onPickRow: (id: string) => void; t: T }) {
+  return (
+    <div className="mr-auto flex max-w-[90%] gap-2 overflow-x-auto pb-1">
+      {(m.cards ?? []).map((card, i) => (
+        <div key={i} className="border-border bg-card w-52 shrink-0 overflow-hidden rounded-2xl border shadow-sm">
+          {card.hasImage && <div className="bg-muted text-muted-foreground flex h-24 items-center justify-center"><ImageIcon className="h-6 w-6" /></div>}
+          <div className="px-3 py-2">
+            <p className="text-sm font-semibold break-words">{card.title || <span className="text-muted-foreground italic">{t('emptyMessage')}</span>}</p>
+            {card.subtitle && <p className="text-muted-foreground text-xs break-words">{card.subtitle}</p>}
+          </div>
+          {card.buttons.map((b, j) => (b.replyId ? (
+            <button key={j} type="button" disabled={!active} onClick={() => onPickRow(b.replyId!)}
+              className={cn('border-border text-primary block w-full border-t px-3 py-1.5 text-center text-sm font-medium', active ? 'hover:bg-primary-soft' : 'opacity-60')}>
+              {b.label}
+            </button>
+          ) : (
+            <span key={j} className="border-border text-primary flex w-full items-center justify-center gap-1.5 border-t px-3 py-1.5 text-sm font-medium opacity-80">
+              <ExternalLink className="h-3.5 w-3.5" />{b.label}
+            </span>
+          )))}
+        </div>
       ))}
     </div>
   );

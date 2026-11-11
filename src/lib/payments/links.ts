@@ -28,7 +28,8 @@ import { dispatchOnce } from '@/lib/jobs/dispatch';
 import { LONG_RETRY_ATTEMPTS } from '@/lib/jobs/retry';
 import { getT } from '@/lib/i18n/translate';
 import { formatMoney, isCurrencyCode, MAX_MINOR, minorFromDb } from '@/lib/commerce/money';
-import { checkInstagramText, loadInstagramTarget, sendInstagramText, storeInstagramSentMessage, type InstagramSendContext, type InstagramTarget } from '@/lib/channels/sender';
+import { checkInstagramButtonTemplate, checkInstagramText, loadInstagramTarget, sendInstagramButtonTemplate, sendInstagramText, storeInstagramSentMessage, type InstagramSendContext, type InstagramTarget } from '@/lib/channels/sender';
+import { paymentCard, paymentCardPayload } from './payment-card';
 import { InstagramError } from '@/lib/instagram/errors';
 import { manualRepliesBlockedIn } from '@/lib/platform/lifecycle';
 import { agentSenderId } from '@/lib/whatsapp/agent-attribution';
@@ -1042,14 +1043,20 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
   const text = paymentLinkMessageText(message, prepared.shortUrl);
   // A staff payment link is not a composer reply, so it never carries the Human Agent tag.
   const igContext: InstagramSendContext = { sender: 'automated', now: new Date() };
+  // Instagram gets a card (the message with a "Pay now" button); the plain text when the link or message cannot be one.
+  const card = prepared.channel === 'instagram' ? paymentCard(message, prepared.shortUrl) : null;
   const ig: InstagramTarget | null = prepared.channel !== 'instagram' ? null
     : await worker(args.accountId, async (tx) => {
       const target = await loadInstagramTarget(tx, args.accountId, prepared.conversationId);
-      checkInstagramText(target, text, igContext);
+      if (card) checkInstagramButtonTemplate(target, card.text, card.buttons, igContext);
+      else checkInstagramText(target, text, igContext);
       return target;
     }).catch((error: unknown) => { throw paymentLinkErrorFromInstagram(error); });
   const { messageId: whatsappMessageId } = await dispatchOnce(args.accountId, args.intentKey, async () => {
-    if (prepared.channel === 'instagram') return sendInstagramText(ig as InstagramTarget, text, igContext);
+    if (prepared.channel === 'instagram') {
+      return card ? sendInstagramButtonTemplate(ig as InstagramTarget, card.text, card.buttons, igContext)
+        : sendInstagramText(ig as InstagramTarget, text, igContext);
+    }
     const accessToken = decrypt(prepared.accessTokenEnc);
     const variants = prepared.target.isPhone ? phoneVariants(prepared.target.target) : [prepared.target.target];
     let lastError: unknown = null;
@@ -1073,8 +1080,8 @@ export async function sendPaymentLinkMessage(args: SendLinkArgs): Promise<{ what
   const messageId = prepared.channel === 'instagram'
     ? await worker(args.accountId, async (tx) => {
       const id = await storeInstagramSentMessage(tx, { accountId: args.accountId, conversationId: prepared.conversationId,
-        senderType: 'agent', senderId: agentSenderId('agent', args.userId), contentType: 'text', contentText: text,
-        messageId: whatsappMessageId });
+        senderType: 'agent', senderId: agentSenderId('agent', args.userId), contentType: card ? 'interactive' : 'text',
+        contentText: card ? card.text : text, interactivePayload: card ? paymentCardPayload(card) : null, messageId: whatsappMessageId });
       await pauseBot(tx);
       return id;
     })

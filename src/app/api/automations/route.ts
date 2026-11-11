@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { getTemplate } from '@/lib/automations/templates';
+import { getTemplate, templateOnChannel } from '@/lib/automations/templates';
 import {
   insertSteps,
   type BuilderStepInput,
 } from '@/lib/automations/steps-tree';
 import {
+  channelPaletteIssues,
+  parseAutomationChannel,
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
@@ -16,6 +18,8 @@ import { requireScheduledSendingAllowed } from '@/lib/automations/schedule-gate'
 import { hasMinRole } from '@/lib/auth/roles';
 import {
   addsSecretWebhook,
+  channelPaletteRefusal,
+  invalidChannelRefusal,
   loopRefusal,
   publishChecks,
 } from '@/lib/automations/publish-checks';
@@ -23,8 +27,18 @@ import { activateWithLoopLock } from '@/lib/automations/activation-lock';
 import { tenantOf } from '@/lib/audience/http';
 
 const t = getT('Api');
+const tChannel = getT('Automations.channelSection');
+const tChannelNames = getT('Channels.names');
 
-export async function GET() {
+/**
+ * Lists the workspace's automations. `?channel=whatsapp|instagram` returns one
+ * channel's section; without it every automation is returned, as before
+ * channels (API-key and mcp-server clients).
+ */
+export async function GET(request: Request) {
+  const param = new URL(request.url).searchParams.get('channel');
+  const channel = param === null ? null : parseAutomationChannel(param);
+  if (param !== null && !channel) return invalidChannelRefusal();
   const db = await createClient();
   const {
     data: { user },
@@ -35,9 +49,8 @@ export async function GET() {
       { status: 401 }
     );
 
-  const { data, error } = await db
-    .from('automations')
-    .select('*')
+  const query = db.from('automations').select('*');
+  const { data, error } = await (channel ? query.eq('channel', channel) : query)
     .order('created_at', { ascending: false });
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -94,6 +107,11 @@ export async function POST(request: Request) {
     template,
   } = body;
 
+  // The section the automation belongs to, fixed for its life. Absent means
+  // WhatsApp, as for every client written before channels; the UI always sends it.
+  const channel = parseAutomationChannel(body.channel);
+  if (!channel) return invalidChannelRefusal();
+
   let effectiveSteps: BuilderStepInput[] | undefined = steps;
   let effectiveName = name;
   let effectiveDescription = description;
@@ -102,6 +120,10 @@ export async function POST(request: Request) {
 
   if (template && (!steps || steps.length === 0)) {
     const tpl = getTemplate(template);
+    if (tpl && !templateOnChannel(tpl, channel)) {
+      const message = tChannel('unavailableOnChannel', { channel: tChannelNames(channel) });
+      return channelPaletteRefusal([{ path: 'template', message }]);
+    }
     if (tpl) {
       effectiveName = effectiveName ?? tpl.name;
       effectiveDescription = effectiveDescription ?? tpl.description;
@@ -117,6 +139,10 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Only the channel's triggers and steps, on any save (the builder offers no others).
+  const paletteIssues = channelPaletteIssues(channel, effectiveTriggerType, effectiveSteps);
+  if (paletteIssues.length > 0) return channelPaletteRefusal(paletteIssues);
 
   // A template step that needs more than body values would fail on
   // every run, so it is refused on any save, draft or active.
@@ -152,13 +178,15 @@ export async function POST(request: Request) {
       ...validateTriggerForActivation(
         effectiveTriggerType,
         effectiveTriggerConfig ?? {},
-        effectiveSteps ?? []
+        effectiveSteps ?? [],
+        channel
       ),
       ...validateStepsForActivation(
         (effectiveSteps ?? []) as unknown as {
           step_type: string;
           step_config: Record<string, unknown>;
-        }[]
+        }[],
+        channel
       ),
     ];
     if (issues.length > 0) {
@@ -168,6 +196,7 @@ export async function POST(request: Request) {
       );
     }
     const published = await publishChecks(ctx, accountId, {
+      channel,
       name: effectiveName,
       trigger_type: effectiveTriggerType,
       trigger_config: effectiveTriggerConfig ?? {},
@@ -196,6 +225,7 @@ export async function POST(request: Request) {
       description: effectiveDescription ?? null,
       trigger_type: effectiveTriggerType,
       trigger_config: effectiveTriggerConfig ?? {},
+      channel,
       // Turned on below, under the per-account loop lock, once its steps exist.
       is_active: false,
     })

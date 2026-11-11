@@ -293,6 +293,52 @@ describe('fixed CRM resource authorization', () => {
       expect.arrayContaining(['source_id', 'content_hash', 'fetched_at', 'source_url'])
     );
   });
+  it('keeps the Stage 2 Instagram columns out of browser writes', () => {
+    const owner = { ...tenant, role: 'owner' as const };
+    // The Instagram AI switch is readable like the WhatsApp one and written only by /api/ai/config.
+    expect(getResource('ai_configs', true).read).toContain('instagram_auto_reply_enabled');
+    expect(() => validateWrite('ai_configs', { instagram_auto_reply_enabled: true }, owner, true, 'update')).toThrow();
+    // Webhook endpoints (and their channels) are server-only.
+    expect(() => getResource('webhook_endpoints', true)).toThrow();
+    expect(getResource('webhook_endpoints').columns.map((c) => c.name)).toContain('channels');
+    // Instagram accounts, identities and comment events are not generic resources.
+    for (const table of ['instagram_accounts', 'contact_channel_identities', 'instagram_comment_events', 'workspace_inbox_settings'])
+      expect(() => getResource(table, true)).toThrow();
+  });
+  it('keeps the Stage 3 AI comment settings browser read-only and the approval queue off the generic API', () => {
+    const owner = { ...tenant, role: 'owner' as const };
+    // The switches are readable like the other AI settings; auto-approve is set only through a server route.
+    for (const column of ['instagram_ai_comments_enabled', 'instagram_ai_comments_auto_approve', 'instagram_ai_comments_daily_cap']) {
+      expect(getResource('ai_configs', true).read).toContain(column);
+      expect(() => validateWrite('ai_configs', { [column]: true }, owner, true, 'update')).toThrow();
+    }
+    // Approvals go through the AI comment routes (role, CSRF, outbound intent), never the generic resource API.
+    expect(() => getResource('instagram_ai_comment_queue', true)).toThrow();
+    expect(() => getResource('instagram_ai_comment_queue')).toThrow();
+    expect(() => resourceBySlug('instagram-ai-comment-queue')).toThrow();
+  });
+  it('keeps the Stage 4 reminders, scheduled replies and Page connection off the generic API', () => {
+    // Reminders and scheduled replies are written through /api/inbox routes (role, CSRF, queue before acknowledgement,
+    // outbound intent); the connection kind and Page id belong to instagram_accounts, which is not a resource either.
+    for (const table of ['conversation_reminders', 'scheduled_replies', 'instagram_accounts']) {
+      expect(() => getResource(table, true), table).toThrow();
+      expect(() => getResource(table), table).toThrow();
+    }
+    expect(() => resourceBySlug('conversation-reminders')).toThrow();
+    expect(() => resourceBySlug('scheduled-replies')).toThrow();
+  });
+  it('lets a browser read an automation channel but never set it; workspace_channels is not a resource', () => {
+    expect(getResource('automations', true).read).toContain('channel');
+    expect(() => validateQuery('automations', { projection: 'id,channel', filters: [{ field: 'channel', op: 'eq', value: 'instagram' }] }, tenant, true)).not.toThrow();
+    const owner = { ...tenant, role: 'owner' as const };
+    for (const operation of ['insert', 'update'] as const)
+      expect(() => validateWrite('automations', { channel: 'instagram' }, owner, true, operation)).toThrow(/permission|server-managed/);
+    // Trusted automation routes (non-browser) still set the channel on create.
+    expect(() => validateWrite('automations', { name: 'Welcome', trigger_type: 'keyword_match', channel: 'instagram' }, owner)).not.toThrow();
+    expect(() => getResource('workspace_channels', true)).toThrow();
+    expect(() => getResource('workspace_channels')).toThrow();
+    expect(() => resourceBySlug('workspace-channels')).toThrow();
+  });
   it('exposes no Phase 5 inbox table through the generic browser resource API', () => {
     for (const table of [
       'conversation_notes',

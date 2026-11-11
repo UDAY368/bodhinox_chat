@@ -172,16 +172,19 @@ export function pickContactDisplayName(contact: {
   return null;
 }
 
+/** The inbox pages: the All view and each channel's inbox (Stage 1). */
+const INBOX_PATHS = new Set(["/inbox", "/whatsapp/inbox", "/instagram/inbox"]);
+
 /**
- * Which conversation the user is looking at, derived from the URL. The
- * inbox mirrors its selection into `/inbox?c=<id>` (router.replace on
- * select), so this needs no shared React state.
+ * Which conversation the user is looking at, derived from the URL. Every
+ * inbox mirrors its selection into `?c=<id>` (router.replace on select), so
+ * this needs no shared React state.
  */
 export function viewedConversationFromLocation(
   pathname: string,
   search: string,
 ): string | null {
-  if (pathname.replace(/\/+$/, "") !== "/inbox") return null;
+  if (!INBOX_PATHS.has(pathname.replace(/\/+$/, ""))) return null;
   return new URLSearchParams(search).get("c") || null;
 }
 

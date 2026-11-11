@@ -4,6 +4,7 @@ import { tenantOf } from '@/lib/audience/http'
 import { withTenant } from '@/lib/db/tenant'
 import { PlanLimitError } from '@/lib/billing/entitlements'
 import { requireWhatsAppNumberRoom } from '@/lib/billing/limits'
+import { ensureChannelEnabled } from '@/lib/channels/workspace'
 import { resolveWhatsAppAccount } from '@/lib/repositories/routing'
 import { createHash } from 'node:crypto'
 import { Prisma } from '@prisma/client'
@@ -506,6 +507,9 @@ export async function POST(request: Request) {
     try {
       numberId = await withTenant(tenantOf(ctx), async (tx) => {
         if (takesSlot) await requireWhatsAppNumberRoom(tx, accountId)
+        // Connected implies enabled: the WhatsApp channel turns on in the same
+        // transaction that stores the number (src/lib/channels/workspace.ts).
+        await ensureChannelEnabled(tx, accountId, 'whatsapp', userId)
         if (existing) {
           await tx.whatsapp_config.updateMany({ where: { account_id: accountId, id: existing.id }, data: row })
           return existing.id as string

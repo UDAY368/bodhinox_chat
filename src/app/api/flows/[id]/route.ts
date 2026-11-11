@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { parseChannelScope, validateFlowForActivation } from '@/lib/flows/validate';
-import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
+import type { FlowRow, FlowNodeRow, FlowTriggerType } from '@/lib/flows/types';
 import { getT } from '@/lib/i18n/translate';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { apiNodeUsesSecrets, canonicalJson } from '@/lib/flows/api-request';
@@ -13,6 +13,7 @@ import { gateWithinLimit } from '@/lib/billing/limits';
 import { requirePermission } from '@/lib/auth/permissions';
 import { lockAccountPublishing, readPublishState, saveDraft, type DraftPatch, type VersionNode } from '@/lib/flows/versions';
 import { flowVersionErrorResponse } from '@/lib/flows/version-http';
+import { assertScopeChangeAllowed, FlowChannelError, flowChannelErrorResponse, scopeChangeAllowed } from '@/lib/flows/channel-section';
 
 const t = getT('Api');
 
@@ -109,11 +110,15 @@ export async function GET(
 interface PutBody {
   name?: string;
   description?: string | null;
-  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply' | 'order_received' | 'ad_click';
+  trigger_type?: FlowTriggerType;
   trigger_config?: Record<string, unknown>;
   entry_node_id?: string | null;
   fallback_policy?: Record<string, unknown>;
-  /** Channels the flow runs on (Phase 11): 'whatsapp' | 'instagram' | 'any'. */
+  /**
+   * The flow's channel (Phase 11, Stage 1): 'whatsapp' | 'instagram'. A legacy
+   * 'any' flow may keep 'any'; nothing else may take it. A published flow's
+   * channel is fixed (409 channel_locked); a never-published draft may move.
+   */
   channel_scope?: unknown;
   /** Up to 3 numbers a draft runs for; stored as digits. */
   test_numbers?: string[];
@@ -156,10 +161,6 @@ export async function PUT(
   if (body.name !== undefined && !body.name.trim()) {
     return NextResponse.json({ error: t('flows.nameEmpty') }, { status: 400 });
   }
-  const channelScope = parseChannelScope(body.channel_scope);
-  if (channelScope === null) {
-    return NextResponse.json({ error: t('flows.channelScopeInvalid') }, { status: 400 });
-  }
   const testNumbers = body.test_numbers === undefined ? undefined : parseTestNumbers(body.test_numbers);
   if (testNumbers === null) {
     return NextResponse.json({ error: t('flows.testNumbersInvalid', { max: MAX_TEST_NUMBERS }) }, { status: 400 });
@@ -182,6 +183,15 @@ export async function PUT(
   }
   const { data: current, error: readError } = await admin.from('flows').select('*').eq('id', id).maybeSingle();
   if (readError) return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 });
+  const currentScope = (current as FlowRow | null)?.channel_scope ?? 'whatsapp';
+  const channelScope = parseChannelScope(body.channel_scope, currentScope);
+  if (channelScope === null) {
+    return NextResponse.json({ error: getT('Flows.channelSection')('anyNotAllowed') }, { status: 400 });
+  }
+  // Checked again under the row lock in the save transaction below.
+  if (channelScope !== undefined && !scopeChangeAllowed(currentScope, channelScope, (current as FlowRow | null)?.published_version_id)) {
+    return flowChannelErrorResponse(new FlowChannelError('channel_locked', currentScope === 'any' ? null : currentScope))!;
+  }
   // A published flow (Phase 12) runs its version, so editing its draft changes nothing live:
   // validation and 'flows.publish' apply when it is published. An active flow not yet
   // versioned (deploy-window straggler) still runs its draft, so it keeps the old rules.
@@ -251,11 +261,12 @@ export async function PUT(
           await gateWithinLimit(tx, accountId, 'active_flows', n + 1);
         }
       }
+      if (channelScope !== undefined) await assertScopeChangeAllowed(tx, accountId, id, channelScope);
       await saveDraft(tx, { accountId, flowId: id, patch, nodes: body.nodes as VersionNode[] | undefined });
       return readPublishState(tx, accountId, id);
     });
   } catch (err) {
-    return flowVersionErrorResponse(err);
+    return flowChannelErrorResponse(err) ?? flowVersionErrorResponse(err);
   }
 
   // Re-fetch and return the new state — the editor uses the response

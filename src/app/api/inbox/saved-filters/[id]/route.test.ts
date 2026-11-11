@@ -53,7 +53,7 @@ describe('saved filter item route', () => {
   it('replaces filters with the sanitised set', async () => {
     await patch({ filters: { filter: 'closed', session: 'nope' } });
     expect(h.update.mock.calls[0][2]).toEqual({
-      filters: { filter: 'closed', session: 'all', tagIds: [], company: null, numberId: null, search: '' },
+      filters: { filter: 'closed', session: 'all', tagIds: [], company: null, numberId: null, search: '', channel: null },
     });
   });
 

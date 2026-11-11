@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   accounts: [] as { account_id: string }[],
   inserts: [] as unknown[][],
-  sla: vi.fn(), resolve: vi.fn(), reassign: vi.fn(),
+  sla: vi.fn(), resolve: vi.fn(), reassign: vi.fn(), reminders: vi.fn(), replies: vi.fn(),
 }));
 vi.mock('@/lib/db/prisma', () => ({
   getWorkerPrisma: () => ({
@@ -14,6 +14,8 @@ vi.mock('@/lib/db/prisma', () => ({
 vi.mock('./sla', () => ({ SLA_CHECK_JOB: 'inbox.sla_check', runSlaCheck: h.sla }));
 vi.mock('./lifecycle', () => ({ AUTO_RESOLVE_JOB: 'inbox.auto_resolve', runAutoResolve: h.resolve }));
 vi.mock('./routing', () => ({ REASSIGN_JOB: 'inbox.reassign', runReassign: h.reassign }));
+vi.mock('./reminders', () => ({ runDueReminders: h.reminders }));
+vi.mock('./scheduled-replies', () => ({ runScheduledReplies: h.replies }));
 
 import { handleInboxJob, isInboxJob, resetInboxScheduleForTests, scheduleInboxSweeps } from './jobs';
 
@@ -48,9 +50,15 @@ describe('handleInboxJob', () => {
     await handleInboxJob(ACCOUNT, 'inbox.sla_check', {});
     await handleInboxJob(ACCOUNT, 'inbox.auto_resolve', {});
     await handleInboxJob(ACCOUNT, 'inbox.reassign', { conversationId: 'x' });
+    await handleInboxJob(ACCOUNT, 'inbox.reminders_due', {});
+    await handleInboxJob(ACCOUNT, 'inbox.scheduled_replies_due', {});
     expect(h.sla).toHaveBeenCalledWith(ACCOUNT);
     expect(h.resolve).toHaveBeenCalledWith(ACCOUNT);
     expect(h.reassign).toHaveBeenCalledWith(ACCOUNT, { conversationId: 'x' });
+    expect(h.reminders).toHaveBeenCalledWith(ACCOUNT);
+    expect(h.replies).toHaveBeenCalledWith(ACCOUNT);
+    expect(isInboxJob('inbox.reminders_due')).toBe(true);
+    expect(isInboxJob('inbox.scheduled_replies_due')).toBe(true);
     await expect(handleInboxJob(ACCOUNT, 'inbox.other', {})).rejects.toThrow();
     expect(isInboxJob('inbox.reassign')).toBe(true);
     expect(isInboxJob('flow.sweep')).toBe(false);

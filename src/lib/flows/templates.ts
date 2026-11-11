@@ -26,10 +26,18 @@ import type {
   AskMediaNodeConfig,
   CollectInputNodeConfig,
   ConditionNodeConfig,
+  DefaultReplyTriggerConfig,
+  FlowTriggerType,
   HandoffNodeConfig,
+  IgCommentTriggerConfig,
+  IgPrivateReplyNodeConfig,
+  IgStoryMentionTriggerConfig,
+  IgStoryReplyTriggerConfig,
   KeywordTriggerConfig,
   PaymentLinkNodeConfig,
   SendButtonsNodeConfig,
+  SendCardNodeConfig,
+  SendGalleryNodeConfig,
   SendListNodeConfig,
   SendMessageNodeConfig,
   SendStorefrontLinkNodeConfig,
@@ -37,6 +45,8 @@ import type {
   StartNodeConfig,
 } from "./types";
 import { getT } from "@/lib/i18n/translate";
+import { CHANNELS, nodeAvailableOn, triggerAvailableOn } from "@/lib/channels/capabilities";
+import type { Channel } from "@/types";
 
 export type FlowTemplateNodeType =
   | "start"
@@ -54,7 +64,11 @@ export type FlowTemplateNodeType =
   | "send_storefront_link"
   | "payment_link"
   | "handoff"
-  | "end";
+  | "end"
+  // Instagram-only steps (Stage 2): the Instagram starters use them.
+  | "ig_private_reply"
+  | "send_card"
+  | "send_gallery";
 
 export interface FlowTemplateNode {
   node_key: string;
@@ -74,6 +88,9 @@ export interface FlowTemplateNode {
     | BookAppointmentNodeConfig
     | SendStorefrontLinkNodeConfig
     | PaymentLinkNodeConfig
+    | IgPrivateReplyNodeConfig
+    | SendCardNodeConfig
+    | SendGalleryNodeConfig
     | Record<string, unknown>;
 }
 
@@ -91,6 +108,11 @@ export const FLOW_TEMPLATE_CATEGORIES = [
   "beauty",
   "events",
   "services",
+  // Instagram starters (Stage 2, Instagram › Quick automations).
+  "instagram_comments",
+  "instagram_growth",
+  "instagram_stories",
+  "instagram_dms",
 ] as const;
 export type FlowTemplateCategory = (typeof FLOW_TEMPLATE_CATEGORIES)[number];
 
@@ -101,10 +123,33 @@ export interface FlowTemplate {
   category: FlowTemplateCategory;
   /** Used by the gallery to surface a relevant icon. lucide-react name. */
   icon: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
-  trigger_config: KeywordTriggerConfig | Record<string, unknown>;
+  trigger_type: FlowTriggerType;
+  trigger_config:
+    | KeywordTriggerConfig
+    | IgCommentTriggerConfig
+    | IgStoryReplyTriggerConfig
+    | IgStoryMentionTriggerConfig
+    | DefaultReplyTriggerConfig
+    | Record<string, unknown>;
   entry_node_id: string;
   nodes: FlowTemplateNode[];
+  /**
+   * The channel sections this template is offered in (Stage 1), first one the
+   * default when a create names none. Absent: every channel whose palette
+   * holds the trigger and every step (flowTemplateChannels).
+   */
+  channels?: readonly Channel[];
+}
+
+/**
+ * The channels a template can be created on: its own `channels`, else every
+ * channel that offers its trigger and can run each of its steps as written.
+ * A WhatsApp-only step (a list, a booking) keeps a template off Instagram.
+ */
+export function flowTemplateChannels(template: FlowTemplate): Channel[] {
+  if (template.channels) return [...template.channels];
+  return CHANNELS.filter((channel) => triggerAvailableOn(template.trigger_type, channel) &&
+    template.nodes.every((node) => nodeAvailableOn(node.node_type, channel, node.config as Record<string, unknown>).ok));
 }
 
 const t = getT("StarterFlows");
@@ -1187,6 +1232,299 @@ function feedbackNps(): FlowTemplate {
 }
 
 // ============================================================
+// Instagram starters (Stage 2, plan item 10)
+//
+// Instagram-only flows for Instagram › Quick automations and the Instagram
+// flows gallery. Their copy lives in Instagram.quickAutomations.flows.<slug>.
+// A comment-started run's first message is a private reply with an "opening
+// DM" button: the tap opens the 24-hour window, and only then does the flow
+// send links, ask questions or check the follow gate. Links the author must
+// supply (their own page, reward or wa.me link) are left empty, so publishing
+// reports them until they are filled in (INSTAGRAM_TEMPLATE_LINKS_TO_BIND).
+// The comment-to-DM, follow-gate and email-lead graphs are shared with the
+// guided setups (src/lib/instagram/wizards.ts), so a wizard's flow and its
+// template have the same shape.
+// ============================================================
+
+const tIg = getT("Instagram.quickAutomations.flows");
+const igScoped = (slug: string) => (key: string, values?: Record<string, string>) => tIg(`${slug}.${key}`, values);
+const igKeywords = (slug: string): string[] =>
+  tIg(`${slug}.keywords`).split(",").map((k) => k.trim()).filter(Boolean);
+
+/** A private reply (the first message of a comment-started run) whose button opens the window. */
+const privateReply = (key: string, text: string, optInLabel: string, next: string) =>
+  node(key, "ig_private_reply", { text, opt_in_label: optInLabel, next_node_key: next } as IgPrivateReplyNodeConfig);
+/** One card whose button opens a link (a link tap does not open the window). */
+const linkCard = (key: string, card: { title: string; subtitle?: string; button: string; url: string }, next: string) =>
+  node(key, "send_card", {
+    card: {
+      title: card.title,
+      ...(card.subtitle ? { subtitle: card.subtitle } : {}),
+      buttons: [{ type: "web_url", title: card.button, url: card.url }],
+    },
+    next_node_key: next,
+  } as SendCardNodeConfig);
+/** The follow gate: re-reads the profile when the run reaches it (needs live capture of the follow fields). */
+const followCheck = (key: string, follows: string, notYet: string) =>
+  node(key, "condition", {
+    subject: "ig_profile", subject_key: "follows_business", operator: "equals", value: "true",
+    true_next: follows, false_next: notYet,
+  } as ConditionNodeConfig);
+
+/** Copy for the comment-to-DM link graph. */
+export interface CommentLinkCopy {
+  opening: string;
+  optInLabel: string;
+  cardTitle: string;
+  buttonLabel: string;
+  url: string;
+}
+
+/** Comment → private reply with an opening-DM button → the link card. */
+export function commentLinkNodes(copy: CommentLinkCopy): FlowTemplateNode[] {
+  return [
+    startAt("opening"),
+    privateReply("opening", copy.opening, copy.optInLabel, "link"),
+    linkCard("link", { title: copy.cardTitle, button: copy.buttonLabel, url: copy.url }, "end"),
+    END,
+  ];
+}
+
+/** Copy for the follow-gate graph. */
+export interface FollowGateCopy {
+  opening: string;
+  optInLabel: string;
+  followPrompt: string;
+  followedLabel: string;
+  rewardTitle: string;
+  rewardButton: string;
+  rewardUrl: string;
+}
+
+/**
+ * Comment → private reply → "follows you?" → the reward. Someone not yet
+ * following is asked to follow, and their "I followed" tap loops back to the
+ * check, which re-reads the profile before releasing the reward.
+ */
+export function followGateNodes(copy: FollowGateCopy): FlowTemplateNode[] {
+  return [
+    startAt("opening"),
+    privateReply("opening", copy.opening, copy.optInLabel, "check_follow"),
+    followCheck("check_follow", "reward", "ask_follow"),
+    buttons("ask_follow", copy.followPrompt, [["followed", copy.followedLabel, "check_follow"]]),
+    linkCard("reward", { title: copy.rewardTitle, button: copy.rewardButton, url: copy.rewardUrl }, "end"),
+    END,
+  ];
+}
+
+/** Copy for the email-capture graph. */
+export interface EmailLeadCopy {
+  askEmail: string;
+  emailError: string;
+  thanks: string;
+}
+
+/** Asks for an email (3 tries), saves it on the contact and thanks them. The customer wrote first, so the window is open. */
+export function emailLeadNodes(copy: EmailLeadCopy): FlowTemplateNode[] {
+  return [
+    startAt("ask_email"),
+    ask("ask_email", copy.askEmail, "email", "save_email", { validation: "email", max_attempts: 3, error_text: copy.emailError }),
+    setContact("save_email", "email", v("email"), "thanks"),
+    say("thanks", copy.thanks, "end"),
+    END,
+  ];
+}
+
+/** An `ig_comment` trigger on any post, matching the template's keywords, with one public reply. */
+function commentTrigger(keywordList: string[], publicReply: string): IgCommentTriggerConfig {
+  return { post_scope: "any", include_keywords: keywordList, include_mode: "contains", public_replies: [publicReply] };
+}
+
+function igTemplate(
+  slug: string,
+  category: FlowTemplateCategory,
+  icon: string,
+  trigger_type: FlowTriggerType,
+  trigger_config: FlowTemplate["trigger_config"],
+  nodes: FlowTemplateNode[],
+): FlowTemplate {
+  return {
+    slug,
+    name: tIg(`${slug}.name`),
+    description: tIg(`${slug}.description`),
+    category,
+    icon,
+    trigger_type,
+    trigger_config,
+    entry_node_id: "start",
+    nodes,
+    channels: ["instagram"],
+  };
+}
+
+/** Steps of the Instagram starters that hold a link the author fills in before publishing. */
+export const INSTAGRAM_TEMPLATE_LINKS_TO_BIND: ReadonlySet<string> = new Set([
+  "ig_link_drop.link",
+  "ig_follow_gate.reward",
+  "ig_to_whatsapp.wa_link",
+]);
+
+// ---- comments ----
+
+function igLinkDrop(): FlowTemplate {
+  const s = igScoped("ig_link_drop");
+  return igTemplate("ig_link_drop", "instagram_comments", "Link", "ig_comment",
+    commentTrigger(igKeywords("ig_link_drop"), s("publicReply")),
+    commentLinkNodes({ opening: s("opening"), optInLabel: s("optIn"), cardTitle: s("cardTitle"), buttonLabel: s("linkButton"), url: "" }));
+}
+
+function igProductLineup(): FlowTemplate {
+  const s = igScoped("ig_product_lineup");
+  const product = (n: number) => ({ title: s(`product${n}Title`), subtitle: s(`product${n}Subtitle`) });
+  const pick = choices("product", "agent", [1, 2, 3].map((n): [string, string] => [`p${n}`, s(`product${n}Title`)]));
+  return igTemplate("ig_product_lineup", "instagram_comments", "ShoppingBag", "ig_comment",
+    commentTrigger(igKeywords("ig_product_lineup"), s("publicReply")), [
+      startAt("opening"),
+      privateReply("opening", s("opening"), s("optIn"), "lineup"),
+      node("lineup", "send_gallery", { cards: [product(1), product(2), product(3)], next_node_key: "pick" } as SendGalleryNodeConfig),
+      buttons("pick", s("pickText"), pick.options),
+      ...pick.nodes,
+      handoff("agent", s("handoffNote", { product: v("product") })),
+    ]);
+}
+
+// ---- growth ----
+
+function igGiveaway(): FlowTemplate {
+  const s = igScoped("ig_giveaway");
+  return igTemplate("ig_giveaway", "instagram_growth", "Gift", "ig_comment",
+    commentTrigger(igKeywords("ig_giveaway"), s("publicReply")), [
+      startAt("opening"),
+      privateReply("opening", s("opening"), s("optIn"), "check_follow"),
+      followCheck("check_follow", "ask_email", "ask_follow"),
+      buttons("ask_follow", s("followPrompt"), [["followed", s("followedButton"), "check_follow"]]),
+      ask("ask_email", s("askEmail"), "email", "save_email", { validation: "email", max_attempts: 3, error_text: s("emailError") }),
+      setContact("save_email", "email", v("email"), "entered"),
+      say("entered", s("entered"), "end"),
+      END,
+    ]);
+}
+
+function igFollowGate(): FlowTemplate {
+  const s = igScoped("ig_follow_gate");
+  return igTemplate("ig_follow_gate", "instagram_growth", "UserPlus", "ig_comment",
+    commentTrigger(igKeywords("ig_follow_gate"), s("publicReply")),
+    followGateNodes({
+      opening: s("opening"), optInLabel: s("optIn"), followPrompt: s("followPrompt"), followedLabel: s("followedButton"),
+      rewardTitle: s("rewardTitle"), rewardButton: s("rewardButton"), rewardUrl: "",
+    }));
+}
+
+/** Bodhinox runs both channels, so a DM can move to the workspace's WhatsApp number (the author adds its wa.me link). */
+function igToWhatsApp(): FlowTemplate {
+  const s = igScoped("ig_to_whatsapp");
+  return igTemplate("ig_to_whatsapp", "instagram_growth", "MessageCircle", "keyword",
+    { keywords: igKeywords("ig_to_whatsapp"), match_type: "contains" }, [
+      startAt("ask"),
+      buttons("ask", s("ask"), [["yes", s("yesButton"), "wa_link"], ["no", s("noButton"), "stay"]]),
+      linkCard("wa_link", { title: s("cardTitle"), subtitle: s("cardSubtitle"), button: s("openButton"), url: "" }, "end"),
+      say("stay", s("stay"), "agent"),
+      handoff("agent", s("handoffNote")),
+      END,
+    ]);
+}
+
+function igEmailList(): FlowTemplate {
+  const s = igScoped("ig_email_list");
+  return igTemplate("ig_email_list", "instagram_growth", "Mail", "keyword",
+    { keywords: igKeywords("ig_email_list"), match_type: "contains" },
+    emailLeadNodes({ askEmail: s("askEmail"), emailError: s("emailError"), thanks: s("thanks") }));
+}
+
+// ---- stories ----
+
+function igStoryLeads(): FlowTemplate {
+  const s = igScoped("ig_story_leads");
+  return igTemplate("ig_story_leads", "instagram_stories", "Sparkles", "ig_story_reply",
+    { match_mode: "contains", reactions: false } satisfies IgStoryReplyTriggerConfig,
+    emailLeadNodes({ askEmail: s("askEmail"), emailError: s("emailError"), thanks: s("thanks") }));
+}
+
+function igStoryCoupon(): FlowTemplate {
+  const s = igScoped("ig_story_coupon");
+  return igTemplate("ig_story_coupon", "instagram_stories", "Ticket", "ig_story_reply",
+    { match_mode: "contains", reactions: true } satisfies IgStoryReplyTriggerConfig,
+    [startAt("coupon"), say("coupon", s("text"), "end"), END]);
+}
+
+function igStoryFaq(): FlowTemplate {
+  const s = igScoped("ig_story_faq");
+  return igTemplate("ig_story_faq", "instagram_stories", "HelpCircle", "ig_story_reply",
+    { match_mode: "contains", reactions: false } satisfies IgStoryReplyTriggerConfig, [
+      startAt("topics"),
+      buttons("topics", s("ask"), [
+        ["hours", s("hoursButton"), "answer_hours"],
+        ["prices", s("pricesButton"), "answer_prices"],
+        ["human", s("humanButton"), "agent"],
+      ]),
+      say("answer_hours", s("hoursAnswer"), "end"),
+      say("answer_prices", s("pricesAnswer"), "end"),
+      handoff("agent", s("handoffNote")),
+      END,
+    ]);
+}
+
+/** Story mentions (needs live capture: the story_mention payload), at most once a day per person. */
+function igStoryMentionThanks(): FlowTemplate {
+  const s = igScoped("ig_story_mention_thanks");
+  return igTemplate("ig_story_mention_thanks", "instagram_stories", "AtSign", "ig_story_mention",
+    { frequency: "once_per_24h" } satisfies IgStoryMentionTriggerConfig,
+    [startAt("thanks"), say("thanks", s("text"), "end"), END]);
+}
+
+// ---- DMs ----
+
+function igQuizQualifier(): FlowTemplate {
+  const s = igScoped("ig_quiz_qualifier");
+  return igTemplate("ig_quiz_qualifier", "instagram_dms", "ListChecks", "keyword",
+    { keywords: igKeywords("ig_quiz_qualifier"), match_type: "contains" }, [
+      startAt("q_budget"),
+      buttons("q_budget", s("budgetQuestion"), [["low", s("budgetLow"), "budget_low"], ["high", s("budgetHigh"), "budget_high"]]),
+      setVar("budget_low", "budget", "low", "q_timeline"),
+      setVar("budget_high", "budget", "high", "q_timeline"),
+      buttons("q_timeline", s("timelineQuestion"), [["now", s("timelineNow"), "timeline_now"], ["later", s("timelineLater"), "timeline_later"]]),
+      setVar("timeline_now", "timeline", "now", "is_hot"),
+      setVar("timeline_later", "timeline", "later", "is_hot"),
+      node("is_hot", "condition", {
+        match: "all",
+        rules: [
+          { subject: "var", subject_key: "budget", operator: "equals", value: "high" },
+          { subject: "var", subject_key: "timeline", operator: "equals", value: "now" },
+        ],
+        true_next: "hot",
+        false_next: "nurture",
+      } as ConditionNodeConfig),
+      say("hot", s("hotReply"), "agent"),
+      handoff("agent", s("handoffNote")),
+      say("nurture", s("nurtureReply"), "end"),
+      END,
+    ]);
+}
+
+/** The Instagram default reply, at most once a day per person. */
+function igDefaultReply(): FlowTemplate {
+  const s = igScoped("ig_default_reply");
+  return igTemplate("ig_default_reply", "instagram_dms", "MessageSquare", "default_reply",
+    { frequency: "once_per_24h" } satisfies DefaultReplyTriggerConfig, [
+      startAt("menu"),
+      buttons("menu", s("text"), [["info", s("infoButton"), "info"], ["human", s("humanButton"), "agent"]]),
+      say("info", s("info"), "end"),
+      handoff("agent", s("handoffNote")),
+      END,
+    ]);
+}
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -1223,6 +1561,19 @@ const TEMPLATES: Record<string, FlowTemplate> = Object.fromEntries(
     webinarRegistration(),
     supportTriage(),
     feedbackNps(),
+    // Instagram starters (Stage 2).
+    igLinkDrop(),
+    igProductLineup(),
+    igGiveaway(),
+    igFollowGate(),
+    igToWhatsApp(),
+    igEmailList(),
+    igStoryLeads(),
+    igStoryCoupon(),
+    igStoryFaq(),
+    igStoryMentionThanks(),
+    igQuizQualifier(),
+    igDefaultReply(),
   ].map((template) => [template.slug, template]),
 );
 

@@ -36,12 +36,15 @@ import { aiReplyEdges, aiReplyIssues, aiReplyMaxTurns, aiReplyWaits } from "./ai
 import { conversionEdges, conversionIssues } from "./conversion-node";
 import { storefrontLinkEdges, storefrontLinkIssues } from "./storefront-link-validation";
 import { parseDateInput } from "./input-formats";
-import { nodeAvailableOn, scopeIncludes, triggerAvailableOn } from "@/lib/channels/capabilities";
-import { FLOW_CHANNEL_SCOPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type NodeTiming } from "./types";
+import { nodeAvailableOn, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
+import { FLOW_CHANNEL_SCOPES, type ConditionRule, type FlowChannelScope, type FlowNodeType, type FlowTriggerType, type NodeTiming } from "./types";
 import { nodeCapabilityBlock, type WorkspaceCapabilities } from "./node-registry";
+import { cardRouteTargets, igFlowIssues, igNodeIssues, igTriggerIssues, privateReplyWaits } from "./instagram-validation";
 
 const t = getT("Validation.flows");
 const tChannel = getT("Flows.channel");
+const tSection = getT("Flows.channelSection");
+const tNames = getT("Channels.names");
 
 export interface ValidationIssue {
   severity: "error" | "warning";
@@ -59,7 +62,7 @@ export interface ValidationIssue {
 
 interface FlowInput {
   name: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
+  trigger_type: FlowTriggerType;
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   /** When given, a Connect Flow step back to this flow is checked for loops. */
@@ -137,7 +140,7 @@ export function validateFlowForActivation(
   }
 
   // ---- trigger ----
-  issues.push(...validateTrigger(flow.trigger_type, flow.trigger_config));
+  issues.push(...validateTrigger(flow.trigger_type, flow.trigger_config), ...igTriggerIssues(flow.trigger_type, flow.trigger_config ?? {}));
 
   // ---- graph integrity ----
   if (!flow.entry_node_id) {
@@ -191,12 +194,13 @@ export function validateFlowForActivation(
   // Per-node rules (Meta limits + dead-end + edge resolution).
   const runTimeoutHours = flow.fallback_policy === undefined ? undefined : resolveFallbackPolicy(flow.fallback_policy).on_timeout_hours;
   for (const n of nodes) {
-    issues.push(...validateNode(n, keys), ...timingIssues(n, keys, runTimeoutHours));
+    issues.push(...validateNode(n, keys), ...timingIssues(n, keys, runTimeoutHours), ...igNodeIssues(n, keys));
     if (n.node_type === "send_form") issues.push(...sendFormIssues(n, keys, context.forms));
     if (n.node_type === "ai_reply") issues.push(...aiReplyIssues(n, keys, context.aiConfigured));
     if (n.node_type === "book_appointment") issues.push(...bookAppointmentPaidIssues(n, context.paidServices));
   }
   issues.push(...channelScopeIssues(flow.channel_scope, flow.trigger_type, nodes));
+  issues.push(...igFlowIssues(flow, nodes, outgoingEdges));
 
   // Warn rather than block: explicit starts may supply variables externally.
   if (flow.entry_node_id && keys.has(flow.entry_node_id)) {
@@ -311,7 +315,10 @@ function isAutoNode(n: NodeInput): boolean {
   // A one-turn AI reply answers and moves on without waiting for the customer.
   const autoAiReply = n.node_type === "ai_reply" && aiReplyMaxTurns(n.config) === 1;
   const timesOut = waitsForReply(n) && Boolean(n.config.timeout_minutes) && typeof n.config.after_timeout === "string";
-  return timesOut || autoTemplate || autoAiReply ||
+  // Instagram: the comment reply always moves on; a private reply or card does unless it waits for a tap.
+  const autoIg = n.node_type === "ig_comment_reply" ||
+    (["ig_private_reply", "send_card", "send_gallery"].includes(n.node_type) && !waitsForReply(n));
+  return timesOut || autoTemplate || autoAiReply || autoIg ||
     ["start", "send_message", "send_media", "condition", "set_tag", "set_attribute", "api_request", "assign_agent", "conversion_event", "send_storefront_link"].includes(n.node_type) ||
     isCommerceNodeType(n.node_type);
 }
@@ -441,44 +448,53 @@ export function findAutoAdvancingCycles(nodes: NodeInput[], self?: { flowId: str
 // ============================================================
 
 /**
- * A request body's channel_scope: undefined when absent, null when it is not
- * one of 'whatsapp' | 'instagram' | 'any' (the route answers 400).
+ * A request body's channel_scope: undefined when absent, null when the route
+ * must answer 400. Since Stage 1 every new flow belongs to one channel, so
+ * 'any' is accepted only for a legacy flow that already has it (`existing`):
+ * those keep running on both channels until the user splits them.
  */
-export function parseChannelScope(value: unknown): FlowChannelScope | undefined | null {
+export function parseChannelScope(value: unknown, existing?: FlowChannelScope | null): FlowChannelScope | undefined | null {
   if (value === undefined) return undefined;
-  return typeof value === "string" && (FLOW_CHANNEL_SCOPES as readonly string[]).includes(value)
-    ? (value as FlowChannelScope)
-    : null;
+  if (typeof value !== "string" || !(FLOW_CHANNEL_SCOPES as readonly string[]).includes(value)) return null;
+  if (value === "any" && existing !== "any") return null;
+  return value as FlowChannelScope;
 }
 
 /**
- * A flow that runs on Instagram ('instagram' or 'any') may use only the
- * triggers and steps Instagram supports (src/lib/channels/capabilities.ts):
- * anything else blocks publishing, shown on the trigger or the step. A
- * WhatsApp-only flow gets no issue here, so existing flows are unchanged.
+ * A flow may use only the triggers and steps of every channel it runs on
+ * (src/lib/channels/capabilities.ts): anything else blocks publishing, shown
+ * on the trigger or the step. Both directions are checked: an Instagram flow
+ * refuses WhatsApp-only steps and a WhatsApp flow refuses Instagram-only ones.
+ * Every step and trigger that existed before Stage 1 runs on WhatsApp, so
+ * existing WhatsApp flows get no new issue.
  */
 export function channelScopeIssues(
   scope: FlowChannelScope | null | undefined,
   triggerType: FlowInput["trigger_type"],
   nodes: NodeInput[],
 ): ValidationIssue[] {
-  if (!scopeIncludes(scope, "instagram")) return [];
   const issues: ValidationIssue[] = [];
-  if (!triggerAvailableOn(triggerType, "instagram")) {
-    issues.push({ severity: "error", scope: "trigger", field: "trigger_type", message: tChannel("triggerUnavailable") });
-  }
-  for (const node of nodes) {
-    const availability = nodeAvailableOn(node.node_type as FlowNodeType, "instagram", node.config ?? {});
-    if (!availability.ok) {
-      issues.push({
-        severity: "error",
-        scope: "node",
-        node_key: node.node_key,
-        field: "node_type",
-        message: tChannel("unavailableOnChannel", { node: node.node_type }),
-      });
-    } else if (availability.warning === "text_over_limit") {
-      issues.push({ severity: "warning", scope: "node", node_key: node.node_key, message: tChannel("textOverLimit") });
+  for (const channel of scopeChannels(scope)) {
+    const instagram = channel === "instagram";
+    if (!triggerAvailableOn(triggerType, channel)) {
+      issues.push({ severity: "error", scope: "trigger", field: "trigger_type",
+        message: instagram ? tChannel("triggerUnavailable") : tSection("triggerUnavailable", { channel: tNames(channel) }) });
+    }
+    for (const node of nodes) {
+      const availability = nodeAvailableOn(node.node_type as FlowNodeType, channel, node.config ?? {});
+      if (!availability.ok) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "node_type",
+          message: instagram
+            ? tChannel("unavailableOnChannel", { node: node.node_type })
+            : tSection("nodeUnavailable", { node: node.node_type, channel: tNames(channel) }),
+        });
+      } else if (availability.warning === "text_over_limit") {
+        issues.push({ severity: "warning", scope: "node", node_key: node.node_key, message: tChannel("textOverLimit") });
+      }
     }
   }
   return issues;
@@ -1274,6 +1290,13 @@ function validateNode(
       issues.push(...storefrontLinkIssues(node, knownKeys));
       break;
 
+    case "ig_comment_reply":
+    case "ig_private_reply":
+    case "send_card":
+    case "send_gallery":
+      // Instagram-only steps: checked by igNodeIssues (instagram-validation.ts).
+      break;
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
@@ -1323,7 +1346,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 const INPUT_FORMATS: string[] = ["any", "email", "phone", "regex", "number", "date", "boolean"];
 const MEDIA_REPLY_TYPES: unknown[] = ["image", "video", "document", "audio"];
-const CONDITION_SUBJECTS: unknown[] = ["var", "tag", "contact_field", "custom_field", "time", "date"];
+const CONDITION_SUBJECTS: unknown[] = ["var", "tag", "contact_field", "custom_field", "time", "date", "ig_profile"];
 const CONDITION_OPERATORS: unknown[] = ["equals", "not_equals", "contains", "present", "absent", "gt", "gte", "lt", "lte", "between"];
 const MAX_CONDITION_RULES = 10;
 const SET_ATTRIBUTE_MAX = 1000;
@@ -1366,6 +1389,9 @@ export function sendFormIssues(node: NodeInput, knownKeys: ReadonlySet<string>, 
 function waitsForReply(node: NodeInput): boolean {
   if (node.node_type === "send_template") return Array.isArray(node.config.buttons) && node.config.buttons.length > 0;
   if (node.node_type === "ai_reply") return aiReplyWaits(node.config);
+  // A private reply waits for its opening button; a card for a tap on a "go to a step" button.
+  if (node.node_type === "ig_private_reply") return privateReplyWaits(node.config);
+  if (node.node_type === "send_card" || node.node_type === "send_gallery") return cardRouteTargets(node).length > 0;
   return WAITING_TYPES.includes(node.node_type);
 }
 /** Config keys that hold routing or patterns rather than customer-visible text. */
@@ -1526,6 +1552,17 @@ function outgoingEdges(node: NodeInput): string[] {
         for (const r of s.rows ?? []) add(r.next_node_key);
       }
       break;
+    case "ig_comment_reply":
+    case "ig_private_reply":
+      add(cfg.next_node_key);
+      break;
+    case "send_card":
+    case "send_gallery": {
+      const routes = cardRouteTargets(node);
+      if (routes.length) routes.forEach(add);
+      else add(cfg.next_node_key);
+      break;
+    }
     default:
       return [];
   }

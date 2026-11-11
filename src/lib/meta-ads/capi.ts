@@ -24,6 +24,18 @@ import { capiEvent, isMetaThrottle, isMetaTokenInvalid, metaErrorCode, postCapiE
 import { metaAdsConfig, missingScopes } from './config';
 import { loadActiveConnectionTx } from './connection';
 import { latestAttributableReferralTx } from './referrals';
+import { instagramConfig } from '@/lib/instagram/config';
+
+export type ConversionChannel = 'whatsapp' | 'instagram';
+
+/**
+ * Instagram conversion events (Stage 4C). Meta's Instagram payload fields are
+ * documented but not verified on a live dataset, so the feature is dark until
+ * INSTAGRAM_CAPI_ENABLED is set (and needs INSTAGRAM_ENABLED and Meta Ads).
+ */
+export function instagramCapiEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.INSTAGRAM_CAPI_ENABLED?.trim() === 'true' && instagramConfig(env) !== null && metaAdsConfig(env) !== null;
+}
 
 export type ConversionSource = 'payment_link' | 'order' | 'form' | 'flow';
 
@@ -44,6 +56,9 @@ export interface ConversionEventInput {
   currency?: string | null;
   /** Defaults to now. */
   eventTime?: Date;
+  /** Defaults to WhatsApp. An Instagram event is a flow event and names the Instagram conversation it came from. */
+  channel?: ConversionChannel;
+  conversationId?: string | null;
 }
 
 export const CAPI_EVENT_JOB = 'meta.capi_event';
@@ -111,6 +126,11 @@ export async function queueConversionEventTx(tx: TenantTransaction, input: Conve
   const { accountId, contactId } = input;
   if (!UUID.test(accountId) || !contactId || !UUID.test(contactId)) return false;
   if (!EVENT_NAMES.includes(input.eventName) || !SOURCES.includes(input.source)) return false;
+  if (input.channel === 'instagram') {
+    // Only a flow step reports from Instagram (payments, orders and forms are WhatsApp objects), and only while the feature is on.
+    if (input.source !== 'flow' || input.eventName === 'Purchase' || !instagramCapiEnabled()) return false;
+    if (!input.conversationId || !UUID.test(input.conversationId)) return false;
+  }
   if (input.orderId && !UUID.test(input.orderId)) return false;
   const eventId = conversionEventId(input);
   if (!input.sourceId || input.sourceId.length > 200 || eventId.length > 200) return false;
@@ -137,6 +157,7 @@ async function enqueue(tx: TenantTransaction, input: ConversionEventInput & { co
     SELECT id::text AS id, capi_enabled, capi_dataset_id, capi_waba_id, capi_whatsapp_config_id::text AS capi_whatsapp_config_id,
       capi_auto_purchase, capi_auto_lead
     FROM meta_ad_connections WHERE account_id=${accountId}::uuid AND status='active' LIMIT 1`;
+  if (input.channel === 'instagram') return enqueueInstagram(tx, input, conn, eventId, value, currency, eventTime);
   if (!conn?.capi_enabled || !conn.capi_dataset_id || !conn.capi_waba_id) return false;
   if ((input.source === 'payment_link' || input.source === 'order') && !conn.capi_auto_purchase) return false;
   if (input.source === 'form' && !conn.capi_auto_lead) return false;
@@ -154,6 +175,39 @@ async function enqueue(tx: TenantTransaction, input: ConversionEventInput & { co
       value, currency, event_time)
     VALUES (${accountId}::uuid, ${conn.id}::uuid, ${input.eventName}, ${eventId}, ${input.source}, ${input.sourceId},
       ${input.contactId}::uuid, ${referral.id}::uuid, ${value}::numeric, ${currency}, ${eventTime})
+    ON CONFLICT (account_id, event_id) DO NOTHING
+    RETURNING id::text AS id`;
+  const id = inserted[0]?.id;
+  if (!id) return false;
+  await tx.$executeRaw`INSERT INTO jobs(type,tenant_id,payload,dedupe_key,max_attempts)
+    VALUES(${CAPI_EVENT_JOB},${accountId}::uuid,${JSON.stringify({ capiEventId: id })}::jsonb,${`capi:${accountId}:${eventId}`},${CAPI_MAX_ATTEMPTS})
+    ON CONFLICT(dedupe_key) DO NOTHING`;
+  return true;
+}
+
+/**
+ * An Instagram flow event: attributable only when the contact opened THIS conversation from a
+ * click-to-Direct ad within the attribution window (the customer message whose ig.referral source is
+ * ADS). The dataset is the connection's (the same one the WhatsApp events use).
+ */
+async function enqueueInstagram(tx: TenantTransaction, input: ConversionEventInput & { contactId: string },
+  conn: CapiSettingsRow | undefined, eventId: string, value: number | null, currency: string | null, eventTime: Date): Promise<boolean> {
+  if (!conn?.capi_enabled || !conn.capi_dataset_id) return false;
+  const { accountId } = input;
+  const [ad] = await tx.$queryRaw<{ id: string }[]>`
+    SELECT m.id::text AS id
+    FROM messages m JOIN conversations c ON c.account_id=m.account_id AND c.id=m.conversation_id
+    WHERE m.account_id=${accountId}::uuid AND c.id=${input.conversationId}::uuid AND c.contact_id=${input.contactId}::uuid
+      AND c.channel='instagram' AND m.sender_type='customer'
+      AND upper(m.interactive_payload #>> '{ig,referral,source}')='ADS'
+      AND m.created_at > now() - make_interval(days => ${CAPI_ATTRIBUTION_DAYS})
+    ORDER BY m.created_at DESC LIMIT 1`;
+  if (!ad) return false;
+  const inserted = await tx.$queryRaw<{ id: string }[]>`
+    INSERT INTO capi_events(account_id, connection_id, event_name, event_id, source, source_id, contact_id, channel, message_id,
+      value, currency, event_time)
+    VALUES (${accountId}::uuid, ${conn.id}::uuid, ${input.eventName}, ${eventId}, ${input.source}, ${input.sourceId},
+      ${input.contactId}::uuid, 'instagram', ${ad.id}::uuid, ${value}::numeric, ${currency}, ${eventTime})
     ON CONFLICT (account_id, event_id) DO NOTHING
     RETURNING id::text AS id`;
   const id = inserted[0]?.id;
@@ -193,12 +247,15 @@ interface QueuedEventRow {
   currency: string | null;
   event_time: Date;
   throttle_count: number;
+  channel: ConversionChannel;
+  message_id: string | null;
 }
 
 type SendPlan =
   | { kind: 'noop' }
   | { kind: 'settle'; status: CapiEventStatus; skipReason?: CapiSkipReason | null }
-  | { kind: 'send'; row: QueuedEventRow; connectionId: string; datasetId: string; wabaId: string; token: string; ctwaClid: string };
+  | { kind: 'send'; row: QueuedEventRow; connectionId: string; datasetId: string; token: string;
+      who: { wabaId: string; ctwaClid: string; instagram?: undefined } | { instagram: { accountId: string; igsid: string }; wabaId?: undefined; ctwaClid?: undefined } };
 
 const worker = <T>(accountId: string, work: (tx: TenantTransaction) => Promise<T>) =>
   withTenant({ accountId, role: 'owner' }, work, getWorkerPrisma());
@@ -234,7 +291,7 @@ export async function handleCapiEventJob(accountId: string, payload: Record<stri
   const plan = await worker(accountId, async (tx): Promise<SendPlan> => {
     const [row] = await tx.$queryRaw<QueuedEventRow[]>`
       SELECT id::text AS id, event_id, event_name, status, ad_referral_id::text AS ad_referral_id,
-        value::float8 AS value, currency, event_time, throttle_count
+        value::float8 AS value, currency, event_time, throttle_count, channel, message_id::text AS message_id
       FROM capi_events WHERE account_id=${accountId}::uuid AND id=${capiEventId}::uuid`;
     if (!row || row.status !== 'queued') return { kind: 'noop' };
     // A previous attempt already claimed the send: its intent decides, never a fresh plan.
@@ -250,6 +307,23 @@ export async function handleCapiEventJob(accountId: string, payload: Record<stri
     if (!conn || !conn.userToken) return { kind: 'settle', status: 'skipped', skipReason: 'no_connection' };
     if (!conn.capiEnabled) return { kind: 'settle', status: 'skipped', skipReason: 'disabled' };
     if (missingScopes(conn.scopes, 'capi').length) return { kind: 'settle', status: 'skipped', skipReason: 'missing_scope' };
+    if (row.channel === 'instagram') {
+      if (!instagramCapiEnabled()) return { kind: 'settle', status: 'skipped', skipReason: 'disabled' };
+      if (!conn.capiDatasetId) return { kind: 'settle', status: 'skipped', skipReason: 'no_dataset' };
+      if (!row.message_id) return { kind: 'settle', status: 'skipped' };
+      // The account and the person come from the ad message's own conversation, in this workspace only.
+      const [who] = await tx.$queryRaw<{ ig_user_id: string; external_id: string }[]>`
+        SELECT a.ig_user_id, i.external_id
+        FROM messages m
+        JOIN conversations c ON c.account_id=m.account_id AND c.id=m.conversation_id AND c.channel='instagram'
+        JOIN instagram_accounts a ON a.account_id=c.account_id AND a.id=c.instagram_account_id
+        JOIN contact_channel_identities i ON i.account_id=c.account_id AND i.contact_id=c.contact_id
+          AND i.instagram_account_id=c.instagram_account_id
+        WHERE m.account_id=${accountId}::uuid AND m.id=${row.message_id}::uuid`;
+      if (!who) return { kind: 'settle', status: 'skipped' };
+      return { kind: 'send', row, connectionId: conn.id, datasetId: conn.capiDatasetId, token: conn.userToken,
+        who: { instagram: { accountId: who.ig_user_id, igsid: who.external_id } } };
+    }
     if (!conn.capiDatasetId || !conn.capiWabaId) return { kind: 'settle', status: 'skipped', skipReason: 'no_dataset' };
     if (!row.ad_referral_id) return { kind: 'settle', status: 'skipped' };
     const [referral] = await tx.$queryRaw<{ ctwa_clid: string | null; waba_id: string | null }[]>`
@@ -258,7 +332,8 @@ export async function handleCapiEventJob(accountId: string, payload: Record<stri
       WHERE r.account_id=${accountId}::uuid AND r.id=${row.ad_referral_id}::uuid`;
     if (!referral?.ctwa_clid) return { kind: 'settle', status: 'skipped' };
     if (referral.waba_id !== conn.capiWabaId) return { kind: 'settle', status: 'skipped', skipReason: 'wrong_waba' };
-    return { kind: 'send', row, connectionId: conn.id, datasetId: conn.capiDatasetId, wabaId: conn.capiWabaId, token: conn.userToken, ctwaClid: referral.ctwa_clid };
+    return { kind: 'send', row, connectionId: conn.id, datasetId: conn.capiDatasetId, token: conn.userToken,
+      who: { wabaId: conn.capiWabaId, ctwaClid: referral.ctwa_clid } };
   });
 
   if (plan.kind === 'noop') return;
@@ -266,8 +341,7 @@ export async function handleCapiEventJob(accountId: string, payload: Record<stri
 
   const { row } = plan;
   const event = capiEvent({
-    eventName: row.event_name, eventTime: row.event_time, eventId: row.event_id, wabaId: plan.wabaId,
-    ctwaClid: plan.ctwaClid, value: row.value, currency: row.currency,
+    eventName: row.event_name, eventTime: row.event_time, eventId: row.event_id, ...plan.who, value: row.value, currency: row.currency,
   });
   try {
     // A queued row with a 'failed' intent was rejected by Meta (a throttle, or a crash

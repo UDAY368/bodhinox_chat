@@ -6,6 +6,7 @@ import { withTenant } from '@/lib/db/tenant';
 import { loadWorkspaceCapabilities } from '@/lib/flows/capabilities';
 import { archiveFlow, moveToDraft, pauseFlow, publishFlow } from '@/lib/flows/versions';
 import { FLOW_ID, flowVersionErrorResponse, requireFlowMutation } from '@/lib/flows/version-http';
+import { assertFlowChannelOpen, flowChannelErrorResponse } from '@/lib/flows/channel-section';
 
 const t = getT('Api');
 
@@ -23,6 +24,8 @@ type Target = (typeof STATUSES)[number];
  *   provider capabilities and Connect Flow loops through other live flows,
  *   under a per-account lock. draft_hash, when given, must match the draft
  *   on the server (409 draftChanged), so the author publishes what they saw.
+ *   A flow whose channel the workspace has turned off is refused (409
+ *   channel_disabled); a legacy 'any' flow needs one of its channels on.
  * - paused: no new enrollments; runs in progress finish on their version.
  *   cancel_active ends them now. Needs a published version (409).
  * - archived: 409 with active_runs while runs are in progress, unless
@@ -54,9 +57,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (status === 'active') {
       // Capabilities are read on the worker connection, so they never depend on the caller's role.
       const caps = await loadWorkspaceCapabilities(tenant);
-      const result = await withTenant(tenant, (tx) => publishFlow(tx, {
-        ...args, caps, expectedDraftHash: typeof body?.draft_hash === 'string' ? body.draft_hash : undefined,
-      }));
+      const result = await withTenant(tenant, async (tx) => {
+        await assertFlowChannelOpen(tx, caller.accountId, id);
+        return publishFlow(tx, {
+          ...args, caps, expectedDraftHash: typeof body?.draft_hash === 'string' ? body.draft_hash : undefined,
+        });
+      });
       return NextResponse.json({ flow: result.flow, version: result.version, reused: result.reused });
     }
     if (status === 'paused') {
@@ -70,6 +76,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const result = await withTenant(tenant, (tx) => moveToDraft(tx, args));
     return NextResponse.json({ flow: result.flow, paused: result.paused });
   } catch (err) {
-    return flowVersionErrorResponse(err);
+    return flowChannelErrorResponse(err) ?? flowVersionErrorResponse(err);
   }
 }

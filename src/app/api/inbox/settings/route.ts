@@ -1,7 +1,9 @@
 // GET /api/inbox/settings (any member) — the workspace's inbox settings:
 //   200 { settings: { timezone, working_hours, away_message_enabled, away_message,
-//   auto_resolve_after_hours, sla_first_response_minutes } } (defaults when never saved).
-// PUT /api/inbox/settings (admins and owners) — replaces them with the same shape.
+//   auto_resolve_after_hours, sla_first_response_minutes, instagram_away_message_enabled } }
+//   (defaults when never saved).
+// PUT /api/inbox/settings (admins and owners) — replaces them with the same shape;
+//   instagram_away_message_enabled is optional (absent keeps it; it needs the away text).
 //   200 { settings }; 400 { error, code } with code invalid_timezone | invalid_working_hours |
 //   invalid_away_message | invalid_auto_resolve | invalid_sla.
 

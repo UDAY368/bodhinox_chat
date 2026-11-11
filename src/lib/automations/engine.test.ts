@@ -67,6 +67,7 @@ vi.mock("./admin-client", () => {
       if (op === "gte") return (cell as number | string) >= (v as number | string);
       if (op === "gt") return (cell as number | string) > (v as number | string);
       if (op === "lte") return (cell as number | string) <= (v as number | string);
+      if (op === "in") return (v as unknown[]).includes(cell);
       return true;
     });
   }
@@ -134,7 +135,9 @@ vi.mock("./admin-client", () => {
       // The dispatch list query (no id filter) keeps returning every row,
       // as it always has; a by-id lookup (resume) gets the matching row.
       const byId = ops.filters.some(([, k]) => k === "id");
-      if (!byId) return { data: state.automations, error: null };
+      // Stage 1: the channel filter applies (rows written before it are WhatsApp).
+      const channel = ops.filters.find(([op, k]) => op === "eq" && k === "channel")?.[2];
+      if (!byId) return { data: state.automations.filter((r) => !channel || (r.channel ?? "whatsapp") === channel), error: null };
       return { data: one(state.automations.filter((r) => matches(r, ops.filters))), error: null,
       };
     }
@@ -177,6 +180,7 @@ vi.mock("./admin-client", () => {
       gte: (k: string, v: unknown) => (ops.filters.push(["gte", k, v]), b),
       gt: (k: string, v: unknown) => (ops.filters.push(["gt", k, v]), b),
       lte: (k: string, v: unknown) => (ops.filters.push(["lte", k, v]), b),
+      in: (k: string, v: unknown) => (ops.filters.push(["in", k, v]), b),
       order: () => b,
       limit: () => b,
       single: () => ((ops.single = true), Promise.resolve(resolve(ops))),
@@ -201,6 +205,25 @@ vi.mock("./admin-client", () => {
 const rr = vi.hoisted(() => ({ canOwn: vi.fn<(account: string, user: string) => Promise<boolean>>(async () => true), next: vi.fn(async () => "agent-rr") }));
 vi.mock("./round-robin", () => ({ canOwnConversations: rr.canOwn, nextRoundRobinAgent: rr.next }));
 
+// Instagram sends (Stage 1) go through the channel sender; its window and limit checks are tested there.
+const channelSend = vi.hoisted(() => ({ flowSend: vi.fn<(...args: unknown[]) => Promise<{ whatsapp_message_id: string }>>(async () => ({ whatsapp_message_id: "mid.ig" })) }));
+vi.mock("@/lib/flows/channel-send", () => ({ flowSend: channelSend.flowSend }));
+
+// Stage 4C: an Instagram sequence checks the 24-hour window before each customer message (the rule itself is tested with the sender).
+const windowGate = vi.hoisted(() => ({ open: vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true) }));
+vi.mock("@/lib/channels/sender", async (original) => ({
+  ...(await original<typeof import("@/lib/channels/sender")>()),
+  instagramAutomatedWindowOpen: windowGate.open,
+}));
+vi.mock("@/lib/db/tenant", async (original) => ({
+  ...(await original<typeof import("@/lib/db/tenant")>()),
+  withTenant: async (_ctx: unknown, work: (tx: unknown) => unknown) => work({}),
+}));
+vi.mock("@/lib/db/prisma", async (original) => ({
+  ...(await original<typeof import("@/lib/db/prisma")>()),
+  getWorkerPrisma: () => ({}),
+}));
+
 vi.mock("./meta-send", () => ({
   engineSendText: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
@@ -215,7 +238,7 @@ import {
   runAutomationById,
   triggerMatches,
 } from "./engine";
-import { engineSendInteractive, engineSendText } from "./meta-send";
+import { engineSendInteractive, engineSendTemplate, engineSendText } from "./meta-send";
 import type { Automation, KeywordMatchTriggerConfig } from "@/types";
 import { getT } from "@/lib/i18n/translate";
 
@@ -268,9 +291,9 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     h.state.automations = [{ ...automationWithUpdateStep(), trigger_type: "keyword_match", trigger_config: { keywords: ["hours"] },
       },
     ];
-    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "keyword_match", contactId: "c1", context: { message_text: "hello" },
+    expect(await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "keyword_match", contactId: "c1", context: { message_text: "hello" },
       })).toBe(false);
-    expect(await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "keyword_match", contactId: "c1", context: { message_text: "hours" },
+    expect(await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "keyword_match", contactId: "c1", context: { message_text: "hours" },
       })).toBe(true);
   });
   it("refuses to dispatch when the contact is not in the account (GHSA-63cv-2c49-m5v3)", async () => {
@@ -280,7 +303,7 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [updateStep()];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "victim-contact-uuid",
@@ -297,7 +320,7 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     h.state.owned = { id: "c1" };
     h.state.automations = []; // no matching automations; just prove we got past the guard
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -317,7 +340,7 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [updateStep()];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -334,7 +357,7 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     h.state.ownedConversation = { id: "conv-1" };
     h.state.automations = [];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -349,7 +372,7 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [updateStep()];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -365,7 +388,7 @@ describe("runAutomationsForTrigger — tenant isolation", () => {
 
 describe("assign_conversation pinned to a member (audit #51)", () => {
   const assignStep = (agent_id: string) => ({ ...updateStep(), step_type: "assign_conversation", step_config: { mode: "specific", agent_id } });
-  const run = () => runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: { conversation_id: "conv1" } });
+  const run = () => runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: { conversation_id: "conv1" } });
   const assigned = () => h.state.updateCalls.filter((u) => u.table === "conversations");
 
   it("assigns a member who can still own conversations", async () => {
@@ -398,7 +421,7 @@ describe("automation_logs — status is seeded pessimistically (issue #409)", ()
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [updateStep()];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -419,7 +442,7 @@ describe("automation_logs — status is seeded pessimistically (issue #409)", ()
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [updateStep()];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -440,7 +463,7 @@ describe("update_contact_field — custom fields", () => {
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [customStep("custom:cf1", "Premium")];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -463,7 +486,7 @@ describe("update_contact_field — custom fields", () => {
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [customStep("custom:cf1", "{{ vars.source }}")];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -482,7 +505,7 @@ describe("update_contact_field — custom fields", () => {
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [customStep("custom:cf1", "{{ workspace.tier }} / {{workspace.missing}}")];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -499,7 +522,7 @@ describe("update_contact_field — custom fields", () => {
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [customStep("custom:foreign-cf", "x")];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -521,7 +544,7 @@ describe("send_webhook — SSRF guard (GHSA-8jqh-598v-rfxc)", () => {
     // Aimed at the cloud metadata endpoint — the classic SSRF target.
     h.state.steps = [webhookStep("http://169.254.169.254/latest/meta-data/")];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -675,7 +698,7 @@ describe("tag_added — conversation policy", () => {
     },
     ];
 
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "tag_added",
       contactId: "c1",
@@ -860,7 +883,7 @@ describe("wait_for_reply", () => {
     vi.mocked(engineSendText).mock.calls.map(([a]) => (a as { text: string }).text);
 
   async function trigger(text: string) {
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -869,7 +892,7 @@ describe("wait_for_reply", () => {
   }
 
   function reply(text: string, interactive_reply_id?: string) {
-    return resumeAwaitingReply({
+    return resumeAwaitingReply({ channel: "whatsapp",
       accountId: ACCOUNT,
       contactId: "c1",
       context: { message_text: text, conversation_id: "conv1", interactive_reply_id,
@@ -915,7 +938,7 @@ describe("wait_for_reply", () => {
       position: row.parent_step_id ? row.position : row.position + 2,
     }));
     expect(
-      await resumeAwaitingReply({
+      await resumeAwaitingReply({ channel: "whatsapp",
         accountId: ACCOUNT,
         contactId: "c1",
         reserveMenuTextForAi: true,
@@ -980,7 +1003,7 @@ describe("wait_for_reply", () => {
 
   it("reserves a typed question after a verified interactive wait and still accepts its next tap", async () => {
     h.state.steps = userMenu(); await trigger("Hii");
-    expect(await resumeAwaitingReply({ accountId: ACCOUNT, contactId: "c1", reserveMenuTextForAi: true,
+    expect(await resumeAwaitingReply({ channel: "whatsapp", accountId: ACCOUNT, contactId: "c1", reserveMenuTextForAi: true,
       context: { message_text: "What are your hours?", conversation_id: "conv1",
         },
       })).toBe("ai_fallback");
@@ -1186,7 +1209,7 @@ describe("edited delayed automation runs", () => {
         step_config: { amount: 1, unit: "hours" },
       },
     ];
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -1208,7 +1231,7 @@ describe("edited delayed automation runs", () => {
       },
       { ...updateStep(), parent_step_id: "condition", branch: "yes" },
     ];
-    await runAutomationsForTrigger({
+    await runAutomationsForTrigger({ channel: "whatsapp",
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
@@ -1230,7 +1253,7 @@ it("does not match a blank contact-field comparison even for a blank stored fiel
     },
     { ...updateStep(), parent_step_id: "condition", branch: "yes" },
   ];
-  await runAutomationsForTrigger({
+  await runAutomationsForTrigger({ channel: "whatsapp",
     accountId: ACCOUNT,
     triggerType: "new_message_received",
     contactId: "c1",
@@ -1266,23 +1289,31 @@ describe("contact conversations on two numbers", () => {
 
   it("sends on the default number's conversation when no conversation is in the context", async () => {
     automation("send_message", { text: "Hello" });
-    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
     expect(vi.mocked(engineSendText)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(engineSendText).mock.calls[0][0]).toMatchObject({ conversationId: "conv-a" });
   });
 
   it("closes only the triggering conversation when the run has one", async () => {
     automation("close_conversation", {});
-    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a", conversation_id: "conv-b" } });
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a", conversation_id: "conv-b" } });
     const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
-    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "id", "conv-b"]]);
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "channel", "whatsapp"], ["eq", "id", "conv-b"]]);
   });
 
-  it("closes all of the contact's conversations without one, as before", async () => {
+  it("closes all of the contact's WhatsApp conversations without one, never an Instagram thread", async () => {
     automation("close_conversation", {});
-    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
     const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
-    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"]]);
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "channel", "whatsapp"]]);
+  });
+
+  it("closes only the contact's Instagram conversations from an Instagram automation", async () => {
+    automation("close_conversation", {});
+    h.state.automations = h.state.automations.map((row) => ({ ...row, channel: "instagram" }));
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1", context: { tag_id: "tag-a" } });
+    const update = h.state.updateCalls.find((call) => call.table === "conversations")!;
+    expect(update.filters).toEqual([["eq", "account_id", ACCOUNT], ["eq", "contact_id", "c1"], ["eq", "channel", "instagram"]]);
   });
 });
 
@@ -1352,17 +1383,18 @@ describe("send steps on a conversation that is not on WhatsApp", () => {
     // An Instagram-scoped flow's set_tag fires tag_added with its Instagram conversation.
     tagAutomation();
     h.state.conversations = [{ id: "ig-conv", account_id: ACCOUNT, contact_id: "c1", channel: "instagram", whatsapp_config_id: null }];
-    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1",
-      context: { tag_id: "tag-a", conversation_id: "ig-conv" } });
+    // Stage 1: a WhatsApp dispatch with an Instagram conversation runs nothing at all.
+    expect(await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1",
+      context: { tag_id: "tag-a", conversation_id: "ig-conv" } })).toBe(false);
     expect(dispatch.once).not.toHaveBeenCalled();
     expect(engineSendText).not.toHaveBeenCalled();
-    expect(JSON.stringify(h.state.logUpdates)).toContain("not on WhatsApp");
+    expect(h.state.logInserts).toHaveLength(0);
   });
 
   it("still sends on a WhatsApp conversation in the context", async () => {
     tagAutomation();
     h.state.conversations = [{ id: "wa-conv", account_id: ACCOUNT, contact_id: "c1", channel: "whatsapp", whatsapp_config_id: null }];
-    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1",
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "tag_added", contactId: "c1",
       context: { tag_id: "tag-a", conversation_id: "wa-conv" } });
     expect(dispatch.once).toHaveBeenCalledTimes(1);
     expect(vi.mocked(engineSendText).mock.calls[0][0]).toMatchObject({ conversationId: "wa-conv" });
@@ -1378,7 +1410,7 @@ describe("send_webhook — Phase 12 hardening", () => {
     h.state.owned = { id: "c1" };
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [hook({ url: "https://hooks.example.com/in", ...step_config })];
-    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: { message_text } });
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: { message_text } });
     return h.state.logUpdates.find((u) => u.status === "failed")?.error_message as string | undefined;
   };
 
@@ -1439,7 +1471,7 @@ describe("notify_team", () => {
     h.state.automations = [{ ...automationWithUpdateStep(), name: "Lead alert" }];
     h.state.steps = [{ id: "s1", automation_id: "a1", step_type: "notify_team", position: 0, parent_step_id: null,
       step_config: { audience: "assignee", text: "{{contact.name}} via {{automation.name}}: {{message.text}}" } }];
-    await runAutomationsForTrigger({ accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
       context: { conversation_id: "00000000-0000-4000-8000-0000000000c1", message_text: "my card number is 4111" } });
     expect(notice.notify).toHaveBeenCalledTimes(1);
     const input = (notice.notify.mock.calls[0] as unknown as [Record<string, unknown>])[0];
@@ -1448,5 +1480,198 @@ describe("notify_team", () => {
       conversationId: "00000000-0000-4000-8000-0000000000c1", contactId: "c1", dedupeKey: "automation-notice:log1:s1",
     });
     expect(JSON.stringify(input)).not.toContain("4111");
+  });
+});
+
+describe("channels (Stage 1)", () => {
+  const waConv = { id: "wa-conv", account_id: ACCOUNT, contact_id: "c1", channel: "whatsapp", whatsapp_config_id: null };
+  const igConv = { id: "ig-conv", account_id: ACCOUNT, contact_id: "c1", channel: "instagram", whatsapp_config_id: null };
+  const waAutomation = { id: "wa1", account_id: ACCOUNT, user_id: "u1", name: "wa", trigger_type: "new_message_received",
+    trigger_config: {}, is_active: true };
+  const igAutomation = { ...waAutomation, id: "ig1", name: "ig", channel: "instagram" };
+  const sendStep = (automationId: string, step_type = "send_message", step_config: Record<string, unknown> = { text: `Hi from ${automationId}` }) =>
+    ({ id: `s-${automationId}`, automation_id: automationId, step_type, position: 0, parent_step_id: null, step_config });
+  const loggedAutomations = () => h.state.logInserts.map((row) => row.automation_id);
+
+  beforeEach(() => {
+    h.state.owned = { id: "c1" };
+    h.state.conversations = [waConv, igConv];
+    h.state.automations = [waAutomation, igAutomation];
+    h.state.steps = [sendStep("wa1"), sendStep("ig1")];
+    windowGate.open.mockResolvedValue(true);
+  });
+
+  it("runs only the dispatch channel's automations (rows from before channels are WhatsApp)", async () => {
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "wa-conv" } });
+    expect(loggedAutomations()).toEqual(["wa1"]);
+    expect(vi.mocked(engineSendText).mock.calls[0][0]).toMatchObject({ conversationId: "wa-conv", text: "Hi from wa1" });
+    expect(channelSend.flowSend).not.toHaveBeenCalled();
+
+    h.state.logInserts = [];
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "ig-conv" } });
+    expect(loggedAutomations()).toEqual(["ig1"]);
+  });
+
+  it("sends an Instagram automation's message through the channel sender under the step's intent key", async () => {
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "ig-conv" } });
+    expect(channelSend.flowSend).toHaveBeenCalledTimes(1);
+    const [run, key, send] = channelSend.flowSend.mock.calls[0] as [unknown, string, { kind: string; args: Record<string, unknown> }];
+    expect(run).toEqual({ account_id: ACCOUNT, conversation_id: "ig-conv" });
+    expect(key).toBe("automation:log1:s-ig1");
+    expect(send).toMatchObject({ kind: "text", args: { accountId: ACCOUNT, conversationId: "ig-conv", contactId: "c1", text: "Hi from ig1" } });
+    // Never the WhatsApp sender.
+    expect(dispatch.once).not.toHaveBeenCalled();
+    expect(engineSendText).not.toHaveBeenCalled();
+    expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "success" });
+  });
+
+  it("fails the step and sends nothing else when Instagram refuses the send outside the 24-hour window", async () => {
+    channelSend.flowSend.mockRejectedValueOnce(new Error("instagram_window_closed"));
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "ig-conv" } });
+    expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "failed", error_message: "instagram_window_closed" });
+    expect(dispatch.once).not.toHaveBeenCalled();
+    expect(engineSendText).not.toHaveBeenCalled();
+  });
+
+  it("sends Instagram reply buttons as quick replies through the channel sender", async () => {
+    h.state.steps = [sendStep("ig1", "send_buttons", { kind: "buttons", body: "Pick one", buttons: [{ id: "b1", title: "One" }] })];
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "ig-conv" } });
+    expect(channelSend.flowSend.mock.calls[0][2]).toMatchObject({ kind: "buttons",
+      args: { bodyText: "Pick one", buttons: [{ id: "b1", title: "One" }], conversationId: "ig-conv" } });
+    expect(engineSendInteractive).not.toHaveBeenCalled();
+  });
+
+  describe("sequences stay inside the 24-hour window (Stage 4C)", () => {
+    const waitStep = { id: "s-wait", automation_id: "ig1", step_type: "wait", position: 0, parent_step_id: null, branch: null, step_config: { amount: 2, unit: "days" } };
+    const after = { ...sendStep("ig1"), id: "s-after", position: 1 };
+    const park = { id: "p1", automation_id: "ig1", user_id: "u1", account_id: ACCOUNT, contact_id: "c1", log_id: "log1", parent_step_id: null,
+      branch: null, next_step_position: 1, parked_step_id: "s-wait", context: { conversation_id: "ig-conv" } };
+
+    beforeEach(() => {
+      windowGate.open.mockClear();
+      windowGate.open.mockResolvedValue(true);
+      h.state.steps = [waitStep, after];
+    });
+
+    it("parks an Instagram wait like any other and sends nothing yet", async () => {
+      await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+        context: { conversation_id: "ig-conv" } });
+      expect(h.state.pending).toHaveLength(1);
+      expect(channelSend.flowSend).not.toHaveBeenCalled();
+    });
+
+    it("sends the step after a wait when the window is still open", async () => {
+      await resumePendingExecution(park);
+      expect(windowGate.open).toHaveBeenCalledTimes(1);
+      expect(windowGate.open.mock.calls[0][1]).toBe(ACCOUNT);
+      expect(windowGate.open.mock.calls[0][2]).toBe("ig-conv");
+      expect(channelSend.flowSend).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops a message past the window with window_closed: nothing is sent and no intent exists", async () => {
+      windowGate.open.mockResolvedValue(false);
+      await resumePendingExecution(park);
+      expect(channelSend.flowSend).not.toHaveBeenCalled();
+      expect(dispatch.once).not.toHaveBeenCalled();
+      const update = h.state.logUpdates.at(-1) as { status: string; error_message: string; steps_executed: { status: string; detail: string }[] };
+      expect(update).toMatchObject({ status: "partial", error_message: "window_closed" });
+      expect(update.steps_executed.at(-1)).toMatchObject({ status: "skipped", detail: "window_closed" });
+    });
+
+    it("still runs the steps that do not message the customer, and checks the window only for messages", async () => {
+      windowGate.open.mockResolvedValue(false);
+      h.state.owned = { id: "c1" };
+      h.state.steps = [waitStep, { ...after, step_type: "add_tag", step_config: { tag: "later" } }];
+      await resumePendingExecution(park);
+      expect(windowGate.open).not.toHaveBeenCalled();
+      expect(JSON.stringify(h.state.logUpdates)).not.toContain("window_closed");
+    });
+
+    it("never checks the Instagram window for a WhatsApp automation", async () => {
+      windowGate.open.mockResolvedValue(false);
+      h.state.steps = [{ ...waitStep, automation_id: "wa1" }, { ...sendStep("wa1"), id: "s-wa-after", position: 1 }];
+      await resumePendingExecution({ ...park, automation_id: "wa1", context: { conversation_id: "wa-conv" } });
+      expect(windowGate.open).not.toHaveBeenCalled();
+      expect(vi.mocked(engineSendText)).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops the rest of the run when a branch's message is past the window", async () => {
+      windowGate.open.mockResolvedValue(false);
+      h.state.steps = [
+        waitStep,
+        { id: "s-cond", automation_id: "ig1", step_type: "condition", position: 1, parent_step_id: null, branch: null,
+          step_config: { subject: "message_content", operand: "contains", value: "" } },
+        { id: "s-yes", automation_id: "ig1", step_type: "send_message", position: 0, parent_step_id: "s-cond", branch: "yes", step_config: { text: "branch" } },
+        { id: "s-no", automation_id: "ig1", step_type: "send_message", position: 0, parent_step_id: "s-cond", branch: "no", step_config: { text: "branch" } },
+        { ...sendStep("ig1"), id: "s-last", position: 2 },
+      ];
+      await resumePendingExecution(park);
+      expect(channelSend.flowSend).not.toHaveBeenCalled();
+      expect(windowGate.open).toHaveBeenCalledTimes(1);
+      expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "partial" });
+    });
+  });
+
+  it("refuses a template step in an Instagram automation", async () => {
+    h.state.steps = [sendStep("ig1", "send_template", { template_name: "welcome" })];
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "ig-conv" } });
+    expect(h.state.logUpdates.at(-1)).toMatchObject({ status: "failed" });
+    expect(engineSendTemplate).not.toHaveBeenCalled();
+    expect(channelSend.flowSend).not.toHaveBeenCalled();
+  });
+
+  it("uses the contact's Instagram conversation when an Instagram run names none", async () => {
+    await runAutomationsForTrigger({ channel: "instagram", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1", context: {} });
+    expect(channelSend.flowSend.mock.calls[0][0]).toEqual({ account_id: ACCOUNT, conversation_id: "ig-conv" });
+  });
+
+  it("never sends an Instagram automation into a WhatsApp conversation (a resumed context)", async () => {
+    await resumePendingExecution({ id: "p1", automation_id: "ig1", user_id: "u1", account_id: ACCOUNT, contact_id: "c1", log_id: "log1",
+      parent_step_id: null, branch: null, next_step_position: 0, context: { conversation_id: "wa-conv" } });
+    expect(channelSend.flowSend).not.toHaveBeenCalled();
+    expect(engineSendText).not.toHaveBeenCalled();
+    expect(JSON.stringify(h.state.logUpdates)).toContain("Instagram");
+  });
+
+  it("does not start an automation of another channel from an explicit button action", async () => {
+    expect(await runAutomationById({ accountId: ACCOUNT, automationId: "ig1", contactId: "c1", context: { conversation_id: "wa-conv" } }))
+      .toEqual({ outcome: "unavailable" });
+    expect(await runAutomationById({ accountId: ACCOUNT, automationId: "wa1", contactId: "c1", context: { conversation_id: "ig-conv" } }))
+      .toEqual({ outcome: "unavailable" });
+    expect(h.state.logInserts).toHaveLength(0);
+  });
+
+  it("hands a reply only to a run parked on the reply's channel", async () => {
+    h.state.steps = [];
+    h.state.pending = [{ id: "p-wa", automation_id: "wa1", account_id: ACCOUNT, contact_id: "c1", status: "awaiting_reply",
+      run_at: new Date(Date.now() + 3_600_000).toISOString(), created_at: new Date().toISOString(), log_id: null,
+      parent_step_id: null, branch: null, next_step_position: 1, context: {} }];
+    const reply = (channel: "whatsapp" | "instagram", conversation_id: string) => resumeAwaitingReply({ channel, accountId: ACCOUNT,
+      contactId: "c1", context: { message_text: "One", conversation_id } });
+    expect(await reply("instagram", "ig-conv")).toBe(false);
+    expect(h.state.pending[0].status).toBe("awaiting_reply");
+    expect(await reply("whatsapp", "wa-conv")).toBe(true);
+    expect(h.state.pending[0].status).toBe("done");
+  });
+
+  it("supersedes only the same channel's waits when a new menu parks", async () => {
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    const parked = (id: string, automation_id: string) => ({ id, automation_id, account_id: ACCOUNT, contact_id: "c1", status: "awaiting_reply",
+      run_at: future, created_at: new Date().toISOString(), log_id: null, parent_step_id: null, branch: null, next_step_position: 1, context: {} });
+    h.state.automations = [waAutomation, igAutomation, { ...waAutomation, id: "wa0", trigger_type: "tag_added" }];
+    h.state.pending = [parked("old-wa", "wa0"), parked("old-ig", "ig1")];
+    h.state.steps = [sendStep("wa1", "send_buttons", { kind: "buttons", body: "Pick", buttons: [{ id: "b1", title: "One" }], wait_for_reply: true })];
+    await runAutomationsForTrigger({ channel: "whatsapp", accountId: ACCOUNT, triggerType: "new_message_received", contactId: "c1",
+      context: { conversation_id: "wa-conv" } });
+    const status = (id: string) => h.state.pending.find((row) => row.id === id)?.status;
+    expect(status("old-wa")).toBe("superseded");
+    expect(status("old-ig")).toBe("awaiting_reply");
+    expect(h.state.pending.filter((row) => row.status === "awaiting_reply").map((row) => row.automation_id)).toEqual(["ig1", "wa1"]);
   });
 });

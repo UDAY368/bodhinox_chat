@@ -188,9 +188,18 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('Instagram tenancy and conne
     };
 
     it('connects, audits, and a reconnect reuses and reactivates the row', async () => {
+      // An admin had turned Instagram off; connecting turns it back on in the connect transaction.
+      await owner.query(`INSERT INTO workspace_channels(account_id,channel,enabled) VALUES($1,'instagram',false)
+        ON CONFLICT (account_id,channel) DO UPDATE SET enabled=false, enabled_at=NULL`, [accountA]);
+      const channelRow = async (accountId: string) => (await owner.query(
+        "SELECT enabled, enabled_at, updated_by_user_id FROM workspace_channels WHERE account_id=$1 AND channel='instagram'",
+        [accountId])).rows[0];
       meta(igUserNew);
       const first = await finishConnect(actor('admin'), { state: NONCE, cookieState: cookieFor(), code: 'abc' });
-      expect(graph.subscribe).toHaveBeenCalledWith(igUserNew, 'test-only-long', ['messages', 'messaging_postbacks', 'comments']);
+      expect(await channelRow(accountA)).toMatchObject({ enabled: true, updated_by_user_id: adminA });
+      expect((await channelRow(accountA)).enabled_at).not.toBeNull();
+      expect(await channelRow(accountB)).toBeUndefined();
+      expect(graph.subscribe).toHaveBeenCalledWith(igUserNew, 'test-only-long', ['messages', 'messaging_postbacks', 'comments', 'live_comments']);
       const row = await accountRow(first.instagramAccountId);
       expect(row.status).toBe('active');
       expect(decrypt(row.access_token_enc)).toBe('test-only-long');

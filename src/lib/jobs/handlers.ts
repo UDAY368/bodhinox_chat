@@ -93,6 +93,9 @@ export async function scheduleWork() {
   await scheduleHealthSync().catch(() => console.error('[worker] health sync scheduling failed'));
   // Inbox SLA and auto-resolve sweeps; likewise independent.
   await scheduleInboxSweeps().catch(() => console.error('[worker] inbox sweep scheduling failed'));
+  // Due reminders and scheduled replies (Stage 4): one job per workspace with something due.
+  await import('@/lib/inbox/follow-up-jobs').then((m) => m.scheduleFollowUpSweeps())
+    .catch(() => console.error('[worker] inbox follow-up scheduling failed'));
   // Notification email digests every 30 minutes per workspace; nothing while SMTP is not configured.
   await scheduleNotificationDigests().catch(() => console.error('[worker] notification digest scheduling failed'));
   // Billing grace expiry, trial ends, scheduled changes and unconfirmed provider calls; nothing while billing is off.
@@ -116,6 +119,12 @@ export async function scheduleWork() {
   // Instagram token refresh and health, daily per workspace with a live account; nothing while INSTAGRAM_ENABLED is off.
   await import('@/lib/instagram/token-sweep').then((m) => m.scheduleInstagramSweeps())
     .catch(() => console.error('[worker] instagram sweep scheduling failed'));
+  // Stage 3: subscribe accounts connected earlier to live_comments, once per workspace; nothing while the flag is off.
+  await import('@/lib/instagram/resubscribe').then((m) => m.scheduleInstagramResubscribe())
+    .catch(() => console.error('[worker] instagram resubscribe scheduling failed'));
+  // Instagram AI comment replies: every 5 minutes per workspace with AI comment work; nothing while Instagram or AI is off.
+  await import('@/lib/instagram/ai-comments').then((m) => m.scheduleAiCommentSweeps())
+    .catch(() => console.error('[worker] instagram ai comment scheduling failed'));
   // AI assistant data retention: daily per workspace with something due.
   await import('@/lib/ai/retention').then((m) => m.scheduleAiRetention())
     .catch(() => console.error('[worker] ai retention scheduling failed'));

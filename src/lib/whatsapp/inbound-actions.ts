@@ -60,6 +60,7 @@ export async function processInboundActions(input: InboundActionsPayload, assert
     const db=createAdminClient(scope);
     const stage=<T>(name:string,action:()=>Promise<T>)=>runInboundStage(input.accountId,input.messageId,name,action,assertLease);
     if(input.kind==="status") {
+      // WhatsApp events keep their call shape: delivery reads the channel from the conversation.
       await stage(`status_webhook:${input.status}`,()=>dispatchWebhookEvent(db,input.accountId,"message.status_updated",{
         whatsapp_message_id:input.metaMessageId,conversation_id:input.conversationId,status:input.status,
       }));
@@ -162,14 +163,22 @@ async function storedConversation(db:Db,input:MessageInput): Promise<{channel:"i
 }
 
 /**
- * Instagram inbound (Phase 11): STOP/START consent, then flows only, then
- * lifecycle and routing (channel-neutral). Skipped because they are
- * WhatsApp-only or WhatsApp-shaped: campaign reply credit, WhatsApp forms, cart
- * orders and their confirmation, BOOK codes, automations, AI auto-reply, the
- * away message, and the message.received / conversation.created webhooks (their
- * payload carries whatsapp_message_id). Skips are logged with ids only.
+ * Instagram inbound: the conversation.created webhook, STOP/START consent,
+ * then flows, the Instagram automations (Stage 1), the Instagram AI
+ * auto-reply, lifecycle and routing (channel-neutral), the away message, and
+ * the message.received webhook (Stage 2), each external step behind its own
+ * stage checkpoint, in the WhatsApp order. The AI reply and the away message
+ * read their own Instagram switches (both off by default) and check the
+ * 24-hour window themselves, skipping with a reason when it is closed.
+ * Webhooks go only to endpoints that opted into Instagram and carry the
+ * Instagram ids, never a phone number. Still skipped because they are
+ * WhatsApp-only: campaign reply credit, WhatsApp forms, cart orders and their
+ * confirmation, and BOOK codes.
  */
 async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Promise<void> {
+  if(input.wasConversationCreated) await stage("conversation_webhook",()=>dispatchWebhookEvent(db,input.accountId,"conversation.created",{
+    conversation_id:input.conversationId,contact_id:input.contactId,channel:"instagram",
+  },{channel:"instagram"}));
   const text=input.contentText??"";
   const keyword=inboundConsentKeyword(input,text);
   if(keyword) await applyConsentKeyword(db,input.accountId,input.contactId,keyword);
@@ -177,18 +186,70 @@ async function processInstagramActions(db:Db,input:MessageInput,stage:Stage): Pr
   const {data:contact,error:contactError}=await db.from("contacts").select("blocked_at")
     .eq("id",input.contactId).eq("account_id",input.accountId).maybeSingle();
   if(contactError) throw new Error("Contact consent lookup failed");
-  if(keyword||contact?.blocked_at) return;
-  // Read before the stage claims its checkpoint: a failed read sends nothing, so the job retries.
-  const message=await flowMessage(db,input,text);
-  const flow=await stage("flow",()=>dispatchInboundToFlows({
-    accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
-    message,
-    isFirstInboundMessage:input.isFirstInboundMessage,
+  // A STOP/START message only records consent, and a blocked contact gets no
+  // automated response; both still reach the message.received webhook.
+  if(!keyword&&!contact?.blocked_at) {
+    // Read before the stage claims its checkpoint: a failed read sends nothing, so the job retries.
+    const message=await flowMessage(db,input,text);
+    const flow=await stage("flow",()=>dispatchInboundToFlows({
+      accountId:input.accountId,userId:input.userId,contactId:input.contactId,conversationId:input.conversationId,
+      message,
+      isFirstInboundMessage:input.isFirstInboundMessage,
+    }));
+    const automations=flow?.consumed ? {replied:false as const,matched:false} : await respondWithInstagramAutomations(input,text,stage);
+    const aiFallback=flow?.outcome==="ai_fallback"||automations.replied==="ai_fallback";
+    const unanswered=!flow?.consumed&&!automations.replied&&!automations.matched;
+    if((aiFallback||unanswered)&&!input.interactiveReplyId&&input.contentType==="text"&&text.trim()) await stage("ai_reply",()=>dispatchInboundToAiReply({
+      accountId:input.accountId,conversationId:input.conversationId,contactId:input.contactId,
+      configOwnerUserId:input.userId,inboundMessageId:input.metaMessageId,inboundRowId:input.messageId,
+      routingChecked:true,requireHandoffOnUnavailable:aiFallback,
+    }));
+    else if((aiFallback||unanswered)&&!input.interactiveReplyId&&UNREADABLE_FOR_AI.has(input.contentType)) await stage("ai_media_skip",()=>recordUnreadableInbound({
+      accountId:input.accountId,conversationId:input.conversationId,contactId:input.contactId,
+      configOwnerUserId:input.userId,inboundMessageId:input.metaMessageId,
+    }));
+    const lifecycle=await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
+      contactId:input.contactId,messageId:input.messageId,text});
+    // Out of hours and nobody automatic answered: the away message, once per window.
+    if(!lifecycle.botOwned&&!lifecycle.botReplied) await stage("away_message",()=>sendAwayMessage({accountId:input.accountId,
+      userId:input.userId,conversationId:input.conversationId,contactId:input.contactId,messageId:input.messageId}));
+  }
+  await stage("message_webhook",()=>dispatchWebhookEvent(db,input.accountId,"message.received",{
+    conversation_id:input.conversationId,contact_id:input.contactId,channel:"instagram",instagram_message_id:input.metaMessageId,
+    content_type:input.contentType,content_text:input.contentText,
+  },{channel:"instagram"}));
+}
+
+/**
+ * Instagram automations for a message no flow took: a run parked at an
+ * Instagram menu takes the reply first; otherwise the triggers Instagram
+ * offers fire, in the WhatsApp order, each behind its own stage checkpoint.
+ * Only Instagram automations run (runAutomationsForTrigger filters by
+ * channel), and their sends go through the Instagram window checks. Returns
+ * whether a parked run took the reply ('ai_fallback' when a menu reserved typed
+ * text for the AI) and whether any automation matched, so the AI never answers
+ * a message an automation already answered.
+ */
+async function respondWithInstagramAutomations(input:MessageInput,text:string,stage:Stage): Promise<{replied:boolean|"ai_fallback";matched:boolean}> {
+  const context={message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined};
+  const replied=await stage("reply_resume",()=>resumeAwaitingReply({
+    accountId:input.accountId,contactId:input.contactId,channel:"instagram",reserveMenuTextForAi:input.contentType==="text",context,
   }));
-  if(!flow?.consumed) console.info("[inbound-actions] channel_not_supported",{accountId:input.accountId,
-    conversationId:input.conversationId,skipped:"automations_ai_away"});
-  await applyInboundLifecycle({accountId:input.accountId,conversationId:input.conversationId,
-    contactId:input.contactId,messageId:input.messageId,text});
+  if(replied) return {replied,matched:false};
+  const triggers:Array<"first_inbound_message"|"new_contact_created"|"new_message_received"|"keyword_match"|"interactive_reply">=[];
+  if(input.isFirstInboundMessage) triggers.push("first_inbound_message");
+  if(input.wasContactCreated) triggers.push("new_contact_created");
+  triggers.push("new_message_received","keyword_match");
+  if(input.interactiveReplyId) triggers.push("interactive_reply");
+  let matched=false;
+  for(const triggerType of triggers) {
+    const result=await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
+      accountId:input.accountId,channel:"instagram",triggerType,contactId:input.contactId,context,
+    }));
+    // A replayed stage that persisted null: its decision is unknown, so no second responder.
+    matched=matched||result!==false;
+  }
+  return {replied:false,matched};
 }
 
 /** Matches analytics (lib/analytics/queries REPLY_WINDOW): a later message is not a campaign reply. */
@@ -331,7 +392,7 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
       isFirstInboundMessage:input.isFirstInboundMessage,
     }));
     const replied=flow.consumed ? false : await stage("reply_resume",()=>resumeAwaitingReply({
-      accountId:input.accountId,contactId:input.contactId,reserveMenuTextForAi:input.contentType==="text",context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
+      accountId:input.accountId,contactId:input.contactId,channel:"whatsapp",reserveMenuTextForAi:input.contentType==="text",context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined},
     }));
     const consumed=flow.consumed||replied;
     const triggers: Array<"new_contact_created"|"first_inbound_message"|"new_message_received"|"keyword_match"|"interactive_reply"|"ad_click">=[];
@@ -349,7 +410,7 @@ async function respondAutomatically(db:ReturnType<typeof createAdminClient>,inpu
     let automationMatched=false;
     for(const triggerType of triggers) {
       const matched=await stage(`automation:${triggerType}`,()=>runAutomationsForTrigger({
-      accountId:input.accountId,triggerType,contactId:input.contactId,
+      accountId:input.accountId,channel:"whatsapp",triggerType,contactId:input.contactId,
       context:{message_text:text,conversation_id:input.conversationId,interactive_reply_id:input.interactiveReplyId??undefined,
         ...(triggerType==="ad_click"&&ad ? {ad_id:ad.sourceId??""} : {})},
       }));

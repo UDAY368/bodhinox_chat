@@ -54,9 +54,13 @@ import {
 import { useTranslations } from "next-intl";
 import { getT } from "@/lib/i18n/translate";
 import { unlinkNodeReferences } from "@/lib/flows/edges";
-import type { FlowChannelScope, FlowNodeRow, FlowRow } from "@/lib/flows/types";
+import type { FlowChannelScope, FlowNodeRow, FlowNodeType, FlowRow, FlowTriggerType } from "@/lib/flows/types";
 import { resolveFallbackPolicy } from "@/lib/flows/fallback";
-import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
+import { flowNodesFor, scopeChannels, triggerAvailableOn } from "@/lib/channels/capabilities";
+import { channelPath } from "@/lib/channels/routes";
+import type { Channel } from "@/types";
+import { ADD_NODE_TYPES, NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
+import { placeableNodeTypes, withPrivateReplyEntry } from "./nodes/ig-node-config";
 
 // ============================================================
 // State shape
@@ -65,7 +69,7 @@ import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 export interface BuilderState {
   name: string;
   description: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual" | "template_reply" | "order_received" | "ad_click";
+  trigger_type: FlowTriggerType;
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
   status: FlowRow["status"];
@@ -150,6 +154,40 @@ export interface FlowEditorContextValue {
   /** Which channels the flow runs on (Phase 11). Saved on its own, like the trigger number. */
   channelScope: FlowChannelScope;
   setChannelScope: (next: FlowChannelScope) => void;
+  /** The channel section the editor is open in (Stage 1): its back and delete links go there. */
+  section: Channel;
+  /** The steps the add-step menus offer: those every channel of the flow runs (canvas and list). */
+  nodeTypes: NodeType[];
+  /** The triggers the trigger picker offers, likewise. */
+  triggerTypes: BuilderState["trigger_type"][];
+}
+
+/**
+ * Every trigger the editor knows, in picker order. The record makes a trigger
+ * type added to FlowTriggerConfig a compile error until it is placed here.
+ */
+const BUILDER_TRIGGER_ORDER = {
+  keyword: 1, ig_comment: 2, ig_live_comment: 3, ig_story_reply: 4, ig_story_mention: 5, ig_ref: 6, template_reply: 7,
+  first_inbound_message: 8, order_received: 9, ad_click: 10, default_reply: 11, manual: 12, ig_share_to_story: 13,
+} satisfies Record<FlowTriggerType, number>;
+const BUILDER_TRIGGERS = (Object.keys(BUILDER_TRIGGER_ORDER) as FlowTriggerType[])
+  .sort((a, b) => BUILDER_TRIGGER_ORDER[a] - BUILDER_TRIGGER_ORDER[b]);
+
+/** The add-step menu for a scope: steps every channel it runs on offers ('any' gets the overlap). */
+export function nodeTypesForScope(scope: FlowChannelScope | null | undefined): NodeType[] {
+  const offered = scopeChannels(scope).map((channel) => new Set<string>(flowNodesFor(channel)));
+  return ADD_NODE_TYPES.filter((type) => offered.every((set) => set.has(type as FlowNodeType)));
+}
+
+/** The trigger picker for a scope: triggers every channel it runs on offers. */
+export function triggerTypesForScope(scope: FlowChannelScope | null | undefined): BuilderState["trigger_type"][] {
+  const channels = scopeChannels(scope);
+  return BUILDER_TRIGGERS.filter((trigger) => channels.every((channel) => triggerAvailableOn(trigger, channel)));
+}
+
+/** The section a flow opens in when the page does not say: its own channel, WhatsApp for a legacy 'any' flow. */
+export function defaultSection(scope: FlowChannelScope | null | undefined): Channel {
+  return scope === "instagram" ? "instagram" : "whatsapp";
 }
 
 // ============================================================
@@ -250,6 +288,15 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { event_name: "LeadSubmitted", next_node_key: "" };
     case "send_storefront_link":
       return { message: "", ttl_hours: 24, purpose: "shop", next_node_key: "", failed_next: "" };
+    // Instagram-only steps (Stage 2).
+    case "ig_comment_reply":
+      return { replies: [""], next_node_key: "" };
+    case "ig_private_reply":
+      return { text: "", opt_in_label: t("defaultOptInLabel"), next_node_key: "" };
+    case "send_card":
+      return { card: { title: "", subtitle: "", buttons: [] }, next_node_key: "" };
+    case "send_gallery":
+      return { cards: [{ title: "", subtitle: "", buttons: [] }], next_node_key: "" };
     case "handoff":
       return { note: "" };
     case "end":
@@ -272,6 +319,11 @@ export function appendNode(
     node_type: type,
     config: defaultConfigFor(type),
   };
+  // A private reply is a comment flow's first step: it becomes the entry, ahead of the old one.
+  if (type === "ig_private_reply") {
+    const placed = withPrivateReplyEntry([...s.nodes, next], s.entry_node_id, node_key);
+    return { ...s, nodes: placed.nodes, entry_node_id: placed.entry };
+  }
   return {
     ...s,
     nodes: [...s.nodes, next],
@@ -322,6 +374,8 @@ interface ProviderProps {
   initialNodes: FlowNodeRow[];
   /** draft_hash from the page-load GET. */
   initialDraftHash?: string | null;
+  /** The channel section the editor is open in; defaults to the flow's own channel. */
+  section?: Channel;
   children: ReactNode;
 }
 
@@ -364,6 +418,7 @@ export function FlowEditorProvider({
   initialFlow,
   initialNodes,
   initialDraftHash = null,
+  section: sectionProp,
   children,
 }: ProviderProps) {
   const router = useRouter();
@@ -406,6 +461,11 @@ export function FlowEditorProvider({
   }, []);
   const [triggerNumber, setTriggerNumber] = useState<string | null>(initialFlow.whatsapp_config_id ?? null);
   const [channelScope, setChannelScope] = useState<FlowChannelScope>(initialFlow.channel_scope ?? "whatsapp");
+  const section = sectionProp ?? defaultSection(initialFlow.channel_scope);
+  // The channel palette, less the comment steps this flow cannot take (ig-node-config.ts).
+  const nodeTypes = useMemo(() => placeableNodeTypes(nodeTypesForScope(channelScope), state.trigger_type, state.nodes),
+    [channelScope, state.trigger_type, state.nodes]);
+  const triggerTypes = useMemo(() => triggerTypesForScope(channelScope), [channelScope]);
   // dirty flips on user edits; status-only updates (after the activate
   // API succeeds) use setStateRaw so they don't falsely re-flag the
   // form as dirty.
@@ -610,12 +670,12 @@ export function FlowEditorProvider({
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error ?? t("deleteFailedStatus", { status: res.status }));
       }
-      router.push("/flows");
+      router.push(channelPath(section, "flows"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("deleteFailed");
       toast.error(msg);
     }
-  }, [initialFlow.id, router, state.name, t]);
+  }, [initialFlow.id, router, section, state.name, t]);
 
   // ---- Node mutations ----
   const updateNode = useCallback(
@@ -734,6 +794,9 @@ export function FlowEditorProvider({
       setTriggerNumber,
       channelScope,
       setChannelScope,
+      section,
+      nodeTypes,
+      triggerTypes,
     }),
     [
       initialFlow,
@@ -759,6 +822,9 @@ export function FlowEditorProvider({
       requestFlash,
       triggerNumber,
       channelScope,
+      section,
+      nodeTypes,
+      triggerTypes,
     ],
   );
 

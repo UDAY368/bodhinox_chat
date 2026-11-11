@@ -101,6 +101,35 @@ it('keeps the source flow channel scope on the copy', async () => {
   expect((await response.json()).flow.channel_scope).toBe('instagram');
 });
 
+const duplicateTo = (body: unknown) => POST(new Request('http://localhost/', { method: 'POST', body: JSON.stringify(body) }),
+  { params: Promise.resolve({ id: 'flow-a' }) });
+
+it('copies into the asked-for channel, which is how a legacy flow on both channels is split', async () => {
+  h.flows[0].channel_scope = 'any';
+  const whatsapp = await duplicateTo({ channel_scope: 'whatsapp' });
+  const instagram = await duplicateTo({ channel_scope: 'instagram' });
+  expect([whatsapp.status, instagram.status]).toEqual([201, 201]);
+  expect((await whatsapp.json()).flow.channel_scope).toBe('whatsapp');
+  expect((await instagram.json()).flow.channel_scope).toBe('instagram');
+  // The original stays, so runs pinned to its published version finish.
+  expect(h.flows[0]).toMatchObject({ id: 'flow-a', channel_scope: 'any', status: 'active' });
+});
+
+it("never makes a new 'any' flow: a legacy source copied without a channel becomes WhatsApp", async () => {
+  h.flows[0].channel_scope = 'any';
+  const response = await duplicate();
+  expect((await response.json()).flow.channel_scope).toBe('whatsapp');
+});
+
+it("refuses an 'any', unknown or malformed channel before writing anything", async () => {
+  for (const body of [{ channel_scope: 'any' }, { channel_scope: 'sms' }, { channel_scope: 1 }, [1]]) {
+    expect((await duplicateTo(body)).status).toBe(400);
+  }
+  const broken = await POST(new Request('http://localhost/', { method: 'POST', body: '{nope' }), { params: Promise.resolve({ id: 'flow-a' }) });
+  expect(broken.status).toBe(400);
+  expect(h.writes).toEqual([]);
+});
+
 it("returns 404 for another account's flow without writing anything", async () => {
   h.accountId = 'account-b';
   expect((await duplicate()).status).toBe(404);

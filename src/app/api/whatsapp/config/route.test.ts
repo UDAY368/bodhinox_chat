@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   claimed: null as string | null,
   numberRoom: vi.fn(async () => {}),
   reuploadFormsKey: vi.fn(async () => "uploaded"),
+  ensureChannel: vi.fn(async () => {}),
 }));
 
 // Minimal data client: records each statement with its filters.
@@ -83,6 +84,7 @@ vi.mock("@/lib/billing/entitlements", async () => {
   return { PlanLimitError: actual.PlanLimitError };
 });
 vi.mock("@/lib/billing/limits", () => ({ requireWhatsAppNumberRoom: h.numberRoom }));
+vi.mock("@/lib/channels/workspace", () => ({ ensureChannelEnabled: h.ensureChannel }));
 vi.mock("@/lib/repositories/routing", () => ({ resolveWhatsAppAccount: async () => h.claimed }));
 vi.mock("@/lib/whatsapp/encryption", () => ({ encrypt: (v: string) => `enc:${v}`, decrypt: (v: string) => v.replace(/^enc:/, "") }));
 vi.mock("@/lib/whatsapp/meta-api", () => ({
@@ -142,6 +144,26 @@ it("adds a new number when the workspace does not have this phone_number_id", as
     account_id: ACCOUNT, user_id: "u-1", phone_number_id: "123", access_token: "enc:EAAG-secret", display_name: "Acme · +1 555 0100",
   });
   expect(h.ops.some((o) => o.op === "update")).toBe(false);
+});
+
+it("turns the WhatsApp channel on in the transaction that saves the number", async () => {
+  expect((await post(save)).status).toBe(200);
+  expect(h.ensureChannel).toHaveBeenCalledWith(tx, ACCOUNT, "whatsapp", "u-1");
+  h.existing = { id: ID, phone_number_id: "123", registered_at: "2026-10-01", verify_token: "enc:v", display_name: "Support" };
+  expect((await post(save)).status).toBe(200);
+  expect(h.ensureChannel).toHaveBeenCalledTimes(2);
+});
+
+it("saves nothing when the channel cannot be turned on", async () => {
+  h.ensureChannel.mockRejectedValueOnce(new Error("db down"));
+  expect((await post(save)).status).toBe(500);
+  expect(h.ops.some((o) => o.op === "insert" || o.op === "update")).toBe(false);
+});
+
+it("refuses a non-admin without turning any channel on", async () => {
+  h.requireRole.mockRejectedValueOnce(new ForbiddenError("Insufficient workspace role"));
+  expect((await post(save)).status).toBe(403);
+  expect(h.ensureChannel).not.toHaveBeenCalled();
 });
 
 it("updates only that number when the phone_number_id is already connected, keeping its label", async () => {

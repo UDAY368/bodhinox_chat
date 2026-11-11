@@ -84,7 +84,6 @@ import {
 } from '@/lib/flows/edges';
 import { autoLayout, shouldAutoLayout } from '@/lib/flows/layout';
 import {
-  ADD_NODE_TYPES,
   NodeIconChip,
   groupNodeTypesByCategory,
   nodeColors,
@@ -94,6 +93,7 @@ import {
 } from './shared';
 import { useFlowEditor } from './flow-editor-state';
 import { NodeConfigForm } from './forms/node-config-form';
+import { canRouteInto, entryLocked } from './nodes/ig-node-config';
 
 // React-Flow node `data` payload — the bits our custom renderer needs.
 interface NodeData extends Record<string, unknown> {
@@ -145,6 +145,8 @@ function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
   // don't need an incoming Handle. Every other node type accepts
   // incoming edges (including terminal handoff / end — they're the
   // common targets).
+  // A private reply takes incoming edges too, but only from the steps
+  // allowed before it (handleConnect checks canRouteInto).
   const hasTarget = node.node_type !== 'start';
   // Single-slot nodes get a single source handle floated on the right
   // edge of the card. Multi-slot nodes (condition, send_buttons,
@@ -544,6 +546,9 @@ function FlowCanvasInner() {
       // node = infinite reprompt). Reject silently — the user can
       // still wire one via the per-node dropdown if they really want.
       if (connection.source === connection.target) return;
+      // Only a step allowed before a private reply may lead into one (Instagram's one reply per comment).
+      const target = builderNodes.find((n) => n.node_key === connection.target);
+      if (target && !canRouteInto(sourceNode.node_type, target)) return;
       const patch = applyEdgeConnection(
         sourceNode,
         connection.sourceHandle,
@@ -802,7 +807,7 @@ function FlowCanvasInner() {
         onClose={() => setSelectedNodeKey(null)}
         onUpdateConfig={onSelectedUpdateConfig}
         onDelete={locked ? undefined : handleDeleteSelected}
-        onSetEntry={handleSetEntry}
+        onSetEntry={entryLocked(state.trigger_type, state.nodes, entryNodeId) ? undefined : handleSetEntry}
         readOnly={locked}
         t={t}
       />}
@@ -835,7 +840,8 @@ function NodeInspector({
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   /** Omitted while the canvas is locked. */
   onDelete?: () => void;
-  onSetEntry: () => void;
+  /** Absent while the entry is locked (a comment flow starts with its private reply). */
+  onSetEntry?: () => void;
   /** Canvas locked: show the settings but block every edit. */
   readOnly: boolean;
   t: ReturnType<typeof useTranslations>;
@@ -880,7 +886,7 @@ function NodeInspector({
         </div>
 
         <div className="border-border flex items-center justify-between gap-1 border-t px-3 py-3">
-          {!isEntry && !readOnly ? (
+          {!isEntry && !readOnly && onSetEntry ? (
             <Button variant="ghost" size="sm" onClick={onSetEntry}>
               {t('setAsEntry')}
             </Button>
@@ -913,10 +919,11 @@ function NodeInspector({
 
 function CanvasBlockLibrary({ t, onAdded }: { t: ReturnType<typeof useTranslations>; onAdded: (key: string) => void }) {
   const reactFlow = useReactFlow();
-  const { addNode, updateNodePosition } = useFlowEditor();
+  const { addNode, updateNodePosition, nodeTypes } = useFlowEditor();
   const caps = useWorkspaceCapabilities();
   const [query, setQuery] = useState('');
-  const matching = filterPaletteTypes(ADD_NODE_TYPES.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
+  // Only the steps the flow's channel runs (Stage 1).
+  const matching = filterPaletteTypes(nodeTypes.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
 
   const handleAdd = (type: NodeType) => {
     const key = addNode(type);
@@ -997,9 +1004,12 @@ function DropStepPicker({ x, y, onPick, onClose, t }: {
   onClose: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const { nodeTypes } = useFlowEditor();
   const caps = useWorkspaceCapabilities();
   const [query, setQuery] = useState('');
-  const matching = filterPaletteTypes(ADD_NODE_TYPES.map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
+  // A step dropped here follows another one, so the first-only private reply is not offered.
+  const matching = filterPaletteTypes(nodeTypes.filter(type => type !== 'ig_private_reply')
+    .map(type => ({ type, label: t(`nodes.${type}.label`), description: t(`nodes.${type}.blurb`) })), query);
   return (
     <>
       <div className="absolute inset-0 z-10" onMouseDown={onClose} aria-hidden="true" />

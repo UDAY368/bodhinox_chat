@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/data/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { getFlowTemplate } from '@/lib/flows/templates';
+import { flowTemplateChannels, getFlowTemplate } from '@/lib/flows/templates';
 import { getT } from '@/lib/i18n/translate';
 import { parseChannelScope } from '@/lib/flows/validate';
+import { isChannel } from '@/lib/channels/capabilities';
+import type { FlowTriggerType } from '@/lib/flows/types';
 
 const t = getT('Api');
+const tSection = getT('Flows.channelSection');
+const tNames = getT('Channels.names');
 
 /**
- * GET /api/flows — list the caller's flows.
- * POST /api/flows — create a new (draft) flow.
+ * GET /api/flows — list the caller's flows. `?channel=whatsapp|instagram`
+ *   lists one channel's section: its own flows plus legacy 'any' flows,
+ *   which run on both. Without it every flow is listed (API-key and
+ *   mcp-server clients).
+ * POST /api/flows — create a new (draft) flow. `channel_scope` is
+ *   'whatsapp' or 'instagram' (a new flow belongs to one channel); absent
+ *   is WhatsApp, or for a template its first channel.
  *
  * Available to every authenticated user. The previous per-account
  * beta gate was removed when Flows went to soft-GA; the UI still
@@ -35,17 +44,20 @@ async function requireUser(): Promise<
   return { ok: true, userId: user.id, db };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const guard = await requireUser();
   if (!guard.ok) {
     return NextResponse.json(guard.body, { status: guard.status });
   }
   const { db } = guard;
+  const channel = new URL(request.url).searchParams.get('channel');
+  if (channel !== null && !isChannel(channel)) {
+    return NextResponse.json({ error: tSection('channelInvalid') }, { status: 400 });
+  }
 
-  const { data, error } = await db
-    .from('flows')
-    .select('*')
-    .order('created_at', { ascending: false });
+  let query = db.from('flows').select('*');
+  if (channel) query = query.in('channel_scope', [channel, 'any']);
+  const { data, error } = await query.order('created_at', { ascending: false });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -83,7 +95,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     name?: string;
     description?: string | null;
-    trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'template_reply' | 'order_received' | 'ad_click';
+    trigger_type?: FlowTriggerType;
     trigger_config?: Record<string, unknown>;
     /**
      * If set, clone the matching template's name + trigger +
@@ -92,7 +104,7 @@ export async function POST(request: Request) {
      * provided.
      */
     template_slug?: string;
-    /** Channels the flow runs on (Phase 11); absent is WhatsApp only. */
+    /** The flow's channel: 'whatsapp' | 'instagram' (Stage 1: never a new 'any'). */
     channel_scope?: unknown;
   } | null;
   if (!body) {
@@ -102,8 +114,8 @@ export async function POST(request: Request) {
     );
   }
   const channel_scope = parseChannelScope(body.channel_scope);
-  if (channel_scope === null) {
-    return NextResponse.json({ error: t('flows.channelScopeInvalid') }, { status: 400 });
+  if (channel_scope === null || channel_scope === 'any') {
+    return NextResponse.json({ error: tSection('anyNotAllowed') }, { status: 400 });
   }
 
   const admin = db;
@@ -121,6 +133,16 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    // The template's own channels: a create in a section the template does not
+    // fit is refused rather than made into a flow that cannot publish.
+    const channels = flowTemplateChannels(template);
+    const scope = channel_scope ?? channels[0];
+    if (!scope || !channels.includes(scope)) {
+      return NextResponse.json(
+        { error: tSection('templateUnavailable', { channel: tNames(scope ?? 'whatsapp') }) },
+        { status: 400 }
+      );
+    }
     const { data: flow, error: flowErr } = await admin
       .from('flows')
       .insert({
@@ -132,7 +154,7 @@ export async function POST(request: Request) {
         trigger_type: template.trigger_type,
         trigger_config: template.trigger_config,
         entry_node_id: template.entry_node_id,
-        ...(channel_scope ? { channel_scope } : {}),
+        channel_scope: scope,
       })
       .select()
       .single();
@@ -181,7 +203,7 @@ export async function POST(request: Request) {
       status: 'draft',
       trigger_type,
       trigger_config: body.trigger_config ?? {},
-      ...(channel_scope ? { channel_scope } : {}),
+      channel_scope: channel_scope ?? 'whatsapp',
     })
     .select()
     .single();

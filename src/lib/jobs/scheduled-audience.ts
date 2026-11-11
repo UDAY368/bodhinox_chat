@@ -406,6 +406,9 @@ export async function executeScheduledOccurrence(
       assertLease();
       await runAutomationsForTrigger({
         accountId,
+        // Schedules are WhatsApp-only (Instagram's 24-hour window rules out
+        // business-initiated runs), and the conversation above is a WhatsApp one.
+        channel: 'whatsapp',
         automationId,
         triggerType: 'time_based',
         contactId,

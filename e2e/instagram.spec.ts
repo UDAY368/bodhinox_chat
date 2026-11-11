@@ -37,12 +37,19 @@ async function staffPost(page: Page, url: string) {
 }
 
 test.describe('instagram with INSTAGRAM_ENABLED unset', () => {
-  test('Settings shows Instagram as not enabled, with no connect button', async ({ page }) => {
+  test('Settings shows Instagram as not available, with no connect button', async ({ page }) => {
     const hits = watchInstagramRequests(page);
     await login(page, fixtures().users.admin);
+    // Stage 1: a channel the workspace cannot use has no Settings tab; the old
+    // link opens Settings › Channels, which says why Instagram is unavailable.
     await page.goto(INSTAGRAM_SETTINGS_URL);
-    await expect(page.getByText('Instagram: not enabled')).toBeVisible();
-    await expect(page.getByText('Instagram is not turned on for this deployment yet.')).toBeVisible();
+    const instagram = page.locator('[data-channel-row="instagram"]');
+    await expect(instagram).toHaveAttribute('data-channel-state', 'unavailable');
+    await expect(instagram.getByText("Instagram isn't available yet.")).toBeVisible();
+    await expect(instagram.getByRole('switch')).toBeDisabled();
+    const rail = page.getByRole('navigation', { name: 'Settings sections' });
+    await expect(rail.getByRole('button', { name: 'Channels', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(rail.getByRole('button', { name: 'Instagram', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Connect Instagram' })).toHaveCount(0);
     expect(hits).toEqual([]);
   });

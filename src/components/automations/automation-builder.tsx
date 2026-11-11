@@ -57,6 +57,7 @@ import type {
   AccountMember,
   AutomationStepType,
   AutomationTriggerType,
+  Channel,
   CustomField,
   InteractiveMessagePayload,
   KeywordMatchTriggerConfig,
@@ -82,6 +83,8 @@ import {
 } from '@/lib/automations/builder-tree';
 import { cn } from '@/lib/utils';
 import type { ScheduledAudience } from '@/lib/automations/scheduled-contract';
+import { automationStepsFor, automationTriggersFor } from '@/lib/channels/capabilities';
+import { channelPath } from '@/lib/channels/routes';
 
 // ------------------------------------------------------------
 // Types (builder-local — mirror the flattened rows we POST)
@@ -174,6 +177,7 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   notify_team: { label: 'notify_team', icon: Bell, border: 'border-l-primary' },
 };
 
+/** Every step the builder knows, in menu order; each channel offers its palette's subset. */
 const ADDABLE_STEPS: AutomationStepType[] = [
   'send_message',
   'send_buttons',
@@ -191,6 +195,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   'notify_team',
 ];
 
+/** Every trigger the builder knows, in menu order; each channel offers its palette's subset. */
 const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: 'new_message_received' },
   { value: 'first_inbound_message' },
@@ -207,6 +212,29 @@ const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: 'appointment_completed' },
   { value: 'appointment_no_show' },
 ];
+
+/** The steps a channel's builder offers, in menu order. */
+export function addableStepsFor(channel: Channel): AutomationStepType[] {
+  const palette = automationStepsFor(channel);
+  return ADDABLE_STEPS.filter((step) => palette.includes(step));
+}
+
+/**
+ * The triggers a channel's builder offers, in menu order. A stored trigger
+ * outside the palette stays listed so an old automation still shows its own.
+ */
+export function triggerOptionsFor(
+  channel: Channel,
+  current?: AutomationTriggerType
+): AutomationTriggerType[] {
+  const palette = automationTriggersFor(channel);
+  return TRIGGER_OPTIONS.map((o) => o.value).filter(
+    (value) => palette.includes(value) || value === current
+  );
+}
+
+/** The channel the builder edits for (its section); WhatsApp outside one. */
+const BuilderChannelContext = createContext<Channel>('whatsapp');
 
 function cid(): string {
   return (
@@ -739,9 +767,18 @@ function SendTemplateFields({
 // Main builder component
 // ------------------------------------------------------------
 
-export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
+export function AutomationBuilder({
+  initial,
+  channel = 'whatsapp',
+}: {
+  initial: BuilderInitial;
+  /** The section the automation belongs to; it never changes after create. */
+  channel?: Channel;
+}) {
   const router = useRouter();
   const t = useTranslations('Automations.builder');
+  const tSection = useTranslations('Automations.channelSection');
+  const tChannels = useTranslations('Channels.names');
   const isEditing = !!initial.id;
   const [state, setState] = useState<BuilderInitial>(initial);
   const [saving, setSaving] = useState(false);
@@ -796,6 +833,8 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
         trigger_config: state.trigger_config,
         is_active: state.is_active,
         steps: toApiSteps(state.steps),
+        // Chosen once, by the section it is created in; an edit never sends it.
+        ...(isEditing ? {} : { channel }),
       };
 
       const res = isEditing
@@ -830,7 +869,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
       }
       toast.success(isEditing ? t('toasts.saved') : t('toasts.created'));
       if (!isEditing && body?.automation?.id) {
-        router.replace(`/automations/${body.automation.id}/edit`);
+        router.replace(channelPath(channel, 'automations', body.automation.id));
       }
     } finally {
       setSaving(false);
@@ -845,12 +884,20 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
       <header className="border-border bg-card/80 flex flex-shrink-0 items-center gap-2 border-b px-3 py-3 sm:gap-3 sm:px-4">
         <button
           type="button"
-          onClick={() => router.push('/automations')}
+          onClick={() => router.push(channelPath(channel, 'automations'))}
           className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md transition-colors"
           aria-label={t('backToAutomations')}
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
+        {/* Read-only: an automation stays on its channel (duplicate it to use another). */}
+        <span
+          data-automation-channel={channel}
+          title={tSection('locked')}
+          className="border-border text-muted-foreground hidden flex-shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium sm:inline"
+        >
+          {tSection('runsOn', { channel: tChannels(channel) })}
+        </span>
         <input
           value={state.name}
           onChange={(e) => patchTop('name', e.target.value)}
@@ -879,6 +926,12 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
       <div className="relative flex-1 overflow-y-auto">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:20px_20px]" />
         <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-0 px-4 py-10">
+          {channel === 'instagram' && (
+            <p className="border-border bg-card text-muted-foreground mb-4 w-full max-w-[320px] rounded-md border px-3 py-2 text-center text-xs sm:w-80">
+              {tSection('instagramWindowHint')}
+            </p>
+          )}
+          <BuilderChannelContext.Provider value={channel}>
           <ResourcesProvider>
             <TriggerCard
               type={state.trigger_type}
@@ -899,6 +952,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
               moveStepAt={moveStepAt}
             />
           </ResourcesProvider>
+          </BuilderChannelContext.Provider>
         </div>
       </div>
     </div>
@@ -923,6 +977,7 @@ function TriggerCard({
   t: ReturnType<typeof useTranslations>;
 }) {
   const [open, setOpen] = useState(false);
+  const channel = useContext(BuilderChannelContext);
   return (
     // Card width: full on mobile, fixed 320px on sm+. The canvas wrapper
     // (max-w-2xl + px-4) keeps this tidy on tablet/desktop.
@@ -964,9 +1019,9 @@ function TriggerCard({
                 }
                 className="border-border bg-muted text-foreground focus:border-primary w-full rounded-md border px-2 py-1.5 text-sm focus:outline-none"
               >
-                {TRIGGER_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {t(`triggers.${o.value}.label`)}
+                {triggerOptionsFor(channel, type).map((value) => (
+                  <option key={value} value={value}>
+                    {t(`triggers.${value}.label`)}
                   </option>
                 ))}
               </select>
@@ -1666,6 +1721,7 @@ function BranchColumn({
 
 function AddButton({ onPick }: { onPick: (t: AutomationStepType) => void }) {
   const t = useTranslations('Automations.builder');
+  const channel = useContext(BuilderChannelContext);
   return (
     <div className="relative flex flex-col items-center">
       <div className="bg-border h-4 w-[2px]" aria-hidden />
@@ -1680,7 +1736,7 @@ function AddButton({ onPick }: { onPick: (t: AutomationStepType) => void }) {
           align="start"
           className="border-border bg-popover max-h-80 min-w-56 overflow-y-auto"
         >
-          {ADDABLE_STEPS.map((tp) => {
+          {addableStepsFor(channel).map((tp) => {
             const Icon = STEP_META[tp].icon;
             return (
               <DropdownMenuItem key={tp} onClick={() => onPick(tp)}>

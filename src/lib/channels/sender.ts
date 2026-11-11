@@ -1,6 +1,8 @@
 // Instagram channel sender (Phase 11). WhatsApp sending stays where it is; this
 // module is the one place an Instagram send is prepared and made, for the
-// composer (T3), flows (T4) and shared services (T5).
+// composer (T3), flows (T4) and shared services (T5). Stage 2 adds cards and
+// galleries (generic template), button templates and the automated-window
+// check flows run before each customer-facing step.
 //
 // Use:
 //   1. inside a WORKER tenant transaction (the app role cannot read the token):
@@ -20,11 +22,17 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { instagramConfig, missingScopes } from '@/lib/instagram/config';
 import { InstagramError } from '@/lib/instagram/errors';
 import {
+  buttonTemplateFits,
+  genericTemplateFits,
   quickRepliesFit,
   sendAttachment,
+  sendButtonTemplate,
+  sendGenericTemplate,
   sendQuickReplies,
   sendText,
   validInstagramText,
+  type IgGenericCard,
+  type IgTemplateButton,
   type InstagramAttachmentType,
   type QuickReply,
   type SentMessage,
@@ -55,6 +63,8 @@ export interface InstagramTarget {
   scopes: string[];
   /** The customer's last message; echoes are 'agent' and never count. */
   lastCustomerAt: Date | null;
+  /** The customer's latest message from a click-to-Direct ad (referral source ADS), or null. Used only with INSTAGRAM_CTD_WINDOW_ENABLED. */
+  adReferralAt: Date | null;
 }
 
 export interface InstagramSendContext {
@@ -76,6 +86,7 @@ interface TargetRow {
   igsid: string | null;
   blocked_at: Date | null;
   last_customer_at: Date | null;
+  ad_referral_at: Date | null;
 }
 
 /**
@@ -95,7 +106,9 @@ export async function loadInstagramTarget(tx: TenantTransaction, accountId: stri
         WHERE i.account_id=c.account_id AND i.contact_id=c.contact_id AND i.instagram_account_id=c.instagram_account_id
         ORDER BY i.created_at, i.id LIMIT 1) AS igsid,
       (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
-        AND m.sender_type='customer') AS last_customer_at
+        AND m.sender_type='customer') AS last_customer_at,
+      (SELECT max(m.created_at) FROM messages m WHERE m.account_id=c.account_id AND m.conversation_id=c.id
+        AND m.sender_type='customer' AND upper(m.interactive_payload #>> '{ig,referral,source}')='ADS') AS ad_referral_at
     FROM conversations c
     JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
     LEFT JOIN instagram_accounts a ON a.account_id=c.account_id AND a.id=c.instagram_account_id
@@ -121,6 +134,7 @@ export async function loadInstagramTarget(tx: TenantTransaction, accountId: stri
     accessTokenEnc: row.access_token_enc,
     scopes,
     lastCustomerAt: row.last_customer_at ? new Date(row.last_customer_at) : null,
+    adReferralAt: row.ad_referral_at ? new Date(row.ad_referral_at) : null,
   };
 }
 
@@ -132,6 +146,8 @@ function checkWindow(target: InstagramTarget, ctx: InstagramSendContext): { huma
     lastCustomerAt: target.lastCustomerAt,
     sender: ctx.sender,
     humanAgentEnabled: config.humanAgentEnabled,
+    adReferralAt: target.adReferralAt,
+    ctdEnabled: config.ctdWindowEnabled,
     now: ctx.now,
   });
   if (!decision.allowed) throw new InstagramError('instagram_window_closed');
@@ -181,6 +197,54 @@ export async function sendInstagramChoices(target: InstagramTarget, text: string
   ctx: InstagramSendContext): Promise<SentMessage> {
   const { humanAgentTag } = checkInstagramChoices(target, text, choices, ctx);
   return sendQuickReplies(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, text, choices, { humanAgentTag });
+}
+
+/** A card or a gallery (generic template, 1–10 cards) within the limits graph.ts enforces. */
+export function checkInstagramCards(target: InstagramTarget, cards: readonly IgGenericCard[],
+  ctx: InstagramSendContext): { humanAgentTag: boolean } {
+  const window = checkWindow(target, ctx);
+  if (!genericTemplateFits(cards)) throw new InstagramError('invalid_request');
+  return window;
+}
+
+export async function sendInstagramCards(target: InstagramTarget, cards: readonly IgGenericCard[],
+  ctx: InstagramSendContext): Promise<SentMessage> {
+  const { humanAgentTag } = checkInstagramCards(target, cards, ctx);
+  return sendGenericTemplate(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, cards, { humanAgentTag });
+}
+
+/** Text with 1–3 real buttons (links or postbacks): a button template. */
+export function checkInstagramButtonTemplate(target: InstagramTarget, text: string, buttons: readonly IgTemplateButton[],
+  ctx: InstagramSendContext): { humanAgentTag: boolean } {
+  const window = checkWindow(target, ctx);
+  if (!buttonTemplateFits(text, buttons)) throw new InstagramError('invalid_request');
+  return window;
+}
+
+export async function sendInstagramButtonTemplate(target: InstagramTarget, text: string, buttons: readonly IgTemplateButton[],
+  ctx: InstagramSendContext): Promise<SentMessage> {
+  const { humanAgentTag } = checkInstagramButtonTemplate(target, text, buttons, ctx);
+  return sendButtonTemplate(target.igUserId, decrypt(target.accessTokenEnc), target.igsid, text, buttons, { humanAgentTag });
+}
+
+/**
+ * Whether an automated message may go to this Instagram conversation now: the
+ * customer wrote (or tapped a reply or postback) within 24 hours. Flows check it
+ * before every customer-facing step, so a run that resumes past the window ends
+ * with `window_closed` instead of failing a send. `tx` must be a tenant
+ * transaction of `accountId`.
+ */
+export async function instagramAutomatedWindowOpen(tx: TenantTransaction, accountId: string, conversationId: string,
+  now: Date = new Date()): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ last_customer_at: Date | null; ad_referral_at: Date | null }[]>(Prisma.sql`
+    SELECT max(m.created_at) AS last_customer_at,
+      max(m.created_at) FILTER (WHERE upper(m.interactive_payload #>> '{ig,referral,source}')='ADS') AS ad_referral_at
+    FROM messages m
+    WHERE m.account_id=${accountId}::uuid AND m.conversation_id=${conversationId}::uuid AND m.sender_type='customer'`);
+  const last = row?.last_customer_at ? new Date(row.last_customer_at) : null;
+  const ad = row?.ad_referral_at ? new Date(row.ad_referral_at) : null;
+  return instagramWindow({ lastCustomerAt: last, sender: 'automated', humanAgentEnabled: false, adReferralAt: ad,
+    ctdEnabled: instagramConfig()?.ctdWindowEnabled === true, now }).allowed;
 }
 
 export interface InstagramSentRow {

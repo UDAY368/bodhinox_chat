@@ -356,16 +356,23 @@ export interface CapiEventPayload {
   event_time: number;
   event_id: string;
   action_source: 'business_messaging';
-  messaging_channel: 'whatsapp';
-  user_data: { whatsapp_business_account_id: string; ctwa_clid: string };
+  messaging_channel: 'whatsapp' | 'instagram';
+  user_data: { whatsapp_business_account_id: string; ctwa_clid: string } | { ig_account_id: string; ig_sid: string };
   custom_data?: { value?: number; currency?: string };
 }
 
-/** Builds the one business-messaging event the CAPI job sends. */
+/**
+ * Builds the one business-messaging event the CAPI job sends. A WhatsApp event
+ * is keyed by the WABA and the ad click id. An Instagram event (Stage 4C) is
+ * keyed by the professional account and the person's Instagram-scoped id; its
+ * field names follow Meta's documented customer-information parameters and are
+ * NOT verified on a live dataset (needs live capture), so it stays behind
+ * INSTAGRAM_CAPI_ENABLED.
+ */
 export function capiEvent(input: {
-  eventName: CapiEventName; eventTime: Date; eventId: string; wabaId: string; ctwaClid: string;
+  eventName: CapiEventName; eventTime: Date; eventId: string;
   value?: number | null; currency?: string | null;
-}): CapiEventPayload {
+} & ({ wabaId: string; ctwaClid: string; instagram?: undefined } | { instagram: { accountId: string; igsid: string }; wabaId?: undefined; ctwaClid?: undefined })): CapiEventPayload {
   const custom: { value?: number; currency?: string } = {};
   if (typeof input.value === 'number' && Number.isFinite(input.value) && input.value >= 0) custom.value = input.value;
   if (input.currency && /^[A-Z]{3}$/.test(input.currency)) custom.currency = input.currency;
@@ -374,8 +381,10 @@ export function capiEvent(input: {
     event_time: Math.floor(input.eventTime.getTime() / 1000),
     event_id: input.eventId,
     action_source: 'business_messaging',
-    messaging_channel: 'whatsapp',
-    user_data: { whatsapp_business_account_id: assertId(input.wabaId), ctwa_clid: input.ctwaClid },
+    messaging_channel: input.instagram ? 'instagram' : 'whatsapp',
+    user_data: input.instagram
+      ? { ig_account_id: assertId(input.instagram.accountId), ig_sid: assertId(input.instagram.igsid) }
+      : { whatsapp_business_account_id: assertId(input.wabaId!), ctwa_clid: input.ctwaClid! },
     ...(Object.keys(custom).length ? { custom_data: custom } : {}),
   };
 }

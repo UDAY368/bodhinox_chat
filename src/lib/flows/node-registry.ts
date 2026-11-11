@@ -52,6 +52,11 @@ export const NODE_REGISTRY = {
   set_attribute: { category: 'logic' },
   send_template: { category: 'messaging' },
   api_request: { category: 'logic' },
+  // Instagram-only steps (Stage 2); channel palettes keep them off WhatsApp.
+  ig_comment_reply: { category: 'messaging' },
+  ig_private_reply: { category: 'messaging' },
+  send_card: { category: 'messaging' },
+  send_gallery: { category: 'messaging' },
   assign_agent: { category: 'flow' },
   connect_flow: { category: 'flow' },
   handoff: { category: 'flow' },

@@ -110,9 +110,10 @@ describe('the other_channel guard', () => {
 });
 
 describe('automated WhatsApp sends on an Instagram conversation', () => {
-  it('the away message reports number_unavailable and never dispatches', async () => {
+  it('the away message follows the Instagram switch (off here), never the WhatsApp one, and never reads a number', async () => {
+    // Stage 2: the WhatsApp switch is on in these settings; the Instagram switch is not.
     expect(await sendAwayMessage({ accountId: ID, userId: ID, conversationId: ID, contactId: ID, messageId: ID },
-      new Date('2026-11-02T20:05:00Z'))).toBe('number_unavailable');
+      new Date('2026-11-02T20:05:00Z'))).toBe('off');
     expect(h.getNumberConfig).not.toHaveBeenCalled();
     expect(h.dispatch).not.toHaveBeenCalled();
   });
@@ -138,11 +139,24 @@ describe('inbound actions on an Instagram conversation', () => {
     messageId: ID, metaMessageId: 'mid.1', interactiveReplyId: null, contentType: 'text', contentText: text,
     wasContactCreated: true, wasConversationCreated: true, isFirstInboundMessage: true });
 
-  it('runs flows and lifecycle only: no automations, AI, away message, booking codes, campaign credit or WhatsApp webhooks', async () => {
+  it('runs flows, Instagram automations, lifecycle and Instagram-only webhooks: no booking codes, campaign credit or WhatsApp sends', async () => {
     await processInboundActions(input('BOOK ABC123'));
     expect(h.flow).toHaveBeenCalledTimes(1);
     expect(h.lifecycle).toHaveBeenCalledTimes(1);
-    for (const fn of [h.automations, h.resume, h.ai, h.webhook, h.explicit, h.booking, h.dispatch, h.send]) expect(fn).not.toHaveBeenCalled();
+    // Stage 1: only Instagram automations, which send through the Instagram window checks.
+    expect(h.resume).toHaveBeenCalledWith(expect.objectContaining({ channel: 'instagram' }));
+    expect(h.automations.mock.calls.map((call) => [call[0].channel, call[0].triggerType])).toEqual([
+      ['instagram', 'first_inbound_message'], ['instagram', 'new_contact_created'],
+      ['instagram', 'new_message_received'], ['instagram', 'keyword_match'],
+    ]);
+    // Stage 2: the webhooks go only to endpoints that opted into Instagram, with Instagram ids.
+    expect(h.webhook.mock.calls.map((call) => [call[2], call[4]])).toEqual([
+      ['conversation.created', { channel: 'instagram' }], ['message.received', { channel: 'instagram' }],
+    ]);
+    expect(h.webhook.mock.calls[1][3]).toEqual(expect.objectContaining({ channel: 'instagram', instagram_message_id: 'mid.1' }));
+    expect(h.webhook.mock.calls[1][3]).not.toHaveProperty('whatsapp_message_id');
+    // The automations' outcome is unknown here (the mock returns nothing), so the AI stays quiet.
+    for (const fn of [h.ai, h.explicit, h.booking, h.dispatch, h.send]) expect(fn).not.toHaveBeenCalled();
     // No broadcast-reply or number lookups.
     expect(h.tables).not.toContain('broadcast_recipients');
     expect(h.tables).not.toContain('whatsapp_config');

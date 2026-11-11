@@ -177,8 +177,169 @@ export interface ContactNote {
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';
 
+/**
+ * A messaging channel. Each one is its own section of the app (inbox, flows,
+ * automations, tools); src/lib/channels/* holds what each can do and whether a
+ * workspace uses it.
+ */
+export type Channel = 'whatsapp' | 'instagram';
+
 /** The channel a conversation is on (Phase 11). Read-only for the browser. */
-export type ConversationChannel = 'whatsapp' | 'instagram';
+export type ConversationChannel = Channel;
+
+/**
+ * One conversation starter as stored in instagram_accounts.ice_breakers
+ * (Stage 2, at most 4). The Meta payload for its tap is `ib:<flow_id>`
+ * (src/lib/instagram/postback-payloads.ts); the flow must be an Instagram flow
+ * of the same workspace.
+ */
+export interface InstagramIceBreaker {
+  question: string;
+  flow_id: string;
+}
+
+/** Instagram profile facts on contact_channel_identities (Stage 2). Null means unknown. */
+export interface InstagramProfileFactsRow {
+  follows_business: boolean | null;
+  business_follows: boolean | null;
+  is_verified: boolean | null;
+  ig_follower_count: number | null;
+  profile_checked_at: string | null;
+}
+
+/**
+ * One persistent menu item as stored in instagram_accounts.persistent_menu
+ * (Stage 3, at most 20). A postback item starts its flow (Meta payload
+ * `menu:<flow_id>`, src/lib/instagram/postback-payloads.ts; the flow must be an
+ * Instagram flow of the same workspace); a link item opens its https URL.
+ */
+export type InstagramMenuItem =
+  | { type: 'postback'; title: string; flow_id: string }
+  | { type: 'web_url'; title: string; url: string };
+
+/** The ref link a person last opened a chat from (contact_channel_identities, Stage 3). Null means none. */
+export interface InstagramRefRow {
+  last_ref: string | null;
+  last_ref_at: string | null;
+}
+
+/** AI comment replies (Stage 3): the comment's classified tone and what it asks for. */
+export const INSTAGRAM_AI_COMMENT_SENTIMENTS = ['positive', 'neutral', 'negative'] as const;
+export type InstagramAiCommentSentiment = (typeof INSTAGRAM_AI_COMMENT_SENTIMENTS)[number];
+export const INSTAGRAM_AI_COMMENT_INTENTS = ['praise', 'question', 'purchase_intent', 'complaint', 'spam', 'other'] as const;
+export type InstagramAiCommentIntent = (typeof INSTAGRAM_AI_COMMENT_INTENTS)[number];
+
+/**
+ * Where an AI-drafted comment reply is (instagram_ai_comment_queue.status):
+ * pending (waits for an admin), approved, rejected, sent, unknown (posted with
+ * an ambiguous outcome: reconcile, never re-send), failed, expired.
+ */
+export const INSTAGRAM_AI_COMMENT_STATUSES = ['pending', 'approved', 'rejected', 'sent', 'unknown', 'failed', 'expired'] as const;
+export type InstagramAiCommentStatus = (typeof INSTAGRAM_AI_COMMENT_STATUSES)[number];
+
+/** An instagram_ai_comment_queue row as members read it. No comment text is stored. */
+export interface InstagramAiCommentQueueRow {
+  id: string;
+  instagram_account_id: string;
+  comment_event_id: string;
+  comment_id: string;
+  media_id: string | null;
+  sentiment: InstagramAiCommentSentiment;
+  intent: InstagramAiCommentIntent | null;
+  reply_text: string;
+  status: InstagramAiCommentStatus;
+  auto_approved: boolean;
+  decided_by: string | null;
+  decided_at: string | null;
+  public_reply_id: string | null;
+  error_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The workspace's AI comment switches (ai_configs, Stage 3). All off by default; the cap defaults to 50 a day. */
+export interface InstagramAiCommentSettings {
+  instagram_ai_comments_enabled: boolean;
+  instagram_ai_comments_auto_approve: boolean;
+  instagram_ai_comments_daily_cap: number;
+}
+
+/** The channels an outbound webhook endpoint receives events for (webhook_endpoints.channels; default ['whatsapp']). */
+export type WebhookEndpointChannels = Channel[];
+
+// ------------------------------------------------------------ Stage 4 (Instagram Phase 3)
+
+/**
+ * How an Instagram account was connected (instagram_accounts.connection_kind):
+ * Instagram API with Instagram Login (graph.instagram.com, the default), or the
+ * optional Facebook Page / Business Login (graph.facebook.com, the stored token
+ * is then the Page token and instagram_accounts.facebook_page_id is set).
+ */
+export const INSTAGRAM_CONNECTION_KINDS = ['instagram_login', 'facebook_page'] as const;
+export type InstagramConnectionKind = (typeof INSTAGRAM_CONNECTION_KINDS)[number];
+
+/** A reminder tells its owner to look at a conversation again; a snooze also hides it until then. */
+export const CONVERSATION_REMINDER_KINDS = ['reminder', 'snooze'] as const;
+export type ConversationReminderKind = (typeof CONVERSATION_REMINDER_KINDS)[number];
+
+/** conversation_reminders.status: pending -> fired (the worker) | dismissed | cancelled (the owner); fired -> dismissed. */
+export const CONVERSATION_REMINDER_STATUSES = ['pending', 'fired', 'dismissed', 'cancelled'] as const;
+export type ConversationReminderStatus = (typeof CONVERSATION_REMINDER_STATUSES)[number];
+
+/** The longest note on a reminder (characters) and how far ahead one may be set (days); the table checks both. */
+export const CONVERSATION_REMINDER_LIMITS = { noteChars: 500, maxDaysAhead: 366 } as const;
+
+/** A conversation_reminders row. Staff text only; the note is never logged. */
+export interface ConversationReminder {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  kind: ConversationReminderKind;
+  remind_at: string;
+  note: string | null;
+  status: ConversationReminderStatus;
+  fired_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * scheduled_replies.status: pending -> sending (the worker's claim) | cancelled
+ * | skipped (window closed, conversation closed, channel off). sending -> sent
+ * | failed | unknown (ambiguous outcome: reconcile, never re-send). unknown ->
+ * sent | failed once staff reconcile it.
+ */
+export const SCHEDULED_REPLY_STATUSES = ['pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled', 'skipped'] as const;
+export type ScheduledReplyStatus = (typeof SCHEDULED_REPLY_STATUSES)[number];
+
+/**
+ * Limits on a scheduled reply (the table checks the same): 4096 characters, at
+ * most 30 days ahead on WhatsApp and 7 days (the Human Agent ceiling) on
+ * Instagram. Whether a time is inside the Instagram window is decided by
+ * src/lib/instagram/window.ts at schedule time and again at send time.
+ */
+export const SCHEDULED_REPLY_LIMITS = { contentChars: 4096, maxDaysAhead: { whatsapp: 30, instagram: 7 } } as const;
+
+/** Machine reasons a scheduled reply ends as skipped or failed (scheduled_replies.reason_code). */
+export const SCHEDULED_REPLY_REASONS = ['window_closed', 'conversation_closed', 'channel_off', 'human_agent_off', 'send_failed'] as const;
+export type ScheduledReplyReason = (typeof SCHEDULED_REPLY_REASONS)[number];
+
+/** A scheduled_replies row as members read it. The content is staff text and is never logged. */
+export interface ScheduledReply {
+  id: string;
+  conversation_id: string;
+  channel: Channel;
+  created_by_user_id: string | null;
+  content: string;
+  send_at: string;
+  status: ScheduledReplyStatus;
+  attempts: number;
+  message_id: string | null;
+  sent_at: string | null;
+  reason_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Conversation {
   bot_paused?: boolean;
@@ -782,6 +943,12 @@ export interface Automation {
   description?: string;
   trigger_type: AutomationTriggerType;
   trigger_config: AutomationTriggerConfig;
+  /**
+   * The section the automation belongs to (automations.channel, Stage 1). Set
+   * once on create by the automation routes and never changed; absent on rows
+   * read without it means 'whatsapp', like every automation made before Stage 1.
+   */
+  channel?: Channel;
   is_active: boolean;
   execution_count: number;
   last_executed_at?: string | null;

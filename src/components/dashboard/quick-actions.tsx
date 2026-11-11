@@ -5,6 +5,7 @@ import { UserPlus, Briefcase, Radio, Zap, ArrowUpRight } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 import { useTranslations } from 'next-intl'
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels'
 
 // Quick-action shortcuts. Each navigates to the page that owns the
 // relevant "create" flow. We deliberately don't try to auto-open any
@@ -26,10 +27,14 @@ const ACTIONS: Action[] = [
 
 export function QuickActions() {
   const t = useTranslations('Dashboard.quickActions')
-  
+  // Broadcasts are WhatsApp-only: no shortcut once the channel state says WhatsApp is not used.
+  const { data: channels } = useWorkspaceChannels()
+  const whatsapp = channels ? channels.enabled.includes('whatsapp') : true
+  const actions = whatsapp ? ACTIONS : ACTIONS.filter((a) => a.labelKey !== 'newBroadcast')
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {ACTIONS.map((a) => {
+      {actions.map((a) => {
         const Icon = a.icon
         return (
           <Link

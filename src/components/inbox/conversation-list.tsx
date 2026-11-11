@@ -3,6 +3,8 @@
 import './inbox.css';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { inboxPath, inScope, type InboxScope } from '@/lib/inbox/inbox-scope';
+import { savedViewChannel } from '@/lib/inbox/saved-filters';
 import {
   matchesInboxFilter,
   parseInboxFilter,
@@ -91,6 +93,12 @@ interface ConversationListProps {
   resyncToken?: number;
   /** Extra control beside the "Chats" heading (the page puts message search here). */
   headerAction?: ReactNode;
+  /**
+   * The inbox this list is in. A channel inbox loads only its channel's
+   * conversations and has no channel filter; the All view loads every
+   * channel and offers the channel filter. The number filter is WhatsApp's.
+   */
+  channel?: InboxScope;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -107,17 +115,22 @@ export function ConversationList({
   onConversationsChanged,
   resyncToken = 0,
   headerAction,
+  channel: scope = 'all',
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
   const tl = useTranslations('InboxLifecycle');
   const tn = useTranslations('whatsappNumbers');
-  // With two or more numbers each row names its number and a filter appears.
+  const tci = useTranslations('Inbox.channelInbox');
+  // With two or more numbers each WhatsApp row names its number and a filter
+  // appears; Instagram conversations have no number, so the Instagram inbox has neither.
   const { numbers } = useWhatsAppNumbers();
-  const multiNumber = numbers.length > 1;
+  const multiNumber = scope !== 'instagram' && numbers.length > 1;
   const [numberFilter, setNumberFilter] = useState<string | null>(null);
-  // Channel filter (Phase 11): offered only once an Instagram conversation is listed.
+  // Channel filter: only the All view lists more than one channel.
   const tc = useTranslations('Inbox.channel');
+  const allChannels = scope === 'all';
   const [channelFilter, setChannelFilter] = useState<ConversationChannel | null>(null);
+  const activeChannelFilter = allChannels ? channelFilter : null;
   // Disconnected numbers are offered only while listed conversations are on
   // them (history), marked "(disconnected)".
   const filterNumbers = useMemo(
@@ -171,7 +184,7 @@ export function ConversationList({
     const params = new URLSearchParams(searchParams.toString());
     if (value === 'all') params.delete('filter');
     else params.set('filter', value);
-    router.replace(`/inbox${params.size ? `?${params}` : ''}`, {
+    router.replace(`${inboxPath(scope)}${params.size ? `?${params}` : ''}`, {
       scroll: false,
     });
   };
@@ -228,10 +241,11 @@ export function ConversationList({
         sync.cursor !== null &&
         Date.now() - sync.fullAt < INBOX_FULL_RELOAD_MS;
       const startedAt = Date.now();
-      const { data, error } = await loadInboxConversations(
-        db,
-        incremental ? { updatedSince: sync.cursor! } : {}
-      );
+      const { data, error } = await loadInboxConversations(db, {
+        ...(incremental ? { updatedSince: sync.cursor! } : {}),
+        // A channel inbox reads only its channel's rows.
+        ...(scope === 'all' ? {} : { channel: scope }),
+      });
 
       if (cancelled) return;
 
@@ -263,8 +277,9 @@ export function ConversationList({
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects, the tab regains focus or the
     // server's 30-second resync arrives. Between full reloads it reads
-    // only the conversations changed since the last sync.
-  }, [resyncToken]);
+    // only the conversations changed since the last sync. `scope` is fixed
+    // for a page (each inbox is its own route).
+  }, [resyncToken, scope]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -292,12 +307,6 @@ export function ConversationList({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [conversations]);
 
-  const hasInstagram = useMemo(
-    () => conversations.some((c) => conversationChannel(c) === 'instagram'),
-    [conversations]
-  );
-  const activeChannelFilter = hasInstagram ? channelFilter : null;
-
   const tagsById = useMemo(() => {
     const m = new Map<string, Tag>();
     for (const t of tags) m.set(t.id, t);
@@ -305,7 +314,8 @@ export function ConversationList({
   }, [tags]);
 
   const baseFiltered = useMemo(() => {
-    let result = conversations;
+    // A channel inbox shows only its channel, whatever reached the list.
+    let result = allChannels ? conversations : conversations.filter((c) => inScope(scope, c));
 
     result = result.filter((c) => matchesInboxFilter(c, filter, now, myTeam ?? undefined));
 
@@ -341,7 +351,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam]);
+  }, [conversations, allChannels, scope, filter, search, selectedTagIds, selectedCompany, now, activeNumberFilter, activeChannelFilter, myTeam]);
 
   const sessionCounts = useMemo(() => {
     const active = baseFiltered.filter((c) =>
@@ -407,10 +417,11 @@ export function ConversationList({
       session: sessionFilter,
       tagIds: selectedTagIds,
       company: selectedCompany,
-      numberId: numberFilter,
+      numberId: scope === 'instagram' ? null : numberFilter,
       search,
+      channel: savedViewChannel(scope, activeChannelFilter, numberFilter),
     }),
-    [filter, sessionFilter, selectedTagIds, selectedCompany, numberFilter, search]
+    [filter, sessionFilter, selectedTagIds, selectedCompany, numberFilter, search, scope, activeChannelFilter]
   );
   const applySavedFilters = (next: InboxFilters) => {
     setSessionFilter(next.session);
@@ -418,6 +429,7 @@ export function ConversationList({
     setSelectedCompany(next.company);
     setNumberFilter(next.numberId);
     setSearch(next.search);
+    if (allChannels) setChannelFilter(next.channel);
     selectFilter(next.filter);
   };
 
@@ -493,6 +505,7 @@ export function ConversationList({
           <SavedFiltersMenu
             current={currentFilters}
             onApply={applySavedFilters}
+            scope={scope}
           />
 
           {tags.length > 0 && (
@@ -584,7 +597,7 @@ export function ConversationList({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {hasInstagram && (
+          {allChannels && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 aria-label={`${tc('filterLabel')}: ${activeChannelFilter ? tc(activeChannelFilter) : tc('all')}`}
@@ -780,7 +793,10 @@ export function ConversationList({
         ) : filtered.length === 0 ? (
           <div className="px-4 py-12 text-center">
             <p className="text-muted-foreground text-sm">
-              {t('noConversations')}
+              {/* An empty channel inbox (nothing to filter) names its channel. */}
+              {scope !== 'all' && !conversations.some((c) => inScope(scope, c))
+                ? tci(scope === 'instagram' ? 'emptyInstagram' : 'emptyWhatsapp')
+                : t('noConversations')}
             </p>
           </div>
         ) : (
@@ -795,7 +811,7 @@ export function ConversationList({
                 tl={tl}
                 now={now}
                 numbers={multiNumber ? numbers : NO_NUMBERS}
-                multiChannel={hasInstagram}
+                multiChannel={allChannels}
               />
             ))}
           </div>
@@ -815,7 +831,7 @@ interface ConversationItemProps {
   now: number;
   /** The workspace's numbers when it has two or more, else empty. */
   numbers: WhatsAppNumberDto[];
-  /** Instagram conversations are listed, so WhatsApp rows are marked too. */
+  /** The All view: every row names its channel. A channel inbox marks none. */
   multiChannel?: boolean;
 }
 
@@ -904,7 +920,7 @@ function ConversationItem({
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <LifecycleChip state={lifecycle} label={tl(lifecycle)} />
           {sla && <SlaBadge sla={sla} t={t} tl={tl} />}
-          <ChannelBadge channel={channel} showWhatsApp={multiChannel} compact />
+          {multiChannel && <ChannelBadge channel={channel} showWhatsApp compact />}
           {channel === 'whatsapp' && (
             <ConversationNumberBadge conversation={conversation} numbers={numbers} className="min-w-0" />
           )}

@@ -21,7 +21,10 @@ export interface AiConfig {
   apiKey: string
   systemPrompt: string | null
   isActive: boolean
+  /** The WhatsApp inbox auto-reply switch (ai_configs.auto_reply_enabled). */
   autoReplyEnabled: boolean
+  /** The Instagram inbox auto-reply switch (Stage 2; absent or false = off). */
+  instagramAutoReplyEnabled?: boolean
   autoReplyMaxPerConversation: number
   /** Where auto-reply hands a conversation off when the model bails: an
    *  agent's `auth.users.id`, or null to leave it unassigned (drop into

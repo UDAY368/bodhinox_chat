@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Sparkles, CheckCircle2, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
 import { canEditSettings } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,13 @@ export function AiConfig() {
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+  // Stage 2: the Instagram switch, shown only when the workspace uses Instagram.
+  const [instagramAutoReply, setInstagramAutoReply] = useState(false);
+  const { data: channels } = useWorkspaceChannels();
+  const instagramChannel = channels?.channels.instagram;
+  const showInstagram = Boolean(instagramChannel?.enabled) || instagramAutoReply;
+  const instagramConnected = instagramChannel?.connection !== undefined && instagramChannel.connection !== 'none';
+  const anyAutoReply = autoReplyEnabled || instagramAutoReply;
   const [maxPerConversation, setMaxPerConversation] = useState(3);
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
@@ -113,6 +121,7 @@ export function AiConfig() {
         setSystemPrompt(data.system_prompt ?? '');
         setIsActive(data.is_active);
         setAutoReplyEnabled(data.auto_reply_enabled);
+        setInstagramAutoReply(data.instagram_auto_reply_enabled === true);
         setMaxPerConversation(data.auto_reply_max_per_conversation ?? 3);
         setHandoffAgentId(data.handoff_agent_id ?? '');
         setHasStoredKey(Boolean(data.has_key));
@@ -194,6 +203,7 @@ export function AiConfig() {
     system_prompt: systemPrompt.trim() || null,
     is_active: isActive,
     auto_reply_enabled: autoReplyEnabled,
+    instagram_auto_reply_enabled: instagramAutoReply,
     auto_reply_max_per_conversation: maxPerConversation,
     handoff_agent_id: handoffAgentId || null,
   });
@@ -526,6 +536,26 @@ export function AiConfig() {
               />
             </div>
 
+            {showInstagram && (
+              <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {t('instagram.autoReply')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {instagramConnected || instagramAutoReply ? t('instagram.autoReplyHelp') : t('instagram.unavailable')}
+                  </p>
+                </div>
+                {/* Turning it off always works; turning it on needs the assistant on and a connected account. */}
+                <Switch
+                  checked={instagramAutoReply}
+                  onCheckedChange={setInstagramAutoReply}
+                  aria-label={t('instagram.autoReply')}
+                  disabled={disabled || (!instagramAutoReply && (!isActive || !instagramConnected))}
+                />
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-4">
               <div>
                 <Label htmlFor="ai-max">{t('maxAutoReplies')}</Label>
@@ -544,7 +574,7 @@ export function AiConfig() {
                     Math.min(20, Math.max(1, Number(e.target.value) || 1)),
                   )
                 }
-                disabled={disabled || !autoReplyEnabled}
+                disabled={disabled || !anyAutoReply}
                 className="w-20"
               />
             </div>
@@ -559,7 +589,7 @@ export function AiConfig() {
                 onValueChange={(v) =>
                   setHandoffAgentId(!v || v === HANDOFF_QUEUE ? '' : v)
                 }
-                disabled={disabled || !autoReplyEnabled}
+                disabled={disabled || !anyAutoReply}
               >
                 <SelectTrigger id="ai-handoff">
                   <SelectValue />

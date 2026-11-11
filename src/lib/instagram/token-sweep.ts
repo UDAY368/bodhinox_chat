@@ -65,6 +65,7 @@ interface SweepRow {
   access_token_enc: string | null;
   token_refreshed_at: Date | null;
   token_expires_at: Date | null;
+  connection_kind: string | null;
 }
 
 export interface TokenSweepSummary { refreshed: number; checked: number; failures: number }
@@ -73,6 +74,8 @@ export interface TokenSweepSummary { refreshed: number; checked: number; failure
 async function refreshIfDue(accountId: string, row: SweepRow, now: number): Promise<'refreshed' | 'skipped' | 'invalid'> {
   const refreshedAt = row.token_refreshed_at?.getTime() ?? 0;
   const expiresAt = row.token_expires_at?.getTime() ?? 0;
+  // A Facebook Page token is not refreshed through Instagram Login (and does not expire): health only.
+  if (row.connection_kind === 'facebook_page') return 'skipped';
   if (!row.access_token_enc || now - refreshedAt < REFRESH_MIN_AGE_MS || expiresAt - now > REFRESH_WITHIN_MS) return 'skipped';
   const oldEnc = row.access_token_enc;
   const token = readToken(row);
@@ -103,7 +106,7 @@ export async function sweepInstagramTokens(accountId: string, now: number = Date
   const summary: TokenSweepSummary = { refreshed: 0, checked: 0, failures: 0 };
   if (!instagramConfig()) return summary;
   const rows = await asWorker(accountId, (tx) => tx.$queryRaw<SweepRow[]>`
-    SELECT id::text AS id, status, access_token_enc, token_refreshed_at, token_expires_at FROM instagram_accounts
+    SELECT id::text AS id, status, access_token_enc, token_refreshed_at, token_expires_at, connection_kind FROM instagram_accounts
     WHERE account_id=${accountId}::uuid AND status IN ('active','permission_missing')
     ORDER BY id LIMIT 50`);
   for (const row of rows) {

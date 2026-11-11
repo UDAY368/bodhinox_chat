@@ -84,7 +84,24 @@
     "ads": "Anúncios",
     "appointments": "Agendamentos",
     "catalogue": "Catálogo",
-    "storeSettings": "Configurações da loja"
+    "storeSettings": "Configurações da loja",
+    "groups": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "workspace": "Espaço de trabalho",
+      "needsAttention": "Precisa de atenção"
+    },
+    "allInboxes": "Todas as caixas",
+    "templates": "Modelos",
+    "comments": "Comentários",
+    "conversationStarters": "Iniciadores de conversa",
+    "defaultReply": "Resposta padrão",
+    "quickAutomations": "Automações rápidas",
+    "addInstagram": "Adicionar Instagram",
+    "upgrade": "Fazer upgrade",
+    "refLinks": "Links ref",
+    "menu": "Menu",
+    "insights": "Insights"
   },
   "Header": {
     "dashboard": "Painel",
@@ -111,7 +128,16 @@
     "products": "Produtos",
     "payments": "Pagamentos",
     "ads": "Anúncios",
-    "appointments": "Agendamentos"
+    "appointments": "Agendamentos",
+    "allInboxes": "Todas as caixas",
+    "templates": "Modelos",
+    "comments": "Comentários",
+    "conversationStarters": "Iniciadores de conversa",
+    "defaultReply": "Resposta padrão",
+    "quickAutomations": "Automações rápidas",
+    "refLinks": "Links ref",
+    "menu": "Menu",
+    "insights": "Insights"
   },
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
@@ -312,6 +338,11 @@
         "templates": "Crie um modelo de mensagem",
         "automation": "Crie um fluxo ou uma automação",
         "team": "Convide um colega"
+      },
+      "instagram": {
+        "connect": "Conecte sua conta do Instagram",
+        "allowMessages": "Ative \"Permitir acesso às mensagens\" no Instagram",
+        "firstCommentAutomation": "Crie sua primeira automação de comentários"
       }
     }
   },
@@ -688,6 +719,99 @@
       "byteCounter": "{used} / {max} bytes",
       "notOnChannel": "Não disponível no Instagram",
       "openSettings": "Abrir configurações do Instagram"
+    },
+    "channelInbox": {
+      "whatsappTitle": "Caixa de entrada do WhatsApp",
+      "instagramTitle": "Caixa de entrada do Instagram",
+      "allTitle": "Todas as caixas",
+      "emptyWhatsapp": "Ainda não há conversas do WhatsApp.",
+      "emptyInstagram": "Ainda não há conversas do Instagram.",
+      "openingConversation": "Abrindo a conversa…"
+    },
+    "reminders": {
+      "title": "Lembretes",
+      "add": "Lembrar-me",
+      "save": "Criar lembrete",
+      "remindAt": "Lembrar-me em",
+      "note": "Nota (opcional)",
+      "notePlaceholder": "O que acompanhar",
+      "noteTooLong": "Mantenha a nota abaixo de {max} caracteres.",
+      "presets": {
+        "oneHour": "Em 1 hora",
+        "threeHours": "Em 3 horas",
+        "tomorrow": "Amanhã de manhã",
+        "nextWeek": "Na próxima semana",
+        "custom": "Escolher um horário"
+      },
+      "snooze": "Adiar",
+      "snoozeHelp": "Oculta esta conversa da sua lista aberta até o horário escolhido.",
+      "snoozedUntil": "Adiada até {when}",
+      "wake": "Reativar agora",
+      "reminderAt": "Lembrete {when}",
+      "due": "Vence agora",
+      "dismiss": "Dispensar",
+      "cancel": "Cancelar lembrete",
+      "folder": "Lembretes",
+      "empty": "Nenhum lembrete. Crie um em qualquer conversa.",
+      "notification": {
+        "title": "Lembrete",
+        "body": "Hora de retomar uma conversa."
+      },
+      "errors": {
+        "past": "Escolha um horário futuro.",
+        "tooFar": "Um lembrete pode ser definido com até um ano de antecedência.",
+        "notFound": "Este lembrete não existe mais.",
+        "failed": "Não foi possível salvar o lembrete. Tente novamente.",
+        "forbidden": "Sua função não pode criar lembretes."
+      }
+    },
+    "scheduled": {
+      "title": "Respostas agendadas",
+      "schedule": "Agendar envio",
+      "sendAt": "Enviar em",
+      "confirm": "Agendar",
+      "scheduledFor": "Agendado para {when}",
+      "change": "Alterar o horário",
+      "cancel": "Cancelar agendamento",
+      "empty": "Nenhuma resposta agendada nesta conversa.",
+      "hintWhatsapp": "Enviada somente se a janela de 24 horas ainda estiver aberta nesse horário. Se tiver fechado, a mensagem é ignorada e você pode enviar um modelo.",
+      "hintInstagram": "As respostas do Instagram podem ser agendadas com até 7 dias de antecedência, e somente se o horário estiver dentro da janela de mensagens. Se a janela tiver fechado, a mensagem é ignorada.",
+      "status": {
+        "pending": "Agendado",
+        "sending": "Enviando",
+        "sent": "Enviado",
+        "failed": "Falhou",
+        "unknown": "Requer verificação",
+        "cancelled": "Cancelado",
+        "skipped": "Ignorado"
+      },
+      "reason": {
+        "window_closed": "A janela de mensagens estava fechada.",
+        "conversation_closed": "A conversa estava encerrada.",
+        "channel_off": "O canal estava desativado.",
+        "human_agent_off": "Respostas após 24 horas não estão disponíveis.",
+        "send_failed": "Não foi possível enviar a mensagem."
+      },
+      "reconcile": {
+        "title": "Verifique esta mensagem",
+        "body": "Não foi possível confirmar se esta mensagem foi enviada. Verifique a conversa antes de enviar algo novamente.",
+        "markSent": "Foi enviada",
+        "markFailed": "Não foi enviada"
+      },
+      "errors": {
+        "past": "Escolha um horário futuro.",
+        "tooFarWhatsapp": "As respostas podem ser agendadas com até 30 dias de antecedência.",
+        "tooFarInstagram": "As respostas do Instagram podem ser agendadas com até 7 dias de antecedência.",
+        "windowClosed": "A janela de mensagens do Instagram estará fechada nesse horário.",
+        "humanAgentOff": "Respostas do Instagram após 24 horas ainda não estão disponíveis.",
+        "empty": "Escreva uma mensagem para agendar.",
+        "tooLongInstagram": "As mensagens do Instagram podem ter no máximo 1000 bytes.",
+        "tooLong": "Essa mensagem é muito longa.",
+        "notFound": "Esta resposta agendada não existe mais.",
+        "notPending": "Já foi enviada ou cancelada.",
+        "failed": "Não foi possível agendar a resposta. Tente novamente.",
+        "forbidden": "Sua função não pode agendar respostas."
+      }
     }
   },
   "Contacts": {
@@ -1016,7 +1140,10 @@
         "campaign": "Campanha",
         "ad": "Clicou em um anúncio",
         "lead_form": "Formulário de cadastro",
-        "instagram": "Identidade do Instagram"
+        "instagram": "Identidade do Instagram",
+        "instagram_profile": "Perfil do Instagram",
+        "instagram_followers": "Seguidores no Instagram",
+        "instagram_window": "Janela de 24 horas do Instagram"
       },
       "ops": {
         "has_any": "tem alguma de",
@@ -1035,7 +1162,14 @@
         "submitted_any": "enviou",
         "submitted_none": "nunca enviou",
         "has_identity": "tem uma identidade do Instagram",
-        "has_no_identity": "não tem identidade do Instagram"
+        "has_no_identity": "não tem identidade do Instagram",
+        "is_true": "é sim",
+        "is_false": "é não",
+        "is_unknown": "ainda não se sabe",
+        "at_least": "pelo menos",
+        "at_most": "no máximo",
+        "open": "está aberta (escreveu nas últimas 24 horas)",
+        "closed": "foi encerrada"
       },
       "noLists": "Ainda não há listas",
       "campaignLabel": "Campanha",
@@ -1055,7 +1189,15 @@
       "anyAd": "qualquer anúncio",
       "formIdsLabel": "Formulários de cadastro",
       "anyForm": "qualquer formulário",
-      "formIdsPlaceholder": "Qualquer formulário, ou IDs de formulários separados por vírgulas"
+      "formIdsPlaceholder": "Qualquer formulário, ou IDs de formulários separados por vírgulas",
+      "igFactLabel": "Detalhe do Instagram",
+      "igFacts": {
+        "follows_business": "Segue você",
+        "business_follows": "Você segue a pessoa",
+        "is_verified": "É verificado"
+      },
+      "followersLabel": "Seguidores",
+      "igFreshness": "Os dados do Instagram são atualizados em segundo plano cerca de uma vez por semana, então podem estar um pouco desatualizados."
     },
     "identity": {
       "title": "Identidades de canal",
@@ -1834,6 +1976,18 @@
         "oncePerContact": "Executar uma vez por contato",
         "oncePerContactHint": "Pula os contatos para os quais esta automação já foi executada."
       }
+    },
+    "channelSection": {
+      "whatsappTitle": "Automações do WhatsApp",
+      "instagramTitle": "Automações do Instagram",
+      "whatsappDescription": "Regras executadas quando algo acontece no WhatsApp.",
+      "instagramDescription": "Regras executadas quando algo acontece no Instagram.",
+      "runsOn": "Executa no {channel}",
+      "locked": "Uma automação permanece no seu canal. Duplique-a para usá-la em outro canal.",
+      "disabled": "O {channel} está desativado. Ative-o para ativar esta automação.",
+      "instagramWindowHint": "As automações do Instagram só podem responder em até 24 horas após a última mensagem do cliente.",
+      "unavailableOnChannel": "Isso não está disponível no {channel}.",
+      "invalidChannel": "Escolha WhatsApp ou Instagram."
     }
   },
   "Flows": {
@@ -1905,7 +2059,17 @@
       "creatorTeammate": "um colega de equipe",
       "triggerOrderReceived": "Dispara com: um carrinho do WhatsApp",
       "triggerAdClick": "Dispara com: um clique em {count, plural, one {# anúncio escolhido} other {# anúncios escolhidos}}",
-      "triggerAdClickAny": "Dispara com: um clique em qualquer anúncio"
+      "triggerAdClickAny": "Dispara com: um clique em qualquer anúncio",
+      "triggerDefaultReply": "Dispara com: uma mensagem que nenhum outro fluxo responde",
+      "triggerIgCommentAny": "Dispara com: um comentário em qualquer publicação",
+      "triggerIgCommentSpecific": "Dispara com: um comentário em {count, plural, one {# publicação escolhida} other {# publicações escolhidas}}",
+      "triggerIgCommentNext": "Dispara com: um comentário na sua próxima publicação",
+      "triggerIgStoryReply": "Dispara com: uma resposta ao seu story",
+      "triggerIgStoryMention": "Dispara com: uma menção no story de alguém",
+      "triggerIgLiveComment": "Dispara com: um comentário na sua live",
+      "triggerIgRef": "Dispara com: link ref {refs}",
+      "triggerIgRefNone": "Dispara com: um link ref (ainda sem chaves)",
+      "triggerIgShareToStory": "Dispara com: uma publicação compartilhada no story de alguém"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -2226,7 +2390,8 @@
         "storefrontNext": "Próxima etapa após o envio",
         "storefrontFailedNext": "Se o link não puder ser enviado",
         "flowStatusPaused": "pausado",
-        "removeButton": "Remover botão"
+        "removeButton": "Remover botão",
+        "audioLabel": "Áudio (AAC, M4A; MP3 e OGG só no WhatsApp)"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -2341,6 +2506,22 @@
         "send_storefront_link": {
           "label": "Link da loja",
           "blurb": "Envia ao contato um link seguro para a sua loja ou para o último pedido dele"
+        },
+        "ig_comment_reply": {
+          "label": "Responder ao comentário",
+          "blurb": "Publica uma resposta pública abaixo do comentário"
+        },
+        "ig_private_reply": {
+          "label": "Resposta privada",
+          "blurb": "Envia a primeira DM para quem comentou"
+        },
+        "send_card": {
+          "label": "Enviar cartão",
+          "blurb": "Envia um cartão com imagem, título e botões"
+        },
+        "send_gallery": {
+          "label": "Enviar galeria",
+          "blurb": "Envia até 10 cartões que dá para deslizar"
         }
       },
       "ports": {
@@ -2397,7 +2578,8 @@
         "media": {
           "image": "Foto",
           "video": "Vídeo",
-          "document": "Documento"
+          "document": "Documento",
+          "audio": "Áudio"
         },
         "notes": {
           "delay": "Aguarda {seconds, plural, one {# segundo} other {# segundos}}",
@@ -2485,7 +2667,15 @@
         "commerce": "Ative o checkout da loja para usar esta etapa.",
         "meetings": "Conecte o Zoom para usar esta etapa.",
         "shipping": "Conecte uma transportadora para usar esta etapa."
-      }
+      },
+      "triggerDefaultReplyTitle": "Uma mensagem que nenhum outro fluxo responde (resposta padrão)",
+      "triggerIgCommentTitle": "Alguém comenta sua publicação",
+      "triggerIgStoryReplyTitle": "Alguém responde ao seu story",
+      "triggerIgStoryMentionTitle": "Alguém menciona você no story",
+      "triggerIgLiveCommentTitle": "Alguém comenta na sua live",
+      "triggerIgRefTitle": "Alguém abre uma conversa pelo seu link ref",
+      "adClickTriggerHelpInstagram": "Começa quando alguém envia uma mensagem a partir de um anúncio que abre o Instagram Direct, antes de qualquer fluxo por palavra-chave. Um fluxo ativo na conversa continua.",
+      "triggerIgShareToStoryTitle": "Alguém compartilha sua publicação no story"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -2508,7 +2698,8 @@
       "statusUpdateFailed": "Falha ao atualizar o status",
       "deleteFailedStatus": "Falha ao excluir: {status}",
       "deleteFailed": "Falha ao excluir",
-      "statusPaused": "Pausado. Novas conversas não iniciam mais este fluxo."
+      "statusPaused": "Pausado. Novas conversas não iniciam mais este fluxo.",
+      "defaultOptInLabel": "Me envie o link"
     },
     "summary": {
       "options": "{count} {count, plural, =1 {opção} other {opções}}",
@@ -2541,7 +2732,9 @@
       "appointmentServices": "{count, plural, one {# serviço} other {# serviços}}",
       "paymentOrder": "Cobra o pedido do fluxo",
       "storefrontShop": "Link da loja",
-      "storefrontStatus": "Link do status do pedido"
+      "storefrontStatus": "Link do status do pedido",
+      "commentReplies": "{count, plural, one {# resposta} other {# respostas}}, em rodízio",
+      "cards": "{count, plural, one {# cartão} other {# cartões}}"
     },
     "header": {
       "backToFlows": "Voltar aos fluxos",
@@ -2718,6 +2911,192 @@
         "already_sent": "A mensagem desta etapa já foi enviada.",
         "conversation_busy": "Outro fluxo está em execução nesta conversa.",
         "contact_opted_out": "O contato respondeu STOP depois que esta execução falhou, então ela não será repetida."
+      }
+    },
+    "channelSection": {
+      "whatsappTitle": "Fluxos do WhatsApp",
+      "instagramTitle": "Fluxos do Instagram",
+      "whatsappDescription": "Fluxos visuais que são executados nos seus números do WhatsApp.",
+      "instagramDescription": "Fluxos visuais que são executados na sua conta do Instagram.",
+      "chipWhatsapp": "Fluxo do WhatsApp",
+      "chipInstagram": "Fluxo do Instagram",
+      "bothChannels": "Ambos os canais",
+      "bothChannelsHelp": "Este fluxo é executado no WhatsApp e no Instagram. Divida-o para editar cada canal separadamente.",
+      "split": "Dividir em cópias do WhatsApp e do Instagram",
+      "splitDone": "Foram criadas uma cópia do WhatsApp e outra do Instagram. Arquive o original quando quiser.",
+      "splitFailed": "Não foi possível dividir este fluxo. Tente novamente.",
+      "locked": "Um fluxo publicado permanece no seu canal. Duplique-o para usá-lo em outro canal.",
+      "disabled": "O {channel} está desativado. Ative-o para publicar este fluxo.",
+      "triggerUnavailable": "Este gatilho não está disponível no {channel}",
+      "nodeUnavailable": "{node} não está disponível no {channel}",
+      "anyNotAllowed": "Um fluxo novo é executado no WhatsApp ou no Instagram. Escolha um.",
+      "channelInvalid": "Escolha WhatsApp ou Instagram.",
+      "templateUnavailable": "Este modelo não funciona no {channel}.",
+      "previewSubtitleInstagram": "O que um cliente vê no Direct do Instagram. Nada é enviado.",
+      "moveTo": "Mover este rascunho para"
+    },
+    "triggers": {
+      "frequency": {
+        "label": "Com que frequência",
+        "everyTime": "Sempre",
+        "oncePer24h": "Uma vez a cada 24 horas por pessoa"
+      },
+      "needsMessageAccess": "Os clientes precisam ativar “Permitir acesso às mensagens” no Instagram; caso contrário, esses gatilhos não funcionam.",
+      "defaultReply": {
+        "help": "É executado quando uma mensagem não inicia nenhum outro fluxo e nenhum fluxo está aguardando resposta.",
+        "oneOnly": "Só pode haver uma resposta padrão ativa por canal."
+      },
+      "igComment": {
+        "help": "Começa quando alguém comenta sua publicação. Cada pessoa o inicia uma vez por publicação.",
+        "account": "Conta do Instagram",
+        "anyAccount": "Todas as contas conectadas",
+        "postScope": "Quais publicações",
+        "postAny": "Qualquer publicação",
+        "postSpecific": "Publicações específicas",
+        "postNext": "Sua próxima publicação",
+        "postNextHelp": "Vale para a primeira publicação que você fizer depois de salvar.",
+        "choosePosts": "Escolher publicações",
+        "postsChosen": "{count, plural, one {# publicação escolhida} other {# publicações escolhidas}}",
+        "noPosts": "Nenhuma publicação encontrada. Publique algo no Instagram primeiro.",
+        "postsLoadFailed": "Não foi possível carregar suas publicações. Tente novamente.",
+        "includeKeywords": "Somente comentários com estas palavras",
+        "includeHelp": "Deixe vazio para começar com qualquer comentário.",
+        "excludeKeywords": "Ignorar comentários com estas palavras",
+        "modeContains": "Contém",
+        "modeExact": "É exatamente",
+        "publicReplies": "Respostas públicas",
+        "publicRepliesHelp": "Opcional. A cada vez, uma é escolhida e publicada abaixo do comentário. Até {max}.",
+        "addPublicReply": "Adicionar resposta",
+        "publicReplyPlaceholder": "Obrigado! Confira sua DM",
+        "tooManyKeywords": "Use no máximo {max} palavras-chave.",
+        "badPostScope": "Escolha em quais publicações este fluxo escuta.",
+        "needsPosts": "Escolha pelo menos uma publicação.",
+        "badPostIds": "Escolha no máximo {max} publicações da sua conta.",
+        "needsNextAfter": "Escolha “Sua próxima publicação” de novo para o fluxo saber qual é a próxima.",
+        "keywordTooLong": "Cada palavra-chave deve ter menos de {max} caracteres.",
+        "tooManyPublicReplies": "Use no máximo {max} respostas públicas.",
+        "publicReplyTooLong": "Escreva cada resposta pública com menos de {max} caracteres.",
+        "badAccount": "Escolha uma conta do Instagram conectada.",
+        "chooseAccountFirst": "Escolha uma conta do Instagram para selecionar as publicações dela.",
+        "loadingPosts": "Carregando publicações…",
+        "untitledPost": "Publicação sem legenda",
+        "retry": "Tentar novamente",
+        "replyN": "Resposta pública {n}",
+        "removeReply": "Remover a resposta pública {n}",
+        "matchMode": "Como as palavras correspondem"
+      },
+      "igStoryReply": {
+        "help": "Começa quando alguém responde a um dos seus stories.",
+        "anyStory": "Qualquer story",
+        "specificStories": "Stories específicos",
+        "storyIds": "IDs dos stories",
+        "keywords": "Somente respostas com estas palavras",
+        "keywordsHelp": "Deixe vazio para começar com qualquer resposta.",
+        "reactions": "Também começar com reações de emoji",
+        "badStoryIds": "Os IDs de story devem ser números, no máximo {max}.",
+        "badKeywords": "Use no máximo {max} palavras-chave, cada uma com menos de {chars} caracteres.",
+        "storyIdsHelp": "Cole os IDs dos stories, separados por vírgulas. Até {max}."
+      },
+      "igStoryMention": {
+        "help": "Começa quando alguém menciona sua conta no story.",
+        "badFrequency": "Escolha com que frequência este fluxo roda para cada pessoa."
+      },
+      "igLiveComment": {
+        "help": "Começa quando alguém comenta na sua live do Instagram enquanto você está ao vivo. Cada pessoa o inicia uma vez por transmissão. A primeira mensagem é uma resposta privada ao comentário.",
+        "keywords": "Só comentários com estas palavras",
+        "keywordsHelp": "Deixe vazio para começar com qualquer comentário.",
+        "liveOnly": "O Instagram envia comentários da live só enquanto a transmissão está no ar.",
+        "badKeywords": "Use no máximo {max} palavras-chave, cada uma com menos de {chars} caracteres.",
+        "badAccount": "Escolha uma conta do Instagram conectada."
+      },
+      "igRef": {
+        "help": "Começa quando alguém abre uma conversa com você por um dos seus links ref. Compartilhe o link na bio, em um story ou em qualquer lugar.",
+        "keys": "Chaves ref",
+        "keysPlaceholder": "promo-verao",
+        "keysHelp": "Letras, números, hifens e sublinhados. Até {max} chaves.",
+        "tooManyKeys": "Use no máximo {max} chaves.",
+        "needsKeys": "Adicione pelo menos uma chave ref.",
+        "badKeys": "Use no máximo {max} chaves com letras, números, hifens e sublinhados, cada uma com menos de 64 caracteres.",
+        "keyTaken": "Outro fluxo ativo já usa a chave “{key}”.",
+        "links": "Links para compartilhar",
+        "copyLink": "Copiar o link de {key}",
+        "copied": "Link copiado.",
+        "copyFailed": "Não foi possível copiar o link. Selecione e copie.",
+        "chooseAccountForLinks": "Escolha uma conta do Instagram com nome de usuário para ver os links.",
+        "badAccount": "Escolha uma conta do Instagram conectada."
+      }
+    },
+    "nodes": {
+      "windowHint": "As mensagens do Instagram só podem ser enviadas até 24 horas após a última mensagem do cliente.",
+      "igCommentReply": {
+        "help": "Publica uma destas respostas abaixo do comentário que iniciou o fluxo. Enviada uma vez por comentário.",
+        "replies": "Respostas",
+        "addReply": "Adicionar resposta",
+        "maxReplies": "Até {max} respostas; uma é escolhida a cada vez.",
+        "tooLong": "Cada resposta deve ter menos de {max} caracteres.",
+        "onlyCommentFlows": "Só funciona em um fluxo iniciado por um comentário.",
+        "needsReply": "Adicione pelo menos uma resposta.",
+        "replyN": "Resposta {n}",
+        "removeReply": "Remover a resposta {n}"
+      },
+      "igPrivateReply": {
+        "help": "A primeira mensagem para quem comentou. O Instagram permite uma resposta privada por comentário, em até 7 dias.",
+        "text": "Mensagem",
+        "optIn": "Botão de abertura",
+        "optInHelp": "O fluxo aguarda este toque. Ele abre a conversa para que as próximas mensagens possam ser enviadas.",
+        "optInPlaceholder": "Me envie o link",
+        "firstOnly": "Deve ser a primeira etapa de um fluxo de comentários.",
+        "noInput": "Uma resposta privada não pode fazer perguntas nem esperar antes do envio.",
+        "textRequired": "Escreva a mensagem.",
+        "textTooLong": "A mensagem deve ter menos de {max} bytes.",
+        "optInTooLong": "O texto do botão deve ter menos de {max} caracteres.",
+        "onlyOne": "Um comentário recebe uma única resposta privada. Use esta etapa uma vez em cada caminho.",
+        "noDmWithoutOptIn": "O Instagram não deixa passar mais mensagens até a pessoa responder. Adicione um botão de abertura à resposta privada.",
+        "bytesLeft": "{count, plural, one {Resta # byte} other {Restam # bytes}}"
+      },
+      "card": {
+        "title": "Título",
+        "subtitle": "Subtítulo",
+        "image": "Imagem",
+        "imageHelp": "PNG ou JPEG de um link https.",
+        "link": "Link ao tocar no cartão",
+        "buttons": "Botões",
+        "addButton": "Adicionar botão",
+        "buttonTypeUrl": "Abrir um link",
+        "buttonTypePostback": "Ir para uma etapa",
+        "buttonTitle": "Texto do botão",
+        "buttonUrl": "Link",
+        "maxButtons": "Até {max} botões.",
+        "titleRequired": "Adicione um título.",
+        "titleTooLong": "O título deve ter menos de {max} caracteres.",
+        "subtitleTooLong": "O subtítulo deve ter menos de {max} caracteres.",
+        "badUrl": "Use um link https.",
+        "buttonInvalid": "Cada botão precisa de um texto com menos de {max} caracteres e de um link ou uma etapa de destino.",
+        "routesAndNext": "Um cartão com botões “Ir para uma etapa” espera um toque. Remova o link Próximo.",
+        "urlInvalid": "Use um link completo começando com https://.",
+        "buttonType": "O que o botão faz"
+      },
+      "gallery": {
+        "cards": "Cartões",
+        "addCard": "Adicionar cartão",
+        "removeCard": "Remover cartão",
+        "maxCards": "Até {max} cartões.",
+        "cardN": "Cartão {n}",
+        "needsCard": "Adicione pelo menos um cartão."
+      },
+      "buttons": {
+        "linkButtons": "Botões de link",
+        "addLinkButton": "Adicionar botão de link",
+        "linkButtonsHelp": "Só no Instagram. Tocar em um link não continua o fluxo.",
+        "maxButtons": "Até {max} botões no total.",
+        "replyHelp": "Um toque continua o fluxo pelo caminho desse botão.",
+        "badLink": "Cada botão de link precisa de um texto com menos de {max} caracteres e de um link https.",
+        "textTooLong": "Com botões de link, a mensagem deve ter menos de {max} caracteres.",
+        "linkOnlyInstagram": "Os botões de link funcionam só no Instagram."
+      },
+      "igProfile": {
+        "onlyInstagram": "As verificações do perfil do Instagram só funcionam em fluxos do Instagram.",
+        "badFact": "Escolha um dado do perfil do Instagram para verificar."
       }
     }
   },
@@ -3445,7 +3824,13 @@
       "openRouterHint": "Estas opções usam modelos gratuitos. IDs manuais podem ter um preço. Modelos gratuitos têm limites e podem ficar indisponíveis. A chave é criptografada nas configurações, nunca no código-fonte.",
       "baseUrl": "URL base",
       "baseUrlHint": "URL base da API compatível com OpenAI, por exemplo https://api.groq.com/openai/v1. O caminho /chat/completions é adicionado automaticamente, a menos que você informe esse caminho.",
-      "missingBaseUrl": "Informe a URL base da API compatível com OpenAI."
+      "missingBaseUrl": "Informe a URL base da API compatível com OpenAI.",
+      "instagram": {
+        "title": "Instagram",
+        "autoReply": "Responder automaticamente às mensagens do Instagram",
+        "autoReplyHelp": "Usa o mesmo agente de IA. Só responde até 24 horas após a última mensagem do cliente.",
+        "unavailable": "Conecte o Instagram para ativar."
+      }
     },
     "aiKnowledge": {
       "loadFailed": "Falha ao carregar a base de conhecimento",
@@ -3547,6 +3932,14 @@
       "notifications": {
         "disabledTitle": "O webhook para {host} foi desativado",
         "disabledBody": "As entregas para {host} falharam por {hours} horas, então o Bodhinox parou de enviar eventos para lá. Corrija o destino e ative o webhook novamente em Configurações."
+      },
+      "channels": {
+        "label": "Canais",
+        "help": "Os eventos destes canais são enviados para este endpoint.",
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram",
+        "required": "Escolha pelo menos um canal.",
+        "instagramNote": "Os eventos do Instagram trazem o canal e os IDs do Instagram, nunca um número de telefone."
       }
     },
     "workspaceAttributes": {
@@ -3877,7 +4270,12 @@
       "save": "Salvar",
       "saved": "Configurações da caixa de entrada salvas",
       "saveFailed": "Não foi possível salvar as configurações da caixa de entrada",
-      "adminsOnly": "Somente administradores e proprietários podem alterar estas configurações."
+      "adminsOnly": "Somente administradores e proprietários podem alterar estas configurações.",
+      "instagramAway": {
+        "label": "Enviar a mensagem de ausência no Instagram",
+        "help": "Usa a mesma mensagem de ausência. Só é enviada até 24 horas após a mensagem do cliente.",
+        "needsMessage": "Escreva uma mensagem de ausência primeiro."
+      }
     },
     "routingRules": {
       "title": "Regras de distribuição",
@@ -9671,6 +10069,13 @@
         "net": "Líquido",
         "hint": "Pedidos pagos no período. Descontos e reembolsos do pedido são divididos entre as linhas pelo valor, então os totais podem diferir por arredondamento."
       }
+    },
+    "channel": {
+      "label": "Canal",
+      "all": "Todos os canais",
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "whatsappOnlyNote": "Os números de campanhas e modelos são só do WhatsApp."
     }
   },
   "Ads": {
@@ -11124,6 +11529,521 @@
       "contactEmail": "E-mail para dúvidas sobre privacidade, exclusão de dados e suporte:",
       "contactResponse": "Confirmamos as solicitações em até 3 dias úteis e concluímos as solicitações verificadas em até 30 dias.",
       "contactUnset": "O endereço de contato ainda não foi publicado. Os proprietários de um espaço de trabalho podem exportar ou excluir seus dados em Configurações → Privacidade e acesso."
+    }
+  },
+  "Channels": {
+    "names": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram"
+    },
+    "states": {
+      "off": "Desativado",
+      "setup": "Não conectado",
+      "live": "Conectado",
+      "attention": "Precisa de atenção",
+      "unavailable": "Indisponível"
+    },
+    "picker": {
+      "title": "Quais canais você usa?",
+      "description": "Cada canal tem sua própria caixa de entrada, fluxos e automações. Você pode mudar isso depois em Configurações.",
+      "whatsappTitle": "WhatsApp",
+      "whatsappDescription": "Conversas, disparos, modelos e formulários no seu número do WhatsApp.",
+      "instagramTitle": "Instagram",
+      "instagramDescription": "Mensagens diretas, respostas a comentários e a stories na sua conta do Instagram.",
+      "bothTitle": "Ambos",
+      "bothDescription": "WhatsApp e Instagram, cada um em sua própria seção, com uma lista de contatos compartilhada.",
+      "choose": "Usar esta opção",
+      "comingSoon": "Em breve",
+      "upgrade": "Fazer upgrade",
+      "waitingForAdmin": "Seu administrador ainda não escolheu os canais.",
+      "saving": "Salvando…"
+    },
+    "settings": {
+      "title": "Canais",
+      "description": "Ative os canais que seu espaço de trabalho usa. Cada canal tem sua própria caixa de entrada, fluxos e automações.",
+      "turnOn": "Ativar {channel}",
+      "turnOff": "Desativar {channel}",
+      "connect": "Conectar",
+      "manage": "Gerenciar",
+      "disconnectFirst": "Desconecte o {channel} antes de desativá-lo para não perder mensagens.",
+      "lastChannel": "Mantenha pelo menos um canal ativado.",
+      "adminOnly": "Somente administradores podem alterar os canais.",
+      "notIncluded": "O Instagram não está incluído no seu plano.",
+      "notAvailableYet": "O Instagram ainda não está disponível.",
+      "saved": "Canais atualizados"
+    },
+    "errors": {
+      "invalid_request": "Escolha quais canais ativar ou desativar.",
+      "channel_connected": "Desconecte o {channel} antes de desativá-lo para não perder mensagens.",
+      "last_channel": "Mantenha pelo menos um canal ativado.",
+      "plan_required": "Seu plano não inclui o {channel}. Faça upgrade para ativá-lo.",
+      "platform_off": "O {channel} ainda não está disponível.",
+      "saveFailed": "Não foi possível salvar os canais. Tente novamente.",
+      "loadFailed": "Não foi possível carregar os canais."
+    }
+  },
+  "ChannelGate": {
+    "loading": "Carregando…",
+    "loadFailed": "Não foi possível carregar esta seção.",
+    "retry": "Tentar novamente",
+    "offTitle": "O {channel} está desativado neste espaço de trabalho",
+    "offBodyAdmin": "Ative-o para usar a caixa de entrada, os fluxos e as automações dele.",
+    "offBodyMember": "Peça a um administrador para ativá-lo.",
+    "turnOn": "Ativar {channel}",
+    "askAdmin": "Peça a um administrador",
+    "unavailablePlatformTitle": "O {channel} ainda não está disponível",
+    "unavailablePlanTitle": "O {channel} não está incluído no seu plano",
+    "seePlans": "Ver planos",
+    "setupWhatsapp": "Conecte um número do WhatsApp para começar a receber mensagens.",
+    "setupInstagram": "Conecte sua conta do Instagram para começar a receber mensagens.",
+    "instagramRoutingHint": "No app do Instagram, ative \"Permitir acesso às mensagens\" e defina o Bodhinox como app padrão para mensagens.",
+    "attentionWhatsapp": "Um número do WhatsApp precisa de atenção. As mensagens podem não ser enviadas nem recebidas.",
+    "attentionInstagram": "Sua conta do Instagram precisa ser reconectada. As mensagens podem não ser enviadas nem recebidas.",
+    "connect": "Conectar",
+    "fix": "Corrigir"
+  },
+  "Instagram": {
+    "comments": {
+      "title": "Comentários",
+      "description": "Responda comentários automaticamente e envie uma mensagem privada para quem comenta.",
+      "flowsTitle": "Fluxos de comentários",
+      "noFlows": "Ainda não há fluxos de comentários.",
+      "newFlow": "Novo fluxo de comentários",
+      "legacyBadge": "Regra",
+      "convertToFlow": "Converter em fluxo",
+      "convertHelp": "Transforma esta regra em um fluxo do Instagram editável. A regra é desativada.",
+      "convertConfirm": "Converter esta regra em fluxo? A regra deixa de funcionar.",
+      "converted": "Regra convertida. O novo fluxo fica como rascunho até você publicar.",
+      "convertFailed": "Não foi possível converter esta regra. Tente novamente.",
+      "openFlow": "Abrir fluxo"
+    },
+    "starters": {
+      "title": "Iniciadores de conversa",
+      "description": "Até 4 perguntas que as pessoas podem tocar ao abrir uma conversa com você. Cada uma inicia um fluxo.",
+      "account": "Conta do Instagram",
+      "question": "Pergunta",
+      "questionPlaceholder": "Qual é o horário de funcionamento?",
+      "flow": "Fluxo a iniciar",
+      "chooseFlow": "Escolha um fluxo",
+      "noFlows": "Crie um fluxo do Instagram primeiro.",
+      "add": "Adicionar iniciador",
+      "remove": "Remover",
+      "max": "Você pode adicionar até {max} iniciadores.",
+      "save": "Salvar e publicar",
+      "saving": "Salvando…",
+      "saved": "Iniciadores de conversa atualizados no Instagram.",
+      "saveFailed": "Não foi possível atualizar o Instagram. Tente novamente.",
+      "duplicate": "Cada pergunta deve ser diferente.",
+      "tooLong": "As perguntas devem ter menos de {max} caracteres.",
+      "empty": "Ainda não há iniciadores de conversa.",
+      "adminOnly": "Só administradores podem alterar os iniciadores de conversa.",
+      "notConnected": "Conecte uma conta do Instagram para adicionar iniciadores de conversa.",
+      "flowMissing": "O fluxo vinculado foi excluído ou não é um fluxo do Instagram.",
+      "replacesExisting": "Salvar substitui os iniciadores de conversa configurados em outro app para esta conta."
+    },
+    "defaultReply": {
+      "title": "Resposta padrão",
+      "description": "Responda às mensagens que nenhum outro fluxo atende.",
+      "flow": "Fluxo de resposta padrão",
+      "noFlow": "Ainda não há resposta padrão.",
+      "create": "Criar resposta padrão",
+      "edit": "Editar fluxo",
+      "active": "Ativada",
+      "inactive": "Desativada",
+      "saved": "Resposta padrão atualizada.",
+      "saveFailed": "Não foi possível salvar a resposta padrão. Tente novamente.",
+      "adminOnly": "Só administradores podem alterar a resposta padrão."
+    },
+    "quickAutomations": {
+      "title": "Automações rápidas",
+      "description": "Responda a algumas perguntas e receba um fluxo pronto para editar.",
+      "wizards": "Configurações guiadas",
+      "templates": "Modelos",
+      "useTemplate": "Usar modelo",
+      "start": "Começar",
+      "back": "Voltar",
+      "next": "Próximo",
+      "finish": "Criar fluxo",
+      "creating": "Criando…",
+      "created": "Rascunho de fluxo criado. Revise e publique quando estiver pronto.",
+      "createFailed": "Não foi possível criar o fluxo. Tente novamente.",
+      "empty": "Ainda não há modelos.",
+      "commentLinks": {
+        "title": "Enviar links por DM a partir de comentários",
+        "description": "Envie um link para todos que comentarem uma palavra-chave."
+      },
+      "growFollowers": {
+        "title": "Ganhe seguidores com comentários",
+        "description": "Peça para seguirem você antes de enviar a recompensa."
+      },
+      "storyLeads": {
+        "title": "Leads a partir de respostas a stories",
+        "description": "Colete e-mails de quem responde ao seu story."
+      },
+      "keyword": "Palavra-chave",
+      "keywordHelp": "Deixe vazio para responder a todos os comentários.",
+      "post": "Publicação",
+      "anyPost": "Qualquer publicação",
+      "nextPost": "Próxima publicação",
+      "message": "Mensagem",
+      "link": "Link",
+      "linkLabel": "Texto do botão",
+      "reward": "Link da recompensa",
+      "followPrompt": "Mensagem pedindo para seguir",
+      "followedButton": "Já segui",
+      "emailPrompt": "Pergunta pedindo o e-mail",
+      "templatesHelp": "Modelos feitos para o Instagram. Adicione seus próprios links antes de publicar.",
+      "cancel": "Cancelar",
+      "publicReply": "Resposta pública",
+      "publicReplyHelp": "Publicada sob cada comentário correspondente. Deixe vazio para responder só por DM.",
+      "optInLabel": "Botão da DM de abertura",
+      "optInHelp": "Ao tocar, a pessoa recebe sua DM, e assim você pode escrever para ela. Até 20 caracteres.",
+      "cardTitle": "Mensagem do link",
+      "rewardTitle": "Mensagem da recompensa",
+      "rewardButton": "Texto do botão da recompensa",
+      "followedButtonLabel": "Botão depois de seguir",
+      "followGateNote": "A verificação de seguidor lê o perfil do Instagram da pessoa sempre que ela chega nesse passo.",
+      "emailError": "Mensagem quando o e-mail parece errado",
+      "thanks": "Mensagem de agradecimento",
+      "storyKeyword": "Palavra-chave na resposta",
+      "storyKeywordHelp": "Deixe vazio para responder a todas as respostas ao story.",
+      "reactions": "Responder também às reações com emoji ao seu story",
+      "flowName": "{title}: {keyword}",
+      "noPermission": "Leitores não podem criar fluxos. Peça a um agente ou administrador.",
+      "categories": {
+        "instagram_comments": "Comentários",
+        "instagram_growth": "Crescimento",
+        "instagram_stories": "Stories",
+        "instagram_dms": "DMs"
+      },
+      "errors": {
+        "invalid": "Confira o formulário e tente novamente.",
+        "channelDisabled": "O Instagram está desativado neste espaço de trabalho. Ative-o para criar fluxos do Instagram.",
+        "planRequired": "Seu plano não inclui o Instagram. Faça upgrade para usar as automações rápidas.",
+        "keywords": "Use até 50 palavras-chave, cada uma com até 100 caracteres.",
+        "posts": "Escolha em quais publicações escutar.",
+        "text": "Escreva uma mensagem de até 1000 bytes.",
+        "button": "Use de 1 a 20 caracteres.",
+        "title": "Use de 1 a 80 caracteres.",
+        "url": "Informe um link completo que comece com https://.",
+        "publicReply": "A resposta pública pode ter até 2200 caracteres."
+      },
+      "defaults": {
+        "commentLinks": {
+          "publicReply": "Te enviamos uma DM 📩",
+          "message": "Obrigado pelo comentário! Toque abaixo e eu te envio o link.",
+          "optInLabel": "Me envie o link",
+          "cardTitle": "Aqui está o link que você pediu",
+          "linkLabel": "Abrir link"
+        },
+        "growFollowers": {
+          "publicReply": "Confira suas DMs 🎁",
+          "message": "Sua recompensa está pronta! Toque abaixo para receber.",
+          "optInLabel": "Quero",
+          "followPrompt": "Isto é para nossos seguidores. Siga a gente e depois toque no botão abaixo.",
+          "followedButton": "Já sigo",
+          "rewardTitle": "Aqui está sua recompensa 🎁",
+          "rewardButton": "Pegar recompensa"
+        },
+        "storyLeads": {
+          "emailPrompt": "Obrigado por responder! Qual é o seu e-mail? Vamos te enviar os detalhes.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "thanks": "Recebido, obrigado! Entraremos em contato em breve."
+        }
+      },
+      "flows": {
+        "ig_link_drop": {
+          "name": "Enviar um link por DM a partir de comentários",
+          "description": "Alguém comenta LINK: responda sob o comentário e envie o link por DM. Adicione seu link antes de publicar.",
+          "keywords": "link",
+          "publicReply": "Te enviamos uma DM 📩",
+          "opening": "Obrigado pelo comentário! Toque abaixo e eu te envio o link.",
+          "optIn": "Me envie o link",
+          "cardTitle": "Aqui está o link que você pediu",
+          "linkButton": "Abrir link"
+        },
+        "ig_product_lineup": {
+          "name": "Vitrine de produtos a partir de comentários",
+          "description": "Alguém comenta PREÇO: envie uma galeria dos seus produtos e passe os interessados para sua equipe.",
+          "keywords": "preço",
+          "publicReply": "Confira suas DMs 🛍️",
+          "opening": "Oi! Quer ver nossos mais vendidos?",
+          "optIn": "Quero ver",
+          "product1Title": "Mais vendido",
+          "product1Subtitle": "Nosso produto mais amado",
+          "product2Title": "Novidade",
+          "product2Subtitle": "Acabou de chegar esta semana",
+          "product3Title": "Kit presente",
+          "product3Subtitle": "Pronto para presentear",
+          "pickText": "Qual chamou sua atenção?",
+          "handoffNote": "Interessado em {product} depois de comentar em uma publicação."
+        },
+        "ig_giveaway": {
+          "name": "Fazer um sorteio",
+          "description": "Alguém comenta SORTEIO: confira se a pessoa segue você e peça o e-mail para inscrevê-la.",
+          "keywords": "sorteio",
+          "publicReply": "Você está quase dentro! Confira suas DMs 🎉",
+          "opening": "Obrigado por participar do sorteio! Toque abaixo para se inscrever.",
+          "optIn": "Participar",
+          "followPrompt": "Para participar, siga nossa conta e depois toque no botão abaixo.",
+          "followedButton": "Já sigo",
+          "askEmail": "Último passo: qual é o seu e-mail? É por lá que falaremos com quem ganhar.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "entered": "Você está dentro! 🎉 Anunciaremos quem ganhou em breve. Boa sorte!"
+        },
+        "ig_follow_gate": {
+          "name": "Siga primeiro, depois o brinde",
+          "description": "Alguém comenta BRINDE: envie a recompensa assim que a pessoa seguir você. Adicione o link da recompensa antes de publicar.",
+          "keywords": "brinde",
+          "publicReply": "Enviamos na sua DM 🎁",
+          "opening": "Seu brinde está pronto! Toque abaixo para receber.",
+          "optIn": "Quero",
+          "followPrompt": "Isto é para nossos seguidores. Siga a gente e depois toque no botão abaixo.",
+          "followedButton": "Já sigo",
+          "rewardTitle": "Aqui está seu brinde 🎁",
+          "rewardButton": "Pegar o brinde"
+        },
+        "ig_to_whatsapp": {
+          "name": "Do Instagram para o WhatsApp",
+          "description": "Alguém escreve CONVERSAR NO WHATSAPP por DM: ofereça continuar a conversa no seu número do WhatsApp. Adicione seu link wa.me antes de publicar.",
+          "keywords": "conversar no whatsapp",
+          "ask": "Quer continuar esta conversa no WhatsApp?",
+          "yesButton": "Sim, WhatsApp",
+          "noButton": "Ficar aqui",
+          "cardTitle": "Continue no WhatsApp",
+          "cardSubtitle": "Toque para abrir uma conversa com a gente.",
+          "openButton": "Abrir WhatsApp",
+          "stay": "Sem problema, seguimos conversando aqui. Alguém da equipe vai responder em breve.",
+          "handoffNote": "Prefere continuar conversando pelo Instagram."
+        },
+        "ig_email_list": {
+          "name": "Aumente sua lista de e-mails",
+          "description": "Alguém escreve NEWSLETTER por DM: colete o e-mail para sua lista.",
+          "keywords": "newsletter",
+          "askEmail": "Quer receber nossa newsletter? Responda com seu e-mail.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "thanks": "Obrigado! Você está na lista. 💌"
+        },
+        "ig_story_leads": {
+          "name": "Leads a partir de respostas ao story",
+          "description": "Peça o e-mail de quem responde ao seu story.",
+          "askEmail": "Obrigado por responder! Qual é o seu e-mail? Vamos te enviar os detalhes.",
+          "emailError": "Isso não parece um e-mail. Tente de novo, por exemplo nome@exemplo.com.",
+          "thanks": "Recebido, obrigado! Entraremos em contato em breve."
+        },
+        "ig_story_coupon": {
+          "name": "Cupons a partir de stories",
+          "description": "Envie um código de desconto para quem responder ou reagir ao seu story. Troque o código pelo seu.",
+          "text": "Obrigado pelo carinho! 💛 Aqui está 10% de desconto no seu próximo pedido: STORY10"
+        },
+        "ig_story_faq": {
+          "name": "Perguntas frequentes a partir de respostas ao story",
+          "description": "Ofereça respostas rápidas quando alguém responder ao seu story.",
+          "ask": "Obrigado por responder! O que você gostaria de saber?",
+          "hoursButton": "Horário",
+          "pricesButton": "Preços",
+          "humanButton": "Falar com a gente",
+          "hoursAnswer": "Abrimos de segunda a sábado, das 9h às 18h.",
+          "pricesAnswer": "Você encontra todos os nossos preços no nosso site.",
+          "handoffNote": "Pediu para falar com a equipe depois de responder a um story."
+        },
+        "ig_story_mention_thanks": {
+          "name": "Agradecer menções em stories",
+          "description": "Agradeça a quem mencionar você no story, no máximo uma vez por dia por pessoa.",
+          "text": "Muito obrigado pela menção! 🙌 Significa muito para nós."
+        },
+        "ig_quiz_qualifier": {
+          "name": "Qualificar com um quiz",
+          "description": "Alguém escreve QUIZ por DM: duas perguntas rápidas mandam os leads quentes para sua equipe e uma resposta simpática para os demais.",
+          "keywords": "quiz",
+          "budgetQuestion": "Qual é o seu orçamento?",
+          "budgetLow": "Menos de 500",
+          "budgetHigh": "500 ou mais",
+          "timelineQuestion": "Quando você gostaria de começar?",
+          "timelineNow": "Este mês",
+          "timelineLater": "Mais tarde",
+          "hotReply": "Ótimo encaixe! Alguém da nossa equipe vai falar com você em breve.",
+          "handoffNote": "Lead quente do quiz do Instagram: orçamento de 500 ou mais, começa este mês.",
+          "nurtureReply": "Obrigado! Vamos te enviar algumas ideias para começar."
+        },
+        "ig_default_reply": {
+          "name": "Resposta padrão",
+          "description": "Responda às DMs que nenhum outro fluxo atende, no máximo uma vez por dia por pessoa.",
+          "text": "Obrigado pela mensagem! Como podemos ajudar?",
+          "infoButton": "Saiba mais",
+          "humanButton": "Falar com a gente",
+          "info": "Você encontra tudo no nosso site. Escreva quando quiser se preferir falar com uma pessoa.",
+          "handoffNote": "Pediu para falar com uma pessoa na resposta padrão."
+        }
+      }
+    },
+    "live": {
+      "title": "Comentários na live",
+      "description": "Responda em particular a quem comenta enquanto você está ao vivo no Instagram.",
+      "newFlow": "Novo fluxo de comentários na live",
+      "noFlows": "Ainda não há fluxos de comentários na live.",
+      "reconnectNeeded": "Reconecte sua conta do Instagram para receber comentários da live.",
+      "subscribed": "Os comentários da live estão ativados para esta conta."
+    },
+    "refLinks": {
+      "title": "Links ref",
+      "description": "Links que abrem uma conversa com você e iniciam um fluxo. Use um link diferente para cada lugar onde compartilhar e veja o que funciona.",
+      "newLink": "Novo link ref",
+      "empty": "Ainda não há links ref. Crie um fluxo que comece por um link ref.",
+      "account": "Conta do Instagram",
+      "flow": "Fluxo",
+      "key": "Chave",
+      "link": "Link",
+      "copy": "Copiar link",
+      "copied": "Link copiado.",
+      "copyFailed": "Não foi possível copiar o link. Selecione e copie.",
+      "noUsername": "Esta conta ainda não tem nome de usuário, então não tem link.",
+      "openFlow": "Abrir fluxo",
+      "draft": "Rascunho: publique o fluxo para usar este link",
+      "lastRef": "Último link ref",
+      "loadFailed": "Não foi possível carregar seus links ref. Tente novamente."
+    },
+    "menu": {
+      "title": "Menu",
+      "description": "O menu que as pessoas veem em uma conversa com você. Cada item inicia um fluxo ou abre um link.",
+      "account": "Conta do Instagram",
+      "item": "Item {n}",
+      "itemTitle": "Título",
+      "itemTitlePlaceholder": "Agendar uma ligação",
+      "type": "Ao tocar",
+      "typeFlow": "Iniciar um fluxo",
+      "typeLink": "Abrir um link",
+      "flow": "Fluxo",
+      "chooseFlow": "Escolha um fluxo",
+      "noFlows": "Crie um fluxo do Instagram primeiro.",
+      "url": "Link",
+      "urlPlaceholder": "https://exemplo.com",
+      "add": "Adicionar item",
+      "remove": "Remover o item {n}",
+      "max": "Você pode adicionar até {max} itens.",
+      "save": "Salvar e publicar",
+      "saving": "Salvando…",
+      "saved": "Menu atualizado no Instagram.",
+      "saveFailed": "Não foi possível atualizar o Instagram. Tente novamente.",
+      "clear": "Remover menu",
+      "clearConfirm": "Remover o menu do Instagram?",
+      "cleared": "Menu removido do Instagram.",
+      "empty": "Ainda não há menu.",
+      "needsTitle": "Dê um título a cada item.",
+      "titleTooLong": "Cada título deve ter menos de {max} caracteres.",
+      "duplicate": "Cada item precisa de um título diferente.",
+      "needsFlow": "Escolha um fluxo para cada item.",
+      "badUrl": "Use um link que comece com https://",
+      "tooLarge": "Os links somam um tamanho grande demais. Encurte alguns links ou remova itens.",
+      "adminOnly": "Só administradores podem alterar o menu.",
+      "notSynced": "Ainda não publicado.",
+      "lastSynced": "Publicado {time}"
+    },
+    "aiComments": {
+      "tab": "Respostas com IA",
+      "title": "Respostas com IA a comentários",
+      "description": "A IA lê os novos comentários e escreve uma resposta pública no tom da sua marca. Nada é publicado até um administrador aprovar, a menos que você ative a aprovação automática.",
+      "enabled": "Escrever respostas a comentários com IA",
+      "autoApprove": "Publicar respostas sem aprovação",
+      "autoApproveHelp": "Respostas a comentários positivos são publicadas assim que escritas.",
+      "autoApproveWarning": "As respostas da IA serão publicadas sem que ninguém as revise antes.",
+      "dailyCap": "Respostas por dia",
+      "dailyCapHelp": "Entre 1 e {max}. Comentários além do limite são ignorados até amanhã.",
+      "needsAi": "Configure primeiro um provedor de IA em Configurações › IA.",
+      "settingsSaved": "Configurações de respostas com IA salvas.",
+      "settingsFailed": "Não foi possível salvar as configurações. Tente novamente.",
+      "adminOnly": "Só administradores podem alterar estas configurações ou aprovar respostas.",
+      "queue": "Aguardando aprovação",
+      "history": "Histórico",
+      "empty": "Nenhuma resposta aguardando aprovação.",
+      "comment": "Comentário",
+      "reply": "Resposta",
+      "edit": "Editar",
+      "approve": "Aprovar e publicar",
+      "reject": "Rejeitar",
+      "approved": "Resposta aprovada. Ela será publicada em instantes.",
+      "rejected": "Resposta rejeitada.",
+      "decideFailed": "Não foi possível salvar sua decisão. Tente novamente.",
+      "alreadyDecided": "Alguém já decidiu sobre esta resposta.",
+      "commentUnavailable": "Este comentário foi ocultado ou excluído, então não pode ser respondido.",
+      "loadFailed": "Não foi possível carregar os comentários. Tente novamente.",
+      "replyEmpty": "Escreva uma resposta primeiro.",
+      "replyTooLong": "A resposta deve ter menos de {max} caracteres.",
+      "autoApprovedBadge": "Aprovada automaticamente",
+      "reconcile": "Não conseguimos confirmar que esta resposta foi publicada. Verifique o comentário no Instagram antes de tentar de novo.",
+      "sentiment": {
+        "positive": "Positivo",
+        "neutral": "Neutro",
+        "negative": "Negativo"
+      },
+      "intent": {
+        "praise": "Elogio",
+        "question": "Pergunta",
+        "purchase_intent": "Quer comprar",
+        "complaint": "Reclamação",
+        "spam": "Spam",
+        "other": "Outro"
+      },
+      "status": {
+        "pending": "Aguardando",
+        "approved": "Aprovada",
+        "rejected": "Rejeitada",
+        "sent": "Publicada",
+        "unknown": "Não confirmada",
+        "failed": "Falhou",
+        "expired": "Expirada"
+      }
+    },
+    "insights": {
+      "title": "Insights",
+      "description": "Veja como seus fluxos de comentários transformam comentários em conversas, leads e seguidores.",
+      "byPost": "Por publicação",
+      "byFlow": "Por fluxo",
+      "range": "Período",
+      "comments": "Comentários",
+      "dms": "Mensagens enviadas",
+      "optIns": "Abriram a mensagem",
+      "clicks": "Cliques em links",
+      "leads": "Leads",
+      "follows": "Novos seguidores",
+      "optInRate": "Taxa de abertura",
+      "post": "Publicação",
+      "flow": "Fluxo",
+      "untitledPost": "Publicação sem legenda",
+      "deletedFlow": "Fluxo excluído",
+      "openPost": "Abrir publicação",
+      "empty": "Nenhum comentário neste período.",
+      "loadFailed": "Não foi possível carregar os insights. Tente novamente.",
+      "clicksNote": "Os cliques contam apenas links rastreados."
+    },
+    "shareToStory": {
+      "help": "Começa quando alguém compartilha uma de suas publicações ou reels no story. Cada pessoa pode iniciar sempre ou uma vez por dia.",
+      "notAvailable": "Compartilhar no story ainda não está disponível: o Instagram não confirmou que envia esse evento. O fluxo é salvo, mas não será iniciado até ser ativado."
+    },
+    "pageLogin": {
+      "title": "Conectar por uma Página do Facebook",
+      "description": "Para agências e equipes de anúncios: conecte uma conta do Instagram vinculada a uma Página do Facebook que você administra. Use se precisar de anúncios ou acompanhamento de conversões com suas mensagens.",
+      "button": "Continuar com o Facebook",
+      "unavailable": "Conectar por uma Página do Facebook não está ativado neste espaço de trabalho.",
+      "adminOnly": "Peça a um administrador para conectar por uma Página do Facebook.",
+      "kindLabel": "Conectada com",
+      "kindInstagramLogin": "Login do Instagram",
+      "kindFacebookPage": "Página do Facebook: {page}",
+      "selectTitle": "Escolha uma conta do Instagram",
+      "selectHelp": "Estas são as Páginas do Facebook que você administra e que têm uma conta profissional do Instagram vinculada.",
+      "pageOption": "{username} por meio de {page}",
+      "noPages": "Nenhuma das suas Páginas do Facebook tem uma conta profissional do Instagram vinculada. Vincule uma no Facebook e tente novamente.",
+      "connect": "Conectar esta conta",
+      "connected": "Conta do Instagram conectada pelo Facebook.",
+      "tokenNote": "Seu acesso do Facebook é armazenado criptografado e nunca é exibido.",
+      "errors": {
+        "cancelled": "O login do Facebook foi cancelado.",
+        "expired": "Este link de login expirou. Comece novamente.",
+        "failed": "Não foi possível conectar pelo Facebook. Tente novamente.",
+        "permissionMissing": "O Facebook não concedeu todas as permissões necessárias. Comece novamente e aceite todas.",
+        "alreadyConnected": "Esta conta do Instagram já está conectada a outro espaço de trabalho.",
+        "planLimit": "Seu plano não comporta outra conta do Instagram."
+      }
     }
   }
 }

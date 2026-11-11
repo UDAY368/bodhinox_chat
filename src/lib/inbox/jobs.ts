@@ -2,19 +2,21 @@ import { getWorkerPrisma } from '@/lib/db/prisma';
 import { AUTO_RESOLVE_JOB, runAutoResolve } from './lifecycle';
 import { REASSIGN_JOB, runReassign } from './routing';
 import { runSlaCheck, SLA_CHECK_JOB } from './sla';
+import { REMINDERS_JOB, SCHEDULED_REPLIES_JOB } from './follow-up-jobs';
 
 /**
  * Inbox worker jobs.
  *  - inbox.sla_check (every minute) and inbox.auto_resolve (every five
  *    minutes), one per workspace that has inbox automation configured
  *    (crm_accounts_for_inbox_sweep), deduplicated per time slot.
+ *  - inbox.reminders_due and inbox.scheduled_replies_due (Stage 4): one per workspace with a due reminder or scheduled reply, offered by scheduleFollowUpSweeps (follow-up-jobs.ts).
  *  - inbox.reassign, queued per conversation by routing with a delay (see
  *    src/lib/inbox/routing.ts); not scheduled here.
  * Every job runs inside the workspace's tenant scope; nothing here logs
  * customer content.
  */
 
-export const INBOX_JOB_TYPES = [SLA_CHECK_JOB, AUTO_RESOLVE_JOB, REASSIGN_JOB] as const;
+export const INBOX_JOB_TYPES = [SLA_CHECK_JOB, AUTO_RESOLVE_JOB, REASSIGN_JOB, REMINDERS_JOB, SCHEDULED_REPLIES_JOB] as const;
 export const SLA_CHECK_INTERVAL_MS = 60_000;
 export const AUTO_RESOLVE_INTERVAL_MS = 5 * 60_000;
 
@@ -51,5 +53,8 @@ export async function handleInboxJob(accountId: string, type: string, payload: R
   if (type === SLA_CHECK_JOB) await runSlaCheck(accountId);
   else if (type === AUTO_RESOLVE_JOB) await runAutoResolve(accountId);
   else if (type === REASSIGN_JOB) await runReassign(accountId, payload);
+  // Loaded on demand: the sender and Graph clients stay out of the scheduler's module graph.
+  else if (type === REMINDERS_JOB) await (await import('./reminders')).runDueReminders(accountId);
+  else if (type === SCHEDULED_REPLIES_JOB) await (await import('./scheduled-replies')).runScheduledReplies(accountId);
   else throw new Error('Unsupported inbox job type');
 }

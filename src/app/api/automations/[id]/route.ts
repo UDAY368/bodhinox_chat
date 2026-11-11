@@ -11,6 +11,8 @@ import {
   type BuilderStepInput,
 } from '@/lib/automations/steps-tree';
 import {
+  automationChannel,
+  channelPaletteIssues,
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
@@ -21,6 +23,8 @@ import { hasMinRole } from '@/lib/auth/roles';
 import type { AccountContext } from '@/lib/auth/account';
 import {
   addsSecretWebhook,
+  channelLockedRefusal,
+  channelPaletteRefusal,
   loopRefusal,
   publishChecks,
 } from '@/lib/automations/publish-checks';
@@ -94,13 +98,18 @@ export async function PATCH(
   // to compute the post-patch "effective" state for validation.
   const { data: existing } = await admin
     .from('automations')
-    .select('id, account_id, name, is_active, trigger_type, trigger_config')
+    .select('id, account_id, name, is_active, trigger_type, trigger_config, channel')
     .eq('id', id)
     .eq('account_id', accountId)
     .maybeSingle();
   if (!existing) {
     return NextResponse.json({ error: t('common.notFound') }, { status: 404 });
   }
+
+  // An automation stays in the section it was created in: a different
+  // channel is refused (duplicate it instead); repeating its own is harmless.
+  const channel = automationChannel(existing);
+  if ('channel' in body && body.channel !== channel) return channelLockedRefusal();
 
   const update: Record<string, unknown> = {};
   for (const k of [
@@ -112,6 +121,14 @@ export async function PATCH(
   ] as const) {
     if (k in body) update[k] = body[k];
   }
+
+  // Only the channel's triggers and steps, on any save (the builder offers no others).
+  const paletteIssues = channelPaletteIssues(
+    channel,
+    update.trigger_type,
+    Array.isArray(body.steps) ? body.steps : []
+  );
+  if (paletteIssues.length > 0) return channelPaletteRefusal(paletteIssues);
 
   // If this PATCH leaves the automation active (either explicitly
   // activating it OR editing an already-active one), validate the
@@ -166,9 +183,10 @@ export async function PATCH(
       ...validateTriggerForActivation(
         mergedTriggerType,
         mergedTriggerConfig,
-        mergedSteps
+        mergedSteps,
+        channel
       ),
-      ...validateStepsForActivation(mergedSteps),
+      ...validateStepsForActivation(mergedSteps, channel),
     ];
     if (issues.length > 0) {
       return NextResponse.json(
@@ -181,6 +199,7 @@ export async function PATCH(
     }
     const published = await publishChecks(ctx, accountId, {
       id,
+      channel,
       name: String(update.name ?? existing.name ?? ''),
       trigger_type: mergedTriggerType,
       trigger_config: mergedTriggerConfig,

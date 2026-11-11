@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateFlowForActivation, reachableFromEntry, findAutoAdvancingCycles, channelScopeIssues, parseChannelScope } from "./validate";
+import { FLOW_TRIGGERS_BY_CHANNEL, WHATSAPP_NODE_SUPPORT } from "@/lib/channels/capabilities";
 
 const validFlow = {
   name: "Welcome",
@@ -706,11 +707,16 @@ describe("channel scope (Phase 11)", () => {
   });
 
   it("blocks a WhatsApp-only trigger on Instagram", () => {
-    for (const trigger_type of ["template_reply", "order_received", "ad_click"] as const) {
+    for (const trigger_type of ["template_reply", "order_received"] as const) {
       expect(channelScopeIssues("any", trigger_type, validNodes))
         .toContainEqual(expect.objectContaining({ severity: "error", scope: "trigger", field: "trigger_type" }));
     }
     expect(channelScopeIssues("instagram", "keyword", validNodes)).toEqual([]);
+    // Stage 3: ad_click runs on both channels (click-to-Direct ads on Instagram).
+    expect(channelScopeIssues("instagram", "ad_click", validNodes)).toEqual([]);
+    for (const trigger_type of ["ig_live_comment", "ig_ref"] as const)
+      expect(channelScopeIssues("whatsapp", trigger_type, validNodes))
+        .toContainEqual(expect.objectContaining({ severity: "error", scope: "trigger", field: "trigger_type" }));
   });
 
   it("allows the steps Instagram supports and warns on long text", () => {
@@ -724,10 +730,40 @@ describe("channel scope (Phase 11)", () => {
     expect(media("document", { filename: "menu.docx" })).toHaveLength(1);
   });
 
-  it("parses a request's scope", () => {
+  it("parses a request's scope, refusing a new 'any' (Stage 1) but keeping a legacy one", () => {
     expect(parseChannelScope(undefined)).toBeUndefined();
-    expect(parseChannelScope("any")).toBe("any");
     expect(parseChannelScope("instagram")).toBe("instagram");
-    for (const bad of [null, "", "sms", 1, ["any"]]) expect(parseChannelScope(bad)).toBeNull();
+    expect(parseChannelScope("whatsapp", "any")).toBe("whatsapp");
+    expect(parseChannelScope("any")).toBeNull();
+    expect(parseChannelScope("any", "whatsapp")).toBeNull();
+    expect(parseChannelScope("any", "any")).toBe("any");
+    for (const bad of [null, "", "sms", 1, ["any"]]) expect(parseChannelScope(bad, "any")).toBeNull();
+  });
+
+  // No step or trigger is Instagram-only yet (Stage 2 adds them), so mark one as
+  // missing from WhatsApp's palette to prove the WhatsApp direction is checked.
+  it("blocks a step or trigger WhatsApp does not offer on a WhatsApp or 'any' flow (both directions)", () => {
+    const keptSupport = WHATSAPP_NODE_SUPPORT.send_buttons;
+    const keptTriggers = FLOW_TRIGGERS_BY_CHANNEL.whatsapp;
+    WHATSAPP_NODE_SUPPORT.send_buttons = "no";
+    FLOW_TRIGGERS_BY_CHANNEL.whatsapp = keptTriggers.filter((trigger) => trigger !== "keyword");
+    try {
+      for (const scope of ["whatsapp", "any", undefined] as const) {
+        const issues = channelScopeIssues(scope, "keyword", validNodes);
+        expect(issues).toContainEqual(expect.objectContaining({ severity: "error", scope: "node", node_key: "menu", field: "node_type",
+          message: expect.stringContaining("WhatsApp") }));
+        expect(issues).toContainEqual(expect.objectContaining({ severity: "error", scope: "trigger", field: "trigger_type",
+          message: expect.stringContaining("WhatsApp") }));
+      }
+      expect(channelScopeIssues("instagram", "keyword", validNodes)).toEqual([]);
+    } finally {
+      WHATSAPP_NODE_SUPPORT.send_buttons = keptSupport;
+      FLOW_TRIGGERS_BY_CHANNEL.whatsapp = keptTriggers;
+    }
+  });
+
+  it("finds no channel issue on any current step or trigger in a WhatsApp flow", () => {
+    expect(channelScopeIssues("whatsapp", "template_reply", validNodes)).toEqual([]);
+    expect(channelScopeIssues("whatsapp", "order_received", validNodes)).toEqual([]);
   });
 });

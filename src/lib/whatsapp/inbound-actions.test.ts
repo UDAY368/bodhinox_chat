@@ -228,5 +228,23 @@ it('acts on an Instagram message for the contact that owns the conversation now,
   expect(h.flow).toHaveBeenCalledOnce();
   expect(h.flow.mock.calls[0][0]).toMatchObject({ contactId: moved, conversationId: id });
   expect(h.lifecycle).toHaveBeenCalledWith(expect.objectContaining({ contactId: moved }));
+  // Instagram automations (Stage 1) run for the same current contact, on Instagram only.
+  expect(h.automations).toHaveBeenCalled();
+  for (const [call] of h.automations.mock.calls) expect(call).toMatchObject({ channel: 'instagram', contactId: moved, context: { conversation_id: id } });
+});
+
+it('lets a run parked at an Instagram menu take the reply instead of the Instagram triggers', async () => {
+  h.conversation = { channel: 'instagram', contact_id: text('x').contactId };
+  h.resume.mockResolvedValueOnce(true);
+  await processInboundActions(text('Option A'));
+  expect(h.resume).toHaveBeenCalledWith(expect.objectContaining({ channel: 'instagram', context: expect.objectContaining({ message_text: 'Option A' }) }));
+  expect(h.automations).not.toHaveBeenCalled();
+});
+
+it('runs no Instagram automation when a flow took the message', async () => {
+  h.conversation = { channel: 'instagram', contact_id: text('x').contactId };
+  h.flow.mockResolvedValueOnce({ consumed: true, outcome: 'started' });
+  await processInboundActions(text('Hi'));
+  expect(h.resume).not.toHaveBeenCalled();
   expect(h.automations).not.toHaveBeenCalled();
 });

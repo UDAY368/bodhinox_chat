@@ -19,7 +19,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const flowEditor = /^\/flows\/[^/]+$/.test(pathname);
+  // The flow editor fills the screen in its legacy and per-channel locations.
+  const flowEditor = /^(?:\/(?:whatsapp|instagram))?\/flows\/[^/]+$/.test(pathname);
   const t = useTranslations('DashboardShell');
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is

@@ -151,6 +151,8 @@ export async function handleAppointmentEventJob(accountId: string, payload: Even
     await dispatchOnce(accountId, `${eventKey}:automations`, async () => ({
       matched: await runAutomationsForTrigger({
         accountId,
+        // Appointment triggers are WhatsApp-only; the conversation above is a WhatsApp one.
+        channel: 'whatsapp',
         triggerType: fanout.trigger,
         contactId,
         context: {

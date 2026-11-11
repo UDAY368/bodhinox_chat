@@ -3,9 +3,14 @@ type Filter = (row: Row) => boolean;
 
 export type FakeTables = Record<string, Row[]>;
 
-function readColumn(row: Row, column: string): unknown {
+// NOT NULL column defaults the database fills in, for fixture rows that leave them out.
+const COLUMN_DEFAULTS: Record<string, Row> = {
+  flows: { channel_scope: "whatsapp" },
+};
+
+function readColumn(row: Row, column: string, table?: string): unknown {
   const [base, jsonKey] = column.split("->>");
-  if (jsonKey === undefined) return row[base];
+  if (jsonKey === undefined) return row[base] ?? (table ? COLUMN_DEFAULTS[table]?.[base] : undefined);
   const json = row[base] as Row | null | undefined;
   return json?.[jsonKey] ?? null;
 }
@@ -66,7 +71,7 @@ export function createFakeDb(tables: FakeTables) {
         return builder;
       },
       in: (column: string, values: unknown[]) => {
-        filters.push((r) => values.includes(readColumn(r, column)));
+        filters.push((r) => values.includes(readColumn(r, column, table)));
         return builder;
       },
       filter: (column: string, operator: string, value: unknown) => {

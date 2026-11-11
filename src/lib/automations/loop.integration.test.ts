@@ -83,7 +83,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('automations Phase 12 on Pos
     await automation('B', { type: 'tag_added', tag: tagX }, [addTag(tagY)]);
     // The agent's own tenant client (app role, RLS), as the route uses.
     const db = createScopedClient({ accountId, userId: agentId, role: 'agent' });
-    const candidate = { name: 'C', trigger_type: 'tag_added', trigger_config: { tag_id: tagY }, steps: [{ step_type: 'add_tag', step_config: { tag_id: tagX } }] };
+    const candidate = { channel: 'whatsapp' as const, name: 'C', trigger_type: 'tag_added', trigger_config: { tag_id: tagY }, steps: [{ step_type: 'add_tag', step_config: { tag_id: tagX } }] };
     expect(await automationLoopChain(db, accountId, candidate)).toEqual(['C', 'B', 'C']);
     const ctx = { db, accountId, userId: agentId, role: 'agent', account: { id: accountId, name: 'Loop' } } as AccountContext;
     const refusal = (await publishChecks(ctx, accountId, candidate)) as unknown as { status: number };
@@ -105,7 +105,7 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('automations Phase 12 on Pos
     await owner.query('INSERT INTO contact_tags(account_id,contact_id,tag_id) VALUES($1,$2,$3)', [accountId, c, tagY]);
     // The engine runs in the worker's job scope (tenant-scoped client).
     await withJobScope({ accountId, role: 'owner' }, () =>
-      runAutomationsForTrigger({ accountId, triggerType: 'tag_added', contactId: c, context: { tag_id: tagY } }));
+      runAutomationsForTrigger({ channel: 'whatsapp', accountId, triggerType: 'tag_added', contactId: c, context: { tag_id: tagY } }));
     const runs = (await owner.query('SELECT count(*)::int AS n FROM automation_logs WHERE automation_id = ANY($1::uuid[]) AND contact_id=$2', [[p, q], c])).rows[0].n;
     expect(runs).toBeGreaterThan(1);
     expect(runs).toBeLessThanOrEqual(MAX_TAG_CHAIN_DEPTH + 1);

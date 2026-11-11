@@ -24,6 +24,9 @@ const protectedPaths = [
   '/notifications',
   '/reports',
   '/settings',
+  // Channel sections (Stage 1): /whatsapp/... and /instagram/...
+  '/whatsapp',
+  '/instagram',
   // Platform console: signed-out visitors go to login; the console layout itself answers 404 to
   // everyone who is not an allowlisted, MFA-verified platform admin (or without PLATFORM_DATABASE_URL).
   '/platform',

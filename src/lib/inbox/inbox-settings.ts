@@ -1,4 +1,5 @@
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
+import { validInstagramText } from '@/lib/instagram/graph-limits';
 import {
   DEFAULT_INBOX_SETTINGS,
   isValidTimeZone,
@@ -8,7 +9,8 @@ import {
 
 /**
  * Workspace inbox settings (workspace_inbox_settings): time zone, working
- * hours, away message, auto-resolve and first-response SLA. Every member reads
+ * hours, away message (with a WhatsApp and an Instagram switch), auto-resolve
+ * and first-response SLA. Every member reads
  * them; admins write them as themselves (RLS admin write). A workspace without
  * a row uses DEFAULT_INBOX_SETTINGS.
  */
@@ -27,10 +29,25 @@ export class InboxSettingsError extends Error {
   }
 }
 
-type SettingsRow = Omit<InboxSettings, 'working_hours'> & { working_hours: unknown };
+/**
+ * The stored settings: the shared shape plus the per-channel away switch.
+ * away_message_enabled stays the WhatsApp switch; instagram_away_message_enabled
+ * (Stage 2, default off) sends the same away text on Instagram.
+ */
+export interface WorkspaceInboxSettings extends InboxSettings {
+  instagram_away_message_enabled: boolean;
+}
 
-function toSettings(row: SettingsRow | undefined): InboxSettings {
-  if (!row) return { ...DEFAULT_INBOX_SETTINGS, working_hours: {} };
+/**
+ * A validated PUT body. The Instagram switch is optional so older clients
+ * that do not send it leave it as it is.
+ */
+export type InboxSettingsInput = InboxSettings & { instagram_away_message_enabled?: boolean };
+
+type SettingsRow = Omit<WorkspaceInboxSettings, 'working_hours'> & { working_hours: unknown };
+
+function toSettings(row: SettingsRow | undefined): WorkspaceInboxSettings {
+  if (!row) return { ...DEFAULT_INBOX_SETTINGS, working_hours: {}, instagram_away_message_enabled: false };
   return {
     timezone: row.timezone,
     working_hours: parseWorkingHours(row.working_hours) ?? {},
@@ -38,17 +55,19 @@ function toSettings(row: SettingsRow | undefined): InboxSettings {
     away_message: row.away_message,
     auto_resolve_after_hours: row.auto_resolve_after_hours,
     sla_first_response_minutes: row.sla_first_response_minutes,
+    instagram_away_message_enabled: row.instagram_away_message_enabled === true,
   };
 }
 
 /** Read the workspace's settings inside an existing tenant transaction (app or worker). */
-export async function readInboxSettings(tx: TenantTransaction, accountId: string): Promise<InboxSettings> {
+export async function readInboxSettings(tx: TenantTransaction, accountId: string): Promise<WorkspaceInboxSettings> {
   const rows = await tx.$queryRaw<SettingsRow[]>`SELECT timezone,working_hours,away_message_enabled,away_message,
-    auto_resolve_after_hours,sla_first_response_minutes FROM workspace_inbox_settings WHERE account_id=${accountId}::uuid`;
+    auto_resolve_after_hours,sla_first_response_minutes,instagram_away_message_enabled
+    FROM workspace_inbox_settings WHERE account_id=${accountId}::uuid`;
   return toSettings(rows[0]);
 }
 
-export async function loadInboxSettings(tenant: TenantContext): Promise<InboxSettings> {
+export async function loadInboxSettings(tenant: TenantContext): Promise<WorkspaceInboxSettings> {
   return withTenant(tenant, (tx) => readInboxSettings(tx, tenant.accountId));
 }
 
@@ -59,7 +78,7 @@ function optionalInt(value: unknown, max: number, code: InboxSettingsErrorCode):
 }
 
 /** Validate a full PUT body. Throws InboxSettingsError naming the bad field. */
-export function parseInboxSettingsInput(body: unknown): InboxSettings {
+export function parseInboxSettingsInput(body: unknown): InboxSettingsInput {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new InboxSettingsError('invalid_timezone');
   const input = body as Record<string, unknown>;
   if (!isValidTimeZone(input.timezone)) throw new InboxSettingsError('invalid_timezone');
@@ -72,6 +91,13 @@ export function parseInboxSettingsInput(body: unknown): InboxSettings {
   const awayMessage = typeof input.away_message === 'string' ? input.away_message.trim() : '';
   const awayEnabled = input.away_message_enabled === true;
   if (awayMessage.length > MAX_AWAY_MESSAGE || (awayEnabled && !awayMessage)) throw new InboxSettingsError('invalid_away_message');
+  const instagramAway = input.instagram_away_message_enabled;
+  if (instagramAway !== undefined && typeof instagramAway !== 'boolean') throw new InboxSettingsError('invalid_away_message');
+  // The Instagram switch sends the same text, so it needs one too (the table's check agrees).
+  if (instagramAway === true && !awayMessage) throw new InboxSettingsError('invalid_away_message');
+  // Instagram carries at most 1000 UTF-8 bytes per message, fewer characters than the shared
+  // limit in many scripts: a longer text would be skipped on every send, so it is refused here.
+  if (instagramAway === true && !validInstagramText(awayMessage)) throw new InboxSettingsError('invalid_away_message');
   return {
     timezone: input.timezone,
     working_hours: workingHours,
@@ -79,18 +105,27 @@ export function parseInboxSettingsInput(body: unknown): InboxSettings {
     away_message: awayMessage || null,
     auto_resolve_after_hours: optionalInt(input.auto_resolve_after_hours, MAX_AUTO_RESOLVE_HOURS, 'invalid_auto_resolve'),
     sla_first_response_minutes: optionalInt(input.sla_first_response_minutes, MAX_SLA_MINUTES, 'invalid_sla'),
+    ...(instagramAway === undefined ? {} : { instagram_away_message_enabled: instagramAway }),
   };
 }
 
-export async function saveInboxSettings(tenant: TenantContext, settings: InboxSettings): Promise<InboxSettings> {
+/**
+ * Replace the settings. An input without the Instagram switch keeps the stored
+ * one, except that clearing the away text also turns it off (it has nothing to send).
+ */
+export async function saveInboxSettings(tenant: TenantContext, settings: InboxSettingsInput): Promise<WorkspaceInboxSettings> {
+  const instagramAway = settings.instagram_away_message_enabled ?? null;
   return withTenant(tenant, async (tx) => {
     await tx.$executeRaw`INSERT INTO workspace_inbox_settings(account_id,timezone,working_hours,away_message_enabled,away_message,
-        auto_resolve_after_hours,sla_first_response_minutes)
+        auto_resolve_after_hours,sla_first_response_minutes,instagram_away_message_enabled)
       VALUES(${tenant.accountId}::uuid,${settings.timezone},${JSON.stringify(settings.working_hours)}::jsonb,${settings.away_message_enabled},
-        ${settings.away_message},${settings.auto_resolve_after_hours},${settings.sla_first_response_minutes})
+        ${settings.away_message},${settings.auto_resolve_after_hours},${settings.sla_first_response_minutes},
+        ${settings.away_message !== null && instagramAway === true})
       ON CONFLICT(account_id) DO UPDATE SET timezone=EXCLUDED.timezone,working_hours=EXCLUDED.working_hours,
         away_message_enabled=EXCLUDED.away_message_enabled,away_message=EXCLUDED.away_message,
-        auto_resolve_after_hours=EXCLUDED.auto_resolve_after_hours,sla_first_response_minutes=EXCLUDED.sla_first_response_minutes`;
+        auto_resolve_after_hours=EXCLUDED.auto_resolve_after_hours,sla_first_response_minutes=EXCLUDED.sla_first_response_minutes,
+        instagram_away_message_enabled=CASE WHEN EXCLUDED.away_message IS NULL THEN false
+          ELSE COALESCE(${instagramAway}::boolean, workspace_inbox_settings.instagram_away_message_enabled) END`;
     return readInboxSettings(tx, tenant.accountId);
   });
 }

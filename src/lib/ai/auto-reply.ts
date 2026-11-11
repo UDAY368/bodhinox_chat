@@ -23,6 +23,8 @@ import {
   loadAccountMetaCredentials,
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
+import type { PreparedInstagramAiReply } from './instagram-send'
+import type { AiConfig } from './types'
 import { BotRepliesPausedError } from '@/lib/whatsapp/bot-pause-error'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { PlanLimitError } from '@/lib/billing/entitlements'
@@ -147,10 +149,14 @@ export async function dispatchInboundToAiReply(
   let staleBeforeSend = false
   // Set once Meta accepted the reply: a later failure (saving it locally) still means the customer got it.
   let sentReply: { text: string; reason: ReplyEventReason } | null = null
+  // The conversation's channel, from its row (never the caller): Instagram replies use the Instagram sender.
+  let instagram = false
+  let instagramSend: typeof import('./instagram-send') | null = null
 
   try {
     const config = await loadAiConfig(db, accountId)
-    if (!config || !config.autoReplyEnabled) { await unavailable(); return }
+    // Each channel has its own switch (checked below, from the conversation row).
+    if (!config || (!config.autoReplyEnabled && !config.instagramAutoReplyEnabled)) { await unavailable(); return }
 
     // Deterministic, user-configured responders win over the LLM — the
     // caller already excludes messages a Flow consumed. Message-level
@@ -175,14 +181,30 @@ export async function dispatchInboundToAiReply(
 
     const conv = await eligible()
     if (!conv) return
+    instagram = conv.channel === 'instagram'
+    if (!autoReplyOn(config, conv.channel)) { await unavailable(); return }
     gatePassed = true
     // The thread's number was disconnected: replies are refused, never sent from
     // another number. Stand down quietly (no handoff, no LLM call); the reason
     // code is logged, never the content.
-    if (await conversationNumberDisconnected(db, accountId, conversationId)) {
+    if (!instagram && await conversationNumberDisconnected(db, accountId, conversationId)) {
       console.info('[ai auto-reply] skipped', { reason: 'whatsapp_number_disconnected' })
       await record('skipped', 'number_disconnected')
       return
+    }
+    // Instagram: the account, its token and permission, and the window, before any model call.
+    if (instagram) {
+      // Loaded only for Instagram threads, so the WhatsApp path's module graph is unchanged.
+      instagramSend = await import('./instagram-send')
+      try {
+        await instagramSend.assertInstagramAiReady(accountId, conversationId)
+      } catch (error) {
+        const code = instagramSend.instagramRefusalCode(error)
+        if (!code) throw error
+        console.info('[ai auto-reply] skipped', { reason: code })
+        await record('skipped', code === 'instagram_window_closed' ? 'stale' : 'number_disconnected')
+        return
+      }
     }
     observedCustomerTimestamp = conv.last_customer_message_at
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) { await unavailable(); await record('skipped', 'reply_cap'); return }
@@ -270,7 +292,8 @@ export async function dispatchInboundToAiReply(
     // 25 s or when our reply lands, whichever is first, so there's
     // nothing to undo on the handoff / no-text path. Strictly
     // best-effort: a failed indicator must never cost us the reply.
-    if (inboundMessageId) {
+    // WhatsApp only: the indicator is a WhatsApp Cloud API call.
+    if (inboundMessageId && !instagram) {
       await showTypingIndicator(db, accountId, conversationId, inboundMessageId)
     }
 
@@ -415,16 +438,35 @@ export async function dispatchInboundToAiReply(
     }
 
     const repliedReason: ReplyEventReason = confidence.confident ? 'answered' : 'answered_low_confidence'
-    await engineSendText({
-      accountId,
-      userId: configOwnerUserId,
-      conversationId,
-      contactId,
-      text,
-      aiGenerated: true,
-      beforeSend,
-      onSent: () => { sentReply = { text, reason: repliedReason } },
-    })
+    const onSent = () => { sentReply = { text, reason: repliedReason } }
+    if (instagramSend) {
+      // The Instagram sender: window, account and the 1000-byte limit, checked
+      // before the send (a refusal is a certain "not sent").
+      let prepared: PreparedInstagramAiReply
+      try {
+        prepared = await instagramSend.prepareInstagramAiReply(accountId, conversationId, text)
+      } catch (error) {
+        const code = instagramSend.instagramRefusalCode(error)
+        if (!code) throw error
+        console.info('[ai auto-reply] skipped', { reason: code })
+        // An answer over Instagram's text limit is withheld, like a guarded one: a person answers.
+        if (code === 'invalid_request') { await handOff('guard_blocked'); await record('handed_off', 'guard_blocked'); return }
+        await record('skipped', code === 'instagram_window_closed' ? 'stale' : 'number_disconnected')
+        return
+      }
+      await instagramSend.sendInstagramAiReply(prepared, { beforeSend, onSent })
+    } else {
+      await engineSendText({
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+        text,
+        aiGenerated: true,
+        beforeSend,
+        onSent,
+      })
+    }
     await record('replied', repliedReason, { replyText: text })
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed', { error: err instanceof Error ? err.name : 'unknown' })
@@ -441,14 +483,26 @@ export async function dispatchInboundToAiReply(
   }
 }
 
-/** The conversation when the AI may answer in it: no person owns it, the bot is on and the window is open. */
+/**
+ * The conversation when the AI may answer in it: no person owns it, the bot is
+ * on and the 24-hour window is open (the same window on WhatsApp and Instagram).
+ */
 async function aiOwnedConversation(db: ReturnType<typeof databaseAdmin>, accountId: string, conversationId: string, contactId: string) {
   const { data, error } = await db.from('conversations')
-    .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused, last_customer_message_at')
+    .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, bot_paused, last_customer_message_at, channel')
     .eq('id', conversationId).eq('account_id', accountId).eq('contact_id', contactId).maybeSingle()
-  if (error || !data || data.assigned_agent_id || data.bot_paused || data.ai_autoreply_disabled || !getSessionWindow(data.last_customer_message_at, Date.now()).active) return null
+  if (error || !data || data.assigned_agent_id || data.bot_paused || data.ai_autoreply_disabled) return null
+  if (!getSessionWindow(data.last_customer_message_at, Date.now()).active) {
+    // Reason code only: an Instagram thread past its window gets nothing automated.
+    if (data.channel === 'instagram') console.info('[ai auto-reply] skipped', { reason: 'instagram_window_closed' })
+    return null
+  }
   return data
 }
+
+/** The auto-reply switch of the conversation's channel (legacy rows without a channel are WhatsApp). */
+const autoReplyOn = (config: AiConfig, channel: unknown): boolean =>
+  channel === 'instagram' ? config.instagramAutoReplyEnabled === true : config.autoReplyEnabled
 
 /**
  * A photo, voice note, video, document or location the agent cannot read,
@@ -462,8 +516,9 @@ export async function recordUnreadableInbound(args: Pick<DispatchArgs, 'accountI
   try {
     const db = databaseAdmin({ accountId, userId: configOwnerUserId, role: 'owner' })
     const config = await loadAiConfig(db, accountId)
-    if (!config?.autoReplyEnabled) return
-    if (!await aiOwnedConversation(db, accountId, conversationId, contactId)) return
+    if (!config || (!config.autoReplyEnabled && !config.instagramAutoReplyEnabled)) return
+    const conversation = await aiOwnedConversation(db, accountId, conversationId, contactId)
+    if (!conversation || !autoReplyOn(config, conversation.channel)) return
     await recordReplyEvent({ accountId, conversationId, contactId, inboundMessageId: inboundMessageId ?? null, outcome: 'skipped', reason: 'media_only' })
   } catch (error) {
     logAiEvent({ feature: 'auto_reply', reason: 'media_only_record_failed', accountId, error })

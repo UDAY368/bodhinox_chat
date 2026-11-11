@@ -20,6 +20,9 @@ const state = vi.hoisted(() => ({
   ownerCalls: 0,
   limit: 1,
   live: 0,
+  /** Statements per fake transaction ("<tx>:<what>"), to check what shares a transaction. */
+  log: [] as string[],
+  txs: 0,
 }));
 
 vi.mock('./graph', async (original) => ({ ...(await original<typeof import('./graph')>()), ...graph }));
@@ -29,22 +32,30 @@ vi.mock('@/lib/billing/usage-notices', () => ({ notifyLimitRefused: vi.fn() }));
 vi.mock('@/lib/whatsapp/encryption', () => ({ encrypt: (v: string) => `enc:${v}`, decrypt: (v: string) => v.replace(/^enc:/, '') }));
 vi.mock('@/lib/db/prisma', () => ({ getWorkerPrisma: () => ({}) }));
 vi.mock('@/lib/db/tenant', () => ({
-  withTenant: async (_ctx: unknown, work: (tx: unknown) => Promise<unknown>) => work({
-    $executeRaw: async () => 0,
-    $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
-      const sql = strings.join('?');
-      if (sql.includes('crm_instagram_owner_account')) {
-        const answer = state.owners[Math.min(state.ownerCalls++, state.owners.length - 1)] ?? null;
-        if (answer === 'throw') throw new Error('database unavailable');
-        return [{ owner: answer }];
-      }
-      if (sql.includes('INSERT INTO instagram_accounts')) return [{ id: 'row-1' }];
-      if (sql.includes('SELECT id::text AS id FROM instagram_accounts') && sql.includes('ig_user_id=')) {
-        return state.held.has(String(values[1])) ? [{ id: 'row-held' }] : [];
-      }
-      throw new Error(`unexpected SQL: ${sql}`);
-    },
-  }),
+  withTenant: async (_ctx: unknown, work: (tx: unknown) => Promise<unknown>) => {
+    const id = ++state.txs;
+    return work({
+      $executeRaw: async (query: TemplateStringsArray | { sql: string }) => {
+        const sql = 'sql' in query ? query.sql : query.join('?');
+        if (sql.includes('INSERT INTO workspace_channels')) state.log.push(`${id}:channel`);
+        return 0;
+      },
+      $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const sql = strings.join('?');
+        if (sql.includes('INSERT INTO instagram_accounts')) state.log.push(`${id}:account`);
+        if (sql.includes('crm_instagram_owner_account')) {
+          const answer = state.owners[Math.min(state.ownerCalls++, state.owners.length - 1)] ?? null;
+          if (answer === 'throw') throw new Error('database unavailable');
+          return [{ owner: answer }];
+        }
+        if (sql.includes('INSERT INTO instagram_accounts')) return [{ id: 'row-1' }];
+        if (sql.includes('SELECT id::text AS id FROM instagram_accounts') && sql.includes('ig_user_id=')) {
+          return state.held.has(String(values[1])) ? [{ id: 'row-held' }] : [];
+        }
+        throw new Error(`unexpected SQL: ${sql}`);
+      },
+    });
+  },
 }));
 
 import { finishConnect, signInstagramState } from './connection';
@@ -73,7 +84,7 @@ beforeEach(() => {
   vi.stubEnv('INSTAGRAM_WEBHOOK_VERIFY_TOKEN', 'test-only-verify');
   vi.stubEnv('APP_URL', 'https://app.example.test');
   for (const fn of [...Object.values(graph), ...Object.values(billing)]) fn.mockReset();
-  Object.assign(state, { held: new Set<string>(), owners: [null], ownerCalls: 0, limit: 1, live: 1 });
+  Object.assign(state, { held: new Set<string>(), owners: [null], ownerCalls: 0, limit: 1, live: 1, log: [], txs: 0 });
   graph.exchangeCode.mockResolvedValue({ accessToken: 'test-only-short', userId: IG, scopes: SCOPES });
   graph.exchangeLongLived.mockResolvedValue({ accessToken: 'test-only-long', expiresInSeconds: 5_184_000 });
   graph.getMe.mockResolvedValue({ userId: IG, username: 'shop', name: 'Shop' });
@@ -105,6 +116,22 @@ describe('plan room on connect (I4)', () => {
     state.live = 0;
     expect(await codeOf(callback())).toBe('ok');
     expect(billing.requireRoomFor).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('connected implies enabled (channel separation)', () => {
+  it('turns the Instagram channel on in the transaction that stores the account', async () => {
+    state.live = 0;
+    expect(await codeOf(callback())).toBe('ok');
+    const [account] = state.log.filter((entry) => entry.endsWith(':account'));
+    const tx = account.split(':')[0];
+    expect(state.log).toContain(`${tx}:channel`);
+    expect(state.log.indexOf(`${tx}:channel`)).toBeGreaterThan(state.log.indexOf(account));
+  });
+
+  it('turns nothing on when the plan has no room', async () => {
+    expect(await codeOf(callback())).toBe('limit_reached');
+    expect(state.log).toEqual([]);
   });
 });
 

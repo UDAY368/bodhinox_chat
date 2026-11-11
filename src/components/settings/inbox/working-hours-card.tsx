@@ -20,11 +20,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth/client";
+import { useWorkspaceChannels } from "@/hooks/use-workspace-channels";
+import type { WorkspaceInboxSettings } from "@/lib/inbox/inbox-settings";
 import {
   DEFAULT_INBOX_SETTINGS,
   MAX_RANGES_PER_DAY,
   WEEKDAYS,
-  type InboxSettings,
   type TimeRange,
   type Weekday,
 } from "@/lib/inbox/working-hours";
@@ -47,7 +48,11 @@ function timeZones(): string[] {
 export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
   const t = useTranslations("Settings.workingHours");
   const tDay = useTranslations("Weekdays");
-  const [settings, setSettings] = useState<InboxSettings>(DEFAULT_INBOX_SETTINGS);
+  const [settings, setSettings] = useState<WorkspaceInboxSettings>({ ...DEFAULT_INBOX_SETTINGS, instagram_away_message_enabled: false });
+  // The Instagram away switch shows only when the workspace uses Instagram (or it is already on).
+  const { data: channels } = useWorkspaceChannels();
+  const showInstagram = Boolean(channels?.channels.instagram.enabled) || settings.instagram_away_message_enabled;
+  const hasAwayText = Boolean(settings.away_message?.trim());
   const [autoResolve, setAutoResolve] = useState("");
   const [sla, setSla] = useState("");
   const [loading, setLoading] = useState(true);
@@ -60,7 +65,7 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
     let live = true;
     authFetch("/api/inbox/settings", { cache: "no-store" })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((json: { settings: InboxSettings }) => {
+      .then((json: { settings: WorkspaceInboxSettings }) => {
         if (!live) return;
         setSettings(json.settings);
         setAutoResolve(fromLimit(json.settings.auto_resolve_after_hours));
@@ -85,6 +90,8 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
           working_hours: Object.fromEntries(WEEKDAYS.map((d) => [d, settings.working_hours[d] ?? []])),
           auto_resolve_after_hours: toLimit(autoResolve),
           sla_first_response_minutes: toLimit(sla),
+          // Clearing the away text turns the Instagram switch off with it (it has nothing to send).
+          instagram_away_message_enabled: hasAwayText && settings.instagram_away_message_enabled,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -209,6 +216,22 @@ export function WorkingHoursCard({ canEdit }: { canEdit: boolean }) {
                 onChange={(e) => setSettings({ ...settings, away_message: e.target.value })}
                 className="bg-muted"
               />
+              {showInstagram && (
+                <div className="flex items-center justify-between gap-4 border-t border-border pt-2">
+                  <div>
+                    <p className="text-sm text-foreground">{t("instagramAway.label")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {hasAwayText ? t("instagramAway.help") : t("instagramAway.needsMessage")}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.instagram_away_message_enabled}
+                    disabled={!editable || (!settings.instagram_away_message_enabled && !hasAwayText)}
+                    onCheckedChange={(on) => setSettings({ ...settings, instagram_away_message_enabled: on })}
+                    aria-label={t("instagramAway.label")}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

@@ -14,6 +14,9 @@
 // outcome stays 'unknown' and is never re-sent. Flow sends are automated: they
 // never carry the Human Agent tag.
 //
+// Stage 2 adds the Instagram-only shapes: cards and galleries (generic
+// template) and button templates (text with link or postback buttons).
+//
 // The channel always comes from the conversation row, never from the run's
 // variables or the inbound payload. Nothing here logs customer content.
 import { dispatchOnce } from '@/lib/jobs/dispatch';
@@ -23,10 +26,14 @@ import { assertBotRepliesEnabled } from '@/lib/whatsapp/bot-pause';
 import { providerMediaUrl } from '@/lib/storage/server';
 import {
   ChannelUnavailableError,
+  checkInstagramButtonTemplate,
+  checkInstagramCards,
   checkInstagramChoices,
   checkInstagramMedia,
   checkInstagramText,
   loadInstagramTarget,
+  sendInstagramButtonTemplate,
+  sendInstagramCards,
   sendInstagramChoices,
   sendInstagramMedia,
   sendInstagramText,
@@ -36,7 +43,8 @@ import {
   type InstagramTarget,
 } from '@/lib/channels/sender';
 import type { Channel } from '@/lib/channels/capabilities';
-import type { QuickReply, SentMessage } from '@/lib/instagram/graph';
+import type { IgGenericCard, IgTemplateButton, QuickReply, SentMessage } from '@/lib/instagram/graph';
+import { paymentCard, paymentCardPayload } from '@/lib/payments/payment-card';
 import { databaseAdmin } from './admin-client';
 import {
   engineSendInteractiveButtons,
@@ -50,12 +58,28 @@ type MediaArgs = Parameters<typeof engineSendMedia>[0];
 type ButtonsArgs = Parameters<typeof engineSendInteractiveButtons>[0];
 type ListArgs = Parameters<typeof engineSendInteractiveList>[0];
 
-/** One customer-facing flow send, in the shape the WhatsApp engine senders take. */
+/** The run a send belongs to (the Instagram-only sends carry just this). */
+interface InstagramOnlyArgs { accountId: string; conversationId: string }
+
+/**
+ * One customer-facing flow send, in the shape the WhatsApp engine senders
+ * take. `cards` (a card or gallery) and `button_template` (text with link or
+ * postback buttons) exist only on Instagram: on a WhatsApp conversation they
+ * are refused before any intent. `payment_link` is the payment step's message:
+ * on WhatsApp it is the text (message, then the URL); on Instagram it is a
+ * card (the message with a "Pay now" URL button), or the same text when the
+ * link or message cannot be a card.
+ */
 export type FlowSend =
   | { kind: 'text'; args: TextArgs }
   | { kind: 'media'; args: MediaArgs }
   | { kind: 'buttons'; args: ButtonsArgs }
-  | { kind: 'list'; args: ListArgs };
+  | { kind: 'list'; args: ListArgs }
+  | { kind: 'payment_link'; args: TextArgs & { message: string; url: string } }
+  | { kind: 'cards'; args: InstagramOnlyArgs & { cards: IgGenericCard[] } }
+  | { kind: 'button_template'; args: InstagramOnlyArgs & { text: string; buttons: IgTemplateButton[] } };
+
+type WhatsAppSend = Extract<FlowSend, { kind: 'text' | 'media' | 'buttons' | 'list' | 'payment_link' }>;
 
 /** `whatsapp_message_id` keeps the engine's existing field name; on Instagram it is the Meta mid. */
 export interface FlowSendResult {
@@ -94,9 +118,10 @@ export function runChannel(run: RunRef): Promise<Channel> {
   return channel;
 }
 
-function whatsappSend(send: FlowSend): Promise<FlowSendResult> {
+function whatsappSend(send: WhatsAppSend): Promise<FlowSendResult> {
   switch (send.kind) {
-    case 'text': return engineSendText(send.args);
+    case 'text':
+    case 'payment_link': return engineSendText(send.args);
     case 'media': return engineSendMedia(send.args);
     case 'buttons': return engineSendInteractiveButtons(send.args);
     case 'list': return engineSendInteractiveList(send.args);
@@ -108,7 +133,11 @@ function whatsappSend(send: FlowSend): Promise<FlowSendResult> {
  * WhatsApp: unchanged. Instagram: refused before the intent when it cannot go.
  */
 export async function flowSend(run: RunRef, key: string, send: FlowSend): Promise<FlowSendResult> {
-  if ((await runChannel(run)) !== 'instagram') return dispatchOnce(run.account_id, key, () => whatsappSend(send));
+  if ((await runChannel(run)) !== 'instagram') {
+    // Instagram-only shapes never reach WhatsApp, and no intent is claimed for them.
+    if (send.kind === 'cards' || send.kind === 'button_template') throw new ChannelUnavailableError('interactive');
+    return dispatchOnce(run.account_id, key, () => whatsappSend(send));
+  }
   return instagramFlowSend(key, send);
 }
 
@@ -127,6 +156,14 @@ const MEDIA_TYPES: Record<string, InstagramMedia['type']> = { image: 'image', vi
 
 async function prepare(target: InstagramTarget, send: FlowSend, ctx: InstagramSendContext): Promise<Prepared> {
   switch (send.kind) {
+    case 'payment_link': {
+      const { accountId, conversationId, message, url } = send.args;
+      const card = paymentCard(message, url);
+      if (!card) return prepare(target, { kind: 'text', args: send.args }, ctx);
+      const prepared = await prepare(target, { kind: 'button_template', args: { accountId, conversationId, text: card.text, buttons: card.buttons } }, ctx);
+      prepared.row.interactive_payload = paymentCardPayload(card);
+      return prepared;
+    }
     case 'text': {
       const { text, request } = send.args;
       if (request) throw new ChannelUnavailableError(request === 'location' ? 'location_request' : 'address_request');
@@ -172,6 +209,41 @@ async function prepare(target: InstagramTarget, send: FlowSend, ctx: InstagramSe
           },
         },
         preview: bodyText,
+      };
+    }
+    case 'cards': {
+      const { cards } = send.args;
+      checkInstagramCards(target, cards, ctx);
+      return {
+        deliver: (c) => sendInstagramCards(target, cards, c),
+        row: {
+          content_type: 'interactive',
+          content_text: cards[0]?.title ?? null,
+          interactive_payload: {
+            kind: 'cards',
+            cards: cards.map((card) => ({ title: card.title, subtitle: card.subtitle ?? null, image_url: card.imageUrl ?? null,
+              buttons: (card.buttons ?? []).map((b) => ({ type: b.type, title: b.title })) })),
+            ig: { generic_template: true },
+          },
+        },
+        preview: cards[0]?.title ?? '[card]',
+      };
+    }
+    case 'button_template': {
+      const { text, buttons } = send.args;
+      checkInstagramButtonTemplate(target, text, buttons, ctx);
+      return {
+        deliver: (c) => sendInstagramButtonTemplate(target, text, buttons, c),
+        row: {
+          content_type: 'interactive',
+          content_text: text,
+          interactive_payload: {
+            kind: 'buttons', body: text,
+            buttons: buttons.map((b) => (b.type === 'postback' ? { id: b.payload, title: b.title } : { url: b.url, title: b.title })),
+            ig: { button_template: true },
+          },
+        },
+        preview: text,
       };
     }
     case 'list': {

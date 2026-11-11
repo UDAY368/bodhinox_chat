@@ -168,8 +168,13 @@ export function OrderReceivedTriggerFields({ t }: { t: T }) {
 export const AD_CLICK_TRIGGER_VARIABLES = ["ad_id", "ad_headline", "ad_source_url"] as const;
 const AD_CLICK_MAX_IDS = 50;
 
-/** Optional Meta ad ids as chips (empty = any ad), plus the variables the run gets. */
-export function AdClickTriggerFields({ config, onChange, t }: { config: Config; onChange: (c: Config) => void; t: T }) {
+/**
+ * Optional Meta ad ids as chips (empty = any ad), plus the variables the run
+ * gets. `instagram`: the flow runs on Instagram, so the ads are click-to-Direct.
+ */
+export function AdClickTriggerFields({ config, onChange, t, instagram = false }: {
+  config: Config; onChange: (c: Config) => void; t: T; instagram?: boolean;
+}) {
   const ids = Array.isArray(config.ad_ids) ? (config.ad_ids as string[]) : [];
   const [draft, setDraft] = useState("");
   const set = (next: string[]) => {
@@ -184,7 +189,7 @@ export function AdClickTriggerFields({ config, onChange, t }: { config: Config; 
   };
   return (
     <div className="space-y-2 md:col-span-2">
-      <p className="text-xs text-muted-foreground">{t("adClickTriggerHelp")}</p>
+      <p className="text-xs text-muted-foreground">{t(instagram ? "adClickTriggerHelpInstagram" : "adClickTriggerHelp")}</p>
       <div>
         <label htmlFor="trigger-ad-ids" className={label}>{t("adClickIdsLabel")}</label>
         <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-muted p-1.5">

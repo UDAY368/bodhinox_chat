@@ -8,6 +8,8 @@
 
 import { randomBytes } from 'node:crypto';
 
+import { endpointChannels, type WebhookChannel } from '@/lib/webhooks/events';
+
 /** Secret prefix — self-identifying, like `wacrm_live_` for keys. */
 export const WEBHOOK_SECRET_PREFIX = 'whsec_';
 
@@ -16,12 +18,14 @@ export const WEBHOOK_SECRET_PREFIX = 'whsec_';
  * (encrypted) `secret`, which is only ever surfaced once at creation.
  */
 export const WEBHOOK_PUBLIC_COLUMNS =
-  'id, url, events, is_active, last_delivery_at, failure_count, created_at, disabled_at, disabled_reason';
+  'id, url, events, channels, is_active, last_delivery_at, failure_count, created_at, disabled_at, disabled_reason';
 
 export interface ApiWebhookEndpoint {
   id: string;
   url: string;
   events: string[];
+  /** The channels whose events this endpoint receives (existing endpoints: ['whatsapp']). */
+  channels: WebhookChannel[];
   is_active: boolean;
   last_delivery_at: string | null;
   failure_count: number;
@@ -45,6 +49,7 @@ export function serializeWebhookEndpoint(
     id: row.id as string,
     url: row.url as string,
     events: (row.events as string[] | null) ?? [],
+    channels: endpointChannels(row.channels),
     is_active: Boolean(row.is_active),
     last_delivery_at: (row.last_delivery_at as string | null) ?? null,
     failure_count: (row.failure_count as number | null) ?? 0,
