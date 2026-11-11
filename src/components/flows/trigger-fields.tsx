@@ -2,7 +2,8 @@
 
 /**
  * Trigger settings for keyword (chips, exact / contains / regex, case,
- * ice breakers), template-reply, order and ad-click flows. Mounted by the trigger panel.
+ * ice breakers, and in Stage 5 "match meaning" through AI), template-reply,
+ * order and ad-click flows. Mounted by the trigger form.
  */
 
 import { useState } from "react";
@@ -10,6 +11,8 @@ import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { FLOW_TRIGGER_LIMITS } from "@/lib/flows/types";
 import {
   Select,
   SelectContent,
@@ -18,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useIceBreakers, useQuickReplyTemplates } from "./forms/use-pickers";
+import { useWorkspaceCapabilities } from "./palette";
 
 type T = ReturnType<typeof useTranslations>;
 type Config = Record<string, unknown>;
@@ -56,12 +60,70 @@ function KeywordChips({ keywords, onChange, t }: { keywords: string[]; onChange:
   );
 }
 
+/**
+ * Switching to "match meaning" keeps the keywords (they come back on the way
+ * out) and stores the intent sentence; switching back restores word matching.
+ */
+export function setKeywordMatchMode(config: Config, meaning: boolean): Config {
+  if (meaning) return { ...config, match_type: "intent", intent: typeof config.intent === "string" ? config.intent : "" };
+  const next: Config = { ...config, match_type: "contains" };
+  delete next.intent;
+  return next;
+}
+
+/** "Match words" or "Match meaning" (AI). Meaning is offered only while the workspace has AI, or when already chosen. */
+function KeywordModeSwitch({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
+  const ti = useTranslations("Flows.triggers.intent");
+  const caps = useWorkspaceCapabilities();
+  const meaning = config.match_type === "intent";
+  if (!meaning && !caps?.ai) return null;
+  const option = (active: boolean, text: string, next: boolean) => (
+    <button type="button" role="radio" aria-checked={active} onClick={() => { if (!active) onChange(setKeywordMatchMode(config, next)); }}
+      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+      {text}
+    </button>
+  );
+  return (
+    <div role="radiogroup" aria-label={ti("mode")} className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5">
+      {option(!meaning, ti("modeKeywords"), false)}
+      {option(meaning, ti("mode"), true)}
+    </div>
+  );
+}
+
+/** The intent sentence a "match meaning" trigger recognises (300 characters). */
+function IntentFields({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
+  const ti = useTranslations("Flows.triggers.intent");
+  const caps = useWorkspaceCapabilities();
+  const intent = typeof config.intent === "string" ? config.intent : "";
+  const tooLong = intent.length > FLOW_TRIGGER_LIMITS.intentChars;
+  return (
+    <div>
+      <label htmlFor="trigger-intent" className={label}>{ti("label")}</label>
+      <Textarea id="trigger-intent" rows={2} value={intent} placeholder={ti("placeholder")} aria-invalid={tooLong || undefined}
+        onChange={(e) => onChange({ ...config, intent: e.target.value })} className="bg-muted" />
+      <p className="mt-1 text-[10px] text-muted-foreground">{intent.length}/{FLOW_TRIGGER_LIMITS.intentChars} · {ti("help")}</p>
+      {tooLong && <p className="mt-1 text-[10px] text-amber-500">{ti("tooLong")}</p>}
+      {caps && !caps.ai && <p className="mt-1 text-[10px] text-amber-500">{ti("needsAi")}</p>}
+    </div>
+  );
+}
+
 export function KeywordTriggerFields({ config, onChange, t }: { config: Config; onChange: (c: Config) => void; t: T }) {
   const iceBreakers = useIceBreakers();
   const keywords = Array.isArray(config.keywords) ? (config.keywords as string[]) : [];
   const matchType = typeof config.match_type === "string" ? config.match_type : "contains";
+  if (matchType === "intent") {
+    return (
+      <div className="space-y-3 md:col-span-2">
+        <KeywordModeSwitch config={config} onChange={onChange} />
+        <IntentFields config={config} onChange={onChange} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-3 md:col-span-2">
+      <KeywordModeSwitch config={config} onChange={onChange} />
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
           <label htmlFor="trigger-match" className={label}>{t("matchTypeLabel")}</label>
