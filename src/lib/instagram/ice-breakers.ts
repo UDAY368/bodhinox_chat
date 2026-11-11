@@ -125,13 +125,13 @@ async function accountTx(tx: TenantTransaction, actor: InstagramActor, instagram
   return account;
 }
 
-interface FlowFacts { id: string; name: string; status: string; channel_scope: string }
+export interface FlowFacts { id: string; name: string; status: string; channel_scope: string }
 
-const usable = (flow: FlowFacts | undefined): boolean =>
+export const usable = (flow: FlowFacts | undefined): boolean =>
   !!flow && (flow.channel_scope === 'instagram' || flow.channel_scope === 'any') && flow.status !== 'archived';
 
 /** The workspace's flows among `ids` (RLS and the explicit account filter both keep other workspaces out). */
-async function flowsTx(tx: TenantTransaction, accountId: string, ids: readonly string[]): Promise<Map<string, FlowFacts>> {
+export async function flowsTx(tx: TenantTransaction, accountId: string, ids: readonly string[]): Promise<Map<string, FlowFacts>> {
   if (!ids.length) return new Map();
   const rows = await tx.$queryRaw<FlowFacts[]>`SELECT id::text AS id, name, status, channel_scope FROM flows
     WHERE account_id=${accountId}::uuid AND id = ANY(${[...new Set(ids)]}::uuid[])`;

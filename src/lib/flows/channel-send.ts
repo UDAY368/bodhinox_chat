@@ -44,6 +44,7 @@ import {
 } from '@/lib/channels/sender';
 import type { Channel } from '@/lib/channels/capabilities';
 import type { IgGenericCard, IgTemplateButton, QuickReply, SentMessage } from '@/lib/instagram/graph';
+import { paymentCard, paymentCardPayload } from '@/lib/payments/payment-card';
 import { databaseAdmin } from './admin-client';
 import {
   engineSendInteractiveButtons,
@@ -64,17 +65,21 @@ interface InstagramOnlyArgs { accountId: string; conversationId: string }
  * One customer-facing flow send, in the shape the WhatsApp engine senders
  * take. `cards` (a card or gallery) and `button_template` (text with link or
  * postback buttons) exist only on Instagram: on a WhatsApp conversation they
- * are refused before any intent.
+ * are refused before any intent. `payment_link` is the payment step's message:
+ * on WhatsApp it is the text (message, then the URL); on Instagram it is a
+ * card (the message with a "Pay now" URL button), or the same text when the
+ * link or message cannot be a card.
  */
 export type FlowSend =
   | { kind: 'text'; args: TextArgs }
   | { kind: 'media'; args: MediaArgs }
   | { kind: 'buttons'; args: ButtonsArgs }
   | { kind: 'list'; args: ListArgs }
+  | { kind: 'payment_link'; args: TextArgs & { message: string; url: string } }
   | { kind: 'cards'; args: InstagramOnlyArgs & { cards: IgGenericCard[] } }
   | { kind: 'button_template'; args: InstagramOnlyArgs & { text: string; buttons: IgTemplateButton[] } };
 
-type WhatsAppSend = Extract<FlowSend, { kind: 'text' | 'media' | 'buttons' | 'list' }>;
+type WhatsAppSend = Extract<FlowSend, { kind: 'text' | 'media' | 'buttons' | 'list' | 'payment_link' }>;
 
 /** `whatsapp_message_id` keeps the engine's existing field name; on Instagram it is the Meta mid. */
 export interface FlowSendResult {
@@ -115,7 +120,8 @@ export function runChannel(run: RunRef): Promise<Channel> {
 
 function whatsappSend(send: WhatsAppSend): Promise<FlowSendResult> {
   switch (send.kind) {
-    case 'text': return engineSendText(send.args);
+    case 'text':
+    case 'payment_link': return engineSendText(send.args);
     case 'media': return engineSendMedia(send.args);
     case 'buttons': return engineSendInteractiveButtons(send.args);
     case 'list': return engineSendInteractiveList(send.args);
@@ -150,6 +156,14 @@ const MEDIA_TYPES: Record<string, InstagramMedia['type']> = { image: 'image', vi
 
 async function prepare(target: InstagramTarget, send: FlowSend, ctx: InstagramSendContext): Promise<Prepared> {
   switch (send.kind) {
+    case 'payment_link': {
+      const { accountId, conversationId, message, url } = send.args;
+      const card = paymentCard(message, url);
+      if (!card) return prepare(target, { kind: 'text', args: send.args }, ctx);
+      const prepared = await prepare(target, { kind: 'button_template', args: { accountId, conversationId, text: card.text, buttons: card.buttons } }, ctx);
+      prepared.row.interactive_payload = paymentCardPayload(card);
+      return prepared;
+    }
     case 'text': {
       const { text, request } = send.args;
       if (request) throw new ChannelUnavailableError(request === 'location' ? 'location_request' : 'address_request');
