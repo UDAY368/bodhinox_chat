@@ -25,6 +25,7 @@
 //   staff-written message. WhatsApp: text, only inside the 24-hour window when
 //   it goes out (otherwise skipped; a template is sent by hand).
 // The text is staff-written and is never logged.
+import { conversationVisible } from '@/lib/inbox/visibility-sql';
 import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { toErrorResponse } from '@/lib/auth/account';
@@ -197,7 +198,8 @@ function assertSchedulable(channel: Channel, content: string, sendAt: Date, now:
 /** The conversation's channel as this member sees it (RLS), or not-found. */
 async function conversationChannel(me: Member, conversationId: string): Promise<Channel> {
   const rows = await withTenant(me, (tx) => tx.$queryRaw<{ channel: string }[]>`
-    SELECT channel FROM conversations WHERE account_id=${me.accountId}::uuid AND id=${conversationId}::uuid`);
+    SELECT channel FROM conversations WHERE account_id=${me.accountId}::uuid AND id=${conversationId}::uuid
+      AND ${conversationVisible('conversations')}`);
   if (!rows.length) throw new ScheduledReplyError('notFound', 404);
   return rows[0].channel === 'instagram' ? 'instagram' : 'whatsapp';
 }

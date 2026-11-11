@@ -13,6 +13,7 @@
  * The message row is written afterwards, idempotently on (conversation, wamid).
  */
 
+import { conversationVisible } from '@/lib/inbox/visibility-sql';
 import type { PrismaClient } from '@prisma/client';
 import { getPrisma, getWorkerPrisma } from '@/lib/db/prisma';
 import { withTenant, type TenantContext, type TenantTransaction } from '@/lib/db/tenant';
@@ -226,7 +227,7 @@ async function prepare(tx: TenantTransaction, args: SendCommerceArgs): Promise<P
         AND m.sender_type='customer') AS last_customer_message_at,
       ct.phone,ct.wa_user_id,ct.blocked_at,c.whatsapp_config_id::text AS whatsapp_config_id,c.channel
     FROM conversations c JOIN contacts ct ON ct.account_id=c.account_id AND ct.id=c.contact_id
-    WHERE c.account_id=${args.accountId}::uuid AND c.id=${args.conversationId}::uuid`;
+    WHERE c.account_id=${args.accountId}::uuid AND c.id=${args.conversationId}::uuid AND ${conversationVisible('c')}`;
   const conversation = conversations[0] ?? null;
   // Catalogue messages are WhatsApp only: never from the default number on an Instagram conversation.
   if (conversation?.channel && conversation.channel !== 'whatsapp') throw new CommerceSendError('number_unavailable');

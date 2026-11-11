@@ -114,3 +114,15 @@ describe('agent visibility predicate', () => {
     expect(compileSelect(spec('contacts'), asAgent, true).text).not.toContain('assigned_or_team');
   });
 });
+
+describe('agent visibility on the act-on-a-conversation lookups', () => {
+  it('gives the server lookups the same role-gated predicate, over a trusted alias only', async () => {
+    const { conversationVisible } = await import('./visibility-sql');
+    const sql = conversationVisible('c').sql;
+    expect(sql).toBe(conversationVisibleSql('c'));
+    expect(sql).toContain("current_setting('app.account_role', true)");
+    expect(sql).toContain("vis.agent_visibility = 'assigned_or_team'");
+    expect(conversationVisible('conversations').values).toEqual([]);
+    expect(() => conversationVisible('c; DROP TABLE x')).toThrow('Invalid SQL alias');
+  });
+});

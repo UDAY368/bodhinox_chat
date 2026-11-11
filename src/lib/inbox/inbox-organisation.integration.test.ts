@@ -13,6 +13,9 @@ import { executeQuery } from '@/lib/repositories/crm';
 import { bulkContactAction, contactChannelStatus, scopeContacts } from '@/lib/contacts/bulk';
 import { loadInstagramFacts } from '@/lib/contacts/instagram-facts';
 import { listFavourites, setFavourite } from './favourites';
+import { listConversationNotes } from './notes';
+import { createReminder } from './reminders';
+import { createScheduledReply } from './scheduled-replies';
 import { createLabel, deleteLabel, LabelError, listLabelLinks, listLabels, setConversationLabel, updateLabel } from './labels';
 import { applyInboundLifecycle } from './lifecycle';
 import { createRoutingRule, deleteRoutingRule, getMemberCapacity, RoutingRuleError, setMemberCapacity } from './routing';
@@ -142,6 +145,28 @@ describe.skipIf(!ownerUrl || !appUrl || !workerUrl)('inbox and contacts organisa
     } finally {
       await setVisibility('all');
     }
+  });
+
+  it('a restricted agent cannot read notes of, remind on or schedule a reply into another agent\'s conversation', async () => {
+    const code = (work: Promise<unknown>) => work.then(() => null, (error) => (error as { code?: string }).code ?? 'other');
+    const soon = new Date(Date.now() + 60 * 60_000);
+    await setVisibility('assigned_or_team');
+    try {
+      expect(await code(withTenant(asAgent, (tx) => listConversationNotes(tx, accountA, theirs.conversation)))).toBe('not_found');
+      expect(await withTenant(asAgent, (tx) => listConversationNotes(tx, accountA, mine.conversation))).toEqual([]);
+      expect(await code(createReminder(asAgent, { conversationId: theirs.conversation, kind: 'reminder', remindAt: soon, note: null })))
+        .toBe('notFound');
+      expect(await code(createScheduledReply(asAgent, { conversationId: theirs.conversation, content: 'Later', sendAt: soon })))
+        .toBe('notFound');
+      // Their own conversation and an admin are not refused as not found.
+      expect(await code(createScheduledReply(asAgent, { conversationId: mine.conversation, content: 'Later', sendAt: soon })))
+        .not.toBe('notFound');
+      expect(await withTenant(asAdmin, (tx) => listConversationNotes(tx, accountA, theirs.conversation))).toEqual([]);
+    } finally {
+      await setVisibility('all');
+    }
+    // Default visibility: unchanged.
+    expect(await withTenant(asAgent, (tx) => listConversationNotes(tx, accountA, theirs.conversation))).toEqual([]);
   });
 
   it('keeps labels per workspace (20 at most, unique names) and agents-and-above only', async () => {
