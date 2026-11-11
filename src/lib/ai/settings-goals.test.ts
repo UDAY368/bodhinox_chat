@@ -55,6 +55,7 @@ describe('instagram_goals in the AI settings', () => {
     [{ instagram_goals: [{ type: 'share_link', url: 'ftp://x' }] }],
     [{ instagram_goals: [{ type: 'grow_followers' }, { type: 'grow_followers' }] }],
     [{ instagram_goals: 'all' }],
+    [{ instagram_goals: [{ type: 'capture_lead', fields: ['phone'], on_refusal: 'continue' }] }],
   ])('refuses an invalid list %#', (body) => {
     expect(parseSettingsPatch(body)).toBeNull();
   });

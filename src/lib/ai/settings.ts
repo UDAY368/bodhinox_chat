@@ -16,7 +16,7 @@ import { aiDeploymentEnabled } from './gate';
 import { geminiApiKey } from './gemini-key';
 import type { AiAssistFeature, AiFallbackReason } from './types';
 import type { AiGoal } from '@/lib/flows/types';
-import { goalsProblem, parseGoals } from './goal-rules';
+import { autoReplyGoalsProblem, parseGoals } from './goal-rules';
 
 export interface AiWorkspaceSettings {
   summaries_enabled: boolean;
@@ -141,7 +141,7 @@ export function parseSettingsPatch(body: unknown): AiSettingsPatch | null {
     else return null;
   }
   if ('instagram_goals' in input) {
-    if (goalsProblem(input.instagram_goals) !== null) return null;
+    if (autoReplyGoalsProblem(input.instagram_goals) !== null) return null;
     // Only the known fields of each goal are kept.
     patch.instagram_goals = (input.instagram_goals as AiGoal[]).map((g): AiGoal => g.type === 'share_link'
       ? { type: 'share_link', url: g.url, ...(g.label ? { label: g.label } : {}) }

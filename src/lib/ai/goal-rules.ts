@@ -201,14 +201,32 @@ export function effectiveGoals(cfg: { goals?: unknown; tasks?: unknown }): AiGoa
 // The workspace's Instagram AI auto-reply goals (ai_workspace_settings.instagram_goals)
 
 /**
+ * Lead fields the workspace's Instagram auto-reply may ask for. Not the phone:
+ * the contact writer never overwrites it and the auto-reply keeps no run
+ * variables, so a phone answer could never mark the goal met and the AI would
+ * ask for it on every reply.
+ */
+export const AUTO_REPLY_LEAD_FIELDS = AI_LEAD_FIELDS.filter((f) => f !== 'phone');
+
+/** goalsProblem plus the auto-reply's own field rule (AUTO_REPLY_LEAD_FIELDS). */
+export function autoReplyGoalsProblem(value: unknown): ReturnType<typeof goalsProblem> {
+  const problem = goalsProblem(value);
+  if (problem) return problem;
+  return (value as AiGoal[]).some((g) => g.type === 'capture_lead' && g.fields.includes('phone')) ? 'fields' : null;
+}
+
+/**
  * Extra instructions for the Instagram auto-reply: the first goal not yet met
- * for this conversation (share_link goals are treated as open; the auto-reply
- * keeps no per-conversation goal state). Null when there are no goals.
+ * for this conversation. A share_link goal is met once its link was already
+ * sent in the conversation (`sharedUrls`, read by the caller); the auto-reply
+ * keeps no other per-conversation goal state. Null when there are no goals.
  */
 export function autoReplyGoalInstructions(goals: readonly AiGoal[], facts: GoalFacts,
-  contactValues: Record<string, string | null | undefined>, labels: Record<string, string> = {}): { instructions: string; allowedUrls: string[] } | null {
+  contactValues: Record<string, string | null | undefined>, labels: Record<string, string> = {},
+  sharedUrls: ReadonlySet<string> = new Set()): { instructions: string; allowedUrls: string[] } | null {
   for (const goal of goals) {
     if (goal.type === 'grow_followers' && facts.followsBusiness === true) continue;
+    if (goal.type === 'share_link' && sharedUrls.has(goal.url)) continue;
     if (goal.type === 'capture_lead') {
       const missing = goal.fields.filter((f) => !contactValues[f]);
       if (!missing.length) continue;

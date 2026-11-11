@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AiGoal } from '@/lib/flows/types';
 import {
-  advanceGoals, aiStepGuidance, autoReplyGoalInstructions, effectiveGoals, goalInstructions, goalsProblem, goalStateVars, leadVar,
+  advanceGoals, aiStepGuidance, autoReplyGoalInstructions, autoReplyGoalsProblem, effectiveGoals, goalInstructions, goalsProblem, goalStateVars, leadVar,
   missingLeadFields, parseGoals, readGoalState, STEP_GUIDANCE_MAX, taskLeadFields,
 } from './goal-rules';
 
@@ -70,6 +70,19 @@ describe('instructions', () => {
     const next = autoReplyGoalInstructions([follow, link], { followsBusiness: true }, {});
     expect(next?.allowedUrls).toEqual(['https://shop.example/offer']);
     expect(autoReplyGoalInstructions([lead], { followsBusiness: null }, { email: 'a@b.example', [`custom:${FIELD}`]: 'x' })).toBeNull();
+  });
+  it('the auto-reply moves past a link already sent in the conversation to the next goal', () => {
+    const shared = new Set(['https://shop.example/offer']);
+    expect(autoReplyGoalInstructions([link, lead], { followsBusiness: null }, {})?.allowedUrls).toEqual(['https://shop.example/offer']);
+    const next = autoReplyGoalInstructions([link, lead], { followsBusiness: null }, {}, { email: 'email address' }, shared);
+    expect(next?.allowedUrls).toEqual([]);
+    expect(next?.instructions).toContain('email address');
+    expect(autoReplyGoalInstructions([link], { followsBusiness: null }, {}, {}, shared)).toBeNull();
+  });
+  it('the auto-reply never asks for a phone (it could never be stored, so it would be asked forever)', () => {
+    expect(autoReplyGoalsProblem([lead])).toBeNull();
+    expect(autoReplyGoalsProblem([{ type: 'capture_lead', fields: ['email', 'phone'], on_refusal: 'continue' }])).toBe('fields');
+    expect(autoReplyGoalsProblem({})).toBe('not_list');
   });
 });
 

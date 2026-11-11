@@ -39,7 +39,7 @@ import { normalizeCollectedInput } from '@/lib/flows/input-validation';
 import { writeContactField } from '@/lib/contacts/field-write';
 import type { AiGoal, AiReplyNodeConfig, FlowNodeRow, FlowRunRow, ParsedInbound } from '@/lib/flows/types';
 import {
-  advanceGoals, autoReplyGoalInstructions, customFieldId, effectiveGoals, GOAL_MAX_TURNS, goalInstructions, goalStateVars, leadVar, missingLeadFields, parseGoals,
+  advanceGoals, autoReplyGoalInstructions, autoReplyGoalsProblem, customFieldId, effectiveGoals, GOAL_MAX_TURNS, goalInstructions, goalStateVars, leadVar, missingLeadFields, parseGoals,
   readGoalState, type GoalFacts,
 } from './goal-rules';
 
@@ -353,10 +353,12 @@ export async function instagramAutoReplyGoals(args: { accountId: string; convers
     const goals = await withTenant({ accountId: args.accountId, role: 'owner' }, async (tx) => {
       const [row] = await tx.$queryRaw<{ instagram_goals: unknown }[]>`
         SELECT instagram_goals FROM ai_workspace_settings WHERE account_id=${args.accountId}::uuid`;
-      return parseGoals(row?.instagram_goals);
+      return autoReplyGoalsProblem(row?.instagram_goals) === null ? parseGoals(row?.instagram_goals) : [];
     }, getWorkerPrisma());
     if (!goals.length) return { kind: 'none' };
     const facts = await readFacts(args.accountId, args.conversationId);
+    const sharedUrls = await sharedLinks(args.accountId, args.conversationId,
+      goals.flatMap((g) => (g.type === 'share_link' ? [g.url] : [])));
     const scope: LeadScope = { accountId: args.accountId, conversationId: args.conversationId, contactId: args.contactId,
       key: `conv:${args.conversationId}` };
     const fields = [...new Set(goals.flatMap((g) => (g.type === 'capture_lead' ? g.fields : [])))];
@@ -375,12 +377,24 @@ export async function instagramAutoReplyGoals(args: { accountId: string; convers
       }
     }
     const labels = await fieldLabels(args.accountId, fields);
-    const next = autoReplyGoalInstructions(goals, facts, values, labels);
+    const next = autoReplyGoalInstructions(goals, facts, values, labels, sharedUrls);
     return next ? { kind: 'instructions', ...next } : { kind: 'none' };
   } catch (error) {
     logAiEvent({ feature: 'ai_goals', reason: 'auto_reply_goals_failed', accountId: args.accountId, error });
     return { kind: 'none' };
   }
+}
+
+/** Which of `urls` a bot or agent message of the conversation already carried (its last 200 outgoing messages). */
+async function sharedLinks(accountId: string, conversationId: string, urls: readonly string[]): Promise<Set<string>> {
+  if (!urls.length) return new Set();
+  const rows = await withTenant({ accountId, role: 'owner' }, (tx) => tx.$queryRaw<{ url: string }[]>`
+    SELECT u.url FROM unnest(${[...urls]}::text[]) AS u(url)
+    WHERE EXISTS (SELECT 1 FROM (SELECT m.content_text FROM messages m
+        WHERE m.account_id=${accountId}::uuid AND m.conversation_id=${conversationId}::uuid AND m.sender_type IN ('bot','agent')
+        ORDER BY m.created_at DESC LIMIT 200) recent
+      WHERE strpos(COALESCE(recent.content_text, ''), u.url) > 0)`, getWorkerPrisma());
+  return new Set(rows.map((r) => r.url));
 }
 
 /** The contact's current values for lead fields (built-in columns and custom values), read with the worker role. */

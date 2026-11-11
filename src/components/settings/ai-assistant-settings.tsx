@@ -28,8 +28,8 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { authFetch } from '@/lib/auth/client';
 import { useWorkspaceChannels } from '@/hooks/use-workspace-channels';
-import { goalsProblem } from '@/lib/ai/goal-rules';
-import { AI_GOAL_LIMITS, AI_GOAL_TYPES, AI_LEAD_FIELDS, type AiGoal, type AiGoalType } from '@/lib/flows/types';
+import { AUTO_REPLY_LEAD_FIELDS, autoReplyGoalsProblem } from '@/lib/ai/goal-rules';
+import { AI_GOAL_LIMITS, AI_GOAL_TYPES, type AiGoal, type AiGoalType } from '@/lib/flows/types';
 
 export type AiToggle = 'summaries_enabled' | 'suggestions_enabled' | 'assessment_enabled' | 'insights_enabled';
 
@@ -93,16 +93,22 @@ function InstagramGoalsEditor({ initial, busy, onSave }: {
 }) {
   const tg = useTranslations('AiSettings.instagramGoals');
   const [goals, setGoals] = useState<AiGoal[]>(initial);
-  useEffect(() => { setGoals(initial); }, [initial]);
+  // Reset the draft only when the saved goals change, not on every other settings save.
+  const initialJson = JSON.stringify(initial);
+  const [syncedJson, setSyncedJson] = useState(initialJson);
+  if (syncedJson !== initialJson) {
+    setSyncedJson(initialJson);
+    setGoals(initial);
+  }
   const update = (index: number, goal: AiGoal) => setGoals((list) => list.map((g, i) => (i === index ? goal : g)));
   const unused = unusedGoalTypes(goals);
-  const dirty = JSON.stringify(goals) !== JSON.stringify(initial);
+  const dirty = JSON.stringify(goals) !== initialJson;
 
   const save = async () => {
     const cleaned = goals.map((g): AiGoal => g.type === 'share_link'
       ? { type: 'share_link', url: g.url.trim(), ...(g.label?.trim() ? { label: g.label.trim() } : {}) }
       : g);
-    if (goalsProblem(cleaned) !== null) {
+    if (autoReplyGoalsProblem(cleaned) !== null) {
       toast.error(tg('invalid'));
       return;
     }
@@ -157,7 +163,7 @@ function InstagramGoalsEditor({ initial, busy, onSave }: {
                   <fieldset className="space-y-1">
                     <legend className="text-sm">{tg('fields')}</legend>
                     <div className="flex flex-wrap gap-3">
-                      {AI_LEAD_FIELDS.map((field) => (
+                      {AUTO_REPLY_LEAD_FIELDS.map((field) => (
                         <label key={field} className="flex items-center gap-2 text-sm">
                           <Checkbox checked={goal.fields.includes(field)} disabled={busy}
                             onCheckedChange={(checked: boolean) => update(index, {

@@ -25,7 +25,7 @@ import {
 } from '@/test/tenancy/fixtures';
 import type { FlowNodeRow, FlowRunRow, ParsedInbound } from '@/lib/flows/types';
 import { proxy } from '@/proxy';
-import { runGoalTurn } from './goals';
+import { instagramAutoReplyGoals, runGoalTurn } from './goals';
 
 const databases = fixtureDatabaseUrls();
 
@@ -75,6 +75,27 @@ describe.skipIf(!databases)('AI goals (real database)', () => {
     // Another workspace's custom field is never written, for any contact.
     expect((await pool.query('SELECT count(*)::int AS n FROM contact_custom_values WHERE custom_field_id=$1', [b.ids.custom_fields])).rows[0].n).toBe(bValuesBefore);
     expect((await pool.query('SELECT email FROM contacts WHERE id=$1', [b.contactId])).rows[0].email).not.toBe(email);
+  }, 60000);
+
+  it('the Instagram auto-reply moves past a link this conversation already sent, never counting another workspace', async () => {
+    const { a, b } = pair;
+    const url = `https://shop.example/${randomUUID().slice(0, 8)}`;
+    const pool = fixtureOwnerPool();
+    await pool.query(`INSERT INTO ai_workspace_settings(account_id, instagram_goals) VALUES($1, $2::jsonb)
+      ON CONFLICT (account_id) DO UPDATE SET instagram_goals=EXCLUDED.instagram_goals`,
+    [a.accountId, JSON.stringify([{ type: 'share_link', url }, { type: 'grow_followers' }])]);
+    const goals = () => instagramAutoReplyGoals({ accountId: a.accountId, conversationId: a.conversationId, contactId: a.contactId,
+      inboundMessageId: null, latestText: 'hi' });
+    // The link sent in another workspace's conversation does not count.
+    await pool.query(`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,status)
+      VALUES($1,$2,'bot','text',$3,'sent')`, [b.accountId, b.conversationId, `See ${url}`]);
+    expect(await goals()).toMatchObject({ kind: 'instructions', allowedUrls: [url] });
+    await pool.query(`INSERT INTO messages(account_id,conversation_id,sender_type,content_type,content_text,status)
+      VALUES($1,$2,'bot','text',$3,'sent')`, [a.accountId, a.conversationId, `Here it is: ${url}`]);
+    const next = await goals();
+    expect(next).toMatchObject({ kind: 'instructions', allowedUrls: [] });
+    expect(next.kind === 'instructions' ? next.instructions : '').toContain('follow');
+    await pool.query('UPDATE ai_workspace_settings SET instagram_goals=\'[]\'::jsonb WHERE account_id=$1', [a.accountId]);
   }, 60000);
 
   it('the proxy refuses an AI settings write without the CSRF proof', async () => {

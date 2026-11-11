@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   intents: new Map<string, unknown>(),
+  pending: new Set<string>(),
   sendInstagramText: vi.fn(),
   loadInstagramTarget: vi.fn(),
   checkInstagramText: vi.fn(),
@@ -29,7 +30,16 @@ vi.mock('@/lib/jobs/dispatch', async (importOriginal) => {
 vi.mock('@/lib/db/tenant', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/db/tenant')>()),
   withTenant: vi.fn(async (_c: unknown, work: (tx: unknown) => Promise<unknown>) => work({
-    $queryRaw: vi.fn(async () => [{ id: '99999999-9999-4999-8999-999999999999' }]), $executeRaw: vi.fn(async () => 1),
+    $queryRaw: vi.fn(async (sql: TemplateStringsArray, ...values: unknown[]) => {
+      // The intent lookup of a repeated key reads the in-memory intents (key stored as '<account>:<key>').
+      if (sql.join('').includes('outbound_intents')) {
+        const key = String(values[1]).slice(String(values[0]).length + 1);
+        if (mocks.pending.has(key)) return [{ status: 'dispatching', result: null }];
+        return mocks.intents.has(key) ? [{ status: 'accepted', result: mocks.intents.get(key) }] : [];
+      }
+      return [{ id: '99999999-9999-4999-8999-999999999999' }];
+    }),
+    $executeRaw: vi.fn(async () => 1),
   })),
 }));
 vi.mock('@/lib/db/prisma', async (importOriginal) => ({
@@ -74,6 +84,7 @@ function fakeDb(tables: Record<string, unknown>): DataClient {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.intents.clear();
+  mocks.pending.clear();
   mocks.allowed.mockResolvedValue(true);
 });
 
@@ -141,6 +152,21 @@ describe('conversation send', () => {
     expect(again).toMatchObject({ ok: true, replayed: true, sent: first.ok ? first.sent : {} });
     expect(mocks.sendInstagramText).toHaveBeenCalledTimes(1);
     expect(await send(instagram, 'Different')).toMatchObject({ ok: false, code: 'idempotency_mismatch', status: 409 });
+    expect(mocks.sendInstagramText).toHaveBeenCalledTimes(1);
+  });
+
+  it('a repeated key answers its stored result even after the window closed, and never re-sends an open attempt', async () => {
+    mocks.loadInstagramTarget.mockResolvedValue(target);
+    mocks.sendInstagramText.mockResolvedValue({ messageId: 'mid.2' });
+    const first = await send(instagram, 'Hello', 'k-late');
+    mocks.checkInstagramText.mockImplementation(() => { throw new InstagramError('instagram_window_closed'); });
+    expect(await send(instagram, 'Hello', 'k-late')).toMatchObject({ ok: true, replayed: true, sent: first.ok ? first.sent : {} });
+    // An earlier attempt still in flight (or ambiguous) is reported, not sent again.
+    mocks.checkInstagramText.mockReset();
+    const [intentKey] = [...mocks.intents.keys()];
+    mocks.intents.clear();
+    mocks.pending.add(intentKey);
+    expect(await send(instagram, 'Hello', 'k-late')).toMatchObject({ ok: false, code: 'delivery_uncertain', status: 409 });
     expect(mocks.sendInstagramText).toHaveBeenCalledTimes(1);
   });
 

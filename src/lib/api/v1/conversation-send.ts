@@ -82,6 +82,17 @@ export async function sendApiConversationText(args: {
   const request = args.idempotencyKey ? digest(`${args.keyId}:${args.idempotencyKey}`) : randomUUID().replace(/-/g, '');
   const key = `api_msg:${request}`;
 
+  // A repeated Idempotency-Key answers from its intent first: the stored result stays the
+  // answer even after the Instagram window closed or the contact opted out since.
+  if (args.idempotencyKey) {
+    const prior = await priorIntent(accountId, key);
+    if (prior) {
+      if (prior.status !== 'accepted' || !prior.result)
+        return refuse('delivery_uncertain', 409, 'An earlier attempt with this request may have been delivered; check the conversation before sending again');
+      return settled(prior.result, fingerprint, true);
+    }
+  }
+
   let target: InstagramTarget | null = null;
   const ctx: InstagramSendContext = { sender: 'automated', now: new Date() };
   if (channel === 'instagram') {
@@ -122,10 +133,21 @@ export async function sendApiConversationText(args: {
     if (error instanceof MetaApiError) return refuse('meta_error', 502, 'The provider refused the message');
     throw error;
   }
+  return settled(stored, fingerprint, replayed);
+}
+
+function settled(stored: Stored, fingerprint: string, replayed: boolean): ApiSendOutcome {
   if (stored.fingerprint !== fingerprint)
     return refuse('idempotency_mismatch', 409, 'This Idempotency-Key was already used for a different request.');
   if ('refused' in stored) return refuse(stored.refused.code, stored.refused.status, stored.refused.message);
   return { ok: true, sent: stored.sent, replayed };
+}
+
+/** The intent an earlier request with this key left (same key format as dispatchOnce), or null. */
+async function priorIntent(accountId: string, key: string): Promise<{ status: string; result: Stored | null } | null> {
+  const rows = await worker(accountId, (tx) => tx.$queryRaw<{ status: string; result: Stored | null }[]>`
+    SELECT status, result FROM outbound_intents WHERE account_id=${accountId}::uuid AND idempotency_key=${`${accountId}:${key}`}`);
+  return rows[0]?.status ? rows[0] : null;
 }
 
 /** One Instagram text: the 'sending' row, Meta, then sent / failed / unknown. Runs inside the request's intent. */
