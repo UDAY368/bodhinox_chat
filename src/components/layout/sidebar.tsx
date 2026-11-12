@@ -314,6 +314,7 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
           {addChannel && (
             <Link
               href={CHANNELS_SETTINGS_PATH}
+              title={t('addInstagram')}
               data-nav-add-channel={addChannel.channel}
               className="studio-sidebar-link mt-3 flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-[12px] font-medium text-[#7b7771] transition-colors hover:bg-[#272624] hover:text-white lg:min-h-[41px] lg:py-2"
             >

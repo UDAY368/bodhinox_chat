@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 export type PhoneChannel = 'whatsapp' | 'instagram';
 
-export function PhoneFrame({ channel, title, subtitle, children, footer, className }: {
+export function PhoneFrame({ channel, title, subtitle, children, footer, className, live = false }: {
   channel: PhoneChannel;
   /** The business name in the chat header. */
   title: string;
@@ -21,6 +21,8 @@ export function PhoneFrame({ channel, title, subtitle, children, footer, classNa
   /** Below the messages: the customer's reply box or choices. */
   footer?: ReactNode;
   className?: string;
+  /** Announce new messages (the interactive Preview); static phones stay quiet. */
+  live?: boolean;
 }) {
   const dark = channel === 'whatsapp';
   return (
@@ -39,11 +41,11 @@ export function PhoneFrame({ channel, title, subtitle, children, footer, classNa
         <PhoneAvatar channel={channel} large />
         <div className="min-w-0">
           <p className="truncate text-[15px] font-semibold leading-tight">{title}</p>
-          <p className={cn('truncate text-[13px]', dark ? 'text-white/55' : 'text-black/50')}>{subtitle}</p>
+          <p className={cn('truncate text-[13px]', dark ? 'text-white/55' : 'text-black/60')}>{subtitle}</p>
         </div>
       </div>
       <div className={cn('h-px shrink-0', dark ? 'bg-white/10' : 'bg-black/10')} />
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 py-4" aria-live="polite">
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 py-4" aria-live={live ? "polite" : undefined}>
         {children}
       </div>
       {footer && <div className={cn('shrink-0 border-t px-3 py-3', dark ? 'border-white/10' : 'border-black/10')}>{footer}</div>}

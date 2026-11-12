@@ -2933,9 +2933,31 @@
       "triggerIgShareToStoryTitle": "Alguém compartilha sua publicação no story",
       "nextStep": "Próxima etapa",
       "composer": {
+        "textPlaceholder": "Texto…",
+        "footnotePlaceholder": "Rodapé…",
+        "buttonTitle": "Título do botão",
+        "buttonsHint": "Até 3 botões. Cada um leva à sua própria próxima etapa: toque em > para escolher.",
+        "listButtonPlaceholder": "Título do botão",
+        "listOptionsHint": "O botão abre uma lista de opções (até 10). Cada opção leva à sua própria próxima etapa.",
+        "optionTitle": "Título da opção",
+        "optionDescription": "Descrição (opcional)",
+        "rowSettings": "Configurações de \"{title}\"",
+        "whenPressed": "Ao tocar, ir para",
+        "replyId": "ID da resposta",
+        "goesTo": "Vai para {step}",
+        "notConnected": "Ainda não conectado",
+        "send": "Enviar",
+        "windowWithin": "dentro da janela de 24 horas",
+        "windowOutside": "fora da janela de 24 horas",
+        "withinHelp": "Uma mensagem normal, se o cliente escreveu nas últimas 24 horas.",
+        "outsideHelp": "Um modelo de WhatsApp aprovado: pode ser enviado a qualquer momento.",
+        "windowHelp": "O WhatsApp só permite enviar uma mensagem normal até 24 horas depois da última mensagem do cliente. Para falar com ele depois disso, envie um modelo aprovado.",
+        "onlyPlainText": "Só uma etapa de texto pode mudar; remova antes os botões ou a lista.",
+        "keepTemplateRoutes": "Os botões de resposta rápida levam a etapas, então continua sendo um modelo.",
         "emoji": "Inserir um emoji",
         "characters": "{count, plural, =1 {# caractere} other {# caracteres}}",
-        "charactersLeft": "{count, plural, =1 {Resta # caractere} other {Restam # caracteres}}"
+        "charactersLeft": "{count, plural, =1 {Resta # caractere} other {Restam # caracteres}}",
+        "bytesLeft": "{count, plural, =1 {Resta # byte} other {Restam # bytes}}"
       }
     },
     "validation": {

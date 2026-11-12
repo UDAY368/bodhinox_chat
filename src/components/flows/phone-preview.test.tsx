@@ -45,14 +45,19 @@ describe('message composer (multi-line TextRow)', () => {
     const html = wrap(<TextRow label="Text" value="hello" onChange={() => {}} rows={3} maxLength={10} />);
     expect(html).toContain('data-composer=""');
     expect(html).toContain('data-testid="composer-toolbar"');
-    expect(html).toContain('aria-label="charactersLeft"');
-    expect(html).toMatch(/>5<\/span>/);
+    // The number is visual; screen readers get the sentence, tied to the field.
+    expect(html).toMatch(/<span aria-hidden="true">5<\/span><span class="sr-only">charactersLeft<\/span>/);
+    expect(html).toMatch(/aria-describedby="[^"]+-count"/);
     expect(html).toContain('aria-label="emoji"');
   });
 
   it('counts characters without a limit, and keeps a single-line row plain', () => {
-    expect(wrap(<TextRow label="Text" value="hey" onChange={() => {}} rows={2} />)).toMatch(/aria-label="characters"[^>]*>3<\/span>/);
+    expect(wrap(<TextRow label="Text" value="hey" onChange={() => {}} rows={2} />)).toMatch(/aria-hidden="true">3<\/span><span class="sr-only">characters</);
     expect(wrap(<TextRow label="Footer" value="x" onChange={() => {}} />)).not.toContain('composer-toolbar');
+  });
+
+  it('counts UTF-8 bytes when asked (Instagram): two-byte letters use the limit twice as fast', () => {
+    expect(wrap(<TextRow label="Text" value="ééé" onChange={() => {}} rows={3} maxLength={10} bytes />)).toMatch(/aria-hidden="true">4<\/span><span class="sr-only">bytesLeft/);
   });
 
   it('offers a fixed set of distinct emoji', () => {

@@ -23,7 +23,11 @@ import { choose, PREVIEW_STEP_LIMIT, startPreview, type PreviewMessage, type Pre
 import { useFlowEditor } from './flow-editor-state';
 import { PhoneAvatar, PhoneFrame, type PhoneChannel } from './phone-frame';
 
-export function FlowPreview({ onClose }: { onClose: () => void }) {
+/**
+ * `floating`: over the canvas, left of its tools. Otherwise (the Simple
+ * builder, whose settings must stay usable) a column beside the view.
+ */
+export function FlowPreview({ onClose, floating = true }: { onClose: () => void; floating?: boolean }) {
   const t = useTranslations('Flows.builder.preview');
   const { account } = useAuth();
   const { state, channelScope } = useFlowEditor();
@@ -68,7 +72,7 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
     <div className="flex flex-col gap-2">
       {waiting?.kind === 'branch' && (
         <>
-          <p className={cn('text-xs', dark ? 'text-white/55' : 'text-black/50')}>{t('chooseBranch')}</p>
+          <p className={cn('text-xs', dark ? 'text-white/55' : 'text-black/60')}>{t('chooseBranch')}</p>
           <div className="flex flex-wrap gap-1.5">
             {waiting.options.map((o) => (
               <button key={o.id} type="button" onClick={() => pick(o.id)} className={phoneChip(dark)}>{branchLabel(o.id, o.label, t)}</button>
@@ -108,9 +112,11 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
   ) : undefined;
 
   return (
-    // Floats over the canvas like a handset beside the builder; on a phone it covers the editor.
+    // A handset beside the builder; on a phone it covers the editor.
     <aside
-      className="absolute inset-0 z-30 flex items-center justify-center gap-3 bg-background/70 p-4 backdrop-blur-sm sm:inset-auto sm:bottom-4 sm:right-4 sm:top-4 sm:items-start sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+      className={cn('absolute inset-0 z-30 flex items-center justify-center gap-3 bg-background/70 p-4 backdrop-blur-sm sm:items-start sm:p-0 sm:backdrop-blur-none',
+        floating ? 'sm:inset-auto sm:bottom-4 sm:right-20 sm:top-4 sm:bg-transparent'
+          : 'sm:static sm:shrink-0 sm:border-l sm:border-border sm:bg-card-2 sm:px-4 sm:py-4')}
       aria-label={t('title')}
       data-preview-channel={phone}
     >
@@ -119,8 +125,9 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
         title={account?.name || t('phoneBusiness')}
         subtitle={instagram ? t('phoneSubtitleInstagram') : t('phoneSubtitleWhatsapp')}
         footer={footer}
+        live
       >
-        {run.messages.length === 0 && <p className={cn('px-4 py-8 text-center text-xs', dark ? 'text-white/55' : 'text-black/50')}>{t('empty')}</p>}
+        {run.messages.length === 0 && <p className={cn('px-4 py-8 text-center text-xs', dark ? 'text-white/55' : 'text-black/60')}>{t('empty')}</p>}
         {run.messages.map((m) => (
           <PhoneBubble
             key={m.id}
@@ -138,7 +145,7 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
             t={t}
           />
         ))}
-        {run.ended && run.messages.length > 0 && <p className={cn('pt-2 text-center text-[11px] uppercase tracking-wider', dark ? 'text-white/45' : 'text-black/40')}>{t('ended')}</p>}
+        {run.ended && run.messages.length > 0 && <p className={cn('pt-2 text-center text-[11px] uppercase tracking-wider', dark ? 'text-white/60' : 'text-black/60')}>{t('ended')}</p>}
         <div ref={endRef} />
       </PhoneFrame>
       <div className="flex flex-col gap-2">
@@ -172,7 +179,7 @@ export function PhoneBubble({ message: m, channel, active, listOpen = false, onT
 }) {
   const dark = channel === 'whatsapp';
   if (m.from === 'system') {
-    return <p className={cn('mx-auto max-w-[90%] text-center text-[11px]', dark ? 'text-white/50' : 'text-black/45')}>{noteText(m, t)}</p>;
+    return <p className={cn('mx-auto max-w-[90%] text-center text-[11px]', dark ? 'text-white/60' : 'text-black/60')}>{noteText(m, t)}</p>;
   }
   if (m.from === 'customer') {
     return (
@@ -189,7 +196,7 @@ export function PhoneBubble({ message: m, channel, active, listOpen = false, onT
   }
   const MediaIcon = m.media?.type === 'video' ? Video : m.media?.type === 'document' ? FileText : m.media?.type === 'audio' ? Music : ImageIcon;
   const empty = !m.text && !m.media && !m.template && !m.cards;
-  const muted = dark ? 'text-white/55' : 'text-black/50';
+  const muted = dark ? 'text-white/55' : 'text-black/60';
   const tap = (enabled: boolean) => cn('w-full rounded-lg px-3 py-2 text-center text-sm font-medium transition-colors',
     dark ? 'bg-[#3b4552] text-white' : 'border border-black/10 bg-white text-[#0b62d6]',
     enabled ? (dark ? 'hover:bg-[#46515f]' : 'hover:bg-black/5') : 'cursor-default opacity-70');
