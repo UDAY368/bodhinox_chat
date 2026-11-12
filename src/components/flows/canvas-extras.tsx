@@ -14,9 +14,9 @@
  * Colours, icons, components and wording are Bodhinox's own.
  */
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Search, StickyNote, Trash2, Zap } from 'lucide-react';
+import { ChevronDown, Search, StickyNote, Trash2, Zap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ import { authFetch } from '@/lib/auth/client';
 import { Input } from '@/components/ui/input';
 import { CANVAS_NOTE_LIMITS, type CanvasNote, type FlowChannelScope } from '@/lib/flows/types';
 import type { WorkspaceCapabilities } from '@/lib/flows/node-registry';
-import { filterPaletteTypes, paletteBlock } from './palette';
+import { CAPABILITY_SETUP_HREF, filterPaletteTypes, paletteBlock } from './palette';
 import { NodeIconChip, STEP_GROUP, type NodeType, type StepGroup } from './shared';
 import { TriggerStackRows, type StackTrigger } from './triggers/trigger-stack';
 
@@ -98,8 +98,11 @@ export function addStepGroups(
  * The grouped list: Starting step (a trigger), Content, AI, Logic, Extras
  * (note). `onTrigger` is absent when no trigger can be added (the entry is
  * shown, disabled, with the reason). `tiles` (the round + menu) lays each
- * group out as two columns of dashed tiles; `list` (the next-step menu)
- * keeps one compact row per step.
+ * group out as two columns of dashed tiles under a heading that folds the
+ * group open and closed: one group at a time, Content first, every group
+ * with a match while searching. A step whose provider is not set up shows
+ * a "Set up" link there. `list` (the next-step menu) keeps one compact row
+ * per step with every group open.
  */
 export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlockedReason, onNote, autoFocus = true, variant = 'list' }: {
   nodeTypes: readonly NodeType[];
@@ -115,24 +118,66 @@ export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlocked
   const tc = useTranslations('Flows.canvas');
   const tm = useTranslations('Flows.multiTrigger');
   const [query, setQuery] = useState('');
+  const [openGroup, setOpenGroup] = useState<CanvasGroup | null>('content');
+  const baseId = useId();
   const groups = addStepGroups(nodeTypes, caps, { query, label: (type) => t(`nodes.${type}.label`) });
   const q = query.trim().toLocaleLowerCase();
   const showTrigger = (onTrigger || triggerBlockedReason) && (!q || tm('addTrigger').toLocaleLowerCase().includes(q));
   const showNote = onNote && (!q || tc('addNote').toLocaleLowerCase().includes(q));
   const tiles = variant === 'tiles';
-  const heading = (group: CanvasGroup) => (
-    <h3 className={tiles
-      ? 'flex items-center gap-2 px-1 pb-2 pt-3 text-sm font-semibold text-foreground'
-      : 'flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground'}>
-      <span className="size-2 rounded-full" style={{ background: groupColors(group).solid }} aria-hidden />
-      {tc(`groups.${group}`)}
-    </h3>
-  );
   const item = tiles
     ? 'flex min-h-[52px] w-full items-center gap-2.5 rounded-xl border border-dashed border-border bg-card px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-solid hover:border-primary/40 hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent'
     : 'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent';
   const chip = tiles ? 28 : 22;
   const grid = tiles ? 'grid grid-cols-2 gap-2' : undefined;
+
+  const section = (group: CanvasGroup, count: number, body: ReactNode) => {
+    if (!tiles) {
+      return (
+        <section key={group} className="mb-1.5">
+          <h3 className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <span className="size-2 rounded-full" style={{ background: groupColors(group).solid }} aria-hidden />
+            {tc(`groups.${group}`)}
+          </h3>
+          {body}
+        </section>
+      );
+    }
+    // Searching shows every group that has a match; otherwise one group is open at a time.
+    const open = q.length > 0 || openGroup === group;
+    const panelId = `${baseId}-${group}`;
+    return (
+      <section key={group} className="border-border/70 border-b last:border-b-0" data-group={group} data-open={open || undefined}>
+        <h3>
+          <button type="button" aria-expanded={open} aria-controls={panelId} disabled={q.length > 0}
+            onClick={(event) => {
+              const opening = openGroup !== group;
+              setOpenGroup(opening ? group : null);
+              // Once it has unfolded, bring the opened group's tiles into view (no motion when the user asked for less).
+              const sectionEl = event.currentTarget.closest('section');
+              if (opening && sectionEl) window.setTimeout(() => sectionEl.scrollIntoView({ block: 'nearest',
+                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }), 300);
+            }}
+            className="group flex w-full items-center gap-2 rounded-lg px-1 py-3 text-left text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-default disabled:hover:text-foreground">
+            <span className="size-2 rounded-full transition-transform duration-300 group-hover:scale-125" style={{ background: groupColors(group).solid }} aria-hidden />
+            <span className="flex-1">{tc(`groups.${group}`)}</span>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground" aria-hidden>{count}</span>
+            <ChevronDown aria-hidden className={cn('size-4 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]', !open && '-rotate-90')} />
+          </button>
+        </h3>
+        {/* Height animates through grid rows (0fr ↔ 1fr); the tiles fade and settle into place. A closed group is inert. */}
+        <div id={panelId} role="region" aria-label={tc(`groups.${group}`)} inert={!open}
+          className={cn('grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+          <div className="min-h-0 overflow-hidden">
+            <div className={cn('pb-3 transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]', open ? 'translate-y-0 opacity-100' : '-translate-y-1.5 opacity-0')}>
+              {body}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
   return (
     <div className="flex min-h-0 flex-col">
       <div className="border-border border-b p-2">
@@ -142,26 +187,34 @@ export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlocked
             onChange={(event) => setQuery(event.target.value)} className="h-9 pl-8 text-xs" />
         </div>
       </div>
-      <div className={cn('min-h-0 flex-1 overflow-y-auto', tiles ? 'px-3 pb-3' : 'p-1.5')} data-testid="add-step-list" data-variant={variant}>
-        {showTrigger && (
-          <section className="mb-1.5">
-            {heading('start')}
-            <div className={grid}>
+      <div className={cn('min-h-0 flex-1 overflow-y-auto', tiles ? 'px-3 pb-1' : 'p-1.5')} data-testid="add-step-list" data-variant={variant}>
+        {showTrigger && section('start', 1, (
+          <div className={grid}>
             <button type="button" className={item} disabled={!onTrigger} title={triggerBlockedReason ?? undefined} onClick={onTrigger}>
               <span className="flex shrink-0 items-center justify-center rounded-lg" style={{ width: chip, height: chip, background: groupColors('start').soft, color: groupColors('start').solid }}>
                 <Zap size={tiles ? 15 : 12} />
               </span>
               {tm('addTrigger')}
             </button>
-            </div>
-          </section>
-        )}
-        {groups.map((g) => (
-          <section key={g.group} className="mb-1.5">
-            {heading(g.group)}
-            <div className={grid}>
+          </div>
+        ))}
+        {groups.map((g) => section(g.group, g.types.length, (
+          <div className={grid}>
             {g.types.map((type) => {
               const blocked = paletteBlock(type, caps);
+              if (blocked && tiles) {
+                // Its provider is not set up, so it could not be published: say where to set it up instead.
+                return (
+                  <div key={type} data-step-type={type} data-blocked={blocked} aria-disabled="true" title={t(`capabilityBlocked.${blocked}`)}
+                    className="flex min-h-[52px] w-full items-center gap-2.5 rounded-xl border border-dashed border-border px-3 py-2 text-[13px] font-medium">
+                    <span className="opacity-50"><NodeIconChip type={type} size={chip} iconSize={15} /></span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-muted-foreground">{t(`nodes.${type}.label`)}</span>
+                      <a href={CAPABILITY_SETUP_HREF[blocked]} className="text-[11px] font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">{t('capabilitySetUp')}</a>
+                    </span>
+                  </div>
+                );
+              }
               return (
                 <button key={type} type="button" disabled={!!blocked} data-step-type={type}
                   title={blocked ? t(`capabilityBlocked.${blocked}`) : t(`nodes.${type}.blurb`)} onClick={() => onPick(type)} className={item}>
@@ -170,22 +223,18 @@ export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlocked
                 </button>
               );
             })}
-            </div>
-          </section>
-        ))}
-        {showNote && (
-          <section className="mb-1.5">
-            {heading('extras')}
-            <div className={grid}>
+          </div>
+        )))}
+        {showNote && section('extras', 1, (
+          <div className={grid}>
             <button type="button" className={item} onClick={onNote}>
               <span className="flex shrink-0 items-center justify-center rounded-lg" style={{ width: chip, height: chip, background: groupColors('extras').soft, color: groupColors('extras').solid }}>
                 <StickyNote size={tiles ? 15 : 12} />
               </span>
               {tc('addNote')}
             </button>
-            </div>
-          </section>
-        )}
+          </div>
+        ))}
         {!groups.length && !showTrigger && !showNote && <p className="px-2 py-4 text-center text-xs text-muted-foreground">{t('studioNoResults')}</p>}
       </div>
     </div>

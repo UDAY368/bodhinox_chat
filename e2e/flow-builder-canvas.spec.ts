@@ -90,9 +90,31 @@ test('clicking a step output opens the next-step menu; help and the automation p
   await expect(page.locator('.react-flow__edge')).toHaveCount(before + 1);
   await page.keyboard.press('Escape');
 
-  // The + menu lays out the step groups as tiles.
+  // There is no separate block library: the round + menu is the one place to add a step.
+  await expect(page.getByRole('button', { name: /block library/i })).toHaveCount(0);
+
+  // The + menu folds its groups: Content open, one group at a time, every match while searching.
   await page.getByTestId('add-step-button').click();
-  await expect(page.locator('[data-testid="add-step-list"][data-variant="tiles"]')).toBeVisible();
+  const menu = page.locator('[data-testid="add-step-list"][data-variant="tiles"]');
+  await expect(menu).toBeVisible();
+  const content = menu.getByRole('button', { name: /^Content/ });
+  const logic = menu.getByRole('button', { name: /^Logic/ });
+  await expect(content).toHaveAttribute('aria-expanded', 'true');
+  await expect(logic).toHaveAttribute('aria-expanded', 'false');
+  await expect(menu.getByRole('button', { name: 'Send message', exact: true })).toBeVisible();
+  // A closed group's steps are out of reach (inert: no tabbing or screen reader), not just clipped.
+  await expect(menu.getByRole('region', { name: 'Logic' })).toHaveAttribute('inert', '');
+  await logic.click();
+  await expect(logic).toHaveAttribute('aria-expanded', 'true');
+  await expect(content).toHaveAttribute('aria-expanded', 'false');
+  await expect(menu.getByRole('region', { name: 'Logic' })).not.toHaveAttribute('inert', '');
+  await expect(menu.getByRole('button', { name: 'If / else' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/add-menu-logic-open.png' });
+  await logic.click();
+  await expect(logic).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('textbox', { name: 'Search blocks…' }).fill('message');
+  await expect(content).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('button', { name: 'Send message', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
 
   await page.getByTestId('show-flow-summary').click();
