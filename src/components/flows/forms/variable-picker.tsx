@@ -124,11 +124,13 @@ const GROUP_LABEL: Record<VariableSource, string> = {
  * The insert button and its list. `nodes` are the flow's steps (for their
  * variables), `currentKey` the step being edited.
  */
-export function VariablePicker({ onInsert, nodes, currentKey, id }: {
+export function VariablePicker({ onInsert, nodes, currentKey, id, triggerClassName }: {
   onInsert: (token: string) => void;
   nodes: readonly BuilderNode[];
   currentKey?: string;
   id?: string;
+  /** Replaces the trigger's look (the message composer's toolbar draws it dark). */
+  triggerClassName?: string;
 }) {
   const t = useTranslations("Flows.variables");
   const customFields = useCustomFields();
@@ -157,7 +159,7 @@ export function VariablePicker({ onInsert, nodes, currentKey, id }: {
         title={t("insert")}
         // Keep the text field's selection: the click must not move focus first.
         onMouseDown={(e) => e.preventDefault()}
-        className="inline-flex h-6 items-center gap-1 rounded-md border border-border bg-card px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"
+        className={triggerClassName ?? "inline-flex h-6 items-center gap-1 rounded-md border border-border bg-card px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"}
       >
         <Braces className="size-3" />
       </PopoverTrigger>

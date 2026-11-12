@@ -76,3 +76,19 @@ describe('flowTemplateChannels', () => {
     expect(flowTemplateChannels({ ...plain, channels: ['instagram'] })).toEqual(['instagram']);
   });
 });
+
+describe('GET /api/flows/templates opening messages', () => {
+  it("gives each card the bot's opening messages for the detail view's phone", async () => {
+    const list = (await (await GET(new Request('http://localhost/api/flows/templates?channel=whatsapp'))).json()) as {
+      templates: Array<{ slug: string; preview: Array<{ from: string; text?: string; buttons?: string[] }> }>;
+    };
+    const meeting = list.templates.find((t) => t.slug === 'wa_book_meeting')!;
+    expect(meeting.preview).toHaveLength(1);
+    expect(meeting.preview[0].from).toBe('bot');
+    expect(meeting.preview[0].buttons).toHaveLength(2);
+    for (const card of list.templates) {
+      expect(card.preview.length).toBeLessThanOrEqual(3);
+      expect(card.preview.every((m) => m.from === 'bot')).toBe(true);
+    }
+  });
+});

@@ -2866,7 +2866,12 @@
           "media": "Enviou um arquivo",
           "location": "Compartilhou uma localização",
           "form": "Enviou o formulário"
-        }
+        },
+        "phoneBusiness": "Sua empresa",
+        "phoneSubtitleWhatsapp": "Conversa comercial",
+        "phoneSubtitleInstagram": "Instagram Direct",
+        "phoneNoMessages": "Este modelo começa esperando o cliente.",
+        "publicReply": "Resposta pública"
       },
       "studioLockedHint": "A tela está bloqueada. Desbloqueie-a para editar esta etapa.",
       "triggerOrderReceivedTitle": "Um cliente envia um carrinho pelo catálogo",
@@ -2926,7 +2931,12 @@
       "triggerIgRefTitle": "Alguém abre uma conversa pelo seu link ref",
       "adClickTriggerHelpInstagram": "Começa quando alguém envia uma mensagem a partir de um anúncio que abre o Instagram Direct, antes de qualquer fluxo por palavra-chave. Um fluxo ativo na conversa continua.",
       "triggerIgShareToStoryTitle": "Alguém compartilha sua publicação no story",
-      "nextStep": "Próxima etapa"
+      "nextStep": "Próxima etapa",
+      "composer": {
+        "emoji": "Inserir um emoji",
+        "characters": "{count, plural, =1 {# caractere} other {# caracteres}}",
+        "charactersLeft": "{count, plural, =1 {Resta # caractere} other {Restam # caracteres}}"
+      }
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",

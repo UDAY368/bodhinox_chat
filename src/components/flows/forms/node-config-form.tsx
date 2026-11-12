@@ -130,6 +130,8 @@ function NodeFields({
             onChange={(v) => onUpdateConfig({ text: v })}
             rows={3}
             variables={{ nodes: allNodes, currentKey: node.node_key }}
+            // WhatsApp takes 4,096 characters in a text message, Instagram 1,000.
+            maxLength={channelScope === "instagram" ? 1000 : 4096}
           />
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
@@ -388,6 +390,8 @@ function SendButtonsForm({
         onChange={(v) => onUpdateConfig({ text: v })}
         rows={3}
         variables={{ nodes: allNodes, currentKey }}
+        // A message with reply buttons: WhatsApp's body limit is 1,024 characters, Instagram's text 1,000.
+        maxLength={instagram ? 1000 : 1024}
       />
       <TextRow
         label={t("footerText")}
@@ -405,7 +409,7 @@ function SendButtonsForm({
             <div
               key={i}
               className={cn(
-                "grid grid-cols-1 gap-2 rounded-md border border-border bg-muted/40 p-3",
+                "grid grid-cols-1 gap-2 rounded-lg border border-border bg-card p-3",
                 showAdvanced
                   ? "md:grid-cols-[1fr_2fr_2fr_auto]"
                   : "md:grid-cols-[2fr_2fr_auto]",
@@ -450,15 +454,14 @@ function SendButtonsForm({
           ))}
         </div>
         {buttons.length + linkCount < 3 && (
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={addButton}
-            className="mt-2"
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Plus className="h-3.5 w-3.5" />
             {t("addButton")}
-          </Button>
+          </button>
         )}
       </div>
       {instagram && (

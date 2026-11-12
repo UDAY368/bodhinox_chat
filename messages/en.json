@@ -2866,7 +2866,12 @@
           "media": "Sent a file",
           "location": "Shared a location",
           "form": "Submitted the form"
-        }
+        },
+        "phoneBusiness": "Your business",
+        "phoneSubtitleWhatsapp": "Business chat",
+        "phoneSubtitleInstagram": "Instagram Direct",
+        "phoneNoMessages": "This template starts by waiting for the customer.",
+        "publicReply": "Public reply"
       },
       "studioLockedHint": "Canvas is locked. Unlock it to edit this step.",
       "triggerOrderReceivedTitle": "A customer sends a cart from the catalogue",
@@ -2926,7 +2931,12 @@
       "triggerIgRefTitle": "Someone opens a chat from your ref link",
       "adClickTriggerHelpInstagram": "Starts when someone messages you from an ad that opens Instagram Direct, before any keyword flow. An active conversation flow keeps running.",
       "triggerIgShareToStoryTitle": "Someone shares your post to their story",
-      "nextStep": "Next step"
+      "nextStep": "Next step",
+      "composer": {
+        "emoji": "Insert an emoji",
+        "characters": "{count, plural, =1 {# character} other {# characters}}",
+        "charactersLeft": "{count, plural, =1 {# character left} other {# characters left}}"
+      }
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",

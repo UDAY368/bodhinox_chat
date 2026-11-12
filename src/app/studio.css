@@ -73,15 +73,16 @@ button:not(:disabled), a { touch-action: manipulation; }
   .flow-studio-grid[data-library="closed"][data-inspector="open"] { grid-template-columns: minmax(0, 1fr) 280px; }
 }
 @media (min-width: 1024px) {
-  .studio-sidebar-compact { width: 76px; }
+  .studio-sidebar-compact { width: 64px; }
   .studio-sidebar-compact > div:first-of-type { height: 64px; justify-content: center; padding: 12px; }
   .studio-sidebar-compact > div:first-of-type a > span { display: none; }
   .studio-sidebar-compact nav { padding-inline: 6px; }
   .studio-sidebar-compact nav > p { display: none; }
-  .studio-sidebar-compact .studio-sidebar-link { position: relative; flex-direction: column; justify-content: center; gap: 5px; min-height: 54px; padding: 7px 2px; font-size: 9px; }
-  .studio-sidebar-compact .studio-sidebar-link > span.flex-1 { flex: none; }
+  /* Icons only; each link names itself on hover (its title). font-size 0 hides bare-text labels too. */
+  .studio-sidebar-compact .studio-sidebar-link { position: relative; justify-content: center; gap: 0; min-height: 44px; padding: 0; font-size: 0; }
+  .studio-sidebar-compact .studio-sidebar-link > span.flex-1 { display: none; }
   .studio-sidebar-compact .studio-sidebar-link > [data-nav-beta] { display: none; }
-  .studio-sidebar-compact .studio-sidebar-link > span:not(.flex-1):not([data-nav-beta]) { position: absolute; top: 3px; right: 3px; }
+  .studio-sidebar-compact .studio-sidebar-link > span:not(.flex-1):not([data-nav-beta]) { position: absolute; top: 4px; right: 4px; font-size: 9px; }
   .studio-sidebar-compact > div:last-child { padding: 6px; }
   .studio-sidebar-compact > div:last-child > div { display: none; }
   .studio-sidebar-compact > div:last-child button { justify-content: center; padding-inline: 4px; }
@@ -103,3 +104,6 @@ button:not(:disabled), a { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Template detail: the phone sits on a drawing-board grid (ManyChat-style). */
+.template-phone-stage { background-color: var(--muted); background-image: linear-gradient(color-mix(in oklab, var(--foreground) 7%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--foreground) 7%, transparent) 1px, transparent 1px); background-size: 64px 64px; }

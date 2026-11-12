@@ -340,6 +340,7 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    title={t(item.labelKey)}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
                       'studio-sidebar-link flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-[12px] font-medium transition-colors lg:min-h-[41px] lg:py-2',
@@ -367,6 +368,7 @@ export function Sidebar({ open = false, onClose, compact = false, onToggleCompac
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    title={t(item.labelKey as string)}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
                       'studio-sidebar-link flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-[12px] font-medium transition-colors lg:min-h-[41px] lg:py-2',

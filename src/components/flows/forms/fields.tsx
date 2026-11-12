@@ -10,8 +10,9 @@
  * `NextNodeRow` — wraps NodeKeySelect with a label; the most common
  * per-node form row ("after this node, advance to…").
  *
- * `TextRow` — wraps Input or Textarea behind a label. Pure UI sugar
- * to keep per-node forms uncluttered.
+ * `TextRow` — wraps Input or Textarea behind a label. A multi-line row is
+ * the message composer: a rounded box with a dark toolbar (emoji, variables
+ * and a character count) docked on its lower edge.
  *
  * Lives in src/components/flows/forms/ so both the list view's
  * collapsed-card editor and the canvas view's side-panel editor
@@ -19,6 +20,8 @@
  */
 
 import { useId, useRef } from "react";
+import { Smile } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -41,6 +44,7 @@ export function TextRow({
   rows = 1,
   variables,
   id: idProp,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -49,7 +53,10 @@ export function TextRow({
   /** Stage 5: the field takes placeholders; the variable picker lists these steps' variables. */
   variables?: { nodes: readonly BuilderNode[]; currentKey?: string };
   id?: string;
+  /** The channel's limit for this text: the composer counts down to it (it does not cut the text). */
+  maxLength?: number;
 }) {
+  const tc = useTranslations("Flows.builder.composer");
   const autoId = useId();
   const id = idProp ?? `text-${autoId}`;
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
@@ -64,31 +71,85 @@ export function TextRow({
       ref.current.setSelectionRange(next.caret, next.caret);
     });
   };
+  if (rows > 1) {
+    const left = maxLength === undefined ? null : maxLength - value.length;
+    return (
+      <div>
+        <label htmlFor={id} className="mb-1 block text-xs text-muted-foreground">{label}</label>
+        <div className="group relative rounded-[15px] bg-muted transition-shadow focus-within:ring-2 focus-within:ring-primary/40" data-composer="">
+          <Textarea
+            id={id}
+            ref={ref}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={rows}
+            className="min-h-[5.5rem] resize-none border-0 bg-transparent px-3.5 pb-9 pt-3 text-sm shadow-none focus-visible:ring-0"
+          />
+          {/* Dims while the box is idle; never hidden, so a popover keeps its anchor. */}
+          <div className="absolute bottom-1.5 right-1.5 flex h-7 items-center divide-x divide-white/15 overflow-hidden rounded-md bg-[#292929] text-white opacity-70 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100" data-testid="composer-toolbar">
+            <EmojiPicker label={tc("emoji")} onInsert={insert} />
+            {variables && (
+              <VariablePicker id={`${id}-vars`} nodes={variables.nodes} currentKey={variables.currentKey} onInsert={insert}
+                triggerClassName="inline-flex h-7 items-center px-2 text-white/90 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-primary" />
+            )}
+            <span className={cn("px-2 text-xs tabular-nums", left !== null && left < 0 && "text-red-300")}
+              aria-label={left === null ? tc("characters", { count: value.length }) : tc("charactersLeft", { count: left })}
+              title={left === null ? tc("characters", { count: value.length }) : tc("charactersLeft", { count: left })}>
+              {left ?? value.length}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2">
         <label htmlFor={id} className="block text-xs text-muted-foreground">{label}</label>
         {variables && <VariablePicker id={`${id}-vars`} nodes={variables.nodes} currentKey={variables.currentKey} onInsert={insert} />}
       </div>
-      {rows > 1 ? (
-        <Textarea
-          id={id}
-          ref={ref}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={rows}
-          className="bg-muted"
-        />
-      ) : (
-        <Input
-          id={id}
-          ref={ref}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="bg-muted"
-        />
-      )}
+      <Input
+        id={id}
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-muted"
+      />
     </div>
+  );
+}
+
+/** Common emoji, in the order people reach for them in business chats. */
+export const COMPOSER_EMOJI = [
+  "👋", "😊", "😀", "😍", "🤩", "🥳", "🙏", "👍", "👏", "🙌", "💪", "🔥",
+  "✨", "🎉", "🎁", "❤️", "💙", "✅", "❌", "⭐", "📅", "⏰", "📍", "📞",
+  "💬", "📩", "🛒", "🛍️", "💰", "💳", "🚚", "👉",
+] as const;
+
+/** The composer's emoji button: a small grid inserted at the cursor. */
+function EmojiPicker({ label, onInsert }: { label: string; onInsert: (emoji: string) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={label}
+        title={label}
+        // Keep the text field's selection so the emoji lands at the cursor.
+        onMouseDown={(e) => e.preventDefault()}
+        className="inline-flex h-7 items-center px-2 text-white/90 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        <Smile className="size-4" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-2">
+        <div className="grid grid-cols-8 gap-0.5" role="group" aria-label={label}>
+          {COMPOSER_EMOJI.map((emoji) => (
+            <button key={emoji} type="button" onClick={() => onInsert(emoji)} aria-label={emoji}
+              className="flex h-7 w-7 items-center justify-center rounded text-lg transition-colors hover:bg-muted">
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

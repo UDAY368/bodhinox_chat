@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { BuilderNode } from "@/components/flows/shared";
-import { choose, PREVIEW_STEP_LIMIT, previewAcceptsText, startPreview } from "./preview";
+import { choose, openingMessages, PREVIEW_STEP_LIMIT, previewAcceptsText, startPreview } from "./preview";
 
 const n = (node_key: string, node_type: BuilderNode["node_type"], config: Record<string, unknown>): BuilderNode => ({ node_key, node_type, config });
 
@@ -265,5 +265,27 @@ describe("flow preview options (server-side dry run)", () => {
     expect(atCondition.waiting?.kind).toBe("branch");
     const end = choose(choose(atCondition, "true"), "route:0");
     expect(end.messages.find((m) => m.nodeKey === "say")?.text).toBe("{{vars.greeting}}!");
+  });
+});
+
+describe("openingMessages (the template gallery's phone)", () => {
+  const n = (node_key: string, node_type: string, config: Record<string, unknown>) => ({ node_key, node_type, config });
+  it("shows the bot's messages up to the first answer the customer must give, and no notes", () => {
+    const nodes = [
+      n("start", "start", { next_node_key: "hi" }),
+      n("hi", "send_message", { text: "Hello", next_node_key: "ask" }),
+      n("ask", "send_buttons", { text: "Pick one", delay_seconds: 5, buttons: [{ reply_id: "a", title: "A", next_node_key: "after" }] }),
+      n("after", "send_message", { text: "Never shown before the tap", next_node_key: "" }),
+    ];
+    const messages = openingMessages(nodes, "start");
+    expect(messages.map((m) => m.text)).toEqual(["Hello", "Pick one"]);
+    expect(messages.every((m) => m.from === "bot")).toBe(true);
+    expect(messages[1].buttons).toEqual(["A"]);
+  });
+
+  it("stops at three messages, and is empty without an entry", () => {
+    const chain = Array.from({ length: 5 }, (_, i) => n(`m${i}`, "send_message", { text: `m${i}`, next_node_key: i < 4 ? `m${i + 1}` : "" }));
+    expect(openingMessages(chain, "m0").map((m) => m.text)).toEqual(["m0", "m1", "m2"]);
+    expect(openingMessages(chain, null)).toEqual([]);
   });
 });
