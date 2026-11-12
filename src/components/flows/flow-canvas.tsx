@@ -78,7 +78,13 @@ import {
   type OnNodeDrag,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { LayoutGrid, Lock, LockOpen, Maximize, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2, X, Zap, ZoomIn, ZoomOut } from 'lucide-react';
+import {
+  ChevronLeft, ChevronRight, CircleHelp, Hand, LayoutGrid, Lock, LockOpen, Map as MapIcon, Maximize, MousePointerClick, PanelLeftClose,
+  PanelLeftOpen, Plus, Search, Trash2, Undo2, X, Zap, ZoomIn, ZoomOut,
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 
 import { useTranslations } from 'next-intl';
 
@@ -125,6 +131,9 @@ import {
   WHEN_HANDLE,
   WHEN_NODE_ID,
   WhenCard,
+  NextStepContext,
+  useOutputClick,
+  type OpenNextStep,
   type NodeStat,
   type NoteData,
   type WhenData,
@@ -189,6 +198,10 @@ const PORT_LABELS: Record<string, string> = { skip: 'ports.skip', exhausted: 'po
 function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
   const t = useTranslations('Flows.builder');
   const { node, isEntry, isFlashed, stat } = data as NodeData;
+  const tCanvas = useTranslations('Flows.canvas');
+  const { channelScope } = useFlowEditor();
+  // Content steps name the channel they send on, above the step's name.
+  const channelLabel = groupOf(node.node_type) === 'content' && channelScope !== 'any' ? tCanvas(`summaryChannels.${channelScope}`) : null;
   const c = nodeColors(node.node_type);
   const g = groupColors(groupOf(node.node_type));
   const tSummary = useTranslations('Flows.summary');
@@ -251,20 +264,17 @@ function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
           iconSize={14}
           className="rounded-md"
         />
-        <span
-          className="truncate text-[10.5px] font-semibold tracking-wider uppercase"
-          style={{ color: g.text }}
-        >
-          {t(`nodes.${node.node_type}.label`)}
+        <span className="flex min-w-0 flex-col">
+          {channelLabel && <span className="truncate text-[10px] leading-tight text-muted-foreground">{channelLabel}</span>}
+          <span className="truncate text-[13px] font-semibold leading-tight" style={{ color: g.text }}>
+            {t(`nodes.${node.node_type}.label`)}
+          </span>
         </span>
         {isEntry && (
           <span className="border-border text-muted-foreground ml-auto rounded border px-1.5 py-0.5 text-[8.5px] font-bold tracking-[0.1em] uppercase">
             {t('badgeEntry')}
           </span>
         )}
-      </div>
-      <div className="text-muted-foreground mt-2 truncate font-mono text-[10px] opacity-70">
-        {node.node_key}
       </div>
       {body && (
         <div className="flow-studio-message mt-3 break-words rounded-xl border border-border bg-background px-3 py-2.5 text-xs leading-relaxed text-foreground">
@@ -285,11 +295,10 @@ function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
               <span className="truncate" title={PORT_LABELS[slot.id] ? t(PORT_LABELS[slot.id]) : slot.label}>
                 {PORT_LABELS[slot.id] ? t(PORT_LABELS[slot.id]) : slot.label}
               </span>
-              <Handle
-                type="source"
+              <OutputHandle
+                source={node.node_key}
                 id={slot.id}
-                position={Position.Right}
-                isConnectable={isConnectable}
+                isConnectable={!!isConnectable}
                 style={{
                   borderColor: slotColor(node.node_type, slot.id, c.solid),
                 }}
@@ -305,17 +314,31 @@ function FlowNodeCard({ data, selected, isConnectable }: NodeProps) {
       )}
 
       {!isMultiSlot && slots.length === 1 && (
-        <Handle
-          type="source"
-          id={slots[0].id}
-          position={Position.Right}
-          isConnectable={isConnectable}
-          style={{ borderColor: c.solid }}
-          className="!bg-card !h-2.5 !w-2.5 !border-2"
-        />
+        <div className="text-muted-foreground relative mt-2.5 flex items-center justify-end gap-1.5 text-[10.5px] font-medium" data-next-step>
+          {t('nextStep')}
+          <OutputHandle
+            source={node.node_key}
+            id={slots[0].id}
+            isConnectable={!!isConnectable}
+            style={{ borderColor: c.solid }}
+            className="!bg-card !relative !top-auto !right-auto !h-2.5 !w-2.5 !translate-x-[14px] !transform-none !border-2"
+          />
+        </div>
       )}
     </div>
   );
+}
+
+/** A step's output port: drag to connect, click to open the next-step menu. */
+function OutputHandle({ source, id, isConnectable, style, className }: {
+  source: string;
+  id: string;
+  isConnectable: boolean;
+  style?: React.CSSProperties;
+  className: string;
+}) {
+  const click = useOutputClick(source, id, isConnectable);
+  return <Handle type="source" id={id} position={Position.Right} isConnectable={isConnectable} style={style} className={className} {...click} />;
 }
 
 const NODE_TYPES = { flow: FlowNodeCard, when: WhenCard, note: NoteCard };
@@ -462,7 +485,10 @@ function FlowCanvasInner() {
     if (index !== null) setSelectedNodeKeyRaw(null);
   }, []);
   // The step library (every step as tiles) sits in the left panel until a step or trigger is opened there.
-  const [libraryOpen, setLibraryOpen] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [pickingTrigger, setPickingTrigger] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   // Lock: view-only canvas (pan + zoom still work). Canvas-local, not saved.
@@ -833,6 +859,20 @@ function FlowCanvasInner() {
     [locked, reactFlow, builderNodes, handleConnect]
   );
 
+  const openNextStep = useCallback<OpenNextStep>((source, handle, clientX, clientY) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (locked || !rect) return;
+    const flow = reactFlow.screenToFlowPosition({ x: clientX, y: clientY });
+    setDropPicker({
+      x: Math.max(8, Math.min(clientX - rect.left + 12, rect.width - PICKER_WIDTH - 8)),
+      y: Math.max(8, Math.min(clientY - rect.top - 24, rect.height - PICKER_HEIGHT - 8)),
+      // The new step lands to the right of the output that was clicked.
+      flow: { x: flow.x + 90, y: flow.y },
+      source,
+      handle,
+    });
+  }, [locked, reactFlow]);
+
   const handleDropPick = useCallback(
     (type: NodeType) => {
       if (!dropPicker) return;
@@ -944,8 +984,11 @@ function FlowCanvasInner() {
           triggerTypes={triggerTypes} readOnly={locked} />
       ) : libraryOpen ? (
         <CanvasBlockLibrary t={t} onAdded={selectNode} />
+      ) : summaryOpen ? (
+        <FlowSummaryPanel onCollapse={() => setSummaryOpen(false)} steps={builderNodes.length} triggers={triggers.length} />
       ) : null}
       <div ref={containerRef} className="relative h-full min-w-0 flex-1 overflow-hidden" data-panel={panelOpen ? 'open' : 'closed'}>
+        <NextStepContext.Provider value={locked ? null : openNextStep}>
         <EdgeActionsContext.Provider value={edgeActions}>
         <ReactFlow
           nodes={rfNodes}
@@ -979,6 +1022,8 @@ function FlowCanvasInner() {
           // size, so we don't need to zoom past 1.5x.
           minZoom={0.2}
           maxZoom={1.5}
+          // A click on an output opens the next-step menu instead of a click-to-connect mode.
+          connectOnClick={false}
         >
           {/* Dot grid, matching the design's faint canvas backdrop. */}
           <Background
@@ -987,7 +1032,7 @@ function FlowCanvasInner() {
             size={1.4}
             color="var(--border)"
           />
-          <MiniMap
+          {mapOpen && <MiniMap
             style={{ width: 180, height: 110 }}
             pannable
             zoomable
@@ -1001,10 +1046,10 @@ function FlowCanvasInner() {
             maskStrokeColor="var(--primary)"
             maskStrokeWidth={1.5}
             className="!border-border !bg-card !overflow-hidden !rounded-xl !border !shadow-sm"
-          />
+          />}
           <Panel position="top-left" className="!top-4 !left-4">
             <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon-sm" className="bg-card shadow-sm" onClick={() => setLibraryOpen(value => !value)} aria-label={t('studioToggleLibrary')} aria-expanded={libraryOpen}>
+            <Button variant="outline" size="icon-sm" className="bg-card shadow-sm" onClick={() => { setSummaryOpen(false); setLibraryOpen(value => !value); }} aria-label={t('studioToggleLibrary')} title={t('studioToggleLibrary')} aria-expanded={libraryOpen}>
               {libraryOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
             </Button>
             <Button variant="outline" size="icon-sm" className="bg-card shadow-sm" onClick={() => setLocked(value => !value)} aria-pressed={locked} aria-label={locked ? t('unlockCanvas') : t('lockCanvas')} title={locked ? t('unlockCanvas') : t('lockCanvas')}>
@@ -1021,8 +1066,8 @@ function FlowCanvasInner() {
                   className="inline-flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50">
                   <Plus className="size-5" />
                 </PopoverTrigger>
-                <PopoverContent side="left" align="start" className="flex max-h-[70vh] w-72 flex-col overflow-hidden p-0">
-                  <AddStepList nodeTypes={nodeTypes} caps={caps} onPick={addStepAtCenter}
+                <PopoverContent side="left" align="start" className="flex max-h-[75vh] w-[420px] max-w-[calc(100vw-5rem)] flex-col overflow-hidden p-0">
+                  <AddStepList variant="tiles" nodeTypes={nodeTypes} caps={caps} onPick={addStepAtCenter}
                     onTrigger={addTriggerBlocked ? undefined : () => { setAddMenuOpen(false); setPickingTrigger(true); }}
                     triggerBlockedReason={triggerBlockedReason}
                     onNote={notes.length < CANVAS_NOTE_LIMITS.notes ? addNoteAtCenter : undefined} />
@@ -1040,10 +1085,27 @@ function FlowCanvasInner() {
               <button type="button" className={tools} onClick={() => void reactFlow.fitView({ padding: 0.2, duration: 300 })} aria-label={tc('fit')} title={tc('fit')}>
                 <Maximize className="size-4" />
               </button>
+              <button type="button" className={cn(tools, mapOpen && 'border-primary text-primary')} onClick={() => setMapOpen((v) => !v)}
+                aria-pressed={mapOpen} aria-label={mapOpen ? tc('hideMap') : tc('showMap')} title={mapOpen ? tc('hideMap') : tc('showMap')}>
+                <MapIcon className="size-4" />
+              </button>
             </div>
+          </Panel>
+          <Panel position="bottom-right" className={cn('!right-4', mapOpen ? '!bottom-[136px]' : '!bottom-4')}>
+            <button type="button" className={tools} onClick={() => setHelpOpen(true)} aria-label={tc('help')} title={tc('help')} data-testid="canvas-help">
+              <CircleHelp className="size-4" />
+            </button>
           </Panel>
         </ReactFlow>
         </EdgeActionsContext.Provider>
+        </NextStepContext.Provider>
+        {!panelOpen && !libraryOpen && !summaryOpen && (
+          <button type="button" onClick={() => setSummaryOpen(true)} aria-label={tc('showDetails')} title={tc('showDetails')}
+            data-testid="show-flow-summary"
+            className="border-border bg-card text-muted-foreground hover:text-foreground absolute top-1/2 left-3 z-10 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition-colors">
+            <ChevronRight className="size-4" />
+          </button>
+        )}
         {dropPicker && !locked && (
           <DropStepPicker
             x={dropPicker.x}
@@ -1057,6 +1119,7 @@ function FlowCanvasInner() {
       </div>
       </div>
       <TriggerPickerDialog open={pickingTrigger} onOpenChange={setPickingTrigger} offered={triggerTypes} onPick={pickTrigger} />
+      <CanvasHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }
@@ -1069,6 +1132,89 @@ function FlowCanvasInner() {
 // ============================================================
 
 const SIDE_PANEL = 'flex w-[380px] max-w-[85vw] shrink-0 min-h-0 flex-col border-r border-border bg-card';
+
+/** With nothing selected: the automation's name, channel, status, counts and description. */
+function FlowSummaryPanel({ onCollapse, steps, triggers }: { onCollapse: () => void; steps: number; triggers: number }) {
+  const tc = useTranslations('Flows.canvas');
+  const th = useTranslations('Flows.header');
+  const { state, setState, channelScope } = useFlowEditor();
+  const status = ({ draft: 'draft', active: 'live', paused: 'stopped', archived: 'archived' } as const)[state.status];
+  const fact = (label: string, value: string) => (
+    <div className="rounded-xl border border-border bg-background px-3 py-2">
+      <dt className="text-[11px] text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate text-sm font-medium text-foreground">{value}</dd>
+    </div>
+  );
+  return (
+    <aside className={SIDE_PANEL} aria-label={tc('summaryTitle')} data-testid="flow-summary-panel">
+      <div className="flex items-start gap-2 border-b border-border px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-muted-foreground">{tc('summaryKicker')}</p>
+          <h3 className="mt-0.5 truncate text-lg font-semibold text-foreground">{state.name || th('namePlaceholder')}</h3>
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={onCollapse} aria-label={tc('collapsePanel')} title={tc('collapsePanel')}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+        <dl className="grid grid-cols-2 gap-2">
+          {fact(tc('summaryChannel'), tc(`summaryChannels.${channelScope}`))}
+          {fact(tc('summaryStatus'), th(`status.${status}`))}
+          {fact(tc('summaryTriggers'), String(triggers))}
+          {fact(tc('summarySteps'), String(steps))}
+        </dl>
+        <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+          {th('descriptionLabel')}
+          <Textarea value={state.description} rows={4} placeholder={th('descriptionPlaceholder')}
+            onChange={(e) => setState((s) => ({ ...s, description: e.target.value }))} className="text-sm" />
+        </label>
+        <p className="text-xs leading-relaxed text-muted-foreground">{tc('summaryHint')}</p>
+      </div>
+    </aside>
+  );
+}
+
+/** "?" on the canvas: how to move around, by mouse or trackpad. */
+function CanvasHelpDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const tc = useTranslations('Flows.canvas');
+  const row = (Icon: typeof Hand, title: string, how: string) => (
+    <li className="flex items-center gap-4 border-b border-border py-3 last:border-0">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Icon className="size-5" /></span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-foreground">{title}</span>
+        <span className="block text-sm text-muted-foreground">{how}</span>
+      </span>
+    </li>
+  );
+  const shared = (
+    <>
+      {row(MousePointerClick, tc('helpSelect'), tc('helpSelectHow'))}
+      {row(Undo2, tc('helpUndo'), tc('helpUndoHow'))}
+    </>
+  );
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{tc('helpTitle')}</DialogTitle>
+          <DialogDescription>{tc('helpIntro')}</DialogDescription>
+        </DialogHeader>
+        <Tabs defaultValue="mouse">
+          <TabsList>
+            <TabsTrigger value="mouse">{tc('helpMouse')}</TabsTrigger>
+            <TabsTrigger value="trackpad">{tc('helpTrackpad')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="mouse">
+            <ul>{row(Hand, tc('helpPan'), tc('helpPanMouse'))}{row(ZoomIn, tc('helpZoom'), tc('helpZoomMouse'))}{shared}</ul>
+          </TabsContent>
+          <TabsContent value="trackpad">
+            <ul>{row(Hand, tc('helpPan'), tc('helpPanTrackpad'))}{row(ZoomIn, tc('helpZoom'), tc('helpZoomTrackpad'))}{shared}</ul>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function NodeInspector({
   node,
@@ -1101,7 +1247,7 @@ function NodeInspector({
         <div className="border-border flex items-center gap-3 border-b px-4 py-4" style={{ background: g.soft }}>
           <NodeIconChip type={node.node_type} size={36} iconSize={18} />
           <div className="min-w-0 flex-1">
-            <h3 className="flex items-center gap-2 text-[11px] font-semibold tracking-wider uppercase">
+            <h3 className="flex items-center gap-2 text-base font-semibold">
               <span style={{ color: g.text }}>{t(`nodes.${node.node_type}.label`)}</span>
               {isEntry && (
                 <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-emerald-600 dark:text-emerald-300 uppercase">

@@ -70,6 +70,40 @@ test('dragging from the "Then" port to empty canvas offers the step menu and con
   await saved(page);
 });
 
+test('clicking a step output opens the next-step menu; help and the automation panel open from the canvas', async ({ page }) => {
+  await login(page, fixtures().users.agent);
+  await newBlankFlow(page, `Click ${fixtures().runId}`);
+
+  // A click (no drag) on the "Then" port offers the next step and links it.
+  await page.locator(`.react-flow__node[data-id="__when__"] .react-flow__handle[data-handleid="then"]`).click();
+  const picker = page.getByRole('dialog', { name: 'Add a step here' });
+  await expect(picker).toBeVisible();
+  await picker.getByRole('button', { name: 'Send message' }).click();
+  await expect(page.locator('.react-flow__edge[data-id^="__when__->"]')).toHaveCount(1);
+  await page.getByTestId('step-panel').getByLabel('Text sent to the customer').fill('First message');
+  await page.keyboard.press('Escape');
+
+  // The message step's "Next step" output does the same and links the two steps.
+  const before = await page.locator('.react-flow__edge').count();
+  await page.locator('.react-flow__node-flow [data-next-step] .react-flow__handle').first().click();
+  await page.getByRole('dialog', { name: 'Add a step here' }).getByRole('button', { name: 'If / else' }).click();
+  await expect(page.locator('.react-flow__edge')).toHaveCount(before + 1);
+  await page.keyboard.press('Escape');
+
+  // The + menu lays out the step groups as tiles.
+  await page.getByTestId('add-step-button').click();
+  await expect(page.locator('[data-testid="add-step-list"][data-variant="tiles"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.getByTestId('show-flow-summary').click();
+  await expect(page.getByTestId('flow-summary-panel')).toContainText(`Click ${fixtures().runId}`);
+  await page.getByTestId('canvas-help').click();
+  await expect(page.getByRole('dialog', { name: 'Moving around the canvas' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Trackpad' }).click();
+  await expect(page.getByText('Pinch, or scroll with two fingers')).toBeVisible();
+  await saved(page);
+});
+
 // Two triggers need an Instagram flow, which needs INSTAGRAM_ENABLED and a
 // connected account; the default e2e environment has neither.
 test('an Instagram flow starts on two triggers', async ({ page }) => {

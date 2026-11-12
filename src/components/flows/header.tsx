@@ -29,6 +29,8 @@ import {
   Check,
   ChevronRight,
   CircleAlert,
+  Copy,
+  GitBranch,
   GitFork,
   History,
   List,
@@ -53,6 +55,10 @@ import {
 import { cn } from "@/lib/utils";
 import { channelPath } from "@/lib/channels/routes";
 import { useFlowEditor } from "./flow-editor-state";
+import { OPEN_VERSIONS_EVENT } from "./version-bar";
+import { authFetch } from "@/lib/auth/client";
+import { toast } from "sonner";
+import { useState } from "react";
 import type { AutosaveStatus } from "./use-autosave";
 
 /** What the save-state chip says (Flows.autosave keys), or null to show nothing. */
@@ -111,6 +117,27 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
   const openRuns = async () => {
     const saved = !dirty || (await flush());
     if (saved || window.confirm(tAuto("leaveWarning"))) router.push(`/flows/${flow.id}/runs`);
+  };
+  const [duplicating, setDuplicating] = useState(false);
+  // The copy is made from the saved draft, so save what is pending first.
+  const duplicate = async () => {
+    if (dirty && !(await flush())) return;
+    setDuplicating(true);
+    try {
+      const res = await authFetch(`/api/flows/${flow.id}/duplicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(section ? { channel_scope: section } : {}),
+      });
+      const json = (await res.json().catch(() => ({}))) as { flow?: { id: string; name: string }; error?: string };
+      if (!res.ok || !json.flow) throw new Error(json.error ?? t("duplicateFailed"));
+      toast.success(t("duplicated", { name: json.flow.name }));
+      router.push(`${backHref}/${json.flow.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("duplicateFailed"));
+    } finally {
+      setDuplicating(false);
+    }
   };
   const saveView = saveStateView(saveStatus, dirty);
   const backHref = channelPath(section, "flows");
@@ -214,6 +241,12 @@ export function EditorHeader({ view, onViewChange, previewOpen, onTogglePreview,
             <MoreHorizontal className="h-4 w-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuItem onClick={() => void duplicate()} disabled={duplicating}>
+              <Copy className="h-4 w-4" />{t("duplicate")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.dispatchEvent(new Event(OPEN_VERSIONS_EVENT))}>
+              <GitBranch className="h-4 w-4" />{t("versionHistory")}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => void openRuns()}>
               <History className="h-4 w-4" />{t("runs")}
               <span className="ml-auto font-mono text-[11px] text-muted-foreground">{flow.execution_count}</span>
