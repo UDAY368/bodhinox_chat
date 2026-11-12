@@ -1932,6 +1932,143 @@ const withStage2Meta = (template: FlowTemplate): FlowTemplate =>
   Object.hasOwn(STAGE2_META, template.slug) ? { ...template, meta: STAGE2_META[template.slug] } : template;
 
 // ============================================================
+// WhatsApp starters (UI redesign, phase 3)
+//
+// The ManyChat-style WhatsApp gallery: six starters with gallery metadata
+// (goal, trigger, AI), "Why it helps" / "How it works" text and canvas notes,
+// in Bodhinox's own words. Copy lives in
+// StarterFlows.whatsapp5.templates.<slug>. Every step needs no workspace
+// record: the booking step offers any bookable service (and takes its
+// unavailable port without one), AI steps need AI on for the workspace, and
+// the website starter carries a reserved .example address the author
+// replaces (a canvas note says so).
+// ============================================================
+
+const tw = getT("StarterFlows.whatsapp5.templates");
+const sw = (slug: string) => (key: string, values?: Record<string, string>) => tw(`${slug}.${key}`, values);
+const keywordsW = (slug: string): string[] => tw(`${slug}.keywords`).split(",").map((k) => k.trim()).filter(Boolean);
+const notesW = (slug: string, count: number): CanvasNote[] =>
+  Array.from({ length: count }, (_, i) => ({ id: `note_${i + 1}`, text: tw(`${slug}.note${i + 1}`), x: 360, y: 40 + i * 220 }));
+
+function wa5Template(slug: string, icon: string, nodes: FlowTemplateNode[], meta: FlowTemplateMeta, noteCount: number): FlowTemplate {
+  const s = sw(slug);
+  return {
+    slug,
+    name: s("name"),
+    description: s("description"),
+    category: "general",
+    icon,
+    trigger_type: "keyword",
+    trigger_config: { keywords: keywordsW(slug), match_type: "contains" },
+    entry_node_id: "start",
+    nodes,
+    channels: ["whatsapp"],
+    meta,
+    business_value: s("businessValue"),
+    how_it_works: s("howItWorks"),
+    canvas_notes: notesW(slug, noteCount),
+  };
+}
+
+/** A short AI conversation that answers, qualifies and hands over when unsure. */
+function waAiChat(): FlowTemplate {
+  const s = sw("wa_ai_chat");
+  return wa5Template("wa_ai_chat", "Sparkles", [
+    startAt("chat"),
+    node("chat", "ai_reply", {
+      instructions: s("instructions"), use_knowledge: true, max_turns: 6, next_node_key: "wrap_up", handoff_next: "agent",
+    } as AiReplyNodeConfig),
+    say("wrap_up", s("wrapUp"), "end"),
+    handoff("agent", s("handoffNote")),
+    END,
+  ], flowMeta(["engage_audience"], "dm", { uses_ai: true, recommended: true }), 2);
+}
+
+/** Offers a meeting, books a free time, and checks back if no time suits. */
+function waBookMeeting(): FlowTemplate {
+  const s = sw("wa_book_meeting");
+  return wa5Template("wa_book_meeting", "CalendarCheck", [
+    startAt("offer"),
+    buttons("offer", s("offer"), [["yes", s("yesButton"), "book"], ["no", s("noButton"), "not_now"]]),
+    book("book", { success: "booked", unavailable: "no_times", cancelled: "not_now" }),
+    say("booked", s("booked"), "end"),
+    handoff("no_times", s("noTimesNote")),
+    say("not_now", s("notNow"), "end"),
+    END,
+  ], flowMeta(["engage_audience"], "dm"), 2);
+}
+
+/** One AI answer from the knowledge base, then "Did that help?". */
+function waAiAnswers(): FlowTemplate {
+  const s = sw("wa_ai_answers");
+  return wa5Template("wa_ai_answers", "MessageCircleQuestion", [
+    startAt("answer"),
+    node("answer", "ai_reply", {
+      instructions: s("instructions"), use_knowledge: true, max_turns: 1, next_node_key: "helped", handoff_next: "agent",
+    } as AiReplyNodeConfig),
+    buttons("helped", s("helped"), [["yes", s("yesButton"), "thanks"], ["human", s("humanButton"), "agent"]]),
+    say("thanks", s("thanks"), "end"),
+    handoff("agent", s("handoffNote")),
+    END,
+  ], flowMeta(["engage_audience", "drive_traffic"], "dm", { uses_ai: true }), 2);
+}
+
+/** Asks for name and email and saves them on the contact. */
+function waSaveDetails(): FlowTemplate {
+  const s = sw("wa_save_details");
+  return wa5Template("wa_save_details", "ClipboardList", [
+    startAt("intro"),
+    say("intro", s("intro"), "ask_name"),
+    ask("ask_name", s("askName"), "name", "save_name"),
+    setContact("save_name", "name", v("name"), "ask_email"),
+    ask("ask_email", s("askEmail", { name: v("name") }), "email", "save_email", { validation: "email" }),
+    setContact("save_email", "email", v("email"), "ask_interest"),
+    ask("ask_interest", s("askInterest"), "interest", "thanks"),
+    say("thanks", s("thanks", { name: v("name") }), "end"),
+    END,
+  ], flowMeta(["engage_audience"], "dm"), 2);
+}
+
+/** Sends the website link, then offers the team. */
+function waWebsite(): FlowTemplate {
+  const s = sw("wa_website");
+  return wa5Template("wa_website", "Globe", [
+    startAt("link"),
+    say("link", s("link"), "more"),
+    buttons("more", s("more"), [["done", s("doneButton"), "bye"], ["human", s("humanButton"), "agent"]]),
+    say("bye", s("bye"), "end"),
+    handoff("agent", s("handoffNote")),
+    END,
+  ], flowMeta(["drive_traffic"], "dm"), 1);
+}
+
+/** Three tap-to-answer questions; ready buyers go to the team, the rest get a friendly follow-up. */
+function waLeadQuiz(): FlowTemplate {
+  const s = sw("wa_lead_quiz");
+  const when = choices("timeline", "q_budget", [["now", s("timelineNow")], ["month", s("timelineMonth")], ["later", s("timelineLater")]]);
+  const budget = choices("budget", "q_help", [["small", s("budgetSmall")], ["medium", s("budgetMedium")], ["large", s("budgetLarge")]]);
+  const help = choices("needs_help", "score", [["yes", s("helpYes")], ["no", s("helpNo")]]);
+  return wa5Template("wa_lead_quiz", "ListChecks", [
+    startAt("intro"),
+    buttons("intro", s("intro"), [["start", s("startButton"), "q_timeline"]]),
+    buttons("q_timeline", s("qTimeline"), when.options),
+    ...when.nodes,
+    buttons("q_budget", s("qBudget"), budget.options),
+    ...budget.nodes,
+    buttons("q_help", s("qHelp"), help.options),
+    ...help.nodes,
+    // A ready buyer: anyone not "just looking".
+    node("score", "condition", {
+      subject: "var", subject_key: "timeline", operator: "not_equals", value: s("timelineLater"), true_next: "hot", false_next: "nurture",
+    } as ConditionNodeConfig),
+    say("hot", s("hot"), "agent"),
+    handoff("agent", s("handoffNote", { timeline: v("timeline"), budget: v("budget"), help: v("needs_help") })),
+    say("nurture", s("nurture"), "end"),
+    END,
+  ], flowMeta(["engage_audience"], "dm", { level: "advanced" }), 2);
+}
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -2000,6 +2137,12 @@ const TEMPLATES: Record<string, FlowTemplate> = Object.fromEntries(
     igLinkFollowUp(),
     igSoloDm(),
     igOpeningDm(),
+    waAiChat(),
+    waBookMeeting(),
+    waAiAnswers(),
+    waSaveDetails(),
+    waWebsite(),
+    waLeadQuiz(),
   ].map((template) => [template.slug, template]),
 );
 
