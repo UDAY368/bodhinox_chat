@@ -24,8 +24,12 @@ const stage5Copy = (messages: Catalogue) =>
  * StarterFlows.instagram5.templates), which can sit in one Instagram
  * section together.
  */
+/** The WhatsApp starters (UI redesign, phase 3): their keywords follow the same rules. */
+const whatsappCopy = (messages: Catalogue) =>
+  ((messages.StarterFlows.whatsapp5 as { templates?: Record<string, Record<string, string>> } | undefined)?.templates ?? {})
+
 function catalogueKeywords(messages: Catalogue): Array<[string, string[]]> {
-  return Object.entries({ ...messages.StarterFlows, ...messages.Instagram.quickAutomations.flows, ...stage5Copy(messages) }).flatMap(([slug, entry]) => {
+  return Object.entries({ ...messages.StarterFlows, ...messages.Instagram.quickAutomations.flows, ...stage5Copy(messages), ...whatsappCopy(messages) }).flatMap(([slug, entry]) => {
     const raw = (entry as { keywords?: unknown }).keywords
     return typeof raw === 'string' ? [[slug, raw.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)] as [string, string[]]] : []
   })

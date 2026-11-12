@@ -108,11 +108,16 @@ export function matchesGalleryFilter(template: TemplateSummary, filter: GalleryF
   return true;
 }
 
+/** Whether a template carries the Instagram gallery's metadata (the Stage 5 starters). */
+const instagramStarter = (template: TemplateSummary) =>
+  !!template.meta && !(template.channels?.length && template.channels.every((channel) => channel === "whatsapp"));
+
 /**
- * The template chooser. Templates that carry gallery metadata (the Instagram
- * starters, Stage 5) get a filter rail (all, by goal, by trigger), a
- * Recommended row, Quick / Flow labels and a detail view before install;
- * other sections keep the category chips.
+ * The template chooser. Where Instagram starters (Stage 5) are offered, the
+ * gallery gets a filter rail (all, by goal, by trigger), a Recommended row,
+ * Quick / Flow labels and a detail view before install. WhatsApp keeps the
+ * category chips, with its starters (UI redesign, phase 3) first and a
+ * Details view for each.
  */
 export function TemplateGallery({
   templates,
@@ -123,7 +128,7 @@ export function TemplateGallery({
   creating: boolean;
   onUse: (slug: string) => void;
 }) {
-  return templates.some((template) => template.meta)
+  return templates.some(instagramStarter)
     ? <FilteredGallery templates={templates} creating={creating} onUse={onUse} />
     : <CategoryGallery templates={templates} creating={creating} onUse={onUse} />;
 }
@@ -227,8 +232,17 @@ function KindLabel({ template }: { template: TemplateSummary }) {
   );
 }
 
-function TemplateCard({ template, large = false, onOpen }: { template: TemplateSummary; large?: boolean; onOpen: () => void }) {
+function UsesAiBadge() {
   const t = useTranslations("StarterFlows.instagram5");
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-medium text-primary">
+      <Sparkles className="h-3 w-3" aria-hidden />
+      {t("usesAi")}
+    </span>
+  );
+}
+
+function TemplateCard({ template, large = false, onOpen }: { template: TemplateSummary; large?: boolean; onOpen: () => void }) {
   const Icon = ICONS[template.icon] ?? FileText;
   return (
     <button
@@ -242,12 +256,7 @@ function TemplateCard({ template, large = false, onOpen }: { template: TemplateS
     >
       <div className="flex items-start justify-between gap-2">
         <Icon className={cn("text-primary", large ? "h-6 w-6" : "h-5 w-5")} />
-        {template.meta?.uses_ai && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-medium text-primary">
-            <Sparkles className="h-3 w-3" aria-hidden />
-            {t("usesAi")}
-          </span>
-        )}
+        {template.meta?.uses_ai && <UsesAiBadge />}
       </div>
       <span className="line-clamp-2 text-sm font-semibold text-popover-foreground">{template.name}</span>
       <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{template.description}</span>
@@ -324,6 +333,7 @@ function CategoryGallery({ templates, creating, onUse }: { templates: TemplateSu
   const searchId = useId();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  const [detail, setDetail] = useState<TemplateSummary | null>(null);
 
   const categories = useMemo(() => {
     const present = [...new Set(templates.map((template) => template.category))];
@@ -331,10 +341,17 @@ function CategoryGallery({ templates, creating, onUse }: { templates: TemplateSu
     return present.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   }, [templates]);
 
+  // Starters (they carry gallery metadata) lead the list; the rest keep their order.
   const visible = useMemo(
-    () => templates.filter((template) => (category === null || template.category === category) && matchesGalleryFilter(template, { kind: "all" }, query)),
+    () => templates
+      .filter((template) => (category === null || template.category === category) && matchesGalleryFilter(template, { kind: "all" }, query))
+      .sort((a, b) => Number(!!b.meta) - Number(!!a.meta)),
     [templates, query, category],
   );
+
+  if (detail) {
+    return <TemplateDetail template={detail} creating={creating} onBack={() => setDetail(null)} onUse={() => onUse(detail.slug)} />;
+  }
 
   const label = (c: string) =>
     t.has(`categories.${c}`) ? t(`categories.${c}`) : templates.find((template) => template.category === c)?.category_label ?? c;
@@ -392,14 +409,20 @@ function CategoryGallery({ templates, creating, onUse }: { templates: TemplateSu
               >
                 <div className="flex items-start justify-between gap-2">
                   <Icon className="h-5 w-5 text-primary" />
-                  <span className="text-[11px] text-muted-foreground">{label(template.category)}</span>
+                  {template.meta?.uses_ai ? <UsesAiBadge /> : <span className="text-[11px] text-muted-foreground">{label(template.category)}</span>}
                 </div>
                 <span className="text-sm font-semibold text-popover-foreground">{template.name}</span>
                 <span className="text-xs leading-relaxed text-muted-foreground">{template.description}</span>
                 <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-2">
-                  <span className="text-[11px] text-muted-foreground">
-                    {t("nodeCount", { count: template.node_count })}
-                  </span>
+                  {template.meta ? (
+                    <Button size="sm" variant="ghost" className="-ml-2" onClick={() => setDetail(template)} aria-label={`${t("details")}: ${template.name}`}>
+                      {t("details")}
+                    </Button>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">
+                      {t("nodeCount", { count: template.node_count })}
+                    </span>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"

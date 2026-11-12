@@ -3028,7 +3028,8 @@
         "events": "Eventos",
         "services": "Serviços",
         "journeys": "Jornadas"
-      }
+      },
+      "details": "Detalhes"
     },
     "channel": {
       "runsOn": "Executa em",
@@ -6783,6 +6784,105 @@
       "steps": "{count, plural, =1 {# etapa} other {# etapas}}",
       "notes": "{count, plural, =1 {# nota} other {# notas}} no quadro explicam o que editar.",
       "more": "Mais modelos"
+    },
+    "whatsapp5": {
+      "templates": {
+        "wa_ai_chat": {
+          "name": "Conversar com IA",
+          "description": "Um assistente de IA responde, entende o que a pessoa precisa e sugere o que combina; passa para a equipe quando necessário.",
+          "businessValue": "Responde a qualquer hora, qualifica o interesse e só chama sua equipe quando importa.",
+          "howItWorks": "Uma mensagem com sua palavra inicia até seis respostas de IA baseadas na sua base de conhecimento. Quando a IA não tem certeza, a conversa vai para sua equipe com uma nota. A IA precisa estar ativada no espaço de trabalho.",
+          "note1": "Adicione instruções sobre tom, sua oferta e o que perguntar.",
+          "note2": "Respostas incertas vão para sua equipe com uma nota.",
+          "keywords": "conversar com ia, assistente virtual",
+          "instructions": "Seja simpático e breve. Responda com a base de conhecimento, pergunte o que o cliente procura e sugira o produto ou serviço que combina. Se não tiver certeza, ofereça chamar a equipe.",
+          "wrapUp": "Que bom ajudar! Mande mensagem quando quiser se surgir algo mais.",
+          "handoffNote": "O assistente de IA passou esta conversa de WhatsApp para a equipe."
+        },
+        "wa_book_meeting": {
+          "name": "Agendar uma reunião",
+          "description": "Ofereça uma chamada ou visita grátis e deixe a pessoa escolher o horário na conversa.",
+          "businessValue": "Transforma um \"podemos conversar?\" em um horário marcado sem idas e vindas.",
+          "howItWorks": "Uma mensagem com sua palavra oferece uma reunião. \"Sim\" mostra seus horários livres de Agendamentos e reserva o escolhido. Se nenhum horário servir, sua equipe assume; \"Agora não\" encerra com gentileza.",
+          "note1": "Configure antes seus serviços e horários em Agendamentos.",
+          "note2": "Mude o texto da oferta para descrever sua reunião.",
+          "keywords": "agendar reunião, marcar chamada",
+          "offer": "Olá! Quer agendar uma chamada grátis com nossa equipe? Leva cerca de 30 minutos.",
+          "yesButton": "Sim, escolher",
+          "noButton": "Agora não",
+          "booked": "Tudo certo! Você receberá uma confirmação com os detalhes. Até lá.",
+          "noTimesNote": "O cliente queria uma reunião, mas nenhum horário serviu. Sugira um.",
+          "notNow": "Sem problema. Mande mensagem quando estiver pronto."
+        },
+        "wa_ai_answers": {
+          "name": "Responder perguntas com IA",
+          "description": "A IA responde uma pergunta com sua base de conhecimento e confere se ajudou.",
+          "businessValue": "Os clientes recebem resposta na hora em vez de esperar pela equipe.",
+          "howItWorks": "Uma mensagem com sua palavra recebe uma resposta de IA baseada na sua base de conhecimento e depois \"Isso ajudou?\". \"Falar com alguém\" ou uma resposta incerta vai para sua equipe. A IA precisa estar ativada no espaço de trabalho.",
+          "note1": "Mantenha sua base de conhecimento atualizada: as respostas vêm dela.",
+          "note2": "Os clientes sempre podem pedir uma pessoa.",
+          "keywords": "resposta rápida, preciso de resposta",
+          "instructions": "Responda a pergunta do cliente em duas ou três frases curtas, usando só a base de conhecimento. Se a resposta não estiver lá, diga isso e ofereça a equipe.",
+          "helped": "Isso respondeu sua pergunta?",
+          "yesButton": "Sim, obrigado",
+          "humanButton": "Falar com alguém",
+          "thanks": "Ótimo! Mande mensagem quando quiser.",
+          "handoffNote": "O cliente quer uma pessoa depois da resposta da IA."
+        },
+        "wa_save_details": {
+          "name": "Salvar dados do cliente",
+          "description": "Peça nome, e-mail e o interesse da pessoa e salve no contato.",
+          "businessValue": "Cria uma lista de contatos organizada para acompanhar e segmentar.",
+          "howItWorks": "Uma mensagem com sua palavra faz três perguntas curtas. O nome e o e-mail são salvos no contato, e o interesse fica na conversa para sua equipe. Adicione uma etapa do Google Sheets para copiá-los também para uma planilha.",
+          "note1": "Para copiar as respostas para uma planilha, adicione uma etapa do Google Sheets antes do agradecimento.",
+          "note2": "O e-mail é verificado antes de ser salvo.",
+          "keywords": "enviar meus dados, atualizar meus dados",
+          "intro": "Obrigado pelo contato! Três perguntas rápidas para ajudarmos melhor.",
+          "askName": "Qual é o seu nome?",
+          "askEmail": "Prazer, {name}! Qual é o seu e-mail?",
+          "askInterest": "Em que você tem interesse?",
+          "thanks": "Obrigado, {name}! Salvamos seus dados e entraremos em contato em breve."
+        },
+        "wa_website": {
+          "name": "Levar pessoas ao seu site",
+          "description": "Compartilhe o link do seu site e ofereça ajuda da equipe.",
+          "businessValue": "Leva quem conversa até o seu site e mantém uma pessoa a um toque.",
+          "howItWorks": "Uma mensagem com sua palavra recebe o link do seu site e depois a pergunta se precisa de mais algo. \"Falar conosco\" passa a conversa para sua equipe.",
+          "note1": "Troque your-website.example na primeira mensagem pelo seu link real antes de publicar.",
+          "keywords": "página de vocês, visitar o site",
+          "link": "Este é o nosso site: your-website.example — dê uma olhada!",
+          "more": "Podemos ajudar com mais alguma coisa?",
+          "doneButton": "Tudo certo",
+          "humanButton": "Falar conosco",
+          "bye": "Obrigado pela visita!",
+          "handoffNote": "O cliente pediu para conversar depois de receber o link do site."
+        },
+        "wa_lead_quiz": {
+          "name": "Qualificar leads com um quiz",
+          "description": "Três perguntas de um toque separam quem está pronto para comprar de quem só está olhando.",
+          "businessValue": "Sua equipe dedica tempo a quem está pronto para comprar; os demais ainda recebem uma resposta gentil.",
+          "howItWorks": "Uma mensagem com sua palavra inicia um quiz curto sobre prazo, orçamento e ajuda. Quem não está só olhando vai para sua equipe com as respostas; os demais recebem uma mensagem de acompanhamento.",
+          "note1": "Mude as perguntas e respostas para combinar com o que você vende.",
+          "note2": "A condição envia todos, exceto \"Só olhando\", para sua equipe.",
+          "keywords": "achar meu plano, qual plano combina",
+          "intro": "Quer achar a opção certa para você? Responda três perguntas rápidas.",
+          "startButton": "Começar",
+          "qTimeline": "Quando você pretende começar?",
+          "timelineNow": "Esta semana",
+          "timelineMonth": "Este mês",
+          "timelineLater": "Só olhando",
+          "qBudget": "Qual orçamento combina mais com você?",
+          "budgetSmall": "Inicial",
+          "budgetMedium": "Crescendo",
+          "budgetLarge": "Premium",
+          "qHelp": "Quer ajuda para escolher?",
+          "helpYes": "Sim, por favor",
+          "helpNo": "Não, obrigado",
+          "hot": "Obrigado! Você combina muito bem. Alguém da nossa equipe vai mandar mensagem em breve.",
+          "handoffNote": "Quiz: começa {timeline}, orçamento {budget}, quer ajuda {help}.",
+          "nurture": "Obrigado por fazer o quiz! Vamos mandar ideias e ofertas quando você estiver pronto."
+        }
+      }
     }
   },
   "LibErrors": {
