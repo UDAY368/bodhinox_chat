@@ -172,12 +172,14 @@ export interface ConnectionChoices {
 
 export type MetaAdsErrorCode =
   | 'meta_ads_not_enabled' | 'forbidden' | 'invalid_request' | 'not_connected' | 'already_connected' | 'page_in_use'
-  | 'token_invalid' | 'invalid_choice' | 'invalid_number' | 'missing_scope' | 'revoke_failed' | 'meta_error' | 'rate_limited';
+  | 'token_invalid' | 'invalid_choice' | 'invalid_number' | 'missing_scope' | 'revoke_failed' | 'meta_error' | 'rate_limited'
+  | 'manage_not_enabled' | 'change_pending' | 'over_budget_cap' | 'not_found';
 
 const STATUS: Record<MetaAdsErrorCode, number> = {
   meta_ads_not_enabled: 503, forbidden: 403, invalid_request: 400, not_connected: 404, already_connected: 409,
   page_in_use: 409, token_invalid: 409, invalid_choice: 400, invalid_number: 400, missing_scope: 409,
   revoke_failed: 502, meta_error: 502, rate_limited: 429,
+  manage_not_enabled: 503, change_pending: 409, over_budget_cap: 422, not_found: 404,
 };
 
 /** An expected failure with a fixed code (never Meta's message). */

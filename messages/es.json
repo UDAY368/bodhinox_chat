@@ -7854,7 +7854,10 @@
       "forbidden": "Solo los administradores pueden cambiar los anuncios de Meta",
       "invalidNumber": "Elige un número de WhatsApp conectado de este espacio de trabajo",
       "missingScope": "Meta no concedió el permiso que necesita esta función",
-      "exportTooLarge": "Hay demasiados leads para exportar de una vez; acota el filtro"
+      "exportTooLarge": "Hay demasiados leads para exportar de una vez; acota el filtro",
+      "manageNotEnabled": "Cambiar anuncios desde Bodhinox aún no está activado.",
+      "changePending": "Ya hay un cambio en camino a Meta. Espera a que termine.",
+      "overBudgetCap": "Eso gastaría por día más de lo que permite el tope de presupuesto diario de tu espacio de trabajo."
     },
     "instagram": {
       "instagram_not_enabled": "Instagram no está activado",
@@ -11090,7 +11093,8 @@
     "tabs": {
       "ads": "Anuncios",
       "leads": "Clientes potenciales",
-      "conversions": "Conversiones"
+      "conversions": "Conversiones",
+      "campaigns": "Campañas"
     },
     "table": {
       "level": "Mostrar",
@@ -11197,7 +11201,91 @@
     },
     "notConnected": "Aún no hay ninguna cuenta publicitaria de Meta conectada. Un administrador la conecta en Configuración > Anuncios.",
     "tokenInvalid": "El acceso a Meta caducó, así que los resultados ya no se actualizan. Un administrador debe volver a conectar en Configuración > Anuncios.",
-    "openSettings": "Abrir Configuración > Anuncios"
+    "openSettings": "Abrir Configuración > Anuncios",
+    "manage": {
+      "manageOff": "Aquí puedes ver tus campañas. Pausar, reanudar y cambiar presupuestos desde Bodhinox se activa cuando Meta apruebe la gestión de anuncios para esta app.",
+      "missingScopes": "Vuelve a conectar tu cuenta publicitaria en Ajustes → Anuncios para permitir la gestión de anuncios (falta: {scopes}).",
+      "syncedAt": "Actualizado {time}",
+      "neverSynced": "Aún no se ha cargado desde Meta",
+      "capIs": "Tope de presupuesto diario: {amount}",
+      "noCap": "Sin tope de presupuesto diario",
+      "setCap": "Tope de presupuesto",
+      "refresh": "Actualizar",
+      "refreshQueued": "Actualizando desde Meta. Tarda un minuto.",
+      "unknownTitle": "La respuesta de Meta no fue clara",
+      "unknownHelp": "Puede que estos cambios hayan llegado a Meta o no. Vuelve a comprobarlo, o revisa el Administrador de anuncios y descártalos.",
+      "changeLine": "{name}: {field} {from} → {to}",
+      "recheck": "Comprobar con Meta",
+      "recheckApplied": "Meta muestra el cambio. Está aplicado.",
+      "recheckNotShown": "Meta aún no muestra el cambio.",
+      "dismiss": "Descartar",
+      "empty": "Todavía no hay campañas en esta cuenta publicitaria.",
+      "name": "Nombre",
+      "delivery": "Entrega",
+      "budget": "Presupuesto",
+      "ends": "Termina",
+      "spend30": "Gasto (30 días)",
+      "chats30": "Chats (30 días)",
+      "actions": "Acciones",
+      "recentTitle": "Cambios recientes",
+      "changeStatus": {
+        "queued": "Enviando",
+        "applied": "Aplicado",
+        "failed": "Falló",
+        "unknown": "Poco claro",
+        "dismissed": "Descartado"
+      },
+      "capTitle": "Tope de presupuesto diario",
+      "capHelp": "Bodhinox rechaza cualquier presupuesto, o reanudación, que gaste más que esto por día. No cambia nada en Meta.",
+      "capClear": "Déjalo vacío para quitar el tope.",
+      "confirmResume": "¿Reanudar {name}?",
+      "confirmPause": "¿Pausar {name}?",
+      "resumeHelp": "Vuelve a publicarse y a gastar su presupuesto.",
+      "pauseHelp": "Deja de publicarse hasta que lo reanudes.",
+      "editHelp": "El cambio se envía a Meta y aparece aquí cuando Meta lo acepta.",
+      "edit": {
+        "daily_budget": "Presupuesto diario de {name}",
+        "lifetime_budget": "Presupuesto total de {name}",
+        "end_time": "Fecha de finalización de {name}",
+        "name": "Cambiar nombre de {name}"
+      },
+      "amountIn": "Importe ({currency})",
+      "currentValue": "Ahora: {amount}",
+      "fields": {
+        "status": "estado",
+        "daily_budget": "presupuesto diario",
+        "lifetime_budget": "presupuesto total",
+        "end_time": "fecha de finalización",
+        "name": "nombre"
+      },
+      "status": {
+        "active": "Activo",
+        "paused": "En pausa"
+      },
+      "levels": {
+        "campaign": "Campaña",
+        "adset": "Conjunto de anuncios",
+        "ad": "Anuncio"
+      },
+      "perDay": "{amount} / día",
+      "total": "{amount} en total",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "resume": "Reanudar",
+      "pause": "Pausar",
+      "sendChange": "Enviar cambio",
+      "collapse": "Contraer",
+      "expand": "Expandir",
+      "more": "Más acciones",
+      "changeDaily": "Cambiar presupuesto diario",
+      "changeLifetime": "Cambiar presupuesto total",
+      "changeEnd": "Cambiar fecha de finalización",
+      "rename": "Cambiar nombre",
+      "failed": "No funcionó. Inténtalo de nuevo.",
+      "invalidValue": "Introduce un valor válido.",
+      "sent": "Enviado a Meta.",
+      "capSaved": "Tope de presupuesto guardado."
+    }
   },
   "Appointments": {
     "title": "Citas",

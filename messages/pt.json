@@ -7854,7 +7854,10 @@
       "forbidden": "Somente administradores podem alterar os anúncios da Meta",
       "invalidNumber": "Escolha um número de WhatsApp conectado deste espaço de trabalho",
       "missingScope": "A Meta não concedeu a permissão de que este recurso precisa",
-      "exportTooLarge": "Há leads demais para exportar de uma vez; restrinja o filtro"
+      "exportTooLarge": "Há leads demais para exportar de uma vez; restrinja o filtro",
+      "manageNotEnabled": "Alterar anúncios pelo Bodhinox ainda não está ativado.",
+      "changePending": "Já há uma alteração a caminho da Meta. Aguarde até terminar.",
+      "overBudgetCap": "Isso gastaria por dia mais do que o limite de orçamento diário do seu espaço de trabalho permite."
     },
     "instagram": {
       "instagram_not_enabled": "O Instagram não está ativado",
@@ -11090,7 +11093,8 @@
     "tabs": {
       "ads": "Anúncios",
       "leads": "Leads",
-      "conversions": "Conversões"
+      "conversions": "Conversões",
+      "campaigns": "Campanhas"
     },
     "table": {
       "level": "Mostrar",
@@ -11197,7 +11201,91 @@
     },
     "notConnected": "Nenhuma conta de anúncios da Meta está conectada ainda. Um administrador a conecta em Configurações > Anúncios.",
     "tokenInvalid": "O acesso à Meta expirou, então os resultados não são mais atualizados. Um administrador precisa reconectar em Configurações > Anúncios.",
-    "openSettings": "Abrir Configurações > Anúncios"
+    "openSettings": "Abrir Configurações > Anúncios",
+    "manage": {
+      "manageOff": "Você pode ver suas campanhas aqui. Pausar, retomar e alterar orçamentos pelo Bodhinox é ativado quando a Meta aprovar o gerenciamento de anúncios para este app.",
+      "missingScopes": "Reconecte sua conta de anúncios em Configurações → Anúncios para permitir o gerenciamento de anúncios (faltando: {scopes}).",
+      "syncedAt": "Atualizado {time}",
+      "neverSynced": "Ainda não carregado da Meta",
+      "capIs": "Limite de orçamento diário: {amount}",
+      "noCap": "Sem limite de orçamento diário",
+      "setCap": "Limite de orçamento",
+      "refresh": "Atualizar",
+      "refreshQueued": "Atualizando pela Meta. Leva um minuto.",
+      "unknownTitle": "A resposta da Meta não ficou clara",
+      "unknownHelp": "Estas alterações podem ou não ter chegado à Meta. Verifique de novo, ou confira no Gerenciador de Anúncios e dispense.",
+      "changeLine": "{name}: {field} {from} → {to}",
+      "recheck": "Verificar com a Meta",
+      "recheckApplied": "A Meta mostra a alteração. Ela foi aplicada.",
+      "recheckNotShown": "A Meta ainda não mostra a alteração.",
+      "dismiss": "Dispensar",
+      "empty": "Ainda não há campanhas nesta conta de anúncios.",
+      "name": "Nome",
+      "delivery": "Veiculação",
+      "budget": "Orçamento",
+      "ends": "Termina",
+      "spend30": "Gasto (30 dias)",
+      "chats30": "Conversas (30 dias)",
+      "actions": "Ações",
+      "recentTitle": "Alterações recentes",
+      "changeStatus": {
+        "queued": "Enviando",
+        "applied": "Aplicada",
+        "failed": "Falhou",
+        "unknown": "Incerta",
+        "dismissed": "Dispensada"
+      },
+      "capTitle": "Limite de orçamento diário",
+      "capHelp": "O Bodhinox recusa qualquer orçamento, ou retomada, que gaste mais do que isso por dia. Não altera nada na Meta.",
+      "capClear": "Deixe vazio para remover o limite.",
+      "confirmResume": "Retomar {name}?",
+      "confirmPause": "Pausar {name}?",
+      "resumeHelp": "Volta a ser veiculado e a gastar seu orçamento.",
+      "pauseHelp": "Para de ser veiculado até você retomar.",
+      "editHelp": "A alteração é enviada à Meta e aparece aqui quando a Meta a aceita.",
+      "edit": {
+        "daily_budget": "Orçamento diário de {name}",
+        "lifetime_budget": "Orçamento total de {name}",
+        "end_time": "Data de término de {name}",
+        "name": "Renomear {name}"
+      },
+      "amountIn": "Valor ({currency})",
+      "currentValue": "Agora: {amount}",
+      "fields": {
+        "status": "status",
+        "daily_budget": "orçamento diário",
+        "lifetime_budget": "orçamento total",
+        "end_time": "data de término",
+        "name": "nome"
+      },
+      "status": {
+        "active": "Ativo",
+        "paused": "Pausado"
+      },
+      "levels": {
+        "campaign": "Campanha",
+        "adset": "Conjunto de anúncios",
+        "ad": "Anúncio"
+      },
+      "perDay": "{amount} / dia",
+      "total": "{amount} no total",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "resume": "Retomar",
+      "pause": "Pausar",
+      "sendChange": "Enviar alteração",
+      "collapse": "Recolher",
+      "expand": "Expandir",
+      "more": "Mais ações",
+      "changeDaily": "Alterar orçamento diário",
+      "changeLifetime": "Alterar orçamento total",
+      "changeEnd": "Alterar data de término",
+      "rename": "Renomear",
+      "failed": "Não funcionou. Tente de novo.",
+      "invalidValue": "Insira um valor válido.",
+      "sent": "Enviado à Meta.",
+      "capSaved": "Limite de orçamento salvo."
+    }
   },
   "Appointments": {
     "title": "Agendamentos",

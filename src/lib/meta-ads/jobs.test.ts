@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const db = vi.hoisted(() => ({ queryRaw: vi.fn(), executeRaw: vi.fn() }));
 const handlers = vi.hoisted(() => ({
-  page: vi.fn(), fetch: vi.fn(), sync: vi.fn(), insights: vi.fn(), capi: vi.fn(),
+  page: vi.fn(), fetch: vi.fn(), sync: vi.fn(), insights: vi.fn(), capi: vi.fn(), objects: vi.fn(), change: vi.fn(),
 }));
 vi.mock('@/lib/db/prisma', () => ({
   getWorkerPrisma: () => ({
@@ -18,6 +18,7 @@ vi.mock('./leads', () => ({
 }));
 vi.mock('./insights', () => ({ handleInsightsSyncJob: handlers.insights }));
 vi.mock('./capi', () => ({ handleCapiEventJob: handlers.capi }));
+vi.mock('./manage', () => ({ handleAdObjectsSyncJob: handlers.objects, handleAdChangeJob: handlers.change }));
 import { handleMetaAdsJob, handleMetaPageWebhookJob, isMetaAdsJob } from './jobs';
 
 const ACCOUNT = '6f1c2d3e-0000-4000-8000-0000000000aa';
@@ -31,6 +32,10 @@ describe('meta ads job router', () => {
     await handleMetaAdsJob(ACCOUNT, 'meta.leads_sync', {});
     await handleMetaAdsJob(ACCOUNT, 'meta.insights_sync', {});
     await handleMetaAdsJob(ACCOUNT, 'meta.capi_event', { capiEventId: 'e' }, { attempts: 2, maxAttempts: 5 });
+    await handleMetaAdsJob(ACCOUNT, 'meta.ad_objects_sync', {});
+    await handleMetaAdsJob(ACCOUNT, 'meta.ad_change', { changeId: 'c' }, { attempts: 1, maxAttempts: 4 });
+    expect(handlers.objects).toHaveBeenCalledWith(ACCOUNT);
+    expect(handlers.change).toHaveBeenCalledWith(ACCOUNT, { changeId: 'c' }, { attempts: 1, maxAttempts: 4 });
     expect(handlers.fetch).toHaveBeenCalledWith(ACCOUNT, { leadId: 'x' });
     expect(handlers.sync).toHaveBeenCalledWith(ACCOUNT, {});
     expect(handlers.insights).toHaveBeenCalledWith(ACCOUNT, {});

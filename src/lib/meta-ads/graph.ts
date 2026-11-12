@@ -335,6 +335,92 @@ export async function getInsights(adAccountId: string, userToken: string,
   });
 }
 
+// ---------------------------------------------------------------- ad management
+
+export type AdObjectLevel = 'campaign' | 'adset' | 'ad';
+
+export interface MetaAdObject {
+  level: AdObjectLevel;
+  id: string;
+  campaignId: string | null;
+  adsetId: string | null;
+  name: string | null;
+  /** What the advertiser set: ACTIVE, PAUSED, ARCHIVED, ... */
+  status: string | null;
+  /** What Meta is doing: ACTIVE, PAUSED, CAMPAIGN_PAUSED, IN_PROCESS, WITH_ISSUES, ... */
+  effectiveStatus: string | null;
+  objective: string | null;
+  /** Minor units of the ad account currency; null when the object has no budget of that kind. */
+  dailyBudgetMinor: number | null;
+  lifetimeBudgetMinor: number | null;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+/** Meta's budget strings ("50000") -> integer minor units; "0" or absent means no budget of that kind. */
+const budget = (value: unknown): number | null => {
+  const text = typeof value === 'number' ? String(value) : value;
+  if (typeof text !== 'string' || !/^\d{1,15}$/.test(text)) return null;
+  const n = Number(text);
+  return n > 0 ? n : null;
+};
+const time = (value: unknown): string | null => {
+  if (typeof value !== 'string' || value.length > 40) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+};
+
+const OBJECT_FIELDS: Record<AdObjectLevel, string> = {
+  campaign: 'id,name,status,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time',
+  adset: 'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,start_time,end_time',
+  ad: 'id,name,campaign_id,adset_id,status,effective_status',
+};
+
+function adObject(level: AdObjectLevel, row: Record<string, unknown>): MetaAdObject | null {
+  const objectId = id(row.id);
+  if (!objectId) return null;
+  return {
+    level,
+    id: objectId,
+    campaignId: level === 'campaign' ? objectId : id(row.campaign_id),
+    adsetId: level === 'adset' ? objectId : level === 'ad' ? id(row.adset_id) : null,
+    name: str(row.name, 500),
+    status: str(row.status, 64),
+    effectiveStatus: str(row.effective_status, 64),
+    objective: str(row.objective, 64),
+    dailyBudgetMinor: budget(row.daily_budget),
+    lifetimeBudgetMinor: budget(row.lifetime_budget),
+    startTime: time(row.start_time),
+    endTime: time(level === 'campaign' ? row.stop_time : row.end_time),
+  };
+}
+
+/** Every campaign, ad set and ad of the ad account (Meta's default edges: not deleted). */
+export async function listAdObjects(adAccountId: string, token: string): Promise<MetaAdObject[]> {
+  const base = `act_${assertId(adAccountId)}`;
+  const levels: [AdObjectLevel, string][] = [['campaign', 'campaigns'], ['adset', 'adsets'], ['ad', 'ads']];
+  const lists = await Promise.all(levels.map(([level, edge]) =>
+    getAll<Record<string, unknown>>(`${base}/${edge}`, token, { fields: OBJECT_FIELDS[level], limit: 200 })
+      .then((rows) => rows.flatMap((row) => adObject(level, row) ?? []))));
+  return lists.flat();
+}
+
+/** One object's current values, read back from Meta (used to settle an ambiguous change). */
+export async function getAdObject(objectId: string, level: AdObjectLevel, token: string): Promise<MetaAdObject | null> {
+  const row = await request<Record<string, unknown>>('GET', assertId(objectId), token, { params: { fields: OBJECT_FIELDS[level] } });
+  return adObject(level, row);
+}
+
+/**
+ * Updates one campaign, ad set or ad (`POST /<id>`). The values are set, not
+ * added, so sending the same change twice leaves the same result; callers
+ * still send once (outbound intent) and read back after an ambiguous outcome.
+ */
+export async function updateAdObject(objectId: string, token: string, fields: Record<string, string>): Promise<{ success: boolean }> {
+  const result = await request<{ success?: unknown }>('POST', assertId(objectId), token, { form: fields });
+  return { success: result.success === true };
+}
+
 // ---------------------------------------------------------------- conversions API
 
 /** The WABA's Conversions API dataset id, creating it when the WABA has none. */

@@ -28,6 +28,8 @@ export const REQUIRED_SCOPES = {
   insights: ['ads_read'],
   leads: ['leads_retrieval', 'pages_manage_metadata', 'pages_read_engagement', 'pages_manage_ads'],
   capi: ['whatsapp_business_manage_events'],
+  // Pause / resume, budgets, end dates and names of existing campaigns, ad sets and ads.
+  manage: ['ads_management'],
 } as const;
 export type MetaAdsFeature = keyof typeof REQUIRED_SCOPES;
 
@@ -38,6 +40,15 @@ const trimmed = (value: string | undefined): string | null => {
 
 export function metaAdsEnabled(env: Env = process.env): boolean {
   return env.META_ADS_ENABLED?.trim() === 'true';
+}
+
+/**
+ * Ad management (changing campaigns, ad sets and ads at Meta) ships dark: it
+ * needs META_ADS_MANAGE_ENABLED=true on top of the Meta ads config, and stays
+ * unset until Meta approves `ads_management` in App Review.
+ */
+export function metaAdsManageEnabled(env: Env = process.env): boolean {
+  return metaAdsConfig(env) !== null && env.META_ADS_MANAGE_ENABLED?.trim() === 'true';
 }
 
 /** The full config, or null unless the flag is on and every required value is set. */
