@@ -2342,7 +2342,7 @@
       "studioSelectHelp": "Select a step on the canvas to edit its message, options and connections.",
       "studioClose": "Close step settings",
       "studioArrange": "Arrange",
-      "studioEmpty": "Choose a block from the library to start building your flow.",
+      "studioEmpty": "Click + to add a step, or click \"Then\" on the trigger card.",
       "studioSettings": "Flow settings",
       "editorView": "Editor view",
       "form": {
@@ -2897,7 +2897,8 @@
       "triggerIgLiveCommentTitle": "Someone comments on your Live",
       "triggerIgRefTitle": "Someone opens a chat from your ref link",
       "adClickTriggerHelpInstagram": "Starts when someone messages you from an ad that opens Instagram Direct, before any keyword flow. An active conversation flow keeps running.",
-      "triggerIgShareToStoryTitle": "Someone shares your post to their story"
+      "triggerIgShareToStoryTitle": "Someone shares your post to their story",
+      "nextStep": "Next step"
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -2993,7 +2994,11 @@
         "live": "Live",
         "stopped": "Stopped",
         "archived": "Archived"
-      }
+      },
+      "duplicate": "Duplicate",
+      "duplicated": "Copied as \"{name}\"",
+      "duplicateFailed": "Could not duplicate this automation.",
+      "versionHistory": "Version history"
     },
     "gallery": {
       "searchLabel": "Search templates",
@@ -3719,7 +3724,38 @@
       "sendInWindow": "Within the messaging window",
       "sendPrivateReply": "As a private reply",
       "deleteNote": "Delete note",
-      "tools": "Canvas tools"
+      "tools": "Canvas tools",
+      "showMap": "Show map",
+      "hideMap": "Hide map",
+      "help": "Canvas help",
+      "helpTitle": "Moving around the canvas",
+      "helpIntro": "How to pan, zoom and select steps.",
+      "helpMouse": "Mouse",
+      "helpTrackpad": "Trackpad",
+      "helpPan": "Move around",
+      "helpPanMouse": "Click and drag an empty part of the canvas",
+      "helpPanTrackpad": "Click and drag an empty part of the canvas",
+      "helpZoom": "Zoom",
+      "helpZoomMouse": "Scroll the mouse wheel",
+      "helpZoomTrackpad": "Pinch, or scroll with two fingers",
+      "helpSelect": "Select several steps",
+      "helpSelectHow": "Hold Shift and drag a box around them, or Ctrl (⌘ on a Mac) + click each one",
+      "helpUndo": "Undo and redo",
+      "helpUndoHow": "Ctrl + Z, and Ctrl + Shift + Z (⌘ on a Mac)",
+      "showDetails": "Show automation details",
+      "collapsePanel": "Hide panel",
+      "summaryKicker": "Automation",
+      "summaryTitle": "Automation details",
+      "summaryChannel": "Channel",
+      "summaryChannels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram",
+        "any": "Both channels"
+      },
+      "summaryStatus": "Status",
+      "summaryTriggers": "Triggers",
+      "summarySteps": "Steps",
+      "summaryHint": "Select a step on the canvas to edit it, click a step's output to add the next one, or use + to add a step."
     }
   },
   "Settings": {

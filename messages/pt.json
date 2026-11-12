@@ -2342,7 +2342,7 @@
       "studioSelectHelp": "Selecione uma etapa na tela para editar a mensagem, opções e conexões.",
       "studioClose": "Fechar configurações da etapa",
       "studioArrange": "Organizar",
-      "studioEmpty": "Escolha um bloco da biblioteca para começar seu fluxo.",
+      "studioEmpty": "Clique em + para adicionar uma etapa, ou em \"Então\" no cartão do gatilho.",
       "studioSettings": "Configurações do fluxo",
       "editorView": "Visualização do editor",
       "form": {
@@ -2897,7 +2897,8 @@
       "triggerIgLiveCommentTitle": "Alguém comenta na sua live",
       "triggerIgRefTitle": "Alguém abre uma conversa pelo seu link ref",
       "adClickTriggerHelpInstagram": "Começa quando alguém envia uma mensagem a partir de um anúncio que abre o Instagram Direct, antes de qualquer fluxo por palavra-chave. Um fluxo ativo na conversa continua.",
-      "triggerIgShareToStoryTitle": "Alguém compartilha sua publicação no story"
+      "triggerIgShareToStoryTitle": "Alguém compartilha sua publicação no story",
+      "nextStep": "Próxima etapa"
     },
     "validation": {
       "noIssues": "Nenhum problema. Pronto para ativar.",
@@ -2993,7 +2994,11 @@
         "live": "Ativa",
         "stopped": "Parada",
         "archived": "Arquivada"
-      }
+      },
+      "duplicate": "Duplicar",
+      "duplicated": "Copiada como \"{name}\"",
+      "duplicateFailed": "Não foi possível duplicar esta automação.",
+      "versionHistory": "Histórico de versões"
     },
     "gallery": {
       "searchLabel": "Buscar modelos",
@@ -3719,7 +3724,38 @@
       "sendInWindow": "Dentro da janela de mensagens",
       "sendPrivateReply": "Como resposta privada",
       "deleteNote": "Excluir nota",
-      "tools": "Ferramentas da tela"
+      "tools": "Ferramentas da tela",
+      "showMap": "Mostrar mapa",
+      "hideMap": "Ocultar mapa",
+      "help": "Ajuda da tela",
+      "helpTitle": "Navegar pela tela",
+      "helpIntro": "Como mover, aplicar zoom e selecionar etapas.",
+      "helpMouse": "Mouse",
+      "helpTrackpad": "Trackpad",
+      "helpPan": "Mover",
+      "helpPanMouse": "Clique e arraste uma parte vazia da tela",
+      "helpPanTrackpad": "Clique e arraste uma parte vazia da tela",
+      "helpZoom": "Zoom",
+      "helpZoomMouse": "Role a roda do mouse",
+      "helpZoomTrackpad": "Faça pinça ou role com dois dedos",
+      "helpSelect": "Selecionar várias etapas",
+      "helpSelectHow": "Segure Shift e arraste uma caixa ao redor, ou Ctrl (⌘ no Mac) + clique em cada uma",
+      "helpUndo": "Desfazer e refazer",
+      "helpUndoHow": "Ctrl + Z e Ctrl + Shift + Z (⌘ no Mac)",
+      "showDetails": "Mostrar detalhes da automação",
+      "collapsePanel": "Ocultar painel",
+      "summaryKicker": "Automação",
+      "summaryTitle": "Detalhes da automação",
+      "summaryChannel": "Canal",
+      "summaryChannels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram",
+        "any": "Ambos os canais"
+      },
+      "summaryStatus": "Status",
+      "summaryTriggers": "Gatilhos",
+      "summarySteps": "Etapas",
+      "summaryHint": "Selecione uma etapa na tela para editá-la, clique na saída de uma etapa para adicionar a próxima ou use + para adicionar uma etapa."
     }
   },
   "Settings": {

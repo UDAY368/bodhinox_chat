@@ -14,7 +14,7 @@
  * Colours, icons, components and wording are Bodhinox's own.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Search, StickyNote, Trash2, Zap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -27,6 +27,27 @@ import type { WorkspaceCapabilities } from '@/lib/flows/node-registry';
 import { filterPaletteTypes, paletteBlock } from './palette';
 import { NodeIconChip, STEP_GROUP, type NodeType, type StepGroup } from './shared';
 import { TriggerStackRows, type StackTrigger } from './triggers/trigger-stack';
+
+// ------------------------------------------------------------ next-step menu
+
+/**
+ * Clicking a step's output (or the "When…" card's Then port) opens the
+ * next-step menu at the pointer; the canvas provides the opener.
+ */
+export type OpenNextStep = (source: string, handle: string, clientX: number, clientY: number) => void;
+export const NextStepContext = createContext<OpenNextStep | null>(null);
+
+/** Props for an output Handle: a click opens the next-step menu (a drag still connects). */
+export function useOutputClick(source: string, handle: string, enabled: boolean) {
+  const open = useContext(NextStepContext);
+  if (!open || !enabled) return {};
+  return {
+    onClick: (event: React.MouseEvent) => {
+      event.stopPropagation();
+      open(source, handle, event.clientX, event.clientY);
+    },
+  };
+}
 
 // ------------------------------------------------------------ group colours
 
@@ -76,9 +97,11 @@ export function addStepGroups(
 /**
  * The grouped list: Starting step (a trigger), Content, AI, Logic, Extras
  * (note). `onTrigger` is absent when no trigger can be added (the entry is
- * shown, disabled, with the reason).
+ * shown, disabled, with the reason). `tiles` (the round + menu) lays each
+ * group out as two columns of dashed tiles; `list` (the next-step menu)
+ * keeps one compact row per step.
  */
-export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlockedReason, onNote, autoFocus = true }: {
+export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlockedReason, onNote, autoFocus = true, variant = 'list' }: {
   nodeTypes: readonly NodeType[];
   caps: WorkspaceCapabilities | null;
   onPick: (type: NodeType) => void;
@@ -86,6 +109,7 @@ export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlocked
   triggerBlockedReason?: string | null;
   onNote?: () => void;
   autoFocus?: boolean;
+  variant?: 'list' | 'tiles';
 }) {
   const t = useTranslations('Flows.builder');
   const tc = useTranslations('Flows.canvas');
@@ -95,13 +119,20 @@ export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlocked
   const q = query.trim().toLocaleLowerCase();
   const showTrigger = (onTrigger || triggerBlockedReason) && (!q || tm('addTrigger').toLocaleLowerCase().includes(q));
   const showNote = onNote && (!q || tc('addNote').toLocaleLowerCase().includes(q));
+  const tiles = variant === 'tiles';
   const heading = (group: CanvasGroup) => (
-    <h3 className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <h3 className={tiles
+      ? 'flex items-center gap-2 px-1 pb-2 pt-3 text-sm font-semibold text-foreground'
+      : 'flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground'}>
       <span className="size-2 rounded-full" style={{ background: groupColors(group).solid }} aria-hidden />
       {tc(`groups.${group}`)}
     </h3>
   );
-  const item = 'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent';
+  const item = tiles
+    ? 'flex min-h-[52px] w-full items-center gap-2.5 rounded-xl border border-dashed border-border bg-card px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-solid hover:border-primary/40 hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent'
+    : 'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent';
+  const chip = tiles ? 28 : 22;
+  const grid = tiles ? 'grid grid-cols-2 gap-2' : undefined;
   return (
     <div className="flex min-h-0 flex-col">
       <div className="border-border border-b p-2">
@@ -111,42 +142,48 @@ export function AddStepList({ nodeTypes, caps, onPick, onTrigger, triggerBlocked
             onChange={(event) => setQuery(event.target.value)} className="h-9 pl-8 text-xs" />
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-1.5" data-testid="add-step-list">
+      <div className={cn('min-h-0 flex-1 overflow-y-auto', tiles ? 'px-3 pb-3' : 'p-1.5')} data-testid="add-step-list" data-variant={variant}>
         {showTrigger && (
           <section className="mb-1.5">
             {heading('start')}
+            <div className={grid}>
             <button type="button" className={item} disabled={!onTrigger} title={triggerBlockedReason ?? undefined} onClick={onTrigger}>
-              <span className="flex size-[22px] items-center justify-center rounded-lg" style={{ background: groupColors('start').soft, color: groupColors('start').solid }}>
-                <Zap size={12} />
+              <span className="flex shrink-0 items-center justify-center rounded-lg" style={{ width: chip, height: chip, background: groupColors('start').soft, color: groupColors('start').solid }}>
+                <Zap size={tiles ? 15 : 12} />
               </span>
               {tm('addTrigger')}
             </button>
+            </div>
           </section>
         )}
         {groups.map((g) => (
           <section key={g.group} className="mb-1.5">
             {heading(g.group)}
+            <div className={grid}>
             {g.types.map((type) => {
               const blocked = paletteBlock(type, caps);
               return (
                 <button key={type} type="button" disabled={!!blocked} data-step-type={type}
                   title={blocked ? t(`capabilityBlocked.${blocked}`) : t(`nodes.${type}.blurb`)} onClick={() => onPick(type)} className={item}>
-                  <NodeIconChip type={type} size={22} iconSize={12} />
-                  {t(`nodes.${type}.label`)}
+                  <NodeIconChip type={type} size={chip} iconSize={tiles ? 15 : 12} />
+                  <span className="min-w-0 truncate">{t(`nodes.${type}.label`)}</span>
                 </button>
               );
             })}
+            </div>
           </section>
         ))}
         {showNote && (
           <section className="mb-1.5">
             {heading('extras')}
+            <div className={grid}>
             <button type="button" className={item} onClick={onNote}>
-              <span className="flex size-[22px] items-center justify-center rounded-lg" style={{ background: groupColors('extras').soft, color: groupColors('extras').solid }}>
-                <StickyNote size={12} />
+              <span className="flex shrink-0 items-center justify-center rounded-lg" style={{ width: chip, height: chip, background: groupColors('extras').soft, color: groupColors('extras').solid }}>
+                <StickyNote size={tiles ? 15 : 12} />
               </span>
               {tc('addNote')}
             </button>
+            </div>
           </section>
         )}
         {!groups.length && !showTrigger && !showNote && <p className="px-2 py-4 text-center text-xs text-muted-foreground">{t('studioNoResults')}</p>}
@@ -171,6 +208,7 @@ export interface WhenData extends Record<string, unknown> {
 }
 
 export function WhenCard({ data, isConnectable }: NodeProps) {
+  const thenClick = useOutputClick(WHEN_NODE_ID, WHEN_HANDLE, !!isConnectable);
   const tm = useTranslations('Flows.multiTrigger');
   const d = data as WhenData;
   const c = groupColors('start');
@@ -187,7 +225,7 @@ export function WhenCard({ data, isConnectable }: NodeProps) {
       </div>
       <div className="border-border relative flex items-center justify-end gap-2 border-t px-4 py-2 text-[11px] font-medium text-muted-foreground">
         {tm('then')}
-        <Handle type="source" id={WHEN_HANDLE} position={Position.Right} isConnectable={isConnectable}
+        <Handle type="source" id={WHEN_HANDLE} position={Position.Right} isConnectable={isConnectable} {...thenClick}
           style={{ borderColor: c.solid }} className="!bg-card !h-2.5 !w-2.5 !border-2" />
       </div>
     </div>

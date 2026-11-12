@@ -2342,7 +2342,7 @@
       "studioSelectHelp": "캔버스에서 단계를 선택하여 메시지, 옵션 및 연결을 편집하세요.",
       "studioClose": "단계 설정 닫기",
       "studioArrange": "정렬",
-      "studioEmpty": "라이브러리에서 블록을 선택하여 흐름을 시작하세요.",
+      "studioEmpty": "+를 눌러 단계를 추가하거나 트리거 카드의 \"그러면\"을 클릭하세요.",
       "studioSettings": "흐름 설정",
       "editorView": "편집기 보기",
       "form": {
@@ -2897,7 +2897,8 @@
       "triggerIgLiveCommentTitle": "누군가 라이브에 댓글을 남김",
       "triggerIgRefTitle": "누군가 추적 링크로 대화를 시작함",
       "adClickTriggerHelpInstagram": "Instagram Direct로 연결되는 광고에서 메시지가 오면 키워드 플로우보다 먼저 시작됩니다. 대화에서 진행 중인 플로우는 계속 실행됩니다.",
-      "triggerIgShareToStoryTitle": "누군가 내 게시물을 스토리에 공유함"
+      "triggerIgShareToStoryTitle": "누군가 내 게시물을 스토리에 공유함",
+      "nextStep": "다음 단계"
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -2993,7 +2994,11 @@
         "live": "운영 중",
         "stopped": "중지됨",
         "archived": "보관됨"
-      }
+      },
+      "duplicate": "복제",
+      "duplicated": "\"{name}\"(으)로 복사됨",
+      "duplicateFailed": "이 자동화를 복제하지 못했습니다.",
+      "versionHistory": "버전 기록"
     },
     "gallery": {
       "searchLabel": "템플릿 검색",
@@ -3719,7 +3724,38 @@
       "sendInWindow": "메시지 창 안에서",
       "sendPrivateReply": "비공개 답장으로",
       "deleteNote": "메모 삭제",
-      "tools": "캔버스 도구"
+      "tools": "캔버스 도구",
+      "showMap": "지도 표시",
+      "hideMap": "지도 숨기기",
+      "help": "캔버스 도움말",
+      "helpTitle": "캔버스 이동하기",
+      "helpIntro": "이동, 확대·축소, 단계 선택 방법입니다.",
+      "helpMouse": "마우스",
+      "helpTrackpad": "트랙패드",
+      "helpPan": "이동",
+      "helpPanMouse": "캔버스의 빈 곳을 클릭한 채 끌기",
+      "helpPanTrackpad": "캔버스의 빈 곳을 클릭한 채 끌기",
+      "helpZoom": "확대·축소",
+      "helpZoomMouse": "마우스 휠 굴리기",
+      "helpZoomTrackpad": "손가락을 오므리거나 두 손가락으로 스크롤",
+      "helpSelect": "여러 단계 선택",
+      "helpSelectHow": "Shift를 누른 채 상자를 끌거나, Ctrl(Mac은 ⌘) + 클릭으로 하나씩 선택",
+      "helpUndo": "실행 취소와 다시 실행",
+      "helpUndoHow": "Ctrl + Z, Ctrl + Shift + Z (Mac은 ⌘)",
+      "showDetails": "자동화 정보 보기",
+      "collapsePanel": "패널 숨기기",
+      "summaryKicker": "자동화",
+      "summaryTitle": "자동화 정보",
+      "summaryChannel": "채널",
+      "summaryChannels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram",
+        "any": "두 채널 모두"
+      },
+      "summaryStatus": "상태",
+      "summaryTriggers": "트리거",
+      "summarySteps": "단계",
+      "summaryHint": "캔버스에서 단계를 선택해 편집하고, 단계의 출력을 클릭해 다음 단계를 추가하거나 +로 단계를 추가하세요."
     }
   },
   "Settings": {

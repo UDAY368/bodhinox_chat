@@ -2342,7 +2342,7 @@
       "studioSelectHelp": "Selecciona un paso del lienzo para editar su mensaje, opciones y conexiones.",
       "studioClose": "Cerrar configuración del paso",
       "studioArrange": "Organizar",
-      "studioEmpty": "Elige un bloque de la biblioteca para comenzar tu flujo.",
+      "studioEmpty": "Haz clic en + para añadir un paso, o en «Entonces» en la tarjeta del disparador.",
       "studioSettings": "Configuración del flujo",
       "editorView": "Vista del editor",
       "form": {
@@ -2897,7 +2897,8 @@
       "triggerIgLiveCommentTitle": "Alguien comenta en tu directo",
       "triggerIgRefTitle": "Alguien abre un chat desde tu enlace ref",
       "adClickTriggerHelpInstagram": "Empieza cuando alguien te escribe desde un anuncio que abre Instagram Direct, antes de cualquier flujo por palabra clave. Un flujo activo en la conversación sigue en marcha.",
-      "triggerIgShareToStoryTitle": "Alguien comparte tu publicación en su historia"
+      "triggerIgShareToStoryTitle": "Alguien comparte tu publicación en su historia",
+      "nextStep": "Siguiente paso"
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -2993,7 +2994,11 @@
         "live": "Activa",
         "stopped": "Detenida",
         "archived": "Archivada"
-      }
+      },
+      "duplicate": "Duplicar",
+      "duplicated": "Copiada como \"{name}\"",
+      "duplicateFailed": "No se pudo duplicar esta automatización.",
+      "versionHistory": "Historial de versiones"
     },
     "gallery": {
       "searchLabel": "Buscar plantillas",
@@ -3719,7 +3724,38 @@
       "sendInWindow": "Dentro de la ventana de mensajes",
       "sendPrivateReply": "Como respuesta privada",
       "deleteNote": "Eliminar nota",
-      "tools": "Herramientas del lienzo"
+      "tools": "Herramientas del lienzo",
+      "showMap": "Mostrar mapa",
+      "hideMap": "Ocultar mapa",
+      "help": "Ayuda del lienzo",
+      "helpTitle": "Moverse por el lienzo",
+      "helpIntro": "Cómo desplazarte, hacer zoom y seleccionar pasos.",
+      "helpMouse": "Ratón",
+      "helpTrackpad": "Panel táctil",
+      "helpPan": "Desplazarse",
+      "helpPanMouse": "Haz clic y arrastra una parte vacía del lienzo",
+      "helpPanTrackpad": "Haz clic y arrastra una parte vacía del lienzo",
+      "helpZoom": "Zoom",
+      "helpZoomMouse": "Gira la rueda del ratón",
+      "helpZoomTrackpad": "Pellizca o desplázate con dos dedos",
+      "helpSelect": "Seleccionar varios pasos",
+      "helpSelectHow": "Mantén Mayús y arrastra un recuadro alrededor, o Ctrl (⌘ en Mac) + clic en cada uno",
+      "helpUndo": "Deshacer y rehacer",
+      "helpUndoHow": "Ctrl + Z y Ctrl + Mayús + Z (⌘ en Mac)",
+      "showDetails": "Mostrar detalles de la automatización",
+      "collapsePanel": "Ocultar panel",
+      "summaryKicker": "Automatización",
+      "summaryTitle": "Detalles de la automatización",
+      "summaryChannel": "Canal",
+      "summaryChannels": {
+        "whatsapp": "WhatsApp",
+        "instagram": "Instagram",
+        "any": "Ambos canales"
+      },
+      "summaryStatus": "Estado",
+      "summaryTriggers": "Disparadores",
+      "summarySteps": "Pasos",
+      "summaryHint": "Selecciona un paso del lienzo para editarlo, haz clic en la salida de un paso para añadir el siguiente o usa + para añadir un paso."
     }
   },
   "Settings": {

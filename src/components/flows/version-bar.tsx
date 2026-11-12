@@ -63,6 +63,9 @@ interface VersionSnapshot {
 
 type Status = 'draft' | 'active' | 'paused' | 'archived';
 
+/** The header's "Version history" menu item opens this bar's drawer. */
+export const OPEN_VERSIONS_EVENT = 'bodhinox:flow-versions-open';
+
 /**
  * Runs in progress on the flow. Archive refuses while any run is in
  * progress, pinned or not (draft test-number runs have no version), so the
@@ -92,6 +95,12 @@ export function VersionBar({ toolbarExtra }: { toolbarExtra?: ReactNode }) {
     const res = await authFetch(`/api/flows/${flow.id}/versions`);
     if (res.ok) setInfo((await res.json()) as VersionsResponse);
   }, [flow.id]);
+
+  useEffect(() => {
+    const open = () => setDrawerOpen(true);
+    window.addEventListener(OPEN_VERSIONS_EVENT, open);
+    return () => window.removeEventListener(OPEN_VERSIONS_EVENT, open);
+  }, []);
 
   // Refetch whenever the shared status changes too (the header's Activate
   // publishes a new version without reloading the page).
