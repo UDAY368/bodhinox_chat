@@ -26,6 +26,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
+  List as ListIcon,
   Loader2,
   Paperclip,
   Plus,
@@ -45,11 +46,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import type { SendMediaType } from "@/lib/flows/types";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
-import { slugify, type BuilderNode } from "../shared";
-import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
+import type { BuilderNode } from "../shared";
+import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/interactive-limits";
+import { INSTAGRAM_LIMITS } from "@/lib/instagram/graph-limits";
+import { NextNodeRow, TextRow } from "./fields";
+import { AddRowButton, BubbleInput, MessageBubble, ReplyRow, SendWindowLine, WINDOW_STEPS } from "./message-bubble";
 import { ConditionForm, QuestionForm, SetAttributeForm, TimingFields } from "./question-forms";
 import { useUserTags } from "./use-pickers";
 import { ApiRequestForm, AssignAgentForm, ConnectFlowForm, SendTemplateForm } from "./integration-forms";
@@ -92,13 +95,27 @@ export function NodeConfigForm(props: NodeConfigFormProps) {
   );
 }
 
-function NodeFields({
+/** WhatsApp message steps open with "Send within 24 hour window", ManyChat-style. */
+function NodeFields(props: NodeConfigFormProps) {
+  const { channelScope, state, nodeTypes, updateNode } = useFlowEditor();
+  const commentTrigger = channelScope === "instagram" && startsFromComment(commentTriggerOf(state));
+  const windowLine = WINDOW_STEPS.has(props.node.node_type) && nodeTypes.includes("send_template") && !commentTrigger;
+  return (
+    <>
+      {windowLine && <SendWindowLine node={props.node} onSwitch={(patch) => updateNode(props.node.node_key, patch)} />}
+      <StepFields {...props} />
+    </>
+  );
+}
+
+function StepFields({
   node,
   allNodes,
   showAdvanced,
   onUpdateConfig,
 }: NodeConfigFormProps) {
   const t = useTranslations("Flows.builder.form");
+  const tc = useTranslations("Flows.builder.composer");
   const tNodes = useTranslations("Flows.nodes");
   const { channelScope, state } = useFlowEditor();
   const cfg = node.config;
@@ -124,13 +141,20 @@ function NodeFields({
       return (
         <>
           {commentTrigger && <SendModeSwitch node={node} />}
-          <TextRow
-            label={t("textToCustomer")}
-            value={(cfg as { text?: string }).text ?? ""}
-            onChange={(v) => onUpdateConfig({ text: v })}
-            rows={3}
-            variables={{ nodes: allNodes, currentKey: node.node_key }}
-          />
+          <MessageBubble>
+            <TextRow
+              bare
+              label={t("textToCustomer")}
+              placeholder={tc("textPlaceholder")}
+              value={(cfg as { text?: string }).text ?? ""}
+              onChange={(v) => onUpdateConfig({ text: v })}
+              rows={3}
+              variables={{ nodes: allNodes, currentKey: node.node_key }}
+              // WhatsApp takes 4,096 characters in a text message, Instagram 1,000 bytes.
+              maxLength={channelScope === "instagram" ? INSTAGRAM_LIMITS.textBytes : 4096}
+              bytes={channelScope === "instagram"}
+            />
+          </MessageBubble>
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
             allNodes={allNodes}
@@ -356,6 +380,7 @@ function SendButtonsForm({
   instagram: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const tc = useTranslations("Flows.builder.composer");
   const buttons = cfg.buttons ?? [];
   const linkCount = instagram && Array.isArray(cfg.link_buttons) ? cfg.link_buttons.length : 0;
   const updateButton = (
@@ -382,85 +407,44 @@ function SendButtonsForm({
 
   return (
     <>
-      <TextRow
-        label={t("bodyText")}
-        value={cfg.text ?? ""}
-        onChange={(v) => onUpdateConfig({ text: v })}
-        rows={3}
-        variables={{ nodes: allNodes, currentKey }}
-      />
-      <TextRow
-        label={t("footerText")}
-        value={cfg.footer_text ?? ""}
-        onChange={(v) => onUpdateConfig({ footer_text: v })}
-      />
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <label className="text-xs text-muted-foreground">
-            {t("buttonsHelp")}
-          </label>
-        </div>
-        <div className="flex flex-col gap-3">
-          {buttons.map((b, i) => (
-            <div
-              key={i}
-              className={cn(
-                "grid grid-cols-1 gap-2 rounded-md border border-border bg-muted/40 p-3",
-                showAdvanced
-                  ? "md:grid-cols-[1fr_2fr_2fr_auto]"
-                  : "md:grid-cols-[2fr_2fr_auto]",
-              )}
-            >
-              {showAdvanced && (
-                <Input
-                  value={b.reply_id}
-                  onChange={(e) =>
-                    updateButton(i, {
-                      reply_id: slugify(e.target.value, `btn_${i + 1}`),
-                    })
-                  }
-                  placeholder="reply_id"
-                  className="bg-muted font-mono text-xs"
-                />
-              )}
-              <Input
-                value={b.title}
-                onChange={(e) => updateButton(i, { title: e.target.value })}
-                placeholder={t("optionTitlePlaceholder")}
-                className="bg-muted"
-                maxLength={20}
-              />
-              <NodeKeySelect
-                value={b.next_node_key || null}
-                nodes={allNodes}
-                excludeKey={currentKey}
-                onChange={(v) => updateButton(i, { next_node_key: v ?? "" })}
-                placeholder={t("nextNodePlaceholder")}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeButton(i)}
-                aria-label={t("removeButton")}
-                className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ))}
-        </div>
-        {buttons.length + linkCount < 3 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={addButton}
-            className="mt-2"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("addButton")}
-          </Button>
-        )}
-      </div>
+      <MessageBubble>
+        <TextRow
+          bare
+          label={t("bodyText")}
+          placeholder={tc("textPlaceholder")}
+          value={cfg.text ?? ""}
+          onChange={(v) => onUpdateConfig({ text: v })}
+          rows={3}
+          variables={{ nodes: allNodes, currentKey }}
+          // WhatsApp's interactive body: 1,024 characters. Instagram: 1,000 bytes, or with link
+          // buttons a button template, whose text and footer share 640 characters.
+          maxLength={!instagram ? INTERACTIVE_LIMITS.bodyMaxLength
+            : linkCount ? Math.max(0, INSTAGRAM_LIMITS.buttonTemplateTextChars - (cfg.footer_text ?? "").length) : INSTAGRAM_LIMITS.textBytes}
+          bytes={instagram && !linkCount}
+        />
+        <BubbleInput label={t("footerText")} placeholder={tc("footnotePlaceholder")} value={cfg.footer_text ?? ""} maxLength={60}
+          onChange={(v) => onUpdateConfig({ footer_text: v })} className="text-muted-foreground" />
+        {buttons.map((b, i) => (
+          <ReplyRow
+            key={i}
+            title={b.title}
+            onTitle={(title) => updateButton(i, { title })}
+            titleLabel={tc("buttonTitle")}
+            maxLength={20}
+            next={b.next_node_key}
+            onNext={(next_node_key) => updateButton(i, { next_node_key })}
+            onRemove={() => removeButton(i)}
+            removeLabel={t("removeButton")}
+            replyId={b.reply_id}
+            onReplyId={(reply_id) => updateButton(i, { reply_id: reply_id || `btn_${i + 1}` })}
+            showAdvanced={showAdvanced}
+            allNodes={allNodes}
+            currentKey={currentKey}
+          />
+        ))}
+        {buttons.length + linkCount < 3 && <AddRowButton label={t("addButton")} onClick={addButton} />}
+      </MessageBubble>
+      <p className="text-muted-foreground -mt-1 text-[11px]">{tc("buttonsHint")}</p>
       {instagram && (
         <IgLinkButtons value={cfg.link_buttons} replyButtons={buttons.length} removeLabel={t("removeButton")}
           onChange={(link_buttons) => onUpdateConfig({ link_buttons })} />
@@ -503,6 +487,7 @@ function SendListForm({
   showAdvanced: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const tc = useTranslations("Flows.builder.composer");
   const sections = cfg.sections ?? [];
   const totalRows = sections.reduce((sum, s) => sum + s.rows.length, 0);
 
@@ -579,128 +564,76 @@ function SendListForm({
 
   return (
     <>
-      <TextRow
-        label={t("bodyText")}
-        value={cfg.text ?? ""}
-        onChange={(v) => onUpdateConfig({ text: v })}
-        rows={3}
-        variables={{ nodes: allNodes, currentKey }}
-      />
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <MessageBubble>
         <TextRow
-          label={t("buttonLabel")}
-          value={cfg.button_label ?? ""}
-          onChange={(v) => onUpdateConfig({ button_label: v })}
+          bare
+          label={t("bodyText")}
+          placeholder={tc("textPlaceholder")}
+          value={cfg.text ?? ""}
+          onChange={(v) => onUpdateConfig({ text: v })}
+          rows={3}
+          variables={{ nodes: allNodes, currentKey }}
+          // An interactive list's body: the sender refuses more than 1,024 characters.
+          maxLength={INTERACTIVE_LIMITS.bodyMaxLength}
         />
-        <TextRow
-          label={t("footerText")}
-          value={cfg.footer_text ?? ""}
-          onChange={(v) => onUpdateConfig({ footer_text: v })}
-        />
-      </div>
+        <BubbleInput label={t("footerText")} placeholder={tc("footnotePlaceholder")} value={cfg.footer_text ?? ""} maxLength={60}
+          onChange={(v) => onUpdateConfig({ footer_text: v })} className="text-muted-foreground" />
+        <BubbleInput label={t("buttonLabel")} placeholder={tc("listButtonPlaceholder")} value={cfg.button_label ?? ""} maxLength={20}
+          onChange={(v) => onUpdateConfig({ button_label: v })} className="bg-card [&_input]:text-center [&_input]:font-medium [&_input]:text-primary"
+          icon={<ListIcon className="text-primary h-4 w-4 shrink-0" aria-hidden />} />
+      </MessageBubble>
 
-      <div className="mt-2">
-        <label className="mb-2 block text-xs text-muted-foreground">
-          {t("rowsHelp")}
-        </label>
+      <div className="flex flex-col gap-3">
+        <p className="text-muted-foreground text-xs">{tc("listOptionsHint")}</p>
         {sections.map((section, sIdx) => (
-          <div
-            key={sIdx}
-            className="mb-3 rounded-md border border-border bg-muted/40 p-3"
-          >
-            <div className="mb-2 flex items-center gap-2">
-              <Input
+          <MessageBubble key={sIdx} className="bg-card">
+            <div className="flex items-center gap-1 px-2">
+              <input
                 value={section.title ?? ""}
-                onChange={(e) =>
-                  updateSection(sIdx, { title: e.target.value })
-                }
+                onChange={(e) => updateSection(sIdx, { title: e.target.value })}
                 placeholder={t("sectionTitlePlaceholder", { count: sIdx + 1 })}
-                className="bg-muted text-xs"
+                aria-label={t("sectionTitlePlaceholder", { count: sIdx + 1 })}
+                maxLength={24}
+                className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-[11px] font-semibold tracking-wider uppercase outline-none placeholder:font-normal placeholder:tracking-normal placeholder:normal-case placeholder:text-muted-foreground"
               />
               {sections.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeSection(sIdx)}
-                  className="shrink-0 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                  aria-label={t("removeSection")}
-                >
+                <Button variant="ghost" size="icon-sm" onClick={() => removeSection(sIdx)} aria-label={t("removeSection")}
+                  className="text-muted-foreground shrink-0 hover:bg-red-500/10 hover:text-red-500">
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
             {section.rows.map((row, rIdx) => (
-              <div
+              <ReplyRow
                 key={rIdx}
-                className={cn(
-                  "mb-2 grid grid-cols-1 gap-2",
-                  showAdvanced
-                    ? "md:grid-cols-[1fr_2fr_2fr_auto]"
-                    : "md:grid-cols-[2fr_2fr_auto]",
-                )}
-              >
-                {showAdvanced && (
-                  <Input
-                    value={row.reply_id}
-                    onChange={(e) =>
-                      updateRow(sIdx, rIdx, {
-                        reply_id: slugify(
-                          e.target.value,
-                          `row_${rIdx + 1}`,
-                        ),
-                      })
-                    }
-                    placeholder="reply_id"
-                    className="bg-muted font-mono text-xs"
-                  />
-                )}
-                <Input
-                  value={row.title}
-                  onChange={(e) =>
-                    updateRow(sIdx, rIdx, { title: e.target.value })
-                  }
-                  placeholder={t("rowTitlePlaceholder")}
-                  className="bg-muted"
-                  maxLength={24}
-                />
-                <NodeKeySelect
-                  value={row.next_node_key || null}
-                  nodes={allNodes}
-                  excludeKey={currentKey}
-                  onChange={(v) =>
-                    updateRow(sIdx, rIdx, { next_node_key: v ?? "" })
-                  }
-                  placeholder={t("nextNodePlaceholder")}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeRow(sIdx, rIdx)}
-                  aria-label={t("removeRow")}
-                  className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+                title={row.title}
+                onTitle={(title) => updateRow(sIdx, rIdx, { title })}
+                titleLabel={tc("optionTitle")}
+                maxLength={24}
+                next={row.next_node_key}
+                onNext={(next_node_key) => updateRow(sIdx, rIdx, { next_node_key })}
+                onRemove={() => removeRow(sIdx, rIdx)}
+                removeLabel={t("removeRow")}
+                replyId={row.reply_id}
+                onReplyId={(reply_id) => updateRow(sIdx, rIdx, { reply_id: reply_id || `row_${rIdx + 1}` })}
+                showAdvanced={showAdvanced}
+                allNodes={allNodes}
+                currentKey={currentKey}
+                extra={
+                  <label className="block text-xs text-muted-foreground">
+                    {tc("optionDescription")}
+                    <Input value={row.description ?? ""} maxLength={72} onChange={(e) => updateRow(sIdx, rIdx, { description: e.target.value })}
+                      className="bg-muted mt-1 text-sm" />
+                  </label>
+                }
+              />
             ))}
-            {totalRows < 10 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => addRow(sIdx)}
-                className="mt-1"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {t("addRow")}
-              </Button>
-            )}
-          </div>
+            {totalRows < 10 && <AddRowButton label={t("addRow")} onClick={() => addRow(sIdx)} />}
+          </MessageBubble>
         ))}
-        {/* WhatsApp's interactive-list spec caps sections at 10. Group rows
-            by category (Billing / Support / Sales etc.) to give customers a
-            scannable menu. */}
-        {sections.length < 10 && (
-          <Button variant="outline" size="sm" onClick={addSection}>
+        {/* WhatsApp's interactive-list spec caps sections at 10 and rows at 10 in all. */}
+        {sections.length < 10 && totalRows < 10 && (
+          <Button variant="ghost" size="sm" onClick={addSection} className="self-start">
             <Plus className="h-3.5 w-3.5" />
             {t("addSection")}
           </Button>

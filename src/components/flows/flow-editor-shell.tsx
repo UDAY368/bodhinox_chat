@@ -134,7 +134,7 @@ export function FlowEditorShell({ initialFlow, initialNodes, initialDraftHash = 
                 </div>
               )}
             </div>
-            {previewOpen && <FlowPreview onClose={() => setPreviewOpen(false)} />}
+            {previewOpen && <FlowPreview onClose={() => setPreviewOpen(false)} floating={effectiveView === "canvas"} />}
           </div>
         </div>
 

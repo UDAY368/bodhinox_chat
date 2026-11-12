@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Chat-style preview of the flow being edited, styled like WhatsApp or, for
- * an Instagram flow, like Instagram Direct (Stage 1; Stage 2 adds the
+ * Phone preview of the flow being edited, floating over the canvas: a dark
+ * WhatsApp chat or, for an Instagram flow, a light Instagram Direct thread (Stage 1; Stage 2 adds the
  * comment reply, private reply, cards and link buttons). Plays the live
  * editor state (unsaved edits included) through the pure simulator in
  * `@/lib/flows/preview`: bot bubbles on the left, the customer's taps
@@ -15,17 +15,21 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ClipboardList, ExternalLink, FileText, Image as ImageIcon, List, MapPin, MessageCircle, Music, RotateCcw, SendHorizontal, Smartphone, Video, X } from 'lucide-react';
+import { ClipboardList, ExternalLink, FileText, Image as ImageIcon, List, MapPin, MessageCircle, Music, RotateCcw, SendHorizontal, Video, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/use-auth';
 import { choose, PREVIEW_STEP_LIMIT, startPreview, type PreviewMessage, type PreviewState } from '@/lib/flows/preview';
 import { useFlowEditor } from './flow-editor-state';
+import { PhoneAvatar, PhoneFrame, type PhoneChannel } from './phone-frame';
 
-export function FlowPreview({ onClose }: { onClose: () => void }) {
+/**
+ * `floating`: over the canvas, left of its tools. Otherwise (the Simple
+ * builder, whose settings must stay usable) a column beside the view.
+ */
+export function FlowPreview({ onClose, floating = true }: { onClose: () => void; floating?: boolean }) {
   const t = useTranslations('Flows.builder.preview');
-  const tSection = useTranslations('Flows.channelSection');
+  const { account } = useAuth();
   const { state, channelScope } = useFlowEditor();
   const instagram = channelScope === 'instagram';
 
@@ -61,25 +65,74 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
   const activeId = run.waiting ? [...run.messages].reverse().find((m) => m.nodeKey === run.at)?.id : undefined;
   const waiting = run.waiting;
 
-  return (
-    <aside className="flow-studio-inspector absolute inset-0 z-20 flex min-h-0 flex-col border-l border-border bg-card sm:static sm:w-[340px] sm:shrink-0" aria-label={t('title')}
-      data-preview-channel={instagram ? 'instagram' : 'whatsapp'}>
-      <div className="border-border flex items-center gap-3 border-b px-4 py-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary"><Smartphone className="h-4 w-4" /></span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold">{t('title')}</h3>
-          <p className="text-muted-foreground text-xs">{instagram ? tSection('previewSubtitleInstagram') : t('subtitle')}</p>
+  const phone: PhoneChannel = instagram ? 'instagram' : 'whatsapp';
+  const dark = phone === 'whatsapp';
+  // Choices the customer makes outside a bubble: a branch, a simulated share or timeout, a typed answer.
+  const footer = (waiting?.kind === 'branch' || (waiting && waiting.simulate.length > 0) || waiting?.kind === 'text') ? (
+    <div className="flex flex-col gap-2">
+      {waiting?.kind === 'branch' && (
+        <>
+          <p className={cn('text-xs', dark ? 'text-white/55' : 'text-black/60')}>{t('chooseBranch')}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {waiting.options.map((o) => (
+              <button key={o.id} type="button" onClick={() => pick(o.id)} className={phoneChip(dark)}>{branchLabel(o.id, o.label, t)}</button>
+            ))}
+          </div>
+        </>
+      )}
+      {waiting && waiting.simulate.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {waiting.simulate.map((o) => (
+            <button key={o.id} type="button" onClick={() => pick(o.id)} className={cn(phoneChip(dark), 'border-dashed')}>
+              {o.id === 'share'
+                ? t(run.nodes.find((n) => n.node_key === run.at)?.node_type === 'ask_location' ? 'simulate.shareLocation' : 'simulate.shareMedia')
+                : t(o.id === 'submit' ? 'simulate.submitForm' : o.id === 'timeout' ? 'simulate.timeout' : 'simulate.exhausted')}
+            </button>
+          ))}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={restart} aria-label={t('restart')} title={t('restart')}><RotateCcw className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}><X className="h-4 w-4" /></Button>
-      </div>
+      )}
+      {waiting?.kind === 'text' && (
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (answer.trim()) pick('text', answer);
+          }}
+        >
+          <input value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder={t('answerPlaceholder')} aria-label={t('answerPlaceholder')} autoFocus
+            className={cn('h-9 min-w-0 flex-1 rounded-full px-3.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              dark ? 'bg-[#2c3541] text-white placeholder:text-white/40' : 'bg-[#efefef] text-black placeholder:text-black/40')} />
+          <button type="submit" disabled={!answer.trim()} aria-label={t('send')}
+            className="bg-primary text-primary-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full disabled:opacity-40">
+            <SendHorizontal className="h-4 w-4" />
+          </button>
+        </form>
+      )}
+    </div>
+  ) : undefined;
 
-      <div className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4', instagram ? 'bg-card' : 'bg-muted/60')} aria-live="polite">
-        {run.messages.length === 0 && <p className="text-muted-foreground px-4 py-8 text-center text-xs">{t('empty')}</p>}
+  return (
+    // A handset beside the builder; on a phone it covers the editor.
+    <aside
+      className={cn('absolute inset-0 z-30 flex items-center justify-center gap-3 bg-background/70 p-4 backdrop-blur-sm sm:items-start sm:p-0 sm:backdrop-blur-none',
+        floating ? 'sm:inset-auto sm:bottom-4 sm:right-20 sm:top-4 sm:bg-transparent'
+          : 'sm:static sm:shrink-0 sm:border-l sm:border-border sm:bg-card-2 sm:px-4 sm:py-4')}
+      aria-label={t('title')}
+      data-preview-channel={phone}
+    >
+      <PhoneFrame
+        channel={phone}
+        title={account?.name || t('phoneBusiness')}
+        subtitle={instagram ? t('phoneSubtitleInstagram') : t('phoneSubtitleWhatsapp')}
+        footer={footer}
+        live
+      >
+        {run.messages.length === 0 && <p className={cn('px-4 py-8 text-center text-xs', dark ? 'text-white/55' : 'text-black/60')}>{t('empty')}</p>}
         {run.messages.map((m) => (
-          <Bubble
+          <PhoneBubble
             key={m.id}
             message={m}
+            channel={phone}
             active={m.id === activeId}
             listOpen={openList === m.id}
             onToggleList={() => setOpenList((v) => (v === m.id ? null : m.id))}
@@ -89,50 +142,136 @@ export function FlowPreview({ onClose }: { onClose: () => void }) {
               if (option) pick(option.id);
             }}
             onPickRow={(id) => pick(id)}
-            instagram={instagram}
             t={t}
           />
         ))}
-        {run.ended && run.messages.length > 0 && <p className="text-muted-foreground pt-2 text-center text-[11px] uppercase tracking-wider">{t('ended')}</p>}
+        {run.ended && run.messages.length > 0 && <p className={cn('pt-2 text-center text-[11px] uppercase tracking-wider', dark ? 'text-white/60' : 'text-black/60')}>{t('ended')}</p>}
         <div ref={endRef} />
+      </PhoneFrame>
+      <div className="flex flex-col gap-2">
+        <button type="button" onClick={onClose} aria-label={t('close')} title={t('close')} className={PHONE_CONTROL}><X className="h-5 w-5" /></button>
+        <button type="button" onClick={restart} aria-label={t('restart')} title={t('restart')} className={PHONE_CONTROL}><RotateCcw className="h-5 w-5" /></button>
       </div>
+    </aside>
+  );
+}
 
-      {waiting?.kind === 'branch' && (
-        <div className="border-border border-t px-3 py-3">
-          <p className="text-muted-foreground mb-2 text-xs">{t('chooseBranch')}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {waiting.options.map((o) => (
-              <Button key={o.id} variant="outline" size="sm" onClick={() => pick(o.id)}>{branchLabel(o.id, o.label, t)}</Button>
+/** The dark square buttons beside the phone. */
+const PHONE_CONTROL = 'flex h-11 w-11 items-center justify-center rounded-lg bg-[#1f2329] text-white shadow-lg transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
+
+const phoneChip = (dark: boolean) => cn('rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+  dark ? 'border-white/20 text-white hover:bg-white/10' : 'border-black/15 text-black hover:bg-black/5');
+
+/**
+ * One message inside the phone: the business's bubbles on the left beside its
+ * avatar with their buttons inside the bubble (WhatsApp) or under it
+ * (Instagram), the customer's on the right, notes in between.
+ */
+export function PhoneBubble({ message: m, channel, active, listOpen = false, onToggleList, onPickButton, onPickRow, t }: {
+  message: PreviewMessage;
+  channel: PhoneChannel;
+  active: boolean;
+  listOpen?: boolean;
+  onToggleList?: () => void;
+  onPickButton?: (index: number) => void;
+  onPickRow?: (id: string) => void;
+  t: T;
+}) {
+  const dark = channel === 'whatsapp';
+  if (m.from === 'system') {
+    return <p className={cn('mx-auto max-w-[90%] text-center text-[11px]', dark ? 'text-white/60' : 'text-black/60')}>{noteText(m, t)}</p>;
+  }
+  if (m.from === 'customer') {
+    return (
+      <div className={cn('ml-auto max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[15px]',
+        dark ? 'bg-[#005c4b] text-white' : 'bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white')}>
+        {m.shared ? (
+          <span className="flex items-center gap-1.5 italic">
+            {m.shared === 'location' ? <MapPin className="h-4 w-4 shrink-0" /> : m.shared === 'form' ? <ClipboardList className="h-4 w-4 shrink-0" /> : <ImageIcon className="h-4 w-4 shrink-0" />}
+            {t(m.shared === 'location' ? 'shared.location' : m.shared === 'form' ? 'shared.form' : 'shared.media')}
+          </span>
+        ) : m.text}
+      </div>
+    );
+  }
+  const MediaIcon = m.media?.type === 'video' ? Video : m.media?.type === 'document' ? FileText : m.media?.type === 'audio' ? Music : ImageIcon;
+  const empty = !m.text && !m.media && !m.template && !m.cards;
+  const muted = dark ? 'text-white/55' : 'text-black/60';
+  const tap = (enabled: boolean) => cn('w-full rounded-lg px-3 py-2 text-center text-sm font-medium transition-colors',
+    dark ? 'bg-[#3b4552] text-white' : 'border border-black/10 bg-white text-[#0b62d6]',
+    enabled ? (dark ? 'hover:bg-[#46515f]' : 'hover:bg-black/5') : 'cursor-default opacity-70');
+  const buttons = (
+    <>
+      {m.buttons?.map((label, i) => (
+        <button key={`${i}-${label}`} type="button" disabled={!active} onClick={() => onPickButton?.(i)} className={tap(active)}>{label}</button>
+      ))}
+      {m.links?.map((label, i) => (
+        <span key={`link-${i}`} className={cn(tap(false), 'flex items-center justify-center gap-1.5 opacity-100')}><ExternalLink className="h-3.5 w-3.5" />{label}</span>
+      ))}
+      {m.list && (
+        <button type="button" disabled={!active} onClick={onToggleList} aria-expanded={listOpen} className={cn(tap(active), 'flex items-center justify-center gap-1.5')}>
+          <List className="h-3.5 w-3.5" />{m.list.button || t('listFallback')}
+        </button>
+      )}
+    </>
+  );
+  const hasActions = !!(m.buttons?.length || m.links?.length || m.list);
+  return (
+    <div className="mr-auto flex max-w-[92%] items-end gap-2">
+      <PhoneAvatar channel={channel} />
+      <div className="flex min-w-0 flex-col gap-1.5">
+        {m.cards ? (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {m.cards.map((card, i) => (
+              <div key={i} className="w-48 shrink-0 overflow-hidden rounded-2xl border border-black/10 bg-white text-black">
+                {card.hasImage && <div className="flex h-24 items-center justify-center bg-[#efefef] text-black/40"><ImageIcon className="h-6 w-6" /></div>}
+                <div className="px-3 py-2">
+                  <p className="break-words text-sm font-semibold">{card.title || <span className="italic text-black/40">{t('emptyMessage')}</span>}</p>
+                  {card.subtitle && <p className="break-words text-xs text-black/55">{card.subtitle}</p>}
+                </div>
+                {card.buttons.map((btn, j) => (btn.replyId ? (
+                  <button key={j} type="button" disabled={!active} onClick={() => onPickRow?.(btn.replyId!)}
+                    className={cn('block w-full border-t border-black/10 px-3 py-1.5 text-center text-sm font-medium text-[#0b62d6]', active ? 'hover:bg-black/5' : 'opacity-70')}>
+                    {btn.label}
+                  </button>
+                ) : (
+                  <span key={j} className="flex w-full items-center justify-center gap-1.5 border-t border-black/10 px-3 py-1.5 text-sm font-medium text-[#0b62d6]"><ExternalLink className="h-3.5 w-3.5" />{btn.label}</span>
+                )))}
+              </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {waiting && waiting.simulate.length > 0 && (
-        <div className="border-border flex flex-wrap gap-1.5 border-t px-3 py-3">
-          {waiting.simulate.map((o) => (
-            <Button key={o.id} variant="outline" size="sm" className="border-dashed" onClick={() => pick(o.id)}>
-              {o.id === 'share'
-                ? t(run.nodes.find((n) => n.node_key === run.at)?.node_type === 'ask_location' ? 'simulate.shareLocation' : 'simulate.shareMedia')
-                : t(o.id === 'submit' ? 'simulate.submitForm' : o.id === 'timeout' ? 'simulate.timeout' : 'simulate.exhausted')}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      {waiting?.kind === 'text' && (
-        <form
-          className="border-border flex items-center gap-2 border-t px-3 py-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (answer.trim()) pick('text', answer);
-          }}
-        >
-          <Input value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder={t('answerPlaceholder')} aria-label={t('answerPlaceholder')} className="h-9 text-sm" autoFocus />
-          <Button type="submit" size="icon-sm" disabled={!answer.trim()} aria-label={t('send')}><SendHorizontal className="h-4 w-4" /></Button>
-        </form>
-      )}
-    </aside>
+        ) : (
+          <div className={cn('text-[15px] leading-snug', dark ? 'rounded-2xl bg-[#2c3541] p-3.5 text-white' : 'rounded-3xl bg-[#efefef] px-4 py-2.5 text-[#111]')}>
+            {m.media && (
+              <div className={cn('mb-2 flex items-center gap-2 rounded-lg px-3 py-4 text-xs', dark ? 'bg-white/10 text-white/70' : 'bg-white text-black/55')}>
+                <MediaIcon className="h-5 w-5 shrink-0" />
+                <span className="truncate">{m.media.filename || t(`media.${m.media.type === 'video' || m.media.type === 'document' || m.media.type === 'audio' ? m.media.type : 'image'}`)}</span>
+              </div>
+            )}
+            {m.template !== undefined && <p className={cn('text-xs italic', muted)}>{m.template ? t('template', { name: m.template }) : t('templateUnset')}</p>}
+            {m.header && <p className="mb-1 whitespace-pre-wrap break-words font-semibold">{m.header}</p>}
+            {m.publicReply && <p className={cn('mb-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider', muted)}><MessageCircle className="h-3 w-3" />{t('publicReply')}</p>}
+            {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+            {empty && <p className={cn('italic', muted)}>{t('emptyMessage')}</p>}
+            {m.footer && <p className={cn('mt-1 whitespace-pre-wrap break-words text-xs', muted)}>{m.footer}</p>}
+            {/* WhatsApp draws the reply buttons inside the bubble. */}
+            {dark && hasActions && <div className="mt-3 flex flex-col gap-1.5">{buttons}</div>}
+          </div>
+        )}
+        {!dark && hasActions && <div className="flex flex-col gap-1.5">{buttons}</div>}
+        {m.list && listOpen && active && (
+          <div className={cn('overflow-hidden rounded-xl', dark ? 'bg-[#2c3541]' : 'border border-black/10 bg-white')} role="listbox" aria-label={m.list.button || t('listFallback')}>
+            {m.list.rows.map((row) => (
+              <button key={row.id} type="button" role="option" aria-selected={false} onClick={() => onPickRow?.(row.id)}
+                className={cn('block w-full border-b px-3 py-2 text-left last:border-b-0', dark ? 'border-white/10 hover:bg-white/5' : 'border-black/10 hover:bg-black/5')}>
+                <span className="block text-sm">{row.title}</span>
+                {row.description && <span className={cn('block text-xs', muted)}>{row.description}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

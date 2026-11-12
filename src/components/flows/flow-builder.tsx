@@ -81,7 +81,9 @@ import { VersionBar } from './version-bar';
 import { splitFlow } from './split-flow';
 import { DryRunPanel } from './dry-run-panel';
 import { groupSteps } from './basic-steps';
-import { Bubble } from './flow-preview';
+import { PhoneBubble } from './flow-preview';
+import { PhoneFrame } from './phone-frame';
+import { useAuth } from '@/hooks/use-auth';
 import { startPreview } from '@/lib/flows/preview';
 
 // ============================================================
@@ -290,26 +292,25 @@ function StepRow({ node, active, isEntry, hasError, onSelect, onRemove, t }: {
 function StepPhone({ node, nodes, instagram }: { node: BuilderNode | null; nodes: BuilderNode[]; instagram: boolean }) {
   const t = useTranslations('Flows.builder.preview');
   const tb = useTranslations('Flows.builder.basic');
+  const { account } = useAuth();
   const messages = useMemo(() => (node ? startPreview(nodes, node.node_key).messages : []), [node, nodes]);
+  const channel = instagram ? 'instagram' : 'whatsapp';
+  const hint = 'm-auto px-4 text-center text-xs ' + (instagram ? 'text-black/50' : 'text-white/60');
   return (
     <aside aria-label={tb('phoneTitle')} className="border-border bg-card-2 hidden shrink-0 flex-col items-center gap-3 border-l px-5 py-6 @6xl:flex @6xl:w-[340px] @6xl:overflow-y-auto">
       <p className="text-muted-foreground self-start text-[11px] font-semibold tracking-wider uppercase">{tb('phoneTitle')}</p>
-      {/* Themed screen, as in the Preview panel, so the bubbles keep their contrast in light and dark mode. */}
-      <div data-testid="step-phone" className={cn('flex w-[280px] flex-col overflow-hidden rounded-[36px] border-[8px] border-neutral-900 shadow-xl',
-        instagram ? 'bg-card' : 'bg-muted')}>
-        <div className="flex justify-center pt-2" aria-hidden><span className="bg-foreground/15 h-1.5 w-14 rounded-full" /></div>
-        <div className="flex min-h-[420px] flex-col gap-2 px-3 py-4">
+      {/* The same handset as Preview: fixed colours, so it reads the same in light and dark mode. */}
+      <div data-testid="step-phone" className="contents">
+        <PhoneFrame channel={channel} title={account?.name || t('phoneBusiness')}
+          subtitle={instagram ? t('phoneSubtitleInstagram') : t('phoneSubtitleWhatsapp')} className="h-[560px]">
           {!node ? (
-            <p className="text-muted-foreground m-auto px-4 text-center text-xs">{tb('phonePick')}</p>
+            <p className={hint}>{tb('phonePick')}</p>
           ) : messages.length === 0 ? (
-            <p className="text-muted-foreground m-auto px-4 text-center text-xs">{tb('phoneNothing')}</p>
+            <p className={hint}>{tb('phoneNothing')}</p>
           ) : (
-            messages.map((m) => (
-              <Bubble key={m.id} message={m} active={false} listOpen={false} onToggleList={() => {}} onPickButton={() => {}} onPickRow={() => {}}
-                instagram={instagram} t={t} />
-            ))
+            messages.map((m) => <PhoneBubble key={m.id} message={m} channel={channel} active={false} t={t} />)
           )}
-        </div>
+        </PhoneFrame>
       </div>
     </aside>
   );

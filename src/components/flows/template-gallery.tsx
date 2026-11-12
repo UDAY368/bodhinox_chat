@@ -3,7 +3,7 @@
 import { useId, useMemo, useState, type ComponentType } from "react";
 import { useTranslations } from "next-intl";
 import {
-  ArrowLeft,
+  ChevronLeft,
   AtSign,
   BellRing,
   CalendarCheck,
@@ -54,6 +54,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { FlowTemplateMeta, TemplateGoal, TemplateTrigger } from "@/lib/flows/types";
+import type { PreviewMessage } from "@/lib/flows/preview";
+import { PhoneBubble } from "./flow-preview";
+import { PhoneFrame, type PhoneChannel } from "./phone-frame";
 
 /** Shallow card data served by GET /api/flows/templates. */
 export interface TemplateSummary {
@@ -74,6 +77,8 @@ export interface TemplateSummary {
   how_it_works?: string;
   /** Canvas notes the new flow starts with. */
   note_count?: number;
+  /** What a customer sees first (the bot's opening messages), for the detail view's phone. */
+  preview?: PreviewMessage[];
 }
 
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
@@ -267,50 +272,48 @@ function TemplateCard({ template, large = false, onOpen }: { template: TemplateS
   );
 }
 
-/** What a template does, before it is installed. */
+/** What a template does, before it is installed: its story on the left, its opening messages on a phone. */
 function TemplateDetail({ template, creating, onBack, onUse }: {
   template: TemplateSummary; creating: boolean; onBack: () => void; onUse: () => void;
 }) {
   const t = useTranslations("StarterFlows.instagram5");
+  const tPreview = useTranslations("Flows.builder.preview");
+  const tChannel = useTranslations("Inbox.channel");
   const Icon = ICONS[template.icon] ?? FileText;
   const meta = template.meta;
+  // An Instagram-only template shows Instagram Direct; anything WhatsApp can run shows WhatsApp.
+  const channel: PhoneChannel = template.channels?.length && !template.channels.includes("whatsapp") ? "instagram" : "whatsapp";
   return (
-    <div className="space-y-4" data-template-detail={template.slug}>
-      <Button variant="ghost" size="sm" onClick={onBack}>
-        <ArrowLeft className="h-4 w-4" />
-        {t("back")}
-      </Button>
-      <div className="grid gap-6 md:grid-cols-[1fr_16rem]">
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <Icon className="mt-0.5 h-6 w-6 shrink-0 text-primary" />
-            <div>
-              <h3 className="text-lg font-semibold text-popover-foreground">{template.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
-            </div>
+    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_auto]" data-template-detail={template.slug}>
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="min-h-0 space-y-4 md:max-h-[32rem] md:overflow-y-auto md:pr-2">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Icon className="h-4 w-4 text-primary" aria-hidden />{tChannel(channel)}
+          </p>
+          <div>
+            <h3 className="text-xl font-semibold text-popover-foreground text-balance">{template.name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
           </div>
+          {meta && (
+            <ul className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+              <li className="rounded-full border border-border px-2 py-0.5"><KindLabel template={template} /> · {t(`levels.${meta.level}`)}</li>
+              <li className="rounded-full border border-border px-2 py-0.5">{meta.trigger ? t(`triggers.${meta.trigger}`) : t("noTrigger")}</li>
+              {meta.goals.map((goal) => <li key={goal} className="rounded-full border border-border px-2 py-0.5">{t(`goals.${goal}`)}</li>)}
+              {meta.uses_ai && <li className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-primary"><Sparkles className="h-3 w-3" aria-hidden />{t("usesAi")}</li>}
+              {meta.needs_payments && <li className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5"><CreditCard className="h-3 w-3" aria-hidden />{t("needsPayments")}</li>}
+            </ul>
+          )}
           {template.business_value && (
             <section>
-              <h4 className="text-sm font-semibold text-popover-foreground">{t("businessValue")}</h4>
+              <h4 className="text-base font-semibold text-popover-foreground">{t("businessValue")}</h4>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{template.business_value}</p>
             </section>
           )}
           {template.how_it_works && (
             <section>
-              <h4 className="text-sm font-semibold text-popover-foreground">{t("howItWorks")}</h4>
+              <h4 className="text-base font-semibold text-popover-foreground">{t("howItWorks")}</h4>
               <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{template.how_it_works}</p>
             </section>
-          )}
-        </div>
-        <aside className="space-y-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
-          {meta && (
-            <ul className="space-y-1.5 text-xs text-muted-foreground">
-              <li><KindLabel template={template} /> · {t(`levels.${meta.level}`)}</li>
-              <li>{meta.trigger ? t(`triggers.${meta.trigger}`) : t("noTrigger")}</li>
-              {meta.goals.length > 0 && <li>{meta.goals.map((goal) => t(`goals.${goal}`)).join(" · ")}</li>}
-              {meta.uses_ai && <li className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden />{t("usesAi")}</li>}
-              {meta.needs_payments && <li className="inline-flex items-center gap-1"><CreditCard className="h-3 w-3" aria-hidden />{t("needsPayments")}</li>}
-            </ul>
           )}
           <p className="text-xs text-muted-foreground">{t("steps", { count: template.node_count })}</p>
           {(template.note_count ?? 0) > 0 && (
@@ -319,10 +322,25 @@ function TemplateDetail({ template, creating, onBack, onUse }: {
               {t("notes", { count: template.note_count ?? 0 })}
             </p>
           )}
-          <Button className="w-full" disabled={creating} onClick={onUse}>
+        </div>
+        <div className="mt-auto flex flex-col gap-2">
+          <Button size="lg" className="w-full" disabled={creating} onClick={onUse}>
             {t("install")}
           </Button>
-        </aside>
+          <Button variant="ghost" size="sm" className="self-start text-primary" onClick={onBack}>
+            <ChevronLeft className="h-4 w-4" />
+            {t("back")}
+          </Button>
+        </div>
+      </div>
+      {/* The phone on a drawing-board grid, as the customer would first see the flow. */}
+      <div className="template-phone-stage flex justify-center rounded-xl p-5" data-testid="template-phone">
+        <PhoneFrame channel={channel} title={tPreview("phoneBusiness")} subtitle={channel === "instagram" ? tPreview("phoneSubtitleInstagram") : tPreview("phoneSubtitleWhatsapp")}
+          className="h-[30rem] w-[264px]">
+          {(template.preview ?? []).length === 0
+            ? <p className="px-4 py-8 text-center text-xs opacity-60">{tPreview("phoneNoMessages")}</p>
+            : template.preview!.map((m) => <PhoneBubble key={m.id} message={m} channel={channel} active={false} t={tPreview} />)}
+        </PhoneFrame>
       </div>
     </div>
   );

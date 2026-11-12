@@ -2866,7 +2866,12 @@
           "media": "Envió un archivo",
           "location": "Compartió una ubicación",
           "form": "Envió el formulario"
-        }
+        },
+        "phoneBusiness": "Tu negocio",
+        "phoneSubtitleWhatsapp": "Chat de empresa",
+        "phoneSubtitleInstagram": "Instagram Direct",
+        "phoneNoMessages": "Esta plantilla empieza esperando al cliente.",
+        "publicReply": "Respuesta pública"
       },
       "studioLockedHint": "El lienzo está bloqueado. Desbloquéalo para editar este paso.",
       "triggerOrderReceivedTitle": "Un cliente envía un carrito desde el catálogo",
@@ -2926,7 +2931,34 @@
       "triggerIgRefTitle": "Alguien abre un chat desde tu enlace ref",
       "adClickTriggerHelpInstagram": "Empieza cuando alguien te escribe desde un anuncio que abre Instagram Direct, antes de cualquier flujo por palabra clave. Un flujo activo en la conversación sigue en marcha.",
       "triggerIgShareToStoryTitle": "Alguien comparte tu publicación en su historia",
-      "nextStep": "Siguiente paso"
+      "nextStep": "Siguiente paso",
+      "composer": {
+        "textPlaceholder": "Texto…",
+        "footnotePlaceholder": "Nota al pie…",
+        "buttonTitle": "Título del botón",
+        "buttonsHint": "Hasta 3 botones. Cada uno lleva a su propio paso siguiente: pulsa > para elegirlo.",
+        "listButtonPlaceholder": "Título del botón",
+        "listOptionsHint": "El botón abre una lista de opciones (hasta 10). Cada opción lleva a su propio paso siguiente.",
+        "optionTitle": "Título de la opción",
+        "optionDescription": "Descripción (opcional)",
+        "rowSettings": "Ajustes de \"{title}\"",
+        "whenPressed": "Al pulsarlo, ir a",
+        "replyId": "ID de respuesta",
+        "goesTo": "Va a {step}",
+        "notConnected": "Aún sin conectar",
+        "send": "Enviar",
+        "windowWithin": "dentro de la ventana de 24 horas",
+        "windowOutside": "fuera de la ventana de 24 horas",
+        "withinHelp": "Un mensaje normal, si el cliente escribió en las últimas 24 horas.",
+        "outsideHelp": "Una plantilla de WhatsApp aprobada: se puede enviar en cualquier momento.",
+        "windowHelp": "WhatsApp solo permite enviar un mensaje normal dentro de las 24 horas siguientes al último mensaje del cliente. Para escribirle después, envía una plantilla aprobada.",
+        "onlyPlainText": "Solo un paso de texto puede cambiar; quita antes sus botones o su lista.",
+        "keepTemplateRoutes": "Sus botones de respuesta rápida llevan a pasos, así que sigue siendo una plantilla.",
+        "emoji": "Insertar un emoji",
+        "characters": "{count, plural, =1 {# carácter} other {# caracteres}}",
+        "charactersLeft": "{count, plural, =1 {Queda # carácter} other {Quedan # caracteres}}",
+        "bytesLeft": "{count, plural, =1 {Queda # byte} other {Quedan # bytes}}"
+      }
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",

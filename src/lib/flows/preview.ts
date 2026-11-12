@@ -213,6 +213,15 @@ function simulatedPorts(node: BuilderNode): PreviewOption[] {
 }
 
 /** Start the preview at the flow's entry node. */
+/**
+ * The business's opening messages (up to three), up to the first point the
+ * customer must answer: what a template gallery shows on its phone. Pure,
+ * like the rest of the simulator; nothing is sent.
+ */
+export function openingMessages(nodes: ReadonlyArray<{ node_key: string; node_type: string; config: unknown }>, entry: string | null): PreviewMessage[] {
+  return startPreview(nodes as BuilderNode[], entry).messages.filter((m) => m.from === "bot").slice(0, 3);
+}
+
 export function startPreview(nodes: BuilderNode[], entry: string | null, options?: PreviewOptions): PreviewState {
   const state: PreviewState = { messages: [], waiting: null, ended: false, nodes, at: null, attempts: 0, ...(options ? { vars: {}, options } : {}) };
   if (!entry || !nodes.some((n) => n.node_key === entry)) {

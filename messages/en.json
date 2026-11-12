@@ -2866,7 +2866,12 @@
           "media": "Sent a file",
           "location": "Shared a location",
           "form": "Submitted the form"
-        }
+        },
+        "phoneBusiness": "Your business",
+        "phoneSubtitleWhatsapp": "Business chat",
+        "phoneSubtitleInstagram": "Instagram Direct",
+        "phoneNoMessages": "This template starts by waiting for the customer.",
+        "publicReply": "Public reply"
       },
       "studioLockedHint": "Canvas is locked. Unlock it to edit this step.",
       "triggerOrderReceivedTitle": "A customer sends a cart from the catalogue",
@@ -2926,7 +2931,34 @@
       "triggerIgRefTitle": "Someone opens a chat from your ref link",
       "adClickTriggerHelpInstagram": "Starts when someone messages you from an ad that opens Instagram Direct, before any keyword flow. An active conversation flow keeps running.",
       "triggerIgShareToStoryTitle": "Someone shares your post to their story",
-      "nextStep": "Next step"
+      "nextStep": "Next step",
+      "composer": {
+        "textPlaceholder": "Text…",
+        "footnotePlaceholder": "Footnote…",
+        "buttonTitle": "Button title",
+        "buttonsHint": "Up to 3 buttons. Each one leads to its own next step: press > to choose it.",
+        "listButtonPlaceholder": "Button title",
+        "listOptionsHint": "The button opens a list of options (up to 10). Each option leads to its own next step.",
+        "optionTitle": "Option title",
+        "optionDescription": "Description (optional)",
+        "rowSettings": "Settings for \"{title}\"",
+        "whenPressed": "When this is pressed, go to",
+        "replyId": "Reply ID",
+        "goesTo": "Goes to {step}",
+        "notConnected": "Not connected yet",
+        "send": "Send",
+        "windowWithin": "within 24 hour window",
+        "windowOutside": "outside 24 hour window",
+        "withinHelp": "A regular message, while the customer wrote in the last 24 hours.",
+        "outsideHelp": "An approved WhatsApp template: it can be sent at any time.",
+        "windowHelp": "WhatsApp lets you send a regular message only within 24 hours of the customer's last message. To reach someone after that, send an approved message template.",
+        "onlyPlainText": "Only a text step switches; remove its buttons or list first.",
+        "keepTemplateRoutes": "Its quick-reply buttons lead to steps, so it stays a template.",
+        "emoji": "Insert an emoji",
+        "characters": "{count, plural, =1 {# character} other {# characters}}",
+        "charactersLeft": "{count, plural, =1 {# character left} other {# characters left}}",
+        "bytesLeft": "{count, plural, =1 {# byte left} other {# bytes left}}"
+      }
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",

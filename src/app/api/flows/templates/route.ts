@@ -4,6 +4,7 @@ import { flowTemplateChannels, listFlowTemplates } from '@/lib/flows/templates';
 import { getT } from '@/lib/i18n/translate';
 import { isChannel } from '@/lib/channels/capabilities';
 import { instagramEnabled } from '@/lib/instagram/config';
+import { openingMessages } from '@/lib/flows/preview';
 
 const t = getT('Api');
 const tCategories = getT('Instagram.quickAutomations.categories');
@@ -27,6 +28,8 @@ const categoryLabel = (category: string): string | undefined =>
  * while INSTAGRAM_ENABLED is on. From Stage 5 they also carry `meta` (goals,
  * trigger, kind, level, AI, payments, recommended), the detail view's
  * `business_value` and `how_it_works`, and `note_count` (canvas notes).
+ * Every card also carries `preview`: the bot's opening messages, up to the
+ * first point the customer must answer, simulated without sending anything.
  *
  * Available to any signed-in user. Flows is in soft-GA.
  */
@@ -67,6 +70,8 @@ export async function GET(request: Request) {
     ...(t.business_value ? { business_value: t.business_value } : {}),
     ...(t.how_it_works ? { how_it_works: t.how_it_works } : {}),
     note_count: t.canvas_notes?.length ?? 0,
+    // What a customer sees first, for the detail view's phone.
+    preview: openingMessages(t.nodes, t.entry_node_id),
   }));
   return NextResponse.json({ templates });
 }
