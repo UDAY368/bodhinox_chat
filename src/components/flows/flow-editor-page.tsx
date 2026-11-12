@@ -93,9 +93,9 @@ export function FlowEditorPage({ channel, flowId }: { channel: Channel; flowId: 
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flow-studio-page flex h-full min-h-0 flex-col">
       {channels && (
-        <div className="shrink-0 px-4 pt-3 empty:hidden">
+        <div className="shrink-0 px-3 pt-2 empty:hidden">
           <ChannelStatusBanner state={channels.channels[channel]} />
         </div>
       )}

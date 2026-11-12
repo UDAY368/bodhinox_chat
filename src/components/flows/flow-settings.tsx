@@ -72,6 +72,7 @@ export function parseTestUsernames(raw: string): { list: string[]; invalid: stri
 export function FlowSettings() {
   const { state, setState, flow, triggerNumber, setTriggerNumber, channelScope } = useFlowEditor();
   const tUsers = useTranslations("Flows.testUsernames");
+  const tHeader = useTranslations("Flows.header");
   const [usernames, setUsernames] = useState((state.test_usernames ?? []).join(", "));
   const [usernameIssue, setUsernameIssue] = useState<"invalid" | "limit" | null>(null);
   const instagram = channelScope === "instagram";
@@ -128,6 +129,14 @@ export function FlowSettings() {
 
   return (
     <div className="space-y-4 px-6 py-2 text-sm">
+      {/* Internal note about the flow (moved here from under the title to give the canvas the room). */}
+      <div>
+        <label htmlFor="flow-description" className={label}>{tHeader("descriptionLabel")}</label>
+        <Input id="flow-description" value={state.description}
+          onChange={(e) => setState((s) => ({ ...s, description: e.target.value }))}
+          placeholder={tHeader("descriptionPlaceholder")} className="h-8 text-xs" />
+      </div>
+
       {(whatsappNumbers.length > 1 || triggerNumber !== null) && (
         <div>
           <label htmlFor="flow-trigger-number" className={label}>{tn("picker.triggersOn")}</label>

@@ -53,15 +53,15 @@ button:not(:disabled), a { touch-action: manipulation; }
 .studio-main .react-flow__controls-button { background: var(--card); border-color: var(--border); fill: var(--foreground); }
 .studio-main .react-flow__edge-path { stroke: var(--muted-foreground); }
 .flow-studio-workspace { container-type: inline-size; }
-.studio-main:has(> .flow-studio) { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
-.studio-main > .flow-studio { flex: 1; height: auto; min-height: 0; width: 100%; max-width: none; }
-.studio-main:has(> .flow-studio) > :not(.flow-studio) { flex-shrink: 0; }
+/* The flow editor page (channel banner + editor) fills the whole content area: no page padding or width cap. */
+.studio-main:has(> .flow-studio-page) { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
+.studio-main > .flow-studio-page { flex: 1; height: auto; min-height: 0; width: 100%; max-width: none; margin: 0; }
+.studio-main:has(> .flow-studio-page) > :not(.flow-studio-page) { flex-shrink: 0; }
 .flow-studio-grid { display: grid; grid-template-columns: 228px minmax(0, 1fr); }
 .flow-studio-grid[data-inspector="open"] { grid-template-columns: 228px minmax(0, 1fr) 304px; }
 .flow-studio-grid[data-library="closed"] { grid-template-columns: minmax(0, 1fr); }
 .flow-studio-grid[data-library="closed"][data-inspector="open"] { grid-template-columns: minmax(0, 1fr) 304px; }
 .studio-flow-shell .studio-header { height: 44px; min-height: 44px; }
-.flow-studio > div:first-child { padding: 12px 16px 0; }
 .flow-studio-inspector .grid { grid-template-columns: minmax(0, 1fr); }
 .flow-studio-card { box-shadow: 0 8px 28px -16px color-mix(in srgb, var(--primary) 35%, transparent); }
 .flow-studio .react-flow__edge-path { stroke: color-mix(in srgb, var(--primary) 68%, var(--border)); stroke-width: 1.8; }
