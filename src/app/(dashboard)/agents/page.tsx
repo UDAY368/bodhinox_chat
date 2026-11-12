@@ -3,7 +3,7 @@ import { authFetch } from "@/lib/auth/client";
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Sparkles, Settings2, BarChart3, BookOpen, GraduationCap, History } from 'lucide-react';
+import { Sparkles, Settings2, BarChart3, BookOpen, GraduationCap, History, SlidersHorizontal } from 'lucide-react';
 import Image from 'next/image';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AiPlayground } from '@/components/agents/ai-playground';
@@ -13,9 +13,10 @@ import { AiConfig } from '@/components/settings/ai-config';
 import { KnowledgePanel } from '@/components/ai/knowledge';
 import { AgentSetupWizard } from '@/components/ai/setup-wizard';
 import { AgentLearnings } from '@/components/ai/learnings';
+import { AiAssistantSettings } from '@/components/settings/ai-assistant-settings';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
-import { visibleAgentTabs, type AgentTab } from '@/components/agents/agent-tabs';
+import { AGENT_TABS, visibleAgentTabs, type AgentTab } from '@/components/agents/agent-tabs';
 
 type Tab = AgentTab;
 
@@ -24,6 +25,7 @@ const TAB_TRIGGERS = {
   knowledge: { icon: BookOpen, label: 'tabKnowledge' },
   learnings: { icon: GraduationCap, label: 'tabLearnings' },
   playground: { icon: Sparkles, label: 'tabPlayground' },
+  features: { icon: SlidersHorizontal, label: 'tabFeatures' },
   usage: { icon: BarChart3, label: 'tabUsage' },
   activity: { icon: History, label: 'tabActivity' },
 } as const;
@@ -47,7 +49,9 @@ export default function AgentsPage() {
         const res = await authFetch('/api/ai/config');
         const data = await res.json().catch(() => ({}));
         if (!cancelled) {
-          setTab(data?.configured ? 'playground' : 'setup');
+          // A link can open a tab directly (/agents?tab=features); otherwise land by setup state.
+          const asked = new URLSearchParams(window.location.search).get('tab') as Tab | null;
+          setTab(asked && (AGENT_TABS as readonly string[]).includes(asked) ? asked : data?.configured ? 'playground' : 'setup');
           setHasEmbeddingsKey(data?.has_embeddings_key === true);
         }
       } catch {
@@ -79,7 +83,8 @@ export default function AgentsPage() {
 
       {decided && (
         <Tabs
-          value={tab}
+          // A tab this role cannot see (an old link) falls back to the playground.
+          value={visible.includes(tab) ? tab : 'playground'}
           onValueChange={(v) => setTab(v as Tab)}
           className="mt-6"
         >
@@ -121,6 +126,13 @@ export default function AgentsPage() {
           {visible.includes('learnings') && (
             <TabsContent value="learnings" className="mt-4">
               <AgentLearnings canPromote={canEdit} />
+            </TabsContent>
+          )}
+
+          {/* Summaries, suggested replies, lead assessment, insights and the monthly cap (admins). */}
+          {visible.includes('features') && (
+            <TabsContent value="features" className="mt-4">
+              <AiAssistantSettings />
             </TabsContent>
           )}
 

@@ -106,7 +106,10 @@
     "basics": "Básicos",
     "sequences": "Secuencias",
     "subscription": "Suscripción",
-    "automation": "Automatización"
+    "automation": "Automatización",
+    "ai": "IA",
+    "collapseSidebar": "Contraer",
+    "expandSidebar": "Expandir"
   },
   "Header": {
     "dashboard": "Panel",
@@ -147,7 +150,8 @@
     "basics": "Básicos",
     "sequences": "Secuencias",
     "subscription": "Suscripción",
-    "automation": "Automatización"
+    "automation": "Automatización",
+    "ai": "IA"
   },
   "ModeToggle": {
     "switchMode": "Cambiar al modo {mode}"
@@ -5880,7 +5884,8 @@
       "notRecorded": "No registrado",
       "openConversation": "Abrir conversación",
       "close": "Cerrar"
-    }
+    },
+    "tabFeatures": "Funciones del asistente"
   },
   "Interactive": {
     "replyButtons": "Botones de respuesta",

@@ -106,7 +106,10 @@
     "basics": "기본",
     "sequences": "시퀀스",
     "subscription": "구독",
-    "automation": "자동화"
+    "automation": "자동화",
+    "ai": "AI",
+    "collapseSidebar": "접기",
+    "expandSidebar": "펼치기"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -147,7 +150,8 @@
     "basics": "기본",
     "sequences": "시퀀스",
     "subscription": "구독",
-    "automation": "자동화"
+    "automation": "자동화",
+    "ai": "AI"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
@@ -5880,7 +5884,8 @@
       "notRecorded": "기록되지 않음",
       "openConversation": "대화 열기",
       "close": "닫기"
-    }
+    },
+    "tabFeatures": "어시스턴트 기능"
   },
   "Interactive": {
     "replyButtons": "답장 버튼",

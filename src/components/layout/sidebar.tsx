@@ -27,10 +27,11 @@ import {
   FileText,
   GitBranch,
   House,
-  Inbox,
   LayoutDashboard,
   Link2,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   Megaphone,
   Menu,
   MessageCircle,
@@ -108,7 +109,7 @@ interface NavItem {
 
 // Icons for the Workspace and channel entries built by buildNavigation.
 const NAV_ICONS: Record<string, typeof LayoutDashboard> = {
-  allInboxes: Inbox,
+  ai: Bot,
   home: House,
   dashboard: LayoutDashboard,
   analytics: BarChart3,
@@ -131,13 +132,14 @@ const NAV_ICONS: Record<string, typeof LayoutDashboard> = {
   menu: Menu,
   insights: TrendingUp,
   appointments: CalendarCheck,
-  aiAgents: Bot,
 };
 
 const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`)
   // A flow's editor stays under its channel (/whatsapp/flows/<id>) but belongs to Automation.
-  || (href === '/automation' && /^\/(whatsapp|instagram)\/flows(\/|$)/.test(pathname));
+  || (href === '/automation' && /^\/(whatsapp|instagram)\/flows(\/|$)/.test(pathname))
+  // The one Inbox entry covers each channel's inbox too.
+  || (href === '/inbox' && /^\/(whatsapp|instagram)\/inbox(\/|$)/.test(pathname));
 
 const commerceNavItems: NavItem[] = [
   { href: '/commerce/orders', labelKey: 'orders', icon: ShoppingBag },
@@ -153,6 +155,8 @@ const bottomNavItems = [
 
 interface SidebarProps {
   compact?: boolean;
+  /** Desktop: collapse the sidebar to its icon rail, or expand it. Shows the toggle when given. */
+  onToggleCompact?: () => void;
   /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
   open?: boolean;
   onClose?: () => void;
@@ -160,7 +164,7 @@ interface SidebarProps {
 
 import { useTranslations } from 'next-intl';
 
-export function Sidebar({ open = false, onClose, compact = false }: SidebarProps) {
+export function Sidebar({ open = false, onClose, compact = false, onToggleCompact }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
@@ -380,6 +384,23 @@ export function Sidebar({ open = false, onClose, compact = false }: SidebarProps
           </ul>
         </nav>
 
+        {/* Desktop only: collapse to the icon rail (labels show on hover) or expand. */}
+        {onToggleCompact && (
+          <div className="hidden shrink-0 px-[18px] pb-2 lg:block">
+            <button
+              type="button"
+              data-testid="sidebar-collapse"
+              aria-expanded={!compact}
+              onClick={onToggleCompact}
+              title={compact ? t('expandSidebar') : t('collapseSidebar')}
+              className="studio-sidebar-link flex min-h-[41px] w-full items-center gap-3 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#7b7771] transition-colors hover:bg-[#272624] hover:text-white"
+            >
+              {compact ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              <span className="flex-1 text-left">{compact ? t('expandSidebar') : t('collapseSidebar')}</span>
+            </button>
+          </div>
+        )}
+
         {/* User section */}
         <div className="shrink-0 border-t border-white/10 p-3">
           {/* Account name display — surfaced only when the account
@@ -496,10 +517,10 @@ function SidebarLink({
   unreadNotifications,
 }: {
   page: NavPage;
-  /** Hover text naming the channel ("WhatsApp · Inbox"); none for Workspace pages. */
+  /** Hover text naming the channel ("WhatsApp · Inbox"); Workspace pages show their own label. */
   title?: string;
   active: boolean;
-  /** Unread conversations behind this entry: its channel's, or every channel's for All inboxes. */
+  /** Unread conversations behind this entry: its channel's, or every channel's for the All inbox. */
   unread: number;
   unreadNotifications: number;
 }) {
@@ -515,7 +536,8 @@ function SidebarLink({
     <li>
       <Link
         href={page.href}
-        title={title}
+        // In the icon rail the label is tiny, so hover always names the page.
+        title={title ?? t(page.labelKey)}
         aria-current={active ? 'page' : undefined}
         className={cn(
           // Taller on mobile so fingers can hit the row reliably (≥44px).
@@ -525,7 +547,7 @@ function SidebarLink({
             : 'text-[#a6a29b] hover:bg-[#272624] hover:text-white'
         )}
       >
-        {page.labelKey === 'aiAgents' ? <KhagaIcon className="-mx-1 h-6 w-6" /> : <Icon className="h-4 w-4" />}
+        {page.labelKey === 'ai' ? <KhagaIcon className="-mx-1 h-6 w-6" /> : <Icon className="h-4 w-4" />}
         <span className="flex-1">{t(page.labelKey)}</span>
         {page.beta && (
           <span

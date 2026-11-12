@@ -53,7 +53,7 @@ beforeEach(() => {
 });
 
 describe('Sidebar per channel set', () => {
-  it('only WhatsApp: a WhatsApp group with its tools, no All inboxes, no Instagram', () => {
+  it('only WhatsApp: a WhatsApp group with its tools, its inbox as the one Inbox, no Instagram', () => {
     h.data = workspace({}, off);
     const html = render();
     expect(groupsIn(html)).toEqual(['workspace', 'whatsapp']);
@@ -73,33 +73,48 @@ describe('Sidebar per channel set', () => {
       expect(html).not.toContain(`href="${href}"`);
   });
 
-  it('both: both groups and All inboxes', () => {
+  it('both: both groups and one Inbox for every channel', () => {
     h.data = workspace({}, {});
     const html = render();
     expect(groupsIn(html)).toEqual(['workspace', 'whatsapp', 'instagram']);
     expect(html).toContain('href="/inbox"');
-    expect(html).toContain('Sidebar.allInboxes');
+    expect(html).not.toContain('href="/whatsapp/inbox"');
+    expect(html).not.toContain('href="/instagram/inbox"');
   });
 
   it('shows the no-row default (WhatsApp) until the channel state loads', () => {
     expect(groupsIn(render())).toEqual(['workspace', 'whatsapp']);
   });
 
-  it('gives each inbox its own unread badge, hidden while that inbox is open', () => {
+  it('puts the unread badge on the Inbox, hidden while any inbox is open', () => {
     h.data = workspace({}, {});
     h.unread = { all: 3, whatsapp: 1, instagram: 2 };
-    expect(unreadIn(render())).toEqual(['all', 'whatsapp', 'instagram']);
+    expect(unreadIn(render())).toEqual(['all']);
     h.pathname = '/instagram/inbox';
-    expect(unreadIn(render())).toEqual(['all', 'whatsapp']);
-    h.unread = { all: 1, whatsapp: 1, instagram: 0 };
+    expect(unreadIn(render())).toEqual([]);
+    h.data = workspace({}, off);
     h.pathname = '/dashboard';
-    expect(unreadIn(render())).toEqual(['all', 'whatsapp']);
+    expect(unreadIn(render())).toEqual(['whatsapp']);
   });
 
-  it('marks the active page, including nested channel pages', () => {
+  it('marks the Inbox active on every channel inbox, nested pages included', () => {
     h.data = workspace({}, {});
-    h.pathname = '/instagram/inbox/abc';
-    expect(render()).toMatch(/aria-current="page"[^>]*href="\/instagram\/inbox"|href="\/instagram\/inbox"[^>]*aria-current="page"/);
+    for (const path of ['/inbox', '/instagram/inbox/abc', '/whatsapp/inbox']) {
+      h.pathname = path;
+      expect(render()).toMatch(/aria-current="page"[^>]*href="\/inbox"|href="\/inbox"[^>]*aria-current="page"/);
+    }
+  });
+
+  it('shows the collapse toggle only when the shell passes one, saying which way it goes', () => {
+    expect(render()).not.toContain('data-testid="sidebar-collapse"');
+    const withToggle = (compact: boolean) =>
+      renderToStaticMarkup(
+        <NextIntlClientProvider locale="en" messages={{}} onError={() => {}} getMessageFallback={({ namespace, key }) => `${namespace}.${key}`}>
+          <Sidebar compact={compact} onToggleCompact={() => {}} />
+        </NextIntlClientProvider>,
+      );
+    expect(withToggle(false)).toMatch(/data-testid="sidebar-collapse" aria-expanded="true"[^>]*title="Sidebar.collapseSidebar"/);
+    expect(withToggle(true)).toMatch(/data-testid="sidebar-collapse" aria-expanded="false"[^>]*title="Sidebar.expandSidebar"/);
   });
 
   it('marks Automation active while a flow is open in either channel', () => {
@@ -148,9 +163,10 @@ describe('Sidebar per channel set', () => {
     for (const id of ['workspace', 'whatsapp', 'instagram'])
       expect(html).toContain(`aria-labelledby="nav-group-${id}"`);
     const titleOf = (href: string) => new RegExp(`<a[^>]*title="([^"]*)"[^>]*href="${href}"`).exec(html)?.[1];
-    expect(titleOf('/instagram/inbox')).toBe('Sidebar.groups.instagram · Sidebar.inbox');
-    expect(titleOf('/whatsapp/inbox')).toBe('Sidebar.groups.whatsapp · Sidebar.inbox');
-    expect(titleOf('/dashboard')).toBeUndefined();
+    expect(titleOf('/instagram/comments')).toBe('Sidebar.groups.instagram · Sidebar.comments');
+    expect(titleOf('/whatsapp/automations')).toBe('Sidebar.groups.whatsapp · Sidebar.automations');
+    // Workspace pages are named by their own label (the icon rail hides it).
+    expect(titleOf('/dashboard')).toBe('Sidebar.dashboard');
   });
 
   it('never links to ?tab=whatsapp', () => {
