@@ -2319,6 +2319,19 @@
       "openDetails": "Details"
     },
     "builder": {
+      "basic": {
+        "stepsNav": "Steps",
+        "startingStep": "Starting step",
+        "when": "When…",
+        "hasErrors": "Has errors",
+        "connected": "Steps ({count})",
+        "connectedEmpty": "No step yet. Add one below; the first step you add starts the flow.",
+        "unconnected": "Not connected ({count})",
+        "unconnectedHint": "Nothing leads to these steps, so they never run. Connect them from another step or delete them.",
+        "phoneTitle": "What the customer sees",
+        "phonePick": "Pick a step to see it as the customer will.",
+        "phoneNothing": "This step sends nothing the customer sees. It works behind the scenes."
+      },
       "triggerTitle": "Trigger",
       "whenLabel": "When…",
       "triggerKeywordTitle": "A message contains a keyword",

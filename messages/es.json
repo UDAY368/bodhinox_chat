@@ -2319,6 +2319,19 @@
       "openDetails": "Detalles"
     },
     "builder": {
+      "basic": {
+        "stepsNav": "Pasos",
+        "startingStep": "Paso inicial",
+        "when": "Cuando…",
+        "hasErrors": "Tiene errores",
+        "connected": "Pasos ({count})",
+        "connectedEmpty": "Aún no hay pasos. Añade uno abajo; el primero que añadas inicia el flujo.",
+        "unconnected": "Sin conectar ({count})",
+        "unconnectedHint": "Ningún paso lleva a estos, así que nunca se ejecutan. Conéctalos desde otro paso o elimínalos.",
+        "phoneTitle": "Lo que ve el cliente",
+        "phonePick": "Elige un paso para verlo como lo verá el cliente.",
+        "phoneNothing": "Este paso no envía nada visible para el cliente. Funciona en segundo plano."
+      },
       "triggerTitle": "Disparador",
       "whenLabel": "Cuando…",
       "triggerKeywordTitle": "Un mensaje contiene una palabra clave",
