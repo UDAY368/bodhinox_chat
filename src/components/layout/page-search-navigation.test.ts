@@ -14,37 +14,40 @@ const hrefs = (enabled: Parameters<typeof navigationPages>[0]) => navigationPage
 const groups = (enabled: Parameters<typeof buildNavigation>[0]) =>
   Object.fromEntries(buildNavigation(enabled).map((group) => [group.id, group.pages.map((page) => page.href)]));
 
-const WHATSAPP_PAGES = ['/whatsapp/inbox', '/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
+const WHATSAPP_PAGES = ['/whatsapp/automations', '/broadcasts', '/settings?tab=templates', '/forms', '/ads'];
 const INSTAGRAM_PAGES = [
   // Stage 5: Instagram opens on its home page.
   '/instagram/home',
-  '/instagram/inbox', '/instagram/automations', '/instagram/comments',
+  '/instagram/automations', '/instagram/comments',
   '/instagram/conversation-starters', '/instagram/default-reply', '/instagram/quick-automations',
   // Stage 3
   '/instagram/ref-links', '/instagram/menu', '/instagram/insights'];
 const WORKSPACE_PAGES = ['/dashboard', '/analytics', '/notifications', '/contacts', '/automation', '/pipelines', '/appointments', '/agents'];
 
 describe('navigation per channel set', () => {
-  it('only WhatsApp: one WhatsApp group plus Workspace, no All inboxes', () => {
-    expect(groups(['whatsapp'])).toEqual({ workspace: WORKSPACE_PAGES, whatsapp: WHATSAPP_PAGES });
+  it('only WhatsApp: one WhatsApp group plus Workspace, led by the WhatsApp inbox', () => {
+    expect(groups(['whatsapp'])).toEqual({ workspace: ['/whatsapp/inbox', ...WORKSPACE_PAGES], whatsapp: WHATSAPP_PAGES });
+    expect(buildNavigation(['whatsapp'])[0].pages[0]).toMatchObject({ labelKey: 'inbox', unread: 'whatsapp' });
   });
 
   it('only Instagram: one Instagram group; broadcasts, templates, forms and ads are hidden', () => {
-    expect(groups(['instagram'])).toEqual({ workspace: WORKSPACE_PAGES, instagram: INSTAGRAM_PAGES });
+    expect(groups(['instagram'])).toEqual({ workspace: ['/instagram/inbox', ...WORKSPACE_PAGES], instagram: INSTAGRAM_PAGES });
     for (const href of ['/broadcasts', '/settings?tab=templates', '/forms', '/ads', '/inbox'])
       expect(hrefs(['instagram'])).not.toContain(href);
   });
 
-  it('both: two channel groups and All inboxes on top of Workspace', () => {
+  it('both: two channel groups and one Inbox (every channel) on top of Workspace', () => {
     const nav = buildNavigation(BOTH);
     expect(nav.map((group) => group.id)).toEqual(['workspace', 'whatsapp', 'instagram']);
-    expect(nav[0].pages[0]).toMatchObject({ href: '/inbox', labelKey: 'allInboxes', unread: 'all' });
+    expect(nav[0].pages[0]).toMatchObject({ href: '/inbox', labelKey: 'inbox', unread: 'all' });
     expect(groups(BOTH)).toEqual({ workspace: ['/inbox', ...WORKSPACE_PAGES], whatsapp: WHATSAPP_PAGES, instagram: INSTAGRAM_PAGES });
   });
 
-  it('gives each inbox its own unread badge and nothing else one', () => {
-    const badges = navigationPages(BOTH).filter((page) => page.unread).map((page) => [page.href, page.unread]);
-    expect(badges).toEqual([['/inbox', 'all'], ['/whatsapp/inbox', 'whatsapp'], ['/instagram/inbox', 'instagram']]);
+  it('gives only the Inbox entry an unread badge', () => {
+    const badges = (enabled: Parameters<typeof navigationPages>[0]) =>
+      navigationPages(enabled).filter((page) => page.unread).map((page) => [page.href, page.unread]);
+    expect(badges(BOTH)).toEqual([['/inbox', 'all']]);
+    expect(badges(['instagram'])).toEqual([['/instagram/inbox', 'instagram']]);
   });
 
   it('falls back to the no-row default (WhatsApp) while the state is unknown', () => {
@@ -84,11 +87,12 @@ describe('navigation per channel set', () => {
 });
 
 describe('page search', () => {
-  it('lists the same pages as the sidebar, plus Commerce and Settings', () => {
+  it('lists the same pages as the sidebar, each channel inbox when both are on, plus Commerce and Settings', () => {
     for (const enabled of [['whatsapp'], ['instagram'], BOTH] as const) {
       const sidebar = buildNavigation(enabled).flatMap((group) => group.pages.map((page) => page.href));
       expect(filterPages('', (key) => key, enabled).map((page) => page.href)).toEqual([
         ...sidebar,
+        ...(enabled.length > 1 ? ['/whatsapp/inbox', '/instagram/inbox'] : []),
         '/commerce/orders',
         '/commerce/products',
         '/commerce/payments',
@@ -122,7 +126,7 @@ describe('page search', () => {
 
 describe('page titles', () => {
   it('resolves nested and channel routes without confusing unrelated prefixes', () => {
-    expect(getPageTitleKey('/agents/123')).toBe('aiAgents');
+    expect(getPageTitleKey('/agents/123')).toBe('ai');
     expect(getPageTitleKey('/whatsapp/flows/abc')).toBe('automation');
     expect(getPageTitleKey('/instagram/automations/new')).toBe('automations');
     expect(getPageTitleKey('/instagram/inbox')).toBe('inbox');
@@ -142,7 +146,7 @@ describe('page titles', () => {
     expect(getPageTitleKey('/instagram/subscription')).toBe('subscription');
     for (const path of ['/instagram/home', '/instagram/basics', '/instagram/sequences', '/instagram/subscription'])
       expect(getPageGroup(path), path).toBe('instagram');
-    expect(getPageTitleKey('/inbox')).toBe('allInboxes');
+    expect(getPageTitleKey('/inbox')).toBe('inbox');
     expect(getPageTitleKey('/forms/123')).toBe('forms');
     expect(getPageTitleKey('/analytics')).toBe('analytics');
     expect(getPageTitleKey('/ads')).toBe('ads');

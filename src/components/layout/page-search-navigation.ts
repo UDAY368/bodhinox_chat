@@ -1,10 +1,11 @@
 // The app's navigation model (Stage 1), shared by the sidebar, the page
 // search and the header title so the three always agree. Pure: no React.
 //
-// Shared business pages sit in the Workspace group, with an "All inboxes"
-// entry on top when both channels are enabled; each enabled channel follows
-// as its own group (its inbox, flows, automations and tools). Every channel
-// link comes from channelPath, so the nav and the redirects agree.
+// Shared business pages sit in the Workspace group, led by the one Inbox
+// entry (every channel's conversations when both are enabled, else that
+// channel's inbox); each enabled channel follows as its own group (its
+// automations and tools). Every channel link comes from channelPath, so the
+// nav and the redirects agree.
 import { ALL_INBOXES_PATH, channelFromPath, channelPath } from '@/lib/channels/routes';
 import type { WorkspaceChannels } from '@/lib/channels/workspace';
 import type { Channel } from '@/types';
@@ -34,7 +35,6 @@ export function navChannels(enabled: readonly Channel[] | null | undefined): Cha
 
 function channelPages(channel: Channel): NavPage[] {
   const common: NavPage[] = [
-    { href: channelPath(channel, 'inbox'), labelKey: 'inbox', group: channel, unread: channel },
     { href: channelPath(channel, 'automations'), labelKey: 'automations', group: channel },
   ];
   if (channel === 'whatsapp')
@@ -62,8 +62,12 @@ function channelPages(channel: Channel): NavPage[] {
 function workspacePages(channels: readonly Channel[]): NavPage[] {
   const both = channels.length > 1;
   const page = (href: string, labelKey: string): NavPage => ({ href, labelKey, group: 'workspace' });
+  // One Inbox for the workspace: the All view (with its channel filter) when both channels are on.
+  const inbox: NavPage = both
+    ? { ...page(ALL_INBOXES_PATH, 'inbox'), unread: 'all' }
+    : { ...page(channelPath(channels[0], 'inbox'), 'inbox'), unread: channels[0] };
   return [
-    ...(both ? [{ ...page(ALL_INBOXES_PATH, 'allInboxes'), unread: 'all' as const }] : []),
+    inbox,
     page('/dashboard', 'dashboard'),
     page('/analytics', 'analytics'),
     page('/notifications', 'notifications'),
@@ -72,7 +76,8 @@ function workspacePages(channels: readonly Channel[]): NavPage[] {
     page('/automation', 'automation'),
     page('/pipelines', 'pipelines'),
     page('/appointments', 'appointments'),
-    page('/agents', 'aiAgents'),
+    // Every AI feature (agent setup, knowledge, playground, assistant features) in one place.
+    page('/agents', 'ai'),
   ];
 }
 
@@ -95,7 +100,12 @@ const otherSearchPages: NavPage[] = [
 
 /** Every page the search lists for a workspace: the same channel filtering as the sidebar. */
 export function navigationPages(enabled: readonly Channel[] | null | undefined): NavPage[] {
-  return [...buildNavigation(enabled).flatMap((group) => group.pages), ...otherSearchPages];
+  const channels = navChannels(enabled);
+  // With both channels the sidebar has one Inbox; the search still finds each channel's own.
+  const channelInboxes: NavPage[] = channels.length > 1
+    ? channels.map((channel) => ({ href: channelPath(channel, 'inbox'), labelKey: 'inbox', group: channel }))
+    : [];
+  return [...buildNavigation(enabled).flatMap((group) => group.pages), ...channelInboxes, ...otherSearchPages];
 }
 
 /**

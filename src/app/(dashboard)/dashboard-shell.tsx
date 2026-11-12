@@ -11,6 +11,8 @@ import { TermsBanner } from '@/components/settings/privacy/terms-banner';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { BrowserNotificationsListener } from '@/components/notifications/browser-notifications-listener';
 
+const SIDEBAR_COLLAPSED_KEY = 'bodhinox:sidebar-collapsed';
+
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
 // client components can't export Next's metadata object.
@@ -27,6 +29,20 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   // always visible and this stays at `false` (ignored by the component).
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  // Desktop: the user can collapse the sidebar to its icon rail; remembered in this browser only.
+  // Read once on the client; the shell shows its loading state first, so this never differs at hydration.
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch { return false; }
+  });
+  const toggleCompact = useCallback(() => {
+    // The flow editor is always compact unless opened from its menu button, so toggle that instead.
+    if (flowEditor) return setSidebarOpen((previous) => !previous);
+    setCollapsed((previous) => {
+      try { window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, previous ? '0' : '1'); } catch { /* storage blocked */ }
+      return !previous;
+    });
+  }, [flowEditor]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -55,7 +71,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       {/* Desktop alerts for new customer messages (opt-in via Settings →
           Your profile). Headless — renders nothing. */}
       <BrowserNotificationsListener />
-      <Sidebar open={sidebarOpen} onClose={closeSidebar} compact={flowEditor && !sidebarOpen} />
+      <Sidebar open={sidebarOpen} onClose={closeSidebar} compact={(flowEditor || collapsed) && !sidebarOpen} onToggleCompact={toggleCompact} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header showMenuToggle={flowEditor} menuExpanded={sidebarOpen} onOpenSidebar={() => setSidebarOpen(previous => !previous)} />
         {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
